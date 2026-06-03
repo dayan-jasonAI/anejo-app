@@ -1,11 +1,11 @@
 // Añejo — plan renderer. Reads the plan stashed by intake.js and renders it.
 const BOWL_TAGLINES = {
   VIDA:'Tuna · mango · lime', FUEGO:'Steak · chimichurri', LIGERO:'Chicken · chimichurri',
-  PESCA:'Salmon · mango · asparagus', FUERZA:'Cuban chicken · rice + beans',
-  MANGO:'Tofu · plant-forward', CONGREEN:'Congrí · tuna · avocado', BOOST:'Greek yogurt · berries · seeds',
-  COCO:'Coconut · lime · shrimp'
+  MAR:'Salmon · omega-rich', COCO:'Coconut · lime · shrimp',
+  CONGREEN:'Congrí · tuna · avocado', RAIZ:'Crispy tofu · roots'
 };
-const TIER_LABEL = { plan_5:'5 bowls / week', plan_10:'10 bowls / week', plan_12:'12 bowls / week + 2 BOOST' };
+const BOWL_LABEL = { RAIZ:'RAÍZ' };
+const TIER_LABEL = { plan_5:'5 bowls / week', plan_10:'10 bowls / week', plan_12:'12 bowls / week' };
 const GOAL = { fat_loss:'Fat loss', muscle_gain:'Muscle gain', recomp:'Recomposition', performance:'Performance', longevity:'Longevity' };
 const ACT  = { sedentary:'Sedentary', light:'Light', moderate:'Moderate', active:'Active', very_active:'Very active' };
 
@@ -42,7 +42,7 @@ function render(intake, plan) {
     .forEach(([bowl, count]) => {
       const el = document.createElement('div');
       el.className = 'bowl';
-      el.innerHTML = `<div class="name">${bowl}</div><div class="count"><span class="x">×</span>${count}</div><div class="tagline">${BOWL_TAGLINES[bowl]||''}</div>`;
+      el.innerHTML = `<div class="name">${BOWL_LABEL[bowl]||bowl}</div><div class="count"><span class="x">×</span>${count}</div><div class="tagline">${BOWL_TAGLINES[bowl]||''}</div>`;
       grid.appendChild(el);
     });
 
