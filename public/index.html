@@ -479,6 +479,14 @@ footer {
   * { transition: none !important; animation: none !important; }
   html { scroll-behavior: auto; }
 }
+
+/* sauces */
+.sauce-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:20px}
+.sauce-card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.sauce-card img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
+.sauce-card .s-body{padding:14px 15px 16px}
+.sauce-card .s-name{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;letter-spacing:1px;font-size:21px;color:var(--green)}
+.sauce-card .s-desc{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5}
 </style>
 <script>if(location.hostname.indexOf("portal.")===0 && location.pathname==="/"){location.replace("/portal");}</script>
 </head>
@@ -554,17 +562,16 @@ footer {
 <section id="menu">
   <div class="section-inner">
     <div class="section-head">
-      <div class="eyebrow">Menu V1 · Locked</div>
-      <h2>Eight bowls. <strong>One philosophy.</strong></h2>
+      <div class="eyebrow">The Menu</div>
+      <h2>Seven bowls. <strong>One philosophy.</strong></h2>
       <p class="lede">16 oz bowl · 2 oz signature sauce on the side · 3-day fridge shelf · microwave + cold friendly · nuts removable · dairy-free swaps available · target macros 40% protein / 30% carbs / 30% fat.</p>
     </div>
 
     <div class="menu-grid">
 
-      <!-- VIDA -->
       <div class="bowl-card">
         <div class="bowl-image">
-          <img src="/assets/img/bowl_vida.jpg" alt="VIDA bowl — tuna mango lime over quinoa" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot; fill=&quot;none&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;14&quot; font-family=&quot;Georgia&quot;>VIDA</text></svg></div>'">
+          <img src="/assets/img/bowl_vida.jpg" alt="VIDA bowl" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot; fill=&quot;none&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;13&quot; font-family=&quot;Georgia&quot;>VIDA</text></svg></div>'">
         </div>
         <div class="bowl-body">
           <div class="bowl-top">
@@ -576,10 +583,9 @@ footer {
         </div>
       </div>
 
-      <!-- FUEGO -->
       <div class="bowl-card">
         <div class="bowl-image">
-          <img src="/assets/img/bowl_fuego.jpg" alt="FUEGO bowl — grilled steak with chimichurri" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; fill=&quot;none&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;13&quot; font-family=&quot;Georgia&quot;>FUEGO</text></svg></div>'">
+          <img src="/assets/img/bowl_fuego.jpg" alt="FUEGO bowl" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot; fill=&quot;none&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;13&quot; font-family=&quot;Georgia&quot;>FUEGO</text></svg></div>'">
         </div>
         <div class="bowl-body">
           <div class="bowl-top">
@@ -591,10 +597,9 @@ footer {
         </div>
       </div>
 
-      <!-- LIGERO -->
       <div class="bowl-card">
         <div class="bowl-image">
-          <div class="placeholder"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="40" stroke="#C6A85B" stroke-width="2"/><text x="50" y="58" text-anchor="middle" fill="#C6A85B" font-size="12" font-family="Georgia">LIGERO</text></svg></div>
+          <img src="/assets/img/bowl_ligero.jpg" alt="LIGERO bowl" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot; fill=&quot;none&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;13&quot; font-family=&quot;Georgia&quot;>LIGERO</text></svg></div>'">
         </div>
         <div class="bowl-body">
           <div class="bowl-top">
@@ -606,55 +611,37 @@ footer {
         </div>
       </div>
 
-      <!-- COCO -->
       <div class="bowl-card">
         <div class="bowl-image">
-          <div class="placeholder"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="40" stroke="#C6A85B" stroke-width="2"/><text x="50" y="58" text-anchor="middle" fill="#C6A85B" font-size="14" font-family="Georgia">COCO</text></svg></div>
+          <img src="/assets/img/bowl_mar.jpg" alt="MAR bowl" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot; fill=&quot;none&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;13&quot; font-family=&quot;Georgia&quot;>MAR</text></svg></div>'">
+        </div>
+        <div class="bowl-body">
+          <div class="bowl-top">
+            <div class="bowl-name">MAR</div>
+            <div class="bowl-price">$22.99–24.99</div>
+          </div>
+          <p class="bowl-desc">Omega-rich salmon over quinoa with greens, roasted vegetables, pickled onions, sesame, microgreens, and Añejo sauce. Heart-smart and recovery-ready.</p>
+          <div class="bowl-tags"><span class="tag">Pescatarian</span><span class="tag fit">Omega-3</span><span class="tag">Anti-Inflammatory</span></div>
+        </div>
+      </div>
+
+      <div class="bowl-card">
+        <div class="bowl-image">
+          <img src="/assets/img/bowl_coco.jpg" alt="COCO bowl" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot; fill=&quot;none&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;13&quot; font-family=&quot;Georgia&quot;>COCO</text></svg></div>'">
         </div>
         <div class="bowl-body">
           <div class="bowl-top">
             <div class="bowl-name">COCO</div>
             <div class="bowl-price">$22.99–24.99</div>
           </div>
-          <p class="bowl-desc">Coconut-lime shrimp with quinoa-corn blend, edamame, fresh avocado, spinach-tomato salad. Caribe-light, tropical-smooth.</p>
+          <p class="bowl-desc">Coconut-lime shrimp over a quinoa-corn-edamame blend with spinach, cherry tomato, cucumber, avocado, sesame, and light Ajo Cítrico. Lean and tropical.</p>
           <div class="bowl-tags"><span class="tag">Pescatarian</span><span class="tag">Mediterranean</span></div>
         </div>
       </div>
 
-      <!-- FUERZA -->
       <div class="bowl-card">
         <div class="bowl-image">
-          <img src="/assets/img/bowl_fuerza.jpg" alt="FUERZA bowl — pork loin with poblano apple" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; fill=&quot;none&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;12&quot; font-family=&quot;Georgia&quot;>FUERZA</text></svg></div>'">
-        </div>
-        <div class="bowl-body">
-          <div class="bowl-top">
-            <div class="bowl-name">FUERZA</div>
-            <div class="bowl-price">$20.99–22.99</div>
-          </div>
-          <p class="bowl-desc">Grilled pork loin with quinoa or rice, spinach-tomato salad, queso fresco, almonds + pumpkin seeds, poblano-apple dressing. Comfort meets performance.</p>
-          <div class="bowl-tags"><span class="tag">Cuban Heritage</span><span class="tag">High Protein</span></div>
-        </div>
-      </div>
-
-      <!-- MANGO -->
-      <div class="bowl-card">
-        <div class="bowl-image">
-          <div class="placeholder"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="40" stroke="#C6A85B" stroke-width="2"/><text x="50" y="58" text-anchor="middle" fill="#C6A85B" font-size="13" font-family="Georgia">MANGO</text></svg></div>
-        </div>
-        <div class="bowl-body">
-          <div class="bowl-top">
-            <div class="bowl-name">MANGO</div>
-            <div class="bowl-price">$18.99–20.49</div>
-          </div>
-          <p class="bowl-desc">Plant-forward. Seared tofu with quinoa, mango-sautéed vegetables, cucumber-carrot salad, avocado, citrus dressing. Tropical, light, alive.</p>
-          <div class="bowl-tags"><span class="tag">Plant Forward</span><span class="tag">Vegetarian</span></div>
-        </div>
-      </div>
-
-      <!-- CONGREEN -->
-      <div class="bowl-card">
-        <div class="bowl-image">
-          <div class="placeholder"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="40" stroke="#C6A85B" stroke-width="2"/><text x="50" y="58" text-anchor="middle" fill="#C6A85B" font-size="11" font-family="Georgia">CONGREEN</text></svg></div>
+          <img src="/assets/img/bowl_congreen.jpg" alt="CONGREEN bowl" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot; fill=&quot;none&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;13&quot; font-family=&quot;Georgia&quot;>CONGREEN</text></svg></div>'">
         </div>
         <div class="bowl-body">
           <div class="bowl-top">
@@ -666,26 +653,52 @@ footer {
         </div>
       </div>
 
-      <!-- BOOST -->
       <div class="bowl-card">
         <div class="bowl-image">
-          <div class="placeholder"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="40" stroke="#C6A85B" stroke-width="2"/><text x="50" y="58" text-anchor="middle" fill="#C6A85B" font-size="13" font-family="Georgia">BOOST</text></svg></div>
+          <img src="/assets/img/bowl_raiz.jpg" alt="RAIZ bowl" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot; fill=&quot;none&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;13&quot; font-family=&quot;Georgia&quot;>RAIZ</text></svg></div>'">
         </div>
         <div class="bowl-body">
           <div class="bowl-top">
-            <div class="bowl-name">BOOST</div>
-            <div class="bowl-price">$10.99–12.99</div>
+            <div class="bowl-name">RAÍZ</div>
+            <div class="bowl-price">$18.99–20.49</div>
           </div>
-          <p class="bowl-desc">Breakfast power bowl. 0% Greek yogurt with wild berries, seed blend, honey drizzle. Start clean. Stay sharp.</p>
-          <div class="bowl-tags"><span class="tag">Breakfast</span><span class="tag">High Protein</span></div>
+          <p class="bowl-desc">Crispy tofu with quinoa, slaw, roasted vegetables, sweet potato, avocado, and sesame, finished with Aguacate Cilantro and a Mango Omega accent. Plant-powered, fiber-rich.</p>
+          <div class="bowl-tags"><span class="tag fit">Plant Forward</span><span class="tag">Vegetarian</span><span class="tag">Dairy-Free</span></div>
         </div>
       </div>
 
     </div>
 
-    <div class="allergen-note">
-      <strong>Allergen note:</strong> Bowls may contain wheat, egg, milk, fish, shellfish, tree nuts, or seeds depending on the SKU. Nuts removable on request. Dairy-free substitutions available. Full allergen disclosure on every bowl label. Please notify us of severe allergies when ordering.
+    <div class="section-head" style="margin-top:80px">
+      <div class="eyebrow">House-Made · No Shortcuts</div>
+      <h2>House-made <strong>signature sauces</strong>.</h2>
+      <p class="lede">Every bowl is finished with a house-made signature sauce — served on the side, so you control the moment. No fillers, no shortcuts.</p>
     </div>
+
+    <div class="sauce-grid">
+      <div class="sauce-card">
+        <img src="/assets/img/sauce_ajo_citrico.jpg" alt="Ajo Cítrico sauce" loading="lazy">
+        <div class="s-body"><div class="s-name">Ajo Cítrico</div><div class="s-desc">Bright garlic-citrus with olive oil, lemon, and Cuban sazón — freshness and depth for seafood and grilled proteins.</div></div>
+      </div>
+      <div class="sauce-card">
+        <img src="/assets/img/sauce_chimichurri_vital.jpg" alt="Chimichurri Vital sauce" loading="lazy">
+        <div class="s-body"><div class="s-name">Añejo Chimichurri</div><div class="s-desc">A bold Cuban-Mediterranean herb sauce with garlic, citrus, and olive oil — made for steak, chicken, tofu, and roasted vegetables.</div></div>
+      </div>
+      <div class="sauce-card">
+        <img src="/assets/img/sauce_golden_turmeric.jpg" alt="Golden Turmeric sauce" loading="lazy">
+        <div class="s-body"><div class="s-name">Golden Turmeric</div><div class="s-desc">Golden, anti-inflammatory turmeric with citrus and warm spice — color, depth, and a smooth wellness finish.</div></div>
+      </div>
+      <div class="sauce-card">
+        <img src="/assets/img/sauce_mango_omega.jpg" alt="Mango Omega sauce" loading="lazy">
+        <div class="s-body"><div class="s-name">Mango Omega</div><div class="s-desc">A tropical, mango-forward dressing with a smooth, nutrient-rich finish — pairs with tuna, salmon, tofu, and wellness bowls.</div></div>
+      </div>
+      <div class="sauce-card">
+        <img src="/assets/img/sauce_avocado_cilantro.jpg" alt="Avocado Cilantro sauce" loading="lazy">
+        <div class="s-body"><div class="s-name">Aguacate Cilantro</div><div class="s-desc">A creamy avocado-cilantro sauce with a fresh green finish — perfect for plant-forward bowls, tofu, chicken, and roasted vegetables.</div></div>
+      </div>
+    </div>
+
+    <p class="bowl-allergen" style="margin-top:40px">Allergen note: Bowls may contain wheat, egg, milk, fish, shellfish, tree nuts, or seeds depending on the SKU. Nuts removable on request. Dairy-free substitutions available. Full allergen disclosure on every bowl label. Please notify us of severe allergies when ordering.</p>
   </div>
 </section>
 
