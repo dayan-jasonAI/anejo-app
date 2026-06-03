@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
+<meta name="theme-color" content="#0D0D0D">
+<title>Añejo Catering Co. — Clean Fuel. Bold Flavor. Built for Life.</title>
+<meta name="description" content="Premium Cuban-American longevity bowls, catering, and wholesale bites in Palm Beach County. Mediterranean nutrition with Cuban soul. Inspired by family. Built for legacy.">
+<meta name="author" content="Añejo Catering Co. LLC">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Añejo Catering Co.">
+<meta property="og:description" content="Premium Cuban-American longevity bowls. Clean Fuel. Bold Flavor. Built for Life.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://anejocateringco.com">
+<meta property="og:site_name" content="Añejo Catering Co.">
+
+<link rel="icon" type="image/png" href="/assets/img/favicon.png"><rect width='64' height='64' fill='%230D0D0D' rx='8'/><text x='32' y='46' font-family='Georgia,serif' font-size='42' font-weight='800' fill='%23C6A85B' text-anchor='middle'>Ñ</text></svg>">
+<link rel="apple-touch-icon" href="/assets/img/emblem.png"><rect width='180' height='180' fill='%230D0D0D'/><text x='90' y='130' font-family='Georgia,serif' font-size='130' font-weight='800' fill='%23C6A85B' text-anchor='middle'>Ñ</text></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --black: #0D0D0D;
+  --green: #1A3D2E;
+  --green-dark: #0d2419;
+  --gold: #C6A85B;
+  --gold-dark: #8B6B3E;
+  --cream: #F5F2EC;
+  --cream-dark: #EAE5D8;
+  --ink: #1A1A1A;
+  --muted: #6b6b6b;
+  --line: rgba(26,61,46,0.15);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Josefin Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  line-height: 1.6;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.serif-i { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 500; }
+
+/* ---------- NAV ---------- */
+nav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(13, 13, 13, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(198, 168, 91, 0.2);
+}
+.nav-inner {
+  max-width: 1200px; margin: 0 auto;
+  padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.logo {
+  display: flex; align-items: center; gap: 11px;
+  color: var(--gold); text-decoration: none;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-weight: 600; letter-spacing: 6px; font-size: 22px;
+}
+.logo-emblem { height: 40px; width: auto; display: block; }
+.hero-logo { width: min(330px, 70vw); height: auto; display: block; margin: 0 auto 30px; filter: drop-shadow(0 10px 34px rgba(0,0,0,0.55)); }
+.logo-mark {
+  width: 36px; height: 36px;
+  border: 2px solid var(--gold);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: Georgia, serif; font-size: 20px; font-weight: 800;
+}
+.nav-links { display: flex; gap: 28px; }
+.nav-links a {
+  color: var(--cream); text-decoration: none;
+  font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase;
+  font-weight: 500; transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--gold); }
+.nav-cta {
+  background: var(--gold); color: var(--black) !important;
+  padding: 8px 16px; border-radius: 3px;
+  font-size: 12px !important; font-weight: 700 !important;
+}
+.nav-cta:hover { background: var(--cream) !important; color: var(--black) !important; }
+.nav-burger { display: none; background: none; border: none; color: var(--gold); font-size: 24px; cursor: pointer; }
+
+/* ---------- HERO ---------- */
+.hero {
+  background: var(--black);
+  color: var(--cream);
+  padding: 100px 24px 90px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(198, 168, 91, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(26, 61, 46, 0.3) 0%, transparent 50%);
+  pointer-events: none;
+}
+.hero-content { position: relative; max-width: 900px; margin: 0 auto; }
+.eyebrow {
+  font-size: 11px; letter-spacing: 4px; text-transform: uppercase;
+  color: var(--gold); font-weight: 600;
+  margin-bottom: 24px;
+}
+.hero h1 {
+  font-size: clamp(36px, 7vw, 72px);
+  font-weight: 300; line-height: 1.1;
+  letter-spacing: 1px;
+  margin-bottom: 20px;
+}
+.hero h1 strong { font-weight: 700; color: var(--gold); }
+.hero-tagline {
+  font-size: clamp(18px, 2.5vw, 24px);
+  font-weight: 300; opacity: 0.85;
+  max-width: 640px; margin: 0 auto 36px;
+  letter-spacing: 0.5px;
+}
+.hero-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.btn {
+  display: inline-block;
+  padding: 14px 32px; border-radius: 3px;
+  font-family: inherit; font-size: 13px;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  font-weight: 600; text-decoration: none;
+  cursor: pointer; border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.btn-gold { background: var(--gold); color: var(--black); }
+.btn-gold:hover { background: var(--cream); }
+.btn-outline { background: transparent; color: var(--cream); border-color: var(--cream); }
+.btn-outline:hover { background: var(--cream); color: var(--black); }
+.hero-seal {
+  margin-top: 56px;
+  font-size: 10px; letter-spacing: 6px;
+  color: var(--gold); font-weight: 600;
+  opacity: 0.7;
+}
+
+/* ---------- SECTIONS ---------- */
+section { padding: 80px 24px; }
+.section-inner { max-width: 1200px; margin: 0 auto; }
+.section-head { text-align: center; margin-bottom: 60px; }
+.section-head .eyebrow { color: var(--green); }
+.section-head h2 {
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 300; color: var(--ink);
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  max-width: 720px; margin: 0 auto;
+}
+.section-head h2 strong { color: var(--green); font-weight: 600; }
+.section-head .lede {
+  margin-top: 16px;
+  font-size: 16px; color: var(--muted);
+  max-width: 600px; margin-left: auto; margin-right: auto;
+}
+
+/* ---------- STORY ---------- */
+.story {
+  background: var(--green);
+  color: var(--cream);
+}
+.story .section-head h2 { color: var(--cream); }
+.story .section-head h2 strong { color: var(--gold); }
+.story .section-head .eyebrow { color: var(--gold); }
+.story-body {
+  max-width: 720px; margin: 0 auto;
+  font-size: 17px; line-height: 1.8;
+  font-weight: 300; text-align: center;
+}
+.story-body p { margin-bottom: 20px; }
+.story-body .pull {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  font-size: 24px; font-weight: 500;
+  color: var(--gold);
+  margin: 36px 0 28px;
+  line-height: 1.4;
+}
+.story-sig {
+  margin-top: 36px;
+  font-size: 11px; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--gold);
+  opacity: 0.8;
+}
+
+/* ---------- MENU GRID ---------- */
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+.bowl-card {
+  background: #fff;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  transition: transform 0.3s, box-shadow 0.3s;
+  display: flex; flex-direction: column;
+}
+.bowl-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(13, 13, 13, 0.12);
+}
+.bowl-image {
+  width: 100%; height: 220px;
+  background: var(--cream-dark);
+  position: relative;
+  overflow: hidden;
+}
+.bowl-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bowl-image .placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--green) 0%, var(--green-dark) 100%);
+}
+.bowl-image .placeholder svg { width: 90px; height: 90px; }
+.bowl-body { padding: 22px 24px; flex: 1; display: flex; flex-direction: column; }
+.bowl-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.bowl-name {
+  font-size: 22px; font-weight: 700;
+  letter-spacing: 2px; color: var(--green);
+}
+.bowl-price {
+  font-size: 14px; color: var(--gold-dark);
+  font-weight: 600; white-space: nowrap;
+}
+.bowl-desc {
+  font-size: 14px; color: var(--muted);
+  line-height: 1.5; margin-bottom: 14px;
+  flex: 1;
+}
+.bowl-tags {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: auto;
+}
+.tag {
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--green); background: var(--cream-dark);
+  padding: 3px 8px; border-radius: 3px;
+  font-weight: 600;
+}
+.tag.fit { background: var(--gold); color: var(--black); }
+
+/* ---------- SUB-BRANDS ---------- */
+.subbrands {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px; margin-top: 40px;
+}
+.subbrand {
+  background: #fff;
+  padding: 36px 28px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.subbrand h3 {
+  font-size: 22px; letter-spacing: 3px;
+  color: var(--green); font-weight: 700;
+  margin-bottom: 8px;
+}
+.subbrand .role {
+  font-size: 11px; letter-spacing: 2px; color: var(--gold-dark);
+  text-transform: uppercase; font-weight: 600;
+  margin-bottom: 16px;
+}
+.subbrand p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+/* ---------- SERVICES ---------- */
+.services { background: #fff; }
+.services-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+}
+.service {
+  padding: 28px 20px;
+  border-left: 3px solid var(--gold);
+  background: var(--cream);
+  border-radius: 0 6px 6px 0;
+}
+.service h3 {
+  font-size: 17px; color: var(--green); font-weight: 700;
+  letter-spacing: 1px; margin-bottom: 10px;
+}
+.service p { font-size: 14px; color: var(--muted); line-height: 1.55; }
+
+/* ---------- DRESSINGS ---------- */
+.dressings { background: var(--black); color: var(--cream); }
+.dressings .section-head h2 { color: var(--cream); }
+.dressings .section-head h2 strong { color: var(--gold); }
+.dressings .section-head .eyebrow { color: var(--gold); }
+.dressings-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 18px;
+}
+.dressing {
+  text-align: center;
+  padding: 20px 14px;
+  border: 1px solid rgba(198, 168, 91, 0.25);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.dressing h4 {
+  font-size: 14px; letter-spacing: 1.5px;
+  color: var(--gold); font-weight: 700;
+  margin-bottom: 6px; text-transform: uppercase;
+}
+.dressing p { font-size: 12px; color: var(--cream); opacity: 0.75; }
+
+/* ---------- CTA BAND ---------- */
+.cta-band {
+  background: var(--green);
+  color: var(--cream);
+  padding: 80px 24px;
+  text-align: center;
+}
+.cta-band h2 {
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 300; margin-bottom: 16px;
+}
+.cta-band h2 strong { color: var(--gold); font-weight: 600; }
+.cta-band .lede {
+  font-size: 17px; opacity: 0.85;
+  max-width: 600px; margin: 0 auto 30px;
+}
+
+/* ---------- TASTING FORM ---------- */
+.tasting { background: var(--cream); }
+.tasting-card {
+  max-width: 560px; margin: 0 auto;
+  background: #fff;
+  border-radius: 8px;
+  padding: 40px 36px;
+  border-top: 4px solid var(--gold);
+  border: 1px solid var(--line);
+}
+.tasting-card h3 {
+  font-size: 24px; color: var(--green); font-weight: 600;
+  letter-spacing: 0.5px; margin-bottom: 8px; text-align: center;
+}
+.tasting-card .sub {
+  font-size: 14px; color: var(--muted);
+  text-align: center; margin-bottom: 28px;
+}
+.form-group { margin-bottom: 18px; }
+.form-group label {
+  display: block; font-size: 12px; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--green);
+  font-weight: 600; margin-bottom: 6px;
+}
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: inherit; font-size: 14px;
+  background: var(--cream);
+  color: var(--ink);
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: 2px solid var(--gold); border-color: transparent;
+}
+.form-group textarea { min-height: 80px; resize: vertical; }
+.tasting-card .btn { width: 100%; }
+
+/* ---------- WHOLESALE ---------- */
+.wholesale { background: var(--cream-dark); }
+.wholesale-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 40px; max-width: 900px; margin: 0 auto;
+  align-items: center;
+}
+.wholesale-text h3 {
+  font-size: 28px; color: var(--green);
+  font-weight: 600; margin-bottom: 16px;
+  line-height: 1.2;
+}
+.wholesale-text p {
+  font-size: 15px; color: var(--ink);
+  margin-bottom: 14px; line-height: 1.6;
+}
+.wholesale-text .meta {
+  font-size: 12px; color: var(--gold-dark);
+  letter-spacing: 1px; text-transform: uppercase;
+  font-weight: 600; margin-top: 20px;
+}
+.wholesale-card {
+  background: #fff; border-radius: 8px;
+  padding: 32px; border-top: 4px solid var(--green);
+  border: 1px solid var(--line);
+}
+.wholesale-card h4 {
+  font-size: 14px; color: var(--gold-dark);
+  font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.wholesale-card ul { list-style: none; padding: 0; }
+.wholesale-card li {
+  font-size: 14px; color: var(--ink); padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between;
+}
+.wholesale-card li:last-child { border-bottom: none; }
+.wholesale-card li strong { color: var(--green); }
+
+/* ---------- ALLERGEN NOTE ---------- */
+.allergen-note {
+  background: var(--cream-dark);
+  border-left: 4px solid var(--gold);
+  padding: 18px 24px;
+  margin: 40px auto 0;
+  max-width: 900px;
+  border-radius: 0 4px 4px 0;
+  font-size: 13px; color: var(--muted);
+  line-height: 1.55;
+}
+.allergen-note strong { color: var(--green); }
+
+/* ---------- FOOTER ---------- */
+footer {
+  background: var(--black);
+  color: var(--cream);
+  padding: 60px 24px 30px;
+}
+.footer-grid {
+  max-width: 1200px; margin: 0 auto;
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 40px;
+}
+.footer-brand { max-width: 320px; }
+.footer-brand .logo { color: var(--gold); margin-bottom: 14px; }
+.footer-brand p { font-size: 13px; color: rgba(245, 242, 236, 0.7); line-height: 1.6; }
+.footer-col h5 {
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--gold); font-weight: 700; margin-bottom: 14px;
+}
+.footer-col a, .footer-col p {
+  display: block; color: rgba(245, 242, 236, 0.7);
+  font-size: 13px; text-decoration: none;
+  margin-bottom: 8px; line-height: 1.4;
+}
+.footer-col a:hover { color: var(--gold); }
+.footer-base {
+  max-width: 1200px; margin: 50px auto 0;
+  padding-top: 24px;
+  border-top: 1px solid rgba(198, 168, 91, 0.2);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  font-size: 11px; color: rgba(245, 242, 236, 0.5);
+  letter-spacing: 1px;
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 820px) {
+  .nav-burger { display: block; }
+  .nav-links { display: none; position: absolute; top: 64px; right: 0; left: 0; background: var(--black); flex-direction: column; padding: 20px; gap: 16px; border-bottom: 1px solid rgba(198, 168, 91, 0.2); }
+  .nav-links.open { display: flex; }
+  .wholesale-row { grid-template-columns: 1fr; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .hero { padding: 70px 20px 60px; }
+  section { padding: 60px 20px; }
+  .footer-grid { grid-template-columns: 1fr; gap: 30px; }
+  .bowl-image { height: 180px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+<script>if(location.hostname.indexOf("portal.")===0 && location.pathname==="/"){location.replace("/portal");}</script>
+</head>
+<body>
+
+<!-- ========================= NAV ========================= -->
+<nav>
+  <div class="nav-inner">
+    <a href="#top" class="logo">
+      <img class="logo-emblem" src="/assets/img/emblem.png" alt="Añejo emblem">
+      <span>AÑEJO</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="#story">Story</a>
+      <a href="#menu">Menu</a>
+      <a href="#services">Services</a>
+      <a href="#wholesale">Wholesale</a>
+      <a href="/calculator">Macros</a>
+      <a href="#tasting" class="nav-cta">Reserve a Tasting</a>
+    </div>
+    <button class="nav-burger" onclick="document.getElementById('navLinks').classList.toggle('open')" aria-label="Menu">☰</button>
+  </div>
+</nav>
+
+<!-- ========================= HERO ========================= -->
+<section class="hero" id="top">
+  <div class="hero-content">
+    <img class="hero-logo" src="/assets/img/logo_full.png" alt="Añejo Catering Co. — Clean Fuel, Bold Flavor">
+    <div class="eyebrow">Palm Beach County · Cuban-American Catering</div>
+    <h1>Clean Fuel. <strong>Bold Flavor.</strong><br>Built for Life.</h1>
+    <p class="hero-tagline">Premium longevity bowls, signature bites, and catering — Mediterranean nutrition with Cuban soul. <span class="serif-i">Inspired by family. Built for legacy.</span></p>
+    <div class="hero-buttons">
+      <a href="#tasting" class="btn btn-gold">Reserve a Tasting</a>
+      <a href="#menu" class="btn btn-outline">View the Menu</a>
+    </div>
+    <div class="hero-seal">PBC · HERITAGE CRAFTED · FRESH NEVER FROZEN</div>
+  </div>
+</section>
+
+
+<!-- ===================== MACRO CALCULATOR ===================== -->
+<section id="calculator" style="background:var(--green); padding:92px 24px;">
+  <div style="max-width:760px; margin:0 auto; text-align:center;">
+    <div class="eyebrow" style="color:var(--gold);">Free · AI-Personalized · 10 Seconds</div>
+    <h2 style="color:var(--cream); margin-top:6px;">Find your macros. <span class="serif-i" style="color:var(--gold);">Get your bowls.</span></h2>
+    <p style="color:rgba(245,242,236,0.82); max-width:620px; margin:18px auto 0; font-size:18px; line-height:1.65;">
+      Answer a few quick questions and our AI builds your daily macro targets plus a weekly Añejo bowl rotation tuned to your goal &mdash; no sign-up. Trainers can generate plans for clients and earn 10% recurring.</p>
+    <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:32px;">
+      <a href="/calculator" class="btn btn-gold">Build my macro plan &rarr;</a>
+      <a href="/portal" class="btn btn-outline" style="border-color:var(--gold); color:var(--cream);">For trainers &amp; gyms</a>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= STORY ========================= -->
+<section class="story" id="story">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">The Story Behind the Brand</div>
+      <h2>It started with <strong>family</strong>.</h2>
+    </div>
+    <div class="story-body">
+      <p>Añejo Catering Co. was created out of a real moment in our family — my mom received a difficult diagnosis, and at the same time I was changing how I trained, ate, and lived. We needed food that supported her health AND tasted like home. Nothing on the market did both.</p>
+      <p class="pull">"We weren't going to choose between flavor and longevity. So we built something that doesn't make you."</p>
+      <p>What grew from that necessity is Añejo today: a premium Cuban-American food brand designed to support a healthier lifestyle, inspired by Mediterranean-style eating patterns associated with heart health and longevity, made with nutrient-conscious ingredients — and grounded in the flavor, texture, and soul of authentic Cuban cooking.</p>
+      <p>From handcrafted bowls to signature bites, every plate is built with intention. Healthy doesn't have to taste like a cleanse. It can taste like home.</p>
+      <div class="story-sig">— DAYAN DIAZ, FOUNDER</div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= MENU ========================= -->
+<section id="menu">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Menu V1 · Locked</div>
+      <h2>Eight bowls. <strong>One philosophy.</strong></h2>
+      <p class="lede">16 oz bowl · 2 oz signature sauce on the side · 3-day fridge shelf · microwave + cold friendly · nuts removable · dairy-free swaps available · target macros 40% protein / 30% carbs / 30% fat.</p>
+    </div>
+
+    <div class="menu-grid">
+
+      <!-- VIDA -->
+      <div class="bowl-card">
+        <div class="bowl-image">
+          <img src="/assets/img/bowl_vida.jpg" alt="VIDA bowl — tuna mango lime over quinoa" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot; fill=&quot;none&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;14&quot; font-family=&quot;Georgia&quot;>VIDA</text></svg></div>'">
+        </div>
+        <div class="bowl-body">
+          <div class="bowl-top">
+            <div class="bowl-name">VIDA</div>
+            <div class="bowl-price">$19.99–21.99</div>
+          </div>
+          <p class="bowl-desc">Flagship. Tuna sautéed with mango and lime over quinoa, refried chickpeas, fresh greens, pumpkin seeds. The bowl that started it all.</p>
+          <div class="bowl-tags"><span class="tag fit">Flagship</span><span class="tag">Pescatarian</span><span class="tag">High Protein</span></div>
+        </div>
+      </div>
+
+      <!-- FUEGO -->
+      <div class="bowl-card">
+        <div class="bowl-image">
+          <img src="/assets/img/bowl_fuego.jpg" alt="FUEGO bowl — grilled steak with chimichurri" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; fill=&quot;none&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;13&quot; font-family=&quot;Georgia&quot;>FUEGO</text></svg></div>'">
+        </div>
+        <div class="bowl-body">
+          <div class="bowl-top">
+            <div class="bowl-name">FUEGO</div>
+            <div class="bowl-price">$22.99–24.99</div>
+          </div>
+          <p class="bowl-desc">Grilled steak with Añejo chimichurri, quinoa, grilled carrot + corn, spinach-apple-almond salad. Bold performance on a plate.</p>
+          <div class="bowl-tags"><span class="tag">Mediterranean</span><span class="tag">High Protein</span></div>
+        </div>
+      </div>
+
+      <!-- LIGERO -->
+      <div class="bowl-card">
+        <div class="bowl-image">
+          <div class="placeholder"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="40" stroke="#C6A85B" stroke-width="2"/><text x="50" y="58" text-anchor="middle" fill="#C6A85B" font-size="12" font-family="Georgia">LIGERO</text></svg></div>
+        </div>
+        <div class="bowl-body">
+          <div class="bowl-top">
+            <div class="bowl-name">LIGERO</div>
+            <div class="bowl-price">$18.99–20.99</div>
+          </div>
+          <p class="bowl-desc">Lighter sibling of FUEGO. Grilled chicken with chimichurri, quinoa, grilled vegetables, spinach-apple-almond salad. Clean and ready.</p>
+          <div class="bowl-tags"><span class="tag">Mediterranean</span><span class="tag">High Protein</span></div>
+        </div>
+      </div>
+
+      <!-- COCO -->
+      <div class="bowl-card">
+        <div class="bowl-image">
+          <div class="placeholder"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="40" stroke="#C6A85B" stroke-width="2"/><text x="50" y="58" text-anchor="middle" fill="#C6A85B" font-size="14" font-family="Georgia">COCO</text></svg></div>
+        </div>
+        <div class="bowl-body">
+          <div class="bowl-top">
+            <div class="bowl-name">COCO</div>
+            <div class="bowl-price">$22.99–24.99</div>
+          </div>
+          <p class="bowl-desc">Coconut-lime shrimp with quinoa-corn blend, edamame, fresh avocado, spinach-tomato salad. Caribe-light, tropical-smooth.</p>
+          <div class="bowl-tags"><span class="tag">Pescatarian</span><span class="tag">Mediterranean</span></div>
+        </div>
+      </div>
+
+      <!-- FUERZA -->
+      <div class="bowl-card">
+        <div class="bowl-image">
+          <img src="/assets/img/bowl_fuerza.jpg" alt="FUERZA bowl — pork loin with poblano apple" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder&quot;><svg viewBox=&quot;0 0 100 100&quot;><circle cx=&quot;50&quot; cy=&quot;50&quot; r=&quot;40&quot; stroke=&quot;%23C6A85B&quot; fill=&quot;none&quot; stroke-width=&quot;2&quot;/><text x=&quot;50&quot; y=&quot;58&quot; text-anchor=&quot;middle&quot; fill=&quot;%23C6A85B&quot; font-size=&quot;12&quot; font-family=&quot;Georgia&quot;>FUERZA</text></svg></div>'">
+        </div>
+        <div class="bowl-body">
+          <div class="bowl-top">
+            <div class="bowl-name">FUERZA</div>
+            <div class="bowl-price">$20.99–22.99</div>
+          </div>
+          <p class="bowl-desc">Grilled pork loin with quinoa or rice, spinach-tomato salad, queso fresco, almonds + pumpkin seeds, poblano-apple dressing. Comfort meets performance.</p>
+          <div class="bowl-tags"><span class="tag">Cuban Heritage</span><span class="tag">High Protein</span></div>
+        </div>
+      </div>
+
+      <!-- MANGO -->
+      <div class="bowl-card">
+        <div class="bowl-image">
+          <div class="placeholder"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="40" stroke="#C6A85B" stroke-width="2"/><text x="50" y="58" text-anchor="middle" fill="#C6A85B" font-size="13" font-family="Georgia">MANGO</text></svg></div>
+        </div>
+        <div class="bowl-body">
+          <div class="bowl-top">
+            <div class="bowl-name">MANGO</div>
+            <div class="bowl-price">$18.99–20.49</div>
+          </div>
+          <p class="bowl-desc">Plant-forward. Seared tofu with quinoa, mango-sautéed vegetables, cucumber-carrot salad, avocado, citrus dressing. Tropical, light, alive.</p>
+          <div class="bowl-tags"><span class="tag">Plant Forward</span><span class="tag">Vegetarian</span></div>
+        </div>
+      </div>
+
+      <!-- CONGREEN -->
+      <div class="bowl-card">
+        <div class="bowl-image">
+          <div class="placeholder"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="40" stroke="#C6A85B" stroke-width="2"/><text x="50" y="58" text-anchor="middle" fill="#C6A85B" font-size="11" font-family="Georgia">CONGREEN</text></svg></div>
+        </div>
+        <div class="bowl-body">
+          <div class="bowl-top">
+            <div class="bowl-name">CONGREEN</div>
+            <div class="bowl-price">$20.99–22.99</div>
+          </div>
+          <p class="bowl-desc">Quinoa-blueberry congrí with tuna sauté, spinach-tomato salad, avocado, queso fresco, pumpkin seeds. Cuban fusion, reinterpreted.</p>
+          <div class="bowl-tags"><span class="tag">Cuban Heritage</span><span class="tag">Pescatarian</span></div>
+        </div>
+      </div>
+
+      <!-- BOOST -->
+      <div class="bowl-card">
+        <div class="bowl-image">
+          <div class="placeholder"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="40" stroke="#C6A85B" stroke-width="2"/><text x="50" y="58" text-anchor="middle" fill="#C6A85B" font-size="13" font-family="Georgia">BOOST</text></svg></div>
+        </div>
+        <div class="bowl-body">
+          <div class="bowl-top">
+            <div class="bowl-name">BOOST</div>
+            <div class="bowl-price">$10.99–12.99</div>
+          </div>
+          <p class="bowl-desc">Breakfast power bowl. 0% Greek yogurt with wild berries, seed blend, honey drizzle. Start clean. Stay sharp.</p>
+          <div class="bowl-tags"><span class="tag">Breakfast</span><span class="tag">High Protein</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="allergen-note">
+      <strong>Allergen note:</strong> Bowls may contain wheat, egg, milk, fish, shellfish, tree nuts, or seeds depending on the SKU. Nuts removable on request. Dairy-free substitutions available. Full allergen disclosure on every bowl label. Please notify us of severe allergies when ordering.
+    </div>
+  </div>
+</section>
+
+<!-- ========================= SUB-BRANDS ========================= -->
+<section style="background: var(--cream-dark);">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Brand Architecture</div>
+      <h2>One Añejo. <strong>Three lanes.</strong></h2>
+    </div>
+    <div class="subbrands">
+      <div class="subbrand">
+        <h3>AÑEJO CATERING CO.</h3>
+        <div class="role">Services · Bowls · Events</div>
+        <p>Premium catering, meal plans, and on-demand bowls. The flagship line — everything you see on this menu.</p>
+      </div>
+      <div class="subbrand">
+        <h3>AÑEJO FIT</h3>
+        <div class="role">Packaged · Functional</div>
+        <p>Cold-pressed functional beverages designed to pair with the bowls. Gold Vitality · Hibiscus Zen · Emerald Hydrate.</p>
+      </div>
+      <div class="subbrand">
+        <h3>AÑEJO BITES</h3>
+        <div class="role">B2B · Wholesale</div>
+        <p>Premium Cuban-Latin finger food for kava bars, cafés, and partner venues. Croquetas, empanadas, Tropical Bombs, signature sauces.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= SERVICES ========================= -->
+<section class="services" id="services">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">How We Serve</div>
+      <h2>Built for <strong>every plate</strong> in your life.</h2>
+    </div>
+    <div class="services-grid">
+      <div class="service">
+        <h3>Weekly Meal Plans</h3>
+        <p>Fresh bowls delivered on your schedule. Sub-models for high-performers, longevity-focused clients, and busy professionals.</p>
+      </div>
+      <div class="service">
+        <h3>Corporate Lunch</h3>
+        <p>Weekly programs for offices, clinics, and workspaces. Volume tiers from 10 bowls to 50+. Recurring or on-demand.</p>
+      </div>
+      <div class="service">
+        <h3>Private Events</h3>
+        <p>Plated catering for private functions, board dinners, weddings, country club events. Custom menus available with lead time.</p>
+      </div>
+      <div class="service">
+        <h3>Pickup &amp; Delivery</h3>
+        <p>On-demand individual orders. Premium bowls, signature bites, and the Añejo Fit functional drink line. Palm Beach County local.</p>
+      </div>
+      <div class="service">
+        <h3>Gym &amp; Clinic Programs</h3>
+        <p>White-glove meal programs for high-performance gyms and wellness clinics. Macro-targeted plans your members or patients can subscribe to.</p>
+      </div>
+      <div class="service">
+        <h3>Wholesale (Bites)</h3>
+        <p>Áñejo Bites for kava bars, cafés, food halls. Reheat-and-serve format. See the Wholesale section below.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= DRESSINGS ========================= -->
+<section class="dressings">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">House-Made · No Shortcuts</div>
+      <h2>Eight <strong>signature dressings</strong>.</h2>
+      <p class="lede" style="color: rgba(245, 242, 236, 0.65);">Every bowl ships with a 2 oz sauce on the side — drizzle, dip, mix, your call.</p>
+    </div>
+    <div class="dressings-grid">
+      <div class="dressing"><h4>Chimichurri</h4><p>Fresh herbs, garlic, olive oil, citrus</p></div>
+      <div class="dressing"><h4>Poblano Apple</h4><p>Roasted poblano, crisp apple, Greek yogurt</p></div>
+      <div class="dressing"><h4>Pineapple Chile</h4><p>Pineapple, chile, citrus</p></div>
+      <div class="dressing"><h4>Añejo Light</h4><p>Citrus vinaigrette with herbs and olive oil</p></div>
+      <div class="dressing"><h4>Añejo Signature</h4><p>Greek yogurt base with citrus and subtle spice</p></div>
+      <div class="dressing"><h4>Passion Heat</h4><p>Passion fruit, jalapeño, lime</p></div>
+      <div class="dressing"><h4>Coco Cream</h4><p>Light coconut, lime, fresh herbs</p></div>
+      <div class="dressing"><h4>Guava Glow</h4><p>Guava, citrus, olive oil, light spice</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= TASTING FORM ========================= -->
+<section class="tasting" id="tasting">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Try it First</div>
+      <h2>Reserve a <strong>tasting</strong>.</h2>
+      <p class="lede">For meal-plan prospects, corporate buyers, gym partnerships, wellness clinics, and event hosts. We come to you or you come to the kitchen.</p>
+    </div>
+
+    <form class="tasting-card" onsubmit="return submitTasting(event)">
+      <h3>Tasting Request</h3>
+      <p class="sub">We'll respond within 1 business day to schedule.</p>
+
+      <div class="form-group">
+        <label for="name">Your name</label>
+        <input type="text" id="name" name="name" required>
+      </div>
+
+      <div class="form-group">
+        <label for="org">Company / Organization</label>
+        <input type="text" id="org" name="org" placeholder="Optional">
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required>
+      </div>
+
+      <div class="form-group">
+        <label for="phone">Phone</label>
+        <input type="tel" id="phone" name="phone">
+      </div>
+
+      <div class="form-group">
+        <label for="interest">What are you exploring?</label>
+        <select id="interest" name="interest" required>
+          <option value="">Choose one...</option>
+          <option>Weekly meal plan (individual)</option>
+          <option>Corporate lunch program</option>
+          <option>Private event catering</option>
+          <option>Gym / wellness clinic partnership</option>
+          <option>Wholesale (Añejo Bites)</option>
+          <option>Just curious</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="notes">Anything we should know?</label>
+        <textarea id="notes" name="notes" placeholder="Group size, dietary needs, event date, target start..."></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-gold">Send Request</button>
+    </form>
+  </div>
+</section>
+
+<!-- ========================= WHOLESALE ========================= -->
+<section class="wholesale" id="wholesale">
+  <div class="section-inner">
+    <div class="wholesale-row">
+      <div class="wholesale-text">
+        <div class="eyebrow" style="color: var(--green); margin-bottom: 16px;">Añejo Bites · B2B</div>
+        <h3>Premium Cuban-Latin bites for your venue.</h3>
+        <p>Built for kava bars, cafés, lounges, and food halls. Ships frozen, ready-to-finish. No culinary team needed — your staff just air-fries, plates, and serves.</p>
+        <p>We handle the brand, the quality, the recipes. You handle the regulars.</p>
+        <p class="meta">Pilot territories available in Palm Beach County</p>
+      </div>
+      <div class="wholesale-card">
+        <h4>Phase 1 Menu</h4>
+        <ul>
+          <li>Chicken Croqueta <strong>$1.00 ea</strong></li>
+          <li>Beef Croqueta <strong>$1.00 ea</strong></li>
+          <li>Tropical Bomb <strong>$2.50 ea</strong></li>
+          <li>Guava &amp; Cheese Empanada <strong>$2.50 ea</strong></li>
+          <li>Tres Leches Cup <strong>$3.00 ea</strong></li>
+          <li>Signature Sauces (2 oz) <strong>$0.50 ea</strong></li>
+        </ul>
+        <p style="font-size: 12px; color: var(--muted); margin-top: 16px;">Partner minimum 50% markup at retail. Tiered exclusivity available.</p>
+        <a href="mailto:dayan@anejocateringco.com?subject=Wholesale%20Inquiry%20—%20A%C3%B1ejo%20Bites&amp;body=Hi%20Dayan%2C%0A%0AI%20own%2Foperate%20%5Bvenue%20name%5D%20in%20%5Blocation%5D.%20We%27d%20like%20to%20explore%20the%20A%C3%B1ejo%20Bites%20wholesale%20program.%0A%0AVenue%20type%3A%20%0AEstimated%20weekly%20volume%3A%20%0APreferred%20delivery%20day%3A%20%0A%0AThanks%2C" class="btn btn-gold" style="margin-top: 18px; display: block; text-align: center; width: 100%;">Start a Wholesale Conversation</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= CTA BAND ========================= -->
+<section class="cta-band">
+  <div class="section-inner">
+    <h2>Built in Palm Beach. <strong>Made with intent.</strong></h2>
+    <p class="lede">Whether it's one bowl or a thousand — we cook it the same way.</p>
+    <div class="hero-buttons">
+      <a href="#tasting" class="btn btn-gold">Reserve a Tasting</a>
+      <a href="tel:5615671047" class="btn btn-outline">Call 561-567-1047</a>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= FOOTER ========================= -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a href="#top" class="logo">
+        <img class="logo-emblem" src="/assets/img/emblem.png" alt="Añejo emblem">
+        <span>AÑEJO</span>
+      </a>
+      <p>Premium Cuban-American longevity bowls, catering, and wholesale bites. Made in Palm Beach County, Florida. Inspired by family. Built for legacy.</p>
+    </div>
+    <div class="footer-col">
+      <h5>Visit</h5>
+      <p>Palm Beach County<br>Florida, USA</p>
+    </div>
+    <div class="footer-col">
+      <h5>Contact</h5>
+      <a href="mailto:dayan@anejocateringco.com">dayan@anejocateringco.com</a>
+      <a href="tel:5615671047">561-567-1047</a>
+      <a href="https://instagram.com/anejo.catering.co" target="_blank" rel="noopener">@anejo.catering.co</a>
+    </div>
+    <div class="footer-col">
+      <h5>Explore</h5>
+      <a href="#menu">Menu</a>
+      <a href="#services">Services</a>
+      <a href="#wholesale">Wholesale</a>
+      <a href="#tasting">Tasting Request</a>
+    </div>
+  </div>
+  <div class="footer-base">
+    <span>© 2026 Añejo Catering Co. LLC · All rights reserved</span>
+    <span>PBC HERITAGE CRAFTED</span>
+  </div>
+</footer>
+
+<script>
+function submitTasting(e) {
+  e.preventDefault();
+  const f = e.target;
+  const name = f.name.value.trim();
+  const org = f.org.value.trim();
+  const email = f.email.value.trim();
+  const phone = f.phone.value.trim();
+  const interest = f.interest.value;
+  const notes = f.notes.value.trim();
+  const subject = encodeURIComponent('Tasting Request — ' + name + (org ? ' / ' + org : '') + ' · ' + interest);
+  const body = encodeURIComponent(
+    'New tasting request submitted via anejocateringco.com\n\n' +
+    'Name: ' + name + '\n' +
+    'Organization: ' + (org || '—') + '\n' +
+    'Email: ' + email + '\n' +
+    'Phone: ' + (phone || '—') + '\n' +
+    'Interested in: ' + interest + '\n\n' +
+    'Notes:\n' + (notes || '—') + '\n'
+  );
+  window.location.href = 'mailto:dayan@anejocateringco.com?subject=' + subject + '&body=' + body;
+  return false;
+}
+
+// Close mobile nav on link click
+document.querySelectorAll('#navLinks a').forEach(a => {
+  a.addEventListener('click', () => document.getElementById('navLinks').classList.remove('open'));
+});
+</script>
+
+</body>
+</html>

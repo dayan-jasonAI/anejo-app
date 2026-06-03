@@ -1,0 +1,11 @@
+{
+  "name": "anejo-app",
+  "version": "1.0.0",
+  "description": "Añejo Catering Co. — marketing site + AI macro calculator (public self-serve) + trainer portal. One Cloudflare Pages app.",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev public --compatibility-date=2026-05-01",
+    "deploy": "wrangler pages deploy public --project-name=anejo-app"
+  },
+  "devDependencies": { "wrangler": "^3.80.0" }
+}

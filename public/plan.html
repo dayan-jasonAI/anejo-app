@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Your Plan — Añejo Catering Co.</title>
+  <link rel="icon" type="image/png" href="/assets/img/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/brand.css" />
+</head>
+<body>
+  <header class="brand">
+    <a class="home" href="/">
+      <img class="emblem" src="/assets/img/emblem.png" alt="Añejo" />
+      <span class="wordmark">AÑEJO</span>
+    </a>
+    <div class="tagline">Your Plan</div>
+  </header>
+
+  <main class="container">
+    <div id="error" class="error" style="display:none"></div>
+
+    <div class="plan-head">
+      <img class="emblem" src="/assets/img/emblem.png" alt="Añejo" />
+      <h1 id="plan-title">Your plan</h1>
+      <div class="sub" id="plan-subtitle"></div>
+    </div>
+
+    <div id="plan-body" style="display:none">
+      <div class="eyebrow" style="margin-top:26px">Daily Macro Targets</div>
+      <div class="macros">
+        <div class="macro"><div class="v" id="m-cal">—</div><div class="k">Calories</div></div>
+        <div class="macro"><div class="v" id="m-pro">—</div><div class="k">Protein g</div></div>
+        <div class="macro"><div class="v" id="m-carb">—</div><div class="k">Carbs g</div></div>
+        <div class="macro"><div class="v" id="m-fat">—</div><div class="k">Fat g</div></div>
+        <div class="macro"><div class="v" id="m-fib">—</div><div class="k">Fiber g</div></div>
+      </div>
+
+      <div class="eyebrow" style="margin-top:26px">Your Weekly Añejo Rotation</div>
+      <div class="tierpill" id="m-tier"></div>
+      <div class="bowl-grid" id="bowl-grid"></div>
+
+      <div class="card" style="margin-top:26px">
+        <h3>Why this plan</h3>
+        <p id="m-rationale" style="margin-top:10px;color:#333"></p>
+      </div>
+
+      <div class="card">
+        <h3>Lifestyle notes</h3>
+        <ul class="notes" id="m-notes"></ul>
+      </div>
+
+      <div style="margin-top:22px;display:flex;gap:12px;flex-wrap:wrap">
+        <a class="btn btn--gold" href="/#menu">See the full menu →</a>
+        <a class="btn btn--ghost" id="restart" href="/calculator">Start over</a>
+      </div>
+    </div>
+
+    <p class="disclaimer" id="plan-disclaimer" style="display:none">This plan is for general fitness and wellness. It is not medical advice. Consult a healthcare professional before starting any new nutrition program. Añejo Catering Co. is not a medical provider.</p>
+  </main>
+
+  <script src="/assets/js/plan.js"></script>
+</body>
+</html>
