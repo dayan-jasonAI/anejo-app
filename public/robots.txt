@@ -1,0 +1,11 @@
+# Añejo Catering Co. — robots.txt
+User-agent: *
+Allow: /
+
+# Application / private surfaces (no SEO value, keep out of the index)
+Disallow: /api/
+Disallow: /intake.html
+Disallow: /plan.html
+Disallow: /portal
+
+Sitemap: https://anejocateringco.com/sitemap.xml

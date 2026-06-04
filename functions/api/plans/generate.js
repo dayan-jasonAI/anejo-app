@@ -1,6 +1,7 @@
 // POST /api/plans/generate
 // Stateless V1 demo endpoint. Takes an intake JSON, calls Claude Sonnet 4.6,
 // returns a structured plan. No DB writes — saving + checkout ship in V1.1.
+import { limitOr429 } from '../../_lib/ratelimit.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -164,6 +165,10 @@ function json(body, status = 200) {
 }
 
 export const onRequestPost = async ({ request, env }) => {
+  // Cost-abuse guard: cap AI generations per IP (Anthropic calls are expensive + unauthenticated).
+  const limited = await limitOr429(env, request, { name: 'generate', limit: 8, windowSec: 60 });
+  if (limited) return limited;
+
   if (!env.ANTHROPIC_API_KEY) {
     return json({ error: 'Server is not configured (missing ANTHROPIC_API_KEY).' }, 500);
   }

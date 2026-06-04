@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0D0D0D">
+<title>Trainer Dashboard — Añejo</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600&display=swap" rel="stylesheet">
+<style>
+:root{--black:#0D0D0D;--green:#1A3D2E;--gold:#C6A85B;--gold-dark:#8B6B3E;--cream:#F5F2EC;--cream-dark:#EAE5D8;--ink:#1A1A1A;--muted:#6b6b6b;--line:rgba(26,61,46,.15)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Josefin Sans',-apple-system,sans-serif;background:var(--cream);color:var(--ink);line-height:1.6}
+a{color:var(--gold-dark)}
+nav{background:var(--black);border-bottom:1px solid rgba(198,168,91,.2)}
+.nav-inner{max-width:1080px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;color:var(--gold);text-decoration:none;font-family:'Cormorant Garamond',serif;font-weight:600;letter-spacing:5px;font-size:20px}
+.logo img{height:32px}
+.nav-r{display:flex;align-items:center;gap:18px}
+.nav-r .role{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(245,242,236,.6)}
+.nav-r button{background:none;border:1px solid rgba(198,168,91,.4);color:var(--gold);border-radius:4px;padding:6px 12px;font:600 11px/1 'Josefin Sans';letter-spacing:1px;text-transform:uppercase;cursor:pointer}
+.nav-r button:hover{background:rgba(198,168,91,.12)}
+.wrap{max-width:1080px;margin:0 auto;padding:32px 24px 72px}
+.muted{color:var(--muted)}
+h1{font-weight:300;font-size:30px;margin-bottom:4px}
+h1 strong{color:var(--green);font-weight:600}
+.sub{color:var(--muted);font-size:14px;margin-bottom:26px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+.card .k{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-dark);font-weight:600}
+.card .v{font-size:30px;font-weight:300;color:var(--green);margin-top:6px}
+.card.gold{border-top:3px solid var(--gold)}
+.ref{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:14px 0 28px;font-size:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ref code{background:var(--cream-dark);padding:4px 10px;border-radius:6px;font-weight:600;color:var(--green);letter-spacing:1px}
+.sec{margin-top:34px}
+.sec-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap}
+.sec-h h2{font-size:18px;color:var(--green);font-weight:600}
+.btn{display:inline-block;background:var(--gold);color:var(--black);text-decoration:none;border:none;cursor:pointer;border-radius:4px;padding:9px 16px;font:700 12px/1 'Josefin Sans';letter-spacing:1.5px;text-transform:uppercase}
+.btn:hover{background:var(--cream-dark)}
+.btn.sm{padding:6px 11px;font-size:11px}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--green)}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{text-align:left;padding:12px 16px;font-size:14px;border-bottom:1px solid var(--line)}
+th{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--gold-dark);background:var(--cream-dark)}
+tr:last-child td{border-bottom:none}
+.badge{font-size:10px;letter-spacing:.5px;text-transform:uppercase;font-weight:600;padding:3px 8px;border-radius:20px;background:var(--cream-dark);color:var(--muted)}
+.badge.active,.badge.subscribed,.badge.plan_ready{background:#e7f0ea;color:var(--green)}
+.badge.pending,.badge.draft{background:#fbf3da;color:var(--gold-dark)}
+.empty{background:#fff;border:1px dashed var(--line);border-radius:12px;padding:30px;text-align:center;color:var(--muted);font-size:14px}
+.gate{max-width:420px;margin:60px auto;background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:14px;padding:34px 30px;text-align:center}
+.gate h2{color:var(--green);font-weight:600;margin-bottom:8px}
+.gate p{color:var(--muted);font-size:14px;margin-bottom:18px}
+.gate input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--cream);margin-bottom:12px}
+.gate .btn{width:100%}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--green);color:var(--cream);padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media(max-width:640px){th:nth-child(3),td:nth-child(3){display:none}}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="/" class="logo"><img src="/assets/img/emblem.png" alt="Añejo"><span>AÑEJO</span></a>
+  <div class="nav-r"><span class="role">Trainer Portal</span><button id="signout" style="display:none" onclick="signOut()">Sign out</button></div>
+</div></nav>
+
+<div class="wrap" id="app"><p class="muted">Loading…</p></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id)=>document.getElementById(id);
+const money = (c)=>'$'+((c||0)/100).toFixed(2);
+const esc = (s)=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1800);}
+
+async function signOut(){ try{ await fetch('/api/auth/logout',{method:'POST'});}catch(_){} location.reload(); }
+window.signOut = signOut;
+
+async function requestLink(e){
+  e.preventDefault();
+  const email = $('gemail').value.trim();
+  if(!email) return;
+  const btn = e.target.querySelector('button'); btn.disabled=true; btn.textContent='Sending…';
+  try{
+    const r = await fetch('/api/auth/request-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,type:'trainer'})});
+    if(!r.ok){ const d=await r.json().catch(()=>({})); throw new Error(d.error||'Could not send link'); }
+    $('app').innerHTML = '<div class="gate"><h2>Check your email</h2><p>We sent a sign-in link to <strong>'+esc(email)+'</strong>. Click it to access your dashboard.</p></div>';
+  }catch(err){ btn.disabled=false; btn.textContent='Send sign-in link'; toast(err.message); }
+  return false;
+}
+window.requestLink = requestLink;
+
+function copySub(clientId, tier){
+  const url = location.origin + '/subscribe?client=' + encodeURIComponent(clientId) + '&plan=' + encodeURIComponent(tier||'plan_10');
+  navigator.clipboard.writeText(url).then(()=>toast('Subscribe link copied'), ()=>toast(url));
+}
+window.copySub = copySub;
+
+function gate(){
+  $('app').innerHTML =
+   '<div class="gate"><h2>Trainer sign-in</h2><p>Enter your email and we\'ll send you a one-time sign-in link.</p>'+
+   '<form onsubmit="return requestLink(event)"><input id="gemail" type="email" placeholder="you@gym.com" required>'+
+   '<button class="btn" type="submit">Send sign-in link</button></form>'+
+   '<p style="margin-top:16px;font-size:13px">New here? The same link creates your account. <a href="/portal">What is this?</a></p></div>';
+}
+
+function render(me, clients, earn){
+  const t = me.trainer||{}; const st = me.stats||{};
+  $('signout').style.display='inline-block';
+  const subscribeNote = clients.length ? 'Use the “Copy subscribe link” on a client to send them their checkout.' : '';
+  const rosterRows = clients.length ? clients.map(c=>{
+    const tier = c.meal_plan_tier || 'plan_10';
+    const plan = c.public_token ? '<a href="/plan.html?token='+encodeURIComponent(c.public_token)+'" target="_blank" rel="noopener">View plan</a>' : '<span class="muted">—</span>';
+    return '<tr><td>'+esc(c.name)+'</td><td><span class="badge '+esc(c.status)+'">'+esc(c.status||'—')+'</span></td><td>'+esc(c.primary_goal||'—')+'</td><td>'+esc(c.meal_plan_tier||'—')+'</td><td>'+plan+'</td>'+
+      '<td><button class="btn sm ghost" onclick="copySub(\''+esc(c.id)+'\',\''+esc(tier)+'\')">Copy subscribe link</button></td></tr>';
+  }).join('') : '';
+
+  const ev = (earn.events||[]);
+  const earnRows = ev.length ? ev.map(e=>(
+    '<tr><td>'+new Date(e.occurred_at).toLocaleDateString()+'</td><td>'+money(e.amount_cents)+'</td><td><strong>'+money(e.share_cents)+'</strong></td><td><span class="badge '+esc(e.payout_status)+'">'+esc(e.payout_status)+'</span></td></tr>'
+  )).join('') : '';
+
+  $('app').innerHTML =
+  '<h1>Welcome, <strong>'+esc(t.name||t.email||'Trainer')+'</strong>.</h1>'+
+  '<div class="sub">'+esc(t.gym_name||'')+(t.gym_city?' · '+esc(t.gym_city):'')+'</div>'+
+  '<div class="cards">'+
+    '<div class="card"><div class="k">Clients</div><div class="v">'+(st.clients||0)+'</div></div>'+
+    '<div class="card"><div class="k">Active subscriptions</div><div class="v">'+(st.active_subs||0)+'</div></div>'+
+    '<div class="card gold"><div class="k">Total earned (10%)</div><div class="v">'+money(st.share_cents_total)+'</div></div>'+
+  '</div>'+
+  (t.affiliate_code ? '<div class="ref"><span class="muted">Your affiliate code</span> <code>'+esc(t.affiliate_code)+'</code> <span class="muted" style="font-size:13px">'+subscribeNote+'</span></div>' : '')+
+  '<div class="sec"><div class="sec-h"><h2>Your clients</h2><a class="btn" href="/intake.html">+ Add member</a></div>'+
+    (clients.length ? '<table><thead><tr><th>Name</th><th>Status</th><th>Goal</th><th>Plan</th><th></th><th></th></tr></thead><tbody>'+rosterRows+'</tbody></table>'
+                    : '<div class="empty">No clients yet. <a href="/intake.html">Add your first member</a> — we\'ll generate their plan.</div>')+
+  '</div>'+
+  '<div class="sec"><div class="sec-h"><h2>Earnings</h2><span class="muted" style="font-size:13px">Pending '+money(earn.totals&&earn.totals.pending)+' · Paid '+money(earn.totals&&earn.totals.paid)+'</span></div>'+
+    (ev.length ? '<table><thead><tr><th>Date</th><th>Gross</th><th>Your 10%</th><th>Payout</th></tr></thead><tbody>'+earnRows+'</tbody></table>'
+               : '<div class="empty">No earnings yet. When a client subscribes, your 10% recurring share shows up here.</div>')+
+  '</div>';
+}
+
+async function init(){
+  let me;
+  try{ me = await (await fetch('/api/me')).json(); }
+  catch{ $('app').innerHTML='<div class="empty">Could not reach the server.</div>'; return; }
+  if(!me.authenticated){ gate(); return; }
+  const [clients, earn] = await Promise.all([
+    fetch('/api/clients').then(r=>r.ok?r.json():{clients:[]}).catch(()=>({clients:[]})),
+    fetch('/api/subscriptions').then(r=>r.ok?r.json():{events:[],totals:{}}).catch(()=>({events:[],totals:{}})),
+  ]);
+  render(me, clients.clients||[], earn||{});
+}
+init();
+</script>
+</body>
+</html>

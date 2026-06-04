@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
+<meta name="theme-color" content="#0D0D0D">
+<title>Order Confirmed — Añejo Catering Co.</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+:root{--black:#0D0D0D;--green:#1A3D2E;--gold:#C6A85B;--gold-dark:#8B6B3E;--cream:#F5F2EC;--ink:#1A1A1A;--muted:#6b6b6b}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Josefin Sans',-apple-system,sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;display:flex;flex-direction:column}
+nav{background:var(--black);border-bottom:1px solid rgba(198,168,91,.2)}
+.nav-inner{max-width:1100px;margin:0 auto;padding:14px 24px}
+.logo{display:flex;align-items:center;gap:11px;color:var(--gold);text-decoration:none;font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;letter-spacing:6px;font-size:22px}
+.logo-emblem{height:36px;width:auto}
+main{flex:1;display:flex;align-items:center;justify-content:center;padding:48px 24px}
+.card{max-width:560px;text-align:center;background:#fff;border-top:4px solid var(--gold);border:1px solid rgba(26,61,46,.15);border-radius:12px;padding:48px 40px}
+.check{width:72px;height:72px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 24px}
+.check svg{width:38px;height:38px;stroke:var(--gold);stroke-width:3;fill:none}
+.eyebrow{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--gold-dark);font-weight:600;margin-bottom:10px}
+h1{font-size:32px;font-weight:300;color:var(--green);margin-bottom:14px}
+h1 strong{font-weight:600;color:var(--gold-dark)}
+p{color:var(--muted);font-size:15px;line-height:1.65;margin-bottom:14px}
+.ref{display:inline-block;font-size:12px;letter-spacing:1px;color:var(--green);background:var(--cream);border:1px solid rgba(26,61,46,.15);border-radius:6px;padding:6px 12px;margin:6px 0 18px;font-variant-numeric:tabular-nums}
+.testmode{font-size:12px;color:#5b4a26;background:#FBF3DA;border-radius:6px;padding:10px 14px;margin-top:18px}
+.btn{display:inline-block;margin-top:8px;padding:13px 28px;border-radius:4px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:700;text-decoration:none;background:var(--gold);color:var(--black)}
+.btn:hover{background:var(--green);color:var(--cream)}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner"><a href="/" class="logo"><img class="logo-emblem" src="/assets/img/emblem.png" alt="Añejo emblem"><span>AÑEJO</span></a></div></nav>
+<main>
+  <div class="card">
+    <div class="check"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>
+    <div class="eyebrow">Thank you</div>
+    <h1>Order <strong>received</strong>.</h1>
+    <p>We've got it. You'll receive a confirmation by email, and we'll have your order ready for your selected pickup or delivery time.</p>
+    <div class="ref" id="ref" style="display:none"></div>
+    <a href="/" class="btn">Back to home</a>
+    <div class="testmode" id="testmode" style="display:none">This was a <strong>test-mode</strong> order — no real charge was made and no food will be prepared.</div>
+  </div>
+</main>
+<script>
+  // Square appends order/transaction params to the redirect; surface a reference if present.
+  var qs = new URLSearchParams(location.search);
+  var ref = qs.get('orderId') || qs.get('order_id') || qs.get('transactionId') || qs.get('checkoutId');
+  if (ref){ var el=document.getElementById('ref'); el.textContent='Reference: '+ref; el.style.display='inline-block'; }
+  // Pre-launch: surface the test-mode note (remove the gate at go-live).
+  document.getElementById('testmode').style.display='block';
+</script>
+</body>
+</html>

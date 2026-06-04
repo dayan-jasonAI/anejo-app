@@ -1,0 +1,2 @@
+# Canonical host: send www → apex (301). Pages serves the same build on all custom domains.
+https://www.anejocateringco.com/* https://anejocateringco.com/:splat 301!

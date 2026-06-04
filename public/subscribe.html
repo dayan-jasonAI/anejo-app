@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
+<meta name="theme-color" content="#0D0D0D">
+<title>Subscribe — Añejo Catering Co.</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+:root{--black:#0D0D0D;--green:#1A3D2E;--gold:#C6A85B;--gold-dark:#8B6B3E;--cream:#F5F2EC;--cream-dark:#EAE5D8;--ink:#1A1A1A;--muted:#6b6b6b;--line:rgba(26,61,46,.15)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Josefin Sans',-apple-system,sans-serif;background:var(--cream);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+.serif-i{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic}
+nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filter:blur(10px);border-bottom:1px solid rgba(198,168,91,.2)}
+.nav-inner{max-width:760px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:11px;color:var(--gold);text-decoration:none;font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;letter-spacing:6px;font-size:22px}
+.logo-emblem{height:36px}
+.nav-back{color:var(--cream);text-decoration:none;font-size:12px;letter-spacing:1.5px;text-transform:uppercase}
+.nav-back:hover{color:var(--gold)}
+.hero{background:var(--black);color:var(--cream);padding:48px 24px 36px;text-align:center}
+.hero .eyebrow{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:12px}
+.hero h1{font-size:clamp(28px,5vw,40px);font-weight:300}
+.hero h1 strong{color:var(--gold);font-weight:600}
+.wrap{max-width:520px;margin:0 auto;padding:32px 24px 72px}
+.testmode{background:#FBF3DA;border:1px solid var(--gold);border-left:4px solid var(--gold-dark);border-radius:0 6px 6px 0;padding:12px 16px;font-size:13px;color:#5b4a26;line-height:1.5;margin-bottom:24px}
+.plan-card{background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:12px;padding:28px}
+.plan-pick{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap}
+.plan-opt{flex:1;min-width:130px;border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;text-align:center;transition:all .15s}
+.plan-opt:hover{border-color:var(--gold)}
+.plan-opt.sel{border-color:var(--gold);background:#fff8e9;box-shadow:0 0 0 1px var(--gold)}
+.plan-opt .pname{font-weight:600;color:var(--green);font-size:15px}
+.plan-opt .pprice{color:var(--gold-dark);font-weight:700;margin-top:4px}
+.plan-opt .pper{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.who{font-size:13px;color:var(--muted);margin-bottom:18px}
+.who strong{color:var(--green)}
+label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--green);font-weight:600;margin:0 0 6px}
+#card-container{border:1px solid var(--line);border-radius:8px;padding:4px 10px;background:var(--cream);min-height:52px}
+.summary{display:flex;justify-content:space-between;font-weight:700;color:var(--green);font-size:16px;margin:20px 0 4px;padding-top:14px;border-top:2px solid var(--line)}
+.fine{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+.btn{display:block;width:100%;text-align:center;margin-top:18px;padding:15px 20px;border-radius:4px;font-family:inherit;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:700;border:none;cursor:pointer;background:var(--gold);color:var(--black)}
+.btn:hover{background:var(--cream-dark)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{margin-top:14px;font-size:14px;min-height:1px}
+.msg.err{color:#9b2226}
+.ok-card{text-align:center;background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:12px;padding:40px 32px}
+.ok-card .check{width:64px;height:64px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
+.ok-card .check svg{width:32px;height:32px;stroke:var(--gold);stroke-width:3;fill:none}
+.ok-card h2{color:var(--green);font-weight:600;margin-bottom:10px}
+.ok-card p{color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner"><a href="/" class="logo"><img class="logo-emblem" src="/assets/img/emblem.png" alt="Añejo emblem"><span>AÑEJO</span></a><a href="/" class="nav-back">← Back</a></div></nav>
+
+<header class="hero">
+  <div class="eyebrow">Weekly Meal-Plan Subscription</div>
+  <h1>Subscribe to your <strong>Añejo plan</strong>.</h1>
+</header>
+
+<div class="wrap" id="wrap">
+  <div class="testmode" id="testmode"><strong>Test mode.</strong> Square <strong>sandbox</strong> — no real charge. Use card <strong>4111 1111 1111 1111</strong>, exp any future date, CVV any 3 digits, ZIP any.</div>
+
+  <div class="plan-card" id="form">
+    <div class="who" id="who"></div>
+
+    <label class="fld">Choose your weekly plan</label>
+    <div class="plan-pick" id="planPick"></div>
+
+    <label class="fld" for="card-container">Card</label>
+    <div id="card-container"></div>
+
+    <div class="summary"><span>Billed weekly</span><span id="sumPrice">—</span></div>
+    <p class="fine">Recurring weekly until you cancel. Cancel anytime — see our <a href="/legal/refund">Refund &amp; Cancellation policy</a>. Delivery only · Palm Beach County · Mon–Sat.</p>
+
+    <button class="btn" id="subBtn" disabled>Start subscription</button>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+<script>
+const TIERS = {
+  plan_5:  { label:'5 bowls / week',  price:99 },
+  plan_10: { label:'10 bowls / week', price:189 },
+  plan_12: { label:'12 bowls / week', price:219 },
+};
+const qs = new URLSearchParams(location.search);
+const clientId = qs.get('client') || '';
+let planTier = TIERS[qs.get('plan')] ? qs.get('plan') : 'plan_10';
+let card = null;
+
+function renderPlans(){
+  document.getElementById('planPick').innerHTML = Object.entries(TIERS).map(([k,t])=>
+    `<div class="plan-opt${k===planTier?' sel':''}" data-k="${k}" onclick="pickPlan('${k}')">
+       <div class="pname">${t.label.split(' / ')[0]}</div><div class="pprice">$${t.price}</div><div class="pper">per week</div></div>`).join('');
+  document.getElementById('sumPrice').textContent = '$'+TIERS[planTier].price+'.00 / wk';
+}
+function pickPlan(k){ planTier=k; renderPlans(); }
+window.pickPlan = pickPlan;
+
+document.getElementById('who').innerHTML = clientId
+  ? 'Subscribing as <strong>your trainer\'s member</strong>. Your plan is delivered weekly.'
+  : '<strong>Heads up:</strong> open this from the link your trainer sent so your subscription is credited to them.';
+
+renderPlans();
+
+async function init(){
+  const msg = document.getElementById('msg');
+  let cfg;
+  try { cfg = await (await fetch('/api/square-config')).json(); }
+  catch { msg.className='msg err'; msg.textContent='Could not load payment config.'; return; }
+  if (!cfg.applicationId || !cfg.locationId){ msg.className='msg err'; msg.textContent='Payments are not configured yet.'; return; }
+
+  const sdk = cfg.env === 'production' ? 'https://web.squarecdn.com/v1/square.js' : 'https://sandbox.web.squarecdn.com/v1/square.js';
+  await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=sdk; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+
+  if (cfg.env === 'production') document.getElementById('testmode').style.display='none';
+
+  try {
+    const payments = window.Square.payments(cfg.applicationId, cfg.locationId);
+    card = await payments.card();
+    await card.attach('#card-container');
+    document.getElementById('subBtn').disabled = false;
+  } catch (e) {
+    msg.className='msg err'; msg.textContent='Could not load the card field: '+(e.message||e);
+  }
+}
+
+document.getElementById('subBtn').addEventListener('click', async ()=>{
+  const btn=document.getElementById('subBtn'), msg=document.getElementById('msg');
+  msg.className='msg'; msg.textContent='';
+  if (!clientId){ msg.className='msg err'; msg.textContent='Missing trainer link — please use the subscribe link your trainer sent.'; return; }
+  if (!card){ return; }
+  btn.disabled=true; const lbl=btn.textContent; btn.textContent='Processing…';
+  try {
+    const tok = await card.tokenize();
+    if (tok.status !== 'OK') throw new Error('Please check your card details.');
+    const r = await fetch('/api/subscriptions/create',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ clientId, planTier, sourceId: tok.token })});
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error(data.error || 'Subscription could not be started.');
+    document.getElementById('wrap').innerHTML =
+      '<div class="ok-card"><div class="check"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>'+
+      '<h2>You\'re subscribed!</h2><p>Your '+TIERS[planTier].label+' plan ($'+TIERS[planTier].price+'/wk) is active. '+
+      'You\'ll get a confirmation by email and your first delivery on your next scheduled day.</p></div>';
+  } catch (e) {
+    msg.className='msg err'; msg.textContent=e.message||'Something went wrong.'; btn.disabled=false; btn.textContent=lbl;
+  }
+});
+
+init();
+</script>
+</body>
+</html>

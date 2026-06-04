@@ -2,8 +2,13 @@
 // Issues a 30-min magic-link token and emails it. Does not reveal whether the account exists.
 import { json, bad, isEmail, randToken, now, appBaseUrl } from '../../_lib/util.js';
 import { sendEmail, magicLinkEmail } from '../../_lib/email.js';
+import { limitOr429 } from '../../_lib/ratelimit.js';
 
 export const onRequestPost = async ({ request, env }) => {
+  // Cost/abuse guard: cap sign-in emails per IP (each one sends via Resend).
+  const limited = await limitOr429(env, request, { name: 'request-link', limit: 5, windowSec: 60 });
+  if (limited) return limited;
+
   if (!env.DB) return bad('Server not configured (DB binding missing).', 500);
 
   let body;

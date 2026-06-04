@@ -2,8 +2,13 @@
 // emails Dayan a notification. Returns {ok:true} so the form can confirm inline.
 import { json, bad, id, now, isEmail } from '../_lib/util.js';
 import { sendEmail, emailShell } from '../_lib/email.js';
+import { limitOr429 } from '../_lib/ratelimit.js';
 
 export const onRequestPost = async ({ request, env }) => {
+  // Spam guard: cap form submissions per IP.
+  const limited = await limitOr429(env, request, { name: 'leads', limit: 6, windowSec: 60 });
+  if (limited) return limited;
+
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
 

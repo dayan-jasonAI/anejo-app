@@ -8,12 +8,43 @@
 <meta name="description" content="Premium Cuban-American longevity bowls, catering, and wholesale bites in Palm Beach County. Mediterranean nutrition with Cuban soul. Inspired by family. Built for legacy.">
 <meta name="author" content="Añejo Catering Co. LLC">
 
+<link rel="canonical" href="https://anejocateringco.com/">
+
 <!-- Open Graph -->
-<meta property="og:title" content="Añejo Catering Co.">
+<meta property="og:title" content="Añejo Catering Co. — Clean Fuel. Bold Flavor. Built for Life.">
 <meta property="og:description" content="Premium Cuban-American longevity bowls. Clean Fuel. Bold Flavor. Built for Life.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://anejocateringco.com">
 <meta property="og:site_name" content="Añejo Catering Co.">
+<meta property="og:image" content="https://anejocateringco.com/assets/img/logo_full.png">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="es_ES">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Añejo Catering Co.">
+<meta name="twitter:description" content="Premium Cuban-American longevity bowls. Clean Fuel. Bold Flavor. Built for Life.">
+<meta name="twitter:image" content="https://anejocateringco.com/assets/img/logo_full.png">
+
+<!-- Structured data: LocalBusiness / Restaurant -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Restaurant",
+  "name": "Añejo Catering Co.",
+  "description": "Premium Cuban-American longevity bowls, catering, and wholesale bites in Palm Beach County. Mediterranean nutrition with Cuban soul.",
+  "url": "https://anejocateringco.com",
+  "telephone": "+1-561-567-1047",
+  "email": "dayan@anejocateringco.com",
+  "image": "https://anejocateringco.com/assets/img/logo_full.png",
+  "logo": "https://anejocateringco.com/assets/img/logo_full.png",
+  "servesCuisine": ["Cuban", "Cuban-American", "Mediterranean", "Healthy"],
+  "priceRange": "$$",
+  "areaServed": { "@type": "AdministrativeArea", "name": "Palm Beach County, Florida" },
+  "address": { "@type": "PostalAddress", "addressRegion": "FL", "addressLocality": "Palm Beach County", "addressCountry": "US" },
+  "sameAs": ["https://instagram.com/anejo.catering.co"]
+}
+</script>
 
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link rel="apple-touch-icon" href="/assets/img/emblem.png">
@@ -239,8 +270,12 @@ section { padding: 80px 24px; }
 }
 .bowl-desc {
   font-size: 14px; color: var(--muted);
-  line-height: 1.5; margin-bottom: 14px;
+  line-height: 1.5; margin-bottom: 10px;
   flex: 1;
+}
+.bowl-nutri {
+  font-size: 12px; color: var(--gold-dark); font-weight: 600;
+  letter-spacing: 0.3px; margin-bottom: 12px;
 }
 .bowl-tags {
   display: flex; flex-wrap: wrap; gap: 6px;
@@ -459,6 +494,8 @@ footer {
   font-size: 11px; color: rgba(245, 242, 236, 0.5);
   letter-spacing: 1px;
 }
+.footer-legal a { color: rgba(245, 242, 236, 0.7); text-decoration: none; }
+.footer-legal a:hover { color: var(--gold); }
 
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 820px) {
@@ -489,6 +526,44 @@ footer {
 .sauce-card .s-desc{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5}
 .sauce-card .s-ph{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#163414,#0b1f0a);color:var(--gold);font-family:'Cormorant Garamond',Georgia,serif;font-size:18px;letter-spacing:2px;text-transform:uppercase}
 .bites-sauce-line{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.6}
+
+/* ---------- AÑEJO FIT (drinks) ---------- */
+.fit{background:var(--black);color:var(--cream)}
+.fit .section-head h2{color:var(--cream)}
+.fit .section-head h2 strong{color:var(--gold)}
+.fit .section-head .eyebrow{color:var(--gold)}
+.fit .section-head .lede{color:rgba(245,242,236,.7)}
+.fit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
+.fit-card{background:rgba(255,255,255,.03);border:1px solid rgba(198,168,91,.25);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.fit-bottle{aspect-ratio:16/10;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px;background:linear-gradient(160deg,var(--g1),var(--g2))}
+.fit-card.gold{--g1:#5a4a16;--g2:#2a2208}
+.fit-card.hibiscus{--g1:#5a1630;--g2:#2a0814}
+.fit-card.emerald{--g1:#14401f;--g2:#08200e}
+.fit-bottle .fit-sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);opacity:.85;margin-bottom:8px}
+.fit-bottle .fit-name{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:30px;letter-spacing:2px;color:var(--cream);line-height:1.1}
+.fit-bottle .fit-ingredients{font-size:11px;letter-spacing:1px;color:rgba(245,242,236,.7);margin-top:10px;max-width:230px}
+.fit-body{padding:22px 24px;flex:1;display:flex;flex-direction:column}
+.fit-tagline{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:18px;color:var(--gold);margin-bottom:14px}
+.fit-benefits{list-style:none;padding:0;margin:0 0 16px}
+.fit-benefits li{font-size:13px;color:rgba(245,242,236,.85);padding:4px 0 4px 18px;position:relative}
+.fit-benefits li::before{content:'·';position:absolute;left:4px;color:var(--gold);font-weight:700}
+.fit-meta{margin-top:auto;font-size:12px;color:rgba(245,242,236,.6);line-height:1.6;border-top:1px solid rgba(198,168,91,.2);padding-top:12px}
+.fit-meta strong{color:var(--gold)}
+.fit-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.fit-tags .tag{background:rgba(198,168,91,.15);color:var(--gold)}
+.fit-disclaimer{max-width:820px;margin:36px auto 0;font-size:11px;line-height:1.6;color:rgba(245,242,236,.45);text-align:center;font-style:italic}
+.fit-note{max-width:820px;margin:18px auto 0;font-size:12px;color:rgba(245,242,236,.6);text-align:center}
+
+/* ---------- FAQ ---------- */
+.faq-list{max-width:820px;margin:0 auto}
+.faq-item{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.faq-item summary{cursor:pointer;padding:18px 22px;font-weight:600;color:var(--green);font-size:16px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary::after{content:'+';color:var(--gold-dark);font-size:24px;font-weight:300;line-height:1}
+.faq-item[open] summary::after{content:'–'}
+.faq-item summary:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.faq-a{padding:0 22px 20px;color:var(--muted);font-size:14px;line-height:1.65}
+.faq-a a{color:var(--gold-dark)}
 </style>
 <script>if(location.hostname.indexOf("portal.")===0 && location.pathname==="/"){location.replace("/portal");}</script>
 </head>
@@ -504,10 +579,11 @@ footer {
     <div class="nav-links" id="navLinks">
       <a href="#story">Story</a>
       <a href="#menu">Menu</a>
+      <a href="#fit">Añejo Fit</a>
       <a href="#services">Services</a>
       <a href="#wholesale">Wholesale</a>
       <a href="/calculator">Macros</a>
-      <a href="#tasting" class="nav-cta">Reserve a Tasting</a>
+      <a href="/order" class="nav-cta">Order</a>
     </div>
     <button class="nav-burger" onclick="document.getElementById('navLinks').classList.toggle('open')" aria-label="Menu">☰</button>
   </div>
@@ -521,8 +597,9 @@ footer {
     <h1>Clean Fuel. <strong>Bold Flavor.</strong><br>Built for Life.</h1>
     <p class="hero-tagline">Premium longevity bowls, signature bites, and catering — Mediterranean nutrition with Cuban soul. <span class="serif-i">Inspired by family. Built for legacy.</span></p>
     <div class="hero-buttons">
-      <a href="#tasting" class="btn btn-gold">Reserve a Tasting</a>
+      <a href="/order" class="btn btn-gold">Order Now</a>
       <a href="#menu" class="btn btn-outline">View the Menu</a>
+      <a href="#tasting" class="btn btn-outline">Reserve a Tasting</a>
     </div>
     <div class="hero-seal">PBC · HERITAGE CRAFTED · FRESH NEVER FROZEN</div>
   </div>
@@ -566,7 +643,7 @@ footer {
     <div class="section-head">
       <div class="eyebrow">The Menu</div>
       <h2>Seven bowls. <strong>One philosophy.</strong></h2>
-      <p class="lede">16 oz bowl · 2 oz signature sauce on the side · 3-day fridge shelf · microwave + cold friendly · nuts removable · dairy-free swaps available · target macros 40% protein / 30% carbs / 30% fat.</p>
+      <p class="lede">16 oz bowl · 2 oz signature sauce on the side · 3-day fridge shelf · microwave + cold friendly · nuts removable · dairy-free swaps available · target macros 40% protein / 30% carbs / 30% fat. Per-bowl nutrition is approximate.</p>
     </div>
 
     <div class="menu-grid">
@@ -581,6 +658,7 @@ footer {
             <div class="bowl-price">$19.99–21.99</div>
           </div>
           <p class="bowl-desc">Flagship. Tuna sautéed with mango and lime over quinoa, refried chickpeas, fresh greens, pumpkin seeds. The bowl that started it all.</p>
+          <div class="bowl-nutri">~510 kcal · 40g protein · 36g carbs · 22g fat</div>
           <div class="bowl-tags"><span class="tag fit">Flagship</span><span class="tag">Pescatarian</span><span class="tag">High Protein</span></div>
         </div>
       </div>
@@ -595,6 +673,7 @@ footer {
             <div class="bowl-price">$22.99–24.99</div>
           </div>
           <p class="bowl-desc">Grilled steak with Añejo chimichurri, quinoa, grilled carrot + corn, spinach-apple-almond salad. Bold performance on a plate.</p>
+          <div class="bowl-nutri">~580 kcal · 42g protein · 35g carbs · 28g fat</div>
           <div class="bowl-tags"><span class="tag">Mediterranean</span><span class="tag">High Protein</span></div>
         </div>
       </div>
@@ -609,6 +688,7 @@ footer {
             <div class="bowl-price">$18.99–20.99</div>
           </div>
           <p class="bowl-desc">Lighter sibling of FUEGO. Grilled chicken with chimichurri, quinoa, grilled vegetables, spinach-apple-almond salad. Clean and ready.</p>
+          <div class="bowl-nutri">~520 kcal · 45g protein · 38g carbs · 20g fat</div>
           <div class="bowl-tags"><span class="tag">Mediterranean</span><span class="tag">High Protein</span></div>
         </div>
       </div>
@@ -623,6 +703,7 @@ footer {
             <div class="bowl-price">$22.99–24.99</div>
           </div>
           <p class="bowl-desc">Omega-rich salmon over quinoa with greens, roasted vegetables, pickled onions, sesame, microgreens, and Añejo sauce. Heart-smart and recovery-ready.</p>
+          <div class="bowl-nutri">~620 kcal · 40g protein · 30g carbs · 32g fat</div>
           <div class="bowl-tags"><span class="tag">Pescatarian</span><span class="tag fit">Omega-3</span><span class="tag">Anti-Inflammatory</span></div>
         </div>
       </div>
@@ -637,6 +718,7 @@ footer {
             <div class="bowl-price">$22.99–24.99</div>
           </div>
           <p class="bowl-desc">Coconut-lime shrimp over a quinoa-corn-edamame blend with spinach, cherry tomato, cucumber, avocado, sesame, and light Ajo Cítrico. Lean and tropical.</p>
+          <div class="bowl-nutri">~590 kcal · 40g protein · 37g carbs · 27g fat</div>
           <div class="bowl-tags"><span class="tag">Pescatarian</span><span class="tag">Mediterranean</span></div>
         </div>
       </div>
@@ -651,6 +733,7 @@ footer {
             <div class="bowl-price">$20.99–22.99</div>
           </div>
           <p class="bowl-desc">Quinoa-blueberry congrí with tuna sauté, spinach-tomato salad, avocado, queso fresco, pumpkin seeds. Cuban fusion, reinterpreted.</p>
+          <div class="bowl-nutri">~575 kcal · 41g protein · 39g carbs · 25g fat</div>
           <div class="bowl-tags"><span class="tag">Cuban Heritage</span><span class="tag">Pescatarian</span></div>
         </div>
       </div>
@@ -665,6 +748,7 @@ footer {
             <div class="bowl-price">$18.99–20.49</div>
           </div>
           <p class="bowl-desc">Crispy tofu with quinoa, slaw, roasted vegetables, sweet potato, avocado, and sesame, finished with Aguacate Cilantro and a Mango Omega accent. Plant-powered, fiber-rich.</p>
+          <div class="bowl-nutri">~520 kcal · 35g protein · 38g carbs · 26g fat</div>
           <div class="bowl-tags"><span class="tag fit">Plant Forward</span><span class="tag">Vegetarian</span><span class="tag">Dairy-Free</span></div>
         </div>
       </div>
@@ -743,6 +827,81 @@ footer {
   </div>
 </section>
 
+<!-- ========================= AÑEJO FIT (DRINKS) ========================= -->
+<section class="fit" id="fit">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Añejo Fit · Functional Drinks</div>
+      <h2>Cold-pressed. <strong>Built to pair.</strong></h2>
+      <p class="lede">Three functional juices in 12 oz bottles, cold-pressed for nutrient retention and designed to pair with the bowls. Clean Fuel. Bold Flavor. Built for Life.</p>
+    </div>
+
+    <div class="fit-grid">
+
+      <div class="fit-card gold">
+        <div class="fit-bottle">
+          <div class="fit-sub">Añejo Fit.</div>
+          <div class="fit-name">Gold Vitality</div>
+          <div class="fit-ingredients">Pineapple · Ginger · Turmeric · Chia · Coconut Water</div>
+        </div>
+        <div class="fit-body">
+          <div class="fit-tagline">Golden energy. Tropical recovery.</div>
+          <ul class="fit-benefits">
+            <li>Supports a healthy inflammation response*</li>
+            <li>Aids digestion</li>
+            <li>Supports immune function*</li>
+            <li>Post-workout recovery</li>
+          </ul>
+          <div class="fit-tags"><span class="tag">Bright</span><span class="tag">Tropical</span><span class="tag">Smooth heat</span></div>
+          <div class="fit-meta"><strong>Pairs with</strong> FUEGO · FUERZA<br>12 fl oz · ~110 cal · cold-pressed</div>
+        </div>
+      </div>
+
+      <div class="fit-card hibiscus">
+        <div class="fit-bottle">
+          <div class="fit-sub">Añejo Fit.</div>
+          <div class="fit-name">Hibiscus Zen</div>
+          <div class="fit-ingredients">Hibiscus · Lime · Ginger · Mint</div>
+        </div>
+        <div class="fit-body">
+          <div class="fit-tagline">Calm energy. Clean balance.</div>
+          <ul class="fit-benefits">
+            <li>Supports healthy blood pressure*</li>
+            <li>Antioxidant-rich</li>
+            <li>Calming botanicals</li>
+            <li>Hydrating</li>
+          </ul>
+          <div class="fit-tags"><span class="tag">Floral</span><span class="tag">Citrusy</span><span class="tag">Refreshing</span></div>
+          <div class="fit-meta"><strong>Pairs with</strong> VIDA · CONGREEN<br>12 fl oz · ~70 cal · cold-pressed</div>
+        </div>
+      </div>
+
+      <div class="fit-card emerald">
+        <div class="fit-bottle">
+          <div class="fit-sub">Añejo Fit.</div>
+          <div class="fit-name">Emerald Hydrate</div>
+          <div class="fit-ingredients">Cucumber · Mint · Lemon · Honey · Chia</div>
+        </div>
+        <div class="fit-body">
+          <div class="fit-tagline">Hydrate. Refresh. Recharge.</div>
+          <ul class="fit-benefits">
+            <li>Hydrating electrolyte support</li>
+            <li>Supports healthy blood sugar levels*</li>
+            <li>Gut-friendly fiber</li>
+            <li>Plant-based omega-3 from chia</li>
+          </ul>
+          <div class="fit-tags"><span class="tag">Ultra clean</span><span class="tag">Cooling</span><span class="tag">Crisp</span></div>
+          <div class="fit-meta"><strong>Pairs with</strong> COCO · MAR<br>12 fl oz · ~80 cal · cold-pressed</div>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="fit-note">Launching alongside the bowl menu. In the first weeks, drinks ship with bowl orders. Bottle photography coming soon.</p>
+    <p class="fit-disclaimer">*These statements have not been evaluated by the Food and Drug Administration. These products are not intended to diagnose, treat, cure, or prevent any disease. Nutrition values are estimates pending lab verification.</p>
+  </div>
+</section>
+
 <!-- ========================= SERVICES ========================= -->
 <section class="services" id="services">
   <div class="section-inner">
@@ -764,8 +923,8 @@ footer {
         <p>Plated catering for private functions, board dinners, weddings, country club events. Custom menus available with lead time.</p>
       </div>
       <div class="service">
-        <h3>Pickup &amp; Delivery</h3>
-        <p>On-demand individual orders. Premium bowls, signature bites, and the Añejo Fit functional drink line. Palm Beach County local.</p>
+        <h3>Delivery</h3>
+        <p>On-demand delivery across Palm Beach County. Premium bowls, signature bites, and the Añejo Fit drink line — Monday–Saturday, lunch &amp; dinner windows.</p>
       </div>
       <div class="service">
         <h3>Gym &amp; Clinic Programs</h3>
@@ -858,8 +1017,55 @@ footer {
         </ul>
         <p class="bites-sauce-line">Bites signature sauces: Añejo Signature Sauce, Ajo Cítrico Dip, Cilantro Lime Crema, Pineapple Chile Dip, Spicy Añejo Aioli, Spinach Goodness.</p>
         <p style="font-size: 12px; color: var(--muted); margin-top: 16px;">Partner minimum 50% markup at retail. Tiered exclusivity available.</p>
-        <a href="mailto:dayan@anejocateringco.com?subject=Wholesale%20Inquiry%20—%20A%C3%B1ejo%20Bites&amp;body=Hi%20Dayan%2C%0A%0AI%20own%2Foperate%20%5Bvenue%20name%5D%20in%20%5Blocation%5D.%20We%27d%20like%20to%20explore%20the%20A%C3%B1ejo%20Bites%20wholesale%20program.%0A%0AVenue%20type%3A%20%0AEstimated%20weekly%20volume%3A%20%0APreferred%20delivery%20day%3A%20%0A%0AThanks%2C" class="btn btn-gold" style="margin-top: 18px; display: block; text-align: center; width: 100%;">Start a Wholesale Conversation</a>
+        <form class="wholesale-form" onsubmit="return submitWholesale(event)" style="margin-top:18px">
+          <div class="form-group"><label for="w_company">Venue / business</label><input type="text" id="w_company" name="company" required></div>
+          <div class="form-group"><label for="w_name">Your name</label><input type="text" id="w_name" name="name" required></div>
+          <div class="form-group"><label for="w_email">Email</label><input type="email" id="w_email" name="email" required></div>
+          <div class="form-group"><label for="w_phone">Phone</label><input type="tel" id="w_phone" name="phone"></div>
+          <div class="form-group"><label for="w_volume">Estimated weekly volume</label><input type="text" id="w_volume" name="message" placeholder="e.g. 200 croquetas/week"></div>
+          <button type="submit" class="btn btn-gold" style="width:100%">Start a Wholesale Conversation</button>
+        </form>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= FAQ ========================= -->
+<section id="faq" style="background:var(--cream-dark)">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Good to Know</div>
+      <h2>Frequently <strong>asked</strong>.</h2>
+    </div>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>Where do you deliver, and when?</summary>
+        <div class="faq-a">We deliver across Palm Beach County, Monday through Saturday, in two windows — lunch (11:00 AM–1:00 PM) and dinner (5:00 PM–7:00 PM). Choose your window at checkout.</div>
+      </details>
+      <details class="faq-item">
+        <summary>How fresh are the bowls, and how do I store them?</summary>
+        <div class="faq-a">Every bowl is made fresh — never frozen — with about a 3-day refrigerated shelf life. They're microwave- and cold-friendly, with the signature sauce on the side so you control the moment.</div>
+      </details>
+      <details class="faq-item">
+        <summary>Can you accommodate allergies and dietary needs?</summary>
+        <div class="faq-a">Bowls may contain wheat, egg, milk, fish, shellfish, tree nuts, or seeds depending on the recipe, and are prepared in a shared kitchen. Nuts are removable on request and dairy-free substitutions are often available. Please tell us about severe allergies before ordering — see each bowl's label for full disclosure.</div>
+      </details>
+      <details class="faq-item">
+        <summary>How do the weekly meal-plan subscriptions work?</summary>
+        <div class="faq-a">Pick a weekly tier — 5, 10, or 12 bowls — and we deliver on your schedule. Subscriptions renew automatically each week and you can cancel anytime; see our <a href="/legal/refund">Refund &amp; Cancellation policy</a>.</div>
+      </details>
+      <details class="faq-item">
+        <summary>Is the AI macro calculator medical or nutritional advice?</summary>
+        <div class="faq-a">No. The macro calculator and any generated plans are for general fitness and wellness information only — they are estimates, not medical or dietary advice. Consult your healthcare provider before starting any new nutrition program.</div>
+      </details>
+      <details class="faq-item">
+        <summary>How does pricing and tax work?</summary>
+        <div class="faq-a">Bowl and drink prices are shown on the menu; applicable Florida and Palm Beach County sales tax is added at checkout. Payments are processed securely by Square.</div>
+      </details>
+      <details class="faq-item">
+        <summary>I'm a trainer or gym — can I partner with Añejo?</summary>
+        <div class="faq-a">Yes. Our trainer portal lets you generate macro-targeted bowl plans for your members, who subscribe directly — and you earn a 10% recurring share for as long as they eat with us. <a href="/portal">Explore the trainer portal →</a></div>
+      </details>
     </div>
   </div>
 </section>
@@ -898,14 +1104,21 @@ footer {
     </div>
     <div class="footer-col">
       <h5>Explore</h5>
+      <a href="/order">Order</a>
       <a href="#menu">Menu</a>
-      <a href="#services">Services</a>
+      <a href="#fit">Añejo Fit</a>
+      <a href="#faq">FAQ</a>
       <a href="#wholesale">Wholesale</a>
       <a href="#tasting">Tasting Request</a>
     </div>
   </div>
   <div class="footer-base">
     <span>© 2026 Añejo Catering Co. LLC · All rights reserved</span>
+    <span class="footer-legal">
+      <a href="/legal/terms">Terms</a> ·
+      <a href="/legal/privacy">Privacy</a> ·
+      <a href="/legal/refund">Refund &amp; Cancellation</a>
+    </span>
     <span>PBC HERITAGE CRAFTED</span>
   </div>
 </footer>
@@ -945,6 +1158,45 @@ async function submitTasting(e) {
         : 'We’ve received your request and will respond within 1 business day to schedule.') + '</p>';
   } catch (_) {
     // Backend not live yet (or error) — never lose the lead: fall back to email.
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    mailtoFallback();
+  }
+  return false;
+}
+
+async function submitWholesale(e) {
+  e.preventDefault();
+  const f = e.target;
+  const lang = (window.AnejoLang && window.AnejoLang.get() === 'es') ? 'es' : 'en';
+  const get = (n) => (f.elements[n] ? f.elements[n].value.trim() : '');
+  const data = {
+    kind: 'wholesale', lang, interest: 'Añejo Bites wholesale',
+    company: get('company'), name: get('name'), email: get('email'),
+    phone: get('phone'), message: get('message'),
+  };
+  const btn = f.querySelector('button[type=submit]');
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = lang === 'es' ? 'Enviando…' : 'Sending…'; }
+
+  const mailtoFallback = () => {
+    const subject = encodeURIComponent('Wholesale Inquiry — Añejo Bites · ' + (data.company || data.name));
+    const body = encodeURIComponent(
+      'Venue / business: ' + (data.company || '—') + '\nName: ' + data.name + '\nEmail: ' + data.email +
+      '\nPhone: ' + (data.phone || '—') + '\nEstimated weekly volume: ' + (data.message || '—') + '\n');
+    window.location.href = 'mailto:dayan@anejocateringco.com?subject=' + subject + '&body=' + body;
+  };
+
+  try {
+    const r = await fetch('/api/leads', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+    });
+    if (!r.ok) throw new Error('not ok');
+    f.innerHTML = '<h4 style="color:var(--gold-dark)">' + (lang === 'es' ? '¡Gracias!' : 'Thank you!') +
+      '</h4><p style="font-size:13px;color:var(--muted);margin-top:6px">' +
+      (lang === 'es'
+        ? 'Recibimos tu solicitud de mayoreo. Te contactaremos en 1 día hábil.'
+        : 'We received your wholesale inquiry and will reach out within 1 business day.') + '</p>';
+  } catch (_) {
     if (btn) { btn.disabled = false; btn.textContent = label; }
     mailtoFallback();
   }
