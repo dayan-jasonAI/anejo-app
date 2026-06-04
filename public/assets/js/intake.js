@@ -12,7 +12,8 @@ form.addEventListener('submit', async (ev) => {
   err.style.display = 'none';
   btn.disabled = true;
   const label = btn.textContent;
-  btn.innerHTML = '<span class="spinner"></span>Building your plan…';
+  const lang = (window.AnejoLang && window.AnejoLang.get() === 'es') ? 'es' : 'en';
+  btn.innerHTML = '<span class="spinner"></span>' + (lang === 'es' ? 'Creando tu plan…' : 'Building your plan…');
 
   const data = new FormData(form);
   const conditions = Array.from(form.querySelectorAll('input[name=conditions]:checked')).map(el => el.value);
@@ -33,7 +34,8 @@ form.addEventListener('submit', async (ev) => {
     primary_goal: data.get('primary_goal'),
     conditions,
     allergens,
-    preferences: (data.get('preferences') || '').trim()
+    preferences: (data.get('preferences') || '').trim(),
+    lang
   };
 
   try {
@@ -49,7 +51,7 @@ form.addEventListener('submit', async (ev) => {
   } catch (e) {
     btn.disabled = false;
     btn.textContent = label;
-    err.textContent = e.message || 'Something went wrong. Please try again.';
+    err.textContent = e.message || (lang === 'es' ? 'Algo salió mal. Inténtalo de nuevo.' : 'Something went wrong. Please try again.');
     err.style.display = 'block';
   }
 });
