@@ -39,14 +39,23 @@ form.addEventListener('submit', async (ev) => {
   };
 
   try {
-    const resp = await fetch('/api/plans/generate', {
+    // Trainer intake persists (creates the client + saves the plan); public calculator is stateless.
+    const endpoint = audience === 'trainer' ? '/api/clients' : '/api/plans/generate';
+    const resp = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    if (resp.status === 401) {
+      throw new Error(lang === 'es'
+        ? 'Inicia sesión como entrenador para guardar a este miembro.'
+        : 'Please sign in as a trainer (open the dashboard) to save this member.');
+    }
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.error || `Request failed (${resp.status})`);
-    sessionStorage.setItem('anejo:lastPlan', JSON.stringify({ intake: payload, plan: result }));
+    // /api/clients wraps the plan in { client_id, plan_id, public_token, plan }; generate returns it directly.
+    const plan = (audience === 'trainer') ? result.plan : result;
+    sessionStorage.setItem('anejo:lastPlan', JSON.stringify({ intake: payload, plan }));
     window.location.href = '/plan.html';
   } catch (e) {
     btn.disabled = false;
