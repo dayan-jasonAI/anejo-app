@@ -3,4 +3,24 @@ compatibility_date = "2026-05-01"
 pages_build_output_dir = "public"
 
 # Secrets/vars are set in the Cloudflare Pages dashboard (NOT here):
-#   ANTHROPIC_API_KEY   (Secret, encrypted)   <- required for the AI calculator
+#   ANTHROPIC_API_KEY   (Secret, encrypted)   <- AI calculator
+#   RESEND_API_KEY      (Secret, encrypted)   <- transactional email (magic links, receipts)
+#   EMAIL_FROM          (Var)                 <- e.g. "Añejo <noreply@anejocateringco.com>"
+#   APP_BASE_URL        (Var)                 <- e.g. "https://anejocateringco.com"
+#   SQUARE_ACCESS_TOKEN (Secret, encrypted)   <- storefront + subscriptions
+#   SQUARE_LOCATION_ID  (Var)
+#   SQUARE_WEBHOOK_KEY  (Secret, encrypted)   <- verify Square webhooks
+#   SQUARE_ENV          (Var)                 <- "sandbox" | "production" (the go-live flip)
+
+# --- D1 + KV bindings ---
+# Create these once (see PROVISIONING.md), then paste the IDs below OR set the
+# same bindings in the Pages dashboard → Settings → Functions → Bindings.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "anejo"
+database_id = "d5ca11c7-7b44-4560-919d-b6210753d182"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "afbedd5c3613449b931b27ee0353a4b0"

@@ -48,6 +48,11 @@
     "Golden, anti-inflammatory turmeric with citrus and warm spice — color, depth, and a smooth wellness finish.":"Cúrcuma dorada y antiinflamatoria con cítrico y especia cálida — color, profundidad y un acabado suave de bienestar.",
     "A tropical, mango-forward dressing with a smooth, nutrient-rich finish — pairs with tuna, salmon, tofu, and wellness bowls.":"Un aderezo tropical con base de mango y un acabado suave y rico en nutrientes — combina con atún, salmón, tofu y bowls de bienestar.",
     "A creamy avocado-cilantro sauce with a fresh green finish — perfect for plant-forward bowls, tofu, chicken, and roasted vegetables.":"Una salsa cremosa de aguacate y cilantro con un acabado verde y fresco — perfecta para bowls de plantas, tofu, pollo y vegetales asados.",
+    "Citrus vinaigrette with herbs and olive oil — a clean, bright finish for lighter bowls.":"Vinagreta cítrica con hierbas y aceite de oliva — un acabado limpio y brillante para bowls más ligeros.",
+    "Sweet-heat pineapple with chile and citrus — a tropical lift with a gentle kick.":"Piña dulce-picante con chile y cítrico — un realce tropical con un toque de picor.",
+    "Light coconut with lime and fresh herbs — smooth, tropical, and refreshing.":"Coco ligero con limón y hierbas frescas — suave, tropical y refrescante.",
+    "2 oz · on the side":"2 oz · aparte",
+    "Bites signature sauces: Añejo Signature Sauce, Ajo Cítrico Dip, Cilantro Lime Crema, Pineapple Chile Dip, Spicy Añejo Aioli, Spinach Goodness.":"Salsas de autor de Bites: Añejo Signature Sauce, Ajo Cítrico Dip, Cilantro Lime Crema, Pineapple Chile Dip, Spicy Añejo Aioli, Spinach Goodness.",
     "Allergen note: Bowls may contain wheat, egg, milk, fish, shellfish, tree nuts, or seeds depending on the SKU. Nuts removable on request. Dairy-free substitutions available. Full allergen disclosure on every bowl label. Please notify us of severe allergies when ordering.":"Nota de alérgenos: los bowls pueden contener trigo, huevo, leche, pescado, mariscos, frutos secos o semillas según el SKU. Frutos secos removibles a pedido. Sustituciones sin lácteos disponibles. Declaración completa de alérgenos en cada etiqueta. Avísanos de alergias graves al ordenar.",
     // brand architecture
     "Brand Architecture":"Arquitectura de Marca","One Añejo.":"Un solo Añejo.","Three lanes.":"Tres líneas.",

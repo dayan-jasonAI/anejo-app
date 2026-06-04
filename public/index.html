@@ -487,6 +487,8 @@ footer {
 .sauce-card .s-body{padding:14px 15px 16px}
 .sauce-card .s-name{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;letter-spacing:1px;font-size:21px;color:var(--green)}
 .sauce-card .s-desc{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5}
+.sauce-card .s-ph{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#163414,#0b1f0a);color:var(--gold);font-family:'Cormorant Garamond',Georgia,serif;font-size:18px;letter-spacing:2px;text-transform:uppercase}
+.bites-sauce-line{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.6}
 </style>
 <script>if(location.hostname.indexOf("portal.")===0 && location.pathname==="/"){location.replace("/portal");}</script>
 </head>
@@ -696,6 +698,18 @@ footer {
         <img src="/assets/img/sauce_avocado_cilantro.jpg" alt="Avocado Cilantro sauce" loading="lazy">
         <div class="s-body"><div class="s-name">Aguacate Cilantro</div><div class="s-desc">A creamy avocado-cilantro sauce with a fresh green finish — perfect for plant-forward bowls, tofu, chicken, and roasted vegetables.</div></div>
       </div>
+      <div class="sauce-card txt">
+        <div class="s-ph">2 oz · on the side</div>
+        <div class="s-body"><div class="s-name">Añejo Light Dressing</div><div class="s-desc">Citrus vinaigrette with herbs and olive oil — a clean, bright finish for lighter bowls.</div></div>
+      </div>
+      <div class="sauce-card txt">
+        <div class="s-ph">2 oz · on the side</div>
+        <div class="s-body"><div class="s-name">Pineapple Chile</div><div class="s-desc">Sweet-heat pineapple with chile and citrus — a tropical lift with a gentle kick.</div></div>
+      </div>
+      <div class="sauce-card txt">
+        <div class="s-ph">2 oz · on the side</div>
+        <div class="s-body"><div class="s-name">Coconut Dressing</div><div class="s-desc">Light coconut with lime and fresh herbs — smooth, tropical, and refreshing.</div></div>
+      </div>
     </div>
 
     <p class="bowl-allergen" style="margin-top:40px">Allergen note: Bowls may contain wheat, egg, milk, fish, shellfish, tree nuts, or seeds depending on the SKU. Nuts removable on request. Dairy-free substitutions available. Full allergen disclosure on every bowl label. Please notify us of severe allergies when ordering.</p>
@@ -761,27 +775,6 @@ footer {
         <h3>Wholesale (Bites)</h3>
         <p>Áñejo Bites for kava bars, cafés, food halls. Reheat-and-serve format. See the Wholesale section below.</p>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- ========================= DRESSINGS ========================= -->
-<section class="dressings">
-  <div class="section-inner">
-    <div class="section-head">
-      <div class="eyebrow">House-Made · No Shortcuts</div>
-      <h2>Eight <strong>signature dressings</strong>.</h2>
-      <p class="lede" style="color: rgba(245, 242, 236, 0.65);">Every bowl ships with a 2 oz sauce on the side — drizzle, dip, mix, your call.</p>
-    </div>
-    <div class="dressings-grid">
-      <div class="dressing"><h4>Chimichurri</h4><p>Fresh herbs, garlic, olive oil, citrus</p></div>
-      <div class="dressing"><h4>Poblano Apple</h4><p>Roasted poblano, crisp apple, Greek yogurt</p></div>
-      <div class="dressing"><h4>Pineapple Chile</h4><p>Pineapple, chile, citrus</p></div>
-      <div class="dressing"><h4>Añejo Light</h4><p>Citrus vinaigrette with herbs and olive oil</p></div>
-      <div class="dressing"><h4>Añejo Signature</h4><p>Greek yogurt base with citrus and subtle spice</p></div>
-      <div class="dressing"><h4>Passion Heat</h4><p>Passion fruit, jalapeño, lime</p></div>
-      <div class="dressing"><h4>Coco Cream</h4><p>Light coconut, lime, fresh herbs</p></div>
-      <div class="dressing"><h4>Guava Glow</h4><p>Guava, citrus, olive oil, light spice</p></div>
     </div>
   </div>
 </section>
@@ -863,6 +856,7 @@ footer {
           <li>Tres Leches Cup <strong>$3.00 ea</strong></li>
           <li>Signature Sauces (2 oz) <strong>$0.50 ea</strong></li>
         </ul>
+        <p class="bites-sauce-line">Bites signature sauces: Añejo Signature Sauce, Ajo Cítrico Dip, Cilantro Lime Crema, Pineapple Chile Dip, Spicy Añejo Aioli, Spinach Goodness.</p>
         <p style="font-size: 12px; color: var(--muted); margin-top: 16px;">Partner minimum 50% markup at retail. Tiered exclusivity available.</p>
         <a href="mailto:dayan@anejocateringco.com?subject=Wholesale%20Inquiry%20—%20A%C3%B1ejo%20Bites&amp;body=Hi%20Dayan%2C%0A%0AI%20own%2Foperate%20%5Bvenue%20name%5D%20in%20%5Blocation%5D.%20We%27d%20like%20to%20explore%20the%20A%C3%B1ejo%20Bites%20wholesale%20program.%0A%0AVenue%20type%3A%20%0AEstimated%20weekly%20volume%3A%20%0APreferred%20delivery%20day%3A%20%0A%0AThanks%2C" class="btn btn-gold" style="margin-top: 18px; display: block; text-align: center; width: 100%;">Start a Wholesale Conversation</a>
       </div>
@@ -917,26 +911,43 @@ footer {
 </footer>
 
 <script>
-function submitTasting(e) {
+async function submitTasting(e) {
   e.preventDefault();
   const f = e.target;
-  const name = f.name.value.trim();
-  const org = f.org.value.trim();
-  const email = f.email.value.trim();
-  const phone = f.phone.value.trim();
-  const interest = f.interest.value;
-  const notes = f.notes.value.trim();
-  const subject = encodeURIComponent('Tasting Request — ' + name + (org ? ' / ' + org : '') + ' · ' + interest);
-  const body = encodeURIComponent(
-    'New tasting request submitted via anejocateringco.com\n\n' +
-    'Name: ' + name + '\n' +
-    'Organization: ' + (org || '—') + '\n' +
-    'Email: ' + email + '\n' +
-    'Phone: ' + (phone || '—') + '\n' +
-    'Interested in: ' + interest + '\n\n' +
-    'Notes:\n' + (notes || '—') + '\n'
-  );
-  window.location.href = 'mailto:dayan@anejocateringco.com?subject=' + subject + '&body=' + body;
+  const lang = (window.AnejoLang && window.AnejoLang.get() === 'es') ? 'es' : 'en';
+  const get = (n) => (f.elements[n] ? f.elements[n].value.trim() : '');
+  const data = {
+    kind: 'tasting', lang,
+    name: get('name'), company: get('org'), email: get('email'),
+    phone: get('phone'), interest: get('interest'), message: get('notes'),
+  };
+  const btn = f.querySelector('button[type=submit]');
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = lang === 'es' ? 'Enviando…' : 'Sending…'; }
+
+  const mailtoFallback = () => {
+    const subject = encodeURIComponent('Tasting Request — ' + data.name + (data.company ? ' / ' + data.company : '') + ' · ' + data.interest);
+    const body = encodeURIComponent(
+      'Name: ' + data.name + '\nOrganization: ' + (data.company || '—') + '\nEmail: ' + data.email +
+      '\nPhone: ' + (data.phone || '—') + '\nInterested in: ' + data.interest + '\n\nNotes:\n' + (data.message || '—') + '\n'
+    );
+    window.location.href = 'mailto:dayan@anejocateringco.com?subject=' + subject + '&body=' + body;
+  };
+
+  try {
+    const r = await fetch('/api/leads', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+    });
+    if (!r.ok) throw new Error('not ok');
+    f.innerHTML = '<h3>' + (lang === 'es' ? '¡Gracias!' : 'Thank you!') + '</h3><p class="sub">' +
+      (lang === 'es'
+        ? 'Recibimos tu solicitud. Te responderemos en 1 día hábil para agendar.'
+        : 'We’ve received your request and will respond within 1 business day to schedule.') + '</p>';
+  } catch (_) {
+    // Backend not live yet (or error) — never lose the lead: fall back to email.
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    mailtoFallback();
+  }
   return false;
 }
 
