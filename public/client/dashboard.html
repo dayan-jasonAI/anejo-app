@@ -61,7 +61,7 @@ window.requestLink=requestLink;
 function gate(){$('main').innerHTML='<div class="gate"><h2>Member sign-in</h2><p>Enter your email for a one-time sign-in link to view your plan.</p>'+
   '<form onsubmit="return requestLink(event)"><input id="gemail" type="email" placeholder="you@email.com" required><button class="btn" type="submit" style="width:100%">Send sign-in link</button></form></div>';}
 function money(c){return '$'+((c||0)/100).toFixed(2);}
-function render(d){
+function render(d,logs){
   $('signout').style.display='inline-block';
   const c=d.client, p=d.plan, s=d.subscription;
   if(!c){$('main').innerHTML='<div class="empty">No plan is linked to '+esc(d.email)+' yet. Ask your trainer to add you.</div>';return;}
@@ -77,10 +77,48 @@ function render(d){
   if(s){html+='<p>Status: <span class="badge '+esc(s.status)+'">'+esc(s.status)+'</span> · '+money(s.weekly_amount_cents)+'/week</p>';}
   else{html+='<p class="muted" style="margin-bottom:6px">No active subscription.</p>'+(p&&p.meal_plan_tier?'<a class="btn" href="/subscribe?client='+encodeURIComponent(c.id)+'&plan='+encodeURIComponent(p.meal_plan_tier)+'">Subscribe to my plan</a>':'<a class="btn ghost" href="/#menu">See plans</a>');}
   html+='</div>';
+  // Track your week — meal log + weight check-in
+  if(p){html+='<div class="card"><div class="k">Track your week</div>'+
+    '<p style="font-size:14px;margin-bottom:10px">Did you eat your Añejo bowl today?</p>'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">'+
+      '<button class="btn" type="button" onclick="logMeal(true,this)">Ate it ✓</button>'+
+      '<button class="btn ghost" type="button" onclick="logMeal(false,this)">Skipped</button></div>'+
+    '<div class="k">Weight check-in</div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+      '<input id="wlb" type="number" inputmode="decimal" step="0.1" placeholder="lb" aria-label="Weight in pounds" style="width:120px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--cream)">'+
+      '<button class="btn" type="button" onclick="logWeight(this)">Log weight</button></div>'+
+    '<div id="logMsg" style="font-size:13px;color:var(--green);margin-top:10px;min-height:1px" role="status"></div>'+
+    '<div id="recent" style="margin-top:8px"></div></div>';}
   $('main').innerHTML=html;
+  renderRecent(logs||{meals:[],weights:[]});
 }
+function lb(kg){return Math.round(kg/0.4535924*10)/10;}
+function renderRecent(logs){
+  const el=$('recent'); if(!el)return;
+  const w=(logs.weights||[]).slice(0,5), meals=(logs.meals||[]);
+  let h=''; const weekAgo=Date.now()-7*864e5;
+  const eaten=meals.filter(m=>m.consumed&&new Date(m.date).getTime()>=weekAgo).length;
+  if(meals.length)h+='<div class="muted" style="font-size:13px;margin-top:6px">'+eaten+' bowl'+(eaten===1?'':'s')+' logged this week.</div>';
+  if(w.length){h+='<div style="margin-top:12px"><div class="k">Recent weight</div>';
+    h+=w.map(function(x,i){var cur=lb(x.weight_kg),d='';if(i<w.length-1){var diff=Math.round((cur-lb(w[i+1].weight_kg))*10)/10;if(diff)d=' <span style="color:'+(diff<0?'#2e7d32':'#8a6d3b')+'">('+(diff>0?'+':'')+diff+')</span>';}return '<div style="font-size:14px;padding:3px 0">'+esc(x.date)+' — <strong>'+cur+' lb</strong>'+d+'</div>';}).join('');
+    h+='</div>';}
+  el.innerHTML=h;
+}
+async function refreshLogs(){try{renderRecent(await(await fetch('/api/client/log')).json());}catch(_){}}
+async function logMeal(consumed,btn){if(btn)btn.disabled=true;
+  try{const r=await fetch('/api/client/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'meal',consumed:consumed})});if(!r.ok)throw 0;$('logMsg').textContent=consumed?'Logged — nice work.':'Logged.';await refreshLogs();}
+  catch(_){$('logMsg').textContent='Could not save. Try again.';}finally{if(btn)btn.disabled=false;}}
+window.logMeal=logMeal;
+async function logWeight(btn){var v=parseFloat(($('wlb')||{}).value);if(!v){$('logMsg').textContent='Enter a weight in lb.';return;}
+  if(btn)btn.disabled=true;
+  try{const r=await fetch('/api/client/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'weight',weight_lb:v})});const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'err');$('wlb').value='';$('logMsg').textContent='Weight logged.';await refreshLogs();}
+  catch(e){$('logMsg').textContent=e.message||'Could not save.';}finally{if(btn)btn.disabled=false;}}
+window.logWeight=logWeight;
 async function init(){let me;try{me=await(await fetch('/api/client/me')).json();}catch{$('main').innerHTML='<div class="empty">Could not reach the server.</div>';return;}
-  if(!me.authenticated){gate();return;}render(me);}
+  if(!me.authenticated){gate();return;}
+  let logs={meals:[],weights:[]};
+  if(me.client){try{logs=await(await fetch('/api/client/log')).json();}catch(_){}}
+  render(me,logs);}
 init();
 </script>
 </body>
