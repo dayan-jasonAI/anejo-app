@@ -18,7 +18,7 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://anejocateringco.com">
 <meta property="og:site_name" content="Añejo Catering Co.">
-<meta property="og:image" content="https://anejocateringco.com/assets/img/logo_full.png">
+<meta property="og:image" content="https://anejocateringco.com/assets/img/og_default.png">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="es_ES">
 
@@ -26,7 +26,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Añejo Catering Co.">
 <meta name="twitter:description" content="Premium Cuban-American longevity bowls. Clean Fuel. Bold Flavor. Built for Life.">
-<meta name="twitter:image" content="https://anejocateringco.com/assets/img/logo_full.png">
+<meta name="twitter:image" content="https://anejocateringco.com/assets/img/og_default.png">
 
 <!-- Structured data: LocalBusiness / Restaurant -->
 <script type="application/ld+json">
@@ -38,7 +38,7 @@
   "url": "https://anejocateringco.com",
   "telephone": "+1-561-567-1047",
   "email": "dayan@anejocateringco.com",
-  "image": "https://anejocateringco.com/assets/img/logo_full.png",
+  "image": "https://anejocateringco.com/assets/img/og_default.png",
   "logo": "https://anejocateringco.com/assets/img/logo_full.png",
   "servesCuisine": ["Cuban", "Cuban-American", "Mediterranean", "Healthy"],
   "priceRange": "$$",
@@ -541,10 +541,13 @@ footer {
 .fit .section-head .lede{color:rgba(245,242,236,.7)}
 .fit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
 .fit-card{background:rgba(255,255,255,.03);border:1px solid rgba(198,168,91,.25);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
-.fit-bottle{aspect-ratio:16/10;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px;background:linear-gradient(160deg,var(--g1),var(--g2))}
+.fit-bottle{aspect-ratio:16/10;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px;background:linear-gradient(160deg,var(--g1),var(--g2));background-size:cover;background-position:center}
 .fit-card.gold{--g1:#5a4a16;--g2:#2a2208}
 .fit-card.hibiscus{--g1:#5a1630;--g2:#2a0814}
 .fit-card.emerald{--g1:#14401f;--g2:#08200e}
+.fit-card.gold .fit-bottle{background-image:url('/assets/img/fit_gold.png')}
+.fit-card.hibiscus .fit-bottle{background-image:url('/assets/img/fit_hibiscus.png')}
+.fit-card.emerald .fit-bottle{background-image:url('/assets/img/fit_emerald.png')}
 .fit-bottle .fit-sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);opacity:.85;margin-bottom:8px}
 .fit-bottle .fit-name{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:30px;letter-spacing:2px;color:var(--cream);line-height:1.1}
 .fit-bottle .fit-ingredients{font-size:11px;letter-spacing:1px;color:rgba(245,242,236,.7);margin-top:10px;max-width:230px}
@@ -797,16 +800,16 @@ footer {
         <img src="/assets/img/sauce_avocado_cilantro.jpg" alt="Avocado Cilantro sauce" loading="lazy">
         <div class="s-body"><div class="s-name">Aguacate Cilantro</div><div class="s-desc">A creamy avocado-cilantro sauce with a fresh green finish — perfect for plant-forward bowls, tofu, chicken, and roasted vegetables.</div></div>
       </div>
-      <div class="sauce-card txt">
-        <div class="s-ph">2 oz · on the side</div>
+      <div class="sauce-card">
+        <img src="/assets/img/sauce_light_dressing.png" alt="Añejo Light Dressing" loading="lazy">
         <div class="s-body"><div class="s-name">Añejo Light Dressing</div><div class="s-desc">Citrus vinaigrette with herbs and olive oil — a clean, bright finish for lighter bowls.</div></div>
       </div>
-      <div class="sauce-card txt">
-        <div class="s-ph">2 oz · on the side</div>
+      <div class="sauce-card">
+        <img src="/assets/img/sauce_pineapple_chile.png" alt="Pineapple Chile sauce" loading="lazy">
         <div class="s-body"><div class="s-name">Pineapple Chile</div><div class="s-desc">Sweet-heat pineapple with chile and citrus — a tropical lift with a gentle kick.</div></div>
       </div>
-      <div class="sauce-card txt">
-        <div class="s-ph">2 oz · on the side</div>
+      <div class="sauce-card">
+        <img src="/assets/img/sauce_coconut.png" alt="Coconut Dressing sauce" loading="lazy">
         <div class="s-body"><div class="s-name">Coconut Dressing</div><div class="s-desc">Light coconut with lime and fresh herbs — smooth, tropical, and refreshing.</div></div>
       </div>
     </div>
