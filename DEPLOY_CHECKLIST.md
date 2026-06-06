@@ -53,5 +53,15 @@ The 3 plan variation IDs in `functions/_lib/plans.js` are **sandbox**. When flip
 - À-la-carte: add to cart → checkout → Square sandbox hosted page → test card `4111 1111 1111 1111`
 - Subscribe: `/subscribe?client=…&plan=plan_10` → test card → subscription + rev-share row
 
+## 5b. Optional feature vars (Pages → Variables) — sensible defaults if unset
+| Name | Purpose | Default if unset |
+|---|---|---|
+| `KITCHEN_KEY` | unlocks the kitchen order list at `/kitchen` (and `/api/orders`). **Unset = locked** (401). | locked |
+| `DELIVERY_FEE_USD` | flat delivery fee added at checkout | `5` |
+| `ORDER_MIN_USD` | à-la-carte order minimum | `25` |
+| `LEADS_NOTIFY_TO` | inbox that tasting/wholesale leads email to (needs Resend) | none (no-op) |
+
+GA4 analytics: add `<meta name="ga4-id" content="G-XXXXXXXXXX">` in `public/index.html` (and other pages) — analytics then loads **only after** the visitor accepts the cookie banner.
+
 ## 6. 🚩 Go-live flip (separate — only when DBPR license is in hand)
 Set `SQUARE_ENV=production`; swap `SQUARE_ACCESS_TOKEN`, `SQUARE_LOCATION_ID`, `SQUARE_APPLICATION_ID` to production; do steps 3–4 against prod; flip storefront copy from pre-launch to live; remove sandbox test banners.

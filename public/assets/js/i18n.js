@@ -176,6 +176,15 @@
     "Trainers and gyms: share how Añejo plans changed your members' results.":"Entrenadores y gimnasios: cuenten cómo los planes Añejo cambiaron los resultados de sus miembros.",
     "— Partner with us":"— Asóciate con nosotros",
     "Verified customer reviews will appear here as our first orders ship.":"Las reseñas verificadas de clientes aparecerán aquí cuando lleguen nuestros primeros pedidos.",
+    // testimonials
+    "Word of Mouth":"De Boca en Boca","What people are":"Lo que la gente está","saying":"diciendo",
+    "Healthy doesn't have to taste like a cleanse. It can taste like home.":"Lo saludable no tiene que saber a dieta. Puede saber a casa.",
+    "— The Añejo promise":"— La promesa Añejo",
+    "Your review could be here — be one of our first members and tell your story.":"Tu reseña podría estar aquí — sé uno de nuestros primeros miembros y cuenta tu historia.",
+    "— Reserve a tasting":"— Reserva una degustación",
+    "Trainers and gyms: share how Añejo plans changed your members' results.":"Entrenadores y gimnasios: cuenten cómo los planes Añejo cambiaron los resultados de sus miembros.",
+    "— Partner with us":"— Asóciate con nosotros",
+    "Verified customer reviews will appear here as our first orders ship.":"Las reseñas verificadas de clientes aparecerán aquí cuando salgan nuestros primeros pedidos.",
     // closing + footer
     "Built in Palm Beach.":"Hecho en Palm Beach.","Made with intent.":"Hecho con intención.",
     "Whether it's one bowl or a thousand — we cook it the same way.":"Ya sea un bowl o mil — lo cocinamos de la misma forma.",
