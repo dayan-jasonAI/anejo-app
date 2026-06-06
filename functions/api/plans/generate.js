@@ -19,15 +19,17 @@ const ALLOWED_ACTIVITY = new Set([
   'sedentary', 'light', 'moderate', 'active', 'very_active'
 ]);
 
-// Final 7-bowl menu (2026-06-03). Macros per single 16-oz bowl, sauce on the side (midpoint estimates).
+// Final 7-bowl menu. Macros per single 16-oz bowl, sauce on the side — sourced from the
+// kitchen manual (Añejo Fit Bowls — Manual de Cocina v2026.05) so the calculator, menu cards,
+// and kitchen all agree. fiber_g are estimates (not in the manual).
 const BOWLS = [
-  { name: 'VIDA',     description: 'Tuna sautéed with mango + lime over quinoa, refried chickpeas, greens, pumpkin seeds.', kcal: 560, protein_g: 46, carbs_g: 52, fat_g: 18, fiber_g: 12, tags: ['pescatarian','anti-inflammatory','flagship'] },
-  { name: 'FUEGO',    description: 'Grilled steak with Añejo chimichurri, quinoa, grilled veg, spinach-apple-almond salad.',  kcal: 680, protein_g: 48, carbs_g: 48, fat_g: 28, fiber_g:  9, tags: ['high-protein','mediterranean'] },
-  { name: 'LIGERO',   description: 'Grilled chicken with chimichurri, quinoa, grilled veg, spinach-apple-almond salad.',      kcal: 620, protein_g: 50, carbs_g: 50, fat_g: 18, fiber_g:  9, tags: ['high-protein','lean','workhorse'] },
-  { name: 'MAR',      description: 'Omega-rich salmon over quinoa, greens, roasted vegetables, pickled onions, sesame, Añejo sauce.', kcal: 700, protein_g: 42, carbs_g: 45, fat_g: 32, fiber_g: 8, tags: ['pescatarian','omega-3','anti-inflammatory','high-protein'] },
-  { name: 'COCO',     description: 'Coconut-lime shrimp over quinoa-corn-edamame, spinach, tomato, cucumber, avocado, Ajo Cítrico.', kcal: 620, protein_g: 39, carbs_g: 52, fat_g: 25, fiber_g: 9, tags: ['pescatarian','lean','tropical'] },
-  { name: 'CONGREEN', description: 'Quinoa-blueberry congrí with tuna sauté, spinach-tomato, avocado, queso fresco, pumpkin seeds.', kcal: 600, protein_g: 43, carbs_g: 56, fat_g: 20, fiber_g: 11, tags: ['pescatarian','cuban','antioxidant'] },
-  { name: 'RAIZ',     description: 'Crispy tofu, quinoa, slaw, roasted vegetables, sweet potato, avocado, Aguacate Cilantro + Mango Omega.', kcal: 625, protein_g: 28, carbs_g: 57, fat_g: 30, fiber_g: 11, tags: ['vegetarian','plant-forward','dairy-free','high-fiber','anti-inflammatory'] }
+  { name: 'VIDA',     description: 'Tuna sautéed with mango + lime over quinoa, refried chickpeas, greens, pumpkin seeds.', kcal: 510, protein_g: 40, carbs_g: 36, fat_g: 22, fiber_g: 12, tags: ['pescatarian','anti-inflammatory','flagship'] },
+  { name: 'FUEGO',    description: 'Grilled steak with Añejo chimichurri, quinoa, grilled veg, spinach-apple-almond salad.',  kcal: 580, protein_g: 42, carbs_g: 35, fat_g: 28, fiber_g:  9, tags: ['high-protein','mediterranean'] },
+  { name: 'LIGERO',   description: 'Grilled chicken with chimichurri, quinoa, grilled veg, spinach-apple-almond salad.',      kcal: 520, protein_g: 45, carbs_g: 38, fat_g: 20, fiber_g:  9, tags: ['high-protein','lean','workhorse'] },
+  { name: 'MAR',      description: 'Omega-rich salmon over quinoa, greens, roasted vegetables, pickled onions, sesame, Añejo sauce.', kcal: 620, protein_g: 40, carbs_g: 30, fat_g: 32, fiber_g: 8, tags: ['pescatarian','omega-3','anti-inflammatory','high-protein'] },
+  { name: 'COCO',     description: 'Coconut-lime shrimp over quinoa-corn-edamame, spinach, tomato, cucumber, avocado, Ajo Cítrico.', kcal: 590, protein_g: 40, carbs_g: 37, fat_g: 27, fiber_g: 9, tags: ['pescatarian','lean','tropical'] },
+  { name: 'CONGREEN', description: 'Quinoa-blueberry congrí with tuna sauté, spinach-tomato, avocado, queso fresco, pumpkin seeds.', kcal: 575, protein_g: 41, carbs_g: 39, fat_g: 25, fiber_g: 11, tags: ['pescatarian','cuban','antioxidant'] },
+  { name: 'RAIZ',     description: 'Crispy tofu, quinoa, slaw, roasted vegetables, sweet potato, avocado, Aguacate Cilantro + Mango Omega.', kcal: 520, protein_g: 35, carbs_g: 38, fat_g: 26, fiber_g: 11, tags: ['vegetarian','plant-forward','dairy-free','high-fiber','anti-inflammatory'] }
 ];
 
 const TIERS = [

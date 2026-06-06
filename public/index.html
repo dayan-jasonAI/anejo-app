@@ -7,6 +7,8 @@
 <title>Añejo Catering Co. — Clean Fuel. Bold Flavor. Built for Life.</title>
 <meta name="description" content="Premium Cuban-American longevity bowls, catering, and wholesale bites in Palm Beach County. Mediterranean nutrition with Cuban soul. Inspired by family. Built for legacy.">
 <meta name="author" content="Añejo Catering Co. LLC">
+<!-- Analytics: to enable GA4, add your measurement ID here (loads only after cookie consent):
+     <meta name="ga4-id" content="G-XXXXXXXXXX"> -->
 
 <link rel="canonical" href="https://anejocateringco.com/">
 
@@ -568,6 +570,14 @@ footer {
 .faq-item summary:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 .faq-a{padding:0 22px 20px;color:var(--muted);font-size:14px;line-height:1.65}
 .faq-a a{color:var(--gold-dark)}
+
+/* ---------- TESTIMONIALS ---------- */
+.testi{background:#fff}
+.testi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.testi-card{background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:24px}
+.testi-card .quote{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:18px;color:var(--green);line-height:1.5}
+.testi-card .who{margin-top:14px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-dark);font-weight:600}
+.testi-soon{text-align:center;color:var(--muted);font-size:13px;margin-top:26px}
 </style>
 <script>if(location.hostname.indexOf("portal.")===0 && location.pathname==="/"){location.replace("/portal");}</script>
 </head>
@@ -1075,6 +1085,31 @@ footer {
   </div>
 </section>
 
+<!-- ========================= TESTIMONIALS ========================= -->
+<section class="testi" id="testimonials">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Word of Mouth</div>
+      <h2>What people are <strong>saying</strong>.</h2>
+    </div>
+    <div class="testi-grid">
+      <div class="testi-card">
+        <div class="quote">Healthy doesn't have to taste like a cleanse. It can taste like home.</div>
+        <div class="who">— The Añejo promise</div>
+      </div>
+      <div class="testi-card">
+        <div class="quote">Your review could be here — be one of our first members and tell your story.</div>
+        <div class="who">— Reserve a tasting</div>
+      </div>
+      <div class="testi-card">
+        <div class="quote">Trainers and gyms: share how Añejo plans changed your members' results.</div>
+        <div class="who">— Partner with us</div>
+      </div>
+    </div>
+    <p class="testi-soon">Verified customer reviews will appear here as our first orders ship.</p>
+  </div>
+</section>
+
 <!-- ========================= CTA BAND ========================= -->
 <section class="cta-band">
   <div class="section-inner">
@@ -1216,5 +1251,6 @@ document.querySelectorAll('#navLinks a').forEach(a => {
 </script>
 
 <script src="/assets/js/i18n.js"></script>
+<script src="/assets/js/consent.js"></script>
 </body>
 </html>

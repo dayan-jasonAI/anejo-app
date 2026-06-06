@@ -22,6 +22,8 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 .logo-emblem{height:36px;width:auto;display:block}
 .nav-back{color:var(--cream);text-decoration:none;font-size:12px;letter-spacing:1.5px;text-transform:uppercase}
 .nav-back:hover{color:var(--gold)}
+.skip-link{position:absolute;left:-9999px;top:0;z-index:100;background:var(--gold);color:var(--black);padding:10px 16px;border-radius:0 0 4px 0;text-decoration:none;font-weight:600}
+.skip-link:focus{left:0}
 .order-hero{background:var(--black);color:var(--cream);padding:48px 24px 36px;text-align:center}
 .order-hero .eyebrow{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:12px}
 .order-hero h1{font-size:clamp(28px,5vw,42px);font-weight:300}
@@ -61,6 +63,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 </style>
 </head>
 <body>
+<a href="#catalog" class="skip-link">Skip to content</a>
 
 <nav>
   <div class="nav-inner">
@@ -82,21 +85,16 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
     <h3>Your order</h3>
     <div id="cartLines"><div class="cart-empty">Your cart is empty — add a few bowls.</div></div>
     <div class="cart-sub" id="subRow" style="display:none"><span>Subtotal</span><span id="cartSubtotal">$0.00</span></div>
+    <div class="cart-sub" id="feeRow" style="display:none"><span>Delivery fee</span><span id="cartFee">$0.00</span></div>
     <div class="cart-sub" id="taxRow" style="display:none"><span>Est. FL sales tax (7%)</span><span id="cartTax">$0.00</span></div>
     <div class="cart-total" id="cartTotalRow" style="display:none"><span>Estimated total</span><span id="cartGrand">$0.00</span></div>
-    <div class="tax-note" id="taxNote" style="display:none">Final tax is calculated on the secure Square checkout page. Delivery only · Mon–Sat · lunch &amp; dinner windows.</div>
+    <div class="tax-note" id="minNote" style="display:none;color:#9b2226"></div>
+    <div class="tax-note" id="taxNote" style="display:none">Final tax &amp; delivery fee are confirmed on the secure Square checkout page.</div>
 
     <div class="fulfill">
-      <div class="lbl">Delivery window</div>
-      <p class="deliv-note">Delivery only · Palm Beach County · Monday–Saturday</p>
-      <select id="delivDay" aria-label="Delivery day">
-        <option value="Monday">Monday</option>
-        <option value="Tuesday">Tuesday</option>
-        <option value="Wednesday">Wednesday</option>
-        <option value="Thursday">Thursday</option>
-        <option value="Friday">Friday</option>
-        <option value="Saturday">Saturday</option>
-      </select>
+      <div class="lbl">Delivery date &amp; window</div>
+      <p class="deliv-note">Delivery only · Palm Beach County · Mon–Sat. Order by 6 PM the day before.</p>
+      <select id="delivDate" aria-label="Delivery date"></select>
       <select id="delivWindow" aria-label="Delivery time window">
         <option value="lunch">Lunch · 11:00 AM – 1:00 PM</option>
         <option value="dinner">Dinner · 5:00 PM – 7:00 PM</option>
@@ -133,8 +131,22 @@ const CATALOG = [
 const PRICE = {}; CATALOG.forEach(g=>g.items.forEach(i=>PRICE[i.id]=i));
 const cart = {};
 const TAX_PCT = 7;  // display estimate only; checkout.js (server) applies the authoritative tax
+const DELIVERY_FEE = 5, ORDER_MIN = 25;  // display only; server (checkout.js) is authoritative
+const $ = (id)=>document.getElementById(id);
 
 function money(n){ return '$'+n.toFixed(2); }
+
+function buildDates(){
+  const sel=$('delivDate'); const now=Date.now(); const out=[];
+  for(let i=0;i<21 && out.length<12;i++){
+    const dt=new Date(); dt.setHours(0,0,0,0); dt.setDate(dt.getDate()+i);
+    if(dt.getDay()===0) continue;                    // no Sunday delivery
+    if(now >= dt.getTime()-6*3600*1000) continue;    // past the 6 PM day-before cutoff
+    const y=dt.getFullYear(), m=String(dt.getMonth()+1).padStart(2,'0'), d=String(dt.getDate()).padStart(2,'0');
+    out.push({v:y+'-'+m+'-'+d, l:dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})});
+  }
+  sel.innerHTML = out.length ? out.map(o=>'<option value="'+o.v+'">'+o.l+'</option>').join('') : '<option value="">No dates available</option>';
+}
 
 function renderCatalog(){
   const root = document.getElementById('catalog');
@@ -162,26 +174,28 @@ function bump(idv, d){
 
 function renderCart(){
   const ids = Object.keys(cart);
-  const lines = document.getElementById('cartLines');
-  const subRow = document.getElementById('subRow');
-  const taxRow = document.getElementById('taxRow');
-  const totalRow = document.getElementById('cartTotalRow');
-  const taxNote = document.getElementById('taxNote');
-  const btn = document.getElementById('checkoutBtn');
+  const lines=$('cartLines'), subRow=$('subRow'), feeRow=$('feeRow'), taxRow=$('taxRow'),
+        totalRow=$('cartTotalRow'), taxNote=$('taxNote'), minNote=$('minNote'), btn=$('checkoutBtn');
   if (!ids.length){
     lines.innerHTML = '<div class="cart-empty">Your cart is empty — add a few bowls.</div>';
-    subRow.style.display='none'; taxRow.style.display='none'; totalRow.style.display='none'; taxNote.style.display='none'; btn.disabled=true; return;
+    [subRow,feeRow,taxRow,totalRow,taxNote,minNote].forEach(e=>e.style.display='none'); btn.disabled=true; return;
   }
   let total=0;
   lines.innerHTML = ids.map(idv=>{
     const p=PRICE[idv], sub=p.price*cart[idv]; total+=sub;
     return `<div class="cart-line"><span class="ci-name">${p.name} <small>× ${cart[idv]}</small></span><span>${money(sub)}</span></div>`;
   }).join('');
-  const tax = total*TAX_PCT/100, grand = total+tax;
-  document.getElementById('cartSubtotal').textContent = money(total);
-  document.getElementById('cartTax').textContent = money(tax);
-  document.getElementById('cartGrand').textContent = money(grand);
-  subRow.style.display='flex'; taxRow.style.display='flex'; totalRow.style.display='flex'; taxNote.style.display='block'; btn.disabled=false;
+  const belowMin = total < ORDER_MIN;
+  const fee = belowMin ? 0 : DELIVERY_FEE;
+  const tax = total*TAX_PCT/100, grand = total + fee + tax;
+  $('cartSubtotal').textContent = money(total);
+  $('cartFee').textContent = money(fee);
+  $('cartTax').textContent = money(tax);
+  $('cartGrand').textContent = money(grand);
+  subRow.style.display='flex'; taxRow.style.display='flex'; totalRow.style.display='flex'; taxNote.style.display='block';
+  feeRow.style.display = belowMin ? 'none' : 'flex';
+  if (belowMin){ minNote.style.display='block'; minNote.textContent='Order minimum is $'+ORDER_MIN.toFixed(2)+' — add $'+(ORDER_MIN-total).toFixed(2)+' more.'; btn.disabled=true; }
+  else { minNote.style.display='none'; btn.disabled=false; }
 }
 
 async function checkout(){
@@ -189,7 +203,8 @@ async function checkout(){
   err.textContent='';
   const items = Object.keys(cart).map(id=>({id, qty:cart[id]}));
   if(!items.length) return;
-  const delivery = { day: document.getElementById('delivDay').value, window: document.getElementById('delivWindow').value };
+  const delivery = { date: $('delivDate').value, window: $('delivWindow').value };
+  if(!delivery.date){ err.textContent='Please choose a delivery date.'; return; }
   btn.disabled=true; const label=btn.textContent; btn.textContent='Redirecting to secure checkout…';
   try{
     const r = await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items,delivery})});
@@ -201,8 +216,9 @@ async function checkout(){
   }
 }
 
-renderCatalog(); renderCart();
+renderCatalog(); buildDates(); renderCart();
 </script>
 <script src="/assets/js/i18n.js"></script>
+<script src="/assets/js/consent.js"></script>
 </body>
 </html>

@@ -15,6 +15,8 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Josefin Sans',-apple-system,sans-serif;background:var(--cream);color:var(--ink);line-height:1.6}
 a{color:var(--gold-dark)}
+.skip-link{position:absolute;left:-9999px;top:0;z-index:100;background:var(--gold);color:var(--black);padding:10px 16px;border-radius:0 0 4px 0;text-decoration:none;font-weight:600}
+.skip-link:focus{left:0}
 nav{background:var(--black);border-bottom:1px solid rgba(198,168,91,.2)}
 .nav-inner{max-width:1080px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
 .logo{display:flex;align-items:center;gap:10px;color:var(--gold);text-decoration:none;font-family:'Cormorant Garamond',serif;font-weight:600;letter-spacing:5px;font-size:20px}
@@ -50,6 +52,13 @@ tr:last-child td{border-bottom:none}
 .badge.active,.badge.subscribed,.badge.plan_ready{background:#e7f0ea;color:var(--green)}
 .badge.pending,.badge.draft{background:#fbf3da;color:var(--gold-dark)}
 .empty{background:#fff;border:1px dashed var(--line);border-radius:12px;padding:30px;text-align:center;color:var(--muted);font-size:14px}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal .box{background:#fff;border-radius:14px;max-width:420px;width:100%;padding:26px}
+.modal h3{color:var(--green);font-weight:600;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fld2{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--gold-dark);font-weight:600}
+.fld2 input,.fld2 textarea{display:block;width:100%;margin-top:5px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--cream);text-transform:none;letter-spacing:0}
+.modal-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
 .gate{max-width:420px;margin:60px auto;background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:14px;padding:34px 30px;text-align:center}
 .gate h2{color:var(--green);font-weight:600;margin-bottom:8px}
 .gate p{color:var(--muted);font-size:14px;margin-bottom:18px}
@@ -61,6 +70,7 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
+<a href="#app" class="skip-link">Skip to content</a>
 <nav><div class="nav-inner">
   <a href="/" class="logo"><img src="/assets/img/emblem.png" alt="Añejo"><span>AÑEJO</span></a>
   <div class="nav-r"><span class="role">Trainer Portal</span><button id="signout" style="display:none" onclick="signOut()">Sign out</button></div>
@@ -68,6 +78,22 @@ tr:last-child td{border-bottom:none}
 
 <div class="wrap" id="app"><p class="muted">Loading…</p></div>
 <div class="toast" id="toast"></div>
+<div class="modal" id="editModal">
+  <div class="box">
+    <h3>Edit plan</h3>
+    <div class="grid2">
+      <label class="fld2">Calories<input id="e_cal" type="number" inputmode="numeric"></label>
+      <label class="fld2">Protein g<input id="e_pro" type="number" inputmode="numeric"></label>
+      <label class="fld2">Carbs g<input id="e_carb" type="number" inputmode="numeric"></label>
+      <label class="fld2">Fat g<input id="e_fat" type="number" inputmode="numeric"></label>
+    </div>
+    <label class="fld2" style="display:block;margin-top:12px">Trainer note<textarea id="e_notes" rows="3"></textarea></label>
+    <div class="modal-actions">
+      <button class="btn ghost" type="button" onclick="closeEdit()">Cancel</button>
+      <button class="btn" id="e_save" type="button" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const $ = (id)=>document.getElementById(id);
@@ -98,6 +124,40 @@ function copySub(clientId, tier){
 }
 window.copySub = copySub;
 
+async function sendPlan(planId, btn){
+  if(btn){btn.disabled=true;btn.textContent='Sending…';}
+  try{
+    const r = await fetch('/api/plans/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_id:planId})});
+    const d = await r.json(); if(!r.ok||!d.ok) throw new Error(d.error||'Could not send');
+    if(d.emailed){ toast('Plan emailed to client'); }
+    else { if(d.link) navigator.clipboard.writeText(d.link).catch(()=>{}); toast('Marked sent — link copied to share'); }
+    init();
+  }catch(e){ if(btn){btn.disabled=false;btn.textContent='Send';} toast(e.message); }
+}
+window.sendPlan = sendPlan;
+
+let editPlanId = null;
+async function openEdit(token, planId){
+  editPlanId = planId;
+  ['e_cal','e_pro','e_carb','e_fat','e_notes'].forEach(id=>$(id).value='');
+  if(token){ try{ const d = await (await fetch('/api/plan?token='+encodeURIComponent(token))).json();
+    if(d.plan){ $('e_cal').value=d.plan.daily_calories||''; $('e_pro').value=d.plan.daily_protein_g||''; $('e_carb').value=d.plan.daily_carbs_g||''; $('e_fat').value=d.plan.daily_fat_g||''; } }catch(_){} }
+  $('editModal').style.display='flex';
+}
+window.openEdit = openEdit;
+function closeEdit(){ $('editModal').style.display='none'; editPlanId=null; }
+window.closeEdit = closeEdit;
+async function saveEdit(){
+  if(!editPlanId) return; const btn=$('e_save'); btn.disabled=true; btn.textContent='Saving…';
+  try{
+    const body={plan_id:editPlanId,daily_calories:$('e_cal').value,daily_protein_g:$('e_pro').value,daily_carbs_g:$('e_carb').value,daily_fat_g:$('e_fat').value,trainer_notes:$('e_notes').value};
+    const r=await fetch('/api/plans/edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json(); if(!r.ok||!d.ok) throw new Error(d.error||'Could not save');
+    closeEdit(); toast('Plan updated'); init();
+  }catch(e){ btn.disabled=false; btn.textContent='Save'; toast(e.message); }
+}
+window.saveEdit = saveEdit;
+
 function gate(){
   $('app').innerHTML =
    '<div class="gate"><h2>Trainer sign-in</h2><p>Enter your email and we\'ll send you a one-time sign-in link.</p>'+
@@ -113,8 +173,12 @@ function render(me, clients, earn){
   const rosterRows = clients.length ? clients.map(c=>{
     const tier = c.meal_plan_tier || 'plan_10';
     const plan = c.public_token ? '<a href="/plan.html?token='+encodeURIComponent(c.public_token)+'" target="_blank" rel="noopener">View plan</a>' : '<span class="muted">—</span>';
+    const acts = (c.plan_id
+      ? '<button class="btn sm ghost" onclick="sendPlan(\''+esc(c.plan_id)+'\',this)">Send</button> '+
+        '<button class="btn sm ghost" onclick="openEdit(\''+esc(c.public_token||'')+'\',\''+esc(c.plan_id)+'\')">Edit</button> '
+      : '');
     return '<tr><td>'+esc(c.name)+'</td><td><span class="badge '+esc(c.status)+'">'+esc(c.status||'—')+'</span></td><td>'+esc(c.primary_goal||'—')+'</td><td>'+esc(c.meal_plan_tier||'—')+'</td><td>'+plan+'</td>'+
-      '<td><button class="btn sm ghost" onclick="copySub(\''+esc(c.id)+'\',\''+esc(tier)+'\')">Copy subscribe link</button></td></tr>';
+      '<td>'+acts+'<button class="btn sm ghost" onclick="copySub(\''+esc(c.id)+'\',\''+esc(tier)+'\')">Subscribe link</button></td></tr>';
   }).join('') : '';
 
   const ev = (earn.events||[]);

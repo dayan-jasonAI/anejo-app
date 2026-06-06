@@ -37,8 +37,22 @@ function lng(){ return (window.AnejoLang && window.AnejoLang.get()) === 'es' ? '
 const stash = sessionStorage.getItem('anejo:lastPlan');
 const err = document.getElementById('error');
 
-function start(){
+async function start(){
   const L = lng();
+  // Shareable client link: /plan.html?token=<public_token> → fetch the saved plan.
+  const token = new URLSearchParams(location.search).get('token');
+  if (token) {
+    try {
+      const r = await fetch('/api/plan?token=' + encodeURIComponent(token));
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'not found');
+      render(data.intake, data.plan);
+    } catch (e) {
+      document.getElementById('plan-title').textContent = T[L].none;
+      err.textContent = T[L].loadErr + (e.message || e); err.style.display = 'block';
+    }
+    return;
+  }
   if (!stash) {
     document.getElementById('plan-title').textContent = T[L].none;
     document.getElementById('plan-subtitle').innerHTML = '<a class="backlink" href="/calculator">' + T[L].build + '</a>';

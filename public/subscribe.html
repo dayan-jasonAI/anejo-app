@@ -36,6 +36,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 .plan-opt .pprice{color:var(--gold-dark);font-weight:700;margin-top:4px}
 .plan-opt .pper{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
 .who{font-size:13px;color:var(--muted);margin-bottom:18px}
+.b-input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--cream);font:inherit;margin-bottom:12px}
 .who strong{color:var(--green)}
 label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--green);font-weight:600;margin:0 0 6px}
 #card-container{border:1px solid var(--line);border-radius:8px;padding:4px 10px;background:var(--cream);min-height:52px}
@@ -66,6 +67,7 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
 
   <div class="plan-card" id="form">
     <div class="who" id="who"></div>
+    <div id="buyerFields"></div>
 
     <label class="fld">Choose your weekly plan</label>
     <div class="plan-pick" id="planPick"></div>
@@ -103,7 +105,12 @@ window.pickPlan = pickPlan;
 
 document.getElementById('who').innerHTML = clientId
   ? 'Subscribing as <strong>your trainer\'s member</strong>. Your plan is delivered weekly.'
-  : '<strong>Heads up:</strong> open this from the link your trainer sent so your subscription is credited to them.';
+  : 'Weekly Añejo bowls, delivered. Cancel anytime.';
+if(!clientId){
+  document.getElementById('buyerFields').innerHTML =
+    '<label class="fld" for="b_name">Your name</label><input class="b-input" id="b_name" type="text" autocomplete="name" required>'+
+    '<label class="fld" for="b_email">Email</label><input class="b-input" id="b_email" type="email" autocomplete="email" required>';
+}
 
 renderPlans();
 
@@ -132,14 +139,21 @@ async function init(){
 document.getElementById('subBtn').addEventListener('click', async ()=>{
   const btn=document.getElementById('subBtn'), msg=document.getElementById('msg');
   msg.className='msg'; msg.textContent='';
-  if (!clientId){ msg.className='msg err'; msg.textContent='Missing trainer link — please use the subscribe link your trainer sent.'; return; }
   if (!card){ return; }
+  let body;
+  if (clientId) { body = { clientId, planTier }; }
+  else {
+    const name=(document.getElementById('b_name')||{}).value||'', email=(document.getElementById('b_email')||{}).value||'';
+    if(!name.trim()||!email.trim()){ msg.className='msg err'; msg.textContent='Please enter your name and email.'; return; }
+    body = { planTier, buyer:{ name:name.trim(), email:email.trim() } };
+  }
   btn.disabled=true; const lbl=btn.textContent; btn.textContent='Processing…';
   try {
     const tok = await card.tokenize();
     if (tok.status !== 'OK') throw new Error('Please check your card details.');
+    body.sourceId = tok.token;
     const r = await fetch('/api/subscriptions/create',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ clientId, planTier, sourceId: tok.token })});
+      body:JSON.stringify(body)});
     const data = await r.json();
     if (!r.ok || !data.ok) throw new Error(data.error || 'Subscription could not be started.');
     document.getElementById('wrap').innerHTML =
@@ -153,5 +167,6 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
 
 init();
 </script>
+<script src="/assets/js/consent.js"></script>
 </body>
 </html>

@@ -38,29 +38,42 @@ export const onRequestPost = async ({ request, env }) => {
   if (!items.length) return bad('Your cart is empty.');
 
   const lineItems = [];
+  const orderItems = [];
+  let subtotalCents = 0;
   for (const it of items) {
     const prod = CATALOG[it && it.id];
     if (!prod) return bad(`Unknown item: ${it && it.id}`);
     const qty = Math.floor(Number(it.qty));
     if (!Number.isFinite(qty) || qty < 1 || qty > 20) return bad(`Invalid quantity for ${prod.name}.`);
-    lineItems.push({
-      name: prod.name,
-      quantity: String(qty),
-      base_price_money: money(prod.price),
-    });
+    const cents = Math.round(prod.price * 100);
+    subtotalCents += cents * qty;
+    lineItems.push({ name: prod.name, quantity: String(qty), base_price_money: money(prod.price) });
+    orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents });
   }
 
-  // Delivery-only fulfillment with scheduled windows: Mon–Sat, Lunch or Dinner.
-  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  // Delivery-only with a real date + window. Date must be an upcoming Mon–Sat, ordered
+  // before the cutoff (6:00 PM ET the day before — fresh prep). Sundays rejected.
   const WINDOWS = { lunch: 'Lunch (11:00 AM–1:00 PM)', dinner: 'Dinner (5:00 PM–7:00 PM)' };
-  const d = b.delivery || {};
-  const day = DAYS.includes(d.day) ? d.day : null;
-  const win = WINDOWS[d.window] ? d.window : null;
-  if (!day || !win) return bad('Please choose a delivery day (Mon–Sat) and time window.');
-  const deliveryNote = `Delivery: ${day} · ${WINDOWS[win]}`;
+  const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dlv = b.delivery || {};
+  const win = WINDOWS[dlv.window] ? dlv.window : null;
+  const dateStr = (typeof dlv.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dlv.date)) ? dlv.date : null;
+  if (!dateStr || !win) return bad('Please choose a delivery date and time window.');
+  const midnightUtc = Date.parse(dateStr + 'T00:00:00Z');
+  if (Number.isNaN(midnightUtc)) return bad('Invalid delivery date.');
+  const dow = new Date(midnightUtc).getUTCDay();
+  if (dow === 0) return bad('We deliver Monday–Saturday. Please pick another date.');
+  const cutoff = midnightUtc - 2 * 3600 * 1000;   // ≈ 6 PM ET the prior day (EDT = UTC-4)
+  if (Date.now() >= cutoff) return bad('That date has passed its order cutoff (6 PM the day before). Pick a later date.');
+  if (midnightUtc - Date.now() > 24 * 24 * 3600 * 1000) return bad('Please choose a delivery date within the next few weeks.');
+  const deliveryNote = `Delivery: ${DOW[dow]} ${dateStr} · ${WINDOWS[win]}`;
 
-  // FL state 6% + Palm Beach County 1% surtax = 7% by default. Override via the
-  // SALES_TAX_PCT var once the exact registered rate is confirmed after FL DOR registration.
+  // Order minimum + flat delivery fee (configurable via env).
+  const orderMinCents = Math.round(Number(env.ORDER_MIN_USD || 25) * 100);
+  if (subtotalCents < orderMinCents) return bad(`Order minimum is $${(orderMinCents / 100).toFixed(2)}. Please add a little more.`);
+  const feeCents = Math.round(Number(env.DELIVERY_FEE_USD || 5) * 100);
+
+  // FL state 6% + Palm Beach County 1% surtax = 7% by default; override via SALES_TAX_PCT.
   const taxPct = String(env.SALES_TAX_PCT || '7.0');
 
   const base = appBaseUrl(env, request);
@@ -72,6 +85,11 @@ export const onRequestPost = async ({ request, env }) => {
       order: {
         location_id: env.SQUARE_LOCATION_ID,
         line_items: lineItems,
+        service_charges: feeCents > 0 ? [{
+          uid: 'delivery-fee', name: 'Delivery fee',
+          amount_money: { amount: feeCents, currency: 'USD' },
+          calculation_phase: 'SUBTOTAL_PHASE', taxable: false,
+        }] : undefined,
         taxes: [{
           uid: 'sales-tax',
           name: `Sales Tax (FL · Palm Beach County · ${taxPct}%)`,
@@ -93,7 +111,25 @@ export const onRequestPost = async ({ request, env }) => {
     return bad(detail || `Square checkout failed (${status}).`, 502);
   }
 
-  const url = data && data.payment_link && (data.payment_link.long_url || data.payment_link.url);
+  const pl = data && data.payment_link;
+  const url = pl && (pl.long_url || pl.url);
   if (!url) return bad('Square did not return a checkout URL.', 502);
+
+  // Persist a pending order for the kitchen view; the webhook marks it paid.
+  if (env.DB) {
+    try {
+      const t = Date.now();
+      await env.DB.prepare(
+        `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
+            subtotal_cents, fee_cents, tax_pct, total_estimate_cents, status, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
+      ).bind(
+        id('ord'), pl.order_id || null, pl.id || null, JSON.stringify(orderItems), dateStr, win,
+        subtotalCents, feeCents, Number(taxPct),
+        Math.round((subtotalCents + feeCents) * (1 + Number(taxPct) / 100)), t, t
+      ).run();
+    } catch (_) { /* never fail checkout on the order-log write */ }
+  }
+
   return json({ url });
 };

@@ -3,12 +3,27 @@
 // saves the tokenized card (sourceId from the Web Payments SDK; sandbox accepts
 // 'cnon:card-nonce-ok'), starts the subscription, and writes a subscriptions row.
 // Trainer attribution + 10% rev-share live in OUR D1 (provider_subscription_id → trainer_id).
-import { json, bad, id, now } from '../../_lib/util.js';
+import { json, bad, id, now, isEmail } from '../../_lib/util.js';
 import { square, squareConfigured } from '../../_lib/square.js';
 import { PLAN_TIERS, isPlanTier, planVariationId } from '../../_lib/plans.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
 
 const sqErr = (r) => r.data && r.data.errors && r.data.errors[0] && r.data.errors[0].detail;
+
+// Direct/public subscribers (no trainer) attach to a single "house" trainer account.
+async function getOrCreateHouseTrainer(env) {
+  const existing = await env.DB.prepare("SELECT id FROM trainers WHERE affiliate_code = 'HOUSE'").first();
+  if (existing) return existing.id;
+  const tid = id('tr'), t = now();
+  try {
+    await env.DB.prepare('INSERT INTO trainers (id, email, name, affiliate_code, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      .bind(tid, 'house@anejocateringco.com', 'Añejo (Direct)', 'HOUSE', t, t).run();
+    return tid;
+  } catch (_) {
+    const again = await env.DB.prepare("SELECT id FROM trainers WHERE affiliate_code = 'HOUSE'").first();
+    return again ? again.id : tid;
+  }
+}
 
 export const onRequestPost = async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: 'subscribe', limit: 10, windowSec: 60 });
@@ -24,13 +39,32 @@ export const onRequestPost = async ({ request, env }) => {
   if (!isPlanTier(planTier)) return bad('Unknown meal-plan tier.');
   const sourceId = (b.sourceId || '').trim();
   if (!sourceId) return bad('Missing payment source. Please re-enter your card.');
+  let client;
   const clientId = (b.clientId || '').trim();
-  if (!clientId) return bad('Missing client.');
-
-  const client = await env.DB
-    .prepare('SELECT id, trainer_id, name, email FROM clients WHERE id = ?')
-    .bind(clientId).first();
-  if (!client) return bad('Client not found.', 404);
+  if (clientId) {
+    client = await env.DB
+      .prepare('SELECT id, trainer_id, name, email FROM clients WHERE id = ?')
+      .bind(clientId).first();
+    if (!client) return bad('Client not found.', 404);
+  } else {
+    // Direct/public subscriber — create a client under the house trainer.
+    const buyer = b.buyer || {};
+    const email = (buyer.email || '').trim().toLowerCase();
+    const name = (buyer.name || '').trim();
+    if (!isEmail(email) || !name) return bad('Please enter your name and a valid email.');
+    const houseId = await getOrCreateHouseTrainer(env);
+    const cid = id('cl'), t0 = now();
+    try {
+      await env.DB.prepare('INSERT INTO clients (id, trainer_id, email, name, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)')
+        .bind(cid, houseId, email, name, 'pending', t0, t0).run();
+      client = { id: cid, trainer_id: houseId, name, email };
+    } catch (_) {
+      const ex = await env.DB.prepare('SELECT id, trainer_id, name, email FROM clients WHERE trainer_id = ? AND email = ?')
+        .bind(houseId, email).first();
+      if (!ex) return bad('Could not create your account. Please try again.', 500);
+      client = ex;
+    }
+  }
 
   const plan = await env.DB
     .prepare('SELECT id FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
