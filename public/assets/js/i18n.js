@@ -307,7 +307,7 @@
     var b = document.createElement('button');
     b.id = 'langToggle'; b.type = 'button';
     b.setAttribute('aria-label', 'Language / Idioma');
-    b.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:99999;background:#0D0D0D;border:1px solid rgba(200,188,110,.45);border-radius:999px;padding:9px 14px;font:600 12px/1 \'Josefin Sans\',-apple-system,sans-serif;letter-spacing:1px;color:#C8BC6E;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.35)';
+    b.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:99999;background:#0D0D0D;border:1px solid rgba(200,188,110,.45);border-radius:999px;padding:9px 14px;font:600 12px/1 \'Josefin Sans\',-apple-system,sans-serif;letter-spacing:1px;color:#C8BC6E;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.35)';
     b.innerHTML = '<span data-l="en">EN</span><span style="opacity:.45;margin:0 5px">/</span><span data-l="es">ES</span>';
     b.addEventListener('click', function(){ setLang(lang === 'es' ? 'en' : 'es'); });
     document.body.appendChild(b);
