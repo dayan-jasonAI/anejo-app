@@ -626,15 +626,56 @@ footer {
 
 
 <!-- ===================== MACRO CALCULATOR ===================== -->
-<section id="calculator" style="background:var(--green); padding:92px 24px;">
-  <div style="max-width:760px; margin:0 auto; text-align:center;">
-    <div class="eyebrow" style="color:var(--gold);">Free · AI-Personalized · 10 Seconds</div>
-    <h2 style="color:var(--cream); margin-top:6px;">Find your macros. <span class="serif-i" style="color:var(--gold);">Get your bowls.</span></h2>
-    <p style="color:rgba(245,242,236,0.82); max-width:620px; margin:18px auto 0; font-size:18px; line-height:1.65;">
-      Answer a few quick questions and our AI builds your daily macro targets plus a weekly Añejo bowl rotation tuned to your goal &mdash; no sign-up. Trainers can generate plans for clients and earn 10% recurring.</p>
-    <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:32px;">
-      <a href="/calculator" class="btn btn-gold">Build my macro plan &rarr;</a>
-      <a href="/portal" class="btn btn-outline" style="border-color:var(--gold); color:var(--cream);">For trainers &amp; gyms</a>
+<section id="calculator" class="macrohero">
+  <style>
+    .macrohero{position:relative;overflow:hidden;background:linear-gradient(160deg,#0d2419 0%,#1A3D2E 55%,#0b1f15 100%);padding:84px 24px}
+    .macrohero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 28% 28%,rgba(198,168,91,.20),transparent 46%);pointer-events:none}
+    .macro-inner{position:relative;max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1.05fr .95fr;gap:50px;align-items:center}
+    .macro-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+    .macro-chips span{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);border:1px solid rgba(198,168,91,.45);border-radius:999px;padding:6px 13px;font-weight:600}
+    .macro-pitch h2{font-size:clamp(32px,4.6vw,50px);font-weight:300;color:var(--cream);line-height:1.08;letter-spacing:.5px;margin:0}
+    .macro-pitch h2 .serif-i{color:var(--gold);display:block}
+    .macro-pitch p{color:rgba(245,242,236,.85);font-size:18px;line-height:1.65;margin:18px 0 30px;max-width:520px}
+    .macro-cta{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+    .macro-go{font-size:14px;padding:16px 30px;animation:macroPulse 2.6s infinite}
+    @keyframes macroPulse{0%{box-shadow:0 0 0 0 rgba(198,168,91,.55)}70%{box-shadow:0 0 0 18px rgba(198,168,91,0)}100%{box-shadow:0 0 0 0 rgba(198,168,91,0)}}
+    .macro-trainer{color:var(--cream);text-decoration:none;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;border-bottom:1px solid rgba(198,168,91,.5);padding-bottom:3px;white-space:nowrap}
+    .macro-trainer:hover{color:var(--gold)}
+    .macro-preview{display:flex;justify-content:center}
+    .mp-card{background:var(--cream);border-radius:18px;padding:26px 26px 20px;width:100%;max-width:360px;box-shadow:0 30px 64px rgba(0,0,0,.42);border:1px solid rgba(198,168,91,.4);transform:rotate(-1.6deg);transition:transform .3s}
+    .mp-card:hover{transform:rotate(0)}
+    .mp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+    .mp-head strong{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);font-weight:700}
+    .mp-head span{background:var(--gold);color:var(--black);font-size:9px;letter-spacing:1px;padding:3px 8px;border-radius:4px;font-weight:700}
+    .mp-cal{font-family:'Cormorant Garamond',Georgia,serif;font-size:54px;color:var(--green);font-weight:600;line-height:1;margin:12px 0 2px}
+    .mp-cal small{font-family:'Josefin Sans',sans-serif;font-size:12px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-weight:600}
+    .mp-split{font-size:14px;color:var(--gold-dark);font-weight:600;margin-bottom:18px}
+    .mp-rot-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-dark);font-weight:700;margin-bottom:10px}
+    .mp-rot{display:flex;flex-wrap:wrap;gap:8px}
+    .mp-rot span{background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-size:13px;color:var(--green);font-weight:600}
+    .mp-foot{margin-top:18px;padding-top:13px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+    @media (max-width:860px){.macro-inner{grid-template-columns:1fr;gap:34px}.macro-preview{order:-1}.mp-card{transform:none;max-width:340px}}
+    @media (prefers-reduced-motion:reduce){.macro-go{animation:none}.mp-card{transition:none}}
+  </style>
+  <div class="macro-inner">
+    <div class="macro-pitch">
+      <div class="macro-chips"><span>Free</span><span>AI-Personalized</span><span>~10 Seconds</span><span>No Sign-Up</span></div>
+      <h2>See your macros. <span class="serif-i">Meet your bowls.</span></h2>
+      <p>Answer a few quick questions and our AI builds your exact daily targets — then a weekly Añejo bowl rotation tuned to your goal. Free, instant, no sign-up.</p>
+      <div class="macro-cta">
+        <a href="/calculator" class="btn btn-gold macro-go">Build my free plan &rarr;</a>
+        <a href="/portal" class="macro-trainer">Trainer or gym? Earn 10% &rarr;</a>
+      </div>
+    </div>
+    <div class="macro-preview">
+      <div class="mp-card">
+        <div class="mp-head"><strong>Your daily targets</strong><span>Sample</span></div>
+        <div class="mp-cal">2,100 <small>kcal / day</small></div>
+        <div class="mp-split">175g protein · 200g carbs · 65g fat</div>
+        <div class="mp-rot-label">Your weekly Añejo rotation</div>
+        <div class="mp-rot"><span>VIDA ×4</span><span>MAR ×3</span><span>LIGERO ×3</span></div>
+        <div class="mp-foot">Tuned to fat loss · moderate activity</div>
+      </div>
     </div>
   </div>
 </section>

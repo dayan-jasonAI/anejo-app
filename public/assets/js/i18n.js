@@ -185,6 +185,16 @@
     "Trainers and gyms: share how Añejo plans changed your members' results.":"Entrenadores y gimnasios: cuenten cómo los planes Añejo cambiaron los resultados de sus miembros.",
     "— Partner with us":"— Asóciate con nosotros",
     "Verified customer reviews will appear here as our first orders ship.":"Las reseñas verificadas de clientes aparecerán aquí cuando salgan nuestros primeros pedidos.",
+    // macro calculator (home hero)
+    "Free":"Gratis","AI-Personalized":"Personalizado con IA","~10 Seconds":"~10 Segundos","No Sign-Up":"Sin Registro",
+    "See your macros.":"Descubre tus macros.","Meet your bowls.":"Conoce tus bowls.",
+    "Answer a few quick questions and our AI builds your exact daily targets — then a weekly Añejo bowl rotation tuned to your goal. Free, instant, no sign-up.":"Responde unas preguntas rápidas y nuestra IA arma tus objetivos diarios exactos — y una rotación semanal de bowls Añejo ajustada a tu meta. Gratis, al instante, sin registro.",
+    "Build my free plan →":"Crear mi plan gratis →",
+    "Trainer or gym? Earn 10% →":"¿Entrenador o gimnasio? Gana 10% →",
+    "Your daily targets":"Tus objetivos diarios","Sample":"Muestra","kcal / day":"kcal / día",
+    "175g protein · 200g carbs · 65g fat":"175g proteína · 200g carbohidratos · 65g grasa",
+    "Your weekly Añejo rotation":"Tu rotación semanal Añejo",
+    "Tuned to fat loss · moderate activity":"Ajustado a pérdida de grasa · actividad moderada",
     // closing + footer
     "Built in Palm Beach.":"Hecho en Palm Beach.","Made with intent.":"Hecho con intención.",
     "Whether it's one bowl or a thousand — we cook it the same way.":"Ya sea un bowl o mil — lo cocinamos de la misma forma.",
