@@ -58,6 +58,8 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (m) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[m]; }); }
   function linkify(s) {
     s = esc(s);
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');          // **bold** → <strong>
+    s = s.replace(/(^|\n)\s*[-*•]\s+/g, '$1• ');                      // markdown bullets → •
     s = s.replace(/(^|\s)(\/(order|subscribe|calculator|portal|legal\/[a-z]+)(#[\w-]+)?)/g, '$1<a href="$2">$2</a>');
     s = s.replace(/(#tasting|#wholesale|#menu|#fit|#faq)/g, '<a href="/$1">$1</a>');
     s = s.replace(/([\w.+-]+@anejocateringco\.com)/g, '<a href="mailto:$1">$1</a>');
