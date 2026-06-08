@@ -41,18 +41,29 @@ form.addEventListener('submit', async (ev) => {
   try {
     // Trainer intake persists (creates the client + saves the plan); public calculator is stateless.
     const endpoint = audience === 'trainer' ? '/api/clients' : '/api/plans/generate';
-    const resp = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    let resp, attempt = 0;
+    while (true) {
+      resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      // Auto-retry transient server hiccups (e.g. mid-deploy) up to 2x; never retry 4xx.
+      if (resp.status >= 500 && attempt < 2) { attempt++; await new Promise(function (r) { setTimeout(r, 900 * attempt); }); continue; }
+      break;
+    }
     if (resp.status === 401) {
       throw new Error(lang === 'es'
         ? 'Inicia sesión como entrenador para guardar a este miembro.'
         : 'Please sign in as a trainer (open the dashboard) to save this member.');
     }
-    const result = await resp.json();
-    if (!resp.ok) throw new Error(result.error || `Request failed (${resp.status})`);
+    const result = await resp.json().catch(function () { return {}; });
+    if (!resp.ok) {
+      if (resp.status >= 500) throw new Error(lang === 'es'
+        ? 'No pudimos crear tu plan ahora mismo. Inténtalo de nuevo en un momento.'
+        : 'We couldn’t build your plan right now — please try again in a moment.');
+      throw new Error(result.error || `Request failed (${resp.status})`);
+    }
     // /api/clients wraps the plan in { client_id, plan_id, public_token, plan }; generate returns it directly.
     const plan = (audience === 'trainer') ? result.plan : result;
     sessionStorage.setItem('anejo:lastPlan', JSON.stringify({ intake: payload, plan }));
