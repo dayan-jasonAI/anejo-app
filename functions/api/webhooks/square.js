@@ -3,6 +3,7 @@
 // subscription invoice — writes the trainer's 10% rev-share ledger row (idempotent).
 // Set SQUARE_WEBHOOK_KEY (Pages secret) + register this URL in the Square dashboard.
 import { id, now } from '../../_lib/util.js';
+import { createSubscriptionDelivery } from '../../_lib/suborders.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
 
@@ -54,7 +55,7 @@ export const onRequestPost = async ({ request, env }) => {
       const invoiceId = inv.id || (evt.event_id);
       if (subProviderId && invoiceId) {
         const sub = await env.DB
-          .prepare('SELECT id, trainer_id, weekly_amount_cents, trainer_share_pct FROM subscriptions WHERE provider_subscription_id = ?')
+          .prepare('SELECT id, client_id, plan_id, trainer_id, weekly_amount_cents, trainer_share_pct FROM subscriptions WHERE provider_subscription_id = ?')
           .bind(subProviderId).first();
         if (sub) {
           const gross = sub.weekly_amount_cents || 0;
@@ -64,6 +65,20 @@ export const onRequestPost = async ({ request, env }) => {
             `INSERT OR IGNORE INTO rev_share_events (id, trainer_id, subscription_id, amount_cents, share_cents, occurred_at, payout_status)
              VALUES (?,?,?,?,?,?, 'pending')`
           ).bind('rs_' + invoiceId, sub.trainer_id, sub.id, gross, share, now()).run();
+
+          // Weekly kitchen delivery ticket — unless one was just created at signup (<2h ago).
+          const recent = await env.DB
+            .prepare('SELECT 1 FROM orders WHERE square_order_id = ? AND created_at > ? LIMIT 1')
+            .bind('sub_' + subProviderId, now() - 2 * 3600 * 1000).first();
+          if (!recent) {
+            const client = await env.DB.prepare('SELECT name, email FROM clients WHERE id = ?').bind(sub.client_id).first();
+            const plan = sub.plan_id ? await env.DB.prepare('SELECT bowl_rotation FROM plans WHERE id = ?').bind(sub.plan_id).first() : null;
+            await createSubscriptionDelivery(env, {
+              subscriptionId: subProviderId, orderId: 'ord_inv_' + invoiceId,
+              planBowlRotation: plan ? plan.bowl_rotation : null, weeklyCents: gross,
+              customerName: client && client.name, customerEmail: client && client.email,
+            });
+          }
         }
       }
     }

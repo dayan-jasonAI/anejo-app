@@ -7,6 +7,7 @@ import { json, bad, id, now, isEmail } from '../../_lib/util.js';
 import { square, squareConfigured } from '../../_lib/square.js';
 import { PLAN_TIERS, isPlanTier, planVariationId } from '../../_lib/plans.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
+import { createSubscriptionDelivery } from '../../_lib/suborders.js';
 
 const sqErr = (r) => r.data && r.data.errors && r.data.errors[0] && r.data.errors[0].detail;
 
@@ -67,8 +68,8 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   const plan = await env.DB
-    .prepare('SELECT id FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
-    .bind(clientId).first();
+    .prepare('SELECT id, bowl_rotation FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
+    .bind(client.id).first();
 
   const tier = PLAN_TIERS[planTier];
   const variationId = planVariationId(env, planTier);
@@ -118,6 +119,17 @@ export const onRequestPost = async ({ request, env }) => {
 
   await env.DB.prepare('UPDATE clients SET status = ?, updated_at = ? WHERE id = ?')
     .bind('subscribed', t, client.id).run();
+
+  // Generate the first weekly delivery as a kitchen order so the kitchen sees it immediately.
+  try {
+    await createSubscriptionDelivery(env, {
+      subscriptionId: sub.id, orderId: 'ord_subfirst_' + sub.id,
+      planBowlRotation: plan ? plan.bowl_rotation : null,
+      tierLabel: tier.label, bowls: tier.bowls, weeklyCents: tier.weeklyCents,
+      customerName: client.name, customerEmail: client.email,
+      deliveryDate: b.delivery && b.delivery.date, deliveryWindow: b.delivery && b.delivery.window,
+    });
+  } catch (_) { /* never fail the subscription on the kitchen-order write */ }
 
   return json({ ok: true, subscriptionId: sub.id, status: sub.status, tier: planTier, weeklyUsd: tier.weeklyCents / 100 });
 };
