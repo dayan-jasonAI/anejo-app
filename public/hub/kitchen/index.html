@@ -62,6 +62,12 @@
     </div>
   </div>
 
+  <!-- Incoming: upcoming confirmed orders (alerts the moment one is placed) -->
+  <div class="hub-section" id="incoming-section" hidden>
+    <h2><span data-i18n>Incoming orders</span><span class="badge" id="c-incoming">0</span></h2>
+    <div id="col-incoming"></div>
+  </div>
+
   <a class="btn ghost block" href="/hub/kitchen/summary.html" data-i18n>Daily summary</a>
 </div>
 
@@ -81,6 +87,55 @@
   var clockOpen = false;
 
   function refreshI18n() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+
+  // ---- New-order alert: sound (WebAudio chime) + browser notification + title flash ----
+  var seenOrders = null;                                   // null until first load (no alert blast on open)
+  var soundOn = (localStorage.getItem('anejo:kitchenSound') !== 'off');
+  var audioCtx = null;
+  function unlockAudio() {
+    try { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) {}
+  }
+  function chime() {
+    if (!soundOn) return; unlockAudio(); if (!audioCtx) return;
+    var t = audioCtx.currentTime;
+    [880, 1175, 1568].forEach(function (f, i) {        // a rising 3-note bell
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      var s = t + i * 0.16;
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.exponentialRampToValueAtTime(0.55, s + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + 0.22);
+      o.connect(g); g.connect(audioCtx.destination); o.start(s); o.stop(s + 0.24);
+    });
+  }
+  function notify(title, body) {
+    try { if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body: body, icon: '/assets/img/emblem.png', tag: 'anejo-order', renotify: true }); } catch (e) {}
+  }
+  var titleTimer = null, baseTitle = document.title;
+  function flashTitle(n) {
+    document.title = '🔔 ' + n + ' new order' + (n > 1 ? 's' : '') + '!';
+    clearTimeout(titleTimer); titleTimer = setTimeout(function () { document.title = baseTitle; }, 8000);
+  }
+  function announceNew(list) {
+    chime(); setTimeout(chime, 850);                  // ring twice for attention
+    var first = list[0];
+    if (window.Hub && Hub.toast) Hub.toast('🔔 New order — ' + (first.customer_name || 'Order'));
+    notify('New order — ' + (first.customer_name || 'Order'), list.length + ' new · ' + (first.item_count || 0) + ' items');
+    flashTitle(list.length);
+  }
+  function setupSound() {
+    var sb = document.createElement('button');
+    sb.id = 'sound-toggle'; sb.type = 'button'; sb.className = 'btn ghost';
+    function paint() { sb.textContent = soundOn ? '🔔' : '🔕'; sb.setAttribute('aria-label', soundOn ? 'Order sound on' : 'Order sound off'); sb.title = soundOn ? 'Order sound on' : 'Order sound off'; }
+    paint();
+    sb.addEventListener('click', function () {
+      soundOn = !soundOn; localStorage.setItem('anejo:kitchenSound', soundOn ? 'on' : 'off'); paint();
+      if (soundOn) { unlockAudio(); if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); chime(); }
+    });
+    var lt = $('#lang-toggle');
+    if (lt && lt.parentNode) lt.parentNode.insertBefore(sb, lt); else document.body.appendChild(sb);
+    document.addEventListener('click', unlockAudio, { once: true });   // unlock audio on first tap
+  }
 
   function renderClock(shift) {
     clockOpen = !!shift;
@@ -178,16 +233,34 @@
       : '<div class="hub-empty" data-i18n>Nothing here.</div>';
   }
 
+  function incomingCard(o) {
+    var win = o.delivery_window ? ('<span class="badge">' + esc(o.delivery_window) + '</span>') : '';
+    var dt = o.delivery_date ? ('<span class="badge ok">' + esc(o.delivery_date) + '</span>') : '';
+    return '<div class="card order-card"><div class="row" style="padding:0;border:none">' +
+      '<div class="row-main"><div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + (o.item_count || 0) + ' items</div>' +
+      '<div class="row-sub">' + esc(o.id) + '</div></div>' + dt + win + '</div></div>';
+  }
+
   function loadBoard() {
     K.get('/api/hub/kitchen/orders?surface=1').then(function (d) {
       var b = (d && d.board) || { pending: [], prep: [], ready: [] };
+      var inc = (d && d.incoming) || [];
       var c = (d && d.counts) || {};
       $('#c-pending').textContent = c.pending || 0;
       $('#c-prep').textContent = c.prep || 0;
       $('#c-ready').textContent = c.ready || 0;
+      // Sound alert when a NEW confirmed order arrives — today's pending OR upcoming/incoming.
+      var arrivals = b.pending.concat(inc);
+      var fresh = arrivals.filter(function (o) { return seenOrders && !seenOrders[o.id]; });
+      if (seenOrders && fresh.length) announceNew(fresh);
+      if (!seenOrders) seenOrders = {};
+      b.pending.concat(b.prep, b.ready, inc).forEach(function (o) { seenOrders[o.id] = 1; });
       fillCol('col-pending', b.pending, 'pending');
       fillCol('col-prep', b.prep, 'prep');
       fillCol('col-ready', b.ready, 'ready');
+      var incCount = $('#c-incoming'); if (incCount) incCount.textContent = inc.length;
+      var incSec = $('#incoming-section'); if (incSec) incSec.hidden = inc.length === 0;
+      var incCol = $('#col-incoming'); if (incCol) incCol.innerHTML = inc.length ? inc.map(incomingCard).join('') : '';
       bindOrderActions();
       refreshI18n();
     });
@@ -206,8 +279,9 @@
   if (dismiss) dismiss.addEventListener('click', Hub.dismissInstall);
 
   K.boot('board', function () {
+    setupSound();
     loadClock(); loadReminders(); loadBoard();
-    setInterval(loadBoard, 30000); // poll the board
+    setInterval(loadBoard, 15000); // poll the board (15s → snappier order alerts)
   });
 })();
 </script>

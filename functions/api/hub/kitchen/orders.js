@@ -71,8 +71,15 @@ export const onRequestGet = async ({ request, env }) => {
     }
   }
 
-  return json({ date: day, board, counts: {
-    pending: board.pending.length, prep: board.prep.length, ready: board.ready.length,
+  // Incoming = confirmed (paid) orders for FUTURE delivery dates — so the kitchen is alerted
+  // the moment an order is placed/paid, and can plan ahead (not just today's prep board).
+  const incoming = ((await env.DB.prepare(
+    `SELECT * FROM orders WHERE status = 'paid' AND delivery_date > ?
+       ORDER BY delivery_date ASC, created_at DESC LIMIT 60`
+  ).bind(day).all()).results || []).map((o) => ({ ...o, item_count: itemCount(o.items) }));
+
+  return json({ date: day, board, incoming, counts: {
+    pending: board.pending.length, prep: board.prep.length, ready: board.ready.length, incoming: incoming.length,
   } });
 };
 
