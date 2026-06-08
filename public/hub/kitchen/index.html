@@ -19,6 +19,10 @@
   .order-actions { display:flex; gap:8px; margin-top:10px; }
   .order-actions .btn { flex:1; padding:10px; font-size:13px; }
   .rem .btn { padding:8px 12px; font-size:12px; }
+  .order-items { list-style:none; margin:8px 0 0; padding:8px 0 0; border-top:1px solid var(--line); }
+  .order-items li { font-size:13px; color:var(--green); padding:3px 0; display:flex; justify-content:space-between; gap:10px; }
+  .order-items li .q { font-weight:700; color:var(--gold-700, #8a7a2e); }
+  .order-card { cursor:default; }
 </style>
 </head>
 <body>
@@ -91,22 +95,34 @@
   // ---- New-order alert: sound (WebAudio chime) + browser notification + title flash ----
   var seenOrders = null;                                   // null until first load (no alert blast on open)
   var soundOn = (localStorage.getItem('anejo:kitchenSound') !== 'off');
-  var audioCtx = null;
-  function unlockAudio() {
+  var audioCtx = null, bell = null;
+  function getBell() { if (!bell) { try { bell = new Audio('/assets/audio/order-bell.wav'); bell.preload = 'auto'; } catch (e) {} } return bell; }
+  function webChime() {                                  // fallback if the audio file can't play
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var go = function () {
+        var t = audioCtx.currentTime;
+        [880, 1175, 1568].forEach(function (f, i) {
+          var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+          o.type = 'sine'; o.frequency.value = f; var s = t + i * 0.16;
+          g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.55, s + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, s + 0.22);
+          o.connect(g); g.connect(audioCtx.destination); o.start(s); o.stop(s + 0.24);
+        });
+      };
+      if (audioCtx.state === 'suspended') audioCtx.resume().then(go).catch(function () {}); else go();
+    } catch (e) {}
+  }
+  function unlockAudio() {                                // satisfy the browser's gesture requirement
+    var b = getBell();
+    if (b) { try { b.muted = true; var p = b.play(); if (p && p.then) p.then(function () { b.pause(); b.currentTime = 0; b.muted = false; }).catch(function () { b.muted = false; }); } catch (e) {} }
     try { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) {}
   }
-  function chime() {
-    if (!soundOn) return; unlockAudio(); if (!audioCtx) return;
-    var t = audioCtx.currentTime;
-    [880, 1175, 1568].forEach(function (f, i) {        // a rising 3-note bell
-      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.type = 'sine'; o.frequency.value = f;
-      var s = t + i * 0.16;
-      g.gain.setValueAtTime(0.0001, s);
-      g.gain.exponentialRampToValueAtTime(0.55, s + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, s + 0.22);
-      o.connect(g); g.connect(audioCtx.destination); o.start(s); o.stop(s + 0.24);
-    });
+  function chime() {                                      // play the bell file; fall back to WebAudio
+    if (!soundOn) return;
+    var b = getBell();
+    if (b) { try { b.muted = false; b.currentTime = 0; var p = b.play(); if (p && p.catch) p.catch(function () { webChime(); }); return; } catch (e) {} }
+    webChime();
   }
   function notify(title, body) {
     try { if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body: body, icon: '/assets/img/emblem.png', tag: 'anejo-order', renotify: true }); } catch (e) {}
@@ -200,14 +216,28 @@
     });
   }
 
+  // Render the order's actual contents (bowls × qty) so the kitchen can see WHAT to make.
+  function orderItems(o) {
+    var items = [];
+    try { items = JSON.parse(o.items || '[]'); } catch (e) {}
+    if (!Array.isArray(items) || !items.length) return '';
+    return '<ul class="order-items">' + items.map(function (it) {
+      var qty = Number(it && it.qty) || 1;
+      var name = (it && (it.name || it.id)) || 'Item';
+      return '<li><span>' + esc(name) + '</span><span class="q">×' + qty + '</span></li>';
+    }).join('') + '</ul>';
+  }
+
   function orderCard(o, stage) {
     var actions = '';
     if (stage === 'pending') actions = '<div class="order-actions"><button class="btn gold" data-prep="' + esc(o.id) + '">Start prep</button></div>';
     else if (stage === 'prep') actions = '<div class="order-actions"><button class="btn" data-ready="' + esc(o.id) + '">Mark ready</button></div>';
     var win = o.delivery_window ? ('<span class="badge">' + esc(o.delivery_window) + '</span>') : '';
+    var dt = o.delivery_date ? ('<span class="badge ok">' + esc(o.delivery_date) + '</span>') : '';
     return '<div class="card order-card"><div class="row" style="padding:0;border:none">' +
       '<div class="row-main"><div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + (o.item_count || 0) + ' items</div>' +
-      '<div class="row-sub">' + esc(o.id) + '</div></div>' + win + '</div>' + actions + '</div>';
+      '<div class="row-sub">' + esc(o.id) + '</div></div>' + dt + win + '</div>' +
+      orderItems(o) + actions + '</div>';
   }
 
   function bindOrderActions() {
@@ -238,7 +268,7 @@
     var dt = o.delivery_date ? ('<span class="badge ok">' + esc(o.delivery_date) + '</span>') : '';
     return '<div class="card order-card"><div class="row" style="padding:0;border:none">' +
       '<div class="row-main"><div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + (o.item_count || 0) + ' items</div>' +
-      '<div class="row-sub">' + esc(o.id) + '</div></div>' + dt + win + '</div></div>';
+      '<div class="row-sub">' + esc(o.id) + '</div></div>' + dt + win + '</div>' + orderItems(o) + '</div>';
   }
 
   function loadBoard() {
