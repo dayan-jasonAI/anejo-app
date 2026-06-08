@@ -1,0 +1,183 @@
+meta:
+  product: "Añejo HUB"
+  version: 1
+  created: 2026-06-06
+  updated: 2026-06-06
+  owner: "Dayan (owner) / Añejo ops"
+  destinations: [posthog]
+  naming_convention: "object.action snake_case"
+  pii_policy: traits_only
+  internal_user_policy: "track all human staff; tag automation with actor_type=system; exclude actor_type=system from adoption metrics"
+  notes: >
+    Internal single-tenant ops app extending anejo-app (Cloudflare Pages + D1 + KV).
+    This plan is the master feature inventory for the build workflow. Every event below
+    maps to a screen/capability that must exist. Greenfield: no current tracking.
+
+# ---- shared property conventions ----
+# Every event SHOULD carry: actor_id, actor_role, actor_type (human|system), team, platform (pwa|web|sms|api), client_ts
+# These are added globally by the tracking module, not repeated per-event below unless required for meaning.
+
+entities:
+  user:
+    id_property: user_id
+    id_format: "usr_*"
+    traits:
+      - { name: email, type: string, pii: true, update: on-change, required: true }
+      - { name: name, type: string, pii: true, update: on-change, required: true }
+      - { name: phone, type: string, pii: true, update: on-change, required: false }
+      - { name: role, type: string, enum: [owner, kitchen, driver, trainer, client, vendor], update: on-change, required: true }
+      - { name: team, type: string, enum: [kitchen, delivery, training, front_office, vendors], update: on-change, required: false }
+      - { name: employment_type, type: string, enum: [w2, contractor, external], update: on-change, required: false }
+      - { name: is_active, type: boolean, update: on-change, required: true }
+      - { name: created_at, type: datetime, update: one-time, required: true }
+      - { name: activated_at, type: datetime, update: one-time, required: false }
+      - { name: last_active_at, type: datetime, update: scheduled, required: false }
+      # snapshot metrics (scheduled)
+      - { name: shifts_last_30d_count, type: integer, update: scheduled, required: false }
+      - { name: eod_reports_last_30d_count, type: integer, update: scheduled, required: false }
+      - { name: eod_compliance_rate_30d, type: number, update: scheduled, required: false }
+      - { name: deliveries_completed_count, type: integer, update: scheduled, required: false }
+      - { name: tickets_open_count, type: integer, update: scheduled, required: false }
+      - { name: recipes_created_count, type: integer, update: scheduled, required: false }
+
+groups:
+  - type: business
+    id_format: "biz_anejo"
+    is_top_level: true
+    triggers: [creation, trait-change, scheduled]
+    traits:
+      - { name: name, type: string }
+      - { name: active_staff_count, type: integer, update: scheduled }
+      - { name: orders_open_count, type: integer, update: scheduled }
+      - { name: deliveries_today_count, type: integer, update: scheduled }
+      - { name: eod_compliance_rate_today, type: number, update: scheduled }
+      - { name: mrr_cents, type: integer, update: scheduled }
+  - type: team
+    id_format: "team_*"
+    parent_type: business
+    triggers: [creation, trait-change, scheduled]
+    traits:
+      - { name: name, type: string, enum: [kitchen, delivery, training, front_office, vendors] }
+      - { name: member_count, type: integer, update: scheduled }
+      - { name: on_shift_count, type: integer, update: scheduled }
+
+snapshot_sync:
+  cadence: hourly
+  traits:
+    - { entity: business, trait: orders_open_count, source: "COUNT orders WHERE status IN (pending,paid)" }
+    - { entity: business, trait: deliveries_today_count, source: "COUNT deliveries WHERE date=today" }
+    - { entity: business, trait: eod_compliance_rate_today, source: "eod_reports submitted / staff on shift today" }
+    - { entity: team, trait: on_shift_count, source: "COUNT shifts open WHERE team=?" }
+    - { entity: user, trait: eod_compliance_rate_30d, source: "eod submitted / shifts worked, last 30d" }
+    - { entity: user, trait: last_active_at, source: "MAX(event ts) per user" }
+
+events:
+  # ---------- Lifecycle / adoption ----------
+  - { name: user.invited, category: lifecycle, group_level: business, description: "Owner/admin invites a staff member or external contact", expected_frequency: low,
+      properties: [ {name: invited_role, type: string, enum: [owner,kitchen,driver,trainer,client,vendor], required: true}, {name: channel, type: string, enum: [email,sms], required: true} ] }
+  - { name: user.activated, category: lifecycle, group_level: business, description: "First successful sign-in after invite", expected_frequency: low,
+      properties: [ {name: days_since_invite, type: integer, required: false} ] }
+  - { name: user.signed_in, category: lifecycle, group_level: team, description: "Magic-link session established", expected_frequency: high,
+      properties: [ {name: platform, type: string, enum: [pwa,web], required: true} ] }
+  - { name: app.installed, category: lifecycle, group_level: team, description: "PWA installed to home screen", expected_frequency: low,
+      properties: [ {name: os, type: string, enum: [ios,android,desktop], required: false} ] }
+
+  # ---------- Time & accountability (all roles) ----------
+  - { name: shift.clocked_in, category: core_value, group_level: team, description: "Staff clocks in", expected_frequency: high,
+      properties: [ {name: geo_captured, type: boolean, required: true}, {name: scheduled, type: boolean, required: false}, {name: minutes_late, type: integer, required: false} ] }
+  - { name: shift.clocked_out, category: core_value, group_level: team, description: "Staff clocks out", expected_frequency: high,
+      properties: [ {name: total_minutes, type: integer, required: true} ] }
+  - { name: shift.break_logged, category: core_value, group_level: team, description: "Break start/stop logged", expected_frequency: medium,
+      properties: [ {name: break_minutes, type: integer, required: true} ] }
+  - { name: eod_report.submitted, category: core_value, group_level: team, description: "End-of-day accountability report submitted", expected_frequency: high,
+      properties: [ {name: role, type: string, required: true}, {name: on_time, type: boolean, required: true}, {name: has_blockers, type: boolean, required: false}, {name: ai_drafted, type: boolean, required: false} ] }
+  - { name: eod_report.missed, category: core_value, group_level: team, description: "Automation: shift ended with no EOD report (accountability gap)", expected_frequency: low,
+      properties: [ {name: actor_type, type: string, enum: [system], required: true} ] }
+
+  # ---------- Delivery / driver ----------
+  - { name: route.assigned, category: core_value, group_level: delivery, description: "Route assigned to a driver (often AI-optimized)", expected_frequency: medium,
+      properties: [ {name: stop_count, type: integer, required: true}, {name: ai_optimized, type: boolean, required: true}, {name: total_miles_est, type: number, required: false} ] }
+  - { name: route.started, category: core_value, group_level: delivery, description: "Driver starts the route", expected_frequency: medium, properties: [] }
+  - { name: route.completed, category: core_value, group_level: delivery, description: "Driver finishes all stops", expected_frequency: medium,
+      properties: [ {name: stops_completed, type: integer, required: true}, {name: stops_failed, type: integer, required: true}, {name: total_minutes, type: integer, required: false} ] }
+  - { name: delivery.completed, category: core_value, group_level: delivery, description: "A single delivery dropped off", expected_frequency: high,
+      properties: [ {name: order_id, type: string, required: true}, {name: has_proof_photo, type: boolean, required: true}, {name: has_signature, type: boolean, required: false}, {name: on_time, type: boolean, required: false} ] }
+  - { name: delivery.failed, category: core_value, group_level: delivery, description: "Delivery could not be completed", expected_frequency: low,
+      properties: [ {name: order_id, type: string, required: true}, {name: reason, type: string, enum: [no_answer,wrong_address,refused,damaged,other], required: true} ] }
+  - { name: delivery.checklist_completed, category: core_value, group_level: delivery, description: "Pre/post-delivery checklist finished", expected_frequency: high,
+      properties: [ {name: checklist_type, type: string, enum: [vehicle,loadout,dropoff], required: true}, {name: items_total, type: integer, required: true}, {name: items_failed, type: integer, required: true} ] }
+  - { name: temp_log.recorded, category: core_value, group_level: delivery, description: "Temperature log entry (cold-chain)", expected_frequency: high,
+      properties: [ {name: temp_f, type: number, required: true}, {name: in_range, type: boolean, required: true}, {name: context, type: string, enum: [loadout,transit,dropoff,kitchen], required: true}, {name: has_photo, type: boolean, required: false} ] }
+  - { name: mileage.submitted, category: core_value, group_level: delivery, description: "Driver submits mileage", expected_frequency: medium,
+      properties: [ {name: miles, type: number, required: true}, {name: auto_calculated, type: boolean, required: false} ] }
+  - { name: expense.submitted, category: core_value, group_level: delivery, description: "Driver/staff submits an expense", expected_frequency: medium,
+      properties: [ {name: amount_cents, type: integer, required: true}, {name: expense_type, type: string, enum: [fuel,supplies,maintenance,other], required: true}, {name: has_receipt, type: boolean, required: true} ] }
+  - { name: expense.reviewed, category: core_value, group_level: business, description: "Owner approves/rejects an expense", expected_frequency: medium,
+      properties: [ {name: decision, type: string, enum: [approved,rejected], required: true}, {name: amount_cents, type: integer, required: true} ] }
+
+  # ---------- Tickets / issues ----------
+  - { name: ticket.created, category: core_value, group_level: team, description: "Complaint/issue ticket opened", expected_frequency: medium,
+      properties: [ {name: ticket_type, type: string, enum: [complaint,equipment,safety,scheduling,other], required: true}, {name: severity, type: string, enum: [low,medium,high,urgent], required: true}, {name: ai_triaged, type: boolean, required: false} ] }
+  - { name: ticket.resolved, category: core_value, group_level: team, description: "Ticket closed", expected_frequency: medium,
+      properties: [ {name: resolution_minutes, type: integer, required: false} ] }
+
+  # ---------- Kitchen ----------
+  - { name: order.received, category: core_value, group_level: kitchen, description: "Live order surfaced to the kitchen", expected_frequency: high,
+      properties: [ {name: order_id, type: string, required: true}, {name: item_count, type: integer, required: true}, {name: delivery_window, type: string, enum: [lunch,dinner], required: false} ] }
+  - { name: order.prep_started, category: core_value, group_level: kitchen, description: "Kitchen begins preparing an order", expected_frequency: high,
+      properties: [ {name: order_id, type: string, required: true} ] }
+  - { name: order.ready, category: core_value, group_level: kitchen, description: "Order marked ready for loadout", expected_frequency: high,
+      properties: [ {name: order_id, type: string, required: true}, {name: prep_minutes, type: integer, required: false} ] }
+  - { name: order_summary.viewed, category: navigation, group_level: kitchen, description: "Daily order summary opened", expected_frequency: medium, properties: [] }
+  - { name: restock_order.submitted, category: core_value, group_level: kitchen, description: "Kitchen submits a restock/PO to a vendor", expected_frequency: medium,
+      properties: [ {name: vendor_id, type: string, required: false}, {name: line_item_count, type: integer, required: true}, {name: total_cents, type: integer, required: false}, {name: ai_suggested, type: boolean, required: false} ] }
+  - { name: reminder.acknowledged, category: core_value, group_level: kitchen, description: "Staff acknowledges a scheduled reminder", expected_frequency: medium,
+      properties: [ {name: reminder_type, type: string, required: true} ] }
+  - { name: checklist.completed, category: core_value, group_level: kitchen, description: "Kitchen procedure/opening/closing checklist completed", expected_frequency: high,
+      properties: [ {name: checklist_type, type: string, enum: [opening,closing,prep,sanitation,procedure], required: true}, {name: items_total, type: integer, required: true}, {name: items_failed, type: integer, required: true} ] }
+  - { name: doc.viewed, category: navigation, group_level: team, description: "A manual/policy/procedure/recipe doc opened", expected_frequency: medium,
+      properties: [ {name: doc_type, type: string, enum: [manual,policy,procedure,recipe], required: true}, {name: doc_id, type: string, required: true} ] }
+
+  # ---------- Creative Studio (AI recipe generation) ----------
+  - { name: recipe_session.started, category: core_value, group_level: kitchen, description: "Chef opens a Creative Studio session with the AI agent", expected_frequency: low,
+      properties: [ {name: mode, type: string, enum: [voice,text,mixed], required: true} ] }
+  - { name: recipe_session.media_added, category: core_value, group_level: kitchen, description: "Voice clip or photo added to the live session", expected_frequency: medium,
+      properties: [ {name: media_type, type: string, enum: [voice,photo], required: true} ] }
+  - { name: recipe_session.ai_assist_used, category: ai, group_level: kitchen, description: "AI agent provided guidance/research/perspective in-session", expected_frequency: medium,
+      properties: [ {name: assist_type, type: string, enum: [guidance,research,substitution,scaling,critique], required: true} ] }
+  - { name: recipe.created, category: core_value, group_level: kitchen, description: "A new recipe is finalized from a session", expected_frequency: low,
+      properties: [ {name: session_minutes, type: integer, required: false}, {name: media_count, type: integer, required: false}, {name: ai_assist_count, type: integer, required: false} ] }
+  - { name: recipe.published, category: core_value, group_level: kitchen, description: "Recipe published to the kitchen docs library", expected_frequency: low,
+      properties: [ {name: recipe_id, type: string, required: true} ] }
+
+  # ---------- Communications (all roles) ----------
+  - { name: thread.created, category: collaboration, group_level: team, description: "A new conversation thread is opened", expected_frequency: medium,
+      properties: [ {name: audience, type: string, enum: [kitchen,driver,client,trainer,vendor,broadcast], required: true} ] }
+  - { name: message.sent, category: collaboration, group_level: team, description: "A message sent in-app", expected_frequency: high,
+      properties: [ {name: channel, type: string, enum: [in_app,sms,whatsapp], required: true}, {name: audience, type: string, enum: [kitchen,driver,client,trainer,vendor,broadcast], required: true}, {name: ai_drafted, type: boolean, required: false} ] }
+  - { name: message.received, category: collaboration, group_level: team, description: "Inbound message (e.g., Twilio SMS/WhatsApp reply) ingested", expected_frequency: high,
+      properties: [ {name: channel, type: string, enum: [sms,whatsapp,in_app], required: true} ] }
+
+  # ---------- Owner command center ----------
+  - { name: dashboard.viewed, category: navigation, group_level: business, description: "Owner command center opened", expected_frequency: medium,
+      properties: [ {name: view, type: string, enum: [overview,deliveries,kitchen,staff,finance,comms], required: true} ] }
+  - { name: alert.triggered, category: core_value, group_level: business, description: "An automated alert fired to the owner", expected_frequency: medium,
+      properties: [ {name: alert_type, type: string, enum: [eod_missing,temp_excursion,delivery_failed,late_clock_in,expense_pending,low_stock,negative_sentiment], required: true}, {name: severity, type: string, enum: [info,warning,critical], required: true}, {name: actor_type, type: string, enum: [system], required: true} ] }
+  - { name: alert.acknowledged, category: core_value, group_level: business, description: "Owner acknowledges/dismisses an alert", expected_frequency: medium,
+      properties: [ {name: alert_type, type: string, required: true} ] }
+  - { name: report.exported, category: navigation, group_level: business, description: "Owner exports a report", expected_frequency: low,
+      properties: [ {name: report_type, type: string, enum: [payroll,deliveries,finance,accountability,temp_compliance], required: true} ] }
+
+  # ---------- AI automation (cross-cutting) ----------
+  - { name: automation.run, category: ai, group_level: business, description: "A scheduled/triggered automation executes", expected_frequency: high,
+      properties: [ {name: automation_type, type: string, enum: [route_optimize,daily_summary,restock_suggest,eod_chase,ticket_triage,sentiment_scan,payroll_prep], required: true}, {name: outcome, type: string, enum: [success,partial,failed], required: true}, {name: actor_type, type: string, enum: [system], required: true} ] }
+  - { name: agent_task.completed, category: ai, group_level: team, description: "An AI agent finishes a unit of work", expected_frequency: high,
+      properties: [ {name: task_type, type: string, required: true}, {name: duration_ms, type: integer, required: false}, {name: tokens, type: integer, required: false} ] }
+  - { name: ai_suggestion.actioned, category: ai, group_level: team, description: "A human accepts/dismisses an AI suggestion (measures AI value)", expected_frequency: high,
+      properties: [ {name: suggestion_type, type: string, required: true}, {name: decision, type: string, enum: [accepted,edited,dismissed], required: true} ] }
+
+  # ---------- Vendor ----------
+  - { name: vendor.po_acknowledged, category: core_value, group_level: vendors, description: "Vendor acknowledges a restock PO", expected_frequency: medium,
+      properties: [ {name: restock_order_id, type: string, required: true} ] }
+  - { name: vendor.delivery_confirmed, category: core_value, group_level: vendors, description: "Vendor marks a PO delivered / kitchen receives it", expected_frequency: medium,
+      properties: [ {name: restock_order_id, type: string, required: true}, {name: received_complete, type: boolean, required: true} ] }

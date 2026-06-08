@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Creative Studio</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .studio-start { text-align:center; padding:24px 0; }
+  .feed { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+  .turn { padding:12px 14px; border-radius:12px; max-width:88%; line-height:1.5; }
+  .turn.user { align-self:flex-end; background:var(--green); color:var(--cream); }
+  .turn.ai { align-self:flex-start; background:var(--white); border:1px solid var(--line); }
+  .turn.media { align-self:flex-end; background:var(--cream-dark); font-size:13px; color:var(--muted); }
+  .turn .who { font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:.7; margin-bottom:3px; }
+  .turn.media img { max-width:100%; border-radius:8px; margin-top:6px; display:block; }
+  .assist-bar { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin-bottom:8px; }
+  .assist-bar button { white-space:nowrap; padding:6px 12px; font-size:12px; border:1px solid var(--line); background:var(--white); border-radius:20px; cursor:pointer; color:var(--green); }
+  .assist-bar button.active { background:var(--gold); color:var(--black); border-color:var(--gold); }
+  .composer { display:flex; gap:8px; align-items:flex-end; position:sticky; bottom:calc(var(--nav-h) + 8px); background:var(--cream); padding-top:8px; }
+  .composer textarea { min-height:46px; max-height:120px; }
+  .icon-btn { flex:none; width:46px; height:46px; border-radius:50%; border:1px solid var(--line); background:var(--white); font-size:20px; cursor:pointer; }
+  .icon-btn.rec { background:var(--crit); color:#fff; border-color:var(--crit); }
+  .send-btn { flex:none; width:46px; height:46px; border-radius:50%; }
+  .demo-flag { font-size:11px; color:var(--gold-dark); margin-top:4px; }
+  .finalize-bar { display:flex; gap:8px; margin:14px 0; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · STUDIO</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <!-- Start screen -->
+  <div id="start-view">
+    <div class="card accent studio-start">
+      <h2 style="margin-bottom:6px" data-i18n>Creative Studio</h2>
+      <p class="row-sub" data-i18n>Capture voice + photos and develop a recipe with your AI sous-chef. When you're done, finalize it into a recipe and publish to the library.</p>
+      <div class="field" style="margin-top:16px;text-align:left">
+        <label data-i18n>Working title (optional)</label>
+        <input id="title" type="text" placeholder="e.g. Citrus Mojo Salmon Bowl">
+      </div>
+      <button class="btn gold block" id="start-btn" type="button" data-i18n>Start a session</button>
+    </div>
+  </div>
+
+  <!-- Session screen -->
+  <div id="session-view" hidden>
+    <div class="feed" id="feed"></div>
+
+    <div class="finalize-bar">
+      <button class="btn ghost" id="ai-draft-btn" type="button" style="flex:1" data-i18n>✨ AI draft recipe</button>
+      <button class="btn gold" id="finalize-btn" type="button" style="flex:1" data-i18n>Finalize</button>
+    </div>
+
+    <div class="assist-bar" id="assist-bar">
+      <button data-assist="guidance" class="active">Guidance</button>
+      <button data-assist="research">Research</button>
+      <button data-assist="substitution">Substitution</button>
+      <button data-assist="scaling">Scaling</button>
+      <button data-assist="critique">Critique</button>
+    </div>
+
+    <div class="composer">
+      <button class="icon-btn" id="photo-btn" type="button" title="Add photo">📷</button>
+      <button class="icon-btn" id="rec-btn" type="button" title="Record voice">🎙️</button>
+      <textarea id="msg" placeholder="Ask your sous-chef…"></textarea>
+      <button class="btn gold send-btn" id="send-btn" type="button">➤</button>
+    </div>
+    <input type="file" id="photo-input" accept="image/*" capture="environment" hidden>
+  </div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/kitchen/kitchen.js"></script>
+<script>
+(function () {
+  var Hub = window.Hub, K = window.Kitchen, $ = Hub.$, esc = Hub.esc;
+  var sessionId = null, assistType = 'guidance';
+  var mediaRecorder = null, chunks = [], recording = false;
+
+  function addTurn(kind, html) {
+    var div = document.createElement('div');
+    div.className = 'turn ' + kind;
+    div.innerHTML = html;
+    $('#feed').appendChild(div);
+    window.scrollTo(0, document.body.scrollHeight);
+    return div;
+  }
+
+  function startSession() {
+    var title = $('#title').value.trim() || null;
+    $('#start-btn').disabled = true;
+    K.post('/api/hub/kitchen/studio/session', { mode: 'mixed', title: title }).then(function (d) {
+      $('#start-btn').disabled = false;
+      if (!d || !d.session) return K.fail(d, 'Could not start session.');
+      sessionId = d.session.id;
+      $('#start-view').hidden = true;
+      $('#session-view').hidden = false;
+      addTurn('ai', '<div class="who">Sous-chef</div>Session started. Tell me what you\'re cooking — or snap a photo / record a voice note to begin.');
+    });
+  }
+
+  function sendText() {
+    var text = $('#msg').value.trim();
+    if (!text || !sessionId) return;
+    $('#msg').value = '';
+    addTurn('user', '<div class="who">You</div>' + esc(text));
+    var thinking = addTurn('ai', '<div class="who">Sous-chef</div><em>thinking…</em>');
+    K.post('/api/hub/kitchen/studio/message', { session_id: sessionId, text: text, assist_type: assistType })
+      .then(function (d) {
+        if (!d || !d.reply) { thinking.innerHTML = '<div class="who">Sous-chef</div>(no reply)'; return K.fail(d); }
+        thinking.innerHTML = '<div class="who">Sous-chef · ' + esc(d.assist_type) + '</div>' + esc(d.reply) +
+          (d.demo ? '<div class="demo-flag">demo mode</div>' : '');
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+  }
+
+  // ---- Photo capture ----
+  $('#photo-btn').addEventListener('click', function () { $('#photo-input').click(); });
+  $('#photo-input').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    if (!file || !sessionId) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      // Show a local preview; we attach a reference (filename) — binary upload to R2 is a follow-up.
+      addTurn('media', '<div class="who">Photo</div><img src="' + reader.result + '" alt="dish photo">');
+      K.post('/api/hub/kitchen/studio/media', { session_id: sessionId, media_type: 'photo', content: 'photo:' + file.name, meta: { size: file.size, type: file.type } })
+        .then(function (d) { if (!d || !d.ok) K.fail(d, 'Could not attach photo.'); else Hub.toast('Photo added'); });
+    };
+    reader.readAsDataURL(file);
+    this.value = '';
+  });
+
+  // ---- Voice capture (MediaRecorder) ----
+  function toggleRecord() {
+    if (!sessionId) return;
+    if (recording) { stopRecord(); return; }
+    if (!navigator.mediaDevices || !window.MediaRecorder) { Hub.toast('Recording not supported on this device.'); return; }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      chunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      mediaRecorder.onstop = function () {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        var blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+        var secs = Math.round(blob.size / 16000); // rough
+        addTurn('media', '<div class="who">Voice note</div>🎙️ Recorded clip (~' + Math.max(1, secs) + 's). Transcription pending.');
+        // Attach a reference; STT wiring is a follow-up. Optional inline transcript could be added here.
+        K.post('/api/hub/kitchen/studio/media', { session_id: sessionId, media_type: 'voice', content: 'voice:clip-' + Date.now(), meta: { bytes: blob.size, mime: blob.type } })
+          .then(function (d) {
+            if (!d || !d.ok) return K.fail(d, 'Could not attach voice.');
+            Hub.toast(d.stt_pending ? 'Voice added (transcription pending)' : 'Voice added');
+          });
+      };
+      mediaRecorder.start();
+      recording = true;
+      var b = $('#rec-btn'); b.classList.add('rec'); b.textContent = '⏹';
+    }).catch(function () { Hub.toast('Microphone permission denied.'); });
+  }
+
+  function stopRecord() {
+    if (mediaRecorder && recording) { mediaRecorder.stop(); recording = false; var b = $('#rec-btn'); b.classList.remove('rec'); b.textContent = '🎙️'; }
+  }
+
+  $('#rec-btn').addEventListener('click', toggleRecord);
+  $('#send-btn').addEventListener('click', sendText);
+  $('#msg').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
+  });
+
+  // assist type selector
+  Array.prototype.forEach.call(document.querySelectorAll('#assist-bar button'), function (b) {
+    b.addEventListener('click', function () {
+      assistType = b.getAttribute('data-assist');
+      Array.prototype.forEach.call(document.querySelectorAll('#assist-bar button'), function (x) { x.classList.toggle('active', x === b); });
+    });
+  });
+
+  // ---- AI draft + finalize ----
+  $('#ai-draft-btn').addEventListener('click', function () {
+    if (!sessionId) return;
+    this.disabled = true;
+    K.post('/api/hub/kitchen/recipe/create?ai_draft=1', { session_id: sessionId }).then(function (d) {
+      $('#ai-draft-btn').disabled = false;
+      if (!d || !d.draft) return K.fail(d, 'Could not draft.');
+      var dr = d.draft;
+      addTurn('ai', '<div class="who">Draft recipe' + (d.demo ? ' · demo' : '') + '</div><strong>' + esc(dr.name || 'Recipe') + '</strong><br>' +
+        esc(dr.summary || '') + '<div class="demo-flag">Tap Finalize to save this as a recipe.</div>');
+      window._draft = dr;
+    });
+  });
+
+  $('#finalize-btn').addEventListener('click', function () {
+    if (!sessionId) return;
+    var draft = window._draft || {};
+    var name = draft.name || prompt('Recipe name?');
+    if (!name) return;
+    this.disabled = true;
+    K.post('/api/hub/kitchen/recipe/create', {
+      session_id: sessionId, name: name, summary: draft.summary || null,
+      ingredients: draft.ingredients || [], steps: draft.steps || [],
+      nutrition: draft.nutrition || null, tags: draft.tags || []
+    }).then(function (d) {
+      $('#finalize-btn').disabled = false;
+      if (!d || !d.recipe) return K.fail(d, 'Could not finalize.');
+      var rid = d.recipe.id;
+      if (confirm('Recipe created. Publish it to the library now?')) {
+        K.post('/api/hub/kitchen/recipe/publish', { id: rid }).then(function (p) {
+          if (p && p.ok) { Hub.toast('Published to library'); window.location.href = '/hub/kitchen/library.html'; }
+          else K.fail(p, 'Created but publish failed.');
+        });
+      } else {
+        Hub.toast('Recipe saved as draft');
+      }
+    });
+  });
+
+  $('#start-btn').addEventListener('click', startSession);
+
+  var lt = $('#lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  K.boot('studio', function () {});
+})();
+</script>
+</body>
+</html>

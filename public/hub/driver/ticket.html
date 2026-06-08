@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Report Issue · Añejo Driver</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar"><h1>AÑEJO · REPORT ISSUE</h1></div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <div class="card">
+      <div class="field">
+        <label data-i18n>Type</label>
+        <select id="ttype">
+          <option value="complaint" data-i18n>Customer complaint</option>
+          <option value="equipment" data-i18n>Equipment</option>
+          <option value="safety" data-i18n>Safety</option>
+          <option value="scheduling" data-i18n>Scheduling</option>
+          <option value="other" data-i18n>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label data-i18n>Severity</label>
+        <select id="severity">
+          <option value="low" data-i18n>Low</option>
+          <option value="medium" data-i18n>Medium</option>
+          <option value="high" data-i18n>High</option>
+          <option value="urgent" data-i18n>Urgent</option>
+        </select>
+      </div>
+      <div class="field">
+        <label data-i18n>Title</label>
+        <input type="text" id="title" placeholder="Short summary">
+      </div>
+      <div class="field">
+        <label data-i18n>Details</label>
+        <textarea id="body" placeholder="What happened?"></textarea>
+      </div>
+      <div class="field">
+        <label data-i18n>Order ID (optional)</label>
+        <input type="text" id="order-id">
+      </div>
+      <button class="btn block gold" id="submit" type="button" data-i18n>Submit ticket</button>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/driver/assets/driver.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  Driver.nav('home');
+
+  document.getElementById('submit').addEventListener('click', function () {
+    var title = document.getElementById('title').value.trim();
+    var body = document.getElementById('body').value.trim();
+    if (!title && !body) { Hub.toast('Add a title or details'); return; }
+    var btn = this; btn.disabled = true;
+    Hub.api('/api/hub/driver/ticket/create', { method: 'POST', body: {
+      ticket_type: document.getElementById('ttype').value,
+      severity: document.getElementById('severity').value,
+      title: title, body: body,
+      order_id: document.getElementById('order-id').value.trim() || undefined
+    } }).then(function (resp) {
+      btn.disabled = false;
+      if (resp && resp.ok) {
+        Hub.toast('Ticket submitted');
+        document.getElementById('title').value = '';
+        document.getElementById('body').value = '';
+        document.getElementById('order-id').value = '';
+      } else { Hub.toast((resp && resp.error) || 'Error'); }
+    });
+  });
+
+  Driver.guard();
+})();
+</script>
+</body>
+</html>

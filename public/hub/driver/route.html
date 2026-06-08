@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Route · Añejo Driver</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="apple-touch-icon" href="/assets/img/emblem.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar"><h1>AÑEJO · ROUTE</h1></div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <div id="route-head" class="card"><p class="row-sub" data-i18n>Loading route…</p></div>
+  </div>
+  <div class="hub-section">
+    <div id="stops" class="list"></div>
+  </div>
+</div>
+
+<!-- Delivery action sheet -->
+<div id="sheet" class="card accent" style="display:none;position:fixed;left:12px;right:12px;bottom:80px;max-width:560px;margin:0 auto;z-index:50;">
+  <h2 class="row-title" id="sheet-title">Stop</h2>
+  <div id="sheet-mode-deliver">
+    <div class="field">
+      <label data-i18n>Proof photo</label>
+      <input type="file" accept="image/*" capture="environment" id="proof-photo">
+    </div>
+    <div class="field">
+      <label data-i18n>Signature (optional)</label>
+      <input type="file" accept="image/*" id="signature">
+    </div>
+    <button class="btn block gold" id="deliver-btn" type="button" data-i18n>Mark delivered</button>
+  </div>
+  <div id="sheet-mode-fail" style="display:none">
+    <div class="field">
+      <label data-i18n>Reason</label>
+      <select id="fail-reason">
+        <option value="no_answer" data-i18n>No answer</option>
+        <option value="wrong_address" data-i18n>Wrong address</option>
+        <option value="refused" data-i18n>Refused</option>
+        <option value="damaged" data-i18n>Damaged</option>
+        <option value="other" data-i18n>Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label data-i18n>Note (optional)</label>
+      <textarea id="fail-note"></textarea>
+    </div>
+    <button class="btn block" id="fail-btn" type="button" style="background:var(--crit)" data-i18n>Mark failed</button>
+  </div>
+  <div class="card-grid" style="margin-top:10px">
+    <button class="btn ghost" id="toggle-mode" type="button" data-i18n>Switch to failed</button>
+    <button class="btn ghost" id="sheet-close" type="button" data-i18n>Close</button>
+  </div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/driver/assets/driver.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  Driver.nav('route');
+
+  var routeData = null;
+  var current = null; // current stop being acted on
+  var mode = 'deliver';
+
+  var sheet = document.getElementById('sheet');
+  var head = document.getElementById('route-head');
+  var stopsEl = document.getElementById('stops');
+
+  function load() {
+    Hub.api('/api/hub/driver/route').then(function (data) {
+      routeData = data;
+      render();
+    });
+  }
+
+  function render() {
+    if (!routeData || !routeData.route) {
+      head.innerHTML = '<p class="row-sub" data-i18n>No route assigned for today.</p>';
+      stopsEl.innerHTML = '';
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+      return;
+    }
+    var r = routeData.route;
+    var startBtn = r.status === 'assigned'
+      ? '<button class="btn gold" id="start-route" type="button" data-i18n>Start route</button>'
+      : r.status === 'started'
+        ? '<button class="btn ghost" id="complete-route" type="button" data-i18n>Complete route</button>'
+        : '<span class="badge ok">completed</span>';
+    head.innerHTML =
+      '<div class="row"><div class="row-main"><div class="row-title">' +
+      ((routeData.stops || []).length) + ' stops</div><div class="row-sub">' + Hub.esc(r.status) +
+      (r.ai_optimized ? ' · AI-optimized' : '') + '</div></div>' + startBtn + '</div>';
+
+    var sb = document.getElementById('start-route');
+    if (sb) sb.addEventListener('click', function () {
+      Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'start' } }).then(function (resp) {
+        if (resp && resp.ok) { Hub.toast('Route started'); load(); } else { Hub.toast((resp && resp.error) || 'Error'); }
+      });
+    });
+    var cb = document.getElementById('complete-route');
+    if (cb) cb.addEventListener('click', function () {
+      Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'complete' } }).then(function (resp) {
+        if (resp && resp.ok) { Hub.toast('Route completed'); load(); } else { Hub.toast((resp && resp.error) || 'Error'); }
+      });
+    });
+
+    stopsEl.innerHTML = (routeData.stops || []).map(function (s, i) {
+      var geo = null; try { geo = s.geo ? JSON.parse(s.geo) : null; } catch (e) {}
+      var maps = Driver.mapsUrl(geo, s.label);
+      var done = s.status === 'done', failed = s.status === 'failed';
+      var badge = done ? '<span class="badge ok">done</span>' : failed ? '<span class="badge crit">failed</span>' : '<span class="badge">' + Hub.esc(s.status) + '</span>';
+      var actions = (done || failed) ? '' :
+        '<button class="btn gold act" data-i="' + i + '" type="button" data-i18n>Deliver</button>';
+      return '<div class="row"><div class="row-main"><div class="row-title">' + (i + 1) + '. ' + Hub.esc(s.label || 'Stop') +
+        '</div><div class="row-sub"><a href="' + maps + '" target="_blank" rel="noopener" data-i18n>Open in maps</a></div></div>' +
+        badge + actions + '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(stopsEl.querySelectorAll('.act'), function (btn) {
+      btn.addEventListener('click', function () { openSheet(routeData.stops[+btn.getAttribute('data-i')]); });
+    });
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function openSheet(stop) {
+    current = stop; mode = 'deliver';
+    document.getElementById('sheet-title').textContent = (stop.label || 'Stop');
+    document.getElementById('proof-photo').value = '';
+    document.getElementById('signature').value = '';
+    document.getElementById('fail-note').value = '';
+    setMode('deliver');
+    sheet.style.display = 'block';
+  }
+  function setMode(m) {
+    mode = m;
+    document.getElementById('sheet-mode-deliver').style.display = m === 'deliver' ? 'block' : 'none';
+    document.getElementById('sheet-mode-fail').style.display = m === 'fail' ? 'block' : 'none';
+    document.getElementById('toggle-mode').textContent = m === 'deliver' ? 'Switch to failed' : 'Switch to delivered';
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  document.getElementById('toggle-mode').addEventListener('click', function () { setMode(mode === 'deliver' ? 'fail' : 'deliver'); });
+  document.getElementById('sheet-close').addEventListener('click', function () { sheet.style.display = 'none'; current = null; });
+
+  document.getElementById('deliver-btn').addEventListener('click', function () {
+    if (!current) return;
+    var btn = this; btn.disabled = true;
+    Promise.all([
+      Driver.fileToDataUrl(document.getElementById('proof-photo').files[0]),
+      Driver.fileToDataUrl(document.getElementById('signature').files[0]),
+      Driver.geo()
+    ]).then(function (vals) {
+      return Hub.api('/api/hub/driver/delivery/complete', { method: 'POST', body: {
+        order_id: current.order_id, route_id: current.route_id, stop_id: current.id,
+        proof_photo: vals[0], signature: vals[1], geo: vals[2], on_time: true
+      } });
+    }).then(function (resp) {
+      btn.disabled = false;
+      if (resp && resp.ok) { Hub.toast('Delivered'); sheet.style.display = 'none'; load(); }
+      else { Hub.toast((resp && resp.error) || 'Error'); }
+    });
+  });
+
+  document.getElementById('fail-btn').addEventListener('click', function () {
+    if (!current) return;
+    var btn = this; btn.disabled = true;
+    Driver.geo().then(function (geo) {
+      return Hub.api('/api/hub/driver/delivery/fail', { method: 'POST', body: {
+        order_id: current.order_id, route_id: current.route_id, stop_id: current.id,
+        reason: document.getElementById('fail-reason').value,
+        note: document.getElementById('fail-note').value, geo: geo
+      } });
+    }).then(function (resp) {
+      btn.disabled = false;
+      if (resp && resp.ok) { Hub.toast('Marked failed'); sheet.style.display = 'none'; load(); }
+      else { Hub.toast((resp && resp.error) || 'Error'); }
+    });
+  });
+
+  Driver.guard().then(function (me) { if (me) load(); });
+})();
+</script>
+</body>
+</html>

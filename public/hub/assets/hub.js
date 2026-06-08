@@ -1,0 +1,230 @@
+/* Añejo HUB — shared client runtime.
+   Exposes window.Hub with: session check, role-based redirect, PWA install prompt,
+   service-worker registration, a track() wrapper that POSTs to /api/hub/track,
+   and small DOM/toast helpers. No build step; plain ES in the browser. */
+(function () {
+  'use strict';
+
+  var Hub = {};
+
+  // ---------- tiny helpers ----------
+  Hub.$ = function (sel, root) { return (root || document).querySelector(sel); };
+  Hub.esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (m) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m];
+    });
+  };
+  Hub.money = function (cents) { return '$' + ((cents || 0) / 100).toFixed(2); };
+
+  // Re-apply EN/ES translation after dynamic content renders. Debounced and triggered by
+  // network completion / toasts (NOT DOM mutations), so it can never feedback-loop.
+  var _i18nT = 0;
+  Hub.i18nRefresh = function () {
+    if (!window.AnejoI18n) return;
+    if (_i18nT) return;
+    _i18nT = setTimeout(function () { _i18nT = 0; try { window.AnejoI18n.refresh(); } catch (e) {} }, 50);
+  };
+
+  Hub.toast = function (msg) {
+    var el = document.getElementById('hub-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'hub-toast';
+      el.className = 'hub-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    Hub.i18nRefresh();
+    clearTimeout(Hub._toastT);
+    Hub._toastT = setTimeout(function () { el.classList.remove('show'); }, 2400);
+  };
+
+  // ---------- api ----------
+  Hub.api = function (path, opts) {
+    opts = opts || {};
+    var init = { method: opts.method || 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin' };
+    if (opts.body !== undefined) init.body = JSON.stringify(opts.body);
+    return fetch(path, init).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) { data._status = r.status; }
+        Hub.i18nRefresh();
+        return data;
+      });
+    });
+  };
+
+  // ---------- session ----------
+  // Returns the /api/me payload. We tolerate both the trainer shape and a future
+  // staff/role shape (role lives at top level or under .staff / .trainer).
+  Hub.me = function () {
+    return Hub.api('/api/me').then(function (data) { Hub._me = data; return data; });
+  };
+
+  Hub.roleFromMe = function (data) {
+    if (!data) return null;
+    if (data.role) return data.role;
+    if (data.staff && data.staff.role) return data.staff.role;
+    if (data.user && data.user.role) return data.user.role;
+    if (data.trainer) return 'trainer';
+    if (data.authenticated && data.email && !data.trainer) return data.client ? 'client' : null;
+    return null;
+  };
+
+  Hub.routeForRole = function (role) {
+    switch (role) {
+      case 'owner': return '/hub/owner';
+      case 'kitchen': return '/hub/kitchen';
+      case 'driver': return '/hub/driver';
+      case 'vendor': return '/hub/vendor';
+      case 'trainer': return '/trainer/dashboard';
+      case 'client': return '/client/dashboard';
+      default: return null;
+    }
+  };
+
+  // Redirect to the right surface based on the current session.
+  // If unauthenticated, sends to the magic-link portal.
+  Hub.routeByRole = function (opts) {
+    opts = opts || {};
+    return Hub.me().then(function (data) {
+      if (!data || !data.authenticated) {
+        if (opts.onAnon) return opts.onAnon();
+        window.location.replace('/login');
+        return null;
+      }
+      var role = Hub.roleFromMe(data);
+      var dest = Hub.routeForRole(role);
+      if (!dest) {
+        if (opts.onUnknown) return opts.onUnknown(data);
+        return data;
+      }
+      if (!opts.noRedirect) window.location.replace(dest);
+      return data;
+    });
+  };
+
+  // Guard a surface: ensure the signed-in role is allowed; otherwise bounce.
+  Hub.guard = function (allowed) {
+    return Hub.me().then(function (data) {
+      if (!data || !data.authenticated) { window.location.replace('/login'); return null; }
+      var role = Hub.roleFromMe(data);
+      if (allowed && allowed.indexOf(role) === -1) {
+        var dest = Hub.routeForRole(role) || '/hub/';
+        window.location.replace(dest);
+        return null;
+      }
+      return data;
+    });
+  };
+
+  // ---------- tracking ----------
+  // Fire-and-forget client event → /api/hub/track (identity resolved server-side).
+  Hub.track = function (event, properties) {
+    try {
+      var body = JSON.stringify({ event: event, properties: properties || {} });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon('/api/hub/track', new Blob([body], { type: 'application/json' }));
+        return Promise.resolve();
+      }
+      return fetch('/api/hub/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: body,
+        keepalive: true,
+      }).catch(function () {});
+    } catch (e) { return Promise.resolve(); }
+  };
+
+  // ---------- PWA install prompt ----------
+  Hub._deferredPrompt = null;
+  Hub.initInstallPrompt = function () {
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      Hub._deferredPrompt = e;
+      var box = document.getElementById('hub-install');
+      if (box) box.classList.add('show');
+    });
+    window.addEventListener('appinstalled', function () {
+      var os = /android/i.test(navigator.userAgent) ? 'android'
+        : /iphone|ipad|ipod/i.test(navigator.userAgent) ? 'ios' : 'desktop';
+      Hub.track('app.installed', { os: os });
+      var box = document.getElementById('hub-install');
+      if (box) box.classList.remove('show');
+    });
+  };
+
+  Hub.promptInstall = function () {
+    var box = document.getElementById('hub-install');
+    if (!Hub._deferredPrompt) { if (box) box.classList.remove('show'); return; }
+    Hub._deferredPrompt.prompt();
+    Hub._deferredPrompt.userChoice.finally(function () {
+      Hub._deferredPrompt = null;
+      if (box) box.classList.remove('show');
+    });
+  };
+
+  Hub.dismissInstall = function () {
+    var box = document.getElementById('hub-install');
+    if (box) box.classList.remove('show');
+  };
+
+  // ---------- service worker ----------
+  Hub.registerSW = function () {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/hub/sw.js', { scope: '/hub/' }).catch(function () {});
+      });
+    }
+  };
+
+  // ---------- boot ----------
+  // Inject a universal Account button (top-right) on every HUB surface so staff can
+  // always change their PIN or sign out, regardless of each page's own markup.
+  Hub.mountAccountButton = function () {
+    if (document.getElementById('hub-account-btn')) return;
+    if (location.pathname.indexOf('/hub/account') === 0) return; // not on the account page itself
+    var a = document.createElement('a');
+    a.id = 'hub-account-btn';
+    a.href = '/hub/account.html';
+    a.setAttribute('aria-label', 'Account');
+    a.textContent = '☰';
+    a.style.cssText = 'position:fixed;top:10px;right:12px;z-index:60;width:38px;height:38px;display:flex;' +
+      'align-items:center;justify-content:center;border-radius:50%;background:rgba(0,0,0,.18);color:#fff;' +
+      'text-decoration:none;font-size:18px;backdrop-filter:blur(4px)';
+    document.body.appendChild(a);
+  };
+
+  Hub.boot = function (opts) {
+    opts = opts || {};
+    Hub.registerSW();
+    Hub.initInstallPrompt();
+    if (opts.installButton) {
+      var btn = document.getElementById(opts.installButton);
+      if (btn) btn.addEventListener('click', Hub.promptInstall);
+    }
+    if (opts.account !== false) {
+      if (document.body) Hub.mountAccountButton();
+      else document.addEventListener('DOMContentLoaded', Hub.mountAccountButton);
+    }
+    return Hub;
+  };
+
+  window.Hub = Hub;
+
+  // Load the HUB Spanish (EN/ES) dictionary once — it registers with the shared i18n engine.
+  if (!document.getElementById('hub-i18n-js')) {
+    var i18nScript = document.createElement('script');
+    i18nScript.id = 'hub-i18n-js';
+    i18nScript.src = '/hub/assets/hub-i18n.js';
+    (document.head || document.documentElement).appendChild(i18nScript);
+  }
+
+  // Auto-mount the universal Account button on any page that loads hub.js.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', Hub.mountAccountButton);
+  } else {
+    Hub.mountAccountButton();
+  }
+})();

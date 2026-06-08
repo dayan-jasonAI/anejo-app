@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Comms</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · COMMS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading comms…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML =
+      '<div class="hub-section"><h2 data-i18n>All alerts</h2>' +
+      '<div class="card"><label data-i18n>Filter</label><select id="afilter"><option value="open" data-i18n>Open</option><option value="all" data-i18n>All</option></select></div>' +
+      '<div id="alerts"><div class="hub-loading">…</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Message &amp; comms activity</h2><div id="cfeed" class="list"><div class="hub-loading">…</div></div></div>';
+
+    var f = document.getElementById('afilter');
+    f.addEventListener('change', function () { loadAlerts(f.value); });
+    loadAlerts('open');
+    loadFeed();
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function loadAlerts(status) {
+    Owner.get('/api/hub/owner/alerts?status=' + status + '&limit=50').then(function (d) {
+      var el = document.getElementById('alerts');
+      if (!d || !d.ok || !d.items.length) { el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No alerts.</p></div>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
+      el.innerHTML = '<div class="list">' + d.items.map(function (a) {
+        var ackBtn = a.status === 'open'
+          ? '<button class="btn ghost" data-ack="' + Owner.esc(a.id) + '" type="button" data-i18n>Ack</button>'
+          : Owner.badge('acknowledged', 'ok');
+        return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(a.title || a.alert_type) + '</div>' +
+          '<div class="row-sub">' + Owner.esc(a.body || a.alert_type) + ' · ' + Owner.timeAgo(a.created_at) + '</div></div>' +
+          Owner.badge(a.severity, Owner.kindFor(a.severity)) + ackBtn + '</div>';
+      }).join('') + '</div>';
+      el.querySelectorAll('[data-ack]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          b.disabled = true;
+          Hub.api('/api/hub/owner/alerts', { method: 'POST', body: { id: b.getAttribute('data-ack'), action: 'acknowledge' } }).then(function (r) {
+            if (r && r.ok) { Hub.toast('Acknowledged'); loadAlerts(document.getElementById('afilter').value); }
+            else { b.disabled = false; Hub.toast('Failed'); }
+          });
+        });
+      });
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  function loadFeed() {
+    Owner.get('/api/hub/owner/activity?limit=40').then(function (d) {
+      var el = document.getElementById('cfeed');
+      var items = (d && d.items || []).filter(function (it) {
+        return /^(message\.|thread\.|sms\.|alert\.|ticket\.)/.test(it.event);
+      });
+      if (!items.length) { el.innerHTML = '<div class="hub-empty" data-i18n>No comms activity yet.</div>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
+      el.innerHTML = items.map(function (it) {
+        return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(it.event) + '</div>' +
+          '<div class="row-sub">' + Owner.esc(it.actor_role || it.actor_type || '') + ' · ' + Owner.timeAgo(it.created_at) + '</div></div></div>';
+      }).join('');
+    });
+  }
+
+  Owner.init('comms', render);
+})();
+</script>
+</body>
+</html>

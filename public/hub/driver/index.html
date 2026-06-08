@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Driver · Añejo HUB</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="apple-touch-icon" href="/assets/img/emblem.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Añejo Driver">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · DRIVER</h1>
+  <div class="hub-bar-actions">
+    <button id="lang-toggle" type="button">ES</button>
+  </div>
+</div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <div class="card stat" id="clock-card">
+      <div class="stat-num" id="clock-status" data-i18n>Loading…</div>
+      <div class="stat-label" id="clock-sub"></div>
+      <button class="btn block gold" id="clock-btn" type="button" style="margin-top:14px" disabled data-i18n>Loading…</button>
+    </div>
+  </div>
+
+  <div class="hub-section">
+    <h2 class="row-title" data-i18n>Today's route</h2>
+    <div id="route-summary" class="card"><p class="row-sub" data-i18n>Loading…</p></div>
+    <div id="route-stops" class="list" style="margin-top:10px"></div>
+  </div>
+
+  <div class="hub-section">
+    <h2 class="row-title" data-i18n>Quick actions</h2>
+    <div class="card-grid">
+      <a class="btn ghost" href="/hub/driver/checklist.html" data-i18n>Checklists</a>
+      <a class="btn ghost" href="/hub/driver/temp.html" data-i18n>Temp log</a>
+      <a class="btn ghost" href="/hub/driver/expenses.html" data-i18n>Mileage / Expense</a>
+      <a class="btn ghost" href="/hub/driver/ticket.html" data-i18n>Report issue</a>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/driver/assets/driver.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  Driver.nav('home');
+
+  var ltBtn = document.getElementById('lang-toggle');
+  if (ltBtn && window.AnejoLang) {
+    ltBtn.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    ltBtn.addEventListener('click', function () {
+      var next = window.AnejoLang.get() === 'es' ? 'en' : 'es';
+      window.AnejoLang.set(next);
+      ltBtn.textContent = next === 'es' ? 'EN' : 'ES';
+    });
+  }
+
+  var openShift = null;
+  var clockBtn = document.getElementById('clock-btn');
+  var clockStatus = document.getElementById('clock-status');
+  var clockSub = document.getElementById('clock-sub');
+
+  function renderClock() {
+    if (openShift) {
+      clockStatus.textContent = 'On the clock';
+      clockSub.textContent = 'Since ' + Driver.fmtTime(openShift.clock_in_at);
+      clockBtn.textContent = 'Clock out';
+      clockBtn.className = 'btn block ghost';
+    } else {
+      clockStatus.textContent = 'Off the clock';
+      clockSub.textContent = '';
+      clockBtn.textContent = 'Clock in';
+      clockBtn.className = 'btn block gold';
+    }
+    clockBtn.disabled = false;
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  clockBtn.addEventListener('click', function () {
+    clockBtn.disabled = true;
+    Driver.geo().then(function (geo) {
+      if (openShift) {
+        return Hub.api('/api/hub/driver/clock-out', { method: 'POST', body: { geo: geo } }).then(function (r) {
+          if (r && r.ok) { openShift = null; Hub.toast('Clocked out'); renderClock(); }
+          else { Hub.toast((r && r.error) || 'Could not clock out'); clockBtn.disabled = false; }
+        });
+      }
+      return Hub.api('/api/hub/driver/clock-in', { method: 'POST', body: { geo: geo } }).then(function (r) {
+        if (r && r.ok) { openShift = r.shift; Hub.toast('Clocked in'); renderClock(); }
+        else { Hub.toast((r && r.error) || 'Could not clock in'); clockBtn.disabled = false; }
+      });
+    });
+  });
+
+  function renderRoute(data) {
+    var sum = document.getElementById('route-summary');
+    var list = document.getElementById('route-stops');
+    if (!data || !data.route) {
+      sum.innerHTML = '<p class="row-sub" data-i18n>No route assigned for today.</p>';
+      list.innerHTML = '';
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+      return;
+    }
+    var r = data.route;
+    sum.innerHTML =
+      '<div class="row"><div class="row-main"><div class="row-title">' + (r.stop_count || (data.stops || []).length) +
+      ' stops · ' + Hub.esc(r.status) + '</div><div class="row-sub">' +
+      (r.ai_optimized ? 'AI-optimized · ' : '') + (r.total_miles_est ? r.total_miles_est + ' mi est' : '') +
+      '</div></div><a class="btn ghost" href="/hub/driver/route.html" data-i18n>Open</a></div>';
+    var stops = (data.stops || []).slice(0, 6);
+    list.innerHTML = stops.map(function (s) {
+      var badge = s.status === 'done' ? '<span class="badge ok">done</span>'
+        : s.status === 'failed' ? '<span class="badge crit">failed</span>'
+        : '<span class="badge">' + Hub.esc(s.status) + '</span>';
+      return '<div class="row"><div class="row-main"><div class="row-title">' + (s.seq != null ? (s.seq + 1) + '. ' : '') +
+        Hub.esc(s.label || 'Stop') + '</div></div>' + badge + '</div>';
+    }).join('');
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  Driver.guard().then(function (me) {
+    if (!me) return;
+    // Probe clock state without creating a shift (returns already_open if one exists).
+    Hub.api('/api/hub/driver/clock-in', { method: 'POST', body: { probe: true } }).then(function (r) {
+      if (r && r.ok && r.already_open) { openShift = r.shift; }
+      renderClock();
+    });
+    Hub.api('/api/hub/driver/route').then(renderRoute);
+  });
+})();
+</script>
+</body>
+</html>

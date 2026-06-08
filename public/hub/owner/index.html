@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Command Center</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="apple-touch-icon" href="/assets/img/emblem.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Añejo HUB">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · COMMAND</h1>
+  <div class="hub-bar-actions">
+    <button id="lang-toggle" type="button">ES</button>
+  </div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading command center…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () {
+      var next = window.AnejoLang.get() === 'es' ? 'en' : 'es';
+      window.AnejoLang.set(next); lt.textContent = next === 'es' ? 'EN' : 'ES';
+    });
+  }
+
+  function render() {
+    var root = document.getElementById('owner-root');
+    root.className = '';
+    root.innerHTML =
+      '<div class="hub-section"><h2 data-i18n>At a glance</h2><div id="tiles" class="card-grid"><div class="hub-loading">…</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Alerts</h2><div id="alerts"><div class="hub-loading">…</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Activity</h2><div id="feed" class="list"><div class="hub-loading">…</div></div></div>';
+
+    loadTiles();
+    loadAlerts();
+    loadFeed();
+  }
+
+  function loadTiles() {
+    Owner.get('/api/hub/owner/overview').then(function (d) {
+      var el = document.getElementById('tiles');
+      if (!d || !d.ok) { el.innerHTML = '<div class="hub-empty" data-i18n>No data.</div>'; return; }
+      var t = d.tiles;
+      var eodBadge = t.eod_pct == null ? null : (t.eod_pct + '%');
+      var eodKind = t.eod_pct == null ? '' : (t.eod_pct >= 90 ? 'ok' : t.eod_pct >= 60 ? 'warn' : 'crit');
+      el.innerHTML = [
+        Owner.tile(t.orders_open, 'Orders open', { href: '/hub/owner/deliveries.html' }),
+        Owner.tile(t.deliveries_today, 'Deliveries today', { href: '/hub/owner/deliveries.html',
+          badge: t.deliveries_failed ? (t.deliveries_failed + ' failed') : null, badgeKind: 'crit' }),
+        Owner.tile(t.on_shift, 'On shift now', { accent: 'accent-green', href: '/hub/owner/staff.html' }),
+        Owner.tile((t.eod_submitted || 0) + '/' + (t.eod_expected || 0), 'EOD filed',
+          { href: '/hub/owner/staff.html', badge: eodBadge, badgeKind: eodKind }),
+        Owner.tile(t.tickets_open, 'Open tickets', { href: '/hub/owner/comms.html' }),
+        Owner.tile(t.expenses_pending, 'Pending expenses', { href: '/hub/owner/finance.html', accent: t.expenses_pending ? 'accent' : '' }),
+        Owner.tile(t.temp_excursions_today, 'Temp excursions', { accent: t.temp_excursions_today ? 'accent' : '', href: '/hub/owner/kitchen.html' }),
+        Owner.tile(t.alerts_open, 'Open alerts', { accent: t.alerts_critical ? 'accent' : '',
+          badge: t.alerts_critical ? (t.alerts_critical + ' crit') : null, badgeKind: 'crit' })
+      ].join('');
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  function loadAlerts() {
+    Owner.get('/api/hub/owner/alerts?status=open&limit=8').then(function (d) {
+      var el = document.getElementById('alerts');
+      if (!d || !d.ok || !d.items.length) { el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No open alerts. All clear.</p></div>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
+      el.innerHTML = '<div class="list">' + d.items.map(function (a) {
+        return '<div class="row">' +
+          '<div class="row-main"><div class="row-title">' + Owner.esc(a.title || a.alert_type) + '</div>' +
+          '<div class="row-sub">' + Owner.esc(a.body || '') + ' · ' + Owner.timeAgo(a.created_at) + '</div></div>' +
+          Owner.badge(a.severity, Owner.kindFor(a.severity)) +
+          '<button class="btn ghost" data-ack="' + Owner.esc(a.id) + '" type="button" data-i18n>Ack</button>' +
+          '</div>';
+      }).join('') + '</div>';
+      el.querySelectorAll('[data-ack]').forEach(function (b) {
+        b.addEventListener('click', function () { ack(b.getAttribute('data-ack'), b); });
+      });
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  function ack(idv, btn) {
+    btn.disabled = true;
+    Hub.api('/api/hub/owner/alerts', { method: 'POST', body: { id: idv, action: 'acknowledge' } }).then(function (r) {
+      if (r && r.ok) { Hub.toast('Acknowledged'); loadAlerts(); loadTiles(); }
+      else { btn.disabled = false; Hub.toast('Could not acknowledge'); }
+    });
+  }
+
+  function loadFeed() {
+    Owner.get('/api/hub/owner/activity?limit=30').then(function (d) {
+      var el = document.getElementById('feed');
+      if (!d || !d.ok || !d.items.length) { el.innerHTML = '<div class="hub-empty" data-i18n>No activity yet.</div>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
+      el.innerHTML = d.items.map(function (it) {
+        var who = it.actor_type === 'system' ? 'system' : (it.actor_role || 'staff');
+        return '<div class="row"><div class="row-main">' +
+          '<div class="row-title">' + Owner.esc(it.event) + '</div>' +
+          '<div class="row-sub">' + Owner.esc(who) + (it.team ? ' · ' + Owner.esc(it.team) : '') + ' · ' + Owner.timeAgo(it.created_at) + '</div>' +
+          '</div></div>';
+      }).join('');
+    });
+  }
+
+  Owner.init('overview', render);
+})();
+</script>
+</body>
+</html>

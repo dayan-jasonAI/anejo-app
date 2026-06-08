@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Kitchen</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/assets/img/emblem.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Añejo Kitchen">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .clock-card { display:flex; align-items:center; gap:12px; }
+  .clock-card .grow { flex:1; }
+  .board-col h2 { display:flex; justify-content:space-between; }
+  .order-card .row-title { font-size:15px; }
+  .order-actions { display:flex; gap:8px; margin-top:10px; }
+  .order-actions .btn { flex:1; padding:10px; font-size:13px; }
+  .rem .btn { padding:8px 12px; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · KITCHEN</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <!-- Clock in/out -->
+  <div class="hub-section">
+    <div class="card accent clock-card" id="clock-card">
+      <div class="grow">
+        <div class="row-title" id="clock-status" data-i18n>Loading…</div>
+        <div class="row-sub" id="clock-sub"></div>
+      </div>
+      <button class="btn gold" id="clock-btn" type="button" disabled>—</button>
+    </div>
+  </div>
+
+  <!-- Today's reminders -->
+  <div class="hub-section" id="rem-section" hidden>
+    <h2 data-i18n>Today's reminders</h2>
+    <div class="list" id="rem-list"></div>
+  </div>
+
+  <!-- Live order board -->
+  <div class="hub-section">
+    <h2 data-i18n>Live orders</h2>
+    <div class="board-col">
+      <h2><span data-i18n>Pending</span><span class="badge" id="c-pending">0</span></h2>
+      <div id="col-pending"></div>
+    </div>
+    <div class="board-col">
+      <h2><span data-i18n>In prep</span><span class="badge warn" id="c-prep">0</span></h2>
+      <div id="col-prep"></div>
+    </div>
+    <div class="board-col">
+      <h2><span data-i18n>Ready</span><span class="badge ok" id="c-ready">0</span></h2>
+      <div id="col-ready"></div>
+    </div>
+  </div>
+
+  <a class="btn ghost block" href="/hub/kitchen/summary.html" data-i18n>Daily summary</a>
+</div>
+
+<div class="hub-install" id="hub-install">
+  <div class="grow" data-i18n>Install Añejo Kitchen to your home screen.</div>
+  <button class="btn gold" id="install-btn" type="button" data-i18n>Install</button>
+  <button class="btn ghost" id="install-dismiss" type="button" aria-label="Dismiss">✕</button>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/kitchen/kitchen.js"></script>
+<script>
+(function () {
+  var Hub = window.Hub, K = window.Kitchen;
+  var $ = Hub.$, esc = Hub.esc;
+  var clockOpen = false;
+
+  function refreshI18n() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+
+  function renderClock(shift) {
+    clockOpen = !!shift;
+    var btn = $('#clock-btn'); btn.disabled = false;
+    if (shift) {
+      var since = new Date(Number(shift.clock_in_at));
+      $('#clock-status').textContent = 'Clocked in';
+      $('#clock-sub').textContent = 'Since ' + since.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      btn.textContent = 'Clock out';
+      btn.className = 'btn ghost';
+    } else {
+      $('#clock-status').textContent = 'Clocked out';
+      $('#clock-sub').textContent = 'Tap to start your shift';
+      btn.textContent = 'Clock in';
+      btn.className = 'btn gold';
+    }
+  }
+
+  function loadClock() {
+    K.get('/api/hub/kitchen/clock-out').then(function (d) { renderClock(d && d.shift); });
+  }
+
+  $('#clock-btn').addEventListener('click', function () {
+    var btn = this; btn.disabled = true;
+    if (clockOpen) {
+      K.geo().then(function (geo) {
+        return K.post('/api/hub/kitchen/clock-out', { geo: geo });
+      }).then(function (d) {
+        if (d && d.ok) { Hub.toast('Clocked out'); renderClock(null); } else K.fail(d, 'Could not clock out.');
+        btn.disabled = false;
+      });
+    } else {
+      K.geo().then(function (geo) {
+        return K.post('/api/hub/kitchen/clock-in', { geo: geo });
+      }).then(function (d) {
+        if (d && d.shift) { Hub.toast('Clocked in'); renderClock(d.shift); } else K.fail(d, 'Could not clock in.');
+        btn.disabled = false;
+      });
+    }
+  });
+
+  function reminderRow(r) {
+    return '<div class="row rem"><div class="row-main"><div class="row-title">' + esc(r.title || r.reminder_type) +
+      '</div>' + (r.body ? '<div class="row-sub">' + esc(r.body) + '</div>' : '') +
+      '</div><button class="btn gold" data-ack="' + esc(r.id) + '">Got it</button></div>';
+  }
+
+  function loadReminders() {
+    K.get('/api/hub/kitchen/reminders').then(function (d) {
+      var list = (d && d.reminders) || [];
+      if (!list.length) { $('#rem-section').hidden = true; return; }
+      $('#rem-section').hidden = false;
+      $('#rem-list').innerHTML = list.map(reminderRow).join('');
+      Array.prototype.forEach.call(document.querySelectorAll('[data-ack]'), function (b) {
+        b.addEventListener('click', function () {
+          var id = b.getAttribute('data-ack'); b.disabled = true;
+          K.post('/api/hub/kitchen/reminders', { id: id }).then(function (res) {
+            if (res && res.ok) { Hub.toast('Acknowledged'); loadReminders(); } else { K.fail(res); b.disabled = false; }
+          });
+        });
+      });
+    });
+  }
+
+  function orderCard(o, stage) {
+    var actions = '';
+    if (stage === 'pending') actions = '<div class="order-actions"><button class="btn gold" data-prep="' + esc(o.id) + '">Start prep</button></div>';
+    else if (stage === 'prep') actions = '<div class="order-actions"><button class="btn" data-ready="' + esc(o.id) + '">Mark ready</button></div>';
+    var win = o.delivery_window ? ('<span class="badge">' + esc(o.delivery_window) + '</span>') : '';
+    return '<div class="card order-card"><div class="row" style="padding:0;border:none">' +
+      '<div class="row-main"><div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + (o.item_count || 0) + ' items</div>' +
+      '<div class="row-sub">' + esc(o.id) + '</div></div>' + win + '</div>' + actions + '</div>';
+  }
+
+  function bindOrderActions() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-prep]'), function (b) {
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-prep'), action: 'prep_start' })
+          .then(function (d) { if (d && d.ok) { Hub.toast('Prep started'); loadBoard(); } else { K.fail(d); b.disabled = false; } });
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ready]'), function (b) {
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-ready'), action: 'mark_ready' })
+          .then(function (d) { if (d && d.ok) { Hub.toast('Marked ready'); loadBoard(); } else { K.fail(d); b.disabled = false; } });
+      });
+    });
+  }
+
+  function fillCol(elId, list, stage) {
+    var el = $('#' + elId);
+    el.innerHTML = list.length ? list.map(function (o) { return orderCard(o, stage); }).join('')
+      : '<div class="hub-empty" data-i18n>Nothing here.</div>';
+  }
+
+  function loadBoard() {
+    K.get('/api/hub/kitchen/orders?surface=1').then(function (d) {
+      var b = (d && d.board) || { pending: [], prep: [], ready: [] };
+      var c = (d && d.counts) || {};
+      $('#c-pending').textContent = c.pending || 0;
+      $('#c-prep').textContent = c.prep || 0;
+      $('#c-ready').textContent = c.ready || 0;
+      fillCol('col-pending', b.pending, 'pending');
+      fillCol('col-prep', b.prep, 'prep');
+      fillCol('col-ready', b.ready, 'ready');
+      bindOrderActions();
+      refreshI18n();
+    });
+  }
+
+  // Language toggle
+  var lt = $('#lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () {
+      var next = window.AnejoLang.get() === 'es' ? 'en' : 'es';
+      window.AnejoLang.set(next); lt.textContent = next === 'es' ? 'EN' : 'ES';
+    });
+  }
+  var dismiss = document.getElementById('install-dismiss');
+  if (dismiss) dismiss.addEventListener('click', Hub.dismissInstall);
+
+  K.boot('board', function () {
+    loadClock(); loadReminders(); loadBoard();
+    setInterval(loadBoard, 30000); // poll the board
+  });
+})();
+</script>
+</body>
+</html>

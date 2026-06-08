@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Account</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · ACCOUNT</h1>
+  <div class="hub-bar-actions"><a class="btn ghost" id="back" href="/hub/">← Back</a></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="root" class="hub-loading"><p>Loading…</p></div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script>
+(function () {
+  Hub.boot({ account: false }); // this IS the account page — no floating button here
+  var root = document.getElementById('root');
+
+  function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  Hub.me().then(function (me) {
+    if (!me || !me.authenticated) { window.location.replace('/login'); return; }
+    var s = me.staff || {};
+    var roleLine = esc(s.role || me.role || '') + (s.is_lead ? ' · lead' : '') + (s.team ? ' · ' + esc(s.team) : '');
+    var isStaff = me.type === 'staff';
+    root.className = '';
+    root.innerHTML =
+      '<div class="card"><div class="row-title" style="font-size:18px">' + esc(s.name || s.email || 'Signed in') + '</div>' +
+      '<div class="row-sub">' + roleLine + '</div>' +
+      (s.email ? '<div class="row-sub">' + esc(s.email) + '</div>' : '') +
+      (s.phone ? '<div class="row-sub">' + esc(s.phone) + '</div>' : '') + '</div>' +
+      (isStaff ?
+        '<div class="hub-section"><h2>Change your PIN</h2><div id="msg" class="card" style="display:none"></div>' +
+        '<div class="card" style="display:grid;gap:8px">' +
+        '<input id="cur" type="password" inputmode="numeric" placeholder="Current PIN" style="padding:12px;border-radius:9px;border:1px solid #ccc">' +
+        '<input id="n1" type="password" inputmode="numeric" placeholder="New PIN (4–8 digits)" style="padding:12px;border-radius:9px;border:1px solid #ccc">' +
+        '<input id="n2" type="password" inputmode="numeric" placeholder="Confirm new PIN" style="padding:12px;border-radius:9px;border:1px solid #ccc">' +
+        '<button class="btn" id="save">Update PIN</button></div></div>'
+        : '') +
+      '<div class="hub-section"><button class="btn ghost block" id="signout">Sign out</button></div>';
+
+    document.getElementById('signout').addEventListener('click', function () {
+      window.location.href = '/api/auth/logout';
+    });
+
+    if (isStaff) {
+      var msg = document.getElementById('msg');
+      document.getElementById('save').addEventListener('click', function () {
+        var cur = document.getElementById('cur').value, a = document.getElementById('n1').value, b = document.getElementById('n2').value;
+        function show(t, ok){ msg.style.display='block'; msg.textContent=t; msg.className='card ' + (ok?'accent-green':'accent'); }
+        if (!/^[0-9]{4,8}$/.test(a)) return show('New PIN must be 4–8 digits.', false);
+        if (a !== b) return show('New PINs do not match.', false);
+        Hub.api('/api/staff/set-pin', { method: 'POST', body: { current_pin: cur, new_pin: a } }).then(function (r) {
+          if (r && r.ok) { show('PIN updated.', true); document.getElementById('cur').value=''; document.getElementById('n1').value=''; document.getElementById('n2').value=''; }
+          else show((r && r.error) || 'Could not update PIN.', false);
+        });
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>

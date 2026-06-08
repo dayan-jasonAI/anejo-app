@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Staff</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · STAFF</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading staff…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var ROLES = ['owner', 'kitchen', 'driver', 'vendor'];
+  var TEAMS = ['kitchen', 'delivery', 'training', 'front_office', 'vendors'];
+  function opt(list, sel) { return list.map(function (v) { return '<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + v + '</option>'; }).join(''); }
+  function pinBanner(name, pin) {
+    var box = document.getElementById('pin-banner');
+    box.style.display = 'block';
+    box.innerHTML = '<strong>PIN for ' + Owner.esc(name) + ': <span style="font-size:20px;letter-spacing:.15em">' + pin + '</span></strong>' +
+      '<div class="row-sub">Share it with them now — it will not be shown again. They\'ll set their own PIN on first sign-in.</div>';
+  }
+
+  function loadRoster() {
+    Owner.get('/api/hub/owner/staff').then(function (d) {
+      var el = document.getElementById('roster');
+      if (!d || !d.ok) { el.innerHTML = '<div class="hub-empty">Could not load roster.</div>'; return; }
+      el.innerHTML = d.staff.map(function (s) {
+        var lead = s.is_lead ? Owner.badge('lead', 'ok') : '';
+        var locked = s.locked_until && s.locked_until > Date.now() ? Owner.badge('locked', 'crit') : '';
+        var nopin = s.has_pin ? '' : Owner.badge('no PIN', 'warn');
+        var inactive = s.active ? '' : Owner.badge('inactive', 'crit');
+        return '<div class="row" data-id="' + s.id + '" style="flex-wrap:wrap;gap:8px">' +
+          '<div class="row-main"><div class="row-title">' + Owner.esc(s.name || s.id) + ' ' + lead + ' ' + locked + ' ' + nopin + ' ' + inactive + '</div>' +
+          '<div class="row-sub">' + Owner.esc(s.email || s.phone || '') + '</div></div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+          '<select data-act="role" style="padding:6px;border-radius:8px">' + opt(ROLES, s.role) + '</select>' +
+          '<select data-act="team" style="padding:6px;border-radius:8px"><option value="">— team —</option>' + opt(TEAMS, s.team) + '</select>' +
+          '<button class="btn ghost" data-act="lead">' + (s.is_lead ? 'Unset lead' : 'Make lead') + '</button>' +
+          '<button class="btn ghost" data-act="pin">Reset PIN</button>' +
+          '<button class="btn ghost" data-act="active">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
+          '</div></div>';
+      }).join('');
+    });
+  }
+
+  function wireRoster() {
+    var el = document.getElementById('roster');
+    el.addEventListener('change', function (e) {
+      var sel = e.target.closest('select'); if (!sel) return;
+      var id = e.target.closest('.row').getAttribute('data-id');
+      var body = { op: 'update', id: id };
+      body[sel.getAttribute('data-act')] = sel.value;
+      Hub.api('/api/hub/owner/staff', { method: 'POST', body: body }).then(function () { Hub.toast('Updated'); loadRoster(); });
+    });
+    el.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-act]'); if (!btn) return;
+      var row = e.target.closest('.row'); var id = row.getAttribute('data-id');
+      var act = btn.getAttribute('data-act');
+      var name = row.querySelector('.row-title').textContent.trim();
+      if (act === 'lead') {
+        var makeLead = btn.textContent.indexOf('Make') === 0;
+        Hub.api('/api/hub/owner/staff', { method: 'POST', body: { op: 'update', id: id, is_lead: makeLead } }).then(function () { loadRoster(); });
+      } else if (act === 'active') {
+        var activate = btn.textContent.indexOf('Reactivate') === 0;
+        if (!activate && !confirm('Deactivate ' + name + '? They lose access immediately.')) return;
+        Hub.api('/api/hub/owner/staff', { method: 'POST', body: { op: 'update', id: id, active: activate } }).then(function () { loadRoster(); });
+      } else if (act === 'pin') {
+        if (!confirm('Reset PIN for ' + name + '? They\'ll set a new one on next sign-in.')) return;
+        Hub.api('/api/hub/owner/staff', { method: 'POST', body: { op: 'reset_pin', id: id } }).then(function (r) {
+          if (r && r.initial_pin) pinBanner(name, r.initial_pin);
+          loadRoster();
+        });
+      }
+    });
+  }
+
+  function renderManage() {
+    return '<div class="hub-section"><h2 data-i18n>Staff management</h2>' +
+      '<div id="pin-banner" class="card accent" style="display:none;margin-bottom:10px"></div>' +
+      '<details class="card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600">+ Add a staff member</summary>' +
+      '<div style="display:grid;gap:8px;margin-top:10px">' +
+      '<input id="f-name" placeholder="Full name" style="padding:10px;border-radius:8px;border:1px solid #ccc">' +
+      '<input id="f-phone" placeholder="Phone (for PIN sign-in)" style="padding:10px;border-radius:8px;border:1px solid #ccc">' +
+      '<input id="f-email" placeholder="Email (optional)" style="padding:10px;border-radius:8px;border:1px solid #ccc">' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<select id="f-role" style="padding:10px;border-radius:8px">' + opt(ROLES, 'kitchen') + '</select>' +
+      '<select id="f-team" style="padding:10px;border-radius:8px"><option value="">— team —</option>' + opt(TEAMS, 'kitchen') + '</select>' +
+      '<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="f-lead"> Team lead</label>' +
+      '<input id="f-pin" placeholder="Initial PIN (optional)" inputmode="numeric" style="padding:10px;border-radius:8px;border:1px solid #ccc;max-width:160px">' +
+      '</div>' +
+      '<button class="btn" id="f-add">Add staff</button>' +
+      '</div></details>' +
+      '<div id="roster" class="list"><div class="hub-loading">…</div></div></div>';
+  }
+
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML = renderManage() +
+      '<div class="hub-section"><h2 data-i18n>On shift now</h2><div id="shifts" class="list"><div class="hub-loading">…</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>EOD compliance today</h2><div id="eodtiles" class="card-grid"></div>' +
+      '<div id="eod"></div></div>';
+
+    loadRoster();
+    wireRoster();
+    document.getElementById('f-add').addEventListener('click', function () {
+      var body = {
+        op: 'create',
+        name: document.getElementById('f-name').value,
+        phone: document.getElementById('f-phone').value,
+        email: document.getElementById('f-email').value,
+        role: document.getElementById('f-role').value,
+        team: document.getElementById('f-team').value,
+        is_lead: document.getElementById('f-lead').checked,
+        pin: document.getElementById('f-pin').value || undefined
+      };
+      Hub.api('/api/hub/owner/staff', { method: 'POST', body: body }).then(function (r) {
+        if (r && r.error) { Hub.toast(r.error); return; }
+        if (r && r.initial_pin) pinBanner(body.name, r.initial_pin);
+        ['f-name', 'f-phone', 'f-email', 'f-pin'].forEach(function (i) { document.getElementById(i).value = ''; });
+        loadRoster();
+      });
+    });
+
+    Owner.get('/api/hub/owner/staff-status').then(function (d) {
+      var el = document.getElementById('shifts');
+      if (!d || !d.ok || !d.on_shift.length) { el.innerHTML = '<div class="hub-empty" data-i18n>Nobody clocked in.</div>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
+      el.innerHTML = d.on_shift.map(function (s) {
+        var late = s.minutes_late ? Owner.badge(s.minutes_late + 'm late', 'warn') : '';
+        return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(s.name || s.staff_id) + '</div>' +
+          '<div class="row-sub">' + Owner.esc(s.role || '') + (s.team ? ' · ' + Owner.esc(s.team) : '') +
+          ' · in ' + Owner.clock(s.clock_in_at) + ' (' + (s.elapsed_minutes != null ? s.elapsed_minutes + 'm' : '') + ')</div></div>' +
+          late + '</div>';
+      }).join('');
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+
+    Owner.get('/api/hub/owner/eod-compliance').then(function (d) {
+      if (!d || !d.ok) return;
+      var kind = d.pct == null ? '' : (d.pct >= 90 ? 'accent-green' : 'accent');
+      document.getElementById('eodtiles').innerHTML = [
+        Owner.tile((d.filed || 0) + '/' + (d.expected || 0), 'Reports filed', { accent: kind }),
+        Owner.tile(d.pct == null ? '—' : (d.pct + '%'), 'Compliance'),
+        Owner.tile(d.missing_count, 'Missing', { accent: d.missing_count ? 'accent' : '' }),
+        Owner.tile(d.blockers.length, 'Blockers flagged', { accent: d.blockers.length ? 'accent' : '' })
+      ].join('');
+
+      var html = '';
+      if (d.missing.length) {
+        html += '<div class="hub-section"><h2 data-i18n>Missing reports</h2><div class="list">' +
+          d.missing.map(function (m) {
+            return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(m.name || m.staff_id) + '</div>' +
+              '<div class="row-sub">' + Owner.esc(m.role || '') + '</div></div>' + Owner.badge('missing', 'crit') + '</div>';
+          }).join('') + '</div></div>';
+      }
+      if (d.filed_reports.length) {
+        html += '<div class="hub-section"><h2 data-i18n>Filed</h2><div class="list">' +
+          d.filed_reports.map(function (f) {
+            var b = f.has_blockers ? Owner.badge('blockers', 'warn') : Owner.badge('ok', 'ok');
+            return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(f.name || f.staff_id) + '</div>' +
+              '<div class="row-sub">' + Owner.esc((f.summary || '').slice(0, 80)) + (f.ai_drafted ? ' · ai' : '') + '</div></div>' + b + '</div>';
+          }).join('') + '</div></div>';
+      }
+      document.getElementById('eod').innerHTML = html;
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  Owner.init('staff', render);
+})();
+</script>
+</body>
+</html>

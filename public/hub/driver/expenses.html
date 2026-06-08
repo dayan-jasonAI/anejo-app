@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Expenses · Añejo Driver</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar"><h1>AÑEJO · EXPENSES</h1></div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <h2 class="row-title" data-i18n>Mileage</h2>
+    <div class="card">
+      <div class="field">
+        <label data-i18n>Miles</label>
+        <input type="number" id="miles" inputmode="decimal" step="0.1" placeholder="24.5">
+      </div>
+      <div class="field">
+        <label data-i18n>Note (optional)</label>
+        <input type="text" id="miles-note" placeholder="Route + return">
+      </div>
+      <button class="btn block gold" id="submit-miles" type="button" data-i18n>Submit mileage</button>
+    </div>
+  </div>
+
+  <div class="hub-section">
+    <h2 class="row-title" data-i18n>Expense</h2>
+    <div class="card">
+      <div class="field">
+        <label data-i18n>Type</label>
+        <select id="etype">
+          <option value="fuel" data-i18n>Fuel</option>
+          <option value="supplies" data-i18n>Supplies</option>
+          <option value="maintenance" data-i18n>Maintenance</option>
+          <option value="other" data-i18n>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label data-i18n>Amount (USD)</label>
+        <input type="number" id="amount" inputmode="decimal" step="0.01" placeholder="42.00">
+      </div>
+      <div class="field">
+        <label data-i18n>Receipt photo</label>
+        <input type="file" accept="image/*" capture="environment" id="receipt">
+      </div>
+      <div class="field">
+        <label data-i18n>Note (optional)</label>
+        <input type="text" id="exp-note">
+      </div>
+      <button class="btn block gold" id="submit-exp" type="button" data-i18n>Submit expense</button>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/driver/assets/driver.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  Driver.nav('expenses');
+
+  document.getElementById('submit-miles').addEventListener('click', function () {
+    var miles = parseFloat(document.getElementById('miles').value);
+    if (!isFinite(miles) || miles <= 0) { Hub.toast('Enter miles'); return; }
+    var btn = this; btn.disabled = true;
+    Hub.api('/api/hub/driver/mileage/submit', { method: 'POST', body: {
+      miles: miles, note: document.getElementById('miles-note').value
+    } }).then(function (resp) {
+      btn.disabled = false;
+      if (resp && resp.ok) { Hub.toast('Mileage submitted'); document.getElementById('miles').value = ''; document.getElementById('miles-note').value = ''; }
+      else { Hub.toast((resp && resp.error) || 'Error'); }
+    });
+  });
+
+  document.getElementById('submit-exp').addEventListener('click', function () {
+    var amount = parseFloat(document.getElementById('amount').value);
+    if (!isFinite(amount) || amount <= 0) { Hub.toast('Enter an amount'); return; }
+    var btn = this; btn.disabled = true;
+    Driver.fileToDataUrl(document.getElementById('receipt').files[0]).then(function (receipt) {
+      return Hub.api('/api/hub/driver/expense/submit', { method: 'POST', body: {
+        expense_type: document.getElementById('etype').value,
+        amount: amount,
+        receipt_photo: receipt,
+        note: document.getElementById('exp-note').value
+      } });
+    }).then(function (resp) {
+      btn.disabled = false;
+      if (resp && resp.ok) {
+        Hub.toast('Expense submitted');
+        document.getElementById('amount').value = '';
+        document.getElementById('receipt').value = '';
+        document.getElementById('exp-note').value = '';
+      } else { Hub.toast((resp && resp.error) || 'Error'); }
+    });
+  });
+
+  Driver.guard();
+})();
+</script>
+</body>
+</html>

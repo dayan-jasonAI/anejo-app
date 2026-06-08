@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Deliveries</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · DELIVERIES</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading deliveries…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML = '<div id="roll"></div><div class="hub-section"><h2 data-i18n>Routes today</h2><div id="routes" class="list"><div class="hub-loading">…</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Deliveries</h2><div id="drops" class="list"><div class="hub-loading">…</div></div></div>';
+    Owner.get('/api/hub/owner/deliveries/today').then(function (d) {
+      if (!d || !d.ok) { Owner.fail(); return; }
+      var r = d.rollup;
+      document.getElementById('roll').innerHTML = '<div class="card-grid">' + [
+        Owner.tile(r.route_count, 'Routes'),
+        Owner.tile(r.done, 'Completed', { accent: 'accent-green' }),
+        Owner.tile(r.pending, 'Pending'),
+        Owner.tile(r.failed, 'Failed', { accent: r.failed ? 'accent' : '' }),
+        Owner.tile(r.on_time_pct == null ? '—' : (r.on_time_pct + '%'), 'On-time')
+      ].join('') + '</div>';
+
+      var routesEl = document.getElementById('routes');
+      routesEl.innerHTML = d.routes.length ? d.routes.map(function (ro) {
+        return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(ro.driver_name || 'Unassigned') +
+          (ro.ai_optimized ? ' ⚡' : '') + '</div><div class="row-sub">' +
+          Owner.esc((ro.stops_completed || 0) + '/' + (ro.stop_count || 0) + ' stops') +
+          (ro.stops_failed ? ' · ' + ro.stops_failed + ' failed' : '') + '</div></div>' +
+          Owner.badge(ro.status, Owner.kindFor(ro.status)) + '</div>';
+      }).join('') : '<div class="hub-empty" data-i18n>No routes today.</div>';
+
+      var dropsEl = document.getElementById('drops');
+      dropsEl.innerHTML = d.deliveries.length ? d.deliveries.map(function (dv) {
+        return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(dv.customer_name || dv.order_id || 'Delivery') + '</div>' +
+          '<div class="row-sub">' + (dv.completed_at ? Owner.clock(dv.completed_at) : 'pending') +
+          (dv.fail_reason ? ' · ' + Owner.esc(dv.fail_reason) : '') +
+          (dv.on_time === 1 ? ' · on time' : dv.on_time === 0 ? ' · late' : '') + '</div></div>' +
+          Owner.badge(dv.status, Owner.kindFor(dv.status)) + '</div>';
+      }).join('') : '<div class="hub-empty" data-i18n>No deliveries today.</div>';
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  Owner.init('deliveries', render);
+})();
+</script>
+</body>
+</html>

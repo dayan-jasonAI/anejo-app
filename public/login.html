@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Sign in · Añejo</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<style>
+  :root{ --green:#1b3a2b; --green-2:#24503b; --gold:#c8a24a; --ink:#16241d; --paper:#f6f3ec; --line:#e1dccf; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; min-height:100dvh; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+        background:linear-gradient(160deg,var(--green),var(--green-2)); color:var(--ink);
+        display:flex; align-items:center; justify-content:center; padding:24px; }
+  .card{ width:100%; max-width:380px; background:var(--paper); border-radius:18px; padding:28px 24px 24px;
+         box-shadow:0 20px 50px rgba(0,0,0,.35); }
+  .brand{ text-align:center; margin-bottom:18px; }
+  .brand img{ height:54px; }
+  .brand h1{ font-size:18px; letter-spacing:.12em; margin:10px 0 2px; color:var(--green); }
+  .brand p{ margin:0; font-size:13px; color:#6b7269; }
+  label{ display:block; font-size:13px; font-weight:600; margin:14px 0 6px; }
+  input{ width:100%; padding:14px; font-size:16px; border:1px solid var(--line); border-radius:11px; background:#fff; }
+  input:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(200,162,74,.25); }
+  .pin{ letter-spacing:.4em; text-align:center; font-size:22px; }
+  button{ width:100%; margin-top:18px; padding:14px; font-size:16px; font-weight:700; color:#fff;
+          background:var(--green); border:0; border-radius:11px; cursor:pointer; }
+  button:hover{ background:var(--green-2); }
+  button.gold{ background:var(--gold); color:#241c06; }
+  .link{ display:block; text-align:center; margin-top:14px; font-size:13px; color:#6b7269; background:none; }
+  .msg{ margin-top:14px; padding:11px 13px; border-radius:10px; font-size:13.5px; display:none; }
+  .msg.err{ display:block; background:#fdecea; color:#8a1c12; border:1px solid #f3c0b9; }
+  .msg.ok{ display:block; background:#e8f3ec; color:#1d5a36; border:1px solid #bfe0cc; }
+  .hide{ display:none; }
+  .hint{ font-size:12.5px; color:#6b7269; margin-top:6px; }
+  .greet{ font-size:15px; text-align:center; margin:4px 0 0; }
+  .greet b{ color:var(--green); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">
+    <img src="/assets/img/logo_full.png" alt="Añejo" onerror="this.style.display='none'">
+    <h1>AÑEJO</h1>
+    <p id="sub">Sign in to continue</p>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <!-- Step 1: identifier -->
+  <form id="step-id">
+    <label for="identifier">Phone number or email</label>
+    <input id="identifier" name="identifier" type="text" autocomplete="username"
+           inputmode="email" placeholder="(561) 555-0134  or  you@email.com" required>
+    <button type="submit">Continue</button>
+    <div class="hint">Staff sign in with a PIN. Trainers &amp; clients get an email link.</div>
+  </form>
+
+  <!-- Step 2: PIN -->
+  <form id="step-pin" class="hide">
+    <p class="greet" id="pin-greet"></p>
+    <label for="pin">Your PIN</label>
+    <input id="pin" class="pin" type="password" inputmode="numeric" pattern="[0-9]*"
+           autocomplete="current-password" maxlength="8" placeholder="••••••">
+    <button type="submit">Sign in</button>
+    <button type="button" class="link" id="pin-back">← Use a different account</button>
+  </form>
+
+  <!-- Step 3: set a new PIN (forced after owner-issued temp PIN) -->
+  <form id="step-newpin" class="hide">
+    <p class="greet">Set your personal PIN</p>
+    <label for="newpin">New PIN (4–8 digits)</label>
+    <input id="newpin" class="pin" type="password" inputmode="numeric" pattern="[0-9]*"
+           maxlength="8" placeholder="••••••">
+    <label for="newpin2">Confirm PIN</label>
+    <input id="newpin2" class="pin" type="password" inputmode="numeric" pattern="[0-9]*"
+           maxlength="8" placeholder="••••••">
+    <button type="submit" class="gold">Save &amp; continue</button>
+  </form>
+
+  <!-- Step 4: magic link sent -->
+  <div id="step-magic" class="hide">
+    <p class="greet" id="magic-greet">Check your email for a sign-in link.</p>
+    <button type="button" class="link" id="magic-back">← Back</button>
+  </div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub-i18n.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var msg = $('msg'), sub = $('sub');
+  var stepId = $('step-id'), stepPin = $('step-pin'), stepNew = $('step-newpin'), stepMagic = $('step-magic');
+  var state = { identifier:'', portalType:'trainer' };
+
+  function show(el){ [stepId,stepPin,stepNew,stepMagic].forEach(function(s){ s.classList.add('hide'); }); el.classList.remove('hide'); }
+  function err(t){ msg.className='msg err'; msg.textContent=t; }
+  function ok(t){ msg.className='msg ok'; msg.textContent=t; }
+  function clearMsg(){ msg.className='msg'; msg.textContent=''; }
+
+  function api(path, body){
+    return fetch(path,{ method:'POST', headers:{'Content-Type':'application/json'},
+      credentials:'same-origin', body:JSON.stringify(body||{}) })
+      .then(function(r){ return r.json().then(function(j){ return { status:r.status, body:j }; }); });
+  }
+
+  // Step 1 — identify
+  stepId.addEventListener('submit', function(e){
+    e.preventDefault(); clearMsg();
+    var v = $('identifier').value.trim();
+    if(!v) return;
+    state.identifier = v;
+    var btn = stepId.querySelector('button'); btn.disabled=true; btn.textContent='Checking…';
+    api('/api/auth/identify',{ identifier:v }).then(function(res){
+      btn.disabled=false; btn.textContent='Continue';
+      if(res.status>=400 || !res.body.ok){ err(res.body.error||'No account found.'); return; }
+      if(res.body.method==='pin'){
+        $('pin-greet').innerHTML = res.body.name ? ('Welcome back, <b>'+res.body.name.replace(/</g,'&lt;')+'</b>') : 'Enter your PIN';
+        sub.textContent='Staff sign-in';
+        show(stepPin); $('pin').focus();
+      } else {
+        state.portalType = res.body.portal_type || 'trainer';
+        // send the magic link
+        api('/api/auth/request-link',{ email: res.body.email, type: state.portalType }).then(function(){
+          $('magic-greet').textContent = 'We emailed a sign-in link to '+res.body.email+'. Open it on this device.';
+          sub.textContent='Email sign-in'; show(stepMagic);
+        });
+      }
+    }).catch(function(){ btn.disabled=false; btn.textContent='Continue'; err('Network error. Try again.'); });
+  });
+
+  // Step 2 — PIN login
+  stepPin.addEventListener('submit', function(e){
+    e.preventDefault(); clearMsg();
+    var pin = $('pin').value;
+    if(!/^[0-9]{4,8}$/.test(pin)){ err('PIN is 4–8 digits.'); return; }
+    var btn = stepPin.querySelector('button'); btn.disabled=true; btn.textContent='Signing in…';
+    api('/api/auth/pin-login',{ identifier: state.identifier, pin: pin }).then(function(res){
+      btn.disabled=false; btn.textContent='Sign in';
+      if(res.status>=400 || !res.body.ok){ err(res.body.error||'Incorrect PIN.'); $('pin').value=''; return; }
+      if(res.body.must_change_pin){ ok('Signed in. Please set a personal PIN.'); show(stepNew); $('newpin').focus(); return; }
+      window.location.replace(res.body.redirect || '/hub/');
+    }).catch(function(){ btn.disabled=false; btn.textContent='Sign in'; err('Network error. Try again.'); });
+  });
+  $('pin-back').addEventListener('click', function(){ clearMsg(); sub.textContent='Sign in to continue'; show(stepId); });
+
+  // Step 3 — set new PIN
+  stepNew.addEventListener('submit', function(e){
+    e.preventDefault(); clearMsg();
+    var a=$('newpin').value, b=$('newpin2').value;
+    if(!/^[0-9]{4,8}$/.test(a)){ err('PIN is 4–8 digits.'); return; }
+    if(a!==b){ err('PINs do not match.'); return; }
+    var btn=stepNew.querySelector('button'); btn.disabled=true; btn.textContent='Saving…';
+    api('/api/staff/set-pin',{ new_pin:a }).then(function(res){
+      btn.disabled=false; btn.textContent='Save & continue';
+      if(res.status>=400 || !res.body.ok){ err(res.body.error||'Could not save PIN.'); return; }
+      window.location.replace('/hub/');
+    }).catch(function(){ btn.disabled=false; btn.textContent='Save & continue'; err('Network error.'); });
+  });
+
+  $('magic-back').addEventListener('click', function(){ clearMsg(); sub.textContent='Sign in to continue'; show(stepId); });
+})();
+</script>
+</body>
+</html>

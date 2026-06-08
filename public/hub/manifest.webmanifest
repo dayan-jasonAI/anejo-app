@@ -1,0 +1,40 @@
+{
+  "name": "Añejo HUB",
+  "short_name": "Añejo HUB",
+  "description": "Internal operations command center for Añejo Catering Co.",
+  "id": "/hub/",
+  "start_url": "/hub/",
+  "scope": "/hub/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b3a2b",
+  "theme_color": "#1b3a2b",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/assets/img/emblem.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/emblem.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/img/logo_full.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Owner Command Center", "url": "/hub/owner" },
+    { "name": "Driver", "url": "/hub/driver" },
+    { "name": "Kitchen", "url": "/hub/kitchen" }
+  ]
+}

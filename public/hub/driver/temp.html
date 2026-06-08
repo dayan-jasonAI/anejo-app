@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Temp Log · Añejo Driver</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar"><h1>AÑEJO · TEMP LOG</h1></div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <div class="card">
+      <div class="field">
+        <label data-i18n>Item</label>
+        <input type="text" id="item" placeholder="Cooler A / Bowls / etc.">
+      </div>
+      <div class="field">
+        <label data-i18n>Temperature (°F)</label>
+        <input type="number" id="temp" inputmode="decimal" step="0.1" placeholder="38">
+      </div>
+      <div class="field">
+        <label data-i18n>Context</label>
+        <select id="context">
+          <option value="loadout" data-i18n>Loadout</option>
+          <option value="transit" data-i18n>Transit</option>
+          <option value="dropoff" data-i18n>Dropoff</option>
+          <option value="kitchen" data-i18n>Kitchen</option>
+        </select>
+      </div>
+      <div id="range-hint" class="row-sub" style="margin-bottom:12px"></div>
+      <div class="field">
+        <label data-i18n>Photo (optional)</label>
+        <input type="file" accept="image/*" capture="environment" id="photo">
+      </div>
+      <button class="btn block gold" id="submit" type="button" data-i18n>Log temperature</button>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/driver/assets/driver.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  Driver.nav('temp');
+
+  // Default cold-chain band (matches the API default) for a live in/out-of-range hint.
+  var MIN = 33, MAX = 41;
+  var tempEl = document.getElementById('temp');
+  var hint = document.getElementById('range-hint');
+
+  function updateHint() {
+    var v = parseFloat(tempEl.value);
+    if (!isFinite(v)) { hint.textContent = ''; return; }
+    var inRange = v >= MIN && v <= MAX;
+    hint.innerHTML = inRange
+      ? '<span class="badge ok">in range</span>'
+      : '<span class="badge crit">out of range</span> (' + MIN + '–' + MAX + '°F)';
+  }
+  tempEl.addEventListener('input', updateHint);
+
+  document.getElementById('submit').addEventListener('click', function () {
+    var v = parseFloat(tempEl.value);
+    if (!isFinite(v)) { Hub.toast('Enter a temperature'); return; }
+    var btn = this; btn.disabled = true;
+    Driver.fileToDataUrl(document.getElementById('photo').files[0]).then(function (photo) {
+      return Hub.api('/api/hub/driver/temp/log', { method: 'POST', body: {
+        item: document.getElementById('item').value,
+        temp_f: v,
+        context: document.getElementById('context').value,
+        photo: photo
+      } });
+    }).then(function (resp) {
+      btn.disabled = false;
+      if (resp && resp.ok) {
+        Hub.toast(resp.temp_log && resp.temp_log.in_range ? 'Logged (in range)' : 'Logged (OUT of range)');
+        document.getElementById('item').value = '';
+        tempEl.value = ''; updateHint();
+        document.getElementById('photo').value = '';
+      } else { Hub.toast((resp && resp.error) || 'Error'); }
+    });
+  });
+
+  Driver.guard();
+})();
+</script>
+</body>
+</html>

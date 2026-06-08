@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Checklists</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .type-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  .type-tabs button { padding:8px 12px; font-size:13px; border:1px solid var(--line); background:var(--white); border-radius:20px; cursor:pointer; color:var(--green); }
+  .type-tabs button.active { background:var(--green); color:var(--cream); border-color:var(--green); }
+  .chk-item { display:flex; align-items:flex-start; gap:10px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .chk-item:last-child { border-bottom:none; }
+  .chk-item input[type=checkbox] { width:22px; height:22px; margin-top:2px; flex:none; }
+  .chk-item .ci-main { flex:1; }
+  .chk-item .ci-note { margin-top:6px; }
+  .fail-toggle { font-size:12px; color:var(--crit); background:none; border:none; cursor:pointer; padding:0; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · CHECKLISTS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div class="type-tabs" id="tabs">
+    <button data-type="opening" class="active">Opening</button>
+    <button data-type="prep">Prep</button>
+    <button data-type="sanitation">Sanitation</button>
+    <button data-type="procedure">Procedure</button>
+    <button data-type="closing">Closing</button>
+  </div>
+
+  <div id="content"></div>
+
+  <a class="btn ghost block" href="/hub/kitchen/" style="margin-top:14px" data-i18n>Back to orders</a>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/kitchen/kitchen.js"></script>
+<script>
+(function () {
+  var Hub = window.Hub, K = window.Kitchen, $ = Hub.$, esc = Hub.esc;
+  var activeType = 'opening';
+
+  // Default item sets used when no template exists in the docs/checklists table yet.
+  var DEFAULTS = {
+    opening: ['Walk-in fridge temp logged', 'Sanitizer buckets prepared', 'Hand-wash station stocked', 'Prep surfaces sanitized', 'Equipment powered + checked'],
+    prep: ['Proteins portioned', 'Quinoa batches cooked', 'Sauces prepped + labeled', 'Vegetables washed + cut', 'Date labels applied'],
+    sanitation: ['Floors swept + mopped', 'Surfaces sanitized', 'Trash emptied', 'Dish area cleared', 'Sanitizer concentration verified'],
+    procedure: ['Allergen separation verified', 'FIFO rotation checked', 'Cold-chain holding temps OK', 'Labels accurate'],
+    closing: ['All food stored + labeled', 'Equipment cleaned + off', 'Walk-in temp logged', 'Floors cleaned', 'Closing temps recorded', 'Doors locked']
+  };
+
+  function itemRow(label, i) {
+    return '<div class="chk-item" data-i="' + i + '">' +
+      '<input type="checkbox" class="ci-check">' +
+      '<div class="ci-main"><div class="ci-label">' + esc(label) + '</div>' +
+      '<button class="fail-toggle" type="button">Flag issue</button>' +
+      '<div class="ci-note" hidden><input class="ci-note-in" placeholder="What went wrong?"></div></div></div>';
+  }
+
+  function renderForm(template) {
+    var labels, checklistId = null;
+    if (template && template.items) {
+      var parsed = [];
+      try { parsed = JSON.parse(template.items); } catch (e) {}
+      labels = parsed.map(function (it) { return it.label || it.key; });
+      checklistId = template.id;
+    } else {
+      labels = DEFAULTS[activeType] || [];
+    }
+    var html = '<div class="card"><h2 style="margin-bottom:8px">' + esc((template && template.name) || (activeType + ' checklist')) + '</h2>' +
+      labels.map(itemRow).join('') +
+      '<button class="btn gold block" id="submit-chk" style="margin-top:14px" data-i18n>Submit checklist</button></div>';
+    $('#content').innerHTML = html;
+
+    Array.prototype.forEach.call(document.querySelectorAll('.fail-toggle'), function (b) {
+      b.addEventListener('click', function () {
+        var note = b.parentNode.querySelector('.ci-note');
+        note.hidden = !note.hidden;
+        b.textContent = note.hidden ? 'Flag issue' : 'Issue flagged';
+      });
+    });
+
+    $('#submit-chk').addEventListener('click', function () {
+      var items = [];
+      Array.prototype.forEach.call(document.querySelectorAll('.chk-item'), function (row, i) {
+        var checked = row.querySelector('.ci-check').checked;
+        var noteEl = row.querySelector('.ci-note');
+        var note = noteEl.hidden ? null : (row.querySelector('.ci-note-in').value.trim() || null);
+        items.push({ item_key: 'i' + i, label: labels[i], checked: checked, passed: note ? false : true, note: note });
+      });
+      this.disabled = true;
+      K.post('/api/hub/kitchen/checklist/submit', { checklist_id: checklistId, checklist_type: activeType, items: items })
+        .then(function (d) {
+          if (d && d.ok) { Hub.toast('Checklist submitted (' + d.items_failed + ' flagged)'); selectType(activeType); }
+          else { K.fail(d); $('#submit-chk').disabled = false; }
+        });
+    });
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function selectType(type) {
+    activeType = type;
+    Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) {
+      b.classList.toggle('active', b.getAttribute('data-type') === type);
+    });
+    K.get('/api/hub/kitchen/checklist/submit?type=' + encodeURIComponent(type)).then(function (d) {
+      var tpls = (d && d.checklists) || [];
+      renderForm(tpls.length ? tpls[0] : null);
+    });
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) {
+    b.addEventListener('click', function () { selectType(b.getAttribute('data-type')); });
+  });
+
+  var lt = $('#lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  K.boot('checklists', function () { selectType('opening'); });
+})();
+</script>
+</body>
+</html>

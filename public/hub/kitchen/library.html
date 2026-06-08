@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Library</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .type-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .type-tabs button { padding:7px 12px; font-size:12px; border:1px solid var(--line); background:var(--white); border-radius:20px; cursor:pointer; color:var(--green); }
+  .type-tabs button.active { background:var(--green); color:var(--cream); border-color:var(--green); }
+  .doc-body { white-space:pre-wrap; line-height:1.55; }
+  .recipe-block h3 { margin:14px 0 6px; font-size:14px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+  .recipe-block ul, .recipe-block ol { margin-left:18px; }
+  .back-link { background:none;border:none;color:var(--green);cursor:pointer;font:inherit;padding:0;margin-bottom:10px; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · LIBRARY</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="list-view">
+    <div class="field"><input id="search" type="search" placeholder="Search the library…"></div>
+    <div class="type-tabs" id="tabs">
+      <button data-type="" class="active">All</button>
+      <button data-type="manual">Manuals</button>
+      <button data-type="policy">Policies</button>
+      <button data-type="procedure">Procedures</button>
+      <button data-type="recipe">Recipes</button>
+    </div>
+    <div class="list" id="docs"></div>
+  </div>
+
+  <div id="doc-view" hidden>
+    <button class="back-link" id="back" type="button">‹ Back to library</button>
+    <div class="card" id="doc-card"></div>
+  </div>
+
+  <a class="btn ghost block" href="/hub/kitchen/" style="margin-top:14px" data-i18n>Back to orders</a>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/kitchen/kitchen.js"></script>
+<script>
+(function () {
+  var Hub = window.Hub, K = window.Kitchen, $ = Hub.$, esc = Hub.esc;
+  var activeType = '', q = '';
+
+  function load() {
+    var params = [];
+    if (activeType) params.push('type=' + encodeURIComponent(activeType));
+    if (q) params.push('q=' + encodeURIComponent(q));
+    var qs = params.length ? ('?' + params.join('&')) : '';
+    K.get('/api/hub/kitchen/docs/list' + qs).then(function (d) {
+      var docs = (d && d.docs) || [];
+      $('#docs').innerHTML = docs.length ? docs.map(function (doc) {
+        return '<div class="row" data-open="' + esc(doc.id) + '" style="cursor:pointer">' +
+          '<div class="row-main"><div class="row-title">' + esc(doc.title) + '</div>' +
+          '<div class="row-sub">' + esc(doc.doc_type) + ' · v' + (doc.version || 1) + '</div></div>' +
+          '<span class="badge">›</span></div>';
+      }).join('') : '<div class="hub-empty" data-i18n>No documents found.</div>';
+      Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (r) {
+        r.addEventListener('click', function () { openDoc(r.getAttribute('data-open')); });
+      });
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  function recipeHtml(r) {
+    if (!r) return '';
+    var ing = (r.ingredients || []).map(function (i) { return '<li>' + esc(typeof i === 'string' ? i : (i.name || JSON.stringify(i))) + '</li>'; }).join('');
+    var steps = (r.steps || []).map(function (s) { return '<li>' + esc(typeof s === 'string' ? s : (s.text || JSON.stringify(s))) + '</li>'; }).join('');
+    var n = r.nutrition || {};
+    var nut = Object.keys(n).length ? '<h3>Nutrition (approx)</h3><div class="row-sub">' +
+      esc(Object.keys(n).map(function (k) { return k + ': ' + n[k]; }).join(' · ')) + '</div>' : '';
+    return '<div class="recipe-block">' +
+      (ing ? '<h3>Ingredients</h3><ul>' + ing + '</ul>' : '') +
+      (steps ? '<h3>Steps</h3><ol>' + steps + '</ol>' : '') + nut + '</div>';
+  }
+
+  function openDoc(id) {
+    K.get('/api/hub/kitchen/docs/get?id=' + encodeURIComponent(id)).then(function (d) {
+      if (!d || !d.doc) return K.fail(d, 'Could not open doc.');
+      var doc = d.doc;
+      $('#doc-card').innerHTML = '<h2 style="margin-bottom:4px">' + esc(doc.title) + '</h2>' +
+        '<div class="row-sub" style="margin-bottom:12px">' + esc(doc.doc_type) + ' · v' + (doc.version || 1) + '</div>' +
+        (doc.body ? '<div class="doc-body">' + esc(doc.body) + '</div>' : '') +
+        recipeHtml(d.recipe);
+      $('#list-view').hidden = true;
+      $('#doc-view').hidden = false;
+      window.scrollTo(0, 0);
+    });
+  }
+
+  $('#back').addEventListener('click', function () { $('#doc-view').hidden = true; $('#list-view').hidden = false; });
+
+  var searchT;
+  $('#search').addEventListener('input', function () {
+    q = this.value.trim();
+    clearTimeout(searchT); searchT = setTimeout(load, 250);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) {
+    b.addEventListener('click', function () {
+      activeType = b.getAttribute('data-type');
+      Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (x) { x.classList.toggle('active', x === b); });
+      load();
+    });
+  });
+
+  var lt = $('#lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  K.boot('library', function () { load(); });
+})();
+</script>
+</body>
+</html>

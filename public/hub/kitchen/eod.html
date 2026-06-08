@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · End of Day</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .toggle-row { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .toggle-row input { width:auto; }
+  .toggle-row label { margin:0; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · EOD</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div class="card accent" id="existing" hidden>
+    <div class="row-title" data-i18n>Today's report is already submitted.</div>
+    <div class="row-sub" id="existing-sub" style="margin-top:6px"></div>
+  </div>
+
+  <div class="hub-section">
+    <h2 data-i18n>Kitchen end-of-day report</h2>
+    <div class="card">
+      <button class="btn ghost block" id="ai-btn" type="button" style="margin-bottom:12px" data-i18n>✨ AI pre-draft from today</button>
+      <div class="field">
+        <label data-i18n>Summary</label>
+        <textarea id="summary" placeholder="How did the day go?"></textarea>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="blockers-chk">
+        <label for="blockers-chk" data-i18n>I have blockers to flag</label>
+      </div>
+      <div class="field" id="blockers-field" hidden>
+        <label data-i18n>Blockers</label>
+        <textarea id="blockers" placeholder="What's blocking the team?"></textarea>
+      </div>
+      <button class="btn gold block" id="submit-btn" type="button" data-i18n>Submit report</button>
+    </div>
+  </div>
+
+  <a class="btn ghost block" href="/hub/kitchen/" data-i18n>Back to orders</a>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/kitchen/kitchen.js"></script>
+<script>
+(function () {
+  var Hub = window.Hub, K = window.Kitchen, $ = Hub.$, esc = Hub.esc;
+  var aiDrafted = false;
+
+  $('#blockers-chk').addEventListener('change', function () {
+    $('#blockers-field').hidden = !this.checked;
+  });
+
+  $('#ai-btn').addEventListener('click', function () {
+    var btn = this; btn.disabled = true; btn.textContent = 'Drafting…';
+    K.get('/api/hub/kitchen/eod/submit?draft=1').then(function (d) {
+      btn.disabled = false; btn.textContent = '✨ AI pre-draft from today';
+      if (!d || !d.draft) return K.fail(d, 'Could not draft.');
+      $('#summary').value = d.draft;
+      aiDrafted = true;
+      Hub.toast(d.demo ? 'Demo draft inserted' : 'AI draft inserted');
+    });
+  });
+
+  $('#summary').addEventListener('input', function () { aiDrafted = false; });
+
+  $('#submit-btn').addEventListener('click', function () {
+    var summary = $('#summary').value.trim();
+    if (!summary) return Hub.toast('Write a summary first.');
+    var hasBlockers = $('#blockers-chk').checked;
+    var blockers = hasBlockers ? $('#blockers').value.trim() : null;
+    this.disabled = true;
+    K.post('/api/hub/kitchen/eod/submit', {
+      summary: summary, has_blockers: hasBlockers, blockers: blockers, on_time: true, ai_drafted: aiDrafted
+    }).then(function (d) {
+      this && (this.disabled = false);
+      $('#submit-btn').disabled = false;
+      if (d && d.ok) { Hub.toast('Report submitted'); loadExisting(); }
+      else K.fail(d, 'Could not submit.');
+    });
+  });
+
+  function loadExisting() {
+    K.get('/api/hub/kitchen/eod/submit').then(function (d) {
+      if (d && d.report) {
+        $('#existing').hidden = false;
+        $('#existing-sub').textContent = (d.report.summary || '').slice(0, 200);
+        $('#summary').value = d.report.summary || '';
+      }
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  var lt = $('#lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  K.boot('eod', function () { loadExisting(); });
+})();
+</script>
+</body>
+</html>

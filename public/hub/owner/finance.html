@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Finance</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · FINANCE</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading finance…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var days = 7;
+
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML =
+      '<div class="hub-section"><h2 data-i18n>Window</h2>' +
+      '<div class="card"><label data-i18n>Days</label><select id="days"><option value="7">7</option><option value="30">30</option><option value="90">90</option></select></div></div>' +
+      '<div id="tiles" class="card-grid"></div>' +
+      '<div class="hub-section"><h2 data-i18n>Export report</h2><div class="card">' +
+      '<div class="field"><label data-i18n>Report type</label><select id="rtype">' +
+      '<option value="finance">finance</option><option value="payroll">payroll</option>' +
+      '<option value="deliveries">deliveries</option><option value="accountability">accountability</option>' +
+      '<option value="temp_compliance">temp_compliance</option></select></div>' +
+      '<button class="btn gold block" id="exportBtn" type="button" data-i18n>Export</button>' +
+      '<p class="row-sub" style="margin-top:8px" data-i18n>Exports are stubbed in sandbox; the request is logged.</p></div></div>';
+
+    var sel = document.getElementById('days');
+    sel.value = String(days);
+    sel.addEventListener('change', function () { days = parseInt(sel.value, 10) || 7; load(); });
+    document.getElementById('exportBtn').addEventListener('click', doExport);
+    load();
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function load() {
+    Owner.get('/api/hub/owner/finance/rollup?days=' + days).then(function (d) {
+      var el = document.getElementById('tiles');
+      if (!d || !d.ok) { el.innerHTML = '<div class="hub-empty" data-i18n>No data.</div>'; return; }
+      el.innerHTML = [
+        Owner.tile(Owner.money(d.orders.revenue_cents), 'Revenue', { accent: 'accent-green' }),
+        Owner.tile(Owner.money(d.net_estimate_cents), 'Net (est)'),
+        Owner.tile(d.orders.pending_count, 'Orders pending', { badge: Owner.money(d.orders.pending_cents) }),
+        Owner.tile(Owner.money(d.expenses.approved_cents), 'Expenses approved'),
+        Owner.tile(d.expenses.pending_count, 'Expenses pending', { accent: d.expenses.pending_count ? 'accent' : '', badge: Owner.money(d.expenses.pending_cents) }),
+        Owner.tile(d.mileage.pending_count, 'Mileage pending', { badge: (d.mileage.pending_miles || 0).toFixed(1) + ' mi' }),
+        Owner.tile(Owner.money(d.rev_share.pending_cents), 'Rev-share owed')
+      ].join('');
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  function doExport() {
+    var rtype = document.getElementById('rtype').value;
+    var btn = document.getElementById('exportBtn'); btn.disabled = true;
+    Hub.api('/api/hub/owner/report', { method: 'POST', body: { report_type: rtype, format: 'csv' } }).then(function (r) {
+      btn.disabled = false;
+      if (r && r.ok) Hub.toast('Export queued (stub)');
+      else Hub.toast('Export failed');
+    });
+  }
+
+  Owner.init('finance', render);
+})();
+</script>
+</body>
+</html>

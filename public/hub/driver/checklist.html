@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Checklist · Añejo Driver</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar"><h1>AÑEJO · CHECKLIST</h1></div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <div class="field">
+      <label data-i18n>Checklist</label>
+      <select id="ctype">
+        <option value="vehicle" data-i18n>Vehicle</option>
+        <option value="loadout" data-i18n>Loadout</option>
+        <option value="dropoff" data-i18n>Dropoff</option>
+      </select>
+    </div>
+  </div>
+  <div class="hub-section">
+    <div id="items" class="list"></div>
+  </div>
+  <div class="hub-section">
+    <button class="btn block gold" id="submit" type="button" data-i18n>Submit checklist</button>
+  </div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/driver/assets/driver.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  Driver.nav('home');
+
+  // Built-in templates (no DB template required; checklist_id falls back server-side).
+  var TEMPLATES = {
+    vehicle: [
+      { key: 'fuel', label: 'Fuel level OK' },
+      { key: 'tires', label: 'Tires / pressure OK' },
+      { key: 'lights', label: 'Lights working' },
+      { key: 'clean', label: 'Cargo area clean' },
+      { key: 'cooler', label: 'Cooler / ice packs ready' }
+    ],
+    loadout: [
+      { key: 'orders_loaded', label: 'All orders loaded' },
+      { key: 'labels', label: 'Labels match manifest' },
+      { key: 'temp_check', label: 'Cold items at temp' },
+      { key: 'packaging', label: 'Packaging sealed' }
+    ],
+    dropoff: [
+      { key: 'correct_addr', label: 'Correct address confirmed' },
+      { key: 'handoff', label: 'Handed to customer/contact' },
+      { key: 'placement', label: 'Placed safely / refrigerated note left' },
+      { key: 'photo', label: 'Proof captured' }
+    ]
+  };
+
+  var state = {};
+  var itemsEl = document.getElementById('items');
+  var sel = document.getElementById('ctype');
+
+  function renderItems() {
+    var type = sel.value;
+    state = {};
+    var tpl = TEMPLATES[type] || [];
+    itemsEl.innerHTML = tpl.map(function (it, i) {
+      return '<label class="row" style="margin:0;cursor:pointer">' +
+        '<input type="checkbox" data-k="' + Hub.esc(it.key) + '" data-l="' + Hub.esc(it.label) + '" style="width:auto;margin-right:10px">' +
+        '<div class="row-main"><div class="row-title">' + Hub.esc(it.label) + '</div></div>' +
+        '<button type="button" class="btn ghost fail-toggle" data-i="' + i + '" data-i18n>Issue</button>' +
+        '</label>';
+    }).join('');
+    Array.prototype.forEach.call(itemsEl.querySelectorAll('.fail-toggle'), function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        var k = tpl[+btn.getAttribute('data-i')].key;
+        state[k] = state[k] || {};
+        state[k].failed = !state[k].failed;
+        btn.style.background = state[k].failed ? 'var(--crit)' : '';
+        btn.style.color = state[k].failed ? '#fff' : '';
+      });
+    });
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  sel.addEventListener('change', renderItems);
+
+  document.getElementById('submit').addEventListener('click', function () {
+    var btn = this; btn.disabled = true;
+    var type = sel.value;
+    var boxes = itemsEl.querySelectorAll('input[type=checkbox]');
+    var items = Array.prototype.map.call(boxes, function (cb) {
+      var k = cb.getAttribute('data-k');
+      return { key: k, label: cb.getAttribute('data-l'), checked: cb.checked, passed: !(state[k] && state[k].failed) };
+    });
+    Hub.api('/api/hub/driver/checklist/submit', { method: 'POST', body: { checklist_type: type, items: items } }).then(function (resp) {
+      btn.disabled = false;
+      if (resp && resp.ok) { Hub.toast('Checklist submitted'); renderItems(); }
+      else { Hub.toast((resp && resp.error) || 'Error'); }
+    });
+  });
+
+  Driver.guard().then(function (me) { if (me) renderItems(); });
+})();
+</script>
+</body>
+</html>

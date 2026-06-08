@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Restock</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .li-row { display:grid; grid-template-columns: 1fr 70px 70px 36px; gap:8px; margin-bottom:8px; align-items:center; }
+  .li-row input { padding:9px; }
+  .li-row .rm { background:transparent;border:1px solid var(--line);color:var(--crit);border-radius:8px;cursor:pointer;height:38px; }
+  .po .row-sub { font-size:12px; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · RESTOCK</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <h2 data-i18n>New restock order</h2>
+    <div class="card">
+      <button class="btn ghost block" id="suggest-btn" type="button" style="margin-bottom:12px" data-i18n>✨ AI-suggest quantities</button>
+      <div id="lines"></div>
+      <button class="btn ghost block" id="add-line" type="button" style="margin:8px 0" data-i18n>+ Add item</button>
+      <div class="field"><label data-i18n>Note (optional)</label><input id="note" type="text"></div>
+      <button class="btn gold block" id="save-btn" type="button" data-i18n>Save draft</button>
+    </div>
+  </div>
+
+  <div class="hub-section">
+    <h2 data-i18n>Recent orders</h2>
+    <div id="pos"></div>
+  </div>
+
+  <a class="btn ghost block" href="/hub/kitchen/" data-i18n>Back to orders</a>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/kitchen/kitchen.js"></script>
+<script>
+(function () {
+  var Hub = window.Hub, K = window.Kitchen, $ = Hub.$, esc = Hub.esc;
+  var lastAiSuggested = false;
+
+  function lineRow(item) {
+    item = item || {};
+    var div = document.createElement('div');
+    div.className = 'li-row';
+    div.innerHTML =
+      '<input class="i-name" placeholder="Item" value="' + esc(item.name || '') + '">' +
+      '<input class="i-qty" type="number" step="any" placeholder="Qty" value="' + (item.qty != null ? esc(item.qty) : '') + '">' +
+      '<input class="i-unit" placeholder="Unit" value="' + esc(item.unit || '') + '">' +
+      '<button class="rm" type="button" aria-label="Remove">✕</button>';
+    div.querySelector('.rm').addEventListener('click', function () { div.remove(); });
+    return div;
+  }
+
+  function addLine(item) { $('#lines').appendChild(lineRow(item)); }
+
+  function collectLines() {
+    var out = [];
+    Array.prototype.forEach.call(document.querySelectorAll('.li-row'), function (r) {
+      var name = r.querySelector('.i-name').value.trim();
+      var qty = r.querySelector('.i-qty').value;
+      var unit = r.querySelector('.i-unit').value.trim();
+      if (name) out.push({ name: name, qty: qty ? Number(qty) : null, unit: unit || null });
+    });
+    return out;
+  }
+
+  $('#add-line').addEventListener('click', function () { addLine(); });
+
+  $('#suggest-btn').addEventListener('click', function () {
+    var btn = this; btn.disabled = true; btn.textContent = 'Thinking…';
+    K.get('/api/hub/kitchen/restock/create?suggest=1').then(function (d) {
+      btn.disabled = false; btn.textContent = '✨ AI-suggest quantities';
+      if (!d || !d.suggested) return K.fail(d, 'No suggestions available.');
+      lastAiSuggested = true;
+      $('#lines').innerHTML = '';
+      d.suggested.forEach(function (it) { addLine(it); });
+      Hub.toast(d.source === 'ai' ? 'AI suggestions added' : 'Demo suggestions added');
+    });
+  });
+
+  $('#save-btn').addEventListener('click', function () {
+    var items = collectLines();
+    if (!items.length) return Hub.toast('Add at least one item.');
+    var btn = this; btn.disabled = true;
+    K.post('/api/hub/kitchen/restock/create', { items: items, note: $('#note').value.trim() || null, ai_suggested: lastAiSuggested })
+      .then(function (d) {
+        btn.disabled = false;
+        if (d && d.ok) { Hub.toast('Draft saved'); $('#lines').innerHTML = ''; addLine(); $('#note').value = ''; lastAiSuggested = false; loadPOs(); }
+        else K.fail(d, 'Could not save.');
+      });
+  });
+
+  function poCard(po) {
+    var items = (po.items || []).map(function (i) { return esc(i.name) + (i.qty ? ' ×' + i.qty : '') + (i.unit ? ' ' + esc(i.unit) : ''); }).join(', ');
+    var badge = po.status === 'submitted' ? 'ok' : po.status === 'draft' ? 'warn' : '';
+    var submit = po.status === 'draft' ? '<button class="btn gold block" data-submit="' + esc(po.id) + '" style="margin-top:10px" data-i18n>Submit to vendor</button>' : '';
+    return '<div class="card po"><div class="row" style="padding:0;border:none"><div class="row-main">' +
+      '<div class="row-title">' + esc(po.id) + '</div><div class="row-sub">' + items + '</div></div>' +
+      '<span class="badge ' + badge + '">' + esc(po.status) + '</span></div>' + submit + '</div>';
+  }
+
+  function bindSubmit() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-submit]'), function (b) {
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        K.post('/api/hub/kitchen/restock/submit', { id: b.getAttribute('data-submit') }).then(function (d) {
+          if (d && d.ok) { Hub.toast(d.sms_sent ? 'Submitted + vendor notified' : 'Submitted'); loadPOs(); }
+          else { K.fail(d); b.disabled = false; }
+        });
+      });
+    });
+  }
+
+  function loadPOs() {
+    K.get('/api/hub/kitchen/restock/create').then(function (d) {
+      var list = (d && d.restock_orders) || [];
+      $('#pos').innerHTML = list.length ? list.map(poCard).join('') : '<div class="hub-empty" data-i18n>No restock orders yet.</div>';
+      bindSubmit();
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  var lt = $('#lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  K.boot('board', function () { addLine(); addLine(); loadPOs(); });
+})();
+</script>
+</body>
+</html>

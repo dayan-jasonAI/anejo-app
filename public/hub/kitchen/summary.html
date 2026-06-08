@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Daily Summary</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · SUMMARY</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div class="field">
+    <label data-i18n>Date</label>
+    <input type="date" id="date">
+  </div>
+
+  <div class="hub-section">
+    <div class="card-grid">
+      <div class="card stat"><div class="stat-num" id="s-orders">—</div><div class="stat-label" data-i18n>Orders</div></div>
+      <div class="card stat"><div class="stat-num" id="s-bowls">—</div><div class="stat-label" data-i18n>Bowls</div></div>
+      <div class="card stat"><div class="stat-num" id="s-lunch">—</div><div class="stat-label" data-i18n>Lunch</div></div>
+      <div class="card stat"><div class="stat-num" id="s-dinner">—</div><div class="stat-label" data-i18n>Dinner</div></div>
+    </div>
+  </div>
+
+  <div class="hub-section">
+    <h2 data-i18n>Item tally (batch prep)</h2>
+    <div class="list" id="items"></div>
+  </div>
+
+  <div class="hub-section">
+    <h2 data-i18n>By status</h2>
+    <div class="list" id="statuses"></div>
+  </div>
+
+  <a class="btn ghost block" href="/hub/kitchen/" data-i18n>Back to orders</a>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/kitchen/kitchen.js"></script>
+<script>
+(function () {
+  var Hub = window.Hub, K = window.Kitchen, $ = Hub.$, esc = Hub.esc;
+
+  function load(date) {
+    var q = date ? ('?date=' + encodeURIComponent(date)) : '';
+    K.get('/api/hub/kitchen/summary' + q).then(function (d) {
+      if (!d || d._status) return K.fail(d, 'Could not load summary.');
+      $('#s-orders').textContent = d.order_count || 0;
+      $('#s-bowls').textContent = d.total_bowls || 0;
+      $('#s-lunch').textContent = (d.by_window && d.by_window.lunch) || 0;
+      $('#s-dinner').textContent = (d.by_window && d.by_window.dinner) || 0;
+      $('#items').innerHTML = (d.items && d.items.length)
+        ? d.items.map(function (it) {
+            return '<div class="row"><div class="row-main"><div class="row-title">' + esc(it.name) + '</div></div><span class="badge">' + it.qty + '</span></div>';
+          }).join('')
+        : '<div class="hub-empty" data-i18n>No items yet.</div>';
+      var st = d.by_status || {};
+      $('#statuses').innerHTML = Object.keys(st).length
+        ? Object.keys(st).map(function (k) {
+            return '<div class="row"><div class="row-main"><div class="row-title">' + esc(k) + '</div></div><span class="badge">' + st[k] + '</span></div>';
+          }).join('')
+        : '<div class="hub-empty" data-i18n>No orders.</div>';
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  var lt = $('#lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () {
+      var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES';
+    });
+  }
+
+  K.boot('board', function () {
+    var di = $('#date');
+    var todayStr = new Date().toISOString().slice(0, 10);
+    di.value = todayStr;
+    di.addEventListener('change', function () { load(di.value); });
+    load(todayStr);
+  });
+})();
+</script>
+</body>
+</html>

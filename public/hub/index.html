@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="apple-touch-icon" href="/assets/img/emblem.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Añejo HUB">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · HUB</h1>
+  <div class="hub-bar-actions">
+    <button id="lang-toggle" type="button">ES</button>
+  </div>
+</div>
+
+<div class="hub-wrap">
+  <div id="router" class="hub-loading">
+    <p data-i18n>Signing you in…</p>
+  </div>
+</div>
+
+<!-- PWA install prompt -->
+<div class="hub-install" id="hub-install">
+  <div class="grow" data-i18n>Install Añejo HUB to your home screen for quick access.</div>
+  <button class="btn gold" id="install-btn" type="button" data-i18n>Install</button>
+  <button class="btn ghost" id="install-dismiss" type="button" aria-label="Dismiss">✕</button>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script>
+(function () {
+  var router = document.getElementById('router');
+
+  function show(html) { router.className = ''; router.innerHTML = html; if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+
+  function renderUnknown() {
+    show(
+      '<div class="card accent"><p data-i18n>Your account is signed in but has no HUB role yet.</p>' +
+      '<p class="row-sub" style="margin-top:8px" data-i18n>Ask the owner to assign you a role (kitchen, driver, or vendor).</p></div>' +
+      '<a class="btn ghost block" href="/login" data-i18n>Back to portal</a>'
+    );
+  }
+
+  function renderAnon() {
+    show(
+      '<div class="card accent"><p data-i18n>Please sign in to use the Añejo HUB.</p></div>' +
+      '<a class="btn block" href="/login" data-i18n>Sign in</a>'
+    );
+  }
+
+  // Boot the shared runtime (SW + install prompt), wire install button, then route.
+  Hub.boot({ installButton: 'install-btn' });
+  var dismiss = document.getElementById('install-dismiss');
+  if (dismiss) dismiss.addEventListener('click', Hub.dismissInstall);
+
+  // Language toggle reuses the global i18n module.
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () {
+      var next = window.AnejoLang.get() === 'es' ? 'en' : 'es';
+      window.AnejoLang.set(next);
+      lt.textContent = next === 'es' ? 'EN' : 'ES';
+    });
+  }
+
+  Hub.routeByRole({
+    noRedirect: false,
+    onAnon: renderAnon,
+    onUnknown: renderUnknown
+  }).then(function (data) {
+    // routeByRole redirects on success; if we are still here it returned without a dest.
+    if (data && data.authenticated && !Hub.routeForRole(Hub.roleFromMe(data))) renderUnknown();
+  }).catch(function () {
+    renderAnon();
+  });
+})();
+</script>
+</body>
+</html>

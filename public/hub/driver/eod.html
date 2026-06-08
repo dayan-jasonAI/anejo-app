@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>End of Day · Añejo Driver</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar"><h1>AÑEJO · END OF DAY</h1></div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <div id="day-stats" class="card-grid"></div>
+  </div>
+
+  <div class="hub-section">
+    <div class="card">
+      <button class="btn block ghost" id="ai-draft" type="button" data-i18n>Pre-draft with AI</button>
+      <div class="field" style="margin-top:12px">
+        <label data-i18n>Summary</label>
+        <textarea id="summary" style="min-height:140px" placeholder="How did the day go?"></textarea>
+      </div>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="has-blockers" style="width:auto"> <span data-i18n>I have blockers / issues</span>
+        </label>
+      </div>
+      <div class="field" id="blockers-wrap" style="display:none">
+        <label data-i18n>Blockers</label>
+        <textarea id="blockers"></textarea>
+      </div>
+      <button class="btn block gold" id="submit" type="button" data-i18n>Submit report</button>
+      <div id="existing-note" class="row-sub" style="margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/driver/assets/driver.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  Driver.nav('eod');
+
+  var aiDrafted = false;
+  var hb = document.getElementById('has-blockers');
+  hb.addEventListener('change', function () {
+    document.getElementById('blockers-wrap').style.display = hb.checked ? 'block' : 'none';
+  });
+
+  function renderStats(d) {
+    if (!d) return;
+    var el = document.getElementById('day-stats');
+    var cards = [
+      ['Deliveries', d.deliveries_completed],
+      ['Failed', d.deliveries_failed],
+      ['Temp checks', d.temp_logs],
+      ['Excursions', d.temp_excursions]
+    ];
+    el.innerHTML = cards.map(function (c) {
+      return '<div class="card stat"><div class="stat-num">' + (c[1] || 0) + '</div><div class="stat-label" data-i18n>' + c[0] + '</div></div>';
+    }).join('');
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  document.getElementById('ai-draft').addEventListener('click', function () {
+    var btn = this; btn.disabled = true; btn.textContent = 'Drafting…';
+    Hub.api('/api/hub/driver/eod/submit?draft=1').then(function (resp) {
+      btn.disabled = false; btn.textContent = 'Pre-draft with AI';
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+      if (resp && resp.draft) {
+        document.getElementById('summary').value = resp.draft;
+        aiDrafted = !!resp.ai_drafted;
+        Hub.toast(resp.ai_drafted ? 'AI draft ready — edit as needed' : 'Draft built from your day');
+        renderStats(resp.structured);
+      } else { Hub.toast((resp && resp.error) || 'Could not draft'); }
+    });
+  });
+
+  document.getElementById('submit').addEventListener('click', function () {
+    var summary = document.getElementById('summary').value.trim();
+    if (!summary) { Hub.toast('Write a summary'); return; }
+    var btn = this; btn.disabled = true;
+    Hub.api('/api/hub/driver/eod/submit', { method: 'POST', body: {
+      summary: summary,
+      has_blockers: hb.checked,
+      blockers: hb.checked ? document.getElementById('blockers').value : null,
+      ai_drafted: aiDrafted,
+      on_time: true
+    } }).then(function (resp) {
+      btn.disabled = false;
+      if (resp && resp.ok) { Hub.toast('EOD report submitted'); document.getElementById('existing-note').textContent = 'Submitted for ' + resp.report.report_date; }
+      else { Hub.toast((resp && resp.error) || 'Error'); }
+    });
+  });
+
+  Driver.guard().then(function (me) {
+    if (!me) return;
+    Hub.api('/api/hub/driver/eod/submit').then(function (resp) {
+      if (!resp) return;
+      renderStats(resp.structured);
+      if (resp.existing) {
+        document.getElementById('summary').value = resp.existing.summary || '';
+        aiDrafted = !!resp.existing.ai_drafted;
+        if (resp.existing.has_blockers) { hb.checked = true; document.getElementById('blockers-wrap').style.display = 'block'; document.getElementById('blockers').value = resp.existing.blockers || ''; }
+        document.getElementById('existing-note').textContent = 'Editing today\'s submitted report';
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

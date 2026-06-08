@@ -29,12 +29,19 @@ export function readCookie(request, name = COOKIE) {
   return null;
 }
 
-export function sessionCookie(token, maxAge = TTL) {
-  return `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+// `secure` defaults true (production https). Pass false for local http (e.g.
+// http://localhost dev), where browsers like Safari reject Secure cookies.
+export function sessionCookie(token, maxAge = TTL, secure = true) {
+  return `${COOKIE}=${token}; Path=/; HttpOnly;${secure ? ' Secure;' : ''} SameSite=Lax; Max-Age=${maxAge}`;
 }
 
-export function clearCookie() {
-  return `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+export function clearCookie(secure = true) {
+  return `${COOKIE}=; Path=/; HttpOnly;${secure ? ' Secure;' : ''} SameSite=Lax; Max-Age=0`;
+}
+
+// True when the request arrived over https (so the session cookie should be Secure).
+export function isSecureRequest(request) {
+  try { return new URL(request.url).protocol === 'https:'; } catch { return true; }
 }
 
 // Returns the session object for the current request, or null.

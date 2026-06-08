@@ -1,13 +1,14 @@
 // GET /api/auth/verify?token=...  Validates a magic link, creates the trainer on first
 // sign-in, sets a session cookie, and redirects into the app.
 import { id, now, affiliateCode, appBaseUrl } from '../../_lib/util.js';
-import { createSession, sessionCookie } from '../../_lib/session.js';
+import { createSession, sessionCookie, isSecureRequest } from '../../_lib/session.js';
 
 const redirect = (url, headers = {}) =>
   new Response(null, { status: 302, headers: { Location: url, ...headers } });
 
 export const onRequestGet = async ({ request, env }) => {
   const base = appBaseUrl(env, request);
+  const secure = isSecureRequest(request);
   const token = new URL(request.url).searchParams.get('token');
   if (!token) return redirect(`${base}/portal?error=missing_token`);
   if (!env.DB) return redirect(`${base}/portal?error=server`);
@@ -37,10 +38,35 @@ export const onRequestGet = async ({ request, env }) => {
       trainer = { id: tid };
     }
     const sess = await createSession(env, { uid: trainer.id, type: 'trainer', email: row.user_email });
-    return redirect(`${base}/trainer/dashboard`, { 'Set-Cookie': sessionCookie(sess) });
+    return redirect(`${base}/trainer/dashboard`, { 'Set-Cookie': sessionCookie(sess, undefined, secure) });
+  }
+
+  if (row.user_type === 'staff') {
+    // Staff are seeded by the owner (we do NOT auto-create them). The magic link only
+    // activates an existing, active staff row and drops them into the HUB shell.
+    const staff = await env.DB
+      .prepare('SELECT id, role, team, active, is_lead FROM staff WHERE email=?')
+      .bind(row.user_email)
+      .first();
+    if (!staff || !staff.active) {
+      return redirect(`${base}/portal?error=no_staff_account`);
+    }
+    await env.DB
+      .prepare('UPDATE staff SET activated_at=COALESCE(activated_at,?1), last_active_at=?1, updated_at=?1 WHERE id=?2')
+      .bind(now(), staff.id)
+      .run();
+    const sess = await createSession(env, {
+      type: 'staff',
+      uid: staff.id,
+      role: staff.role,
+      team: staff.team,
+      email: row.user_email,
+      is_lead: !!staff.is_lead,
+    });
+    return redirect(`${base}/hub/`, { 'Set-Cookie': sessionCookie(sess, undefined, secure) });
   }
 
   // client flow (full member auth lands with the client dashboard)
   const sess = await createSession(env, { type: 'client', email: row.user_email });
-  return redirect(`${base}/client/dashboard`, { 'Set-Cookie': sessionCookie(sess) });
+  return redirect(`${base}/client/dashboard`, { 'Set-Cookie': sessionCookie(sess, undefined, secure) });
 };

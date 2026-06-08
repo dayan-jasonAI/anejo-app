@@ -2,3 +2,6 @@ node_modules/
 .dev.vars
 .wrangler/
 .DS_Store
+
+scripts/dev-seed.local.sql
+/tmp/anejo_hub_dev.log

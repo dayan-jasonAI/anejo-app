@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Kitchen</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · KITCHEN</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading kitchen…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML = '<div id="tiles" class="card-grid"></div>' +
+      '<div class="hub-section"><h2 data-i18n>Recent kitchen activity</h2><div id="kfeed" class="list"><div class="hub-loading">…</div></div></div>';
+
+    Owner.get('/api/hub/owner/overview').then(function (d) {
+      if (!d || !d.ok) { Owner.fail(); return; }
+      var t = d.tiles;
+      document.getElementById('tiles').innerHTML = [
+        Owner.tile(t.temp_excursions_today, 'Temp excursions today', { accent: t.temp_excursions_today ? 'accent' : 'accent-green' }),
+        Owner.tile(t.restock_pending, 'Restock orders open'),
+        Owner.tile(t.orders_open, 'Orders to fulfill'),
+        Owner.tile(t.on_shift, 'On shift now', { accent: 'accent-green' })
+      ].join('');
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+
+    // Kitchen-team activity feed (filter by team=kitchen).
+    Owner.get('/api/hub/owner/activity?team=kitchen&limit=30').then(function (d) {
+      var el = document.getElementById('kfeed');
+      if (!d || !d.ok || !d.items.length) { el.innerHTML = '<div class="hub-empty" data-i18n>No kitchen activity yet.</div>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
+      el.innerHTML = d.items.map(function (it) {
+        return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(it.event) + '</div>' +
+          '<div class="row-sub">' + Owner.esc(it.actor_role || it.actor_type || '') + ' · ' + Owner.timeAgo(it.created_at) + '</div></div></div>';
+      }).join('');
+    });
+  }
+
+  Owner.init('kitchen', render);
+})();
+</script>
+</body>
+</html>
