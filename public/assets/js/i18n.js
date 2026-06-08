@@ -255,13 +255,16 @@
     "Your Plan":"Tu Plan","Your plan":"Tu plan","Daily Macro Targets":"Objetivos Diarios de Macros",
     "Calories":"Calorías","Protein g":"Proteína g","Carbs g":"Carbohidratos g","Fat g":"Grasa g","Fiber g":"Fibra g",
     "Your Weekly Añejo Rotation":"Tu Rotación Semanal Añejo","Why this plan":"Por qué este plan","Lifestyle notes":"Notas de estilo de vida",
-    "See the full menu →":"Ver el menú completo →","Start over":"Empezar de nuevo",
+    "See the full menu →":"Ver el menú completo →","See the full menu":"Ver el menú completo","Start over":"Empezar de nuevo",
+    "Subscribe to this plan →":"Suscríbete a este plan →","Order these bowls":"Ordena estos bowls",
     "Your Plan — Añejo Catering Co.":"Tu Plan — Añejo Catering Co."
   };
 
   var origText = new WeakMap();   // text node / option -> original english value
   var origPH = new WeakMap();     // element -> original placeholder
   var origTitle = document.title;
+  var hubObserver = null;         // re-translates dynamically-rendered HUB content
+  var OBS_OPTS = { childList: true, subtree: true, characterData: true };
 
   function tr(s){ return ES[s]; }
 
@@ -278,6 +281,7 @@
 
   function apply(l){
     var es = (l === 'es');
+    if (hubObserver) hubObserver.disconnect();   // don't observe our own edits
     walk(document.body, function(t){
       var raw = t.nodeValue;
       if (!raw || !raw.trim()) return;
@@ -300,6 +304,28 @@
     if (es){ var tv = tr(origTitle); if (tv) document.title = tv; } else { document.title = origTitle; }
     document.documentElement.lang = es ? 'es' : 'en';
     updateToggle(l);
+    if (hubObserver) { hubObserver.takeRecords(); hubObserver.observe(document.body, OBS_OPTS); }
+  }
+
+  // Merge extra entries (e.g. the HUB dictionary) into ES and re-apply.
+  function extend(dict){
+    if (!dict) return;
+    for (var k in dict){ if (Object.prototype.hasOwnProperty.call(dict, k)) ES[k] = dict[k]; }
+    apply(lang);
+  }
+
+  // On HUB pages, content is rendered dynamically (nav, tiles, lists, toasts). Watch the
+  // DOM and re-translate in Spanish. apply() disconnects first, so this never loops.
+  function startHubObserver(){
+    if (hubObserver || !window.MutationObserver) return;
+    if (location.pathname.indexOf('/hub') !== 0) return;
+    var raf = 0;
+    hubObserver = new MutationObserver(function(){
+      if (lang !== 'es') return;
+      if (raf) return;
+      raf = (window.requestAnimationFrame || window.setTimeout)(function(){ raf = 0; apply(lang); }, 0);
+    });
+    hubObserver.observe(document.body, OBS_OPTS);
   }
 
   function ensureToggle(){
@@ -324,9 +350,17 @@
   }
 
   window.AnejoLang = { get: function(){ return lang; }, set: setLang };
-  window.AnejoI18n = { refresh: function(){ apply(lang); } };
+  window.AnejoI18n = { refresh: function(){ apply(lang); }, extend: extend };
 
-  function init(){ ensureToggle(); apply(lang); }
+  function init(){
+    ensureToggle();
+    // Drain any HUB dictionary that registered before this engine loaded.
+    if (window.__hubI18nQueue){
+      for (var i = 0; i < window.__hubI18nQueue.length; i++) extend(window.__hubI18nQueue[i]);
+      window.__hubI18nQueue = null;
+    }
+    apply(lang);
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();

@@ -96,6 +96,11 @@ function render(intake, plan) {
   (plan.lifestyle_notes || []).forEach(n => { const li = document.createElement('li'); li.textContent = n; notes.appendChild(li); });
 
   document.getElementById('restart').href = trainer ? '/intake.html' : '/calculator';
+  // Conversion: surface "Subscribe to this plan" (recommended tier) + "Order these bowls".
+  var subBtn = document.getElementById('plan-subscribe');
+  if (subBtn) { subBtn.href = '/subscribe' + (plan.meal_plan_tier ? ('?plan=' + encodeURIComponent(plan.meal_plan_tier)) : ''); subBtn.style.display = ''; }
+  var ordBtn = document.getElementById('plan-order');
+  if (ordBtn) ordBtn.style.display = '';
   document.getElementById('plan-body').style.display = 'block';
   document.getElementById('plan-disclaimer').style.display = 'block';
 }
