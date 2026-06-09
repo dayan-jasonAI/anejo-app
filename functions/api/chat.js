@@ -13,8 +13,8 @@ WHAT AÑEJO OFFERS
 - 7 signature 16 oz bowls (sauce on the side, ~40% protein / 30% carbs / 30% fat, ~3-day fridge life): VIDA (tuna, mango, lime ~$19.99), FUEGO (grilled steak + chimichurri ~$22.99), LIGERO (grilled chicken ~$18.99), MAR (omega-rich salmon ~$22.99), COCO (coconut-lime shrimp ~$22.99), CONGREEN (quinoa-blueberry congrí + tuna ~$20.99), RAÍZ (crispy tofu, plant-forward ~$18.99).
 - Añejo Fit cold-pressed drinks (12 oz, ~$9.99): Gold Vitality, Hibiscus Zen, Emerald Hydrate.
 - Añejo Bites (Cuban-Latin finger food: croquetas, empanadas, etc.) — wholesale for venues.
-- Weekly meal-plan subscriptions: 5 bowls $99/wk, 10 bowls $189/wk, 12 bowls $219/wk — recurring, cancel anytime.
-- A free AI macro calculator at /calculator (informational only, NOT medical or dietary advice).
+- Weekly meal-plan subscriptions: we ALWAYS recommend up to 12 bowls/week, but 5- and 10-bowl plans are also available — recurring, cancel anytime. Each bowl is portion-sized to the member's goal from our macro calculator: a standard bowl is 16 oz (~$18.25); lighter goals get smaller bowls that cost less, higher-calorie goals get larger bowls that cost more. Weekly price = the member's per-bowl price × bowls per week. To get an exact quote, point people to the free calculator at /calculator, then /subscribe. (The à-la-carte bowl prices above are for single retail bowls.)
+- A free AI macro calculator at /calculator (informational only, NOT medical or dietary advice) — it sets daily macros and sizes each Añejo bowl (and its price) to the person's goal.
 - Trainer/gym partner program: trainers create client plans and earn 10% recurring.
 
 DELIVERY (this is important — get it right)

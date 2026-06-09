@@ -75,7 +75,12 @@ function render(d,logs){
   } else { html+='<div class="empty">Your plan is being prepared by your trainer.</div>'; }
   html+='<div class="card"><div class="k">Subscription</div>';
   if(s){html+='<p>Status: <span class="badge '+esc(s.status)+'">'+esc(s.status)+'</span> · '+money(s.weekly_amount_cents)+'/week</p>';}
-  else{html+='<p class="muted" style="margin-bottom:6px">No active subscription.</p>'+(p&&p.meal_plan_tier?'<a class="btn" href="/subscribe?client='+encodeURIComponent(c.id)+'&plan='+encodeURIComponent(p.meal_plan_tier)+'">Subscribe to my plan</a>':'<a class="btn ghost" href="/#menu">See plans</a>');}
+  else{
+    var subQ='/subscribe?client='+encodeURIComponent(c.id)+'&plan='+encodeURIComponent((p&&p.meal_plan_tier)||'plan_12');
+    if(p&&p.per_bowl_price_usd!=null) subQ+='&pbp='+encodeURIComponent(p.per_bowl_price_usd);
+    if(p&&p.bowl_size_oz) subQ+='&oz='+encodeURIComponent(p.bowl_size_oz);
+    html+='<p class="muted" style="margin-bottom:6px">No active subscription.</p>'+(p&&p.meal_plan_tier?'<a class="btn" href="'+subQ+'">Subscribe to my plan</a>':'<a class="btn ghost" href="/#menu">See plans</a>');
+  }
   html+='</div>';
   // Track your week — meal log + weight check-in
   if(p){html+='<div class="card"><div class="k">Track your week</div>'+

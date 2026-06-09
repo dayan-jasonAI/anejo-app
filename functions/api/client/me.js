@@ -13,8 +13,9 @@ export const onRequestGet = async ({ request, env }) => {
   if (!client) return json({ authenticated: true, email: sess.email, client: null });
 
   const plan = await env.DB
-    .prepare('SELECT public_token, daily_calories, daily_protein_g, daily_carbs_g, daily_fat_g, meal_plan_tier, status FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
+    .prepare('SELECT public_token, daily_calories, daily_protein_g, daily_carbs_g, daily_fat_g, meal_plan_tier, bowl_size_oz, per_bowl_price_cents, status FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
     .bind(client.id).first();
+  if (plan && plan.per_bowl_price_cents != null) plan.per_bowl_price_usd = plan.per_bowl_price_cents / 100;
   const sub = await env.DB
     .prepare('SELECT status, weekly_amount_cents FROM subscriptions WHERE client_id = ? ORDER BY started_at DESC LIMIT 1')
     .bind(client.id).first();

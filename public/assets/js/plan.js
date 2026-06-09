@@ -27,11 +27,36 @@ const ACT = {
 const T = {
   en: { goal:'Goal:', activity:'Activity:', none:'No plan to display', build:'Build your plan →',
         planFor:function(w){return 'Plan for '+w;}, member:'Member plan', yours:'Your plan',
-        loadErr:'Could not load plan: ' },
+        loadErr:'Could not load plan: ',
+        macros:'Daily Macro Targets', cal:'Calories', pro:'Protein g', carb:'Carbs g', fat:'Fat g', fib:'Fiber g',
+        bowlHead:'Your Añejo Bowl', perBowl:'per bowl', oz:'oz', perDay:function(n){return n+' bowls / day';},
+        rotation:'Your Weekly Añejo Rotation', plansHead:'Choose Your Weekly Plan',
+        bowls:'bowls', perWeek:'per week', recommended:'Recommended',
+        pbCal:'cal', pbPro:'P', pbCarb:'C', pbFat:'F', pbFib:'fiber',
+        sizeNote:function(label,n){
+          var m={ small:'Lighter, smaller bowls — your daily macros are spread across ~'+n+' bowls a day, so each bowl is portioned below standard and priced lower.',
+                  standard:'Standard 16 oz Añejo bowls — your daily macros spread across ~'+n+' bowls a day.',
+                  large:'Larger, higher-calorie bowls built to hit your macros across ~'+n+' bowls a day — bigger portions, priced higher.',
+                  xl:'Extra-large, high-calorie bowls built to hit your macros across ~'+n+' bowls a day — our biggest portions, priced higher.' };
+          return m[label]||m.standard; },
+        sizeLabel:{ small:'Smaller bowl', standard:'Standard bowl', large:'Larger bowl', xl:'XL bowl' } },
   es: { goal:'Meta:', activity:'Actividad:', none:'No hay plan para mostrar', build:'Crea tu plan →',
         planFor:function(w){return 'Plan para '+w;}, member:'Plan del miembro', yours:'Tu plan',
-        loadErr:'No se pudo cargar el plan: ' }
+        loadErr:'No se pudo cargar el plan: ',
+        macros:'Macros Diarios', cal:'Calorías', pro:'Proteína g', carb:'Carbohidratos g', fat:'Grasa g', fib:'Fibra g',
+        bowlHead:'Tu Bowl Añejo', perBowl:'por bowl', oz:'oz', perDay:function(n){return n+' bowls / día';},
+        rotation:'Tu Rotación Semanal Añejo', plansHead:'Elige Tu Plan Semanal',
+        bowls:'bowls', perWeek:'por semana', recommended:'Recomendado',
+        pbCal:'cal', pbPro:'P', pbCarb:'C', pbFat:'G', pbFib:'fibra',
+        sizeNote:function(label,n){
+          var m={ small:'Bowls más ligeros y pequeños — tus macros diarios se reparten en ~'+n+' bowls al día, así que cada bowl lleva menos porción y cuesta menos.',
+                  standard:'Bowls Añejo estándar de 16 oz — tus macros diarios repartidos en ~'+n+' bowls al día.',
+                  large:'Bowls más grandes y altos en calorías para alcanzar tus macros en ~'+n+' bowls al día — porciones mayores, precio más alto.',
+                  xl:'Bowls extragrandes y altos en calorías para alcanzar tus macros en ~'+n+' bowls al día — nuestras porciones más grandes, precio más alto.' };
+          return m[label]||m.standard; },
+        sizeLabel:{ small:'Bowl más pequeño', standard:'Bowl estándar', large:'Bowl más grande', xl:'Bowl XL' } }
 };
+function money(n){ return (Math.round(Number(n)*100)/100).toFixed(2).replace(/\.00$/,''); }
 function lng(){ return (window.AnejoLang && window.AnejoLang.get()) === 'es' ? 'es' : 'en'; }
 
 const stash = sessionStorage.getItem('anejo:lastPlan');
@@ -72,12 +97,49 @@ function render(intake, plan) {
     `<span style="color:var(--gold)">${T[L].goal}</span> ${(GOAL[L][intake.primary_goal])||intake.primary_goal} · ` +
     `<span style="color:var(--gold)">${T[L].activity}</span> ${(ACT[L][intake.activity_level])||intake.activity_level}`;
 
+  // Localized section labels (set here so EN/ES is reliable without the i18n dictionary).
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setText('lbl-macros', T[L].macros);
+  setText('lbl-cal', T[L].cal); setText('lbl-pro', T[L].pro); setText('lbl-carb', T[L].carb);
+  setText('lbl-fat', T[L].fat); setText('lbl-fib', T[L].fib);
+  setText('lbl-bowl', T[L].bowlHead); setText('lbl-rotation', T[L].rotation); setText('lbl-plans', T[L].plansHead);
+  setText('lbl-perbowl', T[L].perBowl);
+
   document.getElementById('m-cal').textContent  = plan.daily_calories;
   document.getElementById('m-pro').textContent  = plan.daily_protein_g;
   document.getElementById('m-carb').textContent = plan.daily_carbs_g;
   document.getElementById('m-fat').textContent  = plan.daily_fat_g;
   document.getElementById('m-fib').textContent  = plan.daily_fiber_g || '—';
   document.getElementById('m-tier').textContent = (TIER_LABEL[L][plan.meal_plan_tier]) || '';
+
+  // Sized bowl card: size label + ounces, per-bowl price, and per-bowl macros.
+  const sizeKey = plan.bowl_size_label || 'standard';
+  const meals = plan.meals_per_day || 3;
+  setText('m-size-label', T[L].sizeLabel[sizeKey] || T[L].sizeLabel.standard);
+  setText('m-size-oz', (plan.bowl_size_oz || 16) + ' ' + T[L].oz);
+  setText('m-size-note', T[L].sizeNote(sizeKey, meals));
+  setText('m-bowl-price', plan.per_bowl_price_usd != null ? '$' + money(plan.per_bowl_price_usd) : '—');
+  const pb = plan.per_bowl_macros || {};
+  const pbEl = document.getElementById('perbowl-macros');
+  if (pbEl) {
+    pbEl.innerHTML = [
+      ['pb', pb.kcal, T[L].pbCal], ['pb', pb.protein_g, T[L].pbPro], ['pb', pb.carbs_g, T[L].pbCarb],
+      ['pb', pb.fat_g, T[L].pbFat], ['pb', pb.fiber_g, T[L].pbFib]
+    ].filter(r => r[1] != null).map(r => `<div class="${r[0]}"><b>${r[1]}</b> ${r[2]}</div>`).join('');
+  }
+
+  // Weekly plan options (5/10/12) — same sized per-bowl price, 12 flagged Recommended.
+  const optsEl = document.getElementById('plan-opts');
+  if (optsEl) {
+    const opts = Array.isArray(plan.plan_options) ? plan.plan_options : [];
+    optsEl.innerHTML = opts.map(o =>
+      `<div class="plan-opt${o.recommended ? ' rec' : ''}">` +
+      (o.recommended ? `<div class="po-badge">${T[L].recommended}</div>` : '') +
+      `<div class="po-count">${o.bowls} ${T[L].bowls}</div>` +
+      `<div class="po-price">$${money(o.weekly_price_usd)}</div>` +
+      `<div class="po-per">${T[L].perWeek}</div></div>`
+    ).join('');
+  }
 
   const grid = document.getElementById('bowl-grid');
   grid.innerHTML = '';
@@ -98,7 +160,14 @@ function render(intake, plan) {
   document.getElementById('restart').href = trainer ? '/intake.html' : '/calculator';
   // Conversion: surface "Subscribe to this plan" (recommended tier) + "Order these bowls".
   var subBtn = document.getElementById('plan-subscribe');
-  if (subBtn) { subBtn.href = '/subscribe' + (plan.meal_plan_tier ? ('?plan=' + encodeURIComponent(plan.meal_plan_tier)) : ''); subBtn.style.display = ''; }
+  if (subBtn) {
+    var sp = new URLSearchParams();
+    sp.set('plan', plan.meal_plan_tier || 'plan_12');
+    if (plan.per_bowl_price_usd != null) sp.set('pbp', plan.per_bowl_price_usd);
+    if (plan.bowl_size_oz) sp.set('oz', plan.bowl_size_oz);
+    subBtn.href = '/subscribe?' + sp.toString();
+    subBtn.style.display = '';
+  }
   var ordBtn = document.getElementById('plan-order');
   if (ordBtn) ordBtn.style.display = '';
   document.getElementById('plan-body').style.display = 'block';
