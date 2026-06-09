@@ -157,6 +157,8 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
     if(!name.trim()||!email.trim()){ msg.className='msg err'; msg.textContent='Please enter your name and email.'; return; }
     body = { planTier, buyer:{ name:name.trim(), email:email.trim() } };
   }
+  // Carry the chosen bowl size so the server charges the member's sized per-bowl price.
+  if (bowlOz) body.bowlSizeOz = bowlOz;
   btn.disabled=true; const lbl=btn.textContent; btn.textContent='Processing…';
   try {
     const tok = await card.tokenize();

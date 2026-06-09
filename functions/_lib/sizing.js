@@ -37,6 +37,25 @@ export const BOWL_COUNTS = [5, 10, 12];
 const round2 = (n) => Math.round(n * 100) / 100;
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
+// Per-bowl price bounds in cents (the floor/cap applied to BASE × factor).
+export const PER_BOWL_CENTS_MIN = Math.round(BASE_BOWL_PRICE_USD * SIZE_MIN * 100);
+export const PER_BOWL_CENTS_MAX = Math.round(BASE_BOWL_PRICE_USD * SIZE_MAX * 100);
+
+// Clamp any per-bowl cents value into the legitimate sized range (guards client-supplied prices).
+export function clampPerBowlCents(cents) {
+  return Math.min(PER_BOWL_CENTS_MAX, Math.max(PER_BOWL_CENTS_MIN, Math.round(Number(cents) || 0)));
+}
+
+// Sized per-bowl price (cents) for a given bowl size in ounces. Factor is clamped to the bounds,
+// so an out-of-range oz can never produce an out-of-range charge.
+export function perBowlCentsFromOz(oz) {
+  const factor = clamp((Number(oz) || STANDARD_BOWL_OZ) / STANDARD_BOWL_OZ, SIZE_MIN, SIZE_MAX);
+  return Math.round(BASE_BOWL_PRICE_USD * factor * 100);
+}
+
+// Standard (unsized) per-bowl price in cents — the baseline charge.
+export const STANDARD_PER_BOWL_CENTS = Math.round(BASE_BOWL_PRICE_USD * 100);
+
 // Descriptive size key (frontend localizes). Thresholds on the portion factor.
 export function sizeLabel(factor) {
   if (factor < 0.85) return 'small';

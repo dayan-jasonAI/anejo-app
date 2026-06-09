@@ -8,6 +8,7 @@ import { square, squareConfigured } from '../../_lib/square.js';
 import { PLAN_TIERS, isPlanTier, planVariationId } from '../../_lib/plans.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
 import { createSubscriptionDelivery } from '../../_lib/suborders.js';
+import { clampPerBowlCents, perBowlCentsFromOz, STANDARD_PER_BOWL_CENTS } from '../../_lib/sizing.js';
 
 const sqErr = (r) => r.data && r.data.errors && r.data.errors[0] && r.data.errors[0].detail;
 
@@ -68,12 +69,25 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   const plan = await env.DB
-    .prepare('SELECT id, bowl_rotation FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
+    .prepare('SELECT id, bowl_rotation, per_bowl_price_cents, bowl_size_oz FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
     .bind(client.id).first();
 
   const tier = PLAN_TIERS[planTier];
   const variationId = planVariationId(env, planTier);
   if (!variationId) return bad('Plan not available in this environment.', 503);
+
+  // Dynamic bowl sizing: each bowl is portion-sized to the member's goal, so we charge the
+  // member's sized per-bowl price × the chosen bowl count — not the fixed standard-bowl tier.
+  // Source the per-bowl price server-side (never trust a raw client amount):
+  //   • trainer-client → the saved plan's per_bowl_price_cents
+  //   • direct buyer    → recomputed from the bowl size (oz) they came in with (factor-clamped)
+  let perBowlCents = null;
+  if (plan && plan.per_bowl_price_cents != null) perBowlCents = clampPerBowlCents(plan.per_bowl_price_cents);
+  else if (b.bowlSizeOz) perBowlCents = perBowlCentsFromOz(b.bowlSizeOz);
+  const weeklyCents = perBowlCents != null ? perBowlCents * tier.bowls : tier.weeklyCents;
+  // Only override Square's catalog price when the bowls are actually sized away from standard —
+  // standard-bowl subscriptions stay on the proven fixed-variation path.
+  const overridePrice = perBowlCents != null && perBowlCents !== STANDARD_PER_BOWL_CENTS;
 
   // 1) Square customer
   let r = await square(env, '/v2/customers', {
@@ -91,17 +105,19 @@ export const onRequestPost = async ({ request, env }) => {
   if (!r.ok) return bad(sqErr(r) || 'Your card could not be saved.', 502);
   const cardId = r.data.card.id;
 
-  // 3) Start the subscription
-  r = await square(env, '/v2/subscriptions', {
-    method: 'POST',
-    body: {
-      idempotency_key: id('sub'),
-      location_id: env.SQUARE_LOCATION_ID,
-      plan_variation_id: variationId,
-      customer_id: customerId,
-      card_id: cardId,
-    },
-  });
+  // 3) Start the subscription. For sized bowls, override the plan variation's phase price with
+  // the member's sized weekly amount (Square bills this STATIC price on the variation's cadence).
+  const subBody = {
+    idempotency_key: id('sub'),
+    location_id: env.SQUARE_LOCATION_ID,
+    plan_variation_id: variationId,
+    customer_id: customerId,
+    card_id: cardId,
+  };
+  if (overridePrice) {
+    subBody.phases = [{ ordinal: 0, pricing: { type: 'STATIC', price_money: { amount: weeklyCents, currency: 'USD' } } }];
+  }
+  r = await square(env, '/v2/subscriptions', { method: 'POST', body: subBody });
   if (!r.ok) return bad(sqErr(r) || 'Subscription could not be started.', 502);
   const sub = r.data.subscription;
 
@@ -114,7 +130,7 @@ export const onRequestPost = async ({ request, env }) => {
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
   ).bind(
     id('lsub'), client.id, client.trainer_id, plan ? plan.id : null, 'square',
-    sub.id, customerId, (sub.status || 'ACTIVE').toLowerCase(), tier.weeklyCents, 10, t, t
+    sub.id, customerId, (sub.status || 'ACTIVE').toLowerCase(), weeklyCents, 10, t, t
   ).run();
 
   await env.DB.prepare('UPDATE clients SET status = ?, updated_at = ? WHERE id = ?')
@@ -125,11 +141,11 @@ export const onRequestPost = async ({ request, env }) => {
     await createSubscriptionDelivery(env, {
       subscriptionId: sub.id, orderId: 'ord_subfirst_' + sub.id,
       planBowlRotation: plan ? plan.bowl_rotation : null,
-      tierLabel: tier.label, bowls: tier.bowls, weeklyCents: tier.weeklyCents,
+      tierLabel: tier.label, bowls: tier.bowls, weeklyCents,
       customerName: client.name, customerEmail: client.email,
       deliveryDate: b.delivery && b.delivery.date, deliveryWindow: b.delivery && b.delivery.window,
     });
   } catch (_) { /* never fail the subscription on the kitchen-order write */ }
 
-  return json({ ok: true, subscriptionId: sub.id, status: sub.status, tier: planTier, weeklyUsd: tier.weeklyCents / 100 });
+  return json({ ok: true, subscriptionId: sub.id, status: sub.status, tier: planTier, weeklyUsd: weeklyCents / 100 });
 };
