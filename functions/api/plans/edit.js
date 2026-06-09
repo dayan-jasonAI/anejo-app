@@ -28,9 +28,10 @@ export const onRequestPost = async ({ request, env }) => {
   if (!fields.length) return bad('Nothing to update.');
 
   // Changing daily calories (or meals/day) re-sizes the bowls + per-bowl price. Keep them in sync.
+  // Blank inputs fall back to the stored values so a partial edit never wipes them.
   if (b.daily_calories !== undefined || b.meals_per_day !== undefined) {
-    const newKcal = b.daily_calories !== undefined ? num(b.daily_calories) : owns.daily_calories;
-    const newMeals = b.meals_per_day !== undefined ? num(b.meals_per_day) : owns.meals_per_day;
+    const newKcal = num(b.daily_calories) != null ? num(b.daily_calories) : owns.daily_calories;
+    const newMeals = num(b.meals_per_day) != null ? num(b.meals_per_day) : owns.meals_per_day;
     const s = computeSizing(newKcal, newMeals);
     fields.push('meals_per_day = ?', 'bowl_size_oz = ?', 'bowl_size_factor = ?', 'per_bowl_price_cents = ?');
     vals.push(s.meals_per_day, s.bowl_size_oz, s.bowl_size_factor, Math.round(s.per_bowl_price_usd * 100));

@@ -32,6 +32,15 @@ const T = {
         bowlHead:'Your Añejo Bowl', perBowl:'per bowl', oz:'oz', perDay:function(n){return n+' bowls / day';},
         rotation:'Your Weekly Añejo Rotation', plansHead:'Choose Your Weekly Plan',
         bowls:'bowls', perWeek:'per week', recommended:'Recommended',
+        editToggle:'Adjust my macros', editClose:'Hide editor',
+        editTitle:'Adjust your daily macros',
+        editHelp:'Change your targets and we’ll re-size your bowls and update pricing.',
+        eCal:'Calories', ePro:'Protein g', eCarb:'Carbs g', eFat:'Fat g', eFib:'Fiber g', eMeals:'Bowls / day',
+        recompute:'Recompute plan', cancel:'Cancel',
+        editOk:'Updated — your bowls and pricing have been re-sized.',
+        editErrRange:'Enter daily calories between 800 and 6000.',
+        editErrFail:'Could not update the plan. Please try again.',
+        editLow:'Heads-up: targets below 1,500 kcal/day are very low — consider a healthcare provider.',
         pbCal:'cal', pbPro:'P', pbCarb:'C', pbFat:'F', pbFib:'fiber',
         sizeNote:function(label,n){
           var m={ small:'Lighter, smaller bowls — your daily macros are spread across ~'+n+' bowls a day, so each bowl is portioned below standard and priced lower.',
@@ -47,6 +56,15 @@ const T = {
         bowlHead:'Tu Bowl Añejo', perBowl:'por bowl', oz:'oz', perDay:function(n){return n+' bowls / día';},
         rotation:'Tu Rotación Semanal Añejo', plansHead:'Elige Tu Plan Semanal',
         bowls:'bowls', perWeek:'por semana', recommended:'Recomendado',
+        editToggle:'Ajustar mis macros', editClose:'Ocultar editor',
+        editTitle:'Ajusta tus macros diarios',
+        editHelp:'Cambia tus metas y ajustaremos el tamaño de tus bowls y el precio.',
+        eCal:'Calorías', ePro:'Proteína g', eCarb:'Carbohidratos g', eFat:'Grasa g', eFib:'Fibra g', eMeals:'Bowls / día',
+        recompute:'Recalcular plan', cancel:'Cancelar',
+        editOk:'Actualizado — el tamaño de tus bowls y el precio se ajustaron.',
+        editErrRange:'Ingresa calorías diarias entre 800 y 6000.',
+        editErrFail:'No se pudo actualizar el plan. Inténtalo de nuevo.',
+        editLow:'Aviso: metas por debajo de 1,500 kcal/día son muy bajas — considera consultar a un profesional de salud.',
         pbCal:'cal', pbPro:'P', pbCarb:'C', pbFat:'G', pbFib:'fibra',
         sizeNote:function(label,n){
           var m={ small:'Bowls más ligeros y pequeños — tus macros diarios se reparten en ~'+n+' bowls al día, así que cada bowl lleva menos porción y cuesta menos.',
@@ -87,8 +105,11 @@ async function start(){
   }
 }
 
+let curIntake = null, curPlan = null;
+
 function render(intake, plan) {
   const L = lng();
+  curIntake = intake; curPlan = plan;
   const trainer = intake.audience === 'trainer';
   const who = (intake.name || '').trim();
   document.getElementById('plan-title').textContent =
@@ -111,6 +132,18 @@ function render(intake, plan) {
   document.getElementById('m-fat').textContent  = plan.daily_fat_g;
   document.getElementById('m-fib').textContent  = plan.daily_fiber_g || '—';
   document.getElementById('m-tier').textContent = (TIER_LABEL[L][plan.meal_plan_tier]) || '';
+
+  // Macro editor: localize labels + populate inputs with the current targets.
+  setText('lbl-edit', T[L].editTitle); setText('lbl-edit-help', T[L].editHelp);
+  setText('elbl-cal', T[L].eCal); setText('elbl-pro', T[L].ePro); setText('elbl-carb', T[L].eCarb);
+  setText('elbl-fat', T[L].eFat); setText('elbl-fib', T[L].eFib); setText('elbl-meals', T[L].eMeals);
+  setText('edit-apply', T[L].recompute); setText('edit-cancel', T[L].cancel);
+  const editToggle = document.getElementById('edit-toggle');
+  const panelOpen = document.getElementById('edit-panel') && document.getElementById('edit-panel').style.display !== 'none';
+  if (editToggle) editToggle.textContent = panelOpen ? T[L].editClose : T[L].editToggle;
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+  setVal('e-cal', plan.daily_calories); setVal('e-pro', plan.daily_protein_g); setVal('e-carb', plan.daily_carbs_g);
+  setVal('e-fat', plan.daily_fat_g); setVal('e-fib', plan.daily_fiber_g); setVal('e-meals', plan.meals_per_day || 3);
 
   // Sized bowl card: size label + ounces, per-bowl price, and per-bowl macros.
   const sizeKey = plan.bowl_size_label || 'standard';
@@ -172,6 +205,66 @@ function render(intake, plan) {
   if (ordBtn) ordBtn.style.display = '';
   document.getElementById('plan-body').style.display = 'block';
   document.getElementById('plan-disclaimer').style.display = 'block';
+  wireEditor();
+}
+
+let editorWired = false;
+function wireEditor() {
+  if (editorWired) return; editorWired = true;
+  const panel = document.getElementById('edit-panel');
+  const toggle = document.getElementById('edit-toggle');
+  const cancel = document.getElementById('edit-cancel');
+  const apply = document.getElementById('edit-apply');
+  if (!panel || !toggle) return;
+  const setOpen = (open) => {
+    panel.style.display = open ? 'block' : 'none';
+    toggle.textContent = open ? T[lng()].editClose : T[lng()].editToggle;
+    if (open) { const f = document.getElementById('e-cal'); if (f) f.focus(); }
+  };
+  toggle.addEventListener('click', () => setOpen(panel.style.display === 'none'));
+  if (cancel) cancel.addEventListener('click', () => { setOpen(false); if (curIntake && curPlan) render(curIntake, curPlan); });
+  if (apply) apply.addEventListener('click', applyEdit);
+}
+
+async function applyEdit() {
+  const L = lng();
+  const msg = document.getElementById('edit-msg');
+  const apply = document.getElementById('edit-apply');
+  const numOf = (id) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : Math.round(v); };
+  const showMsg = (text, ok) => { if (!msg) return; msg.textContent = text; msg.className = 'edit-msg' + (ok ? ' ok' : ''); msg.style.display = 'block'; };
+
+  const cal = numOf('e-cal');
+  if (!cal || cal < 800 || cal > 6000) { showMsg(T[L].editErrRange, false); return; }
+  const meals = numOf('e-meals') || curPlan.meals_per_day || 3;
+  const orCur = (v, k) => (v == null ? curPlan[k] : v);
+  const edited = {
+    daily_calories: cal,
+    daily_protein_g: orCur(numOf('e-pro'), 'daily_protein_g'),
+    daily_carbs_g: orCur(numOf('e-carb'), 'daily_carbs_g'),
+    daily_fat_g: orCur(numOf('e-fat'), 'daily_fat_g'),
+    daily_fiber_g: orCur(numOf('e-fib'), 'daily_fiber_g'),
+    meals_per_day: meals,
+  };
+
+  apply.disabled = true; const lbl = apply.textContent; apply.textContent = '…';
+  try {
+    // Saved plans (shareable link) persist via the token endpoint; calculator-only plans recompute statelessly.
+    const token = new URLSearchParams(location.search).get('token');
+    const url = token ? ('/api/plan?token=' + encodeURIComponent(token)) : '/api/plans/resize';
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(edited) });
+    const sizing = await r.json();
+    if (!r.ok) throw new Error(sizing && sizing.error);
+
+    // Apply edited macros + recomputed sizing to the live plan, then re-render everything.
+    Object.assign(curPlan, edited, sizing);
+    sessionStorage.setItem('anejo:lastPlan', JSON.stringify({ intake: curIntake, plan: curPlan }));
+    render(curIntake, curPlan);
+    showMsg(cal < 1500 ? (T[L].editOk + ' ' + T[L].editLow) : T[L].editOk, true);
+  } catch (e) {
+    showMsg((e && e.message) || T[L].editErrFail, false);
+  } finally {
+    apply.disabled = false; apply.textContent = lbl;
+  }
 }
 
 // Re-render dynamic labels when language toggles (static text is handled by i18n.js)

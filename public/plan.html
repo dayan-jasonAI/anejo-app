@@ -26,6 +26,15 @@
     .plan-opt .po-price{color:var(--gold-dark,#8B6B3E);font-weight:700;margin-top:4px}
     .plan-opt .po-per{font-size:11px;color:#6b6b6b;text-transform:uppercase;letter-spacing:1px}
     .plan-opt .po-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--gold,#C6A85B);color:#0D0D0D;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:10px;white-space:nowrap}
+    .edit-panel h3{color:var(--green,#1A3D2E);font-weight:600}
+    .edit-help{font-size:13px;color:#6b6b6b;margin:6px 0 14px}
+    .edit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media(max-width:520px){.edit-grid{grid-template-columns:repeat(2,1fr)}}
+    .efld{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--gold-dark,#8B6B3E);font-weight:600}
+    .efld input{display:block;width:100%;margin-top:5px;padding:9px 11px;border:1px solid rgba(26,61,46,.15);border-radius:8px;font:inherit;background:var(--cream,#F5F2EC);text-transform:none;letter-spacing:0;color:var(--ink,#1A1A1A)}
+    .edit-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    .edit-msg{margin-top:12px;font-size:13px;color:#9b2226}
+    .edit-msg.ok{color:var(--green,#1A3D2E)}
   </style>
 </head>
 <body>
@@ -54,6 +63,27 @@
         <div class="macro"><div class="v" id="m-carb">—</div><div class="k" id="lbl-carb">Carbs g</div></div>
         <div class="macro"><div class="v" id="m-fat">—</div><div class="k" id="lbl-fat">Fat g</div></div>
         <div class="macro"><div class="v" id="m-fib">—</div><div class="k" id="lbl-fib">Fiber g</div></div>
+      </div>
+
+      <div style="margin-top:14px">
+        <button class="btn btn--ghost" id="edit-toggle" type="button">Adjust my macros</button>
+      </div>
+      <div class="card edit-panel" id="edit-panel" style="display:none;margin-top:12px">
+        <h3 id="lbl-edit">Adjust your daily macros</h3>
+        <p class="edit-help" id="lbl-edit-help">Change your targets and we'll re-size your bowls and update pricing.</p>
+        <div class="edit-grid">
+          <label class="efld"><span id="elbl-cal">Calories</span><input id="e-cal" type="number" inputmode="numeric" min="800" max="6000"></label>
+          <label class="efld"><span id="elbl-pro">Protein g</span><input id="e-pro" type="number" inputmode="numeric" min="0"></label>
+          <label class="efld"><span id="elbl-carb">Carbs g</span><input id="e-carb" type="number" inputmode="numeric" min="0"></label>
+          <label class="efld"><span id="elbl-fat">Fat g</span><input id="e-fat" type="number" inputmode="numeric" min="0"></label>
+          <label class="efld"><span id="elbl-fib">Fiber g</span><input id="e-fib" type="number" inputmode="numeric" min="0"></label>
+          <label class="efld"><span id="elbl-meals">Bowls / day</span><input id="e-meals" type="number" inputmode="numeric" min="2" max="4"></label>
+        </div>
+        <div class="edit-actions">
+          <button class="btn btn--gold" id="edit-apply" type="button">Recompute plan</button>
+          <button class="btn btn--ghost" id="edit-cancel" type="button">Cancel</button>
+        </div>
+        <p class="edit-msg" id="edit-msg" style="display:none"></p>
       </div>
 
       <div class="eyebrow" id="lbl-bowl" style="margin-top:26px">Your Añejo Bowl</div>
