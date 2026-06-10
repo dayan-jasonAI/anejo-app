@@ -64,7 +64,7 @@
       var eodBadge = t.eod_pct == null ? null : (t.eod_pct + '%');
       var eodKind = t.eod_pct == null ? '' : (t.eod_pct >= 90 ? 'ok' : t.eod_pct >= 60 ? 'warn' : 'crit');
       el.innerHTML = [
-        Owner.tile(t.orders_open, 'Orders open', { href: '/hub/owner/deliveries.html' }),
+        Owner.tile(t.orders_open, 'Orders open', { href: '/hub/owner/kitchen.html' }),
         Owner.tile(t.deliveries_today, 'Deliveries today', { href: '/hub/owner/deliveries.html',
           badge: t.deliveries_failed ? (t.deliveries_failed + ' failed') : null, badgeKind: 'crit' }),
         Owner.tile(t.on_shift, 'On shift now', { accent: 'accent-green', href: '/hub/owner/staff.html' }),

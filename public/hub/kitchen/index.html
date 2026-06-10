@@ -23,6 +23,13 @@
   .order-items li { font-size:13px; color:var(--green); padding:3px 0; display:flex; justify-content:space-between; gap:10px; }
   .order-items li .q { font-weight:700; color:var(--gold-700, #8a7a2e); }
   .order-card { cursor:default; }
+  .ord-filter { display:flex; gap:8px; margin:0 0 12px; }
+  .ord-filter .chip { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 6px;
+    border:1px solid var(--line); border-radius:999px; background:var(--white); color:var(--green);
+    font:600 13px/1 inherit; cursor:pointer; }
+  .ord-filter .chip.active { background:var(--green-700); color:#fff; border-color:var(--green-700); }
+  .ord-filter .chip .badge { background:rgba(0,0,0,.12); }
+  .ord-filter .chip.active .badge { background:rgba(255,255,255,.22); color:#fff; }
 </style>
 </head>
 <body>
@@ -52,6 +59,11 @@
   <!-- Live order board -->
   <div class="hub-section">
     <h2 data-i18n>Live orders</h2>
+    <div class="ord-filter" id="ord-filter">
+      <button type="button" class="chip" data-scope="today"><span data-i18n>Today</span><span class="badge" id="f-today">0</span></button>
+      <button type="button" class="chip" data-scope="upcoming"><span data-i18n>Upcoming</span><span class="badge" id="f-upcoming">0</span></button>
+      <button type="button" class="chip active" data-scope="all"><span data-i18n>All</span><span class="badge" id="f-all">0</span></button>
+    </div>
     <div class="board-col">
       <h2><span data-i18n>Pending</span><span class="badge" id="c-pending">0</span></h2>
       <div id="col-pending"></div>
@@ -271,30 +283,62 @@
       '<div class="row-sub">' + esc(o.id) + '</div></div>' + dt + win + '</div>' + orderItems(o) + '</div>';
   }
 
+  // ---- Date scope filter (Today / Upcoming / All) ----
+  var lastBoard = { pending: [], prep: [], ready: [] };
+  var scope = localStorage.getItem('anejo:kitchenScope') || 'all';
+  function todayStr() { try { return new Date().toLocaleDateString('en-CA'); } catch (e) { return new Date().toISOString().slice(0, 10); } }
+  // 'today' bucket = due today, overdue, or undated (needs attention now); 'upcoming' = future.
+  function scopeOf(o) { var d = o.delivery_date; if (!d) return 'today'; return d > todayStr() ? 'upcoming' : 'today'; }
+  function inScope(list) { return scope === 'all' ? list : list.filter(function (o) { return scopeOf(o) === scope; }); }
+
+  function renderBoard() {
+    var b = lastBoard;
+    var all = b.pending.concat(b.prep, b.ready);
+    var nToday = all.filter(function (o) { return scopeOf(o) === 'today'; }).length;
+    var nUp = all.filter(function (o) { return scopeOf(o) === 'upcoming'; }).length;
+    if ($('#f-today')) $('#f-today').textContent = nToday;
+    if ($('#f-upcoming')) $('#f-upcoming').textContent = nUp;
+    if ($('#f-all')) $('#f-all').textContent = all.length;
+    var p = inScope(b.pending), pr = inScope(b.prep), rd = inScope(b.ready);
+    $('#c-pending').textContent = p.length;
+    $('#c-prep').textContent = pr.length;
+    $('#c-ready').textContent = rd.length;
+    fillCol('col-pending', p, 'pending');
+    fillCol('col-prep', pr, 'prep');
+    fillCol('col-ready', rd, 'ready');
+    Array.prototype.forEach.call(document.querySelectorAll('#ord-filter .chip'), function (c) {
+      c.classList.toggle('active', c.getAttribute('data-scope') === scope);
+    });
+    bindOrderActions();
+    refreshI18n();
+  }
+
   function loadBoard() {
     K.get('/api/hub/kitchen/orders?surface=1').then(function (d) {
       var b = (d && d.board) || { pending: [], prep: [], ready: [] };
       var inc = (d && d.incoming) || [];
-      var c = (d && d.counts) || {};
-      $('#c-pending').textContent = c.pending || 0;
-      $('#c-prep').textContent = c.prep || 0;
-      $('#c-ready').textContent = c.ready || 0;
-      // Sound alert when a NEW confirmed order arrives — today's pending OR upcoming/incoming.
+      // Sound alert when a NEW confirmed order arrives.
       var arrivals = b.pending.concat(inc);
       var fresh = arrivals.filter(function (o) { return seenOrders && !seenOrders[o.id]; });
       if (seenOrders && fresh.length) announceNew(fresh);
       if (!seenOrders) seenOrders = {};
       b.pending.concat(b.prep, b.ready, inc).forEach(function (o) { seenOrders[o.id] = 1; });
-      fillCol('col-pending', b.pending, 'pending');
-      fillCol('col-prep', b.prep, 'prep');
-      fillCol('col-ready', b.ready, 'ready');
+      lastBoard = b;
+      renderBoard();
       var incCount = $('#c-incoming'); if (incCount) incCount.textContent = inc.length;
       var incSec = $('#incoming-section'); if (incSec) incSec.hidden = inc.length === 0;
       var incCol = $('#col-incoming'); if (incCol) incCol.innerHTML = inc.length ? inc.map(incomingCard).join('') : '';
-      bindOrderActions();
-      refreshI18n();
     });
   }
+
+  // Wire the scope chips (re-render instantly from cached data; no refetch).
+  Array.prototype.forEach.call(document.querySelectorAll('#ord-filter .chip'), function (c) {
+    c.addEventListener('click', function () {
+      scope = c.getAttribute('data-scope') || 'all';
+      localStorage.setItem('anejo:kitchenScope', scope);
+      renderBoard();
+    });
+  });
 
   // Language toggle
   var lt = $('#lang-toggle');

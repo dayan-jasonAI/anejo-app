@@ -30,15 +30,17 @@ export const onRequestGet = async ({ request, env }) => {
   const day = url.searchParams.get('date') || today();
 
   // Pull today's actionable orders. Pending shown so the kitchen can pre-empt; canceled hidden.
+  // Show ALL open/actionable orders (not just today's) so nothing silently disappears —
+  // the kitchen needs to see and prep upcoming + overdue orders, soonest delivery first.
   const { results } = await env.DB.prepare(
     `SELECT * FROM orders
-       WHERE (delivery_date = ? OR delivery_date IS NULL)
-         AND status IN ('pending','paid','prep','ready')
+       WHERE status IN ('pending','paid','prep','ready')
        ORDER BY
+         (delivery_date IS NULL), delivery_date ASC,
          CASE delivery_window WHEN 'lunch' THEN 0 WHEN 'dinner' THEN 1 ELSE 2 END,
          created_at ASC
        LIMIT 200`
-  ).bind(day).all();
+  ).all();
 
   const orders = (results || []).map((o) => ({ ...o, item_count: itemCount(o.items) }));
 
@@ -71,15 +73,12 @@ export const onRequestGet = async ({ request, env }) => {
     }
   }
 
-  // Incoming = confirmed (paid) orders for FUTURE delivery dates — so the kitchen is alerted
-  // the moment an order is placed/paid, and can plan ahead (not just today's prep board).
-  const incoming = ((await env.DB.prepare(
-    `SELECT * FROM orders WHERE status = 'paid' AND delivery_date > ?
-       ORDER BY delivery_date ASC, created_at DESC LIMIT 60`
-  ).bind(day).all()).results || []).map((o) => ({ ...o, item_count: itemCount(o.items) }));
+  // The board now includes all open orders (any date), so a separate "incoming" list would
+  // duplicate them. Kept as an empty array for frontend compatibility.
+  const incoming = [];
 
   return json({ date: day, board, incoming, counts: {
-    pending: board.pending.length, prep: board.prep.length, ready: board.ready.length, incoming: incoming.length,
+    pending: board.pending.length, prep: board.prep.length, ready: board.ready.length, incoming: 0,
   } });
 };
 
