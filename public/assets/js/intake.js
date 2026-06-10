@@ -26,6 +26,8 @@ form.addEventListener('submit', async (ev) => {
   const payload = {
     audience,
     name: (data.get('name') || '').trim(),
+    email: (data.get('email') || '').trim(),
+    phone: (data.get('phone') || '').trim(),
     age: Number(data.get('age')),
     sex: data.get('sex'),
     height_cm: heightCm,

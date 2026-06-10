@@ -3,7 +3,7 @@
 // saves the tokenized card (sourceId from the Web Payments SDK; sandbox accepts
 // 'cnon:card-nonce-ok'), starts the subscription, and writes a subscriptions row.
 // Trainer attribution + 10% rev-share live in OUR D1 (provider_subscription_id → trainer_id).
-import { json, bad, id, now, isEmail } from '../../_lib/util.js';
+import { json, bad, id, now, isEmail, normalizePhone } from '../../_lib/util.js';
 import { square, squareConfigured } from '../../_lib/square.js';
 import { PLAN_TIERS, isPlanTier, planVariationId } from '../../_lib/plans.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
@@ -53,12 +53,13 @@ export const onRequestPost = async ({ request, env }) => {
     const buyer = b.buyer || {};
     const email = (buyer.email || '').trim().toLowerCase();
     const name = (buyer.name || '').trim();
+    const phone = normalizePhone(buyer.phone);
     if (!isEmail(email) || !name) return bad('Please enter your name and a valid email.');
     const houseId = await getOrCreateHouseTrainer(env);
     const cid = id('cl'), t0 = now();
     try {
-      await env.DB.prepare('INSERT INTO clients (id, trainer_id, email, name, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)')
-        .bind(cid, houseId, email, name, 'pending', t0, t0).run();
+      await env.DB.prepare('INSERT INTO clients (id, trainer_id, email, name, phone, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)')
+        .bind(cid, houseId, email, name, phone, 'pending', t0, t0).run();
       client = { id: cid, trainer_id: houseId, name, email };
     } catch (_) {
       const ex = await env.DB.prepare('SELECT id, trainer_id, name, email FROM clients WHERE trainer_id = ? AND email = ?')

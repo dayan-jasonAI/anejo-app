@@ -33,6 +33,16 @@ export function isEmail(s) {
   return typeof s === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
 
+// Optional phone capture. Returns a trimmed display string (capped) if it has at least 7 digits,
+// else null. Kept permissive on formatting — login is still email-based, this is contact info.
+export function normalizePhone(s) {
+  const t = (s == null ? '' : String(s)).trim();
+  if (!t) return null;
+  const digits = t.replace(/[^0-9]/g, '');
+  if (digits.length < 7) return null;
+  return t.slice(0, 32);
+}
+
 export function appBaseUrl(env, request) {
   if (env.APP_BASE_URL) return env.APP_BASE_URL.replace(/\/$/, '');
   try { return new URL(request.url).origin; } catch { return 'https://anejocateringco.com'; }

@@ -32,8 +32,8 @@ export const onRequestGet = async ({ request, env }) => {
         if (stash) { try { extra = JSON.parse(stash); } catch { /* ignore */ } await env.SESSIONS.delete(`signup:${token}`); }
       }
       await env.DB
-        .prepare('INSERT INTO trainers (id, email, name, gym_name, gym_city, affiliate_code, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)')
-        .bind(tid, row.user_email, extra.name || null, extra.gym_name || null, extra.gym_city || null, affiliateCode(), now(), now())
+        .prepare('INSERT INTO trainers (id, email, name, gym_name, gym_city, phone, affiliate_code, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)')
+        .bind(tid, row.user_email, extra.name || null, extra.gym_name || null, extra.gym_city || null, extra.phone || null, affiliateCode(), now(), now())
         .run();
       trainer = { id: tid };
     }
