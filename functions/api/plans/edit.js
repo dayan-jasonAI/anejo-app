@@ -2,6 +2,7 @@
 // Lets a trainer adjust a generated plan's macros / notes before sending. Marks trainer_edited.
 import { json, bad, now } from '../../_lib/util.js';
 import { trainerSession } from '../../_lib/guard.js';
+import { computeSizing } from '../../_lib/sizing.js';
 
 export const onRequestPost = async ({ request, env }) => {
   const sess = await trainerSession(env, request);
@@ -14,7 +15,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (!planId) return bad('Missing plan_id.');
 
   const owns = await env.DB
-    .prepare('SELECT p.id FROM plans p JOIN clients c ON c.id = p.client_id WHERE p.id = ? AND c.trainer_id = ?')
+    .prepare('SELECT p.id, p.daily_calories, p.meals_per_day FROM plans p JOIN clients c ON c.id = p.client_id WHERE p.id = ? AND c.trainer_id = ?')
     .bind(planId, sess.uid).first();
   if (!owns) return bad('Plan not found.', 404);
 
@@ -25,6 +26,16 @@ export const onRequestPost = async ({ request, env }) => {
   }
   if (b.trainer_notes !== undefined) { fields.push('trainer_notes = ?'); vals.push((b.trainer_notes || '').trim() || null); }
   if (!fields.length) return bad('Nothing to update.');
+
+  // Changing daily calories (or meals/day) re-sizes the bowls + per-bowl price. Keep them in sync.
+  // Blank inputs fall back to the stored values so a partial edit never wipes them.
+  if (b.daily_calories !== undefined || b.meals_per_day !== undefined) {
+    const newKcal = num(b.daily_calories) != null ? num(b.daily_calories) : owns.daily_calories;
+    const newMeals = num(b.meals_per_day) != null ? num(b.meals_per_day) : owns.meals_per_day;
+    const s = computeSizing(newKcal, newMeals);
+    fields.push('meals_per_day = ?', 'bowl_size_oz = ?', 'bowl_size_factor = ?', 'per_bowl_price_cents = ?');
+    vals.push(s.meals_per_day, s.bowl_size_oz, s.bowl_size_factor, Math.round(s.per_bowl_price_usd * 100));
+  }
 
   fields.push('trainer_edited = 1', 'updated_at = ?');
   vals.push(now(), planId);

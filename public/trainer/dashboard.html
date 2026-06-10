@@ -86,7 +86,10 @@ tr:last-child td{border-bottom:none}
       <label class="fld2">Protein g<input id="e_pro" type="number" inputmode="numeric"></label>
       <label class="fld2">Carbs g<input id="e_carb" type="number" inputmode="numeric"></label>
       <label class="fld2">Fat g<input id="e_fat" type="number" inputmode="numeric"></label>
+      <label class="fld2">Fiber g<input id="e_fib" type="number" inputmode="numeric"></label>
+      <label class="fld2">Bowls / day<input id="e_meals" type="number" inputmode="numeric" min="2" max="4"></label>
     </div>
+    <p class="muted" style="font-size:12px;margin-top:10px">Changing calories or bowls/day re-sizes the member's bowls and updates pricing automatically.</p>
     <label class="fld2" style="display:block;margin-top:12px">Trainer note<textarea id="e_notes" rows="3"></textarea></label>
     <div class="modal-actions">
       <button class="btn ghost" type="button" onclick="closeEdit()">Cancel</button>
@@ -139,9 +142,9 @@ window.sendPlan = sendPlan;
 let editPlanId = null;
 async function openEdit(token, planId){
   editPlanId = planId;
-  ['e_cal','e_pro','e_carb','e_fat','e_notes'].forEach(id=>$(id).value='');
+  ['e_cal','e_pro','e_carb','e_fat','e_fib','e_meals','e_notes'].forEach(id=>$(id).value='');
   if(token){ try{ const d = await (await fetch('/api/plan?token='+encodeURIComponent(token))).json();
-    if(d.plan){ $('e_cal').value=d.plan.daily_calories||''; $('e_pro').value=d.plan.daily_protein_g||''; $('e_carb').value=d.plan.daily_carbs_g||''; $('e_fat').value=d.plan.daily_fat_g||''; } }catch(_){} }
+    if(d.plan){ $('e_cal').value=d.plan.daily_calories||''; $('e_pro').value=d.plan.daily_protein_g||''; $('e_carb').value=d.plan.daily_carbs_g||''; $('e_fat').value=d.plan.daily_fat_g||''; $('e_fib').value=d.plan.daily_fiber_g||''; $('e_meals').value=d.plan.meals_per_day||''; } }catch(_){} }
   $('editModal').style.display='flex';
 }
 window.openEdit = openEdit;
@@ -150,7 +153,7 @@ window.closeEdit = closeEdit;
 async function saveEdit(){
   if(!editPlanId) return; const btn=$('e_save'); btn.disabled=true; btn.textContent='Saving…';
   try{
-    const body={plan_id:editPlanId,daily_calories:$('e_cal').value,daily_protein_g:$('e_pro').value,daily_carbs_g:$('e_carb').value,daily_fat_g:$('e_fat').value,trainer_notes:$('e_notes').value};
+    const body={plan_id:editPlanId,daily_calories:$('e_cal').value,daily_protein_g:$('e_pro').value,daily_carbs_g:$('e_carb').value,daily_fat_g:$('e_fat').value,daily_fiber_g:$('e_fib').value,meals_per_day:$('e_meals').value,trainer_notes:$('e_notes').value};
     const r=await fetch('/api/plans/edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const d=await r.json(); if(!r.ok||!d.ok) throw new Error(d.error||'Could not save');
     closeEdit(); toast('Plan updated'); init();

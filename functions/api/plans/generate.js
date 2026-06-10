@@ -2,6 +2,7 @@
 // Stateless V1 demo endpoint. Takes an intake JSON, calls Claude Sonnet 4.6,
 // returns a structured plan. No DB writes — saving + checkout ship in V1.1.
 import { limitOr429 } from '../../_lib/ratelimit.js';
+import { computeSizing, RECOMMENDED_BOWL_COUNT } from '../../_lib/sizing.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -32,19 +33,14 @@ const BOWLS = [
   { name: 'RAIZ',     description: 'Crispy tofu, quinoa, slaw, roasted vegetables, sweet potato, avocado, Aguacate Cilantro + Mango Omega.', kcal: 520, protein_g: 35, carbs_g: 38, fat_g: 26, fiber_g: 11, tags: ['vegetarian','plant-forward','dairy-free','high-fiber','anti-inflammatory'] }
 ];
 
-const TIERS = [
-  { tier: 'plan_5',  bowls_per_week:  5, weekly_price_usd:  99 },
-  { tier: 'plan_10', bowls_per_week: 10, weekly_price_usd: 189 },
-  { tier: 'plan_12', bowls_per_week: 12, weekly_price_usd: 219 }
-];
-
 const SYSTEM_PROMPT = `You are the nutrition planning AI for Añejo Catering Co., a Mediterranean-Cuban longevity bowl service in Palm Beach County, Florida. You generate personalized weekly meal plans for fitness clients of partner gym trainers, clinics, and wellness coaches — and for individuals on the public site.
 
 Your job, given a person's biometrics and goal, is to output:
 1. Daily macro targets (calories, protein, carbs, fat, fiber).
-2. A weekly Añejo bowl rotation — which of our 7 bowls, and how many of each per week.
-3. A short rationale (3–5 plain-language sentences explaining the macro choices and bowl emphasis).
-4. Lifestyle notes (5–7 short bullets — training, hydration, sleep, timing).
+2. meals_per_day — how many Añejo bowls/day this plan assumes the person eats (the daily macros get spread evenly across them). This drives how big each bowl is.
+3. A weekly Añejo bowl rotation — which of our 7 bowls, and how many of each. ALWAYS use a 12-bowl week (see "Bowl count & sizing").
+4. A short rationale (3–5 plain-language sentences explaining the macro choices, the bowl SIZE, and bowl emphasis).
+5. Lifestyle notes (5–7 short bullets — training, hydration, sleep, timing).
 
 ## Method
 
@@ -68,6 +64,15 @@ Macro split:
 - Carbs: remainder.
 - Fiber target: 14g per 1,000 kcal (round to nearest integer).
 
+## Bowl count & sizing — IMPORTANT, this is how Añejo works now
+- We ALWAYS recommend up to 12 bowls per week. ALWAYS output recommended_bowl_count: 12 and a bowl_rotation that sums to 12. (The customer may later choose a 5- or 10-bowl plan instead, but you always recommend 12.)
+- We do NOT change the bowl COUNT to fit calories. Instead we change the bowl SIZE. A standard Añejo bowl is 16 oz (~550 kcal). Each person's bowls are portioned to their goal:
+  • If their daily target divided across their bowls is LESS than a standard bowl, their bowls are made SMALLER (less food, lower price).
+  • If it is MORE than standard, their bowls are made LARGER (more food, higher price — bigger bowls cost more).
+- You do NOT compute bowl ounces or prices — the system does that automatically from daily_calories and meals_per_day. Your job is to set accurate daily macros and a sensible meals_per_day.
+- meals_per_day: how many Añejo bowls/day the person eats (2–4; default 3). Use 3 for most people. Use 2 for someone who wants Añejo for fewer meals or who has a very high daily target (so each bowl stays a generous single serving). Use 4 only if they prefer smaller, more frequent bowls. Whatever you pick, daily macros are spread evenly across that many bowls.
+- In the rationale, describe the bowl size in plain words (e.g. "lighter, smaller bowls," "standard 16 oz bowls," or "larger, higher-calorie bowls") so it matches the goal, and note that bowl price scales with size.
+
 ## Bowl emphasis logic
 - High blood pressure / cholesterol / metabolic syndrome / prediabetes → favor LIGERO, MAR, COCO, RAIZ, CONGREEN. De-emphasize FUEGO.
 - Muscle gain → favor FUEGO, LIGERO, MAR, VIDA (high protein + recovery).
@@ -75,9 +80,6 @@ Macro split:
 - Performance → favor FUEGO, LIGERO, MAR, VIDA.
 - Longevity → favor VIDA, MAR, RAIZ, CONGREEN (omega-3, fiber, anti-inflammatory).
 - Always respect allergens — if "fish", exclude VIDA, MAR, CONGREEN. If "shellfish", exclude COCO. If "dairy", exclude CONGREEN. If "soy", exclude RAIZ and COCO. If "nuts", note FUEGO and LIGERO contain almonds (removable on request). If "pork", note that no current bowls contain pork.
-
-## Tier selection
-Choose plan_5, plan_10, or plan_12 based on what the bowl rotation actually needs. If the macro target requires 2 bowls/day, choose plan_10 or plan_12 (especially for muscle_gain or very_active). For sedentary / fat_loss / longevity, plan_5 is often correct.
 
 ## Output format
 Return ONLY a JSON object, no prose before or after, no markdown fences:
@@ -88,13 +90,13 @@ Return ONLY a JSON object, no prose before or after, no markdown fences:
   "daily_carbs_g": 200,
   "daily_fat_g": 65,
   "daily_fiber_g": 30,
-  "weekly_bowl_count": 10,
-  "meal_plan_tier": "plan_10",
+  "meals_per_day": 3,
+  "recommended_bowl_count": 12,
   "bowl_rotation": {
     "VIDA": 0, "FUEGO": 0, "LIGERO": 0, "MAR": 0,
     "COCO": 0, "CONGREEN": 0, "RAIZ": 0
   },
-  "rationale": "3–5 sentence explanation in plain language.",
+  "rationale": "3–5 sentence explanation in plain language, including bowl size.",
   "lifestyle_notes": ["bullet 1", "bullet 2", "..."]
 }
 
@@ -102,7 +104,7 @@ Return ONLY a JSON object, no prose before or after, no markdown fences:
 - The lifestyle_notes array MUST end with this exact bullet: "This plan is for general fitness and wellness. It is not medical advice. Consult your healthcare provider before starting any new nutrition program."
 - Never make medical claims. Use "supports," "designed for," "built for." Never use "cures," "prevents," "treats."
 - Never recommend going below 1,500 kcal/day for any client, regardless of fat-loss intensity.
-- The bowl_rotation counts MUST sum to the weekly_bowl_count.
+- recommended_bowl_count MUST be 12, and the bowl_rotation counts MUST sum to 12.
 - Do not invent bowls. Use only: VIDA, FUEGO, LIGERO, MAR, COCO, CONGREEN, RAIZ.
 `;
 
@@ -130,10 +132,10 @@ function buildUserPrompt(intake) {
     `Allergens to avoid: ${(intake.allergens || []).join(', ') || 'none'}`,
     `Preferences / notes: ${intake.preferences || '(none provided)'}`,
     ``,
-    `Reference — available bowls with per-bowl macros:`,
+    `Reference — available bowls at STANDARD 16 oz size (each bowl is scaled to this person's portion automatically):`,
     ...BOWLS.map(b => `- ${b.name} (${b.kcal} kcal, ${b.protein_g}P / ${b.carbs_g}C / ${b.fat_g}F, ${b.fiber_g}g fiber) — ${b.description}`),
     ``,
-    `Tier prices: plan_5 $99/wk · plan_10 $189/wk · plan_12 $219/wk.`,
+    `Always recommend a 12-bowl week (recommended_bowl_count: 12, rotation sums to 12). Bowl size and price are computed from daily_calories and meals_per_day — you only set the macros and meals_per_day.`,
     ``,
     `Return JSON only.`
   ];
@@ -236,6 +238,31 @@ export const onRequestPost = async ({ request, env }) => {
     if (typeof plan.bowl_rotation[b] !== 'number') plan.bowl_rotation[b] = 0;
   }
   plan.lifestyle_notes = Array.isArray(plan.lifestyle_notes) ? plan.lifestyle_notes : [];
+
+  // Deterministic sizing + pricing (the system owns this, not the AI). We always recommend 12;
+  // bowl size + per-bowl price scale to the client's daily target. computeSizing also sets
+  // weekly_bowl_count, meal_plan_tier ('plan_12'), and the priced plan_options for 5/10/12.
+  Object.assign(plan, computeSizing(plan.daily_calories, plan.meals_per_day));
+
+  // Keep the recommended rotation honest: it should sum to the recommended 12-bowl week.
+  const rotTotal = allBowls.reduce((s, b) => s + (plan.bowl_rotation[b] || 0), 0);
+  if (rotTotal !== RECOMMENDED_BOWL_COUNT && rotTotal > 0) {
+    // Proportionally rescale the AI's rotation to 12, then fix rounding drift on the top bowl.
+    const scaled = {};
+    let running = 0;
+    for (const b of allBowls) {
+      scaled[b] = Math.round((plan.bowl_rotation[b] || 0) * RECOMMENDED_BOWL_COUNT / rotTotal);
+      running += scaled[b];
+    }
+    let drift = RECOMMENDED_BOWL_COUNT - running;
+    const top = allBowls.slice().sort((a, b) => (scaled[b] || 0) - (scaled[a] || 0));
+    for (let i = 0; drift !== 0 && i < top.length; i = (i + 1) % top.length) {
+      if (drift > 0) { scaled[top[i]]++; drift--; }
+      else if (scaled[top[i]] > 0) { scaled[top[i]]--; drift++; }
+    }
+    plan.bowl_rotation = scaled;
+  }
+
   plan.ai_model = MODEL;
   plan.generated_at = new Date().toISOString();
 

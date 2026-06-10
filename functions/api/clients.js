@@ -88,13 +88,19 @@ export const onRequestPost = async ({ request, env }) => {
     .prepare(
       `INSERT INTO plans (id, client_id, version, daily_calories, daily_protein_g, daily_carbs_g,
           daily_fat_g, daily_fiber_g, weekly_bowl_count, meal_plan_tier, bowl_rotation,
-          rationale, lifestyle_notes, ai_model, status, public_token, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          rationale, lifestyle_notes, ai_model, status, public_token,
+          meals_per_day, bowl_size_oz, bowl_size_factor, per_bowl_price_cents, recommended_bowl_count,
+          created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     )
     .bind(pid, cid, 1, gen.daily_calories, gen.daily_protein_g, gen.daily_carbs_g,
           gen.daily_fat_g, gen.daily_fiber_g || null, gen.weekly_bowl_count || null, gen.meal_plan_tier || null,
           JSON.stringify(gen.bowl_rotation || {}), gen.rationale || null,
-          JSON.stringify(gen.lifestyle_notes || []), gen.ai_model || null, 'draft', publicToken, ts, now())
+          JSON.stringify(gen.lifestyle_notes || []), gen.ai_model || null, 'draft', publicToken,
+          gen.meals_per_day || null, gen.bowl_size_oz || null, gen.bowl_size_factor || null,
+          gen.per_bowl_price_usd != null ? Math.round(gen.per_bowl_price_usd * 100) : null,
+          gen.recommended_bowl_count || null,
+          ts, now())
     .run();
 
   await env.DB.prepare('UPDATE clients SET status=?, updated_at=? WHERE id=?').bind('plan_ready', now(), cid).run();

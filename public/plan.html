@@ -9,6 +9,33 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/brand.css" />
+  <style>
+    .size-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+    .size-name{font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:600;color:var(--green,#1A3D2E)}
+    .size-note{font-size:13px;color:#6b6b6b;margin-top:4px;max-width:42ch}
+    .size-price{text-align:right;white-space:nowrap}
+    .size-price>span:first-child{font-size:22px;font-weight:700;color:var(--gold-dark,#8B6B3E)}
+    .size-per{display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#9a9a8f;margin-top:2px}
+    .perbowl{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+    .perbowl .pb{background:var(--cream-dark,#EAE5D8);border-radius:8px;padding:7px 11px;font-size:13px;color:#3a3a3a}
+    .perbowl .pb b{color:var(--green,#1A3D2E)}
+    .plan-opts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+    .plan-opt{flex:1;min-width:130px;border:1px solid rgba(26,61,46,.15);border-radius:10px;padding:14px;text-align:center;position:relative;background:#fff}
+    .plan-opt.rec{border-color:var(--gold,#C6A85B);box-shadow:0 0 0 1px var(--gold,#C6A85B);background:#fff8e9}
+    .plan-opt .po-count{font-weight:600;color:var(--green,#1A3D2E);font-size:15px}
+    .plan-opt .po-price{color:var(--gold-dark,#8B6B3E);font-weight:700;margin-top:4px}
+    .plan-opt .po-per{font-size:11px;color:#6b6b6b;text-transform:uppercase;letter-spacing:1px}
+    .plan-opt .po-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--gold,#C6A85B);color:#0D0D0D;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:10px;white-space:nowrap}
+    .edit-panel h3{color:var(--green,#1A3D2E);font-weight:600}
+    .edit-help{font-size:13px;color:#6b6b6b;margin:6px 0 14px}
+    .edit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media(max-width:520px){.edit-grid{grid-template-columns:repeat(2,1fr)}}
+    .efld{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--gold-dark,#8B6B3E);font-weight:600}
+    .efld input{display:block;width:100%;margin-top:5px;padding:9px 11px;border:1px solid rgba(26,61,46,.15);border-radius:8px;font:inherit;background:var(--cream,#F5F2EC);text-transform:none;letter-spacing:0;color:var(--ink,#1A1A1A)}
+    .edit-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    .edit-msg{margin-top:12px;font-size:13px;color:#9b2226}
+    .edit-msg.ok{color:var(--green,#1A3D2E)}
+  </style>
 </head>
 <body>
   <header class="brand">
@@ -29,18 +56,54 @@
     </div>
 
     <div id="plan-body" style="display:none">
-      <div class="eyebrow" style="margin-top:26px">Daily Macro Targets</div>
+      <div class="eyebrow" id="lbl-macros" style="margin-top:26px">Daily Macro Targets</div>
       <div class="macros">
-        <div class="macro"><div class="v" id="m-cal">—</div><div class="k">Calories</div></div>
-        <div class="macro"><div class="v" id="m-pro">—</div><div class="k">Protein g</div></div>
-        <div class="macro"><div class="v" id="m-carb">—</div><div class="k">Carbs g</div></div>
-        <div class="macro"><div class="v" id="m-fat">—</div><div class="k">Fat g</div></div>
-        <div class="macro"><div class="v" id="m-fib">—</div><div class="k">Fiber g</div></div>
+        <div class="macro"><div class="v" id="m-cal">—</div><div class="k" id="lbl-cal">Calories</div></div>
+        <div class="macro"><div class="v" id="m-pro">—</div><div class="k" id="lbl-pro">Protein g</div></div>
+        <div class="macro"><div class="v" id="m-carb">—</div><div class="k" id="lbl-carb">Carbs g</div></div>
+        <div class="macro"><div class="v" id="m-fat">—</div><div class="k" id="lbl-fat">Fat g</div></div>
+        <div class="macro"><div class="v" id="m-fib">—</div><div class="k" id="lbl-fib">Fiber g</div></div>
       </div>
 
-      <div class="eyebrow" style="margin-top:26px">Your Weekly Añejo Rotation</div>
+      <div style="margin-top:14px">
+        <button class="btn btn--ghost" id="edit-toggle" type="button">Adjust my macros</button>
+      </div>
+      <div class="card edit-panel" id="edit-panel" style="display:none;margin-top:12px">
+        <h3 id="lbl-edit">Adjust your daily macros</h3>
+        <p class="edit-help" id="lbl-edit-help">Change your targets and we'll re-size your bowls and update pricing.</p>
+        <div class="edit-grid">
+          <label class="efld"><span id="elbl-cal">Calories</span><input id="e-cal" type="number" inputmode="numeric" min="800" max="6000"></label>
+          <label class="efld"><span id="elbl-pro">Protein g</span><input id="e-pro" type="number" inputmode="numeric" min="0"></label>
+          <label class="efld"><span id="elbl-carb">Carbs g</span><input id="e-carb" type="number" inputmode="numeric" min="0"></label>
+          <label class="efld"><span id="elbl-fat">Fat g</span><input id="e-fat" type="number" inputmode="numeric" min="0"></label>
+          <label class="efld"><span id="elbl-fib">Fiber g</span><input id="e-fib" type="number" inputmode="numeric" min="0"></label>
+          <label class="efld"><span id="elbl-meals">Bowls / day</span><input id="e-meals" type="number" inputmode="numeric" min="2" max="4"></label>
+        </div>
+        <div class="edit-actions">
+          <button class="btn btn--gold" id="edit-apply" type="button">Recompute plan</button>
+          <button class="btn btn--ghost" id="edit-cancel" type="button">Cancel</button>
+        </div>
+        <p class="edit-msg" id="edit-msg" style="display:none"></p>
+      </div>
+
+      <div class="eyebrow" id="lbl-bowl" style="margin-top:26px">Your Añejo Bowl</div>
+      <div class="card" id="bowl-size-card" style="margin-top:6px">
+        <div class="size-head">
+          <div>
+            <div class="size-name"><span id="m-size-label">—</span> · <span id="m-size-oz">—</span></div>
+            <div class="size-note" id="m-size-note"></div>
+          </div>
+          <div class="size-price"><span id="m-bowl-price">—</span><span class="size-per" id="lbl-perbowl">per bowl</span></div>
+        </div>
+        <div class="perbowl" id="perbowl-macros"></div>
+      </div>
+
+      <div class="eyebrow" id="lbl-rotation" style="margin-top:26px">Your Weekly Añejo Rotation</div>
       <div class="tierpill" id="m-tier"></div>
       <div class="bowl-grid" id="bowl-grid"></div>
+
+      <div class="eyebrow" id="lbl-plans" style="margin-top:26px">Choose Your Weekly Plan</div>
+      <div class="plan-opts" id="plan-opts"></div>
 
       <div class="card" style="margin-top:26px">
         <h3>Why this plan</h3>
