@@ -6,8 +6,8 @@
   var GOLD = '#C6A85B', GREEN = '#1A3D2E', BLACK = '#0D0D0D', CREAM = '#F5F2EC', LINE = 'rgba(26,61,46,.15)';
   function lang() { try { return (window.AnejoLang && window.AnejoLang.get() === 'es') ? 'es' : 'en'; } catch (e) { return 'en'; } }
   var T = {
-    en: { title: 'Ask Añejo', sub: 'Menu · delivery · plans', hi: "Hi! I'm Aña, the Añejo assistant. Ask me about the menu, delivery, meal plans — or anything else. 🌿", ph: 'Type your message…', send: 'Send', open: 'Chat with Añejo', err: 'Something went wrong. Please email dayan@anejocateringco.com.' },
-    es: { title: 'Pregúntale a Añejo', sub: 'Menú · entrega · planes', hi: '¡Hola! Soy Aña, la asistente de Añejo. Pregúntame sobre el menú, la entrega, los planes — o lo que necesites. 🌿', ph: 'Escribe tu mensaje…', send: 'Enviar', open: 'Chatea con Añejo', err: 'Algo salió mal. Escríbenos a dayan@anejocateringco.com.' }
+    en: { title: 'Ask Añejo', sub: 'Menu · delivery · plans', hi: "Hi! I'm Aña, the Añejo assistant. Ask me about the menu, delivery, meal plans — or anything else. 🌿", ph: 'Type your message…', send: 'Send', open: 'Chat with Añejo', err: 'Something went wrong. Please email dayan@anejocateringco.com.', tip: 'Questions? <strong>Chat with Añejo</strong> 🌿' },
+    es: { title: 'Pregúntale a Añejo', sub: 'Menú · entrega · planes', hi: '¡Hola! Soy Aña, la asistente de Añejo. Pregúntame sobre el menú, la entrega, los planes — o lo que necesites. 🌿', ph: 'Escribe tu mensaje…', send: 'Enviar', open: 'Chatea con Añejo', err: 'Algo salió mal. Escríbenos a dayan@anejocateringco.com.', tip: '¿Preguntas? <strong>Escríbenos</strong> 🌿' }
   };
   function t(k) { return (T[lang()] || T.en)[k]; }
 
@@ -33,7 +33,12 @@
     '.anc-go{background:' + GOLD + ';color:' + BLACK + ';border:none;border-radius:10px;padding:0 16px;font:700 12px/1 "Josefin Sans";letter-spacing:1px;text-transform:uppercase;cursor:pointer}' +
     '.anc-go:disabled{opacity:.5;cursor:not-allowed}' +
     '.anc-foot{font-size:10px;color:#9a9a8f;text-align:center;padding:0 0 8px;background:#fff}' +
-    '@media (max-width:480px){.anc-panel{right:8px;left:8px;width:auto;bottom:80px}}';
+    '.anc-tip{position:fixed;right:18px;bottom:86px;z-index:99997;max-width:232px;background:' + CREAM + ';color:' + BLACK + ';border:1px solid ' + LINE + ';border-radius:14px;border-bottom-right-radius:4px;box-shadow:0 8px 26px rgba(0,0,0,.22);padding:11px 30px 11px 14px;font:500 13px/1.45 "Josefin Sans",-apple-system,sans-serif;opacity:0;transform:translateY(8px) scale(.96);transform-origin:bottom right;transition:opacity .25s,transform .25s;pointer-events:none;cursor:pointer}' +
+    '.anc-tip.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}' +
+    '.anc-tip strong{color:' + GREEN + ';font-weight:600}' +
+    '.anc-tip-x{position:absolute;top:5px;right:7px;border:none;background:none;color:#9a9a8f;font-size:16px;line-height:1;cursor:pointer;padding:2px}' +
+    '.anc-tip-x:hover{color:' + BLACK + '}' +
+    '@media (max-width:480px){.anc-panel{right:8px;left:8px;width:auto;bottom:80px}.anc-tip{right:10px;max-width:200px}}';
   document.head.appendChild(css);
 
   var btn = document.createElement('button');
@@ -91,6 +96,7 @@
   }
 
   function open() {
+    hideTip(true);
     panel.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
     if (!greeted) { greeted = true; panel.querySelector('#ancSub').textContent = t('sub'); add('bot', t('hi')); }
     setTimeout(function () { ta.focus(); }, 50);
@@ -103,4 +109,27 @@
   ta.addEventListener('input', function () { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 90) + 'px'; });
   ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+
+  // Gentle nudge bubble over the chat icon, prompting first-time visitors to ask a question.
+  var tip = document.createElement('div');
+  tip.className = 'anc-tip'; tip.setAttribute('role', 'button'); tip.setAttribute('tabindex', '0'); tip.setAttribute('aria-label', t('open'));
+  tip.innerHTML = '<button class="anc-tip-x" aria-label="Dismiss">×</button><span class="anc-tip-t"></span>';
+  document.body.appendChild(tip);
+  var tipT = tip.querySelector('.anc-tip-t');
+  function setTipText() { tipT.innerHTML = t('tip'); }
+  setTipText();
+
+  function dismissed() { try { return sessionStorage.getItem('anejo:chatTip') === 'done'; } catch (e) { return false; } }
+  function hideTip(remember) { tip.classList.remove('show'); if (remember) { try { sessionStorage.setItem('anejo:chatTip', 'done'); } catch (e) {} } }
+  function showTip() {
+    if (dismissed() || panel.classList.contains('open')) return;
+    setTipText(); tip.classList.add('show');
+    setTimeout(function () { tip.classList.remove('show'); }, 12000); // fade out if ignored (no remember → may reappear on next page)
+  }
+
+  tip.querySelector('.anc-tip-x').addEventListener('click', function (e) { e.stopPropagation(); hideTip(true); });
+  tip.addEventListener('click', function () { open(); });
+  tip.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  document.addEventListener('anejo:langchange', setTipText);
+  setTimeout(showTip, 2600);
 })();
