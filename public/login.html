@@ -94,9 +94,10 @@
   var stepId = $('step-id'), stepPin = $('step-pin'), stepNew = $('step-newpin'), stepMagic = $('step-magic');
   var state = { identifier:'', portalType:'trainer' };
 
-  function show(el){ [stepId,stepPin,stepNew,stepMagic].forEach(function(s){ s.classList.add('hide'); }); el.classList.remove('hide'); }
-  function err(t){ msg.className='msg err'; msg.textContent=t; }
-  function ok(t){ msg.className='msg ok'; msg.textContent=t; }
+  function refresh(){ try { window.AnejoI18n && window.AnejoI18n.refresh(); } catch(e){} }
+  function show(el){ [stepId,stepPin,stepNew,stepMagic].forEach(function(s){ s.classList.add('hide'); }); el.classList.remove('hide'); refresh(); }
+  function err(t){ msg.className='msg err'; msg.textContent=t; refresh(); }
+  function ok(t){ msg.className='msg ok'; msg.textContent=t; refresh(); }
   function clearMsg(){ msg.className='msg'; msg.textContent=''; }
 
   function api(path, body){
@@ -113,7 +114,7 @@
     state.identifier = v;
     var btn = stepId.querySelector('button'); btn.disabled=true; btn.textContent='Checking…';
     api('/api/auth/identify',{ identifier:v }).then(function(res){
-      btn.disabled=false; btn.textContent='Continue';
+      btn.disabled=false; btn.textContent='Continue'; refresh();
       if(res.status>=400 || !res.body.ok){ err(res.body.error||'No account found.'); return; }
       if(res.body.method==='pin'){
         $('pin-greet').innerHTML = res.body.name ? ('Welcome back, <b>'+res.body.name.replace(/</g,'&lt;')+'</b>') : 'Enter your PIN';
@@ -137,7 +138,7 @@
     if(!/^[0-9]{4,8}$/.test(pin)){ err('PIN is 4–8 digits.'); return; }
     var btn = stepPin.querySelector('button'); btn.disabled=true; btn.textContent='Signing in…';
     api('/api/auth/pin-login',{ identifier: state.identifier, pin: pin }).then(function(res){
-      btn.disabled=false; btn.textContent='Sign in';
+      btn.disabled=false; btn.textContent='Sign in'; refresh();
       if(res.status>=400 || !res.body.ok){ err(res.body.error||'Incorrect PIN.'); $('pin').value=''; return; }
       if(res.body.must_change_pin){ ok('Signed in. Please set a personal PIN.'); show(stepNew); $('newpin').focus(); return; }
       window.location.replace(res.body.redirect || '/hub/');
@@ -153,7 +154,7 @@
     if(a!==b){ err('PINs do not match.'); return; }
     var btn=stepNew.querySelector('button'); btn.disabled=true; btn.textContent='Saving…';
     api('/api/staff/set-pin',{ new_pin:a }).then(function(res){
-      btn.disabled=false; btn.textContent='Save & continue';
+      btn.disabled=false; btn.textContent='Save & continue'; refresh();
       if(res.status>=400 || !res.body.ok){ err(res.body.error||'Could not save PIN.'); return; }
       window.location.replace('/hub/');
     }).catch(function(){ btn.disabled=false; btn.textContent='Save & continue'; err('Network error.'); });

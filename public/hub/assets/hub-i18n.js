@@ -174,6 +174,10 @@
     // ---- section headings + small labels ----
     "At a glance": "De un vistazo", "Alerts": "Alertas", "Activity": "Actividad", "EOD filed": "EOD enviados",
     "Staff management": "Gestión de personal", "Recent activity": "Actividad reciente", "Ack": "Visto",
+    "Open orders": "Pedidos abiertos", "No open orders.": "Sin pedidos abiertos.",
+    "Recent kitchen activity": "Actividad reciente de cocina", "No kitchen activity yet.": "Sin actividad de cocina aún.",
+    "Incoming orders": "Pedidos entrantes", "Start prep": "Iniciar preparación", "Mark ready": "Marcar listo",
+    "Upcoming": "Próximos", "Overdue": "Atrasados",
 
     // ---- status + severity badge words (rendered lowercase, CSS uppercases) ----
     "critical": "crítico", "warning": "advertencia", "info": "info", "open": "abierto",
@@ -195,7 +199,35 @@
     // ---- role / team enum labels (dropdowns + badges) ----
     "owner": "dueño", "driver": "conductor", "kitchen": "cocina", "vendor": "proveedor",
     "delivery": "reparto", "training": "entrenamiento", "front_office": "oficina", "vendors": "proveedores",
-    "trainer": "entrenador", "client": "cliente"
+    "trainer": "entrenador", "client": "cliente",
+
+    // ---- login / PIN flow ----
+    "Staff sign-in": "Acceso de personal", "Email sign-in": "Acceso por correo",
+    "Enter your PIN": "Ingresa tu PIN", "Confirm PIN": "Confirmar PIN", "Tu PIN": "Tu PIN",
+    "Set your personal PIN": "Establece tu PIN personal", "Save & continue": "Guardar y continuar",
+    "Signing in…": "Iniciando sesión…", "Signed in": "Sesión iniciada",
+    "Checking…": "Verificando…", "Saving…": "Guardando…",
+    "Signed in. Please set a personal PIN.": "Sesión iniciada. Establece un PIN personal.",
+    "← Use a different account": "← Usar otra cuenta", "Use a different account": "Usar otra cuenta",
+    "We emailed a sign-in link to": "Te enviamos un enlace de acceso a",
+    "Check your email for a sign-in link.": "Revisa tu correo para el enlace de acceso.",
+    "Incorrect PIN.": "PIN incorrecto.", "No account found.": "No se encontró ninguna cuenta.",
+    "PINs do not match.": "Los PIN no coinciden.", "PIN is 4–8 digits.": "El PIN tiene 4–8 dígitos.",
+    "Could not save PIN.": "No se pudo guardar el PIN.", "Network error.": "Error de red.",
+    "Network error. Try again.": "Error de red. Inténtalo de nuevo.",
+    "Could not load. Pull to refresh.": "No se pudo cargar. Desliza para actualizar.",
+    "e.g. Citrus Mojo Salmon Bowl": "ej. Bowl de Salmón Mojo Cítrico",
+
+    // ---- finance / expense status + misc labels ----
+    "Expense": "Gasto", "Expenses approved": "Gastos aprobados", "Expenses pending": "Gastos pendientes",
+    "Mileage pending": "Millaje pendiente", "Reset PIN for": "Restablecer PIN de",
+    "Temp checks": "Chequeos de temp.", "Submitted for": "Enviado para",
+
+    // ---- remaining checklist items (driver loadout/dropoff) ----
+    "Cooler / ice packs ready": "Nevera / paquetes de hielo listos",
+    "Handed to customer/contact": "Entregado al cliente/contacto",
+    "Placed safely / refrigerated note left": "Colocado de forma segura / nota de refrigeración dejada",
+    "Tires / pressure OK": "Llantas / presión OK"
   };
 
   // Register with the shared i18n engine; queue if it hasn't loaded yet.

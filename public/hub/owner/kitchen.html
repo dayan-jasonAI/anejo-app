@@ -34,9 +34,48 @@
     lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
   }
 
+  function orderItems(o) {
+    var items = [];
+    try { items = JSON.parse(o.items || '[]'); } catch (e) {}
+    if (!Array.isArray(items) || !items.length) return '';
+    return '<ul style="list-style:none;margin:8px 0 0;padding:8px 0 0;border-top:1px solid var(--line)">' + items.map(function (it) {
+      var qty = Number(it && it.qty) || 1; var name = (it && (it.name || it.id)) || 'Item';
+      return '<li style="font-size:13px;color:var(--green);display:flex;justify-content:space-between;padding:3px 0"><span>' + Owner.esc(name) + '</span><span style="font-weight:700">×' + qty + '</span></li>';
+    }).join('') + '</ul>';
+  }
+
+  function orderRow(o) {
+    var n = 0; try { (JSON.parse(o.items || '[]') || []).forEach(function (it) { n += Number(it && it.qty) || 1; }); } catch (e) {}
+    var badges = (o.delivery_date ? '<span class="badge ok">' + Owner.esc(o.delivery_date) + '</span> ' : '') +
+      (o.delivery_window ? '<span class="badge">' + Owner.esc(o.delivery_window) + '</span> ' : '') +
+      '<span class="badge">' + Owner.esc(o.status) + '</span>';
+    return '<div class="card order-card"><div class="row" style="padding:0;border:none">' +
+      '<div class="row-main"><div class="row-title">' + Owner.esc(o.customer_name || 'Order') + ' · ' + n + ' items</div>' +
+      '<div class="row-sub">' + Owner.esc(o.id) + '</div></div><div>' + badges + '</div></div>' + orderItems(o) + '</div>';
+  }
+
+  function todayStr() { try { return new Date().toLocaleDateString('en-CA'); } catch (e) { return new Date().toISOString().slice(0, 10); } }
+  function groupOrders(list) {
+    var t = todayStr(), buckets = { overdue: [], today: [], upcoming: [] };
+    list.forEach(function (o) {
+      var d = o.delivery_date;
+      var g = !d ? 'today' : (d < t ? 'overdue' : (d === t ? 'today' : 'upcoming'));
+      buckets[g].push(o);
+    });
+    var hdr = 'margin:18px 0 8px;font-size:13px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted,#6b7280)';
+    var out = '';
+    [['overdue', 'Overdue'], ['today', 'Today'], ['upcoming', 'Upcoming']].forEach(function (p) {
+      if (buckets[p[0]].length) {
+        out += '<h3 style="' + hdr + '" data-i18n>' + p[1] + '</h3>' + buckets[p[0]].map(orderRow).join('');
+      }
+    });
+    return out;
+  }
+
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML = '<div id="tiles" class="card-grid"></div>' +
+      '<div class="hub-section"><h2 data-i18n>Open orders</h2><div id="korders" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Recent kitchen activity</h2><div id="kfeed" class="list"><div class="hub-loading">…</div></div></div>';
 
     Owner.get('/api/hub/owner/overview').then(function (d) {
@@ -48,6 +87,16 @@
         Owner.tile(t.orders_open, 'Orders to fulfill'),
         Owner.tile(t.on_shift, 'On shift now', { accent: 'accent-green' })
       ].join('');
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+
+    // Open orders, with full item detail, soonest delivery first.
+    Owner.get('/api/hub/kitchen/orders').then(function (d) {
+      var el = document.getElementById('korders');
+      var b = (d && d.board) || { pending: [], prep: [], ready: [] };
+      var all = (b.pending || []).concat(b.prep || [], b.ready || []);
+      if (!all.length) { el.innerHTML = '<div class="hub-empty" data-i18n>No open orders.</div>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
+      el.innerHTML = groupOrders(all);
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
 
