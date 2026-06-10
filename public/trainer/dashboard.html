@@ -111,9 +111,11 @@ async function requestLink(e){
   e.preventDefault();
   const email = $('gemail').value.trim();
   if(!email) return;
+  const name = ($('gname')&&$('gname').value.trim())||'';
+  const phone = ($('gphone')&&$('gphone').value.trim())||'';
   const btn = e.target.querySelector('button'); btn.disabled=true; btn.textContent='Sending…';
   try{
-    const r = await fetch('/api/auth/request-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,type:'trainer'})});
+    const r = await fetch('/api/auth/request-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,type:'trainer',name,phone})});
     if(!r.ok){ const d=await r.json().catch(()=>({})); throw new Error(d.error||'Could not send link'); }
     $('app').innerHTML = '<div class="gate"><h2>Check your email</h2><p>We sent a sign-in link to <strong>'+esc(email)+'</strong>. Click it to access your dashboard.</p></div>';
   }catch(err){ btn.disabled=false; btn.textContent='Send sign-in link'; toast(err.message); }
@@ -164,9 +166,12 @@ window.saveEdit = saveEdit;
 function gate(){
   $('app').innerHTML =
    '<div class="gate"><h2>Trainer sign-in</h2><p>Enter your email and we\'ll send you a one-time sign-in link.</p>'+
-   '<form onsubmit="return requestLink(event)"><input id="gemail" type="email" placeholder="you@gym.com" required>'+
+   '<form onsubmit="return requestLink(event)">'+
+   '<input id="gemail" type="email" placeholder="you@gym.com" autocomplete="email" required>'+
+   '<input id="gname" type="text" placeholder="Your name (optional)" autocomplete="name">'+
+   '<input id="gphone" type="tel" placeholder="Mobile (optional)" autocomplete="tel">'+
    '<button class="btn" type="submit">Send sign-in link</button></form>'+
-   '<p style="margin-top:16px;font-size:13px">New here? The same link creates your account. <a href="/portal">What is this?</a></p></div>';
+   '<p style="margin-top:16px;font-size:13px">New here? The same link creates your account — name &amp; mobile are saved on first sign-in. <a href="/portal">What is this?</a></p></div>';
 }
 
 function render(me, clients, earn){
