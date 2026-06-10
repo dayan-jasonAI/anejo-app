@@ -28,6 +28,7 @@ const T = {
   en: { goal:'Goal:', activity:'Activity:', none:'No plan to display', build:'Build your plan →',
         planFor:function(w){return 'Plan for '+w;}, member:'Member plan', yours:'Your plan',
         loadErr:'Could not load plan: ',
+        disclaimer:'This plan is for general fitness and wellness. It is not medical advice. Consult your healthcare provider before starting any new nutrition program.',
         macros:'Daily Macro Targets', cal:'Calories', pro:'Protein g', carb:'Carbs g', fat:'Fat g', fib:'Fiber g',
         bowlHead:'Your Añejo Bowl', perBowl:'per bowl', oz:'oz', perDay:function(n){return n+' bowls / day';},
         rotation:'Your Weekly Añejo Rotation', plansHead:'Choose Your Weekly Plan',
@@ -52,6 +53,7 @@ const T = {
   es: { goal:'Meta:', activity:'Actividad:', none:'No hay plan para mostrar', build:'Crea tu plan →',
         planFor:function(w){return 'Plan para '+w;}, member:'Plan del miembro', yours:'Tu plan',
         loadErr:'No se pudo cargar el plan: ',
+        disclaimer:'Este plan es para fitness y bienestar general. No es consejo médico. Consulta a tu proveedor de salud antes de comenzar cualquier programa de nutrición.',
         macros:'Macros Diarios', cal:'Calorías', pro:'Proteína g', carb:'Carbohidratos g', fat:'Grasa g', fib:'Fibra g',
         bowlHead:'Tu Bowl Añejo', perBowl:'por bowl', oz:'oz', perDay:function(n){return n+' bowls / día';},
         rotation:'Tu Rotación Semanal Añejo', plansHead:'Elige Tu Plan Semanal',
@@ -185,10 +187,10 @@ function render(intake, plan) {
       grid.appendChild(el);
     });
 
-  document.getElementById('m-rationale').textContent = plan.rationale || '';
-  const notes = document.getElementById('m-notes');
-  notes.innerHTML = '';
-  (plan.lifestyle_notes || []).forEach(n => { const li = document.createElement('li'); li.textContent = n; notes.appendChild(li); });
+  // Rationale + lifestyle notes are AI-generated prose (not in the i18n dictionary). Show the
+  // version matching the current language, translating on demand when it differs from the language
+  // the plan was written in.
+  renderProse(L);
 
   document.getElementById('restart').href = trainer ? '/intake.html' : '/calculator';
   // Conversion: surface "Subscribe to this plan" (recommended tier) + "Order these bowls".
@@ -206,6 +208,74 @@ function render(intake, plan) {
   document.getElementById('plan-body').style.display = 'block';
   document.getElementById('plan-disclaimer').style.display = 'block';
   wireEditor();
+}
+
+// --- AI prose (rationale + lifestyle notes) localization -------------------------------------
+// The plan's prose is generated once, in the user's language. When the visitor toggles language we
+// translate on demand and cache it so subsequent toggles are instant. The cache is module-level
+// (keyed by a signature of the base prose) because start()/render() rebuild the plan object on each
+// language change — a per-object cache wouldn't survive.
+let proseI18n = {};       // { en:{rationale,lifestyle_notes}, es:{...} }
+let proseSig = '';        // signature of the current plan's base prose; changes reset the cache
+let translating = {};
+
+function baseProseLang() { return (curIntake && curIntake.lang === 'es') ? 'es' : 'en'; }
+
+function ensureBaseCached() {
+  const base = baseProseLang();
+  const sig = base + '|' + (curPlan.rationale || '').slice(0, 80) + '|' + (curPlan.lifestyle_notes || []).length;
+  if (sig !== proseSig) { proseSig = sig; proseI18n = {}; translating = {}; } // new/changed plan → reset
+  if (!proseI18n[base]) {
+    proseI18n[base] = { rationale: curPlan.rationale || '', lifestyle_notes: (curPlan.lifestyle_notes || []).slice() };
+  }
+  return base;
+}
+
+function renderProse(L) {
+  const base = ensureBaseCached();
+  const src = proseI18n[L] || proseI18n[base];
+  const rEl = document.getElementById('m-rationale');
+  const notes = document.getElementById('m-notes');
+  if (rEl) rEl.textContent = src.rationale || '';
+  if (notes) {
+    notes.innerHTML = '';
+    const list = (src.lifestyle_notes || []).slice();
+    // Always render the legal disclaimer as the final bullet, in the current language.
+    if (list.length) list[list.length - 1] = T[L].disclaimer; else list.push(T[L].disclaimer);
+    list.forEach(n => { const li = document.createElement('li'); li.textContent = n; notes.appendChild(li); });
+  }
+  // Missing a translation for the current (non-base) language → fetch it.
+  if (!proseI18n[L] && L !== base) ensureTranslation(L);
+}
+
+async function ensureTranslation(L) {
+  if (translating[L]) return;
+  const base = proseI18n[baseProseLang()];
+  if (!base || (!base.rationale && !(base.lifestyle_notes || []).length)) return;
+  translating[L] = true;
+  const rEl = document.getElementById('m-rationale');
+  const notes = document.getElementById('m-notes');
+  if (rEl) rEl.style.opacity = '0.5';
+  if (notes) notes.style.opacity = '0.5';
+  try {
+    const r = await fetch('/api/plans/translate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_lang: L, rationale: base.rationale, lifestyle_notes: base.lifestyle_notes }),
+    });
+    const data = await r.json();
+    if (r.ok && data && !data.error) {
+      proseI18n[L] = {
+        rationale: typeof data.rationale === 'string' ? data.rationale : base.rationale,
+        lifestyle_notes: Array.isArray(data.lifestyle_notes) ? data.lifestyle_notes : base.lifestyle_notes,
+      };
+    }
+  } catch (_) { /* keep showing base text on failure */ }
+  finally {
+    translating[L] = false;
+    if (rEl) rEl.style.opacity = '';
+    if (notes) notes.style.opacity = '';
+    if (lng() === L) renderProse(L); // re-render if the visitor is still on this language
+  }
 }
 
 let editorWired = false;
