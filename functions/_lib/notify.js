@@ -32,6 +32,19 @@ export async function notifyOrderDelivery(env, order, kind) {
   } catch { /* a notification must never break the driver's action */ }
 }
 
+// Text a specific client by id, if they have a phone on file AND opted in. No-op safe.
+export async function notifyClientById(env, clientId, body) {
+  try {
+    if (!env || !env.DB || !clientId || !body) return;
+    const c = await env.DB
+      .prepare("SELECT phone FROM clients WHERE id=? AND phone IS NOT NULL AND phone<>'' AND sms_consent=1 LIMIT 1")
+      .bind(clientId)
+      .first();
+    if (!c || !c.phone) return;
+    await sendSms(env, { to: c.phone, body });
+  } catch { /* never fail the caller on a notification */ }
+}
+
 // On route start: tell every (consented) customer on the route their delivery is on the way.
 export async function notifyRouteOutForDelivery(env, routeId) {
   try {

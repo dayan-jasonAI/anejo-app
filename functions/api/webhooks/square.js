@@ -4,6 +4,7 @@
 // Set SQUARE_WEBHOOK_KEY (Pages secret) + register this URL in the Square dashboard.
 import { id, now } from '../../_lib/util.js';
 import { createSubscriptionDelivery } from '../../_lib/suborders.js';
+import { notifyClientById } from '../../_lib/notify.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
 
@@ -78,6 +79,10 @@ export const onRequestPost = async ({ request, env }) => {
               planBowlRotation: plan ? plan.bowl_rotation : null, weeklyCents: gross,
               customerName: client && client.name, customerEmail: client && client.email,
             });
+            // Auto-renewal confirmation (consent-gated, no-op safe). Only on real renewals —
+            // signup already sent a purchase confirmation, and that path skips this via `recent`.
+            await notifyClientById(env, sub.client_id,
+              `Añejo Catering Co.: Your weekly plan renewed — $${(gross / 100).toFixed(2)} charged. This week's bowls are on the way; we'll text you when they're out for delivery. Reply STOP to opt out.`);
           }
         }
       }
