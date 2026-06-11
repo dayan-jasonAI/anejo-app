@@ -30,10 +30,8 @@ id = "afbedd5c3613449b931b27ee0353a4b0"
 binding = "AI"
 
 # --- R2 media bucket (proof-of-delivery photos, Creative Studio media) ---
-# OWNER ACTION: enable R2 once in the Cloudflare Dashboard (R2 → accept terms), then run
-#   wrangler r2 bucket create anejo-media
-# and UNCOMMENT the block below. All media code feature-detects env.MEDIA and falls back
-# to inline storage until then.
-# [[r2_buckets]]
-# binding = "MEDIA"
-# bucket_name = "anejo-media"
+# Enabled 2026-06-11 (bucket created via `wrangler r2 bucket create anejo-media`).
+# Media code feature-detects env.MEDIA, so removing this block safely reverts to inline storage.
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "anejo-media"
