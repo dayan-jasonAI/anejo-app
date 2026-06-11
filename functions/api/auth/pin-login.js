@@ -47,10 +47,25 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   // Success — reset counters, stamp activity, mint session.
+  const firstActivation = !staff.activated_at;
   await env.DB
     .prepare('UPDATE staff SET login_fail_count=0, locked_until=NULL, activated_at=COALESCE(activated_at,?1), last_active_at=?1, updated_at=?1 WHERE id=?2')
     .bind(t, staff.id)
     .run();
+
+  // Lifecycle: first-ever successful login → user.activated (tracking plan).
+  if (firstActivation) {
+    await capture(env, {
+      event: 'user.activated',
+      distinct_id: staff.id,
+      role: staff.role,
+      team: staff.team,
+      properties: {
+        days_since_invite: staff.invited_at ? Math.round((t - staff.invited_at) / 86400000) : null,
+        platform: 'pwa',
+      },
+    });
+  }
 
   const sess = await createSession(env, {
     type: 'staff',

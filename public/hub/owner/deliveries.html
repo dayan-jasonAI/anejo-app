@@ -34,10 +34,89 @@
     lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
   }
 
+  function localToday() {
+    try { return new Date().toLocaleDateString('en-CA'); } catch (e) { return new Date().toISOString().slice(0, 10); }
+  }
+
+  function loadAssign() {
+    var date = (document.getElementById('rdate') || {}).value || localToday();
+    Owner.get('/api/hub/owner/routes?date=' + encodeURIComponent(date)).then(function (d) {
+      var dsel = document.getElementById('rdriver');
+      var ords = document.getElementById('rorders');
+      var rlist = document.getElementById('rexisting');
+      if (!dsel || !ords || !rlist) return;
+      if (!d || !d.ok) { ords.innerHTML = '<p class="row-sub" data-i18n>No data.</p>'; return; }
+
+      dsel.innerHTML = '<option value="" data-i18n>Select a driver</option>' + (d.drivers || []).map(function (s) {
+        return '<option value="' + Owner.esc(s.id) + '">' + Owner.esc(s.name || s.id) + '</option>';
+      }).join('');
+      if (!(d.drivers || []).length) {
+        dsel.innerHTML = '<option value="" data-i18n>No drivers yet. Add drivers in Staff.</option>';
+      }
+
+      ords.innerHTML = (d.unassigned || []).length ? d.unassigned.map(function (o) {
+        var items = '';
+        try {
+          var arr = JSON.parse(o.items || '[]');
+          items = arr.map(function (it) { return (it.qty || 1) + '× ' + (it.name || ''); }).join(', ');
+        } catch (e) { items = ''; }
+        return '<label class="row" style="cursor:pointer"><input type="checkbox" class="rorder" value="' + Owner.esc(o.id) + '" style="margin-right:10px">' +
+          '<div class="row-main"><div class="row-title">' + Owner.esc(o.customer_name || o.id) + '</div>' +
+          '<div class="row-sub">' + Owner.esc(items || '—') + ' · ' + Owner.esc(o.delivery_window || '') + '</div></div>' +
+          Owner.badge(o.status, Owner.kindFor(o.status)) + '</label>';
+      }).join('') : '<p class="row-sub" data-i18n>No unassigned orders for this date.</p>';
+
+      ords.querySelectorAll('.rorder').forEach(function (cb) { cb.addEventListener('change', updateAssignBtn); });
+      updateAssignBtn();
+
+      rlist.innerHTML = (d.routes || []).length ? d.routes.map(function (ro) {
+        return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(ro.driver_name || 'Unassigned') +
+          (ro.ai_optimized ? ' ⚡' : '') + '</div><div class="row-sub">' + Owner.esc(String(ro.stops || ro.stop_count || 0)) + ' <span data-i18n>stops</span></div></div>' +
+          Owner.badge(ro.status, Owner.kindFor(ro.status)) + '</div>';
+      }).join('') : '<div class="hub-empty" data-i18n>No routes yet.</div>';
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  function updateAssignBtn() {
+    var n = document.querySelectorAll('#rorders .rorder:checked').length;
+    var btn = document.getElementById('rassign');
+    if (!btn) return;
+    btn.disabled = !n;
+    btn.textContent = n === 1 ? 'Assign 1 stop' : 'Assign ' + n + ' stops';
+  }
+
+  function doAssign() {
+    var date = (document.getElementById('rdate') || {}).value || localToday();
+    var driver = (document.getElementById('rdriver') || {}).value;
+    var ids = Array.prototype.map.call(document.querySelectorAll('#rorders .rorder:checked'), function (cb) { return cb.value; });
+    if (!driver || !ids.length) { Hub.toast('Pick a driver and at least one order.'); return; }
+    var btn = document.getElementById('rassign'); btn.disabled = true;
+    Hub.api('/api/hub/owner/routes', { method: 'POST', body: { driver_id: driver, route_date: date, order_ids: ids } }).then(function (r) {
+      if (r && r.ok) { Hub.toast('Route assigned'); loadAssign(); loadToday(); }
+      else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not assign route'); }
+    });
+  }
+
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
-    root.innerHTML = '<div id="roll"></div><div class="hub-section"><h2 data-i18n>Routes today</h2><div id="routes" class="list"><div class="hub-loading">…</div></div></div>' +
+    root.innerHTML =
+      '<div class="hub-section"><h2 data-i18n>Assign a route</h2><div class="card">' +
+      '<div class="field"><label data-i18n>Date</label><input type="date" id="rdate" value="' + localToday() + '"></div>' +
+      '<div class="field"><label data-i18n>Driver</label><select id="rdriver"></select></div>' +
+      '<div class="field"><label data-i18n>Unassigned orders</label><div id="rorders" class="list"><div class="hub-loading">…</div></div></div>' +
+      '<button class="btn gold block" id="rassign" type="button" disabled data-i18n>Assign stops</button>' +
+      '</div><div id="rexisting" class="list" style="margin-top:10px"></div></div>' +
+      '<div id="roll"></div><div class="hub-section"><h2 data-i18n>Routes today</h2><div id="routes" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Deliveries</h2><div id="drops" class="list"><div class="hub-loading">…</div></div></div>';
+
+    document.getElementById('rdate').addEventListener('change', loadAssign);
+    document.getElementById('rassign').addEventListener('click', doAssign);
+    loadAssign();
+    loadToday();
+  }
+
+  function loadToday() {
     Owner.get('/api/hub/owner/deliveries/today').then(function (d) {
       if (!d || !d.ok) { Owner.fail(); return; }
       var r = d.rollup;

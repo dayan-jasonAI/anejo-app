@@ -74,7 +74,8 @@
         Owner.tile(t.expenses_pending, 'Pending expenses', { href: '/hub/owner/finance.html', accent: t.expenses_pending ? 'accent' : '' }),
         Owner.tile(t.temp_excursions_today, 'Temp excursions', { accent: t.temp_excursions_today ? 'accent' : '', href: '/hub/owner/kitchen.html' }),
         Owner.tile(t.alerts_open, 'Open alerts', { accent: t.alerts_critical ? 'accent' : '',
-          badge: t.alerts_critical ? (t.alerts_critical + ' crit') : null, badgeKind: 'crit' })
+          badge: t.alerts_critical ? (t.alerts_critical + ' crit') : null, badgeKind: 'crit' }),
+        Owner.tile('🤖', 'AI Ops', { href: '/hub/owner/aiops.html' })
       ].join('');
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · AI Ops</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · AI OPS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading AI ops…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  // The 7 on-demand automations (some may return 501 not_implemented; handled below).
+  var RUN_TYPES = [
+    { type: 'daily_summary', label: 'Daily summary' },
+    { type: 'eod_chase', label: 'EOD chase' },
+    { type: 'route_optimize', label: 'Route optimize' },
+    { type: 'restock_suggest', label: 'Restock suggest' },
+    { type: 'ticket_triage', label: 'Ticket triage' },
+    { type: 'sentiment_scan', label: 'Sentiment scan' },
+    { type: 'payroll_prep', label: 'Payroll prep' }
+  ];
+
+  var TYPE_BADGES = {
+    route_optimize: 'Route',
+    restock_suggest: 'Restock',
+    payroll_prep: 'Payroll',
+    ticket_triage: 'Triage',
+    sentiment_scan: 'Sentiment',
+    daily_summary: 'Summary',
+    eod_chase: 'EOD'
+  };
+
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML =
+      '<div class="hub-section"><h2 data-i18n>🤖 AI Suggestions</h2><div id="suggestions" class="list"><div class="hub-loading">…</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Run now</h2><div class="card" id="run-now"></div>' +
+      '<div id="run-result" class="card" style="display:none;margin-top:8px"><p class="row-sub" id="run-result-text"></p></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Recent runs</h2><div id="runs" class="list"><div class="hub-loading">…</div></div></div>';
+
+    renderRunButtons();
+    loadSuggestions();
+    loadRuns();
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  // ---------- suggestions ----------
+  function parsePayload(p) {
+    if (!p) return null;
+    if (typeof p === 'object') return p;
+    try { return JSON.parse(p); } catch (e) { return null; }
+  }
+
+  function hoursOf(r) {
+    if (r.hours != null) return Number(r.hours).toFixed(1);
+    if (r.total_minutes != null) return (r.total_minutes / 60).toFixed(1);
+    if (r.minutes != null) return (r.minutes / 60).toFixed(1);
+    return '—';
+  }
+
+  function payCents(r) {
+    var c = r.est_pay_cents != null ? r.est_pay_cents : (r.pay_cents != null ? r.pay_cents : r.estimated_pay_cents);
+    return c == null ? null : c;
+  }
+
+  function detailHtml(type, payload) {
+    var p = parsePayload(payload);
+    if (!p) return '';
+    if (type === 'route_optimize') {
+      var stops = p.stops || p.route || p.order || [];
+      if (!stops.length) return '';
+      return '<div class="row-sub">' + stops.map(function (s, i) {
+        if (typeof s === 'string') return (i + 1) + '. ' + Owner.esc(s);
+        var label = s.label || s.customer || s.customer_name || s.name || s.order_id || s.stop_id || ('Stop ' + (i + 1));
+        var win = s.delivery_window || s.window || '';
+        return (i + 1) + '. ' + Owner.esc(String(label)) + (win ? ' · ' + Owner.esc(String(win)) : '');
+      }).join('<br>') + '</div>';
+    }
+    if (type === 'restock_suggest') {
+      var items = p.items || [];
+      if (!items.length) return '';
+      return '<div class="row-sub">' + items.map(function (it) {
+        if (typeof it === 'string') return Owner.esc(it);
+        var name = it.name || it.item || it.item_name || '?';
+        var qty = it.qty != null ? it.qty : (it.quantity != null ? it.quantity : 1);
+        return Owner.esc(String(name)) + ' × ' + Owner.esc(String(qty));
+      }).join('<br>') + '</div>';
+    }
+    if (type === 'payroll_prep') {
+      var rows = p.rows || p.staff || p.entries || [];
+      if (!rows.length) return '';
+      return '<div class="row-sub">' + rows.map(function (r) {
+        var name = r.name || r.staff_name || r.staff_id || '?';
+        var pc = payCents(r);
+        return Owner.esc(String(name)) + ' · ' + hoursOf(r) + 'h' + (pc != null ? ' · ' + Owner.money(pc) : '');
+      }).join('<br>') + '</div>';
+    }
+    var txt = p.detail || p.note || '';
+    return txt ? '<div class="row-sub">' + Owner.esc(String(txt)) + '</div>' : '';
+  }
+
+  function loadSuggestions() {
+    Owner.get('/api/hub/owner/suggestions?status=pending').then(function (d) {
+      var el = document.getElementById('suggestions');
+      if (!el) return;
+      var items = (d && d.ok && (d.items || d.suggestions)) || [];
+      if (!items.length) {
+        el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No pending suggestions. Automations will add them as they run.</p></div>';
+        if (window.AnejoI18n) window.AnejoI18n.refresh();
+        return;
+      }
+      el.innerHTML = items.map(function (s) {
+        var badge = TYPE_BADGES[s.suggestion_type] || s.suggestion_type;
+        return '<div class="row"><div class="row-main">' +
+          '<div class="row-title">' + Owner.badge(badge, 'info') + ' ' + Owner.esc(s.summary || '') + '</div>' +
+          detailHtml(s.suggestion_type, s.payload) +
+          '<div class="row-sub">' + Owner.timeAgo(s.created_at) + '</div></div>' +
+          '<button class="btn gold" data-accept="' + Owner.esc(s.id) + '" data-stype="' + Owner.esc(s.suggestion_type) + '" type="button" data-i18n>Accept</button>' +
+          '<button class="btn ghost" data-dismiss="' + Owner.esc(s.id) + '" data-stype="' + Owner.esc(s.suggestion_type) + '" type="button" data-i18n>Dismiss</button>' +
+          '</div>';
+      }).join('');
+      el.querySelectorAll('[data-accept],[data-dismiss]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var idv = b.getAttribute('data-accept') || b.getAttribute('data-dismiss');
+          var decision = b.hasAttribute('data-accept') ? 'accepted' : 'dismissed';
+          var stype = b.getAttribute('data-stype') || '';
+          b.disabled = true;
+          Hub.api('/api/hub/owner/suggestions', { method: 'POST', body: { id: idv, decision: decision } }).then(function (r) {
+            if (r && r.ok) {
+              // ai_suggestion.actioned is fired SERVER-side by suggestions.js — do not double-fire here.
+              Hub.toast(decision === 'accepted' ? 'Suggestion accepted' : 'Suggestion dismissed');
+              loadSuggestions();
+            } else {
+              b.disabled = false;
+              Hub.toast('Could not update suggestion');
+            }
+          });
+        });
+      });
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  // ---------- run now ----------
+  function renderRunButtons() {
+    var el = document.getElementById('run-now');
+    el.innerHTML = RUN_TYPES.map(function (r) {
+      return '<button class="btn ghost block" style="margin-bottom:8px" data-run="' + r.type + '" type="button" data-i18n>' + r.label + '</button>';
+    }).join('');
+    el.querySelectorAll('[data-run]').forEach(function (b) {
+      b.addEventListener('click', function () { runNow(b.getAttribute('data-run')); });
+    });
+  }
+
+  function showResult(text) {
+    var box = document.getElementById('run-result');
+    var txt = document.getElementById('run-result-text');
+    if (!box || !txt) return;
+    box.style.display = '';
+    txt.textContent = text;
+  }
+
+  function runNow(type) {
+    var btns = document.querySelectorAll('#run-now [data-run]');
+    btns.forEach(function (b) { b.disabled = true; });
+    showResult('…');
+    Hub.api('/api/hub/automations/run', { method: 'POST', body: { type: type } }).then(function (r) {
+      btns.forEach(function (b) { b.disabled = false; });
+      if (r && r.ok) {
+        showResult(type + ' — ' + (r.summary || r.outcome || 'done'));
+        Hub.toast('Run complete');
+      } else if (r && r.error === 'Not implemented yet.') {
+        showResult(type + ' — not implemented yet');
+        Hub.toast('Not implemented yet');
+      } else {
+        showResult(type + ' — ' + ((r && (r.summary || r.error)) || 'failed'));
+        Hub.toast('Run failed');
+      }
+      loadRuns();
+      loadSuggestions();
+    });
+  }
+
+  // ---------- recent runs ----------
+  function outcomeKind(o) {
+    if (o === 'success') return 'ok';
+    if (o === 'failed') return 'crit';
+    return 'warn';
+  }
+
+  function loadRuns() {
+    Owner.get('/api/hub/automations/run?limit=15').then(function (d) {
+      var el = document.getElementById('runs');
+      if (!el) return;
+      var runs = (d && d.ok && d.runs) || [];
+      if (!runs.length) {
+        el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No runs yet.</p></div>';
+        if (window.AnejoI18n) window.AnejoI18n.refresh();
+        return;
+      }
+      el.innerHTML = runs.map(function (r) {
+        var sub = (r.duration_ms != null ? r.duration_ms + 'ms' : '') +
+          (r.tokens ? ' · ' + r.tokens + ' tok' : '') +
+          ' · ' + Owner.timeAgo(r.started_at);
+        return '<div class="row"><div class="row-main">' +
+          '<div class="row-title">' + Owner.esc(r.automation_type || '') + '</div>' +
+          '<div class="row-sub">' + sub + '</div></div>' +
+          Owner.badge(r.outcome || '', outcomeKind(r.outcome)) +
+          '</div>';
+      }).join('');
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  Owner.init('aiops', render);
+})();
+</script>
+</body>
+</html>

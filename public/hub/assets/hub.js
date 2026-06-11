@@ -211,6 +211,42 @@
     return Hub;
   };
 
+  // Global unread-messages badge: any link to /hub/comms.html gets a count pill, and the
+  // ☰ account button gets a dot. Quietly no-ops pre-deploy (404) or signed-out (401).
+  Hub.refreshUnreadBadge = function () {
+    return fetch('/api/hub/comms/unread', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.ok) return;
+        var n = Number(d.count) || 0;
+        var links = document.querySelectorAll('a[href="/hub/comms.html"], a[href="/hub/comms"]');
+        Array.prototype.forEach.call(links, function (a) {
+          var b = a.querySelector('.hub-unread');
+          if (!n) { if (b) b.remove(); return; }
+          if (!b) {
+            b = document.createElement('span');
+            b.className = 'hub-unread';
+            b.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;' +
+              'margin-left:6px;padding:0 5px;border-radius:999px;background:#b3261e;color:#fff;font-size:11px;font-weight:700';
+            a.appendChild(b);
+          }
+          b.textContent = n > 99 ? '99+' : String(n);
+        });
+        var acct = document.getElementById('hub-account-btn');
+        if (acct) {
+          var dot = acct.querySelector('.hub-unread-dot');
+          if (n && !dot) {
+            dot = document.createElement('span');
+            dot.className = 'hub-unread-dot';
+            dot.style.cssText = 'position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;background:#b3261e';
+            acct.style.position = 'fixed';
+            acct.appendChild(dot);
+          } else if (!n && dot) { dot.remove(); }
+        }
+      })
+      .catch(function () {});
+  };
+
   window.Hub = Hub;
 
   // Load the HUB Spanish (EN/ES) dictionary once — it registers with the shared i18n engine.
@@ -221,10 +257,15 @@
     (document.head || document.documentElement).appendChild(i18nScript);
   }
 
-  // Auto-mount the universal Account button on any page that loads hub.js.
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', Hub.mountAccountButton);
-  } else {
+  // Auto-mount the universal Account button + unread badge on any page that loads hub.js.
+  function autoMount() {
     Hub.mountAccountButton();
+    Hub.refreshUnreadBadge();
+    setInterval(Hub.refreshUnreadBadge, 60000); // refresh the badge once a minute
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoMount);
+  } else {
+    autoMount();
   }
 })();

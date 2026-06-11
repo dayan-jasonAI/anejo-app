@@ -37,6 +37,8 @@
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML =
+      '<div class="hub-section"><a class="btn gold block" href="/hub/comms.html">💬 <span data-i18n>Open Messages</span></a></div>' +
+      '<div class="hub-section"><h2 data-i18n>Open tickets</h2><div id="tickets" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>All alerts</h2>' +
       '<div class="card"><label data-i18n>Filter</label><select id="afilter"><option value="open" data-i18n>Open</option><option value="all" data-i18n>All</option></select></div>' +
       '<div id="alerts"><div class="hub-loading">…</div></div></div>' +
@@ -44,9 +46,64 @@
 
     var f = document.getElementById('afilter');
     f.addEventListener('change', function () { loadAlerts(f.value); });
+    loadTickets();
     loadAlerts('open');
     loadFeed();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function loadTickets() {
+    Owner.get('/api/hub/owner/tickets?status=open').then(function (d) {
+      var el = document.getElementById('tickets');
+      if (!el) return;
+      if (!d || !d.ok || !d.items || !d.items.length) {
+        el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No open tickets.</p></div>';
+        if (window.AnejoI18n) window.AnejoI18n.refresh();
+        return;
+      }
+      el.innerHTML = d.items.map(function (tk) {
+        return '<div class="row" data-trow="' + Owner.esc(tk.id) + '"><div class="row-main">' +
+          '<div class="row-title">' + Owner.esc(tk.title || tk.ticket_type) + '</div>' +
+          '<div class="row-sub">' + Owner.esc(tk.creator_name || tk.created_by || '') + ' · ' + Owner.esc(tk.ticket_type || '') + ' · ' + Owner.timeAgo(tk.created_at) + '</div>' +
+          (tk.body ? '<div class="row-sub">' + Owner.esc(tk.body) + '</div>' : '') +
+          '<div class="resolve-box" data-rbox="' + Owner.esc(tk.id) + '" style="display:none;margin-top:8px">' +
+          '<input type="text" data-rinput="' + Owner.esc(tk.id) + '" placeholder="Resolution note (optional)" style="width:100%;margin-bottom:6px">' +
+          '<button class="btn gold" data-rconfirm="' + Owner.esc(tk.id) + '" type="button" data-i18n>Mark resolved</button> ' +
+          '<button class="btn ghost" data-rcancel="' + Owner.esc(tk.id) + '" type="button" data-i18n>Cancel</button>' +
+          '</div></div>' +
+          Owner.badge(tk.severity, Owner.kindFor(tk.severity)) +
+          '<button class="btn ghost" data-resolve="' + Owner.esc(tk.id) + '" type="button" data-i18n>Resolve</button>' +
+          '</div>';
+      }).join('');
+      el.querySelectorAll('[data-resolve]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var idv = b.getAttribute('data-resolve');
+          var box = el.querySelector('[data-rbox="' + idv + '"]');
+          if (box) { box.style.display = 'block'; b.style.display = 'none'; }
+        });
+      });
+      el.querySelectorAll('[data-rcancel]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var idv = b.getAttribute('data-rcancel');
+          var box = el.querySelector('[data-rbox="' + idv + '"]');
+          var rb = el.querySelector('[data-resolve="' + idv + '"]');
+          if (box) box.style.display = 'none';
+          if (rb) rb.style.display = '';
+        });
+      });
+      el.querySelectorAll('[data-rconfirm]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var idv = b.getAttribute('data-rconfirm');
+          var inp = el.querySelector('[data-rinput="' + idv + '"]');
+          b.disabled = true;
+          Hub.api('/api/hub/owner/tickets', { method: 'POST', body: { id: idv, action: 'resolve', resolution: (inp && inp.value || '').trim() } }).then(function (r) {
+            if (r && r.ok) { Hub.toast('Ticket resolved'); loadTickets(); }
+            else { b.disabled = false; Hub.toast('Could not resolve ticket'); }
+          });
+        });
+      });
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
   }
 
   function loadAlerts(status) {

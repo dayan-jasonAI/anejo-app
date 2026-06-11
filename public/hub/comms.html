@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Comms</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  /* Page-local: chat bubbles + channel toggle (shared shell stays untouched). */
+  .bubbles { display: flex; flex-direction: column; padding: 4px 2px 12px; }
+  .bubble { max-width: 80%; padding: 10px 12px; border-radius: 14px; margin: 5px 0; font-size: 14px; line-height: 1.4; word-break: break-word; white-space: pre-wrap; }
+  .bubble.mine { align-self: flex-end; background: var(--green); color: #fff; border-bottom-right-radius: 4px; }
+  .bubble.theirs { align-self: flex-start; background: var(--white); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .bubble .bubble-meta { font-size: 11px; opacity: .7; margin-top: 4px; }
+  .chan-toggle { display: flex; gap: 8px; margin-bottom: 10px; }
+  .chan-toggle .btn { flex: 1; }
+  .chan-toggle .btn.active { background: var(--green); color: #fff; border-color: var(--green); }
+  .thread-row { cursor: pointer; }
+  .badge.unread { background: var(--gold); color: var(--black); margin-left: 8px; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · COMMS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <!-- LIST + COMPOSE -->
+  <div id="view-list">
+    <div class="hub-section">
+      <h2 class="row-title" data-i18n>New message</h2>
+      <div class="card">
+        <div id="compose-to"></div>
+        <label for="compose-subject" data-i18n>Subject (optional)</label>
+        <input id="compose-subject" type="text" maxlength="140">
+        <label for="compose-body" data-i18n>Message</label>
+        <textarea id="compose-body" maxlength="4000"></textarea>
+        <button class="btn block gold" id="compose-send" type="button" style="margin-top:10px" data-i18n>Send</button>
+      </div>
+    </div>
+    <div class="hub-section">
+      <h2 class="row-title" data-i18n>Messages</h2>
+      <div id="threads"><div class="hub-loading" data-i18n>Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- THREAD DETAIL -->
+  <div id="view-thread" style="display:none">
+    <div class="hub-section">
+      <button class="btn ghost" id="back-btn" type="button" data-i18n>← Back</button>
+      <div class="card" id="thread-head" style="margin-top:10px"></div>
+      <div id="bubbles" class="bubbles"><div class="hub-loading" data-i18n>Loading…</div></div>
+      <div class="card">
+        <div class="chan-toggle">
+          <button class="btn ghost active" id="chan-inapp" type="button" data-i18n>In-app</button>
+          <button class="btn ghost" id="chan-sms" type="button" data-i18n>SMS</button>
+        </div>
+        <textarea id="reply-body" maxlength="4000"></textarea>
+        <button class="btn block gold" id="reply-send" type="button" style="margin-top:10px" data-i18n>Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script>
+(function () {
+  Hub.boot();
+
+  var ltBtn = document.getElementById('lang-toggle');
+  if (ltBtn && window.AnejoLang) {
+    ltBtn.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    ltBtn.addEventListener('click', function () {
+      var next = window.AnejoLang.get() === 'es' ? 'en' : 'es';
+      window.AnejoLang.set(next);
+      ltBtn.textContent = next === 'es' ? 'EN' : 'ES';
+    });
+  }
+
+  var me = null;
+  var role = null;
+  var channel = 'in_app';
+  var pollT = 0;
+  var currentThread = null;
+
+  function refreshI18n() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+
+  function timeAgo(ts) {
+    if (!ts) return '';
+    var d = Date.now() - Number(ts);
+    if (d < 60000) return 'just now';
+    if (d < 3600000) return Math.floor(d / 60000) + 'm';
+    if (d < 86400000) return Math.floor(d / 3600000) + 'h';
+    return Math.floor(d / 86400000) + 'd';
+  }
+
+  function badgeKind(aud) {
+    if (aud === 'broadcast') return 'info';
+    if (aud === 'vendor') return 'warn';
+    return '';
+  }
+
+  // ---------- routing (hash: #t=<thread_id>) ----------
+  function threadIdFromHash() {
+    var m = (location.hash || '').match(/#t=([A-Za-z0-9_-]+)/);
+    return m ? m[1] : null;
+  }
+
+  function route() {
+    var tid = threadIdFromHash();
+    if (tid) showThread(tid); else showList();
+  }
+  window.addEventListener('hashchange', route);
+
+  function stopPoll() { if (pollT) { clearInterval(pollT); pollT = 0; } }
+
+  // ---------- thread list + compose ----------
+  function showList() {
+    stopPoll();
+    currentThread = null;
+    document.getElementById('view-thread').style.display = 'none';
+    document.getElementById('view-list').style.display = '';
+    loadThreads();
+  }
+
+  function loadThreads() {
+    Hub.api('/api/hub/comms/threads').then(function (d) {
+      var el = document.getElementById('threads');
+      if (!d || !d.ok) {
+        el.innerHTML = '<div class="hub-empty" data-i18n>Could not load.</div>';
+        refreshI18n();
+        return;
+      }
+      if (role === 'owner' && d.recipients) renderRecipientSelect(d.recipients);
+      if (!d.items.length) {
+        el.innerHTML = '<div class="hub-empty" data-i18n>No conversations yet. Start one above.</div>';
+        refreshI18n();
+        return;
+      }
+      el.innerHTML = '<div class="list">' + d.items.map(function (t) {
+        return '<div class="row thread-row" data-tid="' + Hub.esc(t.id) + '">' +
+          '<div class="row-main"><div class="row-title">' + Hub.esc(t.counterparty_name || t.subject || 'Conversation') + '</div>' +
+          '<div class="row-sub">' + Hub.esc(t.preview || t.subject || '') + '</div></div>' +
+          (t.unread_count > 0 ? '<span class="badge unread">' + Hub.esc(String(t.unread_count)) + '</span>' : '') +
+          '<span class="badge ' + badgeKind(t.audience) + '" data-i18n>' + Hub.esc(t.audience) + '</span>' +
+          '<span class="row-sub" style="margin-left:8px">' + Hub.esc(timeAgo(t.last_message_at)) + '</span></div>';
+      }).join('') + '</div>';
+      el.querySelectorAll('[data-tid]').forEach(function (r) {
+        r.addEventListener('click', function () { location.hash = '#t=' + r.getAttribute('data-tid'); });
+      });
+      refreshI18n();
+    });
+  }
+
+  function renderRecipientSelect(recipients) {
+    var box = document.getElementById('compose-to');
+    if (box.querySelector('select')) {
+      // keep current selection, just rebuild options if list changed size
+      var sel0 = box.querySelector('select');
+      if (sel0.options.length === recipients.length + 2) return;
+    }
+    var opts = '<option value="" data-i18n>Select recipient…</option>' +
+      recipients.map(function (r) {
+        return '<option value="' + Hub.esc(r.id) + '">' + Hub.esc((r.name || r.id) + ' · ' + r.role) + '</option>';
+      }).join('') +
+      '<option value="broadcast" data-i18n>Broadcast (all staff)</option>';
+    box.innerHTML = '<label for="compose-recipient" data-i18n>To</label><select id="compose-recipient">' + opts + '</select>';
+    refreshI18n();
+  }
+
+  function setupCompose() {
+    var box = document.getElementById('compose-to');
+    if (role !== 'owner') {
+      box.innerHTML = '<p class="row-sub" data-i18n>Message the owner</p>';
+    }
+    document.getElementById('compose-send').addEventListener('click', function () {
+      var btn = this;
+      var body = document.getElementById('compose-body').value.trim();
+      if (!body) { Hub.toast('Write a message first.'); return; }
+      var payload = { body: body };
+      var subject = document.getElementById('compose-subject').value.trim();
+      if (subject) payload.subject = subject;
+      if (role === 'owner') {
+        var sel = document.getElementById('compose-recipient');
+        var v = sel ? sel.value : '';
+        if (!v) { Hub.toast('Pick a recipient.'); return; }
+        if (v === 'broadcast') payload.audience = 'broadcast';
+        else payload.staff_id = v;
+      }
+      btn.disabled = true;
+      Hub.api('/api/hub/comms/threads', { method: 'POST', body: payload }).then(function (r) {
+        btn.disabled = false;
+        if (r && r.ok) {
+          document.getElementById('compose-body').value = '';
+          document.getElementById('compose-subject').value = '';
+          Hub.toast('Message sent');
+          location.hash = '#t=' + r.thread.id;
+        } else {
+          Hub.toast((r && r.error) || 'Could not send');
+        }
+      });
+    });
+  }
+
+  // ---------- thread detail ----------
+  function setChannel(c) {
+    channel = c;
+    document.getElementById('chan-inapp').classList.toggle('active', c === 'in_app');
+    document.getElementById('chan-sms').classList.toggle('active', c === 'sms');
+  }
+
+  function showThread(tid) {
+    stopPoll();
+    currentThread = tid;
+    document.getElementById('view-list').style.display = 'none';
+    document.getElementById('view-thread').style.display = '';
+    setChannel('in_app');
+    loadMessages(tid, true);
+    pollT = setInterval(function () { loadMessages(tid, false); }, 10000);
+  }
+
+  function loadMessages(tid, showLoading) {
+    if (showLoading) {
+      document.getElementById('bubbles').innerHTML = '<div class="hub-loading" data-i18n>Loading…</div>';
+      refreshI18n();
+    }
+    Hub.api('/api/hub/comms/messages?thread_id=' + encodeURIComponent(tid)).then(function (d) {
+      if (currentThread !== tid) return; // navigated away while loading
+      var bub = document.getElementById('bubbles');
+      if (!d || !d.ok) {
+        bub.innerHTML = '<div class="hub-empty" data-i18n>Could not load.</div>';
+        refreshI18n();
+        return;
+      }
+      var t = d.thread || {};
+      document.getElementById('thread-head').innerHTML =
+        '<div class="row"><div class="row-main"><div class="row-title">' + Hub.esc(t.counterparty_name || 'Conversation') + '</div>' +
+        '<div class="row-sub">' + Hub.esc(t.subject || '') + '</div></div>' +
+        '<span class="badge ' + badgeKind(t.audience) + '" data-i18n>' + Hub.esc(t.audience || '') + '</span></div>';
+      var smsBtn = document.getElementById('chan-sms');
+      smsBtn.style.display = t.can_sms ? '' : 'none';
+      if (!t.can_sms && channel === 'sms') setChannel('in_app');
+      if (!d.items.length) {
+        bub.innerHTML = '<div class="hub-empty" data-i18n>No messages yet.</div>';
+      } else {
+        var nearBottom = (bub.scrollHeight - bub.scrollTop - bub.clientHeight) < 60;
+        bub.innerHTML = d.items.map(function (m) {
+          var meta = (m.channel && m.channel !== 'in_app' ? m.channel.toUpperCase() + ' · ' : '') + timeAgo(m.created_at);
+          return '<div class="bubble ' + (m.mine ? 'mine' : 'theirs') + '">' + Hub.esc(m.body) +
+            '<div class="bubble-meta">' + Hub.esc(meta) + '</div></div>';
+        }).join('');
+        if (showLoading || nearBottom) window.scrollTo(0, document.body.scrollHeight);
+      }
+      refreshI18n();
+    });
+  }
+
+  document.getElementById('back-btn').addEventListener('click', function () {
+    location.hash = '';
+  });
+  document.getElementById('chan-inapp').addEventListener('click', function () { setChannel('in_app'); });
+  document.getElementById('chan-sms').addEventListener('click', function () { setChannel('sms'); });
+
+  document.getElementById('reply-send').addEventListener('click', function () {
+    var btn = this;
+    var body = document.getElementById('reply-body').value.trim();
+    if (!body || !currentThread) { Hub.toast('Write a message first.'); return; }
+    btn.disabled = true;
+    Hub.api('/api/hub/comms/messages', {
+      method: 'POST',
+      body: { thread_id: currentThread, body: body, channel: channel },
+    }).then(function (r) {
+      btn.disabled = false;
+      if (r && r.ok) {
+        document.getElementById('reply-body').value = '';
+        Hub.toast('Message sent');
+        loadMessages(currentThread, false);
+      } else {
+        Hub.toast((r && r.error) || 'Could not send');
+      }
+    });
+  });
+
+  // ---------- boot: any authenticated session may use comms ----------
+  Hub.me().then(function (d) {
+    if (!d || !d.authenticated) { window.location.replace('/login'); return; }
+    me = d;
+    role = Hub.roleFromMe(d) || (d.trainer ? 'trainer' : 'client');
+    Hub.track('dashboard.viewed', { view: 'comms' });
+    setupCompose();
+    route();
+  });
+})();
+</script>
+</body>
+</html>

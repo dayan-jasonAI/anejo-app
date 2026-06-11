@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Vendor · Añejo HUB</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="apple-touch-icon" href="/assets/img/emblem.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Añejo Vendor">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · VENDOR</h1>
+  <div class="hub-bar-actions">
+    <button id="lang-toggle" type="button">ES</button>
+  </div>
+</div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <h2 class="row-title" data-i18n>Open purchase orders</h2>
+    <div id="open-pos"><div class="card"><p class="row-sub" data-i18n>Loading…</p></div></div>
+  </div>
+
+  <div class="hub-section">
+    <h2 class="row-title" data-i18n>Recently delivered</h2>
+    <div id="delivered-pos" class="list"><div class="hub-empty" data-i18n>Loading…</div></div>
+  </div>
+
+  <div class="hub-section">
+    <h2 class="row-title" data-i18n>Quick links</h2>
+    <div class="card-grid">
+      <a class="btn ghost" href="/hub/comms.html">💬 <span data-i18n>Messages</span></a>
+      <a class="btn ghost" href="/hub/account.html" data-i18n>Account</a>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script>
+(function () {
+  Hub.boot();
+
+  var ltBtn = document.getElementById('lang-toggle');
+  if (ltBtn && window.AnejoLang) {
+    ltBtn.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    ltBtn.addEventListener('click', function () {
+      var next = window.AnejoLang.get() === 'es' ? 'en' : 'es';
+      window.AnejoLang.set(next);
+      ltBtn.textContent = next === 'es' ? 'EN' : 'ES';
+    });
+  }
+
+  function timeAgo(ms) {
+    if (!ms) return '';
+    var s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    if (s < 60) return s + 's ago';
+    var m = Math.round(s / 60);
+    if (m < 60) return m + 'm ago';
+    var h = Math.round(m / 60);
+    if (h < 24) return h + 'h ago';
+    return Math.round(h / 24) + 'd ago';
+  }
+
+  function shortPo(id) {
+    return String(id || '').replace(/^po_/, '').slice(0, 6).toUpperCase();
+  }
+
+  function statusBadge(p) {
+    if (p.status === 'submitted') return '<span class="badge warn" data-i18n>submitted</span>';
+    if (p.status === 'acknowledged') return '<span class="badge info" data-i18n>acknowledged</span>';
+    if (p.status === 'delivered') {
+      return p.received_complete === 0
+        ? '<span class="badge crit" data-i18n>incomplete</span>'
+        : '<span class="badge ok" data-i18n>delivered</span>';
+    }
+    return '<span class="badge">' + Hub.esc(p.status) + '</span>';
+  }
+
+  function itemLines(p) {
+    return (p.items || []).map(function (it) {
+      var qty = it.qty != null ? ' × ' + Hub.esc(it.qty) + (it.unit ? ' ' + Hub.esc(it.unit) : '') : '';
+      return '<div class="row-sub">' + Hub.esc(it.name) + qty + '</div>';
+    }).join('');
+  }
+
+  function act(poId, action, receivedComplete, btn) {
+    btn.disabled = true;
+    var body = { id: poId, action: action };
+    if (action === 'confirm_delivery') body.received_complete = receivedComplete;
+    Hub.api('/api/hub/vendor/pos', { method: 'POST', body: body }).then(function (r) {
+      if (r && r.ok) {
+        Hub.toast(action === 'acknowledge' ? 'PO acknowledged' : 'Delivery confirmed');
+        load();
+      } else {
+        Hub.toast((r && r.error) || 'Could not update');
+        btn.disabled = false;
+      }
+    });
+  }
+
+  function renderOpen(items) {
+    var el = document.getElementById('open-pos');
+    var open = items.filter(function (p) { return p.status === 'submitted' || p.status === 'acknowledged'; });
+    if (!open.length) {
+      el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No open purchase orders.</p></div>';
+      return;
+    }
+    el.innerHTML = open.map(function (p) {
+      var total = p.total_cents != null
+        ? '<div class="row-sub" style="margin-top:6px"><span data-i18n>Total</span> ' + Hub.money(p.total_cents) + '</div>'
+        : '';
+      var actions;
+      if (p.status === 'submitted') {
+        actions = '<button class="btn block gold" type="button" style="margin-top:12px" data-ack="' + Hub.esc(p.id) + '" data-i18n>Acknowledge</button>';
+      } else {
+        actions =
+          '<label class="row-sub" style="display:flex;align-items:center;gap:8px;margin-top:12px">' +
+          '<input type="checkbox" checked data-complete="' + Hub.esc(p.id) + '"> <span data-i18n>Everything arrived?</span></label>' +
+          '<button class="btn block gold" type="button" style="margin-top:10px" data-deliver="' + Hub.esc(p.id) + '" data-i18n>Mark delivered</button>';
+      }
+      return '<div class="card" style="margin-bottom:10px">' +
+        '<div class="row" style="padding:0 0 8px;border:0"><div class="row-main">' +
+        '<div class="row-title">PO ' + shortPo(p.id) + '</div>' +
+        '<div class="row-sub">' + (p.created_by_name ? Hub.esc(p.created_by_name) + ' · ' : '') + timeAgo(p.submitted_at || p.created_at) + '</div>' +
+        '</div>' + statusBadge(p) + '</div>' +
+        itemLines(p) + total + actions + '</div>';
+    }).join('');
+
+    el.querySelectorAll('[data-ack]').forEach(function (b) {
+      b.addEventListener('click', function () { act(b.getAttribute('data-ack'), 'acknowledge', true, b); });
+    });
+    el.querySelectorAll('[data-deliver]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var poId = b.getAttribute('data-deliver');
+        var cb = el.querySelector('[data-complete="' + poId + '"]');
+        act(poId, 'confirm_delivery', !cb || cb.checked, b);
+      });
+    });
+  }
+
+  function renderDelivered(items) {
+    var el = document.getElementById('delivered-pos');
+    var done = items.filter(function (p) { return p.status === 'delivered'; }).slice(0, 5);
+    if (!done.length) {
+      el.innerHTML = '<div class="hub-empty" data-i18n>No deliveries yet.</div>';
+      return;
+    }
+    el.innerHTML = done.map(function (p) {
+      return '<div class="row"><div class="row-main">' +
+        '<div class="row-title">PO ' + shortPo(p.id) + '</div>' +
+        '<div class="row-sub">' + ((p.items || []).length) + ' <span data-i18n>items</span> · ' + timeAgo(p.delivered_at || p.created_at) + '</div>' +
+        '</div>' + statusBadge(p) + '</div>';
+    }).join('');
+  }
+
+  function load() {
+    Hub.api('/api/hub/vendor/pos').then(function (d) {
+      var items = (d && d.items) || [];
+      renderOpen(items);
+      renderDelivered(items);
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  Hub.guard(['vendor', 'owner']).then(function (me) {
+    if (!me) return;
+    Hub.track('dashboard.viewed', { view: 'vendor' });
+    load();
+    setInterval(load, 30000);
+  });
+})();
+</script>
+</body>
+</html>

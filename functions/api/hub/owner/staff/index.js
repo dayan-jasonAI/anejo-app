@@ -6,6 +6,8 @@
 import { json, bad, id as genId, now, isEmail } from '../../../../_lib/util.js';
 import { requireRole } from '../../../../_lib/roles.js';
 import { newSalt, hashPin, validPinFormat, randomPin } from '../../../../_lib/pin.js';
+import { capture } from '../../../../_lib/track.js';
+import { sendSms } from '../../../../_lib/twilio.js';
 
 const ROLES = ['owner', 'kitchen', 'driver', 'vendor'];
 const TEAMS = ['kitchen', 'delivery', 'training', 'front_office', 'vendors'];
@@ -71,6 +73,24 @@ export const onRequestPost = async ({ request, env }) => {
       if (String(e).includes('UNIQUE')) return bad('A staff member with that email already exists.', 409);
       throw e;
     }
+    // Lifecycle: user.invited (tracking plan) — channel reflects how they'll sign in.
+    await capture(env, {
+      event: 'user.invited',
+      distinct_id: ctx.distinct_id,
+      role: ctx.role,
+      team: ctx.team,
+      properties: { invited_role: role, channel: phone ? 'sms' : 'email', invited_staff_id: sid },
+    });
+
+    // Welcome SMS — ONLY when the PIN was generated server-side (never echo an
+    // owner-chosen PIN over SMS) and a phone exists. Safe no-op without Twilio creds.
+    if (!b.pin && phone) {
+      await sendSms(env, {
+        to: phone,
+        body: `Welcome to Añejo HUB — sign in at https://anejocateringco.com/login with your phone + PIN ${pin}.`,
+      });
+    }
+
     // Return the plaintext PIN ONCE so the owner can relay it (it is never stored or shown again).
     return json({ ok: true, id: sid, initial_pin: pin });
   }
