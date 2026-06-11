@@ -61,6 +61,23 @@ export const onRequestPost = async ({ request, env }) => {
 
   const ts = now();
 
+  // Honor SMS opt-out/opt-in keywords in our own records (Twilio also enforces STOP at the
+  // carrier level; this keeps clients.sms_consent accurate so we never re-attempt a texted opt-out).
+  const kw = body.trim().toUpperCase();
+  const STOP_KW = ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'];
+  const START_KW = ['START', 'YES', 'UNSTOP'];
+  if (STOP_KW.includes(kw) || START_KW.includes(kw)) {
+    const consent = START_KW.includes(kw) ? 1 : 0;
+    const last10 = digits(from).slice(-10);
+    if (last10.length >= 7) {
+      try {
+        await env.DB.prepare(
+          "UPDATE clients SET sms_consent = ?, updated_at = ? WHERE replace(replace(replace(replace(replace(phone,'+',''),'-',''),' ',''),'(',''),')','') LIKE ?"
+        ).bind(consent, ts, '%' + last10).run();
+      } catch { /* best-effort */ }
+    }
+  }
+
   try {
     // Match the sender against staff phones (last 10 digits, JS-side normalize).
     const fromDigits = digits(from).slice(-10);

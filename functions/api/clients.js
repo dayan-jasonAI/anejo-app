@@ -45,6 +45,7 @@ export const onRequestPost = async ({ request, env }) => {
   const allergens = Array.isArray(b.allergens) ? b.allergens : [];
   const lang = b.lang === 'es' ? 'es' : 'en';
   const phone = normalizePhone(b.phone);
+  const smsConsent = (b.sms_consent === true || b.sms_consent === 1) ? 1 : 0;
 
   const cid = id('cl');
   const ts = now();
@@ -52,14 +53,14 @@ export const onRequestPost = async ({ request, env }) => {
     await env.DB
       .prepare(
         `INSERT INTO clients (id, trainer_id, email, name, age, sex, height_cm, weight_kg,
-            activity_level, primary_goal, conditions, allergens, preferences, lang, phone, status, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+            activity_level, primary_goal, conditions, allergens, preferences, lang, phone, sms_consent, status, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       )
       .bind(cid, sess.uid, (b.email || '').trim() || null, name,
             b.age != null ? Number(b.age) : null, b.sex || null, height_cm, weight_kg,
             b.activity_level || null, b.primary_goal || null,
             JSON.stringify(conditions), JSON.stringify(allergens), (b.preferences || '').trim() || null,
-            lang, phone, 'pending', ts, ts)
+            lang, phone, smsConsent, 'pending', ts, ts)
       .run();
   } catch (e) {
     if (String(e.message || '').includes('UNIQUE')) return bad('A client with that email already exists.', 409);

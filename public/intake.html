@@ -32,6 +32,13 @@
           <div><label>Email <span style="opacity:.6">(optional)</span></label><input name="email" type="email" autocomplete="off" placeholder="member@email.com" /></div>
           <div><label>Mobile <span style="opacity:.6">(optional)</span></label><input name="phone" type="tel" autocomplete="off" placeholder="(561) 555-0134" /></div>
         </div>
+        <div class="row" style="background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:11px 13px">
+          <label style="display:flex;gap:9px;align-items:flex-start;font-weight:400;cursor:pointer;margin:0">
+            <input type="checkbox" name="sms_consent" style="margin-top:3px;width:auto;flex:none" />
+            <span>Member agrees to receive order &amp; delivery text updates from Añejo at this mobile number (with their permission).</span>
+          </label>
+          <p style="margin:7px 0 0;font-size:11.5px;line-height:1.5;opacity:.7">Message frequency varies per order &amp; delivery. Msg &amp; data rates may apply. Reply STOP to cancel. Consent is not a condition of purchase.</p>
+        </div>
         <div class="row grid-2">
           <div><label>Age</label><input name="age" type="number" min="18" max="90" required /></div>
           <div><label>Sex</label>
@@ -43,7 +50,7 @@
           </div>
         </div>
         <div class="row grid-2">
-          <div><label>Height (in)</label><input name="height_in" type="number" min="48" max="84" required /></div>
+          <div><label>Height</label><div style="display:flex;gap:8px"><input name="height_ft" type="number" min="3" max="8" placeholder="ft" aria-label="Height (feet)" required /><input name="height_in" type="number" min="0" max="11" placeholder="in" aria-label="Height (inches)" required /></div></div>
           <div><label>Weight (lb)</label><input name="weight_lb" type="number" min="80" max="500" required /></div>
         </div>
       </div>

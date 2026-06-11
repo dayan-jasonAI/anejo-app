@@ -19,8 +19,9 @@ form.addEventListener('submit', async (ev) => {
   const conditions = Array.from(form.querySelectorAll('input[name=conditions]:checked')).map(el => el.value);
   const allergens  = Array.from(form.querySelectorAll('input[name=allergens]:checked')).map(el => el.value);
 
-  // Imperial → metric (the engine speaks Mifflin–St Jeor in metric).
-  const heightCm = +(Number(data.get('height_in')) * 2.54).toFixed(1);
+  // Imperial → metric (the engine speaks Mifflin–St Jeor in metric). Height is ft + in.
+  const totalIn = (Number(data.get('height_ft')) || 0) * 12 + (Number(data.get('height_in')) || 0);
+  const heightCm = +(totalIn * 2.54).toFixed(1);
   const weightKg = +(Number(data.get('weight_lb')) * 0.4535924).toFixed(1);
 
   const payload = {
@@ -28,6 +29,7 @@ form.addEventListener('submit', async (ev) => {
     name: (data.get('name') || '').trim(),
     email: (data.get('email') || '').trim(),
     phone: (data.get('phone') || '').trim(),
+    sms_consent: !!(form.querySelector('input[name=sms_consent]') && form.querySelector('input[name=sms_consent]').checked),
     age: Number(data.get('age')),
     sex: data.get('sex'),
     height_cm: heightCm,
