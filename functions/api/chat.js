@@ -15,7 +15,7 @@ WHAT AÑEJO OFFERS
 - Añejo Bites (Cuban-Latin finger food: croquetas, empanadas, etc.) — wholesale for venues.
 - Weekly meal-plan subscriptions: we ALWAYS recommend up to 12 bowls/week, but 5- and 10-bowl plans are also available — recurring, cancel anytime. Each bowl is portion-sized to the member's goal from our macro calculator: a standard bowl is 16 oz (~$18.25); lighter goals get smaller bowls that cost less, higher-calorie goals get larger bowls that cost more. Weekly price = the member's per-bowl price × bowls per week. To get an exact quote, point people to the free calculator at /calculator, then /subscribe. (The à-la-carte bowl prices above are for single retail bowls.)
 - A free AI macro calculator at /calculator (informational only, NOT medical or dietary advice) — it sets daily macros and sizes each Añejo bowl (and its price) to the person's goal.
-- Trainer/gym partner program: trainers create client plans and earn 10% recurring.
+- Trainer/gym partner program: trainers create client plans for members who subscribe to Añejo directly. For partnership details, point them to dayan@anejocateringco.com — do NOT quote specific commission or revenue-share rates.
 
 DELIVERY (this is important — get it right)
 - DELIVERY ONLY (no pickup), within Palm Beach County, Florida.

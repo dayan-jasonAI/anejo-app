@@ -18,7 +18,7 @@
     // home calculator band
     "Free · AI-Personalized · 10 Seconds":"Gratis · Personalizado con IA · 10 Segundos",
     "Find your macros.":"Encuentra tus macros.","Get your bowls.":"Arma tus bowls.",
-    "Answer a few quick questions and our AI builds your daily macro targets plus a weekly Añejo bowl rotation tuned to your goal — no sign-up. Trainers can generate plans for clients and earn 10% recurring.":"Responde unas preguntas rápidas y nuestra IA arma tus macros diarios y una rotación semanal de bowls Añejo ajustada a tu meta — sin registrarte. Los entrenadores pueden generar planes para clientes y ganar 10% recurrente.",
+    "Answer a few quick questions and our AI builds your daily macro targets plus a weekly Añejo bowl rotation tuned to your goal — no sign-up.":"Responde unas preguntas rápidas y nuestra IA arma tus macros diarios y una rotación semanal de bowls Añejo ajustada a tu meta — sin registrarte.",
     "Build my macro plan →":"Crear mi plan de macros →","For trainers & gyms":"Para entrenadores y gimnasios",
     // story
     "The Story Behind the Brand":"La Historia Detrás de la Marca","It started with":"Empezó con","family":"la familia",
@@ -164,7 +164,7 @@
     "How does pricing and tax work?":"¿Cómo funcionan los precios y los impuestos?",
     "Bowl and drink prices are shown on the menu; applicable Florida and Palm Beach County sales tax is added at checkout. Payments are processed securely by Square.":"Los precios de bowls y bebidas se muestran en el menú; el impuesto sobre ventas aplicable de Florida y del Condado de Palm Beach se añade al pagar. Los pagos se procesan de forma segura con Square.",
     "I'm a trainer or gym — can I partner with Añejo?":"Soy entrenador o gimnasio, ¿puedo asociarme con Añejo?",
-    "Yes. Our trainer portal lets you generate macro-targeted bowl plans for your members, who subscribe directly — and you earn a 10% recurring share for as long as they eat with us.":"Sí. Nuestro portal de entrenadores te permite generar planes de bowls con macros para tus miembros, que se suscriben directamente — y ganas un 10% recurrente mientras coman con nosotros.",
+    "Yes. Our trainer portal lets you generate macro-targeted bowl plans for your members, who subscribe to Añejo directly. Ask us about our trainer & gym partner program.":"Sí. Nuestro portal de entrenadores te permite generar planes de bowls con macros para tus miembros, que se suscriben a Añejo directamente. Pregúntanos por nuestro programa de socios para entrenadores y gimnasios.",
     "Explore the trainer portal →":"Explora el portal de entrenadores →",
     "FAQ":"Preguntas",
     // testimonials
@@ -190,7 +190,7 @@
     "See your macros.":"Descubre tus macros.","Meet your bowls.":"Conoce tus bowls.",
     "Answer a few quick questions and our AI builds your exact daily targets — then a weekly Añejo bowl rotation tuned to your goal. Free, instant, no sign-up.":"Responde unas preguntas rápidas y nuestra IA arma tus objetivos diarios exactos — y una rotación semanal de bowls Añejo ajustada a tu meta. Gratis, al instante, sin registro.",
     "Build my free plan →":"Crear mi plan gratis →",
-    "Trainer or gym? Earn 10% →":"¿Entrenador o gimnasio? Gana 10% →",
+    "Trainer or gym? Partner with us →":"¿Entrenador o gimnasio? Asóciate con nosotros →",
     "Your daily targets":"Tus objetivos diarios","Sample":"Muestra","kcal / day":"kcal / día",
     "175g protein · 200g carbs · 65g fat":"175g proteína · 200g carbohidratos · 65g grasa",
     "Your weekly Añejo rotation":"Tu rotación semanal Añejo",
@@ -233,12 +233,12 @@
     // ===== trainer portal =====
     "Trainer Portal":"Portal de Entrenadores","For Gyms · Trainers · Wellness Clinics":"Para Gimnasios · Entrenadores · Clínicas de Bienestar",
     "Your members, on Añejo.":"Tus miembros, con Añejo.","AI-personalized.":"Personalizado con IA.",
-    "A turnkey tool for gym owners, trainers, and longevity clinics. Add a member, our AI generates a macro-targeted Mediterranean-Cuban bowl plan, you hand it to them. Members subscribe to Añejo direct — you earn a":"Una herramienta llave en mano para dueños de gimnasios, entrenadores y clínicas de longevidad. Agrega un miembro, nuestra IA genera un plan de bowls mediterráneo-cubano con macros, y se lo entregas. Los miembros se suscriben a Añejo directamente — tú ganas un",
-    "10% recurring share":"10% de comisión recurrente","for as long as they eat with us.":"mientras coman con nosotros.",
+    "A turnkey tool for gym owners, trainers, and longevity clinics. Add a member, our AI generates a macro-targeted Mediterranean-Cuban bowl plan, you hand it to them. Members subscribe to Añejo direct through our":"Una herramienta llave en mano para dueños de gimnasios, entrenadores y clínicas de longevidad. Agrega un miembro, nuestra IA genera un plan de bowls mediterráneo-cubano con macros, y se lo entregas. Los miembros se suscriben a Añejo directamente a través de nuestro",
+    "trainer & gym partner program":"programa de socios para entrenadores y gimnasios",
     "Generate a member plan →":"Generar un plan de miembro →","How it works":"Cómo funciona",
     "Enter a member's basics — age, weight, goal, conditions, allergens. Two minutes.":"Ingresa los datos de un miembro — edad, peso, meta, condiciones, alérgenos. Dos minutos.",
     "Our AI generates a personalized macro target + a weekly Añejo bowl rotation tuned to their goal.":"Nuestra IA genera un objetivo de macros personalizado + una rotación semanal de bowls Añejo ajustada a su meta.",
-    "Review, tweak if needed, send it to your member. They subscribe direct. You earn 10% recurring.":"Revisa, ajusta si hace falta, y envíaselo a tu miembro. Se suscribe directo. Tú ganas 10% recurrente.",
+    "Review, tweak if needed, send it to your member. They subscribe direct through our partner program.":"Revisa, ajusta si hace falta, y envíaselo a tu miembro. Se suscribe directo a través de nuestro programa de socios.",
     "Demo build. This release generates a sample plan to illustrate the partner experience; saved rosters, member checkout, and automated rev-share tracking ship in the next release. Plans are for general fitness and wellness — not medical advice. Añejo Catering Co. is not a medical provider.":"Versión demo. Esta versión genera un plan de muestra para ilustrar la experiencia de socio; el guardado de clientes, el pago de miembros y el seguimiento automático de comisiones llegan en la próxima versión. Los planes son para fitness y bienestar general — no son consejo médico. Añejo Catering Co. no es un proveedor médico.",
     "Añejo Trainer Portal — AI-personalized plans for your members":"Portal de Entrenadores Añejo — planes personalizados con IA para tus miembros",
     // ===== intake (trainer) =====
