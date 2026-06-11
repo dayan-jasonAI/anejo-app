@@ -36,7 +36,7 @@ All of the above passes `node --check`; none of it has been pushed yet.
 4. Then continue the workflow: trainer dashboard UI (#19), subscription checkout + 10% rev-share (#20), storefront (#21), content/SEO/legal (#22–24), QA (#25).
 
 ## Pending external setup (owner: Dayan) — see PROVISIONING.md
-Resend account + DNS; Square verification + catalog + secrets; FL DOR sales tax; **DBPR license = the go-live flip** (`SQUARE_ENV=production`). Build everything in **sandbox/test mode**; flip to live only once licensed.
+Resend email is **DONE** (domain verified, magic-link login sending live). Remaining: Square verification + catalog + secrets; FL DOR sales tax; **DBPR license = the go-live flip** (`SQUARE_ENV=production`). Build everything in **sandbox/test mode**; flip to live only once licensed.
 
 ## Guardrails
 Never commit secrets/API keys. Never put the kitchen street address on the site until the commissary lease + license land (use "Palm Beach County"). Don't take real payments before DBPR license.
