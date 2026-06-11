@@ -72,12 +72,20 @@ export const onRequestPost = async ({ request, env }) => {
             .prepare('SELECT 1 FROM orders WHERE square_order_id = ? AND created_at > ? LIMIT 1')
             .bind('sub_' + subProviderId, now() - 2 * 3600 * 1000).first();
           if (!recent) {
-            const client = await env.DB.prepare('SELECT name, email FROM clients WHERE id = ?').bind(sub.client_id).first();
+            const client = await env.DB.prepare(
+              'SELECT name, email, delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes, delivery_lat, delivery_lng FROM clients WHERE id = ?'
+            ).bind(sub.client_id).first();
             const plan = sub.plan_id ? await env.DB.prepare('SELECT bowl_rotation FROM plans WHERE id = ?').bind(sub.plan_id).first() : null;
+            const address = client && client.delivery_street ? {
+              street: client.delivery_street, unit: client.delivery_unit, city: client.delivery_city,
+              state: client.delivery_state, zip: client.delivery_zip, notes: client.delivery_notes,
+              lat: client.delivery_lat, lng: client.delivery_lng,
+            } : null;
             await createSubscriptionDelivery(env, {
               subscriptionId: subProviderId, orderId: 'ord_inv_' + invoiceId,
               planBowlRotation: plan ? plan.bowl_rotation : null, weeklyCents: gross,
               customerName: client && client.name, customerEmail: client && client.email,
+              address,
             });
             // Auto-renewal confirmation (consent-gated, no-op safe). Only on real renewals —
             // signup already sent a purchase confirmation, and that path skips this via `recent`.

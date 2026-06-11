@@ -28,15 +28,22 @@ export async function createSubscriptionDelivery(env, o) {
   }
   const oid = o.orderId || id('ord');
   const t = now();
+  // Delivery address (the subscriber's saved default) so each weekly order is routable.
+  const a = o.address || {};
   await env.DB.prepare(
     `INSERT OR IGNORE INTO orders
        (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
-        subtotal_cents, fee_cents, tax_pct, total_estimate_cents, status, customer_name, customer_email, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?, 'paid', ?, ?, ?, ?)`
+        subtotal_cents, fee_cents, tax_pct, total_estimate_cents,
+        delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
+        delivery_lat, delivery_lng, geocoded_at,
+        status, customer_name, customer_email, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'paid', ?, ?, ?, ?)`
   ).bind(
     oid, 'sub_' + o.subscriptionId, null, JSON.stringify(items),
     o.deliveryDate || nextWeeklyDeliveryDate(), o.deliveryWindow || 'lunch',
     o.weeklyCents || 0, 0, 0, o.weeklyCents || 0,
+    a.street || null, a.unit || null, a.city || null, a.state || null, a.zip || null, a.notes || null,
+    a.lat != null ? a.lat : null, a.lng != null ? a.lng : null, a.lat != null ? t : null,
     o.customerName || null, o.customerEmail || null, t, t
   ).run();
   return oid;

@@ -72,6 +72,16 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
     <label class="fld">Choose your weekly plan</label>
     <div class="plan-pick" id="planPick"></div>
 
+    <label class="fld">Delivery address</label>
+    <input class="b-input" id="a_street" type="text" autocomplete="address-line1" placeholder="Street address">
+    <input class="b-input" id="a_unit" type="text" autocomplete="address-line2" placeholder="Apt / unit / suite (optional)">
+    <div style="display:flex;gap:10px">
+      <input class="b-input" id="a_city" type="text" autocomplete="address-level2" placeholder="City" style="flex:2">
+      <input class="b-input" id="a_state" type="text" autocomplete="address-level1" placeholder="State" value="FL" style="flex:1">
+      <input class="b-input" id="a_zip" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="ZIP" style="flex:1">
+    </div>
+    <input class="b-input" id="a_notes" type="text" placeholder="Gate code, drop-off notes (optional)">
+
     <label class="fld" for="card-container">Card</label>
     <div id="card-container"></div>
 
@@ -166,6 +176,15 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
   }
   // Carry the chosen bowl size so the server charges the member's sized per-bowl price.
   if (bowlOz) body.bowlSizeOz = bowlOz;
+  // Delivery address — required so every weekly order can be routed.
+  var addr = {
+    street:(document.getElementById('a_street')||{}).value||'', unit:(document.getElementById('a_unit')||{}).value||'',
+    city:(document.getElementById('a_city')||{}).value||'', state:((document.getElementById('a_state')||{}).value||'FL'),
+    zip:(document.getElementById('a_zip')||{}).value||'', notes:(document.getElementById('a_notes')||{}).value||''
+  };
+  if(!addr.street.trim()||!addr.city.trim()){ msg.className='msg err'; msg.textContent='Please enter your delivery street address and city.'; return; }
+  if(!/^\d{5}$/.test(addr.zip.trim())){ msg.className='msg err'; msg.textContent='Please enter a valid 5-digit ZIP code.'; return; }
+  body.address = { street:addr.street.trim(), unit:addr.unit.trim(), city:addr.city.trim(), state:addr.state.trim()||'FL', zip:addr.zip.trim(), notes:addr.notes.trim() };
   btn.disabled=true; const lbl=btn.textContent; btn.textContent='Processing…';
   try {
     const tok = await card.tokenize();
