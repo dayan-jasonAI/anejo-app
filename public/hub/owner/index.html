@@ -13,6 +13,21 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Añejo HUB">
 <link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  /* Keep the Activity feed a compact, scrollable window on desktop so the bottom nav
+     (static at ≥900px) stays in view without scrolling past a long log. Mobile nav is
+     fixed, so no cap needed there. Expand toggle removes the cap. */
+  @media (min-width: 900px) {
+    #feed.feed-cap {
+      max-height: 320px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+  }
+  #feed-toggle { margin-top: 8px; }
+</style>
 </head>
 <body>
 <div class="hub-bar">
@@ -49,11 +64,22 @@
     root.innerHTML =
       '<div class="hub-section"><h2 data-i18n>At a glance</h2><div id="tiles" class="card-grid"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Alerts</h2><div id="alerts"><div class="hub-loading">…</div></div></div>' +
-      '<div class="hub-section"><h2 data-i18n>Activity</h2><div id="feed" class="list"><div class="hub-loading">…</div></div></div>';
+      '<div class="hub-section"><h2 data-i18n>Activity</h2>' +
+        '<div id="feed" class="list feed-cap"><div class="hub-loading">…</div></div>' +
+        '<button id="feed-toggle" class="btn ghost block" type="button" style="display:none" data-i18n>Expand</button></div>';
 
     loadTiles();
     loadAlerts();
     loadFeed();
+
+    var ft = document.getElementById('feed-toggle');
+    if (ft) ft.addEventListener('click', function () {
+      var el = document.getElementById('feed');
+      var collapsed = el.classList.toggle('feed-cap'); // true → now capped/collapsed
+      ft.textContent = collapsed ? 'Expand' : 'Collapse';
+      if (collapsed) el.scrollTop = 0;
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
   }
 
   function loadTiles() {
@@ -113,7 +139,14 @@
   function loadFeed() {
     Owner.get('/api/hub/owner/activity?limit=30').then(function (d) {
       var el = document.getElementById('feed');
-      if (!d || !d.ok || !d.items.length) { el.innerHTML = '<div class="hub-empty" data-i18n>No activity yet.</div>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
+      var toggle = document.getElementById('feed-toggle');
+      if (!d || !d.ok || !d.items.length) {
+        el.classList.remove('feed-cap');
+        el.innerHTML = '<div class="hub-empty" data-i18n>No activity yet.</div>';
+        if (toggle) toggle.style.display = 'none';
+        if (window.AnejoI18n) window.AnejoI18n.refresh();
+        return;
+      }
       el.innerHTML = d.items.map(function (it) {
         var who = it.actor_type === 'system' ? 'system' : (it.actor_role || 'staff');
         return '<div class="row"><div class="row-main">' +
@@ -121,6 +154,13 @@
           '<div class="row-sub">' + Owner.esc(who) + (it.team ? ' · ' + Owner.esc(it.team) : '') + ' · ' + Owner.timeAgo(it.created_at) + '</div>' +
           '</div></div>';
       }).join('');
+      // Show the Expand toggle only when the capped window actually overflows (desktop).
+      if (toggle) {
+        el.classList.add('feed-cap');
+        toggle.textContent = 'Expand';
+        toggle.style.display = (el.scrollHeight > el.clientHeight + 4) ? '' : 'none';
+        if (window.AnejoI18n) window.AnejoI18n.refresh();
+      }
     });
   }
 

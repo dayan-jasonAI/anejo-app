@@ -542,6 +542,9 @@
     "Name is required.": "El nombre es obligatorio.",
     "Could not onboard customer.": "No se pudo convertir al cliente.",
 
+    // ---- Activity feed expand/collapse ----
+    "Expand": "Expandir", "Collapse": "Contraer",
+
     // ---- Phase 5: D1 backup (owner AI Ops card) ----
     "Database backups": "Respaldos de base de datos", "Backup now": "Respaldar ahora",
     "Recent backups": "Respaldos recientes", "Creating backup…": "Creando respaldo…",
