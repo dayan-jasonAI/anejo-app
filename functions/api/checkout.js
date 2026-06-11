@@ -4,6 +4,29 @@
 import { json, bad, id, appBaseUrl } from '../_lib/util.js';
 import { square, squareConfigured, money } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
+import { geocode, formatAddress } from '../_lib/geo.js';
+
+// Validate + normalize a delivery address from the order form. Returns { addr } or { error }.
+// Street, city, and a 5-digit ZIP are required (we deliver within Palm Beach County).
+function parseAddress(raw) {
+  const a = raw || {};
+  const street = (a.street || '').trim();
+  const city = (a.city || '').trim();
+  const zip = (a.zip || '').trim();
+  if (!street) return { error: 'Please enter your delivery street address.' };
+  if (!city) return { error: 'Please enter your delivery city.' };
+  if (!/^\d{5}$/.test(zip)) return { error: 'Please enter a valid 5-digit ZIP code.' };
+  return {
+    addr: {
+      street: street.slice(0, 160),
+      unit: (a.unit || '').trim().slice(0, 60) || null,
+      city: city.slice(0, 80),
+      state: ((a.state || 'FL').trim() || 'FL').slice(0, 20),
+      zip,
+      notes: (a.notes || '').trim().slice(0, 240) || null,
+    },
+  };
+}
 
 // Authoritative à-la-carte catalog (base prices in USD). Bowl size/protein variations and
 // real bites retail pricing are a follow-up; these are the launch defaults.
@@ -66,7 +89,13 @@ export const onRequestPost = async ({ request, env }) => {
   const cutoff = midnightUtc - 2 * 3600 * 1000;   // ≈ 6 PM ET the prior day (EDT = UTC-4)
   if (Date.now() >= cutoff) return bad('That date has passed its order cutoff (6 PM the day before). Pick a later date.');
   if (midnightUtc - Date.now() > 24 * 24 * 3600 * 1000) return bad('Please choose a delivery date within the next few weeks.');
-  const deliveryNote = `Delivery: ${DOW[dow]} ${dateStr} · ${WINDOWS[win]}`;
+  // Delivery address (we collect it ourselves now and store it for routing).
+  const parsed = parseAddress(b.address);
+  if (parsed.error) return bad(parsed.error);
+  const addr = parsed.addr;
+  const addrLine = formatAddress({ street: addr.street, unit: addr.unit, city: addr.city, state: addr.state, zip: addr.zip });
+
+  const deliveryNote = `Delivery: ${DOW[dow]} ${dateStr} · ${WINDOWS[win]} · ${addrLine}`;
 
   // Order minimum + flat delivery fee (configurable via env).
   const orderMinCents = Math.round(Number(env.ORDER_MIN_USD || 25) * 100);
@@ -101,7 +130,8 @@ export const onRequestPost = async ({ request, env }) => {
       },
       checkout_options: {
         redirect_url: `${base}/order/confirmed`,
-        ask_for_shipping_address: true,   // delivery always needs an address
+        // We collect the delivery address ourselves (stored for routing), so don't ask twice.
+        ask_for_shipping_address: false,
       },
     },
   });
@@ -119,14 +149,23 @@ export const onRequestPost = async ({ request, env }) => {
   if (env.DB) {
     try {
       const t = Date.now();
+      // Best-effort geocode for routing (no-ops without GOOGLE_MAPS_API_KEY → lat/lng stay null,
+      // the owner route builder falls back to manual ordering).
+      let lat = null, lng = null, geocodedAt = null;
+      const g = await geocode(env, addrLine).catch(() => null);
+      if (g) { lat = g.lat; lng = g.lng; geocodedAt = t; }
       await env.DB.prepare(
         `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
-            subtotal_cents, fee_cents, tax_pct, total_estimate_cents, status, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
+            subtotal_cents, fee_cents, tax_pct, total_estimate_cents,
+            delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
+            delivery_lat, delivery_lng, geocoded_at, status, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
       ).bind(
         id('ord'), pl.order_id || null, pl.id || null, JSON.stringify(orderItems), dateStr, win,
         subtotalCents, feeCents, Number(taxPct),
-        Math.round((subtotalCents + feeCents) * (1 + Number(taxPct) / 100)), t, t
+        Math.round((subtotalCents + feeCents) * (1 + Number(taxPct) / 100)),
+        addr.street, addr.unit, addr.city, addr.state, addr.zip, addr.notes,
+        lat, lng, geocodedAt, t, t
       ).run();
     } catch (_) { /* never fail checkout on the order-log write */ }
   }

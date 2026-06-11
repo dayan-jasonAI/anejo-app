@@ -10,6 +10,21 @@ import { limitOr429 } from '../../_lib/ratelimit.js';
 import { createSubscriptionDelivery } from '../../_lib/suborders.js';
 import { clampPerBowlCents, perBowlCentsFromOz, STANDARD_PER_BOWL_CENTS } from '../../_lib/sizing.js';
 import { sendSms } from '../../_lib/twilio.js';
+import { geocode, formatAddress } from '../../_lib/geo.js';
+
+// Validate a subscriber's delivery address (street/city/5-digit ZIP required).
+function parseAddr(raw) {
+  const a = raw || {};
+  const street = (a.street || '').trim();
+  const city = (a.city || '').trim();
+  const zip = (a.zip || '').trim();
+  if (!street || !city || !/^\d{5}$/.test(zip)) return null;
+  return {
+    street: street.slice(0, 160), unit: (a.unit || '').trim().slice(0, 60) || null,
+    city: city.slice(0, 80), state: ((a.state || 'FL').trim() || 'FL').slice(0, 20),
+    zip, notes: (a.notes || '').trim().slice(0, 240) || null,
+  };
+}
 
 const sqErr = (r) => r.data && r.data.errors && r.data.errors[0] && r.data.errors[0].detail;
 
@@ -70,6 +85,40 @@ export const onRequestPost = async ({ request, env }) => {
       client = ex;
     }
   }
+
+  // Delivery address — required to subscribe (every weekly order must be routable). Saved as
+  // the client's default and reused for each auto-generated delivery. Geocode is best-effort.
+  let deliveryAddr = parseAddr(b.address);
+  if (deliveryAddr) {
+    const g = await geocode(env, formatAddress(deliveryAddr)).catch(() => null);
+    if (g) { deliveryAddr.lat = g.lat; deliveryAddr.lng = g.lng; }
+    try {
+      await env.DB.prepare(
+        `UPDATE clients SET delivery_street=?, delivery_unit=?, delivery_city=?, delivery_state=?,
+            delivery_zip=?, delivery_notes=?, delivery_lat=?, delivery_lng=?, updated_at=? WHERE id=?`
+      ).bind(
+        deliveryAddr.street, deliveryAddr.unit, deliveryAddr.city, deliveryAddr.state,
+        deliveryAddr.zip, deliveryAddr.notes, deliveryAddr.lat != null ? deliveryAddr.lat : null,
+        deliveryAddr.lng != null ? deliveryAddr.lng : null, now(), client.id
+      ).run();
+    } catch (_) { /* address is best-effort persistence; don't fail the subscription */ }
+  } else {
+    // No address in the request — fall back to the client's stored default (if any).
+    try {
+      const c = await env.DB.prepare(
+        'SELECT delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes, delivery_lat, delivery_lng FROM clients WHERE id = ?'
+      ).bind(client.id).first();
+      if (c && c.delivery_street) {
+        deliveryAddr = {
+          street: c.delivery_street, unit: c.delivery_unit, city: c.delivery_city, state: c.delivery_state,
+          zip: c.delivery_zip, notes: c.delivery_notes, lat: c.delivery_lat, lng: c.delivery_lng,
+        };
+      }
+    } catch (_) { /* leave null */ }
+  }
+  // Direct/public subscribers must provide an address; trainer-referred members may have the
+  // owner add it later, so only hard-require it when there's no clientId and none on file.
+  if (!deliveryAddr && !clientId) return bad('Please enter your delivery address (street, city, and ZIP).');
 
   const plan = await env.DB
     .prepare('SELECT id, bowl_rotation, per_bowl_price_cents, bowl_size_oz FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
@@ -174,6 +223,7 @@ export const onRequestPost = async ({ request, env }) => {
       tierLabel: tier.label, bowls: tier.bowls, weeklyCents,
       customerName: client.name, customerEmail: client.email,
       deliveryDate: b.delivery && b.delivery.date, deliveryWindow: b.delivery && b.delivery.window,
+      address: deliveryAddr || null,
     });
   } catch (_) { /* never fail the subscription on the kitchen-order write */ }
 

@@ -60,9 +60,12 @@
           var arr = JSON.parse(o.items || '[]');
           items = arr.map(function (it) { return (it.qty || 1) + '× ' + (it.name || ''); }).join(', ');
         } catch (e) { items = ''; }
+        var addr = o.address
+          ? '<div class="row-sub">📍 ' + Owner.esc(o.address) + (o.geocoded ? '' : ' <span class="badge warn" data-i18n>not mapped</span>') + '</div>'
+          : '<div class="row-sub"><span class="badge crit" data-i18n>no address</span></div>';
         return '<label class="row" style="cursor:pointer"><input type="checkbox" class="rorder" value="' + Owner.esc(o.id) + '" style="margin-right:10px">' +
           '<div class="row-main"><div class="row-title">' + Owner.esc(o.customer_name || o.id) + '</div>' +
-          '<div class="row-sub">' + Owner.esc(items || '—') + ' · ' + Owner.esc(o.delivery_window || '') + '</div></div>' +
+          '<div class="row-sub">' + Owner.esc(items || '—') + ' · ' + Owner.esc(o.delivery_window || '') + '</div>' + addr + '</div>' +
           Owner.badge(o.status, Owner.kindFor(o.status)) + '</label>';
       }).join('') : '<p class="row-sub" data-i18n>No unassigned orders for this date.</p>';
 

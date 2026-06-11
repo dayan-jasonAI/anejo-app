@@ -11,6 +11,10 @@
 <link rel="apple-touch-icon" href="/assets/img/emblem.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .stop-eta{font-size:11px;font-weight:600;color:var(--gold-700,#8a7a2e);white-space:nowrap;margin-left:6px}
+  .stop-addr{font-size:13px;color:var(--green);margin:2px 0 2px}
+</style>
 </head>
 <body>
 <div class="hub-bar"><h1>AÑEJO · ROUTE</h1></div>
@@ -77,6 +81,34 @@
   var head = document.getElementById('route-head');
   var stopsEl = document.getElementById('stops');
 
+  // Format a ms-epoch ETA as a short ET clock time (e.g. "4:35 PM").
+  function fmtEt(ms) {
+    try { return new Date(ms).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); }
+    catch (e) { return ''; }
+  }
+  // Turn-by-turn directions to one stop (prefers coords, falls back to the address string).
+  function destOf(geo, addr) {
+    if (geo && typeof geo.lat === 'number' && typeof geo.lng === 'number') return geo.lat + ',' + geo.lng;
+    return addr || '';
+  }
+  function directionsUrl(geo, addr) {
+    var d = destOf(geo, addr);
+    return 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + encodeURIComponent(d);
+  }
+  // One multi-stop directions link for the whole route, in sequence (last stop = destination).
+  function fullRouteUrl(stops) {
+    var pts = (stops || []).map(function (s) {
+      var geo = null; try { geo = s.geo ? JSON.parse(s.geo) : null; } catch (e) {}
+      return destOf(geo, s.address);
+    }).filter(Boolean);
+    if (!pts.length) return '';
+    var destination = pts[pts.length - 1];
+    var waypoints = pts.slice(0, -1).join('|');
+    var u = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + encodeURIComponent(destination);
+    if (waypoints) u += '&waypoints=' + encodeURIComponent(waypoints);
+    return u;
+  }
+
   function load() {
     Hub.api('/api/hub/driver/route').then(function (data) {
       routeData = data;
@@ -97,10 +129,13 @@
       : r.status === 'started'
         ? '<button class="btn ghost" id="complete-route" type="button" data-i18n>Complete route</button>'
         : '<span class="badge ok">completed</span>';
+    var finish = r.eta_complete_at ? fmtEt(r.eta_complete_at) : null;
+    var fullUrl = fullRouteUrl(routeData.stops || []);
     head.innerHTML =
       '<div class="row"><div class="row-main"><div class="row-title">' +
-      ((routeData.stops || []).length) + ' stops</div><div class="row-sub">' + Hub.esc(r.status) +
-      (r.ai_optimized ? ' · AI-optimized' : '') + '</div></div>' + startBtn + '</div>';
+      ((routeData.stops || []).length) + ' stops' + (finish ? ' · est. done ~' + finish : '') + '</div>' +
+      '<div class="row-sub">' + Hub.esc(r.status) + (r.ai_optimized ? ' · optimized' : '') + '</div></div>' + startBtn + '</div>' +
+      (fullUrl ? '<a class="btn ghost block" href="' + fullUrl + '" target="_blank" rel="noopener" data-i18n>🧭 Navigate full route</a>' : '');
 
     var sb = document.getElementById('start-route');
     if (sb) sb.addEventListener('click', function () {
@@ -117,13 +152,16 @@
 
     stopsEl.innerHTML = (routeData.stops || []).map(function (s, i) {
       var geo = null; try { geo = s.geo ? JSON.parse(s.geo) : null; } catch (e) {}
-      var maps = Driver.mapsUrl(geo, s.label);
+      var dir = directionsUrl(geo, s.address || s.label);
       var done = s.status === 'done', failed = s.status === 'failed';
       var badge = done ? '<span class="badge ok">done</span>' : failed ? '<span class="badge crit">failed</span>' : '<span class="badge">' + Hub.esc(s.status) + '</span>';
       var actions = (done || failed) ? '' :
         '<button class="btn gold act" data-i="' + i + '" type="button" data-i18n>Deliver</button>';
-      return '<div class="row"><div class="row-main"><div class="row-title">' + (i + 1) + '. ' + Hub.esc(s.label || 'Stop') +
-        '</div><div class="row-sub"><a href="' + maps + '" target="_blank" rel="noopener" data-i18n>Open in maps</a></div></div>' +
+      var eta = s.eta_at ? '<span class="stop-eta">ETA ' + fmtEt(s.eta_at) + '</span>' : '';
+      var addr = s.address ? '<div class="stop-addr">' + Hub.esc(s.address) + '</div>' : '';
+      return '<div class="row"><div class="row-main"><div class="row-title">' + (i + 1) + '. ' + Hub.esc(s.label || 'Stop') + ' ' + eta +
+        '</div>' + addr +
+        '<div class="row-sub"><a href="' + dir + '" target="_blank" rel="noopener" data-i18n>➤ Directions</a></div></div>' +
         badge + actions + '</div>';
     }).join('');
 
