@@ -7,6 +7,7 @@ import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { now, today } from '../../../_lib/hub.js';
+import { notifyRouteOutForDelivery } from '../../../_lib/notify.js';
 
 // Find the driver's most relevant route for today (started first, else assigned).
 async function todaysRoute(env, driverId) {
@@ -68,6 +69,8 @@ export const onRequestPost = async ({ request, env }) => {
       team: ctx.team,
       properties: { route_id: route.id, platform: 'pwa' },
     });
+    // Tell each opted-in customer their delivery is on the way (consent-gated, no-op safe).
+    await notifyRouteOutForDelivery(env, route.id);
     return json({ ok: true, route: { id: route.id, status: 'started', started_at: ts } });
   }
 

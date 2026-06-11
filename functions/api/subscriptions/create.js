@@ -183,7 +183,7 @@ export const onRequestPost = async ({ request, env }) => {
     try {
       await sendSms(env, {
         to: client.phone,
-        body: `Añejo: your ${tier.bowls}-bowl weekly plan is active — $${(weeklyCents / 100).toFixed(2)}/wk, delivered in Palm Beach County. We'll text your delivery window before each drop. Reply STOP to opt out.`,
+        body: `Añejo: your ${tier.bowls}-bowl weekly plan is active — $${(weeklyCents / 100).toFixed(2)}/wk, delivered in Palm Beach County. We'll text you when your order is out for delivery and when it's delivered. Reply STOP to opt out.`,
       });
     } catch (_) { /* SMS must never fail the subscription */ }
   }

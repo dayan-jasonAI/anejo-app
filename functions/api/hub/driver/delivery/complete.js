@@ -8,6 +8,7 @@ import { json, bad } from '../../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson } from '../../../../_lib/hub.js';
+import { notifyOrderDelivery } from '../../../../_lib/notify.js';
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -58,6 +59,10 @@ export const onRequestPost = async ({ request, env }) => {
 
   // Best-effort: mark the order fulfilled.
   await env.DB.prepare("UPDATE orders SET status='fulfilled', updated_at=? WHERE id=?").bind(ts, orderId).run().catch(() => {});
+
+  // Text the customer that their order was delivered (consent-gated, no-op safe).
+  const order = await env.DB.prepare('SELECT * FROM orders WHERE id=?').bind(orderId).first().catch(() => null);
+  if (order) await notifyOrderDelivery(env, order, 'delivered');
 
   await capture(env, {
     event: 'delivery.completed',
