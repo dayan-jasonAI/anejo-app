@@ -54,6 +54,17 @@
     { v: 'temp_check', label: 'Temp check' },
     { v: 'custom', label: 'Custom' }
   ];
+  var DOW = [
+    { v: 1, label: 'Monday' },
+    { v: 2, label: 'Tuesday' },
+    { v: 3, label: 'Wednesday' },
+    { v: 4, label: 'Thursday' },
+    { v: 5, label: 'Friday' },
+    { v: 6, label: 'Saturday' },
+    { v: 0, label: 'Sunday' }
+  ];
+  var MAX_IMG_BYTES = 4 * 1024 * 1024;  // ~4MB client cap for doc images
+  var pendingImg = null;                // dataURL staged for the next doc save
 
   function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
 
@@ -88,7 +99,8 @@
       b.addEventListener('click', function () { typeFilter = b.getAttribute('data-chip'); renderLibrary(); });
     });
     document.getElementById('newDoc').addEventListener('click', function () {
-      editing = { id: null, doc_type: typeFilter || 'manual', title: '', body: '', role_scope: null };
+      editing = { id: null, doc_type: typeFilter || 'manual', title: '', body: '', role_scope: null, image_key: null };
+      pendingImg = null;
       renderEditor();
     });
     renderEditor();
@@ -121,7 +133,7 @@
       el.querySelectorAll('[data-edit]').forEach(function (b) {
         b.addEventListener('click', function () {
           Hub.api('/api/hub/owner/content?id=' + encodeURIComponent(b.getAttribute('data-edit'))).then(function (r) {
-            if (r && r.ok && r.doc) { editing = r.doc; renderEditor(); window.scrollTo(0, 0); }
+            if (r && r.ok && r.doc) { editing = r.doc; pendingImg = null; renderEditor(); window.scrollTo(0, 0); }
             else Hub.toast('Could not load document');
           });
         });
@@ -155,6 +167,10 @@
         : '') +
       '<div class="field"><label data-i18n>Title</label><input id="docTitle" type="text" maxlength="200"></div>' +
       '<div class="field"><label data-i18n>Body</label><textarea id="docBody" rows="12" style="width:100%;resize:vertical"></textarea></div>' +
+      '<div class="field"><label data-i18n>Image (optional)</label>' +
+      '<div id="imgPreview"></div>' +
+      '<input id="docImg" type="file" accept="image/*">' +
+      '<p class="row-sub" data-i18n>Up to 4 MB. JPG, PNG or WebP.</p></div>' +
       '<div class="field"><label data-i18n>Visible to</label><div class="row" style="flex-wrap:wrap;gap:10px">' +
       SCOPE_ROLES.map(function (r) {
         var on = scope.indexOf(r) !== -1;
@@ -168,9 +184,45 @@
     document.getElementById('docTitle').value = editing.title || '';
     document.getElementById('docBody').value = editing.body || '';
     if (!editing.id) document.getElementById('docType').value = editing.doc_type || 'manual';
-    document.getElementById('cancelDoc').addEventListener('click', function () { editing = null; renderEditor(); });
+    renderImgPreview();
+    document.getElementById('docImg').addEventListener('change', onImgPick);
+    document.getElementById('cancelDoc').addEventListener('click', function () { editing = null; pendingImg = null; renderEditor(); });
     document.getElementById('saveDoc').addEventListener('click', saveDoc);
     refresh();
+  }
+
+  function renderImgPreview() {
+    var box = document.getElementById('imgPreview');
+    if (!box) return;
+    var src = pendingImg || (editing && editing.image_key) || null;
+    if (!src) { box.innerHTML = ''; return; }
+    box.innerHTML =
+      '<div class="row" style="align-items:center;gap:8px;margin-bottom:6px">' +
+      '<img src="' + Hub.esc(src) + '" alt="" style="max-width:120px;max-height:120px;border-radius:6px;object-fit:cover">' +
+      '<button class="btn ghost" id="rmImg" type="button" data-i18n>Remove image</button></div>';
+    document.getElementById('rmImg').addEventListener('click', removeImg);
+    refresh();
+  }
+
+  function onImgPick(e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (f.size > MAX_IMG_BYTES) { Hub.toast('Image is too large (max 4 MB)'); e.target.value = ''; return; }
+    var fr = new FileReader();
+    fr.onload = function () { pendingImg = fr.result; renderImgPreview(); };
+    fr.readAsDataURL(f);
+  }
+
+  function removeImg() {
+    // Staged image not yet saved → just drop it locally.
+    if (pendingImg) { pendingImg = null; var inp = document.getElementById('docImg'); if (inp) inp.value = ''; renderImgPreview(); return; }
+    // Existing saved image on a persisted doc → clear server-side.
+    if (editing && editing.id && editing.image_key) {
+      Hub.api('/api/hub/owner/content', { method: 'POST', body: { action: 'remove_image', id: editing.id } }).then(function (r) {
+        if (r && r.ok) { editing.image_key = null; Hub.toast('Image removed'); renderImgPreview(); loadDocs(); }
+        else Hub.toast('Could not remove image');
+      });
+    }
   }
 
   function saveDoc() {
@@ -185,10 +237,11 @@
     } else {
       payload = { action: 'create', doc_type: document.getElementById('docType').value, title: title, body: body, role_scope: scope };
     }
+    if (pendingImg) payload.image_dataurl = pendingImg;
     var btn = document.getElementById('saveDoc'); btn.disabled = true;
     Hub.api('/api/hub/owner/content', { method: 'POST', body: payload }).then(function (r) {
       btn.disabled = false;
-      if (r && r.ok) { Hub.toast('Saved'); editing = null; renderEditor(); loadDocs(); }
+      if (r && r.ok) { Hub.toast('Saved'); editing = null; pendingImg = null; renderEditor(); loadDocs(); }
       else Hub.toast('Could not save');
     });
   }
@@ -205,20 +258,39 @@
       '</select></div>' +
       '<div class="field"><label data-i18n>Team</label><select id="remTeam">' +
       '<option value="kitchen">kitchen</option><option value="delivery">delivery</option></select></div>' +
-      '<div class="field"><label data-i18n>Due date</label><input id="remDate" type="date"></div>' +
+      '<div class="field"><label data-i18n>Repeat</label><select id="remRepeat">' +
+      '<option value="none" data-i18n>Once</option>' +
+      '<option value="daily" data-i18n>Every day</option>' +
+      '<option value="weekly" data-i18n>Weekly</option></select></div>' +
+      '<div class="field" id="remDowField" style="display:none"><label data-i18n>Day of week</label><select id="remDow">' +
+      DOW.map(function (d) { return '<option value="' + d.v + '">' + d.label + '</option>'; }).join('') +
+      '</select></div>' +
+      '<div class="field" id="remDateField"><label data-i18n>Due date</label><input id="remDate" type="date"></div>' +
       '<div class="field"><label data-i18n>Time</label><input id="remTime" type="time" value="09:00"></div>' +
       '<div class="field"><label data-i18n>Assign to (optional)</label><select id="remStaff"><option value="" data-i18n>Anyone on team</option></select></div>' +
       '<button class="btn gold block" id="schedBtn" type="button" data-i18n>Schedule reminder</button>' +
       '</div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Recurring templates</h2><div id="remTemplates" class="list"><div class="hub-loading" data-i18n>Loading…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Upcoming</h2><div id="remUpcoming" class="list"><div class="hub-loading" data-i18n>Loading…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Recently acknowledged</h2><div id="remAcked" class="list"></div></div>';
 
     var d = new Date(); d.setDate(d.getDate() + 1);
     document.getElementById('remDate').value = d.toISOString().slice(0, 10);
+    document.getElementById('remRepeat').addEventListener('change', onRepeatChange);
     document.getElementById('schedBtn').addEventListener('click', scheduleReminder);
     loadRoster();
     loadReminders();
+    loadTemplates();
     refresh();
+  }
+
+  // Show/hide the date (one-shot) vs day-of-week (weekly) controls per Repeat choice.
+  function onRepeatChange() {
+    var rep = document.getElementById('remRepeat').value;
+    var dowF = document.getElementById('remDowField');
+    var dateF = document.getElementById('remDateField');
+    if (dowF) dowF.style.display = rep === 'weekly' ? '' : 'none';
+    if (dateF) dateF.style.display = rep === 'none' ? '' : 'none';
   }
 
   function loadRoster() {
@@ -242,29 +314,81 @@
 
   function scheduleReminder() {
     var title = document.getElementById('remTitle').value.trim();
-    var date = document.getElementById('remDate').value;
     var time = document.getElementById('remTime').value || '09:00';
-    if (!title || !date) { Hub.toast('Title and due date are required.'); return; }
-    var due = new Date(date + 'T' + time).getTime();
-    if (!due) { Hub.toast('Title and due date are required.'); return; }
+    var repeat = document.getElementById('remRepeat').value;
+    if (!title) { Hub.toast('Title is required.'); return; }
+
     var payload = {
-      action: 'create',
+      action: 'create_reminder',
       title: title,
       body: document.getElementById('remBody').value.trim(),
       reminder_type: document.getElementById('remType').value,
       team: document.getElementById('remTeam').value,
-      due_at: due,
       target_staff_id: document.getElementById('remStaff').value || undefined
     };
+
+    if (repeat === 'none') {
+      var date = document.getElementById('remDate').value;
+      if (!date) { Hub.toast('Due date is required.'); return; }
+      var due = new Date(date + 'T' + time).getTime();
+      if (!due) { Hub.toast('Due date is required.'); return; }
+      payload.due_at = due;
+      payload.recurrence = { freq: 'none' };
+    } else if (repeat === 'daily') {
+      payload.recurrence = { freq: 'daily', at: time };
+    } else {
+      payload.recurrence = { freq: 'weekly', at: time, dow: parseInt(document.getElementById('remDow').value, 10) };
+    }
+
     var btn = document.getElementById('schedBtn'); btn.disabled = true;
-    Hub.api('/api/hub/kitchen/reminders', { method: 'POST', body: payload }).then(function (r) {
+    Hub.api('/api/hub/owner/content', { method: 'POST', body: payload }).then(function (r) {
       btn.disabled = false;
       if (r && r.ok) {
-        Hub.toast('Reminder scheduled');
+        Hub.toast(r.template ? 'Recurring reminder created' : 'Reminder scheduled');
         document.getElementById('remTitle').value = '';
         document.getElementById('remBody').value = '';
         loadReminders();
+        if (r.template) loadTemplates();
       } else Hub.toast('Could not schedule');
+    });
+  }
+
+  function recurrenceLabel(rec) {
+    if (!rec || !rec.freq) return '';
+    if (rec.freq === 'daily') return 'Every day at ' + (rec.at || '09:00');
+    if (rec.freq === 'weekly') {
+      var d = DOW.filter(function (x) { return x.v === rec.dow; })[0];
+      return 'Weekly on ' + (d ? d.label : '?') + ' at ' + (rec.at || '09:00');
+    }
+    return '';
+  }
+
+  function loadTemplates() {
+    Hub.api('/api/hub/owner/content', { method: 'POST', body: { action: 'list_reminders' } }).then(function (d) {
+      var el = document.getElementById('remTemplates');
+      if (!el) return;
+      if (!d || !d.ok || !d.templates || !d.templates.length) {
+        el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No recurring templates.</p></div>';
+        refresh();
+        return;
+      }
+      el.innerHTML = d.templates.map(function (t) {
+        return '<div class="row"><div class="row-main">' +
+          '<div class="row-title">' + Hub.esc(t.title || t.reminder_type) + '</div>' +
+          '<div class="row-sub">' + Hub.esc(t.team || '') + ' · ' + Hub.esc(t.reminder_type || '') + ' · ' + Hub.esc(recurrenceLabel(t.recurrence)) + '</div></div>' +
+          '<button class="btn ghost" data-cancel="' + Hub.esc(t.id) + '" type="button" data-i18n>Cancel</button>' +
+          '</div>';
+      }).join('');
+      el.querySelectorAll('[data-cancel]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          b.disabled = true;
+          Hub.api('/api/hub/owner/content', { method: 'POST', body: { action: 'cancel_reminder', id: b.getAttribute('data-cancel') } }).then(function (r) {
+            if (r && r.ok) { Hub.toast('Recurring reminder canceled'); loadTemplates(); }
+            else { b.disabled = false; Hub.toast('Could not cancel'); }
+          });
+        });
+      });
+      refresh();
     });
   }
 

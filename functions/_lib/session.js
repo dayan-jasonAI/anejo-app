@@ -2,11 +2,16 @@
 import { randToken } from './util.js';
 
 const COOKIE = 'anejo_sess';
-const TTL = 60 * 60 * 24 * 30; // 30 days
+const TTL = 60 * 60 * 24 * 30; // 30 days (KV TTL ceiling)
+// Staff (HUB) sessions expire after this much INACTIVITY — defense-in-depth for a stolen
+// token. Slides forward on use. Trainers/clients keep the long TTL (consumer convenience).
+const STAFF_IDLE_MS = 12 * 60 * 60 * 1000;   // 12h idle → must sign in again
+const SLIDE_AFTER_MS = 15 * 60 * 1000;       // only re-write KV when >15min stale (cheap)
 
 export async function createSession(env, data, ttl = TTL) {
   const token = randToken(24);
-  await env.SESSIONS.put(`session:${token}`, JSON.stringify(data), { expirationTtl: ttl });
+  const payload = { ...data, la: Date.now() };   // la = last-active (for inactivity timeout)
+  await env.SESSIONS.put(`session:${token}`, JSON.stringify(payload), { expirationTtl: ttl });
   return token;
 }
 
@@ -14,7 +19,22 @@ export async function getSession(env, token) {
   if (!token) return null;
   const v = await env.SESSIONS.get(`session:${token}`);
   if (!v) return null;
-  try { return JSON.parse(v); } catch { return null; }  // corrupt session → treat as signed out, never 500
+  let data;
+  try { data = JSON.parse(v); } catch { return null; }  // corrupt session → signed out, never 500
+  if (!data) return null;
+  const t = Date.now();
+  const la = Number(data.la) || 0;
+  // Staff inactivity timeout. Sessions minted before this field existed (no la) are grandfathered.
+  if (data.type === 'staff' && la && (t - la) > STAFF_IDLE_MS) {
+    try { await env.SESSIONS.delete(`session:${token}`); } catch { /* best-effort */ }
+    return null;
+  }
+  // Slide the activity window without writing KV on every request.
+  if (!la || (t - la) > SLIDE_AFTER_MS) {
+    data.la = t;
+    try { await env.SESSIONS.put(`session:${token}`, JSON.stringify(data), { expirationTtl: TTL }); } catch { /* best-effort */ }
+  }
+  return data;
 }
 
 export async function destroySession(env, token) {

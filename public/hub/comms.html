@@ -21,6 +21,10 @@
   .chan-toggle .btn.active { background: var(--green); color: #fff; border-color: var(--green); }
   .thread-row { cursor: pointer; }
   .badge.unread { background: var(--gold); color: var(--black); margin-left: 8px; }
+  .badge.closed { background: var(--line); color: var(--black); opacity: .75; margin-left: 8px; }
+  .status-filter { display: flex; gap: 8px; margin-bottom: 10px; }
+  .status-filter .btn { flex: 1; }
+  .status-filter .btn.active { background: var(--green); color: #fff; border-color: var(--green); }
 </style>
 </head>
 <body>
@@ -45,6 +49,10 @@
     </div>
     <div class="hub-section">
       <h2 class="row-title" data-i18n>Messages</h2>
+      <div class="status-filter">
+        <button class="btn ghost active" id="filter-open" type="button" data-i18n>Open</button>
+        <button class="btn ghost" id="filter-closed" type="button" data-i18n>Closed</button>
+      </div>
       <div id="threads"><div class="hub-loading" data-i18n>Loading…</div></div>
     </div>
   </div>
@@ -54,6 +62,7 @@
     <div class="hub-section">
       <button class="btn ghost" id="back-btn" type="button" data-i18n>← Back</button>
       <div class="card" id="thread-head" style="margin-top:10px"></div>
+      <div id="thread-actions" style="margin-top:10px"></div>
       <div id="bubbles" class="bubbles"><div class="hub-loading" data-i18n>Loading…</div></div>
       <div class="card">
         <div class="chan-toggle">
@@ -88,6 +97,7 @@
   var channel = 'in_app';
   var pollT = 0;
   var currentThread = null;
+  var statusFilter = 'open'; // thread-list lifecycle filter: 'open' | 'closed'
 
   function refreshI18n() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
 
@@ -130,7 +140,7 @@
   }
 
   function loadThreads() {
-    Hub.api('/api/hub/comms/threads').then(function (d) {
+    Hub.api('/api/hub/comms/threads?status=' + encodeURIComponent(statusFilter)).then(function (d) {
       var el = document.getElementById('threads');
       if (!d || !d.ok) {
         el.innerHTML = '<div class="hub-empty" data-i18n>Could not load.</div>';
@@ -139,7 +149,9 @@
       }
       if (role === 'owner' && d.recipients) renderRecipientSelect(d.recipients);
       if (!d.items.length) {
-        el.innerHTML = '<div class="hub-empty" data-i18n>No conversations yet. Start one above.</div>';
+        el.innerHTML = statusFilter === 'closed'
+          ? '<div class="hub-empty" data-i18n>No closed conversations.</div>'
+          : '<div class="hub-empty" data-i18n>No conversations yet. Start one above.</div>';
         refreshI18n();
         return;
       }
@@ -148,6 +160,7 @@
           '<div class="row-main"><div class="row-title">' + Hub.esc(t.counterparty_name || t.subject || 'Conversation') + '</div>' +
           '<div class="row-sub">' + Hub.esc(t.preview || t.subject || '') + '</div></div>' +
           (t.unread_count > 0 ? '<span class="badge unread">' + Hub.esc(String(t.unread_count)) + '</span>' : '') +
+          (t.status === 'closed' ? '<span class="badge closed" data-i18n>Closed</span>' : '') +
           '<span class="badge ' + badgeKind(t.audience) + '" data-i18n>' + Hub.esc(t.audience) + '</span>' +
           '<span class="row-sub" style="margin-left:8px">' + Hub.esc(timeAgo(t.last_message_at)) + '</span></div>';
       }).join('') + '</div>';
@@ -208,6 +221,18 @@
     });
   }
 
+  function setStatusFilter(s) {
+    statusFilter = s;
+    document.getElementById('filter-open').classList.toggle('active', s === 'open');
+    document.getElementById('filter-closed').classList.toggle('active', s === 'closed');
+    loadThreads();
+  }
+
+  function setupFilter() {
+    document.getElementById('filter-open').addEventListener('click', function () { setStatusFilter('open'); });
+    document.getElementById('filter-closed').addEventListener('click', function () { setStatusFilter('closed'); });
+  }
+
   // ---------- thread detail ----------
   function setChannel(c) {
     channel = c;
@@ -220,9 +245,37 @@
     currentThread = tid;
     document.getElementById('view-list').style.display = 'none';
     document.getElementById('view-thread').style.display = '';
+    document.getElementById('thread-actions').innerHTML = '';
     setChannel('in_app');
     loadMessages(tid, true);
     pollT = setInterval(function () { loadMessages(tid, false); }, 10000);
+  }
+
+  // Owner-only Close / Reopen control in the thread detail view.
+  function renderThreadActions(tid, status) {
+    var box = document.getElementById('thread-actions');
+    if (!box) return;
+    if (role !== 'owner') { box.innerHTML = ''; return; }
+    var closed = status === 'closed';
+    box.innerHTML = '<button class="btn ghost block" id="thread-status-btn" type="button" data-i18n>' +
+      (closed ? 'Reopen conversation' : 'Close conversation') + '</button>';
+    refreshI18n();
+    document.getElementById('thread-status-btn').addEventListener('click', function () {
+      var btn = this;
+      btn.disabled = true;
+      Hub.api('/api/hub/comms/thread-status', {
+        method: 'POST',
+        body: { thread_id: tid, action: closed ? 'reopen' : 'close' },
+      }).then(function (r) {
+        btn.disabled = false;
+        if (r && r.ok) {
+          Hub.toast(closed ? 'Conversation reopened' : 'Conversation closed');
+          location.hash = ''; // back to list (showList re-fetches with the active filter)
+        } else {
+          Hub.toast((r && r.error) || 'Could not update');
+        }
+      });
+    });
   }
 
   function loadMessages(tid, showLoading) {
@@ -246,6 +299,7 @@
       var smsBtn = document.getElementById('chan-sms');
       smsBtn.style.display = t.can_sms ? '' : 'none';
       if (!t.can_sms && channel === 'sms') setChannel('in_app');
+      renderThreadActions(tid, t.status);
       if (!d.items.length) {
         bub.innerHTML = '<div class="hub-empty" data-i18n>No messages yet.</div>';
       } else {
@@ -294,6 +348,7 @@
     role = Hub.roleFromMe(d) || (d.trainer ? 'trainer' : 'client');
     Hub.track('dashboard.viewed', { view: 'comms' });
     setupCompose();
+    setupFilter();
     route();
   });
 })();

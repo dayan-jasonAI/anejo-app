@@ -48,6 +48,7 @@ export const onRequestGet = async ({ request, env }) => {
     doc: {
       id: doc.id, doc_type: doc.doc_type, title: doc.title, body: doc.body,
       version: doc.version, updated_at: doc.updated_at, recipe_id: doc.recipe_id,
+      image_key: doc.image_key || null,
     },
     recipe,
   });

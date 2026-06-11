@@ -52,15 +52,23 @@ export const onRequestGet = async ({ request, env }) => {
   }
 
   // Optionally fire order.received for rows the kitchen hasn't been shown yet.
-  // We mark "surfaced" by writing a sentinel into activity_log; to keep it cheap we
-  // only surface paid+pending rows created in the last 24h that have no prior order.received.
+  // One query fetches every already-surfaced order_id (last 7d of order.received events),
+  // then we diff in memory — avoids the old O(N) per-pending-order LIKE scan.
   if (surface && board.pending.length) {
+    let surfaced = new Set();
+    try {
+      const since = now() - 7 * 24 * 3600 * 1000;
+      const res = await env.DB.prepare(
+        "SELECT properties FROM activity_log WHERE event = 'order.received' AND created_at > ? LIMIT 5000"
+      ).bind(since).all();
+      for (const row of (res && res.results) || []) {
+        const m = /"order_id":"([^"]+)"/.exec(row.properties || '');
+        if (m) surfaced.add(m[1]);
+      }
+    } catch { /* if the lookup fails, we just risk re-firing — harmless */ }
     for (const o of board.pending) {
       try {
-        const seen = await env.DB.prepare(
-          "SELECT 1 FROM activity_log WHERE event = 'order.received' AND properties LIKE ? LIMIT 1"
-        ).bind(`%"order_id":"${o.id}"%`).first();
-        if (!seen) {
+        if (!surfaced.has(o.id)) {
           await capture(env, {
             event: 'order.received',
             distinct_id: ctx.distinct_id,
@@ -68,6 +76,7 @@ export const onRequestGet = async ({ request, env }) => {
             team: ctx.team,
             properties: { order_id: o.id, item_count: o.item_count, delivery_window: o.delivery_window || null },
           });
+          surfaced.add(o.id); // guard against dup within this same response
         }
       } catch { /* best-effort surface */ }
     }

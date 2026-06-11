@@ -506,7 +506,48 @@
     "Could not archive.": "No se pudo archivar.",
     "Could not add item.": "No se pudo agregar el artículo.",
     "Enter the on-hand amount.": "Ingresa la cantidad en existencia.",
-    "Item name is required.": "El nombre del artículo es obligatorio."
+    "Item name is required.": "El nombre del artículo es obligatorio.",
+
+    // ---- Phase 5: comms thread close/archive ----
+    "Open": "Abiertas", "Closed": "Cerradas",
+    "Close conversation": "Cerrar conversación", "Reopen conversation": "Reabrir conversación",
+    "No closed conversations.": "No hay conversaciones cerradas.",
+    "Conversation closed": "Conversación cerrada", "Conversation reopened": "Conversación reabierta",
+    "Could not update": "No se pudo actualizar",
+    "Only the owner can close conversations.": "Solo el propietario puede cerrar conversaciones.",
+
+    // ---- Phase 5: recurring reminders + doc images ----
+    "Image (optional)": "Imagen (opcional)",
+    "Up to 4 MB. JPG, PNG or WebP.": "Hasta 4 MB. JPG, PNG o WebP.",
+    "Remove image": "Quitar imagen",
+    "Repeat": "Repetir", "Once": "Una vez", "Every day": "Todos los días", "Weekly": "Semanal",
+    "Day of week": "Día de la semana",
+    "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles", "Thursday": "Jueves",
+    "Friday": "Viernes", "Saturday": "Sábado", "Sunday": "Domingo",
+    "Recurring templates": "Plantillas recurrentes",
+    "No recurring templates.": "No hay plantillas recurrentes.",
+    "Recurring reminder created": "Recordatorio recurrente creado",
+    "Recurring reminder canceled": "Recordatorio recurrente cancelado",
+    "Could not cancel": "No se pudo cancelar",
+    "Image is too large (max 4 MB)": "La imagen es demasiado grande (máx. 4 MB)",
+    "Image removed": "Imagen quitada", "Could not remove image": "No se pudo quitar la imagen",
+    "Due date is required.": "La fecha de vencimiento es obligatoria.",
+    "Title is required.": "El título es obligatorio.",
+
+    // ---- Phase 5: guest → client onboarding ----
+    "Onboard to client": "Convertir en cliente",
+    "SMS consent — only check if they verbally agreed to texts": "Consentimiento SMS — marca solo si aceptaron verbalmente recibir mensajes",
+    "Onboarded to client": "Convertido en cliente", "Already a client": "Ya es cliente",
+    "Email is required.": "El correo electrónico es obligatorio.",
+    "Name is required.": "El nombre es obligatorio.",
+    "Could not onboard customer.": "No se pudo convertir al cliente.",
+
+    // ---- Phase 5: D1 backup (owner AI Ops card) ----
+    "Database backups": "Respaldos de base de datos", "Backup now": "Respaldar ahora",
+    "Recent backups": "Respaldos recientes", "Creating backup…": "Creando respaldo…",
+    "Backup created": "Respaldo creado", "Backup failed": "Error al crear el respaldo",
+    "R2 storage is not enabled": "El almacenamiento R2 no está habilitado",
+    "No backups yet": "Aún no hay respaldos", "30 days retained": "Se conservan 30 días"
   };
 
   // Register with the shared i18n engine; queue if it hasn't loaded yet.

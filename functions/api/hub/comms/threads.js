@@ -1,6 +1,8 @@
 // Comms core — threads.
-//   GET  /api/hub/comms/threads
+//   GET  /api/hub/comms/threads[?status=open|closed|all]
 //        → threads visible to the session, newest activity first, each with an 80-char
+//          Default status=open so closed/archived threads drop out of the inbox; each
+//          item carries status + closed_at.
 //          preview of the last message, a counterparty display name, and unread_count
 //          (messages newer than the session's thread_reads watermark, excluding own).
 //          Envelope also carries total_unread. thread_reads ships in migration 0007 —
@@ -48,6 +50,18 @@ export const onRequestGet = async ({ request, env }) => {
   if (ctx instanceof Response) return ctx;
 
   const { where, binds } = scopeWhere(ctx);
+
+  // Lifecycle filter: open (default — closed threads drop out of the inbox),
+  // closed, or all. Anything unrecognized falls back to 'open'.
+  const statusParam = (new URL(request.url).searchParams.get('status') || 'open').toLowerCase();
+  let statusFilter = '';
+  if (statusParam === 'open') statusFilter = " AND t.status = 'open'";
+  else if (statusParam === 'closed') statusFilter = " AND t.status = 'closed'";
+  // 'all' (or unknown → treated as 'open' below) — keep default
+  if (statusParam !== 'open' && statusParam !== 'closed' && statusParam !== 'all') {
+    statusFilter = " AND t.status = 'open'";
+  }
+
   const { results } = await env.DB.prepare(
     `SELECT t.*,
             s1.name AS staff_name, s1.role AS staff_role,
@@ -60,7 +74,7 @@ export const onRequestGet = async ({ request, env }) => {
        LEFT JOIN staff s2 ON s2.id = t.created_by
        LEFT JOIN trainers tr ON tr.id = t.trainer_id
        LEFT JOIN clients c ON c.id = t.client_id
-      WHERE ${where}
+      WHERE ${where}${statusFilter}
       ORDER BY COALESCE(t.last_message_at, t.created_at) DESC
       LIMIT 100`
   ).bind(...binds).all();
@@ -93,6 +107,7 @@ export const onRequestGet = async ({ request, env }) => {
     status: t.status,
     staff_id: t.staff_id || null,
     created_by: t.created_by || null,
+    closed_at: t.closed_at || null,
     ref_type: t.ref_type || null,
     ref_id: t.ref_id || null,
     counterparty_name: counterpartyName(t, ctx),

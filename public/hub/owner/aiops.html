@@ -61,12 +61,74 @@
       '<div class="hub-section"><h2 data-i18n>🤖 AI Suggestions</h2><div id="suggestions" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Run now</h2><div class="card" id="run-now"></div>' +
       '<div id="run-result" class="card" style="display:none;margin-top:8px"><p class="row-sub" id="run-result-text"></p></div></div>' +
-      '<div class="hub-section"><h2 data-i18n>Recent runs</h2><div id="runs" class="list"><div class="hub-loading">…</div></div></div>';
+      '<div class="hub-section"><h2 data-i18n>Recent runs</h2><div id="runs" class="list"><div class="hub-loading">…</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Database backups</h2><div class="card">' +
+        '<button class="btn ghost block" id="backup-now" type="button" data-i18n>Backup now</button>' +
+        '<p class="row-sub" id="backup-status" style="margin-top:8px"></p></div>' +
+        '<div id="backups" class="list" style="margin-top:8px"><div class="hub-loading">…</div></div></div>';
 
     renderRunButtons();
     loadSuggestions();
     loadRuns();
+    loadBackups();
+    var bn = document.getElementById('backup-now');
+    if (bn) bn.addEventListener('click', backupNow);
     if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  // ---------- database backups (Phase 5) ----------
+  function fmtBytes(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(0) + ' KB';
+    return (n / 1048576).toFixed(1) + ' MB';
+  }
+
+  function loadBackups() {
+    Owner.get('/api/hub/admin/backup').then(function (d) {
+      var el = document.getElementById('backups');
+      if (!el) return;
+      if (d && d.ok && d.r2_enabled === false) {
+        el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>R2 storage is not enabled</p></div>';
+        if (window.AnejoI18n) window.AnejoI18n.refresh();
+        return;
+      }
+      var list = (d && d.backups) || [];
+      if (!list.length) {
+        el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No backups yet</p></div>';
+        if (window.AnejoI18n) window.AnejoI18n.refresh();
+        return;
+      }
+      el.innerHTML = list.map(function (b) {
+        var sub = fmtBytes(b.size) + (b.rows != null ? ' · ' + b.rows + ' rows' : '') +
+          (b.uploaded ? ' · ' + Owner.timeAgo(b.uploaded) : '');
+        return '<div class="row"><div class="row-main">' +
+          '<div class="row-title">' + Owner.esc((b.key || '').replace('backups/', '')) + '</div>' +
+          '<div class="row-sub">' + sub + '</div></div></div>';
+      }).join('');
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  function backupNow() {
+    var btn = document.getElementById('backup-now');
+    var st = document.getElementById('backup-status');
+    if (btn) btn.disabled = true;
+    if (st) st.textContent = 'Creating backup…';
+    Hub.api('/api/hub/admin/backup', { method: 'POST', body: {} }).then(function (r) {
+      if (btn) btn.disabled = false;
+      if (r && r.ok) {
+        if (st) st.textContent = 'Backup created · ' + (r.rows || 0) + ' rows';
+        Hub.toast('Backup created');
+      } else if (r && r.reason === 'R2 not enabled') {
+        if (st) st.textContent = 'R2 storage is not enabled';
+        Hub.toast('R2 storage is not enabled');
+      } else {
+        if (st) st.textContent = 'Backup failed';
+        Hub.toast('Backup failed');
+      }
+      loadBackups();
+    });
   }
 
   // ---------- suggestions ----------

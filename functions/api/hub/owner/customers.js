@@ -7,11 +7,27 @@
 //                         latest subscription, latest plan summary, and the open thread id
 //                         (for a Comms deep-link). Works for guests too (orders only).
 // Read-only; manual orders are created via /api/hub/owner/orders. Owner-only.
-import { json, bad } from '../../../_lib/util.js';
+import { json, bad, id, now, isEmail, normalizePhone } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { parseJson } from '../../../_lib/hub.js';
 
 const emailKey = (e) => (e == null ? '' : String(e)).trim().toLowerCase();
+
+// Direct/owner-onboarded clients (no referring trainer) attach to a single "house" trainer.
+// Mirrors getOrCreateHouseTrainer in functions/api/subscriptions/create.js.
+async function getOrCreateHouseTrainer(env) {
+  const existing = await env.DB.prepare("SELECT id FROM trainers WHERE affiliate_code = 'HOUSE'").first();
+  if (existing) return existing.id;
+  const tid = id('tr'), t = now();
+  try {
+    await env.DB.prepare('INSERT INTO trainers (id, email, name, affiliate_code, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+      .bind(tid, 'house@anejocateringco.com', 'Añejo (Direct)', 'HOUSE', t, t).run();
+    return tid;
+  } catch (_) {
+    const again = await env.DB.prepare("SELECT id FROM trainers WHERE affiliate_code = 'HOUSE'").first();
+    return again ? again.id : tid;
+  }
+}
 
 // Aggregate orders by customer_email (canceled excluded from spend/counts).
 async function orderAggregates(env) {
@@ -197,4 +213,50 @@ export const onRequestGet = async ({ request, env }) => {
   const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
   const items = await listCustomers(env, q);
   return json({ ok: true, items, count: items.length });
+};
+
+// POST { action:'onboard', email, name, phone?, sms_consent? }
+//   Convert a guest (order-only) customer into a managed client under the house trainer,
+//   so the owner can attach plans/subscriptions. Existing guest orders back-link by email.
+export const onRequestPost = async ({ request, env }) => {
+  const ctx = await requireRole(request, env, ['owner']);
+  if (ctx instanceof Response) return ctx;
+  if (!env.DB) return bad('Database not configured.', 500);
+
+  let b;
+  try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
+
+  const action = (b && b.action) || '';
+  if (action !== 'onboard') return bad('Unknown action.');
+
+  const email = emailKey(b.email);
+  const name = (b.name == null ? '' : String(b.name)).trim().slice(0, 120);
+  if (!isEmail(email)) return bad('A valid email is required.');
+  if (!name) return bad('A name is required.');
+  const phone = normalizePhone(b.phone);
+  const smsConsent = b.sms_consent === true || b.sms_consent === 1 ? 1 : 0;
+
+  // Idempotency: if a client already exists for this email, return it (do not duplicate).
+  let existing = null;
+  try {
+    existing = await env.DB.prepare('SELECT id FROM clients WHERE LOWER(TRIM(email)) = ? LIMIT 1')
+      .bind(email).first();
+  } catch { existing = null; }
+  if (existing) return json({ ok: true, already: true, client_id: existing.id });
+
+  const houseId = await getOrCreateHouseTrainer(env);
+  const cid = id('cl'), t0 = now();
+  try {
+    await env.DB.prepare(
+      'INSERT INTO clients (id, trainer_id, email, name, phone, sms_consent, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)'
+    ).bind(cid, houseId, email, name, phone, smsConsent, 'pending', t0, t0).run();
+  } catch (_) {
+    // Race: another insert landed first — return the existing row instead of erroring.
+    const again = await env.DB.prepare('SELECT id FROM clients WHERE LOWER(TRIM(email)) = ? LIMIT 1')
+      .bind(email).first();
+    if (again) return json({ ok: true, already: true, client_id: again.id });
+    return bad('Could not onboard this customer. Please try again.', 500);
+  }
+
+  return json({ ok: true, client_id: cid });
 };

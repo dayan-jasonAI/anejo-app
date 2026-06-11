@@ -170,7 +170,7 @@ events:
 
   # ---------- AI automation (cross-cutting) ----------
   - { name: automation.run, category: ai, group_level: business, description: "A scheduled/triggered automation executes", expected_frequency: high,
-      properties: [ {name: automation_type, type: string, enum: [route_optimize,daily_summary,restock_suggest,eod_chase,ticket_triage,sentiment_scan,payroll_prep], required: true}, {name: outcome, type: string, enum: [success,partial,failed], required: true}, {name: actor_type, type: string, enum: [system], required: true} ] }
+      properties: [ {name: automation_type, type: string, enum: [route_optimize,daily_summary,restock_suggest,eod_chase,ticket_triage,sentiment_scan,payroll_prep,d1_backup], required: true}, {name: outcome, type: string, enum: [success,partial,failed], required: true}, {name: actor_type, type: string, enum: [system], required: true} ] }
   - { name: agent_task.completed, category: ai, group_level: team, description: "An AI agent finishes a unit of work", expected_frequency: high,
       properties: [ {name: task_type, type: string, required: true}, {name: duration_ms, type: integer, required: false}, {name: tokens, type: integer, required: false} ] }
   - { name: ai_suggestion.actioned, category: ai, group_level: team, description: "A human accepts/dismisses an AI suggestion (measures AI value)", expected_frequency: high,

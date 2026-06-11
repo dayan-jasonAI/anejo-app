@@ -169,6 +169,7 @@
         return;
       }
       Hub.track('customer.viewed', { has_client: !!d.client, orders_count: (d.orders || []).length, platform: 'pwa' });
+      var isGuest = !d.client;
       dv.innerHTML =
         backBtn() +
         '<div class="hub-section"><h2>' + esc(d.name || d.email) + '</h2>' +
@@ -176,7 +177,9 @@
         '<div class="detail-actions">' +
           '<a class="btn ghost" id="msg-btn" href="' + (d.thread_id ? '/hub/comms.html#t=' + encodeURIComponent(d.thread_id) : '/hub/comms.html') + '" data-i18n>💬 Message</a>' +
           '<button class="btn gold" id="prefill-btn" type="button" data-i18n>+ New order</button>' +
-        '</div></div>' +
+        '</div>' +
+        (isGuest ? onboardBlock(d) : '') +
+        '</div>' +
         '<div class="hub-section"><h2 data-i18n>Order history</h2><div class="list">' + orderHistory(d.orders || []) + '</div></div>';
       bindBack();
       $('#prefill-btn').addEventListener('click', function () {
@@ -187,6 +190,7 @@
         var sec = $('#neworder-section');
         if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth' });
       });
+      if (isGuest) bindOnboard(d);
       refresh();
     });
   }
@@ -222,6 +226,56 @@
     var grid = rows.map(function (r) { return '<div class="k" data-i18n>' + r[0] + '</div><div>' + r[1] + '</div>'; }).join('');
     var note = d.client ? '' : '<p class="row-sub" style="margin-top:8px" data-i18n>No client profile (guest checkout).</p>';
     return '<div class="card"><div class="profile-grid">' + grid + '</div>' + note + '</div>';
+  }
+
+  // ---------- onboard guest → client ----------
+  function onboardBlock(d) {
+    return '<div class="card" id="onboard-card" style="margin-top:12px">' +
+      '<button class="btn ghost block" id="onboard-toggle" type="button" data-i18n>Onboard to client</button>' +
+      '<div id="onboard-form" style="display:none;margin-top:10px">' +
+        '<div class="field"><label data-i18n>Name</label><input id="ob-name" type="text" autocomplete="off" value="' + esc(d.name || '') + '"></div>' +
+        '<div class="field"><label data-i18n>Email</label><input id="ob-email" type="email" autocomplete="off" value="' + esc(d.email || '') + '"></div>' +
+        '<div class="field"><label data-i18n>Phone (optional)</label><input id="ob-phone" type="tel" autocomplete="off"></div>' +
+        '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;margin:4px 0 10px">' +
+          '<input id="ob-sms" type="checkbox" style="margin-top:3px">' +
+          '<span data-i18n>SMS consent — only check if they verbally agreed to texts</span></label>' +
+        '<button class="btn gold block" id="ob-submit" type="button" data-i18n>Onboard to client</button>' +
+      '</div></div>';
+  }
+
+  function bindOnboard(d) {
+    var toggle = $('#onboard-toggle');
+    var form = $('#onboard-form');
+    if (toggle && form) {
+      toggle.addEventListener('click', function () {
+        form.style.display = form.style.display === 'none' ? '' : 'none';
+      });
+    }
+    var sub = $('#ob-submit');
+    if (!sub) return;
+    sub.addEventListener('click', function () {
+      var name = $('#ob-name').value.trim();
+      var email = $('#ob-email').value.trim();
+      if (!email) return Hub.toast('Email is required.');
+      if (!name) return Hub.toast('Name is required.');
+      var body = {
+        action: 'onboard',
+        email: email,
+        name: name,
+        phone: $('#ob-phone').value.trim() || null,
+        sms_consent: $('#ob-sms').checked ? 1 : 0
+      };
+      sub.disabled = true;
+      Hub.api('/api/hub/owner/customers', { method: 'POST', body: body }).then(function (r) {
+        sub.disabled = false;
+        if (r && r.ok) {
+          Hub.toast(r.already ? 'Already a client' : 'Onboarded to client');
+          showDetail(email);
+        } else {
+          Hub.toast(r && r.error ? r.error : 'Could not onboard customer.');
+        }
+      });
+    });
   }
 
   function orderHistory(orders) {

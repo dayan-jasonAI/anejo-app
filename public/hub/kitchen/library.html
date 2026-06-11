@@ -91,6 +91,7 @@
       var doc = d.doc;
       $('#doc-card').innerHTML = '<h2 style="margin-bottom:4px">' + esc(doc.title) + '</h2>' +
         '<div class="row-sub" style="margin-bottom:12px">' + esc(doc.doc_type) + ' · v' + (doc.version || 1) + '</div>' +
+        (doc.image_key ? '<img src="' + esc(doc.image_key) + '" alt="" style="max-width:100%;border-radius:10px;margin-bottom:12px" />' : '') +
         (doc.body ? '<div class="doc-body">' + esc(doc.body) + '</div>' : '') +
         recipeHtml(d.recipe);
       $('#list-view').hidden = true;
