@@ -29,7 +29,7 @@
     "Temp Log · Añejo Driver": "Temperatura · Añejo Conductor", "Sign in · Añejo": "Iniciar sesión · Añejo",
 
     // ---- nav + sections ----
-    "Messages": "Mensajes",
+    "Messages": "Mensajes", "Schedule": "Horario", "Driver schedule": "Horario de conductores",
     "Overview": "Resumen", "Deliveries": "Entregas", "Kitchen": "Cocina", "Staff": "Personal",
     "Finance": "Finanzas", "Comms": "Mensajes", "Orders": "Pedidos", "Checklists": "Listas",
     "Studio": "Estudio", "Library": "Biblioteca", "EOD": "Fin de día", "Today": "Hoy",

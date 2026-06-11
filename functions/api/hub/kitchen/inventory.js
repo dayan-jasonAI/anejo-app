@@ -18,7 +18,14 @@ async function checkLowStock(env, item) {
   if (!item) return;
   const onHand = Number(item.on_hand) || 0;
   const par = Number(item.par_level) || 0;
-  if (!(par > 0) || onHand >= par) return;
+  // Restocked to/above par → auto-close any open low_stock alert (no stale alerts to chase).
+  if (!(par > 0) || onHand >= par) {
+    try {
+      await env.DB.prepare("UPDATE alerts SET status='acknowledged', acknowledged_at=?, updated_at=? WHERE dedupe_key=? AND status='open'")
+        .bind(Date.now(), Date.now(), `low_stock:${item.id}`).run();
+    } catch { /* best-effort */ }
+    return;
+  }
   await raiseAlert(env, {
     alert_type: 'low_stock',
     severity: 'warning',

@@ -1,7 +1,7 @@
 // POST /api/leads — capture tasting / wholesale inquiries. Stores in D1 and (if configured)
 // emails Dayan a notification. Returns {ok:true} so the form can confirm inline.
 import { json, bad, id, now, isEmail } from '../_lib/util.js';
-import { sendEmail, emailShell } from '../_lib/email.js';
+import { sendEmail, emailShell, escHtml } from '../_lib/email.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 
 export const onRequestPost = async ({ request, env }) => {
@@ -47,11 +47,11 @@ export const onRequestPost = async ({ request, env }) => {
     const rows = Object.entries({
       Type: rec.kind, Name: rec.name, Email: rec.email, Phone: rec.phone,
       Company: rec.company, Interest: rec.interest, Message: rec.message,
-    }).filter(([, v]) => v).map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#8a8a8a">${k}</td><td>${v}</td></tr>`).join('');
+    }).filter(([, v]) => v).map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#8a8a8a">${escHtml(k)}</td><td>${escHtml(v)}</td></tr>`).join('');
     try {
       await sendEmail(env, {
         to,
-        subject: `New ${rec.kind} inquiry — ${rec.name}`,
+        subject: `New ${rec.kind} inquiry — ${rec.name}`.slice(0, 120),
         html: emailShell(`<p>New ${rec.kind} inquiry from the website:</p><table>${rows}</table>`),
       });
     } catch { /* swallow — the lead is already stored */ }

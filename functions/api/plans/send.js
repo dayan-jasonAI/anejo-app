@@ -3,7 +3,7 @@
 // (degrades gracefully to returning the link if Resend isn't configured yet).
 import { json, bad, now, appBaseUrl } from '../../_lib/util.js';
 import { trainerSession } from '../../_lib/guard.js';
-import { sendEmail, emailShell } from '../../_lib/email.js';
+import { sendEmail, emailShell, escHtml } from '../../_lib/email.js';
 
 export const onRequestPost = async ({ request, env }) => {
   const sess = await trainerSession(env, request);
@@ -32,10 +32,11 @@ export const onRequestPost = async ({ request, env }) => {
   let emailed = false;
   if (row.client_email) {
     const es = row.lang === 'es';
+    const safeName = escHtml(row.client_name || '');
     const body = es
-      ? `<p>Hola ${row.client_name || ''},</p><p>Tu entrenador preparó tu plan de comidas Añejo personalizado.</p>
+      ? `<p>Hola ${safeName},</p><p>Tu entrenador preparó tu plan de comidas Añejo personalizado.</p>
          <p style="text-align:center;margin:26px 0"><a href="${link}" style="background:#C08418;color:#fff;text-decoration:none;padding:13px 26px;border-radius:999px;font-family:Arial,sans-serif">Ver mi plan</a></p>`
-      : `<p>Hi ${row.client_name || ''},</p><p>Your trainer put together your personalized Añejo meal plan.</p>
+      : `<p>Hi ${safeName},</p><p>Your trainer put together your personalized Añejo meal plan.</p>
          <p style="text-align:center;margin:26px 0"><a href="${link}" style="background:#C08418;color:#fff;text-decoration:none;padding:13px 26px;border-radius:999px;font-family:Arial,sans-serif">View my plan</a></p>`;
     try {
       await sendEmail(env, { to: row.client_email, subject: es ? 'Tu plan Añejo' : 'Your Añejo meal plan', html: emailShell(body) });

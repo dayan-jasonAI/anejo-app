@@ -1,3 +1,11 @@
+// Escape user-supplied values before interpolating into email HTML (prevents HTML/script
+// injection in transactional emails). Use on ANY user-controlled field in an email body.
+export function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // Transactional email via Resend.
 export async function sendEmail(env, { to, subject, html }) {
   if (!env.RESEND_API_KEY) throw new Error('Email not configured (missing RESEND_API_KEY).');

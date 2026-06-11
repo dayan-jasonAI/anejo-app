@@ -119,6 +119,12 @@ export const onRequestPost = async ({ request, env }) => {
     properties: { role: 'kitchen', on_time: !!onTime, has_blockers: hasBlockers, ai_drafted: aiDrafted },
   });
 
+  // Filed it → close the owner's "EOD missing" nag for this person/day.
+  try {
+    await env.DB.prepare("UPDATE alerts SET status='acknowledged', acknowledged_at=?, updated_at=? WHERE dedupe_key=? AND status='open'")
+      .bind(now(), now(), `eod_missing:${staff.id}:${day}`).run();
+  } catch { /* best-effort */ }
+
   const report = await env.DB.prepare(
     'SELECT * FROM eod_reports WHERE staff_id = ? AND report_date = ?'
   ).bind(staff.id, day).first();

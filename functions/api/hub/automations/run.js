@@ -9,9 +9,16 @@ import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { runAutomation, IMPLEMENTED, PLANNED } from '../../../_lib/automations.js';
 
+// Constant-time string compare so the cron-key check can't be timing-probed.
+function ctEq(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
 function cronAuthed(request, env) {
   const k = request.headers.get('x-cron-key');
-  return !!(env.CRON_KEY && k && k === env.CRON_KEY);
+  return !!(env.CRON_KEY && k && ctEq(k, env.CRON_KEY));
 }
 
 export const onRequestPost = async ({ request, env }) => {

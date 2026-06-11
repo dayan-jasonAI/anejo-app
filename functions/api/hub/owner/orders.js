@@ -85,7 +85,7 @@ export const onRequestPost = async ({ request, env }) => {
     const label = note
       ? `Note: ${note}${phone ? ` · 📞 ${phone}` : ''}`
       : `📞 ${phone}`;
-    orderItems.push({ id: 'meta', name: label, qty: 1, price_cents: 0, meta: { manual: true, note: note || null, phone: phone || null } });
+    orderItems.push({ id: 'meta', name: label, qty: 0, price_cents: 0, meta: { manual: true, note: note || null, phone: phone || null } });
   }
 
   // Totals: subtotal override accepted, fee default 0, tax from env (FL+PBC 7% default).

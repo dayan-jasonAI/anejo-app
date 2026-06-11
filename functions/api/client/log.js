@@ -4,6 +4,7 @@
 //                    { kind:'weight', weight_lb|weight_kg, note?, date? }
 import { json, bad, id, now } from '../../_lib/util.js';
 import { currentUser } from '../../_lib/session.js';
+import { limitOr429 } from '../../_lib/ratelimit.js';
 
 async function resolveClient(env, sess) {
   return env.DB.prepare('SELECT id FROM clients WHERE email = ? ORDER BY updated_at DESC LIMIT 1')
@@ -28,6 +29,8 @@ export const onRequestGet = async ({ request, env }) => {
 };
 
 export const onRequestPost = async ({ request, env }) => {
+  const limited = await limitOr429(env, request, { name: 'client-log', limit: 30, windowSec: 60 });
+  if (limited) return limited;
   const sess = await currentUser(env, request);
   if (!sess || sess.type !== 'client') return json({ error: 'Not signed in.' }, 401);
   if (!env.DB) return bad('Database not configured.', 500);

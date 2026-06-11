@@ -13,7 +13,8 @@ export async function createSession(env, data, ttl = TTL) {
 export async function getSession(env, token) {
   if (!token) return null;
   const v = await env.SESSIONS.get(`session:${token}`);
-  return v ? JSON.parse(v) : null;
+  if (!v) return null;
+  try { return JSON.parse(v); } catch { return null; }  // corrupt session → treat as signed out, never 500
 }
 
 export async function destroySession(env, token) {

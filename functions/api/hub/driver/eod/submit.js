@@ -175,5 +175,11 @@ export const onRequestPost = async ({ request, env }) => {
     properties: { role: ctx.role, on_time: !!onTime, has_blockers: !!hasBlockers, ai_drafted: !!aiDrafted, platform: 'pwa' },
   });
 
+  // Filed it → close the owner's "EOD missing" nag for this person/day.
+  try {
+    await env.DB.prepare("UPDATE alerts SET status='acknowledged', acknowledged_at=?, updated_at=? WHERE dedupe_key=? AND status='open'")
+      .bind(now(), now(), `eod_missing:${staff.id}:${date}`).run();
+  } catch { /* best-effort */ }
+
   return json({ ok: true, report: { id: reportId, report_date: date, status: 'submitted' } });
 };
