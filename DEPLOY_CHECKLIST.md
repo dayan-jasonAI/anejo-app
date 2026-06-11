@@ -18,7 +18,7 @@ Without these, the storefront/subscriptions return 503 ("not configured") but th
 |---|---|
 | `ANTHROPIC_API_KEY` | (already set) — AI calculator + plan generation |
 | `SQUARE_ACCESS_TOKEN` | the sandbox access token from `.dev.vars` (rotate at go-live → prod token) |
-| `RESEND_API_KEY` | from Resend (⏳ pending Dayan's account) — magic-link login + receipts |
+| `RESEND_API_KEY` | ✅ set — domain verified, magic-link login + receipts sending live |
 | `SQUARE_WEBHOOK_KEY` | from the Square webhook subscription (step 3) |
 
 **Vars (plaintext):**

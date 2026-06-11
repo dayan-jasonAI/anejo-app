@@ -17,10 +17,13 @@ npx wrangler d1 execute anejo --remote --file=migrations/0001_init.sql
 
 *(If you'd rather, give Claude access to the Cloudflare dashboard and it'll click through these.)*
 
-## 2. Resend (transactional email)
-For magic-link logins, plan emails, and order receipts.
+## 2. Resend (transactional email) — ✅ DONE 2026-06-08
+For magic-link logins, plan emails, and order receipts. **Live + verified** — domain
+`anejocateringco.com` is verified in Resend (DKIM + SPF + DMARC green in Cloudflare DNS), the
+`RESEND_API_KEY` secret is set in Pages, and magic-link sign-in emails are delivering to real
+inboxes. To re-create in a fresh env:
 1. Create a Resend account.
-2. Add domain **anejocateringco.com**; Resend shows SPF/DKIM/DMARC DNS records → add them in Cloudflare DNS (Claude can paste them in once Resend shows them).
+2. Add domain **anejocateringco.com**; Resend shows SPF/DKIM/DMARC DNS records → add them in Cloudflare DNS (DNS-only / grey cloud).
 3. Create an API key.
 4. Set in Pages → Settings → Variables & Secrets:
    - `RESEND_API_KEY` (Secret)
