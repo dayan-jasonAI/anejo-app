@@ -25,6 +25,7 @@ export const onRequestPost = async ({ request, env }) => {
     interest: (b.interest || '').trim() || null,
     message: (b.message || '').trim() || null,
     source_lang: b.lang === 'es' ? 'es' : 'en',
+    sms_consent: b.sms_consent === true || b.sms_consent === 1 ? 1 : 0,
     created_at: now(),
   };
 
@@ -32,10 +33,10 @@ export const onRequestPost = async ({ request, env }) => {
   if (env.DB) {
     await env.DB
       .prepare(
-        `INSERT INTO leads (id, kind, name, email, phone, company, interest, message, source_lang, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO leads (id, kind, name, email, phone, company, interest, message, source_lang, sms_consent, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)`
       )
-      .bind(rec.id, rec.kind, rec.name, rec.email, rec.phone, rec.company, rec.interest, rec.message, rec.source_lang, rec.created_at)
+      .bind(rec.id, rec.kind, rec.name, rec.email, rec.phone, rec.company, rec.interest, rec.message, rec.source_lang, rec.sms_consent, rec.created_at)
       .run();
     stored = true;
   }

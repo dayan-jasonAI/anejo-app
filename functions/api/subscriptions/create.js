@@ -55,13 +55,14 @@ export const onRequestPost = async ({ request, env }) => {
     const email = (buyer.email || '').trim().toLowerCase();
     const name = (buyer.name || '').trim();
     const phone = normalizePhone(buyer.phone);
+    const smsConsent = buyer.sms_consent === true || buyer.sms_consent === 1 ? 1 : 0;
     if (!isEmail(email) || !name) return bad('Please enter your name and a valid email.');
     const houseId = await getOrCreateHouseTrainer(env);
     const cid = id('cl'), t0 = now();
     try {
-      await env.DB.prepare('INSERT INTO clients (id, trainer_id, email, name, phone, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)')
-        .bind(cid, houseId, email, name, phone, 'pending', t0, t0).run();
-      client = { id: cid, trainer_id: houseId, name, email, phone };
+      await env.DB.prepare('INSERT INTO clients (id, trainer_id, email, name, phone, sms_consent, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)')
+        .bind(cid, houseId, email, name, phone, smsConsent, 'pending', t0, t0).run();
+      client = { id: cid, trainer_id: houseId, name, email, phone, sms_consent: smsConsent };
     } catch (_) {
       const ex = await env.DB.prepare('SELECT id, trainer_id, name, email, phone FROM clients WHERE trainer_id = ? AND email = ?')
         .bind(houseId, email).first();
@@ -176,8 +177,9 @@ export const onRequestPost = async ({ request, env }) => {
     });
   } catch (_) { /* never fail the subscription on the kitchen-order write */ }
 
-  // Best-effort confirmation text (no-op + logged when TWILIO_* creds aren't set).
-  if (client.phone) {
+  // Best-effort confirmation text — ONLY to customers who opted in (checked the consent box).
+  // No-op + logged when TWILIO_* creds aren't set. A2P 10DLC compliance: never text without consent.
+  if (client.phone && (client.sms_consent === 1 || client.sms_consent === true)) {
     try {
       await sendSms(env, {
         to: client.phone,

@@ -120,7 +120,11 @@ if(!clientId){
   document.getElementById('buyerFields').innerHTML =
     '<label class="fld" for="b_name">Your name</label><input class="b-input" id="b_name" type="text" autocomplete="name" required>'+
     '<label class="fld" for="b_email">Email</label><input class="b-input" id="b_email" type="email" autocomplete="email" required>'+
-    '<label class="fld" for="b_phone">Mobile <span style="text-transform:none;letter-spacing:0;color:var(--muted)">(optional, for delivery updates)</span></label><input class="b-input" id="b_phone" type="tel" autocomplete="tel">';
+    '<label class="fld" for="b_phone">Mobile <span style="text-transform:none;letter-spacing:0;color:var(--muted)">(optional)</span></label><input class="b-input" id="b_phone" type="tel" autocomplete="tel">'+
+    '<label style="display:flex;gap:9px;align-items:flex-start;margin:10px 0 0;font-size:13px;line-height:1.45;cursor:pointer;text-transform:none;letter-spacing:0">'+
+      '<input type="checkbox" id="b_sms" style="margin-top:2px;width:auto;flex:none">'+
+      '<span>Yes, text me order &amp; delivery updates from A&ntilde;ejo Catering Co. at this number.</span></label>'+
+    '<p style="margin:7px 0 0;font-size:11.5px;line-height:1.5;color:var(--muted)">Up to ~4 msgs/month. Msg &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. <a href="/legal/terms">Terms</a> &middot; <a href="/legal/privacy">Privacy</a>.</p>';
 }
 
 renderPlans();
@@ -156,8 +160,9 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
   else {
     const name=(document.getElementById('b_name')||{}).value||'', email=(document.getElementById('b_email')||{}).value||'';
     const phone=(document.getElementById('b_phone')||{}).value||'';
+    const smsConsent=!!(document.getElementById('b_sms')||{}).checked;
     if(!name.trim()||!email.trim()){ msg.className='msg err'; msg.textContent='Please enter your name and email.'; return; }
-    body = { planTier, buyer:{ name:name.trim(), email:email.trim(), phone:phone.trim() } };
+    body = { planTier, buyer:{ name:name.trim(), email:email.trim(), phone:phone.trim(), sms_consent:smsConsent } };
   }
   // Carry the chosen bowl size so the server charges the member's sized per-bowl price.
   if (bowlOz) body.bowlSizeOz = bowlOz;
