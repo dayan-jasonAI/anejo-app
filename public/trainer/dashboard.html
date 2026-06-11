@@ -200,7 +200,7 @@ function render(me, clients, earn){
   '<div class="cards">'+
     '<div class="card"><div class="k">Clients</div><div class="v">'+(st.clients||0)+'</div></div>'+
     '<div class="card"><div class="k">Active subscriptions</div><div class="v">'+(st.active_subs||0)+'</div></div>'+
-    '<div class="card gold"><div class="k">Total earned (10%)</div><div class="v">'+money(st.share_cents_total)+'</div></div>'+
+    '<div class="card gold"><div class="k">Total earned</div><div class="v">'+money(st.share_cents_total)+'</div></div>'+
   '</div>'+
   (t.affiliate_code ? '<div class="ref"><span class="muted">Your affiliate code</span> <code>'+esc(t.affiliate_code)+'</code> <span class="muted" style="font-size:13px">'+subscribeNote+'</span></div>' : '')+
   '<div class="sec"><div class="sec-h"><h2>Your clients</h2><a class="btn" href="/intake.html">+ Add member</a></div>'+
@@ -208,8 +208,8 @@ function render(me, clients, earn){
                     : '<div class="empty">No clients yet. <a href="/intake.html">Add your first member</a> — we\'ll generate their plan.</div>')+
   '</div>'+
   '<div class="sec"><div class="sec-h"><h2>Earnings</h2><span class="muted" style="font-size:13px">Pending '+money(earn.totals&&earn.totals.pending)+' · Paid '+money(earn.totals&&earn.totals.paid)+'</span></div>'+
-    (ev.length ? '<table><thead><tr><th>Date</th><th>Gross</th><th>Your 10%</th><th>Payout</th></tr></thead><tbody>'+earnRows+'</tbody></table>'
-               : '<div class="empty">No earnings yet. When a client subscribes, your 10% recurring share shows up here.</div>')+
+    (ev.length ? '<table><thead><tr><th>Date</th><th>Gross</th><th>Your share</th><th>Payout</th></tr></thead><tbody>'+earnRows+'</tbody></table>'
+               : '<div class="empty">No earnings yet. When a client subscribes, your recurring share shows up here.</div>')+
   '</div>';
 }
 
