@@ -1,11 +1,15 @@
 // Añejo — lightweight cookie consent + gated GA4 loader.
-// Analytics (GA4) only loads after the visitor accepts AND a <meta name="ga4-id" content="G-XXXX"> is present.
+// Analytics (GA4) only loads AFTER the visitor accepts. To enable it site-wide, paste your GA4
+// Measurement ID into GA4_ID below (one place, applies to every page that includes this script).
+// A per-page <meta name="ga4-id" content="G-XXXX"> still works and overrides GA4_ID if present.
 (function () {
   var KEY = 'anejo:cookie';
+  var GA4_ID = ''; // ← paste your GA4 Measurement ID here, e.g. 'G-AB12CD34EF' (leave '' to keep analytics off)
 
   function loadGA() {
     var meta = document.querySelector('meta[name="ga4-id"]');
-    var id = meta && meta.content && meta.content.indexOf('G-') === 0 ? meta.content : null;
+    var metaId = meta && meta.content && meta.content.indexOf('G-') === 0 ? meta.content : null;
+    var id = metaId || (GA4_ID.indexOf('G-') === 0 ? GA4_ID : null);
     if (!id || window.__anejoGA) return;
     window.__anejoGA = true;
     var s = document.createElement('script');

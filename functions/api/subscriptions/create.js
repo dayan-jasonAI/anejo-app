@@ -9,6 +9,7 @@ import { PLAN_TIERS, isPlanTier, planVariationId } from '../../_lib/plans.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
 import { createSubscriptionDelivery } from '../../_lib/suborders.js';
 import { clampPerBowlCents, perBowlCentsFromOz, STANDARD_PER_BOWL_CENTS } from '../../_lib/sizing.js';
+import { sendSms } from '../../_lib/twilio.js';
 
 const sqErr = (r) => r.data && r.data.errors && r.data.errors[0] && r.data.errors[0].detail;
 
@@ -45,7 +46,7 @@ export const onRequestPost = async ({ request, env }) => {
   const clientId = (b.clientId || '').trim();
   if (clientId) {
     client = await env.DB
-      .prepare('SELECT id, trainer_id, name, email FROM clients WHERE id = ?')
+      .prepare('SELECT id, trainer_id, name, email, phone FROM clients WHERE id = ?')
       .bind(clientId).first();
     if (!client) return bad('Client not found.', 404);
   } else {
@@ -60,9 +61,9 @@ export const onRequestPost = async ({ request, env }) => {
     try {
       await env.DB.prepare('INSERT INTO clients (id, trainer_id, email, name, phone, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)')
         .bind(cid, houseId, email, name, phone, 'pending', t0, t0).run();
-      client = { id: cid, trainer_id: houseId, name, email };
+      client = { id: cid, trainer_id: houseId, name, email, phone };
     } catch (_) {
-      const ex = await env.DB.prepare('SELECT id, trainer_id, name, email FROM clients WHERE trainer_id = ? AND email = ?')
+      const ex = await env.DB.prepare('SELECT id, trainer_id, name, email, phone FROM clients WHERE trainer_id = ? AND email = ?')
         .bind(houseId, email).first();
       if (!ex) return bad('Could not create your account. Please try again.', 500);
       client = ex;
@@ -174,6 +175,16 @@ export const onRequestPost = async ({ request, env }) => {
       deliveryDate: b.delivery && b.delivery.date, deliveryWindow: b.delivery && b.delivery.window,
     });
   } catch (_) { /* never fail the subscription on the kitchen-order write */ }
+
+  // Best-effort confirmation text (no-op + logged when TWILIO_* creds aren't set).
+  if (client.phone) {
+    try {
+      await sendSms(env, {
+        to: client.phone,
+        body: `Añejo: your ${tier.bowls}-bowl weekly plan is active — $${(weeklyCents / 100).toFixed(2)}/wk, delivered in Palm Beach County. We'll text your delivery window before each drop. Reply STOP to opt out.`,
+      });
+    } catch (_) { /* SMS must never fail the subscription */ }
+  }
 
   return json({ ok: true, subscriptionId: sub.id, status: sub.status, tier: planTier, weeklyUsd: weeklyCents / 100 });
 };
