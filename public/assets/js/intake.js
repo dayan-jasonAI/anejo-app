@@ -28,6 +28,7 @@ form.addEventListener('submit', async (ev) => {
     name: (data.get('name') || '').trim(),
     email: (data.get('email') || '').trim(),
     phone: (data.get('phone') || '').trim(),
+    sms_consent: !!(form.querySelector('input[name=sms_consent]') && form.querySelector('input[name=sms_consent]').checked),
     age: Number(data.get('age')),
     sex: data.get('sex'),
     height_cm: heightCm,

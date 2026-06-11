@@ -46,7 +46,7 @@ export const onRequestPost = async ({ request, env }) => {
   const clientId = (b.clientId || '').trim();
   if (clientId) {
     client = await env.DB
-      .prepare('SELECT id, trainer_id, name, email, phone FROM clients WHERE id = ?')
+      .prepare('SELECT id, trainer_id, name, email, phone, sms_consent FROM clients WHERE id = ?')
       .bind(clientId).first();
     if (!client) return bad('Client not found.', 404);
   } else {
