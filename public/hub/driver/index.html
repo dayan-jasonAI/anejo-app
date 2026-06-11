@@ -37,6 +37,11 @@
     <div id="route-stops" class="list" style="margin-top:10px"></div>
   </div>
 
+  <div class="hub-section" id="sched-section" hidden>
+    <h2 class="row-title" data-i18n>Upcoming shifts</h2>
+    <div id="sched-list" class="list"></div>
+  </div>
+
   <div class="hub-section">
     <h2 class="row-title" data-i18n>Quick actions</h2>
     <div class="card-grid">
@@ -130,6 +135,25 @@
     if (window.AnejoI18n) window.AnejoI18n.refresh();
   }
 
+  // Upcoming scheduled shifts (owner-assigned). Hidden when none / endpoint absent.
+  function loadSchedule() {
+    Hub.api('/api/hub/driver/schedule').then(function (d) {
+      var list = (d && (d.shifts || d.items)) || [];
+      if (!d || !d.ok || !list.length) return;
+      var sec = document.getElementById('sched-section');
+      var el = document.getElementById('sched-list');
+      if (!sec || !el) return;
+      sec.hidden = false;
+      el.innerHTML = list.slice(0, 7).map(function (s) {
+        var t = function (ms) { return ms ? new Date(Number(ms)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''; };
+        var when = (s.shift_date || '') + (s.start_at ? ' · ' + t(s.start_at) + (s.end_at ? '–' + t(s.end_at) : '') : '');
+        return '<div class="row"><div class="row-main"><div class="row-title">' + Hub.esc(when) + '</div>' +
+          (s.label ? '<div class="row-sub">' + Hub.esc(s.label) + '</div>' : '') + '</div></div>';
+      }).join('');
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    }).catch(function () {});
+  }
+
   Driver.guard().then(function (me) {
     if (!me) return;
     // Probe clock state without creating a shift (returns already_open if one exists).
@@ -138,6 +162,7 @@
       renderClock();
     });
     Hub.api('/api/hub/driver/route').then(renderRoute);
+    loadSchedule();
   });
 })();
 </script>

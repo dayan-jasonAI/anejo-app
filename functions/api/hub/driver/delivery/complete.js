@@ -9,6 +9,7 @@ import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson } from '../../../../_lib/hub.js';
 import { notifyOrderDelivery } from '../../../../_lib/notify.js';
+import { putMedia } from '../../../../_lib/media.js';
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -23,8 +24,22 @@ export const onRequestPost = async ({ request, env }) => {
   if (!orderId) return bad('Missing order_id.');
 
   const ts = now();
-  const proofPhoto = b.proof_photo ? String(b.proof_photo).slice(0, 200000) : null;
-  const signature = b.signature ? String(b.signature).slice(0, 200000) : null;
+  // Store proof media in R2 when the binding exists (short /api/hub/media/ URL in the row);
+  // otherwise keep the existing inline ref behavior (capped string). putMedia never throws.
+  let proofPhoto = b.proof_photo ? String(b.proof_photo) : null;
+  let signature = b.signature ? String(b.signature) : null;
+  let proofStored = false;
+  let signatureStored = false;
+  if (proofPhoto && proofPhoto.startsWith('data:')) {
+    const put = await putMedia(env, { kind: 'proof', dataUrl: proofPhoto });
+    if (put.stored) { proofPhoto = put.url; proofStored = true; }
+  }
+  if (signature && signature.startsWith('data:')) {
+    const put = await putMedia(env, { kind: 'proof', dataUrl: signature });
+    if (put.stored) { signature = put.url; signatureStored = true; }
+  }
+  if (proofPhoto) proofPhoto = proofPhoto.slice(0, 200000);
+  if (signature) signature = signature.slice(0, 200000);
   const onTime = b.on_time === undefined ? null : (b.on_time ? 1 : 0);
   const geo = b && typeof b.geo === 'object' ? b.geo : null;
   const routeId = (b && b.route_id) || null;
@@ -73,6 +88,7 @@ export const onRequestPost = async ({ request, env }) => {
       order_id: orderId,
       has_proof_photo: !!proofPhoto,
       has_signature: !!signature,
+      media_stored: proofStored || signatureStored,
       on_time: onTime === null ? undefined : !!onTime,
       platform: 'pwa',
     },

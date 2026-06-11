@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Schedule</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  /* Page-local: week grid + shift chips (shared shell stays untouched). */
+  .week-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+  .week-bar .btn { min-width:44px; }
+  .week-label { font-weight:700; font-size:14px; text-align:center; flex:1; }
+  .sched-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .sched-grid { display:grid; gap:4px; min-width:760px; }
+  .sched-grid .gh { font-size:11px; font-weight:700; text-align:center; padding:6px 2px; opacity:.8; }
+  .sched-grid .gh.today { color:var(--gold, #c9a227); }
+  .sched-grid .gname { font-size:12px; font-weight:700; padding:8px 6px; display:flex; align-items:center; }
+  .sched-cell { background:var(--white,#fff); border:1px solid var(--line,#e3e3da); border-radius:8px; min-height:54px; padding:3px; display:flex; flex-direction:column; gap:3px; }
+  .sched-chip { background:var(--green,#1b3a2b); color:#fff; border-radius:6px; font-size:10.5px; padding:3px 5px; display:flex; align-items:center; justify-content:space-between; gap:4px; }
+  .sched-chip .x { background:transparent; border:none; color:#fff; opacity:.75; cursor:pointer; font-size:11px; padding:0 2px; }
+  .sched-add { background:transparent; border:1px dashed var(--line,#cfcfc4); border-radius:6px; color:inherit; opacity:.55; font-size:13px; cursor:pointer; padding:2px 0; margin-top:auto; }
+  .add-form .field { margin-bottom:8px; }
+  .list-chip-x { background:transparent; border:1px solid var(--line,#e3e3da); color:var(--crit,#b3261e); border-radius:8px; cursor:pointer; padding:6px 10px; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · SCHEDULE</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading schedule…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var esc = Hub.esc;
+  var weekOffset = 0;          // 0 = week starting today
+  var data = null;             // last GET payload
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function addDays(iso, n) {
+    var d = new Date(iso + 'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+  function todayIso() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  function fromDate() { return addDays(todayIso(), weekOffset * 7); }
+  function dayLabel(iso) {
+    try {
+      var d = new Date(iso + 'T12:00:00Z');
+      return d.toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'UTC' });
+    } catch (e) { return iso; }
+  }
+  function fmtTime(ms) {
+    if (!ms) return '';
+    try { return new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }); } catch (e) { return ''; }
+  }
+  function hhmm(ms) {
+    if (!ms) return '';
+    try {
+      var p = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }).format(new Date(ms));
+      return p;
+    } catch (e) { return ''; }
+  }
+
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML =
+      '<div class="hub-section">' +
+      '<div class="week-bar"><button class="btn ghost" id="wk-prev" type="button">‹</button>' +
+      '<div class="week-label" id="wk-label"></div>' +
+      '<button class="btn ghost" id="wk-next" type="button">›</button></div>' +
+      '<div class="sched-scroll"><div id="grid" class="sched-grid"><div class="hub-loading" data-i18n>Loading…</div></div></div>' +
+      '</div>' +
+      '<div id="add-box"></div>' +
+      '<div class="hub-section"><h2 data-i18n>This week</h2><div id="week-list" class="list"><div class="hub-loading">…</div></div></div>';
+    document.getElementById('wk-prev').addEventListener('click', function () { weekOffset--; load(); });
+    document.getElementById('wk-next').addEventListener('click', function () { weekOffset++; load(); });
+    load();
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function load() {
+    var from = fromDate();
+    document.getElementById('wk-label').textContent = dayLabel(from) + ' – ' + dayLabel(addDays(from, 6));
+    Owner.get('/api/hub/owner/schedule?from=' + from + '&days=7').then(function (d) {
+      data = d;
+      renderGrid(from);
+      renderList(from);
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  function chipHtml(s) {
+    var label = fmtTime(s.start_at) + '–' + fmtTime(s.end_at) + (s.label ? ' · ' + esc(s.label) : '');
+    return '<div class="sched-chip" title="' + esc(s.notes || '') + '"><span>' + label + '</span>' +
+      '<button class="x" type="button" data-cancel="' + esc(s.id) + '" aria-label="Cancel">✕</button></div>';
+  }
+
+  function renderGrid(from) {
+    var grid = document.getElementById('grid');
+    if (!data || !data.ok) { grid.innerHTML = '<div class="hub-empty" data-i18n>Could not load schedule.</div>'; return; }
+    var drivers = data.drivers || [];
+    if (!drivers.length) {
+      grid.innerHTML = '<div class="hub-empty" data-i18n>No active drivers yet. Add drivers in Staff.</div>';
+      return;
+    }
+    var days = [];
+    for (var i = 0; i < 7; i++) days.push(addDays(from, i));
+    var byKey = {};
+    (data.shifts || []).forEach(function (s) {
+      var k = s.staff_id + '|' + s.shift_date;
+      (byKey[k] = byKey[k] || []).push(s);
+    });
+
+    grid.style.gridTemplateColumns = '110px repeat(7, minmax(86px, 1fr))';
+    var tIso = todayIso();
+    var html = '<div class="gh"></div>' + days.map(function (d) {
+      return '<div class="gh' + (d === tIso ? ' today' : '') + '">' + esc(dayLabel(d)) + '</div>';
+    }).join('');
+    drivers.forEach(function (dr) {
+      html += '<div class="gname">' + esc(dr.name || dr.id) + '</div>';
+      days.forEach(function (d) {
+        var chips = (byKey[dr.id + '|' + d] || []).map(chipHtml).join('');
+        html += '<div class="sched-cell">' + chips +
+          '<button class="sched-add" type="button" data-add="' + esc(dr.id) + '" data-date="' + esc(d) + '" aria-label="Add shift">＋</button></div>';
+      });
+    });
+    grid.innerHTML = html;
+    bindGrid();
+  }
+
+  function renderList(from) {
+    var el = document.getElementById('week-list');
+    var shifts = (data && data.shifts) || [];
+    if (!shifts.length) {
+      el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No shifts scheduled this week.</p></div>';
+      return;
+    }
+    el.innerHTML = shifts.map(function (s) {
+      return '<div class="row"><div class="row-main">' +
+        '<div class="row-title">' + esc(s.driver_name || s.staff_id) + ' · ' + esc(s.shift_date) + '</div>' +
+        '<div class="row-sub">' + fmtTime(s.start_at) + '–' + fmtTime(s.end_at) +
+        (s.label ? ' · ' + esc(s.label) : '') + (s.notes ? ' · ' + esc(s.notes) : '') + '</div></div>' +
+        '<button class="list-chip-x" type="button" data-cancel="' + esc(s.id) + '" data-i18n>Cancel</button></div>';
+    }).join('');
+    bindCancel(el);
+  }
+
+  function bindGrid() {
+    var grid = document.getElementById('grid');
+    bindCancel(grid);
+    Array.prototype.forEach.call(grid.querySelectorAll('[data-add]'), function (b) {
+      b.addEventListener('click', function () {
+        openAddForm(b.getAttribute('data-add'), b.getAttribute('data-date'));
+      });
+    });
+  }
+
+  function bindCancel(rootEl) {
+    Array.prototype.forEach.call(rootEl.querySelectorAll('[data-cancel]'), function (b) {
+      b.addEventListener('click', function () {
+        if (!window.confirm('Cancel this shift?')) return;
+        b.disabled = true;
+        Hub.api('/api/hub/owner/schedule', { method: 'POST', body: { action: 'cancel', id: b.getAttribute('data-cancel') } })
+          .then(function (r) {
+            if (r && r.ok) { Hub.toast('Shift canceled'); load(); }
+            else { b.disabled = false; Hub.toast((r && r.error) || 'Could not cancel shift'); }
+          });
+      });
+    });
+  }
+
+  function openAddForm(staffId, date) {
+    var dr = ((data && data.drivers) || []).filter(function (x) { return x.id === staffId; })[0];
+    var box = document.getElementById('add-box');
+    box.innerHTML =
+      '<div class="hub-section"><h2 data-i18n>Add shift</h2><div class="card add-form">' +
+      '<p class="row-title">' + esc(dr ? (dr.name || dr.id) : staffId) + ' · ' + esc(date) + '</p>' +
+      '<div class="field"><label data-i18n>Start</label><input id="f-start" type="time" value="10:00"></div>' +
+      '<div class="field"><label data-i18n>End</label><input id="f-end" type="time" value="16:00"></div>' +
+      '<div class="field"><label data-i18n>Label (optional)</label><input id="f-label" type="text" maxlength="80" placeholder="Lunch route"></div>' +
+      '<div class="field"><label data-i18n>Notes (optional)</label><input id="f-notes" type="text" maxlength="200"></div>' +
+      '<button class="btn gold block" id="f-assign" type="button" data-i18n>Assign</button>' +
+      '<button class="btn ghost block" id="f-close" type="button" style="margin-top:8px" data-i18n>Close</button>' +
+      '</div></div>';
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('f-close').addEventListener('click', function () { box.innerHTML = ''; });
+    document.getElementById('f-assign').addEventListener('click', function () {
+      var btn = this;
+      var start = document.getElementById('f-start').value;
+      var end = document.getElementById('f-end').value;
+      if (!start || !end) return Hub.toast('Pick start and end times.');
+      btn.disabled = true;
+      Hub.api('/api/hub/owner/schedule', {
+        method: 'POST',
+        body: {
+          action: 'assign',
+          staff_id: staffId,
+          shift_date: date,
+          start: start,
+          end: end,
+          label: document.getElementById('f-label').value.trim() || null,
+          notes: document.getElementById('f-notes').value.trim() || null
+        }
+      }).then(function (r) {
+        btn.disabled = false;
+        if (r && r.ok) { Hub.toast('Shift assigned'); box.innerHTML = ''; load(); }
+        else Hub.toast((r && r.error) || 'Could not assign shift');
+      });
+    });
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  Owner.init('schedule', render);
+})();
+</script>
+</body>
+</html>

@@ -122,11 +122,25 @@
   function doExport() {
     var rtype = document.getElementById('rtype').value;
     var btn = document.getElementById('exportBtn'); btn.disabled = true;
-    Hub.api('/api/hub/owner/report', { method: 'POST', body: { report_type: rtype, format: 'csv' } }).then(function (r) {
+    // Real CSV download: the endpoint streams text/csv with a Content-Disposition filename.
+    fetch('/api/hub/owner/report', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report_type: rtype, format: 'csv' }),
+    }).then(function (r) {
+      if (!r.ok) throw new Error('bad status');
+      var dispo = r.headers.get('Content-Disposition') || '';
+      var m = dispo.match(/filename="?([^";]+)"?/);
+      return r.blob().then(function (blob) { return { blob: blob, name: (m && m[1]) || ('anejo-' + rtype + '.csv') }; });
+    }).then(function (f) {
       btn.disabled = false;
-      if (r && r.ok) Hub.toast('Export queued (stub)');
-      else Hub.toast('Export failed');
-    });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(f.blob);
+      a.download = f.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+      Hub.toast('Report downloaded');
+    }).catch(function () { btn.disabled = false; Hub.toast('Export failed'); });
   }
 
   Owner.init('finance', render);

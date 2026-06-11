@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Content</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · CONTENT</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading content…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var tab = 'library';          // 'library' | 'reminders'
+  var typeFilter = '';          // '' | manual | policy | procedure | recipe
+  var editing = null;           // null | {} (new) | full doc object
+  var roster = [];              // active staff for the reminder target select
+
+  var CHIPS = [
+    { v: '', label: 'All' },
+    { v: 'manual', label: 'Manuals' },
+    { v: 'policy', label: 'Policies' },
+    { v: 'procedure', label: 'Procedures' },
+    { v: 'recipe', label: 'Recipes' }
+  ];
+  var SCOPE_ROLES = ['owner', 'kitchen', 'driver', 'vendor'];
+  var RTYPES = [
+    { v: 'prep', label: 'Prep' },
+    { v: 'sanitation', label: 'Sanitation' },
+    { v: 'order_cutoff', label: 'Order cutoff' },
+    { v: 'temp_check', label: 'Temp check' },
+    { v: 'custom', label: 'Custom' }
+  ];
+
+  function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+
+  // ---------- shell ----------
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML =
+      '<div class="hub-section"><div class="row" style="gap:8px">' +
+      '<button class="btn ' + (tab === 'library' ? 'gold' : 'ghost') + '" id="tab-lib" type="button" data-i18n>Library</button>' +
+      '<button class="btn ' + (tab === 'reminders' ? 'gold' : 'ghost') + '" id="tab-rem" type="button" data-i18n>Reminders</button>' +
+      '</div></div>' +
+      '<div id="tab-body"></div>';
+    document.getElementById('tab-lib').addEventListener('click', function () { tab = 'library'; editing = null; render(); });
+    document.getElementById('tab-rem').addEventListener('click', function () { tab = 'reminders'; render(); });
+    if (tab === 'library') renderLibrary(); else renderReminders();
+    refresh();
+  }
+
+  // ---------- Library ----------
+  function renderLibrary() {
+    var el = document.getElementById('tab-body');
+    el.innerHTML =
+      '<div class="hub-section"><div class="row" style="flex-wrap:wrap;gap:6px" id="chips">' +
+      CHIPS.map(function (c) {
+        return '<button class="btn ' + (typeFilter === c.v ? 'gold' : 'ghost') + '" data-chip="' + c.v + '" type="button" data-i18n>' + c.label + '</button>';
+      }).join('') +
+      '</div></div>' +
+      '<div class="hub-section"><button class="btn gold block" id="newDoc" type="button" data-i18n>New document</button></div>' +
+      '<div id="editor"></div>' +
+      '<div class="hub-section"><div id="docs" class="list"><div class="hub-loading" data-i18n>Loading…</div></div></div>';
+    el.querySelectorAll('[data-chip]').forEach(function (b) {
+      b.addEventListener('click', function () { typeFilter = b.getAttribute('data-chip'); renderLibrary(); });
+    });
+    document.getElementById('newDoc').addEventListener('click', function () {
+      editing = { id: null, doc_type: typeFilter || 'manual', title: '', body: '', role_scope: null };
+      renderEditor();
+    });
+    renderEditor();
+    loadDocs();
+    refresh();
+  }
+
+  function loadDocs() {
+    Hub.api('/api/hub/owner/content' + (typeFilter ? '?type=' + typeFilter : '')).then(function (d) {
+      var el = document.getElementById('docs');
+      if (!el) return;
+      if (!d || !d.ok || !d.docs || !d.docs.length) {
+        el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No documents yet.</p></div>';
+        refresh();
+        return;
+      }
+      el.innerHTML = d.docs.map(function (doc) {
+        var archived = !doc.active;
+        var sub = Hub.esc(doc.doc_type) + ' · v' + Hub.esc(String(doc.version)) + ' · ' + Owner.timeAgo(doc.updated_at);
+        return '<div class="row"' + (archived ? ' style="opacity:.55"' : '') + '><div class="row-main">' +
+          '<div class="row-title">' + Hub.esc(doc.title) +
+          (archived ? ' <span class="badge warn" data-i18n>Archived</span>' : '') + '</div>' +
+          '<div class="row-sub">' + sub + '</div></div>' +
+          '<button class="btn ghost" data-edit="' + Hub.esc(doc.id) + '" type="button" data-i18n>Edit</button>' +
+          (archived
+            ? '<button class="btn gold" data-restore="' + Hub.esc(doc.id) + '" type="button" data-i18n>Restore</button>'
+            : '<button class="btn ghost" data-archive="' + Hub.esc(doc.id) + '" type="button" data-i18n>Archive</button>') +
+          '</div>';
+      }).join('');
+      el.querySelectorAll('[data-edit]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          Hub.api('/api/hub/owner/content?id=' + encodeURIComponent(b.getAttribute('data-edit'))).then(function (r) {
+            if (r && r.ok && r.doc) { editing = r.doc; renderEditor(); window.scrollTo(0, 0); }
+            else Hub.toast('Could not load document');
+          });
+        });
+      });
+      el.querySelectorAll('[data-archive],[data-restore]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var isArchive = b.hasAttribute('data-archive');
+          var idv = b.getAttribute(isArchive ? 'data-archive' : 'data-restore');
+          b.disabled = true;
+          Hub.api('/api/hub/owner/content', { method: 'POST', body: { action: isArchive ? 'archive' : 'restore', id: idv } }).then(function (r) {
+            if (r && r.ok) { Hub.toast(isArchive ? 'Document archived' : 'Document restored'); loadDocs(); }
+            else { b.disabled = false; Hub.toast('Could not save'); }
+          });
+        });
+      });
+      refresh();
+    });
+  }
+
+  function renderEditor() {
+    var el = document.getElementById('editor');
+    if (!el) return;
+    if (!editing) { el.innerHTML = ''; return; }
+    var scope = editing.role_scope || [];
+    el.innerHTML =
+      '<div class="hub-section"><div class="card">' +
+      (!editing.id
+        ? '<div class="field"><label data-i18n>Type</label><select id="docType">' +
+          '<option value="manual">manual</option><option value="policy">policy</option>' +
+          '<option value="procedure">procedure</option><option value="recipe">recipe</option></select></div>'
+        : '') +
+      '<div class="field"><label data-i18n>Title</label><input id="docTitle" type="text" maxlength="200"></div>' +
+      '<div class="field"><label data-i18n>Body</label><textarea id="docBody" rows="12" style="width:100%;resize:vertical"></textarea></div>' +
+      '<div class="field"><label data-i18n>Visible to</label><div class="row" style="flex-wrap:wrap;gap:10px">' +
+      SCOPE_ROLES.map(function (r) {
+        var on = scope.indexOf(r) !== -1;
+        return '<label style="display:flex;align-items:center;gap:4px"><input type="checkbox" data-scope="' + r + '"' + (on ? ' checked' : '') + '> ' + r + '</label>';
+      }).join('') +
+      '</div><p class="row-sub" data-i18n>Leave all unchecked to show to all staff.</p></div>' +
+      '<div class="row" style="gap:8px">' +
+      '<button class="btn gold" id="saveDoc" type="button" data-i18n>Save</button>' +
+      '<button class="btn ghost" id="cancelDoc" type="button" data-i18n>Cancel</button>' +
+      '</div></div></div>';
+    document.getElementById('docTitle').value = editing.title || '';
+    document.getElementById('docBody').value = editing.body || '';
+    if (!editing.id) document.getElementById('docType').value = editing.doc_type || 'manual';
+    document.getElementById('cancelDoc').addEventListener('click', function () { editing = null; renderEditor(); });
+    document.getElementById('saveDoc').addEventListener('click', saveDoc);
+    refresh();
+  }
+
+  function saveDoc() {
+    var title = document.getElementById('docTitle').value.trim();
+    if (!title) { Hub.toast('Title is required'); return; }
+    var body = document.getElementById('docBody').value;
+    var scope = [];
+    document.querySelectorAll('[data-scope]').forEach(function (c) { if (c.checked) scope.push(c.getAttribute('data-scope')); });
+    var payload;
+    if (editing && editing.id) {
+      payload = { action: 'update', id: editing.id, title: title, body: body, role_scope: scope };
+    } else {
+      payload = { action: 'create', doc_type: document.getElementById('docType').value, title: title, body: body, role_scope: scope };
+    }
+    var btn = document.getElementById('saveDoc'); btn.disabled = true;
+    Hub.api('/api/hub/owner/content', { method: 'POST', body: payload }).then(function (r) {
+      btn.disabled = false;
+      if (r && r.ok) { Hub.toast('Saved'); editing = null; renderEditor(); loadDocs(); }
+      else Hub.toast('Could not save');
+    });
+  }
+
+  // ---------- Reminders ----------
+  function renderReminders() {
+    var el = document.getElementById('tab-body');
+    el.innerHTML =
+      '<div class="hub-section"><h2 data-i18n>Schedule reminder</h2><div class="card">' +
+      '<div class="field"><label data-i18n>Title</label><input id="remTitle" type="text" maxlength="200"></div>' +
+      '<div class="field"><label data-i18n>Details (optional)</label><textarea id="remBody" rows="3" style="width:100%;resize:vertical"></textarea></div>' +
+      '<div class="field"><label data-i18n>Type</label><select id="remType">' +
+      RTYPES.map(function (t) { return '<option value="' + t.v + '">' + t.label + '</option>'; }).join('') +
+      '</select></div>' +
+      '<div class="field"><label data-i18n>Team</label><select id="remTeam">' +
+      '<option value="kitchen">kitchen</option><option value="delivery">delivery</option></select></div>' +
+      '<div class="field"><label data-i18n>Due date</label><input id="remDate" type="date"></div>' +
+      '<div class="field"><label data-i18n>Time</label><input id="remTime" type="time" value="09:00"></div>' +
+      '<div class="field"><label data-i18n>Assign to (optional)</label><select id="remStaff"><option value="" data-i18n>Anyone on team</option></select></div>' +
+      '<button class="btn gold block" id="schedBtn" type="button" data-i18n>Schedule reminder</button>' +
+      '</div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Upcoming</h2><div id="remUpcoming" class="list"><div class="hub-loading" data-i18n>Loading…</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Recently acknowledged</h2><div id="remAcked" class="list"></div></div>';
+
+    var d = new Date(); d.setDate(d.getDate() + 1);
+    document.getElementById('remDate').value = d.toISOString().slice(0, 10);
+    document.getElementById('schedBtn').addEventListener('click', scheduleReminder);
+    loadRoster();
+    loadReminders();
+    refresh();
+  }
+
+  function loadRoster() {
+    if (roster.length) { fillRoster(); return; }
+    Hub.api('/api/hub/owner/staff').then(function (d) {
+      roster = ((d && d.staff) || []).filter(function (s) { return s.active && (s.role === 'kitchen' || s.role === 'driver'); });
+      fillRoster();
+    });
+  }
+
+  function fillRoster() {
+    var sel = document.getElementById('remStaff');
+    if (!sel) return;
+    roster.forEach(function (s) {
+      var o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = (s.name || s.id) + ' (' + s.role + ')';
+      sel.appendChild(o);
+    });
+  }
+
+  function scheduleReminder() {
+    var title = document.getElementById('remTitle').value.trim();
+    var date = document.getElementById('remDate').value;
+    var time = document.getElementById('remTime').value || '09:00';
+    if (!title || !date) { Hub.toast('Title and due date are required.'); return; }
+    var due = new Date(date + 'T' + time).getTime();
+    if (!due) { Hub.toast('Title and due date are required.'); return; }
+    var payload = {
+      action: 'create',
+      title: title,
+      body: document.getElementById('remBody').value.trim(),
+      reminder_type: document.getElementById('remType').value,
+      team: document.getElementById('remTeam').value,
+      due_at: due,
+      target_staff_id: document.getElementById('remStaff').value || undefined
+    };
+    var btn = document.getElementById('schedBtn'); btn.disabled = true;
+    Hub.api('/api/hub/kitchen/reminders', { method: 'POST', body: payload }).then(function (r) {
+      btn.disabled = false;
+      if (r && r.ok) {
+        Hub.toast('Reminder scheduled');
+        document.getElementById('remTitle').value = '';
+        document.getElementById('remBody').value = '';
+        loadReminders();
+      } else Hub.toast('Could not schedule');
+    });
+  }
+
+  function reminderRow(r, acked) {
+    var who = '';
+    if (r.target_staff_id) {
+      var m = roster.filter(function (s) { return s.id === r.target_staff_id; })[0];
+      who = ' · ' + Hub.esc(m ? (m.name || m.id) : r.target_staff_id);
+    }
+    var due = r.due_at ? new Date(r.due_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+    return '<div class="row"><div class="row-main">' +
+      '<div class="row-title">' + Hub.esc(r.title || r.reminder_type) + '</div>' +
+      '<div class="row-sub">' + Hub.esc(r.team || '') + who + ' · ' + Hub.esc(r.reminder_type || '') + (due ? ' · ' + due : '') + '</div></div>' +
+      (acked ? '<span class="badge ok" data-i18n>Acknowledged</span>' : '<span class="badge warn" data-i18n>Pending</span>') +
+      '</div>';
+  }
+
+  function loadReminders() {
+    Hub.api('/api/hub/kitchen/reminders?manage=1').then(function (d) {
+      var up = document.getElementById('remUpcoming');
+      var ak = document.getElementById('remAcked');
+      if (!up || !ak) return;
+      if (!d || !d.ok) {
+        up.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No upcoming reminders.</p></div>';
+        refresh();
+        return;
+      }
+      up.innerHTML = (d.upcoming && d.upcoming.length)
+        ? d.upcoming.map(function (r) { return reminderRow(r, false); }).join('')
+        : '<div class="card"><p class="row-sub" data-i18n>No upcoming reminders.</p></div>';
+      ak.innerHTML = (d.acknowledged && d.acknowledged.length)
+        ? d.acknowledged.map(function (r) { return reminderRow(r, true); }).join('')
+        : '<div class="card"><p class="row-sub" data-i18n>Nothing acknowledged yet.</p></div>';
+      refresh();
+    });
+  }
+
+  Owner.init('content', render);
+})();
+</script>
+</body>
+</html>

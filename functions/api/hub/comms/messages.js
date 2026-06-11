@@ -15,6 +15,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { id, now, bit } from '../../../_lib/hub.js';
 import { sendSms, sendWhatsApp } from '../../../_lib/twilio.js';
+import { sendPushTickle } from '../../../_lib/push.js';
 
 const ALL_ROLES = ['owner', 'kitchen', 'driver', 'vendor', 'trainer', 'client'];
 const CHANNELS = ['in_app', 'sms', 'whatsapp'];
@@ -161,6 +162,18 @@ export const onRequestPost = async ({ request, env }) => {
     distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
     properties: { channel, audience: thread.audience, ai_drafted: !!aiDrafted, thread_id: thread.id },
   });
+
+  // Tickle the receiving side with a payload-less web push (the SW peeks for
+  // context). If the thread has a staff counterparty and the sender isn't them,
+  // wake that staffer's devices; when the sender IS the counterparty (staff,
+  // trainer or client replying), wake the owner. No-op safe without VAPID.
+  try {
+    if (thread.staff_id && thread.staff_id !== ctx.distinct_id) {
+      await sendPushTickle(env, { staffIds: [thread.staff_id] });
+    } else if (ctx.role !== 'owner') {
+      await sendPushTickle(env, { roles: ['owner'] });
+    }
+  } catch { /* push must never break messaging */ }
 
   return json({
     ok: true,

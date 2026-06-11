@@ -12,6 +12,7 @@
 // Best-effort: it never throws on the caller — telemetry/alerts must not break ops.
 import { id, now } from './util.js';
 import { captureSystem } from './track.js';
+import { sendPushTickle } from './push.js';
 
 export const ALERT_TYPES = [
   'eod_missing', 'temp_excursion', 'delivery_failed', 'late_clock_in',
@@ -62,6 +63,11 @@ export async function raiseAlert(env, opts = {}) {
       team: opts.team || null,
       properties: { alert_type, severity, actor_type: 'system', ref_type: opts.ref_type || null, ref_id: opts.ref_id || null },
     });
+
+    // Tickle the owner's devices (payload-less web push; SW peeks for context).
+    // sendPushTickle never throws and no-ops without VAPID secrets — but keep it
+    // wrapped so it can never affect raiseAlert's return.
+    try { await sendPushTickle(env, { roles: ['owner'] }); } catch { /* best-effort */ }
 
     return { ok: true, id: aid, deduped: false };
   } catch {

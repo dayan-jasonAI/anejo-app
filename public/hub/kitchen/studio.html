@@ -122,6 +122,20 @@
       });
   }
 
+  // Send a voice transcript through the chat so the AI sous-chef responds to it.
+  function sendVoiceTranscript(text) {
+    if (!text || !sessionId) return;
+    addTurn('user', '<div class="who">You · voice</div>' + esc(text));
+    var thinking = addTurn('ai', '<div class="who">Sous-chef</div><em>thinking…</em>');
+    K.post('/api/hub/kitchen/studio/message', { session_id: sessionId, text: text, assist_type: assistType })
+      .then(function (d) {
+        if (!d || !d.reply) { thinking.innerHTML = '<div class="who">Sous-chef</div>(no reply)'; return K.fail(d); }
+        thinking.innerHTML = '<div class="who">Sous-chef · ' + esc(d.assist_type) + '</div>' + esc(d.reply) +
+          (d.demo ? '<div class="demo-flag">demo mode</div>' : '');
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+  }
+
   // ---- Photo capture ----
   $('#photo-btn').addEventListener('click', function () { $('#photo-input').click(); });
   $('#photo-input').addEventListener('change', function () {
@@ -129,9 +143,10 @@
     if (!file || !sessionId) return;
     var reader = new FileReader();
     reader.onload = function () {
-      // Show a local preview; we attach a reference (filename) — binary upload to R2 is a follow-up.
+      // Show a local preview; the server stores the binary in R2 when bound (data_url),
+      // and falls back to a reference (filename) otherwise.
       addTurn('media', '<div class="who">Photo</div><img src="' + reader.result + '" alt="dish photo">');
-      K.post('/api/hub/kitchen/studio/media', { session_id: sessionId, media_type: 'photo', content: 'photo:' + file.name, meta: { size: file.size, type: file.type } })
+      K.post('/api/hub/kitchen/studio/media', { session_id: sessionId, media_type: 'photo', content: 'photo:' + file.name, data_url: reader.result, meta: { size: file.size, type: file.type } })
         .then(function (d) { if (!d || !d.ok) K.fail(d, 'Could not attach photo.'); else Hub.toast('Photo added'); });
     };
     reader.readAsDataURL(file);
@@ -151,13 +166,30 @@
         stream.getTracks().forEach(function (t) { t.stop(); });
         var blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'audio/webm' });
         var secs = Math.round(blob.size / 16000); // rough
-        addTurn('media', '<div class="who">Voice note</div>🎙️ Recorded clip (~' + Math.max(1, secs) + 's). Transcription pending.');
-        // Attach a reference; STT wiring is a follow-up. Optional inline transcript could be added here.
-        K.post('/api/hub/kitchen/studio/media', { session_id: sessionId, media_type: 'voice', content: 'voice:clip-' + Date.now(), meta: { bytes: blob.size, mime: blob.type } })
-          .then(function (d) {
-            if (!d || !d.ok) return K.fail(d, 'Could not attach voice.');
-            Hub.toast(d.stt_pending ? 'Voice added (transcription pending)' : 'Voice added');
-          });
+        var bubble = addTurn('media', '<div class="who">Voice note</div>🎙️ Recorded clip (~' + Math.max(1, secs) + 's). Transcribing…');
+        var blobReader = new FileReader();
+        blobReader.onload = function () {
+          var dataUrl = blobReader.result;
+          // Try Whisper transcription first; falls back to today's reference-attach behavior.
+          K.post('/api/hub/kitchen/studio/transcribe', { session_id: sessionId, audio: dataUrl, lang: (window.AnejoLang && window.AnejoLang.get()) || 'en' })
+            .then(function (d) {
+              if (d && d.ok && d.text) {
+                // Transcript becomes a chef message — render it and let the sous-chef respond.
+                bubble.innerHTML = '<div class="who">Voice note</div>🎙️ ' + esc(d.text);
+                Hub.toast('Voice transcribed');
+                sendVoiceTranscript(d.text);
+              } else {
+                // AI binding absent or transcription failed — keep today's behavior (attach note).
+                bubble.innerHTML = '<div class="who">Voice note</div>🎙️ Recorded clip (~' + Math.max(1, secs) + 's). Transcription pending.';
+                K.post('/api/hub/kitchen/studio/media', { session_id: sessionId, media_type: 'voice', content: 'voice:clip-' + Date.now(), data_url: dataUrl, meta: { bytes: blob.size, mime: blob.type } })
+                  .then(function (a) {
+                    if (!a || !a.ok) return K.fail(a, 'Could not attach voice.');
+                    Hub.toast(a.stt_pending ? 'Voice saved (transcription pending)' : 'Voice added');
+                  });
+              }
+            });
+        };
+        blobReader.readAsDataURL(blob);
       };
       mediaRecorder.start();
       recording = true;

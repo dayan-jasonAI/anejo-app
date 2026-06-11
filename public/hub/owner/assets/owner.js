@@ -10,6 +10,7 @@
   // Bottom/desktop nav for the owner surface. Active tab is highlighted by `view`.
   var NAV = [
     { view: 'overview', href: '/hub/owner/', ico: '◎', label: 'Overview' },
+    { view: 'customers', href: '/hub/owner/customers.html', ico: '🧑‍🤝‍🧑', label: 'Customers' },
     { view: 'deliveries', href: '/hub/owner/deliveries.html', ico: '🚚', label: 'Deliveries' },
     { view: 'kitchen', href: '/hub/owner/kitchen.html', ico: '🍳', label: 'Kitchen' },
     { view: 'staff', href: '/hub/owner/staff.html', ico: '👥', label: 'Staff' },

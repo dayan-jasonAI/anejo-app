@@ -259,8 +259,63 @@ async function routeOptimize(env, date) {
   };
 }
 
-// --- RESTOCK SUGGEST: propose a vendor PO (suggestion) from 14 days of order demand. ---
+// --- RESTOCK SUGGEST: propose a vendor PO (suggestion). Phase 4: when the kitchen
+// keeps inventory_items, the proposal is the PAR GAP (items below par, qty = par - on_hand);
+// the original 14-day order-demand heuristic remains the fallback for an empty table. ---
 async function restockSuggest(env, date) {
+  // Par-gap basis: real counts beat demand inference whenever inventory exists.
+  const inv = await rows(env, 'SELECT id, name, unit, on_hand, par_level, vendor_id FROM inventory_items WHERE active=1');
+  if (inv.length) {
+    const below = inv.filter((it) => Number(it.par_level || 0) > 0 && Number(it.on_hand || 0) < Number(it.par_level || 0));
+    if (!below.length) {
+      return {
+        outcome: 'success',
+        output: { date, basis: 'par_gap', inventory_items: inv.length, items: [] },
+        summary: 'Restock: all inventory at or above par — nothing to order.',
+      };
+    }
+    const items = below.map((it) => ({
+      name: it.name,
+      qty: Math.max(1, Math.ceil(Number(it.par_level || 0) - Number(it.on_hand || 0))),
+      unit: it.unit || 'ea',
+      inventory_id: it.id,
+    }));
+
+    // Vendor: the most-specified vendor on the gapped items, else the busiest PO vendor.
+    let vendor = null;
+    const vendorVotes = new Map();
+    for (const it of below) {
+      if (it.vendor_id) vendorVotes.set(it.vendor_id, (vendorVotes.get(it.vendor_id) || 0) + 1);
+    }
+    if (vendorVotes.size) {
+      const topVendorId = [...vendorVotes.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      const v = await rows(env, "SELECT id, name FROM staff WHERE id=? AND role='vendor' AND active=1", topVendorId);
+      if (v.length) vendor = v[0];
+    }
+    if (!vendor) {
+      const byPos = await rows(
+        env,
+        "SELECT s.id, s.name, COUNT(ro.id) n FROM staff s LEFT JOIN restock_orders ro ON ro.vendor_id = s.id " +
+        "WHERE s.role='vendor' AND s.active=1 GROUP BY s.id ORDER BY n DESC, s.name LIMIT 1"
+      );
+      if (byPos.length) vendor = byPos[0];
+    }
+
+    const summary = `Restock: ${items.length} items below par`;
+    const sug = await makeSuggestion(env, {
+      type: 'restock_suggest',
+      summary,
+      payload: { vendor_id: vendor ? vendor.id : null, items, date, basis: 'par_gap' },
+    });
+
+    return {
+      outcome: 'success',
+      output: { date, basis: 'par_gap', inventory_items: inv.length, item_count: items.length, vendor_id: vendor ? vendor.id : null, vendor_name: vendor ? vendor.name : null, items, suggestion_id: sug.id || null, deduped: !!sug.deduped },
+      summary,
+    };
+  }
+
+  // Fallback (no inventory rows yet): infer from 14 days of order demand.
   const since = now() - 14 * 24 * 60 * 60 * 1000;
   const recent = await rows(env, "SELECT items FROM orders WHERE created_at >= ? AND status NOT IN ('canceled') LIMIT 1000", since);
 

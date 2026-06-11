@@ -7,8 +7,10 @@
                             Never cache redirected/non-OK responses.
    - other navigations    → browser-native (not the HUB's concern).
    - static assets        → cache-first with background refresh.
+   - web push             → "tickle" pattern: pushes carry no payload; on push we fetch
+                            /api/hub/push/peek (cookie-authed) and render the notification.
    Bump CACHE on shell changes to invalidate. */
-const CACHE = 'anejo-hub-v2';
+const CACHE = 'anejo-hub-v3';
 const SHELL = [
   '/hub/',
   '/hub/index.html',
@@ -86,6 +88,49 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => hit);
       return hit || fetchPromise;
+    })
+  );
+});
+
+// ---------- Web push (tickle pattern) ----------
+// Pushes are sent with NO payload (avoids RFC8291 encryption); the SW fetches a compact,
+// cookie-authed summary and shows it. If the fetch fails we still show a generic note —
+// browsers require a notification for every push event.
+self.addEventListener('push', (event) => {
+  event.waitUntil(
+    fetch('/api/hub/push/peek', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const title = (d && d.title) || 'Añejo HUB';
+        const body = (d && d.body) || 'You have a new update.';
+        return self.registration.showNotification(title, {
+          body,
+          icon: '/assets/img/emblem.png',
+          badge: '/assets/img/emblem.png',
+          tag: 'anejo-hub',
+          data: { url: '/hub/' },
+        });
+      })
+      .catch(() =>
+        self.registration.showNotification('Añejo HUB', {
+          body: 'You have a new update.',
+          icon: '/assets/img/emblem.png',
+          tag: 'anejo-hub',
+          data: { url: '/hub/' },
+        })
+      )
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/hub/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      for (const w of wins) {
+        if (w.url.includes('/hub') && 'focus' in w) return w.focus();
+      }
+      return clients.openWindow(url);
     })
   );
 });

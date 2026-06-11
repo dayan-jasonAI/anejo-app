@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Team</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  /* Page-local: on-shift dot + counts row (shared shell stays untouched). */
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--line,#cfcfc4); margin-right:8px; flex:0 0 auto; }
+  .dot.on { background:#2e9e5b; }
+  .counts { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+  .counts .card { text-align:center; padding:12px 6px; }
+  .counts .n { font-size:22px; font-weight:800; }
+  .counts .l { font-size:11px; opacity:.75; }
+  .missing-name { display:inline-block; background:var(--white,#fff); border:1px solid var(--line,#e3e3da); border-radius:999px; padding:3px 10px; margin:3px 4px 0 0; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · TEAM</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="team-root" class="hub-loading"><p data-i18n>Loading team…</p></div>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script>
+(function () {
+  Hub.boot();
+
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var esc = Hub.esc;
+
+  function timeAgo(ms) {
+    if (!ms) return '—';
+    var s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    if (s < 60) return s + 's ago';
+    var m = Math.round(s / 60);
+    if (m < 60) return m + 'm ago';
+    var h = Math.round(m / 60);
+    if (h < 24) return h + 'h ago';
+    return Math.round(h / 24) + 'd ago';
+  }
+
+  function notLead() {
+    document.getElementById('team-root').className = '';
+    document.getElementById('team-root').innerHTML =
+      '<div class="card accent"><p data-i18n>Ask the owner to make you a team lead.</p></div>';
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function render(d) {
+    var root = document.getElementById('team-root'); root.className = '';
+
+    var members = (d.members || []).map(function (m) {
+      return '<div class="row"><span class="dot' + (m.on_shift ? ' on' : '') + '"></span><div class="row-main">' +
+        '<div class="row-title">' + esc(m.name) + (m.is_lead ? ' <span class="badge info" data-i18n>lead</span>' : '') + '</div>' +
+        '<div class="row-sub">' + esc(m.role || '') + ' · ' +
+        (m.on_shift ? '<span data-i18n>on shift</span>' : '<span data-i18n>off shift</span>') +
+        ' · <span data-i18n>last active</span> ' + esc(timeAgo(m.last_active_at)) + '</div></div></div>';
+    }).join('') || '<div class="card"><p class="row-sub" data-i18n>No active members on this team.</p></div>';
+
+    var eod = d.eod_today || { filed: 0, expected: 0, missing: [] };
+    var eodBody;
+    if (!eod.expected) {
+      eodBody = '<p class="row-sub" data-i18n>No EOD reports expected for this team.</p>';
+    } else if (!eod.missing.length) {
+      eodBody = '<p class="row-sub">✅ ' + eod.filed + '/' + eod.expected + ' <span data-i18n>filed — all in</span></p>';
+    } else {
+      eodBody = '<p class="row-sub">' + eod.filed + '/' + eod.expected + ' <span data-i18n>filed</span> · <span data-i18n>missing:</span></p>' +
+        '<div>' + eod.missing.map(function (n) { return '<span class="missing-name">' + esc(n) + '</span>'; }).join('') + '</div>';
+    }
+
+    var counts =
+      '<div class="card"><div class="n">' + (d.open_tickets || 0) + '</div><div class="l" data-i18n>Open tickets</div></div>' +
+      (d.temp_excursions_today != null
+        ? '<div class="card' + (d.temp_excursions_today ? ' accent' : '') + '"><div class="n">' + d.temp_excursions_today + '</div><div class="l" data-i18n>Temp excursions today</div></div>'
+        : '') +
+      '<div class="card"><div class="n">' + (d.reminders_due || 0) + '</div><div class="l" data-i18n>Reminders due</div></div>';
+
+    root.innerHTML =
+      '<div class="hub-section"><div class="card">' +
+      '<div class="row-title"><span data-i18n>Team</span>: ' + esc(d.team) + '</div>' +
+      '<div class="row-sub">' + esc(d.date || '') + '</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Members</h2><div class="list">' + members + '</div></div>' +
+      '<div class="hub-section"><h2 data-i18n>EOD compliance today</h2><div class="card">' + eodBody + '</div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Today</h2><div class="counts">' + counts + '</div></div>';
+
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  // Any staff may open the page; the API decides lead/owner access (403 otherwise).
+  Hub.guard(['owner', 'kitchen', 'driver', 'vendor']).then(function (me) {
+    if (!me) return; // guard already redirected
+    Hub.track('dashboard.viewed', { view: 'team', platform: 'pwa' });
+    Hub.api('/api/hub/team/overview').then(function (d) {
+      if (d && d._status === 403) return notLead();
+      if (!d || !d.ok) {
+        var root = document.getElementById('team-root'); root.className = '';
+        root.innerHTML = '<div class="card accent"><p data-i18n>Could not load. Pull to refresh.</p></div>';
+        if (window.AnejoI18n) window.AnejoI18n.refresh();
+        return;
+      }
+      render(d);
+    });
+  });
+})();
+</script>
+</body>
+</html>

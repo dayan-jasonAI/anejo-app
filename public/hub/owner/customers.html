@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Customers</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .cust-right { text-align:right; font-size:12px; color:var(--green); white-space:nowrap; }
+  .cust-right b { display:block; font-size:13px; }
+  .oi-row { display:grid; grid-template-columns: 1fr 64px 84px 36px; gap:8px; margin-bottom:8px; align-items:center; }
+  .oi-row input { padding:9px; }
+  .oi-row .rm { background:transparent;border:1px solid var(--line);color:var(--crit);border-radius:8px;cursor:pointer;height:38px; }
+  .totals { display:flex; justify-content:space-between; padding:8px 2px; font-size:14px; }
+  .totals b { font-size:16px; }
+  .profile-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:13px; }
+  .profile-grid .k { color:var(--green); opacity:.75; }
+  .detail-actions { display:flex; gap:8px; margin-top:12px; }
+  .detail-actions .btn { flex:1; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · CUSTOMERS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading customers…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var esc = Hub.esc, $ = Hub.$;
+  var searchT = 0;
+
+  function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+
+  function todayStr() {
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()); }
+    catch (e) { return new Date().toISOString().slice(0, 10); }
+  }
+
+  function statusKind(s) {
+    switch (s) {
+      case 'active': case 'paid': case 'fulfilled': case 'subscribed': return 'ok';
+      case 'pending': case 'past_due': case 'paused': return 'warn';
+      case 'canceled': case 'churned': return 'crit';
+      default: return '';
+    }
+  }
+
+  // ---------- skeleton ----------
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML =
+      '<div id="list-view">' +
+        '<div class="hub-section"><h2 data-i18n>Customers</h2>' +
+          '<div class="card"><input id="q" type="search" placeholder="Search name, email, or phone…" autocomplete="off"></div>' +
+          '<div id="clist" class="list"><div class="hub-loading">…</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div id="detail-view" style="display:none"></div>' +
+      '<div class="hub-section" id="neworder-section"><h2 data-i18n>+ New manual order</h2>' +
+        '<div class="card">' +
+          '<div class="field"><label data-i18n>Name</label><input id="o-name" type="text" autocomplete="off"></div>' +
+          '<div class="field"><label data-i18n>Email (optional)</label><input id="o-email" type="email" autocomplete="off"></div>' +
+          '<div class="field"><label data-i18n>Phone (optional)</label><input id="o-phone" type="tel" autocomplete="off"></div>' +
+          '<div class="field"><label data-i18n>Delivery date</label><input id="o-date" type="date"></div>' +
+          '<div class="field"><label data-i18n>Window</label><select id="o-window">' +
+            '<option value="lunch" data-i18n>Lunch</option><option value="dinner" data-i18n>Dinner</option></select></div>' +
+          '<div class="field"><label data-i18n>Items</label><div id="o-lines"></div>' +
+            '<button class="btn ghost block" id="o-addline" type="button" data-i18n>+ Add item</button></div>' +
+          '<div class="field"><label data-i18n>Note (optional)</label><input id="o-note" type="text" autocomplete="off"></div>' +
+          '<div class="field"><label data-i18n>Payment</label><select id="o-status">' +
+            '<option value="paid" data-i18n>Paid</option><option value="pending" data-i18n>Pending</option></select></div>' +
+          '<div class="totals"><span data-i18n>Subtotal</span><span id="o-subtotal">$0.00</span></div>' +
+          '<div class="totals"><b data-i18n>Total (est, incl. tax)</b><b id="o-total">$0.00</b></div>' +
+          '<button class="btn gold block" id="o-create" type="button" data-i18n>Create order</button>' +
+        '</div>' +
+      '</div>';
+
+    $('#o-date').value = todayStr();
+    addLine();
+    $('#o-addline').addEventListener('click', function () { addLine(); });
+    $('#o-create').addEventListener('click', createOrder);
+    var qEl = $('#q');
+    qEl.addEventListener('input', function () {
+      clearTimeout(searchT);
+      searchT = setTimeout(function () { loadList(qEl.value.trim()); }, 300);
+    });
+    window.addEventListener('hashchange', route);
+    route();
+    loadList('');
+    refresh();
+  }
+
+  // ---------- customer list ----------
+  function loadList(q) {
+    Owner.get('/api/hub/owner/customers' + (q ? '?q=' + encodeURIComponent(q) : '')).then(function (d) {
+      var el = $('#clist');
+      if (!el) return;
+      if (!d || !d.ok || !d.items || !d.items.length) {
+        el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No customers found.</p></div>';
+        refresh();
+        return;
+      }
+      el.innerHTML = d.items.map(function (c) {
+        var badges = '';
+        if (c.subscription_status) badges += ' <span class="badge ' + statusKind(c.subscription_status) + '" data-i18n>' + esc(c.subscription_status) + '</span>';
+        if (c.sms_consent) badges += ' <span class="badge ok">SMS ✓</span>';
+        if (c.guest) badges += ' <span class="badge" data-i18n>guest</span>';
+        var sub = [c.email, c.phone].filter(Boolean).map(esc).join(' · ');
+        var right =
+          '<div class="cust-right"><b>' + (c.orders_count || 0) + ' <span data-i18n>orders</span> · ' + Owner.money(c.lifetime_spend_cents) + '</b>' +
+          (c.last_order_at ? Owner.timeAgo(c.last_order_at) : '<span data-i18n>no orders yet</span>') + '</div>';
+        return '<div class="row" data-email="' + esc(c.email || '') + '" style="cursor:pointer">' +
+          '<div class="row-main"><div class="row-title">' + esc(c.name || c.email || '—') + badges + '</div>' +
+          '<div class="row-sub">' + (sub || '<span data-i18n>no contact info</span>') + '</div></div>' +
+          right + '</div>';
+      }).join('');
+      el.querySelectorAll('[data-email]').forEach(function (r) {
+        r.addEventListener('click', function () {
+          var em = r.getAttribute('data-email');
+          if (!em) { Hub.toast('No email on file for this customer.'); return; }
+          window.location.hash = '#c=' + encodeURIComponent(em);
+        });
+      });
+      refresh();
+    });
+  }
+
+  // ---------- detail panel (hash #c=<email>) ----------
+  function route() {
+    var h = window.location.hash || '';
+    var m = h.match(/^#c=(.+)$/);
+    if (m) showDetail(decodeURIComponent(m[1]));
+    else {
+      $('#detail-view').style.display = 'none';
+      $('#list-view').style.display = '';
+    }
+  }
+
+  function showDetail(email) {
+    var dv = $('#detail-view');
+    $('#list-view').style.display = 'none';
+    dv.style.display = '';
+    dv.innerHTML = '<div class="hub-loading"><p data-i18n>Loading…</p></div>';
+    Owner.get('/api/hub/owner/customers?email=' + encodeURIComponent(email)).then(function (d) {
+      if (!d || !d.ok) {
+        dv.innerHTML = '<div class="card accent"><p data-i18n>Could not load customer.</p></div>' + backBtn();
+        bindBack(); refresh();
+        return;
+      }
+      Hub.track('customer.viewed', { has_client: !!d.client, orders_count: (d.orders || []).length, platform: 'pwa' });
+      dv.innerHTML =
+        backBtn() +
+        '<div class="hub-section"><h2>' + esc(d.name || d.email) + '</h2>' +
+        profileCard(d) +
+        '<div class="detail-actions">' +
+          '<a class="btn ghost" id="msg-btn" href="' + (d.thread_id ? '/hub/comms.html#t=' + encodeURIComponent(d.thread_id) : '/hub/comms.html') + '" data-i18n>💬 Message</a>' +
+          '<button class="btn gold" id="prefill-btn" type="button" data-i18n>+ New order</button>' +
+        '</div></div>' +
+        '<div class="hub-section"><h2 data-i18n>Order history</h2><div class="list">' + orderHistory(d.orders || []) + '</div></div>';
+      bindBack();
+      $('#prefill-btn').addEventListener('click', function () {
+        $('#o-name').value = d.name || '';
+        $('#o-email').value = d.email || '';
+        $('#o-phone').value = (d.client && d.client.phone) || '';
+        window.location.hash = '';
+        var sec = $('#neworder-section');
+        if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth' });
+      });
+      refresh();
+    });
+  }
+
+  function backBtn() { return '<button class="btn ghost block" id="back-btn" type="button" data-i18n>← Back to list</button>'; }
+  function bindBack() {
+    var b = $('#back-btn');
+    if (b) b.addEventListener('click', function () { window.location.hash = ''; });
+  }
+
+  function profileCard(d) {
+    var rows = [];
+    if (d.client) {
+      rows.push(['Email', esc(d.client.email || '—')]);
+      rows.push(['Phone', esc(d.client.phone || '—')]);
+      rows.push(['SMS consent', d.client.sms_consent ? '<span class="badge ok">SMS ✓</span>' : '<span data-i18n>No</span>']);
+      if (d.client.status) rows.push(['Status', '<span class="badge ' + statusKind(d.client.status) + '" data-i18n>' + esc(d.client.status) + '</span>']);
+      if (d.client.trainer_name) rows.push(['Trainer', esc(d.client.trainer_name)]);
+      if (d.subscription) {
+        rows.push(['Subscription', '<span class="badge ' + statusKind(d.subscription.status) + '" data-i18n>' + esc(d.subscription.status || '—') + '</span>' +
+          (d.subscription.weekly_amount_cents != null ? ' ' + Owner.money(d.subscription.weekly_amount_cents) + '<span data-i18n>/wk</span>' : '')]);
+      }
+      if (d.plan) {
+        var p = [];
+        if (d.plan.daily_calories) p.push(esc(d.plan.daily_calories) + ' <span data-i18n>cal/day</span>');
+        if (d.plan.meal_plan_tier) p.push(esc(d.plan.meal_plan_tier));
+        if (d.plan.bowl_size_oz) p.push(esc(d.plan.bowl_size_oz) + ' <span data-i18n>oz bowl</span>');
+        if (p.length) rows.push(['Plan', p.join(' · ')]);
+      }
+    } else {
+      rows.push(['Email', esc(d.email || '—')]);
+    }
+    var grid = rows.map(function (r) { return '<div class="k" data-i18n>' + r[0] + '</div><div>' + r[1] + '</div>'; }).join('');
+    var note = d.client ? '' : '<p class="row-sub" style="margin-top:8px" data-i18n>No client profile (guest checkout).</p>';
+    return '<div class="card"><div class="profile-grid">' + grid + '</div>' + note + '</div>';
+  }
+
+  function orderHistory(orders) {
+    if (!orders.length) return '<div class="card"><p class="row-sub" data-i18n>No orders yet.</p></div>';
+    return orders.map(function (o) {
+      var items = (Array.isArray(o.items) ? o.items : []).map(function (it) {
+        return esc((it && it.name) || (it && it.id) || 'Item') + (it && it.qty > 1 ? ' ×' + Number(it.qty) : '');
+      }).join(', ');
+      var manual = o.manual ? ' <span class="badge" data-i18n>manual</span>' : '';
+      return '<div class="row"><div class="row-main">' +
+        '<div class="row-title">' + esc(o.delivery_date || '—') + ' · <span data-i18n>' + esc(o.delivery_window || '—') + '</span>' + manual + '</div>' +
+        '<div class="row-sub">' + items + '</div></div>' +
+        '<div class="cust-right"><b>' + Owner.money(o.total_estimate_cents) + '</b>' +
+        '<span class="badge ' + statusKind(o.status) + '" data-i18n>' + esc(o.status || '—') + '</span></div></div>';
+    }).join('');
+  }
+
+  // ---------- manual order form ----------
+  function addLine(item) {
+    item = item || {};
+    var div = document.createElement('div');
+    div.className = 'oi-row';
+    div.innerHTML =
+      '<input class="i-name" placeholder="Item" value="' + esc(item.name || '') + '">' +
+      '<input class="i-qty" type="number" min="1" step="1" placeholder="Qty" value="' + (item.qty != null ? esc(item.qty) : '1') + '">' +
+      '<input class="i-price" type="number" min="0" step="0.01" placeholder="Price $" value="">' +
+      '<button class="rm" type="button" aria-label="Remove">✕</button>';
+    div.querySelector('.rm').addEventListener('click', function () { div.remove(); preview(); });
+    div.querySelectorAll('input').forEach(function (i) { i.addEventListener('input', preview); });
+    $('#o-lines').appendChild(div);
+    refresh();
+  }
+
+  function collectLines() {
+    var out = [];
+    document.querySelectorAll('.oi-row').forEach(function (r) {
+      var name = r.querySelector('.i-name').value.trim();
+      var qty = Math.floor(Number(r.querySelector('.i-qty').value)) || 1;
+      var priceUsd = r.querySelector('.i-price').value;
+      var cents = priceUsd === '' ? 0 : Math.round(Number(priceUsd) * 100);
+      if (name) out.push({ name: name, qty: qty, price_cents: Number.isFinite(cents) && cents >= 0 ? cents : 0 });
+    });
+    return out;
+  }
+
+  function preview() {
+    var sub = collectLines().reduce(function (n, it) { return n + it.price_cents * it.qty; }, 0);
+    $('#o-subtotal').textContent = Owner.money(sub);
+    $('#o-total').textContent = Owner.money(Math.round(sub * 1.07));
+  }
+
+  function createOrder() {
+    var name = $('#o-name').value.trim();
+    if (!name) return Hub.toast('Add a customer name.');
+    var items = collectLines();
+    if (!items.length) return Hub.toast('Add at least one item.');
+    var date = $('#o-date').value;
+    if (!date) return Hub.toast('Pick a delivery date.');
+    var body = {
+      customer_name: name,
+      customer_email: $('#o-email').value.trim() || null,
+      phone: $('#o-phone').value.trim() || null,
+      items: items,
+      delivery_date: date,
+      delivery_window: $('#o-window').value,
+      status: $('#o-status').value,
+      note: $('#o-note').value.trim() || null
+    };
+    var btn = $('#o-create'); btn.disabled = true;
+    Hub.api('/api/hub/owner/orders', { method: 'POST', body: body }).then(function (r) {
+      btn.disabled = false;
+      if (r && r.ok) {
+        Hub.toast('Order created');
+        $('#o-lines').innerHTML = ''; addLine();
+        $('#o-name').value = ''; $('#o-email').value = ''; $('#o-phone').value = ''; $('#o-note').value = '';
+        $('#o-date').value = todayStr();
+        preview();
+        window.location.hash = '';
+        loadList($('#q') ? $('#q').value.trim() : '');
+      } else {
+        Hub.toast(r && r.error ? r.error : 'Could not create order.');
+      }
+    });
+  }
+
+  Owner.init('customers', render);
+})();
+</script>
+</body>
+</html>

@@ -24,3 +24,16 @@ database_id = "d5ca11c7-7b44-4560-919d-b6210753d182"
 [[kv_namespaces]]
 binding = "SESSIONS"
 id = "afbedd5c3613449b931b27ee0353a4b0"
+
+# Workers AI — Whisper voice transcription for Creative Studio (code feature-detects env.AI).
+[ai]
+binding = "AI"
+
+# --- R2 media bucket (proof-of-delivery photos, Creative Studio media) ---
+# OWNER ACTION: enable R2 once in the Cloudflare Dashboard (R2 → accept terms), then run
+#   wrangler r2 bucket create anejo-media
+# and UNCOMMENT the block below. All media code feature-detects env.MEDIA and falls back
+# to inline storage until then.
+# [[r2_buckets]]
+# binding = "MEDIA"
+# bucket_name = "anejo-media"

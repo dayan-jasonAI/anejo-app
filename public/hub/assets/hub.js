@@ -247,6 +247,63 @@
       .catch(function () {});
   };
 
+  // ---------- Web push (subscribe/unsubscribe) ----------
+  function urlB64ToUint8(s) {
+    var pad = '='.repeat((4 - (s.length % 4)) % 4);
+    var raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    var arr = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  }
+
+  // Current push state: 'unsupported' | 'denied' | 'off' | 'on'
+  Hub.pushStatus = function () {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return Promise.resolve('unsupported');
+    if (Notification.permission === 'denied') return Promise.resolve('denied');
+    return navigator.serviceWorker.ready
+      .then(function (reg) { return reg.pushManager.getSubscription(); })
+      .then(function (sub) { return sub ? 'on' : 'off'; })
+      .catch(function () { return 'off'; });
+  };
+
+  // Ask permission, subscribe with the server's VAPID key, register server-side.
+  Hub.enablePush = function () {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return Promise.resolve({ ok: false, error: 'unsupported' });
+    }
+    return Notification.requestPermission().then(function (perm) {
+      if (perm !== 'granted') return { ok: false, error: 'denied' };
+      return fetch('/api/hub/push/subscribe', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (cfg) {
+          if (!cfg || !cfg.vapid_public_key) return { ok: false, error: 'not_configured' };
+          return navigator.serviceWorker.ready.then(function (reg) {
+            return reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlB64ToUint8(cfg.vapid_public_key),
+            });
+          }).then(function (sub) {
+            return Hub.api('/api/hub/push/subscribe', { method: 'POST', body: { subscription: sub.toJSON() } })
+              .then(function (res) { return { ok: !!(res && res.ok) }; });
+          });
+        });
+    }).catch(function () { return { ok: false, error: 'failed' }; });
+  };
+
+  Hub.disablePush = function () {
+    return navigator.serviceWorker.ready
+      .then(function (reg) { return reg.pushManager.getSubscription(); })
+      .then(function (sub) {
+        if (!sub) return { ok: true };
+        var payload = { subscription: sub.toJSON(), action: 'unsubscribe' };
+        return sub.unsubscribe().then(function () {
+          return Hub.api('/api/hub/push/subscribe', { method: 'POST', body: payload })
+            .then(function () { return { ok: true }; });
+        });
+      })
+      .catch(function () { return { ok: false }; });
+  };
+
   window.Hub = Hub;
 
   // Load the HUB Spanish (EN/ES) dictionary once — it registers with the shared i18n engine.

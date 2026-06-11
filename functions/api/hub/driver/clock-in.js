@@ -6,7 +6,7 @@ import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { raiseAlert } from '../../../_lib/alerts.js';
-import { id, now, toJson } from '../../../_lib/hub.js';
+import { id, now, toJson, today } from '../../../_lib/hub.js';
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -31,10 +31,25 @@ export const onRequestPost = async ({ request, env }) => {
 
   const geo = b && typeof b.geo === 'object' ? b.geo : null;
   const geoCaptured = geo && typeof geo.lat === 'number' && typeof geo.lng === 'number';
-  const scheduled = b && b.scheduled ? 1 : 0;
-  const minutesLate = Number.isFinite(b && b.minutes_late) ? Math.round(b.minutes_late) : null;
+  let scheduled = b && b.scheduled ? 1 : 0;
+  let minutesLate = Number.isFinite(b && b.minutes_late) ? Math.round(b.minutes_late) : null;
   const ts = now();
   const sid = id('shift');
+
+  // Phase 4: if the owner scheduled this driver today (shift_schedule), derive lateness
+  // from the earliest scheduled start. No schedule row → minutes_late stays as-is (null).
+  try {
+    const sched = await env.DB
+      .prepare(
+        "SELECT start_at FROM shift_schedule WHERE staff_id=? AND shift_date=? AND status='scheduled' AND start_at IS NOT NULL ORDER BY start_at ASC LIMIT 1"
+      )
+      .bind(staff.id, today())
+      .first();
+    if (sched && sched.start_at) {
+      scheduled = 1;
+      if (ts > sched.start_at) minutesLate = Math.round((ts - sched.start_at) / 60000);
+    }
+  } catch { /* schedule table optional — keep client-provided values */ }
 
   await env.DB
     .prepare(

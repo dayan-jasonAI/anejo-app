@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Inventory</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  /* Page-local: stock-count rows (shared shell stays untouched). */
+  .inv-row { display:grid; grid-template-columns: 1fr 84px 70px; gap:8px; align-items:center; }
+  .inv-row input { padding:9px; text-align:center; }
+  .inv-row .save { height:38px; }
+  .inv-main .row-sub { font-size:12px; }
+  .badge.par { background:transparent; border:1px solid var(--line,#e3e3da); }
+  .card.below { border-left:4px solid var(--gold,#c9a227); }
+  .inv-archive { background:transparent; border:none; color:var(--crit,#b3261e); font-size:12px; cursor:pointer; padding:4px 0 0; }
+  .add-form .field { margin-bottom:8px; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · INVENTORY</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <h2 data-i18n>Stock count</h2>
+    <div id="items"><div class="hub-loading" data-i18n>Loading…</div></div>
+  </div>
+
+  <div class="hub-section">
+    <h2 data-i18n>+ Add item</h2>
+    <div class="card add-form">
+      <div class="field"><label data-i18n>Name</label><input id="a-name" type="text" maxlength="80"></div>
+      <div class="field"><label data-i18n>Unit</label><input id="a-unit" type="text" maxlength="16" placeholder="lb / ea / case"></div>
+      <div class="field"><label data-i18n>Par level</label><input id="a-par" type="number" step="any" min="0"></div>
+      <div class="field"><label data-i18n>On hand</label><input id="a-onhand" type="number" step="any" min="0"></div>
+      <div class="field"><label data-i18n>Vendor (optional)</label><select id="a-vendor"><option value=""></option></select></div>
+      <button class="btn gold block" id="a-save" type="button" data-i18n>Add item</button>
+    </div>
+  </div>
+
+  <a class="btn ghost block" href="/hub/kitchen/restock.html" data-i18n>Go to restock orders</a>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/kitchen/kitchen.js"></script>
+<script>
+(function () {
+  var Hub = window.Hub, K = window.Kitchen, $ = Hub.$, esc = Hub.esc;
+
+  function itemCard(it) {
+    var par = Number(it.par_level) || 0;
+    var below = !!it.below_par;
+    var parBadge = '<span class="badge par">par ' + esc(par) + (it.unit ? ' ' + esc(it.unit) : '') + '</span>';
+    var lowBadge = below ? ' <span class="badge warn" data-i18n>below par</span>' : '';
+    var vendor = it.vendor_name ? '<div class="row-sub">🛒 ' + esc(it.vendor_name) + '</div>' : '';
+    return '<div class="card' + (below ? ' below' : '') + '" data-card="' + esc(it.id) + '">' +
+      '<div class="inv-row">' +
+      '<div class="inv-main"><div class="row-title">' + esc(it.name) + lowBadge + '</div>' +
+      '<div class="row-sub">' + (it.unit ? esc(it.unit) + ' · ' : '') + parBadge + '</div>' + vendor + '</div>' +
+      '<input class="i-onhand" type="number" step="any" min="0" value="' + esc(it.on_hand != null ? it.on_hand : 0) + '" aria-label="On hand">' +
+      '<button class="btn gold save" type="button" data-count="' + esc(it.id) + '" data-i18n>Save</button>' +
+      '</div>' +
+      '<button class="inv-archive" type="button" data-archive="' + esc(it.id) + '" data-i18n>Archive item</button>' +
+      '</div>';
+  }
+
+  function bind() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-count]'), function (b) {
+      b.addEventListener('click', function () {
+        var card = b.closest('[data-card]');
+        var val = card.querySelector('.i-onhand').value;
+        if (val === '' || Number(val) < 0) return Hub.toast('Enter the on-hand amount.');
+        b.disabled = true;
+        K.post('/api/hub/kitchen/inventory', { action: 'count', id: b.getAttribute('data-count'), on_hand: Number(val) })
+          .then(function (d) {
+            b.disabled = false;
+            if (d && d.ok) { Hub.toast(d.below_par ? 'Saved — below par' : 'Count saved'); load(); }
+            else K.fail(d, 'Could not save count.');
+          });
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-archive]'), function (b) {
+      b.addEventListener('click', function () {
+        if (!window.confirm('Archive this item?')) return;
+        b.disabled = true;
+        K.post('/api/hub/kitchen/inventory', { action: 'archive', id: b.getAttribute('data-archive') })
+          .then(function (d) {
+            if (d && d.ok) { Hub.toast('Item archived'); load(); }
+            else { K.fail(d, 'Could not archive.'); b.disabled = false; }
+          });
+      });
+    });
+  }
+
+  function load() {
+    K.get('/api/hub/kitchen/inventory').then(function (d) {
+      var list = (d && d.items) || [];
+      $('#items').innerHTML = list.length
+        ? list.map(itemCard).join('')
+        : '<div class="hub-empty" data-i18n>No inventory items yet — add the first one below.</div>';
+      bind();
+
+      var sel = $('#a-vendor');
+      var keep = sel.value;
+      sel.innerHTML = '<option value=""></option>' + ((d && d.vendors) || []).map(function (v) {
+        return '<option value="' + esc(v.id) + '">' + esc(v.name || v.id) + '</option>';
+      }).join('');
+      sel.value = keep;
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  $('#a-save').addEventListener('click', function () {
+    var name = $('#a-name').value.trim();
+    if (!name) return Hub.toast('Item name is required.');
+    var btn = this; btn.disabled = true;
+    K.post('/api/hub/kitchen/inventory', {
+      action: 'upsert',
+      name: name,
+      unit: $('#a-unit').value.trim() || null,
+      par_level: $('#a-par').value !== '' ? Number($('#a-par').value) : null,
+      on_hand: $('#a-onhand').value !== '' ? Number($('#a-onhand').value) : null,
+      vendor_id: $('#a-vendor').value || null
+    }).then(function (d) {
+      btn.disabled = false;
+      if (d && d.ok) {
+        Hub.toast(d.below_par ? 'Item added — below par' : 'Item added');
+        $('#a-name').value = ''; $('#a-unit').value = ''; $('#a-par').value = ''; $('#a-onhand').value = ''; $('#a-vendor').value = '';
+        load();
+      } else K.fail(d, 'Could not add item.');
+    });
+  });
+
+  var lt = $('#lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  K.boot('board', function () { load(); });
+})();
+</script>
+</body>
+</html>
