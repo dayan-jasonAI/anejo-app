@@ -213,7 +213,7 @@
     "Your macros, your bowls.":"Tus macros, tus bowls.",
     "Tell us a little about you and your goal. Our AI builds your personalized daily macro target and a weekly Añejo bowl rotation tuned to it — Mediterranean nutrition with Cuban soul.":"Cuéntanos un poco sobre ti y tu meta. Nuestra IA arma tu objetivo diario de macros personalizado y una rotación semanal de bowls Añejo ajustada a él — nutrición mediterránea con alma cubana.",
     "For Me":"Para Mí","I'm a Trainer":"Soy Entrenador","About You":"Sobre Ti","Your name (optional)":"Tu nombre (opcional)",
-    "Age":"Edad","Sex":"Sexo","Female":"Femenino","Male":"Masculino","Height (in)":"Estatura (in)","Weight (lb)":"Peso (lb)",
+    "Age":"Edad","Sex":"Sexo","Female":"Femenino","Male":"Masculino","Height":"Estatura","Weight (lb)":"Peso (lb)",
     "Activity & Goal":"Actividad y Meta","Activity level":"Nivel de actividad",
     "Sedentary — desk job, little exercise":"Sedentario — trabajo de escritorio, poco ejercicio",
     "Light — 1–3 workouts/week":"Ligero — 1–3 entrenamientos/semana","Moderate — 3–5 workouts/week":"Moderado — 3–5 entrenamientos/semana",
