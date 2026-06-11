@@ -3,7 +3,7 @@
 // saves the tokenized card (sourceId from the Web Payments SDK; sandbox accepts
 // 'cnon:card-nonce-ok'), starts the subscription, and writes a subscriptions row.
 // Trainer attribution + 10% rev-share live in OUR D1 (provider_subscription_id → trainer_id).
-import { json, bad, id, now, isEmail } from '../../_lib/util.js';
+import { json, bad, id, now, isEmail, normalizePhone } from '../../_lib/util.js';
 import { square, squareConfigured } from '../../_lib/square.js';
 import { PLAN_TIERS, isPlanTier, planVariationId } from '../../_lib/plans.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
@@ -53,12 +53,13 @@ export const onRequestPost = async ({ request, env }) => {
     const buyer = b.buyer || {};
     const email = (buyer.email || '').trim().toLowerCase();
     const name = (buyer.name || '').trim();
+    const phone = normalizePhone(buyer.phone);
     if (!isEmail(email) || !name) return bad('Please enter your name and a valid email.');
     const houseId = await getOrCreateHouseTrainer(env);
     const cid = id('cl'), t0 = now();
     try {
-      await env.DB.prepare('INSERT INTO clients (id, trainer_id, email, name, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)')
-        .bind(cid, houseId, email, name, 'pending', t0, t0).run();
+      await env.DB.prepare('INSERT INTO clients (id, trainer_id, email, name, phone, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)')
+        .bind(cid, houseId, email, name, phone, 'pending', t0, t0).run();
       client = { id: cid, trainer_id: houseId, name, email };
     } catch (_) {
       const ex = await env.DB.prepare('SELECT id, trainer_id, name, email FROM clients WHERE trainer_id = ? AND email = ?')
@@ -84,7 +85,7 @@ export const onRequestPost = async ({ request, env }) => {
   let perBowlCents = null;
   if (plan && plan.per_bowl_price_cents != null) perBowlCents = clampPerBowlCents(plan.per_bowl_price_cents);
   else if (b.bowlSizeOz) perBowlCents = perBowlCentsFromOz(b.bowlSizeOz);
-  const weeklyCents = perBowlCents != null ? perBowlCents * tier.bowls : tier.weeklyCents;
+  let weeklyCents = perBowlCents != null ? perBowlCents * tier.bowls : tier.weeklyCents;
   // Only override Square's catalog price when the bowls are actually sized away from standard —
   // standard-bowl subscriptions stay on the proven fixed-variation path.
   const overridePrice = perBowlCents != null && perBowlCents !== STANDARD_PER_BOWL_CENTS;
@@ -94,7 +95,7 @@ export const onRequestPost = async ({ request, env }) => {
     method: 'POST',
     body: { idempotency_key: id('cust'), given_name: client.name || 'Añejo Member', email_address: client.email || undefined },
   });
-  if (!r.ok) return bad(sqErr(r) || 'Could not create customer.', 502);
+  if (!r.ok) return bad(sqErr(r) || 'Could not create customer.', 500);
   const customerId = r.data.customer.id;
 
   // 2) Card on file (PCI-safe token from the Web Payments SDK)
@@ -102,23 +103,50 @@ export const onRequestPost = async ({ request, env }) => {
     method: 'POST',
     body: { idempotency_key: id('card'), source_id: sourceId, card: { customer_id: customerId } },
   });
-  if (!r.ok) return bad(sqErr(r) || 'Your card could not be saved.', 502);
+  if (!r.ok) return bad(sqErr(r) || 'Your card could not be saved.', 500);
   const cardId = r.data.card.id;
 
-  // 3) Start the subscription. For sized bowls, override the plan variation's phase price with
-  // the member's sized weekly amount (Square bills this STATIC price on the variation's cadence).
+  // 3) Start the subscription. CreateSubscription has NO price-override field (Square rejects
+  // phases[].pricing), so sized bowls subscribe to an ad-hoc catalog plan VARIATION created at
+  // the sized weekly price under the tier's parent plan.
+  let subscribeVariationId = variationId;
+  if (overridePrice) {
+    let vr = await square(env, `/v2/catalog/object/${variationId}`);
+    const parentPlanId = vr.ok && vr.data.object && vr.data.object.subscription_plan_variation_data
+      && vr.data.object.subscription_plan_variation_data.subscription_plan_id;
+    if (parentPlanId) {
+      vr = await square(env, '/v2/catalog/object', {
+        method: 'POST',
+        body: {
+          idempotency_key: id('var'),
+          object: {
+            type: 'SUBSCRIPTION_PLAN_VARIATION', id: '#sized',
+            subscription_plan_variation_data: {
+              name: `${tier.label} · sized ${(weeklyCents / 100).toFixed(2)}/wk`,
+              subscription_plan_id: parentPlanId,
+              phases: [{ cadence: 'WEEKLY', ordinal: 0, pricing: { type: 'STATIC', price_money: { amount: weeklyCents, currency: 'USD' } } }],
+            },
+          },
+        },
+      });
+    }
+    if (vr.ok && vr.data.catalog_object) {
+      subscribeVariationId = vr.data.catalog_object.id;
+    } else {
+      // Sized variation could not be created — fall back to the proven standard tier price,
+      // and record that same amount so the charge and our books never disagree.
+      weeklyCents = tier.weeklyCents;
+    }
+  }
   const subBody = {
     idempotency_key: id('sub'),
     location_id: env.SQUARE_LOCATION_ID,
-    plan_variation_id: variationId,
+    plan_variation_id: subscribeVariationId,
     customer_id: customerId,
     card_id: cardId,
   };
-  if (overridePrice) {
-    subBody.phases = [{ ordinal: 0, pricing: { type: 'STATIC', price_money: { amount: weeklyCents, currency: 'USD' } } }];
-  }
   r = await square(env, '/v2/subscriptions', { method: 'POST', body: subBody });
-  if (!r.ok) return bad(sqErr(r) || 'Subscription could not be started.', 502);
+  if (!r.ok) return bad(sqErr(r) || 'Subscription could not be started.', 500);
   const sub = r.data.subscription;
 
   // 4) Persist + attribute to the trainer (the rev-share link)

@@ -1,6 +1,6 @@
-// POST /api/auth/request-link  { email, type?, name?, gym_name?, gym_city?, lang? }
+// POST /api/auth/request-link  { email, type?, name?, gym_name?, gym_city?, phone?, lang? }
 // Issues a 30-min magic-link token and emails it. Does not reveal whether the account exists.
-import { json, bad, isEmail, randToken, now, appBaseUrl } from '../../_lib/util.js';
+import { json, bad, isEmail, randToken, now, appBaseUrl, normalizePhone } from '../../_lib/util.js';
 import { sendEmail, magicLinkEmail } from '../../_lib/email.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
 
@@ -27,10 +27,11 @@ export const onRequestPost = async ({ request, env }) => {
     .run();
 
   // Stash optional first-time signup details for trainer creation on verify.
-  if (env.SESSIONS && (body.name || body.gym_name || body.gym_city)) {
+  const phone = normalizePhone(body.phone);
+  if (env.SESSIONS && (body.name || body.gym_name || body.gym_city || phone)) {
     await env.SESSIONS.put(
       `signup:${token}`,
-      JSON.stringify({ name: body.name || null, gym_name: body.gym_name || null, gym_city: body.gym_city || null }),
+      JSON.stringify({ name: body.name || null, gym_name: body.gym_name || null, gym_city: body.gym_city || null, phone: phone || null }),
       { expirationTtl: 1800 }
     );
   }
