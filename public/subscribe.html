@@ -72,6 +72,16 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
     <label class="fld">Choose your weekly plan</label>
     <div class="plan-pick" id="planPick"></div>
 
+    <label class="fld">Delivery address</label>
+    <input class="b-input" id="a_street" type="text" autocomplete="address-line1" placeholder="Street address">
+    <input class="b-input" id="a_unit" type="text" autocomplete="address-line2" placeholder="Apt / unit / suite (optional)">
+    <div style="display:flex;gap:10px">
+      <input class="b-input" id="a_city" type="text" autocomplete="address-level2" placeholder="City" style="flex:2">
+      <input class="b-input" id="a_state" type="text" autocomplete="address-level1" placeholder="State" value="FL" style="flex:1">
+      <input class="b-input" id="a_zip" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="ZIP" style="flex:1">
+    </div>
+    <input class="b-input" id="a_notes" type="text" placeholder="Gate code, drop-off notes (optional)">
+
     <label class="fld" for="card-container">Card</label>
     <div id="card-container"></div>
 
@@ -95,8 +105,12 @@ const clientId = qs.get('client') || '';
 // and priced from that (pbp = per-bowl price). Re-price the tiers off it so the quote matches.
 const perBowl = parseFloat(qs.get('pbp'));
 const bowlOz = parseInt(qs.get('oz'), 10);
+const avocado = qs.get('avo') === '1';
+const AVO_USD = 2; // avocado add-on, +$2 per bowl
 if (perBowl > 0) {
-  Object.values(TIERS).forEach(t => { t.price = Math.round(perBowl * t.bowls * 100) / 100; });
+  Object.values(TIERS).forEach(t => { t.price = Math.round((perBowl + (avocado ? AVO_USD : 0)) * t.bowls * 100) / 100; });
+} else if (avocado) {
+  Object.values(TIERS).forEach(t => { t.price = Math.round((t.price + AVO_USD * t.bowls) * 100) / 100; });
 }
 // Default recommendation is the 12-bowl plan.
 let planTier = TIERS[qs.get('plan')] ? qs.get('plan') : 'plan_12';
@@ -115,7 +129,8 @@ window.pickPlan = pickPlan;
 document.getElementById('who').innerHTML = (clientId
   ? 'Subscribing as <strong>your trainer\'s member</strong>. Your plan is delivered weekly.'
   : 'Weekly Añejo bowls, delivered. Cancel anytime.')
-  + (bowlOz ? ' Your bowls are portion-sized to your goal: <strong>'+bowlOz+' oz each</strong>.' : '');
+  + (bowlOz ? ' Your bowls are portion-sized to your goal: <strong>'+bowlOz+' oz each</strong>.' : '')
+  + (avocado ? ' <strong>½ avocado added to every bowl</strong> (+$2 each).' : '');
 if(!clientId){
   document.getElementById('buyerFields').innerHTML =
     '<label class="fld" for="b_name">Your name</label><input class="b-input" id="b_name" type="text" autocomplete="name" required>'+
@@ -164,8 +179,18 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
     if(!name.trim()||!email.trim()){ msg.className='msg err'; msg.textContent='Please enter your name and email.'; return; }
     body = { planTier, buyer:{ name:name.trim(), email:email.trim(), phone:phone.trim(), sms_consent:smsConsent } };
   }
-  // Carry the chosen bowl size so the server charges the member's sized per-bowl price.
+  // Carry the chosen bowl size + avocado add-on so the server charges + preps correctly.
   if (bowlOz) body.bowlSizeOz = bowlOz;
+  if (avocado) body.avocado = true;
+  // Delivery address — required so every weekly order can be routed.
+  var addr = {
+    street:(document.getElementById('a_street')||{}).value||'', unit:(document.getElementById('a_unit')||{}).value||'',
+    city:(document.getElementById('a_city')||{}).value||'', state:((document.getElementById('a_state')||{}).value||'FL'),
+    zip:(document.getElementById('a_zip')||{}).value||'', notes:(document.getElementById('a_notes')||{}).value||''
+  };
+  if(!addr.street.trim()||!addr.city.trim()){ msg.className='msg err'; msg.textContent='Please enter your delivery street address and city.'; return; }
+  if(!/^\d{5}$/.test(addr.zip.trim())){ msg.className='msg err'; msg.textContent='Please enter a valid 5-digit ZIP code.'; return; }
+  body.address = { street:addr.street.trim(), unit:addr.unit.trim(), city:addr.city.trim(), state:addr.state.trim()||'FL', zip:addr.zip.trim(), notes:addr.notes.trim() };
   btn.disabled=true; const lbl=btn.textContent; btn.textContent='Processing…';
   try {
     const tok = await card.tokenize();

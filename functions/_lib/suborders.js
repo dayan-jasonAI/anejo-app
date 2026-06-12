@@ -2,6 +2,7 @@
 // to make for each weekly delivery). Itemizes from the member's saved bowl rotation when we
 // have it, else a single "Weekly plan — N bowls" line. Files under _lib are not routed.
 import { id, now } from './util.js';
+import { kitchenBowlLine } from './bowlspec.js';
 
 function parseJson(s, f) { try { return JSON.parse(s); } catch { return f; } }
 
@@ -20,23 +21,33 @@ export async function createSubscriptionDelivery(env, o) {
   let items;
   const rot = o.planBowlRotation ? parseJson(o.planBowlRotation, null) : null;
   if (rot && typeof rot === 'object') {
+    // Itemize WITH each bowl scaled to the client's size factor: per-bowl macros + ingredient list +
+    // portion (oz/%) + avocado flag, so the kitchen preps exact weights and we can plan stock.
     items = Object.entries(rot).filter((e) => e[1] > 0)
-      .map((e) => ({ id: 'bowl_' + String(e[0]).toLowerCase(), name: e[0] + ' Bowl', qty: e[1] }));
+      .map((e) => kitchenBowlLine(e[0], e[1], o.sizeFactor, o.avocado)
+        || { id: 'bowl_' + String(e[0]).toLowerCase(), name: e[0] + ' Bowl', qty: e[1], avocado: !!o.avocado });
   }
   if (!items || !items.length) {
-    items = [{ id: 'sub', name: o.tierLabel || ('Weekly plan' + (o.bowls ? ` — ${o.bowls} bowls` : '')), qty: 1 }];
+    items = [{ id: 'sub', name: o.tierLabel || ('Weekly plan' + (o.bowls ? ` — ${o.bowls} bowls` : '')), qty: 1, avocado: !!o.avocado }];
   }
   const oid = o.orderId || id('ord');
   const t = now();
+  // Delivery address (the subscriber's saved default) so each weekly order is routable.
+  const a = o.address || {};
   await env.DB.prepare(
     `INSERT OR IGNORE INTO orders
        (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
-        subtotal_cents, fee_cents, tax_pct, total_estimate_cents, status, customer_name, customer_email, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?, 'paid', ?, ?, ?, ?)`
+        subtotal_cents, fee_cents, tax_pct, total_estimate_cents,
+        delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
+        delivery_lat, delivery_lng, geocoded_at,
+        status, customer_name, customer_email, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'paid', ?, ?, ?, ?)`
   ).bind(
     oid, 'sub_' + o.subscriptionId, null, JSON.stringify(items),
     o.deliveryDate || nextWeeklyDeliveryDate(), o.deliveryWindow || 'lunch',
     o.weeklyCents || 0, 0, 0, o.weeklyCents || 0,
+    a.street || null, a.unit || null, a.city || null, a.state || null, a.zip || null, a.notes || null,
+    a.lat != null ? a.lat : null, a.lng != null ? a.lng : null, a.lat != null ? t : null,
     o.customerName || null, o.customerEmail || null, t, t
   ).run();
   return oid;

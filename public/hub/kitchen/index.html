@@ -22,6 +22,13 @@
   .order-items { list-style:none; margin:8px 0 0; padding:8px 0 0; border-top:1px solid var(--line); }
   .order-items li { font-size:13px; color:var(--green); padding:3px 0; display:flex; justify-content:space-between; gap:10px; }
   .order-items li .q { font-weight:700; color:var(--gold-700, #8a7a2e); }
+  .order-items li.oi-head { font-weight:600; padding-top:7px; }
+  .order-items li.oi-macros { display:block; font-size:12px; color:#444; padding:1px 0 0; }
+  .order-items li.oi-macros b { color:var(--green); }
+  .order-items li.oi-macros .oi-each { color:#9a9a8f; font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
+  .order-items li.oi-ing { display:block; font-size:11.5px; color:#6b7269; padding:1px 0 4px; line-height:1.4; }
+  .order-items li.oi-ing b { color:#3a6b2e; }
+  .order-items .oi-avo { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#3a6b2e; background:#e7f0ea; border-radius:7px; padding:1px 6px; }
   .order-card { cursor:default; }
   .ord-filter { display:flex; gap:8px; margin:0 0 12px; }
   .ord-filter .chip { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 6px;
@@ -230,7 +237,9 @@
     });
   }
 
-  // Render the order's actual contents (bowls × qty) so the kitchen can see WHAT to make.
+  // Render the order's actual contents so the kitchen sees WHAT to make AND the exact per-bowl
+  // spec for this client: portion size, the macros that bowl must hit, its ingredients, and the
+  // avocado add-on — so they prep the right weights and we hold the right stock.
   function orderItems(o) {
     var items = [];
     try { items = JSON.parse(o.items || '[]'); } catch (e) {}
@@ -238,7 +247,17 @@
     return '<ul class="order-items">' + items.map(function (it) {
       var qty = Number(it && it.qty) || 1;
       var name = (it && (it.name || it.id)) || 'Item';
-      return '<li><span>' + esc(name) + '</span><span class="q">×' + qty + '</span></li>';
+      var size = (it && it.size_oz) ? (' · ' + it.size_oz + ' oz' + (it.size_pct ? ' (' + it.size_pct + '%)' : '')) : '';
+      var head = '<li class="oi-head"><span>' + esc(name) + (it && it.avocado ? ' <span class="oi-avo">+ ½ avocado</span>' : '') + size + '</span><span class="q">×' + qty + '</span></li>';
+      var detail = '';
+      var m = it && it.macros;
+      if (m) {
+        detail += '<li class="oi-macros"><b>' + (m.kcal||'—') + '</b> kcal · ' + (m.protein_g||0) + 'P / ' + (m.carbs_g||0) + 'C / ' + (m.fat_g||0) + 'F' + (m.fiber_g!=null ? ' · ' + m.fiber_g + ' fiber' : '') + ' <span class="oi-each">per bowl</span></li>';
+      }
+      if (it && Array.isArray(it.ingredients) && it.ingredients.length) {
+        detail += '<li class="oi-ing">' + esc(it.ingredients.join(' · ')) + (it.avocado ? ' · <b>½ avocado</b> (reduce other fats to keep target)' : '') + '</li>';
+      }
+      return head + detail;
     }).join('') + '</ul>';
   }
 

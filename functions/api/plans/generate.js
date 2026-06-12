@@ -3,6 +3,7 @@
 // returns a structured plan. No DB writes — saving + checkout ship in V1.1.
 import { limitOr429 } from '../../_lib/ratelimit.js';
 import { computeSizing, RECOMMENDED_BOWL_COUNT } from '../../_lib/sizing.js';
+import { BOWLS } from '../../_lib/bowlspec.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -20,18 +21,9 @@ const ALLOWED_ACTIVITY = new Set([
   'sedentary', 'light', 'moderate', 'active', 'very_active'
 ]);
 
-// Final 7-bowl menu. Macros per single 16-oz bowl, sauce on the side — sourced from the
-// kitchen manual (Añejo Fit Bowls — Manual de Cocina v2026.05) so the calculator, menu cards,
-// and kitchen all agree. fiber_g are estimates (not in the manual).
-const BOWLS = [
-  { name: 'VIDA',     description: 'Tuna sautéed with mango + lime over quinoa, refried chickpeas, greens, pumpkin seeds.', kcal: 510, protein_g: 40, carbs_g: 36, fat_g: 22, fiber_g: 12, tags: ['pescatarian','anti-inflammatory','flagship'] },
-  { name: 'FUEGO',    description: 'Grilled steak with Añejo chimichurri, quinoa, grilled veg, spinach-apple-almond salad.',  kcal: 580, protein_g: 42, carbs_g: 35, fat_g: 28, fiber_g:  9, tags: ['high-protein','mediterranean'] },
-  { name: 'LIGERO',   description: 'Grilled chicken with chimichurri, quinoa, grilled veg, spinach-apple-almond salad.',      kcal: 520, protein_g: 45, carbs_g: 38, fat_g: 20, fiber_g:  9, tags: ['high-protein','lean','workhorse'] },
-  { name: 'MAR',      description: 'Omega-rich salmon over quinoa, greens, roasted vegetables, pickled onions, sesame, Añejo sauce.', kcal: 620, protein_g: 40, carbs_g: 30, fat_g: 32, fiber_g: 8, tags: ['pescatarian','omega-3','anti-inflammatory','high-protein'] },
-  { name: 'COCO',     description: 'Coconut-lime shrimp over quinoa-corn-edamame, spinach, tomato, cucumber, avocado, Ajo Cítrico.', kcal: 590, protein_g: 40, carbs_g: 37, fat_g: 27, fiber_g: 9, tags: ['pescatarian','lean','tropical'] },
-  { name: 'CONGREEN', description: 'Quinoa-blueberry congrí with tuna sauté, spinach-tomato, avocado, queso fresco, pumpkin seeds.', kcal: 575, protein_g: 41, carbs_g: 39, fat_g: 25, fiber_g: 11, tags: ['pescatarian','cuban','antioxidant'] },
-  { name: 'RAIZ',     description: 'Crispy tofu, quinoa, slaw, roasted vegetables, sweet potato, avocado, Aguacate Cilantro + Mango Omega.', kcal: 520, protein_g: 35, carbs_g: 38, fat_g: 26, fiber_g: 11, tags: ['vegetarian','plant-forward','dairy-free','high-fiber','anti-inflammatory'] }
-];
+// The 7-bowl macro template lives in functions/_lib/bowlspec.js (the single source of truth the
+// planner, plan page, and kitchen all read). Macros are per STANDARD 16 oz bowl; the kitchen scales
+// each by the client's bowl_size_factor.
 
 const SYSTEM_PROMPT = `You are the nutrition planning AI for Añejo Catering Co., a Mediterranean-Cuban longevity bowl service in Palm Beach County, Florida. You generate personalized weekly meal plans for fitness clients of partner gym trainers, clinics, and wellness coaches — and for individuals on the public site.
 

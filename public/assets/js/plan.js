@@ -12,6 +12,25 @@ const BOWL_TAGLINES = {
   }
 };
 const BOWL_LABEL = { RAIZ:'RAÍZ' };
+// Bowl photos + the 16 oz macro template (mirrors functions/_lib/bowlspec.js) so the rotation can
+// show each bowl scaled to the client's size factor.
+const BOWL_IMG = {
+  VIDA:'/assets/img/bowl_vida.jpg', FUEGO:'/assets/img/bowl_fuego.jpg', LIGERO:'/assets/img/bowl_ligero.jpg',
+  MAR:'/assets/img/bowl_mar.jpg', COCO:'/assets/img/bowl_coco.jpg', CONGREEN:'/assets/img/bowl_congreen.jpg', RAIZ:'/assets/img/bowl_raiz.jpg'
+};
+const BOWL_BASE = {
+  VIDA:{kcal:510,protein_g:40,carbs_g:36,fat_g:22}, FUEGO:{kcal:580,protein_g:42,carbs_g:35,fat_g:28},
+  LIGERO:{kcal:520,protein_g:45,carbs_g:38,fat_g:20}, MAR:{kcal:620,protein_g:40,carbs_g:30,fat_g:32},
+  COCO:{kcal:590,protein_g:40,carbs_g:37,fat_g:27}, CONGREEN:{kcal:575,protein_g:41,carbs_g:39,fat_g:25},
+  RAIZ:{kcal:520,protein_g:35,carbs_g:38,fat_g:26}
+};
+const AVO_USD = 2; // avocado add-on, +$2 per bowl
+let avoOn = false; // "add avocado to every bowl" toggle state
+function scaledBowl(bowl, factor){
+  const b = BOWL_BASE[bowl]; const f = Number(factor) > 0 ? Number(factor) : 1;
+  if (!b) return null;
+  return { kcal:Math.round(b.kcal*f), protein_g:Math.round(b.protein_g*f), carbs_g:Math.round(b.carbs_g*f), fat_g:Math.round(b.fat_g*f) };
+}
 const TIER_LABEL = {
   en: { plan_5:'5 bowls / week', plan_10:'10 bowls / week', plan_12:'12 bowls / week' },
   es: { plan_5:'5 bowls / semana', plan_10:'10 bowls / semana', plan_12:'12 bowls / semana' }
@@ -33,6 +52,8 @@ const T = {
         bowlHead:'Your Añejo Bowl', perBowl:'per bowl', oz:'oz', perDay:function(n){return n+' bowls / day';},
         rotation:'Your Weekly Añejo Rotation', plansHead:'Choose Your Weekly Plan',
         bowls:'bowls', perWeek:'per week', recommended:'Recommended',
+        avoLabel:'Add avocado to every bowl', avoPriceEach:'+$2 each', avoTag:'+ ½ avocado',
+        avoNote:'Fresh ½ avocado in every bowl — we keep your calories on target by adjusting the bowl’s other fats.',
         editToggle:'Adjust my macros', editClose:'Hide editor',
         editTitle:'Adjust your daily macros',
         editHelp:'Change your targets and we’ll re-size your bowls and update pricing.',
@@ -58,6 +79,8 @@ const T = {
         bowlHead:'Tu Bowl Añejo', perBowl:'por bowl', oz:'oz', perDay:function(n){return n+' bowls / día';},
         rotation:'Tu Rotación Semanal Añejo', plansHead:'Elige Tu Plan Semanal',
         bowls:'bowls', perWeek:'por semana', recommended:'Recomendado',
+        avoLabel:'Agregar aguacate a cada bowl', avoPriceEach:'+$2 c/u', avoTag:'+ ½ aguacate',
+        avoNote:'Medio aguacate fresco en cada bowl — mantenemos tus calorías en la meta ajustando las otras grasas del bowl.',
         editToggle:'Ajustar mis macros', editClose:'Ocultar editor',
         editTitle:'Ajusta tus macros diarios',
         editHelp:'Cambia tus metas y ajustaremos el tamaño de tus bowls y el precio.',
@@ -153,7 +176,12 @@ function render(intake, plan) {
   setText('m-size-label', T[L].sizeLabel[sizeKey] || T[L].sizeLabel.standard);
   setText('m-size-oz', (plan.bowl_size_oz || 16) + ' ' + T[L].oz);
   setText('m-size-note', T[L].sizeNote(sizeKey, meals));
-  setText('m-bowl-price', plan.per_bowl_price_usd != null ? '$' + money(plan.per_bowl_price_usd) : '—');
+  const perBowlShown = plan.per_bowl_price_usd != null ? plan.per_bowl_price_usd + (avoOn ? AVO_USD : 0) : null;
+  setText('m-bowl-price', perBowlShown != null ? '$' + money(perBowlShown) : '—');
+
+  // Avocado add-on toggle (localized; reflects current state).
+  setText('lbl-avo', T[L].avoLabel); setText('lbl-avo-price', T[L].avoPriceEach); setText('lbl-avo-note', T[L].avoNote);
+  const avoEl = document.getElementById('avo-toggle'); if (avoEl) avoEl.checked = avoOn;
   const pb = plan.per_bowl_macros || {};
   const pbEl = document.getElementById('perbowl-macros');
   if (pbEl) {
@@ -167,13 +195,14 @@ function render(intake, plan) {
   const optsEl = document.getElementById('plan-opts');
   if (optsEl) {
     const opts = Array.isArray(plan.plan_options) ? plan.plan_options : [];
-    optsEl.innerHTML = opts.map(o =>
-      `<div class="plan-opt${o.recommended ? ' rec' : ''}">` +
+    optsEl.innerHTML = opts.map(o => {
+      const weekly = o.weekly_price_usd + (avoOn ? AVO_USD * o.bowls : 0);
+      return `<div class="plan-opt${o.recommended ? ' rec' : ''}">` +
       (o.recommended ? `<div class="po-badge">${T[L].recommended}</div>` : '') +
       `<div class="po-count">${o.bowls} ${T[L].bowls}</div>` +
-      `<div class="po-price">$${money(o.weekly_price_usd)}</div>` +
-      `<div class="po-per">${T[L].perWeek}</div></div>`
-    ).join('');
+      `<div class="po-price">$${money(weekly)}</div>` +
+      `<div class="po-per">${T[L].perWeek}</div></div>`;
+    }).join('');
   }
 
   const grid = document.getElementById('bowl-grid');
@@ -183,7 +212,13 @@ function render(intake, plan) {
     .forEach(([bowl, count]) => {
       const el = document.createElement('div');
       el.className = 'bowl';
-      el.innerHTML = `<div class="name">${BOWL_LABEL[bowl]||bowl}</div><div class="count"><span class="x">×</span>${count}</div><div class="tagline">${(BOWL_TAGLINES[L][bowl])||''}</div>`;
+      const img = BOWL_IMG[bowl] ? `<img class="bowl-img" src="${BOWL_IMG[bowl]}" alt="${BOWL_LABEL[bowl]||bowl} bowl" loading="lazy" />` : '';
+      const m = scaledBowl(bowl, plan.bowl_size_factor);
+      const macros = m ? `<div class="bowl-macros"><b>${m.kcal}</b> kcal · ${m.protein_g}P / ${m.carbs_g}C / ${m.fat_g}F</div>` : '';
+      const avo = avoOn ? `<div class="avo-tag">${T[L].avoTag}</div>` : '';
+      el.innerHTML = img +
+        `<div class="name">${BOWL_LABEL[bowl]||bowl}</div><div class="count"><span class="x">×</span>${count}</div>` +
+        `<div class="tagline">${(BOWL_TAGLINES[L][bowl])||''}</div>` + macros + avo;
       grid.appendChild(el);
     });
 
@@ -200,6 +235,7 @@ function render(intake, plan) {
     sp.set('plan', plan.meal_plan_tier || 'plan_12');
     if (plan.per_bowl_price_usd != null) sp.set('pbp', plan.per_bowl_price_usd);
     if (plan.bowl_size_oz) sp.set('oz', plan.bowl_size_oz);
+    if (avoOn) sp.set('avo', '1');
     subBtn.href = '/subscribe?' + sp.toString();
     subBtn.style.display = '';
   }
@@ -294,6 +330,8 @@ function wireEditor() {
   toggle.addEventListener('click', () => setOpen(panel.style.display === 'none'));
   if (cancel) cancel.addEventListener('click', () => { setOpen(false); if (curIntake && curPlan) render(curIntake, curPlan); });
   if (apply) apply.addEventListener('click', applyEdit);
+  const avo = document.getElementById('avo-toggle');
+  if (avo) avo.addEventListener('change', () => { avoOn = avo.checked; if (curIntake && curPlan) render(curIntake, curPlan); });
 }
 
 async function applyEdit() {

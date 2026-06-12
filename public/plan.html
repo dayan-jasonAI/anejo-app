@@ -26,6 +26,13 @@
     .plan-opt .po-price{color:var(--gold-dark,#8B6B3E);font-weight:700;margin-top:4px}
     .plan-opt .po-per{font-size:11px;color:#6b6b6b;text-transform:uppercase;letter-spacing:1px}
     .plan-opt .po-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--gold,#C6A85B);color:#0D0D0D;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:10px;white-space:nowrap}
+    .bowl img.bowl-img{width:100%;height:104px;object-fit:cover;border-radius:9px;margin-bottom:8px;display:block;background:var(--cream-dark,#EAE5D8)}
+    .bowl .bowl-macros{font-size:11px;color:#6b6b6b;margin-top:6px;line-height:1.35}
+    .bowl .bowl-macros b{color:var(--green,#1A3D2E)}
+    .bowl .avo-tag{display:inline-block;margin-top:5px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#3a6b2e;background:#e7f0ea;border-radius:8px;padding:2px 7px}
+    .avo-card{display:flex;gap:11px;align-items:flex-start}
+    .avo-card input{margin-top:3px;width:auto;flex:none}
+    .avo-card .avo-note{font-size:12px;color:#6b6b6b;margin-top:3px}
     .edit-panel h3{color:var(--green,#1A3D2E);font-weight:600}
     .edit-help{font-size:13px;color:#6b6b6b;margin:6px 0 14px}
     .edit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -101,6 +108,14 @@
       <div class="eyebrow" id="lbl-rotation" style="margin-top:26px">Your Weekly Añejo Rotation</div>
       <div class="tierpill" id="m-tier"></div>
       <div class="bowl-grid" id="bowl-grid"></div>
+
+      <label class="card avo-card" id="avo-card" style="margin-top:18px;cursor:pointer">
+        <input type="checkbox" id="avo-toggle" />
+        <div>
+          <div><strong id="lbl-avo">Add avocado to every bowl</strong> <span id="lbl-avo-price" style="color:var(--gold-dark,#8B6B3E);font-weight:700">+$2 each</span></div>
+          <div class="avo-note" id="lbl-avo-note">Fresh ½ avocado in every bowl — we keep your calories on target by adjusting the bowl's other fats.</div>
+        </div>
+      </label>
 
       <div class="eyebrow" id="lbl-plans" style="margin-top:26px">Choose Your Weekly Plan</div>
       <div class="plan-opts" id="plan-opts"></div>

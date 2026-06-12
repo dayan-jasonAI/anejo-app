@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Leads</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .lead-chips { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .lead-chips button { flex:1; min-width:96px; border:1px solid var(--line); background:#fff; color:var(--green);
+    border-radius:10px; padding:9px 8px; font:inherit; font-size:13px; cursor:pointer; }
+  .lead-chips button.sel { border-color:var(--gold,#C6A85B); box-shadow:0 0 0 1px var(--gold,#C6A85B); background:#fff8e9; }
+  .lead-chips button .badge { margin-left:4px; }
+  .lead-right { text-align:right; font-size:12px; color:var(--green); white-space:nowrap; }
+  .profile-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:13px; }
+  .profile-grid .k { color:var(--green); opacity:.75; }
+  .lead-msg { white-space:pre-wrap; font-size:13px; margin-top:8px; padding-top:8px; border-top:1px solid var(--line); }
+  .detail-actions { display:flex; gap:8px; margin-top:12px; }
+  .detail-actions .btn { flex:1; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · LEADS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading inquiries…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var esc = Hub.esc, $ = Hub.$;
+  var curKind = '';          // '' = all
+  var searchT = 0;
+
+  function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+
+  function kindBadge(kind) {
+    return kind === 'wholesale'
+      ? '<span class="badge" data-i18n>wholesale</span>'
+      : '<span class="badge ok" data-i18n>tasting</span>';
+  }
+
+  // ---------- skeleton ----------
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML =
+      '<div id="list-view">' +
+        '<div class="hub-section"><h2 data-i18n>Website inquiries</h2>' +
+          '<div class="lead-chips" id="chips"></div>' +
+          '<div class="card"><input id="q" type="search" placeholder="Search name, email, or company…" autocomplete="off"></div>' +
+          '<div id="llist" class="list"><div class="hub-loading">…</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div id="detail-view" style="display:none"></div>';
+
+    var qEl = $('#q');
+    qEl.addEventListener('input', function () {
+      clearTimeout(searchT);
+      searchT = setTimeout(function () { loadList(); }, 300);
+    });
+    window.addEventListener('hashchange', route);
+    route();
+    loadList();
+    refresh();
+  }
+
+  function renderChips(counts) {
+    var c = counts || { tasting: 0, wholesale: 0, total: 0 };
+    var defs = [
+      { k: '', label: 'All', n: c.total },
+      { k: 'tasting', label: 'Tasting', n: c.tasting },
+      { k: 'wholesale', label: 'Wholesale', n: c.wholesale }
+    ];
+    $('#chips').innerHTML = defs.map(function (d) {
+      return '<button data-k="' + d.k + '" class="' + (d.k === curKind ? 'sel' : '') + '">' +
+        '<span data-i18n>' + d.label + '</span> <span class="badge">' + (d.n || 0) + '</span></button>';
+    }).join('');
+    $('#chips').querySelectorAll('[data-k]').forEach(function (b) {
+      b.addEventListener('click', function () { curKind = b.getAttribute('data-k'); loadList(); });
+    });
+    refresh();
+  }
+
+  // ---------- list ----------
+  function loadList() {
+    var q = $('#q') ? $('#q').value.trim() : '';
+    var params = [];
+    if (curKind) params.push('kind=' + encodeURIComponent(curKind));
+    if (q) params.push('q=' + encodeURIComponent(q));
+    Owner.get('/api/hub/owner/leads' + (params.length ? '?' + params.join('&') : '')).then(function (d) {
+      if (!d || !d.ok) return;
+      renderChips(d.counts);
+      var el = $('#llist');
+      if (!el) return;
+      if (!d.items || !d.items.length) {
+        el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No inquiries yet.</p></div>';
+        refresh();
+        return;
+      }
+      el.innerHTML = d.items.map(function (l) {
+        var badges = kindBadge(l.kind);
+        if (l.converted) badges += ' <span class="badge ok" data-i18n>in CRM</span>';
+        if (l.sms_consent) badges += ' <span class="badge ok">SMS ✓</span>';
+        var sub = [l.company, l.email, l.phone].filter(Boolean).map(esc).join(' · ');
+        return '<div class="row" data-id="' + esc(l.id) + '" style="cursor:pointer">' +
+          '<div class="row-main"><div class="row-title">' + esc(l.name || l.email || '—') + ' ' + badges + '</div>' +
+          '<div class="row-sub">' + (sub || '<span data-i18n>no contact info</span>') + '</div></div>' +
+          '<div class="lead-right">' + Owner.timeAgo(l.created_at) + '</div></div>';
+      }).join('');
+      el.querySelectorAll('[data-id]').forEach(function (r) {
+        r.addEventListener('click', function () { window.location.hash = '#l=' + encodeURIComponent(r.getAttribute('data-id')); });
+      });
+      window._leads = d.items;
+      refresh();
+    });
+  }
+
+  // ---------- detail (hash #l=<id>) ----------
+  function route() {
+    var m = (window.location.hash || '').match(/^#l=(.+)$/);
+    if (m) showDetail(decodeURIComponent(m[1]));
+    else { $('#detail-view').style.display = 'none'; $('#list-view').style.display = ''; }
+  }
+
+  function findLead(id) {
+    return (window._leads || []).filter(function (l) { return l.id === id; })[0] || null;
+  }
+
+  function showDetail(id) {
+    var dv = $('#detail-view');
+    $('#list-view').style.display = 'none';
+    dv.style.display = '';
+    var l = findLead(id);
+    if (!l) { dv.innerHTML = backBtn() + '<div class="card accent"><p data-i18n>Inquiry not found. Go back and reopen.</p></div>'; bindBack(); refresh(); return; }
+
+    var rows = [];
+    rows.push(['Type', kindBadge(l.kind)]);
+    if (l.company) rows.push(['Company', esc(l.company)]);
+    rows.push(['Email', esc(l.email || '—')]);
+    rows.push(['Phone', esc(l.phone || '—')]);
+    if (l.interest) rows.push(['Interest', esc(l.interest)]);
+    rows.push(['SMS consent', l.sms_consent ? '<span class="badge ok">SMS ✓</span>' : '<span data-i18n>No</span>']);
+    rows.push(['Received', esc(Owner.timeAgo(l.created_at))]);
+    var grid = rows.map(function (r) { return '<div class="k" data-i18n>' + r[0] + '</div><div>' + r[1] + '</div>'; }).join('');
+    var msg = l.message ? '<div class="lead-msg">' + esc(l.message) + '</div>' : '';
+
+    var mailto = l.email ? 'mailto:' + encodeURIComponent(l.email) +
+      '?subject=' + encodeURIComponent('Añejo Catering Co. — your ' + l.kind + ' inquiry') : '';
+    var convertBtn = l.converted
+      ? '<a class="btn ghost" href="/hub/owner/customers.html#c=' + encodeURIComponent((l.email || '').toLowerCase()) + '" data-i18n>View in CRM →</a>'
+      : '<button class="btn gold" id="convert-btn" type="button" data-i18n>+ Add to CRM</button>';
+
+    dv.innerHTML =
+      backBtn() +
+      '<div class="hub-section"><h2>' + esc(l.name || l.email || 'Inquiry') + '</h2>' +
+      '<div class="card"><div class="profile-grid">' + grid + '</div>' + msg + '</div>' +
+      '<div class="detail-actions">' +
+        (mailto ? '<a class="btn ghost" href="' + mailto + '" data-i18n>✉️ Email</a>' : '') +
+        convertBtn +
+      '</div></div>';
+
+    bindBack();
+    var cb = $('#convert-btn');
+    if (cb) cb.addEventListener('click', function () {
+      cb.disabled = true;
+      Hub.api('/api/hub/owner/leads', { method: 'POST', body: { action: 'convert', id: l.id } }).then(function (r) {
+        cb.disabled = false;
+        if (r && r.ok) {
+          Hub.toast(r.already ? 'Already in CRM' : 'Added to CRM');
+          Hub.track('lead.converted', { kind: l.kind, already: !!r.already, platform: 'pwa' });
+          window.location.href = '/hub/owner/customers.html#c=' + encodeURIComponent((l.email || '').toLowerCase());
+        } else {
+          Hub.toast(r && r.error ? r.error : 'Could not add to CRM.');
+        }
+      });
+    });
+    refresh();
+  }
+
+  function backBtn() { return '<button class="btn ghost block" id="back-btn" type="button" data-i18n>← Back to inquiries</button>'; }
+  function bindBack() { var b = $('#back-btn'); if (b) b.addEventListener('click', function () { window.location.hash = ''; }); }
+
+  Owner.init('leads', render);
+})();
+</script>
+</body>
+</html>
