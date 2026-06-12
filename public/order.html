@@ -66,6 +66,20 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 .btn:hover{background:var(--cream-dark)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .err{color:#9b2226;font-size:13px;margin-top:10px;min-height:1px}
+.modeseg{display:flex;gap:6px;background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:4px;margin-bottom:12px}
+.modeseg button{flex:1;border:none;background:transparent;color:var(--green);font-family:inherit;font-size:13px;font-weight:700;letter-spacing:.5px;padding:9px 8px;border-radius:7px;cursor:pointer;line-height:1.2}
+.modeseg button .seg-sub{display:block;font-size:10px;font-weight:500;letter-spacing:.2px;color:var(--muted);margin-top:3px;text-transform:none}
+.modeseg button.active{background:var(--green);color:var(--cream);box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.modeseg button.active .seg-sub{color:rgba(245,242,236,.82)}
+.avail-banner{font-size:12px;border-radius:8px;padding:9px 12px;margin-bottom:12px;line-height:1.45}
+.avail-banner.open{background:#EAF3EC;border:1px solid rgba(26,61,46,.25);color:var(--green)}
+.avail-banner.closed{background:#FBE9E8;border:1px solid rgba(155,34,38,.3);color:#9b2226}
+.prod.soldout{opacity:.55}
+.prod-stock{font-size:11px;font-weight:600;letter-spacing:.3px;margin-top:4px}
+.prod-stock.low{color:#9b6b00}
+.prod-stock.ok{color:var(--green)}
+.prod-stock.out{color:#9b2226}
+.soldout-tag{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#9b2226;border:1px solid rgba(155,34,38,.4);border-radius:8px;padding:8px 12px;white-space:nowrap}
 @media (max-width:820px){.wrap{grid-template-columns:1fr}.cart{position:static}}
 </style>
 </head>
@@ -99,13 +113,22 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
     <div class="tax-note" id="taxNote" style="display:none">Final tax &amp; delivery fee are confirmed on the secure Square checkout page.</div>
 
     <div class="fulfill">
-      <div class="lbl">Delivery date &amp; window</div>
-      <p class="deliv-note">Delivery only · Palm Beach County · Mon–Sat. Order by 6 PM the day before.</p>
-      <select id="delivDate" aria-label="Delivery date"></select>
-      <select id="delivWindow" aria-label="Delivery time window">
-        <option value="lunch">Lunch · 11:00 AM – 1:00 PM</option>
-        <option value="dinner">Dinner · 5:00 PM – 7:00 PM</option>
-      </select>
+      <div class="lbl">How would you like it?</div>
+      <div class="modeseg" role="tablist" aria-label="Fulfillment mode">
+        <button type="button" id="modeOndemand" class="active" role="tab" aria-selected="true" onclick="setMode('ondemand')">ASAP today<span class="seg-sub">Make-now · delivered today</span></button>
+        <button type="button" id="modeScheduled" role="tab" aria-selected="false" onclick="setMode('scheduled')">Schedule<span class="seg-sub">Pick a day &amp; window</span></button>
+      </div>
+      <div id="availBanner" class="avail-banner" style="display:none"></div>
+
+      <div id="schedFields" style="display:none">
+        <div class="lbl">Delivery date &amp; window</div>
+        <p class="deliv-note">Delivery only · Palm Beach County · Mon–Sat. Order by 6 PM the day before.</p>
+        <select id="delivDate" aria-label="Delivery date"></select>
+        <select id="delivWindow" aria-label="Delivery time window">
+          <option value="lunch">Lunch · 11:00 AM – 1:00 PM</option>
+          <option value="dinner">Dinner · 5:00 PM – 7:00 PM</option>
+        </select>
+      </div>
 
       <div class="lbl" style="margin-top:14px">Your details</div>
       <input id="custName" type="text" autocomplete="given-name" placeholder="First name" aria-label="First name" required>
@@ -157,9 +180,67 @@ const PRICE = {}; CATALOG.forEach(g=>g.items.forEach(i=>PRICE[i.id]=i));
 const cart = {};
 const TAX_PCT = 7;  // display estimate only; checkout.js (server) applies the authoritative tax
 const DELIVERY_FEE = 5, ORDER_MIN = 25;  // display only; server (checkout.js) is authoritative
+const BOWL_IDS = ['vida','fuego','ligero','mar','coco','congreen','raiz'];  // capped items (mirrors _lib/ondemand.js)
+let mode = 'ondemand';   // 'ondemand' = make-now today · 'scheduled' = pick a day/window
+let avail = null;        // { open, openHour, closeHour, limit, remaining, date } from /api/order-availability
+let availLoaded = false;
 const $ = (id)=>document.getElementById(id);
 
 function money(n){ return '$'+n.toFixed(2); }
+function fmtHour(h){ const a=h>=12?'PM':'AM', x=(h%12===0)?12:h%12; return x+' '+a; }
+function isBowl(idv){ return BOWL_IDS.indexOf(idv)!==-1; }
+// Units of a bowl still available today on-demand (Infinity when uncapped or unknown).
+function remainingFor(idv){
+  if(mode!=='ondemand' || !isBowl(idv) || !avail) return Infinity;
+  const r = avail.remaining ? avail.remaining[idv] : avail.limit;
+  return (r==null) ? avail.limit : r;
+}
+function maxFor(idv){ return mode==='ondemand' ? Math.min(20, remainingFor(idv)) : 20; }
+
+async function loadAvailability(){
+  try{
+    const r = await fetch('/api/order-availability');
+    if(r.ok){ const d = await r.json(); avail = d.onDemand || null; }
+  }catch(_){ /* server re-checks; treat as open with full stock on failure */ }
+  // On first load, if on-demand is closed right now, start the customer on Schedule.
+  if(!availLoaded && avail && avail.open===false){ mode='scheduled'; }
+  availLoaded = true;
+  applyMode();
+}
+
+function setMode(m){ mode = (m==='scheduled') ? 'scheduled' : 'ondemand'; applyMode(); }
+
+function applyMode(){
+  const onD = mode==='ondemand';
+  $('modeOndemand').classList.toggle('active', onD);
+  $('modeScheduled').classList.toggle('active', !onD);
+  $('modeOndemand').setAttribute('aria-selected', onD?'true':'false');
+  $('modeScheduled').setAttribute('aria-selected', onD?'false':'true');
+  $('schedFields').style.display = onD ? 'none' : 'block';
+  const banner = $('availBanner');
+  if(onD){
+    banner.style.display='block';
+    const hrs = avail ? (fmtHour(avail.openHour)+'–'+fmtHour(avail.closeHour)) : '11 AM–7 PM';
+    if(avail && avail.open===false){
+      banner.className='avail-banner closed';
+      banner.textContent='On-demand ordering is closed right now — we make & deliver '+hrs+' ET. Switch to Schedule to order ahead.';
+    } else {
+      banner.className='avail-banner open';
+      const lim = avail ? avail.limit : 10;
+      banner.textContent='Make-now, delivered today across Palm Beach County · '+hrs+' ET. Limited to '+lim+' per bowl today while we build momentum.';
+    }
+  } else {
+    banner.style.display='none';
+  }
+  // Switching into on-demand: clamp any cart quantities to what's left today.
+  if(onD && avail){
+    Object.keys(cart).forEach(idv=>{
+      const m=maxFor(idv);
+      if(cart[idv]>m){ if(m<=0) delete cart[idv]; else cart[idv]=m; }
+    });
+  }
+  renderCatalog(); renderCart();
+}
 
 function buildDates(){
   const sel=$('delivDate'); const now=Date.now(); const out=[];
@@ -177,23 +258,38 @@ function renderCatalog(){
   const root = document.getElementById('catalog');
   root.innerHTML = CATALOG.map(g=>`
     <div class="group"><h2>${g.group}</h2>
-      ${g.items.map(i=>`
-        <div class="prod">
-          <div class="prod-info"><div class="prod-name">${i.name}</div><div class="prod-desc">${i.desc}</div></div>
+      ${g.items.map(i=>{
+        const onD = mode==='ondemand', bowl = isBowl(i.id), rem = remainingFor(i.id);
+        const soldOut = onD && bowl && avail && rem<=0;
+        let stock='';
+        if(onD && bowl && avail){
+          if(rem<=0) stock='<div class="prod-stock out">Sold out today</div>';
+          else if(rem<=3) stock='<div class="prod-stock low">Only '+rem+' left today</div>';
+          else stock='<div class="prod-stock ok">'+rem+' available today</div>';
+        }
+        const control = soldOut
+          ? '<span class="soldout-tag">Sold out</span>'
+          : `<div class="stepper">
+              <button aria-label="Remove one" onclick="bump('${i.id}',-1)">–</button>
+              <span class="qty" id="q_${i.id}">${cart[i.id]||0}</span>
+              <button aria-label="Add one" onclick="bump('${i.id}',1)">+</button>
+            </div>`;
+        return `<div class="prod${soldOut?' soldout':''}">
+          <div class="prod-info"><div class="prod-name">${i.name}</div><div class="prod-desc">${i.desc}</div>${stock}</div>
           <div class="prod-price">${money(i.price)}</div>
-          <div class="stepper">
-            <button aria-label="Remove one" onclick="bump('${i.id}',-1)">–</button>
-            <span class="qty" id="q_${i.id}">0</span>
-            <button aria-label="Add one" onclick="bump('${i.id}',1)">+</button>
-          </div>
-        </div>`).join('')}
+          ${control}
+        </div>`;
+      }).join('')}
     </div>`).join('');
 }
 
 function bump(idv, d){
-  const q = (cart[idv]||0) + d;
-  if (q<=0) delete cart[idv]; else cart[idv]=Math.min(q,20);
-  document.getElementById('q_'+idv).textContent = cart[idv]||0;
+  const m = maxFor(idv);
+  let q = (cart[idv]||0) + d;
+  if (q<0) q=0; if (q>m) q=m;
+  if (q<=0) delete cart[idv]; else cart[idv]=q;
+  const span = document.getElementById('q_'+idv);
+  if (span) span.textContent = cart[idv]||0;
   renderCart();
 }
 
@@ -220,6 +316,11 @@ function renderCart(){
   subRow.style.display='flex'; taxRow.style.display='flex'; totalRow.style.display='flex'; taxNote.style.display='block';
   feeRow.style.display = belowMin ? 'none' : 'flex';
   if (belowMin){ minNote.style.display='block'; minNote.textContent='Order minimum is $'+ORDER_MIN.toFixed(2)+' — add $'+(ORDER_MIN-total).toFixed(2)+' more.'; btn.disabled=true; }
+  else if (mode==='ondemand' && avail && avail.open===false){
+    minNote.style.display='block';
+    minNote.textContent='On-demand ordering is closed right now ('+fmtHour(avail.openHour)+'–'+fmtHour(avail.closeHour)+' ET). Switch to Schedule to order ahead.';
+    btn.disabled=true;
+  }
   else { minNote.style.display='none'; btn.disabled=false; }
 }
 
@@ -228,8 +329,12 @@ async function checkout(){
   err.textContent='';
   const items = Object.keys(cart).map(id=>({id, qty:cart[id]}));
   if(!items.length) return;
-  const delivery = { date: $('delivDate').value, window: $('delivWindow').value };
-  if(!delivery.date){ err.textContent='Please choose a delivery date.'; return; }
+  const fulfillment = { mode: mode==='ondemand' ? 'on_demand' : 'scheduled' };
+  let delivery = null;
+  if(mode==='scheduled'){
+    delivery = { date: $('delivDate').value, window: $('delivWindow').value };
+    if(!delivery.date){ err.textContent='Please choose a delivery date.'; return; }
+  }
   const contact = {
     first_name: $('custName').value.trim(),
     phone: $('custPhone').value.trim(),
@@ -246,16 +351,19 @@ async function checkout(){
   if(!/^\d{5}$/.test(address.zip)){ err.textContent='Please enter a valid 5-digit ZIP code.'; return; }
   btn.disabled=true; const label=btn.textContent; btn.textContent='Redirecting to secure checkout…';
   try{
-    const r = await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items,delivery,address,contact})});
+    const payload = { items, fulfillment, address, contact };
+    if(delivery) payload.delivery = delivery;
+    const r = await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const data = await r.json();
     if(!r.ok || !data.url) throw new Error(data.error||'Checkout failed. Please try again.');
     window.location.href = data.url;   // → Square hosted checkout
   }catch(e){
     err.textContent = e.message; btn.disabled=false; btn.textContent=label;
+    if(mode==='ondemand') loadAvailability();   // a cap/window race may have changed stock — refresh
   }
 }
 
-renderCatalog(); buildDates(); renderCart();
+buildDates(); applyMode(); loadAvailability();
 </script>
 <script src="/assets/js/i18n.js"></script>
 <script src="/assets/js/consent.js"></script>
