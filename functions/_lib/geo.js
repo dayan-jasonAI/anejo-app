@@ -132,6 +132,47 @@ export async function optimizeRoute(env, stops, departAtMs) {
   }
 }
 
+// Traffic-aware drive time (seconds) between two points. null = no key / not routable.
+// Used for the live per-stop ETA and the "arriving soon" auto-trigger.
+export async function etaSeconds(env, from, to) {
+  if (!geoConfigured(env)) return null;
+  if (!from || !to || !Number.isFinite(Number(from.lat)) || !Number.isFinite(Number(to.lat))) return null;
+  try {
+    const res = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': env.GOOGLE_MAPS_API_KEY,
+        'X-Goog-FieldMask': 'routes.duration',
+      },
+      body: JSON.stringify({
+        origin: latLng(from.lat, from.lng),
+        destination: latLng(to.lat, to.lng),
+        travelMode: 'DRIVE',
+        routingPreference: 'TRAFFIC_AWARE',
+        departureTime: new Date(Date.now() + 60000).toISOString(),
+      }),
+    });
+    const data = await res.json();
+    const r = data && data.routes && data.routes[0];
+    if (!r || !r.duration) return null;
+    return parseInt(String(r.duration).replace('s', ''), 10) || null;
+  } catch {
+    return null;
+  }
+}
+
+// Format an ms-epoch as a US Eastern clock time, e.g. "3:42 PM". null on failure.
+export function clockET(ms) {
+  try {
+    return new Date(Number(ms)).toLocaleTimeString('en-US', {
+      timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit',
+    });
+  } catch {
+    return null;
+  }
+}
+
 // A maps directions URL for a single destination (works without a key; used in the driver app).
 export function directionsUrl(dest) {
   const q = typeof dest === 'string' ? dest : (dest && Number.isFinite(Number(dest.lat))

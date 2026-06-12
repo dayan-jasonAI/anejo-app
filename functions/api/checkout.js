@@ -1,7 +1,7 @@
 // POST /api/checkout — à-la-carte ordering via Square hosted checkout (Payment Links).
 // The client sends { items: [{id, qty}], fulfillment } using catalog IDs only; prices are
 // resolved SERVER-SIDE from CATALOG below so they can't be tampered with from the browser.
-import { json, bad, id, appBaseUrl } from '../_lib/util.js';
+import { json, bad, id, appBaseUrl, normalizePhone } from '../_lib/util.js';
 import { square, squareConfigured, money } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress } from '../_lib/geo.js';
@@ -95,7 +95,16 @@ export const onRequestPost = async ({ request, env }) => {
   const addr = parsed.addr;
   const addrLine = formatAddress({ street: addr.street, unit: addr.unit, city: addr.city, state: addr.state, zip: addr.zip });
 
-  const deliveryNote = `Delivery: ${DOW[dow]} ${dateStr} · ${WINDOWS[win]} · ${addrLine}`;
+  // Customer contact — a first name is REQUIRED so every order is identifiable for the kitchen
+  // and the delivery driver. Phone + SMS consent are optional; with consent we can text delivery
+  // updates (otherwise we fall back to email). We never text a number without an explicit opt-in.
+  const contact = b.contact || {};
+  const firstName = (contact.first_name || contact.name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (!firstName) return bad('Please enter your first name so we can label your order.');
+  const custPhone = normalizePhone(contact.phone);
+  const smsConsent = ((contact.sms_consent === true || contact.sms_consent === 1) && custPhone) ? 1 : 0;
+
+  const deliveryNote = `Delivery for ${firstName}: ${DOW[dow]} ${dateStr} · ${WINDOWS[win]} · ${addrLine}`;
 
   // Order minimum + flat delivery fee (configurable via env).
   const orderMinCents = Math.round(Number(env.ORDER_MIN_USD || 25) * 100);
@@ -157,13 +166,15 @@ export const onRequestPost = async ({ request, env }) => {
       await env.DB.prepare(
         `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
             subtotal_cents, fee_cents, tax_pct, total_estimate_cents,
+            customer_name, customer_phone, sms_consent,
             delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
             delivery_lat, delivery_lng, geocoded_at, status, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
       ).bind(
         id('ord'), pl.order_id || null, pl.id || null, JSON.stringify(orderItems), dateStr, win,
         subtotalCents, feeCents, Number(taxPct),
         Math.round((subtotalCents + feeCents) * (1 + Number(taxPct) / 100)),
+        firstName, custPhone, smsConsent,
         addr.street, addr.unit, addr.city, addr.state, addr.zip, addr.notes,
         lat, lng, geocodedAt, t, t
       ).run();

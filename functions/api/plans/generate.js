@@ -3,7 +3,7 @@
 // returns a structured plan. No DB writes — saving + checkout ship in V1.1.
 import { limitOr429 } from '../../_lib/ratelimit.js';
 import { computeSizing, RECOMMENDED_BOWL_COUNT } from '../../_lib/sizing.js';
-import { BOWLS } from '../../_lib/bowlspec.js';
+import { SITE_BOWLS, SITE_BOWL_NAMES } from '../../_lib/bowlspec.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -125,7 +125,7 @@ function buildUserPrompt(intake) {
     `Preferences / notes: ${intake.preferences || '(none provided)'}`,
     ``,
     `Reference — available bowls at STANDARD 16 oz size (each bowl is scaled to this person's portion automatically):`,
-    ...BOWLS.map(b => `- ${b.name} (${b.kcal} kcal, ${b.protein_g}P / ${b.carbs_g}C / ${b.fat_g}F, ${b.fiber_g}g fiber) — ${b.description}`),
+    ...SITE_BOWLS.map(b => `- ${b.name} (${b.kcal} kcal, ${b.protein_g}P / ${b.carbs_g}C / ${b.fat_g}F, ${b.fiber_g}g fiber) — ${b.description}`),
     ``,
     `Always recommend a 12-bowl week (recommended_bowl_count: 12, rotation sums to 12). Bowl size and price are computed from daily_calories and meals_per_day — you only set the macros and meals_per_day.`,
     ``,
@@ -223,8 +223,8 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ error: 'AI response could not be parsed.', raw: text.slice(0, 1000) }, 502);
   }
 
-  // Fallback for missing bowl keys so the UI never crashes.
-  const allBowls = ['VIDA','FUEGO','LIGERO','MAR','COCO','CONGREEN','RAIZ'];
+  // Fallback for missing bowl keys so the UI never crashes. Public bowls only (FUERZA is hidden).
+  const allBowls = SITE_BOWL_NAMES;
   plan.bowl_rotation = plan.bowl_rotation || {};
   for (const b of allBowls) {
     if (typeof plan.bowl_rotation[b] !== 'number') plan.bowl_rotation[b] = 0;
