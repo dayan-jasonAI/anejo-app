@@ -65,10 +65,24 @@ export const BOWLS = [
       { item: 'Aguacate Cilantro', oz: 1.0 }, { item: 'Mango Omega', oz: 0.5 },
     ],
     tags: ['vegetarian','plant-forward','dairy-free','high-fiber','anti-inflammatory'] },
+  // FUERZA — manual recipe kept in the spec for later use, but HIDDEN from the public site
+  // (calculator/menu/plan rotation). Still fully orderable + prepped if referenced directly.
+  { name: 'FUERZA',   image: '/assets/img/bowl_fuerza.jpg',   kcal: 600, protein_g: 45, carbs_g: 40, fat_g: 27, fiber_g: 13, hidden: true,
+    description: 'Performance comfort bowl: chicken or steak over rice + beans, roasted vegetables, slaw, sweet potato, pecans, Ajo Cítrico + Aguacate Cilantro.',
+    build: [
+      { item: 'Chicken or steak', oz: 5.0 }, { item: 'Rice + beans', oz: 3.0 }, { item: 'Roasted vegetables', oz: 2.0 },
+      { item: 'Slaw', oz: 1.5 }, { item: 'Sweet potato', oz: 1.0 }, { item: 'Toasted pecans', oz: 0.3 },
+      { item: 'Ajo Cítrico', oz: 1.0 }, { item: 'Aguacate Cilantro', oz: 0.5 },
+    ],
+    tags: ['high-protein','performance','comfort'] },
 ];
 
 // Ingredient name list derived from the build (kept for the plan page + lighter contexts).
 BOWLS.forEach((b) => { b.ingredients = b.build.map((x) => x.item); });
+
+// Public-site bowls (everything not flagged hidden) — the planner + menu offer only these.
+export const SITE_BOWLS = BOWLS.filter((b) => !b.hidden);
+export const SITE_BOWL_NAMES = SITE_BOWLS.map((b) => b.name);
 
 export const BOWL_NAMES = BOWLS.map((b) => b.name);
 export const BOWL_BY_NAME = Object.fromEntries(BOWLS.map((b) => [b.name, b]));
