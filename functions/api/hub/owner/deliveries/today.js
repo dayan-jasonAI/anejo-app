@@ -31,7 +31,7 @@ export const onRequestGet = async ({ request, env }) => {
 
   const routeIds = routes.map((r) => r.id);
 
-  // Deliveries tied to those routes (today's drops).
+  // Deliveries tied to those routes (today's drops) — with proof photo + customer feedback.
   let deliveries = [];
   if (routeIds.length) {
     const placeholders = routeIds.map(() => '?').join(',');
@@ -39,8 +39,11 @@ export const onRequestGet = async ({ request, env }) => {
       const res = await env.DB
         .prepare(
           `SELECT d.id, d.order_id, d.route_id, d.driver_id, d.status, d.fail_reason, d.on_time, ` +
-          `d.completed_at, o.customer_name FROM deliveries d ` +
-          `LEFT JOIN orders o ON o.id = d.order_id WHERE d.route_id IN (${placeholders}) ORDER BY d.created_at ASC`
+          `d.completed_at, d.proof_photo, d.proof_skipped, o.customer_name, ` +
+          `f.rating AS feedback_rating, f.comment AS feedback_comment FROM deliveries d ` +
+          `LEFT JOIN orders o ON o.id = d.order_id ` +
+          `LEFT JOIN delivery_feedback f ON f.delivery_id = d.id ` +
+          `WHERE d.route_id IN (${placeholders}) ORDER BY d.created_at ASC`
         )
         .bind(...routeIds)
         .all();
@@ -49,6 +52,27 @@ export const onRequestGet = async ({ request, env }) => {
       deliveries = [];
     }
   }
+
+  // Live per-route stop progress (the in-flight picture: who's picked / en route / arriving).
+  const progressByRoute = {};
+  if (routeIds.length) {
+    const ph = routeIds.map(() => '?').join(',');
+    try {
+      const res = await env.DB.prepare(
+        `SELECT rs.route_id, rs.status, rs.eta_at, rs.seq, o.customer_name
+           FROM route_stops rs LEFT JOIN orders o ON o.id = rs.order_id
+          WHERE rs.route_id IN (${ph}) ORDER BY rs.seq ASC`
+      ).bind(...routeIds).all();
+      for (const s of (res && res.results) || []) {
+        const p = progressByRoute[s.route_id] || (progressByRoute[s.route_id] = { picked: 0, en_route: 0, arriving: 0, done: 0, failed: 0, pending: 0, active: null });
+        p[s.status] = (p[s.status] || 0) + 1;
+        if ((s.status === 'en_route' || s.status === 'arriving') && !p.active) {
+          p.active = { name: (s.customer_name || '').split(' ')[0] || 'Stop', status: s.status, eta_at: s.eta_at || null };
+        }
+      }
+    } catch { /* progress is best-effort */ }
+  }
+  routes = routes.map((r) => ({ ...r, progress: progressByRoute[r.id] || null }));
 
   const done = deliveries.filter((d) => d.status === 'completed').length;
   const failed = deliveries.filter((d) => d.status === 'failed').length;

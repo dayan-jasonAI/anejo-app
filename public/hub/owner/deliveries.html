@@ -131,22 +131,35 @@
         Owner.tile(r.on_time_pct == null ? '—' : (r.on_time_pct + '%'), 'On-time')
       ].join('') + '</div>';
 
+      var etClock = function (ms) { try { return new Date(Number(ms)).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
       var routesEl = document.getElementById('routes');
       routesEl.innerHTML = d.routes.length ? d.routes.map(function (ro) {
+        var p = ro.progress, live = '', counts = '';
+        if (p && p.active) {
+          var verb = p.active.status === 'arriving' ? 'arriving at' : 'en route to';
+          live = '<div class="row-sub" style="color:var(--gold-700,#8a7a2e);font-weight:600">' + verb + ' ' + Owner.esc(p.active.name) +
+            (p.active.eta_at ? ' · ETA ' + etClock(p.active.eta_at) : '') + '</div>';
+        }
+        if (p) counts = '<div class="row-sub">' + [p.done ? p.done + ' delivered' : '', (p.en_route + p.arriving) ? (p.en_route + p.arriving) + ' out' : '', p.picked ? p.picked + ' loaded' : '', p.failed ? p.failed + ' failed' : ''].filter(Boolean).join(' · ') + '</div>';
         return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(ro.driver_name || 'Unassigned') +
-          (ro.ai_optimized ? ' ⚡' : '') + '</div><div class="row-sub">' +
-          Owner.esc((ro.stops_completed || 0) + '/' + (ro.stop_count || 0) + ' stops') +
-          (ro.stops_failed ? ' · ' + ro.stops_failed + ' failed' : '') + '</div></div>' +
+          (ro.ai_optimized ? ' ⚡' : '') + '</div>' + live + counts +
+          '<div class="row-sub">' + Owner.esc((ro.stops_completed || 0) + '/' + (ro.stop_count || 0) + ' stops') + '</div></div>' +
           Owner.badge(ro.status, Owner.kindFor(ro.status)) + '</div>';
       }).join('') : '<div class="hub-empty" data-i18n>No routes today.</div>';
 
+      var stars = function (n) { n = Number(n) || 0; var s = ''; for (var i = 0; i < 5; i++) s += i < n ? '★' : '☆'; return s; };
       var dropsEl = document.getElementById('drops');
       dropsEl.innerHTML = d.deliveries.length ? d.deliveries.map(function (dv) {
+        var proof = dv.proof_photo && String(dv.proof_photo).indexOf('/api/hub/media/') === 0
+          ? '<a href="' + Owner.esc(dv.proof_photo) + '" target="_blank" rel="noopener"><img src="' + Owner.esc(dv.proof_photo) + '" alt="proof" style="width:46px;height:46px;border-radius:8px;object-fit:cover;margin-left:8px"></a>'
+          : (dv.proof_skipped ? '<span class="row-sub" style="margin-left:8px">no photo</span>' : '');
+        var fb = dv.feedback_rating ? '<div class="row-sub" style="color:var(--gold-700,#8a7a2e)">' + stars(dv.feedback_rating) +
+          (dv.feedback_comment ? ' “' + Owner.esc(String(dv.feedback_comment).slice(0, 80)) + '”' : '') + '</div>' : '';
         return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(dv.customer_name || dv.order_id || 'Delivery') + '</div>' +
           '<div class="row-sub">' + (dv.completed_at ? Owner.clock(dv.completed_at) : 'pending') +
           (dv.fail_reason ? ' · ' + Owner.esc(dv.fail_reason) : '') +
-          (dv.on_time === 1 ? ' · on time' : dv.on_time === 0 ? ' · late' : '') + '</div></div>' +
-          Owner.badge(dv.status, Owner.kindFor(dv.status)) + '</div>';
+          (dv.on_time === 1 ? ' · on time' : dv.on_time === 0 ? ' · late' : '') + '</div>' + fb + '</div>' +
+          Owner.badge(dv.status, Owner.kindFor(dv.status)) + proof + '</div>';
       }).join('') : '<div class="hub-empty" data-i18n>No deliveries today.</div>';
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
