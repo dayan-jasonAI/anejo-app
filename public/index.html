@@ -33,6 +33,7 @@
 {
   "@context": "https://schema.org",
   "@type": "Restaurant",
+  "@id": "https://anejocateringco.com/#restaurant",
   "name": "Añejo Catering Co.",
   "description": "Premium Cuban-American longevity bowls, catering, and wholesale bites in Palm Beach County. Mediterranean nutrition with Cuban soul.",
   "url": "https://anejocateringco.com",
@@ -42,9 +43,68 @@
   "logo": "https://anejocateringco.com/assets/img/logo_full.png",
   "servesCuisine": ["Cuban", "Cuban-American", "Mediterranean", "Healthy"],
   "priceRange": "$$",
+  "currenciesAccepted": "USD",
+  "paymentAccepted": "Credit Card",
   "areaServed": { "@type": "AdministrativeArea", "name": "Palm Beach County, Florida" },
   "address": { "@type": "PostalAddress", "addressRegion": "FL", "addressLocality": "Palm Beach County", "addressCountry": "US" },
-  "sameAs": ["https://instagram.com/anejo.catering.co"]
+  "sameAs": ["https://instagram.com/anejo.catering.co"],
+  "openingHoursSpecification": [
+    { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"], "opens": "11:00", "closes": "13:00", "description": "Lunch delivery window" },
+    { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"], "opens": "17:00", "closes": "19:00", "description": "Dinner delivery window" }
+  ],
+  "hasMenu": {
+    "@type": "Menu",
+    "url": "https://anejocateringco.com/#menu",
+    "hasMenuSection": [
+      { "@type": "MenuSection", "name": "Longevity Bowls", "hasMenuItem": [
+        { "@type": "MenuItem", "name": "VIDA Bowl", "description": "Tuna · mango · lime" },
+        { "@type": "MenuItem", "name": "FUEGO Bowl", "description": "Steak · chimichurri" },
+        { "@type": "MenuItem", "name": "LIGERO Bowl", "description": "Chicken · chimichurri" },
+        { "@type": "MenuItem", "name": "MAR Bowl", "description": "Salmon · omega-rich" },
+        { "@type": "MenuItem", "name": "COCO Bowl", "description": "Coconut · lime · shrimp" },
+        { "@type": "MenuItem", "name": "CONGREEN Bowl", "description": "Congrí · tuna · avocado" },
+        { "@type": "MenuItem", "name": "RAÍZ Bowl", "description": "Crispy tofu · roots" }
+      ] },
+      { "@type": "MenuSection", "name": "Añejo Fit — Cold-Pressed Drinks", "hasMenuItem": [
+        { "@type": "MenuItem", "name": "Gold Vitality", "description": "Pineapple · ginger · turmeric · chia" },
+        { "@type": "MenuItem", "name": "Hibiscus Zen", "description": "Hibiscus · lime · ginger · mint" },
+        { "@type": "MenuItem", "name": "Emerald Hydrate", "description": "Cucumber · mint · lemon · chia" }
+      ] }
+    ]
+  },
+  "makesOffer": {
+    "@type": "Offer",
+    "name": "Weekly meal-plan subscription",
+    "description": "Macro-targeted Añejo bowls delivered weekly across Palm Beach County. Choose 5, 10, or 12 bowls per week. Cancel anytime.",
+    "url": "https://anejocateringco.com/subscribe",
+    "category": "Subscription",
+    "priceCurrency": "USD",
+    "availabilityStarts": "2026-06-15"
+  },
+  "potentialAction": {
+    "@type": "OrderAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "https://anejocateringco.com/order",
+      "actionPlatform": ["http://schema.org/DesktopWebPlatform","http://schema.org/MobileWebPlatform"]
+    },
+    "deliveryMethod": ["http://purl.org/goodrelations/v1#DeliveryModeOwnFleet"]
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "Where do you deliver, and when?", "acceptedAnswer": { "@type": "Answer", "text": "We deliver across Palm Beach County, Monday through Saturday, in two windows — lunch (11:00 AM–1:00 PM) and dinner (5:00 PM–7:00 PM). Choose your window at checkout." } },
+    { "@type": "Question", "name": "How fresh are the bowls, and how do I store them?", "acceptedAnswer": { "@type": "Answer", "text": "Every bowl is made fresh — never frozen — with about a 3-day refrigerated shelf life. They're microwave- and cold-friendly, with the signature sauce on the side so you control the moment." } },
+    { "@type": "Question", "name": "Can you accommodate allergies and dietary needs?", "acceptedAnswer": { "@type": "Answer", "text": "Bowls may contain wheat, egg, milk, fish, shellfish, tree nuts, or seeds depending on the recipe, and are prepared in a shared kitchen. Nuts are removable on request and dairy-free substitutions are often available. Please tell us about severe allergies before ordering — see each bowl's label for full disclosure." } },
+    { "@type": "Question", "name": "How do the weekly meal-plan subscriptions work?", "acceptedAnswer": { "@type": "Answer", "text": "Pick a weekly tier — 5, 10, or 12 bowls — and we deliver on your schedule. Subscriptions renew automatically each week and you can cancel anytime; see our Refund & Cancellation policy." } },
+    { "@type": "Question", "name": "Is the AI macro calculator medical or nutritional advice?", "acceptedAnswer": { "@type": "Answer", "text": "No. The macro calculator and any generated plans are for general fitness and wellness information only — they are estimates, not medical or dietary advice. Consult your healthcare provider before starting any new nutrition program." } },
+    { "@type": "Question", "name": "How does pricing and tax work?", "acceptedAnswer": { "@type": "Answer", "text": "Bowl and drink prices are shown on the menu; applicable Florida and Palm Beach County sales tax is added at checkout. Payments are processed securely by Square." } },
+    { "@type": "Question", "name": "I'm a trainer or gym — can I partner with Añejo?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Our trainer portal lets you generate macro-targeted bowl plans for your members, who subscribe to Añejo directly. Ask us about our trainer & gym partner program." } }
+  ]
 }
 </script>
 
