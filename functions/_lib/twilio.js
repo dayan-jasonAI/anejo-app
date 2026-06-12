@@ -40,15 +40,18 @@ async function logSms(env, row) {
   return sid;
 }
 
-// Core sender. channel = 'sms' | 'whatsapp'.
-async function send(env, { to, body, thread_id }, channel) {
+// Core sender. channel = 'sms' | 'whatsapp'. Pass mediaUrl (string or array of public HTTPS
+// URLs) to send an MMS — Twilio fetches each and attaches it. Logged as channel 'mms'.
+async function send(env, { to, body, thread_id, mediaUrl }, channel) {
   if (!to || !body) {
     return { ok: false, sent: false, error: 'Missing to/body.' };
   }
+  const media = mediaUrl ? (Array.isArray(mediaUrl) ? mediaUrl : [mediaUrl]).filter(Boolean) : [];
+  const logChannel = (media.length && channel === 'sms') ? 'mms' : channel;
 
   // Sandbox / no creds → record a no-op and return.
   if (!configured(env)) {
-    const logId = await logSms(env, { direction: 'outbound', channel, to, body, thread_id, status: 'noop' });
+    const logId = await logSms(env, { direction: 'outbound', channel: logChannel, to, body, thread_id, status: 'noop' });
     return { ok: true, sent: false, noop: true, sms_log_id: logId };
   }
 
@@ -66,6 +69,7 @@ async function send(env, { to, body, thread_id }, channel) {
     params.set('From', fromAddr);
   }
   params.set('Body', body);
+  for (const m of media) params.append('MediaUrl', m);   // Twilio accepts up to 10 MediaUrl
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`;
   const auth = btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`);
@@ -78,18 +82,24 @@ async function send(env, { to, body, thread_id }, channel) {
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
-      const logId = await logSms(env, { direction: 'outbound', channel, to, from, body, thread_id, status: 'failed', error: (data && data.message) || `HTTP ${r.status}` });
+      const logId = await logSms(env, { direction: 'outbound', channel: logChannel, to, from, body, thread_id, status: 'failed', error: (data && data.message) || `HTTP ${r.status}` });
       return { ok: false, sent: false, error: (data && data.message) || `HTTP ${r.status}`, sms_log_id: logId };
     }
-    const logId = await logSms(env, { direction: 'outbound', channel, to, from, body, thread_id, status: 'sent', provider_sid: data.sid });
+    const logId = await logSms(env, { direction: 'outbound', channel: logChannel, to, from, body, thread_id, status: 'sent', provider_sid: data.sid });
     return { ok: true, sent: true, provider_sid: data.sid, sms_log_id: logId };
   } catch (e) {
-    const logId = await logSms(env, { direction: 'outbound', channel, to, from, body, thread_id, status: 'failed', error: String(e).slice(0, 200) });
+    const logId = await logSms(env, { direction: 'outbound', channel: logChannel, to, from, body, thread_id, status: 'failed', error: String(e).slice(0, 200) });
     return { ok: false, sent: false, error: String(e).slice(0, 200), sms_log_id: logId };
   }
 }
 
 export function sendSms(env, opts) {
+  return send(env, opts || {}, 'sms');
+}
+
+// MMS = SMS with media. Returns the same result object; falls back to plain SMS upstream
+// (in notify.js) if MMS isn't deliverable.
+export function sendMms(env, opts) {
   return send(env, opts || {}, 'sms');
 }
 
