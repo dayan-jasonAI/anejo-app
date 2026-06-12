@@ -5,6 +5,7 @@ import { json, bad, id, appBaseUrl, normalizePhone } from '../_lib/util.js';
 import { square, squareConfigured, money } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress } from '../_lib/geo.js';
+import { BOWL_BY_NAME, kitchenBowlLine } from '../_lib/bowlspec.js';
 
 // Validate + normalize a delivery address from the order form. Returns { addr } or { error }.
 // Street, city, and a 5-digit ZIP are required (we deliver within Palm Beach County).
@@ -43,9 +44,14 @@ const CATALOG = {
   fit_gold:     { name: 'Añejo Fit — Gold Vitality',  price: 9.99 },
   fit_hibiscus: { name: 'Añejo Fit — Hibiscus Zen',   price: 9.99 },
   fit_emerald:  { name: 'Añejo Fit — Emerald Hydrate', price: 9.99 },
-  // Add-on
-  sauce_extra:  { name: 'Extra Signature Sauce (2 oz)', price: 1.50 },
+  // Add-ons (per item added to the order)
+  avocado:       { name: 'Add Avocado (½)',            price: 2.00, addon: true },
+  protein_extra: { name: 'Extra Protein (4 oz)',       price: 4.50, addon: true },
+  sauce_extra:   { name: 'Extra Signature Sauce (2 oz)', price: 1.50, addon: true },
 };
+
+// Catalog bowl id → spec key, so à-la-carte bowl tickets carry the manual build/macros too.
+const BOWL_KEY = { vida: 'VIDA', fuego: 'FUEGO', ligero: 'LIGERO', mar: 'MAR', coco: 'COCO', congreen: 'CONGREEN', raiz: 'RAIZ' };
 
 export const onRequestPost = async ({ request, env }) => {
   // Abuse guard: cap checkout creations per IP (each creates a Square order/payment link).
@@ -71,7 +77,14 @@ export const onRequestPost = async ({ request, env }) => {
     const cents = Math.round(prod.price * 100);
     subtotalCents += cents * qty;
     lineItems.push({ name: prod.name, quantity: String(qty), base_price_money: money(prod.price) });
-    orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents });
+    // Bowls carry their standard 16 oz build + macros for the kitchen ticket; everything else
+    // (drinks, add-ons) is a plain priced line.
+    const bowlKey = BOWL_KEY[it.id];
+    if (bowlKey && BOWL_BY_NAME[bowlKey]) {
+      orderItems.push({ ...kitchenBowlLine(bowlKey, qty, 1.0, false), price_cents: cents });
+    } else {
+      orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents, addon: !!prod.addon });
+    }
   }
 
   // Delivery-only with a real date + window. Date must be an upcoming Mon–Sat, ordered
