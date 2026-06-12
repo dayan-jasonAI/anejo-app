@@ -52,3 +52,24 @@ remove ingredients, swap the base, and add extras — with all pricing enforced 
 assigned to the CRM session. The website session will **stay out of these two files** while it's in
 progress. The website session most recently shipped (already on main): driver tips (`allow_tipping`
 + `orders.tip_cents`), `/order` made indexable (canonical/OG/sitemap) — coordinate around those.
+
+---
+
+## Appendix — on-demand banner: Spanish translation TODO (CRM session)
+
+The `/order` ASAP-today banner copy was reworded for brand voice (commit `dad2ee0`, via
+`/brand-review`) but is **English-only** — it's set in JS via `banner.textContent`
+(`public/order.html` ~L230), so the site's i18n text-node walking does NOT translate it. Wire ES
+using the `AnejoLang` pattern (see `assets/js/plan.js` / `assets/js/chat.js`): read
+`window.AnejoLang.get()` and pick the string, keeping the `{hrs}` and `{lim}` interpolations.
+
+**OPEN banner**
+- EN (live): `Made fresh today, delivered across Palm Beach County · {hrs} ET. Most of each day's bowls are reserved for our weekly members — we release just {lim} per bowl for same-day. Expanding to reach more of you soon.`
+- ES: `Hechos frescos hoy, entregados en Palm Beach County · {hrs} ET. La mayoría de los bowls de cada día están reservados para nuestros miembros semanales — liberamos solo {lim} por bowl para el mismo día. Pronto ampliamos para llegar a más personas.`
+
+**CLOSED banner** (the string just above it, ~L226)
+- EN (live): `On-demand ordering is closed right now — we make & deliver {hrs} ET. Switch to Schedule to order ahead.`
+- ES: `Los pedidos del mismo día están cerrados ahora — preparamos y entregamos {hrs} ET. Cambia a Programar para pedir con anticipación.`
+
+Also localize the `ASAP today` / `Schedule` toggle labels + sub-labels (`Make-now · delivered today`,
+`Pick a day & window`) while you're in there, for consistency.
