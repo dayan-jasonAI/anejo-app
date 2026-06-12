@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
+<meta name="theme-color" content="#0D0D0D">
+<title>How did we do? — Añejo Catering Co.</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{--black:#0D0D0D;--green:#1A3D2E;--gold:#C6A85B;--gold-dark:#8B6B3E;--cream:#F5F2EC;--ink:#1A1A1A;--muted:#6b6b6b;--line:rgba(26,61,46,.15)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Josefin Sans',-apple-system,sans-serif;background:var(--cream);color:var(--ink);line-height:1.6;min-height:100vh;display:flex;flex-direction:column}
+.hero{background:var(--black);color:var(--cream);padding:40px 24px 30px;text-align:center}
+.hero .emblem{height:46px;margin-bottom:12px}
+.hero h1{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:clamp(26px,5vw,34px);color:var(--gold)}
+.hero p{font-size:14px;color:rgba(245,242,236,.8);margin-top:6px}
+.wrap{max-width:460px;margin:0 auto;padding:30px 22px 60px;width:100%}
+.card{background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:14px;padding:28px;text-align:center}
+.stars{display:flex;justify-content:center;gap:8px;margin:8px 0 18px}
+.star{font-size:42px;line-height:1;cursor:pointer;color:#dcd6c5;transition:transform .1s,color .1s;background:none;border:none;padding:0}
+.star.on{color:var(--gold)}
+.star:active{transform:scale(1.2)}
+textarea{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--cream);font:inherit;padding:11px;margin-top:6px;min-height:84px;resize:vertical}
+.btn{display:inline-block;width:100%;margin-top:16px;padding:15px 20px;border-radius:4px;font:700 13px/1 'Josefin Sans';letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;background:var(--gold);color:var(--black);text-decoration:none}
+.btn:disabled{opacity:.5}
+.msg{margin-top:12px;font-size:14px;color:#9b2226;min-height:1px}
+.lbl{font-size:13px;color:var(--muted);text-align:left;margin-top:6px}
+.thanks h2{font-family:'Cormorant Garamond',Georgia,serif;color:var(--green);font-weight:600;font-size:26px;margin-bottom:8px}
+.thanks p{color:var(--muted);font-size:15px}
+</style>
+</head>
+<body>
+<header class="hero">
+  <img class="emblem" src="/assets/img/emblem.png" alt="Añejo">
+  <h1>How did we do?</h1>
+  <p>Your feedback shapes every delivery.</p>
+</header>
+<div class="wrap">
+  <div class="card" id="form">
+    <div class="lbl" style="text-align:center;margin-bottom:2px">Tap to rate your delivery</div>
+    <div class="stars" id="stars"></div>
+    <div id="commentWrap" style="display:none">
+      <div class="lbl" id="commentLbl">Tell us more (optional)</div>
+      <textarea id="comment" placeholder="What could we have done better?"></textarea>
+    </div>
+    <button class="btn" id="submit" disabled>Submit</button>
+    <div class="msg" id="msg"></div>
+  </div>
+  <div class="card thanks" id="thanks" style="display:none"></div>
+</div>
+<script>
+(function () {
+  var qs = new URLSearchParams(location.search);
+  var token = qs.get('t') || '';
+  var rating = 0;
+  var starsEl = document.getElementById('stars');
+  var submit = document.getElementById('submit');
+  var msg = document.getElementById('msg');
+
+  for (var i = 1; i <= 5; i++) {
+    var b = document.createElement('button');
+    b.className = 'star'; b.type = 'button'; b.textContent = '★'; b.setAttribute('data-v', i);
+    b.addEventListener('click', function () { setRating(+this.getAttribute('data-v')); });
+    starsEl.appendChild(b);
+  }
+  function setRating(v) {
+    rating = v;
+    Array.prototype.forEach.call(starsEl.children, function (s, idx) { s.classList.toggle('on', idx < v); });
+    submit.disabled = false;
+    // Low rating → invite a private comment before submit.
+    var cw = document.getElementById('commentWrap');
+    cw.style.display = v <= 3 ? 'block' : 'none';
+  }
+
+  if (!token) { msg.textContent = 'This feedback link looks incomplete.'; submit.style.display = 'none'; }
+
+  submit.addEventListener('click', function () {
+    if (!rating) return;
+    submit.disabled = true; msg.textContent = '';
+    fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ t: token, rating: rating, comment: document.getElementById('comment').value || '' }) })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d.ok) throw new Error(res.d.error || 'Could not submit.');
+        showThanks(res.d);
+      })
+      .catch(function (e) { msg.textContent = e.message; submit.disabled = false; });
+  });
+
+  function showThanks(d) {
+    document.getElementById('form').style.display = 'none';
+    var t = document.getElementById('thanks');
+    if (rating >= 4) {
+      t.innerHTML = '<h2>Thank you! 🌿</h2><p>So glad you enjoyed it. Would you share a quick public review? It means the world to a family business.</p>' +
+        (d.review_url ? '<a class="btn" href="' + d.review_url + '" target="_blank" rel="noopener">Leave a Google review</a>' : '');
+    } else {
+      t.innerHTML = '<h2>Thank you — we hear you.</h2><p>We’re sorry it wasn’t perfect. The owner has been notified personally and will make it right.</p>';
+    }
+    t.style.display = 'block';
+  }
+})();
+</script>
+</body>
+</html>
