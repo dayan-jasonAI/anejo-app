@@ -2,6 +2,7 @@
 // to make for each weekly delivery). Itemizes from the member's saved bowl rotation when we
 // have it, else a single "Weekly plan — N bowls" line. Files under _lib are not routed.
 import { id, now } from './util.js';
+import { kitchenBowlLine } from './bowlspec.js';
 
 function parseJson(s, f) { try { return JSON.parse(s); } catch { return f; } }
 
@@ -20,11 +21,14 @@ export async function createSubscriptionDelivery(env, o) {
   let items;
   const rot = o.planBowlRotation ? parseJson(o.planBowlRotation, null) : null;
   if (rot && typeof rot === 'object') {
+    // Itemize WITH each bowl scaled to the client's size factor: per-bowl macros + ingredient list +
+    // portion (oz/%) + avocado flag, so the kitchen preps exact weights and we can plan stock.
     items = Object.entries(rot).filter((e) => e[1] > 0)
-      .map((e) => ({ id: 'bowl_' + String(e[0]).toLowerCase(), name: e[0] + ' Bowl', qty: e[1] }));
+      .map((e) => kitchenBowlLine(e[0], e[1], o.sizeFactor, o.avocado)
+        || { id: 'bowl_' + String(e[0]).toLowerCase(), name: e[0] + ' Bowl', qty: e[1], avocado: !!o.avocado });
   }
   if (!items || !items.length) {
-    items = [{ id: 'sub', name: o.tierLabel || ('Weekly plan' + (o.bowls ? ` — ${o.bowls} bowls` : '')), qty: 1 }];
+    items = [{ id: 'sub', name: o.tierLabel || ('Weekly plan' + (o.bowls ? ` — ${o.bowls} bowls` : '')), qty: 1, avocado: !!o.avocado }];
   }
   const oid = o.orderId || id('ord');
   const t = now();

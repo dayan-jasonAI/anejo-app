@@ -105,8 +105,12 @@ const clientId = qs.get('client') || '';
 // and priced from that (pbp = per-bowl price). Re-price the tiers off it so the quote matches.
 const perBowl = parseFloat(qs.get('pbp'));
 const bowlOz = parseInt(qs.get('oz'), 10);
+const avocado = qs.get('avo') === '1';
+const AVO_USD = 2; // avocado add-on, +$2 per bowl
 if (perBowl > 0) {
-  Object.values(TIERS).forEach(t => { t.price = Math.round(perBowl * t.bowls * 100) / 100; });
+  Object.values(TIERS).forEach(t => { t.price = Math.round((perBowl + (avocado ? AVO_USD : 0)) * t.bowls * 100) / 100; });
+} else if (avocado) {
+  Object.values(TIERS).forEach(t => { t.price = Math.round((t.price + AVO_USD * t.bowls) * 100) / 100; });
 }
 // Default recommendation is the 12-bowl plan.
 let planTier = TIERS[qs.get('plan')] ? qs.get('plan') : 'plan_12';
@@ -125,7 +129,8 @@ window.pickPlan = pickPlan;
 document.getElementById('who').innerHTML = (clientId
   ? 'Subscribing as <strong>your trainer\'s member</strong>. Your plan is delivered weekly.'
   : 'Weekly Añejo bowls, delivered. Cancel anytime.')
-  + (bowlOz ? ' Your bowls are portion-sized to your goal: <strong>'+bowlOz+' oz each</strong>.' : '');
+  + (bowlOz ? ' Your bowls are portion-sized to your goal: <strong>'+bowlOz+' oz each</strong>.' : '')
+  + (avocado ? ' <strong>½ avocado added to every bowl</strong> (+$2 each).' : '');
 if(!clientId){
   document.getElementById('buyerFields').innerHTML =
     '<label class="fld" for="b_name">Your name</label><input class="b-input" id="b_name" type="text" autocomplete="name" required>'+
@@ -174,8 +179,9 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
     if(!name.trim()||!email.trim()){ msg.className='msg err'; msg.textContent='Please enter your name and email.'; return; }
     body = { planTier, buyer:{ name:name.trim(), email:email.trim(), phone:phone.trim(), sms_consent:smsConsent } };
   }
-  // Carry the chosen bowl size so the server charges the member's sized per-bowl price.
+  // Carry the chosen bowl size + avocado add-on so the server charges + preps correctly.
   if (bowlOz) body.bowlSizeOz = bowlOz;
+  if (avocado) body.avocado = true;
   // Delivery address — required so every weekly order can be routed.
   var addr = {
     street:(document.getElementById('a_street')||{}).value||'', unit:(document.getElementById('a_unit')||{}).value||'',

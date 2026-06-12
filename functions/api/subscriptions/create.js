@@ -11,6 +11,7 @@ import { createSubscriptionDelivery } from '../../_lib/suborders.js';
 import { clampPerBowlCents, perBowlCentsFromOz, STANDARD_PER_BOWL_CENTS } from '../../_lib/sizing.js';
 import { sendSms } from '../../_lib/twilio.js';
 import { geocode, formatAddress } from '../../_lib/geo.js';
+import { AVOCADO_ADDON_CENTS } from '../../_lib/bowlspec.js';
 
 // Validate a subscriber's delivery address (street/city/5-digit ZIP required).
 function parseAddr(raw) {
@@ -121,8 +122,11 @@ export const onRequestPost = async ({ request, env }) => {
   if (!deliveryAddr && !clientId) return bad('Please enter your delivery address (street, city, and ZIP).');
 
   const plan = await env.DB
-    .prepare('SELECT id, bowl_rotation, per_bowl_price_cents, bowl_size_oz FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
+    .prepare('SELECT id, bowl_rotation, per_bowl_price_cents, bowl_size_oz, bowl_size_factor FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
     .bind(client.id).first();
+
+  // Avocado add-on (+$2/bowl): a calorie-neutral swap (kitchen reduces other fats), priced flat.
+  const avocado = b.avocado === true || b.avocado === 1;
 
   const tier = PLAN_TIERS[planTier];
   const variationId = planVariationId(env, planTier);
@@ -137,9 +141,10 @@ export const onRequestPost = async ({ request, env }) => {
   if (plan && plan.per_bowl_price_cents != null) perBowlCents = clampPerBowlCents(plan.per_bowl_price_cents);
   else if (b.bowlSizeOz) perBowlCents = perBowlCentsFromOz(b.bowlSizeOz);
   let weeklyCents = perBowlCents != null ? perBowlCents * tier.bowls : tier.weeklyCents;
-  // Only override Square's catalog price when the bowls are actually sized away from standard —
-  // standard-bowl subscriptions stay on the proven fixed-variation path.
-  const overridePrice = perBowlCents != null && perBowlCents !== STANDARD_PER_BOWL_CENTS;
+  if (avocado) weeklyCents += AVOCADO_ADDON_CENTS * tier.bowls;
+  // Override Square's catalog price whenever the weekly amount differs from the standard tier —
+  // i.e. bowls sized away from standard OR the avocado add-on. Otherwise stay on the fixed variation.
+  const overridePrice = weeklyCents !== tier.weeklyCents;
 
   // 1) Square customer
   let r = await square(env, '/v2/customers', {
@@ -205,11 +210,11 @@ export const onRequestPost = async ({ request, env }) => {
   await env.DB.prepare(
     `INSERT INTO subscriptions
        (id, client_id, trainer_id, plan_id, provider, provider_subscription_id, provider_customer_id,
-        status, weekly_amount_cents, trainer_share_pct, started_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+        status, weekly_amount_cents, trainer_share_pct, avocado, started_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).bind(
     id('lsub'), client.id, client.trainer_id, plan ? plan.id : null, 'square',
-    sub.id, customerId, (sub.status || 'ACTIVE').toLowerCase(), weeklyCents, 10, t, t
+    sub.id, customerId, (sub.status || 'ACTIVE').toLowerCase(), weeklyCents, 10, avocado ? 1 : 0, t, t
   ).run();
 
   await env.DB.prepare('UPDATE clients SET status = ?, updated_at = ? WHERE id = ?')
@@ -220,6 +225,7 @@ export const onRequestPost = async ({ request, env }) => {
     await createSubscriptionDelivery(env, {
       subscriptionId: sub.id, orderId: 'ord_subfirst_' + sub.id,
       planBowlRotation: plan ? plan.bowl_rotation : null,
+      sizeFactor: plan ? plan.bowl_size_factor : null, avocado,
       tierLabel: tier.label, bowls: tier.bowls, weeklyCents,
       customerName: client.name, customerEmail: client.email,
       deliveryDate: b.delivery && b.delivery.date, deliveryWindow: b.delivery && b.delivery.window,
