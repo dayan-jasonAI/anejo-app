@@ -44,14 +44,22 @@ export function windowState(env, d = new Date()) {
 }
 
 // Remaining capacity per bowl for a given ET day: cap minus the bowls already committed today.
-// "Committed" = any non-canceled on-demand order (pending holds a slot so we never oversell).
+// "Committed" = paid/fulfilled orders (always), plus recent 'pending' ones. A pending order
+// (payment link created, not yet paid) holds its slot only for a short window so an abandoned
+// checkout doesn't block the cap forever — after that it's treated as abandoned and the slot
+// frees up. Tunable via ONDEMAND_PENDING_HOLD_MIN (default 30 minutes; 0 = never hold pending).
 export async function remainingByBowl(env, dateStr, limit) {
   const remaining = {};
   for (const id of BOWL_IDS) remaining[id] = limit;
   if (!env || !env.DB) return remaining;
+  const rawHold = Math.floor(Number(env.ONDEMAND_PENDING_HOLD_MIN));
+  const holdMin = Number.isFinite(rawHold) && rawHold >= 0 ? rawHold : 30;
+  const pendingCutoff = Date.now() - holdMin * 60 * 1000;
   const { results } = await env.DB.prepare(
-    `SELECT items FROM orders WHERE fulfillment_mode = 'on_demand' AND delivery_date = ? AND status != 'canceled'`
-  ).bind(dateStr).all();
+    `SELECT items FROM orders
+       WHERE fulfillment_mode = 'on_demand' AND delivery_date = ? AND status != 'canceled'
+         AND (status != 'pending' OR created_at >= ?)`
+  ).bind(dateStr, pendingCutoff).all();
   for (const row of results || []) {
     let items = [];
     try { items = JSON.parse(row.items) || []; } catch { /* skip unparseable rows */ }
