@@ -22,8 +22,11 @@ const FALLBACK_BRAND =
   'House style: Mediterranean-Cuban, longevity-forward, high-protein, anti-inflammatory, generous fiber, ' +
   'quinoa-forward bases, bright citrus and chimichurri/Añejo sauces.';
 
-const BRAND_BUDGET = 6000;  // char cap for brand docs
-const SOP_BUDGET = 6000;    // char cap for standards/SOP docs
+// Char caps for injected context. The brand brief is the canonical bible and is sized
+// to fit a full multi-section document (~14.5k today) with headroom; ~4k tokens is
+// trivial for Sonnet 4.6's context. SOPs are summarized alongside it.
+const BRAND_BUDGET = 18000; // char cap for brand docs (full Brand & Standards Brief)
+const SOP_BUDGET = 8000;    // char cap for standards/SOP docs
 
 // A doc with no role_scope is visible to all staff; otherwise it must include kitchen or owner.
 function visibleToKitchen(scopeJson) {
