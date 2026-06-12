@@ -141,6 +141,9 @@ export const onRequestPost = async ({ request, env }) => {
         redirect_url: `${base}/order/confirmed`,
         // We collect the delivery address ourselves (stored for routing), so don't ask twice.
         ask_for_shipping_address: false,
+        // Show a tip prompt at checkout — driver gratuities. Tip lands in the Square order's
+        // total_tip_money; the webhook records it on the order for owner/driver payout.
+        allow_tipping: true,
       },
     },
   });

@@ -99,12 +99,14 @@ export const onRequestPost = async ({ request, env }) => {
     }
 
     // À-la-carte order paid → flip the order row to 'paid' for the kitchen view.
+    // Capture the driver tip (Square payment.tip_money) onto the order for owner/driver payout.
     if (type === 'payment.created' || type === 'payment.updated') {
       const pay = obj.payment || {};
       if (pay.order_id && (pay.status === 'COMPLETED' || pay.status === 'APPROVED')) {
+        const tipCents = (pay.tip_money && Number(pay.tip_money.amount)) || 0;
         await env.DB.prepare(
-          "UPDATE orders SET status='paid', customer_email=COALESCE(customer_email,?), updated_at=? WHERE square_order_id=? AND status='pending'"
-        ).bind(pay.buyer_email_address || null, now(), pay.order_id).run();
+          "UPDATE orders SET status='paid', customer_email=COALESCE(customer_email,?), tip_cents=?, updated_at=? WHERE square_order_id=? AND status='pending'"
+        ).bind(pay.buyer_email_address || null, tipCents, now(), pay.order_id).run();
       }
     }
   } catch (e) {
