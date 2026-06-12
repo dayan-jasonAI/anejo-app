@@ -237,15 +237,23 @@ textarea { min-height: 90px; resize: vertical; }
 /* ---------- Loading / empty ---------- */
 .hub-loading, .hub-empty { text-align: center; color: var(--muted); padding: 48px 16px; }
 
-/* ---------- Desktop (owner command center) ---------- */
+/* ---------- Desktop (all HUB roles) ---------- */
 @media (min-width: 900px) {
-  body { padding-bottom: 0; }
-  .hub-nav { position: static; height: auto; padding: 0; background: transparent; max-width: var(--max); margin: 0 auto; }
-  .hub-nav a { flex-direction: row; padding: 12px; gap: 6px; color: var(--green); }
-  .hub-nav a.active { border-bottom: 3px solid var(--gold); }
-  .hub-nav a .nav-ico { font-size: 16px; }
-  /* Nav is static on desktop, so the toggle can sit at the bottom corner again. */
-  #langToggle { bottom: 16px !important; }
+  /* Bottom nav stays FIXED on desktop too (inherits position:fixed/bottom:0 + the dark
+     green bar from the base rule) so every role's pages keep the menu visible at all
+     times — no scrolling to the bottom to switch pages. body keeps its base
+     padding-bottom (= nav height) so content never hides behind the bar. */
+  .hub-nav a {
+    flex: 1 1 auto;           /* items share the bar width evenly — fits any count (5–7) without overflow */
+    flex-direction: row;
+    gap: 8px;
+    padding: 0 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .hub-nav a .nav-ico { font-size: 18px; }
+  /* active tab = gold text (base rule); the EN/ES toggle stays lifted above the fixed
+     bar via the base #langToggle rule. */
 }
 
 /* respect reduced motion */
