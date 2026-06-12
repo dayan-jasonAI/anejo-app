@@ -17,7 +17,8 @@ import { requireRole } from '../../../_lib/roles.js';
 import { id as genId, now, today, parseJson, toJson } from '../../../_lib/hub.js';
 import { putMedia } from '../../../_lib/media.js';
 
-const DOC_TYPES = ['manual', 'policy', 'procedure', 'recipe'];
+// 'brand' = the owner-authored Brand & Standards brief that grounds the Creative Studio AI.
+const DOC_TYPES = ['brand', 'manual', 'policy', 'procedure', 'recipe'];
 const SCOPE_ROLES = ['owner', 'kitchen', 'driver', 'vendor'];
 const REMINDER_TYPES = ['prep', 'sanitation', 'order_cutoff', 'temp_check', 'custom'];
 const REMINDER_TEAMS = ['kitchen', 'delivery'];

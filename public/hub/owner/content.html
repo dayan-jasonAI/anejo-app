@@ -41,6 +41,7 @@
 
   var CHIPS = [
     { v: '', label: 'All' },
+    { v: 'brand', label: 'Brand' },
     { v: 'manual', label: 'Manuals' },
     { v: 'policy', label: 'Policies' },
     { v: 'procedure', label: 'Procedures' },
@@ -162,7 +163,7 @@
       '<div class="hub-section"><div class="card">' +
       (!editing.id
         ? '<div class="field"><label data-i18n>Type</label><select id="docType">' +
-          '<option value="manual">manual</option><option value="policy">policy</option>' +
+          '<option value="brand">brand</option><option value="manual">manual</option><option value="policy">policy</option>' +
           '<option value="procedure">procedure</option><option value="recipe">recipe</option></select></div>'
         : '') +
       '<div class="field"><label data-i18n>Title</label><input id="docTitle" type="text" maxlength="200"></div>' +

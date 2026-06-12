@@ -7,20 +7,51 @@ import { json, bad } from '../../../../_lib/util.js';
 import { requireRole } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson, parseJson } from '../../../../_lib/hub.js';
+import { buildStudioSystem } from '../../../../_lib/studio_context.js';
+import { getMedia, contentTypeForKey } from '../../../../_lib/media.js';
 
 const MODEL = 'claude-sonnet-4-6';
 const ASSIST_TYPES = ['guidance', 'research', 'substitution', 'scaling', 'critique'];
+const MAX_VISION = 2;                       // most-recent session photos sent to the model per turn
+const VISION_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-const SYSTEM_PROMPT = `You are the Creative Studio sous-chef AI for Añejo Catering Co., a Mediterranean-Cuban longevity bowl service in Palm Beach County, Florida. A chef is developing a recipe live — speaking, snapping photos, and chatting with you. Your job is to guide, research, critique, scale, and suggest substitutions.
+// Base64-encode an ArrayBuffer in chunks (avoids call-stack limits on large buffers).
+function abToBase64(ab) {
+  const bytes = new Uint8Array(ab);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
+}
 
-House style: Mediterranean-Cuban, longevity-forward, high-protein, anti-inflammatory, generous fiber, quinoa-forward bases, bright citrus and chimichurri/Añejo sauces. Bowls are ~16oz with sauce on the side.
+// A photo event stores its R2 ref as `/api/hub/media/<key>`. Pull the key (or null
+// for data:-URL / reference-only photos we can't fetch).
+function photoKeyFromContent(content) {
+  const s = (content || '').toString();
+  const m = /^\/api\/hub\/media\/(.+)$/.exec(s);
+  return m ? m[1] : null;
+}
 
-Behavior:
-- Be concise and practical — you are talking to a working chef mid-development, not writing an essay.
-- When asked to scale, give exact quantities. When suggesting substitutions, respect allergens and the house style.
-- When critiquing, be specific about flavor balance, macros, and plating.
-- Never invent nutrition facts as precise medical claims; use approximate ranges and say "approx".
-- Keep replies under ~150 words unless the chef asks for a full recipe.`;
+// Fetch up to MAX_VISION most-recent session photos from R2 → Claude image blocks.
+async function buildVisionBlocks(env, photoKeys) {
+  if (!env.MEDIA || !photoKeys.length) return [];
+  const recent = photoKeys.slice(-MAX_VISION);
+  const blocks = [];
+  for (const key of recent) {
+    try {
+      const obj = await getMedia(env, key);
+      if (!obj) continue;
+      let type = (obj.httpMetadata && obj.httpMetadata.contentType) || contentTypeForKey(key);
+      type = (type || '').toLowerCase();
+      if (!VISION_TYPES.includes(type)) continue;
+      const ab = await obj.arrayBuffer();
+      if (!ab || ab.byteLength === 0) continue;
+      blocks.push({ type: 'image', source: { type: 'base64', media_type: type, data: abToBase64(ab) } });
+    } catch { /* skip unreadable image */ }
+  }
+  return blocks;
+}
 
 function demoReply(text, assistType) {
   const t = (text || '').slice(0, 80);
@@ -39,23 +70,38 @@ async function buildTranscript(env, sessionId) {
     'SELECT kind, content, assist_type FROM recipe_session_events WHERE session_id = ? ORDER BY created_at ASC LIMIT 40'
   ).bind(sessionId).all();
   const msgs = [];
+  const photoKeys = []; // R2 keys for photos, in chronological order (for vision)
   for (const e of results || []) {
     if (e.kind === 'user_text') msgs.push({ role: 'user', content: e.content || '' });
     else if (e.kind === 'ai_text' || e.kind === 'ai_assist') msgs.push({ role: 'assistant', content: e.content || '' });
-    else if (e.kind === 'voice') msgs.push({ role: 'user', content: `[voice clip transcript pending] ${e.content || ''}`.trim() });
-    else if (e.kind === 'photo') msgs.push({ role: 'user', content: '[chef attached a photo of the dish in progress]' });
+    else if (e.kind === 'voice' || e.kind === 'voice_transcript') msgs.push({ role: 'user', content: `[voice] ${e.content || ''}`.trim() });
+    else if (e.kind === 'photo') {
+      msgs.push({ role: 'user', content: '[chef attached a photo of the dish in progress]' });
+      const k = photoKeyFromContent(e.content);
+      if (k) photoKeys.push(k);
+    }
   }
-  return msgs;
+  return { msgs, photoKeys };
 }
 
 async function callClaude(env, sessionId, userText, assistType) {
-  const history = await buildTranscript(env, sessionId);
+  const { msgs: history, photoKeys } = await buildTranscript(env, sessionId);
+  const system = await buildStudioSystem(env);
   const directive = assistType ? `\n\n(The chef is asking for: ${assistType}.)` : '';
-  const messages = [...history, { role: 'user', content: (userText || '') + directive }];
+
+  // Attach the most-recent session photos to the final turn so the model can SEE the
+  // dish (real vision for plating critiques). Falls back to text-only if none/unreadable.
+  const images = await buildVisionBlocks(env, photoKeys);
+  const finalText = (userText || '') + directive;
+  const finalContent = images.length
+    ? [{ type: 'text', text: finalText }, ...images]
+    : finalText;
+  const messages = [...history, { role: 'user', content: finalContent }];
+
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 700, system: SYSTEM_PROMPT, messages }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 700, system, messages }),
   });
   if (!r.ok) throw new Error(`AI ${r.status}`);
   const data = await r.json();

@@ -8,6 +8,7 @@ import { json, bad } from '../../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson, parseJson } from '../../../../_lib/hub.js';
+import { buildBrandContext } from '../../../../_lib/studio_context.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -22,7 +23,11 @@ async function draftFromSession(env, sessionId) {
     return `${who}: ${e.content || ''}`;
   }).join('\n');
 
-  const sys = 'You convert a chef\'s Creative Studio session transcript into a structured recipe for Añejo Catering Co. (Mediterranean-Cuban longevity bowls). Return ONLY a JSON object: {"name","summary","ingredients":[strings],"steps":[strings],"nutrition":{"kcal","protein_g","carbs_g","fat_g","fiber_g"},"tags":[strings]}. Estimate nutrition (approx). No prose, no markdown fences.';
+  // Ground the drafter in Añejo's owner-authored brand brief + standards.
+  const brandContext = await buildBrandContext(env);
+  const sys = 'You convert a chef\'s Creative Studio session transcript into a structured recipe for Añejo Catering Co. ' +
+    'Honor the brand and standards below — house style, portioning, and allergen rules.\n\n' + brandContext +
+    '\n\nReturn ONLY a JSON object: {"name","summary","ingredients":[strings],"steps":[strings],"nutrition":{"kcal","protein_g","carbs_g","fat_g","fiber_g"},"tags":[strings]}. Estimate nutrition (approx). No prose, no markdown fences.';
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

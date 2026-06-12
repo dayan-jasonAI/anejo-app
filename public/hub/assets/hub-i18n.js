@@ -545,6 +545,9 @@
     // ---- Activity feed expand/collapse ----
     "Expand": "Expandir", "Collapse": "Contraer",
 
+    // ---- Content: brand brief doc type (grounds the Creative Studio AI) ----
+    "Brand": "Marca",
+
     // ---- Phase 5: D1 backup (owner AI Ops card) ----
     "Database backups": "Respaldos de base de datos", "Backup now": "Respaldar ahora",
     "Recent backups": "Respaldos recientes", "Creating backup…": "Creando respaldo…",
