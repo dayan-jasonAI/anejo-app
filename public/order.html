@@ -158,22 +158,22 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 // Display catalog — IDs + prices mirror the SERVER-SIDE catalog in functions/api/checkout.js
 // (the server re-prices every line, so these are display-only).
 const CATALOG = [
-  { group:'Bowls (16 oz)', items:[
-    {id:'vida',name:'VIDA',price:19.99,desc:'Tuna, mango, quinoa, chickpeas'},
-    {id:'fuego',name:'FUEGO',price:22.99,desc:'Grilled steak, chimichurri, quinoa'},
-    {id:'ligero',name:'LIGERO',price:18.99,desc:'Grilled chicken, chimichurri, quinoa'},
-    {id:'mar',name:'MAR',price:22.99,desc:'Omega-rich salmon, quinoa, greens'},
-    {id:'coco',name:'COCO',price:22.99,desc:'Coconut-lime shrimp, quinoa-corn-edamame'},
-    {id:'congreen',name:'CONGREEN',price:20.99,desc:'Quinoa-blueberry congrí, tuna'},
-    {id:'raiz',name:'RAÍZ',price:18.99,desc:'Crispy tofu, quinoa, slaw, sweet potato'},
+  { group:'Bowls (16 oz)', groupEs:'Bowls (16 oz)', items:[
+    {id:'vida',name:'VIDA',price:19.99,desc:'Tuna, mango, quinoa, chickpeas',descEs:'Atún, mango, quinoa, garbanzos'},
+    {id:'fuego',name:'FUEGO',price:22.99,desc:'Grilled steak, chimichurri, quinoa',descEs:'Bistec a la parrilla, chimichurri, quinoa'},
+    {id:'ligero',name:'LIGERO',price:18.99,desc:'Grilled chicken, chimichurri, quinoa',descEs:'Pollo a la parrilla, chimichurri, quinoa'},
+    {id:'mar',name:'MAR',price:22.99,desc:'Omega-rich salmon, quinoa, greens',descEs:'Salmón rico en omega, quinoa, verdes'},
+    {id:'coco',name:'COCO',price:22.99,desc:'Coconut-lime shrimp, quinoa-corn-edamame',descEs:'Camarón coco-limón, quinoa-maíz-edamame'},
+    {id:'congreen',name:'CONGREEN',price:20.99,desc:'Quinoa-blueberry congrí, tuna',descEs:'Congrí de quinoa-arándano, atún'},
+    {id:'raiz',name:'RAÍZ',price:18.99,desc:'Crispy tofu, quinoa, slaw, sweet potato',descEs:'Tofu crujiente, quinoa, ensalada, batata'},
   ]},
-  { group:'Añejo Fit drinks (12 oz)', items:[
-    {id:'fit_gold',name:'Gold Vitality',price:9.99,desc:'Pineapple · ginger · turmeric'},
-    {id:'fit_hibiscus',name:'Hibiscus Zen',price:9.99,desc:'Hibiscus · lime · ginger · mint'},
-    {id:'fit_emerald',name:'Emerald Hydrate',price:9.99,desc:'Cucumber · mint · lemon · chia'},
+  { group:'Añejo Fit drinks (12 oz)', groupEs:'Bebidas Añejo Fit (12 oz)', items:[
+    {id:'fit_gold',name:'Gold Vitality',price:9.99,desc:'Pineapple · ginger · turmeric',descEs:'Piña · jengibre · cúrcuma'},
+    {id:'fit_hibiscus',name:'Hibiscus Zen',price:9.99,desc:'Hibiscus · lime · ginger · mint',descEs:'Hibisco · limón · jengibre · menta'},
+    {id:'fit_emerald',name:'Emerald Hydrate',price:9.99,desc:'Cucumber · mint · lemon · chia',descEs:'Pepino · menta · limón · chía'},
   ]},
-  { group:'Add-ons', items:[
-    {id:'sauce_extra',name:'Extra Signature Sauce',price:1.50,desc:'2 oz · on the side'},
+  { group:'Add-ons', groupEs:'Extras', items:[
+    {id:'sauce_extra',name:'Extra Signature Sauce',price:1.50,desc:'2 oz · on the side',descEs:'2 oz · aparte'},
   ]},
 ];
 const PRICE = {}; CATALOG.forEach(g=>g.items.forEach(i=>PRICE[i.id]=i));
@@ -188,6 +188,11 @@ const $ = (id)=>document.getElementById(id);
 
 function money(n){ return '$'+n.toFixed(2); }
 function fmtHour(h){ const a=h>=12?'PM':'AM', x=(h%12===0)?12:h%12; return x+' '+a; }
+// Localization for JS-rendered strings. Static HTML is translated by the i18n engine via its
+// dictionary; it can't re-translate dynamically-built text (interpolated counts, banners), so we
+// localize those here against the current language and re-render on language change.
+function curLang(){ return (window.AnejoLang && window.AnejoLang.get && window.AnejoLang.get()==='es') ? 'es' : 'en'; }
+function L(en, es){ return curLang()==='es' ? es : en; }
 function isBowl(idv){ return BOWL_IDS.indexOf(idv)!==-1; }
 // Units of a bowl still available today on-demand (Infinity when uncapped or unknown).
 function remainingFor(idv){
@@ -223,11 +228,15 @@ function applyMode(){
     const hrs = avail ? (fmtHour(avail.openHour)+'–'+fmtHour(avail.closeHour)) : '11 AM–7 PM';
     if(avail && avail.open===false){
       banner.className='avail-banner closed';
-      banner.textContent='On-demand ordering is closed right now — we make & deliver '+hrs+' ET. Switch to Schedule to order ahead.';
+      banner.textContent=L(
+        'On-demand ordering is closed right now — we make & deliver '+hrs+' ET. Switch to Schedule to order ahead.',
+        'Los pedidos del mismo día están cerrados ahora — preparamos y entregamos '+hrs+' ET. Cambia a Programar para pedir con anticipación.');
     } else {
       banner.className='avail-banner open';
       const lim = avail ? avail.limit : 10;
-      banner.textContent='Made fresh today, delivered across Palm Beach County · '+hrs+' ET. Most of each day\'s bowls are reserved for our weekly members — we release just '+lim+' per bowl for same-day. Expanding to reach more of you soon.';
+      banner.textContent=L(
+        'Made fresh today, delivered across Palm Beach County · '+hrs+' ET. Most of each day\'s bowls are reserved for our weekly members — we release just '+lim+' per bowl for same-day. Expanding to reach more of you soon.',
+        'Hechos frescos hoy, entregados en Palm Beach County · '+hrs+' ET. La mayoría de los bowls de cada día están reservados para nuestros miembros semanales — liberamos solo '+lim+' por bowl para el mismo día. Pronto ampliamos para llegar a más personas.');
     }
   } else {
     banner.style.display='none';
@@ -257,25 +266,25 @@ function buildDates(){
 function renderCatalog(){
   const root = document.getElementById('catalog');
   root.innerHTML = CATALOG.map(g=>`
-    <div class="group"><h2>${g.group}</h2>
+    <div class="group"><h2>${L(g.group, g.groupEs||g.group)}</h2>
       ${g.items.map(i=>{
         const onD = mode==='ondemand', bowl = isBowl(i.id), rem = remainingFor(i.id);
         const soldOut = onD && bowl && avail && rem<=0;
         let stock='';
         if(onD && bowl && avail){
-          if(rem<=0) stock='<div class="prod-stock out">Sold out today</div>';
-          else if(rem<=3) stock='<div class="prod-stock low">Only '+rem+' left today</div>';
-          else stock='<div class="prod-stock ok">'+rem+' available today</div>';
+          if(rem<=0) stock='<div class="prod-stock out">'+L('Sold out today','Agotado hoy')+'</div>';
+          else if(rem<=3) stock='<div class="prod-stock low">'+L('Only '+rem+' left today','Solo quedan '+rem+' hoy')+'</div>';
+          else stock='<div class="prod-stock ok">'+L(rem+' available today',rem+' disponibles hoy')+'</div>';
         }
         const control = soldOut
-          ? '<span class="soldout-tag">Sold out</span>'
+          ? '<span class="soldout-tag">'+L('Sold out','Agotado')+'</span>'
           : `<div class="stepper">
               <button aria-label="Remove one" onclick="bump('${i.id}',-1)">–</button>
               <span class="qty" id="q_${i.id}">${cart[i.id]||0}</span>
               <button aria-label="Add one" onclick="bump('${i.id}',1)">+</button>
             </div>`;
         return `<div class="prod${soldOut?' soldout':''}">
-          <div class="prod-info"><div class="prod-name">${i.name}</div><div class="prod-desc">${i.desc}</div>${stock}</div>
+          <div class="prod-info"><div class="prod-name">${i.name}</div><div class="prod-desc">${L(i.desc, i.descEs||i.desc)}</div>${stock}</div>
           <div class="prod-price">${money(i.price)}</div>
           ${control}
         </div>`;
@@ -298,7 +307,7 @@ function renderCart(){
   const lines=$('cartLines'), subRow=$('subRow'), feeRow=$('feeRow'), taxRow=$('taxRow'),
         totalRow=$('cartTotalRow'), taxNote=$('taxNote'), minNote=$('minNote'), btn=$('checkoutBtn');
   if (!ids.length){
-    lines.innerHTML = '<div class="cart-empty">Your cart is empty — add a few bowls.</div>';
+    lines.innerHTML = '<div class="cart-empty">'+L('Your cart is empty — add a few bowls.','Tu carrito está vacío — agrega algunos bowls.')+'</div>';
     [subRow,feeRow,taxRow,totalRow,taxNote,minNote].forEach(e=>e.style.display='none'); btn.disabled=true; return;
   }
   let total=0;
@@ -315,10 +324,16 @@ function renderCart(){
   $('cartGrand').textContent = money(grand);
   subRow.style.display='flex'; taxRow.style.display='flex'; totalRow.style.display='flex'; taxNote.style.display='block';
   feeRow.style.display = belowMin ? 'none' : 'flex';
-  if (belowMin){ minNote.style.display='block'; minNote.textContent='Order minimum is $'+ORDER_MIN.toFixed(2)+' — add $'+(ORDER_MIN-total).toFixed(2)+' more.'; btn.disabled=true; }
+  if (belowMin){
+    minNote.style.display='block';
+    minNote.textContent=L('Order minimum is $'+ORDER_MIN.toFixed(2)+' — add $'+(ORDER_MIN-total).toFixed(2)+' more.',
+                          'El mínimo de pedido es $'+ORDER_MIN.toFixed(2)+' — agrega $'+(ORDER_MIN-total).toFixed(2)+' más.');
+    btn.disabled=true;
+  }
   else if (mode==='ondemand' && avail && avail.open===false){
     minNote.style.display='block';
-    minNote.textContent='On-demand ordering is closed right now ('+fmtHour(avail.openHour)+'–'+fmtHour(avail.closeHour)+' ET). Switch to Schedule to order ahead.';
+    minNote.textContent=L('On-demand ordering is closed right now ('+fmtHour(avail.openHour)+'–'+fmtHour(avail.closeHour)+' ET). Switch to Schedule to order ahead.',
+                          'Los pedidos del mismo día están cerrados ahora ('+fmtHour(avail.openHour)+'–'+fmtHour(avail.closeHour)+' ET). Cambia a Programar para pedir con anticipación.');
     btn.disabled=true;
   }
   else { minNote.style.display='none'; btn.disabled=false; }
@@ -333,29 +348,29 @@ async function checkout(){
   let delivery = null;
   if(mode==='scheduled'){
     delivery = { date: $('delivDate').value, window: $('delivWindow').value };
-    if(!delivery.date){ err.textContent='Please choose a delivery date.'; return; }
+    if(!delivery.date){ err.textContent=L('Please choose a delivery date.','Por favor elige una fecha de entrega.'); return; }
   }
   const contact = {
     first_name: $('custName').value.trim(),
     phone: $('custPhone').value.trim(),
     sms_consent: $('smsConsent').checked
   };
-  if(!contact.first_name){ err.textContent='Please enter your first name.'; return; }
+  if(!contact.first_name){ err.textContent=L('Please enter your first name.','Por favor ingresa tu nombre.'); return; }
   const address = {
     street: $('addrStreet').value.trim(), unit: $('addrUnit').value.trim(),
     city: $('addrCity').value.trim(), state: $('addrState').value.trim() || 'FL',
     zip: $('addrZip').value.trim(), notes: $('addrNotes').value.trim()
   };
-  if(!address.street){ err.textContent='Please enter your delivery street address.'; return; }
-  if(!address.city){ err.textContent='Please enter your delivery city.'; return; }
-  if(!/^\d{5}$/.test(address.zip)){ err.textContent='Please enter a valid 5-digit ZIP code.'; return; }
-  btn.disabled=true; const label=btn.textContent; btn.textContent='Redirecting to secure checkout…';
+  if(!address.street){ err.textContent=L('Please enter your delivery street address.','Por favor ingresa tu dirección de entrega.'); return; }
+  if(!address.city){ err.textContent=L('Please enter your delivery city.','Por favor ingresa tu ciudad de entrega.'); return; }
+  if(!/^\d{5}$/.test(address.zip)){ err.textContent=L('Please enter a valid 5-digit ZIP code.','Por favor ingresa un código postal válido de 5 dígitos.'); return; }
+  btn.disabled=true; const label=btn.textContent; btn.textContent=L('Redirecting to secure checkout…','Redirigiendo al pago seguro…');
   try{
     const payload = { items, fulfillment, address, contact };
     if(delivery) payload.delivery = delivery;
     const r = await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const data = await r.json();
-    if(!r.ok || !data.url) throw new Error(data.error||'Checkout failed. Please try again.');
+    if(!r.ok || !data.url) throw new Error(data.error||L('Checkout failed. Please try again.','El pago falló. Inténtalo de nuevo.'));
     window.location.href = data.url;   // → Square hosted checkout
   }catch(e){
     err.textContent = e.message; btn.disabled=false; btn.textContent=label;
@@ -364,6 +379,10 @@ async function checkout(){
 }
 
 buildDates(); applyMode(); loadAvailability();
+// Re-render JS-built strings in the chosen language: on toggle (anejo:langchange) and once the
+// i18n engine has loaded + applied any persisted language (window load runs after i18n.js).
+document.addEventListener('anejo:langchange', applyMode);
+window.addEventListener('load', applyMode);
 </script>
 <script src="/assets/js/i18n.js"></script>
 <script src="/assets/js/consent.js"></script>

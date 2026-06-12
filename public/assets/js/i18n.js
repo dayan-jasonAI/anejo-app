@@ -257,7 +257,35 @@
     "Your Weekly Añejo Rotation":"Tu Rotación Semanal Añejo","Why this plan":"Por qué este plan","Lifestyle notes":"Notas de estilo de vida",
     "See the full menu →":"Ver el menú completo →","See the full menu":"Ver el menú completo","Start over":"Empezar de nuevo",
     "Subscribe to this plan →":"Suscríbete a este plan →","Order these bowls":"Ordena estos bowls",
-    "Your Plan — Añejo Catering Co.":"Tu Plan — Añejo Catering Co."
+    "Your Plan — Añejo Catering Co.":"Tu Plan — Añejo Catering Co.",
+    // ===== order page (static; dynamic catalog/cart strings are localized in order.html JS) =====
+    "Order — Añejo Catering Co.":"Ordenar — Añejo Catering Co.",
+    "← Back to site":"← Volver al sitio",
+    "Order · Delivery · Palm Beach County":"Ordenar · Entrega · Condado de Palm Beach",
+    "Build your":"Arma tu","order":"pedido",
+    "Pre-launch / test mode.":"Pre-lanzamiento / modo de prueba.",
+    "You can build a cart and run the full checkout, but payment uses Square's":"Puedes armar un carrito y completar todo el pago, pero el pago usa el",
+    "— no real charge and no food is fulfilled. Use test card":"de Square — sin cargo real y sin preparar comida. Usa la tarjeta de prueba",
+    ", any future expiry, any CVV.":", cualquier vencimiento futuro, cualquier CVV.",
+    "Your order":"Tu pedido",
+    "Delivery fee":"Costo de entrega",
+    "Est. FL sales tax (7%)":"Imp. sobre ventas FL est. (7%)",
+    "Estimated total":"Total estimado",
+    "Final tax & delivery fee are confirmed on the secure Square checkout page.":"El impuesto y el costo de entrega finales se confirman en la página de pago segura de Square.",
+    "How would you like it?":"¿Cómo lo quieres?",
+    "ASAP today":"Hoy mismo","Make-now · delivered today":"Hecho al momento · entregado hoy",
+    "Schedule":"Programar","Pick a day & window":"Elige día y horario",
+    "Delivery date & window":"Fecha y horario de entrega",
+    "Delivery only · Palm Beach County · Mon–Sat. Order by 6 PM the day before.":"Solo entrega · Condado de Palm Beach · lun–sáb. Ordena antes de las 6 PM del día anterior.",
+    "Lunch · 11:00 AM – 1:00 PM":"Almuerzo · 11:00 AM – 1:00 PM","Dinner · 5:00 PM – 7:00 PM":"Cena · 5:00 PM – 7:00 PM",
+    "Your details":"Tus datos",
+    "Text me delivery updates (on the way, arriving soon, delivered). Msg & data rates may apply; reply STOP to opt out. We never share your number.":"Envíame avisos de entrega (en camino, por llegar, entregado). Pueden aplicar tarifas de mensajes y datos; responde STOP para cancelar. Nunca compartimos tu número.",
+    "Delivery address":"Dirección de entrega",
+    "Proceed to checkout":"Proceder al pago",
+    // order page — input placeholders
+    "First name":"Nombre","Mobile number (optional)":"Número de móvil (opcional)",
+    "Street address":"Dirección","Apt / unit / suite (optional)":"Apto / unidad / suite (opcional)",
+    "City":"Ciudad","ZIP":"Código postal","Gate code, drop-off notes (optional)":"Código de acceso, notas de entrega (opcional)"
   };
 
   var origText = new WeakMap();   // text node / option -> original english value
