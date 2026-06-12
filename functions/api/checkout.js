@@ -5,6 +5,14 @@ import { json, bad, id, appBaseUrl, normalizePhone } from '../_lib/util.js';
 import { square, squareConfigured, money } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress } from '../_lib/geo.js';
+import { BOWL_IDS, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
+
+// "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
+function fmtHour(h) {
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12} ${ampm}`;
+}
 
 // Validate + normalize a delivery address from the order form. Returns { addr } or { error }.
 // Street, city, and a 5-digit ZIP are required (we deliver within Palm Beach County).
@@ -74,21 +82,59 @@ export const onRequestPost = async ({ request, env }) => {
     orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents });
   }
 
-  // Delivery-only with a real date + window. Date must be an upcoming Mon–Sat, ordered
-  // before the cutoff (6:00 PM ET the day before — fresh prep). Sundays rejected.
-  const WINDOWS = { lunch: 'Lunch (11:00 AM–1:00 PM)', dinner: 'Dinner (5:00 PM–7:00 PM)' };
+  // Two fulfillment modes:
+  //   on_demand → make-now, delivered today. Only accepted inside the ET ordering window
+  //               (default 11 AM–7 PM) and capped per bowl per day (launch throttle).
+  //   scheduled → an upcoming Mon–Sat delivery, ordered before the 6 PM day-before cutoff.
+  const WINDOWS = { lunch: 'Lunch (11:00 AM–1:00 PM)', dinner: 'Dinner (5:00 PM–7:00 PM)', asap: 'ASAP · today' };
   const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const dlv = b.delivery || {};
-  const win = WINDOWS[dlv.window] ? dlv.window : null;
-  const dateStr = (typeof dlv.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dlv.date)) ? dlv.date : null;
-  if (!dateStr || !win) return bad('Please choose a delivery date and time window.');
-  const midnightUtc = Date.parse(dateStr + 'T00:00:00Z');
-  if (Number.isNaN(midnightUtc)) return bad('Invalid delivery date.');
-  const dow = new Date(midnightUtc).getUTCDay();
-  if (dow === 0) return bad('We deliver Monday–Saturday. Please pick another date.');
-  const cutoff = midnightUtc - 2 * 3600 * 1000;   // ≈ 6 PM ET the prior day (EDT = UTC-4)
-  if (Date.now() >= cutoff) return bad('That date has passed its order cutoff (6 PM the day before). Pick a later date.');
-  if (midnightUtc - Date.now() > 24 * 24 * 3600 * 1000) return bad('Please choose a delivery date within the next few weeks.');
+  const onDemand = !!(b.fulfillment && b.fulfillment.mode === 'on_demand') || b.mode === 'on_demand';
+
+  let win, dateStr, fulfillmentMode, fulfillLabel;
+  if (onDemand) {
+    fulfillmentMode = 'on_demand';
+    const w = windowState(env);
+    if (!w.open) {
+      return bad(`On-demand ordering is open ${fmtHour(w.openHour)}–${fmtHour(w.closeHour)} ET. Please schedule a delivery instead, or order again during ordering hours.`, 409);
+    }
+    // Per-bowl daily production cap (launch throttle, tuned weekly). Tally the bowls in this
+    // cart and reject if any would exceed what's left today. Drinks/add-ons are uncapped.
+    const { limit } = onDemandConfig(env);
+    const remaining = await remainingByBowl(env, w.dateStr, limit).catch(() => null);
+    if (remaining) {
+      const want = {};
+      for (const it of orderItems) if (BOWL_IDS.includes(it.id)) want[it.id] = (want[it.id] || 0) + it.qty;
+      for (const itemId of Object.keys(want)) {
+        const left = Math.max(0, remaining[itemId] != null ? remaining[itemId] : limit);
+        if (want[itemId] > left) {
+          const nm = CATALOG[itemId].name;
+          return bad(
+            left > 0
+              ? `${nm} is limited to ${limit}/day on-demand — only ${left} left today. Lower the quantity or schedule a delivery.`
+              : `${nm} is sold out for today's on-demand orders. Try another bowl or schedule a delivery.`,
+            409
+          );
+        }
+      }
+    }
+    dateStr = w.dateStr;     // today (ET) — kitchen makes it now, driver delivers same day
+    win = 'asap';
+    fulfillLabel = `On-demand (ASAP today ${w.dateStr})`;
+  } else {
+    fulfillmentMode = 'scheduled';
+    const dlv = b.delivery || {};
+    win = (dlv.window === 'lunch' || dlv.window === 'dinner') ? dlv.window : null;
+    dateStr = (typeof dlv.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dlv.date)) ? dlv.date : null;
+    if (!dateStr || !win) return bad('Please choose a delivery date and time window.');
+    const midnightUtc = Date.parse(dateStr + 'T00:00:00Z');
+    if (Number.isNaN(midnightUtc)) return bad('Invalid delivery date.');
+    const dow = new Date(midnightUtc).getUTCDay();
+    if (dow === 0) return bad('We deliver Monday–Saturday. Please pick another date.');
+    const cutoff = midnightUtc - 2 * 3600 * 1000;   // ≈ 6 PM ET the prior day (EDT = UTC-4)
+    if (Date.now() >= cutoff) return bad('That date has passed its order cutoff (6 PM the day before). Pick a later date.');
+    if (midnightUtc - Date.now() > 24 * 24 * 3600 * 1000) return bad('Please choose a delivery date within the next few weeks.');
+    fulfillLabel = `${DOW[dow]} ${dateStr} · ${WINDOWS[win]}`;
+  }
   // Delivery address (we collect it ourselves now and store it for routing).
   const parsed = parseAddress(b.address);
   if (parsed.error) return bad(parsed.error);
@@ -104,7 +150,7 @@ export const onRequestPost = async ({ request, env }) => {
   const custPhone = normalizePhone(contact.phone);
   const smsConsent = ((contact.sms_consent === true || contact.sms_consent === 1) && custPhone) ? 1 : 0;
 
-  const deliveryNote = `Delivery for ${firstName}: ${DOW[dow]} ${dateStr} · ${WINDOWS[win]} · ${addrLine}`;
+  const deliveryNote = `${onDemand ? 'ON-DEMAND' : 'Delivery'} for ${firstName}: ${fulfillLabel} · ${addrLine}`;
 
   // Order minimum + flat delivery fee (configurable via env).
   const orderMinCents = Math.round(Number(env.ORDER_MIN_USD || 25) * 100);
@@ -134,7 +180,7 @@ export const onRequestPost = async ({ request, env }) => {
           percentage: taxPct,
           scope: 'ORDER',   // applies to every line item on the order
         }],
-        reference_id: 'web-delivery',
+        reference_id: onDemand ? 'web-ondemand' : 'web-delivery',
         note: deliveryNote,   // shows on the Square order for the kitchen
       },
       checkout_options: {
@@ -168,14 +214,14 @@ export const onRequestPost = async ({ request, env }) => {
       if (g) { lat = g.lat; lng = g.lng; geocodedAt = t; }
       await env.DB.prepare(
         `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
-            subtotal_cents, fee_cents, tax_pct, total_estimate_cents,
+            fulfillment_mode, subtotal_cents, fee_cents, tax_pct, total_estimate_cents,
             customer_name, customer_phone, sms_consent,
             delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
             delivery_lat, delivery_lng, geocoded_at, status, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
       ).bind(
         id('ord'), pl.order_id || null, pl.id || null, JSON.stringify(orderItems), dateStr, win,
-        subtotalCents, feeCents, Number(taxPct),
+        fulfillmentMode, subtotalCents, feeCents, Number(taxPct),
         Math.round((subtotalCents + feeCents) * (1 + Number(taxPct) / 100)),
         firstName, custPhone, smsConsent,
         addr.street, addr.unit, addr.city, addr.state, addr.zip, addr.notes,
