@@ -11,7 +11,7 @@ import { id, now, toJson } from '../../../../_lib/hub.js';
 import { notifyDelivered } from '../../../../_lib/notify.js';
 import { putMedia } from '../../../../_lib/media.js';
 
-export const onRequestPost = async ({ request, env }) => {
+export const onRequestPost = async ({ request, env, waitUntil }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   const ctx = await requireRole(request, env, ['driver', 'owner']);
   if (ctx instanceof Response) return ctx;
@@ -91,25 +91,36 @@ export const onRequestPost = async ({ request, env }) => {
   // Best-effort: mark the order fulfilled.
   await env.DB.prepare("UPDATE orders SET status='fulfilled', updated_at=? WHERE id=?").bind(ts, orderId).run().catch(() => {});
 
-  // Tell the customer it's delivered — MMS with the proof photo + "how did we do?" link
-  // (auto SMS-link fallback if MMS can't be delivered; email fallback if no consented phone).
-  const order = await env.DB.prepare('SELECT * FROM orders WHERE id=?').bind(orderId).first().catch(() => null);
-  if (order) await notifyDelivered(env, order, { photoUrl, feedbackUrl });
-
-  await capture(env, {
-    event: 'delivery.completed',
-    distinct_id: ctx.distinct_id,
-    role: ctx.role,
-    team: ctx.team,
-    properties: {
-      order_id: orderId,
-      has_proof_photo: !!proofPhoto,
-      has_signature: !!signature,
-      media_stored: proofStored || signatureStored,
-      on_time: onTime === null ? undefined : !!onTime,
-      platform: 'pwa',
-    },
-  });
+  // The route stop is already advanced in the DB above, so respond to the driver IMMEDIATELY
+  // and run the slow third-party side effects (customer MMS/email + analytics) in the
+  // background. Awaiting these before responding made the driver app "freeze" after a
+  // delivery in production, where Twilio/Resend/PostHog make real network calls that can be
+  // slow or fail (they no-op locally, which is why it only reproduced on prod). Each is
+  // independently guarded so one failing never affects the other or the response.
+  const sideEffects = (async () => {
+    try {
+      const order = await env.DB.prepare('SELECT * FROM orders WHERE id=?').bind(orderId).first().catch(() => null);
+      if (order) await notifyDelivered(env, order, { photoUrl, feedbackUrl });
+    } catch { /* customer notice is best-effort */ }
+    try {
+      await capture(env, {
+        event: 'delivery.completed',
+        distinct_id: ctx.distinct_id,
+        role: ctx.role,
+        team: ctx.team,
+        properties: {
+          order_id: orderId,
+          has_proof_photo: !!proofPhoto,
+          has_signature: !!signature,
+          media_stored: proofStored || signatureStored,
+          on_time: onTime === null ? undefined : !!onTime,
+          platform: 'pwa',
+        },
+      });
+    } catch { /* analytics is best-effort */ }
+  })();
+  // Prefer waitUntil so the background work survives after we respond; fall back to awaiting.
+  if (typeof waitUntil === 'function') waitUntil(sideEffects); else await sideEffects;
 
   return json({ ok: true, delivery: { id: deliveryId, order_id: orderId, status: 'completed' } });
 };

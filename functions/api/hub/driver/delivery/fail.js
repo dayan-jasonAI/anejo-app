@@ -11,7 +11,7 @@ import { id, now, toJson } from '../../../../_lib/hub.js';
 
 const REASONS = ['no_answer', 'wrong_address', 'refused', 'damaged', 'other'];
 
-export const onRequestPost = async ({ request, env }) => {
+export const onRequestPost = async ({ request, env, waitUntil }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   const ctx = await requireRole(request, env, ['driver', 'owner']);
   if (ctx instanceof Response) return ctx;
@@ -56,15 +56,7 @@ export const onRequestPost = async ({ request, env }) => {
     await env.DB.prepare("UPDATE route_stops SET status='failed', updated_at=? WHERE route_id=? AND order_id=?").bind(ts, routeId, orderId).run();
   }
 
-  await capture(env, {
-    event: 'delivery.failed',
-    distinct_id: ctx.distinct_id,
-    role: ctx.role,
-    team: ctx.team,
-    properties: { order_id: orderId, reason, note: note || undefined, platform: 'pwa' },
-  });
-
-  // Owner alert: a failed delivery needs eyes.
+  // Owner alert: a failed delivery needs eyes. Local DB write (fast) — keep before responding.
   await raiseAlert(env, {
     alert_type: 'delivery_failed',
     severity: 'warning',
@@ -74,7 +66,22 @@ export const onRequestPost = async ({ request, env }) => {
     ref_type: 'delivery', ref_id: deliveryId,
     source: 'surface',
     dedupe_key: `delivery_failed:${deliveryId}`,
-  });
+  }).catch(() => {});
+
+  // The stop is already flipped to 'failed' above; defer analytics (a PostHog network call)
+  // so it never blocks the driver's response — same freeze fix as delivery/complete.
+  const sideEffects = (async () => {
+    try {
+      await capture(env, {
+        event: 'delivery.failed',
+        distinct_id: ctx.distinct_id,
+        role: ctx.role,
+        team: ctx.team,
+        properties: { order_id: orderId, reason, note: note || undefined, platform: 'pwa' },
+      });
+    } catch { /* analytics is best-effort */ }
+  })();
+  if (typeof waitUntil === 'function') waitUntil(sideEffects); else await sideEffects;
 
   return json({ ok: true, delivery: { id: deliveryId, order_id: orderId, status: 'failed', reason } });
 };

@@ -26,12 +26,16 @@ function fromPoint(env, route) {
   return kitchenOrigin(env);
 }
 
-export const onRequestPost = async ({ request, env }) => {
+export const onRequestPost = async ({ request, env, waitUntil }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   const ctx = await requireRole(request, env, ['driver', 'owner']);
   if (ctx instanceof Response) return ctx;
   const staff = await currentStaff(env, request);
   if (!staff) return bad('No staff profile for this account.', 403);
+
+  // Run customer notification + analytics off the response path (waitUntil) so a slow/failing
+  // Twilio/Resend/PostHog call never freezes the driver app. Same fix as delivery/complete.
+  const defer = (fn) => { const p = (async () => { try { await fn(); } catch { /* best-effort */ } })(); if (typeof waitUntil === 'function') waitUntil(p); return p; };
 
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
@@ -66,10 +70,12 @@ export const onRequestPost = async ({ request, env }) => {
     ).bind(ts, ts, etaAtMs, ts, stopId).run();
     await env.DB.prepare('UPDATE routes SET current_seq=?, updated_at=? WHERE id=?').bind(stop.seq, ts, route.id).run().catch(() => {});
 
-    await notifyOnTheWay(env, order, etaClock);
-    await capture(env, {
-      event: 'delivery.en_route', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
-      properties: { route_id: route.id, stop_id: stopId, eta_min: etaMin },
+    defer(async () => {
+      await notifyOnTheWay(env, order, etaClock);
+      await capture(env, {
+        event: 'delivery.en_route', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+        properties: { route_id: route.id, stop_id: stopId, eta_min: etaMin },
+      });
     });
     return json({ ok: true, stop_id: stopId, status: 'en_route', eta_min: etaMin, eta_clock: etaClock });
   }
@@ -77,10 +83,12 @@ export const onRequestPost = async ({ request, env }) => {
   // arriving — manual ~10-min heads-up
   await env.DB.prepare("UPDATE route_stops SET status='arriving', arriving_at=?, eta_at=?, updated_at=? WHERE id=?")
     .bind(ts, etaAtMs, ts, stopId).run();
-  await notifyArrivingSoon(env, order, etaMin ? `${etaMin} minutes` : null);
-  await capture(env, {
-    event: 'delivery.arriving', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
-    properties: { route_id: route.id, stop_id: stopId, eta_min: etaMin, trigger: 'manual' },
+  defer(async () => {
+    await notifyArrivingSoon(env, order, etaMin ? `${etaMin} minutes` : null);
+    await capture(env, {
+      event: 'delivery.arriving', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { route_id: route.id, stop_id: stopId, eta_min: etaMin, trigger: 'manual' },
+    });
   });
   return json({ ok: true, stop_id: stopId, status: 'arriving', eta_min: etaMin });
 };
