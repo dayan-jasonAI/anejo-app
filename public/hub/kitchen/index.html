@@ -28,6 +28,11 @@
   .order-items li.oi-macros .oi-each { color:#9a9a8f; font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
   .order-items li.oi-ing { display:block; font-size:11.5px; color:#6b7269; padding:1px 0 4px; line-height:1.4; }
   .order-items li.oi-ing b { color:#3a6b2e; }
+  .order-items li.oi-build { display:block; padding:2px 0 5px; }
+  .order-items li.oi-build .bi { display:flex; justify-content:space-between; gap:10px; font-size:11.5px; color:#5b6258; padding:1.5px 0; border-bottom:1px dotted var(--line); }
+  .order-items li.oi-build .bi:last-child { border-bottom:0; }
+  .order-items li.oi-build .bi-w { font-weight:700; color:var(--green); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .order-items li.oi-build .bi-n i { color:#9a9a8f; font-style:italic; font-weight:400; }
   .order-items .oi-avo { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#3a6b2e; background:#e7f0ea; border-radius:7px; padding:1px 6px; }
   .order-card { cursor:default; }
   .ord-filter { display:flex; gap:8px; margin:0 0 12px; }
@@ -254,7 +259,14 @@
       if (m) {
         detail += '<li class="oi-macros"><b>' + (m.kcal||'—') + '</b> kcal · ' + (m.protein_g||0) + 'P / ' + (m.carbs_g||0) + 'C / ' + (m.fat_g||0) + 'F' + (m.fiber_g!=null ? ' · ' + m.fiber_g + ' fiber' : '') + ' <span class="oi-each">per bowl</span></li>';
       }
-      if (it && Array.isArray(it.ingredients) && it.ingredients.length) {
+      if (it && Array.isArray(it.build) && it.build.length) {
+        // Exact per-ingredient weights, scaled to this client's portion (from the kitchen manual).
+        var rows = it.build.map(function (x) {
+          return '<span class="bi"><span class="bi-n">' + esc(x.item) + '</span><span class="bi-w">' + (x.oz != null ? x.oz + ' oz' : '') + '</span></span>';
+        }).join('');
+        if (it.avocado) rows += '<span class="bi"><span class="bi-n">+ ½ avocado <i>(reduce other fats to hold target)</i></span><span class="bi-w">~2.4 oz</span></span>';
+        detail += '<li class="oi-build">' + rows + '</li>';
+      } else if (it && Array.isArray(it.ingredients) && it.ingredients.length) {
         detail += '<li class="oi-ing">' + esc(it.ingredients.join(' · ')) + (it.avocado ? ' · <b>½ avocado</b> (reduce other fats to keep target)' : '') + '</li>';
       }
       return head + detail;
