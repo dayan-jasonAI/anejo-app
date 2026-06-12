@@ -70,9 +70,9 @@ export const onRequestGet = async ({ request, env }) => {
   let drivers = [];
   try {
     const res = await env.DB
-      .prepare("SELECT id, name, phone, team FROM staff WHERE role='driver' AND active=1 ORDER BY name")
+      .prepare("SELECT id, name, phone, team, available, available_at FROM staff WHERE role='driver' AND active=1 ORDER BY available DESC, name")
       .all();
-    drivers = (res && res.results) || [];
+    drivers = ((res && res.results) || []).map((s) => ({ ...s, available: !!s.available }));
   } catch { drivers = []; }
 
   // Orders for the date that are payable/fulfillable and not yet on any route.
@@ -80,11 +80,14 @@ export const onRequestGet = async ({ request, env }) => {
   try {
     const res = await env.DB
       .prepare(
-        "SELECT o.id, o.customer_name, o.items, o.delivery_date, o.delivery_window, o.status, o.total_estimate_cents, " +
+        "SELECT o.id, o.customer_name, o.items, o.delivery_date, o.delivery_window, o.status, o.fulfillment_mode, o.total_estimate_cents, " +
         'o.delivery_street, o.delivery_unit, o.delivery_city, o.delivery_state, o.delivery_zip, o.delivery_notes, o.delivery_lat, o.delivery_lng ' +
-        "FROM orders o WHERE o.delivery_date=? AND o.status IN ('pending','paid') " +
+        // Include prep/ready, not just pending/paid — otherwise an order DROPS OUT of the
+        // assignable list the moment the kitchen marks it ready (so it could never be dispatched).
+        "FROM orders o WHERE o.delivery_date=? AND o.status IN ('pending','paid','prep','ready') " +
         'AND NOT EXISTS (SELECT 1 FROM route_stops rs WHERE rs.order_id = o.id) ' +
-        'ORDER BY o.delivery_window, o.created_at'
+        // On-demand orders that are READY need immediate dispatch — float them to the top.
+        "ORDER BY (o.fulfillment_mode='on_demand' AND o.status='ready') DESC, o.delivery_window, o.created_at"
       )
       .bind(date)
       .all();
@@ -92,6 +95,8 @@ export const onRequestGet = async ({ request, env }) => {
       ...o,
       address: formatAddress(o) || null,
       geocoded: o.delivery_lat != null && o.delivery_lng != null,
+      on_demand: o.fulfillment_mode === 'on_demand',
+      needs_dispatch: o.fulfillment_mode === 'on_demand' && o.status === 'ready',
     }));
   } catch { unassigned = []; }
 

@@ -47,14 +47,25 @@
       if (!dsel || !ords || !rlist) return;
       if (!d || !d.ok) { ords.innerHTML = '<p class="row-sub" data-i18n>No data.</p>'; return; }
 
+      var availN = (d.drivers || []).filter(function (s) { return s.available; }).length;
       dsel.innerHTML = '<option value="" data-i18n>Select a driver</option>' + (d.drivers || []).map(function (s) {
-        return '<option value="' + Owner.esc(s.id) + '">' + Owner.esc(s.name || s.id) + '</option>';
+        return '<option value="' + Owner.esc(s.id) + '">' + Owner.esc(s.name || s.id) + (s.available ? ' 🟢 available' : '') + '</option>';
       }).join('');
       if (!(d.drivers || []).length) {
         dsel.innerHTML = '<option value="" data-i18n>No drivers yet. Add drivers in Staff.</option>';
       }
 
-      ords.innerHTML = (d.unassigned || []).length ? d.unassigned.map(function (o) {
+      var unassigned = d.unassigned || [];
+      // On-demand (ASAP) orders the kitchen has marked READY need a driver dispatched NOW.
+      var dispatchN = unassigned.filter(function (o) { return o.needs_dispatch; }).length;
+      var dispatchBanner = dispatchN
+        ? '<div class="card accent" style="border-left:4px solid var(--gold);background:#fff8e9;margin-bottom:10px">' +
+            '<div class="row-title">🛵 ' + dispatchN + ' on-demand order' + (dispatchN > 1 ? 's' : '') + ' ready for dispatch</div>' +
+            '<div class="row-sub">' + (availN ? availN + ' driver' + (availN > 1 ? 's' : '') + ' available' : 'No driver is marked available') +
+            ' — assign now for same-day delivery.</div></div>'
+        : '';
+
+      ords.innerHTML = dispatchBanner + (unassigned.length ? unassigned.map(function (o) {
         var items = '';
         try {
           var arr = JSON.parse(o.items || '[]');
@@ -63,11 +74,13 @@
         var addr = o.address
           ? '<div class="row-sub">📍 ' + Owner.esc(o.address) + (o.geocoded ? '' : ' <span class="badge warn" data-i18n>not mapped</span>') + '</div>'
           : '<div class="row-sub"><span class="badge crit" data-i18n>no address</span></div>';
-        return '<label class="row" style="cursor:pointer"><input type="checkbox" class="rorder" value="' + Owner.esc(o.id) + '" style="margin-right:10px">' +
+        var od = o.needs_dispatch ? '<span class="badge crit">🛵 ASAP · DISPATCH</span> '
+          : (o.on_demand ? '<span class="badge warn">🛵 ASAP</span> ' : '');
+        return '<label class="row" style="cursor:pointer' + (o.needs_dispatch ? ';background:#fff8e9' : '') + '"><input type="checkbox" class="rorder" value="' + Owner.esc(o.id) + '" style="margin-right:10px">' +
           '<div class="row-main"><div class="row-title">' + Owner.esc(o.customer_name || o.id) + '</div>' +
           '<div class="row-sub">' + Owner.esc(items || '—') + ' · ' + Owner.esc(o.delivery_window || '') + '</div>' + addr + '</div>' +
-          Owner.badge(o.status, Owner.kindFor(o.status)) + '</label>';
-      }).join('') : '<p class="row-sub" data-i18n>No unassigned orders for this date.</p>';
+          od + Owner.badge(o.status, Owner.kindFor(o.status)) + '</label>';
+      }).join('') : '<p class="row-sub" data-i18n>No unassigned orders for this date.</p>');
 
       ords.querySelectorAll('.rorder').forEach(function (cb) { cb.addEventListener('change', updateAssignBtn); });
       updateAssignBtn();
