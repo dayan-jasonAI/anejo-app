@@ -104,8 +104,9 @@ export const onRequestPost = async ({ request, env }) => {
       team: ctx.team,
       properties: { route_id: route.id, platform: 'pwa' },
     });
-    // Tell each opted-in customer their delivery is on the way (consent-gated, no-op safe).
-    await notifyRouteOutForDelivery(env, route.id);
+    // NOTE: per-stop notifications — each customer is texted "on the way" when the driver taps
+    // Navigate to THEIR stop (see /api/hub/driver/stop). We intentionally do NOT broadcast to the
+    // whole route on start, so the last stop isn't told "on the way" hours early.
     return json({ ok: true, route: { id: route.id, status: 'started', started_at: ts } });
   }
 
