@@ -6,8 +6,9 @@
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
-import { now, today } from '../../../_lib/hub.js';
+import { now, today, parseJson } from '../../../_lib/hub.js';
 import { notifyRouteOutForDelivery } from '../../../_lib/notify.js';
+import { formatAddress, directionsUrl, fullRouteUrl, clockET } from '../../../_lib/geo.js';
 
 // Find the driver's most relevant route for today (started first, else assigned).
 async function todaysRoute(env, driverId) {
@@ -30,12 +31,46 @@ export const onRequestGet = async ({ request, env }) => {
   const route = await todaysRoute(env, staff.id);
   if (!route) return json({ route: null, stops: [] });
 
+  // Join each stop to its order so the driver app has the name, bowls, address, and live ETA.
   const { results } = await env.DB
-    .prepare('SELECT * FROM route_stops WHERE route_id=? ORDER BY seq ASC, created_at ASC')
+    .prepare(
+      `SELECT rs.id AS stop_id, rs.seq, rs.status, rs.eta_at, rs.picked_count,
+              rs.nav_started_at, rs.arriving_at, rs.delivered_at,
+              o.id AS order_id, o.customer_name, o.items,
+              o.delivery_street, o.delivery_unit, o.delivery_city, o.delivery_state, o.delivery_zip,
+              o.delivery_notes, o.delivery_lat, o.delivery_lng
+         FROM route_stops rs JOIN orders o ON o.id = rs.order_id
+        WHERE rs.route_id=? ORDER BY rs.seq ASC, rs.created_at ASC`
+    )
     .bind(route.id)
     .all();
 
-  return json({ route, stops: results || [] });
+  const stops = (results || []).map((s) => {
+    const items = parseJson(s.items, []) || [];
+    const addrLine = formatAddress(s);
+    const hasGeo = Number.isFinite(s.delivery_lat) && Number.isFinite(s.delivery_lng);
+    return {
+      stop_id: s.stop_id, seq: s.seq, status: s.status, order_id: s.order_id,
+      first_name: (s.customer_name || '').split(' ')[0] || 'Order',
+      items,
+      total_bowls: items.reduce((n, it) => n + (Number(it && it.qty) || 1), 0),
+      address: addrLine,
+      delivery_notes: s.delivery_notes || null,
+      eta_at: s.eta_at || null,
+      eta_clock: s.eta_at ? clockET(s.eta_at) : null,
+      directions_url: hasGeo ? directionsUrl({ lat: s.delivery_lat, lng: s.delivery_lng }) : directionsUrl(addrLine),
+      nav_started_at: s.nav_started_at || null,
+      arriving_at: s.arriving_at || null,
+      delivered_at: s.delivered_at || null,
+    };
+  });
+
+  const full_route_url = fullRouteUrl(
+    stops.filter((s) => s.status !== 'done' && s.status !== 'failed')
+      .map((s) => ({ lat: (results.find((r) => r.stop_id === s.stop_id) || {}).delivery_lat, lng: (results.find((r) => r.stop_id === s.stop_id) || {}).delivery_lng, street: s.address }))
+  );
+
+  return json({ route: { ...route, current_seq: route.current_seq || 0 }, stops, full_route_url });
 };
 
 export const onRequestPost = async ({ request, env }) => {

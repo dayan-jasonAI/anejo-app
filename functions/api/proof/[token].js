@@ -14,7 +14,13 @@ export const onRequestGet = async ({ params, env }) => {
   if (!row || !row.proof_photo) return new Response('Not found', { status: 404 });
   if (!env.MEDIA) return new Response('Storage unavailable', { status: 503 });
 
-  const obj = await env.MEDIA.get(row.proof_photo);
+  // proof_photo is stored as the media URL "/api/hub/media/<key>"; derive the R2 key.
+  // Inline data refs (R2 absent at capture time) can't be served publicly.
+  let key = row.proof_photo;
+  if (key.startsWith('/api/hub/media/')) key = key.slice('/api/hub/media/'.length);
+  if (key.startsWith('data:') || !key) return new Response('Not found', { status: 404 });
+
+  const obj = await env.MEDIA.get(key);
   if (!obj) return new Response('Not found', { status: 404 });
 
   const headers = new Headers();

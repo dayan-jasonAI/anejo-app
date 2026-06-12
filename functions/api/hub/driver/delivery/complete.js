@@ -4,11 +4,11 @@
 // order to 'fulfilled'. Photos are stored as a ref string (base64/data/url) — R2 is
 // a follow-up; we do not block on binary storage.
 // Fires delivery.completed.
-import { json, bad } from '../../../../_lib/util.js';
+import { json, bad, appBaseUrl } from '../../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson } from '../../../../_lib/hub.js';
-import { notifyOrderDelivery } from '../../../../_lib/notify.js';
+import { notifyDelivered } from '../../../../_lib/notify.js';
 import { putMedia } from '../../../../_lib/media.js';
 
 export const onRequestPost = async ({ request, env }) => {
@@ -44,6 +44,12 @@ export const onRequestPost = async ({ request, env }) => {
   const geo = b && typeof b.geo === 'object' ? b.geo : null;
   const routeId = (b && b.route_id) || null;
 
+  // Per-delivery public token → drives the proof-photo URL (MMS media) and the feedback page.
+  const token = id('pod');
+  const base = appBaseUrl(env, request);
+  const photoUrl = proofStored ? `${base}/api/proof/${token}` : null;   // only when actually in R2
+  const feedbackUrl = `${base}/feedback?t=${token}`;
+
   // Reuse an existing pending delivery row for this order if present.
   const existing = await env.DB
     .prepare("SELECT * FROM deliveries WHERE order_id=? AND status='pending' ORDER BY created_at DESC LIMIT 1")
@@ -54,30 +60,41 @@ export const onRequestPost = async ({ request, env }) => {
   if (existing) {
     deliveryId = existing.id;
     await env.DB
-      .prepare("UPDATE deliveries SET driver_id=?, route_id=?, status='completed', proof_photo=?, signature=?, on_time=?, geo=?, completed_at=?, updated_at=? WHERE id=?")
-      .bind(staff.id, routeId || existing.route_id, proofPhoto, signature, onTime, toJson(geo), ts, ts, deliveryId)
+      .prepare("UPDATE deliveries SET driver_id=?, route_id=?, status='completed', proof_photo=?, proof_skipped=?, public_token=?, signature=?, on_time=?, geo=?, completed_at=?, updated_at=? WHERE id=?")
+      .bind(staff.id, routeId || existing.route_id, proofPhoto, proofPhoto ? 0 : 1, token, signature, onTime, toJson(geo), ts, ts, deliveryId)
       .run();
   } else {
     deliveryId = id('del');
     await env.DB
-      .prepare('INSERT INTO deliveries (id, order_id, route_id, driver_id, status, proof_photo, signature, on_time, geo, completed_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-      .bind(deliveryId, orderId, routeId, staff.id, 'completed', proofPhoto, signature, onTime, toJson(geo), ts, ts, ts)
+      .prepare('INSERT INTO deliveries (id, order_id, route_id, driver_id, status, proof_photo, proof_skipped, public_token, signature, on_time, geo, completed_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(deliveryId, orderId, routeId, staff.id, 'completed', proofPhoto, proofPhoto ? 0 : 1, token, signature, onTime, toJson(geo), ts, ts, ts)
       .run();
   }
 
-  // Advance the route stop (by stop_id if given, else by order on the route).
+  // Advance the route stop (by stop_id if given, else by order on the route) + stamp delivered_at.
+  let stopSeq = null;
   if (b.stop_id) {
-    await env.DB.prepare("UPDATE route_stops SET status='done', updated_at=? WHERE id=?").bind(ts, b.stop_id).run();
+    await env.DB.prepare("UPDATE route_stops SET status='done', delivered_at=?, updated_at=? WHERE id=?").bind(ts, ts, b.stop_id).run();
+    const r = await env.DB.prepare('SELECT seq FROM route_stops WHERE id=?').bind(b.stop_id).first().catch(() => null);
+    stopSeq = r && r.seq;
   } else if (routeId) {
-    await env.DB.prepare("UPDATE route_stops SET status='done', updated_at=? WHERE route_id=? AND order_id=?").bind(ts, routeId, orderId).run();
+    await env.DB.prepare("UPDATE route_stops SET status='done', delivered_at=?, updated_at=? WHERE route_id=? AND order_id=?").bind(ts, ts, routeId, orderId).run();
+    const r = await env.DB.prepare('SELECT seq FROM route_stops WHERE route_id=? AND order_id=?').bind(routeId, orderId).first().catch(() => null);
+    stopSeq = r && r.seq;
+  }
+  // Advance the route's active stop pointer so the driver app auto-loads the next stop.
+  if (routeId && stopSeq != null) {
+    await env.DB.prepare('UPDATE routes SET current_seq=?, stops_completed=COALESCE(stops_completed,0)+1, updated_at=? WHERE id=? AND COALESCE(current_seq,0) <= ?')
+      .bind(stopSeq, ts, routeId, stopSeq).run().catch(() => {});
   }
 
   // Best-effort: mark the order fulfilled.
   await env.DB.prepare("UPDATE orders SET status='fulfilled', updated_at=? WHERE id=?").bind(ts, orderId).run().catch(() => {});
 
-  // Text the customer that their order was delivered (consent-gated, no-op safe).
+  // Tell the customer it's delivered — MMS with the proof photo + "how did we do?" link
+  // (auto SMS-link fallback if MMS can't be delivered; email fallback if no consented phone).
   const order = await env.DB.prepare('SELECT * FROM orders WHERE id=?').bind(orderId).first().catch(() => null);
-  if (order) await notifyOrderDelivery(env, order, 'delivered');
+  if (order) await notifyDelivered(env, order, { photoUrl, feedbackUrl });
 
   await capture(env, {
     event: 'delivery.completed',
