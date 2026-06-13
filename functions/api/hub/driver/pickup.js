@@ -41,6 +41,11 @@ export const onRequestGet = async ({ request, env }) => {
       WHERE rs.route_id=? ORDER BY rs.seq ASC, rs.created_at ASC`
   ).bind(route.id).all();
 
+  // A stop is "past the pickup gate" once it's been picked OR has moved further down the
+  // delivery lifecycle. Without the lifecycle statuses here, delivering a stop (status→'done')
+  // would flip it back to "not picked" and bounce the driver to the pickup gate mid-route.
+  // Mirrors the POST handler's all-picked query.
+  const PAST_PICKUP = ['picked', 'en_route', 'arriving', 'delivered', 'done', 'failed'];
   const stops = (results || []).map((s) => ({
     stop_id: s.stop_id,
     seq: s.seq,
@@ -50,7 +55,7 @@ export const onRequestGet = async ({ request, env }) => {
     total_bowls: orderTotal(s.items),
     pickup_state: parseJson(s.pickup_state, {}) || {},
     picked_count: s.picked_count || 0,
-    picked: s.status === 'picked' || (s.picked_count || 0) >= orderTotal(s.items),
+    picked: PAST_PICKUP.indexOf(s.status) !== -1 || (s.picked_count || 0) >= orderTotal(s.items),
   }));
 
   const allPicked = stops.length > 0 && stops.every((s) => s.picked);

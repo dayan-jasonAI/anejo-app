@@ -51,6 +51,11 @@
         Hub.i18nRefresh();
         return data;
       });
+    }).catch(function () {
+      // Network drop (offline / dead zone). NEVER reject — that would leave callers that
+      // disabled a button waiting forever (frozen UI). Resolve with an error object so the
+      // caller's normal `if (!resp.ok)` path runs: re-enables the button + shows the toast.
+      return { _networkError: true, error: 'Network error — check your connection and try again.' };
     });
   };
 

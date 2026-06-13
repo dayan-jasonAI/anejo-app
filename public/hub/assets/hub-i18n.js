@@ -548,6 +548,12 @@
     // ---- Content: brand brief doc type (grounds the Creative Studio AI) ----
     "Brand": "Marca",
 
+    // ---- Driver route: friendly stop-status pills + network resilience ----
+    "Done": "Entregado", "Current": "Actual", "Loaded": "Cargado",
+    "On the way": "En camino", "Almost there": "Casi llega", "Waiting": "En espera",
+    "Network error — check your connection and try again.": "Error de red — revisa tu conexión e inténtalo de nuevo.",
+    "Couldn’t load your route — check your connection.": "No se pudo cargar tu ruta — revisa tu conexión.",
+
     // ---- Phase 5: D1 backup (owner AI Ops card) ----
     "Database backups": "Respaldos de base de datos", "Backup now": "Respaldar ahora",
     "Recent backups": "Respaldos recientes", "Creating backup…": "Creando respaldo…",

@@ -15,9 +15,24 @@
   .stop-eta{font-size:11px;font-weight:700;color:var(--gold-700,#8a7a2e);white-space:nowrap;margin-left:6px}
   .stop-addr{font-size:13px;color:var(--green);margin:3px 0}
   .stop-note{font-size:12px;color:#8a6d3b;background:#fbf3da;border-radius:6px;padding:4px 8px;margin-top:4px}
-  .cur-card{border:2px solid var(--gold,#C6A85B);background:#fff8e9}
-  .cur-name{font-size:20px;font-weight:700;color:var(--green)}
-  .cur-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .cur-card{border:2px solid var(--gold,#C6A85B);background:linear-gradient(180deg,#fffdf6,#fff8e9);box-shadow:0 6px 22px rgba(198,168,91,.22)}
+  .cur-name{font-size:21px;font-weight:800;color:var(--green);display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+  .cur-actions{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+  /* friendly status pills for the upcoming-stops list */
+  .stop-pill{font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap}
+  .stop-pill.cur{background:var(--gold);color:#3a2f12}
+  .stop-pill.loaded{background:var(--green-200);color:var(--green)}
+  .stop-pill.way{background:#e6eff7;color:var(--info)}
+  .stop-pill.near{background:#fbf3da;color:var(--gold-dark)}
+  .stop-pill.is-done{background:var(--green-200);color:var(--ok)}
+  .stop-pill.is-failed{background:#fbe3e1;color:var(--crit)}
+  .stop-pill.wait{background:var(--cream-dark);color:var(--muted)}
+  /* delivery action sheet — dim backdrop + gentle slide-up */
+  #sheet-backdrop{display:none;position:fixed;inset:0;background:rgba(13,13,13,.45);z-index:49}
+  #sheet{box-shadow:0 -10px 44px rgba(13,13,13,.28);border-radius:16px 16px 14px 14px}
+  #sheet.show{animation:sheetUp .22s ease}
+  @keyframes sheetUp{from{transform:translateY(18px);opacity:.3}to{transform:translateY(0);opacity:1}}
+  .sheet-grab{width:42px;height:4px;border-radius:3px;background:var(--line);margin:2px auto 12px}
   .bowl-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line,#e5e0d3)}
   .bowl-name{font-weight:600;color:var(--green)}
   .units{display:flex;gap:6px;flex-wrap:wrap}
@@ -52,7 +67,9 @@
 </div>
 
 <!-- Delivery action sheet -->
+<div id="sheet-backdrop"></div>
 <div id="sheet" class="card accent" style="display:none;position:fixed;left:12px;right:12px;bottom:16px;max-width:560px;margin:0 auto;z-index:50;">
+  <div class="sheet-grab"></div>
   <h2 class="row-title" id="sheet-title">Stop</h2>
   <div id="sheet-mode-deliver">
     <div class="field">
@@ -108,6 +125,14 @@
   }
 
   function render() {
+    // Network drop while loading — show a retry instead of a misleading "no route".
+    if (routeData && routeData._networkError) {
+      head.innerHTML = '<p class="row-sub" data-i18n>Couldn’t load your route — check your connection.</p>' +
+        '<button class="btn ghost block" id="retry-load" type="button" style="margin-top:8px" data-i18n>Retry</button>';
+      pickSection.hidden = true; delivSection.hidden = true; stopGps();
+      var rb = document.getElementById('retry-load'); if (rb) rb.addEventListener('click', loadAll);
+      refresh(); return;
+    }
     if (!routeData || !routeData.route) {
       head.innerHTML = '<p class="row-sub" data-i18n>No route assigned for today.</p>';
       pickSection.hidden = true; delivSection.hidden = true; stopGps(); refresh(); return;
@@ -231,12 +256,19 @@
     }
 
     document.getElementById('stops').innerHTML = stops.map(function (s, i) {
-      var done = s.status === 'done', failed = s.status === 'failed';
-      var badge = done ? '<span class="badge ok">done</span>' : failed ? '<span class="badge crit">failed</span>' :
-        (cur && s.stop_id === cur.stop_id ? '<span class="badge">current</span>' : '<span class="badge">' + Hub.esc(s.status) + '</span>');
       return '<div class="row"><div class="row-main"><div class="row-title">' + (i + 1) + '. ' + Hub.esc(s.first_name) +
-        '</div><div class="row-sub">' + Hub.esc(s.address || '') + '</div></div>' + badge + '</div>';
+        '</div><div class="row-sub">' + Hub.esc(s.address || '') + '</div></div>' + stopPill(s, cur) + '</div>';
     }).join('');
+  }
+
+  // Plain-English status pill for a stop (driver-friendly + on-brand colors).
+  function stopPill(s, cur) {
+    if (s.status === 'done') return '<span class="stop-pill is-done" data-i18n>Done</span>';
+    if (s.status === 'failed') return '<span class="stop-pill is-failed" data-i18n>Failed</span>';
+    if (cur && s.stop_id === cur.stop_id) return '<span class="stop-pill cur" data-i18n>Current</span>';
+    var map = { picked: ['Loaded', 'loaded'], en_route: ['On the way', 'way'], arriving: ['Almost there', 'near'], pending: ['Waiting', 'wait'] };
+    var m = map[s.status] || ['Waiting', 'wait'];
+    return '<span class="stop-pill ' + m[1] + '" data-i18n>' + m[0] + '</span>';
   }
 
   function navStart(stop) {
@@ -253,14 +285,20 @@
   }
 
   // ---- Deliver / fail sheet ----
+  var backdrop = document.getElementById('sheet-backdrop');
   function openSheet(stop, m) {
     current = stop;
     document.getElementById('sheet-title').textContent = stop.first_name;
     document.getElementById('proof-photo').value = '';
     document.getElementById('skip-photo').checked = false;
     document.getElementById('fail-note').value = '';
-    setMode(m || 'deliver'); sheet.style.display = 'block';
+    setMode(m || 'deliver');
+    backdrop.style.display = 'block';
+    sheet.style.display = 'block';
+    sheet.classList.remove('show'); void sheet.offsetWidth; sheet.classList.add('show'); // restart slide-up
   }
+  function closeSheet() { sheet.style.display = 'none'; backdrop.style.display = 'none'; current = null; }
+  function scrollToCurrent() { var el = document.getElementById('current-stop'); if (el && el.firstChild) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
   function setMode(m) {
     mode = m;
     document.getElementById('sheet-mode-deliver').style.display = m === 'deliver' ? 'block' : 'none';
@@ -269,7 +307,8 @@
     refresh();
   }
   document.getElementById('toggle-mode').addEventListener('click', function () { setMode(mode === 'deliver' ? 'fail' : 'deliver'); });
-  document.getElementById('sheet-close').addEventListener('click', function () { sheet.style.display = 'none'; current = null; });
+  document.getElementById('sheet-close').addEventListener('click', closeSheet);
+  backdrop.addEventListener('click', closeSheet);
 
   document.getElementById('deliver-btn').addEventListener('click', function () {
     if (!current) return;
@@ -287,7 +326,7 @@
       } });
     }).then(function (resp) {
       btn.disabled = false;
-      if (resp && resp.ok) { Hub.toast('Delivered — customer notified'); sheet.style.display = 'none'; loadAll(); }
+      if (resp && resp.ok) { Hub.toast('Delivered — customer notified'); closeSheet(); loadAll().then(scrollToCurrent); }
       else Hub.toast((resp && resp.error) || 'Error');
     });
   });
@@ -301,7 +340,7 @@
       } });
     }).then(function (resp) {
       btn.disabled = false;
-      if (resp && resp.ok) { Hub.toast('Marked failed'); sheet.style.display = 'none'; loadAll(); }
+      if (resp && resp.ok) { Hub.toast('Marked failed'); closeSheet(); loadAll().then(scrollToCurrent); }
       else Hub.toast((resp && resp.error) || 'Error');
     });
   });
