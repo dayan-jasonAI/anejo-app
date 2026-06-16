@@ -8,8 +8,8 @@ import { notifyClientById } from '../../_lib/notify.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
 
-async function validSignature(key, notificationUrl, rawBody, signature) {
-  if (!key) return true;            // dev: no key configured → don't block (log-only)
+async function validSignature(key, notificationUrl, rawBody, signature, isProd) {
+  if (!key) return !isProd;         // no key: allow in sandbox/dev (log-only), FAIL CLOSED in production
   if (!signature) return false;
   try {
     const enc = new TextEncoder();
@@ -26,7 +26,7 @@ export const onRequestPost = async ({ request, env }) => {
   // Square signs over the exact notification URL it was configured with.
   const notifyUrl = env.SQUARE_WEBHOOK_URL || request.url;
 
-  if (!(await validSignature(env.SQUARE_WEBHOOK_KEY, notifyUrl, raw, sig))) {
+  if (!(await validSignature(env.SQUARE_WEBHOOK_KEY, notifyUrl, raw, sig, env.SQUARE_ENV === 'production'))) {
     return new Response('invalid signature', { status: 401 });
   }
 

@@ -96,8 +96,32 @@ export const onRequestPost = async ({ request, env }) => {
 
   // Delivery address — required to subscribe (every weekly order must be routable). Saved as
   // the client's default and reused for each auto-generated delivery. Geocode is best-effort.
+  //
+  // SECURITY (broken-access-control hardening): the `clientId` path is unauthenticated (a member
+  // subscribes via their trainer's link, no session). So we must NEVER let a request OVERWRITE an
+  // EXISTING client's saved address — otherwise anyone holding a clientId could redirect that
+  // customer's deliveries. Read the existing address first; only write request-supplied address
+  // when the client has none on file (first-time setup) or for a brand-new direct buyer.
   let deliveryAddr = parseAddr(b.address);
-  if (deliveryAddr) {
+  let existingAddr = null;
+  if (clientId) {
+    try {
+      const c = await env.DB.prepare(
+        'SELECT delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes, delivery_lat, delivery_lng FROM clients WHERE id = ?'
+      ).bind(client.id).first();
+      if (c && c.delivery_street) {
+        existingAddr = {
+          street: c.delivery_street, unit: c.delivery_unit, city: c.delivery_city, state: c.delivery_state,
+          zip: c.delivery_zip, notes: c.delivery_notes, lat: c.delivery_lat, lng: c.delivery_lng,
+        };
+      }
+    } catch (_) { /* leave null */ }
+  }
+  if (existingAddr) {
+    // Existing customer already has a saved address — use it, ignore any request-supplied address.
+    deliveryAddr = existingAddr;
+  } else if (deliveryAddr) {
+    // First-time setup (new direct buyer, or trainer member with no address yet): persist it.
     const g = await geocode(env, formatAddress(deliveryAddr)).catch(() => null);
     if (g) { deliveryAddr.lat = g.lat; deliveryAddr.lng = g.lng; }
     try {
@@ -110,19 +134,6 @@ export const onRequestPost = async ({ request, env }) => {
         deliveryAddr.lng != null ? deliveryAddr.lng : null, now(), client.id
       ).run();
     } catch (_) { /* address is best-effort persistence; don't fail the subscription */ }
-  } else {
-    // No address in the request — fall back to the client's stored default (if any).
-    try {
-      const c = await env.DB.prepare(
-        'SELECT delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes, delivery_lat, delivery_lng FROM clients WHERE id = ?'
-      ).bind(client.id).first();
-      if (c && c.delivery_street) {
-        deliveryAddr = {
-          street: c.delivery_street, unit: c.delivery_unit, city: c.delivery_city, state: c.delivery_state,
-          zip: c.delivery_zip, notes: c.delivery_notes, lat: c.delivery_lat, lng: c.delivery_lng,
-        };
-      }
-    } catch (_) { /* leave null */ }
   }
   // Direct/public subscribers must provide an address; trainer-referred members may have the
   // owner add it later, so only hard-require it when there's no clientId and none on file.

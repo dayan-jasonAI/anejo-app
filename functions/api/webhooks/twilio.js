@@ -40,8 +40,11 @@ export const onRequestPost = async ({ request, env }) => {
   const raw = await request.text();
   const params = new URLSearchParams(raw);
 
-  // Best-effort signature validation (only when a token is configured).
-  if (env.TWILIO_AUTH_TOKEN) {
+  // Signature validation. FAIL CLOSED in production if no token is configured (an unsigned/forged
+  // inbound SMS could otherwise spoof a staff phone). Sandbox/dev stays permissive for testing.
+  if (!env.TWILIO_AUTH_TOKEN) {
+    if (env.SQUARE_ENV === 'production') return new Response('forbidden', { status: 403 });
+  } else {
     const sig = request.headers.get('X-Twilio-Signature') || '';
     const url = env.TWILIO_WEBHOOK_URL || request.url;
     let expected = null;

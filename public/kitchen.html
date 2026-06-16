@@ -58,7 +58,7 @@ window.setFilter=setFilter;
 async function load(){
   const key=localStorage.getItem(KEYK); if(!key){gate();return;}
   let data;
-  try{ const r=await fetch('/api/orders?key='+encodeURIComponent(key)+(filter?'&status='+filter:'')); if(r.status===401){logout();return;} data=await r.json(); }
+  try{ const r=await fetch('/api/orders'+(filter?'?status='+encodeURIComponent(filter):''),{headers:{'x-kitchen-key':key}}); if(r.status===401){logout();return;} data=await r.json(); }
   catch{ $('app').innerHTML='<p class="empty">Could not load orders.</p>'; return; }
   const orders=data.orders||[];
   const tabs=['paid','pending','fulfilled',''].map(f=>'<button class="'+(filter===f?'on':'')+'" onclick="setFilter(\''+f+'\')">'+(f||'all')+'</button>').join('');
