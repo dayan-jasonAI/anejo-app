@@ -13,6 +13,141 @@ export function nextWeeklyDeliveryDate(base) {
   return d.toISOString().slice(0, 10);
 }
 
+// ---------------------------------------------------------------------------
+// DAILY fresh-prep model (rolling 7-day). A subscription yields one kitchen order
+// per chosen window (lunch/dinner) for each delivery day Mon–Sat it's active, one
+// rotating bowl each, scaled to the client's macros. Deterministic order ids make
+// the daily tick idempotent. Plans start the upcoming Monday.
+// ---------------------------------------------------------------------------
+
+const DELIVERY_DOW = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 }; // Mon(1)..Sat(6) deliver; Sun(0) off
+const WIN_ORDER = { lunch: 0, dinner: 1 };
+
+// YYYY-MM-DD in America/New_York for a ms timestamp (kitchen days are ET).
+function etDate(ms) {
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(new Date(ms));
+  const g = (t) => (p.find((x) => x.type === t) || {}).value;
+  return `${g('year')}-${g('month')}-${g('day')}`;
+}
+// Day-of-week 0=Sun..6=Sat for a YYYY-MM-DD (noon-UTC avoids TZ rollover).
+function dowOf(dateStr) { return new Date(dateStr + 'T12:00:00Z').getUTCDay(); }
+// Integer day index for a YYYY-MM-DD (UTC midnights), for stable date math.
+function dayNum(dateStr) { return Math.floor(Date.parse(dateStr + 'T00:00:00Z') / 86400000); }
+function addDays(dateStr, n) { return new Date((dayNum(dateStr) + n) * 86400000).toISOString().slice(0, 10); }
+// First Monday on or after dateStr (a subscription's "day 1" is the upcoming Monday).
+function nextMondayOnOrAfter(dateStr) {
+  let d = dateStr;
+  for (let i = 0; i < 7; i++) { if (dowOf(d) === 1) return d; d = addDays(d, 1); }
+  return dateStr;
+}
+// Expand a bowl_rotation {NAME: count} into an ordered sequence ['COCO','COCO','FUEGO',...].
+function rotationSequence(rotationJson) {
+  const rot = rotationJson ? parseJson(rotationJson, null) : null;
+  if (!rot || typeof rot !== 'object') return [];
+  const seq = [];
+  for (const [name, n] of Object.entries(rot)) {
+    const c = Math.max(0, Math.floor(Number(n) || 0));
+    for (let i = 0; i < c; i++) seq.push(name);
+  }
+  return seq;
+}
+
+// Materialize the rolling prep window for one subscription row (already joined to plan+client).
+// Returns the number of orders created. Best-effort; never throws.
+async function prepOneSubscription(env, sub, plan, client, todayStr, horizonDays) {
+  let created = 0;
+  const windows = String(sub.windows || 'lunch,dinner').split(',')
+    .map((w) => w.trim().toLowerCase()).filter((w) => w === 'lunch' || w === 'dinner')
+    .sort((a, b) => WIN_ORDER[a] - WIN_ORDER[b]);
+  if (!windows.length) return 0;
+
+  const seq = rotationSequence(plan && plan.bowl_rotation);
+  const sizeFactor = plan && plan.bowl_size_factor != null ? Number(plan.bowl_size_factor) : 1;
+  const avocado = sub.avocado === 1 || sub.avocado === true;
+
+  const startMonday = nextMondayOnOrAfter(etDate(Number(sub.started_at) || Date.now()));
+  const rangeStart = dayNum(startMonday) > dayNum(todayStr) ? startMonday : todayStr;
+  const rangeEnd = addDays(todayStr, horizonDays);
+
+  // Client's saved default delivery address (defensive: columns may be absent on older rows).
+  const a = {
+    street: client && client.delivery_street, unit: client && client.delivery_unit,
+    city: client && client.delivery_city, state: client && client.delivery_state,
+    zip: client && client.delivery_zip, notes: client && client.delivery_notes,
+    lat: client && client.delivery_lat, lng: client && client.delivery_lng,
+  };
+  const custName = (client && client.name) || sub.customer_name || 'Member';
+  const custEmail = (client && client.email) || null;
+  const t = now();
+
+  for (let d = rangeStart; dayNum(d) <= dayNum(rangeEnd); d = addDays(d, 1)) {
+    const dow = dowOf(d);
+    if (!DELIVERY_DOW[dow]) continue;             // Sundays off
+    if (dayNum(d) < dayNum(startMonday)) continue; // never before the plan's first Monday
+    // Delivery-day index since startMonday (Monday): full weeks * 6 + min(remainder, 6).
+    const g = dayNum(d) - dayNum(startMonday);
+    const D = Math.floor(g / 7) * 6 + Math.min(g % 7, 6);
+    for (const win of windows) {
+      const slot = D * windows.length + WIN_ORDER[win];
+      const bowlName = seq.length ? seq[slot % seq.length] : null;
+      const line = bowlName ? (kitchenBowlLine(bowlName, 1, sizeFactor, avocado)
+        || { id: 'bowl_' + String(bowlName).toLowerCase(), name: bowlName + ' Bowl', qty: 1, avocado })
+        : { id: 'sub', name: 'Plan bowl', qty: 1, avocado };
+      const oid = `osub_${sub.id}_${d}_${win}`; // deterministic ⇒ idempotent
+      const res = await env.DB.prepare(
+        `INSERT OR IGNORE INTO orders
+           (id, square_order_id, subscription_id, items, delivery_date, delivery_window,
+            subtotal_cents, fee_cents, tax_pct, total_estimate_cents,
+            delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
+            delivery_lat, delivery_lng, geocoded_at,
+            status, fulfillment_mode, customer_name, customer_email, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'paid','scheduled', ?, ?, ?, ?)`
+      ).bind(
+        oid, 'sub_' + sub.id, sub.id, JSON.stringify([line]), d, win,
+        0, 0, 0, 0,
+        a.street || null, a.unit || null, a.city || null, a.state || null, a.zip || null, a.notes || null,
+        a.lat != null ? a.lat : null, a.lng != null ? a.lng : null, a.lat != null ? t : null,
+        custName, custEmail, t, t
+      ).run();
+      if (res && res.meta && res.meta.changes) created += res.meta.changes;
+    }
+  }
+
+  try {
+    await env.DB.prepare('UPDATE subscriptions SET prep_through_date = ?, updated_at = ? WHERE id = ?')
+      .bind(rangeEnd, t, sub.id).run();
+  } catch { /* bookkeeping only */ }
+  return created;
+}
+
+// Roll the prep window forward for every active subscription (or one, when subscriptionId given).
+// Called by the daily cron tick and right after a new subscription starts. Never throws.
+export async function materializeSubscriptionPrep(env, { nowMs, horizonDays = 7, subscriptionId = null } = {}) {
+  if (!env || !env.DB) return { ok: false, created: 0, subs: 0, reason: 'no_db' };
+  const ms = typeof nowMs === 'number' ? nowMs : now();
+  const todayStr = etDate(ms);
+  let created = 0;
+  let count = 0;
+  try {
+    const where = subscriptionId ? 'WHERE s.id = ?' : "WHERE s.status = 'active'";
+    const binds = subscriptionId ? [subscriptionId] : [];
+    const { results } = await env.DB.prepare(`SELECT * FROM subscriptions s ${where}`).bind(...binds).all();
+    for (const sub of results || []) {
+      if (subscriptionId && sub.status !== 'active') continue;
+      let plan = null;
+      let client = null;
+      try { if (sub.plan_id) plan = await env.DB.prepare('SELECT * FROM plans WHERE id = ?').bind(sub.plan_id).first(); } catch { /* tolerate */ }
+      try { if (sub.client_id) client = await env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(sub.client_id).first(); } catch { /* tolerate */ }
+      try { created += await prepOneSubscription(env, sub, plan, client, todayStr, horizonDays); count++; }
+      catch { /* one bad sub must not stop the rest */ }
+    }
+  } catch (e) {
+    return { ok: false, created, subs: count, reason: (e && e.message) || 'error' };
+  }
+  return { ok: true, created, subs: count, through: addDays(todayStr, horizonDays) };
+}
+
 // Create one kitchen order for a subscription delivery. Idempotent when orderId is supplied.
 // o: { subscriptionId, orderId?, planBowlRotation?, tierLabel?, bowls?, weeklyCents?,
 //      customerName?, customerEmail?, deliveryDate?, deliveryWindow? }

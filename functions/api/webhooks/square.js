@@ -3,7 +3,7 @@
 // subscription invoice — writes the trainer's 10% rev-share ledger row (idempotent).
 // Set SQUARE_WEBHOOK_KEY (Pages secret) + register this URL in the Square dashboard.
 import { id, now } from '../../_lib/util.js';
-import { createSubscriptionDelivery } from '../../_lib/suborders.js';
+import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { notifyClientById } from '../../_lib/notify.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
@@ -67,32 +67,15 @@ export const onRequestPost = async ({ request, env }) => {
              VALUES (?,?,?,?,?,?, 'pending')`
           ).bind('rs_' + invoiceId, sub.trainer_id, sub.id, gross, share, now()).run();
 
-          // Weekly kitchen delivery ticket — unless one was just created at signup (<2h ago).
-          const recent = await env.DB
-            .prepare('SELECT 1 FROM orders WHERE square_order_id = ? AND created_at > ? LIMIT 1')
-            .bind('sub_' + subProviderId, now() - 2 * 3600 * 1000).first();
-          if (!recent) {
-            const client = await env.DB.prepare(
-              'SELECT name, email, delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes, delivery_lat, delivery_lng FROM clients WHERE id = ?'
-            ).bind(sub.client_id).first();
-            const plan = sub.plan_id ? await env.DB.prepare('SELECT bowl_rotation, bowl_size_factor FROM plans WHERE id = ?').bind(sub.plan_id).first() : null;
-            const address = client && client.delivery_street ? {
-              street: client.delivery_street, unit: client.delivery_unit, city: client.delivery_city,
-              state: client.delivery_state, zip: client.delivery_zip, notes: client.delivery_notes,
-              lat: client.delivery_lat, lng: client.delivery_lng,
-            } : null;
-            await createSubscriptionDelivery(env, {
-              subscriptionId: subProviderId, orderId: 'ord_inv_' + invoiceId,
-              planBowlRotation: plan ? plan.bowl_rotation : null,
-              sizeFactor: plan ? plan.bowl_size_factor : null, avocado: sub.avocado === 1,
-              weeklyCents: gross,
-              customerName: client && client.name, customerEmail: client && client.email,
-              address,
-            });
-            // Auto-renewal confirmation (consent-gated, no-op safe). Only on real renewals —
-            // signup already sent a purchase confirmation, and that path skips this via `recent`.
+          // Roll the daily fresh-prep window forward for this subscription (idempotent — the
+          // deterministic per-day/per-window order ids mean duplicate invoice events are no-ops).
+          await materializeSubscriptionPrep(env, { subscriptionId: sub.id, horizonDays: 7 });
+
+          // Auto-renewal confirmation (consent-gated, no-op safe). Skip when the subscription
+          // just started (<2h ago) — signup already sent its own purchase confirmation.
+          if (!sub.started_at || (now() - Number(sub.started_at) > 2 * 3600 * 1000)) {
             await notifyClientById(env, sub.client_id,
-              `Añejo Catering Co.: Your weekly plan renewed — $${(gross / 100).toFixed(2)} charged. This week's bowls are on the way; we'll text you when they're out for delivery. Reply STOP to opt out.`);
+              `Añejo Catering Co.: Your weekly plan renewed — $${(gross / 100).toFixed(2)} charged. This week's fresh bowls are scheduled; we'll text you each day when your delivery is on the way. Reply STOP to opt out.`);
           }
         }
       }

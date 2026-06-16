@@ -42,7 +42,11 @@ export const onRequestGet = async ({ request, env }) => {
        LIMIT 200`
   ).all();
 
-  const orders = (results || []).map((o) => ({ ...o, item_count: itemCount(o.items) }));
+  const orders = (results || []).map((o) => ({
+    ...o,
+    item_count: itemCount(o.items),
+    is_subscription: !!o.subscription_id, // drives the "Subscription" tag on the board
+  }));
 
   const board = { pending: [], prep: [], ready: [] };
   for (const o of orders) {

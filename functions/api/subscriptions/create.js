@@ -7,7 +7,7 @@ import { json, bad, id, now, isEmail, normalizePhone } from '../../_lib/util.js'
 import { square, squareConfigured } from '../../_lib/square.js';
 import { PLAN_TIERS, isPlanTier, planVariationId } from '../../_lib/plans.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
-import { createSubscriptionDelivery } from '../../_lib/suborders.js';
+import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { clampPerBowlCents, perBowlCentsFromOz, STANDARD_PER_BOWL_CENTS } from '../../_lib/sizing.js';
 import { sendSms } from '../../_lib/twilio.js';
 import { geocode, formatAddress } from '../../_lib/geo.js';
@@ -207,30 +207,31 @@ export const onRequestPost = async ({ request, env }) => {
 
   // 4) Persist + attribute to the trainer (the rev-share link)
   const t = now();
+  const localSubId = id('lsub');
+  // Which meal windows this subscriber receives (lunch and/or dinner). Both ⇒ 2 fresh
+  // bowls/day. Honor the request if it specifies; default to both (the premium 12-plan case).
+  const reqWindows = Array.isArray(b.delivery && b.delivery.windows)
+    ? b.delivery.windows.filter((w) => w === 'lunch' || w === 'dinner').join(',')
+    : ((b.delivery && b.delivery.window) || '');
+  const windows = reqWindows || 'lunch,dinner';
   await env.DB.prepare(
     `INSERT INTO subscriptions
        (id, client_id, trainer_id, plan_id, provider, provider_subscription_id, provider_customer_id,
-        status, weekly_amount_cents, trainer_share_pct, avocado, started_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        status, weekly_amount_cents, trainer_share_pct, avocado, windows, started_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).bind(
-    id('lsub'), client.id, client.trainer_id, plan ? plan.id : null, 'square',
-    sub.id, customerId, (sub.status || 'ACTIVE').toLowerCase(), weeklyCents, 10, avocado ? 1 : 0, t, t
+    localSubId, client.id, client.trainer_id, plan ? plan.id : null, 'square',
+    sub.id, customerId, (sub.status || 'ACTIVE').toLowerCase(), weeklyCents, 10, avocado ? 1 : 0, windows, t, t
   ).run();
 
   await env.DB.prepare('UPDATE clients SET status = ?, updated_at = ? WHERE id = ?')
     .bind('subscribed', t, client.id).run();
 
-  // Generate the first weekly delivery as a kitchen order so the kitchen sees it immediately.
+  // Seed the rolling fresh-prep window now so the kitchen immediately sees the upcoming
+  // daily "Subscription" orders (one bowl per chosen window, each delivery day Mon–Sat,
+  // starting next Monday). The daily cron tick rolls it forward from here.
   try {
-    await createSubscriptionDelivery(env, {
-      subscriptionId: sub.id, orderId: 'ord_subfirst_' + sub.id,
-      planBowlRotation: plan ? plan.bowl_rotation : null,
-      sizeFactor: plan ? plan.bowl_size_factor : null, avocado,
-      tierLabel: tier.label, bowls: tier.bowls, weeklyCents,
-      customerName: client.name, customerEmail: client.email,
-      deliveryDate: b.delivery && b.delivery.date, deliveryWindow: b.delivery && b.delivery.window,
-      address: deliveryAddr || null,
-    });
+    await materializeSubscriptionPrep(env, { subscriptionId: localSubId, horizonDays: 7 });
   } catch (_) { /* never fail the subscription on the kitchen-order write */ }
 
   // Best-effort confirmation text — ONLY to customers who opted in (checked the consent box).

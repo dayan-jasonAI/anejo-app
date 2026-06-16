@@ -279,9 +279,10 @@
     else if (stage === 'prep') actions = '<div class="order-actions"><button class="btn" data-ready="' + esc(o.id) + '">Mark ready</button></div>';
     var win = o.delivery_window ? ('<span class="badge">' + esc(o.delivery_window) + '</span>') : '';
     var dt = o.delivery_date ? ('<span class="badge ok">' + esc(o.delivery_date) + '</span>') : '';
+    var sub = o.is_subscription ? '<span class="badge" style="background:var(--gold,#C6A85B);color:#1b3a2b;font-weight:700" data-i18n>Subscription</span>' : '';
     return '<div class="card order-card"><div class="row" style="padding:0;border:none">' +
       '<div class="row-main"><div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + (o.item_count || 0) + ' items</div>' +
-      '<div class="row-sub">' + esc(o.id) + '</div></div>' + dt + win + '</div>' +
+      '<div class="row-sub">' + esc(o.id) + '</div></div>' + sub + dt + win + '</div>' +
       orderItems(o) + actions + '</div>';
   }
 
