@@ -90,6 +90,27 @@ export const onRequestPost = async ({ request, env }) => {
         await env.DB.prepare(
           "UPDATE orders SET status='paid', customer_email=COALESCE(customer_email,?), tip_cents=?, updated_at=? WHERE square_order_id=? AND status='pending'"
         ).bind(pay.buyer_email_address || null, tipCents, now(), pay.order_id).run();
+
+        // Per-delivery ADD-ONS: a paid add-on payment link → mark paid and attach the items
+        // to that day's order so the kitchen + driver see them. Idempotent: the status guard
+        // means duplicate webhook deliveries are no-ops.
+        try {
+          const ads = await env.DB.prepare(
+            "SELECT * FROM order_addons WHERE square_order_id = ? AND status = 'pending_payment'"
+          ).bind(pay.order_id).all();
+          for (const ad of (ads && ads.results) || []) {
+            await env.DB.prepare("UPDATE order_addons SET status='paid', paid_at=?, updated_at=? WHERE id=? AND status='pending_payment'")
+              .bind(now(), now(), ad.id).run();
+            const ord = await env.DB.prepare('SELECT items, total_estimate_cents FROM orders WHERE id=?').bind(ad.order_id).first();
+            if (ord) {
+              let items = [];
+              try { items = JSON.parse(ord.items) || []; } catch { items = []; }
+              items.push({ id: 'addon_' + ad.kind, name: ad.name, qty: ad.qty, addon: true });
+              await env.DB.prepare('UPDATE orders SET items=?, total_estimate_cents=COALESCE(total_estimate_cents,0)+?, updated_at=? WHERE id=?')
+                .bind(JSON.stringify(items), ad.amount_cents || 0, now(), ad.order_id).run();
+            }
+          }
+        } catch (e) { console.log('addon attach error:', e && e.message); }
       }
     }
   } catch (e) {

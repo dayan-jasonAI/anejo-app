@@ -25,7 +25,7 @@ const SCHEDULE = {
 //                 materializes instances dated to the correct America/New_York day.
 //   0 10 * * 1  = Monday 06:00 ET (EDT) → weekly D1 → R2 backup.
 const EXTRA_ENDPOINTS = {
-  '30 9 * * *': ['/api/hub/admin/reminders-tick', '/api/hub/admin/subscriptions-tick'],
+  '30 9 * * *': ['/api/hub/admin/reminders-tick', '/api/hub/admin/subscriptions-tick', '/api/hub/admin/addons-tick'],
   '0 10 * * 1': ['/api/hub/admin/backup'],
 };
 

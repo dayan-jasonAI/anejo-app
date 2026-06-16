@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
+<meta name="theme-color" content="#0D0D0D">
+<meta name="robots" content="noindex">
+<title>Add to your delivery — Añejo Catering Co.</title>
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{--black:#0D0D0D;--green:#1A3D2E;--gold:#C6A85B;--gold-dark:#8B6B3E;--cream:#F5F2EC;--cream-dark:#EAE5D8;--ink:#1A1A1A;--muted:#6b6b6b;--line:rgba(26,61,46,0.15)}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Josefin Sans',-apple-system,sans-serif;background:var(--cream);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .serif-i{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic}
+  .hero{background:var(--black);color:var(--cream);padding:40px 22px 30px;text-align:center}
+  .hero .eyebrow{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:10px}
+  .hero h1{margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:30px}
+  .hero h1 strong{color:var(--gold)}
+  .hero p{margin:10px 0 0;color:#cfc8ba;font-size:14px}
+  .wrap{max-width:560px;margin:0 auto;padding:22px 16px 140px}
+  .prod{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+  .prod-main{flex:1;min-width:0}
+  .prod-name{font-weight:600;color:var(--green)}
+  .prod-blurb{font-size:12.5px;color:var(--muted)}
+  .prod-price{font-weight:600;color:var(--gold-dark);white-space:nowrap}
+  .stepper{display:flex;align-items:center;gap:10px}
+  .stepper button{width:34px;height:34px;border:none;background:var(--cream);color:var(--green);font-size:18px;font-weight:700;cursor:pointer;line-height:1;border-radius:8px}
+  .stepper button:hover{background:var(--gold);color:var(--black)}
+  .stepper span{min-width:18px;text-align:center;font-weight:700}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:rgba(13,13,13,.97);backdrop-filter:blur(8px);padding:14px 16px;border-top:2px solid var(--gold)}
+  .bar-inner{max-width:560px;margin:0 auto;display:flex;align-items:center;gap:14px}
+  .bar .total{color:var(--cream);flex:1}
+  .bar .total b{color:var(--gold);font-size:20px}
+  .btn{padding:13px 22px;border-radius:4px;font-family:inherit;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:700;border:none;cursor:pointer;background:var(--gold);color:var(--black)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  .note{text-align:center;color:var(--muted);font-size:12.5px;margin-top:14px}
+  .state{max-width:560px;margin:60px auto;padding:0 24px;text-align:center}
+  .state h2{font-family:'Cormorant Garamond',Georgia,serif;color:var(--green);font-size:26px;margin:0 0 8px}
+  .state p{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="eyebrow">Añejo · Today's Delivery</div>
+  <h1>Add <strong>a little more</strong></h1>
+  <p id="sub">Loading…</p>
+</div>
+
+<div id="app" class="wrap" hidden></div>
+<div id="state" class="state" hidden></div>
+
+<div id="bar" class="bar" hidden>
+  <div class="bar-inner">
+    <div class="total">Total <b id="total">$0.00</b></div>
+    <button class="btn" id="pay" type="button" disabled>Add &amp; pay</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var token = new URLSearchParams(location.search).get('t') || '';
+  var app = document.getElementById('app'), bar = document.getElementById('bar');
+  var stateEl = document.getElementById('state'), payBtn = document.getElementById('pay');
+  var catalog = [], qty = {};
+
+  function money(c) { return '$' + (Number(c || 0) / 100).toFixed(2); }
+  function showState(title, msg) {
+    stateEl.innerHTML = '<h2>' + title + '</h2><p>' + msg + '</p>';
+    stateEl.hidden = false; app.hidden = true; bar.hidden = true;
+  }
+  function recalc() {
+    var c = 0; catalog.forEach(function (it) { c += (qty[it.kind] || 0) * it.price_cents; });
+    document.getElementById('total').textContent = money(c);
+    payBtn.disabled = c <= 0;
+  }
+  function render() {
+    app.innerHTML = catalog.map(function (it) {
+      return '<div class="prod"><div class="prod-main"><div class="prod-name">' + esc(it.name) + '</div>' +
+        (it.blurb ? '<div class="prod-blurb">' + esc(it.blurb) + '</div>' : '') + '</div>' +
+        '<div class="prod-price">' + money(it.price_cents) + '</div>' +
+        '<div class="stepper"><button type="button" data-dec="' + it.kind + '">−</button>' +
+        '<span id="q_' + it.kind + '">0</span>' +
+        '<button type="button" data-inc="' + it.kind + '">+</button></div></div>';
+    }).join('') + '<div class="note">Paid securely via Square. Added to today\'s drop before the kitchen starts.</div>';
+    app.hidden = false; bar.hidden = false;
+    app.querySelectorAll('[data-inc]').forEach(function (b) {
+      b.onclick = function () { var k = b.getAttribute('data-inc'); qty[k] = Math.min(20, (qty[k] || 0) + 1); document.getElementById('q_' + k).textContent = qty[k]; recalc(); };
+    });
+    app.querySelectorAll('[data-dec]').forEach(function (b) {
+      b.onclick = function () { var k = b.getAttribute('data-dec'); qty[k] = Math.max(0, (qty[k] || 0) - 1); document.getElementById('q_' + k).textContent = qty[k]; recalc(); };
+    });
+    recalc();
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
+
+  if (!token) { showState('Link not found', 'This add-on link is missing its code. Please use the link from your message.'); return; }
+
+  fetch('/api/addons/offer?t=' + encodeURIComponent(token)).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d || !d.ok) { showState('Link expired', (d && d.error) || 'This add-on link is no longer valid.'); return; }
+    var win = d.order && d.order.delivery_window === 'dinner' ? 'dinner' : 'lunch';
+    document.getElementById('sub').textContent = (d.order && d.order.name ? d.order.name + ' — ' : '') + 'your ' + win + ' delivery';
+    if (!d.open) { showState('Add-ons closed', 'The kitchen has started prepping today\'s ' + win + ' bowls, so add-ons are closed. See you next delivery!'); return; }
+    catalog = d.catalog || [];
+    if (!catalog.length) { showState('Nothing to add right now', 'Please check back on your next delivery.'); return; }
+    render();
+  }).catch(function () { showState('Something went wrong', 'Please try again in a moment.'); });
+
+  payBtn.onclick = function () {
+    var items = catalog.filter(function (it) { return (qty[it.kind] || 0) > 0; }).map(function (it) { return { kind: it.kind, qty: qty[it.kind] }; });
+    if (!items.length) return;
+    payBtn.disabled = true; payBtn.textContent = 'Starting…';
+    fetch('/api/addons/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: token, items: items }) })
+      .then(function (r) { return r.json(); }).then(function (d) {
+        if (d && d.ok && d.url) { location.href = d.url; }
+        else { payBtn.disabled = false; payBtn.textContent = 'Add & pay'; showState('Could not check out', (d && d.error) || 'Please try again.'); }
+      }).catch(function () { payBtn.disabled = false; payBtn.textContent = 'Add & pay'; });
+  };
+})();
+</script>
+</body>
+</html>

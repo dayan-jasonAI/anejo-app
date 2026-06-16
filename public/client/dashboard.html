@@ -123,7 +123,23 @@ async function init(){let me;try{me=await(await fetch('/api/client/me')).json();
   if(!me.authenticated){gate();return;}
   let logs={meals:[],weights:[]};
   if(me.client){try{logs=await(await fetch('/api/client/log')).json();}catch(_){}}
-  render(me,logs);}
+  render(me,logs);
+  loadAddonOffers();}
+async function loadAddonOffers(){
+  try{
+    var d=await(await fetch('/api/client/addons')).json();
+    if(!d||!d.offers||!d.offers.length)return;
+    var o=d.offers[0];
+    var win=o.window==='dinner'?'dinner':'lunch';
+    var b=document.createElement('a');
+    b.href=o.link;
+    b.style.cssText='display:block;margin:0 0 16px;padding:14px 16px;border-radius:12px;text-decoration:none;background:#1A3D2E;color:#F5F2EC;border:1px solid #C6A85B';
+    b.innerHTML='<div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#C6A85B;font-weight:700">Today’s '+win+' delivery</div>'+
+      '<div style="font-weight:600;margin-top:3px">Add a drink, shake, or a bowl for a friend →</div>';
+    var main=document.getElementById('main');
+    if(main&&main.firstChild)main.insertBefore(b,main.firstChild);else if(main)main.appendChild(b);
+  }catch(_){}
+}
 init();
 </script>
 </body>
