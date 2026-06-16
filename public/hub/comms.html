@@ -346,6 +346,7 @@
     if (!d || !d.authenticated) { window.location.replace('/login'); return; }
     me = d;
     role = Hub.roleFromMe(d) || (d.trainer ? 'trainer' : 'client');
+    Hub.nav(role, 'comms');
     Hub.track('dashboard.viewed', { view: 'comms' });
     setupCompose();
     setupFilter();

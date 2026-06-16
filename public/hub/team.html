@@ -105,6 +105,7 @@
   // Any staff may open the page; the API decides lead/owner access (403 otherwise).
   Hub.guard(['owner', 'kitchen', 'driver', 'vendor']).then(function (me) {
     if (!me) return; // guard already redirected
+    Hub.nav(Hub.roleFromMe(me), 'team');
     Hub.track('dashboard.viewed', { view: 'team', platform: 'pwa' });
     Hub.api('/api/hub/team/overview').then(function (d) {
       if (d && d._status === 403) return notLead();

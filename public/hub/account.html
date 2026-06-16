@@ -32,6 +32,7 @@
   Hub.me().then(function (me) {
     if (!me || !me.authenticated) { window.location.replace('/login'); return; }
     var s = me.staff || {};
+    Hub.nav(Hub.roleFromMe(me) || s.role, 'account');
     var roleLine = esc(s.role || me.role || '') + (s.is_lead ? ' · lead' : '') + (s.team ? ' · ' + esc(s.team) : '');
     var isStaff = me.type === 'staff';
     root.className = '';

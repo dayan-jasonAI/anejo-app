@@ -172,6 +172,7 @@
 
   Hub.guard(['vendor', 'owner']).then(function (me) {
     if (!me) return;
+    Hub.nav(Hub.roleFromMe(me) || 'vendor', 'home');
     Hub.track('dashboard.viewed', { view: 'vendor' });
     load();
     setInterval(load, 30000);

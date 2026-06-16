@@ -76,6 +76,63 @@
     return null;
   };
 
+  // ---------- shared bottom nav ----------
+  // Per-role nav items (mirror owner.js / kitchen.js / driver.js so the SHARED pages —
+  // comms, account, team — and the vendor surface get the same fixed bottom bar the
+  // role-specific pages already have. Owner/kitchen/driver pages render their own nav and
+  // are skipped here via the existing-nav guard.)
+  var NAVS = {
+    owner: [
+      { key: 'overview', ico: '◎', label: 'Overview', href: '/hub/owner/' },
+      { key: 'customers', ico: '🧑‍🤝‍🧑', label: 'Customers', href: '/hub/owner/customers.html' },
+      { key: 'deliveries', ico: '🚚', label: 'Deliveries', href: '/hub/owner/deliveries.html' },
+      { key: 'kitchen', ico: '🍳', label: 'Kitchen', href: '/hub/owner/kitchen.html' },
+      { key: 'staff', ico: '👥', label: 'Staff', href: '/hub/owner/staff.html' },
+      { key: 'finance', ico: '💵', label: 'Finance', href: '/hub/owner/finance.html' },
+      { key: 'comms', ico: '💬', label: 'Comms', href: '/hub/owner/comms.html' }
+    ],
+    // Mirror kitchen.js exactly so the bar is identical on a kitchen user's own pages and
+    // on the shared comms/account/team pages.
+    kitchen: [
+      { key: 'board', ico: '🍽️', label: 'Orders', href: '/hub/kitchen/' },
+      { key: 'checklists', ico: '✅', label: 'Checklists', href: '/hub/kitchen/checklists.html' },
+      { key: 'studio', ico: '🎨', label: 'Studio', href: '/hub/kitchen/studio.html' },
+      { key: 'library', ico: '📚', label: 'Library', href: '/hub/kitchen/library.html' },
+      { key: 'eod', ico: '🌙', label: 'EOD', href: '/hub/kitchen/eod.html' }
+    ],
+    // Mirror driver.js exactly (same reason).
+    driver: [
+      { key: 'home', ico: '🏠', label: 'Today', href: '/hub/driver/' },
+      { key: 'route', ico: '🗺️', label: 'Route', href: '/hub/driver/route.html' },
+      { key: 'temp', ico: '🌡️', label: 'Temp', href: '/hub/driver/temp.html' },
+      { key: 'expenses', ico: '🧾', label: 'Expenses', href: '/hub/driver/expenses.html' },
+      { key: 'eod', ico: '📋', label: 'EOD', href: '/hub/driver/eod.html' }
+    ],
+    vendor: [
+      { key: 'home', ico: '🏠', label: 'Home', href: '/hub/vendor/' },
+      { key: 'comms', ico: '💬', label: 'Comms', href: '/hub/comms.html' },
+      { key: 'account', ico: '👤', label: 'Account', href: '/hub/account.html' }
+    ]
+  };
+
+  // Render the fixed bottom nav for `role` (no-op if the page already has one, or role
+  // has no nav defined). `activeKey` highlights the current tab.
+  Hub.nav = function (role, activeKey) {
+    try {
+      if (document.querySelector('.hub-nav')) return; // page already renders its own
+      var items = NAVS[role];
+      if (!items) return;
+      var nav = document.createElement('nav');
+      nav.className = 'hub-nav';
+      nav.innerHTML = items.map(function (n) {
+        return '<a class="' + (n.key === activeKey ? 'active' : '') + '" href="' + n.href + '">' +
+          '<span class="nav-ico">' + n.ico + '</span><span data-i18n>' + n.label + '</span></a>';
+      }).join('');
+      document.body.appendChild(nav);
+      if (Hub.i18nRefresh) Hub.i18nRefresh();
+    } catch (e) { /* nav is non-critical */ }
+  };
+
   Hub.routeForRole = function (role) {
     switch (role) {
       case 'owner': return '/hub/owner';
