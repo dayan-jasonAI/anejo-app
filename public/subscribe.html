@@ -42,6 +42,11 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
 #card-container{border:1px solid var(--line);border-radius:8px;padding:4px 10px;background:var(--cream);min-height:52px}
 .summary{display:flex;justify-content:space-between;font-weight:700;color:var(--green);font-size:16px;margin:20px 0 4px;padding-top:14px;border-top:2px solid var(--line)}
 .fine{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+.sched{border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:8px;background:#fff8e9;padding:12px 14px;font-size:13.5px;line-height:1.5;color:var(--ink)}
+.sched b{color:var(--green)}
+.sched .days{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sched .day{font-size:11px;font-weight:600;letter-spacing:.5px;background:var(--green);color:var(--cream);border-radius:5px;padding:3px 8px}
+.sched .day.off{background:transparent;color:#b9b4a6;border:1px dashed var(--line)}
 .btn{display:block;width:100%;text-align:center;margin-top:18px;padding:15px 20px;border-radius:4px;font-family:inherit;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:700;border:none;cursor:pointer;background:var(--gold);color:var(--black)}
 .btn:hover{background:var(--cream-dark)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
@@ -60,6 +65,7 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
 <header class="hero">
   <div class="eyebrow">Weekly Meal-Plan Subscription</div>
   <h1>Subscribe to your <strong>Añejo plan</strong>.</h1>
+  <div style="display:inline-flex;align-items:center;gap:8px;margin-top:14px;background:var(--gold);color:var(--black);font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:9px 18px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.28)">🌿 Cooked and delivered fresh daily</div>
 </header>
 
 <div class="wrap" id="wrap">
@@ -72,12 +78,12 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
     <label class="fld">Choose your weekly plan</label>
     <div class="plan-pick" id="planPick"></div>
 
-    <label class="fld" for="windows">Meal times — fresh, cooked &amp; delivered daily</label>
-    <select class="b-input" id="windows">
-      <option value="both">Lunch &amp; dinner — 2 bowls a day</option>
-      <option value="lunch">Lunch only — 1 bowl a day</option>
-      <option value="dinner">Dinner only — 1 bowl a day</option>
-    </select>
+    <label class="fld">Your delivery schedule</label>
+    <div id="schedule" class="sched"></div>
+    <div id="windowPick" style="display:none;margin-top:12px">
+      <label class="fld">Choose your delivery window <span style="color:#9b2226">*</span></label>
+      <div class="plan-pick" id="winPick"></div>
+    </div>
 
     <label class="fld">Delivery address</label>
     <input class="b-input" id="a_street" type="text" autocomplete="address-line1" placeholder="Street address">
@@ -119,8 +125,18 @@ if (perBowl > 0) {
 } else if (avocado) {
   Object.values(TIERS).forEach(t => { t.price = Math.round((t.price + AVO_USD * t.bowls) * 100) / 100; });
 }
+// Per-tier delivery schedule (mirror of functions/_lib/plans.js PLAN_TIERS — keep in sync).
+// chooseWindow tiers (1 bowl/day) REQUIRE the customer to pick Lunch or Dinner.
+const SCHED = {
+  plan_5:  { bowlsPerDay:1, deliverDows:[1,2,3,4,5],   chooseWindow:true  },  // Mon–Fri
+  plan_10: { bowlsPerDay:2, deliverDows:[1,2,3,4,5],   chooseWindow:false },  // Mon–Fri · lunch+dinner
+  plan_12: { bowlsPerDay:2, deliverDows:[1,2,3,4,5,6], chooseWindow:false },  // Mon–Sat · lunch+dinner
+};
+const DOWS = [['Mon',1],['Tue',2],['Wed',3],['Thu',4],['Fri',5],['Sat',6]];
 // Default recommendation is the 12-bowl plan.
 let planTier = TIERS[qs.get('plan')] ? qs.get('plan') : 'plan_12';
+let chosenWindow = null;   // set only for chooseWindow tiers; required before checkout
+let cardReady = false;
 let card = null;
 
 function fmtPrice(n){ return (Math.round(Number(n)*100)/100).toFixed(2).replace(/\.00$/,''); }
@@ -129,6 +145,36 @@ function renderPlans(){
     `<div class="plan-opt${k===planTier?' sel':''}" data-k="${k}" onclick="pickPlan('${k}')">
        <div class="pname">${t.label.split(' / ')[0]}</div><div class="pprice">$${fmtPrice(t.price)}</div><div class="pper">per week</div></div>`).join('');
   document.getElementById('sumPrice').textContent = '$'+fmtPrice(TIERS[planTier].price)+' / wk';
+  renderSchedule();
+}
+function renderSchedule(){
+  const s = SCHED[planTier];
+  const lastDow = s.deliverDows[s.deliverDows.length-1];
+  const span = (lastDow===6) ? 'Monday–Saturday' : 'Monday–Friday';
+  const perDay = s.bowlsPerDay===2
+    ? '<b>2 bowls per day</b> — one at lunch (11–1) and one at dinner (5–7)'
+    : '<b>1 bowl per day</b>, in your chosen window';
+  const chips = DOWS.map(([nm,n])=>`<span class="day${s.deliverDows.indexOf(n)<0?' off':''}">${nm}</span>`).join('')
+    + '<span class="day off">Sun</span>';
+  document.getElementById('schedule').innerHTML =
+    `Cooked &amp; delivered fresh daily, spaced across the week. Delivered <b>${span}</b> · ${perDay}.` +
+    `<div class="days">${chips}</div>`;
+  // 1-bowl tiers must pick a window; 2-bowl tiers get both automatically.
+  const wp = document.getElementById('windowPick');
+  if (s.chooseWindow){
+    wp.style.display='';
+    document.getElementById('winPick').innerHTML = [['lunch','Lunch','11–1'],['dinner','Dinner','5–7']].map(([w,nm,hr])=>
+      `<div class="plan-opt${w===chosenWindow?' sel':''}" onclick="pickWindow('${w}')"><div class="pname">${nm}</div><div class="pper">${hr}</div></div>`).join('');
+  } else { wp.style.display='none'; chosenWindow=null; }
+  updateSubBtn();
+}
+function pickWindow(w){ chosenWindow=w; renderSchedule(); }
+window.pickWindow = pickWindow;
+// Enable checkout only when the card is ready AND (for 1-bowl tiers) a window is chosen.
+function updateSubBtn(){
+  const needWindow = SCHED[planTier].chooseWindow && !chosenWindow;
+  const btn = document.getElementById('subBtn');
+  if (btn) btn.disabled = !cardReady || needWindow;
 }
 function pickPlan(k){ planTier=k; renderPlans(); }
 window.pickPlan = pickPlan;
@@ -167,7 +213,7 @@ async function init(){
     const payments = window.Square.payments(cfg.applicationId, cfg.locationId);
     card = await payments.card();
     await card.attach('#card-container');
-    document.getElementById('subBtn').disabled = false;
+    cardReady = true; updateSubBtn();
   } catch (e) {
     msg.className='msg err'; msg.textContent='Could not load the card field: '+(e.message||e);
   }
@@ -198,9 +244,15 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
   if(!addr.street.trim()||!addr.city.trim()){ msg.className='msg err'; msg.textContent='Please enter your delivery street address and city.'; return; }
   if(!/^\d{5}$/.test(addr.zip.trim())){ msg.className='msg err'; msg.textContent='Please enter a valid 5-digit ZIP code.'; return; }
   body.address = { street:addr.street.trim(), unit:addr.unit.trim(), city:addr.city.trim(), state:addr.state.trim()||'FL', zip:addr.zip.trim(), notes:addr.notes.trim() };
-  // Meal windows the subscriber chose (lunch / dinner / both). Drives the daily kitchen prep.
-  var winVal=((document.getElementById('windows')||{}).value)||'both';
-  body.delivery = { windows: winVal==='both' ? ['lunch','dinner'] : [winVal] };
+  // Delivery window. 1-bowl tiers must have picked Lunch or Dinner; 2-bowl tiers get both.
+  if (SCHED[planTier].chooseWindow) {
+    if (chosenWindow !== 'lunch' && chosenWindow !== 'dinner') {
+      msg.className='msg err'; msg.textContent='Please choose a delivery window — Lunch or Dinner.'; return;
+    }
+    body.delivery = { window: chosenWindow };
+  } else {
+    body.delivery = { windows: ['lunch','dinner'] };
+  }
   btn.disabled=true; const lbl=btn.textContent; btn.textContent='Processing…';
   try {
     const tok = await card.tokenize();
