@@ -93,9 +93,11 @@ async function prepOneSubscription(env, sub, plan, client, todayStr, horizonDays
     const dow = dowOf(d);
     if (!allowedDow.has(dow)) continue;            // off days per tier (Sun always; Sat for 10/5)
     if (dayNum(d) < dayNum(startMonday)) continue; // never before the plan's first Monday
-    // Delivery-day index since startMonday (Monday): full weeks * 6 + min(remainder, 6).
-    const g = dayNum(d) - dayNum(startMonday);
-    const D = Math.floor(g / 7) * 6 + Math.min(g % 7, 6);
+    // Gap-free delivery-day index for the bowl rotation: full weeks × (this tier's delivery
+    // days/week) + the day's position within that tier's delivery days. Keeps the rotation
+    // even on Mon–Fri tiers (no phantom Saturday slot).
+    const dows = tierCfg ? tierCfg.days : Object.keys(DELIVERY_DOW).map(Number);
+    const D = Math.floor((dayNum(d) - dayNum(startMonday)) / 7) * dows.length + Math.max(0, dows.indexOf(dow));
     for (const win of windows) {
       const slot = D * windows.length + WIN_ORDER[win];
       const bowlName = seq.length ? seq[slot % seq.length] : null;

@@ -99,7 +99,7 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
     <div id="card-container"></div>
 
     <div class="summary"><span>Billed weekly</span><span id="sumPrice">—</span></div>
-    <p class="fine">Recurring weekly until you cancel. Cancel anytime — see our <a href="/legal/refund">Refund &amp; Cancellation policy</a>. Delivery only · Palm Beach County · Mon–Sat.</p>
+    <p class="fine">Recurring weekly until you cancel. Cancel anytime — see our <a href="/legal/refund">Refund &amp; Cancellation policy</a>. Delivery only · Palm Beach County · on your plan's delivery days (shown above).</p>
 
     <button class="btn" id="subBtn" disabled>Start subscription</button>
     <div class="msg" id="msg"></div>
@@ -125,8 +125,9 @@ if (perBowl > 0) {
 } else if (avocado) {
   Object.values(TIERS).forEach(t => { t.price = Math.round((t.price + AVO_USD * t.bowls) * 100) / 100; });
 }
-// Per-tier delivery schedule (mirror of functions/_lib/plans.js PLAN_TIERS — keep in sync).
-// chooseWindow tiers (1 bowl/day) REQUIRE the customer to pick Lunch or Dinner.
+// Per-tier delivery schedule. First-paint fallback only — overwritten from /api/square-config
+// (server PLAN_TIERS) on load, so this never drifts. chooseWindow tiers (1 bowl/day) REQUIRE
+// the customer to pick Lunch or Dinner.
 const SCHED = {
   plan_5:  { bowlsPerDay:1, deliverDows:[1,2,3,4,5],   chooseWindow:true  },  // Mon–Fri
   plan_10: { bowlsPerDay:2, deliverDows:[1,2,3,4,5],   chooseWindow:false },  // Mon–Fri · lunch+dinner
@@ -202,6 +203,14 @@ async function init(){
   let cfg;
   try { cfg = await (await fetch('/api/square-config')).json(); }
   catch { msg.className='msg err'; msg.textContent='Could not load payment config.'; return; }
+  // Sync the delivery schedule from the server (authoritative) so the SCHED below is just a
+  // first-paint fallback — the day grid + window rules can never drift from plans.js.
+  if (cfg.tiers) {
+    Object.entries(cfg.tiers).forEach(([k, t]) => {
+      if (SCHED[k]) SCHED[k] = { bowlsPerDay: t.bowlsPerDay, deliverDows: t.days, chooseWindow: t.chooseWindow };
+    });
+    renderSchedule();
+  }
   if (!cfg.applicationId || !cfg.locationId){ msg.className='msg err'; msg.textContent='Payments are not configured yet.'; return; }
 
   const sdk = cfg.env === 'production' ? 'https://web.squarecdn.com/v1/square.js' : 'https://sandbox.web.squarecdn.com/v1/square.js';
