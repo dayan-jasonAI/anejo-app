@@ -34,6 +34,27 @@
   .order-items li.oi-build .bi-w { font-weight:700; color:var(--green); white-space:nowrap; font-variant-numeric:tabular-nums; }
   .order-items li.oi-build .bi-n i { color:#9a9a8f; font-style:italic; font-weight:400; }
   .order-items .oi-avo { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#3a6b2e; background:#e7f0ea; border-radius:7px; padding:1px 6px; }
+  /* Per-bowl check-off rows (Phase 1) */
+  .bowl-list { list-style:none; margin:8px 0 0; padding:8px 0 0; border-top:1px solid var(--line); }
+  .bowl-item { padding:6px 0; border-bottom:1px dotted var(--line); }
+  .bowl-item:last-child { border-bottom:0; }
+  .bowl-item.done { opacity:.62; }
+  .bowl-head { display:flex; align-items:center; gap:9px; }
+  .bowl-chk { flex:none; width:30px; height:30px; border-radius:8px; border:1.5px solid var(--line); background:var(--white);
+    color:var(--green); font-size:16px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .bowl-chk.on { background:var(--green-700); border-color:var(--green-700); color:#fff; }
+  .bowl-nm { font-weight:600; color:var(--green); font-size:14px; }
+  .bowl-macros { font-size:12px; color:#444; padding:2px 0 0 39px; }
+  .bowl-macros b { color:var(--green); }
+  .bowl-build { padding:2px 0 2px 39px; }
+  .bowl-build .bi { display:flex; justify-content:space-between; gap:10px; font-size:11.5px; color:#5b6258; padding:1.5px 0; border-bottom:1px dotted var(--line); }
+  .bowl-build .bi:last-child { border-bottom:0; }
+  .bowl-build .bi-w { font-weight:700; color:var(--green); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .bowl-ing { font-size:11.5px; color:#6b7269; padding:1px 0 2px 39px; line-height:1.4; }
+  .bowl-rem { font-size:12px; color:#a23b2e; padding:2px 0 0 39px; font-weight:600; }
+  .bowl-add { font-size:12px; color:#3a6b2e; padding:2px 0 0 39px; font-weight:600; }
+  .bowl-note { font-size:12px; color:#8a6d3b; background:#fbf3da; border-radius:6px; padding:3px 8px; margin:3px 0 0 39px; }
+  .bowl-by { margin-left:auto; font-size:11px; font-weight:700; color:#3a6b2e; white-space:nowrap; }
   .order-card { cursor:default; }
   .ord-filter { display:flex; gap:8px; margin:0 0 12px; }
   .ord-filter .chip { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 6px;
@@ -105,6 +126,20 @@
   <div class="grow" data-i18n>Install Añejo Kitchen to your home screen.</div>
   <button class="btn gold" id="install-btn" type="button" data-i18n>Install</button>
   <button class="btn ghost" id="install-dismiss" type="button" aria-label="Dismiss">✕</button>
+</div>
+
+<!-- Shared-tablet PIN prompt: each cook enters their own PIN to attribute a check-off / Mark Ready. -->
+<div id="pin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center">
+  <div class="card" style="max-width:300px;margin:16px;text-align:center">
+    <div class="row-title" id="pin-title" data-i18n>Enter your PIN</div>
+    <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" maxlength="8"
+      style="width:100%;font-size:24px;letter-spacing:.3em;text-align:center;margin:12px 0">
+    <div id="pin-err" class="row-sub" style="color:var(--crit);min-height:16px"></div>
+    <div class="card-grid" style="margin-top:8px">
+      <button class="btn gold" id="pin-ok" type="button" data-i18n>Confirm</button>
+      <button class="btn ghost" id="pin-cancel" type="button" data-i18n>Cancel</button>
+    </div>
+  </div>
 </div>
 
 <script src="/assets/js/i18n.js"></script>
@@ -273,18 +308,85 @@
     }).join('') + '</ul>';
   }
 
+  // Per-bowl production rows with a check-off control (interactive only during PREP). Shows the
+  // full per-bowl customization: size, macros, build weights / ingredients, removals, add-ons, notes.
+  function bowlRows(o, interactive) {
+    if (!o.bowls || !o.bowls.length) return orderItems(o); // not in prep yet → items breakdown
+    return '<ul class="bowl-list">' + o.bowls.map(function (bw) {
+      var c = bw.customization || {};
+      var done = bw.prep_state === 'done';
+      var size = c.size_oz ? (' · ' + c.size_oz + ' oz' + (c.size_pct ? ' (' + c.size_pct + '%)' : '')) : '';
+      var chk = interactive
+        ? '<button class="bowl-chk' + (done ? ' on' : '') + '" data-bowl="' + esc(bw.id) + '" data-order="' + esc(o.id) + '" data-done="' + (done ? '1' : '0') + '" type="button">' + (done ? '✓' : '○') + '</button>'
+        : '<span class="bowl-chk' + (done ? ' on' : '') + '">' + (done ? '✓' : '○') + '</span>';
+      var by = (done && bw.prep_by_name) ? '<span class="bowl-by">✓ ' + esc(bw.prep_by_name) + '</span>' : '';
+      var head = '<div class="bowl-head">' + chk + '<span class="bowl-nm">' + esc(bw.bowl_name || 'Bowl') + (c.avocado ? ' <span class="oi-avo">+ ½ avocado</span>' : '') + size + '</span>' + by + '</div>';
+      var detail = '';
+      var m = c.macros;
+      if (m) detail += '<div class="bowl-macros"><b>' + (m.kcal || '—') + '</b> kcal · ' + (m.protein_g || 0) + 'P / ' + (m.carbs_g || 0) + 'C / ' + (m.fat_g || 0) + 'F' + (m.fiber_g != null ? ' · ' + m.fiber_g + ' fiber' : '') + '</div>';
+      if (Array.isArray(c.build) && c.build.length) detail += '<div class="bowl-build">' + c.build.map(function (x) { return '<span class="bi"><span class="bi-n">' + esc(x.item) + '</span><span class="bi-w">' + (x.oz != null ? x.oz + ' oz' : '') + '</span></span>'; }).join('') + '</div>';
+      else if (Array.isArray(c.ingredients) && c.ingredients.length) detail += '<div class="bowl-ing">' + esc(c.ingredients.join(' · ')) + '</div>';
+      if (Array.isArray(c.removals) && c.removals.length) detail += '<div class="bowl-rem">⊘ No: ' + esc(c.removals.join(', ')) + '</div>';
+      if (Array.isArray(c.addons) && c.addons.length) detail += '<div class="bowl-add">＋ Add: ' + esc(c.addons.join(', ')) + '</div>';
+      if (c.notes) detail += '<div class="bowl-note">📝 ' + esc(c.notes) + '</div>';
+      return '<li class="bowl-item' + (done ? ' done' : '') + '">' + head + detail + '</li>';
+    }).join('') + '</ul>';
+  }
+  function bowlsDoneLabel(o) {
+    if (!o.bowls || !o.bowls.length) return '';
+    var done = o.bowls.filter(function (bw) { return bw.prep_state === 'done'; }).length;
+    return ' <span class="badge ' + (done === o.bowls.length ? 'ok' : 'warn') + '">' + done + '/' + o.bowls.length + ' bowls</span>';
+  }
+
   function orderCard(o, stage) {
     var actions = '';
     if (stage === 'pending') actions = '<div class="order-actions"><button class="btn gold" data-prep="' + esc(o.id) + '">Start prep</button></div>';
-    else if (stage === 'prep') actions = '<div class="order-actions"><button class="btn" data-ready="' + esc(o.id) + '">Mark ready</button></div>';
+    else if (stage === 'prep') {
+      var allDone = !o.bowls || !o.bowls.length || o.bowls.every(function (bw) { return bw.prep_state === 'done'; });
+      actions = '<div class="order-actions"><button class="btn' + (allDone ? ' gold' : '') + '" data-ready="' + esc(o.id) + '"' +
+        (allDone ? '' : ' disabled title="Check off all bowls first"') + '>Mark ready</button></div>';
+    }
     var win = o.delivery_window ? ('<span class="badge">' + esc(o.delivery_window) + '</span>') : '';
     var dt = o.delivery_date ? ('<span class="badge ok">' + esc(o.delivery_date) + '</span>') : '';
     var sub = o.is_subscription ? '<span class="badge" style="background:var(--gold,#C6A85B);color:#1b3a2b;font-weight:700" data-i18n>Subscription</span>' : '';
+    var doneLbl = (stage === 'prep' || stage === 'ready') ? bowlsDoneLabel(o) : '';
+    var body = (o.bowls && o.bowls.length) ? bowlRows(o, stage === 'prep') : orderItems(o);
     return '<div class="card order-card"><div class="row" style="padding:0;border:none">' +
-      '<div class="row-main"><div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + (o.item_count || 0) + ' items</div>' +
+      '<div class="row-main"><div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + (o.item_count || 0) + ' items' + doneLbl + '</div>' +
       '<div class="row-sub">' + esc(o.id) + '</div></div>' + sub + dt + win + '</div>' +
-      orderItems(o) + actions + '</div>';
+      body + actions + '</div>';
   }
+
+  // ---- Shared-tablet PIN prompt ----
+  // askPin(title, submit): submit(pin, helpers) runs the action; helpers.fail(msg) keeps the
+  // modal open with an error (wrong PIN → retry); helpers.done() closes it.
+  var _pinSubmit = null;
+  function askPin(title, submit) {
+    _pinSubmit = submit;
+    document.getElementById('pin-title').textContent = title || 'Enter your PIN';
+    var inp = document.getElementById('pin-input'); inp.value = '';
+    document.getElementById('pin-err').textContent = '';
+    document.getElementById('pin-modal').style.display = 'flex';
+    setTimeout(function () { inp.focus(); }, 30);
+  }
+  function closePin() { document.getElementById('pin-modal').style.display = 'none'; _pinSubmit = null; }
+  (function wirePin() {
+    var ok = document.getElementById('pin-ok'), inp = document.getElementById('pin-input'), err = document.getElementById('pin-err');
+    function go() {
+      var pin = (inp.value || '').trim();
+      if (!/^\d{4,8}$/.test(pin)) { err.textContent = 'Enter your 4–8 digit PIN.'; return; }
+      var fn = _pinSubmit; if (!fn) return;
+      ok.disabled = true;
+      fn(pin, {
+        fail: function (m) { ok.disabled = false; err.textContent = m || 'PIN not recognized.'; inp.value = ''; inp.focus(); },
+        done: function () { ok.disabled = false; closePin(); }
+      });
+    }
+    ok.addEventListener('click', go);
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+    document.getElementById('pin-cancel').addEventListener('click', closePin);
+    document.getElementById('pin-modal').addEventListener('click', function (e) { if (e.target.id === 'pin-modal') closePin(); });
+  })();
 
   function bindOrderActions() {
     Array.prototype.forEach.call(document.querySelectorAll('[data-prep]'), function (b) {
@@ -294,11 +396,30 @@
           .then(function (d) { if (d && d.ok) { Hub.toast('Prep started'); loadBoard(); } else { K.fail(d); b.disabled = false; } });
       });
     });
+    // Mark Ready — PIN-gated (and disabled until every bowl is checked off, in orderCard).
     Array.prototype.forEach.call(document.querySelectorAll('[data-ready]'), function (b) {
       b.addEventListener('click', function () {
-        b.disabled = true;
-        K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-ready'), action: 'mark_ready' })
-          .then(function (d) { if (d && d.ok) { Hub.toast('Marked ready'); loadBoard(); } else { K.fail(d); b.disabled = false; } });
+        askPin('PIN to mark this order ready', function (pin, h) {
+          K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-ready'), action: 'mark_ready', pin: pin })
+            .then(function (d) { if (d && d.ok) { h.done(); Hub.toast('Marked ready'); loadBoard(); } else { h.fail(d && d.error); } });
+        });
+      });
+    });
+    // Per-bowl check-off (PREP): checking OFF needs a PIN; undo is a free correction.
+    Array.prototype.forEach.call(document.querySelectorAll('.bowl-chk[data-bowl]'), function (b) {
+      b.addEventListener('click', function () {
+        var done = b.getAttribute('data-done') === '1';
+        var order = b.getAttribute('data-order'), bowl = b.getAttribute('data-bowl');
+        if (done) {
+          b.disabled = true;
+          K.post('/api/hub/kitchen/orders', { id: order, action: 'bowl_undo', bowl_id: bowl })
+            .then(function (d) { if (d && d.ok) loadBoard(); else { K.fail(d); b.disabled = false; } });
+        } else {
+          askPin('PIN to check off this bowl', function (pin, h) {
+            K.post('/api/hub/kitchen/orders', { id: order, action: 'bowl_done', bowl_id: bowl, pin: pin })
+              .then(function (d) { if (d && d.ok) { h.done(); loadBoard(); } else { h.fail(d && d.error); } });
+          });
+        }
       });
     });
   }
