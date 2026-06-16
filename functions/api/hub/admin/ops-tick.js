@@ -6,7 +6,7 @@ import { json, bad, id, now } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { captureSystem } from '../../../_lib/track.js';
 import { toJson } from '../../../_lib/hub.js';
-import { runDemandForecast, runProductionPlan } from '../../../_lib/ops.js';
+import { runDemandForecast, runProductionPlan, runVendorOrderPrep } from '../../../_lib/ops.js';
 
 function ctEq(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
@@ -28,13 +28,16 @@ export const onRequestPost = async ({ request, env }) => {
   const started = now();
   let forecast = { ok: false };
   let plan = { ok: false };
+  let vendor = { ok: false };
   try {
     forecast = await runDemandForecast(env, {});
     if (forecast && forecast.ok && forecast.forecast) {
       plan = await runProductionPlan(env, { forecast: forecast.forecast });
     }
+    // Prepare a recommended vendor order (approval-only suggestion) from inventory + forecast.
+    vendor = await runVendorOrderPrep(env, {});
   } catch (e) {
-    forecast = { ok: false, reason: (e && e.message) || 'error' };
+    forecast = forecast && forecast.ok ? forecast : { ok: false, reason: (e && e.message) || 'error' };
   }
   const finished = now();
   const ok = !!(forecast && forecast.ok);
@@ -56,5 +59,5 @@ export const onRequestPost = async ({ request, env }) => {
     await captureSystem(env, { event: 'automation.run', role: 'system', properties: { automation_type: 'demand_forecast', outcome: ok ? 'success' : 'failed' } });
   } catch { /* best-effort */ }
 
-  return json({ ok, forecast, plan });
+  return json({ ok, forecast, plan, vendor });
 };

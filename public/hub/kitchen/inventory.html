@@ -39,6 +39,7 @@
       <div class="field"><label data-i18n>Unit</label><input id="a-unit" type="text" maxlength="16" placeholder="lb / ea / case"></div>
       <div class="field"><label data-i18n>Par level</label><input id="a-par" type="number" step="any" min="0"></div>
       <div class="field"><label data-i18n>On hand</label><input id="a-onhand" type="number" step="any" min="0"></div>
+      <div class="field"><label data-i18n>Unit cost (USD, optional)</label><input id="a-cost" type="number" step="0.01" min="0" placeholder="e.g. 4.50"></div>
       <div class="field"><label data-i18n>Vendor (optional)</label><select id="a-vendor"><option value=""></option></select></div>
       <button class="btn gold block" id="a-save" type="button" data-i18n>Add item</button>
     </div>
@@ -127,6 +128,7 @@
       unit: $('#a-unit').value.trim() || null,
       par_level: $('#a-par').value !== '' ? Number($('#a-par').value) : null,
       on_hand: $('#a-onhand').value !== '' ? Number($('#a-onhand').value) : null,
+      unit_cost_cents: $('#a-cost').value !== '' ? Math.round(Number($('#a-cost').value) * 100) : null,
       vendor_id: $('#a-vendor').value || null
     }).then(function (d) {
       btn.disabled = false;

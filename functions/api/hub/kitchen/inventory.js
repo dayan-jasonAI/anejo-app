@@ -51,8 +51,8 @@ export const onRequestGet = async ({ request, env }) => {
   try {
     const res = await env.DB
       .prepare(
-        'SELECT i.id, i.name, i.unit, i.on_hand, i.par_level, i.vendor_id, i.active, i.updated_at, ' +
-        'v.name AS vendor_name, ' +
+        'SELECT i.id, i.name, i.unit, i.on_hand, i.par_level, i.vendor_id, i.unit_cost_cents, i.active, i.updated_at, ' +
+        'v.name AS vendor_name, v.lead_time_days AS vendor_lead_days, ' +
         '(CASE WHEN i.par_level > 0 AND i.on_hand < i.par_level THEN 1 ELSE 0 END) AS below_par ' +
         'FROM inventory_items i LEFT JOIN staff v ON v.id = i.vendor_id ' +
         (includeAll ? '' : 'WHERE i.active=1 ') +
@@ -143,6 +143,8 @@ export const onRequestPost = async ({ request, env }) => {
   const onHand = b && b.on_hand != null && b.on_hand !== '' ? Number(b.on_hand) : null;
   const parLevel = b && b.par_level != null && b.par_level !== '' ? Number(b.par_level) : null;
   const vendorId = (b && b.vendor_id || '').toString().trim() || null;
+  // Canonical per-unit price (cents) for vendor-order cost estimates (Phase 4b).
+  const unitCostCents = b && b.unit_cost_cents != null && b.unit_cost_cents !== '' ? Math.max(0, Math.round(Number(b.unit_cost_cents))) : null;
   if (!name) return bad('Item name is required.');
   if (onHand != null && (!Number.isFinite(onHand) || onHand < 0)) return bad('On-hand must be a number ≥ 0.');
   if (parLevel != null && (!Number.isFinite(parLevel) || parLevel < 0)) return bad('Par level must be a number ≥ 0.');
@@ -163,10 +165,11 @@ export const onRequestPost = async ({ request, env }) => {
       on_hand: onHand != null ? onHand : item.on_hand,
       par_level: parLevel != null ? parLevel : item.par_level,
       vendor_id: vendorId || item.vendor_id,
+      unit_cost_cents: unitCostCents != null ? unitCostCents : item.unit_cost_cents,
     };
     await env.DB
-      .prepare('UPDATE inventory_items SET name=?, unit=?, on_hand=?, par_level=?, vendor_id=?, updated_by=?, updated_at=? WHERE id=?')
-      .bind(saved.name, saved.unit, saved.on_hand, saved.par_level, saved.vendor_id, by, t, itemId)
+      .prepare('UPDATE inventory_items SET name=?, unit=?, on_hand=?, par_level=?, vendor_id=?, unit_cost_cents=?, updated_by=?, updated_at=? WHERE id=?')
+      .bind(saved.name, saved.unit, saved.on_hand, saved.par_level, saved.vendor_id, saved.unit_cost_cents != null ? saved.unit_cost_cents : null, by, t, itemId)
       .run();
   } else {
     saved = {
@@ -176,10 +179,11 @@ export const onRequestPost = async ({ request, env }) => {
       on_hand: onHand != null ? onHand : 0,
       par_level: parLevel != null ? parLevel : 0,
       vendor_id: vendorId,
+      unit_cost_cents: unitCostCents,
     };
     await env.DB
-      .prepare('INSERT INTO inventory_items (id, name, unit, on_hand, par_level, vendor_id, active, updated_by, created_at, updated_at) VALUES (?,?,?,?,?,?,1,?,?,?)')
-      .bind(saved.id, saved.name, saved.unit, saved.on_hand, saved.par_level, saved.vendor_id, by, t, t)
+      .prepare('INSERT INTO inventory_items (id, name, unit, on_hand, par_level, vendor_id, unit_cost_cents, active, updated_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,1,?,?,?)')
+      .bind(saved.id, saved.name, saved.unit, saved.on_hand, saved.par_level, saved.vendor_id, saved.unit_cost_cents != null ? saved.unit_cost_cents : null, by, t, t)
       .run();
   }
 

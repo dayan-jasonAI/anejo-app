@@ -3,6 +3,8 @@
 // Claude is reserved for narrative elsewhere. Files under _lib are NOT routed. Never throws.
 import { id, now, parseJson, toJson } from './hub.js';
 
+const DEFAULT_LEAD_DAYS = 3; // used when a vendor has no lead time set and none can be inferred
+
 const ONDEMAND_LOOKBACK_WEEKS = 6; // same-weekday history window for the on-demand estimate
 const ONDEMAND_BUFFER_PCT = 15;    // safety buffer on the (uncertain) on-demand prep component
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -138,3 +140,103 @@ export async function runProductionPlan(env, { date, forecast, nowMs } = {}) {
   } catch { /* best-effort */ }
   return { ok: true, prep_plan_id: pid, plan_date: f.forecast_date, bowl_counts: counts, total_bowls: total, buffer_pct: ONDEMAND_BUFFER_PCT };
 }
+
+// ---------------------------------------------------------------------------
+// Phase 4b — VENDOR ORDER PREP (approval-only). Builds a recommended vendor order from
+// below-par inventory, estimated cost, and order-by timing from the vendor's lead time.
+// Produces a 'restock_suggest' suggestion (reuses the existing Accept → draft-PO flow). The
+// agent NEVER places the order — the owner reviews and confirms. Also flags an order cap when
+// the next-day forecast outstrips what current inventory can cover.
+// ---------------------------------------------------------------------------
+
+// Last price actually paid for an item (cost fallback when unit_cost_cents is blank).
+async function lastPaidCents(env, name) {
+  try {
+    const r = await env.DB.prepare("SELECT unit_cost_cents FROM restock_items WHERE name=? AND unit_cost_cents IS NOT NULL ORDER BY created_at DESC LIMIT 1").bind(name).first();
+    return r && r.unit_cost_cents != null ? Number(r.unit_cost_cents) : null;
+  } catch { return null; }
+}
+// Infer a vendor's lead time from restock history (avg submitted→delivered, in days).
+async function inferLeadDays(env, vendorId) {
+  try {
+    const r = await env.DB.prepare(
+      "SELECT AVG((delivered_at - submitted_at) / 86400000.0) AS d FROM restock_orders WHERE vendor_id=? AND submitted_at IS NOT NULL AND delivered_at IS NOT NULL"
+    ).bind(vendorId).first();
+    const d = r && r.d != null ? Math.round(Number(r.d)) : null;
+    return d && d > 0 ? d : null;
+  } catch { return null; }
+}
+// Create a deduped pending suggestion (mirrors automations.makeSuggestion's dedupe intent).
+async function makeOpsSuggestion(env, { type, summary, payload }) {
+  try {
+    const { results } = await env.DB.prepare("SELECT id, payload FROM suggestions WHERE suggestion_type=? AND status='pending' ORDER BY created_at DESC LIMIT 10").bind(type).all();
+    for (const p of results || []) {
+      const ex = parseJson(p.payload, null);
+      if (ex && ex.basis === (payload && payload.basis) && ex.order_by === (payload && payload.order_by)) return { ok: true, id: p.id, deduped: true };
+    }
+    const sid = id('sug');
+    await env.DB.prepare("INSERT INTO suggestions (id, suggestion_type, summary, payload, status, source_run_id, created_at) VALUES (?,?,?,?,'pending',?,?)")
+      .bind(sid, type, summary || null, toJson(payload || null), null, now()).run();
+    return { ok: true, id: sid, deduped: false };
+  } catch { return { ok: false }; }
+}
+
+export async function runVendorOrderPrep(env, { nowMs } = {}) {
+  if (!env || !env.DB) return { ok: false, reason: 'no_db' };
+  const t = typeof nowMs === 'number' ? nowMs : now();
+  const today = etToday(t);
+
+  let inv = [];
+  try {
+    inv = ((await env.DB.prepare('SELECT id, name, unit, on_hand, par_level, vendor_id, unit_cost_cents FROM inventory_items WHERE active=1').all()).results) || [];
+  } catch { inv = []; }
+  if (!inv.length) return { ok: true, reason: 'no_inventory', items: 0 };
+
+  const below = inv.filter((it) => Number(it.par_level || 0) > 0 && Number(it.on_hand || 0) < Number(it.par_level || 0));
+  if (!below.length) return { ok: true, reason: 'all_at_par', items: 0 };
+
+  // Pick the dominant vendor among the gapped items (for lead-time → order-by timing).
+  const votes = new Map();
+  for (const it of below) if (it.vendor_id) votes.set(it.vendor_id, (votes.get(it.vendor_id) || 0) + 1);
+  let vendorId = votes.size ? [...votes.entries()].sort((a, b) => b[1] - a[1])[0][0] : null;
+  let vendorName = null, leadDays = DEFAULT_LEAD_DAYS;
+  if (vendorId) {
+    try {
+      const v = await env.DB.prepare("SELECT name, lead_time_days FROM staff WHERE id=? AND role='vendor' AND active=1").bind(vendorId).first();
+      if (v) { vendorName = v.name || null; leadDays = (v.lead_time_days != null ? Number(v.lead_time_days) : null) || (await inferLeadDays(env, vendorId)) || DEFAULT_LEAD_DAYS; }
+    } catch { /* default lead */ }
+  }
+
+  // Build line items with qty (par gap) + cost estimate.
+  let estTotal = 0; let costKnown = true;
+  const items = [];
+  for (const it of below) {
+    const qty = Math.max(1, Math.ceil(Number(it.par_level || 0) - Number(it.on_hand || 0)));
+    let unitCost = it.unit_cost_cents != null ? Number(it.unit_cost_cents) : await lastPaidCents(env, it.name);
+    if (unitCost == null) costKnown = false; else estTotal += unitCost * qty;
+    items.push({ name: it.name, qty, unit: it.unit || 'ea', inventory_id: it.id, unit_cost_cents: unitCost != null ? unitCost : null, est_cost_cents: unitCost != null ? unitCost * qty : null });
+  }
+
+  // Order-by date = today + (lead time gives the runway; order now to arrive before depletion).
+  const orderBy = today; // below par already → order today; lead time tells the owner when it lands
+  const landsBy = new Date((Math.floor(Date.parse(today + 'T00:00:00Z') / 86400000) + leadDays) * 86400000).toISOString().slice(0, 10);
+
+  // Forecast context + cap check.
+  const f = await computeForecast(env, addDaysSafe(today, 1));
+  const capFlag = f && f.total_bowls > 0 && below.length >= Math.max(3, Math.ceil(inv.length * 0.5));
+  const costStr = costKnown ? ` ~$${(estTotal / 100).toFixed(2)}` : ' (add ingredient costs for a total)';
+
+  const summary = `Vendor order: ${items.length} item(s) below par${vendorName ? ' · ' + vendorName : ''}${costStr} · lands ~${landsBy}` +
+    (capFlag ? ` · ⚠ inventory is short for tomorrow's ${f.total_bowls}-bowl forecast — consider capping new on-demand orders` : '');
+
+  const sug = await makeOpsSuggestion(env, {
+    type: 'restock_suggest',
+    summary,
+    payload: { items, vendor_id: vendorId, vendor_name: vendorName, est_total_cents: costKnown ? estTotal : null, cost_known: costKnown, order_by: orderBy, lands_by: landsBy, lead_days: leadDays, basis: 'forecast+par', forecast_total: f && f.total_bowls, cap_recommended: !!capFlag },
+  });
+
+  return { ok: true, suggestion_id: sug.id, deduped: !!sug.deduped, items: items.length, est_total_cents: costKnown ? estTotal : null, cap_recommended: !!capFlag };
+}
+
+// addDays that tolerates being called with the module's date strings.
+function addDaysSafe(d, n) { return new Date((Math.floor(Date.parse(d + 'T00:00:00Z') / 86400000) + n) * 86400000).toISOString().slice(0, 10); }

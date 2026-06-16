@@ -20,7 +20,7 @@ export const onRequestGet = async ({ request, env }) => {
     .prepare(
       "SELECT id,name,CASE WHEN email LIKE '%@staff.anejo.local' THEN NULL ELSE email END AS email,phone,role,team,is_lead,employment_type,active," +
       "(pin_hash IS NOT NULL) AS has_pin, must_change_pin, last_active_at,locked_until,created_at," +
-      "COALESCE(offers_accepted,0) AS offers_accepted, COALESCE(offers_declined,0) AS offers_declined, COALESCE(offers_missed,0) AS offers_missed " +
+      "COALESCE(offers_accepted,0) AS offers_accepted, COALESCE(offers_declined,0) AS offers_declined, COALESCE(offers_missed,0) AS offers_missed, lead_time_days " +
       "FROM staff ORDER BY active DESC, role, name"
     )
     .all();
@@ -107,6 +107,8 @@ export const onRequestPost = async ({ request, env }) => {
     if (b.active !== undefined) { sets.push('active=?'); args.push(b.active ? 1 : 0); }
     if (b.name !== undefined && b.name.trim()) { sets.push('name=?'); args.push(b.name.trim()); }
     if (b.phone !== undefined) { sets.push('phone=?'); args.push((b.phone || '').trim() || null); }
+    // Vendor lead time (days) for Ops vendor-order timing (Phase 4b).
+    if (b.lead_time_days !== undefined) { const n = parseInt(b.lead_time_days, 10); sets.push('lead_time_days=?'); args.push(Number.isFinite(n) && n >= 0 ? n : null); }
     if (!sets.length) return bad('Nothing to update.');
     sets.push('updated_at=?'); args.push(t);
     args.push(sid);
