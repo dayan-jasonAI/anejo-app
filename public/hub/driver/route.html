@@ -101,6 +101,20 @@
   </div>
 </div>
 
+<!-- Driver PIN prompt (pickup confirmation). -->
+<div id="pin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60;align-items:center;justify-content:center">
+  <div class="card" style="max-width:300px;margin:16px;text-align:center">
+    <div class="row-title" id="pin-title" data-i18n>Enter your PIN</div>
+    <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" maxlength="8"
+      style="width:100%;padding:11px;border:1px solid var(--line,#ccc);border-radius:8px;font-size:24px;letter-spacing:.3em;text-align:center;margin:12px 0">
+    <div id="pin-err" class="small" style="color:var(--crit,#b00);min-height:16px"></div>
+    <div class="card-grid" style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn gold" id="pin-ok" type="button" style="flex:1" data-i18n>Confirm</button>
+      <button class="btn ghost" id="pin-cancel" type="button" style="flex:1" data-i18n>Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script src="/assets/js/i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/driver/assets/driver.js"></script>
@@ -116,6 +130,37 @@
   var delivSection = document.getElementById('deliver-section');
   var sheet = document.getElementById('sheet');
   var refresh = function () { if (window.AnejoI18n) window.AnejoI18n.refresh(); };
+
+  // ---- PIN prompt (pickup confirmation) ----
+  // askPin(title, submit): submit(pin, helpers); helpers.fail(msg) keeps the modal open with an
+  // error (wrong PIN → retry), helpers.done() closes it.
+  var _pinSubmit = null;
+  function askPin(title, submit) {
+    _pinSubmit = submit;
+    document.getElementById('pin-title').textContent = title || 'Enter your PIN';
+    var inp = document.getElementById('pin-input'); inp.value = '';
+    document.getElementById('pin-err').textContent = '';
+    document.getElementById('pin-modal').style.display = 'flex';
+    setTimeout(function () { inp.focus(); }, 30);
+  }
+  function closePin() { document.getElementById('pin-modal').style.display = 'none'; _pinSubmit = null; }
+  (function wirePin() {
+    var ok = document.getElementById('pin-ok'), inp = document.getElementById('pin-input'), err = document.getElementById('pin-err');
+    function go() {
+      var pin = (inp.value || '').trim();
+      if (!/^\d{4,8}$/.test(pin)) { err.textContent = 'Enter your 4–8 digit PIN.'; return; }
+      var fn = _pinSubmit; if (!fn) return;
+      ok.disabled = true;
+      fn(pin, {
+        fail: function (m) { ok.disabled = false; err.textContent = m || 'PIN not recognized.'; inp.value = ''; inp.focus(); },
+        done: function () { ok.disabled = false; closePin(); }
+      });
+    }
+    ok.addEventListener('click', go);
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+    document.getElementById('pin-cancel').addEventListener('click', closePin);
+    document.getElementById('pin-modal').addEventListener('click', function (e) { if (e.target.id === 'pin-modal') closePin(); });
+  })();
 
   function loadAll() {
     return Promise.all([
@@ -198,24 +243,27 @@
     refresh();
   }
 
-  // ---- Pickup gate ----
+  // ---- Pickup gate (Phase 3) ----
+  // Re-confirm each bowl the kitchen prepped, then enter your PIN ONCE per order. An order
+  // can't go out for delivery until every bowl is driver-confirmed; unchecked bowls are
+  // flagged missing to the kitchen.
   function renderPickup() {
     var list = document.getElementById('pickup-list');
     var stops = (pickupData && pickupData.stops) || [];
     list.innerHTML = stops.map(function (s) {
-      if (s.picked) return '<div class="card"><div class="row-title">' + Hub.esc(s.first_name) + ' <span class="pick-done">✓ loaded</span></div></div>';
-      var bowls = (s.items || []).map(function (it) {
-        var qty = Number(it.qty) || 1;
-        var units = '';
-        for (var u = 0; u < qty; u++) units += '<button class="unit" data-stop="' + s.stop_id + '" data-item="' + Hub.esc(it.id || it.name) + '" type="button">○</button>';
-        return '<div class="bowl-row"><span class="bowl-name">' + Hub.esc(it.name || it.id) + '</span><span class="units">' + units + '</span></div>';
+      if (s.picked) return '<div class="card"><div class="row-title">' + Hub.esc(s.first_name) + ' <span class="pick-done">✓ confirmed</span></div></div>';
+      var bowls = (s.bowls || []).map(function (bw) {
+        var meta = (bw.size_oz ? bw.size_oz + ' oz · ' : '') + (bw.prepped_by ? 'prepped by ' + Hub.esc(bw.prepped_by) : (bw.prepped ? 'prepped' : 'not prepped yet'));
+        return '<div class="bowl-row"><button class="unit bowlchk" data-bowl="' + Hub.esc(bw.id) + '" type="button">○</button>' +
+          '<span class="bowl-name">' + Hub.esc(bw.name) + (bw.avocado ? ' + ½ avo' : '') +
+          '<span class="small" style="display:block;font-weight:400">' + meta + '</span></span></div>';
       }).join('');
       return '<div class="card" data-stopcard="' + s.stop_id + '"><div class="row-title">' + Hub.esc(s.first_name) +
         ' <span class="small">· ' + s.total_bowls + ' bowls</span></div>' + bowls +
         '<button class="btn block gold confirm-pick" data-stop="' + s.stop_id + '" type="button" style="margin-top:10px" data-i18n>Confirm pickup</button></div>';
     }).join('') || '<p class="row-sub" data-i18n>No bowls to load.</p>';
 
-    Array.prototype.forEach.call(list.querySelectorAll('.unit'), function (u) {
+    Array.prototype.forEach.call(list.querySelectorAll('.bowlchk'), function (u) {
       u.addEventListener('click', function () { u.classList.toggle('on'); u.textContent = u.classList.contains('on') ? '✓' : '○'; });
     });
     Array.prototype.forEach.call(list.querySelectorAll('.confirm-pick'), function (btn) {
@@ -227,26 +275,22 @@
   }
 
   function confirmPickup(stopId) {
-    var picked = {}, flag = {};
     var card = document.querySelector('[data-stopcard="' + stopId + '"]');
-    if (card) {
-      var stop = (pickupData.stops || []).find(function (s) { return s.stop_id === stopId; });
-      (stop.items || []).forEach(function (it) {
-        var key = it.id || it.name;
-        var on = card.querySelectorAll('.unit.on[data-item="' + cssEsc(key) + '"]').length;
-        var qty = Number(it.qty) || 1;
-        picked[key] = on;
-        if (on < qty) flag[key] = qty - on;
-      });
-    }
-    Hub.api('/api/hub/driver/pickup', { method: 'POST', body: { stop_id: stopId, picked: picked, flag: Object.keys(flag).length ? flag : undefined } })
-      .then(function (resp) {
-        if (resp && resp.ok) {
-          Hub.toast(resp.complete ? 'Loaded ✓' : 'Saved — missing bowls flagged');
-          if (resp.all_picked) startBtnEnable();
-          loadAll();
-        } else Hub.toast((resp && resp.error) || 'Error');
-      });
+    if (!card) return;
+    var confirmed = [], missing = [];
+    Array.prototype.forEach.call(card.querySelectorAll('.bowlchk'), function (u) {
+      var bid = u.getAttribute('data-bowl');
+      if (u.classList.contains('on')) confirmed.push(bid); else missing.push(bid);
+    });
+    if (!confirmed.length && !missing.length) return;
+    if (missing.length && !window.confirm(missing.length + ' bowl(s) are not checked — they will be flagged missing to the kitchen. Continue?')) return;
+    askPin('Your PIN to confirm pickup', function (pin, h) {
+      Hub.api('/api/hub/driver/pickup', { method: 'POST', body: { stop_id: stopId, pin: pin, confirmed: confirmed, missing: missing } })
+        .then(function (resp) {
+          if (resp && resp.ok) { h.done(); Hub.toast(resp.complete ? 'Confirmed ✓' : 'Saved — missing bowls flagged'); loadAll(); }
+          else { h.fail(resp && resp.error); }
+        });
+    });
   }
   function startBtnEnable() { var b = document.getElementById('start-deliveries'); if (b) b.style.display = 'block'; }
 
