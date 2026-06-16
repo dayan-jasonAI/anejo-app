@@ -8,6 +8,20 @@
 // it on (after confirming prices + copy), no customer is ever messaged or charged.
 import { square, squareConfigured } from './square.js';
 import { id } from './util.js';
+import { SITE_BOWLS, BOWL_LABEL } from './bowlspec.js';
+
+// The public bowls a client can pick for an "extra bowl for a friend" add-on.
+export function bowlChoices() {
+  return SITE_BOWLS.map((b) => ({
+    name: b.name,
+    label: BOWL_LABEL[b.name] || b.name,
+    description: (b.description || '').slice(0, 90),
+  }));
+}
+export function bowlLabel(name) {
+  const hit = SITE_BOWLS.find((b) => b.name === name);
+  return hit ? (BOWL_LABEL[hit.name] || hit.name) : null; // null ⇒ not a valid public bowl
+}
 
 // Master add-on catalog. PRICES ARE PLACEHOLDERS — owner confirms before enabling.
 // Override any price via env (cents): ADDON_PRICE_DRINK / ADDON_PRICE_SHAKE / ADDON_PRICE_BOWL.
@@ -71,7 +85,7 @@ export async function createAddonPaymentLink(env, { selections, base, order }) {
     if (!c || qty <= 0) continue;
     total += c.price_cents * qty;
     lineItems.push({
-      name: c.name,
+      name: s.name || c.name,   // 'bowl' add-ons carry a specific bowl name override
       quantity: String(qty),
       base_price_money: { amount: c.price_cents, currency: 'USD' },
     });

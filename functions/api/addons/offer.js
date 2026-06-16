@@ -2,7 +2,7 @@
 // Returns the add-on offer context for a subscription delivery: the day/window, the
 // catalog with prices, and whether the offer is still open (before the kitchen cutoff).
 import { json, bad } from '../../_lib/util.js';
-import { addonsEnabled, addonOpen, catalogFor } from '../../_lib/addons.js';
+import { addonsEnabled, addonOpen, catalogFor, bowlChoices } from '../../_lib/addons.js';
 
 function etToday(ms) {
   const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ms));
@@ -29,5 +29,6 @@ export const onRequestGet = async ({ request, env }) => {
     open,
     order: { name: o.customer_name || null, delivery_date: o.delivery_date, delivery_window: o.delivery_window },
     catalog,
+    bowls: bowlChoices(), // for the "extra bowl for a friend" picker
   });
 };

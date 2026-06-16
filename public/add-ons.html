@@ -63,7 +63,7 @@
   var token = new URLSearchParams(location.search).get('t') || '';
   var app = document.getElementById('app'), bar = document.getElementById('bar');
   var stateEl = document.getElementById('state'), payBtn = document.getElementById('pay');
-  var catalog = [], qty = {};
+  var catalog = [], qty = {}, bowls = [];
 
   function money(c) { return '$' + (Number(c || 0) / 100).toFixed(2); }
   function showState(title, msg) {
@@ -74,6 +74,8 @@
     var c = 0; catalog.forEach(function (it) { c += (qty[it.kind] || 0) * it.price_cents; });
     document.getElementById('total').textContent = money(c);
     payBtn.disabled = c <= 0;
+    var bp = document.getElementById('bowlpick');
+    if (bp) bp.style.display = ((qty.bowl || 0) > 0 && bowls.length) ? 'block' : 'none';
   }
   function render() {
     app.innerHTML = catalog.map(function (it) {
@@ -83,7 +85,13 @@
         '<div class="stepper"><button type="button" data-dec="' + it.kind + '">−</button>' +
         '<span id="q_' + it.kind + '">0</span>' +
         '<button type="button" data-inc="' + it.kind + '">+</button></div></div>';
-    }).join('') + '<div class="note">Paid securely via Square. Added to today\'s drop before the kitchen starts.</div>';
+    }).join('') +
+    '<div id="bowlpick" style="display:none;background:#fff;border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:12px;padding:14px 16px;margin-bottom:12px">' +
+      '<div style="font-weight:600;color:var(--green);margin-bottom:8px">Which bowl for your friend?</div>' +
+      '<select id="bowlsel" style="width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--cream);color:var(--ink);font-family:inherit;font-size:14px">' +
+        bowls.map(function (bw) { return '<option value="' + esc(bw.name) + '">' + esc(bw.label) + (bw.description ? ' — ' + esc(bw.description) : '') + '</option>'; }).join('') +
+      '</select></div>' +
+    '<div class="note">Paid securely via Square. Added to today\'s drop before the kitchen starts.</div>';
     app.hidden = false; bar.hidden = false;
     app.querySelectorAll('[data-inc]').forEach(function (b) {
       b.onclick = function () { var k = b.getAttribute('data-inc'); qty[k] = Math.min(20, (qty[k] || 0) + 1); document.getElementById('q_' + k).textContent = qty[k]; recalc(); };
@@ -103,6 +111,7 @@
     document.getElementById('sub').textContent = (d.order && d.order.name ? d.order.name + ' — ' : '') + 'your ' + win + ' delivery';
     if (!d.open) { showState('Add-ons closed', 'The kitchen has started prepping today\'s ' + win + ' bowls, so add-ons are closed. See you next delivery!'); return; }
     catalog = d.catalog || [];
+    bowls = d.bowls || [];
     if (!catalog.length) { showState('Nothing to add right now', 'Please check back on your next delivery.'); return; }
     render();
   }).catch(function () { showState('Something went wrong', 'Please try again in a moment.'); });
@@ -110,8 +119,10 @@
   payBtn.onclick = function () {
     var items = catalog.filter(function (it) { return (qty[it.kind] || 0) > 0; }).map(function (it) { return { kind: it.kind, qty: qty[it.kind] }; });
     if (!items.length) return;
+    var sel = document.getElementById('bowlsel');
+    var bowlChoice = ((qty.bowl || 0) > 0 && sel) ? sel.value : undefined;
     payBtn.disabled = true; payBtn.textContent = 'Starting…';
-    fetch('/api/addons/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: token, items: items }) })
+    fetch('/api/addons/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: token, items: items, bowl_choice: bowlChoice }) })
       .then(function (r) { return r.json(); }).then(function (d) {
         if (d && d.ok && d.url) { location.href = d.url; }
         else { payBtn.disabled = false; payBtn.textContent = 'Add & pay'; showState('Could not check out', (d && d.error) || 'Please try again.'); }

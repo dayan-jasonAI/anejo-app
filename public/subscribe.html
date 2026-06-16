@@ -72,6 +72,13 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
     <label class="fld">Choose your weekly plan</label>
     <div class="plan-pick" id="planPick"></div>
 
+    <label class="fld" for="windows">Meal times — fresh, cooked &amp; delivered daily</label>
+    <select class="b-input" id="windows">
+      <option value="both">Lunch &amp; dinner — 2 bowls a day</option>
+      <option value="lunch">Lunch only — 1 bowl a day</option>
+      <option value="dinner">Dinner only — 1 bowl a day</option>
+    </select>
+
     <label class="fld">Delivery address</label>
     <input class="b-input" id="a_street" type="text" autocomplete="address-line1" placeholder="Street address">
     <input class="b-input" id="a_unit" type="text" autocomplete="address-line2" placeholder="Apt / unit / suite (optional)">
@@ -191,6 +198,9 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
   if(!addr.street.trim()||!addr.city.trim()){ msg.className='msg err'; msg.textContent='Please enter your delivery street address and city.'; return; }
   if(!/^\d{5}$/.test(addr.zip.trim())){ msg.className='msg err'; msg.textContent='Please enter a valid 5-digit ZIP code.'; return; }
   body.address = { street:addr.street.trim(), unit:addr.unit.trim(), city:addr.city.trim(), state:addr.state.trim()||'FL', zip:addr.zip.trim(), notes:addr.notes.trim() };
+  // Meal windows the subscriber chose (lunch / dinner / both). Drives the daily kitchen prep.
+  var winVal=((document.getElementById('windows')||{}).value)||'both';
+  body.delivery = { windows: winVal==='both' ? ['lunch','dinner'] : [winVal] };
   btn.disabled=true; const lbl=btn.textContent; btn.textContent='Processing…';
   try {
     const tok = await card.tokenize();

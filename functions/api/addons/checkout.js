@@ -4,7 +4,7 @@
 //   rows, and returns { url } to redirect the client to checkout. The Square webhook marks
 //   them paid and attaches them to that day's order. Gated by env.ADDONS_ENABLED.
 import { json, bad, id, appBaseUrl } from '../../_lib/util.js';
-import { addonsEnabled, addonOpen, findAddon, createAddonPaymentLink } from '../../_lib/addons.js';
+import { addonsEnabled, addonOpen, findAddon, createAddonPaymentLink, bowlLabel } from '../../_lib/addons.js';
 
 function etToday(ms) {
   const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ms));
@@ -33,9 +33,13 @@ export const onRequestPost = async ({ request, env }) => {
     return bad("Today's add-on window has closed — the kitchen has started prepping.", 409);
   }
 
+  // "Extra bowl for a friend" → which bowl? Validate against the public menu; ignore if invalid.
+  const bowlChoiceLabel = bowlLabel(String(b && b.bowl_choice || '').trim());
+
   const selections = rawItems
     .map((s) => ({ kind: String(s && s.kind || ''), qty: Math.max(1, Math.min(20, Math.floor(Number(s && s.qty) || 0))) }))
-    .filter((s) => findAddon(env, s.kind) && s.qty > 0);
+    .filter((s) => findAddon(env, s.kind) && s.qty > 0)
+    .map((s) => (s.kind === 'bowl' && bowlChoiceLabel) ? { ...s, name: `Extra Bowl: ${bowlChoiceLabel}` } : s);
   if (!selections.length) return bad('Pick at least one item.');
 
   const base = appBaseUrl(env, request);
@@ -53,7 +57,7 @@ export const onRequestPost = async ({ request, env }) => {
          VALUES (?,?,?,?,?,?,?,?,?,?, 'pending_payment', ?, ?, ?, ?)`
       ).bind(
         id('adn'), o.id, o.subscription_id || null, null, o.delivery_date, o.delivery_window,
-        s.kind, c.name, s.qty, c.price_cents * s.qty, link.squareOrderId || null, link.url, t, t
+        s.kind, s.name || c.name, s.qty, c.price_cents * s.qty, link.squareOrderId || null, link.url, t, t
       ).run();
     } catch { /* one row failing shouldn't block checkout */ }
   }
