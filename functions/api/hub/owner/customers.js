@@ -154,13 +154,29 @@ async function customerDetail(env, email) {
   let subscription = null;
   let plan = null;
   let threadId = null;
+  let subscriptionSchedule = [];
   if (client) {
     try {
       subscription = await env.DB.prepare(
-        'SELECT id, status, weekly_amount_cents, started_at, canceled_at, updated_at ' +
+        'SELECT id, status, weekly_amount_cents, windows, started_at, canceled_at, updated_at ' +
         'FROM subscriptions WHERE client_id = ? ORDER BY updated_at DESC LIMIT 1'
       ).bind(client.id).first();
     } catch { subscription = null; }
+    // Upcoming daily fresh-prep schedule generated from the subscription (next ~3 weeks).
+    if (subscription && subscription.id) {
+      try {
+        const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+        const sres = await env.DB.prepare(
+          "SELECT delivery_date, delivery_window, items, status FROM orders " +
+          "WHERE subscription_id = ? AND delivery_date >= ? " +
+          "ORDER BY delivery_date ASC, CASE delivery_window WHEN 'lunch' THEN 0 ELSE 1 END LIMIT 42"
+        ).bind(subscription.id, todayStr).all();
+        subscriptionSchedule = ((sres && sres.results) || []).map((o) => {
+          const it = parseJson(o.items, [])[0] || null;
+          return { date: o.delivery_date, window: o.delivery_window, bowl: (it && it.name) || null, status: o.status };
+        });
+      } catch { subscriptionSchedule = []; }
+    }
     try {
       plan = await env.DB.prepare(
         'SELECT id, daily_calories, meal_plan_tier, bowl_size_oz, status, created_at ' +
@@ -192,6 +208,7 @@ async function customerDetail(env, email) {
     } : null,
     orders,
     subscription: subscription || null,
+    subscription_schedule: subscriptionSchedule,
     plan: plan || null,
     thread_id: threadId,
   };

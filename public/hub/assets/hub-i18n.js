@@ -361,6 +361,8 @@
     "💬 Message": "💬 Mensaje",
     "+ New order": "+ Nuevo pedido",
     "Order history": "Historial de pedidos",
+    "Upcoming fresh-prep schedule": "Próximo horario de preparación fresca",
+    "One bowl per window, cooked & delivered fresh daily (Mon–Sat).": "Un plato por horario, cocinado y entregado fresco cada día (lun–sáb).",
     "Email": "Correo",
     "Phone": "Teléfono",
     "SMS consent": "Consentimiento SMS",

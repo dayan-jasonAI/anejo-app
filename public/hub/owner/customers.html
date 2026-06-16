@@ -180,6 +180,7 @@
         '</div>' +
         (isGuest ? onboardBlock(d) : '') +
         '</div>' +
+        scheduleCard(d) +
         '<div class="hub-section"><h2 data-i18n>Order history</h2><div class="list">' + orderHistory(d.orders || []) + '</div></div>';
       bindBack();
       $('#prefill-btn').addEventListener('click', function () {
@@ -201,6 +202,34 @@
     if (b) b.addEventListener('click', function () { window.location.hash = ''; });
   }
 
+  function windowsLabel(w) {
+    var s = String(w || '').toLowerCase();
+    if (s.indexOf('lunch') > -1 && s.indexOf('dinner') > -1) return 'Lunch & dinner';
+    if (s.indexOf('dinner') > -1) return 'Dinner';
+    if (s.indexOf('lunch') > -1) return 'Lunch';
+    return s;
+  }
+
+  // Upcoming daily fresh-prep schedule generated from the subscription, grouped by day.
+  function scheduleCard(d) {
+    var sch = d.subscription_schedule || [];
+    if (!sch.length) return '';
+    var byDate = {};
+    sch.forEach(function (s) { (byDate[s.date] = byDate[s.date] || []).push(s); });
+    var rowsHtml = Object.keys(byDate).sort().map(function (dt) {
+      var meals = byDate[dt].map(function (s) {
+        var w = s.window === 'dinner' ? 'Dinner' : 'Lunch';
+        return '<span class="badge">' + w + '</span> ' + esc(s.bowl || '—');
+      }).join(' &nbsp; ');
+      var label = dt;
+      try { label = new Date(dt + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }); } catch (e) {}
+      return '<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line,#e5e0d3)"><div class="row-main">' +
+        '<div class="row-title">' + esc(label) + '</div><div class="row-sub">' + meals + '</div></div></div>';
+    }).join('');
+    return '<div class="hub-section"><h2 data-i18n>Upcoming fresh-prep schedule</h2>' +
+      '<div class="card"><p class="row-sub" style="margin:0 0 6px" data-i18n>One bowl per window, cooked &amp; delivered fresh daily (Mon–Sat).</p>' + rowsHtml + '</div></div>';
+  }
+
   function profileCard(d) {
     var rows = [];
     if (d.client) {
@@ -210,8 +239,10 @@
       if (d.client.status) rows.push(['Status', '<span class="badge ' + statusKind(d.client.status) + '" data-i18n>' + esc(d.client.status) + '</span>']);
       if (d.client.trainer_name) rows.push(['Trainer', esc(d.client.trainer_name)]);
       if (d.subscription) {
-        rows.push(['Subscription', '<span class="badge ' + statusKind(d.subscription.status) + '" data-i18n>' + esc(d.subscription.status || '—') + '</span>' +
-          (d.subscription.weekly_amount_cents != null ? ' ' + Owner.money(d.subscription.weekly_amount_cents) + '<span data-i18n>/wk</span>' : '')]);
+        var subVal = '<span class="badge ' + statusKind(d.subscription.status) + '" data-i18n>' + esc(d.subscription.status || '—') + '</span>' +
+          (d.subscription.weekly_amount_cents != null ? ' ' + Owner.money(d.subscription.weekly_amount_cents) + '<span data-i18n>/wk</span>' : '');
+        if (d.subscription.windows) subVal += ' · ' + esc(windowsLabel(d.subscription.windows));
+        rows.push(['Subscription', subVal]);
       }
       if (d.plan) {
         var p = [];
