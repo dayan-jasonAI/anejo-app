@@ -63,6 +63,7 @@
           '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
           '<select data-act="role" style="padding:6px;border-radius:8px">' + opt(ROLES, s.role) + '</select>' +
           '<select data-act="team" style="padding:6px;border-radius:8px"><option value="">— team —</option>' + opt(TEAMS, s.team) + '</select>' +
+          (s.role === 'vendor' ? '<input data-act="lead_time_days" type="number" min="0" max="60" placeholder="lead days" value="' + (s.lead_time_days != null ? s.lead_time_days : '') + '" title="Vendor lead time (days) — used for Ops order timing" style="width:96px;padding:6px;border-radius:8px">' : '') +
           '<button class="btn ghost" data-act="lead">' + (s.is_lead ? 'Unset lead' : 'Make lead') + '</button>' +
           '<button class="btn ghost" data-act="pin">Reset PIN</button>' +
           '<button class="btn ghost" data-act="active">' + (s.active ? 'Deactivate' : 'Reactivate') + '</button>' +
@@ -74,10 +75,10 @@
   function wireRoster() {
     var el = document.getElementById('roster');
     el.addEventListener('change', function (e) {
-      var sel = e.target.closest('select'); if (!sel) return;
+      var fld = e.target.closest('select[data-act],input[data-act]'); if (!fld) return;
       var id = e.target.closest('.row').getAttribute('data-id');
       var body = { op: 'update', id: id };
-      body[sel.getAttribute('data-act')] = sel.value;
+      body[fld.getAttribute('data-act')] = fld.value;
       Hub.api('/api/hub/owner/staff', { method: 'POST', body: body }).then(function () { Hub.toast('Updated'); loadRoster(); });
     });
     el.addEventListener('click', function (e) {
