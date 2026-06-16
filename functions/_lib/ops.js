@@ -240,3 +240,112 @@ export async function runVendorOrderPrep(env, { nowMs } = {}) {
 
 // addDays that tolerates being called with the module's date strings.
 function addDaysSafe(d, n) { return new Date((Math.floor(Date.parse(d + 'T00:00:00Z') / 86400000) + n) * 86400000).toISOString().slice(0, 10); }
+
+// ---------------------------------------------------------------------------
+// Phase 4c — INSIGHTS, REPORTS/BRIEFINGS, and FORECAST ACCURACY (deterministic).
+// ---------------------------------------------------------------------------
+
+// Sales/volume stats over [from,to] inclusive (delivery dates). Best/worst by bowl count.
+async function salesStats(env, from, to) {
+  const mix = {}; let orders = 0, bowls = 0, revenue = 0;
+  try {
+    const { results } = await env.DB.prepare(
+      "SELECT items, total_estimate_cents FROM orders WHERE delivery_date>=? AND delivery_date<=? AND status NOT IN ('canceled','pending')"
+    ).bind(from, to).all();
+    for (const o of results || []) { orders++; revenue += Number(o.total_estimate_cents) || 0; bowls += tallyItems(o.items, mix); }
+  } catch { /* none */ }
+  const sorted = Object.entries(mix).sort((a, b) => b[1] - a[1]);
+  return { orders, bowls, revenue_cents: revenue, mix, best: sorted.slice(0, 3), worst: sorted.slice(-3).reverse() };
+}
+
+async function belowParItems(env) {
+  try {
+    const { results } = await env.DB.prepare("SELECT name, on_hand, par_level, unit FROM inventory_items WHERE active=1 AND par_level>0 AND on_hand<par_level ORDER BY (par_level-on_hand) DESC").all();
+    return results || [];
+  } catch { return []; }
+}
+
+// Compare a past date's next-day forecast to what actually happened → forecast_accuracy row.
+export async function recordForecastAccuracy(env, date) {
+  if (!env || !env.DB) return { ok: false };
+  let predicted = null, actual = 0;
+  try {
+    const f = await env.DB.prepare("SELECT total_bowls FROM forecasts WHERE forecast_date=? AND horizon='next_day' ORDER BY generated_at DESC LIMIT 1").bind(date).first();
+    predicted = f && f.total_bowls != null ? Number(f.total_bowls) : null;
+  } catch { /* none */ }
+  if (predicted == null) return { ok: false, reason: 'no_forecast' };
+  try {
+    const { results } = await env.DB.prepare("SELECT items FROM orders WHERE delivery_date=? AND status NOT IN ('canceled','pending')").bind(date).all();
+    const m = {}; for (const o of results || []) actual += tallyItems(o.items, m);
+  } catch { /* none */ }
+  const absErr = Math.abs(predicted - actual);
+  const pctErr = actual > 0 ? Math.round((absErr / actual) * 1000) / 10 : null;
+  try {
+    await env.DB.prepare("INSERT INTO forecast_accuracy (id, forecast_date, predicted_total, actual_total, abs_error, pct_error, created_at) VALUES (?,?,?,?,?,?,?)")
+      .bind(id('fa'), date, predicted, actual, absErr, pctErr, now()).run();
+  } catch { /* best-effort */ }
+  return { ok: true, date, predicted, actual, abs_error: absErr, pct_error: pctErr };
+}
+
+// Generate + persist one ops report. Deterministic numbers; concise human summary in `body`.
+export async function generateReport(env, type, { nowMs } = {}) {
+  if (!env || !env.DB) return { ok: false };
+  const t = typeof nowMs === 'number' ? nowMs : now();
+  const today = etToday(t);
+  let title = '', body = '', data = {};
+
+  if (type === 'morning_briefing') {
+    let prep = null, f = null;
+    try { prep = await env.DB.prepare("SELECT * FROM prep_plans WHERE horizon='next_day' ORDER BY generated_at DESC LIMIT 1").first(); } catch { /* none */ }
+    try { f = await env.DB.prepare("SELECT * FROM forecasts WHERE horizon='next_day' ORDER BY generated_at DESC LIMIT 1").first(); } catch { /* none */ }
+    const low = await belowParItems(env);
+    title = `Good morning — ${today}`;
+    body = `Today's plan: ${(prep && prep.total_bowls) || 0} bowls` + (f ? ` (${f.lunch_bowls || 0} lunch / ${f.dinner_bowls || 0} dinner, ${Math.round((f.confidence || 0) * 100)}% confidence)` : '') + '. ' +
+      (low.length ? `⚠ ${low.length} item(s) below par: ${low.slice(0, 5).map((x) => x.name).join(', ')}.` : 'All inventory at par.');
+    data = { prep_counts: prep ? parseJson(prep.bowl_counts, {}) : {}, total: (prep && prep.total_bowls) || 0, low_stock: low };
+  } else if (type === 'eod_lunch' || type === 'eod_dinner') {
+    const win = type === 'eod_lunch' ? 'lunch' : 'dinner';
+    let fulfilled = 0, open = 0, canceled = 0;
+    try {
+      const { results } = await env.DB.prepare("SELECT status FROM orders WHERE delivery_date=? AND delivery_window=?").bind(today, win).all();
+      for (const o of results || []) { if (o.status === 'fulfilled') fulfilled++; else if (o.status === 'canceled') canceled++; else open++; }
+    } catch { /* none */ }
+    title = `End of ${win} service — ${today}`;
+    body = `${win.charAt(0).toUpperCase() + win.slice(1)}: ${fulfilled} delivered, ${open} still open${canceled ? `, ${canceled} canceled` : ''}.`;
+    data = { window: win, fulfilled, open, canceled };
+  } else if (type === 'daily_standup') {
+    const s = await salesStats(env, today, today);
+    const low = await belowParItems(env);
+    title = `Daily standup — ${today}`;
+    body = `${s.orders} orders · ${s.bowls} bowls · $${(s.revenue_cents / 100).toFixed(2)}. Top: ${s.best.map((b) => b[0] + ' (' + b[1] + ')').join(', ') || '—'}. ${low.length ? `Low stock: ${low.length} item(s).` : 'Inventory OK.'}`;
+    data = { sales: s, low_stock_count: low.length };
+  } else if (type === 'weekly_summary') {
+    const from = addDaysSafe(today, -7);
+    const s = await salesStats(env, from, today);
+    let acc = null;
+    try { acc = await env.DB.prepare('SELECT AVG(pct_error) AS e FROM forecast_accuracy WHERE forecast_date>=?').bind(from).first(); } catch { /* none */ }
+    title = `Weekly summary — ${from} to ${today}`;
+    body = `${s.orders} orders · ${s.bowls} bowls · $${(s.revenue_cents / 100).toFixed(2)}. Best: ${s.best.map((b) => b[0]).join(', ') || '—'}. Slowest: ${s.worst.map((b) => b[0]).join(', ') || '—'}.` + (acc && acc.e != null ? ` Forecast avg error ${Math.round(acc.e)}%.` : '');
+    data = { sales: s, forecast_avg_pct_error: acc && acc.e != null ? Math.round(acc.e) : null };
+  } else if (type === 'insights') {
+    const from = addDaysSafe(today, -30);
+    const s = await salesStats(env, from, today);
+    const low = await belowParItems(env);
+    const recs = [];
+    if (s.best.length) recs.push(`Keep ${s.best[0][0]} well-stocked — it's the top seller.`);
+    if (s.worst.length) recs.push(`Revisit slow sellers: ${s.worst.map((b) => b[0]).join(', ')}.`);
+    if (low.length) recs.push(`${low.length} item(s) below par — review the vendor order suggestion.`);
+    title = 'Insights — last 30 days';
+    body = `${s.bowls} bowls · $${(s.revenue_cents / 100).toFixed(2)}. Best: ${s.best.map((b) => b[0] + ' (' + b[1] + ')').join(', ') || '—'}. ${recs.join(' ')}`;
+    data = { sales: s, recommendations: recs };
+  } else {
+    return { ok: false, reason: 'unknown_type' };
+  }
+
+  const rid = id('rep');
+  try {
+    await env.DB.prepare("INSERT INTO ops_reports (id, report_type, report_date, title, body, data, generated_at, created_at) VALUES (?,?,?,?,?,?,?,?)")
+      .bind(rid, type, today, title, body, toJson(data), t, t).run();
+  } catch { /* best-effort */ }
+  return { ok: true, id: rid, type, title, body, data };
+}

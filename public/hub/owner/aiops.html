@@ -61,6 +61,7 @@
       '<div class="hub-section"><h2 data-i18n>📊 Demand forecast &amp; prep sheet</h2>' +
         '<div class="card" id="ops-forecast"><div class="hub-loading">…</div></div>' +
         '<button class="btn ghost block" id="ops-run" type="button" style="margin-top:8px" data-i18n>Run forecast now</button></div>' +
+      '<div class="hub-section"><h2 data-i18n>🗞️ Reports &amp; insights</h2><div id="ops-reports"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>🤖 AI Suggestions</h2><div id="suggestions" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Run now</h2><div class="card" id="run-now"></div>' +
       '<div id="run-result" class="card" style="display:none;margin-top:8px"><p class="row-sub" id="run-result-text"></p></div></div>' +
@@ -102,7 +103,25 @@
         html += '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><div class="row-title">🍳 Prep sheet · ' + (p.total_bowls || 0) + ' bowls <span class="row-sub" style="font-weight:400">(' + (p.buffer_pct || 0) + '% on-demand buffer)</span></div>' + rows + '</div>';
       }
       if (w) html += '<div class="row-sub" style="margin-top:8px">This week: ' + (w.total_bowls || 0) + ' bowls (' + (w.subscription_bowls || 0) + ' subscription + ' + (w.ondemand_bowls || 0) + ' on-demand)</div>';
+      // Forecast accuracy (trust earned with evidence).
+      var acc = d.accuracy || [];
+      if (acc.length) {
+        var withErr = acc.filter(function (a) { return a.pct_error != null; });
+        if (withErr.length) {
+          var avg = Math.round(withErr.reduce(function (s, a) { return s + a.pct_error; }, 0) / withErr.length);
+          html += '<div class="row-sub" style="margin-top:6px">📈 Forecast accuracy: avg ' + avg + '% error over last ' + withErr.length + ' days</div>';
+        }
+      }
       el.innerHTML = html;
+      // Reports & insights.
+      var rEl = document.getElementById('ops-reports');
+      if (rEl) {
+        var reps = d.reports || [];
+        rEl.innerHTML = reps.length ? reps.map(function (r) {
+          return '<div class="card" style="margin-bottom:8px"><div class="row-title">' + Owner.esc(r.title || r.report_type) + '</div>' +
+            '<div class="row-sub">' + Owner.esc(r.body || '') + '</div></div>';
+        }).join('') : '<div class="card"><p class="row-sub" data-i18n>No reports yet. Briefings, end-of-service checklists, standups and the weekly summary appear here.</p></div>';
+      }
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
   }

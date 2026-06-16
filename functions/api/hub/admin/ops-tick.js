@@ -6,7 +6,7 @@ import { json, bad, id, now } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { captureSystem } from '../../../_lib/track.js';
 import { toJson } from '../../../_lib/hub.js';
-import { runDemandForecast, runProductionPlan, runVendorOrderPrep } from '../../../_lib/ops.js';
+import { runDemandForecast, runProductionPlan, runVendorOrderPrep, recordForecastAccuracy, generateReport, etToday } from '../../../_lib/ops.js';
 
 function ctEq(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
@@ -36,6 +36,14 @@ export const onRequestPost = async ({ request, env }) => {
     }
     // Prepare a recommended vendor order (approval-only suggestion) from inventory + forecast.
     vendor = await runVendorOrderPrep(env, {});
+    // Score yesterday's forecast against actuals (trust earned with evidence), then write the
+    // nightly standup + insights reports.
+    try {
+      const yesterday = new Date(Date.parse(etToday(started) + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
+      await recordForecastAccuracy(env, yesterday);
+    } catch { /* best-effort */ }
+    try { await generateReport(env, 'daily_standup', {}); } catch { /* best-effort */ }
+    try { await generateReport(env, 'insights', {}); } catch { /* best-effort */ }
   } catch (e) {
     forecast = forecast && forecast.ok ? forecast : { ok: false, reason: (e && e.message) || 'error' };
   }

@@ -5,6 +5,19 @@ import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { id, now, toJson, bit } from '../../../_lib/hub.js';
+import { generateReport } from '../../../_lib/ops.js';
+
+// The morning briefing (Phase 4c) — generated once on the first kitchen clock-in of the day,
+// returned so the kitchen sees today's plan + low-stock heads-up. Best-effort; never blocks.
+async function morningBriefing(env) {
+  try {
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const existing = await env.DB.prepare("SELECT title, body FROM ops_reports WHERE report_type='morning_briefing' AND report_date=? ORDER BY generated_at DESC LIMIT 1").bind(today).first();
+    if (existing) return { title: existing.title, body: existing.body };
+    const r = await generateReport(env, 'morning_briefing', {});
+    return r && r.ok ? { title: r.title, body: r.body } : null;
+  } catch { return null; }
+}
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -23,7 +36,7 @@ export const onRequestPost = async ({ request, env }) => {
     .prepare("SELECT * FROM shifts WHERE staff_id = ? AND status = 'open' ORDER BY clock_in_at DESC LIMIT 1")
     .bind(staff.id).first();
   if (open) {
-    return json({ ok: true, shift: open, already_open: true });
+    return json({ ok: true, shift: open, already_open: true, briefing: await morningBriefing(env) });
   }
 
   const geo = b && b.geo && typeof b.geo === 'object' ? b.geo : null;
@@ -56,5 +69,5 @@ export const onRequestPost = async ({ request, env }) => {
   });
 
   const shift = await env.DB.prepare('SELECT * FROM shifts WHERE id = ?').bind(shiftId).first();
-  return json({ ok: true, shift });
+  return json({ ok: true, shift, briefing: await morningBriefing(env) });
 };

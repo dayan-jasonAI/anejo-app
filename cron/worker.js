@@ -18,7 +18,10 @@ const SCHEDULE = {
 // Schedule (UTC) → direct admin endpoints POSTed with the X-Cron-Key header.
 const EXTRA_ENDPOINTS = {
   '30 9 * * *': ['/api/hub/admin/reminders-tick', '/api/hub/admin/subscriptions-tick', '/api/hub/admin/addons-tick'],
-  '0 2 * * *': ['/api/hub/admin/ops-tick'],   // 02:00 UTC ≈ 10pm ET — Añejo Ops nightly forecast + prep sheet
+  '0 2 * * *': ['/api/hub/admin/ops-tick'],   // 02:00 UTC ≈ 10pm ET — Añejo Ops nightly forecast + prep + standup + insights
+  '30 18 * * *': ['/api/hub/admin/ops-report?type=eod_lunch'],   // ≈ 2:30pm ET — end of lunch service
+  '30 0 * * *': ['/api/hub/admin/ops-report?type=eod_dinner'],   // ≈ 8:30pm ET — end of dinner service
+  '0 12 * * 0': ['/api/hub/admin/ops-report?type=weekly_summary'], // Sundays ≈ 8am ET — weekly summary
   '0 10 * * 1': ['/api/hub/admin/backup'],
 };
 

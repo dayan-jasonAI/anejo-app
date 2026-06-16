@@ -248,11 +248,23 @@
       K.geo().then(function (geo) {
         return K.post('/api/hub/kitchen/clock-in', { geo: geo });
       }).then(function (d) {
-        if (d && d.shift) { Hub.toast('Clocked in'); renderClock(d.shift); } else K.fail(d, 'Could not clock in.');
+        if (d && d.shift) { Hub.toast('Clocked in'); renderClock(d.shift); showBriefing(d.briefing); } else K.fail(d, 'Could not clock in.');
         btn.disabled = false;
       });
     }
   });
+
+  // Morning briefing (Phase 4c) — shown once when the kitchen clocks in.
+  function showBriefing(b) {
+    if (!b || !b.body) return;
+    var host = document.getElementById('briefing-banner');
+    if (!host) {
+      host = document.createElement('div'); host.id = 'briefing-banner'; host.className = 'card accent'; host.style.margin = '0 0 12px';
+      var wrap = document.querySelector('.hub-wrap') || document.body;
+      wrap.insertBefore(host, wrap.firstChild);
+    }
+    host.innerHTML = '<div class="row-title">☀️ ' + esc(b.title || 'Morning briefing') + '</div><div class="row-sub">' + esc(b.body) + '</div>';
+  }
 
   function reminderRow(r) {
     return '<div class="row rem"><div class="row-main"><div class="row-title">' + esc(r.title || r.reminder_type) +
