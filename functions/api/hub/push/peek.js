@@ -59,9 +59,23 @@ export const onRequestGet = async ({ request, env }) => {
     } catch { alert = null; }
   }
 
+  // Driver only: a pending delivery-order offer is the most important headline.
+  let offer = null;
+  if (ctx.role === 'driver') {
+    try {
+      const row = await env.DB.prepare(
+        "SELECT id, route_date, stop_count FROM routes WHERE driver_id = ? AND offer_status = 'pending' ORDER BY offered_at DESC LIMIT 1"
+      ).bind(ctx.distinct_id).first();
+      if (row) offer = { route_id: row.id, stops: row.stop_count, date: row.route_date };
+    } catch { offer = null; }
+  }
+
   let title;
   let body;
-  if (alert) {
+  if (offer) {
+    title = 'New delivery order — Añejo HUB';
+    body = `${offer.stops || ''} stop(s)${offer.date ? ' on ' + offer.date : ''}. Tap to accept or deny.`;
+  } else if (alert) {
     title = alert.title || 'New alert at Añejo HUB';
     body = alert.body || 'Open the Owner Command Center for details.';
   } else {
@@ -69,5 +83,5 @@ export const onRequestGet = async ({ request, env }) => {
     body = unread === 1 ? 'You have 1 unread message.' : `You have ${unread} unread messages.`;
   }
 
-  return json({ ok: true, unread, alert, title, body });
+  return json({ ok: true, unread, alert, offer, title, body });
 };

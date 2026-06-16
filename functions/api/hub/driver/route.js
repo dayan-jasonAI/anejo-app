@@ -8,6 +8,7 @@ import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { now, today, parseJson } from '../../../_lib/hub.js';
 import { notifyRouteOutForDelivery } from '../../../_lib/notify.js';
+import { recordOutcome, declineAndReoffer } from '../../../_lib/dispatch.js';
 import { formatAddress, directionsUrl, fullRouteUrl, clockET } from '../../../_lib/geo.js';
 
 // Find the driver's most relevant route for today (started first, else assigned).
@@ -83,7 +84,7 @@ export const onRequestPost = async ({ request, env }) => {
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const action = (b && b.action || '').toString();
-  if (!['start', 'complete'].includes(action)) return bad('action must be start or complete.');
+  if (!['start', 'complete', 'accept', 'decline'].includes(action)) return bad('Unknown action.');
 
   const route = b && b.route_id
     ? await env.DB.prepare('SELECT * FROM routes WHERE id=? AND driver_id=?').bind(b.route_id, staff.id).first()
@@ -91,6 +92,23 @@ export const onRequestPost = async ({ request, env }) => {
   if (!route) return bad('No route found for today.', 404);
 
   const ts = now();
+
+  // Accept the offered delivery order → it becomes this driver's active route.
+  if (action === 'accept') {
+    if (route.offer_status && route.offer_status !== 'pending') return json({ ok: true, offer_status: route.offer_status });
+    await env.DB.prepare("UPDATE routes SET offer_status='accepted', updated_at=? WHERE id=?").bind(ts, route.id).run();
+    await recordOutcome(env, route.id, staff.id, 'accepted');
+    await capture(env, { event: 'route.accepted', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team, properties: { route_id: route.id } });
+    return json({ ok: true, offer_status: 'accepted' });
+  }
+
+  // Deny → record it on this driver and auto-offer the route to the next available driver.
+  if (action === 'decline') {
+    if (route.offer_status === 'accepted') return bad('This route was already accepted.', 409);
+    const r = await declineAndReoffer(env, route.id, staff.id, 'declined');
+    await capture(env, { event: 'route.declined', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team, properties: { route_id: route.id } });
+    return json({ ok: true, declined: true, reoffered: !!(r && r.offered_to), unfilled: !!(r && r.unfilled) });
+  }
 
   if (action === 'start') {
     await env.DB

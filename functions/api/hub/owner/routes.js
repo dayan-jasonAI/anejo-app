@@ -12,6 +12,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { today, bit } from '../../../_lib/hub.js';
 import { capture } from '../../../_lib/track.js';
 import { sendSms } from '../../../_lib/twilio.js';
+import { sendOffer } from '../../../_lib/dispatch.js';
 import { geocode, optimizeRoute, formatAddress, stopServiceSeconds } from '../../../_lib/geo.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -104,7 +105,7 @@ export const onRequestGet = async ({ request, env }) => {
   try {
     const res = await env.DB
       .prepare(
-        'SELECT r.id, r.driver_id, r.route_date, r.stop_count, r.stops_completed, r.stops_failed, r.status, ' +
+        'SELECT r.id, r.driver_id, r.route_date, r.stop_count, r.stops_completed, r.stops_failed, r.status, r.offer_status, ' +
         'r.ai_optimized, r.created_at, st.name AS driver_name, ' +
         '(SELECT COUNT(*) FROM route_stops rs WHERE rs.route_id = r.id) AS stops ' +
         'FROM routes r LEFT JOIN staff st ON st.id = r.driver_id WHERE r.route_date=? ORDER BY r.created_at ASC'
@@ -236,38 +237,18 @@ export const onRequestPost = async ({ request, env }) => {
     properties: { route_id: routeId, driver_id: driverId, stop_count: orderIds.length, ai_optimized: aiOptimized },
   });
 
-  // SMS the driver (safe no-op without TWILIO_* creds; still logged to sms_log).
-  let sms = null;
-  if (driver.phone) {
-    const finishEt = etaCompleteAt
-      ? new Date(etaCompleteAt).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
-      : null;
-    sms = await sendSms(env, {
-      to: driver.phone,
-      body: `Añejo: new route — ${orderIds.length} stops on ${routeDate}${finishEt ? `, est. done ~${finishEt}` : ''}. Open the HUB.`,
-    });
-  }
-
-  // In-app thread message so the route shows in the driver's inbox.
+  // OFFER the route to the chosen driver: marks it offer_status='pending' and notifies them
+  // via push + SMS (with a HUB link) + an in-app message. The driver accepts/denies in the
+  // HUB; a deny or ~2-min silence auto-rolls the offer to the next available driver
+  // (see _lib/dispatch.js + /api/hub/admin/offers-tick). Never fails the assignment.
+  let offer = { ok: false };
   try {
-    const threadId = await findOrCreateDriverThread(env, driver, t);
-    await env.DB
-      .prepare("INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, created_at) VALUES (?,?,'outbound','in_app',?,?,?,0,?)")
-      .bind(id('msg'), threadId, ctx.distinct_id || null, ctx.role || 'owner', `New route assigned: ${orderIds.length} stops on ${routeDate}.`, t)
-      .run();
-    await env.DB.prepare('UPDATE threads SET last_message_at=?, updated_at=? WHERE id=?').bind(t, t, threadId).run();
-    await capture(env, {
-      event: 'message.sent',
-      distinct_id: ctx.distinct_id,
-      role: ctx.role,
-      team: ctx.team,
-      properties: { channel: 'in_app', audience: 'driver', ai_drafted: false },
-    });
-  } catch { /* messaging must not break the assignment */ }
+    offer = await sendOffer(env, { id: routeId, stop_count: orderIds.length, route_date: routeDate }, driver);
+  } catch { /* offer notice is best-effort */ }
 
   return json({
     ok: true, id: routeId, stop_count: orderIds.length, optimized,
     eta_complete_at: etaCompleteAt, total_minutes: totalMinutes,
-    sms_sent: !!(sms && sms.sent), sms_noop: !!(sms && sms.noop),
+    offer_status: 'pending', offered_to: driverId, offer_sent: !!(offer && offer.ok),
   });
 };

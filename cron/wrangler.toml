@@ -8,12 +8,9 @@ compatibility_date = "2026-05-01"
 # Free Workers plan allows up to 5 Cron Triggers — the nightly EOD chase + daily summary
 # share one slot (run back-to-back at 01:30 UTC).
 [triggers]
-crons = [
-  "30 1 * * *",    # 01:30 UTC → eod_chase + daily_summary (evening US/Eastern)
-  "30 9 * * *",    # 09:30 UTC → route_optimize + reminders-tick (early morning ET)
-  "0 18 * * *",    # 18:00 UTC → sentiment_scan + ticket_triage (early afternoon ET)
-  "0 10 * * 1",    # Mondays 10:00 UTC → restock_suggest + weekly D1→R2 backup
-  "0 12 1,15 * *", # 1st + 15th 12:00 UTC → payroll_prep
-]
+# ONE every-minute trigger; worker.js dispatches each job when the UTC clock matches its
+# schedule (see SCHEDULE/EXTRA_ENDPOINTS there). This frees the 5-trigger free-plan cap and
+# lets the route-offer timeout sweep (/api/hub/admin/offers-tick) run every minute.
+crons = [ "* * * * *" ]
 # Phase 5 jobs (reminders-tick daily, D1 backup weekly) ride existing slots via
 # EXTRA_ENDPOINTS in worker.js — no new cron triggers, staying within the 5-cron cap.

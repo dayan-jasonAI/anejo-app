@@ -53,9 +53,13 @@
         var locked = s.locked_until && s.locked_until > Date.now() ? Owner.badge('locked', 'crit') : '';
         var nopin = s.has_pin ? '' : Owner.badge('no PIN', 'warn');
         var inactive = s.active ? '' : Owner.badge('inactive', 'crit');
+        // Driver reliability on the offer dispatch (accepts / denies / missed).
+        var rel = (s.role === 'driver')
+          ? '<div class="row-sub" style="font-size:12px">📦 ' + (s.offers_accepted || 0) + ' accepted · ' + (s.offers_declined || 0) + ' denied · ' + (s.offers_missed || 0) + ' missed</div>'
+          : '';
         return '<div class="row" data-id="' + s.id + '" style="flex-wrap:wrap;gap:8px">' +
           '<div class="row-main"><div class="row-title">' + Owner.esc(s.name || s.id) + ' ' + lead + ' ' + locked + ' ' + nopin + ' ' + inactive + '</div>' +
-          '<div class="row-sub">' + Owner.esc(s.email || s.phone || '') + '</div></div>' +
+          '<div class="row-sub">' + Owner.esc(s.email || s.phone || '') + '</div>' + rel + '</div>' +
           '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
           '<select data-act="role" style="padding:6px;border-radius:8px">' + opt(ROLES, s.role) + '</select>' +
           '<select data-act="team" style="padding:6px;border-radius:8px"><option value="">— team —</option>' + opt(TEAMS, s.team) + '</select>' +

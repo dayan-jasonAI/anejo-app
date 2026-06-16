@@ -138,6 +138,35 @@
       pickSection.hidden = true; delivSection.hidden = true; stopGps(); refresh(); return;
     }
     var r = routeData.route;
+
+    // Offer gate: a newly-assigned route must be ACCEPTED before pickup/delivery begins.
+    // Deny (or 2 min of silence) auto-offers it to the next available driver.
+    if (r.offer_status === 'pending') {
+      head.innerHTML = '<div class="card cur-card"><div class="cur-name" data-i18n>New delivery order</div>' +
+        '<div class="stop-addr">' + (r.stop_count || 0) + ' <span data-i18n>stop(s) on</span> ' + Hub.esc(r.route_date || '') + '</div>' +
+        '<p class="small" data-i18n>Accept to start, or deny to pass it to another driver.</p>' +
+        '<div class="cur-actions">' +
+        '<button class="btn gold" id="offer-accept" type="button" data-i18n>✅ Accept order</button>' +
+        '<button class="btn ghost" id="offer-decline" type="button" data-i18n>Deny</button>' +
+        '</div></div>';
+      pickSection.hidden = true; delivSection.hidden = true; stopGps();
+      document.getElementById('offer-accept').addEventListener('click', function () {
+        var b = this; b.disabled = true;
+        Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'accept' } }).then(function (resp) {
+          if (resp && resp.ok) { Hub.toast('Order accepted'); loadAll(); } else { b.disabled = false; Hub.toast((resp && resp.error) || 'Error'); }
+        });
+      });
+      document.getElementById('offer-decline').addEventListener('click', function () {
+        if (!window.confirm('Deny this delivery order? It will be offered to another driver.')) return;
+        var b = this; b.disabled = true;
+        Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'decline' } }).then(function (resp) {
+          if (resp && resp.ok) { Hub.toast('Order denied — passing to another driver'); loadAll(); } else { b.disabled = false; Hub.toast((resp && resp.error) || 'Error'); }
+        });
+      });
+      refresh();
+      return;
+    }
+
     var stops = routeData.stops || [];
     var done = stops.filter(function (s) { return s.status === 'done'; }).length;
     var terminal = stops.filter(function (s) { return s.status === 'done' || s.status === 'failed'; }).length;

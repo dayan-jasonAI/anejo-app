@@ -86,8 +86,11 @@
       updateAssignBtn();
 
       rlist.innerHTML = (d.routes || []).length ? d.routes.map(function (ro) {
+        var offer = ro.offer_status === 'pending' ? ' <span class="badge warn" data-i18n>awaiting driver</span>'
+          : ro.offer_status === 'unfilled' ? ' <span class="badge crit" data-i18n>unfilled — reassign</span>'
+          : ro.offer_status === 'declined' ? ' <span class="badge warn" data-i18n>declined</span>' : '';
         return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(ro.driver_name || 'Unassigned') +
-          (ro.ai_optimized ? ' ⚡' : '') + '</div><div class="row-sub">' + Owner.esc(String(ro.stops || ro.stop_count || 0)) + ' <span data-i18n>stops</span></div></div>' +
+          (ro.ai_optimized ? ' ⚡' : '') + offer + '</div><div class="row-sub">' + Owner.esc(String(ro.stops || ro.stop_count || 0)) + ' <span data-i18n>stops</span></div></div>' +
           Owner.badge(ro.status, Owner.kindFor(ro.status)) + '</div>';
       }).join('') : '<div class="hub-empty" data-i18n>No routes yet.</div>';
       if (window.AnejoI18n) window.AnejoI18n.refresh();

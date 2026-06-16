@@ -19,7 +19,8 @@ export const onRequestGet = async ({ request, env }) => {
   const res = await env.DB
     .prepare(
       "SELECT id,name,CASE WHEN email LIKE '%@staff.anejo.local' THEN NULL ELSE email END AS email,phone,role,team,is_lead,employment_type,active," +
-      "(pin_hash IS NOT NULL) AS has_pin, must_change_pin, last_active_at,locked_until,created_at " +
+      "(pin_hash IS NOT NULL) AS has_pin, must_change_pin, last_active_at,locked_until,created_at," +
+      "COALESCE(offers_accepted,0) AS offers_accepted, COALESCE(offers_declined,0) AS offers_declined, COALESCE(offers_missed,0) AS offers_missed " +
       "FROM staff ORDER BY active DESC, role, name"
     )
     .all();
