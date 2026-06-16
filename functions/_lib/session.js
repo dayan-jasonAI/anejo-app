@@ -8,9 +8,14 @@ const TTL = 60 * 60 * 24 * 30; // 30 days (KV TTL ceiling)
 const STAFF_IDLE_MS = 12 * 60 * 60 * 1000;   // 12h idle → must sign in again
 const SLIDE_AFTER_MS = 15 * 60 * 1000;       // only re-write KV when >15min stale (cheap)
 
+// Absolute session lifetime — a session can slide forward on use, but never lives longer than
+// this from creation (caps the window a stolen token is usable; forces a fresh sign-in).
+const ABSOLUTE_MAX_MS = TTL * 1000; // 30 days
+
 export async function createSession(env, data, ttl = TTL) {
   const token = randToken(24);
-  const payload = { ...data, la: Date.now() };   // la = last-active (for inactivity timeout)
+  const now = Date.now();
+  const payload = { ...data, la: now, created: now };   // la = last-active; created = absolute cap anchor
   await env.SESSIONS.put(`session:${token}`, JSON.stringify(payload), { expirationTtl: ttl });
   return token;
 }
@@ -24,6 +29,12 @@ export async function getSession(env, token) {
   if (!data) return null;
   const t = Date.now();
   const la = Number(data.la) || 0;
+  // Absolute lifetime cap. Sessions minted before this field existed (no `created`) are
+  // grandfathered and still expire via the 30-day KV TTL.
+  if (data.created && (t - Number(data.created)) > ABSOLUTE_MAX_MS) {
+    try { await env.SESSIONS.delete(`session:${token}`); } catch { /* best-effort */ }
+    return null;
+  }
   // Staff inactivity timeout. Sessions minted before this field existed (no la) are grandfathered.
   if (data.type === 'staff' && la && (t - la) > STAFF_IDLE_MS) {
     try { await env.SESSIONS.delete(`session:${token}`); } catch { /* best-effort */ }

@@ -43,7 +43,7 @@ export const onRequestPost = async ({ request, env }) => {
 
   if (b.kind === 'meal') {
     await env.DB.prepare('INSERT INTO meal_logs (id, client_id, date, bowl_name, consumed, note, logged_at) VALUES (?,?,?,?,?,?,?)')
-      .bind(id('ml'), c.id, date, (b.bowl_name || '').trim() || null, b.consumed ? 1 : 0, (b.note || '').trim() || null, t).run();
+      .bind(id('ml'), c.id, date, (b.bowl_name || '').trim().slice(0, 80) || null, b.consumed ? 1 : 0, (b.note || '').trim().slice(0, 500) || null, t).run();
     return json({ ok: true });
   }
   if (b.kind === 'weight') {
@@ -51,7 +51,7 @@ export const onRequestPost = async ({ request, env }) => {
       : b.weight_lb != null ? +(Number(b.weight_lb) * 0.4535924).toFixed(1) : null;
     if (!kg || kg < 25 || kg > 320) return bad('Please enter a valid weight.');
     await env.DB.prepare('INSERT INTO weight_logs (id, client_id, date, weight_kg, note, logged_at) VALUES (?,?,?,?,?,?)')
-      .bind(id('wl'), c.id, date, kg, (b.note || '').trim() || null, t).run();
+      .bind(id('wl'), c.id, date, kg, (b.note || '').trim().slice(0, 500) || null, t).run();
     return json({ ok: true });
   }
   return bad('Unknown log kind.');

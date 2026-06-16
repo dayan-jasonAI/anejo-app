@@ -33,9 +33,14 @@ export async function verifyPin(pin, salt, hash) {
   return diff === 0;
 }
 
-// 4–8 digit numeric PIN (default policy: encourage 6).
+// PIN policy. NEW PINs must be 6–10 digits (set-time, validPinFormat) — raises the brute-force
+// keyspace from 10k (4-digit) to ≥1M. ENTRY accepts 4–10 (validPinEntry) so already-enrolled
+// staff with shorter PINs keep working until they rotate (no lockout on a policy change).
 export function validPinFormat(pin) {
-  return typeof pin === 'string' && /^[0-9]{4,8}$/.test(pin);
+  return typeof pin === 'string' && /^[0-9]{6,10}$/.test(pin);
+}
+export function validPinEntry(pin) {
+  return typeof pin === 'string' && /^[0-9]{4,10}$/.test(pin);
 }
 
 // Generate a random 6-digit PIN (for owner-issued initial credentials).

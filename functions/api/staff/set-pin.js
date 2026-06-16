@@ -13,7 +13,7 @@ export const onRequestPost = async ({ request, env }) => {
   let body;
   try { body = await request.json(); } catch { return bad('Invalid request.'); }
   const newPin = String(body.new_pin || '');
-  if (!validPinFormat(newPin)) return bad('PIN must be 4–8 digits.');
+  if (!validPinFormat(newPin)) return bad('PIN must be 6–10 digits.');
 
   const staff = await env.DB.prepare('SELECT * FROM staff WHERE id=?').bind(ctx.distinct_id).first();
   if (!staff) return json({ error: 'Account not found.' }, 404);

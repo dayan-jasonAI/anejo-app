@@ -2,7 +2,7 @@
 // Verifies the HMAC-SHA256 signature, syncs subscription status, and — on each paid
 // subscription invoice — writes the trainer's 10% rev-share ledger row (idempotent).
 // Set SQUARE_WEBHOOK_KEY (Pages secret) + register this URL in the Square dashboard.
-import { id, now } from '../../_lib/util.js';
+import { id, now, ctEq } from '../../_lib/util.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { notifyClientById } from '../../_lib/notify.js';
 
@@ -16,7 +16,7 @@ async function validSignature(key, notificationUrl, rawBody, signature, isProd) 
     const k = await crypto.subtle.importKey('raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
     const mac = await crypto.subtle.sign('HMAC', k, enc.encode(notificationUrl + rawBody));
     const expected = btoa(String.fromCharCode(...new Uint8Array(mac)));
-    return expected === signature;
+    return ctEq(expected, signature);
   } catch { return false; }
 }
 

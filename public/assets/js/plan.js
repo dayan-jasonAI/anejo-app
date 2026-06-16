@@ -1,4 +1,5 @@
 // Añejo — plan renderer. Reads the plan stashed by intake.js and renders it. Bilingual (EN/ES).
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
 const BOWL_TAGLINES = {
   en: {
     VIDA:'Tuna · mango · lime', FUEGO:'Steak · chimichurri', LIGERO:'Chicken · chimichurri',
@@ -217,7 +218,7 @@ function render(intake, plan) {
       const macros = m ? `<div class="bowl-macros"><b>${m.kcal}</b> kcal · ${m.protein_g}P / ${m.carbs_g}C / ${m.fat_g}F</div>` : '';
       const avo = avoOn ? `<div class="avo-tag">${T[L].avoTag}</div>` : '';
       el.innerHTML = img +
-        `<div class="name">${BOWL_LABEL[bowl]||bowl}</div><div class="count"><span class="x">×</span>${count}</div>` +
+        `<div class="name">${esc(BOWL_LABEL[bowl]||bowl)}</div><div class="count"><span class="x">×</span>${count}</div>` +
         `<div class="tagline">${(BOWL_TAGLINES[L][bowl])||''}</div>` + macros + avo;
       grid.appendChild(el);
     });

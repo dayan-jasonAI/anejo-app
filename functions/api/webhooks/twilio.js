@@ -12,7 +12,7 @@
 //   unknown → create a thread audience 'client', subject 'SMS from <last4>'.
 // Inserts the inbound message + sms_log row, bumps thread.last_message_at and
 // fires message.received {channel}. Responds with empty TwiML.
-import { id, now } from '../../_lib/util.js';
+import { id, now, ctEq } from '../../_lib/util.js';
 import { capture } from '../../_lib/track.js';
 import { logInbound } from '../../_lib/twilio.js';
 
@@ -49,7 +49,7 @@ export const onRequestPost = async ({ request, env }) => {
     const url = env.TWILIO_WEBHOOK_URL || request.url;
     let expected = null;
     try { expected = await twilioSignature(env.TWILIO_AUTH_TOKEN, url, params); } catch { expected = null; }
-    if (!sig || !expected || expected !== sig) {
+    if (!sig || !expected || !ctEq(expected, sig)) {
       return new Response('invalid signature', { status: 403 });
     }
   }

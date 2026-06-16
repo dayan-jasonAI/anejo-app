@@ -50,7 +50,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     // Initial PIN: owner-provided or system-generated; staff must change on first login.
     const pin = b.pin ? String(b.pin) : randomPin();
-    if (!validPinFormat(pin)) return bad('PIN must be 4–8 digits.');
+    if (!validPinFormat(pin)) return bad('PIN must be 6–10 digits.');
     const salt = newSalt();
     const hash = await hashPin(pin, salt);
 
@@ -120,7 +120,7 @@ export const onRequestPost = async ({ request, env }) => {
     const sid = b.id;
     if (!sid) return bad('Missing staff id.');
     const pin = b.pin ? String(b.pin) : randomPin();
-    if (!validPinFormat(pin)) return bad('PIN must be 4–8 digits.');
+    if (!validPinFormat(pin)) return bad('PIN must be 6–10 digits.');
     const salt = newSalt();
     const hash = await hashPin(pin, salt);
     await env.DB

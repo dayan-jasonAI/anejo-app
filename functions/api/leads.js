@@ -13,17 +13,18 @@ export const onRequestPost = async ({ request, env }) => {
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
 
   const kind = b.kind === 'wholesale' ? 'wholesale' : 'tasting';
-  const name = (b.name || '').trim();
-  const email = (b.email || '').trim();
+  const name = (b.name || '').trim().slice(0, 120);
+  const email = (b.email || '').trim().slice(0, 160);
   if (!name) return bad('Please enter your name.');
   if (!isEmail(email)) return bad('Please enter a valid email.');
 
+  // Cap free-text to bound storage abuse (mirrors the discipline in checkout/subscriptions).
   const rec = {
     id: id('ld'), kind, name, email,
-    phone: (b.phone || '').trim() || null,
-    company: (b.company || '').trim() || null,
-    interest: (b.interest || '').trim() || null,
-    message: (b.message || '').trim() || null,
+    phone: (b.phone || '').trim().slice(0, 40) || null,
+    company: (b.company || '').trim().slice(0, 120) || null,
+    interest: (b.interest || '').trim().slice(0, 120) || null,
+    message: (b.message || '').trim().slice(0, 4000) || null,
     source_lang: b.lang === 'es' ? 'es' : 'en',
     sms_consent: b.sms_consent === true || b.sms_consent === 1 ? 1 : 0,
     created_at: now(),
