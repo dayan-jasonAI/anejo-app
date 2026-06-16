@@ -58,6 +58,9 @@
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML =
+      '<div class="hub-section"><h2 data-i18n>📊 Demand forecast &amp; prep sheet</h2>' +
+        '<div class="card" id="ops-forecast"><div class="hub-loading">…</div></div>' +
+        '<button class="btn ghost block" id="ops-run" type="button" style="margin-top:8px" data-i18n>Run forecast now</button></div>' +
       '<div class="hub-section"><h2 data-i18n>🤖 AI Suggestions</h2><div id="suggestions" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Run now</h2><div class="card" id="run-now"></div>' +
       '<div id="run-result" class="card" style="display:none;margin-top:8px"><p class="row-sub" id="run-result-text"></p></div></div>' +
@@ -68,12 +71,48 @@
         '<div id="backups" class="list" style="margin-top:8px"><div class="hub-loading">…</div></div></div>';
 
     renderRunButtons();
+    loadOps();
     loadSuggestions();
     loadRuns();
     loadBackups();
     var bn = document.getElementById('backup-now');
     if (bn) bn.addEventListener('click', backupNow);
+    var or = document.getElementById('ops-run');
+    if (or) or.addEventListener('click', runOpsNow);
     if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  // ---------- demand forecast & prep sheet (Phase 4a) ----------
+  function loadOps() {
+    Owner.get('/api/hub/owner/ops').then(function (d) {
+      var el = document.getElementById('ops-forecast'); if (!el) return;
+      if (!d || !d.ok || (!d.next_day && !d.prep_plan)) {
+        el.innerHTML = '<p class="row-sub" data-i18n>No forecast yet. It runs nightly (~10pm ET), or tap “Run forecast now”.</p>';
+        if (window.AnejoI18n) window.AnejoI18n.refresh(); return;
+      }
+      var f = d.next_day, p = d.prep_plan, w = d.week, html = '';
+      if (f) {
+        html += '<div class="row-title">' + Owner.esc(f.forecast_date) + ' · ' + (f.total_bowls || 0) + ' bowls forecast</div>' +
+          '<div class="row-sub">' + Math.round((f.confidence || 0) * 100) + '% confidence · ' + (f.subscription_bowls || 0) + ' subscription + ' + (f.ondemand_bowls || 0) + ' on-demand · ' + (f.lunch_bowls || 0) + ' lunch / ' + (f.dinner_bowls || 0) + ' dinner</div>' +
+          (f.drivers ? '<div class="row-sub" style="margin-top:4px">' + Owner.esc(f.drivers) + '</div>' : '');
+      }
+      if (p && p.bowl_counts) {
+        var rows = Object.keys(p.bowl_counts).sort(function (a, b) { return p.bowl_counts[b] - p.bowl_counts[a]; })
+          .map(function (k) { return '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted var(--line)"><span>' + Owner.esc(k) + '</span><b>' + p.bowl_counts[k] + '</b></div>'; }).join('');
+        html += '<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><div class="row-title">🍳 Prep sheet · ' + (p.total_bowls || 0) + ' bowls <span class="row-sub" style="font-weight:400">(' + (p.buffer_pct || 0) + '% on-demand buffer)</span></div>' + rows + '</div>';
+      }
+      if (w) html += '<div class="row-sub" style="margin-top:8px">This week: ' + (w.total_bowls || 0) + ' bowls (' + (w.subscription_bowls || 0) + ' subscription + ' + (w.ondemand_bowls || 0) + ' on-demand)</div>';
+      el.innerHTML = html;
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+  function runOpsNow() {
+    var btn = document.getElementById('ops-run');
+    if (btn) { btn.disabled = true; btn.textContent = 'Running…'; }
+    Hub.api('/api/hub/admin/ops-tick', { method: 'POST', body: {} }).then(function (r) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Run forecast now'; }
+      if (r && r.ok) { Hub.toast('Forecast updated'); loadOps(); } else Hub.toast((r && r.error) || 'Could not run forecast');
+    });
   }
 
   // ---------- database backups (Phase 5) ----------
