@@ -3,6 +3,7 @@
 // have it, else a single "Weekly plan — N bowls" line. Files under _lib are not routed.
 import { id, now } from './util.js';
 import { kitchenBowlLine } from './bowlspec.js';
+import { PLAN_TIERS } from './plans.js';
 
 function parseJson(s, f) { try { return JSON.parse(s); } catch { return f; } }
 
@@ -20,6 +21,8 @@ export function nextWeeklyDeliveryDate(base) {
 // the daily tick idempotent. Plans start the upcoming Monday.
 // ---------------------------------------------------------------------------
 
+// Default delivery weekdays (Mon–Sat) for legacy subscriptions with no stored tier. Per-tier
+// schedules (e.g. 10/5-bowl skip Saturday) come from PLAN_TIERS[sub.tier].days.
 const DELIVERY_DOW = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 }; // Mon(1)..Sat(6) deliver; Sun(0) off
 const WIN_ORDER = { lunch: 0, dinner: 1 };
 
@@ -62,6 +65,11 @@ async function prepOneSubscription(env, sub, plan, client, todayStr, horizonDays
     .sort((a, b) => WIN_ORDER[a] - WIN_ORDER[b]);
   if (!windows.length) return 0;
 
+  // Delivery weekdays come from the subscription's TIER (12=Mon–Sat, 10/5=Mon–Fri). Falls back
+  // to Mon–Sat for legacy rows with no tier stored. windows.length already sets bowls/day.
+  const tierCfg = PLAN_TIERS[sub.tier];
+  const allowedDow = new Set(tierCfg ? tierCfg.days : Object.keys(DELIVERY_DOW).map(Number));
+
   const seq = rotationSequence(plan && plan.bowl_rotation);
   const sizeFactor = plan && plan.bowl_size_factor != null ? Number(plan.bowl_size_factor) : 1;
   const avocado = sub.avocado === 1 || sub.avocado === true;
@@ -83,11 +91,13 @@ async function prepOneSubscription(env, sub, plan, client, todayStr, horizonDays
 
   for (let d = rangeStart; dayNum(d) <= dayNum(rangeEnd); d = addDays(d, 1)) {
     const dow = dowOf(d);
-    if (!DELIVERY_DOW[dow]) continue;             // Sundays off
+    if (!allowedDow.has(dow)) continue;            // off days per tier (Sun always; Sat for 10/5)
     if (dayNum(d) < dayNum(startMonday)) continue; // never before the plan's first Monday
-    // Delivery-day index since startMonday (Monday): full weeks * 6 + min(remainder, 6).
-    const g = dayNum(d) - dayNum(startMonday);
-    const D = Math.floor(g / 7) * 6 + Math.min(g % 7, 6);
+    // Gap-free delivery-day index for the bowl rotation: full weeks × (this tier's delivery
+    // days/week) + the day's position within that tier's delivery days. Keeps the rotation
+    // even on Mon–Fri tiers (no phantom Saturday slot).
+    const dows = tierCfg ? tierCfg.days : Object.keys(DELIVERY_DOW).map(Number);
+    const D = Math.floor((dayNum(d) - dayNum(startMonday)) / 7) * dows.length + Math.max(0, dows.indexOf(dow));
     for (const win of windows) {
       const slot = D * windows.length + WIN_ORDER[win];
       const bowlName = seq.length ? seq[slot % seq.length] : null;

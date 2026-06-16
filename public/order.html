@@ -96,6 +96,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 <header class="order-hero">
   <div class="eyebrow">Order · Delivery · Palm Beach County</div>
   <h1>Build your <strong>order</strong>.</h1>
+  <div style="display:inline-flex;align-items:center;gap:8px;margin:6px 0 4px;background:var(--gold);color:var(--black);font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:9px 18px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.28)">🌿 Cooked and delivered fresh daily</div>
   <div class="testmode"><strong>Pre-launch / test mode.</strong> You can build a cart and run the full checkout, but payment uses Square's <strong>sandbox</strong> — no real charge and no food is fulfilled. Use test card <strong>4111 1111 1111 1111</strong>, any future expiry, any CVV.</div>
 </header>
 
@@ -133,10 +134,13 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
       <div class="lbl" style="margin-top:14px">Your details</div>
       <input id="custName" type="text" autocomplete="given-name" placeholder="First name" aria-label="First name" required>
       <input id="custPhone" type="tel" autocomplete="tel" placeholder="Mobile number (optional)" aria-label="Mobile number">
-      <label class="consent" style="display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#555;margin-top:8px;line-height:1.4">
-        <input id="smsConsent" type="checkbox" style="width:auto;flex:0 0 auto;margin:3px 0 0">
-        <span>Text me delivery updates (on the way, arriving soon, delivered). Msg &amp; data rates may apply; reply STOP to opt out. We never share your number.</span>
-      </label>
+      <div class="sms-optin" style="background:rgba(0,0,0,.03);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:8px">
+        <label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#333;cursor:pointer;line-height:1.45">
+          <input id="smsConsent" type="checkbox" style="width:auto;flex:0 0 auto;margin:3px 0 0">
+          <span>Yes, text me order &amp; delivery updates from Añejo Catering Co. at this number.</span>
+        </label>
+        <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b6b6b">Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> and <a href="/legal/privacy">Privacy Policy</a>.</p>
+      </div>
 
       <div class="lbl" style="margin-top:14px">Delivery address</div>
       <input id="addrStreet" type="text" autocomplete="address-line1" placeholder="Street address" aria-label="Street address">

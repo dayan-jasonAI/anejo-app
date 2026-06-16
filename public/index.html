@@ -675,6 +675,7 @@ footer {
     <div class="eyebrow">Palm Beach County · Cuban-American Catering</div>
     <h1>Clean Fuel. <strong>Bold Flavor.</strong><br>Built for Life.</h1>
     <p class="hero-tagline">Premium longevity bowls, signature bites, and catering — Mediterranean nutrition with Cuban soul. <span class="serif-i">Inspired by family. Built for legacy.</span></p>
+    <div style="display:inline-flex;align-items:center;gap:8px;margin:4px auto 22px;background:var(--gold);color:var(--black);font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:9px 18px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.28)">🌿 Cooked and delivered fresh daily</div>
     <div class="hero-buttons">
       <a href="/order" class="btn btn-gold">Order Now</a>
       <a href="#menu" class="btn btn-outline">View the Menu</a>
@@ -763,6 +764,7 @@ footer {
     <div class="section-head">
       <div class="eyebrow">The Menu</div>
       <h2>Seven bowls. <strong>One philosophy.</strong></h2>
+      <div style="display:inline-flex;align-items:center;gap:8px;margin:2px 0 16px;background:var(--green);color:var(--cream);font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:9px 18px;border-radius:999px;border:1px solid var(--gold)">🌿 Cooked and delivered fresh daily</div>
       <p class="lede">16 oz bowl · 2 oz signature sauce on the side · 3-day fridge shelf · microwave + cold friendly · nuts removable · dairy-free swaps available · target macros 40% protein / 30% carbs / 30% fat. Per-bowl nutrition is approximate.</p>
     </div>
 
@@ -1084,7 +1086,7 @@ footer {
           <input type="checkbox" id="sms_consent" name="sms_consent" style="margin-top:3px;width:auto;flex:none">
           <span data-i18n>Yes, text me order &amp; delivery updates from Añejo Catering Co. at this number.</span>
         </label>
-        <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b7269" data-i18n>Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
+        <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b7269" data-i18n>Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
       </div>
 
       <div class="form-group">
@@ -1139,6 +1141,13 @@ footer {
           <div class="form-group"><label for="w_email">Email</label><input type="email" id="w_email" name="email" required></div>
           <div class="form-group"><label for="w_phone">Phone</label><input type="tel" id="w_phone" name="phone"></div>
           <div class="form-group"><label for="w_volume">Estimated weekly volume</label><input type="text" id="w_volume" name="message" placeholder="e.g. 200 croquetas/week"></div>
+          <div class="form-group sms-optin" style="background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:12px 14px">
+            <label style="display:flex;gap:10px;align-items:flex-start;font-weight:400;cursor:pointer">
+              <input type="checkbox" id="w_sms_consent" name="sms_consent" style="margin-top:3px;width:auto;flex:none">
+              <span data-i18n>Yes, text me order &amp; delivery updates from Añejo Catering Co. at this number.</span>
+            </label>
+            <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b7269" data-i18n>Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
+          </div>
           <button type="submit" class="btn btn-gold" style="width:100%">Start a Wholesale Conversation</button>
         </form>
       </div>
@@ -1316,6 +1325,7 @@ async function submitWholesale(e) {
     kind: 'wholesale', lang, interest: 'Añejo Bites wholesale',
     company: get('company'), name: get('name'), email: get('email'),
     phone: get('phone'), message: get('message'),
+    sms_consent: !!(f.elements['sms_consent'] && f.elements['sms_consent'].checked),
   };
   const btn = f.querySelector('button[type=submit]');
   const label = btn ? btn.textContent : '';

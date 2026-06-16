@@ -5,7 +5,7 @@
 // Trainer attribution + 10% rev-share live in OUR D1 (provider_subscription_id → trainer_id).
 import { json, bad, id, now, isEmail, normalizePhone } from '../../_lib/util.js';
 import { square, squareConfigured } from '../../_lib/square.js';
-import { PLAN_TIERS, isPlanTier, planVariationId } from '../../_lib/plans.js';
+import { PLAN_TIERS, isPlanTier, planVariationId, tierWindows } from '../../_lib/plans.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { clampPerBowlCents, perBowlCentsFromOz, STANDARD_PER_BOWL_CENTS } from '../../_lib/sizing.js';
@@ -56,6 +56,13 @@ export const onRequestPost = async ({ request, env }) => {
 
   const planTier = b.planTier;
   if (!isPlanTier(planTier)) return bad('Unknown meal-plan tier.');
+  // Delivery window. 2-bowl tiers always get lunch+dinner; the 1-bowl tier REQUIRES a choice.
+  const chosenWindow = (b.delivery && (b.delivery.window
+    || (Array.isArray(b.delivery.windows) && b.delivery.windows.length === 1 && b.delivery.windows[0]))) || '';
+  if (PLAN_TIERS[planTier].chooseWindow && chosenWindow !== 'lunch' && chosenWindow !== 'dinner') {
+    return bad('Please choose a delivery window (Lunch or Dinner) for this plan.');
+  }
+  const windows = tierWindows(planTier, chosenWindow);
   const sourceId = (b.sourceId || '').trim();
   if (!sourceId) return bad('Missing payment source. Please re-enter your card.');
   let client;
@@ -208,20 +215,16 @@ export const onRequestPost = async ({ request, env }) => {
   // 4) Persist + attribute to the trainer (the rev-share link)
   const t = now();
   const localSubId = id('lsub');
-  // Which meal windows this subscriber receives (lunch and/or dinner). Both ⇒ 2 fresh
-  // bowls/day. Honor the request if it specifies; default to both (the premium 12-plan case).
-  const reqWindows = Array.isArray(b.delivery && b.delivery.windows)
-    ? b.delivery.windows.filter((w) => w === 'lunch' || w === 'dinner').join(',')
-    : ((b.delivery && b.delivery.window) || '');
-  const windows = reqWindows || 'lunch,dinner';
+  // `windows` (resolved above from the tier + customer choice) + `tier` drive the fulfillment
+  // schedule in suborders.js: which weekdays deliver and how many bowls land per day.
   await env.DB.prepare(
     `INSERT INTO subscriptions
        (id, client_id, trainer_id, plan_id, provider, provider_subscription_id, provider_customer_id,
-        status, weekly_amount_cents, trainer_share_pct, avocado, windows, started_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        status, weekly_amount_cents, trainer_share_pct, avocado, windows, tier, started_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).bind(
     localSubId, client.id, client.trainer_id, plan ? plan.id : null, 'square',
-    sub.id, customerId, (sub.status || 'ACTIVE').toLowerCase(), weeklyCents, 10, avocado ? 1 : 0, windows, t, t
+    sub.id, customerId, (sub.status || 'ACTIVE').toLowerCase(), weeklyCents, 10, avocado ? 1 : 0, windows, planTier, t, t
   ).run();
 
   await env.DB.prepare('UPDATE clients SET status = ?, updated_at = ? WHERE id = ?')
