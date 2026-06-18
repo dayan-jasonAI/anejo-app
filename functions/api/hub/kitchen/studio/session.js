@@ -50,6 +50,11 @@ export const onRequestGet = async ({ request, env }) => {
   if (sessionId) {
     const session = await env.DB.prepare('SELECT * FROM recipe_sessions WHERE id = ?').bind(sessionId).first();
     if (!session) return bad('Session not found.', 404);
+    // Ownership: a chef may only open their own session; owners may view any. (404, not 403, so
+    // the endpoint doesn't confirm another chef's session id exists.)
+    if (session.staff_id !== (staff && staff.id) && !(staff && staff.role === 'owner')) {
+      return bad('Session not found.', 404);
+    }
     const { results } = await env.DB.prepare(
       'SELECT * FROM recipe_session_events WHERE session_id = ? ORDER BY created_at ASC'
     ).bind(sessionId).all();

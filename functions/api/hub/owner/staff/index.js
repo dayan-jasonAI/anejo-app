@@ -50,7 +50,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     // Initial PIN: owner-provided or system-generated; staff must change on first login.
     const pin = b.pin ? String(b.pin) : randomPin();
-    if (!validPinFormat(pin)) return bad('PIN must be 4–8 digits.');
+    if (!validPinFormat(pin)) return bad('PIN must be 6–10 digits.');
     const salt = newSalt();
     const hash = await hashPin(pin, salt);
 
@@ -83,12 +83,13 @@ export const onRequestPost = async ({ request, env }) => {
       properties: { invited_role: role, channel: phone ? 'sms' : 'email', invited_staff_id: sid },
     });
 
-    // Welcome SMS — ONLY when the PIN was generated server-side (never echo an
-    // owner-chosen PIN over SMS) and a phone exists. Safe no-op without Twilio creds.
-    if (!b.pin && phone) {
+    // Welcome SMS — never send the PIN over SMS (credential delivery is a carrier/A2P red flag
+    // and a security risk). The owner relays the one-time PIN out-of-band (it's returned below).
+    // The text only welcomes + points to the sign-in page, and carries the STOP disclosure.
+    if (phone) {
       await sendSms(env, {
         to: phone,
-        body: `Welcome to Añejo HUB — sign in at https://anejocateringco.com/login with your phone + PIN ${pin}.`,
+        body: 'Añejo HUB: Welcome to the team! Sign in at https://anejocateringco.com/login with your phone number to finish setup. Reply STOP to opt out.',
       });
     }
 
@@ -120,7 +121,7 @@ export const onRequestPost = async ({ request, env }) => {
     const sid = b.id;
     if (!sid) return bad('Missing staff id.');
     const pin = b.pin ? String(b.pin) : randomPin();
-    if (!validPinFormat(pin)) return bad('PIN must be 4–8 digits.');
+    if (!validPinFormat(pin)) return bad('PIN must be 6–10 digits.');
     const salt = newSalt();
     const hash = await hashPin(pin, salt);
     await env.DB

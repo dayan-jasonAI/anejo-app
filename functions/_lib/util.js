@@ -12,6 +12,16 @@ export function id(prefix) {
   return `${prefix}_${randToken(10)}`;
 }
 
+// Constant-time string equality — avoids timing side-channels when comparing secrets/signatures.
+// (Length is allowed to leak, as is standard; the content comparison is time-invariant.)
+export function ctEq(a, b) {
+  a = String(a == null ? '' : a); b = String(b == null ? '' : b);
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 // Short, human-ish affiliate code (8 chars, no ambiguous letters).
 export function affiliateCode() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

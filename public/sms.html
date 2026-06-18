@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
+<meta name="theme-color" content="#0D0D0D">
+<title>Text Message Program &amp; Opt-In — Añejo Catering Co.</title>
+<meta name="description" content="How to opt in to Añejo Catering Co. SMS order &amp; delivery updates. Message frequency varies, message &amp; data rates may apply, reply HELP for help, STOP to cancel. We never sell or share your number.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://anejocateringco.com/sms">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/legal/_legal.css">
+<style>
+  .optin-card{background:#fff;border:1px solid rgba(26,61,46,.15);border-top:4px solid #C6A85B;border-radius:12px;padding:26px;margin:26px 0}
+  .optin-card h2{margin:0 0 4px;color:#1A3D2E}
+  .optin-card .fld{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#1A3D2E;font-weight:600;margin:14px 0 5px}
+  .optin-card input[type=text],.optin-card input[type=email],.optin-card input[type=tel]{width:100%;padding:11px 12px;border:1px solid rgba(26,61,46,.18);border-radius:8px;font:inherit;background:#F5F2EC;box-sizing:border-box}
+  .consent{display:flex;gap:9px;align-items:flex-start;margin:16px 0 0;font-size:13.5px;line-height:1.5;color:#3a3a3a}
+  .consent input{margin-top:3px;width:auto;flex:none}
+  .fine{font-size:12.5px;line-height:1.55;color:#6b6b6b;margin:8px 0 0}
+  .optin-card button{margin-top:16px;width:100%;padding:14px;border:none;border-radius:6px;background:#C6A85B;color:#0D0D0D;font:700 13px/1 'Josefin Sans',sans-serif;letter-spacing:2px;text-transform:uppercase;cursor:pointer}
+  .optin-card button:disabled{opacity:.5;cursor:not-allowed}
+  .optin-msg{margin-top:12px;font-size:14px;min-height:1px}
+  .optin-msg.ok{color:#1A3D2E;font-weight:600}.optin-msg.err{color:#9b2226}
+  .samples{background:#F5F2EC;border-radius:10px;padding:14px 18px;margin:10px 0 0}
+  .samples li{margin:6px 0;color:#333}
+  main h2{color:#1A3D2E;margin-top:30px}
+  .keypoints li{margin:7px 0}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="logo"><img class="logo-emblem" src="/assets/img/emblem.png" alt="Añejo emblem"><span>AÑEJO</span></a>
+    <a href="/" class="nav-back">← Back to site</a>
+  </div>
+</nav>
+
+<header class="legal-hero">
+  <div class="eyebrow">Text Messaging</div>
+  <h1>Añejo Catering Co. <strong>SMS Program</strong></h1>
+  <div class="updated">Order &amp; delivery updates · Palm Beach County, Florida</div>
+</header>
+
+<main>
+  <p><strong>Añejo Catering Co.</strong> sends text messages so you always know where your food is — order confirmations and delivery updates (for example, "your order is on the way" and "your order was delivered"), plus account and service notices. These are transactional, relationship messages — not marketing blasts.</p>
+
+  <h2 id="optin">How to opt in</h2>
+  <p>Opting in is your choice and is <strong>not a condition of any purchase</strong>. You opt in by entering your mobile number and <strong>checking the consent box</strong> — on this page below, or on our order, subscription, tasting-request, or wholesale forms. The box is unchecked by default; checking it is your express written consent to receive the texts described here.</p>
+
+  <div class="optin-card">
+    <h2>Get Añejo order &amp; delivery texts</h2>
+    <p class="fine">Enter your number and check the box to opt in. We'll only text you the updates described on this page.</p>
+    <form id="optinForm" novalidate>
+      <label class="fld" for="o_name">Name</label>
+      <input id="o_name" type="text" autocomplete="name" required>
+      <label class="fld" for="o_email">Email</label>
+      <input id="o_email" type="email" autocomplete="email" required>
+      <label class="fld" for="o_phone">Mobile number</label>
+      <input id="o_phone" type="tel" autocomplete="tel" inputmode="tel" required>
+      <label class="consent">
+        <input type="checkbox" id="o_consent">
+        <span>Yes, text me order &amp; delivery updates from Añejo Catering Co. at this number.</span>
+      </label>
+      <p class="fine">Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply <strong>HELP</strong> for help, <strong>STOP</strong> to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> and <a href="/legal/privacy">Privacy Policy</a>.</p>
+      <button id="o_btn" type="submit">Opt in to text updates</button>
+      <div class="optin-msg" id="o_msg" role="status"></div>
+    </form>
+  </div>
+
+  <h2>Program details</h2>
+  <ul class="keypoints">
+    <li><strong>Program name:</strong> Añejo Catering Co. order &amp; delivery alerts.</li>
+    <li><strong>Message types:</strong> order confirmations, "out for delivery" and "delivered" updates, and account/service notices.</li>
+    <li><strong>Message frequency:</strong> varies based on your activity — you may receive a message for each order you place and each delivery. It is not a fixed number per month.</li>
+    <li><strong>Cost:</strong> <strong>Message and data rates may apply</strong> depending on your mobile plan. Añejo does not charge for the messages themselves.</li>
+    <li><strong>Help:</strong> reply <strong>HELP</strong> to any text message you receive from us, or email <a href="mailto:dayan@anejocateringco.com">dayan@anejocateringco.com</a>.</li>
+    <li><strong>Opt out:</strong> reply <strong>STOP</strong> at any time to cancel. You'll get one confirmation and no further messages.</li>
+    <li><strong>Privacy:</strong> we <strong>never sell, rent, or share</strong> your mobile number, SMS opt-in, or text-messaging consent with third parties or affiliates for their marketing. See our <a href="/legal/privacy">Privacy Policy</a>.</li>
+  </ul>
+
+  <h2>Sample messages</h2>
+  <ul class="samples">
+    <li>"Añejo Catering Co.: Your order is out for delivery and on the way today. Reply STOP to opt out."</li>
+    <li>"Añejo Catering Co.: Your order was just delivered — enjoy! Reply STOP to opt out."</li>
+  </ul>
+
+  <h2>Staff &amp; vendors</h2>
+  <p>Our team members and delivery vendors receive operational text alerts (delivery routes, purchase orders, shift sign-in, and account notices) through our internal operations app. They opt in during onboarding by providing their mobile number and agreeing to receive these operational texts — the same disclosures above apply (frequency varies, message &amp; data rates may apply, reply <strong>HELP</strong> for help and <strong>STOP</strong> to opt out at any time). We message only people with a direct working relationship with Añejo Catering Co.; we never use purchased lists, and we never share or sell anyone's number.</p>
+
+  <p style="margin-top:24px">Carriers are not liable for any delayed or undelivered messages. Full program terms are in the <a href="/legal/terms#sms">SMS &amp; text messaging</a> section of our Terms of Service.</p>
+</main>
+
+<footer>
+  <div class="legal-links">
+    <a href="/legal/terms">Terms of Service</a> ·
+    <a href="/legal/privacy">Privacy Policy</a> ·
+    <a href="/legal/refund">Refund &amp; Cancellation</a> ·
+    <a href="/sms">Text Program</a>
+  </div>
+  <div>© 2026 Añejo Catering Co. LLC · Palm Beach County, Florida</div>
+</footer>
+
+<script>
+(function(){
+  var f=document.getElementById('optinForm'), msg=document.getElementById('o_msg'), btn=document.getElementById('o_btn');
+  f.addEventListener('submit', function(e){
+    e.preventDefault();
+    msg.className='optin-msg'; msg.textContent='';
+    var name=document.getElementById('o_name').value.trim();
+    var email=document.getElementById('o_email').value.trim();
+    var phone=document.getElementById('o_phone').value.trim();
+    var consent=document.getElementById('o_consent').checked;
+    if(!name||!email){ msg.className='optin-msg err'; msg.textContent='Please enter your name and email.'; return; }
+    if(!phone){ msg.className='optin-msg err'; msg.textContent='Please enter your mobile number.'; return; }
+    if(!consent){ msg.className='optin-msg err'; msg.textContent='Please check the box to opt in to text updates.'; return; }
+    btn.disabled=true; var lbl=btn.textContent; btn.textContent='Submitting…';
+    fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({kind:'sms',name:name,email:email,phone:phone,sms_consent:true,interest:'SMS opt-in'})})
+      .then(function(r){return r.json().catch(function(){return {};}).then(function(d){return {ok:r.ok,d:d};});})
+      .then(function(res){
+        if(res.ok){ f.reset(); msg.className='optin-msg ok'; msg.textContent='You’re opted in — thank you! Reply STOP to any message to cancel anytime.'; }
+        else { btn.disabled=false; btn.textContent=lbl; msg.className='optin-msg err'; msg.textContent=(res.d&&res.d.error)||'Something went wrong. Please try again.'; }
+      })
+      .catch(function(){ btn.disabled=false; btn.textContent=lbl; msg.className='optin-msg err'; msg.textContent='Something went wrong. Please try again.'; });
+  });
+})();
+</script>
+</body>
+</html>

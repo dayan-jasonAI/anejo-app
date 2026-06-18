@@ -123,6 +123,8 @@ export const onRequestPost = async ({ request, env }) => {
 
   const session = await env.DB.prepare('SELECT * FROM recipe_sessions WHERE id = ?').bind(sessionId).first();
   if (!session) return bad('Session not found.', 404);
+  // Ownership: only the chef who owns the session (or an owner) may post into it.
+  if (session.staff_id !== ctx.distinct_id && ctx.role !== 'owner') return bad('Session not found.', 404);
   if (session.status !== 'active') return bad('Session is not active.', 409);
 
   const ts = now();

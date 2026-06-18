@@ -20,7 +20,15 @@ export const onRequestGet = async ({ request, env }) => {
   if (!row || row.used_at || row.expires_at < now()) {
     return redirect(`${base}/portal?error=invalid_or_expired`);
   }
-  await env.DB.prepare('UPDATE auth_tokens SET used_at=? WHERE token=?').bind(now(), token).run();
+  // Atomically consume the token: only the request whose UPDATE actually flips used_at proceeds.
+  // Guards against a TOCTOU race where two concurrent opens of the same link both pass the check
+  // above (and, for trainers, double-create the account).
+  const consumed = await env.DB
+    .prepare('UPDATE auth_tokens SET used_at=? WHERE token=? AND used_at IS NULL')
+    .bind(now(), token).run();
+  if (!consumed.meta || consumed.meta.changes !== 1) {
+    return redirect(`${base}/portal?error=invalid_or_expired`);
+  }
 
   if (row.user_type === 'trainer') {
     let trainer = await env.DB.prepare('SELECT id FROM trainers WHERE email=?').bind(row.user_email).first();

@@ -2,13 +2,13 @@
 // THEIR own PIN to attribute an action to themselves. Given a PIN, find the active staff
 // member whose PIN matches. PINs are hashed per-user (PBKDF2), so we verify against each
 // candidate's hash — fine for a small team. Files under _lib are NOT routed.
-import { verifyPin, validPinFormat } from './pin.js';
+import { verifyPin, validPinEntry } from './pin.js';
 
 // Returns { id, name, role } for the staff whose PIN matches, or null. Optionally restrict to
 // certain roles (e.g. ['kitchen','owner']). Never throws.
 export async function matchStaffByPin(env, pin, { roles } = {}) {
   try {
-    if (!env || !env.DB || !validPinFormat(pin)) return null;
+    if (!env || !env.DB || !validPinEntry(pin)) return null;
     const roleList = Array.isArray(roles) ? roles.filter(Boolean) : [];
     const roleClause = roleList.length ? ` AND role IN (${roleList.map(() => '?').join(',')})` : '';
     const { results } = await env.DB.prepare(
