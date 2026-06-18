@@ -57,9 +57,14 @@ form.addEventListener('submit', async (ev) => {
       break;
     }
     if (resp.status === 401) {
-      throw new Error(lang === 'es'
-        ? 'Inicia sesión como entrenador para guardar a este miembro.'
-        : 'Please sign in as a trainer (open the dashboard) to save this member.');
+      // Not signed in. Don't dead-end: the form stays filled, so give a clickable sign-in link
+      // (opens the trainer dashboard / account in a new tab) and let them resubmit after signing in.
+      btn.disabled = false; btn.textContent = label;
+      err.innerHTML = (lang === 'es'
+        ? 'Inicia sesión como entrenador para guardar a este miembro. <a href="/trainer/dashboard" target="_blank" rel="noopener"><strong>Iniciar sesión →</strong></a> Tu formulario queda lleno: inicia sesión y vuelve a enviar.'
+        : 'Please sign in as a trainer to save this member. <a href="/trainer/dashboard" target="_blank" rel="noopener"><strong>Sign in →</strong></a> Your form stays filled — sign in, then submit again.');
+      err.style.display = 'block';
+      return;
     }
     const result = await resp.json().catch(function () { return {}; });
     if (!resp.ok) {
