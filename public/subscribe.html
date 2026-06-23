@@ -61,6 +61,8 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
 .ok-card h2{color:var(--green);font-weight:600;margin-bottom:10px}
 .ok-card p{color:var(--muted);font-size:14px}
 .apple-pay-btn{display:block;width:100%;height:48px;border-radius:8px;cursor:pointer;-webkit-appearance:-apple-pay-button;appearance:-apple-pay-button;-apple-pay-button-type:subscribe;-apple-pay-button-style:black}
+#gpay-button{width:100%;min-height:48px}
+#gpay-button + .apple-pay-btn,.apple-pay-btn + #gpay-button{margin-top:8px}
 .wallet-or{display:flex;align-items:center;text-align:center;color:var(--muted);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin:12px 0 14px}
 .wallet-or:before,.wallet-or:after{content:"";flex:1;height:1px;background:var(--line)}
 .wallet-or span{padding:0 10px}
@@ -102,8 +104,9 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
     </div>
     <input class="b-input" id="a_notes" type="text" placeholder="Gate code, drop-off notes (optional)">
 
-    <div id="applePayWrap" style="display:none">
-      <button id="applePayBtn" class="apple-pay-btn" type="button" aria-label="Subscribe with Apple Pay"></button>
+    <div id="walletWrap" style="display:none">
+      <button id="applePayBtn" class="apple-pay-btn" type="button" style="display:none" aria-label="Subscribe with Apple Pay"></button>
+      <div id="gpay-button" style="display:none"></div>
       <div class="wallet-or"><span>or pay with card</span></div>
     </div>
 
@@ -151,7 +154,8 @@ let planTier = TIERS[qs.get('plan')] ? qs.get('plan') : 'plan_12';
 let chosenWindow = null;   // set only for chooseWindow tiers; required before checkout
 let cardReady = false;
 let card = null;
-let paymentsObj = null;   // Square payments instance (card + Apple Pay both use it)
+let paymentsObj = null;   // Square payments instance (card + Apple Pay + Google Pay all use it)
+let googlePay = null;     // Square Google Pay instance (rebuilt when the plan total changes)
 
 // EN/ES for JS-built strings (static HTML is translated by i18n.js via its dictionary). Mirrors
 // the order.html pattern: pick by AnejoLang, re-render on the langchange event + window load.
@@ -167,6 +171,7 @@ function renderPlans(){
        <div class="pname">${t.label.split(' / ')[0]}</div><div class="pprice">$${fmtPrice(t.price)}</div><div class="pper">${L('per week','por semana')}</div></div>`).join('');
   document.getElementById('sumPrice').textContent = '$'+fmtPrice(TIERS[planTier].price)+L(' / wk',' / sem');
   renderSchedule();
+  refreshWallets();   // keep the Google Pay sheet's total in sync with the selected plan
 }
 function renderSchedule(){
   const s = SCHED[planTier];
@@ -246,14 +251,20 @@ async function init(){
     card = await paymentsObj.card();
     await card.attach('#card-container');
     cardReady = true; updateSubBtn();
-    // Apple Pay — show the button only on capable devices (Safari on iOS/macOS with a Wallet card).
-    // It tokenizes through the same Square SDK + posts to the same endpoint as the card.
+    // Digital wallets — each shows only on a capable device, tokenizes through the same Square SDK,
+    // and posts to the same endpoint as the card. Card field stays the path everywhere else.
+    // Apple Pay (Safari on iOS/macOS with a Wallet card):
     try {
       if (window.ApplePaySession && window.ApplePaySession.canMakePayments()) {
-        var apWrap=document.getElementById('applePayWrap');
-        if (apWrap){ apWrap.style.display='block'; document.getElementById('applePayBtn').addEventListener('click', payWithApplePay); }
+        document.getElementById('applePayBtn').style.display='block';
+        document.getElementById('applePayBtn').addEventListener('click', payWithApplePay);
+        document.getElementById('walletWrap').style.display='block';
       }
-    } catch(_){ /* Apple Pay unavailable → the card field stays the path */ }
+    } catch(_){ /* Apple Pay unavailable */ }
+    // Google Pay (Chrome / Android with a saved card). Built now + rebuilt on plan change so the
+    // Google Pay sheet always shows the current weekly total.
+    document.getElementById('gpay-button').addEventListener('click', payWithGooglePay);
+    await buildGooglePay();
   } catch (e) {
     msg.className='msg err'; msg.textContent=L('Could not load the card field: ','No se pudo cargar el campo de tarjeta: ')+(e.message||e);
   }
@@ -352,6 +363,38 @@ async function payWithApplePay(){
     await finishSub(tok.token, body, subBtn, lbl);
   } catch (e) {
     msg.className='msg err'; msg.textContent=e.message||L('Apple Pay could not be completed — please use a card.','Apple Pay no se pudo completar — usa una tarjeta.');
+  }
+}
+
+// (Re)build the Google Pay button with the CURRENT weekly total. Called once at init and again on
+// every plan change, so the Google Pay sheet never shows a stale amount. No-ops if GP is unavailable.
+async function buildGooglePay(){
+  if (!paymentsObj) return;
+  try {
+    if (googlePay){ try { await googlePay.destroy(); } catch(_){} googlePay=null; }
+    const req = paymentsObj.paymentRequest({ countryCode:'US', currencyCode:'USD',
+      total:{ amount: Number(TIERS[planTier].price).toFixed(2), label:'Añejo Weekly Plan' } });
+    googlePay = await paymentsObj.googlePay(req);
+    await googlePay.attach('#gpay-button', { buttonColor:'black', buttonType:'long', buttonSizeMode:'fill' });
+    document.getElementById('gpay-button').style.display='block';
+    document.getElementById('walletWrap').style.display='block';
+  } catch(_){ /* Google Pay unavailable on this browser/device → card stays the path */ }
+}
+// Rebuild GP on plan change (called from renderPlans). Only rebuilds if GP was set up.
+function refreshWallets(){ if (googlePay) buildGooglePay(); }
+
+// Pay with Google Pay (button attached by Square; wired in init()).
+async function payWithGooglePay(){
+  const subBtn=document.getElementById('subBtn'), msg=document.getElementById('msg');
+  if (!googlePay){ return; }
+  const body = collectBody(); if(!body) return;          // same validations + same field errors
+  const lbl=subBtn.textContent;
+  try {
+    const tok = await googlePay.tokenize();
+    if (tok.status !== 'OK'){ return; }                  // user cancelled
+    await finishSub(tok.token, body, subBtn, lbl);
+  } catch (e) {
+    msg.className='msg err'; msg.textContent=e.message||L('Google Pay could not be completed — please use a card.','Google Pay no se pudo completar — usa una tarjeta.');
   }
 }
 
