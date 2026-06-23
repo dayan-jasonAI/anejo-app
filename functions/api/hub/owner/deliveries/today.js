@@ -19,7 +19,7 @@ export const onRequestGet = async ({ request, env }) => {
     const res = await env.DB
       .prepare(
         "SELECT r.id, r.driver_id, r.route_date, r.stop_count, r.stops_completed, r.stops_failed, " +
-        "r.status, r.ai_optimized, r.total_miles_est, r.started_at, r.completed_at, st.name AS driver_name " +
+        "r.status, r.ai_optimized, r.total_miles_est, r.pay_cents, r.eta_complete_at, r.total_minutes, r.started_at, r.completed_at, st.name AS driver_name " +
         "FROM routes r LEFT JOIN staff st ON st.id = r.driver_id WHERE r.route_date = ? ORDER BY r.created_at ASC"
       )
       .bind(date)

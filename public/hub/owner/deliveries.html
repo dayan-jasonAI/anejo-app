@@ -37,6 +37,83 @@
   function localToday() {
     try { return new Date().toLocaleDateString('en-CA'); } catch (e) { return new Date().toISOString().slice(0, 10); }
   }
+  function money(c) { return '$' + ((Number(c) || 0) / 100).toFixed(2); }
+  function clockET(ms) { try { return new Date(Number(ms)).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+  // The line every route shows: pay · stops · miles · finish ETA.
+  function routeMeta(ro) {
+    var parts = [];
+    if (ro.pay_cents != null) parts.push('<b style="color:var(--green)">' + money(ro.pay_cents) + '</b> pay');
+    parts.push((ro.stops != null ? ro.stops : ro.stop_count || 0) + ' stops');
+    if (ro.total_miles_est != null) parts.push(ro.total_miles_est + ' mi');
+    if (ro.eta_complete_at) parts.push('done ~' + clockET(ro.eta_complete_at));
+    else if (ro.total_minutes != null) parts.push('~' + ro.total_minutes + ' min');
+    return parts.join(' · ');
+  }
+
+  // ---- Smart route planner: group + optimize the day's orders, preview pay/miles/ETA ----
+  var planData = null;
+  function planRoutes() {
+    var date = (document.getElementById('rdate') || {}).value || localToday();
+    var el = document.getElementById('rplan'); if (!el) return;
+    var btn = document.getElementById('rplanbtn'); if (btn) { btn.disabled = true; btn.textContent = 'Planning…'; }
+    Hub.api('/api/hub/owner/route-plan', { method: 'POST', body: { date: date } }).then(function (d) {
+      if (btn) { btn.disabled = false; btn.textContent = '⚡ Suggest efficient route(s)'; }
+      planData = d;
+      if (!d || !d.ok) { el.innerHTML = '<p class="row-sub">Could not plan.</p>'; return; }
+      if (!d.groups || !d.groups.length) { el.innerHTML = '<p class="row-sub">No unassigned orders to plan for this date.</p>'; return; }
+      var dopts = (d.drivers || []).map(function (s) { return '<option value="' + Owner.esc(s.id) + '">' + Owner.esc(s.name || s.id) + (s.available ? ' 🟢' : '') + '</option>'; }).join('');
+      var tot = d.totals || {};
+      el.innerHTML =
+        '<div class="row-sub" style="margin:4px 0 8px">Suggested ' + d.groups.length + ' route' + (d.groups.length > 1 ? 's' : '') + ' for ' + (tot.stops || 0) + ' stops · ~' + (tot.miles || 0) + ' mi · <b>' + money(tot.pay_cents || 0) + '</b> total driver pay</div>' +
+        d.groups.map(function (g, i) {
+          var stops = g.stops.map(function (s) { return '<div class="row-sub" style="padding-left:6px">' + s.seq + '. ' + Owner.esc(s.name) + ' · ' + Owner.esc(s.window) + (s.geocoded ? '' : ' <span class="badge warn">not mapped</span>') + '</div>'; }).join('');
+          return '<div class="card" style="border-left:4px solid var(--gold)">' +
+            '<div class="row-title">Route ' + (i + 1) + (g.optimized ? ' ⚡' : '') + '</div>' +
+            '<div class="row-sub" style="margin:2px 0 6px"><b style="color:var(--green)">' + money(g.pay_cents) + '</b> pay · ' + g.stop_count + ' stops' + (g.miles != null ? ' · ' + g.miles + ' mi' : '') + (g.eta_complete_at ? ' · done ~' + clockET(g.eta_complete_at) : '') + '</div>' +
+            stops +
+            '<div class="field" style="margin-top:8px"><select id="pd_' + i + '">' + dopts + '</select></div>' +
+            '<button class="btn gold block" type="button" onclick="__assignPlan(' + i + ')">Assign this route</button>' +
+          '</div>';
+        }).join('');
+    });
+  }
+  window.__assignPlan = function (i) {
+    if (!planData || !planData.groups || !planData.groups[i]) return;
+    var g = planData.groups[i];
+    var date = (document.getElementById('rdate') || {}).value || localToday();
+    var driver = (document.getElementById('pd_' + i) || {}).value;
+    if (!driver) { Hub.toast('Pick a driver for this route.'); return; }
+    Hub.api('/api/hub/owner/routes', { method: 'POST', body: { driver_id: driver, route_date: date, order_ids: g.order_ids, ai_optimized: true } }).then(function (r) {
+      if (r && r.ok) { Hub.toast('Route assigned — ' + money(r.pay_cents) + ' · ' + (r.stop_count || 0) + ' stops'); planRoutes(); loadAssign(); loadToday(); }
+      else Hub.toast((r && r.error) || 'Could not assign route');
+    });
+  };
+
+  // ---- Owner pay settings (rates take effect on the next route assigned) ----
+  function paySettingsHtml() {
+    return '<details class="aud" style="margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:0 12px">' +
+      '<summary style="cursor:pointer;font-weight:700;color:var(--green);padding:9px 0">💵 Driver pay settings</summary>' +
+      '<div style="padding-bottom:10px"><div class="row-sub" style="margin-bottom:8px">Pay = base + (per-stop × stops) + (per-mile × miles), with a route minimum. Set per-stop &amp; per-mile to 0 for a flat per-route rate.</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        payField('ps_base', 'Base $ / route') + payField('ps_stop', '$ / stop') + payField('ps_mile', '$ / mile') + payField('ps_min', 'Route minimum $') +
+      '</div><button class="btn block" type="button" style="margin-top:10px" onclick="__savePay()">Save pay settings</button></div></details>';
+  }
+  function payField(id, label) {
+    return '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">' + label + '</label>' +
+      '<input id="' + id + '" type="number" step="0.01" min="0" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px"></div>';
+  }
+  function loadPayCfg() {
+    Owner.get('/api/hub/owner/pay-config').then(function (d) {
+      if (!d || !d.ok) return; var c = d.config || {};
+      var set = function (id, cents) { var el = document.getElementById(id); if (el) el.value = ((Number(cents) || 0) / 100).toFixed(2); };
+      set('ps_base', c.base_cents); set('ps_stop', c.per_stop_cents); set('ps_mile', c.per_mile_cents); set('ps_min', c.min_cents);
+    });
+  }
+  window.__savePay = function () {
+    var dollars = function (id) { return Math.round((parseFloat((document.getElementById(id) || {}).value) || 0) * 100); };
+    Hub.api('/api/hub/owner/pay-config', { method: 'POST', body: { base_cents: dollars('ps_base'), per_stop_cents: dollars('ps_stop'), per_mile_cents: dollars('ps_mile'), min_cents: dollars('ps_min') } })
+      .then(function (r) { Hub.toast(r && r.ok ? 'Pay settings saved' : 'Could not save'); });
+  };
 
   function loadAssign() {
     var date = (document.getElementById('rdate') || {}).value || localToday();
@@ -90,7 +167,7 @@
           : ro.offer_status === 'unfilled' ? ' <span class="badge crit" data-i18n>unfilled — reassign</span>'
           : ro.offer_status === 'declined' ? ' <span class="badge warn" data-i18n>declined</span>' : '';
         return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(ro.driver_name || 'Unassigned') +
-          (ro.ai_optimized ? ' ⚡' : '') + offer + '</div><div class="row-sub">' + Owner.esc(String(ro.stops || ro.stop_count || 0)) + ' <span data-i18n>stops</span></div></div>' +
+          (ro.ai_optimized ? ' ⚡' : '') + offer + '</div><div class="row-sub">' + routeMeta(ro) + '</div></div>' +
           Owner.badge(ro.status, Owner.kindFor(ro.status)) + '</div>';
       }).join('') : '<div class="hub-empty" data-i18n>No routes yet.</div>';
       if (window.AnejoI18n) window.AnejoI18n.refresh();
@@ -126,12 +203,20 @@
       '<div class="field"><label data-i18n>Unassigned orders</label><div id="rorders" class="list"><div class="hub-loading">…</div></div></div>' +
       '<button class="btn gold block" id="rassign" type="button" disabled data-i18n>Assign stops</button>' +
       '</div><div id="rexisting" class="list" style="margin-top:10px"></div></div>' +
+      '<div class="hub-section"><h2>⚡ Smart route planner</h2><div class="card">' +
+      '<div class="row-sub" style="margin-bottom:8px">Groups the date’s unassigned orders into the most efficient route(s) — minimizing driven miles &amp; time — and shows stops, miles, finish time, and what each route pays the driver.</div>' +
+      '<button class="btn block" id="rplanbtn" type="button">⚡ Suggest efficient route(s)</button>' +
+      '<div id="rplan" style="margin-top:10px"></div>' +
+      paySettingsHtml() +
+      '</div></div>' +
       '<div id="roll"></div><div class="hub-section"><h2 data-i18n>Routes today</h2><div id="routes" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Deliveries</h2><div id="drops" class="list"><div class="hub-loading">…</div></div></div>';
 
     document.getElementById('rdate').addEventListener('change', loadAssign);
     document.getElementById('rassign').addEventListener('click', doAssign);
+    var pb = document.getElementById('rplanbtn'); if (pb) pb.addEventListener('click', planRoutes);
     loadAssign();
+    loadPayCfg();
     loadToday();
   }
 
@@ -157,9 +242,12 @@
             (p.active.eta_at ? ' · ETA ' + etClock(p.active.eta_at) : '') + '</div>';
         }
         if (p) counts = '<div class="row-sub">' + [p.done ? p.done + ' delivered' : '', (p.en_route + p.arriving) ? (p.en_route + p.arriving) + ' out' : '', p.picked ? p.picked + ' loaded' : '', p.failed ? p.failed + ' failed' : ''].filter(Boolean).join(' · ') + '</div>';
+        var pay = ro.pay_cents != null ? '<b style="color:var(--green)">' + money(ro.pay_cents) + '</b> · ' : '';
+        var fin = ro.eta_complete_at && ro.status !== 'completed' ? ' · done ~' + etClock(ro.eta_complete_at) : '';
         return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(ro.driver_name || 'Unassigned') +
           (ro.ai_optimized ? ' ⚡' : '') + '</div>' + live + counts +
-          '<div class="row-sub">' + Owner.esc((ro.stops_completed || 0) + '/' + (ro.stop_count || 0) + ' stops') + '</div></div>' +
+          '<div class="row-sub">' + pay + Owner.esc((ro.stops_completed || 0) + '/' + (ro.stop_count || 0) + ' stops') +
+          (ro.total_miles_est != null ? ' · ' + ro.total_miles_est + ' mi' : '') + fin + '</div></div>' +
           Owner.badge(ro.status, Owner.kindFor(ro.status)) + '</div>';
       }).join('') : '<div class="hub-empty" data-i18n>No routes today.</div>';
 

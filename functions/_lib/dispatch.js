@@ -13,6 +13,17 @@ function appBase(env) {
   return ((env && env.APP_BASE_URL) || 'https://anejocateringco.com').replace(/\/$/, '');
 }
 
+// "· $32.00 · ~4.2 mi · done by 12:40 PM" — the parts of the offer the driver cares about.
+function offerTerms(route) {
+  const parts = [];
+  if (route && route.pay_cents != null) parts.push('$' + (Number(route.pay_cents) / 100).toFixed(2) + ' pay');
+  if (route && route.total_miles_est != null) parts.push('~' + Number(route.total_miles_est) + ' mi');
+  if (route && route.eta_complete_at) {
+    try { parts.push('done by ' + new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }).format(new Date(Number(route.eta_complete_at)))); } catch { /* skip */ }
+  }
+  return parts.length ? ' — ' + parts.join(' · ') : '';
+}
+
 // Find the driver's latest open thread, or create one (mirror of owner/routes.js).
 async function driverThread(env, driverId, t) {
   try {
@@ -58,7 +69,7 @@ export async function sendOffer(env, route, driver) {
   if (driver.phone) {
     const link = `${appBase(env)}/hub/driver/route.html`;
     try {
-      await sendSms(env, { to: driver.phone, body: `Añejo HUB: New delivery order — ${route.stop_count || ''} stop(s) on ${route.route_date}. Open the app to accept or deny: ${link}` });
+      await sendSms(env, { to: driver.phone, body: `Añejo HUB: New delivery route — ${route.stop_count || ''} stop(s) on ${route.route_date}${offerTerms(route)}. Open the app to accept or deny: ${link}` });
     } catch { /* sms no-op safe */ }
   }
 
@@ -66,7 +77,7 @@ export async function sendOffer(env, route, driver) {
     const thr = await driverThread(env, driver.id, t);
     if (thr) {
       await env.DB.prepare("INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, created_at) VALUES (?,?,'outbound','in_app',NULL,'system',?,0,?)")
-        .bind(id('msg'), thr, `New delivery order offered — ${route.stop_count || ''} stop(s) on ${route.route_date}. Accept or deny in Route.`, t).run();
+        .bind(id('msg'), thr, `New delivery route offered — ${route.stop_count || ''} stop(s) on ${route.route_date}${offerTerms(route)}. Accept or deny in Route.`, t).run();
       await env.DB.prepare('UPDATE threads SET last_message_at=?, updated_at=? WHERE id=?').bind(t, t, thr).run();
     }
   } catch { /* in-app notice best-effort */ }

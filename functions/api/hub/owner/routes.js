@@ -13,7 +13,8 @@ import { today, bit } from '../../../_lib/hub.js';
 import { capture } from '../../../_lib/track.js';
 import { sendSms } from '../../../_lib/twilio.js';
 import { sendOffer } from '../../../_lib/dispatch.js';
-import { geocode, optimizeRoute, formatAddress, stopServiceSeconds } from '../../../_lib/geo.js';
+import { geocode, optimizeRoute, formatAddress, stopServiceSeconds, kitchenOrigin, estimateRouteMiles } from '../../../_lib/geo.js';
+import { getPayConfig, computeRoutePay } from '../../../_lib/pay.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -106,7 +107,7 @@ export const onRequestGet = async ({ request, env }) => {
     const res = await env.DB
       .prepare(
         'SELECT r.id, r.driver_id, r.route_date, r.stop_count, r.stops_completed, r.stops_failed, r.status, r.offer_status, ' +
-        'r.ai_optimized, r.created_at, st.name AS driver_name, ' +
+        'r.ai_optimized, r.created_at, r.eta_complete_at, r.total_minutes, r.total_miles_est, r.pay_cents, st.name AS driver_name, ' +
         '(SELECT COUNT(*) FROM route_stops rs WHERE rs.route_id = r.id) AS stops ' +
         'FROM routes r LEFT JOIN staff st ON st.id = r.driver_id WHERE r.route_date=? ORDER BY r.created_at ASC'
       )
@@ -192,12 +193,15 @@ export const onRequestPost = async ({ request, env }) => {
   let etaCompleteAt = null;
   let totalMinutes = null;
 
+  let totalMeters = null;
+
   const opt = geoStops.length === orderIds.length ? await optimizeRoute(env, geoStops, departAt) : null;
   if (opt && opt.order && opt.order.length === orderIds.length) {
     seqIds = opt.order;
     Object.assign(etaById, opt.arrivalMs);
     etaCompleteAt = opt.completeAtMs;
     totalMinutes = Math.round(opt.totalDriveSeconds / 60) + Math.round((stopServiceSeconds(env) * orderIds.length) / 60);
+    totalMeters = opt.totalMeters || null;
     optimized = true;
   } else {
     // Heuristic ETA: 15 min per stop (drive + drop) from the planned departure.
@@ -207,12 +211,26 @@ export const onRequestPost = async ({ request, env }) => {
     totalMinutes = seqIds.length * 15;
   }
 
+  // Driven miles: prefer the Routes API distance; else a straight-line-through-stops estimate.
+  let miles = totalMeters != null ? Math.round((totalMeters / 1609.344) * 10) / 10 : null;
+  if (miles == null) {
+    const orderedGeo = seqIds.map((oid) => byId.get(oid)).filter((o) => o && o.delivery_lat != null && o.delivery_lng != null)
+      .map((o) => ({ lat: o.delivery_lat, lng: o.delivery_lng }));
+    const origin = kitchenOrigin(env);
+    if (origin && orderedGeo.length) miles = estimateRouteMiles(origin, orderedGeo);
+  }
+
+  // Driver pay for the route/batch (owner-configurable rates).
+  const payCfg = await getPayConfig(env);
+  const pay = computeRoutePay(payCfg, { stops: orderIds.length, miles });
+  const milesEst = pay.miles; // rounded; null if unknown
+
   await env.DB
     .prepare(
-      'INSERT INTO routes (id, driver_id, route_date, stop_count, ai_optimized, status, depart_at, eta_complete_at, total_minutes, created_at, updated_at) ' +
-      "VALUES (?,?,?,?,?,'assigned',?,?,?,?,?)"
+      'INSERT INTO routes (id, driver_id, route_date, stop_count, ai_optimized, status, depart_at, eta_complete_at, total_minutes, total_meters, total_miles_est, pay_cents, created_at, updated_at) ' +
+      "VALUES (?,?,?,?,?,'assigned',?,?,?,?,?,?,?,?)"
     )
-    .bind(routeId, driverId, routeDate, orderIds.length, bit(aiOptimized || optimized), departAt, etaCompleteAt, totalMinutes, t, t)
+    .bind(routeId, driverId, routeDate, orderIds.length, bit(aiOptimized || optimized), departAt, etaCompleteAt, totalMinutes, totalMeters, milesEst, pay.total_cents, t, t)
     .run();
 
   // Stops in optimized (or pick) order, each carrying the drop-off address, coords, and ETA.
@@ -243,12 +261,16 @@ export const onRequestPost = async ({ request, env }) => {
   // (see _lib/dispatch.js + /api/hub/admin/offers-tick). Never fails the assignment.
   let offer = { ok: false };
   try {
-    offer = await sendOffer(env, { id: routeId, stop_count: orderIds.length, route_date: routeDate }, driver);
+    offer = await sendOffer(env, {
+      id: routeId, stop_count: orderIds.length, route_date: routeDate,
+      pay_cents: pay.total_cents, eta_complete_at: etaCompleteAt, total_miles_est: milesEst,
+    }, driver);
   } catch { /* offer notice is best-effort */ }
 
   return json({
     ok: true, id: routeId, stop_count: orderIds.length, optimized,
     eta_complete_at: etaCompleteAt, total_minutes: totalMinutes,
+    miles: milesEst, pay_cents: pay.total_cents, pay_breakdown: pay,
     offer_status: 'pending', offered_to: driverId, offer_sent: !!(offer && offer.ok),
   });
 };

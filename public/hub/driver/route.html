@@ -40,6 +40,7 @@
   .unit.on{background:var(--green,#1A3D2E);color:#fff;border-color:var(--green)}
   .pick-done{font-size:12px;font-weight:700;color:var(--green)}
   .small{font-size:12px;color:#6b6b6b}
+  .pay-line{margin-top:6px;font-size:14px;font-weight:700;color:var(--green);background:#eef5ef;border:1px solid #cfe2d4;border-radius:8px;padding:7px 10px;display:inline-block}
 </style>
 </head>
 <body>
@@ -169,6 +170,19 @@
     ]).then(function (res) { routeData = res[0]; pickupData = res[1]; render(); });
   }
 
+  // Pay / miles / finish-time summary for a route (what the driver earns + scope of the job).
+  function routePayLine(r) {
+    if (!r) return '';
+    var clk = function (ms) { try { return new Date(Number(ms)).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
+    var bits = [];
+    if (r.pay_cents != null) bits.push('💵 $' + (Number(r.pay_cents) / 100).toFixed(2));
+    if (r.stop_count != null) bits.push((r.stop_count) + ' stops');
+    if (r.total_miles_est != null) bits.push(r.total_miles_est + ' mi');
+    if (r.eta_complete_at) bits.push('done ~' + clk(r.eta_complete_at));
+    else if (r.total_minutes != null) bits.push('~' + r.total_minutes + ' min');
+    return bits.length ? '<div class="pay-line">' + bits.join(' &middot; ') + '</div>' : '';
+  }
+
   function render() {
     // Network drop while loading — show a retry instead of a misleading "no route".
     if (routeData && routeData._networkError) {
@@ -189,6 +203,7 @@
     if (r.offer_status === 'pending') {
       head.innerHTML = '<div class="card cur-card"><div class="cur-name" data-i18n>New delivery order</div>' +
         '<div class="stop-addr">' + (r.stop_count || 0) + ' <span data-i18n>stop(s) on</span> ' + Hub.esc(r.route_date || '') + '</div>' +
+        routePayLine(r) +
         '<p class="small" data-i18n>Accept to start, or deny to pass it to another driver.</p>' +
         '<div class="cur-actions">' +
         '<button class="btn gold" id="offer-accept" type="button" data-i18n>✅ Accept order</button>' +
@@ -220,7 +235,7 @@
 
     // Header
     var headHtml = '<div class="row"><div class="row-main"><div class="row-title">' + stops.length + ' stops · ' +
-      done + ' delivered</div><div class="row-sub">' + Hub.esc(r.status) + (r.ai_optimized ? ' · optimized' : '') + '</div></div></div>';
+      done + ' delivered</div><div class="row-sub">' + Hub.esc(r.status) + (r.ai_optimized ? ' · optimized' : '') + '</div>' + routePayLine(r) + '</div></div>';
     if (allPicked && r.status !== 'completed' && routeData.full_route_url) {
       headHtml += '<a class="btn ghost block" href="' + routeData.full_route_url + '" target="_blank" rel="noopener" style="margin-top:8px" data-i18n>🧭 Navigate full route</a>';
     }

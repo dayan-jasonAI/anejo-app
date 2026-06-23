@@ -91,7 +91,7 @@ export async function optimizeRoute(env, stops, departAtMs) {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': env.GOOGLE_MAPS_API_KEY,
-        'X-Goog-FieldMask': 'routes.optimizedIntermediateWaypointIndex,routes.legs.duration,routes.duration',
+        'X-Goog-FieldMask': 'routes.optimizedIntermediateWaypointIndex,routes.legs.duration,routes.distanceMeters,routes.duration',
       },
       body: JSON.stringify(body),
     });
@@ -126,10 +126,30 @@ export async function optimizeRoute(env, stops, departAtMs) {
     const backAtBaseMs = t + backLeg * 1000;
     totalDrive += backLeg;
 
-    return { order, arrivalMs, completeAtMs, backAtBaseMs, totalDriveSeconds: totalDrive };
+    const totalMeters = Number(route.distanceMeters) || null; // round-trip driving distance
+    return { order, arrivalMs, completeAtMs, backAtBaseMs, totalDriveSeconds: totalDrive, totalMeters };
   } catch {
     return null;
   }
+}
+
+const R_EARTH_MI = 3958.7613; // mean Earth radius in miles
+// Great-circle distance (miles) between {lat,lng} points.
+export function haversineMiles(a, b) {
+  if (!a || !b) return 0;
+  const toRad = (d) => (Number(d) || 0) * Math.PI / 180;
+  const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R_EARTH_MI * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
+// Fallback driven-miles estimate when the Routes API is unavailable: straight-line distance
+// through origin → stops (in given order) → origin, inflated by a road-circuity factor.
+export function estimateRouteMiles(origin, orderedStops, circuity = 1.3) {
+  const pts = [origin, ...(orderedStops || []), origin].filter((p) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
+  let mi = 0;
+  for (let i = 1; i < pts.length; i++) mi += haversineMiles(pts[i - 1], pts[i]);
+  return Math.round(mi * circuity * 10) / 10;
 }
 
 // Traffic-aware drive time (seconds) between two points. null = no key / not routable.
