@@ -19,16 +19,6 @@ export const onRequestPost = async ({ request, env }) => {
 
   const body = await request.text();   // RAW body required for signature verification
   const v = await verifySvix(env.RESEND_WEBHOOK_SECRET, request.headers, body);
-  // TEMP DIAGNOSTIC (no secret/signature values logged) — remove once verified.
-  console.log('RESEND_WH_DIAG ' + JSON.stringify({
-    reason: v.reason,
-    secretLen: (env.RESEND_WEBHOOK_SECRET || '').length,
-    secretPrefix: (env.RESEND_WEBHOOK_SECRET || '').slice(0, 6),
-    expPre: (v.expected || '').slice(0, 12),
-    gotPre: ((v.provided || [])[0] || '').slice(0, 12),
-    bodyLen: body.length,
-    bodyHead: body.slice(0, 2),
-  }));
   if (!v.ok) return new Response('invalid signature', { status: 401 });
 
   let evt;
