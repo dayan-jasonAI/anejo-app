@@ -3,260 +3,414 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Añejo HUB — Staff Training</title>
+<title>Añejo HUB — Training</title>
 <meta name="robots" content="noindex">
 <style>
   :root{
     --green:#1A3D2E; --green-700:#15311f; --gold:#C6A85B; --gold-700:#8a7a2e;
     --cream:#F5F2EC; --paper:#fffdf8; --ink:#21302a; --muted:#6f7b74; --line:#e3ddcf;
-    --crit:#b3402f; --ok:#1A3D2E;
+    --crit:#b3402f;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased}
-  .wrap{max-width:760px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+  .wrap{max-width:780px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
   .bar{background:var(--green);color:var(--cream);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
-  .bar h1{font-size:16px;letter-spacing:2px;margin:0;font-weight:700}
-  .bar h1 b{color:var(--gold)}
-  .lang{display:flex;gap:0;border:1px solid rgba(245,242,236,.4);border-radius:20px;overflow:hidden;font-size:12px;font-weight:700}
+  .bar h1{font-size:15px;letter-spacing:2px;margin:0;font-weight:700}.bar h1 b{color:var(--gold)}
+  .bar .right{display:flex;align-items:center;gap:10px}
+  .lang{display:flex;border:1px solid rgba(245,242,236,.4);border-radius:20px;overflow:hidden;font-size:12px;font-weight:700}
   .lang button{background:transparent;color:var(--cream);border:0;padding:5px 11px;cursor:pointer}
   .lang button.on{background:var(--gold);color:var(--green)}
-  .roles{display:flex;gap:6px;padding:12px 14px;flex-wrap:wrap;background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:52px;z-index:4}
-  .roles button{flex:1;min-width:84px;border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:9px 6px;font-weight:700;font-size:13px;color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
-  .roles button .ic{font-size:18px}
-  .roles button.on{background:var(--green);color:#fff;border-color:var(--green)}
-  .stage{flex:1;padding:18px 16px 26px}
-  .prog{display:flex;gap:6px;margin-bottom:14px;align-items:center}
-  .dot{height:6px;border-radius:3px;background:var(--line);flex:1;transition:background .2s}
-  .dot.done{background:var(--gold)} .dot.cur{background:var(--green)}
-  .scene{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 6px 22px rgba(26,61,46,.06)}
-  .scene .kicker{font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--gold-700);text-transform:uppercase}
-  .scene h2{margin:4px 0 12px;font-size:21px;color:var(--green);line-height:1.2}
-  .mock{background:var(--cream);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px;min-height:120px}
-  .vo{font-size:15px;line-height:1.55;margin:0 0 12px}
-  .points{list-style:none;padding:0;margin:0}
-  .points li{position:relative;padding:6px 0 6px 26px;font-size:14px;line-height:1.45;color:#33403a;border-bottom:1px dashed var(--line)}
-  .points li:last-child{border-bottom:0}
-  .points li::before{content:"✓";position:absolute;left:0;top:6px;color:var(--gold-700);font-weight:800}
-  .nav{display:flex;gap:10px;margin-top:16px}
-  .btn{flex:1;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
-  .btn.gold{background:var(--gold);color:var(--green)}
-  .btn.ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
-  .btn:disabled{opacity:.4;cursor:default}
-  .btn.play{background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;gap:8px}
-  .scene{animation:fade .35s ease}
+  .home{color:var(--cream);text-decoration:none;font-size:13px;opacity:.85}
+  /* landing */
+  .land{padding:26px 18px}
+  .land h2{font-size:24px;color:var(--green);margin:0 0 6px}
+  .land p{color:var(--muted);margin:0 0 20px;font-size:15px;line-height:1.5}
+  .pick{display:grid;gap:12px}
+  .pick a{display:flex;align-items:center;gap:14px;background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--gold);
+    border-radius:14px;padding:16px 18px;text-decoration:none;color:var(--ink);box-shadow:0 5px 18px rgba(26,61,46,.05)}
+  .pick a .ic{font-size:26px}
+  .pick a .tt{display:block;font-weight:700;color:var(--green);font-size:17px}
+  .pick a .ds{display:block;font-size:13px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .pick a.full{border-left-color:var(--green);background:#fff8e9}
+  /* module */
+  .stage{flex:1;padding:16px 16px 30px}
+  .modhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .modhead .badge{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--green);background:#e7e0cf;border-radius:20px;padding:4px 11px}
+  .prog{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
+  .dot{height:5px;border-radius:3px;background:var(--line);flex:1 1 8px;min-width:8px}
+  .dot.done{background:var(--gold)}.dot.cur{background:var(--green)}
+  .scene{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 6px 22px rgba(26,61,46,.06);animation:fade .3s ease}
   @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   .scene.playing{box-shadow:0 0 0 2px var(--gold),0 10px 30px rgba(26,61,46,.12)}
-  .scene.playing .vo{background:#fff8e9;border-radius:8px;padding:10px;margin:-2px 0 12px;box-shadow:inset 0 0 0 1px var(--line)}
+  .kicker{font-size:11px;font-weight:800;letter-spacing:1.4px;color:var(--gold-700);text-transform:uppercase}
+  .scene h3{margin:4px 0 12px;font-size:20px;color:var(--green);line-height:1.2}
+  .mock{background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
+  .blk{border-left:3px solid var(--line);padding:8px 0 8px 12px;margin:10px 0;font-size:14px;line-height:1.5}
+  .blk .lab{display:block;font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;margin-bottom:2px}
+  .blk.trig{border-color:var(--gold)} .blk.trig .lab{color:var(--gold-700)}
+  .blk.you{border-color:var(--green)} .blk.you .lab{color:var(--green)}
+  .blk.then{border-color:#9a8} .blk.then .lab{color:#5c7}
+  .blk.then .lab{color:var(--gold-700)}
+  .note{font-size:12.5px;color:var(--muted);background:#fff;border:1px dashed var(--line);border-radius:8px;padding:8px 10px;margin-top:8px}
+  .nav{display:flex;gap:10px;margin-top:16px}
+  .btn{flex:1;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
+  .btn.gold{background:var(--gold);color:var(--green)} .btn.ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+  .btn.play{background:var(--green);color:#fff;width:100%;margin-top:10px}
+  .btn:disabled{opacity:.4;cursor:default}
   .scount{text-align:center;font-size:12px;color:var(--muted);margin-top:10px}
-  /* mock pieces echoing the real HUB */
-  .m-nav{display:flex;background:var(--green-700);border-radius:10px;overflow:hidden}
-  .m-nav span{flex:1;text-align:center;color:rgba(245,242,236,.7);font-size:10px;padding:8px 2px}
-  .m-nav span.on{color:var(--gold)} .m-nav span i{display:block;font-size:16px;font-style:normal}
-  .m-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;margin:6px 0}
-  .m-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .m-title{font-weight:700;color:var(--green);font-size:14px}
-  .m-sub{font-size:12px;color:var(--muted)}
-  .m-badge{display:inline-block;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;background:#eee;color:#555}
-  .m-badge.sub{background:var(--gold);color:var(--green)} .m-badge.ok{background:#dcebe0;color:var(--green)}
-  .m-badge.win{background:#efe7cf;color:var(--gold-700)} .m-badge.crit{background:#f3d9d3;color:var(--crit)}
-  .m-btn{display:block;text-align:center;background:var(--gold);color:var(--green);font-weight:700;border-radius:9px;padding:9px;font-size:13px;margin-top:8px}
-  .m-btn.green{background:var(--green);color:#fff}
-  .m-pin{display:flex;gap:6px;justify-content:center;margin-top:8px}
-  .m-pin b{width:34px;height:40px;border:1.5px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff;font-size:18px}
-  .m-units{display:flex;gap:5px;margin-top:6px}
-  .m-units b{width:26px;height:26px;border:1.5px solid var(--line);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;background:#fff}
-  .m-units b.on{background:var(--green);color:#fff;border-color:var(--green)}
-  .done-card{text-align:center;padding:10px}
-  .done-card .em{font-size:40px}
+  .m-nav{display:flex;background:var(--green-700);border-radius:9px;overflow:hidden}
+  .m-nav span{flex:1;text-align:center;color:rgba(245,242,236,.7);font-size:10px;padding:7px 2px}
+  .m-nav span.on{color:var(--gold)}.m-nav span i{display:block;font-size:15px;font-style:normal}
+  .m-card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px;margin:5px 0}
+  .m-t{font-weight:700;color:var(--green);font-size:13px}.m-s{font-size:12px;color:var(--muted)}
+  .m-b{display:inline-block;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;background:#eee;color:#555}
+  .m-b.sub{background:var(--gold);color:var(--green)}.m-b.ok{background:#dcebe0;color:var(--green)}
+  .m-b.win{background:#efe7cf;color:var(--gold-700)}.m-b.crit{background:#f3d9d3;color:var(--crit)}
+  .m-btn{display:block;text-align:center;background:var(--green);color:#fff;font-weight:700;border-radius:8px;padding:8px;font-size:12px;margin-top:7px}
+  .m-u{display:inline-flex;gap:4px;margin-top:5px}.m-u b{width:24px;height:24px;border:1.5px solid var(--line);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;background:#fff}.m-u b.on{background:var(--green);color:#fff;border-color:var(--green)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="bar">
     <h1>AÑEJO <b>·</b> TRAINING</h1>
-    <div class="lang"><button id="en" class="on" onclick="setLang('en')">EN</button><button id="es" onclick="setLang('es')">ES</button></div>
+    <div class="right">
+      <a class="home" id="homelink" href="/hub/training" style="display:none">↩︎ <span data-t="all">All</span></a>
+      <div class="lang"><button id="en" class="on" onclick="setLang('en')">EN</button><button id="es" onclick="setLang('es')">ES</button></div>
+    </div>
   </div>
-  <div class="roles" id="roles"></div>
-  <div class="stage">
+
+  <div class="land" id="land">
+    <h2 data-t="choose">Choose your training</h2>
+    <p data-t="chooseSub">Pick your role. Each tutorial covers exactly what you need — your screen, what's expected of you, and what kicks off your work. The Owner walkthrough covers the whole system end to end.</p>
+    <div class="pick" id="pick"></div>
+  </div>
+
+  <div class="stage" id="stage" style="display:none">
+    <div class="modhead"><span class="badge" id="mod-badge"></span></div>
     <div class="prog" id="prog"></div>
     <div class="scene" id="scene"></div>
     <div class="nav">
       <button class="btn ghost" id="back" onclick="go(-1)">← <span data-t="back">Back</span></button>
       <button class="btn gold" id="next" onclick="go(1)"><span data-t="next">Next</span> →</button>
     </div>
-    <button class="btn play" id="play" onclick="togglePlay()" style="width:100%;margin-top:10px">▶ Play narrated tour</button>
+    <button class="btn play" id="play" onclick="togglePlay()">▶ <span data-t="play">Play narrated tour</span></button>
     <div class="scount" id="scount"></div>
   </div>
 </div>
+
 <script>
-/* ---- bilingual UI strings ---- */
-var T = {
-  back:{en:'Back',es:'Atrás'}, next:{en:'Next',es:'Siguiente'}, finish:{en:'Finish',es:'Terminar'},
-  scene:{en:'Step',es:'Paso'}, of:{en:'of',es:'de'}
+/* ============ content ============
+   Each step: k kicker, t title, m mock(optional), x TRIGGER, y YOU DO, z THEN(downstream), n note(optional).
+   Staff roles add _es variants (t2,x2,y2,z2). Owner module is English (management). */
+var UI = {
+  all:{en:'All',es:'Todo'}, back:{en:'Back',es:'Atrás'}, next:{en:'Next',es:'Siguiente'}, finish:{en:'Finish',es:'Terminar'},
+  play:{en:'Play narrated tour',es:'Reproducir tour narrado'}, pause:{en:'Pause narration',es:'Pausar narración'},
+  step:{en:'Step',es:'Paso'}, of:{en:'of',es:'de'}, choose:{en:'Choose your training',es:'Elige tu capacitación'},
+  chooseSub:{en:"Pick your role. Each tutorial covers exactly what you need — your screen, what's expected of you, and what kicks off your work. The Owner walkthrough covers the whole system end to end.",
+             es:'Elige tu rol. Cada tutorial cubre justo lo que necesitas — tu pantalla, lo que se espera de ti, y qué inicia tu trabajo. El recorrido del Dueño cubre todo el sistema de principio a fin.'},
+  trig:{en:'Trigger',es:'Qué lo inicia'}, you:{en:'You do',es:'Tú haces'}, then:{en:'Then (automatic)',es:'Luego (automático)'}
 };
 var ROLES = [
-  { key:'everyone', ic:'👋', en:'Everyone', es:'Todos' },
-  { key:'kitchen',  ic:'🍳', en:'Kitchen',  es:'Cocina' },
-  { key:'driver',   ic:'🚚', en:'Driver',   es:'Conductor' },
-  { key:'owner',    ic:'◎',  en:'Owner',    es:'Dueño' }
+  { key:'owner',   ic:'◎',  full:true, en:'Owner — full end-to-end', es:'Dueño — todo de principio a fin', den:'The entire system: order & subscription flow, dispatch, staff, finance, the AI Ops agent, automations, alerts.', des:'Todo el sistema: pedidos y suscripciones, despacho, personal, finanzas, el agente AI Ops, automatizaciones, alertas.' },
+  { key:'kitchen', ic:'🍳', en:'Kitchen', es:'Cocina', den:'Your board, per-bowl prep with PIN, inventory, checklists, Creative Studio, EOD.', des:'Tu tablero, preparación por bowl con PIN, inventario, listas, Creative Studio, EOD.' },
+  { key:'driver',  ic:'🚚', en:'Driver', es:'Conductor', den:'Accept a run, confirm pickup, deliver with proof, report problems, expenses, EOD.', des:'Aceptar una ruta, confirmar recogida, entregar con prueba, reportar problemas, gastos, EOD.' },
+  { key:'vendor',  ic:'📦', en:'Vendor', es:'Proveedor', den:'Receive purchase orders, acknowledge, and confirm what you delivered.', des:'Recibir órdenes de compra, confirmar y marcar lo entregado.' }
 ];
-/* helper to build a scene */
-function S(kicker, en, es, mock){ return { kicker:kicker, en:en, es:es, mock:mock }; }
 
-var TOUR = {
-  everyone: [
-    S({en:'Welcome',es:'Bienvenido'},
-      {h:'This is the HUB',vo:'The Añejo HUB is the one place we run the business — kitchen, delivery, and owner. Add it to your phone’s home screen so it opens like a real app and can send you notifications.',pts:['Open anejocateringco.com/login','Add to Home Screen (do this once)','Open the Añejo icon like any app']},
-      {h:'Esto es el HUB',vo:'El HUB de Añejo es donde operamos todo el negocio — cocina, entregas y dueño. Agrégalo a la pantalla de inicio de tu teléfono para que abra como una app y te envíe notificaciones.',pts:['Abre anejocateringco.com/login','Agregar a pantalla de inicio (una sola vez)','Abre el ícono de Añejo como cualquier app']},
-      '<div class="m-card"><div class="m-title">Añejo HUB</div><div class="m-sub">anejocateringco.com/login</div><div class="m-btn green">＋ Add to Home Screen</div></div>'),
-    S({en:'Your PIN',es:'Tu PIN'},
-      {h:'Sign in with your own PIN',vo:'Everyone has a personal login — never share it. Enter your phone or email, then your 6-digit PIN. Your PIN is your signature: the HUB records who does what.',pts:['Phone or email → Continue','Enter your 6-digit PIN','5 wrong tries = locked 15 min','Never share your PIN']},
-      {h:'Entra con tu propio PIN',vo:'Cada quien tiene su acceso personal — nunca lo compartas. Escribe tu teléfono o correo y tu PIN de 6 dígitos. Tu PIN es tu firma: el HUB registra quién hace cada cosa.',pts:['Teléfono o correo → Continuar','Escribe tu PIN de 6 dígitos','5 intentos fallidos = bloqueo 15 min','Nunca compartas tu PIN']},
-      '<div class="m-card"><div class="m-sub">Enter your PIN</div><div class="m-pin"><b>•</b><b>•</b><b>•</b><b>•</b><b>•</b><b>•</b></div><div class="m-btn">Sign in</div></div>'),
-    S({en:'Getting around',es:'Navegación'},
-      {h:'The bottom bar',vo:'Wherever you are, the bar at the bottom switches between your pages. It never moves, so you never scroll to find it. Comms is our group line, and Account is where you turn on notifications and switch English or Spanish.',pts:['Bottom bar = your menu, always visible','Comms = messages from the owner','Account = notifications, change PIN, EN/ES']},
-      {h:'La barra inferior',vo:'Estés donde estés, la barra de abajo cambia entre tus páginas. Nunca se mueve, así que no tienes que buscarla. Comms es nuestra línea de grupo, y Cuenta es donde activas notificaciones y cambias inglés o español.',pts:['Barra inferior = tu menú, siempre visible','Comms = mensajes del dueño','Cuenta = notificaciones, cambiar PIN, EN/ES']},
-      '<div class="m-nav"><span class="on"><i>🏠</i>Today</span><span><i>🗺️</i>Route</span><span><i>💬</i>Comms</span><span><i>👤</i>Account</span></div>')
+function S(o){ return o; }
+var MOD = {
+  owner: [
+    S({k:'Welcome',t:'The HUB is your whole back office',m:'<div class="m-nav"><span class="on"><i>◎</i>Overview</span><span><i>🧑‍🤝‍🧑</i>Customers</span><span><i>🚚</i>Deliveries</span><span><i>👥</i>Staff</span><span><i>💵</i>Finance</span></div>',
+      x:'You sign in at anejocateringco.com/login with your owner PIN.',
+      y:'Use the bottom bar to move between Overview, Customers, Deliveries, Kitchen, Staff, Finance and Comms — plus AI Ops, Content and Schedule.',
+      z:'Every page reads the same live data that flows in from your public site + Square. You never enter orders by hand.'}),
+    S({k:'The big picture',t:'How one order flows, end to end',
+      x:'A customer checks out on the public site (Square handles payment) — or you take a manual order.',
+      y:'Nothing — you just watch it move. But know the path so you can spot a stuck order.',
+      z:'Square’s webhook marks the order paid → it appears on the Kitchen board → kitchen preps & marks ready → you assign a driver → driver confirms pickup, delivers with a photo → the customer is texted at each step → the order is fulfilled.'}),
+    S({k:'Overview',t:'Command Center — your morning glance',m:'<div class="m-card"><div class="m-t">Today</div><div class="m-s">12 orders · 3 routes · 2 open alerts</div></div>',
+      x:'Opens the moment you land on /hub/owner.',
+      y:'Scan the tiles (orders, deliveries, alerts) and the Activity feed; tap Expand for the full log.',
+      z:'Open alerts here are raised automatically by the system (see the Alerts step). The feed is your audit trail of everything happening.'}),
+    S({k:'Orders',t:'The order lifecycle',m:'<div class="m-card"><span class="m-b">pending</span> → <span class="m-b">paid</span> → <span class="m-b win">prep</span> → <span class="m-b ok">ready</span> → fulfilled</div>',
+      x:'Orders arrive paid from Square, or you add a manual order from the Kitchen/Orders view.',
+      y:'You rarely touch an order directly — the kitchen and driver move it. You can cancel or adjust a manual one.',
+      z:'Status changes ripple: paid → kitchen sees it; ready → available to route; delivered → fulfilled + customer texted.'}),
+    S({k:'Customers',t:'Your CRM',m:'<div class="m-card"><div class="m-t">Maria G. <span class="m-b ok">subscribed</span></div><div class="m-s">orders · subscription · daily schedule</div></div>',
+      x:'Every checkout (guest or member) creates/updates a customer record automatically.',
+      y:'Open anyone to see orders, subscription and their upcoming daily bowls. Onboard a guest into a managed member when you want to attach a plan.',
+      z:'Onboarding links their past guest orders by email and lets you attach a subscription + macro plan.'}),
+    S({k:'Subscriptions',t:'A subscription becomes daily fresh-prep',m:'<div class="m-card"><div class="m-t">12-meal plan</div><div class="m-s">Mon–Sat · lunch+dinner · 1 fresh bowl per window</div></div>',
+      x:'A client subscribes on the public site (Square). The client picks lunch, dinner, or both.',
+      y:'Nothing to do — you just see ONE subscription on the customer’s card.',
+      z:'A nightly job materializes the next 7 days of DAILY kitchen orders (one rotating bowl per chosen window, Mon–Sat, starting next Monday), each tagged “Subscription” on the kitchen board.'}),
+    S({k:'Deliveries',t:'Build & assign a route',m:'<div class="m-card"><div class="m-t">Route · 4 stops</div><div class="m-s">pick driver → Assign</div></div>',
+      x:'You open Deliveries; ready/paid orders for the date show as unassigned.',
+      y:'Select the stops, pick a driver, and Assign. (AI Ops can also propose an optimized route for you to accept.)',
+      z:'Assigning sends the driver an OFFER — see the next step.'}),
+    S({k:'Dispatch',t:'The driver offer & auto-roll',m:'<div class="m-card"><div class="m-t">Luis</div><div class="m-s"><span class="m-b win">awaiting driver</span></div></div>',
+      x:'You assigned a route to a driver.',
+      y:'Watch the badge. If it shows “unfilled — reassign”, pick another driver.',
+      z:'The driver gets a push + text and Accept/Deny buttons. Deny — or 2 minutes of silence — auto-offers the next available driver. If none accept, the route goes “unfilled” and you get a high-priority alert. Every accept/deny/miss is logged on the driver’s card.'}),
+    S({k:'On-demand',t:'ASAP / live orders',
+      x:'A walk-up or on-demand order comes in for same-day delivery.',
+      y:'It’s flagged “ASAP · DISPATCH” on Deliveries — assign it to an available driver right away.',
+      z:'Same offer/accept flow as a planned route; the customer gets the same out-for-delivery + delivered texts.'}),
+    S({k:'Staff',t:'Add & manage staff',m:'<div class="m-card"><div class="m-t">Add staff → one-time PIN</div><div class="m-s">role · team · lead</div></div>',
+      x:'You hire someone, or need to change a role.',
+      y:'In Staff, add the person (you’ll see a one-time PIN to share), set role/team/lead. Reset PIN or deactivate anytime.',
+      z:'They sign in and set their own private PIN on first use. Deactivating removes their access immediately.'}),
+    S({k:'Staff oversight',t:'Reliability, lead times, compliance',
+      x:'Staff act all day — clock-ins, deliveries, EOD reports.',
+      y:'In Staff, read each driver’s reliability (accepted / denied / missed) and set each vendor’s lead-time in days.',
+      z:'Vendor lead-times feed AI Ops’ order timing. Missed EOD reports and late clock-ins raise alerts automatically.'}),
+    S({k:'Security',t:'PINs & the audit trail',
+      x:'Kitchen staff check off bowls and mark orders ready; drivers confirm pickups.',
+      y:'Nothing — but know that each of those requires the staffer’s PIN.',
+      z:'Every PIN-gated action is recorded (who + when) in the kitchen audit log, so a wrong bowl traces back to a person.'}),
+    S({k:'Comms',t:'Messaging & broadcasts',m:'<div class="m-card"><div class="m-t">Threads</div><div class="m-s">driver · kitchen · client · broadcast</div></div>',
+      x:'You need to tell a driver, the kitchen, or a client something.',
+      y:'Open Comms, post to a thread or broadcast. Close/archive a thread when it’s done.',
+      z:'Route assignments and customer notices also drop into Comms automatically, so there’s one history per person.'}),
+    S({k:'Finance',t:'Sales, tips & payouts',
+      x:'Orders get paid and delivered; drivers earn tips; trainers earn rev-share.',
+      y:'Open Finance to see sales, captured tips, and trainer rev-share owed.',
+      z:'Square’s webhook records each payment + tip on the order; trainer rev-share is ledgered on each paid subscription invoice — all automatic.'}),
+    S({k:'Schedule',t:'Driver shifts',
+      x:'You plan who drives when.',
+      y:'In Schedule, assign driver shifts for upcoming days.',
+      z:'Late clock-ins against a scheduled shift raise a late-clock-in alert.'}),
+    S({k:'Content',t:'Brand brief & docs — what trains the AI',m:'<div class="m-card"><div class="m-t">Brand & Standards Brief</div><div class="m-s">menu · house style · allergens · plating</div></div>',
+      x:'You want the AI sous-chef (Creative Studio) and the brand to stay consistent.',
+      y:'In Content, keep the Brand & Standards brief and the docs library current.',
+      z:'Creative Studio reads the brand brief on every AI turn, so updates here change how the AI develops recipes — no developer needed.'}),
+    S({k:'Añejo Ops ①',t:'Demand forecast → prep sheet',m:'<div class="m-card"><div class="m-t">📊 Tomorrow · 28 bowls</div><div class="m-s">75% confidence · 16 sub + 12 on-demand</div></div>',
+      x:'A nightly job (~10pm) runs automatically; you can also tap “Run forecast now.”',
+      y:'Read the forecast + the per-bowl prep sheet in AI Ops.',
+      z:'The forecast = known subscriptions + a same-weekday average of on-demand history; it gets sharper as data accumulates, and the prep sheet drives the kitchen’s morning briefing.'}),
+    S({k:'Añejo Ops ②',t:'Vendor orders — you approve every one',m:'<div class="m-card"><div class="m-t">Vendor order ~$84</div><div class="m-s"><span class="m-b">below par</span> · lands ~Thu</div><div class="m-btn">Accept / Dismiss</div></div>',
+      x:'Inventory drops below par and the forecast says you’ll need more.',
+      y:'In AI Ops → Suggestions, review the proposed order (quantities, cost, order-by/lands-by) and Accept or Dismiss.',
+      z:'Accepting drafts a purchase order the kitchen submits to the vendor. The agent NEVER places an order or spends money on its own — approval is always yours.'}),
+    S({k:'Añejo Ops ③',t:'Briefings, checklists & reports',
+      x:'The first kitchen clock-in fires the morning briefing; cron fires end-of-service checks (after lunch/dinner), the daily standup, and the weekly summary.',
+      y:'Read them in AI Ops → Reports & insights; the briefing also pops up for the kitchen at clock-in.',
+      z:'The agent also scores yesterday’s forecast vs. actual, so you can watch its accuracy improve and trust it with evidence.'}),
+    S({k:'The brain',t:'Automations & the cron schedule',
+      x:'Time-based jobs run every minute and fire when the clock matches: forecast & reports (nightly), reminders & subscription prep (morning), restock + backup (weekly), payroll prep (1st & 15th), driver-offer timeouts (every minute).',
+      y:'Nothing routine — but you can “Run now” any automation from AI Ops.',
+      z:'Hard rule baked into the code: automations produce forecasts, plans, reports and SUGGESTIONS only. Nothing buys, sends, or spends without your explicit confirmation.'}),
+    S({k:'Alerts',t:'What the system flags for you',
+      x:'Real events: a failed delivery, a temperature excursion, a pending expense, an unfilled route, low stock, negative customer sentiment, a missed EOD or late clock-in.',
+      y:'Watch the alerts on Overview; acknowledge or act on each.',
+      z:'Alerts are de-duplicated and auto-close when resolved (e.g. restocking above par clears a low-stock alert).'}),
+    S({k:'Data safety',t:'Backups',
+      x:'A weekly job backs the whole database up to cloud storage; you can also “Backup now.”',
+      y:'Occasionally tap Backup now before a big change, and confirm backups are listed in AI Ops.',
+      z:'Backups rotate on a 30-day retention so a bad day is always recoverable.'}),
+    S({k:'Leads',t:'Marketing leads',
+      x:'Someone fills the macro calculator or a contact form on the public site.',
+      y:'Review captured leads (and their consent) in the owner tools; follow up or onboard.',
+      z:'SMS/email to leads is consent-gated — the system only contacts people who opted in.'}),
+    S({k:'Your rhythm',t:'A day in the HUB',
+      x:'Morning: forecast + prep sheet are ready; kitchen clocks in.',
+      y:'Glance at Overview & alerts → approve any vendor order → assign routes as orders go ready → read the EOD checks after each service → the weekly summary on Sundays.',
+      z:'Most of it runs itself; your job is the few human decisions — approvals, assignments, and the calls only an owner should make.'})
   ],
   kitchen: [
-    S({en:'Start of shift',es:'Inicio de turno'},
-      {h:'Clock in → morning briefing',vo:'Start every shift by clocking in. The first cook to clock in triggers the morning briefing from Añejo Ops — today’s bowl count, the lunch and dinner split, and anything low on stock. Read it before you prep.',pts:['Tap the green Clock-in card','Read the ☀️ morning briefing banner','It shows today’s bowls + low stock']},
-      {h:'Marca entrada → resumen',vo:'Empieza cada turno marcando entrada. El primer cocinero en marcar activa el resumen de la mañana de Añejo Ops — el total de bowls de hoy, el reparto de almuerzo y cena, y lo que esté bajo de inventario. Léelo antes de preparar.',pts:['Toca la tarjeta verde de entrada','Lee el aviso ☀️ del resumen','Muestra los bowls de hoy + bajo inventario']},
-      '<div class="m-card" style="background:#fff8e9;border-color:var(--gold)"><div class="m-title">☀️ Good morning — today</div><div class="m-sub">28 bowls (16 lunch / 12 dinner). ⚠ 2 below par: avocado, quinoa.</div></div>'),
-    S({en:'The board',es:'El tablero'},
-      {h:'Pending → Prep → Ready',vo:'Orders flow left to right. A gold “Subscription” tag is a member’s daily fresh bowl. The badges show the day and whether it’s lunch or dinner. New orders chime.',pts:['Three columns: Pending, Prep, Ready','Gold “Subscription” = member’s daily bowl','Lunch / dinner badge on every card']},
-      {h:'Pendiente → Prep → Listo',vo:'Los pedidos van de izquierda a derecha. La etiqueta dorada “Subscription” es el bowl diario de un miembro. Las insignias muestran el día y si es almuerzo o cena. Los pedidos nuevos suenan.',pts:['Tres columnas: Pendiente, Prep, Listo','Dorado “Subscription” = bowl diario de miembro','Insignia de almuerzo / cena en cada tarjeta']},
-      '<div class="m-card"><div class="m-row"><span class="m-title">Maria G. · 1 item</span><span class="m-badge sub">Subscription</span></div><div class="m-row" style="margin-top:6px"><span class="m-badge ok">2026-06-15</span><span class="m-badge win">lunch</span></div></div>'),
-    S({en:'Per-bowl detail',es:'Detalle del bowl'},
-      {h:'Read every bowl in full',vo:'Tap an order to see each bowl exactly: the size scaled to that member’s macros, the ingredient build with weights, anything removed, any add-ons like half an avocado, and special notes. Make exactly what the card says — the weights matter.',pts:['Size (oz) + size % scaled to their macros','Build list with exact weights','Removals, add-ons (+ ½ avocado), notes']},
-      {h:'Lee cada bowl completo',vo:'Toca un pedido para ver cada bowl exacto: el tamaño ajustado a los macros del miembro, la lista de ingredientes con pesos, lo que se quita, los extras como medio aguacate, y notas especiales. Haz exactamente lo que dice la tarjeta — los pesos importan.',pts:['Tamaño (oz) + % según sus macros','Lista de ingredientes con pesos exactos','Quitados, extras (+ ½ aguacate), notas']},
-      '<div class="m-card"><div class="m-title">FUEGO Bowl · 18oz (112%)</div><div class="m-sub">Steak 5.6oz · Quinoa 3.4oz · Arugula 1.1oz…</div><div class="m-sub" style="color:var(--crit)">− no pickled onion</div><div class="m-sub" style="color:var(--gold-700)">+ ½ avocado</div></div>'),
-    S({en:'Prep + check-offs',es:'Prep + marcado'},
-      {h:'Check off each bowl (PIN)',vo:'Tap Start Prep to claim the order. As you finish each bowl, check it off — the HUB asks for your PIN, so we always know who made what. The driver re-confirms these later, so be honest.',pts:['Start Prep → order moves to Prep','Check each bowl as you finish it','Your PIN confirms it → “✓ by Jorge”']},
-      {h:'Marca cada bowl (PIN)',vo:'Toca Empezar Prep para tomar el pedido. Al terminar cada bowl, márcalo — el HUB pide tu PIN, así siempre sabemos quién lo hizo. El conductor lo reconfirma después, así que sé honesto.',pts:['Empezar Prep → el pedido pasa a Prep','Marca cada bowl al terminarlo','Tu PIN lo confirma → “✓ por Jorge”']},
-      '<div class="m-card"><div class="m-title">Maria G. — prep</div><div class="m-units"><b class="on">✓</b><b class="on">✓</b><b>○</b></div><div class="m-sub" style="margin-top:6px">Tap a bowl → enter PIN</div></div>'),
-    S({en:'Mark ready',es:'Marcar listo'},
-      {h:'Ready is gated + PIN',vo:'You can’t mark an order Ready until every bowl is checked off — on purpose. When it’s all done, Mark Ready, confirm your PIN, and it’s set out for the driver.',pts:['All bowls checked first (or it’s blocked)','Mark Ready → enter your PIN','Order moves to Ready for the driver']},
-      {h:'Listo es bloqueado + PIN',vo:'No puedes marcar un pedido Listo hasta que todos los bowls estén marcados — a propósito. Cuando todo esté hecho, Marca Listo, confirma tu PIN, y queda para el conductor.',pts:['Primero todos los bowls marcados (o se bloquea)','Marcar Listo → escribe tu PIN','El pedido pasa a Listo para el conductor']},
-      '<div class="m-card"><div class="m-title">Maria G.</div><div class="m-units"><b class="on">✓</b><b class="on">✓</b><b class="on">✓</b></div><div class="m-btn green">Mark Ready</div></div>'),
-    S({en:'Inventory & more',es:'Inventario y más'},
-      {h:'Counts, checklists, Studio',vo:'Keep counts current — anything below par turns red and feeds the owner’s vendor-order suggestions. Open and close the kitchen by the Checklists. The Library has every recipe and manual. Creative Studio develops new bowls with our brand-trained AI sous-chef. Finish your shift with EOD and clock out.',pts:['Inventory: update on-hand; set unit cost','Checklists keep us food-safe','Library = recipes & manuals · Studio = new bowls','File EOD + clock out']},
-      {h:'Conteos, listas, Studio',vo:'Mantén los conteos al día — lo que esté bajo de par se pone rojo y alimenta las sugerencias de pedido del dueño. Abre y cierra la cocina con las Listas. La Biblioteca tiene recetas y manuales. Creative Studio desarrolla bowls nuevos con nuestro chef IA entrenado en la marca. Termina con EOD y marca salida.',pts:['Inventario: actualiza existencias; pon costo','Las Listas nos mantienen seguros','Biblioteca = recetas · Studio = bowls nuevos','Envía EOD + marca salida']},
-      '<div class="m-card"><div class="m-row"><span class="m-title">Avocado</span><span class="m-badge crit">below par</span></div><div class="m-sub">on hand 3 · par 12 · $0.90/ea</div></div>')
+    S({k:'Start',t:'Clock in → your morning briefing',m:'<div class="m-card" style="background:#fff8e9;border-color:var(--gold)"><div class="m-t">☀️ Good morning</div><div class="m-s">28 bowls today (16 lunch / 12 dinner) · ⚠ 2 low</div></div>',
+      x:'You arrive and tap the green Clock-in card.',
+      y:'Clock in, then read the ☀️ briefing banner.',
+      z:'The FIRST kitchen clock-in of the day triggers the briefing from Añejo Ops — today’s bowl count, lunch/dinner split, and low-stock items.',
+      t2:'Marca entrada → tu resumen', x2:'Llegas y tocas la tarjeta verde de entrada.', y2:'Marca entrada y lee el aviso ☀️ del resumen.', z2:'La PRIMERA entrada de cocina del día activa el resumen de Añejo Ops — total de bowls, reparto almuerzo/cena, y lo que está bajo de inventario.'}),
+    S({k:'Your screen',t:'The order board',m:'<div class="m-card"><div class="m-t">Maria G. · 1 item <span class="m-b sub">Subscription</span></div><div class="m-s"><span class="m-b ok">today</span> <span class="m-b win">lunch</span></div></div>',
+      x:'Orders appear by themselves and chime.',
+      y:'Work them left to right: Pending → Prep → Ready.',
+      z:'A gold “Subscription” tag is a member’s daily bowl; the badges show day + lunch/dinner.',
+      t2:'Tu pantalla: el tablero', x2:'Los pedidos aparecen solos y suenan.', y2:'Trabájalos de izquierda a derecha: Pendiente → Prep → Listo.', z2:'La etiqueta dorada “Subscription” es el bowl diario de un miembro; las insignias muestran día + almuerzo/cena.'}),
+    S({k:'What starts your work',t:'Where orders come from',
+      x:'A customer pays on the website (Square), OR the nightly job creates a subscriber’s daily bowl, OR the owner adds a manual order.',
+      y:'Nothing to fetch — just respond when a card appears and the bell rings.',
+      z:'You are the next step after payment: the board is your queue.',
+      t2:'Qué inicia tu trabajo', x2:'Un cliente paga en la web (Square), O el trabajo nocturno crea el bowl diario de un suscriptor, O el dueño agrega un pedido manual.', y2:'No buscas nada — responde cuando aparece una tarjeta y suena la campana.', z2:'Eres el siguiente paso después del pago: el tablero es tu fila.'}),
+    S({k:'Detail',t:'Read every bowl in full',m:'<div class="m-card"><div class="m-t">FUEGO · 18oz (112%)</div><div class="m-s">Steak 5.6oz · Quinoa 3.4oz…</div><div class="m-s" style="color:var(--crit)">− no pickled onion</div><div class="m-s" style="color:var(--gold-700)">+ ½ avocado</div></div>',
+      x:'You tap an order on the board.',
+      y:'Make exactly what the card shows: size scaled to the member’s macros, the build with weights, removals, add-ons, and notes.',
+      z:'Subscription bowls are auto-sized to each member’s plan — the weights are not optional.',
+      t2:'Detalle: lee cada bowl', x2:'Tocas un pedido en el tablero.', y2:'Haz exactamente lo que muestra la tarjeta: tamaño según los macros del miembro, la receta con pesos, quitados, extras y notas.', z2:'Los bowls de suscripción se ajustan al plan de cada miembro — los pesos no son opcionales.'}),
+    S({k:'Prep',t:'Check off each bowl — with your PIN',m:'<div class="m-card"><div class="m-t">Maria G. — prep</div><div class="m-u"><b class="on">✓</b><b class="on">✓</b><b>○</b></div></div>',
+      x:'You tap “Start prep” to claim the order.',
+      y:'As you finish each bowl, check it off and enter your PIN.',
+      z:'Your PIN stamps “✓ by [you]” on that bowl — the driver re-confirms it at pickup, so it must be honest.',
+      t2:'Prep: marca cada bowl — con tu PIN', x2:'Tocas “Empezar Prep” para tomar el pedido.', y2:'Al terminar cada bowl, márcalo y escribe tu PIN.', z2:'Tu PIN deja “✓ por [tú]” en ese bowl — el conductor lo reconfirma en la recogida, así que debe ser honesto.'}),
+    S({k:'Ready',t:'Mark Ready — gated + PIN',m:'<div class="m-card"><div class="m-u"><b class="on">✓</b><b class="on">✓</b><b class="on">✓</b></div><div class="m-btn">Mark Ready</div></div>',
+      x:'Every bowl on the order is checked off.',
+      y:'Tap Mark Ready and confirm your PIN. (It’s blocked until all bowls are checked.)',
+      z:'The order moves to Ready and becomes available for the owner to put on a driver’s route — your hand-off to delivery.',
+      t2:'Listo: gated + PIN', x2:'Todos los bowls del pedido están marcados.', y2:'Toca Marcar Listo y confirma tu PIN. (Se bloquea hasta marcar todos.)', z2:'El pedido pasa a Listo y queda disponible para que el dueño lo ponga en la ruta de un conductor — tu entrega a reparto.'}),
+    S({k:'Inventory',t:'Keep counts current',m:'<div class="m-card"><div class="m-t">Avocado <span class="m-b crit">below par</span></div><div class="m-s">on hand 3 · par 12 · $0.90/ea</div></div>',
+      x:'Stock goes up (a delivery arrives) or down (you use it).',
+      y:'Update on-hand counts; set the unit cost and vendor when you add an item.',
+      z:'Anything below par turns red and feeds the owner’s AI vendor-order suggestion — your counts drive what gets ordered.',
+      t2:'Inventario: mantén el conteo', x2:'El inventario sube (llega un pedido) o baja (lo usas).', y2:'Actualiza las existencias; pon el costo unitario y el proveedor al agregar un artículo.', z2:'Lo que esté bajo de par se pone rojo y alimenta la sugerencia de pedido del dueño — tus conteos deciden qué se ordena.'}),
+    S({k:'Restock',t:'Submit a purchase order',
+      x:'The owner accepts an AI vendor suggestion (or you build one manually).',
+      y:'In Restock, review the draft PO and submit it to the vendor.',
+      z:'The vendor receives the PO in their portal; when they mark it delivered, you receive it against inventory.',
+      t2:'Reabastecer: envía una orden', x2:'El dueño acepta una sugerencia del AI (o creas una manual).', y2:'En Reabastecer, revisa la orden borrador y envíala al proveedor.', z2:'El proveedor recibe la orden en su portal; cuando la marca entregada, la recibes contra el inventario.'}),
+    S({k:'Safety',t:'Checklists & temperatures',
+      x:'Opening, closing, sanitation, and cold-chain moments through the day.',
+      y:'Work the Checklists (opening/closing/sanitation) and log temps when prompted.',
+      z:'A temperature outside the safe band raises a critical alert to the owner immediately.',
+      t2:'Seguridad: listas y temperaturas', x2:'Apertura, cierre, sanidad y cadena de frío durante el día.', y2:'Trabaja las Listas (apertura/cierre/sanidad) y registra temperaturas cuando se pida.', z2:'Una temperatura fuera del rango seguro genera una alerta crítica al dueño de inmediato.'}),
+    S({k:'Recipes',t:'Library & Creative Studio',
+      x:'You need a recipe, or you’re developing a new bowl.',
+      y:'Read the Library (recipes & manuals); in Creative Studio, talk/type/snap photos with the AI sous-chef.',
+      z:'The AI is trained on Añejo’s brand brief + standards, so its suggestions stay on-brand; finished recipes save to the Library.',
+      t2:'Recetas: Biblioteca y Creative Studio', x2:'Necesitas una receta, o desarrollas un bowl nuevo.', y2:'Lee la Biblioteca (recetas y manuales); en Creative Studio, habla/escribe/toma fotos con el chef IA.', z2:'El IA está entrenado en el brief de marca + estándares de Añejo, así sus ideas se mantienen en marca; las recetas terminadas se guardan en la Biblioteca.'}),
+    S({k:'End of day',t:'EOD report + clock out',
+      x:'Your shift ends.',
+      y:'File your EOD report and clock out.',
+      z:'Skip it and the owner gets a “missing EOD” alert — so just do it.',
+      t2:'Fin del día: EOD + salida', x2:'Termina tu turno.', y2:'Envía tu reporte EOD y marca salida.', z2:'Si lo omites, el dueño recibe una alerta de “EOD faltante” — así que hazlo.'})
   ],
   driver: [
-    S({en:'New order',es:'Pedido nuevo'},
-      {h:'Accept or deny',vo:'When the owner assigns you a run, you get a notification and a text. Open the app and Accept or Deny. If you deny — or don’t answer within two minutes — it goes to the next available driver automatically. Every accept and deny is on your record.',pts:['Push + text: “New delivery order”','Accept order, or Deny','No answer in 2 min → next driver','Be reliable — it’s tracked']},
-      {h:'Aceptar o rechazar',vo:'Cuando el dueño te asigna una ruta, recibes una notificación y un texto. Abre la app y Acepta o Rechaza. Si rechazas — o no respondes en dos minutos — pasa al siguiente conductor disponible. Cada aceptación y rechazo queda en tu registro.',pts:['Push + texto: “Nuevo pedido de entrega”','Aceptar pedido, o Rechazar','Sin respuesta en 2 min → otro conductor','Sé confiable — se registra']},
-      '<div class="m-card"><div class="m-title">New delivery order</div><div class="m-sub">4 stops on 2026-06-15</div><div class="m-btn green">✅ Accept order</div><div class="m-btn" style="background:#fff;border:1.5px solid var(--line);color:var(--ink)">Deny</div></div>'),
-    S({en:'Pickup',es:'Recogida'},
-      {h:'Confirm every bowl',vo:'Before you leave, load and confirm every bowl — tap each one as it goes in the bag. You’re re-confirming what the kitchen prepped. If something’s short, flag it and the kitchen is alerted. You can’t start deliveries until pickup is confirmed.',pts:['Tap each bowl as you load it','Confirm pickup per stop','Short? Flag it → kitchen alerted','No deliveries until confirmed']},
-      {h:'Confirma cada bowl',vo:'Antes de salir, carga y confirma cada bowl — toca cada uno al ponerlo en la bolsa. Estás reconfirmando lo que preparó la cocina. Si falta algo, márcalo y se avisa a la cocina. No puedes empezar entregas hasta confirmar la recogida.',pts:['Toca cada bowl al cargarlo','Confirma la recogida por parada','¿Falta? Márcalo → se avisa a la cocina','Sin entregas hasta confirmar']},
-      '<div class="m-card"><div class="m-title">Maria G. · 3 bowls</div><div class="m-units"><b class="on">✓</b><b class="on">✓</b><b>○</b></div><div class="m-btn green">Confirm pickup</div></div>'),
-    S({en:'On the road',es:'En ruta'},
-      {h:'Navigate → on the way',vo:'Tap Navigate for each stop — it opens directions and automatically texts that customer you’re on the way. Work the stops top to bottom.',pts:['Navigate opens maps','Customer auto-texted “on the way”','Work stops in order']},
-      {h:'Navegar → en camino',vo:'Toca Navegar en cada parada — abre las direcciones y le avisa por texto al cliente que vas en camino. Haz las paradas de arriba hacia abajo.',pts:['Navegar abre el mapa','Al cliente se le avisa “en camino”','Haz las paradas en orden']},
-      '<div class="m-card" style="background:#fff8e9;border-color:var(--gold)"><div class="m-title">Maria G. <span class="m-sub">ETA 7:38 PM</span></div><div class="m-sub">1234 Main St, Lake Worth</div><div class="m-btn green">🧭 Navigate (notify customer)</div></div>'),
-    S({en:'At the door',es:'En la puerta'},
-      {h:'Photo → Mark delivered',vo:'At the door, take a quick proof photo and Mark delivered. The customer gets a text it’s dropped, and the app jumps to your next stop. No photo? Check the box and it still completes.',pts:['Take a proof photo','Mark delivered → customer texted','Auto-advances to next stop','No photo? Check the box']},
-      {h:'Foto → Marcar entregado',vo:'En la puerta, toma una foto de prueba y Marca entregado. El cliente recibe un texto, y la app salta a la siguiente parada. ¿Sin foto? Marca la casilla y se completa igual.',pts:['Toma una foto de prueba','Marcar entregado → se avisa al cliente','Avanza solo a la siguiente parada','¿Sin foto? Marca la casilla']},
-      '<div class="m-card"><div class="m-title">📷 Mark delivered</div><div class="m-sub">Take a photo at the door</div><div class="m-btn green">Mark delivered</div></div>'),
-    S({en:'Wrap up',es:'Cierre'},
-      {h:'Problems, temps, expenses, EOD',vo:'If a drop fails, Report a problem and pick the reason — the owner sees it instantly. Log cooler temps when asked, snap fuel and expense receipts under Expenses, and finish with your EOD. Complete the route when every stop is done.',pts:['Report a problem: no answer / wrong address / refused','Log cooler temps','Expenses = fuel + receipt photo','Complete route → file EOD']},
-      {h:'Problemas, temps, gastos, EOD',vo:'Si una entrega falla, Reporta un problema y elige la razón — el dueño lo ve al instante. Registra temperaturas cuando se pida, sube recibos de gasolina en Gastos, y termina con tu EOD. Completa la ruta cuando todas las paradas estén hechas.',pts:['Reportar problema: sin respuesta / dirección / rechazado','Registra temperaturas del cooler','Gastos = gasolina + foto del recibo','Completar ruta → enviar EOD']},
-      '<div class="m-card"><div class="m-sub">Report a problem</div><div class="m-row" style="margin-top:6px"><span class="m-badge">No answer</span><span class="m-badge">Wrong address</span><span class="m-badge">Refused</span></div></div>')
+    S({k:'What starts your job',t:'A new delivery order',m:'<div class="m-card"><div class="m-t">New delivery order</div><div class="m-s">4 stops on today</div></div>',
+      x:'The owner assigns you a route.',
+      y:'You get a push notification + a text. Open the app to the Route screen.',
+      z:'This offer is the ONLY thing that starts your work — no offer, nothing to do yet.',
+      t2:'Qué inicia tu trabajo: un pedido', x2:'El dueño te asigna una ruta.', y2:'Recibes una notificación + un texto. Abre la app en la pantalla de Ruta.', z2:'Esta oferta es lo ÚNICO que inicia tu trabajo — sin oferta, nada que hacer aún.'}),
+    S({k:'Decide',t:'Accept or Deny',m:'<div class="m-card"><div class="m-btn">✅ Accept order</div><div class="m-btn" style="background:#fff;border:1.5px solid var(--line);color:var(--ink)">Deny</div></div>',
+      x:'The offer is on your Route screen.',
+      y:'Tap Accept to take it, or Deny if you can’t.',
+      z:'Deny — or no answer within 2 minutes — auto-passes it to the next driver. Every accept/deny/miss is recorded on your card, so be reliable.',
+      t2:'Decide: Aceptar o Rechazar', x2:'La oferta está en tu pantalla de Ruta.', y2:'Toca Aceptar para tomarla, o Rechazar si no puedes.', z2:'Rechazar — o no responder en 2 minutos — la pasa al siguiente conductor. Cada aceptación/rechazo/perdido queda en tu registro, así que sé confiable.'}),
+    S({k:'Pickup',t:'Confirm every bowl',m:'<div class="m-card"><div class="m-t">Maria G. · 3 bowls</div><div class="m-u"><b class="on">✓</b><b class="on">✓</b><b>○</b></div><div class="m-btn">Confirm pickup</div></div>',
+      x:'You accepted the run and you’re loading at the kitchen.',
+      y:'Tap each bowl as it goes in the bag, then Confirm pickup for each stop. If something’s short, flag it.',
+      z:'You’re re-confirming what the kitchen prepped. A flag alerts the kitchen instantly. You CANNOT start deliveries until pickup is confirmed.',
+      t2:'Recogida: confirma cada bowl', x2:'Aceptaste la ruta y cargas en la cocina.', y2:'Toca cada bowl al ponerlo en la bolsa, luego Confirmar recogida por parada. Si falta algo, márcalo.', z2:'Reconfirmas lo que preparó la cocina. Una marca avisa a la cocina al instante. NO puedes empezar entregas hasta confirmar la recogida.'}),
+    S({k:'Roll out',t:'Start deliveries',
+      x:'Every stop’s bowls are confirmed.',
+      y:'Start the route.',
+      z:'The route flips to “out for delivery”; you’ll work the stops top to bottom.',
+      t2:'Salida: empieza las entregas', x2:'Los bowls de cada parada están confirmados.', y2:'Inicia la ruta.', z2:'La ruta pasa a “en reparto”; harás las paradas de arriba hacia abajo.'}),
+    S({k:'En route',t:'Navigate → customer notified',m:'<div class="m-card" style="background:#fff8e9;border-color:var(--gold)"><div class="m-t">Maria G. <span class="m-s">ETA 7:38</span></div><div class="m-btn">🧭 Navigate</div></div>',
+      x:'You’re ready to drive to the next stop.',
+      y:'Tap Navigate — it opens maps.',
+      z:'That customer is automatically texted “on the way.” Your live location powers their ETA.',
+      t2:'En ruta: Navega → se avisa al cliente', x2:'Listo para conducir a la siguiente parada.', y2:'Toca Navegar — abre el mapa.', z2:'A ese cliente se le avisa por texto “en camino.” Tu ubicación en vivo calcula su ETA.'}),
+    S({k:'At the door',t:'Mark delivered (proof photo)',m:'<div class="m-card"><div class="m-t">📷 Mark delivered</div><div class="m-btn">Mark delivered</div></div>',
+      x:'You’re at the customer’s door.',
+      y:'Take a quick proof photo and Mark delivered (or check “couldn’t take a photo”).',
+      z:'The customer is texted “delivered,” the order becomes fulfilled, and the app jumps to your next stop.',
+      t2:'En la puerta: Marcar entregado (foto)', x2:'Estás en la puerta del cliente.', y2:'Toma una foto de prueba y Marca entregado (o marca “sin foto”).', z2:'Al cliente se le avisa “entregado,” el pedido se completa, y la app salta a tu siguiente parada.'}),
+    S({k:'Problems',t:'Report a problem',
+      x:'A drop fails — no answer, wrong address, refused, damaged.',
+      y:'Tap Report a problem and pick the reason.',
+      z:'The owner sees it instantly as an alert and decides what to do.',
+      t2:'Problemas: reporta un problema', x2:'Una entrega falla — sin respuesta, dirección errónea, rechazada, dañada.', y2:'Toca Reportar un problema y elige la razón.', z2:'El dueño lo ve al instante como alerta y decide qué hacer.'}),
+    S({k:'Your records',t:'Temps & expenses',
+      x:'You’re asked to log a cooler temp, or you buy fuel/supplies.',
+      y:'Log temps under Temp; snap fuel/receipt photos under Expenses.',
+      z:'Out-of-range temps alert the owner; expenses appear in the owner’s Finance for approval.',
+      t2:'Tus registros: temps y gastos', x2:'Te piden registrar una temperatura, o compras gasolina/insumos.', y2:'Registra temperaturas en Temp; sube fotos de recibos en Gastos.', z2:'Temperaturas fuera de rango alertan al dueño; los gastos aparecen en Finanzas del dueño para aprobación.'}),
+    S({k:'Availability',t:'Make yourself available',
+      x:'You’re free and want more runs.',
+      y:'Flip the “available for orders” toggle.',
+      z:'Available drivers are offered auto-rolled routes first, so toggling on gets you more work.',
+      t2:'Disponibilidad: ponte disponible', x2:'Estás libre y quieres más rutas.', y2:'Activa el botón “disponible para pedidos.”', z2:'A los conductores disponibles se les ofrecen primero las rutas reasignadas, así que activarlo te da más trabajo.'}),
+    S({k:'End of day',t:'Complete route + EOD',
+      x:'Every stop is delivered or reported.',
+      y:'Complete the route and file your EOD; clock out.',
+      z:'Totals (delivered / failed / minutes) post to the owner; a missed EOD raises an alert.',
+      t2:'Fin del día: completar ruta + EOD', x2:'Cada parada entregada o reportada.', y2:'Completa la ruta y envía tu EOD; marca salida.', z2:'Los totales (entregados / fallidos / minutos) van al dueño; un EOD faltante genera una alerta.'})
   ],
-  owner: [
-    S({en:'Overview',es:'Resumen'},
-      {h:'Your command center',vo:'The Overview is your morning glance — orders, deliveries, and open alerts. The Activity feed shows everything happening and stays compact so your menu’s always reachable.',pts:['Tiles: orders, deliveries, alerts','Activity feed (Expand for more)','Bottom bar: Overview, Customers, Deliveries, Kitchen, Staff, Finance, Comms']},
-      {h:'Tu centro de mando',vo:'El Resumen es tu vistazo matutino — pedidos, entregas y alertas abiertas. El registro de Actividad muestra todo y se mantiene compacto para que tu menú siempre esté a la mano.',pts:['Mosaicos: pedidos, entregas, alertas','Registro de actividad (Expandir)','Barra: Resumen, Clientes, Entregas, Cocina, Staff, Finanzas, Comms']},
-      '<div class="m-nav"><span class="on"><i>◎</i>Overview</span><span><i>🚚</i>Deliveries</span><span><i>👥</i>Staff</span><span><i>🤖</i>AI Ops</span></div>'),
-    S({en:'Deliveries',es:'Entregas'},
-      {h:'Assign a route',vo:'Build routes here — pick the stops and a driver, and assign. That sends the offer. You’ll see “awaiting driver,” then it clears when they accept. If nobody takes it, it shows “unfilled” and you reassign.',pts:['Pick stops + driver → Assign','Sends push + text offer','“awaiting driver” → clears on accept','“unfilled” = reassign']},
-      {h:'Asignar una ruta',vo:'Crea rutas aquí — elige las paradas y un conductor, y asigna. Eso envía la oferta. Verás “esperando conductor”, y se libera al aceptar. Si nadie la toma, dice “sin asignar” y la reasignas.',pts:['Elige paradas + conductor → Asignar','Envía oferta por push + texto','“esperando conductor” → se libera al aceptar','“sin asignar” = reasignar']},
-      '<div class="m-card"><div class="m-row"><span class="m-title">Luis (driver)</span><span class="m-badge win">awaiting driver</span></div><div class="m-sub">4 stops</div></div>'),
-    S({en:'Customers',es:'Clientes'},
-      {h:'CRM + subscriptions',vo:'Customers is your CRM. Open anyone to see their orders and subscription, including the exact daily bowls we’ll deliver this week. Guests can be onboarded into full members here.',pts:['Profile, orders, subscription','Upcoming daily prep schedule','Onboard a guest → member']},
-      {h:'CRM + suscripciones',vo:'Clientes es tu CRM. Abre a cualquiera para ver sus pedidos y suscripción, incluidos los bowls diarios exactos de esta semana. Aquí conviertes invitados en miembros.',pts:['Perfil, pedidos, suscripción','Horario diario de preparación','Convertir invitado → miembro']},
-      '<div class="m-card"><div class="m-title">Maria G. <span class="m-badge ok">subscribed</span></div><div class="m-sub">Mon–Sat · lunch + dinner · 12/wk</div></div>'),
-    S({en:'Staff',es:'Personal'},
-      {h:'PINs, reliability, vendors',vo:'Add staff here — they get a one-time PIN to set their own. You can see each driver’s reliability — accepted, denied, missed — and for vendors, set their lead time so Añejo Ops can time orders.',pts:['Add staff → one-time PIN','Driver reliability: accepted / denied / missed','Vendor “lead days” for order timing']},
-      {h:'PINs, fiabilidad, proveedores',vo:'Agrega personal aquí — reciben un PIN único para poner el suyo. Ves la fiabilidad de cada conductor — aceptados, rechazados, perdidos — y para proveedores, pones su tiempo de entrega para que Añejo Ops calcule los pedidos.',pts:['Agregar personal → PIN único','Fiabilidad: aceptados / rechazados / perdidos','“lead days” del proveedor para el tiempo']},
-      '<div class="m-card"><div class="m-title">Luis</div><div class="m-sub">📦 18 accepted · 1 denied · 0 missed</div></div>'),
-    S({en:'Añejo Ops',es:'Añejo Ops'},
-      {h:'Your AI analyst',vo:'AI Ops forecasts tomorrow’s volume and builds the prep sheet, prepares vendor orders with cost and timing for you to Accept or Dismiss, and writes your daily standup, end-of-service checks, and weekly summary. It never spends a dollar on its own — every order waits for you to confirm. And it tracks its own forecast accuracy so you can trust it over time.',pts:['Forecast → prep sheet (per-bowl counts)','Vendor orders: Accept / Dismiss (you approve)','Briefings, EOD checks, standup, weekly, insights','Nothing auto-spends — ever']},
-      {h:'Tu analista IA',vo:'AI Ops pronostica el volumen de mañana y arma la hoja de preparación, prepara pedidos a proveedores con costo y tiempo para que Aceptes o Descartes, y escribe tu reporte diario, los cierres de servicio y el resumen semanal. Nunca gasta un dólar por su cuenta — cada pedido espera tu confirmación. Y mide su propia precisión para que confíes con el tiempo.',pts:['Pronóstico → hoja de prep (por bowl)','Pedidos: Aceptar / Descartar (tú apruebas)','Resúmenes, cierres, semanal, ideas','Nunca gasta solo — jamás']},
-      '<div class="m-card"><div class="m-title">📊 Tomorrow · 28 bowls forecast</div><div class="m-sub">75% confidence · 16 sub + 12 on-demand</div><div class="m-row" style="margin-top:6px"><span class="m-badge sub">Vendor order ~$84</span><span class="m-badge ok">Accept</span></div></div>')
+  vendor: [
+    S({k:'Who you are',t:'Your vendor portal',
+      x:'The owner set you up as a vendor with a login.',
+      y:'Sign in to see the purchase orders sent to you.',
+      z:'You only see your own orders and what to deliver — nothing else about the business.',
+      t2:'Quién eres: tu portal de proveedor', x2:'El dueño te configuró como proveedor con un acceso.', y2:'Inicia sesión para ver las órdenes de compra que te envían.', z2:'Solo ves tus propias órdenes y qué entregar — nada más del negocio.'}),
+    S({k:'What starts your job',t:'A purchase order arrives',
+      x:'The owner accepts an AI vendor-order suggestion (low stock + forecast), and the kitchen submits the PO.',
+      y:'Open the PO in your portal — items, quantities, and the needed-by date.',
+      z:'This submitted PO is the ONLY thing that starts your work.',
+      t2:'Qué inicia tu trabajo: llega una orden', x2:'El dueño acepta una sugerencia del AI (bajo inventario + pronóstico), y la cocina envía la orden.', y2:'Abre la orden en tu portal — artículos, cantidades y fecha requerida.', z2:'Esta orden enviada es lo ÚNICO que inicia tu trabajo.'}),
+    S({k:'Acknowledge',t:'Confirm you’ve got it',
+      x:'You’ve read the PO.',
+      y:'Acknowledge it so the kitchen knows it’s in progress.',
+      z:'The order status updates on the owner/kitchen side so everyone sees it’s coming.',
+      t2:'Confirmar: acusa recibo', x2:'Leíste la orden.', y2:'Acúsala para que la cocina sepa que está en proceso.', z2:'El estado se actualiza del lado del dueño/cocina para que todos vean que viene.'}),
+    S({k:'Deliver',t:'Mark delivered',
+      x:'You drop off the goods.',
+      y:'Mark the PO delivered (and note any partials).',
+      z:'The kitchen receives it against inventory, which clears the low-stock alert and updates on-hand counts.',
+      t2:'Entregar: marcar entregado', x2:'Dejas la mercancía.', y2:'Marca la orden entregada (y anota parciales).', z2:'La cocina la recibe contra el inventario, lo que cierra la alerta de bajo stock y actualiza las existencias.'})
   ]
 };
 
-/* ---- engine ---- */
-var lang='en', role='everyone', idx=0;
+/* ============ engine ============ */
+var lang='en', role=null, idx=0;
+function qRole(){ try{ var m=/[?&]role=([a-z]+)/.exec(location.search); return m && MOD[m[1]] ? m[1] : null; }catch(e){ return null; } }
+function L(o,f){ return (lang==='es' && o[f+'2']) ? o[f+'2'] : o[f]; }
+function voOf(o){ return L(o,'t')+'. '+UI.trig[lang]+': '+L(o,'x')+' '+UI.you[lang]+': '+L(o,'y')+' '+UI.then[lang]+': '+L(o,'z'); }
 
-/* ---- narrated auto-play (browser speech) ---- */
-var playing=false, speakSeq=0;
-function ttsOn(){ return 'speechSynthesis' in window; }
-function pickVoice(l){
-  try{ var vs=speechSynthesis.getVoices()||[]; var p=l==='es'?'es':'en';
-    return vs.filter(function(v){return v.lang&&v.lang.toLowerCase().indexOf(p)===0;})
-             .sort(function(a,b){return (b.localService?1:0)-(a.localService?1:0);})[0]||null;
-  }catch(e){ return null; }
-}
-function paintPlay(){
-  var b=document.getElementById('play'); if(!b) return;
-  b.textContent = playing ? (lang==='es'?'⏸ Pausar narración':'⏸ Pause narration')
-                          : (lang==='es'?'▶ Reproducir tour narrado':'▶ Play narrated tour');
-}
-function speakCurrent(){
-  if(!playing) return;
-  speakSeq++; var mySeq=speakSeq, advanced=false;
-  var c=TOUR[role][idx][lang];
-  function adv(){ if(advanced||!playing||mySeq!==speakSeq) return; advanced=true;
-    if(idx<TOUR[role].length-1) go(1); else stopPlay(); }
-  var est=Math.max(4500,(c.vo||'').length*60);
-  var timer=setTimeout(adv, est+1600);                 // safety: advance even if speech never ends
-  if(ttsOn()){
-    try{ speechSynthesis.cancel(); }catch(e){}
-    var u=new SpeechSynthesisUtterance(c.vo);
-    u.lang = lang==='es'?'es-ES':'en-US'; var v=pickVoice(lang); if(v) u.voice=v; u.rate=0.98; u.pitch=1;
-    u.onend=function(){ clearTimeout(timer); adv(); };
-    u.onerror=function(){ /* timer fallback advances */ };
-    setTimeout(function(){ if(playing&&mySeq===speakSeq){ try{ speechSynthesis.speak(u);}catch(e){} } }, 90);
+/* narrated autoplay */
+var playing=false, seq=0;
+function tts(){ return 'speechSynthesis' in window; }
+function pickVoice(l){ try{ var v=speechSynthesis.getVoices()||[]; var p=l==='es'?'es':'en'; return v.filter(function(x){return x.lang&&x.lang.toLowerCase().indexOf(p)===0;}).sort(function(a,b){return (b.localService?1:0)-(a.localService?1:0);})[0]||null; }catch(e){ return null; } }
+function paintPlay(){ var b=document.getElementById('play'); if(b) b.innerHTML=(playing?'⏸ ':'▶ ')+'<span>'+(playing?UI.pause[lang]:UI.play[lang])+'</span>'; }
+function speakCur(){
+  if(!playing||!role) return; seq++; var my=seq, adv=false;
+  var sc=MOD[role][idx];
+  function go2(){ if(adv||!playing||my!==seq) return; adv=true; if(idx<MOD[role].length-1) go(1); else stopPlay(); }
+  var txt=voOf(sc); var t=setTimeout(go2, Math.max(5000,txt.length*55)+1600);
+  if(tts()){ try{ speechSynthesis.cancel(); }catch(e){}
+    var u=new SpeechSynthesisUtterance(txt); u.lang=lang==='es'?'es-ES':'en-US'; var v=pickVoice(lang); if(v)u.voice=v; u.rate=0.98;
+    u.onend=function(){ clearTimeout(t); go2(); };
+    setTimeout(function(){ if(playing&&my===seq){ try{ speechSynthesis.speak(u);}catch(e){} } },90);
   }
 }
 function startPlay(){ playing=true; render(); }
-function stopPlay(){ playing=false; speakSeq++; try{ if(ttsOn()) speechSynthesis.cancel(); }catch(e){}
-  var s=document.getElementById('scene'); if(s) s.classList.remove('playing'); paintPlay(); }
+function stopPlay(){ playing=false; seq++; try{ if(tts()) speechSynthesis.cancel(); }catch(e){} var s=document.getElementById('scene'); if(s)s.classList.remove('playing'); paintPlay(); }
 function togglePlay(){ playing?stopPlay():startPlay(); }
-if(ttsOn()){ try{ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=function(){}; }catch(e){} }
-function setLang(l){ lang=l; document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; render(); }
-function setRole(r){ role=r; idx=0; render(); }
-function go(d){ var n=TOUR[role].length; idx=Math.max(0,Math.min(n-1,idx+d)); render(); }
-function renderRoles(){
-  document.getElementById('roles').innerHTML = ROLES.map(function(r){
-    return '<button class="'+(r.key===role?'on':'')+'" onclick="setRole(\''+r.key+'\')"><span class="ic">'+r.ic+'</span>'+r[lang]+'</button>';
+if(tts()){ try{ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=function(){}; }catch(e){} }
+
+function setLang(l){ lang=l; document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; document.querySelectorAll('[data-t]').forEach(function(el){ var k=el.getAttribute('data-t'); if(UI[k]) el.textContent=UI[k][l]; }); if(role) render(); else renderLand(); }
+function go(d){ if(!role) return; var n=MOD[role].length; idx=Math.max(0,Math.min(n-1,idx+d)); render(); }
+
+function renderLand(){
+  document.getElementById('pick').innerHTML = ROLES.map(function(r){
+    return '<a class="'+(r.full?'full':'')+'" href="?role='+r.key+'"><span class="ic">'+r.ic+'</span><span><span class="tt">'+r[lang]+'</span><span class="ds">'+r['d'+lang]+'</span></span></a>';
   }).join('');
 }
 function render(){
-  renderRoles();
-  var scenes=TOUR[role], n=scenes.length, sc=scenes[idx], c=sc[lang];
+  var scenes=MOD[role], n=scenes.length, sc=scenes[idx];
+  document.getElementById('mod-badge').textContent = (ROLES.filter(function(r){return r.key===role;})[0]||{})[lang] || role;
   document.getElementById('prog').innerHTML = scenes.map(function(_,i){ return '<div class="dot '+(i<idx?'done':i===idx?'cur':'')+'"></div>'; }).join('');
   document.getElementById('scene').innerHTML =
-    '<div class="kicker">'+sc.kicker[lang]+'</div><h2>'+c.h+'</h2>'+
-    '<div class="mock">'+sc.mock+'</div>'+
-    '<p class="vo">'+c.vo+'</p>'+
-    '<ul class="points">'+c.pts.map(function(p){return '<li>'+p+'</li>';}).join('')+'</ul>';
+    '<div class="kicker">'+sc.k+'</div><h3>'+L(sc,'t')+'</h3>'+
+    (sc.m?'<div class="mock">'+sc.m+'</div>':'')+
+    '<div class="blk trig"><span class="lab">⚡ '+UI.trig[lang]+'</span>'+L(sc,'x')+'</div>'+
+    '<div class="blk you"><span class="lab">✋ '+UI.you[lang]+'</span>'+L(sc,'y')+'</div>'+
+    '<div class="blk then"><span class="lab">➡ '+UI.then[lang]+'</span>'+L(sc,'z')+'</div>'+
+    (sc.n?'<div class="note">'+L(sc,'n')+'</div>':'');
   document.getElementById('back').disabled = idx===0;
-  var nextBtn=document.getElementById('next');
-  nextBtn.querySelector('[data-t="next"]').textContent = idx===n-1 ? T.finish[lang] : T.next[lang];
-  document.querySelector('[data-t="back"]').textContent = T.back[lang];
-  document.getElementById('scount').textContent = T.scene[lang]+' '+(idx+1)+' '+T.of[lang]+' '+n;
+  document.getElementById('next').querySelector('[data-t="next"]').textContent = idx===n-1 ? UI.finish[lang] : UI.next[lang];
+  document.getElementById('scount').textContent = UI.step[lang]+' '+(idx+1)+' '+UI.of[lang]+' '+n;
   document.getElementById('scene').classList.toggle('playing', playing);
   paintPlay();
-  if(playing) speakCurrent();   // narrated mode: speak this scene, then auto-advance on end
+  if(playing) speakCur();
 }
-render();
+function boot(){
+  role = qRole();
+  if(role){ document.getElementById('land').style.display='none'; document.getElementById('stage').style.display='block'; document.getElementById('homelink').style.display='inline'; render(); }
+  else { document.getElementById('land').style.display='block'; document.getElementById('stage').style.display='none'; renderLand(); }
+}
+boot();
 </script>
 </body>
 </html>
