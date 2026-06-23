@@ -7,7 +7,7 @@
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { today } from '../../../_lib/hub.js';
-import { geocode, optimizeRoute, formatAddress, stopServiceSeconds, kitchenOrigin, estimateRouteMiles } from '../../../_lib/geo.js';
+import { geocode, optimizeRoute, formatAddress, stopServiceSeconds, kitchenOrigin, estimateRouteMiles, haversineMiles } from '../../../_lib/geo.js';
 import { groupOrders } from '../../../_lib/batch.js';
 import { getPayConfig, computeRoutePay } from '../../../_lib/pay.js';
 
@@ -17,6 +17,39 @@ function departMsFor(routeDate, orders) {
   const lunch = (orders || []).some((o) => (o.delivery_window || '') === 'lunch');
   const ms = Date.parse(routeDate + (lunch ? 'T14:30:00Z' : 'T20:00:00Z'));
   return Number.isFinite(ms) ? ms : Date.now();
+}
+
+// Plain-English "why this grouping" for the owner: the zone, how tight the cluster is, and how
+// many miles the optimized stop order trims vs the orders' unsorted arrival order.
+function buildRationale(cOrders, orderIds, byId, origin) {
+  const geo = cOrders.filter((o) => o.delivery_lat != null && o.delivery_lng != null);
+  const cities = cOrders.map((o) => (o.delivery_city || '').trim()).filter(Boolean);
+  const zone = cities.sort((a, b) => cities.filter((c) => c === b).length - cities.filter((c) => c === a).length)[0] || null;
+
+  if (!geo.length) {
+    return { zone, spread_mi: null, saved_mi: null, text: `${cOrders.length} stop(s) without a mapped address — add addresses to include them in routing.` };
+  }
+  if (cOrders.length === 1) {
+    return { zone, spread_mi: 0, saved_mi: 0, text: `Single stop${zone ? ' in ' + zone : ''}.` };
+  }
+
+  const centroid = { lat: geo.reduce((a, o) => a + o.delivery_lat, 0) / geo.length, lng: geo.reduce((a, o) => a + o.delivery_lng, 0) / geo.length };
+  const spread = Math.round((geo.reduce((a, o) => a + haversineMiles({ lat: o.delivery_lat, lng: o.delivery_lng }, centroid), 0) / geo.length) * 10) / 10;
+
+  let saved = null;
+  if (origin) {
+    const toPt = (o) => ({ lat: o.delivery_lat, lng: o.delivery_lng });
+    const naiveGeo = cOrders.filter((o) => o.delivery_lat != null).map(toPt);
+    const optGeo = orderIds.map((id) => byId.get(id)).filter((o) => o && o.delivery_lat != null).map(toPt);
+    if (naiveGeo.length === optGeo.length && optGeo.length) {
+      saved = Math.round(Math.max(0, estimateRouteMiles(origin, naiveGeo) - estimateRouteMiles(origin, optGeo)) * 10) / 10;
+    }
+  }
+
+  const zoneTxt = zone ? `${zone} area` : `${cOrders.length}-stop cluster`;
+  const tight = `${zoneTxt} — ${cOrders.length} stops within ~${spread} mi of each other`;
+  const order = saved == null ? '' : (saved >= 0.3 ? `. Optimized order trims ~${saved} mi vs unsorted` : '. Already in an efficient order');
+  return { zone, spread_mi: spread, saved_mi: saved, text: tight + order + '.' };
 }
 
 export const onRequestPost = async ({ request, env }) => {
@@ -108,6 +141,7 @@ export const onRequestPost = async ({ request, env }) => {
       stop_count: cOrders.length, order_ids: orderIds, optimized,
       miles: pay.miles, total_minutes: totalMinutes, eta_complete_at: etaCompleteAt,
       pay_cents: pay.total_cents, pay_breakdown: pay, stops,
+      rationale: buildRationale(cOrders, orderIds, byId, origin),
     });
   }
 

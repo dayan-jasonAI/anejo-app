@@ -113,7 +113,9 @@
         Owner.tile(Owner.money(d.expenses.approved_cents), 'Expenses approved'),
         Owner.tile(d.expenses.pending_count, 'Expenses pending', { accent: d.expenses.pending_count ? 'accent' : '', badge: Owner.money(d.expenses.pending_cents) }),
         Owner.tile(d.mileage.pending_count, 'Mileage pending', { badge: (d.mileage.pending_miles || 0).toFixed(1) + ' mi' }),
-        Owner.tile(Owner.money(d.rev_share.pending_cents), 'Rev-share owed')
+        Owner.tile(Owner.money(d.rev_share.pending_cents), 'Rev-share owed'),
+        Owner.tile(Owner.money((d.driver_pay && d.driver_pay.completed_cents) || 0), 'Driver pay (earned)', { badge: (d.driver_pay ? d.driver_pay.route_count : 0) + ' routes' }),
+        Owner.tile(Owner.money((d.driver_pay && d.driver_pay.scheduled_cents) || 0), 'Driver pay (scheduled)')
       ].join('');
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });

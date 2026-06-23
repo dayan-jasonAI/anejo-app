@@ -70,6 +70,7 @@
           return '<div class="card" style="border-left:4px solid var(--gold)">' +
             '<div class="row-title">Route ' + (i + 1) + (g.optimized ? ' ⚡' : '') + '</div>' +
             '<div class="row-sub" style="margin:2px 0 6px"><b style="color:var(--green)">' + money(g.pay_cents) + '</b> pay · ' + g.stop_count + ' stops' + (g.miles != null ? ' · ' + g.miles + ' mi' : '') + (g.eta_complete_at ? ' · done ~' + clockET(g.eta_complete_at) : '') + '</div>' +
+            (g.rationale && g.rationale.text ? '<div class="row-sub" style="background:#f3efe2;border-radius:8px;padding:6px 9px;margin-bottom:6px;color:#6b5320">🤖 <b>AI Ops:</b> ' + Owner.esc(g.rationale.text) + '</div>' : '') +
             stops +
             '<div class="field" style="margin-top:8px"><select id="pd_' + i + '">' + dopts + '</select></div>' +
             '<button class="btn gold block" type="button" onclick="__assignPlan(' + i + ')">Assign this route</button>' +

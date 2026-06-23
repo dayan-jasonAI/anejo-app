@@ -43,8 +43,19 @@ export const onRequestGet = async ({ request, env }) => {
   const revShare = await one(env, "SELECT COUNT(*) n, COALESCE(SUM(share_cents),0) cents FROM rev_share_events WHERE occurred_at >= ?", [sinceMs]);
   const revSharePending = await one(env, "SELECT COALESCE(SUM(share_cents),0) cents FROM rev_share_events WHERE payout_status='pending' AND occurred_at >= ?", [sinceMs]);
 
+  // Driver route pay in window. completed = earned/payable now; scheduled = assigned/started (owed on completion).
+  const driverPay = await one(
+    env,
+    "SELECT COUNT(*) n, COALESCE(SUM(pay_cents),0) cents, " +
+    "COALESCE(SUM(CASE WHEN status='completed' THEN pay_cents ELSE 0 END),0) completed_cents, " +
+    "COALESCE(SUM(CASE WHEN status IN ('assigned','started') THEN pay_cents ELSE 0 END),0) scheduled_cents, " +
+    "COALESCE(SUM(total_miles_est),0) miles FROM routes WHERE created_at >= ?",
+    [sinceMs]
+  );
+
   const revenue_cents = (ordersRow && ordersRow.cents) || 0;
   const expenses_approved_cents = (expApproved && expApproved.cents) || 0;
+  const driver_pay_completed_cents = (driverPay && driverPay.completed_cents) || 0;
 
   return json({
     ok: true,
@@ -71,7 +82,14 @@ export const onRequestGet = async ({ request, env }) => {
       total_cents: (revShare && revShare.cents) || 0,
       pending_cents: (revSharePending && revSharePending.cents) || 0,
     },
-    // Rough operating contribution = realized revenue − approved expenses (sandbox estimate).
-    net_estimate_cents: revenue_cents - expenses_approved_cents,
+    driver_pay: {
+      route_count: (driverPay && driverPay.n) || 0,
+      total_cents: (driverPay && driverPay.cents) || 0,
+      completed_cents: driver_pay_completed_cents,
+      scheduled_cents: (driverPay && driverPay.scheduled_cents) || 0,
+      miles: (driverPay && driverPay.miles) || 0,
+    },
+    // Rough operating contribution = realized revenue − approved expenses − driver pay earned (sandbox estimate).
+    net_estimate_cents: revenue_cents - expenses_approved_cents - driver_pay_completed_cents,
   });
 };
