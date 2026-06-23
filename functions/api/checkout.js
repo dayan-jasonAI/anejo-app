@@ -6,6 +6,7 @@ import { square, squareConfigured, money } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress } from '../_lib/geo.js';
 import { BOWL_IDS, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
+import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -38,15 +39,9 @@ function parseAddress(raw) {
 
 // Authoritative à-la-carte catalog (base prices in USD). Bowl size/protein variations and
 // real bites retail pricing are a follow-up; these are the launch defaults.
+// Non-bowl catalog (drinks + a standalone side sauce). Bowls are customized per-instance and
+// priced via BOWL_BASE + priceCustomBowl below.
 const CATALOG = {
-  // Bowls (16 oz, base price)
-  vida:     { name: 'VIDA Bowl',     price: 19.99 },
-  fuego:    { name: 'FUEGO Bowl',    price: 22.99 },
-  ligero:   { name: 'LIGERO Bowl',   price: 18.99 },
-  mar:      { name: 'MAR Bowl',      price: 22.99 },
-  coco:     { name: 'COCO Bowl',     price: 22.99 },
-  congreen: { name: 'CONGREEN Bowl', price: 20.99 },
-  raiz:     { name: 'RAÍZ Bowl',     price: 18.99 },
   // Añejo Fit drinks (12 oz)
   fit_gold:     { name: 'Añejo Fit — Gold Vitality',  price: 9.99 },
   fit_hibiscus: { name: 'Añejo Fit — Hibiscus Zen',   price: 9.99 },
@@ -54,6 +49,76 @@ const CATALOG = {
   // Add-on
   sauce_extra:  { name: 'Extra Signature Sauce (2 oz)', price: 1.50 },
 };
+
+// Bowl base prices in cents (authoritative). Each bowl can be customized per-instance.
+const BOWL_BASE = { vida: 1999, fuego: 2299, ligero: 1899, mar: 2299, coco: 2299, congreen: 2099, raiz: 1899 };
+const HOUSE_SAUCES = ['Mango Omega', 'Ajo Cítrico', 'Chimichurri Vital', 'Golden Turmeric', 'Aguacate Cilantro'];
+// Extra of an on-bowl ingredient: veg/grain/garnish $1.50, protein/premium $3.00.
+const EXTRA_STD_CENTS = 150, EXTRA_PREMIUM_CENTS = 300;
+const PREMIUM_RE = /\b(tuna|salmon|steak|shrimp|chicken|tofu|beef|pork|avocado|queso|cheese|almond|pecan)\b/i;
+const ADDON_PRICE = { avocado_half: 200, extra_protein: 450, sweet_potato: 200, sauce_cup: 150 };
+const ADDON_NAME = { avocado_half: '½ avocado', extra_protein: 'extra protein (4 oz)', sweet_potato: 'sweet potato', sauce_cup: 'extra sauce cup (2 oz)' };
+
+function bowlLabel(key) { const N = String(key || '').toUpperCase(); return BOWL_LABEL[N] || N; }
+
+// Validate + price ONE customized bowl against bowlspec. The protein (build[0]) can't be removed
+// and only ingredients actually on the bowl can be removed or added-extra. Brown-rice swap and
+// added house sauces are free; addons + extra ingredients are priced server-side. Returns a priced
+// snapshot with kitchen-facing fields (removals/addons/notes/build/macros) or { error }.
+function priceCustomBowl(key, mods) {
+  const baseCents = BOWL_BASE[key];
+  if (baseCents == null) return { error: `Unknown bowl: ${key}` };
+  const spec = BOWL_BY_NAME[String(key).toUpperCase()];
+  if (!spec || spec.hidden) return { error: `Unknown bowl: ${key}` };
+  const buildNames = spec.build.map((x) => x.item);
+  const protein = buildNames[0];
+  const m = mods || {};
+
+  const removed = [];
+  for (const r of (Array.isArray(m.removed) ? m.removed : [])) {
+    if (typeof r !== 'string' || !buildNames.includes(r)) return { error: `Can't remove "${r}" from ${spec.name}.` };
+    if (r === protein) return { error: `The protein can't be removed from ${spec.name}.` };
+    if (!removed.includes(r)) removed.push(r);
+  }
+  const base = m.base === 'brown_rice' ? 'brown_rice' : null;
+  const sauces = [];
+  for (const s of (Array.isArray(m.sauces) ? m.sauces : [])) {
+    if (HOUSE_SAUCES.includes(s) && !sauces.includes(s)) sauces.push(s);
+  }
+  let extraCents = 0, avocado = false;
+  const addonLabels = [];
+  for (const e of (Array.isArray(m.extras) ? m.extras.slice(0, 12) : [])) {
+    if (e && e.type === 'ingredient') {
+      if (!buildNames.includes(e.name)) return { error: `Can't add extra "${e && e.name}".` };
+      extraCents += PREMIUM_RE.test(e.name) ? EXTRA_PREMIUM_CENTS : EXTRA_STD_CENTS;
+      addonLabels.push('extra ' + e.name);
+    } else if (e && e.type === 'addon' && ADDON_PRICE[e.id] != null) {
+      extraCents += ADDON_PRICE[e.id];
+      addonLabels.push(ADDON_NAME[e.id]);
+      if (e.id === 'avocado_half') avocado = true;
+    } else {
+      return { error: `Invalid extra on ${spec.name}.` };
+    }
+  }
+
+  const noteParts = [];
+  removed.forEach((r) => noteParts.push('no ' + r.toLowerCase()));
+  if (base === 'brown_rice') noteParts.push('base→brown rice');
+  sauces.forEach((s) => noteParts.push('+' + s));
+  addonLabels.forEach((l) => noteParts.push('+' + l));
+  const keptBuild = spec.build.filter((x) => !removed.includes(x.item)).map((x) => ({ item: x.item, oz: x.oz }));
+
+  return {
+    unitCents: baseCents + extraCents,
+    removed, base, sauces, avocado,
+    addons: [...sauces.map((s) => '+' + s), ...addonLabels.map((l) => '+' + l)],
+    notes: noteParts.join(' · ') || null,
+    build: keptBuild,
+    ingredients: keptBuild.map((x) => x.item),
+    macros: scaledBowlMacros(spec.name, 1),
+    label: bowlLabel(key),
+  };
+}
 
 export const onRequestPost = async ({ request, env }) => {
   // Abuse guard: cap checkout creations per IP (each creates a Square order/payment link).
@@ -72,14 +137,32 @@ export const onRequestPost = async ({ request, env }) => {
   const orderItems = [];
   let subtotalCents = 0;
   for (const it of items) {
-    const prod = CATALOG[it && it.id];
-    if (!prod) return bad(`Unknown item: ${it && it.id}`);
-    const qty = Math.floor(Number(it.qty));
-    if (!Number.isFinite(qty) || qty < 1 || qty > 20) return bad(`Invalid quantity for ${prod.name}.`);
-    const cents = Math.round(prod.price * 100);
-    subtotalCents += cents * qty;
-    lineItems.push({ name: prod.name, quantity: String(qty), base_price_money: money(prod.price) });
-    orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents });
+    if (BOWL_BASE[it && it.id] != null) {
+      // Customized bowl: qty units of one configuration. Re-priced + re-validated server-side.
+      const qty = Math.floor(Number(it.qty));
+      if (!Number.isFinite(qty) || qty < 1 || qty > 20) return bad('Invalid bowl quantity.');
+      const pr = priceCustomBowl(it.id, it.mods);
+      if (pr.error) return bad(pr.error);
+      subtotalCents += pr.unitCents * qty;
+      const lineName = pr.label + ' Bowl';
+      const li = { name: lineName, quantity: String(qty), base_price_money: { amount: pr.unitCents, currency: 'USD' } };
+      if (pr.notes) li.note = pr.notes.slice(0, 500);   // per-line mods for the kitchen on the Square order
+      lineItems.push(li);
+      orderItems.push({
+        id: it.id, name: lineName + (pr.notes ? ' — ' + pr.notes : ''), qty, price_cents: pr.unitCents,
+        size_oz: 16, size_pct: 100, macros: pr.macros, build: pr.build, ingredients: pr.ingredients,
+        removals: pr.removed, addons: pr.addons, notes: pr.notes, avocado: pr.avocado, base: pr.base,
+      });
+    } else {
+      const prod = CATALOG[it && it.id];
+      if (!prod) return bad(`Unknown item: ${it && it.id}`);
+      const qty = Math.floor(Number(it.qty));
+      if (!Number.isFinite(qty) || qty < 1 || qty > 20) return bad(`Invalid quantity for ${prod.name}.`);
+      const cents = Math.round(prod.price * 100);
+      subtotalCents += cents * qty;
+      lineItems.push({ name: prod.name, quantity: String(qty), base_price_money: money(prod.price) });
+      orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents });
+    }
   }
 
   // Two fulfillment modes:
@@ -107,7 +190,7 @@ export const onRequestPost = async ({ request, env }) => {
       for (const itemId of Object.keys(want)) {
         const left = Math.max(0, remaining[itemId] != null ? remaining[itemId] : limit);
         if (want[itemId] > left) {
-          const nm = CATALOG[itemId].name;
+          const nm = bowlLabel(itemId) + ' Bowl';
           return bad(
             left > 0
               ? `${nm} is limited to ${limit}/day on-demand — only ${left} left today. Lower the quantity or schedule a delivery.`

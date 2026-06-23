@@ -285,7 +285,10 @@
     // order page — input placeholders
     "First name":"Nombre","Mobile number":"Número de móvil","Mobile number (optional)":"Número de móvil (opcional)",
     "Street address":"Dirección","Apt / unit / suite (optional)":"Apto / unidad / suite (opcional)",
-    "City":"Ciudad","ZIP":"Código postal","Gate code, drop-off notes (optional)":"Código de acceso, notas de entrega (opcional)"
+    "City":"Ciudad","ZIP":"Código postal","Gate code, drop-off notes (optional)":"Código de acceso, notas de entrega (opcional)",
+    // order page — customize modal section headers (chip labels + buttons are localized in order.html JS)
+    "Protein":"Proteína","Remove ingredients":"Quitar ingredientes","Add a sauce":"Agregar una salsa",
+    "Extra of an ingredient":"Extra de un ingrediente","Add to order":"Agregar al pedido"
   };
 
   var origText = new WeakMap();   // text node / option -> original english value

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Añejo HUB — Staff Training (title card)</title>
+<meta name="hz:slide-selector" content=".slide" />
+<meta name="hz:canvas-width" content="1920" />
+<meta name="hz:canvas-height" content="1080" />
+<link rel="stylesheet" href="https://use.typekit.net/yha0qry.css">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { display:flex; justify-content:center; align-items:center; min-height:100vh; background:#0e1f17; }
+  .slide {
+    position:relative; width:1920px; height:1080px; overflow:hidden;
+    background:
+      radial-gradient(1200px 700px at 50% 38%, #21442f 0%, #1a3a28 45%, #143020 100%);
+    font-family:"source-sans-3", sans-serif; color:#F5F2EC;
+  }
+  /* thin gold frame */
+  .frame { position:absolute; inset:46px; border:2px solid rgba(198,168,91,.55); border-radius:10px; }
+  .corner { position:absolute; width:34px; height:34px; border:3px solid #C6A85B; }
+  .c-tl { top:60px; left:60px; border-right:0; border-bottom:0; }
+  .c-tr { top:60px; right:60px; border-left:0; border-bottom:0; }
+  .c-bl { bottom:60px; left:60px; border-right:0; border-top:0; }
+  .c-br { bottom:60px; right:60px; border-left:0; border-top:0; }
+
+  .emblem { position:absolute; top:170px; left:50%; transform:translateX(-50%); }
+
+  .eyebrow {
+    position:absolute; top:330px; left:0; right:0; text-align:center;
+    font-family:"source-sans-3", sans-serif;
+    font-weight:600; font-size:26px; letter-spacing:9px; color:#C6A85B; text-transform:uppercase;
+  }
+  .title {
+    position:absolute; top:372px; left:0; right:0; text-align:center;
+    font-family:"playfair-display", serif; font-weight:700; font-size:172px; line-height:1; color:#F5F2EC;
+  }
+  .title .gold { color:#C6A85B; }
+  .rule { position:absolute; top:600px; left:50%; transform:translateX(-50%); width:240px; height:3px;
+    background:linear-gradient(90deg, transparent, #C6A85B, transparent); }
+  .subtitle {
+    position:absolute; top:638px; left:0; right:0; text-align:center;
+    font-family:"source-sans-3", sans-serif;
+    font-size:38px; font-weight:400; color:rgba(245,242,236,.92); letter-spacing:1px;
+  }
+  .subtitle .dot { color:#C6A85B; padding:0 14px; }
+  .roles {
+    position:absolute; top:726px; left:0; right:0; text-align:center;
+    font-family:"source-sans-3", sans-serif;
+    font-size:25px; letter-spacing:5px; color:rgba(245,242,236,.62); text-transform:uppercase;
+  }
+  .foot {
+    position:absolute; bottom:96px; left:0; right:0; text-align:center;
+    font-family:"source-sans-3", sans-serif;
+    font-size:27px; color:#C6A85B; letter-spacing:2px;
+  }
+  .foot .sep { color:rgba(245,242,236,.45); padding:0 16px; }
+  .lang { display:inline-block; border:1.5px solid rgba(198,168,91,.7); border-radius:30px; padding:5px 16px; font-size:21px; letter-spacing:3px; color:#F5F2EC; }
+</style>
+</head>
+<body>
+  <div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+    <div class="frame"></div>
+    <div class="corner c-tl"></div><div class="corner c-tr"></div>
+    <div class="corner c-bl"></div><div class="corner c-br"></div>
+
+    <!-- emblem: gold ring + leaf -->
+    <svg class="emblem" width="120" height="120" viewBox="0 0 120 120" fill="none">
+      <circle cx="60" cy="60" r="54" stroke="#C6A85B" stroke-width="3"/>
+      <path d="M60 34 C74 46, 80 64, 60 88 C40 64, 46 46, 60 34 Z" fill="#C6A85B"/>
+      <path d="M60 42 L60 84" stroke="#1a3a28" stroke-width="3"/>
+    </svg>
+
+    <div class="eyebrow">Añejo Catering Co. · Staff Training</div>
+    <div class="title">The Añejo <span class="gold">HUB</span></div>
+    <div class="rule"></div>
+    <div class="subtitle">Run the business<span class="dot">·</span>one place, every role</div>
+    <div class="roles">Kitchen &nbsp;·&nbsp; Delivery &nbsp;·&nbsp; Owner</div>
+
+    <div class="foot">anejocateringco.com/hub/training <span class="sep">|</span> <span class="lang">EN / ES</span></div>
+  </div>
+</body>
+</html>
