@@ -364,10 +364,11 @@
     var contract = o.is_contract ? '<span class="badge" style="background:#1b3a2b;color:#fff;font-weight:700" data-i18n>Contract</span>' : '';
     var rush = o.is_rush ? '<span class="badge crit" style="font-weight:700">⚡ RUSH</span>' : '';
     var doneLbl = (stage === 'prep' || stage === 'ready') ? bowlsDoneLabel(o) : '';
+    var allerg = (o.is_contract && o.delivery_notes) ? '<div class="row-sub" style="color:var(--crit);font-weight:700;margin-top:4px">⚠ ' + esc(o.delivery_notes) + '</div>' : '';
     var body = (o.bowls && o.bowls.length) ? bowlRows(o, stage === 'prep') : orderItems(o);
     return '<div class="card order-card"><div class="row" style="padding:0;border:none">' +
       '<div class="row-main"><div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + (o.item_count || 0) + ' items' + doneLbl + '</div>' +
-      '<div class="row-sub">' + esc(o.id) + '</div></div>' + contract + rush + sub + dt + win + '</div>' +
+      '<div class="row-sub">' + esc(o.id) + '</div>' + allerg + '</div>' + contract + rush + sub + dt + win + '</div>' +
       body + actions + '</div>';
   }
 

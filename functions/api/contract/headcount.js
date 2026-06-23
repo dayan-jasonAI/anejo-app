@@ -12,6 +12,6 @@ export const onRequestPost = async ({ request, env }) => {
   if (limited) return limited;
   let b;
   try { b = await request.json(); } catch { return bad('Invalid request.'); }
-  const r = await submitHeadcount(env, { token: b && b.t, count: b && b.count, submittedBy: b && b.by });
+  const r = await submitHeadcount(env, { token: b && b.t, count: b && b.count, submittedBy: b && b.by, notes: b && b.notes });
   return json(r);
 };

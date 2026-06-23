@@ -1,7 +1,12 @@
 # Square go-live runbook (flip sandbox → production)
 
-**Status:** the site runs on Square **sandbox**. Everything is wired; going live is a credentials
-swap. **Do NOT do the final flip until the DBPR food license is in hand** — production = real charges.
+**Status (2026-06-23): Part A COMPLETE — staged and waiting on DBPR.** The 3 production
+subscription plans are created and the production webhook is registered; the owner holds the
+go-live packet (prod token, App ID, Location ID, 3 plan var IDs, webhook signature key) off-line.
+The site still runs on Square **sandbox** (working, no real charges). **Only Part B remains** —
+the Cloudflare env flip — and it is **blocked on the DBPR food license** (production = real charges).
+Do NOT do Part B until that license is in hand. (Note: the owner ran `scripts/create-square-plans.mjs`
+for A2; the `create-prod-square-plans.mjs` reference below is an equivalent earlier copy.)
 
 The flip is split in two so nothing risky happens early:
 - **Part A — Stage now** (safe, no real money): create the production plans + register the webhook,

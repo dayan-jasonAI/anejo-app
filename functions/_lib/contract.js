@@ -45,7 +45,7 @@ async function resolveItem(env, account, dateStr) {
 
 // Submit a site's headcount for today. Idempotent per (site, service_date): a re-submit
 // updates the count + order. Returns a summary object; { ok:false, error } on a problem.
-export async function submitHeadcount(env, { token, count, nowMs, submittedBy } = {}) {
+export async function submitHeadcount(env, { token, count, nowMs, submittedBy, notes } = {}) {
   if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
   const t = typeof nowMs === 'number' ? nowMs : now();
 
@@ -73,6 +73,7 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy } 
   const total = subtotal + deliveryFee + rushFee;
   const item = await resolveItem(env, account, date);
   const shortName = `${(account.name || 'Contract').split(' ')[0]} · ${site.name}`;
+  const cleanNotes = (notes || '').toString().trim().slice(0, 400) || null; // allergies / special requests
 
   // 1) Kitchen order (deterministic id; upsert so re-submits update the count without losing prep state).
   const orderId = `octr_${site.id}_${date}`;
@@ -81,16 +82,16 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy } 
     await env.DB.prepare(
       `INSERT INTO orders
          (id, items, delivery_date, delivery_window, subtotal_cents, fee_cents, total_estimate_cents,
-          status, customer_name, delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip,
+          status, customer_name, delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
           delivery_lat, delivery_lng, fulfillment_mode, contract_site_id, headcount, is_rush, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?, 'paid', ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?)
+       VALUES (?,?,?,?,?,?,?, 'paid', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          items=excluded.items, subtotal_cents=excluded.subtotal_cents, fee_cents=excluded.fee_cents,
          total_estimate_cents=excluded.total_estimate_cents, customer_name=excluded.customer_name,
-         headcount=excluded.headcount, is_rush=excluded.is_rush, updated_at=excluded.updated_at`
+         delivery_notes=excluded.delivery_notes, headcount=excluded.headcount, is_rush=excluded.is_rush, updated_at=excluded.updated_at`
     ).bind(
       orderId, items, date, site.delivery_window || 'lunch', subtotal, deliveryFee + rushFee, total,
-      shortName, site.street || null, site.unit || null, site.city || null, site.state || null, site.zip || null,
+      shortName, site.street || null, site.unit || null, site.city || null, site.state || null, site.zip || null, cleanNotes,
       site.delivery_lat != null ? site.delivery_lat : null, site.delivery_lng != null ? site.delivery_lng : null,
       site.id, n, isRush ? 1 : 0, t, t
     ).run();
@@ -101,15 +102,15 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy } 
     await env.DB.prepare(
       `INSERT INTO contract_orders
          (id, site_id, account_id, service_date, headcount, item_name, price_per_lunch_cents,
-          delivery_fee_cents, rush_fee_cents, total_cents, order_id, submitted_by, is_rush, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          delivery_fee_cents, rush_fee_cents, total_cents, order_id, submitted_by, is_rush, notes, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT(site_id, service_date) DO UPDATE SET
          headcount=excluded.headcount, item_name=excluded.item_name, delivery_fee_cents=excluded.delivery_fee_cents,
          rush_fee_cents=excluded.rush_fee_cents, total_cents=excluded.total_cents, order_id=excluded.order_id,
-         submitted_by=excluded.submitted_by, is_rush=excluded.is_rush, updated_at=excluded.updated_at`
+         submitted_by=excluded.submitted_by, is_rush=excluded.is_rush, notes=excluded.notes, updated_at=excluded.updated_at`
     ).bind(
       id('cord'), site.id, account.id, date, n, item, pricePer, deliveryFee, rushFee, total,
-      orderId, (submittedBy || 'web').toString().slice(0, 80), isRush ? 1 : 0, t, t
+      orderId, (submittedBy || 'web').toString().slice(0, 80), isRush ? 1 : 0, cleanNotes, t, t
     ).run();
   } catch { /* order already recorded; ledger is best-effort but log-worthy */ }
 
@@ -117,8 +118,22 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy } 
     ok: true, account: account.name, site: site.name, date, weekday: DOW_LABEL[dow - 1],
     count: n, item, price_per_lunch_cents: pricePer, subtotal_cents: subtotal,
     delivery_fee_cents: deliveryFee, rush_fee_cents: rushFee, total_cents: total,
-    is_rush: isRush, window: site.window_label || '11:30–12:30',
+    is_rush: isRush, window: site.window_label || '11:30–12:30', notes: cleanNotes,
   };
+}
+
+// This-month history for a site (for the office's running tracker). Returns days + totals.
+async function monthFor(env, siteId, date) {
+  const prefix = date.slice(0, 7); // YYYY-MM
+  let days = [];
+  try {
+    days = ((await env.DB.prepare(
+      'SELECT service_date, headcount, total_cents, is_rush, notes FROM contract_orders WHERE site_id = ? AND service_date LIKE ? ORDER BY service_date ASC'
+    ).bind(siteId, prefix + '%').all()).results) || [];
+  } catch { days = []; }
+  const lunches = days.reduce((s, d) => s + (Number(d.headcount) || 0), 0);
+  const total = days.reduce((s, d) => s + (Number(d.total_cents) || 0), 0);
+  return { prefix, lunches, total_cents: total, count_days: days.length, days };
 }
 
 // Public context for the intake page (site name, date, whether delivery runs today, cutoff
@@ -135,13 +150,15 @@ export async function siteContext(env, token, nowMs) {
   const deliversToday = days.includes(DOW_NAMES[dow - 1]);
   const pastCutoff = etMinutes(t) >= cutoffMin(site.cutoff_time);
   let existing = null;
-  try { existing = await env.DB.prepare('SELECT headcount, total_cents, is_rush FROM contract_orders WHERE site_id = ? AND service_date = ?').bind(site.id, date).first(); } catch { /* none */ }
+  try { existing = await env.DB.prepare('SELECT headcount, total_cents, is_rush, notes FROM contract_orders WHERE site_id = ? AND service_date = ?').bind(site.id, date).first(); } catch { /* none */ }
+  const month = await monthFor(env, site.id, date);
   return {
     ok: true, account: (account && account.name) || '', site: site.name, date, weekday: DOW_LABEL[dow - 1],
     delivers_today: deliversToday, window: site.window_label || '11:30–12:30',
     cutoff: site.cutoff_time || '09:00', past_cutoff: pastCutoff,
     price_per_lunch_cents: Number(site.price_per_lunch_cents) || 0,
-    already: existing ? { count: existing.headcount, total_cents: existing.total_cents, is_rush: !!existing.is_rush } : null,
+    already: existing ? { count: existing.headcount, total_cents: existing.total_cents, is_rush: !!existing.is_rush, notes: existing.notes || null } : null,
+    month,
   };
 }
 

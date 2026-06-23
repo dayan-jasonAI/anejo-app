@@ -7,51 +7,100 @@
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <style>
-  :root{--black:#0D0D0D;--green:#1A3D2E;--gold:#C6A85B;--gold-deep:#C08418;--cream:#F5F2EC;--ink:#1f2a24;--muted:#6f7b74;--line:#e3ddcf;--crit:#b3402f}
+  :root{--black:#0D0D0D;--green:#1A3D2E;--green-700:#13301d;--gold:#C6A85B;--gold-deep:#C08418;--gold-700:#8a7a2e;--cream:#F5F2EC;--ink:#1f2a24;--muted:#6f7b74;--line:#e3ddcf;--crit:#b3402f}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased}
-  .hero{background:var(--black);color:var(--cream);padding:30px 22px 24px;text-align:center}
-  .hero .brand{font-family:Georgia,serif;letter-spacing:7px;color:var(--gold);font-size:22px;font-weight:600}
-  .hero .sub{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:rgba(245,242,236,.7);margin-top:8px}
-  .wrap{max-width:460px;margin:0 auto;padding:24px 20px 60px}
-  .card{background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(26,61,46,.07)}
-  .site{font-size:22px;font-weight:700;color:var(--green)}
-  .meta{color:var(--muted);font-size:14px;margin:6px 0 2px}
-  .meta b{color:var(--ink)}
-  .win{display:inline-block;background:#fff8e9;border:1px solid var(--gold);color:var(--gold-deep);font-weight:700;font-size:13px;border-radius:20px;padding:5px 14px;margin-top:12px}
-  .banner{border-radius:9px;padding:11px 14px;font-size:13.5px;line-height:1.5;margin-top:14px}
+  .hero{background:radial-gradient(120% 120% at 50% 0%,#16331f 0%,var(--black) 70%);color:var(--cream);padding:26px 22px 30px;text-align:center;position:relative}
+  .hero .lang{position:absolute;top:16px;right:16px;display:flex;border:1px solid rgba(245,242,236,.35);border-radius:20px;overflow:hidden;font-size:12px;font-weight:700}
+  .hero .lang button{background:transparent;color:var(--cream);border:0;padding:5px 11px;cursor:pointer}
+  .hero .lang button.on{background:var(--gold);color:var(--green)}
+  .hero img.emblem{height:54px;margin-bottom:8px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.4))}
+  .hero .brand{font-family:Georgia,serif;letter-spacing:8px;color:var(--gold);font-size:22px;font-weight:600}
+  .hero .sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(245,242,236,.72);margin-top:8px}
+  .wrap{max-width:480px;margin:0 auto;padding:22px 18px 70px}
+  .card{background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:16px;padding:22px;margin-bottom:16px;box-shadow:0 10px 34px rgba(26,61,46,.08)}
+  .site{font-size:23px;font-weight:800;color:var(--green);letter-spacing:-.3px}
+  .meta{color:var(--muted);font-size:13.5px;margin:5px 0 2px}
+  .win{display:inline-flex;align-items:center;gap:6px;background:#fff8e9;border:1px solid var(--gold);color:var(--gold-deep);font-weight:700;font-size:13px;border-radius:20px;padding:5px 14px;margin-top:12px}
+  .banner{border-radius:10px;padding:11px 14px;font-size:13.5px;line-height:1.5;margin-top:14px}
   .banner.warn{background:#fbf3da;border:1px solid var(--gold);color:#6b5320}
   .banner.crit{background:#f7e3de;border:1px solid var(--crit);color:#7a2418}
   .banner.ok{background:#e1efe5;border:1px solid var(--green);color:var(--green)}
-  .lab{display:block;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--green);margin:22px 0 8px}
-  .counter{display:flex;align-items:center;gap:14px;justify-content:center}
+  .lab{display:block;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--green);margin:22px 0 9px}
+  .counter{display:flex;align-items:center;gap:16px;justify-content:center}
   .counter button{width:58px;height:58px;border-radius:50%;border:2px solid var(--green);background:#fff;color:var(--green);font-size:28px;font-weight:700;cursor:pointer;line-height:1}
   .counter button:active{background:var(--green);color:#fff}
-  .counter input{width:110px;text-align:center;font-size:46px;font-weight:800;color:var(--green);border:none;border-bottom:3px solid var(--line);background:transparent;padding:4px 0}
+  .counter input{width:112px;text-align:center;font-size:48px;font-weight:800;color:var(--green);border:none;border-bottom:3px solid var(--line);background:transparent;padding:4px 0}
   .counter input:focus{outline:none;border-color:var(--gold)}
-  .btn{display:block;width:100%;margin-top:24px;padding:16px;border:none;border-radius:999px;font-size:14px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;cursor:pointer;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#1c1606;box-shadow:0 8px 22px rgba(192,132,24,.26)}
+  textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;font-size:14.5px;background:var(--cream);min-height:64px;resize:vertical}
+  textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(198,168,91,.16)}
+  .btn{display:block;width:100%;margin-top:22px;padding:16px;border:none;border-radius:999px;font-size:14px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;cursor:pointer;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#1c1606;box-shadow:0 8px 22px rgba(192,132,24,.26)}
   .btn:disabled{opacity:.5;cursor:default;box-shadow:none}
-  .fine{font-size:12px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.5}
+  .fine{font-size:12px;color:var(--muted);text-align:center;margin-top:13px;line-height:1.5}
   .state{text-align:center;padding:50px 20px;color:var(--muted)}
-  .ok-wrap{text-align:center;padding:14px 0}
-  .ok-wrap .check{width:64px;height:64px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:var(--gold);font-size:32px}
-  .ok-wrap h2{color:var(--green);font-size:22px;margin-bottom:8px}
-  .ok-wrap p{color:var(--muted);font-size:15px;line-height:1.5}
-  .total{font-size:13px;color:var(--muted);margin-top:10px}
+  /* month tracker */
+  .track h3{font-size:14px;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin-bottom:2px}
+  .track .mo{font-size:13px;color:var(--muted);margin-bottom:14px}
+  .totals{display:flex;gap:10px;margin-bottom:14px}
+  .totals .t{flex:1;background:var(--green);color:var(--cream);border-radius:12px;padding:13px;text-align:center}
+  .totals .t .v{font-size:24px;font-weight:800;color:var(--gold)}
+  .totals .t .l{font-size:11px;letter-spacing:.5px;text-transform:uppercase;opacity:.8;margin-top:2px}
+  .daylist{font-size:14px}
+  .day{display:flex;align-items:center;justify-content:space-between;padding:9px 2px;border-bottom:1px solid var(--line)}
+  .day:last-child{border-bottom:0}
+  .day .d{color:var(--ink)}.day .d small{color:var(--muted)}
+  .day .amt{font-weight:700;color:var(--green)}
+  .day .rush{font-size:10px;font-weight:800;color:var(--crit);background:#f3d9d3;border-radius:10px;padding:2px 7px;margin-left:6px}
+  .day .note{color:var(--gold-700);font-size:12px}
+  .empty{color:var(--muted);text-align:center;padding:18px;font-size:14px}
 </style>
 </head>
 <body>
-<div class="hero"><div class="brand">AÑEJO</div><div class="sub">Daily Lunch Count</div></div>
+<div class="hero">
+  <div class="lang"><button id="en" class="on" onclick="setLang('en')">EN</button><button id="es" onclick="setLang('es')">ES</button></div>
+  <img class="emblem" src="/assets/img/emblem.png" alt="Añejo">
+  <div class="brand">AÑEJO</div>
+  <div class="sub" id="h-sub">Daily Lunch Count</div>
+</div>
 <div class="wrap"><div id="app" class="state">Loading…</div></div>
 <script>
-  var token=(new URLSearchParams(location.search)).get('t')||'';
-  var ctx=null;
+  var T={
+    sub:{en:'Daily Lunch Count',es:'Conteo de Almuerzos'},
+    delivery:{en:'Delivery',es:'Entrega'},
+    howmany:{en:'How many lunches today?',es:'¿Cuántos almuerzos hoy?'},
+    allerg:{en:'Allergies or special notes (optional)',es:'Alergias o notas especiales (opcional)'},
+    allergPh:{en:'e.g. 2 gluten-free, 1 nut allergy, 1 no onions',es:'ej. 2 sin gluten, 1 alergia a nueces, 1 sin cebolla'},
+    submit:{en:'Submit head count',es:'Enviar conteo'},
+    update:{en:'Update count',es:'Actualizar conteo'},
+    sending:{en:'Sending…',es:'Enviando…'},
+    byCut:{en:'Please submit by {c} AM so the kitchen can prep your lunches fresh.',es:'Por favor envía antes de las {c} AM para que la cocina prepare tus almuerzos frescos.'},
+    rushWarn:{en:'It’s past the {c} AM cut-off. We’ll do our best, but late counts are a rush and a small rush fee applies.',es:'Ya pasó el corte de las {c} AM. Haremos lo posible, pero los conteos tardíos son urgentes y aplica un pequeño cargo.'},
+    already:{en:'Already received today: {n}. You can update it below.',es:'Ya recibido hoy: {n}. Puedes actualizarlo abajo.'},
+    noDel:{en:'No lunch delivery is scheduled for your office today. Deliveries run Monday–Wednesday.',es:'No hay entrega de almuerzo programada para tu oficina hoy. Las entregas son de lunes a miércoles.'},
+    received:{en:'Count received — {n} lunches',es:'Conteo recibido — {n} almuerzos'},
+    fresh:{en:'Fresh-prepped and delivered {w}.',es:'Preparado fresco y entregado {w}.'},
+    rushFee:{en:'After cut-off — a rush fee of {x} was added.',es:'Después del corte — se agregó un cargo de {x}.'},
+    perLunch:{en:'{p} per lunch · delivery fee per office. You’ll get an invoice from Añejo Catering Co.',es:'{p} por almuerzo · cargo de entrega por oficina. Recibirás una factura de Añejo Catering Co.'},
+    thisMonth:{en:'This month',es:'Este mes'},
+    lunches:{en:'Lunches',es:'Almuerzos'},
+    spent:{en:'Total',es:'Total'},
+    daysL:{en:'Days',es:'Días'},
+    noOrders:{en:'No orders yet this month — your first count will appear here.',es:'Aún no hay pedidos este mes — tu primer conteo aparecerá aquí.'},
+    change:{en:'Need to change it? Reopen this link before {c} AM.',es:'¿Necesitas cambiarlo? Reabre este enlace antes de las {c} AM.'}
+  };
+  var MONTHS={en:['January','February','March','April','May','June','July','August','September','October','November','December'],
+             es:['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']};
+  var lang='en', token=(new URLSearchParams(location.search)).get('t')||'', ctx=null;
   var app=document.getElementById('app');
+  function tr(k,subs){ var s=(T[k]&&T[k][lang])||k; if(subs)for(var x in subs)s=s.replace('{'+x+'}',subs[x]); return s; }
   function money(c){ return '$'+((Number(c)||0)/100).toFixed(2); }
   function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function monthName(prefix){ if(!prefix)return ''; var p=prefix.split('-'); return MONTHS[lang][(+p[1])-1]+' '+p[0]; }
 
-  if(!token){ app.innerHTML='This link is missing its code. Please use the link Añejo gave your office.'; }
-  else {
+  function setLang(l){ lang=l; document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; document.getElementById('h-sub').textContent=tr('sub'); if(ctx)render(); }
+
+  function load(){
+    if(!token){ app.innerHTML='This link is missing its code. Please use the link Añejo gave your office.'; return; }
     fetch('/api/contract/site?t='+encodeURIComponent(token)).then(function(r){return r.json();}).then(function(d){
       ctx=d;
       if(!d||!d.ok){ app.className='state'; app.innerHTML='This link is not valid. Please contact Añejo.'; return; }
@@ -61,51 +110,68 @@
 
   function render(){
     app.className='';
+    var head='<div class="site">'+esc(ctx.site)+'</div><div class="meta">'+esc(ctx.account)+' &middot; '+esc(ctx.weekday)+', '+esc(ctx.date)+'</div>';
     if(!ctx.delivers_today){
-      app.innerHTML='<div class="card"><div class="site">'+esc(ctx.site)+'</div>'+
-        '<div class="meta">'+esc(ctx.weekday)+', '+esc(ctx.date)+'</div>'+
-        '<div class="banner warn">No lunch delivery is scheduled for your office today. Deliveries run Monday–Wednesday.</div></div>';
+      app.innerHTML='<div class="card">'+head+'<div class="banner warn">'+tr('noDel')+'</div></div>'+monthCard();
       return;
     }
     var pre=ctx.already;
-    var start=pre?pre.count:'';
-    var warn = ctx.past_cutoff
-      ? '<div class="banner crit">It’s past the '+esc(ctx.cutoff)+' AM cut-off. We’ll do our best, but late counts are a <b>rush</b> and a small rush fee applies.</div>'
-      : '<div class="banner ok">Please submit by <b>'+esc(ctx.cutoff)+' AM</b> so the kitchen can prep your lunches fresh.</div>';
-    var preNote = pre ? '<div class="banner ok">Already received today: <b>'+pre.count+'</b>. You can update it below.</div>' : '';
+    var warn = ctx.past_cutoff ? '<div class="banner crit">'+tr('rushWarn',{c:esc(ctx.cutoff)})+'</div>'
+                               : '<div class="banner ok">'+tr('byCut',{c:esc(ctx.cutoff)})+'</div>';
+    var preNote = pre ? '<div class="banner ok">'+tr('already',{n:pre.count})+'</div>' : '';
     app.innerHTML=
-      '<div class="card">'+
-        '<div class="site">'+esc(ctx.site)+'</div>'+
-        '<div class="meta">'+esc(ctx.account)+' &middot; '+esc(ctx.weekday)+', '+esc(ctx.date)+'</div>'+
-        '<div class="win">🍱 Delivery '+esc(ctx.window)+'</div>'+
-        warn + preNote +
-        '<span class="lab">How many lunches today?</span>'+
+      '<div class="card">'+head+
+        '<div class="win">🍱 '+tr('delivery')+' '+esc(ctx.window)+'</div>'+warn+preNote+
+        '<span class="lab">'+tr('howmany')+'</span>'+
         '<div class="counter"><button type="button" onclick="bump(-1)">−</button>'+
-          '<input id="n" type="number" inputmode="numeric" min="1" max="500" value="'+start+'" placeholder="0">'+
+          '<input id="n" type="number" inputmode="numeric" min="1" max="500" value="'+(pre?pre.count:'')+'" placeholder="0">'+
           '<button type="button" onclick="bump(1)">+</button></div>'+
-        '<button class="btn" id="go" onclick="submitCount()">'+(pre?'Update count':'Submit head count')+'</button>'+
-        '<div class="fine">$'+ (ctx.price_per_lunch_cents/100).toFixed(2) +' per lunch · delivery fee applies per office. You’ll get an invoice from Añejo Catering Co.</div>'+
-      '</div>';
+        '<span class="lab" style="margin-top:18px">'+tr('allerg')+'</span>'+
+        '<textarea id="notes" maxlength="400" placeholder="'+esc(tr('allergPh'))+'">'+esc(pre&&pre.notes||'')+'</textarea>'+
+        '<button class="btn" id="go" onclick="submitCount()">'+(pre?tr('update'):tr('submit'))+'</button>'+
+        '<div class="fine">'+tr('perLunch',{p:money(ctx.price_per_lunch_cents)})+'</div>'+
+      '</div>'+monthCard();
   }
+
+  function monthCard(){
+    var m=ctx.month||{lunches:0,total_cents:0,days:[]};
+    var rows = (m.days&&m.days.length) ? m.days.slice().reverse().map(function(x){
+      var dd=x.service_date.slice(8)+' '+(x.service_date.slice(5,7));
+      return '<div class="day"><span class="d">'+esc(x.service_date)+(x.is_rush?'<span class="rush">RUSH</span>':'')+
+        (x.notes?'<br><span class="note">⚠ '+esc(x.notes)+'</span>':'')+'</span>'+
+        '<span class="amt">'+x.headcount+' &middot; '+money(x.total_cents)+'</span></div>';
+    }).join('') : '<div class="empty">'+tr('noOrders')+'</div>';
+    return '<div class="card track"><h3>'+tr('thisMonth')+'</h3><div class="mo">'+monthName(m.prefix)+'</div>'+
+      '<div class="totals"><div class="t"><div class="v">'+(m.lunches||0)+'</div><div class="l">'+tr('lunches')+'</div></div>'+
+        '<div class="t"><div class="v">'+money(m.total_cents)+'</div><div class="l">'+tr('spent')+'</div></div>'+
+        '<div class="t"><div class="v">'+(m.count_days||0)+'</div><div class="l">'+tr('daysL')+'</div></div></div>'+
+      '<div class="daylist">'+rows+'</div></div>';
+  }
+
   function bump(d){ var i=document.getElementById('n'); var v=Math.max(0,(parseInt(i.value,10)||0)+d); i.value=v||''; }
   function submitCount(){
     var i=document.getElementById('n'); var n=parseInt(i.value,10);
     if(!n||n<1){ i.focus(); return; }
-    var b=document.getElementById('go'); b.disabled=true; b.textContent='Sending…';
-    fetch('/api/contract/headcount',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:token,count:n})})
+    var notes=(document.getElementById('notes')||{}).value||'';
+    var b=document.getElementById('go'); b.disabled=true; b.textContent=tr('sending');
+    fetch('/api/contract/headcount',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:token,count:n,notes:notes})})
       .then(function(r){return r.json();}).then(function(d){
-        if(d&&d.ok){ confirmed(d); }
-        else { b.disabled=false; b.textContent='Submit head count'; app.querySelector('.card').insertAdjacentHTML('beforeend','<div class="banner crit">'+esc((d&&d.error)||'Could not submit. Please try again.')+'</div>'); }
-      }).catch(function(){ b.disabled=false; b.textContent='Submit head count'; });
+        if(d&&d.ok){ confirmed(d); } else { b.disabled=false; b.textContent=tr('submit'); var c=app.querySelector('.card'); if(c)c.insertAdjacentHTML('beforeend','<div class="banner crit">'+esc((d&&d.error)||'Could not submit.')+'</div>'); }
+      }).catch(function(){ b.disabled=false; b.textContent=tr('submit'); });
   }
   function confirmed(d){
-    app.innerHTML='<div class="card ok-wrap"><div class="check">✓</div>'+
-      '<h2>Count received — '+d.count+' lunches</h2>'+
-      '<p>'+esc(d.site)+' &middot; '+esc(d.weekday)+'<br>Fresh-prepped and delivered <b>'+esc(d.window)+'</b>.</p>'+
-      (d.is_rush?'<div class="banner crit" style="text-align:left">Submitted after cut-off — a rush fee of '+money(d.rush_fee_cents)+' was added.</div>':'')+
-      '<div class="total">'+d.count+' × '+money(d.price_per_lunch_cents)+' + '+money(d.delivery_fee_cents)+' delivery'+(d.rush_fee_cents?' + '+money(d.rush_fee_cents)+' rush':'')+' = <b>'+money(d.total_cents)+'</b></div>'+
-      '<p style="margin-top:14px;font-size:13px">Need to change it? Just reopen this link before '+esc(ctx.cutoff)+' AM.</p></div>';
+    // show a confirmation banner, then refresh context (updates the month tracker live)
+    window.scrollTo({top:0,behavior:'smooth'});
+    app.innerHTML='<div class="card" style="text-align:center"><div style="width:62px;height:62px;border-radius:50%;background:var(--green);color:var(--gold);font-size:30px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">✓</div>'+
+      '<div class="site" style="font-size:20px">'+tr('received',{n:d.count})+'</div>'+
+      '<p style="color:var(--muted);margin-top:8px">'+esc(d.site)+' &middot; '+tr('fresh',{w:esc(d.window)})+'</p>'+
+      (d.notes?'<div class="banner warn" style="text-align:left;margin-top:12px">⚠ '+esc(d.notes)+'</div>':'')+
+      (d.is_rush?'<div class="banner crit" style="text-align:left">'+tr('rushFee',{x:money(d.rush_fee_cents)})+'</div>':'')+
+      '<p class="fine" style="margin-top:12px">'+tr('change',{c:esc(ctx.cutoff)})+'</p></div>';
+    setTimeout(load, 1400); // reload to refresh the live monthly tracker
   }
+  document.getElementById('h-sub').textContent=T.sub.en;
+  load();
 </script>
 </body>
 </html>
