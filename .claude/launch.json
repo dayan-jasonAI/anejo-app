@@ -4,7 +4,7 @@
     {
       "name": "anejo-static",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8788", "--directory", "public"],
+      "runtimeArgs": ["-m", "http.server", "8788", "--directory", "/Users/aiagent/Documents/Claude/Projects/Anejo Catering Co. LLC/anejo-app-repo/public"],
       "port": 8788
     }
   ]

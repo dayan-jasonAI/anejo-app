@@ -1,0 +1,148 @@
+/* ============================================================
+   Añejo — Motion & Interaction Layer  ·  motion.css
+   ------------------------------------------------------------
+   Additive, brand-native, dependency-free (no libraries).
+   The hide-then-reveal rules apply ONLY when the head init
+   script has set <html class="anejo-motion"> — which it does
+   only when the visitor has NOT requested reduced motion.
+   That makes this layer fail-safe: no JS / no class / reduced
+   motion  ->  all content is fully visible, nothing hidden.
+   ============================================================ */
+
+/* ---- Smooth cross-page navigation (Chromium; gracefully
+        ignored elsewhere, auto-skipped under reduced motion). */
+@view-transition { navigation: auto; }
+::view-transition-old(root),
+::view-transition-new(root){ animation-duration:.38s; }
+
+/* ---- Scroll progress bar (gold) ---- */
+.aj-progress{
+  position:fixed; top:0; left:0; height:3px; width:0;
+  z-index:60; pointer-events:none;
+  background:linear-gradient(90deg, var(--gold-dark,#8B6B3E), var(--gold,#C6A85B));
+  box-shadow:0 0 12px rgba(198,168,91,.55);
+  transition:width .12s linear;
+}
+
+/* ---- Nav: condense + lift on scroll (subtle, premium) ---- */
+nav{ transition:background .35s ease, box-shadow .35s ease; }
+.nav-inner{ transition:padding .35s ease; }
+nav.aj-scrolled{ background:rgba(13,13,13,.97); box-shadow:0 10px 30px rgba(0,0,0,.28); }
+nav.aj-scrolled .nav-inner{ padding-top:9px; padding-bottom:9px; }
+
+/* ============================================================
+   The rest applies only when motion is enabled.
+   ============================================================ */
+
+/* Reveal keyframe — a confident, "aged"/premium ease-out */
+@keyframes ajUp{ from{ opacity:0; transform:translateY(26px); } to{ opacity:1; transform:none; } }
+@keyframes ajGlow{ from{ opacity:.7; transform:scale(1); } to{ opacity:1; transform:scale(1.08); } }
+@keyframes ajLine{ to{ width:64px; } }
+
+/* Pre-reveal hidden state — set in <head> so there is no flash */
+html.anejo-motion .hero-content>*,
+html.anejo-motion .section-head,
+html.anejo-motion .story-body,
+html.anejo-motion .macro-pitch,
+html.anejo-motion .macro-preview,
+html.anejo-motion .bowl-card,
+html.anejo-motion .sauce-card,
+html.anejo-motion .subbrand,
+html.anejo-motion .fit-card,
+html.anejo-motion .service,
+html.anejo-motion .wholesale-text,
+html.anejo-motion .wholesale-card,
+html.anejo-motion .faq-item,
+html.anejo-motion .testi-card,
+html.anejo-motion .cta-band h2,
+html.anejo-motion .cta-band .lede,
+html.anejo-motion .cta-band .hero-buttons,
+html.anejo-motion .footer-brand,
+html.anejo-motion .footer-col{ opacity:0; }
+
+/* Reveal trigger (delay set per-element via --aj-d for stagger) */
+html.anejo-motion .aj-in{
+  animation:ajUp .7s cubic-bezier(.22,.65,.25,1) both;
+  animation-delay:var(--aj-d,0ms);
+  will-change:opacity, transform;
+}
+/* Post-animation: hand control back to base styles (preserves hover) */
+html.anejo-motion .aj-done{ opacity:1; animation:none; will-change:auto; }
+
+/* ---- Ambient hero glow: slow, barely-there "breathing" ---- */
+html.anejo-motion .hero::before{ animation:ajGlow 16s ease-in-out infinite alternate; }
+
+/* ---- Section-head gold accent line: draws in after reveal ---- */
+html.anejo-motion .section-head{ position:relative; }
+html.anejo-motion .section-head.aj-done::after{
+  content:''; display:block; height:2px; width:0;
+  margin:18px auto 0; border-radius:2px;
+  background:linear-gradient(90deg, transparent, var(--gold,#C6A85B), transparent);
+  animation:ajLine .8s ease forwards .05s;
+}
+
+/* ---- Imagery: gentle Ken-Burns zoom on hover ---- */
+html.anejo-motion .bowl-image img,
+html.anejo-motion .sauce-card img,
+html.anejo-motion .fit-img{ transition:transform .65s cubic-bezier(.2,.6,.2,1); }
+html.anejo-motion .bowl-card:hover .bowl-image img,
+html.anejo-motion .sauce-card:hover img,
+html.anejo-motion .fit-card:hover .fit-img{ transform:scale(1.06); }
+
+/* ---- Card lift for cards that don't already have one ---- */
+html.anejo-motion .sauce-card,
+html.anejo-motion .fit-card,
+html.anejo-motion .subbrand,
+html.anejo-motion .testi-card{ transition:transform .3s ease, box-shadow .3s ease; }
+html.anejo-motion .sauce-card:hover,
+html.anejo-motion .fit-card:hover,
+html.anejo-motion .subbrand:hover,
+html.anejo-motion .testi-card:hover{ transform:translateY(-4px); box-shadow:0 14px 34px rgba(13,13,13,.14); }
+
+/* ---- Gold "sheen" sweep across primary buttons on hover ---- */
+html.anejo-motion .btn-gold,
+html.anejo-motion .nav-cta{ position:relative; overflow:hidden; }
+html.anejo-motion .btn-gold::after,
+html.anejo-motion .nav-cta::after{
+  content:''; position:absolute; top:0; left:-130%; width:55%; height:100%;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,.5), transparent);
+  transform:skewX(-18deg); transition:left .6s ease; pointer-events:none;
+}
+html.anejo-motion .btn-gold:hover::after,
+html.anejo-motion .nav-cta:hover::after{ left:130%; }
+
+/* ---- Service rows: gold edge grows on hover ---- */
+html.anejo-motion .service{ transition:border-left-width .2s ease, transform .25s ease, background .25s ease; }
+html.anejo-motion .service:hover{ border-left-width:6px; transform:translateX(2px); }
+
+/* ---- Accessible focus ring (brand gold) ---- */
+html.anejo-motion a:focus-visible,
+html.anejo-motion button:focus-visible,
+html.anejo-motion summary:focus-visible{ outline:2px solid var(--gold,#C6A85B); outline-offset:3px; border-radius:3px; }
+
+/* ---- Belt-and-braces: honor reduced motion even if the class
+        is present (e.g. a mid-session OS toggle). ---- */
+@media (prefers-reduced-motion: reduce){
+  html.anejo-motion .hero-content>*,
+  html.anejo-motion .section-head,
+  html.anejo-motion .story-body,
+  html.anejo-motion .macro-pitch,
+  html.anejo-motion .macro-preview,
+  html.anejo-motion .bowl-card,
+  html.anejo-motion .sauce-card,
+  html.anejo-motion .subbrand,
+  html.anejo-motion .fit-card,
+  html.anejo-motion .service,
+  html.anejo-motion .wholesale-text,
+  html.anejo-motion .wholesale-card,
+  html.anejo-motion .faq-item,
+  html.anejo-motion .testi-card,
+  html.anejo-motion .cta-band h2,
+  html.anejo-motion .cta-band .lede,
+  html.anejo-motion .cta-band .hero-buttons,
+  html.anejo-motion .footer-brand,
+  html.anejo-motion .footer-col{ opacity:1 !important; }
+  html.anejo-motion .aj-in{ animation:none !important; }
+  .aj-progress, html.anejo-motion .hero::before, html.anejo-motion .section-head.aj-done::after{ animation:none !important; }
+  html.anejo-motion .section-head.aj-done::after{ width:64px; }
+}

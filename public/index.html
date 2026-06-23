@@ -644,6 +644,22 @@ footer {
 .testi-soon{text-align:center;color:var(--muted);font-size:13px;margin-top:26px}
 </style>
 <script>if(location.hostname.indexOf("portal.")===0 && location.pathname==="/"){location.replace("/portal");}</script>
+
+<!-- Motion & interaction layer (additive, fail-safe, reduced-motion aware) -->
+<link rel="stylesheet" href="/assets/motion.css">
+<script>
+(function(){
+  try{
+    if(!window.matchMedia || !matchMedia('(prefers-reduced-motion: reduce)').matches){
+      document.documentElement.className += ' anejo-motion';
+      /* Failsafe: if motion.js never runs, reveal everything after 3s */
+      window.__ajFailsafe = setTimeout(function(){
+        document.documentElement.classList.remove('anejo-motion');
+      }, 3000);
+    }
+  }catch(e){}
+})();
+</script>
 </head>
 <body>
 <a href="#top" class="skip-link">Skip to content</a>
@@ -1366,5 +1382,6 @@ document.querySelectorAll('#navLinks a').forEach(a => {
 <script src="/assets/js/i18n.js"></script>
 <script src="/assets/js/consent.js"></script>
   <script src="/assets/js/chat.js" defer></script>
+  <script src="/assets/js/motion.js" defer></script>
 </body>
 </html>
