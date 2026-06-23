@@ -43,6 +43,11 @@
   .btn.gold{background:var(--gold);color:var(--green)}
   .btn.ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
   .btn:disabled{opacity:.4;cursor:default}
+  .btn.play{background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;gap:8px}
+  .scene{animation:fade .35s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .scene.playing{box-shadow:0 0 0 2px var(--gold),0 10px 30px rgba(26,61,46,.12)}
+  .scene.playing .vo{background:#fff8e9;border-radius:8px;padding:10px;margin:-2px 0 12px;box-shadow:inset 0 0 0 1px var(--line)}
   .scount{text-align:center;font-size:12px;color:var(--muted);margin-top:10px}
   /* mock pieces echoing the real HUB */
   .m-nav{display:flex;background:var(--green-700);border-radius:10px;overflow:hidden}
@@ -80,6 +85,7 @@
       <button class="btn ghost" id="back" onclick="go(-1)">← <span data-t="back">Back</span></button>
       <button class="btn gold" id="next" onclick="go(1)"><span data-t="next">Next</span> →</button>
     </div>
+    <button class="btn play" id="play" onclick="togglePlay()" style="width:100%;margin-top:10px">▶ Play narrated tour</button>
     <div class="scount" id="scount"></div>
   </div>
 </div>
@@ -187,6 +193,43 @@ var TOUR = {
 
 /* ---- engine ---- */
 var lang='en', role='everyone', idx=0;
+
+/* ---- narrated auto-play (browser speech) ---- */
+var playing=false, speakSeq=0;
+function ttsOn(){ return 'speechSynthesis' in window; }
+function pickVoice(l){
+  try{ var vs=speechSynthesis.getVoices()||[]; var p=l==='es'?'es':'en';
+    return vs.filter(function(v){return v.lang&&v.lang.toLowerCase().indexOf(p)===0;})
+             .sort(function(a,b){return (b.localService?1:0)-(a.localService?1:0);})[0]||null;
+  }catch(e){ return null; }
+}
+function paintPlay(){
+  var b=document.getElementById('play'); if(!b) return;
+  b.textContent = playing ? (lang==='es'?'⏸ Pausar narración':'⏸ Pause narration')
+                          : (lang==='es'?'▶ Reproducir tour narrado':'▶ Play narrated tour');
+}
+function speakCurrent(){
+  if(!playing) return;
+  speakSeq++; var mySeq=speakSeq, advanced=false;
+  var c=TOUR[role][idx][lang];
+  function adv(){ if(advanced||!playing||mySeq!==speakSeq) return; advanced=true;
+    if(idx<TOUR[role].length-1) go(1); else stopPlay(); }
+  var est=Math.max(4500,(c.vo||'').length*60);
+  var timer=setTimeout(adv, est+1600);                 // safety: advance even if speech never ends
+  if(ttsOn()){
+    try{ speechSynthesis.cancel(); }catch(e){}
+    var u=new SpeechSynthesisUtterance(c.vo);
+    u.lang = lang==='es'?'es-ES':'en-US'; var v=pickVoice(lang); if(v) u.voice=v; u.rate=0.98; u.pitch=1;
+    u.onend=function(){ clearTimeout(timer); adv(); };
+    u.onerror=function(){ /* timer fallback advances */ };
+    setTimeout(function(){ if(playing&&mySeq===speakSeq){ try{ speechSynthesis.speak(u);}catch(e){} } }, 90);
+  }
+}
+function startPlay(){ playing=true; render(); }
+function stopPlay(){ playing=false; speakSeq++; try{ if(ttsOn()) speechSynthesis.cancel(); }catch(e){}
+  var s=document.getElementById('scene'); if(s) s.classList.remove('playing'); paintPlay(); }
+function togglePlay(){ playing?stopPlay():startPlay(); }
+if(ttsOn()){ try{ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=function(){}; }catch(e){} }
 function setLang(l){ lang=l; document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; render(); }
 function setRole(r){ role=r; idx=0; render(); }
 function go(d){ var n=TOUR[role].length; idx=Math.max(0,Math.min(n-1,idx+d)); render(); }
@@ -209,6 +252,9 @@ function render(){
   nextBtn.querySelector('[data-t="next"]').textContent = idx===n-1 ? T.finish[lang] : T.next[lang];
   document.querySelector('[data-t="back"]').textContent = T.back[lang];
   document.getElementById('scount').textContent = T.scene[lang]+' '+(idx+1)+' '+T.of[lang]+' '+n;
+  document.getElementById('scene').classList.toggle('playing', playing);
+  paintPlay();
+  if(playing) speakCurrent();   // narrated mode: speak this scene, then auto-advance on end
 }
 render();
 </script>
