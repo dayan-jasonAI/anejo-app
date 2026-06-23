@@ -2,6 +2,7 @@
 // (with the per-site intake link, lazily minted), and the recent daily-count ledger. Owner-only.
 import { json, bad, randToken, now } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
+import { activateAccount } from '../../../_lib/contract.js';
 
 export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -31,3 +32,19 @@ export const onRequestGet = async ({ request, env }) => {
   }
   return json({ ok: true, accounts: out });
 };
+
+// POST { op:'activate', account_id, price_per_lunch_cents, delivery_fee_cents, rush_fee_cents?, cutoff_time? }
+//   Owner sets the negotiated terms across the account's sites + flips it active.
+export const onRequestPost = async ({ request, env }) => {
+  if (!env.DB) return bad('Database not configured.', 500);
+  const ctx = await requireRole(request, env, ['owner']);
+  if (ctx instanceof Response) return ctx;
+  let b;
+  try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
+  if ((b && b.op) !== 'activate') return bad('Unknown action.');
+  if (!b.account_id) return bad('Missing account_id.');
+  const r = await activateAccount(env, b.account_id, b);
+  if (!r.ok) return bad(r.error || 'Could not activate.', 400);
+  return json({ ok: true });
+};
+

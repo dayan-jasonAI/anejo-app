@@ -1,6 +1,10 @@
 // B2B contract-account intake. A site's daily headcount → the day's kitchen order + a ledger
 // row for invoicing. Files under _lib are NOT routed. Never throws unexpectedly.
 import { id, now, parseJson, toJson } from './hub.js';
+import { randToken, isEmail } from './util.js';
+
+const BILLING_MODELS = ['weekly_autopay', 'biweekly', 'monthly', 'same_day'];
+const CADENCE_BY_MODEL = { weekly_autopay: 'weekly', biweekly: 'biweekly', monthly: 'monthly', same_day: 'daily' };
 
 const DOW_NAMES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DOW_LABEL = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -49,6 +53,7 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy } 
   if (!site) return { ok: false, error: 'This link is not valid. Please contact Añejo.' };
   const account = await env.DB.prepare('SELECT * FROM contract_accounts WHERE id = ?').bind(site.account_id).first().catch(() => null);
   if (!account) return { ok: false, error: 'Account not found.' };
+  if (account.status && account.status !== 'active') return { ok: false, error: 'Your account is being set up. Añejo will confirm when ordering is live.' };
 
   const n = Math.floor(Number(count));
   if (!Number.isFinite(n) || n < 1 || n > 500) return { ok: false, error: 'Enter a head count between 1 and 500.' };
@@ -138,4 +143,68 @@ export async function siteContext(env, token, nowMs) {
     price_per_lunch_cents: Number(site.price_per_lunch_cents) || 0,
     already: existing ? { count: existing.headcount, total_cents: existing.total_cents, is_rush: !!existing.is_rush } : null,
   };
+}
+
+// Self-registration: a business signs up + picks a billing model. Creates a PENDING account +
+// its sites (intake links minted). Pricing/terms are NOT self-serve — the owner sets them on
+// activation. Returns { ok, account_id, sites:[{name, link_path}] } or { ok:false, error }.
+export async function registerAccount(env, p) {
+  if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
+  const company = (p && p.company || '').toString().trim().slice(0, 120);
+  const email = (p && p.billing_email || '').toString().trim().slice(0, 160);
+  const model = BILLING_MODELS.includes(p && p.billing_model) ? p.billing_model : 'biweekly';
+  const sites = Array.isArray(p && p.sites) ? p.sites : [];
+  if (!company) return { ok: false, error: 'Please enter your company name.' };
+  if (!isEmail(email)) return { ok: false, error: 'Please enter a valid billing email.' };
+  const clean = sites.map((s) => ({
+    name: (s && s.name || '').toString().trim().slice(0, 80),
+    street: (s && s.street || '').toString().trim().slice(0, 160),
+    unit: (s && s.unit || '').toString().trim().slice(0, 60) || null,
+    city: (s && s.city || '').toString().trim().slice(0, 80),
+    state: ((s && s.state || 'FL').toString().trim() || 'FL').slice(0, 20),
+    zip: (s && s.zip || '').toString().trim().slice(0, 12),
+    delivery_days: (s && s.delivery_days || 'mon,tue,wed').toString().slice(0, 40),
+    window_label: (s && s.window_label || '').toString().trim().slice(0, 40) || null,
+    contact_name: (s && s.contact_name || '').toString().trim().slice(0, 80) || null,
+    contact_phone: (s && s.contact_phone || '').toString().trim().slice(0, 30) || null,
+  })).filter((s) => s.name && s.street && s.city);
+  if (!clean.length) return { ok: false, error: 'Add at least one delivery location (name, street, city).' };
+
+  const t = now();
+  const accId = id('acct');
+  try {
+    await env.DB.prepare(
+      'INSERT INTO contract_accounts (id, name, billing_email, billing_contact, billing_model, invoice_cadence, status, signup_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)'
+    ).bind(accId, company, email, (p && p.billing_contact || '').toString().trim().slice(0, 80) || null, model, CADENCE_BY_MODEL[model] || 'biweekly', 'pending', t, t, t).run();
+  } catch (e) { return { ok: false, error: 'Could not create the account. Please try again.' }; }
+
+  const out = [];
+  for (const s of clean) {
+    const tok = randToken(16);
+    try {
+      await env.DB.prepare(
+        'INSERT INTO contract_sites (id, account_id, name, street, unit, city, state, zip, delivery_days, window_label, delivery_window, price_per_lunch_cents, delivery_fee_cents, cutoff_time, rush_fee_cents, intake_token, contact_name, contact_phone, active, created_at, updated_at) ' +
+        "VALUES (?,?,?,?,?,?,?,?,?,?, 'lunch', 0, 0, '09:00', 1500, ?, ?, ?, 1, ?, ?)"
+      ).bind(id('site'), accId, s.name, s.street, s.unit, s.city, s.state, s.zip, s.delivery_days, s.window_label || '11:30–12:30', tok, s.contact_name, s.contact_phone, t, t).run();
+      out.push({ name: s.name, link_path: '/lunch-count?t=' + tok });
+    } catch { /* skip a bad site */ }
+  }
+  return { ok: true, account_id: accId, company, billing_model: model, sites: out };
+}
+
+// Owner activation: set the negotiated terms across an account's sites + flip it active.
+export async function activateAccount(env, accountId, terms) {
+  if (!env || !env.DB) return { ok: false };
+  const price = Math.max(0, Math.round(Number(terms && terms.price_per_lunch_cents) || 0));
+  const fee = Math.max(0, Math.round(Number(terms && terms.delivery_fee_cents) || 0));
+  const rush = Math.max(0, Math.round(Number(terms && terms.rush_fee_cents) || 1500));
+  const cutoff = (terms && terms.cutoff_time || '09:00').toString();
+  if (price <= 0) return { ok: false, error: 'Set a price per lunch before activating.' };
+  const t = now();
+  try {
+    await env.DB.prepare('UPDATE contract_sites SET price_per_lunch_cents=?, delivery_fee_cents=?, rush_fee_cents=?, cutoff_time=?, updated_at=? WHERE account_id=?')
+      .bind(price, fee, rush, cutoff, t, accountId).run();
+    await env.DB.prepare("UPDATE contract_accounts SET status='active', updated_at=? WHERE id=?").bind(t, accountId).run();
+  } catch { return { ok: false, error: 'Could not activate.' }; }
+  return { ok: true };
 }
