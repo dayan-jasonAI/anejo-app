@@ -1,7 +1,8 @@
 // B2B contract-account intake. A site's daily headcount → the day's kitchen order + a ledger
 // row for invoicing. Files under _lib are NOT routed. Never throws unexpectedly.
 import { id, now, parseJson, toJson } from './hub.js';
-import { randToken, isEmail } from './util.js';
+import { randToken, isEmail, ctEq, normalizePhone } from './util.js';
+import { sendSms } from './twilio.js';
 
 const BILLING_MODELS = ['weekly_autopay', 'biweekly', 'monthly', 'same_day'];
 const CADENCE_BY_MODEL = { weekly_autopay: 'weekly', biweekly: 'biweekly', monthly: 'monthly', same_day: 'daily' };
@@ -43,9 +44,170 @@ async function resolveItem(env, account, dateStr) {
   return `${short} Lunch — ${DOW_LABEL[dow - 1]}`;
 }
 
+// ---- Non-repudiation: device verification, append-only audit, SMS receipts -------------
+const OTP_TTL_SEC = 600;                 // verification code lives 10 minutes
+const DEVICE_TTL_SEC = 60 * 60 * 24 * 180; // trusted-device cookie: 180 days
+const CONF_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no ambiguous 0/O/1/I/L
+
+function confNo() {
+  const b = crypto.getRandomValues(new Uint8Array(6));
+  let s = ''; for (const x of b) s += CONF_CHARS[x % CONF_CHARS.length];
+  return 'ANJ-' + s;
+}
+function otpCode() {
+  const b = crypto.getRandomValues(new Uint8Array(6));
+  let s = ''; for (const x of b) s += (x % 10); return s;
+}
+function maskPhone(p) {
+  const d = String(p || '').replace(/[^0-9]/g, '');
+  return d.length >= 4 ? '•••• ' + d.slice(-4) : '••••';
+}
+function etClock(ms) {
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(ms));
+}
+function cookieMap(header) {
+  const out = {};
+  String(header || '').split(';').forEach((kv) => {
+    const i = kv.indexOf('='); if (i < 0) return;
+    out[kv.slice(0, i).trim()] = decodeURIComponent((kv.slice(i + 1).trim()) || '');
+  });
+  return out;
+}
+const deviceCookieName = (siteId) => 'aintake_' + String(siteId).replace(/[^a-zA-Z0-9_]/g, '');
+
+async function resolveSite(env, token) {
+  const site = await env.DB.prepare('SELECT * FROM contract_sites WHERE intake_token = ? AND active = 1').bind(String(token || '')).first().catch(() => null);
+  if (!site) return { site: null, account: null };
+  const account = await env.DB.prepare('SELECT * FROM contract_accounts WHERE id = ?').bind(site.account_id).first().catch(() => null);
+  return { site, account };
+}
+
+// A non-revoked trusted device for this site, read from the request cookies (or null).
+async function trustedDevice(env, site, cookieHeader) {
+  const tok = cookieMap(cookieHeader)[deviceCookieName(site.id)];
+  if (!tok) return null;
+  try { return (await env.DB.prepare('SELECT * FROM contract_intake_devices WHERE id = ? AND site_id = ? AND revoked = 0').bind(tok, site.id).first()) || null; }
+  catch { return null; }
+}
+
+// Append-only audit row. Only ever INSERTed — never updated or deleted. The legal record.
+async function writeEvent(env, ev) {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO contract_order_events
+         (id, site_id, account_id, service_date, order_id, event, headcount, total_cents, notes,
+          submitted_by_name, submitted_by_phone, verified, device_id, confirmation_no, ip, user_agent, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      id('coe'), ev.site_id, ev.account_id || null, ev.service_date, ev.order_id || null, ev.event,
+      ev.headcount != null ? ev.headcount : null, ev.total_cents != null ? ev.total_cents : null, ev.notes || null,
+      ev.name || null, ev.phone || null, ev.verified ? 1 : 0, ev.device_id || null, ev.confirmation_no || null,
+      (ev.ip || '').toString().slice(0, 64) || null, (ev.user_agent || '').toString().slice(0, 240) || null, now()
+    ).run();
+  } catch { /* audit is best-effort; must never block recording the order */ }
+}
+
+function receiptBody(lang, r) {
+  const amt = '$' + (r.total_cents / 100).toFixed(2);
+  if (lang === 'es') {
+    return `Añejo Catering ✅ Pedido confirmado\n${r.site} · ${r.weekday} ${r.date}\n${r.count} almuerzos · ${amt}${r.is_rush ? ' (urgente)' : ''}\nPor: ${r.name} · ${r.time}\nConf# ${r.confirmation_no}\n¿Cambios? Deben entrar antes de las ${r.cutoff}.`;
+  }
+  return `Añejo Catering ✅ Order confirmed\n${r.site} · ${r.weekday} ${r.date}\n${r.count} lunches · ${amt}${r.is_rush ? ' (rush)' : ''}\nBy: ${r.name} · ${r.time}\nConf# ${r.confirmation_no}\nNeed a change? Must be in by ${r.cutoff}.`;
+}
+function otpBody(lang, code, site) {
+  if (lang === 'es') return `Código Añejo: ${code}. Ingrésalo para confirmar el pedido de almuerzo de hoy (${site}). Vence en 10 min. No lo compartas.`;
+  return `Añejo code: ${code}. Enter it to confirm today's lunch order for ${site}. Expires in 10 min. Do not share it.`;
+}
+
+// Step 1 of verify-device-once: text a single-use code to the office's number (the one on
+// file, or — on first use of a site with no number yet — the mobile the contact enters, which
+// becomes the site's contact on success). Code is held in KV, single-use, 10-min TTL.
+export async function requestIntakeOtp(env, { token, name, phone, lang, nowMs } = {}) {
+  if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
+  const { site, account } = await resolveSite(env, token);
+  if (!site) return { ok: false, error: 'This link is not valid. Please contact Añejo.' };
+  if (account && account.status && account.status !== 'active') return { ok: false, error: 'Your account is being set up. Añejo will confirm when ordering is live.' };
+  const cleanName = (name || '').toString().trim().slice(0, 80);
+  if (!cleanName) return { ok: false, error: 'Please enter your name.' };
+  const onFile = normalizePhone(site.contact_phone);
+  const dest = onFile || normalizePhone(phone);
+  if (!dest) return { ok: false, error: 'Enter the mobile number that should receive your confirmation code.' };
+  const t = typeof nowMs === 'number' ? nowMs : now();
+  const rec = { code: otpCode(), name: cleanName, phone: dest, enrolled: onFile ? 0 : 1, exp: t + OTP_TTL_SEC * 1000, tries: 0 };
+  try { if (env.SESSIONS) await env.SESSIONS.put('cintake_otp:' + site.id, JSON.stringify(rec), { expirationTtl: OTP_TTL_SEC }); }
+  catch { return { ok: false, error: 'Could not start verification. Please try again.' }; }
+  const sms = await sendSms(env, { to: dest, body: otpBody(lang, rec.code, site.name) });
+  return { ok: false, needs_verify: true, phone_hint: maskPhone(dest), enrolling: !onFile, sms_sent: !!(sms && sms.sent) };
+}
+
+// Step 2: verify the code, register a trusted device, and (if self-enrolled) save the number
+// as the site contact. Returns the device token for the cookie + a 'verified' audit row.
+export async function verifyIntakeOtp(env, { token, code, ip, userAgent, nowMs } = {}) {
+  if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
+  const { site } = await resolveSite(env, token);
+  if (!site) return { ok: false, error: 'This link is not valid.' };
+  const t = typeof nowMs === 'number' ? nowMs : now();
+  let rec = null;
+  try { const raw = env.SESSIONS && await env.SESSIONS.get('cintake_otp:' + site.id); rec = raw ? JSON.parse(raw) : null; } catch { rec = null; }
+  if (!rec || rec.exp < t) return { ok: false, error: 'That code expired — request a new one.' };
+  if ((rec.tries || 0) >= 5) { try { env.SESSIONS && await env.SESSIONS.delete('cintake_otp:' + site.id); } catch {} return { ok: false, error: 'Too many attempts. Request a new code.' }; }
+  const given = (code || '').toString().replace(/[^0-9]/g, '');
+  if (given.length !== 6 || !ctEq(given, rec.code)) {
+    rec.tries = (rec.tries || 0) + 1;
+    try { env.SESSIONS && await env.SESSIONS.put('cintake_otp:' + site.id, JSON.stringify(rec), { expirationTtl: OTP_TTL_SEC }); } catch {}
+    return { ok: false, error: 'That code is not right. Try again.', needs_verify: true, phone_hint: maskPhone(rec.phone) };
+  }
+  try { env.SESSIONS && await env.SESSIONS.delete('cintake_otp:' + site.id); } catch {}
+  const devTok = randToken(24);
+  try {
+    await env.DB.prepare('INSERT INTO contract_intake_devices (id, site_id, account_id, contact_name, phone, created_at, last_used_at, revoked) VALUES (?,?,?,?,?,?,?,0)')
+      .bind(devTok, site.id, site.account_id, rec.name || null, rec.phone || null, t, t).run();
+  } catch { return { ok: false, error: 'Could not register this device. Please try again.' }; }
+  if (rec.enrolled) {
+    try { await env.DB.prepare('UPDATE contract_sites SET contact_phone = ?, contact_name = COALESCE(contact_name, ?), updated_at = ? WHERE id = ?').bind(rec.phone, rec.name || null, t, site.id).run(); } catch {}
+  }
+  await writeEvent(env, { site_id: site.id, account_id: site.account_id, service_date: etToday(t), event: 'verified', name: rec.name, phone: rec.phone, verified: 1, device_id: devTok, ip, user_agent: userAgent });
+  return { ok: true, verified: true, device_token: devTok, device_cookie: deviceCookieName(site.id), name: rec.name, phone: rec.phone };
+}
+
+// Single entrypoint for the intake page. Enforces verify-device-once, records the order, writes
+// the append-only audit trail, and texts the receipt. May return { needs_verify } (show the code
+// step) or, on success, set_cookie:{ name, value, maxAge } for the endpoint to set.
+export async function processIntake(env, { token, count, notes, name, phone, lang, code, cookieHeader, ip, userAgent, nowMs } = {}) {
+  if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
+  const { site, account } = await resolveSite(env, token);
+  if (!site) return { ok: false, error: 'This link is not valid. Please contact Añejo.' };
+  if (account && account.status && account.status !== 'active') return { ok: false, error: 'Your account is being set up. Añejo will confirm when ordering is live.' };
+
+  // Already a trusted device → record immediately.
+  const device = await trustedDevice(env, site, cookieHeader);
+  if (device) {
+    const r = await submitHeadcount(env, { token, count, notes, name: name || device.contact_name, lang, deviceId: device.id, phone: device.phone, verified: true, ip, userAgent, nowMs });
+    if (r.ok) { try { await env.DB.prepare('UPDATE contract_intake_devices SET last_used_at = ? WHERE id = ?').bind(now(), device.id).run(); } catch {} }
+    return r;
+  }
+
+  // Untrusted: a supplied code means "verify then record"; otherwise issue the challenge.
+  if (code) {
+    const v = await verifyIntakeOtp(env, { token, code, ip, userAgent, nowMs });
+    if (!v.ok) return v;
+    const r = await submitHeadcount(env, { token, count, notes, name: v.name || name, lang, deviceId: v.device_token, phone: v.phone, verified: true, ip, userAgent, nowMs });
+    if (r.ok) r.set_cookie = { name: v.device_cookie, value: v.device_token, maxAge: DEVICE_TTL_SEC };
+    return r;
+  }
+
+  // First contact: cheaply validate the count BEFORE texting a code (don't burn an SMS on a bad input).
+  const n = Math.floor(Number(count));
+  if (!Number.isFinite(n) || n < 1 || n > 500) return { ok: false, error: 'Enter a head count between 1 and 500.' };
+  const date = etToday(typeof nowMs === 'number' ? nowMs : now());
+  const days = String(site.delivery_days || 'mon,tue,wed').split(',').map((d) => d.trim().toLowerCase());
+  if (!days.includes(DOW_NAMES[dowMon(date) - 1])) return { ok: false, error: `No delivery is scheduled for ${site.name} today.` };
+  return await requestIntakeOtp(env, { token, name, phone, lang, nowMs });
+}
+
 // Submit a site's headcount for today. Idempotent per (site, service_date): a re-submit
 // updates the count + order. Returns a summary object; { ok:false, error } on a problem.
-export async function submitHeadcount(env, { token, count, nowMs, submittedBy, notes } = {}) {
+export async function submitHeadcount(env, { token, count, nowMs, submittedBy, notes, name, phone, lang, deviceId, verified, ip, userAgent, sendReceipt = true } = {}) {
   if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
   const t = typeof nowMs === 'number' ? nowMs : now();
 
@@ -74,9 +236,11 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
   const item = await resolveItem(env, account, date);
   const shortName = `${(account.name || 'Contract').split(' ')[0]} · ${site.name}`;
   const cleanNotes = (notes || '').toString().trim().slice(0, 400) || null; // allergies / special requests
+  const submitter = (name || submittedBy || 'web').toString().trim().slice(0, 80) || 'web';
 
   // 1) Kitchen order (deterministic id; upsert so re-submits update the count without losing prep state).
   const orderId = `octr_${site.id}_${date}`;
+  const prior = await env.DB.prepare('SELECT id FROM orders WHERE id = ?').bind(orderId).first().catch(() => null);
   const items = toJson([{ id: 'contract_lunch', name: item, qty: n }]);
   try {
     await env.DB.prepare(
@@ -110,15 +274,38 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
          submitted_by=excluded.submitted_by, is_rush=excluded.is_rush, notes=excluded.notes, updated_at=excluded.updated_at`
     ).bind(
       id('cord'), site.id, account.id, date, n, item, pricePer, deliveryFee, rushFee, total,
-      orderId, (submittedBy || 'web').toString().slice(0, 80), isRush ? 1 : 0, cleanNotes, t, t
+      orderId, submitter, isRush ? 1 : 0, cleanNotes, t, t
     ).run();
   } catch { /* order already recorded; ledger is best-effort but log-worthy */ }
 
+  // 3) Append-only audit trail + receipt. The confirmation number ties the on-screen result,
+  //    the audit row, and the SMS receipt together — non-repudiable proof of this submission.
+  const confirmation_no = confNo();
+  const weekday = DOW_LABEL[dow - 1];
+  await writeEvent(env, {
+    site_id: site.id, account_id: account.id, service_date: date, order_id: orderId,
+    event: prior ? 'updated' : 'created', headcount: n, total_cents: total, notes: cleanNotes,
+    name: submitter, phone: phone || site.contact_phone || null, verified: verified ? 1 : 0,
+    device_id: deviceId || null, confirmation_no, ip, user_agent: userAgent,
+  });
+
+  let receipt_sent = false;
+  const receiptTo = normalizePhone(site.contact_phone) || normalizePhone(phone);
+  if (sendReceipt && receiptTo) {
+    const sms = await sendSms(env, { to: receiptTo, body: receiptBody(lang, {
+      site: site.name, weekday, date, count: n, total_cents: total, is_rush: isRush,
+      name: submitter, time: etClock(t), confirmation_no, cutoff: site.cutoff_time || '09:00',
+    }) });
+    receipt_sent = !!(sms && sms.sent);
+  }
+
   return {
-    ok: true, account: account.name, site: site.name, date, weekday: DOW_LABEL[dow - 1],
+    ok: true, account: account.name, site: site.name, date, weekday,
     count: n, item, price_per_lunch_cents: pricePer, subtotal_cents: subtotal,
     delivery_fee_cents: deliveryFee, rush_fee_cents: rushFee, total_cents: total,
     is_rush: isRush, window: site.window_label || '11:30–12:30', notes: cleanNotes,
+    confirmation_no, receipt_sent, receipt_to: receiptTo ? maskPhone(receiptTo) : null,
+    updated: !!prior,
   };
 }
 
@@ -138,12 +325,14 @@ async function monthFor(env, siteId, date) {
 
 // Public context for the intake page (site name, date, whether delivery runs today, cutoff
 // state, and any count already submitted). Never reveals other sites.
-export async function siteContext(env, token, nowMs) {
+export async function siteContext(env, token, nowMs, opts = {}) {
   if (!env || !env.DB) return { ok: false };
   const t = typeof nowMs === 'number' ? nowMs : now();
   const site = await env.DB.prepare('SELECT * FROM contract_sites WHERE intake_token = ? AND active = 1').bind(String(token || '')).first().catch(() => null);
   if (!site) return { ok: false, error: 'invalid' };
   const account = await env.DB.prepare('SELECT name FROM contract_accounts WHERE id = ?').bind(site.account_id).first().catch(() => null);
+  const device = await trustedDevice(env, site, opts.cookieHeader || '');
+  const onFile = normalizePhone(site.contact_phone);
   const date = etToday(t);
   const dow = dowMon(date);
   const days = String(site.delivery_days || '').split(',').map((d) => d.trim().toLowerCase());
@@ -159,7 +348,52 @@ export async function siteContext(env, token, nowMs) {
     price_per_lunch_cents: Number(site.price_per_lunch_cents) || 0,
     already: existing ? { count: existing.headcount, total_cents: existing.total_cents, is_rush: !!existing.is_rush, notes: existing.notes || null } : null,
     month,
+    // Verification state for the page: a trusted device skips the code step; otherwise we need
+    // a number to text the code to (on file, or one the contact enrolls on first use).
+    device_trusted: !!device,
+    contact_name: (device && device.contact_name) || site.contact_name || null,
+    phone_hint: onFile ? maskPhone(onFile) : null,
+    has_contact_phone: !!onFile,
+    enroll_needed: !device && !onFile,
   };
+}
+
+// ---- Owner-side: office contact + trusted-device management + audit trail ----------------
+export async function setSiteContact(env, { site_id, contact_name, contact_phone } = {}) {
+  if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
+  const ph = normalizePhone(contact_phone);
+  if (contact_phone && !ph) return { ok: false, error: 'Enter a valid mobile number.' };
+  try {
+    await env.DB.prepare('UPDATE contract_sites SET contact_name = ?, contact_phone = ?, updated_at = ? WHERE id = ?')
+      .bind((contact_name || '').toString().trim().slice(0, 80) || null, ph, now(), site_id).run();
+    return { ok: true, phone_hint: ph ? maskPhone(ph) : null };
+  } catch { return { ok: false, error: 'Could not save the contact.' }; }
+}
+
+export async function revokeDevice(env, { device_id } = {}) {
+  if (!env || !env.DB) return { ok: false };
+  try { await env.DB.prepare('UPDATE contract_intake_devices SET revoked = 1 WHERE id = ?').bind(device_id).run(); return { ok: true }; }
+  catch { return { ok: false }; }
+}
+
+// Trusted devices for an account's sites (for the owner's "who can order" view).
+export async function listDevices(env, accountId) {
+  try {
+    const { results } = await env.DB.prepare(
+      'SELECT id, site_id, contact_name, phone, created_at, last_used_at, revoked FROM contract_intake_devices WHERE account_id = ? ORDER BY created_at DESC'
+    ).bind(accountId).all();
+    return (results || []).map((d) => ({ ...d, phone_hint: maskPhone(d.phone) }));
+  } catch { return []; }
+}
+
+// Recent audit events for an account (the non-repudiation record the owner can show a client).
+export async function listEvents(env, accountId, limit = 60) {
+  try {
+    const { results } = await env.DB.prepare(
+      'SELECT site_id, service_date, event, headcount, total_cents, submitted_by_name, verified, confirmation_no, created_at FROM contract_order_events WHERE account_id = ? ORDER BY created_at DESC LIMIT ?'
+    ).bind(accountId, Math.min(200, Number(limit) || 60)).all();
+    return results || [];
+  } catch { return []; }
 }
 
 // Self-registration: a business signs up + picks a billing model. Creates a PENDING account +

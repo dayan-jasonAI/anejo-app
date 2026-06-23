@@ -2,7 +2,7 @@
 // (with the per-site intake link, lazily minted), and the recent daily-count ledger. Owner-only.
 import { json, bad, randToken, now } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { activateAccount, generateInvoice, getInvoice } from '../../../_lib/contract.js';
+import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents } from '../../../_lib/contract.js';
 
 export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -34,7 +34,9 @@ export const onRequestGet = async ({ request, env }) => {
     } catch { recent = []; }
     let invoices = [];
     try { invoices = ((await env.DB.prepare('SELECT id, number, period_from, period_to, total_cents, status, created_at FROM contract_invoices WHERE account_id = ? ORDER BY created_at DESC LIMIT 12').bind(a.id).all()).results) || []; } catch { invoices = []; }
-    out.push({ account: a, sites, recent, invoices });
+    const devices = await listDevices(env, a.id);   // trusted intake devices (who can order)
+    const events = await listEvents(env, a.id, 60);  // append-only audit trail
+    out.push({ account: a, sites, recent, invoices, devices, events });
   }
   return json({ ok: true, accounts: out });
 };
@@ -57,6 +59,17 @@ export const onRequestPost = async ({ request, env }) => {
   if (op === 'invoice') {
     const r = await generateInvoice(env, { accountId: b.account_id, from: b.from, to: b.to });
     if (!r.ok) return bad(r.error || 'Could not generate the invoice.', 400);
+    return json(r);
+  }
+  if (op === 'set_contact') {
+    if (!b.site_id) return bad('Missing site_id.');
+    const r = await setSiteContact(env, { site_id: b.site_id, contact_name: b.contact_name, contact_phone: b.contact_phone });
+    if (!r.ok) return bad(r.error || 'Could not save the contact.', 400);
+    return json(r);
+  }
+  if (op === 'revoke_device') {
+    if (!b.device_id) return bad('Missing device_id.');
+    const r = await revokeDevice(env, { device_id: b.device_id });
     return json(r);
   }
   return bad('Unknown action.');

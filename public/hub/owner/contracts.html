@@ -24,6 +24,16 @@
   .led th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
   .led td.r,.led th.r{text-align:right}
   .acct-total{display:flex;justify-content:space-between;align-items:center;background:var(--cream);border-radius:10px;padding:10px 12px;margin-top:10px;font-weight:700;color:var(--green)}
+  .contact{margin-top:10px}
+  .contact label{font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:4px}
+  .aud{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
+  .aud summary{cursor:pointer;font-weight:700;color:var(--green);font-size:13px;padding:9px 12px}
+  .aud[open] summary{border-bottom:1px solid var(--line)}
+  .dev,.evrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
+  .dev:last-child,.evrow:last-child{border-bottom:0}
+  .dev.rev{opacity:.5}
+  .rvk{border:0;background:var(--crit,#b3402f);color:#fff;border-radius:7px;padding:5px 10px;font-weight:700;font-size:12px;cursor:pointer}
+  .evrow b{text-transform:capitalize}
 </style>
 </head>
 <body>
@@ -53,7 +63,7 @@
   }
   window.__copy = copyLink;
 
-  function siteCard(s, recent) {
+  function siteCard(s, recent, aid) {
     var url = origin + '/lunch-count?t=' + (s.intake_token || '');
     var mine = (recent || []).filter(function (r) { return r.site_id === s.id; });
     var rows = mine.slice(0, 10).map(function (r) {
@@ -71,6 +81,11 @@
       '</div>' +
       '<div class="linkrow"><input readonly value="' + esc(url) + '"><button onclick="__copy(this,\'' + esc(url) + '\')">Copy</button></div>' +
       '<div style="font-size:11px;color:var(--muted)">↑ Give this link to the ' + esc(s.name) + ' contact — they open it each morning to send the head count.</div>' +
+      '<div class="contact"><label>Office contact — receives the verification code &amp; SMS receipts' +
+        (s.contact_phone ? '' : ' <span style="color:var(--crit,#b3402f)">(none yet — first submitter will enroll one)</span>') + '</label>' +
+        '<div class="linkrow"><input id="cn_' + s.id + '" placeholder="Contact name" value="' + esc(s.contact_name || '') + '" style="flex:1">' +
+        '<input id="cp_' + s.id + '" placeholder="Mobile e.g. 561-555-0142" value="' + esc(s.contact_phone || '') + '" style="flex:1.3">' +
+        '<button onclick="__setContact(\'' + aid + '\',\'' + s.id + '\')">Save</button></div></div>' +
       '<table class="led"><tr><th>Date</th><th class="r">Lunches</th><th class="r">Total</th><th class="r">Inv.</th></tr>' + rows + '</table></div>';
   }
 
@@ -107,6 +122,42 @@
           '<span>' + money(v.total_cents) + ' · ' + esc(v.status || '') + '</span></a>';
       }).join('') + '</div>';
   }
+  window.__setContact = function (aid, sid) {
+    var name = (document.getElementById('cn_' + sid) || {}).value || '';
+    var phone = (document.getElementById('cp_' + sid) || {}).value || '';
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'set_contact', account_id: aid, site_id: sid, contact_name: name, contact_phone: phone } })
+      .then(function (r) { if (r && r.ok) { Hub.toast('Contact saved'); render(); } else Hub.toast((r && r.error) || 'Could not save'); });
+  };
+
+  // Trusted intake devices — who can submit one-tap, with the ability to revoke (forces re-verify).
+  function devicesBlock(aid, devices) {
+    if (!devices || !devices.length) return '';
+    var active = devices.filter(function (d) { return !d.revoked; }).length;
+    var rows = devices.map(function (dv) {
+      var last = dv.last_used_at ? new Date(dv.last_used_at).toLocaleDateString() : '—';
+      return '<div class="dev' + (dv.revoked ? ' rev' : '') + '"><span>📱 ' + esc(dv.contact_name || '—') +
+        ' <span class="row-sub">' + esc(dv.phone_hint || '') + ' · last ' + esc(last) + '</span></span>' +
+        (dv.revoked ? '<span class="row-sub">revoked</span>' : '<button class="rvk" onclick="__revoke(\'' + aid + '\',\'' + dv.id + '\')">Revoke</button>') + '</div>';
+    }).join('');
+    return '<details class="aud"><summary>📱 Trusted devices (' + active + ')</summary>' + rows + '</details>';
+  }
+  window.__revoke = function (aid, did) {
+    if (!window.confirm('Revoke this device? They will need to verify again with a code next time.')) return;
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'revoke_device', account_id: aid, device_id: did } })
+      .then(function (r) { if (r && r.ok) { Hub.toast('Device revoked'); render(); } else Hub.toast('Could not revoke'); });
+  };
+
+  // Append-only audit trail — the non-repudiation record you can show a client.
+  function auditBlock(events) {
+    if (!events || !events.length) return '';
+    var rows = events.slice(0, 40).map(function (e) {
+      return '<div class="evrow"><span>' + esc(e.service_date) + ' · <b>' + esc(e.event) + '</b>' +
+        (e.headcount != null ? ' ' + esc(e.headcount) + '×' : '') + (e.verified ? ' 🔒' : '') + '</span>' +
+        '<span class="row-sub">' + esc(e.submitted_by_name || '') + (e.confirmation_no ? ' · ' + esc(e.confirmation_no) : '') + '</span></div>';
+    }).join('');
+    return '<details class="aud"><summary>🧾 Audit trail — who submitted what (' + events.length + ')</summary>' + rows + '</details>';
+  }
+
   window.__invoice = function (aid) {
     if (!window.confirm('Generate an invoice for all un-invoiced days for this account? Those days will be marked invoiced.')) return;
     Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'invoice', account_id: aid } }).then(function (r) {
@@ -131,8 +182,10 @@
         var unbilled = (a.recent || []).filter(function (r) { return !r.invoiced; }).reduce(function (s, r) { return s + (r.total_cents || 0); }, 0);
         return '<div class="hub-section"><h2>🏢 ' + esc(acc.name) + ' ' + badge + ' <span class="row-sub" style="font-weight:400">· ' + esc(acc.billing_model || acc.invoice_cadence || '') + (acc.billing_email ? ' · ' + esc(acc.billing_email) : '') + '</span></h2>' +
           (pending ? activateForm(acc) : '') +
-          a.sites.map(function (s) { return siteCard(s, a.recent); }).join('') +
+          a.sites.map(function (s) { return siteCard(s, a.recent, acc.id); }).join('') +
           (pending ? '' :
+            devicesBlock(acc.id, a.devices) +
+            auditBlock(a.events) +
             '<div class="acct-total"><span>Unbilled this period</span><span>' + money(unbilled) + '</span></div>' +
             (unbilled > 0 ? '<button class="btn gold block" style="margin-top:8px" onclick="__invoice(\'' + acc.id + '\')">🧾 Generate invoice (close period)</button>' : '') +
             invoiceList(a.invoices)

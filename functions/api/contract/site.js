@@ -5,6 +5,6 @@ import { siteContext } from '../../_lib/contract.js';
 
 export const onRequestGet = async ({ request, env }) => {
   const t = new URL(request.url).searchParams.get('t') || '';
-  const r = await siteContext(env, t);
+  const r = await siteContext(env, t, undefined, { cookieHeader: request.headers.get('Cookie') || '' });
   return json(r);
 };

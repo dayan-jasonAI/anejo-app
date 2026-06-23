@@ -53,6 +53,15 @@
   .day .rush{font-size:10px;font-weight:800;color:var(--crit);background:#f3d9d3;border-radius:10px;padding:2px 7px;margin-left:6px}
   .day .note{color:var(--gold-700);font-size:12px}
   .empty{color:var(--muted);text-align:center;padding:18px;font-size:14px}
+  /* identity + verification */
+  .txt{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 13px;font:inherit;font-size:15px;background:var(--cream)}
+  .txt:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(198,168,91,.16)}
+  .secure{display:flex;gap:7px;align-items:flex-start;font-size:12.5px;color:var(--muted);margin-top:13px;line-height:1.5}
+  .code{width:100%;text-align:center;letter-spacing:12px;font-size:34px;font-weight:800;color:var(--green);border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--cream);margin-top:6px}
+  .code:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(198,168,91,.16)}
+  .linkbtn{background:none;border:none;color:var(--gold-deep);font-weight:700;cursor:pointer;font-size:13px;text-decoration:underline;margin-top:14px;display:block;width:100%;text-align:center}
+  .conf{font-family:ui-monospace,Menlo,monospace;font-size:23px;font-weight:800;letter-spacing:2px;color:var(--green);background:var(--cream);border:1px dashed var(--gold);border-radius:10px;padding:11px 16px;display:inline-block;margin-top:6px}
+  .conf-l{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-top:14px}
 </style>
 </head>
 <body>
@@ -86,7 +95,25 @@
     spent:{en:'Total',es:'Total'},
     daysL:{en:'Days',es:'Días'},
     noOrders:{en:'No orders yet this month — your first count will appear here.',es:'Aún no hay pedidos este mes — tu primer conteo aparecerá aquí.'},
-    change:{en:'Need to change it? Reopen this link before {c} AM.',es:'¿Necesitas cambiarlo? Reabre este enlace antes de las {c} AM.'}
+    change:{en:'Need to change it? Reopen this link before {c} AM.',es:'¿Necesitas cambiarlo? Reabre este enlace antes de las {c} AM.'},
+    yourName:{en:'Your name',es:'Tu nombre'},
+    yourNamePh:{en:'Who’s placing this order?',es:'¿Quién hace este pedido?'},
+    yourMobile:{en:'Your mobile number',es:'Tu número de celular'},
+    yourMobilePh:{en:'For your receipt + a one-time code',es:'Para tu recibo + un código único'},
+    secureNote:{en:'🔒 To confirm it’s you, we’ll text a 6-digit code to {hint}.',es:'🔒 Para confirmar que eres tú, enviaremos un código de 6 dígitos al {hint}.'},
+    secureEnroll:{en:'🔒 To confirm it’s you, we’ll text a 6-digit code to the number above — this becomes your office’s verified line.',es:'🔒 Para confirmar que eres tú, enviaremos un código de 6 dígitos al número de arriba — será la línea verificada de tu oficina.'},
+    trustedNote:{en:'🔒 This device is verified — your order is recorded under your name.',es:'🔒 Este dispositivo está verificado — tu pedido se registra a tu nombre.'},
+    nameReq:{en:'Please enter your name.',es:'Por favor ingresa tu nombre.'},
+    mobileReq:{en:'Please enter your mobile number.',es:'Por favor ingresa tu número de celular.'},
+    verifyTitle:{en:'Confirm it’s you',es:'Confirma que eres tú'},
+    verifySent:{en:'We texted a 6-digit code to {hint}. Enter it to lock in today’s order.',es:'Enviamos un código de 6 dígitos al {hint}. Ingrésalo para confirmar el pedido de hoy.'},
+    verifyBtn:{en:'Confirm & submit',es:'Confirmar y enviar'},
+    verifying:{en:'Confirming…',es:'Confirmando…'},
+    resend:{en:'Resend code',es:'Reenviar código'},
+    codeSafe:{en:'Never share this code. Añejo will never ask for it by phone.',es:'Nunca compartas este código. Añejo nunca te lo pedirá por teléfono.'},
+    confNum:{en:'Your confirmation number',es:'Tu número de confirmación'},
+    receiptSent:{en:'📩 Receipt texted to {hint}',es:'📩 Recibo enviado por SMS al {hint}'},
+    submitErr:{en:'Could not submit. Please try again.',es:'No se pudo enviar. Inténtalo de nuevo.'}
   };
   var MONTHS={en:['January','February','March','April','May','June','July','August','September','October','November','December'],
              es:['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']};
@@ -128,6 +155,14 @@
           '<button type="button" onclick="bump(1)">+</button></div>'+
         '<span class="lab" style="margin-top:18px">'+tr('allerg')+'</span>'+
         '<textarea id="notes" maxlength="400" placeholder="'+esc(tr('allergPh'))+'">'+esc(pre&&pre.notes||'')+'</textarea>'+
+        '<span class="lab" style="margin-top:18px">'+tr('yourName')+'</span>'+
+        '<input id="who" class="txt" type="text" maxlength="80" autocomplete="name" placeholder="'+esc(tr('yourNamePh'))+'" value="'+esc(ctx.contact_name||'')+'">'+
+        (ctx.enroll_needed
+          ? '<span class="lab" style="margin-top:16px">'+tr('yourMobile')+'</span><input id="mob" class="txt" type="tel" inputmode="tel" maxlength="24" autocomplete="tel" placeholder="'+esc(tr('yourMobilePh'))+'">'
+          : '')+
+        '<div class="secure">'+(ctx.device_trusted
+            ? tr('trustedNote')
+            : (ctx.has_contact_phone ? tr('secureNote',{hint:esc(ctx.phone_hint||'')}) : tr('secureEnroll')))+'</div>'+
         '<button class="btn" id="go" onclick="submitCount()">'+(pre?tr('update'):tr('submit'))+'</button>'+
         '<div class="fine">'+tr('perLunch',{p:money(ctx.price_per_lunch_cents)})+'</div>'+
       '</div>'+monthCard();
@@ -149,26 +184,65 @@
   }
 
   function bump(d){ var i=document.getElementById('n'); var v=Math.max(0,(parseInt(i.value,10)||0)+d); i.value=v||''; }
+
+  var pending=null; // the order being submitted, held across the verification step
+  function formError(msg){ var c=app.querySelector('.card'); if(c){ var old=c.querySelector('.err'); if(old)old.remove(); c.insertAdjacentHTML('beforeend','<div class="banner crit err">'+esc(msg)+'</div>'); } }
+
   function submitCount(){
     var i=document.getElementById('n'); var n=parseInt(i.value,10);
     if(!n||n<1){ i.focus(); return; }
-    var notes=(document.getElementById('notes')||{}).value||'';
-    var b=document.getElementById('go'); b.disabled=true; b.textContent=tr('sending');
-    fetch('/api/contract/headcount',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:token,count:n,notes:notes})})
-      .then(function(r){return r.json();}).then(function(d){
-        if(d&&d.ok){ confirmed(d); } else { b.disabled=false; b.textContent=tr('submit'); var c=app.querySelector('.card'); if(c)c.insertAdjacentHTML('beforeend','<div class="banner crit">'+esc((d&&d.error)||'Could not submit.')+'</div>'); }
-      }).catch(function(){ b.disabled=false; b.textContent=tr('submit'); });
+    var name=((document.getElementById('who')||{}).value||'').trim();
+    if(!name){ formError(tr('nameReq')); var w=document.getElementById('who'); if(w)w.focus(); return; }
+    var mobEl=document.getElementById('mob'); var phone=mobEl?(mobEl.value||'').trim():'';
+    if(mobEl && !phone){ formError(tr('mobileReq')); mobEl.focus(); return; }
+    pending={count:n, notes:(document.getElementById('notes')||{}).value||'', name:name, phone:phone};
+    postIntake(null);
   }
+
+  // POST the pending order. code=null → first attempt (may return needs_verify); code set → verify step.
+  function postIntake(code){
+    var b=document.getElementById('vgo')||document.getElementById('go');
+    if(b){ b.disabled=true; b.textContent=tr(code!=null?'verifying':'sending'); }
+    var body={t:token, lang:lang, count:pending.count, notes:pending.notes, name:pending.name, phone:pending.phone};
+    if(code!=null) body.code=code;
+    fetch('/api/contract/headcount',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){return r.json();}).then(function(d){
+        if(d&&d.ok){ confirmed(d); return; }
+        if(d&&d.needs_verify){ showVerify(d.phone_hint, code!=null?((d&&d.error)||null):null); return; }
+        if(b){ b.disabled=false; b.textContent=tr('submit'); }
+        formError((d&&d.error)||tr('submitErr'));
+      }).catch(function(){ if(b){ b.disabled=false; b.textContent=tr('submit'); } formError(tr('submitErr')); });
+  }
+
+  // The one-time-code step (verify device once). Re-rendered on a wrong code or a resend.
+  function showVerify(hint, err){
+    window.scrollTo({top:0,behavior:'smooth'}); app.className='';
+    app.innerHTML='<div class="card">'+
+      '<div class="site" style="font-size:21px">'+tr('verifyTitle')+'</div>'+
+      '<p class="meta" style="margin-top:8px">'+tr('verifySent',{hint:esc(hint||'')})+'</p>'+
+      (err?'<div class="banner crit">'+esc(err)+'</div>':'')+
+      '<input id="code" class="code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••">'+
+      '<button class="btn" id="vgo" onclick="doVerify()">'+tr('verifyBtn')+'</button>'+
+      '<button class="linkbtn" onclick="resendCode()">'+tr('resend')+'</button>'+
+      '<div class="fine" style="margin-top:10px">'+tr('codeSafe')+'</div>'+
+    '</div>';
+    var c=document.getElementById('code'); if(c)c.focus();
+  }
+  function doVerify(){ var c=document.getElementById('code'); var code=(c.value||'').replace(/[^0-9]/g,''); if(code.length!==6){ c.focus(); return; } postIntake(code); }
+  function resendCode(){ postIntake(null); }
+
   function confirmed(d){
-    // show a confirmation banner, then refresh context (updates the month tracker live)
     window.scrollTo({top:0,behavior:'smooth'});
+    app.className='';
     app.innerHTML='<div class="card" style="text-align:center"><div style="width:62px;height:62px;border-radius:50%;background:var(--green);color:var(--gold);font-size:30px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">✓</div>'+
       '<div class="site" style="font-size:20px">'+tr('received',{n:d.count})+'</div>'+
       '<p style="color:var(--muted);margin-top:8px">'+esc(d.site)+' &middot; '+tr('fresh',{w:esc(d.window)})+'</p>'+
+      (d.confirmation_no?'<div class="conf-l">'+tr('confNum')+'</div><div class="conf">'+esc(d.confirmation_no)+'</div>':'')+
+      (d.receipt_sent?'<p class="fine" style="margin-top:10px">'+tr('receiptSent',{hint:esc(d.receipt_to||'')})+'</p>':'')+
       (d.notes?'<div class="banner warn" style="text-align:left;margin-top:12px">⚠ '+esc(d.notes)+'</div>':'')+
       (d.is_rush?'<div class="banner crit" style="text-align:left">'+tr('rushFee',{x:money(d.rush_fee_cents)})+'</div>':'')+
       '<p class="fine" style="margin-top:12px">'+tr('change',{c:esc(ctx.cutoff)})+'</p></div>';
-    setTimeout(load, 1400); // reload to refresh the live monthly tracker
+    setTimeout(load, 1800); // reload to refresh the live monthly tracker
   }
   document.getElementById('h-sub').textContent=T.sub.en;
   load();
