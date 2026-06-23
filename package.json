@@ -5,7 +5,14 @@
   "private": true,
   "scripts": {
     "dev": "wrangler pages dev public --compatibility-date=2026-05-01",
-    "deploy": "wrangler pages deploy public --project-name=anejo-app"
+    "deploy": "wrangler pages deploy public --project-name=anejo-app",
+    "lint": "eslint functions/api/auth functions/_lib/login.js functions/_lib/pin.js functions/_lib/session.js functions/_lib/roles.js test/auth",
+    "test:auth": "node --no-warnings --test test/auth/*.test.js"
   },
-  "devDependencies": { "wrangler": "^3.80.0" }
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
+    "globals": "^15.15.0",
+    "wrangler": "^3.80.0"
+  }
 }
