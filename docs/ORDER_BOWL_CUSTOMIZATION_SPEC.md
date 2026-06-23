@@ -1,7 +1,9 @@
 # /order — Per-Bowl Customization (build spec / handoff)
 
-**Status:** NOT built. Assigned to the **"Añejo CRM/Internal app" session** (Dayan's call, 2026-06-12).
-**Requested by:** Dayan. **Written by:** website session (handoff — see Collision note).
+**Status:** ✅ BUILT + SHIPPED 2026-06-23 (ownership reassigned by Dayan to the website session). Implemented in
+`public/order.html` (photos + customize modal + instance cart) + `functions/api/checkout.js` (`priceCustomBowl`,
+server-authoritative pricing, per-line Square notes, kitchen-compatible `orders.items` fields) + i18n modal strings.
+**Requested by:** Dayan. **Written by:** website session.
 
 ## Goal
 On `/order`, show a photo for each bowl and let the customer **customize every bowl individually** —
@@ -35,12 +37,13 @@ remove ingredients, swap the base, and add extras — with all pricing enforced 
   from e5ad7ce) to carry the mods, and recompute macros from `build[]` when ingredients change.
 - Each customized bowl is its own line item (qty 1), so two differently-customized VIDAs are 2 lines.
 
-## OPEN pricing decisions (Dayan to confirm before/at build)
-- "Extra of every ingredient" — flat per-extra price, or per-ingredient (by oz)?
-- Sweet potato add-on price.
-- Brown-rice base swap — free, or +$?
-- Added sauces — free, or +$ (existing Extra Signature Sauce is $1.50)?
-- Confirm reuse of the reverted prices: Avocado ½ **$2.00**, Extra Protein 4 oz **$4.50**, Extra Sauce **$1.50**.
+## Pricing decisions — RESOLVED by Dayan 2026-06-23 (live in checkout.js)
+- Extra of an on-bowl ingredient: **by type** — veg/grain/garnish **$1.50**, protein/premium **$3.00** (premium = tuna/salmon/steak/shrimp/chicken/tofu/avocado/queso/cheese/almond/pecan, via regex).
+- Sweet potato add-on: **$2.00**.
+- Brown-rice base swap: **free**.
+- Added house sauces (Mango Omega, Ajo Cítrico, Chimichurri Vital, Golden Turmeric, Aguacate Cilantro): **free**.
+- Reused: Avocado ½ **$2.00**, Extra Protein 4 oz **$4.50**, Extra sauce cup 2 oz **$1.50**.
+- Removals: free. Protein (build[0]) not removable. Hidden FUERZA not orderable from /order.
 
 ## Reference / salvage
 - Reverted add-ons attempt: commit **e5ad7ce** (added Avocado/Extra Protein/Extra Sauce + bowl builds
