@@ -288,7 +288,24 @@
     "City":"Ciudad","ZIP":"Código postal","Gate code, drop-off notes (optional)":"Código de acceso, notas de entrega (opcional)",
     // order page — customize modal section headers (chip labels + buttons are localized in order.html JS)
     "Protein":"Proteína","Remove ingredients":"Quitar ingredientes","Add a sauce":"Agregar una salsa",
-    "Extra of an ingredient":"Extra de un ingrediente","Add to order":"Agregar al pedido"
+    "Extra of an ingredient":"Extra de un ingrediente","Add to order":"Agregar al pedido",
+    // ===== subscribe page (static; dynamic plan/schedule/validation strings localized in subscribe.html JS) =====
+    "Subscribe — Añejo Catering Co.":"Suscríbete — Añejo Catering Co.",
+    "← Back":"← Volver",
+    "Weekly Meal-Plan Subscription":"Suscripción de Plan de Comidas Semanal",
+    "Subscribe to your":"Suscríbete a tu","Añejo plan":"plan Añejo",
+    "🌿 Cooked and delivered fresh daily":"🌿 Cocinado y entregado fresco a diario",
+    "Choose your weekly plan":"Elige tu plan semanal",
+    "Your delivery schedule":"Tu horario de entrega",
+    "Choose your delivery window":"Elige tu horario de entrega",
+    "Your name":"Tu nombre","Email":"Correo electrónico","Mobile":"Móvil","(optional)":"(opcional)",
+    "Card":"Tarjeta","Billed weekly":"Facturado semanalmente",
+    "Recurring weekly until you cancel. Cancel anytime — see our":"Recurrente cada semana hasta que canceles. Cancela cuando quieras — consulta nuestra",
+    "Refund & Cancellation policy":"Política de Reembolsos y Cancelaciones",
+    "Start subscription":"Iniciar suscripción",
+    "Yes, text me order & delivery updates from Añejo Catering Co. at this number.":"Sí, envíenme avisos de pedidos y entregas de Añejo Catering Co. a este número.",
+    "Message frequency varies (you may get a text for each order & delivery). Msg & data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase.":"La frecuencia de mensajes varía (puedes recibir un texto por cada pedido y entrega). Pueden aplicar tarifas de mensajes y datos. Responde HELP para ayuda, STOP para cancelar. El consentimiento no es condición de compra.",
+    "Terms":"Términos","Privacy":"Privacidad"
   };
 
   var origText = new WeakMap();   // text node / option -> original english value

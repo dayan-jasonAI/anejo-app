@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Contract Accounts</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .site-card{border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:14px;margin:10px 0;background:#fff}
+  .site-card .nm{font-weight:700;color:var(--green);font-size:16px}
+  .site-card .ad{font-size:12.5px;color:var(--muted);margin:2px 0 8px}
+  .linkrow{display:flex;gap:6px;margin:8px 0}
+  .linkrow input{flex:1;font-size:12px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--cream);color:var(--ink)}
+  .linkrow button{border:0;background:var(--green);color:#fff;border-radius:8px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer}
+  .terms{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .pill{font-size:11px;font-weight:700;background:#eee;color:#555;border-radius:20px;padding:3px 9px}
+  .pill.gold{background:#efe7cf;color:var(--gold-700,#8a7a2e)}
+  .led{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  .led th,.led td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
+  .led th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .led td.r,.led th.r{text-align:right}
+  .acct-total{display:flex;justify-content:space-between;align-items:center;background:var(--cream);border-radius:10px;padding:10px 12px;margin-top:10px;font-weight:700;color:var(--green)}
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · CONTRACTS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p>Loading contract accounts…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var esc = Hub.esc, money = Hub.money;
+  var origin = location.origin;
+
+  function copyLink(btn, url) {
+    try { navigator.clipboard.writeText(url).then(function(){ btn.textContent='Copied ✓'; setTimeout(function(){ btn.textContent='Copy'; },1500); }); }
+    catch(e){ btn.textContent='—'; }
+  }
+  window.__copy = copyLink;
+
+  function siteCard(s, recent) {
+    var url = origin + '/lunch-count?t=' + (s.intake_token || '');
+    var mine = (recent || []).filter(function (r) { return r.site_id === s.id; });
+    var rows = mine.slice(0, 10).map(function (r) {
+      return '<tr><td>' + esc(r.service_date) + '</td><td class="r">' + r.headcount + '</td><td class="r">' + money(r.total_cents) +
+        (r.is_rush ? ' <span class="pill gold">rush</span>' : '') + '</td><td class="r">' + (r.invoiced ? '✓' : '—') + '</td></tr>';
+    }).join('') || '<tr><td colspan="4" style="color:var(--muted)">No counts yet.</td></tr>';
+    return '<div class="site-card"><div class="nm">' + esc(s.name) + '</div>' +
+      '<div class="ad">' + esc([s.street, s.city, s.state, s.zip].filter(Boolean).join(', ')) + '</div>' +
+      '<div class="terms">' +
+        '<span class="pill">' + money(s.price_per_lunch_cents) + '/lunch</span>' +
+        '<span class="pill">' + money(s.delivery_fee_cents) + ' delivery</span>' +
+        '<span class="pill">cut-off ' + esc(s.cutoff_time) + '</span>' +
+        '<span class="pill gold">' + esc(s.window_label || '') + '</span>' +
+        '<span class="pill">' + esc((s.delivery_days || '').toUpperCase().replace(/,/g, ' ')) + '</span>' +
+      '</div>' +
+      '<div class="linkrow"><input readonly value="' + esc(url) + '"><button onclick="__copy(this,\'' + esc(url) + '\')">Copy</button></div>' +
+      '<div style="font-size:11px;color:var(--muted)">↑ Give this link to the ' + esc(s.name) + ' contact — they open it each morning to send the head count.</div>' +
+      '<table class="led"><tr><th>Date</th><th class="r">Lunches</th><th class="r">Total</th><th class="r">Inv.</th></tr>' + rows + '</table></div>';
+  }
+
+  function render() {
+    Owner.get('/api/hub/owner/contracts').then(function (d) {
+      var root = document.getElementById('owner-root'); root.className = '';
+      if (!d || !d.ok || !d.accounts || !d.accounts.length) {
+        root.innerHTML = '<div class="card"><p class="row-sub">No contract accounts yet.</p></div>'; return;
+      }
+      root.innerHTML = d.accounts.map(function (a) {
+        var acc = a.account;
+        var unbilled = (a.recent || []).filter(function (r) { return !r.invoiced; }).reduce(function (s, r) { return s + (r.total_cents || 0); }, 0);
+        return '<div class="hub-section"><h2>🏢 ' + esc(acc.name) + ' <span class="row-sub" style="font-weight:400">· invoiced ' + esc(acc.invoice_cadence) + '</span></h2>' +
+          a.sites.map(function (s) { return siteCard(s, a.recent); }).join('') +
+          '<div class="acct-total"><span>Unbilled this period</span><span>' + money(unbilled) + '</span></div></div>';
+      }).join('');
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  Owner.init('contracts', render);
+})();
+</script>
+</body>
+</html>

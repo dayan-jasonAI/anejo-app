@@ -58,6 +58,8 @@ export const onRequestGet = async ({ request, env }) => {
     ...o,
     item_count: itemCount(o.items),
     is_subscription: !!o.subscription_id, // drives the "Subscription" tag on the board
+    is_contract: !!o.contract_site_id,    // B2B contract order (e.g. DGP office lunches)
+    is_rush: !!o.is_rush,
   }));
 
   const board = { pending: [], prep: [], ready: [] };

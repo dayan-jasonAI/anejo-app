@@ -143,31 +143,38 @@ let chosenWindow = null;   // set only for chooseWindow tiers; required before c
 let cardReady = false;
 let card = null;
 
+// EN/ES for JS-built strings (static HTML is translated by i18n.js via its dictionary). Mirrors
+// the order.html pattern: pick by AnejoLang, re-render on the langchange event + window load.
+function curLang(){ return (window.AnejoLang && window.AnejoLang.get && window.AnejoLang.get()==='es') ? 'es' : 'en'; }
+function L(en, es){ return curLang()==='es' ? es : en; }
+const DOW_ES = { Mon:'Lun', Tue:'Mar', Wed:'Mié', Thu:'Jue', Fri:'Vie', Sat:'Sáb', Sun:'Dom' };
+function dow(nm){ return curLang()==='es' ? (DOW_ES[nm]||nm) : nm; }
+
 function fmtPrice(n){ return (Math.round(Number(n)*100)/100).toFixed(2).replace(/\.00$/,''); }
 function renderPlans(){
   document.getElementById('planPick').innerHTML = Object.entries(TIERS).map(([k,t])=>
     `<div class="plan-opt${k===planTier?' sel':''}" data-k="${k}" onclick="pickPlan('${k}')">
-       <div class="pname">${t.label.split(' / ')[0]}</div><div class="pprice">$${fmtPrice(t.price)}</div><div class="pper">per week</div></div>`).join('');
-  document.getElementById('sumPrice').textContent = '$'+fmtPrice(TIERS[planTier].price)+' / wk';
+       <div class="pname">${t.label.split(' / ')[0]}</div><div class="pprice">$${fmtPrice(t.price)}</div><div class="pper">${L('per week','por semana')}</div></div>`).join('');
+  document.getElementById('sumPrice').textContent = '$'+fmtPrice(TIERS[planTier].price)+L(' / wk',' / sem');
   renderSchedule();
 }
 function renderSchedule(){
   const s = SCHED[planTier];
   const lastDow = s.deliverDows[s.deliverDows.length-1];
-  const span = (lastDow===6) ? 'Monday–Saturday' : 'Monday–Friday';
+  const span = (lastDow===6) ? L('Monday–Saturday','Lunes–Sábado') : L('Monday–Friday','Lunes–Viernes');
   const perDay = s.bowlsPerDay===2
-    ? '<b>2 bowls per day</b> — one at lunch (11–1) and one at dinner (5–7)'
-    : '<b>1 bowl per day</b>, in your chosen window';
-  const chips = DOWS.map(([nm,n])=>`<span class="day${s.deliverDows.indexOf(n)<0?' off':''}">${nm}</span>`).join('')
-    + '<span class="day off">Sun</span>';
+    ? L('<b>2 bowls per day</b> — one at lunch (11–1) and one at dinner (5–7)','<b>2 bowls por día</b> — uno en el almuerzo (11–1) y uno en la cena (5–7)')
+    : L('<b>1 bowl per day</b>, in your chosen window','<b>1 bowl por día</b>, en tu horario elegido');
+  const chips = DOWS.map(([nm,n])=>`<span class="day${s.deliverDows.indexOf(n)<0?' off':''}">${dow(nm)}</span>`).join('')
+    + `<span class="day off">${dow('Sun')}</span>`;
   document.getElementById('schedule').innerHTML =
-    `Cooked &amp; delivered fresh daily, spaced across the week. Delivered <b>${span}</b> · ${perDay}.` +
+    L('Cooked & delivered fresh daily, spaced across the week. Delivered','Cocinado y entregado fresco a diario, distribuido durante la semana. Entregado')+` <b>${span}</b> · ${perDay}.` +
     `<div class="days">${chips}</div>`;
   // 1-bowl tiers must pick a window; 2-bowl tiers get both automatically.
   const wp = document.getElementById('windowPick');
   if (s.chooseWindow){
     wp.style.display='';
-    document.getElementById('winPick').innerHTML = [['lunch','Lunch','11–1'],['dinner','Dinner','5–7']].map(([w,nm,hr])=>
+    document.getElementById('winPick').innerHTML = [['lunch',L('Lunch','Almuerzo'),'11–1'],['dinner',L('Dinner','Cena'),'5–7']].map(([w,nm,hr])=>
       `<div class="plan-opt${w===chosenWindow?' sel':''}" onclick="pickWindow('${w}')"><div class="pname">${nm}</div><div class="pper">${hr}</div></div>`).join('');
   } else { wp.style.display='none'; chosenWindow=null; }
   updateSubBtn();
@@ -183,11 +190,14 @@ function updateSubBtn(){
 function pickPlan(k){ planTier=k; renderPlans(); }
 window.pickPlan = pickPlan;
 
-document.getElementById('who').innerHTML = (clientId
-  ? 'Subscribing as <strong>your trainer\'s member</strong>. Your plan is delivered weekly.'
-  : 'Weekly Añejo bowls, delivered. Cancel anytime.')
-  + (bowlOz ? ' Your bowls are portion-sized to your goal: <strong>'+bowlOz+' oz each</strong>.' : '')
-  + (avocado ? ' <strong>½ avocado added to every bowl</strong> (+$2 each).' : '');
+function renderWho(){
+  document.getElementById('who').innerHTML = (clientId
+    ? L('Subscribing as <strong>your trainer\'s member</strong>. Your plan is delivered weekly.','Te suscribes como <strong>miembro de tu entrenador</strong>. Tu plan se entrega cada semana.')
+    : L('Weekly Añejo bowls, delivered. Cancel anytime.','Bowls Añejo cada semana, entregados. Cancela cuando quieras.'))
+    + (bowlOz ? L(' Your bowls are portion-sized to your goal: <strong>'+bowlOz+' oz each</strong>.',' Tus bowls están porcionados a tu meta: <strong>'+bowlOz+' oz cada uno</strong>.') : '')
+    + (avocado ? L(' <strong>½ avocado added to every bowl</strong> (+$2 each).',' <strong>½ aguacate añadido a cada bowl</strong> (+$2 c/u).') : '');
+}
+renderWho();
 if(!clientId){
   document.getElementById('buyerFields').innerHTML =
     '<label class="fld" for="b_name">Your name</label><input class="b-input" id="b_name" type="text" autocomplete="name" required>'+
@@ -205,7 +215,7 @@ async function init(){
   const msg = document.getElementById('msg');
   let cfg;
   try { cfg = await (await fetch('/api/square-config')).json(); }
-  catch { msg.className='msg err'; msg.textContent='Could not load payment config.'; return; }
+  catch { msg.className='msg err'; msg.textContent=L('Could not load payment config.','No se pudo cargar la configuración de pago.'); return; }
   // Sync the delivery schedule from the server (authoritative) so the SCHED below is just a
   // first-paint fallback — the day grid + window rules can never drift from plans.js.
   if (cfg.tiers) {
@@ -214,7 +224,7 @@ async function init(){
     });
     renderSchedule();
   }
-  if (!cfg.applicationId || !cfg.locationId){ msg.className='msg err'; msg.textContent='Payments are not configured yet.'; return; }
+  if (!cfg.applicationId || !cfg.locationId){ msg.className='msg err'; msg.textContent=L('Payments are not configured yet.','Los pagos aún no están configurados.'); return; }
 
   const sdk = cfg.env === 'production' ? 'https://web.squarecdn.com/v1/square.js' : 'https://sandbox.web.squarecdn.com/v1/square.js';
   await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=sdk; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
@@ -227,7 +237,7 @@ async function init(){
     await card.attach('#card-container');
     cardReady = true; updateSubBtn();
   } catch (e) {
-    msg.className='msg err'; msg.textContent='Could not load the card field: '+(e.message||e);
+    msg.className='msg err'; msg.textContent=L('Could not load the card field: ','No se pudo cargar el campo de tarjeta: ')+(e.message||e);
   }
 }
 
@@ -243,8 +253,8 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
     const name=(document.getElementById('b_name')||{}).value||'', email=(document.getElementById('b_email')||{}).value||'';
     const phone=(document.getElementById('b_phone')||{}).value||'';
     const smsConsent=!!(document.getElementById('b_sms')||{}).checked;
-    if(!name.trim()){ fail(document.getElementById('b_name'),'Please enter your name.'); return; }
-    if(!email.trim()){ fail(document.getElementById('b_email'),'Please enter your email.'); return; }
+    if(!name.trim()){ fail(document.getElementById('b_name'),L('Please enter your name.','Por favor ingresa tu nombre.')); return; }
+    if(!email.trim()){ fail(document.getElementById('b_email'),L('Please enter your email.','Por favor ingresa tu correo electrónico.')); return; }
     body = { planTier, buyer:{ name:name.trim(), email:email.trim(), phone:phone.trim(), sms_consent:smsConsent } };
   }
   // Carry the chosen bowl size + avocado add-on so the server charges + preps correctly.
@@ -256,14 +266,14 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
     city:(document.getElementById('a_city')||{}).value||'', state:((document.getElementById('a_state')||{}).value||'FL'),
     zip:(document.getElementById('a_zip')||{}).value||'', notes:(document.getElementById('a_notes')||{}).value||''
   };
-  if(!addr.street.trim()){ fail(document.getElementById('a_street'),'Please enter your delivery street address.'); return; }
-  if(!addr.city.trim()){ fail(document.getElementById('a_city'),'Please enter your delivery city.'); return; }
-  if(!/^\d{5}$/.test(addr.zip.trim())){ fail(document.getElementById('a_zip'),'Please enter a valid 5-digit ZIP code.'); return; }
+  if(!addr.street.trim()){ fail(document.getElementById('a_street'),L('Please enter your delivery street address.','Por favor ingresa tu dirección de entrega.')); return; }
+  if(!addr.city.trim()){ fail(document.getElementById('a_city'),L('Please enter your delivery city.','Por favor ingresa tu ciudad de entrega.')); return; }
+  if(!/^\d{5}$/.test(addr.zip.trim())){ fail(document.getElementById('a_zip'),L('Please enter a valid 5-digit ZIP code.','Por favor ingresa un código postal válido de 5 dígitos.')); return; }
   body.address = { street:addr.street.trim(), unit:addr.unit.trim(), city:addr.city.trim(), state:addr.state.trim()||'FL', zip:addr.zip.trim(), notes:addr.notes.trim() };
   // Delivery window. 1-bowl tiers must have picked Lunch or Dinner; 2-bowl tiers get both.
   if (SCHED[planTier].chooseWindow) {
     if (chosenWindow !== 'lunch' && chosenWindow !== 'dinner') {
-      fail(document.getElementById('windowPick'), 'Please choose a delivery window — Lunch or Dinner.');
+      fail(document.getElementById('windowPick'), L('Please choose a delivery window — Lunch or Dinner.','Por favor elige un horario de entrega — Almuerzo o Cena.'));
       document.getElementById('windowPick').scrollIntoView({ block:'center', behavior:'smooth' });
       return;
     }
@@ -271,26 +281,32 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
   } else {
     body.delivery = { windows: ['lunch','dinner'] };
   }
-  btn.disabled=true; const lbl=btn.textContent; btn.textContent='Processing…';
+  btn.disabled=true; const lbl=btn.textContent; btn.textContent=L('Processing…','Procesando…');
   try {
     const tok = await card.tokenize();
-    if (tok.status !== 'OK') throw new Error('Please check your card details.');
+    if (tok.status !== 'OK') throw new Error(L('Please check your card details.','Por favor revisa los datos de tu tarjeta.'));
     body.sourceId = tok.token;
     const r = await fetch('/api/subscriptions/create',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(body)});
     const data = await r.json();
-    if (!r.ok || !data.ok) throw new Error(data.error || 'Subscription could not be started.');
+    if (!r.ok || !data.ok) throw new Error(data.error || L('Subscription could not be started.','No se pudo iniciar la suscripción.'));
     document.getElementById('wrap').innerHTML =
       '<div class="ok-card"><div class="check"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>'+
-      '<h2>You\'re subscribed!</h2><p>Your '+TIERS[planTier].label+' plan ($'+fmtPrice(TIERS[planTier].price)+'/wk) is active. '+
-      'You\'ll get a confirmation by email and your first delivery on your next scheduled day.</p></div>';
+      '<h2>'+L("You're subscribed!",'¡Estás suscrito!')+'</h2><p>'+
+      L('Your '+TIERS[planTier].label+' plan ($'+fmtPrice(TIERS[planTier].price)+'/wk) is active. You\'ll get a confirmation by email and your first delivery on your next scheduled day.',
+        'Tu plan de '+TIERS[planTier].label.replace('/ week','/ semana')+' ($'+fmtPrice(TIERS[planTier].price)+'/sem) está activo. Recibirás una confirmación por correo y tu primera entrega en tu próximo día programado.')+
+      '</p></div>';
   } catch (e) {
-    msg.className='msg err'; msg.textContent=e.message||'Something went wrong.'; btn.disabled=false; btn.textContent=lbl;
+    msg.className='msg err'; msg.textContent=e.message||L('Something went wrong.','Algo salió mal.'); btn.disabled=false; btn.textContent=lbl;
   }
 });
 
 init();
+// Re-render JS-built strings on language toggle + once i18n.js has loaded/applied a persisted lang.
+document.addEventListener('anejo:langchange', function(){ renderPlans(); renderWho(); });
+window.addEventListener('load', function(){ renderPlans(); renderWho(); });
 </script>
+<script src="/assets/js/i18n.js"></script>
 <script src="/assets/js/consent.js"></script>
   <script src="/assets/js/chat.js" defer></script>
 </body>
