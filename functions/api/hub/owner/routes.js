@@ -7,58 +7,13 @@
 //          SMSes the driver (safe no-op without Twilio creds) and posts an in_app
 //          thread message so the route shows up in their HUB inbox.
 // Owner-only. Stop labels carry customer name + window — never a street address.
-import { json, bad, id, now } from '../../../_lib/util.js';
+import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { today, bit } from '../../../_lib/hub.js';
-import { capture } from '../../../_lib/track.js';
-import { sendSms } from '../../../_lib/twilio.js';
-import { sendOffer } from '../../../_lib/dispatch.js';
-import { geocode, optimizeRoute, formatAddress, stopServiceSeconds, kitchenOrigin, estimateRouteMiles } from '../../../_lib/geo.js';
-import { getPayConfig, computeRoutePay } from '../../../_lib/pay.js';
+import { today } from '../../../_lib/hub.js';
+import { formatAddress } from '../../../_lib/geo.js';
+import { assignRoute } from '../../../_lib/routing.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-// Planned departure (ms epoch) for a route — start of its earliest delivery window, ET.
-// lunch ≈ 10:30 AM ET (14:30Z, EDT); dinner ≈ 4:00 PM ET (20:00Z).
-function departMsFor(routeDate, orders) {
-  const lunch = (orders || []).some((o) => (o.delivery_window || '') === 'lunch');
-  const ms = Date.parse(routeDate + (lunch ? 'T14:30:00Z' : 'T20:00:00Z'));
-  return Number.isFinite(ms) ? ms : Date.now();
-}
-
-// Find the driver's latest open thread, or create one (audience 'driver').
-// Prefers a threads.staff_id column when present (added by the comms module);
-// falls back to created_by so this works against the base 0003 schema too.
-async function findOrCreateDriverThread(env, driver, t) {
-  try {
-    const r = await env.DB
-      .prepare("SELECT id FROM threads WHERE staff_id=? AND status='open' ORDER BY COALESCE(last_message_at, created_at) DESC LIMIT 1")
-      .bind(driver.id)
-      .first();
-    if (r && r.id) return r.id;
-  } catch { /* no staff_id column yet */ }
-  try {
-    const r = await env.DB
-      .prepare("SELECT id FROM threads WHERE created_by=? AND status='open' ORDER BY COALESCE(last_message_at, created_at) DESC LIMIT 1")
-      .bind(driver.id)
-      .first();
-    if (r && r.id) return r.id;
-  } catch { /* tolerate */ }
-
-  const tid = id('thr');
-  try {
-    await env.DB
-      .prepare("INSERT INTO threads (id, audience, subject, created_by, staff_id, status, created_at, updated_at) VALUES (?,'driver',?,?,?,'open',?,?)")
-      .bind(tid, 'Route assignment', driver.id, driver.id, t, t)
-      .run();
-    return tid;
-  } catch { /* no staff_id column yet */ }
-  await env.DB
-    .prepare("INSERT INTO threads (id, audience, subject, created_by, status, created_at, updated_at) VALUES (?,'driver',?,?,'open',?,?)")
-    .bind(tid, 'Route assignment', driver.id, t, t)
-    .run();
-  return tid;
-}
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -160,117 +115,9 @@ export const onRequestPost = async ({ request, env }) => {
   const taken = ((takenRes && takenRes.results) || []).map((r) => r.order_id);
   if (taken.length) return bad('Some orders are already on a route.', 409);
 
-  const t = now();
-  const routeId = id('route');
-  const byId = new Map(orders.map((o) => [o.id, o]));
-
-  // Geocode any chosen orders that still lack coordinates (best-effort; no-ops without a key).
-  for (const o of orders) {
-    if ((o.delivery_lat == null || o.delivery_lng == null) && o.delivery_street) {
-      const g = await geocode(env, formatAddress(o)).catch(() => null);
-      if (g) {
-        o.delivery_lat = g.lat; o.delivery_lng = g.lng;
-        try {
-          await env.DB.prepare('UPDATE orders SET delivery_lat=?, delivery_lng=?, geocoded_at=?, updated_at=? WHERE id=?')
-            .bind(g.lat, g.lng, t, t, o.id).run();
-        } catch { /* best-effort */ }
-      }
-    }
-  }
-
-  // Optimize the stop order + compute ETAs. optimizeRoute returns null without a key/coords →
-  // we fall back to the owner's pick order and a fixed-interval ETA heuristic so the driver
-  // still gets a sequence + an estimated finish time.
-  const departAt = departMsFor(routeDate, orders);
-  const geoStops = orderIds
-    .map((oid) => byId.get(oid))
-    .filter((o) => o && o.delivery_lat != null && o.delivery_lng != null)
-    .map((o) => ({ id: o.id, lat: o.delivery_lat, lng: o.delivery_lng }));
-
-  let seqIds = orderIds.slice();          // default: owner's pick order
-  const etaById = {};
-  let optimized = false;
-  let etaCompleteAt = null;
-  let totalMinutes = null;
-
-  let totalMeters = null;
-
-  const opt = geoStops.length === orderIds.length ? await optimizeRoute(env, geoStops, departAt) : null;
-  if (opt && opt.order && opt.order.length === orderIds.length) {
-    seqIds = opt.order;
-    Object.assign(etaById, opt.arrivalMs);
-    etaCompleteAt = opt.completeAtMs;
-    totalMinutes = Math.round(opt.totalDriveSeconds / 60) + Math.round((stopServiceSeconds(env) * orderIds.length) / 60);
-    totalMeters = opt.totalMeters || null;
-    optimized = true;
-  } else {
-    // Heuristic ETA: 15 min per stop (drive + drop) from the planned departure.
-    const stepMs = 15 * 60 * 1000;
-    seqIds.forEach((oid, i) => { etaById[oid] = departAt + (i + 1) * stepMs; });
-    etaCompleteAt = departAt + seqIds.length * stepMs;
-    totalMinutes = seqIds.length * 15;
-  }
-
-  // Driven miles: prefer the Routes API distance; else a straight-line-through-stops estimate.
-  let miles = totalMeters != null ? Math.round((totalMeters / 1609.344) * 10) / 10 : null;
-  if (miles == null) {
-    const orderedGeo = seqIds.map((oid) => byId.get(oid)).filter((o) => o && o.delivery_lat != null && o.delivery_lng != null)
-      .map((o) => ({ lat: o.delivery_lat, lng: o.delivery_lng }));
-    const origin = kitchenOrigin(env);
-    if (origin && orderedGeo.length) miles = estimateRouteMiles(origin, orderedGeo);
-  }
-
-  // Driver pay for the route/batch (owner-configurable rates).
-  const payCfg = await getPayConfig(env);
-  const pay = computeRoutePay(payCfg, { stops: orderIds.length, miles });
-  const milesEst = pay.miles; // rounded; null if unknown
-
-  await env.DB
-    .prepare(
-      'INSERT INTO routes (id, driver_id, route_date, stop_count, ai_optimized, status, depart_at, eta_complete_at, total_minutes, total_meters, total_miles_est, pay_cents, created_at, updated_at) ' +
-      "VALUES (?,?,?,?,?,'assigned',?,?,?,?,?,?,?,?)"
-    )
-    .bind(routeId, driverId, routeDate, orderIds.length, bit(aiOptimized || optimized), departAt, etaCompleteAt, totalMinutes, totalMeters, milesEst, pay.total_cents, t, t)
-    .run();
-
-  // Stops in optimized (or pick) order, each carrying the drop-off address, coords, and ETA.
-  const stmt = env.DB.prepare(
-    "INSERT INTO route_stops (id, route_id, order_id, seq, label, address, geo, eta_at, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,'pending',?,?)"
-  );
-  const batch = seqIds.map((oid, i) => {
-    const o = byId.get(oid);
-    const label = `${(o && o.customer_name) || 'Customer'} — ${(o && o.delivery_window) || 'delivery'}`;
-    const address = formatAddress(o) || null;
-    const geo = (o && o.delivery_lat != null && o.delivery_lng != null)
-      ? JSON.stringify({ lat: o.delivery_lat, lng: o.delivery_lng }) : null;
-    return stmt.bind(id('stop'), routeId, oid, i + 1, label, address, geo, etaById[oid] || null, t, t);
-  });
-  await env.DB.batch(batch);
-
-  await capture(env, {
-    event: 'route.assigned',
-    distinct_id: ctx.distinct_id,
-    role: ctx.role,
-    team: ctx.team,
-    properties: { route_id: routeId, driver_id: driverId, stop_count: orderIds.length, ai_optimized: aiOptimized },
-  });
-
-  // OFFER the route to the chosen driver: marks it offer_status='pending' and notifies them
-  // via push + SMS (with a HUB link) + an in-app message. The driver accepts/denies in the
-  // HUB; a deny or ~2-min silence auto-rolls the offer to the next available driver
-  // (see _lib/dispatch.js + /api/hub/admin/offers-tick). Never fails the assignment.
-  let offer = { ok: false };
-  try {
-    offer = await sendOffer(env, {
-      id: routeId, stop_count: orderIds.length, route_date: routeDate,
-      pay_cents: pay.total_cents, eta_complete_at: etaCompleteAt, total_miles_est: milesEst,
-    }, driver);
-  } catch { /* offer notice is best-effort */ }
-
-  return json({
-    ok: true, id: routeId, stop_count: orderIds.length, optimized,
-    eta_complete_at: etaCompleteAt, total_minutes: totalMinutes,
-    miles: milesEst, pay_cents: pay.total_cents, pay_breakdown: pay,
-    offer_status: 'pending', offered_to: driverId, offer_sent: !!(offer && offer.ok),
-  });
+  // Hand off to the shared route-creation core (geocode → optimize → miles → pay → insert →
+  // stops → offer). Same logic as before; also used by automated dispatch (_lib/autodispatch).
+  const r = await assignRoute(env, { orders, orderIds, routeDate, driverId, driver, aiOptimized, ctx });
+  if (!r.ok) return bad(r.error || 'Could not assign the route.', 500);
+  return json(r);
 };

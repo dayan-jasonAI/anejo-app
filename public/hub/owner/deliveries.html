@@ -116,6 +116,47 @@
       .then(function (r) { Hub.toast(r && r.ok ? 'Pay settings saved' : 'Could not save'); });
   };
 
+  // ---- Automated dispatch: hands-off route building at a set time each day ----
+  function autoDispatchHtml() {
+    var fld = function (id, label, input) { return '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">' + label + '</label>' + input + '</div>'; };
+    return '<div class="card" style="border-left:4px solid var(--green);margin-top:12px">' +
+      '<div class="row-title">🤖 Automated dispatch</div>' +
+      '<div class="row-sub" style="margin:4px 0 10px">When on, the HUB auto-builds the most efficient routes from the day’s orders and offers them to drivers at the set time — you don’t lift a finger.</div>' +
+      '<label style="display:flex;align-items:center;gap:9px;margin-bottom:10px;font-weight:700;color:var(--green)"><input type="checkbox" id="ad_enabled" style="width:18px;height:18px"> Enable automated dispatch</label>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        fld('ad_time', 'Build time (ET)', '<input id="ad_time" type="time" value="09:05" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px">') +
+        fld('ad_max', 'Max stops / route', '<input id="ad_max" type="number" min="1" max="50" value="14" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px">') +
+      '</div>' +
+      '<div style="margin-top:8px;font-size:13px"><span style="font-size:11px;color:var(--green);font-weight:700;text-transform:uppercase">Windows</span><br>' +
+        '<label style="margin-right:16px"><input type="checkbox" id="ad_w_lunch" checked> Lunch</label>' +
+        '<label><input type="checkbox" id="ad_w_dinner" checked> Dinner</label></div>' +
+      '<button class="btn block" type="button" style="margin-top:12px" onclick="__saveAuto()">Save auto-dispatch settings</button>' +
+      '<button class="btn gold block" type="button" style="margin-top:8px" onclick="__autoBuildNow()">⚡ Auto-build today’s routes now</button>' +
+    '</div>';
+  }
+  function loadAutoCfg() {
+    Owner.get('/api/hub/owner/dispatch-config').then(function (d) {
+      if (!d || !d.ok) return; var c = d.config || {};
+      var set = function (id, v) { var el = document.getElementById(id); if (el) el.value = v; };
+      var chk = function (id, v) { var el = document.getElementById(id); if (el) el.checked = !!v; };
+      chk('ad_enabled', c.enabled); set('ad_time', c.time_et || '09:05'); set('ad_max', c.max_per_route || 14);
+      var w = c.windows || ['lunch', 'dinner']; chk('ad_w_lunch', w.indexOf('lunch') >= 0); chk('ad_w_dinner', w.indexOf('dinner') >= 0);
+    });
+  }
+  window.__saveAuto = function () {
+    var windows = []; if ((document.getElementById('ad_w_lunch') || {}).checked) windows.push('lunch'); if ((document.getElementById('ad_w_dinner') || {}).checked) windows.push('dinner');
+    var body = { enabled: !!(document.getElementById('ad_enabled') || {}).checked, time_et: (document.getElementById('ad_time') || {}).value || '09:05', max_per_route: parseInt((document.getElementById('ad_max') || {}).value, 10) || 14, windows: windows };
+    Hub.api('/api/hub/owner/dispatch-config', { method: 'POST', body: body }).then(function (r) { Hub.toast(r && r.ok ? (body.enabled ? 'Auto-dispatch ON · ' + body.time_et + ' ET' : 'Auto-dispatch saved (off)') : 'Could not save'); });
+  };
+  window.__autoBuildNow = function () {
+    var date = (document.getElementById('rdate') || {}).value || localToday();
+    if (!window.confirm('Auto-build and offer the most efficient routes for ' + date + ' now?')) return;
+    Hub.api('/api/hub/admin/dispatch-tick', { method: 'POST', body: { force: true, date: date } }).then(function (r) {
+      if (r && r.ok) { Hub.toast(r.created ? 'Built ' + r.created + ' route(s) for ' + (r.stops || 0) + ' stops' : 'No unassigned orders to build'); loadAssign(); loadToday(); }
+      else Hub.toast((r && r.error) || 'Could not auto-build');
+    });
+  };
+
   function loadAssign() {
     var date = (document.getElementById('rdate') || {}).value || localToday();
     Owner.get('/api/hub/owner/routes?date=' + encodeURIComponent(date)).then(function (d) {
@@ -209,7 +250,9 @@
       '<button class="btn block" id="rplanbtn" type="button">⚡ Suggest efficient route(s)</button>' +
       '<div id="rplan" style="margin-top:10px"></div>' +
       paySettingsHtml() +
-      '</div></div>' +
+      '</div>' +
+      autoDispatchHtml() +
+      '</div>' +
       '<div id="roll"></div><div class="hub-section"><h2 data-i18n>Routes today</h2><div id="routes" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Deliveries</h2><div id="drops" class="list"><div class="hub-loading">…</div></div></div>';
 
@@ -218,6 +261,7 @@
     var pb = document.getElementById('rplanbtn'); if (pb) pb.addEventListener('click', planRoutes);
     loadAssign();
     loadPayCfg();
+    loadAutoCfg();
     loadToday();
   }
 

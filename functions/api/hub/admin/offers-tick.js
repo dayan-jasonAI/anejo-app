@@ -8,6 +8,7 @@ import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { now } from '../../../_lib/hub.js';
 import { declineAndReoffer, OFFER_TIMEOUT_MS } from '../../../_lib/dispatch.js';
+import { runAutoDispatch } from '../../../_lib/autodispatch.js';
 
 function ctEq(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
@@ -46,5 +47,11 @@ export const onRequestPost = async ({ request, env }) => {
       else if (out && out.offered_to) rolled++;
     } catch { /* one bad route must not stop the sweep */ }
   }
-  return json({ ok: true, expired: routes.length, rolled, unfilled });
+  // Piggyback automated dispatch on this minutely sweep. Self-gating (off by default; only at/
+  // after the configured time) + idempotent, so calling it every minute is cheap + safe. Best-
+  // effort: an auto-dispatch failure must never break offer-rolling.
+  let auto = null;
+  try { auto = await runAutoDispatch(env, {}); } catch { auto = { ok: false, error: 'autodispatch_failed' }; }
+
+  return json({ ok: true, expired: routes.length, rolled, unfilled, auto });
 };

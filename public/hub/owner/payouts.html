@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Driver Payouts</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .pcard{border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:14px;margin:10px 0;background:#fff}
+  .pcard .nm{font-weight:800;color:var(--green);font-size:17px}
+  .pcard .amt{font-size:26px;font-weight:800;color:var(--green);margin:6px 0 2px}
+  .pcard .amt small{font-size:13px;font-weight:600;color:var(--muted)}
+  .meta{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .pill{font-size:11px;font-weight:700;background:#eee;color:#555;border-radius:20px;padding:3px 9px}
+  .pill.gold{background:#efe7cf;color:#8a7a2e}.pill.green{background:#e1efe5;color:#1A3D2E}
+  .rt{font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)}
+  .rt:last-child{border-bottom:0}
+  .tot{display:flex;justify-content:space-between;background:var(--cream);border-radius:10px;padding:10px 12px;margin:8px 0;font-weight:700;color:var(--green)}
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · PAYOUTS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+<div class="hub-wrap"><div id="owner-root" class="hub-loading"><p>Loading payouts…</p></div></div>
+<nav id="owner-nav" class="hub-nav"></nav>
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var esc = Hub.esc, money = Owner.money;
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) { lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES'; lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; }); }
+  var days = 14;
+
+  function render() {
+    Owner.get('/api/hub/owner/payouts?days=' + days).then(function (d) {
+      var root = document.getElementById('owner-root'); root.className = '';
+      if (!d || !d.ok) { root.innerHTML = '<div class="card"><p class="row-sub">Could not load payouts.</p></div>'; return; }
+      var t = d.totals || {};
+      var head = '<div class="hub-section"><div class="field"><label>Period</label><select id="pdays">' +
+        [7, 14, 30, 60].map(function (n) { return '<option value="' + n + '"' + (n === days ? ' selected' : '') + '>Last ' + n + ' days</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="tot"><span>💵 Owed now (completed, unpaid)</span><span>' + money(t.owed_cents || 0) + '</span></div>' +
+        '<div class="tot"><span>📅 Scheduled (not yet run)</span><span>' + money(t.scheduled_cents || 0) + '</span></div>' +
+        '<div class="tot"><span>✓ Paid this period</span><span>' + money(t.paid_cents || 0) + '</span></div></div>';
+
+      var body = (d.drivers || []).length ? d.drivers.map(function (dr) {
+        var rows = (dr.unpaid_routes || []).map(function (r) {
+          return '<div class="rt"><span>' + esc(r.route_date || '') + ' · ' + (r.stop_count || 0) + ' stops' + (r.total_miles_est != null ? ' · ' + r.total_miles_est + ' mi' : '') + '</span><span>' + money(r.pay_cents) + '</span></div>';
+        }).join('');
+        var payBtn = (dr.owed_cents > 0) ? '<button class="btn gold block" style="margin-top:10px" onclick="__pay(\'' + esc(dr.driver_id) + '\')">Mark ' + money(dr.owed_cents) + ' paid</button>' : '';
+        return '<div class="pcard"><div class="nm">' + esc(dr.driver_name || 'Driver') + '</div>' +
+          '<div class="amt">' + money(dr.owed_cents || 0) + ' <small>owed now</small></div>' +
+          '<div class="meta"><span class="pill gold">' + (dr.completed_routes || 0) + ' routes done</span>' +
+          '<span class="pill">' + (dr.stops || 0) + ' stops</span>' +
+          '<span class="pill">' + (Number(dr.miles || 0).toFixed(1)) + ' mi</span>' +
+          (dr.scheduled_cents > 0 ? '<span class="pill">' + money(dr.scheduled_cents) + ' scheduled</span>' : '') +
+          (dr.paid_cents > 0 ? '<span class="pill green">' + money(dr.paid_cents) + ' paid</span>' : '') + '</div>' +
+          (rows ? '<div style="margin-top:6px">' + rows + '</div>' : '') + payBtn + '</div>';
+      }).join('') : '<div class="hub-empty">No driver routes in this period.</div>';
+
+      root.innerHTML = head + '<div class="hub-section"><h2>By driver</h2>' + body + '</div>';
+      var sel = document.getElementById('pdays'); if (sel) sel.addEventListener('change', function () { days = parseInt(this.value, 10) || 14; render(); });
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+  window.__pay = function (driverId) {
+    if (!window.confirm('Mark this driver’s completed routes as paid for the selected period? This records the payout.')) return;
+    Hub.api('/api/hub/owner/payouts', { method: 'POST', body: { op: 'mark_paid', driver_id: driverId, days: days } }).then(function (r) {
+      if (r && r.ok) { Hub.toast('Marked ' + (r.marked || 0) + ' route(s) paid'); render(); } else Hub.toast((r && r.error) || 'Could not mark paid');
+    });
+  };
+  Owner.init('payouts', render);
+})();
+</script>
+</body>
+</html>
