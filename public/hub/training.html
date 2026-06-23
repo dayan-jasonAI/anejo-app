@@ -76,6 +76,7 @@
   <div class="bar">
     <h1>AÑEJO <b>·</b> TRAINING</h1>
     <div class="right">
+      <a class="home" id="cardlink" href="#" style="display:none">🖨 <span data-t="card">Card</span></a>
       <a class="home" id="homelink" href="/hub/training" style="display:none">↩︎ <span data-t="all">All</span></a>
       <div class="lang"><button id="en" class="on" onclick="setLang('en')">EN</button><button id="es" onclick="setLang('es')">ES</button></div>
     </div>
@@ -105,7 +106,7 @@
    Each step: k kicker, t title, m mock(optional), x TRIGGER, y YOU DO, z THEN(downstream), n note(optional).
    Staff roles add _es variants (t2,x2,y2,z2). Owner module is English (management). */
 var UI = {
-  all:{en:'All',es:'Todo'}, back:{en:'Back',es:'Atrás'}, next:{en:'Next',es:'Siguiente'}, finish:{en:'Finish',es:'Terminar'},
+  all:{en:'All',es:'Todo'}, card:{en:'Card',es:'Tarjeta'}, back:{en:'Back',es:'Atrás'}, next:{en:'Next',es:'Siguiente'}, finish:{en:'Finish',es:'Terminar'},
   play:{en:'Play narrated tour',es:'Reproducir tour narrado'}, pause:{en:'Pause narration',es:'Pausar narración'},
   step:{en:'Step',es:'Paso'}, of:{en:'of',es:'de'}, choose:{en:'Choose your training',es:'Elige tu capacitación'},
   chooseSub:{en:"Pick your role. Each tutorial covers exactly what you need — your screen, what's expected of you, and what kicks off your work. The Owner walkthrough covers the whole system end to end.",
@@ -154,7 +155,7 @@ var MOD = {
       x:'You assigned a route to a driver.',
       y:'Watch the badge. If it shows “unfilled — reassign”, pick another driver.',
       z:'The driver gets a push + text and Accept/Deny buttons. Deny — or 2 minutes of silence — auto-offers the next available driver. If none accept, the route goes “unfilled” and you get a high-priority alert. Every accept/deny/miss is logged on the driver’s card.'}),
-    S({k:'On-demand',t:'ASAP / live orders',
+    S({k:'On-demand',t:'ASAP / live orders',m:'<div class="m-card"><div class="m-t">Walk-up order <span class="m-b crit">🛵 ASAP</span></div><div class="m-s">assign to an available driver now</div></div>',
       x:'A walk-up or on-demand order comes in for same-day delivery.',
       y:'It’s flagged “ASAP · DISPATCH” on Deliveries — assign it to an available driver right away.',
       z:'Same offer/accept flow as a planned route; the customer gets the same out-for-delivery + delivered texts.'}),
@@ -162,7 +163,7 @@ var MOD = {
       x:'You hire someone, or need to change a role.',
       y:'In Staff, add the person (you’ll see a one-time PIN to share), set role/team/lead. Reset PIN or deactivate anytime.',
       z:'They sign in and set their own private PIN on first use. Deactivating removes their access immediately.'}),
-    S({k:'Staff oversight',t:'Reliability, lead times, compliance',
+    S({k:'Staff oversight',t:'Reliability, lead times, compliance',m:'<div class="m-card"><div class="m-t">Luis</div><div class="m-s">📦 18 accepted · 1 denied · 0 missed</div></div>',
       x:'Staff act all day — clock-ins, deliveries, EOD reports.',
       y:'In Staff, read each driver’s reliability (accepted / denied / missed) and set each vendor’s lead-time in days.',
       z:'Vendor lead-times feed AI Ops’ order timing. Missed EOD reports and late clock-ins raise alerts automatically.'}),
@@ -174,7 +175,7 @@ var MOD = {
       x:'You need to tell a driver, the kitchen, or a client something.',
       y:'Open Comms, post to a thread or broadcast. Close/archive a thread when it’s done.',
       z:'Route assignments and customer notices also drop into Comms automatically, so there’s one history per person.'}),
-    S({k:'Finance',t:'Sales, tips & payouts',
+    S({k:'Finance',t:'Sales, tips & payouts',m:'<div class="m-card"><div class="m-t">$1,840 sales today</div><div class="m-s">$72 driver tips · trainer rev-share $46</div></div>',
       x:'Orders get paid and delivered; drivers earn tips; trainers earn rev-share.',
       y:'Open Finance to see sales, captured tips, and trainer rev-share owed.',
       z:'Square’s webhook records each payment + tip on the order; trainer rev-share is ledgered on each paid subscription invoice — all automatic.'}),
@@ -194,19 +195,19 @@ var MOD = {
       x:'Inventory drops below par and the forecast says you’ll need more.',
       y:'In AI Ops → Suggestions, review the proposed order (quantities, cost, order-by/lands-by) and Accept or Dismiss.',
       z:'Accepting drafts a purchase order the kitchen submits to the vendor. The agent NEVER places an order or spends money on its own — approval is always yours.'}),
-    S({k:'Añejo Ops ③',t:'Briefings, checklists & reports',
+    S({k:'Añejo Ops ③',t:'Briefings, checklists & reports',m:'<div class="m-card"><div class="m-t">🗞️ Daily standup</div><div class="m-s">22 orders · 31 bowls · $1,840 · top: FUEGO</div></div>',
       x:'The first kitchen clock-in fires the morning briefing; cron fires end-of-service checks (after lunch/dinner), the daily standup, and the weekly summary.',
       y:'Read them in AI Ops → Reports & insights; the briefing also pops up for the kitchen at clock-in.',
       z:'The agent also scores yesterday’s forecast vs. actual, so you can watch its accuracy improve and trust it with evidence.'}),
-    S({k:'The brain',t:'Automations & the cron schedule',
+    S({k:'The brain',t:'Automations & the cron schedule',m:'<div class="m-card"><div class="m-t">⏱ Runs every minute</div><div class="m-s">nightly forecast · morning prep · weekly backup · 2-min offer timeouts</div></div>',
       x:'Time-based jobs run every minute and fire when the clock matches: forecast & reports (nightly), reminders & subscription prep (morning), restock + backup (weekly), payroll prep (1st & 15th), driver-offer timeouts (every minute).',
       y:'Nothing routine — but you can “Run now” any automation from AI Ops.',
       z:'Hard rule baked into the code: automations produce forecasts, plans, reports and SUGGESTIONS only. Nothing buys, sends, or spends without your explicit confirmation.'}),
-    S({k:'Alerts',t:'What the system flags for you',
+    S({k:'Alerts',t:'What the system flags for you',m:'<div class="m-card"><div class="m-t" style="color:var(--crit)">⚠ Route unfilled — reassign</div><div class="m-s">temp excursion · expense pending · low stock · missed EOD</div></div>',
       x:'Real events: a failed delivery, a temperature excursion, a pending expense, an unfilled route, low stock, negative customer sentiment, a missed EOD or late clock-in.',
       y:'Watch the alerts on Overview; acknowledge or act on each.',
       z:'Alerts are de-duplicated and auto-close when resolved (e.g. restocking above par clears a low-stock alert).'}),
-    S({k:'Data safety',t:'Backups',
+    S({k:'Data safety',t:'Backups',m:'<div class="m-card"><div class="m-t">💾 Weekly backup</div><div class="m-s">full database → cloud · 30-day retention · “Backup now”</div></div>',
       x:'A weekly job backs the whole database up to cloud storage; you can also “Backup now.”',
       y:'Occasionally tap Backup now before a big change, and confirm backups are listed in AI Ops.',
       z:'Backups rotate on a 30-day retention so a bad day is always recoverable.'}),
@@ -407,7 +408,8 @@ function render(){
 }
 function boot(){
   role = qRole();
-  if(role){ document.getElementById('land').style.display='none'; document.getElementById('stage').style.display='block'; document.getElementById('homelink').style.display='inline'; render(); }
+  if(role){ document.getElementById('land').style.display='none'; document.getElementById('stage').style.display='block'; document.getElementById('homelink').style.display='inline';
+    var cl=document.getElementById('cardlink'); cl.href='/hub/training-card?role='+role; cl.style.display='inline'; render(); }
   else { document.getElementById('land').style.display='block'; document.getElementById('stage').style.display='none'; renderLand(); }
 }
 boot();

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Añejo — Quick Card</title>
+<meta name="robots" content="noindex">
+<style>
+  :root{--green:#1A3D2E;--gold:#C6A85B;--gold-700:#8a7a2e;--cream:#F5F2EC;--ink:#21302a;--muted:#6f7b74;--line:#e3ddcf;--crit:#b3402f}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#e9e4d8;color:var(--ink)}
+  .toolbar{max-width:760px;margin:0 auto;padding:14px 18px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .toolbar a{color:var(--green);text-decoration:none;font-size:13px;font-weight:700}
+  .tb-right{display:flex;gap:8px;align-items:center}
+  .lang{display:flex;border:1px solid var(--green);border-radius:20px;overflow:hidden;font-size:12px;font-weight:700}
+  .lang button{background:#fff;color:var(--green);border:0;padding:5px 11px;cursor:pointer}.lang button.on{background:var(--green);color:#fff}
+  .print{background:var(--gold);color:var(--green);border:0;border-radius:20px;padding:7px 16px;font-weight:800;cursor:pointer}
+  /* the printable card */
+  .card{max-width:760px;margin:0 auto 40px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:30px 34px;box-shadow:0 10px 40px rgba(0,0,0,.1)}
+  .hd{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--green);padding-bottom:12px;margin-bottom:6px}
+  .hd .brand{font-size:13px;letter-spacing:3px;font-weight:800;color:var(--green)}.hd .brand b{color:var(--gold-700)}
+  .hd .role{font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#fff;background:var(--green);border-radius:20px;padding:5px 13px}
+  h1{font-size:23px;color:var(--green);margin:14px 0 2px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 18px;line-height:1.5}
+  .trigbox{background:#fff8e9;border:1px solid var(--gold);border-left:4px solid var(--gold);border-radius:8px;padding:12px 14px;margin-bottom:18px}
+  .trigbox .l{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--gold-700);display:block;margin-bottom:3px}
+  .trigbox .v{font-size:15px;font-weight:600;color:var(--green)}
+  ol{margin:0;padding:0;counter-reset:s;list-style:none}
+  ol li{position:relative;padding:9px 0 9px 38px;border-bottom:1px dashed var(--line);font-size:14.5px;line-height:1.5}
+  ol li:last-child{border-bottom:0}
+  ol li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:8px;width:25px;height:25px;border-radius:50%;background:var(--green);color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  ol li b{color:var(--green)}
+  .remember{margin-top:18px;background:var(--cream);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .remember .l{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--gold-700);display:block;margin-bottom:5px}
+  .remember ul{margin:0;padding-left:18px;font-size:13.5px;line-height:1.6}
+  .foot{margin-top:18px;text-align:center;font-size:11px;color:var(--muted)}
+  @media print{
+    body{background:#fff}
+    .toolbar{display:none}
+    .card{box-shadow:none;border:none;margin:0;max-width:none;padding:0 12px}
+    @page{margin:14mm}
+  }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <a href="/hub/training" id="back">↩︎ <span data-t="all">All training</span></a>
+  <div class="tb-right">
+    <div class="lang"><button id="en" class="on" onclick="setLang('en')">EN</button><button id="es" onclick="setLang('es')">ES</button></div>
+    <button class="print" onclick="window.print()">🖨 <span data-t="print">Print / Save PDF</span></button>
+  </div>
+</div>
+<div class="card" id="card"></div>
+<script>
+var UI={ all:{en:'All training',es:'Capacitación'}, print:{en:'Print / Save PDF',es:'Imprimir / Guardar PDF'},
+  trig:{en:'What starts your work',es:'Qué inicia tu trabajo'}, steps:{en:'Your steps',es:'Tus pasos'}, rem:{en:'Remember',es:'Recuerda'},
+  foot:{en:'Añejo Catering Co. · Quick reference · anejocateringco.com/hub',es:'Añejo Catering Co. · Referencia rápida · anejocateringco.com/hub'} };
+var CARD={
+  owner:{ role:{en:'Owner',es:'Dueño'}, t:{en:'Owner — daily playbook',es:'Dueño — guía diaria'},
+    sub:{en:'Most of the HUB runs itself. Your job is the few human decisions: approvals, assignments, and the calls only an owner makes.',es:'Casi todo el HUB se ejecuta solo. Tu trabajo son las pocas decisiones humanas: aprobaciones, asignaciones y lo que solo el dueño decide.'},
+    trig:{en:'You sign in with your PIN; the forecast, prep sheet, and any alerts are already waiting.',es:'Inicias sesión con tu PIN; el pronóstico, la hoja de preparación y las alertas ya están listas.'},
+    steps:{en:['Glance at <b>Overview</b> + open <b>alerts</b> (failed delivery, low stock, unfilled route…).','Approve any <b>vendor order</b> in AI Ops → Suggestions — Accept or Dismiss. <b>Nothing buys without you.</b>','As orders go <b>Ready</b>, build a route in <b>Deliveries</b> and assign a driver (sends an offer).','Watch the offer: deny or 2-min silence → next driver; “unfilled” → you reassign.','Read the <b>end-of-service</b> checks after lunch &amp; dinner; the <b>weekly summary</b> on Sundays.','Keep <b>Staff</b>, <b>Content</b> (brand brief) and vendor lead-times current.'],
+      es:['Revisa <b>Resumen</b> + <b>alertas</b> abiertas (entrega fallida, bajo stock, ruta sin asignar…).','Aprueba cualquier <b>pedido a proveedor</b> en AI Ops → Sugerencias — Aceptar o Descartar. <b>Nada se compra sin ti.</b>','Cuando los pedidos estén <b>Listos</b>, arma una ruta en <b>Entregas</b> y asigna conductor (envía oferta).','Vigila la oferta: rechazo o 2 min sin respuesta → otro conductor; “sin asignar” → reasignas.','Lee los <b>cierres de servicio</b> tras almuerzo y cena; el <b>resumen semanal</b> los domingos.','Mantén <b>Personal</b>, <b>Contenido</b> (brief de marca) y tiempos de proveedor al día.']},
+    rem:{en:['The AI only <b>recommends</b> — every order/spend waits for your confirmation.','Each driver’s accept/deny/miss is on their card; vendor lead-times drive order timing.'],es:['El AI solo <b>recomienda</b> — cada pedido/gasto espera tu confirmación.','El aceptar/rechazar/perder de cada conductor está en su tarjeta; los tiempos de proveedor calculan el momento del pedido.']} },
+  kitchen:{ role:{en:'Kitchen',es:'Cocina'}, t:{en:'Kitchen — quick card',es:'Cocina — tarjeta rápida'},
+    sub:{en:'Make exactly what each card shows. Your PIN is your signature.',es:'Haz exactamente lo que muestra cada tarjeta. Tu PIN es tu firma.'},
+    trig:{en:'An order is paid, a subscriber’s daily bowl is created, or the owner adds a manual order — it appears on your board and chimes.',es:'Se paga un pedido, se crea el bowl diario de un suscriptor, o el dueño agrega un pedido manual — aparece en tu tablero y suena.'},
+    steps:{en:['<b>Clock in</b> → read the ☀️ morning briefing (today’s bowls + low stock).','Work the board <b>Pending → Prep → Ready</b>. Gold “Subscription” = a member’s daily bowl.','Open an order; make each bowl to spec — <b>size, build weights, removals, add-ons, notes.</b>','<b>Start prep</b>, then check off each bowl with your <b>PIN</b> (“✓ by you”).','<b>Mark Ready</b> (PIN) — only works when every bowl is checked → hands off to the driver.','Keep <b>inventory</b> counts current; do <b>checklists</b> &amp; <b>temp</b> logs.','File <b>EOD</b> + clock out.'],
+      es:['<b>Marca entrada</b> → lee el resumen ☀️ (bowls de hoy + bajo stock).','Trabaja el tablero <b>Pendiente → Prep → Listo</b>. Dorado “Subscription” = bowl diario de un miembro.','Abre un pedido; haz cada bowl a especificación — <b>tamaño, pesos, quitados, extras, notas.</b>','<b>Empieza Prep</b>, luego marca cada bowl con tu <b>PIN</b> (“✓ por ti”).','<b>Marca Listo</b> (PIN) — solo funciona con todos los bowls marcados → pasa al conductor.','Mantén el <b>inventario</b> al día; haz <b>listas</b> y registros de <b>temperatura</b>.','Envía <b>EOD</b> + marca salida.']},
+    rem:{en:['You can’t Mark Ready until every bowl is checked — the driver re-confirms at pickup.','Below-par inventory feeds the owner’s vendor order. Your counts matter.'],es:['No puedes Marcar Listo hasta marcar todos los bowls — el conductor lo reconfirma en la recogida.','El inventario bajo alimenta el pedido del dueño. Tus conteos importan.']} },
+  driver:{ role:{en:'Driver',es:'Conductor'}, t:{en:'Driver — quick card',es:'Conductor — tarjeta rápida'},
+    sub:{en:'No offer, nothing to do yet. Be reliable — your accepts and denies are tracked.',es:'Sin oferta, nada que hacer aún. Sé confiable — tus aceptaciones y rechazos se registran.'},
+    trig:{en:'The owner assigns you a route — you get a push notification + a text.',es:'El dueño te asigna una ruta — recibes una notificación + un texto.'},
+    steps:{en:['<b>Accept</b> or <b>Deny</b> on the Route screen (deny / 2-min silence → next driver).','At the kitchen, tap each bowl as you load it and <b>Confirm pickup</b> (flag anything short).','<b>Start deliveries</b> (you can’t until pickup is confirmed).','<b>Navigate</b> per stop → the customer is auto-texted “on the way.”','At the door: take a <b>proof photo</b> → <b>Mark delivered</b> → app jumps to the next stop.','A drop fails? <b>Report a problem</b> and pick the reason.','Log <b>temps/expenses</b>; <b>Complete route</b> + file <b>EOD</b>.'],
+      es:['<b>Acepta</b> o <b>Rechaza</b> en la pantalla de Ruta (rechazo / 2 min sin respuesta → otro conductor).','En la cocina, toca cada bowl al cargarlo y <b>Confirma recogida</b> (marca lo que falte).','<b>Empieza entregas</b> (no puedes hasta confirmar la recogida).','<b>Navega</b> por parada → al cliente se le avisa “en camino.”','En la puerta: toma una <b>foto de prueba</b> → <b>Marca entregado</b> → la app salta a la siguiente parada.','¿Falla una entrega? <b>Reporta un problema</b> y elige la razón.','Registra <b>temps/gastos</b>; <b>Completa la ruta</b> + envía <b>EOD</b>.']},
+    rem:{en:['Confirming pickup re-checks what the kitchen prepped — it gates delivery.','Take the proof photo; the customer is texted “delivered” automatically.'],es:['Confirmar la recogida reconfirma lo que preparó la cocina — habilita la entrega.','Toma la foto de prueba; al cliente se le avisa “entregado” automáticamente.']} },
+  vendor:{ role:{en:'Vendor',es:'Proveedor'}, t:{en:'Vendor — quick card',es:'Proveedor — tarjeta rápida'},
+    sub:{en:'You only see your own purchase orders and what to deliver.',es:'Solo ves tus propias órdenes de compra y qué entregar.'},
+    trig:{en:'The owner approves an order and the kitchen submits a purchase order — it lands in your portal.',es:'El dueño aprueba un pedido y la cocina envía una orden de compra — llega a tu portal.'},
+    steps:{en:['Sign in and open the <b>purchase order</b> — items, quantities, needed-by date.','<b>Acknowledge</b> it so the kitchen knows it’s in progress.','Deliver the goods.','<b>Mark delivered</b> (note any partials) — the kitchen receives it against inventory.'],
+      es:['Inicia sesión y abre la <b>orden de compra</b> — artículos, cantidades, fecha requerida.','<b>Acúsala</b> para que la cocina sepa que está en proceso.','Entrega la mercancía.','<b>Marca entregado</b> (anota parciales) — la cocina la recibe contra el inventario.']},
+    rem:{en:['Marking delivered clears the kitchen’s low-stock alert and updates their counts.'],es:['Marcar entregado cierra la alerta de bajo stock y actualiza sus conteos.']} }
+};
+var lang='en';
+function qRole(){ try{ var m=/[?&]role=([a-z]+)/.exec(location.search); return m && CARD[m[1]] ? m[1] : 'kitchen'; }catch(e){ return 'kitchen'; } }
+var role=qRole();
+function setLang(l){ lang=l; document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; document.querySelectorAll('[data-t]').forEach(function(el){ el.textContent=UI[el.getAttribute('data-t')][l]; }); render(); }
+function render(){
+  var c=CARD[role];
+  document.getElementById('card').innerHTML =
+    '<div class="hd"><span class="brand">AÑEJO <b>·</b> HUB</span><span class="role">'+c.role[lang]+'</span></div>'+
+    '<h1>'+c.t[lang]+'</h1><p class="sub">'+c.sub[lang]+'</p>'+
+    '<div class="trigbox"><span class="l">⚡ '+UI.trig[lang]+'</span><span class="v">'+c.trig[lang]+'</span></div>'+
+    '<div class="l" style="font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--gold-700);margin-bottom:6px">✋ '+UI.steps[lang]+'</div>'+
+    '<ol>'+c.steps[lang].map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>'+
+    '<div class="remember"><span class="l">★ '+UI.rem[lang]+'</span><ul>'+c.rem[lang].map(function(r){return '<li>'+r+'</li>';}).join('')+'</ul></div>'+
+    '<div class="foot">'+UI.foot[lang]+'</div>';
+}
+setLang('en');
+</script>
+</body>
+</html>
