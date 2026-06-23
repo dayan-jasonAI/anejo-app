@@ -647,6 +647,8 @@ footer {
 
 <!-- Motion & interaction layer (additive, fail-safe, reduced-motion aware) -->
 <link rel="stylesheet" href="/assets/motion.css">
+<link rel="stylesheet" href="/assets/fuelcore.css">
+<link rel="stylesheet" href="/assets/logo-life.css">
 <script>
 (function(){
   try{
@@ -687,7 +689,12 @@ footer {
 <!-- ========================= HERO ========================= -->
 <section class="hero" id="top">
   <div class="hero-content">
-    <img class="hero-logo" src="/assets/img/logo_full.png" alt="Añejo Catering Co. — Clean Fuel, Bold Flavor">
+    <div class="logo-life">
+      <div class="logo-tilt">
+        <img class="hero-logo" src="/assets/img/logo_full.png" alt="Añejo Catering Co. — Clean Fuel, Bold Flavor">
+        <span class="logo-sheen" aria-hidden="true"></span>
+      </div>
+    </div>
     <div class="eyebrow">Palm Beach County · Cuban-American Catering</div>
     <h1>Clean Fuel. <strong>Bold Flavor.</strong><br>Built for Life.</h1>
     <p class="hero-tagline">Premium longevity bowls, signature bites, and catering — Mediterranean nutrition with Cuban soul. <span class="serif-i">Inspired by family. Built for legacy.</span></p>
@@ -745,13 +752,46 @@ footer {
       </div>
     </div>
     <div class="macro-preview">
-      <div class="mp-card">
-        <div class="mp-head"><strong>Your daily targets</strong><span>Sample</span></div>
-        <div class="mp-cal">2,100 <small>kcal / day</small></div>
-        <div class="mp-split">175g protein · 200g carbs · 65g fat</div>
-        <div class="mp-rot-label">Your weekly Añejo rotation</div>
-        <div class="mp-rot"><span>VIDA ×4</span><span>MAR ×3</span><span>LIGERO ×3</span></div>
-        <div class="mp-foot">Tuned to fat loss · moderate activity</div>
+      <div class="fuelcore" role="group" aria-label="Interactive macro balance — drag the sliders to explore the Añejo 40/30/30 Golden Rule">
+        <div class="fc-stage">
+          <canvas class="fc-particles" aria-hidden="true"></canvas>
+          <div class="fc-3d" aria-hidden="true">
+            <div class="fc-orb">
+              <div class="fc-ring-track"></div>
+              <div class="fc-ring"></div>
+              <div class="fc-core">
+                <div class="fc-kcal">2,090</div>
+                <div class="fc-kcal-unit">kcal / day</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="fc-words" aria-hidden="true">
+          <span class="fc-word">Clean Fuel</span>
+          <span class="fc-word">Bold Flavor</span>
+          <span class="fc-word">Built for Life</span>
+        </div>
+        <div class="fc-controls">
+          <div class="fc-slider">
+            <span class="fc-lab"><span class="fc-dot p"></span>Protein</span>
+            <input class="fc-range" type="range" data-macro="p" min="60" max="320" step="5" value="210" autocomplete="off" aria-label="Protein grams">
+            <span class="fc-val" data-val="p">210g</span>
+          </div>
+          <div class="fc-slider">
+            <span class="fc-lab"><span class="fc-dot c"></span>Carbs</span>
+            <input class="fc-range" type="range" data-macro="c" min="40" max="360" step="5" value="155" autocomplete="off" aria-label="Carbohydrate grams">
+            <span class="fc-val" data-val="c">155g</span>
+          </div>
+          <div class="fc-slider">
+            <span class="fc-lab"><span class="fc-dot f"></span>Fat</span>
+            <input class="fc-range" type="range" data-macro="f" min="20" max="130" step="5" value="70" autocomplete="off" aria-label="Fat grams">
+            <span class="fc-val" data-val="f">70g</span>
+          </div>
+        </div>
+        <div class="fc-status">
+          <span class="fc-badge on">Optimally Fueled · 40 / 30 / 30</span>
+          <a class="fc-invite" href="/calculator">Build your real plan &rarr;</a>
+        </div>
       </div>
     </div>
   </div>
@@ -1383,5 +1423,7 @@ document.querySelectorAll('#navLinks a').forEach(a => {
 <script src="/assets/js/consent.js"></script>
   <script src="/assets/js/chat.js" defer></script>
   <script src="/assets/js/motion.js" defer></script>
+  <script src="/assets/js/fuelcore.js" defer></script>
+  <script src="/assets/js/logo-life.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,172 @@
+/* ============================================================
+   Añejo — "The Fuel Core"  ·  fuelcore.css
+   ------------------------------------------------------------
+   Interactive macro visualization for the homepage macro
+   section. Dependency-free (CSS + a small 2D canvas). Reads as
+   3D via layered sphere shading + pointer parallax tilt.
+   Always interactive (sliders work everywhere); ambient motion
+   (particles / tilt / breathing) is disabled under reduced
+   motion. Brand-native: gold / green / bronze on dark green.
+   ============================================================ */
+
+/* Smoothly animatable conic-gradient stops (graceful fallback). */
+@property --fcA1{ syntax:'<angle>'; inherits:true; initial-value:144deg; }
+@property --fcA2{ syntax:'<angle>'; inherits:true; initial-value:252deg; }
+
+.fuelcore{
+  --cP:#D8C074;   /* protein — gold   */
+  --cC:#4FA46A;   /* carbs   — green  */
+  --cF:#C0843C;   /* fat     — bronze */
+  width:100%; max-width:360px; margin:0 auto;
+  color:var(--cream,#F5F2EC);
+}
+
+/* ---- Stage (perspective owner) ---- */
+.fc-stage{
+  position:relative; width:100%; aspect-ratio:1/1;
+  perspective:1000px;
+  margin-bottom:6px;
+}
+.fc-3d{
+  position:absolute; inset:0;
+  transform-style:preserve-3d;
+  transition:transform .25s cubic-bezier(.2,.7,.2,1);
+  will-change:transform;
+}
+.fc-particles{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+
+/* ---- Orb (the sphere) ---- */
+.fc-orb{
+  position:absolute; left:50%; top:50%; width:80%; aspect-ratio:1/1;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  transform-style:preserve-3d;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255,255,255,.12), rgba(13,36,25,0) 44%),
+    radial-gradient(circle at 50% 52%, rgba(22,52,32,.65), rgba(8,20,14,.92));
+  box-shadow: inset 0 -22px 54px rgba(0,0,0,.55), 0 34px 60px rgba(0,0,0,.5);
+}
+/* specular highlight */
+.fc-orb::before{
+  content:''; position:absolute; left:18%; top:12%; width:38%; height:30%;
+  border-radius:50%;
+  background:radial-gradient(circle at 40% 40%, rgba(255,255,255,.5), transparent 70%);
+  filter:blur(2px); pointer-events:none;
+}
+/* contact shadow */
+.fc-orb::after{
+  content:''; position:absolute; left:50%; bottom:-12%; width:62%; height:14%;
+  transform:translateX(-50%);
+  background:radial-gradient(ellipse at center, rgba(0,0,0,.5), transparent 70%);
+  filter:blur(6px); pointer-events:none; z-index:-1;
+}
+
+/* ---- Macro ring (conic donut) ---- */
+.fc-ring{
+  position:absolute; inset:4%; border-radius:50%;
+  transform:translateZ(22px);
+  background:conic-gradient(from -90deg,
+    var(--cP) 0 var(--fcA1),
+    var(--cC) var(--fcA1) var(--fcA2),
+    var(--cF) var(--fcA2) 360deg);
+  -webkit-mask:radial-gradient(circle, transparent 0 52%, #000 53% 100%);
+          mask:radial-gradient(circle, transparent 0 52%, #000 53% 100%);
+  transition:--fcA1 .55s cubic-bezier(.3,.7,.2,1), --fcA2 .55s cubic-bezier(.3,.7,.2,1), filter .4s ease;
+  filter:drop-shadow(0 0 12px rgba(214,192,116,.25));
+}
+/* faint outer guide ring */
+.fc-ring-track{
+  position:absolute; inset:4%; border-radius:50%;
+  transform:translateZ(20px);
+  border:1px solid rgba(245,242,236,.08);
+}
+
+/* ---- Core (glowing center) ---- */
+.fc-core{
+  position:absolute; left:50%; top:50%; width:50%; aspect-ratio:1/1;
+  transform:translate(-50%,-50%) translateZ(46px);
+  border-radius:50%;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 38% 32%, #fff7e0, #ecd99c 32%, #C6A85B 64%, #8a6a2f 100%);
+  box-shadow: inset 0 0 28px rgba(255,240,200,.55), 0 0 var(--fc-glow,26px) rgba(214,192,116,.5);
+  transition:box-shadow .45s ease, filter .45s ease;
+}
+.fc-core.ignited{ filter:saturate(1.12) brightness(1.04); }
+.fc-kcal{
+  font-family:'Cormorant Garamond',Georgia,serif; font-weight:600;
+  font-size:clamp(26px,7vw,34px); line-height:1; color:#1c1606;
+}
+.fc-kcal-unit{ font-family:'Josefin Sans',sans-serif; font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:#4a3a14; font-weight:700; margin-top:3px; }
+
+/* ---- Brand words ---- */
+.fc-words{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:2px 0 14px; }
+.fc-word{
+  font:600 10.5px/1 'Josefin Sans',sans-serif; letter-spacing:2px; text-transform:uppercase;
+  color:rgba(245,242,236,.38); transition:color .45s ease, text-shadow .45s ease;
+}
+.fc-word.lit{ color:var(--gold,#C6A85B); text-shadow:0 0 12px rgba(214,192,116,.55); }
+
+/* ---- Controls ---- */
+.fc-controls{ display:flex; flex-direction:column; gap:13px; }
+.fc-slider{ display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; }
+.fc-slider .fc-lab{
+  display:flex; align-items:center; gap:7px;
+  font:600 11px/1 'Josefin Sans',sans-serif; letter-spacing:1.2px; text-transform:uppercase;
+  color:rgba(245,242,236,.82); min-width:74px;
+}
+.fc-dot{ width:9px; height:9px; border-radius:50%; flex:none; box-shadow:0 0 8px currentColor; }
+.fc-dot.p{ color:var(--cP); background:var(--cP); }
+.fc-dot.c{ color:var(--cC); background:var(--cC); }
+.fc-dot.f{ color:var(--cF); background:var(--cF); }
+.fc-val{ font:600 12px 'Josefin Sans',sans-serif; color:var(--gold,#C6A85B); min-width:54px; text-align:right; font-variant-numeric:tabular-nums; }
+
+/* range input — themed, accessible (keyboard works natively) */
+.fc-range{ -webkit-appearance:none; appearance:none; width:100%; height:22px; background:transparent; cursor:pointer; }
+.fc-range:focus{ outline:none; }
+.fc-range:focus-visible::-webkit-slider-thumb{ box-shadow:0 0 0 4px rgba(214,192,116,.35), 0 2px 6px rgba(0,0,0,.4); }
+.fc-range:focus-visible::-moz-range-thumb{ box-shadow:0 0 0 4px rgba(214,192,116,.35), 0 2px 6px rgba(0,0,0,.4); }
+/* webkit track + thumb */
+.fc-range::-webkit-slider-runnable-track{ height:4px; border-radius:999px; background:rgba(245,242,236,.16); }
+.fc-range::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none; margin-top:-8px;
+  width:20px; height:20px; border-radius:50%;
+  background:radial-gradient(circle at 36% 32%, #fff4d6, #C6A85B 70%);
+  border:1.5px solid rgba(13,36,25,.5); box-shadow:0 2px 6px rgba(0,0,0,.4);
+  transition:transform .12s ease;
+}
+.fc-range:active::-webkit-slider-thumb{ transform:scale(1.12); }
+/* firefox track + thumb */
+.fc-range::-moz-range-track{ height:4px; border-radius:999px; background:rgba(245,242,236,.16); }
+.fc-range::-moz-range-thumb{
+  width:18px; height:18px; border-radius:50%;
+  background:radial-gradient(circle at 36% 32%, #fff4d6, #C6A85B 70%);
+  border:1.5px solid rgba(13,36,25,.5); box-shadow:0 2px 6px rgba(0,0,0,.4);
+}
+
+/* ---- Status badge + invite line ---- */
+.fc-status{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; flex-wrap:wrap; }
+.fc-badge{
+  display:inline-flex; align-items:center; gap:7px;
+  font:700 10.5px/1 'Josefin Sans',sans-serif; letter-spacing:1.3px; text-transform:uppercase;
+  padding:8px 13px; border-radius:999px;
+  color:rgba(245,242,236,.75); background:rgba(245,242,236,.07); border:1px solid rgba(245,242,236,.14);
+  transition:background .4s ease, color .4s ease, box-shadow .4s ease, border-color .4s ease;
+}
+.fc-badge::before{ content:''; width:7px; height:7px; border-radius:50%; background:currentColor; opacity:.7; }
+.fc-badge.on{
+  color:#1c1606; background:linear-gradient(135deg,#D8C074,#C0843C);
+  border-color:transparent; box-shadow:0 6px 18px rgba(192,132,24,.35);
+}
+.fc-invite{ font:600 11px 'Josefin Sans',sans-serif; letter-spacing:.5px; color:var(--gold,#C6A85B); text-decoration:none; white-space:nowrap; }
+.fc-invite:hover{ text-decoration:underline; }
+
+/* ---- Ambient motion: only when the visitor allows it ---- */
+@media (prefers-reduced-motion: no-preference){
+  .fc-core{ animation:fcBreathe 4.2s ease-in-out infinite alternate; }
+  .fc-ring{ animation:fcShimmer 7s ease-in-out infinite; }
+}
+@keyframes fcBreathe{ from{ transform:translate(-50%,-50%) translateZ(46px) scale(1); } to{ transform:translate(-50%,-50%) translateZ(52px) scale(1.025); } }
+@keyframes fcShimmer{ 0%,100%{ filter:drop-shadow(0 0 10px rgba(214,192,116,.2)); } 50%{ filter:drop-shadow(0 0 18px rgba(214,192,116,.4)); } }
+
+/* small screens */
+@media (max-width:860px){ .fuelcore{ max-width:330px; } }

@@ -1,0 +1,75 @@
+/* ============================================================
+   Añejo — "Living Gold" emblem  ·  logo-life.css
+   ------------------------------------------------------------
+   Tuned for refined luxury: one cinematic gold sweep as the
+   logo arrives, then an occasional warm glint + a calm breathing
+   aura + a smooth restrained 3D tilt (logo-life.js).
+   All masked to the emblem's exact silhouette. Dependency-free.
+   Layout is unconditional; ambient motion only when welcomed.
+   ============================================================ */
+
+.logo-life{
+  position:relative;
+  width:min(330px,70vw);
+  margin:0 auto 30px;
+  perspective:900px;
+}
+.logo-tilt{
+  position:relative;
+  transform-style:preserve-3d;
+  transition:transform .35s cubic-bezier(.2,.7,.2,1);
+  will-change:transform;
+}
+/* sizing/centering live on .logo-life; keep base drop shadow */
+.logo-life .hero-logo{
+  width:100%; margin:0; display:block;
+  filter:drop-shadow(0 10px 34px rgba(0,0,0,.55));
+}
+
+/* The gilded sweep — a warm "molten gold" band masked to the logo */
+.logo-sheen{
+  position:absolute; inset:0; pointer-events:none;
+  -webkit-mask:url('/assets/img/logo_full.png') center/contain no-repeat;
+          mask:url('/assets/img/logo_full.png') center/contain no-repeat;
+  background:linear-gradient(105deg,
+    transparent 40%,
+    rgba(255,243,206,0) 45%,
+    rgba(255,243,206,.85) 50%,
+    rgba(255,243,206,0) 55%,
+    transparent 60%);
+  background-repeat:no-repeat;
+  background-size:260% 100%;
+  background-position:165% 0;
+  opacity:0;
+  mix-blend-mode:screen;
+}
+
+/* ---- Ambient life: only when motion is welcome ---- */
+@media (prefers-reduced-motion: no-preference){
+  /* calm breathing aura */
+  .logo-life .hero-logo{ animation:logoHalo 6s ease-in-out infinite alternate; }
+  /* one cinematic entrance pass, then an occasional refined glint */
+  .logo-sheen{
+    animation:
+      logoCast 2s ease .9s 1 both,
+      logoSheen 11s ease-in-out 4.6s infinite;
+  }
+}
+@keyframes logoHalo{
+  from{ filter:drop-shadow(0 10px 34px rgba(0,0,0,.55)) drop-shadow(0 0 6px rgba(200,168,91,.14)); }
+  to  { filter:drop-shadow(0 10px 34px rgba(0,0,0,.55)) drop-shadow(0 0 22px rgba(200,168,91,.42)); }
+}
+/* entrance: a fuller, slower, slightly brighter single sweep */
+@keyframes logoCast{
+  0%      { background-position:170% 0; opacity:0; }
+  12%     { opacity:1; }
+  60%     { background-position:-70% 0; opacity:1; }
+  72%,100%{ background-position:-70% 0; opacity:0; }
+}
+/* perpetual: quick, soft, mostly idle (occasional) */
+@keyframes logoSheen{
+  0%      { background-position:165% 0; opacity:0; }
+  4%      { opacity:.85; }
+  16%     { background-position:-65% 0; opacity:.85; }
+  22%,100%{ background-position:-65% 0; opacity:0; }
+}
