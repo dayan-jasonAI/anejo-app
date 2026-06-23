@@ -60,6 +60,10 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
 .ok-card .check svg{width:32px;height:32px;stroke:var(--gold);stroke-width:3;fill:none}
 .ok-card h2{color:var(--green);font-weight:600;margin-bottom:10px}
 .ok-card p{color:var(--muted);font-size:14px}
+.apple-pay-btn{display:block;width:100%;height:48px;border-radius:8px;cursor:pointer;-webkit-appearance:-apple-pay-button;appearance:-apple-pay-button;-apple-pay-button-type:subscribe;-apple-pay-button-style:black}
+.wallet-or{display:flex;align-items:center;text-align:center;color:var(--muted);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin:12px 0 14px}
+.wallet-or:before,.wallet-or:after{content:"";flex:1;height:1px;background:var(--line)}
+.wallet-or span{padding:0 10px}
 </style>
 </head>
 <body>
@@ -97,6 +101,11 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
       <input class="b-input" id="a_zip" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="ZIP" style="flex:1">
     </div>
     <input class="b-input" id="a_notes" type="text" placeholder="Gate code, drop-off notes (optional)">
+
+    <div id="applePayWrap" style="display:none">
+      <button id="applePayBtn" class="apple-pay-btn" type="button" aria-label="Subscribe with Apple Pay"></button>
+      <div class="wallet-or"><span>or pay with card</span></div>
+    </div>
 
     <label class="fld" for="card-container">Card</label>
     <div id="card-container"></div>
@@ -142,6 +151,7 @@ let planTier = TIERS[qs.get('plan')] ? qs.get('plan') : 'plan_12';
 let chosenWindow = null;   // set only for chooseWindow tiers; required before checkout
 let cardReady = false;
 let card = null;
+let paymentsObj = null;   // Square payments instance (card + Apple Pay both use it)
 
 // EN/ES for JS-built strings (static HTML is translated by i18n.js via its dictionary). Mirrors
 // the order.html pattern: pick by AnejoLang, re-render on the langchange event + window load.
@@ -232,60 +242,70 @@ async function init(){
   if (cfg.env === 'production') document.getElementById('testmode').style.display='none';
 
   try {
-    const payments = window.Square.payments(cfg.applicationId, cfg.locationId);
-    card = await payments.card();
+    paymentsObj = window.Square.payments(cfg.applicationId, cfg.locationId);
+    card = await paymentsObj.card();
     await card.attach('#card-container');
     cardReady = true; updateSubBtn();
+    // Apple Pay — show the button only on capable devices (Safari on iOS/macOS with a Wallet card).
+    // It tokenizes through the same Square SDK + posts to the same endpoint as the card.
+    try {
+      if (window.ApplePaySession && window.ApplePaySession.canMakePayments()) {
+        var apWrap=document.getElementById('applePayWrap');
+        if (apWrap){ apWrap.style.display='block'; document.getElementById('applePayBtn').addEventListener('click', payWithApplePay); }
+      }
+    } catch(_){ /* Apple Pay unavailable → the card field stays the path */ }
   } catch (e) {
     msg.className='msg err'; msg.textContent=L('Could not load the card field: ','No se pudo cargar el campo de tarjeta: ')+(e.message||e);
   }
 }
 
-document.getElementById('subBtn').addEventListener('click', async ()=>{
-  const btn=document.getElementById('subBtn'), msg=document.getElementById('msg');
+// Shared validation + body assembly (used by both the card and Apple Pay). Returns the body, or
+// null after showing the relevant field error.
+function collectBody(){
+  const msg=document.getElementById('msg');
   msg.className='msg'; msg.textContent='';
   document.querySelectorAll('.input-error').forEach(e=>e.classList.remove('input-error'));
   const fail=(el,m)=>{ msg.className='msg err'; msg.textContent=m; if(el){ el.classList.add('input-error'); el.focus(); } };
-  if (!card){ return; }
   let body;
   if (clientId) { body = { clientId, planTier }; }
   else {
     const name=(document.getElementById('b_name')||{}).value||'', email=(document.getElementById('b_email')||{}).value||'';
     const phone=(document.getElementById('b_phone')||{}).value||'';
     const smsConsent=!!(document.getElementById('b_sms')||{}).checked;
-    if(!name.trim()){ fail(document.getElementById('b_name'),L('Please enter your name.','Por favor ingresa tu nombre.')); return; }
-    if(!email.trim()){ fail(document.getElementById('b_email'),L('Please enter your email.','Por favor ingresa tu correo electrónico.')); return; }
+    if(!name.trim()){ fail(document.getElementById('b_name'),L('Please enter your name.','Por favor ingresa tu nombre.')); return null; }
+    if(!email.trim()){ fail(document.getElementById('b_email'),L('Please enter your email.','Por favor ingresa tu correo electrónico.')); return null; }
     body = { planTier, buyer:{ name:name.trim(), email:email.trim(), phone:phone.trim(), sms_consent:smsConsent } };
   }
-  // Carry the chosen bowl size + avocado add-on so the server charges + preps correctly.
   if (bowlOz) body.bowlSizeOz = bowlOz;
   if (avocado) body.avocado = true;
-  // Delivery address — required so every weekly order can be routed.
   var addr = {
     street:(document.getElementById('a_street')||{}).value||'', unit:(document.getElementById('a_unit')||{}).value||'',
     city:(document.getElementById('a_city')||{}).value||'', state:((document.getElementById('a_state')||{}).value||'FL'),
     zip:(document.getElementById('a_zip')||{}).value||'', notes:(document.getElementById('a_notes')||{}).value||''
   };
-  if(!addr.street.trim()){ fail(document.getElementById('a_street'),L('Please enter your delivery street address.','Por favor ingresa tu dirección de entrega.')); return; }
-  if(!addr.city.trim()){ fail(document.getElementById('a_city'),L('Please enter your delivery city.','Por favor ingresa tu ciudad de entrega.')); return; }
-  if(!/^\d{5}$/.test(addr.zip.trim())){ fail(document.getElementById('a_zip'),L('Please enter a valid 5-digit ZIP code.','Por favor ingresa un código postal válido de 5 dígitos.')); return; }
+  if(!addr.street.trim()){ fail(document.getElementById('a_street'),L('Please enter your delivery street address.','Por favor ingresa tu dirección de entrega.')); return null; }
+  if(!addr.city.trim()){ fail(document.getElementById('a_city'),L('Please enter your delivery city.','Por favor ingresa tu ciudad de entrega.')); return null; }
+  if(!/^\d{5}$/.test(addr.zip.trim())){ fail(document.getElementById('a_zip'),L('Please enter a valid 5-digit ZIP code.','Por favor ingresa un código postal válido de 5 dígitos.')); return null; }
   body.address = { street:addr.street.trim(), unit:addr.unit.trim(), city:addr.city.trim(), state:addr.state.trim()||'FL', zip:addr.zip.trim(), notes:addr.notes.trim() };
-  // Delivery window. 1-bowl tiers must have picked Lunch or Dinner; 2-bowl tiers get both.
   if (SCHED[planTier].chooseWindow) {
     if (chosenWindow !== 'lunch' && chosenWindow !== 'dinner') {
       fail(document.getElementById('windowPick'), L('Please choose a delivery window — Lunch or Dinner.','Por favor elige un horario de entrega — Almuerzo o Cena.'));
       document.getElementById('windowPick').scrollIntoView({ block:'center', behavior:'smooth' });
-      return;
+      return null;
     }
     body.delivery = { window: chosenWindow };
   } else {
     body.delivery = { windows: ['lunch','dinner'] };
   }
-  btn.disabled=true; const lbl=btn.textContent; btn.textContent=L('Processing…','Procesando…');
+  return body;
+}
+
+// Shared submit: send the tokenized payment to the server, then render success/failure.
+async function finishSub(sourceId, body, btn, lbl){
+  const msg=document.getElementById('msg');
+  btn.disabled=true; btn.textContent=L('Processing…','Procesando…');
+  body.sourceId = sourceId;
   try {
-    const tok = await card.tokenize();
-    if (tok.status !== 'OK') throw new Error(L('Please check your card details.','Por favor revisa los datos de tu tarjeta.'));
-    body.sourceId = tok.token;
     const r = await fetch('/api/subscriptions/create',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(body)});
     const data = await r.json();
@@ -299,7 +319,41 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
   } catch (e) {
     msg.className='msg err'; msg.textContent=e.message||L('Something went wrong.','Algo salió mal.'); btn.disabled=false; btn.textContent=lbl;
   }
+}
+
+// Pay with card
+document.getElementById('subBtn').addEventListener('click', async ()=>{
+  const btn=document.getElementById('subBtn'), msg=document.getElementById('msg');
+  if (!card){ return; }
+  const body = collectBody(); if(!body) return;
+  const lbl=btn.textContent;
+  btn.disabled=true; btn.textContent=L('Processing…','Procesando…');
+  try {
+    const tok = await card.tokenize();
+    if (tok.status !== 'OK') throw new Error(L('Please check your card details.','Por favor revisa los datos de tu tarjeta.'));
+    await finishSub(tok.token, body, btn, lbl);
+  } catch (e) {
+    msg.className='msg err'; msg.textContent=e.message||L('Something went wrong.','Algo salió mal.'); btn.disabled=false; btn.textContent=lbl;
+  }
 });
+
+// Pay with Apple Pay (button shown only on capable devices; wired in init()).
+async function payWithApplePay(){
+  const subBtn=document.getElementById('subBtn'), msg=document.getElementById('msg');
+  if (!paymentsObj){ return; }
+  const body = collectBody(); if(!body) return;       // runs the same validations + shows the same errors
+  const lbl=subBtn.textContent;
+  try {
+    const req = paymentsObj.paymentRequest({ countryCode:'US', currencyCode:'USD',
+      total:{ amount: Number(TIERS[planTier].price).toFixed(2), label:'Añejo Weekly Plan' } });
+    const ap = await paymentsObj.applePay(req);
+    const tok = await ap.tokenize();
+    if (tok.status !== 'OK'){ return; }                 // user cancelled the sheet
+    await finishSub(tok.token, body, subBtn, lbl);
+  } catch (e) {
+    msg.className='msg err'; msg.textContent=e.message||L('Apple Pay could not be completed — please use a card.','Apple Pay no se pudo completar — usa una tarjeta.');
+  }
+}
 
 init();
 // Re-render JS-built strings on language toggle + once i18n.js has loaded/applied a persisted lang.
