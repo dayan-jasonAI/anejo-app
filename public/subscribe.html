@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
 <style>
-:root{--black:#0D0D0D;--green:#1A3D2E;--gold:#C6A85B;--gold-dark:#8B6B3E;--cream:#F5F2EC;--cream-dark:#EAE5D8;--ink:#1A1A1A;--muted:#6b6b6b;--line:rgba(26,61,46,.15)}
+:root{--black:#0D0D0D;--green:#1A3D2E;--gold:#C8BC6E;--gold-deep:#C08418;--gold-dark:#8B6B3E;--cream:#F5F2EC;--cream-dark:#EAE5D8;--ink:#1A1A1A;--muted:#6b6b6b;--line:rgba(26,61,46,.15)}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Josefin Sans',-apple-system,sans-serif;background:var(--cream);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
 .serif-i{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic}
@@ -37,6 +37,8 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 .plan-opt .pper{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
 .who{font-size:13px;color:var(--muted);margin-bottom:18px}
 .b-input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--cream);font:inherit;margin-bottom:12px}
+.b-input:focus,#card-container:focus-within{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(200,188,110,.18)}
+.input-error{border-color:#9b2226!important;box-shadow:0 0 0 3px rgba(155,34,38,.15)!important}
 .who strong{color:var(--green)}
 label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--green);font-weight:600;margin:0 0 6px}
 #card-container{border:1px solid var(--line);border-radius:8px;padding:4px 10px;background:var(--cream);min-height:52px}
@@ -47,9 +49,10 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
 .sched .days{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .sched .day{font-size:11px;font-weight:600;letter-spacing:.5px;background:var(--green);color:var(--cream);border-radius:5px;padding:3px 8px}
 .sched .day.off{background:transparent;color:#b9b4a6;border:1px dashed var(--line)}
-.btn{display:block;width:100%;text-align:center;margin-top:18px;padding:15px 20px;border-radius:4px;font-family:inherit;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:700;border:none;cursor:pointer;background:var(--gold);color:var(--black)}
-.btn:hover{background:var(--cream-dark)}
-.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn{display:block;width:100%;text-align:center;margin-top:18px;padding:15px 20px;border-radius:999px;font-family:inherit;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:700;border:none;cursor:pointer;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#1c1606;box-shadow:0 8px 22px rgba(192,132,24,.28);transition:transform .15s ease,box-shadow .15s ease}
+.btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 26px rgba(192,132,24,.34)}
+.btn:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
+@media(prefers-reduced-motion:reduce){.btn{transition:none}.btn:hover:not(:disabled){transform:none}}
 .msg{margin-top:14px;font-size:14px;min-height:1px}
 .msg.err{color:#9b2226}
 .ok-card{text-align:center;background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:12px;padding:40px 32px}
@@ -102,7 +105,7 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
     <p class="fine">Recurring weekly until you cancel. Cancel anytime — see our <a href="/legal/refund">Refund &amp; Cancellation policy</a>. Delivery only · Palm Beach County · on your plan's delivery days (shown above).</p>
 
     <button class="btn" id="subBtn" disabled>Start subscription</button>
-    <div class="msg" id="msg"></div>
+    <div class="msg" id="msg" role="alert" aria-live="assertive"></div>
   </div>
 </div>
 
@@ -231,6 +234,8 @@ async function init(){
 document.getElementById('subBtn').addEventListener('click', async ()=>{
   const btn=document.getElementById('subBtn'), msg=document.getElementById('msg');
   msg.className='msg'; msg.textContent='';
+  document.querySelectorAll('.input-error').forEach(e=>e.classList.remove('input-error'));
+  const fail=(el,m)=>{ msg.className='msg err'; msg.textContent=m; if(el){ el.classList.add('input-error'); el.focus(); } };
   if (!card){ return; }
   let body;
   if (clientId) { body = { clientId, planTier }; }
@@ -238,7 +243,8 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
     const name=(document.getElementById('b_name')||{}).value||'', email=(document.getElementById('b_email')||{}).value||'';
     const phone=(document.getElementById('b_phone')||{}).value||'';
     const smsConsent=!!(document.getElementById('b_sms')||{}).checked;
-    if(!name.trim()||!email.trim()){ msg.className='msg err'; msg.textContent='Please enter your name and email.'; return; }
+    if(!name.trim()){ fail(document.getElementById('b_name'),'Please enter your name.'); return; }
+    if(!email.trim()){ fail(document.getElementById('b_email'),'Please enter your email.'); return; }
     body = { planTier, buyer:{ name:name.trim(), email:email.trim(), phone:phone.trim(), sms_consent:smsConsent } };
   }
   // Carry the chosen bowl size + avocado add-on so the server charges + preps correctly.
@@ -250,13 +256,16 @@ document.getElementById('subBtn').addEventListener('click', async ()=>{
     city:(document.getElementById('a_city')||{}).value||'', state:((document.getElementById('a_state')||{}).value||'FL'),
     zip:(document.getElementById('a_zip')||{}).value||'', notes:(document.getElementById('a_notes')||{}).value||''
   };
-  if(!addr.street.trim()||!addr.city.trim()){ msg.className='msg err'; msg.textContent='Please enter your delivery street address and city.'; return; }
-  if(!/^\d{5}$/.test(addr.zip.trim())){ msg.className='msg err'; msg.textContent='Please enter a valid 5-digit ZIP code.'; return; }
+  if(!addr.street.trim()){ fail(document.getElementById('a_street'),'Please enter your delivery street address.'); return; }
+  if(!addr.city.trim()){ fail(document.getElementById('a_city'),'Please enter your delivery city.'); return; }
+  if(!/^\d{5}$/.test(addr.zip.trim())){ fail(document.getElementById('a_zip'),'Please enter a valid 5-digit ZIP code.'); return; }
   body.address = { street:addr.street.trim(), unit:addr.unit.trim(), city:addr.city.trim(), state:addr.state.trim()||'FL', zip:addr.zip.trim(), notes:addr.notes.trim() };
   // Delivery window. 1-bowl tiers must have picked Lunch or Dinner; 2-bowl tiers get both.
   if (SCHED[planTier].chooseWindow) {
     if (chosenWindow !== 'lunch' && chosenWindow !== 'dinner') {
-      msg.className='msg err'; msg.textContent='Please choose a delivery window — Lunch or Dinner.'; return;
+      fail(document.getElementById('windowPick'), 'Please choose a delivery window — Lunch or Dinner.');
+      document.getElementById('windowPick').scrollIntoView({ block:'center', behavior:'smooth' });
+      return;
     }
     body.delivery = { window: chosenWindow };
   } else {

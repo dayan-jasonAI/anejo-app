@@ -267,6 +267,19 @@ const ADDONS = [
   { id:'sauce_cup',     cents:150, en:'Extra sauce cup (2 oz)', es:'Salsa extra (2 oz)' },
 ];
 const ADDON_BY = {}; ADDONS.forEach(a=>ADDON_BY[a.id]=a);
+// Spanish ingredient names for the modal/cart. Brand sauce names (Mango Omega, Ajo Cítrico,
+// Chimichurri Vital, Golden Turmeric, Aguacate Cilantro) are proper names — kept as-is. The
+// server always receives the canonical English name; only the displayed chip label changes.
+const ING_ES = {
+  'Seared tuna':'Atún sellado','Quinoa':'Quinoa','Cucumber':'Pepino','Mango':'Mango','Mixed greens':'Hojas verdes mixtas','Chia seeds':'Semillas de chía',
+  'Marinated steak':'Bistec marinado','Roasted zucchini + peppers':'Calabacín + pimientos asados','Arugula':'Rúcula','Pickled onions':'Cebollas encurtidas','Pumpkin seeds':'Semillas de calabaza',
+  'Golden Turmeric chicken':'Pollo Golden Turmeric','Brown rice or quinoa':'Arroz integral o quinoa','Roasted carrot/sweet potato':'Zanahoria/batata asada','Spinach':'Espinaca','Tomato':'Tomate','Toasted almonds':'Almendras tostadas',
+  'Salmon':'Salmón','Roasted vegetables':'Vegetales asados','Roasted asparagus':'Espárragos asados','Black sesame':'Sésamo negro',
+  'Coconut-lime shrimp':'Camarón coco-limón','Quinoa-corn-edamame':'Quinoa-maíz-edamame','Cherry tomatoes':'Tomates cherry','Avocado':'Aguacate','Sesame seasoning':'Sazón de sésamo','Toasted coconut':'Coco tostado',
+  'Tuna-mango-lime sauté':'Salteado de atún-mango-limón','Quinoa-blueberry congrí':'Congrí de quinoa-arándano','Queso fresco':'Queso fresco',
+  'Crispy tofu':'Tofu crujiente','Slaw':'Ensalada de col','Sweet potato':'Batata',
+};
+function ingL(name){ return (curLang()==='es' && ING_ES[name]) ? ING_ES[name] : name; }
 const bowls = [];   // customized bowl instances: { key, removed:[], base:null|'brown_rice', sauces:[], extras:[{type,name|id}] }
 const addons = {};  // non-bowl items (drinks + side sauce): id -> qty
 const TAX_PCT = 7;  // display estimate only; checkout.js (server) applies the authoritative tax
@@ -456,13 +469,13 @@ function closeCz(){ $('czOverlay').classList.remove('open'); document.body.style
 function czRender(){
   if(!cz) return;
   const build = BUILDS[cz.key], protein = build[0], rest = build.slice(1);
-  $('czProtein').innerHTML = '<span class="cz-locked">🔒 '+protein+' · '+L('always included','siempre incluido')+'</span>';
-  $('czRemove').innerHTML = rest.map(n=>chip(n, cz.removed.indexOf(n)>=0, "toggleRemove('"+esc(n)+"')", 'rm')).join('');
+  $('czProtein').innerHTML = '<span class="cz-locked">🔒 '+ingL(protein)+' · '+L('always included','siempre incluido')+'</span>';
+  $('czRemove').innerHTML = rest.map(n=>chip(ingL(n), cz.removed.indexOf(n)>=0, "toggleRemove('"+esc(n)+"')", 'rm')).join('');
   $('czBase').innerHTML = chip(L('Swap base → Brown rice','Cambiar base → Arroz integral')+' '+L('(free)','(gratis)'), cz.base==='brown_rice', 'toggleBase()');
   const addable = SAUCES.filter(s=>build.indexOf(s)<0);
-  $('czSauces').innerHTML = addable.length ? addable.map(s=>chip(s+' '+L('(free)','(gratis)'), cz.sauces.indexOf(s)>=0, "toggleSauce('"+esc(s)+"')")).join('') : '<span class="cz-desc">'+L('All house sauces already on this bowl.','Todas las salsas ya están en este bowl.')+'</span>';
+  $('czSauces').innerHTML = addable.length ? addable.map(s=>chip(ingL(s)+' '+L('(free)','(gratis)'), cz.sauces.indexOf(s)>=0, "toggleSauce('"+esc(s)+"')")).join('') : '<span class="cz-desc">'+L('All house sauces already on this bowl.','Todas las salsas ya están en este bowl.')+'</span>';
   $('czExtras').innerHTML = ADDONS.map(a=>chip(L(a.en,a.es), hasExtra('addon',a.id), "toggleExtra('addon','"+a.id+"')", null, a.cents)).join('');
-  $('czExtraIng').innerHTML = build.map(n=>chip(n, hasExtra('ingredient',n), "toggleExtra('ingredient','"+esc(n)+"')", null, PREMIUM_RE.test(n)?EXTRA_PREM:EXTRA_STD)).join('');
+  $('czExtraIng').innerHTML = build.map(n=>chip(ingL(n), hasExtra('ingredient',n), "toggleExtra('ingredient','"+esc(n)+"')", null, PREMIUM_RE.test(n)?EXTRA_PREM:EXTRA_STD)).join('');
   const unit = instCents(cz), q = czEdit>=0 ? 1 : czQ;
   $('czPrice').textContent = money(unit*q/100);
 }
@@ -480,10 +493,10 @@ function rmBowl(idx){ bowls.splice(idx,1); renderCatalog(); renderCart(); }
 // Localized one-line mod summary for a bowl instance (kitchen sees its own version server-side).
 function modSummary(b){
   const parts=[];
-  b.removed.forEach(r=>parts.push(L('no ','sin ')+r));
+  b.removed.forEach(r=>parts.push(L('no ','sin ')+ingL(r)));
   if(b.base==='brown_rice') parts.push(L('brown rice base','base de arroz integral'));
-  b.sauces.forEach(s=>parts.push('+'+s));
-  b.extras.forEach(e=>parts.push('+'+(e.type==='addon'?L(ADDON_BY[e.id].en,ADDON_BY[e.id].es):e.name)));
+  b.sauces.forEach(s=>parts.push('+'+ingL(s)));
+  b.extras.forEach(e=>parts.push('+'+(e.type==='addon'?L(ADDON_BY[e.id].en,ADDON_BY[e.id].es):ingL(e.name))));
   return parts.join(' · ');
 }
 
