@@ -30,8 +30,12 @@ function constEq(a, b) {
 // Verify a Svix-signed request. `headers` is a Headers object, `body` is the RAW request text.
 // Returns { ok, reason }.
 export async function verifySvix(secret, headers, body, opts) {
-  const { toleranceSec = 300, nowMs = Date.now() } = opts || {};
-  if (!secret) return { ok: false, reason: 'no-secret' };
+  // Wide default tolerance: Svix RETRIES reuse the original svix-timestamp, so a tight window
+  // would reject legitimate retries minutes/hours later. Signature is the real security boundary;
+  // for an idempotent suppression upsert, replay is harmless — so 1h is a safe anti-replay bound.
+  const { toleranceSec = 3600, nowMs = Date.now() } = opts || {};
+  const sec = (secret || '').trim();   // tolerate stray whitespace/newline from a pasted secret
+  if (!sec) return { ok: false, reason: 'no-secret' };
   const id = headers.get('svix-id');
   const ts = headers.get('svix-timestamp');
   const sigHeader = headers.get('svix-signature');
@@ -40,7 +44,7 @@ export async function verifySvix(secret, headers, body, opts) {
   if (!Number.isFinite(tsNum) || Math.abs(nowMs / 1000 - tsNum) > toleranceSec) {
     return { ok: false, reason: 'stale-timestamp' };
   }
-  const keyB64 = secret.startsWith('whsec_') ? secret.slice(6) : secret;
+  const keyB64 = (sec.startsWith('whsec_') ? sec.slice(6) : sec).trim();
   let keyBytes;
   try { keyBytes = b64ToBytes(keyB64); } catch { return { ok: false, reason: 'bad-secret' }; }
   const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
