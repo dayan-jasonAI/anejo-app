@@ -52,5 +52,5 @@ export async function verifySvix(secret, headers, body, opts) {
   const expected = bytesToB64(mac);
   const provided = sigHeader.split(' ').map((p) => { const i = p.indexOf(','); return i >= 0 ? p.slice(i + 1) : p; });
   const ok = provided.some((sig) => constEq(sig, expected));
-  return { ok, reason: ok ? null : 'mismatch' };
+  return { ok, reason: ok ? null : 'mismatch', expected, provided };
 }
