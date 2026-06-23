@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
 <style>
-:root{--black:#0D0D0D;--green:#1A3D2E;--green-dark:#0d2419;--gold:#C6A85B;--gold-dark:#8B6B3E;--cream:#F5F2EC;--cream-dark:#EAE5D8;--ink:#1A1A1A;--muted:#6b6b6b;--line:rgba(26,61,46,0.15)}
+:root{--black:#0D0D0D;--green:#1A3D2E;--green-dark:#0d2419;--gold:#C8BC6E;--gold-deep:#C08418;--gold-dark:#8B6B3E;--cream:#F5F2EC;--cream-dark:#EAE5D8;--ink:#1A1A1A;--muted:#6b6b6b;--line:rgba(26,61,46,0.15)}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Josefin Sans',-apple-system,sans-serif;background:var(--cream);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
 .serif-i{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic}
@@ -43,7 +43,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 .prod-desc{font-size:13px;color:var(--muted);margin-top:2px}
 .prod-price{font-weight:600;color:var(--gold-dark);white-space:nowrap}
 .stepper{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.stepper button{width:34px;height:34px;border:none;background:var(--cream);color:var(--green);font-size:18px;font-weight:700;cursor:pointer;line-height:1}
+.stepper button{width:40px;height:44px;border:none;background:var(--cream);color:var(--green);font-size:18px;font-weight:700;cursor:pointer;line-height:1;touch-action:manipulation}
 .stepper button:hover{background:var(--gold);color:var(--black)}
 .stepper .qty{width:36px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
 .cart{position:sticky;top:88px;background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:10px;padding:24px}
@@ -58,13 +58,16 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 .fulfill{margin:18px 0 6px}
 .fulfill .lbl{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--green);font-weight:600;margin-bottom:8px}
 .deliv-note{font-size:12px;color:var(--muted);margin-bottom:10px}
-.fulfill select,.fulfill input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--cream);color:var(--ink);font-family:inherit;font-size:14px;margin-bottom:10px}
+.fulfill select,.fulfill input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--cream);color:var(--ink);font-family:inherit;font-size:16px;margin-bottom:10px}
+.flbl{display:block;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 5px}
+.input-error{border-color:#9b2226!important;box-shadow:0 0 0 3px rgba(155,34,38,.15)!important}
 .fulfill select:focus,.fulfill input:focus{outline:2px solid var(--gold);border-color:transparent}
 .addr-row{display:flex;gap:10px}
 .addr-row .addr-city{flex:2}.addr-row .addr-state{flex:1}.addr-row .addr-zip{flex:1}
-.btn{display:block;width:100%;text-align:center;margin-top:18px;padding:14px 20px;border-radius:4px;font-family:inherit;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:700;border:none;cursor:pointer;background:var(--gold);color:var(--black)}
-.btn:hover{background:var(--cream-dark)}
-.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn{display:block;width:100%;text-align:center;margin-top:18px;padding:15px 20px;border-radius:999px;font-family:inherit;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:700;border:none;cursor:pointer;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#1c1606;box-shadow:0 8px 22px rgba(192,132,24,.28);transition:transform .15s ease,box-shadow .15s ease}
+.btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 26px rgba(192,132,24,.34)}
+.btn:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
+@media(prefers-reduced-motion:reduce){.btn{transition:none}.btn:hover:not(:disabled){transform:none}}
 .err{color:#9b2226;font-size:13px;margin-top:10px;min-height:1px}
 .modeseg{display:flex;gap:6px;background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:4px;margin-bottom:12px}
 .modeseg button{flex:1;border:none;background:transparent;color:var(--green);font-family:inherit;font-size:13px;font-weight:700;letter-spacing:.5px;padding:9px 8px;border-radius:7px;cursor:pointer;line-height:1.2}
@@ -132,8 +135,10 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
       </div>
 
       <div class="lbl" style="margin-top:14px">Your details</div>
-      <input id="custName" type="text" autocomplete="given-name" placeholder="First name" aria-label="First name" required>
-      <input id="custPhone" type="tel" autocomplete="tel" placeholder="Mobile number (optional)" aria-label="Mobile number">
+      <label class="flbl" for="custName">First name</label>
+      <input id="custName" type="text" autocomplete="given-name" placeholder="First name" required>
+      <label class="flbl" for="custPhone">Mobile number</label>
+      <input id="custPhone" type="tel" autocomplete="tel" placeholder="Mobile number (optional)">
       <div class="sms-optin" style="background:rgba(0,0,0,.03);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:8px">
         <label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#333;cursor:pointer;line-height:1.45">
           <input id="smsConsent" type="checkbox" style="width:auto;flex:0 0 auto;margin:3px 0 0">
@@ -143,7 +148,8 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
       </div>
 
       <div class="lbl" style="margin-top:14px">Delivery address</div>
-      <input id="addrStreet" type="text" autocomplete="address-line1" placeholder="Street address" aria-label="Street address">
+      <label class="flbl" for="addrStreet">Street address</label>
+      <input id="addrStreet" type="text" autocomplete="address-line1" placeholder="Street address">
       <input id="addrUnit" type="text" autocomplete="address-line2" placeholder="Apt / unit / suite (optional)" aria-label="Apt or unit">
       <div class="addr-row">
         <input id="addrCity" class="addr-city" type="text" autocomplete="address-level2" placeholder="City" aria-label="City">
@@ -154,7 +160,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
     </div>
 
     <button class="btn" id="checkoutBtn" disabled onclick="checkout()">Proceed to checkout</button>
-    <div class="err" id="err"></div>
+    <div class="err" id="err" role="alert" aria-live="assertive"></div>
   </aside>
 </div>
 
@@ -346,28 +352,30 @@ function renderCart(){
 async function checkout(){
   const btn=document.getElementById('checkoutBtn'), err=document.getElementById('err');
   err.textContent='';
+  document.querySelectorAll('.input-error').forEach(e=>e.classList.remove('input-error'));
+  const fail=(el,msg)=>{ err.textContent=msg; if(el){ el.classList.add('input-error'); el.focus(); } };
   const items = Object.keys(cart).map(id=>({id, qty:cart[id]}));
   if(!items.length) return;
   const fulfillment = { mode: mode==='ondemand' ? 'on_demand' : 'scheduled' };
   let delivery = null;
   if(mode==='scheduled'){
     delivery = { date: $('delivDate').value, window: $('delivWindow').value };
-    if(!delivery.date){ err.textContent=L('Please choose a delivery date.','Por favor elige una fecha de entrega.'); return; }
+    if(!delivery.date){ fail($('delivDate'),L('Please choose a delivery date.','Por favor elige una fecha de entrega.')); return; }
   }
   const contact = {
     first_name: $('custName').value.trim(),
     phone: $('custPhone').value.trim(),
     sms_consent: $('smsConsent').checked
   };
-  if(!contact.first_name){ err.textContent=L('Please enter your first name.','Por favor ingresa tu nombre.'); return; }
+  if(!contact.first_name){ fail($('custName'),L('Please enter your first name.','Por favor ingresa tu nombre.')); return; }
   const address = {
     street: $('addrStreet').value.trim(), unit: $('addrUnit').value.trim(),
     city: $('addrCity').value.trim(), state: $('addrState').value.trim() || 'FL',
     zip: $('addrZip').value.trim(), notes: $('addrNotes').value.trim()
   };
-  if(!address.street){ err.textContent=L('Please enter your delivery street address.','Por favor ingresa tu dirección de entrega.'); return; }
-  if(!address.city){ err.textContent=L('Please enter your delivery city.','Por favor ingresa tu ciudad de entrega.'); return; }
-  if(!/^\d{5}$/.test(address.zip)){ err.textContent=L('Please enter a valid 5-digit ZIP code.','Por favor ingresa un código postal válido de 5 dígitos.'); return; }
+  if(!address.street){ fail($('addrStreet'),L('Please enter your delivery street address.','Por favor ingresa tu dirección de entrega.')); return; }
+  if(!address.city){ fail($('addrCity'),L('Please enter your delivery city.','Por favor ingresa tu ciudad de entrega.')); return; }
+  if(!/^\d{5}$/.test(address.zip)){ fail($('addrZip'),L('Please enter a valid 5-digit ZIP code.','Por favor ingresa un código postal válido de 5 dígitos.')); return; }
   btn.disabled=true; const label=btn.textContent; btn.textContent=L('Redirecting to secure checkout…','Redirigiendo al pago seguro…');
   try{
     const payload = { items, fulfillment, address, contact };
@@ -383,6 +391,14 @@ async function checkout(){
 }
 
 buildDates(); applyMode(); loadAvailability();
+// Inline validation: flag a malformed ZIP on blur; clear a field's error as soon as the user edits it.
+$('addrZip').addEventListener('blur', function(){
+  const v=this.value.trim();
+  this.classList.toggle('input-error', !!v && !/^\d{5}$/.test(v));
+});
+['custName','addrStreet','addrCity','addrZip','delivDate'].forEach(id=>{
+  const el=$(id); if(el) el.addEventListener('input', function(){ this.classList.remove('input-error'); });
+});
 // Re-render JS-built strings in the chosen language: on toggle (anejo:langchange) and once the
 // i18n engine has loaded + applied any persisted language (window load runs after i18n.js).
 document.addEventListener('anejo:langchange', applyMode);

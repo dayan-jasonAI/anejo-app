@@ -283,7 +283,7 @@
     "Delivery address":"Dirección de entrega",
     "Proceed to checkout":"Proceder al pago",
     // order page — input placeholders
-    "First name":"Nombre","Mobile number (optional)":"Número de móvil (opcional)",
+    "First name":"Nombre","Mobile number":"Número de móvil","Mobile number (optional)":"Número de móvil (opcional)",
     "Street address":"Dirección","Apt / unit / suite (optional)":"Apto / unidad / suite (opcional)",
     "City":"Ciudad","ZIP":"Código postal","Gate code, drop-off notes (optional)":"Código de acceso, notas de entrega (opcional)"
   };
