@@ -35,6 +35,7 @@
     Hub.nav(Hub.roleFromMe(me) || s.role, 'account');
     var roleLine = esc(s.role || me.role || '') + (s.is_lead ? ' · lead' : '') + (s.team ? ' · ' + esc(s.team) : '');
     var isStaff = me.type === 'staff';
+    var trole = Hub.roleFromMe(me) || s.role || 'owner';   // for the role-specific quick card
     root.className = '';
     root.innerHTML =
       '<div class="card"><div class="row-title" style="font-size:18px">' + esc(s.name || s.email || 'Signed in') + '</div>' +
@@ -51,6 +52,9 @@
         : '') +
       '<div class="hub-section"><a class="btn ghost block" href="/hub/comms.html" style="text-align:center;text-decoration:none">💬 <span data-i18n>Messages</span></a></div>' +
       '<div class="hub-section"><a class="btn ghost block" href="/hub/training" style="text-align:center;text-decoration:none">🎓 <span data-i18n>Training &amp; tutorials</span></a></div>' +
+      '<div class="hub-section"><a class="btn ghost block" href="/hub/training-card?role=' + trole + '" style="text-align:center;text-decoration:none">🖨 <span data-i18n>My quick card</span></a></div>' +
+      (s.role === 'owner' ?
+        '<div class="hub-section"><a class="btn ghost block" href="/hub/training-card?role=all" style="text-align:center;text-decoration:none">🗂 <span data-i18n>All-roles binder (print)</span></a></div>' : '') +
       (isStaff && (s.is_lead || s.role === 'owner') ?
         '<div class="hub-section"><a class="btn ghost block" href="/hub/team.html" style="text-align:center;text-decoration:none">👥 <span data-i18n>Team view</span></a></div>' : '') +
       (isStaff ?

@@ -37,7 +37,8 @@
   @media print{
     body{background:#fff}
     .toolbar{display:none}
-    .card{box-shadow:none;border:none;margin:0;max-width:none;padding:0 12px}
+    .card{box-shadow:none;border:none;margin:0;max-width:none;padding:0 12px;page-break-after:always}
+    .card:last-child{page-break-after:auto}
     @page{margin:14mm}
   }
 </style>
@@ -50,7 +51,7 @@
     <button class="print" onclick="window.print()">🖨 <span data-t="print">Print / Save PDF</span></button>
   </div>
 </div>
-<div class="card" id="card"></div>
+<div id="cards"></div>
 <script>
 var UI={ all:{en:'All training',es:'Capacitación'}, print:{en:'Print / Save PDF',es:'Imprimir / Guardar PDF'},
   trig:{en:'What starts your work',es:'Qué inicia tu trabajo'}, steps:{en:'Your steps',es:'Tus pasos'}, rem:{en:'Remember',es:'Recuerda'},
@@ -82,19 +83,22 @@ var CARD={
     rem:{en:['Marking delivered clears the kitchen’s low-stock alert and updates their counts.'],es:['Marcar entregado cierra la alerta de bajo stock y actualiza sus conteos.']} }
 };
 var lang='en';
-function qRole(){ try{ var m=/[?&]role=([a-z]+)/.exec(location.search); return m && CARD[m[1]] ? m[1] : 'kitchen'; }catch(e){ return 'kitchen'; } }
+function qRole(){ try{ var m=/[?&]role=([a-z]+)/.exec(location.search); if(m && m[1]==='all') return 'all'; return m && CARD[m[1]] ? m[1] : 'kitchen'; }catch(e){ return 'kitchen'; } }
 var role=qRole();
 function setLang(l){ lang=l; document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; document.querySelectorAll('[data-t]').forEach(function(el){ el.textContent=UI[el.getAttribute('data-t')][l]; }); render(); }
-function render(){
-  var c=CARD[role];
-  document.getElementById('card').innerHTML =
-    '<div class="hd"><span class="brand">AÑEJO <b>·</b> HUB</span><span class="role">'+c.role[lang]+'</span></div>'+
+function cardHtml(rk){
+  var c=CARD[rk];
+  return '<div class="card"><div class="hd"><span class="brand">AÑEJO <b>·</b> HUB</span><span class="role">'+c.role[lang]+'</span></div>'+
     '<h1>'+c.t[lang]+'</h1><p class="sub">'+c.sub[lang]+'</p>'+
     '<div class="trigbox"><span class="l">⚡ '+UI.trig[lang]+'</span><span class="v">'+c.trig[lang]+'</span></div>'+
     '<div class="l" style="font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--gold-700);margin-bottom:6px">✋ '+UI.steps[lang]+'</div>'+
     '<ol>'+c.steps[lang].map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>'+
     '<div class="remember"><span class="l">★ '+UI.rem[lang]+'</span><ul>'+c.rem[lang].map(function(r){return '<li>'+r+'</li>';}).join('')+'</ul></div>'+
-    '<div class="foot">'+UI.foot[lang]+'</div>';
+    '<div class="foot">'+UI.foot[lang]+'</div></div>';
+}
+function render(){
+  var list = role==='all' ? ['owner','kitchen','driver','vendor'] : [role];
+  document.getElementById('cards').innerHTML = list.map(cardHtml).join('');
 }
 setLang('en');
 </script>
