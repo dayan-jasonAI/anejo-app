@@ -80,7 +80,8 @@
       if (!d || !d.ok || !d.accounts || !d.accounts.length) {
         root.innerHTML = '<div class="card"><p class="row-sub">No contract accounts yet.</p></div>'; return;
       }
-      root.innerHTML = d.accounts.map(function (a) {
+      var head = '<div class="hub-section"><a class="btn ghost block" href="/hub/owner/pricing.html" style="text-align:center;text-decoration:none">📊 Pricing &amp; margin model</a></div>';
+      root.innerHTML = head + d.accounts.map(function (a) {
         var acc = a.account;
         var unbilled = (a.recent || []).filter(function (r) { return !r.invoiced; }).reduce(function (s, r) { return s + (r.total_cents || 0); }, 0);
         return '<div class="hub-section"><h2>🏢 ' + esc(acc.name) + ' <span class="row-sub" style="font-weight:400">· invoiced ' + esc(acc.invoice_cadence) + '</span></h2>' +

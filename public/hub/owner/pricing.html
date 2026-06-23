@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Pricing Model</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .grp{background:var(--paper,#fffdf8);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  .grp h3{margin:0 0 4px;font-size:15px;color:var(--green)}
+  .grp .hint{font-size:12px;color:var(--muted);margin-bottom:10px}
+  .fld{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line)}
+  .fld:last-child{border-bottom:0}
+  .fld label{font-size:14px;color:var(--ink)}
+  .fld .in{display:flex;align-items:center;gap:4px}
+  .fld .pre{color:var(--muted);font-size:14px}
+  .fld input{width:90px;text-align:right;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:15px;font-weight:600;color:var(--green);background:#fff}
+  .fld input:focus{outline:none;border-color:var(--gold)}
+  .out{background:var(--green);color:var(--cream);border-radius:14px;padding:18px;margin-bottom:14px}
+  .out .big{display:flex;justify-content:space-between;align-items:baseline;margin:6px 0}
+  .out .big .v{font-size:24px;font-weight:800;color:var(--gold)}
+  .out .lbl{font-size:13px;opacity:.85}
+  .out .sub{font-size:12px;opacity:.7;margin-top:2px}
+  .warn{background:#7a2418;color:#fff;border-radius:8px;padding:9px 12px;font-size:13px;margin-top:10px}
+  .good{background:#14311f;border-radius:8px;padding:9px 12px;font-size:13px;margin-top:10px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+  th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  tr.cur{background:#fff8e9}
+  td.pos{color:var(--green);font-weight:700} td.neg{color:var(--crit);font-weight:700}
+  .rec{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .rec .chip{flex:1;min-width:90px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+  .rec .chip .m{font-size:11px;color:var(--muted)} .rec .chip .p{font-size:19px;font-weight:800;color:var(--green)}
+</style>
+</head>
+<body>
+<div class="hub-bar"><h1>AÑEJO · PRICING</h1><div class="hub-bar-actions"><a class="btn ghost" href="/hub/owner/contracts.html">← Contracts</a></div></div>
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p>Loading…</p></div>
+</div>
+<nav id="owner-nav" class="hub-nav"></nav>
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var F = { food:3.50, pkg:0.75, labor:1.25, drun:22, avg:12, offices:2, days:3, price:6, fee:25, target:30 };
+  try { var saved = JSON.parse(localStorage.getItem('anejo:pricing')||'null'); if (saved) F = Object.assign(F, saved); } catch(e){}
+  function $(id){ return document.getElementById(id); }
+  function n(id){ return Math.max(0, Number($(id).value)||0); }
+  function m(x){ return '$'+x.toFixed(2); }
+
+  function render() {
+    var root = $('owner-root'); root.className='';
+    root.innerHTML =
+      '<p class="row-sub" style="margin-bottom:12px">Dial in your real numbers — everything recalculates live. Then set the price + per-office delivery fee on the account.</p>' +
+      grp('Cost per lunch', 'What it costs you to make one lunch.', [
+        f('Food / ingredients', 'food'), f('Packaging (box, cutlery, label)', 'pkg'), f('Labor per lunch', 'labor')
+      ]) +
+      grp('Delivery (per office run)', 'A run = one driver, one office, round-trip.', [
+        f('Driver + fuel per run', 'drun', ''), f('Avg lunches / office / day', 'avg', '', 1)
+      ]) +
+      grp('Your pricing', 'What you charge the office.', [
+        f('Price per lunch', 'price'), f('Delivery fee per office', 'fee')
+      ]) +
+      grp('Volume (for profit totals)', '', [
+        f('Offices', 'offices', '', 1), f('Delivery days / week', 'days', '', 1), f('Target margin %', 'target', '%')
+      ]) +
+      '<div class="out" id="out"></div>' +
+      '<div class="grp"><h3>At different prices</h3><table id="ptable"></table></div>' +
+      '<div class="grp"><h3>Recommended price per lunch</h3><div class="hint">To hit your target margin on the lunch itself (delivery fee should separately cover the run).</div><div class="rec" id="rec"></div></div>';
+    ['food','pkg','labor','drun','avg','price','fee','offices','days','target'].forEach(function(k){ $(k).addEventListener('input', recalc); });
+    recalc();
+  }
+  function grp(title, hint, fields){ return '<div class="grp"><h3>'+title+'</h3>'+(hint?'<div class="hint">'+hint+'</div>':'')+fields.join('')+'</div>'; }
+  function f(label, key, suffix, step){ var pre = suffix===undefined?'$':''; var suf = suffix||''; return '<div class="fld"><label>'+label+'</label><div class="in">'+(pre?'<span class="pre">'+pre+'</span>':'')+'<input id="'+key+'" type="number" step="'+(step||'0.01')+'" min="0" value="'+F[key]+'">'+(suf?'<span class="pre">'+suf+'</span>':'')+'</div></div>'; }
+
+  function recalc() {
+    var food=n('food'), pkg=n('pkg'), labor=n('labor'), drun=n('drun'), avg=Math.max(1,n('avg')),
+        price=n('price'), fee=n('fee'), offices=Math.max(1,n('offices')), days=Math.max(1,n('days')), target=Math.min(90,n('target'));
+    localStorage.setItem('anejo:pricing', JSON.stringify({food:food,pkg:pkg,labor:labor,drun:drun,avg:avg,price:price,fee:fee,offices:offices,days:days,target:target}));
+
+    var costLunch = food+pkg+labor;                 // direct cost per lunch
+    var delivPerLunch = drun/avg;                   // delivery cost spread over the run
+    var loaded = costLunch + delivPerLunch;         // fully-loaded cost per lunch
+    var revLunch = price + fee/avg;                  // revenue per lunch incl. delivery fee
+    var marginLunch = revLunch - loaded;
+    var marginPct = revLunch>0 ? (marginLunch/revLunch*100) : 0;
+    // daily profit, one office: lunch margin × count  +  (fee − run cost)
+    var dayOne = (price-costLunch)*avg + (fee-drun);
+    var weekAll = dayOne*offices*days, monthAll = weekAll*4.33;
+
+    $('out').innerHTML =
+      '<div class="lbl">Fully-loaded cost per lunch</div>' +
+      '<div class="big"><span class="lbl">food '+m(food)+' + pkg '+m(pkg)+' + labor '+m(labor)+' + delivery '+m(delivPerLunch)+'</span><span class="v">'+m(loaded)+'</span></div>' +
+      '<div class="big"><span class="lbl">Your all-in revenue / lunch</span><span class="v">'+m(revLunch)+'</span></div>' +
+      '<div class="big"><span class="lbl">Margin / lunch</span><span class="v" style="color:'+(marginLunch>=0?'var(--gold)':'#f3b0a3')+'">'+m(marginLunch)+' ('+marginPct.toFixed(0)+'%)</span></div>' +
+      '<div class="sub">Profit/day (1 office, '+avg+' lunches): '+m(dayOne)+' · week (all offices): '+m(weekAll)+' · month ≈ '+m(monthAll)+'</div>' +
+      (fee<drun ? '<div class="warn">⚠ Your delivery fee ('+m(fee)+') is BELOW the run cost ('+m(drun)+') — every delivery loses '+m(drun-fee)+'.</div>' : '<div class="good">✓ Delivery fee covers the run (+'+m(fee-drun)+').</div>') +
+      (marginLunch<0 ? '<div class="warn">⚠ At '+m(price)+'/lunch you LOSE '+m(-marginLunch)+' on every lunch.</div>'
+        : marginPct<20 ? '<div class="warn">Margin is thin ('+marginPct.toFixed(0)+'%). Most catering targets 25–40%.</div>' : '');
+
+    var rows = [6,7,8,9,10,12,14].map(function(p){
+      var rl=p+fee/avg, ml=rl-loaded, mp=rl>0?ml/rl*100:0, dp=(p-costLunch)*avg+(fee-drun);
+      var cur = Math.abs(p-price)<0.001?' class="cur"':'';
+      return '<tr'+cur+'><td>'+m(p)+'</td><td class="'+(ml>=0?'pos':'neg')+'">'+m(ml)+'</td><td>'+mp.toFixed(0)+'%</td><td class="'+(dp>=0?'pos':'neg')+'">'+m(dp)+'</td></tr>';
+    }).join('');
+    $('ptable').innerHTML = '<tr><th>Price/lunch</th><th>Margin/lunch</th><th>Margin%</th><th>Profit/day·office</th></tr>'+rows;
+
+    $('rec').innerHTML = [25,target,40].map(function(t){
+      var p = costLunch/(1-t/100);                  // price for target margin on the lunch (excl. delivery)
+      return '<div class="chip"><div class="m">'+t+'% margin</div><div class="p">'+m(p)+'</div></div>';
+    }).join('');
+  }
+
+  Owner.init('contracts', render);
+})();
+</script>
+</body>
+</html>
