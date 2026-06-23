@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Añejo · Invoice</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<style>
+  :root{--green:#1A3D2E;--gold:#C6A85B;--gold-700:#8a7a2e;--cream:#F5F2EC;--ink:#21302a;--muted:#6f7b74;--line:#e3ddcf}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#e9e4d8;color:var(--ink)}
+  .toolbar{max-width:760px;margin:0 auto;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+  .toolbar a{color:var(--green);text-decoration:none;font-weight:700;font-size:13px}
+  .print{background:var(--gold);color:var(--green);border:0;border-radius:20px;padding:8px 18px;font-weight:800;cursor:pointer}
+  .inv{max-width:760px;margin:0 auto 40px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:36px 40px;box-shadow:0 10px 40px rgba(0,0,0,.1)}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--green);padding-bottom:16px}
+  .top .brand{font-family:Georgia,serif;letter-spacing:5px;color:var(--green);font-size:24px;font-weight:600}
+  .top .brand small{display:block;font-family:inherit;letter-spacing:.5px;font-size:11px;color:var(--muted);margin-top:4px}
+  .top .it{text-align:right}.top .it h1{font-size:26px;color:var(--gold-700);letter-spacing:1px}.top .it .num{font-size:14px;font-weight:700;color:var(--green);margin-top:4px}
+  .parties{display:flex;justify-content:space-between;margin:20px 0;font-size:13.5px}
+  .parties .lab{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px}
+  .parties b{color:var(--green)}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px}
+  th,td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  thead th{background:var(--green);color:var(--cream);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .sitehd td{background:var(--cream);font-weight:700;color:var(--green)}
+  .day td{color:var(--muted);font-size:12.5px}
+  .totals{margin-top:16px;margin-left:auto;width:280px}
+  .totals .r{display:flex;justify-content:space-between;padding:5px 0;font-size:14px}
+  .totals .r.grand{border-top:2px solid var(--green);margin-top:6px;padding-top:10px;font-size:18px;font-weight:800;color:var(--green)}
+  .foot{margin-top:24px;border-top:1px solid var(--line);padding-top:14px;font-size:12px;color:var(--muted);line-height:1.6}
+  .state{max-width:760px;margin:40px auto;text-align:center;color:var(--muted)}
+  @media print{ body{background:#fff} .toolbar{display:none} .inv{box-shadow:none;border:none;margin:0;max-width:none} @page{margin:16mm} }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <a href="/hub/owner/contracts.html">↩︎ Contracts</a>
+  <button class="print" onclick="window.print()">🖨 Print / Save PDF</button>
+</div>
+<div id="root" class="state">Loading invoice…</div>
+<script src="/hub/assets/hub.js"></script>
+<script>
+(function(){
+  var id=(new URLSearchParams(location.search)).get('id')||'';
+  var money=Hub.money, esc=Hub.esc;
+  function fmtDate(s){ return s||''; }
+  Hub.api('/api/hub/owner/contracts?invoice='+encodeURIComponent(id)).then(function(d){
+    var root=document.getElementById('root');
+    if(d && d._status===401){ location.href='/login'; return; }
+    if(!d || !d.ok){ root.innerHTML='Invoice not found.'; return; }
+    var inv=d.invoice, a=d.account, li=inv.line_items||{sites:[]};
+    var rows=(li.sites||[]).map(function(s){
+      var hd='<tr class="sitehd"><td colspan="4">'+esc(s.name)+'</td></tr>';
+      var days=(s.days||[]).map(function(x){ return '<tr class="day"><td>'+fmtDate(x.date)+(x.rush?' · RUSH':'')+'</td><td>'+x.count+'</td><td>'+money(x.price_cents)+'</td><td>'+money(x.total_cents)+'</td></tr>'; }).join('');
+      var sub='<tr><td>'+esc(s.name)+' — '+s.lunches+' lunches</td><td></td><td></td><td><b>'+money(s.subtotal_cents+s.delivery_cents+s.rush_cents)+'</b></td></tr>';
+      return hd+days+sub;
+    }).join('');
+    root.className=''; root.innerHTML=
+      '<div class="inv">'+
+        '<div class="top"><div class="brand">AÑEJO<small>Añejo Catering Co. LLC · anejocateringco.com</small></div>'+
+          '<div class="it"><h1>INVOICE</h1><div class="num">'+esc(inv.number||'')+'</div><div class="num" style="font-weight:400;color:var(--muted)">'+esc(inv.period_from||'')+' – '+esc(inv.period_to||'')+'</div></div></div>'+
+        '<div class="parties"><div><div class="lab">Bill to</div><b>'+esc(a.name||'')+'</b>'+(a.billing_contact?'<br>'+esc(a.billing_contact):'')+(a.billing_email?'<br>'+esc(a.billing_email):'')+'</div>'+
+          '<div style="text-align:right"><div class="lab">Status</div><b>'+esc((inv.status||'open').toUpperCase())+'</b></div></div>'+
+        '<table><thead><tr><th>Date / item</th><th>Lunches</th><th>Price</th><th>Amount</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+        '<div class="totals">'+
+          '<div class="r"><span>Lunches ('+inv.lunches+')</span><span>'+money(inv.subtotal_cents)+'</span></div>'+
+          '<div class="r"><span>Delivery</span><span>'+money(inv.delivery_cents)+'</span></div>'+
+          (inv.rush_cents?'<div class="r"><span>Rush fees</span><span>'+money(inv.rush_cents)+'</span></div>':'')+
+          '<div class="r grand"><span>Total due</span><span>'+money(inv.total_cents)+'</span></div>'+
+        '</div>'+
+        '<div class="foot">Thank you for your business. Please remit to Añejo Catering Co. LLC. Questions about this invoice? Reply to the email it was sent with.</div>'+
+      '</div>';
+  }).catch(function(){ document.getElementById('root').innerHTML='Could not load.'; });
+})();
+</script>
+</body>
+</html>

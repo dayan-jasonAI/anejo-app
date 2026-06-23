@@ -2,12 +2,16 @@
 // (with the per-site intake link, lazily minted), and the recent daily-count ledger. Owner-only.
 import { json, bad, randToken, now } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { activateAccount } from '../../../_lib/contract.js';
+import { activateAccount, generateInvoice, getInvoice } from '../../../_lib/contract.js';
 
 export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   const ctx = await requireRole(request, env, ['owner']);
   if (ctx instanceof Response) return ctx;
+
+  // Single invoice (for the printable page).
+  const invId = new URL(request.url).searchParams.get('invoice');
+  if (invId) return json(await getInvoice(env, invId));
 
   let accounts = [];
   try { accounts = ((await env.DB.prepare('SELECT * FROM contract_accounts ORDER BY name').all()).results) || []; } catch { accounts = []; }
@@ -28,7 +32,9 @@ export const onRequestGet = async ({ request, env }) => {
         'SELECT site_id, service_date, headcount, total_cents, is_rush, invoiced FROM contract_orders WHERE account_id = ? ORDER BY service_date DESC LIMIT 60'
       ).bind(a.id).all()).results) || [];
     } catch { recent = []; }
-    out.push({ account: a, sites, recent });
+    let invoices = [];
+    try { invoices = ((await env.DB.prepare('SELECT id, number, period_from, period_to, total_cents, status, created_at FROM contract_invoices WHERE account_id = ? ORDER BY created_at DESC LIMIT 12').bind(a.id).all()).results) || []; } catch { invoices = []; }
+    out.push({ account: a, sites, recent, invoices });
   }
   return json({ ok: true, accounts: out });
 };
@@ -41,10 +47,18 @@ export const onRequestPost = async ({ request, env }) => {
   if (ctx instanceof Response) return ctx;
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
-  if ((b && b.op) !== 'activate') return bad('Unknown action.');
-  if (!b.account_id) return bad('Missing account_id.');
-  const r = await activateAccount(env, b.account_id, b);
-  if (!r.ok) return bad(r.error || 'Could not activate.', 400);
-  return json({ ok: true });
+  const op = b && b.op;
+  if (!b || !b.account_id) return bad('Missing account_id.');
+  if (op === 'activate') {
+    const r = await activateAccount(env, b.account_id, b);
+    if (!r.ok) return bad(r.error || 'Could not activate.', 400);
+    return json({ ok: true });
+  }
+  if (op === 'invoice') {
+    const r = await generateInvoice(env, { accountId: b.account_id, from: b.from, to: b.to });
+    if (!r.ok) return bad(r.error || 'Could not generate the invoice.', 400);
+    return json(r);
+  }
+  return bad('Unknown action.');
 };
 

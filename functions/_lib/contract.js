@@ -192,6 +192,71 @@ export async function registerAccount(env, p) {
   return { ok: true, account_id: accId, company, billing_model: model, sites: out };
 }
 
+// Close a period: roll all un-invoiced daily-count rows for an account into one invoice,
+// grouped by site + day, and mark them invoiced. from/to optional (default: all un-invoiced).
+export async function generateInvoice(env, { accountId, from, to } = {}) {
+  if (!env || !env.DB || !accountId) return { ok: false, error: 'Missing account.' };
+  const account = await env.DB.prepare('SELECT * FROM contract_accounts WHERE id = ?').bind(accountId).first().catch(() => null);
+  if (!account) return { ok: false, error: 'Account not found.' };
+
+  let where = 'account_id = ? AND invoiced = 0';
+  const binds = [accountId];
+  if (from) { where += ' AND service_date >= ?'; binds.push(from); }
+  if (to) { where += ' AND service_date <= ?'; binds.push(to); }
+  let rows = [];
+  try { rows = ((await env.DB.prepare(`SELECT * FROM contract_orders WHERE ${where} ORDER BY service_date ASC`).bind(...binds).all()).results) || []; } catch { rows = []; }
+  if (!rows.length) return { ok: false, error: 'Nothing un-invoiced in that period.' };
+
+  let siteNames = {};
+  try { for (const s of (((await env.DB.prepare('SELECT id, name FROM contract_sites WHERE account_id = ?').bind(accountId).all()).results) || [])) siteNames[s.id] = s.name; } catch { /* fall back to id */ }
+
+  const bySite = new Map();
+  let lunches = 0, subtotal = 0, delivery = 0, rush = 0, total = 0;
+  let minD = null, maxD = null;
+  for (const r of rows) {
+    const sub = (Number(r.headcount) || 0) * (Number(r.price_per_lunch_cents) || 0);
+    lunches += Number(r.headcount) || 0; subtotal += sub; delivery += Number(r.delivery_fee_cents) || 0;
+    rush += Number(r.rush_fee_cents) || 0; total += Number(r.total_cents) || 0;
+    if (!minD || r.service_date < minD) minD = r.service_date;
+    if (!maxD || r.service_date > maxD) maxD = r.service_date;
+    const key = r.site_id;
+    if (!bySite.has(key)) bySite.set(key, { name: siteNames[key] || key, lunches: 0, subtotal_cents: 0, delivery_cents: 0, rush_cents: 0, days: [] });
+    const g = bySite.get(key);
+    g.lunches += Number(r.headcount) || 0; g.subtotal_cents += sub; g.delivery_cents += Number(r.delivery_fee_cents) || 0; g.rush_cents += Number(r.rush_fee_cents) || 0;
+    g.days.push({ date: r.service_date, count: r.headcount, price_cents: r.price_per_lunch_cents, total_cents: r.total_cents, rush: !!r.is_rush });
+  }
+  const lineItems = { sites: [...bySite.values()] };
+
+  // Per-account sequential invoice number, e.g. DGP-0001.
+  let seq = 1;
+  try { const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM contract_invoices WHERE account_id = ?').bind(accountId).first(); seq = (Number(c && c.n) || 0) + 1; } catch { /* default 1 */ }
+  const number = `${(account.name || 'INV').split(' ')[0].toUpperCase().replace(/[^A-Z0-9]/g, '')}-${String(seq).padStart(4, '0')}`;
+
+  const t = now();
+  const invId = id('inv');
+  try {
+    await env.DB.prepare(
+      'INSERT INTO contract_invoices (id, account_id, number, period_from, period_to, lunches, subtotal_cents, delivery_cents, rush_cents, total_cents, line_items, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+    ).bind(invId, accountId, number, minD, maxD, lunches, subtotal, delivery, rush, total, toJson(lineItems), 'open', t, t).run();
+  } catch (e) { return { ok: false, error: 'Could not create the invoice.' }; }
+
+  // Mark the rolled-up ledger rows invoiced (so they can't be double-billed).
+  try {
+    for (const r of rows) await env.DB.prepare('UPDATE contract_orders SET invoiced = 1, invoice_id = ?, updated_at = ? WHERE id = ?').bind(invId, t, r.id).run();
+  } catch { /* best-effort; the invoice exists either way */ }
+
+  return { ok: true, invoice_id: invId, number, lunches, subtotal_cents: subtotal, delivery_cents: delivery, rush_cents: rush, total_cents: total, period_from: minD, period_to: maxD };
+}
+
+// Full invoice (for the printable page).
+export async function getInvoice(env, invId) {
+  if (!env || !env.DB) return { ok: false };
+  const inv = await env.DB.prepare('SELECT * FROM contract_invoices WHERE id = ?').bind(invId).first().catch(() => null);
+  if (!inv) return { ok: false, error: 'not_found' };
+  const account = await env.DB.prepare('SELECT name, billing_email, billing_contact FROM contract_accounts WHERE id = ?').bind(inv.account_id).first().catch(() => null);
+  return { ok: true, invoice: { ...inv, line_items: parseJson(inv.line_items, { sites: [] }) }, account: account || {} };
+}
+
 // Owner activation: set the negotiated terms across an account's sites + flip it active.
 export async function activateAccount(env, accountId, terms) {
   if (!env || !env.DB) return { ok: false };

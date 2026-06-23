@@ -98,6 +98,23 @@
       .then(function (r) { if (r && r.ok) { Hub.toast('Account activated'); render(); } else Hub.toast((r && r.error) || 'Could not activate'); });
   };
 
+  function invoiceList(invs) {
+    if (!invs || !invs.length) return '';
+    return '<div style="margin-top:10px"><div class="row-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Invoices</div>' +
+      invs.map(function (v) {
+        return '<a href="/hub/owner/invoice.html?id=' + esc(v.id) + '" style="display:flex;justify-content:space-between;text-decoration:none;color:var(--ink);padding:7px 0;border-bottom:1px solid var(--line);font-size:13px">' +
+          '<span>🧾 ' + esc(v.number || v.id) + ' <span class="row-sub" style="font-weight:400">' + esc(v.period_from || '') + '–' + esc(v.period_to || '') + '</span></span>' +
+          '<span>' + money(v.total_cents) + ' · ' + esc(v.status || '') + '</span></a>';
+      }).join('') + '</div>';
+  }
+  window.__invoice = function (aid) {
+    if (!window.confirm('Generate an invoice for all un-invoiced days for this account? Those days will be marked invoiced.')) return;
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'invoice', account_id: aid } }).then(function (r) {
+      if (r && r.ok) { Hub.toast('Invoice ' + r.number + ' created'); location.href = '/hub/owner/invoice.html?id=' + r.invoice_id; }
+      else Hub.toast((r && r.error) || 'Could not generate invoice');
+    });
+  };
+
   function render() {
     Owner.get('/api/hub/owner/contracts').then(function (d) {
       var root = document.getElementById('owner-root'); root.className = '';
@@ -115,7 +132,11 @@
         return '<div class="hub-section"><h2>🏢 ' + esc(acc.name) + ' ' + badge + ' <span class="row-sub" style="font-weight:400">· ' + esc(acc.billing_model || acc.invoice_cadence || '') + (acc.billing_email ? ' · ' + esc(acc.billing_email) : '') + '</span></h2>' +
           (pending ? activateForm(acc) : '') +
           a.sites.map(function (s) { return siteCard(s, a.recent); }).join('') +
-          (pending ? '' : '<div class="acct-total"><span>Unbilled this period</span><span>' + money(unbilled) + '</span></div>') + '</div>';
+          (pending ? '' :
+            '<div class="acct-total"><span>Unbilled this period</span><span>' + money(unbilled) + '</span></div>' +
+            (unbilled > 0 ? '<button class="btn gold block" style="margin-top:8px" onclick="__invoice(\'' + acc.id + '\')">🧾 Generate invoice (close period)</button>' : '') +
+            invoiceList(a.invoices)
+          ) + '</div>';
       }).join('');
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
