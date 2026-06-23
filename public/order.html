@@ -118,6 +118,11 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 .cz-foot{flex:0 0 auto;background:var(--cream);border-top:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:12px}
 .cz-foot .stepper{flex:0 0 auto}
 .cz-foot .btn{margin-top:0;flex:1}
+/* While the customize modal is open, hide the floating chat + language buttons so they don't
+   sit on top of the modal's "Add to order" bar. */
+body:has(.cz-overlay.open) .anc-btn,
+body:has(.cz-overlay.open) .anc-tip,
+body:has(.cz-overlay.open) #langToggle{display:none!important}
 </style>
 </head>
 <body>

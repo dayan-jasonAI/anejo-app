@@ -378,6 +378,9 @@
 
   function ensureToggle(){
     if (document.getElementById('langToggle')) return;
+    // HUB pages have their own in-header language toggle (#lang-toggle). Don't add a second,
+    // floating pill on top of them — it overlaps their bottom action buttons (e.g. "Start prep").
+    if (document.getElementById('lang-toggle')) return;
     var b = document.createElement('button');
     b.id = 'langToggle'; b.type = 'button';
     b.setAttribute('aria-label', 'Language / Idioma');

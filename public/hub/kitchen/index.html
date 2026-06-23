@@ -16,6 +16,8 @@
   .clock-card .grow { flex:1; }
   .board-col h2 { display:flex; justify-content:space-between; }
   .order-card .row-title { font-size:15px; }
+  .order-badges { display:flex; flex-wrap:wrap; gap:6px; margin:7px 0 0; }
+  .order-badges:empty { display:none; }
   .order-actions { display:flex; gap:8px; margin-top:10px; }
   .order-actions .btn { flex:1; padding:10px; font-size:13px; }
   .rem .btn { padding:8px 12px; font-size:12px; }
@@ -366,9 +368,10 @@
     var doneLbl = (stage === 'prep' || stage === 'ready') ? bowlsDoneLabel(o) : '';
     var allerg = (o.is_contract && o.delivery_notes) ? '<div class="row-sub" style="color:var(--crit);font-weight:700;margin-top:4px">⚠ ' + esc(o.delivery_notes) + '</div>' : '';
     var body = (o.bowls && o.bowls.length) ? bowlRows(o, stage === 'prep') : orderItems(o);
-    return '<div class="card order-card"><div class="row" style="padding:0;border:none">' +
-      '<div class="row-main"><div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + (o.item_count || 0) + ' items' + doneLbl + '</div>' +
-      '<div class="row-sub">' + esc(o.id) + '</div>' + allerg + '</div>' + contract + rush + sub + dt + win + '</div>' +
+    var n = o.item_count || 0;
+    return '<div class="card order-card">' +
+      '<div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + n + (n === 1 ? ' item' : ' items') + doneLbl + '</div>' +
+      '<div class="order-badges">' + contract + rush + sub + dt + win + '</div>' + allerg +
       body + actions + '</div>';
   }
 
