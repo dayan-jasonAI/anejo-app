@@ -10,11 +10,16 @@ import { sendOffer, offerToNext } from './dispatch.js';
 import { geocode, optimizeRoute, formatAddress, stopServiceSeconds, kitchenOrigin, estimateRouteMiles } from './geo.js';
 import { getPayConfig, computeRoutePay } from './pay.js';
 
-// Planned departure (ms epoch): start of the route's earliest delivery window, ET.
-// lunch ≈ 10:30 AM ET (14:30Z EDT); dinner ≈ 4:00 PM ET (20:00Z).
+// Planned departure (ms epoch) for a window — leave ~30 min before it opens so the first drop
+// lands at the start of the window. Windows (temporary): lunch 11 AM–1 PM, dinner 5–7 PM ET.
+// lunch → 10:30 AM ET (14:30Z EDT); dinner → 4:30 PM ET (20:30Z EDT).
+export function departForWindow(routeDate, window) {
+  const ms = Date.parse(routeDate + (window === 'lunch' ? 'T14:30:00Z' : 'T20:30:00Z'));
+  return Number.isFinite(ms) ? ms : Date.now();
+}
 export function departMsFor(routeDate, orders) {
   const lunch = (orders || []).some((o) => (o.delivery_window || '') === 'lunch');
-  const ms = Date.parse(routeDate + (lunch ? 'T14:30:00Z' : 'T20:00:00Z'));
+  const ms = departForWindow(routeDate, lunch ? 'lunch' : 'dinner');
   return Number.isFinite(ms) ? ms : Date.now();
 }
 

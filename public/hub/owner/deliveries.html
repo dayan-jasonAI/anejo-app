@@ -121,15 +121,15 @@
     var fld = function (id, label, input) { return '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">' + label + '</label>' + input + '</div>'; };
     return '<div class="card" style="border-left:4px solid var(--green);margin-top:12px">' +
       '<div class="row-title">🤖 Automated dispatch</div>' +
-      '<div class="row-sub" style="margin:4px 0 10px">When on, the HUB auto-builds the most efficient routes from the day’s orders and offers them to drivers at the set time — you don’t lift a finger.</div>' +
+      '<div class="row-sub" style="margin:4px 0 10px">When on, the HUB builds a separate route for each delivery window (lunch + dinner never mixed), groups the stops, and offers it to a driver — automatically, a set time before the window opens. You don’t lift a finger.</div>' +
       '<label style="display:flex;align-items:center;gap:9px;margin-bottom:10px;font-weight:700;color:var(--green)"><input type="checkbox" id="ad_enabled" style="width:18px;height:18px"> Enable automated dispatch</label>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-        fld('ad_time', 'Build time (ET)', '<input id="ad_time" type="time" value="09:05" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px">') +
+        fld('ad_lead', 'Build lead (min before window)', '<input id="ad_lead" type="number" min="15" max="240" step="15" value="90" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px">') +
         fld('ad_max', 'Max stops / route', '<input id="ad_max" type="number" min="1" max="50" value="14" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px">') +
       '</div>' +
       '<div style="margin-top:8px;font-size:13px"><span style="font-size:11px;color:var(--green);font-weight:700;text-transform:uppercase">Windows</span><br>' +
-        '<label style="margin-right:16px"><input type="checkbox" id="ad_w_lunch" checked> Lunch</label>' +
-        '<label><input type="checkbox" id="ad_w_dinner" checked> Dinner</label></div>' +
+        '<label style="margin-right:16px"><input type="checkbox" id="ad_w_lunch" checked> Lunch (11–1)</label>' +
+        '<label><input type="checkbox" id="ad_w_dinner" checked> Dinner (5–7)</label></div>' +
       '<button class="btn block" type="button" style="margin-top:12px" onclick="__saveAuto()">Save auto-dispatch settings</button>' +
       '<button class="btn gold block" type="button" style="margin-top:8px" onclick="__autoBuildNow()">⚡ Auto-build today’s routes now</button>' +
     '</div>';
@@ -139,14 +139,14 @@
       if (!d || !d.ok) return; var c = d.config || {};
       var set = function (id, v) { var el = document.getElementById(id); if (el) el.value = v; };
       var chk = function (id, v) { var el = document.getElementById(id); if (el) el.checked = !!v; };
-      chk('ad_enabled', c.enabled); set('ad_time', c.time_et || '09:05'); set('ad_max', c.max_per_route || 14);
+      chk('ad_enabled', c.enabled); set('ad_lead', c.lead_minutes || 90); set('ad_max', c.max_per_route || 14);
       var w = c.windows || ['lunch', 'dinner']; chk('ad_w_lunch', w.indexOf('lunch') >= 0); chk('ad_w_dinner', w.indexOf('dinner') >= 0);
     });
   }
   window.__saveAuto = function () {
     var windows = []; if ((document.getElementById('ad_w_lunch') || {}).checked) windows.push('lunch'); if ((document.getElementById('ad_w_dinner') || {}).checked) windows.push('dinner');
-    var body = { enabled: !!(document.getElementById('ad_enabled') || {}).checked, time_et: (document.getElementById('ad_time') || {}).value || '09:05', max_per_route: parseInt((document.getElementById('ad_max') || {}).value, 10) || 14, windows: windows };
-    Hub.api('/api/hub/owner/dispatch-config', { method: 'POST', body: body }).then(function (r) { Hub.toast(r && r.ok ? (body.enabled ? 'Auto-dispatch ON · ' + body.time_et + ' ET' : 'Auto-dispatch saved (off)') : 'Could not save'); });
+    var body = { enabled: !!(document.getElementById('ad_enabled') || {}).checked, lead_minutes: parseInt((document.getElementById('ad_lead') || {}).value, 10) || 90, max_per_route: parseInt((document.getElementById('ad_max') || {}).value, 10) || 14, windows: windows };
+    Hub.api('/api/hub/owner/dispatch-config', { method: 'POST', body: body }).then(function (r) { Hub.toast(r && r.ok ? (body.enabled ? 'Auto-dispatch ON · ' + body.lead_minutes + ' min before each window' : 'Auto-dispatch saved (off)') : 'Could not save'); });
   };
   window.__autoBuildNow = function () {
     var date = (document.getElementById('rdate') || {}).value || localToday();
