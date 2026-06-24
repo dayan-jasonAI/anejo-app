@@ -23,6 +23,40 @@ macro** plays; **none are Cuban**.
 | **Fitlife Foods** | Grab-and-go, physical locations | Retail footprint → strong local pack presence |
 | **Meals by Chef B / Eat Clean To Go** | Multi-county delivery | Broad delivery radius messaging |
 
+### Quantified snapshot — public data (no paid tool needed)
+Hard numbers pulled from public sources (vendor sites, Yelp, Google, restaurant
+directories) — the metrics that actually move local-pack ranking and price-anchored
+conversion. Pricing is per-meal at the vendor's best (bulk) tier.
+
+| Competitor | Price/meal | Reviews (public) | Rating | Plans / menu | Model | Storefront |
+|---|---|---|---|---|---|---|
+| **Jet Fuel Meals** | from **$7.50** (volume) | ~69 Yelp | n/a posted | 5 named plans (keto, maintain, pescatarian, athletic, plant-based) | Subscription, M/W/F delivery, never frozen | Delivery-only |
+| **Clean Eatz (WPB)** | $10–20/person | **65 Yelp** | **4.8★ Google** | Build-your-own bowls + grab-'n'-go | Weekly, **no subscription** | **Physical store** (1540 PB Lakes Blvd) |
+| **MealPro** | **under $10** (20-pack) | national | n/a posted | 18 or 21-meal boxes; 35–55g protein | Subscription, vacuum-sealed ship | Delivery-only |
+| **Fresh Meal Plan** | $10–12/serving | national | n/a posted | Large menu; keto/paleo/vegan; **one-time order** option | Subscription + one-off | Delivery-only |
+| **Ideal Nutrition** | n/a (sub = **$0 delivery**) | on-site only | n/a posted | **40+** meals, never frozen | Subscription ($0 ship) / pay-as-you-go ($6.50–10) | FL-wide |
+
+**What the numbers say for Añejo's pricing & positioning:**
+- **Price floor is ~$7.50–10/meal at volume.** Añejo's per-meal price should sit in or
+  near this band at the subscription tier or it will lose the price-sensitive shopper —
+  but the **Cuban + macros** angle lets it justify the *top* of the band rather than
+  racing to the $7.50 floor (no rival offers that combination).
+- **Reviews are the local-pack currency.** Clean Eatz (4.8★, 65 reviews) and Jet Fuel
+  (~69 reviews) rank locally on review volume Añejo starts at zero on. Closing this gap
+  is the #1 measurable lever — and it's free (drive reviews off the existing post-delivery
+  SMS). Target: ~25–30 reviews to start appearing credibly in the local pack.
+- **"$0 delivery on subscription"** (Ideal Nutrition) and **"one-time order"**
+  (Fresh Meal Plan) are conversion features worth matching/messaging — free delivery for
+  subscribers removes the biggest checkout objection; a no-commitment single order lowers
+  first-purchase friction.
+- **Storefront ≠ requirement.** Only Clean Eatz/Fitlife have physical locations; the rest
+  win delivery-only. Añejo doesn't need a storefront to compete — it needs reviews + GBP.
+
+> _Still vendor-tool territory (needs Ahrefs/Semrush on the owner's login): exact monthly
+> search volume per keyword, keyword difficulty scores, and referring-domain/backlink
+> counts. Everything above is obtainable from public sources and is current as of
+> 2026-06-23._
+
 ### The Cuban niche — effectively open
 Searching "Cuban meal prep / healthy Cuban bowls delivery" surfaces **recipe blogs**
 (Katelyn Nutrition, The Creative Bite, Half Baked Harvest), **not delivery competitors**.
