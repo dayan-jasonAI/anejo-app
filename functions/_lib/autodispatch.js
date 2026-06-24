@@ -1,23 +1,27 @@
-// Automated dispatch: builds the day's routes PER DELIVERY WINDOW (a separate lunch run and
-// dinner run — never mixed) shortly before each window opens, groups them per driver, optimizes,
-// and auto-offers to drivers — the owner does nothing. Self-gating (off by default; each window
-// builds once, in the lead-in before its departure) and idempotent (only touches orders not yet
+// Automated dispatch: runs continuously through each delivery window (lunch + dinner, never
+// mixed), batching the window's unassigned orders into efficient, ROI-protecting routes and
+// auto-offering them to drivers — the owner does nothing. A batch is only released when it's
+// "ripe": it has at least min_stops_per_route (so a driver never runs for one bowl and the trip
+// is worth the pay) OR its oldest order has waited max_wait_minutes (freshness safety valve) OR
+// the window is closing. Self-gating (off by default) + idempotent (only touches orders not yet
 // on a route), so it's safe to call from a minutely tick. Files under _lib are NOT routed.
 import { id, now } from './util.js';
 import { groupOrders } from './batch.js';
-import { assignRoute, departForWindow } from './routing.js';
+import { assignRoute, serviceWindow } from './routing.js';
 
 const CFG_KEY = 'cfg:auto_dispatch';
-// lead_minutes = how long before a window opens to build + offer its route (default 90 min:
-// lunch opens 11 AM → built ~9:00 AM; dinner opens 5 PM → built ~3:00 PM).
-const DEFAULTS = { enabled: false, lead_minutes: 90, windows: ['lunch', 'dinner'], max_per_route: 14 };
+const CLOSE_FLUSH_MIN = 20; // in the last N min of a window, flush whatever's left (don't strand orders)
+// lead_minutes: begin batching this long before a window opens (so the pre-ordered batch can go
+//   out right at open). min_stops_per_route: the ROI/driver-fairness floor — hold smaller batches.
+//   max_wait_minutes: a held order never waits longer than this (freshness).
+const DEFAULTS = { enabled: false, lead_minutes: 90, min_stops_per_route: 3, max_wait_minutes: 25, windows: ['lunch', 'dinner'], max_per_route: 14 };
 
 function etToday(ms) {
   const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ms));
   const g = (t) => (p.find((x) => x.type === t) || {}).value;
   return `${g('year')}-${g('month')}-${g('day')}`;
 }
-function clampLead(v, fallback) { const n = Number(v); return Number.isFinite(n) && n >= 15 && n <= 240 ? Math.round(n) : fallback; }
+const clampInt = (v, lo, hi, fallback) => { const n = Number(v); return Number.isFinite(n) && n >= lo && n <= hi ? Math.round(n) : fallback; };
 
 export async function getAutoConfig(env) {
   let kv = {};
@@ -25,9 +29,11 @@ export async function getAutoConfig(env) {
   const windows = Array.isArray(kv.windows) && kv.windows.length ? kv.windows.filter((w) => w === 'lunch' || w === 'dinner') : DEFAULTS.windows;
   return {
     enabled: !!kv.enabled,
-    lead_minutes: clampLead(kv.lead_minutes, DEFAULTS.lead_minutes),
+    lead_minutes: clampInt(kv.lead_minutes, 15, 240, DEFAULTS.lead_minutes),
+    min_stops_per_route: clampInt(kv.min_stops_per_route, 1, 20, DEFAULTS.min_stops_per_route),
+    max_wait_minutes: clampInt(kv.max_wait_minutes, 5, 120, DEFAULTS.max_wait_minutes),
     windows: windows.length ? windows : DEFAULTS.windows,
-    max_per_route: Number.isFinite(Number(kv.max_per_route)) && kv.max_per_route > 0 ? Math.min(50, Math.round(kv.max_per_route)) : DEFAULTS.max_per_route,
+    max_per_route: clampInt(kv.max_per_route, 1, 50, DEFAULTS.max_per_route),
   };
 }
 export async function setAutoConfig(env, cfg) {
@@ -35,9 +41,11 @@ export async function setAutoConfig(env, cfg) {
   const cur = await getAutoConfig(env);
   const next = {
     enabled: cfg && cfg.enabled != null ? !!cfg.enabled : cur.enabled,
-    lead_minutes: cfg && cfg.lead_minutes != null ? clampLead(cfg.lead_minutes, cur.lead_minutes) : cur.lead_minutes,
+    lead_minutes: cfg && cfg.lead_minutes != null ? clampInt(cfg.lead_minutes, 15, 240, cur.lead_minutes) : cur.lead_minutes,
+    min_stops_per_route: cfg && cfg.min_stops_per_route != null ? clampInt(cfg.min_stops_per_route, 1, 20, cur.min_stops_per_route) : cur.min_stops_per_route,
+    max_wait_minutes: cfg && cfg.max_wait_minutes != null ? clampInt(cfg.max_wait_minutes, 5, 120, cur.max_wait_minutes) : cur.max_wait_minutes,
     windows: cfg && Array.isArray(cfg.windows) ? cfg.windows.filter((w) => w === 'lunch' || w === 'dinner') : cur.windows,
-    max_per_route: cfg && Number.isFinite(Number(cfg.max_per_route)) ? Math.min(50, Math.max(1, Math.round(cfg.max_per_route))) : cur.max_per_route,
+    max_per_route: cfg && cfg.max_per_route != null ? clampInt(cfg.max_per_route, 1, 50, cur.max_per_route) : cur.max_per_route,
   };
   if (!next.windows.length) next.windows = DEFAULTS.windows;
   try { await env.SESSIONS.put(CFG_KEY, JSON.stringify(next)); return { ok: true, config: next }; }
@@ -65,49 +73,55 @@ export async function runAutoDispatch(env, { nowMs, force = false, date } = {}) 
 
   const routes = [];
   const built = [];
-  let anyGated = false, totalStops = 0;
+  let anyGated = false, totalStops = 0, held = 0;
 
   for (const window of winList) {
-    const depart = departForWindow(day, window);
-    const openAt = depart - cfg.lead_minutes * 60000;
-    const marker = 'adone:' + day + ':' + window;
+    const { start, end } = serviceWindow(day, window);
+    const openAt = start - cfg.lead_minutes * 60000;  // begin batching this far before the window
 
-    // Gate: build a window ONCE, in its lead-in [openAt, depart]. force ignores the gate + marker.
+    // Active only from the lead-in through the end of service. force ignores the gate.
     if (!force) {
-      if (t < openAt) { anyGated = true; continue; }   // too early for this window yet
-      if (t > depart) continue;                          // its departure has already passed
-      let done = false;
-      try { done = !!(env.SESSIONS && await env.SESSIONS.get(marker)); } catch { done = false; }
-      if (done) continue;                                // already built this window today
+      if (t < openAt) { anyGated = true; continue; }   // window not active yet
+      if (t > end) continue;                            // service window has ended
     }
+    const closing = !force && t >= end - CLOSE_FLUSH_MIN * 60000; // last stretch → flush whatever's left
 
     // Unassigned payable orders for THIS window only — never mix lunch + dinner on a route.
     let orders = [];
     try {
       const res = await env.DB.prepare(
         'SELECT o.id, o.customer_name, o.delivery_window, o.delivery_street, o.delivery_unit, o.delivery_city, ' +
-        'o.delivery_state, o.delivery_zip, o.delivery_lat, o.delivery_lng ' +
+        'o.delivery_state, o.delivery_zip, o.delivery_lat, o.delivery_lng, o.created_at ' +
         "FROM orders o WHERE o.delivery_date=? AND o.delivery_window=? AND o.status IN ('pending','paid','prep','ready') " +
         'AND NOT EXISTS (SELECT 1 FROM route_stops rs WHERE rs.order_id = o.id) ORDER BY o.created_at'
       ).bind(day, window).all();
       orders = (res && res.results) || [];
     } catch { orders = []; }
-    if (!orders.length) continue;   // nothing to build for this window now (don't mark — try later)
+    if (!orders.length) continue;
 
     const G = Math.max(1, Math.min(driverCount, orders.length));
     const clusters = groupOrders(orders.map((o) => ({ id: o.id, lat: o.delivery_lat, lng: o.delivery_lng, _o: o })), G);
     let madeOne = false;
     for (const cluster of clusters) {
-      const cOrders = cluster.map((c) => c._o);
+      let cOrders = cluster.map((c) => c._o);
       if (!cOrders.length) continue;
+
+      // Ripeness: release the batch only when it's worth dispatching — enough stops to protect
+      // ROI + reward the driver, OR an order has waited too long (freshness), OR we're forcing/closing.
+      // Wait clock starts when the customer's window opens (scheduled pre-orders aren't "late" before
+      // their window; on-demand orders placed mid-window age from when they came in).
+      const oldestWaitStart = Math.min(...cOrders.map((o) => Math.max(Number(o.created_at) || t, start)));
+      const agedOut = (t - oldestWaitStart) >= cfg.max_wait_minutes * 60000;
+      const ripe = force || closing || cOrders.length >= cfg.min_stops_per_route || agedOut;
+      if (!ripe) { held += cOrders.length; continue; } // hold to accumulate a bigger, profitable batch
+
+      if (cOrders.length > cfg.max_per_route) cOrders = cOrders.slice(0, cfg.max_per_route); // cap; remainder waits
       try {
         const r = await assignRoute(env, { orders: cOrders.map((o) => ({ ...o })), orderIds: cOrders.map((o) => o.id), routeDate: day, driverId: null, auto: true, aiOptimized: true });
-        if (r && r.ok) { routes.push({ id: r.id, window, stop_count: r.stop_count, pay_cents: r.pay_cents, miles: r.miles, offered_to: r.offered_to, offer_status: r.offer_status }); madeOne = true; }
+        if (r && r.ok) { routes.push({ id: r.id, window, stop_count: r.stop_count, pay_cents: r.pay_cents, miles: r.miles, offered_to: r.offered_to, offer_status: r.offer_status }); madeOne = true; totalStops += cOrders.length; }
       } catch { /* one cluster must not stop the rest */ }
     }
-    if (madeOne) { built.push(window); totalStops += orders.length; }
-    // Mark the window built so the minutely tick won't fragment it into more routes (force skips this).
-    if (!force && madeOne) { try { if (env.SESSIONS) await env.SESSIONS.put(marker, '1', { expirationTtl: 60 * 60 * 36 }); } catch { /* best-effort */ } }
+    if (madeOne && built.indexOf(window) < 0) built.push(window);
   }
 
   if (routes.length) {
@@ -118,12 +132,13 @@ export async function runAutoDispatch(env, { nowMs, force = false, date } = {}) 
       ).bind(
         id('run'), 'auto_dispatch', 'auto_dispatch', 'success',
         JSON.stringify({ trigger: force ? 'manual' : 'cron', date: day }),
-        JSON.stringify({ routes: routes.length, stops: totalStops, windows: built }),
+        JSON.stringify({ routes: routes.length, stops: totalStops, windows: built, held }),
         0, null, null, t, now(), now()
       ).run();
     } catch { /* best-effort */ }
-    return { ok: true, created: routes.length, stops: totalStops, date: day, windows: built, routes };
+    return { ok: true, created: routes.length, stops: totalStops, held, date: day, windows: built, routes };
   }
+  if (held) return { ok: true, created: 0, held, reason: 'holding_for_batch', date: day };
   if (anyGated && !force) return { ok: true, created: 0, skipped: 'before_window', date: day };
   return { ok: true, created: 0, reason: 'no_orders', date: day };
 }

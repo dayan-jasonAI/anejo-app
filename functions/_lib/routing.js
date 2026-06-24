@@ -17,6 +17,14 @@ export function departForWindow(routeDate, window) {
   const ms = Date.parse(routeDate + (window === 'lunch' ? 'T14:30:00Z' : 'T20:30:00Z'));
   return Number.isFinite(ms) ? ms : Date.now();
 }
+// Service window bounds (ET, EDT): lunch 11 AM–1 PM (15:00Z–17:00Z), dinner 5–7 PM (21:00Z–23:00Z).
+export function serviceWindow(routeDate, window) {
+  const lunch = window === 'lunch';
+  return {
+    start: Date.parse(routeDate + (lunch ? 'T15:00:00Z' : 'T21:00:00Z')),
+    end: Date.parse(routeDate + (lunch ? 'T17:00:00Z' : 'T23:00:00Z')),
+  };
+}
 export function departMsFor(routeDate, orders) {
   const lunch = (orders || []).some((o) => (o.delivery_window || '') === 'lunch');
   const ms = departForWindow(routeDate, lunch ? 'lunch' : 'dinner');
@@ -47,7 +55,8 @@ export async function assignRoute(env, { orders, orderIds, routeDate, driverId =
     }
   }
 
-  const departAt = departMsFor(routeDate, orders);
+  // Leave at the window departure, but never in the past — a mid-service batch departs now.
+  const departAt = Math.max(departMsFor(routeDate, orders), now());
   const geoStops = orderIds.map((oid) => byId.get(oid)).filter((o) => o && o.delivery_lat != null && o.delivery_lng != null).map((o) => ({ id: o.id, lat: o.delivery_lat, lng: o.delivery_lng }));
 
   let seqIds = orderIds.slice();
