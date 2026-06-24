@@ -1,7 +1,7 @@
 name: CI — auth tests + lint
 on:
   push:
-    branches: [studio-react-pilot]
+    branches: [main]
   pull_request:
 jobs:
   functions:
