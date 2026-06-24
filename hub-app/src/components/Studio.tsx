@@ -1,13 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../lib/i18n';
 import { useStudioStream } from '../lib/useStudioStream';
 import { Message } from './Message';
 import { Composer } from './Composer';
+import { ContentPanel } from './ContentPanel';
 
 export function Studio({ sessionId }: { sessionId: string | null }) {
   const { t } = useI18n();
   const { messages, streaming, error, send } = useStudioStream(sessionId);
   const streamRef = useRef<HTMLDivElement>(null);
+  const [showContent, setShowContent] = useState(false);
 
   // Auto-scroll to the newest content as it streams in.
   useEffect(() => {
@@ -19,6 +21,16 @@ export function Studio({ sessionId }: { sessionId: string | null }) {
 
   return (
     <div className="studio">
+      <div className="studio-bar">
+        <button
+          type="button"
+          className={`cp-toggle${showContent ? ' on' : ''}`}
+          onClick={() => setShowContent((v) => !v)}
+        >
+          ✨ {t('contentOpen')}
+        </button>
+      </div>
+      {showContent ? <ContentPanel sessionId={sessionId} onClose={() => setShowContent(false)} /> : null}
       <div className="stream" ref={streamRef}>
         <div className="stream-inner">
           {messages.length === 0 ? (

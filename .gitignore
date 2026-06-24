@@ -5,3 +5,6 @@ node_modules/
 
 scripts/dev-seed.local.sql
 /tmp/anejo_hub_dev.log
+
+# Studio React build output (built from hub-app, not committed)
+public/studio/
