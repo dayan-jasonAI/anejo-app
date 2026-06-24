@@ -23,6 +23,7 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar">
+        <a className="hub-back" href="/hub/kitchen/">← HUB</a>
         <div className="brand">
           <span className="mark">AÑEJO</span>
           <span className="sub">{t('studio')}</span>
