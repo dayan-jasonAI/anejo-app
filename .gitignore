@@ -5,3 +5,8 @@ node_modules/
 
 scripts/dev-seed.local.sql
 /tmp/anejo_hub_dev.log
+
+# Studio React build output: index.html + assets are committed so the git-connected Pages
+# build serves /studio/ (the project has no build step). Regenerate with `npm run build:studio`.
+# Ignore only the heavy sourcemaps.
+public/studio/assets/*.map

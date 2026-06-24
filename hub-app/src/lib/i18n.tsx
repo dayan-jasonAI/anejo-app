@@ -28,6 +28,21 @@ const DICT: Record<string, { en: string; es: string }> = {
   s2: { en: 'Scale the VIDA bowl to 40 servings', es: 'Escala el bowl VIDA a 40 porciones' },
   s3: { en: 'Substitute shrimp in COCO for a vegan option', es: 'Sustituye el camarón del COCO por opción vegana' },
   s4: { en: 'Write an Instagram caption for today’s special', es: 'Escribe un caption de Instagram para el especial de hoy' },
+  // content pipeline
+  contentOpen: { en: 'Content', es: 'Contenido' },
+  contentTitle: { en: 'One-click content', es: 'Contenido en un clic' },
+  contentSub: { en: 'Turn this dish into an on-brand bowl photo, captions, and a menu blurb.', es: 'Convierte este plato en una foto de bowl con tu marca, captions y descripción de menú.' },
+  contentNamePh: { en: 'Dish or bowl name (e.g. VIDA)', es: 'Nombre del plato o bowl (ej. VIDA)' },
+  contentGenerate: { en: 'Generate content', es: 'Generar contenido' },
+  contentGenerating: { en: 'Generating…', es: 'Generando…' },
+  contentCaption: { en: 'Social caption', es: 'Caption social' },
+  contentBlurb: { en: 'Menu blurb', es: 'Descripción de menú' },
+  contentNoImage: { en: 'Image generation isn’t enabled on this environment.', es: 'La generación de imágenes no está habilitada en este entorno.' },
+  contentError: { en: 'Couldn’t generate content. Please try again.', es: 'No se pudo generar el contenido. Inténtalo de nuevo.' },
+  contentNeedSession: { en: 'Sign in to the HUB to generate content.', es: 'Inicia sesión en el HUB para generar contenido.' },
+  copy: { en: 'Copy', es: 'Copiar' },
+  copied: { en: 'Copied', es: 'Copiado' },
+  close: { en: 'Close', es: 'Cerrar' },
 };
 
 interface I18nCtx { lang: Lang; t: (k: string) => string; toggle: () => void; }

@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "wrangler pages dev public --compatibility-date=2026-05-01",
     "deploy": "wrangler pages deploy public --project-name=anejo-app",
+    "build:studio": "npm --prefix hub-app run build && rm -rf public/studio && mkdir -p public/studio && cp -R hub-app/dist/index.html hub-app/dist/assets public/studio/ && find public/studio -name '*.map' -delete",
     "lint": "eslint functions/api/auth functions/_lib/login.js functions/_lib/pin.js functions/_lib/session.js functions/_lib/roles.js test/auth",
-    "test:auth": "node --no-warnings --test test/auth/*.test.js"
+    "test:auth": "node --no-warnings --test test/auth/*.test.js",
+    "test:studio": "node --no-warnings --test test/studio/*.test.js",
+    "test": "node --no-warnings --test test/auth/*.test.js test/studio/*.test.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
