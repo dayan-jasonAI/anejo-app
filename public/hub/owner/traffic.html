@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Traffic</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .tcard{margin-bottom:14px}
+  .trow{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dotted var(--line)}
+  .trow:last-child{border-bottom:0}
+  .trow .lbl{color:var(--green);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .trow .n{font-weight:700;color:var(--gold-700,#8a7a2e);font-variant-numeric:tabular-nums}
+  .big{font-family:'Cormorant Garamond',Georgia,serif;font-size:34px;color:var(--green);font-weight:600}
+  .seg{display:flex;gap:6px;margin:8px 0 14px}
+  .seg button{flex:1;padding:8px;border:1px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer}
+  .seg button.on{background:var(--green);color:#fff;border-color:var(--green)}
+</style>
+</head>
+<body>
+<div class="hub-bar"><h1>AÑEJO · TRAFFIC</h1><div class="hub-bar-actions"><a href="/hub/owner/" style="color:var(--gold);text-decoration:none;font-size:13px">← Command</a></div></div>
+<div class="hub-wrap">
+  <div class="seg" id="seg"><button data-d="7">7 days</button><button data-d="30" class="on">30 days</button><button data-d="90">90 days</button></div>
+  <div class="card tcard"><div class="row-sub">Pageviews</div><div class="big" id="total">—</div><div class="row-sub" id="period">last 30 days · first-party, cookieless</div></div>
+  <div class="card tcard"><h2>Traffic sources</h2><div id="bySource"></div></div>
+  <div class="card tcard"><h2>Organic search</h2><div id="organic"></div></div>
+  <div class="card tcard"><h2>Top pages</h2><div id="byPath"></div></div>
+  <div class="card tcard"><h2>Language</h2><div id="byLang"></div></div>
+  <div class="card tcard"><h2>Country</h2><div id="byCountry"></div></div>
+</div>
+<script>
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+function rows(el,arr,key){var h=el;h.innerHTML=(arr&&arr.length)?arr.map(function(r){return '<div class="trow"><span class="lbl">'+esc(r[key]||'—')+'</span><span class="n">'+r.n+'</span></div>';}).join(''):'<div class="row-sub">No data yet.</div>';}
+async function load(days){
+  document.getElementById('period').textContent='last '+days+' days · first-party, cookieless';
+  try{
+    var r=await fetch('/api/hub/owner/traffic?days='+days,{credentials:'same-origin'});
+    if(r.status===401||r.status===403){document.getElementById('total').textContent='Sign in as owner';return;}
+    var d=await r.json();
+    document.getElementById('total').textContent=(d.total||0).toLocaleString();
+    rows(document.getElementById('bySource'),d.by_source,'ref_source');
+    rows(document.getElementById('organic'),d.organic,'ref_host');
+    rows(document.getElementById('byPath'),d.by_path,'path');
+    rows(document.getElementById('byLang'),d.by_lang,'lang');
+    rows(document.getElementById('byCountry'),d.by_country,'country');
+  }catch(e){document.getElementById('total').textContent='—';}
+}
+document.getElementById('seg').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;document.querySelectorAll('#seg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');load(b.dataset.d);});
+load(30);
+</script>
+</body>
+</html>
