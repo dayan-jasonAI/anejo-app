@@ -64,6 +64,40 @@ export async function awardOrderPoints(env, { orderId, email, subtotalCents }) {
   return pts;
 }
 
+// ---- Redemption (Phase 2): 20 points = $1 (5% back) → 1 point = 5 cents. ----
+export const POINT_CENTS = 5;
+export function redeemValueCents(points) {
+  return Math.max(0, Math.floor(Number(points) || 0) * POINT_CENTS);
+}
+// Largest discount (cents) usable on an order: capped by the balance's value AND by the
+// merchandise subtotal (never discount the fee/tax or go below zero).
+export function maxRedeemCents(balancePoints, subtotalCents) {
+  return Math.max(0, Math.min(redeemValueCents(balancePoints), Math.max(0, Number(subtotalCents) || 0)));
+}
+// Points consumed to fund a given discount (cents). Ceil so we never under-charge points.
+export function pointsForCents(cents) {
+  return Math.ceil(Math.max(0, Number(cents) || 0) / POINT_CENTS);
+}
+
+// Deduct redeemed points when an order is paid. Idempotent via unique(order_id,'redeem').
+export async function redeemOrderPoints(env, { orderId, email, points }) {
+  if (!env.DB || !orderId) return 0;
+  const em = key(email);
+  const pts = Math.floor(Number(points) || 0);
+  if (!em || pts <= 0) return 0;
+  let clientId = null;
+  try {
+    const c = await env.DB.prepare('SELECT id FROM clients WHERE LOWER(TRIM(email))=? LIMIT 1').bind(em).first();
+    clientId = c ? c.id : null;
+  } catch { clientId = null; }
+  try {
+    await env.DB.prepare(
+      'INSERT INTO points_ledger (id, email, client_id, delta, reason, order_id, note, created_at) VALUES (?,?,?,?,?,?,?,?)'
+    ).bind(id('pt'), em, clientId, -pts, 'redeem', orderId, 'Redeemed at checkout', now()).run();
+  } catch { return 0; } // unique(order_id,'redeem') → already deducted
+  return pts;
+}
+
 export async function pointsBalance(env, email) {
   const em = key(email);
   if (!em || !env.DB) return 0;

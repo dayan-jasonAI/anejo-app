@@ -5,7 +5,7 @@
 import { id, now, ctEq } from '../../_lib/util.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { notifyClientById } from '../../_lib/notify.js';
-import { awardOrderPoints } from '../../_lib/rewards.js';
+import { awardOrderPoints, redeemOrderPoints } from '../../_lib/rewards.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
 
@@ -94,8 +94,11 @@ export const onRequestPost = async ({ request, env }) => {
         // First flip to paid → award Añejo Rewards points (idempotent in awardOrderPoints).
         if (paidUpd.meta && paidUpd.meta.changes === 1) {
           try {
-            const o = await env.DB.prepare("SELECT id, customer_email, subtotal_cents FROM orders WHERE square_order_id=? LIMIT 1").bind(pay.order_id).first();
-            if (o && o.customer_email) await awardOrderPoints(env, { orderId: o.id, email: o.customer_email, subtotalCents: o.subtotal_cents });
+            const o = await env.DB.prepare("SELECT id, customer_email, subtotal_cents, redeem_points FROM orders WHERE square_order_id=? LIMIT 1").bind(pay.order_id).first();
+            if (o && o.customer_email) {
+              await awardOrderPoints(env, { orderId: o.id, email: o.customer_email, subtotalCents: o.subtotal_cents });
+              if (o.redeem_points) await redeemOrderPoints(env, { orderId: o.id, email: o.customer_email, points: o.redeem_points });
+            }
           } catch (e) { console.log('points award error:', e && e.message); }
         }
 

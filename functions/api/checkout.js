@@ -7,6 +7,8 @@ import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress } from '../_lib/geo.js';
 import { BOWL_IDS, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
+import { currentUser } from '../_lib/session.js';
+import { pointsBalance, maxRedeemCents, pointsForCents } from '../_lib/rewards.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -251,6 +253,22 @@ export const onRequestPost = async ({ request, env }) => {
 
   const base = appBaseUrl(env, request);
 
+  // ---- Añejo Rewards redemption — ONLY for a signed-in client, validated against THEIR OWN
+  // balance (server-side; the browser can't redeem someone else's points or more than it holds).
+  let redeemPts = 0, discountCents = 0, sessEmail = null;
+  try {
+    const sess = await currentUser(env, request);
+    if (sess && sess.type === 'client' && sess.email) {
+      sessEmail = String(sess.email).trim().toLowerCase();
+      const want = Math.floor(Number(b.redeem_points) || 0);
+      if (want > 0) {
+        const balance = await pointsBalance(env, sessEmail);
+        discountCents = maxRedeemCents(Math.min(want, balance), subtotalCents);
+        redeemPts = pointsForCents(discountCents);
+      }
+    }
+  } catch (_) { redeemPts = 0; discountCents = 0; }
+
   const { ok, status, data } = await square(env, '/v2/online-checkout/payment-links', {
     method: 'POST',
     body: {
@@ -269,6 +287,12 @@ export const onRequestPost = async ({ request, env }) => {
           percentage: taxPct,
           scope: 'ORDER',   // applies to every line item on the order
         }],
+        discounts: discountCents > 0 ? [{
+          uid: 'anejo-rewards',
+          name: `Añejo Rewards (${redeemPts} pts)`,
+          amount_money: { amount: discountCents, currency: 'USD' },
+          scope: 'ORDER',
+        }] : undefined,
         reference_id: onDemand ? 'web-ondemand' : 'web-delivery',
         note: deliveryNote,   // shows on the Square order for the kitchen
       },
@@ -303,16 +327,17 @@ export const onRequestPost = async ({ request, env }) => {
       if (g) { lat = g.lat; lng = g.lng; geocodedAt = t; }
       await env.DB.prepare(
         `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
-            fulfillment_mode, subtotal_cents, fee_cents, tax_pct, total_estimate_cents,
-            customer_name, customer_phone, sms_consent,
+            fulfillment_mode, subtotal_cents, fee_cents, tax_pct, total_estimate_cents, redeem_points, discount_cents,
+            customer_name, customer_email, customer_phone, sms_consent,
             delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
             delivery_lat, delivery_lng, geocoded_at, status, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
       ).bind(
         id('ord'), pl.order_id || null, pl.id || null, JSON.stringify(orderItems), dateStr, win,
         fulfillmentMode, subtotalCents, feeCents, Number(taxPct),
-        Math.round((subtotalCents + feeCents) * (1 + Number(taxPct) / 100)),
-        firstName, custPhone, smsConsent,
+        Math.round((Math.max(0, subtotalCents - discountCents) + feeCents) * (1 + Number(taxPct) / 100)),
+        redeemPts || null, discountCents || null,
+        firstName, sessEmail, custPhone, smsConsent,
         addr.street, addr.unit, addr.city, addr.state, addr.zip, addr.notes,
         lat, lng, geocodedAt, t, t
       ).run();

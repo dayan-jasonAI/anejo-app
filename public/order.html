@@ -170,6 +170,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
     <div id="cartLines"><div class="cart-empty">Your cart is empty — add a few bowls.</div></div>
     <div class="cart-sub" id="subRow" style="display:none"><span>Subtotal</span><span id="cartSubtotal">$0.00</span></div>
     <div class="cart-sub" id="feeRow" style="display:none"><span>Delivery fee</span><span id="cartFee">$0.00</span></div>
+    <div class="cart-sub" id="rewardsRow" style="display:none;color:#8B6B3E"><span><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="applyRewards"><span id="rewardsLabel">Apply Añejo Rewards</span></label></span><span id="cartDiscount">−$0.00</span></div>
     <div class="cart-sub" id="taxRow" style="display:none"><span>Est. FL sales tax (7%)</span><span id="cartTax">$0.00</span></div>
     <div class="cart-total" id="cartTotalRow" style="display:none"><span>Estimated total</span><span id="cartGrand">$0.00</span></div>
     <div class="tax-note" id="minNote" style="display:none;color:#9b2226"></div>
@@ -455,6 +456,8 @@ function bump(idv, d){
 let cz = null;     // working instance while the modal is open
 let czEdit = -1;   // index into bowls[] when editing an existing line; -1 = adding new
 let czQ = 1;       // quantity when adding
+let rewardsBalance = 0;     // signed-in client's points balance (0 = guest / none)
+let rewardsRedeemPts = 0;   // points applied to THIS order (sent at checkout)
 function bowlBaseCents(key){ return Math.round((PRICE[key]?PRICE[key].price:0)*100); }
 function extraCentsOf(e){
   if(e.type==='addon'){ const a=ADDON_BY[e.id]; return a?a.cents:0; }
@@ -564,7 +567,19 @@ function renderCart(){
   const total = totalCents/100;
   const belowMin = total < ORDER_MIN;
   const fee = belowMin ? 0 : DELIVERY_FEE;
-  const tax = total*TAX_PCT/100, grand = total + fee + tax;
+  // Añejo Rewards redemption — signed-in client only; 20 pts = $1 (1 pt = $0.05), capped at subtotal.
+  var rewardsRow = $('rewardsRow'), applyEl = $('applyRewards');
+  var discount = 0; rewardsRedeemPts = 0;
+  if (rewardsBalance > 0 && !belowMin) {
+    rewardsRow.style.display = 'flex';
+    var maxDisc = Math.min(Math.floor(rewardsBalance * 5) / 100, total);
+    if (applyEl && applyEl.checked) { discount = maxDisc; rewardsRedeemPts = Math.ceil(discount * 100 / 5); }
+    $('rewardsLabel').textContent = L('Apply Rewards ('+rewardsBalance+' pts \u2192 \u2212'+money(maxDisc)+')',
+                                      'Usar Rewards ('+rewardsBalance+' pts \u2192 \u2212'+money(maxDisc)+')');
+    $('cartDiscount').textContent = '\u2212'+money(discount);
+  } else { rewardsRow.style.display = 'none'; }
+  var taxable = Math.max(0, total - discount);
+  const tax = taxable*TAX_PCT/100, grand = taxable + fee + tax;
   $('cartSubtotal').textContent = money(total);
   $('cartFee').textContent = money(fee);
   $('cartTax').textContent = money(tax);
@@ -617,6 +632,7 @@ async function checkout(){
   btn.disabled=true; const label=btn.textContent; btn.textContent=L('Redirecting to secure checkout…','Redirigiendo al pago seguro…');
   try{
     const payload = { items, fulfillment, address, contact };
+    if (rewardsRedeemPts > 0) payload.redeem_points = rewardsRedeemPts;
     if(delivery) payload.delivery = delivery;
     const r = await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const data = await r.json();
@@ -630,7 +646,17 @@ async function checkout(){
   }
 }
 
-buildDates(); applyMode(); loadAvailability();
+async function loadRewards(){
+  try{
+    var me = await (await fetch('/api/client/me')).json();
+    if (me && me.authenticated && me.rewards && me.rewards.points > 0){
+      rewardsBalance = me.rewards.points;
+      var ae = $('applyRewards'); if (ae) ae.addEventListener('change', renderCart);
+      renderCart();
+    }
+  }catch(_){}
+}
+buildDates(); applyMode(); loadAvailability(); loadRewards();
 // Inline validation: flag a malformed ZIP on blur; clear a field's error as soon as the user edits it.
 $('addrZip').addEventListener('blur', function(){
   const v=this.value.trim();
