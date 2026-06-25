@@ -4,12 +4,14 @@ import { useStudioStream } from '../lib/useStudioStream';
 import { Message } from './Message';
 import { Composer } from './Composer';
 import { ContentPanel } from './ContentPanel';
+import { RecipePanel } from './RecipePanel';
 
 export function Studio({ sessionId }: { sessionId: string | null }) {
   const { t } = useI18n();
   const { messages, streaming, error, send } = useStudioStream(sessionId);
   const streamRef = useRef<HTMLDivElement>(null);
   const [showContent, setShowContent] = useState(false);
+  const [showRecipe, setShowRecipe] = useState(false);
 
   // Auto-scroll to the newest content as it streams in.
   useEffect(() => {
@@ -25,12 +27,20 @@ export function Studio({ sessionId }: { sessionId: string | null }) {
         <button
           type="button"
           className={`cp-toggle${showContent ? ' on' : ''}`}
-          onClick={() => setShowContent((v) => !v)}
+          onClick={() => { setShowContent((v) => !v); setShowRecipe(false); }}
         >
           ✨ {t('contentOpen')}
         </button>
+        <button
+          type="button"
+          className={`cp-toggle${showRecipe ? ' on' : ''}`}
+          onClick={() => { setShowRecipe((v) => !v); setShowContent(false); }}
+        >
+          🍳 {t('recipeOpen')}
+        </button>
       </div>
       {showContent ? <ContentPanel sessionId={sessionId} onClose={() => setShowContent(false)} /> : null}
+      {showRecipe ? <RecipePanel sessionId={sessionId} onClose={() => setShowRecipe(false)} /> : null}
       <div className="stream" ref={streamRef}>
         <div className="stream-inner">
           {messages.length === 0 ? (
@@ -55,7 +65,7 @@ export function Studio({ sessionId }: { sessionId: string | null }) {
           {error ? <div className="err">{error}</div> : null}
         </div>
       </div>
-      <Composer onSend={send} streaming={streaming} />
+      <Composer onSend={send} streaming={streaming} sessionId={sessionId} />
     </div>
   );
 }

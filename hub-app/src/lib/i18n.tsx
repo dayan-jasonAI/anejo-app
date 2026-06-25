@@ -43,6 +43,27 @@ const DICT: Record<string, { en: string; es: string }> = {
   copy: { en: 'Copy', es: 'Copiar' },
   copied: { en: 'Copied', es: 'Copiado' },
   close: { en: 'Close', es: 'Cerrar' },
+  // photo + voice
+  photoAdded: { en: 'Photo added — it’ll be used in your next message.', es: 'Foto agregada — se usará en tu próximo mensaje.' },
+  photoError: { en: 'Couldn’t add the photo.', es: 'No se pudo agregar la foto.' },
+  voiceRecording: { en: 'Recording… tap 🎙️ to stop', es: 'Grabando… toca 🎙️ para detener' },
+  voiceTranscribing: { en: 'Transcribing…', es: 'Transcribiendo…' },
+  voiceUnavailable: { en: 'Voice transcription isn’t enabled here.', es: 'La transcripción de voz no está habilitada aquí.' },
+  voiceDenied: { en: 'Microphone permission denied.', es: 'Permiso de micrófono denegado.' },
+  // recipe draft → publish
+  recipeOpen: { en: 'Recipe', es: 'Receta' },
+  recipeTitle: { en: 'Draft & publish recipe', es: 'Borrador y publicar receta' },
+  recipeSub: { en: 'Turn this session into a saved recipe in your kitchen library.', es: 'Convierte esta sesión en una receta guardada en tu biblioteca de cocina.' },
+  recipeDraft: { en: 'Draft from session', es: 'Borrador desde la sesión' },
+  recipeDrafting: { en: 'Drafting…', es: 'Generando…' },
+  recipeName: { en: 'Recipe name', es: 'Nombre de la receta' },
+  recipeIngredients: { en: 'Ingredients', es: 'Ingredientes' },
+  recipeSteps: { en: 'Steps', es: 'Pasos' },
+  recipePublish: { en: 'Publish to Library', es: 'Publicar en Biblioteca' },
+  recipePublishing: { en: 'Publishing…', es: 'Publicando…' },
+  recipePublished: { en: 'Published to your library!', es: '¡Publicado en tu biblioteca!' },
+  recipeError: { en: 'Couldn’t draft a recipe. Please try again.', es: 'No se pudo generar la receta. Inténtalo de nuevo.' },
+  openLibrary: { en: 'Open Library', es: 'Abrir Biblioteca' },
 };
 
 interface I18nCtx { lang: Lang; t: (k: string) => string; toggle: () => void; }

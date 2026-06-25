@@ -73,3 +73,93 @@ export async function generateContent(sessionId: string, recipeName: string): Pr
     return null;
   }
 }
+
+function readDataUrl(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result || ''));
+    fr.onerror = () => reject(new Error('read failed'));
+    fr.readAsDataURL(file);
+  });
+}
+
+async function postJson(path: string, body: unknown): Promise<any | null> {
+  try {
+    const r = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
+// Attach a photo to the session (stored in R2; used as vision context on the next chat turn).
+export async function uploadPhoto(sessionId: string, file: File): Promise<boolean> {
+  try {
+    const dataUrl = await readDataUrl(file);
+    const d = await postJson('/api/hub/kitchen/studio/media', {
+      session_id: sessionId,
+      media_type: 'photo',
+      content: 'photo:' + file.name,
+      data_url: dataUrl,
+      meta: { size: file.size, type: file.type },
+    });
+    return !!(d && d.ok);
+  } catch {
+    return false;
+  }
+}
+
+// Transcribe a recorded voice clip. Returns the text, or { unavailable } when STT isn't enabled.
+export async function transcribeVoice(
+  sessionId: string,
+  blob: Blob,
+  lang: 'en' | 'es',
+): Promise<{ text?: string; unavailable?: boolean }> {
+  try {
+    const dataUrl = await readDataUrl(blob);
+    const d = await postJson('/api/hub/kitchen/studio/transcribe', { session_id: sessionId, audio: dataUrl, lang });
+    if (d && d.ok && d.text) return { text: d.text };
+    return { unavailable: true };
+  } catch {
+    return { unavailable: true };
+  }
+}
+
+export interface RecipeDraft {
+  name?: string;
+  summary?: string;
+  ingredients?: string[];
+  steps?: string[];
+  nutrition?: unknown;
+  tags?: string[];
+}
+
+// Ask the AI to draft a structured recipe from the session (not yet saved).
+export async function draftRecipe(sessionId: string): Promise<{ draft: RecipeDraft; demo?: boolean } | null> {
+  return postJson('/api/hub/kitchen/recipe/create?ai_draft=1', { session_id: sessionId });
+}
+
+// Save the (possibly edited) draft as a recipe.
+export async function createRecipe(sessionId: string, draft: RecipeDraft): Promise<{ recipe: { id: string } } | null> {
+  return postJson('/api/hub/kitchen/recipe/create', {
+    session_id: sessionId,
+    name: draft.name,
+    summary: draft.summary || null,
+    ingredients: draft.ingredients || [],
+    steps: draft.steps || [],
+    nutrition: draft.nutrition || null,
+    tags: draft.tags || [],
+  });
+}
+
+// Publish a saved recipe to the kitchen library.
+export async function publishRecipe(recipeId: string): Promise<boolean> {
+  const d = await postJson('/api/hub/kitchen/recipe/publish', { id: recipeId });
+  return !!(d && d.ok);
+}
