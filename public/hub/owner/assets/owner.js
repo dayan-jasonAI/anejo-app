@@ -16,6 +16,7 @@
     { view: 'staff', href: '/hub/owner/staff.html', ico: '👥', label: 'Staff' },
     { view: 'finance', href: '/hub/owner/finance.html', ico: '💵', label: 'Finance' },
     { view: 'inventory', href: '/hub/kitchen/inventory.html', ico: '📦', label: 'Inventory' },
+    { view: 'studio', href: '/studio/', ico: '🎨', label: 'Studio' },
     { view: 'comms', href: '/hub/owner/comms.html', ico: '💬', label: 'Comms' }
   ];
 
