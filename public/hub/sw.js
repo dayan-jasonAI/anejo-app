@@ -10,7 +10,7 @@
    - web push             → "tickle" pattern: pushes carry no payload; on push we fetch
                             /api/hub/push/peek (cookie-authed) and render the notification.
    Bump CACHE on shell changes to invalidate. */
-const CACHE = 'anejo-hub-v3';
+const CACHE = 'anejo-hub-v4';
 const SHELL = [
   '/hub/',
   '/hub/index.html',
