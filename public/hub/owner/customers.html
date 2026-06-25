@@ -177,6 +177,7 @@
         profileCard(d) +
         '<div class="detail-actions">' +
           '<a class="btn ghost" id="msg-btn" href="' + (d.thread_id ? '/hub/comms.html#t=' + encodeURIComponent(d.thread_id) : '/hub/comms.html') + '" data-i18n>💬 Message</a>' +
+          (isGuest ? '' : '<button class="btn ghost" id="loginlink-btn" type="button" data-i18n>🔑 Login link</button>') +
           '<button class="btn gold" id="prefill-btn" type="button" data-i18n>+ New order</button>' +
         '</div>' +
         (isGuest ? onboardBlock(d) : '') +
@@ -191,6 +192,15 @@
         window.location.hash = '';
         var sec = $('#neworder-section');
         if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth' });
+      });
+      var llb = $('#loginlink-btn');
+      if (llb) llb.addEventListener('click', function () {
+        llb.disabled = true;
+        Hub.api('/api/hub/owner/customers', { method: 'POST', body: { action: 'send_login_link', email: d.email } }).then(function (r) {
+          llb.disabled = false;
+          if (r && r.ok) { Hub.toast('Sign-in link emailed to ' + (r.sent_to || d.email)); Hub.track('customer.login_link_sent', { platform: 'pwa' }); }
+          else { Hub.toast(r && r.error ? r.error : 'Could not send login link.'); }
+        });
       });
       if (isGuest) bindOnboard(d);
       refresh();

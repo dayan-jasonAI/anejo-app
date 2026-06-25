@@ -7,9 +7,10 @@
 //                         latest subscription, latest plan summary, and the open thread id
 //                         (for a Comms deep-link). Works for guests too (orders only).
 // Read-only; manual orders are created via /api/hub/owner/orders. Owner-only.
-import { json, bad, id, now, isEmail, normalizePhone } from '../../../_lib/util.js';
+import { json, bad, id, now, isEmail, normalizePhone, randToken, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { parseJson } from '../../../_lib/hub.js';
+import { sendEmail, magicLinkEmail } from '../../../_lib/email.js';
 
 const emailKey = (e) => (e == null ? '' : String(e)).trim().toLowerCase();
 
@@ -244,6 +245,33 @@ export const onRequestPost = async ({ request, env }) => {
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
 
   const action = (b && b.action) || '';
+
+  // Owner-initiated portal sign-in link: emails a returning CLIENT a 30-min magic link.
+  // Guarded so we never email a login link to a non-client (guest/unknown) address.
+  if (action === 'send_login_link') {
+    const target = emailKey(b.email);
+    if (!isEmail(target)) return bad('A valid email is required.');
+    let cl = null;
+    try { cl = await env.DB.prepare('SELECT id, lang FROM clients WHERE LOWER(TRIM(email)) = ? LIMIT 1').bind(target).first(); }
+    catch { cl = null; }
+    if (!cl) return bad('Not a portal client yet — onboard them first, then send a link.', 409);
+    const lang = cl.lang === 'es' ? 'es' : 'en';
+    const token = randToken(24);
+    try {
+      await env.DB.prepare('INSERT INTO auth_tokens (token, user_email, user_type, expires_at) VALUES (?,?,?,?)')
+        .bind(token, target, 'client', now() + 30 * 60 * 1000).run();
+    } catch { return bad('Could not create the sign-in link.', 500); }
+    const link = `${appBaseUrl(env, request)}/api/auth/verify?token=${token}`;
+    try {
+      await sendEmail(env, {
+        to: target,
+        subject: lang === 'es' ? 'Tu enlace de acceso a Añejo' : 'Your Añejo sign-in link',
+        html: magicLinkEmail(link, lang),
+      });
+    } catch (e) { return bad('Could not send the email: ' + (e.message || 'unknown'), 502); }
+    return json({ ok: true, sent_to: target });
+  }
+
   if (action !== 'onboard') return bad('Unknown action.');
 
   const email = emailKey(b.email);
