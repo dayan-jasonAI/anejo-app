@@ -132,34 +132,23 @@ export const onRequestPost = async ({ request, env }) => {
 
   const ts = now();
 
-  // Check a single bowl off (or undo) during PREP. Checking OFF requires the cook's PIN
-  // (matched to a staff row on the shared tablet); the action is attributed to that cook and
-  // written to the kitchen_audit trail. Undo is an error-correction → no PIN, logged as the
-  // session user.
+  // Check a single bowl off (or undo) during PREP. No PIN here — the PIN gates are on the two
+  // state transitions (prep_start and mark_ready); per-bowl check-offs are quick taps attributed
+  // to the signed-in cook so prepping a multi-bowl order isn't a string of PIN prompts.
   if (action === 'bowl_done' || action === 'bowl_undo') {
     const bowlId = (b && b.bowl_id || '').toString().trim();
     const seq = Number(b && b.seq);
     if (!bowlId && !Number.isInteger(seq)) return bad('Missing bowl_id or seq.');
     const done = action === 'bowl_done';
 
-    let actor = null;
-    let viaPin = false;
-    if (done) {
-      // Rate-limit PIN attempts (defends against PIN guessing on a shared device).
-      const limited = await limitOr429(env, request, { name: 'kitchen-pin', limit: 20, windowSec: 60 });
-      if (limited) return limited;
-      actor = await matchStaffByPin(env, (b && b.pin || '').toString(), { roles: ['kitchen', 'owner'] });
-      if (!actor) return bad('PIN not recognized.', 401);
-      viaPin = true;
-    } else {
-      actor = await currentStaff(env, request); // undo attributed to the signed-in session
-    }
+    const actor = await currentStaff(env, request); // attributed to the signed-in session cook
+    const viaPin = false;
 
     const where = bowlId ? 'id = ?' : 'order_id = ? AND seq = ?';
     const binds = bowlId ? [bowlId] : [orderId, seq];
     const res = await env.DB.prepare(
       `UPDATE order_bowls SET prep_state = ?, prep_by = ?, prep_at = ?, updated_at = ? WHERE ${where}`
-    ).bind(done ? 'done' : 'pending', done ? actor.id : null, done ? ts : null, ts, ...binds).run();
+    ).bind(done ? 'done' : 'pending', done && actor ? actor.id : null, done ? ts : null, ts, ...binds).run();
     if (!res || !res.meta || !res.meta.changes) return bad('Bowl not found.', 404);
 
     await audit(env, { action: done ? 'bowl_checked' : 'bowl_unchecked', orderId, bowlId: bowlId || null, staff: actor, viaPin });
@@ -171,16 +160,24 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ ok: true, order_id: orderId, state: done ? 'done' : 'pending', by: actor && actor.name });
   }
 
+  // prep_start — PIN-gated (pending → prep). Requires the cook's PIN, attributed + audited, so
+  // every order's prep has an accountable owner the moment it leaves the queue.
   if (action === 'prep_start') {
+    const limited = await limitOr429(env, request, { name: 'kitchen-pin', limit: 20, windowSec: 60 });
+    if (limited) return limited;
+    const startedBy = await matchStaffByPin(env, (b && b.pin || '').toString(), { roles: ['kitchen', 'owner'] });
+    if (!startedBy) return bad('PIN not recognized.', 401);
+
     await env.DB.prepare("UPDATE orders SET status = 'prep', updated_at = ? WHERE id = ?")
       .bind(ts, orderId).run();
     await ensureOrderBowls(env, order); // materialize the per-bowl check-off rows
+    await audit(env, { action: 'prep_start', orderId, bowlId: null, staff: startedBy, viaPin: true });
     await capture(env, {
       event: 'order.prep_started',
       distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
-      properties: { order_id: orderId },
+      properties: { order_id: orderId, via_pin: true },
     });
-    return json({ ok: true, id: orderId, status: 'prep' });
+    return json({ ok: true, id: orderId, status: 'prep', by: startedBy.name });
   }
 
   // mark_ready — PIN-gated. Requires the cook's PIN (attributed + audited) and that EVERY bowl

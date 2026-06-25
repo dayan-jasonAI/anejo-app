@@ -407,11 +407,13 @@
   })();
 
   function bindOrderActions() {
+    // Start prep — PIN-gated (pending → prep). The cook enters their PIN to take ownership.
     Array.prototype.forEach.call(document.querySelectorAll('[data-prep]'), function (b) {
       b.addEventListener('click', function () {
-        b.disabled = true;
-        K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-prep'), action: 'prep_start' })
-          .then(function (d) { if (d && d.ok) { Hub.toast('Prep started'); loadBoard(); } else { K.fail(d); b.disabled = false; } });
+        askPin('PIN to start prep', function (pin, h) {
+          K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-prep'), action: 'prep_start', pin: pin })
+            .then(function (d) { if (d && d.ok) { h.done(); Hub.toast('Prep started' + (d.by ? ' · ' + d.by : '')); loadBoard(); } else { h.fail(d && d.error); } });
+        });
       });
     });
     // Mark Ready — PIN-gated (and disabled until every bowl is checked off, in orderCard).
@@ -423,21 +425,14 @@
         });
       });
     });
-    // Per-bowl check-off (PREP): checking OFF needs a PIN; undo is a free correction.
+    // Per-bowl check-off (PREP): quick taps, no PIN — the PIN gates are on Start prep + Mark ready.
     Array.prototype.forEach.call(document.querySelectorAll('.bowl-chk[data-bowl]'), function (b) {
       b.addEventListener('click', function () {
         var done = b.getAttribute('data-done') === '1';
         var order = b.getAttribute('data-order'), bowl = b.getAttribute('data-bowl');
-        if (done) {
-          b.disabled = true;
-          K.post('/api/hub/kitchen/orders', { id: order, action: 'bowl_undo', bowl_id: bowl })
-            .then(function (d) { if (d && d.ok) loadBoard(); else { K.fail(d); b.disabled = false; } });
-        } else {
-          askPin('PIN to check off this bowl', function (pin, h) {
-            K.post('/api/hub/kitchen/orders', { id: order, action: 'bowl_done', bowl_id: bowl, pin: pin })
-              .then(function (d) { if (d && d.ok) { h.done(); loadBoard(); } else { h.fail(d && d.error); } });
-          });
-        }
+        b.disabled = true;
+        K.post('/api/hub/kitchen/orders', { id: order, action: done ? 'bowl_undo' : 'bowl_done', bowl_id: bowl })
+          .then(function (d) { if (d && d.ok) loadBoard(); else { K.fail(d); b.disabled = false; } });
       });
     });
   }
