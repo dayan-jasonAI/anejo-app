@@ -4,7 +4,7 @@
 // A per-page <meta name="ga4-id" content="G-XXXX"> still works and overrides GA4_ID if present.
 (function () {
   var KEY = 'anejo:cookie';
-  var GA4_ID = ''; // ← paste your GA4 Measurement ID here, e.g. 'G-AB12CD34EF' (leave '' to keep analytics off)
+  var GA4_ID = 'G-FXFE29V2PL'; // Añejo GA4 Measurement ID (anejocateringco.com). Consent-gated below.
 
   function loadGA() {
     var meta = document.querySelector('meta[name="ga4-id"]');
