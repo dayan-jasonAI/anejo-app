@@ -10,6 +10,7 @@
   var NAV = [
     { key: 'board',      ico: '🍽️', label: 'Orders',     href: '/hub/kitchen/' },
     { key: 'checklists', ico: '✅', label: 'Checklists', href: '/hub/kitchen/checklists.html' },
+    { key: 'inventory',  ico: '📦', label: 'Inventory',  href: '/hub/kitchen/inventory.html' },
     { key: 'studio',     ico: '🎨', label: 'Studio',     href: '/studio/' },
     { key: 'library',    ico: '📚', label: 'Library',    href: '/hub/kitchen/library.html' },
     { key: 'eod',        ico: '🌙', label: 'EOD',        href: '/hub/kitchen/eod.html' }
