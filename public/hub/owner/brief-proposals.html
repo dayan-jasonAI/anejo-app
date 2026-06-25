@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Brief Proposals</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .bp { background:#fff; border:1px solid var(--line,#e7e2d6); border-left:4px solid var(--gold,#C8BC6E); border-radius:12px; padding:16px 18px; margin:14px 0; }
+  .bp h3 { color:var(--green,#1A3D2E); margin:0 0 4px; font-size:17px; }
+  .bp .bp-meta { font-size:12px; color:#6b6b6b; margin-bottom:8px; }
+  .bp .bp-rat { font-size:14px; color:#333; margin:6px 0 10px; line-height:1.5; }
+  .bp details { margin:8px 0; }
+  .bp summary { cursor:pointer; font-size:13px; font-weight:600; color:var(--gold-dark,#8B6B3E); }
+  .bp pre { white-space:pre-wrap; word-break:break-word; background:#faf8f2; border:1px solid var(--line,#e7e2d6); border-radius:8px; padding:12px; font-size:13px; line-height:1.5; max-height:340px; overflow:auto; margin-top:8px; }
+  .bp .bp-note { width:100%; font:inherit; font-size:14px; border:1px solid var(--line,#e7e2d6); border-radius:8px; padding:9px 11px; margin:10px 0; background:#faf8f2; }
+  .bp .bp-actions { display:flex; gap:10px; }
+  .bp .bp-approve { flex:1; background:linear-gradient(135deg,#1A3D2E,#0d2419); color:#fff; border:none; border-radius:999px; padding:11px 16px; font-weight:700; cursor:pointer; }
+  .bp .bp-reject { background:#fff; color:#9b2226; border:1px solid #e3b7b7; border-radius:999px; padding:11px 16px; font-weight:700; cursor:pointer; }
+  .bp-warn { font-size:12px; color:#8a6d1f; background:#fbf3da; border:1px solid #e7d9a6; border-radius:8px; padding:9px 12px; margin-bottom:14px; line-height:1.45; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · BRIEF PROPOSALS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p>Loading proposals…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+  var esc = (Hub && Hub.esc) ? Hub.esc : function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+
+  function fmtDate(ms) { try { return new Date(Number(ms)).toLocaleString(); } catch (e) { return ''; } }
+
+  function decide(id, decision, btn) {
+    var note = (document.getElementById('note-' + id) || {}).value || '';
+    btn.disabled = true;
+    Hub.api('/api/hub/owner/brief-proposals', { method: 'POST', body: { id: id, decision: decision, note: note } }).then(function (r) {
+      if (r && r.ok) {
+        Hub.toast(decision === 'approve' ? 'Approved — Brief updated' : 'Rejected');
+        load();
+      } else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not update'); }
+    });
+  }
+  window._bpDecide = decide;
+
+  function render(items) {
+    var root = document.getElementById('owner-root');
+    root.className = '';
+    if (!items || !items.length) {
+      root.innerHTML = '<p style="color:#6b6b6b;padding:20px 0">No pending Brief proposals. The Brand &amp; Standards Brief is unchanged.</p>';
+      return;
+    }
+    var warn = '<div class="bp-warn">⚠️ Approving a proposal OVERWRITES the live Brand &amp; Standards Brief and grounds every future Creative Studio session on it. The prior version is snapshotted and reversible. Review the full proposed Brief before approving.</div>';
+    root.innerHTML = warn + items.map(function (p) {
+      return '<div class="bp">'
+        + '<h3>' + esc(p.title || 'Brief change') + '</h3>'
+        + '<div class="bp-meta">Proposed by ' + esc(p.proposed_role || 'staff') + ' · ' + fmtDate(p.created_at) + '</div>'
+        + (p.rationale ? '<div class="bp-rat">' + esc(p.rationale) + '</div>' : '')
+        + '<details><summary>View full proposed Brief</summary><pre>' + esc(p.proposed_body || '') + '</pre></details>'
+        + '<input id="note-' + esc(p.id) + '" class="bp-note" placeholder="Decision note (optional)">'
+        + '<div class="bp-actions">'
+        + '<button class="bp-approve" onclick="_bpDecide(\'' + esc(p.id) + '\',\'approve\',this)">Approve &amp; update Brief</button>'
+        + '<button class="bp-reject" onclick="_bpDecide(\'' + esc(p.id) + '\',\'reject\',this)">Reject</button>'
+        + '</div></div>';
+    }).join('');
+  }
+
+  function load() {
+    Hub.api('/api/hub/owner/brief-proposals?status=pending').then(function (r) {
+      render((r && r.items) || []);
+    });
+  }
+
+  // Owner-gated boot (redirects non-owners), renders the owner nav, then loads proposals.
+  Owner.init('content', function () { load(); });
+})();
+</script>
+</body>
+</html>

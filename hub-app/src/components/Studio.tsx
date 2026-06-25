@@ -5,6 +5,7 @@ import { Message } from './Message';
 import { Composer } from './Composer';
 import { ContentPanel } from './ContentPanel';
 import { RecipePanel } from './RecipePanel';
+import { BriefPanel } from './BriefPanel';
 
 export function Studio({ sessionId }: { sessionId: string | null }) {
   const { t } = useI18n();
@@ -12,6 +13,8 @@ export function Studio({ sessionId }: { sessionId: string | null }) {
   const streamRef = useRef<HTMLDivElement>(null);
   const [showContent, setShowContent] = useState(false);
   const [showRecipe, setShowRecipe] = useState(false);
+  const [showBrief, setShowBrief] = useState(false);
+  const closeAll = () => { setShowContent(false); setShowRecipe(false); setShowBrief(false); };
 
   // Auto-scroll to the newest content as it streams in.
   useEffect(() => {
@@ -34,13 +37,21 @@ export function Studio({ sessionId }: { sessionId: string | null }) {
         <button
           type="button"
           className={`cp-toggle${showRecipe ? ' on' : ''}`}
-          onClick={() => { setShowRecipe((v) => !v); setShowContent(false); }}
+          onClick={() => { const v = !showRecipe; closeAll(); setShowRecipe(v); }}
         >
           🍳 {t('recipeOpen')}
+        </button>
+        <button
+          type="button"
+          className={`cp-toggle${showBrief ? ' on' : ''}`}
+          onClick={() => { const v = !showBrief; closeAll(); setShowBrief(v); }}
+        >
+          🧭 {t('briefOpen')}
         </button>
       </div>
       {showContent ? <ContentPanel sessionId={sessionId} onClose={() => setShowContent(false)} /> : null}
       {showRecipe ? <RecipePanel sessionId={sessionId} onClose={() => setShowRecipe(false)} /> : null}
+      {showBrief ? <BriefPanel sessionId={sessionId} onClose={() => setShowBrief(false)} /> : null}
       <div className="stream" ref={streamRef}>
         <div className="stream-inner">
           {messages.length === 0 ? (
