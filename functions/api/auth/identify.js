@@ -31,9 +31,17 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   if (ident.kind === 'email') {
-    // Trainer/client (or unknown email) → magic link. portal_type drives the link flavor.
+    // Only KNOWN trainers/clients get a magic link. We no longer silently mint a trainer
+    // account for an unrecognized email — that misrouted returning guest customers into a
+    // trainer dashboard. New trainers sign up at /trainer/dashboard; new clients via the
+    // macro-plan (/calculator) or order flow, which create the client record.
     const ptype = await findPortalUser(env, ident.value);
-    return json({ ok: true, method: 'magic_link', email: ident.value, portal_type: ptype || 'trainer' });
+    if (ptype) return json({ ok: true, method: 'magic_link', email: ident.value, portal_type: ptype });
+    return json({
+      ok: false,
+      code: 'no_account',
+      error: 'We don\u2019t have an account for that email yet. Build your free macro plan or place an order to get started.',
+    }, 404);
   }
 
   // A phone number with no matching staff account.

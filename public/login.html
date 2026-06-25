@@ -99,6 +99,14 @@
   function err(t){ msg.className='msg err'; msg.textContent=t; refresh(); }
   function ok(t){ msg.className='msg ok'; msg.textContent=t; refresh(); }
   function clearMsg(){ msg.className='msg'; msg.textContent=''; }
+  function noAccount(t){
+    msg.className='msg err';
+    msg.innerHTML = (t || 'We don\u2019t have an account for that email yet.') +
+      '<div style="margin-top:9px;font-weight:600">' +
+      '<a href="/calculator" style="color:#1d5a36">Build your free macro plan \u2192</a><br>' +
+      '<a href="/order" style="color:#1d5a36">Place an order \u2192</a></div>';
+    refresh();
+  }
 
   function api(path, body){
     return fetch(path,{ method:'POST', headers:{'Content-Type':'application/json'},
@@ -115,7 +123,11 @@
     var btn = stepId.querySelector('button'); btn.disabled=true; btn.textContent='Checking…';
     api('/api/auth/identify',{ identifier:v }).then(function(res){
       btn.disabled=false; btn.textContent='Continue'; refresh();
-      if(res.status>=400 || !res.body.ok){ err(res.body.error||'No account found.'); return; }
+      if(res.status>=400 || !res.body.ok){
+        if(res.body && res.body.code==='no_account'){ noAccount(res.body.error); }
+        else { err(res.body.error||'No account found.'); }
+        return;
+      }
       if(res.body.method==='pin'){
         $('pin-greet').innerHTML = res.body.name ? ('Welcome back, <b>'+res.body.name.replace(/</g,'&lt;')+'</b>') : 'Enter your PIN';
         sub.textContent='Staff sign-in';
