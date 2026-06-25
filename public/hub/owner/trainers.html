@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Trainer Partners</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .tcard{border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:14px;margin:10px 0;background:#fff}
+  .tcard .nm{font-weight:800;color:var(--green);font-size:17px}
+  .tcard .sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .tcard .amt{font-size:26px;font-weight:800;color:var(--green);margin:8px 0 2px}
+  .tcard .amt small{font-size:13px;font-weight:600;color:var(--muted)}
+  .meta{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .pill{font-size:11px;font-weight:700;background:#eee;color:#555;border-radius:20px;padding:3px 9px}
+  .pill.gold{background:#efe7cf;color:#8a7a2e}.pill.green{background:#e1efe5;color:#1A3D2E}.pill.house{background:#e7eef0;color:#3a5a66}
+  .cli{font-size:13px;display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:1px solid var(--line)}
+  .cli:last-child{border-bottom:0}.cli .who{color:var(--ink)}.cli .who small{color:var(--muted)}
+  .badge-sub{font-size:10px;font-weight:800;border-radius:10px;padding:2px 7px}
+  .badge-sub.active{background:#e1efe5;color:#1A3D2E}.badge-sub.off{background:#eee;color:#777}
+  .tot{display:flex;justify-content:space-between;background:var(--cream);border-radius:10px;padding:10px 12px;margin:8px 0;font-weight:700;color:var(--green)}
+  .clihead{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:10px 0 2px}
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · TRAINERS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+<div class="hub-wrap"><div id="owner-root" class="hub-loading"><p>Loading trainer partners…</p></div></div>
+<nav id="owner-nav" class="hub-nav"></nav>
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var esc = Hub.esc, money = Owner.money;
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) { lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES'; lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; }); }
+
+  function clientRow(c) {
+    var on = c.sub_status === 'active';
+    return '<div class="cli"><span class="who">' + esc(c.name || 'Client') + (c.email ? ' <small>' + esc(c.email) + '</small>' : '') + '</span>' +
+      '<span><span class="badge-sub ' + (on ? 'active' : 'off') + '">' + esc(on ? 'active' : (c.sub_status || c.client_status || '—')) + '</span>' +
+      (c.weekly_amount_cents ? ' <b style="color:var(--green)">' + money(c.weekly_amount_cents) + '/wk</b>' : '') + '</span></div>';
+  }
+
+  function render() {
+    Owner.get('/api/hub/owner/trainers').then(function (d) {
+      var root = document.getElementById('owner-root'); root.className = '';
+      if (!d || !d.ok) { root.innerHTML = '<div class="card"><p class="row-sub">Could not load trainers.</p></div>'; return; }
+      var t = d.totals || {};
+      var head = '<div class="hub-section">' +
+        '<div class="tot"><span>🤝 Commission owed now (all partners)</span><span>' + money(t.pending_cents || 0) + '</span></div>' +
+        '<div class="tot"><span>📈 Weekly recurring they drive</span><span>' + money(t.weekly_cents || 0) + ' <span class="row-sub" style="font-weight:400">(' + (t.active_subs || 0) + ' active subs)</span></span></div>' +
+        '<div class="tot"><span>✓ Commission paid (all time)</span><span>' + money(t.paid_cents || 0) + '</span></div></div>';
+
+      var body = (d.trainers || []).length ? d.trainers.map(function (tr) {
+        var clients = (tr.clients || []);
+        var clientList = clients.length
+          ? '<div class="clihead">Clients (' + clients.length + ')</div>' + clients.map(clientRow).join('')
+          : '<div class="row-sub" style="margin-top:8px">No clients yet.</div>';
+        var payBtn = (tr.pending_cents > 0 && !tr.is_house)
+          ? '<button class="btn gold block" style="margin-top:10px" onclick="__payTrainer(\'' + esc(tr.id) + '\',\'' + esc((tr.name || 'trainer').replace(/\\\\|\'/g, '')) + '\')">Mark ' + money(tr.pending_cents) + ' paid</button>'
+          : (tr.is_house && tr.pending_cents > 0 ? '<div class="row-sub" style="margin-top:8px">House account — direct/owner clients, no external payout.</div>' : '');
+        return '<div class="tcard"><div class="nm">' + esc(tr.name || tr.email || 'Trainer') +
+          (tr.is_house ? ' <span class="pill house">House</span>' : '') + '</div>' +
+          '<div class="sub">' + (tr.affiliate_code ? 'Code ' + esc(tr.affiliate_code) : '') + (tr.gym_name ? ' · ' + esc(tr.gym_name) : '') + (tr.email ? ' · ' + esc(tr.email) : '') + '</div>' +
+          '<div class="amt">' + money(tr.pending_cents || 0) + ' <small>commission owed</small></div>' +
+          '<div class="meta"><span class="pill gold">' + (tr.clients_n || 0) + ' clients</span>' +
+          '<span class="pill">' + (tr.active_subs || 0) + ' active subs</span>' +
+          '<span class="pill">' + money(tr.weekly_cents || 0) + '/wk</span>' +
+          '<span class="pill green">' + money(tr.earned_cents || 0) + ' earned</span>' +
+          (tr.paid_cents > 0 ? '<span class="pill green">' + money(tr.paid_cents) + ' paid</span>' : '') + '</div>' +
+          clientList + payBtn + '</div>';
+      }).join('') : '<div class="hub-empty">No trainer partners yet.</div>';
+
+      root.innerHTML = head + '<div class="hub-section"><h2>Partners</h2>' + body + '</div>';
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+  window.__payTrainer = function (id, name) {
+    if (!window.confirm('Mark ' + (name || 'this trainer') + '’s pending commission as paid? This records the payout.')) return;
+    Hub.api('/api/hub/owner/trainers', { method: 'POST', body: { op: 'mark_paid', trainer_id: id } }).then(function (r) {
+      if (r && r.ok) { Hub.toast('Marked ' + money(r.total_cents || 0) + ' paid (' + (r.marked || 0) + ' invoices)'); render(); } else Hub.toast((r && r.error) || 'Could not mark paid');
+    });
+  };
+  Owner.init('trainers', render);
+})();
+</script>
+</body>
+</html>
