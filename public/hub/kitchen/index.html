@@ -113,6 +113,12 @@
     </div>
   </div>
 
+  <!-- Handed off today: orders cleared off the board, so cooks can confirm what's left the line -->
+  <details class="hub-section" id="cleared-section" hidden>
+    <summary style="cursor:pointer;list-style:none"><h2 style="display:inline"><span data-i18n>Handed off today</span> <span class="badge ok" id="c-cleared">0</span></h2></summary>
+    <div id="col-cleared" class="list" style="margin-top:8px"></div>
+  </details>
+
   <!-- Incoming: upcoming confirmed orders (alerts the moment one is placed) -->
   <div class="hub-section" id="incoming-section" hidden>
     <h2><span data-i18n>Incoming orders</span><span class="badge" id="c-incoming">0</span></h2>
@@ -463,6 +469,7 @@
 
   // ---- Date scope filter (Today / Upcoming / All) ----
   var lastBoard = { pending: [], prep: [], ready: [] };
+  var lastCleared = [];
   var scope = localStorage.getItem('anejo:kitchenScope') || 'all';
   function todayStr() { try { return new Date().toLocaleDateString('en-CA'); } catch (e) { return new Date().toISOString().slice(0, 10); } }
   // 'today' bucket = due today, overdue, or undated (needs attention now); 'upcoming' = future.
@@ -484,6 +491,7 @@
     fillCol('col-pending', p, 'pending');
     fillCol('col-prep', pr, 'prep');
     fillCol('col-ready', rd, 'ready');
+    renderCleared(lastCleared || []);
     Array.prototype.forEach.call(document.querySelectorAll('#ord-filter .chip'), function (c) {
       c.classList.toggle('active', c.getAttribute('data-scope') === scope);
     });
@@ -491,10 +499,26 @@
     refreshI18n();
   }
 
+  // ---- Handed off today (cleared from the board) ----
+  function clk(ms) { try { return new Date(Number(ms)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+  function renderCleared(list) {
+    var sec = $('#cleared-section'), col = $('#col-cleared'), c = $('#c-cleared');
+    if (!sec || !col) return;
+    if (c) c.textContent = list.length;
+    if (!list.length) { sec.hidden = true; return; }
+    sec.hidden = false;
+    col.innerHTML = list.map(function (o) {
+      return '<div class="row" style="padding:8px 0"><div class="row-main"><div class="row-title">' + esc(o.customer_name || 'Order') + '</div>' +
+        '<div class="row-sub">' + esc(o.id) + (o.cleared_by_name ? ' · ✓ ' + esc(o.cleared_by_name) : '') + '</div></div>' +
+        '<div class="oh-right" style="text-align:right;font-size:12px;color:var(--green)">' + clk(o.kitchen_cleared_at) + '</div></div>';
+    }).join('');
+  }
+
   function loadBoard() {
     K.get('/api/hub/kitchen/orders?surface=1').then(function (d) {
       var b = (d && d.board) || { pending: [], prep: [], ready: [] };
       var inc = (d && d.incoming) || [];
+      lastCleared = (d && d.cleared_today) || [];
       // Sound alert when a NEW confirmed order arrives.
       var arrivals = b.pending.concat(inc);
       var fresh = arrivals.filter(function (o) { return seenOrders && !seenOrders[o.id]; });

@@ -111,8 +111,22 @@ export const onRequestGet = async ({ request, env }) => {
   // duplicate them. Kept as an empty array for frontend compatibility.
   const incoming = [];
 
-  return json({ date: day, board, incoming, counts: {
-    pending: board.pending.length, prep: board.prep.length, ready: board.ready.length, incoming: 0,
+  // Orders the kitchen has handed off (cleared) today — so cooks can confirm what's left the line.
+  let clearedToday = [];
+  try {
+    const startOfDay = Date.parse(today() + 'T00:00:00Z');
+    const cr = await env.DB.prepare(
+      `SELECT o.id, o.customer_name, o.kitchen_cleared_at, s.name AS cleared_by_name
+         FROM orders o LEFT JOIN staff s ON s.id = o.kitchen_cleared_by
+        WHERE o.kitchen_cleared_at >= ?
+        ORDER BY o.kitchen_cleared_at DESC LIMIT 50`
+    ).bind(startOfDay).all();
+    clearedToday = (cr && cr.results) || [];
+  } catch { clearedToday = []; }
+
+  return json({ date: day, board, incoming, cleared_today: clearedToday, counts: {
+    pending: board.pending.length, prep: board.prep.length, ready: board.ready.length,
+    cleared_today: clearedToday.length, incoming: 0,
   } });
 };
 
