@@ -310,6 +310,15 @@ function collectBody(){
   }
   if (bowlOz) body.bowlSizeOz = bowlOz;
   if (avocado) body.avocado = true;
+  // Direct subscriber: forward the macro plan generated on the calculator so the kitchen gets each
+  // weekly delivery itemized with THIS client's bowls, scaled macros + per-ingredient weights.
+  if (!clientId) {
+    try {
+      var stash = JSON.parse(sessionStorage.getItem('anejo:lastPlan') || 'null');
+      if (stash && stash.plan && stash.plan.bowl_rotation) body.plan = stash.plan;
+    } catch (e) { /* no stashed plan — server falls back to a generic line */ }
+  }
+  // Delivery address — required so every weekly order can be routed.
   var addr = {
     street:(document.getElementById('a_street')||{}).value||'', unit:(document.getElementById('a_unit')||{}).value||'',
     city:(document.getElementById('a_city')||{}).value||'', state:((document.getElementById('a_state')||{}).value||'FL'),

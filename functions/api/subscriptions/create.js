@@ -11,7 +11,51 @@ import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { clampPerBowlCents, perBowlCentsFromOz, STANDARD_PER_BOWL_CENTS } from '../../_lib/sizing.js';
 import { sendSms } from '../../_lib/twilio.js';
 import { geocode, formatAddress } from '../../_lib/geo.js';
-import { AVOCADO_ADDON_CENTS } from '../../_lib/bowlspec.js';
+import { AVOCADO_ADDON_CENTS, BOWL_BY_NAME } from '../../_lib/bowlspec.js';
+
+// Keep only real bowl keys with positive integer counts (defends the kitchen itemization +
+// the saved plan from a tampered/garbage rotation coming off the browser).
+function sanitizeRotation(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {}; let total = 0;
+  for (const [k, v] of Object.entries(raw)) {
+    const key = String(k).toUpperCase();
+    if (!BOWL_BY_NAME[key]) continue;
+    const n = Math.floor(Number(v));
+    if (Number.isFinite(n) && n > 0 && n <= 50) { out[key] = n; total += n; }
+  }
+  return total > 0 ? out : null;
+}
+
+// Persist the calculator-generated plan for a DIRECT subscriber (no trainer-saved plan), so the
+// weekly kitchen delivery itemizes each bowl with this client's scaled macros + ingredient weights.
+async function saveGeneratedPlan(env, clientId, raw) {
+  const rotation = sanitizeRotation(raw && raw.bowl_rotation);
+  if (!rotation) return; // nothing usable → caller falls back to a generic line
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+  let factor = num(raw.bowl_size_factor);
+  if (factor != null) factor = Math.min(2, Math.max(0.5, factor));
+  const pbpCents = raw.per_bowl_price_usd != null ? Math.round(Number(raw.per_bowl_price_usd) * 100) : num(raw.per_bowl_price_cents);
+  const weekly = Object.values(rotation).reduce((s, n) => s + n, 0);
+  const t = now();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO plans (id, client_id, version, daily_calories, daily_protein_g, daily_carbs_g,
+          daily_fat_g, daily_fiber_g, weekly_bowl_count, meal_plan_tier, bowl_rotation,
+          rationale, lifestyle_notes, ai_model, status, public_token,
+          meals_per_day, bowl_size_oz, bowl_size_factor, per_bowl_price_cents, recommended_bowl_count,
+          created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      id('pl'), clientId, 1, num(raw.daily_calories), num(raw.daily_protein_g), num(raw.daily_carbs_g),
+      num(raw.daily_fat_g), num(raw.daily_fiber_g), weekly, (raw.meal_plan_tier || null),
+      JSON.stringify(rotation), (raw.rationale || null),
+      JSON.stringify(Array.isArray(raw.lifestyle_notes) ? raw.lifestyle_notes : []), 'direct', 'draft', id('pt'),
+      num(raw.meals_per_day), num(raw.bowl_size_oz), factor, pbpCents, num(raw.recommended_bowl_count),
+      t, t
+    ).run();
+  } catch (_) { /* best-effort; kitchen falls back to a generic line */ }
+}
 
 // Validate a subscriber's delivery address (street/city/5-digit ZIP required).
 function parseAddr(raw) {
@@ -139,9 +183,14 @@ export const onRequestPost = async ({ request, env }) => {
   // owner add it later, so only hard-require it when there's no clientId and none on file.
   if (!deliveryAddr && !clientId) return bad('Please enter your delivery address (street, city, and ZIP).');
 
-  const plan = await env.DB
-    .prepare('SELECT id, bowl_rotation, per_bowl_price_cents, bowl_size_oz, bowl_size_factor FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
-    .bind(client.id).first();
+  const planSelect = 'SELECT id, bowl_rotation, per_bowl_price_cents, bowl_size_oz, bowl_size_factor FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1';
+  let plan = await env.DB.prepare(planSelect).bind(client.id).first();
+  // Direct subscriber with no saved plan but a calculator-generated one in the request → persist it
+  // now so the weekly delivery can be itemized with this client's macros + per-ingredient weights.
+  if (!plan && b.plan) {
+    await saveGeneratedPlan(env, client.id, b.plan);
+    plan = await env.DB.prepare(planSelect).bind(client.id).first();
+  }
 
   // Avocado add-on (+$2/bowl): a calorie-neutral swap (kitchen reduces other fats), priced flat.
   const avocado = b.avocado === true || b.avocado === 1;
