@@ -243,6 +243,7 @@
 
   function profileCard(d) {
     var rows = [];
+    if (d.rewards) rows.push(['Rewards', '<span class="badge ok">' + esc(d.rewards.tier_name) + '</span> · ' + (d.rewards.points || 0).toLocaleString() + ' pts' + (d.rewards.multiplier > 1 ? ' · ' + d.rewards.multiplier + '×' : '')]);
     if (d.client) {
       rows.push(['Email', esc(d.client.email || '—')]);
       rows.push(['Phone', esc(d.client.phone || '—')]);

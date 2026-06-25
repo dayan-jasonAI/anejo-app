@@ -13,6 +13,7 @@ import { json, bad, id, now, isEmail, normalizePhone } from '../../../_lib/util.
 import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { parseJson } from '../../../_lib/hub.js';
+import { awardOrderPoints } from '../../../_lib/rewards.js';
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -115,6 +116,10 @@ export const onRequestPost = async ({ request, env }) => {
     orderId, JSON.stringify(orderItems), dateStr, win,
     subtotalCents, feeCents, taxPct, totalCents, status, customerName, customerEmail, t, t
   ).run();
+
+  if (status === 'paid' && customerEmail) {
+    try { await awardOrderPoints(env, { orderId, email: customerEmail, subtotalCents }); } catch (_) { /* non-fatal */ }
+  }
 
   await capture(env, {
     event: 'order.received',

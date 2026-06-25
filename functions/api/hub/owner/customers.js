@@ -10,6 +10,7 @@
 import { json, bad, id, now, isEmail, normalizePhone, randToken, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { parseJson } from '../../../_lib/hub.js';
+import { rewardsSummary } from '../../../_lib/rewards.js';
 import { sendEmail, magicLinkEmail } from '../../../_lib/email.js';
 
 const emailKey = (e) => (e == null ? '' : String(e)).trim().toLowerCase();
@@ -193,9 +194,11 @@ async function customerDetail(env, email) {
   }
 
   const name = (client && client.name) || (orders[0] && orders[0].customer_name) || key;
+  const rewards = await rewardsSummary(env, key);
   return {
     email: key,
     name,
+    rewards,
     client: client ? {
       id: client.id,
       name: client.name,

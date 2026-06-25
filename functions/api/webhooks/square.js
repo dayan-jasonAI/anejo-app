@@ -5,6 +5,7 @@
 import { id, now, ctEq } from '../../_lib/util.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { notifyClientById } from '../../_lib/notify.js';
+import { awardOrderPoints } from '../../_lib/rewards.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
 
@@ -87,9 +88,16 @@ export const onRequestPost = async ({ request, env }) => {
       const pay = obj.payment || {};
       if (pay.order_id && (pay.status === 'COMPLETED' || pay.status === 'APPROVED')) {
         const tipCents = (pay.tip_money && Number(pay.tip_money.amount)) || 0;
-        await env.DB.prepare(
+        const paidUpd = await env.DB.prepare(
           "UPDATE orders SET status='paid', customer_email=COALESCE(customer_email,?), tip_cents=?, updated_at=? WHERE square_order_id=? AND status='pending'"
         ).bind(pay.buyer_email_address || null, tipCents, now(), pay.order_id).run();
+        // First flip to paid → award Añejo Rewards points (idempotent in awardOrderPoints).
+        if (paidUpd.meta && paidUpd.meta.changes === 1) {
+          try {
+            const o = await env.DB.prepare("SELECT id, customer_email, subtotal_cents FROM orders WHERE square_order_id=? LIMIT 1").bind(pay.order_id).first();
+            if (o && o.customer_email) await awardOrderPoints(env, { orderId: o.id, email: o.customer_email, subtotalCents: o.subtotal_cents });
+          } catch (e) { console.log('points award error:', e && e.message); }
+        }
 
         // Per-delivery ADD-ONS: a paid add-on payment link → mark paid and attach the items
         // to that day's order so the kitchen + driver see them. Idempotent: the status guard
