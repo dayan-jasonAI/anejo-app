@@ -9,6 +9,8 @@
     // nav + hero
     "Story":"Historia","Menu":"Menú","Services":"Servicios","Wholesale":"Mayoreo","Macros":"Macros",
     "Reserve a Tasting":"Reserva una Degustación",
+    "Log in":"Iniciar sesión","Log in / My account":"Iniciar sesión / Mi cuenta",
+    "Already a member?":"¿Ya eres miembro?","Log in to your account →":"Inicia sesión en tu cuenta →",
     "Palm Beach County · Cuban-American Catering":"Condado de Palm Beach · Catering Cubano-Americano",
     "Clean Fuel.":"Combustible Limpio.","Bold Flavor.":"Sabor Intenso.","Built for Life.":"Hecho para la Vida.",
     "Premium longevity bowls, signature bites, and catering — Mediterranean nutrition with Cuban soul.":"Bowls premium de longevidad, bocados de autor y catering — nutrición mediterránea con alma cubana.",
