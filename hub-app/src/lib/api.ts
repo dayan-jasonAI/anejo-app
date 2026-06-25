@@ -32,7 +32,10 @@ export async function createSession(title: string): Promise<{ id: string } | nul
       body: JSON.stringify({ mode: 'mixed', title }),
     });
     if (!r.ok) return null;
-    return await r.json();
+    // The endpoint returns { ok, session: { id, ... } }; tolerate a bare { id } too.
+    const d = await r.json();
+    const sid = d?.session?.id || d?.id;
+    return sid ? { id: sid } : null;
   } catch {
     return null;
   }

@@ -51,9 +51,19 @@ describe('getMe — HUB session auth', () => {
 describe('createSession — Studio session bootstrap', () => {
   beforeEach(() => vi.restoreAllMocks());
 
-  it('returns the created session id', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(true, { id: 'rsess_abc123' })));
+  it('extracts the id from the real endpoint shape { ok, session: { id } }', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(true, { ok: true, session: { id: 'rsess_abc123', status: 'active' } })));
     expect(await createSession('Studio — 2026-06-23')).toEqual({ id: 'rsess_abc123' });
+  });
+
+  it('also tolerates a bare { id } response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(true, { id: 'rsess_xyz' })));
+    expect(await createSession('t')).toEqual({ id: 'rsess_xyz' });
+  });
+
+  it('returns null when no id is present', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(true, { ok: true })));
+    expect(await createSession('t')).toBeNull();
   });
 
   it('returns null on a non-OK response', async () => {
