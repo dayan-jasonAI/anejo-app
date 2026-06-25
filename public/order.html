@@ -615,6 +615,8 @@ async function checkout(){
     const r = await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const data = await r.json();
     if(!r.ok || !data.url) throw new Error(data.error||L('Checkout failed. Please try again.','El pago falló. Inténtalo de nuevo.'));
+    // Stash order value for the GA4 purchase event on /order/confirmed (survives the Square round-trip).
+    try{ var _gv=parseFloat(($('cartGrand').textContent||'').replace(/[^0-9.]/g,'')); sessionStorage.setItem('anejo:pendingOrder', JSON.stringify({ value: isFinite(_gv)?_gv:undefined, currency:'USD', items: items.length })); }catch(_e){}
     window.location.href = data.url;   // → Square hosted checkout
   }catch(e){
     err.textContent = e.message; btn.disabled=false; btn.textContent=label;

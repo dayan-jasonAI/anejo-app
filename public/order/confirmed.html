@@ -53,5 +53,25 @@ p{color:var(--muted);font-size:15px;line-height:1.65;margin-bottom:14px}
   // Pre-launch: surface the test-mode note (remove the gate at go-live).
   document.getElementById('testmode').style.display='block';
 </script>
-<script src="/assets/js/consent.js"></script></body>
+<script src="/assets/js/consent.js"></script>
+<script>
+  // GA4 purchase conversion — fires once per order, ONLY after consent (window.gtag exists only
+  // post-consent). Value comes from sessionStorage (set on /order before redirect); transaction_id
+  // from Square's redirect params. Deduped per transaction so refreshes don't double-count.
+  (function(){
+    if (!window.gtag) return;
+    var qs = new URLSearchParams(location.search);
+    var txn = qs.get('orderId')||qs.get('order_id')||qs.get('transactionId')||qs.get('checkoutId')||'';
+    var dedup = 'anejo:gaPurchase:'+(txn||'session');
+    try { if (localStorage.getItem(dedup)) return; } catch(e){}
+    var value, currency='USD';
+    try { var po=JSON.parse(sessionStorage.getItem('anejo:pendingOrder')||'null'); if(po){ value=po.value; currency=po.currency||'USD'; } } catch(e){}
+    var params = { currency: currency };
+    if (txn) params.transaction_id = txn;
+    if (typeof value === 'number' && isFinite(value)) params.value = value;
+    window.gtag('event','purchase', params);
+    try { localStorage.setItem(dedup,'1'); } catch(e){}
+    try { sessionStorage.removeItem('anejo:pendingOrder'); } catch(e){}
+  })();
+</script></body>
 </html>
