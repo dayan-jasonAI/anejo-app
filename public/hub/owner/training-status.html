@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Training Compliance</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .tc-sum { font-size:14px; color:#444; margin:8px 0 14px; }
+  .tc-sum b { color:var(--green,#1A3D2E); }
+  .tc-row { display:flex; align-items:center; gap:12px; background:#fff; border:1px solid var(--line,#e7e2d6); border-radius:12px; padding:13px 16px; margin:10px 0; }
+  .tc-row .tc-name { font-weight:700; color:var(--green,#1A3D2E); }
+  .tc-row .tc-role { font-size:12px; color:#6b6b6b; text-transform:uppercase; letter-spacing:1px; }
+  .tc-row .tc-spacer { flex:1; }
+  .tc-badge { font-size:12px; font-weight:700; border-radius:999px; padding:6px 12px; white-space:nowrap; }
+  .tc-badge.ok { background:#eaf3ec; color:#1A3D2E; border:1px solid rgba(26,61,46,.25); }
+  .tc-badge.no { background:#fbe9e8; color:#9b2226; border:1px solid #e3b7b7; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · TRAINING</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p>Loading…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+  var esc = (window.Hub && Hub.esc) ? Hub.esc : function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+  function fmtDate(ms) { try { return new Date(Number(ms)).toLocaleDateString(); } catch (e) { return ''; } }
+
+  function render(d) {
+    var root = document.getElementById('owner-root');
+    root.className = '';
+    var items = (d && d.items) || [];
+    if (!items.length) { root.innerHTML = '<p style="color:#6b6b6b;padding:18px 0">No active staff yet.</p>'; return; }
+    var sum = '<div class="tc-sum"><b>' + (d.done || 0) + '</b> of <b>' + (d.total || 0) + '</b> active staff have completed their role training.</div>';
+    root.innerHTML = sum + items.map(function (i) {
+      var ok = !!i.completed_at;
+      return '<div class="tc-row">'
+        + '<div><div class="tc-name">' + esc(i.name || '—') + '</div><div class="tc-role">' + esc(i.role || '') + (i.team ? ' · ' + esc(i.team) : '') + '</div></div>'
+        + '<div class="tc-spacer"></div>'
+        + (ok
+            ? '<span class="tc-badge ok">✓ Completed · ' + fmtDate(i.completed_at) + (i.lang ? ' · ' + esc(i.lang).toUpperCase() : '') + '</span>'
+            : '<span class="tc-badge no">⚠ Not completed</span>')
+        + '</div>';
+    }).join('');
+  }
+
+  function load() {
+    Hub.api('/api/hub/owner/training-status').then(function (r) { render(r || {}); });
+  }
+  Owner.init('staff', function () { load(); });
+})();
+</script>
+</body>
+</html>

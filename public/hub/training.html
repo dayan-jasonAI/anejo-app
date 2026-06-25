@@ -95,8 +95,9 @@
     <div class="scene" id="scene"></div>
     <div class="nav">
       <button class="btn ghost" id="back" onclick="go(-1)">← <span data-t="back">Back</span></button>
-      <button class="btn gold" id="next" onclick="go(1)"><span data-t="next">Next</span> →</button>
+      <button class="btn gold" id="next" onclick="nextOrFinish()"><span data-t="next">Next</span> →</button>
     </div>
+    <div id="done-msg" style="display:none;text-align:center;margin-top:12px;color:#1A3D2E;font-weight:600;font-size:14px"></div>
     <button class="btn play" id="play" onclick="togglePlay()">▶ <span data-t="play">Play narrated tour</span></button>
     <div class="scount" id="scount"></div>
   </div>
@@ -112,7 +113,9 @@ var UI = {
   step:{en:'Step',es:'Paso'}, of:{en:'of',es:'de'}, choose:{en:'Choose your training',es:'Elige tu capacitación'},
   chooseSub:{en:"Pick your role. Each tutorial covers exactly what you need — your screen, what's expected of you, and what kicks off your work. The Owner walkthrough covers the whole system end to end.",
              es:'Elige tu rol. Cada tutorial cubre justo lo que necesitas — tu pantalla, lo que se espera de ti, y qué inicia tu trabajo. El recorrido del Dueño cubre todo el sistema de principio a fin.'},
-  trig:{en:'Trigger',es:'Qué lo inicia'}, you:{en:'You do',es:'Tú haces'}, then:{en:'Then (automatic)',es:'Luego (automático)'}
+  trig:{en:'Trigger',es:'Qué lo inicia'}, you:{en:'You do',es:'Tú haces'}, then:{en:'Then (automatic)',es:'Luego (automático)'},
+  finishing:{en:'Saving…',es:'Guardando…'}, done:{en:'✓ Completed',es:'✓ Completado'},
+  doneMsg:{en:'Training completed — thank you! Your owner can see this in the compliance view.',es:'Capacitación completada — ¡gracias! Tu dueño puede verlo en el panel de cumplimiento.'}
 };
 var ROLES = [
   { key:'owner',   ic:'◎',  full:true, en:'Owner — full end-to-end', es:'Dueño — todo de principio a fin', den:'The entire system: order & subscription flow, dispatch, staff, finance, the AI Ops agent, automations, alerts.', des:'Todo el sistema: pedidos y suscripciones, despacho, personal, finanzas, el agente AI Ops, automatizaciones, alertas.' },
@@ -405,11 +408,30 @@ function render(){
     '<div class="blk then"><span class="lab">➡ '+UI.then[lang]+'</span>'+L(sc,'z')+'</div>'+
     (sc.n?'<div class="note">'+L(sc,'n')+'</div>':'');
   document.getElementById('back').disabled = idx===0;
-  document.getElementById('next').querySelector('[data-t="next"]').textContent = idx===n-1 ? UI.finish[lang] : UI.next[lang];
+  var atEnd = idx===n-1;
+  document.getElementById('next').querySelector('[data-t="next"]').textContent = atEnd ? (_done[role]?UI.done[lang]:UI.finish[lang]) : UI.next[lang];
+  var dm=document.getElementById('done-msg');
+  if(dm){ if(atEnd && _done[role]){ dm.textContent=UI.doneMsg[lang]; dm.style.display='block'; } else { dm.style.display='none'; } }
   document.getElementById('scount').textContent = UI.step[lang]+' '+(idx+1)+' '+UI.of[lang]+' '+n;
   document.getElementById('scene').classList.toggle('playing', playing);
   paintPlay();
   if(playing) speakCur();
+}
+var _done = {};
+function nextOrFinish(){ if(role && idx===MOD[role].length-1) finish(); else go(1); }
+function finish(){
+  if(!role) return;
+  var btn=document.getElementById('next'), sp=btn.querySelector('[data-t="next"]');
+  btn.disabled=true; if(sp) sp.textContent=UI.finishing[lang];
+  fetch('/api/hub/training/complete',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({module:role,lang:lang})})
+    .then(function(r){ return r.ok?r.json():null; })
+    .then(function(d){ btn.disabled=false; if(d&&d.ok){ _done[role]=d.completed_at; render(); } else if(sp){ sp.textContent=UI.finish[lang]; } })
+    .catch(function(){ btn.disabled=false; if(sp) sp.textContent=UI.finish[lang]; });
+}
+function loadDone(){
+  fetch('/api/hub/training/complete',{credentials:'include'}).then(function(r){ return r.ok?r.json():null; }).then(function(d){
+    if(d&&d.completed){ d.completed.forEach(function(c){ _done[c.module]=c.completed_at; }); if(role) render(); }
+  }).catch(function(){});
 }
 function boot(){
   role = qRole();
@@ -418,6 +440,7 @@ function boot(){
   else { document.getElementById('land').style.display='block'; document.getElementById('stage').style.display='none'; renderLand(); }
 }
 boot();
+if(role) loadDone();
 </script>
 </body>
 </html>

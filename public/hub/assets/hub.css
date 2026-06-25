@@ -50,7 +50,9 @@ a { color: var(--green); }
 .hub-bar {
   background: var(--black);
   color: var(--gold);
-  padding: 14px 18px;
+  /* extra right padding reserves room for the fixed ☰ account button (top:10px; right:12px;
+     width:38px) so it never overlaps the bar's right-side actions (lang toggle, etc.). */
+  padding: 14px 58px 14px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
