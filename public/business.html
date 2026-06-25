@@ -130,6 +130,7 @@
       }).catch(function(){ b.disabled=false; b.textContent='Request my account'; $('msg').textContent='Could not submit. Check your connection.'; });
   }
   function done(d){
+    if(window.gtag)window.gtag('event','generate_lead',{form_id:'b2b_catering'});
     $('wrap').innerHTML='<div class="card ok-card"><div class="check">✓</div>'+
       '<h2>Request received — thank you!</h2>'+
       '<p style="color:var(--muted);margin-top:8px;line-height:1.5">We’ve got <b>'+esc(d.company)+'</b> ('+d.sites.length+' office'+(d.sites.length>1?'s':'')+'). An Añejo team member will confirm your pricing and activate your daily ordering links shortly — we’ll email '+esc($('bemail')?$('bemail').value:'')+'.</p>'+

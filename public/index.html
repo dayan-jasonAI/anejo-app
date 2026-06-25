@@ -1366,6 +1366,7 @@ async function submitTasting(e) {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
     });
     if (!r.ok) throw new Error('not ok');
+    if (window.gtag) window.gtag('event', 'generate_lead', { form_id: 'homepage' });
     f.innerHTML = '<h3>' + (lang === 'es' ? '¡Gracias!' : 'Thank you!') + '</h3><p class="sub">' +
       (lang === 'es'
         ? 'Recibimos tu solicitud. Te responderemos en 1 día hábil para agendar.'
@@ -1406,6 +1407,7 @@ async function submitWholesale(e) {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
     });
     if (!r.ok) throw new Error('not ok');
+    if (window.gtag) window.gtag('event', 'generate_lead', { form_id: 'wholesale' });
     f.innerHTML = '<h4 style="color:var(--gold-dark)">' + (lang === 'es' ? '¡Gracias!' : 'Thank you!') +
       '</h4><p style="font-size:13px;color:var(--muted);margin-top:6px">' +
       (lang === 'es'
