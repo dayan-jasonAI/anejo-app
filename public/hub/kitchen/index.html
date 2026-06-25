@@ -360,6 +360,7 @@
       actions = '<div class="order-actions"><button class="btn' + (allDone ? ' gold' : '') + '" data-ready="' + esc(o.id) + '"' +
         (allDone ? '' : ' disabled title="Check off all bowls first"') + '>Mark ready</button></div>';
     }
+    else if (stage === 'ready') actions = '<div class="order-actions"><button class="btn gold" data-clear="' + esc(o.id) + '">Hand off ✓</button></div>';
     var win = o.delivery_window ? ('<span class="badge">' + esc(o.delivery_window) + '</span>') : '';
     var dt = o.delivery_date ? ('<span class="badge ok">' + esc(o.delivery_date) + '</span>') : '';
     var sub = o.is_subscription ? '<span class="badge" style="background:var(--gold,#C6A85B);color:#1b3a2b;font-weight:700" data-i18n>Subscription</span>' : '';
@@ -422,6 +423,15 @@
         askPin('PIN to mark this order ready', function (pin, h) {
           K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-ready'), action: 'mark_ready', pin: pin })
             .then(function (d) { if (d && d.ok) { h.done(); Hub.toast('Marked ready'); loadBoard(); } else { h.fail(d && d.error); } });
+        });
+      });
+    });
+    // Hand off — PIN-gated (ready → off the board). The 3rd PIN: confirms the order left the kitchen.
+    Array.prototype.forEach.call(document.querySelectorAll('[data-clear]'), function (b) {
+      b.addEventListener('click', function () {
+        askPin('PIN to hand off this order', function (pin, h) {
+          K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-clear'), action: 'kitchen_clear', pin: pin })
+            .then(function (d) { if (d && d.ok) { h.done(); Hub.toast('Handed off' + (d.by ? ' · ' + d.by : '')); loadBoard(); } else { h.fail(d && d.error); } });
         });
       });
     });

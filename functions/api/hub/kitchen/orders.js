@@ -47,6 +47,7 @@ export const onRequestGet = async ({ request, env }) => {
   const { results } = await env.DB.prepare(
     `SELECT * FROM orders
        WHERE status IN ('pending','paid','prep','ready')
+         AND kitchen_cleared_at IS NULL
        ORDER BY
          (delivery_date IS NULL), delivery_date ASC,
          CASE delivery_window WHEN 'lunch' THEN 0 WHEN 'dinner' THEN 1 ELSE 2 END,
@@ -125,7 +126,7 @@ export const onRequestPost = async ({ request, env }) => {
   const orderId = (b && b.id || '').toString().trim();
   const action = (b && b.action || '').toString().trim();
   if (!orderId) return bad('Missing order id.');
-  if (!['prep_start', 'mark_ready', 'bowl_done', 'bowl_undo'].includes(action)) return bad('Unknown action.');
+  if (!['prep_start', 'mark_ready', 'bowl_done', 'bowl_undo', 'kitchen_clear'].includes(action)) return bad('Unknown action.');
 
   const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(orderId).first();
   if (!order) return bad('Order not found.', 404);
@@ -178,6 +179,27 @@ export const onRequestPost = async ({ request, env }) => {
       properties: { order_id: orderId, via_pin: true },
     });
     return json({ ok: true, id: orderId, status: 'prep', by: startedBy.name });
+  }
+
+  // kitchen_clear — PIN-gated (ready → handed off). The 3rd PIN: a cook confirms the built order
+  // has left the kitchen for loadout, which clears it OFF the board. We keep status='ready' so the
+  // routing/delivery flow is untouched; we stamp who cleared it + when, and audit it.
+  if (action === 'kitchen_clear') {
+    const limited = await limitOr429(env, request, { name: 'kitchen-pin', limit: 20, windowSec: 60 });
+    if (limited) return limited;
+    const clearedBy = await matchStaffByPin(env, (b && b.pin || '').toString(), { roles: ['kitchen', 'owner'] });
+    if (!clearedBy) return bad('PIN not recognized.', 401);
+    if (order.status !== 'ready') return bad('Only a ready order can be handed off.', 409);
+
+    await env.DB.prepare("UPDATE orders SET kitchen_cleared_at = ?, kitchen_cleared_by = ?, updated_at = ? WHERE id = ?")
+      .bind(ts, clearedBy.id, ts, orderId).run();
+    await audit(env, { action: 'kitchen_clear', orderId, bowlId: null, staff: clearedBy, viaPin: true });
+    await capture(env, {
+      event: 'order.kitchen_cleared',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { order_id: orderId, via_pin: true },
+    });
+    return json({ ok: true, id: orderId, cleared: true, by: clearedBy.name });
   }
 
   // mark_ready — PIN-gated. Requires the cook's PIN (attributed + audited) and that EVERY bowl
