@@ -75,6 +75,7 @@
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML = '<div id="tiles" class="card-grid"></div>' +
+      '<a class="btn ghost block" href="/hub/owner/orders.html" style="margin-bottom:14px" data-i18n>🧾 Order history & PIN trail →</a>' +
       '<div class="hub-section"><h2 data-i18n>Open orders</h2><div id="korders" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Recent kitchen activity</h2><div id="kfeed" class="list"><div class="hub-loading">…</div></div></div>';
 

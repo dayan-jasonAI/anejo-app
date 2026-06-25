@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Order History</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .oh-filters { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px; }
+  .oh-filters .f { flex:1; min-width:120px; }
+  .oh-filters label { display:block; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--green); opacity:.75; margin-bottom:4px; }
+  .oh-filters input { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); font:inherit; font-size:14px; }
+  .oh-chips { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+  .oh-chips button { border:1px solid var(--line); background:#fff; color:var(--green); border-radius:999px; padding:6px 12px; font:inherit; font-size:12px; cursor:pointer; }
+  .oh-chips button.sel { border-color:var(--gold,#C6A85B); box-shadow:0 0 0 1px var(--gold,#C6A85B); background:#fff8e9; }
+  .oh-right { text-align:right; font-size:12px; color:var(--green); white-space:nowrap; }
+  .oh-right .amt { font-weight:700; }
+  .st { font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; padding:2px 7px; border-radius:8px; }
+  .st-pending,.st-paid { background:#eee; color:#555; }
+  .st-prep { background:#fff1cf; color:#8a6d12; }
+  .st-ready { background:#e7f0ea; color:#2c6b3f; }
+  .st-fulfilled { background:#1b3a2b; color:#fff; }
+  .st-canceled { background:#fbe3e1; color:#9b2226; }
+  .st-cleared { background:#e7f0ea; color:#2c6b3f; }
+  .trail { list-style:none; margin:8px 0 0; padding:0; }
+  .trail li { display:flex; justify-content:space-between; gap:10px; font-size:13px; padding:7px 0; border-bottom:1px solid var(--line); }
+  .trail li:last-child { border-bottom:0; }
+  .trail .who { color:var(--green); font-weight:600; }
+  .trail .when { color:var(--muted,#6b6b6b); font-size:12px; white-space:nowrap; }
+  .trail .ico { margin-right:6px; }
+  .oh-sum { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:13px; }
+  .oh-sum .k { color:var(--green); opacity:.75; }
+  .oh-more { margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · ORDER HISTORY</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading orders…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var esc = Hub.esc, $ = Hub.$;
+  var curStatus = '';      // '' = all
+  var searchT = 0;
+  var cache = {};          // id -> order summary
+
+  function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+  function ymd(ms) { var d = new Date(ms); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function money(c) { return '$' + (((Number(c) || 0)) / 100).toFixed(2); }
+
+  // status badge (cleared shows as a distinct chip even though the row stays 'ready')
+  function statusBadge(o) {
+    if (o.cleared_at && o.status === 'ready') return '<span class="st st-cleared">handed off</span>';
+    return '<span class="st st-' + esc(o.status || 'pending') + '">' + esc(o.status || 'pending') + '</span>';
+  }
+  var ACTION = {
+    prep_start: { ico: '👨‍🍳', label: 'Prep started' },
+    bowl_checked: { ico: '✓', label: 'Bowl checked' },
+    bowl_unchecked: { ico: '↺', label: 'Bowl unchecked' },
+    mark_ready: { ico: '🔔', label: 'Marked ready' },
+    kitchen_clear: { ico: '📦', label: 'Handed off' }
+  };
+
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    var to = ymd(Date.now()); var from = ymd(Date.now() - 30 * 86400000);
+    root.innerHTML =
+      '<div id="list-view">' +
+        '<div class="hub-section"><h2 data-i18n>Order history</h2>' +
+          '<div class="oh-filters">' +
+            '<div class="f"><label data-i18n>From</label><input id="from" type="date" value="' + from + '"></div>' +
+            '<div class="f"><label data-i18n>To</label><input id="to" type="date" value="' + to + '"></div>' +
+          '</div>' +
+          '<div class="card"><input id="q" type="search" placeholder="Search name, email, or order id…" autocomplete="off"></div>' +
+          '<div class="oh-chips" id="chips"></div>' +
+          '<div id="olist" class="list"><div class="hub-loading">…</div></div>' +
+          '<div class="oh-more" id="more"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div id="detail-view" style="display:none"></div>';
+
+    ['from', 'to'].forEach(function (idv) { $('#' + idv).addEventListener('change', function () { loadList(); }); });
+    $('#q').addEventListener('input', function () { clearTimeout(searchT); searchT = setTimeout(loadList, 300); });
+    window.addEventListener('hashchange', route);
+    renderChips();
+    route();
+    loadList();
+    refresh();
+  }
+
+  function renderChips() {
+    var defs = [['', 'All'], ['pending', 'Pending'], ['prep', 'Prep'], ['ready', 'Ready'], ['fulfilled', 'Delivered'], ['canceled', 'Canceled']];
+    $('#chips').innerHTML = defs.map(function (d) {
+      return '<button data-s="' + d[0] + '" class="' + (d[0] === curStatus ? 'sel' : '') + '"><span data-i18n>' + d[1] + '</span></button>';
+    }).join('');
+    $('#chips').querySelectorAll('[data-s]').forEach(function (b) {
+      b.addEventListener('click', function () { curStatus = b.getAttribute('data-s'); renderChips(); loadList(); });
+    });
+    refresh();
+  }
+
+  function loadList(offset) {
+    offset = offset || 0;
+    var params = ['limit=50', 'offset=' + offset];
+    var from = $('#from') && $('#from').value, to = $('#to') && $('#to').value, q = $('#q') ? $('#q').value.trim() : '';
+    if (from) params.push('from=' + encodeURIComponent(from));
+    if (to) params.push('to=' + encodeURIComponent(to));
+    if (curStatus) params.push('status=' + encodeURIComponent(curStatus));
+    if (q) params.push('q=' + encodeURIComponent(q));
+    Owner.get('/api/hub/owner/order-history?' + params.join('&')).then(function (d) {
+      if (!d || !d.ok) return;
+      var el = $('#olist'); if (!el) return;
+      (d.items || []).forEach(function (o) { cache[o.id] = o; });
+      var html = (d.items || []).map(rowHtml).join('');
+      if (offset === 0) el.innerHTML = html || '<div class="card"><p class="row-sub" data-i18n>No orders in this range.</p></div>';
+      else el.insertAdjacentHTML('beforeend', html);
+      bindRows();
+      var shown = offset + (d.items || []).length;
+      $('#more').innerHTML = (shown < d.total)
+        ? '<button class="btn ghost block" id="more-btn" type="button">' + (window.AnejoLang && window.AnejoLang.get() === 'es' ? 'Cargar más' : 'Load more') + ' (' + shown + '/' + d.total + ')</button>'
+        : (d.total ? '<p class="row-sub" style="text-align:center">' + d.total + (window.AnejoLang && window.AnejoLang.get() === 'es' ? ' pedidos' : ' orders') + '</p>' : '');
+      var mb = $('#more-btn'); if (mb) mb.addEventListener('click', function () { loadList(shown); });
+      refresh();
+    });
+  }
+
+  function rowHtml(o) {
+    var sub = o.is_subscription ? ' <span class="badge" style="background:var(--gold,#C6A85B);color:#1b3a2b;font-weight:700">SUB</span>' : '';
+    var dwhen = (o.delivery_date ? esc(o.delivery_date) : '—') + (o.delivery_window ? ' · ' + esc(o.delivery_window) : '');
+    return '<div class="row" data-id="' + esc(o.id) + '" style="cursor:pointer">' +
+      '<div class="row-main"><div class="row-title">' + esc(o.customer_name || 'Order') + sub + ' ' + statusBadge(o) + '</div>' +
+      '<div class="row-sub">' + dwhen + ' · ' + (o.item_count || 0) + ' items · ' + esc(o.id) + '</div></div>' +
+      '<div class="oh-right"><div class="amt">' + money(o.total_cents) + '</div><div>' + Owner.timeAgo(o.created_at) + '</div></div></div>';
+  }
+
+  function bindRows() {
+    $('#olist').querySelectorAll('[data-id]').forEach(function (r) {
+      r.addEventListener('click', function () { window.location.hash = '#o=' + encodeURIComponent(r.getAttribute('data-id')); });
+    });
+  }
+
+  function route() {
+    var m = (window.location.hash || '').match(/^#o=(.+)$/);
+    if (m) showDetail(decodeURIComponent(m[1]));
+    else { $('#detail-view').style.display = 'none'; $('#list-view').style.display = ''; }
+  }
+
+  function showDetail(id) {
+    var dv = $('#detail-view'); $('#list-view').style.display = 'none'; dv.style.display = '';
+    var o = cache[id];
+    var head = o ? (esc(o.customer_name || 'Order') + ' ' + statusBadge(o)) : esc(id);
+    var sum = '';
+    if (o) {
+      var rows = [
+        ['Order id', esc(o.id)],
+        ['Status', statusBadge(o)],
+        ['Delivery', (o.delivery_date ? esc(o.delivery_date) : '—') + (o.delivery_window ? ' · ' + esc(o.delivery_window) : '')],
+        ['Items', String(o.item_count || 0)],
+        ['Total', money(o.total_cents)],
+        ['Placed', esc(Owner.timeAgo(o.created_at))]
+      ];
+      if (o.is_subscription) rows.push(['Type', 'Subscription delivery']);
+      sum = '<div class="card"><div class="oh-sum">' + rows.map(function (r) { return '<div class="k" data-i18n>' + r[0] + '</div><div>' + r[1] + '</div>'; }).join('') + '</div></div>';
+    }
+    dv.innerHTML =
+      '<button class="btn ghost block" id="back-btn" type="button" data-i18n>← Back to orders</button>' +
+      '<div class="hub-section"><h2>' + head + '</h2>' + sum +
+      '<div class="card"><div class="row-title" data-i18n>Kitchen PIN trail</div>' +
+      '<div id="trail"><div class="hub-loading">…</div></div></div></div>';
+    var bb = $('#back-btn'); if (bb) bb.addEventListener('click', function () { window.location.hash = ''; });
+
+    Owner.get('/api/hub/owner/kitchen-audit?order_id=' + encodeURIComponent(id)).then(function (d) {
+      var t = $('#trail'); if (!t) return;
+      var a = (d && d.audit) || [];
+      if (!a.length) { t.innerHTML = '<p class="row-sub" data-i18n>No kitchen actions recorded for this order.</p>'; refresh(); return; }
+      // oldest → newest reads like a timeline
+      a = a.slice().sort(function (x, y) { return (x.created_at || 0) - (y.created_at || 0); });
+      t.innerHTML = '<ul class="trail">' + a.map(function (e) {
+        var def = ACTION[e.action] || { ico: '•', label: e.action };
+        var pin = e.via_pin ? ' 🔒' : '';
+        return '<li><span><span class="ico">' + def.ico + '</span><span data-i18n>' + def.label + '</span>' + pin +
+          ' — <span class="who">' + esc(e.staff_name || 'Staff') + '</span></span>' +
+          '<span class="when">' + Owner.clock(e.created_at) + '</span></li>';
+      }).join('') + '</ul>';
+      refresh();
+    });
+    refresh();
+  }
+
+  Owner.init('orders', render);
+})();
+</script>
+</body>
+</html>
