@@ -55,6 +55,8 @@ const BOWL_BASE = { vida: 1999, fuego: 2299, ligero: 1899, mar: 2299, coco: 2299
 const HOUSE_SAUCES = ['Mango Omega', 'Ajo Cítrico', 'Chimichurri Vital', 'Golden Turmeric', 'Aguacate Cilantro'];
 // Extra of an on-bowl ingredient: veg/grain/garnish $1.50, protein/premium $3.00.
 const EXTRA_STD_CENTS = 150, EXTRA_PREMIUM_CENTS = 300;
+// Added house sauces: the FIRST one is free, each ADDITIONAL one is $1.50.
+const EXTRA_SAUCE_CENTS = 150;
 const PREMIUM_RE = /\b(tuna|salmon|steak|shrimp|chicken|tofu|beef|pork|avocado|queso|cheese|almond|pecan)\b/i;
 const ADDON_PRICE = { avocado_half: 200, extra_protein: 450, sweet_potato: 200, sauce_cup: 150 };
 const ADDON_NAME = { avocado_half: '½ avocado', extra_protein: 'extra protein (4 oz)', sweet_potato: 'sweet potato', sauce_cup: 'extra sauce cup (2 oz)' };
@@ -62,8 +64,9 @@ const ADDON_NAME = { avocado_half: '½ avocado', extra_protein: 'extra protein (
 function bowlLabel(key) { const N = String(key || '').toUpperCase(); return BOWL_LABEL[N] || N; }
 
 // Validate + price ONE customized bowl against bowlspec. The protein (build[0]) can't be removed
-// and only ingredients actually on the bowl can be removed or added-extra. Brown-rice swap and
-// added house sauces are free; addons + extra ingredients are priced server-side. Returns a priced
+// and only ingredients actually on the bowl can be removed or added-extra. Brown-rice swap is free
+// and the FIRST added house sauce is free (each additional sauce is $1.50); addons + extra
+// ingredients are priced server-side. Returns a priced
 // snapshot with kitchen-facing fields (removals/addons/notes/build/macros) or { error }.
 function priceCustomBowl(key, mods) {
   const baseCents = BOWL_BASE[key];
@@ -85,7 +88,9 @@ function priceCustomBowl(key, mods) {
   for (const s of (Array.isArray(m.sauces) ? m.sauces : [])) {
     if (HOUSE_SAUCES.includes(s) && !sauces.includes(s)) sauces.push(s);
   }
-  let extraCents = 0, avocado = false;
+  // First added sauce is free; each additional sauce is $1.50.
+  let extraCents = Math.max(0, sauces.length - 1) * EXTRA_SAUCE_CENTS;
+  let avocado = false;
   const addonLabels = [];
   for (const e of (Array.isArray(m.extras) ? m.extras.slice(0, 12) : [])) {
     if (e && e.type === 'ingredient') {
@@ -104,14 +109,14 @@ function priceCustomBowl(key, mods) {
   const noteParts = [];
   removed.forEach((r) => noteParts.push('no ' + r.toLowerCase()));
   if (base === 'brown_rice') noteParts.push('base→brown rice');
-  sauces.forEach((s) => noteParts.push('+' + s));
+  sauces.forEach((s, i) => noteParts.push('+' + s + (i === 0 ? '' : ' ($1.50)')));
   addonLabels.forEach((l) => noteParts.push('+' + l));
   const keptBuild = spec.build.filter((x) => !removed.includes(x.item)).map((x) => ({ item: x.item, oz: x.oz }));
 
   return {
     unitCents: baseCents + extraCents,
     removed, base, sauces, avocado,
-    addons: [...sauces.map((s) => '+' + s), ...addonLabels.map((l) => '+' + l)],
+    addons: [...sauces.map((s, i) => '+' + s + (i === 0 ? '' : ' ($1.50)')), ...addonLabels.map((l) => '+' + l)],
     notes: noteParts.join(' · ') || null,
     build: keptBuild,
     ingredients: keptBuild.map((x) => x.item),
