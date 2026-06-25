@@ -66,8 +66,12 @@ html.anejo-motion .aj-in{
   animation-delay:var(--aj-d,0ms);
   will-change:opacity, transform;
 }
-/* Post-animation: hand control back to base styles (preserves hover) */
-html.anejo-motion .aj-done{ opacity:1; animation:none; will-change:auto; }
+/* Post-animation: hand control back to base styles (preserves hover).
+   opacity:1 is !important so a revealed element ALWAYS wins over its pre-reveal
+   hidden rule — some hidden selectors (e.g. `.cta-band h2`, `.cta-band .lede`) are
+   descendant selectors more specific than `.aj-done`; without !important they'd
+   re-win once the animation is removed, and the element would vanish after flashing in. */
+html.anejo-motion .aj-done{ opacity:1 !important; animation:none; will-change:auto; }
 
 /* ---- Ambient hero glow: slow, barely-there "breathing" ---- */
 html.anejo-motion .hero::before{ animation:ajGlow 16s ease-in-out infinite alternate; }
