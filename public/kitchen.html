@@ -65,7 +65,7 @@ async function load(){
   const rows=orders.length?orders.map(o=>{
     let items=[];try{items=JSON.parse(o.items||'[]');}catch(_){}
     const il=items.map(i=>'<b>'+i.qty+'×</b> '+esc(i.name)).join(' · ');
-    const win=o.delivery_window==='dinner'?'Dinner 5–7':'Lunch 11–1';
+    const win=o.delivery_window==='dinner'?'Dinner 5–8':'Lunch 11–2';
     return '<div class="order '+esc(o.status)+'"><div class="o-top"><span class="o-when">'+esc(o.delivery_date||'—')+' · '+win+'</span><span class="o-status '+esc(o.status)+'">'+esc(o.status)+'</span></div>'+
       '<div class="o-items">'+il+'</div>'+
       '<div class="o-foot"><span>est. '+money(o.total_estimate_cents)+' · '+esc(o.customer_email||'')+'</span>'+

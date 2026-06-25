@@ -183,7 +183,8 @@ export const onRequestPost = async ({ request, env }) => {
     fulfillmentMode = 'on_demand';
     const w = windowState(env);
     if (!w.open) {
-      return bad(`On-demand ordering is open ${fmtHour(w.openHour)}–${fmtHour(w.closeHour)} ET. Please schedule a delivery instead, or order again during ordering hours.`, 409);
+      const closeDisp = w.closeMinute ? `${w.closeHour % 12 === 0 ? 12 : w.closeHour % 12}:${String(w.closeMinute).padStart(2, '0')} ${w.closeHour >= 12 ? 'PM' : 'AM'}` : fmtHour(w.closeHour);
+      return bad(`On-demand ordering is open ${fmtHour(w.openHour)}–${closeDisp} ET. Please schedule a delivery instead, or order again during ordering hours.`, 409);
     }
     // Per-bowl daily production cap (launch throttle, tuned weekly). Tally the bowls in this
     // cart and reject if any would exceed what's left today. Drinks/add-ons are uncapped.

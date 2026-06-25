@@ -199,7 +199,7 @@ function renderSchedule(){
   const lastDow = s.deliverDows[s.deliverDows.length-1];
   const span = (lastDow===6) ? L('Monday–Saturday','Lunes–Sábado') : L('Monday–Friday','Lunes–Viernes');
   const perDay = s.bowlsPerDay===2
-    ? L('<b>2 bowls per day</b> — one at lunch (11–1) and one at dinner (5–7)','<b>2 bowls por día</b> — uno en el almuerzo (11–1) y uno en la cena (5–7)')
+    ? L('<b>2 bowls per day</b> — one at lunch (11–2) and one at dinner (5–8)','<b>2 bowls por día</b> — uno en el almuerzo (11–2) y uno en la cena (5–8)')
     : L('<b>1 bowl per day</b>, in your chosen window','<b>1 bowl por día</b>, en tu horario elegido');
   const chips = DOWS.map(([nm,n])=>`<span class="day${s.deliverDows.indexOf(n)<0?' off':''}">${dow(nm)}</span>`).join('')
     + `<span class="day off">${dow('Sun')}</span>`;
@@ -210,7 +210,7 @@ function renderSchedule(){
   const wp = document.getElementById('windowPick');
   if (s.chooseWindow){
     wp.style.display='';
-    document.getElementById('winPick').innerHTML = [['lunch',L('Lunch','Almuerzo'),'11–1'],['dinner',L('Dinner','Cena'),'5–7']].map(([w,nm,hr])=>
+    document.getElementById('winPick').innerHTML = [['lunch',L('Lunch','Almuerzo'),'11–2'],['dinner',L('Dinner','Cena'),'5–8']].map(([w,nm,hr])=>
       `<div class="plan-opt${w===chosenWindow?' sel':''}" onclick="pickWindow('${w}')"><div class="pname">${nm}</div><div class="pper">${hr}</div></div>`).join('');
   } else { wp.style.display='none'; chosenWindow=null; }
   updateSubBtn();

@@ -188,8 +188,8 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
         <p class="deliv-note">Delivery only · Palm Beach County · Mon–Sat. Order by 6 PM the day before.</p>
         <select id="delivDate" aria-label="Delivery date"></select>
         <select id="delivWindow" aria-label="Delivery time window">
-          <option value="lunch">Lunch · 11:00 AM – 1:00 PM</option>
-          <option value="dinner">Dinner · 5:00 PM – 7:00 PM</option>
+          <option value="lunch">Lunch · 11:00 AM – 2:00 PM</option>
+          <option value="dinner">Dinner · 5:00 PM – 8:00 PM</option>
         </select>
       </div>
 
@@ -358,7 +358,7 @@ function applyMode(){
   const banner = $('availBanner');
   if(onD){
     banner.style.display='block';
-    const hrs = avail ? (fmtHour(avail.openHour)+'–'+fmtHour(avail.closeHour)) : '11 AM–7 PM';
+    const hrs = '11 AM–7 PM';
     if(avail && avail.open===false){
       banner.className='avail-banner closed';
       banner.textContent=L(
@@ -573,8 +573,8 @@ function renderCart(){
   }
   else if (mode==='ondemand' && avail && avail.open===false){
     minNote.style.display='block';
-    minNote.textContent=L('On-demand ordering is closed right now ('+fmtHour(avail.openHour)+'–'+fmtHour(avail.closeHour)+' ET). Switch to Schedule to order ahead.',
-                          'Los pedidos del mismo día están cerrados ahora ('+fmtHour(avail.openHour)+'–'+fmtHour(avail.closeHour)+' ET). Cambia a Programar para pedir con anticipación.');
+    minNote.textContent=L('On-demand ordering is closed right now — we make & deliver 11 AM–7 PM ET. Switch to Schedule to order ahead.',
+                          'Los pedidos del mismo día están cerrados ahora — preparamos y entregamos 11 AM–7 PM ET. Cambia a Programar para pedir con anticipación.');
     btn.disabled=true;
   }
   else { minNote.style.display='none'; btn.disabled=false; }

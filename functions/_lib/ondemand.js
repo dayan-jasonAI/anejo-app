@@ -3,8 +3,9 @@
 // authoritative gate). The per-bowl daily cap is intentionally small at launch and tuned
 // WEEKLY as our metrics/AI learn real demand — override the defaults via env without a deploy:
 //   ONDEMAND_BOWL_LIMIT  (per-bowl units/day, default 10)
-//   ONDEMAND_OPEN_HOUR   (ET hour ordering opens, default 11 → 11 AM)
-//   ONDEMAND_CLOSE_HOUR  (ET hour ordering closes, default 19 → 7 PM)
+//   ONDEMAND_OPEN_HOUR   (ET hour ordering opens, default 10 → 10 AM)
+//   ONDEMAND_CLOSE_HOUR  (ET hour ordering closes, default 19)
+//   ONDEMAND_CLOSE_MIN   (ET minute past close hour, default 30 → 7:30 PM)
 
 // Only bowls are capped (drinks + add-ons are unlimited). IDs mirror the checkout catalog.
 export const BOWL_IDS = ['vida', 'fuego', 'ligero', 'mar', 'coco', 'congreen', 'raiz'];
@@ -14,13 +15,19 @@ function clampHour(v, def) {
   return Number.isFinite(n) && n >= 0 && n <= 24 ? n : def;
 }
 
+function clampMin(v, def) {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n >= 0 && n < 60 ? n : def;
+}
+
 export function onDemandConfig(env) {
   const raw = Math.floor(Number(env && env.ONDEMAND_BOWL_LIMIT));
   const limit = Number.isFinite(raw) && raw >= 0 ? raw : 10;
   return {
     limit,
-    openHour: clampHour(env && env.ONDEMAND_OPEN_HOUR, 11),
+    openHour: clampHour(env && env.ONDEMAND_OPEN_HOUR, 10),
     closeHour: clampHour(env && env.ONDEMAND_CLOSE_HOUR, 19),
+    closeMinute: clampMin(env && env.ONDEMAND_CLOSE_MIN, 30),
   };
 }
 
@@ -38,9 +45,11 @@ export function etParts(d = new Date()) {
 
 // Is on-demand ordering open right now? Returns the window bounds + today's ET date.
 export function windowState(env, d = new Date()) {
-  const { openHour, closeHour } = onDemandConfig(env);
-  const { hour, dateStr } = etParts(d);
-  return { open: hour >= openHour && hour < closeHour, openHour, closeHour, dateStr };
+  const { openHour, closeHour, closeMinute } = onDemandConfig(env);
+  const { hour, minute, dateStr } = etParts(d);
+  const nowMin = hour * 60 + minute;
+  const open = nowMin >= openHour * 60 && nowMin < closeHour * 60 + closeMinute;
+  return { open, openHour, closeHour, closeMinute, dateStr };
 }
 
 // Remaining capacity per bowl for a given ET day: cap minus the bowls already committed today.
