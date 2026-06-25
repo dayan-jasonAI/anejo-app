@@ -166,3 +166,29 @@ export async function publishRecipe(recipeId: string): Promise<boolean> {
   const d = await postJson('/api/hub/kitchen/recipe/publish', { id: recipeId });
   return !!(d && d.ok);
 }
+
+export interface BriefDraft {
+  title: string;
+  rationale: string;
+  proposed_body: string;
+  demo?: boolean;
+}
+
+// Ask the AI to draft a proposed change to the Brand & Standards Brief (not saved).
+export async function draftBriefChange(sessionId: string, instruction: string): Promise<{ draft: BriefDraft; demo?: boolean } | null> {
+  return postJson('/api/hub/kitchen/studio/brief-proposal?ai_draft=1', { session_id: sessionId, instruction });
+}
+
+// Submit a Brief change as a PROPOSAL for Dayan to approve in the HUB (never auto-applied).
+export async function submitBriefProposal(
+  sessionId: string,
+  draft: { title: string; rationale: string; proposed_body: string },
+): Promise<boolean> {
+  const d = await postJson('/api/hub/kitchen/studio/brief-proposal', {
+    session_id: sessionId,
+    title: draft.title,
+    rationale: draft.rationale,
+    proposed_body: draft.proposed_body,
+  });
+  return !!(d && d.ok && d.proposal);
+}

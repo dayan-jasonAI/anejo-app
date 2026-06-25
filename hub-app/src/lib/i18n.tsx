@@ -64,6 +64,23 @@ const DICT: Record<string, { en: string; es: string }> = {
   recipePublished: { en: 'Published to your library!', es: '¡Publicado en tu biblioteca!' },
   recipeError: { en: 'Couldn’t draft a recipe. Please try again.', es: 'No se pudo generar la receta. Inténtalo de nuevo.' },
   openLibrary: { en: 'Open Library', es: 'Abrir Biblioteca' },
+  // brief proposal
+  briefOpen: { en: 'Brief', es: 'Brief' },
+  briefTitle: { en: 'Propose a Brief change', es: 'Proponer un cambio al Brief' },
+  briefSub: { en: 'Draft a change to the Brand & Standards Brief. It goes to Dayan for approval — nothing changes until he approves it.', es: 'Propón un cambio al Brand & Standards Brief. Va a Dayan para aprobación — nada cambia hasta que él lo apruebe.' },
+  briefInstruction: { en: 'What should change?', es: '¿Qué debe cambiar?' },
+  briefPlaceholder: { en: 'e.g. Add the new breakfast line to the menu section', es: 'ej. Agregar la nueva línea de desayuno a la sección del menú' },
+  briefDraft: { en: 'Draft change', es: 'Generar borrador' },
+  briefDrafting: { en: 'Drafting…', es: 'Generando…' },
+  briefChangeTitle: { en: 'Change title', es: 'Título del cambio' },
+  briefRationale: { en: 'Rationale', es: 'Justificación' },
+  briefProposed: { en: 'Proposed Brief (full — Dayan reviews this)', es: 'Brief propuesto (completo — Dayan lo revisa)' },
+  briefPendingNote: { en: 'This is submitted for Dayan’s approval. The current Brief stays the source of truth until he approves it in the HUB.', es: 'Esto se envía para la aprobación de Dayan. El Brief vigente sigue siendo la fuente de verdad hasta que él lo apruebe en el HUB.' },
+  briefSubmit: { en: 'Submit for Dayan’s approval', es: 'Enviar para aprobación de Dayan' },
+  briefSubmitting: { en: 'Submitting…', es: 'Enviando…' },
+  briefSubmitted: { en: 'Submitted — pending Dayan’s approval in the HUB. The current Brief stays the source of truth until then.', es: 'Enviado — pendiente de la aprobación de Dayan en el HUB. El Brief vigente sigue siendo la fuente de verdad hasta entonces.' },
+  briefRedraft: { en: 'Re-draft', es: 'Regenerar' },
+  briefError: { en: 'Couldn’t draft a change. Please try again.', es: 'No se pudo generar el cambio. Inténtalo de nuevo.' },
 };
 
 interface I18nCtx { lang: Lang; t: (k: string) => string; toggle: () => void; }
