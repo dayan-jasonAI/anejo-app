@@ -318,6 +318,9 @@ const $ = (id)=>document.getElementById(id);
 
 function money(n){ return '$'+n.toFixed(2); }
 function fmtHour(h){ const a=h>=12?'PM':'AM', x=(h%12===0)?12:h%12; return x+' '+a; }
+function fmtHM(h,m){ const a=h>=12?'PM':'AM', x=(h%12===0)?12:h%12; return x+(m?':'+String(m).padStart(2,'0'):'')+' '+a; }
+// On-demand ordering window text from the live config (falls back to the real default 10 AM–7:30 PM).
+function ordHrs(){ return avail ? (fmtHour(avail.openHour)+'–'+fmtHM(avail.closeHour, avail.closeMinute)) : '10 AM–7:30 PM'; }
 // Localization for JS-rendered strings. Static HTML is translated by the i18n engine via its
 // dictionary; it can't re-translate dynamically-built text (interpolated counts, banners), so we
 // localize those here against the current language and re-render on language change.
@@ -358,7 +361,7 @@ function applyMode(){
   const banner = $('availBanner');
   if(onD){
     banner.style.display='block';
-    const hrs = '11 AM–7 PM';
+    const hrs = ordHrs();
     if(avail && avail.open===false){
       banner.className='avail-banner closed';
       banner.textContent=L(
@@ -523,6 +526,7 @@ function czApply(){
   closeCz(); renderCatalog(); renderCart();
 }
 function rmBowl(idx){ bowls.splice(idx,1); renderCatalog(); renderCart(); }
+function rmAddon(idv){ delete addons[idv]; renderCatalog(); renderCart(); }
 // Localized one-line mod summary for a bowl instance (kitchen sees its own version server-side).
 function modSummary(b){
   const parts=[];
@@ -552,7 +556,9 @@ function renderCart(){
   });
   addonIds.forEach(idv=>{
     const p=PRICE[idv], sub=Math.round(p.price*100)*addons[idv]; totalCents+=sub;
-    html += '<div class="cart-line"><span class="ci-name">'+p.name+' <small>× '+addons[idv]+'</small></span><span>'+money(sub/100)+'</span></div>';
+    html += '<div class="cart-line"><span class="ci-name">'+p.name+' <small>× '+addons[idv]+'</small>'
+      + '<button class="ci-rm" onclick="rmAddon(\''+idv+'\')">'+L('remove','quitar')+'</button>'
+      + '</span><span>'+money(sub/100)+'</span></div>';
   });
   lines.innerHTML = html;
   const total = totalCents/100;
@@ -573,8 +579,8 @@ function renderCart(){
   }
   else if (mode==='ondemand' && avail && avail.open===false){
     minNote.style.display='block';
-    minNote.textContent=L('On-demand ordering is closed right now — we make & deliver 11 AM–7 PM ET. Switch to Schedule to order ahead.',
-                          'Los pedidos del mismo día están cerrados ahora — preparamos y entregamos 11 AM–7 PM ET. Cambia a Programar para pedir con anticipación.');
+    minNote.textContent=L('On-demand ordering is closed right now — we make & deliver '+ordHrs()+' ET. Switch to Schedule to order ahead.',
+                          'Los pedidos del mismo día están cerrados ahora — preparamos y entregamos '+ordHrs()+' ET. Cambia a Programar para pedir con anticipación.');
     btn.disabled=true;
   }
   else { minNote.style.display='none'; btn.disabled=false; }

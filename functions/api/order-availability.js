@@ -16,7 +16,7 @@ export const onRequestGet = async ({ env }) => {
     for (const id of BOWL_IDS) remaining[id] = limit;
   }
   return json(
-    { onDemand: { open: w.open, openHour: w.openHour, closeHour: w.closeHour, limit, remaining, date: w.dateStr } },
+    { onDemand: { open: w.open, openHour: w.openHour, closeHour: w.closeHour, closeMinute: w.closeMinute, limit, remaining, date: w.dateStr } },
     200,
     { 'Cache-Control': 'no-store' }
   );
