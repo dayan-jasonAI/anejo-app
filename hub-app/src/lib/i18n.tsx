@@ -81,6 +81,12 @@ const DICT: Record<string, { en: string; es: string }> = {
   briefSubmitted: { en: 'Submitted — pending Dayan’s approval in the HUB. The current Brief stays the source of truth until then.', es: 'Enviado — pendiente de la aprobación de Dayan en el HUB. El Brief vigente sigue siendo la fuente de verdad hasta entonces.' },
   briefRedraft: { en: 'Re-draft', es: 'Regenerar' },
   briefError: { en: 'Couldn’t draft a change. Please try again.', es: 'No se pudo generar el cambio. Inténtalo de nuevo.' },
+  briefYourRequests: { en: 'Your Brief requests', es: 'Tus solicitudes de Brief' },
+  briefOwnerNote: { en: 'Dayan’s note', es: 'Nota de Dayan' },
+  briefStatus_pending: { en: 'Pending review', es: 'En revisión' },
+  briefStatus_approved: { en: 'Approved', es: 'Aprobado' },
+  briefStatus_rejected: { en: 'Rejected', es: 'Rechazado' },
+  briefStatus_needs_info: { en: 'Needs more info', es: 'Necesita más info' },
   // conversation history
   conversations: { en: 'Conversations', es: 'Conversaciones' },
   newConversation: { en: 'New conversation', es: 'Nueva conversación' },

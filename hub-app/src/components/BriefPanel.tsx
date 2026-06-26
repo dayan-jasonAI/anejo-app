@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useI18n } from '../lib/i18n';
-import { draftBriefChange, submitBriefProposal, type BriefDraft } from '../lib/api';
+import { draftBriefChange, submitBriefProposal, listMyBriefProposals, type BriefDraft, type MyBriefProposal } from '../lib/api';
 import '../content-panel.css';
 
 export function BriefPanel({ sessionId, onClose }: { sessionId: string | null; onClose: () => void }) {
@@ -14,6 +14,10 @@ export function BriefPanel({ sessionId, onClose }: { sessionId: string | null; o
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [err, setErr] = useState('');
+  const [mine, setMine] = useState<MyBriefProposal[]>([]);
+
+  const loadMine = () => listMyBriefProposals().then(setMine);
+  useEffect(() => { loadMine(); }, []);
 
   async function runDraft() {
     if (!sessionId) { setErr(t('contentNeedSession')); return; }
@@ -34,6 +38,7 @@ export function BriefPanel({ sessionId, onClose }: { sessionId: string | null; o
     setSubmitting(false);
     if (!ok) { setErr(t('briefError')); return; }
     setSubmitted(true);
+    loadMine();
   }
 
   return (
@@ -85,6 +90,23 @@ export function BriefPanel({ sessionId, onClose }: { sessionId: string | null; o
       )}
 
       {err ? <div className="cp-err">{err}</div> : null}
+
+      {mine.length ? (
+        <div className="bp-mine">
+          <h4>{t('briefYourRequests')}</h4>
+          {mine.slice(0, 6).map((p) => (
+            <div key={p.id} className="bp-mine-item">
+              <div className="bp-mine-top">
+                <span className="bp-mine-title">{p.title || '—'}</span>
+                <span className={`bp-status st-${p.status}`}>{t('briefStatus_' + p.status)}</span>
+              </div>
+              {p.decision_note && (p.status === 'rejected' || p.status === 'needs_info') ? (
+                <div className="bp-mine-note"><strong>{t('briefOwnerNote')}:</strong> {p.decision_note}</div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

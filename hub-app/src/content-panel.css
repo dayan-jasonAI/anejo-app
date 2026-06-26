@@ -121,3 +121,16 @@
 /* topbar Conversations button */
 .topbar .sp-open { display: inline-flex; align-items: center; gap: 5px; }
 @media (max-width: 560px) { .sp-open-label { display: none; } }
+
+/* staffer's own Brief requests + the owner's feedback */
+.bp-mine { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+.bp-mine h4 { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); font-weight: 700; margin-bottom: 8px; }
+.bp-mine-item { border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; margin-bottom: 8px; background: #fff; }
+.bp-mine-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bp-mine-title { font-weight: 600; font-size: 13.5px; color: var(--ink); }
+.bp-status { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+.bp-status.st-pending { background: #f1eee4; color: #6b6b6b; }
+.bp-status.st-approved { background: #e7f3ea; color: #1A3D2E; }
+.bp-status.st-rejected { background: #fbe9e8; color: #9b2226; }
+.bp-status.st-needs_info { background: #fbf3da; color: #8b6b3e; }
+.bp-mine-note { font-size: 12.5px; line-height: 1.45; color: #8a6d1f; background: #fbf3da; border: 1px solid #e7d9a6; border-radius: 8px; padding: 8px 10px; margin-top: 8px; }

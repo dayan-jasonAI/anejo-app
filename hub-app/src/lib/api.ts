@@ -175,6 +175,28 @@ export interface BriefDraft {
   demo?: boolean;
 }
 
+export interface MyBriefProposal {
+  id: string;
+  title?: string;
+  rationale?: string;
+  status: string; // pending | approved | rejected | needs_info
+  decision_note?: string;
+  decided_at?: number;
+  created_at: number;
+}
+
+// The current staffer's own Brief proposals + the owner's decision/note — their feedback loop.
+export async function listMyBriefProposals(): Promise<MyBriefProposal[]> {
+  try {
+    const r = await fetch('/api/hub/kitchen/studio/brief-proposal', { credentials: 'include' });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d && d.proposals) || [];
+  } catch {
+    return [];
+  }
+}
+
 // Ask the AI to draft a proposed change to the Brand & Standards Brief (not saved).
 export async function draftBriefChange(sessionId: string, instruction: string): Promise<{ draft: BriefDraft; demo?: boolean } | null> {
   return postJson('/api/hub/kitchen/studio/brief-proposal?ai_draft=1', { session_id: sessionId, instruction });
