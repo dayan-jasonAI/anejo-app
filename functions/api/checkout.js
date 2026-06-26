@@ -8,7 +8,7 @@ import { geocode, formatAddress } from '../_lib/geo.js';
 import { BOWL_IDS, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 import { currentUser } from '../_lib/session.js';
-import { pointsBalance, maxRedeemCents, pointsForCents } from '../_lib/rewards.js';
+import { rewardsSummary, maxRedeemCents, pointsForCents } from '../_lib/rewards.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -246,7 +246,7 @@ export const onRequestPost = async ({ request, env }) => {
   // Order minimum + flat delivery fee (configurable via env).
   const orderMinCents = Math.round(Number(env.ORDER_MIN_USD || 25) * 100);
   if (subtotalCents < orderMinCents) return bad(`Order minimum is $${(orderMinCents / 100).toFixed(2)}. Please add a little more.`);
-  const feeCents = Math.round(Number(env.DELIVERY_FEE_USD || 5) * 100);
+  let feeCents = Math.round(Number(env.DELIVERY_FEE_USD || 5) * 100);
 
   // FL state 6% + Palm Beach County 1% surtax = 7% by default; override via SALES_TAX_PCT.
   const taxPct = String(env.SALES_TAX_PCT || '7.0');
@@ -260,10 +260,11 @@ export const onRequestPost = async ({ request, env }) => {
     const sess = await currentUser(env, request);
     if (sess && sess.type === 'client' && sess.email) {
       sessEmail = String(sess.email).trim().toLowerCase();
+      const sum = await rewardsSummary(env, sessEmail);
+      if (sum.tier !== 'vital') feeCents = 0;   // Thriving+ tier perk: free delivery
       const want = Math.floor(Number(b.redeem_points) || 0);
       if (want > 0) {
-        const balance = await pointsBalance(env, sessEmail);
-        discountCents = maxRedeemCents(Math.min(want, balance), subtotalCents);
+        discountCents = maxRedeemCents(Math.min(want, sum.points), subtotalCents);
         redeemPts = pointsForCents(discountCents);
       }
     }

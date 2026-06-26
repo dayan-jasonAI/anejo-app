@@ -94,6 +94,23 @@ export async function notifyArrivingSoon(env, order, etaText) {
   } catch { /* best-effort */ }
 }
 
+// Fired after an order is paid: tell the customer the Añejo Rewards points they just earned.
+export async function notifyPointsEarned(env, order, { points, balance, tierName, nextTier, toNextDollars } = {}) {
+  try {
+    if (!points || points <= 0) return;
+    const c = await contactForOrder(env, order);
+    if (!c) return;
+    const hi = c.name ? `Hi ${c.name} — ` : '';
+    const bal = balance != null ? ` You're at ${balance} pts` + (tierName ? ` (${tierName})` : '') + '.' : '';
+    const nxt = (nextTier && toNextDollars) ? ` $${toNextDollars} more to ${nextTier}.` : '';
+    await deliver(env, c, {
+      sms: `${BRAND}: ${hi}you earned ${points} Añejo Rewards points!${bal}${nxt} ${STOP}`,
+      emailSubject: `You earned ${points} Añejo Rewards points`,
+      emailHtml: emailWrap('You earned points!', `<p>${hi || 'Hi — '}thanks for your order — you just earned <strong>${points} points</strong>.${escHtml(bal)}${escHtml(nxt)}</p><p>See your balance anytime in your account.</p>`),
+    });
+  } catch { /* a notification must never break the webhook */ }
+}
+
 // Fired on drop-off. photoUrl = public proof photo (MMS media + email image). feedbackUrl = the
 // "how did we do?" smart-rating page.
 export async function notifyDelivered(env, order, { photoUrl, feedbackUrl } = {}) {

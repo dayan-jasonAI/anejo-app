@@ -4,8 +4,8 @@
 // Set SQUARE_WEBHOOK_KEY (Pages secret) + register this URL in the Square dashboard.
 import { id, now, ctEq } from '../../_lib/util.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
-import { notifyClientById } from '../../_lib/notify.js';
-import { awardOrderPoints, redeemOrderPoints } from '../../_lib/rewards.js';
+import { notifyClientById, notifyPointsEarned } from '../../_lib/notify.js';
+import { awardOrderPoints, redeemOrderPoints, rewardsSummary } from '../../_lib/rewards.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
 
@@ -94,10 +94,16 @@ export const onRequestPost = async ({ request, env }) => {
         // First flip to paid → award Añejo Rewards points (idempotent in awardOrderPoints).
         if (paidUpd.meta && paidUpd.meta.changes === 1) {
           try {
-            const o = await env.DB.prepare("SELECT id, customer_email, subtotal_cents, redeem_points FROM orders WHERE square_order_id=? LIMIT 1").bind(pay.order_id).first();
+            const o = await env.DB.prepare("SELECT id, customer_email, customer_phone, sms_consent, subtotal_cents, redeem_points FROM orders WHERE square_order_id=? LIMIT 1").bind(pay.order_id).first();
             if (o && o.customer_email) {
-              await awardOrderPoints(env, { orderId: o.id, email: o.customer_email, subtotalCents: o.subtotal_cents });
+              const earned = await awardOrderPoints(env, { orderId: o.id, email: o.customer_email, subtotalCents: o.subtotal_cents });
               if (o.redeem_points) await redeemOrderPoints(env, { orderId: o.id, email: o.customer_email, points: o.redeem_points });
+              if (earned > 0) {
+                try {
+                  const sum = await rewardsSummary(env, o.customer_email);
+                  await notifyPointsEarned(env, o, { points: earned, balance: sum.points, tierName: sum.tier_name, nextTier: sum.next_tier, toNextDollars: sum.to_next_cents ? Math.round(sum.to_next_cents / 100) : null });
+                } catch (e) { console.log('points notify error:', e && e.message); }
+              }
             }
           } catch (e) { console.log('points award error:', e && e.message); }
         }

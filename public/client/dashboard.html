@@ -77,7 +77,8 @@ function rewardsCard(r){
   }
   return '<div class="card gold"><div class="k">A\u00f1ejo Rewards \u00b7 '+esc(r.tier_name)+' tier</div>'+
     '<div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:30px;font-weight:300;color:var(--green)">'+(r.points||0).toLocaleString()+'</span><span style="font-size:13px;color:var(--muted)">points</span>'+
-    (r.multiplier>1?'<span class="badge active" style="margin-left:auto">'+r.multiplier+'\u00d7 earning</span>':'')+'</div>'+prog+'</div>';
+    (r.multiplier>1?'<span class="badge active" style="margin-left:auto">'+r.multiplier+'\u00d7 earning</span>':'')+'</div>'+
+    ((r.tier&&r.tier!=='vital')?'<div style="font-size:12.5px;color:#8B6B3E;margin-top:8px;font-weight:600">\ud83d\ude9a Free delivery \u2014 '+esc(r.tier_name)+' perk</div>':'')+prog+'</div>';
 }
 var AJ_MSG={
   ate:['Beast mode. \ud83d\udcaa','That\u2019s how legends are built.','Your future self says thank you. \ud83d\ude4c','Consistency is your superpower.','Fuel in, goals up. \ud83d\udd25','Cuban flavor, championship habits.'],
