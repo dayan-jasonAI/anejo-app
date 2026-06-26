@@ -138,6 +138,16 @@ async function manageSub(op,btn){
   }catch(e){btn.disabled=false;btn.textContent=label;ajPop('Couldn’t do that automatically — please contact us. ⚠️');}
 }
 window.manageSub=manageSub;
+async function changePlan(sel){
+  var tier=sel.value, label=sel.options[sel.selectedIndex].text;
+  if(!confirm('Change your plan to: '+label+'?\nYour upcoming deliveries and weekly price update to match.')){init();return;}
+  sel.disabled=true;
+  try{var r=await fetch('/api/subscriptions/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'change_plan',tier:tier})});
+    var d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'err');
+    ajPop('Plan updated. Your next bowls reflect the change. 🌿');init();
+  }catch(e){sel.disabled=false;ajPop('Couldn’t change the plan — please contact us. ⚠️');}
+}
+window.changePlan=changePlan;
 function render(d,logs){
   $('signout').style.display='inline-block';
   const c=d.client, p=d.plan, s=d.subscription;
@@ -165,7 +175,14 @@ function render(d,logs){
         '<button class="btn ghost" type="button" onclick="manageSub(\'skip\',this)">Skip next week</button>'+
         '<button class="btn ghost" type="button" onclick="manageSub(\'pause\',this)">Pause</button>'+
         '<button class="btn ghost" type="button" onclick="cancelSub(this)" style="border-color:#d8b4b4;color:#8a1c12">Cancel</button>'+
-      '</div>';
+      '</div>'+
+      '<div style="margin-top:12px"><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Change plan</label>'+
+        '<select onchange="changePlan(this)" style="padding:10px;border:1px solid var(--line);border-radius:8px;width:100%;background:#fff">'+
+        ['plan_5','plan_10','plan_12'].map(function(tk){var lbl={plan_5:'5 bowls / week · Mon–Fri (1 / day)',plan_10:'10 bowls / week · Mon–Fri (lunch + dinner)',plan_12:'12 bowls / week · Mon–Sat (lunch + dinner)'}[tk];return '<option value="'+tk+'"'+(String(s.tier)===tk?' selected':'')+'>'+lbl+'</option>';}).join('')+
+        '</select></div>';
+    }
+    if(st==='active'||st==='subscribed'||st==='paused'){
+      html+='<div style="margin-top:12px"><a class="btn ghost" href="/client/payment.html" style="display:inline-block">💳 Update payment method</a></div>';
     }
   }
   else{
