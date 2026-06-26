@@ -82,7 +82,13 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
   const session = await env.DB.prepare('SELECT * FROM recipe_sessions WHERE id = ?').bind(sessionId).first();
   if (!session) return bad('Session not found.', 404);
   if (session.staff_id !== ctx.distinct_id && ctx.role !== 'owner') return bad('Session not found.', 404);
-  if (session.status !== 'active') return bad('Session is not active.', 409);
+  // A conversation stays usable after a recipe is published from it (publishing finalizes the
+  // session). Don't lock chat to 'active' — only a future explicit 'archived' status blocks new
+  // turns; a finalized session is reactivated so the chef keeps coaching in the same thread.
+  if (session.status === 'archived') return bad('This conversation is archived.', 409);
+  if (session.status !== 'active') {
+    await env.DB.prepare("UPDATE recipe_sessions SET status = 'active', updated_at = ? WHERE id = ?").bind(now(), sessionId).run();
+  }
 
   const ts = now();
   await env.DB.prepare(
