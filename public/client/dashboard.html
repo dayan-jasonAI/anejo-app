@@ -192,6 +192,19 @@ function render(d,logs){
     html+='<p class="muted" style="margin-bottom:6px">No active subscription.</p>'+(p&&p.meal_plan_tier?'<a class="btn" href="'+subQ+'">Subscribe to my plan</a>':'<a class="btn ghost" href="/#menu">See plans</a>');
   }
   html+='</div>';
+  // "Manage my plan" explainer — so members know the self-service controls above exist.
+  if(s){var ms=String(s.status||'').toLowerCase();
+    if(ms==='active'||ms==='subscribed'||ms==='paused'){
+      html+='<details class="card" style="padding:16px 18px"><summary style="cursor:pointer;font-weight:700;color:var(--green);list-style:none">🌿 Manage my plan — your options</summary>'+
+        '<ul style="margin:12px 0 0;padding-left:18px;font-size:14px;line-height:1.7">'+
+          '<li><strong>Pause</strong> anytime — billing &amp; deliveries stop, no fees. <strong>Resume</strong> whenever you’re ready.</li>'+
+          '<li><strong>Skip next week</strong> — that week’s bowls &amp; charge are skipped; deliveries pick back up the week after.</li>'+
+          '<li><strong>Change plan</strong> — switch between 5, 10, or 12 bowls a week; your bowls &amp; price update automatically.</li>'+
+          '<li><strong>Update payment method</strong> — change the card on file, entered securely through Square.</li>'+
+          '<li><strong>Cancel</strong> — no fees, your account stays, and you can re-subscribe anytime.</li>'+
+        '</ul><p style="font-size:12.5px;color:var(--muted);margin-top:12px">Everything’s on this page, in your Subscription card above. Questions? Just message us. 💚</p></details>';
+    }
+  }
   // Track your week — meal log + weight check-in
   if(p){html+='<div class="card"><div class="k">Track your week</div>'+
     streakHtml((logs&&logs.meals)||[])+
