@@ -35,6 +35,9 @@
 .cp-go:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .cp-err { color: var(--danger); font-size: 13px; margin-top: 12px; }
+.rp-warn { border: 1px solid var(--danger); background: rgba(154, 58, 48, .06); border-radius: 10px; padding: 11px 13px; margin-bottom: 12px; line-height: 1.45; }
+.rp-warn strong { display: block; margin-bottom: 4px; }
+.rp-warn-block { margin-top: 6px; font-weight: 600; }
 
 .cp-result { display: grid; grid-template-columns: 260px 1fr; gap: 18px; margin-top: 18px; }
 @media (max-width: 640px) { .cp-result { grid-template-columns: 1fr; } }

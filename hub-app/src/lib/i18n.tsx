@@ -63,6 +63,12 @@ const DICT: Record<string, { en: string; es: string }> = {
   recipePublishing: { en: 'Publishing…', es: 'Publicando…' },
   recipePublished: { en: 'Published to your library!', es: '¡Publicado en tu biblioteca!' },
   recipeError: { en: 'Couldn’t draft a recipe. Please try again.', es: 'No se pudo generar la receta. Inténtalo de nuevo.' },
+  recipeDemoTitle: { en: 'AI couldn’t draft this recipe', es: 'La IA no pudo generar esta receta' },
+  recipeDemoBlock: { en: 'Fix it first — a demo draft can’t be published to the library.', es: 'Arréglalo primero — un borrador de demostración no se puede publicar en la biblioteca.' },
+  recipeReasonEmpty: { en: 'This session has no recipe conversation yet — chat about the dish first, then draft.', es: 'Esta sesión aún no tiene conversación de receta — primero habla del platillo y luego genera el borrador.' },
+  recipeReasonTruncated: { en: 'The recipe was too long to generate in one pass. Tap “Draft from session” to try again.', es: 'La receta fue demasiado larga para generarse de una vez. Toca “Borrador desde la sesión” para reintentar.' },
+  recipeReasonAI: { en: 'The AI couldn’t draft it right now. Tap “Draft from session” to try again.', es: 'La IA no pudo generarla ahora. Toca “Borrador desde la sesión” para reintentar.' },
+  recipeReasonKey: { en: 'AI isn’t configured for the Studio. Contact the owner.', es: 'La IA no está configurada para el Studio. Contacta al dueño.' },
   openLibrary: { en: 'Open Library', es: 'Abrir Biblioteca' },
   // brief proposal
   briefOpen: { en: 'Brief', es: 'Brief' },
