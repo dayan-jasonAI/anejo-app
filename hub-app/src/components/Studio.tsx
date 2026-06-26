@@ -1,20 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../lib/i18n';
-import { useStudioStream } from '../lib/useStudioStream';
+import { useStudioStream, type ChatMessage } from '../lib/useStudioStream';
 import { Message } from './Message';
 import { Composer } from './Composer';
 import { ContentPanel } from './ContentPanel';
 import { RecipePanel } from './RecipePanel';
 import { BriefPanel } from './BriefPanel';
 
-export function Studio({ sessionId }: { sessionId: string | null }) {
+export function Studio({ sessionId, initialMessages }: { sessionId: string | null; initialMessages?: ChatMessage[] }) {
   const { t } = useI18n();
-  const { messages, streaming, error, send } = useStudioStream(sessionId);
+  const { messages, streaming, error, send, seed } = useStudioStream(sessionId);
   const streamRef = useRef<HTMLDivElement>(null);
   const [showContent, setShowContent] = useState(false);
   const [showRecipe, setShowRecipe] = useState(false);
   const [showBrief, setShowBrief] = useState(false);
   const closeAll = () => { setShowContent(false); setShowRecipe(false); setShowBrief(false); };
+
+  // On session switch (resume a past conversation or start a new one), load its transcript.
+  useEffect(() => {
+    seed(initialMessages || []);
+    closeAll();
+    // initialMessages is set together with sessionId, so keying on sessionId is sufficient.
+
+  }, [sessionId]);
 
   // Auto-scroll to the newest content as it streams in.
   useEffect(() => {

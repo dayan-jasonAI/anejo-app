@@ -101,3 +101,23 @@
 .bp-instruction:focus { outline: 2px solid var(--gold); border-color: transparent; }
 .bp-pending { font-size: 12.5px; line-height: 1.45; color: #8a6d1f; background: #fbf3da; border: 1px solid #e7d9a6; border-radius: 8px; padding: 9px 12px; margin-bottom: 6px; }
 .bp-body { white-space: pre-wrap; word-break: break-word; background: var(--cream); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 12.5px; line-height: 1.5; max-height: 300px; overflow: auto; margin: 4px 0 0; }
+
+/* Conversations history — left drawer */
+.sp-overlay { align-items: stretch; justify-content: flex-start; }
+.sp { width: 340px; max-width: 88vw; height: 100%; background: var(--cream); display: flex; flex-direction: column; box-shadow: 8px 0 40px rgba(0,0,0,.3); animation: sp-in .2s ease; }
+@keyframes sp-in { from { transform: translateX(-24px); opacity: .6; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sp { animation: none; } }
+.sp-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 10px; }
+.sp-head h3 { font-family: var(--serif); font-size: 22px; color: var(--green-2); font-weight: 600; }
+.sp-new { margin: 0 14px 8px; border: 1.5px solid var(--green); background: #fff; color: var(--green); font-weight: 700; font-size: 13px; border-radius: 999px; padding: 10px 14px; cursor: pointer; }
+.sp-new:hover { background: var(--green); color: var(--cream); }
+.sp-list { flex: 1 1 auto; overflow: auto; padding: 6px 10px 16px; }
+.sp-empty { color: var(--muted); font-size: 13px; padding: 18px 8px; text-align: center; }
+.sp-item { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; margin-bottom: 8px; cursor: pointer; transition: border-color .12s; }
+.sp-item:hover { border-color: var(--gold); }
+.sp-item.on { border-color: var(--gold); background: #fff8e9; }
+.sp-title { font-weight: 600; color: var(--ink); font-size: 14px; }
+.sp-meta { font-size: 11.5px; color: var(--muted); }
+/* topbar Conversations button */
+.topbar .sp-open { display: inline-flex; align-items: center; gap: 5px; }
+@media (max-width: 560px) { .sp-open-label { display: none; } }
