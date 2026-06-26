@@ -75,7 +75,13 @@ form.addEventListener('submit', async (ev) => {
     }
     // /api/clients wraps the plan in { client_id, plan_id, public_token, plan }; generate returns it directly.
     const plan = (audience === 'trainer') ? result.plan : result;
-    sessionStorage.setItem('anejo:lastPlan', JSON.stringify({ intake: payload, plan }));
+    const stash = { intake: payload, plan };
+    // Trainer flow: carry the saved-plan handles so /plan.html can offer "Send plan to member"
+    // (and attribute the member's later subscription) instead of the public subscribe/checkout CTAs.
+    if (audience === 'trainer') {
+      stash.trainer = { plan_id: result.plan_id, public_token: result.public_token, client_id: result.client_id };
+    }
+    sessionStorage.setItem('anejo:lastPlan', JSON.stringify(stash));
     window.location.href = '/plan.html';
   } catch (e) {
     btn.disabled = false;

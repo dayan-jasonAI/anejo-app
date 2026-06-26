@@ -16,7 +16,7 @@ export const onRequestGet = async ({ request, env }) => {
     `SELECT p.daily_calories, p.daily_protein_g, p.daily_carbs_g, p.daily_fat_g, p.daily_fiber_g,
             p.weekly_bowl_count, p.meal_plan_tier, p.bowl_rotation, p.rationale, p.lifestyle_notes, p.status,
             p.meals_per_day,
-            c.name AS client_name, c.primary_goal, c.activity_level, c.lang
+            c.id AS client_id, c.name AS client_name, c.primary_goal, c.activity_level, c.lang
        FROM plans p JOIN clients c ON c.id = p.client_id
       WHERE p.public_token = ?`
   ).bind(token).first();
@@ -38,6 +38,7 @@ export const onRequestGet = async ({ request, env }) => {
       ...sizing,
     },
     status: row.status,
+    client_id: row.client_id,
   });
 };
 

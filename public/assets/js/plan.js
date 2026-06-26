@@ -103,18 +103,43 @@ const T = {
 function money(n){ return (Math.round(Number(n)*100)/100).toFixed(2).replace(/\.00$/,''); }
 function lng(){ return (window.AnejoLang && window.AnejoLang.get()) === 'es' ? 'es' : 'en'; }
 
-const stash = sessionStorage.getItem('anejo:lastPlan');
+// Trainer "send plan to member" flow copy (EN/ES). Shown when a trainer previews a member's plan.
+const TT = {
+  en: {
+    send:'Send plan to member →', sending:'Sending…', sent:'Plan sent ✓',
+    home:'Return to dashboard', another:'Add another member',
+    sendErr:'Could not send the plan. Please try again.',
+    previewNote:'This is your member’s plan preview. Adjust the macros if needed, then send it — they’ll review, accept & pay from their own login.',
+    sentEmailed:function(n){ return 'Plan sent to '+(n||'your member')+'. They’ll get an email to log in, review, accept, and pay.'; },
+    sentNoEmail:function(n){ return 'Plan marked as sent'+(n?' to '+n:'')+'. No email on file — the plan link was copied, so you can share it for them to review, accept & pay.'; }
+  },
+  es: {
+    send:'Enviar plan al miembro →', sending:'Enviando…', sent:'Plan enviado ✓',
+    home:'Volver al panel', another:'Agregar otro miembro',
+    sendErr:'No se pudo enviar el plan. Inténtalo de nuevo.',
+    previewNote:'Esta es la vista previa del plan de tu miembro. Ajusta los macros si es necesario y envíalo — el miembro revisa, acepta y paga desde su propio acceso.',
+    sentEmailed:function(n){ return 'Plan enviado a '+(n||'tu miembro')+'. Recibirá un correo para iniciar sesión, revisar, aceptar y pagar.'; },
+    sentNoEmail:function(n){ return 'Plan marcado como enviado'+(n?' a '+n:'')+'. No hay correo registrado — se copió el enlace del plan para que lo compartas y el miembro revise, acepte y pague.'; }
+  }
+};
+
 const err = document.getElementById('error');
+// Trainer-preview state (set in start() from the stash; survives language toggles).
+let trainerPreview = false, curTrainerMeta = null, memberClientId = null;
+let planSent = false, lastSentEmailed = false;
 
 async function start(){
   const L = lng();
-  // Shareable client link: /plan.html?token=<public_token> → fetch the saved plan.
+  // Shareable client link: /plan.html?token=<public_token> → the member (or trainer) reviewing a
+  // SAVED plan. This is the member's review / accept & pay view — never the trainer-send view.
   const token = new URLSearchParams(location.search).get('token');
   if (token) {
+    trainerPreview = false; curTrainerMeta = null;
     try {
       const r = await fetch('/api/plan?token=' + encodeURIComponent(token));
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'not found');
+      memberClientId = data.client_id || null;
       render(data.intake, data.plan);
     } catch (e) {
       document.getElementById('plan-title').textContent = T[L].none;
@@ -122,11 +147,21 @@ async function start(){
     }
     return;
   }
+  // Read fresh each call so language toggles (and post-edit re-stashes) see the latest plan.
+  const stash = sessionStorage.getItem('anejo:lastPlan');
   if (!stash) {
     document.getElementById('plan-title').textContent = T[L].none;
     document.getElementById('plan-subtitle').innerHTML = '<a class="backlink" href="/calculator">' + T[L].build + '</a>';
   } else {
-    try { const { intake, plan } = JSON.parse(stash); render(intake, plan); }
+    try {
+      const parsed = JSON.parse(stash);
+      // A trainer who just generated this member's plan carries the saved-plan handles → offer
+      // "Send plan to member" instead of the public subscribe/checkout CTAs.
+      curTrainerMeta = parsed.trainer || null;
+      trainerPreview = !!(curTrainerMeta && curTrainerMeta.plan_id && parsed.intake && parsed.intake.audience === 'trainer');
+      if (curTrainerMeta && curTrainerMeta.client_id) memberClientId = curTrainerMeta.client_id;
+      render(parsed.intake, parsed.plan);
+    }
     catch (e) { err.textContent = T[L].loadErr + (e.message || e); err.style.display = 'block'; }
   }
 }
@@ -229,22 +264,82 @@ function render(intake, plan) {
   renderProse(L);
 
   document.getElementById('restart').href = trainer ? '/intake.html' : '/calculator';
-  // Conversion: surface "Subscribe to this plan" (recommended tier) + "Order these bowls".
-  var subBtn = document.getElementById('plan-subscribe');
-  if (subBtn) {
-    var sp = new URLSearchParams();
-    sp.set('plan', plan.meal_plan_tier || 'plan_12');
-    if (plan.per_bowl_price_usd != null) sp.set('pbp', plan.per_bowl_price_usd);
-    if (plan.bowl_size_oz) sp.set('oz', plan.bowl_size_oz);
-    if (avoOn) sp.set('avo', '1');
-    subBtn.href = '/subscribe?' + sp.toString();
-    subBtn.style.display = '';
+
+  // CTAs split by who's viewing:
+  //  • trainer previewing a member's freshly generated plan → "Send plan to member" + "Return to dashboard"
+  //  • everyone else (public calculator, or the member opening their emailed link) → subscribe / accept & pay
+  var planCta = document.getElementById('plan-cta');
+  var trainerCta = document.getElementById('trainer-cta');
+  var pvNote = document.getElementById('trainer-preview-note');
+  if (trainerPreview) {
+    if (planCta) planCta.style.display = 'none';
+    if (trainerCta) trainerCta.style.display = 'flex';
+    if (pvNote) { pvNote.textContent = TT[L].previewNote; pvNote.style.display = 'block'; }
+    wireTrainerCta(L);
+  } else {
+    if (trainerCta) trainerCta.style.display = 'none';
+    if (pvNote) pvNote.style.display = 'none';
+    if (planCta) planCta.style.display = 'flex';
+    // Conversion: surface "Subscribe to this plan" (recommended tier) + "Order these bowls".
+    var subBtn = document.getElementById('plan-subscribe');
+    if (subBtn) {
+      var sp = new URLSearchParams();
+      sp.set('plan', plan.meal_plan_tier || 'plan_12');
+      if (plan.per_bowl_price_usd != null) sp.set('pbp', plan.per_bowl_price_usd);
+      if (plan.bowl_size_oz) sp.set('oz', plan.bowl_size_oz);
+      if (avoOn) sp.set('avo', '1');
+      // Member opening their emailed plan link → attribute the subscription to their trainer's client record.
+      if (memberClientId) sp.set('client', memberClientId);
+      subBtn.href = '/subscribe?' + sp.toString();
+      subBtn.style.display = '';
+    }
+    var ordBtn = document.getElementById('plan-order');
+    if (ordBtn) ordBtn.style.display = '';
   }
-  var ordBtn = document.getElementById('plan-order');
-  if (ordBtn) ordBtn.style.display = '';
   document.getElementById('plan-body').style.display = 'block';
   document.getElementById('plan-disclaimer').style.display = 'block';
   wireEditor();
+}
+
+// --- Trainer "send plan to member" -----------------------------------------------------------
+let trainerCtaWired = false;
+function lastSentNote(L){
+  const n = (curIntake && curIntake.name) || '';
+  return lastSentEmailed ? TT[L].sentEmailed(n) : TT[L].sentNoEmail(n);
+}
+function wireTrainerCta(L){
+  const sendBtn = document.getElementById('trainer-send');
+  const homeBtn = document.getElementById('trainer-home');
+  const moreBtn = document.getElementById('trainer-restart');
+  if (homeBtn) homeBtn.textContent = TT[L].home;
+  if (moreBtn) moreBtn.textContent = TT[L].another;
+  if (sendBtn) { sendBtn.textContent = planSent ? TT[L].sent : TT[L].send; sendBtn.disabled = planSent; }
+  const note = document.getElementById('trainer-sent-note');
+  if (note && planSent) { note.textContent = lastSentNote(L); note.style.color = ''; note.style.display = 'block'; }
+  if (!trainerCtaWired && sendBtn) { trainerCtaWired = true; sendBtn.addEventListener('click', sendTrainerPlan); }
+}
+async function sendTrainerPlan(){
+  const L = lng();
+  const btn = document.getElementById('trainer-send');
+  const note = document.getElementById('trainer-sent-note');
+  if (!curTrainerMeta || !curTrainerMeta.plan_id) return;
+  btn.disabled = true; btn.textContent = TT[L].sending;
+  try {
+    const r = await fetch('/api/plans/send', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan_id: curTrainerMeta.plan_id })
+    });
+    const d = await r.json().catch(function(){ return {}; });
+    if (!r.ok || !d.ok) throw new Error(d.error || TT[L].sendErr);
+    planSent = true; lastSentEmailed = !!d.emailed;
+    // No email on file → the API returns the shareable link; copy it so the trainer can pass it on.
+    if (!d.emailed && d.link) { try { await navigator.clipboard.writeText(d.link); } catch (_) {} }
+    btn.textContent = TT[L].sent; btn.disabled = true;
+    if (note) { note.textContent = lastSentNote(L); note.style.color = ''; note.style.display = 'block'; }
+  } catch (e) {
+    btn.disabled = false; btn.textContent = TT[L].send;
+    if (note) { note.textContent = (e && e.message) || TT[L].sendErr; note.style.color = '#b3261e'; note.style.display = 'block'; }
+  }
 }
 
 // --- AI prose (rationale + lifestyle notes) localization -------------------------------------
@@ -364,9 +459,22 @@ async function applyEdit() {
     const sizing = await r.json();
     if (!r.ok) throw new Error(sizing && sizing.error);
 
+    // Trainer preview: persist the edit to the saved draft so the member receives exactly what the
+    // trainer sees here (the resize call above is stateless and only drives the on-screen numbers).
+    if (trainerPreview && curTrainerMeta && curTrainerMeta.plan_id) {
+      const pr = await fetch('/api/plans/edit', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ plan_id: curTrainerMeta.plan_id }, edited))
+      });
+      const pd = await pr.json().catch(function(){ return {}; });
+      if (!pr.ok || !pd.ok) throw new Error((pd && pd.error) || T[L].editErrFail);
+    }
+
     // Apply edited macros + recomputed sizing to the live plan, then re-render everything.
     Object.assign(curPlan, edited, sizing);
-    sessionStorage.setItem('anejo:lastPlan', JSON.stringify({ intake: curIntake, plan: curPlan }));
+    const restash = { intake: curIntake, plan: curPlan };
+    if (curTrainerMeta) restash.trainer = curTrainerMeta;   // keep the send handles across edits / language toggles
+    sessionStorage.setItem('anejo:lastPlan', JSON.stringify(restash));
     render(curIntake, curPlan);
     showMsg(cal < 1500 ? (T[L].editOk + ' ' + T[L].editLow) : T[L].editOk, true);
   } catch (e) {

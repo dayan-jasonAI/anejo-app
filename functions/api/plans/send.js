@@ -34,12 +34,12 @@ export const onRequestPost = async ({ request, env }) => {
     const es = row.lang === 'es';
     const safeName = escHtml(row.client_name || '');
     const body = es
-      ? `<p>Hola ${safeName},</p><p>Tu entrenador preparó tu plan de comidas Añejo personalizado.</p>
-         <p style="text-align:center;margin:26px 0"><a href="${link}" style="background:#C08418;color:#fff;text-decoration:none;padding:13px 26px;border-radius:999px;font-family:Arial,sans-serif">Ver mi plan</a></p>`
-      : `<p>Hi ${safeName},</p><p>Your trainer put together your personalized Añejo meal plan.</p>
-         <p style="text-align:center;margin:26px 0"><a href="${link}" style="background:#C08418;color:#fff;text-decoration:none;padding:13px 26px;border-radius:999px;font-family:Arial,sans-serif">View my plan</a></p>`;
+      ? `<p>Hola ${safeName},</p><p>Tu entrenador preparó tu plan de comidas Añejo personalizado. Revísalo, acéptalo y suscríbete para empezar tus entregas semanales.</p>
+         <p style="text-align:center;margin:26px 0"><a href="${link}" style="background:#C08418;color:#fff;text-decoration:none;padding:13px 26px;border-radius:999px;font-family:Arial,sans-serif">Revisar y aceptar mi plan</a></p>`
+      : `<p>Hi ${safeName},</p><p>Your trainer put together your personalized Añejo meal plan. Review it, accept, and subscribe to start your weekly deliveries.</p>
+         <p style="text-align:center;margin:26px 0"><a href="${link}" style="background:#C08418;color:#fff;text-decoration:none;padding:13px 26px;border-radius:999px;font-family:Arial,sans-serif">Review &amp; accept my plan</a></p>`;
     try {
-      await sendEmail(env, { to: row.client_email, subject: es ? 'Tu plan Añejo' : 'Your Añejo meal plan', html: emailShell(body) });
+      await sendEmail(env, { to: row.client_email, subject: es ? 'Tu plan Añejo está listo' : 'Your Añejo meal plan is ready', html: emailShell(body) });
       emailed = true;
     } catch (_) { /* Resend not configured yet — trainer can share the link manually */ }
   }
