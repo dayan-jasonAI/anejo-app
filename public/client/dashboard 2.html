@@ -48,7 +48,7 @@ h1{font-weight:300;font-size:30px;margin-bottom:4px}h1 strong{color:var(--green)
 <a href="#main" class="skip-link">Skip to content</a>
 <nav><div class="nav-inner">
   <a href="/" class="logo"><img src="/assets/img/emblem.png" alt="Añejo"><span>AÑEJO</span></a>
-  <div class="nav-r"><a href="/order" style="background:var(--gold);color:var(--black);text-decoration:none;border-radius:4px;padding:7px 14px;font:600 11px/1 'Josefin Sans';letter-spacing:1px;text-transform:uppercase;margin-right:8px">Order</a><button id="signout" style="display:none" onclick="signOut()">Sign out</button></div>
+  <div class="nav-r"><button id="signout" style="display:none" onclick="signOut()">Sign out</button></div>
 </div></nav>
 <main class="wrap" id="main"><p class="muted">Loading…</p></main>
 <script>
@@ -126,24 +126,11 @@ async function cancelSub(btn){
   }catch(e){btn.disabled=false;btn.textContent='Cancel subscription';ajPop('Couldn\u2019t cancel automatically \u2014 please contact us. \u26a0\ufe0f');}
 }
 window.cancelSub=cancelSub;
-async function manageSub(op,btn){
-  var ask={pause:'Pause your weekly subscription? Billing and deliveries stop until you resume — no fees.',
-           skip:'Skip next week? That week’s bowls and charge are skipped; deliveries resume the week after.',
-           resume:'Resume your weekly subscription? Fresh bowls and billing start again.'}[op];
-  if(ask&&!confirm(ask))return;
-  var label=btn.textContent;btn.disabled=true;btn.textContent='Working…';
-  try{var r=await fetch('/api/subscriptions/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:op})});
-    var d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'err');
-    ajPop({pause:'Subscription paused. 🌙',skip:'Next week skipped — see you the week after. 🌿',resume:'Welcome back! Subscription resumed. 💚'}[op]||'Done.');init();
-  }catch(e){btn.disabled=false;btn.textContent=label;ajPop('Couldn’t do that automatically — please contact us. ⚠️');}
-}
-window.manageSub=manageSub;
 function render(d,logs){
   $('signout').style.display='inline-block';
   const c=d.client, p=d.plan, s=d.subscription;
   if(!c){$('main').innerHTML='<div class="empty">No plan is linked to '+esc(d.email)+' yet. Ask your trainer to add you.</div>';return;}
   let html='<h1>Hi, <strong>'+esc(c.name||'there')+'</strong>.</h1><div class="sub">Your Añejo plan & subscription.</div>';
-  html+='<a class="btn" href="/order" style="display:inline-block;margin-bottom:18px">Order fresh bowls →</a>';
   if(d.rewards)html+=rewardsCard(d.rewards);
   if(d.today_bowls&&d.today_bowls.length)html+=todayBowlCard(d.today_bowls);
   if(p){html+='<div class="card gold"><div class="k">Your daily targets</div><div class="macros">'+
@@ -154,19 +141,9 @@ function render(d,logs){
     (p.public_token?'<a class="btn" href="/plan.html?token='+encodeURIComponent(p.public_token)+'">View full plan</a>':'')+'</div>';
   } else { html+='<div class="empty">Your plan is being prepared by your trainer.</div>'; }
   html+='<div class="card"><div class="k">Subscription</div>';
-  if(s){var st=String(s.status||'').toLowerCase();
-    html+='<p>Status: <span class="badge '+esc(st)+'">'+esc(st)+'</span> · '+money(s.weekly_amount_cents)+'/week</p>';
-    if(s.skip_through)html+='<p style="font-size:13px;color:var(--green);margin:-2px 0 4px">Skipping a week — deliveries resume after '+esc(s.skip_through)+'. 🌿</p>';
-    if(st==='paused'){
-      html+='<p style="font-size:13px;color:var(--muted);margin:-2px 0 4px">Paused — no deliveries or charges until you resume.</p>'+
-        '<button class="btn" type="button" onclick="manageSub(\'resume\',this)" style="margin-top:6px">Resume subscription</button>';
-    } else if(st==='active'||st==='subscribed'){
-      html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'+
-        '<button class="btn ghost" type="button" onclick="manageSub(\'skip\',this)">Skip next week</button>'+
-        '<button class="btn ghost" type="button" onclick="manageSub(\'pause\',this)">Pause</button>'+
-        '<button class="btn ghost" type="button" onclick="cancelSub(this)" style="border-color:#d8b4b4;color:#8a1c12">Cancel</button>'+
-      '</div>';
-    }
+  if(s){html+='<p>Status: <span class="badge '+esc(s.status)+'">'+esc(s.status)+'</span> · '+money(s.weekly_amount_cents)+'/week</p>';
+    var st=String(s.status||'').toLowerCase();
+    if(st==='active'||st==='subscribed'){html+='<button class="btn ghost" type="button" onclick="cancelSub(this)" style="margin-top:8px;border-color:#d8b4b4;color:#8a1c12">Cancel subscription</button>';}
   }
   else{
     var subQ='/subscribe?client='+encodeURIComponent(c.id)+'&plan='+encodeURIComponent((p&&p.meal_plan_tier)||'plan_12');

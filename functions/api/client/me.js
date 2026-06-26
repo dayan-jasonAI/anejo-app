@@ -21,7 +21,7 @@ export const onRequestGet = async ({ request, env }) => {
     .bind(client.id).first();
   if (plan && plan.per_bowl_price_cents != null) plan.per_bowl_price_usd = plan.per_bowl_price_cents / 100;
   const sub = await env.DB
-    .prepare('SELECT id, status, weekly_amount_cents FROM subscriptions WHERE client_id = ? ORDER BY started_at DESC LIMIT 1')
+    .prepare('SELECT id, status, weekly_amount_cents, windows, tier, paused_at, skip_through FROM subscriptions WHERE client_id = ? ORDER BY started_at DESC LIMIT 1')
     .bind(client.id).first();
 
   // "Your bowl today" — today's scheduled delivery/deliveries (lunch/dinner) with a bowl image.

@@ -106,10 +106,12 @@ async function prepOneSubscription(env, sub, plan, client, todayStr, horizonDays
   const custEmail = (client && client.email) || null;
   const t = now();
 
+  const skipThrough = sub.skip_through || null;    // member skipped a week → don't make those days
   for (let d = rangeStart; dayNum(d) <= dayNum(rangeEnd); d = addDays(d, 1)) {
     const dow = dowOf(d);
     if (!allowedDow.has(dow)) continue;            // off days per tier (Sun always; Sat for 10/5)
     if (dayNum(d) < dayNum(startMonday)) continue; // never before the plan's first Monday
+    if (skipThrough && dayNum(d) <= dayNum(skipThrough)) continue; // inside a skipped week
     // Gap-free delivery-day index for the bowl rotation: full weeks × (this tier's delivery
     // days/week) + the day's position within that tier's delivery days. Keeps the rotation
     // even on Mon–Fri tiers (no phantom Saturday slot).
