@@ -11,28 +11,75 @@
 <link rel="stylesheet" href="/hub/assets/hub.css">
 <style>
   .tcard{border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:14px;margin:10px 0;background:#fff}
-  .tcard .nm{font-weight:800;color:var(--green);font-size:17px}
+  .tcard.off{border-left-color:#bbb;opacity:.72;background:#fafafa}
+  .tcard .nm{font-weight:800;color:var(--green);font-size:17px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
   .tcard .sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .gymline{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;color:#3a5a66;background:#e7eef0;border-radius:8px;padding:3px 9px;margin-top:7px}
   .tcard .amt{font-size:26px;font-weight:800;color:var(--green);margin:8px 0 2px}
   .tcard .amt small{font-size:13px;font-weight:600;color:var(--muted)}
   .meta{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
   .pill{font-size:11px;font-weight:700;background:#eee;color:#555;border-radius:20px;padding:3px 9px}
-  .pill.gold{background:#efe7cf;color:#8a7a2e}.pill.green{background:#e1efe5;color:#1A3D2E}.pill.house{background:#e7eef0;color:#3a5a66}
+  .pill.gold{background:#efe7cf;color:#8a7a2e}.pill.green{background:#e1efe5;color:#1A3D2E}.pill.house{background:#e7eef0;color:#3a5a66}.pill.off{background:#f1d9d6;color:#9a3a30}
   .cli{font-size:13px;display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:1px solid var(--line)}
   .cli:last-child{border-bottom:0}.cli .who{color:var(--ink)}.cli .who small{color:var(--muted)}
   .badge-sub{font-size:10px;font-weight:800;border-radius:10px;padding:2px 7px}
   .badge-sub.active{background:#e1efe5;color:#1A3D2E}.badge-sub.off{background:#eee;color:#777}
   .tot{display:flex;justify-content:space-between;background:var(--cream);border-radius:10px;padding:10px 12px;margin:8px 0;font-weight:700;color:var(--green)}
   .clihead{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:10px 0 2px}
+  .tactions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .tbtn{font-size:12.5px;font-weight:700;border-radius:9px;padding:8px 13px;border:1px solid var(--line);background:#fff;color:var(--green);cursor:pointer}
+  .tbtn:hover{background:var(--cream)}
+  .tbtn.danger{color:#9a3a30;border-color:#e7c6c0}.tbtn.danger:hover{background:#fbeeec}
+  .tbtn.gold{background:var(--gold);border-color:var(--gold);color:#1a1a1a}
+  .seclabel{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:800;margin:22px 0 4px}
+  /* Add / edit modal */
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:18px;z-index:60}
+  .ov.show{display:flex}
+  .sheet{background:#fff;border-radius:16px;max-width:440px;width:100%;max-height:92vh;overflow:auto;padding:20px}
+  .sheet h2{color:var(--green);font-size:19px;margin:0 0 12px}
+  .fld{display:block;margin:11px 0}
+  .fld span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:800;margin-bottom:4px}
+  .fld input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-size:15px;background:var(--cream)}
+  .fld input:disabled{opacity:.6}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin:12px 0 4px}
+  .chk input{width:17px;height:17px}
+  .sheet-act{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
 </style>
 </head>
 <body>
 <div class="hub-bar">
   <h1>AÑEJO · TRAINERS</h1>
-  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+  <div class="hub-bar-actions">
+    <button id="add-btn" type="button" class="tbtn gold">+ <span id="add-lbl">Add trainer</span></button>
+    <button id="lang-toggle" type="button">ES</button>
+  </div>
 </div>
 <div class="hub-wrap"><div id="owner-root" class="hub-loading"><p>Loading trainer partners…</p></div></div>
 <nav id="owner-nav" class="hub-nav"></nav>
+
+<!-- Add / edit partner -->
+<div class="ov" id="ov">
+  <div class="sheet">
+    <h2 id="ov-title">Add trainer</h2>
+    <label class="fld"><span id="f-name-l">Trainer name</span><input id="f-name" type="text" autocomplete="off"></label>
+    <label class="fld"><span id="f-email-l">Email (their login)</span><input id="f-email" type="email" autocomplete="off"></label>
+    <div class="grid2">
+      <label class="fld"><span id="f-gym-l">Gym / studio</span><input id="f-gym" type="text" autocomplete="off"></label>
+      <label class="fld"><span id="f-city-l">Gym city</span><input id="f-city" type="text" autocomplete="off"></label>
+    </div>
+    <div class="grid2">
+      <label class="fld"><span id="f-phone-l">Mobile (optional)</span><input id="f-phone" type="tel" autocomplete="off"></label>
+      <label class="fld"><span id="f-code-l">Affiliate code</span><input id="f-code" type="text" autocomplete="off"></label>
+    </div>
+    <label class="chk" id="f-invite-wrap"><input id="f-invite" type="checkbox" checked><span id="f-invite-l">Email them a sign-in invite now</span></label>
+    <div class="sheet-act">
+      <button class="tbtn" id="ov-cancel" type="button">Cancel</button>
+      <button class="tbtn gold" id="ov-save" type="button">Save</button>
+    </div>
+  </div>
+</div>
+
 <script src="/assets/js/i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
@@ -40,8 +87,59 @@
 (function () {
   Hub.boot();
   var esc = Hub.esc, money = Owner.money;
-  var lt = document.getElementById('lang-toggle');
-  if (lt && window.AnejoLang) { lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES'; lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; }); }
+  var $ = function (id) { return document.getElementById(id); };
+
+  function lng() { return (window.AnejoLang && window.AnejoLang.get() === 'es') ? 'es' : 'en'; }
+  var T = {
+    en: {
+      add: 'Add trainer', edit: 'Edit trainer', cancel: 'Cancel', save: 'Save', saving: 'Saving…',
+      name: 'Trainer name', email: 'Email (their login)', gym: 'Gym / studio', city: 'Gym city',
+      phone: 'Mobile (optional)', code: 'Affiliate code', codeHint: 'auto-generated if blank',
+      invite: 'Email them a sign-in invite now',
+      partners: 'Partners', removed: 'Removed partners', noPartners: 'No trainer partners yet — add your first above.',
+      clients: function (n) { return 'Clients (' + n + ')'; }, noClients: 'No clients yet.',
+      owed: 'commission owed', activeSubs: 'active subs', earned: 'earned', paid: 'paid', clientsN: 'clients',
+      tOwed: '🤝 Commission owed now (all partners)', tWeekly: '📈 Weekly recurring they drive', tPaid: '✓ Commission paid (all time)',
+      subs: 'active subs', house: 'House', off: 'Removed',
+      bEdit: 'Edit', bInvite: 'Re-invite', bRemove: 'Remove', bRestore: 'Restore', bPay: function (m) { return 'Mark ' + m + ' paid'; },
+      houseNote: 'House account — direct/owner clients, no external payout.',
+      confirmRemove: function (n) { return 'Remove ' + n + '? They keep their clients & commission history, but can no longer sign in until you restore them.'; },
+      confirmPay: function (n) { return 'Mark ' + n + '’s pending commission as paid? This records the payout.'; },
+      okAdd: 'Trainer added.', okAddInv: 'Trainer added — invite emailed.', okSaved: 'Saved.', okRemoved: 'Trainer removed.', okRestored: 'Trainer restored.', okInvited: 'Invite emailed.',
+      needEmail: 'Enter a valid email address.', loadErr: 'Could not load trainers.',
+    },
+    es: {
+      add: 'Agregar entrenador', edit: 'Editar entrenador', cancel: 'Cancelar', save: 'Guardar', saving: 'Guardando…',
+      name: 'Nombre del entrenador', email: 'Correo (su acceso)', gym: 'Gimnasio / estudio', city: 'Ciudad del gimnasio',
+      phone: 'Celular (opcional)', code: 'Código de afiliado', codeHint: 'se genera solo si lo dejas vacío',
+      invite: 'Enviarle ahora una invitación de acceso',
+      partners: 'Socios', removed: 'Socios removidos', noPartners: 'Aún no hay entrenadores — agrega el primero arriba.',
+      clients: function (n) { return 'Clientes (' + n + ')'; }, noClients: 'Sin clientes aún.',
+      owed: 'comisión pendiente', activeSubs: 'suscripciones activas', earned: 'ganado', paid: 'pagado', clientsN: 'clientes',
+      tOwed: '🤝 Comisión pendiente ahora (todos)', tWeekly: '📈 Recurrente semanal que generan', tPaid: '✓ Comisión pagada (histórico)',
+      subs: 'suscripciones activas', house: 'Casa', off: 'Removido',
+      bEdit: 'Editar', bInvite: 'Reinvitar', bRemove: 'Remover', bRestore: 'Restaurar', bPay: function (m) { return 'Marcar ' + m + ' pagado'; },
+      houseNote: 'Cuenta de la casa — clientes directos/del dueño, sin pago externo.',
+      confirmRemove: function (n) { return '¿Remover a ' + n + '? Conserva sus clientes e historial de comisión, pero no podrá iniciar sesión hasta que lo restaures.'; },
+      confirmPay: function (n) { return '¿Marcar como pagada la comisión pendiente de ' + n + '? Esto registra el pago.'; },
+      okAdd: 'Entrenador agregado.', okAddInv: 'Entrenador agregado — invitación enviada.', okSaved: 'Guardado.', okRemoved: 'Entrenador removido.', okRestored: 'Entrenador restaurado.', okInvited: 'Invitación enviada.',
+      needEmail: 'Ingresa un correo válido.', loadErr: 'No se pudieron cargar los entrenadores.',
+    }
+  };
+
+  // language toggle
+  var lt = $('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = lng() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = lng() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); });
+  }
+  document.addEventListener('anejo:langchange', function () { syncStaticLabels(); render(); });
+
+  function syncStaticLabels() {
+    var L = T[lng()];
+    $('add-lbl').textContent = L.add;
+    if (lt) lt.textContent = lng() === 'es' ? 'EN' : 'ES';
+  }
 
   function clientRow(c) {
     var on = c.sub_status === 'active';
@@ -50,46 +148,155 @@
       (c.weekly_amount_cents ? ' <b style="color:var(--green)">' + money(c.weekly_amount_cents) + '/wk</b>' : '') + '</span></div>';
   }
 
+  function trainerCard(tr, L) {
+    var off = tr.active === 0;
+    var clients = (tr.clients || []);
+    var clientList = clients.length
+      ? '<div class="clihead">' + L.clients(clients.length) + '</div>' + clients.map(clientRow).join('')
+      : '<div class="row-sub" style="margin-top:8px">' + L.noClients + '</div>';
+
+    var gym = (tr.gym_name || tr.gym_city)
+      ? '<div class="gymline">🏋️ ' + esc(tr.gym_name || '') + (tr.gym_city ? (tr.gym_name ? ' — ' : '') + esc(tr.gym_city) : '') + '</div>'
+      : '';
+
+    var actions = [];
+    if (off) {
+      actions.push('<button class="tbtn gold" onclick="__trAction(\'restore\',\'' + esc(tr.id) + '\')">' + esc(L.bRestore) + '</button>');
+    } else {
+      if (tr.pending_cents > 0 && !tr.is_house) {
+        actions.push('<button class="tbtn gold" onclick="__payTrainer(\'' + esc(tr.id) + '\',\'' + esc((tr.name || 'trainer').replace(/[\\\\']/g, '')) + '\')">' + esc(L.bPay(money(tr.pending_cents))) + '</button>');
+      }
+      actions.push('<button class="tbtn" onclick="__editTrainer(\'' + esc(tr.id) + '\')">' + esc(L.bEdit) + '</button>');
+      if (!tr.is_house) {
+        actions.push('<button class="tbtn" onclick="__trAction(\'invite\',\'' + esc(tr.id) + '\')">' + esc(L.bInvite) + '</button>');
+        actions.push('<button class="tbtn danger" onclick="__removeTrainer(\'' + esc(tr.id) + '\',\'' + esc((tr.name || 'trainer').replace(/[\\\\']/g, '')) + '\')">' + esc(L.bRemove) + '</button>');
+      }
+    }
+    var houseNote = (tr.is_house && tr.pending_cents > 0 && !off) ? '<div class="row-sub" style="margin-top:8px">' + L.houseNote + '</div>' : '';
+
+    return '<div class="tcard' + (off ? ' off' : '') + '"><div class="nm">' + esc(tr.name || tr.email || 'Trainer') +
+      (tr.is_house ? ' <span class="pill house">' + esc(L.house) + '</span>' : '') +
+      (off ? ' <span class="pill off">' + esc(L.off) + '</span>' : '') + '</div>' +
+      '<div class="sub">' + (tr.affiliate_code ? 'Code ' + esc(tr.affiliate_code) : '') + (tr.email ? ' · ' + esc(tr.email) : '') + (tr.phone ? ' · ' + esc(tr.phone) : '') + '</div>' +
+      gym +
+      '<div class="amt">' + money(tr.pending_cents || 0) + ' <small>' + L.owed + '</small></div>' +
+      '<div class="meta"><span class="pill gold">' + (tr.clients_n || 0) + ' ' + L.clientsN + '</span>' +
+      '<span class="pill">' + (tr.active_subs || 0) + ' ' + L.activeSubs + '</span>' +
+      '<span class="pill">' + money(tr.weekly_cents || 0) + '/wk</span>' +
+      '<span class="pill green">' + money(tr.earned_cents || 0) + ' ' + L.earned + '</span>' +
+      (tr.paid_cents > 0 ? '<span class="pill green">' + money(tr.paid_cents) + ' ' + L.paid + '</span>' : '') + '</div>' +
+      clientList + houseNote +
+      '<div class="tactions">' + actions.join('') + '</div></div>';
+  }
+
+  var lastTrainers = [];
   function render() {
     Owner.get('/api/hub/owner/trainers').then(function (d) {
-      var root = document.getElementById('owner-root'); root.className = '';
-      if (!d || !d.ok) { root.innerHTML = '<div class="card"><p class="row-sub">Could not load trainers.</p></div>'; return; }
-      var t = d.totals || {};
+      var L = T[lng()];
+      var root = $('owner-root'); root.className = '';
+      if (!d || !d.ok) { root.innerHTML = '<div class="card"><p class="row-sub">' + L.loadErr + '</p></div>'; return; }
+      lastTrainers = d.trainers || [];
+      var tt = d.totals || {};
       var head = '<div class="hub-section">' +
-        '<div class="tot"><span>🤝 Commission owed now (all partners)</span><span>' + money(t.pending_cents || 0) + '</span></div>' +
-        '<div class="tot"><span>📈 Weekly recurring they drive</span><span>' + money(t.weekly_cents || 0) + ' <span class="row-sub" style="font-weight:400">(' + (t.active_subs || 0) + ' active subs)</span></span></div>' +
-        '<div class="tot"><span>✓ Commission paid (all time)</span><span>' + money(t.paid_cents || 0) + '</span></div></div>';
+        '<div class="tot"><span>' + L.tOwed + '</span><span>' + money(tt.pending_cents || 0) + '</span></div>' +
+        '<div class="tot"><span>' + L.tWeekly + '</span><span>' + money(tt.weekly_cents || 0) + ' <span class="row-sub" style="font-weight:400">(' + (tt.active_subs || 0) + ' ' + L.subs + ')</span></span></div>' +
+        '<div class="tot"><span>' + L.tPaid + '</span><span>' + money(tt.paid_cents || 0) + '</span></div></div>';
 
-      var body = (d.trainers || []).length ? d.trainers.map(function (tr) {
-        var clients = (tr.clients || []);
-        var clientList = clients.length
-          ? '<div class="clihead">Clients (' + clients.length + ')</div>' + clients.map(clientRow).join('')
-          : '<div class="row-sub" style="margin-top:8px">No clients yet.</div>';
-        var payBtn = (tr.pending_cents > 0 && !tr.is_house)
-          ? '<button class="btn gold block" style="margin-top:10px" onclick="__payTrainer(\'' + esc(tr.id) + '\',\'' + esc((tr.name || 'trainer').replace(/\\\\|\'/g, '')) + '\')">Mark ' + money(tr.pending_cents) + ' paid</button>'
-          : (tr.is_house && tr.pending_cents > 0 ? '<div class="row-sub" style="margin-top:8px">House account — direct/owner clients, no external payout.</div>' : '');
-        return '<div class="tcard"><div class="nm">' + esc(tr.name || tr.email || 'Trainer') +
-          (tr.is_house ? ' <span class="pill house">House</span>' : '') + '</div>' +
-          '<div class="sub">' + (tr.affiliate_code ? 'Code ' + esc(tr.affiliate_code) : '') + (tr.gym_name ? ' · ' + esc(tr.gym_name) : '') + (tr.email ? ' · ' + esc(tr.email) : '') + '</div>' +
-          '<div class="amt">' + money(tr.pending_cents || 0) + ' <small>commission owed</small></div>' +
-          '<div class="meta"><span class="pill gold">' + (tr.clients_n || 0) + ' clients</span>' +
-          '<span class="pill">' + (tr.active_subs || 0) + ' active subs</span>' +
-          '<span class="pill">' + money(tr.weekly_cents || 0) + '/wk</span>' +
-          '<span class="pill green">' + money(tr.earned_cents || 0) + ' earned</span>' +
-          (tr.paid_cents > 0 ? '<span class="pill green">' + money(tr.paid_cents) + ' paid</span>' : '') + '</div>' +
-          clientList + payBtn + '</div>';
-      }).join('') : '<div class="hub-empty">No trainer partners yet.</div>';
+      var active = lastTrainers.filter(function (t) { return t.active !== 0; });
+      var removed = lastTrainers.filter(function (t) { return t.active === 0; });
 
-      root.innerHTML = head + '<div class="hub-section"><h2>Partners</h2>' + body + '</div>';
+      var body = active.length ? active.map(function (tr) { return trainerCard(tr, L); }).join('')
+        : '<div class="hub-empty">' + L.noPartners + '</div>';
+      var removedHtml = removed.length
+        ? '<div class="seclabel">' + L.removed + ' (' + removed.length + ')</div>' + removed.map(function (tr) { return trainerCard(tr, L); }).join('')
+        : '';
+
+      root.innerHTML = head + '<div class="hub-section"><h2>' + L.partners + '</h2>' + body + removedHtml + '</div>';
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
   }
-  window.__payTrainer = function (id, name) {
-    if (!window.confirm('Mark ' + (name || 'this trainer') + '’s pending commission as paid? This records the payout.')) return;
-    Hub.api('/api/hub/owner/trainers', { method: 'POST', body: { op: 'mark_paid', trainer_id: id } }).then(function (r) {
-      if (r && r.ok) { Hub.toast('Marked ' + money(r.total_cents || 0) + ' paid (' + (r.marked || 0) + ' invoices)'); render(); } else Hub.toast((r && r.error) || 'Could not mark paid');
+
+  // ---- Add / edit modal ----------------------------------------------------
+  var editId = null; // null = add mode
+  function openModal(tr) {
+    var L = T[lng()];
+    editId = tr ? tr.id : null;
+    $('ov-title').textContent = tr ? L.edit : L.add;
+    $('f-name-l').textContent = L.name; $('f-email-l').textContent = L.email;
+    $('f-gym-l').textContent = L.gym; $('f-city-l').textContent = L.city;
+    $('f-phone-l').textContent = L.phone; $('f-code-l').textContent = L.code;
+    $('f-invite-l').textContent = L.invite; $('ov-cancel').textContent = L.cancel; $('ov-save').textContent = L.save;
+    $('f-name').value = tr ? (tr.name || '') : '';
+    $('f-email').value = tr ? (tr.email || '') : '';
+    $('f-email').disabled = !!tr; // email is the login key — set once at add time
+    $('f-gym').value = tr ? (tr.gym_name || '') : '';
+    $('f-city').value = tr ? (tr.gym_city || '') : '';
+    $('f-phone').value = tr ? (tr.phone || '') : '';
+    $('f-code').value = tr ? (tr.affiliate_code || '') : '';
+    $('f-code').placeholder = L.codeHint;
+    $('f-invite-wrap').style.display = tr ? 'none' : 'flex'; // invite only when adding
+    $('ov').classList.add('show');
+    setTimeout(function () { $('f-name').focus(); }, 30);
+  }
+  function closeModal() { $('ov').classList.remove('show'); editId = null; }
+
+  function saveModal() {
+    var L = T[lng()];
+    var btn = $('ov-save'); btn.disabled = true; btn.textContent = L.saving;
+    var done = function () { btn.disabled = false; btn.textContent = L.save; };
+    var payload = {
+      name: $('f-name').value.trim(),
+      gym_name: $('f-gym').value.trim(),
+      gym_city: $('f-city').value.trim(),
+      phone: $('f-phone').value.trim(),
+      affiliate_code: $('f-code').value.trim(),
+    };
+    if (editId) { payload.op = 'update'; payload.trainer_id = editId; }
+    else {
+      payload.op = 'add';
+      payload.email = $('f-email').value.trim();
+      payload.send_invite = $('f-invite').checked;
+      if (!payload.email || payload.email.indexOf('@') < 1) { done(); Hub.toast(L.needEmail); return; }
+    }
+    Hub.api('/api/hub/owner/trainers', { method: 'POST', body: payload }).then(function (r) {
+      done();
+      if (r && r.ok) {
+        closeModal();
+        Hub.toast(editId ? L.okSaved : (r.invited ? L.okAddInv : L.okAdd));
+        render();
+      } else { Hub.toast((r && r.error) || 'Error'); }
+    });
+  }
+
+  $('add-btn').addEventListener('click', function () { openModal(null); });
+  $('ov-cancel').addEventListener('click', closeModal);
+  $('ov-save').addEventListener('click', saveModal);
+  $('ov').addEventListener('click', function (e) { if (e.target === $('ov')) closeModal(); });
+
+  // ---- row actions (exposed for inline onclick) ----------------------------
+  window.__editTrainer = function (id) { var tr = lastTrainers.filter(function (t) { return t.id === id; })[0]; if (tr) openModal(tr); };
+  window.__removeTrainer = function (id, name) {
+    var L = T[lng()];
+    if (!window.confirm(L.confirmRemove(name || 'this trainer'))) return;
+    Hub.api('/api/hub/owner/trainers', { method: 'POST', body: { op: 'remove', trainer_id: id } }).then(function (r) {
+      if (r && r.ok) { Hub.toast(L.okRemoved); render(); } else Hub.toast((r && r.error) || 'Error');
     });
   };
+  window.__trAction = function (op, id) {
+    var L = T[lng()];
+    Hub.api('/api/hub/owner/trainers', { method: 'POST', body: { op: op, trainer_id: id } }).then(function (r) {
+      if (r && r.ok) { Hub.toast(op === 'invite' ? L.okInvited : L.okRestored); render(); } else Hub.toast((r && r.error) || 'Error');
+    });
+  };
+  window.__payTrainer = function (id, name) {
+    var L = T[lng()];
+    if (!window.confirm(L.confirmPay(name || 'this trainer'))) return;
+    Hub.api('/api/hub/owner/trainers', { method: 'POST', body: { op: 'mark_paid', trainer_id: id } }).then(function (r) {
+      if (r && r.ok) { Hub.toast('✓ ' + money(r.total_cents || 0) + ' (' + (r.marked || 0) + ')'); render(); } else Hub.toast((r && r.error) || 'Error');
+    });
+  };
+
+  syncStaticLabels();
   Owner.init('trainers', render);
 })();
 </script>

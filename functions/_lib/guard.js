@@ -2,10 +2,17 @@
 import { currentUser } from './session.js';
 import { json } from './util.js';
 
-// Returns the trainer session, or null if not authed.
+// Returns the trainer session, or null if not authed (or the partner has been removed).
 export async function trainerSession(env, request) {
   const u = await currentUser(env, request);
-  return u && u.type === 'trainer' && u.uid ? u : null;
+  if (!(u && u.type === 'trainer' && u.uid)) return null;
+  // Honor the owner's "remove": a deactivated partner's live session stops working immediately.
+  // COALESCE + try/catch keep this safe on older DBs that predate the `active` column.
+  try {
+    const row = await env.DB.prepare('SELECT COALESCE(active,1) active FROM trainers WHERE id=?').bind(u.uid).first();
+    if (row && row.active === 0) return null;
+  } catch { /* column missing → treat as active */ }
+  return u;
 }
 
 // Convenience: throws a Response (401) if not a trainer. Usage:

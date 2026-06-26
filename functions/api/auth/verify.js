@@ -31,7 +31,17 @@ export const onRequestGet = async ({ request, env }) => {
   }
 
   if (row.user_type === 'trainer') {
-    let trainer = await env.DB.prepare('SELECT id FROM trainers WHERE email=?').bind(row.user_email).first();
+    // Include active so a removed (deactivated) partner can't sign back in. COALESCE keeps this
+    // working on older DBs without the column; fall back to id-only if the column is absent.
+    let trainer;
+    try {
+      trainer = await env.DB.prepare('SELECT id, COALESCE(active,1) active FROM trainers WHERE email=?').bind(row.user_email).first();
+    } catch {
+      trainer = await env.DB.prepare('SELECT id FROM trainers WHERE email=?').bind(row.user_email).first();
+    }
+    if (trainer && trainer.active === 0) {
+      return redirect(`${base}/portal?error=trainer_removed`);
+    }
     if (!trainer) {
       const tid = id('tr');
       let extra = {};
