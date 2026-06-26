@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Rewards</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .rw-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+  .rw-stat{background:#fff;border:1px solid var(--line,#e5e0d3);border-radius:10px;padding:12px 14px}
+  .rw-stat .v{font-size:22px;font-weight:700;color:var(--green)}
+  .rw-stat .l{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--green);opacity:.7;margin-top:2px}
+  .rw-tier{display:flex;align-items:center;gap:10px;margin:7px 0}
+  .rw-tier .nm{width:78px;font-weight:600;font-size:13px}
+  .rw-bar{flex:1;height:10px;background:var(--cream-d,#eae5d8);border-radius:6px;overflow:hidden}
+  .rw-bar > i{display:block;height:100%;background:var(--gold,#c8a24a)}
+  .rw-tier .ct{width:34px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .field label{font-size:12px}
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · REWARDS</h1>
+</div>
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading rewards…</p></div>
+</div>
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var esc = Hub.esc, $ = Hub.$, money = Owner.money;
+  var CFG = null;
+
+  function d2(n){ return (Math.round(Number(n)*100)/100); }
+
+  function render() {
+    Owner.get('/api/hub/owner/rewards').then(function (d) {
+      var root = document.getElementById('owner-root'); root.className = '';
+      if (!d || !d.ok) { root.innerHTML = '<div class="card accent"><p data-i18n>Could not load rewards.</p></div>'; return; }
+      CFG = d.config;
+      var s = d.stats || {}, t = s.tiers || {};
+      var maxTier = Math.max(1, t.vital||0, t.thriving||0, t.legend||0, t.immortal||0);
+      function tierRow(k, nm){ var c=t[k]||0; return '<div class="rw-tier"><span class="nm">'+nm+'</span><span class="rw-bar"><i style="width:'+Math.round((c/maxTier)*100)+'%"></i></span><span class="ct">'+c+'</span></div>'; }
+
+      var html = '';
+      // ── Program stats ──
+      html += '<div class="hub-section"><h2 data-i18n>Program at a glance</h2><div class="rw-stats">'+
+        '<div class="rw-stat"><div class="v">'+(s.members||0)+'</div><div class="l" data-i18n>Members</div></div>'+
+        '<div class="rw-stat"><div class="v">'+(s.outstanding||0).toLocaleString()+'</div><div class="l" data-i18n>Points out</div></div>'+
+        '<div class="rw-stat"><div class="v">'+(s.earned||0).toLocaleString()+'</div><div class="l" data-i18n>Earned</div></div>'+
+        '<div class="rw-stat"><div class="v">'+(s.redeemed||0).toLocaleString()+'</div><div class="l" data-i18n>Redeemed</div></div>'+
+        '<div class="rw-stat"><div class="v">'+(s.redemptions||0)+'</div><div class="l" data-i18n>Redemptions</div></div>'+
+        '</div></div>';
+
+      // ── Tier distribution ──
+      html += '<div class="hub-section"><h2 data-i18n>Members by tier</h2><div class="card">'+
+        tierRow('vital','Vital')+tierRow('thriving','Thriving')+tierRow('legend','Legend')+tierRow('immortal','Immortal')+'</div></div>';
+
+      // ── Top members ──
+      var top = d.top || [];
+      html += '<div class="hub-section"><h2 data-i18n>Top members</h2><div class="list">'+
+        (top.length ? top.map(function(m){ return '<div class="row"><div class="row-main"><div class="row-title">'+esc(m.email)+'</div></div><div class="cust-right"><b>'+(m.bal||0).toLocaleString()+' pts</b></div></div>'; }).join('')
+          : '<div class="card"><p class="row-sub" data-i18n>No members yet.</p></div>')+'</div></div>';
+
+      // ── Settings ──
+      var c = CFG;
+      html += '<div class="hub-section"><h2 data-i18n>Settings</h2><div class="card">'+
+        '<div class="grid2">'+
+          '<div class="field"><label data-i18n>Points per $1 spent</label><input id="earn" type="number" step="0.25" min="0.1" value="'+d2(c.earn_per_dollar)+'"></div>'+
+          '<div class="field"><label data-i18n>Points per $1 redeemed</label><input id="redeem" type="number" step="1" min="1" value="'+d2(c.redeem_per_dollar)+'"></div>'+
+        '</div>'+
+        '<div class="field"><label data-i18n>Free delivery from tier</label><select id="fd">'+
+          ['off','thriving','legend','immortal'].map(function(o){ return '<option value="'+o+'"'+(c.free_delivery_min_tier===o?' selected':'')+'>'+(o==='off'?'Off':o.charAt(0).toUpperCase()+o.slice(1))+'</option>'; }).join('')+
+        '</select></div>'+
+        '<p class="row-sub" style="margin:10px 0 4px"><b data-i18n>Tier thresholds (lifetime $) &amp; earn multiplier</b></p>'+
+        '<div class="grid2">'+
+          '<div class="field"><label>Thriving $</label><input id="th_thr" type="number" step="10" min="0" value="'+Math.round((c.thresholds.thriving)/100)+'"></div>'+
+          '<div class="field"><label>Thriving ×</label><input id="mu_thr" type="number" step="0.05" min="1" value="'+d2(c.mults.thriving)+'"></div>'+
+          '<div class="field"><label>Legend $</label><input id="th_leg" type="number" step="10" min="0" value="'+Math.round((c.thresholds.legend)/100)+'"></div>'+
+          '<div class="field"><label>Legend ×</label><input id="mu_leg" type="number" step="0.05" min="1" value="'+d2(c.mults.legend)+'"></div>'+
+          '<div class="field"><label>Immortal $</label><input id="th_imm" type="number" step="10" min="0" value="'+Math.round((c.thresholds.immortal)/100)+'"></div>'+
+          '<div class="field"><label>Immortal ×</label><input id="mu_imm" type="number" step="0.05" min="1" value="'+d2(c.mults.immortal)+'"></div>'+
+        '</div>'+
+        '<button class="btn gold block" id="save" type="button" data-i18n>Save settings</button>'+
+        '<div id="saveMsg" class="row-sub" style="margin-top:8px;min-height:1px" role="status"></div>'+
+        '</div></div>';
+
+      root.innerHTML = html;
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+      $('#save').addEventListener('click', save);
+    });
+  }
+
+  function numv(id){ var v = parseFloat(($(id)||{}).value); return Number.isFinite(v) ? v : null; }
+
+  function save() {
+    var btn = $('#save'); btn.disabled = true;
+    var body = {
+      earn_per_dollar: numv('#earn'),
+      redeem_per_dollar: numv('#redeem'),
+      free_delivery_min_tier: ($('#fd')||{}).value,
+      thresholds: { thriving: Math.round((numv('#th_thr')||0)*100), legend: Math.round((numv('#th_leg')||0)*100), immortal: Math.round((numv('#th_imm')||0)*100) },
+      mults: { thriving: numv('#mu_thr'), legend: numv('#mu_leg'), immortal: numv('#mu_imm') }
+    };
+    Hub.api('/api/hub/owner/rewards', { method: 'POST', body: body }).then(function (r) {
+      btn.disabled = false;
+      if (r && r.ok) { $('#saveMsg').textContent = 'Saved. New rates apply to the next order.'; Hub.toast('Rewards settings saved'); }
+      else { $('#saveMsg').textContent = (r && r.error) || 'Could not save.'; }
+    });
+  }
+
+  Owner.init('rewards', render);
+})();
+</script>
+</body>
+</html>

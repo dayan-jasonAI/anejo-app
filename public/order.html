@@ -457,7 +457,9 @@ let cz = null;     // working instance while the modal is open
 let czEdit = -1;   // index into bowls[] when editing an existing line; -1 = adding new
 let czQ = 1;       // quantity when adding
 let rewardsBalance = 0;     // signed-in client's points balance (0 = guest / none)
-let rewardsTier = '';       // signed-in client's tier key (Thriving+ → free delivery)
+let rewardsTier = '';       // signed-in client's tier key
+let rewardsFreeDeliv = false; // owner-configured free-delivery perk for this client
+let rewardsPointCents = 5;  // value of 1 point in cents (owner-tunable)
 let rewardsRedeemPts = 0;   // points applied to THIS order (sent at checkout)
 function bowlBaseCents(key){ return Math.round((PRICE[key]?PRICE[key].price:0)*100); }
 function extraCentsOf(e){
@@ -567,15 +569,15 @@ function renderCart(){
   lines.innerHTML = html;
   const total = totalCents/100;
   const belowMin = total < ORDER_MIN;
-  const freeDeliv = !!rewardsTier && rewardsTier !== 'vital' && !belowMin;
+  const freeDeliv = rewardsFreeDeliv && !belowMin;
   const fee = (belowMin || freeDeliv) ? 0 : DELIVERY_FEE;
   // Añejo Rewards redemption — signed-in client only; 20 pts = $1 (1 pt = $0.05), capped at subtotal.
   var rewardsRow = $('rewardsRow'), applyEl = $('applyRewards');
   var discount = 0; rewardsRedeemPts = 0;
   if (rewardsBalance > 0 && !belowMin) {
     rewardsRow.style.display = 'flex';
-    var maxDisc = Math.min(Math.floor(rewardsBalance * 5) / 100, total);
-    if (applyEl && applyEl.checked) { discount = maxDisc; rewardsRedeemPts = Math.ceil(discount * 100 / 5); }
+    var maxDisc = Math.min(Math.floor(rewardsBalance * rewardsPointCents) / 100, total);
+    if (applyEl && applyEl.checked) { discount = maxDisc; rewardsRedeemPts = Math.ceil(discount * 100 / rewardsPointCents); }
     $('rewardsLabel').textContent = L('Apply Rewards ('+rewardsBalance+' pts \u2192 \u2212'+money(maxDisc)+')',
                                       'Usar Rewards ('+rewardsBalance+' pts \u2192 \u2212'+money(maxDisc)+')');
     $('cartDiscount').textContent = '\u2212'+money(discount);
@@ -654,6 +656,8 @@ async function loadRewards(){
     if (me && me.authenticated && me.rewards){
       rewardsBalance = me.rewards.points || 0;
       rewardsTier = me.rewards.tier || '';
+      rewardsFreeDeliv = !!me.rewards.free_delivery;
+      rewardsPointCents = me.rewards.redeem_point_cents || 5;
       var ae = $('applyRewards'); if (ae) ae.addEventListener('change', renderCart);
       renderCart();
     }

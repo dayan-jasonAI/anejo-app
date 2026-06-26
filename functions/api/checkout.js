@@ -8,7 +8,7 @@ import { geocode, formatAddress } from '../_lib/geo.js';
 import { BOWL_IDS, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 import { currentUser } from '../_lib/session.js';
-import { rewardsSummary, maxRedeemCents, pointsForCents } from '../_lib/rewards.js';
+import { rewardsSummary } from '../_lib/rewards.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -261,11 +261,12 @@ export const onRequestPost = async ({ request, env }) => {
     if (sess && sess.type === 'client' && sess.email) {
       sessEmail = String(sess.email).trim().toLowerCase();
       const sum = await rewardsSummary(env, sessEmail);
-      if (sum.tier !== 'vital') feeCents = 0;   // Thriving+ tier perk: free delivery
+      if (sum.free_delivery) feeCents = 0;   // owner-configured tier perk: free delivery
       const want = Math.floor(Number(b.redeem_points) || 0);
       if (want > 0) {
-        discountCents = maxRedeemCents(Math.min(want, sum.points), subtotalCents);
-        redeemPts = pointsForCents(discountCents);
+        const pc = sum.redeem_point_cents || 5;
+        discountCents = Math.floor(Math.max(0, Math.min(Math.min(want, sum.points) * pc, subtotalCents)));
+        redeemPts = Math.ceil(discountCents / pc);
       }
     }
   } catch (_) { redeemPts = 0; discountCents = 0; }

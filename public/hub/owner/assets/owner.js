@@ -11,6 +11,7 @@
   var NAV = [
     { view: 'overview', href: '/hub/owner/', ico: '◎', label: 'Overview' },
     { view: 'customers', href: '/hub/owner/customers.html', ico: '🧑‍🤝‍🧑', label: 'Customers' },
+    { view: 'rewards', href: '/hub/owner/rewards.html', ico: '🎁', label: 'Rewards' },
     { view: 'deliveries', href: '/hub/owner/deliveries.html', ico: '🚚', label: 'Deliveries' },
     { view: 'kitchen', href: '/hub/owner/kitchen.html', ico: '🍳', label: 'Kitchen' },
     { view: 'staff', href: '/hub/owner/staff.html', ico: '👥', label: 'Staff' },
