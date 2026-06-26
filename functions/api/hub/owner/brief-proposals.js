@@ -32,7 +32,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (!id) return bad('Missing proposal id.');
   if (!['approve', 'reject', 'needs_info'].includes(decision)) return bad("decision must be 'approve', 'reject', or 'needs_info'.");
 
-  const res = await decideProposal(env, { id, decision, owner, note: b && b.note });
+  const res = await decideProposal(env, { id, decision, owner, role: ctx.role, note: b && b.note });
   if (res.error) return bad(res.error, 409);
 
   await capture(env, {

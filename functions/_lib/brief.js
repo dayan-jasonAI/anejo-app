@@ -104,7 +104,11 @@ export async function listMyProposals(env, staffId) {
 
 // OWNER-ONLY (enforce requireRole(['owner']) in the calling endpoint). Approve = snapshot prior
 // body → overwrite the brand doc (version+1). Reject = mark rejected. Idempotent on non-pending.
-export async function decideProposal(env, { id: propId, decision, owner, note }) {
+export async function decideProposal(env, { id: propId, decision, owner, role, note }) {
+  // Defense-in-depth: ONLY the owner may decide a Brief change (approve overwrites the live Brief).
+  // The calling route already gates to requireRole(['owner']); enforcing it here too guarantees no
+  // future caller can ever overwrite the Brand & Standards Brief without an owner role.
+  if (role !== 'owner') return { error: 'Only the owner can decide a Brief change.' };
   const p = await env.DB.prepare('SELECT * FROM brief_proposals WHERE id = ?').bind(propId).first();
   if (!p) return { error: 'Proposal not found.' };
   if (p.status !== 'pending') return { error: `Already ${p.status}.` };
