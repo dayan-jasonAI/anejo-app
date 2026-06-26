@@ -48,7 +48,7 @@ h1{font-weight:300;font-size:30px;margin-bottom:4px}h1 strong{color:var(--green)
 <a href="#main" class="skip-link">Skip to content</a>
 <nav><div class="nav-inner">
   <a href="/" class="logo"><img src="/assets/img/emblem.png" alt="Añejo"><span>AÑEJO</span></a>
-  <div class="nav-r"><button id="signout" style="display:none" onclick="signOut()">Sign out</button></div>
+  <div class="nav-r"><a href="/order" style="background:var(--gold);color:var(--black);text-decoration:none;border-radius:4px;padding:7px 14px;font:600 11px/1 'Josefin Sans';letter-spacing:1px;text-transform:uppercase;margin-right:8px">Order</a><button id="signout" style="display:none" onclick="signOut()">Sign out</button></div>
 </div></nav>
 <main class="wrap" id="main"><p class="muted">Loading…</p></main>
 <script>
@@ -131,6 +131,7 @@ function render(d,logs){
   const c=d.client, p=d.plan, s=d.subscription;
   if(!c){$('main').innerHTML='<div class="empty">No plan is linked to '+esc(d.email)+' yet. Ask your trainer to add you.</div>';return;}
   let html='<h1>Hi, <strong>'+esc(c.name||'there')+'</strong>.</h1><div class="sub">Your Añejo plan & subscription.</div>';
+  html+='<a class="btn" href="/order" style="display:inline-block;margin-bottom:18px">Order fresh bowls →</a>';
   if(d.rewards)html+=rewardsCard(d.rewards);
   if(d.today_bowls&&d.today_bowls.length)html+=todayBowlCard(d.today_bowls);
   if(p){html+='<div class="card gold"><div class="k">Your daily targets</div><div class="macros">'+
