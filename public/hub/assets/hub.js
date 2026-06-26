@@ -274,14 +274,54 @@
     return Hub;
   };
 
+  // ---------- new-message chime ----------
+  // A short two-tone ping when the unread count rises, so staff hear new in-app messages even
+  // when the tab isn't focused. Browsers gate audio behind a user gesture, so we prime an
+  // AudioContext on the first interaction; after that it can play from a background tab.
+  var _audioCtx = null, _lastUnread = null;
+  function primeAudio() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      if (!_audioCtx) _audioCtx = new Ctx();
+      if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    } catch (e) { /* no audio */ }
+  }
+  ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
+    document.addEventListener(ev, primeAudio, { passive: true });
+  });
+  Hub.playChime = function () {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      if (!_audioCtx) _audioCtx = new Ctx();
+      if (_audioCtx.state === 'suspended') _audioCtx.resume();
+      var t0 = _audioCtx.currentTime;
+      [[659.25, 0], [880.0, 0.12]].forEach(function (p) { // E5 → A5
+        var o = _audioCtx.createOscillator(), g = _audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = p[0];
+        o.connect(g); g.connect(_audioCtx.destination);
+        var s = t0 + p[1];
+        g.gain.setValueAtTime(0.0001, s);
+        g.gain.exponentialRampToValueAtTime(0.28, s + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, s + 0.30);
+        o.start(s); o.stop(s + 0.32);
+      });
+      if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) { /* ignore */ } }
+    } catch (e) { /* audio blocked — the push notification still covers it */ }
+  };
+
   // Global unread-messages badge: any link to /hub/comms.html gets a count pill, and the
   // ☰ account button gets a dot. Quietly no-ops pre-deploy (404) or signed-out (401).
+  // When the unread count RISES (not on the first poll), ring the chime.
   Hub.refreshUnreadBadge = function () {
     return fetch('/api/hub/comms/unread', { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         if (!d || !d.ok) return;
         var n = Number(d.count) || 0;
+        if (_lastUnread != null && n > _lastUnread) Hub.playChime();
+        _lastUnread = n;
         var links = document.querySelectorAll('a[href="/hub/comms.html"], a[href="/hub/comms"]');
         Array.prototype.forEach.call(links, function (a) {
           var b = a.querySelector('.hub-unread');
@@ -381,7 +421,9 @@
   function autoMount() {
     Hub.mountAccountButton();
     Hub.refreshUnreadBadge();
-    setInterval(Hub.refreshUnreadBadge, 60000); // refresh the badge once a minute
+    setInterval(Hub.refreshUnreadBadge, 15000); // poll often so new-message chimes feel live
+    // Refresh the moment the tab is refocused (catches anything that arrived while away).
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) Hub.refreshUnreadBadge(); });
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', autoMount);

@@ -10,7 +10,7 @@
    - web push             → "tickle" pattern: pushes carry no payload; on push we fetch
                             /api/hub/push/peek (cookie-authed) and render the notification.
    Bump CACHE on shell changes to invalidate. */
-const CACHE = 'anejo-hub-v5';
+const CACHE = 'anejo-hub-v6';
 const SHELL = [
   '/hub/',
   '/hub/index.html',
@@ -108,7 +108,9 @@ self.addEventListener('push', (event) => {
           icon: '/assets/img/emblem.png',
           badge: '/assets/img/emblem.png',
           tag: 'anejo-hub',
-          data: { url: '/hub/' },
+          renotify: true,           // re-alert (sound/vibrate) on each message, don't replace silently
+          vibrate: [80, 40, 80],
+          data: { url: '/hub/comms.html' },
         });
       })
       .catch(() =>
@@ -116,7 +118,9 @@ self.addEventListener('push', (event) => {
           body: 'You have a new update.',
           icon: '/assets/img/emblem.png',
           tag: 'anejo-hub',
-          data: { url: '/hub/' },
+          renotify: true,
+          vibrate: [80, 40, 80],
+          data: { url: '/hub/comms.html' },
         })
       )
   );
