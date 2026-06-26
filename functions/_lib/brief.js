@@ -85,11 +85,21 @@ export async function createProposal(env, { docId, sessionId, staff, role, title
 }
 
 export async function listProposals(env, status) {
-  let q = 'SELECT id, doc_id, session_id, proposed_by, proposed_role, title, rationale, proposed_body, status, decided_by, decided_at, decision_note, created_at FROM brief_proposals';
+  let q = 'SELECT bp.id, bp.doc_id, bp.session_id, bp.proposed_by, bp.proposed_role, bp.title, bp.rationale, bp.proposed_body, bp.status, bp.decided_by, bp.decided_at, bp.decision_note, bp.created_at, st.name AS proposed_name FROM brief_proposals bp LEFT JOIN staff st ON st.id = bp.proposed_by';
   const binds = [];
-  if (['pending', 'approved', 'rejected'].includes(status)) { q += ' WHERE status = ?'; binds.push(status); }
-  q += ' ORDER BY created_at DESC LIMIT 100';
+  if (['pending', 'approved', 'rejected', 'needs_info'].includes(status)) { q += ' WHERE bp.status = ?'; binds.push(status); }
+  q += ' ORDER BY bp.created_at DESC LIMIT 100';
   try { const r = await env.DB.prepare(q).bind(...binds).all(); return (r && r.results) || []; } catch { return []; }
+}
+
+// A staffer's own proposals + the owner's decision/note — so they get feedback on what they submitted.
+export async function listMyProposals(env, staffId) {
+  try {
+    const r = await env.DB.prepare(
+      'SELECT id, title, rationale, status, decision_note, decided_at, created_at FROM brief_proposals WHERE proposed_by = ? ORDER BY created_at DESC LIMIT 30'
+    ).bind(staffId || '').all();
+    return (r && r.results) || [];
+  } catch { return []; }
 }
 
 // OWNER-ONLY (enforce requireRole(['owner']) in the calling endpoint). Approve = snapshot prior
@@ -101,10 +111,13 @@ export async function decideProposal(env, { id: propId, decision, owner, note })
   const t = now();
   const ownerId = owner ? owner.id : null;
 
-  if (decision === 'reject') {
+  // Reject or send back for more info: record the owner's note (visible to the staffer) WITHOUT
+  // touching the Brief. 'needs_info' = the owner wants changes/clarification before deciding.
+  if (decision === 'reject' || decision === 'needs_info') {
+    const status = decision === 'reject' ? 'rejected' : 'needs_info';
     await env.DB.prepare('UPDATE brief_proposals SET status=?, decided_by=?, decided_at=?, decision_note=?, updated_at=? WHERE id=?')
-      .bind('rejected', ownerId, t, note ? String(note).slice(0, 500) : null, t, propId).run();
-    return { ok: true, status: 'rejected' };
+      .bind(status, ownerId, t, note ? String(note).slice(0, 500) : null, t, propId).run();
+    return { ok: true, status };
   }
   if (decision !== 'approve') return { error: 'Unknown decision.' };
 

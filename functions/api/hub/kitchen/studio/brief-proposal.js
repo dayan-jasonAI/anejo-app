@@ -6,7 +6,17 @@
 import { json, bad } from '../../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
-import { draftBriefChange, createProposal, BRAND_DOC_ID } from '../../../../_lib/brief.js';
+import { draftBriefChange, createProposal, listMyProposals, BRAND_DOC_ID } from '../../../../_lib/brief.js';
+
+// GET → the current staffer's own proposals + the owner's decision/note (their feedback loop).
+export const onRequestGet = async ({ request, env }) => {
+  if (!env.DB) return bad('Database not configured.', 500);
+  const ctx = await requireRole(request, env, ['kitchen', 'owner']);
+  if (ctx instanceof Response) return ctx;
+  const staff = await currentStaff(env, request);
+  const proposals = await listMyProposals(env, staff ? staff.id : '');
+  return json({ ok: true, proposals });
+};
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);

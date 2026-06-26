@@ -20,6 +20,7 @@
   .bp .bp-note { width:100%; font:inherit; font-size:14px; border:1px solid var(--line,#e7e2d6); border-radius:8px; padding:9px 11px; margin:10px 0; background:#faf8f2; }
   .bp .bp-actions { display:flex; gap:10px; }
   .bp .bp-approve { flex:1; background:linear-gradient(135deg,#1A3D2E,#0d2419); color:#fff; border:none; border-radius:999px; padding:11px 16px; font-weight:700; cursor:pointer; }
+  .bp .bp-info { background:#fff; color:#8b6b3e; border:1px solid #d8c79a; border-radius:999px; padding:11px 16px; font-weight:700; cursor:pointer; }
   .bp .bp-reject { background:#fff; color:#9b2226; border:1px solid #e3b7b7; border-radius:999px; padding:11px 16px; font-weight:700; cursor:pointer; }
   .bp-warn { font-size:12px; color:#8a6d1f; background:#fbf3da; border:1px solid #e7d9a6; border-radius:8px; padding:9px 12px; margin-bottom:14px; line-height:1.45; }
 </style>
@@ -52,10 +53,14 @@
 
   function decide(id, decision, btn) {
     var note = (document.getElementById('note-' + id) || {}).value || '';
+    if (decision !== 'approve' && !note.trim()) {
+      Hub.toast(decision === 'needs_info' ? 'Add a note telling staff what you need' : 'Add a reason for the staff member');
+      return;
+    }
     btn.disabled = true;
     Hub.api('/api/hub/owner/brief-proposals', { method: 'POST', body: { id: id, decision: decision, note: note } }).then(function (r) {
       if (r && r.ok) {
-        Hub.toast(decision === 'approve' ? 'Approved — Brief updated' : 'Rejected');
+        Hub.toast(decision === 'approve' ? 'Approved — Brief updated' : decision === 'needs_info' ? 'Sent back to staff for more info' : 'Rejected — staff notified');
         load();
       } else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not update'); }
     });
@@ -73,12 +78,13 @@
     root.innerHTML = warn + items.map(function (p) {
       return '<div class="bp">'
         + '<h3>' + esc(p.title || 'Brief change') + '</h3>'
-        + '<div class="bp-meta">Proposed by ' + esc(p.proposed_role || 'staff') + ' · ' + fmtDate(p.created_at) + '</div>'
+        + '<div class="bp-meta">Proposed by ' + esc(p.proposed_name || p.proposed_role || 'staff') + (p.proposed_name ? ' (' + esc(p.proposed_role || 'staff') + ')' : '') + ' · ' + fmtDate(p.created_at) + '</div>'
         + (p.rationale ? '<div class="bp-rat">' + esc(p.rationale) + '</div>' : '')
         + '<details><summary>View full proposed Brief</summary><pre>' + esc(p.proposed_body || '') + '</pre></details>'
-        + '<input id="note-' + esc(p.id) + '" class="bp-note" placeholder="Decision note (optional)">'
+        + '<input id="note-' + esc(p.id) + '" class="bp-note" placeholder="Note to staff (required to reject or request more info)">'
         + '<div class="bp-actions">'
         + '<button class="bp-approve" onclick="_bpDecide(\'' + esc(p.id) + '\',\'approve\',this)">Approve &amp; update Brief</button>'
+        + '<button class="bp-info" onclick="_bpDecide(\'' + esc(p.id) + '\',\'needs_info\',this)">Request more info</button>'
         + '<button class="bp-reject" onclick="_bpDecide(\'' + esc(p.id) + '\',\'reject\',this)">Reject</button>'
         + '</div></div>';
     }).join('');
