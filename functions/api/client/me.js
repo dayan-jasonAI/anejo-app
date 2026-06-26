@@ -12,7 +12,7 @@ export const onRequestGet = async ({ request, env }) => {
   const rewards = await rewardsSummary(env, sess.email);
 
   const client = await env.DB
-    .prepare('SELECT id, name, email, primary_goal, status FROM clients WHERE email = ? ORDER BY updated_at DESC LIMIT 1')
+    .prepare('SELECT id, name, email, phone, primary_goal, status FROM clients WHERE email = ? ORDER BY updated_at DESC LIMIT 1')
     .bind(sess.email).first();
   if (!client) return json({ authenticated: true, email: sess.email, client: null, rewards });
 
@@ -49,5 +49,24 @@ export const onRequestGet = async ({ request, env }) => {
     }).filter((x) => x.bowl);
   } catch { todayBowls = []; }
 
-  return json({ authenticated: true, email: sess.email, client, plan, subscription: sub || null, rewards, today_bowls: todayBowls });
+  // Prefill for /order — name/phone from profile, delivery address from the most recent order
+  // so returning clients don't retype everything.
+  let prefill = null;
+  try {
+    const last = await env.DB.prepare(
+      "SELECT customer_name, customer_phone, delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes " +
+      "FROM orders WHERE LOWER(TRIM(customer_email))=? AND delivery_street IS NOT NULL AND TRIM(delivery_street)<>'' ORDER BY created_at DESC LIMIT 1"
+    ).bind(String(sess.email).trim().toLowerCase()).first();
+    prefill = {
+      name: client.name || (last && last.customer_name) || null,
+      phone: client.phone || (last && last.customer_phone) || null,
+      address: last ? {
+        street: last.delivery_street || null, unit: last.delivery_unit || null,
+        city: last.delivery_city || null, state: last.delivery_state || null,
+        zip: last.delivery_zip || null, notes: last.delivery_notes || null,
+      } : null,
+    };
+  } catch { prefill = null; }
+
+  return json({ authenticated: true, email: sess.email, client, plan, subscription: sub || null, rewards, today_bowls: todayBowls, prefill });
 };

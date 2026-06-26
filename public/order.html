@@ -151,7 +151,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
 <nav>
   <div class="nav-inner">
     <a href="/" class="logo"><img class="logo-emblem" src="/assets/img/emblem.png" alt="Añejo emblem"><span>AÑEJO</span></a>
-    <a href="/" class="nav-back">← Back to site</a>
+    <span style="display:flex;gap:16px;align-items:center"><a href="/client/dashboard" class="nav-back" id="navAccount" style="display:none">My account</a><a href="/" class="nav-back">← Back to site</a></span>
   </div>
 </nav>
 
@@ -653,7 +653,15 @@ async function checkout(){
 async function loadRewards(){
   try{
     var me = await (await fetch('/api/client/me')).json();
-    if (me && me.authenticated && me.rewards){
+    if (!me || !me.authenticated) return;
+    var acct = $('navAccount'); if (acct) acct.style.display='';
+    if (me.prefill){
+      var pf = me.prefill;
+      var setIf = function(id, v){ var el = $(id); if (el && !el.value && v) el.value = v; };
+      setIf('custName', pf.name); setIf('custPhone', pf.phone);
+      if (pf.address){ setIf('addrStreet', pf.address.street); setIf('addrUnit', pf.address.unit); setIf('addrCity', pf.address.city); setIf('addrState', pf.address.state); setIf('addrZip', pf.address.zip); setIf('addrNotes', pf.address.notes); }
+    }
+    if (me.rewards){
       rewardsBalance = me.rewards.points || 0;
       rewardsTier = me.rewards.tier || '';
       rewardsFreeDeliv = !!me.rewards.free_delivery;
