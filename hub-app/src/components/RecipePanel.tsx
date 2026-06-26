@@ -9,9 +9,17 @@ export function RecipePanel({ sessionId, onClose }: { sessionId: string | null; 
   const [draft, setDraft] = useState<RecipeDraft | null>(null);
   const [name, setName] = useState('');
   const [demo, setDemo] = useState(false);
+  const [reason, setReason] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
   const [err, setErr] = useState('');
+
+  function reasonText() {
+    if (reason === 'empty_session') return t('recipeReasonEmpty');
+    if (reason === 'ai_truncated') return t('recipeReasonTruncated');
+    if (reason === 'no_key') return t('recipeReasonKey');
+    return t('recipeReasonAI'); // ai_http_*, ai_unparseable, ai_exception, unknown
+  }
 
   async function runDraft() {
     if (!sessionId) {
@@ -30,6 +38,7 @@ export function RecipePanel({ sessionId, onClose }: { sessionId: string | null; 
     setDraft(res.draft);
     setName(res.draft.name || '');
     setDemo(!!res.demo);
+    setReason(res.reason || '');
   }
 
   async function publish() {
@@ -83,9 +92,16 @@ export function RecipePanel({ sessionId, onClose }: { sessionId: string | null; 
             </div>
           ) : (
             <div className="rp-draft">
+              {demo ? (
+                <div className="cp-err rp-warn">
+                  <strong>⚠ {t('recipeDemoTitle')}</strong>
+                  <div>{reasonText()}</div>
+                  <div className="rp-warn-block">{t('recipeDemoBlock')}</div>
+                </div>
+              ) : null}
               <label>{t('recipeName')}</label>
               <input className="rp-name" value={name} onChange={(e) => setName(e.currentTarget.value)} />
-              {draft.summary ? <p className="rp-summary">{draft.summary}</p> : null}
+              {draft.summary && !demo ? <p className="rp-summary">{draft.summary}</p> : null}
               {draft.ingredients && draft.ingredients.length ? (
                 <>
                   <label>{t('recipeIngredients')}</label>
@@ -110,7 +126,7 @@ export function RecipePanel({ sessionId, onClose }: { sessionId: string | null; 
                 <button type="button" className="cp-copybtn" disabled={publishing} onClick={runDraft}>
                   {t('recipeDraft')}
                 </button>
-                <button type="button" className="cp-go" disabled={publishing} onClick={publish}>
+                <button type="button" className="cp-go" disabled={publishing || demo} onClick={publish}>
                   {publishing ? t('recipePublishing') : t('recipePublish')}
                 </button>
               </div>

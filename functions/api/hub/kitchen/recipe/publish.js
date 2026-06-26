@@ -20,6 +20,10 @@ export const onRequestPost = async ({ request, env }) => {
 
   const recipe = await env.DB.prepare('SELECT * FROM recipes WHERE id = ?').bind(recipeId).first();
   if (!recipe) return bad('Recipe not found.', 404);
+  // Defense in depth: a demo placeholder must never reach the library.
+  if (typeof recipe.summary === 'string' && recipe.summary.indexOf('Demo draft —') === 0) {
+    return bad('This is a demo draft, not a finished recipe — re-draft it in Studio before publishing.');
+  }
 
   const ts = now();
   const roleScope = Array.isArray(b && b.role_scope) ? b.role_scope : ['kitchen', 'owner'];

@@ -144,8 +144,11 @@ export interface RecipeDraft {
   tags?: string[];
 }
 
-// Ask the AI to draft a structured recipe from the session (not yet saved).
-export async function draftRecipe(sessionId: string): Promise<{ draft: RecipeDraft; demo?: boolean } | null> {
+// Ask the AI to draft a structured recipe from the session (not yet saved). When the AI couldn't
+// draft, `demo` is true and `reason` explains why (empty_session, ai_truncated, ai_http_*, …).
+export async function draftRecipe(
+  sessionId: string,
+): Promise<{ draft: RecipeDraft; demo?: boolean; reason?: string } | null> {
   return postJson('/api/hub/kitchen/recipe/create?ai_draft=1', { session_id: sessionId });
 }
 
