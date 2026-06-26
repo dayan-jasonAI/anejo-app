@@ -62,6 +62,17 @@ export const onRequestPost = async ({ request, env }) => {
         if (sub) {
           const gross = sub.weekly_amount_cents || 0;
           const share = Math.round(gross * (sub.trainer_share_pct || 10) / 100);
+
+          // Is this the FIRST invoice for the subscription? (any prior rev-share row for it, other
+          // than this invoice). Retry-safe: re-processing the first invoice still counts as first,
+          // so we never flip a brand-new signup's confirmation into a "renewed" message.
+          let priorInvoices = 0;
+          try {
+            const pr = await env.DB.prepare('SELECT COUNT(*) n FROM rev_share_events WHERE subscription_id=? AND id<>?')
+              .bind(sub.id, 'rs_' + invoiceId).first();
+            priorInvoices = (pr && pr.n) || 0;
+          } catch { /* treat as first */ }
+
           // Idempotent: PK derived from the invoice id, so retries/duplicates are ignored.
           await env.DB.prepare(
             `INSERT OR IGNORE INTO rev_share_events (id, trainer_id, subscription_id, amount_cents, share_cents, occurred_at, payout_status)
@@ -72,9 +83,16 @@ export const onRequestPost = async ({ request, env }) => {
           // deterministic per-day/per-window order ids mean duplicate invoice events are no-ops).
           await materializeSubscriptionPrep(env, { subscriptionId: sub.id, horizonDays: 7 });
 
-          // Auto-renewal confirmation (consent-gated, no-op safe). Skip when the subscription
-          // just started (<2h ago) — signup already sent its own purchase confirmation.
-          if (!sub.started_at || (now() - Number(sub.started_at) > 2 * 3600 * 1000)) {
+          // Añejo Rewards: subscribers earn 1 pt/$1 of the weekly charge, each invoice. Idempotent
+          // per invoice (orderId key 'subinv_<invoice>' + unique(order_id,'earn')).
+          try {
+            const cl = await env.DB.prepare('SELECT email FROM clients WHERE id=?').bind(sub.client_id).first();
+            if (cl && cl.email) await awardOrderPoints(env, { orderId: 'subinv_' + invoiceId, email: cl.email, subtotalCents: gross });
+          } catch (e) { console.log('sub points error:', e && e.message); }
+
+          // Renewal confirmation only from the 2nd invoice on — the first is already covered by the
+          // signup "plan is active" text (this fixes new signups wrongly getting a "renewed" SMS).
+          if (priorInvoices > 0) {
             await notifyClientById(env, sub.client_id,
               `Añejo Catering Co.: Your weekly plan renewed — $${(gross / 100).toFixed(2)} charged. This week's fresh bowls are scheduled; we'll text you each day when your delivery is on the way. Reply STOP to opt out.`);
           }

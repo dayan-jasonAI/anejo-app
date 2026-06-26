@@ -44,14 +44,28 @@ function nextMondayOnOrAfter(dateStr) {
   for (let i = 0; i < 7; i++) { if (dowOf(d) === 1) return d; d = addDays(d, 1); }
   return dateStr;
 }
-// Expand a bowl_rotation {NAME: count} into an ordered sequence ['COCO','COCO','FUEGO',...].
+// Expand a bowl_rotation {NAME: count} into an ordered sequence, INTERLEAVED so the same bowl
+// never lands on adjacent slots when avoidable. Because lunch + dinner of a day take adjacent
+// slots, this makes the two meals on a day different whenever ≥2 distinct bowls are allowed
+// (e.g. {FUEGO:2,LIGERO:4,RAÍZ:6} → RAÍZ/LIGERO, RAÍZ/LIGERO, …, RAÍZ/FUEGO — never RAÍZ/RAÍZ).
+// Greedy: each step place the most-plentiful remaining bowl that isn't the one just placed. This
+// achieves zero adjacent repeats iff no single bowl exceeds ceil(total/2); otherwise it minimizes
+// them (only the over-represented bowl can ever repeat, which is unavoidable).
 function rotationSequence(rotationJson) {
   const rot = rotationJson ? parseJson(rotationJson, null) : null;
   if (!rot || typeof rot !== 'object') return [];
+  const pool = Object.entries(rot)
+    .map(([name, n]) => ({ name, count: Math.max(0, Math.floor(Number(n) || 0)) }))
+    .filter((e) => e.count > 0);
+  const total = pool.reduce((s, e) => s + e.count, 0);
   const seq = [];
-  for (const [name, n] of Object.entries(rot)) {
-    const c = Math.max(0, Math.floor(Number(n) || 0));
-    for (let i = 0; i < c; i++) seq.push(name);
+  let prev = null;
+  for (let i = 0; i < total; i++) {
+    pool.sort((a, b) => b.count - a.count || (a.name < b.name ? -1 : 1)); // most-left first, stable by name
+    let pick = pool.find((e) => e.count > 0 && e.name !== prev);
+    if (!pick) pick = pool.find((e) => e.count > 0); // only the dominant bowl left → must repeat
+    if (!pick) break;
+    seq.push(pick.name); pick.count--; prev = pick.name;
   }
   return seq;
 }
@@ -76,7 +90,10 @@ async function prepOneSubscription(env, sub, plan, client, todayStr, horizonDays
 
   const startMonday = nextMondayOnOrAfter(etDate(Number(sub.started_at) || Date.now()));
   const rangeStart = dayNum(startMonday) > dayNum(todayStr) ? startMonday : todayStr;
-  const rangeEnd = addDays(todayStr, horizonDays);
+  // Extend the window to the END of its delivery week (Saturday) so we never stop mid-week — a
+  // plan_12 (Mon–Sat) materializes all 12 up front instead of 10 when "today" is mid-week.
+  let rangeEnd = addDays(todayStr, horizonDays);
+  for (let i = 0; i < 7 && dowOf(rangeEnd) !== 6; i++) rangeEnd = addDays(rangeEnd, 1);
 
   // Client's saved default delivery address (defensive: columns may be absent on older rows).
   const a = {
