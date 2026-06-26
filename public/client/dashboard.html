@@ -38,6 +38,10 @@ h1{font-weight:300;font-size:30px;margin-bottom:4px}h1 strong{color:var(--green)
 .gate h2{color:var(--green);font-weight:600;margin-bottom:8px}.gate p{color:var(--muted);font-size:14px;margin-bottom:18px}
 .gate input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--cream);margin-bottom:12px}
 .empty{background:#fff;border:1px dashed var(--line);border-radius:12px;padding:30px;text-align:center;color:var(--muted);font-size:14px}
+@keyframes ajFlame{0%,100%{transform:scale(1) rotate(-3deg)}50%{transform:scale(1.18) rotate(3deg)}}
+@keyframes ajPopIn{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+.aj-flame{display:inline-block;animation:ajFlame 1.1s ease-in-out infinite;transform-origin:center bottom}
+.aj-streak-num{display:inline-block;animation:ajPopIn .5s ease}
 </style>
 </head>
 <body>
@@ -75,12 +79,59 @@ function rewardsCard(r){
     '<div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:30px;font-weight:300;color:var(--green)">'+(r.points||0).toLocaleString()+'</span><span style="font-size:13px;color:var(--muted)">points</span>'+
     (r.multiplier>1?'<span class="badge active" style="margin-left:auto">'+r.multiplier+'\u00d7 earning</span>':'')+'</div>'+prog+'</div>';
 }
+var AJ_MSG={
+  ate:['Beast mode. \ud83d\udcaa','That\u2019s how legends are built.','Your future self says thank you. \ud83d\ude4c','Consistency is your superpower.','Fuel in, goals up. \ud83d\udd25','Cuban flavor, championship habits.'],
+  skip:['No worries \u2014 tomorrow\u2019s a fresh bowl. \ud83c\udf3f','One skip won\u2019t break you. Get the next one. \ud83d\udc4a','Progress, not perfection.','We\u2019ll be here when you\u2019re hungry.','Comeback loading\u2026 \ud83d\udc9a'],
+  pic:['Looking delicious, right? \ud83d\ude0b','Made fresh, just for you.','Eat the rainbow. \ud83c\udf08'],
+  review:['You\u2019re a star \u2014 thank you! \u2b50','Your words make our day. \ud83d\ude4f','Gracias, familia. \ud83d\udc9b']
+};
+function ajPop(text){
+  var el=document.getElementById('aj-pop');
+  if(!el){el=document.createElement('div');el.id='aj-pop';el.style.cssText='position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(18px);background:#0D0D0D;color:#F5F2EC;border:1px solid rgba(198,168,91,.55);border-radius:12px;padding:13px 18px;font:600 14px/1.4 \'Josefin Sans\',sans-serif;box-shadow:0 14px 44px rgba(0,0,0,.42);z-index:99999;opacity:0;transition:opacity .3s,transform .3s;max-width:90%;text-align:center';document.body.appendChild(el);}
+  el.textContent=text;
+  requestAnimationFrame(function(){el.style.opacity='1';el.style.transform='translateX(-50%) translateY(0)';});
+  clearTimeout(el._t);el._t=setTimeout(function(){el.style.opacity='0';el.style.transform='translateX(-50%) translateY(18px)';},2800);
+}
+function ajRnd(kind){var a=AJ_MSG[kind]||AJ_MSG.ate;return a[Math.floor(Math.random()*a.length)];}
+window.ajPop=ajPop;window.ajRnd=ajRnd;
+function calcStreak(meals){
+  var set={};(meals||[]).forEach(function(m){if(m.consumed)set[m.date]=1;});
+  var start=set[new Date().toLocaleDateString('en-CA')]?0:1,streak=0;
+  for(var i=start;i<120;i++){var ds=new Date(Date.now()-i*864e5).toLocaleDateString('en-CA');if(set[ds])streak++;else break;}
+  return streak;
+}
+function streakHtml(meals){
+  var s=calcStreak(meals);
+  var label=s>0?('<span class="aj-flame">\ud83d\udd25</span> <span class="aj-streak-num">'+s+'</span>-day streak'):'Start your streak today';
+  var sub=s>=7?'A full week strong \u2014 unstoppable. \ud83c\udfc6':(s>=3?'You\u2019re building real momentum.':(s>0?'Keep it rolling.':'Tap \u201cAte it\u201d after your bowl.'));
+  return '<div id="streak" style="background:linear-gradient(135deg,#1A3D2E,#0D0D0D);color:#F5F2EC;border-radius:12px;padding:16px 18px;margin-bottom:16px;text-align:center">'+
+    '<div style="font-size:22px;font-weight:600;color:#C6A85B">'+label+'</div>'+
+    '<div style="font-size:12.5px;color:#cfc9b8;margin-top:4px">'+sub+'</div></div>';
+}
+function todayBowlCard(bowls){
+  var cards=bowls.map(function(b){
+    var w=b.window==='dinner'?'Dinner':'Lunch';
+    var img=b.image?'<img src="'+esc(b.image)+'" alt="'+esc(b.bowl)+'" loading="lazy" style="width:100%;height:150px;object-fit:cover;border-radius:10px;cursor:pointer" onclick="ajPop(ajRnd(\'pic\'))">':'';
+    return '<div style="flex:1;min-width:150px">'+img+'<div style="margin-top:8px"><span class="badge active">'+w+'</span> <strong style="color:var(--green)">'+esc(b.bowl)+'</strong></div></div>';
+  }).join('');
+  return '<div class="card gold"><div class="k">Your bowl today</div><div style="display:flex;gap:14px;flex-wrap:wrap">'+cards+'</div>'+
+    '<p style="font-size:12px;color:var(--muted);margin-top:10px">Cooked fresh and on the way during your delivery window. Tap a photo. \ud83d\ude0b</p></div>';
+}
+async function cancelSub(btn){
+  if(!confirm('Cancel your weekly subscription? You can re-subscribe anytime \u2014 no fees.'))return;
+  btn.disabled=true;btn.textContent='Canceling\u2026';
+  try{var r=await fetch('/api/subscriptions/cancel',{method:'POST'});var d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'err');
+    ajPop('Subscription canceled. We\u2019ll miss you \u2014 your account stays. \ud83c\udf3f');init();
+  }catch(e){btn.disabled=false;btn.textContent='Cancel subscription';ajPop('Couldn\u2019t cancel automatically \u2014 please contact us. \u26a0\ufe0f');}
+}
+window.cancelSub=cancelSub;
 function render(d,logs){
   $('signout').style.display='inline-block';
   const c=d.client, p=d.plan, s=d.subscription;
   if(!c){$('main').innerHTML='<div class="empty">No plan is linked to '+esc(d.email)+' yet. Ask your trainer to add you.</div>';return;}
   let html='<h1>Hi, <strong>'+esc(c.name||'there')+'</strong>.</h1><div class="sub">Your Añejo plan & subscription.</div>';
   if(d.rewards)html+=rewardsCard(d.rewards);
+  if(d.today_bowls&&d.today_bowls.length)html+=todayBowlCard(d.today_bowls);
   if(p){html+='<div class="card gold"><div class="k">Your daily targets</div><div class="macros">'+
     '<div class="macro"><div class="v">'+(p.daily_calories||'—')+'</div><div class="l">kcal</div></div>'+
     '<div class="macro"><div class="v">'+(p.daily_protein_g||'—')+'</div><div class="l">protein</div></div>'+
@@ -89,7 +140,10 @@ function render(d,logs){
     (p.public_token?'<a class="btn" href="/plan.html?token='+encodeURIComponent(p.public_token)+'">View full plan</a>':'')+'</div>';
   } else { html+='<div class="empty">Your plan is being prepared by your trainer.</div>'; }
   html+='<div class="card"><div class="k">Subscription</div>';
-  if(s){html+='<p>Status: <span class="badge '+esc(s.status)+'">'+esc(s.status)+'</span> · '+money(s.weekly_amount_cents)+'/week</p>';}
+  if(s){html+='<p>Status: <span class="badge '+esc(s.status)+'">'+esc(s.status)+'</span> · '+money(s.weekly_amount_cents)+'/week</p>';
+    var st=String(s.status||'').toLowerCase();
+    if(st==='active'||st==='subscribed'){html+='<button class="btn ghost" type="button" onclick="cancelSub(this)" style="margin-top:8px;border-color:#d8b4b4;color:#8a1c12">Cancel subscription</button>';}
+  }
   else{
     var subQ='/subscribe?client='+encodeURIComponent(c.id)+'&plan='+encodeURIComponent((p&&p.meal_plan_tier)||'plan_12');
     if(p&&p.per_bowl_price_usd!=null) subQ+='&pbp='+encodeURIComponent(p.per_bowl_price_usd);
@@ -99,10 +153,12 @@ function render(d,logs){
   html+='</div>';
   // Track your week — meal log + weight check-in
   if(p){html+='<div class="card"><div class="k">Track your week</div>'+
+    streakHtml((logs&&logs.meals)||[])+
     '<p style="font-size:14px;margin-bottom:10px">Did you eat your Añejo bowl today?</p>'+
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">'+
       '<button class="btn" type="button" onclick="logMeal(true,this)">Ate it ✓</button>'+
-      '<button class="btn ghost" type="button" onclick="logMeal(false,this)">Skipped</button></div>'+
+      '<button class="btn ghost" type="button" onclick="logMeal(false,this)">Skipped</button>'+
+      '<a class="btn ghost" href="/feedback" onclick="ajPop(ajRnd(\'review\'))">Leave a review ⭐</a></div>'+
     '<div class="k">Weight check-in</div>'+
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
       '<input id="wlb" type="number" inputmode="decimal" step="0.1" placeholder="lb" aria-label="Weight in pounds" style="width:120px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--cream)">'+
@@ -124,9 +180,9 @@ function renderRecent(logs){
     h+='</div>';}
   el.innerHTML=h;
 }
-async function refreshLogs(){try{renderRecent(await(await fetch('/api/client/log')).json());}catch(_){}}
+async function refreshLogs(){try{var lg=await(await fetch('/api/client/log')).json();renderRecent(lg);var stEl=document.getElementById('streak');if(stEl)stEl.outerHTML=streakHtml(lg.meals||[]);}catch(_){}}
 async function logMeal(consumed,btn){if(btn)btn.disabled=true;
-  try{const r=await fetch('/api/client/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'meal',consumed:consumed})});if(!r.ok)throw 0;$('logMsg').textContent=consumed?'Logged — nice work.':'Logged.';await refreshLogs();}
+  try{const r=await fetch('/api/client/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'meal',consumed:consumed})});if(!r.ok)throw 0;$('logMsg').textContent=consumed?'Logged — nice work.':'Logged.';ajPop(ajRnd(consumed?'ate':'skip'));await refreshLogs();}
   catch(_){$('logMsg').textContent='Could not save. Try again.';}finally{if(btn)btn.disabled=false;}}
 window.logMeal=logMeal;
 async function logWeight(btn){var v=parseFloat(($('wlb')||{}).value);if(!v){$('logMsg').textContent='Enter a weight in lb.';return;}
