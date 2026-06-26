@@ -81,6 +81,12 @@ const DICT: Record<string, { en: string; es: string }> = {
   briefSubmitted: { en: 'Submitted — pending Dayan’s approval in the HUB. The current Brief stays the source of truth until then.', es: 'Enviado — pendiente de la aprobación de Dayan en el HUB. El Brief vigente sigue siendo la fuente de verdad hasta entonces.' },
   briefRedraft: { en: 'Re-draft', es: 'Regenerar' },
   briefError: { en: 'Couldn’t draft a change. Please try again.', es: 'No se pudo generar el cambio. Inténtalo de nuevo.' },
+  // conversation history
+  conversations: { en: 'Conversations', es: 'Conversaciones' },
+  newConversation: { en: 'New conversation', es: 'Nueva conversación' },
+  noConversations: { en: 'No past conversations yet.', es: 'Aún no hay conversaciones.' },
+  untitled: { en: 'Untitled session', es: 'Sesión sin título' },
+  exchanges: { en: 'exchanges', es: 'intercambios' },
 };
 
 interface I18nCtx { lang: Lang; t: (k: string) => string; toggle: () => void; }

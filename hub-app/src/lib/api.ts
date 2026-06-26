@@ -1,6 +1,7 @@
 // Thin client over the existing Cloudflare Functions API. Sends the session cookie
 // (credentials:'include') so the SAME magic-link/PIN auth the vanilla HUB uses works here —
 // no new auth system. In dev, vite proxies /api → `wrangler pages dev`.
+import type { ChatMessage } from './useStudioStream';
 
 export interface Me {
   authed: boolean;
@@ -191,4 +192,58 @@ export async function submitBriefProposal(
     proposed_body: draft.proposed_body,
   });
   return !!(d && d.ok && d.proposal);
+}
+
+export interface StudioSession {
+  id: string;
+  title?: string;
+  mode?: string;
+  status?: string;
+  ai_assist_count?: number;
+  media_count?: number;
+  created_at: number;
+  updated_at?: number;
+}
+
+interface StudioEvent { kind?: string; content?: string; assist_type?: string }
+
+// Convert stored session events into chat messages so a past conversation can be resumed.
+export function eventsToMessages(events: StudioEvent[]): ChatMessage[] {
+  const out: ChatMessage[] = [];
+  let n = 0;
+  for (const e of events || []) {
+    const k = e.kind || '';
+    const text = (e.content || '').toString();
+    const id = 'ev' + (n++);
+    if (k === 'user_text') out.push({ id, role: 'user', text });
+    else if (k === 'voice_transcript') out.push({ id, role: 'user', text: '🎙️ ' + text });
+    else if (k === 'ai_assist') out.push({ id, role: 'assistant', text, assistType: e.assist_type });
+    else if (k === 'photo') out.push({ id, role: 'user', text: '📷' });
+  }
+  return out;
+}
+
+// The current user's recent Studio conversations (newest first). Scoped to them server-side.
+export async function listSessions(): Promise<StudioSession[]> {
+  try {
+    const r = await fetch('/api/hub/kitchen/studio/session', { credentials: 'include' });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d && d.sessions) || [];
+  } catch {
+    return [];
+  }
+}
+
+// Load one past conversation (ownership-checked server-side) → its messages for resume.
+export async function loadSession(id: string): Promise<{ session: StudioSession; messages: ChatMessage[] } | null> {
+  try {
+    const r = await fetch('/api/hub/kitchen/studio/session?id=' + encodeURIComponent(id), { credentials: 'include' });
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (!d || !d.session) return null;
+    return { session: d.session, messages: eventsToMessages(d.events || []) };
+  } catch {
+    return null;
+  }
 }

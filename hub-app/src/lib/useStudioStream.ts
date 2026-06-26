@@ -115,5 +115,13 @@ export function useStudioStream(sessionId: string | null) {
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
-  return { messages, streaming, error, send, stop };
+  // Replace the transcript — used when resuming a past conversation or starting a fresh one.
+  const seed = useCallback((msgs: ChatMessage[]) => {
+    abortRef.current?.abort();
+    setError(null);
+    setStreaming(false);
+    setMessages(msgs);
+  }, []);
+
+  return { messages, streaming, error, send, stop, seed };
 }
