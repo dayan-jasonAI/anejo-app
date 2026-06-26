@@ -188,9 +188,17 @@ textarea { min-height: 90px; resize: vertical; }
   background: var(--green-700);
   display: flex;
   z-index: 20;
+  /* Scroll horizontally when there are more tabs than fit (e.g. owner has 11) so none are cut
+     off on mobile; fills the width on desktop. Hidden scrollbar for a clean fixed bar. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.hub-nav::-webkit-scrollbar { display: none; }
 .hub-nav a {
-  flex: 1;
+  flex: 1 0 auto;
+  min-width: 64px;
   display: flex;
   flex-direction: column;
   align-items: center;
