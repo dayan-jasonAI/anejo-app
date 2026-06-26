@@ -130,12 +130,24 @@
         <ul class="notes" id="m-notes"></ul>
       </div>
 
-      <div style="margin-top:22px;display:flex;gap:12px;flex-wrap:wrap">
+      <!-- Trainer-only banner: shown when a trainer is previewing a member's freshly generated plan. -->
+      <p id="trainer-preview-note" style="display:none;margin:18px 0 0;padding:12px 14px;background:#fff8e9;border:1px solid var(--line,rgba(26,61,46,.15));border-radius:10px;color:var(--green,#1A3D2E);font-size:14px"></p>
+
+      <!-- Public / member CTAs: subscribe + pay. Hidden for the trainer-preview flow. -->
+      <div style="margin-top:22px;display:flex;gap:12px;flex-wrap:wrap" id="plan-cta">
         <a class="btn btn--gold" id="plan-subscribe" href="/subscribe">Subscribe to this plan →</a>
         <a class="btn btn--ghost" id="plan-order" href="/order">Order these bowls</a>
         <a class="btn btn--ghost" href="/#menu">See the full menu</a>
         <a class="btn btn--ghost" id="restart" href="/calculator">Start over</a>
       </div>
+
+      <!-- Trainer-preview CTAs: send the plan to the member, then return home. Shown by plan.js. -->
+      <div style="margin-top:22px;display:none;gap:12px;flex-wrap:wrap" id="trainer-cta">
+        <button class="btn btn--gold" id="trainer-send" type="button">Send plan to member →</button>
+        <a class="btn btn--ghost" id="trainer-home" href="/trainer/dashboard">Return to dashboard</a>
+        <a class="btn btn--ghost" id="trainer-restart" href="/intake.html">Add another member</a>
+      </div>
+      <p id="trainer-sent-note" style="display:none;margin-top:14px;color:var(--green,#1A3D2E);font-weight:600"></p>
     </div>
 
     <p class="disclaimer" id="plan-disclaimer" style="display:none">This plan is for general fitness and wellness. It is not medical advice. Consult a healthcare professional before starting any new nutrition program. Añejo Catering Co. is not a medical provider.</p>
