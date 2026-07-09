@@ -182,6 +182,12 @@ export const onRequestPost = async ({ request, env }) => {
   const userPrompt = buildUserPrompt(body);
 
   let apiResp;
+  // Bound the upstream call. Workers `fetch` has NO default timeout, so a slow,
+  // rate-limited, or stalled Anthropic connection would hang this request forever —
+  // which is exactly what makes the calculator's "Build my plan" button spin with no
+  // result. AbortController guarantees we always respond (with a clear error) in time.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25000);
   try {
     apiResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -195,10 +201,18 @@ export const onRequestPost = async ({ request, env }) => {
         max_tokens: 2000,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userPrompt }]
-      })
+      }),
+      signal: ctrl.signal
     });
   } catch (e) {
-    return json({ error: 'Upstream AI call failed: ' + (e.message || 'unknown') }, 502);
+    const timedOut = e && e.name === 'AbortError';
+    return json({
+      error: timedOut
+        ? 'The plan generator took too long to respond. Please try again in a moment.'
+        : 'Upstream AI call failed: ' + (e.message || 'unknown')
+    }, timedOut ? 504 : 502);
+  } finally {
+    clearTimeout(timer);
   }
 
   if (!apiResp.ok) {
