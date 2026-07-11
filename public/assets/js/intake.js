@@ -47,11 +47,26 @@ form.addEventListener('submit', async (ev) => {
     const endpoint = audience === 'trainer' ? '/api/clients' : '/api/plans/generate';
     let resp, attempt = 0;
     while (true) {
-      resp = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      // Per-attempt timeout so a stalled edge/network can never leave the button
+      // spinning forever — if the request doesn't settle, abort and surface an error.
+      const ctrl = new AbortController();
+      const timer = setTimeout(function () { ctrl.abort(); }, 40000);
+      try {
+        resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: ctrl.signal
+        });
+      } catch (fetchErr) {
+        clearTimeout(timer);
+        // Timed out / network drop — retry a couple of times, then give a clear error.
+        if (attempt < 2) { attempt++; await new Promise(function (r) { setTimeout(r, 900 * attempt); }); continue; }
+        throw new Error(lang === 'es'
+          ? 'La solicitud tardó demasiado. Revisa tu conexión e inténtalo de nuevo.'
+          : 'The request timed out. Please check your connection and try again.');
+      }
+      clearTimeout(timer);
       // Auto-retry transient server hiccups (e.g. mid-deploy) up to 2x; never retry 4xx.
       if (resp.status >= 500 && attempt < 2) { attempt++; await new Promise(function (r) { setTimeout(r, 900 * attempt); }); continue; }
       break;
