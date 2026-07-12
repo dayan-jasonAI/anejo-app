@@ -3,7 +3,7 @@
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
-import { now, toJson, bit } from '../../../_lib/hub.js';
+import { now, today, toJson, bit } from '../../../_lib/hub.js';
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -44,7 +44,17 @@ export const onRequestPost = async ({ request, env }) => {
   });
 
   const shift = await env.DB.prepare('SELECT * FROM shifts WHERE id = ?').bind(open.id).first();
-  return json({ ok: true, shift });
+
+  // End-of-shift is the moment to file the EOD — tell the UI whether today's is still owed.
+  let eodPending = false;
+  try {
+    const eod = await env.DB
+      .prepare('SELECT id FROM eod_reports WHERE staff_id = ? AND report_date = ?')
+      .bind(staff.id, today()).first();
+    eodPending = !eod;
+  } catch { /* table optional in older DBs */ }
+
+  return json({ ok: true, shift, eod_pending: eodPending });
 };
 
 // GET /api/hub/kitchen/clock-out is not meaningful; expose current shift via GET for convenience.

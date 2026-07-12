@@ -9,6 +9,7 @@
 import { id, now, today, toJson, parseJson } from './hub.js';
 import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
+import { sendPushTickle } from './push.js';
 
 const MODEL = 'claude-sonnet-4-6';
 export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep'];
@@ -127,6 +128,11 @@ async function eodChase(env, date) {
       team: s.team || null,
       properties: { actor_type: 'system', staff_id: s.id, report_date: date },
     });
+  }
+  // Nudge the people who owe the report, not only the owner — raiseAlert's push
+  // targets roles:['owner'], so without this the staffer is never prompted.
+  if (missing.length) {
+    try { await sendPushTickle(env, { staffIds: missing.map((m) => m.id) }); } catch { /* best-effort */ }
   }
   return {
     outcome: 'success',

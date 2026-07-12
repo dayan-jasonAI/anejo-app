@@ -249,7 +249,15 @@
       K.geo().then(function (geo) {
         return K.post('/api/hub/kitchen/clock-out', { geo: geo });
       }).then(function (d) {
-        if (d && d.ok) { Hub.toast('Clocked out'); renderClock(null); } else K.fail(d, 'Could not clock out.');
+        if (d && d.ok) {
+          Hub.toast('Clocked out');
+          renderClock(null);
+          // Shift just ended and today's EOD is still owed — take them straight to it.
+          if (d.eod_pending) {
+            Hub.toast('One last thing: file your end-of-day report');
+            setTimeout(function () { window.location.href = '/hub/kitchen/eod.html'; }, 900);
+          }
+        } else K.fail(d, 'Could not clock out.');
         btn.disabled = false;
       });
     } else {

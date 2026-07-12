@@ -5,7 +5,7 @@
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
-import { now, toJson, parseJson } from '../../../_lib/hub.js';
+import { now, today, toJson, parseJson } from '../../../_lib/hub.js';
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -66,5 +66,14 @@ export const onRequestPost = async ({ request, env }) => {
     properties: { total_minutes: totalMinutes, platform: 'pwa' },
   });
 
-  return json({ ok: true, shift: { id: shift.id, total_minutes: totalMinutes, break_minutes: breakMinutes, status: 'closed' } });
+  // End-of-shift is the moment to file the EOD — tell the UI whether today's is still owed.
+  let eodPending = false;
+  try {
+    const eod = await env.DB
+      .prepare('SELECT id FROM eod_reports WHERE staff_id = ? AND report_date = ?')
+      .bind(staff.id, today()).first();
+    eodPending = !eod;
+  } catch { /* table optional in older DBs */ }
+
+  return json({ ok: true, shift: { id: shift.id, total_minutes: totalMinutes, break_minutes: breakMinutes, status: 'closed' }, eod_pending: eodPending });
 };

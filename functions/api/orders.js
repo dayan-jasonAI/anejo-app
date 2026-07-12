@@ -4,10 +4,10 @@
 // Locked by default: if KITCHEN_KEY is unset, access is denied. The key is accepted ONLY via the
 // x-kitchen-key header (never a URL query param — query strings leak via logs/history/Referer and
 // this endpoint returns customer PII). NOTE: legacy page; the role-gated /hub/kitchen supersedes it.
-import { json, bad, now } from '../_lib/util.js';
+import { json, bad, now, ctEq } from '../_lib/util.js';
 
 function authed(env, request, key) {
-  return env.KITCHEN_KEY && key === env.KITCHEN_KEY;
+  return !!(env.KITCHEN_KEY && key && ctEq(key, env.KITCHEN_KEY));
 }
 
 export const onRequestGet = async ({ request, env }) => {

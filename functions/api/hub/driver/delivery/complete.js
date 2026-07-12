@@ -1,8 +1,8 @@
 // POST /api/hub/driver/delivery/complete — mark a delivery dropped off.
 // Body: { order_id, route_id?, stop_id?, proof_photo?, signature?, on_time?, geo? }
 // Upserts a deliveries row, advances the matching route_stop to 'done', bumps the
-// order to 'fulfilled'. Photos are stored as a ref string (base64/data/url) — R2 is
-// a follow-up; we do not block on binary storage.
+// order to 'fulfilled'. Proof/signature photos are stored to R2 via putMedia when the
+// MEDIA binding is present (inline ref fallback otherwise); storage never blocks the drop-off.
 // Fires delivery.completed.
 import { json, bad, appBaseUrl } from '../../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../../_lib/roles.js';

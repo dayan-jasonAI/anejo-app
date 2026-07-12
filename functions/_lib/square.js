@@ -18,8 +18,10 @@ export async function square(env, path, { method = 'GET', body } = {}) {
     headers: {
       'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
       'Content-Type': 'application/json',
-      // Square-Version intentionally omitted → uses the app's dashboard-default
-      // version (matches the validated /v2/locations call). Pin a date before go-live.
+      // Version pinning: set SQUARE_VERSION (Pages var) to lock the API version at
+      // go-live — instant rollback by clearing the var. Unset → dashboard-default
+      // version (current sandbox-validated behavior).
+      ...(env.SQUARE_VERSION ? { 'Square-Version': env.SQUARE_VERSION } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });

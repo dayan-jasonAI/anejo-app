@@ -50,11 +50,23 @@ export async function currentStaff(env, request) {
 }
 
 // Guard: returns the role context, or a Response (401/403) to return directly.
+// Staff sessions are re-checked against staff.active so a deactivated employee's
+// still-unexpired session loses access immediately, not at idle timeout.
 export async function requireRole(request, env, allowedRoles = []) {
   const ctx = await currentRole(env, request);
   if (!ctx) return json({ error: 'Not signed in.' }, 401);
   if (allowedRoles.length && !allowedRoles.includes(ctx.role)) {
     return json({ error: 'Forbidden for this role.' }, 403);
+  }
+  if (ctx.type === 'staff' && env && env.DB) {
+    const where = ctx.distinct_id ? 'id=?' : 'email=?';
+    const arg = ctx.distinct_id || ctx.email;
+    if (arg) {
+      try {
+        const row = await env.DB.prepare(`SELECT active FROM staff WHERE ${where}`).bind(arg).first();
+        if (!row || !row.active) return json({ error: 'Account deactivated.' }, 401);
+      } catch { /* schema without staff table (early envs) — fall through */ }
+    }
   }
   return ctx;
 }

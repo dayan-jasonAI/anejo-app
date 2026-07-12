@@ -98,7 +98,14 @@
     Driver.geo().then(function (geo) {
       if (openShift) {
         return Hub.api('/api/hub/driver/clock-out', { method: 'POST', body: { geo: geo } }).then(function (r) {
-          if (r && r.ok) { openShift = null; Hub.toast('Clocked out'); renderClock(); }
+          if (r && r.ok) {
+            openShift = null; Hub.toast('Clocked out'); renderClock();
+            // Shift just ended and today's EOD is still owed — take them straight to it.
+            if (r.eod_pending) {
+              Hub.toast('One last thing: file your end-of-day report');
+              setTimeout(function () { window.location.href = '/hub/driver/eod.html'; }, 900);
+            }
+          }
           else { Hub.toast((r && r.error) || 'Could not clock out'); clockBtn.disabled = false; }
         });
       }
