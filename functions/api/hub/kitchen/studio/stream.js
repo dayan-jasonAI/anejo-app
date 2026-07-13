@@ -7,32 +7,14 @@ import { requireRole } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson } from '../../../../_lib/hub.js';
 import { buildStudioSystem } from '../../../../_lib/studio_context.js';
-import { getMedia, contentTypeForKey, putMedia } from '../../../../_lib/media.js';
+import { getMedia, contentTypeForKey } from '../../../../_lib/media.js';
+import { generatePlateImage } from '../../../../_lib/plate_image.js';
 
 const MODEL = 'claude-sonnet-4-6';
-const IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell';
-// Añejo plating standard appended to every generated plate image for on-brand visuals.
-const PLATING_STYLE =
-  "Professional overhead food photography, premium Mediterranean-Cuban meal-prep bowl in a matte dark slate bowl, " +
-  "clockwise sectional plating with the hero protein at the 5-7 o'clock position, vibrant fresh vegetables, " +
-  "microgreens garnish, a drizzle of golden sauce, soft natural light, shallow depth of field, cream and gold tones, " +
-  "editorial restaurant quality, no text, no watermark.";
 const IMG_SENTINEL = '⟦IMG⟧';   // model puts image requests after this; the app renders them, chef never sees it
 const MAX_GEN_IMAGES = 6;
 const ASSIST_TYPES = ['guidance', 'research', 'substitution', 'scaling', 'critique'];
 const MAX_VISION = 2;
-
-// Generate one on-brand plate photo → store to R2 → return its short URL (or null).
-async function generatePlateImage(env, prompt) {
-  if (!env.AI) return null;
-  try {
-    const out = await env.AI.run(IMAGE_MODEL, { prompt: `${prompt}. ${PLATING_STYLE}` });
-    const b64 = out && (out.image || (out.images && out.images[0]));
-    if (!b64) return null;
-    const stored = await putMedia(env, { kind: 'studio', dataUrl: `data:image/jpeg;base64,${b64}`, ext: 'jpg' });
-    return stored && stored.stored ? stored.url : null;
-  } catch { return null; }
-}
 
 // Parse the trailing "NAME :: prompt" lines the model emits after IMG_SENTINEL.
 function parseImageRequests(block) {

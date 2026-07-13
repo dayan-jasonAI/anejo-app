@@ -8,7 +8,7 @@ import { requireRole } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson } from '../../../../_lib/hub.js';
 import { buildBrandContext } from '../../../../_lib/studio_context.js';
-import { putMedia } from '../../../../_lib/media.js';
+import { generatePlateImage } from '../../../../_lib/plate_image.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../../../../_lib/bowlspec.js';
 
 const MODEL = 'claude-sonnet-4-6';
@@ -79,15 +79,8 @@ You are Añejo Catering Co.'s content studio. From the dish below, write marketi
 
 async function generateImage(env, imagePrompt) {
   if (!env.AI) return { url: null, reason: 'ai_binding_absent' };
-  try {
-    const out = await env.AI.run(IMAGE_MODEL, { prompt: `${imagePrompt}. ${PLATING_STYLE}` });
-    const b64 = out && (out.image || (out.images && out.images[0]));
-    if (!b64) return { url: null, reason: 'no_image' };
-    const stored = await putMedia(env, { kind: 'studio', dataUrl: `data:image/jpeg;base64,${b64}`, ext: 'jpg' });
-    return stored.stored ? { url: stored.url, key: stored.key } : { url: null, reason: stored.error || 'store_failed' };
-  } catch {
-    return { url: null, reason: 'gen_failed' };
-  }
+  const url = await generatePlateImage(env, imagePrompt);   // shared engine (Leonardo Phoenix + natural style)
+  return url ? { url } : { url: null, reason: 'gen_failed' };
 }
 
 // If the dish name maps to a known public bowl, return its macros for the macros card.
