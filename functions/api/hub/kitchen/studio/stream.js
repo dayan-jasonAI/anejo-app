@@ -7,11 +7,44 @@ import { requireRole } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson } from '../../../../_lib/hub.js';
 import { buildStudioSystem } from '../../../../_lib/studio_context.js';
-import { getMedia, contentTypeForKey } from '../../../../_lib/media.js';
+import { getMedia, contentTypeForKey, putMedia } from '../../../../_lib/media.js';
 
 const MODEL = 'claude-sonnet-4-6';
+const IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell';
+// Añejo plating standard appended to every generated plate image for on-brand visuals.
+const PLATING_STYLE =
+  "Professional overhead food photography, premium Mediterranean-Cuban meal-prep bowl in a matte dark slate bowl, " +
+  "clockwise sectional plating with the hero protein at the 5-7 o'clock position, vibrant fresh vegetables, " +
+  "microgreens garnish, a drizzle of golden sauce, soft natural light, shallow depth of field, cream and gold tones, " +
+  "editorial restaurant quality, no text, no watermark.";
+const IMG_SENTINEL = '⟦IMG⟧';   // model puts image requests after this; the app renders them, chef never sees it
+const MAX_GEN_IMAGES = 6;
 const ASSIST_TYPES = ['guidance', 'research', 'substitution', 'scaling', 'critique'];
 const MAX_VISION = 2;
+
+// Generate one on-brand plate photo → store to R2 → return its short URL (or null).
+async function generatePlateImage(env, prompt) {
+  if (!env.AI) return null;
+  try {
+    const out = await env.AI.run(IMAGE_MODEL, { prompt: `${prompt}. ${PLATING_STYLE}` });
+    const b64 = out && (out.image || (out.images && out.images[0]));
+    if (!b64) return null;
+    const stored = await putMedia(env, { kind: 'studio', dataUrl: `data:image/jpeg;base64,${b64}`, ext: 'jpg' });
+    return stored && stored.stored ? stored.url : null;
+  } catch { return null; }
+}
+
+// Parse the trailing "NAME :: prompt" lines the model emits after IMG_SENTINEL.
+function parseImageRequests(block) {
+  return String(block || '').split('\n').map((ln) => {
+    const s = ln.trim().replace(/^[-*\d.\s]+/, '');
+    const i = s.indexOf('::');
+    if (i === -1) return null;
+    const name = s.slice(0, i).trim().slice(0, 80);
+    const prompt = s.slice(i + 2).trim().slice(0, 600);
+    return prompt ? { name, prompt } : null;
+  }).filter(Boolean).slice(0, MAX_GEN_IMAGES);
+}
 const VISION_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 function abToBase64(ab) {
@@ -116,8 +149,40 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
 
   const stream = new ReadableStream({
     async start(controller) {
-      let full = '';
-      const push = (s) => { full += s; controller.enqueue(enc.encode(s)); };
+      let full = '', emitted = 0, sentinelAt = -1;
+      const HOLD = IMG_SENTINEL.length; // hold back a few chars so a forming sentinel never leaks
+      const flush = (final) => {
+        let end = sentinelAt === -1 ? full.length : sentinelAt;
+        if (sentinelAt === -1 && !final) end = Math.max(emitted, full.length - HOLD);
+        if (end > emitted) { controller.enqueue(enc.encode(full.slice(emitted, end))); emitted = end; }
+      };
+      const push = (s) => {
+        full += s;
+        if (sentinelAt === -1) { const i = full.indexOf(IMG_SENTINEL); if (i !== -1) sentinelAt = i; }
+        flush(false);
+      };
+      // After the model finishes: render any requested plate photos inline, then persist the clean turn.
+      const finishTurn = async (demo) => {
+        if (sentinelAt === -1) flush(true);
+        const shown = sentinelAt === -1 ? full : full.slice(0, sentinelAt);
+        let appended = '';
+        if (sentinelAt !== -1) {
+          const reqs = parseImageRequests(full.slice(sentinelAt + IMG_SENTINEL.length));
+          for (const req of reqs) {
+            const url = await generatePlateImage(env, req.prompt);
+            if (!url) continue;
+            const md = `\n\n**${(req.name || 'Plate').replace(/[[\]]/g, '')}**\n\n![${(req.name || 'plate').replace(/[[\]]/g, '')}](${url})`;
+            controller.enqueue(enc.encode(md));
+            appended += md;
+            try {
+              await env.DB.prepare('INSERT INTO recipe_session_events (id, session_id, kind, media_type, content, meta, created_at) VALUES (?,?,?,?,?,?,?)')
+                .bind(id('rse'), sessionId, 'photo', 'photo', url, toJson({ ai_generated: true, label: req.name, prompt: req.prompt }), now()).run();
+              await env.DB.prepare('UPDATE recipe_sessions SET media_count = media_count + 1, updated_at = ? WHERE id = ?').bind(now(), sessionId).run();
+            } catch { /* best-effort */ }
+          }
+        }
+        await persist((shown + appended).trim(), demo);
+      };
       try {
         if (env.ANTHROPIC_API_KEY) {
           const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -148,18 +213,18 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
             }
           }
           if (!full) throw new Error('empty stream');
-          await persist(full, false);
+          await finishTurn(false);
         } else {
           // Demo: stream a canned reply word-by-word so the UX is identical without a key.
           const tokens = demoReply(text, assistType).split(/(\s+)/);
           for (const tok of tokens) { push(tok); await sleep(14); }
-          await persist(full, true);
+          await finishTurn(true);
         }
       } catch {
         // Upstream failure mid-flight → stream the demo reply so the chef still gets help.
         const fallback = demoReply(text, assistType);
         for (const tok of fallback.split(/(\s+)/)) { push(tok); await sleep(8); }
-        if (waitUntil) waitUntil(persist(full, true)); else await persist(full, true);
+        await finishTurn(true);
       } finally {
         controller.close();
       }

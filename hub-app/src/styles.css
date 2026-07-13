@@ -107,6 +107,7 @@ button { font-family: inherit; cursor: pointer; }
 .content h1, .content h2, .content h3 { font-family: var(--serif); color: var(--green); margin: 6px 0 8px; line-height: 1.2; }
 .content ul, .content ol { margin: 0 0 10px 20px; } .content li { margin: 3px 0; }
 .content strong { color: var(--green-dark); }
+.content img { max-width: 100%; width: 360px; aspect-ratio: 1; object-fit: cover; border-radius: 14px; display: block; margin: 8px 0 4px; box-shadow: 0 6px 20px rgba(26,61,46,.14); background: var(--cream-2); }
 .content code { background: var(--cream-2); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
 .content table { border-collapse: collapse; margin: 8px 0; width: 100%; }
 .content th, .content td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; font-size: 13px; }
