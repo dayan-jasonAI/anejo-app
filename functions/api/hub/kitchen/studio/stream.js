@@ -123,7 +123,7 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
           const r = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-            body: JSON.stringify({ model: MODEL, max_tokens: 700, system, messages, stream: true }),
+            body: JSON.stringify({ model: MODEL, max_tokens: 8192, system, messages, stream: true }),
           });
           if (!r.ok || !r.body) throw new Error(`AI ${r.status}`);
           // Parse Anthropic SSE: emit text from content_block_delta/text_delta.

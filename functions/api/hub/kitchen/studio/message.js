@@ -101,7 +101,7 @@ async function callClaude(env, sessionId, userText, assistType) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 700, system, messages }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 8192, system, messages }),
   });
   if (!r.ok) throw new Error(`AI ${r.status}`);
   const data = await r.json();
