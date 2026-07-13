@@ -1,7 +1,10 @@
 // /api/hub/owner/content — owner-only authoring for the docs library
 // (manuals / policies / procedures / recipes) + recurring-reminder templates.
 //   GET  ?type=&q=        → list (no bodies; body_len), newest first, archived included + flagged
-//   GET  ?id=doc_xxx      → single full doc (for edit-in-place; includes image_key)
+//   GET  ?id=doc_xxx      → single full doc (for edit-in-place; includes image_key). When the
+//                           doc links a recipe (recipe_id), also returns { recipe } with the
+//                           Recipe COGS v1 fields (est_cost_cents, cost_updated_at, cost_breakdown)
+//                           so the editor can show "Calc cost" for recipe-type docs.
 //   POST { action:'create',  doc_type, title, body?, role_scope?, image_dataurl? }
 //   POST { action:'update',  id, title?, body?, role_scope?, image_dataurl? }   (bumps version)
 //   POST { action:'archive'|'restore', id }
@@ -105,6 +108,22 @@ export const onRequestGet = async ({ request, env }) => {
   if (docId) {
     const doc = await env.DB.prepare('SELECT * FROM docs WHERE id = ?').bind(docId).first();
     if (!doc) return bad('Doc not found.', 404);
+
+    let recipe = null;
+    if (doc.recipe_id) {
+      const r = await env.DB.prepare(
+        'SELECT id, est_cost_cents, cost_updated_at, cost_breakdown FROM recipes WHERE id = ?'
+      ).bind(doc.recipe_id).first();
+      if (r) {
+        recipe = {
+          id: r.id,
+          est_cost_cents: r.est_cost_cents == null ? null : Number(r.est_cost_cents),
+          cost_updated_at: r.cost_updated_at || null,
+          cost_breakdown: parseJson(r.cost_breakdown, []),
+        };
+      }
+    }
+
     return json({
       ok: true,
       doc: {
@@ -113,6 +132,7 @@ export const onRequestGet = async ({ request, env }) => {
         version: doc.version, active: doc.active, image_key: doc.image_key || null,
         created_at: doc.created_at, updated_at: doc.updated_at,
       },
+      recipe,
     });
   }
 

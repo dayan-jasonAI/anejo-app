@@ -37,6 +37,7 @@
   var tab = 'library';          // 'library' | 'reminders'
   var typeFilter = '';          // '' | manual | policy | procedure | recipe
   var editing = null;           // null | {} (new) | full doc object
+  var editingRecipe = null;     // Recipe COGS fields for a recipe-linked doc, or null
   var roster = [];              // active staff for the reminder target select
 
   var CHIPS = [
@@ -101,6 +102,7 @@
     });
     document.getElementById('newDoc').addEventListener('click', function () {
       editing = { id: null, doc_type: typeFilter || 'manual', title: '', body: '', role_scope: null, image_key: null };
+      editingRecipe = null;
       pendingImg = null;
       renderEditor();
     });
@@ -134,7 +136,7 @@
       el.querySelectorAll('[data-edit]').forEach(function (b) {
         b.addEventListener('click', function () {
           Hub.api('/api/hub/owner/content?id=' + encodeURIComponent(b.getAttribute('data-edit'))).then(function (r) {
-            if (r && r.ok && r.doc) { editing = r.doc; pendingImg = null; renderEditor(); window.scrollTo(0, 0); }
+            if (r && r.ok && r.doc) { editing = r.doc; editingRecipe = r.recipe || null; pendingImg = null; renderEditor(); window.scrollTo(0, 0); }
             else Hub.toast('Could not load document');
           });
         });
@@ -178,6 +180,7 @@
         return '<label style="display:flex;align-items:center;gap:4px"><input type="checkbox" data-scope="' + r + '"' + (on ? ' checked' : '') + '> ' + r + '</label>';
       }).join('') +
       '</div><p class="row-sub" data-i18n>Leave all unchecked to show to all staff.</p></div>' +
+      recipeCostHtml() +
       '<div class="row" style="gap:8px">' +
       '<button class="btn gold" id="saveDoc" type="button" data-i18n>Save</button>' +
       '<button class="btn ghost" id="cancelDoc" type="button" data-i18n>Cancel</button>' +
@@ -187,9 +190,41 @@
     if (!editing.id) document.getElementById('docType').value = editing.doc_type || 'manual';
     renderImgPreview();
     document.getElementById('docImg').addEventListener('change', onImgPick);
-    document.getElementById('cancelDoc').addEventListener('click', function () { editing = null; pendingImg = null; renderEditor(); });
+    document.getElementById('cancelDoc').addEventListener('click', function () { editing = null; editingRecipe = null; pendingImg = null; renderEditor(); });
     document.getElementById('saveDoc').addEventListener('click', saveDoc);
+    var calcBtn = document.getElementById('calcCostBtn');
+    if (calcBtn) calcBtn.addEventListener('click', calcCost);
     refresh();
+  }
+
+  // Recipe COGS v1 — only shown for a saved recipe-type doc that links a recipe row.
+  function recipeCostHtml() {
+    if (!editing || !editing.id || editing.doc_type !== 'recipe' || !editing.recipe_id) return '';
+    var hasCost = editingRecipe && editingRecipe.est_cost_cents != null;
+    var unmatched = (editingRecipe && editingRecipe.cost_breakdown || []).filter(function (b) { return !b.matched_item || b.unit_cost_cents == null; }).length;
+    var summary = hasCost
+      ? ('Est. food cost: ' + Hub.money(editingRecipe.est_cost_cents) + ' (' + unmatched + ' unmatched)')
+      : 'Cost not calculated yet.';
+    return '<div class="field"><label data-i18n>Estimated food cost</label>' +
+      '<p class="row-sub" id="recipeCostSummary">' + Hub.esc(summary) + '</p>' +
+      '<button class="btn ghost" id="calcCostBtn" type="button" data-i18n>Calc cost</button></div>';
+  }
+
+  // Calls the Recipe COGS endpoint for the doc's linked recipe, then refreshes the display.
+  function calcCost() {
+    if (!editing || !editing.recipe_id) return;
+    var btn = document.getElementById('calcCostBtn');
+    if (btn) btn.disabled = true;
+    Hub.api('/api/hub/kitchen/recipe/cost', { method: 'POST', body: { recipe_id: editing.recipe_id } }).then(function (r) {
+      if (btn) btn.disabled = false;
+      if (r && r.ok) {
+        editingRecipe = { id: r.recipe_id, est_cost_cents: r.est_cost_cents, cost_updated_at: r.cost_updated_at, cost_breakdown: r.breakdown };
+        Hub.toast('Cost updated (' + r.unmatched_count + ' unmatched)');
+        renderEditor();
+      } else {
+        Hub.toast('Could not calculate cost');
+      }
+    });
   }
 
   function renderImgPreview() {
