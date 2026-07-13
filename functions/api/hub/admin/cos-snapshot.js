@@ -46,7 +46,7 @@ export async function onRequestGet({ request, env }) {
     fetched_at: new Date().toISOString(),
     orders_week: await scalar(env, 'SELECT COUNT(*) n FROM orders WHERE created_at>=?', weekAgo),
     orders_open: await scalar(env, "SELECT COUNT(*) n FROM orders WHERE status IN ('pending','paid')"),
-    revenue_week_cents: await scalar(env, "SELECT COALESCE(SUM(total_cents),0) n FROM orders WHERE created_at>=? AND status IN ('paid','fulfilled')", weekAgo),
+    revenue_week_cents: await scalar(env, "SELECT COALESCE(SUM(total_estimate_cents),0) n FROM orders WHERE created_at>=? AND status IN ('paid','fulfilled')", weekAgo),
     deliveries_today: await scalar(env, 'SELECT COUNT(*) n FROM deliveries WHERE delivery_date=?', today),
     on_shift: await scalar(env, "SELECT COUNT(*) n FROM shifts WHERE status='open'"),
     eod_expected: expected.length,
