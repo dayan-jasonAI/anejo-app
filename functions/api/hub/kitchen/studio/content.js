@@ -12,13 +12,7 @@ import { generatePlateImage } from '../../../../_lib/plate_image.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../../../../_lib/bowlspec.js';
 
 const MODEL = 'claude-sonnet-4-6';
-const IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell';
-// Añejo plating standard appended to every image prompt for on-brand visuals.
-const PLATING_STYLE =
-  "Professional overhead food photography, premium Mediterranean-Cuban meal-prep bowl in a matte dark slate bowl, " +
-  "clockwise sectional plating with the hero protein at the 5-7 o'clock position, vibrant fresh vegetables, " +
-  "microgreens garnish, a drizzle of golden sauce, soft natural light, shallow depth of field, cream and gold tones, " +
-  "editorial restaurant quality, no text, no watermark.";
+// Image generation (model + plating style) lives in _lib/plate_image.js since 59909ea.
 
 // Pull the first balanced {...} JSON object out of a model reply (tolerates ```json fences / prose).
 export function extractJson(text) {

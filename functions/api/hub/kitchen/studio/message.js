@@ -150,6 +150,13 @@ export const onRequestPost = async ({ request, env }) => {
     demo = true;
   }
   if (!reply) reply = demoReply(text, assistType);
+  // The shared studio system prompt (studio_context.js) tells the model to append image
+  // requests after an ⟦IMG⟧ sentinel. Only stream.js renders those; this non-streaming
+  // endpoint drops the block so no caller ever sees the raw sentinel (or gets it persisted
+  // and replayed into future transcripts).
+  const imgCut = reply.indexOf('⟦IMG⟧');
+  if (imgCut !== -1) reply = reply.slice(0, imgCut).trim();
+  if (!reply) reply = demoReply(text, assistType);
 
   // 3) record the AI turn + bump assist count
   const aiEventId = id('rse');

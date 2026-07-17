@@ -81,7 +81,7 @@ function demoReply(text, assist) {
 const enc = new TextEncoder();
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
-export const onRequestPost = async ({ request, env, waitUntil }) => {
+export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   const ctx = await requireRole(request, env, ['kitchen', 'owner']);
   if (ctx instanceof Response) return ctx;
@@ -144,7 +144,12 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
         flush(false);
       };
       // After the model finishes: render any requested plate photos inline, then persist the clean turn.
+      // Idempotent: if enqueue throws mid-image (client disconnected) and the catch path re-enters,
+      // we must not regenerate images / double-insert photo events / persist twice.
+      let turnDone = false;
       const finishTurn = async (demo) => {
+        if (turnDone) return;
+        turnDone = true;
         if (sentinelAt === -1) flush(true);
         const shown = sentinelAt === -1 ? full : full.slice(0, sentinelAt);
         let appended = '';
@@ -204,9 +209,16 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
         }
       } catch {
         // Upstream failure mid-flight → stream the demo reply so the chef still gets help.
-        const fallback = demoReply(text, assistType);
-        for (const tok of fallback.split(/(\s+)/)) { push(tok); await sleep(8); }
-        await finishTurn(true);
+        // Only when the sentinel hasn't appeared: after it, pushed fallback text would land in the
+        // image-request block (never delivered, and any "::" in it fakes an image request).
+        // Guarded so a dead client (enqueue throwing again) still can't skip the final close.
+        try {
+          if (!turnDone && sentinelAt === -1) {
+            const fallback = demoReply(text, assistType);
+            for (const tok of fallback.split(/(\s+)/)) { push(tok); await sleep(8); }
+          }
+          await finishTurn(true);
+        } catch { /* client gone — nothing left to deliver */ }
       } finally {
         controller.close();
       }
