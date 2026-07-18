@@ -600,19 +600,14 @@ footer {
 .fit .section-head .eyebrow{color:var(--gold)}
 .fit .section-head .lede{color:rgba(245,242,236,.7)}
 .fit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
-.fit-card{background:rgba(255,255,255,.03);border:1px solid rgba(198,168,91,.25);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
-.fit-bottle{aspect-ratio:16/10;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px;background:linear-gradient(160deg,var(--g1),var(--g2));background-size:cover;background-position:center}
-.fit-card.gold{--g1:#5a4a16;--g2:#2a2208}
-.fit-card.hibiscus{--g1:#5a1630;--g2:#2a0814}
-.fit-card.emerald{--g1:#14401f;--g2:#08200e}
-.fit-card.gold .fit-bottle{background-image:url('/assets/img/fit_gold.png')}
-.fit-card.hibiscus .fit-bottle{background-image:url('/assets/img/fit_hibiscus.png')}
-.fit-card.emerald .fit-bottle{background-image:url('/assets/img/fit_emerald.png')}
-.fit-bottle .fit-sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);opacity:.85;margin-bottom:8px}
-.fit-bottle .fit-name{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:30px;letter-spacing:2px;color:var(--cream);line-height:1.1}
-.fit-bottle .fit-ingredients{font-size:11px;letter-spacing:1px;color:rgba(245,242,236,.7);margin-top:10px;max-width:230px}
-.fit-img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;border-bottom:1px solid rgba(198,168,91,.25)}
+.fit-card{background:rgba(255,255,255,.03);border:1px solid rgba(198,168,91,.25);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:transform .3s ease,box-shadow .3s ease,border-color .3s ease}
+.fit-card:hover{transform:translateY(-6px);border-color:rgba(198,168,91,.55);box-shadow:0 22px 48px rgba(0,0,0,.5)}
+.fit-imgwrap{position:relative;overflow:hidden;background:#000}
+.fit-img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block;border-bottom:1px solid rgba(198,168,91,.25);transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+.fit-card:hover .fit-img{transform:scale(1.04)}
 .fit-body{padding:22px 24px;flex:1;display:flex;flex-direction:column}
+.fit-name-row{display:flex;align-items:baseline;gap:10px;margin-bottom:2px}
+.fit-title{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:27px;letter-spacing:1px;color:var(--cream);line-height:1.1}
 .fit-tagline{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:18px;color:var(--gold);margin-bottom:14px}
 .fit-benefits{list-style:none;padding:0;margin:0 0 16px}
 .fit-benefits li{font-size:13px;color:rgba(245,242,236,.85);padding:4px 0 4px 18px;position:relative}
@@ -621,7 +616,9 @@ footer {
 .fit-meta strong{color:var(--gold)}
 .fit-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .fit-tags .tag{background:rgba(198,168,91,.15);color:var(--gold)}
-.fit-disclaimer{max-width:820px;margin:36px auto 0;font-size:11px;line-height:1.6;color:rgba(245,242,236,.45);text-align:center;font-style:italic}
+.fit-cta-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px;margin:40px auto 0;text-align:center}
+.fit-cta-note{font-size:13px;letter-spacing:.5px;color:rgba(245,242,236,.6)}
+.fit-disclaimer{max-width:820px;margin:22px auto 0;font-size:11px;line-height:1.6;color:rgba(245,242,236,.45);text-align:center;font-style:italic}
 .fit-note{max-width:820px;margin:18px auto 0;font-size:12px;color:rgba(245,242,236,.6);text-align:center}
 
 /* ---------- FAQ ---------- */
@@ -1019,54 +1016,66 @@ footer {
     <div class="fit-grid">
 
       <div class="fit-card gold">
-        <img class="fit-img" src="/assets/img/fit_gold.png" alt="Añejo Fit — Gold Vitality (pineapple, ginger, turmeric, chia)" loading="lazy">
+        <div class="fit-imgwrap">
+          <img class="fit-img" src="/assets/img/fit_gold.jpg" width="900" height="1124" alt="Añejo Fit — Gold Vitality cold-pressed juice: pineapple, ginger, turmeric, chia" loading="lazy">
+        </div>
         <div class="fit-body">
-          <div class="fit-tagline">Golden energy. Tropical recovery.</div>
+          <div class="fit-name-row"><span class="fit-title">Gold Vitality</span></div>
+          <div class="fit-tagline">Golden energy. Tropical warmth.</div>
           <ul class="fit-benefits">
-            <li>Supports a healthy inflammation response*</li>
-            <li>Aids digestion</li>
-            <li>Supports immune function*</li>
-            <li>Post-workout recovery</li>
+            <li>Sun-ripe pineapple, pressed cold</li>
+            <li>Fresh ginger + turmeric for gentle heat</li>
+            <li>A spoonful of chia for body</li>
+            <li>No added sugar — just fruit &amp; root</li>
           </ul>
           <div class="fit-tags"><span class="tag">Bright</span><span class="tag">Tropical</span><span class="tag">Smooth heat</span></div>
-          <div class="fit-meta"><strong>Pairs with</strong> FUEGO · FUERZA<br>12 fl oz · ~110 cal · cold-pressed</div>
+          <div class="fit-meta"><strong>Pairs with</strong> FUEGO · LIGERO<br>12 fl oz · cold-pressed</div>
         </div>
       </div>
 
       <div class="fit-card hibiscus">
-        <img class="fit-img" src="/assets/img/fit_hibiscus.png" alt="Añejo Fit — Hibiscus Zen (hibiscus, lime, ginger, mint)" loading="lazy">
+        <div class="fit-imgwrap">
+          <img class="fit-img" src="/assets/img/fit_hibiscus.jpg" width="900" height="1124" alt="Añejo Fit — Hibiscus Zen cold-pressed juice: hibiscus, lime, ginger, mint" loading="lazy">
+        </div>
         <div class="fit-body">
+          <div class="fit-name-row"><span class="fit-title">Hibiscus Zen</span></div>
           <div class="fit-tagline">Calm energy. Clean balance.</div>
           <ul class="fit-benefits">
-            <li>Supports healthy blood pressure*</li>
-            <li>Antioxidant-rich</li>
-            <li>Calming botanicals</li>
-            <li>Hydrating</li>
+            <li>Deep-steeped hibiscus, ruby and tart</li>
+            <li>Bright lime with a whisper of ginger</li>
+            <li>Cooling fresh mint on the finish</li>
+            <li>Light, floral, endlessly refreshing</li>
           </ul>
           <div class="fit-tags"><span class="tag">Floral</span><span class="tag">Citrusy</span><span class="tag">Refreshing</span></div>
-          <div class="fit-meta"><strong>Pairs with</strong> VIDA · CONGREEN<br>12 fl oz · ~70 cal · cold-pressed</div>
+          <div class="fit-meta"><strong>Pairs with</strong> VIDA · CONGREEN<br>12 fl oz · cold-pressed</div>
         </div>
       </div>
 
       <div class="fit-card emerald">
-        <img class="fit-img" src="/assets/img/fit_emerald.png" alt="Añejo Fit — Emerald Hydrate (cucumber, mint, lemon, chia)" loading="lazy">
+        <div class="fit-imgwrap">
+          <img class="fit-img" src="/assets/img/fit_emerald.jpg" width="900" height="1124" alt="Añejo Fit — Emerald Hydrate cold-pressed juice: cucumber, mint, lemon, chia" loading="lazy">
+        </div>
         <div class="fit-body">
+          <div class="fit-name-row"><span class="fit-title">Emerald Hydrate</span></div>
           <div class="fit-tagline">Hydrate. Refresh. Recharge.</div>
           <ul class="fit-benefits">
-            <li>Hydrating electrolyte support</li>
-            <li>Supports healthy blood sugar levels*</li>
-            <li>Gut-friendly fiber</li>
-            <li>Plant-based omega-3 from chia</li>
+            <li>Crisp cucumber pressed with fresh mint</li>
+            <li>A clean squeeze of lemon</li>
+            <li>Chia for a little omega-rich texture</li>
+            <li>Ultra-clean — nothing you can't pronounce</li>
           </ul>
           <div class="fit-tags"><span class="tag">Ultra clean</span><span class="tag">Cooling</span><span class="tag">Crisp</span></div>
-          <div class="fit-meta"><strong>Pairs with</strong> COCO · MAR<br>12 fl oz · ~80 cal · cold-pressed</div>
+          <div class="fit-meta"><strong>Pairs with</strong> COCO · MAR<br>12 fl oz · cold-pressed</div>
         </div>
       </div>
 
     </div>
 
-    <p class="fit-note">Launching alongside the bowl menu. In the first weeks, drinks ship with bowl orders. Bottle photography coming soon.</p>
-    <p class="fit-disclaimer">*These statements have not been evaluated by the Food and Drug Administration. These products are not intended to diagnose, treat, cure, or prevent any disease. Nutrition values are estimates pending lab verification.</p>
+    <div class="fit-cta-row">
+      <a href="/order" class="btn btn-gold">Add to your order</a>
+      <span class="fit-cta-note">$9.99 each · ships with your bowls</span>
+    </div>
+    <p class="fit-disclaimer">Añejo Fit juices are cold-pressed to order in small batches. Ingredients as pictured; bottle size 12 fl oz. Flavor-forward by design — we don't make medical or nutrition claims. Final nutrition panel published at launch.</p>
   </div>
 </section>
 
