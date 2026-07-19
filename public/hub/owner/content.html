@@ -46,7 +46,8 @@
     { v: 'manual', label: 'Manuals' },
     { v: 'policy', label: 'Policies' },
     { v: 'procedure', label: 'Procedures' },
-    { v: 'recipe', label: 'Recipes' }
+    { v: 'recipe', label: 'Recipes' },
+    { v: 'content_brief', label: 'Content briefs' }
   ];
   var SCOPE_ROLES = ['owner', 'kitchen', 'driver', 'vendor'];
   var RTYPES = [
@@ -76,13 +77,52 @@
     root.innerHTML =
       '<div class="hub-section"><div class="row" style="gap:8px">' +
       '<button class="btn ' + (tab === 'library' ? 'gold' : 'ghost') + '" id="tab-lib" type="button" data-i18n>Library</button>' +
+      '<button class="btn ' + (tab === 'success' ? 'gold' : 'ghost') + '" id="tab-suc" type="button" data-i18n>Success Stories</button>' +
       '<button class="btn ' + (tab === 'reminders' ? 'gold' : 'ghost') + '" id="tab-rem" type="button" data-i18n>Reminders</button>' +
       '</div></div>' +
       '<div id="tab-body"></div>';
     document.getElementById('tab-lib').addEventListener('click', function () { tab = 'library'; editing = null; render(); });
+    document.getElementById('tab-suc').addEventListener('click', function () { tab = 'success'; editing = null; render(); });
     document.getElementById('tab-rem').addEventListener('click', function () { tab = 'reminders'; render(); });
-    if (tab === 'library') renderLibrary(); else renderReminders();
+    if (tab === 'library') renderLibrary(); else if (tab === 'success') renderSuccess(); else renderReminders();
     refresh();
+  }
+
+  // ---------- Success Stories (real 4–5★ reviews → brief + receipt) ----------
+  function renderSuccess() {
+    var el = document.getElementById('tab-body');
+    el.innerHTML = '<div class="hub-section"><p class="muted" data-i18n>Loading your success conversations…</p></div>';
+    Hub.api('/api/hub/owner/content', { method: 'POST', body: { action: 'list_success' } }).then(function (r) {
+      var convos = (r && r.conversations) || [];
+      var head = '<div class="hub-section"><h2 data-i18n>Success conversations</h2>' +
+        '<p class="muted" data-i18n>Real 4–5★ reviews from your customers. Review one and draft a content brief + receipt — the receipt keeps the quote honest and attributed.</p></div>';
+      if (!convos.length) {
+        el.innerHTML = head + '<div class="hub-section"><p class="muted" data-i18n>No 4–5★ reviews with comments yet. They appear here automatically as customers rate their deliveries.</p></div>';
+        refresh(); return;
+      }
+      el.innerHTML = head + '<div class="hub-section">' + convos.map(function (c) {
+        var s = '';
+        for (var i = 0; i < 5; i++) s += i < c.rating ? '★' : '☆';
+        return '<div class="card" style="margin-bottom:10px">' +
+          '<div class="row" style="justify-content:space-between"><b>' + s + '</b>' +
+          '<span class="muted" style="font-size:12px">' + (c.client || '') + ' · ' + (c.date || '') + '</span></div>' +
+          '<p style="margin:6px 0">“' + (c.comment || '').replace(/</g, '&lt;') + '”</p>' +
+          (c.drafted
+            ? '<span class="muted" style="font-size:12px" data-i18n>✓ Brief drafted — see Library</span>'
+            : '<button class="btn gold" type="button" data-draft="' + c.id + '" data-i18n>Draft brief + receipt</button>') +
+          '</div>';
+      }).join('') + '</div>';
+      el.querySelectorAll('[data-draft]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          btn.disabled = true; btn.textContent = 'Drafting…';
+          Hub.api('/api/hub/owner/content', { method: 'POST', body: { action: 'draft_content_brief', feedback_id: btn.getAttribute('data-draft') } }).then(function (res) {
+            if (res && res.ok) { tab = 'library'; typeFilter = 'content_brief'; render(); }
+            else { btn.disabled = false; btn.textContent = 'Draft brief + receipt'; alert((res && res.error) || 'Could not draft.'); }
+          });
+        });
+      });
+      refresh();
+    });
   }
 
   // ---------- Library ----------

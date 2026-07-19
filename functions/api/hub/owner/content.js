@@ -21,8 +21,61 @@ import { id as genId, now, today, parseJson, toJson } from '../../../_lib/hub.js
 import { putMedia } from '../../../_lib/media.js';
 
 // 'brand' = the owner-authored Brand & Standards brief that grounds the Creative Studio AI.
-const DOC_TYPES = ['brand', 'manual', 'policy', 'procedure', 'recipe'];
+const DOC_TYPES = ['brand', 'manual', 'policy', 'procedure', 'recipe', 'content_brief'];
 const SCOPE_ROLES = ['owner', 'kitchen', 'driver', 'vendor'];
+
+// ── Creative Studio: success conversations → brief + receipt ──────────────────
+// A "success conversation" is a REAL 4–5★ post-delivery review with a comment
+// (delivery_feedback). The Studio collects them so Dayan can turn a genuine
+// customer moment into content — never a fabricated testimonial.
+function maskClient(email) {
+  const local = String(email || '').split('@')[0].trim();
+  if (!local) return 'a customer';
+  // first name / handle only, capitalized — enough for the owner to recognize, no full PII in content
+  return local.charAt(0).toUpperCase() + local.slice(1, 14).replace(/[._-].*$/, '');
+}
+function stars(n) { const r = Math.max(0, Math.min(5, Number(n) || 0)); return '★'.repeat(r) + '☆'.repeat(5 - r); }
+function fbDate(created_at) { try { return new Date(Number(created_at) * 1000).toISOString().slice(0, 10); } catch { return ''; } }
+
+// Draft body = a RECEIPT (honest source-of-truth, verbatim + attributed) + a BRIEF
+// (the content plan grounded in the brand voice). Dayan reviews/edits before anything ships.
+function buildBriefBody({ fb, angle, brand }) {
+  const brandLine = brand && brand.title ? brand.title : 'Brand & Standards Brief';
+  const quote = fb ? String(fb.comment || '').trim() : '';
+  const receipt = fb
+    ? [
+        '## 🧾 Receipt — real customer, verbatim (do not alter the quote)',
+        `- **Source:** delivery_feedback \`${fb.id}\`${fb.order_id ? ' · order `' + fb.order_id + '`' : ''}`,
+        `- **Customer:** ${maskClient(fb.client_email)}`,
+        `- **Rating:** ${stars(fb.rating)} (${Number(fb.rating) || 0}/5)`,
+        `- **Date:** ${fbDate(fb.created_at)}`,
+        `- **What they actually said:**`,
+        `  > ${quote.replace(/\n+/g, '\n  > ')}`,
+        '',
+        '_This receipt is the proof this testimonial is real. Any content below must stay true to it — never embellish the quote or invent details._',
+      ].join('\n')
+    : [
+        '## 🧾 Receipt — source',
+        '- **Source:** manual (no linked review) — supply the real customer moment before publishing.',
+        '- _No fabricated testimonials: attach a real 4–5★ review or Dayan-verified quote before this ships._',
+      ].join('\n');
+
+  const pull = quote ? `"${quote.replace(/^["']|["']$/g, '')}" — ${fb ? maskClient(fb.client_email) : 'a customer'}` : '(add a verified customer quote)';
+  const brief = [
+    '## 📝 Brief — content plan',
+    `- **Angle:** ${angle || 'Let the customer’s own words carry it — real Cuban catering, real reaction.'}`,
+    '- **Pull-quote (ready to use, verbatim):**',
+    `  > ${pull}`,
+    '- **Suggested assets:**',
+    '  - Instagram / Facebook post (quote card in Añejo brand colors)',
+    '  - Website testimonial block (Añejo Catering — Success Stories)',
+    '  - If ≥4★ and routed to Google: amplify the Google review',
+    `- **Voice + guardrails:** follow **${brandLine}** — warm, proud, Cuban-family tone; Lake Worth / Palm Beach County only; no invented numbers or claims.`,
+    '- **Owner review:** Dayan edits/approves this brief before any asset is produced or posted.',
+  ].join('\n');
+
+  return `# Success story → content\n\n${receipt}\n\n${brief}\n`;
+}
 const REMINDER_TYPES = ['prep', 'sanitation', 'order_cutoff', 'temp_check', 'custom'];
 const REMINDER_TEAMS = ['kitchen', 'delivery'];
 
@@ -170,6 +223,52 @@ export const onRequestPost = async ({ request, env }) => {
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const action = (b && b.action || '').toString().trim();
   const ts = now();
+
+  // ---------- Creative Studio: success conversations ----------
+  // Collect the current success conversations = real 4–5★ post-delivery reviews with a comment.
+  if (action === 'list_success') {
+    let rows = { results: [] };
+    try {
+      rows = await env.DB.prepare(
+        "SELECT id, order_id, client_email, rating, comment, created_at FROM delivery_feedback " +
+        "WHERE rating >= 4 AND TRIM(COALESCE(comment,'')) != '' ORDER BY created_at DESC LIMIT 100"
+      ).all();
+    } catch { /* table may not exist in a fresh env — return empty, never 500 */ }
+    // which conversations already have a drafted brief (so the UI shows "drafted")
+    let seeded = new Set();
+    try {
+      const d = await env.DB.prepare("SELECT body FROM docs WHERE doc_type='content_brief'").all();
+      for (const r of (d.results || [])) { const m = String(r.body || '').match(/delivery_feedback `([^`]+)`/); if (m) seeded.add(m[1]); }
+    } catch { /* ignore */ }
+    const conversations = (rows.results || []).map((r) => ({
+      id: r.id, rating: Number(r.rating) || 0, comment: r.comment || '',
+      client: maskClient(r.client_email), date: fbDate(r.created_at), drafted: seeded.has(r.id),
+    }));
+    return json({ ok: true, conversations });
+  }
+
+  // Draft a content brief + receipt from a reviewed success conversation (or a manual angle).
+  if (action === 'draft_content_brief') {
+    const fbId = (b.feedback_id || '').toString().trim();
+    const angle = (b.angle || '').toString().trim().slice(0, 400);
+    let fb = null;
+    if (fbId) {
+      try { fb = await env.DB.prepare('SELECT * FROM delivery_feedback WHERE id = ?').bind(fbId).first(); }
+      catch { /* ignore */ }
+      if (!fb) return bad('Success conversation not found.', 404);
+    }
+    if (!fb && !angle) return bad('Pick a success conversation or provide an angle.');
+    let brand = null;
+    try { brand = await env.DB.prepare("SELECT title, body FROM docs WHERE doc_type='brand' AND active=1 ORDER BY updated_at DESC LIMIT 1").first(); }
+    catch { /* ignore */ }
+    const body = buildBriefBody({ fb, angle, brand });
+    const docId = genId();
+    const title = fb ? `Success story — ${maskClient(fb.client_email)} (${Number(fb.rating) || 0}★)` : `Content brief — ${angle.slice(0, 40) || 'new'}`;
+    await env.DB.prepare(
+      'INSERT INTO docs (id, doc_type, title, body, version, active, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)'
+    ).bind(docId, 'content_brief', title, body, 1, 1, (ctx.staff && ctx.staff.id) || null, ts, ts).run();
+    return json({ ok: true, id: docId, title, body });
+  }
 
   // ---------- Docs ----------
   if (action === 'create') {
