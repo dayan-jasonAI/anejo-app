@@ -12,7 +12,7 @@ export const onRequestPost = async ({ request, env }) => {
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
 
-  const kind = ['wholesale', 'sms'].includes(b.kind) ? b.kind : 'tasting';
+  const kind = ['wholesale', 'sms', 'launch'].includes(b.kind) ? b.kind : 'tasting';
   const name = (b.name || '').trim().slice(0, 120);
   const email = (b.email || '').trim().slice(0, 160);
   if (!name) return bad('Please enter your name.');
