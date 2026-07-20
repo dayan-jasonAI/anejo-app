@@ -180,6 +180,11 @@ window.addEventListener('DOMContentLoaded', function () {
   });
 });
 
+function curLang() {
+  try { return (window.AnejoLang && window.AnejoLang.get) ? window.AnejoLang.get() : 'en'; }
+  catch { return 'en'; }
+}
+
 document.getElementById('bowlChips').addEventListener('click', function (e) {
   const c = e.target.closest('.chip');
   if (c) c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
@@ -200,7 +205,7 @@ document.getElementById('notifyForm').addEventListener('submit', async function 
       return picks.length ? 'Opening-day reservation: ' + picks.join(', ') : '';
     })(),
     sms_consent: f.sms_consent.checked,
-    lang: (window.AnejoLang || 'en'),
+    lang: curLang(),
   };
   if (!body.name) { err.textContent = 'Please enter your name.'; err.style.display = 'block'; return; }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.email)) { err.textContent = 'Please enter a valid email.'; err.style.display = 'block'; return; }
@@ -211,7 +216,7 @@ document.getElementById('notifyForm').addEventListener('submit', async function 
     if (!r.ok || !j.ok) throw new Error(j.error || 'Something went wrong — please try again.');
     // Founding Legacy Member badge — only when within the founding cap.
     if (j.member && j.cap && j.member <= j.cap) {
-      const t = (window.AnejoLang === 'es')
+      const t = (curLang() === 'es')
         ? ('Miembro Fundador de Legado #' + j.member)
         : ('Founding Legacy Member #' + j.member);
       const badge = document.getElementById('memberBadge');
