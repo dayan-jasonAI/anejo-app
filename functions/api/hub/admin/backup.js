@@ -89,6 +89,7 @@ export const onRequestPost = async ({ request, env }) => {
           null,
           ok ? null : (backup && (backup.reason || backup.error)) || 'failed',
           started,
+          finished,
           finished
         )
         .run();

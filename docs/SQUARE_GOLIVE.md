@@ -1,5 +1,11 @@
 # Square go-live runbook (flip sandbox → production)
 
+**Status (2026-07-20, pre-launch check): Part A COMPLETE; full sandbox checkout re-verified
+end-to-end today** (order → Square payment link → test payment → webhook → `paid` in D1; subscribe
+page SDK + card + Apple/Google Pay buttons initialize clean; $25 min, 7% tax, 6PM-prior cutoff and
+Sunday-closed all enforced). Launch target Wed 2026-07-22; DBPR inspection Tue 2026-07-21 — flip
+Part B as soon as the license clears. Added B2.5 (Apple Pay prod domain), previously missing.
+
 **Status (2026-06-23): Part A COMPLETE — staged and waiting on DBPR.** The 3 production
 subscription plans are created and the production webhook is registered; the owner holds the
 go-live packet (prod token, App ID, Location ID, 3 plan var IDs, webhook signature key) off-line.
@@ -62,6 +68,18 @@ Overwrite the existing sandbox `SQUARE_*` secrets with the production go-live-pa
 ### B2. Redeploy
 Env-var changes only apply to a **new deployment**. Trigger a production redeploy (push any commit,
 or Cloudflare → Deployments → Retry latest).
+
+### B2.5. Apple Pay production domain (wallets)
+Sandbox Apple Pay domain verification does NOT carry over. With the **production** token:
+```
+curl -X POST https://connect.squareup.com/v2/apple-pay/domains \
+  -H "Authorization: Bearer $SQUARE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"domain_name":"anejocateringco.com"}'
+```
+Expect `VERIFIED` (the domain-association file already serves at
+`/.well-known/apple-developer-merchantid-domain-association`). Also confirm Apple Pay + Google Pay
+are enabled in Square Dashboard → Payment settings. Until this runs, `/subscribe` silently degrades
+to card-only on iPhone — checkout still works.
 
 ### B3. Verify (ping the build session to run these, or check yourself)
 - `https://anejocateringco.com/api/square-config` reports `"env":"production"` + the production app/location IDs.
