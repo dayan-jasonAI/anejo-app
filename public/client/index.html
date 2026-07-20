@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0D0D0D">
+<title>My Plan — Añejo</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600&display=swap" rel="stylesheet">
+<style>
+:root{--black:#0D0D0D;--green:#1A3D2E;--gold:#C6A85B;--gold-dark:#8B6B3E;--cream:#F5F2EC;--cream-dark:#EAE5D8;--ink:#1A1A1A;--muted:#6b6b6b;--line:rgba(26,61,46,.15)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Josefin Sans',-apple-system,sans-serif;background:var(--cream);color:var(--ink);line-height:1.6}
+a{color:var(--gold-dark)}
+.skip-link{position:absolute;left:-9999px;top:0;z-index:100;background:var(--gold);color:var(--black);padding:10px 16px;font-weight:600;border-radius:0 0 4px 0;text-decoration:none}
+.skip-link:focus{left:0}
+nav{background:var(--black);border-bottom:1px solid rgba(198,168,91,.2)}
+.nav-inner{max-width:760px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;color:var(--gold);text-decoration:none;font-family:'Cormorant Garamond',serif;font-weight:600;letter-spacing:5px;font-size:20px}
+.logo img{height:32px}
+.nav-r button{background:none;border:1px solid rgba(198,168,91,.4);color:var(--gold);border-radius:4px;padding:6px 12px;font:600 11px/1 'Josefin Sans';letter-spacing:1px;text-transform:uppercase;cursor:pointer}
+.wrap{max-width:760px;margin:0 auto;padding:32px 24px 72px}
+h1{font-weight:300;font-size:30px;margin-bottom:4px}h1 strong{color:var(--green);font-weight:600}
+.sub{color:var(--muted);font-size:14px;margin-bottom:24px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px;margin-bottom:18px}
+.card.gold{border-top:3px solid var(--gold)}
+.k{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-dark);font-weight:600;margin-bottom:10px}
+.macros{display:flex;gap:18px;flex-wrap:wrap}
+.macro{text-align:center}.macro .v{font-size:26px;font-weight:300;color:var(--green)}.macro .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.btn{display:inline-block;background:var(--gold);color:var(--black);text-decoration:none;border-radius:4px;padding:11px 18px;font:700 12px/1 'Josefin Sans';letter-spacing:1.5px;text-transform:uppercase;margin-top:8px}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--green)}
+.badge{font-size:10px;letter-spacing:.5px;text-transform:uppercase;font-weight:600;padding:3px 8px;border-radius:20px;background:var(--cream-dark);color:var(--muted)}
+.badge.active,.badge.subscribed{background:#e7f0ea;color:var(--green)}
+.gate{max-width:420px;margin:60px auto;background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:14px;padding:34px 30px;text-align:center}
+.gate h2{color:var(--green);font-weight:600;margin-bottom:8px}.gate p{color:var(--muted);font-size:14px;margin-bottom:18px}
+.gate input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--cream);margin-bottom:12px}
+.empty{background:#fff;border:1px dashed var(--line);border-radius:12px;padding:30px;text-align:center;color:var(--muted);font-size:14px}
+@keyframes ajFlame{0%,100%{transform:scale(1) rotate(-3deg)}50%{transform:scale(1.18) rotate(3deg)}}
+@keyframes ajPopIn{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+.aj-flame{display:inline-block;animation:ajFlame 1.1s ease-in-out infinite;transform-origin:center bottom}
+.aj-streak-num{display:inline-block;animation:ajPopIn .5s ease}
+</style>
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to content</a>
+<nav><div class="nav-inner">
+  <a href="/" class="logo"><img src="/assets/img/emblem.png" alt="Añejo"><span>AÑEJO</span></a>
+  <div class="nav-r"><a href="/order" style="background:var(--gold);color:var(--black);text-decoration:none;border-radius:4px;padding:7px 14px;font:600 11px/1 'Josefin Sans';letter-spacing:1px;text-transform:uppercase;margin-right:8px">Order</a><button id="signout" style="display:none" onclick="signOut()">Sign out</button></div>
+</div></nav>
+<main class="wrap" id="main"><p class="muted">Loading…</p></main>
+<script>
+const $=(id)=>document.getElementById(id);
+const esc=(s)=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+async function signOut(){try{await fetch('/api/auth/logout',{method:'POST'});}catch(_){}location.reload();}
+window.signOut=signOut;
+async function requestLink(e){e.preventDefault();const email=$('gemail').value.trim();if(!email)return;
+  const btn=e.target.querySelector('button');btn.disabled=true;btn.textContent='Sending…';
+  try{const r=await fetch('/api/auth/request-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,type:'client'})});
+    if(!r.ok)throw new Error();$('main').innerHTML='<div class="gate"><h2>Check your email</h2><p>We sent a sign-in link to <strong>'+esc(email)+'</strong>.</p></div>';
+  }catch(_){btn.disabled=false;btn.textContent='Send sign-in link';}return false;}
+window.requestLink=requestLink;
+function gate(){$('main').innerHTML='<div class="gate"><h2>Member sign-in</h2><p>Enter your email for a one-time sign-in link to view your plan.</p>'+
+  '<form onsubmit="return requestLink(event)"><input id="gemail" type="email" placeholder="you@email.com" required><button class="btn" type="submit" style="width:100%">Send sign-in link</button></form></div>';}
+function money(c){return '$'+((c||0)/100).toFixed(2);}
+function rewardsCard(r){
+  if(!r)return '';
+  var prog;
+  if(r.next_tier&&r.next_tier_at_cents){
+    var pct=Math.min(100,Math.round((r.lifetime_spend_cents/r.next_tier_at_cents)*100));
+    prog='<div style="background:var(--cream-dark);border-radius:20px;height:8px;overflow:hidden;margin:12px 0 6px"><div style="width:'+pct+'%;height:100%;background:var(--gold)"></div></div>'+
+      '<div style="font-size:12px;color:var(--muted)">'+money(r.to_next_cents)+' more in orders to reach <strong>'+esc(r.next_tier)+'</strong></div>';
+  }else{
+    prog='<div style="font-size:12px;color:var(--muted);margin-top:8px">You\u2019ve reached <strong>Immortal</strong> \u2014 our top tier. Thank you.</div>';
+  }
+  return '<div class="card gold"><div class="k">A\u00f1ejo Rewards \u00b7 '+esc(r.tier_name)+' tier</div>'+
+    '<div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:30px;font-weight:300;color:var(--green)">'+(r.points||0).toLocaleString()+'</span><span style="font-size:13px;color:var(--muted)">points</span>'+
+    (r.multiplier>1?'<span class="badge active" style="margin-left:auto">'+r.multiplier+'\u00d7 earning</span>':'')+'</div>'+
+    ((r.tier&&r.tier!=='vital')?'<div style="font-size:12.5px;color:#8B6B3E;margin-top:8px;font-weight:600">\ud83d\ude9a Free delivery \u2014 '+esc(r.tier_name)+' perk</div>':'')+prog+'</div>';
+}
+var AJ_MSG={
+  ate:['Beast mode. \ud83d\udcaa','That\u2019s how legends are built.','Your future self says thank you. \ud83d\ude4c','Consistency is your superpower.','Fuel in, goals up. \ud83d\udd25','Cuban flavor, championship habits.'],
+  skip:['No worries \u2014 tomorrow\u2019s a fresh bowl. \ud83c\udf3f','One skip won\u2019t break you. Get the next one. \ud83d\udc4a','Progress, not perfection.','We\u2019ll be here when you\u2019re hungry.','Comeback loading\u2026 \ud83d\udc9a'],
+  pic:['Looking delicious, right? \ud83d\ude0b','Made fresh, just for you.','Eat the rainbow. \ud83c\udf08'],
+  review:['You\u2019re a star \u2014 thank you! \u2b50','Your words make our day. \ud83d\ude4f','Gracias, familia. \ud83d\udc9b']
+};
+function ajPop(text){
+  var el=document.getElementById('aj-pop');
+  if(!el){el=document.createElement('div');el.id='aj-pop';el.style.cssText='position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(18px);background:#0D0D0D;color:#F5F2EC;border:1px solid rgba(198,168,91,.55);border-radius:12px;padding:13px 18px;font:600 14px/1.4 \'Josefin Sans\',sans-serif;box-shadow:0 14px 44px rgba(0,0,0,.42);z-index:99999;opacity:0;transition:opacity .3s,transform .3s;max-width:90%;text-align:center';document.body.appendChild(el);}
+  el.textContent=text;
+  requestAnimationFrame(function(){el.style.opacity='1';el.style.transform='translateX(-50%) translateY(0)';});
+  clearTimeout(el._t);el._t=setTimeout(function(){el.style.opacity='0';el.style.transform='translateX(-50%) translateY(18px)';},2800);
+}
+function ajRnd(kind){var a=AJ_MSG[kind]||AJ_MSG.ate;return a[Math.floor(Math.random()*a.length)];}
+window.ajPop=ajPop;window.ajRnd=ajRnd;
+function calcStreak(meals){
+  var set={};(meals||[]).forEach(function(m){if(m.consumed)set[m.date]=1;});
+  var start=set[new Date().toLocaleDateString('en-CA')]?0:1,streak=0;
+  for(var i=start;i<120;i++){var ds=new Date(Date.now()-i*864e5).toLocaleDateString('en-CA');if(set[ds])streak++;else break;}
+  return streak;
+}
+function streakHtml(meals){
+  var s=calcStreak(meals);
+  var label=s>0?('<span class="aj-flame">\ud83d\udd25</span> <span class="aj-streak-num">'+s+'</span>-day streak'):'Start your streak today';
+  var sub=s>=7?'A full week strong \u2014 unstoppable. \ud83c\udfc6':(s>=3?'You\u2019re building real momentum.':(s>0?'Keep it rolling.':'Tap \u201cAte it\u201d after your bowl.'));
+  return '<div id="streak" style="background:linear-gradient(135deg,#1A3D2E,#0D0D0D);color:#F5F2EC;border-radius:12px;padding:16px 18px;margin-bottom:16px;text-align:center">'+
+    '<div style="font-size:22px;font-weight:600;color:#C6A85B">'+label+'</div>'+
+    '<div style="font-size:12.5px;color:#cfc9b8;margin-top:4px">'+sub+'</div></div>';
+}
+function todayBowlCard(bowls){
+  var cards=bowls.map(function(b){
+    var w=b.window==='dinner'?'Dinner':'Lunch';
+    var img=b.image?'<img src="'+esc(b.image)+'" alt="'+esc(b.bowl)+'" loading="lazy" style="width:100%;height:150px;object-fit:cover;border-radius:10px;cursor:pointer" onclick="ajPop(ajRnd(\'pic\'))">':'';
+    return '<div style="flex:1;min-width:150px">'+img+'<div style="margin-top:8px"><span class="badge active">'+w+'</span> <strong style="color:var(--green)">'+esc(b.bowl)+'</strong></div></div>';
+  }).join('');
+  return '<div class="card gold"><div class="k">Your bowl today</div><div style="display:flex;gap:14px;flex-wrap:wrap">'+cards+'</div>'+
+    '<p style="font-size:12px;color:var(--muted);margin-top:10px">Cooked fresh and on the way during your delivery window. Tap a photo. \ud83d\ude0b</p></div>';
+}
+async function cancelSub(btn){
+  if(!confirm('Cancel your weekly subscription? You can re-subscribe anytime \u2014 no fees.'))return;
+  btn.disabled=true;btn.textContent='Canceling\u2026';
+  try{var r=await fetch('/api/subscriptions/cancel',{method:'POST'});var d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'err');
+    ajPop('Subscription canceled. We\u2019ll miss you \u2014 your account stays. \ud83c\udf3f');init();
+  }catch(e){btn.disabled=false;btn.textContent='Cancel subscription';ajPop('Couldn\u2019t cancel automatically \u2014 please contact us. \u26a0\ufe0f');}
+}
+window.cancelSub=cancelSub;
+async function manageSub(op,btn){
+  var ask={pause:'Pause your weekly subscription? Billing and deliveries stop until you resume — no fees.',
+           skip:'Skip next week? That week’s bowls and charge are skipped; deliveries resume the week after.',
+           resume:'Resume your weekly subscription? Fresh bowls and billing start again.'}[op];
+  if(ask&&!confirm(ask))return;
+  var label=btn.textContent;btn.disabled=true;btn.textContent='Working…';
+  try{var r=await fetch('/api/subscriptions/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:op})});
+    var d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'err');
+    ajPop({pause:'Subscription paused. 🌙',skip:'Next week skipped — see you the week after. 🌿',resume:'Welcome back! Subscription resumed. 💚'}[op]||'Done.');init();
+  }catch(e){btn.disabled=false;btn.textContent=label;ajPop('Couldn’t do that automatically — please contact us. ⚠️');}
+}
+window.manageSub=manageSub;
+async function changePlan(sel){
+  var tier=sel.value, label=sel.options[sel.selectedIndex].text;
+  if(!confirm('Change your plan to: '+label+'?\nYour upcoming deliveries and weekly price update to match.')){init();return;}
+  sel.disabled=true;
+  try{var r=await fetch('/api/subscriptions/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'change_plan',tier:tier})});
+    var d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'err');
+    ajPop('Plan updated. Your next bowls reflect the change. 🌿');init();
+  }catch(e){sel.disabled=false;ajPop('Couldn’t change the plan — please contact us. ⚠️');}
+}
+window.changePlan=changePlan;
+function render(d,logs){
+  $('signout').style.display='inline-block';
+  const c=d.client, p=d.plan, s=d.subscription;
+  if(!c){$('main').innerHTML='<div class="empty">No plan is linked to '+esc(d.email)+' yet. Ask your trainer to add you.</div>';return;}
+  let html='<h1>Hi, <strong>'+esc(c.name||'there')+'</strong>.</h1><div class="sub">Your Añejo plan & subscription.</div>';
+  html+='<a class="btn" href="/order" style="display:inline-block;margin-bottom:18px">Order fresh bowls →</a>';
+  if(d.rewards)html+=rewardsCard(d.rewards);
+  if(d.today_bowls&&d.today_bowls.length)html+=todayBowlCard(d.today_bowls);
+  if(p){html+='<div class="card gold"><div class="k">Your daily targets</div><div class="macros">'+
+    '<div class="macro"><div class="v">'+(p.daily_calories||'—')+'</div><div class="l">kcal</div></div>'+
+    '<div class="macro"><div class="v">'+(p.daily_protein_g||'—')+'</div><div class="l">protein</div></div>'+
+    '<div class="macro"><div class="v">'+(p.daily_carbs_g||'—')+'</div><div class="l">carbs</div></div>'+
+    '<div class="macro"><div class="v">'+(p.daily_fat_g||'—')+'</div><div class="l">fat</div></div></div>'+
+    (p.public_token?'<a class="btn" href="/plan.html?token='+encodeURIComponent(p.public_token)+'">View full plan</a>':'')+'</div>';
+  } else { html+='<div class="empty">Your plan is being prepared by your trainer.</div>'; }
+  html+='<div class="card"><div class="k">Subscription</div>';
+  if(s){var st=String(s.status||'').toLowerCase();
+    html+='<p>Status: <span class="badge '+esc(st)+'">'+esc(st)+'</span> · '+money(s.weekly_amount_cents)+'/week</p>';
+    if(s.skip_through)html+='<p style="font-size:13px;color:var(--green);margin:-2px 0 4px">Skipping a week — deliveries resume after '+esc(s.skip_through)+'. 🌿</p>';
+    if(st==='paused'){
+      html+='<p style="font-size:13px;color:var(--muted);margin:-2px 0 4px">Paused — no deliveries or charges until you resume.</p>'+
+        '<button class="btn" type="button" onclick="manageSub(\'resume\',this)" style="margin-top:6px">Resume subscription</button>';
+    } else if(st==='active'||st==='subscribed'){
+      html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'+
+        '<button class="btn ghost" type="button" onclick="manageSub(\'skip\',this)">Skip next week</button>'+
+        '<button class="btn ghost" type="button" onclick="manageSub(\'pause\',this)">Pause</button>'+
+        '<button class="btn ghost" type="button" onclick="cancelSub(this)" style="border-color:#d8b4b4;color:#8a1c12">Cancel</button>'+
+      '</div>'+
+      '<div style="margin-top:12px"><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Change plan</label>'+
+        '<select onchange="changePlan(this)" style="padding:10px;border:1px solid var(--line);border-radius:8px;width:100%;background:#fff">'+
+        ['plan_5','plan_10','plan_12'].map(function(tk){var lbl={plan_5:'5 bowls / week · Mon–Fri (1 / day)',plan_10:'10 bowls / week · Mon–Fri (lunch + dinner)',plan_12:'12 bowls / week · Mon–Sat (lunch + dinner)'}[tk];return '<option value="'+tk+'"'+(String(s.tier)===tk?' selected':'')+'>'+lbl+'</option>';}).join('')+
+        '</select></div>';
+    }
+    if(st==='active'||st==='subscribed'||st==='paused'){
+      html+='<div style="margin-top:12px"><a class="btn ghost" href="/client/payment.html" style="display:inline-block">💳 Update payment method</a></div>';
+    }
+  }
+  else{
+    var subQ='/subscribe?client='+encodeURIComponent(c.id)+'&plan='+encodeURIComponent((p&&p.meal_plan_tier)||'plan_12');
+    if(p&&p.per_bowl_price_usd!=null) subQ+='&pbp='+encodeURIComponent(p.per_bowl_price_usd);
+    if(p&&p.bowl_size_oz) subQ+='&oz='+encodeURIComponent(p.bowl_size_oz);
+    html+='<p class="muted" style="margin-bottom:6px">No active subscription.</p>'+(p&&p.meal_plan_tier?'<a class="btn" href="'+subQ+'">Subscribe to my plan</a>':'<a class="btn ghost" href="/#menu">See plans</a>');
+  }
+  html+='</div>';
+  // "Manage my plan" explainer — so members know the self-service controls above exist.
+  if(s){var ms=String(s.status||'').toLowerCase();
+    if(ms==='active'||ms==='subscribed'||ms==='paused'){
+      html+='<details class="card" style="padding:16px 18px"><summary style="cursor:pointer;font-weight:700;color:var(--green);list-style:none">🌿 Manage my plan — your options</summary>'+
+        '<ul style="margin:12px 0 0;padding-left:18px;font-size:14px;line-height:1.7">'+
+          '<li><strong>Pause</strong> anytime — billing &amp; deliveries stop, no fees. <strong>Resume</strong> whenever you’re ready.</li>'+
+          '<li><strong>Skip next week</strong> — that week’s bowls &amp; charge are skipped; deliveries pick back up the week after.</li>'+
+          '<li><strong>Change plan</strong> — switch between 5, 10, or 12 bowls a week; your bowls &amp; price update automatically.</li>'+
+          '<li><strong>Update payment method</strong> — change the card on file, entered securely through Square.</li>'+
+          '<li><strong>Cancel</strong> — no fees, your account stays, and you can re-subscribe anytime.</li>'+
+        '</ul><p style="font-size:12.5px;color:var(--muted);margin-top:12px">Everything’s on this page, in your Subscription card above. Questions? Just message us. 💚</p></details>';
+    }
+  }
+  // Track your week — meal log + weight check-in
+  if(p){html+='<div class="card"><div class="k">Track your week</div>'+
+    streakHtml((logs&&logs.meals)||[])+
+    '<p style="font-size:14px;margin-bottom:10px">Did you eat your Añejo bowl today?</p>'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">'+
+      '<button class="btn" type="button" onclick="logMeal(true,this)">Ate it ✓</button>'+
+      '<button class="btn ghost" type="button" onclick="logMeal(false,this)">Skipped</button>'+
+      '<a class="btn ghost" href="/feedback" onclick="ajPop(ajRnd(\'review\'))">Leave a review ⭐</a></div>'+
+    '<div class="k">Weight check-in</div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+      '<input id="wlb" type="number" inputmode="decimal" step="0.1" placeholder="lb" aria-label="Weight in pounds" style="width:120px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--cream)">'+
+      '<button class="btn" type="button" onclick="logWeight(this)">Log weight</button></div>'+
+    '<div id="logMsg" style="font-size:13px;color:var(--green);margin-top:10px;min-height:1px" role="status"></div>'+
+    '<div id="recent" style="margin-top:8px"></div></div>';}
+  $('main').innerHTML=html;
+  renderRecent(logs||{meals:[],weights:[]});
+}
+function lb(kg){return Math.round(kg/0.4535924*10)/10;}
+function renderRecent(logs){
+  const el=$('recent'); if(!el)return;
+  const w=(logs.weights||[]).slice(0,5), meals=(logs.meals||[]);
+  let h=''; const weekAgo=Date.now()-7*864e5;
+  const eaten=meals.filter(m=>m.consumed&&new Date(m.date).getTime()>=weekAgo).length;
+  if(meals.length)h+='<div class="muted" style="font-size:13px;margin-top:6px">'+eaten+' bowl'+(eaten===1?'':'s')+' logged this week.</div>';
+  if(w.length){h+='<div style="margin-top:12px"><div class="k">Recent weight</div>';
+    h+=w.map(function(x,i){var cur=lb(x.weight_kg),d='';if(i<w.length-1){var diff=Math.round((cur-lb(w[i+1].weight_kg))*10)/10;if(diff)d=' <span style="color:'+(diff<0?'#2e7d32':'#8a6d3b')+'">('+(diff>0?'+':'')+diff+')</span>';}return '<div style="font-size:14px;padding:3px 0">'+esc(x.date)+' — <strong>'+cur+' lb</strong>'+d+'</div>';}).join('');
+    h+='</div>';}
+  el.innerHTML=h;
+}
+async function refreshLogs(){try{var lg=await(await fetch('/api/client/log')).json();renderRecent(lg);var stEl=document.getElementById('streak');if(stEl)stEl.outerHTML=streakHtml(lg.meals||[]);}catch(_){}}
+async function logMeal(consumed,btn){if(btn)btn.disabled=true;
+  try{const r=await fetch('/api/client/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'meal',consumed:consumed})});if(!r.ok)throw 0;$('logMsg').textContent=consumed?'Logged — nice work.':'Logged.';ajPop(ajRnd(consumed?'ate':'skip'));await refreshLogs();}
+  catch(_){$('logMsg').textContent='Could not save. Try again.';}finally{if(btn)btn.disabled=false;}}
+window.logMeal=logMeal;
+async function logWeight(btn){var v=parseFloat(($('wlb')||{}).value);if(!v){$('logMsg').textContent='Enter a weight in lb.';return;}
+  if(btn)btn.disabled=true;
+  try{const r=await fetch('/api/client/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'weight',weight_lb:v})});const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'err');$('wlb').value='';$('logMsg').textContent='Weight logged.';await refreshLogs();}
+  catch(e){$('logMsg').textContent=e.message||'Could not save.';}finally{if(btn)btn.disabled=false;}}
+window.logWeight=logWeight;
+async function init(){let me;try{me=await(await fetch('/api/client/me')).json();}catch{$('main').innerHTML='<div class="empty">Could not reach the server.</div>';return;}
+  if(!me.authenticated){gate();return;}
+  let logs={meals:[],weights:[]};
+  if(me.client){try{logs=await(await fetch('/api/client/log')).json();}catch(_){}}
+  render(me,logs);
+  loadAddonOffers();}
+async function loadAddonOffers(){
+  try{
+    var d=await(await fetch('/api/client/addons')).json();
+    if(!d||!d.offers||!d.offers.length)return;
+    var o=d.offers[0];
+    var win=o.window==='dinner'?'dinner':'lunch';
+    var b=document.createElement('a');
+    b.href=o.link;
+    b.style.cssText='display:block;margin:0 0 16px;padding:14px 16px;border-radius:12px;text-decoration:none;background:#1A3D2E;color:#F5F2EC;border:1px solid #C6A85B';
+    b.innerHTML='<div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#C6A85B;font-weight:700">Today’s '+win+' delivery</div>'+
+      '<div style="font-weight:600;margin-top:3px">Add a drink, shake, or a bowl for a friend →</div>';
+    var main=document.getElementById('main');
+    if(main&&main.firstChild)main.insertBefore(b,main.firstChild);else if(main)main.appendChild(b);
+  }catch(_){}
+}
+init();
+</script>
+</body>
+</html>
