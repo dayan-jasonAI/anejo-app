@@ -9,6 +9,20 @@
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link rel="stylesheet" href="/hub/assets/hub.css">
 <style>
+    .pmtabs{display:flex;gap:8px;margin-bottom:14px}
+    .pmtab{font:inherit;font-weight:700;padding:9px 15px;border-radius:10px;cursor:pointer;
+      border:1px solid var(--line);background:transparent;color:inherit}
+    .pmtab.on{background:#1b3a2b;color:#fff;border-color:transparent}
+    .cfield{display:grid;grid-template-columns:1fr 130px;gap:10px;align-items:center;margin:9px 0}
+    .cfield label{font-size:14px}
+    .cfield .prov{display:block;font-size:11.5px;opacity:.62;margin-top:2px}
+    .cfield input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:15px}
+    .ctable{width:100%;border-collapse:collapse;margin-top:6px;font-size:14px}
+    .ctable th,.ctable td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:right}
+    .ctable th:first-child,.ctable td:first-child{text-align:left}
+    .cflag{color:#b26b00;font-size:12.5px;margin-top:8px}
+    .cerr{background:#fdecea;border:1px solid #f5b5ae;color:#8a1c11;border-radius:9px;padding:9px 12px;margin-top:10px;font-size:13.5px}
+    .cok{color:#1b7a3d;font-size:13px;margin-left:10px}
   .grp{background:var(--paper,#fffdf8);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
   .grp h3{margin:0 0 4px;font-size:15px;color:var(--green)}
   .grp .hint{font-size:12px;color:var(--muted);margin-bottom:10px}
@@ -40,7 +54,21 @@
 <body>
 <div class="hub-bar"><h1>AÑEJO · PRICING</h1><div class="hub-bar-actions"><a class="btn ghost" href="/hub/owner/contracts.html">← Contracts</a></div></div>
 <div class="hub-wrap">
-  <div id="owner-root" class="hub-loading"><p>Loading…</p></div>
+  <!-- Two DIFFERENT pricing models live here and must not be confused:
+       · Lunch subscription = per-lunch, per-office delivery (the original calculator).
+         NOTE: it persists to localStorage, so its numbers live in ONE browser, not the CRM.
+       · Catering = per-head events, cost-up, D1-backed, editable from any device.
+         Dayan's 2026-07-20 requirement was for THIS one.
+       Class prefix is "pm" (pricing model) - NOT "ptab", which would read as a typo of the
+       existing #ptable in the lunch calculator. -->
+  <div class="pmtabs" role="tablist">
+    <button id="pmCater" class="pmtab on" role="tab">Catering (per head)</button>
+    <button id="pmLunch" class="pmtab" role="tab">Lunch subscription</button>
+  </div>
+  <div id="caterPane"><div id="caterRoot" class="hub-loading"><p>Loading…</p></div></div>
+  <div id="lunchPane" hidden>
+    <div id="owner-root" class="hub-loading"><p>Loading…</p></div>
+  </div>
 </div>
 <nav id="owner-nav" class="hub-nav"></nav>
 <script src="/assets/js/i18n.js"></script>
@@ -122,5 +150,104 @@
 })();
 </script>
 <script src="assets/operator.js" defer></script>
+
+<script>
+/* Catering pricing — D1-backed (migration 0041), editable from any device.
+   The lunch calculator below persists to localStorage; this one does NOT, because Dayan's
+   requirement was to change these from the Hub and have it stick. */
+(function () {
+  var CF = [
+    ['food_cost_per_head',  'Food cost per head',       'supplier cost of what one guest eats'],
+    ['labor_rate_per_hour', 'Staff pay rate / hour',    'your actual rate'],
+    ['hours_per_event',     'Hours per event',          'prep + travel + service + breakdown'],
+    ['guests_per_staff',    'Guests per staff member',  '25-30 is a common start'],
+    ['packaging_per_head',  'Packaging per head',       'container + lid + sauce cup + label'],
+    ['overhead_per_event',  'Overhead per event',       'equipment wear + kitchen share + admin'],
+    ['target_food_cost_pct','Target food cost',         'fraction: 0.30 = 30%'],
+    ['target_net_margin',   'Target net margin',        'fraction: 0.25 = 25%'],
+    ['deposit_pct',         'Deposit',                  'fraction: 0.50 = 50%'],
+    ['mileage_rate',        'Mileage rate ($/mi)',      'blank = travel not charged']
+  ];
+  function el(id){ return document.getElementById(id); }
+  function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function paint(d) {
+    var prov = d.provenance || {}, c = d.config || {};
+    var fields = CF.map(function (f) {
+      var pv = prov[f[0]] || '';
+      var isProv = /^provisional/.test(pv);
+      return '<div class="cfield"><label for="cf_'+f[0]+'">'+esc(f[1]) +
+        '<span class="prov">' + esc(f[2]) + (pv ? ' · ' + (isProv ? '⚠ ' : '✓ ') + esc(pv) : '') + '</span></label>' +
+        '<input id="cf_'+f[0]+'" type="number" step="0.01" min="0" value="' +
+        (c[f[0]] == null ? '' : esc(c[f[0]])) + '"></div>';
+    }).join('');
+
+    var pv = d.preview || {}, tbl = '';
+    if (pv.ok) {
+      tbl = '<table class="ctable"><tr><th>Guests</th><th>Per head</th><th>Total</th><th>Deposit</th><th>Staff</th><th>Food %</th></tr>' +
+        pv.rows.map(function (r) {
+          return '<tr><td>'+r.guests+'</td><td><b>$'+r.perHead.toFixed(2)+'</b></td><td>$'+r.total.toFixed(2)+
+            '</td><td>'+(r.deposit!=null?'$'+r.deposit.toFixed(2):'—')+'</td><td>'+r.staff+'</td><td>'+r.foodPct+'%</td></tr>';
+        }).join('') + '</table>';
+      var flagged = pv.rows.filter(function(r){ return r.flag; });
+      if (flagged.length) tbl += '<p class="cflag">⚠ '+esc(flagged[0].flag)+'</p>';
+    } else {
+      tbl = '<div class="cerr">No quote possible yet — missing: ' + esc((pv.missing||[]).join(', ')) +
+            '<br>The engine refuses to invent a price.</div>';
+    }
+
+    el('caterRoot').className = '';
+    el('caterRoot').innerHTML =
+      '<div class="grp"><h3>Your real costs</h3>' +
+      '<p class="row-sub">Every quote is built from these. ⚠ marks a figure that is still a placeholder, not something you measured — change it and it becomes yours.</p>' +
+      fields +
+      '<div style="margin-top:14px"><button id="cfSave" class="btn">Save</button><span id="cfMsg" class="cok"></span></div>' +
+      '<div id="cfErr"></div></div>' +
+      '<div class="grp"><h3>What that prices out to</h3>' +
+      '<p class="row-sub">Live, from the same engine that will quote a real event.</p>' + tbl + '</div>';
+
+    el('cfSave').onclick = save;
+  }
+
+  function save() {
+    var body = {};
+    CF.forEach(function (f) {
+      var v = el('cf_' + f[0]).value.trim();
+      body[f[0]] = (v === '' ? (f[0] === 'mileage_rate' ? null : '') : Number(v));
+    });
+    el('cfMsg').textContent = 'saving…'; el('cfErr').innerHTML = '';
+    fetch('/api/hub/owner/pricing', { method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){
+        if (!res.ok || !res.j.ok) {
+          el('cfMsg').textContent = '';
+          el('cfErr').innerHTML = '<div class="cerr">' + esc((res.j.errors||[res.j.error||'save failed']).join(' · ')) + '</div>';
+          return;
+        }
+        paint(res.j); el('cfMsg').textContent = 'saved ✓';
+        setTimeout(function(){ var m=el('cfMsg'); if(m) m.textContent=''; }, 2500);
+      })
+      .catch(function(e){ el('cfMsg').textContent=''; el('cfErr').innerHTML='<div class="cerr">'+esc(e.message)+'</div>'; });
+  }
+
+  fetch('/api/hub/owner/pricing', { credentials:'same-origin' })
+    .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+    .then(function(res){
+      if (!res.ok || !res.j.ok) {
+        el('caterRoot').className='';
+        el('caterRoot').innerHTML = '<div class="cerr">'+esc(res.j.error||'could not load pricing')+'</div>';
+        return;
+      }
+      paint(res.j);
+    })
+    .catch(function(e){ el('caterRoot').className=''; el('caterRoot').innerHTML='<div class="cerr">'+esc(e.message)+'</div>'; });
+
+  el('pmCater').onclick = function(){ el('pmCater').classList.add('on'); el('pmLunch').classList.remove('on');
+    el('caterPane').hidden=false; el('lunchPane').hidden=true; };
+  el('pmLunch').onclick = function(){ el('pmLunch').classList.add('on'); el('pmCater').classList.remove('on');
+    el('lunchPane').hidden=false; el('caterPane').hidden=true; };
+})();
+</script>
 </body>
 </html>
