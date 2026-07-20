@@ -4,6 +4,22 @@ import { json, bad, id, now, isEmail } from '../_lib/util.js';
 import { sendEmail, emailShell, escHtml } from '../_lib/email.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 
+// Founding Legacy Member program — first N launch-list signups get a founding number.
+const FOUNDING_CAP = 50;
+
+// GET /api/leads — public, PII-free: how many Founding Legacy spots are claimed/left.
+// Powers the live counter on /launch. Never throws; returns 0/cap if the DB is absent.
+export const onRequestGet = async ({ env }) => {
+  let claimed = 0;
+  if (env.DB) {
+    try {
+      const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM leads WHERE kind='launch'").first();
+      claimed = (r && r.n) || 0;
+    } catch { /* fall through with 0 */ }
+  }
+  return json({ ok: true, claimed, cap: FOUNDING_CAP, remaining: Math.max(0, FOUNDING_CAP - claimed) });
+};
+
 export const onRequestPost = async ({ request, env }) => {
   // Spam guard: cap form submissions per IP.
   const limited = await limitOr429(env, request, { name: 'leads', limit: 6, windowSec: 60 });
@@ -31,7 +47,27 @@ export const onRequestPost = async ({ request, env }) => {
   };
 
   let stored = false;
+  let member = null; // Founding Legacy Member number (launch list only)
   if (env.DB) {
+    // For the launch list, dedupe by email so a refresh/re-submit keeps the SAME
+    // founding number instead of inflating the counter. Returning visitors get their
+    // original rank back.
+    if (kind === 'launch') {
+      try {
+        const existing = await env.DB
+          .prepare("SELECT created_at FROM leads WHERE kind='launch' AND lower(email)=lower(?) ORDER BY created_at ASC LIMIT 1")
+          .bind(rec.email)
+          .first();
+        if (existing) {
+          const rank = await env.DB
+            .prepare("SELECT COUNT(*) AS n FROM leads WHERE kind='launch' AND created_at<=?")
+            .bind(existing.created_at)
+            .first();
+          return json({ ok: true, member: (rank && rank.n) || 1, cap: FOUNDING_CAP, returning: true });
+        }
+      } catch { /* fall through to normal insert */ }
+    }
+
     await env.DB
       .prepare(
         `INSERT INTO leads (id, kind, name, email, phone, company, interest, message, source_lang, sms_consent, created_at)
@@ -40,6 +76,13 @@ export const onRequestPost = async ({ request, env }) => {
       .bind(rec.id, rec.kind, rec.name, rec.email, rec.phone, rec.company, rec.interest, rec.message, rec.source_lang, rec.sms_consent, rec.created_at)
       .run();
     stored = true;
+
+    if (kind === 'launch') {
+      try {
+        const c = await env.DB.prepare("SELECT COUNT(*) AS n FROM leads WHERE kind='launch'").first();
+        member = (c && c.n) || 1;
+      } catch { /* member stays null; page falls back gracefully */ }
+    }
   }
 
   // Notify Dayan (best-effort; never block the visitor on email).
@@ -61,5 +104,5 @@ export const onRequestPost = async ({ request, env }) => {
   if (!stored && !env.RESEND_API_KEY) {
     return bad('Inbox not configured yet.', 503);
   }
-  return json({ ok: true });
+  return json({ ok: true, member, cap: FOUNDING_CAP });
 };

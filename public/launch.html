@@ -33,6 +33,10 @@ main{flex:1;display:flex;align-items:center;justify-content:center;padding:24px 
 h1{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:clamp(34px,6vw,48px);line-height:1.12;margin:16px 0 10px}
 h1 .gold{color:var(--gold)}
 .sub{color:#cfd6cb;font-size:16px;line-height:1.65;max-width:44ch;margin:0 auto}
+.counter{display:inline-flex;align-items:baseline;gap:9px;margin:20px auto 4px;padding:9px 18px;border:1px solid rgba(198,168,91,.5);border-radius:999px;background:rgba(198,168,91,.08)}
+.counter-n{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:26px;color:var(--gold);line-height:1}
+.counter-label{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#cfd6cb}
+.badge{display:inline-block;margin:0 auto 14px;padding:7px 16px;border:1px solid var(--gold);border-radius:999px;background:rgba(198,168,91,.12);color:var(--gold);font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;font-weight:600}
 .props{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:24px 0 30px}
 .prop{border:1px solid rgba(198,168,91,.45);color:var(--cream);border-radius:999px;padding:8px 14px;font-size:12.5px;letter-spacing:.06em}
 form{background:rgba(13,36,25,.72);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);border:1px solid rgba(198,168,91,.35);border-radius:16px;padding:22px 20px;text-align:left}
@@ -78,9 +82,14 @@ footer a:hover{color:var(--gold)}
 
 <main>
   <div class="card">
-    <p class="eyebrow" data-i18n>Opening July 22 · Palm Beach County</p>
-    <h1 data-i18n>Be first when the <span class="gold">kitchen opens</span>.</h1>
-    <p class="sub" data-i18n>Longevity bowls — cooked fresh daily, macro-balanced, and delivered to your door across Palm Beach County. Same-day bowls are limited; the list orders first.</p>
+    <p class="eyebrow" data-i18n>The Founding Fifty · Opening July 22</p>
+    <h1 data-i18n>Become a <span class="gold">Founding Legacy Member</span>.</h1>
+    <p class="sub" data-i18n>We're opening our kitchen to Palm Beach County — and the first 50 to join become Founding Legacy Members. First to order, first to know, and part of the story from day one.</p>
+
+    <div class="counter" id="counter" hidden>
+      <span class="counter-n" id="counterN">—</span>
+      <span class="counter-label" data-i18n>Founding spots claimed</span>
+    </div>
 
     <div class="props">
       <span class="prop" data-i18n>8 signature bowls</span>
@@ -118,14 +127,15 @@ footer a:hover{color:var(--gold)}
         <p class="sms-fine" data-i18n>Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
       </div>
 
-      <button type="submit" id="goBtn" data-i18n>Notify me first</button>
+      <button type="submit" id="goBtn" data-i18n>Claim my founding spot</button>
       <p class="err" id="errMsg"></p>
       <p class="note" data-i18n>No spam — one launch announcement, then only what you ask for.</p>
     </form>
 
     <div class="done" id="doneBox">
       <div class="mark">✓</div>
-      <h2 data-i18n>You're on the list.</h2>
+      <p class="badge" id="memberBadge" hidden></p>
+      <h2 id="doneTitle" data-i18n>Welcome to the family.</h2>
       <p data-i18n>We open Wednesday, July 22. You'll hear from us the moment live ordering turns on — and if you reserved bowls, they're noted for opening day. Your checkout link arrives first.</p>
     </div>
   </div>
