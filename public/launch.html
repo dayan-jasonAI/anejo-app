@@ -153,10 +153,13 @@ footer a:hover{color:var(--gold)}
 window.addEventListener('DOMContentLoaded', function () {
   if (window.AnejoI18n && AnejoI18n.extend) AnejoI18n.extend({
     'Visit the site →': 'Visitar el sitio →',
-    'Opening July 22 · Palm Beach County': 'Abrimos el 22 de julio · Condado de Palm Beach',
-    'Be first when the': 'Sé el primero cuando abra la',
-    'kitchen opens': 'cocina',
-    'Longevity bowls — cooked fresh daily, macro-balanced, and delivered to your door across Palm Beach County. Same-day bowls are limited; the list orders first.': 'Bowls de longevidad — cocinados frescos cada día, balanceados en macros y entregados a tu puerta en todo Palm Beach County. Los bowls del día son limitados; la lista ordena primero.',
+    'The Founding Fifty · Opening July 22': 'Los Cincuenta Fundadores · Abrimos el 22 de julio',
+    'Become a': 'Conviértete en',
+    'Founding Legacy Member': 'Miembro Fundador de Legado',
+    "We're opening our kitchen to Palm Beach County — and the first 50 to join become Founding Legacy Members. First to order, first to know, and part of the story from day one.": 'Abrimos nuestra cocina en Palm Beach County — y los primeros 50 en unirse se convierten en Miembros Fundadores de Legado. Los primeros en ordenar, los primeros en saber, y parte de la historia desde el primer día.',
+    'Founding spots claimed': 'Lugares fundadores reclamados',
+    'Claim my founding spot': 'Reclamar mi lugar fundador',
+    'Welcome to the family.': 'Bienvenido a la familia.',
     '8 signature bowls': '8 bowls insignia',
     'Cooked fresh daily': 'Cocinado fresco a diario',
     'Lunch & dinner · Mon–Sat': 'Almuerzo y cena · Lun–Sáb',
@@ -206,13 +209,34 @@ document.getElementById('notifyForm').addEventListener('submit', async function 
     const r = await fetch('/api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.ok) throw new Error(j.error || 'Something went wrong — please try again.');
+    // Founding Legacy Member badge — only when within the founding cap.
+    if (j.member && j.cap && j.member <= j.cap) {
+      const t = (window.AnejoLang === 'es')
+        ? ('Miembro Fundador de Legado #' + j.member)
+        : ('Founding Legacy Member #' + j.member);
+      const badge = document.getElementById('memberBadge');
+      badge.textContent = t; badge.hidden = false;
+    }
     f.style.display = 'none';
     document.querySelector('.props').style.display = 'none';
+    const ctr = document.getElementById('counter'); if (ctr) ctr.hidden = true;
     document.getElementById('doneBox').style.display = 'block';
   } catch (ex) {
     err.textContent = ex.message; err.style.display = 'block'; btn.disabled = false;
   }
 });
+
+// Live "founding spots claimed" counter — best-effort, hidden if unavailable or full.
+(async function () {
+  try {
+    const r = await fetch('/api/leads', { headers: { 'Accept': 'application/json' } });
+    const j = await r.json();
+    if (j && j.ok && j.cap && j.claimed < j.cap) {
+      document.getElementById('counterN').textContent = j.claimed + ' / ' + j.cap;
+      document.getElementById('counter').hidden = false;
+    }
+  } catch { /* counter stays hidden — never blocks signup */ }
+})();
 </script>
 </body>
 </html>
