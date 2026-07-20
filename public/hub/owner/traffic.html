@@ -49,5 +49,6 @@ async function load(days){
 document.getElementById('seg').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;document.querySelectorAll('#seg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');load(b.dataset.d);});
 load(30);
 </script>
+<script src="assets/operator.js" defer></script>
 </body>
 </html>
