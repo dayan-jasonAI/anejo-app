@@ -17,6 +17,9 @@
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Josefin Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--green-dark);color:var(--cream);min-height:100vh;display:flex;flex-direction:column}
+.bg{position:fixed;inset:0;z-index:-2;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px}
+.bg img{width:100%;height:100%;object-fit:cover;filter:saturate(1.08) brightness(.9)}
+.veil{position:fixed;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(13,36,25,.78) 0%,rgba(13,36,25,.84) 40%,rgba(13,36,25,.93) 100%)}
 .serif-i{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500}
 header{padding:22px clamp(20px,5vw,48px);display:flex;align-items:center;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:12px;color:var(--cream);text-decoration:none}
@@ -31,7 +34,11 @@ h1 .gold{color:var(--gold)}
 .sub{color:#cfd6cb;font-size:16px;line-height:1.65;max-width:44ch;margin:0 auto}
 .props{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:24px 0 30px}
 .prop{border:1px solid rgba(198,168,91,.45);color:var(--cream);border-radius:999px;padding:8px 14px;font-size:12.5px;letter-spacing:.06em}
-form{background:rgba(245,242,236,.045);border:1px solid rgba(198,168,91,.35);border-radius:16px;padding:22px 20px;text-align:left}
+form{background:rgba(13,36,25,.72);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);border:1px solid rgba(198,168,91,.35);border-radius:16px;padding:22px 20px;text-align:left}
+.resv-label{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:2px 0 10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.chip{border:1px solid rgba(198,168,91,.5);background:transparent;color:var(--cream);border-radius:999px;padding:8px 14px;font-family:inherit;font-size:12.5px;letter-spacing:.08em;cursor:pointer;transition:all .12s}
+.chip[aria-pressed="true"]{background:var(--gold);color:var(--green-dark);font-weight:700;border-color:var(--gold)}
 label{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 6px}
 input[type=text],input[type=email],input[type=tel]{width:100%;padding:13px 14px;border-radius:10px;border:1px solid rgba(245,242,236,.25);background:rgba(13,36,25,.65);color:var(--cream);font-family:inherit;font-size:15px;margin-bottom:16px}
 input:focus{outline:2px solid var(--gold);border-color:transparent}
@@ -56,6 +63,13 @@ footer a:hover{color:var(--gold)}
 </style>
 </head>
 <body>
+<div class="bg" aria-hidden="true">
+  <img src="/assets/img/bowl_vida.jpg" alt="">
+  <img src="/assets/img/bowl_fuego.jpg" alt="">
+  <img src="/assets/img/bowl_congreen.jpg" alt="">
+  <img src="/assets/img/bowl_coco.jpg" alt="">
+</div>
+<div class="veil" aria-hidden="true"></div>
 <header>
   <a class="brand" href="/"><img src="/assets/img/emblem.png" alt="Añejo emblem"><span>AÑEJO</span></a>
   <a class="site-link" href="/" data-i18n>Visit the site →</a>
@@ -84,6 +98,17 @@ footer a:hover{color:var(--gold)}
       <label for="phone" data-i18n>Mobile (optional)</label>
       <input type="tel" id="phone" name="phone" autocomplete="tel">
 
+      <p class="resv-label" data-i18n>Reserve bowls for opening day (optional)</p>
+      <div class="chips" id="bowlChips">
+        <button type="button" class="chip" aria-pressed="false">VIDA</button>
+        <button type="button" class="chip" aria-pressed="false">FUEGO</button>
+        <button type="button" class="chip" aria-pressed="false">LIGERO</button>
+        <button type="button" class="chip" aria-pressed="false">MAR</button>
+        <button type="button" class="chip" aria-pressed="false">COCO</button>
+        <button type="button" class="chip" aria-pressed="false">CONGREEN</button>
+        <button type="button" class="chip" aria-pressed="false">RAÍZ</button>
+      </div>
+
       <div class="sms-optin">
         <label class="chk">
           <input type="checkbox" id="sms_consent" name="sms_consent">
@@ -100,7 +125,7 @@ footer a:hover{color:var(--gold)}
     <div class="done" id="doneBox">
       <div class="mark">✓</div>
       <h2 data-i18n>You're on the list.</h2>
-      <p data-i18n>We open Wednesday, July 22. You'll hear from us the moment live ordering turns on — and the first day's bowls go to this list before anyone else.</p>
+      <p data-i18n>We open Wednesday, July 22. You'll hear from us the moment live ordering turns on — and if you reserved bowls, they're noted for opening day. Your checkout link arrives first.</p>
     </div>
   </div>
 </main>
@@ -132,9 +157,15 @@ window.addEventListener('DOMContentLoaded', function () {
     'Notify me first': 'Avísenme primero',
     'No spam — one launch announcement, then only what you ask for.': 'Sin spam — un anuncio de apertura, luego solo lo que pidas.',
     "You're on the list.": 'Estás en la lista.',
-    "We open Wednesday, July 22. You'll hear from us the moment live ordering turns on — and the first day's bowls go to this list before anyone else.": 'Abrimos el miércoles 22 de julio. Te avisaremos en cuanto se activen los pedidos — y los bowls del primer día van primero a esta lista.',
+    "We open Wednesday, July 22. You'll hear from us the moment live ordering turns on — and if you reserved bowls, they're noted for opening day. Your checkout link arrives first.": 'Abrimos el miércoles 22 de julio. Te avisaremos en cuanto se activen los pedidos — y si reservaste bowls, quedan anotados para el día de apertura. Tu enlace de pago llega primero.',
+    'Reserve bowls for opening day (optional)': 'Reserva bowls para el día de apertura (opcional)',
     'Terms': 'Términos', 'Privacy': 'Privacidad',
   });
+});
+
+document.getElementById('bowlChips').addEventListener('click', function (e) {
+  const c = e.target.closest('.chip');
+  if (c) c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
 });
 
 document.getElementById('notifyForm').addEventListener('submit', async function (e) {
@@ -147,6 +178,10 @@ document.getElementById('notifyForm').addEventListener('submit', async function 
     email: f.email.value.trim(),
     phone: f.phone.value.trim(),
     interest: 'Launch notify list',
+    message: (function () {
+      const picks = [...document.querySelectorAll('#bowlChips .chip[aria-pressed="true"]')].map(c => c.textContent.trim());
+      return picks.length ? 'Opening-day reservation: ' + picks.join(', ') : '';
+    })(),
     sms_consent: f.sms_consent.checked,
     lang: (window.AnejoLang || 'en'),
   };
