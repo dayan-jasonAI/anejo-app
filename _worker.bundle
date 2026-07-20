@@ -1,9 +1,9 @@
-------formdata-undici-083325307786
+------formdata-undici-080117766987
 Content-Disposition: form-data; name="metadata"
 
-{"main_module":"functionsWorker-0.022696664805578748.js"}
-------formdata-undici-083325307786
-Content-Disposition: form-data; name="functionsWorker-0.022696664805578748.js"; filename="functionsWorker-0.022696664805578748.js"
+{"main_module":"functionsWorker-0.7538935537547066.js"}
+------formdata-undici-080117766987
+Content-Disposition: form-data; name="functionsWorker-0.7538935537547066.js"; filename="functionsWorker-0.7538935537547066.js"
 Content-Type: application/javascript+module
 
 var __defProp = Object.defineProperty;
@@ -15494,7 +15494,7 @@ var onRequestPost99 = /* @__PURE__ */ __name(async ({ request, env }) => {
   } catch {
     return bad("Invalid JSON body.");
   }
-  const kind = ["wholesale", "sms"].includes(b.kind) ? b.kind : "tasting";
+  const kind = ["wholesale", "sms", "launch"].includes(b.kind) ? b.kind : "tasting";
   const name = (b.name || "").trim().slice(0, 120);
   const email = (b.email || "").trim().slice(0, 160);
   if (!name) return bad("Please enter your name.");
@@ -15833,7 +15833,7 @@ async function onRequest7(context) {
 }
 __name(onRequest7, "onRequest");
 
-// ../.wrangler/tmp/pages-fHW2Lf/functionsRoutes-0.7752515861264123.mjs
+// ../.wrangler/tmp/pages-Pv4Zbp/functionsRoutes-0.09695242834014406.mjs
 var routes = [
   {
     routePath: "/api/hub/driver/checklist/submit",
@@ -17581,4 +17581,4 @@ export {
   pages_template_worker_default as default
 };
 
-------formdata-undici-083325307786--
+------formdata-undici-080117766987--
