@@ -5,7 +5,7 @@ import { sendEmail, emailShell, escHtml } from '../_lib/email.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 
 // Founding Legacy Member program — first N launch-list signups get a founding number.
-const FOUNDING_CAP = 50;
+const FOUNDING_CAP = 100;
 
 // GET /api/leads — public, PII-free: how many Founding Legacy spots are claimed/left.
 // Powers the live counter on /launch. Never throws; returns 0/cap if the DB is absent.
