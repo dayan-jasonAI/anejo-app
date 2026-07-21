@@ -67,8 +67,9 @@ async function sendLaunchWelcome(env, rec, member) {
     } catch { /* swallow — welcome is best-effort */ }
   }
 
-  // SMS (best-effort; only to signups who gave consent AND left a number)
-  if (rec.sms_consent && rec.phone) {
+  // SMS (best-effort; only to signups who gave consent AND left a number).
+  // Held OFF until Twilio auth is fixed — flip env LAUNCH_WELCOME_SMS='1' to enable.
+  if (env.LAUNCH_WELCOME_SMS === '1' && rec.sms_consent && rec.phone) {
     const to = toE164US(rec.phone);
     if (to) {
       const body = es
@@ -154,13 +155,10 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
         const c = await env.DB.prepare("SELECT COUNT(*) AS n FROM leads WHERE kind='launch'").first();
         member = (c && c.n) || 1;
       } catch { /* member stays null; page falls back gracefully */ }
-      // Instant welcome (email + consented SMS) — deferred so it never delays the response.
-      // GATED OFF by default: set env LAUNCH_WELCOME_ENABLED='1' to turn signup messages on.
-      // (Held off until Twilio auth is fixed + the welcome copy is signed off.)
-      if (env.LAUNCH_WELCOME_ENABLED === '1') {
-        const welcome = sendLaunchWelcome(env, rec, member).catch(() => {});
-        if (typeof waitUntil === 'function') waitUntil(welcome);
-      }
+      // Instant welcome — deferred so it never delays the response. Email sends now;
+      // the SMS half stays gated inside sendLaunchWelcome (LAUNCH_WELCOME_SMS) until Twilio is fixed.
+      const welcome = sendLaunchWelcome(env, rec, member).catch(() => {});
+      if (typeof waitUntil === 'function') waitUntil(welcome);
     }
   }
 
