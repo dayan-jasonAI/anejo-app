@@ -159,7 +159,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
   <div class="eyebrow">Order · Delivery · Palm Beach County</div>
   <h1>Build your <strong>order</strong>.</h1>
   <div style="display:inline-flex;align-items:center;gap:8px;margin:6px 0 4px;background:var(--gold);color:var(--black);font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:9px 18px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.28)">🌿 Cooked and delivered fresh daily</div>
-  <div class="testmode" id="testmode"><strong>Pre-launch / test mode.</strong> You can build a cart and run the full checkout, but payment uses Square's <strong>sandbox</strong> — no real charge and no food is fulfilled. Use test card <strong>4111 1111 1111 1111</strong>, any future expiry, any CVV.</div>
+  <div class="testmode" id="testmode"><strong>We're launching soon.</strong> Ordering isn't open just yet — build your bowl and explore the menu, and <a href="/launch" style="color:inherit;text-decoration:underline;font-weight:700">join the list</a> to be first to order when we go live.</div>
 </header>
 
 <div class="wrap">
@@ -606,6 +606,9 @@ function renderCart(){
 }
 
 async function checkout(){
+  // Pre-launch: ordering isn't open (Square not yet production) → funnel to the launch list
+  // instead of a sandbox payment page. Auto-reverts to real checkout when env === 'production'.
+  if (window.__prelaunch !== false){ window.location.href = '/launch'; return; }
   const btn=document.getElementById('checkoutBtn'), err=document.getElementById('err');
   err.textContent='';
   document.querySelectorAll('.input-error').forEach(e=>e.classList.remove('input-error'));
@@ -698,8 +701,14 @@ document.addEventListener('keydown', function(e){ if(e.key==='Escape' && cz) clo
 <script>
   // Hide the "test mode" banner the moment Square is flipped to production — go-live is then a
   // pure env change (SQUARE_ENV=production) with nothing left advertising sandbox/test cards.
+  window.__prelaunch = true; // safe default until config confirms production
   fetch('/api/square-config').then(function(r){return r.json();}).then(function(c){
-    if (c && c.env === 'production') { var b = document.getElementById('testmode'); if (b) b.style.display = 'none'; }
+    var prod = !!(c && c.env === 'production');
+    window.__prelaunch = !prod;
+    var b = document.getElementById('testmode');
+    var cb = document.getElementById('checkoutBtn');
+    if (prod) { if (b) b.style.display = 'none'; }
+    else if (cb) { cb.textContent = 'Join the list — ordering opens soon'; }
   }).catch(function(){});
 </script>
 </body>
