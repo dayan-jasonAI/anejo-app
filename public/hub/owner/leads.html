@@ -54,9 +54,10 @@
   function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
 
   function kindBadge(kind) {
-    return kind === 'wholesale'
-      ? '<span class="badge" data-i18n>wholesale</span>'
-      : '<span class="badge ok" data-i18n>tasting</span>';
+    if (kind === 'wholesale') return '<span class="badge" data-i18n>wholesale</span>';
+    if (kind === 'launch') return '<span class="badge" style="background:#fff8e9;border-color:var(--gold,#C6A85B);color:#8B6B3E" data-i18n>launch list</span>';
+    if (kind === 'sms') return '<span class="badge" data-i18n>SMS opt-in</span>';
+    return '<span class="badge ok" data-i18n>tasting</span>';
   }
 
   // ---------- skeleton ----------
@@ -84,11 +85,13 @@
   }
 
   function renderChips(counts) {
-    var c = counts || { tasting: 0, wholesale: 0, total: 0 };
+    var c = counts || { tasting: 0, wholesale: 0, launch: 0, sms: 0, total: 0 };
     var defs = [
       { k: '', label: 'All', n: c.total },
+      { k: 'launch', label: 'Launch list', n: c.launch },
       { k: 'tasting', label: 'Tasting', n: c.tasting },
-      { k: 'wholesale', label: 'Wholesale', n: c.wholesale }
+      { k: 'wholesale', label: 'Wholesale', n: c.wholesale },
+      { k: 'sms', label: 'SMS', n: c.sms }
     ];
     $('#chips').innerHTML = defs.map(function (d) {
       return '<button data-k="' + d.k + '" class="' + (d.k === curKind ? 'sel' : '') + '">' +

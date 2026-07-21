@@ -29,7 +29,7 @@ async function getOrCreateHouseTrainer(env) {
 async function listLeads(env, kind, q) {
   let sql = 'SELECT id, kind, name, email, phone, company, interest, message, source_lang, sms_consent, created_at FROM leads';
   const where = [], binds = [];
-  if (kind === 'tasting' || kind === 'wholesale') { where.push('kind = ?'); binds.push(kind); }
+  if (['tasting', 'wholesale', 'launch', 'sms'].includes(kind)) { where.push('kind = ?'); binds.push(kind); }
   if (q) {
     where.push('(name LIKE ? OR email LIKE ? OR company LIKE ? OR interest LIKE ?)');
     const like = `%${q}%`;
@@ -84,12 +84,12 @@ export const onRequestGet = async ({ request, env }) => {
   const items = await listLeads(env, kind, q);
 
   // Unfiltered counts for the filter chips (so badges don't change as you filter).
-  let counts = { tasting: 0, wholesale: 0, total: 0 };
+  let counts = { tasting: 0, wholesale: 0, launch: 0, sms: 0, total: 0 };
   try {
     const cr = await env.DB.prepare(
-      "SELECT SUM(kind='tasting') AS tasting, SUM(kind='wholesale') AS wholesale, COUNT(*) AS total FROM leads"
+      "SELECT SUM(kind='tasting') AS tasting, SUM(kind='wholesale') AS wholesale, SUM(kind='launch') AS launch, SUM(kind='sms') AS sms, COUNT(*) AS total FROM leads"
     ).first();
-    if (cr) counts = { tasting: cr.tasting || 0, wholesale: cr.wholesale || 0, total: cr.total || 0 };
+    if (cr) counts = { tasting: cr.tasting || 0, wholesale: cr.wholesale || 0, launch: cr.launch || 0, sms: cr.sms || 0, total: cr.total || 0 };
   } catch { /* leave zeros */ }
 
   return json({ ok: true, items, count: items.length, counts });
