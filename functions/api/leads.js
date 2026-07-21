@@ -33,6 +33,10 @@ async function sendLaunchWelcome(env, rec, member) {
   // Email (best-effort)
   if (env.RESEND_API_KEY && isEmail(rec.email)) {
     try {
+      const base = (env.APP_BASE_URL || 'https://anejocateringco.com').replace(/\/$/, '');
+      const profileUrl = `${base}/client/dashboard`;
+      const btn = (label) =>
+        `<p style="margin:22px 0"><a href="${profileUrl}" style="background:#C6A85B;color:#0d2419;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700;letter-spacing:.04em">${label}</a></p>`;
       const subject = founding
         ? (es ? '🌿 Eres Miembro Fundador de Legado' : "🌿 You're a Founding Legacy Member")
         : (es ? '🌿 Estás en la lista de Añejo' : "🌿 You're on the Añejo launch list");
@@ -44,6 +48,8 @@ async function sendLaunchWelcome(env, rec, member) {
               : `<p>¡Gracias por unirte! Estás en la lista de apertura de Añejo Catering Co.</p>`,
             `<p>Abrimos el <strong>miércoles 22 de julio</strong> en Palm Beach County. Recibirás tu enlace de pedido <strong>antes que nadie</strong> — y los bowls del primer día se reservan para esta lista.</p>`,
             resv ? `<p>Anotamos tus bowls para el día de apertura: <strong>${escHtml(resv)}</strong>.</p>` : '',
+            btn('Ver mi perfil de cliente →'),
+            `<p style="font-size:13px;color:#6b7269">Inicia sesión con este correo (${escHtml(rec.email)}) — te enviamos un enlace mágico, sin contraseña.</p>`,
             `<p>Clean Fuel. Bold Flavor. Built for Life. 🌿</p>`,
           ]
         : [
@@ -53,6 +59,8 @@ async function sendLaunchWelcome(env, rec, member) {
               : `<p>Thanks for joining! You're on the Añejo Catering Co. launch list.</p>`,
             `<p>We open <strong>Wednesday, July 22</strong> across Palm Beach County. You'll get your order link <strong>before anyone else</strong> — and the first day's bowls are held for this list.</p>`,
             resv ? `<p>We've noted your opening-day bowls: <strong>${escHtml(resv)}</strong>.</p>` : '',
+            btn('View my client profile →'),
+            `<p style="font-size:13px;color:#6b7269">Sign in with this email (${escHtml(rec.email)}) — we'll send a magic link, no password needed.</p>`,
             `<p>Clean Fuel. Bold Flavor. Built for Life. 🌿</p>`,
           ];
       await sendEmail(env, { to: rec.email, subject, html: emailShell(lines.join('')) });
