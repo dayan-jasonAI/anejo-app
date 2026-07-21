@@ -68,8 +68,7 @@ async function sendLaunchWelcome(env, rec, member) {
   }
 
   // SMS (best-effort; only to signups who gave consent AND left a number).
-  // Held OFF until Twilio auth is fixed — flip env LAUNCH_WELCOME_SMS='1' to enable.
-  if (env.LAUNCH_WELCOME_SMS === '1' && rec.sms_consent && rec.phone) {
+  if (rec.sms_consent && rec.phone) {
     const to = toE164US(rec.phone);
     if (to) {
       const body = es
