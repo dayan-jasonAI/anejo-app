@@ -155,8 +155,12 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
         member = (c && c.n) || 1;
       } catch { /* member stays null; page falls back gracefully */ }
       // Instant welcome (email + consented SMS) — deferred so it never delays the response.
-      const welcome = sendLaunchWelcome(env, rec, member).catch(() => {});
-      if (typeof waitUntil === 'function') waitUntil(welcome);
+      // GATED OFF by default: set env LAUNCH_WELCOME_ENABLED='1' to turn signup messages on.
+      // (Held off until Twilio auth is fixed + the welcome copy is signed off.)
+      if (env.LAUNCH_WELCOME_ENABLED === '1') {
+        const welcome = sendLaunchWelcome(env, rec, member).catch(() => {});
+        if (typeof waitUntil === 'function') waitUntil(welcome);
+      }
     }
   }
 
