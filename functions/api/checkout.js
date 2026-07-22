@@ -298,6 +298,16 @@ export const onRequestPost = async ({ request, env }) => {
         reference_id: onDemand ? 'web-ondemand' : 'web-delivery',
         note: deliveryNote,   // shows on the Square order for the kitchen
       },
+      // Pre-fill Square's contact fields with what the client already gave us on /order,
+      // so the hosted page is "confirm" not "retype". Square still owns the receipt email.
+      pre_populated_data: (() => {
+        const pp = {};
+        const digits = (custPhone || '').replace(/[^0-9]/g, '');
+        if (digits.length === 10) pp.buyer_phone_number = `+1${digits}`;
+        else if (digits.length === 11 && digits.startsWith('1')) pp.buyer_phone_number = `+${digits}`;
+        if (sessEmail) pp.buyer_email = sessEmail;
+        return Object.keys(pp).length ? pp : undefined;
+      })(),
       checkout_options: {
         redirect_url: `${base}/order/confirmed`,
         // We collect the delivery address ourselves (stored for routing), so don't ask twice.
