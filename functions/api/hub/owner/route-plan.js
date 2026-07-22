@@ -68,7 +68,8 @@ export const onRequestPost = async ({ request, env }) => {
     const res = await env.DB.prepare(
       'SELECT o.id, o.customer_name, o.delivery_window, o.delivery_street, o.delivery_unit, o.delivery_city, ' +
       'o.delivery_state, o.delivery_zip, o.delivery_lat, o.delivery_lng ' +
-      "FROM orders o WHERE o.delivery_date=? AND o.status IN ('pending','paid','prep','ready') " +
+      // PAYMENT GATE: unpaid checkouts ('pending') are never planned into a route.
+      "FROM orders o WHERE o.delivery_date=? AND o.status IN ('paid','prep','ready') " +
       'AND NOT EXISTS (SELECT 1 FROM route_stops rs WHERE rs.order_id = o.id) ORDER BY o.delivery_window, o.created_at'
     ).bind(date).all();
     orders = (res && res.results) || [];

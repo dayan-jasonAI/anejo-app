@@ -39,9 +39,10 @@ export const onRequestGet = async ({ request, env }) => {
       .prepare(
         "SELECT o.id, o.customer_name, o.items, o.delivery_date, o.delivery_window, o.status, o.fulfillment_mode, o.total_estimate_cents, " +
         'o.delivery_street, o.delivery_unit, o.delivery_city, o.delivery_state, o.delivery_zip, o.delivery_notes, o.delivery_lat, o.delivery_lng ' +
-        // Include prep/ready, not just pending/paid — otherwise an order DROPS OUT of the
-        // assignable list the moment the kitchen marks it ready (so it could never be dispatched).
-        "FROM orders o WHERE o.delivery_date=? AND o.status IN ('pending','paid','prep','ready') " +
+        // Include prep/ready, not just paid — otherwise an order DROPS OUT of the assignable
+        // list the moment the kitchen marks it ready (so it could never be dispatched).
+        // PAYMENT GATE: 'pending' (unpaid checkout) is excluded — never route an unpaid order.
+        "FROM orders o WHERE o.delivery_date=? AND o.status IN ('paid','prep','ready') " +
         'AND NOT EXISTS (SELECT 1 FROM route_stops rs WHERE rs.order_id = o.id) ' +
         // On-demand orders that are READY need immediate dispatch — float them to the top.
         "ORDER BY (o.fulfillment_mode='on_demand' AND o.status='ready') DESC, o.delivery_window, o.created_at"

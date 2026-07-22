@@ -685,11 +685,6 @@ footer {
   </div>
 </nav>
 
-<!-- ===== PRE-LAUNCH ANNOUNCEMENT (auto-hides when Square goes live) ===== -->
-<div id="prelaunchBar" style="background:#0d2419;color:#F5F2EC;text-align:center;padding:11px 18px;font-size:14px;line-height:1.55;border-bottom:1px solid #C6A85B">
-  <strong style="color:#C6A85B">We're launching soon — accepting orders shortly.</strong> For now, explore everything we have in store, especially our free <a href="/calculator" style="color:#C6A85B;font-weight:700;text-decoration:underline">Build-Your-Macros tool</a>. <a href="/launch" style="color:#C6A85B;font-weight:700;white-space:nowrap;text-decoration:underline">Join the list to order first →</a>
-</div>
-
 <!-- ========================= HERO ========================= -->
 <section class="hero" id="top">
   <div class="hero-content">
@@ -1453,8 +1448,6 @@ document.querySelectorAll('#navLinks a').forEach(a => {
       }
     }).catch(function(){});
   }catch(e){}
-  // Hide the pre-launch announcement bar the moment Square is flipped to production.
-  try{ fetch('/api/square-config').then(function(r){return r.json();}).then(function(c){ if(c&&c.env==='production'){var b=document.getElementById('prelaunchBar'); if(b) b.style.display='none';} }).catch(function(){}); }catch(e){}
 })();
 </script>
   <script src="/assets/js/chat.js" defer></script>

@@ -92,7 +92,8 @@ export async function runAutoDispatch(env, { nowMs, force = false, date } = {}) 
       const res = await env.DB.prepare(
         'SELECT o.id, o.customer_name, o.delivery_window, o.delivery_street, o.delivery_unit, o.delivery_city, ' +
         'o.delivery_state, o.delivery_zip, o.delivery_lat, o.delivery_lng, o.created_at ' +
-        "FROM orders o WHERE o.delivery_date=? AND o.delivery_window=? AND o.status IN ('pending','paid','prep','ready') " +
+        // PAYMENT GATE: unpaid checkouts ('pending') are never auto-dispatched.
+        "FROM orders o WHERE o.delivery_date=? AND o.delivery_window=? AND o.status IN ('paid','prep','ready') " +
         'AND NOT EXISTS (SELECT 1 FROM route_stops rs WHERE rs.order_id = o.id) ORDER BY o.created_at'
       ).bind(day, window).all();
       orders = (res && res.results) || [];

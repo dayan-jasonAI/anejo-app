@@ -35,8 +35,17 @@ All of the above passes `node --check`; none of it has been pushed yet.
 3. **Deploy**: commit + push to `main` (auto-deploys), or `npx wrangler pages deploy public`.
 4. Then continue the workflow: trainer dashboard UI (#19), subscription checkout + 10% rev-share (#20), storefront (#21), content/SEO/legal (#22–24), QA (#25).
 
-## Pending external setup (owner: Dayan) — see PROVISIONING.md
-Resend email is **DONE** (domain verified, magic-link login sending live). Remaining: Square verification + catalog + secrets; FL DOR sales tax; **DBPR license = the go-live flip** (`SQUARE_ENV=production`). Build everything in **sandbox/test mode**; flip to live only once licensed.
+## THE STORE IS LIVE (go-live 2026-07-21 — DBPR license in hand, `SQUARE_ENV=production`)
+Real cards are charged and real food is prepared. Two standing laws follow (both machine-enforced
+by invariant **I27** in `mission-control-mvp/executor/verify-invariants.mjs`):
+- **No test-mode / pre-launch messaging anywhere a client can see.** The test banners, "launching
+  soon" bars, and `/launch` funnels were removed at go-live — never reintroduce them. A paying
+  client must never be told their order isn't real.
+- **KITCHEN PAYMENT GATE.** An orders row with status `'pending'` means Square checkout was
+  created but payment was NEVER confirmed — the webhook flips it to `'paid'`. Unpaid orders must
+  never surface on the kitchen board, batch-prep summary, routes, or auto-dispatch, and the
+  kitchen actions endpoint refuses them. This gate was silently undone once by an audit rewrite
+  (unpaid test orders reached the kitchen, 2026-07-21) — that's why it is now an invariant.
 
 ## Guardrails
-Never commit secrets/API keys. Never put the kitchen street address on the site until the commissary lease + license land (use "Palm Beach County"). Don't take real payments before DBPR license.
+Never commit secrets/API keys. Never put the kitchen street address on the site until the commissary lease + license land (use "Palm Beach County").

@@ -202,7 +202,8 @@ async function routeOptimize(env, date) {
   const orders = await rows(
     env,
     "SELECT o.id, o.customer_name, o.delivery_window, o.created_at FROM orders o " +
-    "WHERE o.delivery_date=? AND o.status IN ('pending','paid') " +
+    // PAYMENT GATE: unpaid checkouts ('pending') are never proposed into a route.
+    "WHERE o.delivery_date=? AND o.status IN ('paid','prep','ready') " +
     'AND NOT EXISTS (SELECT 1 FROM route_stops rs WHERE rs.order_id = o.id) ' +
     'ORDER BY o.created_at',
     date

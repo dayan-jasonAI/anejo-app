@@ -33,7 +33,6 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 .order-hero .eyebrow{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:12px}
 .order-hero h1{font-size:clamp(28px,5vw,42px);font-weight:300}
 .order-hero h1 strong{color:var(--gold);font-weight:600}
-.testmode{max-width:900px;margin:18px auto -6px;background:#FBF3DA;border:1px solid var(--gold);border-left:4px solid var(--gold-dark);border-radius:0 6px 6px 0;padding:12px 16px;font-size:13px;color:#5b4a26;line-height:1.5;text-align:left}
 .wrap{max-width:1100px;margin:0 auto;padding:36px 24px 80px;display:grid;grid-template-columns:1fr 360px;gap:32px;align-items:start}
 .group h2{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--gold-dark);font-weight:700;margin:24px 0 14px;border-bottom:1px solid var(--line);padding-bottom:8px}
 .group:first-child h2{margin-top:0}
@@ -159,7 +158,6 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
   <div class="eyebrow">Order · Delivery · Palm Beach County</div>
   <h1>Build your <strong>order</strong>.</h1>
   <div style="display:inline-flex;align-items:center;gap:8px;margin:6px 0 4px;background:var(--gold);color:var(--black);font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:9px 18px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.28)">🌿 Cooked and delivered fresh daily</div>
-  <div class="testmode" id="testmode"><strong>We're launching soon.</strong> Ordering isn't open just yet — build your bowl and explore the menu, and <a href="/launch" style="color:inherit;text-decoration:underline;font-weight:700">join the list</a> to be first to order when we go live.</div>
 </header>
 
 <div class="wrap">
@@ -606,9 +604,6 @@ function renderCart(){
 }
 
 async function checkout(){
-  // Pre-launch: ordering isn't open (Square not yet production) → funnel to the launch list
-  // instead of a sandbox payment page. Auto-reverts to real checkout when env === 'production'.
-  if (window.__prelaunch !== false){ window.location.href = '/launch'; return; }
   const btn=document.getElementById('checkoutBtn'), err=document.getElementById('err');
   err.textContent='';
   document.querySelectorAll('.input-error').forEach(e=>e.classList.remove('input-error'));
@@ -698,18 +693,5 @@ document.addEventListener('keydown', function(e){ if(e.key==='Escape' && cz) clo
 <script src="/assets/js/i18n.js"></script>
 <script src="/assets/js/consent.js"></script>
   <script src="/assets/js/chat.js" defer></script>
-<script>
-  // Hide the "test mode" banner the moment Square is flipped to production — go-live is then a
-  // pure env change (SQUARE_ENV=production) with nothing left advertising sandbox/test cards.
-  window.__prelaunch = true; // safe default until config confirms production
-  fetch('/api/square-config').then(function(r){return r.json();}).then(function(c){
-    var prod = !!(c && c.env === 'production');
-    window.__prelaunch = !prod;
-    var b = document.getElementById('testmode');
-    var cb = document.getElementById('checkoutBtn');
-    if (prod) { if (b) b.style.display = 'none'; }
-    else if (cb) { cb.textContent = 'Join the list — ordering opens soon'; }
-  }).catch(function(){});
-</script>
 </body>
 </html>
