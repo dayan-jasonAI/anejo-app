@@ -144,7 +144,6 @@
     "12 fl oz · ~110 cal · cold-pressed":"12 fl oz · ~110 cal · prensado en frío",
     "12 fl oz · ~70 cal · cold-pressed":"12 fl oz · ~70 cal · prensado en frío",
     "12 fl oz · ~80 cal · cold-pressed":"12 fl oz · ~80 cal · prensado en frío",
-    "Launching alongside the bowl menu. In the first weeks, drinks ship with bowl orders. Bottle photography coming soon.":"Lanzamiento junto al menú de bowls. En las primeras semanas, las bebidas se envían con los pedidos de bowls. Fotografía de botellas próximamente.",
     "*These statements have not been evaluated by the Food and Drug Administration. These products are not intended to diagnose, treat, cure, or prevent any disease. Nutrition values are estimates pending lab verification.":"*Estas afirmaciones no han sido evaluadas por la Administración de Alimentos y Medicamentos (FDA). Estos productos no están destinados a diagnosticar, tratar, curar ni prevenir ninguna enfermedad. Los valores nutricionales son estimados y están pendientes de verificación de laboratorio.",
     // bites wholesale form
     "Venue / business":"Local / negocio","Estimated weekly volume":"Volumen semanal estimado",
@@ -241,7 +240,7 @@
     "Enter a member's basics — age, weight, goal, conditions, allergens. Two minutes.":"Ingresa los datos de un miembro — edad, peso, meta, condiciones, alérgenos. Dos minutos.",
     "Our AI generates a personalized macro target + a weekly Añejo bowl rotation tuned to their goal.":"Nuestra IA genera un objetivo de macros personalizado + una rotación semanal de bowls Añejo ajustada a su meta.",
     "Review, tweak if needed, send it to your member. They subscribe direct through our partner program.":"Revisa, ajusta si hace falta, y envíaselo a tu miembro. Se suscribe directo a través de nuestro programa de socios.",
-    "Pre-launch. The trainer portal is live — add a member, generate and fine-tune their plan, and send it for checkout. Plans are for general fitness and wellness — not medical advice. Añejo Catering Co. is not a medical provider.":"Pre-lanzamiento. El portal de entrenadores está activo — agrega un miembro, genera y ajusta su plan, y envíalo para el pago. Los planes son para fitness y bienestar general — no son consejo médico. Añejo Catering Co. no es un proveedor médico.",
+    "The trainer portal is live — add a member, generate and fine-tune their plan, and send it for checkout. Plans are for general fitness and wellness — not medical advice. Añejo Catering Co. is not a medical provider.":"El portal de entrenadores está activo — agrega un miembro, genera y ajusta su plan, y envíalo para el pago. Los planes son para fitness y bienestar general — no son consejo médico. Añejo Catering Co. no es un proveedor médico.",
     "Añejo Trainer Portal — AI-personalized plans for your members":"Portal de Entrenadores Añejo — planes personalizados con IA para tus miembros",
     // ===== intake (trainer) =====
     "Member Intake":"Registro de Miembro","Trainer · New Member":"Entrenador · Nuevo Miembro","New member":"Nuevo miembro",
@@ -265,10 +264,6 @@
     "← Back to site":"← Volver al sitio",
     "Order · Delivery · Palm Beach County":"Ordenar · Entrega · Condado de Palm Beach",
     "Build your":"Arma tu","order":"pedido",
-    "Pre-launch / test mode.":"Pre-lanzamiento / modo de prueba.",
-    "You can build a cart and run the full checkout, but payment uses Square's":"Puedes armar un carrito y completar todo el pago, pero el pago usa el",
-    "— no real charge and no food is fulfilled. Use test card":"de Square — sin cargo real y sin preparar comida. Usa la tarjeta de prueba",
-    ", any future expiry, any CVV.":", cualquier vencimiento futuro, cualquier CVV.",
     "Your order":"Tu pedido",
     "Delivery fee":"Costo de entrega",
     "Est. FL sales tax (7%)":"Imp. sobre ventas FL est. (7%)",

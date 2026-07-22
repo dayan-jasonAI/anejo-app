@@ -16,7 +16,8 @@ async function gatherStats(env, day, staffId) {
   const out = {};
   try {
     const orders = await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM orders WHERE delivery_date = ? AND status != 'canceled'"
+      // PAYMENT GATE: unpaid checkouts ('pending') don't count as kitchen orders.
+      "SELECT COUNT(*) AS n FROM orders WHERE delivery_date = ? AND status NOT IN ('canceled','pending')"
     ).bind(day).first();
     out.orders_today = orders ? orders.n : 0;
     const ready = await env.DB.prepare(

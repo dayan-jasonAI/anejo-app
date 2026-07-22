@@ -14,8 +14,10 @@ export const onRequestGet = async ({ request, env }) => {
   const url = new URL(request.url);
   const day = url.searchParams.get('date') || today();
 
+  // PAYMENT GATE: 'pending' = checkout created but payment NOT confirmed — those never count
+  // toward the kitchen's batch-prep tally (a cook must never cook for an unpaid checkout).
   const { results } = await env.DB.prepare(
-    `SELECT * FROM orders WHERE delivery_date = ? AND status != 'canceled' ORDER BY created_at ASC`
+    `SELECT * FROM orders WHERE delivery_date = ? AND status NOT IN ('canceled','pending') ORDER BY created_at ASC`
   ).bind(day).all();
   const orders = results || [];
 

@@ -5,10 +5,15 @@
 //
 // The existing orders table uses status pending|paid|fulfilled|canceled (Square is the
 // payment source of truth). For the kitchen workflow we layer prep states on top:
-//   board "pending" = paid (or pending) orders not yet started
+//   board "pending" = PAID orders not yet started
 //   board "prep"    = status 'prep'
 //   board "ready"   = status 'ready'
 // 'fulfilled' is reserved for after loadout/delivery and is not shown on the board.
+//
+// PAYMENT GATE (Dayan ruling, re-affirmed 2026-07-22): status 'pending' means the checkout was
+// created but Square has NOT confirmed payment. Those orders must NEVER reach the kitchen —
+// no board row, no prep, no ready. The webhook flips pending→paid on payment confirmation;
+// only then does the order surface here. Do not add 'pending' back to the board query.
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
@@ -41,12 +46,12 @@ export const onRequestGet = async ({ request, env }) => {
   const surface = url.searchParams.get('surface') === '1';
   const day = url.searchParams.get('date') || today();
 
-  // Pull today's actionable orders. Pending shown so the kitchen can pre-empt; canceled hidden.
-  // Show ALL open/actionable orders (not just today's) so nothing silently disappears —
-  // the kitchen needs to see and prep upcoming + overdue orders, soonest delivery first.
+  // Pull actionable orders — payment-confirmed ONLY (see PAYMENT GATE above). Canceled and
+  // unpaid-checkout ('pending') rows never surface. Show ALL open/actionable orders (not just
+  // today's) so nothing silently disappears — upcoming + overdue, soonest delivery first.
   const { results } = await env.DB.prepare(
     `SELECT * FROM orders
-       WHERE status IN ('pending','paid','prep','ready')
+       WHERE status IN ('paid','prep','ready')
          AND kitchen_cleared_at IS NULL
        ORDER BY
          (delivery_date IS NULL), delivery_date ASC,
@@ -67,7 +72,7 @@ export const onRequestGet = async ({ request, env }) => {
   for (const o of orders) {
     if (o.status === 'prep') board.prep.push(o);
     else if (o.status === 'ready') board.ready.push(o);
-    else board.pending.push(o); // pending | paid
+    else board.pending.push(o); // 'paid', not yet started — board "pending" = prep-pending, never payment-pending
   }
 
   // Attach per-bowl production rows (materialized when an order entered PREP) so the kitchen
@@ -144,6 +149,12 @@ export const onRequestPost = async ({ request, env }) => {
 
   const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(orderId).first();
   if (!order) return bad('Order not found.', 404);
+
+  // PAYMENT GATE: an unpaid checkout ('pending') or canceled order can never be prepped, checked
+  // off, or marked ready — regardless of how the request reached this endpoint.
+  if (!['paid', 'prep', 'ready'].includes(order.status)) {
+    return bad('Payment has not been confirmed for this order — it cannot go to the kitchen.', 409);
+  }
 
   const ts = now();
 

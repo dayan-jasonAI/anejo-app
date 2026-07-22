@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Opening July 22 — Añejo Catering Co. · Palm Beach County</title>
-<meta name="description" content="Añejo opens July 22 — longevity bowls cooked fresh daily, delivered across Palm Beach County. Join the list to order first.">
+<title>Now Open — Añejo Catering Co. · Palm Beach County</title>
+<meta name="description" content="Añejo is now open — longevity bowls cooked fresh daily, delivered across Palm Beach County. Order today.">
 <meta name="robots" content="noindex,follow">
 <link rel="icon" href="/assets/img/emblem.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,6 +55,8 @@ input:focus{outline:2px solid var(--gold);border-color:transparent}
 #goBtn{width:100%;padding:15px;border:0;border-radius:10px;background:var(--gold);color:var(--green-dark);font-family:inherit;font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:transform .12s ease,opacity .12s}
 #goBtn:hover{transform:translateY(-1px)}
 #goBtn:disabled{opacity:.55;cursor:wait}
+.order-cta{display:inline-block;margin:22px auto 6px;padding:15px 34px;border-radius:10px;background:var(--gold);color:var(--green-dark);text-decoration:none;font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;transition:transform .12s ease}
+.order-cta:hover{transform:translateY(-1px)}
 .err{display:none;margin:12px 0 0;color:#e8a9a0;font-size:13.5px}
 .done{display:none;text-align:center;padding:34px 10px}
 .done .mark{width:64px;height:64px;border-radius:50%;background:var(--green);border:1px solid var(--gold);color:var(--gold);font-size:30px;line-height:64px;margin:0 auto 18px}
@@ -82,9 +84,10 @@ footer a:hover{color:var(--gold)}
 
 <main>
   <div class="card">
-    <p class="eyebrow" data-i18n>The Founding Hundred · Opening July 22</p>
+    <p class="eyebrow" data-i18n>The Founding Hundred · Now Open</p>
     <h1 data-i18n>Become a <span class="gold">Founding Legacy Member</span>.</h1>
-    <p class="sub" data-i18n>We're opening our kitchen to Palm Beach County — and the first 100 to join become Founding Legacy Members. First to order, first to know, and part of the story from day one.</p>
+    <p class="sub" data-i18n>Our kitchen is open across Palm Beach County — and the first 100 to join become Founding Legacy Members. Founding perks, first to know, and part of the story from day one.</p>
+    <a class="order-cta" href="/order" data-i18n>We're open — order now →</a>
 
     <div class="counter" id="counter" hidden>
       <span class="counter-n" id="counterN">—</span>
@@ -108,7 +111,7 @@ footer a:hover{color:var(--gold)}
       <label for="phone" data-i18n>Mobile (optional)</label>
       <input type="tel" id="phone" name="phone" autocomplete="tel">
 
-      <p class="resv-label" data-i18n>Reserve bowls for opening day (optional)</p>
+      <p class="resv-label" data-i18n>Reserve bowls for your first order (optional)</p>
       <div class="chips" id="bowlChips">
         <button type="button" class="chip" aria-pressed="false">VIDA</button>
         <button type="button" class="chip" aria-pressed="false">FUEGO</button>
@@ -122,21 +125,22 @@ footer a:hover{color:var(--gold)}
       <div class="sms-optin">
         <label class="chk">
           <input type="checkbox" id="sms_consent" name="sms_consent">
-          <span data-i18n>Yes, text me the launch announcement and order &amp; delivery updates from Añejo Catering Co. at this number.</span>
+          <span data-i18n>Yes, text me order &amp; delivery updates from Añejo Catering Co. at this number.</span>
         </label>
         <p class="sms-fine" data-i18n>Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
       </div>
 
       <button type="submit" id="goBtn" data-i18n>Claim my founding spot</button>
       <p class="err" id="errMsg"></p>
-      <p class="note" data-i18n>No spam — one launch announcement, then only what you ask for.</p>
+      <p class="note" data-i18n>No spam — only what you ask for.</p>
     </form>
 
     <div class="done" id="doneBox">
       <div class="mark">✓</div>
       <p class="badge" id="memberBadge" hidden></p>
       <h2 id="doneTitle" data-i18n>Welcome to the family.</h2>
-      <p data-i18n>We open Wednesday, July 22. You'll hear from us the moment live ordering turns on — and if you reserved bowls, they're noted for opening day. Your checkout link arrives first.</p>
+      <p data-i18n>We're open — live ordering is on now. If you reserved bowls, they're noted for your first order. Order whenever you're ready.</p>
+      <a class="order-cta" href="/order" data-i18n>Order now →</a>
     </div>
   </div>
 </main>
@@ -153,10 +157,12 @@ footer a:hover{color:var(--gold)}
 window.addEventListener('DOMContentLoaded', function () {
   if (window.AnejoI18n && AnejoI18n.extend) AnejoI18n.extend({
     'Visit the site →': 'Visitar el sitio →',
-    'The Founding Hundred · Opening July 22': 'Los Cien Fundadores · Abrimos el 22 de julio',
+    'The Founding Hundred · Now Open': 'Los Cien Fundadores · Ya Abrimos',
     'Become a': 'Conviértete en',
     'Founding Legacy Member': 'Miembro Fundador de Legado',
-    "We're opening our kitchen to Palm Beach County — and the first 100 to join become Founding Legacy Members. First to order, first to know, and part of the story from day one.": 'Abrimos nuestra cocina en Palm Beach County — y los primeros 100 en unirse se convierten en Miembros Fundadores de Legado. Los primeros en ordenar, los primeros en saber, y parte de la historia desde el primer día.',
+    "Our kitchen is open across Palm Beach County — and the first 100 to join become Founding Legacy Members. Founding perks, first to know, and part of the story from day one.": 'Nuestra cocina está abierta en todo Palm Beach County — y los primeros 100 en unirse se convierten en Miembros Fundadores de Legado. Beneficios fundadores, los primeros en saber, y parte de la historia desde el primer día.',
+    "We're open — order now →": 'Ya abrimos — ordena ahora →',
+    'Order now →': 'Ordenar ahora →',
     'Founding spots claimed': 'Lugares fundadores reclamados',
     'Claim my founding spot': 'Reclamar mi lugar fundador',
     'Welcome to the family.': 'Bienvenido a la familia.',
@@ -167,12 +173,12 @@ window.addEventListener('DOMContentLoaded', function () {
     'First name': 'Nombre',
     'Email': 'Correo electrónico',
     'Mobile (optional)': 'Móvil (opcional)',
-    'Yes, text me the launch announcement and order & delivery updates from Añejo Catering Co. at this number.': 'Sí, envíenme por texto el anuncio de apertura y actualizaciones de pedidos y entregas de Añejo Catering Co. a este número.',
+    'Yes, text me order & delivery updates from Añejo Catering Co. at this number.': 'Sí, envíenme por texto actualizaciones de pedidos y entregas de Añejo Catering Co. a este número.',
     'Notify me first': 'Avísenme primero',
-    'No spam — one launch announcement, then only what you ask for.': 'Sin spam — un anuncio de apertura, luego solo lo que pidas.',
+    'No spam — only what you ask for.': 'Sin spam — solo lo que pidas.',
     "You're on the list.": 'Estás en la lista.',
-    "We open Wednesday, July 22. You'll hear from us the moment live ordering turns on — and if you reserved bowls, they're noted for opening day. Your checkout link arrives first.": 'Abrimos el miércoles 22 de julio. Te avisaremos en cuanto se activen los pedidos — y si reservaste bowls, quedan anotados para el día de apertura. Tu enlace de pago llega primero.',
-    'Reserve bowls for opening day (optional)': 'Reserva bowls para el día de apertura (opcional)',
+    "We're open — live ordering is on now. If you reserved bowls, they're noted for your first order. Order whenever you're ready.": 'Ya abrimos — los pedidos están activos. Si reservaste bowls, quedan anotados para tu primer pedido. Ordena cuando quieras.',
+    'Reserve bowls for your first order (optional)': 'Reserva bowls para tu primer pedido (opcional)',
     'Message frequency varies — you may receive a text for each order and delivery. Message & data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our': 'La frecuencia de mensajes varía — puedes recibir un texto por cada pedido y entrega. Pueden aplicar tarifas de mensajes y datos. Responde HELP para ayuda, STOP para cancelar cuando quieras. El consentimiento no es condición de compra. Consulta nuestros',
     'Terms of Service': 'Términos de Servicio',
     'Privacy Policy': 'Política de Privacidad',
@@ -202,7 +208,7 @@ document.getElementById('notifyForm').addEventListener('submit', async function 
     interest: 'Launch notify list',
     message: (function () {
       const picks = [...document.querySelectorAll('#bowlChips .chip[aria-pressed="true"]')].map(c => c.textContent.trim());
-      return picks.length ? 'Opening-day reservation: ' + picks.join(', ') : '';
+      return picks.length ? 'Bowl reservation: ' + picks.join(', ') : '';
     })(),
     sms_consent: f.sms_consent.checked,
     lang: curLang(),

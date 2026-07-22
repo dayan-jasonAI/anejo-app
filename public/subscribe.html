@@ -27,7 +27,6 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 .hero h1{font-size:clamp(28px,5vw,40px);font-weight:300}
 .hero h1 strong{color:var(--gold);font-weight:600}
 .wrap{max-width:520px;margin:0 auto;padding:32px 24px 72px}
-.testmode{background:#FBF3DA;border:1px solid var(--gold);border-left:4px solid var(--gold-dark);border-radius:0 6px 6px 0;padding:12px 16px;font-size:13px;color:#5b4a26;line-height:1.5;margin-bottom:24px}
 .plan-card{background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:12px;padding:28px}
 .plan-pick{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap}
 .plan-opt{flex:1;min-width:130px;border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;text-align:center;transition:all .15s}
@@ -99,8 +98,6 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
 </header>
 
 <div class="wrap" id="wrap">
-  <div class="testmode" id="testmode"><strong>We're launching soon.</strong> Weekly plans aren't open just yet — explore the plans and schedule below, and <a href="/launch" style="color:inherit;text-decoration:underline;font-weight:700">join the list</a> to be first when we go live.</div>
-
   <div class="plan-card" id="form">
     <div class="who" id="who"></div>
     <div id="buyerFields"></div>
@@ -220,7 +217,6 @@ window.pickWindow = pickWindow;
 // Enable checkout only when the card is ready AND (for 1-bowl tiers) a window is chosen.
 function updateSubBtn(){
   const btn = document.getElementById('subBtn');
-  if (window.__prelaunch){ if (btn){ btn.disabled=false; btn.textContent='Join the list — plans open soon'; } return; }
   const needWindow = SCHED[planTier].chooseWindow && !chosenWindow;
   if (btn) btn.disabled = !cardReady || needWindow;
 }
@@ -261,22 +257,10 @@ async function init(){
     });
     renderSchedule();
   }
-  // Pre-launch: weekly plans aren't open (Square not yet production). Show the plans + schedule,
-  // but funnel to the launch list instead of loading a sandbox card form. Auto-reverts at go-live.
-  window.__prelaunch = (cfg.env !== 'production');
-  if (window.__prelaunch) {
-    var cc=document.getElementById('card-container'); if(cc) cc.style.display='none';
-    var ww=document.getElementById('walletWrap'); if(ww) ww.style.display='none';
-    updateSubBtn();
-    return;
-  }
-
   if (!cfg.applicationId || !cfg.locationId){ msg.className='msg err'; msg.textContent=L('Payments are not configured yet.','Los pagos aún no están configurados.'); return; }
 
   const sdk = cfg.env === 'production' ? 'https://web.squarecdn.com/v1/square.js' : 'https://sandbox.web.squarecdn.com/v1/square.js';
   await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=sdk; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
-
-  if (cfg.env === 'production') document.getElementById('testmode').style.display='none';
 
   try {
     paymentsObj = window.Square.payments(cfg.applicationId, cfg.locationId);
@@ -354,7 +338,6 @@ function collectBody(){
 
 // Shared submit: send the tokenized payment to the server, then render success/failure.
 async function finishSub(sourceId, body, btn, lbl){
-  if (window.__prelaunch !== false){ window.location.href='/launch'; return; }
   const msg=document.getElementById('msg');
   btn.disabled=true; btn.textContent=L('Processing…','Procesando…');
   body.sourceId = sourceId;
@@ -376,7 +359,6 @@ async function finishSub(sourceId, body, btn, lbl){
 
 // Pay with card
 document.getElementById('subBtn').addEventListener('click', async ()=>{
-  if (window.__prelaunch !== false){ window.location.href='/launch'; return; }
   const btn=document.getElementById('subBtn'), msg=document.getElementById('msg');
   if (!card){ return; }
   const body = collectBody(); if(!body) return;
