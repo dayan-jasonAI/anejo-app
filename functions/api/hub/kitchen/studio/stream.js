@@ -1,7 +1,7 @@
 // POST /api/hub/kitchen/studio/stream — STREAMING Creative Studio turn.
 // Same grounding/vision/persistence as studio/message.js, but streams Claude's reply
 // token-by-token (text/plain ReadableStream) so the chef sees coaching appear live.
-// Body: { session_id, text, assist_type? }. Falls back to a streamed demo reply with no API key.
+// Body: { session_id, text, assist_type? }. Production must fail visibly when AI is unavailable.
 import { bad } from '../../../../_lib/util.js';
 import { requireRole } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
@@ -73,13 +73,7 @@ async function buildTranscript(env, sessionId) {
   }
   return { msgs, photoKeys };
 }
-function demoReply(text, assist) {
-  const lead = { guidance: "Here's how I'd build it", research: 'A quick read on this style', substitution: 'A substitution that fits the house style', scaling: 'To scale cleanly', critique: 'My honest read' }[assist] || 'A thought';
-  return `${lead}: anchor to the Golden Rule (40% protein / 30% carbs / 30% fat) on a quinoa base, hero protein at 5–7 o'clock, microgreens to finish, bright acid + smoke-infused EVOO. Tell me your protein + allergens and I'll lock exact quantities. (Demo mode — set ANTHROPIC_API_KEY for live AI.) You said: "${(text || '').slice(0, 100)}"`;
-}
-
 const enc = new TextEncoder();
-function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -93,6 +87,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (!sessionId) return bad('Missing session_id.');
   if (!text) return bad('Missing text.');
   const assistType = ASSIST_TYPES.includes(b && b.assist_type) ? b.assist_type : 'guidance';
+  if (!env.ANTHROPIC_API_KEY) return bad('Creative Studio AI is not configured. This turn was not drafted.', 503);
 
   const session = await env.DB.prepare('SELECT * FROM recipe_sessions WHERE id = ?').bind(sessionId).first();
   if (!session) return bad('Session not found.', 404);
@@ -117,6 +112,20 @@ export const onRequestPost = async ({ request, env }) => {
   const images = await buildVisionBlocks(env, photoKeys);
   const finalContent = images.length ? [{ type: 'text', text: text + directive }, ...images] : text + directive;
   const messages = [...history, { role: 'user', content: finalContent }];
+
+  let aiResponse;
+  try {
+    aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 8192, system, messages, stream: true }),
+    });
+  } catch {
+    return bad('Creative Studio AI could not be reached. This turn was not drafted.', 502);
+  }
+  if (!aiResponse.ok || !aiResponse.body) {
+    return bad(`Creative Studio AI returned ${aiResponse.status}. This turn was not drafted.`, 502);
+  }
 
   // Persist the assistant turn once the full text is known (best-effort; never breaks the stream).
   async function persist(full, demo) {
@@ -168,55 +177,35 @@ export const onRequestPost = async ({ request, env }) => {
             } catch { /* best-effort */ }
           }
         }
-        await persist((shown + appended).trim(), demo);
+        if (!demo) await persist((shown + appended).trim(), false);
       };
       try {
-        if (env.ANTHROPIC_API_KEY) {
-          const r = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-            body: JSON.stringify({ model: MODEL, max_tokens: 8192, system, messages, stream: true }),
-          });
-          if (!r.ok || !r.body) throw new Error(`AI ${r.status}`);
-          // Parse Anthropic SSE: emit text from content_block_delta/text_delta.
-          const reader = r.body.getReader();
-          const dec = new TextDecoder();
-          let buf = '';
-          for (;;) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buf += dec.decode(value, { stream: true });
-            const lines = buf.split('\n');
-            buf = lines.pop() || '';
-            for (const line of lines) {
-              const s = line.trim();
-              if (!s.startsWith('data:')) continue;
-              const payload = s.slice(5).trim();
-              if (!payload || payload === '[DONE]') continue;
-              try {
-                const evt = JSON.parse(payload);
-                if (evt.type === 'content_block_delta' && evt.delta && evt.delta.type === 'text_delta') push(evt.delta.text || '');
-              } catch { /* ignore keep-alive / partial */ }
-            }
+        // Parse Anthropic SSE: emit text from content_block_delta/text_delta.
+        const reader = aiResponse.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop() || '';
+          for (const line of lines) {
+            const s = line.trim();
+            if (!s.startsWith('data:')) continue;
+            const payload = s.slice(5).trim();
+            if (!payload || payload === '[DONE]') continue;
+            try {
+              const evt = JSON.parse(payload);
+              if (evt.type === 'content_block_delta' && evt.delta && evt.delta.type === 'text_delta') push(evt.delta.text || '');
+            } catch { /* ignore keep-alive / partial */ }
           }
-          if (!full) throw new Error('empty stream');
-          await finishTurn(false);
-        } else {
-          // Demo: stream a canned reply word-by-word so the UX is identical without a key.
-          const tokens = demoReply(text, assistType).split(/(\s+)/);
-          for (const tok of tokens) { push(tok); await sleep(14); }
-          await finishTurn(true);
         }
+        if (!full) throw new Error('empty stream');
+        await finishTurn(false);
       } catch {
-        // Upstream failure mid-flight → stream the demo reply so the chef still gets help.
-        // Only when the sentinel hasn't appeared: after it, pushed fallback text would land in the
-        // image-request block (never delivered, and any "::" in it fakes an image request).
-        // Guarded so a dead client (enqueue throwing again) still can't skip the final close.
         try {
-          if (!turnDone && sentinelAt === -1) {
-            const fallback = demoReply(text, assistType);
-            for (const tok of fallback.split(/(\s+)/)) { push(tok); await sleep(8); }
-          }
+          if (!turnDone && sentinelAt === -1) push('\n\nCreative Studio AI stopped before a complete answer. Do not draft a recipe or Brief proposal from this turn.');
           await finishTurn(true);
         } catch { /* client gone — nothing left to deliver */ }
       } finally {

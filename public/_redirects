@@ -4,3 +4,12 @@ https://www.anejocateringco.com/* https://anejocateringco.com/:splat 301!
 # /client 404d while /client/ worked — a trailing slash should never decide whether a
 # customer reaches their account (found 2026-07-20).
 /client /client/ 301
+
+# Retire pre-HUB legacy surfaces. Kitchen work must go through role-gated HUB auth,
+# not the old shared-key page/API.
+/kitchen /hub/kitchen/ 301
+/kitchen.html /hub/kitchen/ 301
+
+# Retire accidental duplicate client dashboard export.
+/client/dashboard%202 /client/dashboard 301
+/client/dashboard%202.html /client/dashboard 301

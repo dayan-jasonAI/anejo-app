@@ -8,6 +8,7 @@ import { requireRole } from '../../../../_lib/roles.js';
 import { newSalt, hashPin, validPinFormat, randomPin } from '../../../../_lib/pin.js';
 import { capture } from '../../../../_lib/track.js';
 import { sendSms } from '../../../../_lib/twilio.js';
+import { sendEmail, emailShell, escHtml } from '../../../../_lib/email.js';
 
 const ROLES = ['owner', 'kitchen', 'driver', 'vendor'];
 const TEAMS = ['kitchen', 'delivery', 'training', 'front_office', 'vendors'];
@@ -74,27 +75,53 @@ export const onRequestPost = async ({ request, env }) => {
       if (String(e).includes('UNIQUE')) return bad('A staff member with that email already exists.', 409);
       throw e;
     }
+    const channels = [];
+    if (phone) channels.push('sms');
+    if (email) channels.push('email');
+
     // Lifecycle: user.invited (tracking plan) — channel reflects how they'll sign in.
     await capture(env, {
       event: 'user.invited',
       distinct_id: ctx.distinct_id,
       role: ctx.role,
       team: ctx.team,
-      properties: { invited_role: role, channel: phone ? 'sms' : 'email', invited_staff_id: sid },
+      properties: { invited_role: role, channel: channels.join('+') || 'unknown', invited_staff_id: sid },
     });
+
+    const notifications = { sms: null, email: null };
 
     // Welcome SMS — never send the PIN over SMS (credential delivery is a carrier/A2P red flag
     // and a security risk). The owner relays the one-time PIN out-of-band (it's returned below).
     // The text only welcomes + points to the sign-in page, and carries the STOP disclosure.
     if (phone) {
-      await sendSms(env, {
+      notifications.sms = await sendSms(env, {
         to: phone,
         body: 'Añejo HUB: Welcome to the team! Sign in at https://anejocateringco.com/login with your phone number to finish setup. Reply STOP to opt out.',
       });
     }
 
+    // Welcome email — do not send the PIN here either. The owner still relays the one-time PIN
+    // out-of-band; the email gives the staffer a clear onboarding path and sets expectations.
+    if (email) {
+      try {
+        await sendEmail(env, {
+          to: email,
+          subject: 'Welcome to the Añejo HUB',
+          html: emailShell(
+            `<p>Hi ${escHtml(name)},</p>
+             <p>You have been added to the Añejo HUB as <strong>${escHtml(role)}</strong>${team ? ` on <strong>${escHtml(team)}</strong>` : ''}.</p>
+             <p>Sign in at <a href="https://anejocateringco.com/login">anejocateringco.com/login</a> using your ${phone ? 'phone number' : 'email address'} and the one-time PIN Dayan gives you.</p>
+             <p style="color:#6b6b6b;font-size:13px">For security, your PIN is not sent by email or text. You will be asked to change it after first sign-in.</p>`
+          ),
+        });
+        notifications.email = { ok: true, sent: true };
+      } catch (e) {
+        notifications.email = { ok: false, sent: false, error: String(e && e.message || e).slice(0, 160) };
+      }
+    }
+
     // Return the plaintext PIN ONCE so the owner can relay it (it is never stored or shown again).
-    return json({ ok: true, id: sid, initial_pin: pin });
+    return json({ ok: true, id: sid, initial_pin: pin, notifications });
   }
 
   if (op === 'update') {

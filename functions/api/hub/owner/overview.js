@@ -25,6 +25,7 @@ export const onRequestGet = async ({ request, env }) => {
 
   const [
     ordersOpen,
+    pendingCheckout,
     deliveriesToday,
     deliveriesDone,
     deliveriesFailed,
@@ -38,7 +39,8 @@ export const onRequestGet = async ({ request, env }) => {
     tempExcursionsToday,
     restockPending,
   ] = await Promise.all([
-    count(env, "SELECT COUNT(*) n FROM orders WHERE status IN ('pending','paid')"),
+    count(env, "SELECT COUNT(*) n FROM orders WHERE status IN ('paid','prep','ready') AND kitchen_cleared_at IS NULL"),
+    count(env, "SELECT COUNT(*) n FROM orders WHERE status='pending'"),
     count(env, 'SELECT COUNT(*) n FROM deliveries WHERE substr(datetime(created_at/1000,"unixepoch"),1,10) >= ? OR route_id IN (SELECT id FROM routes WHERE route_date = ?)', [day, day]),
     count(env, "SELECT COUNT(*) n FROM deliveries WHERE status='completed' AND route_id IN (SELECT id FROM routes WHERE route_date = ?)", [day]),
     count(env, "SELECT COUNT(*) n FROM deliveries WHERE status='failed' AND route_id IN (SELECT id FROM routes WHERE route_date = ?)", [day]),
@@ -62,6 +64,7 @@ export const onRequestGet = async ({ request, env }) => {
     date: day,
     tiles: {
       orders_open: ordersOpen,
+      pending_checkout: pendingCheckout,
       deliveries_today: deliveriesToday,
       deliveries_done: deliveriesDone,
       deliveries_failed: deliveriesFailed,

@@ -6,8 +6,9 @@ EN/ES + brand design system) on the single highest-value surface before the rest
 
 ## What's here
 - **Streaming AI** — `useStudioStream` reads a `ReadableStream` from `/api/hub/kitchen/studio/stream`
-  (new Function) and renders Claude's reply token-by-token with live markdown (recipe cards, macro
-  tables). Falls back to a streamed demo reply if the backend/API isn't reachable, so it runs standalone.
+  and renders Claude's reply token-by-token with live markdown (recipe cards, macro tables). In
+  production it fails visibly if the backend/API is unavailable; it must not show demo content as if
+  it were recipe-ready operational output.
 - **Same auth, no new system** — calls the existing `/api/me` + `/api/hub/kitchen/studio/*` Functions
   with the session cookie (`credentials: 'include'`). Magic-link/PIN just works.
 - **Brand-grounded** — the streaming endpoint reuses `buildStudioSystem` (brand brief + kitchen SOPs)
@@ -19,7 +20,7 @@ EN/ES + brand design system) on the single highest-value surface before the rest
 ```bash
 cd hub-app
 npm install
-npm run dev          # http://localhost:5174  (streams a demo reply standalone)
+npm run dev          # http://localhost:5174
 ```
 For LIVE AI + persistence, run the Functions alongside it (from the repo root) and the vite proxy
 forwards /api → it:
@@ -32,10 +33,10 @@ wrangler pages dev public --port 8788     # serves functions/ + needs ANTHROPIC_
 npm run build        # tsc --noEmit && vite build → dist/
 ```
 
-## Ship later (owner decision — NOT wired to prod yet)
-Mount `dist/` under `/hub` on the existing Pages project and point the vanilla Studio link at it,
-or migrate surface-by-surface. The new `functions/api/hub/kitchen/studio/stream.js` is additive and
-safe to deploy independently (it doesn't change the existing non-streaming `message.js`).
+## Ship
+The Cloudflare Pages project serves static files from `public/`. After `npm run build`, copy `dist/`
+into `public/studio/` so `/studio/` serves the current React bundle. Keep the Functions deployed with
+it; `/api/hub/kitchen/studio/stream.js` is the live streaming backend.
 
 ## Roadmap (the "on steroids" plan)
 Image generation for plating/menu cards · Durable-Object live multi-device sessions · Vectorize RAG
