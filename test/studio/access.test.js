@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { onRequestPost as recipeCreate } from '../../functions/api/hub/kitchen/recipe/create.js';
 import { onRequestPost as briefProposal } from '../../functions/api/hub/kitchen/studio/brief-proposal.js';
+import { onRequestPost as mediaUpload } from '../../functions/api/hub/kitchen/studio/media.js';
+import { onRequestPost as transcribeVoice } from '../../functions/api/hub/kitchen/studio/transcribe.js';
 
 function envWithForeignSession() {
   const staff = {
@@ -111,6 +113,31 @@ test('brief submit hides sessions owned by another kitchen staffer', async () =>
       session_id: 'rsess_other',
       title: 'QA proposal',
       proposed_body: 'A complete proposed brief body.',
+    }),
+    env: envWithForeignSession(),
+  });
+  assert.equal(res.status, 404);
+  assert.match(await res.text(), /Session not found/i);
+});
+
+test('studio media upload hides sessions owned by another kitchen staffer', async () => {
+  const res = await mediaUpload({
+    request: authedRequest('/api/hub/kitchen/studio/media', {
+      session_id: 'rsess_other',
+      media_type: 'photo',
+      content: '/api/hub/media/test.jpg',
+    }),
+    env: envWithForeignSession(),
+  });
+  assert.equal(res.status, 404);
+  assert.match(await res.text(), /Session not found/i);
+});
+
+test('studio transcription hides sessions owned by another kitchen staffer', async () => {
+  const res = await transcribeVoice({
+    request: authedRequest('/api/hub/kitchen/studio/transcribe', {
+      session_id: 'rsess_other',
+      audio: 'data:audio/webm;base64,AAAA',
     }),
     env: envWithForeignSession(),
   });
