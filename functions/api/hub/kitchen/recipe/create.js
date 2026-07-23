@@ -72,6 +72,16 @@ async function draftFromSession(env, sessionId) {
   }
 }
 
+async function loadAuthorizedSession(env, sessionId, ctx) {
+  if (!sessionId) return { response: bad('Missing session_id.') };
+  const session = await env.DB.prepare('SELECT * FROM recipe_sessions WHERE id = ?').bind(sessionId).first();
+  if (!session) return { response: bad('Session not found.', 404) };
+  if (session.staff_id !== ctx.distinct_id && ctx.role !== 'owner') {
+    return { response: bad('Session not found.', 404) };
+  }
+  return { session };
+}
+
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   const ctx = await requireRole(request, env, ['kitchen', 'owner']);
@@ -87,6 +97,8 @@ export const onRequestPost = async ({ request, env }) => {
   // Draft-only mode: return an AI-proposed recipe for the chef to review/edit. Not persisted.
   if (wantDraft) {
     if (!sessionId) return bad('ai_draft requires a session_id.');
+    const auth = await loadAuthorizedSession(env, sessionId, ctx);
+    if (auth.response) return auth.response;
     const result = await draftFromSession(env, sessionId);
     if (result && result.draft) return json({ ok: true, demo: false, draft: result.draft });
     // Couldn't draft — return a placeholder PLUS the reason so the UI can explain it and block publishing.
@@ -116,8 +128,9 @@ export const onRequestPost = async ({ request, env }) => {
 
   let session = null;
   if (sessionId) {
-    session = await env.DB.prepare('SELECT * FROM recipe_sessions WHERE id = ?').bind(sessionId).first();
-    if (!session) return bad('Session not found.', 404);
+    const auth = await loadAuthorizedSession(env, sessionId, ctx);
+    if (auth.response) return auth.response;
+    session = auth.session;
   }
 
   const recipeId = id('rcp');

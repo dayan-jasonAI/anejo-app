@@ -6,7 +6,7 @@
 import { json, bad } from '../../../../_lib/util.js';
 import { requireRole } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
-import { id, now, toJson, parseJson } from '../../../../_lib/hub.js';
+import { id, now, toJson } from '../../../../_lib/hub.js';
 import { buildStudioSystem } from '../../../../_lib/studio_context.js';
 import { getMedia, contentTypeForKey } from '../../../../_lib/media.js';
 
@@ -65,10 +65,11 @@ function demoReply(text, assistType) {
   return `${lead}: build on a quinoa base, keep protein ~40g, add a bright citrus/chimichurri accent, and balance with greens + a healthy fat. (Demo mode — connect ANTHROPIC_API_KEY for full AI coaching.) You said: "${t}".`;
 }
 
-async function buildTranscript(env, sessionId) {
+async function buildTranscript(env, sessionId, beforeTs = null) {
+  const cutoff = beforeTs == null ? Number.MAX_SAFE_INTEGER : Number(beforeTs);
   const { results } = await env.DB.prepare(
-    'SELECT kind, content, assist_type FROM recipe_session_events WHERE session_id = ? ORDER BY created_at ASC LIMIT 40'
-  ).bind(sessionId).all();
+    'SELECT kind, content, assist_type FROM recipe_session_events WHERE session_id = ? AND created_at < ? ORDER BY created_at ASC LIMIT 40'
+  ).bind(sessionId, cutoff).all();
   const msgs = [];
   const photoKeys = []; // R2 keys for photos, in chronological order (for vision)
   for (const e of results || []) {
@@ -84,8 +85,8 @@ async function buildTranscript(env, sessionId) {
   return { msgs, photoKeys };
 }
 
-async function callClaude(env, sessionId, userText, assistType) {
-  const { msgs: history, photoKeys } = await buildTranscript(env, sessionId);
+async function callClaude(env, sessionId, userText, assistType, beforeTs = null) {
+  const { msgs: history, photoKeys } = await buildTranscript(env, sessionId, beforeTs);
   const system = await buildStudioSystem(env);
   const directive = assistType ? `\n\n(The chef is asking for: ${assistType}.)` : '';
 
@@ -143,7 +144,7 @@ export const onRequestPost = async ({ request, env }) => {
   let reply;
   let demo = false;
   if (env.ANTHROPIC_API_KEY) {
-    try { reply = await callClaude(env, sessionId, text, assistType); }
+    try { reply = await callClaude(env, sessionId, text, assistType, ts); }
     catch { reply = demoReply(text, assistType); demo = true; }
   } else {
     reply = demoReply(text, assistType);

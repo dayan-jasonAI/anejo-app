@@ -8,6 +8,16 @@ import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { draftBriefChange, createProposal, listMyProposals, BRAND_DOC_ID } from '../../../../_lib/brief.js';
 
+async function loadAuthorizedSession(env, sessionId, ctx) {
+  if (!sessionId) return { session: null };
+  const session = await env.DB.prepare('SELECT id, staff_id FROM recipe_sessions WHERE id = ?').bind(sessionId).first();
+  if (!session) return { response: bad('Session not found.', 404) };
+  if (session.staff_id !== ctx.distinct_id && ctx.role !== 'owner') {
+    return { response: bad('Session not found.', 404) };
+  }
+  return { session };
+}
+
 // GET → the current staffer's own proposals + the owner's decision/note (their feedback loop).
 export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -28,6 +38,8 @@ export const onRequestPost = async ({ request, env }) => {
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const sessionId = (b && b.session_id || '').toString().trim() || null;
   const wantDraft = new URL(request.url).searchParams.get('ai_draft') === '1' || !!(b && b.ai_draft);
+  const auth = await loadAuthorizedSession(env, sessionId, ctx);
+  if (auth.response) return auth.response;
 
   if (wantDraft) {
     const draft = await draftBriefChange(env, { sessionId, instruction: (b && b.instruction) || '' });

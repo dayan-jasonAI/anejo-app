@@ -55,10 +55,11 @@ async function buildVisionBlocks(env, photoKeys) {
   }
   return blocks;
 }
-async function buildTranscript(env, sessionId) {
+async function buildTranscript(env, sessionId, beforeTs = null) {
+  const cutoff = beforeTs == null ? Number.MAX_SAFE_INTEGER : Number(beforeTs);
   const { results } = await env.DB.prepare(
-    'SELECT kind, content, assist_type FROM recipe_session_events WHERE session_id = ? ORDER BY created_at ASC LIMIT 40'
-  ).bind(sessionId).all();
+    'SELECT kind, content, assist_type FROM recipe_session_events WHERE session_id = ? AND created_at < ? ORDER BY created_at ASC LIMIT 40'
+  ).bind(sessionId, cutoff).all();
   const msgs = [];
   const photoKeys = [];
   for (const e of results || []) {
@@ -106,7 +107,7 @@ export const onRequestPost = async ({ request, env }) => {
   ).bind(id('rse'), sessionId, 'user_text', text, ts).run();
 
   // Build the grounded prompt (brand brief + SOPs) + rolling transcript + recent photos (vision).
-  const { msgs: history, photoKeys } = await buildTranscript(env, sessionId);
+  const { msgs: history, photoKeys } = await buildTranscript(env, sessionId, ts);
   const system = await buildStudioSystem(env);
   const directive = assistType ? `\n\n(The chef is asking for: ${assistType}.)` : '';
   const images = await buildVisionBlocks(env, photoKeys);
