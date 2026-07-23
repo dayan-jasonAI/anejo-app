@@ -9,6 +9,53 @@ import { buildBrandContext } from './studio_context.js';
 const MODEL = 'claude-sonnet-4-6';
 export const BRAND_DOC_ID = 'doc_brand_main';
 const MAX_BODY = 60000;
+const AI_TIMEOUT_MS = 25000;
+
+function cleanLine(value, fallback, max = 200) {
+  return String(value || fallback || '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function composeProposedBody(current, { title, proposedChange }) {
+  const base = String(current || '').trim();
+  const change = String(proposedChange || '').trim() || 'Review the linked Creative Studio session and update the Brand & Standards Brief as needed.';
+  const section = [
+    '---',
+    '',
+    '## Proposed Studio Brief Change / Cambio propuesto desde Studio',
+    '',
+    `Title / Titulo: ${cleanLine(title, 'Studio brief change')}`,
+    '',
+    change,
+  ].join('\n');
+  return (base ? `${base}\n\n${section}` : section).slice(0, MAX_BODY);
+}
+
+function fallbackDraft(current, instruction) {
+  const title = cleanLine(instruction, 'Studio brief change');
+  const proposedChange = [
+    'English: Kitchen staff proposed the following change for owner review.',
+    '',
+    String(instruction || 'Review the linked Creative Studio session and update the brief as needed.').trim(),
+    '',
+    'Espanol: El equipo de cocina propuso este cambio para revision del dueno.',
+  ].join('\n');
+  return {
+    title,
+    rationale: 'Captured from the Creative Studio workflow so the owner can review, edit, approve, reject, or request more information.',
+    proposed_body: composeProposedBody(current, { title, proposedChange }),
+    demo: false,
+  };
+}
+
+async function fetchWithTimeout(url, init, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export async function getDoc(env, docId) {
   try {
@@ -16,9 +63,9 @@ export async function getDoc(env, docId) {
   } catch { return null; }
 }
 
-// Ask the model to produce a COMPLETE revised Brief that preserves everything verbatim except the
-// requested change. Owner reviews the full proposed body before it can be committed. Bilingual for
-// any newly-added content. Returns { title, rationale, proposed_body, demo }.
+// Ask the model to draft the change note quickly, then compose the full proposed Brief on the
+// server. The earlier full-document rewrite routinely exceeded Cloudflare's request window.
+// Owner still reviews a complete `proposed_body` before anything can be committed.
 export async function draftBriefChange(env, { sessionId, instruction }) {
   const doc = await getDoc(env, BRAND_DOC_ID);
   const current = (doc && doc.body) || '';
@@ -40,31 +87,32 @@ export async function draftBriefChange(env, { sessionId, instruction }) {
     } catch { /* optional */ }
   }
   const sys =
-    'You revise Añejo Catering Co.\'s Brand & Standards Brief. Output the COMPLETE revised Brief, ' +
-    'preserving ALL existing content verbatim EXCEPT the specific change requested — never summarize, ' +
-    'drop, or reorder sections you were not asked to change. Añejo is bilingual (English + Spanish); ' +
-    'write any NEWLY ADDED content in both languages. This is a PROPOSAL for the owner (Dayan) to ' +
-    'review — it is not yet approved or official.\n\n' +
-    'Return ONLY JSON: {"title","rationale","proposed_body"}. title = a short summary of the change; ' +
-    'rationale = why; proposed_body = the full revised Brief. No markdown fences.';
+    'You draft a proposed change note for Añejo Catering Co.\'s Brand & Standards Brief. ' +
+    'This is a PROPOSAL for the owner (Dayan) to review — it is not approved or official. ' +
+    'Write the proposed_change in bilingual English + Spanish when adding new content. ' +
+    'Return ONLY JSON: {"title","rationale","proposed_change"}. No markdown fences.';
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const r = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: MODEL, max_tokens: 8000, system: sys,
-        messages: [{ role: 'user', content: `CURRENT BRIEF:\n${current}\n\nSESSION (context):\n${transcript}\n\nREQUESTED CHANGE:\n${instruction || '(infer from the session)'}\n\nReturn the JSON.` }],
+        model: MODEL, max_tokens: 1200, system: sys,
+        messages: [{ role: 'user', content: `CURRENT BRIEF EXCERPT:\n${current.slice(0, 12000)}\n\nSESSION (context):\n${transcript.slice(0, 4000)}\n\nREQUESTED CHANGE:\n${instruction || '(infer from the session)'}\n\nReturn the JSON.` }],
       }),
-    });
-    if (!r.ok) return null;
+    }, AI_TIMEOUT_MS);
+    if (!r.ok) return fallbackDraft(current, instruction);
     const data = await r.json();
     const text = (data.content || []).map((c) => c.text || '').join('');
     const a = text.indexOf('{'); const b = text.lastIndexOf('}');
-    if (a === -1 || b === -1) return null;
+    if (a === -1 || b === -1) return fallbackDraft(current, instruction);
     const obj = JSON.parse(text.slice(a, b + 1));
-    if (!obj || !obj.proposed_body) return null;
-    return { title: String(obj.title || 'Brief change').slice(0, 200), rationale: String(obj.rationale || '').slice(0, 1000), proposed_body: String(obj.proposed_body).slice(0, MAX_BODY), demo: false };
-  } catch { return null; }
+    const title = cleanLine(obj.title, instruction || 'Brief change');
+    const rationale = cleanLine(obj.rationale, 'Proposed from Creative Studio for owner review.', 1000);
+    const proposedChange = String(obj.proposed_change || instruction || '').slice(0, 4000);
+    return { title, rationale, proposed_body: composeProposedBody(current, { title, proposedChange }), demo: false };
+  } catch {
+    return fallbackDraft(current, instruction);
+  }
 }
 
 export async function createProposal(env, { docId, sessionId, staff, role, title, rationale, proposed_body }) {
