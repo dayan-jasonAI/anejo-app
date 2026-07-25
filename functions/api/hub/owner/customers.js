@@ -209,6 +209,14 @@ async function customerDetail(env, email) {
       lang: client.lang || 'en',
       trainer_name: client.trainer_name || null,
       created_at: client.created_at,
+      // The manual-order form prefills the saved delivery address from these; without them on
+      // the payload every field silently resolved to '' and the prefill was dead code.
+      delivery_street: client.delivery_street || null,
+      delivery_unit: client.delivery_unit || null,
+      delivery_city: client.delivery_city || null,
+      delivery_state: client.delivery_state || null,
+      delivery_zip: client.delivery_zip || null,
+      delivery_notes: client.delivery_notes || null,
     } : null,
     orders,
     subscription: subscription || null,

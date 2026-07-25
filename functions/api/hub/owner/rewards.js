@@ -29,7 +29,7 @@ export const onRequestGet = async ({ request, env }) => {
   try {
     const rows = (await env.DB.prepare(
       "SELECT SUM(total_estimate_cents) AS spend FROM orders " +
-      "WHERE customer_email IS NOT NULL AND TRIM(customer_email)<>'' AND status IN ('paid','fulfilled') " +
+      "WHERE customer_email IS NOT NULL AND TRIM(customer_email)<>'' AND status IN ('paid','prep','ready','fulfilled') " +
       "GROUP BY LOWER(TRIM(customer_email))"
     ).all()).results || [];
     for (const r of rows) { const k = tierForSpend(r.spend || 0, config).key; tiers[k] = (tiers[k] || 0) + 1; }

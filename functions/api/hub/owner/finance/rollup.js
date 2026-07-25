@@ -23,7 +23,7 @@ export const onRequestGet = async ({ request, env }) => {
   // Orders revenue in window (use created_at unix-ms). Count paid + fulfilled as realized.
   const ordersRow = await one(
     env,
-    "SELECT COUNT(*) n, COALESCE(SUM(total_estimate_cents),0) cents FROM orders WHERE status IN ('paid','fulfilled') AND created_at >= ?",
+    "SELECT COUNT(*) n, COALESCE(SUM(total_estimate_cents),0) cents FROM orders WHERE status IN ('paid','prep','ready','fulfilled') AND created_at >= ?",
     [sinceMs]
   );
   const ordersPendingRow = await one(

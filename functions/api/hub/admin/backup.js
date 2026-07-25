@@ -120,6 +120,17 @@ export const onRequestPost = async ({ request, env }) => {
   // Make the failure impossible to miss: an alert the owner sees in the HUB, and a 5xx so
   // the cron worker logs `HTTP 500` instead of a reassuring 200.
   if (!ok) await alertBackupFailed(env, (backup && (backup.reason || backup.error)) || 'failed');
+  // ...and clear it on the next success. raiseAlert de-dupes on a stable key while the alert is
+  // open, so without this a single transient failure leaves "Database backup failed" pinned to the
+  // owner dashboard forever. Same self-clearing idiom as low-stock in kitchen/inventory.js.
+  else {
+    try {
+      await env.DB.prepare(
+        "UPDATE alerts SET status='acknowledged', acknowledged_at=?, updated_at=? " +
+        "WHERE dedupe_key='backup_failed' AND status='open'"
+      ).bind(finished, finished).run();
+    } catch { /* the backup itself succeeded — never fail the run on alert bookkeeping */ }
+  }
 
   return json({
     ok,

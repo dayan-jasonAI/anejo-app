@@ -60,7 +60,9 @@ const HOUSE_SAUCES = ['Mango Omega', 'Ajo Cítrico', 'Chimichurri Vital', 'Golde
 const EXTRA_STD_CENTS = 150, EXTRA_PREMIUM_CENTS = 300;
 // Added house sauces: the FIRST one is free, each ADDITIONAL one is $1.50.
 const EXTRA_SAUCE_CENTS = 150;
-const PREMIUM_RE = /\b(tuna|salmon|steak|shrimp|chicken|tofu|beef|pork|avocado|queso|cheese|almond|pecan)\b/i;
+// Plurals matter: bowlspec ships "Toasted almonds"/"Toasted pecans", and \b…\b made the singular
+// forms miss them — so an extra almond billed at the $1.50 standard rate instead of $3.00.
+const PREMIUM_RE = /\b(tuna|salmon|steak|shrimp|chicken|tofu|beef|pork|avocado|queso|cheese|almonds?|pecans?)\b/i;
 const ADDON_PRICE = { avocado_half: 200, extra_protein: 450, sweet_potato: 200, sauce_cup: 150 };
 const ADDON_NAME = { avocado_half: '½ avocado', extra_protein: 'extra protein (4 oz)', sweet_potato: 'sweet potato', sauce_cup: 'extra sauce cup (2 oz)' };
 

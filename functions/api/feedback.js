@@ -40,7 +40,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (rating <= 3) {
     const who = (row.customer_name || '').split(' ')[0] || 'A customer';
     await raiseAlert(env, {
-      alert_type: 'negative_sentiment', severity: rating <= 2 ? 'high' : 'medium',
+      alert_type: 'negative_sentiment', severity: rating <= 2 ? 'warning' : 'info',
       title: `${rating}★ delivery feedback — ${who}`,
       body: `${who} rated a delivery ${rating}/5.${comment ? ' “' + comment + '”' : ''} Reach out to make it right.`,
       ref_type: 'order', ref_id: row.order_id, dedupe_key: 'fb_' + row.delivery_id,

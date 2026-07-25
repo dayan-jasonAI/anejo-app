@@ -174,7 +174,7 @@ export async function evaluatePromo(env, { code, sessionEmail, guestEmail, guest
     if (em && row.perk_first_order_only) {
       try {
         const r = await env.DB.prepare(
-          "SELECT COUNT(*) n FROM orders WHERE LOWER(TRIM(customer_email))=? AND status IN ('paid','fulfilled')"
+          "SELECT COUNT(*) n FROM orders WHERE LOWER(TRIM(customer_email))=? AND status IN ('paid','prep','ready','fulfilled')"
         ).bind(em).first();
         firstOrder = !r || !r.n;
       } catch { firstOrder = false; }

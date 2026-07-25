@@ -85,17 +85,13 @@ test('extra of a PREMIUM ingredient is $3.00, a standard one is $1.50', () => {
   );
 });
 
-// KNOWN GAP (pins current behaviour, not desired behaviour): PREMIUM_RE lists `almond` and
-// `pecan`, but the \b…\b word boundary makes the pattern miss the PLURAL spelling the spec
-// actually uses ("Toasted almonds", "Toasted pecans"), so extra almonds bill at the $1.50
-// standard rate instead of $3.00. LIGERO is the only live bowl affected (FUERZA is hidden).
-// Fixing it is a one-token change in functions/api/checkout.js — `almonds?|pecans?` — outside
-// this lane. When that lands, move the assertion below up into the test above.
-test('extra almonds currently UNDERCHARGE at the standard rate (PREMIUM_RE misses the plural)', () => {
+// Regression: PREMIUM_RE originally listed only the SINGULAR `almond`/`pecan`, and \b…\b made it
+// miss the plural spelling bowlspec actually ships ("Toasted almonds"), so extra almonds billed at
+// the $1.50 standard rate instead of $3.00 — a live undercharge on LIGERO.
+test('extra almonds bill at the PREMIUM rate (plural must match)', () => {
   assert.equal(
     priceCustomBowl('ligero', { extras: [{ type: 'ingredient', name: 'Toasted almonds' }] }).unitCents,
-    1899 + 150,
-    'documents a $1.50/bowl undercharge — see the note above'
+    1899 + 300
   );
 });
 

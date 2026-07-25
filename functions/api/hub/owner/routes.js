@@ -134,7 +134,16 @@ export const onRequestPost = async ({ request, env }) => {
       // Deleting the stops is what actually frees the orders — the unassigned query keys off
       // route_stops, not the route's status.
       await env.DB.prepare('DELETE FROM route_stops WHERE route_id=?').bind(routeId).run();
-      await env.DB.prepare("UPDATE routes SET status='canceled', stop_count=0, updated_at=? WHERE id=?").bind(t, routeId).run();
+      // Clear the OFFER as well as the route. offers-tick, push/peek and the driver route/accept
+      // endpoints all filter on offer_status with no status filter — leaving a 'pending' offer on a
+      // canceled 0-stop route makes the 2-minute cron re-offer it (a real, billable "New delivery
+      // route — 0 stop(s)" SMS + push) and lets a driver accept and start a route that no longer
+      // exists. pay/miles are zeroed too so a released route can't inflate the finance rollup,
+      // which sums those columns across all routes without filtering on status.
+      await env.DB.prepare(
+        "UPDATE routes SET status='canceled', stop_count=0, offer_status='canceled', offered_at=NULL, " +
+        'pay_cents=0, total_miles_est=0, updated_at=? WHERE id=?'
+      ).bind(t, routeId).run();
       await capture(env, {
         event: 'route.released',
         distinct_id: ctx.distinct_id,
