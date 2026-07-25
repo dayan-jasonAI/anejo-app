@@ -71,7 +71,7 @@ function bowlLabel(key) { const N = String(key || '').toUpperCase(); return BOWL
 // and the FIRST added house sauce is free (each additional sauce is $1.50); addons + extra
 // ingredients are priced server-side. Returns a priced
 // snapshot with kitchen-facing fields (removals/addons/notes/build/macros) or { error }.
-function priceCustomBowl(key, mods) {
+export function priceCustomBowl(key, mods) {
   const baseCents = BOWL_BASE[key];
   if (baseCents == null) return { error: `Unknown bowl: ${key}` };
   const spec = BOWL_BY_NAME[String(key).toUpperCase()];
@@ -301,6 +301,11 @@ export const onRequestPost = async ({ request, env }) => {
         if (ev.reason === 'expired') return bad('That code has expired.');
         if (ev.reason === 'self_referral') return bad('Partners cannot use their own referral code.');
         if (ev.reason === 'not_found' || ev.reason === 'disabled') return bad('That code is not valid.');
+        // Without these two, a typed code that lost the use-cap race fell through every branch and
+        // the customer was silently charged full price with no explanation.
+        if (ev.reason === 'exhausted') return bad('That code has reached its limit.');
+        if (ev.reason === 'not_started') return bad('That code is not active yet.');
+        return bad('That code cannot be applied.');
       }
     } catch (_) { promo = null; promoDiscountCents = 0; }
   }
