@@ -105,148 +105,93 @@ destructive.
 
 ## RESTORE RUNBOOK
 
-> Restore is a deliberate, careful, manual operation. It is intentionally **not**
-> automated — re-importing rows into a live production database is a high-stakes
-> action that a human must drive and verify. Do not run this on a whim.
+> **Rehearsed 2026-07-25** against a scratch database (`anejo-restore-drill`) using the real
+> 2026-07-20 backup: 64 tables / 8,532 rows restored, every spot-checked table matching the
+> backup manifest exactly. The steps below are the ones that actually ran. Three commands in the
+> previous version of this runbook did **not** execute — see "What the drill corrected" at the end.
 
-### Step 1 — Pick the backup to restore
+### Step 0 — Restore the SCHEMA first (empty database only)
 
-List recent backups (either of these):
-
-```bash
-# Via the API (owner session cookie required):
-curl -s https://anejocateringco.com/api/hub/admin/backup | jq
-
-# Or directly from R2:
-wrangler r2 object list anejo-media --prefix backups/ --remote
-```
-
-Identify the exact key you want, e.g.
-`backups/2026-06-11/anejo-d1-2026-06-11T14-03.json`.
-
-### Step 2 — Download the backup JSON
+The backup contains **data, not schema**. Into a fresh database, replay the migrations first:
 
 ```bash
-wrangler r2 object get \
-  anejo-media/backups/2026-06-11/anejo-d1-2026-06-11T14-03.json \
-  --remote --file=backup.json
+for f in $(ls migrations/*.sql | sort); do
+  wrangler d1 execute <DB> --remote --file "$f"
+done
 ```
 
-Sanity-check it before going further:
+**Expect exactly one failure:** `0007_client_phone.sql` → `duplicate column name: phone`. It is
+harmless — `clients.phone` is already added by an earlier migration. Any *other* failure is real.
+(Migration ordinals `0002 0006 0007 0017 0021 0033 0034` are each used twice; filename order is
+what the drill used and it reproduced production's 67 tables exactly.)
+
+### Step 1 — Find the backup
+
+`wrangler r2 object list` **does not exist in wrangler 4.** Use the HUB (owner session):
+`GET /api/hub/admin/backup` lists the 20 most recent keys. Or derive it — backups run Mondays
+10:00 UTC and the key is deterministic:
+
+```
+backups/<yyyy-mm-dd>/anejo-d1-<yyyy-mm-dd>T<hh>-<mm>.json
+```
+
+### Step 2 — Download it
 
 ```bash
-jq '.meta' backup.json          # table_count, row_counts, any errors/capped
-jq '.tables | keys' backup.json # the tables present
+wrangler r2 object get "anejo-media/backups/2026-07-20/anejo-d1-2026-07-20T10-00.json" \
+  --file backup.json --remote
 ```
 
-### Step 3 — Generate INSERT OR REPLACE SQL from the backup
+### Step 3 — Build the FK graph from the TARGET database, then generate SQL
 
-Restore is done with **`INSERT OR REPLACE`** so that re-running it is idempotent and
-so that restoring into an existing schema reconciles rows by primary key rather than
-duplicating them. The schema itself is **not** in the backup — restore into a
-database that already has the current schema (apply `migrations/*.sql` first if you
-are rebuilding from empty).
-
-Save this as `backup-to-sql.mjs` and run it with Node:
-
-```js
-// backup-to-sql.mjs — turn an Añejo D1 backup JSON into a .sql file of
-// INSERT OR REPLACE statements. Usage:
-//   node backup-to-sql.mjs backup.json restore.sql            # all tables
-//   node backup-to-sql.mjs backup.json restore.sql staff docs # only these tables
-import { readFileSync, writeFileSync } from 'node:fs';
-
-const [, , inPath, outPath, ...only] = process.argv;
-if (!inPath || !outPath) {
-  console.error('usage: node backup-to-sql.mjs <backup.json> <restore.sql> [table ...]');
-  process.exit(1);
-}
-
-const data = JSON.parse(readFileSync(inPath, 'utf8'));
-const tables = data.tables || {};
-const want = only.length ? new Set(only) : null;
-
-// SQLite literal quoting for each JS value type.
-function lit(v) {
-  if (v === null || v === undefined) return 'NULL';
-  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : 'NULL';
-  if (typeof v === 'boolean') return v ? '1' : '0';
-  if (typeof v === 'object') {
-    // JSON-in-TEXT columns come back as objects/arrays; re-serialize them.
-    return `'${JSON.stringify(v).replace(/'/g, "''")}'`;
-  }
-  return `'${String(v).replace(/'/g, "''")}'`;
-}
-
-const out = [];
-out.push('PRAGMA foreign_keys=OFF;');
-out.push('BEGIN TRANSACTION;');
-
-for (const [name, rows] of Object.entries(tables)) {
-  if (want && !want.has(name)) continue;
-  if (!Array.isArray(rows) || rows.length === 0) continue;
-  // Use the union of all keys seen, in first-row order, for a stable column list.
-  const cols = Object.keys(rows[0]);
-  const colSql = cols.map((c) => `"${c.replace(/"/g, '""')}"`).join(', ');
-  for (const row of rows) {
-    const vals = cols.map((c) => lit(row[c])).join(', ');
-    out.push(`INSERT OR REPLACE INTO "${name}" (${colSql}) VALUES (${vals});`);
-  }
-}
-
-out.push('COMMIT;');
-out.push('PRAGMA foreign_keys=ON;');
-writeFileSync(outPath, out.join('\n') + '\n');
-console.error(`Wrote ${out.length} lines to ${outPath}`);
-```
+Tables must be inserted parents-first: D1 enforces foreign keys and **rejects
+`PRAGMA foreign_keys=OFF`** in a `--file` batch, so ordering is the only way through.
 
 ```bash
-node backup-to-sql.mjs backup.json restore.sql
+wrangler d1 execute <DB> --remote --json \
+  --command "SELECT name, sql FROM sqlite_master WHERE type='table' AND sql IS NOT NULL" > schema.json
+
+node scripts/restore-from-backup.mjs --deps schema.json deps.json
+node scripts/restore-from-backup.mjs backup.json restore.sql deps.json
 ```
 
-Open `restore.sql` and **read it** before executing. Confirm the row counts and the
-tables match `meta.row_counts`. For a partial restore (e.g. you only need to recover
-one accidentally-cleared table), pass just that table name as an extra argument.
+Pass extra table names to restore only those (e.g. one accidentally-cleared table).
 
-### Step 4 — Apply the SQL to D1
+### Step 4 — Apply
 
 ```bash
-# Dry run against LOCAL first if you have a local copy, to catch obvious errors:
-wrangler d1 execute anejo --file restore.sql --local
-
-# Then, once verified, against REMOTE production:
-wrangler d1 execute anejo --remote --file restore.sql
+wrangler d1 execute <DB> --remote --file restore.sql
 ```
 
-> Get the database name/binding right (`anejo` — confirm against `wrangler.toml`).
-> Because every statement is `INSERT OR REPLACE` inside a single transaction, the
-> whole restore either applies cleanly or rolls back.
+⚠️ **This is NOT atomic.** D1 rejects `BEGIN TRANSACTION`/`COMMIT`, so there is no all-or-nothing
+rollback. It *is* idempotent — every statement is `INSERT OR REPLACE` — so a partial restore can
+simply be re-run and will converge. Drill timing: 8,532 statements in ~300ms.
 
-### Step 5 — Verify
+### Step 5 — Verify against the manifest
 
-Spot-check a few critical tables after restore:
+Compare live counts to `meta.row_counts` in the backup. Keep each query under ~15 UNION terms —
+SQLite errors with *"too many terms in compound SELECT"* beyond that:
 
 ```bash
-wrangler d1 execute anejo --remote --command \
-  "SELECT (SELECT COUNT(*) FROM staff) AS staff, (SELECT COUNT(*) FROM suborders) AS suborders;"
+wrangler d1 execute <DB> --remote --command \
+  "SELECT 'orders' t,COUNT(*) n FROM orders UNION ALL SELECT 'clients',COUNT(*) FROM clients"
 ```
 
-Compare against `meta.row_counts` from the backup. Sign in to the HUB and confirm
-the owner dashboard, recent orders, and a couple of staff records look correct.
+Then sign in to the HUB and confirm the dashboard, recent orders and a couple of staff records.
 
----
+### What the drill corrected
 
-## Monthly restore-test recommendation
+| Previously documented | Reality |
+|---|---|
+| `wrangler r2 object list …` | **Not a wrangler 4 command.** Step 1 could not run at all. |
+| `PRAGMA foreign_keys=OFF;` | **Rejected by D1.** FKs stay on → restore fails on constraint violations unless tables are dependency-ordered. |
+| `BEGIN TRANSACTION; … COMMIT;` | **Rejected by D1.** The claim that a restore "either applies cleanly or rolls back" was false. |
 
-A backup you have never restored is a backup you do not actually have. **Once a
-month**, perform a restore drill:
+### Restore drill — do this quarterly
 
-1. Download the latest backup (Step 2).
-2. Generate `restore.sql` (Step 3).
-3. Apply it to a **local** D1 (`wrangler d1 execute anejo --file restore.sql --local`),
-   never to production for the drill.
-4. Confirm row counts match `meta.row_counts` and the data is sane.
-5. Note the drill (date + result) in ops records.
+An untested restore is a hypothesis, not a capability. Create a scratch DB
+(`wrangler d1 create anejo-restore-drill`), run Steps 0-5 against it, verify, then
+`wrangler d1 delete anejo-restore-drill`. Nothing touches production.
 
-This proves both the backup contents and the restore procedure are healthy, well
-before you ever need them in anger.
+**Current RPO: 7 days** (weekly Monday backup). Cloudflare D1 Time Travel may offer a much better
+point-in-time option — worth evaluating; it is not currently part of this procedure.
