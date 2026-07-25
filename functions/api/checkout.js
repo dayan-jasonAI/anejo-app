@@ -9,6 +9,7 @@ import { BOWL_IDS, onDemandConfig, windowState, remainingByBowl } from '../_lib/
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 import { currentUser } from '../_lib/session.js';
 import { rewardsSummary } from '../_lib/rewards.js';
+import { evaluatePromo, recordRedemption } from '../_lib/promo.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -271,6 +272,29 @@ export const onRequestPost = async ({ request, env }) => {
     }
   } catch (_) { redeemPts = 0; discountCents = 0; }
 
+  // ---- Promo / affiliate code. Server-authoritative: the browser sends only a string; the
+  // percentage, expiry, account-binding and commission all come from D1. A 'customer' code is
+  // non-shareable — evaluatePromo requires the signed-in email to match the code's bound_email.
+  let promo = null, promoDiscountCents = 0;
+  if (b.promo_code) {
+    try {
+      const ev = await evaluatePromo(env, {
+        code: b.promo_code,
+        sessionEmail: sessEmail,
+        // Apply the % to the subtotal AFTER any points redemption, so the two never over-discount.
+        subtotalCents: Math.max(0, subtotalCents - discountCents),
+      });
+      if (ev.ok) { promo = ev; promoDiscountCents = Math.max(0, ev.discount_cents || 0); }
+      else if (ev.reason === 'signin_required') return bad('Sign in with the email your code was sent to, then apply it.');
+      else if (ev.reason === 'not_your_code') return bad('That code belongs to another account. Codes cannot be shared.');
+      else if (ev.reason === 'expired') return bad('That code has expired.');
+      else if (ev.reason === 'self_referral') return bad('Partners cannot use their own referral code.');
+      else if (ev.reason === 'not_found' || ev.reason === 'disabled') return bad('That code is not valid.');
+    } catch (_) { promo = null; promoDiscountCents = 0; }
+  }
+  // Never discount below zero once both discounts are combined.
+  const totalDiscountCents = Math.min(subtotalCents, discountCents + promoDiscountCents);
+
   const { ok, status, data } = await square(env, '/v2/online-checkout/payment-links', {
     method: 'POST',
     body: {
@@ -289,12 +313,22 @@ export const onRequestPost = async ({ request, env }) => {
           percentage: taxPct,
           scope: 'ORDER',   // applies to every line item on the order
         }],
-        discounts: discountCents > 0 ? [{
-          uid: 'anejo-rewards',
-          name: `Añejo Rewards (${redeemPts} pts)`,
-          amount_money: { amount: discountCents, currency: 'USD' },
-          scope: 'ORDER',
-        }] : undefined,
+        discounts: (() => {
+          const ds = [];
+          if (discountCents > 0) ds.push({
+            uid: 'anejo-rewards',
+            name: `Añejo Rewards (${redeemPts} pts)`,
+            amount_money: { amount: discountCents, currency: 'USD' },
+            scope: 'ORDER',
+          });
+          if (promoDiscountCents > 0) ds.push({
+            uid: 'anejo-promo',
+            name: `${promo.code} (${promo.pct_off}% off)`,
+            amount_money: { amount: promoDiscountCents, currency: 'USD' },
+            scope: 'ORDER',
+          });
+          return ds.length ? ds : undefined;
+        })(),
         reference_id: onDemand ? 'web-ondemand' : 'web-delivery',
         note: deliveryNote,   // shows on the Square order for the kitchen
       },
@@ -337,22 +371,26 @@ export const onRequestPost = async ({ request, env }) => {
       let lat = null, lng = null, geocodedAt = null;
       const g = await geocode(env, addrLine).catch(() => null);
       if (g) { lat = g.lat; lng = g.lng; geocodedAt = t; }
+      const orderId = id('ord');
       await env.DB.prepare(
         `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
             fulfillment_mode, subtotal_cents, fee_cents, tax_pct, total_estimate_cents, redeem_points, discount_cents,
             customer_name, customer_email, customer_phone, sms_consent,
             delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
-            delivery_lat, delivery_lng, geocoded_at, status, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
+            delivery_lat, delivery_lng, geocoded_at, promo_code, promo_points_mult, status, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
       ).bind(
-        id('ord'), pl.order_id || null, pl.id || null, JSON.stringify(orderItems), dateStr, win,
+        orderId, pl.order_id || null, pl.id || null, JSON.stringify(orderItems), dateStr, win,
         fulfillmentMode, subtotalCents, feeCents, Number(taxPct),
-        Math.round((Math.max(0, subtotalCents - discountCents) + feeCents) * (1 + Number(taxPct) / 100)),
-        redeemPts || null, discountCents || null,
+        Math.round((Math.max(0, subtotalCents - totalDiscountCents) + feeCents) * (1 + Number(taxPct) / 100)),
+        redeemPts || null, totalDiscountCents || null,
         firstName, sessEmail, custPhone, smsConsent,
         addr.street, addr.unit, addr.city, addr.state, addr.zip, addr.notes,
-        lat, lng, geocodedAt, t, t
+        lat, lng, geocodedAt, promo ? promo.code : null, promo ? promo.points_mult : null, t, t
       ).run();
+      // Consume the code against this order (idempotent per order). The webhook later reads the
+      // order's promo_code to apply the points multiplier and pay any affiliate commission.
+      if (promo) await recordRedemption(env, { evaluated: promo, orderId, customerEmail: sessEmail }).catch(() => {});
     } catch (_) { /* never fail checkout on the order-log write */ }
   }
 

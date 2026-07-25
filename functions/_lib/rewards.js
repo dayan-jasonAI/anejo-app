@@ -103,7 +103,9 @@ export function nextTier(cents, cfg) {
 // Award loyalty points when an order becomes paid. Idempotent: the UNIQUE index on
 // (order_id, reason='earn') means duplicate calls (webhook retries) silently no-op.
 // Multiplier is based on PRIOR lifetime spend so an order can't inflate its own rate.
-export async function awardOrderPoints(env, { orderId, email, subtotalCents }) {
+// `promoMult` (default 1) is the promo-code points multiplier — e.g. a launch code granting 2x.
+// It stacks on top of the member's tier multiplier.
+export async function awardOrderPoints(env, { orderId, email, subtotalCents, promoMult }) {
   if (!env.DB || !orderId) return 0;
   const em = key(email);
   if (!em) return 0;
@@ -120,7 +122,8 @@ export async function awardOrderPoints(env, { orderId, email, subtotalCents }) {
 
   const tier = tierForSpend(priorCents, cfg);
   const dollars = Math.max(0, Math.round((Number(subtotalCents) || 0) / 100));
-  const pts = Math.round(dollars * cfg.earn_per_dollar * tier.mult);
+  const pMult = Math.max(1, Number(promoMult) || 1);
+  const pts = Math.round(dollars * cfg.earn_per_dollar * tier.mult * pMult);
   if (pts <= 0) return 0;
 
   let clientId = null;
@@ -132,7 +135,8 @@ export async function awardOrderPoints(env, { orderId, email, subtotalCents }) {
   try {
     await env.DB.prepare(
       'INSERT INTO points_ledger (id, email, client_id, delta, reason, order_id, note, created_at) VALUES (?,?,?,?,?,?,?,?)'
-    ).bind(id('pt'), em, clientId, pts, 'earn', orderId, tier.name + ' x' + tier.mult, now()).run();
+    ).bind(id('pt'), em, clientId, pts, 'earn', orderId,
+      tier.name + ' x' + tier.mult + (pMult > 1 ? ' · promo x' + pMult : ''), now()).run();
   } catch { return 0; } // unique(order_id,'earn') violation → already awarded
   return pts;
 }

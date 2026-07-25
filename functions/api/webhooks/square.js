@@ -6,6 +6,7 @@ import { id, now, ctEq } from '../../_lib/util.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { notifyClientById, notifyPointsEarned } from '../../_lib/notify.js';
 import { awardOrderPoints, redeemOrderPoints, rewardsSummary } from '../../_lib/rewards.js';
+import { creditAffiliateForOrder } from '../../_lib/promo.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
 
@@ -112,9 +113,15 @@ export const onRequestPost = async ({ request, env }) => {
         // First flip to paid → award Añejo Rewards points (idempotent in awardOrderPoints).
         if (paidUpd.meta && paidUpd.meta.changes === 1) {
           try {
-            const o = await env.DB.prepare("SELECT id, customer_email, customer_phone, sms_consent, subtotal_cents, redeem_points FROM orders WHERE square_order_id=? LIMIT 1").bind(pay.order_id).first();
+            const o = await env.DB.prepare("SELECT id, customer_email, customer_phone, sms_consent, subtotal_cents, redeem_points, promo_code, promo_points_mult FROM orders WHERE square_order_id=? LIMIT 1").bind(pay.order_id).first();
+            // Affiliate commission on this à-la-carte sale (idempotent; no-op unless the order
+            // used an influencer code). Runs even if the buyer has no email on file.
+            if (o) {
+              try { await creditAffiliateForOrder(env, { orderId: o.id, grossCents: o.subtotal_cents }); }
+              catch (e) { console.log('affiliate credit error:', e && e.message); }
+            }
             if (o && o.customer_email) {
-              const earned = await awardOrderPoints(env, { orderId: o.id, email: o.customer_email, subtotalCents: o.subtotal_cents });
+              const earned = await awardOrderPoints(env, { orderId: o.id, email: o.customer_email, subtotalCents: o.subtotal_cents, promoMult: o.promo_points_mult });
               if (o.redeem_points) await redeemOrderPoints(env, { orderId: o.id, email: o.customer_email, points: o.redeem_points });
               if (earned > 0) {
                 try {
