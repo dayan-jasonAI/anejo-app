@@ -10,7 +10,6 @@
 // and commission are read from D1 — never trusted from the client.
 import { id, now } from './util.js';
 
-const CUSTOMER_DAYS = 30;
 const AMBIGUOUS = /[0OIL1]/g;                       // drop look-alikes from generated codes
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // (already excludes the ambiguous set)
 
@@ -25,7 +24,12 @@ function randomSuffix(n = 6) {
   return s;
 }
 
-/** Issue (or return the existing) 30-day 10%-off + 2x-points code for a launch signup. */
+/**
+ * Issue (or return the existing) FOUNDING LEGACY MEMBER benefit for a launch signup:
+ * 2x rewards points FOR LIFE. No percentage discount, no expiry.
+ * The code string is the member's badge/receipt — but they never have to type it: checkout
+ * auto-applies it whenever they're signed in (see autoCustomerCodeFor).
+ */
 export async function issueCustomerCode(env, { email: to, note } = {}) {
   if (!env || !env.DB) return null;
   const em = email(to);
@@ -41,14 +45,30 @@ export async function issueCustomerCode(env, { email: to, note } = {}) {
 
   const t = now();
   const code = ('FOUND-' + randomSuffix(6)).replace(AMBIGUOUS, 'X');
-  const expires = t + CUSTOMER_DAYS * 86400 * 1000;
   try {
     await env.DB.prepare(
       `INSERT INTO promo_codes (code, kind, bound_email, pct_off, points_mult, expires_at, status, note, created_at)
-       VALUES (?,?,?,?,?,?,'active',?,?)`
-    ).bind(code, 'customer', em, 10, 2, expires, note || 'launch signup', t).run();
+       VALUES (?,?,?,0,2,NULL,'active',?,?)`   // 0% off, 2x points, NULL expiry = for life
+    ).bind(code, 'customer', em, note || 'founding legacy member', t).run();
   } catch { return null; }
-  return { code, expires_at: expires };
+  return { code, expires_at: null };
+}
+
+/**
+ * The signed-in member's own active benefit, for silent auto-apply at checkout.
+ * A lifetime perk shouldn't need typing — this is what makes "2x for life" feel automatic.
+ */
+export async function autoCustomerCodeFor(env, sessionEmail) {
+  if (!env || !env.DB) return null;
+  const em = email(sessionEmail);
+  if (!em) return null;
+  try {
+    const r = await env.DB.prepare(
+      "SELECT code FROM promo_codes WHERE kind='customer' AND bound_email=? AND status='active' " +
+      'AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at ASC LIMIT 1'
+    ).bind(em, now()).first();
+    return r ? r.code : null;
+  } catch { return null; }
 }
 
 /**
