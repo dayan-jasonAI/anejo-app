@@ -7,6 +7,7 @@ import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { notifyClientById, notifyPointsEarned } from '../../_lib/notify.js';
 import { awardOrderPoints, redeemOrderPoints, rewardsSummary } from '../../_lib/rewards.js';
 import { creditAffiliateForOrder } from '../../_lib/promo.js';
+import { raiseAlert } from '../../_lib/alerts.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
 
@@ -107,9 +108,28 @@ export const onRequestPost = async ({ request, env }) => {
       const pay = obj.payment || {};
       if (pay.order_id && (pay.status === 'COMPLETED' || pay.status === 'APPROVED')) {
         const tipCents = (pay.tip_money && Number(pay.tip_money.amount)) || 0;
+        // Cancelling an order in the HUB does NOT kill the Square payment link, so a customer can
+        // still pay one the owner already cancelled. Guarding only on 'pending' meant that money
+        // was captured while zero rows matched: no kitchen ticket, no rewards, no commission, no
+        // alert — silently taking payment for food nobody was told to make. Accept 'canceled' too
+        // (money moved, so the order must become real) and alert the owner loudly.
+        const wasCanceled = await env.DB
+          .prepare("SELECT id FROM orders WHERE square_order_id=? AND status='canceled' LIMIT 1")
+          .bind(pay.order_id).first();
         const paidUpd = await env.DB.prepare(
-          "UPDATE orders SET status='paid', customer_email=COALESCE(customer_email,?), tip_cents=?, updated_at=? WHERE square_order_id=? AND status='pending'"
+          "UPDATE orders SET status='paid', customer_email=COALESCE(customer_email,?), tip_cents=?, updated_at=? WHERE square_order_id=? AND status IN ('pending','canceled')"
         ).bind(pay.buyer_email_address || null, tipCents, now(), pay.order_id).run();
+        if (wasCanceled && paidUpd.meta && paidUpd.meta.changes === 1) {
+          try {
+            await raiseAlert(env, {
+              alert_type: 'delivery_failed', severity: 'critical',
+              dedupe_key: 'paid_after_cancel:' + pay.order_id,
+              title: 'Payment received on a CANCELED order',
+              body: `Order ${wasCanceled.id} was canceled in the HUB but the customer paid the still-live Square link. It has been reopened as paid — make it or refund it.`,
+              ref_type: 'order', ref_id: wasCanceled.id,
+            });
+          } catch (e) { console.log('paid-after-cancel alert error:', e && e.message); }
+        }
         // First flip to paid → award Añejo Rewards points (idempotent in awardOrderPoints).
         if (paidUpd.meta && paidUpd.meta.changes === 1) {
           try {

@@ -61,8 +61,11 @@ export async function loadMenu(env) {
   const modifiers = { ...FALLBACK_MODIFIERS };
   for (const m of mods) modifiers[m.key] = m.cents;
 
-  // A bowl missing from D1 would be unbuyable; keep the fallback price for anything absent.
-  for (const [k, v] of Object.entries(FALLBACK_BOWLS)) if (bowls[k] == null) bowls[k] = v;
+  // NOTE: deliberately NO per-bowl backfill from FALLBACK_BOWLS here. Backfilling every missing
+  // bowl meant a bowl the owner DEACTIVATED in the HUB was still purchasable (checkout accepts any
+  // id in the request body, not just what /api/menu advertises) AND was charged at the stale
+  // hardcoded price rather than the owner's last saved one. The whole-menu fallback above already
+  // covers the only case that matters — D1 being unreachable or the table being empty.
 
   return { items, bowls, nonBowls, modifiers, source: 'd1' };
 }

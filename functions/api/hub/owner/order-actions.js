@@ -67,8 +67,12 @@ async function loadSquarePayments(env, squareOrderId) {
 
   const payments = [];
   for (const t of tenders) {
-    if (!t || !t.id) return { error: 'Square returned a payment we could not identify. Refund from the Square dashboard.' };
-    const pr = await square(env, `/v2/payments/${encodeURIComponent(t.id)}`);
+    // A Square Tender exposes an explicit payment_id; tender.id happening to equal it is an
+    // implementation coincidence, not the contract — reading the wrong one 404s and would have
+    // made the whole refund feature silently inert in production.
+    const tenderPaymentId = t && (t.payment_id || t.id);
+    if (!tenderPaymentId) return { error: 'Square returned a payment we could not identify. Refund from the Square dashboard.' };
+    const pr = await square(env, `/v2/payments/${encodeURIComponent(tenderPaymentId)}`);
     const pay = pr.ok && pr.data && pr.data.payment;
     if (!pay || !pay.id) {
       return { error: sqErr(pr) || `Square could not load the payment for this order (${pr.status}).` };
@@ -312,6 +316,13 @@ export const onRequestPost = async ({ request, env }) => {
       return bad(sqErr(r) || `Square refused the refund (${r.status}).`, 502);
     }
     const refund = (r.data && r.data.refund) || {};
+    // HTTP 200 does NOT mean the money moved: Square's refund status can be REJECTED or FAILED.
+    // Worse, the idempotency key is deterministic, so retrying replays the SAME failed refund
+    // object with a 200 — reporting "Refunded $X" every time while nothing was ever returned.
+    const rst = String(refund.status || '').toUpperCase();
+    if (rst === 'REJECTED' || rst === 'FAILED') {
+      return bad(`Square ${rst.toLowerCase()} this refund — the money was NOT returned. Refund from the Square dashboard.`, 502);
+    }
 
     await appendOrderMeta(env, row.id, `Refunded $${(amountCents / 100).toFixed(2)} by ${actor} — ${reason}`, {
       action: 'refund', by: actor, at: t, reason,
