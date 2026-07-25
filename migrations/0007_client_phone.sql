@@ -1,3 +1,14 @@
--- Direct/public subscribers can leave a phone number; subscriptions/create.js inserts it.
--- (The deployed code referenced clients.phone with no migration — this adds the column.)
-ALTER TABLE clients ADD COLUMN phone TEXT;
+-- SUPERSEDED — intentionally a no-op. Do not add statements to this file.
+--
+-- This originally did `ALTER TABLE clients ADD COLUMN phone TEXT;`, but 0006_phone_contact.sql:7
+-- already adds exactly that column. The two were authored in parallel (note the duplicated ordinals
+-- throughout this directory), so replaying the folder in filename order failed here with
+-- "duplicate column name: phone" — SQLite has no ADD COLUMN IF NOT EXISTS.
+--
+-- That failure is not theoretical: it broke the restore drill on 2026-07-25, which means it would
+-- have broken a real disaster recovery. The file is kept rather than deleted so migration ordinals
+-- and history stay intact, but it now applies cleanly against both an existing database and one
+-- rebuilt from empty.
+--
+-- clients.phone is owned by 0006_phone_contact.sql.
+SELECT 1;
