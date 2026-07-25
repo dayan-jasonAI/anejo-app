@@ -247,7 +247,14 @@ if(!clientId){
     '<label style="display:flex;gap:9px;align-items:flex-start;margin:10px 0 0;font-size:13px;line-height:1.45;cursor:pointer;text-transform:none;letter-spacing:0">'+
       '<input type="checkbox" id="b_sms" style="margin-top:2px;width:auto;flex:none">'+
       '<span>Yes, text me order &amp; delivery updates from A&ntilde;ejo Catering Co. at this number.</span></label>'+
-    '<p style="margin:7px 0 0;font-size:11.5px;line-height:1.5;color:var(--muted)">Message frequency varies (you may get a text for each order &amp; delivery). Msg &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. <a href="/legal/terms">Terms</a> &middot; <a href="/legal/privacy">Privacy</a>.</p>';
+    '<p style="margin:7px 0 0;font-size:11.5px;line-height:1.5;color:var(--muted)">Message frequency varies (you may get a text for each order &amp; delivery). Msg &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. <a href="/legal/terms">Terms</a> &middot; <a href="/legal/privacy">Privacy</a>.</p>'+
+    // SEPARATE marketing permission. The box above is transactional (order & delivery updates);
+    // under the TCPA a promotional text needs its own express written opt-in, so this is a second,
+    // unchecked box with its own disclosure. Never pre-check it, never merge the two.
+    '<label style="display:flex;gap:9px;align-items:flex-start;margin:14px 0 0;font-size:13px;line-height:1.45;cursor:pointer;text-transform:none;letter-spacing:0">'+
+      '<input type="checkbox" id="b_mktg_sms" style="margin-top:2px;width:auto;flex:none">'+
+      '<span>Yes, text me exclusive offers and promotions from A&ntilde;ejo Catering Co. at this number.</span></label>'+
+    '<p style="margin:7px 0 0;font-size:11.5px;line-height:1.5;color:var(--muted)">Separate from order updates — this is marketing. By checking this box you agree to receive recurring automated promotional texts (about 2–4 per month) at the number provided. Consent is not a condition of any purchase. Msg &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. <a href="/legal/terms#sms">Terms</a> &middot; <a href="/legal/privacy">Privacy</a>.</p>';
 }
 
 renderPlans();
@@ -312,9 +319,10 @@ function collectBody(){
     const name=(document.getElementById('b_name')||{}).value||'', email=(document.getElementById('b_email')||{}).value||'';
     const phone=(document.getElementById('b_phone')||{}).value||'';
     const smsConsent=!!(document.getElementById('b_sms')||{}).checked;
+    const mktgSmsConsent=!!(document.getElementById('b_mktg_sms')||{}).checked;
     if(!name.trim()){ fail(document.getElementById('b_name'),L('Please enter your name.','Por favor ingresa tu nombre.')); return null; }
     if(!email.trim()){ fail(document.getElementById('b_email'),L('Please enter your email.','Por favor ingresa tu correo electrónico.')); return null; }
-    body = { planTier, buyer:{ name:name.trim(), email:email.trim(), phone:phone.trim(), sms_consent:smsConsent } };
+    body = { planTier, buyer:{ name:name.trim(), email:email.trim(), phone:phone.trim(), sms_consent:smsConsent, marketing_sms_consent:mktgSmsConsent } };
   }
   if (bowlOz) body.bowlSizeOz = bowlOz;
   if (avocado) body.avocado = true;

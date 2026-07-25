@@ -130,6 +130,17 @@ footer a:hover{color:var(--gold)}
         <p class="sms-fine" data-i18n>Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
       </div>
 
+      <!-- SEPARATE marketing permission. The box above is transactional (order & delivery updates);
+           under the TCPA a promotional text needs its own express written opt-in, so this is a
+           second, unchecked box with its own disclosure. Never pre-check it, never merge the two. -->
+      <div class="sms-optin">
+        <label class="chk">
+          <input type="checkbox" id="marketing_sms_consent" name="marketing_sms_consent">
+          <span data-i18n>Yes, text me exclusive offers and promotions from Añejo Catering Co. at this number.</span>
+        </label>
+        <p class="sms-fine" data-i18n>Separate from order updates — this is marketing. By checking this box you agree to receive recurring automated promotional text messages (about 2–4 per month) at the number provided. Consent is not a condition of any purchase. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
+      </div>
+
       <button type="submit" id="goBtn" data-i18n>Claim my founding spot</button>
       <p class="err" id="errMsg"></p>
       <p class="note" data-i18n>No spam — only what you ask for.</p>
@@ -174,6 +185,8 @@ window.addEventListener('DOMContentLoaded', function () {
     'Email': 'Correo electrónico',
     'Mobile (optional)': 'Móvil (opcional)',
     'Yes, text me order & delivery updates from Añejo Catering Co. at this number.': 'Sí, envíenme por texto actualizaciones de pedidos y entregas de Añejo Catering Co. a este número.',
+    'Yes, text me exclusive offers and promotions from Añejo Catering Co. at this number.': 'Sí, envíenme por texto ofertas exclusivas y promociones de Añejo Catering Co. a este número.',
+    'Separate from order updates — this is marketing. By checking this box you agree to receive recurring automated promotional text messages (about 2–4 per month) at the number provided. Consent is not a condition of any purchase. Message & data rates may apply. Reply HELP for help, STOP to cancel anytime. See our': 'Aparte de las actualizaciones de pedidos — esto es marketing. Al marcar esta casilla aceptas recibir mensajes de texto promocionales automatizados recurrentes (unos 2–4 al mes) al número proporcionado. El consentimiento no es condición de ninguna compra. Pueden aplicar tarifas de mensajes y datos. Responde HELP para ayuda, STOP para cancelar cuando quieras. Consulta nuestros',
     'Notify me first': 'Avísenme primero',
     'No spam — only what you ask for.': 'Sin spam — solo lo que pidas.',
     "You're on the list.": 'Estás en la lista.',
@@ -245,6 +258,7 @@ document.getElementById('notifyForm').addEventListener('submit', async function 
       return picks.length ? 'Bowl reservation: ' + picks.join(', ') : '';
     })(),
     sms_consent: f.sms_consent.checked,
+    marketing_sms_consent: f.marketing_sms_consent.checked,
     lang: curLang(),
     src: anejoAttr.src,
     utm_source: anejoAttr.utm_source,

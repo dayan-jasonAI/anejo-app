@@ -213,6 +213,16 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
         </label>
         <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b6b6b">Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> and <a href="/legal/privacy">Privacy Policy</a>.</p>
       </div>
+      <!-- SEPARATE marketing permission. The box above is transactional (order & delivery updates);
+           under the TCPA a promotional text needs its own express written opt-in, so this is a
+           second, unchecked box with its own disclosure. Never pre-check it, never merge the two. -->
+      <div class="sms-optin" style="background:rgba(0,0,0,.03);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:8px">
+        <label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#333;cursor:pointer;line-height:1.45">
+          <input id="mktgSmsConsent" type="checkbox" style="width:auto;flex:0 0 auto;margin:3px 0 0">
+          <span>Yes, text me exclusive offers and promotions from Añejo Catering Co. at this number.</span>
+        </label>
+        <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b6b6b">Separate from order updates — this is marketing. By checking this box you agree to receive recurring automated promotional text messages (about 2–4 per month) at the number provided. Consent is not a condition of any purchase. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. See our <a href="/legal/terms#sms">Terms of Service</a> and <a href="/legal/privacy">Privacy Policy</a>.</p>
+      </div>
 
       <div class="lbl" style="margin-top:14px">Delivery address</div>
       <label class="flbl" for="addrStreet">Street address</label>
@@ -759,7 +769,10 @@ async function checkout(){
   const contact = {
     first_name: $('custName').value.trim(),
     phone: $('custPhone').value.trim(),
-    sms_consent: $('smsConsent').checked
+    sms_consent: $('smsConsent').checked,
+    // Marketing consent is its own permission — sent separately so the server can stamp the
+    // timestamp + source that prove it if it is ever challenged.
+    marketing_sms_consent: $('mktgSmsConsent').checked
   };
   if(!contact.first_name){ fail($('custName'),L('Please enter your first name.','Por favor ingresa tu nombre.')); return; }
   const address = {

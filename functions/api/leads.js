@@ -146,15 +146,27 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
 
   const attr = parseAttribution(b);
 
+  // Marketing SMS consent (0047) — a SEPARATE permission from `sms_consent`, which was collected
+  // with order-and-delivery wording and is therefore transactional only. Requires an explicit
+  // true/1 AND a number to text: consent without a number is not consent to anything.
+  const phoneRaw = (b.phone || '').trim().slice(0, 40) || null;
+  const mktgSms = ((b.marketing_sms_consent === true || b.marketing_sms_consent === 1) && phoneRaw) ? 1 : 0;
+
   // Cap free-text to bound storage abuse (mirrors the discipline in checkout/subscriptions).
   const rec = {
     id: id('ld'), kind, name, email,
-    phone: (b.phone || '').trim().slice(0, 40) || null,
+    phone: phoneRaw,
     company: (b.company || '').trim().slice(0, 120) || null,
     interest: (b.interest || '').trim().slice(0, 120) || null,
     message: (b.message || '').trim().slice(0, 4000) || null,
     source_lang: b.lang === 'es' ? 'es' : 'en',
     sms_consent: b.sms_consent === true || b.sms_consent === 1 ? 1 : 0,
+    marketing_sms_consent: mktgSms,
+    // The timestamp and the form name ARE the proof of consent if it is ever challenged, so they
+    // are only ever written alongside a ticked box — never defaulted, never backfilled. The source
+    // is derived server-side from the endpoint + kind so the browser cannot forge provenance.
+    marketing_sms_consent_at: mktgSms ? now() : null,
+    marketing_sms_consent_src: mktgSms ? `leads:${kind}` : null,
     src: attr.src, utm_source: attr.utm_source, utm_medium: attr.utm_medium,
     utm_campaign: attr.utm_campaign, referrer: attr.referrer,
     created_at: now(),
@@ -173,6 +185,22 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
           .bind(rec.email)
           .first();
         if (existing) {
+          // A returning signup never inserts, so without this the entire existing launch list
+          // could never opt into marketing SMS — the box would silently do nothing for them.
+          // Only ever raises the flag (0 -> 1) and only when the box was ticked; an unticked box
+          // is not an opt-OUT, so it must never clear a consent already on record.
+          if (mktgSms) {
+            try {
+              await env.DB
+                .prepare(
+                  `UPDATE leads SET marketing_sms_consent = 1, marketing_sms_consent_at = ?, marketing_sms_consent_src = ?,
+                      phone = COALESCE(phone, ?)
+                    WHERE kind='launch' AND lower(email)=lower(?) AND marketing_sms_consent = 0`
+                )
+                .bind(now(), `leads:${kind}`, phoneRaw, rec.email)
+                .run();
+            } catch { /* best-effort — never fail the signup on the consent write */ }
+          }
           const rank = await env.DB
             .prepare("SELECT COUNT(*) AS n FROM leads WHERE kind='launch' AND created_at<=?")
             .bind(existing.created_at)
@@ -185,10 +213,12 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     await env.DB
       .prepare(
         `INSERT INTO leads (id, kind, name, email, phone, company, interest, message, source_lang, sms_consent,
+            marketing_sms_consent, marketing_sms_consent_at, marketing_sms_consent_src,
             src, utm_source, utm_medium, utm_campaign, referrer, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       )
       .bind(rec.id, rec.kind, rec.name, rec.email, rec.phone, rec.company, rec.interest, rec.message, rec.source_lang, rec.sms_consent,
+        rec.marketing_sms_consent, rec.marketing_sms_consent_at, rec.marketing_sms_consent_src,
         rec.src, rec.utm_source, rec.utm_medium, rec.utm_campaign, rec.referrer, rec.created_at)
       .run();
     stored = true;

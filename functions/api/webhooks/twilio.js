@@ -15,6 +15,7 @@
 import { id, now, ctEq } from '../../_lib/util.js';
 import { capture } from '../../_lib/track.js';
 import { logInbound } from '../../_lib/twilio.js';
+import { recordUnsubscribe } from '../../_lib/audience.js';
 
 function twiml() {
   return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
@@ -73,11 +74,53 @@ export const onRequestPost = async ({ request, env }) => {
     const consent = START_KW.includes(kw) ? 1 : 0;
     const last10 = digits(from).slice(-10);
     if (last10.length >= 7) {
+      const like = '%' + last10;
       try {
         await env.DB.prepare(
           "UPDATE clients SET sms_consent = ?, updated_at = ? WHERE replace(replace(replace(replace(replace(phone,'+',''),'-',''),' ',''),'(',''),')','') LIKE ?"
-        ).bind(consent, ts, '%' + last10).run();
+        ).bind(consent, ts, like).run();
       } catch { /* best-effort */ }
+      // STOP is the single most important opt-out signal there is, and it must clear MARKETING
+      // consent too — not just the transactional flag. Broadcast audiences read
+      // marketing_sms_consent + campaign_unsubscribes and deliberately ignore sms_consent, so
+      // without this a person who texted STOP stayed in the next marketing audience. Twilio blocks
+      // delivery at the carrier level, so nothing would actually have been sent — but our record of
+      // their wishes would have been wrong, and the reach shown to the owner overstated.
+      if (!consent) {
+        try {
+          await env.DB.prepare(
+            "UPDATE clients SET marketing_sms_consent = 0 WHERE replace(replace(replace(replace(replace(phone,'+',''),'-',''),' ',''),'(',''),')','') LIKE ?"
+          ).bind(like).run();
+        } catch { /* column may predate 0047 in an early env */ }
+        try {
+          await env.DB.prepare(
+            "UPDATE leads SET marketing_sms_consent = 0 WHERE replace(replace(replace(replace(replace(phone,'+',''),'-',''),' ',''),'(',''),')','') LIKE ?"
+          ).bind(like).run();
+        } catch { /* same */ }
+        // The durable record: campaign_unsubscribes survives anything done to the consent columns.
+        await recordUnsubscribe(env, { address: from, channel: 'sms', source: 'reply_stop', reason: kw });
+      } else {
+        // START is the ONLY way back from a texted STOP: /preferences deliberately refuses to clear
+        // a reply_stop row (a web click is not express written consent for texts), and it tells the
+        // person in as many words to "text START to that number to turn them back on". If START did
+        // not lift the block, that instruction would be a lie and the person would be stranded off
+        // the list forever with no working path back.
+        //
+        // Lifting the block is NOT the same as re-granting marketing consent: this only removes the
+        // suppression, leaving marketing_sms_consent at 0. They still have to tick the box on
+        // /preferences to actually receive marketing texts again — which now works, as promised.
+        const bare = "replace(replace(replace(replace(replace(phone,'+',''),'-',''),' ',''),'(',''),')','')";
+        try {
+          await env.DB.prepare(
+            `UPDATE campaign_unsubscribes SET channel = 'email'
+              WHERE channel = 'all' AND source = 'reply_stop' AND phone IS NOT NULL AND ${bare} LIKE ?`
+          ).bind(like).run();
+          await env.DB.prepare(
+            `DELETE FROM campaign_unsubscribes
+              WHERE channel = 'sms' AND source = 'reply_stop' AND phone IS NOT NULL AND ${bare} LIKE ?`
+          ).bind(like).run();
+        } catch { /* best-effort */ }
+      }
     }
   }
 

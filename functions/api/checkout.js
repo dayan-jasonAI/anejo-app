@@ -274,6 +274,11 @@ export const onRequestPost = async ({ request, env }) => {
   if (!firstName) return bad('Please enter your first name so we can label your order.');
   const custPhone = normalizePhone(contact.phone);
   const smsConsent = ((contact.sms_consent === true || contact.sms_consent === 1) && custPhone) ? 1 : 0;
+  // Marketing SMS consent is a SEPARATE permission (0047/0048). `sms_consent` above was collected
+  // with order-and-delivery wording — transactional only — and a promotional text needs its own
+  // express opt-in under the TCPA. Requires the box AND a number; the _at/_src stamps written
+  // below are the proof of consent, so they are never set without it.
+  const mktgSmsConsent = ((contact.marketing_sms_consent === true || contact.marketing_sms_consent === 1) && custPhone) ? 1 : 0;
 
   let deliveryNote = `${onDemand ? 'ON-DEMAND' : 'Delivery'} for ${firstName}: ${fulfillLabel} · ${addrLine}`;
 
@@ -454,10 +459,11 @@ export const onRequestPost = async ({ request, env }) => {
         `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
             fulfillment_mode, subtotal_cents, fee_cents, tax_pct, total_estimate_cents, redeem_points, discount_cents,
             customer_name, customer_email, customer_phone, sms_consent,
+            marketing_sms_consent, marketing_sms_consent_at, marketing_sms_consent_src,
             delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
             delivery_lat, delivery_lng, geocoded_at, promo_code, promo_points_mult,
             src, utm_source, utm_medium, utm_campaign, status, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
       ).bind(
         orderId, pl.order_id || null, pl.id || null, JSON.stringify(orderItems), dateStr, win,
         fulfillmentMode, subtotalCents, feeCents, Number(taxPct),
@@ -467,6 +473,7 @@ export const onRequestPost = async ({ request, env }) => {
         Math.round(Math.max(0, subtotalCents - finalDiscountCents) * (1 + Number(taxPct) / 100)) + feeCents,
         redeemPts || null, finalDiscountCents || null,
         firstName, sessEmail, custPhone, smsConsent,
+        mktgSmsConsent, mktgSmsConsent ? t : null, mktgSmsConsent ? 'checkout:order' : null,
         addr.street, addr.unit, addr.city, addr.state, addr.zip, addr.notes,
         lat, lng, geocodedAt, promo ? promo.code : null, promo ? promo.points_mult : null,
         attribution.src, attribution.utm_source, attribution.utm_medium, attribution.utm_campaign, t, t

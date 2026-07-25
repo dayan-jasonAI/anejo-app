@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Campaigns</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .pt-chips { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .pt-chips button { flex:1; min-width:110px; border:1px solid var(--line); background:#fff; color:var(--green);
+    border-radius:10px; padding:9px 8px; font:inherit; font-size:13px; cursor:pointer; }
+  .pt-chips button.sel { border-color:var(--gold,#C6A85B); box-shadow:0 0 0 1px var(--gold,#C6A85B); background:#fff8e9; }
+  .pt-right { text-align:right; font-size:12px; color:var(--green); white-space:nowrap; }
+  .form-row { display:flex; flex-direction:column; gap:4px; margin-bottom:10px; }
+  .form-row label { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--green); opacity:.8; }
+  .form-row input, .form-row select, .form-row textarea {
+    padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; font-size:14px; }
+  .form-row textarea { min-height:170px; resize:vertical; line-height:1.6; }
+  .form-two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .hint { font-size:12px; color:var(--green); opacity:.7; line-height:1.5; margin:2px 0 0; }
+  .reach { border:1px solid var(--gold,#C6A85B); background:#fff8e9; border-radius:10px; padding:12px 14px; margin:12px 0; }
+  .reach .big { font-size:26px; font-weight:700; color:#8B6B3E; line-height:1.1; }
+  .excl { border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin:0 0 12px; background:#fbfbf8; }
+  .excl h4 { margin:0 0 8px; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--green); opacity:.8; }
+  .excl-row { display:flex; justify-content:space-between; gap:12px; font-size:13px; padding:5px 0; border-top:1px solid var(--line); }
+  .excl-row:first-of-type { border-top:0; }
+  .excl-row b { color:#8B6B3E; white-space:nowrap; }
+  .excl-row span { color:var(--green); opacity:.85; line-height:1.5; }
+  .warn { border:1px solid #b5651d; background:#fff4e8; border-radius:10px; padding:12px 14px; margin:0 0 12px;
+    font-size:13px; color:#7a3f00; line-height:1.6; }
+  .legal { font-size:12px; color:var(--green); opacity:.75; line-height:1.6; margin:10px 0 0; }
+  .prog { font-size:13px; color:var(--green); margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · CAMPAIGNS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading campaigns…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var esc = Hub.esc, $ = Hub.$;
+  var data = { campaigns: [], segments: [], email_ready: false, sms_ready: false };
+  var view = 'list';                 // 'list' | 'compose' | 'detail'
+  var detailId = null;
+  var draft = { id: null, name: '', channel: 'email', segment: 'launch_list', subject: '', body: '' };
+  var preview = null;                // last /preview result for the current segment+channel
+  var previewT = 0;
+  var sending = false;
+
+  function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+  function segLabel(k) {
+    for (var i = 0; i < data.segments.length; i++) if (data.segments[i].key === k) return data.segments[i].label;
+    return k;
+  }
+  function statusBadge(s) {
+    if (s === 'sent')     return '<span class="badge ok">sent</span>';
+    if (s === 'sending')  return '<span class="badge warn">sending</span>';
+    if (s === 'canceled') return '<span class="badge">canceled</span>';
+    return '<span class="badge">draft</span>';
+  }
+  function chanBadge(c) {
+    return c === 'sms'
+      ? '<span class="badge" style="background:#fff4e8;border-color:#b5651d;color:#7a3f00">SMS</span>'
+      : '<span class="badge">Email</span>';
+  }
+
+  // ---------- shell ----------
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML =
+      '<div class="hub-section">' +
+        '<div class="pt-chips" id="chips"></div>' +
+        '<div id="pane"></div>' +
+      '</div>';
+    $('#chips').innerHTML = [
+      { k: 'list',    label: 'Campaigns' },
+      { k: 'compose', label: '+ New campaign' }
+    ].map(function (d) {
+      return '<button data-v="' + d.k + '" class="' + (d.k === view ? 'sel' : '') + '"><span data-i18n>' + d.label + '</span></button>';
+    }).join('');
+    $('#chips').querySelectorAll('[data-v]').forEach(function (bt) {
+      bt.addEventListener('click', function () {
+        var v = bt.getAttribute('data-v');
+        if (v === 'compose') newDraft();
+        view = v; render();
+      });
+    });
+
+    if (view === 'compose') paintCompose();
+    else if (view === 'detail') paintDetail();
+    else paintList();
+    refresh();
+  }
+
+  function newDraft() {
+    draft = { id: null, name: '', channel: 'email', segment: 'launch_list', subject: '', body: '' };
+    preview = null;
+  }
+
+  // ---------- list ----------
+  function paintList() {
+    if (!data.campaigns.length) {
+      $('#pane').innerHTML = '<div class="card accent"><p data-i18n>No campaigns yet. “+ New campaign” drafts one — you will see exactly who it reaches, and who it does not, before anything sends.</p></div>';
+      return;
+    }
+    $('#pane').innerHTML = data.campaigns.map(function (c) {
+      var right = c.status === 'draft'
+        ? '<span data-i18n>draft</span>'
+        : (c.sent_count || 0) + ' <span data-i18n>sent</span>' +
+          (c.failed_count ? ' · ' + c.failed_count + ' <span data-i18n>failed</span>' : '') +
+          (c.skipped ? ' · ' + c.skipped + ' <span data-i18n>skipped</span>' : '');
+      return '<div class="card list-row" data-c="' + esc(c.id) + '" style="cursor:pointer">' +
+        '<div><strong>' + esc(c.name) + '</strong> ' + chanBadge(c.channel) + ' ' + statusBadge(c.status) +
+          '<div><small>' + esc(segLabel(c.segment)) + (c.subject ? ' · ' + esc(c.subject) : '') + '</small></div></div>' +
+        '<div class="pt-right">' + right +
+          (c.queued ? '<div>' + c.queued + ' <span data-i18n>left to send</span></div>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+    $('#pane').querySelectorAll('[data-c]').forEach(function (el) {
+      el.addEventListener('click', function () { open(el.getAttribute('data-c')); });
+    });
+  }
+
+  function open(cid) {
+    var c = data.campaigns.filter(function (x) { return x.id === cid; })[0];
+    if (!c) return;
+    if (c.status === 'draft') {
+      draft = { id: c.id, name: c.name || '', channel: c.channel || 'email', segment: c.segment,
+                subject: c.subject || '', body: c.body || '' };
+      preview = null;
+      view = 'compose';
+    } else {
+      detailId = cid; view = 'detail';
+    }
+    render();
+  }
+
+  // ---------- the exclusion panel ----------
+  // Plain English on purpose. "127 excluded" teaches nobody anything; "they never opted in to
+  // marketing texts, and order-update consent is not the same permission" does.
+  function exclusionCopy(channel) {
+    return channel === 'sms' ? {
+      no_consent: 'have not given express written consent for marketing texts. The consent we already hold is for order and delivery updates — a different permission, and not one that can be stretched to cover a promotion.',
+      unsubscribed: 'have opted out of marketing texts.',
+      no_address: 'have no mobile number on file.'
+    } : {
+      no_consent: 'have marketing email switched off on their record.',
+      unsubscribed: 'have unsubscribed from marketing email.',
+      no_address: 'have no email address on file.'
+    };
+  }
+
+  function reachHtml() {
+    if (!preview) return '<div class="reach"><span data-i18n>Counting the audience…</span></div>';
+    var copy = exclusionCopy(preview.channel);
+    var rows = [
+      { k: 'no_consent',   n: preview.skipped.no_consent,   why: copy.no_consent },
+      { k: 'unsubscribed', n: preview.skipped.unsubscribed, why: copy.unsubscribed },
+      { k: 'no_address',   n: preview.skipped.no_address,   why: copy.no_address }
+    ].filter(function (r) { return r.n > 0; });
+
+    var src = [];
+    Object.keys(preview.by_source || {}).forEach(function (k) { src.push(preview.by_source[k] + ' ' + k.replace(/_/g, ' ')); });
+
+    var html =
+      '<div class="reach">' +
+        '<div class="big">' + preview.count + '</div>' +
+        '<div><span data-i18n>people will receive this</span>' +
+          (preview.channel === 'sms' ? ' <span data-i18n>by text</span>' : ' <span data-i18n>by email</span>') + '</div>' +
+        (src.length ? '<p class="hint" style="margin-top:6px">' + esc(src.join(' · ')) + '</p>' : '') +
+      '</div>';
+
+    html += '<div class="excl"><h4 data-i18n>Who will NOT get this, and why</h4>';
+    if (!rows.length) {
+      html += '<p class="hint" data-i18n>Nobody in this segment is being excluded.</p>';
+    } else {
+      html += rows.map(function (r) {
+        return '<div class="excl-row"><span data-i18n>' + r.why + '</span><b>' + r.n + '</b></div>';
+      }).join('');
+      html += '<p class="hint" style="margin-top:8px">' + preview.excluded + ' <span data-i18n>of</span> ' +
+        preview.evaluated + ' <span data-i18n>people in this segment are excluded.</span></p>';
+    }
+    html += '</div>';
+
+    if (preview.channel === 'sms' && preview.count === 0) {
+      html += '<div class="warn" data-i18n>Nobody has opted in to marketing texts yet. That is expected: the consent already on file was collected for order and delivery updates, and nobody was carried over into marketing. This list fills up only as people tick a box that specifically says marketing texts.</div>';
+    }
+    if (!preview.channel_ready) {
+      html += '<div class="warn" data-i18n>This channel is not configured on the server, so sending will be refused.</div>';
+    }
+    return html;
+  }
+
+  function loadPreview() {
+    var box = $('#reach');
+    if (box) box.innerHTML = '<div class="reach"><span data-i18n>Counting the audience…</span></div>';
+    clearTimeout(previewT);
+    previewT = setTimeout(function () {
+      Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: { op: 'preview', segment: draft.segment, channel: draft.channel } })
+        .then(function (d) {
+          if (!d || !d.ok) { preview = null; if ($('#reach')) $('#reach').innerHTML = '<div class="excl"><p class="hint">' + esc((d && d.error) || 'Could not count that segment.') + '</p></div>'; return; }
+          preview = d;
+          if ($('#reach')) $('#reach').innerHTML = reachHtml();
+          refresh();
+        });
+    }, 180);
+  }
+
+  // ---------- compose ----------
+  function paintCompose() {
+    var isSms = draft.channel === 'sms';
+    $('#pane').innerHTML =
+      '<div class="card">' +
+        '<h3 data-i18n>' + (draft.id ? 'Edit draft' : 'New campaign') + '</h3>' +
+        '<div class="form-row"><label data-i18n>Internal name</label><input id="f_name" autocomplete="off" value="' + esc(draft.name) + '"></div>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label data-i18n>Channel</label><select id="f_chan">' +
+            '<option value="email"' + (isSms ? '' : ' selected') + '>Email</option>' +
+            '<option value="sms"' + (isSms ? ' selected' : '') + '>SMS</option></select></div>' +
+          '<div class="form-row"><label data-i18n>Segment</label><select id="f_seg">' +
+            data.segments.map(function (s) {
+              return '<option value="' + esc(s.key) + '"' + (s.key === draft.segment ? ' selected' : '') + '>' + esc(s.label) + '</option>';
+            }).join('') +
+          '</select></div>' +
+        '</div>' +
+        '<p class="hint" id="segwhy"></p>' +
+        '<div class="form-row" id="subjrow" style="' + (isSms ? 'display:none' : '') + '">' +
+          '<label data-i18n>Subject line</label><input id="f_subj" autocomplete="off" value="' + esc(draft.subject) + '"></div>' +
+        '<div class="form-row"><label data-i18n>Message</label>' +
+          '<textarea id="f_body" placeholder="Blank line starts a new paragraph.">' + esc(draft.body) + '</textarea></div>' +
+        '<p class="hint" id="bodyhint"></p>' +
+        '<div id="reach"></div>' +
+        '<p class="legal" id="legal"></p>' +
+        '<div class="form-two" style="margin-top:12px">' +
+          '<button class="btn ghost" id="f_save" data-i18n>Save draft</button>' +
+          '<button class="btn gold" id="f_send" data-i18n>Send…</button>' +
+        '</div>' +
+        '<p class="prog" id="prog"></p>' +
+        '<p class="hint" id="msg"></p>' +
+      '</div>';
+
+    paintSegWhy();
+    paintLegal();
+    paintBodyHint();
+    loadPreview();
+
+    $('#f_chan').addEventListener('change', function () {
+      draft.channel = $('#f_chan').value === 'sms' ? 'sms' : 'email';
+      collect(); render();
+    });
+    $('#f_seg').addEventListener('change', function () {
+      draft.segment = $('#f_seg').value; collect(); paintSegWhy(); loadPreview();
+    });
+    $('#f_body').addEventListener('input', paintBodyHint);
+    $('#f_save').addEventListener('click', function () { collect(); save().then(function (ok) { if (ok) { $('#msg').textContent = 'Draft saved.'; load(); } }); });
+    $('#f_send').addEventListener('click', function () { collect(); startSend(); });
+    refresh();
+  }
+
+  function paintSegWhy() {
+    var s = data.segments.filter(function (x) { return x.key === draft.segment; })[0];
+    var el = $('#segwhy'); if (el && s) { el.textContent = s.why; }
+  }
+
+  // The compliance note is shown while writing, not after — it is a constraint on the copy,
+  // not a disclaimer bolted on at send time.
+  function paintLegal() {
+    var el = $('#legal'); if (!el) return;
+    el.innerHTML = draft.channel === 'sms'
+      ? 'Every text ends with “Reply STOP to opt out.” — added automatically if you don’t write it. Only people who gave express consent for <em>marketing</em> texts are included.'
+      : 'Every email carries a one-click unsubscribe link and “Añejo Catering Co. · Palm Beach County, FL” in the footer. That is what makes emailing your customer list lawful, so it is not optional.';
+  }
+
+  function paintBodyHint() {
+    var el = $('#bodyhint'); if (!el) return;
+    var n = ($('#f_body') && $('#f_body').value.length) || 0;
+    if (draft.channel === 'sms') {
+      var withOptOut = n + 26;   // "\n\nReply STOP to opt out."
+      el.textContent = n + ' characters (~' + withOptOut + ' with the opt-out line). Over 160 sends as multiple segments and is billed per segment.';
+    } else {
+      el.textContent = n + ' characters. A blank line starts a new paragraph.';
+    }
+  }
+
+  function collect() {
+    if ($('#f_name')) draft.name = $('#f_name').value.trim();
+    if ($('#f_body')) draft.body = $('#f_body').value;
+    if ($('#f_subj')) draft.subject = $('#f_subj').value.trim();
+    if ($('#f_seg')) draft.segment = $('#f_seg').value;
+  }
+
+  // Save first, always: a campaign has to exist as a row before it can be sent, and that row is
+  // the audit trail of exactly what copy went out.
+  function save() {
+    var body = { op: 'save', id: draft.id, name: draft.name, channel: draft.channel,
+                 segment: draft.segment, subject: draft.subject, body: draft.body };
+    if (!body.name) { $('#msg').textContent = 'Give the campaign a name.'; return Promise.resolve(false); }
+    if (!body.body) { $('#msg').textContent = 'Write the message.'; return Promise.resolve(false); }
+    if (draft.channel === 'email' && !body.subject) { $('#msg').textContent = 'An email campaign needs a subject line.'; return Promise.resolve(false); }
+    $('#msg').textContent = '…';
+    return Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: body }).then(function (d) {
+      if (!d || !d.ok) { $('#msg').textContent = (d && d.error) || 'Could not save.'; return false; }
+      draft.id = d.id;
+      $('#msg').textContent = '';
+      return true;
+    });
+  }
+
+  // ---------- sending ----------
+  function startSend() {
+    if (sending) return;
+    save().then(function (ok) {
+      if (!ok) return;
+      // Re-count immediately before asking: the number in the confirm must be the number the
+      // server is about to act on, not one from a preview several edits ago.
+      return Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: { op: 'preview', segment: draft.segment, channel: draft.channel } })
+        .then(function (p) {
+          if (!p || !p.ok) { $('#msg').textContent = (p && p.error) || 'Could not count the audience.'; return; }
+          preview = p;
+          if ($('#reach')) $('#reach').innerHTML = reachHtml();
+          refresh();
+          if (!p.count) { $('#msg').textContent = 'Nobody in that segment is reachable on this channel.'; return; }
+          var what = draft.channel === 'sms' ? 'text messages' : 'emails';
+          var line = 'Send "' + draft.name + '" — ' + p.count + ' ' + what + ' to ' + segLabel(draft.segment) + '.\n\n' +
+                     p.excluded + ' people are excluded (see the panel above).\n\nThis cannot be undone. Send now?';
+          if (!window.confirm(line)) return;
+          runSend(draft.id, p.count);
+        });
+    });
+  }
+
+  // A Worker cannot hold a 500-recipient send open, so the page drives it: each call sends a
+  // batch and reports what is left, and a dropped connection resumes instead of double-sending.
+  function runSend(cid, expect) {
+    sending = true;
+    var send = $('#f_send'), sv = $('#f_save');
+    if (send) send.disabled = true;
+    if (sv) sv.disabled = true;
+
+    function step(first) {
+      var body = { op: 'send', id: cid };
+      // `expect` is the number the owner just confirmed. Resuming has no such number — the
+      // audience was frozen at the first send and must not be re-counted.
+      if (first && typeof expect === 'number') body.expect = expect;
+      return Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: body }).then(function (d) {
+        if (!d || !d.ok) {
+          if ($('#prog')) $('#prog').textContent = (d && d.error) || 'Send stopped.';
+          sending = false; if (send) send.disabled = false; if (sv) sv.disabled = false;
+          load(); return;
+        }
+        if ($('#prog')) {
+          $('#prog').textContent = d.done
+            ? 'Done — ' + d.totals.sent + ' sent, ' + d.totals.failed + ' failed, ' + d.totals.skipped + ' skipped.'
+            : 'Sending… ' + d.totals.sent + ' sent, ' + d.remaining + ' to go.';
+        }
+        if (!d.done) return step(false);
+        sending = false; if (send) send.disabled = false; if (sv) sv.disabled = false;
+        newDraft(); view = 'list'; load();
+      });
+    }
+    if ($('#prog')) $('#prog').textContent = 'Starting…';
+    step(true);
+  }
+
+  // ---------- detail (a campaign that has already left the drafts) ----------
+  function paintDetail() {
+    var c = data.campaigns.filter(function (x) { return x.id === detailId; })[0];
+    if (!c) { view = 'list'; render(); return; }
+    $('#pane').innerHTML =
+      '<button class="btn ghost" id="back" data-i18n>← Back</button>' +
+      '<div class="card" style="margin-top:10px">' +
+        '<h3>' + esc(c.name) + ' ' + chanBadge(c.channel) + ' ' + statusBadge(c.status) + '</h3>' +
+        '<p class="hint">' + esc(segLabel(c.segment)) + (c.subject ? ' · ' + esc(c.subject) : '') + '</p>' +
+        '<div class="excl" style="margin-top:12px">' +
+          '<div class="excl-row"><span data-i18n>Recipients frozen at send</span><b>' + (c.recipients || 0) + '</b></div>' +
+          '<div class="excl-row"><span data-i18n>Sent</span><b>' + (c.sent_count || 0) + '</b></div>' +
+          '<div class="excl-row"><span data-i18n>Failed</span><b>' + (c.failed_count || 0) + '</b></div>' +
+          '<div class="excl-row"><span data-i18n>Skipped (bounced or complained before)</span><b>' + (c.skipped || 0) + '</b></div>' +
+          (c.queued ? '<div class="excl-row"><span data-i18n>Still queued</span><b>' + c.queued + '</b></div>' : '') +
+        '</div>' +
+        (c.status === 'sending'
+          ? '<button class="btn gold" id="resume" style="width:100%" data-i18n>Resume sending</button>'
+          : '') +
+        '<p class="prog" id="prog"></p>' +
+        '<p class="hint" style="margin-top:12px" data-i18n>Message sent</p>' +
+        '<div class="card" style="white-space:pre-wrap;font-size:14px;line-height:1.6">' + esc(c.body || '') + '</div>' +
+      '</div>';
+    $('#back').addEventListener('click', function () { view = 'list'; render(); });
+    var r = $('#resume');
+    // Resuming picks up only the rows still queued — everyone already marked sent is skipped,
+    // which is what makes a retry safe rather than a second campaign.
+    if (r) r.addEventListener('click', function () { r.disabled = true; runSend(c.id, null); });
+    refresh();
+  }
+
+  // ---------- load ----------
+  function load() {
+    Owner.get('/api/hub/owner/campaigns').then(function (d) {
+      data = {
+        campaigns: (d && d.campaigns) || [],
+        segments: (d && d.segments) || [],
+        email_ready: !!(d && d.email_ready),
+        sms_ready: !!(d && d.sms_ready)
+      };
+      if (!draft.segment && data.segments.length) draft.segment = data.segments[0].key;
+      render();
+    }).catch(function () { Owner.fail('owner-root'); });
+  }
+
+  Owner.init('campaigns', load);
+})();
+</script>
+<script src="assets/operator.js" defer></script>
+</body>
+</html>

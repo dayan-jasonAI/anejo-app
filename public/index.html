@@ -1158,6 +1158,17 @@ footer {
         <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b7269" data-i18n>Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
       </div>
 
+      <!-- SEPARATE marketing permission. The box above is transactional (order & delivery updates);
+           under the TCPA a promotional text needs its own express written opt-in, so this is a
+           second, unchecked box with its own disclosure. Never pre-check it, never merge the two. -->
+      <div class="form-group sms-optin" style="background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:12px 14px">
+        <label style="display:flex;gap:10px;align-items:flex-start;font-weight:400;cursor:pointer">
+          <input type="checkbox" id="marketing_sms_consent" name="marketing_sms_consent" style="margin-top:3px;width:auto;flex:none">
+          <span data-i18n>Yes, text me exclusive offers and promotions from Añejo Catering Co. at this number.</span>
+        </label>
+        <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b7269" data-i18n>Separate from order updates — this is marketing. By checking this box you agree to receive recurring automated promotional text messages (about 2–4 per month) at the number provided. Consent is not a condition of any purchase. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
+      </div>
+
       <div class="form-group">
         <label for="interest">What are you exploring?</label>
         <select id="interest" name="interest" required>
@@ -1216,6 +1227,15 @@ footer {
               <span data-i18n>Yes, text me order &amp; delivery updates from Añejo Catering Co. at this number.</span>
             </label>
             <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b7269" data-i18n>Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
+          </div>
+          <!-- SEPARATE marketing permission — see the note on the tasting form above. Transactional
+               consent (the box above) can never be reused for promotions under the TCPA. -->
+          <div class="form-group sms-optin" style="background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:12px 14px">
+            <label style="display:flex;gap:10px;align-items:flex-start;font-weight:400;cursor:pointer">
+              <input type="checkbox" id="w_marketing_sms_consent" name="marketing_sms_consent" style="margin-top:3px;width:auto;flex:none">
+              <span data-i18n>Yes, text me exclusive offers and promotions from Añejo Catering Co. at this number.</span>
+            </label>
+            <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b7269" data-i18n>Separate from order updates — this is marketing. By checking this box you agree to receive recurring automated promotional text messages (about 2–4 per month) at the number provided. Consent is not a condition of any purchase. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
           </div>
           <button type="submit" class="btn btn-gold" style="width:100%">Start a Wholesale Conversation</button>
         </form>
@@ -1360,6 +1380,7 @@ async function submitTasting(e) {
     name: get('name'), company: get('org'), email: get('email'),
     phone: get('phone'), interest: get('interest'), message: get('notes'),
     sms_consent: !!(f.elements['sms_consent'] && f.elements['sms_consent'].checked),
+    marketing_sms_consent: !!(f.elements['marketing_sms_consent'] && f.elements['marketing_sms_consent'].checked),
   };
   const btn = f.querySelector('button[type=submit]');
   const label = btn ? btn.textContent : '';
@@ -1402,6 +1423,7 @@ async function submitWholesale(e) {
     company: get('company'), name: get('name'), email: get('email'),
     phone: get('phone'), message: get('message'),
     sms_consent: !!(f.elements['sms_consent'] && f.elements['sms_consent'].checked),
+    marketing_sms_consent: !!(f.elements['marketing_sms_consent'] && f.elements['marketing_sms_consent'].checked),
   };
   const btn = f.querySelector('button[type=submit]');
   const label = btn ? btn.textContent : '';

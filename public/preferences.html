@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your preferences — Añejo Catering Co.</title>
+<meta name="description" content="Choose what Añejo Catering Co. sends you. Order confirmations and delivery updates always continue.">
+<!-- Reached from an email footer with the address in the URL. Never indexed, never followed. -->
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="/assets/img/emblem.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#1A3D2E; --green-dark:#0d2419; --gold:#C6A85B; --gold-dark:#8B6B3E;
+  --cream:#F5F2EC; --cream-dark:#EAE5D8; --ink:#1A1A1A;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{background:var(--green-dark)}
+body{font-family:'Josefin Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--green-dark);color:var(--cream);min-height:100vh;display:flex;flex-direction:column}
+header{padding:22px clamp(20px,5vw,48px);display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:12px;color:var(--cream);text-decoration:none}
+.brand img{width:38px;height:38px;border-radius:50%}
+.brand span{letter-spacing:.35em;font-weight:600;font-size:15px}
+.site-link{color:var(--gold);text-decoration:none;font-size:13px;letter-spacing:.12em}
+main{flex:1;display:flex;align-items:center;justify-content:center;padding:12px 20px 56px}
+.card{width:100%;max-width:540px}
+.eyebrow{color:var(--gold);letter-spacing:.42em;font-size:12px;font-weight:600;text-transform:uppercase;text-align:center}
+h1{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:clamp(30px,5.4vw,42px);line-height:1.14;margin:14px 0 10px;text-align:center}
+.sub{color:#cfd6cb;font-size:15.5px;line-height:1.65;max-width:44ch;margin:0 auto;text-align:center}
+.who{display:block;margin:18px auto 0;text-align:center;font-size:13px;color:#8fa08c;letter-spacing:.04em;word-break:break-all}
+.who strong{color:var(--cream);font-weight:600}
+.panel{background:rgba(255,255,255,.035);border:1px solid rgba(198,168,91,.35);border-radius:16px;padding:8px 20px;margin:26px 0 18px}
+.row{display:flex;gap:16px;align-items:flex-start;padding:20px 0;border-bottom:1px solid rgba(245,242,236,.10)}
+.row:last-child{border-bottom:0}
+.row-txt{flex:1;min-width:0}
+.row-txt h2{font-size:15px;font-weight:600;letter-spacing:.06em;margin:0 0 5px;color:var(--cream)}
+.row-txt p{font-size:13.5px;line-height:1.6;color:#a8b2a4}
+.fine{margin-top:9px;font-size:11.5px;line-height:1.55;color:#8fa08c}
+.fine a{color:var(--gold)}
+/* Switch — a real checkbox underneath so keyboard and screen readers get the native control. */
+.switch{position:relative;flex:none;width:54px;height:30px;margin-top:2px}
+.switch input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
+.track{position:absolute;inset:0;border-radius:999px;background:rgba(245,242,236,.14);border:1px solid rgba(245,242,236,.28);transition:background .16s,border-color .16s;pointer-events:none}
+.knob{position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--cream);transition:transform .16s;pointer-events:none}
+.switch input:checked ~ .track{background:var(--gold);border-color:var(--gold)}
+.switch input:checked ~ .knob{transform:translateX(24px);background:var(--green-dark)}
+.switch input:focus-visible ~ .track{outline:2px solid var(--gold);outline-offset:3px}
+.switch input:disabled{cursor:not-allowed}
+.switch input:disabled ~ .track,.switch input:disabled ~ .knob{opacity:.45}
+.keep{background:rgba(198,168,91,.09);border:1px solid rgba(198,168,91,.32);border-radius:12px;padding:15px 17px;margin-bottom:20px}
+.keep h3{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:0 0 7px;font-weight:600}
+.keep p{font-size:13.5px;line-height:1.6;color:#cfd6cb}
+#saveBtn{width:100%;padding:15px;border:0;border-radius:10px;background:var(--gold);color:var(--green-dark);font-family:inherit;font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:transform .12s ease,opacity .12s}
+#saveBtn:hover:not(:disabled){transform:translateY(-1px)}
+#saveBtn:disabled{opacity:.55;cursor:not-allowed}
+.msg{display:none;margin:14px 0 0;font-size:13.5px;line-height:1.6;text-align:center}
+.msg.ok{display:block;color:#a9d3b4}
+.msg.err{display:block;color:#e8a9a0}
+.all-off{display:block;margin:18px auto 0;text-align:center;font-size:13px;color:#8fa08c;background:none;border:0;font-family:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.all-off:hover{color:var(--gold)}
+.stop-note{margin:22px 0 0;font-size:12px;line-height:1.6;color:#8fa08c;text-align:center}
+footer{padding:20px;display:flex;gap:18px;justify-content:center;flex-wrap:wrap;font-size:12px;color:#8fa08c}
+footer a{color:#a8b2a4;text-decoration:none}
+footer a:hover{color:var(--gold)}
+[hidden]{display:none !important}
+@media (max-width:480px){ .panel{padding:4px 15px} .row{gap:12px} }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="/"><img src="/assets/img/emblem.png" alt="Añejo emblem"><span>AÑEJO</span></a>
+  <a class="site-link" href="/" data-i18n>Visit the site →</a>
+</header>
+
+<main>
+  <div class="card">
+    <p class="eyebrow" data-i18n>Your preferences</p>
+    <h1 data-i18n>Tell us what you want to hear.</h1>
+    <p class="sub" data-i18n>Two switches. Change them as often as you like — nothing else about your account changes here.</p>
+    <p class="who" id="whoLine" hidden><span data-i18n>Preferences for</span> <strong id="whoAddr"></strong></p>
+
+    <div id="prefsBox" hidden>
+      <div class="panel">
+        <div class="row">
+          <div class="row-txt">
+            <h2 data-i18n>Email from Añejo</h2>
+            <p data-i18n>New bowls, seasonal menus, member offers, and the occasional note from the kitchen.</p>
+          </div>
+          <span class="switch">
+            <input type="checkbox" id="emailToggle" aria-describedby="emailDesc">
+            <span class="track" aria-hidden="true"></span><span class="knob" aria-hidden="true"></span>
+          </span>
+        </div>
+
+        <div class="row">
+          <div class="row-txt">
+            <h2 data-i18n>Marketing texts</h2>
+            <p data-i18n>Off unless you turn it on. Occasional offers and first looks — a few texts a month at most.</p>
+            <p class="fine" id="smsFine" data-i18n>Turning this on is your consent to receive marketing texts from Añejo Catering Co. at the mobile number on your account. Message frequency varies. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
+          </div>
+          <span class="switch">
+            <input type="checkbox" id="smsToggle" aria-describedby="smsFine">
+            <span class="track" aria-hidden="true"></span><span class="knob" aria-hidden="true"></span>
+          </span>
+        </div>
+      </div>
+
+      <div class="keep">
+        <h3 data-i18n>These always continue</h3>
+        <p data-i18n>Order confirmations, receipts, delivery updates, and sign-in links are not marketing. You will keep getting those for anything you buy, whichever way these switches are set.</p>
+      </div>
+
+      <button type="button" id="saveBtn" data-i18n>Save my preferences</button>
+      <p class="msg" id="msg" role="status" aria-live="polite"></p>
+      <button type="button" class="all-off" id="allOff" data-i18n>Turn off all marketing instead</button>
+
+      <p class="stop-note" data-i18n>If you replied STOP to a text, that stays in force until you text START back to the same number — we can’t undo it from this page.</p>
+    </div>
+
+    <p class="msg err" id="fatal" hidden></p>
+  </div>
+</main>
+
+<footer>
+  <a href="/legal/terms" data-i18n>Terms</a>
+  <a href="/legal/privacy" data-i18n>Privacy</a>
+  <span>Añejo Catering Co. · Palm Beach County, FL</span>
+</footer>
+
+<script src="/assets/js/i18n.js" defer></script>
+<script>
+// EN→ES for this page (site i18n engine walks [data-i18n] nodes).
+window.addEventListener('DOMContentLoaded', function () {
+  if (window.AnejoI18n && AnejoI18n.extend) AnejoI18n.extend({
+    'Visit the site →': 'Visitar el sitio →',
+    'Your preferences': 'Tus preferencias',
+    'Tell us what you want to hear.': 'Dinos qué quieres recibir.',
+    'Two switches. Change them as often as you like — nothing else about your account changes here.': 'Dos interruptores. Cámbialos cuando quieras — nada más de tu cuenta cambia aquí.',
+    'Preferences for': 'Preferencias para',
+    'Email from Añejo': 'Correos de Añejo',
+    'New bowls, seasonal menus, member offers, and the occasional note from the kitchen.': 'Bowls nuevos, menús de temporada, ofertas para miembros y alguna nota desde la cocina.',
+    'Marketing texts': 'Mensajes de texto promocionales',
+    'Off unless you turn it on. Occasional offers and first looks — a few texts a month at most.': 'Apagado a menos que lo actives. Ofertas ocasionales y primicias — unos pocos textos al mes como máximo.',
+    'Turning this on is your consent to receive marketing texts from Añejo Catering Co. at the mobile number on your account. Message frequency varies. Message & data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our': 'Activar esto es tu consentimiento para recibir textos promocionales de Añejo Catering Co. al móvil de tu cuenta. La frecuencia de mensajes varía. Pueden aplicar tarifas de mensajes y datos. Responde HELP para ayuda, STOP para cancelar cuando quieras. El consentimiento no es condición de compra. Consulta nuestros',
+    'Terms of Service': 'Términos de Servicio',
+    'Privacy Policy': 'Política de Privacidad',
+    'These always continue': 'Esto siempre continúa',
+    'Order confirmations, receipts, delivery updates, and sign-in links are not marketing. You will keep getting those for anything you buy, whichever way these switches are set.': 'Las confirmaciones de pedido, recibos, actualizaciones de entrega y enlaces de acceso no son publicidad. Los seguirás recibiendo por cualquier compra, sin importar cómo dejes estos interruptores.',
+    'Save my preferences': 'Guardar mis preferencias',
+    'Turn off all marketing instead': 'Mejor desactivar toda la publicidad',
+    'If you replied STOP to a text, that stays in force until you text START back to the same number — we can’t undo it from this page.': 'Si respondiste STOP a un texto, eso sigue vigente hasta que envíes START al mismo número — no podemos deshacerlo desde esta página.',
+    'Terms': 'Términos', 'Privacy': 'Privacidad',
+  });
+});
+
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var es = function () {
+    try { return (window.AnejoLang && window.AnejoLang.get && AnejoLang.get() === 'es'); } catch (e) { return false; }
+  };
+
+  // The address arrives in the link the email carried. It is only ever written to the page with
+  // textContent — it is attacker-controlled input as far as this page is concerned.
+  var address = '';
+  try { address = (new URLSearchParams(location.search).get('a') || '').trim(); } catch (e) { address = ''; }
+
+  function fatal(en, esText) {
+    var f = $('fatal');
+    f.textContent = es() ? esText : en;
+    f.hidden = false;
+    $('prefsBox').hidden = true;
+  }
+
+  function show(kind, en, esText) {
+    var m = $('msg');
+    m.textContent = es() ? esText : en;
+    m.className = 'msg ' + kind;
+  }
+
+  if (!address) {
+    fatal(
+      'This preferences link is missing its address. Reply to any Añejo email and we will set it by hand.',
+      'A este enlace de preferencias le falta la dirección. Responde a cualquier correo de Añejo y lo ajustamos a mano.'
+    );
+    return;
+  }
+  $('whoAddr').textContent = address;
+  $('whoLine').hidden = false;
+
+  function paint(j) {
+    $('emailToggle').checked = !!j.email_marketing;
+    $('smsToggle').checked = !!j.sms_marketing;
+  }
+
+  async function save(emailOn, smsOn) {
+    var btn = $('saveBtn');
+    btn.disabled = true;
+    show('ok', 'Saving…', 'Guardando…');
+    try {
+      var r = await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ a: address, email_marketing: emailOn, sms_marketing: smsOn }),
+      });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok || !j.ok) throw new Error(j.error || 'Something went wrong — please try again.');
+      // Paint what the server actually stored, not what was clicked: a carrier-level STOP keeps
+      // texts off no matter what the box said, and the switch must show the truth.
+      paint(j);
+      if (smsOn && !j.sms_marketing) {
+        show('err',
+          'Saved — but texts stay off because a STOP is on record for your number. Text START to that number to turn them back on.',
+          'Guardado — pero los textos siguen apagados porque hay un STOP registrado para tu número. Envía START a ese número para reactivarlos.');
+      } else {
+        show('ok', 'Saved. Thank you.', 'Guardado. Gracias.');
+      }
+    } catch (ex) {
+      show('err', ex.message, 'No pudimos guardar. Inténtalo de nuevo en un momento.');
+    }
+    btn.disabled = false;
+  }
+
+  $('saveBtn').addEventListener('click', function () {
+    save($('emailToggle').checked, $('smsToggle').checked);
+  });
+
+  // The escape hatch still has to be one click — someone who wants out entirely should never
+  // have to hunt for it.
+  $('allOff').addEventListener('click', function () {
+    $('emailToggle').checked = false;
+    $('smsToggle').checked = false;
+    save(false, false);
+  });
+
+  (async function load() {
+    try {
+      var r = await fetch('/api/preferences?a=' + encodeURIComponent(address), { headers: { Accept: 'application/json' } });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok || !j.ok) throw new Error(j.error || 'unavailable');
+      paint(j);
+      $('prefsBox').hidden = false;
+    } catch (ex) {
+      fatal(
+        'We couldn’t load your preferences just now. Refresh in a moment, or reply to any Añejo email and we will set them by hand.',
+        'No pudimos cargar tus preferencias en este momento. Actualiza en un momento o responde a cualquier correo de Añejo y las ajustamos a mano.'
+      );
+    }
+  })();
+})();
+</script>
+</body>
+</html>
