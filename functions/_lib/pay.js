@@ -61,3 +61,21 @@ export function computeRoutePay(cfg, { stops = 0, miles = null } = {}) {
 }
 
 export const PAY_DEFAULTS = DEFAULTS;
+
+// One definition of owed / paid / scheduled over the `routes` table, so the driver's own
+// earnings view and the owner payout view can never disagree about what a driver is owed.
+// `alias` is the SQL alias for `routes` and is always code-supplied (never user input).
+//   owed      = completed but not yet marked paid
+//   paid      = marked paid by the owner
+//   scheduled = assigned/started, i.e. earned once the route is finished
+export function payRollupColumns(alias = 'r') {
+  const a = alias;
+  return [
+    `COALESCE(SUM(CASE WHEN ${a}.status='completed' AND COALESCE(${a}.pay_status,'unpaid')='unpaid' THEN ${a}.pay_cents ELSE 0 END),0) owed_cents`,
+    `COALESCE(SUM(CASE WHEN ${a}.pay_status='paid' THEN ${a}.pay_cents ELSE 0 END),0) paid_cents`,
+    `COALESCE(SUM(CASE WHEN ${a}.status IN ('assigned','started') THEN ${a}.pay_cents ELSE 0 END),0) scheduled_cents`,
+    `COALESCE(SUM(CASE WHEN ${a}.status='completed' THEN 1 ELSE 0 END),0) completed_routes`,
+    `COALESCE(SUM(${a}.total_miles_est),0) miles`,
+    `COALESCE(SUM(${a}.stop_count),0) stops`,
+  ].join(', ');
+}

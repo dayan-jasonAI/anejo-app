@@ -23,6 +23,18 @@
   .bp .bp-info { background:#fff; color:#8b6b3e; border:1px solid #d8c79a; border-radius:999px; padding:11px 16px; font-weight:700; cursor:pointer; }
   .bp .bp-reject { background:#fff; color:#9b2226; border:1px solid #e3b7b7; border-radius:999px; padding:11px 16px; font-weight:700; cursor:pointer; }
   .bp-warn { font-size:12px; color:#8a6d1f; background:#fbf3da; border:1px solid #e7d9a6; border-radius:8px; padding:9px 12px; margin-bottom:14px; line-height:1.45; }
+  .bp-sec { margin:26px 0 10px; padding-top:18px; border-top:1px solid var(--line,#e7e2d6); }
+  .bp-sec h2 { color:var(--green,#1A3D2E); font-size:15px; letter-spacing:.08em; text-transform:uppercase; margin:0 0 4px; }
+  .bp-sec p { font-size:13px; color:#6b6b6b; margin:0; line-height:1.5; }
+  .ver { background:#fff; border:1px solid var(--line,#e7e2d6); border-radius:10px; padding:12px 14px; margin:10px 0; }
+  .ver .ver-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .ver .ver-when { font-size:14px; font-weight:700; color:var(--green,#1A3D2E); }
+  .ver .ver-tag { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#8B6B3E; }
+  .ver .ver-meta { font-size:12px; color:#6b6b6b; margin-top:3px; line-height:1.5; }
+  .ver pre { white-space:pre-wrap; word-break:break-word; background:#faf8f2; border:1px solid var(--line,#e7e2d6); border-radius:8px; padding:11px; font-size:12.5px; line-height:1.5; max-height:300px; overflow:auto; margin-top:8px; }
+  .ver .ver-restore { margin-top:10px; background:#fff; color:#1A3D2E; border:1px solid #b9c9be; border-radius:999px; padding:9px 16px; font-weight:700; cursor:pointer; }
+  .ver .ver-restore:disabled { opacity:.5; cursor:default; }
+  .ver-live { border-left:4px solid var(--green,#1A3D2E); background:#f4f8f5; }
 </style>
 </head>
 <body>
@@ -67,15 +79,24 @@
   }
   window._bpDecide = decide;
 
-  function render(items) {
-    var root = document.getElementById('owner-root');
-    root.className = '';
-    if (!items || !items.length) {
-      root.innerHTML = '<p style="color:#6b6b6b;padding:20px 0">No pending Brief proposals. The Brand &amp; Standards Brief is unchanged.</p>';
-      return;
+  var state = { proposals: [], versions: [], doc: null };
+
+  // Where a snapshot's body came from. An approval snapshot points at the proposal it replaced;
+  // a restore writes 'restore:<version id>' into the same column (see functions/_lib/brief.js).
+  function versionSource(v) {
+    var from = String(v.from_proposal || '');
+    if (from.indexOf('restore:') === 0) return 'Replaced by a restore';
+    if (v.proposal_title) return 'Replaced by approval: ' + v.proposal_title;
+    return 'Snapshot';
+  }
+
+  function proposalsHtml() {
+    var items = state.proposals;
+    if (!items.length) {
+      return '<p style="color:#6b6b6b;padding:20px 0">No pending Brief proposals. The Brand &amp; Standards Brief is unchanged.</p>';
     }
-    var warn = '<div class="bp-warn">⚠️ Approving a proposal OVERWRITES the live Brand &amp; Standards Brief and grounds every future Creative Studio session on it. The prior version is snapshotted and reversible. Review the full proposed Brief before approving.</div>';
-    root.innerHTML = warn + items.map(function (p) {
+    var warn = '<div class="bp-warn">⚠️ Approving a proposal OVERWRITES the live Brand &amp; Standards Brief and grounds every future Creative Studio session on it. The prior version is snapshotted, and you can put it back from Version history below. Review the full proposed Brief before approving.</div>';
+    return warn + items.map(function (p) {
       return '<div class="bp">'
         + '<h3>' + esc(p.title || 'Brief change') + '</h3>'
         + '<div class="bp-meta">Proposed by ' + esc(p.proposed_name || p.proposed_role || 'staff') + (p.proposed_name ? ' (' + esc(p.proposed_role || 'staff') + ')' : '') + ' · ' + fmtDate(p.created_at) + '</div>'
@@ -90,9 +111,74 @@
     }).join('');
   }
 
+  function versionsHtml() {
+    var d = state.doc;
+    var head = '<div class="bp-sec"><h2>Version history</h2>'
+      + '<p>Every approval and every restore snapshots the Brief before overwriting it. Restoring puts an older wording back — and snapshots the current one first, so a restore is itself reversible.</p></div>';
+    var live = d
+      ? '<div class="ver ver-live"><div class="ver-head"><span class="ver-when">Live now · v' + esc(d.version || 1) + '</span>'
+        + '<span class="ver-tag">In force</span></div>'
+        + '<div class="ver-meta">' + esc(d.title || 'Brand & Standards Brief') + ' · ' + esc(d.body_chars || 0) + ' characters · grounds every Creative Studio session</div></div>'
+      : '<div class="ver"><div class="ver-meta">The Brand &amp; Standards Brief has not been created yet.</div></div>';
+    if (!state.versions.length) {
+      return head + live + '<p style="color:#6b6b6b;padding:8px 0 20px">No earlier versions saved yet. The first snapshot is written the next time a proposal is approved.</p>';
+    }
+    return head + live + state.versions.map(function (v) {
+      return '<div class="ver" id="ver-' + esc(v.id) + '">'
+        + '<div class="ver-head"><span class="ver-when">v' + esc(v.version || 1) + ' · ' + esc(fmtDate(v.created_at)) + '</span>'
+        + '<span class="ver-tag">' + esc(versionSource(v)) + '</span></div>'
+        + '<div class="ver-meta">' + esc(v.body_chars || 0) + ' characters'
+        + (v.replaced_name ? ' · replaced by ' + esc(v.replaced_name) : '') + '</div>'
+        + '<details><summary>Preview this version</summary><pre id="verbody-' + esc(v.id) + '">' + esc(v.preview || '') + ((v.body_chars || 0) > 400 ? '\n\n…loading the rest…' : '') + '</pre></details>'
+        + '<button class="ver-restore" onclick="_bpRestore(\'' + esc(v.id) + '\',this)">Restore this version</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  function render() {
+    var root = document.getElementById('owner-root');
+    root.className = '';
+    root.innerHTML = proposalsHtml() + versionsHtml();
+    // Bodies are left out of the list response (they run to 60k each). Pull the full text only when
+    // the owner actually opens a version, so the page stays light on a phone.
+    Array.prototype.forEach.call(root.querySelectorAll('.ver details'), function (det) {
+      det.addEventListener('toggle', function () {
+        if (!det.open || det.dataset.loaded) return;
+        det.dataset.loaded = '1';
+        var vid = det.parentNode.id.replace(/^ver-/, '');
+        Hub.api('/api/hub/owner/brief-proposals?view=version&version_id=' + encodeURIComponent(vid)).then(function (r) {
+          var pre = document.getElementById('verbody-' + vid);
+          if (!pre) return;
+          if (r && r.ok && r.version) pre.textContent = r.version.body || '';
+          else { det.dataset.loaded = ''; pre.textContent = 'Could not load this version.'; }
+        });
+      });
+    });
+  }
+
+  function restore(versionId, btn) {
+    var v = null;
+    for (var i = 0; i < state.versions.length; i++) { if (state.versions[i].id === versionId) { v = state.versions[i]; break; } }
+    if (!v) return;
+    var version = v.version || 1;
+    if (!window.confirm('Restore the Brief to v' + version + ' (saved ' + fmtDate(v.created_at) + ')?\n\nThis replaces the live Brand & Standards Brief and re-grounds every future Creative Studio session. The current Brief is snapshotted first, so you can undo this the same way.')) return;
+    btn.disabled = true;
+    Hub.api('/api/hub/owner/brief-proposals', { method: 'POST', body: { op: 'restore', version_id: versionId } }).then(function (r) {
+      if (r && r.ok) { Hub.toast('Restored — Brief is back to v' + version); load(); }
+      else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not restore that version'); }
+    });
+  }
+  window._bpRestore = restore;
+
   function load() {
-    Hub.api('/api/hub/owner/brief-proposals?status=pending').then(function (r) {
-      render((r && r.items) || []);
+    Promise.all([
+      Hub.api('/api/hub/owner/brief-proposals?status=pending'),
+      Hub.api('/api/hub/owner/brief-proposals?view=versions'),
+    ]).then(function (res) {
+      state.proposals = (res[0] && res[0].items) || [];
+      state.versions = (res[1] && res[1].versions) || [];
+      state.doc = (res[1] && res[1].doc) || null;
+      render();
     });
   }
 

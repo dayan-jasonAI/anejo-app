@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Report an Issue</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/assets/img/emblem.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  /* Urgency hint sits under the severity picker so a cook knows what gets the owner out of bed. */
+  .sev-hint { font-size:12px; color:#6b7269; margin:-8px 0 12px; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · REPORT ISSUE</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <h2 data-i18n>Report an issue</h2>
+    <div class="card">
+      <div class="field">
+        <label data-i18n>Type</label>
+        <select id="ttype">
+          <option value="equipment" data-i18n>Equipment</option>
+          <option value="safety" data-i18n>Safety</option>
+          <option value="scheduling" data-i18n>Scheduling</option>
+          <option value="complaint" data-i18n>Customer complaint</option>
+          <option value="other" data-i18n>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label data-i18n>Severity</label>
+        <select id="severity">
+          <option value="low" data-i18n>Low</option>
+          <option value="medium" data-i18n>Medium</option>
+          <option value="high" data-i18n>High</option>
+          <option value="urgent" data-i18n>Urgent</option>
+        </select>
+      </div>
+      <p class="sev-hint" data-i18n>High, urgent, and safety issues alert the owner right away.</p>
+      <div class="field">
+        <label data-i18n>Title</label>
+        <input type="text" id="title" placeholder="Short summary">
+      </div>
+      <div class="field">
+        <label data-i18n>Details</label>
+        <textarea id="body" placeholder="What happened?"></textarea>
+      </div>
+      <div class="field">
+        <label data-i18n>Order ID (optional)</label>
+        <input type="text" id="order-id">
+      </div>
+      <button class="btn block gold" id="submit" type="button" data-i18n>Submit ticket</button>
+    </div>
+  </div>
+
+  <a class="btn ghost block" href="/hub/kitchen/" data-i18n>Back to orders</a>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/kitchen/kitchen.js"></script>
+<script>
+(function () {
+  var Hub = window.Hub, K = window.Kitchen, $ = Hub.$;
+
+  $('#submit').addEventListener('click', function () {
+    var title = $('#title').value.trim();
+    var body = $('#body').value.trim();
+    if (!title && !body) return Hub.toast('Add a title or details');
+    var btn = this; btn.disabled = true;
+    K.post('/api/hub/kitchen/ticket/create', {
+      ticket_type: $('#ttype').value,
+      severity: $('#severity').value,
+      title: title, body: body,
+      order_id: $('#order-id').value.trim() || undefined
+    }).then(function (d) {
+      btn.disabled = false;
+      if (d && d.ok) {
+        Hub.toast('Ticket submitted');
+        $('#title').value = ''; $('#body').value = ''; $('#order-id').value = '';
+      } else K.fail(d, 'Could not submit ticket.');
+    });
+  });
+
+  var lt = $('#lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  K.boot('board');
+})();
+</script>
+</body>
+</html>

@@ -191,6 +191,73 @@ export async function decideProposal(env, { id: propId, decision, owner, role, n
   return { ok: true, status: 'approved' };
 }
 
+// ---------------------------------------------------------------------------
+// Rollback. doc_versions was write-only until now — the UI promised the owner that an approval was
+// "reversible" with nothing on the read side to make that true. These three functions are that read
+// side. A restore is itself snapshotted BEFORE it overwrites anything, so the history is an unbroken
+// chain and pressing Restore can never lose the wording it replaced.
+// ---------------------------------------------------------------------------
+
+// The list is deliberately body-free (preview + size only): bodies run to MAX_BODY each and 50 of
+// them would be a multi-megabyte response on a phone. Use getDocVersion for the full text.
+export async function listDocVersions(env, docId) {
+  try {
+    const r = await env.DB.prepare(
+      `SELECT dv.id, dv.doc_id, dv.version, dv.replaced_by, dv.from_proposal, dv.created_at,
+              LENGTH(dv.body) AS body_chars, SUBSTR(dv.body, 1, 400) AS preview,
+              bp.title AS proposal_title, st.name AS replaced_name
+         FROM doc_versions dv
+         LEFT JOIN brief_proposals bp ON bp.id = dv.from_proposal
+         LEFT JOIN staff st ON st.id = dv.replaced_by
+        WHERE dv.doc_id = ?
+        ORDER BY dv.created_at DESC LIMIT 50`
+    ).bind(docId || BRAND_DOC_ID).all();
+    return (r && r.results) || [];
+  } catch { return []; }
+}
+
+export async function getDocVersion(env, versionId) {
+  try {
+    return await env.DB.prepare('SELECT id, doc_id, version, body, from_proposal, created_at FROM doc_versions WHERE id = ?')
+      .bind(versionId).first();
+  } catch { return null; }
+}
+
+// OWNER-ONLY (enforce requireRole(['owner']) in the calling endpoint), same rule as decideProposal:
+// a restore overwrites the live Brief exactly like an approval does.
+export async function restoreDocVersion(env, { versionId, docId, owner, role }) {
+  if (role !== 'owner') return { error: 'Only the owner can restore a Brief version.' };
+  const snap = await getDocVersion(env, versionId);
+  if (!snap) return { error: 'Version not found.' };
+  if (docId && snap.doc_id !== docId) return { error: 'That version belongs to a different document.' };
+
+  const body = String(snap.body || '');
+  // A blank snapshot can only come from a doc that had no body yet. Writing it back would leave the
+  // Brief empty and silently un-ground every future Studio session — never what "restore" means.
+  if (!body.trim()) return { error: 'That snapshot is empty — restoring it would blank the Brief.' };
+
+  const doc = await getDoc(env, snap.doc_id);
+  if (!doc) return { error: 'That document no longer exists.' };
+  if ((doc.body || '') === body) return { error: 'The Brief already matches that version.' };
+
+  const t = now();
+  const ownerId = owner ? owner.id : null;
+  // Batched so the snapshot-of-current and the overwrite land together or not at all — a half-applied
+  // restore is the one failure mode that could actually lose the owner's approved wording.
+  // from_proposal carries `restore:<version id>` (the column has no FK) so the history can say where
+  // a body came from without needing a schema change.
+  try {
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO doc_versions (id, doc_id, version, body, replaced_by, from_proposal, created_at) VALUES (?,?,?,?,?,?,?)')
+        .bind(id('dver'), snap.doc_id, doc.version || 1, doc.body || '', ownerId, `restore:${snap.id}`, t),
+      env.DB.prepare('UPDATE docs SET body=?, version=version+1, updated_at=? WHERE id=?')
+        .bind(body, t, snap.doc_id),
+    ]);
+  } catch { return { error: 'Could not restore that version.' }; }
+
+  return { ok: true, doc_id: snap.doc_id, restored_from: snap.id, version: (doc.version || 1) + 1 };
+}
+
 // Tiny helper so endpoints can confirm the brand doc exists / is grounded.
 export async function briefContextPresent(env) {
   try { return !!(await buildBrandContext(env)); } catch { return false; }

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>My Pay · Añejo Driver</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="apple-touch-icon" href="/assets/img/emblem.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .pay-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .pay-grid .card.stat { margin:0; }
+  .pay-grid .owed { grid-column:1 / -1; }
+  .pay-grid .owed .stat-num { font-size:34px; }
+  .range { display:flex; gap:8px; margin:0 0 12px; }
+  .range .chip { flex:1; padding:8px 6px; border:1px solid var(--line); border-radius:999px; background:var(--white);
+    color:var(--green); font:600 13px/1 inherit; cursor:pointer; }
+  .range .chip.active { background:var(--green-700); color:#fff; border-color:var(--green-700); }
+  .pay-amt { font-weight:700; color:var(--green); white-space:nowrap; font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · MY PAY</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <div class="range" id="range">
+      <button type="button" class="chip" data-days="14">14d</button>
+      <button type="button" class="chip active" data-days="30">30d</button>
+      <button type="button" class="chip" data-days="90">90d</button>
+    </div>
+    <div class="pay-grid">
+      <div class="card stat owed">
+        <div class="stat-num" id="t-owed">—</div>
+        <div class="stat-label" data-i18n>Owed to you</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-num" id="t-paid">—</div>
+        <div class="stat-label" data-i18n>Already paid</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-num" id="t-sched">—</div>
+        <div class="stat-label" data-i18n>Scheduled</div>
+      </div>
+    </div>
+    <p class="row-sub" id="t-sub" style="margin-top:10px"></p>
+  </div>
+
+  <div class="hub-section">
+    <h2 class="row-title" data-i18n>Your routes</h2>
+    <div class="list" id="route-list"><p class="row-sub" data-i18n>Loading…</p></div>
+  </div>
+
+  <a class="btn ghost block" href="/hub/driver/" data-i18n>Back to today</a>
+</div>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/driver/assets/driver.js"></script>
+<script>
+(function () {
+  var esc = Hub.esc, money = Hub.money;
+  var days = 30;
+
+  function render(d) {
+    var list = document.getElementById('route-list');
+    if (!d || !d.ok) {
+      // Offline or error: say so instead of showing a confident $0.00.
+      document.getElementById('t-sub').textContent = (d && d.error) || 'Could not load your pay.';
+      list.innerHTML = '<p class="row-sub" data-i18n>Nothing to show.</p>';
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+      return;
+    }
+    var t = d.totals || {};
+    document.getElementById('t-owed').textContent = money(t.owed_cents);
+    document.getElementById('t-paid').textContent = money(t.paid_cents);
+    document.getElementById('t-sched').textContent = money(t.scheduled_cents);
+    document.getElementById('t-sub').textContent =
+      (t.completed_routes || 0) + ' completed · ' + (t.stops || 0) + ' stops · ' +
+      (Math.round((t.miles || 0) * 10) / 10) + ' mi · last ' + d.window_days + ' days';
+
+    var routes = d.routes || [];
+    if (!routes.length) {
+      list.innerHTML = '<p class="row-sub" data-i18n>No routes in this period.</p>';
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+      return;
+    }
+    list.innerHTML = routes.map(function (r) {
+      // Paid > completed-but-owed > still scheduled. Mirrors the owner's payout view.
+      var badge = r.pay_status === 'paid' ? '<span class="badge ok">paid</span>'
+        : r.status === 'completed' ? '<span class="badge warn">owed</span>'
+        : '<span class="badge">' + esc(r.status || '') + '</span>';
+      var sub = (r.stop_count || 0) + ' stops' +
+        (r.total_miles_est != null ? ' · ' + (Math.round(Number(r.total_miles_est) * 10) / 10) + ' mi' : '');
+      return '<div class="row"><div class="row-main"><div class="row-title">' + esc(r.route_date || '—') +
+        '</div><div class="row-sub">' + esc(sub) + '</div></div>' +
+        '<span class="pay-amt">' + money(r.pay_cents) + '</span> ' + badge + '</div>';
+    }).join('');
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function load() {
+    Hub.api('/api/hub/driver/earnings?days=' + days).then(render);
+  }
+
+  document.getElementById('range').addEventListener('click', function (e) {
+    var chip = e.target.closest('.chip');
+    if (!chip) return;
+    days = parseInt(chip.getAttribute('data-days'), 10) || 30;
+    Array.prototype.forEach.call(this.querySelectorAll('.chip'), function (c) { c.classList.toggle('active', c === chip); });
+    load();
+  });
+
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  Hub.boot();
+  Driver.nav('home');
+  Driver.guard().then(function (me) { if (me) load(); });
+})();
+</script>
+</body>
+</html>

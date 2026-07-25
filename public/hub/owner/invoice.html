@@ -32,7 +32,17 @@
   .totals .r.grand{border-top:2px solid var(--green);margin-top:6px;padding-top:10px;font-size:18px;font-weight:800;color:var(--green)}
   .foot{margin-top:24px;border-top:1px solid var(--line);padding-top:14px;font-size:12px;color:var(--muted);line-height:1.6}
   .state{max-width:760px;margin:40px auto;text-align:center;color:var(--muted)}
-  @media print{ body{background:#fff} .toolbar{display:none} .inv{box-shadow:none;border:none;margin:0;max-width:none} @page{margin:16mm} }
+  .acts{max-width:760px;margin:0 auto 40px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 22px}
+  .acts h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-bottom:10px}
+  .acts .line{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  .acts input{flex:1;min-width:180px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13.5px}
+  .acts button{border:0;border-radius:20px;padding:9px 18px;font-weight:800;cursor:pointer;font:inherit;font-size:13.5px}
+  .acts button.pay{background:var(--green);color:#fff}
+  .acts button.send{background:var(--gold);color:var(--green)}
+  .acts button[disabled]{opacity:.5;cursor:default}
+  .acts .hint{font-size:12px;color:var(--muted);line-height:1.55}
+  .acts .done{font-size:13.5px;color:var(--green);font-weight:700}
+  @media print{ body{background:#fff} .toolbar,.acts{display:none} .inv{box-shadow:none;border:none;margin:0;max-width:none} @page{margin:16mm} }
 </style>
 </head>
 <body>
@@ -41,12 +51,58 @@
   <button class="print" onclick="window.print()">🖨 Print / Save PDF</button>
 </div>
 <div id="root" class="state">Loading invoice…</div>
+<div id="acts"></div>
 <script src="/hub/assets/hub.js"></script>
 <script>
 (function(){
   var id=(new URLSearchParams(location.search)).get('id')||'';
   var money=Hub.money, esc=Hub.esc;
   function fmtDate(s){ return s||''; }
+  function fmtWhen(ms){ return ms ? new Date(ms).toLocaleString() : ''; }
+
+  // Send / mark-paid. Without these an invoice sits at 'open' forever — the printable page was
+  // the end of the road. Both are owner-only server-side; this is just the trigger.
+  function actions(inv, a){
+    var el=document.getElementById('acts');
+    if(!el) return;
+    var paid=inv.status==='paid', voided=inv.status==='void';
+    // paid_at / sent_at / sent_to arrive with migrations/0046 — absent until it's applied, so
+    // fall back to the status word rather than showing a blank "paid on ".
+    var paidLine = paid ? ('✅ Paid'+(inv.paid_at?' · '+esc(fmtWhen(inv.paid_at)):'')+(inv.paid_by?' · marked by '+esc(inv.paid_by):'')+(inv.paid_ref?' · ref '+esc(inv.paid_ref):'')) : '';
+    var sentLine = inv.sent_at ? ('✉️ Emailed to '+esc(inv.sent_to||'')+' · '+esc(fmtWhen(inv.sent_at))) : (inv.status==='sent' ? '✉️ Emailed' : '');
+    el.className='acts';
+    el.innerHTML =
+      '<h2>Invoice actions</h2>' +
+      (sentLine?'<div class="done" style="margin-bottom:8px">'+sentLine+'</div>':'') +
+      (paidLine?'<div class="done" style="margin-bottom:8px">'+paidLine+'</div>':'') +
+      (voided?'<div class="hint">This invoice is void.</div>':
+        '<div class="line"><input id="to" type="email" value="'+esc(a.billing_email||'')+'" placeholder="Billing email">' +
+        '<button class="send" id="btn-send">✉️ '+(inv.sent_at||inv.status==='sent'?'Re-send':'Send')+' to client</button></div>' +
+        (paid?'':'<div class="line"><input id="ref" placeholder="Payment reference (check #, ACH, Square…)">' +
+          '<button class="pay" id="btn-pay">✓ Mark paid</button></div>') +
+        '<div class="hint">Send emails this invoice to the billing contact and moves it to <b>sent</b>. Mark paid closes it — it stops counting as outstanding.</div>');
+
+    var bs=document.getElementById('btn-send');
+    if(bs) bs.addEventListener('click', function(){
+      var to=(document.getElementById('to')||{}).value||'';
+      if(!window.confirm('Email invoice '+(inv.number||inv.id)+' to '+to+'?')) return;
+      bs.disabled=true;
+      Hub.api('/api/hub/owner/contracts',{method:'POST',body:{op:'send_invoice',account_id:inv.account_id,invoice_id:inv.id,to:to,link:location.href}})
+        .then(function(r){ bs.disabled=false;
+          if(r&&r.ok){ Hub.toast('Invoice emailed'); load(); } else Hub.toast((r&&r.error)||'Could not send'); });
+    });
+    var bp=document.getElementById('btn-pay');
+    if(bp) bp.addEventListener('click', function(){
+      if(!window.confirm('Mark invoice '+(inv.number||inv.id)+' as PAID? It stops showing as outstanding.')) return;
+      bp.disabled=true;
+      Hub.api('/api/hub/owner/contracts',{method:'POST',body:{op:'mark_paid',account_id:inv.account_id,invoice_id:inv.id,paid_ref:(document.getElementById('ref')||{}).value||''}})
+        .then(function(r){ bp.disabled=false;
+          if(r&&r.ok){ Hub.toast(r.degraded?'Marked paid (details unavailable — migration pending)':'Marked paid'); load(); }
+          else Hub.toast((r&&r.error)||'Could not mark paid'); });
+    });
+  }
+
+  function load(){
   Hub.api('/api/hub/owner/contracts?invoice='+encodeURIComponent(id)).then(function(d){
     var root=document.getElementById('root');
     if(d && d._status===401){ location.href='/login'; return; }
@@ -73,7 +129,10 @@
         '</div>'+
         '<div class="foot">Thank you for your business. Please remit to Añejo Catering Co. LLC. Questions about this invoice? Reply to the email it was sent with.</div>'+
       '</div>';
+    actions(inv, a||{});
   }).catch(function(){ document.getElementById('root').innerHTML='Could not load.'; });
+  }
+  load();
 })();
 </script>
 <script src="assets/operator.js" defer></script>

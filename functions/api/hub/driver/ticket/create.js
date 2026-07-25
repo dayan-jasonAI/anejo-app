@@ -1,4 +1,6 @@
-// POST /api/hub/driver/ticket/create — driver opens a complaint/issue ticket.
+// POST /api/hub/driver/ticket/create — staff opens a complaint/issue ticket.
+// This is the ONLY place that inserts into `tickets`; the kitchen surface reaches the same
+// handler through /api/hub/kitchen/ticket/create rather than duplicating the insert + alert.
 // Body: {
 //   ticket_type: 'complaint'|'equipment'|'safety'|'scheduling'|'other',
 //   severity?: 'low'|'medium'|'high'|'urgent',
@@ -16,7 +18,8 @@ const SEVERITIES = ['low', 'medium', 'high', 'urgent'];
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
-  const ctx = await requireRole(request, env, ['driver', 'owner']);
+  // Kitchen included: a cook with a broken oven needs the same ticket + owner alert a driver gets.
+  const ctx = await requireRole(request, env, ['driver', 'kitchen', 'owner']);
   if (ctx instanceof Response) return ctx;
   const staff = await currentStaff(env, request);
   if (!staff) return bad('No staff profile for this account.', 403);

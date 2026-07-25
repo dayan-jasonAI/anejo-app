@@ -34,6 +34,15 @@
   .dev.rev{opacity:.5}
   .rvk{border:0;background:var(--crit,#b3402f);color:#fff;border-radius:7px;padding:5px 10px;font-weight:700;font-size:12px;cursor:pointer}
   .evrow b{text-transform:capitalize}
+  .terms-edit{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .terms-edit summary{cursor:pointer;font-weight:700;color:var(--green);font-size:13px;padding:9px 12px}
+  .terms-edit[open] summary{border-bottom:1px solid var(--line)}
+  .terms-edit .body{padding:12px}
+  .terms-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .terms-grid label{font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px}
+  .terms-grid input{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px}
+  .terms-note{margin-top:8px}
+  .terms-note input{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px}
 </style>
 </head>
 <body>
@@ -68,7 +77,47 @@
   }
   window.__copy = copyLink;
 
-  function siteCard(s, recent, aid) {
+  // Cents → the dollars string the money inputs want ('' when the column is empty).
+  function dollars(cents) { return (cents === null || cents === undefined || cents === '') ? '' : (Number(cents) / 100).toFixed(2); }
+
+  // Renegotiating a LIVE account. Separate from the activation form on purpose: activation is a
+  // one-time status flip, this is the recurring "we agreed on a new rate" edit. Blank = unchanged.
+  function editTermsForm(s, aid) {
+    var i = function (k, label, val, ph) {
+      return '<div><label>' + label + '</label><input id="' + k + '_' + s.id + '" type="number" step="0.01" min="0" value="' + esc(val) + '" placeholder="' + ph + '"></div>';
+    };
+    return '<details class="terms-edit"><summary>✏️ Edit terms — ' + esc(s.name) + '</summary><div class="body">' +
+      '<div class="terms-grid">' +
+        i('ep', '$ / lunch', dollars(s.price_per_lunch_cents), '6.00') +
+        i('ef', '$ delivery', dollars(s.delivery_fee_cents), '25.00') +
+        i('er', '$ rush fee', dollars(s.rush_fee_cents), '15.00') +
+        '<div><label>Cut-off (ET)</label><input id="ec_' + s.id + '" type="time" value="' + esc(s.cutoff_time || '09:00') + '"></div>' +
+      '</div>' +
+      '<div class="terms-note"><input id="en_' + s.id + '" placeholder="Note (optional) — e.g. renegotiated on the 7/25 call"></div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:6px">New terms apply to the <b>next</b> head count. Days already submitted keep the price they were quoted.</div>' +
+      '<button class="btn gold block" style="margin-top:10px" onclick="__editTerms(\'' + aid + '\',\'' + s.id + '\')">Save new terms</button>' +
+      '</div></details>';
+  }
+  window.__editTerms = function (aid, sid) {
+    var v = function (p) { var el = document.getElementById(p + '_' + sid); return el ? String(el.value).trim() : ''; };
+    var body = { op: 'edit_terms', account_id: aid, site_id: sid };
+    var cents = function (raw) { return Math.round(parseFloat(raw) * 100); };
+    // Only send the fields that were filled in — omitted means "leave this term alone".
+    var touched = 0;
+    if (v('ep') !== '') { body.price_per_lunch_cents = cents(v('ep')); touched++; }
+    if (v('ef') !== '') { body.delivery_fee_cents = cents(v('ef')); touched++; }
+    if (v('er') !== '') { body.rush_fee_cents = cents(v('er')); touched++; }
+    if (v('ec') !== '') { body.cutoff_time = v('ec'); touched++; }
+    if (v('en') !== '') body.note = v('en');
+    if (!touched) { Hub.toast('Change at least one term first.'); return; }
+    if (body.price_per_lunch_cents !== undefined && !(body.price_per_lunch_cents > 0)) { Hub.toast('Price per lunch must be more than $0.'); return; }
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: body }).then(function (r) {
+      if (r && r.ok) { Hub.toast(r.degraded ? 'Terms saved (history unavailable — migration pending)' : 'Terms updated'); render(); }
+      else Hub.toast((r && r.error) || 'Could not save the new terms');
+    });
+  };
+
+  function siteCard(s, recent, aid, pending) {
     var url = origin + '/lunch-count?t=' + (s.intake_token || '');
     var mine = (recent || []).filter(function (r) { return r.site_id === s.id; });
     var rows = mine.slice(0, 10).map(function (r) {
@@ -91,6 +140,7 @@
         '<div class="linkrow"><input id="cn_' + s.id + '" placeholder="Contact name" value="' + esc(s.contact_name || '') + '" style="flex:1">' +
         '<input id="cp_' + s.id + '" placeholder="Mobile e.g. 561-555-0142" value="' + esc(s.contact_phone || '') + '" style="flex:1.3">' +
         '<button onclick="__setContact(\'' + aid + '\',\'' + s.id + '\')">Save</button></div></div>' +
+      (pending ? '' : editTermsForm(s, aid)) +
       '<table class="led"><tr><th>Date</th><th class="r">Lunches</th><th class="r">Total</th><th class="r">Inv.</th></tr>' + rows + '</table></div>';
   }
 
@@ -122,9 +172,13 @@
     if (!invs || !invs.length) return '';
     return '<div style="margin-top:10px"><div class="row-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Invoices</div>' +
       invs.map(function (v) {
+        // paid_at/sent_at only exist once migrations/0046 is applied; until then the status
+        // word alone carries the state, exactly as it did before.
+        var when = v.paid_at ? ' ' + new Date(v.paid_at).toLocaleDateString()
+          : (v.sent_at ? ' ' + new Date(v.sent_at).toLocaleDateString() : '');
         return '<a href="/hub/owner/invoice.html?id=' + esc(v.id) + '" style="display:flex;justify-content:space-between;text-decoration:none;color:var(--ink);padding:7px 0;border-bottom:1px solid var(--line);font-size:13px">' +
           '<span>🧾 ' + esc(v.number || v.id) + ' <span class="row-sub" style="font-weight:400">' + esc(v.period_from || '') + '–' + esc(v.period_to || '') + '</span></span>' +
-          '<span>' + money(v.total_cents) + ' · ' + esc(v.status || '') + '</span></a>';
+          '<span>' + money(v.total_cents) + ' · ' + (v.status === 'paid' ? '✅ ' : (v.status === 'sent' ? '✉️ ' : '')) + esc(v.status || '') + esc(when) + '</span></a>';
       }).join('') + '</div>';
   }
   window.__setContact = function (aid, sid) {
@@ -151,6 +205,29 @@
     Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'revoke_device', account_id: aid, device_id: did } })
       .then(function (r) { if (r && r.ok) { Hub.toast('Device revoked'); render(); } else Hub.toast('Could not revoke'); });
   };
+
+  // Terms history — who changed the rate, when, and from what. Renders nothing until
+  // migrations/0046 (contract_terms_events) is applied, so the desk looks the same as before.
+  var TERM_LABEL = { price_per_lunch_cents: '$/lunch', delivery_fee_cents: 'delivery', rush_fee_cents: 'rush', cutoff_time: 'cut-off' };
+  function termsHistory(evts, sites) {
+    if (!evts || !evts.length) return '';
+    var names = {}; (sites || []).forEach(function (s) { names[s.id] = s.name; });
+    var rows = evts.map(function (e) {
+      var before = {}, after = {};
+      try { before = JSON.parse(e.before_json || '{}') || {}; } catch (x) {}
+      try { after = JSON.parse(e.after_json || '{}') || {}; } catch (x) {}
+      var diffs = Object.keys(after).map(function (k) {
+        var fmt = function (v) { return k === 'cutoff_time' ? (v || '—') : ('$' + ((Number(v) || 0) / 100).toFixed(2)); };
+        var was = before[k];
+        return (TERM_LABEL[k] || k) + ' ' + (was === undefined || was === null ? '' : fmt(was) + ' → ') + fmt(after[k]);
+      }).join(' · ');
+      var when = e.created_at ? new Date(e.created_at).toLocaleDateString() : '';
+      return '<div class="evrow"><span>' + esc(names[e.site_id] || e.site_id || 'all sites') + ' · <b>' + esc(e.event) + '</b> ' +
+        '<span class="row-sub">' + esc(diffs) + (e.note ? ' — ' + esc(e.note) : '') + '</span></span>' +
+        '<span class="row-sub">' + esc(e.changed_by || '') + ' · ' + esc(when) + '</span></div>';
+    }).join('');
+    return '<details class="aud"><summary>✏️ Terms history (' + evts.length + ')</summary>' + rows + '</details>';
+  }
 
   // Append-only audit trail — the non-repudiation record you can show a client.
   function auditBlock(events) {
@@ -187,9 +264,10 @@
         var unbilled = (a.recent || []).filter(function (r) { return !r.invoiced; }).reduce(function (s, r) { return s + (r.total_cents || 0); }, 0);
         return '<div class="hub-section"><h2>🏢 ' + esc(acc.name) + ' ' + badge + ' <span class="row-sub" style="font-weight:400">· ' + esc(acc.billing_model || acc.invoice_cadence || '') + (acc.billing_email ? ' · ' + esc(acc.billing_email) : '') + '</span></h2>' +
           (pending ? activateForm(acc) : '') +
-          a.sites.map(function (s) { return siteCard(s, a.recent, acc.id); }).join('') +
+          a.sites.map(function (s) { return siteCard(s, a.recent, acc.id, pending); }).join('') +
           (pending ? '' :
             devicesBlock(acc.id, a.devices) +
+            termsHistory(a.terms_events, a.sites) +
             auditBlock(a.events) +
             '<div class="acct-total"><span>Unbilled this period</span><span>' + money(unbilled) + '</span></div>' +
             (unbilled > 0 ? '<button class="btn gold block" style="margin-top:8px" onclick="__invoice(\'' + acc.id + '\')">🧾 Generate invoice (close period)</button>' : '') +
