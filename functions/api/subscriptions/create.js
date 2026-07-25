@@ -12,6 +12,7 @@ import { clampPerBowlCents, perBowlCentsFromOz, STANDARD_PER_BOWL_CENTS } from '
 import { sendSms } from '../../_lib/twilio.js';
 import { geocode, formatAddress } from '../../_lib/geo.js';
 import { AVOCADO_ADDON_CENTS, BOWL_BY_NAME } from '../../_lib/bowlspec.js';
+import { evaluatePromo, recordRedemption } from '../../_lib/promo.js';
 
 // Keep only real bowl keys with positive integer counts (defends the kitchen itemization +
 // the saved plan from a tampered/garbage rotation coming off the browser).
@@ -277,15 +278,37 @@ export const onRequestPost = async ({ request, env }) => {
   const localSubId = id('lsub');
   // `windows` (resolved above from the tier + customer choice) + `tier` drive the fulfillment
   // schedule in suborders.js: which weekdays deliver and how many bowls land per day.
+  // ---- Influencer/affiliate attribution. A subscription signed up with a partner's code is
+  // attributed to that partner, so the EXISTING per-invoice rev-share path pays them on every
+  // renewal (not just the first charge) — the recurring income that makes the program worth
+  // a creator's time. Falls back to the client's own trainer (or HOUSE) when no code is used.
+  let subTrainerId = client.trainer_id, subSharePct = 10, affiliateEval = null;
+  if (b.promo_code) {
+    try {
+      const ev = await evaluatePromo(env, { code: b.promo_code, sessionEmail: client.email, subtotalCents: weeklyCents });
+      if (ev.ok && ev.kind === 'affiliate' && ev.partner_id) {
+        affiliateEval = ev;
+        subTrainerId = ev.partner_id;
+        subSharePct = ev.commission_pct || 10;
+      }
+    } catch (_) { affiliateEval = null; }
+  }
+
   await env.DB.prepare(
     `INSERT INTO subscriptions
        (id, client_id, trainer_id, plan_id, provider, provider_subscription_id, provider_customer_id,
         status, weekly_amount_cents, trainer_share_pct, avocado, windows, tier, started_at, updated_at)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).bind(
-    localSubId, client.id, client.trainer_id, plan ? plan.id : null, 'square',
-    sub.id, customerId, (sub.status || 'ACTIVE').toLowerCase(), weeklyCents, 10, avocado ? 1 : 0, windows, planTier, t, t
+    localSubId, client.id, subTrainerId, plan ? plan.id : null, 'square',
+    sub.id, customerId, (sub.status || 'ACTIVE').toLowerCase(), weeklyCents, subSharePct, avocado ? 1 : 0, windows, planTier, t, t
   ).run();
+
+  // Audit trail + usage count for the partner's code (keyed by subscription id).
+  if (affiliateEval) {
+    try { await recordRedemption(env, { evaluated: affiliateEval, orderId: localSubId, customerEmail: client.email }); }
+    catch (_) { /* non-fatal */ }
+  }
 
   await env.DB.prepare('UPDATE clients SET status = ?, updated_at = ? WHERE id = ?')
     .bind('subscribed', t, client.id).run();

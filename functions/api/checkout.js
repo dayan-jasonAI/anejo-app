@@ -9,7 +9,7 @@ import { BOWL_IDS, onDemandConfig, windowState, remainingByBowl } from '../_lib/
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 import { currentUser } from '../_lib/session.js';
 import { rewardsSummary } from '../_lib/rewards.js';
-import { evaluatePromo, recordRedemption } from '../_lib/promo.js';
+import { evaluatePromo, recordRedemption, autoCustomerCodeFor } from '../_lib/promo.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -275,21 +275,31 @@ export const onRequestPost = async ({ request, env }) => {
   // ---- Promo / affiliate code. Server-authoritative: the browser sends only a string; the
   // percentage, expiry, account-binding and commission all come from D1. A 'customer' code is
   // non-shareable — evaluatePromo requires the signed-in email to match the code's bound_email.
+  // A typed code wins (e.g. an influencer's code); otherwise a signed-in Founding Legacy Member's
+  // lifetime 2x-points benefit auto-applies with nothing to remember or type.
+  let promoInput = b.promo_code;
+  if (!promoInput && sessEmail) {
+    try { promoInput = await autoCustomerCodeFor(env, sessEmail); } catch { promoInput = null; }
+  }
   let promo = null, promoDiscountCents = 0;
-  if (b.promo_code) {
+  if (promoInput) {
     try {
       const ev = await evaluatePromo(env, {
-        code: b.promo_code,
+        code: promoInput,
         sessionEmail: sessEmail,
         // Apply the % to the subtotal AFTER any points redemption, so the two never over-discount.
         subtotalCents: Math.max(0, subtotalCents - discountCents),
       });
       if (ev.ok) { promo = ev; promoDiscountCents = Math.max(0, ev.discount_cents || 0); }
-      else if (ev.reason === 'signin_required') return bad('Sign in with the email your code was sent to, then apply it.');
-      else if (ev.reason === 'not_your_code') return bad('That code belongs to another account. Codes cannot be shared.');
-      else if (ev.reason === 'expired') return bad('That code has expired.');
-      else if (ev.reason === 'self_referral') return bad('Partners cannot use their own referral code.');
-      else if (ev.reason === 'not_found' || ev.reason === 'disabled') return bad('That code is not valid.');
+      // Only a code the customer TYPED may block checkout. An auto-applied member benefit that
+      // doesn't validate is silently skipped — never strand a paying customer over a perk.
+      else if (b.promo_code) {
+        if (ev.reason === 'signin_required') return bad('Sign in with the email your code was sent to, then apply it.');
+        if (ev.reason === 'not_your_code') return bad('That code belongs to another account. Codes cannot be shared.');
+        if (ev.reason === 'expired') return bad('That code has expired.');
+        if (ev.reason === 'self_referral') return bad('Partners cannot use their own referral code.');
+        if (ev.reason === 'not_found' || ev.reason === 'disabled') return bad('That code is not valid.');
+      }
     } catch (_) { promo = null; promoDiscountCents = 0; }
   }
   // Never discount below zero once both discounts are combined.

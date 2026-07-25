@@ -13,6 +13,14 @@ import { id, now } from './util.js';
 const AMBIGUOUS = /[0OIL1]/g;                       // drop look-alikes from generated codes
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // (already excludes the ambiguous set)
 
+// Partner payout: monthly cash, or take it as Añejo credit at 1.5x face value. The credit option
+// preserves cash (it costs ~COGS, not dollars) and most nano-creators prefer the bigger number.
+export const CREDIT_MULTIPLIER = 1.5;
+export function payoutOptions(shareCents) {
+  const c = Math.max(0, Math.round(Number(shareCents) || 0));
+  return { cash_cents: c, credit_cents: Math.round(c * CREDIT_MULTIPLIER) };
+}
+
 export const norm = (c) => String(c == null ? '' : c).trim().toUpperCase().replace(/\s+/g, '');
 const email = (e) => String(e == null ? '' : e).trim().toLowerCase();
 

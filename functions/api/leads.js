@@ -28,21 +28,20 @@ async function sendLaunchWelcome(env, rec, member) {
   // only this account can redeem it (enforced server-side at checkout).
   let promo = null;
   try { promo = await issueCustomerCode(env, { email: rec.email, note: 'launch signup' }); } catch { promo = null; }
-  const promoExpiry = promo && promo.expires_at
-    ? new Date(promo.expires_at).toLocaleDateString(es ? 'es-US' : 'en-US', { month: 'long', day: 'numeric' })
-    : null;
   const promoBlock = promo ? (es
-    ? `<div style="margin:22px 0;padding:16px 18px;border:1px solid #C6A85B;border-radius:10px;background:#fdfaf2">
-         <p style="margin:0 0 6px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#8B6B3E">Tu código personal</p>
-         <p style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:.08em;color:#1A3D2E">${escHtml(promo.code)}</p>
-         <p style="margin:0;font-size:14px;color:#3d4a41"><strong>10% de descuento en cada pedido</strong> durante 30 días + <strong>puntos dobles</strong>.${promoExpiry ? ` Válido hasta el ${escHtml(promoExpiry)}.` : ''}</p>
-         <p style="margin:8px 0 0;font-size:12px;color:#6b7269">Este código es solo tuyo — funciona únicamente al iniciar sesión con ${escHtml(rec.email)}. No se puede compartir.</p>
+    ? `<div style="margin:22px 0;padding:18px;border:1px solid #C6A85B;border-radius:10px;background:#fdfaf2">
+         <p style="margin:0 0 6px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#8B6B3E">Beneficios de Miembro de Legado</p>
+         <p style="margin:0 0 12px;font-size:22px;font-weight:700;letter-spacing:.06em;color:#1A3D2E">${escHtml(promo.code)}</p>
+         <p style="margin:0 0 6px;font-size:15px;color:#1A3D2E"><strong>Puntos dobles de por vida</strong> — en cada pedido, para siempre.</p>
+         <p style="margin:0 0 6px;font-size:15px;color:#1A3D2E"><strong>Acceso primero</strong> a cada producto, función y anuncio de Añejo.</p>
+         <p style="margin:10px 0 0;font-size:12px;color:#6b7269">Se aplica solo — inicia sesión con ${escHtml(rec.email)} y tus puntos dobles se activan automáticamente al pagar. Es tuyo y no se puede compartir.</p>
        </div>`
-    : `<div style="margin:22px 0;padding:16px 18px;border:1px solid #C6A85B;border-radius:10px;background:#fdfaf2">
-         <p style="margin:0 0 6px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#8B6B3E">Your personal code</p>
-         <p style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:.08em;color:#1A3D2E">${escHtml(promo.code)}</p>
-         <p style="margin:0;font-size:14px;color:#3d4a41"><strong>10% off every order</strong> for 30 days + <strong>double rewards points</strong>.${promoExpiry ? ` Good through ${escHtml(promoExpiry)}.` : ''}</p>
-         <p style="margin:8px 0 0;font-size:12px;color:#6b7269">This code is yours alone — it only works when signed in as ${escHtml(rec.email)}. It can't be shared.</p>
+    : `<div style="margin:22px 0;padding:18px;border:1px solid #C6A85B;border-radius:10px;background:#fdfaf2">
+         <p style="margin:0 0 6px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#8B6B3E">Legacy Member benefits</p>
+         <p style="margin:0 0 12px;font-size:22px;font-weight:700;letter-spacing:.06em;color:#1A3D2E">${escHtml(promo.code)}</p>
+         <p style="margin:0 0 6px;font-size:15px;color:#1A3D2E"><strong>Double rewards points for life</strong> — on every order, forever.</p>
+         <p style="margin:0 0 6px;font-size:15px;color:#1A3D2E"><strong>First access</strong> to every new product, feature, and announcement.</p>
+         <p style="margin:10px 0 0;font-size:12px;color:#6b7269">Nothing to type — sign in as ${escHtml(rec.email)} and your double points apply automatically at checkout. It's yours alone and can't be shared.</p>
        </div>`) : '';
   const first = (rec.name || '').split(/\s+/)[0] || (es ? 'Hola' : 'there');
   const founding = member && member <= FOUNDING_CAP;
@@ -94,7 +93,7 @@ async function sendLaunchWelcome(env, rec, member) {
   if (rec.sms_consent && rec.phone) {
     const to = toE164US(rec.phone);
     if (to) {
-      const codeTxt = promo ? (es ? ` Tu código: ${promo.code} (10% dto. 30 días).` : ` Your code: ${promo.code} (10% off, 30 days).`) : '';
+      const codeTxt = promo ? (es ? ' Puntos dobles de por vida ya activos en tu cuenta.' : ' Double points for life are active on your account.') : '';
       const body = es
         ? `Añejo Catering Co.: ${founding ? `¡Eres Miembro Fundador de Legado #${member}! ` : '¡Estás en la lista! '}🌿 Ya estamos abiertos — pide en anejocateringco.com/order.${codeTxt} Responde STOP para cancelar.`
         : `Añejo Catering Co.: ${founding ? `You're Founding Legacy Member #${member}! ` : "You're on the list! "}🌿 We're open — order at anejocateringco.com/order.${codeTxt} Reply STOP to opt out.`;
