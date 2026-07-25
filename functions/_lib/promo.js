@@ -23,6 +23,12 @@ export function payoutOptions(shareCents) {
 
 export const norm = (c) => String(c == null ? '' : c).trim().toUpperCase().replace(/\s+/g, '');
 const email = (e) => String(e == null ? '' : e).trim().toLowerCase();
+// Last 10 digits — normalises +1/(561)/dashes so a partner can't dodge the self-referral
+// check by formatting their number differently.
+const digitsOnly = (p) => {
+  const d = String(p == null ? '' : p).replace(/[^0-9]/g, '');
+  return d.length >= 10 ? d.slice(-10) : '';
+};
 
 function randomSuffix(n = 6) {
   const buf = new Uint8Array(n);
@@ -114,7 +120,7 @@ export async function ensureAffiliateCode(env, { partnerId, code, commissionPct 
  * `sessionEmail` is the SIGNED-IN account (null for guests).
  * Returns { ok:false, reason } or { ok:true, ... } with server-computed money.
  */
-export async function evaluatePromo(env, { code, sessionEmail, subtotalCents }) {
+export async function evaluatePromo(env, { code, sessionEmail, guestEmail, guestPhone, subtotalCents }) {
   if (!env || !env.DB) return { ok: false, reason: 'unavailable' };
   const c = norm(code);
   if (!c) return { ok: false, reason: 'empty' };
@@ -142,10 +148,18 @@ export async function evaluatePromo(env, { code, sessionEmail, subtotalCents }) 
     // limits are expires_at / max_uses, already checked above.
   } else if (row.kind === 'affiliate') {
     // Anti-self-referral: a partner can't earn commission on their own order.
-    if (em && row.partner_id) {
+    // MUST work for GUESTS too — a partner checking out logged-out was previously unguarded,
+    // which made the code a self-service 10% discount. Guests give a phone, not an email, so
+    // match on either identifier.
+    if (row.partner_id) {
+      const buyerEmail = em || email(guestEmail);
+      const buyerPhone = digitsOnly(guestPhone);
       try {
-        const p = await env.DB.prepare('SELECT email FROM trainers WHERE id = ?').bind(row.partner_id).first();
-        if (p && email(p.email) === em) return { ok: false, reason: 'self_referral' };
+        const p = await env.DB.prepare('SELECT email, phone FROM trainers WHERE id = ?').bind(row.partner_id).first();
+        if (p) {
+          if (buyerEmail && email(p.email) === buyerEmail) return { ok: false, reason: 'self_referral' };
+          if (buyerPhone && digitsOnly(p.phone) && digitsOnly(p.phone) === buyerPhone) return { ok: false, reason: 'self_referral' };
+        }
       } catch { /* non-fatal */ }
     }
   }
@@ -182,7 +196,39 @@ export async function evaluatePromo(env, { code, sessionEmail, subtotalCents }) 
   };
 }
 
-/** Consume the code for a created order. Idempotent per order (UNIQUE order_id). */
+/**
+ * ATOMICALLY claim one use of a capped code. Returns true only if this caller got the slot.
+ *
+ * The check in evaluatePromo is advisory — between it and the increment sits a Square API
+ * round-trip, so N concurrent checkouts could all pass a `max_uses: 1` gate. The conditional
+ * UPDATE below is the real gate: SQLite applies it atomically, so exactly one caller sees
+ * changes === 1. Call this BEFORE creating the payment link; releasePromoUse() on failure.
+ * Uncapped codes (max_uses IS NULL) still increment, and always succeed.
+ */
+export async function claimPromoUse(env, code) {
+  if (!env || !env.DB) return false;
+  const c = norm(code);
+  if (!c) return false;
+  try {
+    const r = await env.DB.prepare(
+      'UPDATE promo_codes SET uses = uses + 1 WHERE code = ? AND status = ? AND (max_uses IS NULL OR uses < max_uses)'
+    ).bind(c, 'active').run();
+    return !!(r && r.meta && r.meta.changes === 1);
+  } catch { return false; }
+}
+
+/** Give the slot back when checkout fails after a successful claim. Best-effort. */
+export async function releasePromoUse(env, code) {
+  if (!env || !env.DB) return;
+  const c = norm(code);
+  if (!c) return;
+  try {
+    await env.DB.prepare('UPDATE promo_codes SET uses = MAX(0, uses - 1) WHERE code = ?').bind(c).run();
+  } catch { /* best-effort */ }
+}
+
+/** Record the redemption for a created order. Idempotent per order (UNIQUE order_id).
+ *  The `uses` counter is NOT touched here — claimPromoUse() owns it. */
 export async function recordRedemption(env, { evaluated, orderId, customerEmail }) {
   if (!env || !env.DB || !evaluated || !evaluated.ok || !orderId) return false;
   try {
@@ -192,9 +238,6 @@ export async function recordRedemption(env, { evaluated, orderId, customerEmail 
     ).bind(id('pr'), evaluated.code, orderId, email(customerEmail) || null,
       evaluated.discount_cents || 0, evaluated.points_mult || 1, evaluated.perk || null, now()).run();
   } catch { return false; }  // UNIQUE(order_id) → already recorded
-  try {
-    await env.DB.prepare('UPDATE promo_codes SET uses = uses + 1 WHERE code = ?').bind(evaluated.code).run();
-  } catch { /* count is advisory */ }
   return true;
 }
 

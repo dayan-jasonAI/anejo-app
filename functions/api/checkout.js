@@ -9,7 +9,7 @@ import { BOWL_IDS, onDemandConfig, windowState, remainingByBowl } from '../_lib/
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 import { currentUser } from '../_lib/session.js';
 import { rewardsSummary } from '../_lib/rewards.js';
-import { evaluatePromo, recordRedemption, autoCustomerCodeFor } from '../_lib/promo.js';
+import { evaluatePromo, recordRedemption, autoCustomerCodeFor, claimPromoUse, releasePromoUse } from '../_lib/promo.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -287,6 +287,8 @@ export const onRequestPost = async ({ request, env }) => {
       const ev = await evaluatePromo(env, {
         code: promoInput,
         sessionEmail: sessEmail,
+        // Guest identifiers so the anti-self-referral check works logged-out too.
+        guestPhone: custPhone,
         // Apply the % to the subtotal AFTER any points redemption, so the two never over-discount.
         subtotalCents: Math.max(0, subtotalCents - discountCents),
       });
@@ -304,6 +306,19 @@ export const onRequestPost = async ({ request, env }) => {
   }
   // Never discount below zero once both discounts are combined.
   const totalDiscountCents = Math.min(subtotalCents, discountCents + promoDiscountCents);
+
+  // ATOMIC use-cap claim. evaluatePromo's max_uses check is advisory — a Square round-trip sits
+  // between it and the increment, so concurrent checkouts could all pass a 1-use gate. Claim the
+  // slot here (conditional UPDATE, exactly one winner) and release it if anything downstream fails.
+  let promoClaimed = false;
+  if (promo) {
+    promoClaimed = await claimPromoUse(env, promo.code);
+    if (!promoClaimed) {
+      if (b.promo_code) return bad('That code has reached its limit.');
+      promo = null; promoDiscountCents = 0;   // auto-applied benefit: degrade silently
+    }
+  }
+  const finalDiscountCents = promo ? totalDiscountCents : Math.min(subtotalCents, discountCents);
 
   // A granted perk has to reach the people who pack the bag — otherwise we've promised a customer
   // something the kitchen never sees. Add it as a $0 line item (kitchen board reads orderItems)
@@ -339,7 +354,7 @@ export const onRequestPost = async ({ request, env }) => {
             amount_money: { amount: discountCents, currency: 'USD' },
             scope: 'ORDER',
           });
-          if (promoDiscountCents > 0) ds.push({
+          if (promo && promoDiscountCents > 0) ds.push({
             uid: 'anejo-promo',
             name: `${promo.code} (${promo.pct_off}% off)`,
             amount_money: { amount: promoDiscountCents, currency: 'USD' },
@@ -371,14 +386,20 @@ export const onRequestPost = async ({ request, env }) => {
     },
   });
 
+  // Give the promo slot back on any failure past the claim — otherwise a Square hiccup
+  // permanently burns a use from a capped code.
   if (!ok) {
+    if (promoClaimed) await releasePromoUse(env, promo.code);
     const detail = data && data.errors && data.errors[0] && data.errors[0].detail;
     return bad(detail || `Square checkout failed (${status}).`, 502);
   }
 
   const pl = data && data.payment_link;
   const url = pl && (pl.long_url || pl.url);
-  if (!url) return bad('Square did not return a checkout URL.', 502);
+  if (!url) {
+    if (promoClaimed) await releasePromoUse(env, promo.code);
+    return bad('Square did not return a checkout URL.', 502);
+  }
 
   // Persist a pending order for the kitchen view; the webhook marks it paid.
   if (env.DB) {
@@ -400,8 +421,11 @@ export const onRequestPost = async ({ request, env }) => {
       ).bind(
         orderId, pl.order_id || null, pl.id || null, JSON.stringify(orderItems), dateStr, win,
         fulfillmentMode, subtotalCents, feeCents, Number(taxPct),
-        Math.round((Math.max(0, subtotalCents - totalDiscountCents) + feeCents) * (1 + Number(taxPct) / 100)),
-        redeemPts || null, totalDiscountCents || null,
+        // Mirror Square exactly: tax applies to the discounted subtotal ONLY — the delivery fee
+        // is sent to Square as `taxable: false`, so taxing it here overstated every order's
+        // revenue by fee×tax and skewed rewards tiers, P&L and COGS snapshots that read this field.
+        Math.round(Math.max(0, subtotalCents - finalDiscountCents) * (1 + Number(taxPct) / 100)) + feeCents,
+        redeemPts || null, finalDiscountCents || null,
         firstName, sessEmail, custPhone, smsConsent,
         addr.street, addr.unit, addr.city, addr.state, addr.zip, addr.notes,
         lat, lng, geocodedAt, promo ? promo.code : null, promo ? promo.points_mult : null, t, t
