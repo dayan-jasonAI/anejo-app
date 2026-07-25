@@ -46,7 +46,7 @@ export async function removeSuppression(env, email) {
 // Transactional email via Resend. Skips any address on the suppression list (bounced/complained/
 // unsubscribed) to protect sender reputation — pass { bypassSuppression:true } only for a
 // deliberate, owner-justified exception. Returns Resend's JSON on send, or {skipped,suppressed}.
-export async function sendEmail(env, { to, subject, html, bypassSuppression } = {}) {
+export async function sendEmail(env, { to, subject, html, bypassSuppression, unsubscribeUrl } = {}) {
   if (!env.RESEND_API_KEY) throw new Error('Email not configured (missing RESEND_API_KEY).');
   const addr = normalizeEmail(to);
   if (!bypassSuppression && addr) {
@@ -54,13 +54,24 @@ export async function sendEmail(env, { to, subject, html, bypassSuppression } = 
     if (sup) return { skipped: true, suppressed: sup.reason };  // never email a suppressed address
   }
   const from = env.EMAIL_FROM || 'Añejo Catering Co. <noreply@anejocateringco.com>';
+  const body = { from, to: [to], subject, html };
+  // MARKETING ONLY. CAN-SPAM needs a working opt-out in every promotional message, and Gmail/Yahoo
+  // bulk-sender rules require one-click List-Unsubscribe — without it a campaign lands in spam and
+  // damages the domain that also carries receipts and magic links. Transactional mail deliberately
+  // omits this: an order confirmation is not something a customer can unsubscribe from.
+  if (unsubscribeUrl) {
+    body.headers = {
+      'List-Unsubscribe': `<${unsubscribeUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    };
+  }
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from, to: [to], subject, html }),
+    body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error('Email send failed: ' + (await r.text()).slice(0, 300));
   return r.json();
