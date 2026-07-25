@@ -162,6 +162,12 @@
     rows.push(['Phone', esc(l.phone || '—')]);
     if (l.interest) rows.push(['Interest', esc(l.interest)]);
     rows.push(['SMS consent', l.sms_consent ? '<span class="badge ok">SMS ✓</span>' : '<span data-i18n>No</span>']);
+    // Attribution (0044). Without this the src/utm_* captured at signup are write-only and the
+    // owner can never tell which creator link or campaign actually produced a lead.
+    if (l.src) rows.push(['Source code', '<span style="font-family:ui-monospace,Menlo,monospace;font-weight:700">' + esc(l.src) + '</span>']);
+    if (l.utm_source || l.utm_medium) rows.push(['Channel', esc([l.utm_source, l.utm_medium].filter(Boolean).join(' · '))]);
+    if (l.utm_campaign) rows.push(['Campaign', esc(l.utm_campaign)]);
+    if (l.referrer) rows.push(['Came from', esc(String(l.referrer).slice(0, 80))]);
     rows.push(['Received', esc(Owner.timeAgo(l.created_at))]);
     var grid = rows.map(function (r) { return '<div class="k" data-i18n>' + r[0] + '</div><div>' + r[1] + '</div>'; }).join('');
     var msg = l.message ? '<div class="lead-msg">' + esc(l.message) + '</div>' : '';

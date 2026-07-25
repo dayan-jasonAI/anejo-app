@@ -27,7 +27,9 @@ async function getOrCreateHouseTrainer(env) {
 }
 
 async function listLeads(env, kind, q) {
-  let sql = 'SELECT id, kind, name, email, phone, company, interest, message, source_lang, sms_consent, created_at FROM leads';
+  // src/utm_* are captured at signup (0044) — SELECT them or the attribution is write-only and
+  // the owner can never see which creator or campaign a lead came from.
+  let sql = 'SELECT id, kind, name, email, phone, company, interest, message, source_lang, sms_consent, src, utm_source, utm_medium, utm_campaign, referrer, created_at FROM leads';
   const where = [], binds = [];
   if (['tasting', 'wholesale', 'launch', 'sms'].includes(kind)) { where.push('kind = ?'); binds.push(kind); }
   if (q) {
@@ -68,6 +70,11 @@ async function listLeads(env, kind, q) {
     message: r.message || null,
     source_lang: r.source_lang || 'en',
     sms_consent: r.sms_consent ? 1 : 0,
+    src: r.src || null,
+    utm_source: r.utm_source || null,
+    utm_medium: r.utm_medium || null,
+    utm_campaign: r.utm_campaign || null,
+    referrer: r.referrer || null,
     created_at: r.created_at,
     converted: converted.has(emailKey(r.email)),
   }));
