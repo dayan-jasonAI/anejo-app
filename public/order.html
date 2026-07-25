@@ -407,10 +407,12 @@ async function loadCatalog(){
     // `source:'fallback'` means D1 didn't answer, and in that mode /api/menu carries no item rows.
     // Keep what we painted rather than blanking the storefront.
     if(!next.some(g=>g.items.length)) return;
-    // PER-GROUP fallback, not all-or-nothing: an empty bowls array is reachable (the owner can
-    // deactivate items in the HUB), and dropping the whole bowls section silently is worse than
-    // showing the last-known list. Only replace a group the API actually returned items for.
-    CATALOG = next.map((g,i)=>g.items.length ? g : FALLBACK_CATALOG[i]).filter(g=>g.items.length);
+    // Per-group fallback ONLY when D1 didn't answer. If D1 DID answer and a group is empty, that is
+    // the owner deliberately deactivating those items — repainting the hardcoded list there would
+    // advertise bowls that checkout rejects outright ("Unknown item: vida"), at prices nobody set.
+    // An empty section is the honest render; a stale one takes an order we cannot fulfil.
+    const trustD1 = d.source === 'd1';
+    CATALOG = next.map((g,i)=>(g.items.length || trustD1) ? g : FALLBACK_CATALOG[i]).filter(g=>g.items.length);
     indexPrices();
     pruneCart();
   }catch(_){ /* keep the first-paint fallback; checkout re-prices server-side either way */ }

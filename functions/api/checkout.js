@@ -124,7 +124,11 @@ export function priceCustomBowl(key, mods, pricing) {
       if (!buildNames.includes(e.name)) return { error: `Can't add extra "${e && e.name}".` };
       extraCents += PREMIUM_RE.test(e.name) ? mp.extra_premium : mp.extra_std;
       addonLabels.push('extra ' + e.name);
-    } else if (e && e.type === 'addon' && mp[e.id] != null) {
+    // Allowlist against ADDON_PRICE, not the whole modifier map: mp carries EVERY row of
+    // menu_modifier_prices, which since 0045 includes plan_5/10/12_weekly. Without this, a crafted
+    // cart could send {type:'addon', id:'plan_12_weekly'} and bolt +$219 onto a bowl — a real Square
+    // charge on an unfulfillable line the kitchen would read as "+undefined".
+    } else if (e && e.type === 'addon' && Object.prototype.hasOwnProperty.call(ADDON_PRICE, e.id) && mp[e.id] != null) {
       extraCents += mp[e.id];
       addonLabels.push(ADDON_NAME[e.id]);
       if (e.id === 'avocado_half') avocado = true;

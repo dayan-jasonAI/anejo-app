@@ -345,6 +345,10 @@
         Hub.toast(res.refund_status === 'PENDING'
           ? 'Refund of ' + money(res.amount_cents) + ' submitted — Square settles it in a few days.'
           : 'Refunded ' + money(res.amount_cents) + '.');
+        // A refund is exactly when rewards points and affiliate commission still need adjusting by
+        // hand. The endpoint returns those as warnings and treats an empty array as "nothing left to
+        // do" — dropping them here made the whole refund-effects work invisible in production.
+        (res.warnings || []).forEach(function (w) { window.alert(w); });
         showDetail(oid);
       });
   }

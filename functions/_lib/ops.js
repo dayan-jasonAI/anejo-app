@@ -50,9 +50,19 @@ export function refundedCents(itemsJson) {
   const items = parseJson(itemsJson, []) || [];
   if (!Array.isArray(items)) return 0;
   let cents = 0;
+  // De-dupe by refund id. The refund idempotency key is deterministic, so a double-click (two owner
+  // tabs, or a client retry after a timeout) replays the SAME Square refund with a 200 and appends a
+  // SECOND meta entry for money that only moved once. Counting both understates revenue in all three
+  // readers of this function — the finance tile, the CSV, and the demand/insights reports.
+  const seen = new Set();
   for (const it of items) {
     const m = isMetaItem(it) ? it.meta : null;
     if (!m || m.action !== 'refund') continue;
+    const key = m.refund_id || m.idempotency_key || null;
+    if (key) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
     const n = Math.round(Number(m.amount_cents) || 0);
     if (n > 0) cents += n;
   }

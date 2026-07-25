@@ -149,11 +149,16 @@ async function storefrontCheck(env, request) {
   // D1, no-store when it fell back), so an override here could pin a stale verdict for minutes.
   const api = fetch(`${base}/api/menu`)
     .then(async (res) => {
-      if (!res.ok) return { menu_source: null };
+      if (!res.ok) return { menu_source: null, bowl_count: null };
       const d = await res.json();
-      return { menu_source: d && (d.source === 'd1' || d.source === 'fallback') ? d.source : null };
+      return {
+        menu_source: d && (d.source === 'd1' || d.source === 'fallback') ? d.source : null,
+        // A d1 answer with ZERO bowls is not healthy: /order renders no bowls and checkout rejects
+        // every bowl id. Without this the desk went green on an unsellable storefront.
+        bowl_count: d && Array.isArray(d.bowls) ? d.bowls.length : null,
+      };
     })
-    .catch(() => ({ menu_source: null }));
+    .catch(() => ({ menu_source: null, bowl_count: null }));
 
   const [p, a] = await Promise.all([page, api]);
   return { ...p, ...a };
