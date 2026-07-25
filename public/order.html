@@ -169,6 +169,15 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
     <div class="cart-sub" id="subRow" style="display:none"><span>Subtotal</span><span id="cartSubtotal">$0.00</span></div>
     <div class="cart-sub" id="feeRow" style="display:none"><span>Delivery fee</span><span id="cartFee">$0.00</span></div>
     <div class="cart-sub" id="rewardsRow" style="display:none;color:#8B6B3E"><span><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="applyRewards"><span id="rewardsLabel">Apply Añejo Rewards</span></label></span><span id="cartDiscount">−$0.00</span></div>
+    <div class="cart-sub" id="promoRow" style="display:none;color:#8B6B3E"><span id="promoLabel">Promo code</span><span id="cartPromo">−$0.00</span></div>
+    <div id="promoBox" style="display:none;margin:10px 0 4px">
+      <div style="display:flex;gap:6px">
+        <input type="text" id="promoInput" placeholder="Promo or creator code" autocomplete="off" autocapitalize="characters"
+          style="flex:1;min-width:0;padding:10px 12px;border:1px solid #d9d2c2;border-radius:8px;font:inherit;font-size:14px;text-transform:uppercase">
+        <button type="button" id="promoApply" style="padding:10px 16px;border:0;border-radius:8px;background:#1A3D2E;color:#F5F2EC;font:inherit;font-weight:700;font-size:13px;letter-spacing:.06em;cursor:pointer">APPLY</button>
+      </div>
+      <p id="promoMsg" style="margin:6px 0 0;font-size:12.5px;line-height:1.45;display:none"></p>
+    </div>
     <div class="cart-sub" id="taxRow" style="display:none"><span>Est. FL sales tax (7%)</span><span id="cartTax">$0.00</span></div>
     <div class="cart-total" id="cartTotalRow" style="display:none"><span>Estimated total</span><span id="cartGrand">$0.00</span></div>
     <div class="tax-note" id="minNote" style="display:none;color:#9b2226"></div>
@@ -459,6 +468,8 @@ let rewardsTier = '';       // signed-in client's tier key
 let rewardsFreeDeliv = false; // owner-configured free-delivery perk for this client
 let rewardsPointCents = 5;  // value of 1 point in cents (owner-tunable)
 let rewardsRedeemPts = 0;   // points applied to THIS order (sent at checkout)
+let appliedPromo = null;    // validated promo/creator code for THIS order (server re-validates)
+let lastSubtotalCents = 0;  // cart subtotal in cents, refreshed by renderCart
 function bowlBaseCents(key){ return Math.round((PRICE[key]?PRICE[key].price:0)*100); }
 function extraCentsOf(e){
   if(e.type==='addon'){ const a=ADDON_BY[e.id]; return a?a.cents:0; }
@@ -565,6 +576,7 @@ function renderCart(){
       + '</span><span>'+money(sub/100)+'</span></div>';
   });
   lines.innerHTML = html;
+  lastSubtotalCents = totalCents;   // promo checks price against the same number the cart shows
   const total = totalCents/100;
   const belowMin = total < ORDER_MIN;
   const freeDeliv = rewardsFreeDeliv && !belowMin;
@@ -580,6 +592,17 @@ function renderCart(){
                                       'Usar Rewards ('+rewardsBalance+' pts \u2192 \u2212'+money(maxDisc)+')');
     $('cartDiscount').textContent = '\u2212'+money(discount);
   } else { rewardsRow.style.display = 'none'; }
+  // Promo / creator code — the % applies AFTER points redemption (matches the server).
+  var promoDisc = 0;
+  if (appliedPromo && !belowMin) {
+    promoDisc = Math.min(Math.max(0, total - discount) * (appliedPromo.pct_off || 0) / 100, Math.max(0, total - discount));
+    $('promoRow').style.display = 'flex';
+    $('promoLabel').textContent = appliedPromo.label || appliedPromo.code;
+    $('cartPromo').textContent = promoDisc > 0 ? '−' + money(promoDisc)
+      : (appliedPromo.points_mult > 1 ? appliedPromo.points_mult + 'x pts' : L('Applied','Aplicado'));
+  } else { $('promoRow').style.display = 'none'; }
+  $('promoBox').style.display = (bowls.length || Object.keys(addons).length) ? 'block' : 'none';
+  discount += promoDisc;
   var taxable = Math.max(0, total - discount);
   const tax = taxable*TAX_PCT/100, grand = taxable + fee + tax;
   $('cartSubtotal').textContent = money(total);
@@ -601,6 +624,45 @@ function renderCart(){
     btn.disabled=true;
   }
   else { minNote.style.display='none'; btn.disabled=false; }
+}
+
+// ---- Promo / creator codes -------------------------------------------------------------
+// Reuse the cart's own subtotal (set in renderCart) rather than recomputing pricing twice.
+function cartSubtotalCents(){ return lastSubtotalCents; }
+function showPromoMsg(text, good){
+  var el = $('promoMsg');
+  if (!text) { el.style.display='none'; return; }
+  el.textContent = text;
+  el.style.color = good ? '#2e6b4f' : '#a33';
+  el.style.display = 'block';
+}
+async function applyPromo(){
+  var input = $('promoInput'), btn = $('promoApply');
+  var code = (input.value || '').trim();
+  if (!code) { showPromoMsg(L('Enter a code.','Ingresa un código.'), false); return; }
+  btn.disabled = true;
+  try{
+    const r = await fetch('/api/promo-check', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ code: code, subtotal_cents: cartSubtotalCents() }) });
+    const d = await r.json();
+    if (d && d.ok){ appliedPromo = d; showPromoMsg(d.message, true); input.value = d.code; renderCart(); }
+    else { appliedPromo = null; showPromoMsg((d && d.message) || L('That code isn’t valid.','Ese código no es válido.'), false); renderCart(); }
+  } catch(e){ showPromoMsg(L('Couldn’t check that code — try again.','No se pudo verificar — inténtalo de nuevo.'), false); }
+  btn.disabled = false;
+}
+// A signed-in Founding Legacy Member's lifetime benefit shows automatically — nothing to type.
+async function loadAutoPromo(){
+  try{
+    const r = await fetch('/api/promo-check', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ subtotal_cents: cartSubtotalCents() }) });
+    const d = await r.json();
+    if (d && d.ok && d.auto){
+      appliedPromo = d;
+      showPromoMsg(L('Founding Legacy Member — double points applied automatically.',
+                     'Miembro Fundador de Legado — puntos dobles aplicados automáticamente.'), true);
+      renderCart();
+    }
+  } catch(_){}
 }
 
 async function checkout(){
@@ -635,6 +697,9 @@ async function checkout(){
   try{
     const payload = { items, fulfillment, address, contact };
     if (rewardsRedeemPts > 0) payload.redeem_points = rewardsRedeemPts;
+    // Only send a code the customer actually typed — a member's lifetime benefit is applied
+    // server-side automatically, so we never risk blocking checkout on it.
+    if (appliedPromo && !appliedPromo.auto) payload.promo_code = appliedPromo.code;
     if(delivery) payload.delivery = delivery;
     const r = await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const data = await r.json();
@@ -670,6 +735,12 @@ async function loadRewards(){
   }catch(_){}
 }
 buildDates(); applyMode(); loadAvailability(); loadRewards();
+(function(){
+  var ap = document.getElementById('promoApply'), pi = document.getElementById('promoInput');
+  if (ap) ap.addEventListener('click', applyPromo);
+  if (pi) pi.addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); applyPromo(); } });
+  loadAutoPromo();   // surfaces a signed-in member's lifetime benefit with nothing typed
+})();
 // Inline validation: flag a malformed ZIP on blur; clear a field's error as soon as the user edits it.
 $('addrZip').addEventListener('blur', function(){
   const v=this.value.trim();

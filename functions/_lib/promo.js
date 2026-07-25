@@ -137,6 +137,9 @@ export async function evaluatePromo(env, { code, sessionEmail, subtotalCents }) 
     // THE non-shareable rule: only the account it was issued to may redeem it.
     if (!em) return { ok: false, reason: 'signin_required' };
     if (em !== email(row.bound_email)) return { ok: false, reason: 'not_your_code' };
+  } else if (row.kind === 'campaign') {
+    // Owner-minted general code (e.g. a seasonal promo). Shareable on purpose — the only
+    // limits are expires_at / max_uses, already checked above.
   } else if (row.kind === 'affiliate') {
     // Anti-self-referral: a partner can't earn commission on their own order.
     if (em && row.partner_id) {
