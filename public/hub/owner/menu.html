@@ -261,39 +261,54 @@
   }
 
   // ---------- modifier prices ----------
-  // menu_modifier_prices also holds the meal-plan weekly prices (plan_5/10/12_weekly, migration
-  // 0045). Those are NOT bowl extras, and — critically — nothing in the billing path reads them yet:
-  // Square charges from a static catalog variation. Rendering them here showed "+$99.00" under
-  // "what each extra costs when someone customizes a bowl", with a Save button that reported
-  // success and changed nothing. Hide them until the subscription write path is actually wired.
+  // menu_modifier_prices holds two different things: bowl extras, and the meal-plan WEEKLY prices
+  // (plan_5/10/12_weekly, migration 0045). Rendering the plan rows among the extras read as
+  // "+$99.00 when someone customizes a bowl", which is nonsense — they get their own section.
+  // They are live: square-config publishes them and subscriptions/create.js mints a Square
+  // variation at the new amount, so a save here changes what a new subscriber is charged.
   var PLAN_KEY_RE = /^plan_\d+_weekly$/;
   function bowlModifiers() { return data.modifiers.filter(function (m) { return !PLAN_KEY_RE.test(m.key); }); }
+  function planModifiers() { return data.modifiers.filter(function (m) { return PLAN_KEY_RE.test(m.key); }); }
+
+  // One card renderer for both groups — the only difference is the "Customers see" prefix, since a
+  // bowl extra is an add-on (+$2.00) and a plan price is the whole weekly charge ($219.00).
+  function modCard(m, prefix) {
+    return '<div class="card" style="margin-bottom:10px">' +
+      '<div class="mn-head"><div><strong>' + esc(m.label || m.key) + '</strong>' +
+        '<div class="mn-id">' + esc(m.key) + '</div></div>' +
+        '<div class="mn-see"><div class="lbl" data-i18n>Customers see</div>' +
+        '<div class="amt" id="see_mod_' + m.key + '">' + prefix + money(m.cents) + '</div></div></div>' +
+      '<div class="mn-price"><span class="pre">$</span>' +
+        '<input id="mod_' + m.key + '" type="text" inputmode="decimal" value="' + (m.cents / 100).toFixed(2) + '">' +
+        '<button class="btn gold" id="msave_' + m.key + '" style="margin-left:auto" data-i18n>Save</button></div>' +
+      '<p class="msg" id="mmsg_' + m.key + '"></p>' +
+    '</div>';
+  }
 
   function paintMods() {
     var mods = bowlModifiers();
-    if (!mods.length) {
+    var plans = planModifiers();
+    if (!mods.length && !plans.length) {
       $('#pane').innerHTML = '<div class="card accent"><p data-i18n>No modifier prices found.</p></div>';
       return;
     }
     $('#pane').innerHTML =
+      (plans.length
+        ? '<div class="card accent" style="margin-bottom:10px"><p class="hint" style="opacity:1" data-i18n>' +
+            'The weekly price of each meal plan. Saving one changes what the NEXT subscriber is charged and what /subscribe shows. ' +
+            'People already subscribed keep the price they signed up at until they change plans.</p></div>' +
+          plans.map(function (m) { return modCard(m, ''); }).join('') +
+          '<div style="height:14px"></div>'
+        : '') +
       '<div class="card accent" style="margin-bottom:10px"><p class="hint" style="opacity:1" data-i18n>' +
         'What each extra costs when someone customizes a bowl. These keys are fixed in code — you set the price, not the list.</p></div>' +
-      mods.map(function (m) {
-        return '<div class="card" style="margin-bottom:10px">' +
-          '<div class="mn-head"><div><strong>' + esc(m.label || m.key) + '</strong>' +
-            '<div class="mn-id">' + esc(m.key) + '</div></div>' +
-            '<div class="mn-see"><div class="lbl" data-i18n>Customers see</div>' +
-            '<div class="amt" id="see_mod_' + m.key + '">+' + money(m.cents) + '</div></div></div>' +
-          '<div class="mn-price"><span class="pre">$</span>' +
-            '<input id="mod_' + m.key + '" type="text" inputmode="decimal" value="' + (m.cents / 100).toFixed(2) + '">' +
-            '<button class="btn gold" id="msave_' + m.key + '" style="margin-left:auto" data-i18n>Save</button></div>' +
-          '<p class="msg" id="mmsg_' + m.key + '"></p>' +
-        '</div>';
-      }).join('');
-    mods.forEach(function (m) {          // must match what was rendered, or this throws on a null node
+      mods.map(function (m) { return modCard(m, '+'); }).join('');
+    // Bind BOTH groups — this must match exactly what was rendered or it throws on a null node.
+    plans.concat(mods).forEach(function (m) {
+      var pre = PLAN_KEY_RE.test(m.key) ? '' : '+';
       $('#mod_' + m.key).addEventListener('input', function () {
         var r = toCents($('#mod_' + m.key).value);
-        $('#see_mod_' + m.key).textContent = r.error ? '—' : '+' + money(r.cents);
+        $('#see_mod_' + m.key).textContent = r.error ? '—' : pre + money(r.cents);
         $('#see_mod_' + m.key).className = 'amt' + (!r.error && r.cents !== m.cents ? ' dirty' : '');
       });
       $('#msave_' + m.key).addEventListener('click', function () {
