@@ -301,7 +301,9 @@ const SAUCES = ['Mango Omega','Ajo Cítrico','Chimichurri Vital','Golden Turmeri
 // are the first-paint fallback + display copy only.
 let EXTRA_STD = 150, EXTRA_PREM = 300;
 let EXTRA_SAUCE = 150; // first added sauce free, each additional one costs this
-const PREMIUM_RE = /\b(tuna|salmon|steak|shrimp|chicken|tofu|beef|pork|avocado|queso|cheese|almond|pecan)\b/i;
+// MUST stay in step with functions/api/checkout.js — a mismatch means the cart shows one price
+// and Square charges another. The plural forms matter: bowlspec ships "Toasted almonds".
+const PREMIUM_RE = /\b(tuna|salmon|steak|shrimp|chicken|tofu|beef|pork|avocado|queso|cheese|almonds?|pecans?)\b/i;
 // `cents` here is likewise overwritten from /api/menu (keys match menu_modifier_prices.key).
 const ADDONS = [
   { id:'avocado_half',  cents:200, en:'½ Avocado',              es:'½ Aguacate' },
@@ -401,11 +403,14 @@ async function loadCatalog(){
       // priceCustomBowl would reject it anyway, since bowlspec.js is code, not data. Skip it
       // rather than render something unbuyable.
       items: (d[g.key]||[]).map(fromApi).filter(i=>g.key!=='bowls' || !!BUILDS[i.id]),
-    })).filter(g=>g.items.length);
+    }));
     // `source:'fallback'` means D1 didn't answer, and in that mode /api/menu carries no item rows.
     // Keep what we painted rather than blanking the storefront.
-    if(!next.length) return;
-    CATALOG = next;
+    if(!next.some(g=>g.items.length)) return;
+    // PER-GROUP fallback, not all-or-nothing: an empty bowls array is reachable (the owner can
+    // deactivate items in the HUB), and dropping the whole bowls section silently is worse than
+    // showing the last-known list. Only replace a group the API actually returned items for.
+    CATALOG = next.map((g,i)=>g.items.length ? g : FALLBACK_CATALOG[i]).filter(g=>g.items.length);
     indexPrices();
     pruneCart();
   }catch(_){ /* keep the first-paint fallback; checkout re-prices server-side either way */ }
