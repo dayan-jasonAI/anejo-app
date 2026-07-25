@@ -41,6 +41,20 @@ function parseAddress(raw) {
   };
 }
 
+// Campaign attribution (0044) — optional {attribution:{src,utm_*}} from the browser, recorded on
+// the order so ad spend and creator links can be measured even when no promo code is typed.
+// Purely descriptive: it never touches pricing, so tampering buys nothing.
+function parseAttribution(raw) {
+  const a = raw || {};
+  const s = (v, n) => (String(v == null ? '' : v).trim().slice(0, n) || null);
+  return {
+    src: s(a.src, 64),
+    utm_source: s(a.utm_source, 120),
+    utm_medium: s(a.utm_medium, 120),
+    utm_campaign: s(a.utm_campaign, 120),
+  };
+}
+
 // Authoritative à-la-carte catalog (base prices in USD). Bowl size/protein variations and
 // real bites retail pricing are a follow-up; these are the launch defaults.
 // Non-bowl catalog (drinks + a standalone side sauce). Bowls are customized per-instance and
@@ -422,6 +436,7 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   // Persist a pending order for the kitchen view; the webhook marks it paid.
+  const attribution = parseAttribution(b.attribution);
   if (env.DB) {
     try {
       const t = Date.now();
@@ -436,8 +451,9 @@ export const onRequestPost = async ({ request, env }) => {
             fulfillment_mode, subtotal_cents, fee_cents, tax_pct, total_estimate_cents, redeem_points, discount_cents,
             customer_name, customer_email, customer_phone, sms_consent,
             delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
-            delivery_lat, delivery_lng, geocoded_at, promo_code, promo_points_mult, status, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
+            delivery_lat, delivery_lng, geocoded_at, promo_code, promo_points_mult,
+            src, utm_source, utm_medium, utm_campaign, status, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
       ).bind(
         orderId, pl.order_id || null, pl.id || null, JSON.stringify(orderItems), dateStr, win,
         fulfillmentMode, subtotalCents, feeCents, Number(taxPct),
@@ -448,7 +464,8 @@ export const onRequestPost = async ({ request, env }) => {
         redeemPts || null, finalDiscountCents || null,
         firstName, sessEmail, custPhone, smsConsent,
         addr.street, addr.unit, addr.city, addr.state, addr.zip, addr.notes,
-        lat, lng, geocodedAt, promo ? promo.code : null, promo ? promo.points_mult : null, t, t
+        lat, lng, geocodedAt, promo ? promo.code : null, promo ? promo.points_mult : null,
+        attribution.src, attribution.utm_source, attribution.utm_medium, attribution.utm_campaign, t, t
       ).run();
       // Consume the code against this order (idempotent per order). The webhook later reads the
       // order's promo_code to apply the points multiplier and pay any affiliate commission.

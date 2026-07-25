@@ -834,7 +834,7 @@ footer {
         <div class="bowl-body">
           <div class="bowl-top">
             <div class="bowl-name">VIDA</div>
-            <div class="bowl-price">$19.99–21.99</div>
+            <div class="bowl-price" data-bowl-price="vida">$19.99</div>
           </div>
           <p class="bowl-desc">Flagship. Tuna sautéed with mango and lime over quinoa, refried chickpeas, fresh greens, pumpkin seeds. The bowl that started it all.</p>
           <div class="bowl-nutri">~510 kcal · 40g protein · 36g carbs · 22g fat</div>
@@ -849,7 +849,7 @@ footer {
         <div class="bowl-body">
           <div class="bowl-top">
             <div class="bowl-name">FUEGO</div>
-            <div class="bowl-price">$22.99–24.99</div>
+            <div class="bowl-price" data-bowl-price="fuego">$22.99</div>
           </div>
           <p class="bowl-desc">Grilled steak with Añejo chimichurri, quinoa, grilled carrot + corn, spinach-apple-almond salad. Bold performance on a plate.</p>
           <div class="bowl-nutri">~580 kcal · 42g protein · 35g carbs · 28g fat</div>
@@ -864,7 +864,7 @@ footer {
         <div class="bowl-body">
           <div class="bowl-top">
             <div class="bowl-name">LIGERO</div>
-            <div class="bowl-price">$18.99–20.99</div>
+            <div class="bowl-price" data-bowl-price="ligero">$18.99</div>
           </div>
           <p class="bowl-desc">Lighter sibling of FUEGO. Grilled chicken with chimichurri, quinoa, grilled vegetables, spinach-apple-almond salad. Clean and ready.</p>
           <div class="bowl-nutri">~520 kcal · 45g protein · 38g carbs · 20g fat</div>
@@ -879,7 +879,7 @@ footer {
         <div class="bowl-body">
           <div class="bowl-top">
             <div class="bowl-name">MAR</div>
-            <div class="bowl-price">$22.99–24.99</div>
+            <div class="bowl-price" data-bowl-price="mar">$22.99</div>
           </div>
           <p class="bowl-desc">Omega-rich salmon over quinoa with greens, roasted vegetables, pickled onions, sesame, microgreens, and Añejo sauce. Heart-smart and recovery-ready.</p>
           <div class="bowl-nutri">~620 kcal · 40g protein · 30g carbs · 32g fat</div>
@@ -894,7 +894,7 @@ footer {
         <div class="bowl-body">
           <div class="bowl-top">
             <div class="bowl-name">COCO</div>
-            <div class="bowl-price">$22.99–24.99</div>
+            <div class="bowl-price" data-bowl-price="coco">$22.99</div>
           </div>
           <p class="bowl-desc">Coconut-lime shrimp over a quinoa-corn-edamame blend with spinach, cherry tomato, cucumber, avocado, sesame, and light Ajo Cítrico. Lean and tropical.</p>
           <div class="bowl-nutri">~590 kcal · 40g protein · 37g carbs · 27g fat</div>
@@ -909,7 +909,7 @@ footer {
         <div class="bowl-body">
           <div class="bowl-top">
             <div class="bowl-name">CONGREEN</div>
-            <div class="bowl-price">$20.99–22.99</div>
+            <div class="bowl-price" data-bowl-price="congreen">$20.99</div>
           </div>
           <p class="bowl-desc">Quinoa-blueberry congrí with tuna sauté, spinach-tomato salad, avocado, queso fresco, pumpkin seeds. Cuban fusion, reinterpreted.</p>
           <div class="bowl-nutri">~575 kcal · 41g protein · 39g carbs · 25g fat</div>
@@ -924,7 +924,7 @@ footer {
         <div class="bowl-body">
           <div class="bowl-top">
             <div class="bowl-name">RAÍZ</div>
-            <div class="bowl-price">$18.99–20.49</div>
+            <div class="bowl-price" data-bowl-price="raiz">$18.99</div>
           </div>
           <p class="bowl-desc">Crispy tofu with quinoa, slaw, roasted vegetables, sweet potato, avocado, and sesame, finished with Aguacate Cilantro and a Mango Omega accent. Plant-powered, fiber-rich.</p>
           <div class="bowl-nutri">~520 kcal · 35g protein · 38g carbs · 26g fat</div>
@@ -1075,7 +1075,7 @@ footer {
 
     <div class="fit-cta-row">
       <a href="/order" class="btn btn-gold">Add to your order</a>
-      <span class="fit-cta-note">$9.99 each · ships with your bowls</span>
+      <span class="fit-cta-note"><span data-drink-price>$9.99</span> each · ships with your bowls</span>
     </div>
     <p class="fit-disclaimer">Añejo Fit juices are cold-pressed to order in small batches. Ingredients as pictured; bottle size 12 fl oz. Flavor-forward by design — we don't make medical or nutrition claims. Final nutrition panel published at launch.</p>
   </div>
@@ -1450,6 +1450,27 @@ document.querySelectorAll('#navLinks a').forEach(a => {
       }
     }).catch(function(){});
   }catch(e){}
+})();
+
+// Menu prices come from D1 via /api/menu so a HUB price change reaches the homepage without a
+// deploy. The markup ships the last-known price so the cards paint right with JS off and never
+// flash empty — this only overwrites it once the live catalog answers. On a D1 blip /api/menu
+// returns an empty catalog, and the printed prices stand.
+(function(){
+  var money = function(n){ return '$' + n.toFixed(2); };
+  fetch('/api/menu').then(function(r){ return r.json(); }).then(function(d){
+    if(!d || !d.ok) return;
+    (d.bowls||[]).forEach(function(b){
+      var el = document.querySelector('[data-bowl-price="' + b.id + '"]');
+      if(el && typeof b.price === 'number') el.textContent = money(b.price);
+    });
+    // The Fit line is quoted as one "$X each" shelf price. If the flavors ever diverge that
+    // sentence becomes false, so leave it alone rather than pick one of them.
+    var drinks = d.drinks || [], note = document.querySelector('[data-drink-price]');
+    if(note && drinks.length && drinks.every(function(x){ return x.price === drinks[0].price; })){
+      note.textContent = money(drinks[0].price);
+    }
+  }).catch(function(){});
 })();
 </script>
   <script src="/assets/js/chat.js" defer></script>

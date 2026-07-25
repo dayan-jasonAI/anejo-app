@@ -256,10 +256,13 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
 </div>
 
 <script>
-// Display catalog — IDs + prices mirror the SERVER-SIDE catalog in functions/api/checkout.js
-// (the server re-prices every line, so these are display-only).
-const CATALOG = [
-  { group:'Bowls (16 oz)', groupEs:'Bowls (16 oz)', items:[
+// Display catalog. GET /api/menu — backed by the SAME D1 rows /api/checkout prices from — is
+// AUTHORITATIVE and overwrites everything below as soon as it answers (see loadCatalog()).
+// The literal here is a FIRST-PAINT FALLBACK ONLY so the storefront still renders if that fetch
+// fails; it is a last-known-good copy, not a second source of truth. `key` maps a group onto the
+// array /api/menu returns for it.
+const FALLBACK_CATALOG = [
+  { key:'bowls', group:'Bowls (16 oz)', groupEs:'Bowls (16 oz)', items:[
     {id:'vida',name:'VIDA',price:19.99,desc:'Tuna, mango, quinoa, chickpeas',descEs:'Atún, mango, quinoa, garbanzos'},
     {id:'fuego',name:'FUEGO',price:22.99,desc:'Grilled steak, chimichurri, quinoa',descEs:'Bistec a la parrilla, chimichurri, quinoa'},
     {id:'ligero',name:'LIGERO',price:18.99,desc:'Grilled chicken, chimichurri, quinoa',descEs:'Pollo a la parrilla, chimichurri, quinoa'},
@@ -268,16 +271,19 @@ const CATALOG = [
     {id:'congreen',name:'CONGREEN',price:20.99,desc:'Quinoa-blueberry congrí, tuna',descEs:'Congrí de quinoa-arándano, atún'},
     {id:'raiz',name:'RAÍZ',price:18.99,desc:'Crispy tofu, quinoa, slaw, sweet potato',descEs:'Tofu crujiente, quinoa, ensalada, batata'},
   ]},
-  { group:'Añejo Fit drinks (12 oz)', groupEs:'Bebidas Añejo Fit (12 oz)', items:[
+  { key:'drinks', group:'Añejo Fit drinks (12 oz)', groupEs:'Bebidas Añejo Fit (12 oz)', items:[
     {id:'fit_gold',name:'Gold Vitality',price:9.99,img:'fit_gold.jpg',desc:'Pineapple · ginger · turmeric',descEs:'Piña · jengibre · cúrcuma'},
     {id:'fit_hibiscus',name:'Hibiscus Zen',price:9.99,img:'fit_hibiscus.jpg',desc:'Hibiscus · lime · ginger · mint',descEs:'Hibisco · limón · jengibre · menta'},
     {id:'fit_emerald',name:'Emerald Hydrate',price:9.99,img:'fit_emerald.jpg',desc:'Cucumber · mint · lemon · chia',descEs:'Pepino · menta · limón · chía'},
   ]},
-  { group:'Add-ons', groupEs:'Extras', items:[
+  { key:'addons', group:'Add-ons', groupEs:'Extras', items:[
     {id:'sauce_extra',name:'Extra Signature Sauce',price:1.50,desc:'2 oz · on the side',descEs:'2 oz · aparte'},
   ]},
 ];
-const PRICE = {}; CATALOG.forEach(g=>g.items.forEach(i=>PRICE[i.id]=i));
+let CATALOG = FALLBACK_CATALOG;
+const PRICE = {};   // id -> catalog item; rebuilt every time CATALOG is replaced
+function indexPrices(){ Object.keys(PRICE).forEach(k=>delete PRICE[k]); CATALOG.forEach(g=>g.items.forEach(i=>PRICE[i.id]=i)); }
+indexPrices();
 // Per-bowl build (MIRRORS functions/_lib/bowlspec.js — keep in sync). Index 0 = protein (locked,
 // not removable). The server re-validates every mod + re-prices, so this list is UI-only.
 const BUILDS = {
@@ -290,10 +296,13 @@ const BUILDS = {
   raiz:    ['Crispy tofu','Quinoa','Slaw','Roasted vegetables','Sweet potato','Black sesame','Aguacate Cilantro','Mango Omega'],
 };
 const SAUCES = ['Mango Omega','Ajo Cítrico','Chimichurri Vital','Golden Turmeric','Aguacate Cilantro'];
-// Extra pricing (display only; checkout.js is authoritative): veg/grain/garnish $1.50, protein/premium $3.00.
-const EXTRA_STD = 150, EXTRA_PREM = 300;
-const EXTRA_SAUCE = 150; // first added sauce free, each additional +$1.50
+// Extra pricing: veg/grain/garnish $1.50, protein/premium $3.00. Overwritten from /api/menu
+// (menu_modifier_prices in D1) by loadCatalog(); checkout.js prices from the same rows, so these
+// are the first-paint fallback + display copy only.
+let EXTRA_STD = 150, EXTRA_PREM = 300;
+let EXTRA_SAUCE = 150; // first added sauce free, each additional one costs this
 const PREMIUM_RE = /\b(tuna|salmon|steak|shrimp|chicken|tofu|beef|pork|avocado|queso|cheese|almond|pecan)\b/i;
+// `cents` here is likewise overwritten from /api/menu (keys match menu_modifier_prices.key).
 const ADDONS = [
   { id:'avocado_half',  cents:200, en:'½ Avocado',              es:'½ Aguacate' },
   { id:'extra_protein', cents:450, en:'Extra protein (4 oz)',   es:'Proteína extra (4 oz)' },
@@ -325,6 +334,12 @@ let availLoaded = false;
 const $ = (id)=>document.getElementById(id);
 
 function money(n){ return '$'+n.toFixed(2); }
+// Catalog text is owner-editable data now (D1 → /api/menu), not a literal in this file, so escape
+// it before it goes into markup.
+function escHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function itemName(i){ return i ? L(i.name, i.nameEs||i.name) : ''; }
+// Bowl photos are named bowl_<id>.jpg by convention; D1 may override per item via `image`.
+function bowlImg(key){ const i=PRICE[key]; return '/assets/img/'+((i&&i.img)||('bowl_'+key+'.jpg')); }
 function fmtHour(h){ const a=h>=12?'PM':'AM', x=(h%12===0)?12:h%12; return x+' '+a; }
 function fmtHM(h,m){ const a=h>=12?'PM':'AM', x=(h%12===0)?12:h%12; return x+(m?':'+String(m).padStart(2,'0'):'')+' '+a; }
 // On-demand ordering window text from the live config (falls back to the real default 10 AM–7:30 PM).
@@ -345,6 +360,58 @@ function remainingFor(idv){
 function maxFor(idv){ return mode==='ondemand' ? Math.min(20, remainingFor(idv)) : 20; }
 // How many MORE of this bowl can be added right now (per-day cap minus what's already in the cart).
 function canAddBowl(key){ return Math.max(0, maxFor(key) - countBowls(key)); }
+
+// ---- Live catalog + modifier pricing from D1 (authoritative) ---------------------------------
+// /api/menu item -> the shape this page renders. The API speaks price (dollars) and desc/desc_es;
+// keep the page's existing keys so nothing downstream has to change.
+function fromApi(it){
+  return {
+    id: it.id,
+    name: it.name,
+    nameEs: it.name_es || it.name,
+    price: (typeof it.price==='number') ? it.price : (it.price_cents||0)/100,
+    desc: it.desc || '',
+    descEs: it.desc_es || it.desc || '',
+    img: it.img || null,
+  };
+}
+function applyModifierPrices(m){
+  if(!m) return;
+  if(m.extra_std!=null) EXTRA_STD = m.extra_std;
+  if(m.extra_premium!=null) EXTRA_PREM = m.extra_premium;
+  if(m.extra_sauce!=null) EXTRA_SAUCE = m.extra_sauce;
+  ADDONS.forEach(a=>{ if(m[a.id]!=null) a.cents = m[a.id]; });
+}
+// An item the owner deactivated between first paint and the fetch could still be sitting in the
+// cart — drop it rather than show a line the server would reject at checkout.
+function pruneCart(){
+  for(let i=bowls.length-1;i>=0;i--) if(!PRICE[bowls[i].key]) bowls.splice(i,1);
+  Object.keys(addons).forEach(k=>{ if(!PRICE[k]) delete addons[k]; });
+}
+async function loadCatalog(){
+  try{
+    const r = await fetch('/api/menu');
+    if(!r.ok) return;
+    const d = await r.json();
+    if(!d || !d.ok) return;
+    applyModifierPrices(d.modifiers);
+    const next = FALLBACK_CATALOG.map(g=>({
+      key: g.key, group: g.group, groupEs: g.groupEs,
+      // A bowl with no local BUILDS entry can't be customized here — and checkout's
+      // priceCustomBowl would reject it anyway, since bowlspec.js is code, not data. Skip it
+      // rather than render something unbuyable.
+      items: (d[g.key]||[]).map(fromApi).filter(i=>g.key!=='bowls' || !!BUILDS[i.id]),
+    })).filter(g=>g.items.length);
+    // `source:'fallback'` means D1 didn't answer, and in that mode /api/menu carries no item rows.
+    // Keep what we painted rather than blanking the storefront.
+    if(!next.length) return;
+    CATALOG = next;
+    indexPrices();
+    pruneCart();
+  }catch(_){ /* keep the first-paint fallback; checkout re-prices server-side either way */ }
+  renderCatalog(); renderCart();
+  if(cz) czRender();   // repriced under an open modal
+}
 
 async function loadAvailability(){
   try{
@@ -428,22 +495,22 @@ function renderCatalog(){
             ? '<span class="soldout-tag">'+L('Sold out','Agotado')+'</span>'
             : capped
               ? '<span class="soldout-tag">'+L('Max today','Máx hoy')+'</span>'
-              : '<button class="customize" onclick="openCz(\''+i.id+'\')">'+(n>0?L('Add another','Agregar otro'):L('Customize','Personalizar'))+'</button>';
+              : '<button class="customize" onclick="openCz(\''+esc(i.id)+'\')">'+(n>0?L('Add another','Agregar otro'):L('Customize','Personalizar'))+'</button>';
           return `<div class="prod${soldOut?' soldout':''}">
-            <img class="prod-photo" src="/assets/img/bowl_${i.id}.jpg" alt="${i.name}" loading="lazy" onerror="this.style.display='none'">
-            <div class="prod-info"><div class="prod-name">${i.name}</div><div class="prod-desc">${L(i.desc, i.descEs||i.desc)}</div>${stock}${incart}</div>
+            <img class="prod-photo" src="${escHtml(bowlImg(i.id))}" alt="${escHtml(itemName(i))}" loading="lazy" onerror="this.style.display='none'">
+            <div class="prod-info"><div class="prod-name">${escHtml(itemName(i))}</div><div class="prod-desc">${escHtml(L(i.desc, i.descEs||i.desc))}</div>${stock}${incart}</div>
             <div class="prod-price">${money(i.price)}</div>
             ${control}
           </div>`;
         }
         return `<div class="prod">
-          ${i.img ? `<img class="prod-photo" src="/assets/img/${i.img}" alt="${i.name}" loading="lazy" onerror="this.style.display='none'">` : ''}
-          <div class="prod-info"><div class="prod-name">${i.name}</div><div class="prod-desc">${L(i.desc, i.descEs||i.desc)}</div></div>
+          ${i.img ? `<img class="prod-photo" src="/assets/img/${escHtml(i.img)}" alt="${escHtml(itemName(i))}" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <div class="prod-info"><div class="prod-name">${escHtml(itemName(i))}</div><div class="prod-desc">${escHtml(L(i.desc, i.descEs||i.desc))}</div></div>
           <div class="prod-price">${money(i.price)}</div>
           <div class="stepper">
-            <button aria-label="Remove one" onclick="bump('${i.id}',-1)">–</button>
-            <span class="qty" id="q_${i.id}">${addons[i.id]||0}</span>
-            <button aria-label="Add one" onclick="bump('${i.id}',1)">+</button>
+            <button aria-label="Remove one" onclick="bump('${esc(i.id)}',-1)">–</button>
+            <span class="qty" id="q_${escHtml(i.id)}">${addons[i.id]||0}</span>
+            <button aria-label="Add one" onclick="bump('${esc(i.id)}',1)">+</button>
           </div>
         </div>`;
       }).join('')}
@@ -494,14 +561,14 @@ function chip(label, on, onclick, cls, priceCents){
   return '<button type="button" class="cz-chip'+(on?' '+(cls||'on'):'')+'" onclick="'+onclick+'">'+label+px+'</button>';
 }
 function openCz(key, editIdx){
-  if(!BUILDS[key]) return;
+  if(!BUILDS[key] || !PRICE[key]) return;   // no build spec, or no longer on the menu
   czEdit = (typeof editIdx==='number') ? editIdx : -1;
   if(czEdit<0 && canAddBowl(key)<1) return;   // at cap / sold out
   cz = czEdit>=0 ? JSON.parse(JSON.stringify(bowls[czEdit])) : { key:key, removed:[], base:null, sauces:[], extras:[] };
   czQ = 1;
   const item = PRICE[key];
-  $('czImg').src = '/assets/img/bowl_'+key+'.jpg'; $('czImg').alt = item.name;
-  $('czName').textContent = item.name;
+  $('czImg').src = bowlImg(key); $('czImg').alt = itemName(item);
+  $('czName').textContent = itemName(item);
   $('czDesc').textContent = L(item.desc, item.descEs||item.desc);
   $('czQty').textContent = '1';
   $('czQtyWrap').style.display = czEdit>=0 ? 'none' : 'flex';
@@ -525,7 +592,7 @@ function czRender(){
     return isFree
       ? chip(ingL(s)+' '+L('(free)','(gratis)'), sel>=0, "toggleSauce('"+esc(s)+"')")
       : chip(ingL(s), sel>=0, "toggleSauce('"+esc(s)+"')", null, EXTRA_SAUCE);
-  }).join('')+'<div class="cz-desc" style="margin-top:6px">'+L('First extra sauce free · each additional +$1.50','Primera salsa extra gratis · cada adicional +$1.50')+'</div>' : '<span class="cz-desc">'+L('All house sauces already on this bowl.','Todas las salsas ya están en este bowl.')+'</span>';
+  }).join('')+'<div class="cz-desc" style="margin-top:6px">'+L('First extra sauce free · each additional +'+money(EXTRA_SAUCE/100),'Primera salsa extra gratis · cada adicional +'+money(EXTRA_SAUCE/100))+'</div>' : '<span class="cz-desc">'+L('All house sauces already on this bowl.','Todas las salsas ya están en este bowl.')+'</span>';
   $('czExtras').innerHTML = ADDONS.map(a=>chip(L(a.en,a.es), hasExtra('addon',a.id), "toggleExtra('addon','"+a.id+"')", null, a.cents)).join('');
   $('czExtraIng').innerHTML = build.map(n=>chip(ingL(n), hasExtra('ingredient',n), "toggleExtra('ingredient','"+esc(n)+"')", null, PREMIUM_RE.test(n)?EXTRA_PREM:EXTRA_STD)).join('');
   const unit = instCents(cz), q = czEdit>=0 ? 1 : czQ;
@@ -564,16 +631,18 @@ function renderCart(){
   let totalCents=0, html='';
   bowls.forEach((b,idx)=>{
     const c=instCents(b); totalCents+=c; const mods=modSummary(b);
-    html += '<div class="cart-line"><span class="ci-name">'+(PRICE[b.key]?PRICE[b.key].name:b.key)
+    html += '<div class="cart-line"><span class="ci-name">'+escHtml(PRICE[b.key]?itemName(PRICE[b.key]):b.key)
       + (mods ? '<span class="ci-mods">'+mods+'</span>' : '')
       + '<button class="ci-edit" onclick="openCz(\''+b.key+'\','+idx+')">'+L('edit','editar')+'</button>'
       + '<button class="ci-rm" onclick="rmBowl('+idx+')">'+L('remove','quitar')+'</button>'
       + '</span><span>'+money(c/100)+'</span></div>';
   });
   addonIds.forEach(idv=>{
-    const p=PRICE[idv], sub=Math.round(p.price*100)*addons[idv]; totalCents+=sub;
-    html += '<div class="cart-line"><span class="ci-name">'+p.name+' <small>× '+addons[idv]+'</small>'
-      + '<button class="ci-rm" onclick="rmAddon(\''+idv+'\')">'+L('remove','quitar')+'</button>'
+    const p=PRICE[idv];
+    if(!p){ delete addons[idv]; return; }   // item left the catalog after it was added
+    const sub=Math.round(p.price*100)*addons[idv]; totalCents+=sub;
+    html += '<div class="cart-line"><span class="ci-name">'+escHtml(itemName(p))+' <small>× '+addons[idv]+'</small>'
+      + '<button class="ci-rm" onclick="rmAddon(\''+esc(idv)+'\')">'+L('remove','quitar')+'</button>'
       + '</span><span>'+money(sub/100)+'</span></div>';
   });
   lines.innerHTML = html;
@@ -735,7 +804,7 @@ async function loadRewards(){
     }
   }catch(_){}
 }
-buildDates(); applyMode(); loadAvailability(); loadRewards();
+buildDates(); applyMode(); loadCatalog(); loadAvailability(); loadRewards();
 (function(){
   var ap = document.getElementById('promoApply'), pi = document.getElementById('promoInput');
   if (ap) ap.addEventListener('click', applyPromo);
@@ -754,7 +823,8 @@ $('addrZip').addEventListener('blur', function(){
 // i18n engine has loaded + applied any persisted language (window load runs after i18n.js).
 document.addEventListener('anejo:langchange', function(){
   applyMode();
-  if(cz){ const it=PRICE[cz.key]; $('czDesc').textContent=L(it.desc,it.descEs||it.desc);
+  if(cz){ const it=PRICE[cz.key];
+    if(it){ $('czName').textContent=itemName(it); $('czDesc').textContent=L(it.desc,it.descEs||it.desc); }
     $('czAddLabel').textContent= czEdit>=0?L('Save changes','Guardar cambios'):L('Add to order','Agregar al pedido'); czRender(); }
 });
 window.addEventListener('load', applyMode);

@@ -9,6 +9,21 @@ import { limitOr429 } from '../_lib/ratelimit.js';
 // Founding Legacy Member program — first N launch-list signups get a founding number.
 const FOUNDING_CAP = 100;
 
+// Campaign attribution (0044). Accepts either flat fields or a nested {attribution:{…}} object
+// so a page can send checkout's shape verbatim. Everything is optional and length-capped like
+// the rest of the free text on this endpoint.
+function parseAttribution(b) {
+  const a = (b && typeof b.attribution === 'object' && b.attribution) || b || {};
+  const s = (v, n) => (String(v == null ? '' : v).trim().slice(0, n) || null);
+  return {
+    src: s(a.src, 64),
+    utm_source: s(a.utm_source, 120),
+    utm_medium: s(a.utm_medium, 120),
+    utm_campaign: s(a.utm_campaign, 120),
+    referrer: s(a.referrer, 300),
+  };
+}
+
 // Best-guess E.164 for a US number (Twilio Messaging Service prefers it). Falls back to digits.
 function toE164US(p) {
   const raw = String(p == null ? '' : p).trim();
@@ -129,6 +144,8 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
   if (!name) return bad('Please enter your name.');
   if (!isEmail(email)) return bad('Please enter a valid email.');
 
+  const attr = parseAttribution(b);
+
   // Cap free-text to bound storage abuse (mirrors the discipline in checkout/subscriptions).
   const rec = {
     id: id('ld'), kind, name, email,
@@ -138,6 +155,8 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     message: (b.message || '').trim().slice(0, 4000) || null,
     source_lang: b.lang === 'es' ? 'es' : 'en',
     sms_consent: b.sms_consent === true || b.sms_consent === 1 ? 1 : 0,
+    src: attr.src, utm_source: attr.utm_source, utm_medium: attr.utm_medium,
+    utm_campaign: attr.utm_campaign, referrer: attr.referrer,
     created_at: now(),
   };
 
@@ -165,10 +184,12 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
 
     await env.DB
       .prepare(
-        `INSERT INTO leads (id, kind, name, email, phone, company, interest, message, source_lang, sms_consent, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO leads (id, kind, name, email, phone, company, interest, message, source_lang, sms_consent,
+            src, utm_source, utm_medium, utm_campaign, referrer, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       )
-      .bind(rec.id, rec.kind, rec.name, rec.email, rec.phone, rec.company, rec.interest, rec.message, rec.source_lang, rec.sms_consent, rec.created_at)
+      .bind(rec.id, rec.kind, rec.name, rec.email, rec.phone, rec.company, rec.interest, rec.message, rec.source_lang, rec.sms_consent,
+        rec.src, rec.utm_source, rec.utm_medium, rec.utm_campaign, rec.referrer, rec.created_at)
       .run();
     stored = true;
 
@@ -190,6 +211,8 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     const rows = Object.entries({
       Type: rec.kind, Name: rec.name, Email: rec.email, Phone: rec.phone,
       Company: rec.company, Interest: rec.interest, Message: rec.message,
+      // Where this lead came from — the owner reads campaign performance straight off the alert.
+      Source: rec.src, Campaign: rec.utm_campaign || rec.utm_source,
     }).filter(([, v]) => v).map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#8a8a8a">${escHtml(k)}</td><td>${escHtml(v)}</td></tr>`).join('');
     try {
       await sendEmail(env, {

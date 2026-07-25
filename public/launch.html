@@ -186,6 +186,40 @@ window.addEventListener('DOMContentLoaded', function () {
   });
 });
 
+// ---- Campaign / creator attribution. Per-venue and per-influencer links are the whole point
+// (/launch?src=MARIA), and paid clicks arrive with utm_* or a bare gclid/fbclid. We read them on
+// load and stash them in sessionStorage so an in-session navigation (or an i18n reload) doesn't
+// lose the source before the visitor actually submits the form.
+var anejoAttr = (function () {
+  var KEY = 'anejo:attr';
+  function read() { try { return JSON.parse(sessionStorage.getItem(KEY) || 'null') || null; } catch (e) { return null; } }
+  var q;
+  try { q = new URLSearchParams(location.search); } catch (e) { q = null; }
+  var g = function (k) { return (q && q.get(k) || '').trim().slice(0, 120) || null; };
+  var a = {
+    src: g('src') || g('ref'),
+    utm_source: g('utm_source'),
+    utm_medium: g('utm_medium'),
+    utm_campaign: g('utm_campaign'),
+    referrer: null,
+  };
+  // Google/Meta auto-tagging sends only a click id — without this those clicks look like
+  // direct traffic. Never overrides an explicit utm_source.
+  if (!a.utm_source && g('gclid')) { a.utm_source = 'google'; a.utm_medium = a.utm_medium || 'cpc'; }
+  if (!a.utm_source && g('fbclid')) { a.utm_source = 'facebook'; a.utm_medium = a.utm_medium || 'social'; }
+  var tagged = !!(a.src || a.utm_source || a.utm_medium || a.utm_campaign);
+  if (tagged) {
+    // Only record an EXTERNAL referrer, and only on the tagged landing hit.
+    try {
+      if (document.referrer && document.referrer.indexOf(location.origin) !== 0) a.referrer = document.referrer.slice(0, 300);
+    } catch (e) { /* referrer stays null */ }
+    try { sessionStorage.setItem(KEY, JSON.stringify(a)); } catch (e) { /* private mode — in-memory only */ }
+    return a;
+  }
+  // Untagged hit: keep whatever this session already knows (first touch wins).
+  return read() || a;
+})();
+
 function curLang() {
   try { return (window.AnejoLang && window.AnejoLang.get) ? window.AnejoLang.get() : 'en'; }
   catch { return 'en'; }
@@ -212,6 +246,11 @@ document.getElementById('notifyForm').addEventListener('submit', async function 
     })(),
     sms_consent: f.sms_consent.checked,
     lang: curLang(),
+    src: anejoAttr.src,
+    utm_source: anejoAttr.utm_source,
+    utm_medium: anejoAttr.utm_medium,
+    utm_campaign: anejoAttr.utm_campaign,
+    referrer: anejoAttr.referrer,
   };
   if (!body.name) { err.textContent = 'Please enter your name.'; err.style.display = 'block'; return; }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.email)) { err.textContent = 'Please enter a valid email.'; err.style.display = 'block'; return; }

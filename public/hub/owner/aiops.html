@@ -69,6 +69,12 @@
     semimonthly: 19 * 24 * 3600 * 1000
   };
 
+  // Last payload from GET /api/hub/automations/run — carries `implemented` (which types the
+  // run endpoint will actually accept) and `stuck_after_ms` (the server's in-flight cutoff),
+  // so the fix buttons below can never offer an action the backend would reject.
+  var LAST = null;
+  var DEFAULT_STUCK_MS = 10 * 60 * 1000;
+
   var TYPE_BADGES = {
     route_optimize: 'Route',
     restock_suggest: 'Restock',
@@ -90,7 +96,9 @@
       '<div class="hub-section"><h2 data-i18n>Run now</h2><div class="card" id="run-now"></div>' +
       '<div id="run-result" class="card" style="display:none;margin-top:8px"><p class="row-sub" id="run-result-text"></p></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Schedule health</h2><div id="schedule-health" class="list"><div class="hub-loading">…</div></div></div>' +
-      '<div class="hub-section"><h2 data-i18n>Recent runs</h2><div id="runs" class="list"><div class="hub-loading">…</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Recent runs</h2>' +
+        '<p class="row-sub" style="margin:0 0 8px" data-i18n>“Run again” runs the job fresh on today’s data — it does not replay the original input.</p>' +
+        '<div id="runs" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Database backups</h2><div class="card">' +
         '<button class="btn ghost block" id="backup-now" type="button" data-i18n>Backup now</button>' +
         '<p class="row-sub" id="backup-status" style="margin-top:8px"></p></div>' +
@@ -155,6 +163,9 @@
     if (btn) { btn.disabled = true; btn.textContent = 'Running…'; }
     Hub.api('/api/hub/admin/ops-tick', { method: 'POST', body: {} }).then(function (r) {
       if (btn) { btn.disabled = false; btn.textContent = 'Run forecast now'; }
+      // ops-tick logs its own agent_runs row, so refresh the runs + health panels too —
+      // otherwise the Schedule-health fix button keeps claiming the job is still down.
+      loadRuns();
       if (r && r.ok) { Hub.toast('Forecast updated'); loadOps(); } else Hub.toast((r && r.error) || 'Could not run forecast');
     });
   }
@@ -211,6 +222,7 @@
         Hub.toast('Backup failed');
       }
       loadBackups();
+      loadRuns();   // backup.js logs an agent_runs row — keep Recent runs + health in step
     });
   }
 
@@ -330,11 +342,16 @@
     txt.textContent = text;
   }
 
+  // Every trigger on this page funnels through here — "Run now", the per-run "Run again", and
+  // the Schedule-health fix button — so they all share one in-flight lockout and one result
+  // line. NOTE: this always runs the automation against CURRENT data; agent_runs keeps only a
+  // summary of the original input, so there is nothing to replay.
   function runNow(type) {
-    var btns = document.querySelectorAll('#run-now [data-run]');
+    var btns = document.querySelectorAll('#run-now [data-run], #runs [data-retry], #schedule-health [data-fix]');
     btns.forEach(function (b) { b.disabled = true; });
-    showResult('…');
-    Hub.api('/api/hub/automations/run', { method: 'POST', body: { type: type } }).then(function (r) {
+    showResult(type + ' — running…');
+    return Hub.api('/api/hub/automations/run', { method: 'POST', body: { type: type } }).then(function (r) {
+      // The lists below re-render on reload, so re-enabling detached nodes is harmless.
       btns.forEach(function (b) { b.disabled = false; });
       if (r && r.ok) {
         showResult(type + ' — ' + (r.summary || r.outcome || 'done'));
@@ -351,37 +368,89 @@
     });
   }
 
+  // "Something is down" → one button that actually does something about it. Automations go
+  // back through the run endpoint; the two scheduled jobs that are NOT automations reuse the
+  // controls this page already owns for them.
+  function fixJob(type) {
+    if (type === 'demand_forecast') return runOpsNow();
+    if (type === 'd1_backup') return backupNow();
+    return runNow(type);
+  }
+
+  // Never offer a button the backend would reject: the run endpoint 501s on anything outside
+  // its implemented list, and the other two jobs are only fixable via their own endpoints.
+  function canFix(type) {
+    if (!type) return false;
+    if (type === 'demand_forecast' || type === 'd1_backup') return true;
+    var impl = (LAST && LAST.implemented) || [];
+    return impl.indexOf(type) >= 0;
+  }
+
   // ---------- recent runs ----------
   function outcomeKind(o) {
     if (o === 'success') return 'ok';
-    if (o === 'failed') return 'crit';
+    if (o === 'failed' || o === 'stuck') return 'crit';
+    if (o === 'running') return 'info';
     return 'warn';
+  }
+
+  // A run row is written up front as 'running' and rewritten on completion, so a row still
+  // marked 'running' well past the server's cutoff is a job that died mid-flight. The server
+  // sweeps those to 'stuck'; we apply the same cutoff client-side so the panel never shows a
+  // spinner for a dead job in the window before the next sweep lands.
+  function effOutcome(r, ref, stuckMs) {
+    if (r.outcome !== 'running') return r.outcome;
+    return (ref - (r.started_at || 0)) > stuckMs ? 'stuck' : 'running';
+  }
+
+  var pollTimer = null;
+  function schedulePoll(inFlight) {
+    if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+    // Poll only while a job is genuinely in flight — an idle panel must not keep hitting D1.
+    if (inFlight) pollTimer = setTimeout(loadRuns, 5000);
   }
 
   function loadRuns() {
     Owner.get('/api/hub/automations/run?limit=15').then(function (d) {
+      if (d && d.ok) LAST = d;
       renderHealth(d);
       var el = document.getElementById('runs');
       if (!el) return;
       var runs = (d && d.ok && d.runs) || [];
       if (!runs.length) {
         el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No runs yet.</p></div>';
+        schedulePoll(false);
         if (window.AnejoI18n) window.AnejoI18n.refresh();
         return;
       }
+      var ref = (d && d.server_now) || Date.now();
+      var stuckMs = (d && d.stuck_after_ms) || DEFAULT_STUCK_MS;
+      var inFlight = false;
       el.innerHTML = runs.map(function (r) {
-        var sub = (r.duration_ms != null ? r.duration_ms + 'ms' : '') +
-          (r.tokens ? ' · ' + r.tokens + ' tok' : '') +
-          ' · ' + Owner.timeAgo(r.started_at);
+        var oc = effOutcome(r, ref, stuckMs);
+        if (oc === 'running') inFlight = true;
+        var sub = oc === 'running'
+          ? 'started ' + Owner.timeAgo(r.started_at)
+          : (r.duration_ms != null ? r.duration_ms + 'ms' : '') +
+            (r.tokens ? ' · ' + r.tokens + ' tok' : '') +
+            ' · ' + Owner.timeAgo(r.started_at);
         // Why a run failed, not just that it did — the owner can't fix a blank red badge.
-        var err = (r.outcome === 'failed' && r.error)
+        var err = (oc !== 'success' && oc !== 'running' && r.error)
           ? '<div class="row-sub" style="color:var(--crit)">' + Owner.esc(String(r.error).slice(0, 240)) + '</div>' : '';
+        // No retry while it is still in flight — that would just start a second copy.
+        var retry = (canFix(r.automation_type) && oc !== 'running')
+          ? '<button class="btn ghost" data-retry="' + Owner.esc(r.automation_type || '') + '" type="button" data-i18n>Run again</button>' : '';
         return '<div class="row"><div class="row-main">' +
           '<div class="row-title">' + Owner.esc(r.automation_type || '') + '</div>' +
           '<div class="row-sub">' + sub + '</div>' + err + '</div>' +
-          Owner.badge(r.outcome || '', outcomeKind(r.outcome)) +
+          Owner.badge(oc || '', outcomeKind(oc)) + retry +
           '</div>';
       }).join('');
+      el.querySelectorAll('[data-retry]').forEach(function (b) {
+        // Disable on click: a second tap before the reload would start a duplicate job.
+        b.addEventListener('click', function () { b.disabled = true; fixJob(b.getAttribute('data-retry')); });
+      });
+      schedulePoll(inFlight);
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
   }
@@ -400,25 +469,43 @@
     var last = {};
     (d.last_runs || []).forEach(function (r) { last[r.automation_type] = r; });
     var ref = (d && d.server_now) || Date.now();
+    var stuckMs = (d && d.stuck_after_ms) || DEFAULT_STUCK_MS;
     el.innerHTML = SCHEDULED_JOBS.map(function (j) {
-      var r = last[j.type], state, kind, sub;
+      var r = last[j.type], state, kind, sub, healthy = false;
       if (!r || !r.last_started) {
         state = 'never run'; kind = 'crit';
         sub = j.when + ' · no run on record';
+      } else if (r.last_outcome === 'running' || r.last_outcome === 'stuck') {
+        // The newest row for this job is an in-flight claim. Past the cutoff it is a job that
+        // started and never came back — the loudest thing this panel can report.
+        var dead = r.last_outcome === 'stuck' || (ref - r.last_started) > stuckMs;
+        state = dead ? 'stuck' : 'running now';
+        kind = dead ? 'crit' : 'info';
+        healthy = !dead;
+        sub = j.when + ' · started ' + Owner.timeAgo(r.last_started) +
+          (dead ? ' · never reported completion' : '');
       } else {
         var overdue = (ref - r.last_started) > OVERDUE_MS[j.cadence];
         var failed = r.last_outcome !== 'success';   // 'partial' is degraded too — never green
         state = overdue ? 'overdue' : (failed ? (r.last_outcome === 'partial' ? 'last run degraded' : 'last run failed') : 'on schedule');
         kind = overdue ? 'crit' : (failed ? 'warn' : 'ok');
+        healthy = !overdue && !failed;
         sub = j.when + ' · last run ' + Owner.timeAgo(r.last_started);
         if (failed && r.last_error) sub += ' · ' + String(r.last_error).slice(0, 120);
       }
+      // The fix button the owner asked for: it only appears on a job that is actually down,
+      // and only where we have a real endpoint to run it with.
+      var fix = (!healthy && canFix(j.type))
+        ? '<button class="btn gold" data-fix="' + Owner.esc(j.type) + '" type="button" data-i18n>Run now</button>' : '';
       return '<div class="row"><div class="row-main">' +
         '<div class="row-title">' + Owner.esc(j.label) + '</div>' +
         '<div class="row-sub">' + Owner.esc(sub) + '</div></div>' +
-        Owner.badge(state, kind) +
+        Owner.badge(state, kind) + fix +
         '</div>';
     }).join('');
+    el.querySelectorAll('[data-fix]').forEach(function (b) {
+      b.addEventListener('click', function () { b.disabled = true; fixJob(b.getAttribute('data-fix')); });
+    });
   }
 
   Owner.init('aiops', render);
