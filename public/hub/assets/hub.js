@@ -25,30 +25,33 @@
     _i18nT = setTimeout(function () { _i18nT = 0; try { window.AnejoI18n.refresh(); } catch (e) {} }, 50);
   };
 
-  Hub.toast = function (msg) {
+  // A live region must already be in the DOM before its text changes, or assistive tech misses
+  // the first announcement. Create it up front rather than deferring the first toast by a tick:
+  // deferring made toast() asynchronous, which lost the message on `toast(); location.href=…`
+  // and let an earlier deferred toast overwrite a later synchronous one.
+  function toastEl() {
     var el = document.getElementById('hub-toast');
-    var fresh = false;
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'hub-toast';
-      el.className = 'hub-toast';
-      // Live region: toasts are the ONLY confirmation of every save/failure across the HUB,
-      // so a screen reader must announce them. polite (not assertive) because they follow a
-      // user action and shouldn't interrupt mid-sentence.
-      el.setAttribute('role', 'status');
-      el.setAttribute('aria-live', 'polite');
-      el.setAttribute('aria-atomic', 'true');
-      document.body.appendChild(el);
-      fresh = true;
-    }
-    var show = function () {
-      el.textContent = msg;
-      el.classList.add('show');
-      Hub.i18nRefresh();
-    };
-    // A live region has to be in the DOM BEFORE its text changes or assistive tech misses the
-    // first announcement — so on the very first toast, set the text a tick after insertion.
-    if (fresh) setTimeout(show, 0); else show();
+    if (el) return el;
+    if (!document.body) return null;
+    el = document.createElement('div');
+    el.id = 'hub-toast';
+    el.className = 'hub-toast';
+    // polite (not assertive) because toasts follow a user action and shouldn't cut in mid-sentence.
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-atomic', 'true');
+    document.body.appendChild(el);
+    return el;
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', toastEl);
+  else toastEl();
+
+  Hub.toast = function (msg) {
+    var el = toastEl();
+    if (!el) return;                       // pre-body call: nothing to announce into
+    el.textContent = msg;                  // synchronous — last caller wins, survives navigation
+    el.classList.add('show');
+    Hub.i18nRefresh();
     clearTimeout(Hub._toastT);
     Hub._toastT = setTimeout(function () {
       el.classList.remove('show');

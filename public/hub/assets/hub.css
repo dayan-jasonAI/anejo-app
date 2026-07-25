@@ -48,7 +48,12 @@ a { color: var(--green); }
 
 /* Keyboard focus ring. The browser default is invisible against the dark bar/nav and gets
    suppressed by resets, leaving keyboard users with no position indicator — make it explicit
-   and brand-gold on every focusable control. :focus-visible only, so mouse clicks stay clean. */
+   on every focusable control. :focus-visible only, so mouse clicks stay clean.
+
+   Gold ALONE fails WCAG 2.2 SC 1.4.11: #C6A85B on the cream page background is only 2.05:1
+   (3:1 required), and most controls sit on cream/white — so the gold ring is paired with a
+   dark green halo, which carries the contrast on light surfaces (green-on-cream ≈ 11:1) while
+   the gold keeps it visible on the dark app bar and nav. */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
@@ -58,6 +63,7 @@ summary:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--green);
 }
 
 /* ---------- App bar ---------- */
