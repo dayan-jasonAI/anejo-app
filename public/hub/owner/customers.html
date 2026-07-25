@@ -15,6 +15,7 @@
   .oi-row { display:grid; grid-template-columns: 1fr 64px 84px 36px; gap:8px; margin-bottom:8px; align-items:center; }
   .oi-row input { padding:9px; }
   .oi-row .rm { background:transparent;border:1px solid var(--line);color:var(--crit);border-radius:8px;cursor:pointer;height:38px; }
+  .addr-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .totals { display:flex; justify-content:space-between; padding:8px 2px; font-size:14px; }
   .totals b { font-size:16px; }
   .profile-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:13px; }
@@ -86,6 +87,16 @@
           '<div class="field"><label data-i18n>Delivery date</label><input id="o-date" type="date"></div>' +
           '<div class="field"><label data-i18n>Window</label><select id="o-window">' +
             '<option value="lunch" data-i18n>Lunch</option><option value="dinner" data-i18n>Dinner</option></select></div>' +
+          // Without an address the order can never be put on a route — it shows as "no address"
+          // in Deliveries forever. Leave blank only for a pickup / counter sale.
+          '<div class="field"><label data-i18n>Delivery address</label>' +
+            '<input id="o-street" type="text" placeholder="Street address" autocomplete="off">' +
+            '<div class="addr-row" style="margin-top:8px"><input id="o-unit" type="text" placeholder="Apt / unit (optional)" autocomplete="off">' +
+            '<input id="o-city" type="text" placeholder="City" autocomplete="off"></div>' +
+            '<div class="addr-row" style="margin-top:8px;grid-template-columns:88px 1fr"><input id="o-state" type="text" value="FL" maxlength="2" autocomplete="off">' +
+            '<input id="o-zip" type="text" inputmode="numeric" placeholder="ZIP" maxlength="5" autocomplete="off"></div>' +
+            '<input id="o-anotes" type="text" placeholder="Gate code / drop-off notes (optional)" autocomplete="off" style="margin-top:8px">' +
+            '<p class="row-sub" style="margin:6px 0 0" data-i18n>Leave blank only for pickup — an order with no address can’t be routed.</p></div>' +
           '<div class="field"><label data-i18n>Items</label><div id="o-lines"></div>' +
             '<button class="btn ghost block" id="o-addline" type="button" data-i18n>+ Add item</button></div>' +
           '<div class="field"><label data-i18n>Note (optional)</label><input id="o-note" type="text" autocomplete="off"></div>' +
@@ -189,6 +200,14 @@
         $('#o-name').value = d.name || '';
         $('#o-email').value = d.email || '';
         $('#o-phone').value = (d.client && d.client.phone) || '';
+        // Reuse the client's saved delivery address so the owner isn't retyping it (and so the
+        // order lands routable by default).
+        var c = d.client || {};
+        $('#o-street').value = c.delivery_street || '';
+        $('#o-unit').value = c.delivery_unit || '';
+        $('#o-city').value = c.delivery_city || '';
+        $('#o-state').value = c.delivery_state || 'FL';
+        $('#o-zip').value = c.delivery_zip || '';
         window.location.hash = '';
         var sec = $('#neworder-section');
         if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth' });
@@ -377,6 +396,13 @@
     if (!items.length) return Hub.toast('Add at least one item.');
     var date = $('#o-date').value;
     if (!date) return Hub.toast('Pick a delivery date.');
+    var street = $('#o-street').value.trim();
+    var city = $('#o-city').value.trim();
+    var zip = $('#o-zip').value.trim();
+    // Partial addresses can't be geocoded — catch it here rather than at the API.
+    if ((street || city || zip) && !(street && city && /^\d{5}$/.test(zip))) {
+      return Hub.toast('Delivery address needs a street, city, and 5-digit ZIP.');
+    }
     var body = {
       customer_name: name,
       customer_email: $('#o-email').value.trim() || null,
@@ -385,7 +411,15 @@
       delivery_date: date,
       delivery_window: $('#o-window').value,
       status: $('#o-status').value,
-      note: $('#o-note').value.trim() || null
+      note: $('#o-note').value.trim() || null,
+      address: street ? {
+        street: street,
+        unit: $('#o-unit').value.trim() || null,
+        city: city,
+        state: $('#o-state').value.trim() || 'FL',
+        zip: zip,
+        notes: $('#o-anotes').value.trim() || null
+      } : null
     };
     var btn = $('#o-create'); btn.disabled = true;
     Hub.api('/api/hub/owner/orders', { method: 'POST', body: body }).then(function (r) {
@@ -394,6 +428,8 @@
         Hub.toast('Order created');
         $('#o-lines').innerHTML = ''; addLine();
         $('#o-name').value = ''; $('#o-email').value = ''; $('#o-phone').value = ''; $('#o-note').value = '';
+        $('#o-street').value = ''; $('#o-unit').value = ''; $('#o-city').value = '';
+        $('#o-state').value = 'FL'; $('#o-zip').value = ''; $('#o-anotes').value = '';
         $('#o-date').value = todayStr();
         preview();
         window.location.hash = '';

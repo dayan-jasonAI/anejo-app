@@ -146,7 +146,8 @@
     }).join('');
   }
 
-  Owner.init('contracts', render);
+  // Reached from Contracts, which lives under the Customers desk — highlight that tab.
+  Owner.init('customers', render);
 })();
 </script>
 <script src="assets/operator.js" defer></script>

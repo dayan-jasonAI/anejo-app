@@ -90,6 +90,28 @@
     });
   };
 
+  // ---- Recovering a route no driver took (unfilled / declined) ----
+  // Re-offer asks the drivers again (including the ones who passed); release cancels the route
+  // and hands its orders back to the unassigned list so they can be re-planned or re-batched.
+  window.__reoffer = function (rid) {
+    Hub.api('/api/hub/owner/routes', { method: 'POST', body: { action: 'reoffer', route_id: rid } }).then(function (r) {
+      if (r && r.ok) {
+        Hub.toast(r.already === 'pending' ? 'Already awaiting a driver'
+          : r.unfilled ? 'No driver available — still unfilled' : 'Re-offered to a driver');
+        loadAssign(); loadToday();
+      } else Hub.toast((r && r.error) || 'Could not re-offer');
+    });
+  };
+  window.__releaseRoute = function (rid) {
+    if (!window.confirm('Cancel this route and put its stops back in the unassigned list?')) return;
+    Hub.api('/api/hub/owner/routes', { method: 'POST', body: { action: 'release', route_id: rid } }).then(function (r) {
+      if (r && r.ok) {
+        Hub.toast(r.stops_released ? r.stops_released + ' stop' + (r.stops_released > 1 ? 's' : '') + ' back in the unassigned list' : 'Route already released');
+        loadAssign(); loadToday();
+      } else Hub.toast((r && r.error) || 'Could not release route');
+    });
+  };
+
   // ---- Owner pay settings (rates take effect on the next route assigned) ----
   function paySettingsHtml() {
     return '<details class="aud" style="margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:0 12px">' +
@@ -212,8 +234,18 @@
         var offer = ro.offer_status === 'pending' ? ' <span class="badge warn" data-i18n>awaiting driver</span>'
           : ro.offer_status === 'unfilled' ? ' <span class="badge crit" data-i18n>unfilled — reassign</span>'
           : ro.offer_status === 'declined' ? ' <span class="badge warn" data-i18n>declined</span>' : '';
+        // A route nobody took holds its orders hostage (they're hidden from the unassigned list
+        // while a route_stops row exists) — so give the owner a real way out of that state.
+        var stuck = ro.status === 'assigned' && (ro.offer_status === 'unfilled' || ro.offer_status === 'declined');
+        var rid = Owner.esc(ro.id);
+        var actions = stuck
+          ? '<div style="display:flex;gap:8px;margin-top:6px">' +
+              '<button class="btn ghost" type="button" style="flex:1" onclick="__reoffer(\'' + rid + '\')" data-i18n>Re-offer</button>' +
+              '<button class="btn ghost" type="button" style="flex:1" onclick="__releaseRoute(\'' + rid + '\')" data-i18n>Release stops</button>' +
+            '</div>'
+          : '';
         return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(ro.driver_name || 'Unassigned') +
-          (ro.ai_optimized ? ' ⚡' : '') + offer + '</div><div class="row-sub">' + routeMeta(ro) + '</div></div>' +
+          (ro.ai_optimized ? ' ⚡' : '') + offer + '</div><div class="row-sub">' + routeMeta(ro) + '</div>' + actions + '</div>' +
           Owner.badge(ro.status, Owner.kindFor(ro.status)) + '</div>';
       }).join('') : '<div class="hub-empty" data-i18n>No routes yet.</div>';
       if (window.AnejoI18n) window.AnejoI18n.refresh();

@@ -1,11 +1,14 @@
 // /api/hub/owner/orders — manual order entry (phone / in-person sales).
 //   POST { customer_name, customer_email?, phone?, items:[{name,qty,price_cents?}],
 //          delivery_date, delivery_window:'lunch'|'dinner', subtotal_cents?, fee_cents?,
-//          status?:'paid'|'pending', note? }
+//          status?:'paid'|'pending', note?,
+//          address?:{street,unit?,city,state?,zip,notes?} }
 //        → inserts an orders row (square_order_id NULL marks it manual), default status
 //          'paid' (payment collected by hand), totals computed server-side
 //          (tax from env.SALES_TAX_PCT, default 7%). Note/phone ride along inside the
 //          items JSON as a trailing meta entry so the kitchen board surfaces them.
+//          Address + phone are ALSO stored in the same columns the public checkout uses,
+//          and geocoded best-effort — without them the order can never be routed.
 //          Fires order.received {manual:true}. NO SMS is sent from here.
 //   GET  → recent manual orders (square_order_id IS NULL), newest first, limit 20.
 // Owner-only.
@@ -13,7 +16,32 @@ import { json, bad, id, now, isEmail, normalizePhone } from '../../../_lib/util.
 import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { parseJson } from '../../../_lib/hub.js';
+import { geocode, formatAddress } from '../../../_lib/geo.js';
 import { awardOrderPoints } from '../../../_lib/rewards.js';
+
+// Delivery address — optional here (a counter sale has none), but a partial one is rejected:
+// half an address can't be geocoded or routed. Mirrors checkout.js's parseAddress.
+// Returns { addr } (addr null when nothing was entered) or { error }.
+function parseAddress(raw) {
+  const a = raw || {};
+  const street = (a.street || '').toString().trim();
+  const city = (a.city || '').toString().trim();
+  const zip = (a.zip || '').toString().trim();
+  if (!street && !city && !zip) return { addr: null };
+  if (!street) return { error: 'Enter the delivery street address.' };
+  if (!city) return { error: 'Enter the delivery city.' };
+  if (!/^\d{5}$/.test(zip)) return { error: 'Enter a valid 5-digit ZIP code.' };
+  return {
+    addr: {
+      street: street.slice(0, 160),
+      unit: (a.unit || '').toString().trim().slice(0, 60) || null,
+      city: city.slice(0, 80),
+      state: ((a.state || 'FL').toString().trim() || 'FL').slice(0, 20),
+      zip,
+      notes: (a.notes || '').toString().trim().slice(0, 240) || null,
+    },
+  };
+}
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -51,6 +79,10 @@ export const onRequestPost = async ({ request, env }) => {
   if (!customerEmail) customerEmail = null;
 
   const phone = normalizePhone(b && b.phone);
+
+  const parsedAddr = parseAddress(b && b.address);
+  if (parsedAddr.error) return bad(parsedAddr.error);
+  const addr = parsedAddr.addr;
 
   const dateStr = (b && b.delivery_date || '').toString().trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return bad('Delivery date must be YYYY-MM-DD.');
@@ -107,14 +139,28 @@ export const onRequestPost = async ({ request, env }) => {
 
   const orderId = id('ord');
   const t = now();
+
+  // Best-effort geocode so the stop can be mapped + optimized (no-ops without GOOGLE_MAPS_API_KEY;
+  // the route builder geocodes again at assignment time if this misses).
+  let lat = null, lng = null, geocodedAt = null;
+  if (addr) {
+    const g = await geocode(env, formatAddress(addr)).catch(() => null);
+    if (g) { lat = g.lat; lng = g.lng; geocodedAt = t; }
+  }
+
   await env.DB.prepare(
     `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
         subtotal_cents, fee_cents, tax_pct, total_estimate_cents, status, customer_name, customer_email,
-        created_at, updated_at)
-     VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        customer_phone, delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip,
+        delivery_notes, delivery_lat, delivery_lng, geocoded_at, created_at, updated_at)
+     VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     orderId, JSON.stringify(orderItems), dateStr, win,
-    subtotalCents, feeCents, taxPct, totalCents, status, customerName, customerEmail, t, t
+    subtotalCents, feeCents, taxPct, totalCents, status, customerName, customerEmail,
+    phone,
+    addr ? addr.street : null, addr ? addr.unit : null, addr ? addr.city : null,
+    addr ? addr.state : null, addr ? addr.zip : null, addr ? addr.notes : null,
+    lat, lng, geocodedAt, t, t
   ).run();
 
   if (status === 'paid' && customerEmail) {
@@ -126,7 +172,7 @@ export const onRequestPost = async ({ request, env }) => {
     distinct_id: ctx.distinct_id,
     role: ctx.role,
     team: ctx.team,
-    properties: { order_id: orderId, item_count: itemCount, delivery_window: win, manual: true },
+    properties: { order_id: orderId, item_count: itemCount, delivery_window: win, manual: true, has_address: !!addr, geocoded: lat != null },
   });
 
   return json({
@@ -144,6 +190,9 @@ export const onRequestPost = async ({ request, env }) => {
       status,
       customer_name: customerName,
       customer_email: customerEmail,
+      customer_phone: phone,
+      address: addr ? formatAddress(addr) : null,
+      geocoded: lat != null,
       created_at: t,
     },
   });

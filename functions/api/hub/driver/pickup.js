@@ -132,7 +132,9 @@ export const onRequestPost = async ({ request, env }) => {
   if (hasMissing) {
     const who = (stop.customer_name || '').split(' ')[0] || 'an order';
     await raiseAlert(env, {
-      alert_type: 'delivery_failed', severity: 'high',
+      // Warning, not critical: one order is short and the kitchen can still fix it
+      // before the route leaves — same rank as a single failed delivery.
+      alert_type: 'delivery_failed', severity: 'warning',
       title: `Missing bowl(s) at pickup — ${who}`,
       body: `Driver flagged ${missing.length} missing/short bowl(s) loading ${who}'s order (stop ${stop.seq}). Kitchen should reconcile before the route leaves.`,
       ref_type: 'order', ref_id: stop.order_id,

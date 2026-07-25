@@ -46,6 +46,20 @@ body {
 
 a { color: var(--green); }
 
+/* Keyboard focus ring. The browser default is invisible against the dark bar/nav and gets
+   suppressed by resets, leaving keyboard users with no position indicator — make it explicit
+   and brand-gold on every focusable control. :focus-visible only, so mouse clicks stay clean. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
 /* ---------- App bar ---------- */
 .hub-bar {
   background: var(--black);

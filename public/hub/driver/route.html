@@ -124,6 +124,16 @@
   Hub.boot();
   if (window.Driver && Driver.nav) Driver.nav('route');
 
+  var ltBtn = document.getElementById('lang-toggle');
+  if (ltBtn && window.AnejoLang) {
+    ltBtn.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    ltBtn.addEventListener('click', function () {
+      var next = window.AnejoLang.get() === 'es' ? 'en' : 'es';
+      window.AnejoLang.set(next);
+      ltBtn.textContent = next === 'es' ? 'EN' : 'ES';
+    });
+  }
+
   var routeData = null, pickupData = null, current = null, mode = 'deliver';
   var gpsTimer = null;
   var head = document.getElementById('route-head');

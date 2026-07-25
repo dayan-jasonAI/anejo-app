@@ -18,10 +18,21 @@ export const ALERT_TYPES = [
   'eod_missing', 'temp_excursion', 'delivery_failed', 'late_clock_in',
   'expense_pending', 'low_stock', 'negative_sentiment',
 ];
+// Alert severity is a THREE-level scale and is deliberately not the same scale as
+// `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:
+//   critical — the whole day's operation breaks unless someone acts now (route unfilled,
+//              temp excursion, urgent safety ticket). Only 'critical' turns the owner
+//              dashboard red, so anything less must not use it.
+//   warning  — a single order/shift needs a human, but the day still runs.
+//   info     — FYI, no action required.
 export const ALERT_SEVERITIES = ['info', 'warning', 'critical'];
 
 function normSeverity(s) {
-  return ALERT_SEVERITIES.includes(s) ? s : 'warning';
+  if (ALERT_SEVERITIES.includes(s)) return s;
+  // Falling back is safe, but a caller passing e.g. a ticket severity means the alert is
+  // silently mis-ranked — log it so miswiring shows up in `wrangler tail` instead of never.
+  if (s != null) console.warn('raiseAlert: unknown severity', s, '— falling back to warning');
+  return 'warning';
 }
 
 // Raise (or de-dupe) an alert. Returns { ok, id, deduped } or { ok:false } on failure.

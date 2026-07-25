@@ -45,6 +45,30 @@
     { type: 'payroll_prep', label: 'Payroll prep' }
   ];
 
+  // Expected cadence of every scheduled job, mirroring cron/wrangler.toml + cron/worker.js
+  // (SCHEDULE + EXTRA_ENDPOINTS). Only jobs that write an agent_runs row can be verified, so
+  // the sweep endpoints (offers/reminders/subscriptions/addons/ops-report) are deliberately
+  // absent here rather than reported as healthy. Keep in sync when cron/worker.js changes.
+  var SCHEDULED_JOBS = [
+    { type: 'eod_chase', label: 'EOD chase', cadence: 'daily', when: '01:30 UTC daily' },
+    { type: 'daily_summary', label: 'Daily summary', cadence: 'daily', when: '01:30 UTC daily' },
+    { type: 'demand_forecast', label: 'Demand forecast', cadence: 'daily', when: '02:00 UTC daily' },
+    { type: 'route_optimize', label: 'Route optimize', cadence: 'daily', when: '09:30 UTC daily' },
+    { type: 'sentiment_scan', label: 'Sentiment scan', cadence: 'daily', when: '18:00 UTC daily' },
+    { type: 'ticket_triage', label: 'Ticket triage', cadence: 'daily', when: '18:00 UTC daily' },
+    { type: 'restock_suggest', label: 'Restock suggest', cadence: 'weekly', when: 'Mondays 10:00 UTC' },
+    { type: 'd1_backup', label: 'Database backup', cadence: 'weekly', when: 'Mondays 10:00 UTC' },
+    { type: 'payroll_prep', label: 'Payroll prep', cadence: 'semimonthly', when: '1st + 15th, 12:00 UTC' }
+  ];
+
+  // Overdue = one grace period past the longest normal gap (daily 24h, weekly 7d,
+  // semi-monthly 16d) so a single late/retried run doesn't cry wolf.
+  var OVERDUE_MS = {
+    daily: 26 * 3600 * 1000,
+    weekly: 8 * 24 * 3600 * 1000,
+    semimonthly: 17 * 24 * 3600 * 1000
+  };
+
   var TYPE_BADGES = {
     route_optimize: 'Route',
     restock_suggest: 'Restock',
@@ -65,6 +89,7 @@
       '<div class="hub-section"><h2 data-i18n>🤖 AI Suggestions</h2><div id="suggestions" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Run now</h2><div class="card" id="run-now"></div>' +
       '<div id="run-result" class="card" style="display:none;margin-top:8px"><p class="row-sub" id="run-result-text"></p></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Schedule health</h2><div id="schedule-health" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Recent runs</h2><div id="runs" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Database backups</h2><div class="card">' +
         '<button class="btn ghost block" id="backup-now" type="button" data-i18n>Backup now</button>' +
@@ -335,6 +360,7 @@
 
   function loadRuns() {
     Owner.get('/api/hub/automations/run?limit=15').then(function (d) {
+      renderHealth(d);
       var el = document.getElementById('runs');
       if (!el) return;
       var runs = (d && d.ok && d.runs) || [];
@@ -347,14 +373,52 @@
         var sub = (r.duration_ms != null ? r.duration_ms + 'ms' : '') +
           (r.tokens ? ' · ' + r.tokens + ' tok' : '') +
           ' · ' + Owner.timeAgo(r.started_at);
+        // Why a run failed, not just that it did — the owner can't fix a blank red badge.
+        var err = (r.outcome === 'failed' && r.error)
+          ? '<div class="row-sub" style="color:var(--crit)">' + Owner.esc(String(r.error).slice(0, 240)) + '</div>' : '';
         return '<div class="row"><div class="row-main">' +
           '<div class="row-title">' + Owner.esc(r.automation_type || '') + '</div>' +
-          '<div class="row-sub">' + sub + '</div></div>' +
+          '<div class="row-sub">' + sub + '</div>' + err + '</div>' +
           Owner.badge(r.outcome || '', outcomeKind(r.outcome)) +
           '</div>';
       }).join('');
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
+  }
+
+  // ---------- schedule health ----------
+  // Answers "is the cron worker still alive?" — a job with no run row is reported as
+  // "never run", never as healthy.
+  function renderHealth(d) {
+    var el = document.getElementById('schedule-health');
+    if (!el) return;
+    // A failed fetch is not evidence that nothing ran — say so instead of flagging everything.
+    if (!d || !d.ok) {
+      el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>Could not load schedule health.</p></div>';
+      return;
+    }
+    var last = {};
+    (d.last_runs || []).forEach(function (r) { last[r.automation_type] = r; });
+    var ref = (d && d.server_now) || Date.now();
+    el.innerHTML = SCHEDULED_JOBS.map(function (j) {
+      var r = last[j.type], state, kind, sub;
+      if (!r || !r.last_started) {
+        state = 'never run'; kind = 'crit';
+        sub = j.when + ' · no run on record';
+      } else {
+        var overdue = (ref - r.last_started) > OVERDUE_MS[j.cadence];
+        var failed = r.last_outcome === 'failed';
+        state = overdue ? 'overdue' : (failed ? 'last run failed' : 'on schedule');
+        kind = overdue ? 'crit' : (failed ? 'warn' : 'ok');
+        sub = j.when + ' · last run ' + Owner.timeAgo(r.last_started);
+        if (failed && r.last_error) sub += ' · ' + String(r.last_error).slice(0, 120);
+      }
+      return '<div class="row"><div class="row-main">' +
+        '<div class="row-title">' + Owner.esc(j.label) + '</div>' +
+        '<div class="row-sub">' + Owner.esc(sub) + '</div></div>' +
+        Owner.badge(state, kind) +
+        '</div>';
+    }).join('');
   }
 
   Owner.init('aiops', render);

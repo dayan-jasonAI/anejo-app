@@ -5,16 +5,31 @@
 //   GET  → owner only: list the most recent backups in R2 + r2_enabled flag.
 //
 // This is the keystone of Phase 5 — production has no D1 backup until this runs.
-// Everything below is defensive: a missing R2 binding returns HTTP 200 with
-// { ok:false, reason:'R2 not enabled' } rather than a 5xx, and the backup library
-// never throws.
+// The backup library never throws, but this handler deliberately does NOT swallow the
+// outcome: a POST that failed to produce a backup answers with a 5xx and raises an owner
+// alert, because a silent HTTP 200 makes an unprotected database look healthy in the cron log.
 import { json, bad, id, now } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { toJson } from '../../../_lib/hub.js';
 import { captureSystem } from '../../../_lib/track.js';
+import { raiseAlert } from '../../../_lib/alerts.js';
 import { runBackup, pruneBackups } from '../../../_lib/backup.js';
 
 const RETENTION_DAYS = 30;
+
+// One stable dedupe key so a backup that keeps failing leaves ONE open alert on the owner's
+// dashboard until it's acknowledged, not one per weekly run. 'warning', not 'critical':
+// nothing about today's service breaks — but the owner has to see it.
+function alertBackupFailed(env, reason) {
+  return raiseAlert(env, {
+    alert_type: 'backup_failed',
+    severity: 'warning',
+    title: 'Database backup failed',
+    body: 'The D1 → R2 backup did not complete (' + (reason || 'unknown') + '). The database is unprotected until it succeeds.',
+    source: 'automation',
+    dedupe_key: 'backup_failed',
+  });
+}
 
 // Constant-time string compare so the cron-key check can't be timing-probed.
 function ctEq(a, b) {
@@ -37,9 +52,11 @@ export const onRequestPost = async ({ request, env }) => {
     triggeredBy = 'owner';
   }
 
-  // R2 absent → degrade gracefully (HTTP 200, not an error code).
+  // R2 absent → the backup can never run, so this is a failure, not a graceful degrade.
+  // Body shape is unchanged (the owner UI keys off `reason`); only the status code moved.
   if (!env.MEDIA) {
-    return json({ ok: false, stored: false, reason: 'R2 not enabled' }, 200);
+    await alertBackupFailed(env, 'R2 not enabled');
+    return json({ ok: false, stored: false, reason: 'R2 not enabled' }, 503);
   }
 
   const started = now();
@@ -93,10 +110,16 @@ export const onRequestPost = async ({ request, env }) => {
           finished
         )
         .run();
-    } catch {
-      /* best-effort */
+    } catch (e) {
+      // Best-effort, but never silent: this row is the owner's only in-app proof a backup
+      // ran, and a swallowed bind-arity error already cost us six runs' worth of rows.
+      console.warn('backup: agent_runs insert failed —', (e && e.message) || e);
     }
   }
+
+  // Make the failure impossible to miss: an alert the owner sees in the HUB, and a 5xx so
+  // the cron worker logs `HTTP 500` instead of a reassuring 200.
+  if (!ok) await alertBackupFailed(env, (backup && (backup.reason || backup.error)) || 'failed');
 
   return json({
     ok,
@@ -111,7 +134,7 @@ export const onRequestPost = async ({ request, env }) => {
     pruned: prune && prune.deleted,
     retention_days: RETENTION_DAYS,
     duration_ms: finished - started,
-  });
+  }, ok ? 200 : 500);
 };
 
 export const onRequestGet = async ({ request, env }) => {

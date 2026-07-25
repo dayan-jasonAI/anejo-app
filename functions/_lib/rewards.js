@@ -24,6 +24,12 @@ export const DEFAULT_CONFIG = {
 };
 const RWD_KEY = 'rewards:config';
 
+// The order lifecycle is pending → paid → prep → ready → fulfilled (+ canceled). Money is
+// taken at 'paid', so EVERY post-payment status counts toward lifetime spend — filtering on
+// just the two endpoints made an order in the kitchen read as $0 and dropped the member to
+// the floor tier until the driver marked it fulfilled.
+const PAID_STATUSES = "('paid','prep','ready','fulfilled')";
+
 const key = (e) => String(e == null ? '' : e).trim().toLowerCase();
 const numOr = (v, d, lo, hi) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
 const intOr = (v, d, lo, hi) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
@@ -115,7 +121,7 @@ export async function awardOrderPoints(env, { orderId, email, subtotalCents, pro
   try {
     const r = await env.DB.prepare(
       "SELECT COALESCE(SUM(total_estimate_cents),0) AS c FROM orders " +
-      "WHERE LOWER(TRIM(customer_email))=? AND status IN ('paid','fulfilled') AND id<>?"
+      'WHERE LOWER(TRIM(customer_email))=? AND status IN ' + PAID_STATUSES + ' AND id<>?'
     ).bind(em, orderId).first();
     priorCents = (r && r.c) || 0;
   } catch { priorCents = 0; }
@@ -186,7 +192,7 @@ export async function lifetimeSpendCents(env, email) {
   try {
     const r = await env.DB.prepare(
       "SELECT COALESCE(SUM(total_estimate_cents),0) AS c FROM orders " +
-      "WHERE LOWER(TRIM(customer_email))=? AND status IN ('paid','fulfilled')"
+      'WHERE LOWER(TRIM(customer_email))=? AND status IN ' + PAID_STATUSES
     ).bind(em).first();
     return (r && r.c) || 0;
   } catch { return 0; }

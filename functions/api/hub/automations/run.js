@@ -1,6 +1,6 @@
 // /api/hub/automations/run
 //   POST { type, date? }  → run an automation now.
-//   GET  ?limit=20        → recent agent_runs (owner visibility).
+//   GET  ?limit=20        → recent agent_runs + last-run-per-type (owner visibility).
 // Auth: owner session OR a matching x-cron-key header (env.CRON_KEY) for a scheduled
 // trigger. NOTE: Cloudflare Pages Functions have no native cron — a tiny Workers cron (or
 // any scheduler) should POST here daily with the X-Cron-Key header. That deploy is an
@@ -50,5 +50,18 @@ export const onRequestGet = async ({ request, env }) => {
     .prepare('SELECT id, automation_type, outcome, duration_ms, tokens, started_at, finished_at, error FROM agent_runs ORDER BY started_at DESC LIMIT ?')
     .bind(limit)
     .all();
-  return json({ ok: true, runs: (res && res.results) || [], implemented: IMPLEMENTED, planned: PLANNED });
+  // Last run per automation type — powers the Schedule health panel. Without it a dead cron
+  // worker is invisible: "Recent runs" just quietly stops growing and the HUB looks normal.
+  // SQLite's bare-column rule returns outcome/error from the same row as MAX(started_at).
+  const last = await env.DB
+    .prepare('SELECT automation_type, MAX(started_at) AS last_started, outcome AS last_outcome, error AS last_error, COUNT(*) AS run_count FROM agent_runs WHERE automation_type IS NOT NULL GROUP BY automation_type')
+    .all();
+  return json({
+    ok: true,
+    runs: (res && res.results) || [],
+    last_runs: (last && last.results) || [],
+    server_now: Date.now(),   // staleness is judged against server time, not a skewed client clock
+    implemented: IMPLEMENTED,
+    planned: PLANNED,
+  });
 };

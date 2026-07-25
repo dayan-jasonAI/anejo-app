@@ -6,14 +6,47 @@
 //        → creates a routes row + route_stops seq 1..n, fires route.assigned,
 //          SMSes the driver (safe no-op without Twilio creds) and posts an in_app
 //          thread message so the route shows up in their HUB inbox.
+//   POST { action:'reoffer', route_id, driver_id? }
+//        → clears the declined list and offers the route again (to that driver, or the
+//          next available one). Recovery for a route nobody picked up.
+//   POST { action:'release', route_id }
+//        → cancels the route and DELETES its stops, putting its orders back in the
+//          unassigned list. Without this an unfilled route strands its orders forever:
+//          the unassigned query excludes anything with a route_stops row.
 // Owner-only. Stop labels carry customer name + window — never a street address.
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { today } from '../../../_lib/hub.js';
+import { now, today } from '../../../_lib/hub.js';
+import { capture } from '../../../_lib/track.js';
 import { formatAddress } from '../../../_lib/geo.js';
 import { assignRoute } from '../../../_lib/routing.js';
+import { sendOffer, offerToNext } from '../../../_lib/dispatch.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Offer states the owner may still take a route back from. 'accepted' is deliberately absent:
+// once a driver owns the route, yanking its stops is a dispatch bug, not a recovery. (Legacy
+// rows predate offer_status and default to 'accepted', so they're treated the same way.)
+const RECOVERABLE = ['pending', 'declined', 'unfilled'];
+
+// A route is only recoverable while nothing has physically happened on it — still 'assigned',
+// never started, and every stop untouched (nothing loaded, navigated, delivered or failed).
+// Returns { route } | { route, canceled:true } | { error, status }.
+async function recoverableRoute(env, routeId) {
+  const route = await env.DB.prepare('SELECT * FROM routes WHERE id=?').bind(routeId).first();
+  if (!route) return { error: 'That route was not found.', status: 404 };
+  if (route.status === 'canceled') return { route, canceled: true };
+  if (route.status !== 'assigned') return { error: `That route is already ${route.status}.`, status: 409 };
+  if (route.started_at) return { error: 'The driver already started that route.', status: 409 };
+  if (!RECOVERABLE.includes(route.offer_status || 'accepted')) {
+    return { error: 'A driver has accepted that route — have them deny it before reassigning.', status: 409 };
+  }
+  const moved = await env.DB
+    .prepare("SELECT COUNT(*) AS n FROM route_stops WHERE route_id=? AND status <> 'pending'")
+    .bind(routeId)
+    .first();
+  if (moved && moved.n) return { error: 'The driver has already picked up stops on that route.', status: 409 };
+  return { route };
+}
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -82,6 +115,68 @@ export const onRequestPost = async ({ request, env }) => {
 
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
+
+  // An `action` targets an EXISTING route; no action means "create a route" (the original body).
+  const action = (b && b.action || '').toString().trim();
+  if (action) {
+    if (action !== 'release' && action !== 'reoffer') return bad('Unknown action.');
+    const routeId = (b && b.route_id || '').toString().trim();
+    if (!routeId) return bad('Missing route id.');
+    const r = await recoverableRoute(env, routeId);
+    if (r.error) return bad(r.error, r.status);
+    const t = now();
+
+    if (action === 'release') {
+      // Already canceled → no-op, so a double tap (or a retried request) isn't an error.
+      if (r.canceled) return json({ ok: true, route_id: routeId, stops_released: 0, already: true });
+      const cnt = await env.DB.prepare('SELECT COUNT(*) AS n FROM route_stops WHERE route_id=?').bind(routeId).first();
+      const stops = (cnt && cnt.n) || 0;
+      // Deleting the stops is what actually frees the orders — the unassigned query keys off
+      // route_stops, not the route's status.
+      await env.DB.prepare('DELETE FROM route_stops WHERE route_id=?').bind(routeId).run();
+      await env.DB.prepare("UPDATE routes SET status='canceled', stop_count=0, updated_at=? WHERE id=?").bind(t, routeId).run();
+      await capture(env, {
+        event: 'route.released',
+        distinct_id: ctx.distinct_id,
+        role: ctx.role,
+        team: ctx.team,
+        properties: { route_id: routeId, stops_released: stops, offer_status: r.route.offer_status || null },
+      });
+      return json({ ok: true, route_id: routeId, stops_released: stops });
+    }
+
+    // reoffer — a canceled route has no stops left to deliver.
+    if (r.canceled) return bad('That route was canceled — its orders are back in the unassigned list.', 409);
+    // A live offer is left alone: re-sending would text the same driver again. The 2-minute
+    // offer sweep (admin/offers-tick) rolls a silent driver on its own.
+    if (r.route.offer_status === 'pending') return json({ ok: true, route_id: routeId, already: 'pending', offer_status: 'pending' });
+
+    let drv = null;
+    const reDriverId = (b && b.driver_id || '').toString().trim();
+    if (reDriverId) {
+      drv = await env.DB.prepare("SELECT id, name, phone FROM staff WHERE id=? AND role='driver' AND active=1").bind(reDriverId).first();
+      if (!drv) return bad('That driver was not found or is inactive.', 404);
+    }
+    // Clear the declined list: everyone who passed earlier is eligible again (a driver who was
+    // busy at 11 may be free at noon), otherwise a route that went unfilled can never re-fill.
+    await env.DB.prepare("UPDATE routes SET declined_ids='[]', updated_at=? WHERE id=?").bind(t, routeId).run();
+    const offer = drv ? await sendOffer(env, r.route, drv) : await offerToNext(env, routeId);
+    await capture(env, {
+      event: 'route.reoffered',
+      distinct_id: ctx.distinct_id,
+      role: ctx.role,
+      team: ctx.team,
+      properties: { route_id: routeId, driver_id: (offer && offer.offered_to) || null, unfilled: !!(offer && offer.unfilled) },
+    });
+    return json({
+      ok: true,
+      route_id: routeId,
+      offer_status: offer && offer.unfilled ? 'unfilled' : 'pending',
+      offered_to: (offer && offer.offered_to) || null,
+      unfilled: !!(offer && offer.unfilled),
+    });
+  }
+
   const driverId = (b && b.driver_id || '').toString().trim();
   let routeDate = (b && b.route_date || '').toString().trim();
   const orderIds = Array.isArray(b && b.order_ids) ? b.order_ids.map(String).filter(Boolean) : [];

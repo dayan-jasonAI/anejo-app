@@ -107,7 +107,9 @@ export async function offerToNext(env, routeId) {
     await recordOutcome(env, routeId, null, 'unfilled');
     try {
       await raiseAlert(env, {
-        alert_type: 'delivery_failed', severity: 'high',
+        // Critical: nobody is driving today's route, so every stop on it fails unless
+        // the owner assigns a driver by hand.
+        alert_type: 'delivery_failed', severity: 'critical',
         title: 'Route unfilled — no driver accepted',
         body: `No available driver accepted the route for ${route.route_date} (${route.stop_count || '?'} stops). Assign one manually from Deliveries.`,
         ref_type: 'route', ref_id: routeId, dedupe_key: 'route_unfilled:' + routeId,

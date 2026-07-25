@@ -54,6 +54,11 @@
 <script>
 (function () {
   Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
   var esc = Hub.esc, money = Hub.money;
   var origin = location.origin;
 
@@ -195,7 +200,8 @@
     });
   }
 
-  Owner.init('contracts', render);
+  // Contract accounts are B2B customers and are reached from the Customers desk — highlight that tab.
+  Owner.init('customers', render);
 })();
 </script>
 <script src="assets/operator.js" defer></script>

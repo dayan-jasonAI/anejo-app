@@ -38,6 +38,7 @@
 <script src="/hub/owner/assets/owner.js"></script>
 <script>
 (function () {
+  Hub.boot();
   var lt = document.getElementById('lang-toggle');
   if (lt && window.AnejoLang) {
     lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';

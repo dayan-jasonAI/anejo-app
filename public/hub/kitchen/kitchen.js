@@ -20,9 +20,11 @@
     var nav = document.createElement('nav');
     nav.className = 'hub-nav';
     nav.innerHTML = NAV.map(function (n) {
-      var active = n.key === activeKey ? ' active' : '';
-      return '<a class="' + active.trim() + '" href="' + n.href + '">' +
-        '<span class="nav-ico">' + n.ico + '</span><span>' + n.label + '</span></a>';
+      // aria-current carries what the gold `active` colour conveys visually; the icon is
+      // decorative and hidden so AT reads "Orders", not "plate with cutlery Orders".
+      var on = n.key === activeKey;
+      return '<a class="' + (on ? 'active' : '') + '"' + (on ? ' aria-current="page"' : '') + ' href="' + n.href + '">' +
+        '<span class="nav-ico" aria-hidden="true">' + n.ico + '</span><span>' + n.label + '</span></a>';
     }).join('');
     document.body.appendChild(nav);
     if (window.Hub && Hub.i18nRefresh) Hub.i18nRefresh();

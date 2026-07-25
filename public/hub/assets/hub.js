@@ -27,17 +27,35 @@
 
   Hub.toast = function (msg) {
     var el = document.getElementById('hub-toast');
+    var fresh = false;
     if (!el) {
       el = document.createElement('div');
       el.id = 'hub-toast';
       el.className = 'hub-toast';
+      // Live region: toasts are the ONLY confirmation of every save/failure across the HUB,
+      // so a screen reader must announce them. polite (not assertive) because they follow a
+      // user action and shouldn't interrupt mid-sentence.
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
+      el.setAttribute('aria-atomic', 'true');
       document.body.appendChild(el);
+      fresh = true;
     }
-    el.textContent = msg;
-    el.classList.add('show');
-    Hub.i18nRefresh();
+    var show = function () {
+      el.textContent = msg;
+      el.classList.add('show');
+      Hub.i18nRefresh();
+    };
+    // A live region has to be in the DOM BEFORE its text changes or assistive tech misses the
+    // first announcement — so on the very first toast, set the text a tick after insertion.
+    if (fresh) setTimeout(show, 0); else show();
     clearTimeout(Hub._toastT);
-    Hub._toastT = setTimeout(function () { el.classList.remove('show'); }, 2400);
+    Hub._toastT = setTimeout(function () {
+      el.classList.remove('show');
+      // Empty it once the fade is done: setting the SAME text again is not a mutation, so a
+      // repeated message (e.g. "Saved") would otherwise never be announced a second time.
+      setTimeout(function () { if (!el.classList.contains('show')) el.textContent = ''; }, 300);
+    }, 2400);
   };
 
   // ---------- api ----------
@@ -126,8 +144,11 @@
       var nav = document.createElement('nav');
       nav.className = 'hub-nav';
       nav.innerHTML = items.map(function (n) {
-        return '<a class="' + (n.key === activeKey ? 'active' : '') + '" href="' + n.href + '">' +
-          '<span class="nav-ico">' + n.ico + '</span><span data-i18n>' + n.label + '</span></a>';
+        // aria-current carries what the gold `active` colour conveys visually; the icon is
+        // decorative and hidden so AT reads "Deliveries", not "delivery truck Deliveries".
+        var on = n.key === activeKey;
+        return '<a class="' + (on ? 'active' : '') + '"' + (on ? ' aria-current="page"' : '') + ' href="' + n.href + '">' +
+          '<span class="nav-ico" aria-hidden="true">' + n.ico + '</span><span data-i18n>' + n.label + '</span></a>';
       }).join('');
       document.body.appendChild(nav);
       if (Hub.i18nRefresh) Hub.i18nRefresh();

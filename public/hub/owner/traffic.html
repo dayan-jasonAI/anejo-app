@@ -29,6 +29,11 @@
   <div class="card tcard"><h2>Language</h2><div id="byLang"></div></div>
   <div class="card tcard"><h2>Country</h2><div id="byCountry"></div></div>
 </div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
 <script>
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
 function rows(el,arr,key){var h=el;h.innerHTML=(arr&&arr.length)?arr.map(function(r){return '<div class="trow"><span class="lbl">'+esc(r[key]||'—')+'</span><span class="n">'+r.n+'</span></div>';}).join(''):'<div class="row-sub">No data yet.</div>';}
@@ -47,7 +52,10 @@ async function load(days){
   }catch(e){document.getElementById('total').textContent='—';}
 }
 document.getElementById('seg').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;document.querySelectorAll('#seg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');load(b.dataset.d);});
-load(30);
+// Owner-gated boot + bottom nav. Without it a signed-out visitor landed on a dead page with no
+// session guard and no way back into the HUB.
+Hub.boot();
+Owner.init('overview', function () { load(30); });
 </script>
 <script src="assets/operator.js" defer></script>
 </body>

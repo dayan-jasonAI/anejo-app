@@ -29,8 +29,10 @@
     if (!nav) return;
     nav.className = 'hub-nav';
     nav.innerHTML = NAV.map(function (n) {
-      var cls = n.view === active ? ' class="active"' : '';
-      return '<a href="' + n.href + '"' + cls + '><span class="nav-ico">' + n.ico + '</span><span data-i18n>' + n.label + '</span></a>';
+      // aria-current carries what the gold `active` colour conveys visually; the icon is
+      // decorative and hidden so AT reads "Deliveries", not "delivery truck Deliveries".
+      var cls = n.view === active ? ' class="active" aria-current="page"' : '';
+      return '<a href="' + n.href + '"' + cls + '><span class="nav-ico" aria-hidden="true">' + n.ico + '</span><span data-i18n>' + n.label + '</span></a>';
     }).join('');
     if (window.Hub && Hub.i18nRefresh) Hub.i18nRefresh();
   };

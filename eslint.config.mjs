@@ -1,9 +1,10 @@
 import js from '@eslint/js';
 import globals from 'globals';
 
-// Lint config for the Añejo Functions. The `lint` script scopes ESLint to the auth surface
-// (functions/api/auth + the auth _lib modules + test/auth). Workers + browser + node globals
-// are all enabled since Functions run on the Cloudflare Workers runtime.
+// Lint config for the Añejo Functions. The `lint` script covers ALL of functions/ + test/ —
+// it used to be scoped to the auth surface only, which left the money path (checkout, promo,
+// rewards, webhooks) unlinted. Workers + browser + node globals are all enabled since Functions
+// run on the Cloudflare Workers runtime.
 export default [
   { ignores: ['node_modules/**', 'public/**', '.wrangler/**', 'hub-app/**', 'dist/**'] },
   js.configs.recommended,
