@@ -1,8 +1,9 @@
 // Promo codes + influencer affiliate attribution.
 //
 // Two kinds, one redemption path:
-//   'customer'  — issued to a launch-list signup. NON-SHAREABLE: enforced here by requiring the
-//                 redeeming session's email to equal bound_email. 10% off / 30 days / 2x points.
+//   'customer'  — the Founding Legacy Member benefit, issued on launch-list signup: 2x rewards
+//                 points FOR LIFE (no % discount, no expiry). NON-SHAREABLE: enforced here by
+//                 requiring the redeeming session's email to equal bound_email. Auto-applies.
 //   'affiliate' — a PBC influencer's code. Shareable by design. Their followers get a first-order
 //                 perk (free Añejo Fit drink) + 2x points; the partner earns commission_pct.
 //
