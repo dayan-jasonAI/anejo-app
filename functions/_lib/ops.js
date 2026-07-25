@@ -18,17 +18,45 @@ export function etToday(ms) {
   return `${g('year')}-${g('month')}-${g('day')}`;
 }
 
+// The owner's cancel/refund trail rides inside orders.items as a `meta` entry (there is no
+// cancellations table — see api/hub/owner/order-actions.js). It is bookkeeping, not food.
+// order-history.js filters on the same flag.
+const isMetaItem = (it) => !!(it && it.meta);
+
 // Tally bowls in an order's items JSON into `mix`; returns the count.
+// Meta entries are skipped: they carry qty:0, which the Math.max(1,…) floor below (there so a real
+// bowl with a missing qty still counts as one) would otherwise promote to a phantom bowl named
+// "Refunded $45.00 by …" — straight into the prep sheet the kitchen cooks from.
 function tallyItems(itemsJson, mix) {
   const items = parseJson(itemsJson, []) || [];
+  if (!Array.isArray(items)) return 0;
   let n = 0;
   for (const it of items) {
+    if (isMetaItem(it)) continue;
     const q = Math.max(1, Math.floor(Number(it && it.qty) || 1));
     const name = (it && (it.name || it.id)) || 'Item';
     mix[name] = (mix[name] || 0) + q;
     n += q;
   }
   return n;
+}
+
+// Cents refunded on an order, read back from its `meta` action entries.
+// Square owns the money, but nothing writes the refunded amount to an orders column, so this trail
+// is the only thing a report can read. order-actions.js returns BEFORE appending when Square says
+// REJECTED/FAILED, so every entry here is money that left (or is settling — a card refund sits
+// PENDING for days and the customer is still getting it back).
+export function refundedCents(itemsJson) {
+  const items = parseJson(itemsJson, []) || [];
+  if (!Array.isArray(items)) return 0;
+  let cents = 0;
+  for (const it of items) {
+    const m = isMetaItem(it) ? it.meta : null;
+    if (!m || m.action !== 'refund') continue;
+    const n = Math.round(Number(m.amount_cents) || 0);
+    if (n > 0) cents += n;
+  }
+  return cents;
 }
 function mergeMix(a, b) { const m = { ...(a || {}) }; for (const k of Object.keys(b || {})) m[k] = (m[k] || 0) + b[k]; return m; }
 
@@ -246,17 +274,32 @@ function addDaysSafe(d, n) { return new Date((Math.floor(Date.parse(d + 'T00:00:
 // ---------------------------------------------------------------------------
 
 // Sales/volume stats over [from,to] inclusive (delivery dates). Best/worst by bowl count.
+// revenue_cents is NET of refunds: a refunded order keeps status 'paid'/'fulfilled', so without the
+// subtraction the owner's P&L reports money that has already gone back to the customer. Bowl counts
+// are deliberately NOT netted — the food was still made and it still has to be forecast.
 async function salesStats(env, from, to) {
-  const mix = {}; let orders = 0, bowls = 0, revenue = 0;
+  const mix = {}; let orders = 0, bowls = 0, revenue = 0, refunds = 0;
   try {
     const { results } = await env.DB.prepare(
       "SELECT items, total_estimate_cents FROM orders WHERE delivery_date>=? AND delivery_date<=? AND status NOT IN ('canceled','pending')"
     ).bind(from, to).all();
-    for (const o of results || []) { orders++; revenue += Number(o.total_estimate_cents) || 0; bowls += tallyItems(o.items, mix); }
+    for (const o of results || []) {
+      orders++;
+      const gross = Number(o.total_estimate_cents) || 0;
+      // Clamp: a refund can include tip, which total_estimate_cents never had — never go negative.
+      const back = Math.min(gross, refundedCents(o.items));
+      refunds += back;
+      revenue += gross - back;
+      bowls += tallyItems(o.items, mix);
+    }
   } catch { /* none */ }
   const sorted = Object.entries(mix).sort((a, b) => b[1] - a[1]);
-  return { orders, bowls, revenue_cents: revenue, mix, best: sorted.slice(0, 3), worst: sorted.slice(-3).reverse() };
+  return { orders, bowls, revenue_cents: revenue, refunded_cents: refunds, mix, best: sorted.slice(0, 3), worst: sorted.slice(-3).reverse() };
 }
+
+// Dollar figures in report bodies are net; say so when a refund is what moved them, otherwise the
+// owner reads a soft day where there was actually a refund.
+const refundNote = (s) => (s && s.refunded_cents ? ` (net of $${(s.refunded_cents / 100).toFixed(2)} refunded)` : '');
 
 async function belowParItems(env) {
   try {
@@ -317,7 +360,7 @@ export async function generateReport(env, type, { nowMs } = {}) {
     const s = await salesStats(env, today, today);
     const low = await belowParItems(env);
     title = `Daily standup — ${today}`;
-    body = `${s.orders} orders · ${s.bowls} bowls · $${(s.revenue_cents / 100).toFixed(2)}. Top: ${s.best.map((b) => b[0] + ' (' + b[1] + ')').join(', ') || '—'}. ${low.length ? `Low stock: ${low.length} item(s).` : 'Inventory OK.'}`;
+    body = `${s.orders} orders · ${s.bowls} bowls · $${(s.revenue_cents / 100).toFixed(2)}${refundNote(s)}. Top: ${s.best.map((b) => b[0] + ' (' + b[1] + ')').join(', ') || '—'}. ${low.length ? `Low stock: ${low.length} item(s).` : 'Inventory OK.'}`;
     data = { sales: s, low_stock_count: low.length };
   } else if (type === 'weekly_summary') {
     const from = addDaysSafe(today, -7);
@@ -325,7 +368,7 @@ export async function generateReport(env, type, { nowMs } = {}) {
     let acc = null;
     try { acc = await env.DB.prepare('SELECT AVG(pct_error) AS e FROM forecast_accuracy WHERE forecast_date>=?').bind(from).first(); } catch { /* none */ }
     title = `Weekly summary — ${from} to ${today}`;
-    body = `${s.orders} orders · ${s.bowls} bowls · $${(s.revenue_cents / 100).toFixed(2)}. Best: ${s.best.map((b) => b[0]).join(', ') || '—'}. Slowest: ${s.worst.map((b) => b[0]).join(', ') || '—'}.` + (acc && acc.e != null ? ` Forecast avg error ${Math.round(acc.e)}%.` : '');
+    body = `${s.orders} orders · ${s.bowls} bowls · $${(s.revenue_cents / 100).toFixed(2)}${refundNote(s)}. Best: ${s.best.map((b) => b[0]).join(', ') || '—'}. Slowest: ${s.worst.map((b) => b[0]).join(', ') || '—'}.` + (acc && acc.e != null ? ` Forecast avg error ${Math.round(acc.e)}%.` : '');
     data = { sales: s, forecast_avg_pct_error: acc && acc.e != null ? Math.round(acc.e) : null };
   } else if (type === 'insights') {
     const from = addDaysSafe(today, -30);
@@ -336,7 +379,7 @@ export async function generateReport(env, type, { nowMs } = {}) {
     if (s.worst.length) recs.push(`Revisit slow sellers: ${s.worst.map((b) => b[0]).join(', ')}.`);
     if (low.length) recs.push(`${low.length} item(s) below par — review the vendor order suggestion.`);
     title = 'Insights — last 30 days';
-    body = `${s.bowls} bowls · $${(s.revenue_cents / 100).toFixed(2)}. Best: ${s.best.map((b) => b[0] + ' (' + b[1] + ')').join(', ') || '—'}. ${recs.join(' ')}`;
+    body = `${s.bowls} bowls · $${(s.revenue_cents / 100).toFixed(2)}${refundNote(s)}. Best: ${s.best.map((b) => b[0] + ' (' + b[1] + ')').join(', ') || '—'}. ${recs.join(' ')}`;
     data = { sales: s, recommendations: recs };
   } else {
     return { ok: false, reason: 'unknown_type' };

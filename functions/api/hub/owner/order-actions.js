@@ -19,6 +19,9 @@
 //     the status quo is far better than a wrong refund.
 //  2. Cancel and refund are separate acts. Cancelling a paid order does not return a cent — the
 //     response says `money_moved:false` and the UI has to state it out loud.
+//  3. Everything this endpoint does NOT undo is REPORTED, never silently half-done. Both ops
+//     return `warnings` (see orderSideEffects) naming the awarded rewards points and the affiliate
+//     commission the owner still has to adjust by hand.
 import { json, bad, now } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { parseJson } from '../../../_lib/hub.js';
@@ -26,9 +29,9 @@ import { square, squareConfigured } from '../../../_lib/square.js';
 import { capture } from '../../../_lib/track.js';
 
 // Delivered food can't be un-delivered. Everything short of that is cancelable.
-const CANCELABLE = ['pending', 'paid', 'prep', 'ready'];
+export const CANCELABLE = ['pending', 'paid', 'prep', 'ready'];
 
-const cancelBlockedReason = (status) =>
+export const cancelBlockedReason = (status) =>
   status === 'canceled'
     ? 'This order is already canceled.'
     : `Only an order that has not been delivered can be canceled — this one is "${status}".`;
@@ -42,6 +45,25 @@ function squareOrderIdOf(row) {
   const sid = typeof row.square_order_id === 'string' ? row.square_order_id : '';
   if (!sid || sid.indexOf('sub_') === 0) return null;
   return sid;
+}
+
+// A Square Payment reduced to the only money numbers this endpoint trusts. The refundable ceiling
+// is total_money - refunded_money and originates HERE — never from the client's amount_cents, and
+// never from orders.total_estimate_cents, which is an estimate written before Square ever saw the
+// order (tip, adjustments and partial refunds all move the real number away from it).
+export function summarizePayment(pay) {
+  // total_money is amount + tip; fall back to the parts if Square omits it.
+  const amt = Number(pay && pay.amount_money && pay.amount_money.amount) || 0;
+  const tip = Number(pay && pay.tip_money && pay.tip_money.amount) || 0;
+  const total = Number(pay && pay.total_money && pay.total_money.amount) || (amt + tip);
+  const refunded = Number(pay && pay.refunded_money && pay.refunded_money.amount) || 0;
+  return {
+    id: (pay && pay.id) || null,
+    status: (pay && pay.status) || null,
+    captured_cents: total,
+    refunded_cents: refunded,
+    refundable_cents: Math.max(0, total - refunded),
+  };
 }
 
 // Resolve the Square payment(s) behind an order.
@@ -80,18 +102,7 @@ async function loadSquarePayments(env, squareOrderId) {
     if (pay.order_id && pay.order_id !== squareOrderId) {
       return { error: 'The Square payment does not belong to this order. Refund from the Square dashboard.' };
     }
-    // total_money is amount + tip; fall back to the parts if Square omits it.
-    const amt = Number(pay.amount_money && pay.amount_money.amount) || 0;
-    const tip = Number(pay.tip_money && pay.tip_money.amount) || 0;
-    const total = Number(pay.total_money && pay.total_money.amount) || (amt + tip);
-    const refunded = Number(pay.refunded_money && pay.refunded_money.amount) || 0;
-    payments.push({
-      id: pay.id,
-      status: pay.status || null,
-      captured_cents: total,
-      refunded_cents: refunded,
-      refundable_cents: Math.max(0, total - refunded),
-    });
+    payments.push(summarizePayment(pay));
   }
   return { payments };
 }
@@ -103,7 +114,7 @@ async function loadSquarePayments(env, squareOrderId) {
 // The key deliberately includes how much was ALREADY refunded: a double-click sends the same
 // amount against the same prior balance → identical key → Square returns the first refund instead
 // of issuing a second. A deliberate later partial refund sees a moved balance and gets a new key.
-async function refundKey(orderId, alreadyCents, amountCents) {
+export async function refundKey(orderId, alreadyCents, amountCents) {
   const readable = `rf_${String(orderId).replace(/^ord_/, '')}_${alreadyCents}_${amountCents}`;
   if (readable.length <= 45) return readable;
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(readable));
@@ -127,10 +138,34 @@ async function appendOrderMeta(env, orderId, label, meta) {
   } catch (_) { /* the activity_log row is the trail that must not be lost; this one is a nicety */ }
 }
 
-// Things the owner still has to do by hand after cancelling — surfaced, never silently done here.
-// Un-routing a stop belongs to the deliveries endpoint and reversing points to the rewards ledger.
-async function cancelSideEffects(env, row) {
+// Things the owner still has to do BY HAND after cancelling or refunding — surfaced here, never
+// silently done. A refund is exactly when awarded points and affiliate commission ought to come
+// back, so it is worth stating plainly why this endpoint reports them instead of reversing them:
+//
+//   • points_ledger carries UNIQUE(order_id, reason), so at most ONE reversal row per order could
+//     ever be written — a second partial refund would silently no-op and the owner would never
+//     know. Worse, the member's TIER is derived from orders.total_estimate_cents (rewards.js reads
+//     lifetime spend from the orders table), and a refund does not move that column, so a negative
+//     points row would still leave the member standing on spend we gave back.
+//   • rev_share_events has no reversal concept. partners.js sums share_cents by payout_status and
+//     the "settle" op flips EVERY pending row to 'paid' — a negative row posted after a payout
+//     would be swept into 'paid' and disappear from what the partner still owes back.
+//
+// Both would be a half-reversal that reads as a whole one. Un-routing a stop belongs to the
+// deliveries endpoint, points to the rewards ledger, commission to the partners ledger — so we
+// report precisely (amount, partner, payout state, pro-rata share) and let the owner adjust there.
+export async function orderSideEffects(env, row, opts = {}) {
+  const refunding = opts.action === 'refund';
+  const amountCents = Math.max(0, Number(opts.amount_cents) || 0);
+  const capturedCents = Math.max(0, Number(opts.captured_cents) || 0);
+  // A partial refund makes every downstream figure pro-rata. Say which fraction, so the owner
+  // isn't left computing it from the Square dashboard.
+  const partial = refunding && capturedCents > 0 && amountCents > 0 && amountCents < capturedCents;
+  const share = partial
+    ? ` This refund is ${Math.round((amountCents / capturedCents) * 100)}% of the $${(capturedCents / 100).toFixed(2)} captured, so only a pro-rata part of it should come back.`
+    : '';
   const warnings = [];
+
   try {
     const stop = await env.DB.prepare(
       `SELECT rs.route_id, rs.status AS stop_status, r.status AS route_status
@@ -138,14 +173,66 @@ async function cancelSideEffects(env, row) {
         WHERE rs.order_id = ? AND r.status NOT IN ('completed','canceled')
         ORDER BY rs.created_at DESC LIMIT 1`
     ).bind(row.id).first();
-    if (stop) warnings.push(`This order is still a stop on route ${stop.route_id}. Pull it from Deliveries so the driver isn't sent.`);
+    if (stop) {
+      warnings.push(refunding
+        // Refunding does not cancel: the food is still on a truck unless the owner acts.
+        ? `This order is still a stop on route ${stop.route_id} and is NOT canceled — the driver will still deliver it. Cancel it too if the food should not go out.`
+        : `This order is still a stop on route ${stop.route_id}. Pull it from Deliveries so the driver isn't sent.`);
+    }
   } catch (_) { /* routing tables absent in early envs */ }
+
   try {
     const pts = await env.DB.prepare("SELECT delta FROM points_ledger WHERE order_id = ? AND reason = 'earn'")
       .bind(row.id).first();
-    if (pts && pts.delta) warnings.push(`${pts.delta} rewards points were already awarded for this order and are not reversed automatically.`);
+    if (pts && pts.delta) {
+      warnings.push(refunding
+        ? `${pts.delta} rewards points were awarded for this order and are NOT reversed by a refund — adjust the balance in HUB → Rewards if they should come back.${share}`
+        : `${pts.delta} rewards points were already awarded for this order and are not reversed automatically.`);
+    }
   } catch (_) { /* rewards absent in early envs */ }
+
+  try {
+    const rs = await env.DB.prepare(
+      'SELECT trainer_id, share_cents, payout_status FROM rev_share_events WHERE order_id = ?'
+    ).bind(row.id).first();
+    if (rs && rs.share_cents) {
+      const settled = String(rs.payout_status || '') === 'paid';
+      warnings.push(
+        `$${(rs.share_cents / 100).toFixed(2)} affiliate commission was recorded for partner ${rs.trainer_id} on this order and is NOT clawed back` +
+        (settled ? ' — and it has ALREADY been marked paid out.' : '.') +
+        ` Adjust it in HUB → Partners.${share}`);
+    }
+  } catch (_) { /* affiliate tables absent in early envs */ }
+
   return warnings;
+}
+
+// A refund amount from the client, checked against the ONLY ceiling that counts — what Square says
+// is still refundable on the payment. Returns { amount_cents } or { error, status }.
+// Absent/blank means "all of it"; anything else must be a positive whole number of cents that fits.
+export function validateRefundAmount(raw, refundableCents) {
+  const ceiling = Math.max(0, Number(refundableCents) || 0);
+  if (raw == null || raw === '') return { amount_cents: ceiling };
+  const amount = Math.round(Number(raw));
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { error: 'Refund amount must be a positive number of cents.', status: 400 };
+  }
+  if (amount > ceiling) {
+    return { error: `Only $${(ceiling / 100).toFixed(2)} is still refundable on this payment.`, status: 409 };
+  }
+  return { amount_cents: amount };
+}
+
+// How the UI must talk about money after a cancel. money_known is NOT cosmetic: without it, an
+// unreachable Square would render as "nothing was captured", and the owner would tell a customer
+// they weren't charged when they were.
+export function moneyView(rf) {
+  const pay = rf && rf.payment;
+  return {
+    money_known: !!pay,
+    money_held_cents: (pay && pay.refundable_cents) || 0,
+    money_note: pay ? null : ((rf && rf.reason) || null),
+  };
 }
 
 async function loadOrder(env, orderId) {
@@ -157,7 +244,8 @@ async function loadOrder(env, orderId) {
 
 // Money state for one order: what Square says was captured and refunded, plus WHY a refund is or
 // isn't offered. Shared by GET (to draw the buttons) and POST (to guard the write).
-async function refundState(env, row) {
+// `loadPayments` is injectable so the gating can be exercised without calling Square.
+export async function refundState(env, row, loadPayments = loadSquarePayments) {
   const sid = squareOrderIdOf(row);
   if (!sid) {
     return {
@@ -169,7 +257,7 @@ async function refundState(env, row) {
   }
   if (!squareConfigured(env)) return { available: false, reason: 'Square is not configured in this environment.' };
 
-  const res = await loadSquarePayments(env, sid);
+  const res = await loadPayments(env, sid);
   if (res.error) return { available: false, reason: res.error };
 
   const p = res.payments[0];

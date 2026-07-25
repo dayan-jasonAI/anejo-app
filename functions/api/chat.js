@@ -25,6 +25,20 @@ const FALLBACK_BOWL_COPY = {
 // The fallback catalog is a flat id→price map with no `kind` column; these are the known ids.
 const FALLBACK_KIND = { fit_gold: 'drink', fit_hibiscus: 'drink', fit_emerald: 'drink', sauce_extra: 'addon' };
 
+// Customer-facing wording for each modifier key, in the order Aña should recite them. The keys are
+// fixed in code (the HUB sets what they cost, it cannot invent new ones) and loadMenu doesn't read
+// the label column, so the copy lives here. A key with no entry is left OUT of the prompt rather
+// than shown as a bare slug — Aña must not guess what "extra_std" means to a customer.
+const MODIFIER_COPY = {
+  extra_std: 'extra of a standard ingredient',
+  extra_premium: 'extra of a premium ingredient (proteins, avocado, cheese, nuts)',
+  extra_sauce: 'each ADDITIONAL house sauce (the first added sauce is free)',
+  avocado_half: '½ avocado',
+  extra_protein: 'extra protein (4 oz)',
+  sweet_potato: 'sweet potato',
+  sauce_cup: 'extra sauce cup (2 oz)',
+};
+
 const usd = (cents) => '$' + (cents / 100).toFixed(2);
 // The subscription anchor isn't a menu_items row — it lives in sizing.js, which the calculator
 // and /subscribe quote from. Import it rather than retyping it so the three agree.
@@ -33,27 +47,55 @@ const BASE_BOWL_USD = usd(Math.round(BASE_BOWL_PRICE_USD * 100));
 /**
  * The menu section of the system prompt, generated from the live catalog so a price the owner
  * changes in the HUB reaches the assistant on the next message — no redeploy, no drift.
+ *
+ * WHAT EXISTS comes from menu.items (the catalog rows, already filtered to active = 1). It must NOT
+ * come from menu.bowls / menu.nonBowls: those are the price-safety lookups, and on the degraded path
+ * they hold the hardcoded fallback list. Iterating them left a bowl the owner had DEACTIVATED in the
+ * HUB on Aña's menu — counted in "N signature bowls" and quoted at the stale hardcoded price — after
+ * /api/menu and /order had both correctly dropped it, making the assistant the last surface still
+ * selling a discontinued item.
+ *
+ * WHAT IT COSTS still comes from those maps, so every price Aña quotes is the one checkout charges.
  */
 function menuSection(menu) {
-  const byId = new Map((menu.items || []).map((it) => [it.id, it]));
+  // loadMenu's degraded path returns the price maps with NO rows, so synthesize a catalog from them
+  // — that is what FALLBACK_BOWL_COPY / FALLBACK_KIND exist for. Not a per-item backfill: it is all
+  // rows or none, exactly like loadMenu itself.
+  const rows = (menu.items || []).length ? menu.items : [
+    ...Object.keys(menu.bowls).map((id) => ({ id, kind: 'bowl' })),
+    ...Object.keys(menu.nonBowls).map((id) => ({ id, kind: FALLBACK_KIND[id] || 'addon' })),
+  ];
 
-  const bowls = Object.entries(menu.bowls).map(([id, cents]) => {
-    const it = byId.get(id);
-    const [fbName, fbDesc] = FALLBACK_BOWL_COPY[id] || [id.toUpperCase(), ''];
-    const name = (it && it.name) || fbName;
-    const desc = (it && it.description) || fbDesc;
-    return desc ? `${name} (${desc}, ${usd(cents)})` : `${name} (${usd(cents)})`;
+  const centsOf = (it) => (it.kind === 'bowl' ? menu.bowls[it.id] : (menu.nonBowls[it.id] || {}).price_cents);
+  // An item we cannot price is left unmentioned rather than named without a price — a bowl Aña
+  // describes but can't quote is an invitation to invent a number.
+  const listed = (kind) => rows.filter((it) => it.kind === kind && Number.isFinite(centsOf(it)));
+  const nameOf = (it) => it.name || (menu.nonBowls[it.id] || {}).name || (FALLBACK_BOWL_COPY[it.id] || [])[0] || String(it.id).toUpperCase();
+
+  const bowls = listed('bowl').map((it) => {
+    const desc = it.description || (FALLBACK_BOWL_COPY[it.id] || [])[1] || '';
+    const price = usd(centsOf(it));
+    return desc ? `${nameOf(it)} (${desc}, ${price})` : `${nameOf(it)} (${price})`;
   });
+  const priced = (kind) => listed(kind).map((it) => `${nameOf(it)} ${usd(centsOf(it))}`);
+  const drinks = priced('drink');
+  const addons = priced('addon');
 
-  const pick = (kind) => Object.entries(menu.nonBowls)
-    .filter(([id]) => ((byId.get(id) || {}).kind || FALLBACK_KIND[id]) === kind)
-    .map(([, v]) => `${v.name} ${usd(v.price_cents)}`);
-  const drinks = pick('drink');
-  const addons = pick('addon');
+  // Modifier prices are loaded on every request and were never put in front of the model, so Aña
+  // couldn't answer "how much is extra steak?" — the one menu question she gets constantly.
+  const extras = Object.keys(MODIFIER_COPY)
+    .filter((k) => Number.isFinite(menu.modifiers[k]))
+    .map((k) => `${MODIFIER_COPY[k]} +${usd(menu.modifiers[k])}`);
 
-  const lines = [`- ${bowls.length} signature 16 oz bowls (sauce on the side, ~40% protein / 30% carbs / 30% fat, ~3-day fridge life): ${bowls.join(', ')}.`];
+  const lines = [];
+  if (bowls.length) {
+    lines.push(`- ${bowls.length} signature 16 oz bowl${bowls.length === 1 ? '' : 's'} (sauce on the side, ~40% protein / 30% carbs / 30% fat, ~3-day fridge life): ${bowls.join(', ')}.`);
+  }
   if (drinks.length) lines.push(`- Añejo Fit cold-pressed drinks (12 oz): ${drinks.join(', ')}.`);
   if (addons.length) lines.push(`- Add-ons available at checkout: ${addons.join(', ')}.`);
+  if (extras.length) {
+    lines.push(`- Bowls can be customized at /order. Per-bowl extras: ${extras.join(', ')}. Swapping the base to brown rice is free, and removing an ingredient does NOT reduce the price. The protein cannot be removed.`);
+  }
   return lines.join('\n');
 }
 

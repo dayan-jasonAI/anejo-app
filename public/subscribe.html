@@ -140,10 +140,14 @@ label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:upperca
 </div>
 
 <script>
+// weeklyUsd = the tier's LIST price. The server is authoritative: /api/square-config publishes it
+// from plans.js (which now resolves it from D1), and /api/subscriptions/create charges from the
+// same place — so the number here is a FIRST-PAINT FALLBACK only, to avoid blank price cards before
+// the fetch lands. init() overwrites it and re-renders. If the two ever disagree, the server wins.
 const TIERS = {
-  plan_5:  { label:'5 bowls / week',  bowls:5,  price:99 },
-  plan_10: { label:'10 bowls / week', bowls:10, price:189 },
-  plan_12: { label:'12 bowls / week', bowls:12, price:219 },
+  plan_5:  { label:'5 bowls / week',  bowls:5,  weeklyUsd:99,  price:99 },
+  plan_10: { label:'10 bowls / week', bowls:10, weeklyUsd:189, price:189 },
+  plan_12: { label:'12 bowls / week', bowls:12, weeklyUsd:219, price:219 },
 };
 const qs = new URLSearchParams(location.search);
 const clientId = qs.get('client') || '';
@@ -152,12 +156,16 @@ const clientId = qs.get('client') || '';
 const perBowl = parseFloat(qs.get('pbp'));
 const bowlOz = parseInt(qs.get('oz'), 10);
 const avocado = qs.get('avo') === '1';
-const AVO_USD = 2; // avocado add-on, +$2 per bowl
-if (perBowl > 0) {
-  Object.values(TIERS).forEach(t => { t.price = Math.round((perBowl + (avocado ? AVO_USD : 0)) * t.bowls * 100) / 100; });
-} else if (avocado) {
-  Object.values(TIERS).forEach(t => { t.price = Math.round((t.price + AVO_USD * t.bowls) * 100) / 100; });
+let avoUsd = 2; // ½-avocado add-on per bowl; replaced by the server's value when it sends one
+// Displayed price for every tier. A sized quote (pbp) beats the list price — the server prices
+// sized subscriptions the same way — and the avocado add-on is charged per bowl on top of either.
+function applyPricing(){
+  Object.values(TIERS).forEach(t => {
+    const base = perBowl > 0 ? perBowl * t.bowls : t.weeklyUsd;
+    t.price = Math.round((base + (avocado ? avoUsd * t.bowls : 0)) * 100) / 100;
+  });
 }
+applyPricing();
 // Per-tier delivery schedule. First-paint fallback only — overwritten from /api/square-config
 // (server PLAN_TIERS) on load, so this never drifts. chooseWindow tiers (1 bowl/day) REQUIRE
 // the customer to pick Lunch or Dinner.
@@ -228,7 +236,7 @@ function renderWho(){
     ? L('Subscribing as <strong>your trainer\'s member</strong>. Your plan is delivered weekly.','Te suscribes como <strong>miembro de tu entrenador</strong>. Tu plan se entrega cada semana.')
     : L('Weekly Añejo bowls, delivered. Cancel anytime.','Bowls Añejo cada semana, entregados. Cancela cuando quieras.'))
     + (bowlOz ? L(' Your bowls are portion-sized to your goal: <strong>'+bowlOz+' oz each</strong>.',' Tus bowls están porcionados a tu meta: <strong>'+bowlOz+' oz cada uno</strong>.') : '')
-    + (avocado ? L(' <strong>½ avocado added to every bowl</strong> (+$2 each).',' <strong>½ aguacate añadido a cada bowl</strong> (+$2 c/u).') : '');
+    + (avocado ? L(' <strong>½ avocado added to every bowl</strong> (+$'+fmtPrice(avoUsd)+' each).',' <strong>½ aguacate añadido a cada bowl</strong> (+$'+fmtPrice(avoUsd)+' c/u).') : '');
 }
 renderWho();
 if(!clientId){
@@ -249,13 +257,18 @@ async function init(){
   let cfg;
   try { cfg = await (await fetch('/api/square-config')).json(); }
   catch { msg.className='msg err'; msg.textContent=L('Could not load payment config.','No se pudo cargar la configuración de pago.'); return; }
-  // Sync the delivery schedule from the server (authoritative) so the SCHED below is just a
-  // first-paint fallback — the day grid + window rules can never drift from plans.js.
+  // Sync the delivery schedule AND the weekly price from the server (authoritative) so the copies
+  // above are just first-paint fallbacks — neither the day grid, the window rules, nor the money
+  // can drift from plans.js. weeklyCents is what /api/subscriptions/create will actually charge.
   if (cfg.tiers) {
     Object.entries(cfg.tiers).forEach(([k, t]) => {
       if (SCHED[k]) SCHED[k] = { bowlsPerDay: t.bowlsPerDay, deliverDows: t.days, chooseWindow: t.chooseWindow };
+      if (TIERS[k] && Number.isFinite(t.weeklyCents) && t.weeklyCents > 0) TIERS[k].weeklyUsd = t.weeklyCents / 100;
     });
-    renderSchedule();
+    if (Number.isFinite(cfg.avocadoAddonCents) && cfg.avocadoAddonCents >= 0) avoUsd = cfg.avocadoAddonCents / 100;
+    applyPricing();
+    renderPlans();   // re-renders the price cards + the schedule
+    renderWho();     // the avocado line quotes the add-on price
   }
   if (!cfg.applicationId || !cfg.locationId){ msg.className='msg err'; msg.textContent=L('Payments are not configured yet.','Los pagos aún no están configurados.'); return; }
 

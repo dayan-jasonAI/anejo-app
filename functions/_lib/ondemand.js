@@ -7,8 +7,30 @@
 //   ONDEMAND_CLOSE_HOUR  (ET hour ordering closes, default 19)
 //   ONDEMAND_CLOSE_MIN   (ET minute past close hour, default 30 → 7:30 PM)
 
-// Only bowls are capped (drinks + add-ons are unlimited). IDs mirror the checkout catalog.
+import { loadMenu } from './menu.js';
+
+// Only bowls are capped (drinks + add-ons are unlimited).
+//
+// This constant is now the LAST-KNOWN-GOOD FALLBACK, not the list itself: a bowl the owner adds in
+// the HUB used to fall outside the cap silently (unlimited same-day orders for it) until someone
+// edited this array and deployed. cappedBowlIds() below reads the live menu instead; this list is
+// what we cap when D1 can't be reached, which is the same rule _lib/menu.js uses for prices.
 export const BOWL_IDS = ['vida', 'fuego', 'ligero', 'mar', 'coco', 'congreen', 'raiz'];
+
+/**
+ * The bowl ids today's production cap applies to: every ACTIVE bowl on the live menu.
+ * Pass an already-loaded menu (checkout has one) to avoid a second read.
+ *
+ * Falls back to BOWL_IDS whenever the menu didn't come from D1 — loadMenu already treats "table
+ * missing / D1 down / empty table" as fallback, and capping nothing at all would silently remove
+ * the launch throttle rather than degrade it.
+ */
+export async function cappedBowlIds(env, menu) {
+  const m = menu || await loadMenu(env);
+  if (!m || m.source !== 'd1') return BOWL_IDS.slice();
+  const ids = (m.items || []).filter((it) => it.kind === 'bowl').map((it) => it.id);
+  return ids.length ? ids : BOWL_IDS.slice();
+}
 
 function clampHour(v, def) {
   const n = Math.floor(Number(v));
@@ -57,9 +79,10 @@ export function windowState(env, d = new Date()) {
 // (payment link created, not yet paid) holds its slot only for a short window so an abandoned
 // checkout doesn't block the cap forever — after that it's treated as abandoned and the slot
 // frees up. Tunable via ONDEMAND_PENDING_HOLD_MIN (default 30 minutes; 0 = never hold pending).
-export async function remainingByBowl(env, dateStr, limit) {
+// `menu` is optional and only saves a read — the ids are resolved from the live menu either way.
+export async function remainingByBowl(env, dateStr, limit, menu) {
   const remaining = {};
-  for (const id of BOWL_IDS) remaining[id] = limit;
+  for (const id of await cappedBowlIds(env, menu)) remaining[id] = limit;
   if (!env || !env.DB) return remaining;
   const rawHold = Math.floor(Number(env.ONDEMAND_PENDING_HOLD_MIN));
   const holdMin = Number.isFinite(rawHold) && rawHold >= 0 ? rawHold : 30;

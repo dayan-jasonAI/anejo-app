@@ -4,9 +4,13 @@
 // and trainer rev-share (from rev_share_events). All amounts in cents.
 import { json } from '../../../../_lib/util.js';
 import { requireRole } from '../../../../_lib/roles.js';
+import { refundedCents } from '../../../../_lib/ops.js';
 
 async function one(env, sql, binds = []) {
   try { return await env.DB.prepare(sql).bind(...binds).first(); } catch { return null; }
+}
+async function many(env, sql, binds = []) {
+  try { return (await env.DB.prepare(sql).bind(...binds).all()).results || []; } catch { return []; }
 }
 
 export const onRequestGet = async ({ request, env }) => {

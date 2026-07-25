@@ -8,6 +8,7 @@ import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { today, parseJson } from '../../../_lib/hub.js';
+import { refundedCents } from '../../../_lib/ops.js';
 
 const REPORT_TYPES = ['payroll', 'deliveries', 'finance', 'accountability', 'temp_compliance'];
 const FORMATS = ['csv', 'json'];
@@ -92,13 +93,22 @@ async function buildFinance(env, fromMs, toMs) {
       ORDER BY created_at ASC`
   ).bind(fromMs, toMs).all();
 
-  const headers = ['date', 'order_id', 'customer', 'items_count', 'subtotal', 'fee', 'tax_pct', 'total', 'status', 'source'];
+  const headers = ['date', 'order_id', 'customer', 'items_count', 'subtotal', 'fee', 'tax_pct', 'total', 'refunded', 'net_total', 'status', 'source'];
   const rows = (results || []).map((o) => {
     const items = parseJson(o.items, []);
+    // Cancel/refund actions ride in items as `meta` entries (order-actions.js). They are not food:
+    // counting them inflated items_count by one per action.
+    const real = Array.isArray(items) ? items.filter((it) => !(it && it.meta)) : [];
+    const gross = Number(o.total_estimate_cents) || 0;
+    // A refund can include tip, which total_estimate_cents never carried — clamp so net never goes
+    // negative. Canceled-but-not-refunded orders keep their full net on purpose: that money is still
+    // sitting with us until someone actually refunds it, and the status column says so.
+    const back = Math.min(gross, refundedCents(o.items));
     return [
       o.delivery_date || dayOf(o.created_at), o.id, o.customer_name || '',
-      Array.isArray(items) ? items.length : 0, dollars(o.subtotal_cents), dollars(o.fee_cents),
-      o.tax_pct == null ? '' : o.tax_pct, dollars(o.total_estimate_cents), o.status || '',
+      real.length, dollars(o.subtotal_cents), dollars(o.fee_cents),
+      o.tax_pct == null ? '' : o.tax_pct, dollars(o.total_estimate_cents),
+      back ? dollars(back) : '', o.total_estimate_cents == null ? '' : dollars(gross - back), o.status || '',
       o.square_order_id ? 'square' : 'manual',
     ];
   });

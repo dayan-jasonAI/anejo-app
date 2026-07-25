@@ -6,6 +6,10 @@
 // than fail. Every getter degrades to them and says so via `source`.
 //
 // Seeded identical to these values in migration 0043, so the switch changed no price.
+//
+// A row here makes an item LISTED and PRICED. For a bowl that is still not enough to make it
+// BUYABLE — see orderability() below.
+import { BOWL_BY_NAME } from './bowlspec.js';
 
 export const FALLBACK_BOWLS = {
   vida: 1999, fuego: 2299, ligero: 1899, mar: 2299, coco: 2299, congreen: 2099, raiz: 1899,
@@ -70,6 +74,44 @@ export async function loadMenu(env) {
   return { items, bowls, nonBowls, modifiers, source: 'd1' };
 }
 
+/**
+ * LISTED is not BUYABLE. A drink or add-on prices straight off its row and can be sold the moment
+ * it is saved; a BOWL cannot. checkout.js re-validates and re-prices every customized bowl against
+ * functions/_lib/bowlspec.js (macros + per-ingredient build) and rejects anything it has no recipe
+ * for — after the customer has built a cart and pressed pay. So a bowl the owner adds in the HUB is
+ * advertised by /api/menu and the assistant while checkout refuses it.
+ *
+ * This is the one place that answers "can it actually be bought?", so the HUB warns the owner using
+ * the SAME test checkout applies rather than its own guess. Keep the lookup identical to
+ * priceCustomBowl's guard in functions/api/checkout.js: menu id, uppercased, must hit a non-hidden
+ * bowlspec entry.
+ *
+ * Returns { orderable, blocker } — blocker is null when orderable, otherwise says what is missing.
+ */
+export function orderability(item) {
+  const row = item || {};
+  if (row.kind !== 'bowl') return { orderable: true, blocker: null };
+  const spec = BOWL_BY_NAME[String(row.id).toUpperCase()];
+  if (!spec) {
+    return {
+      orderable: false,
+      blocker: `No recipe in functions/_lib/bowlspec.js — checkout rejects this bowl with "Unknown bowl: ${row.id}".`,
+    };
+  }
+  if (spec.hidden) {
+    return {
+      orderable: false,
+      blocker: `Its bowlspec recipe is flagged hidden, so checkout still rejects it with "Unknown bowl: ${row.id}".`,
+    };
+  }
+  return { orderable: true, blocker: null };
+}
+
+/** Convenience predicate for surfaces that only need yes/no. */
+export function isOrderable(item) {
+  return orderability(item).orderable;
+}
+
 /** Public catalog shape for /api/menu and the order page. */
 export function publicCatalog(menu) {
   const byKind = { bowl: [], drink: [], addon: [] };
@@ -84,6 +126,9 @@ export function publicCatalog(menu) {
       desc: it.description || '',
       desc_es: it.description_es || it.description || '',
       img: it.image || null,
+      // Advertised but not yet buyable (a bowl with no recipe): flagged rather than filtered, so a
+      // surface can hide it or grey it out while the owner still sees what they created.
+      orderable: isOrderable(it),
     });
   }
   return { bowls: byKind.bowl, drinks: byKind.drink, addons: byKind.addon, modifiers: menu.modifiers };

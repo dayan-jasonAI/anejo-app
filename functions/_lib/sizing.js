@@ -17,7 +17,9 @@ export const STANDARD_BOWL_OZ = 16;
 export const STANDARD_BOWL = { kcal: 550, protein_g: 40, carbs_g: 36, fat_g: 26, fiber_g: 10 };
 
 // Price of one standard 16 oz bowl. = $219 / 12 (our best per-bowl rate). All sizing scales from this.
-// Production can override without a code change via env SQUARE-side config; this stays the quote anchor.
+// NOT overridable at runtime — no env var or D1 row is read for it (a previous comment here claimed
+// there was one, and there never was). Changing it is a code change, and it also moves the per-bowl
+// floor/cap below, which guards every sized charge.
 export const BASE_BOWL_PRICE_USD = 18.25;
 
 // Portion bounds vs the standard bowl (linear pricing, with floor & cap).
