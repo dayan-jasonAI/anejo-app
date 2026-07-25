@@ -82,6 +82,34 @@ export async function autoCustomerCodeFor(env, sessionEmail) {
 }
 
 /**
+ * Make a partner's affiliate_code a LIVE checkout code (idempotent).
+ * A partner is a `trainers` row; this mirrors their code into promo_codes so customers can
+ * actually use it — 0% off (the perk is the free drink, not a discount), 2x points, free Añejo
+ * Fit drink on first order, and commission_pct to the partner on every sale INCLUDING renewals.
+ */
+export async function ensureAffiliateCode(env, { partnerId, code, commissionPct = 10 } = {}) {
+  if (!env || !env.DB || !partnerId) return null;
+  const c = norm(code);
+  if (!c || c === 'HOUSE') return null;   // HOUSE is the internal direct-sales bucket, not a partner
+  try {
+    const existing = await env.DB.prepare('SELECT code, partner_id FROM promo_codes WHERE code = ?').bind(c).first();
+    if (existing) {
+      // Re-point / re-activate if this partner already owns it; never hijack someone else's code.
+      if (existing.partner_id && existing.partner_id !== partnerId) return null;
+      await env.DB.prepare("UPDATE promo_codes SET partner_id=?, commission_pct=?, status='active' WHERE code=?")
+        .bind(partnerId, commissionPct, c).run();
+      return c;
+    }
+    await env.DB.prepare(
+      `INSERT INTO promo_codes (code, kind, partner_id, pct_off, points_mult, perk, perk_first_order_only,
+         commission_pct, status, note, created_at)
+       VALUES (?, 'affiliate', ?, 0, 2, 'fit_drink', 1, ?, 'active', 'creator partner', ?)`
+    ).bind(c, partnerId, commissionPct, now()).run();
+    return c;
+  } catch { return null; }
+}
+
+/**
  * Evaluate a code for a pending checkout. Pure read — nothing is consumed here.
  * `sessionEmail` is the SIGNED-IN account (null for guests).
  * Returns { ok:false, reason } or { ok:true, ... } with server-computed money.

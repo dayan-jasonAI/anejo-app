@@ -13,6 +13,7 @@
 import { json, bad, id, now, randToken, isEmail, normalizePhone, affiliateCode, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
+import { ensureAffiliateCode } from '../../../_lib/promo.js';
 
 const cleanCode = (s) => String(s == null ? '' : s).trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
 
@@ -144,6 +145,9 @@ export const onRequestPost = async ({ request, env }) => {
       if (String(e.message || '').includes('UNIQUE')) { code = affiliateCode(); await insert(code); } // code collision → regenerate
       else throw e;
     }
+    // Make the code immediately usable at checkout (10% to them incl. renewals, free Fit drink
+    // + 2x points for their followers). Non-fatal: the partner still exists if this hiccups.
+    try { await ensureAffiliateCode(env, { partnerId: tid, code }); } catch (_) { /* non-fatal */ }
     const invited = (b.send_invite === false) ? false : await inviteTrainer(env, request, email, name);
     return json({ ok: true, trainer_id: tid, affiliate_code: code, invited });
   }
@@ -170,6 +174,11 @@ export const onRequestPost = async ({ request, env }) => {
     } catch (e) {
       if (String(e.message || '').includes('UNIQUE')) return bad('That affiliate code is already taken.', 409);
       throw e;
+    }
+    // Keep the live checkout code in step with a renamed affiliate code.
+    if (b.affiliate_code !== undefined) {
+      try { await ensureAffiliateCode(env, { partnerId: trainerId, code: cleanCode(b.affiliate_code) }); }
+      catch (_) { /* non-fatal */ }
     }
     return json({ ok: true });
   }
