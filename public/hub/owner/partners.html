@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Affiliate Program</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .pt-chips { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .pt-chips button { flex:1; min-width:110px; border:1px solid var(--line); background:#fff; color:var(--green);
+    border-radius:10px; padding:9px 8px; font:inherit; font-size:13px; cursor:pointer; }
+  .pt-chips button.sel { border-color:var(--gold,#C6A85B); box-shadow:0 0 0 1px var(--gold,#C6A85B); background:#fff8e9; }
+  .pt-right { text-align:right; font-size:12px; color:var(--green); white-space:nowrap; }
+  .pt-code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:700; letter-spacing:.04em; }
+  .pt-earn { font-weight:700; color:#8B6B3E; }
+  .profile-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:13px; }
+  .profile-grid .k { color:var(--green); opacity:.75; }
+  .detail-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .detail-actions .btn { flex:1; min-width:120px; }
+  .form-row { display:flex; flex-direction:column; gap:4px; margin-bottom:10px; }
+  .form-row label { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--green); opacity:.8; }
+  .form-row input, .form-row select { padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; font-size:14px; }
+  .form-two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .hint { font-size:12px; color:var(--green); opacity:.7; line-height:1.5; margin:2px 0 0; }
+  .payout-opt { display:flex; gap:8px; margin-top:6px; }
+  .payout-opt button { flex:1; border:1px solid var(--line); background:#fff; border-radius:8px; padding:10px; font:inherit; font-size:13px; cursor:pointer; }
+  .payout-opt button.sel { border-color:var(--gold,#C6A85B); background:#fff8e9; font-weight:700; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · AFFILIATE</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading affiliate program…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var esc = Hub.esc, $ = Hub.$;
+  var data = { partners: [], codes: [] };
+  var view = 'partners';   // 'partners' | 'codes' | 'onboard' | 'newcode'
+
+  function money(c) { return '$' + ((Number(c) || 0) / 100).toFixed(2); }
+  function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+
+  function kindBadge(k) {
+    if (k === 'affiliate') return '<span class="badge" style="background:#fff8e9;border-color:#C6A85B;color:#8B6B3E">creator</span>';
+    if (k === 'customer')  return '<span class="badge ok">legacy member</span>';
+    return '<span class="badge">campaign</span>';
+  }
+
+  // ---------- shell ----------
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML =
+      '<div class="hub-section">' +
+        '<div class="pt-chips" id="chips"></div>' +
+        '<div id="pane"></div>' +
+      '</div>';
+    $('#chips').innerHTML = [
+      { k: 'partners', label: 'Partners' },
+      { k: 'codes',    label: 'Codes' },
+      { k: 'onboard',  label: '+ New partner' },
+      { k: 'newcode',  label: '+ New code' }
+    ].map(function (d) {
+      return '<button data-v="' + d.k + '" class="' + (d.k === view ? 'sel' : '') + '"><span data-i18n>' + d.label + '</span></button>';
+    }).join('');
+    $('#chips').querySelectorAll('[data-v]').forEach(function (b) {
+      b.addEventListener('click', function () { view = b.getAttribute('data-v'); render(); });
+    });
+    if (view === 'partners') paintPartners();
+    else if (view === 'codes') paintCodes();
+    else if (view === 'onboard') paintOnboard();
+    else paintNewCode();
+    refresh();
+  }
+
+  // ---------- partners ----------
+  function paintPartners() {
+    if (!data.partners.length) {
+      $('#pane').innerHTML = '<div class="card accent"><p data-i18n>No creator partners yet. Use “+ New partner” to onboard your first one — they get a live code and an onboarding email immediately.</p></div>';
+      return;
+    }
+    var totalPending = data.partners.reduce(function (n, p) { return n + (p.pending_cents || 0); }, 0);
+    $('#pane').innerHTML =
+      '<div class="card" style="margin-bottom:10px"><strong data-i18n>Owed to partners</strong> · <span class="pt-earn">' + money(totalPending) + '</span></div>' +
+      data.partners.map(function (p) {
+        return '<div class="card list-row" data-p="' + esc(p.id) + '" style="cursor:pointer">' +
+          '<div><strong>' + esc(p.name || p.email) + '</strong>' +
+            (p.gym_name ? ' <small>' + esc(p.gym_name) + '</small>' : '') +
+            '<div><span class="pt-code">' + esc(p.affiliate_code) + '</span>' +
+            (p.active ? '' : ' <span class="badge">off</span>') + '</div></div>' +
+          '<div class="pt-right"><span class="pt-earn">' + money(p.pending_cents) + '</span> <span data-i18n>pending</span>' +
+            '<div>' + (p.active_subs || 0) + ' <span data-i18n>subs</span> · ' + (p.events || 0) + ' <span data-i18n>sales</span></div></div>' +
+        '</div>';
+      }).join('');
+    $('#pane').querySelectorAll('[data-p]').forEach(function (el) {
+      el.addEventListener('click', function () { paintPartnerDetail(el.getAttribute('data-p')); });
+    });
+  }
+
+  function paintPartnerDetail(pid) {
+    var p = data.partners.filter(function (x) { return x.id === pid; })[0];
+    if (!p) return;
+    var isCredit = p.payout_method === 'credit';
+    $('#pane').innerHTML =
+      '<button class="btn ghost" id="back" data-i18n>← Back</button>' +
+      '<div class="card" style="margin-top:10px">' +
+        '<h3>' + esc(p.name || p.email) + '</h3>' +
+        '<div class="profile-grid">' +
+          '<div class="k" data-i18n>Code</div><div class="pt-code">' + esc(p.affiliate_code) + '</div>' +
+          '<div class="k" data-i18n>Email</div><div>' + esc(p.email || '—') + '</div>' +
+          '<div class="k" data-i18n>Handle</div><div>' + esc(p.gym_name || '—') + '</div>' +
+          '<div class="k" data-i18n>City</div><div>' + esc(p.gym_city || '—') + '</div>' +
+          '<div class="k" data-i18n>Active subs</div><div>' + (p.active_subs || 0) + '</div>' +
+          '<div class="k" data-i18n>Sales credited</div><div>' + (p.events || 0) + '</div>' +
+          '<div class="k" data-i18n>Paid to date</div><div>' + money(p.paid_cents) + '</div>' +
+          '<div class="k" data-i18n>Pending</div><div class="pt-earn">' + money(p.pending_cents) + '</div>' +
+        '</div>' +
+        '<p class="hint" style="margin-top:10px" data-i18n>Payout method</p>' +
+        '<div class="payout-opt">' +
+          '<button data-pay="cash" class="' + (isCredit ? '' : 'sel') + '">' + money(p.payout_cash_cents) + ' <span data-i18n>cash</span></button>' +
+          '<button data-pay="credit" class="' + (isCredit ? 'sel' : '') + '">' + money(p.payout_credit_cents) + ' <span data-i18n>credit (1.5×)</span></button>' +
+        '</div>' +
+        '<div class="detail-actions">' +
+          '<button class="btn gold" id="paid" ' + (p.pending_cents ? '' : 'disabled') + ' data-i18n>Mark paid</button>' +
+          '<button class="btn ghost" id="resend" data-i18n>Resend onboarding</button>' +
+        '</div>' +
+        '<p class="hint" id="msg"></p>' +
+      '</div>';
+    $('#back').addEventListener('click', render);
+    $('#pane').querySelectorAll('[data-pay]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        post({ op: 'set_payout', partner_id: pid, payout_method: b.getAttribute('data-pay') }, 'Payout method saved.');
+      });
+    });
+    $('#paid').addEventListener('click', function () {
+      if (!confirm('Mark ' + money(p.pending_cents) + ' as paid to ' + (p.name || p.email) + '?')) return;
+      post({ op: 'mark_paid', partner_id: pid }, 'Marked paid.');
+    });
+    $('#resend').addEventListener('click', function () {
+      post({ op: 'resend_welcome', partner_id: pid }, 'Onboarding email sent.');
+    });
+    refresh();
+  }
+
+  // ---------- codes ----------
+  function paintCodes() {
+    if (!data.codes.length) {
+      $('#pane').innerHTML = '<div class="card accent"><p data-i18n>No codes yet.</p></div>';
+      return;
+    }
+    $('#pane').innerHTML = data.codes.map(function (c) {
+      var bits = [];
+      if (c.pct_off) bits.push(c.pct_off + '% off');
+      if (c.points_mult > 1) bits.push(c.points_mult + '× pts');
+      if (c.perk === 'fit_drink') bits.push('free Fit drink');
+      if (c.commission_pct) bits.push(c.commission_pct + '% comm.');
+      return '<div class="card list-row">' +
+        '<div><span class="pt-code">' + esc(c.code) + '</span> ' + kindBadge(c.kind) +
+          (c.status === 'active' ? '' : ' <span class="badge">off</span>') +
+          '<div><small>' + esc(bits.join(' · ') || '—') +
+          (c.bound_email ? ' · ' + esc(c.bound_email) : '') + '</small></div></div>' +
+        '<div class="pt-right">' + (c.redemptions || 0) + ' <span data-i18n>used</span>' +
+          '<div><button class="btn ghost" data-toggle="' + esc(c.code) + '" data-status="' + (c.status === 'active' ? 'disabled' : 'active') + '">' +
+          (c.status === 'active' ? 'Disable' : 'Enable') + '</button></div></div>' +
+      '</div>';
+    }).join('');
+    $('#pane').querySelectorAll('[data-toggle]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        post({ op: 'set_code_status', code: b.getAttribute('data-toggle'), status: b.getAttribute('data-status') }, 'Code updated.');
+      });
+    });
+  }
+
+  // ---------- onboard a partner ----------
+  function paintOnboard() {
+    $('#pane').innerHTML =
+      '<div class="card">' +
+        '<h3 data-i18n>Onboard a creator partner</h3>' +
+        '<p class="hint" data-i18n>Creates their partner record, activates a live code at checkout, and emails them their code, link, commission terms, and the disclosure rules.</p>' +
+        '<div class="form-row"><label data-i18n>Name</label><input id="o_name" autocomplete="off"></div>' +
+        '<div class="form-row"><label data-i18n>Email</label><input id="o_email" type="email" autocomplete="off"></div>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label data-i18n>Instagram handle</label><input id="o_handle" placeholder="@handle" autocomplete="off"></div>' +
+          '<div class="form-row"><label data-i18n>City</label><input id="o_city" placeholder="Boca Raton" autocomplete="off"></div>' +
+        '</div>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label data-i18n>Code</label><input id="o_code" placeholder="auto" autocomplete="off" style="text-transform:uppercase"></div>' +
+          '<div class="form-row"><label data-i18n>Commission %</label><input id="o_comm" type="number" value="10" min="0" max="50"></div>' +
+        '</div>' +
+        '<div class="form-row"><label data-i18n>Payout</label><select id="o_payout">' +
+          '<option value="cash">Cash (monthly)</option><option value="credit">Añejo credit (1.5×)</option></select></div>' +
+        '<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0 12px">' +
+          '<input type="checkbox" id="o_welcome" checked style="width:auto"> <span data-i18n>Send the onboarding email now</span></label>' +
+        '<button class="btn gold" id="o_save" style="width:100%" data-i18n>Create partner</button>' +
+        '<p class="hint" id="msg"></p>' +
+      '</div>';
+    $('#o_save').addEventListener('click', function () {
+      var body = {
+        op: 'onboard',
+        name: $('#o_name').value.trim(),
+        email: $('#o_email').value.trim(),
+        handle: $('#o_handle').value.trim(),
+        city: $('#o_city').value.trim(),
+        code: $('#o_code').value.trim(),
+        commission_pct: Number($('#o_comm').value) || 10,
+        payout_method: $('#o_payout').value,
+        send_welcome: $('#o_welcome').checked
+      };
+      if (!body.name || !body.email) { $('#msg').textContent = 'Name and email are required.'; return; }
+      post(body, 'Partner created.', function (d) { view = 'partners'; });
+    });
+    refresh();
+  }
+
+  // ---------- mint a code by hand ----------
+  function paintNewCode() {
+    $('#pane').innerHTML =
+      '<div class="card">' +
+        '<h3 data-i18n>Create a promo code</h3>' +
+        '<p class="hint" data-i18n>A campaign code is shareable by anyone. Use it for seasonal promos or a one-off partnership.</p>' +
+        '<div class="form-row"><label data-i18n>Code</label><input id="c_code" placeholder="WELCOME10" style="text-transform:uppercase" autocomplete="off"></div>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label data-i18n>% off</label><input id="c_pct" type="number" value="10" min="0" max="100"></div>' +
+          '<div class="form-row"><label data-i18n>Points multiplier</label><input id="c_mult" type="number" value="1" min="1" max="10" step="0.5"></div>' +
+        '</div>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label data-i18n>Expires in (days)</label><input id="c_days" type="number" placeholder="never" min="1"></div>' +
+          '<div class="form-row"><label data-i18n>Max uses</label><input id="c_max" type="number" placeholder="unlimited" min="1"></div>' +
+        '</div>' +
+        '<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0 12px">' +
+          '<input type="checkbox" id="c_perk" style="width:auto"> <span data-i18n>Include a free Añejo Fit drink on first order</span></label>' +
+        '<div class="form-row"><label data-i18n>Note</label><input id="c_note" placeholder="Summer campaign" autocomplete="off"></div>' +
+        '<button class="btn gold" id="c_save" style="width:100%" data-i18n>Create code</button>' +
+        '<p class="hint" id="msg"></p>' +
+      '</div>';
+    $('#c_save').addEventListener('click', function () {
+      var body = {
+        op: 'create_code', kind: 'campaign',
+        code: $('#c_code').value.trim(),
+        pct_off: Number($('#c_pct').value) || 0,
+        points_mult: Number($('#c_mult').value) || 1,
+        expires_days: $('#c_days').value ? Number($('#c_days').value) : null,
+        max_uses: $('#c_max').value ? Number($('#c_max').value) : null,
+        perk: $('#c_perk').checked ? 'fit_drink' : null,
+        note: $('#c_note').value.trim()
+      };
+      if (!body.code) { $('#msg').textContent = 'Enter a code.'; return; }
+      post(body, 'Code created.', function () { view = 'codes'; });
+    });
+    refresh();
+  }
+
+  // ---------- shared POST ----------
+  function post(body, okMsg, after) {
+    var msg = $('#msg');
+    if (msg) { msg.textContent = '…'; }
+    fetch('/api/hub/owner/partners', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok) { if (msg) msg.textContent = (d && d.error) || 'Something went wrong.'; return; }
+        if (msg) msg.textContent = okMsg + (d.emailed === false ? ' (email not sent)' : '');
+        if (after) after(d);
+        load();
+      })
+      .catch(function () { if (msg) msg.textContent = 'Network error.'; });
+  }
+
+  function load() {
+    Owner.get('/api/hub/owner/partners').then(function (d) {
+      data = { partners: (d && d.partners) || [], codes: (d && d.codes) || [] };
+      render();
+    }).catch(function () { Owner.fail('owner-root'); });
+  }
+
+  Owner.init('partners', load);
+})();
+</script>
+<script src="assets/operator.js" defer></script>
+</body>
+</html>
