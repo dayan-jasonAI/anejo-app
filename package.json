@@ -11,7 +11,8 @@
     "test:auth": "node --no-warnings --test test/auth/*.test.js",
     "test:studio": "node --no-warnings --test test/studio/*.test.js",
     "test:money": "node --no-warnings --test test/money/*.test.js",
-    "test": "node --no-warnings --test test/*.test.mjs test/auth/*.test.js test/studio/*.test.js test/money/*.test.js"
+    "test": "node --no-warnings --test test/*.test.mjs test/auth/*.test.js test/studio/*.test.js test/money/*.test.js test/ui/*.test.js",
+    "test:ui": "node --no-warnings --test test/ui/*.test.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
