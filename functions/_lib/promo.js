@@ -10,7 +10,6 @@
 // and commission are read from D1 — never trusted from the client.
 import { id, now } from './util.js';
 
-const AMBIGUOUS = /[0OIL1]/g;                       // drop look-alikes from generated codes
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // (already excludes the ambiguous set)
 
 // Partner payout: monthly cash, or take it as Añejo credit at 1.5x face value. The credit option
@@ -52,7 +51,9 @@ export async function issueCustomerCode(env, { email: to, note } = {}) {
   } catch { /* fall through and mint a new one */ }
 
   const t = now();
-  const code = ('FOUND-' + randomSuffix(6)).replace(AMBIGUOUS, 'X');
+  // Only the random suffix needs to avoid look-alikes — ALPHABET already excludes them, so the
+  // prefix must NOT be filtered (that turned 'FOUND-' into 'FXUND-').
+  const code = 'FOUND-' + randomSuffix(6);
   try {
     await env.DB.prepare(
       `INSERT INTO promo_codes (code, kind, bound_email, pct_off, points_mult, expires_at, status, note, created_at)
