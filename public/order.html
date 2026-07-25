@@ -269,9 +269,9 @@ const CATALOG = [
     {id:'raiz',name:'RAÍZ',price:18.99,desc:'Crispy tofu, quinoa, slaw, sweet potato',descEs:'Tofu crujiente, quinoa, ensalada, batata'},
   ]},
   { group:'Añejo Fit drinks (12 oz)', groupEs:'Bebidas Añejo Fit (12 oz)', items:[
-    {id:'fit_gold',name:'Gold Vitality',price:9.99,desc:'Pineapple · ginger · turmeric',descEs:'Piña · jengibre · cúrcuma'},
-    {id:'fit_hibiscus',name:'Hibiscus Zen',price:9.99,desc:'Hibiscus · lime · ginger · mint',descEs:'Hibisco · limón · jengibre · menta'},
-    {id:'fit_emerald',name:'Emerald Hydrate',price:9.99,desc:'Cucumber · mint · lemon · chia',descEs:'Pepino · menta · limón · chía'},
+    {id:'fit_gold',name:'Gold Vitality',price:9.99,img:'fit_gold.jpg',desc:'Pineapple · ginger · turmeric',descEs:'Piña · jengibre · cúrcuma'},
+    {id:'fit_hibiscus',name:'Hibiscus Zen',price:9.99,img:'fit_hibiscus.jpg',desc:'Hibiscus · lime · ginger · mint',descEs:'Hibisco · limón · jengibre · menta'},
+    {id:'fit_emerald',name:'Emerald Hydrate',price:9.99,img:'fit_emerald.jpg',desc:'Cucumber · mint · lemon · chia',descEs:'Pepino · menta · limón · chía'},
   ]},
   { group:'Add-ons', groupEs:'Extras', items:[
     {id:'sauce_extra',name:'Extra Signature Sauce',price:1.50,desc:'2 oz · on the side',descEs:'2 oz · aparte'},
@@ -437,6 +437,7 @@ function renderCatalog(){
           </div>`;
         }
         return `<div class="prod">
+          ${i.img ? `<img class="prod-photo" src="/assets/img/${i.img}" alt="${i.name}" loading="lazy" onerror="this.style.display='none'">` : ''}
           <div class="prod-info"><div class="prod-name">${i.name}</div><div class="prod-desc">${L(i.desc, i.descEs||i.desc)}</div></div>
           <div class="prod-price">${money(i.price)}</div>
           <div class="stepper">
