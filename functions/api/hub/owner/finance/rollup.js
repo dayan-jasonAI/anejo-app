@@ -1,6 +1,6 @@
 // GET /api/hub/owner/finance/rollup — money roll-up for the command center.
 // Owner-only. Query: ?days=7 (window, max 90) or ?from=YYYY-MM-DD&to=YYYY-MM-DD.
-// Combines: orders revenue (paid/fulfilled), expenses (by status), mileage (pending),
+// Combines: orders revenue (paid/fulfilled, net of refunds), expenses (by status), mileage (pending),
 // and trainer rev-share (from rev_share_events). All amounts in cents.
 import { json } from '../../../../_lib/util.js';
 import { requireRole } from '../../../../_lib/roles.js';
@@ -30,6 +30,22 @@ export const onRequestGet = async ({ request, env }) => {
     "SELECT COUNT(*) n, COALESCE(SUM(total_estimate_cents),0) cents FROM orders WHERE status IN ('paid','prep','ready','fulfilled') AND created_at >= ?",
     [sinceMs]
   );
+
+  // A refund leaves the order 'paid'/'fulfilled', so the SUM above still counts money that went
+  // back to the customer. The refunded amount lives in the order's items JSON (order-actions.js
+  // has no column to write it to), which SQL cannot sum — so pull just the candidate rows and
+  // subtract in JS. The LIKE is only a prefilter to keep the scan small; refundedCents() parses
+  // the JSON properly, so a false positive (the word "refund" in a cancel reason) adds nothing.
+  // NOTE: attribution is by ORDER date, matching how revenue/expenses/routes are windowed here.
+  // Refunding a 40-day-old order therefore does not dent a 7-day window.
+  const refundedRows = await many(
+    env,
+    "SELECT items FROM orders WHERE status IN ('paid','prep','ready','fulfilled') AND created_at >= ? AND items LIKE '%refund%'",
+    [sinceMs]
+  );
+  let refunded_cents = 0;
+  for (const r of refundedRows) refunded_cents += refundedCents(r.items);
+
   const ordersPendingRow = await one(
     env,
     "SELECT COUNT(*) n, COALESCE(SUM(total_estimate_cents),0) cents FROM orders WHERE status='pending' AND created_at >= ?",
@@ -57,7 +73,11 @@ export const onRequestGet = async ({ request, env }) => {
     [sinceMs]
   );
 
-  const revenue_cents = (ordersRow && ordersRow.cents) || 0;
+  const gross_revenue_cents = (ordersRow && ordersRow.cents) || 0;
+  // Tips ride on the Square payment but never on total_estimate_cents, so a full refund can exceed
+  // the order total — clamp rather than report negative revenue.
+  refunded_cents = Math.min(gross_revenue_cents, refunded_cents);
+  const revenue_cents = gross_revenue_cents - refunded_cents;
   const expenses_approved_cents = (expApproved && expApproved.cents) || 0;
   const driver_pay_completed_cents = (driverPay && driverPay.completed_cents) || 0;
 
@@ -67,7 +87,11 @@ export const onRequestGet = async ({ request, env }) => {
     since: sinceMs,
     orders: {
       realized_count: (ordersRow && ordersRow.n) || 0,
+      // revenue_cents is NET of refunds (what the tile shows); the gross is kept alongside it so
+      // the owner can see WHY the number moved.
       revenue_cents,
+      gross_revenue_cents,
+      refunded_cents,
       pending_count: (ordersPendingRow && ordersPendingRow.n) || 0,
       pending_cents: (ordersPendingRow && ordersPendingRow.cents) || 0,
     },
@@ -93,7 +117,7 @@ export const onRequestGet = async ({ request, env }) => {
       scheduled_cents: (driverPay && driverPay.scheduled_cents) || 0,
       miles: (driverPay && driverPay.miles) || 0,
     },
-    // Rough operating contribution = realized revenue − approved expenses − driver pay earned (sandbox estimate).
+    // Rough operating contribution = realized revenue (net of refunds) − approved expenses − driver pay earned.
     net_estimate_cents: revenue_cents - expenses_approved_cents - driver_pay_completed_cents,
   });
 };

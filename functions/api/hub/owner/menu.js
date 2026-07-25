@@ -8,8 +8,8 @@
 // A PRICE CHANGE IS A MONEY CHANGE, so every one of them writes a menu_price_log row (who, when,
 // old → new) before anyone can ask "when did this become $22.99?".
 //
-// The hard part of this endpoint is refusing to overstate what a saved row actually does. Two
-// gaps are real, and both are reported to the UI instead of glossed over:
+// The hard part of this endpoint is refusing to overstate what a saved row actually does. These
+// gaps are real, and every one of them is reported to the UI instead of glossed over:
 //
 //   1. A NEW BOWL IS NOT ORDERABLE FROM A ROW ALONE. checkout.js re-validates and re-prices every
 //      customized bowl against functions/_lib/bowlspec.js (macros + per-ingredient build). A bowl
@@ -20,9 +20,19 @@
 //      effect at checkout while the menu on screen still shows the old number — the worst possible
 //      version of "live". That is checked at runtime against the real page rather than asserted
 //      here, so the warning disappears by itself the day that page reads /api/menu.
+//   3. THE SAME-DAY PRODUCTION CAP IS ONLY HALF DERIVED. /api/order-availability now takes the
+//      capped bowl list from the live menu (ondemand.js cappedBowlIds), so a new bowl gets a real
+//      "left today" count with no deploy — but checkout still tallies each cart against the
+//      hardcoded BOWL_IDS constant, and checkout is what enforces the limit. on_demand_capped
+//      therefore reports the constant, not the derived list.
+//   4. /api/menu MAY NOT BE SERVING THESE ROWS AT ALL. loadMenu falls back to the hardcoded menu in
+//      _lib/menu.js whenever D1 is unreachable or nothing is active — the storefront then sells at
+//      prices this desk cannot change, while the desk itself shows an empty editor. Checked here
+//      too, because the check in (2) cannot see it: /order can read /api/menu perfectly and still
+//      be handed fallback prices.
 import { json, id, now, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { BOWL_BY_NAME } from '../../../_lib/bowlspec.js';
+import { orderability } from '../../../_lib/menu.js';
 import { BOWL_IDS } from '../../../_lib/ondemand.js';
 
 const KINDS = ['bowl', 'drink', 'addon'];
@@ -63,28 +73,30 @@ const logStmt = (env, itemId, field, oldCents, newCents, by, ts) =>
 /**
  * Say whether a row is actually buyable, and if not, exactly why.
  * Bowls carry a second source of truth (bowlspec) that a D1 row cannot satisfy on its own.
+ * The verdict comes from _lib/menu.js so the desk applies the SAME test checkout does — a copy
+ * here would eventually disagree with the thing that takes the money.
  */
 function decorate(row) {
-  const out = { ...row };
-  if (row.kind !== 'bowl') {
-    out.orderable = true;
-    out.blocker = null;
-    return out;
-  }
-  const spec = BOWL_BY_NAME[String(row.id).toUpperCase()];
-  if (!spec) {
-    out.orderable = false;
-    out.blocker = `No recipe in functions/_lib/bowlspec.js — checkout rejects this bowl with "Unknown bowl: ${row.id}".`;
-  } else if (spec.hidden) {
-    out.orderable = false;
-    out.blocker = `Its bowlspec recipe is flagged hidden, so checkout still rejects it with "Unknown bowl: ${row.id}".`;
-  } else {
-    out.orderable = true;
-    out.blocker = null;
-  }
-  // Not a blocker: the per-day on-demand production cap only counts ids listed in ondemand.js.
+  const out = { ...row, ...orderability(row) };
+  if (row.kind !== 'bowl') return out;
+  // Not a blocker, and deliberately still the hardcoded list: /api/order-availability now derives
+  // the cap from the live menu, but checkout.js tallies each cart against ondemand.js BOWL_IDS,
+  // and checkout is where the limit is actually enforced. Report what is enforced, not what is
+  // displayed. Drop this the day that call site reads the derived list.
   out.on_demand_capped = BOWL_IDS.includes(row.id);
   return out;
+}
+
+/**
+ * Exactly what is left before a saved bowl can be sold — the owner is entitled to the checklist,
+ * not just "ask a developer". Named for the two files a developer actually has to open.
+ */
+function remainingWork(row) {
+  const key = String(row.id).toUpperCase();
+  const cap = BOWL_IDS.includes(row.id)
+    ? ''
+    : ` Its id also has to go in BOWL_IDS in functions/_lib/ondemand.js, or checkout will not count it against the same-day production cap.`;
+  return `What is left is a code change + deploy: add ${key} to BOWLS in functions/_lib/bowlspec.js with its macros and its per-ingredient build (oz).${cap} Nothing on this page can do that — until it ships, leave the bowl switched off rather than let a customer hit the error at payment.`;
 }
 
 function warningsFor(items) {
@@ -96,14 +108,14 @@ function warningsFor(items) {
         level: it.active ? 'block' : 'info',
         item_id: it.id,
         message: it.active
-          ? `${it.name} is on the menu but CANNOT be bought. ${it.blocker} A developer must add its build + macros and deploy before it is real.`
+          ? `${it.name} is on the menu but CANNOT be bought. ${it.blocker} ${remainingWork(it)}`
           : `${it.name} is inactive, and would not be buyable if switched on. ${it.blocker}`,
       });
     } else if (it.active && !it.on_demand_capped) {
       out.push({
         level: 'warn',
         item_id: it.id,
-        message: `${it.name} is not in ondemand.js BOWL_IDS, so the per-day production cap does not count it — same-day orders for it are unlimited.`,
+        message: `${it.name} shows a same-day "left today" count, but checkout tallies each cart against the hardcoded BOWL_IDS list in functions/_lib/ondemand.js — until its id is added there, same-day orders for it are not actually limited.`,
       });
     }
   }
@@ -111,19 +123,40 @@ function warningsFor(items) {
 }
 
 /**
- * Does the customer-facing order page read the live menu, or does it still carry its own copy of
- * the prices? Asked of the real page at request time: a belief hardcoded here would go stale the
- * moment that page is wired up, and would then be a lie in the safest-sounding direction.
+ * Two separate questions, both asked of the live site at request time rather than asserted here —
+ * a belief hardcoded in this file would go stale the moment either changes, and would then be a lie
+ * in the safest-sounding direction.
+ *
+ *   reads_menu_api — does the customer-facing order page read the live menu, or does it still carry
+ *     its own copy of the prices? If it does, a price change takes effect at checkout while the
+ *     menu on screen still shows the old number.
+ *   menu_source — is /api/menu actually serving THESE rows ('d1'), or the hardcoded emergency copy
+ *     baked into _lib/menu.js ('fallback')? loadMenu falls back whole-menu whenever D1 is
+ *     unreachable OR no item is active, and then customers are priced from code that this desk
+ *     cannot edit. Grepping /order for the string '/api/menu' does not catch that: the page can be
+ *     wired up perfectly and still be served fallback prices.
+ *
+ * `checked: false` / `menu_source: null` mean UNVERIFIED, not fine — the UI must say so out loud.
  */
 async function storefrontCheck(env, request) {
-  try {
-    const res = await fetch(`${appBaseUrl(env, request)}/order`, { cf: { cacheTtl: 300 } });
-    if (!res.ok) return { checked: false, reads_menu_api: null };
-    const html = await res.text();
-    return { checked: true, reads_menu_api: html.includes('/api/menu') };
-  } catch {
-    return { checked: false, reads_menu_api: null };   // never fail the desk over a self-fetch
-  }
+  const base = appBaseUrl(env, request);
+
+  const page = fetch(`${base}/order`, { cf: { cacheTtl: 300 } })
+    .then(async (res) => (res.ok ? { checked: true, reads_menu_api: (await res.text()).includes('/api/menu') } : { checked: false, reads_menu_api: null }))
+    .catch(() => ({ checked: false, reads_menu_api: null }));   // never fail the desk over a self-fetch
+
+  // Deliberately NOT cf.cacheTtl'd: /api/menu sets its own Cache-Control (60s when it answered from
+  // D1, no-store when it fell back), so an override here could pin a stale verdict for minutes.
+  const api = fetch(`${base}/api/menu`)
+    .then(async (res) => {
+      if (!res.ok) return { menu_source: null };
+      const d = await res.json();
+      return { menu_source: d && (d.source === 'd1' || d.source === 'fallback') ? d.source : null };
+    })
+    .catch(() => ({ menu_source: null }));
+
+  const [p, a] = await Promise.all([page, api]);
+  return { ...p, ...a };
 }
 
 async function snapshot(env, request) {
@@ -266,7 +299,7 @@ export const onRequestPost = async ({ request, env }) => {
       // Surfaced separately from `warnings` so the UI can put it in front of the owner NOW,
       // at the moment they think they just added a product to the menu.
       warning: blocked
-        ? `"${name}" is saved and will show up in the menu API — but customers CANNOT buy it yet. ${blocked.blocker} It needs its build + macros added to functions/_lib/bowlspec.js (and its id added to ondemand.js BOWL_IDS) and a deploy. Until then, leave it inactive or expect failed checkouts.`
+        ? `"${name}" is saved, priced, and will show up in the menu API — but customers CANNOT buy it yet. ${blocked.blocker} ${remainingWork(blocked)}`
         : null,
     });
   }

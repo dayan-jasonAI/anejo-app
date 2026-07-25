@@ -4,7 +4,7 @@
 // message history each turn. Rate-limited as a cost-abuse guard.
 import { json, bad } from '../_lib/util.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
-import { loadMenu } from '../_lib/menu.js';
+import { loadMenu, isOrderable } from '../_lib/menu.js';
 import { BASE_BOWL_PRICE_USD } from '../_lib/sizing.js';
 
 const MODEL = 'claude-sonnet-4-6';
@@ -67,9 +67,13 @@ function menuSection(menu) {
   ];
 
   const centsOf = (it) => (it.kind === 'bowl' ? menu.bowls[it.id] : (menu.nonBowls[it.id] || {}).price_cents);
-  // An item we cannot price is left unmentioned rather than named without a price — a bowl Aña
-  // describes but can't quote is an invitation to invent a number.
-  const listed = (kind) => rows.filter((it) => it.kind === kind && Number.isFinite(centsOf(it)));
+  // Two exclusions, both "don't sell what we can't deliver":
+  //  - no price → left unmentioned rather than named without one; a bowl Aña describes but cannot
+  //    quote is an invitation to invent a number.
+  //  - not orderable → a bowl row with no bowlspec recipe is rejected by checkout as "Unknown bowl"
+  //    AFTER the customer has built a cart and pressed pay. The owner's menu desk flags it in red
+  //    and /order flags it too; Aña must not be the one surface that talks it up.
+  const listed = (kind) => rows.filter((it) => it.kind === kind && Number.isFinite(centsOf(it)) && isOrderable(it));
   const nameOf = (it) => it.name || (menu.nonBowls[it.id] || {}).name || (FALLBACK_BOWL_COPY[it.id] || [])[0] || String(it.id).toUpperCase();
 
   const bowls = listed('bowl').map((it) => {

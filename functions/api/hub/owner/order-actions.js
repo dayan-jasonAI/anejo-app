@@ -291,11 +291,7 @@ export const onRequestGet = async ({ request, env }) => {
       available: cancelable,
       reason: cancelable ? null : cancelBlockedReason(row.status),
       // Whether cancelling would leave money sitting with us — the UI must say this out loud.
-      // money_known is NOT cosmetic: without it, an unreachable Square would render as "nothing was
-      // captured", and the owner would tell a customer they weren't charged when they were.
-      money_known: !!rf.payment,
-      money_held_cents: (rf.payment && rf.payment.refundable_cents) || 0,
-      money_note: rf.payment ? null : (rf.reason || null),
+      ...moneyView(rf),
     },
     refund: {
       available: !!rf.available,
@@ -347,8 +343,9 @@ export const onRequestPost = async ({ request, env }) => {
     // Cancelling is a bookkeeping act. If money was captured it is STILL captured — read the live
     // refundable balance so the response can tell the owner exactly how much is still theirs to return.
     const rf = await refundState(env, row);
-    const stillHeld = (rf.payment && rf.payment.refundable_cents) || 0;
-    const warnings = await cancelSideEffects(env, row);
+    const mv = moneyView(rf);
+    const stillHeld = mv.money_held_cents;
+    const warnings = await orderSideEffects(env, row, { action: 'cancel' });
 
     await capture(env, {
       event: 'order.canceled',
@@ -364,7 +361,7 @@ export const onRequestPost = async ({ request, env }) => {
       status: 'canceled',
       from_status: row.status,
       money_moved: false,
-      money_known: !!rf.payment,
+      money_known: mv.money_known,
       money_held_cents: stillHeld,
       refund_available: !!rf.available,
       warnings,
@@ -380,14 +377,9 @@ export const onRequestPost = async ({ request, env }) => {
 
     // Default to the whole remaining balance; a partial amount must be a positive whole number of
     // cents that fits inside what Square says is still refundable.
-    let amountCents = pay.refundable_cents;
-    if (b && b.amount_cents != null && b.amount_cents !== '') {
-      amountCents = Math.round(Number(b.amount_cents));
-      if (!Number.isFinite(amountCents) || amountCents <= 0) return bad('Refund amount must be a positive number of cents.');
-      if (amountCents > pay.refundable_cents) {
-        return bad(`Only $${(pay.refundable_cents / 100).toFixed(2)} is still refundable on this payment.`, 409);
-      }
-    }
+    const amt = validateRefundAmount(b ? b.amount_cents : null, pay.refundable_cents);
+    if (amt.error) return bad(amt.error, amt.status);
+    const amountCents = amt.amount_cents;
 
     const key = await refundKey(row.id, pay.refunded_cents, amountCents);
     const r = await square(env, '/v2/refunds', {
@@ -419,6 +411,13 @@ export const onRequestPost = async ({ request, env }) => {
     });
     await env.DB.prepare('UPDATE orders SET updated_at = ? WHERE id = ?').bind(t, row.id).run().catch(() => {});
 
+    // A refund is the moment awarded points and affiliate commission ought to come back. Neither
+    // ledger can be reversed idempotently from here (see orderSideEffects), so the owner gets the
+    // exact figures and where to fix them instead of a silent half-reversal.
+    const warnings = await orderSideEffects(env, row, {
+      action: 'refund', amount_cents: amountCents, captured_cents: pay.captured_cents,
+    });
+
     await capture(env, {
       event: 'order.refunded',
       distinct_id: ctx.distinct_id,
@@ -428,6 +427,9 @@ export const onRequestPost = async ({ request, env }) => {
         order_id: row.id, amount_cents: amountCents, reason,
         partial: amountCents < pay.refundable_cents,
         refund_id: refund.id || null, refund_status: refund.status || null,
+        // How many ledgers the owner still has to square up by hand — if this is never 0 in
+        // practice, that is the case for building a real reversal path.
+        manual_followups: warnings.length,
       },
     });
 
@@ -442,6 +444,9 @@ export const onRequestPost = async ({ request, env }) => {
       refunded_total_cents: refundedTotal,
       refundable_cents: Math.max(0, pay.captured_cents - refundedTotal),
       status: row.status,
+      // Points and commission this refund did NOT reverse. The UI must show these — an empty
+      // array is the only "nothing left to do" signal the owner gets.
+      warnings,
     });
   }
 

@@ -99,6 +99,43 @@
   }
 
   // ---------- banners: what a save here does NOT do ----------
+  //
+  // The green all-clear is the dangerous one. It used to appear whenever /order merely CONTAINED
+  // the string '/api/menu' — which says nothing about what /api/menu answers. When D1 is
+  // unreachable or no item is active, /api/menu serves the hardcoded emergency menu, and the owner
+  // saw an empty editor under a green "the site reads this menu" while the storefront charged
+  // prices this page cannot touch. Both checks must pass, and a check that did not answer says
+  // UNVERIFIED out loud — silence on this desk reads as "fine".
+  function storefrontBanner() {
+    var sf = data.storefront || {};
+    var out = '';
+
+    if (sf.menu_source === 'fallback') {
+      out += '<div class="mn-alert block"><strong>Live prices are NOT coming from this page</strong>' +
+        '/api/menu is serving the emergency menu that lives in code — either the database is unreachable or no item is switched on. ' +
+        'Customers are being shown and charged those hardcoded prices, and nothing you save here will change them. ' +
+        'Do not treat a save on this page as a price change until this banner is gone — call your developer.</div>';
+    } else if (sf.menu_source !== 'd1') {
+      out += '<div class="mn-alert warn"><strong>Unverified — we could not read /api/menu</strong>' +
+        'The check that confirms customers are priced from these rows did not answer. That is not the same as a problem, ' +
+        'but it is not an all-clear either: reload before you change a price.</div>';
+    }
+
+    if (!sf.checked) {
+      out += '<div class="mn-alert warn"><strong>Unverified — we could not read the order page</strong>' +
+        'We could not fetch /order to confirm it shows these prices to customers. Reload; if this keeps showing, tell your developer.</div>';
+    } else if (sf.reads_menu_api === false) {
+      out += '<div class="mn-alert warn"><strong>The order page still shows its own prices</strong>' +
+        'A price you save here is charged on the next order immediately — but /order is still shipping a hardcoded copy of the menu, ' +
+        'so customers will keep SEEING the old price while being charged the new one. Get that page wired to /api/menu before you change a price.</div>';
+    } else if (sf.menu_source === 'd1') {
+      out += '<div class="mn-alert ok"><strong>The site reads this menu</strong>' +
+        'The order page loads /api/menu and /api/menu is answering from these rows, so a saved price shows up for customers ' +
+        'within about a minute (the menu is edge-cached 60s).</div>';
+    }
+    return out;
+  }
+
   function banners() {
     var out = '';
     var blocks = data.warnings.filter(function (w) { return w.level === 'block'; });
@@ -107,15 +144,7 @@
       out += '<div class="mn-alert block"><strong>On the menu, impossible to buy</strong>' +
         blocks.map(function (w) { return esc(w.message); }).join('<br>') + '</div>';
     }
-    var sf = data.storefront || {};
-    if (sf.checked && sf.reads_menu_api === false) {
-      out += '<div class="mn-alert warn"><strong>The order page still shows its own prices</strong>' +
-        'A price you save here is charged on the next order immediately — but /order is still shipping a hardcoded copy of the menu, ' +
-        'so customers will keep SEEING the old price while being charged the new one. Get that page wired to /api/menu before you change a price.</div>';
-    } else if (sf.checked) {
-      out += '<div class="mn-alert ok"><strong>The site reads this menu</strong>' +
-        'The order page loads /api/menu, so a saved price shows up for customers within about a minute (the menu is edge-cached 60s).</div>';
-    }
+    out += storefrontBanner();
     if (warns.length) {
       out += '<div class="mn-alert warn">' + warns.map(function (w) { return esc(w.message); }).join('<br>') + '</div>';
     }
