@@ -242,7 +242,7 @@ export const onRequestPost = async ({ request, env }) => {
   const custPhone = normalizePhone(contact.phone);
   const smsConsent = ((contact.sms_consent === true || contact.sms_consent === 1) && custPhone) ? 1 : 0;
 
-  const deliveryNote = `${onDemand ? 'ON-DEMAND' : 'Delivery'} for ${firstName}: ${fulfillLabel} · ${addrLine}`;
+  let deliveryNote = `${onDemand ? 'ON-DEMAND' : 'Delivery'} for ${firstName}: ${fulfillLabel} · ${addrLine}`;
 
   // Order minimum + flat delivery fee (configurable via env).
   const orderMinCents = Math.round(Number(env.ORDER_MIN_USD || 25) * 100);
@@ -304,6 +304,14 @@ export const onRequestPost = async ({ request, env }) => {
   }
   // Never discount below zero once both discounts are combined.
   const totalDiscountCents = Math.min(subtotalCents, discountCents + promoDiscountCents);
+
+  // A granted perk has to reach the people who pack the bag — otherwise we've promised a customer
+  // something the kitchen never sees. Add it as a $0 line item (kitchen board reads orderItems)
+  // AND onto the Square ticket note.
+  if (promo && promo.perk === 'fit_drink') {
+    orderItems.push({ id: 'perk_fit_drink', name: 'Añejo Fit drink — FREE (partner perk)', qty: 1, price_cents: 0, perk: true });
+    deliveryNote += ' · 🎁 INCLUDE 1 FREE Añejo Fit drink (partner perk)';
+  }
 
   const { ok, status, data } = await square(env, '/v2/online-checkout/payment-links', {
     method: 'POST',
