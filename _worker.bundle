@@ -1,9 +1,9 @@
-------formdata-undici-094681643332
+------formdata-undici-085234974443
 Content-Disposition: form-data; name="metadata"
 
-{"main_module":"functionsWorker-0.5852006967259783.js"}
-------formdata-undici-094681643332
-Content-Disposition: form-data; name="functionsWorker-0.5852006967259783.js"; filename="functionsWorker-0.5852006967259783.js"
+{"main_module":"functionsWorker-0.690462922515137.js"}
+------formdata-undici-085234974443
+Content-Disposition: form-data; name="functionsWorker-0.690462922515137.js"; filename="functionsWorker-0.690462922515137.js"
 Content-Type: application/javascript+module
 
 var __defProp = Object.defineProperty;
@@ -3682,7 +3682,7 @@ var onRequestGet10 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sinceMs = Date.now() - days * 864e5;
   const ordersRow = await one(
     env,
-    "SELECT COUNT(*) n, COALESCE(SUM(total_estimate_cents),0) cents FROM orders WHERE status IN ('paid','fulfilled') AND created_at >= ?",
+    "SELECT COUNT(*) n, COALESCE(SUM(total_estimate_cents),0) cents FROM orders WHERE status IN ('paid','prep','ready','fulfilled') AND created_at >= ?",
     [sinceMs]
   );
   const ordersPendingRow = await one(
@@ -4188,6 +4188,14 @@ var onRequestPost24 = /* @__PURE__ */ __name(async ({ request, env }) => {
     }
   }
   if (!ok2) await alertBackupFailed(env, backup && (backup.reason || backup.error) || "failed");
+  else {
+    try {
+      await env.DB.prepare(
+        "UPDATE alerts SET status='acknowledged', acknowledged_at=?, updated_at=? WHERE dedupe_key='backup_failed' AND status='open'"
+      ).bind(finished, finished).run();
+    } catch {
+    }
+  }
   return json({
     ok: ok2,
     stored: !!(backup && backup.stored),
@@ -4267,7 +4275,7 @@ async function onRequestGet12({ request, env }) {
     fetched_at: (/* @__PURE__ */ new Date()).toISOString(),
     orders_week: await scalar(env, "SELECT COUNT(*) n FROM orders WHERE created_at>=?", weekAgo),
     orders_open: await scalar(env, "SELECT COUNT(*) n FROM orders WHERE status IN ('pending','paid')"),
-    revenue_week_cents: await scalar(env, "SELECT COALESCE(SUM(total_estimate_cents),0) n FROM orders WHERE created_at>=? AND status IN ('paid','fulfilled')", weekAgo),
+    revenue_week_cents: await scalar(env, "SELECT COALESCE(SUM(total_estimate_cents),0) n FROM orders WHERE created_at>=? AND status IN ('paid','prep','ready','fulfilled')", weekAgo),
     deliveries_today: await scalar(env, "SELECT COUNT(*) n FROM deliveries WHERE delivery_date=?", today3),
     on_shift: await scalar(env, "SELECT COUNT(*) n FROM shifts WHERE status='open'"),
     eod_expected: expected.length,
@@ -9967,7 +9975,15 @@ async function customerDetail(env, email2) {
       status: client.status || null,
       lang: client.lang || "en",
       trainer_name: client.trainer_name || null,
-      created_at: client.created_at
+      created_at: client.created_at,
+      // The manual-order form prefills the saved delivery address from these; without them on
+      // the payload every field silently resolved to '' and the prefill was dead code.
+      delivery_street: client.delivery_street || null,
+      delivery_unit: client.delivery_unit || null,
+      delivery_city: client.delivery_city || null,
+      delivery_state: client.delivery_state || null,
+      delivery_zip: client.delivery_zip || null,
+      delivery_notes: client.delivery_notes || null
     } : null,
     orders,
     subscription: subscription || null,
@@ -11023,7 +11039,7 @@ async function evaluatePromo(env, { code, sessionEmail, guestEmail, guestPhone, 
     if (em && row.perk_first_order_only) {
       try {
         const r = await env.DB.prepare(
-          "SELECT COUNT(*) n FROM orders WHERE LOWER(TRIM(customer_email))=? AND status IN ('paid','fulfilled')"
+          "SELECT COUNT(*) n FROM orders WHERE LOWER(TRIM(customer_email))=? AND status IN ('paid','prep','ready','fulfilled')"
         ).bind(em).first();
         firstOrder = !r || !r.n;
       } catch {
@@ -11883,7 +11899,7 @@ var onRequestGet46 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const tiers = { vital: 0, thriving: 0, legend: 0, immortal: 0 };
   try {
     const rows2 = (await env.DB.prepare(
-      "SELECT SUM(total_estimate_cents) AS spend FROM orders WHERE customer_email IS NOT NULL AND TRIM(customer_email)<>'' AND status IN ('paid','fulfilled') GROUP BY LOWER(TRIM(customer_email))"
+      "SELECT SUM(total_estimate_cents) AS spend FROM orders WHERE customer_email IS NOT NULL AND TRIM(customer_email)<>'' AND status IN ('paid','prep','ready','fulfilled') GROUP BY LOWER(TRIM(customer_email))"
     ).all()).results || [];
     for (const r of rows2) {
       const k = tierForSpend(r.spend || 0, config).key;
@@ -12073,7 +12089,7 @@ async function recoverableRoute(env, routeId) {
   if (route.status === "canceled") return { route, canceled: true };
   if (route.status !== "assigned") return { error: `That route is already ${route.status}.`, status: 409 };
   if (route.started_at) return { error: "The driver already started that route.", status: 409 };
-  if (!RECOVERABLE.includes(route.offer_status || "accepted")) {
+  if (!RECOVERABLE.includes(route.offer_status || "unfilled")) {
     return { error: "A driver has accepted that route \u2014 have them deny it before reassigning.", status: 409 };
   }
   const moved = await env.DB.prepare("SELECT COUNT(*) AS n FROM route_stops WHERE route_id=? AND status <> 'pending'").bind(routeId).first();
@@ -12144,7 +12160,9 @@ var onRequestPost65 = /* @__PURE__ */ __name(async ({ request, env }) => {
       const cnt = await env.DB.prepare("SELECT COUNT(*) AS n FROM route_stops WHERE route_id=?").bind(routeId).first();
       const stops = cnt && cnt.n || 0;
       await env.DB.prepare("DELETE FROM route_stops WHERE route_id=?").bind(routeId).run();
-      await env.DB.prepare("UPDATE routes SET status='canceled', stop_count=0, updated_at=? WHERE id=?").bind(t, routeId).run();
+      await env.DB.prepare(
+        "UPDATE routes SET status='canceled', stop_count=0, offer_status='canceled', offered_at=NULL, pay_cents=0, total_miles_est=0, updated_at=? WHERE id=?"
+      ).bind(t, routeId).run();
       await capture(env, {
         event: "route.released",
         distinct_id: ctx.distinct_id,
@@ -15707,7 +15725,7 @@ var HOUSE_SAUCES = ["Mango Omega", "Ajo C\xEDtrico", "Chimichurri Vital", "Golde
 var EXTRA_STD_CENTS = 150;
 var EXTRA_PREMIUM_CENTS = 300;
 var EXTRA_SAUCE_CENTS = 150;
-var PREMIUM_RE = /\b(tuna|salmon|steak|shrimp|chicken|tofu|beef|pork|avocado|queso|cheese|almond|pecan)\b/i;
+var PREMIUM_RE = /\b(tuna|salmon|steak|shrimp|chicken|tofu|beef|pork|avocado|queso|cheese|almonds?|pecans?)\b/i;
 var ADDON_PRICE = { avocado_half: 200, extra_protein: 450, sweet_potato: 200, sauce_cup: 150 };
 var ADDON_NAME = { avocado_half: "\xBD avocado", extra_protein: "extra protein (4 oz)", sweet_potato: "sweet potato", sauce_cup: "extra sauce cup (2 oz)" };
 function bowlLabel2(key2) {
@@ -16245,7 +16263,7 @@ var onRequestPost99 = /* @__PURE__ */ __name(async ({ request, env }) => {
     const who = (row.customer_name || "").split(" ")[0] || "A customer";
     await raiseAlert(env, {
       alert_type: "negative_sentiment",
-      severity: rating <= 2 ? "high" : "medium",
+      severity: rating <= 2 ? "warning" : "info",
       title: `${rating}\u2605 delivery feedback \u2014 ${who}`,
       body: `${who} rated a delivery ${rating}/5.${comment ? " \u201C" + comment + "\u201D" : ""} Reach out to make it right.`,
       ref_type: "order",
@@ -16752,7 +16770,7 @@ async function onRequest7(context) {
 }
 __name(onRequest7, "onRequest");
 
-// ../.wrangler/tmp/pages-kzFpaU/functionsRoutes-0.6184428459032789.mjs
+// ../.wrangler/tmp/pages-RlMcX2/functionsRoutes-0.7596639994571057.mjs
 var routes = [
   {
     routePath: "/api/hub/driver/checklist/submit",
@@ -18528,4 +18546,4 @@ export {
   pages_template_worker_default as default
 };
 
-------formdata-undici-094681643332--
+------formdata-undici-085234974443--
