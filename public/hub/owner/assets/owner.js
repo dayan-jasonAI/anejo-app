@@ -51,7 +51,10 @@
 
   Owner.fail = function () {
     var root = document.getElementById('owner-root');
-    if (root) root.innerHTML = '<div class="card accent"><p data-i18n>Could not load. Pull to refresh.</p></div>';
+    if (root) { root.innerHTML = '<div class="card accent"><p data-i18n>Could not load. Pull to refresh.</p></div>'; return; }
+    // Not every owner page has #owner-root (traffic, sms-test) — without a fallback those pages
+    // render a permanently blank screen on a guard rejection or a render throw, with no clue why.
+    if (Hub.toast) Hub.toast('Could not load. Pull to refresh.');
   };
 
   // Convenience: GET an owner API path, returning parsed JSON (or {} on error).

@@ -20,7 +20,7 @@
     ];
     var html = items.map(function (it) {
       return '<a href="' + it.href + '" class="' + (it.key === active ? 'active' : '') +
-        '"><span class="nav-ico">' + it.ico + '</span><span data-i18n>' + it.label + '</span></a>';
+        '" ' + (it.key === active ? 'aria-current="page" ' : '') + '><span class="nav-ico" aria-hidden="true">' + it.ico + '</span><span data-i18n>' + it.label + '</span></a>';
     }).join('');
     var nav = document.createElement('nav');
     nav.className = 'hub-nav';

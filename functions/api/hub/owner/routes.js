@@ -37,7 +37,11 @@ async function recoverableRoute(env, routeId) {
   if (route.status === 'canceled') return { route, canceled: true };
   if (route.status !== 'assigned') return { error: `That route is already ${route.status}.`, status: 409 };
   if (route.started_at) return { error: 'The driver already started that route.', status: 409 };
-  if (!RECOVERABLE.includes(route.offer_status || 'accepted')) {
+  // A NULL offer_status means no offer was ever recorded (legacy row, or sendOffer threw inside
+  // assignRoute's try) — that route is stranded, not owned by a driver, so it must stay
+  // recoverable. Defaulting it to 'accepted' locked out the exact rows this recovery path exists
+  // for. The started_at + untouched-stops checks above are what actually protect a live route.
+  if (!RECOVERABLE.includes(route.offer_status || 'unfilled')) {
     return { error: 'A driver has accepted that route — have them deny it before reassigning.', status: 409 };
   }
   const moved = await env.DB

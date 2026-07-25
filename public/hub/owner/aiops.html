@@ -62,11 +62,11 @@
   ];
 
   // Overdue = one grace period past the longest normal gap (daily 24h, weekly 7d,
-  // semi-monthly 16d) so a single late/retried run doesn't cry wolf.
+  // semi-monthly 17d — Jul 15 to Aug 1) so a single late/retried run doesn't cry wolf.
   var OVERDUE_MS = {
     daily: 26 * 3600 * 1000,
     weekly: 8 * 24 * 3600 * 1000,
-    semimonthly: 17 * 24 * 3600 * 1000
+    semimonthly: 19 * 24 * 3600 * 1000
   };
 
   var TYPE_BADGES = {
@@ -407,8 +407,8 @@
         sub = j.when + ' · no run on record';
       } else {
         var overdue = (ref - r.last_started) > OVERDUE_MS[j.cadence];
-        var failed = r.last_outcome === 'failed';
-        state = overdue ? 'overdue' : (failed ? 'last run failed' : 'on schedule');
+        var failed = r.last_outcome !== 'success';   // 'partial' is degraded too — never green
+        state = overdue ? 'overdue' : (failed ? (r.last_outcome === 'partial' ? 'last run degraded' : 'last run failed') : 'on schedule');
         kind = overdue ? 'crit' : (failed ? 'warn' : 'ok');
         sub = j.when + ' · last run ' + Owner.timeAgo(r.last_started);
         if (failed && r.last_error) sub += ' · ' + String(r.last_error).slice(0, 120);
