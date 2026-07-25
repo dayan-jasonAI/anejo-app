@@ -10,6 +10,7 @@ import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js'
 import { currentUser } from '../_lib/session.js';
 import { rewardsSummary } from '../_lib/rewards.js';
 import { evaluatePromo, recordRedemption, autoCustomerCodeFor, claimPromoUse, releasePromoUse } from '../_lib/promo.js';
+import { loadMenu } from '../_lib/menu.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -73,8 +74,15 @@ function bowlLabel(key) { const N = String(key || '').toUpperCase(); return BOWL
 // and the FIRST added house sauce is free (each additional sauce is $1.50); addons + extra
 // ingredients are priced server-side. Returns a priced
 // snapshot with kitchen-facing fields (removals/addons/notes/build/macros) or { error }.
-export function priceCustomBowl(key, mods) {
-  const baseCents = BOWL_BASE[key];
+// `pricing` comes from D1 via _lib/menu.js at request time; it defaults to the module constants
+// so unit tests and the D1-unreachable fallback both price identically.
+export function priceCustomBowl(key, mods, pricing) {
+  const bowls = (pricing && pricing.bowls) || BOWL_BASE;
+  const mp = (pricing && pricing.modifiers) || {
+    extra_std: EXTRA_STD_CENTS, extra_premium: EXTRA_PREMIUM_CENTS, extra_sauce: EXTRA_SAUCE_CENTS,
+    ...ADDON_PRICE,
+  };
+  const baseCents = bowls[key];
   if (baseCents == null) return { error: `Unknown bowl: ${key}` };
   const spec = BOWL_BY_NAME[String(key).toUpperCase()];
   if (!spec || spec.hidden) return { error: `Unknown bowl: ${key}` };
@@ -94,16 +102,16 @@ export function priceCustomBowl(key, mods) {
     if (HOUSE_SAUCES.includes(s) && !sauces.includes(s)) sauces.push(s);
   }
   // First added sauce is free; each additional sauce is $1.50.
-  let extraCents = Math.max(0, sauces.length - 1) * EXTRA_SAUCE_CENTS;
+  let extraCents = Math.max(0, sauces.length - 1) * mp.extra_sauce;
   let avocado = false;
   const addonLabels = [];
   for (const e of (Array.isArray(m.extras) ? m.extras.slice(0, 12) : [])) {
     if (e && e.type === 'ingredient') {
       if (!buildNames.includes(e.name)) return { error: `Can't add extra "${e && e.name}".` };
-      extraCents += PREMIUM_RE.test(e.name) ? EXTRA_PREMIUM_CENTS : EXTRA_STD_CENTS;
+      extraCents += PREMIUM_RE.test(e.name) ? mp.extra_premium : mp.extra_std;
       addonLabels.push('extra ' + e.name);
-    } else if (e && e.type === 'addon' && ADDON_PRICE[e.id] != null) {
-      extraCents += ADDON_PRICE[e.id];
+    } else if (e && e.type === 'addon' && mp[e.id] != null) {
+      extraCents += mp[e.id];
       addonLabels.push(ADDON_NAME[e.id]);
       if (e.id === 'avocado_half') avocado = true;
     } else {
@@ -143,15 +151,20 @@ export const onRequestPost = async ({ request, env }) => {
   const items = Array.isArray(b.items) ? b.items : [];
   if (!items.length) return bad('Your cart is empty.');
 
+  // Prices come from D1 so the owner can change them from the HUB without a deploy. loadMenu
+  // falls back to the module constants if D1 is unreachable — a database hiccup must not stop us
+  // taking money at the last known-good price.
+  const menu = await loadMenu(env);
+
   const lineItems = [];
   const orderItems = [];
   let subtotalCents = 0;
   for (const it of items) {
-    if (BOWL_BASE[it && it.id] != null) {
+    if (menu.bowls[it && it.id] != null) {
       // Customized bowl: qty units of one configuration. Re-priced + re-validated server-side.
       const qty = Math.floor(Number(it.qty));
       if (!Number.isFinite(qty) || qty < 1 || qty > 20) return bad('Invalid bowl quantity.');
-      const pr = priceCustomBowl(it.id, it.mods);
+      const pr = priceCustomBowl(it.id, it.mods, menu);
       if (pr.error) return bad(pr.error);
       subtotalCents += pr.unitCents * qty;
       const lineName = pr.label + ' Bowl';
@@ -164,13 +177,13 @@ export const onRequestPost = async ({ request, env }) => {
         removals: pr.removed, addons: pr.addons, notes: pr.notes, avocado: pr.avocado, base: pr.base,
       });
     } else {
-      const prod = CATALOG[it && it.id];
+      const prod = menu.nonBowls[it && it.id];
       if (!prod) return bad(`Unknown item: ${it && it.id}`);
       const qty = Math.floor(Number(it.qty));
       if (!Number.isFinite(qty) || qty < 1 || qty > 20) return bad(`Invalid quantity for ${prod.name}.`);
-      const cents = Math.round(prod.price * 100);
+      const cents = prod.price_cents;
       subtotalCents += cents * qty;
-      lineItems.push({ name: prod.name, quantity: String(qty), base_price_money: money(prod.price) });
+      lineItems.push({ name: prod.name, quantity: String(qty), base_price_money: { amount: cents, currency: 'USD' } });
       orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents });
     }
   }
