@@ -5,7 +5,7 @@
 // Trainer attribution + 10% rev-share live in OUR D1 (provider_subscription_id → trainer_id).
 import { json, bad, id, now, isEmail, normalizePhone } from '../../_lib/util.js';
 import { square, squareConfigured } from '../../_lib/square.js';
-import { PLAN_TIERS, isPlanTier, planVariationId, tierWindows } from '../../_lib/plans.js';
+import { PLAN_TIERS, isPlanTier, planVariationId, tierWindows, loadPlanTiers, catalogWeeklyCents } from '../../_lib/plans.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { clampPerBowlCents, perBowlCentsFromOz, STANDARD_PER_BOWL_CENTS } from '../../_lib/sizing.js';
@@ -196,7 +196,10 @@ export const onRequestPost = async ({ request, env }) => {
   // Avocado add-on (+$2/bowl): a calorie-neutral swap (kitchen reduces other fats), priced flat.
   const avocado = b.avocado === true || b.avocado === 1;
 
-  const tier = PLAN_TIERS[planTier];
+  // Weekly price comes from D1 when the owner has set one (falls back to the code constant on any
+  // degraded path), so /subscribe and the charge are driven by the same number.
+  const { tiers: resolvedTiers } = await loadPlanTiers(env);
+  const tier = resolvedTiers[planTier] || PLAN_TIERS[planTier];
   const variationId = planVariationId(env, planTier);
   if (!variationId) return bad('Plan not available in this environment.', 503);
 
@@ -210,9 +213,12 @@ export const onRequestPost = async ({ request, env }) => {
   else if (b.bowlSizeOz) perBowlCents = perBowlCentsFromOz(b.bowlSizeOz);
   let weeklyCents = perBowlCents != null ? perBowlCents * tier.bowls : tier.weeklyCents;
   if (avocado) weeklyCents += AVOCADO_ADDON_CENTS * tier.bowls;
-  // Override Square's catalog price whenever the weekly amount differs from the standard tier —
-  // i.e. bowls sized away from standard OR the avocado add-on. Otherwise stay on the fixed variation.
-  const overridePrice = weeklyCents !== tier.weeklyCents;
+  // Override Square's catalog price whenever the weekly amount differs from what the VARIATION was
+  // provisioned at — sized bowls, the avocado add-on, OR an owner price change in D1. Comparing
+  // against `tier.weeklyCents` (now D1-resolved) would silently skip the override on exactly the
+  // price change that needs it: the variation is STATIC, so Square would keep charging the old
+  // catalog amount while /subscribe advertised the new one.
+  const overridePrice = weeklyCents !== catalogWeeklyCents(planTier);
 
   // 1) Square customer
   let r = await square(env, '/v2/customers', {

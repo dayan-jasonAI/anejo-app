@@ -9,7 +9,7 @@ import { json, bad, now, id } from '../../_lib/util.js';
 import { currentUser } from '../../_lib/session.js';
 import { square, squareConfigured } from '../../_lib/square.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
-import { PLAN_TIERS, isPlanTier, tierWindows, planVariationId } from '../../_lib/plans.js';
+import { PLAN_TIERS, isPlanTier, tierWindows, planVariationId, loadPlanTiers, catalogWeeklyCents } from '../../_lib/plans.js';
 import { clampPerBowlCents } from '../../_lib/sizing.js';
 import { AVOCADO_ADDON_CENTS } from '../../_lib/bowlspec.js';
 
@@ -56,7 +56,9 @@ async function swapSquarePlan(env, sub, tierKey, weeklyCents, tierCfg) {
     const stdVar = planVariationId(env, tierKey);
     if (!stdVar) return false;
     let variationId = stdVar;
-    if (weeklyCents !== tierCfg.weeklyCents) {
+    // Compare against the PROVISIONED variation price, not a D1-resolved tier — otherwise an owner
+    // price change matches here, the swap keeps the STATIC variation, and Square bills the old amount.
+    if (weeklyCents !== catalogWeeklyCents(tierKey)) {
       let vr = await square(env, `/v2/catalog/object/${stdVar}`);
       const parent = vr.ok && vr.data && vr.data.object && vr.data.object.subscription_plan_variation_data && vr.data.object.subscription_plan_variation_data.subscription_plan_id;
       if (parent) {
@@ -126,7 +128,10 @@ export const onRequestPost = async ({ request, env }) => {
   if (op === 'change_plan') {
     const newTier = String((b && b.tier) || '').trim();
     if (!isPlanTier(newTier)) return bad('Unknown plan tier.');
-    const tierCfg = PLAN_TIERS[newTier];
+    // D1-resolved so a tier change charges the owner's current price (swapSquarePlan then mints a
+    // variation because it compares against the provisioned catalog amount, not this one).
+    const { tiers: resolvedTiers } = await loadPlanTiers(env);
+    const tierCfg = resolvedTiers[newTier] || PLAN_TIERS[newTier];
     let plan = null;
     try { if (sub.plan_id) plan = await env.DB.prepare('SELECT * FROM plans WHERE id=?').bind(sub.plan_id).first(); } catch { /* none */ }
     const avocado = sub.avocado === 1 || sub.avocado === true;

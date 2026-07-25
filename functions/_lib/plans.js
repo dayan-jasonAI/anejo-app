@@ -84,6 +84,21 @@ export function planVariationId(env, key) {
 /** D1 key holding a tier's weekly price. plan_12 -> plan_12_weekly */
 export const planPriceKey = (tierKey) => tierKey + '_weekly';
 
+/**
+ * The price the Square CATALOG VARIATION was actually provisioned at.
+ *
+ * This is the number every "do we need an ad-hoc variation?" decision must compare against —
+ * NOT the D1-resolved tier. Square subscription variations are STATIC: `swap-plan` and
+ * `CreateSubscription` charge whatever the variation says, and Square has no price-override field.
+ * So if a caller compares the amount it intends to charge against a D1-resolved tier, the two match
+ * whenever D1 changed the price, the override never fires, and Square keeps billing the OLD catalog
+ * amount forever while /subscribe displays the new one. Comparing against this constant makes a D1
+ * price change behave exactly like a sized bowl: it mints a variation at the real amount.
+ *
+ * loadPlanTiers() copies PLAN_TIERS rather than mutating it, so this stays the provisioned price.
+ */
+export const catalogWeeklyCents = (tierKey) => (PLAN_TIERS[tierKey] || {}).weeklyCents;
+
 // A weekly price is only believable inside the same per-bowl band the sizing model already
 // enforces — anything else is a typo (or a wrong-units edit) and is ignored.
 function usableWeeklyCents(tier, cents) {
