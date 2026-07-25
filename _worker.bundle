@@ -1,9 +1,9 @@
-------formdata-undici-015434752116
+------formdata-undici-039550872414
 Content-Disposition: form-data; name="metadata"
 
-{"main_module":"functionsWorker-0.9912773650209559.js"}
-------formdata-undici-015434752116
-Content-Disposition: form-data; name="functionsWorker-0.9912773650209559.js"; filename="functionsWorker-0.9912773650209559.js"
+{"main_module":"functionsWorker-0.20698803406388055.js"}
+------formdata-undici-039550872414
+Content-Disposition: form-data; name="functionsWorker-0.20698803406388055.js"; filename="functionsWorker-0.20698803406388055.js"
 Content-Type: application/javascript+module
 
 var __defProp = Object.defineProperty;
@@ -1245,8 +1245,8 @@ async function aiDraft(env, day) {
     if (!resp.ok)
       return { summary: fallbackSummary(day), ai_drafted: false };
     const data = await resp.json();
-    const text = (data.content || []).map((c) => c.text || "").join("").trim();
-    return text ? { summary: text, ai_drafted: true } : { summary: fallbackSummary(day), ai_drafted: false };
+    const text2 = (data.content || []).map((c) => c.text || "").join("").trim();
+    return text2 ? { summary: text2, ai_drafted: true } : { summary: fallbackSummary(day), ai_drafted: false };
   } catch {
     return { summary: fallbackSummary(day), ai_drafted: false };
   }
@@ -1880,8 +1880,8 @@ function variants(s) {
   return [...out].filter(Boolean);
 }
 __name(variants, "variants");
-function fuzzyMatch(text, itemName) {
-  const textVariants = variants(text);
+function fuzzyMatch(text2, itemName) {
+  const textVariants = variants(text2);
   const nameVariants = variants(itemName).filter((v) => v.length >= 3);
   if (!nameVariants.length)
     return false;
@@ -1914,12 +1914,12 @@ function ingredientQty(ing) {
   return null;
 }
 __name(ingredientQty, "ingredientQty");
-function findMatch(text, items) {
+function findMatch(text2, items) {
   let best = null;
   for (const it of items) {
     if (!it || !it.name)
       continue;
-    if (fuzzyMatch(text, it.name)) {
+    if (fuzzyMatch(text2, it.name)) {
       if (!best || String(it.name).length > String(best.name).length)
         best = it;
     }
@@ -1955,19 +1955,19 @@ var onRequestPost11 = /* @__PURE__ */ __name(async ({ request, env }) => {
   let estCostCents = 0;
   let unmatchedCount = 0;
   for (const raw of ingredients) {
-    const text = ingredientText(raw).trim();
-    if (!text)
+    const text2 = ingredientText(raw).trim();
+    if (!text2)
       continue;
     const qty = ingredientQty(raw);
-    const match2 = findMatch(text, items);
+    const match2 = findMatch(text2, items);
     if (!match2) {
-      breakdown.push({ ingredient: text, matched_item: null, unit_cost_cents: null });
+      breakdown.push({ ingredient: text2, matched_item: null, unit_cost_cents: null });
       unmatchedCount += 1;
       continue;
     }
     const unitCostCents = match2.unit_cost_cents == null ? null : Number(match2.unit_cost_cents);
     if (unitCostCents == null || !Number.isFinite(unitCostCents)) {
-      breakdown.push({ ingredient: text, matched_item: match2.name, unit_cost_cents: null });
+      breakdown.push({ ingredient: text2, matched_item: match2.name, unit_cost_cents: null });
       unmatchedCount += 1;
       continue;
     }
@@ -1975,7 +1975,7 @@ var onRequestPost11 = /* @__PURE__ */ __name(async ({ request, env }) => {
     const lineCostCents = Math.round(unitCostCents * multiplier);
     estCostCents += lineCostCents;
     breakdown.push({
-      ingredient: text,
+      ingredient: text2,
       matched_item: match2.name,
       unit_cost_cents: unitCostCents,
       qty: multiplier,
@@ -2125,15 +2125,15 @@ Return the recipe JSON.` }] })
       console.warn("recipe draft: response truncated (max_tokens) \u2014 raise the cap");
       return { error: "ai_truncated" };
     }
-    const text = (data.content || []).map((c) => c.text || "").join("");
-    const first = text.indexOf("{");
-    const last = text.lastIndexOf("}");
+    const text2 = (data.content || []).map((c) => c.text || "").join("");
+    const first = text2.indexOf("{");
+    const last = text2.lastIndexOf("}");
     if (first === -1 || last === -1) {
-      console.warn("recipe draft: no JSON object in response; len=", text.length);
+      console.warn("recipe draft: no JSON object in response; len=", text2.length);
       return { error: "ai_unparseable" };
     }
     try {
-      return { draft: JSON.parse(text.slice(first, last + 1)) };
+      return { draft: JSON.parse(text2.slice(first, last + 1)) };
     } catch (e) {
       console.warn("recipe draft: JSON.parse failed \u2014", e && e.message || e);
       return { error: "ai_unparseable" };
@@ -2365,12 +2365,12 @@ async function aiSuggest(env, day, orderCount, bowlTally) {
     if (!r.ok)
       return null;
     const data = await r.json();
-    const text = (data.content || []).map((c) => c.text || "").join("");
-    const first = text.indexOf("[");
-    const last = text.lastIndexOf("]");
+    const text2 = (data.content || []).map((c) => c.text || "").join("");
+    const first = text2.indexOf("[");
+    const last = text2.lastIndexOf("]");
     if (first === -1 || last === -1)
       return null;
-    const arr = JSON.parse(text.slice(first, last + 1));
+    const arr = JSON.parse(text2.slice(first, last + 1));
     return Array.isArray(arr) ? arr.slice(0, 40) : null;
   } catch {
     return null;
@@ -2678,12 +2678,12 @@ Return the JSON.` }]
     if (!r.ok)
       return fallbackDraft(current, instruction);
     const data = await r.json();
-    const text = (data.content || []).map((c) => c.text || "").join("");
-    const a = text.indexOf("{");
-    const b = text.lastIndexOf("}");
+    const text2 = (data.content || []).map((c) => c.text || "").join("");
+    const a = text2.indexOf("{");
+    const b = text2.lastIndexOf("}");
     if (a === -1 || b === -1)
       return fallbackDraft(current, instruction);
-    const obj = JSON.parse(text.slice(a, b + 1));
+    const obj = JSON.parse(text2.slice(a, b + 1));
     const title = cleanLine(obj.title, instruction || "Brief change");
     const rationale = cleanLine(obj.rationale, "Proposed from Creative Studio for owner review.", 1e3);
     const proposedChange = String(obj.proposed_change || instruction || "").slice(0, 4e3);
@@ -3105,10 +3105,10 @@ __name(kitchenBowlLine, "kitchenBowlLine");
 
 // api/hub/kitchen/studio/content.js
 var MODEL6 = "claude-sonnet-4-6";
-function extractJson(text) {
-  if (!text)
+function extractJson(text2) {
+  if (!text2)
     return null;
-  const s = String(text);
+  const s = String(text2);
   const start = s.indexOf("{");
   if (start < 0)
     return null;
@@ -3145,7 +3145,7 @@ async function generateText(env, { name, transcript }) {
   if (!env.ANTHROPIC_API_KEY)
     return { ...demoContent(name), demo: true };
   const brand = await buildBrandContext(env).catch(() => "");
-  const system = `${brand}
+  const system2 = `${brand}
 
 You are A\xF1ejo Catering Co.'s content studio. From the dish below, write marketing content in the A\xF1ejo brand voice (premium, warm, health-forward, Mediterranean-Cuban). Return STRICT JSON ONLY \u2014 no prose, no code fences \u2014 with exactly these keys:
 {"image_prompt":"...","caption_en":"...","caption_es":"...","blurb_en":"...","blurb_es":"..."}
@@ -3160,7 +3160,7 @@ ${(transcript || "(none)").slice(0, 2e3)}`;
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL6, max_tokens: 8192, system, messages: [{ role: "user", content: userMsg }] })
+      body: JSON.stringify({ model: MODEL6, max_tokens: 8192, system: system2, messages: [{ role: "user", content: userMsg }] })
     });
     if (!r.ok)
       throw new Error(`AI ${r.status}`);
@@ -3227,18 +3227,18 @@ var onRequestPost17 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (session.staff_id !== ctx.distinct_id && ctx.role !== "owner")
     return bad("Session not found.", 404);
   const transcript = await transcriptFor(env, sessionId);
-  const text = await generateText(env, { name: recipeName, transcript });
-  const image = await generateImage(env, text.image_prompt);
+  const text2 = await generateText(env, { name: recipeName, transcript });
+  const image = await generateImage(env, text2.image_prompt);
   const macros = macrosForName(recipeName);
   const result = {
-    caption_en: text.caption_en,
-    caption_es: text.caption_es,
-    blurb_en: text.blurb_en,
-    blurb_es: text.blurb_es,
+    caption_en: text2.caption_en,
+    caption_es: text2.caption_es,
+    blurb_en: text2.blurb_en,
+    blurb_es: text2.blurb_es,
     image_url: image.url,
     image_reason: image.reason || null,
     macros,
-    demo: text.demo
+    demo: text2.demo
   };
   try {
     await env.DB.prepare(
@@ -3252,7 +3252,7 @@ var onRequestPost17 = /* @__PURE__ */ __name(async ({ request, env }) => {
       distinct_id: ctx.distinct_id,
       role: ctx.role,
       team: ctx.team,
-      properties: { session_id: sessionId, has_image: !!image.url, demo: text.demo }
+      properties: { session_id: sessionId, has_image: !!image.url, demo: text2.demo }
     });
   } catch {
   }
@@ -3379,8 +3379,8 @@ async function buildVisionBlocks(env, photoKeys) {
   return blocks;
 }
 __name(buildVisionBlocks, "buildVisionBlocks");
-function demoReply(text, assistType) {
-  const t = (text || "").slice(0, 80);
+function demoReply(text2, assistType) {
+  const t = (text2 || "").slice(0, 80);
   const lead = {
     guidance: "Here is how I would approach that",
     research: "A quick note from what is typical for this style",
@@ -3417,7 +3417,7 @@ async function buildTranscript(env, sessionId, beforeTs = null) {
 __name(buildTranscript, "buildTranscript");
 async function callClaude(env, sessionId, userText, assistType, beforeTs = null) {
   const { msgs: history, photoKeys } = await buildTranscript(env, sessionId, beforeTs);
-  const system = await buildStudioSystem(env);
+  const system2 = await buildStudioSystem(env);
   const directive = assistType ? `
 
 (The chef is asking for: ${assistType}.)` : "";
@@ -3428,7 +3428,7 @@ async function callClaude(env, sessionId, userText, assistType, beforeTs = null)
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL7, max_tokens: 8192, system, messages })
+    body: JSON.stringify({ model: MODEL7, max_tokens: 8192, system: system2, messages })
   });
   if (!r.ok)
     throw new Error(`AI ${r.status}`);
@@ -3449,10 +3449,10 @@ var onRequestPost19 = /* @__PURE__ */ __name(async ({ request, env }) => {
     return bad("Invalid JSON body.");
   }
   const sessionId = (b && b.session_id || "").toString().trim();
-  const text = (b && b.text || "").toString().trim();
+  const text2 = (b && b.text || "").toString().trim();
   if (!sessionId)
     return bad("Missing session_id.");
-  if (!text)
+  if (!text2)
     return bad("Missing text.");
   const assistType = ASSIST_TYPES.includes(b && b.assist_type) ? b.assist_type : "guidance";
   const session = await env.DB.prepare("SELECT * FROM recipe_sessions WHERE id = ?").bind(sessionId).first();
@@ -3468,27 +3468,27 @@ var onRequestPost19 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ts = now();
   await env.DB.prepare(
     `INSERT INTO recipe_session_events (id, session_id, kind, content, created_at) VALUES (?,?,?,?,?)`
-  ).bind(id("rse"), sessionId, "user_text", text, ts).run();
+  ).bind(id("rse"), sessionId, "user_text", text2, ts).run();
   let reply;
   let demo = false;
   if (env.ANTHROPIC_API_KEY) {
     try {
-      reply = await callClaude(env, sessionId, text, assistType, ts);
+      reply = await callClaude(env, sessionId, text2, assistType, ts);
     } catch {
-      reply = demoReply(text, assistType);
+      reply = demoReply(text2, assistType);
       demo = true;
     }
   } else {
-    reply = demoReply(text, assistType);
+    reply = demoReply(text2, assistType);
     demo = true;
   }
   if (!reply)
-    reply = demoReply(text, assistType);
+    reply = demoReply(text2, assistType);
   const imgCut = reply.indexOf("\u27E6IMG\u27E7");
   if (imgCut !== -1)
     reply = reply.slice(0, imgCut).trim();
   if (!reply)
-    reply = demoReply(text, assistType);
+    reply = demoReply(text2, assistType);
   const aiEventId = id("rse");
   await env.DB.prepare(
     `INSERT INTO recipe_session_events (id, session_id, kind, assist_type, content, meta, created_at)
@@ -3659,10 +3659,10 @@ var onRequestPost21 = /* @__PURE__ */ __name(async ({ request, env }) => {
     return bad("Invalid JSON body.");
   }
   const sessionId = (b && b.session_id || "").toString().trim();
-  const text = (b && b.text || "").toString().trim();
+  const text2 = (b && b.text || "").toString().trim();
   if (!sessionId)
     return bad("Missing session_id.");
-  if (!text)
+  if (!text2)
     return bad("Missing text.");
   const assistType = ASSIST_TYPES2.includes(b && b.assist_type) ? b.assist_type : "guidance";
   if (!env.ANTHROPIC_API_KEY)
@@ -3680,21 +3680,21 @@ var onRequestPost21 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ts = now();
   await env.DB.prepare(
     "INSERT INTO recipe_session_events (id, session_id, kind, content, created_at) VALUES (?,?,?,?,?)"
-  ).bind(id("rse"), sessionId, "user_text", text, ts).run();
+  ).bind(id("rse"), sessionId, "user_text", text2, ts).run();
   const { msgs: history, photoKeys } = await buildTranscript2(env, sessionId, ts);
-  const system = await buildStudioSystem(env);
+  const system2 = await buildStudioSystem(env);
   const directive = assistType ? `
 
 (The chef is asking for: ${assistType}.)` : "";
   const images = await buildVisionBlocks2(env, photoKeys);
-  const finalContent = images.length ? [{ type: "text", text: text + directive }, ...images] : text + directive;
+  const finalContent = images.length ? [{ type: "text", text: text2 + directive }, ...images] : text2 + directive;
   const messages = [...history, { role: "user", content: finalContent }];
   let aiResponse;
   try {
     aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL8, max_tokens: 8192, system, messages, stream: true })
+      body: JSON.stringify({ model: MODEL8, max_tokens: 8192, system: system2, messages, stream: true })
     });
   } catch {
     return bad("Creative Studio AI could not be reached. This turn was not drafted.", 502);
@@ -3851,14 +3851,14 @@ var onRequestPost22 = /* @__PURE__ */ __name(async ({ request, env }) => {
     return bad("audio must be a base64 data URL.");
   if (decoded.bytes.length > MAX_MEDIA_BYTES)
     return bad("Audio too large (5MB max).", 413);
-  let text = "";
+  let text2 = "";
   try {
     const result = await env.AI.run("@cf/openai/whisper", { audio: [...decoded.bytes] });
-    text = (result && result.text || "").trim();
+    text2 = (result && result.text || "").trim();
   } catch {
     return json({ ok: false, unavailable: true, error: "Transcription failed." });
   }
-  if (!text)
+  if (!text2)
     return json({ ok: false, unavailable: true, error: "No speech detected." });
   const put = await putMedia(env, {
     kind: "studio",
@@ -3878,7 +3878,7 @@ var onRequestPost22 = /* @__PURE__ */ __name(async ({ request, env }) => {
   await env.DB.prepare(
     `INSERT INTO recipe_session_events (id, session_id, kind, media_type, content, meta, created_at)
      VALUES (?,?,?,?,?,?,?)`
-  ).bind(eventId, sessionId, "voice_transcript", "voice", text.slice(0, 4e3), toJson(meta), ts).run();
+  ).bind(eventId, sessionId, "voice_transcript", "voice", text2.slice(0, 4e3), toJson(meta), ts).run();
   await env.DB.prepare(
     "UPDATE recipe_sessions SET media_count = media_count + 1, updated_at = ? WHERE id = ?"
   ).bind(ts, sessionId).run();
@@ -3889,7 +3889,7 @@ var onRequestPost22 = /* @__PURE__ */ __name(async ({ request, env }) => {
     team: ctx.team,
     properties: { media_type: "voice", transcribed: true, session_id: sessionId, audio_stored: !!put.stored }
   });
-  return json({ ok: true, text, event_id: eventId, audio_stored: !!put.stored, audio_url: put.stored ? put.url : null });
+  return json({ ok: true, text: text2, event_id: eventId, audio_stored: !!put.stored, audio_url: put.stored ? put.url : null });
 }, "onRequestPost");
 
 // api/hub/owner/deliveries/today.js
@@ -6381,7 +6381,7 @@ async function rows(env, sql, ...args) {
   }
 }
 __name(rows, "rows");
-async function askClaudeJson(env, { system, user, maxTokens = 400 }) {
+async function askClaudeJson(env, { system: system2, user, maxTokens = 400 }) {
   if (!env || !env.ANTHROPIC_API_KEY)
     return null;
   try {
@@ -6391,23 +6391,23 @@ async function askClaudeJson(env, { system, user, maxTokens = 400 }) {
       body: JSON.stringify({
         model: MODEL9,
         max_tokens: maxTokens,
-        system,
+        system: system2,
         messages: [{ role: "user", content: user }]
       })
     });
     if (!r.ok)
       return null;
     const j = await r.json();
-    let text = (j.content && j.content[0] && j.content[0].text || "").trim();
-    if (!text)
+    let text2 = (j.content && j.content[0] && j.content[0].text || "").trim();
+    if (!text2)
       return null;
-    const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const fence = text2.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fence)
-      text = fence[1].trim();
-    const start = text.search(/[[{]/);
+      text2 = fence[1].trim();
+    const start = text2.search(/[[{]/);
     if (start > 0)
-      text = text.slice(start);
-    const data = JSON.parse(text);
+      text2 = text2.slice(start);
+    const data = JSON.parse(text2);
     const tokens = j.usage ? (j.usage.input_tokens || 0) + (j.usage.output_tokens || 0) : null;
     return { data, tokens };
   } catch {
@@ -6511,9 +6511,9 @@ async function dailySummary(env, date) {
       });
       if (r.ok) {
         const j = await r.json();
-        const text = (j.content && j.content[0] && j.content[0].text || "").trim();
-        if (text)
-          narrative = text;
+        const text2 = (j.content && j.content[0] && j.content[0].text || "").trim();
+        if (text2)
+          narrative = text2;
         if (j.usage)
           tokens = (j.usage.input_tokens || 0) + (j.usage.output_tokens || 0);
       }
@@ -6697,10 +6697,10 @@ __name(restockSuggest, "restockSuggest");
 var SEVERITY_RANK = { low: 0, medium: 1, high: 2, urgent: 3 };
 var URGENT_RE = /brake|fire|injur|burn|leak|sick/i;
 function heuristicSeverity(ticket) {
-  const text = `${ticket.title || ""} ${ticket.body || ""}`;
-  if (URGENT_RE.test(text))
+  const text2 = `${ticket.title || ""} ${ticket.body || ""}`;
+  if (URGENT_RE.test(text2))
     return { severity: "urgent", rationale: "Safety keyword detected (heuristic)." };
-  if (ticket.ticket_type === "complaint" || /complaint/i.test(text))
+  if (ticket.ticket_type === "complaint" || /complaint/i.test(text2))
     return { severity: "medium", rationale: "Customer complaint (heuristic)." };
   return { severity: ticket.severity || "low", rationale: "No escalation keywords found (heuristic)." };
 }
@@ -6782,14 +6782,14 @@ async function sentimentScan(env, date) {
     corpus.push({ source: m.direction === "inbound" ? "message:inbound" : `message:${m.sender_role || "staff"}`, text: m.body });
   }
   for (const r of await rows(env, "SELECT summary, blockers FROM eod_reports WHERE created_at >= ? LIMIT 100", since)) {
-    const text = [r.summary, r.blockers].filter(Boolean).join(" \u2014 ");
-    if (text)
-      corpus.push({ source: "eod_report", text });
+    const text2 = [r.summary, r.blockers].filter(Boolean).join(" \u2014 ");
+    if (text2)
+      corpus.push({ source: "eod_report", text: text2 });
   }
   for (const tk of await rows(env, "SELECT title, body FROM tickets WHERE created_at >= ? LIMIT 100", since)) {
-    const text = [tk.title, tk.body].filter(Boolean).join(" \u2014 ");
-    if (text)
-      corpus.push({ source: "ticket", text });
+    const text2 = [tk.title, tk.body].filter(Boolean).join(" \u2014 ");
+    if (text2)
+      corpus.push({ source: "ticket", text: text2 });
   }
   if (!corpus.length) {
     return { outcome: "success", output: { date, scanned: 0, flags: 0 }, summary: "Sentiment scan: no comms in the last 24h." };
@@ -11352,6 +11352,368 @@ var onRequestPost55 = /* @__PURE__ */ __name(async ({ request, env }) => {
   return json({ ok: true, client_id: cid });
 }, "onRequestPost");
 
+// _lib/ondemand.js
+var BOWL_IDS = ["vida", "fuego", "ligero", "mar", "coco", "congreen", "raiz"];
+function clampHour(v, def) {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n >= 0 && n <= 24 ? n : def;
+}
+__name(clampHour, "clampHour");
+function clampMin(v, def) {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n >= 0 && n < 60 ? n : def;
+}
+__name(clampMin, "clampMin");
+function onDemandConfig(env) {
+  const raw = Math.floor(Number(env && env.ONDEMAND_BOWL_LIMIT));
+  const limit = Number.isFinite(raw) && raw >= 0 ? raw : 10;
+  return {
+    limit,
+    openHour: clampHour(env && env.ONDEMAND_OPEN_HOUR, 10),
+    closeHour: clampHour(env && env.ONDEMAND_CLOSE_HOUR, 19),
+    closeMinute: clampMin(env && env.ONDEMAND_CLOSE_MIN, 30)
+  };
+}
+__name(onDemandConfig, "onDemandConfig");
+function etParts(d = /* @__PURE__ */ new Date()) {
+  const f = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+  const p = {};
+  for (const part of f.formatToParts(d))
+    p[part.type] = part.value;
+  return { dateStr: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour), minute: Number(p.minute) };
+}
+__name(etParts, "etParts");
+function windowState(env, d = /* @__PURE__ */ new Date()) {
+  const { openHour, closeHour, closeMinute } = onDemandConfig(env);
+  const { hour, minute, dateStr } = etParts(d);
+  const nowMin = hour * 60 + minute;
+  const open = nowMin >= openHour * 60 && nowMin < closeHour * 60 + closeMinute;
+  return { open, openHour, closeHour, closeMinute, dateStr };
+}
+__name(windowState, "windowState");
+async function remainingByBowl(env, dateStr, limit) {
+  const remaining = {};
+  for (const id2 of BOWL_IDS)
+    remaining[id2] = limit;
+  if (!env || !env.DB)
+    return remaining;
+  const rawHold = Math.floor(Number(env.ONDEMAND_PENDING_HOLD_MIN));
+  const holdMin = Number.isFinite(rawHold) && rawHold >= 0 ? rawHold : 30;
+  const pendingCutoff = Date.now() - holdMin * 60 * 1e3;
+  const { results } = await env.DB.prepare(
+    `SELECT items FROM orders
+       WHERE fulfillment_mode = 'on_demand' AND delivery_date = ? AND status != 'canceled'
+         AND (status != 'pending' OR created_at >= ?)`
+  ).bind(dateStr, pendingCutoff).all();
+  for (const row of results || []) {
+    let items = [];
+    try {
+      items = JSON.parse(row.items) || [];
+    } catch {
+    }
+    for (const it of items) {
+      if (remaining[it && it.id] != null) {
+        remaining[it.id] = Math.max(0, remaining[it.id] - (Number(it.qty) || 0));
+      }
+    }
+  }
+  return remaining;
+}
+__name(remainingByBowl, "remainingByBowl");
+
+// api/hub/owner/menu.js
+var KINDS2 = ["bowl", "drink", "addon"];
+var SLUG = /^[a-z0-9_]+$/;
+var IMAGE = /^[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp|avif)$/;
+var MAX_CENTS = 1e5;
+var MODIFIER_ITEM_ID = "modifier";
+var text = /* @__PURE__ */ __name((v, max) => {
+  const s = String(v == null ? "" : v).trim().slice(0, max);
+  return s || null;
+}, "text");
+function parseCents(raw, label) {
+  if (raw === "" || raw == null)
+    return { error: `${label} is required.` };
+  if (typeof raw !== "number" && typeof raw !== "string")
+    return { error: `${label} must be a number of cents.` };
+  const n = Number(raw);
+  if (!Number.isFinite(n))
+    return { error: `${label} must be a number of cents, got "${raw}".` };
+  if (!Number.isInteger(n))
+    return { error: `${label} must be whole cents \u2014 1999 means $19.99. Got ${n}.` };
+  if (n <= 0)
+    return { error: `${label} must be greater than zero.` };
+  if (n > MAX_CENTS) {
+    return { error: `${label} of ${n}\xA2 ($${(n / 100).toFixed(2)}) is over the $${(MAX_CENTS / 100).toFixed(0)} ceiling \u2014 enter cents, not dollars.` };
+  }
+  return { cents: n };
+}
+__name(parseCents, "parseCents");
+var logStmt = /* @__PURE__ */ __name((env, itemId, field, oldCents, newCents, by, ts) => env.DB.prepare(
+  `INSERT INTO menu_price_log (id, item_id, field, old_cents, new_cents, changed_by, created_at)
+     VALUES (?,?,?,?,?,?,?)`
+).bind(id("mpl"), itemId, field, oldCents, newCents, by, ts), "logStmt");
+function decorate(row) {
+  const out = { ...row };
+  if (row.kind !== "bowl") {
+    out.orderable = true;
+    out.blocker = null;
+    return out;
+  }
+  const spec = BOWL_BY_NAME[String(row.id).toUpperCase()];
+  if (!spec) {
+    out.orderable = false;
+    out.blocker = `No recipe in functions/_lib/bowlspec.js \u2014 checkout rejects this bowl with "Unknown bowl: ${row.id}".`;
+  } else if (spec.hidden) {
+    out.orderable = false;
+    out.blocker = `Its bowlspec recipe is flagged hidden, so checkout still rejects it with "Unknown bowl: ${row.id}".`;
+  } else {
+    out.orderable = true;
+    out.blocker = null;
+  }
+  out.on_demand_capped = BOWL_IDS.includes(row.id);
+  return out;
+}
+__name(decorate, "decorate");
+function warningsFor(items) {
+  const out = [];
+  for (const it of items) {
+    if (it.kind !== "bowl")
+      continue;
+    if (!it.orderable) {
+      out.push({
+        level: it.active ? "block" : "info",
+        item_id: it.id,
+        message: it.active ? `${it.name} is on the menu but CANNOT be bought. ${it.blocker} A developer must add its build + macros and deploy before it is real.` : `${it.name} is inactive, and would not be buyable if switched on. ${it.blocker}`
+      });
+    } else if (it.active && !it.on_demand_capped) {
+      out.push({
+        level: "warn",
+        item_id: it.id,
+        message: `${it.name} is not in ondemand.js BOWL_IDS, so the per-day production cap does not count it \u2014 same-day orders for it are unlimited.`
+      });
+    }
+  }
+  return out;
+}
+__name(warningsFor, "warningsFor");
+async function storefrontCheck(env, request) {
+  try {
+    const res = await fetch(`${appBaseUrl(env, request)}/order`, { cf: { cacheTtl: 300 } });
+    if (!res.ok)
+      return { checked: false, reads_menu_api: null };
+    const html = await res.text();
+    return { checked: true, reads_menu_api: html.includes("/api/menu") };
+  } catch {
+    return { checked: false, reads_menu_api: null };
+  }
+}
+__name(storefrontCheck, "storefrontCheck");
+async function snapshot(env, request) {
+  const [ri, rm, rl] = await Promise.all([
+    env.DB.prepare(
+      `SELECT * FROM menu_items
+       ORDER BY CASE kind WHEN 'bowl' THEN 0 WHEN 'drink' THEN 1 ELSE 2 END, sort, id`
+    ).all(),
+    env.DB.prepare("SELECT * FROM menu_modifier_prices ORDER BY key").all(),
+    env.DB.prepare("SELECT * FROM menu_price_log ORDER BY created_at DESC LIMIT 40").all()
+  ]);
+  const items = (ri && ri.results || []).map(decorate);
+  return {
+    ok: true,
+    items,
+    modifiers: rm && rm.results || [],
+    log: rl && rl.results || [],
+    warnings: warningsFor(items),
+    storefront: await storefrontCheck(env, request)
+  };
+}
+__name(snapshot, "snapshot");
+var onRequestGet38 = /* @__PURE__ */ __name(async ({ request, env }) => {
+  const ctx = await requireRole(request, env, ["owner"]);
+  if (ctx instanceof Response)
+    return ctx;
+  if (!env.DB)
+    return json({ error: "Database not configured." }, 500);
+  try {
+    return json(await snapshot(env, request));
+  } catch (e) {
+    return json({ ok: false, error: `menu tables unreadable \u2014 apply migration 0043 (${e.message})` }, 501);
+  }
+}, "onRequestGet");
+var onRequestPost56 = /* @__PURE__ */ __name(async ({ request, env }) => {
+  const ctx = await requireRole(request, env, ["owner"]);
+  if (ctx instanceof Response)
+    return ctx;
+  if (!env.DB)
+    return json({ error: "Database not configured." }, 500);
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+  }
+  const op = String(body.op || "");
+  const actor = String(ctx.email || ctx.distinct_id || ctx.role || "owner").slice(0, 120);
+  const ts = now();
+  if (op === "update_item") {
+    const itemId = String(body.id || "").trim();
+    const row = await env.DB.prepare("SELECT * FROM menu_items WHERE id = ?").bind(itemId).first();
+    if (!row)
+      return json({ ok: false, error: `No menu item "${itemId}".` }, 404);
+    const next = { ...row };
+    const errors = [];
+    if ("price_cents" in body) {
+      const p = parseCents(body.price_cents, "Price");
+      if (p.error)
+        errors.push(p.error);
+      else
+        next.price_cents = p.cents;
+    }
+    if ("name" in body) {
+      const v = text(body.name, 120);
+      if (!v)
+        errors.push("Name cannot be empty.");
+      else
+        next.name = v;
+    }
+    if ("name_es" in body)
+      next.name_es = text(body.name_es, 120);
+    if ("description" in body)
+      next.description = text(body.description, 400);
+    if ("description_es" in body)
+      next.description_es = text(body.description_es, 400);
+    if ("image" in body) {
+      const v = text(body.image, 120);
+      if (v && !IMAGE.test(v))
+        errors.push("Image must be a filename under /assets/img/, e.g. bowl_vida.jpg.");
+      else
+        next.image = v;
+    }
+    if ("sort" in body) {
+      const n = Number(body.sort);
+      if (!Number.isInteger(n) || n < 0 || n > 9999)
+        errors.push("Sort must be a whole number 0\u20139999.");
+      else
+        next.sort = n;
+    }
+    if ("active" in body)
+      next.active = body.active ? 1 : 0;
+    if (errors.length)
+      return json({ ok: false, error: "validation failed", errors }, 400);
+    const stmts = [
+      env.DB.prepare(
+        `UPDATE menu_items SET name=?, name_es=?, price_cents=?, description=?, description_es=?,
+           image=?, sort=?, active=?, updated_at=? WHERE id=?`
+      ).bind(
+        next.name,
+        next.name_es,
+        next.price_cents,
+        next.description,
+        next.description_es,
+        next.image,
+        next.sort,
+        next.active,
+        ts,
+        itemId
+      )
+    ];
+    if (next.price_cents !== row.price_cents) {
+      stmts.push(logStmt(env, itemId, "price_cents", row.price_cents, next.price_cents, actor, ts));
+    }
+    await env.DB.batch(stmts);
+    return json({ ...await snapshot(env, request), saved: itemId });
+  }
+  if (op === "create_item") {
+    const itemId = String(body.id || "").trim().toLowerCase();
+    const kind = String(body.kind || "").trim();
+    const errors = [];
+    if (!SLUG.test(itemId) || itemId.length > 40) {
+      errors.push("Id must be a slug: lowercase letters, numbers and underscores only (e.g. bowl_verde), 40 chars max.");
+    }
+    if (!KINDS2.includes(kind))
+      errors.push(`Kind must be one of ${KINDS2.join(", ")}.`);
+    const name = text(body.name, 120);
+    if (!name)
+      errors.push("Name is required.");
+    const p = parseCents(body.price_cents, "Price");
+    if (p.error)
+      errors.push(p.error);
+    let sort = 100;
+    if ("sort" in body && body.sort !== "" && body.sort != null) {
+      const n = Number(body.sort);
+      if (!Number.isInteger(n) || n < 0 || n > 9999)
+        errors.push("Sort must be a whole number 0\u20139999.");
+      else
+        sort = n;
+    }
+    const image = text(body.image, 120);
+    if (image && !IMAGE.test(image))
+      errors.push("Image must be a filename under /assets/img/, e.g. bowl_vida.jpg.");
+    if (errors.length)
+      return json({ ok: false, error: "validation failed", errors }, 400);
+    const clash = await env.DB.prepare("SELECT id FROM menu_items WHERE id = ?").bind(itemId).first();
+    if (clash)
+      return json({ ok: false, error: `"${itemId}" already exists \u2014 edit it instead of creating a second one.` }, 409);
+    const active = "active" in body ? body.active ? 1 : 0 : 1;
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO menu_items (id, kind, name, name_es, price_cents, description, description_es,
+           image, sort, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(
+        itemId,
+        kind,
+        name,
+        text(body.name_es, 120),
+        p.cents,
+        text(body.description, 400),
+        text(body.description_es, 400),
+        image,
+        sort,
+        active,
+        ts,
+        ts
+      ),
+      // Creating an item sets a price out of nothing — that is a money event too (old = null).
+      logStmt(env, itemId, "price_cents", null, p.cents, actor, ts)
+    ]);
+    const snap = await snapshot(env, request);
+    const blocked = snap.items.filter((i) => i.id === itemId && !i.orderable)[0];
+    return json({
+      ...snap,
+      saved: itemId,
+      // Surfaced separately from `warnings` so the UI can put it in front of the owner NOW,
+      // at the moment they think they just added a product to the menu.
+      warning: blocked ? `"${name}" is saved and will show up in the menu API \u2014 but customers CANNOT buy it yet. ${blocked.blocker} It needs its build + macros added to functions/_lib/bowlspec.js (and its id added to ondemand.js BOWL_IDS) and a deploy. Until then, leave it inactive or expect failed checkouts.` : null
+    });
+  }
+  if (op === "update_modifier") {
+    const key2 = String(body.key || "").trim();
+    const row = await env.DB.prepare("SELECT * FROM menu_modifier_prices WHERE key = ?").bind(key2).first();
+    if (!row)
+      return json({ ok: false, error: `No modifier "${key2}". Modifier keys are fixed in code \u2014 you can change what they cost, not invent new ones.` }, 404);
+    const p = parseCents(body.cents, "Modifier price");
+    if (p.error)
+      return json({ ok: false, error: "validation failed", errors: [p.error] }, 400);
+    const stmts = [
+      env.DB.prepare("UPDATE menu_modifier_prices SET cents=?, updated_at=? WHERE key=?").bind(p.cents, ts, key2)
+    ];
+    if (p.cents !== row.cents) {
+      stmts.push(logStmt(env, MODIFIER_ITEM_ID, key2, row.cents, p.cents, actor, ts));
+    }
+    await env.DB.batch(stmts);
+    return json({ ...await snapshot(env, request), saved: key2 });
+  }
+  return json({ ok: false, error: "Unknown op." }, 400);
+}, "onRequestPost");
+
 // api/hub/owner/operator.js
 var MODEL10 = "claude-haiku-4-5-20251001";
 async function one2(env, sql, binds = []) {
@@ -11405,7 +11767,7 @@ async function buildContext(env) {
   };
 }
 __name(buildContext, "buildContext");
-var SYSTEM2 = `You are the A\xF1ejo Voice Operator \u2014 the owner's hands-free view of A\xF1ejo Catering Co.
+var SYSTEM = `You are the A\xF1ejo Voice Operator \u2014 the owner's hands-free view of A\xF1ejo Catering Co.
 
 You are speaking to Dayan, the owner. Answer from the ANEJO DATA block only.
 
@@ -11420,7 +11782,7 @@ HARD RULES:
 
 VOICE: you are usually being listened to, not read. Lead with the answer. Keep it short and
 concrete. No preamble, no filler, no restating the question.`;
-var onRequestPost56 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost57 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -11449,7 +11811,7 @@ var onRequestPost56 = /* @__PURE__ */ __name(async ({ request, env }) => {
       body: JSON.stringify({
         model: MODEL10,
         max_tokens: 900,
-        system: SYSTEM2,
+        system: SYSTEM,
         messages: [{ role: "user", content: `=== ANEJO DATA (live, read just now) ===
 ${data.text}
 
@@ -11473,7 +11835,7 @@ ${message}` }]
 }, "onRequestPost");
 
 // api/hub/owner/ops.js
-var onRequestGet38 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet39 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   const ctx = await requireRole(request, env, ["owner", "kitchen"]);
@@ -11513,6 +11875,299 @@ var onRequestGet38 = /* @__PURE__ */ __name(async ({ request, env }) => {
   });
 }, "onRequestGet");
 
+// api/hub/owner/order-actions.js
+var CANCELABLE = ["pending", "paid", "prep", "ready"];
+var cancelBlockedReason = /* @__PURE__ */ __name((status) => status === "canceled" ? "This order is already canceled." : `Only an order that has not been delivered can be canceled \u2014 this one is "${status}".`, "cancelBlockedReason");
+var sqErr = /* @__PURE__ */ __name((r) => r && r.data && r.data.errors && r.data.errors[0] && (r.data.errors[0].detail || r.data.errors[0].code) || null, "sqErr");
+function squareOrderIdOf(row) {
+  const sid = typeof row.square_order_id === "string" ? row.square_order_id : "";
+  if (!sid || sid.indexOf("sub_") === 0)
+    return null;
+  return sid;
+}
+__name(squareOrderIdOf, "squareOrderIdOf");
+async function loadSquarePayments(env, squareOrderId) {
+  const ord = await square(env, `/v2/orders/${encodeURIComponent(squareOrderId)}`);
+  if (!ord.ok) {
+    return { error: sqErr(ord) || `Square could not load order ${squareOrderId} (${ord.status}).` };
+  }
+  const tenders = ord.data && ord.data.order && ord.data.order.tenders || [];
+  if (!tenders.length) {
+    return { error: "Square shows no payment on this order \u2014 nothing was captured, so there is nothing to refund." };
+  }
+  if (tenders.length > 1) {
+    return { error: "This order was paid with more than one tender. Refund it from the Square dashboard." };
+  }
+  const payments = [];
+  for (const t of tenders) {
+    if (!t || !t.id)
+      return { error: "Square returned a payment we could not identify. Refund from the Square dashboard." };
+    const pr = await square(env, `/v2/payments/${encodeURIComponent(t.id)}`);
+    const pay = pr.ok && pr.data && pr.data.payment;
+    if (!pay || !pay.id) {
+      return { error: sqErr(pr) || `Square could not load the payment for this order (${pr.status}).` };
+    }
+    if (pay.order_id && pay.order_id !== squareOrderId) {
+      return { error: "The Square payment does not belong to this order. Refund from the Square dashboard." };
+    }
+    const amt = Number(pay.amount_money && pay.amount_money.amount) || 0;
+    const tip = Number(pay.tip_money && pay.tip_money.amount) || 0;
+    const total = Number(pay.total_money && pay.total_money.amount) || amt + tip;
+    const refunded = Number(pay.refunded_money && pay.refunded_money.amount) || 0;
+    payments.push({
+      id: pay.id,
+      status: pay.status || null,
+      captured_cents: total,
+      refunded_cents: refunded,
+      refundable_cents: Math.max(0, total - refunded)
+    });
+  }
+  return { payments };
+}
+__name(loadSquarePayments, "loadSquarePayments");
+async function refundKey(orderId, alreadyCents, amountCents) {
+  const readable = `rf_${String(orderId).replace(/^ord_/, "")}_${alreadyCents}_${amountCents}`;
+  if (readable.length <= 45)
+    return readable;
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(readable));
+  return "rf_" + [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 40);
+}
+__name(refundKey, "refundKey");
+async function appendOrderMeta(env, orderId, label, meta) {
+  try {
+    const row = await env.DB.prepare("SELECT items FROM orders WHERE id = ?").bind(orderId).first();
+    const items = parseJson(row && row.items, []) || [];
+    if (!Array.isArray(items))
+      return;
+    items.push({ id: "meta", name: label.slice(0, 240), qty: 0, price_cents: 0, meta });
+    await env.DB.prepare("UPDATE orders SET items = ?, updated_at = ? WHERE id = ?").bind(JSON.stringify(items), now(), orderId).run();
+  } catch (_) {
+  }
+}
+__name(appendOrderMeta, "appendOrderMeta");
+async function cancelSideEffects(env, row) {
+  const warnings = [];
+  try {
+    const stop = await env.DB.prepare(
+      `SELECT rs.route_id, rs.status AS stop_status, r.status AS route_status
+         FROM route_stops rs JOIN routes r ON r.id = rs.route_id
+        WHERE rs.order_id = ? AND r.status NOT IN ('completed','canceled')
+        ORDER BY rs.created_at DESC LIMIT 1`
+    ).bind(row.id).first();
+    if (stop)
+      warnings.push(`This order is still a stop on route ${stop.route_id}. Pull it from Deliveries so the driver isn't sent.`);
+  } catch (_) {
+  }
+  try {
+    const pts = await env.DB.prepare("SELECT delta FROM points_ledger WHERE order_id = ? AND reason = 'earn'").bind(row.id).first();
+    if (pts && pts.delta)
+      warnings.push(`${pts.delta} rewards points were already awarded for this order and are not reversed automatically.`);
+  } catch (_) {
+  }
+  return warnings;
+}
+__name(cancelSideEffects, "cancelSideEffects");
+async function loadOrder(env, orderId) {
+  return env.DB.prepare(
+    "SELECT id, square_order_id, items, status, total_estimate_cents, customer_name, customer_email, created_at FROM orders WHERE id = ?"
+  ).bind(orderId).first();
+}
+__name(loadOrder, "loadOrder");
+async function refundState(env, row) {
+  const sid = squareOrderIdOf(row);
+  if (!sid) {
+    return {
+      available: false,
+      reason: row.square_order_id ? "This is a subscription delivery \u2014 the charge lives on the weekly invoice, not on this order. Refund it from Square." : "This order was entered by hand, so no Square payment exists to refund."
+    };
+  }
+  if (!squareConfigured(env))
+    return { available: false, reason: "Square is not configured in this environment." };
+  const res = await loadSquarePayments(env, sid);
+  if (res.error)
+    return { available: false, reason: res.error };
+  const p = res.payments[0];
+  if (p.status !== "COMPLETED") {
+    return { available: false, reason: `Square reports this payment as ${p.status || "not completed"} \u2014 there is nothing captured to refund.`, payment: p };
+  }
+  if (p.refundable_cents <= 0) {
+    return { available: false, reason: "This payment is already fully refunded.", payment: p };
+  }
+  return { available: true, payment: p };
+}
+__name(refundState, "refundState");
+var onRequestGet40 = /* @__PURE__ */ __name(async ({ request, env }) => {
+  const ctx = await requireRole(request, env, ["owner"]);
+  if (ctx instanceof Response)
+    return ctx;
+  if (!env.DB)
+    return bad("Database not configured.", 500);
+  const orderId = (new URL(request.url).searchParams.get("order_id") || "").trim();
+  if (!orderId)
+    return bad("order_id is required.");
+  const row = await loadOrder(env, orderId).catch(() => null);
+  if (!row)
+    return bad("Order not found.", 404);
+  const rf = await refundState(env, row);
+  const cancelable = CANCELABLE.includes(row.status);
+  return json({
+    ok: true,
+    order: { id: row.id, status: row.status, total_cents: row.total_estimate_cents, customer_name: row.customer_name },
+    cancel: {
+      available: cancelable,
+      reason: cancelable ? null : cancelBlockedReason(row.status),
+      // Whether cancelling would leave money sitting with us — the UI must say this out loud.
+      // money_known is NOT cosmetic: without it, an unreachable Square would render as "nothing was
+      // captured", and the owner would tell a customer they weren't charged when they were.
+      money_known: !!rf.payment,
+      money_held_cents: rf.payment && rf.payment.refundable_cents || 0,
+      money_note: rf.payment ? null : rf.reason || null
+    },
+    refund: {
+      available: !!rf.available,
+      reason: rf.reason || null,
+      captured_cents: rf.payment && rf.payment.captured_cents || 0,
+      refunded_cents: rf.payment && rf.payment.refunded_cents || 0,
+      refundable_cents: rf.payment && rf.payment.refundable_cents || 0
+    }
+  });
+}, "onRequestGet");
+var onRequestPost58 = /* @__PURE__ */ __name(async ({ request, env }) => {
+  const ctx = await requireRole(request, env, ["owner"]);
+  if (ctx instanceof Response)
+    return ctx;
+  if (!env.DB)
+    return bad("Database not configured.", 500);
+  let b;
+  try {
+    b = await request.json();
+  } catch {
+    return bad("Invalid JSON body.");
+  }
+  const op = (b && b.op || "").toString();
+  const orderId = (b && b.order_id || "").toString().trim();
+  if (!orderId)
+    return bad("order_id is required.");
+  const reason = (b && b.reason || "").toString().trim().slice(0, 192);
+  if (!reason)
+    return bad("Give a reason \u2014 it is recorded on the order.");
+  const row = await loadOrder(env, orderId).catch(() => null);
+  if (!row)
+    return bad("Order not found.", 404);
+  const actor = String(ctx.email || ctx.distinct_id || "owner").slice(0, 120);
+  const t = now();
+  if (op === "cancel") {
+    if (row.status === "canceled")
+      return json({ ok: true, already: true, id: row.id, status: "canceled" });
+    if (!CANCELABLE.includes(row.status))
+      return bad(cancelBlockedReason(row.status), 409);
+    const upd = await env.DB.prepare(
+      "UPDATE orders SET status='canceled', updated_at=? WHERE id=? AND status<>'canceled'"
+    ).bind(t, row.id).run();
+    if (!(upd.meta && upd.meta.changes))
+      return json({ ok: true, already: true, id: row.id, status: "canceled" });
+    await appendOrderMeta(env, row.id, `Canceled by ${actor} \u2014 ${reason}`, {
+      action: "cancel",
+      by: actor,
+      at: t,
+      reason,
+      from_status: row.status
+    });
+    const rf = await refundState(env, row);
+    const stillHeld = rf.payment && rf.payment.refundable_cents || 0;
+    const warnings = await cancelSideEffects(env, row);
+    await capture(env, {
+      event: "order.canceled",
+      distinct_id: ctx.distinct_id,
+      role: ctx.role,
+      team: ctx.team,
+      properties: { order_id: row.id, from_status: row.status, reason, money_held_cents: stillHeld }
+    });
+    return json({
+      ok: true,
+      id: row.id,
+      status: "canceled",
+      from_status: row.status,
+      money_moved: false,
+      money_known: !!rf.payment,
+      money_held_cents: stillHeld,
+      refund_available: !!rf.available,
+      warnings
+    });
+  }
+  if (op === "refund") {
+    if (!squareConfigured(env))
+      return bad("Square is not configured in this environment.", 503);
+    const rf = await refundState(env, row);
+    if (!rf.available)
+      return bad(rf.reason || "This order cannot be refunded here.", 409);
+    const pay = rf.payment;
+    let amountCents = pay.refundable_cents;
+    if (b && b.amount_cents != null && b.amount_cents !== "") {
+      amountCents = Math.round(Number(b.amount_cents));
+      if (!Number.isFinite(amountCents) || amountCents <= 0)
+        return bad("Refund amount must be a positive number of cents.");
+      if (amountCents > pay.refundable_cents) {
+        return bad(`Only $${(pay.refundable_cents / 100).toFixed(2)} is still refundable on this payment.`, 409);
+      }
+    }
+    const key2 = await refundKey(row.id, pay.refunded_cents, amountCents);
+    const r = await square(env, "/v2/refunds", {
+      method: "POST",
+      body: {
+        idempotency_key: key2,
+        payment_id: pay.id,
+        amount_money: { amount: amountCents, currency: "USD" },
+        reason
+      }
+    });
+    if (!r.ok) {
+      return bad(sqErr(r) || `Square refused the refund (${r.status}).`, 502);
+    }
+    const refund = r.data && r.data.refund || {};
+    await appendOrderMeta(env, row.id, `Refunded $${(amountCents / 100).toFixed(2)} by ${actor} \u2014 ${reason}`, {
+      action: "refund",
+      by: actor,
+      at: t,
+      reason,
+      amount_cents: amountCents,
+      refund_id: refund.id || null,
+      refund_status: refund.status || null,
+      payment_id: pay.id,
+      idempotency_key: key2
+    });
+    await env.DB.prepare("UPDATE orders SET updated_at = ? WHERE id = ?").bind(t, row.id).run().catch(() => {
+    });
+    await capture(env, {
+      event: "order.refunded",
+      distinct_id: ctx.distinct_id,
+      role: ctx.role,
+      team: ctx.team,
+      properties: {
+        order_id: row.id,
+        amount_cents: amountCents,
+        reason,
+        partial: amountCents < pay.refundable_cents,
+        refund_id: refund.id || null,
+        refund_status: refund.status || null
+      }
+    });
+    const refundedTotal = pay.refunded_cents + amountCents;
+    return json({
+      ok: true,
+      id: row.id,
+      refund_id: refund.id || null,
+      // PENDING is normal — card refunds settle over a few days. The owner should not read that as failure.
+      refund_status: refund.status || null,
+      amount_cents: amountCents,
+      refunded_total_cents: refundedTotal,
+      refundable_cents: Math.max(0, pay.captured_cents - refundedTotal),
+      status: row.status
+    });
+  }
+  return bad("Unknown op \u2014 expected 'cancel' or 'refund'.");
+}, "onRequestPost");
+
 // api/hub/owner/order-history.js
 function parseJson3(s, f) {
   try {
@@ -11524,7 +12179,7 @@ function parseJson3(s, f) {
 __name(parseJson3, "parseJson");
 var DAY = 864e5;
 var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-var onRequestGet39 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet41 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   const ctx = await requireRole(request, env, ["owner"]);
@@ -11612,7 +12267,7 @@ function parseAddress(raw) {
   };
 }
 __name(parseAddress, "parseAddress");
-var onRequestGet40 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet42 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -11630,7 +12285,7 @@ var onRequestGet40 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const items = rows2.map((o) => ({ ...o, items: parseJson(o.items, []) }));
   return json({ ok: true, items, count: items.length });
 }, "onRequestGet");
-var onRequestPost57 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost59 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -11794,7 +12449,7 @@ async function count(env, sql, binds = []) {
   }
 }
 __name(count, "count");
-var onRequestGet41 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet43 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -12143,7 +12798,7 @@ async function sendPartnerWelcome(env, request, p) {
   }
 }
 __name(sendPartnerWelcome, "sendPartnerWelcome");
-var onRequestGet42 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet44 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -12186,7 +12841,7 @@ var onRequestGet42 = /* @__PURE__ */ __name(async ({ request, env }) => {
   }
   return json({ ok: true, partners, codes, default_commission_pct: DEFAULT_COMMISSION });
 }, "onRequestGet");
-var onRequestPost58 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost60 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -12324,13 +12979,13 @@ var onRequestPost58 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/hub/owner/pay-config.js
-var onRequestGet43 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet45 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
   return json({ ok: true, config: await getPayConfig(env), defaults: PAY_DEFAULTS });
 }, "onRequestGet");
-var onRequestPost59 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost61 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -12356,7 +13011,7 @@ function windowMs(url) {
   return { days, since: Date.now() - days * 864e5 };
 }
 __name(windowMs, "windowMs");
-var onRequestGet44 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet46 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -12389,7 +13044,7 @@ var onRequestGet44 = /* @__PURE__ */ __name(async ({ request, env }) => {
   };
   return json({ ok: true, window_days: days, since, drivers, totals });
 }, "onRequestGet");
-var onRequestPost60 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost62 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -12592,7 +13247,7 @@ function preview(row) {
   };
 }
 __name(preview, "preview");
-var onRequestGet45 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet47 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -12608,7 +13263,7 @@ var onRequestGet45 = /* @__PURE__ */ __name(async ({ request, env }) => {
   }
   return json({ ok: true, config: row, provenance, preview: preview(row) });
 }, "onRequestGet");
-var onRequestPost61 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost63 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -12845,7 +13500,7 @@ async function buildTempCompliance(env, fromMs, toMs) {
   return { headers, rows: rows2 };
 }
 __name(buildTempCompliance, "buildTempCompliance");
-var onRequestPost62 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost64 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -12908,7 +13563,7 @@ var onRequestPost62 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/hub/owner/rewards.js
-var onRequestGet46 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet48 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -12957,7 +13612,7 @@ var onRequestGet46 = /* @__PURE__ */ __name(async ({ request, env }) => {
   }
   return json({ ok: true, config, stats: { outstanding, earned, redeemed, redemptions, members, tiers }, top, recent });
 }, "onRequestGet");
-var onRequestPost63 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost65 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13008,7 +13663,7 @@ function buildRationale(cOrders, orderIds, byId, origin) {
   return { zone, spread_mi: spread, saved_mi: saved, text: tight + order + "." };
 }
 __name(buildRationale, "buildRationale");
-var onRequestPost64 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost66 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13142,7 +13797,7 @@ async function recoverableRoute(env, routeId) {
   return { route };
 }
 __name(recoverableRoute, "recoverableRoute");
-var onRequestGet47 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet49 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13185,7 +13840,7 @@ var onRequestGet47 = /* @__PURE__ */ __name(async ({ request, env }) => {
   }
   return json({ ok: true, date, drivers, unassigned, routes: routes2 });
 }, "onRequestGet");
-var onRequestPost65 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost67 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13346,7 +14001,7 @@ async function postDriverNote(env, ctx, driver, body, t) {
   }
 }
 __name(postDriverNote, "postDriverNote");
-var onRequestGet48 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet50 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13386,7 +14041,7 @@ var onRequestGet48 = /* @__PURE__ */ __name(async ({ request, env }) => {
   }
   return json({ ok: true, from, days, drivers, shifts });
 }, "onRequestGet");
-var onRequestPost66 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost68 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13492,7 +14147,7 @@ var onRequestPost66 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/hub/owner/sms-test.js
-var onRequestPost67 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost69 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13524,7 +14179,7 @@ var onRequest = /* @__PURE__ */ __name(({ request }) => {
 }, "onRequest");
 
 // api/hub/owner/square-health.js
-var onRequestGet49 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet51 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13558,7 +14213,7 @@ var onRequestGet49 = /* @__PURE__ */ __name(async ({ request, env }) => {
 // api/hub/owner/staff/index.js
 var ROLES = ["owner", "kitchen", "driver", "vendor"];
 var TEAMS = ["kitchen", "delivery", "training", "front_office", "vendors"];
-var onRequestGet50 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet52 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13569,7 +14224,7 @@ var onRequestGet50 = /* @__PURE__ */ __name(async ({ request, env }) => {
   ).all();
   return json({ ok: true, staff: res && res.results || [] });
 }, "onRequestGet");
-var onRequestPost68 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost70 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13726,7 +14381,7 @@ var onRequestPost68 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/hub/owner/staff-status.js
-var onRequestGet51 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet53 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13765,7 +14420,7 @@ var onRequestGet51 = /* @__PURE__ */ __name(async ({ request, env }) => {
 
 // api/hub/owner/suggestions.js
 var STATUSES = ["pending", "accepted", "dismissed", "expired"];
-var onRequestGet52 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet54 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13863,7 +14518,7 @@ async function acceptRestock(env, ctx, sug, payload, t) {
   return { result: { restock_order_id: poId, line_item_count: items.length, vendor_id: vendorId, status: "draft" } };
 }
 __name(acceptRestock, "acceptRestock");
-var onRequestPost69 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost71 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13928,7 +14583,7 @@ var onRequestPost69 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/hub/owner/tickets.js
-var onRequestGet53 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet55 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13948,7 +14603,7 @@ var onRequestGet53 = /* @__PURE__ */ __name(async ({ request, env }) => {
   }
   return json({ ok: true, items: rows2, count: rows2.length });
 }, "onRequestGet");
-var onRequestPost70 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost72 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -13991,7 +14646,7 @@ var onRequestPost70 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/hub/owner/traffic.js
-var onRequestGet54 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet56 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -14016,7 +14671,7 @@ var onRequestGet54 = /* @__PURE__ */ __name(async ({ request, env }) => {
 
 // api/hub/owner/trainers.js
 var cleanCode2 = /* @__PURE__ */ __name((s) => String(s == null ? "" : s).trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16), "cleanCode");
-var onRequestGet55 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet57 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -14089,7 +14744,7 @@ async function inviteTrainer(env, request, email2, name) {
   }
 }
 __name(inviteTrainer, "inviteTrainer");
-var onRequestPost71 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost73 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -14236,7 +14891,7 @@ var onRequestPost71 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/hub/owner/training-status.js
-var onRequestGet56 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet58 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -14274,7 +14929,7 @@ function scopeWhere3(ctx) {
   };
 }
 __name(scopeWhere3, "scopeWhere");
-var onRequestGet57 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet59 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   const ctx = await requireRole(request, env, ALL_ROLES5);
@@ -14338,7 +14993,7 @@ var onRequestGet57 = /* @__PURE__ */ __name(async ({ request, env }) => {
 
 // api/hub/push/subscribe.js
 var ALL_ROLES6 = ["owner", "kitchen", "driver", "vendor", "trainer", "client"];
-var onRequestGet58 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet60 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   const ctx = await requireRole(request, env, ALL_ROLES6);
@@ -14355,7 +15010,7 @@ var onRequestGet58 = /* @__PURE__ */ __name(async ({ request, env }) => {
   }
   return json({ ok: true, vapid_public_key: getVapidPublicKey(env), subscribed_count: count2 });
 }, "onRequestGet");
-var onRequestPost72 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost74 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   const ctx = await requireRole(request, env, ALL_ROLES6);
@@ -14425,7 +15080,7 @@ function nyDayStartMs(dateStr) {
   return Number.isFinite(t) ? t : now() - 24 * 3600 * 1e3;
 }
 __name(nyDayStartMs, "nyDayStartMs");
-var onRequestGet59 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet61 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   const ctx = await requireStaff(request, env);
@@ -14520,7 +15175,7 @@ var onRequestGet59 = /* @__PURE__ */ __name(async ({ request, env }) => {
 // api/hub/training/complete.js
 var MODULES = ["owner", "kitchen", "driver", "vendor"];
 var STAFF_ROLES = ["owner", "kitchen", "driver", "vendor"];
-var onRequestGet60 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet62 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, STAFF_ROLES);
   if (ctx instanceof Response)
     return ctx;
@@ -14535,7 +15190,7 @@ var onRequestGet60 = /* @__PURE__ */ __name(async ({ request, env }) => {
   }
   return json({ ok: true, completed });
 }, "onRequestGet");
-var onRequestPost73 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost75 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, STAFF_ROLES);
   if (ctx instanceof Response)
     return ctx;
@@ -14568,7 +15223,7 @@ var onRequestPost73 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/hub/vendor/pos.js
-var onRequestGet61 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet63 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["vendor", "owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -14620,7 +15275,7 @@ var onRequestGet61 = /* @__PURE__ */ __name(async ({ request, env }) => {
   }
   return json({ ok: true, items: pos, count: pos.length });
 }, "onRequestGet");
-var onRequestPost74 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost76 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await requireRole(request, env, ["vendor", "owner"]);
   if (ctx instanceof Response)
     return ctx;
@@ -14707,7 +15362,7 @@ var onRequestPost74 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/hub/media/[[path]].js
-var onRequestGet62 = /* @__PURE__ */ __name(async ({ request, env, params }) => {
+var onRequestGet64 = /* @__PURE__ */ __name(async ({ request, env, params }) => {
   const ctx = await requireRole(request, env, HUB_ROLES);
   if (ctx instanceof Response)
     return ctx;
@@ -14735,7 +15390,7 @@ function etToday5(ms) {
   return `${g("year")}-${g("month")}-${g("day")}`;
 }
 __name(etToday5, "etToday");
-var onRequestPost75 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost77 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   if (!addonsEnabled(env))
@@ -14807,7 +15462,7 @@ function etToday6(ms) {
   return `${g("year")}-${g("month")}-${g("day")}`;
 }
 __name(etToday6, "etToday");
-var onRequestGet63 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet65 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   const token = (new URL(request.url).searchParams.get("t") || "").trim();
@@ -14873,7 +15528,7 @@ async function findPortalUser(env, email2) {
 __name(findPortalUser, "findPortalUser");
 
 // api/auth/identify.js
-var onRequestPost76 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost78 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: "identify", limit: 20, windowSec: 60 });
   if (limited)
     return limited;
@@ -14914,7 +15569,7 @@ var onRequestPost76 = /* @__PURE__ */ __name(async ({ request, env }) => {
 // api/auth/pin-login.js
 var MAX_FAILS = 5;
 var LOCK_MS = 15 * 60 * 1e3;
-var onRequestPost77 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost79 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: "pin-login", limit: 15, windowSec: 60 });
   if (limited)
     return limited;
@@ -14985,7 +15640,7 @@ var onRequestPost77 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/auth/request-link.js
-var onRequestPost78 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost80 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: "request-link", limit: 5, windowSec: 60 });
   if (limited)
     return limited;
@@ -15028,7 +15683,7 @@ var onRequestPost78 = /* @__PURE__ */ __name(async ({ request, env }) => {
 
 // api/auth/verify.js
 var redirect = /* @__PURE__ */ __name((url, headers = {}) => new Response(null, { status: 302, headers: { Location: url, ...headers } }), "redirect");
-var onRequestGet64 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet66 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const base = appBaseUrl(env, request);
   const secure = isSecureRequest(request);
   const token = new URL(request.url).searchParams.get("token");
@@ -15100,7 +15755,7 @@ function etToday7(ms) {
   return `${g("year")}-${g("month")}-${g("day")}`;
 }
 __name(etToday7, "etToday");
-var onRequestGet65 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet67 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sess = await currentUser(env, request);
   if (!sess || sess.type !== "client")
     return json({ offers: [] });
@@ -15133,7 +15788,7 @@ async function resolveClient(env, sess) {
 __name(resolveClient, "resolveClient");
 var today2 = /* @__PURE__ */ __name(() => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10), "today");
 var validDate = /* @__PURE__ */ __name((s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : today2(), "validDate");
-var onRequestGet66 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet68 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sess = await currentUser(env, request);
   if (!sess || sess.type !== "client")
     return json({ error: "Not signed in." }, 401);
@@ -15150,7 +15805,7 @@ var onRequestGet66 = /* @__PURE__ */ __name(async ({ request, env }) => {
   ).bind(c.id).all()).results || [];
   return json({ meals, weights });
 }, "onRequestGet");
-var onRequestPost79 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost81 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: "client-log", limit: 30, windowSec: 60 });
   if (limited)
     return limited;
@@ -15185,7 +15840,7 @@ var onRequestPost79 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/client/me.js
-var onRequestGet67 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet69 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sess = await currentUser(env, request);
   if (!sess || sess.type !== "client")
     return json({ authenticated: false }, 200);
@@ -15251,7 +15906,7 @@ var onRequestGet67 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestGet");
 
 // api/contract/headcount.js
-var onRequestPost80 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost82 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   const limited = await limitOr429(env, request, { name: "contract-headcount", limit: 20, windowSec: 60 });
@@ -15285,7 +15940,7 @@ var onRequestPost80 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/contract/register.js
-var onRequestPost81 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost83 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   const limited = await limitOr429(env, request, { name: "contract-register", limit: 5, windowSec: 600 });
@@ -15302,7 +15957,7 @@ var onRequestPost81 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/contract/site.js
-var onRequestGet68 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet70 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const t = new URL(request.url).searchParams.get("t") || "";
   const r = await siteContext(env, t, void 0, { cookieHeader: request.headers.get("Cookie") || "" });
   return json(r);
@@ -15314,7 +15969,7 @@ var STAFF = {
   kitchen: { uid: "stf_chef", role: "kitchen", team: "kitchen", email: "chef@anejo.test" },
   driver: { uid: "stf_driver", role: "driver", team: "delivery", email: "driver@anejo.test" }
 };
-var onRequestGet69 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet71 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const url = new URL(request.url);
   const host = url.hostname;
   const isLocal = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host.endsWith(".local");
@@ -15331,7 +15986,7 @@ var onRequestGet69 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestGet");
 
 // api/hub/track.js
-var onRequestPost82 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost84 = /* @__PURE__ */ __name(async ({ request, env }) => {
   let b;
   try {
     b = await request.json();
@@ -15446,7 +16101,7 @@ function computeSizing(dailyCalories, mealsPerDay) {
 __name(computeSizing, "computeSizing");
 
 // api/plans/edit.js
-var onRequestPost83 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost85 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sess = await trainerSession(env, request);
   if (!sess)
     return json({ error: "Not signed in." }, 401);
@@ -15655,7 +16310,7 @@ function json3(body, status = 200) {
   });
 }
 __name(json3, "json");
-var onRequestPost84 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost86 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: "generate", limit: 8, windowSec: 60 });
   if (limited)
     return limited;
@@ -15704,17 +16359,17 @@ var onRequestPost84 = /* @__PURE__ */ __name(async ({ request, env }) => {
     return json3({ error: `AI returned ${apiResp.status}: ${txt.slice(0, 400)}` }, 502);
   }
   const data = await apiResp.json();
-  const text = (data.content || []).map((c) => c.text || "").join("");
+  const text2 = (data.content || []).map((c) => c.text || "").join("");
   let plan;
   try {
-    const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    const cleaned = text2.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
     const first = cleaned.indexOf("{");
     const last = cleaned.lastIndexOf("}");
     if (first === -1 || last === -1)
       throw new Error("no JSON object found");
     plan = JSON.parse(cleaned.slice(first, last + 1));
   } catch (e) {
-    return json3({ error: "AI response could not be parsed.", raw: text.slice(0, 1e3) }, 502);
+    return json3({ error: "AI response could not be parsed.", raw: text2.slice(0, 1e3) }, 502);
   }
   const allBowls = SITE_BOWL_NAMES;
   plan.bowl_rotation = plan.bowl_rotation || {};
@@ -15756,7 +16411,7 @@ var onRequest2 = /* @__PURE__ */ __name(({ request }) => {
 }, "onRequest");
 
 // api/plans/resize.js
-var onRequestPost85 = /* @__PURE__ */ __name(async ({ request }) => {
+var onRequestPost87 = /* @__PURE__ */ __name(async ({ request }) => {
   let b;
   try {
     b = await request.json();
@@ -15775,7 +16430,7 @@ var onRequest3 = /* @__PURE__ */ __name(({ request }) => {
 }, "onRequest");
 
 // api/plans/send.js
-var onRequestPost86 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost88 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sess = await trainerSession(env, request);
   if (!sess)
     return json({ error: "Not signed in." }, 401);
@@ -15822,7 +16477,7 @@ var DISCLAIMER = {
   en: "This plan is for general fitness and wellness. It is not medical advice. Consult your healthcare provider before starting any new nutrition program.",
   es: "Este plan es para fitness y bienestar general. No es consejo m\xE9dico. Consulta a tu proveedor de salud antes de comenzar cualquier programa de nutrici\xF3n."
 };
-var onRequestPost87 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost89 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: "translate", limit: 12, windowSec: 60 });
   if (limited)
     return limited;
@@ -15840,7 +16495,7 @@ var onRequestPost87 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!rationale && !notes.length)
     return bad("Nothing to translate.");
   const langName = target === "es" ? "natural, fluent Latin American Spanish" : "natural, fluent English";
-  const system = `You are a translator for A\xF1ejo Catering Co. Translate the given meal-plan text into ${langName}, preserving meaning, tone, and any numbers. Do NOT translate brand or bowl names (A\xF1ejo, VIDA, FUEGO, LIGERO, MAR, COCO, CONGREEN, RA\xCDZ). Return ONLY a JSON object \u2014 no prose, no markdown fences \u2014 of the form {"rationale": "...", "lifestyle_notes": ["...", "..."]}. Keep the same number of lifestyle_notes items, in order. The FINAL lifestyle_notes item MUST be exactly: "${DISCLAIMER[target]}"`;
+  const system2 = `You are a translator for A\xF1ejo Catering Co. Translate the given meal-plan text into ${langName}, preserving meaning, tone, and any numbers. Do NOT translate brand or bowl names (A\xF1ejo, VIDA, FUEGO, LIGERO, MAR, COCO, CONGREEN, RA\xCDZ). Return ONLY a JSON object \u2014 no prose, no markdown fences \u2014 of the form {"rationale": "...", "lifestyle_notes": ["...", "..."]}. Keep the same number of lifestyle_notes items, in order. The FINAL lifestyle_notes item MUST be exactly: "${DISCLAIMER[target]}"`;
   let r;
   try {
     r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -15849,7 +16504,7 @@ var onRequestPost87 = /* @__PURE__ */ __name(async ({ request, env }) => {
       body: JSON.stringify({
         model: MODEL12,
         max_tokens: 1500,
-        system,
+        system: system2,
         messages: [{ role: "user", content: JSON.stringify({ rationale, lifestyle_notes: notes }) }]
       })
     });
@@ -15859,10 +16514,10 @@ var onRequestPost87 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!r.ok)
     return json({ error: "Translation service is briefly unavailable." }, 502);
   const data = await r.json();
-  const text = (data.content || []).map((c) => c.text || "").join("");
+  const text2 = (data.content || []).map((c) => c.text || "").join("");
   let out;
   try {
-    const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    const cleaned = text2.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
     const first = cleaned.indexOf("{");
     const last = cleaned.lastIndexOf("}");
     if (first === -1 || last === -1)
@@ -15886,7 +16541,7 @@ var onRequest4 = /* @__PURE__ */ __name(({ request }) => {
 }, "onRequest");
 
 // api/staff/set-pin.js
-var onRequestPost88 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost90 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await currentRole(env, request);
   if (!ctx || ctx.type !== "staff")
     return json({ error: "Not signed in." }, 401);
@@ -15917,7 +16572,7 @@ var onRequestPost88 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/subscriptions/cancel.js
-var onRequestPost89 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost91 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sess = await currentUser(env, request);
   if (!sess || sess.type !== "client" || !sess.email)
     return json({ error: "Not signed in." }, 401);
@@ -15952,7 +16607,7 @@ var onRequestPost89 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/subscriptions/card.js
-var onRequestPost90 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost92 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sess = await currentUser(env, request);
   if (!sess || sess.type !== "client" || !sess.email)
     return json({ error: "Not signed in." }, 401);
@@ -15980,15 +16635,15 @@ var onRequestPost90 = /* @__PURE__ */ __name(async ({ request, env }) => {
     return json({ error: "You don\u2019t have an active subscription." }, 404);
   if (!sub.provider_customer_id)
     return bad("No payment profile on file \u2014 please contact us.", 400);
-  const sqErr2 = /* @__PURE__ */ __name((r) => r.data && r.data.errors && r.data.errors[0] && r.data.errors[0].detail || `Square ${r.status}`, "sqErr");
+  const sqErr3 = /* @__PURE__ */ __name((r) => r.data && r.data.errors && r.data.errors[0] && r.data.errors[0].detail || `Square ${r.status}`, "sqErr");
   const cr = await square(env, "/v2/cards", { method: "POST", body: { idempotency_key: id("card"), source_id: sourceId, card: { customer_id: sub.provider_customer_id } } });
   if (!cr.ok || !(cr.data && cr.data.card && cr.data.card.id))
-    return bad(sqErr2(cr) || "Your card could not be saved.", 502);
+    return bad(sqErr3(cr) || "Your card could not be saved.", 502);
   const cardId = cr.data.card.id;
   if (sub.provider_subscription_id) {
     const ur = await square(env, `/v2/subscriptions/${sub.provider_subscription_id}`, { method: "PUT", body: { subscription: { card_id: cardId } } });
     if (!ur.ok)
-      return bad(sqErr2(ur) || "Could not update the subscription card.", 502);
+      return bad(sqErr3(ur) || "Could not update the subscription card.", 502);
   }
   try {
     await env.DB.prepare("UPDATE subscriptions SET square_card_id=?, updated_at=? WHERE id=?").bind(cardId, now(), sub.id).run();
@@ -16081,7 +16736,7 @@ function parseAddr(raw) {
   };
 }
 __name(parseAddr, "parseAddr");
-var sqErr = /* @__PURE__ */ __name((r) => r.data && r.data.errors && r.data.errors[0] && r.data.errors[0].detail, "sqErr");
+var sqErr2 = /* @__PURE__ */ __name((r) => r.data && r.data.errors && r.data.errors[0] && r.data.errors[0].detail, "sqErr");
 async function getOrCreateHouseTrainer3(env) {
   const existing = await env.DB.prepare("SELECT id FROM trainers WHERE affiliate_code = 'HOUSE'").first();
   if (existing)
@@ -16096,7 +16751,7 @@ async function getOrCreateHouseTrainer3(env) {
   }
 }
 __name(getOrCreateHouseTrainer3, "getOrCreateHouseTrainer");
-var onRequestPost91 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost93 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: "subscribe", limit: 10, windowSec: 60 });
   if (limited)
     return limited;
@@ -16223,14 +16878,14 @@ var onRequestPost91 = /* @__PURE__ */ __name(async ({ request, env }) => {
     body: { idempotency_key: id("cust"), given_name: client.name || "A\xF1ejo Member", email_address: client.email || void 0 }
   });
   if (!r.ok)
-    return bad(sqErr(r) || "Could not create customer.", 500);
+    return bad(sqErr2(r) || "Could not create customer.", 500);
   const customerId = r.data.customer.id;
   r = await square(env, "/v2/cards", {
     method: "POST",
     body: { idempotency_key: id("card"), source_id: sourceId, card: { customer_id: customerId } }
   });
   if (!r.ok)
-    return bad(sqErr(r) || "Your card could not be saved.", 500);
+    return bad(sqErr2(r) || "Your card could not be saved.", 500);
   const cardId = r.data.card.id;
   let subscribeVariationId = variationId;
   if (overridePrice) {
@@ -16268,7 +16923,7 @@ var onRequestPost91 = /* @__PURE__ */ __name(async ({ request, env }) => {
   };
   r = await square(env, "/v2/subscriptions", { method: "POST", body: subBody });
   if (!r.ok)
-    return bad(sqErr(r) || "Subscription could not be started.", 500);
+    return bad(sqErr2(r) || "Subscription could not be started.", 500);
   const sub = r.data.subscription;
   const t = now();
   const localSubId = id("lsub");
@@ -16405,7 +17060,7 @@ async function swapSquarePlan(env, sub, tierKey, weeklyCents, tierCfg) {
   }
 }
 __name(swapSquarePlan, "swapSquarePlan");
-var onRequestPost92 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost94 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sess = await currentUser(env, request);
   if (!sess || sess.type !== "client" || !sess.email)
     return json({ error: "Not signed in." }, 401);
@@ -16579,7 +17234,7 @@ __name(verifySvix, "verifySvix");
 
 // api/webhooks/resend.js
 var SUPPRESS = { "email.bounced": "bounced", "email.complained": "complained", "email.suppressed": "suppressed" };
-var onRequestPost93 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost95 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.RESEND_WEBHOOK_SECRET)
     return new Response("webhook not configured", { status: 503 });
   const body = await request.text();
@@ -16626,7 +17281,7 @@ async function validSignature(key2, notificationUrl, rawBody, signature, isProd)
   }
 }
 __name(validSignature, "validSignature");
-var onRequestPost94 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost96 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const raw = await request.text();
   const sig = request.headers.get("x-square-hmacsha256-signature");
   const notifyUrl = env.SQUARE_WEBHOOK_URL || request.url;
@@ -16752,7 +17407,7 @@ var onRequestPost94 = /* @__PURE__ */ __name(async ({ request, env }) => {
   }
   return ok();
 }, "onRequestPost");
-var onRequestGet70 = /* @__PURE__ */ __name(() => ok("A\xF1ejo Square webhook ready"), "onRequestGet");
+var onRequestGet72 = /* @__PURE__ */ __name(() => ok("A\xF1ejo Square webhook ready"), "onRequestGet");
 
 // api/webhooks/twilio.js
 function twiml() {
@@ -16774,7 +17429,7 @@ async function twilioSignature(token, url, params) {
   return btoa(String.fromCharCode(...new Uint8Array(mac)));
 }
 __name(twilioSignature, "twilioSignature");
-var onRequestPost95 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost97 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const raw = await request.text();
   const params = new URLSearchParams(raw);
   if (!env.TWILIO_AUTH_TOKEN) {
@@ -16886,7 +17541,7 @@ var onRequest5 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequest");
 
 // api/proof/[token].js
-var onRequestGet71 = /* @__PURE__ */ __name(async ({ params, env }) => {
+var onRequestGet73 = /* @__PURE__ */ __name(async ({ params, env }) => {
   const token = (params && params.token || "").toString();
   if (!token || !env.DB)
     return new Response("Not found", { status: 404 });
@@ -16939,7 +17594,7 @@ var FALLBACK_MODIFIERS = {
   sweet_potato: 200,
   sauce_cup: 150
 };
-var KINDS2 = ["bowl", "drink", "addon"];
+var KINDS3 = ["bowl", "drink", "addon"];
 async function loadMenu(env) {
   const fallback = /* @__PURE__ */ __name(() => ({
     items: [],
@@ -16982,7 +17637,7 @@ __name(loadMenu, "loadMenu");
 function publicCatalog(menu) {
   const byKind = { bowl: [], drink: [], addon: [] };
   for (const it of menu.items || []) {
-    if (!KINDS2.includes(it.kind))
+    if (!KINDS3.includes(it.kind))
       continue;
     byKind[it.kind].push({
       id: it.id,
@@ -17001,7 +17656,70 @@ __name(publicCatalog, "publicCatalog");
 
 // api/chat.js
 var MODEL13 = "claude-sonnet-4-6";
-var onRequestPost96 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var FALLBACK_BOWL_COPY = {
+  vida: ["VIDA", "tuna, mango, lime"],
+  fuego: ["FUEGO", "grilled steak + chimichurri"],
+  ligero: ["LIGERO", "grilled chicken"],
+  mar: ["MAR", "omega-rich salmon"],
+  coco: ["COCO", "coconut-lime shrimp"],
+  congreen: ["CONGREEN", "quinoa-blueberry congr\xED + tuna"],
+  raiz: ["RA\xCDZ", "crispy tofu, plant-forward"]
+};
+var FALLBACK_KIND = { fit_gold: "drink", fit_hibiscus: "drink", fit_emerald: "drink", sauce_extra: "addon" };
+var usd = /* @__PURE__ */ __name((cents) => "$" + (cents / 100).toFixed(2), "usd");
+var BASE_BOWL_USD = usd(Math.round(BASE_BOWL_PRICE_USD * 100));
+function menuSection(menu) {
+  const byId = new Map((menu.items || []).map((it) => [it.id, it]));
+  const bowls = Object.entries(menu.bowls).map(([id2, cents]) => {
+    const it = byId.get(id2);
+    const [fbName, fbDesc] = FALLBACK_BOWL_COPY[id2] || [id2.toUpperCase(), ""];
+    const name = it && it.name || fbName;
+    const desc = it && it.description || fbDesc;
+    return desc ? `${name} (${desc}, ${usd(cents)})` : `${name} (${usd(cents)})`;
+  });
+  const pick = /* @__PURE__ */ __name((kind) => Object.entries(menu.nonBowls).filter(([id2]) => ((byId.get(id2) || {}).kind || FALLBACK_KIND[id2]) === kind).map(([, v]) => `${v.name} ${usd(v.price_cents)}`), "pick");
+  const drinks = pick("drink");
+  const addons = pick("addon");
+  const lines = [`- ${bowls.length} signature 16 oz bowls (sauce on the side, ~40% protein / 30% carbs / 30% fat, ~3-day fridge life): ${bowls.join(", ")}.`];
+  if (drinks.length)
+    lines.push(`- A\xF1ejo Fit cold-pressed drinks (12 oz): ${drinks.join(", ")}.`);
+  if (addons.length)
+    lines.push(`- Add-ons available at checkout: ${addons.join(", ")}.`);
+  return lines.join("\n");
+}
+__name(menuSection, "menuSection");
+var system = /* @__PURE__ */ __name((menu) => `You are "A\xF1a", the warm, concise customer-service assistant for A\xF1ejo Catering Co. \u2014 a premium Cuban-American longevity food brand in Palm Beach County, Florida. Tagline: "Clean Fuel. Bold Flavor. Built for Life." Voice: friendly, polished, hospitable, never pushy. Keep replies short (2\u20135 sentences). Mirror the customer's language \u2014 reply in Spanish if they write in Spanish, English if English.
+
+WHAT A\xD1EJO OFFERS (these are the current prices \u2014 quote them exactly, never a range)
+${menuSection(menu)}
+- A\xF1ejo Bites (Cuban-Latin finger food: croquetas, empanadas, etc.) \u2014 wholesale for venues.
+- Weekly meal-plan subscriptions: we ALWAYS recommend up to 12 bowls/week, but 5- and 10-bowl plans are also available \u2014 recurring, cancel anytime. Each bowl is portion-sized to the member's goal from our macro calculator: a standard bowl is 16 oz (~${BASE_BOWL_USD}); lighter goals get smaller bowls that cost less, higher-calorie goals get larger bowls that cost more. Weekly price = the member's per-bowl price \xD7 bowls per week. To get an exact quote, point people to the free calculator at /calculator, then /subscribe. (The \xE0-la-carte bowl prices above are for single retail bowls.)
+- A free AI macro calculator at /calculator (informational only, NOT medical or dietary advice) \u2014 it sets daily macros and sizes each A\xF1ejo bowl (and its price) to the person's goal.
+- Trainer/gym partner program: trainers create client plans for members who subscribe to A\xF1ejo directly. For partnership details, point them to dayan@anejocateringco.com \u2014 do NOT quote specific commission or revenue-share rates.
+
+DELIVERY (this is important \u2014 get it right)
+- DELIVERY ONLY (no pickup), within Palm Beach County, Florida.
+- Monday\u2013Saturday (no Sunday). Two windows: Lunch 11:00 AM\u20131:00 PM, Dinner 5:00 PM\u20137:00 PM.
+- Flat $5 delivery fee, $25 order minimum. Order by 6:00 PM the day before. Florida/PBC sales tax (~7%) added at checkout.
+
+FOOD SAFETY / ALLERGENS
+- Made fresh, never frozen. Prepared in a shared kitchen; bowls MAY contain wheat, egg, milk, fish, shellfish, tree nuts, soy, or seeds. Nuts removable on request; dairy-free swaps often available. Tell customers with severe allergies to note it when ordering.
+
+HOW TO HELP
+- Answer questions about the menu, nutrition, delivery, subscriptions, and the brand.
+- To order \xE0-la-carte, point them to /order. To subscribe, /subscribe. To reserve a tasting or ask about catering/wholesale/partnerships, the form on the home page (#tasting) or /#wholesale.
+- For COMPLAINTS or order problems: apologize sincerely, keep it brief, and direct them to dayan@anejocateringco.com or 561-567-1047, and let them know the team responds within 1 business day. Ask for their name, email, and order details so the team can follow up.
+
+CURRENT STATUS (be honest, do not over-promise)
+- A\xF1ejo is live for online ordering and weekly subscriptions in Palm Beach County. If someone asks whether they can order right now, send them to /order for \xE0-la-carte bowls or /subscribe for weekly plans. Same-day availability can sell out, and future delivery dates follow the 6:00 PM day-before cutoff.
+
+GUARDRAILS
+- Only discuss A\xF1ejo and closely related topics (food, nutrition basics, ordering, your service area). Politely decline unrelated requests.
+- Never invent menu items, prices, or policies beyond what's above; if unsure, say you're not certain and point them to dayan@anejocateringco.com or 561-567-1047.
+- Never give medical, dietary, or health advice \u2014 recommend a doctor or registered dietitian, and note the calculator is informational only.
+- Never promise refunds, discounts, delivery outside PBC, or anything not stated here. Don't take payment details in chat \u2014 direct them to the secure checkout.
+- Contact: dayan@anejocateringco.com \xB7 561-567-1047 \xB7 Instagram @anejo.catering.co.`, "system");
+var onRequestPost98 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: "chat", limit: 20, windowSec: 60 });
   if (limited)
     return limited;
@@ -17017,12 +17735,13 @@ var onRequestPost96 = /* @__PURE__ */ __name(async ({ request, env }) => {
   msgs = msgs.filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim()).slice(-12).map((m) => ({ role: m.role, content: m.content.slice(0, 1500) }));
   if (!msgs.length || msgs[msgs.length - 1].role !== "user")
     return bad("No message to respond to.");
+  const menu = await loadMenu(env);
   let r;
   try {
     r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL13, max_tokens: 600, system: SYSTEM, messages: msgs })
+      body: JSON.stringify({ model: MODEL13, max_tokens: 600, system: system(menu), messages: msgs })
     });
   } catch {
     return json({ error: "Could not reach the assistant. Please email dayan@anejocateringco.com." }, 502);
@@ -17033,83 +17752,6 @@ var onRequestPost96 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const reply = (data.content || []).map((c) => c.text || "").join("").trim();
   return json({ reply: reply || "Sorry, I didn't catch that \u2014 could you say it another way?" });
 }, "onRequestPost");
-
-// _lib/ondemand.js
-var BOWL_IDS = ["vida", "fuego", "ligero", "mar", "coco", "congreen", "raiz"];
-function clampHour(v, def) {
-  const n = Math.floor(Number(v));
-  return Number.isFinite(n) && n >= 0 && n <= 24 ? n : def;
-}
-__name(clampHour, "clampHour");
-function clampMin(v, def) {
-  const n = Math.floor(Number(v));
-  return Number.isFinite(n) && n >= 0 && n < 60 ? n : def;
-}
-__name(clampMin, "clampMin");
-function onDemandConfig(env) {
-  const raw = Math.floor(Number(env && env.ONDEMAND_BOWL_LIMIT));
-  const limit = Number.isFinite(raw) && raw >= 0 ? raw : 10;
-  return {
-    limit,
-    openHour: clampHour(env && env.ONDEMAND_OPEN_HOUR, 10),
-    closeHour: clampHour(env && env.ONDEMAND_CLOSE_HOUR, 19),
-    closeMinute: clampMin(env && env.ONDEMAND_CLOSE_MIN, 30)
-  };
-}
-__name(onDemandConfig, "onDemandConfig");
-function etParts(d = /* @__PURE__ */ new Date()) {
-  const f = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-  const p = {};
-  for (const part of f.formatToParts(d))
-    p[part.type] = part.value;
-  return { dateStr: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour), minute: Number(p.minute) };
-}
-__name(etParts, "etParts");
-function windowState(env, d = /* @__PURE__ */ new Date()) {
-  const { openHour, closeHour, closeMinute } = onDemandConfig(env);
-  const { hour, minute, dateStr } = etParts(d);
-  const nowMin = hour * 60 + minute;
-  const open = nowMin >= openHour * 60 && nowMin < closeHour * 60 + closeMinute;
-  return { open, openHour, closeHour, closeMinute, dateStr };
-}
-__name(windowState, "windowState");
-async function remainingByBowl(env, dateStr, limit) {
-  const remaining = {};
-  for (const id2 of BOWL_IDS)
-    remaining[id2] = limit;
-  if (!env || !env.DB)
-    return remaining;
-  const rawHold = Math.floor(Number(env.ONDEMAND_PENDING_HOLD_MIN));
-  const holdMin = Number.isFinite(rawHold) && rawHold >= 0 ? rawHold : 30;
-  const pendingCutoff = Date.now() - holdMin * 60 * 1e3;
-  const { results } = await env.DB.prepare(
-    `SELECT items FROM orders
-       WHERE fulfillment_mode = 'on_demand' AND delivery_date = ? AND status != 'canceled'
-         AND (status != 'pending' OR created_at >= ?)`
-  ).bind(dateStr, pendingCutoff).all();
-  for (const row of results || []) {
-    let items = [];
-    try {
-      items = JSON.parse(row.items) || [];
-    } catch {
-    }
-    for (const it of items) {
-      if (remaining[it && it.id] != null) {
-        remaining[it.id] = Math.max(0, remaining[it.id] - (Number(it.qty) || 0));
-      }
-    }
-  }
-  return remaining;
-}
-__name(remainingByBowl, "remainingByBowl");
 
 // api/checkout.js
 function fmtHour(h) {
@@ -17237,7 +17879,7 @@ function priceCustomBowl(key2, mods, pricing) {
   };
 }
 __name(priceCustomBowl, "priceCustomBowl");
-var onRequestPost97 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost99 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: "checkout", limit: 15, windowSec: 60 });
   if (limited)
     return limited;
@@ -17596,7 +18238,7 @@ var onRequestPost97 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/clients.js
-var onRequestGet72 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet74 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sess = await trainerSession(env, request);
   if (!sess)
     return json({ error: "Not signed in." }, 401);
@@ -17612,7 +18254,7 @@ var onRequestGet72 = /* @__PURE__ */ __name(async ({ request, env }) => {
   ).bind(sess.uid).all();
   return json({ clients: results || [] });
 }, "onRequestGet");
-var onRequestPost98 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost100 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sess = await trainerSession(env, request);
   if (!sess)
     return json({ error: "Not signed in." }, 401);
@@ -17729,7 +18371,7 @@ var onRequestPost98 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/feedback.js
-var onRequestPost99 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost101 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: "feedback", limit: 20, windowSec: 60 });
   if (limited)
     return limited;
@@ -17870,7 +18512,7 @@ async function sendLaunchWelcome(env, rec, member) {
   }
 }
 __name(sendLaunchWelcome, "sendLaunchWelcome");
-var onRequestGet73 = /* @__PURE__ */ __name(async ({ env }) => {
+var onRequestGet75 = /* @__PURE__ */ __name(async ({ env }) => {
   let claimed = 0;
   if (env.DB) {
     try {
@@ -17881,7 +18523,7 @@ var onRequestGet73 = /* @__PURE__ */ __name(async ({ env }) => {
   }
   return json({ ok: true, claimed, cap: FOUNDING_CAP, remaining: Math.max(0, FOUNDING_CAP - claimed) });
 }, "onRequestGet");
-var onRequestPost100 = /* @__PURE__ */ __name(async ({ request, env, waitUntil }) => {
+var onRequestPost102 = /* @__PURE__ */ __name(async ({ request, env, waitUntil }) => {
   const limited = await limitOr429(env, request, { name: "leads", limit: 6, windowSec: 60 });
   if (limited)
     return limited;
@@ -17995,7 +18637,7 @@ var onRequestPost100 = /* @__PURE__ */ __name(async ({ request, env, waitUntil }
 }, "onRequestPost");
 
 // api/me.js
-var onRequestGet74 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet76 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const ctx = await currentRole(env, request);
   if (ctx && ctx.type === "staff") {
     const r = await currentStaff(env, request);
@@ -18036,7 +18678,7 @@ var onRequestGet74 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestGet");
 
 // api/menu.js
-var onRequestGet75 = /* @__PURE__ */ __name(async ({ env }) => {
+var onRequestGet77 = /* @__PURE__ */ __name(async ({ env }) => {
   const menu = await loadMenu(env);
   const res = json({ ok: true, ...publicCatalog(menu), source: menu.source });
   res.headers.set("Cache-Control", menu.source === "d1" ? "public, max-age=60" : "no-store");
@@ -18044,7 +18686,7 @@ var onRequestGet75 = /* @__PURE__ */ __name(async ({ env }) => {
 }, "onRequestGet");
 
 // api/order-availability.js
-var onRequestGet76 = /* @__PURE__ */ __name(async ({ env }) => {
+var onRequestGet78 = /* @__PURE__ */ __name(async ({ env }) => {
   const { limit } = onDemandConfig(env);
   const w = windowState(env);
   let remaining;
@@ -18063,15 +18705,15 @@ var onRequestGet76 = /* @__PURE__ */ __name(async ({ env }) => {
 }, "onRequestGet");
 
 // api/orders.js
-var onRequestGet77 = /* @__PURE__ */ __name(async () => {
+var onRequestGet79 = /* @__PURE__ */ __name(async () => {
   return json({ error: "Legacy kitchen endpoint retired. Use /hub/kitchen/." }, 410);
 }, "onRequestGet");
-var onRequestPost101 = /* @__PURE__ */ __name(async () => {
+var onRequestPost103 = /* @__PURE__ */ __name(async () => {
   return json({ error: "Legacy kitchen endpoint retired. Use /hub/kitchen/." }, 410);
 }, "onRequestPost");
 
 // api/plan.js
-var onRequestGet78 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet80 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   const token = new URL(request.url).searchParams.get("token");
@@ -18118,7 +18760,7 @@ var onRequestGet78 = /* @__PURE__ */ __name(async ({ request, env }) => {
     client_id: row.client_id
   });
 }, "onRequestGet");
-var onRequestPost102 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost104 = /* @__PURE__ */ __name(async ({ request, env }) => {
   if (!env.DB)
     return bad("Database not configured.", 500);
   const token = new URL(request.url).searchParams.get("token");
@@ -18166,7 +18808,7 @@ var MESSAGES = {
   empty: "Enter a code.",
   unavailable: "Couldn\u2019t check that code right now."
 };
-var onRequestPost103 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestPost105 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: "promocheck", limit: 12, windowSec: 60 });
   if (limited)
     return limited;
@@ -18219,7 +18861,7 @@ var onRequestPost103 = /* @__PURE__ */ __name(async ({ request, env }) => {
 }, "onRequestPost");
 
 // api/square-config.js
-var onRequestGet79 = /* @__PURE__ */ __name(({ env }) => {
+var onRequestGet81 = /* @__PURE__ */ __name(({ env }) => {
   const tiers = {};
   for (const [k, t] of Object.entries(PLAN_TIERS)) {
     tiers[k] = { bowls: t.bowls, bowlsPerDay: t.bowlsPerDay, days: t.days, chooseWindow: t.chooseWindow };
@@ -18233,7 +18875,7 @@ var onRequestGet79 = /* @__PURE__ */ __name(({ env }) => {
 }, "onRequestGet");
 
 // api/subscriptions/index.js
-var onRequestGet80 = /* @__PURE__ */ __name(async ({ request, env }) => {
+var onRequestGet82 = /* @__PURE__ */ __name(async ({ request, env }) => {
   const sess = await trainerSession(env, request);
   if (!sess)
     return json({ error: "Not signed in." }, 401);
@@ -18356,7 +18998,7 @@ async function onRequest7(context) {
 }
 __name(onRequest7, "onRequest");
 
-// ../.wrangler/tmp/pages-xpw7Q7/functionsRoutes-0.45465729934667853.mjs
+// ../.wrangler/tmp/pages-6ypivO/functionsRoutes-0.2367775360850084.mjs
 var routes = [
   {
     routePath: "/api/hub/driver/checklist/submit",
@@ -19003,305 +19645,333 @@ var routes = [
     modules: [onRequestPost55]
   },
   {
-    routePath: "/api/hub/owner/operator",
-    mountPath: "/api/hub/owner",
-    method: "POST",
-    middlewares: [],
-    modules: [onRequestPost56]
-  },
-  {
-    routePath: "/api/hub/owner/ops",
+    routePath: "/api/hub/owner/menu",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet38]
   },
   {
-    routePath: "/api/hub/owner/order-history",
+    routePath: "/api/hub/owner/menu",
     mountPath: "/api/hub/owner",
-    method: "GET",
+    method: "POST",
     middlewares: [],
-    modules: [onRequestGet39]
+    modules: [onRequestPost56]
   },
   {
-    routePath: "/api/hub/owner/orders",
-    mountPath: "/api/hub/owner",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet40]
-  },
-  {
-    routePath: "/api/hub/owner/orders",
+    routePath: "/api/hub/owner/operator",
     mountPath: "/api/hub/owner",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost57]
   },
   {
-    routePath: "/api/hub/owner/overview",
+    routePath: "/api/hub/owner/ops",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet41]
+    modules: [onRequestGet39]
   },
   {
-    routePath: "/api/hub/owner/partners",
+    routePath: "/api/hub/owner/order-actions",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet42]
+    modules: [onRequestGet40]
   },
   {
-    routePath: "/api/hub/owner/partners",
+    routePath: "/api/hub/owner/order-actions",
     mountPath: "/api/hub/owner",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost58]
   },
   {
-    routePath: "/api/hub/owner/pay-config",
+    routePath: "/api/hub/owner/order-history",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet43]
+    modules: [onRequestGet41]
   },
   {
-    routePath: "/api/hub/owner/pay-config",
+    routePath: "/api/hub/owner/orders",
+    mountPath: "/api/hub/owner",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet42]
+  },
+  {
+    routePath: "/api/hub/owner/orders",
     mountPath: "/api/hub/owner",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost59]
   },
   {
-    routePath: "/api/hub/owner/payouts",
+    routePath: "/api/hub/owner/overview",
+    mountPath: "/api/hub/owner",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet43]
+  },
+  {
+    routePath: "/api/hub/owner/partners",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet44]
   },
   {
-    routePath: "/api/hub/owner/payouts",
+    routePath: "/api/hub/owner/partners",
     mountPath: "/api/hub/owner",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost60]
   },
   {
-    routePath: "/api/hub/owner/pricing",
+    routePath: "/api/hub/owner/pay-config",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet45]
   },
   {
-    routePath: "/api/hub/owner/pricing",
+    routePath: "/api/hub/owner/pay-config",
     mountPath: "/api/hub/owner",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost61]
   },
   {
-    routePath: "/api/hub/owner/report",
-    mountPath: "/api/hub/owner",
-    method: "POST",
-    middlewares: [],
-    modules: [onRequestPost62]
-  },
-  {
-    routePath: "/api/hub/owner/rewards",
+    routePath: "/api/hub/owner/payouts",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet46]
   },
   {
-    routePath: "/api/hub/owner/rewards",
+    routePath: "/api/hub/owner/payouts",
     mountPath: "/api/hub/owner",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost63]
+    modules: [onRequestPost62]
   },
   {
-    routePath: "/api/hub/owner/route-plan",
-    mountPath: "/api/hub/owner",
-    method: "POST",
-    middlewares: [],
-    modules: [onRequestPost64]
-  },
-  {
-    routePath: "/api/hub/owner/routes",
+    routePath: "/api/hub/owner/pricing",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet47]
   },
   {
-    routePath: "/api/hub/owner/routes",
+    routePath: "/api/hub/owner/pricing",
     mountPath: "/api/hub/owner",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost65]
+    modules: [onRequestPost63]
   },
   {
-    routePath: "/api/hub/owner/schedule",
+    routePath: "/api/hub/owner/report",
+    mountPath: "/api/hub/owner",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost64]
+  },
+  {
+    routePath: "/api/hub/owner/rewards",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet48]
   },
   {
-    routePath: "/api/hub/owner/schedule",
+    routePath: "/api/hub/owner/rewards",
+    mountPath: "/api/hub/owner",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost65]
+  },
+  {
+    routePath: "/api/hub/owner/route-plan",
     mountPath: "/api/hub/owner",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost66]
   },
   {
-    routePath: "/api/hub/owner/sms-test",
-    mountPath: "/api/hub/owner",
-    method: "POST",
-    middlewares: [],
-    modules: [onRequestPost67]
-  },
-  {
-    routePath: "/api/hub/owner/square-health",
+    routePath: "/api/hub/owner/routes",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet49]
   },
   {
-    routePath: "/api/hub/owner/staff",
-    mountPath: "/api/hub/owner/staff",
+    routePath: "/api/hub/owner/routes",
+    mountPath: "/api/hub/owner",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost67]
+  },
+  {
+    routePath: "/api/hub/owner/schedule",
+    mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet50]
   },
   {
-    routePath: "/api/hub/owner/staff",
-    mountPath: "/api/hub/owner/staff",
+    routePath: "/api/hub/owner/schedule",
+    mountPath: "/api/hub/owner",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost68]
   },
   {
-    routePath: "/api/hub/owner/staff-status",
-    mountPath: "/api/hub/owner",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet51]
-  },
-  {
-    routePath: "/api/hub/owner/suggestions",
-    mountPath: "/api/hub/owner",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet52]
-  },
-  {
-    routePath: "/api/hub/owner/suggestions",
+    routePath: "/api/hub/owner/sms-test",
     mountPath: "/api/hub/owner",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost69]
   },
   {
-    routePath: "/api/hub/owner/tickets",
+    routePath: "/api/hub/owner/square-health",
+    mountPath: "/api/hub/owner",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet51]
+  },
+  {
+    routePath: "/api/hub/owner/staff",
+    mountPath: "/api/hub/owner/staff",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet52]
+  },
+  {
+    routePath: "/api/hub/owner/staff",
+    mountPath: "/api/hub/owner/staff",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost70]
+  },
+  {
+    routePath: "/api/hub/owner/staff-status",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet53]
   },
   {
-    routePath: "/api/hub/owner/tickets",
-    mountPath: "/api/hub/owner",
-    method: "POST",
-    middlewares: [],
-    modules: [onRequestPost70]
-  },
-  {
-    routePath: "/api/hub/owner/traffic",
+    routePath: "/api/hub/owner/suggestions",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet54]
   },
   {
-    routePath: "/api/hub/owner/trainers",
-    mountPath: "/api/hub/owner",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet55]
-  },
-  {
-    routePath: "/api/hub/owner/trainers",
+    routePath: "/api/hub/owner/suggestions",
     mountPath: "/api/hub/owner",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost71]
   },
   {
-    routePath: "/api/hub/owner/training-status",
+    routePath: "/api/hub/owner/tickets",
+    mountPath: "/api/hub/owner",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet55]
+  },
+  {
+    routePath: "/api/hub/owner/tickets",
+    mountPath: "/api/hub/owner",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost72]
+  },
+  {
+    routePath: "/api/hub/owner/traffic",
     mountPath: "/api/hub/owner",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet56]
   },
   {
+    routePath: "/api/hub/owner/trainers",
+    mountPath: "/api/hub/owner",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet57]
+  },
+  {
+    routePath: "/api/hub/owner/trainers",
+    mountPath: "/api/hub/owner",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost73]
+  },
+  {
+    routePath: "/api/hub/owner/training-status",
+    mountPath: "/api/hub/owner",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet58]
+  },
+  {
     routePath: "/api/hub/push/peek",
     mountPath: "/api/hub/push",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet57]
+    modules: [onRequestGet59]
   },
   {
     routePath: "/api/hub/push/subscribe",
     mountPath: "/api/hub/push",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet58]
+    modules: [onRequestGet60]
   },
   {
     routePath: "/api/hub/push/subscribe",
     mountPath: "/api/hub/push",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost72]
+    modules: [onRequestPost74]
   },
   {
     routePath: "/api/hub/team/overview",
     mountPath: "/api/hub/team",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet59]
-  },
-  {
-    routePath: "/api/hub/training/complete",
-    mountPath: "/api/hub/training",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet60]
-  },
-  {
-    routePath: "/api/hub/training/complete",
-    mountPath: "/api/hub/training",
-    method: "POST",
-    middlewares: [],
-    modules: [onRequestPost73]
-  },
-  {
-    routePath: "/api/hub/vendor/pos",
-    mountPath: "/api/hub/vendor",
-    method: "GET",
-    middlewares: [],
     modules: [onRequestGet61]
   },
   {
+    routePath: "/api/hub/training/complete",
+    mountPath: "/api/hub/training",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet62]
+  },
+  {
+    routePath: "/api/hub/training/complete",
+    mountPath: "/api/hub/training",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost75]
+  },
+  {
+    routePath: "/api/hub/vendor/pos",
+    mountPath: "/api/hub/vendor",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet63]
+  },
+  {
     routePath: "/api/hub/vendor/pos",
     mountPath: "/api/hub/vendor",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost74]
+    modules: [onRequestPost76]
   },
   {
     routePath: "/api/hub/owner/sms-test",
@@ -19315,210 +19985,210 @@ var routes = [
     mountPath: "/api/hub/media",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet62]
+    modules: [onRequestGet64]
   },
   {
     routePath: "/api/addons/checkout",
     mountPath: "/api/addons",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost75]
+    modules: [onRequestPost77]
   },
   {
     routePath: "/api/addons/offer",
     mountPath: "/api/addons",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet63]
+    modules: [onRequestGet65]
   },
   {
     routePath: "/api/auth/identify",
     mountPath: "/api/auth",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost76]
+    modules: [onRequestPost78]
   },
   {
     routePath: "/api/auth/pin-login",
     mountPath: "/api/auth",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost77]
+    modules: [onRequestPost79]
   },
   {
     routePath: "/api/auth/request-link",
     mountPath: "/api/auth",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost78]
+    modules: [onRequestPost80]
   },
   {
     routePath: "/api/auth/verify",
     mountPath: "/api/auth",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet64]
+    modules: [onRequestGet66]
   },
   {
     routePath: "/api/client/addons",
     mountPath: "/api/client",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet65]
+    modules: [onRequestGet67]
   },
   {
     routePath: "/api/client/log",
     mountPath: "/api/client",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet66]
+    modules: [onRequestGet68]
   },
   {
     routePath: "/api/client/log",
     mountPath: "/api/client",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost79]
+    modules: [onRequestPost81]
   },
   {
     routePath: "/api/client/me",
     mountPath: "/api/client",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet67]
+    modules: [onRequestGet69]
   },
   {
     routePath: "/api/contract/headcount",
     mountPath: "/api/contract",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost80]
+    modules: [onRequestPost82]
   },
   {
     routePath: "/api/contract/register",
     mountPath: "/api/contract",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost81]
+    modules: [onRequestPost83]
   },
   {
     routePath: "/api/contract/site",
     mountPath: "/api/contract",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet68]
+    modules: [onRequestGet70]
   },
   {
     routePath: "/api/dev/login",
     mountPath: "/api/dev",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet69]
+    modules: [onRequestGet71]
   },
   {
     routePath: "/api/hub/track",
     mountPath: "/api/hub",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost82]
+    modules: [onRequestPost84]
   },
   {
     routePath: "/api/plans/edit",
     mountPath: "/api/plans",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost83]
+    modules: [onRequestPost85]
   },
   {
     routePath: "/api/plans/generate",
     mountPath: "/api/plans",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost84]
+    modules: [onRequestPost86]
   },
   {
     routePath: "/api/plans/resize",
     mountPath: "/api/plans",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost85]
+    modules: [onRequestPost87]
   },
   {
     routePath: "/api/plans/send",
     mountPath: "/api/plans",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost86]
+    modules: [onRequestPost88]
   },
   {
     routePath: "/api/plans/translate",
     mountPath: "/api/plans",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost87]
+    modules: [onRequestPost89]
   },
   {
     routePath: "/api/staff/set-pin",
     mountPath: "/api/staff",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost88]
+    modules: [onRequestPost90]
   },
   {
     routePath: "/api/subscriptions/cancel",
     mountPath: "/api/subscriptions",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost89]
+    modules: [onRequestPost91]
   },
   {
     routePath: "/api/subscriptions/card",
     mountPath: "/api/subscriptions",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost90]
+    modules: [onRequestPost92]
   },
   {
     routePath: "/api/subscriptions/create",
     mountPath: "/api/subscriptions",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost91]
+    modules: [onRequestPost93]
   },
   {
     routePath: "/api/subscriptions/manage",
     mountPath: "/api/subscriptions",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost92]
+    modules: [onRequestPost94]
   },
   {
     routePath: "/api/webhooks/resend",
     mountPath: "/api/webhooks",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost93]
+    modules: [onRequestPost95]
   },
   {
     routePath: "/api/webhooks/square",
     mountPath: "/api/webhooks",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet70]
+    modules: [onRequestGet72]
   },
   {
     routePath: "/api/webhooks/square",
     mountPath: "/api/webhooks",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost94]
+    modules: [onRequestPost96]
   },
   {
     routePath: "/api/webhooks/twilio",
     mountPath: "/api/webhooks",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost95]
+    modules: [onRequestPost97]
   },
   {
     routePath: "/api/auth/logout",
@@ -19553,126 +20223,126 @@ var routes = [
     mountPath: "/api/proof",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet71]
+    modules: [onRequestGet73]
   },
   {
     routePath: "/api/chat",
     mountPath: "/api",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost96]
+    modules: [onRequestPost98]
   },
   {
     routePath: "/api/checkout",
     mountPath: "/api",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost97]
-  },
-  {
-    routePath: "/api/clients",
-    mountPath: "/api",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet72]
-  },
-  {
-    routePath: "/api/clients",
-    mountPath: "/api",
-    method: "POST",
-    middlewares: [],
-    modules: [onRequestPost98]
-  },
-  {
-    routePath: "/api/feedback",
-    mountPath: "/api",
-    method: "POST",
-    middlewares: [],
     modules: [onRequestPost99]
   },
   {
-    routePath: "/api/leads",
-    mountPath: "/api",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet73]
-  },
-  {
-    routePath: "/api/leads",
-    mountPath: "/api",
-    method: "POST",
-    middlewares: [],
-    modules: [onRequestPost100]
-  },
-  {
-    routePath: "/api/me",
+    routePath: "/api/clients",
     mountPath: "/api",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet74]
   },
   {
-    routePath: "/api/menu",
+    routePath: "/api/clients",
     mountPath: "/api",
-    method: "GET",
+    method: "POST",
     middlewares: [],
-    modules: [onRequestGet75]
+    modules: [onRequestPost100]
   },
   {
-    routePath: "/api/order-availability",
-    mountPath: "/api",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet76]
-  },
-  {
-    routePath: "/api/orders",
-    mountPath: "/api",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet77]
-  },
-  {
-    routePath: "/api/orders",
+    routePath: "/api/feedback",
     mountPath: "/api",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost101]
   },
   {
-    routePath: "/api/plan",
+    routePath: "/api/leads",
     mountPath: "/api",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet78]
+    modules: [onRequestGet75]
   },
   {
-    routePath: "/api/plan",
+    routePath: "/api/leads",
     mountPath: "/api",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost102]
   },
   {
-    routePath: "/api/promo-check",
+    routePath: "/api/me",
     mountPath: "/api",
-    method: "POST",
+    method: "GET",
     middlewares: [],
-    modules: [onRequestPost103]
+    modules: [onRequestGet76]
   },
   {
-    routePath: "/api/square-config",
+    routePath: "/api/menu",
+    mountPath: "/api",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet77]
+  },
+  {
+    routePath: "/api/order-availability",
+    mountPath: "/api",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet78]
+  },
+  {
+    routePath: "/api/orders",
     mountPath: "/api",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet79]
   },
   {
+    routePath: "/api/orders",
+    mountPath: "/api",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost103]
+  },
+  {
+    routePath: "/api/plan",
+    mountPath: "/api",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet80]
+  },
+  {
+    routePath: "/api/plan",
+    mountPath: "/api",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost104]
+  },
+  {
+    routePath: "/api/promo-check",
+    mountPath: "/api",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost105]
+  },
+  {
+    routePath: "/api/square-config",
+    mountPath: "/api",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet81]
+  },
+  {
     routePath: "/api/subscriptions",
     mountPath: "/api/subscriptions",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet80]
+    modules: [onRequestGet82]
   },
   {
     routePath: "/api",
@@ -20139,4 +20809,4 @@ export {
   pages_template_worker_default as default
 };
 
-------formdata-undici-015434752116--
+------formdata-undici-039550872414--

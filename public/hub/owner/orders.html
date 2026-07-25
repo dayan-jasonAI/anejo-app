@@ -35,6 +35,16 @@
   .oh-sum { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:13px; }
   .oh-sum .k { color:var(--green); opacity:.75; }
   .oh-more { margin-top:10px; }
+  /* Owner actions. Deliberately plain and a little severe — these two buttons cancel orders and
+     move real money, and should never be mistaken for the rest of this read-only screen. */
+  .act label { display:block; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--green); opacity:.75; margin:10px 0 4px; }
+  .act input { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); font:inherit; font-size:14px; }
+  .act .warn { font-size:12.5px; line-height:1.5; color:#8a6d12; background:#fff8e9; border:1px solid #e6d3a3; border-radius:8px; padding:9px 10px; margin:10px 0 0; }
+  .act .nope { font-size:12.5px; line-height:1.5; color:var(--muted,#6b6b6b); margin:8px 0 0; }
+  .act .btn-danger { width:100%; margin-top:10px; padding:11px 12px; border:1px solid #9b2226; border-radius:8px; background:#fff; color:#9b2226; font:inherit; font-size:14px; font-weight:700; cursor:pointer; }
+  .act .btn-danger:disabled { opacity:.45; cursor:default; }
+  .act .money { display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--green); margin-top:2px; }
+  .act .money b { font-weight:700; }
 </style>
 </head>
 <body>
@@ -188,7 +198,8 @@
       '<button class="btn ghost block" id="back-btn" type="button" data-i18n>← Back to orders</button>' +
       '<div class="hub-section"><h2>' + head + '</h2>' + sum +
       '<div class="card"><div class="row-title" data-i18n>Kitchen PIN trail</div>' +
-      '<div id="trail"><div class="hub-loading">…</div></div></div></div>';
+      '<div id="trail"><div class="hub-loading">…</div></div></div>' +
+      '<div id="actions"><div class="hub-loading">…</div></div></div>';
     var bb = $('#back-btn'); if (bb) bb.addEventListener('click', function () { window.location.hash = ''; });
 
     Owner.get('/api/hub/owner/kitchen-audit?order_id=' + encodeURIComponent(id)).then(function (d) {
@@ -206,7 +217,136 @@
       }).join('') + '</ul>';
       refresh();
     });
+    loadActions(id);
     refresh();
+  }
+
+  // ---------- owner actions (cancel / refund) ----------
+  // This screen was a read-only terminus: a bad order meant leaving the HUB for the Square
+  // dashboard. Both actions below are deliberately two-step (type a reason, then confirm), and the
+  // copy never lets the two be confused — cancelling does not move a cent, refunding does.
+
+  function loadActions(oid) {
+    if (!$('#actions')) return;
+    Owner.get('/api/hub/owner/order-actions?order_id=' + encodeURIComponent(oid)).then(function (d) {
+      var box = $('#actions');
+      if (!box) return;                                  // owner navigated away mid-request
+      if (!d || !d.ok) {
+        box.innerHTML = '<div class="card"><p class="row-sub" data-i18n>Owner actions are unavailable for this order.</p></div>';
+        refresh(); return;
+      }
+      renderActions(oid, d);
+    });
+  }
+
+  function renderActions(oid, d) {
+    var c = d.cancel || {}, r = d.refund || {};
+    var html = '';
+
+    // --- cancel ---
+    html += '<div class="card act"><div class="row-title" data-i18n>Cancel this order</div>';
+    if (c.available) {
+      // Three distinct truths, never collapsed into one: money is held, nothing is held, or we
+      // could not find out. The last one must not read as "the customer wasn't charged".
+      if (!c.money_known) {
+        html += '<p class="warn"><strong data-i18n>Cancelling never returns money.</strong> ' +
+          '<span data-i18n>We could not read a Square payment for this order</span>' +
+          (c.money_note ? ' (' + esc(c.money_note) + ')' : '') +
+          ' — <span data-i18n>check Square before telling the customer they were not charged.</span></p>';
+      } else if (c.money_held_cents) {
+        html += '<p class="warn"><strong data-i18n>Cancelling does not return any money.</strong> ' +
+          money(c.money_held_cents) + ' <span data-i18n>is still held from this customer — use Refund below to give it back.</span></p>';
+      } else {
+        html += '<p class="nope" data-i18n>Square shows nothing left to return on this order.</p>';
+      }
+      html += '<label for="c-reason" data-i18n>Reason (recorded on the order)</label>' +
+        '<input id="c-reason" type="text" maxlength="192" placeholder="e.g. customer called to cancel" autocomplete="off">' +
+        '<button class="btn-danger" id="c-btn" type="button" data-i18n>Cancel this order</button>';
+    } else {
+      html += '<p class="nope">' + esc(c.reason || 'This order cannot be canceled.') + '</p>';
+    }
+    html += '</div>';
+
+    // --- refund ---
+    html += '<div class="card act"><div class="row-title" data-i18n>Refund</div>';
+    if (r.available) {
+      html += '<div class="money">' +
+        '<span><span data-i18n>Captured</span> <b>' + money(r.captured_cents) + '</b></span>' +
+        '<span><span data-i18n>Refunded</span> <b>' + money(r.refunded_cents) + '</b></span>' +
+        '<span><span data-i18n>Refundable</span> <b>' + money(r.refundable_cents) + '</b></span></div>' +
+        '<p class="warn" data-i18n>This returns real money to the customer through Square and cannot be undone from the HUB.</p>' +
+        '<label for="r-amt" data-i18n>Amount to refund (USD)</label>' +
+        '<input id="r-amt" type="number" step="0.01" min="0.01" max="' + (r.refundable_cents / 100).toFixed(2) +
+          '" value="' + (r.refundable_cents / 100).toFixed(2) + '" inputmode="decimal">' +
+        '<label for="r-reason" data-i18n>Reason (sent to Square and recorded on the order)</label>' +
+        '<input id="r-reason" type="text" maxlength="192" placeholder="e.g. order never delivered" autocomplete="off">' +
+        '<button class="btn-danger" id="r-btn" type="button">Refund ' + money(r.refundable_cents) + '</button>';
+    } else {
+      html += '<p class="nope">' + esc(r.reason || 'This order cannot be refunded here.') + '</p>';
+    }
+    html += '</div>';
+
+    $('#actions').innerHTML = html;
+
+    var cb = $('#c-btn');
+    if (cb) cb.addEventListener('click', function () { doCancel(oid, cb); });
+
+    var amt = $('#r-amt'), rb = $('#r-btn');
+    // Keep the button label honest as the amount is edited — the number on the button is the
+    // number the confirm dialog will quote and the number Square will move.
+    if (amt && rb) amt.addEventListener('input', function () {
+      var cents = toCents(amt.value);
+      rb.textContent = cents > 0 ? 'Refund ' + money(cents) : 'Refund';
+    });
+    if (rb) rb.addEventListener('click', function () { doRefund(oid, r, rb); });
+    refresh();
+  }
+
+  // Dollars typed by a human → integer cents. Returns 0 for anything unusable.
+  function toCents(v) {
+    var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, ''));
+    if (!isFinite(n) || n <= 0) return 0;
+    return Math.round(n * 100);
+  }
+
+  function doCancel(oid, btn) {
+    var reason = ($('#c-reason') && $('#c-reason').value || '').trim();
+    if (!reason) { Hub.toast('Enter a reason first.'); return; }
+    if (!window.confirm('Cancel this order? This stops the order but does NOT return any money — refund separately if the customer paid.')) return;
+    btn.disabled = true;
+    Hub.api('/api/hub/owner/order-actions', { method: 'POST', body: { op: 'cancel', order_id: oid, reason: reason } })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res || !res.ok) { Hub.toast((res && res.error) || 'Could not cancel.'); return; }
+        Hub.toast(res.already ? 'Already canceled.' : 'Order canceled.');
+        (res.warnings || []).forEach(function (w) { window.alert(w); });
+        if (cache[oid]) cache[oid].status = 'canceled';
+        showDetail(oid);      // re-reads the action state (a paid order now offers the refund)
+        loadList();
+      });
+  }
+
+  function doRefund(oid, r, btn) {
+    var reason = ($('#r-reason') && $('#r-reason').value || '').trim();
+    if (!reason) { Hub.toast('Enter a reason first.'); return; }
+    var cents = toCents($('#r-amt') && $('#r-amt').value);
+    if (!cents) { Hub.toast('Enter an amount to refund.'); return; }
+    if (cents > r.refundable_cents) { Hub.toast('Only ' + money(r.refundable_cents) + ' is still refundable.'); return; }
+    var partial = cents < r.refundable_cents;
+    if (!window.confirm('Refund ' + money(cents) + (partial ? ' (partial)' : ' (full)') +
+      ' through Square now? This moves real money and cannot be undone from the HUB.')) return;
+    btn.disabled = true;
+    Hub.api('/api/hub/owner/order-actions', { method: 'POST', body: { op: 'refund', order_id: oid, reason: reason, amount_cents: cents } })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res || !res.ok) { Hub.toast((res && res.error) || 'Refund failed.'); return; }
+        // PENDING is the normal outcome for a card refund — it settles over a few days. Saying so
+        // here stops the owner from clicking again thinking it did not go through.
+        Hub.toast(res.refund_status === 'PENDING'
+          ? 'Refund of ' + money(res.amount_cents) + ' submitted — Square settles it in a few days.'
+          : 'Refunded ' + money(res.amount_cents) + '.');
+        showDetail(oid);
+      });
   }
 
   Owner.init('orders', render);

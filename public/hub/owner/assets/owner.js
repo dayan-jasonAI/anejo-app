@@ -14,6 +14,7 @@
     { view: 'rewards', href: '/hub/owner/rewards.html', ico: '🎁', label: 'Rewards' },
     { view: 'deliveries', href: '/hub/owner/deliveries.html', ico: '🚚', label: 'Deliveries' },
     { view: 'kitchen', href: '/hub/owner/kitchen.html', ico: '🍳', label: 'Kitchen' },
+    { view: 'menu', href: '/hub/owner/menu.html', ico: '🍽️', label: 'Menu' },
     { view: 'staff', href: '/hub/owner/staff.html', ico: '👥', label: 'Staff' },
     { view: 'finance', href: '/hub/owner/finance.html', ico: '💵', label: 'Finance' },
     { view: 'trainers', href: '/hub/owner/trainers.html', ico: '🤝', label: 'Trainers' },

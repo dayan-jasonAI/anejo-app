@@ -42,6 +42,8 @@ const text = (v, max) => {
 /** Money is only ever whole cents here — anything else is refused, never rounded into a guess. */
 function parseCents(raw, label) {
   if (raw === '' || raw == null) return { error: `${label} is required.` };
+  // Number(true) is 1 — a JSON body of {price_cents:true} must not become a one-cent bowl.
+  if (typeof raw !== 'number' && typeof raw !== 'string') return { error: `${label} must be a number of cents.` };
   const n = Number(raw);
   if (!Number.isFinite(n)) return { error: `${label} must be a number of cents, got "${raw}".` };
   if (!Number.isInteger(n)) return { error: `${label} must be whole cents — 1999 means $19.99. Got ${n}.` };

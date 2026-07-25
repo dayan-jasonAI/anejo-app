@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Menu &amp; Prices</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .mn-chips { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .mn-chips button { flex:1; min-width:92px; border:1px solid var(--line); background:#fff; color:var(--green);
+    border-radius:10px; padding:9px 8px; font:inherit; font-size:13px; cursor:pointer; }
+  .mn-chips button.sel { border-color:var(--gold,#C6A85B); box-shadow:0 0 0 1px var(--gold,#C6A85B); background:#fff8e9; }
+  .mn-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .mn-id { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; color:var(--muted); }
+  /* The number the customer actually sees, big enough to catch a decimal-point mistake. */
+  .mn-see { text-align:right; white-space:nowrap; }
+  .mn-see .lbl { font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+  .mn-see .amt { font-size:24px; font-weight:800; color:var(--green); line-height:1.1; }
+  .mn-see .amt.dirty { color:var(--gold-dark,#8B6B3E); }
+  .mn-see .was { font-size:11.5px; color:var(--muted); }
+  .mn-price { display:flex; align-items:center; gap:6px; margin-top:10px; }
+  .mn-price .pre { color:var(--muted); font-size:15px; }
+  .mn-price input { width:110px; text-align:right; padding:9px 11px; border:1px solid var(--line);
+    border-radius:8px; font:inherit; font-size:16px; font-weight:700; color:var(--green); background:#fff; }
+  .mn-more { margin-top:10px; }
+  .mn-more > summary { cursor:pointer; font-size:12.5px; color:var(--green); opacity:.8; }
+  .form-row { display:flex; flex-direction:column; gap:4px; margin:10px 0 0; }
+  .form-row label { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--green); opacity:.8; }
+  .form-row input, .form-row select, .form-row textarea {
+    padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; font-size:14px; }
+  .form-two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .mn-actions { display:flex; align-items:center; gap:10px; margin-top:12px; }
+  .hint { font-size:12px; color:var(--green); opacity:.75; line-height:1.5; margin:4px 0 0; }
+  .msg { font-size:12.5px; margin:0 0 0 2px; }
+  .msg.err { color:var(--crit); }
+  .msg.ok { color:var(--ok); }
+  .mn-alert { border-radius:12px; padding:12px 14px; margin-bottom:10px; font-size:13.5px; line-height:1.55; }
+  .mn-alert.block { background:#fbe3e1; border:1px solid #e8b4ae; color:#7a1c14; }
+  .mn-alert.warn { background:#fbf3da; border:1px solid #e3ce93; color:#6d520f; }
+  .mn-alert.ok { background:var(--green-200); border:1px solid #bcd8c6; color:#1b5c37; }
+  .mn-alert strong { display:block; margin-bottom:2px; }
+  .mn-log { width:100%; border-collapse:collapse; font-size:13px; }
+  .mn-log th, .mn-log td { padding:7px 8px; border-bottom:1px solid var(--line); text-align:right; }
+  .mn-log th:first-child, .mn-log td:first-child { text-align:left; }
+  .mn-log th { font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .mn-up { color:var(--crit); font-weight:700; } .mn-down { color:var(--ok); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · MENU</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading menu…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var esc = Hub.esc, $ = Hub.$;
+  var data = { items: [], modifiers: [], log: [], warnings: [], storefront: {} };
+  var view = 'bowl';   // 'bowl' | 'drink' | 'addon' | 'mods' | 'new' | 'log'
+
+  function money(c) { return '$' + ((Number(c) || 0) / 100).toFixed(2); }
+  function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+
+  // Money is entered in dollars (that is how Dayan thinks about a price) and sent as whole cents.
+  // A third decimal is REFUSED rather than rounded — silently turning 19.999 into $20.00 is
+  // exactly the kind of quiet money change this desk exists to prevent.
+  function toCents(raw) {
+    var s = String(raw == null ? '' : raw).trim().replace(/^\$/, '');
+    if (!/^\d+(\.\d{1,2})?$/.test(s)) return { error: 'Enter a price like 19.99 (dollars and cents).' };
+    var c = Math.round(Number(s) * 100);
+    if (c <= 0) return { error: 'Price must be more than $0.00.' };
+    if (c > 100000) return { error: 'That is over $1,000 — check the decimal point.' };
+    return { cents: c };
+  }
+
+  function setMsg(sel, text, cls) {
+    var el = $(sel); if (!el) return;
+    el.textContent = text || ''; el.className = 'msg' + (cls ? ' ' + cls : '');
+  }
+
+  // ---------- banners: what a save here does NOT do ----------
+  function banners() {
+    var out = '';
+    var blocks = data.warnings.filter(function (w) { return w.level === 'block'; });
+    var warns  = data.warnings.filter(function (w) { return w.level === 'warn' || w.level === 'info'; });
+    if (blocks.length) {
+      out += '<div class="mn-alert block"><strong>On the menu, impossible to buy</strong>' +
+        blocks.map(function (w) { return esc(w.message); }).join('<br>') + '</div>';
+    }
+    var sf = data.storefront || {};
+    if (sf.checked && sf.reads_menu_api === false) {
+      out += '<div class="mn-alert warn"><strong>The order page still shows its own prices</strong>' +
+        'A price you save here is charged on the next order immediately — but /order is still shipping a hardcoded copy of the menu, ' +
+        'so customers will keep SEEING the old price while being charged the new one. Get that page wired to /api/menu before you change a price.</div>';
+    } else if (sf.checked) {
+      out += '<div class="mn-alert ok"><strong>The site reads this menu</strong>' +
+        'The order page loads /api/menu, so a saved price shows up for customers within about a minute (the menu is edge-cached 60s).</div>';
+    }
+    if (warns.length) {
+      out += '<div class="mn-alert warn">' + warns.map(function (w) { return esc(w.message); }).join('<br>') + '</div>';
+    }
+    return out;
+  }
+
+  // ---------- shell ----------
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML = '<div class="hub-section">' + banners() +
+      '<div class="mn-chips" id="chips"></div><div id="pane"></div></div>';
+    $('#chips').innerHTML = [
+      { k: 'bowl',  label: 'Bowls' },
+      { k: 'drink', label: 'Drinks' },
+      { k: 'addon', label: 'Add-ons' },
+      { k: 'mods',  label: 'Extras' },
+      { k: 'new',   label: '+ New item' },
+      { k: 'log',   label: 'Changes' }
+    ].map(function (d) {
+      return '<button data-v="' + d.k + '" class="' + (d.k === view ? 'sel' : '') + '"><span data-i18n>' + d.label + '</span></button>';
+    }).join('');
+    $('#chips').querySelectorAll('[data-v]').forEach(function (b) {
+      b.addEventListener('click', function () { view = b.getAttribute('data-v'); render(); });
+    });
+    if (view === 'mods') paintMods();
+    else if (view === 'new') paintNew();
+    else if (view === 'log') paintLog();
+    else paintItems(view);
+    refresh();
+  }
+
+  // ---------- items ----------
+  function paintItems(kind) {
+    var items = data.items.filter(function (i) { return i.kind === kind; });
+    if (!items.length) {
+      $('#pane').innerHTML = '<div class="card accent"><p data-i18n>Nothing in this group yet — use “+ New item”.</p></div>';
+      return;
+    }
+    $('#pane').innerHTML = items.map(itemCard).join('');
+    items.forEach(function (it) {
+      var price = $('#p_' + it.id);
+      price.addEventListener('input', function () { preview(it); });
+      $('#save_' + it.id).addEventListener('click', function () { saveItem(it); });
+    });
+  }
+
+  function itemCard(it) {
+    var badges = '';
+    if (!it.active) badges += ' <span class="badge">hidden</span>';
+    if (!it.orderable) badges += ' <span class="badge crit" data-i18n>can’t be bought</span>';
+    return '<div class="card" style="margin-bottom:10px">' +
+      '<div class="mn-head">' +
+        '<div><strong>' + esc(it.name) + '</strong>' + badges +
+          '<div class="mn-id">' + esc(it.id) + '</div></div>' +
+        '<div class="mn-see"><div class="lbl" data-i18n>Customers see</div>' +
+          '<div class="amt" id="see_' + it.id + '">' + money(it.price_cents) + '</div>' +
+          '<div class="was" id="was_' + it.id + '"></div></div>' +
+      '</div>' +
+      (it.blocker ? '<p class="hint" style="color:var(--crit);opacity:1">' + esc(it.blocker) + '</p>' : '') +
+      '<div class="mn-price"><span class="pre">$</span>' +
+        '<input id="p_' + it.id + '" type="text" inputmode="decimal" value="' + (it.price_cents / 100).toFixed(2) + '">' +
+        '<span class="hint" style="margin:0" data-i18n>per unit</span></div>' +
+      '<details class="mn-more"><summary data-i18n>Name, description, photo, order</summary>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label data-i18n>Name</label><input id="n_' + it.id + '" value="' + esc(it.name) + '"></div>' +
+          '<div class="form-row"><label>Nombre (ES)</label><input id="ne_' + it.id + '" value="' + esc(it.name_es || '') + '"></div>' +
+        '</div>' +
+        '<div class="form-row"><label data-i18n>Description</label><input id="d_' + it.id + '" value="' + esc(it.description || '') + '"></div>' +
+        '<div class="form-row"><label>Descripción (ES)</label><input id="de_' + it.id + '" value="' + esc(it.description_es || '') + '"></div>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label data-i18n>Photo file</label><input id="i_' + it.id + '" value="' + esc(it.image || '') + '" placeholder="bowl_vida.jpg"></div>' +
+          '<div class="form-row"><label data-i18n>Position</label><input id="s_' + it.id + '" type="number" min="0" max="9999" value="' + (it.sort == null ? 100 : it.sort) + '"></div>' +
+        '</div>' +
+        '<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:10px 0 0">' +
+          '<input type="checkbox" id="a_' + it.id + '" ' + (it.active ? 'checked' : '') + ' style="width:auto"> ' +
+          '<span data-i18n>Show on the website</span></label>' +
+        '<p class="hint" data-i18n>The photo must already exist under /assets/img/ — this box names the file, it does not upload one.</p>' +
+      '</details>' +
+      '<div class="mn-actions"><button class="btn gold" id="save_' + it.id + '" data-i18n>Save</button>' +
+        '<span class="msg" id="msg_' + it.id + '"></span></div>' +
+    '</div>';
+  }
+
+  // Live "what customers will see" as the price is typed, with the current live price beside it.
+  function preview(it) {
+    var r = toCents($('#p_' + it.id).value);
+    var see = $('#see_' + it.id), was = $('#was_' + it.id);
+    if (r.error) { see.textContent = '—'; see.className = 'amt dirty'; was.textContent = 'now ' + money(it.price_cents); return; }
+    see.textContent = money(r.cents);
+    var changed = r.cents !== it.price_cents;
+    see.className = 'amt' + (changed ? ' dirty' : '');
+    was.textContent = changed ? 'now ' + money(it.price_cents) + ' · not saved' : '';
+  }
+
+  function saveItem(it) {
+    var r = toCents($('#p_' + it.id).value);
+    if (r.error) { setMsg('#msg_' + it.id, r.error, 'err'); return; }
+    var body = {
+      op: 'update_item', id: it.id, price_cents: r.cents,
+      name: $('#n_' + it.id).value, name_es: $('#ne_' + it.id).value,
+      description: $('#d_' + it.id).value, description_es: $('#de_' + it.id).value,
+      image: $('#i_' + it.id).value, sort: Number($('#s_' + it.id).value),
+      active: $('#a_' + it.id).checked
+    };
+    if (r.cents !== it.price_cents &&
+        !confirm('Change ' + it.name + ' from ' + money(it.price_cents) + ' to ' + money(r.cents) +
+                 '?\n\nThis is what customers are charged on the next order.')) return;
+    post(body, '#msg_' + it.id, 'Saved.');
+  }
+
+  // ---------- modifier prices ----------
+  function paintMods() {
+    if (!data.modifiers.length) {
+      $('#pane').innerHTML = '<div class="card accent"><p data-i18n>No modifier prices found.</p></div>';
+      return;
+    }
+    $('#pane').innerHTML =
+      '<div class="card accent" style="margin-bottom:10px"><p class="hint" style="opacity:1" data-i18n>' +
+        'What each extra costs when someone customizes a bowl. These keys are fixed in code — you set the price, not the list.</p></div>' +
+      data.modifiers.map(function (m) {
+        return '<div class="card" style="margin-bottom:10px">' +
+          '<div class="mn-head"><div><strong>' + esc(m.label || m.key) + '</strong>' +
+            '<div class="mn-id">' + esc(m.key) + '</div></div>' +
+            '<div class="mn-see"><div class="lbl" data-i18n>Customers see</div>' +
+            '<div class="amt" id="see_mod_' + m.key + '">+' + money(m.cents) + '</div></div></div>' +
+          '<div class="mn-price"><span class="pre">$</span>' +
+            '<input id="mod_' + m.key + '" type="text" inputmode="decimal" value="' + (m.cents / 100).toFixed(2) + '">' +
+            '<button class="btn gold" id="msave_' + m.key + '" style="margin-left:auto" data-i18n>Save</button></div>' +
+          '<p class="msg" id="mmsg_' + m.key + '"></p>' +
+        '</div>';
+      }).join('');
+    data.modifiers.forEach(function (m) {
+      $('#mod_' + m.key).addEventListener('input', function () {
+        var r = toCents($('#mod_' + m.key).value);
+        $('#see_mod_' + m.key).textContent = r.error ? '—' : '+' + money(r.cents);
+        $('#see_mod_' + m.key).className = 'amt' + (!r.error && r.cents !== m.cents ? ' dirty' : '');
+      });
+      $('#msave_' + m.key).addEventListener('click', function () {
+        var r = toCents($('#mod_' + m.key).value);
+        if (r.error) { setMsg('#mmsg_' + m.key, r.error, 'err'); return; }
+        post({ op: 'update_modifier', key: m.key, cents: r.cents }, '#mmsg_' + m.key, 'Saved.');
+      });
+    });
+  }
+
+  // ---------- new item ----------
+  function paintNew() {
+    $('#pane').innerHTML =
+      '<div class="card">' +
+        '<h3 data-i18n>Add a menu item</h3>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label data-i18n>Type</label><select id="f_kind">' +
+            '<option value="drink">Drink</option><option value="addon">Add-on</option><option value="bowl">Bowl</option>' +
+          '</select></div>' +
+          '<div class="form-row"><label data-i18n>Id</label><input id="f_id" placeholder="fit_verde" autocomplete="off"></div>' +
+        '</div>' +
+        '<p class="hint" id="kindnote"></p>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label data-i18n>Name</label><input id="f_name" autocomplete="off"></div>' +
+          '<div class="form-row"><label>Nombre (ES)</label><input id="f_name_es" autocomplete="off"></div>' +
+        '</div>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label data-i18n>Price ($)</label><input id="f_price" type="text" inputmode="decimal" placeholder="9.99"></div>' +
+          '<div class="form-row"><label data-i18n>Position</label><input id="f_sort" type="number" min="0" max="9999" value="100"></div>' +
+        '</div>' +
+        '<div class="form-row"><label data-i18n>Description</label><input id="f_desc" autocomplete="off"></div>' +
+        '<div class="form-row"><label>Descripción (ES)</label><input id="f_desc_es" autocomplete="off"></div>' +
+        '<div class="form-row"><label data-i18n>Photo file</label><input id="f_img" placeholder="fit_verde.jpg" autocomplete="off"></div>' +
+        '<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:10px 0 0">' +
+          '<input type="checkbox" id="f_active" style="width:auto"> <span data-i18n>Show on the website right away</span></label>' +
+        '<p class="hint" data-i18n>Ids are permanent — they are how orders, receipts and the kitchen refer to this item. Lowercase letters, numbers and underscores.</p>' +
+        '<div class="mn-actions"><button class="btn gold" id="f_save" style="flex:1" data-i18n>Add item</button></div>' +
+        '<p class="msg" id="f_msg"></p>' +
+      '</div>';
+
+    function kindNote() {
+      var k = $('#f_kind').value, el = $('#kindnote');
+      if (k === 'bowl') {
+        el.style.color = 'var(--crit)'; el.style.opacity = '1';
+        el.textContent = 'A new BOWL is not orderable from this form alone. Its recipe (ingredients + macros) lives in code, and checkout refuses any bowl it does not have a recipe for — the customer would build a cart and get an error at payment. Add it here, then have the recipe added and deployed. Leave “show on the website” off until then.';
+      } else {
+        el.style.color = ''; el.style.opacity = '';
+        el.textContent = 'Drinks and add-ons work the moment you save them — they are priced straight from this row.';
+      }
+    }
+    $('#f_kind').addEventListener('change', kindNote);
+    kindNote();
+
+    $('#f_save').addEventListener('click', function () {
+      var r = toCents($('#f_price').value);
+      if (r.error) { setMsg('#f_msg', r.error, 'err'); return; }
+      var slug = $('#f_id').value.trim().toLowerCase();
+      if (!/^[a-z0-9_]+$/.test(slug)) { setMsg('#f_msg', 'Id must be lowercase letters, numbers and underscores only.', 'err'); return; }
+      if (!$('#f_name').value.trim()) { setMsg('#f_msg', 'Name is required.', 'err'); return; }
+      post({
+        op: 'create_item', id: slug, kind: $('#f_kind').value, name: $('#f_name').value,
+        name_es: $('#f_name_es').value, price_cents: r.cents, description: $('#f_desc').value,
+        description_es: $('#f_desc_es').value, image: $('#f_img').value,
+        sort: Number($('#f_sort').value) || 100, active: $('#f_active').checked
+      }, '#f_msg', 'Added.', function (d) {
+        // The API decides whether this thing can actually be sold; repeat its answer verbatim
+        // rather than congratulating the owner on a product nobody can order.
+        if (d.warning) { alert(d.warning); }
+        view = $('#f_kind').value;
+      });
+    });
+    refresh();
+  }
+
+  // ---------- change log ----------
+  function paintLog() {
+    if (!data.log.length) {
+      $('#pane').innerHTML = '<div class="card accent"><p data-i18n>No price changes recorded yet.</p></div>';
+      return;
+    }
+    $('#pane').innerHTML = '<div class="card"><table class="mn-log">' +
+      '<tr><th data-i18n>Item</th><th data-i18n>Was</th><th data-i18n>Now</th><th data-i18n>Who</th><th data-i18n>When</th></tr>' +
+      data.log.map(function (r) {
+        var up = r.old_cents != null && r.new_cents > r.old_cents;
+        var down = r.old_cents != null && r.new_cents < r.old_cents;
+        var what = r.item_id === 'modifier' ? r.field : r.item_id;
+        return '<tr><td>' + esc(what) + '</td>' +
+          '<td>' + (r.old_cents == null ? '<span class="mn-id">new</span>' : money(r.old_cents)) + '</td>' +
+          '<td class="' + (up ? 'mn-up' : down ? 'mn-down' : '') + '">' + money(r.new_cents) + '</td>' +
+          '<td>' + esc(r.changed_by || '—') + '</td>' +
+          '<td>' + esc(Owner.timeAgo(r.created_at)) + '</td></tr>';
+      }).join('') + '</table></div>';
+  }
+
+  // ---------- shared POST ----------
+  function post(body, msgSel, okMsg, after) {
+    setMsg(msgSel, 'saving…');
+    fetch('/api/hub/owner/menu', { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        var d = res.j || {};
+        if (!res.ok || !d.ok) {
+          setMsg(msgSel, (d.errors || [d.error || 'Save failed.']).join(' · '), 'err');
+          return;
+        }
+        data = { items: d.items || [], modifiers: d.modifiers || [], log: d.log || [],
+                 warnings: d.warnings || [], storefront: d.storefront || {} };
+        if (after) after(d);
+        render();
+        if (Hub.toast) Hub.toast(okMsg);
+      })
+      .catch(function () { setMsg(msgSel, 'Network error.', 'err'); });
+  }
+
+  function load() {
+    Owner.get('/api/hub/owner/menu').then(function (d) {
+      if (!d || !d.ok) {
+        var root = document.getElementById('owner-root'); root.className = '';
+        root.innerHTML = '<div class="mn-alert block">' + esc((d && d.error) || 'Could not load the menu.') + '</div>';
+        return;
+      }
+      data = { items: d.items || [], modifiers: d.modifiers || [], log: d.log || [],
+               warnings: d.warnings || [], storefront: d.storefront || {} };
+      render();
+    }).catch(function () { Owner.fail('owner-root'); });
+  }
+
+  Owner.init('menu', load);
+})();
+</script>
+<script src="assets/operator.js" defer></script>
+</body>
+</html>
