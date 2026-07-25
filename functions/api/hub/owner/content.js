@@ -300,7 +300,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (action === 'update') {
     const docId = (b.id || '').toString().trim();
     if (!docId) return bad('Missing doc id.');
-    const doc = await env.DB.prepare('SELECT id, version FROM docs WHERE id = ?').bind(docId).first();
+    const doc = await env.DB.prepare('SELECT id, version, body FROM docs WHERE id = ?').bind(docId).first();
     if (!doc) return bad('Doc not found.', 404);
 
     const sets = [];
@@ -323,6 +323,20 @@ export const onRequestPost = async ({ request, env }) => {
     sets.push('version=version+1');
     sets.push('updated_at=?'); args.push(ts);
     args.push(docId);
+
+    // Snapshot the body BEFORE overwriting it. The Brief-proposal desk tells the owner "every
+    // approval and every restore snapshots the Brief before overwriting it" — but the Brief is also
+    // an ordinary doc in this library, and editing it here used to destroy the prior body
+    // irrecoverably and leave a gap in the version sequence. Any doc gets the same protection;
+    // best-effort, because losing the edit over a missing audit row would be the worse failure.
+    if (b.body !== undefined && doc.body) {
+      try {
+        await env.DB.prepare(
+          'INSERT INTO doc_versions (id, doc_id, version, body, replaced_by, from_proposal, created_at) VALUES (?,?,?,?,?,?,?)'
+        ).bind(genId('dver'), docId, doc.version || 1, doc.body, (ctx && (ctx.email || ctx.distinct_id)) || null, 'content_edit', ts).run();
+      } catch { /* table absent in an early env — never block the owner's edit on the audit row */ }
+    }
+
     await env.DB.prepare(`UPDATE docs SET ${sets.join(', ')} WHERE id=?`).bind(...args).run();
     return json({ ok: true, id: docId, version: (doc.version || 1) + 1 });
   }

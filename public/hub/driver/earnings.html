@@ -77,13 +77,27 @@
       if (window.AnejoI18n) window.AnejoI18n.refresh();
       return;
     }
-    var t = d.totals || {};
-    document.getElementById('t-owed').textContent = money(t.owed_cents);
-    document.getElementById('t-paid').textContent = money(t.paid_cents);
-    document.getElementById('t-sched').textContent = money(t.scheduled_cents);
-    document.getElementById('t-sub').textContent =
-      (t.completed_routes || 0) + ' completed · ' + (t.stops || 0) + ' stops · ' +
-      (Math.round((t.miles || 0) * 10) / 10) + ' mi · last ' + d.window_days + ' days';
+    // totals === null means the rollup query failed. The route list below may still have loaded, so
+    // showing $0.00 here would put "Owed to you $0.00" above routes badged "owed · $55.00". Say we
+    // don't know instead — this is someone's wages.
+    var t = d.totals;
+    if (!t) {
+      // totals === null means the rollup query failed. Zeros here would print "Owed to you $0.00"
+      // directly above routes badged "owed · $55.00" — a confident wrong answer about someone's
+      // wages. Show that we don't know; the route lines below are still real, so keep rendering them.
+      document.getElementById('t-owed').textContent = '—';
+      document.getElementById('t-paid').textContent = '—';
+      document.getElementById('t-sched').textContent = '—';
+      document.getElementById('t-sub').textContent =
+        'Could not load your totals right now — the routes below are still accurate.';
+    } else {
+      document.getElementById('t-owed').textContent = money(t.owed_cents);
+      document.getElementById('t-paid').textContent = money(t.paid_cents);
+      document.getElementById('t-sched').textContent = money(t.scheduled_cents);
+      document.getElementById('t-sub').textContent =
+        (t.completed_routes || 0) + ' completed · ' + (t.stops || 0) + ' stops · ' +
+        (Math.round((t.miles || 0) * 10) / 10) + ' mi · last ' + d.window_days + ' days';
+    }
 
     var routes = d.routes || [];
     if (!routes.length) {

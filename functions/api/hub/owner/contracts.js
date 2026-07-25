@@ -141,7 +141,7 @@ async function markInvoicePaid(env, ctx, b) {
 // The emailed invoice: the same figures as the printable page, flattened into one table so it
 // survives every mail client. Amounts come straight off the stored row — never recomputed here,
 // or the email and the PDF could disagree about what the client owes.
-function invoiceEmailHtml({ inv, account, lineItems, link }) {
+function invoiceEmailHtml({ inv, account, lineItems }) {
   const m = (c) => '$' + ((Number(c) || 0) / 100).toFixed(2);
   const rows = (lineItems.sites || []).map((s) => {
     const days = (s.days || []).map((d) =>
@@ -161,10 +161,19 @@ function invoiceEmailHtml({ inv, account, lineItems, link }) {
        <tr><td>Lunches (${escHtml(inv.lunches)})</td><td style="text-align:right">${m(inv.subtotal_cents)}</td></tr>
        <tr><td>Delivery</td><td style="text-align:right">${m(inv.delivery_cents)}</td></tr>
        ${inv.rush_cents ? `<tr><td>Rush fees</td><td style="text-align:right">${m(inv.rush_cents)}</td></tr>` : ''}
-       <tr><td style="border-top:2px solid #1A3D2E;padding-top:9px;font-size:17px;font-weight:700;color:#1A3D2E">Total due</td>
+       <tr><td style="border-top:2px solid #1A3D2E;padding-top:9px;font-size:17px;font-weight:700;color:#1A3D2E">${inv.status === 'paid' ? 'Paid in full' : 'Total due'}</td>
            <td style="border-top:2px solid #1A3D2E;padding-top:9px;text-align:right;font-size:17px;font-weight:700;color:#1A3D2E">${m(inv.total_cents)}</td></tr>
      </table>`,
-    link ? `<p style="margin-top:20px"><a href="${escHtml(link)}">View or print this invoice</a></p>` : '',
+    // A re-send of a PAID invoice must not read as a bill. sendInvoiceEmail deliberately supports
+    // re-sending (the button even says "Re-send"), and the printable page shows PAID — the email
+    // said "Total due" and "Thank you for your business", which invites a second payment.
+    inv.status === 'paid'
+      ? `<p style="margin-top:14px;padding:10px 12px;background:#e8f1ea;border-radius:8px;color:#1b5c37"><strong>This is a copy — no payment is due.</strong> We received payment in full.</p>`
+      : '',
+    // NOTE: no link. The only invoice page is /hub/owner/invoice.html, which is owner-gated and
+    // bounces a client to the STAFF login — an undeliverable link on every invoice we send. The
+    // figures above are the invoice; a token-scoped public route (like contract_sites.intake_token)
+    // would be the way to add one back.
     `<p style="margin-top:20px">Thank you for your business — just reply to this email with any questions.</p>`,
     `<p>— Dayan<br>Añejo Catering Co.</p>`,
   ].join(''));
@@ -175,6 +184,9 @@ function invoiceEmailHtml({ inv, account, lineItems, link }) {
 async function sendInvoiceEmail(env, ctx, b) {
   const { inv, error } = await loadInvoice(env, b.account_id, b.invoice_id);
   if (error) return { ok: false, error };
+  // markInvoicePaid refuses a void invoice; sending one had no guard at all, so a stale tab or a
+  // direct POST could bill a client for an invoice that was deliberately cancelled.
+  if (inv.status === 'void') return { ok: false, error: 'That invoice is void — it cannot be sent.' };
   const account = await env.DB.prepare('SELECT id, name, billing_email, billing_contact FROM contract_accounts WHERE id = ?').bind(inv.account_id).first().catch(() => null);
   const to = normalizeEmail(b.to || (account && account.billing_email) || '');
   if (!isEmail(to)) return { ok: false, error: 'No billing email on this account — add one before sending.' };
@@ -187,7 +199,7 @@ async function sendInvoiceEmail(env, ctx, b) {
     res = await sendEmail(env, {
       to,
       subject: `Invoice ${inv.number || inv.id} — Añejo Catering Co.`,
-      html: invoiceEmailHtml({ inv, account: account || {}, lineItems, link: b.link || null }),
+      html: invoiceEmailHtml({ inv, account: account || {}, lineItems }),
     });
   } catch (e) {
     return { ok: false, error: 'Could not send the invoice email. ' + String((e && e.message) || '').slice(0, 120) };

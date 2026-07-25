@@ -114,7 +114,7 @@
   function versionsHtml() {
     var d = state.doc;
     var head = '<div class="bp-sec"><h2>Version history</h2>'
-      + '<p>Every approval and every restore snapshots the Brief before overwriting it. Restoring puts an older wording back — and snapshots the current one first, so a restore is itself reversible.</p></div>';
+      + '<p>Every approval, every restore, and every edit from Content snapshots the Brief before overwriting it. Restoring puts an older wording back — and snapshots the current one first, so a restore is itself reversible.</p></div>';
     var live = d
       ? '<div class="ver ver-live"><div class="ver-head"><span class="ver-when">Live now · v' + esc(d.version || 1) + '</span>'
         + '<span class="ver-tag">In force</span></div>'

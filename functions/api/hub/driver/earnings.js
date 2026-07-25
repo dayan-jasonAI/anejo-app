@@ -25,13 +25,17 @@ export const onRequestGet = async ({ request, env }) => {
   if (days > 120) days = 120;
   const since = Date.now() - days * 86400000;
 
-  let totals = { owed_cents: 0, paid_cents: 0, scheduled_cents: 0, completed_routes: 0, miles: 0, stops: 0 };
+  // A driver's pay page must never invent a number. If this query fails we return totals:null and
+  // say so, because zeros here render "Owed to you $0.00" directly above routes badged "owed
+  // · $55.00" — a confident wrong answer about someone's wages is worse than an error.
+  let totals = null;
   try {
     const row = await env.DB.prepare(
       `SELECT ${payRollupColumns('r')}, COUNT(*) route_count FROM routes r WHERE r.driver_id=? AND r.created_at>=?`
     ).bind(driverId, since).first();
     if (row) totals = row;
-  } catch { /* early env without the pay columns — fall back to zeros rather than 500 */ }
+    else totals = { owed_cents: 0, paid_cents: 0, scheduled_cents: 0, completed_routes: 0, miles: 0, stops: 0, route_count: 0 };
+  } catch { totals = null; }
 
   // The lines behind the totals: what each route paid and whether it's been settled.
   let routes = [];
