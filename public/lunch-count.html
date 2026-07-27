@@ -83,12 +83,12 @@
     update:{en:'Update count',es:'Actualizar conteo'},
     sending:{en:'Sending…',es:'Enviando…'},
     byCut:{en:'Please submit by {c} AM so the kitchen can prep your lunches fresh.',es:'Por favor envía antes de las {c} AM para que la cocina prepare tus almuerzos frescos.'},
-    rushWarn:{en:'It’s past the {c} AM cut-off. We’ll do our best, but late counts are a rush and a small rush fee applies.',es:'Ya pasó el corte de las {c} AM. Haremos lo posible, pero los conteos tardíos son urgentes y aplica un pequeño cargo.'},
+    rushWarn:{en:'It’s past the {c} AM cut-off. We’ll do our best — late counts go in as a rush.',es:'Ya pasó el corte de las {c} AM. Haremos lo posible — los conteos tardíos entran como urgentes.'},
     already:{en:'Already received today: {n}. You can update it below.',es:'Ya recibido hoy: {n}. Puedes actualizarlo abajo.'},
     noDel:{en:'No lunch delivery is scheduled for your office today. Deliveries run Monday–Wednesday.',es:'No hay entrega de almuerzo programada para tu oficina hoy. Las entregas son de lunes a miércoles.'},
     received:{en:'Count received — {n} lunches',es:'Conteo recibido — {n} almuerzos'},
     fresh:{en:'Fresh-prepped and delivered {w}.',es:'Preparado fresco y entregado {w}.'},
-    rushFee:{en:'After cut-off — a rush fee of {x} was added.',es:'Después del corte — se agregó un cargo de {x}.'},
+    rushFee:{en:'After cut-off — this went in as a rush.',es:'Después del corte — entró como urgente.'},
     perLunch:{en:'{p} per lunch · delivery fee per office. You’ll get an invoice from Añejo Catering Co.',es:'{p} por almuerzo · cargo de entrega por oficina. Recibirás una factura de Añejo Catering Co.'},
     thisMonth:{en:'This month',es:'Este mes'},
     lunches:{en:'Lunches',es:'Almuerzos'},
@@ -164,24 +164,19 @@
             ? tr('trustedNote')
             : (ctx.has_contact_phone ? tr('secureNote',{hint:esc(ctx.phone_hint||'')}) : tr('secureEnroll')))+'</div>'+
         '<button class="btn" id="go" onclick="submitCount()">'+(pre?tr('update'):tr('submit'))+'</button>'+
-        '<div class="fine">'+tr('perLunch',{p:money(ctx.price_per_lunch_cents)})+'</div>'+
       '</div>'+monthCard();
   }
 
-  function monthCard(){
-    var m=ctx.month||{lunches:0,total_cents:0,days:[]};
-    var rows = (m.days&&m.days.length) ? m.days.slice().reverse().map(function(x){
-      var dd=x.service_date.slice(8)+' '+(x.service_date.slice(5,7));
-      return '<div class="day"><span class="d">'+esc(x.service_date)+(x.is_rush?'<span class="rush">RUSH</span>':'')+
-        (x.notes?'<br><span class="note">⚠ '+esc(x.notes)+'</span>':'')+'</span>'+
-        '<span class="amt">'+x.headcount+' &middot; '+money(x.total_cents)+'</span></div>';
-    }).join('') : '<div class="empty">'+tr('noOrders')+'</div>';
-    return '<div class="card track"><h3>'+tr('thisMonth')+'</h3><div class="mo">'+monthName(m.prefix)+'</div>'+
-      '<div class="totals"><div class="t"><div class="v">'+(m.lunches||0)+'</div><div class="l">'+tr('lunches')+'</div></div>'+
-        '<div class="t"><div class="v">'+money(m.total_cents)+'</div><div class="l">'+tr('spent')+'</div></div>'+
-        '<div class="t"><div class="v">'+(m.count_days||0)+'</div><div class="l">'+tr('daysL')+'</div></div></div>'+
-      '<div class="daylist">'+rows+'</div></div>';
-  }
+  // The month/spend card is GONE from this page on purpose.
+  //
+  // The person filling this in is the office contact who counts heads — not the person who
+  // approves the account's spending. Running totals, unit prices, delivery and rush fees belong on
+  // the invoice, which goes to the account's decision-maker. This page also has no login (the
+  // token is in the URL), so anything shown here is visible to anyone who is forwarded the link.
+  //
+  // The figures still exist: they are computed and stored on contract_orders, and the owner's
+  // invoicing reads them there. They simply never reach this screen.
+  function monthCard(){ return ''; }
 
   function bump(d){ var i=document.getElementById('n'); var v=Math.max(0,(parseInt(i.value,10)||0)+d); i.value=v||''; }
 
@@ -240,7 +235,7 @@
       (d.confirmation_no?'<div class="conf-l">'+tr('confNum')+'</div><div class="conf">'+esc(d.confirmation_no)+'</div>':'')+
       (d.receipt_sent?'<p class="fine" style="margin-top:10px">'+tr('receiptSent',{hint:esc(d.receipt_to||'')})+'</p>':'')+
       (d.notes?'<div class="banner warn" style="text-align:left;margin-top:12px">⚠ '+esc(d.notes)+'</div>':'')+
-      (d.is_rush?'<div class="banner crit" style="text-align:left">'+tr('rushFee',{x:money(d.rush_fee_cents)})+'</div>':'')+
+      (d.is_rush?'<div class="banner crit" style="text-align:left">'+tr('rushFee')+'</div>':'')+
       '<p class="fine" style="margin-top:12px">'+tr('change',{c:esc(ctx.cutoff)})+'</p></div>';
     setTimeout(load, 1800); // reload to refresh the live monthly tracker
   }

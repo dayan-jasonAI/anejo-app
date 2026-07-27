@@ -107,12 +107,15 @@ async function writeEvent(env, ev) {
   } catch { /* audit is best-effort; must never block recording the order */ }
 }
 
+// NO MONEY IN THIS MESSAGE. The office contact who confirms a headcount is not the person who
+// approves spending — pricing, delivery and rush fees are between Añejo and the account's
+// decision-maker, and reach them on the invoice. A texted dollar total puts a number in front of
+// whoever happens to hold that phone.
 function receiptBody(lang, r) {
-  const amt = '$' + (r.total_cents / 100).toFixed(2);
   if (lang === 'es') {
-    return `Añejo Catering ✅ Pedido confirmado\n${r.site} · ${r.weekday} ${r.date}\n${r.count} almuerzos · ${amt}${r.is_rush ? ' (urgente)' : ''}\nPor: ${r.name} · ${r.time}\nConf# ${r.confirmation_no}\n¿Cambios? Deben entrar antes de las ${r.cutoff}.`;
+    return `Añejo Catering ✅ Pedido confirmado\n${r.site} · ${r.weekday} ${r.date}\n${r.count} almuerzos${r.is_rush ? ' (urgente)' : ''}\nPor: ${r.name} · ${r.time}\nConf# ${r.confirmation_no}\n¿Cambios? Deben entrar antes de las ${r.cutoff}.`;
   }
-  return `Añejo Catering ✅ Order confirmed\n${r.site} · ${r.weekday} ${r.date}\n${r.count} lunches · ${amt}${r.is_rush ? ' (rush)' : ''}\nBy: ${r.name} · ${r.time}\nConf# ${r.confirmation_no}\nNeed a change? Must be in by ${r.cutoff}.`;
+  return `Añejo Catering ✅ Order confirmed\n${r.site} · ${r.weekday} ${r.date}\n${r.count} lunches${r.is_rush ? ' (rush)' : ''}\nBy: ${r.name} · ${r.time}\nConf# ${r.confirmation_no}\nNeed a change? Must be in by ${r.cutoff}.`;
 }
 function otpBody(lang, code, site) {
   if (lang === 'es') return `Código Añejo: ${code}. Ingrésalo para confirmar el pedido de almuerzo de hoy (${site}). Vence en 10 min. No lo compartas.`;
@@ -301,8 +304,12 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
 
   return {
     ok: true, account: account.name, site: site.name, date, weekday,
-    count: n, item, price_per_lunch_cents: pricePer, subtotal_cents: subtotal,
-    delivery_fee_cents: deliveryFee, rush_fee_cents: rushFee, total_cents: total,
+    // Money is DELIBERATELY ABSENT from this response. The intake page is public (token in the
+    // URL, no login), so anything returned here is readable by anyone holding the link — hiding it
+    // in the UI while still sending it just moves the disclosure to the network tab. The amounts
+    // are still computed and stored on contract_orders for invoicing; they simply never travel to
+    // the office contact.
+    count: n, item,
     is_rush: isRush, window: site.window_label || '11:30–12:30', notes: cleanNotes,
     confirmation_no, receipt_sent, receipt_to: receiptTo ? maskPhone(receiptTo) : null,
     updated: !!prior,
@@ -318,9 +325,12 @@ async function monthFor(env, siteId, date) {
       'SELECT service_date, headcount, total_cents, is_rush, notes FROM contract_orders WHERE site_id = ? AND service_date LIKE ? ORDER BY service_date ASC'
     ).bind(siteId, prefix + '%').all()).results) || [];
   } catch { days = []; }
+  // Counts only — no totals, and no per-day amounts. This feeds the public intake page.
   const lunches = days.reduce((s, d) => s + (Number(d.headcount) || 0), 0);
-  const total = days.reduce((s, d) => s + (Number(d.total_cents) || 0), 0);
-  return { prefix, lunches, total_cents: total, count_days: days.length, days };
+  const safeDays = days.map((d) => ({
+    service_date: d.service_date, headcount: d.headcount, is_rush: !!d.is_rush, notes: d.notes || null,
+  }));
+  return { prefix, lunches, count_days: safeDays.length, days: safeDays };
 }
 
 // Public context for the intake page (site name, date, whether delivery runs today, cutoff
@@ -345,8 +355,8 @@ export async function siteContext(env, token, nowMs, opts = {}) {
     ok: true, account: (account && account.name) || '', site: site.name, date, weekday: DOW_LABEL[dow - 1],
     delivers_today: deliversToday, window: site.window_label || '11:30–12:30',
     cutoff: site.cutoff_time || '09:00', past_cutoff: pastCutoff,
-    price_per_lunch_cents: Number(site.price_per_lunch_cents) || 0,
-    already: existing ? { count: existing.headcount, total_cents: existing.total_cents, is_rush: !!existing.is_rush, notes: existing.notes || null } : null,
+    // price_per_lunch_cents is intentionally NOT returned — see the note on submitHeadcount.
+    already: existing ? { count: existing.headcount, is_rush: !!existing.is_rush, notes: existing.notes || null } : null,
     month,
     // Verification state for the page: a trusted device skips the code step; otherwise we need
     // a number to text the code to (on file, or one the contact enrolls on first use).
