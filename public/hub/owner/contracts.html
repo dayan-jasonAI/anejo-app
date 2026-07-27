@@ -168,6 +168,40 @@
       .then(function (r) { if (r && r.ok) { Hub.toast('Account activated'); render(); } else Hub.toast((r && r.error) || 'Could not activate'); });
   };
 
+  // Who the INVOICE goes to. Without this an account has no billing address, so "Send invoice"
+  // fails with "No billing email on this account" and there is nowhere to fix it — and the only
+  // people the system can then reach are the site contacts who submit headcounts, who must never
+  // be shown pricing. Flagged loudly when missing, because you only discover it at the moment you
+  // are trying to get paid.
+  function billingBlock(acc) {
+    var aid = acc.id;
+    var has = !!acc.billing_email;
+    return '<div class="card" style="border-left:4px solid ' + (has ? 'var(--green)' : '#d64545') + ';' +
+        (has ? '' : 'background:#fdf0ef') + '">' +
+      '<div class="row-sub" style="margin-bottom:8px">' +
+        (has ? '🧾 Invoices for this account go to <b>' + esc(acc.billing_email) + '</b>'
+             : '⚠️ <b>No billing contact.</b> Invoices cannot be sent until you add one — and without it the only people Añejo can reach here are the office staff who count heads, who never see pricing.') +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">Billing email</label>' +
+          '<input id="be_' + aid + '" type="email" inputmode="email" autocomplete="off" placeholder="ap@company.com" value="' + esc(acc.billing_email || '') + '"' +
+          ' style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px"></div>' +
+        '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">Billing contact</label>' +
+          '<input id="bc_' + aid + '" type="text" autocomplete="off" placeholder="Name (optional)" value="' + esc(acc.billing_contact || '') + '"' +
+          ' style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px"></div>' +
+      '</div>' +
+      '<button class="btn block" style="margin-top:10px" onclick="__setBilling(\'' + aid + '\')">Save billing contact</button></div>';
+  }
+  window.__setBilling = function (aid) {
+    var email = ((document.getElementById('be_' + aid) || {}).value || '').trim();
+    var name = ((document.getElementById('bc_' + aid) || {}).value || '').trim();
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'set_billing', account_id: aid, billing_email: email, billing_contact: name } })
+      .then(function (r) {
+        if (r && r.ok) { Hub.toast(email ? 'Invoices will go to ' + email : 'Billing contact cleared'); render(); }
+        else Hub.toast((r && r.error) || 'Could not save');
+      });
+  };
+
   function invoiceList(invs) {
     if (!invs || !invs.length) return '';
     return '<div style="margin-top:10px"><div class="row-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Invoices</div>' +
@@ -263,7 +297,7 @@
         var badge = pending ? '<span class="badge warn">pending</span>' : (acc.status === 'active' ? '<span class="badge ok">active</span>' : '<span class="badge">' + esc(acc.status || '') + '</span>');
         var unbilled = (a.recent || []).filter(function (r) { return !r.invoiced; }).reduce(function (s, r) { return s + (r.total_cents || 0); }, 0);
         return '<div class="hub-section"><h2>🏢 ' + esc(acc.name) + ' ' + badge + ' <span class="row-sub" style="font-weight:400">· ' + esc(acc.billing_model || acc.invoice_cadence || '') + (acc.billing_email ? ' · ' + esc(acc.billing_email) : '') + '</span></h2>' +
-          (pending ? activateForm(acc) : '') +
+          (pending ? activateForm(acc) : billingBlock(acc)) +
           a.sites.map(function (s) { return siteCard(s, a.recent, acc.id, pending); }).join('') +
           (pending ? '' :
             devicesBlock(acc.id, a.devices) +

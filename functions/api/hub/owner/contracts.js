@@ -4,6 +4,7 @@ import { json, bad, randToken, now, id, isEmail } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
 import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents } from '../../../_lib/contract.js';
+import { capture } from '../../../_lib/track.js';
 
 // The edit-terms / invoice-lifecycle helpers below live here rather than in _lib/contract.js
 // because they are owner-desk-only: nothing on the public intake path (/lunch-count) may reach
@@ -322,6 +323,41 @@ export const onRequestPost = async ({ request, env }) => {
     if (!r.ok) return bad(r.error || 'Could not save the contact.', 400);
     return json(r);
   }
+  // Set who receives the INVOICE for an account.
+  //
+  // This existed nowhere until now: contract_accounts.billing_email could be read (send_invoice
+  // requires it) but never written, so sending an invoice failed with "No billing email on this
+  // account" and there was no screen anywhere to fix that. Worse, with no billing contact the only
+  // people the system can reach at an account are the site contacts who submit headcounts — and
+  // those are precisely the people who must never see pricing.
+  if (op === 'set_billing') {
+    const accountId = String(b.account_id || '').trim();
+    if (!accountId) return bad('Missing account_id.');
+
+    const email = normalizeEmail(b.billing_email || '');
+    // Allow clearing it deliberately (empty string), but never accept a malformed address —
+    // a typo here means invoices bounce and the owner waits on a payment that was never asked for.
+    if (email && !isEmail(email)) return bad('That does not look like a valid email address.');
+    const contact = String(b.billing_contact || '').trim().slice(0, 120);
+
+    const t = now();
+    try {
+      const r = await env.DB.prepare(
+        'UPDATE contract_accounts SET billing_email = ?, billing_contact = ?, updated_at = ? WHERE id = ?'
+      ).bind(email || null, contact || null, t, accountId).run();
+      if (!r || !r.meta || r.meta.changes !== 1) return bad('Account not found.', 404);
+    } catch (e) {
+      return bad('Could not save the billing contact. ' + String((e && e.message) || '').slice(0, 120), 500);
+    }
+
+    await capture(env, {
+      event: 'contract.billing_contact_set',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { account_id: accountId, has_email: !!email },
+    });
+    return json({ ok: true, account_id: accountId, billing_email: email || null, billing_contact: contact || null });
+  }
+
   if (op === 'revoke_device') {
     if (!b.device_id) return bad('Missing device_id.');
     const r = await revokeDevice(env, { device_id: b.device_id });
