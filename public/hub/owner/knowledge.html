@@ -35,9 +35,9 @@
   <section class="card">
     <h2 data-i18n>Add a document</h2>
     <div id="drop" class="kb-drop">
-      <strong data-i18n>Drop a file here or tap to choose</strong>
-      <div class="kb-meta" style="margin-top:6px" data-i18n>PDF, Word, images of scanned pages, spreadsheets, text. 20MB max.</div>
-      <input id="file" type="file" hidden accept=".pdf,.doc,.docx,.txt,.md,.rtf,.csv,.xlsx,.png,.jpg,.jpeg,.webp,.html">
+      <strong data-i18n>Drop files here or tap to choose</strong>
+      <div class="kb-meta" style="margin-top:6px" data-i18n>PDF, Word, scans, spreadsheets, text. 20MB each. Select a whole folder at once — each file is titled from its filename.</div>
+      <input id="file" type="file" multiple hidden accept=".pdf,.doc,.docx,.txt,.md,.rtf,.csv,.xlsx,.png,.jpg,.jpeg,.webp,.html">
     </div>
     <div class="grid2" style="margin-top:12px">
       <label>
@@ -95,38 +95,82 @@
   $('drop').addEventListener('click', function(){ $('file').click(); });
   ['dragenter','dragover'].forEach(function(e){ $('drop').addEventListener(e, function(ev){ ev.preventDefault(); $('drop').classList.add('over'); }); });
   ['dragleave','drop'].forEach(function(e){ $('drop').addEventListener(e, function(ev){ ev.preventDefault(); $('drop').classList.remove('over'); }); });
-  $('drop').addEventListener('drop', function(ev){ if (ev.dataTransfer.files[0]) pick(ev.dataTransfer.files[0]); });
-  $('file').addEventListener('change', function(){ if (this.files[0]) pick(this.files[0]); });
+  $('drop').addEventListener('drop', function(ev){ pick(ev.dataTransfer.files); });
+  $('file').addEventListener('change', function(){ pick(this.files); });
 
-  function pick(f){
-    chosen = f;
-    $('drop').innerHTML = '<strong>' + esc(f.name) + '</strong><div class="kb-meta" style="margin-top:6px">' + Math.round(f.size/1024) + ' KB</div>';
-    if (!$('title').value) $('title').value = f.name.replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' ');
+  // A regulatory library arrives as a folder, not as one file. Uploading 31 DBPR documents one at
+  // a time — retyping the title each round — is how a knowledge base ends up half-loaded.
+  function pick(files){
+    chosen = Array.prototype.slice.call(files || []);
+    if (!chosen.length) return;
+    if (chosen.length === 1){
+      $('drop').innerHTML = '<strong>' + esc(chosen[0].name) + '</strong><div class="kb-meta" style="margin-top:6px">' + Math.round(chosen[0].size/1024) + ' KB</div>';
+      if (!$('title').value) $('title').value = cleanName(chosen[0].name);
+    } else {
+      var kb = chosen.reduce(function(s,f){ return s+f.size; },0)/1024;
+      $('drop').innerHTML = '<strong>' + chosen.length + ' files selected</strong><div class="kb-meta" style="margin-top:6px">' +
+        Math.round(kb) + ' KB total · each is titled from its filename</div>';
+      $('title').value = '';
+    }
     $('up').disabled = false;
   }
 
-  $('up').addEventListener('click', function(){
-    if (!chosen) return;
+  // Turn "#a a Cold Holding Handout - 5030_106.pdf" into "Cold Holding Handout 5030 106".
+  function cleanName(n){
+    return n.replace(/\.[a-z0-9]+$/i,'')
+            .replace(/^[#\s]*(?:[A-Za-z]\s+)*[-\s]*/,'')   // leading sort prefixes like "#A a - "
+            .replace(/[_-]+/g,' ')
+            .replace(/\s{2,}/g,' ')
+            .trim() || n;
+  }
+
+  function readFile(f){
+    return new Promise(function(res, rej){
+      var fr = new FileReader();
+      fr.onload = function(){ res(fr.result); };
+      fr.onerror = function(){ rej(new Error('read failed')); };
+      fr.readAsDataURL(f);
+    });
+  }
+
+  $('up').addEventListener('click', async function(){
+    if (!chosen || !chosen.length) return;
     $('up').disabled = true;
-    $('upstat').textContent = 'Reading and indexing… large PDFs can take a minute.';
-    var fr = new FileReader();
-    fr.onload = function(){
-      post({ op:'upload', file: fr.result, filename: chosen.name, title: $('title').value.trim(), source_kind: $('kind').value })
-        .then(function(d){
-          $('up').disabled = false;
-          if (d.error) { $('upstat').innerHTML = '<span style="color:#d64545">' + esc(d.error) + '</span>'; return; }
-          // Report indexed vs total honestly — "uploaded" is not "answerable".
-          var msg = d.indexed + ' of ' + d.chunks + ' passages indexed · ' +
-                    (d.chars||0).toLocaleString() + ' chars read';
-          if (d.extractor) msg += ' (via ' + esc(d.extractor) + ')';
-          if (d.status !== 'ready') msg += ' — ' + esc(d.error || d.status);
-          $('upstat').innerHTML = (d.status === 'ready' ? '✅ ' : '⚠️ ') + msg;
-          chosen = null; $('file').value=''; $('title').value='';
-          $('drop').innerHTML = '<strong>Drop a file here or tap to choose</strong>';
-          load();
-        });
-    };
-    fr.readAsDataURL(chosen);
+    var kind = $('kind').value;
+    var single = chosen.length === 1;
+    var lines = [];
+    var okCount = 0;
+
+    for (var i = 0; i < chosen.length; i++){
+      var f = chosen[i];
+      var label = single ? ($('title').value.trim() || cleanName(f.name)) : cleanName(f.name);
+      $('upstat').innerHTML = 'Reading ' + (i+1) + ' of ' + chosen.length + ': <strong>' + esc(f.name) + '</strong>…' +
+        (lines.length ? '<div style="margin-top:8px">' + lines.join('') + '</div>' : '');
+      var d;
+      try {
+        var dataUrl = await readFile(f);
+        d = await post({ op:'upload', file: dataUrl, filename: f.name, title: label, source_kind: kind });
+      } catch (e) { d = { error: 'Could not read the file.' }; }
+
+      if (d && d.error) {
+        lines.push('<div style="color:#d64545">✕ ' + esc(f.name) + ' — ' + esc(d.error) + '</div>');
+      } else {
+        okCount++;
+        var msg = d.indexed + '/' + d.chunks + ' passages · ' + (d.chars||0).toLocaleString() + ' chars' +
+                  (d.extractor ? ' (' + esc(d.extractor) + ')' : '');
+        lines.push('<div>' + (d.status === 'ready' ? '✅ ' : '⚠️ ') + esc(label) + ' — ' + msg +
+          (d.status !== 'ready' ? ' — ' + esc(d.error || d.status) : '') + '</div>');
+      }
+      $('upstat').innerHTML = lines.join('');
+    }
+
+    $('upstat').innerHTML = '<strong>' + okCount + ' of ' + chosen.length + ' indexed.</strong>' +
+      '<div style="margin-top:8px">' + lines.join('') + '</div>';
+    $('up').disabled = false;
+    chosen = null; $('file').value=''; $('title').value='';
+    $('drop').innerHTML = '<strong>Drop files here or tap to choose</strong>' +
+      '<div class="kb-meta" style="margin-top:6px">PDF, Word, scans, spreadsheets, text. 20MB each.</div>';
+    load();
   });
 
   // --- retrieval probe ---
