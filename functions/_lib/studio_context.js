@@ -86,8 +86,35 @@ export async function buildBrandContext(env) {
   return ctx;
 }
 
-// Returns the full grounded system prompt for the live chef↔AI chat. Never throws.
-export async function buildStudioSystem(env) {
+// How the AI must handle retrieved manual/DBPR passages. This block only appears when passages
+// were actually found, so the model is never told to cite sources it doesn't have.
+const KB_RULES = `
+SOURCE DOCUMENTS (retrieved for THIS question):
+- The passages below come from Añejo's own manuals, SOPs and regulatory documents. When they answer the question, USE THEM and CITE the source in [brackets] exactly as given — a food-safety or licensing answer a human cannot verify is worse than no answer.
+- A passage marked (REGULATORY) — DBPR, health code, licensing — OUTRANKS any internal SOP, any house preference, and anything in the Brand Brief. If they conflict, follow the regulatory passage and SAY that they conflict.
+- These passages are retrieved by relevance and are NOT the complete library. If they do not contain the answer, say plainly that the documents on hand do not cover it and tell the chef what to check. Do NOT fill the gap from general knowledge and present it as Añejo policy or as law.
+- Never state a specific temperature, hold time, licence requirement, inspection rule or legal obligation as Añejo's or Florida's unless it appears in a passage below. General culinary knowledge is fine for cooking; it is NOT fine for compliance.`;
+
+/**
+ * Returns the full grounded system prompt for the live chef↔AI chat. Never throws.
+ *
+ * `question` is optional: when supplied, the knowledge base is searched and the passages relevant
+ * to THAT question are appended. This is what lets the Studio answer from a document library of any
+ * size — the old approach stuffed a fixed slice of every document into every prompt and silently
+ * dropped the rest, which for a 200-page DBPR manual meant ~98% of it was never visible.
+ */
+export async function buildStudioSystem(env, question) {
   const ctx = await buildBrandContext(env);
-  return `${BASE}\n\n${ctx}`;
+  let kb = '';
+  if (question) {
+    try {
+      const { retrieve, formatPassages } = await import('./knowledge.js');
+      const passages = await retrieve(env, question, { topK: 8 });
+      if (passages.length) {
+        const { text, used } = formatPassages(passages, 12000);
+        if (used) kb = `\n\n${KB_RULES}\n\n=== RETRIEVED SOURCE PASSAGES ===\n${text}`;
+      }
+    } catch { /* retrieval is additive — never break the chat because search failed */ }
+  }
+  return `${BASE}\n\n${ctx}${kb}`;
 }

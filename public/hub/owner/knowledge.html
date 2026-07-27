@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Knowledge Base — Añejo HUB</title>
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/owner/assets/owner.css">
+<style>
+  .kb-drop { border:1.5px dashed rgba(200,188,110,.5); border-radius:14px; padding:26px 18px; text-align:center; cursor:pointer; background:rgba(200,188,110,.05); }
+  .kb-drop.over { background:rgba(200,188,110,.14); }
+  .kb-row { display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid rgba(255,255,255,.08); }
+  .kb-row:last-child { border-bottom:0; }
+  .kb-meta { font-size:12px; color:var(--muted,#8fa08c); }
+  .kb-badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; letter-spacing:.04em; }
+  .b-ready { background:#e7f0ea; color:#2c6b3f; }
+  .b-partial { background:#fff1cf; color:#8a6d12; }
+  .b-failed { background:#fbe3e1; color:#9b2226; }
+  .b-reg { background:#efe3fb; color:#5b2d82; }
+  .kb-hit { border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:10px 12px; margin:8px 0; font-size:13px; line-height:1.55; }
+  .kb-cite { font-size:11px; color:#C6A85B; letter-spacing:.04em; margin-bottom:4px; }
+  .warn-box { border:1px solid rgba(214,69,69,.5); background:rgba(214,69,69,.08); border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.6; margin:14px 0; }
+  input,select,textarea { width:100%; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:640px){ .grid2 { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header class="hdr"><a href="/hub/owner/" class="back">←</a><h1>Knowledge Base</h1></header>
+
+<main class="wrap">
+  <p class="sub" data-i18n>Manuals, SOPs and DBPR documents the Creative Studio can answer from. Uploaded documents are split into passages and searched per question — so the library can be any size without anything being silently dropped.</p>
+
+  <section class="card">
+    <h2 data-i18n>Add a document</h2>
+    <div id="drop" class="kb-drop">
+      <strong data-i18n>Drop a file here or tap to choose</strong>
+      <div class="kb-meta" style="margin-top:6px" data-i18n>PDF, Word, images of scanned pages, spreadsheets, text. 20MB max.</div>
+      <input id="file" type="file" hidden accept=".pdf,.doc,.docx,.txt,.md,.rtf,.csv,.xlsx,.png,.jpg,.jpeg,.webp,.html">
+    </div>
+    <div class="grid2" style="margin-top:12px">
+      <label>
+        <span data-i18n>Title</span>
+        <input id="title" type="text" placeholder="e.g. DBPR Food Service Inspection Guide">
+      </label>
+      <label>
+        <span data-i18n>Type</span>
+        <select id="kind">
+          <option value="manual">Manual</option>
+          <option value="procedure">Procedure / SOP</option>
+          <option value="policy">Policy</option>
+          <option value="dbpr">DBPR / regulatory</option>
+          <option value="training">Training</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+    </div>
+    <p class="kb-meta" style="margin-top:8px" data-i18n>Anything marked DBPR / regulatory outranks internal SOPs when they disagree, and the AI is told to say so rather than quietly following house preference.</p>
+    <button id="up" class="btn primary" style="margin-top:12px" disabled data-i18n>Upload &amp; index</button>
+    <div id="upstat" class="kb-meta" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card">
+    <h2 data-i18n>Test what the AI can actually find</h2>
+    <p class="kb-meta" data-i18n>Ask a question the way a chef would. This shows the exact passages the Studio would be given — before you rely on it for a real answer.</p>
+    <input id="q" type="text" placeholder="e.g. What holding temperature does DBPR require for hot food?" style="margin-top:8px">
+    <button id="ask" class="btn" style="margin-top:10px" data-i18n>Search</button>
+    <div id="hits"></div>
+  </section>
+
+  <section class="card">
+    <h2 data-i18n>Library</h2>
+    <div id="stat" class="kb-meta"></div>
+    <div id="list"></div>
+  </section>
+</main>
+
+<script src="/assets/js/i18n.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var chosen = null;
+
+  function post(body){
+    return fetch('/api/hub/owner/knowledge', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      credentials:'same-origin', body: JSON.stringify(body)
+    }).then(function(r){ return r.json().catch(function(){ return { error:'Bad response' }; }); });
+  }
+
+  // --- upload ---
+  $('drop').addEventListener('click', function(){ $('file').click(); });
+  ['dragenter','dragover'].forEach(function(e){ $('drop').addEventListener(e, function(ev){ ev.preventDefault(); $('drop').classList.add('over'); }); });
+  ['dragleave','drop'].forEach(function(e){ $('drop').addEventListener(e, function(ev){ ev.preventDefault(); $('drop').classList.remove('over'); }); });
+  $('drop').addEventListener('drop', function(ev){ if (ev.dataTransfer.files[0]) pick(ev.dataTransfer.files[0]); });
+  $('file').addEventListener('change', function(){ if (this.files[0]) pick(this.files[0]); });
+
+  function pick(f){
+    chosen = f;
+    $('drop').innerHTML = '<strong>' + esc(f.name) + '</strong><div class="kb-meta" style="margin-top:6px">' + Math.round(f.size/1024) + ' KB</div>';
+    if (!$('title').value) $('title').value = f.name.replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' ');
+    $('up').disabled = false;
+  }
+
+  $('up').addEventListener('click', function(){
+    if (!chosen) return;
+    $('up').disabled = true;
+    $('upstat').textContent = 'Reading and indexing… large PDFs can take a minute.';
+    var fr = new FileReader();
+    fr.onload = function(){
+      post({ op:'upload', file: fr.result, filename: chosen.name, title: $('title').value.trim(), source_kind: $('kind').value })
+        .then(function(d){
+          $('up').disabled = false;
+          if (d.error) { $('upstat').innerHTML = '<span style="color:#d64545">' + esc(d.error) + '</span>'; return; }
+          // Report indexed vs total honestly — "uploaded" is not "answerable".
+          var msg = d.indexed + ' of ' + d.chunks + ' passages indexed';
+          if (d.status !== 'ready') msg += ' — ' + esc(d.error || d.status);
+          $('upstat').innerHTML = (d.status === 'ready' ? '✅ ' : '⚠️ ') + msg;
+          chosen = null; $('file').value=''; $('title').value='';
+          $('drop').innerHTML = '<strong>Drop a file here or tap to choose</strong>';
+          load();
+        });
+    };
+    fr.readAsDataURL(chosen);
+  });
+
+  // --- retrieval probe ---
+  $('ask').addEventListener('click', function(){
+    var q = $('q').value.trim(); if (!q) return;
+    $('hits').innerHTML = '<div class="kb-meta">Searching…</div>';
+    post({ op:'ask', question:q }).then(function(d){
+      if (d.error) { $('hits').innerHTML = '<div class="kb-meta">' + esc(d.error) + '</div>'; return; }
+      if (!d.found) {
+        // This is the honest answer, and it is the important one: nothing relevant was found, so
+        // the Studio will say it cannot answer rather than inventing something.
+        $('hits').innerHTML = '<div class="warn-box"><strong>Nothing relevant found.</strong> The Studio would tell the chef the documents on hand do not cover this, instead of guessing. Upload a document covering it, or reword the question.</div>';
+        return;
+      }
+      $('hits').innerHTML = d.passages.map(function(p){
+        var cite = [p.title, p.heading, p.page ? 'p.'+p.page : ''].filter(Boolean).join(' · ');
+        return '<div class="kb-hit"><div class="kb-cite">' + esc(cite) +
+          (p.authority === 'regulatory' ? ' <span class="kb-badge b-reg">REGULATORY</span>' : '') +
+          ' · match ' + p.score + '</div>' + esc(p.excerpt) + '…</div>';
+      }).join('');
+    });
+  });
+
+  // --- library ---
+  function load(){
+    fetch('/api/hub/owner/knowledge', { credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (!d || !d.ok) { $('list').innerHTML = '<div class="kb-meta">Could not load.</div>'; return; }
+        var warn = '';
+        if (!d.vectorize) warn += '<div class="warn-box">Search index is not connected — nothing uploaded here is answerable yet.</div>';
+        $('stat').innerHTML = warn + '<strong>' + d.searchable_chunks + '</strong> searchable passages across ' + d.items.length + ' documents.';
+        if (!d.items.length) { $('list').innerHTML = '<div class="kb-meta">No documents yet.</div>'; return; }
+        $('list').innerHTML = d.items.map(function(it){
+          var cls = it.status==='ready'?'b-ready':(it.status==='failed'?'b-failed':'b-partial');
+          return '<div class="kb-row"><div style="flex:1">' +
+            '<div><strong>' + esc(it.title) + '</strong> <span class="kb-badge ' + cls + '">' + esc(it.status) + '</span>' +
+            (it.authority==='regulatory' ? ' <span class="kb-badge b-reg">REGULATORY</span>' : '') + '</div>' +
+            '<div class="kb-meta">' + esc(it.source_kind) + ' · ' + it.chunk_count + ' passages · ' + (it.chars||0).toLocaleString() + ' chars' +
+            (it.error ? ' · <span style="color:#d64545">' + esc(it.error) + '</span>' : '') + '</div></div>' +
+            '<button class="btn small" data-del="' + esc(it.id) + '">Remove</button></div>';
+        }).join('');
+        Array.prototype.forEach.call($('list').querySelectorAll('[data-del]'), function(b){
+          b.addEventListener('click', function(){
+            if (!confirm('Remove this document from the knowledge base?')) return;
+            post({ op:'delete', id: b.getAttribute('data-del') }).then(load);
+          });
+        });
+      });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

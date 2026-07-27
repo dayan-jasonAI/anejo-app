@@ -106,9 +106,11 @@ export const onRequestPost = async ({ request, env }) => {
     'INSERT INTO recipe_session_events (id, session_id, kind, content, created_at) VALUES (?,?,?,?,?)'
   ).bind(id('rse'), sessionId, 'user_text', text, ts).run();
 
-  // Build the grounded prompt (brand brief + SOPs) + rolling transcript + recent photos (vision).
+  // Build the grounded prompt (brand brief + SOPs + passages retrieved for THIS question) +
+  // rolling transcript + recent photos (vision). Passing `text` is what makes the knowledge base
+  // work: the manuals are searched per question rather than stuffed wholesale into every prompt.
   const { msgs: history, photoKeys } = await buildTranscript(env, sessionId, ts);
-  const system = await buildStudioSystem(env);
+  const system = await buildStudioSystem(env, text);
   const directive = assistType ? `\n\n(The chef is asking for: ${assistType}.)` : '';
   const images = await buildVisionBlocks(env, photoKeys);
   const finalContent = images.length ? [{ type: 'text', text: text + directive }, ...images] : text + directive;

@@ -87,7 +87,9 @@ async function buildTranscript(env, sessionId, beforeTs = null) {
 
 async function callClaude(env, sessionId, userText, assistType, beforeTs = null) {
   const { msgs: history, photoKeys } = await buildTranscript(env, sessionId, beforeTs);
-  const system = await buildStudioSystem(env);
+  // Same retrieval as the streaming path — the non-streaming fallback must not answer from a
+  // smaller world than the streaming one, or the same question gives different answers by route.
+  const system = await buildStudioSystem(env, userText);
   const directive = assistType ? `\n\n(The chef is asking for: ${assistType}.)` : '';
 
   // Attach the most-recent session photos to the final turn so the model can SEE the
