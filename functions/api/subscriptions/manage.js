@@ -9,9 +9,12 @@ import { json, bad, now, id } from '../../_lib/util.js';
 import { currentUser } from '../../_lib/session.js';
 import { square, squareConfigured } from '../../_lib/square.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
-import { PLAN_TIERS, isPlanTier, tierWindows, planVariationId, loadPlanTiers, catalogWeeklyCents } from '../../_lib/plans.js';
+// catalogWeeklyCents is deliberately NOT imported any more: nothing here compares our price to the
+// catalog price, because we now always tell Square our price instead of guessing when to.
+import { PLAN_TIERS, isPlanTier, tierWindows, planVariationId, loadPlanTiers } from '../../_lib/plans.js';
 import { clampPerBowlCents } from '../../_lib/sizing.js';
 import { AVOCADO_ADDON_CENTS } from '../../_lib/bowlspec.js';
+import { raiseAlert } from '../../_lib/alerts.js';
 
 // Rescale a bowl_rotation {NAME:count} to a new total bowl count, preserving variety + hitting
 // the exact new total (rounding fixed against the largest buckets).
@@ -58,7 +61,7 @@ async function squareCall(env, sub, action, body) {
 // Returns true only when Square is verified to be billing `weeklyCents`. A partial success — plan
 // swapped, price not applied — returns false, because that combination bills a real customer the
 // wrong amount every week and must never read as "done".
-async function swapSquarePlan(env, sub, tierKey, weeklyCents, tierCfg) {
+async function swapSquarePlan(env, sub, tierKey, weeklyCents) {
   try {
     const stdVar = planVariationId(env, tierKey);
     if (!stdVar) return false;
@@ -162,7 +165,7 @@ export const onRequestPost = async ({ request, env }) => {
     // Best-effort billing swap (engages once Square is configured); local change is already live.
     let square_ok = null;
     if (sub.provider_subscription_id && squareConfigured(env)) {
-      square_ok = await swapSquarePlan(env, sub, newTier, weeklyCents, tierCfg);
+      square_ok = await swapSquarePlan(env, sub, newTier, weeklyCents);
       // The local plan already changed, so a failure here means the member gets the NEW plan's
       // bowls at the OLD plan's price, every week, until someone notices. Nothing else in the system
       // would ever surface that, so it has to raise an alert rather than ride home in a JSON field

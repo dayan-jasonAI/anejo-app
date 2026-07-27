@@ -260,6 +260,68 @@ export const onRequestPost = async ({ request, env }) => {
     price_override_money: { amount: weeklyCents, currency: 'USD' },
   };
   r = await square(env, '/v2/subscriptions', { method: 'POST', body: subBody });
+
+  // TRANSITIONAL SAFETY NET. `price_override_money` is documented on the Subscription object and
+  // Square support describes using it exactly this way, but this project has never run a live
+  // subscription through it. If this account or API version rejects the field, EVERY new
+  // subscription would fail — and subscriptions are the recurring revenue the whole affiliate
+  // program is built on, so "fails cleanly" is still an outage.
+  //
+  // So on rejection we fall back once to the previous mechanism (mint a variation at our price) and
+  // alert, rather than turning a customer away. Delete this block once a real subscription has been
+  // confirmed on the override path — it exists only to make the transition unable to lose a sale.
+  let usedLegacyVariation = false;
+  if (!r.ok) {
+    let sized = null;
+    try {
+      const vr0 = await square(env, `/v2/catalog/object/${variationId}`);
+      const parentPlanId = vr0.ok && vr0.data.object && vr0.data.object.subscription_plan_variation_data
+        && vr0.data.object.subscription_plan_variation_data.subscription_plan_id;
+      if (parentPlanId) {
+        const vr = await square(env, '/v2/catalog/object', {
+          method: 'POST',
+          body: {
+            idempotency_key: id('var'),
+            object: {
+              type: 'SUBSCRIPTION_PLAN_VARIATION', id: '#sized',
+              subscription_plan_variation_data: {
+                name: `${tier.label} · sized ${(weeklyCents / 100).toFixed(2)}/wk`,
+                subscription_plan_id: parentPlanId,
+                phases: [{ cadence: 'WEEKLY', ordinal: 0, pricing: { type: 'STATIC', price_money: { amount: weeklyCents, currency: 'USD' } } }],
+              },
+            },
+          },
+        });
+        if (vr.ok && vr.data.catalog_object) sized = vr.data.catalog_object.id;
+      }
+    } catch (_) { sized = null; }
+
+    if (sized) {
+      r = await square(env, '/v2/subscriptions', {
+        method: 'POST',
+        body: { idempotency_key: id('sub'), location_id: env.SQUARE_LOCATION_ID, plan_variation_id: sized, customer_id: customerId, card_id: cardId },
+      });
+      if (r.ok) {
+        // The sized variation IS provisioned at weeklyCents, so the price is already correct on this
+        // path — it just arrives without an echoed override. Skip the echo check below, which would
+        // otherwise misread a correctly-priced subscription as a mismatch and rewrite our books to
+        // the catalog price.
+        usedLegacyVariation = true;
+        try {
+          await raiseAlert(env, {
+            alert_type: 'delivery_failed', severity: 'critical',
+            dedupe_key: 'sub_override_unsupported',
+            title: 'Square rejected our subscription price override',
+            body: 'A subscription was created via the legacy per-price catalog variation instead. '
+              + 'Billing is correct, but the POS catalog will accumulate an entry per price until '
+              + 'the override path is fixed. Check the Square API version on this account.',
+            ref_type: 'subscription', ref_id: 'price_override',
+          });
+        } catch (_) { /* never lose the sale over an alert */ }
+      }
+    }
+  }
+
   if (!r.ok) return bad(sqErr(r) || 'Subscription could not be started.', 500);
   const sub = r.data.subscription;
 
@@ -269,7 +331,7 @@ export const onRequestPost = async ({ request, env }) => {
   // take and shout about it — a subscription that silently bills the wrong amount every week is the
   // worst failure this file can produce.
   const echoed = sub && sub.price_override_money && Number(sub.price_override_money.amount);
-  if (!Number.isFinite(echoed) || echoed !== weeklyCents) {
+  if (!usedLegacyVariation && (!Number.isFinite(echoed) || echoed !== weeklyCents)) {
     const actual = Number.isFinite(echoed) ? echoed : catalogWeeklyCents(planTier);
     try {
       await raiseAlert(env, {

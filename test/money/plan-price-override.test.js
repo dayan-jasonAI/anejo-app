@@ -1,22 +1,23 @@
-// The subscription price-override decision — regression tests for a display-vs-charge landmine.
+// Plan pricing: the D1 price is the charged price.
 //
-// Square subscription plan variations are STATIC and CreateSubscription has no price-override
-// field, so charging an amount that differs from the provisioned variation REQUIRES minting an
-// ad-hoc variation. subscriptions/create.js and manage.js gate that on a single comparison.
+// HISTORY, because it explains why this file is deliberately paranoid. Subscriptions used to charge
+// via a Square catalog variation, which meant charging a different amount REQUIRED minting an
+// ad-hoc SUBSCRIPTION_PLAN_VARIATION, gated on a comparison. That comparison read
+// `weeklyCents !== tier.weeklyCents`, and once `tier` came from D1 both sides moved together — so an
+// owner's price change never triggered an override, Square kept billing the OLD provisioned amount,
+// and /subscribe advertised the new one. Recurring, silent, visible only on a customer's statement.
 //
-// The trap: that comparison used to read `weeklyCents !== tier.weeklyCents`. Once `tier` was
-// resolved from D1, both sides moved together — so for a plain (unsized, no-avocado) plan they were
-// always EQUAL, the override never fired, and Square kept billing the OLD provisioned amount while
-// /subscribe advertised the owner's new price. Recurring, silent, and only visible on a statement.
+// That whole mechanism is GONE. create.js and manage.js now always send `price_override_money`, so
+// there is no comparison left to get wrong and no catalog object minted per price. The behavioural
+// tests for that live in subscription-price-override.test.js.
 //
-// The fix compares against catalogWeeklyCents(tier) — what the variation was actually provisioned
-// at — so an owner price change behaves exactly like a sized bowl.
+// What still matters here is the substrate those fixes rest on: PLAN_TIERS must remain an immutable
+// record of what the Square variations were PROVISIONED at, D1 resolution must not corrupt it, and
+// the fallback must never invent a price. catalogWeeklyCents is still read by create.js to report
+// what Square would bill if an override were ever rejected.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PLAN_TIERS, catalogWeeklyCents, loadPlanTiers, planPriceKey } from '../../functions/_lib/plans.js';
-
-// The decision exactly as create.js/manage.js make it.
-const needsAdHocVariation = (weeklyCents, tierKey) => weeklyCents !== catalogWeeklyCents(tierKey);
 
 test('catalogWeeklyCents reports the PROVISIONED price, not a D1-resolved one', () => {
   for (const k of Object.keys(PLAN_TIERS)) {
@@ -24,32 +25,11 @@ test('catalogWeeklyCents reports the PROVISIONED price, not a D1-resolved one', 
   }
 });
 
-test('an owner price change in D1 forces an ad-hoc variation (the landmine)', () => {
-  // Owner raises plan_12 from the provisioned $219 to $239.
-  const weeklyCents = 23900;
-  assert.equal(catalogWeeklyCents('plan_12'), 21900, 'catalog price must stay the code constant');
-  assert.equal(needsAdHocVariation(weeklyCents, 'plan_12'), true,
-    'without this, Square keeps charging $219 while /subscribe shows $239');
-});
-
-test('the OLD comparison would have missed it — this is what regressed', () => {
-  // Reproduce the old logic against a D1-resolved tier: both sides move together.
-  const d1ResolvedTier = { ...PLAN_TIERS.plan_12, weeklyCents: 23900 };
-  const weeklyCents = d1ResolvedTier.weeklyCents;
-  assert.equal(weeklyCents !== d1ResolvedTier.weeklyCents, false,
-    'the old guard silently declines to override on exactly the change that needs it');
-  // The new guard catches the same case.
-  assert.equal(needsAdHocVariation(weeklyCents, 'plan_12'), true);
-});
-
-test('an unchanged price still rides the standard variation (no needless catalog objects)', () => {
-  assert.equal(needsAdHocVariation(PLAN_TIERS.plan_12.weeklyCents, 'plan_12'), false);
-  assert.equal(needsAdHocVariation(PLAN_TIERS.plan_5.weeklyCents, 'plan_5'), false);
-});
-
-test('sized bowls and the avocado add-on still force a variation', () => {
-  assert.equal(needsAdHocVariation(PLAN_TIERS.plan_12.weeklyCents + 2400, 'plan_12'), true);
-  assert.equal(needsAdHocVariation(PLAN_TIERS.plan_5.weeklyCents - 500, 'plan_5'), true);
+test('catalogWeeklyCents is undefined for an unknown tier rather than 0', () => {
+  // A 0 here would be reported to the owner as "Square will bill $0.00/wk" in the mismatch alert.
+  assert.equal(catalogWeeklyCents('plan_nope'), undefined);
+  assert.equal(catalogWeeklyCents(''), undefined);
+  assert.equal(catalogWeeklyCents(null), undefined);
 });
 
 test('loadPlanTiers never mutates PLAN_TIERS — catalogWeeklyCents must stay truthful', async () => {
@@ -70,4 +50,19 @@ test('loadPlanTiers falls back to the code price when D1 is unavailable', async 
   const { tiers, source } = await loadPlanTiers(null);
   assert.equal(source, 'fallback');
   assert.equal(tiers.plan_12.weeklyCents, PLAN_TIERS.plan_12.weeklyCents);
+});
+
+test('an owner price change flows through to what we will ask Square to bill', async () => {
+  // The end-to-end property that replaced the old override gate: whatever D1 says is what the
+  // subscription body carries. No comparison, no catalog object, no way to silently skip it.
+  const db = {
+    prepare: () => ({ all: async () => ({ results: [{ key: planPriceKey('plan_12'), cents: 23900 }] }) }),
+  };
+  const { tiers } = await loadPlanTiers({ DB: db });
+  const weeklyCents = tiers.plan_12.weeklyCents;
+  assert.equal(weeklyCents, 23900);
+  assert.notEqual(weeklyCents, catalogWeeklyCents('plan_12'), 'differs from the provisioned catalog price…');
+  // …and that difference no longer needs detecting, because the price is sent unconditionally.
+  const body = { plan_variation_id: 'VAR_12', price_override_money: { amount: weeklyCents, currency: 'USD' } };
+  assert.equal(body.price_override_money.amount, 23900);
 });
