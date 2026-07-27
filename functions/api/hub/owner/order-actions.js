@@ -79,7 +79,12 @@ async function loadSquarePayments(env, squareOrderId) {
   }
   const tenders = (ord.data && ord.data.order && ord.data.order.tenders) || [];
   if (!tenders.length) {
-    return { error: 'Square shows no payment on this order — nothing was captured, so there is nothing to refund.' };
+    // SETTLED, not unknown. Square answered, and the answer is "no tender ever touched this order"
+    // — which in Square means no money moved. Collapsing this into the same bucket as an
+    // unreachable Square made an abandoned checkout render as "we could not read a Square payment",
+    // and an owner reasonably read that as "a customer may have been charged and we lost track".
+    // The two states must stay distinguishable all the way to the screen.
+    return { error: 'Square shows no payment on this order — nothing was captured, so there is nothing to refund.', settled: true };
   }
   // Split tender is not something a hosted payment link produces, and refunding one leg of a split
   // half-succeeding is a mess we will not author blind. Send the owner to the dashboard instead.
@@ -228,8 +233,14 @@ export function validateRefundAmount(raw, refundableCents) {
 // they weren't charged when they were.
 export function moneyView(rf) {
   const pay = rf && rf.payment;
+  // Money is KNOWN in two different ways, and both are certainties:
+  //   • a payment we read from Square (held_cents is whatever is still refundable), or
+  //   • Square answering that no tender exists at all → nothing was ever captured, held = 0.
+  // Only a Square we could not reach is genuinely unknown. Treating the second case as unknown is
+  // what made a never-paid abandoned checkout look like a customer who might have been charged.
+  const settled = !!(rf && rf.money_settled);
   return {
-    money_known: !!pay,
+    money_known: !!pay || settled,
     money_held_cents: (pay && pay.refundable_cents) || 0,
     money_note: pay ? null : ((rf && rf.reason) || null),
   };
@@ -258,7 +269,9 @@ export async function refundState(env, row, loadPayments = loadSquarePayments) {
   if (!squareConfigured(env)) return { available: false, reason: 'Square is not configured in this environment.' };
 
   const res = await loadPayments(env, sid);
-  if (res.error) return { available: false, reason: res.error };
+  // `settled` carries Square's definitive "nothing was captured" through to moneyView, so the UI
+  // can say so plainly instead of hedging. Absent it, the state is genuinely unknown and must hedge.
+  if (res.error) return { available: false, reason: res.error, money_settled: !!res.settled };
 
   const p = res.payments[0];
   if (p.status !== 'COMPLETED') {

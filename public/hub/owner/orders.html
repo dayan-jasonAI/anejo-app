@@ -256,6 +256,10 @@
       } else if (c.money_held_cents) {
         html += '<p class="warn"><strong data-i18n>Cancelling does not return any money.</strong> ' +
           money(c.money_held_cents) + ' <span data-i18n>is still held from this customer — use Refund below to give it back.</span></p>';
+      } else if (c.money_note) {
+        // Square answered definitively and there is no money on this order (an abandoned checkout
+        // never completes payment). Say so as a fact — hedging here reads as "we lost track".
+        html += '<p class="nope">' + esc(c.money_note) + '</p>';
       } else {
         html += '<p class="nope" data-i18n>Square shows nothing left to return on this order.</p>';
       }

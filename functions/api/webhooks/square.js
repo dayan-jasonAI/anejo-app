@@ -117,7 +117,11 @@ export const onRequestPost = async ({ request, env }) => {
           .prepare("SELECT id FROM orders WHERE square_order_id=? AND status='canceled' LIMIT 1")
           .bind(pay.order_id).first();
         const paidUpd = await env.DB.prepare(
-          "UPDATE orders SET status='paid', customer_email=COALESCE(customer_email,?), tip_cents=?, updated_at=? WHERE square_order_id=? AND status IN ('pending','canceled')"
+          // 'abandoned' is in this list for the same reason 'canceled' is: the sweep in
+          // _lib/abandoned.js relabels stale unpaid checkouts, and a webhook that arrived after a
+          // Square outage must still be able to land the money. Excluding it would orphan a real
+          // payment against a row we had already written off.
+          "UPDATE orders SET status='paid', customer_email=COALESCE(customer_email,?), tip_cents=?, updated_at=? WHERE square_order_id=? AND status IN ('pending','canceled','abandoned')"
         ).bind(pay.buyer_email_address || null, tipCents, now(), pay.order_id).run();
         if (wasCanceled && paidUpd.meta && paidUpd.meta.changes === 1) {
           try {
