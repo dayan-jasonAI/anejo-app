@@ -35,13 +35,37 @@ export const onRequestPost = async ({ request, env }) => {
   if (!decoded) return bad('audio must be a base64 data URL.');
   if (decoded.bytes.length > MAX_MEDIA_BYTES) return bad('Audio too large (5MB max).', 413);
 
+  // Transcribe. `@cf/openai/whisper` (the previous model here) takes a byte array and NO language
+  // hint — it is the English-focused build, so Spanish came back as garbage or as English-ish
+  // phonetic mush. Since the Studio has to be conversational in both languages, we use
+  // whisper-large-v3-turbo, which is multilingual and accepts an explicit `language`.
+  //
+  // Passing the language rather than letting it auto-detect matters for short clips and for
+  // Spanglish speech: without the hint, one Spanish sentence containing "chicken" or a bowl name
+  // can flip the whole detection to English and wreck the transcript.
+  const langCode = /^es/i.test(lang || '') ? 'es' : /^en/i.test(lang || '') ? 'en' : null;
+  const b64 = audio.includes(',') ? audio.slice(audio.indexOf(',') + 1) : audio;
+
   let text = '';
+  let usedModel = null;
   try {
-    const result = await env.AI.run('@cf/openai/whisper', { audio: [...decoded.bytes] });
-    text = ((result && result.text) || '').trim();
-  } catch {
-    // Model hiccup — degrade like the missing-binding case so the clip is still saved client-side.
-    return json({ ok: false, unavailable: true, error: 'Transcription failed.' });
+    const turbo = await env.AI.run('@cf/openai/whisper-large-v3-turbo', {
+      audio: b64,                                  // this model takes base64, not a byte array
+      task: 'transcribe',                          // never 'translate' — we want their words, verbatim
+      ...(langCode ? { language: langCode } : {}),
+    });
+    text = ((turbo && (turbo.text || turbo.transcription_info && turbo.text)) || '').trim();
+    usedModel = 'whisper-large-v3-turbo';
+  } catch (e) {
+    // Fall back to the older model rather than losing the clip. It is English-biased, so this is a
+    // degraded result for Spanish, not an equivalent one — hence it is recorded in meta below.
+    try {
+      const base = await env.AI.run('@cf/openai/whisper', { audio: [...decoded.bytes] });
+      text = ((base && base.text) || '').trim();
+      usedModel = 'whisper';
+    } catch {
+      return json({ ok: false, unavailable: true, error: 'Transcription failed.' });
+    }
   }
   if (!text) return json({ ok: false, unavailable: true, error: 'No speech detected.' });
 
@@ -56,6 +80,8 @@ export const onRequestPost = async ({ request, env }) => {
   const eventId = id('rse');
   const meta = {
     lang,
+    lang_code: langCode,
+    model: usedModel,        // which model produced this — 'whisper' means the degraded fallback ran
     bytes: decoded.bytes.length,
     mime: decoded.contentType,
     asset_ref: put.stored ? put.url : null,

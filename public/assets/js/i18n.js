@@ -307,11 +307,81 @@
 
   var origText = new WeakMap();   // text node / option -> original english value
   var origPH = new WeakMap();     // element -> original placeholder
+  var ATTRS = ['aria-label', 'title', 'alt'];   // text-bearing attributes, translated like body copy
+  var origAttr = {};              // attr -> WeakMap(element -> original value)
   var origTitle = document.title;
   var hubObserver = null;         // re-translates dynamically-rendered HUB content
   var OBS_OPTS = { childList: true, subtree: true, characterData: true };
 
-  function tr(s){ return ES[s]; }
+  /* ---- On-demand layer -------------------------------------------------------------------
+     The curated ES dict above is fast and brand-perfect, but it only covers strings someone
+     remembered to add. Every new feature ships English, so a dictionary-only page renders
+     Spanglish — which is not a translation, it is a broken button.
+
+     So: anything the dict misses is collected during apply(), sent to /api/translate in one
+     batch, cached in localStorage (and server-side in KV, shared by all visitors), and applied
+     as soon as it lands. New copy anywhere on the site translates itself the first time a
+     Spanish speaker sees it, with no dictionary maintenance.                                  */
+  var RKEY = 'anejo:tr:es';
+  var REMOTE = {};
+  try { REMOTE = JSON.parse(localStorage.getItem(RKEY) || '{}') || {}; } catch (e) { REMOTE = {}; }
+  var pending = {};      // strings queued for this flush
+  var asked = {};        // strings already sent — never ask twice, even if they came back untranslated
+  var flushTimer = 0;
+  var inFlight = false;
+
+  function saveRemote(){
+    try { localStorage.setItem(RKEY, JSON.stringify(REMOTE)); } catch (e) { /* quota — memory still works */ }
+  }
+
+  // Not worth a network round trip, and some are actively dangerous to translate.
+  function translatable(s){
+    if (!s || s.length > 1200) return false;
+    if (!/[a-zA-ZÀ-ÿ]/.test(s)) return false;          // prices, times, "·", numerals
+    if (/^[A-ZÑÁÉÍÓÚ0-9\s./-]+$/.test(s) && s.length <= 3) return false;  // "EN", "ES", "OK"
+    return true;
+  }
+
+  function queue(s){
+    if (!translatable(s) || REMOTE[s] || asked[s] || pending[s]) return;
+    pending[s] = 1;
+    if (flushTimer) return;
+    flushTimer = setTimeout(flush, 60);   // coalesce a whole render pass into one request
+  }
+
+  function flush(){
+    flushTimer = 0;
+    if (inFlight) { flushTimer = setTimeout(flush, 250); return; }
+    var texts = Object.keys(pending);
+    if (!texts.length) return;
+    // The API caps a batch; take a slice now and let the next flush carry the rest.
+    var batch = texts.slice(0, 60);
+    batch.forEach(function(s){ delete pending[s]; asked[s] = 1; });
+    inFlight = true;
+    fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: 'es', texts: batch })
+    }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+      inFlight = false;
+      if (!d || !d.translations) return;
+      var got = 0;
+      for (var k in d.translations){
+        if (Object.prototype.hasOwnProperty.call(d.translations, k)){ REMOTE[k] = d.translations[k]; got++; }
+      }
+      if (got){ saveRemote(); if (lang === 'es') apply(lang); }
+      if (Object.keys(pending).length && !flushTimer) flushTimer = setTimeout(flush, 60);
+    }).catch(function(){
+      inFlight = false;   // leave them in `asked` so a hard failure can't spin
+    });
+  }
+
+  // Dict first (instant, brand voice), then anything we've already fetched.
+  function tr(s){
+    var v = ES[s];
+    if (v !== undefined) return v;
+    return REMOTE[s];
+  }
 
   function walk(node, fn){
     for (var c = node.firstChild; c; c = c.nextSibling){
@@ -333,8 +403,10 @@
       if (!origText.has(t)) origText.set(t, raw);
       var orig = origText.get(t);
       if (es){
-        var v = tr(orig.trim());
-        t.nodeValue = (v !== undefined) ? orig.replace(orig.trim(), v) : orig;
+        var key = orig.trim();
+        var v = tr(key);
+        if (v !== undefined) t.nodeValue = orig.replace(key, v);
+        else { t.nodeValue = orig; queue(key); }   // unknown → fetch it, then re-apply
       } else {
         t.nodeValue = orig;
       }
@@ -344,9 +416,31 @@
       var el = phs[i];
       if (!origPH.has(el)) origPH.set(el, el.getAttribute('placeholder'));
       var o = origPH.get(el);
+      if (es && tr(o) === undefined) queue(o);
       el.setAttribute('placeholder', es ? (tr(o) || o) : o);
     }
-    if (es){ var tv = tr(origTitle); if (tv) document.title = tv; } else { document.title = origTitle; }
+    // aria-label and title carry real words too — a screen-reader user who picked Spanish should
+    // not hear English button names, and a tooltip is text like any other.
+    for (var ai = 0; ai < ATTRS.length; ai++){
+      var attr = ATTRS[ai];
+      var els = document.querySelectorAll('[' + attr + ']');
+      for (var j = 0; j < els.length; j++){
+        var e2 = els[j];
+        if (e2.id === 'langToggle') continue;          // "Language / Idioma" is already bilingual
+        var store = origAttr[attr] || (origAttr[attr] = new WeakMap());
+        if (!store.has(e2)) store.set(e2, e2.getAttribute(attr));
+        var ov = store.get(e2);
+        if (!ov || !ov.trim()) continue;
+        if (es){
+          var av = tr(ov.trim());
+          if (av !== undefined) e2.setAttribute(attr, av); else { e2.setAttribute(attr, ov); queue(ov.trim()); }
+        } else {
+          e2.setAttribute(attr, ov);
+        }
+      }
+    }
+    if (es){ var tv = tr(origTitle); if (tv) document.title = tv; else queue(origTitle); }
+    else { document.title = origTitle; }
     document.documentElement.lang = es ? 'es' : 'en';
     updateToggle(l);
     if (hubObserver) { hubObserver.takeRecords(); hubObserver.observe(document.body, OBS_OPTS); }

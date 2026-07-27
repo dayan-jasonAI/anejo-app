@@ -23,6 +23,13 @@ export function Composer({
   const fileRef = useRef<HTMLInputElement>(null);
   const recRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  // Live transcription. The browser's SpeechRecognition gives interim results while you are still
+  // talking; Whisper only answers after you stop. We run both: the live text is what you WATCH, and
+  // the Whisper pass is what you KEEP, because it is markedly more accurate on food vocabulary,
+  // Spanish, and Spanglish. If SpeechRecognition is missing (Firefox), you simply lose the preview.
+  const srRef = useRef<any>(null);
+  const [interim, setInterim] = useState('');
+  const liveFinalRef = useRef('');
 
   const flash = (msg: string) => {
     setNotice(msg);
@@ -69,17 +76,52 @@ export function Composer({
       mr.onstop = async () => {
         stream.getTracks().forEach((tr) => tr.stop());
         setRecording(false);
+        try { srRef.current?.stop(); } catch { /* already stopped */ }
+        srRef.current = null;
+
         const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
         flash(t('voiceTranscribing'));
         const res = await transcribeVoice(sessionId, blob, lang);
-        if (res.text) {
-          setText((prev) => (prev ? prev + ' ' : '') + res.text);
-          setNotice('');
+
+        // Prefer Whisper's transcript; fall back to whatever the live pass heard so speech is never
+        // silently lost when the server call fails. Losing what someone just dictated is the one
+        // outcome that makes people stop trusting the mic.
+        const finalText = res.text || liveFinalRef.current.trim();
+        setInterim('');
+        liveFinalRef.current = '';
+        if (finalText) {
+          setText((prev) => (prev ? prev + ' ' : '') + finalText);
+          setNotice(res.text ? '' : t('voicePartial'));
           ref.current?.focus();
         } else {
           flash(t('voiceUnavailable'));
         }
       };
+
+      // Start the live preview alongside the recorder.
+      const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SR) {
+        try {
+          const sr = new SR();
+          // Region-specific tags transcribe conversational speech markedly better than bare 'es'.
+          sr.lang = lang === 'es' ? 'es-US' : 'en-US';
+          sr.continuous = true;
+          sr.interimResults = true;
+          sr.onresult = (ev: any) => {
+            let live = '';
+            for (let i = ev.resultIndex; i < ev.results.length; i++) {
+              const r = ev.results[i];
+              if (r.isFinal) liveFinalRef.current += r[0].transcript + ' ';
+              else live += r[0].transcript;
+            }
+            setInterim((liveFinalRef.current + live).trim());
+          };
+          sr.onerror = () => { /* preview only — the recording and Whisper pass carry on */ };
+          sr.start();
+          srRef.current = sr;
+        } catch { srRef.current = null; }
+      }
+
       mr.start();
       setRecording(true);
       flash(t('voiceRecording'));
@@ -146,6 +188,14 @@ export function Composer({
             {streaming ? <span className="spinner" /> : '↑'}
           </button>
         </div>
+        {recording && (
+          // The words appearing here as you speak are the whole point: without them the mic just
+          // animates and you cannot tell whether anything is being heard.
+          <div className="live-transcript" aria-live="polite">
+            <span className="live-dot" aria-hidden="true" />
+            {interim || t('voiceListening')}
+          </div>
+        )}
         <div className="hint">{notice || t('hint')}</div>
       </div>
     </div>

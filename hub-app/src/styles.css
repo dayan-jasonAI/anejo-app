@@ -150,6 +150,24 @@ button { font-family: inherit; cursor: pointer; }
 .send:hover:not(:disabled) { transform: translateY(-1px); }
 .send:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 .composer .hint { font-size: 11px; color: var(--muted); margin-top: 8px; text-align: center; }
+
+/* Live transcript while recording. Deliberately readable rather than a faint hint — it is the
+   feedback that tells you the mic is actually hearing you. */
+.composer .live-transcript {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-top: 10px; padding: 9px 12px;
+  border: 1px solid rgba(200,188,110,.35); border-radius: 12px;
+  background: rgba(200,188,110,.07);
+  font-size: 13px; line-height: 1.5; color: var(--fg, #f5f2ec);
+  max-height: 5.5em; overflow-y: auto; text-align: left;
+}
+.composer .live-dot {
+  flex: 0 0 auto; width: 8px; height: 8px; margin-top: 5px;
+  border-radius: 50%; background: #d64545;
+  animation: anejo-rec-pulse 1.2s ease-in-out infinite;
+}
+@keyframes anejo-rec-pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .composer .live-dot { animation: none; } }
 .err { color: var(--danger); font-size: 13px; margin-top: 8px; text-align: center; }
 
 .spinner {

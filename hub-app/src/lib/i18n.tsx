@@ -49,6 +49,10 @@ const DICT: Record<string, { en: string; es: string }> = {
   voiceRecording: { en: 'Recording… tap 🎙️ to stop', es: 'Grabando… toca 🎙️ para detener' },
   voiceTranscribing: { en: 'Transcribing…', es: 'Transcribiendo…' },
   voiceUnavailable: { en: 'Voice transcription isn’t enabled here.', es: 'La transcripción de voz no está habilitada aquí.' },
+  // Shown when the server transcription failed and we kept the browser's live text instead — it is
+  // usually rougher, so say so rather than passing it off as the finished transcript.
+  voicePartial: { en: 'Saved what we heard live — check it before sending.', es: 'Guardamos lo que escuchamos en vivo — revísalo antes de enviar.' },
+  voiceListening: { en: 'Listening…', es: 'Escuchando…' },
   voiceDenied: { en: 'Microphone permission denied.', es: 'Permiso de micrófono denegado.' },
   // recipe draft → publish
   recipeOpen: { en: 'Recipe', es: 'Receta' },
