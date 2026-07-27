@@ -113,8 +113,11 @@ export const onRequestPost = async ({ request, env }) => {
         // was captured while zero rows matched: no kitchen ticket, no rewards, no commission, no
         // alert — silently taking payment for food nobody was told to make. Accept 'canceled' too
         // (money moved, so the order must become real) and alert the owner loudly.
+        // Both write-off states matter here. 'canceled' = a human decided not to make it;
+        // 'abandoned' = the sweep decided nobody was going to pay. Money arriving against either
+        // one means we were wrong and food is now owed, so both must alert — not just cancel.
         const wasCanceled = await env.DB
-          .prepare("SELECT id FROM orders WHERE square_order_id=? AND status='canceled' LIMIT 1")
+          .prepare("SELECT id, status FROM orders WHERE square_order_id=? AND status IN ('canceled','abandoned') LIMIT 1")
           .bind(pay.order_id).first();
         const paidUpd = await env.DB.prepare(
           // 'abandoned' is in this list for the same reason 'canceled' is: the sweep in
@@ -128,8 +131,12 @@ export const onRequestPost = async ({ request, env }) => {
             await raiseAlert(env, {
               alert_type: 'delivery_failed', severity: 'critical',
               dedupe_key: 'paid_after_cancel:' + pay.order_id,
-              title: 'Payment received on a CANCELED order',
-              body: `Order ${wasCanceled.id} was canceled in the HUB but the customer paid the still-live Square link. It has been reopened as paid — make it or refund it.`,
+              title: wasCanceled.status === 'abandoned'
+                ? 'Payment received on an ABANDONED checkout'
+                : 'Payment received on a CANCELED order',
+              body: wasCanceled.status === 'abandoned'
+                ? `Order ${wasCanceled.id} was written off as an abandoned checkout, but the customer went back and paid the still-live Square link. It has been reopened as paid — make it or refund it.`
+                : `Order ${wasCanceled.id} was canceled in the HUB but the customer paid the still-live Square link. It has been reopened as paid — make it or refund it.`,
               ref_type: 'order', ref_id: wasCanceled.id,
             });
           } catch (e) { console.log('paid-after-cancel alert error:', e && e.message); }

@@ -4,6 +4,7 @@
 //   Owner-only.
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
+import { sweepAbandoned } from '../../../_lib/abandoned.js';
 
 function parseJson(s, f) { try { return JSON.parse(s); } catch { return f; } }
 const DAY = 86400000;
@@ -13,6 +14,11 @@ export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   const ctx = await requireRole(request, env, ['owner']);
   if (ctx instanceof Response) return ctx;
+
+  // Relabel stale unpaid checkouts before reading, so the list the owner sees is already honest.
+  // There is no cron in this project, so the owner opening order history IS the trigger — which is
+  // exactly when an accurate list matters. Never throws; see _lib/abandoned.js for the safety rules.
+  await sweepAbandoned(env);
 
   const url = new URL(request.url);
   const fromStr = (url.searchParams.get('from') || '').trim();

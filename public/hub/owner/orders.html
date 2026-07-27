@@ -25,6 +25,9 @@
   .st-ready { background:#e7f0ea; color:#2c6b3f; }
   .st-fulfilled { background:#1b3a2b; color:#fff; }
   .st-canceled { background:#fbe3e1; color:#9b2226; }
+  /* Muted on purpose: an abandoned checkout is not a task, and must not compete for attention
+     with orders that actually need making. */
+  .st-abandoned { background:#f2f2f0; color:#8a8a86; }
   .st-cleared { background:#e7f0ea; color:#2c6b3f; }
   .trail { list-style:none; margin:8px 0 0; padding:0; }
   .trail li { display:flex; justify-content:space-between; gap:10px; font-size:13px; padding:7px 0; border-bottom:1px solid var(--line); }
@@ -121,7 +124,7 @@
   }
 
   function renderChips() {
-    var defs = [['', 'All'], ['pending', 'Pending'], ['prep', 'Prep'], ['ready', 'Ready'], ['fulfilled', 'Delivered'], ['canceled', 'Canceled']];
+    var defs = [['', 'All'], ['pending', 'Pending'], ['prep', 'Prep'], ['ready', 'Ready'], ['fulfilled', 'Delivered'], ['canceled', 'Canceled'], ['abandoned', 'Abandoned']];
     $('#chips').innerHTML = defs.map(function (d) {
       return '<button data-s="' + d[0] + '" class="' + (d[0] === curStatus ? 'sel' : '') + '"><span data-i18n>' + d[1] + '</span></button>';
     }).join('');
