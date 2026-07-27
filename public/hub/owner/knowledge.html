@@ -116,7 +116,9 @@
           $('up').disabled = false;
           if (d.error) { $('upstat').innerHTML = '<span style="color:#d64545">' + esc(d.error) + '</span>'; return; }
           // Report indexed vs total honestly — "uploaded" is not "answerable".
-          var msg = d.indexed + ' of ' + d.chunks + ' passages indexed';
+          var msg = d.indexed + ' of ' + d.chunks + ' passages indexed · ' +
+                    (d.chars||0).toLocaleString() + ' chars read';
+          if (d.extractor) msg += ' (via ' + esc(d.extractor) + ')';
           if (d.status !== 'ready') msg += ' — ' + esc(d.error || d.status);
           $('upstat').innerHTML = (d.status === 'ready' ? '✅ ' : '⚠️ ') + msg;
           chosen = null; $('file').value=''; $('title').value='';
@@ -156,8 +158,15 @@
         if (!d || !d.ok) { $('list').innerHTML = '<div class="kb-meta">Could not load.</div>'; return; }
         var warn = '';
         if (!d.vectorize) warn += '<div class="warn-box">Search index is not connected — nothing uploaded here is answerable yet.</div>';
+        if (!d.claude) warn += '<div class="warn-box">PDF reading is degraded — the accurate reader is not configured, so scanned or font-subset PDFs may be rejected.</div>';
+        // A failed read must never render as an empty library, or the obvious response is to
+        // re-upload everything that is actually already there.
+        if (d.load_error) warn += '<div class="warn-box"><strong>Could not read the library.</strong> ' + esc(d.load_error) + ' — this does NOT mean your documents are gone.</div>';
         $('stat').innerHTML = warn + '<strong>' + d.searchable_chunks + '</strong> searchable passages across ' + d.items.length + ' documents.';
-        if (!d.items.length) { $('list').innerHTML = '<div class="kb-meta">No documents yet.</div>'; return; }
+        if (!d.items.length) {
+          $('list').innerHTML = '<div class="kb-meta">' + (d.load_error ? 'Library unavailable — see above.' : 'No documents yet.') + '</div>';
+          return;
+        }
         $('list').innerHTML = d.items.map(function(it){
           var cls = it.status==='ready'?'b-ready':(it.status==='failed'?'b-failed':'b-partial');
           return '<div class="kb-row"><div style="flex:1">' +
