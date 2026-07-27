@@ -89,7 +89,6 @@
     received:{en:'Count received — {n} lunches',es:'Conteo recibido — {n} almuerzos'},
     fresh:{en:'Fresh-prepped and delivered {w}.',es:'Preparado fresco y entregado {w}.'},
     rushFee:{en:'After cut-off — this went in as a rush.',es:'Después del corte — entró como urgente.'},
-    perLunch:{en:'{p} per lunch · delivery fee per office. You’ll get an invoice from Añejo Catering Co.',es:'{p} por almuerzo · cargo de entrega por oficina. Recibirás una factura de Añejo Catering Co.'},
     thisMonth:{en:'This month',es:'Este mes'},
     lunches:{en:'Lunches',es:'Almuerzos'},
     spent:{en:'Total',es:'Total'},
@@ -120,7 +119,7 @@
   var lang='en', token=(new URLSearchParams(location.search)).get('t')||'', ctx=null;
   var app=document.getElementById('app');
   function tr(k,subs){ var s=(T[k]&&T[k][lang])||k; if(subs)for(var x in subs)s=s.replace('{'+x+'}',subs[x]); return s; }
-  function money(c){ return '$'+((Number(c)||0)/100).toFixed(2); }
+  // (no money() helper — this page must never render an amount; see monthCard)
   function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function monthName(prefix){ if(!prefix)return ''; var p=prefix.split('-'); return MONTHS[lang][(+p[1])-1]+' '+p[0]; }
 
