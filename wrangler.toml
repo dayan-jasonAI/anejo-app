@@ -35,3 +35,10 @@ binding = "AI"
 [[r2_buckets]]
 binding = "MEDIA"
 bucket_name = "anejo-media"
+
+# Knowledge base for Creative Studio: manuals, SOPs, DBPR documents. Chunk embeddings live here
+# so the AI retrieves the passages relevant to a question instead of having a few pages of every
+# document stuffed into its prompt and the rest silently dropped.
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "anejo-knowledge"
