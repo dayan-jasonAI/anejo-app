@@ -48,26 +48,40 @@ async function squareCall(env, sub, action, body) {
   } catch (e) { console.log(`subscription ${action} — Square exception:`, e && e.message, '· sub', sub.id); return { ok: false }; }
 }
 
-// Best-effort Square plan swap for a tier change. Creates a sized variation at the new weekly
-// price when it differs from the catalog tier (Square has no per-subscription price override),
-// then SwapPlan. Returns true on success. Local state is updated regardless of this result.
+// Move an existing subscription to a different tier AND to our price, in two calls.
+//
+// SwapPlan takes `new_plan_variation_id` and `phases` — it has no price-override field — so the
+// price is set separately with UpdateSubscription, whose `price_override_money` is the same
+// documented Subscription field CreateSubscription uses. This replaces minting a throwaway
+// SUBSCRIPTION_PLAN_VARIATION per sized price, which permanently littered the POS catalog.
+//
+// Returns true only when Square is verified to be billing `weeklyCents`. A partial success — plan
+// swapped, price not applied — returns false, because that combination bills a real customer the
+// wrong amount every week and must never read as "done".
 async function swapSquarePlan(env, sub, tierKey, weeklyCents, tierCfg) {
   try {
     const stdVar = planVariationId(env, tierKey);
     if (!stdVar) return false;
-    let variationId = stdVar;
-    // Compare against the PROVISIONED variation price, not a D1-resolved tier — otherwise an owner
-    // price change matches here, the swap keeps the STATIC variation, and Square bills the old amount.
-    if (weeklyCents !== catalogWeeklyCents(tierKey)) {
-      let vr = await square(env, `/v2/catalog/object/${stdVar}`);
-      const parent = vr.ok && vr.data && vr.data.object && vr.data.object.subscription_plan_variation_data && vr.data.object.subscription_plan_variation_data.subscription_plan_id;
-      if (parent) {
-        vr = await square(env, '/v2/catalog/object', { method: 'POST', body: { idempotency_key: id('var'), object: { type: 'SUBSCRIPTION_PLAN_VARIATION', id: '#sized', subscription_plan_variation_data: { name: `${tierCfg.label} · sized ${(weeklyCents / 100).toFixed(2)}/wk`, subscription_plan_id: parent, phases: [{ cadence: 'WEEKLY', ordinal: 0, pricing: { type: 'STATIC', price_money: { amount: weeklyCents, currency: 'USD' } } }] } } } });
-        if (vr.ok && vr.data && vr.data.catalog_object) variationId = vr.data.catalog_object.id;
-      }
-    }
-    const sr = await square(env, `/v2/subscriptions/${sub.provider_subscription_id}/swap-plan`, { method: 'POST', body: { new_plan_variation_id: variationId } });
-    return !!sr.ok;
+    const subId = sub.provider_subscription_id;
+
+    const sr = await square(env, `/v2/subscriptions/${subId}/swap-plan`, {
+      method: 'POST',
+      body: { new_plan_variation_id: stdVar },
+    });
+    if (!sr.ok) return false;
+
+    // Now set the price. Always sent, for the same reason as create.js: our D1 number is the one
+    // the customer was shown, so it is the one Square must bill.
+    const ur = await square(env, `/v2/subscriptions/${subId}`, {
+      method: 'PUT',
+      body: { subscription: { price_override_money: { amount: weeklyCents, currency: 'USD' } } },
+    });
+    if (!ur.ok) return false;
+
+    // Verify rather than assume: confirm Square echoes the amount we intended.
+    const s = ur.data && ur.data.subscription;
+    const echoed = s && s.price_override_money && Number(s.price_override_money.amount);
+    return Number.isFinite(echoed) && echoed === weeklyCents;
   } catch (e) { console.log('swap-plan error:', e && e.message, '· sub', sub.id); return false; }
 }
 
@@ -147,7 +161,26 @@ export const onRequestPost = async ({ request, env }) => {
     await rebuild();
     // Best-effort billing swap (engages once Square is configured); local change is already live.
     let square_ok = null;
-    if (sub.provider_subscription_id && squareConfigured(env)) square_ok = await swapSquarePlan(env, sub, newTier, weeklyCents, tierCfg);
+    if (sub.provider_subscription_id && squareConfigured(env)) {
+      square_ok = await swapSquarePlan(env, sub, newTier, weeklyCents, tierCfg);
+      // The local plan already changed, so a failure here means the member gets the NEW plan's
+      // bowls at the OLD plan's price, every week, until someone notices. Nothing else in the system
+      // would ever surface that, so it has to raise an alert rather than ride home in a JSON field
+      // the customer's browser throws away.
+      if (!square_ok) {
+        try {
+          await raiseAlert(env, {
+            alert_type: 'delivery_failed', severity: 'critical',
+            dedupe_key: 'sub_swap_failed:' + sub.provider_subscription_id,
+            title: 'Plan changed here but NOT in Square',
+            body: `Subscription ${sub.id} moved to ${newTier} ($${(weeklyCents / 100).toFixed(2)}/wk) in the HUB, `
+              + `but Square did not confirm the new plan or price. They will keep being billed the old amount `
+              + `while receiving the new plan. Fix it in Square.`,
+            ref_type: 'subscription', ref_id: sub.id,
+          });
+        } catch (_) { /* alerting must not fail the member's plan change */ }
+      }
+    }
     return json({ ok: true, tier: newTier, windows, weekly_amount_cents: weeklyCents, square_ok });
   }
 

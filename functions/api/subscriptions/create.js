@@ -13,6 +13,7 @@ import { sendSms } from '../../_lib/twilio.js';
 import { geocode, formatAddress } from '../../_lib/geo.js';
 import { AVOCADO_ADDON_CENTS, BOWL_BY_NAME } from '../../_lib/bowlspec.js';
 import { evaluatePromo, recordRedemption } from '../../_lib/promo.js';
+import { raiseAlert } from '../../_lib/alerts.js';
 
 // Keep only real bowl keys with positive integer counts (defends the kitchen itemization +
 // the saved plan from a tampered/garbage rotation coming off the browser).
@@ -213,12 +214,11 @@ export const onRequestPost = async ({ request, env }) => {
   else if (b.bowlSizeOz) perBowlCents = perBowlCentsFromOz(b.bowlSizeOz);
   let weeklyCents = perBowlCents != null ? perBowlCents * tier.bowls : tier.weeklyCents;
   if (avocado) weeklyCents += AVOCADO_ADDON_CENTS * tier.bowls;
-  // Override Square's catalog price whenever the weekly amount differs from what the VARIATION was
-  // provisioned at — sized bowls, the avocado add-on, OR an owner price change in D1. Comparing
-  // against `tier.weeklyCents` (now D1-resolved) would silently skip the override on exactly the
-  // price change that needs it: the variation is STATIC, so Square would keep charging the old
-  // catalog amount while /subscribe advertised the new one.
-  const overridePrice = weeklyCents !== catalogWeeklyCents(planTier);
+  // NOTE: there is deliberately no "should we override?" test any more. We always send our price
+  // to Square (step 3), because the conditional was itself a source of bugs — every variant of it
+  // had to correctly predict which of {sized bowls, avocado add-on, owner price change in D1}
+  // counted as "different", and getting that wrong meant Square quietly billing a stale catalog
+  // amount while /subscribe advertised the new one. Sending it unconditionally cannot be wrong.
 
   // 1) Square customer
   let r = await square(env, '/v2/customers', {
@@ -236,48 +236,55 @@ export const onRequestPost = async ({ request, env }) => {
   if (!r.ok) return bad(sqErr(r) || 'Your card could not be saved.', 500);
   const cardId = r.data.card.id;
 
-  // 3) Start the subscription. CreateSubscription has NO price-override field (Square rejects
-  // phases[].pricing), so sized bowls subscribe to an ad-hoc catalog plan VARIATION created at
-  // the sized weekly price under the tier's parent plan.
-  let subscribeVariationId = variationId;
-  if (overridePrice) {
-    let vr = await square(env, `/v2/catalog/object/${variationId}`);
-    const parentPlanId = vr.ok && vr.data.object && vr.data.object.subscription_plan_variation_data
-      && vr.data.object.subscription_plan_variation_data.subscription_plan_id;
-    if (parentPlanId) {
-      vr = await square(env, '/v2/catalog/object', {
-        method: 'POST',
-        body: {
-          idempotency_key: id('var'),
-          object: {
-            type: 'SUBSCRIPTION_PLAN_VARIATION', id: '#sized',
-            subscription_plan_variation_data: {
-              name: `${tier.label} · sized ${(weeklyCents / 100).toFixed(2)}/wk`,
-              subscription_plan_id: parentPlanId,
-              phases: [{ cadence: 'WEEKLY', ordinal: 0, pricing: { type: 'STATIC', price_money: { amount: weeklyCents, currency: 'USD' } } }],
-            },
-          },
-        },
-      });
-    }
-    if (vr.ok && vr.data.catalog_object) {
-      subscribeVariationId = vr.data.catalog_object.id;
-    } else {
-      // Sized variation could not be created — fall back to the proven standard tier price,
-      // and record that same amount so the charge and our books never disagree.
-      weeklyCents = tier.weeklyCents;
-    }
-  }
+  // 3) Start the subscription at OUR price.
+  //
+  // `price_override_money` is a documented Subscription field: "A custom price which overrides the
+  // cost of a subscription plan variation with STATIC pricing" — and ours are STATIC. Square
+  // confirms it overrides every phase, so it holds on renewals, not just the first charge.
+  //
+  // We send it on EVERY subscription, not only sized ones. That is the point: the amount charged is
+  // always the amount we computed from D1, so an owner editing a plan price in the HUB changes what
+  // new subscribers pay without anyone touching the Square catalog — the same way bowls and drinks
+  // already work with ad-hoc `base_price_money`.
+  //
+  // This replaces minting a throwaway SUBSCRIPTION_PLAN_VARIATION per distinct sized price. The
+  // macro portal prices bowls on a continuum (0.6x–1.8x of the base), so that approach wrote a
+  // permanent catalog object for every portion size anyone ever picked, permanently cluttering the
+  // POS catalog with entries nobody can safely delete.
   const subBody = {
     idempotency_key: id('sub'),
     location_id: env.SQUARE_LOCATION_ID,
-    plan_variation_id: subscribeVariationId,
+    plan_variation_id: variationId,
     customer_id: customerId,
     card_id: cardId,
+    price_override_money: { amount: weeklyCents, currency: 'USD' },
   };
   r = await square(env, '/v2/subscriptions', { method: 'POST', body: subBody });
   if (!r.ok) return bad(sqErr(r) || 'Subscription could not be started.', 500);
   const sub = r.data.subscription;
+
+  // READ BACK what Square will actually bill. Square echoes the override on the created
+  // subscription; if it is absent or different, Square is going to charge the catalog amount and
+  // our books would otherwise claim a price that never gets billed. Record what Square will really
+  // take and shout about it — a subscription that silently bills the wrong amount every week is the
+  // worst failure this file can produce.
+  const echoed = sub && sub.price_override_money && Number(sub.price_override_money.amount);
+  if (!Number.isFinite(echoed) || echoed !== weeklyCents) {
+    const actual = Number.isFinite(echoed) ? echoed : catalogWeeklyCents(planTier);
+    try {
+      await raiseAlert(env, {
+        alert_type: 'delivery_failed', severity: 'critical',
+        dedupe_key: 'sub_price_mismatch:' + sub.id,
+        title: 'Subscription is billing the wrong price',
+        body: `Square did not apply our price override on subscription ${sub.id}. We intended `
+          + `$${(weeklyCents / 100).toFixed(2)}/wk; Square will bill $${((actual || 0) / 100).toFixed(2)}/wk. `
+          + `Fix it in Square or cancel and re-create.`,
+        ref_type: 'subscription', ref_id: sub.id,
+      });
+    } catch (_) { /* the alert failing must not also lose the corrected number below */ }
+    // Books follow the money, never the intention.
+    if (Number.isFinite(actual) && actual > 0) weeklyCents = actual;
+  }
 
   // 4) Persist + attribute to the trainer (the rev-share link)
   const t = now();
