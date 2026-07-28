@@ -7,7 +7,6 @@ import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { now, today, parseJson } from '../../../_lib/hub.js';
-import { notifyRouteOutForDelivery } from '../../../_lib/notify.js';
 import { recordOutcome, declineAndReoffer } from '../../../_lib/dispatch.js';
 import { formatAddress, directionsUrl, fullRouteUrl, clockET } from '../../../_lib/geo.js';
 

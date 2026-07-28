@@ -8,7 +8,7 @@
 // The backup library never throws, but this handler deliberately does NOT swallow the
 // outcome: a POST that failed to produce a backup answers with a 5xx and raises an owner
 // alert, because a silent HTTP 200 makes an unprotected database look healthy in the cron log.
-import { json, bad, id, now } from '../../../_lib/util.js';
+import { json, id, now } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { toJson } from '../../../_lib/hub.js';
 import { captureSystem } from '../../../_lib/track.js';

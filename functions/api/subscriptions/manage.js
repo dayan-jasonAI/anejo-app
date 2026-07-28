@@ -5,7 +5,7 @@
 //                      (Square one-cycle pause). Deliveries resume automatically the week after.
 // Square calls are best-effort; the local state always reflects the member's intent so the
 // portal + kitchen update immediately. Mirrors subscriptions/cancel.js auth.
-import { json, bad, now, id } from '../../_lib/util.js';
+import { json, bad, now } from '../../_lib/util.js';
 import { currentUser } from '../../_lib/session.js';
 import { square, squareConfigured } from '../../_lib/square.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';

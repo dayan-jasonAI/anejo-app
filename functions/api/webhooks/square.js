@@ -2,7 +2,7 @@
 // Verifies the HMAC-SHA256 signature, syncs subscription status, and — on each paid
 // subscription invoice — writes the trainer's 10% rev-share ledger row (idempotent).
 // Set SQUARE_WEBHOOK_KEY (Pages secret) + register this URL in the Square dashboard.
-import { id, now, ctEq } from '../../_lib/util.js';
+import { now, ctEq } from '../../_lib/util.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { notifyClientById, notifyPointsEarned } from '../../_lib/notify.js';
 import { awardOrderPoints, redeemOrderPoints, rewardsSummary } from '../../_lib/rewards.js';

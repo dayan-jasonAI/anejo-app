@@ -18,7 +18,6 @@ const varPx = (name) => {
 };
 
 test('content clears the nav with real breathing room, not flush against it', () => {
-  const nav = varPx('nav-h');
   const gap = varPx('nav-gap');
   assert.ok(gap >= 16, `--nav-gap is ${gap}px; anything less reads as touching the bar`);
 

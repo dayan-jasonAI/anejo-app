@@ -8,7 +8,7 @@ import { square, squareConfigured } from '../../_lib/square.js';
 import { PLAN_TIERS, isPlanTier, planVariationId, tierWindows, loadPlanTiers, catalogWeeklyCents } from '../../_lib/plans.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
-import { clampPerBowlCents, perBowlCentsFromOz, STANDARD_PER_BOWL_CENTS } from '../../_lib/sizing.js';
+import { clampPerBowlCents, perBowlCentsFromOz } from '../../_lib/sizing.js';
 import { sendSms } from '../../_lib/twilio.js';
 import { geocode, formatAddress } from '../../_lib/geo.js';
 import { AVOCADO_ADDON_CENTS, BOWL_BY_NAME } from '../../_lib/bowlspec.js';

@@ -3,7 +3,7 @@
 // and blockers flagged, so the owner can chase missing reports.
 import { json } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { today, parseJson } from '../../../_lib/hub.js';
+import { today } from '../../../_lib/hub.js';
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);

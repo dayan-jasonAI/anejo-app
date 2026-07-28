@@ -11,9 +11,9 @@
 // scanned DBPR notice works as well as a typed manual.
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { id, now, toJson } from '../../../_lib/hub.js';
+import { id, now } from '../../../_lib/hub.js';
 import { decodeDataUrl } from '../../../_lib/media.js';
-import { chunkMarkdown, indexChunks, deleteDocChunks, retrieve, formatPassages } from '../../../_lib/knowledge.js';
+import { chunkMarkdown, indexChunks, deleteDocChunks, retrieve } from '../../../_lib/knowledge.js';
 import { capture } from '../../../_lib/track.js';
 import { extractPdfText, contentAfterMetadata } from '../../../_lib/pdftext.js';
 import { extractPdfWithClaude, looksGarbled } from '../../../_lib/pdfclaude.js';

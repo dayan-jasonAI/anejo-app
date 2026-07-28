@@ -1,8 +1,9 @@
 // POST /api/checkout — à-la-carte ordering via Square hosted checkout (Payment Links).
 // The client sends { items: [{id, qty}], fulfillment } using catalog IDs only; prices are
-// resolved SERVER-SIDE from CATALOG below so they can't be tampered with from the browser.
+// resolved SERVER-SIDE via loadMenu(env) (D1, defaults in _lib/menu.js) so they can't be
+// tampered with from the browser.
 import { json, bad, id, appBaseUrl, normalizePhone } from '../_lib/util.js';
-import { square, squareConfigured, money } from '../_lib/square.js';
+import { square, squareConfigured } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress } from '../_lib/geo.js';
 import { BOWL_IDS, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
@@ -55,18 +56,11 @@ function parseAttribution(raw) {
   };
 }
 
-// Authoritative à-la-carte catalog (base prices in USD). Bowl size/protein variations and
-// real bites retail pricing are a follow-up; these are the launch defaults.
-// Non-bowl catalog (drinks + a standalone side sauce). Bowls are customized per-instance and
-// priced via BOWL_BASE + priceCustomBowl below.
-const CATALOG = {
-  // Añejo Fit drinks (12 oz)
-  fit_gold:     { name: 'Añejo Fit — Gold Vitality',  price: 9.99 },
-  fit_hibiscus: { name: 'Añejo Fit — Hibiscus Zen',   price: 9.99 },
-  fit_emerald:  { name: 'Añejo Fit — Emerald Hydrate', price: 9.99 },
-  // Add-on
-  sauce_extra:  { name: 'Extra Signature Sauce (2 oz)', price: 1.50 },
-};
+// The non-bowl catalog (drinks + side sauce) USED to be duplicated here as a const in dollars.
+// It was dead code: checkout resolves every price through `loadMenu(env)` below, which reads D1
+// with `_lib/menu.js` module constants as defaults — and menu.js already carries the same items at
+// the same prices in cents (fit_gold 999 = $9.99). Two copies of a price is how a price drifts, so
+// the duplicate is gone and menu.js is the single source. Removed 2026-07-28.
 
 // Bowl base prices in cents (authoritative). Each bowl can be customized per-instance.
 const BOWL_BASE = { vida: 1999, fuego: 2299, ligero: 1899, mar: 2299, coco: 2299, congreen: 2099, raiz: 1899 };

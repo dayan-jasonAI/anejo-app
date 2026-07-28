@@ -1,4 +1,12 @@
 name: CI — auth tests + lint
+# Actions pinned to v5 (2026-07-28): v4 targets the Node 20 runtime, which GitHub has deprecated
+# and now force-runs on Node 24 with a warning on every run. v5 is the first major of both actions
+# built for node24, so this removes the warning rather than deferring it.
+#
+# Deliberately v5 and not the current v7: setup-node v5 and v6 both changed automatic caching
+# behaviour, and checkout v7 blocks fork checkouts for pull_request_target/workflow_run. None of
+# those affect this workflow (caching is declared explicitly, and triggers are push/pull_request),
+# but v5 is the smallest change that fixes the deprecation — the rest can wait for a reason.
 on:
   push:
     branches: [main]
@@ -8,8 +16,8 @@ jobs:
     name: Añejo Functions — test/auth + lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm run lint
@@ -19,8 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: hub-app } }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 24, cache: npm, cache-dependency-path: hub-app/package-lock.json }
       - run: npm ci
       - run: npm run lint

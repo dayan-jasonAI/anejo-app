@@ -11,7 +11,7 @@ import { id, now, today, toJson, bit } from '../../../../_lib/hub.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
-async function gatherStats(env, day, staffId) {
+async function gatherStats(env, day, _staffId) {
   const since = new Date(`${day}T00:00:00`).getTime();
   const out = {};
   try {

@@ -8,7 +8,7 @@
 import { json, bad, id } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
-import { now, today, parseJson } from '../../../_lib/hub.js';
+import { now, today } from '../../../_lib/hub.js';
 import { raiseAlert } from '../../../_lib/alerts.js';
 import { ensureOrderBowls, fetchOrderBowls } from '../../../_lib/orderbowls.js';
 import { matchStaffByPin } from '../../../_lib/pinmatch.js';
