@@ -23,6 +23,11 @@ export const DEFAULTS = {
   lunch_start: '11:00', lunch_end: '14:00',
   dinner_start: '17:00', dinner_end: '20:00',
   service_zips: '',               // '' = unrestricted (today's real behaviour)
+  // How the area is DESCRIBED to customers. Separate from the ZIP rules on purpose: '334,330'
+  // cannot be turned into "Palm Beach & Broward" without a county lookup that would be wrong
+  // somewhere, and the owner knows how they want their market named. Losing this from the
+  // storefront is a real regression — it is the line that tells a visitor whether you reach them.
+  area_label: 'Palm Beach County',
   closed_dates: '',               // CSV of YYYY-MM-DD
 };
 
@@ -129,6 +134,7 @@ export function describe(ops) {
     lunch: `${ops.lunch_start}–${ops.lunch_end}`,
     dinner: `${ops.dinner_start}–${ops.dinner_end}`,
     area: zips.length ? `${zips.length} ZIP rule(s)` : 'Unrestricted — orders accepted from anywhere',
+    area_label: ops.area_label || '',
     closed_count: csv(ops.closed_dates).length,
   };
 }

@@ -209,13 +209,16 @@
             tfld('ls', 'Lunch starts', d.ops.lunch_start) + tfld('le', 'Lunch ends', d.ops.lunch_end) +
             tfld('ds', 'Dinner starts', d.ops.dinner_start) + tfld('de', 'Dinner ends', d.ops.dinner_end) +
           '</div></div>' +
-        '<div class="card" style="border-left:4px solid ' + (d.ops.service_zips ? 'var(--green)' : '#d64545') + '">' +
+        '<div class="card"' + (d.ops.service_zips ? '' : ' style="border-left:4px solid #d64545"') + '>' +
           '<strong>Delivery area</strong>' +
           '<div class="row-sub" style="margin-bottom:8px">' + (d.ops.service_zips
             ? 'Only these ZIPs can check out.'
             : '⚠️ <b>No area set — orders are accepted from anywhere.</b> An out-of-area customer can pay for food you cannot deliver.') + '</div>' +
           '<input id="zips" type="text" placeholder="334, 33445, 330" value="' + esc(d.ops.service_zips || '') + '" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px">' +
           '<div class="row-sub" style="margin-top:6px">Comma-separated. Use 3 digits for a whole area (<b>334</b> = Palm Beach County, <b>330</b>/<b>333</b> = Broward) or a full 5-digit ZIP. Leave blank for no limit.</div>' +
+          '<label style="display:block;margin-top:12px"><span style="font-size:11px;color:var(--green);font-weight:700">What customers see</span>' +
+            '<input id="arealbl" type="text" placeholder="Palm Beach &amp; Broward County" value="' + esc(d.ops.area_label || '') + '" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin-top:3px"></label>' +
+          '<div class="row-sub" style="margin-top:6px">Shown on /order as “Delivery only · <b>' + esc(d.ops.area_label || 'Palm Beach County') + '</b> · …”. The ZIPs above decide who can check out; this is just how you name the area.</div>' +
         '</div>' +
         '<div class="card"><strong>Closed dates</strong>' +
           '<div class="row-sub" style="margin-bottom:8px">Holidays or days off. Customers cannot pick these. ' + d.ops_summary.closed_count + ' set.</div>' +
@@ -238,7 +241,8 @@
           delivery_days: days.join(','), order_by_hour: $('#obh').value,
           lunch_start: $('#ls').value, lunch_end: $('#le').value,
           dinner_start: $('#ds').value, dinner_end: $('#de').value,
-          service_zips: $('#zips').value, closed_dates: $('#closed').value
+          service_zips: $('#zips').value, area_label: $('#arealbl').value,
+          closed_dates: $('#closed').value
         } }).then(function (r) {
           btn.disabled = false; btn.textContent = 'Save ordering settings';
           if (r && r.ok) { Hub.toast(r.open_right_now ? 'Saved — same-day ordering is open' : 'Saved — customers will order ahead'); render(); }

@@ -522,7 +522,10 @@ function paintSchedNote(){
   const label = (contiguous && days.length>2) ? D[days[0]]+'–'+D[days[days.length-1]] : days.map(function(d){return D[d];}).join(', ');
   const by=(sched && typeof sched.orderByHour === 'number') ? sched.orderByHour : 18;
   const h12=(by%12)||12, ampm=by>=12?'PM':'AM';
-  el.textContent = 'Delivery only · '+label+'. Order by '+h12+' '+ampm+' the day before.';
+  // WHERE we deliver belongs in this sentence. Generating the note originally dropped it, and that
+  // line is how a visitor decides whether Añejo reaches them at all — losing it costs orders.
+  const area=(sched && sched.areaLabel) ? sched.areaLabel : 'Palm Beach County';
+  el.textContent = 'Delivery only · '+area+' · '+label+'. Order by '+h12+' '+ampm+' the day before.';
 
   const win=$('delivWindow');
   if(win && sched && sched.windows){

@@ -36,6 +36,7 @@ export const onRequestGet = async ({ env }) => {
           lunch: { start: ops.lunch_start, end: ops.lunch_end },
           dinner: { start: ops.dinner_start, end: ops.dinner_end },
         },
+        areaLabel: ops.area_label || '',
         summary: { orderBy: d.order_by, lunch: d.lunch, dinner: d.dinner },
       },
       // Only ever surfaced when active, and it expires on its own.

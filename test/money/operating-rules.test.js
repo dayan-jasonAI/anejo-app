@@ -118,3 +118,27 @@ test('the summary names the unrestricted area explicitly', () => {
   assert.match(describe(ops()).area, /Unrestricted/i, 'the owner must be told, not left to infer');
   assert.match(describe(ops({ service_zips: '334,330' })).area, /2 ZIP/);
 });
+
+// ---- the customer-facing area label ----
+// Generating the storefront note originally DROPPED "Palm Beach County" from the page. That line
+// is how a visitor decides whether Añejo reaches them, so losing it costs orders. The label is a
+// separate setting from the ZIP rules on purpose: "334,330" cannot become "Palm Beach & Broward"
+// without a county lookup that would be wrong somewhere, and the owner knows their own market.
+
+test('there is a default area label — the line is never blank', () => {
+  assert.ok(DEFAULTS.area_label && DEFAULTS.area_label.length > 3);
+  assert.match(describe(ops()).area_label, /Palm Beach/);
+});
+
+test('the owner can rename the area without touching the ZIP rules', () => {
+  const o = ops({ service_zips: '334,330,333', area_label: 'Palm Beach & Broward County' });
+  assert.equal(describe(o).area_label, 'Palm Beach & Broward County');
+  // The label is cosmetic; enforcement still comes from the ZIPs.
+  assert.equal(zipAllowed(o, '33301').ok, true, 'Broward still allowed');
+  assert.equal(zipAllowed(o, '33169').ok, false, 'Miami still refused');
+});
+
+test('the label and the ZIP rules are independent — a wrong label cannot open the area', () => {
+  const o = ops({ service_zips: '334', area_label: 'All of Florida' });
+  assert.equal(zipAllowed(o, '33301').ok, false, 'the label is not a permission');
+});

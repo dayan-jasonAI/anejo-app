@@ -24,6 +24,7 @@ const OPS_KEYS = {
   dinner_end: (v) => String(v || '').slice(0, 5),
   // Full ZIPs and 3-digit prefixes, mixed. Empty = unrestricted.
   service_zips: (v) => String(v || '').split(',').map((x) => x.trim()).filter((x) => /^\d{3,5}$/.test(x)).join(','),
+  area_label: (v) => String(v || '').trim().slice(0, 80),
   closed_dates: (v) => String(v || '').split(',').map((x) => x.trim()).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)).join(','),
   // Epoch ms. Expires on its own so a temporary change cannot be left on by accident.
   temp_open_until: (v) => String(Math.max(0, parseInt(v, 10) || 0)),
