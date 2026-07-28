@@ -26,7 +26,20 @@ import { SEGMENTS, isSegment, resolveAudience, testRecipients } from '../../../_
 const BATCH = 25;
 const TIME_BUDGET_MS = 15000;
 
-const ADDRESS_LINE = 'Añejo Catering Co. · Palm Beach County, FL';   // CAN-SPAM: required in-message
+// CAN-SPAM requires a valid PHYSICAL POSTAL ADDRESS in every marketing message — a street address
+// or a registered PO/private mailbox. "Palm Beach County, FL" is a service area, not an address, so
+// it does not satisfy the requirement; the owner sets the real one in the HUB and it is read from
+// there. Falling back to a service area is better than an empty footer, but it is a fallback.
+const ADDRESS_FALLBACK = 'Añejo Catering Co. · Palm Beach County, FL';
+
+async function addressLine(env) {
+  try {
+    const r = await env.DB.prepare("SELECT value FROM app_settings WHERE key='campaign.postal_address'").first();
+    const v = String((r && r.value) || '').trim();
+    if (v) return v;
+  } catch { /* fall through */ }
+  return ADDRESS_FALLBACK;
+}
 const SMS_OPT_OUT = 'Reply STOP to opt out.';
 
 // ---------- message rendering ----------
@@ -43,14 +56,15 @@ function bodyHtml(text) {
     .join('');
 }
 
-// The compliance footer. emailShell() already prints the address, but this repeats it inside the
-// body on purpose: the unsubscribe link and the address have to travel together with the copy,
-// not depend on a shared template someone might restyle later.
-function marketingFooter(unsubUrl) {
+// The compliance footer. The unsubscribe link and the postal address travel together with the
+// copy rather than relying on a shared template someone might restyle later — so the shell's own
+// footer is suppressed for marketing mail (emailShell(..., {footer:false})) and this is the single
+// place the address appears.
+function marketingFooter(unsubUrl, addr) {
   return `<div style="margin-top:26px;padding-top:16px;border-top:1px solid #e6e1d4;font-size:12px;color:#8a8a8a;line-height:1.7">
     You're receiving this because you ordered from Añejo or asked us to keep you posted.
     <a href="${escHtml(unsubUrl)}" style="color:#8B6B3E">Unsubscribe from marketing email</a>.<br>
-    ${ADDRESS_LINE}
+    ${escHtml(addr || ADDRESS_FALLBACK)}
   </div>`;
 }
 
@@ -88,6 +102,8 @@ export const onRequestGet = async ({ request, env }) => {
     campaigns,
     segments: Object.keys(SEGMENTS).map((k) => ({ key: k, label: SEGMENTS[k].label, why: SEGMENTS[k].why })),
     test_recipients: (await testRecipients(env)).join(', '),
+    postal_address: await addressLine(env),
+    postal_is_fallback: (await addressLine(env)) === ADDRESS_FALLBACK,
     email_ready: !!env.RESEND_API_KEY,
     sms_ready: isTwilioConfigured(env),
   });
@@ -107,6 +123,15 @@ export const onRequestPost = async ({ request, env }) => {
   // --- Who would actually receive this, and who would not.
   // The skipped breakdown is the whole point of this op. A segment that silently shrinks is how
   // an owner ends up believing they reached an audience they never touched.
+  if (op === 'set_postal_address') {
+    const v = String((b && b.value) || '').trim().slice(0, 160);
+    await env.DB.prepare(
+      `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES ('campaign.postal_address',?,?,?)
+       ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_by=excluded.updated_by, updated_at=excluded.updated_at`
+    ).bind(v, ctx.distinct_id || null, now()).run();
+    return json({ ok: true, postal_address: v });
+  }
+
   if (op === 'set_test_recipients') {
     const raw = String((b && b.value) || '');
     const list = raw.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 5);
@@ -244,6 +269,10 @@ export const onRequestPost = async ({ request, env }) => {
       return bad('The recipient list did not save — the campaign is back to draft. Try sending again.', 409);
     }
 
+    // Resolved once per request rather than per recipient — one query for a value that cannot
+    // change mid-batch.
+    const postal = await addressLine(env);
+
     const startedAt = Date.now();
     const base = appBaseUrl(env, request).replace(/\/$/, '');
     const q = await env.DB.prepare(
@@ -271,7 +300,7 @@ export const onRequestPost = async ({ request, env }) => {
           const res = await sendEmail(env, {
             to: row.address,
             subject: c.subject || c.name,
-            html: emailShell(bodyHtml(c.body) + marketingFooter(unsub)),
+            html: emailShell(bodyHtml(c.body) + marketingFooter(unsub, postal), { footer: false }),
             unsubscribeUrl: unsub,      // List-Unsubscribe + one-click POST
           });
           // sendEmail refuses bounced/complained addresses. That is a skip, not a failure —

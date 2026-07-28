@@ -74,3 +74,45 @@ test('the contract is documented where segments are written', () => {
   assert.match(src, /\{address,\s*name,\s*source\}/, 'the shape is stated in the file, not just implied');
   assert.ok(Object.keys(SEGMENTS).length >= 5, 'all segments still registered');
 });
+
+// ---- the compliance footer ----
+// A real campaign landed in an inbox showing the SAME address line twice — once from the shared
+// email shell and once from the marketing footer. Cosmetic, but it is the footer a regulator reads.
+//
+// The address itself is a bigger issue: CAN-SPAM requires a valid PHYSICAL POSTAL ADDRESS, and
+// "Palm Beach County, FL" is a service area, not an address. It is now a setting so a real one can
+// be supplied without a deploy.
+
+test('the shell footer can be suppressed so the address appears once', async () => {
+  const { emailShell } = await import('../../functions/_lib/email.js');
+  const withFooter = emailShell('<p>hi</p>');
+  const without = emailShell('<p>hi</p>', { footer: false });
+  const count = (h) => (h.match(/Palm Beach County/g) || []).length;
+  assert.equal(count(withFooter), 1, 'transactional mail keeps its footer — unchanged');
+  assert.equal(count(without), 0, 'marketing mail prints its own, so the shell must not');
+});
+
+test('suppressing the footer does not damage the rest of the shell', async () => {
+  const { emailShell } = await import('../../functions/_lib/email.js');
+  const h = emailShell('<p>body copy</p>', { footer: false });
+  assert.match(h, /AÑEJO/, 'branding intact');
+  assert.match(h, /body copy/, 'content intact');
+});
+
+test('the campaign send resolves the postal address before using it', () => {
+  // `postal` was referenced in the send loop before it was declared — a ReferenceError at send
+  // time that node --check cannot see and no test exercised. Pin the ordering.
+  const src = readFileSync(new URL('../../functions/api/hub/owner/campaigns.js', import.meta.url), 'utf8');
+  const decl = src.indexOf('const postal = await addressLine(env)');
+  const use = src.indexOf('marketingFooter(unsub, postal)');
+  assert.ok(decl !== -1, 'postal is declared');
+  assert.ok(use !== -1, 'postal is used');
+  assert.ok(decl < use, 'and declared BEFORE it is used');
+});
+
+test('the postal address is settable, with the service area only as a fallback', () => {
+  const src = readFileSync(new URL('../../functions/api/hub/owner/campaigns.js', import.meta.url), 'utf8');
+  assert.match(src, /campaign\.postal_address/, 'read from settings');
+  assert.match(src, /op === 'set_postal_address'/, 'and writable from the HUB');
+  assert.match(src, /ADDRESS_FALLBACK/, 'with a fallback rather than an empty footer');
+});

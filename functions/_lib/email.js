@@ -78,14 +78,18 @@ export async function sendEmail(env, { to, subject, html, bypassSuppression, uns
 }
 
 // Branded wrapper so every Añejo email looks consistent.
-export function emailShell(innerHtml) {
+// `opts.footer:false` suppresses the shell's own address line. Marketing email prints its own
+// footer (the unsubscribe link and the postal address must travel together with the copy), and
+// without this the recipient sees the same address line twice — which is what a real campaign
+// looked like in an inbox. Default is unchanged, so every transactional caller is untouched.
+export function emailShell(innerHtml, opts) {
   return `<div style="background:#0b1f0a;padding:32px 0;font-family:Georgia,serif">
   <div style="max-width:520px;margin:0 auto;background:#fffdf7;border-radius:16px;overflow:hidden">
     <div style="background:#163414;padding:22px 28px;color:#C8BC6E;font-size:22px;letter-spacing:3px">AÑEJO</div>
     <div style="padding:28px;color:#1a1a1a;font-size:15px;line-height:1.6">${innerHtml}</div>
-    <div style="padding:18px 28px;color:#8a8a8a;font-size:12px;border-top:1px solid #eee">
+    ${(opts && opts.footer === false) ? '' : `<div style="padding:18px 28px;color:#8a8a8a;font-size:12px;border-top:1px solid #eee">
       Añejo Catering Co. · Palm Beach County, FL
-    </div>
+    </div>`}
   </div></div>`;
 }
 
