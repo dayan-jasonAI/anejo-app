@@ -216,6 +216,19 @@ export const onRequestPost = async ({ request, env }) => {
       ).bind(a.recipients.length, t, cid).run();
       if (!claim.meta || claim.meta.changes !== 1) return bad('That campaign is already sending.', 409);
 
+      // Every recipient MUST carry `address` — see the contract on resolveAudience. A segment that
+      // returns a different shape binds undefined here, and INSERT OR IGNORE swallows it: the
+      // campaign then claims N recipients and sits at 'sending' with an empty roster, no email, and
+      // no error anywhere. That is precisely how the first real test send failed. Fail loudly.
+      const bogus = a.recipients.filter((r) => !r || typeof r.address !== 'string' || !r.address.trim());
+      if (bogus.length) {
+        await env.DB.prepare("UPDATE campaigns SET status='draft', recipients=0, updated_at=? WHERE id=?").bind(t, cid).run();
+        return bad(
+          `Internal error: ${bogus.length} of ${a.recipients.length} recipients had no address. Nothing was sent — the campaign is back to draft.`,
+          500,
+        );
+      }
+
       const ins = env.DB.prepare(
         "INSERT OR IGNORE INTO campaign_sends (id, campaign_id, address, status, created_at) VALUES (?,?,?,'queued',?)"
       );

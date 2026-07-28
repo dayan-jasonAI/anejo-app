@@ -80,7 +80,11 @@ export async function resolveAudience(env, { segment, channel = 'email' }) {
     for (const addr of list) {
       if (channel === 'sms') { if (!/^[+0-9()\-\s]{7,}$/.test(addr)) { out.skipped.no_address++; continue; } }
       else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) { out.skipped.no_address++; continue; }
-      out.recipients.push({ name: 'Test', email: channel === 'sms' ? null : addr, phone: channel === 'sms' ? addr : null, source: 'test' });
+      // MUST match the documented contract above: { address, name, source }. Returning
+      // {email, phone} instead is what broke the first real test send — the caller binds
+      // `r.address` into campaign_sends, bound undefined, and INSERT OR IGNORE swallowed it, so the
+      // campaign claimed 1 recipient and then had an empty roster with no error anywhere.
+      out.recipients.push({ address: addr, name: 'Test', source: 'test' });
     }
     return out;
   }
