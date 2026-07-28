@@ -6,7 +6,7 @@ import { json, bad, id, appBaseUrl, normalizePhone } from '../_lib/util.js';
 import { square, squareConfigured } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress } from '../_lib/geo.js';
-import { BOWL_IDS, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
+import { BOWL_IDS, loadOrderingSettings, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 import { currentUser } from '../_lib/session.js';
 import { rewardsSummary } from '../_lib/rewards.js';
@@ -211,14 +211,17 @@ export const onRequestPost = async ({ request, env }) => {
   let win, dateStr, fulfillmentMode, fulfillLabel;
   if (onDemand) {
     fulfillmentMode = 'on_demand';
-    const w = windowState(env);
+    // Same overrides as the storefront. If only the display honored scheduled-only, a crafted
+    // request could still place a same-day order — the gate has to read the same setting.
+    const orderingSettings = await loadOrderingSettings(env);
+    const w = windowState(env, new Date(), orderingSettings);
     if (!w.open) {
       const closeDisp = w.closeMinute ? `${w.closeHour % 12 === 0 ? 12 : w.closeHour % 12}:${String(w.closeMinute).padStart(2, '0')} ${w.closeHour >= 12 ? 'PM' : 'AM'}` : fmtHour(w.closeHour);
       return bad(`On-demand ordering is open ${fmtHour(w.openHour)}–${closeDisp} ET. Please schedule a delivery instead, or order again during ordering hours.`, 409);
     }
     // Per-bowl daily production cap (launch throttle, tuned weekly). Tally the bowls in this
     // cart and reject if any would exceed what's left today. Drinks/add-ons are uncapped.
-    const { limit } = onDemandConfig(env);
+    const { limit } = onDemandConfig(env, orderingSettings);
     const remaining = await remainingByBowl(env, w.dateStr, limit).catch(() => null);
     if (remaining) {
       const want = {};

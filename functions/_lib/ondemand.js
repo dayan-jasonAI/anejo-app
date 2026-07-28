@@ -42,15 +42,37 @@ function clampMin(v, def) {
   return Number.isFinite(n) && n >= 0 && n < 60 ? n : def;
 }
 
-export function onDemandConfig(env) {
-  const raw = Math.floor(Number(env && env.ONDEMAND_BOWL_LIMIT));
+export function onDemandConfig(env, overrides) {
+  const o = overrides || {};
+  const pick = (a, b) => (a === undefined || a === null || a === '' ? b : a);
+  const raw = Math.floor(Number(pick(o.bowl_limit, env && env.ONDEMAND_BOWL_LIMIT)));
   const limit = Number.isFinite(raw) && raw >= 0 ? raw : 10;
   return {
     limit,
-    openHour: clampHour(env && env.ONDEMAND_OPEN_HOUR, 10),
-    closeHour: clampHour(env && env.ONDEMAND_CLOSE_HOUR, 19),
-    closeMinute: clampMin(env && env.ONDEMAND_CLOSE_MIN, 30),
+    openHour: clampHour(pick(o.open_hour, env && env.ONDEMAND_OPEN_HOUR), 10),
+    closeHour: clampHour(pick(o.close_hour, env && env.ONDEMAND_CLOSE_HOUR), 19),
+    closeMinute: clampMin(pick(o.close_min, env && env.ONDEMAND_CLOSE_MIN), 30),
+    // 'scheduled_only' turns same-day ordering off entirely: /order already falls back to the
+    // scheduled flow whenever availability reports closed, so this reuses a proven path rather
+    // than introducing a second way for the storefront to be shut.
+    scheduledOnly: String(pick(o.scheduled_only, env && env.ONDEMAND_SCHEDULED_ONLY)) === '1',
   };
+}
+
+/**
+ * Read owner-set overrides from D1. Returns {} on any failure so the storefront falls back to env
+ * defaults rather than breaking — the same last-known-good rule the menu uses.
+ */
+export async function loadOrderingSettings(env) {
+  if (!env || !env.DB) return {};
+  try {
+    const r = await env.DB.prepare(
+      "SELECT key, value FROM app_settings WHERE key LIKE 'ordering.%'"
+    ).all();
+    const out = {};
+    for (const row of (r && r.results) || []) out[String(row.key).replace('ordering.', '')] = row.value;
+    return out;
+  } catch { return {}; }
 }
 
 // Current wall-clock in Añejo's operating timezone (America/New_York), DST-correct, so the
@@ -66,12 +88,14 @@ export function etParts(d = new Date()) {
 }
 
 // Is on-demand ordering open right now? Returns the window bounds + today's ET date.
-export function windowState(env, d = new Date()) {
-  const { openHour, closeHour, closeMinute } = onDemandConfig(env);
+export function windowState(env, d = new Date(), overrides) {
+  const { openHour, closeHour, closeMinute, scheduledOnly } = onDemandConfig(env, overrides);
   const { hour, minute, dateStr } = etParts(d);
   const nowMin = hour * 60 + minute;
-  const open = nowMin >= openHour * 60 && nowMin < closeHour * 60 + closeMinute;
-  return { open, openHour, closeHour, closeMinute, dateStr };
+  const inWindow = nowMin >= openHour * 60 && nowMin < closeHour * 60 + closeMinute;
+  // Scheduled-only wins over the clock: the owner has said "no same-day", so the window is moot.
+  const open = scheduledOnly ? false : inWindow;
+  return { open, openHour, closeHour, closeMinute, dateStr, scheduledOnly: !!scheduledOnly };
 }
 
 // Remaining capacity per bowl for a given ET day: cap minus the bowls already committed today.

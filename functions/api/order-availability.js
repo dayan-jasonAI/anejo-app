@@ -3,11 +3,13 @@
 // bowl are still available today against the daily production cap. Checkout re-checks both,
 // so this is display-only and safe to cache for a few seconds at most.
 import { json } from '../_lib/util.js';
-import { onDemandConfig, windowState, remainingByBowl, BOWL_IDS } from '../_lib/ondemand.js';
+import { loadOrderingSettings, onDemandConfig, windowState, remainingByBowl, BOWL_IDS } from '../_lib/ondemand.js';
 
 export const onRequestGet = async ({ env }) => {
-  const { limit } = onDemandConfig(env);
-  const w = windowState(env);
+  // Owner overrides from D1 (scheduled-only, window, cap) with env as the fallback.
+  const settings = await loadOrderingSettings(env);
+  const { limit } = onDemandConfig(env, settings);
+  const w = windowState(env, new Date(), settings);
   let remaining;
   try {
     remaining = await remainingByBowl(env, w.dateStr, limit);

@@ -157,6 +157,65 @@
   }
 
   // ---------- shell ----------
+
+  // ---- Ordering mode ----------------------------------------------------------------
+  // How the storefront takes orders. These were environment variables, so switching to
+  // scheduled-ahead-only meant a developer, a secret change and a redeploy. It is an operating
+  // decision, so it belongs here. Both /order and the checkout gate read these live — no deploy.
+  function paintOrdering() {
+    var pane = $('#pane');
+    pane.innerHTML = '<div class="hub-loading">…</div>';
+    Owner.get('/api/hub/owner/ordering').then(function (d) {
+      if (!d || !d.ok) { pane.innerHTML = '<div class="hub-empty">Could not load ordering settings.</div>'; return; }
+      var so = !!d.scheduled_only;
+      pane.innerHTML =
+        // State first, setting second: an owner needs to know what a customer sees RIGHT NOW,
+        // not just what the toggle says.
+        '<div class="card" style="border-left:4px solid ' + (d.open_right_now ? '#2c6b3f' : '#8a6d12') + '">' +
+          '<strong>' + (d.open_right_now ? '🟢 Same-day ordering is OPEN right now' : '🟡 Same-day ordering is CLOSED right now') + '</strong>' +
+          '<div class="row-sub">' + (so
+            ? 'Scheduled-ahead only — customers pick a future day. Same-day is off regardless of the clock.'
+            : 'Customers can order for today between the hours below.') + '</div>' +
+        '</div>' +
+        '<label class="card" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">' +
+          '<input type="checkbox" id="so" ' + (so ? 'checked' : '') + ' style="width:auto;margin-top:3px">' +
+          '<span><strong>Scheduled-ahead orders only</strong>' +
+          '<div class="row-sub">Turns off same-day ordering completely. Customers order for a future day instead. ' +
+          'Use it when the kitchen is at capacity or you are away.</div></span></label>' +
+        '<div class="card" id="win" style="' + (so ? 'opacity:.45' : '') + '">' +
+          '<div class="row-sub" style="margin-bottom:8px">Same-day window (Eastern) and daily cap per bowl.</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
+            fld2('oh', 'Opens (hour)', d.open_hour, 0, 23) +
+            fld2('ch', 'Closes (hour)', d.close_hour, 0, 23) +
+            fld2('cm', 'Closes (min)', d.close_min, 0, 59) +
+          '</div>' +
+          '<div style="margin-top:8px">' + fld2('bl', 'Max per bowl, per day', d.bowl_limit, 0, 999) + '</div>' +
+        '</div>' +
+        '<button class="btn primary block" id="saveOrd">Save ordering settings</button>' +
+        (d.using_defaults ? '<div class="row-sub" style="margin-top:6px">Currently using the built-in defaults — nothing has been set here yet.</div>' : '');
+
+      $('#so').addEventListener('change', function () {
+        $('#win').style.opacity = this.checked ? '.45' : '';
+      });
+      $('#saveOrd').addEventListener('click', function () {
+        var btn = this; btn.disabled = true; btn.textContent = 'Saving…';
+        Hub.api('/api/hub/owner/ordering', { method: 'POST', body: {
+          scheduled_only: $('#so').checked,
+          open_hour: $('#oh').value, close_hour: $('#ch').value,
+          close_min: $('#cm').value, bowl_limit: $('#bl').value
+        } }).then(function (r) {
+          btn.disabled = false; btn.textContent = 'Save ordering settings';
+          if (r && r.ok) { Hub.toast(r.open_right_now ? 'Saved — same-day ordering is open' : 'Saved — customers will order ahead'); render(); }
+          else Hub.toast((r && r.error) || 'Could not save');
+        });
+      });
+    });
+  }
+  function fld2(id, label, val, min, max) {
+    return '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">' + label + '</label>' +
+      '<input id="' + id + '" type="number" min="' + min + '" max="' + max + '" value="' + val + '" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px"></div>';
+  }
+
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML = '<div class="hub-section">' + banners() +
@@ -166,6 +225,7 @@
       { k: 'drink', label: 'Drinks' },
       { k: 'addon', label: 'Add-ons' },
       { k: 'mods',  label: 'Extras' },
+      { k: 'order', label: 'Ordering' },
       { k: 'new',   label: '+ New item' },
       { k: 'log',   label: 'Changes' }
     ].map(function (d) {
@@ -174,7 +234,8 @@
     $('#chips').querySelectorAll('[data-v]').forEach(function (b) {
       b.addEventListener('click', function () { view = b.getAttribute('data-v'); render(); });
     });
-    if (view === 'mods') paintMods();
+    if (view === 'order') paintOrdering();
+    else if (view === 'mods') paintMods();
     else if (view === 'new') paintNew();
     else if (view === 'log') paintLog();
     else paintItems(view);

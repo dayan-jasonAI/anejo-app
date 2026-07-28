@@ -23,6 +23,16 @@ const EXTRA_ENDPOINTS = {
   '30 0 * * *': ['/api/hub/admin/ops-report?type=eod_dinner'],   // ≈ 8:30pm ET — end of dinner service
   '0 12 * * 0': ['/api/hub/admin/ops-report?type=weekly_summary'], // Sundays ≈ 8am ET — weekly summary
   '0 10 * * 1': ['/api/hub/admin/backup'],
+  // Contract cutoff check — "has every site sent today's lunch count?" — fired a few minutes
+  // BEFORE the 09:15 cutoff, while there is still time to send one text.
+  //
+  // TWO UTC hours on purpose: 13:03 is 09:03 ET in summer (EDT), 14:03 is 09:03 ET in winter
+  // (EST). The endpoint checks the ET clock itself and no-ops outside the pre-cutoff window, so
+  // exactly one of these does real work on any given day and the check never drifts across a
+  // daylight-saving change. For a deadline-driven job that drift is the difference between
+  // useful and actively misleading.
+  '3 13 * * 1,2,3,4,5': ['/api/hub/admin/cutoff-check'],
+  '3 14 * * 1,2,3,4,5': ['/api/hub/admin/cutoff-check'],
 };
 
 // Endpoints POSTed on EVERY minute tick (frequent sweeps).
