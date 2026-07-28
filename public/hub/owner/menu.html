@@ -191,6 +191,36 @@
           '</div>' +
           '<div style="margin-top:8px">' + fld2('bl', 'Max per bowl, per day', d.bowl_limit, 0, 999) + '</div>' +
         '</div>' +
+        // ---- operating rules: where, which days, the deadline, the windows, closures ----
+        '<div class="card"><strong>Delivery days</strong>' +
+          '<div class="row-sub" style="margin-bottom:8px">Which weekdays customers can choose. Unticking a day removes it from the storefront.</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:10px">' +
+            ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function (n, i) {
+              return '<label style="display:flex;align-items:center;gap:5px;font-size:13px">' +
+                '<input type="checkbox" class="dd" value="' + i + '" ' + ((d.ops_days || []).indexOf(i) !== -1 ? 'checked' : '') +
+                ' style="width:auto"> ' + n + '</label>';
+            }).join('') +
+          '</div></div>' +
+        '<div class="card"><strong>Order-by deadline &amp; windows</strong>' +
+          '<div class="row-sub" style="margin-bottom:8px">The deadline applies to the NEXT delivery day. Currently: ' + esc(d.ops_summary.order_by) + '.</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+            fld2('obh', 'Order by (hour, 0-23)', d.ops.order_by_hour, 0, 23) +
+            '<div></div>' +
+            tfld('ls', 'Lunch starts', d.ops.lunch_start) + tfld('le', 'Lunch ends', d.ops.lunch_end) +
+            tfld('ds', 'Dinner starts', d.ops.dinner_start) + tfld('de', 'Dinner ends', d.ops.dinner_end) +
+          '</div></div>' +
+        '<div class="card" style="border-left:4px solid ' + (d.ops.service_zips ? 'var(--green)' : '#d64545') + '">' +
+          '<strong>Delivery area</strong>' +
+          '<div class="row-sub" style="margin-bottom:8px">' + (d.ops.service_zips
+            ? 'Only these ZIPs can check out.'
+            : '⚠️ <b>No area set — orders are accepted from anywhere.</b> An out-of-area customer can pay for food you cannot deliver.') + '</div>' +
+          '<input id="zips" type="text" placeholder="334, 33445, 330" value="' + esc(d.ops.service_zips || '') + '" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px">' +
+          '<div class="row-sub" style="margin-top:6px">Comma-separated. Use 3 digits for a whole area (<b>334</b> = Palm Beach County, <b>330</b>/<b>333</b> = Broward) or a full 5-digit ZIP. Leave blank for no limit.</div>' +
+        '</div>' +
+        '<div class="card"><strong>Closed dates</strong>' +
+          '<div class="row-sub" style="margin-bottom:8px">Holidays or days off. Customers cannot pick these. ' + d.ops_summary.closed_count + ' set.</div>' +
+          '<input id="closed" type="text" placeholder="2026-12-25, 2027-01-01" value="' + esc(d.ops.closed_dates || '') + '" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px">' +
+        '</div>' +
         '<button class="btn primary block" id="saveOrd">Save ordering settings</button>' +
         (d.using_defaults ? '<div class="row-sub" style="margin-top:6px">Currently using the built-in defaults — nothing has been set here yet.</div>' : '');
 
@@ -199,10 +229,16 @@
       });
       $('#saveOrd').addEventListener('click', function () {
         var btn = this; btn.disabled = true; btn.textContent = 'Saving…';
+        var days = [];
+        document.querySelectorAll('.dd').forEach(function (c) { if (c.checked) days.push(c.value); });
         Hub.api('/api/hub/owner/ordering', { method: 'POST', body: {
           scheduled_only: $('#so').checked,
           open_hour: $('#oh').value, close_hour: $('#ch').value,
-          close_min: $('#cm').value, bowl_limit: $('#bl').value
+          close_min: $('#cm').value, bowl_limit: $('#bl').value,
+          delivery_days: days.join(','), order_by_hour: $('#obh').value,
+          lunch_start: $('#ls').value, lunch_end: $('#le').value,
+          dinner_start: $('#ds').value, dinner_end: $('#de').value,
+          service_zips: $('#zips').value, closed_dates: $('#closed').value
         } }).then(function (r) {
           btn.disabled = false; btn.textContent = 'Save ordering settings';
           if (r && r.ok) { Hub.toast(r.open_right_now ? 'Saved — same-day ordering is open' : 'Saved — customers will order ahead'); render(); }
@@ -210,6 +246,10 @@
         });
       });
     });
+  }
+  function tfld(id, label, val) {
+    return '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">' + label + '</label>' +
+      '<input id="' + id + '" type="time" value="' + (val || '') + '" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px"></div>';
   }
   function fld2(id, label, val, min, max) {
     return '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">' + label + '</label>' +

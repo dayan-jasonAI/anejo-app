@@ -7,6 +7,7 @@ import { square, squareConfigured } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress } from '../_lib/geo.js';
 import { BOWL_IDS, loadOrderingSettings, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
+import { loadOperating, zipAllowed, scheduleOpenFor } from '../_lib/operating.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 import { currentUser } from '../_lib/session.js';
 import { rewardsSummary } from '../_lib/rewards.js';
@@ -261,6 +262,21 @@ export const onRequestPost = async ({ request, env }) => {
   const parsed = parseAddress(b.address);
   if (parsed.error) return bad(parsed.error);
   const addr = parsed.addr;
+
+  // SERVICE AREA. Until now this was a comment ("we deliver within Palm Beach County") and nothing
+  // else — every 5-digit ZIP was accepted, which is how an order arrived from Miami. Someone out
+  // of state could pay for food that cannot reach them and we would be holding their money.
+  //
+  // Empty setting = unrestricted, i.e. exactly today's behaviour, so this cannot start rejecting
+  // real customers the moment it deploys. The owner turns it on in the HUB.
+  const ops = await loadOperating(env);
+  const area = zipAllowed(ops, addr.zip);
+  if (!area.ok) {
+    return bad(
+      `We don't deliver to ${addr.zip} yet. We're adding areas as we grow — email hola@anejocateringco.com and we'll tell you the moment we reach you.`,
+      422,
+    );
+  }
   const addrLine = formatAddress({ street: addr.street, unit: addr.unit, city: addr.city, state: addr.state, zip: addr.zip });
 
   // Customer contact — a first name is REQUIRED so every order is identifiable for the kitchen
