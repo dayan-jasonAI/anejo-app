@@ -18,7 +18,7 @@ import { json, bad, id, now, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml } from '../../../_lib/email.js';
 import { sendSms, isTwilioConfigured } from '../../../_lib/twilio.js';
-import { SEGMENTS, isSegment, resolveAudience } from '../../../_lib/audience.js';
+import { SEGMENTS, isSegment, resolveAudience, testRecipients } from '../../../_lib/audience.js';
 
 // A Worker has a wall-clock budget. A 500-recipient campaign therefore cannot be one request —
 // it is many small ones, each resumable, driven by the page. Half-sent-and-lost is the failure
@@ -87,6 +87,7 @@ export const onRequestGet = async ({ request, env }) => {
     ok: true,
     campaigns,
     segments: Object.keys(SEGMENTS).map((k) => ({ key: k, label: SEGMENTS[k].label, why: SEGMENTS[k].why })),
+    test_recipients: (await testRecipients(env)).join(', '),
     email_ready: !!env.RESEND_API_KEY,
     sms_ready: isTwilioConfigured(env),
   });
@@ -106,6 +107,20 @@ export const onRequestPost = async ({ request, env }) => {
   // --- Who would actually receive this, and who would not.
   // The skipped breakdown is the whole point of this op. A segment that silently shrinks is how
   // an owner ends up believing they reached an audience they never touched.
+  if (op === 'set_test_recipients') {
+    const raw = String((b && b.value) || '');
+    const list = raw.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 5);
+    // NB: not named `bad` — that is the imported error helper, and shadowing it here would turn
+    // `return bad(...)` into calling an array.
+    const invalid = list.filter((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x) && !/^[+0-9()\-\s]{7,}$/.test(x));
+    if (invalid.length) return bad(`Not a valid email or phone: ${invalid[0]}`);
+    await env.DB.prepare(
+      `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES ('campaign.test_recipients',?,?,?)
+       ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_by=excluded.updated_by, updated_at=excluded.updated_at`
+    ).bind(list.join(','), ctx.distinct_id || null, now()).run();
+    return json({ ok: true, test_recipients: list.join(', ') });
+  }
+
   if (op === 'preview') {
     const segment = (b.segment || '').toString();
     const channel = b.channel === 'sms' ? 'sms' : 'email';

@@ -16,7 +16,22 @@ export const SEGMENTS = {
   past_customers: { label: 'Past customers', why: 'Anyone with a paid order. Existing business relationship.' },
   subscribers: { label: 'Active subscribers', why: 'Current weekly-plan members.' },
   all: { label: 'Everyone reachable', why: 'The union of the above, de-duplicated by address.' },
+  // A send-to-myself segment, so a real campaign can be rehearsed end to end — subject line,
+  // paragraph breaks, the footer, the unsubscribe link — WITHOUT touching a customer. Every other
+  // segment is derived from customer data; this one is an explicit list the owner sets, which is
+  // why it is the only segment that does not consult marketing consent: you do not need your own
+  // permission to email yourself. Suppression is still honoured, so a bounced address stays quiet.
+  test: { label: 'Test — just me', why: 'Sends only to the addresses you set below. Use it to see exactly what a customer would receive.' },
 };
+
+// Owner-set test recipients (app_settings key 'campaign.test_recipients', comma separated).
+export async function testRecipients(env) {
+  if (!env || !env.DB) return [];
+  try {
+    const r = await env.DB.prepare("SELECT value FROM app_settings WHERE key='campaign.test_recipients'").first();
+    return String((r && r.value) || '').split(',').map((x) => x.trim()).filter(Boolean);
+  } catch { return []; }
+}
 export const isSegment = (s) => Object.prototype.hasOwnProperty.call(SEGMENTS, s);
 
 const email = (e) => String(e == null ? '' : e).trim().toLowerCase();
@@ -55,6 +70,20 @@ async function optedOut(env, channel) {
 export async function resolveAudience(env, { segment, channel = 'email' }) {
   const empty = { recipients: [], skipped: { no_consent: 0, unsubscribed: 0, no_address: 0 } };
   if (!env || !env.DB || !isSegment(segment)) return empty;
+
+  // The test segment short-circuits the customer queries entirely. It must never be able to reach
+  // a real customer by accident, so it is built ONLY from the explicit list — not filtered down
+  // from one.
+  if (segment === 'test') {
+    const list = await testRecipients(env);
+    const out = { recipients: [], skipped: { no_consent: 0, unsubscribed: 0, no_address: 0 } };
+    for (const addr of list) {
+      if (channel === 'sms') { if (!/^[+0-9()\-\s]{7,}$/.test(addr)) { out.skipped.no_address++; continue; } }
+      else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) { out.skipped.no_address++; continue; }
+      out.recipients.push({ name: 'Test', email: channel === 'sms' ? null : addr, phone: channel === 'sms' ? addr : null, source: 'test' });
+    }
+    return out;
+  }
   const isSms = channel === 'sms';
   const consentCol = isSms ? 'marketing_sms_consent' : 'marketing_email_consent';
 

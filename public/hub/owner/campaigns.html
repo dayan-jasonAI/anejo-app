@@ -247,6 +247,14 @@
           '</select></div>' +
         '</div>' +
         '<p class="hint" id="segwhy"></p>' +
+        // Shown only when the test segment is selected. An always-visible field for a setting you
+        // touch twice a year is clutter; this one only matters at the moment you are testing.
+        (draft.segment === 'test'
+          ? '<div class="form-row"><label>Send test to</label>' +
+            '<input id="f_testto" autocomplete="off" placeholder="you@example.com" value="' + esc(data.test_recipients || '') + '">' +
+            '<p class="hint">Comma-separated, max 5. Only these addresses receive it — no customer is touched. ' +
+            'Consent is not checked here (you do not need your own permission to email yourself), but a bounced address is still skipped.</p></div>'
+          : '') +
         '<div class="form-row" id="subjrow" style="' + (isSms ? 'display:none' : '') + '">' +
           '<label data-i18n>Subject line</label><input id="f_subj" autocomplete="off" value="' + esc(draft.subject) + '"></div>' +
         '<div class="form-row"><label data-i18n>Message</label>' +
@@ -272,9 +280,10 @@
       collect(); render();
     });
     $('#f_seg').addEventListener('change', function () {
-      draft.segment = $('#f_seg').value; collect(); paintSegWhy(); loadPreview();
+      draft.segment = $('#f_seg').value; collect(); render(); loadPreview();
     });
     $('#f_body').addEventListener('input', paintBodyHint);
+    bindTestTo();
     $('#f_save').addEventListener('click', function () { collect(); save().then(function (ok) { if (ok) { $('#msg').textContent = 'Draft saved.'; load(); } }); });
     $('#f_send').addEventListener('click', function () { collect(); startSend(); });
     refresh();
@@ -303,6 +312,20 @@
     } else {
       el.textContent = n + ' characters. A blank line starts a new paragraph.';
     }
+  }
+
+  // Save the test recipients as soon as focus leaves the field, so the setting is not lost if the
+  // page reloads before a send.
+  function bindTestTo() {
+    var el = document.getElementById('f_testto');
+    if (!el) return;
+    el.addEventListener('blur', function () {
+      Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: { op: 'set_test_recipients', value: el.value } })
+        .then(function (r) {
+          if (r && r.ok) { data.test_recipients = r.test_recipients; Hub.toast('Test recipients saved'); }
+          else Hub.toast((r && r.error) || 'Could not save');
+        });
+    });
   }
 
   function collect() {

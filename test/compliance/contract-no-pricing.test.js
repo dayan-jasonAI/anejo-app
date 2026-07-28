@@ -86,3 +86,24 @@ test('invoicing still has the numbers it needs', () => {
   assert.ok(LIB.includes('rush_fee_cents=excluded.rush_fee_cents'), 'fees still persisted per order');
   assert.ok(/INSERT INTO contract_orders|contract_orders\s*\n/.test(LIB), 'orders still store money');
 });
+
+// ---- the campaign test segment ----
+// A send-to-myself segment so a real campaign can be rehearsed end to end without touching a
+// customer. It is the ONLY segment not derived from customer data, and the only one that skips the
+// marketing-consent check — you do not need your own permission to email yourself. That exemption
+// is exactly why it must be impossible for it to reach anyone but the configured addresses.
+import { SEGMENTS, isSegment } from '../../functions/_lib/audience.js';
+
+test('the test segment exists and is selectable', () => {
+  assert.ok(isSegment('test'));
+  assert.match(SEGMENTS.test.label, /test/i);
+});
+
+test('the test segment is built from an explicit list, never filtered from customers', () => {
+  const src = readFileSync(new URL('../../functions/_lib/audience.js', import.meta.url), 'utf8');
+  const block = src.slice(src.indexOf("if (segment === 'test')"), src.indexOf("if (segment === 'test')") + 700);
+  assert.ok(block.includes('testRecipients'), 'reads the explicit list');
+  assert.ok(!/FROM (clients|leads|orders|subscriptions)/i.test(block),
+    'must not query customer tables — an exempt segment that can select customers is a consent hole');
+  assert.ok(block.includes('return out'), 'returns before the customer queries run');
+});
