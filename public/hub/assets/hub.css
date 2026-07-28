@@ -28,6 +28,7 @@
   --radius-sm: 8px;
   --shadow: 0 1px 3px rgba(13, 13, 13, .08);
   --nav-h: 60px;
+  --nav-gap: 24px;   /* clearance between the last content and the fixed nav */
   --pad: 16px;
   --max: 1100px;
 }
@@ -41,7 +42,18 @@ body {
   background: var(--cream);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
-  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+  /* Clear the fixed bottom nav — plus real breathing room.
+     This used to be EXACTLY the nav height, so the last row of every page ended flush against the
+     bar: technically scrollable into view, visually cut off, and impossible to tap comfortably.
+     The extra --nav-gap means the final item always sits clear of the bar instead of touching it. */
+  padding-bottom: calc(var(--nav-h) + var(--nav-gap) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Anything the page pins to the bottom itself (action bars, sticky totals) must sit ABOVE the nav,
+   not under it. Pages that add their own fixed footer should use this offset rather than
+   hard-coding a number that drifts when --nav-h changes. */
+.hub-above-nav {
+  bottom: calc(var(--nav-h) + var(--nav-gap) + env(safe-area-inset-bottom, 0px));
 }
 
 a { color: var(--green); }

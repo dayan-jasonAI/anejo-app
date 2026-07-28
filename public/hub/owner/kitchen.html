@@ -106,8 +106,11 @@
       var el = document.getElementById('kfeed');
       if (!d || !d.ok || !d.items.length) { el.innerHTML = '<div class="hub-empty" data-i18n>No kitchen activity yet.</div>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
       el.innerHTML = d.items.map(function (it) {
-        return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(it.event) + '</div>' +
-          '<div class="row-sub">' + Owner.esc(it.actor_role || it.actor_type || '') + ' · ' + Owner.timeAgo(it.created_at) + '</div></div></div>';
+        // Person first, then what they did. The old version led with the event key and showed the
+        // ROLE underneath, so three sign-ins in a row read as "user.signed_in / kitchen" three times
+        // and identified nobody.
+        return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(it.actor || 'Someone') + '</div>' +
+          '<div class="row-sub">' + Owner.esc(it.label || it.event) + ' · ' + Owner.timeAgo(it.created_at) + '</div></div></div>';
       }).join('');
     });
   }

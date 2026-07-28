@@ -1,5 +1,6 @@
 // GET /api/hub/owner/activity — the live feed for the command center, read from activity_log.
 // Owner-only. Query: ?limit=50 (max 200), ?event=<exact>, ?team=<team>, ?before=<unix-ms cursor>.
+import { eventLabel, actorLabel } from '../../../_lib/activity_labels.js';
 import { json } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { parseJson } from '../../../_lib/hub.js';
@@ -28,7 +29,11 @@ export const onRequestGet = async ({ request, env }) => {
   let rows = [];
   try {
     const res = await env.DB
-      .prepare(`SELECT id, event, actor_id, actor_role, actor_type, team, properties, created_at FROM activity_log ${clause} ORDER BY created_at DESC LIMIT ?`)
+      .prepare(`SELECT a.id, a.event, a.actor_id, a.actor_role, a.actor_type, a.team, a.properties, a.created_at,
+                 st.name AS actor_name
+            FROM activity_log a LEFT JOIN staff st ON st.id = a.actor_id
+            ${clause.replace(/\b(created_at|event|actor_role|team)\b/g, 'a.$1')}
+           ORDER BY a.created_at DESC LIMIT ?`)
       .bind(...binds, limit)
       .all();
     rows = (res && res.results) || [];
@@ -39,6 +44,11 @@ export const onRequestGet = async ({ request, env }) => {
   const items = rows.map((r) => ({
     id: r.id,
     event: r.event,
+    // Readable versions, computed here so every consumer of this feed gets them and no page has
+    // to keep its own copy of the mapping.
+    label: eventLabel(r.event),
+    actor: actorLabel(r),
+    actor_name: r.actor_name || null,
     actor_id: r.actor_id,
     actor_role: r.actor_role,
     actor_type: r.actor_type,

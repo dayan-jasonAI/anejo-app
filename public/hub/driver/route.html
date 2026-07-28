@@ -69,7 +69,9 @@
 
 <!-- Delivery action sheet -->
 <div id="sheet-backdrop"></div>
-<div id="sheet" class="card accent" style="display:none;position:fixed;left:12px;right:12px;bottom:16px;max-width:560px;margin:0 auto;z-index:50;">
+<!-- bottom offset comes from .hub-above-nav: at a hard 16px this action sheet sat UNDER the
+     fixed nav, hiding the buttons a driver taps on every stop. -->
+<div id="sheet" class="card accent hub-above-nav" style="display:none;position:fixed;left:12px;right:12px;max-width:560px;margin:0 auto;z-index:50;">
   <div class="sheet-grab"></div>
   <h2 class="row-title" id="sheet-title">Stop</h2>
   <div id="sheet-mode-deliver">
