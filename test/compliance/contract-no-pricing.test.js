@@ -101,7 +101,12 @@ test('the test segment exists and is selectable', () => {
 
 test('the test segment is built from an explicit list, never filtered from customers', () => {
   const src = readFileSync(new URL('../../functions/_lib/audience.js', import.meta.url), 'utf8');
-  const block = src.slice(src.indexOf("if (segment === 'test')"), src.indexOf("if (segment === 'test')") + 700);
+  // Slice to where the NORMAL path begins, not a magic character count — a fixed window silently
+  // stops covering the block the moment a comment is added, which is how this test broke once.
+  const start = src.indexOf("if (segment === 'test')");
+  const end = src.indexOf('const isSms', start);
+  assert.ok(start !== -1 && end > start, 'could not locate the test-segment block');
+  const block = src.slice(start, end);
   assert.ok(block.includes('testRecipients'), 'reads the explicit list');
   assert.ok(!/FROM (clients|leads|orders|subscriptions)/i.test(block),
     'must not query customer tables — an exempt segment that can select customers is a consent hole');
