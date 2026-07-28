@@ -255,6 +255,17 @@
             '<p class="hint">Comma-separated, max 5. Only these addresses receive it — no customer is touched. ' +
             'Consent is not checked here (you do not need your own permission to email yourself), but a bounced address is still skipped.</p></div>'
           : '') +
+        // Compliance surfaced where the send actually happens, not buried in a settings page.
+        // Email only — CAN-SPAM governs email; SMS carries its own STOP disclosure instead.
+        // Shown ONLY while the fallback is in use; once a real address is set this goes quiet.
+        ((!isSms && data.postal_is_fallback)
+          ? '<div class="form-row" style="border-left:4px solid #d64545;padding-left:10px">' +
+            '<label>Postal address on marketing email</label>' +
+            '<input id="f_postal" autocomplete="off" placeholder="1234 Okeechobee Blvd, Suite 200, West Palm Beach, FL 33401">' +
+            '<p class="hint">Currently <b>' + esc(data.postal_address || '') + '</b> — a county is not a postal address, so ' +
+            'marketing email does not yet meet CAN-SPAM. A <b>PO Box</b> or a <b>virtual mailbox</b> both satisfy it; ' +
+            'you do not have to publish your home address. Fine to leave while you are only testing yourself.</p></div>'
+          : '') +
         '<div class="form-row" id="subjrow" style="' + (isSms ? 'display:none' : '') + '">' +
           '<label data-i18n>Subject line</label><input id="f_subj" autocomplete="off" value="' + esc(draft.subject) + '"></div>' +
         '<div class="form-row"><label data-i18n>Message</label>' +
@@ -284,6 +295,18 @@
     });
     $('#f_body').addEventListener('input', paintBodyHint);
     bindTestTo();
+    (function () {
+      var pa = document.getElementById('f_postal');
+      if (!pa) return;
+      pa.addEventListener('blur', function () {
+        if (!pa.value.trim()) return;
+        Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: { op: 'set_postal_address', value: pa.value } })
+          .then(function (r) {
+            if (r && r.ok) { Hub.toast('Postal address saved'); load(); }
+            else Hub.toast((r && r.error) || 'Could not save');
+          });
+      });
+    })();
     $('#f_save').addEventListener('click', function () { collect(); save().then(function (ok) { if (ok) { $('#msg').textContent = 'Draft saved.'; load(); } }); });
     $('#f_send').addEventListener('click', function () { collect(); startSend(); });
     refresh();
