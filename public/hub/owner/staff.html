@@ -63,6 +63,11 @@
           '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
           '<select data-act="role" style="padding:6px;border-radius:8px">' + opt(ROLES, s.role) + '</select>' +
           '<select data-act="team" style="padding:6px;border-radius:8px"><option value="">— team —</option>' + opt(TEAMS, s.team) + '</select>' +
+          // Which language every automated message to this person goes out in. Defaults to 'en' at
+          // creation and used to be unchangeable, so Spanish-speaking staff silently got English.
+          '<select data-act="lang" title="Language for texts sent to them" style="padding:6px;border-radius:8px">' +
+            '<option value="en"' + (s.lang === 'es' ? '' : ' selected') + '>🗣 EN</option>' +
+            '<option value="es"' + (s.lang === 'es' ? ' selected' : '') + '>🗣 ES</option></select>' +
           (s.role === 'vendor' ? '<input data-act="lead_time_days" type="number" min="0" max="60" placeholder="lead days" value="' + (s.lead_time_days != null ? s.lead_time_days : '') + '" title="Vendor lead time (days) — used for Ops order timing" style="width:96px;padding:6px;border-radius:8px">' : '') +
           '<button class="btn ghost" data-act="lead">' + (s.is_lead ? 'Unset lead' : 'Make lead') + '</button>' +
           '<button class="btn ghost" data-act="pin">Reset PIN</button>' +
@@ -150,15 +155,45 @@
       });
     });
 
+
+  // Send the reminder. Shows the exact text that went out — an owner should never wonder what was
+  // said in their name, and seeing it is what stops a "nudge" from drifting into something sharper.
+  window.__nudge = function (btn, staffId) {
+    if (btn.disabled) return;
+    var original = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = 'Sending…';
+    Hub.api('/api/hub/owner/nudge', { method: 'POST', body: { staff_id: staffId, kind: 'clock_out' } })
+      .then(function (r) {
+        if (r && r.ok) {
+          btn.innerHTML = '✅ Sent to ' + Owner.esc(r.sent_to);
+          Hub.toast(r.preview, 7000);
+        } else {
+          btn.disabled = false; btn.innerHTML = original;
+          Hub.toast((r && r.error) || 'Could not send the reminder');
+        }
+      })
+      .catch(function () { btn.disabled = false; btn.innerHTML = original; Hub.toast('Could not send the reminder'); });
+  };
+
     Owner.get('/api/hub/owner/staff-status').then(function (d) {
       var el = document.getElementById('shifts');
       if (!d || !d.ok || !d.on_shift.length) { el.innerHTML = '<div class="hub-empty" data-i18n>Nobody clocked in.</div>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
       el.innerHTML = d.on_shift.map(function (s) {
         var late = s.minutes_late ? Owner.badge(s.minutes_late + 'm late', 'warn') : '';
+        var mins = s.elapsed_minutes || 0;
+        var hrs = mins / 60;
+        // A shift running past a plausible workday is almost always a forgotten clock-out, not
+        // someone still working. Say how long in hours/days once it stops being a normal number —
+        // "6203m" is technically the answer and tells you nothing.
+        var longRun = hrs >= 12
+          ? Owner.badge(hrs >= 24 ? (Math.floor(hrs / 24) + 'd ' + Math.round(hrs % 24) + 'h open') : (Math.round(hrs) + 'h open'), 'warn')
+          : '';
+        var dur = hrs >= 12 ? (hrs >= 24 ? (hrs / 24).toFixed(1) + ' days' : Math.round(hrs) + ' hrs') : mins + 'm';
         return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(s.name || s.staff_id) + '</div>' +
           '<div class="row-sub">' + Owner.esc(s.role || '') + (s.team ? ' · ' + Owner.esc(s.team) : '') +
-          ' · in ' + Owner.clock(s.clock_in_at) + ' (' + (s.elapsed_minutes != null ? s.elapsed_minutes + 'm' : '') + ')</div></div>' +
-          late + '</div>';
+          ' · in ' + Owner.clock(s.clock_in_at) + ' (' + dur + ')</div>' +
+          '<button class="btn small" style="margin-top:6px" onclick="__nudge(this,\'' + Owner.esc(s.staff_id) + '\')">👋 Remind to clock out</button>' +
+          '</div>' + longRun + late + '</div>';
       }).join('');
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });

@@ -19,7 +19,7 @@ export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   const res = await env.DB
     .prepare(
-      "SELECT id,name,CASE WHEN email LIKE '%@staff.anejo.local' THEN NULL ELSE email END AS email,phone,role,team,is_lead,employment_type,active," +
+      "SELECT id,name,CASE WHEN email LIKE '%@staff.anejo.local' THEN NULL ELSE email END AS email,phone,role,team,is_lead,employment_type,active,lang," +
       "(pin_hash IS NOT NULL) AS has_pin, must_change_pin, last_active_at,locked_until,created_at," +
       "COALESCE(offers_accepted,0) AS offers_accepted, COALESCE(offers_declined,0) AS offers_declined, COALESCE(offers_missed,0) AS offers_missed, lead_time_days " +
       "FROM staff ORDER BY active DESC, role, name"
@@ -135,6 +135,10 @@ export const onRequestPost = async ({ request, env }) => {
     if (b.active !== undefined) { sets.push('active=?'); args.push(b.active ? 1 : 0); }
     if (b.name !== undefined && b.name.trim()) { sets.push('name=?'); args.push(b.name.trim()); }
     if (b.phone !== undefined) { sets.push('phone=?'); args.push((b.phone || '').trim() || null); }
+    // Language was settable at creation and never afterwards, so anyone added with the 'en' default
+    // was stuck with it — and every automated message to them went out in a language they may not
+    // read. That is not a preference, it is whether the message works.
+    if (b.lang !== undefined) { sets.push('lang=?'); args.push(String(b.lang).toLowerCase().startsWith('es') ? 'es' : 'en'); }
     // Vendor lead time (days) for Ops vendor-order timing (Phase 4b).
     if (b.lead_time_days !== undefined) { const n = parseInt(b.lead_time_days, 10); sets.push('lead_time_days=?'); args.push(Number.isFinite(n) && n >= 0 ? n : null); }
     if (!sets.length) return bad('Nothing to update.');
