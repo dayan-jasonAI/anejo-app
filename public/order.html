@@ -342,6 +342,8 @@ const DELIVERY_FEE = 5, ORDER_MIN = 25;  // display only; server (checkout.js) i
 const BOWL_IDS = ['vida','fuego','ligero','mar','coco','congreen','raiz'];  // capped items (mirrors _lib/ondemand.js)
 let mode = 'ondemand';   // 'ondemand' = make-now today · 'scheduled' = pick a day/window
 let avail = null;        // { open, openHour, closeHour, limit, remaining, date } from /api/order-availability
+let sched = null;        // owner-set operating rules: delivery days, order-by deadline, windows, closures
+let temp  = null;        // an active temporary override (expires on its own), if any
 let availLoaded = false;
 const $ = (id)=>document.getElementById(id);
 
@@ -433,11 +435,16 @@ async function loadCatalog(){
 async function loadAvailability(){
   try{
     const r = await fetch('/api/order-availability');
-    if(r.ok){ const d = await r.json(); avail = d.onDemand || null; }
+    if(r.ok){ const d = await r.json(); avail = d.onDemand || null; sched = d.scheduled || null; temp = d.temporary || null; }
   }catch(_){ /* server re-checks; treat as open with full stock on failure */ }
   // On first load, if on-demand is closed right now, start the customer on Schedule.
   if(!availLoaded && avail && avail.open===false){ mode='scheduled'; }
   availLoaded = true;
+  // Redraw the dates and the note NOW that the owner's rules have arrived. buildDates() runs once
+  // at startup, BEFORE this fetch resolves, so without this the page keeps showing the built-in
+  // defaults — which is exactly what happened the first time a setting was changed: the HUB saved
+  // an 8 PM deadline and the storefront went on saying 6 PM.
+  buildDates();
   applyMode();
 }
 
@@ -480,16 +487,52 @@ function applyMode(){
   renderCatalog(); renderCart();
 }
 
+// Delivery days, the order-by deadline and closed dates are OWNER SETTINGS (HUB > Menu > Ordering).
+// They used to be hardcoded right here — `if(dt.getDay()===0) continue` for "no Sunday" and a
+// literal 6 PM — so the storefront kept showing the old rules after the owner changed them, which
+// is exactly what happened the first time the setting was used. Falls back to the previous
+// constants when the API is unreachable, so the page still works offline of it.
 function buildDates(){
   const sel=$('delivDate'); const now=Date.now(); const out=[];
+  const days   = (sched && sched.days && sched.days.length) ? sched.days : [1,2,3,4,5,6];
+  const byHour = (sched && typeof sched.orderByHour === 'number') ? sched.orderByHour : 18;
+  const closed = (sched && sched.closedDates) || [];
   for(let i=0;i<21 && out.length<12;i++){
     const dt=new Date(); dt.setHours(0,0,0,0); dt.setDate(dt.getDate()+i);
-    if(dt.getDay()===0) continue;                    // no Sunday delivery
-    if(now >= dt.getTime()-6*3600*1000) continue;    // past the 6 PM day-before cutoff
+    if(days.indexOf(dt.getDay())===-1) continue;     // not a delivery day
     const y=dt.getFullYear(), m=String(dt.getMonth()+1).padStart(2,'0'), d=String(dt.getDate()).padStart(2,'0');
-    out.push({v:y+'-'+m+'-'+d, l:dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})});
+    const iso=y+'-'+m+'-'+d;
+    if(closed.indexOf(iso)!==-1) continue;           // owner marked this date closed
+    // Deadline is `byHour` on the day BEFORE, i.e. midnight minus (24 - byHour) hours.
+    if(now >= dt.getTime()-(24-byHour)*3600*1000) continue;
+    out.push({v:iso, l:dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})});
   }
   sel.innerHTML = out.length ? out.map(o=>'<option value="'+o.v+'">'+o.l+'</option>').join('') : '<option value="">No dates available</option>';
+  paintSchedNote();
+}
+
+// The note under "Delivery date & window", built from the same settings instead of fixed copy that
+// silently goes stale the moment an owner changes anything.
+function paintSchedNote(){
+  const el=document.querySelector('.deliv-note'); if(!el) return;
+  const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const days=(sched && sched.days && sched.days.length) ? sched.days.slice().sort(function(a,b){return a-b;}) : [1,2,3,4,5,6];
+  // A contiguous run reads as a range ("Mon–Sat"); anything else lists the days.
+  const contiguous = days.every(function(d,i){ return i===0 || d===days[i-1]+1; });
+  const label = (contiguous && days.length>2) ? D[days[0]]+'–'+D[days[days.length-1]] : days.map(function(d){return D[d];}).join(', ');
+  const by=(sched && typeof sched.orderByHour === 'number') ? sched.orderByHour : 18;
+  const h12=(by%12)||12, ampm=by>=12?'PM':'AM';
+  el.textContent = 'Delivery only · '+label+'. Order by '+h12+' '+ampm+' the day before.';
+
+  const win=$('delivWindow');
+  if(win && sched && sched.windows){
+    const fmt=function(t){ const p=String(t||'').split(':'); const H=Number(p[0])||0;
+      return ((H%12)||12)+':'+(p[1]||'00')+' '+(H>=12?'PM':'AM'); };
+    const w=sched.windows, keep=win.value;
+    win.innerHTML = '<option value="lunch">Lunch · '+fmt(w.lunch.start)+' – '+fmt(w.lunch.end)+'</option>'+
+                    '<option value="dinner">Dinner · '+fmt(w.dinner.start)+' – '+fmt(w.dinner.end)+'</option>';
+    if(keep) win.value=keep;
+  }
 }
 
 function renderCatalog(){
