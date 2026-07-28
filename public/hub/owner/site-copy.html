@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Site copy</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .form-row { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+  .form-row label { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--green); opacity:.8; }
+  .form-row input, .form-row textarea, .form-row select {
+    padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; font-size:14px; }
+  .form-row textarea { min-height:70px; resize:vertical; line-height:1.5; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:640px){ .two { grid-template-columns:1fr; } }
+  .hint { font-size:12px; color:var(--green); opacity:.72; line-height:1.5; margin:2px 0 0; }
+  .live { border-radius:10px; padding:12px 14px; margin-bottom:12px; font-size:13px; line-height:1.5; }
+  .live.on  { background:#e7f0ea; border:1px solid #2c6b3f; color:#1b4d2b; }
+  .live.off { background:#f6f5f1; border:1px solid var(--line); color:var(--green); }
+  .prev { border-radius:10px; padding:11px 14px; margin:8px 0 0; text-align:center; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · SITE COPY</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+  var esc = Hub.esc;
+  var TONES = [['info','Neutral (dark green)'],['good','Good news (green)'],['urgent','Urgent (red)']];
+
+  // datetime-local <-> epoch ms. Empty means "no bound", which is the common case.
+  function toLocal(ms) {
+    if (!ms) return '';
+    var d = new Date(Number(ms)), p = function (n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function fromLocal(v) { var t = Date.parse(v); return Number.isFinite(t) ? t : null; }
+
+  function render(slots) {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML = slots.map(function (s) {
+      return '<div class="hub-section"><h2>' + esc(s.label) + '</h2>' +
+        '<p class="hint" style="margin-bottom:10px">' + esc(s.where) + '</p>' +
+
+        // State before settings: "switched on" and "a visitor can see it" are different things once
+        // scheduling exists, and the toggle alone cannot explain why the bar is missing.
+        '<div class="live ' + (s.live_now ? 'on' : 'off') + '">' +
+          (s.live_now ? '🟢 <b>Showing on the site right now.</b>' :
+            (s.active ? '🕒 <b>Switched on, but not showing</b> — outside its scheduled window.'
+                      : '⚪ <b>Not showing.</b> Switch it on below when you are ready.')) +
+        '</div>' +
+
+        (s.body_en ? '<div class="prev" style="background:' +
+          (s.tone === 'urgent' ? '#8a2b22' : s.tone === 'good' ? '#2c6b3f' : '#1A3D2E') +
+          ';color:#F5F2EC">' + esc(s.body_en) + (s.link_url ? ' <b style="color:#C6A85B;text-decoration:underline">' + esc(s.link_label || 'Learn more') + '</b>' : '') + '</div>' : '') +
+
+        '<div class="form-row" style="margin-top:12px"><label>Message (English)</label>' +
+          '<textarea id="en" maxlength="' + s.max + '">' + esc(s.body_en) + '</textarea>' +
+          '<p class="hint">Keep it to one line — it sits across the top of every public page.</p></div>' +
+
+        '<div class="form-row"><label>Message (Spanish, optional)</label>' +
+          '<textarea id="es" maxlength="' + s.max + '">' + esc(s.body_es) + '</textarea>' +
+          '<p class="hint">Leave blank and the site translates the English automatically. Write it here when the wording matters.</p></div>' +
+
+        '<div class="two">' +
+          '<div class="form-row"><label>Link (optional)</label><input id="url" value="' + esc(s.link_url) + '" placeholder="/order"></div>' +
+          '<div class="form-row"><label>Link text</label><input id="ltext" value="' + esc(s.link_label) + '" placeholder="Order now"></div>' +
+        '</div>' +
+
+        '<div class="two">' +
+          '<div class="form-row"><label>Style</label><select id="tone">' +
+            TONES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === s.tone ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') +
+          '</select></div>' +
+          '<div class="form-row"><label>Show it</label>' +
+            '<label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px">' +
+            '<input type="checkbox" id="on" ' + (s.active ? 'checked' : '') + ' style="width:auto"> Live on the site</label></div>' +
+        '</div>' +
+
+        '<div class="two">' +
+          '<div class="form-row"><label>Start (optional)</label><input id="from" type="datetime-local" value="' + toLocal(s.starts_at) + '"></div>' +
+          '<div class="form-row"><label>End (optional)</label><input id="to" type="datetime-local" value="' + toLocal(s.ends_at) + '"></div>' +
+        '</div>' +
+        '<p class="hint">An end time switches it off by itself — a promo bar nobody remembers to remove is worse than none.</p>' +
+
+        '<button class="btn primary block" id="save" style="margin-top:12px">Save</button>' +
+        '<div class="hint" id="msg" style="margin-top:8px"></div></div>';
+    }).join('');
+
+    var s0 = slots[0];
+    document.getElementById('save').addEventListener('click', function () {
+      var btn = this; btn.disabled = true; btn.textContent = 'Saving…';
+      Hub.api('/api/hub/owner/site-copy', { method: 'POST', body: {
+        slot: s0.slot,
+        body_en: document.getElementById('en').value,
+        body_es: document.getElementById('es').value,
+        link_url: document.getElementById('url').value,
+        link_label: document.getElementById('ltext').value,
+        tone: document.getElementById('tone').value,
+        active: document.getElementById('on').checked,
+        starts_at: fromLocal(document.getElementById('from').value),
+        ends_at: fromLocal(document.getElementById('to').value)
+      } }).then(function (r) {
+        btn.disabled = false; btn.textContent = 'Save';
+        if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not save'); return; }
+        // Report the RESULT, not the submission — saved and visible are different.
+        Hub.toast(r.live_now ? 'Saved — it is showing on the site now'
+                             : (r.active ? 'Saved — it will show inside its scheduled window' : 'Saved — not showing'));
+        load();
+      });
+    });
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function load() {
+    Owner.get('/api/hub/owner/site-copy').then(function (d) {
+      if (!d || !d.ok) { document.getElementById('owner-root').innerHTML = '<div class="hub-empty">Could not load.</div>'; return; }
+      render(d.slots);
+    });
+  }
+  load();
+})();
+</script>
+</body>
+</html>
