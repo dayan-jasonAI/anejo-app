@@ -340,6 +340,31 @@ Avoid:
 * Cheap hype such as "best ever" without context
 * Overpromising transformation results
 
+### The feeling underneath the voice — Reposado (Dayan, 2026-07-27)
+
+Añejo means aged. **Reposado means well rested** — staying still, relaxed, just existing, chilling,
+taking a deep pause. That is the feeling every piece of Añejo work should carry underneath the
+words, whether or not anyone ever names it.
+
+**Añejo governs brand-wide. Reposado is an input, not the ruling document.** Where the two ever
+disagree, Añejo wins — "Reposado is good, but Añejo is better." This settles the scope question:
+the visual-philosophy doc informs the work; it does not govern it.
+
+**Light: both, coexisting.** Not dark backgrounds with bright food, and not the bright-everything
+of the older photography standard. *"The perfect mix of bright and dark, they both coexist, make it
+work."* The vault Photography Standards ("no harsh shadows") and the Reposado language ("quiet and
+dark like a cellar at dusk") had been read as a conflict to resolve one way or the other — Dayan
+refused the either/or, and both are now in force together.
+
+**The words stay internal.** *"Cultivated stillness is a pretty cool philosophy. For now the
+illustrations are fine — I have to live it more before I feel like sharing the words."*
+
+So: the philosophy shapes tone, pacing, imagery and restraint **silently**. The phrase "cultivate
+stillness" (or "cultivated stillness") must **not** appear in menus, captions, the site, decks or
+any customer-facing copy until Dayan says otherwise. Illustrations carrying the feeling are
+approved for use now. Full working system: `_AI_COLLABORATION_COMMAND_CENTER/marketing/ANEJO_CULTIVATE_STILLNESS.md`.
+Ruling of record: `01 Source of Truth/RULINGS.md` R-0031.
+
 ## 12. Non-negotiables
 
 The AI, kitchen, and brand must always honor the following:
