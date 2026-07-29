@@ -23,6 +23,12 @@ export const isSlot = (s) => Object.prototype.hasOwnProperty.call(SLOTS, s);
 const TONES = ['info', 'good', 'urgent'];
 export const normalizeTone = (t) => (TONES.includes(String(t)) ? String(t) : 'info');
 
+// How it presents itself. A bar suits a standing line; a pop-up suits something that has to be
+// read once. Anything unrecognised falls back to the bar — the quieter of the two, so a bad value
+// can never escalate a message into an interruption.
+const PLACEMENTS = ['bar', 'modal'];
+export const normalizePlacement = (p) => (PLACEMENTS.includes(String(p)) ? String(p) : 'bar');
+
 /** Is this row live right now? Active plus inside any window it declares. */
 export function isLive(row, nowMs = Date.now()) {
   if (!row || !row.active) return false;
@@ -69,6 +75,10 @@ export function render(row, lang = 'en', nowMs = Date.now()) {
     body,
     needsTranslation: es && !esText && !!en,
     tone: normalizeTone(row.tone),
+    placement: normalizePlacement(row.placement),
+    // The storefront remembers a dismissed pop-up by id, so editing a message shows it again
+    // (it is new information) while re-reading the same one does not nag.
+    id: row.id || null,
     link: row.link_url ? { url: String(row.link_url), label: String(row.link_label || '').trim() || null } : null,
   };
 }

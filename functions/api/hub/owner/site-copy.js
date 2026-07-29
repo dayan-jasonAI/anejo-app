@@ -11,7 +11,7 @@
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { now, id } from '../../../_lib/hub.js';
-import { SLOTS, isSlot, normalizeTone, isLive, pickLive, stateOf } from '../../../_lib/content.js';
+import { SLOTS, isSlot, normalizeTone, normalizePlacement, isLive, pickLive, stateOf } from '../../../_lib/content.js';
 import { LEGAL_SLUGS, LEGAL_LABEL, LEGAL_DOC_ID } from '../../../_lib/legal.js';
 import { capture } from '../../../_lib/track.js';
 
@@ -84,6 +84,7 @@ export const onRequestGet = async ({ request, env }) => {
           link_url: row.link_url || '',
           link_label: row.link_label || '',
           tone: normalizeTone(row.tone),
+          placement: normalizePlacement(row.placement),
           active: !!row.active,
           starts_at: row.starts_at || null,
           ends_at: row.ends_at || null,
@@ -174,27 +175,27 @@ export const onRequestPost = async ({ request, env }) => {
   const fields = [
     en || null, es || null, url || null,
     String((b && b.link_label) || '').trim().slice(0, 60) || null,
-    normalizeTone(b && b.tone), active, startsAt, endsAt,
+    normalizeTone(b && b.tone), normalizePlacement(b && b.placement), active, startsAt, endsAt,
     ctx.distinct_id || null, t,
   ];
 
   if (b && b.id) {
     const r = await env.DB.prepare(
-      `UPDATE content_blocks SET body_en=?, body_es=?, link_url=?, link_label=?, tone=?, active=?,
-         starts_at=?, ends_at=?, updated_by=?, updated_at=? WHERE id=? AND slot=?`
+      `UPDATE content_blocks SET body_en=?, body_es=?, link_url=?, link_label=?, tone=?, placement=?,
+         active=?, starts_at=?, ends_at=?, updated_by=?, updated_at=? WHERE id=? AND slot=?`
     ).bind(...fields, entryId, slot).run();
     if (!r || !r.meta || r.meta.changes !== 1) return bad('That message no longer exists.', 404);
   } else {
     await env.DB.prepare(
-      `INSERT INTO content_blocks (id, slot, body_en, body_es, link_url, link_label, tone, active,
-         starts_at, ends_at, updated_by, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+      `INSERT INTO content_blocks (id, slot, body_en, body_es, link_url, link_label, tone, placement,
+         active, starts_at, ends_at, updated_by, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(entryId, slot, ...fields).run();
   }
 
   await capture(env, {
     event: 'content.slot_updated',
     distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
-    properties: { slot, active: !!active, scheduled: !!(startsAt || endsAt), created: !(b && b.id) },
+    properties: { slot, active: !!active, scheduled: !!(startsAt || endsAt), created: !(b && b.id), placement: normalizePlacement(b && b.placement) },
   });
 
   // Report the RESULTING state, not what was submitted — scheduling is exactly where "saved" and

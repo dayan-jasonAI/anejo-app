@@ -29,6 +29,7 @@ const OWNER_MODULE = {
   'Ask the HUB': /k:'Ask the HUB'/,
   'QuickBooks': /k:'QuickBooks'/,
   'signed-out vs a quiet day': /A blank HUB means signed out/,
+  'bar vs pop-up placement': /k:'Bar or pop-up'/,
 };
 
 for (const [feature, re] of Object.entries(OWNER_MODULE)) {

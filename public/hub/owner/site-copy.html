@@ -67,6 +67,7 @@
   }
   var esc = Hub.esc;
   var TONES = [['info','Neutral (dark green)'],['good','Good news (green)'],['urgent','Urgent (red)']];
+  var PLACEMENTS = [['bar','Bar across the top of every page'],['modal','Pop-up in the middle (shown once)']];
 
   // datetime-local <-> epoch ms. Empty means "no bound", which is the common case.
   function toLocal(ms) {
@@ -94,7 +95,8 @@
   function entryCard(s, e) {
     var toneBg = e.tone === 'urgent' ? '#8a2b22' : e.tone === 'good' ? '#2c6b3f' : '#1A3D2E';
     return '<div class="entry ' + e.state + '">' +
-      '<div class="entry-head"><span class="tag ' + e.state + '">' + STATE_WORD[e.state] + '</span></div>' +
+      '<div class="entry-head"><span class="tag ' + e.state + '">' + STATE_WORD[e.state] + '</span>' +
+        '<span class="row-sub" style="font-size:11.5px">' + (e.placement === 'modal' ? '◧ Pop-up' : '▭ Top bar') + '</span></div>' +
       '<div class="prev" style="margin:0;background:' + toneBg + ';color:#F5F2EC">' + esc(e.body_en || '(empty)') +
         (e.link_url ? ' <b style="color:#C6A85B;text-decoration:underline">' + esc(e.link_label || 'Learn more') + '</b>' : '') + '</div>' +
       '<div class="entry-when">' + esc(when(e)) + '</div>' +
@@ -128,6 +130,12 @@
           '<label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px">' +
           '<input type="checkbox" id="on" ' + (e.active ? 'checked' : '') + ' style="width:auto"> Switched on</label></div>' +
       '</div>' +
+
+      // Bar vs pop-up. Same message, same window, same queue — only how it presents differs.
+      '<div class="form-row"><label>How it appears</label><select id="place">' +
+        PLACEMENTS.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === (e.placement || 'bar') ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') +
+      '</select>' +
+      '<p class="hint">A <b>bar</b> sits across the top of every page and stays until they close it — right for a standing line. A <b>pop-up</b> opens in the middle of the screen and is shown <b>once per person</b> — right for something that has to actually be read, like a closure. Edit the message and it counts as new, so it shows again.</p></div>' +
 
       '<div class="two">' +
         '<div class="form-row"><label>Start (optional)</label><input id="from" type="datetime-local" value="' + toLocal(e.starts_at) + '"></div>' +
@@ -203,6 +211,7 @@
         link_url: document.getElementById('url').value,
         link_label: document.getElementById('ltext').value,
         tone: document.getElementById('tone').value,
+        placement: (document.getElementById('place') || {}).value || 'bar',
         active: document.getElementById('on').checked,
         starts_at: fromLocal(document.getElementById('from').value),
         ends_at: fromLocal(document.getElementById('to').value)
