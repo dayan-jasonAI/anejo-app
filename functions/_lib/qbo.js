@@ -250,20 +250,88 @@ export async function ensureCustomer(env, account) {
   return { ok: true, customer_id: String(customerId), created };
 }
 
+// ---------- the service item every line must reference ----------
+
+// The name of the QBO Service item catering lines are billed under. One item, not one per bowl:
+// the invoice's own Description carries the site and the count, and a bookkeeper wants a single
+// income line to reconcile, not a product catalogue.
+const ITEM_NAME = 'Catering';
+const ITEM_SETTING = 'qbo.item_id';
+
+async function cachedItemId(env) {
+  try {
+    const r = await env.DB.prepare('SELECT value FROM app_settings WHERE key = ?').bind(ITEM_SETTING).first();
+    return (r && r.value) || null;
+  } catch { return null; }
+}
+
+/**
+ * The Item id to put on every invoice line.
+ *
+ * THIS IS NOT OPTIONAL. QuickBooks treats a SalesItemLineDetail line with no ItemRef as a
+ * DESCRIPTION line and IGNORES its Amount — so an invoice built without one posts successfully and
+ * books ZERO. That failure is invisible from our side (we get an invoice id back) and only shows
+ * up as an empty invoice in the client's books.
+ */
+export async function ensureItem(env) {
+  const cached = await cachedItemId(env);
+  if (cached) return { ok: true, item_id: String(cached), created: false };
+
+  const found = await qboFetch(env, `/query?query=${encodeURIComponent(`select Id, Name from Item where Name = '${esc(ITEM_NAME)}'`)}`, { method: 'GET' });
+  if (!found.ok) return found;
+  const hit = found.body && found.body.QueryResponse && found.body.QueryResponse.Item && found.body.QueryResponse.Item[0];
+
+  let itemId = hit && hit.Id;
+  let created = false;
+  if (!itemId) {
+    // A Service item REQUIRES an IncomeAccountRef, so the income account has to be resolved first.
+    // Whichever the file already uses — we never create an account; chart-of-accounts structure is
+    // the bookkeeper's decision, not ours.
+    const acct = await qboFetch(env, `/query?query=${encodeURIComponent("select Id, Name from Account where AccountType = 'Income' and Active = true")}`, { method: 'GET' });
+    if (!acct.ok) return acct;
+    const income = acct.body && acct.body.QueryResponse && acct.body.QueryResponse.Account && acct.body.QueryResponse.Account[0];
+    if (!income || !income.Id) {
+      return { ok: false, error: 'No active income account in QuickBooks to book catering against. Add one, then try again.' };
+    }
+    const made = await qboFetch(env, '/item?minorversion=65', {
+      method: 'POST',
+      body: JSON.stringify({
+        Name: ITEM_NAME, Type: 'Service', Active: true,
+        IncomeAccountRef: { value: String(income.Id), name: income.Name || undefined },
+      }),
+    });
+    if (!made.ok) return made;
+    itemId = made.body && made.body.Item && made.body.Item.Id;
+    created = true;
+  }
+  if (!itemId) return { ok: false, error: 'QuickBooks did not return an item id.' };
+
+  try {
+    await env.DB.prepare(
+      `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES (?,?,?,?)
+       ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`
+    ).bind(ITEM_SETTING, String(itemId), 'qbo', now()).run();
+  } catch { /* re-resolved next time */ }
+  return { ok: true, item_id: String(itemId), created };
+}
+
 // ---------- invoices ----------
 
 // One line per site, matching how the emailed invoice and the printable page already read. The
 // AMOUNTS ARE NOT RECOMPUTED — they come off the stored invoice row, so QuickBooks, the email and
 // the PDF cannot disagree about what the client owes. That is the same rule invoiceEmailHtml
 // follows in contracts.js.
-export function invoiceLines(inv, lineItems) {
+//
+// `itemId` is REQUIRED — see ensureItem. Passing nothing here would post a $0 invoice.
+export function invoiceLines(inv, lineItems, itemId) {
   const money = (c) => Math.round(Number(c) || 0) / 100;
+  const ref = { ItemRef: { value: String(itemId) } };
   const sites = (lineItems && lineItems.sites) || [];
   const lines = sites.map((s) => ({
     DetailType: 'SalesItemLineDetail',
     Amount: money((s.subtotal_cents || 0) + (s.delivery_cents || 0) + (s.rush_cents || 0)),
     Description: `${s.name} — ${s.lunches} lunches${s.rush_cents ? ' (incl. rush)' : ''}`,
-    SalesItemLineDetail: { Qty: Number(s.lunches) || 0 },
+    SalesItemLineDetail: { ...ref, Qty: Number(s.lunches) || 0 },
   })).filter((l) => l.Amount > 0);
 
   // A total with no lines would post a zero invoice. Fall back to one line for the whole period
@@ -273,7 +341,7 @@ export function invoiceLines(inv, lineItems) {
       DetailType: 'SalesItemLineDetail',
       Amount: money(inv.total_cents),
       Description: `Catering — ${inv.period_from || ''} to ${inv.period_to || ''}`,
-      SalesItemLineDetail: { Qty: Number(inv.lunches) || 1 },
+      SalesItemLineDetail: { ...ref, Qty: Number(inv.lunches) || 1 },
     }];
   }
   return lines;
@@ -299,10 +367,15 @@ export async function pushInvoice(env, { invoiceId }) {
 
   const cust = await ensureCustomer(env, account);
   if (!cust.ok) return cust;
+  // Resolved BEFORE building the payload, and a failure aborts: a line with no ItemRef posts an
+  // invoice QuickBooks values at zero, which is worse than not posting at all because it looks
+  // like it worked.
+  const item = await ensureItem(env);
+  if (!item.ok) return item;
 
   let lineItems = { sites: [] };
   try { lineItems = JSON.parse(inv.line_items || '{}') || { sites: [] }; } catch { lineItems = { sites: [] }; }
-  const Line = invoiceLines(inv, lineItems);
+  const Line = invoiceLines(inv, lineItems, item.item_id);
   if (!Line.length) return { ok: false, error: 'That invoice has nothing to bill.' };
 
   const payload = {

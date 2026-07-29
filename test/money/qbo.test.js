@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeD1 } from '../helpers/d1.js';
 import {
-  qboConfigured, accessToken, ensureCustomer, pushInvoice, invoiceLines, authorizeUrl, redirectUri,
+  qboConfigured, accessToken, ensureCustomer, ensureItem, pushInvoice, invoiceLines, authorizeUrl, redirectUri,
 } from '../../functions/_lib/qbo.js';
 
 const ENV = { QBO_CLIENT_ID: 'cid', QBO_CLIENT_SECRET: 'csec' };
@@ -204,6 +204,7 @@ test('line amounts come off the STORED invoice, never recomputed', () => {
       { name: 'Delray Beach', lunches: 20, subtotal_cents: 12000, delivery_cents: 2000, rush_cents: 1500 },
       { name: 'Pompano Beach', lunches: 18, subtotal_cents: 10800, delivery_cents: 2000, rush_cents: 0 },
     ] },
+    '7',
   );
   assert.equal(lines.length, 2);
   assert.equal(lines[0].Amount, 155.00);   // 12000 + 2000 + 1500 cents
@@ -211,11 +212,88 @@ test('line amounts come off the STORED invoice, never recomputed', () => {
   assert.match(lines[0].Description, /incl\. rush/);
 });
 
-test('an invoice with a total but no site breakdown still books its total', () => {
+test('EVERY line carries an ItemRef', () => {
+  // Found only by reading Intuit's docs, never by the stub: a SalesItemLineDetail line WITHOUT an
+  // ItemRef is treated as a description line and its Amount is IGNORED. The invoice posts fine,
+  // we get an id back, and the client's books show ZERO. Silent, and only visible from their side.
+  const lines = invoiceLines(
+    { total_cents: 26600, lunches: 38 },
+    { sites: [{ name: 'Delray Beach', lunches: 38, subtotal_cents: 22800, delivery_cents: 3800, rush_cents: 0 }] },
+    '7',
+  );
+  for (const l of lines) {
+    assert.equal(l.SalesItemLineDetail.ItemRef.value, '7', 'no ItemRef ⇒ QuickBooks books $0');
+  }
+});
+
+test('an invoice with a total but no site breakdown still books its total — with an ItemRef', () => {
   // Posting zero lines against a real total would silently book nothing.
-  const lines = invoiceLines({ total_cents: 5000, lunches: 10, period_from: '2026-07-01', period_to: '2026-07-15' }, { sites: [] });
+  const lines = invoiceLines({ total_cents: 5000, lunches: 10, period_from: '2026-07-01', period_to: '2026-07-15' }, { sites: [] }, '7');
   assert.equal(lines.length, 1);
   assert.equal(lines[0].Amount, 50);
+  assert.equal(lines[0].SalesItemLineDetail.ItemRef.value, '7');
+});
+
+// ---------- the service item ----------
+
+test('a cached item id skips the lookup entirely', async () => {
+  const { d1 } = db({}, [[/SELECT value FROM app_settings/, () => ({ value: '7' })]]);
+  const f = stubFetch(() => { throw new Error('must not call Intuit'); });
+  try {
+    const r = await ensureItem({ ...ENV, DB: d1 });
+    assert.deepEqual(r, { ok: true, item_id: '7', created: false });
+  } finally { f.restore(); }
+});
+
+test('an existing Catering item is reused rather than duplicated', async () => {
+  const { d1 } = db({}, [
+    [/SELECT value FROM app_settings/, () => null],
+    [/INSERT INTO app_settings/, () => 1],
+  ]);
+  const f = stubFetch(({ url }) => {
+    if (url.includes('Item%20where%20Name') || url.includes('from%20Item')) return jsonRes({ QueryResponse: { Item: [{ Id: '12', Name: 'Catering' }] } });
+    throw new Error('must not create an item that exists');
+  });
+  try {
+    const r = await ensureItem({ ...ENV, DB: d1 });
+    assert.equal(r.item_id, '12');
+    assert.equal(r.created, false);
+  } finally { f.restore(); }
+});
+
+test('creating the item resolves an INCOME account first — it is required for a Service', async () => {
+  const { d1 } = db({}, [
+    [/SELECT value FROM app_settings/, () => null],
+    [/INSERT INTO app_settings/, () => 1],
+  ]);
+  let sentItem = null;
+  const f = stubFetch(({ url, init }) => {
+    if (url.includes('from%20Item')) return jsonRes({ QueryResponse: {} });
+    if (url.includes('from%20Account')) return jsonRes({ QueryResponse: { Account: [{ Id: '81', Name: 'Services Income' }] } });
+    if (url.includes('/item?')) { sentItem = JSON.parse(init.body); return jsonRes({ Item: { Id: '13' } }); }
+    throw new Error('unexpected ' + url);
+  });
+  try {
+    const r = await ensureItem({ ...ENV, DB: d1 });
+    assert.equal(r.item_id, '13');
+    assert.equal(sentItem.Type, 'Service');
+    assert.equal(sentItem.IncomeAccountRef.value, '81', 'a Service item without one is rejected');
+  } finally { f.restore(); }
+});
+
+test('no income account is a clear message, not a mystery 400', async () => {
+  // We must never CREATE an account — the chart of accounts is the bookkeeper's decision.
+  const { d1 } = db({}, [[/SELECT value FROM app_settings/, () => null]]);
+  const f = stubFetch(({ url }) => {
+    if (url.includes('from%20Item')) return jsonRes({ QueryResponse: {} });
+    if (url.includes('from%20Account')) return jsonRes({ QueryResponse: {} });
+    throw new Error('must not create an account');
+  });
+  try {
+    const r = await ensureItem({ ...ENV, DB: d1 });
+    assert.equal(r.ok, false);
+    assert.match(r.error, /No active income account/);
+  } finally { f.restore(); }
 });
 
 // ---------- pushing ----------
@@ -233,6 +311,7 @@ function pushDb(invOverrides = {}) {
   const { d1 } = db({}, [
     [/SELECT \* FROM contract_invoices WHERE id/, () => ({ ...INV, ...invOverrides })],
     [/SELECT \* FROM contract_accounts WHERE id/, () => ACCT],
+    [/SELECT value FROM app_settings/, () => ({ value: '7' })],   // Catering item already resolved
     [/UPDATE contract_invoices SET qbo_invoice_id/, ({ args }) => { saved.qbo = args[0]; return 1; }],
   ]);
   return { d1, saved };
@@ -267,6 +346,10 @@ test('a successful push stores the link immediately', async () => {
       assert.equal(body.DocNumber, 'DGP-0001');
       assert.equal(body.BillEmail.Address, 'ap@dgp.test');
       assert.equal(body.TxnDate, '2026-07-15');
+      // The payload actually SENT is asserted, not just the response. The ItemRef bug lived here
+      // precisely because the stub answered "created!" to a payload that would have booked $0.
+      assert.ok(body.Line.length > 0);
+      for (const l of body.Line) assert.equal(l.SalesItemLineDetail.ItemRef.value, '7');
       return jsonRes({ Invoice: { Id: '1001' } });
     }
     throw new Error('unexpected ' + url);
