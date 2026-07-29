@@ -4,6 +4,7 @@
 //          Also returns active vendors (staff role='vendor') for the vendor select.
 //   POST { action:'upsert', id?, name, unit?, on_hand?, par_level?, vendor_id? }
 //        { action:'count', id, on_hand }                — quick stock count
+//        { action:'menu_count', id, stock_count }       — how many FINISHED bowls/drinks we made
 //        { action:'archive'|'restore', id }             — soft flag, never delete
 // After any count/upsert, raises a deduped low_stock alert when on_hand < par_level.
 // Kitchen + owner. Fires inventory.counted / inventory.updated.
@@ -12,6 +13,38 @@ import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { id, now } from '../../../_lib/hub.js';
 import { capture } from '../../../_lib/track.js';
 import { raiseAlert } from '../../../_lib/alerts.js';
+import { loadMenu } from '../../../_lib/menu.js';
+import { loadOrderingSettings, onDemandConfig, windowState, remainingByBowl } from '../../../_lib/ondemand.js';
+
+// TWO DIFFERENT KINDS OF STOCK LIVE ON THIS PAGE, and conflating them would be a mistake:
+//   · inventory_items — INGREDIENTS. Pounds of tuna, cases of avocado. Drives par levels and
+//     restock POs. Nothing here is sold directly.
+//   · menu_items.stock_count — FINISHED ITEMS. "We made 6 VIDA this morning." This is what the
+//     storefront actually sells against, and it is the number the kitchen knows first.
+// The kitchen counts the second one on the same screen it counts the first, because that is one
+// walk around the kitchen, not two. They are NOT linked: no recipe deduction exists, so making a
+// bowl does not draw down tuna. Saying so out loud here so nobody assumes it does.
+async function preparedStock(env) {
+  try {
+    const menu = await loadMenu(env);
+    if (!menu || menu.source !== 'd1') return [];
+    const settings = await loadOrderingSettings(env);
+    const { limit } = onDemandConfig(env, settings);
+    const w = windowState(env, new Date(), settings);
+    const remaining = await remainingByBowl(env, w.dateStr, limit, menu).catch(() => ({}));
+    return (menu.items || []).map((it) => ({
+      id: it.id,
+      name: it.name,
+      kind: it.kind,
+      availability: menu.availability[it.id] || 'available',
+      // What the owner (or kitchen) said we made. null = no manual count.
+      stock_count: it.stock_count == null || it.stock_count === '' ? null : Math.floor(Number(it.stock_count)),
+      // What is LEFT after today's orders — derived, never stored, so it cannot drift.
+      remaining: remaining && remaining[it.id] != null ? remaining[it.id] : null,
+      default_limit: limit,
+    }));
+  } catch { return []; }
+}
 
 // Low-stock check after a write. raiseAlert dedupes open alerts on dedupe_key itself.
 async function checkLowStock(env, item) {
@@ -70,7 +103,11 @@ export const onRequestGet = async ({ request, env }) => {
     vendors = (res && res.results) || [];
   } catch { vendors = []; }
 
-  return json({ ok: true, items, vendors, below_par_count: items.filter((i) => i.below_par && i.active).length });
+  return json({
+    ok: true, items, vendors,
+    below_par_count: items.filter((i) => i.below_par && i.active).length,
+    prepared: await preparedStock(env),
+  });
 };
 
 export const onRequestPost = async ({ request, env }) => {
@@ -110,6 +147,31 @@ export const onRequestPost = async ({ request, env }) => {
 
     await checkLowStock(env, { ...item, on_hand: onHand });
     return json({ ok: true, id: itemId, on_hand: onHand, below_par: Number(item.par_level) > 0 && onHand < Number(item.par_level) });
+  }
+
+  // ---- how many finished bowls/drinks we made today ----
+  if (action === 'menu_count') {
+    const itemId = (b && b.id || '').toString().trim();
+    if (!itemId) return bad('Missing item id.');
+    const row = await env.DB.prepare('SELECT id, name, stock_count FROM menu_items WHERE id=?').bind(itemId).first();
+    if (!row) return bad('Item not found.', 404);
+
+    const raw = b && b.stock_count;
+    let next = null;
+    if (raw !== '' && raw != null) {
+      const n = Math.floor(Number(raw));
+      // Blank clears the limit; 0 means none left. Never coerce one into the other.
+      if (!Number.isFinite(n) || n < 0 || n > 9999) return bad('Count must be a whole number 0–9999, or blank for no limit.');
+      next = n;
+    }
+
+    await env.DB.prepare('UPDATE menu_items SET stock_count=?, updated_at=? WHERE id=?').bind(next, t, itemId).run();
+    await capture(env, {
+      event: 'menu.stock_counted',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { item_id: itemId, stock_count: next, was: row.stock_count == null ? null : Number(row.stock_count) },
+    });
+    return json({ ok: true, id: itemId, stock_count: next, prepared: await preparedStock(env) });
   }
 
   // ---- archive / restore (soft flag — never delete) ----

@@ -6,7 +6,7 @@ import { json, bad, id, appBaseUrl, normalizePhone, isEmail } from '../_lib/util
 import { square, squareConfigured } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress } from '../_lib/geo.js';
-import { BOWL_IDS, loadOrderingSettings, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
+import { loadOrderingSettings, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
 import { loadOperating, zipAllowed, scheduleOpenFor } from '../_lib/operating.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 import { currentUser } from '../_lib/session.js';
@@ -243,21 +243,30 @@ export const onRequestPost = async ({ request, env }) => {
       const closeDisp = w.closeMinute ? `${w.closeHour % 12 === 0 ? 12 : w.closeHour % 12}:${String(w.closeMinute).padStart(2, '0')} ${w.closeHour >= 12 ? 'PM' : 'AM'}` : fmtHour(w.closeHour);
       return bad(`On-demand ordering is open ${fmtHour(w.openHour)}–${closeDisp} ET. Please schedule a delivery instead, or order again during ordering hours.`, 409);
     }
-    // Per-bowl daily production cap (launch throttle, tuned weekly). Tally the bowls in this
-    // cart and reject if any would exceed what's left today. Drinks/add-ons are uncapped.
+    // Daily production cap. Two sources, one gate: the global launch throttle, and the owner's
+    // manual per-item count when they have set one (which overrides it, in both directions).
     const { limit } = onDemandConfig(env, orderingSettings);
-    const remaining = await remainingByBowl(env, w.dateStr, limit).catch(() => null);
+    // `menu` is already loaded — passing it avoids a second read AND makes the counts here the
+    // same ones that priced the cart, rather than a snapshot taken a moment later.
+    const remaining = await remainingByBowl(env, w.dateStr, limit, menu).catch(() => null);
     if (remaining) {
       const want = {};
-      for (const it of orderItems) if (BOWL_IDS.includes(it.id)) want[it.id] = (want[it.id] || 0) + it.qty;
+      // Tally against whatever is actually CAPPED, not a hardcoded bowl list. The old list meant a
+      // bowl the owner added in the HUB was silently uncapped, and it would now also miss a drink
+      // the owner had put a count on.
+      for (const it of orderItems) if (remaining[it.id] != null) want[it.id] = (want[it.id] || 0) + it.qty;
       for (const itemId of Object.keys(want)) {
-        const left = Math.max(0, remaining[itemId] != null ? remaining[itemId] : limit);
+        const left = Math.max(0, remaining[itemId]);
         if (want[itemId] > left) {
-          const nm = bowlLabel(itemId) + ' Bowl';
+          // Name it as what it is. "Gold Vitality Bowl" would be wrong now that a drink can carry
+          // a count, and a customer reading it would think we had lost track of our own menu.
+          const isBowl = menu.bowls[itemId] != null;
+          const nm = isBowl ? bowlLabel(itemId) + ' Bowl' : ((menu.nonBowls[itemId] || {}).name || itemId);
+          const cap = menu.stock && menu.stock[itemId] != null ? menu.stock[itemId] : limit;
           return bad(
             left > 0
-              ? `${nm} is limited to ${limit}/day on-demand — only ${left} left today. Lower the quantity or schedule a delivery.`
-              : `${nm} is sold out for today's on-demand orders. Try another bowl or schedule a delivery.`,
+              ? `${nm}: only ${left} left today (we have ${cap}). Lower the quantity or schedule a delivery.`
+              : `${nm} is sold out for today. Try something else, or schedule a delivery.`,
             409
           );
         }

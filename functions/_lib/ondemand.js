@@ -105,8 +105,16 @@ export function windowState(env, d = new Date(), overrides) {
 // frees up. Tunable via ONDEMAND_PENDING_HOLD_MIN (default 30 minutes; 0 = never hold pending).
 // `menu` is optional and only saves a read — the ids are resolved from the live menu either way.
 export async function remainingByBowl(env, dateStr, limit, menu) {
+  const m = menu || (env && env.DB ? await loadMenu(env) : null);
+  const stock = (m && m.stock) || {};
   const remaining = {};
-  for (const id of await cappedBowlIds(env, menu)) remaining[id] = limit;
+  // A manual count OVERRIDES the global throttle for that item — the owner saying "I made 6" is
+  // better information than a launch default of 10, in both directions.
+  for (const id of await cappedBowlIds(env, m)) remaining[id] = stock[id] != null ? stock[id] : limit;
+  // A manual count also brings NON-bowls into the cap. Drinks are uncapped by default and stay
+  // that way; but once someone says "we have 4 Gold Vitality left", selling a fifth is wrong for
+  // exactly the same reason it is wrong for a bowl.
+  for (const id of Object.keys(stock)) if (remaining[id] == null) remaining[id] = stock[id];
   if (!env || !env.DB) return remaining;
   const rawHold = Math.floor(Number(env.ONDEMAND_PENDING_HOLD_MIN));
   const holdMin = Number.isFinite(rawHold) && rawHold >= 0 ? rawHold : 30;

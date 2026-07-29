@@ -28,7 +28,13 @@
 
 <div class="hub-wrap">
   <div class="hub-section">
-    <h2 data-i18n>Stock count</h2>
+    <h2 data-i18n>Ready to sell today</h2>
+    <p class="hint" style="font-size:12px;opacity:.75;margin:0 0 10px" data-i18n>How many finished bowls and drinks you made this morning. This is what the website sells against — when it reaches zero the item shows as sold out. Blank means no limit. Resets overnight.</p>
+    <div id="prepared"><div class="hub-loading" data-i18n>Loading…</div></div>
+  </div>
+
+  <div class="hub-section">
+    <h2 data-i18n>Ingredients</h2>
     <div id="items"><div class="hub-loading" data-i18n>Loading…</div></div>
   </div>
 
@@ -100,6 +106,42 @@
     });
   }
 
+  // Finished items, not ingredients. `remaining` is derived from today's orders, so it is shown
+  // read-only next to the box — typing over the count must not look like it edits what is left.
+  function prepCard(p) {
+    var left = p.remaining;
+    var tone = left === 0 ? 'color:#b3402f;font-weight:700' : (left != null && left <= 3 ? 'color:#8a6d1f;font-weight:700' : 'opacity:.7');
+    var state = p.availability && p.availability !== 'available'
+      ? ' <span class="badge" style="background:#b3402f;color:#fff">' + esc(p.availability.replace(/_/g, ' ')) + '</span>' : '';
+    return '<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
+      '<div style="flex:1;min-width:0"><strong>' + esc(p.name) + '</strong>' + state +
+        '<div style="font-size:12px;' + tone + '">' +
+          (p.stock_count == null
+            ? esc('No limit set' + (left != null ? ' · ' + left + ' left today' : ''))
+            : esc(left != null ? left + ' left of ' + p.stock_count + ' today' : p.stock_count + ' made today')) +
+        '</div></div>' +
+      '<input type="number" min="0" max="9999" placeholder="—" style="width:78px;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit;text-align:center" ' +
+        'id="pq_' + esc(p.id) + '" value="' + (p.stock_count == null ? '' : p.stock_count) + '">' +
+      '<button class="btn ghost" data-prep="' + esc(p.id) + '" style="white-space:nowrap">Set</button>' +
+    '</div>';
+  }
+
+  function bindPrepared() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-prep]'), function (b) {
+      b.addEventListener('click', function () {
+        var pid = b.getAttribute('data-prep');
+        var el = document.getElementById('pq_' + pid);
+        b.disabled = true;
+        K.post('/api/hub/kitchen/inventory', { action: 'menu_count', id: pid, stock_count: (el.value || '').trim() })
+          .then(function (d) {
+            b.disabled = false;
+            if (d && d.ok) { Hub.toast(d.stock_count == null ? 'No limit' : d.stock_count + ' set'); load(); }
+            else K.fail(d, 'Could not save the count.');
+          });
+      });
+    });
+  }
+
   function load() {
     K.get('/api/hub/kitchen/inventory').then(function (d) {
       var list = (d && d.items) || [];
@@ -107,6 +149,12 @@
         ? list.map(itemCard).join('')
         : '<div class="hub-empty" data-i18n>No inventory items yet — add the first one below.</div>';
       bind();
+
+      var prep = (d && d.prepared) || [];
+      $('#prepared').innerHTML = prep.length
+        ? prep.map(prepCard).join('')
+        : '<div class="hub-empty" data-i18n>Menu is loading from the fallback right now, so counts cannot be set.</div>';
+      bindPrepared();
 
       var sel = $('#a-vendor');
       var keep = sel.value;

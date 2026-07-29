@@ -57,7 +57,7 @@ export async function loadMenu(env) {
   // serving "no bowls" would silently take the storefront down, so treat it as a fallback case.
   if (!items.length) return fallback();
 
-  const bowls = {}, nonBowls = {}, availability = {};
+  const bowls = {}, nonBowls = {}, availability = {}, stock = {};
   for (const it of items) {
     // Kept in the price maps even when sold out: removing it here would make checkout answer
     // "Unknown item", which is what it says for a typo. A sold-out bowl is not a typo, and the
@@ -65,6 +65,13 @@ export async function loadMenu(env) {
     if (it.kind === 'bowl') bowls[it.id] = it.price_cents;
     else nonBowls[it.id] = { name: it.name, price_cents: it.price_cents };
     availability[it.id] = availabilityOf(it);
+    // Only when the owner actually set one. NULL must stay NULL all the way down: 0 means "none
+    // left" and undefined means "no manual count", and collapsing them would take an uncapped
+    // drink off sale the moment this column existed.
+    if (it.stock_count != null && it.stock_count !== '') {
+      const n = Math.floor(Number(it.stock_count));
+      if (Number.isFinite(n) && n >= 0) stock[it.id] = n;
+    }
   }
   const modifiers = { ...FALLBACK_MODIFIERS };
   for (const m of mods) modifiers[m.key] = m.cents;
@@ -75,7 +82,7 @@ export async function loadMenu(env) {
   // hardcoded price rather than the owner's last saved one. The whole-menu fallback above already
   // covers the only case that matters — D1 being unreachable or the table being empty.
 
-  return { items, bowls, nonBowls, modifiers, availability, source: 'd1' };
+  return { items, bowls, nonBowls, modifiers, availability, stock, source: 'd1' };
 }
 
 /**
@@ -174,6 +181,9 @@ export function publicCatalog(menu) {
       available: isAvailable(it),
       availability_label: AVAILABILITY[availabilityOf(it)].label,
       availability_label_es: AVAILABILITY[availabilityOf(it)].label_es,
+      // How many were made today, when the owner has said. The storefront shows what is LEFT,
+      // which /api/order-availability computes — this is the ceiling, not the remainder.
+      stock_count: it.stock_count == null || it.stock_count === '' ? null : Math.max(0, Math.floor(Number(it.stock_count)) || 0),
     });
   }
   return { bowls: byKind.bowl, drinks: byKind.drink, addons: byKind.addon, modifiers: menu.modifiers };

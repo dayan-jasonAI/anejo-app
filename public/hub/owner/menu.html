@@ -324,13 +324,26 @@
         '<span class="hint" style="margin:0" data-i18n>per unit</span></div>' +
       // Deliberately OUTSIDE the collapsed section. Taking a bowl off sale happens mid-service
       // with one hand, and a control you have to go looking for is one that gets skipped.
-      '<div class="form-row" style="margin:8px 0 0"><label data-i18n>Availability</label>' +
+      '<div class="form-two" style="margin:8px 0 0">' +
+        '<div class="form-row" style="margin:0"><label data-i18n>How many today</label>' +
+          '<input id="q_' + it.id + '" type="number" min="0" max="9999" placeholder="no limit" value="' +
+            (it.stock_count == null ? '' : it.stock_count) + '">' +
+          '<p class="hint">How many you made today. Leave blank for no limit. What is LEFT counts down from this as orders come in, and resets overnight.</p></div>' +
+        '<div class="form-row" style="margin:0"><label data-i18n>Availability</label>' +
         '<select id="av_' + it.id + '">' +
-          (data.availability_options || [{ key:'available', label:'Available' }]).map(function (o) {
+          // Falls back to the FULL list, never to a single option. A one-choice dropdown looks
+          // like the feature does not exist rather than like data failed to load, which is exactly
+          // how this shipped broken the first time.
+          (data.availability_options && data.availability_options.length ? data.availability_options : [
+            { key:'available', label:'Available' }, { key:'sold_out', label:'Sold out' },
+            { key:'out_of_stock', label:'Out of stock' }, { key:'unavailable', label:'Not available' },
+            { key:'coming_soon', label:'Coming soon' },
+          ]).map(function (o) {
             return '<option value="' + esc(o.key) + '"' + (o.key === (it.availability || 'available') ? ' selected' : '') + '>' + esc(o.label) + '</option>';
           }).join('') +
         '</select>' +
         '<p class="hint">Anything other than Available keeps the item on the site but blocks it at checkout — customers see the wording you pick. To remove it from the site entirely, untick “Show on the website” below.</p></div>' +
+      '</div>' +
       '<details class="mn-more"><summary data-i18n>Name, description, photo, order</summary>' +
         '<div class="form-two">' +
           '<div class="form-row"><label data-i18n>Name</label><input id="n_' + it.id + '" value="' + esc(it.name) + '"></div>' +
@@ -372,7 +385,9 @@
       description: $('#d_' + it.id).value, description_es: $('#de_' + it.id).value,
       image: $('#i_' + it.id).value, sort: Number($('#s_' + it.id).value),
       active: $('#a_' + it.id).checked,
-      availability: ($('#av_' + it.id) || {}).value || 'available'
+      availability: ($('#av_' + it.id) || {}).value || 'available',
+      // Sent as '' rather than 0 when cleared — '' means no limit, 0 means none left.
+      stock_count: (($('#q_' + it.id) || {}).value || '').trim()
     };
     // Taking something off sale is a bigger deal than a typo in a description, and it is the one
     // change on this form a customer notices within the minute. Confirm it like a price change.
@@ -540,7 +555,7 @@
           setMsg(msgSel, (d.errors || [d.error || 'Save failed.']).join(' · '), 'err');
           return;
         }
-        data = { items: d.items || [], modifiers: d.modifiers || [], log: d.log || [],
+        data = { ...d, items: d.items || [], modifiers: d.modifiers || [], log: d.log || [],
                  warnings: d.warnings || [], storefront: d.storefront || {} };
         if (after) after(d);
         render();
@@ -556,7 +571,7 @@
         root.innerHTML = '<div class="mn-alert block">' + esc((d && d.error) || 'Could not load the menu.') + '</div>';
         return;
       }
-      data = { items: d.items || [], modifiers: d.modifiers || [], log: d.log || [],
+      data = { ...d, items: d.items || [], modifiers: d.modifiers || [], log: d.log || [],
                warnings: d.warnings || [], storefront: d.storefront || {} };
       render();
     }).catch(function () { Owner.fail('owner-root'); });

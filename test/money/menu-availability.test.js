@@ -151,3 +151,89 @@ test('taking an item off sale is written to the price log', () => {
 test('the UPDATE actually persists the column', () => {
   assert.match(HUBAPI, /UPDATE menu_items SET name=\?, name_es=\?, price_cents=\?, description=\?, description_es=\?,\s*image=\?, sort=\?, active=\?, availability=\?/);
 });
+
+// ---------- the HUB page must not swallow fields the API adds ----------
+
+test('the menu page does not rebuild `data` with a hand-listed set of fields', () => {
+  // It did, and that is how the availability dropdown shipped with only "Available" in it: the API
+  // returned availability_options, both assignment sites listed fields explicitly, and the new one
+  // was dropped on the floor. Spreading the response means the next field the server grows shows
+  // up without a second edit here. (The campaigns page had the identical bug.)
+  const PAGE = readFileSync(new URL('../../public/hub/owner/menu.html', import.meta.url), 'utf8');
+  // Only assignments FROM a response — the initial `var data = { items: [] ... }` empty state has
+  // nothing to spread and is not the bug.
+  const assigns = PAGE.match(/data = \{[^}]*d\.items/g) || [];
+  assert.ok(assigns.length >= 2, 'both the save path and the load path assign data');
+  for (const a of assigns) assert.match(a, /\.\.\.d/, 'every assignment spreads the response');
+});
+
+test('the availability dropdown never degrades to a single option', () => {
+  // A one-choice dropdown reads as "this feature does not exist", not as "data failed to load".
+  const PAGE = readFileSync(new URL('../../public/hub/owner/menu.html', import.meta.url), 'utf8');
+  const i = PAGE.indexOf('data.availability_options');
+  const fallback = PAGE.slice(i, i + 500);
+  for (const k of ['sold_out', 'out_of_stock', 'unavailable', 'coming_soon']) {
+    assert.ok(fallback.includes(k), `${k} is in the hardcoded fallback too`);
+  }
+});
+
+// ---------- manual per-item counts ----------
+//
+// A count is a CEILING FOR TODAY, not a stored running tally. What is left is derived as
+// (count − sold today) from the orders table. A number that decremented on each sale would have
+// to be reconciled against cancellations, refunds, expired pending checkouts and re-counts, and
+// every one of those is a way for the shelf number to drift without anyone noticing.
+
+const ONDEMAND = readFileSync(new URL('../../functions/_lib/ondemand.js', import.meta.url), 'utf8');
+const INVAPI = readFileSync(new URL('../../functions/api/hub/kitchen/inventory.js', import.meta.url), 'utf8');
+const MIG60 = readFileSync(new URL('../../migrations/0060_menu_stock_count.sql', import.meta.url), 'utf8');
+
+test('a manual count overrides the global daily throttle, in both directions', () => {
+  // The owner saying "I made 6" beats a launch default of 10 — and "I made 30" does too.
+  assert.match(ONDEMAND, /remaining\[id\] = stock\[id\] != null \? stock\[id\] : limit/);
+});
+
+test('a count brings a DRINK into the cap, which is otherwise uncapped', () => {
+  assert.match(ONDEMAND, /for \(const id of Object\.keys\(stock\)\) if \(remaining\[id\] == null\) remaining\[id\] = stock\[id\]/);
+});
+
+test('checkout tallies what is actually capped, not a hardcoded bowl list', () => {
+  // The old tally used ondemand.BOWL_IDS, so a bowl added in the HUB was silently uncapped — and
+  // it would now also miss a drink the owner had put a count on.
+  assert.match(CHECKOUT, /for \(const it of orderItems\) if \(remaining\[it\.id\] != null\)/);
+  assert.ok(!/BOWL_IDS/.test(CHECKOUT), 'the hardcoded list is gone from checkout entirely');
+});
+
+test('the cap message names a drink as a drink, not as a bowl', () => {
+  // "Gold Vitality Bowl" would read as us having lost track of our own menu.
+  assert.match(CHECKOUT, /const isBowl = menu\.bowls\[itemId\] != null;/);
+});
+
+test('blank means NO LIMIT and zero means NONE LEFT — never conflated', () => {
+  // Collapsing them would take an uncapped drink off sale the moment the column existed, or put a
+  // sold-out item back on sale when someone cleared the box.
+  assert.match(MIG60, /NULL means "no manual count"/);
+  assert.match(HUBAPI, /if \(raw === '' \|\| raw == null\) next\.stock_count = null;/);
+  assert.match(INVAPI, /if \(raw !== '' && raw != null\)/);
+});
+
+test('what is LEFT is derived, never stored', () => {
+  // The whole reason a count cannot drift.
+  assert.ok(!/stock_count\s*=\s*stock_count\s*-/.test(INVAPI), 'nothing decrements the stored count');
+  assert.ok(!/UPDATE menu_items SET stock_count=stock_count/.test(CHECKOUT), 'checkout never writes it back');
+  assert.match(INVAPI, /remaining: remaining && remaining\[it\.id\] != null \? remaining\[it\.id\] : null/);
+});
+
+test('the kitchen can set counts from the inventory page', () => {
+  assert.match(INVAPI, /action === 'menu_count'/);
+  assert.match(INVAPI, /UPDATE menu_items SET stock_count=\?, updated_at=\? WHERE id=\?/);
+  const INVPAGE = readFileSync(new URL('../../public/hub/kitchen/inventory.html', import.meta.url), 'utf8');
+  assert.match(INVPAGE, /Ready to sell today/);
+  assert.match(INVPAGE, /action: 'menu_count'/);
+});
+
+test('finished items and ingredients are kept distinct', () => {
+  // inventory_items is POUNDS OF TUNA; menu_items.stock_count is BOWLS MADE. There is no recipe
+  // deduction between them, and the code says so rather than letting someone assume there is.
+  assert.match(INVAPI, /no recipe deduction exists, so making a\s*\/\/\s*bowl does not draw down tuna/);
+});

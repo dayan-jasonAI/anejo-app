@@ -246,6 +246,17 @@ export const onRequestPost = async ({ request, env }) => {
       else next.sort = n;
     }
     if ('active' in body) next.active = body.active ? 1 : 0;
+    if ('stock_count' in body) {
+      const raw = body.stock_count;
+      // Empty means "no manual count" and must round-trip to NULL — not 0, which would mean none
+      // left and would take the item off sale the moment someone cleared the box.
+      if (raw === '' || raw == null) next.stock_count = null;
+      else {
+        const n = Math.floor(Number(raw));
+        if (!Number.isFinite(n) || n < 0 || n > 9999) errors.push('Count must be a whole number 0–9999, or blank for no limit.');
+        else next.stock_count = n;
+      }
+    }
     if ('availability' in body) {
       const v = String(body.availability || 'available').trim().toLowerCase();
       // Rejected rather than coerced: silently turning a typo into 'available' would put a bowl
@@ -258,10 +269,11 @@ export const onRequestPost = async ({ request, env }) => {
     const stmts = [
       env.DB.prepare(
         `UPDATE menu_items SET name=?, name_es=?, price_cents=?, description=?, description_es=?,
-           image=?, sort=?, active=?, availability=?, updated_at=? WHERE id=?`
+           image=?, sort=?, active=?, availability=?, stock_count=?, updated_at=? WHERE id=?`
       ).bind(
         next.name, next.name_es, next.price_cents, next.description, next.description_es,
-        next.image, next.sort, next.active, next.availability || 'available', ts, itemId,
+        next.image, next.sort, next.active, next.availability || 'available',
+        next.stock_count == null ? null : next.stock_count, ts, itemId,
       ),
     ];
     if (next.price_cents !== row.price_cents) {

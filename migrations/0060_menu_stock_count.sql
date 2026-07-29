@@ -1,0 +1,13 @@
+-- "How many of these do we have today?" — a manual, per-item count.
+--
+-- A CEILING FOR TODAY, NOT A RUNNING TALLY. The number the owner types is how many were made;
+-- what is LEFT is derived as (count − sold today) from the orders table, the same way the global
+-- production cap already works. A stored number that decremented on every sale would have to be
+-- reconciled against cancellations, refunds, expired pending checkouts and re-counts — and every
+-- one of those is a way for the shelf number to drift away from reality without anyone noticing.
+-- Deriving it cannot drift, and it resets on its own at midnight ET, which is what a kitchen that
+-- cooks fresh every morning actually wants.
+--
+-- NULL means "no manual count": bowls fall back to the global ordering.bowl_limit, and drinks and
+-- add-ons stay uncapped, exactly as they are today. 0 means none left.
+ALTER TABLE menu_items ADD COLUMN stock_count INTEGER;
