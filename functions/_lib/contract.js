@@ -370,7 +370,7 @@ export async function siteContext(env, token, nowMs, opts = {}) {
   const onFile = normalizePhone(site.contact_phone);
   const date = etToday(t);
   const dow = dowMon(date);
-  const days = String(site.delivery_days || '').split(',').map((d) => d.trim().toLowerCase());
+  const days = parseDeliveryDays(site.delivery_days);
   const deliversToday = days.includes(DOW_NAMES[dow - 1]);
   const pastCutoff = etMinutes(t) >= cutoffMin(site.cutoff_time);
   let existing = null;
@@ -476,6 +476,68 @@ export async function registerAccount(env, p) {
     } catch { /* skip a bad site */ }
   }
   return { ok: true, account_id: accId, company, billing_model: model, sites: out };
+}
+
+// Add ONE delivery location to an account that already exists.
+//
+// registerAccount above only runs at self-signup, so an account that later opened a third clinic
+// had no way to get a fourth intake link short of a SQL console — the owner desk could edit sites
+// it already had and create none. New terms default to a SIBLING site's rather than to zero: an
+// account has one negotiated rate, and defaulting to $0 would silently deliver free lunches until
+// someone noticed.
+export async function addSite(env, p) {
+  if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
+  const accountId = String((p && p.account_id) || '').trim();
+  if (!accountId) return { ok: false, error: 'Missing account.' };
+  const account = await env.DB.prepare('SELECT id, status FROM contract_accounts WHERE id = ?').bind(accountId).first().catch(() => null);
+  if (!account) return { ok: false, error: 'Account not found.' };
+
+  const name = (p.name || '').toString().trim().slice(0, 80);
+  const street = (p.street || '').toString().trim().slice(0, 160);
+  const city = (p.city || '').toString().trim().slice(0, 80);
+  if (!name) return { ok: false, error: 'Give the location a name (e.g. "Boca Raton").' };
+  if (!street || !city) return { ok: false, error: 'A delivery location needs a street and a city.' };
+
+  const days = parseDeliveryDays(p.delivery_days || 'mon,tue,wed');
+  if (!days.length) return { ok: false, error: 'Pick at least one delivery day.' };
+
+  // Inherit the account's existing commercial terms; explicit values on the request still win.
+  let sib = null;
+  try {
+    sib = await env.DB.prepare(
+      'SELECT price_per_lunch_cents, delivery_fee_cents, rush_fee_cents, cutoff_time, window_label, delivery_window FROM contract_sites WHERE account_id = ? ORDER BY created_at ASC'
+    ).bind(accountId).first();
+  } catch { sib = null; }
+  const num = (v, fallback) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.round(Number(v)) : fallback);
+
+  const t = now();
+  const tok = randToken(16);
+  const siteId = id('site');
+  try {
+    await env.DB.prepare(
+      'INSERT INTO contract_sites (id, account_id, name, street, unit, city, state, zip, delivery_days, window_label, delivery_window, price_per_lunch_cents, delivery_fee_cents, cutoff_time, rush_fee_cents, intake_token, contact_name, contact_phone, active, created_at, updated_at) ' +
+      'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)'
+    ).bind(
+      siteId, accountId, name, street,
+      (p.unit || '').toString().trim().slice(0, 60) || null,
+      city,
+      ((p.state || 'FL').toString().trim() || 'FL').slice(0, 20),
+      (p.zip || '').toString().trim().slice(0, 12),
+      days.join(','),
+      (p.window_label || (sib && sib.window_label) || '11:30–12:30').toString().trim().slice(0, 40),
+      (p.delivery_window === 'dinner' ? 'dinner' : 'lunch'),
+      num(p.price_per_lunch_cents, (sib && sib.price_per_lunch_cents) || 0),
+      num(p.delivery_fee_cents, (sib && sib.delivery_fee_cents) || 0),
+      (p.cutoff_time || (sib && sib.cutoff_time) || '09:00').toString().slice(0, 5),
+      num(p.rush_fee_cents, (sib && sib.rush_fee_cents) || 1500),
+      tok,
+      (p.contact_name || '').toString().trim().slice(0, 80) || null,
+      (p.contact_phone || '').toString().trim().slice(0, 30) || null,
+      t, t,
+    ).run();
+  } catch { return { ok: false, error: 'Could not add the location.' }; }
+
+  return { ok: true, site_id: siteId, name, link_path: '/lunch-count?t=' + tok, inherited_terms: !!sib };
 }
 
 // Close a period: roll all un-invoiced daily-count rows for an account into one invoice,

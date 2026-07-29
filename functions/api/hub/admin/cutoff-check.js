@@ -16,6 +16,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { now } from '../../../_lib/hub.js';
 import { raiseAlert } from '../../../_lib/alerts.js';
 import { captureSystem } from '../../../_lib/track.js';
+import { parseDeliveryDays } from '../../../_lib/contract.js';
 
 // How long before a site's cutoff we want to be told. Long enough to text someone and have them
 // act; short enough that they have plausibly had time to send it.
@@ -70,10 +71,18 @@ export const onRequestPost = async ({ request, env }) => {
   const checked = [];
 
   for (const s of sites) {
-    // Only sites that actually deliver today. delivery_days is a CSV of 1..7 (Mon..Sun).
-    const dow = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(t.weekday) + 1;
-    const days = String(s.delivery_days || '1,2,3,4,5').split(',').map((x) => Number(x.trim()));
-    if (dow === 0 || !days.includes(dow)) continue;
+    // Only sites that actually deliver today.
+    //
+    // This read the column as a CSV of NUMBERS ('1,2,3,4,5'). It is written as a CSV of day NAMES
+    // ('mon,tue,wed') everywhere it is produced, and Number('mon') is NaN — so `days.includes(dow)`
+    // was false for every site on every day and this loop `continue`d past all of them. The whole
+    // pre-cutoff reminder has therefore never fired once in production: it reported "0 missing"
+    // every morning, which reads exactly like "everybody submitted".
+    const today = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'][
+      ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(t.weekday)
+    ];
+    const days = parseDeliveryDays(s.delivery_days || 'mon,tue,wed,thu,fri');
+    if (!today || !days.includes(today)) continue;
 
     const cut = cutoffMinutes(s.cutoff_time);
     const inWindow = t.minutes >= cut - LEAD_MINUTES && t.minutes < cut;

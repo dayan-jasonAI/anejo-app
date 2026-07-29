@@ -43,6 +43,20 @@
   .terms-grid input{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px}
   .terms-note{margin-top:8px}
   .terms-note input{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px}
+  .terms-grid select{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;background:#fff}
+  .terms-head{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin:14px 0 6px}
+  .terms-head:first-child{margin-top:0}
+  .daypick{display:flex;gap:5px;flex-wrap:wrap}
+  .daychip{position:relative;cursor:pointer;user-select:none}
+  .daychip input{position:absolute;opacity:0;width:0;height:0}
+  .daychip span{display:block;min-width:42px;text-align:center;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:12px;font-weight:700;color:var(--muted);background:#fff}
+  /* :checked alone — a static .on class would keep a chip green after the owner unchecked it. */
+  .daychip input:checked+span{background:var(--green);border-color:var(--green);color:#fff}
+  .daychip input:focus-visible+span{outline:2px solid var(--gold);outline-offset:2px}
+  .livetoggle{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;color:var(--ink);cursor:pointer}
+  .livetoggle input{width:18px;height:18px;flex:0 0 auto}
+  .site-card.paused{opacity:.72;border-left-color:var(--muted)}
+  .pill.paused{background:#f2dcd8;color:#8f3b2c}
 </style>
 </head>
 <body>
@@ -70,6 +84,7 @@
   }
   var esc = Hub.esc, money = Hub.money;
   var origin = location.origin;
+  var SITES = {};   // site_id → the stored row, so edits can be sent as a diff
 
   function copyLink(btn, url) {
     try { navigator.clipboard.writeText(url).then(function(){ btn.textContent='Copied ✓'; setTimeout(function(){ btn.textContent='Copy'; },1500); }); }
@@ -80,40 +95,201 @@
   // Cents → the dollars string the money inputs want ('' when the column is empty).
   function dollars(cents) { return (cents === null || cents === undefined || cents === '') ? '' : (Number(cents) / 100).toFixed(2); }
 
-  // Renegotiating a LIVE account. Separate from the activation form on purpose: activation is a
-  // one-time status flip, this is the recurring "we agreed on a new rate" edit. Blank = unchanged.
+  var DOW = [['mon', 'Mon'], ['tue', 'Tue'], ['wed', 'Wed'], ['thu', 'Thu'], ['fri', 'Fri'], ['sat', 'Sat'], ['sun', 'Sun']];
+  function daysOf(csv) {
+    var out = {};
+    String(csv || '').split(',').forEach(function (d) { var k = d.trim().toLowerCase(); if (k) out[k] = true; });
+    return out;
+  }
+  function dayPicker(idp, csv) {
+    var on = daysOf(csv);
+    return '<div class="daypick">' + DOW.map(function (d) {
+      return '<label class="daychip' + (on[d[0]] ? ' on' : '') + '">' +
+        '<input type="checkbox" id="' + idp + '_' + d[0] + '" value="' + d[0] + '"' + (on[d[0]] ? ' checked' : '') + '>' +
+        '<span>' + d[1] + '</span></label>';
+    }).join('') + '</div>';
+  }
+  function pickedDays(idp) {
+    return DOW.filter(function (d) { var el = document.getElementById(idp + '_' + d[0]); return el && el.checked; })
+      .map(function (d) { return d[0]; }).join(',');
+  }
+
+  // Renegotiating / re-configuring a LIVE location. Activation is the one-time status flip; this is
+  // everything after it. Every column the card displays above is editable here — the days and the
+  // delivery window used to render as read-only pills, so changing a clinic's schedule or fixing a
+  // street address meant a SQL console. Only fields that actually CHANGED are sent, so the audit
+  // row is a real diff rather than a re-statement of the whole row.
   function editTermsForm(s, aid) {
     var i = function (k, label, val, ph) {
       return '<div><label>' + label + '</label><input id="' + k + '_' + s.id + '" type="number" step="0.01" min="0" value="' + esc(val) + '" placeholder="' + ph + '"></div>';
     };
+    var txt = function (k, label, val, ph) {
+      return '<div><label>' + label + '</label><input id="' + k + '_' + s.id + '" type="text" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '"></div>';
+    };
     return '<details class="terms-edit"><summary>✏️ Edit terms — ' + esc(s.name) + '</summary><div class="body">' +
+      '<div class="terms-head">Pricing</div>' +
       '<div class="terms-grid">' +
         i('ep', '$ / lunch', dollars(s.price_per_lunch_cents), '6.00') +
         i('ef', '$ delivery', dollars(s.delivery_fee_cents), '25.00') +
         i('er', '$ rush fee', dollars(s.rush_fee_cents), '15.00') +
         '<div><label>Cut-off (ET)</label><input id="ec_' + s.id + '" type="time" value="' + esc(s.cutoff_time || '09:00') + '"></div>' +
       '</div>' +
+
+      '<div class="terms-head">Schedule</div>' +
+      '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">Delivery days</label>' +
+        dayPicker('ed_' + s.id, s.delivery_days) + '</div>' +
+      '<div class="terms-grid" style="margin-top:8px">' +
+        txt('ew', 'Delivery time (shown to the office)', s.window_label, '11:30–12:30') +
+        '<div><label>Kitchen window</label><select id="ek_' + s.id + '">' +
+          '<option value="lunch"' + (s.delivery_window === 'dinner' ? '' : ' selected') + '>Lunch</option>' +
+          '<option value="dinner"' + (s.delivery_window === 'dinner' ? ' selected' : '') + '>Dinner</option>' +
+        '</select></div>' +
+      '</div>' +
+
+      '<div class="terms-head">Location</div>' +
+      '<div class="terms-grid">' +
+        txt('enm', 'Location name', s.name, 'Delray Beach') +
+        txt('est', 'Street', s.street, '2226 W Atlantic Ave') +
+        txt('eun', 'Unit / suite', s.unit, 'Suite 200') +
+        txt('eci', 'City', s.city, 'Delray Beach') +
+        txt('ess', 'State', s.state, 'FL') +
+        txt('ezp', 'ZIP', s.zip, '33445') +
+      '</div>' +
+      '<label class="livetoggle"><input type="checkbox" id="eac_' + s.id + '"' + (Number(s.active) === 0 ? '' : ' checked') + '>' +
+        '<span>Accepting head counts — unchecking pauses this location\'s intake link</span></label>' +
+
       '<div class="terms-note"><input id="en_' + s.id + '" placeholder="Note (optional) — e.g. renegotiated on the 7/25 call"></div>' +
       '<div style="font-size:11px;color:var(--muted);margin-top:6px">New terms apply to the <b>next</b> head count. Days already submitted keep the price they were quoted.</div>' +
-      '<button class="btn gold block" style="margin-top:10px" onclick="__editTerms(\'' + aid + '\',\'' + s.id + '\')">Save new terms</button>' +
+      '<button class="btn gold block" style="margin-top:10px" onclick="__editTerms(\'' + aid + '\',\'' + s.id + '\')">Save changes</button>' +
       '</div></details>';
   }
   window.__editTerms = function (aid, sid) {
+    var site = SITES[sid] || {};
     var v = function (p) { var el = document.getElementById(p + '_' + sid); return el ? String(el.value).trim() : ''; };
     var body = { op: 'edit_terms', account_id: aid, site_id: sid };
     var cents = function (raw) { return Math.round(parseFloat(raw) * 100); };
-    // Only send the fields that were filled in — omitted means "leave this term alone".
     var touched = 0;
-    if (v('ep') !== '') { body.price_per_lunch_cents = cents(v('ep')); touched++; }
-    if (v('ef') !== '') { body.delivery_fee_cents = cents(v('ef')); touched++; }
-    if (v('er') !== '') { body.rush_fee_cents = cents(v('er')); touched++; }
-    if (v('ec') !== '') { body.cutoff_time = v('ec'); touched++; }
+
+    // Money + cut-off keep the original contract: blank means "leave this alone".
+    if (v('ep') !== '' && cents(v('ep')) !== Number(site.price_per_lunch_cents)) { body.price_per_lunch_cents = cents(v('ep')); touched++; }
+    if (v('ef') !== '' && cents(v('ef')) !== Number(site.delivery_fee_cents)) { body.delivery_fee_cents = cents(v('ef')); touched++; }
+    if (v('er') !== '' && cents(v('er')) !== Number(site.rush_fee_cents)) { body.rush_fee_cents = cents(v('er')); touched++; }
+    if (v('ec') !== '' && v('ec') !== String(site.cutoff_time || '')) { body.cutoff_time = v('ec'); touched++; }
+
+    // Identity/schedule are diffed against what is stored, so an untouched field is never resent.
+    var pairs = [['enm', 'name'], ['est', 'street'], ['eun', 'unit'], ['eci', 'city'], ['ess', 'state'], ['ezp', 'zip'], ['ew', 'window_label']];
+    pairs.forEach(function (p) {
+      var cur = v(p[0]), was = site[p[1]] == null ? '' : String(site[p[1]]);
+      if (cur !== was) { body[p[1]] = cur; touched++; }
+    });
+
+    var days = pickedDays('ed_' + sid);
+    if (days !== String(site.delivery_days || '')) { body.delivery_days = days; touched++; }
+    if (!days) { Hub.toast('Pick at least one delivery day.'); return; }
+
+    var kw = (document.getElementById('ek_' + sid) || {}).value || 'lunch';
+    if (kw !== (site.delivery_window || 'lunch')) { body.delivery_window = kw; touched++; }
+
+    var act = (document.getElementById('eac_' + sid) || {}).checked ? 1 : 0;
+    if (act !== (Number(site.active) === 0 ? 0 : 1)) { body.active = act; touched++; }
+
     if (v('en') !== '') body.note = v('en');
-    if (!touched) { Hub.toast('Change at least one term first.'); return; }
+    if (!touched) { Hub.toast('Nothing changed yet.'); return; }
     if (body.price_per_lunch_cents !== undefined && !(body.price_per_lunch_cents > 0)) { Hub.toast('Price per lunch must be more than $0.'); return; }
+    // Pausing a location stops its intake link working — worth a beat before it happens.
+    if (body.active === 0 && !window.confirm('Pause ' + (site.name || 'this location') + '? Their head-count link will stop accepting counts until you switch it back on.')) return;
     Hub.api('/api/hub/owner/contracts', { method: 'POST', body: body }).then(function (r) {
-      if (r && r.ok) { Hub.toast(r.degraded ? 'Terms saved (history unavailable — migration pending)' : 'Terms updated'); render(); }
-      else Hub.toast((r && r.error) || 'Could not save the new terms');
+      if (r && r.ok) { Hub.toast(r.degraded ? 'Saved (history unavailable — migration pending)' : 'Saved'); render(); }
+      else Hub.toast((r && r.error) || 'Could not save the changes');
+    });
+  };
+
+  // Add a location to an account that already exists. Terms are inherited from a sibling site
+  // server-side, so a second clinic never silently opens at $0/lunch.
+  function addSiteForm(aid) {
+    var f = function (k, label, ph) {
+      return '<div><label>' + label + '</label><input id="' + k + '_' + aid + '" type="text" placeholder="' + esc(ph) + '"></div>';
+    };
+    return '<details class="terms-edit"><summary>➕ Add a location</summary><div class="body">' +
+      '<div class="terms-grid">' +
+        f('nsn', 'Location name', 'Boca Raton') + f('nst', 'Street', '1200 N Federal Hwy') +
+        f('nun', 'Unit / suite', 'Suite 300') + f('nci', 'City', 'Boca Raton') +
+        f('nss', 'State', 'FL') + f('nzp', 'ZIP', '33432') +
+      '</div>' +
+      '<div style="margin-top:8px"><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">Delivery days</label>' +
+        dayPicker('nd_' + aid, 'mon,tue,wed') + '</div>' +
+      '<div class="terms-grid" style="margin-top:8px">' +
+        f('ncn', 'Office contact (optional)', 'Marina Valdes') + f('ncp', 'Contact mobile (optional)', '561-555-0142') +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:8px">Pricing, cut-off and delivery time are copied from this account\'s existing location — adjust them after with Edit terms.</div>' +
+      '<button class="btn gold block" style="margin-top:10px" onclick="__addSite(\'' + aid + '\')">Add location &amp; mint its link</button>' +
+      '</div></details>';
+  }
+  window.__addSite = function (aid) {
+    var v = function (p) { var el = document.getElementById(p + '_' + aid); return el ? String(el.value).trim() : ''; };
+    if (!v('nsn')) { Hub.toast('Give the location a name.'); return; }
+    if (!v('nst') || !v('nci')) { Hub.toast('A location needs a street and a city.'); return; }
+    var days = pickedDays('nd_' + aid);
+    if (!days) { Hub.toast('Pick at least one delivery day.'); return; }
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: {
+      op: 'add_site', account_id: aid, name: v('nsn'), street: v('nst'), unit: v('nun'),
+      city: v('nci'), state: v('nss') || 'FL', zip: v('nzp'), delivery_days: days,
+      contact_name: v('ncn'), contact_phone: v('ncp'),
+    } }).then(function (r) {
+      if (r && r.ok) { Hub.toast(r.name + ' added — copy its link below'); render(); }
+      else Hub.toast((r && r.error) || 'Could not add the location');
+    });
+  };
+
+  // Onboard a business the owner signed off-line. Before this, the ONLY way an account could exist
+  // was the public /business signup form — a client closed on the phone had nowhere to be entered.
+  function newAccountForm() {
+    var f = function (k, label, ph, type) {
+      return '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">' + label + '</label>' +
+        '<input id="' + k + '" type="' + (type || 'text') + '" placeholder="' + esc(ph) + '" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px"></div>';
+    };
+    return '<div class="hub-section"><details class="terms-edit" id="newacct"><summary>🏢 Onboard a new account</summary><div class="body">' +
+      '<div class="terms-head">Business</div>' +
+      '<div class="terms-grid">' +
+        f('na_co', 'Company name', 'Coastal Family Medicine') +
+        f('na_em', 'Billing email', 'ap@coastalfam.com', 'email') +
+        f('na_bc', 'Billing contact (optional)', 'Roxana') +
+        '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">Billing model</label>' +
+          '<select id="na_bm" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px">' +
+          '<option value="biweekly">Biweekly invoice</option><option value="monthly">Monthly invoice</option>' +
+          '<option value="weekly_autopay">Weekly autopay</option><option value="same_day">Same day</option></select></div>' +
+      '</div>' +
+      '<div class="terms-head">First delivery location</div>' +
+      '<div class="terms-grid">' +
+        f('na_sn', 'Location name', 'Jupiter') + f('na_st', 'Street', '400 Maplewood Dr') +
+        f('na_un', 'Unit / suite', 'Suite 12') + f('na_ci', 'City', 'Jupiter') +
+        f('na_ss', 'State', 'FL') + f('na_zp', 'ZIP', '33458') +
+      '</div>' +
+      '<div style="margin-top:8px"><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">Delivery days</label>' +
+        dayPicker('na_d', 'mon,tue,wed') + '</div>' +
+      '<div class="terms-grid" style="margin-top:8px">' +
+        f('na_cn', 'Office contact (optional)', 'Marina Valdes') + f('na_cp', 'Contact mobile (optional)', '561-555-0142') +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:8px">Lands as <b>pending</b> with no price set. You set the negotiated terms and press Activate — that is what turns their ordering link on.</div>' +
+      '<button class="btn gold block" style="margin-top:10px" onclick="__createAccount()">Create account</button>' +
+      '</div></details></div>';
+  }
+  window.__createAccount = function () {
+    var v = function (k) { var el = document.getElementById(k); return el ? String(el.value).trim() : ''; };
+    if (!v('na_co')) { Hub.toast('Enter the company name.'); return; }
+    if (!v('na_em')) { Hub.toast('Enter a billing email — invoices have nowhere to go without one.'); return; }
+    if (!v('na_sn') || !v('na_st') || !v('na_ci')) { Hub.toast('The first location needs a name, street and city.'); return; }
+    var days = pickedDays('na_d');
+    if (!days) { Hub.toast('Pick at least one delivery day.'); return; }
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: {
+      op: 'create_account', company: v('na_co'), billing_email: v('na_em'),
+      billing_contact: v('na_bc'), billing_model: v('na_bm') || 'biweekly',
+      sites: [{ name: v('na_sn'), street: v('na_st'), unit: v('na_un'), city: v('na_ci'),
+        state: v('na_ss') || 'FL', zip: v('na_zp'), delivery_days: days,
+        contact_name: v('na_cn'), contact_phone: v('na_cp') }],
+    } }).then(function (r) {
+      if (r && r.ok) { Hub.toast(v('na_co') + ' created — set terms, then Activate'); render(); }
+      else Hub.toast((r && r.error) || 'Could not create the account');
     });
   };
 
@@ -124,8 +300,10 @@
       return '<tr><td>' + esc(r.service_date) + '</td><td class="r">' + r.headcount + '</td><td class="r">' + money(r.total_cents) +
         (r.is_rush ? ' <span class="pill gold">rush</span>' : '') + '</td><td class="r">' + (r.invoiced ? '✓' : '—') + '</td></tr>';
     }).join('') || '<tr><td colspan="4" style="color:var(--muted)">No counts yet.</td></tr>';
-    return '<div class="site-card"><div class="nm">' + esc(s.name) + '</div>' +
-      '<div class="ad">' + esc([s.street, s.city, s.state, s.zip].filter(Boolean).join(', ')) + '</div>' +
+    var paused = Number(s.active) === 0;
+    return '<div class="site-card' + (paused ? ' paused' : '') + '"><div class="nm">' + esc(s.name) +
+      (paused ? ' <span class="pill paused">paused</span>' : '') + '</div>' +
+      '<div class="ad">' + esc([s.street, s.unit, s.city, s.state, s.zip].filter(Boolean).join(', ')) + '</div>' +
       '<div class="terms">' +
         '<span class="pill">' + money(s.price_per_lunch_cents) + '/lunch</span>' +
         '<span class="pill">' + money(s.delivery_fee_cents) + ' delivery</span>' +
@@ -285,10 +463,19 @@
   function render() {
     Owner.get('/api/hub/owner/contracts').then(function (d) {
       var root = document.getElementById('owner-root'); root.className = '';
+      var head = '<div class="hub-section"><a class="btn ghost block" href="/hub/owner/pricing.html" style="text-align:center;text-decoration:none">📊 Pricing &amp; margin model</a></div>' +
+        newAccountForm();
+      // The empty state used to be a dead end: "No contract accounts yet." with no way to add one,
+      // so the first B2B client could only be created from the public signup form.
       if (!d || !d.ok || !d.accounts || !d.accounts.length) {
-        root.innerHTML = '<div class="card"><p class="row-sub">No contract accounts yet.</p></div>'; return;
+        root.innerHTML = head + '<div class="card"><p class="row-sub">No contract accounts yet — onboard one above.</p></div>';
+        if (window.AnejoI18n) window.AnejoI18n.refresh();
+        return;
       }
-      var head = '<div class="hub-section"><a class="btn ghost block" href="/hub/owner/pricing.html" style="text-align:center;text-decoration:none">📊 Pricing &amp; margin model</a></div>';
+      // Every site keyed by id, so the edit form can diff against what is actually stored rather
+      // than re-sending fields the owner never touched.
+      SITES = {};
+      d.accounts.forEach(function (a) { (a.sites || []).forEach(function (s) { SITES[s.id] = s; }); });
       // Pending signups first (they need terms + activation).
       var accts = d.accounts.slice().sort(function (a, b) { return (a.account.status === 'pending' ? 0 : 1) - (b.account.status === 'pending' ? 0 : 1); });
       root.innerHTML = head + accts.map(function (a) {
@@ -299,6 +486,7 @@
         return '<div class="hub-section"><h2>🏢 ' + esc(acc.name) + ' ' + badge + ' <span class="row-sub" style="font-weight:400">· ' + esc(acc.billing_model || acc.invoice_cadence || '') + (acc.billing_email ? ' · ' + esc(acc.billing_email) : '') + '</span></h2>' +
           (pending ? activateForm(acc) : billingBlock(acc)) +
           a.sites.map(function (s) { return siteCard(s, a.recent, acc.id, pending); }).join('') +
+          addSiteForm(acc.id) +
           (pending ? '' :
             devicesBlock(acc.id, a.devices) +
             termsHistory(a.terms_events, a.sites) +

@@ -3,7 +3,7 @@
 import { json, bad, randToken, now, id, isEmail } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
-import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents } from '../../../_lib/contract.js';
+import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount } from '../../../_lib/contract.js';
 import { capture } from '../../../_lib/track.js';
 
 // The edit-terms / invoice-lifecycle helpers below live here rather than in _lib/contract.js
@@ -32,8 +32,58 @@ function cutoffField(raw) {
   return { v: `${String(m[1]).padStart(2, '0')}:${m[2]}` };
 }
 
+// ---------- schedule / identity validation ----------
+// Everything below used to be unreachable from the HUB: the desk showed the delivery days and the
+// window as read-only pills while letting the owner edit price and cut-off, so moving a clinic from
+// Mon/Tue/Wed to Tue/Thu, correcting a street address, or pausing one location all required a SQL
+// console. A displayed value the owner cannot change is the same withheld-control shape as the
+// missing billing contact.
+function daysField(raw) {
+  if (raw === undefined || raw === null) return { skip: true };
+  const parsed = parseDeliveryDays(raw);
+  // An empty list is rejected rather than stored: a site with no delivery days accepts no head
+  // counts at all, which looks identical to a broken intake link from the office's side.
+  if (!parsed.length) return { err: 'Pick at least one delivery day.' };
+  return { v: parsed.join(',') };
+}
+function textField(raw, label, max, { required = false } = {}) {
+  if (raw === undefined || raw === null) return { skip: true };
+  const v = String(raw).trim().slice(0, max);
+  if (!v) return required ? { err: `${label} can't be empty.` } : { v: null };
+  return { v };
+}
+function windowField(raw) {
+  if (raw === undefined || raw === null || raw === '') return { skip: true };
+  const v = String(raw).trim().toLowerCase();
+  // The kitchen board and the router only understand these two; anything else silently lands in
+  // an "unspecified" bucket that no prep list reads.
+  if (v !== 'lunch' && v !== 'dinner') return { err: 'Delivery window must be lunch or dinner.' };
+  return { v };
+}
+function activeField(raw) {
+  if (raw === undefined || raw === null || raw === '') return { skip: true };
+  return { v: (raw === true || raw === 1 || raw === '1' || raw === 'true') ? 1 : 0 };
+}
+function stateField(raw) {
+  if (raw === undefined || raw === null || raw === '') return { skip: true };
+  const v = String(raw).trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(v)) return { err: 'State must be a 2-letter code like FL.' };
+  return { v };
+}
+function zipField(raw) {
+  if (raw === undefined || raw === null || raw === '') return { skip: true };
+  const v = String(raw).trim();
+  if (!/^\d{5}(-\d{4})?$/.test(v)) return { err: 'ZIP must be 5 digits (or ZIP+4).' };
+  return { v };
+}
+
+// Money + cut-off may be set across every site on an account at once (one negotiated rate).
+// Identity, address and schedule are per-location by nature and require an explicit site_id —
+// broadcasting a street address to every clinic on the account would be silent data loss.
 const TERM_COLS = ['price_per_lunch_cents', 'delivery_fee_cents', 'rush_fee_cents', 'cutoff_time'];
-const termsOf = (s) => TERM_COLS.reduce((o, k) => { o[k] = s ? s[k] : null; return o; }, {});
+const SITE_COLS = ['name', 'street', 'unit', 'city', 'state', 'zip', 'delivery_days', 'window_label', 'delivery_window', 'active'];
+const ADDRESS_COLS = ['street', 'unit', 'city', 'state', 'zip'];
+const termsOf = (s) => [...TERM_COLS, ...SITE_COLS].reduce((o, k) => { o[k] = s ? s[k] : null; return o; }, {});
 const actorOf = (ctx) => (ctx && (ctx.email || ctx.distinct_id)) || null;
 
 // Append-only terms history (migrations/0046). Best-effort on purpose: if that migration has NOT
@@ -61,20 +111,41 @@ async function updateTerms(env, ctx, b) {
   if (!account) return { ok: false, error: 'Account not found.' };
   if (account.status === 'pending') return { ok: false, error: 'This account is still pending — set its terms with Activate.' };
 
-  const price = centsField(b.price_per_lunch_cents, 'Price per lunch', { min: 1 });
-  const fee = centsField(b.delivery_fee_cents, 'Delivery fee');
-  const rush = centsField(b.rush_fee_cents, 'Rush fee');
-  const cutoff = cutoffField(b.cutoff_time);
-  for (const f of [price, fee, rush, cutoff]) if (f.err) return { ok: false, error: f.err };
-
-  const sets = [], binds = [], after = {};
-  if (!price.skip) { sets.push('price_per_lunch_cents = ?'); binds.push(price.v); after.price_per_lunch_cents = price.v; }
-  if (!fee.skip) { sets.push('delivery_fee_cents = ?'); binds.push(fee.v); after.delivery_fee_cents = fee.v; }
-  if (!rush.skip) { sets.push('rush_fee_cents = ?'); binds.push(rush.v); after.rush_fee_cents = rush.v; }
-  if (!cutoff.skip) { sets.push('cutoff_time = ?'); binds.push(cutoff.v); after.cutoff_time = cutoff.v; }
-  if (!sets.length) return { ok: false, error: 'Nothing to change.' };
+  const fields = {
+    price_per_lunch_cents: centsField(b.price_per_lunch_cents, 'Price per lunch', { min: 1 }),
+    delivery_fee_cents: centsField(b.delivery_fee_cents, 'Delivery fee'),
+    rush_fee_cents: centsField(b.rush_fee_cents, 'Rush fee'),
+    cutoff_time: cutoffField(b.cutoff_time),
+    name: textField(b.name, 'Location name', 80, { required: true }),
+    street: textField(b.street, 'Street', 160, { required: true }),
+    unit: textField(b.unit, 'Unit', 60),
+    city: textField(b.city, 'City', 80, { required: true }),
+    state: stateField(b.state),
+    zip: zipField(b.zip),
+    delivery_days: daysField(b.delivery_days),
+    window_label: textField(b.window_label, 'Delivery time', 40, { required: true }),
+    delivery_window: windowField(b.delivery_window),
+    active: activeField(b.active),
+  };
+  for (const f of Object.values(fields)) if (f.err) return { ok: false, error: f.err };
 
   const siteId = b.site_id ? String(b.site_id) : null;
+  const touchedSiteCols = SITE_COLS.filter((k) => !fields[k].skip);
+  if (touchedSiteCols.length && !siteId) {
+    return { ok: false, error: 'Pick a location first — an address and schedule belong to one location, not the whole account.' };
+  }
+
+  const sets = [], binds = [], after = {};
+  for (const [col, f] of Object.entries(fields)) {
+    if (f.skip) continue;
+    sets.push(`${col} = ?`); binds.push(f.v); after[col] = f.v;
+  }
+  // A moved location's stored coordinates now point at the old building. Null them so the router
+  // re-geocodes from the new address instead of driving yesterday's route to a former tenant.
+  if (ADDRESS_COLS.some((k) => !fields[k].skip)) {
+    sets.push('delivery_lat = NULL', 'delivery_lng = NULL');
+  }
+  if (!sets.length) return { ok: false, error: 'Nothing to change.' };
   // Read the sites FIRST: these rows are the "before" side of the audit trail.
   let sites = [];
   try {
@@ -274,6 +345,11 @@ export const onRequestGet = async ({ request, env }) => {
 //   Owner sets the negotiated terms across the account's sites + flips it active.
 // POST { op:'edit_terms', account_id, site_id?, price_per_lunch_cents?, delivery_fee_cents?,
 //        rush_fee_cents?, cutoff_time?, note? }  → renegotiate a LIVE account (all sites, or one)
+//        …plus, with an explicit site_id: name, street, unit, city, state, zip, delivery_days,
+//        window_label, delivery_window, active → every column the desk displays is now editable.
+// POST { op:'create_account', company, billing_email, billing_contact?, billing_model?, sites:[…] }
+//        → onboard a new business from the HUB (lands pending; Activate sets the terms)
+// POST { op:'add_site', account_id, name, street, city, … } → add a location to a live account
 // POST { op:'mark_paid', account_id, invoice_id, paid_ref? }      → close an invoice
 // POST { op:'send_invoice', account_id, invoice_id, to?, link? }  → email it to the billing contact
 export const onRequestPost = async ({ request, env }) => {
@@ -283,7 +359,52 @@ export const onRequestPost = async ({ request, env }) => {
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const op = b && b.op;
+
+  // Onboarding a brand-new business is the one op with no account to name yet. It ran BEFORE the
+  // account_id guard below, which would otherwise reject the request that creates the account.
+  //
+  // Until now the ONLY way an account could come into existence was the public /business signup
+  // form: a client Añejo signed in person, or over the phone, could not be entered anywhere. The
+  // desk could activate, re-price and invoice accounts — but not create one.
+  if (op === 'create_account') {
+    const r = await registerAccount(env, {
+      company: b.company,
+      billing_email: b.billing_email,
+      billing_contact: b.billing_contact,
+      billing_model: b.billing_model,
+      sites: Array.isArray(b.sites) ? b.sites : [],
+    });
+    if (!r.ok) return bad(r.error || 'Could not create the account.', 400);
+    await capture(env, {
+      event: 'contract.account_created',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { account_id: r.account_id, sites: (r.sites || []).length, source: 'hub_owner' },
+    });
+    // Deliberately lands as PENDING with no price set: terms are agreed per account and the
+    // Activate form is the single place that records them. Creating it live at $0 would deliver
+    // free lunches on the first head count.
+    return json({ ...r, next: 'Set the negotiated terms, then Activate to turn on their links.' });
+  }
+
   if (!b || !b.account_id) return bad('Missing account_id.');
+
+  // A second/third clinic on an account that already exists.
+  if (op === 'add_site') {
+    const r = await addSite(env, { ...b, account_id: b.account_id });
+    if (!r.ok) return bad(r.error || 'Could not add the location.', 400);
+    await writeTermsEvent(env, {
+      account_id: b.account_id, site_id: r.site_id, event: 'site_added',
+      changed_by: actorOf(ctx), changed_role: ctx.role,
+      before: {}, after: { name: r.name }, note: b.note,
+    });
+    await capture(env, {
+      event: 'contract.site_added',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { account_id: b.account_id, site_id: r.site_id, inherited_terms: !!r.inherited_terms },
+    });
+    return json(r);
+  }
+
   if (op === 'activate') {
     const r = await activateAccount(env, b.account_id, b);
     if (!r.ok) return bad(r.error || 'Could not activate.', 400);
