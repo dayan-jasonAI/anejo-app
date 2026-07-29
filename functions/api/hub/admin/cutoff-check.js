@@ -1,8 +1,12 @@
 // POST /api/hub/admin/cutoff-check — "has every contract site sent today's headcount yet?"
 //
-// This is the highest-frequency operational question Añejo has: two DGP sites must submit a count
-// before their 09:15 cutoff, five days a week. Miss it and the order goes in as a rush — a worse
-// morning for the kitchen and, until the fees were corrected, a charge the client never approved.
+// This is the highest-frequency operational question Añejo has: DGP's two clinics submit a count
+// before their 09:15 cutoff on the days THEY order — mon/tue/wed as of 2026-07-29, not that it
+// matters here, because this reads each site's own delivery_days and never assumes a week shape.
+// (An earlier version of this comment said "five days a week" and the code defaulted to Mon–Fri;
+// both were wrong, and a wrong default here texts a clinic on a day they do not order.)
+// Miss the cutoff and the order goes in as a rush — a worse morning for the kitchen and, until the
+// fees were corrected, a charge the client never approved.
 //
 // Today the owner finds out AFTER it is late. This runs a few minutes BEFORE the cutoff and says
 // who is missing while there is still time to send one text.
@@ -68,6 +72,9 @@ export const onRequestPost = async ({ request, env }) => {
 
   const missing = [];
   const checked = [];
+  // Sites we skipped because nobody told us when they order — a config gap, surfaced rather than
+  // guessed around.
+  const unconfigured = [];
 
   for (const s of sites) {
     // Only sites that actually deliver today.
@@ -80,7 +87,17 @@ export const onRequestPost = async ({ request, env }) => {
     const today = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'][
       ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(t.weekday)
     ];
-    const days = parseDeliveryDays(s.delivery_days || 'mon,tue,wed,thu,fri');
+    // NEVER GUESS A CLIENT'S DELIVERY DAYS.
+    //
+    // This defaulted to Mon–Fri when the column was empty, which meant a misconfigured site would
+    // text its office contact "we haven't got your head count yet" on a day they never order. A
+    // wrong reminder to a client is worse than a missing one: it makes them doubt every reminder
+    // after it. DGP is mon,tue,wed — nothing here should be able to invent Thursday for them.
+    //
+    // No days configured => we do not know when they order => stay silent and let it surface as a
+    // gap in the desk, not as a text to the customer.
+    const days = parseDeliveryDays(s.delivery_days);
+    if (!days.length) { unconfigured.push(s.name); continue; }
     if (!today || !days.includes(today)) continue;
 
     const cut = cutoffMinutes(s.cutoff_time);
@@ -138,9 +155,13 @@ export const onRequestPost = async ({ request, env }) => {
     in_window: checked.length > 0,
     checked,
     missing,
+    unconfigured,
     // Says plainly why nothing was checked, instead of an empty result that reads like "all good".
     note: checked.length
       ? (missing.length ? `${missing.length} site(s) still missing` : 'All delivering sites have submitted')
       : 'No site is inside its pre-cutoff window right now (or none deliver today)',
+    // Never silently absorbed: a site with no delivery days set will never be reminded, and the
+    // only way anyone finds out is if this says so.
+    ...(unconfigured.length ? { warning: `${unconfigured.length} site(s) have no delivery days set and were skipped: ${unconfigured.join(', ')}` } : {}),
   });
 };

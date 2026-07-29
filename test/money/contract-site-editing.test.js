@@ -193,3 +193,37 @@ test('the unit line shows in the address the desk displays', () => {
   assert.ok(/\[s\.street, s\.unit, s\.city, s\.state, s\.zip\]/.test(PAGE),
     'a suite number is the difference between delivered and lost');
 });
+
+// ---------- the reminder must never invent a delivery day ----------
+//
+// Dayan: "DGP is set for monday through wednesday, idk where you get monday through friday from."
+// He was right to push. Three different things carried a week shape and only one was DGP's:
+//   · DGP's config in D1        → mon,tue,wed  (correct)
+//   · the cron wake-up schedule → Mon–Fri      (deliberate: wake broadly, let each site decide)
+//   · a fallback default here   → Mon–Fri      (WRONG — this one could text a real clinic)
+// A reminder sent on a day a client does not order is worse than a missing one: it teaches them
+// to distrust every reminder after it.
+
+test('a site with no delivery days is SKIPPED, never assumed', () => {
+  const src = readFileSync(new URL('../../functions/api/hub/admin/cutoff-check.js', import.meta.url), 'utf8');
+  assert.match(src, /const days = parseDeliveryDays\(s\.delivery_days\);/, 'no fallback week');
+  assert.ok(!/parseDeliveryDays\(s\.delivery_days \|\|/.test(src), 'the Mon–Fri default is gone');
+  assert.match(src, /if \(!days\.length\) \{ unconfigured\.push/);
+});
+
+test('an unconfigured site is reported, not silently dropped', () => {
+  // Skipping quietly means that site is never reminded and nobody ever learns why.
+  const src = readFileSync(new URL('../../functions/api/hub/admin/cutoff-check.js', import.meta.url), 'utf8');
+  assert.match(src, /have no delivery days set and were skipped/);
+});
+
+test('parseDeliveryDays gives an empty list for blank input, which is what triggers the skip', () => {
+  assert.deepEqual(parseDeliveryDays(''), []);
+  assert.deepEqual(parseDeliveryDays(null), []);
+  assert.deepEqual(parseDeliveryDays('mon,tue,wed'), ['mon', 'tue', 'wed'], "DGP's real shape");
+});
+
+test('the file no longer claims DGP orders five days a week', () => {
+  const src = readFileSync(new URL('../../functions/api/hub/admin/cutoff-check.js', import.meta.url), 'utf8');
+  assert.ok(!/09:15 cutoff, five days a week/.test(src));
+});
