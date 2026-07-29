@@ -2,7 +2,7 @@
 // The client sends { items: [{id, qty}], fulfillment } using catalog IDs only; prices are
 // resolved SERVER-SIDE via loadMenu(env) (D1, defaults in _lib/menu.js) so they can't be
 // tampered with from the browser.
-import { json, bad, id, appBaseUrl, normalizePhone } from '../_lib/util.js';
+import { json, bad, id, appBaseUrl, normalizePhone, isEmail } from '../_lib/util.js';
 import { square, squareConfigured } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress } from '../_lib/geo.js';

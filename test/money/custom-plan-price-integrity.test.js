@@ -114,3 +114,50 @@ test('Square is checked for having ECHOED the price we sent', () => {
   // failure this guards.
   assert.match(CREATE, /price_override_money && Number\(sub\.price_override_money\.amount\)/);
 });
+
+// ---------- guest checkout must capture an email ----------
+//
+// Until now the order only stored an email when the buyer happened to be SIGNED IN. Every guest
+// order wrote customer_email = NULL, and everything keyed on it silently did nothing:
+// awardOrderPoints returns 0 without an email, order notifications had nobody to reach, and an
+// abandoned cart could never be followed up. That is why points_ledger held ONE row against real
+// paid orders — the buyers simply never existed as far as rewards were concerned.
+
+const CHECKOUT = readFileSync(new URL('../../functions/api/checkout.js', import.meta.url), 'utf8');
+const ORDER_PAGE = readFileSync(new URL('../../public/order.html', import.meta.url), 'utf8');
+
+test('the checkout form asks for an email, and requires it', () => {
+  assert.match(ORDER_PAGE, /id="custEmail"[^>]*type="email"/);
+  assert.match(ORDER_PAGE, /id="custEmail"[^>]*required/);
+  assert.match(ORDER_PAGE, /valid email for your receipt and rewards/);
+});
+
+test('the email is actually sent to the server', () => {
+  // The field existing is worthless if the payload drops it.
+  assert.match(ORDER_PAGE, /email: \$\('custEmail'\)\.value\.trim\(\)/);
+});
+
+test('a guest order now stores the typed email', () => {
+  assert.match(CHECKOUT, /const typedEmail = String\(contact\.email \|\| ''\)/);
+  assert.match(CHECKOUT, /sessEmail \|\| \(isEmail\(typedEmail\) \? typedEmail : null\)/);
+});
+
+test('a proven session still wins over a typed address', () => {
+  // Order matters: someone typing a different address must not overwrite who they are signed in as.
+  const expr = (CHECKOUT.match(/sessEmail \|\| \(isEmail\(typedEmail\)[^)]*\)[^,]*/) || [''])[0];
+  assert.ok(expr.indexOf('sessEmail') < expr.indexOf('typedEmail'), 'session first');
+});
+
+test('a malformed typed email stores NULL rather than junk', () => {
+  // customer_email is the CRM's join key — "asdf" in that column poisons points, notifications
+  // and every customer lookup that follows.
+  assert.match(CHECKOUT, /isEmail\(typedEmail\) \? typedEmail : null/);
+});
+
+test('member benefits still require a real session, not a typed address', () => {
+  // A bound customer code can carry a discount. Auto-applying it from a TYPED email would let
+  // anyone claim another member's benefit by guessing their address.
+  assert.match(CHECKOUT, /if \(!promoInput && sessEmail\)/);
+  assert.ok(!/autoCustomerCodeFor\(env, typedEmail\)/.test(CHECKOUT),
+    'the bound-code lookup must never key off an unverified email');
+});
