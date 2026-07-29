@@ -102,7 +102,11 @@
     } else if (d.connected) {
       status = '<div class="live on">🟢 <b>Connected as @' + esc(d.account.username) + '</b> · ' +
         (d.account.followers || 0) + ' followers · ' + (d.account.media_count || 0) + ' posts' +
-        '<div class="row-sub" style="margin-top:4px">' + d.remaining_today + ' of ' + d.daily_cap + ' posts left today (Instagram\'s limit).</div></div>';
+        '<div class="row-sub" style="margin-top:4px">' + d.remaining_today + ' of ' + d.daily_cap + ' posts left today (Instagram\'s limit).' +
+        // Which of Meta's two APIs the token came from — it decides where it gets renewed.
+        (d.host === 'instagram_login' ? ' Token renews under Instagram → API setup with Instagram business login.'
+          : d.host === 'facebook_login' ? ' Token is a Facebook Page token.' : '') +
+        '</div></div>';
     } else {
       status = '<div class="live off">⚠️ <b>Set up, but Instagram refused the token.</b> ' + esc(d.account_error || '') +
         '<div class="row-sub" style="margin-top:4px">Long-lived tokens expire after ~60 days — this usually means it needs renewing.</div></div>';

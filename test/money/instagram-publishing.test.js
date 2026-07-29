@@ -16,7 +16,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { igConfigured, publishImage, JPEG_ONLY } from '../../functions/_lib/instagram.js';
+import { igConfigured, publishImage, accountInfo, resolveTarget, JPEG_ONLY } from '../../functions/_lib/instagram.js';
 
 const LIB = readFileSync(new URL('../../functions/_lib/instagram.js', import.meta.url), 'utf8');
 const API = readFileSync(new URL('../../functions/api/hub/owner/social.js', import.meta.url), 'utf8');
@@ -24,7 +24,9 @@ const PUBLIC = readFileSync(new URL('../../functions/api/social/media/[token].js
 const MIG = readFileSync(new URL('../../migrations/0056_social_posts.sql', import.meta.url), 'utf8');
 
 // IG_POLL_MS keeps the real 2s-per-poll wait out of the suite; the polling LOGIC is unchanged.
-const ENV = { IG_ACCESS_TOKEN: 'tok', IG_USER_ID: '17841400000000000', IG_POLL_MS: 0 };
+// IG_API_HOST pins the publish tests to one API so they assert publishing, not host detection —
+// detection has its own tests below, and a token+id+host that are all explicit needs no probe.
+const ENV = { IG_ACCESS_TOKEN: 'tok', IG_USER_ID: '17841400000000000', IG_POLL_MS: 0, IG_API_HOST: 'facebook' };
 
 function stubFetch(handler) {
   const real = globalThis.fetch;
@@ -164,4 +166,91 @@ test('deleting a live post is refused', () => {
 test('the daily cap is surfaced so a batch cannot burn it silently', () => {
   assert.match(API, /DAILY_CAP = 25/);
   assert.match(API, /remaining_today/);
+});
+
+// ---------- two APIs, two hosts ----------
+//
+// Meta ships "Instagram API with Instagram Login" (graph.instagram.com) and "Instagram API with
+// Facebook Login" (graph.facebook.com). Their tokens are NOT interchangeable and nothing in a
+// token says which it is. Guessing wrong returns "Invalid OAuth 2.0 Access Token" — identical to
+// an expired token, so the owner would go and renew a token that was never the problem.
+
+test('an Instagram Login token is detected without any IG_USER_ID', async () => {
+  // The whole point of the newer path: no Facebook Page, and no hunting for a 17-digit id.
+  const f = stubFetch(({ url }) => {
+    if (url.includes('graph.instagram.com')) return jsonRes({ user_id: '17841400000000009', username: 'anejo', followers_count: 4, media_count: 6 });
+    throw new Error('must not ask graph.facebook.com first');
+  });
+  try {
+    const t = await resolveTarget({ IG_ACCESS_TOKEN: 'ig-only-token' });
+    assert.equal(t.ok, true);
+    assert.match(t.base, /graph\.instagram\.com/);
+    assert.equal(t.id, '17841400000000009', 'the id is DERIVED from /me, not configured');
+  } finally { f.restore(); }
+});
+
+test('a Facebook Login token falls through to graph.facebook.com', async () => {
+  // Instagram Login is tried first because it is the recommended path — but a Page token must
+  // still work, or anyone already set up the old way breaks.
+  const seen = [];
+  const f = stubFetch(({ url }) => {
+    seen.push(url);
+    if (url.includes('graph.instagram.com')) return jsonRes({ error: { message: 'Invalid OAuth 2.0 Access Token', code: 190 } }, 401);
+    return jsonRes({ id: '17841400000000000', username: 'anejo', followers_count: 4, media_count: 6 });
+  });
+  try {
+    const t = await resolveTarget({ IG_ACCESS_TOKEN: 'page-token-x', IG_USER_ID: '17841400000000000' });
+    assert.equal(t.ok, true);
+    assert.match(t.base, /graph\.facebook\.com/);
+    assert.ok(seen[0].includes('graph.instagram.com'), 'Instagram Login is tried first');
+  } finally { f.restore(); }
+});
+
+test('a token neither API accepts reports the failure, not a wrong host', async () => {
+  const f = stubFetch(() => jsonRes({ error: { message: 'Invalid OAuth 2.0 Access Token', code: 190 } }, 401));
+  try {
+    const t = await resolveTarget({ IG_ACCESS_TOKEN: 'garbage', IG_USER_ID: '1784140000000000x' });
+    assert.equal(t.ok, false);
+    assert.match(t.error, /Invalid OAuth/);
+  } finally { f.restore(); }
+});
+
+test('detection is memoized — a second call does not re-probe', async () => {
+  // Otherwise every HUB page load costs two extra Meta calls for an answer that cannot change.
+  let calls = 0;
+  const f = stubFetch(() => { calls++; return jsonRes({ user_id: '1784140000000000m', username: 'anejo' }); });
+  try {
+    const env = { IG_ACCESS_TOKEN: 'memo-token-' + 'z' };
+    await resolveTarget(env);
+    const after = calls;
+    await resolveTarget(env);
+    assert.equal(calls, after, 'the host was remembered');
+  } finally { f.restore(); }
+});
+
+test('an explicit host + id skips the probe entirely', async () => {
+  const f = stubFetch(() => { throw new Error('must not probe when told'); });
+  try {
+    const t = await resolveTarget({ IG_ACCESS_TOKEN: 'explicit-tok', IG_USER_ID: '123', IG_API_HOST: 'instagram' });
+    assert.equal(t.ok, true);
+    assert.match(t.base, /graph\.instagram\.com/);
+  } finally { f.restore(); }
+});
+
+test('the HUB is told WHICH api the token belongs to', async () => {
+  // It decides where the owner renews it in 60 days, so "connected" alone is not enough.
+  const f = stubFetch(() => jsonRes({ user_id: '1784140000000000h', username: 'anejocatering', followers_count: 4, media_count: 6 }));
+  try {
+    const a = await accountInfo({ IG_ACCESS_TOKEN: 'host-label-token' });
+    assert.equal(a.ok, true);
+    assert.equal(a.username, 'anejocatering');
+    assert.equal(a.host, 'instagram_login');
+  } finally { f.restore(); }
+});
+
+test('the version is pinned, never left to Meta to choose', () => {
+  // An unversioned Graph call is served by whatever version Meta decides, which changes the
+  // contract underneath us without a deploy.
+  assert.match(LIB, /graph\.instagram\.com\/v\d+\.\d+/);
+  assert.match(LIB, /graph\.facebook\.com\/v\d+\.\d+/);
 });

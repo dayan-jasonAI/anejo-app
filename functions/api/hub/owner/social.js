@@ -47,7 +47,10 @@ export const onRequestGet = async ({ request, env }) => {
     daily_cap: DAILY_CAP,
     published_24h: publishedToday,
     remaining_today: Math.max(0, DAILY_CAP - publishedToday),
-    setup: configured ? null : 'Set IG_ACCESS_TOKEN and IG_USER_ID (Cloudflare Pages secrets) from a Meta app with instagram_content_publish, then reload.',
+    setup: configured ? null : 'Set IG_ACCESS_TOKEN (a Cloudflare Pages secret) from a Meta Business app — Instagram → API setup with Instagram business login → Generate token. IG_USER_ID is only needed on the older Facebook Login path.',
+    // Which of the two Instagram APIs the token turned out to belong to. Worth surfacing: it
+    // decides where the token gets renewed in 60 days.
+    host: account && account.ok ? account.host : null,
     posts,
   });
 };
