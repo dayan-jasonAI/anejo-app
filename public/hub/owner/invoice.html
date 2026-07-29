@@ -80,6 +80,12 @@
         '<button class="send" id="btn-send">✉️ '+(inv.sent_at||inv.status==='sent'?'Re-send':'Send')+' to client</button></div>' +
         (paid?'':'<div class="line"><input id="ref" placeholder="Payment reference (check #, ACH, Square…)">' +
           '<button class="pay" id="btn-pay">✓ Mark paid</button></div>') +
+        // Only offered once QuickBooks is actually connected — a button that always fails is
+        // worse than no button. Already-booked invoices say so instead of inviting a second post,
+        // which in a client's books reads as being billed twice.
+        (inv.qbo_invoice_id
+          ? '<div class="done" style="margin-top:8px">📗 In QuickBooks (invoice ' + esc(inv.qbo_invoice_id) + ')</div>'
+          : '<div class="line" id="qbo-line" style="display:none"><button class="send" id="btn-qbo">📗 Send to QuickBooks</button></div>') +
         '<div class="hint">Send emails this invoice to the billing contact and moves it to <b>sent</b>. Mark paid closes it — it stops counting as outstanding.</div>');
 
     var bs=document.getElementById('btn-send');
@@ -91,6 +97,22 @@
         .then(function(r){ bs.disabled=false;
           if(r&&r.ok){ Hub.toast('Invoice emailed'); load(); } else Hub.toast((r&&r.error)||'Could not send'); });
     });
+    // Reveal the QuickBooks button only when there is a live connection behind it.
+    var qline=document.getElementById('qbo-line');
+    if(qline) Hub.api('/api/hub/owner/qbo').then(function(q){
+      if(!q||!q.ok||!q.connected) return;
+      qline.style.display='';
+      var bq=document.getElementById('btn-qbo');
+      bq.addEventListener('click', function(){
+        if(!window.confirm('Send invoice '+(inv.number||inv.id)+' to QuickBooks?')) return;
+        bq.disabled=true;
+        Hub.api('/api/hub/owner/qbo',{method:'POST',body:{op:'push_invoice',invoice_id:inv.id}})
+          .then(function(r){ bq.disabled=false;
+            if(r&&r.ok){ Hub.toast(r.already?'It was already in QuickBooks':'Sent to QuickBooks'); load(); }
+            else Hub.toast((r&&r.error)||'Could not send to QuickBooks'); });
+      });
+    });
+
     var bp=document.getElementById('btn-pay');
     if(bp) bp.addEventListener('click', function(){
       if(!window.confirm('Mark invoice '+(inv.number||inv.id)+' as PAID? It stops showing as outstanding.')) return;
