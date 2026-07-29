@@ -37,12 +37,11 @@ function toE164US(p) {
 // Instant welcome to a new launch-list signup: branded email (all) + SMS (consented only).
 // Best-effort — every failure is swallowed so it can run in waitUntil without risk. Returning
 // signups (dedupe path) never reach here, so no one is messaged twice.
-async function sendLaunchWelcome(env, rec, member) {
+async function sendLaunchWelcome(env, rec, member, promo) {
   const es = rec.source_lang === 'es';
-  // Personal, non-shareable 10%-off + 2x-points code, valid 30 days. Bound to this email —
-  // only this account can redeem it (enforced server-side at checkout).
-  let promo = null;
-  try { promo = await issueCustomerCode(env, { email: rec.email, note: 'launch signup' }); } catch { promo = null; }
+  // The benefit is GRANTED BY THE CALLER, before this runs — see the note at the call site. This
+  // function only describes it. (It used to mint the code itself, which made a lifetime
+  // entitlement a side effect of a best-effort email.)
   const promoBlock = promo ? (es
     ? `<div style="margin:22px 0;padding:18px;border:1px solid #C6A85B;border-radius:10px;background:#fdfaf2">
          <p style="margin:0 0 6px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#8B6B3E">Beneficios de Miembro de Legado</p>
@@ -228,9 +227,19 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
         const c = await env.DB.prepare("SELECT COUNT(*) AS n FROM leads WHERE kind='launch'").first();
         member = (c && c.n) || 1;
       } catch { /* member stays null; page falls back gracefully */ }
+      // GRANT THE BENEFIT FIRST, AND AWAIT IT.
+      //
+      // This is the Founding Legacy Member entitlement — 2x points for life — which the page and
+      // the welcome email both promise. It used to be minted inside sendLaunchWelcome(), a
+      // fire-and-forget call, so a mail failure silently cost someone a lifetime perk. Members
+      // #1–#3 signed up before that feature existed and never got one at all.
+      // It is now part of the signup itself: awaited, and never dependent on email working.
+      let promo = null;
+      try { promo = await issueCustomerCode(env, { email: rec.email, note: 'launch signup' }); } catch { promo = null; }
+
       // Instant welcome — deferred so it never delays the response. Email sends now;
       // the SMS half stays gated inside sendLaunchWelcome (LAUNCH_WELCOME_SMS) until Twilio is fixed.
-      const welcome = sendLaunchWelcome(env, rec, member).catch(() => {});
+      const welcome = sendLaunchWelcome(env, rec, member, promo).catch(() => {});
       if (typeof waitUntil === 'function') waitUntil(welcome);
     }
   }

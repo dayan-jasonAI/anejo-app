@@ -11,7 +11,9 @@ import { json, bad, id, now, isEmail, normalizePhone, randToken, appBaseUrl } fr
 import { requireRole } from '../../../_lib/roles.js';
 import { parseJson } from '../../../_lib/hub.js';
 import { rewardsSummary } from '../../../_lib/rewards.js';
+import { foundingStatus, issueCustomerCode, grantMissingFoundingCodes } from '../../../_lib/promo.js';
 import { sendEmail, magicLinkEmail } from '../../../_lib/email.js';
+import { capture } from '../../../_lib/track.js';
 
 const emailKey = (e) => (e == null ? '' : String(e)).trim().toLowerCase();
 
@@ -195,10 +197,16 @@ async function customerDetail(env, email) {
 
   const name = (client && client.name) || (orders[0] && orders[0].customer_name) || key;
   const rewards = await rewardsSummary(env, key);
+  // Founding / Legacy standing, derived (never stored) exactly like the spend tiers. `benefit_active`
+  // is reported separately from `is_legacy` on purpose: "is owed the 2x-for-life benefit" and
+  // "actually has it on their account" are different questions, and the gap between them is a
+  // promise the launch page already made in writing.
+  const founding = await foundingStatus(env, key);
   return {
     email: key,
     name,
     rewards,
+    founding,
     client: client ? {
       id: client.id,
       name: client.name,
@@ -281,6 +289,116 @@ export const onRequestPost = async ({ request, env }) => {
       });
     } catch (e) { return bad('Could not send the email: ' + (e.message || 'unknown'), 502); }
     return json({ ok: true, sent_to: target });
+  }
+
+  // Edit the profile card. Only a managed CLIENT row can be edited — a guest (order-only) customer
+  // has no record to change, and silently doing nothing would be worse than saying so.
+  if (action === 'update') {
+    const target = emailKey(b.email);
+    if (!isEmail(target)) return bad('A valid email is required.');
+    let cl = null;
+    try { cl = await env.DB.prepare('SELECT * FROM clients WHERE LOWER(TRIM(email)) = ? LIMIT 1').bind(target).first(); }
+    catch { cl = null; }
+    if (!cl) return bad('This is a guest customer — onboard them first, then their profile becomes editable.', 409);
+
+    const sets = [], binds = [], after = {};
+    const put = (col, val) => { sets.push(`${col} = ?`); binds.push(val); after[col] = val; };
+    const txt = (v, max) => (v == null ? null : String(v).trim().slice(0, max) || null);
+
+    if (b.name !== undefined) {
+      const v = txt(b.name, 120);
+      if (!v) return bad('A name is required.');
+      put('name', v);
+    }
+    if (b.phone !== undefined) put('phone', normalizePhone(b.phone) || null);
+    if (b.lang !== undefined) put('lang', b.lang === 'es' ? 'es' : 'en');
+    if (b.allergens !== undefined) put('allergens', txt(b.allergens, 600));
+    if (b.conditions !== undefined) put('conditions', txt(b.conditions, 600));
+    if (b.preferences !== undefined) put('preferences', txt(b.preferences, 600));
+
+    // Address. Any change clears the stored coordinates so the router re-geocodes rather than
+    // driving to where they used to live — same rule the contract sites follow.
+    const addrCols = ['delivery_street', 'delivery_unit', 'delivery_city', 'delivery_state', 'delivery_zip', 'delivery_notes'];
+    let addrTouched = false;
+    for (const col of addrCols) {
+      const kx = col.replace('delivery_', '');
+      if (b[kx] === undefined && b[col] === undefined) continue;
+      const raw = b[kx] !== undefined ? b[kx] : b[col];
+      put(col, txt(raw, col === 'delivery_notes' ? 400 : 120));
+      addrTouched = true;
+    }
+    if (addrTouched) sets.push('delivery_lat = NULL', 'delivery_lng = NULL');
+
+    // Marketing consent is legally sensitive: who changed it and when has to be recoverable.
+    if (b.marketing_email_consent !== undefined) put('marketing_email_consent', b.marketing_email_consent ? 1 : 0);
+    if (b.marketing_sms_consent !== undefined) {
+      const on = !!b.marketing_sms_consent;
+      put('marketing_sms_consent', on ? 1 : 0);
+      put('marketing_sms_consent_at', on ? now() : null);
+      put('marketing_sms_consent_src', on ? `hub:owner:${ctx.distinct_id || 'unknown'}` : null);
+    }
+
+    // Changing the EMAIL re-keys their whole history: orders, points and the founding benefit are
+    // all email-keyed. Refused when the new address already belongs to someone else.
+    let newEmail = null;
+    if (b.new_email !== undefined && emailKey(b.new_email) && emailKey(b.new_email) !== target) {
+      newEmail = emailKey(b.new_email);
+      if (!isEmail(newEmail)) return bad('That does not look like a valid email address.');
+      let clash = null;
+      try { clash = await env.DB.prepare('SELECT id FROM clients WHERE LOWER(TRIM(email)) = ? LIMIT 1').bind(newEmail).first(); }
+      catch { clash = null; }
+      if (clash) return bad('Another customer already uses that email.', 409);
+      put('email', newEmail);
+    }
+
+    if (!sets.length) return bad('Nothing to change.');
+    try {
+      await env.DB.prepare(`UPDATE clients SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`)
+        .bind(...binds, now(), cl.id).run();
+    } catch (e) {
+      return bad('Could not save the profile. ' + String((e && e.message) || '').slice(0, 120), 500);
+    }
+
+    // Re-point the email-keyed records so history, points and the founding benefit follow them.
+    // Done AFTER the client row so a failure here leaves a recoverable state rather than a
+    // customer whose orders point at an address that no longer exists.
+    const moved = {};
+    if (newEmail) {
+      for (const [table, col] of [['orders', 'customer_email'], ['points_ledger', 'email'], ['promo_codes', 'bound_email']]) {
+        try {
+          const r = await env.DB.prepare(`UPDATE ${table} SET ${col} = ? WHERE LOWER(TRIM(${col})) = ?`).bind(newEmail, target).run();
+          moved[table] = (r && r.meta && r.meta.changes) || 0;
+        } catch { moved[table] = null; }
+      }
+    }
+
+    await capture(env, {
+      event: 'customer.profile_updated',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { fields: Object.keys(after), email_changed: !!newEmail },
+    });
+    return json({ ok: true, email: newEmail || target, updated: Object.keys(after), moved, address_recheck: addrTouched });
+  }
+
+  // Grant the Founding Legacy Member benefit (2x points for life) to anyone owed one but missing
+  // it. Idempotent — it only ever fills gaps.
+  if (action === 'repair_founding') {
+    const r = await grantMissingFoundingCodes(env);
+    await capture(env, {
+      event: 'rewards.founding_repaired',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { granted: r.granted },
+    });
+    return json(r);
+  }
+
+  // Grant one customer their founding benefit by hand (e.g. an off-line signup).
+  if (action === 'grant_founding') {
+    const target = emailKey(b.email);
+    if (!isEmail(target)) return bad('A valid email is required.');
+    const got = await issueCustomerCode(env, { email: target, note: 'granted by owner' });
+    if (!got) return bad('Could not issue the benefit.', 500);
+    return json({ ok: true, email: target, code: got.code, founding: await foundingStatus(env, target) });
   }
 
   if (action !== 'onboard') return bad('Unknown action.');

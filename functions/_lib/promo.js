@@ -74,6 +74,98 @@ export async function issueCustomerCode(env, { email: to, note } = {}) {
  * The signed-in member's own active benefit, for silent auto-apply at checkout.
  * A lifetime perk shouldn't need typing — this is what makes "2x for life" feel automatic.
  */
+/**
+ * Grant the founding benefit to every launch-list signup that somehow has none.
+ *
+ * WHY THIS EXISTS. The benefit used to be minted inside sendLaunchWelcome(), which is called
+ * fire-and-forget (`.catch(() => {})`). That made a DURABLE ENTITLEMENT a side effect of a
+ * BEST-EFFORT EMAIL: if the mail path failed — or, as actually happened, if someone signed up
+ * before the benefit feature shipped — they were told on the page and in the welcome that they
+ * were a Founding Legacy Member with double points for life, and nothing on their account
+ * delivered it. Founding members #1, #2 and #3 were in exactly that state for a week.
+ *
+ * Idempotent by construction: issueCustomerCode returns the existing code when there is one, so
+ * this can run on every signup, on demand from the HUB, or on a schedule, and only ever fills gaps.
+ */
+export async function grantMissingFoundingCodes(env) {
+  if (!env || !env.DB) return { ok: false, checked: 0, granted: 0, emails: [] };
+  let rows = [];
+  try {
+    const r = await env.DB.prepare(
+      "SELECT DISTINCT LOWER(TRIM(email)) AS em FROM leads WHERE kind='launch' AND email IS NOT NULL AND TRIM(email) <> '' " +
+      "AND LOWER(TRIM(email)) NOT IN (SELECT bound_email FROM promo_codes WHERE kind='customer' AND status='active' AND bound_email IS NOT NULL)"
+    ).all();
+    rows = (r && r.results) || [];
+  } catch { return { ok: false, checked: 0, granted: 0, emails: [] }; }
+
+  const granted = [];
+  for (const row of rows) {
+    const got = await issueCustomerCode(env, { email: row.em, note: 'founding benefit repair' });
+    if (got && got.code) granted.push(row.em);
+  }
+  return { ok: true, checked: rows.length, granted: granted.length, emails: granted };
+}
+
+export const FOUNDING_CAP = 100;
+
+/**
+ * Founding / Legacy standing for one email. DERIVED, never stored — the same rule the spend tiers
+ * follow, so it cannot drift out of sync with the facts behind it.
+ *
+ *   on_launch_list — they signed up at /launch
+ *   member_no      — their place in that queue (1-based); ≤ FOUNDING_CAP is "one of the Hundred"
+ *   is_legacy      — on the list AND they have completed a paid purchase. That second half is
+ *                    what Dayan asked for: the badge is EARNED at the first paid order, not
+ *                    handed out at signup.
+ *   benefit_active — the 2x-for-life code actually exists on the account. Distinguished from
+ *                    is_legacy on purpose: "should have it" and "has it" are different questions,
+ *                    and the gap between them is exactly the bug this shipped to fix.
+ */
+export async function foundingStatus(env, addr) {
+  const em = email(addr);
+  const none = { on_launch_list: false, member_no: null, within_cap: false, is_legacy: false, benefit_active: false, code: null, paid_orders: 0 };
+  if (!env || !env.DB || !em) return none;
+
+  let lead = null;
+  try {
+    lead = await env.DB.prepare("SELECT id, created_at FROM leads WHERE kind='launch' AND LOWER(TRIM(email)) = ? ORDER BY created_at ASC LIMIT 1").bind(em).first();
+  } catch { return none; }
+  if (!lead) return none;
+
+  // Rank by signup time — the same order the live counter on /launch counts.
+  let memberNo = null;
+  try {
+    const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM leads WHERE kind='launch' AND created_at <= ?").bind(lead.created_at).first();
+    memberNo = (r && r.n) || null;
+  } catch { memberNo = null; }
+
+  let paid = 0;
+  try {
+    const r = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM orders WHERE LOWER(TRIM(customer_email)) = ? AND status IN ('paid','prep','ready','fulfilled')"
+    ).bind(em).first();
+    paid = (r && r.n) || 0;
+  } catch { paid = 0; }
+
+  let code = null;
+  try {
+    const r = await env.DB.prepare(
+      "SELECT code FROM promo_codes WHERE kind='customer' AND bound_email=? AND status='active' AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at ASC LIMIT 1"
+    ).bind(em, now()).first();
+    code = (r && r.code) || null;
+  } catch { code = null; }
+
+  return {
+    on_launch_list: true,
+    member_no: memberNo,
+    within_cap: !!memberNo && memberNo <= FOUNDING_CAP,
+    is_legacy: paid > 0,
+    benefit_active: !!code,
+    code,
+    paid_orders: paid,
+  };
+}
+
 export async function autoCustomerCodeFor(env, sessionEmail) {
   if (!env || !env.DB) return null;
   const em = email(sessionEmail);

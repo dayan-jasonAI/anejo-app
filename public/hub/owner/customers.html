@@ -222,6 +222,7 @@
         });
       });
       if (isGuest) bindOnboard(d);
+      bindEdit(d);
       refresh();
     });
   }
@@ -285,9 +286,102 @@
     } else {
       rows.push(['Email', esc(d.email || '—')]);
     }
+    // Founding / Legacy standing. Deliberately shows the difference between "has earned it" and
+    // "actually holds the benefit": the launch page promised 2x points for life, and for three
+    // founding members that promise had nothing behind it until it was repaired.
+    var f = d.founding;
+    if (f && f.on_launch_list) {
+      var badge = f.is_legacy
+        ? '<span class="badge ok">Legacy Member</span>'
+        : '<span class="badge">Launch list — not yet purchased</span>';
+      var num = f.member_no ? ' · <b>#' + f.member_no + '</b>' + (f.within_cap ? ' of the Founding Hundred' : '') : '';
+      var benefit = f.benefit_active
+        ? '<span class="badge ok">2× points for life ✓</span>'
+        : '<span class="badge crit">Benefit MISSING</span> <button class="btn small" id="grant-founding" type="button">Grant it</button>';
+      rows.push(['Founding', badge + num]);
+      rows.push(['Founding benefit', benefit]);
+      if (!f.is_legacy) rows.push(['Becomes Legacy', '<span class="row-sub">on their first paid order</span>']);
+    }
+
     var grid = rows.map(function (r) { return '<div class="k" data-i18n>' + r[0] + '</div><div>' + r[1] + '</div>'; }).join('');
-    var note = d.client ? '' : '<p class="row-sub" style="margin-top:8px" data-i18n>No client profile (guest checkout).</p>';
-    return '<div class="card"><div class="profile-grid">' + grid + '</div>' + note + '</div>';
+    var note = d.client ? '' : '<p class="row-sub" style="margin-top:8px" data-i18n>No client profile (guest checkout) — onboard them below to edit this profile.</p>';
+    var edit = d.client ? '<button class="btn ghost block" id="edit-toggle" type="button" style="margin-top:10px" data-i18n>✏️ Edit profile</button>' + editForm(d) : '';
+    return '<div class="card"><div class="profile-grid">' + grid + '</div>' + note + edit + '</div>';
+  }
+
+  // ---------- edit the profile ----------
+  // Only a managed client has a row to edit; a guest is told to onboard first rather than being
+  // shown a form that cannot save.
+  function editForm(d) {
+    var c = d.client || {};
+    var fld = function (id, label, val, type) {
+      return '<div class="field"><label data-i18n>' + label + '</label>' +
+        '<input id="' + id + '" type="' + (type || 'text') + '" autocomplete="off" value="' + esc(val == null ? '' : val) + '"></div>';
+    };
+    return '<div id="edit-form" style="display:none;margin-top:10px">' +
+      fld('ed-name', 'Name', c.name) +
+      fld('ed-phone', 'Phone', c.phone, 'tel') +
+      fld('ed-email', 'Email', c.email, 'email') +
+      '<p class="row-sub" style="margin:-4px 0 10px">Changing the email re-links their orders, points and founding benefit to the new address.</p>' +
+      fld('ed-street', 'Street', c.delivery_street) +
+      fld('ed-unit', 'Unit / apt', c.delivery_unit) +
+      fld('ed-city', 'City', c.delivery_city) +
+      fld('ed-state', 'State', c.delivery_state) +
+      fld('ed-zip', 'ZIP', c.delivery_zip) +
+      fld('ed-notes', 'Delivery notes', c.delivery_notes) +
+      fld('ed-allergens', 'Allergens', c.allergens) +
+      fld('ed-prefs', 'Preferences', c.preferences) +
+      '<div class="field"><label data-i18n>Language</label><select id="ed-lang">' +
+        '<option value="en"' + (c.lang === 'es' ? '' : ' selected') + '>English</option>' +
+        '<option value="es"' + (c.lang === 'es' ? ' selected' : '') + '>Español</option></select></div>' +
+      '<label style="display:flex;gap:8px;align-items:center;font-size:14px;margin:6px 0">' +
+        '<input type="checkbox" id="ed-mkt-email" ' + (c.marketing_email_consent ? 'checked' : '') + ' style="width:auto"> Marketing email consent</label>' +
+      '<label style="display:flex;gap:8px;align-items:center;font-size:14px;margin:0 0 10px">' +
+        '<input type="checkbox" id="ed-mkt-sms" ' + (c.marketing_sms_consent ? 'checked' : '') + ' style="width:auto"> Marketing SMS consent</label>' +
+      '<button class="btn gold block" id="ed-save" type="button" data-i18n>Save profile</button></div>';
+  }
+
+  function bindEdit(d) {
+    var t = document.getElementById('edit-toggle');
+    if (t) t.addEventListener('click', function () {
+      var f = document.getElementById('edit-form');
+      f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    });
+    var g = document.getElementById('grant-founding');
+    if (g) g.addEventListener('click', function () {
+      g.disabled = true;
+      Hub.api('/api/hub/owner/customers', { method: 'POST', body: { action: 'grant_founding', email: d.email } })
+        .then(function (r) {
+          if (r && r.ok) { Hub.toast('Founding benefit granted — 2× points for life'); openDetail(d.email); }
+          else { g.disabled = false; Hub.toast((r && r.error) || 'Could not grant it'); }
+        });
+    });
+    var s = document.getElementById('ed-save');
+    if (!s) return;
+    s.addEventListener('click', function () {
+      var v = function (id) { var el = document.getElementById(id); return el ? el.value : undefined; };
+      var body = {
+        action: 'update', email: d.email,
+        name: v('ed-name'), phone: v('ed-phone'),
+        street: v('ed-street'), unit: v('ed-unit'), city: v('ed-city'), state: v('ed-state'),
+        zip: v('ed-zip'), notes: v('ed-notes'),
+        allergens: v('ed-allergens'), preferences: v('ed-prefs'), lang: v('ed-lang'),
+        marketing_email_consent: document.getElementById('ed-mkt-email').checked,
+        marketing_sms_consent: document.getElementById('ed-mkt-sms').checked
+      };
+      var newEmail = (v('ed-email') || '').trim().toLowerCase();
+      if (newEmail && newEmail !== String(d.email || '').toLowerCase()) {
+        if (!window.confirm('Change their email to ' + newEmail + '? Their orders, points and founding benefit move with them.')) return;
+        body.new_email = newEmail;
+      }
+      s.disabled = true; s.textContent = 'Saving…';
+      Hub.api('/api/hub/owner/customers', { method: 'POST', body: body }).then(function (r) {
+        s.disabled = false; s.textContent = 'Save profile';
+        if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not save'); return; }
+        Hub.toast(r.moved && r.moved.orders != null ? 'Saved — history moved with the new email' : 'Profile saved');
+        openDetail(r.email || d.email);
+      });
+    });
   }
 
   // ---------- onboard guest → client ----------
