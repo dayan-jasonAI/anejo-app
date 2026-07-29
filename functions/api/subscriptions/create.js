@@ -8,7 +8,7 @@ import { square, squareConfigured } from '../../_lib/square.js';
 import { PLAN_TIERS, isPlanTier, planVariationId, tierWindows, loadPlanTiers, catalogWeeklyCents } from '../../_lib/plans.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
-import { clampPerBowlCents, perBowlCentsFromOz } from '../../_lib/sizing.js';
+import { clampPerBowlCents, perBowlCentsFromOz, BASE_BOWL_PRICE_USD } from '../../_lib/sizing.js';
 import { sendSms } from '../../_lib/twilio.js';
 import { geocode, formatAddress } from '../../_lib/geo.js';
 import { AVOCADO_ADDON_CENTS, BOWL_BY_NAME } from '../../_lib/bowlspec.js';
@@ -37,7 +37,20 @@ async function saveGeneratedPlan(env, clientId, raw) {
   const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
   let factor = num(raw.bowl_size_factor);
   if (factor != null) factor = Math.min(2, Math.max(0.5, factor));
-  const pbpCents = raw.per_bowl_price_usd != null ? Math.round(Number(raw.per_bowl_price_usd) * 100) : num(raw.per_bowl_price_cents);
+  // PRICE IS DERIVED SERVER-SIDE FROM THE BOWL SIZE — never taken from the request.
+  //
+  // This used to read per_bowl_price_usd / per_bowl_price_cents straight off the payload. Two
+  // problems, both money: a caller could send its own price, and a payload that simply omitted it
+  // saved the plan with a NULL price — after which subscriptions/create silently fell back to the
+  // standard tier and undercharged this member every single week, forever.
+  //
+  // The bowl SIZE is the real input (it is what the macro portal computes from the client's
+  // goals); the price is a pure function of it. Deriving it here means a plan can never exist
+  // without one, and a client-sent number can never lower the charge.
+  const sizeOz = num(raw.bowl_size_oz);
+  const pbpCents = sizeOz != null
+    ? perBowlCentsFromOz(sizeOz)
+    : (factor != null ? clampPerBowlCents(Math.round(BASE_BOWL_PRICE_USD * factor * 100)) : null);
   const weekly = Object.values(rotation).reduce((s, n) => s + n, 0);
   const t = now();
   try {
@@ -211,7 +224,26 @@ export const onRequestPost = async ({ request, env }) => {
   //   • direct buyer    → recomputed from the bowl size (oz) they came in with (factor-clamped)
   let perBowlCents = null;
   if (plan && plan.per_bowl_price_cents != null) perBowlCents = clampPerBowlCents(plan.per_bowl_price_cents);
+  // A PLAN WITHOUT A PRICE MUST NEVER FALL THROUGH TO THE TIER PRICE.
+  //
+  // This is the money leak. `weeklyCents` below falls back to tier.weeklyCents ($99/$189/$219)
+  // whenever perBowlCents is null — which is correct for a walk-up buyer with no custom plan, and
+  // catastrophic for a member who HAS one. A real plan here prices at $29.02/bowl: falling back
+  // would charge $219 instead of $348.24 on plan_12, every week, silently, forever.
+  //
+  // The size is the authoritative input and is saved on every plan, so recover the price from it
+  // rather than charging less.
+  else if (plan && plan.bowl_size_oz != null) perBowlCents = perBowlCentsFromOz(plan.bowl_size_oz);
+  else if (plan && plan.bowl_size_factor != null) perBowlCents = clampPerBowlCents(Math.round(BASE_BOWL_PRICE_USD * Number(plan.bowl_size_factor) * 100));
   else if (b.bowlSizeOz) perBowlCents = perBowlCentsFromOz(b.bowlSizeOz);
+
+  // Still nothing, and they have a plan? Refuse. An unpriceable custom plan is a data fault, and
+  // guessing costs real money on a recurring charge — better to fail one signup loudly than to
+  // undercharge a member indefinitely and discover it in the books months later.
+  if (plan && perBowlCents == null) {
+    return bad('This member\'s plan has no bowl size on it, so we cannot price it. Re-generate or edit the plan, then try again.', 409);
+  }
+
   let weeklyCents = perBowlCents != null ? perBowlCents * tier.bowls : tier.weeklyCents;
   if (avocado) weeklyCents += AVOCADO_ADDON_CENTS * tier.bowls;
   // NOTE: there is deliberately no "should we override?" test any more. We always send our price

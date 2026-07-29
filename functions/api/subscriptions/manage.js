@@ -12,7 +12,7 @@ import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 // catalogWeeklyCents is deliberately NOT imported any more: nothing here compares our price to the
 // catalog price, because we now always tell Square our price instead of guessing when to.
 import { PLAN_TIERS, isPlanTier, tierWindows, planVariationId, loadPlanTiers } from '../../_lib/plans.js';
-import { clampPerBowlCents } from '../../_lib/sizing.js';
+import { clampPerBowlCents, perBowlCentsFromOz, BASE_BOWL_PRICE_USD } from '../../_lib/sizing.js';
 import { AVOCADO_ADDON_CENTS } from '../../_lib/bowlspec.js';
 import { raiseAlert } from '../../_lib/alerts.js';
 
@@ -149,10 +149,30 @@ export const onRequestPost = async ({ request, env }) => {
     // variation because it compares against the provisioned catalog amount, not this one).
     const { tiers: resolvedTiers } = await loadPlanTiers(env);
     const tierCfg = resolvedTiers[newTier] || PLAN_TIERS[newTier];
-    let plan = null;
-    try { if (sub.plan_id) plan = await env.DB.prepare('SELECT * FROM plans WHERE id=?').bind(sub.plan_id).first(); } catch { /* none */ }
+    // A FAILED LOOKUP IS NOT "NO PLAN".
+    //
+    // This used to swallow the error into `plan = null`, after which the pricing below fell back
+    // to the standard tier — so one transient D1 hiccup during a tier change would silently
+    // re-price a custom member down to $99/$189/$219 and keep charging that every week. The two
+    // cases have to be told apart: "this member has no custom plan" is normal, "we could not read
+    // their plan" must never result in a cheaper charge.
+    let plan = null, planLookupFailed = false;
+    if (sub.plan_id) {
+      try { plan = await env.DB.prepare('SELECT * FROM plans WHERE id=?').bind(sub.plan_id).first(); }
+      catch { planLookupFailed = true; }
+    }
+    if (planLookupFailed) return bad('Could not read this member\'s plan just now — nothing was changed. Try again.', 503);
+
     const avocado = sub.avocado === 1 || sub.avocado === true;
-    const perBowl = (plan && plan.per_bowl_price_cents != null) ? clampPerBowlCents(plan.per_bowl_price_cents) : null;
+    // Same recovery ladder as subscriptions/create: price, else derive from the bowl size, and
+    // never fall through to the tier price while a custom plan exists.
+    let perBowl = null;
+    if (plan && plan.per_bowl_price_cents != null) perBowl = clampPerBowlCents(plan.per_bowl_price_cents);
+    else if (plan && plan.bowl_size_oz != null) perBowl = perBowlCentsFromOz(plan.bowl_size_oz);
+    else if (plan && plan.bowl_size_factor != null) perBowl = clampPerBowlCents(Math.round(BASE_BOWL_PRICE_USD * Number(plan.bowl_size_factor) * 100));
+    if (plan && perBowl == null) {
+      return bad('This member\'s plan has no bowl size on it, so the new tier cannot be priced. Fix the plan first.', 409);
+    }
     let weeklyCents = perBowl != null ? perBowl * tierCfg.bowls : tierCfg.weeklyCents;
     if (avocado) weeklyCents += AVOCADO_ADDON_CENTS * tierCfg.bowls;
     const windows = tierWindows(newTier, (sub.windows || '').split(',')[0]);
