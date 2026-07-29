@@ -391,6 +391,29 @@ export async function pushInvoice(env, { invoiceId }) {
   const qboId = made.body && made.body.Invoice && made.body.Invoice.Id;
   if (!qboId) return { ok: false, error: 'QuickBooks did not return an invoice id.' };
 
+  // READ-AFTER-WRITE. This exists because of a real bug: a line missing its ItemRef posts
+  // "successfully", returns an id, and books ZERO — QuickBooks silently ignores the Amount. A 200
+  // is therefore NOT evidence that the client was billed the right amount, and no amount of
+  // testing against a stub can prove otherwise. So we ask QuickBooks what it actually recorded and
+  // compare it to what we meant to bill.
+  //
+  // This catches ANY payload-shape mismatch, not only the one already found — which matters
+  // because the live handshake has never been exercised against the real API.
+  const expected = Math.round(Number(inv.total_cents) || 0);
+  const posted = Math.round(Number(made.body.Invoice.TotalAmt) * 100);
+  if (Number.isFinite(posted) && posted !== expected) {
+    const fmt = (c) => '$' + (c / 100).toFixed(2);
+    // Deliberately NOT saved as linked: leaving qbo_invoice_id unset means the owner can correct
+    // the cause and push again, rather than being locked out by a link to a wrong invoice.
+    await noteError(env, `Posted ${fmt(posted)} but the invoice is ${fmt(expected)} (QBO id ${qboId}).`);
+    return {
+      ok: false,
+      error: `QuickBooks recorded ${fmt(posted)} for an invoice of ${fmt(expected)}. It was created as ${qboId} — VOID IT IN QUICKBOOKS, then tell your developer: the invoice payload is being rejected line by line.`,
+      qbo_invoice_id: qboId,
+      mismatch: { expected_cents: expected, posted_cents: posted },
+    };
+  }
+
   // Written immediately: if this UPDATE is lost the next push creates a SECOND invoice in the
   // client's books, which is far worse than a missing link here.
   try {

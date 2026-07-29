@@ -422,3 +422,68 @@ test('an unreachable Intuit is an error, never a silent success', async () => {
     assert.match(r.error, /Could not reach QuickBooks/);
   } finally { f.restore(); }
 });
+
+// ---------- read-after-write ----------
+//
+// A 200 from QuickBooks is NOT evidence the client was billed the right amount. The ItemRef bug
+// proved it: the invoice posted, returned an id, and booked ZERO. Since the live handshake has
+// never run against the real API, the code checks QuickBooks' own answer against what we meant to
+// bill — which catches any payload-shape mismatch, not just the one already found.
+
+test('a posted total that disagrees with ours FAILS loudly', async () => {
+  const { d1, saved } = pushDb();
+  const f = stubFetch(({ url }) => {
+    if (url.includes('/invoice')) return jsonRes({ Invoice: { Id: '1003', TotalAmt: 0 } });  // the $0 booking
+    throw new Error('unexpected ' + url);
+  });
+  try {
+    const r = await pushInvoice({ ...ENV, DB: d1 }, { invoiceId: 'inv_1' });
+    assert.equal(r.ok, false);
+    assert.match(r.error, /\$0\.00/);
+    assert.match(r.error, /\$266\.00/);
+    assert.match(r.error, /VOID IT IN QUICKBOOKS/, 'the owner is told how to clean it up');
+    assert.deepEqual(r.mismatch, { expected_cents: 26600, posted_cents: 0 });
+    assert.equal(saved.qbo, undefined, 'a wrong invoice must NOT be recorded as linked');
+  } finally { f.restore(); }
+});
+
+test('a matching total passes and is linked', async () => {
+  const { d1, saved } = pushDb();
+  const f = stubFetch(({ url }) => {
+    if (url.includes('/invoice')) return jsonRes({ Invoice: { Id: '1004', TotalAmt: 266.00 } });
+    throw new Error('unexpected ' + url);
+  });
+  try {
+    const r = await pushInvoice({ ...ENV, DB: d1 }, { invoiceId: 'inv_1' });
+    assert.equal(r.ok, true);
+    assert.equal(saved.qbo, '1004');
+  } finally { f.restore(); }
+});
+
+test('an absent TotalAmt does not block a legitimate push', async () => {
+  // Only a total QuickBooks actually reported is worth comparing; inventing a mismatch from a
+  // missing field would block real invoicing over a response-shape detail.
+  const { d1, saved } = pushDb();
+  const f = stubFetch(({ url }) => {
+    if (url.includes('/invoice')) return jsonRes({ Invoice: { Id: '1005' } });
+    throw new Error('unexpected ' + url);
+  });
+  try {
+    const r = await pushInvoice({ ...ENV, DB: d1 }, { invoiceId: 'inv_1' });
+    assert.equal(r.ok, true);
+    assert.equal(saved.qbo, '1005');
+  } finally { f.restore(); }
+});
+
+test('a rounding-level match is treated as equal, not a mismatch', async () => {
+  // QBO returns dollars as a float; 266.00 must not fail against 26600 cents.
+  const { d1 } = pushDb();
+  const f = stubFetch(({ url }) => {
+    if (url.includes('/invoice')) return jsonRes({ Invoice: { Id: '1006', TotalAmt: 265.999999 } });
+    throw new Error('unexpected ' + url);
+  });
+  try {
+    const r = await pushInvoice({ ...ENV, DB: d1 }, { invoiceId: 'inv_1' });
+    assert.equal(r.ok, true, 'float noise must not read as a wrong amount');
+  } finally { f.restore(); }
+});
