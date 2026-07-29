@@ -352,7 +352,7 @@
       g.disabled = true;
       Hub.api('/api/hub/owner/customers', { method: 'POST', body: { action: 'grant_founding', email: d.email } })
         .then(function (r) {
-          if (r && r.ok) { Hub.toast('Founding benefit granted — 2× points for life'); openDetail(d.email); }
+          if (r && r.ok) { Hub.toast('Founding benefit granted — 2× points for life'); showDetail(d.email); }
           else { g.disabled = false; Hub.toast((r && r.error) || 'Could not grant it'); }
         });
     });
@@ -379,7 +379,7 @@
         s.disabled = false; s.textContent = 'Save profile';
         if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not save'); return; }
         Hub.toast(r.moved && r.moved.orders != null ? 'Saved — history moved with the new email' : 'Profile saved');
-        openDetail(r.email || d.email);
+        showDetail(r.email || d.email);
       });
     });
   }
