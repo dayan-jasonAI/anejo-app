@@ -379,7 +379,12 @@ var MOD = {
       x:'Every stop is delivered or reported.',
       y:'Complete the route and file your EOD; clock out.',
       z:'Totals (delivered / failed / minutes) post to the owner; a missed EOD raises an alert.',
-      t2:'Fin del día: completar ruta + EOD', x2:'Cada parada entregada o reportada.', y2:'Completa la ruta y envía tu EOD; marca salida.', z2:'Los totales (entregados / fallidos / minutos) van al dueño; un EOD faltante genera una alerta.'})
+      t2:'Fin del día: completar ruta + EOD', x2:'Cada parada entregada o reportada.', y2:'Completa la ruta y envía tu EOD; marca salida.', z2:'Los totales (entregados / fallidos / minutos) van al dueño; un EOD faltante genera una alerta.'}),
+    S({k:'If it looks empty',t:'No route showing? Check you are still signed in',m:'<div class="m-card"><div class="m-t">You have been signed out</div><div class="m-s">Sign in again</div></div>',
+      x:'You open the app and there is no route, when you were expecting one.',
+      y:'Look for a “You have been signed out” card. If it is there, press Sign in again before assuming there is no work.',
+      z:'An expired session makes every screen go empty, which looks exactly like having no route. If that card is NOT showing, you genuinely have no route yet — and an offer will arrive by push and text when one is ready.',
+      t2:'Si se ve vacío: revisa si tu sesión sigue abierta', x2:'Abres la app y no hay ruta, cuando esperabas una.', y2:'Busca el aviso “Se cerró tu sesión”. Si aparece, vuelve a iniciar sesión antes de suponer que no hay trabajo.', z2:'Una sesión expirada deja todas las pantallas vacías, igual que no tener ruta. Si ese aviso NO aparece, de verdad aún no tienes ruta — y te llegará una oferta por push y mensaje cuando haya una.'})
   ],
   vendor: [
     S({k:'Who you are',t:'Your vendor portal',
@@ -401,7 +406,12 @@ var MOD = {
       x:'You drop off the goods.',
       y:'Mark the PO delivered (and note any partials).',
       z:'The kitchen receives it against inventory, which clears the low-stock alert and updates on-hand counts.',
-      t2:'Entregar: marcar entregado', x2:'Dejas la mercancía.', y2:'Marca la orden entregada (y anota parciales).', z2:'La cocina la recibe contra el inventario, lo que cierra la alerta de bajo stock y actualiza las existencias.'})
+      t2:'Entregar: marcar entregado', x2:'Dejas la mercancía.', y2:'Marca la orden entregada (y anota parciales).', z2:'La cocina la recibe contra el inventario, lo que cierra la alerta de bajo stock y actualiza las existencias.'}),
+    S({k:'If it looks empty',t:'No orders showing? Check you are still signed in',m:'<div class="m-card"><div class="m-t">You have been signed out</div><div class="m-s">Sign in again</div></div>',
+      x:'You open your page and see no purchase orders at all.',
+      y:'Look for a “You have been signed out” card. If it is there, press Sign in again.',
+      z:'An expired session empties every screen, which looks exactly like having no orders. If that card is NOT showing, there genuinely is nothing waiting on you.',
+      t2:'Si se ve vacío: revisa si tu sesión sigue abierta', x2:'Abres tu página y no ves ninguna orden de compra.', y2:'Busca el aviso “Se cerró tu sesión”. Si aparece, vuelve a iniciar sesión.', z2:'Una sesión expirada vacía todas las pantallas, igual que no tener órdenes. Si ese aviso NO aparece, de verdad no hay nada pendiente.'})
   ]
 };
 

@@ -59,3 +59,34 @@ Only once the **DBPR catering license is in hand**: set `SQUARE_ENV=production`,
 | EMAIL_FROM / APP_BASE_URL | Var | email + link building |
 | SQUARE_ACCESS_TOKEN / SQUARE_WEBHOOK_KEY | Secret | payments |
 | SQUARE_LOCATION_ID / SQUARE_ENV | Var | payments / go-live flip |
+| QBO_CLIENT_ID / QBO_CLIENT_SECRET | Secret | QuickBooks (see §6) |
+| QBO_ENVIRONMENT | Var | `sandbox` while testing; omit for production |
+
+## 6. QuickBooks Online — ⏳ DAYAN-OWNED, code is built and waiting
+
+The integration is deployed and **inert** until these exist: with no `QBO_CLIENT_ID` /
+`QBO_CLIENT_SECRET` every entry point no-ops and the HUB says "not set up yet". Invoicing keeps
+working without it — QuickBooks receives a COPY for the books; D1 stays the record of what a
+client owes.
+
+1. Create an app at <https://developer.intuit.com> → My Apps → **QuickBooks Online Accounting**.
+2. In the app's **Keys & credentials**, copy the Client ID + Client Secret (Development keys while
+   testing, Production keys to go live).
+3. Register this **Redirect URI** on the app, exactly:
+   `https://anejocateringco.com/api/hub/owner/qbo/callback`
+   *A mismatch here is the usual first failure and Intuit's error says nothing useful — the HUB
+   prints the exact value it will send under Finance → QuickBooks.*
+4. Set the secrets:
+   ```
+   npx wrangler pages secret put QBO_CLIENT_ID --project-name=anejo-app
+   npx wrangler pages secret put QBO_CLIENT_SECRET --project-name=anejo-app
+   # while testing against a sandbox company only:
+   # add QBO_ENVIRONMENT=sandbox as a plain Var
+   ```
+5. Apply the migration if it has not been run: `npx wrangler d1 execute anejo --remote --file=migrations/0053_qbo_connection.sql`
+6. In the HUB: **Finance → QuickBooks → Connect**, approve on Intuit's screen. You land back on
+   Finance with the result. After that each contract invoice gets a "📗 Send to QuickBooks" button.
+
+**Not yet verified:** the live handshake, because it cannot be run without the app above. Refresh,
+token rotation, customer adoption, idempotency and error handling are covered by 21 unit tests
+against a stubbed Intuit (`test/money/qbo.test.js`).

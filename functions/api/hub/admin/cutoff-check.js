@@ -13,7 +13,6 @@
 // on any given day, so no drift twice a year and no double-alerting.
 import { json, bad, ctEq } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { now } from '../../../_lib/hub.js';
 import { raiseAlert } from '../../../_lib/alerts.js';
 import { captureSystem } from '../../../_lib/track.js';
 import { parseDeliveryDays } from '../../../_lib/contract.js';

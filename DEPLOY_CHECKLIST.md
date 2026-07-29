@@ -10,6 +10,30 @@ This deploy is **sandbox/pre-launch**: no real payments. The go-live flip (real 
 - [x] `SQUARE_ENV` defaults to sandbox (no real charges)
 - [x] Legal pages carry the "draft — pending attorney review" banner
 
+## 0.5 Migrations go FIRST — before the code that needs them
+
+There is no automatic migration step. Pushing `main` deploys code within a couple of minutes;
+`migrations/*.sql` are applied by hand. **Apply the migration BEFORE pushing the code that reads
+it**, or you ship a build whose queries reference columns that do not exist yet.
+
+```
+npx wrangler d1 execute anejo --remote --file=migrations/00NN_whatever.sql
+```
+
+- [ ] Every new `migrations/*.sql` in this push has been applied to **--remote**
+- [ ] Re-read one affected row afterwards to prove the data survived — a table rebuild that
+      silently dropped a live row is the failure mode worth 30 seconds
+- [ ] For a table REBUILD (SQLite cannot drop a PK/constraint), rehearse it first on a scratch
+      SQLite from the previous migration, not on production
+
+**Applied by hand so far, newest first:** `0053_qbo_connection`, `0052_content_blocks_queue`
+(rebuild — carried the live announcement across on a deterministic `cb_` id), `0051_content_blocks`.
+
+*Ordering note:* the repo has an auto-sync job that commits and pushes on its own. It can publish
+a commit before you have applied its migration, so apply migrations as soon as the file exists
+rather than at push time. A code-before-migration window is survivable here only because every
+read is wrapped in try/catch and degrades — do not rely on that.
+
 ## 1. Cloudflare Pages → anejo-app → Settings → Variables and secrets
 Without these, the storefront/subscriptions return 503 ("not configured") but the rest of the site works.
 
