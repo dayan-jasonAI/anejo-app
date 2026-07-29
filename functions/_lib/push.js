@@ -82,10 +82,28 @@ async function vapidJwt(key, aud, sub) {
 // ---------------------------------------------------------------------------
 
 // Send an empty "tickle" push to every subscription matching staffIds OR roles.
+/**
+ * Wake a CUSTOMER's devices. Same VAPID machinery as the staff tickle — the difference is only
+ * who is looked up, and that customers are keyed by email because they have no staff row.
+ *
+ * Payload-less, like the staff path: the push carries nothing, the service worker wakes and asks
+ * /api/push/peek what to show. That keeps RFC 8291 payload encryption out of the picture and means
+ * the notification text lives in D1, where it can be de-duplicated and audited, rather than in a
+ * fire-and-forget datagram.
+ *
+ * Returns { sent, failed } — sent:0 with no error is the normal, expected case for a customer who
+ * has never enabled notifications. The caller falls back to SMS on sent === 0.
+ */
+export async function sendPushToEmail(env, addr) {
+  const em = String(addr == null ? '' : addr).trim().toLowerCase();
+  if (!em) return { sent: 0, failed: 0 };
+  return sendPushTickle(env, { emails: [em] });
+}
+
 // Returns { sent, failed } — or { sent:0, noop:true } when VAPID isn't
 // configured. Expired endpoints (404/410) get their push_subscriptions row
 // deleted (the one allowed hard delete: dead subscription cleanup). Never throws.
-export async function sendPushTickle(env, { staffIds = [], roles = [] } = {}) {
+export async function sendPushTickle(env, { staffIds = [], roles = [], emails = [] } = {}) {
   try {
     if (!env || !env.DB) return { sent: 0, noop: true };
     if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_JWK || !env.VAPID_SUBJECT) {
@@ -96,17 +114,25 @@ export async function sendPushTickle(env, { staffIds = [], roles = [] } = {}) {
 
     const ids = (Array.isArray(staffIds) ? staffIds : []).filter(Boolean).map(String);
     const rs = (Array.isArray(roles) ? roles : []).filter(Boolean).map(String);
-    if (!ids.length && !rs.length) return { sent: 0, failed: 0 };
+    const ems = (Array.isArray(emails) ? emails : []).filter(Boolean).map((e) => String(e).trim().toLowerCase());
+    if (!ids.length && !rs.length && !ems.length) return { sent: 0, failed: 0 };
 
     const clauses = [];
     const binds = [];
+    // Staff selectors are scoped to staff rows and customer selectors to customer rows. Without
+    // the audience guard a customer whose email matched a staff `role` string — or a stale row
+    // written before audiences existed — could be woken by the wrong queue.
     if (ids.length) {
-      clauses.push(`staff_id IN (${ids.map(() => '?').join(',')})`);
+      clauses.push(`(audience = 'staff' AND staff_id IN (${ids.map(() => '?').join(',')}))`);
       binds.push(...ids);
     }
     if (rs.length) {
-      clauses.push(`role IN (${rs.map(() => '?').join(',')})`);
+      clauses.push(`(audience = 'staff' AND role IN (${rs.map(() => '?').join(',')}))`);
       binds.push(...rs);
+    }
+    if (ems.length) {
+      clauses.push(`(audience = 'customer' AND LOWER(TRIM(email)) IN (${ems.map(() => '?').join(',')}))`);
+      binds.push(...ems);
     }
     const { results } = await env.DB.prepare(
       `SELECT id, endpoint FROM push_subscriptions WHERE ${clauses.join(' OR ')} LIMIT ${MAX_SENDS}`

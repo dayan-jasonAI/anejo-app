@@ -8,6 +8,7 @@
 // A2P 10DLC: never text without explicit opt-in.
 import { sendSms, sendMms } from './twilio.js';
 import { sendEmail, emailShell, escHtml } from './email.js';
+import { notifyCustomer, ORDER_EVENTS } from './notifications.js';
 
 const BRAND = 'Añejo Catering Co.';
 const STOP = 'Reply STOP to opt out.';
@@ -137,12 +138,43 @@ const BODY = {
   delivered: `${BRAND}: Your order was just delivered — enjoy! ${STOP}`,
 };
 
+// PUSH FIRST, SMS SECOND — and exactly once either way.
+//
+// Push is free, instant, and renders on the lock screen; SMS costs money and is the channel that
+// reaches the iPhone customers who have not added the site to their Home Screen (where Apple
+// gives web push no other way in). Routing both through notifyCustomer() means the dedupe key is
+// shared, so a status written twice by two different code paths still notifies once — on ONE
+// channel, not one of each.
 export async function notifyOrderDelivery(env, order, kind) {
   try {
     if (!env || !env.DB || !order || !BODY[kind]) return;
     const c = await contactForOrder(env, order);
-    if (!c || !c.phone) return;
-    await sendSms(env, { to: c.phone, body: BODY[kind] });
+    const em = ((order.customer_email || '') + '').trim().toLowerCase();
+    const ev = ORDER_EVENTS[kind];
+
+    // No email means no way to look up a push subscription or to de-duplicate — fall back to the
+    // original behaviour rather than dropping the notice.
+    if (!em || !ev) {
+      if (c && c.phone) await sendSms(env, { to: c.phone, body: BODY[kind] });
+      return;
+    }
+
+    await notifyCustomer(env, {
+      email: em,
+      dedupeKey: `order:${order.id}:${kind}`,
+      kind: 'order',
+      title: ev.title,
+      body: ev.body(order),
+      url: '/account',
+      orderId: order.id,
+      // Only runs when push reached nobody. Returning false keeps the row honest about the fact
+      // that nothing actually left the building.
+      smsFallback: async () => {
+        if (!c || !c.phone) return false;
+        await sendSms(env, { to: c.phone, body: BODY[kind] });
+        return true;
+      },
+    });
   } catch { /* never break the caller */ }
 }
 
