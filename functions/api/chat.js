@@ -4,7 +4,7 @@
 // message history each turn. Rate-limited as a cost-abuse guard.
 import { json, bad } from '../_lib/util.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
-import { loadMenu, isOrderable } from '../_lib/menu.js';
+import { loadMenu, isOrderable, isAvailable } from '../_lib/menu.js';
 import { BASE_BOWL_PRICE_USD } from '../_lib/sizing.js';
 
 const MODEL = 'claude-sonnet-4-6';
@@ -73,7 +73,10 @@ function menuSection(menu) {
   //  - not orderable → a bowl row with no bowlspec recipe is rejected by checkout as "Unknown bowl"
   //    AFTER the customer has built a cart and pressed pay. The owner's menu desk flags it in red
   //    and /order flags it too; Aña must not be the one surface that talks it up.
-  const listed = (kind) => rows.filter((it) => it.kind === kind && Number.isFinite(centsOf(it)) && isOrderable(it));
+  //  - marked sold out / coming soon by the owner → she would be recommending something the
+  //    customer then cannot add. Aña talking up a bowl the order page shows greyed out is worse
+  //    than her not mentioning it, because it reads as the site being broken.
+  const listed = (kind) => rows.filter((it) => it.kind === kind && Number.isFinite(centsOf(it)) && isOrderable(it) && isAvailable(it));
   const nameOf = (it) => it.name || (menu.nonBowls[it.id] || {}).name || (FALLBACK_BOWL_COPY[it.id] || [])[0] || String(it.id).toUpperCase();
 
   const bowls = listed('bowl').map((it) => {

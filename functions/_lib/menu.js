@@ -57,10 +57,14 @@ export async function loadMenu(env) {
   // serving "no bowls" would silently take the storefront down, so treat it as a fallback case.
   if (!items.length) return fallback();
 
-  const bowls = {}, nonBowls = {};
+  const bowls = {}, nonBowls = {}, availability = {};
   for (const it of items) {
+    // Kept in the price maps even when sold out: removing it here would make checkout answer
+    // "Unknown item", which is what it says for a typo. A sold-out bowl is not a typo, and the
+    // difference matters to whoever reads the error.
     if (it.kind === 'bowl') bowls[it.id] = it.price_cents;
     else nonBowls[it.id] = { name: it.name, price_cents: it.price_cents };
+    availability[it.id] = availabilityOf(it);
   }
   const modifiers = { ...FALLBACK_MODIFIERS };
   for (const m of mods) modifiers[m.key] = m.cents;
@@ -71,7 +75,7 @@ export async function loadMenu(env) {
   // hardcoded price rather than the owner's last saved one. The whole-menu fallback above already
   // covers the only case that matters — D1 being unreachable or the table being empty.
 
-  return { items, bowls, nonBowls, modifiers, source: 'd1' };
+  return { items, bowls, nonBowls, modifiers, availability, source: 'd1' };
 }
 
 /**
@@ -88,6 +92,38 @@ export async function loadMenu(env) {
  *
  * Returns { orderable, blocker } — blocker is null when orderable, otherwise says what is missing.
  */
+/**
+ * Temporary availability, separate from `active`.
+ *
+ * `active = 0` is a permanent hide and removes the row from /api/menu altogether. These states
+ * keep the item VISIBLE and priced, and stop it being bought — so the customer sees "Sold out"
+ * rather than a bowl that quietly vanished, which reads as a broken site rather than a busy kitchen.
+ *
+ * Everything except 'available' blocks the sale. The states differ only in what the customer is
+ * told, and that difference is worth having: "sold out" says come back tomorrow, "coming soon"
+ * says this is not a mistake, "out of stock" says the kitchen not the menu.
+ */
+export const AVAILABILITY = {
+  available:    { label: 'Available',     label_es: 'Disponible',   sells: true },
+  sold_out:     { label: 'Sold out',      label_es: 'Agotado',      sells: false },
+  out_of_stock: { label: 'Out of stock',  label_es: 'Sin existencias', sells: false },
+  unavailable:  { label: 'Not available', label_es: 'No disponible', sells: false },
+  coming_soon:  { label: 'Coming soon',   label_es: 'Muy pronto',   sells: false },
+};
+export const AVAILABILITY_KEYS = Object.keys(AVAILABILITY);
+
+/** Normalize whatever is on the row. An unrecognised value must never silently mean "sellable". */
+export function availabilityOf(item) {
+  const v = String((item && item.availability) || 'available').trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(AVAILABILITY, v) ? v : 'unavailable';
+}
+
+/** Can this item be SOLD right now? Missing column (pre-migration) reads as available. */
+export function isAvailable(item) {
+  if (!item || item.availability == null || item.availability === '') return true;
+  return AVAILABILITY[availabilityOf(item)].sells === true;
+}
+
 export function orderability(item) {
   const row = item || {};
   if (row.kind !== 'bowl') return { orderable: true, blocker: null };
@@ -104,6 +140,9 @@ export function orderability(item) {
       blocker: `Its bowlspec recipe is flagged hidden, so checkout still rejects it with "Unknown bowl: ${row.id}".`,
     };
   }
+  // Deliberately NOT folded into `orderable`. "Can this ever be bought?" and "is it on sale right
+  // now?" are different questions with different fixes — one needs a recipe written, the other
+  // needs a dropdown changed — and collapsing them would send the owner to the wrong one.
   return { orderable: true, blocker: null };
 }
 
@@ -129,6 +168,12 @@ export function publicCatalog(menu) {
       // Advertised but not yet buyable (a bowl with no recipe): flagged rather than filtered, so a
       // surface can hide it or grey it out while the owner still sees what they created.
       orderable: isOrderable(it),
+      // Temporarily 86'd. Sent as a state rather than a boolean so the storefront can print the
+      // owner's chosen wording instead of inventing one.
+      availability: availabilityOf(it),
+      available: isAvailable(it),
+      availability_label: AVAILABILITY[availabilityOf(it)].label,
+      availability_label_es: AVAILABILITY[availabilityOf(it)].label_es,
     });
   }
   return { bowls: byKind.bowl, drinks: byKind.drink, addons: byKind.addon, modifiers: menu.modifiers };

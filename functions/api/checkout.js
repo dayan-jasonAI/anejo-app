@@ -12,7 +12,7 @@ import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js'
 import { currentUser } from '../_lib/session.js';
 import { rewardsSummary } from '../_lib/rewards.js';
 import { evaluatePromo, recordRedemption, autoCustomerCodeFor, claimPromoUse, releasePromoUse } from '../_lib/promo.js';
-import { loadMenu } from '../_lib/menu.js';
+import { loadMenu, AVAILABILITY } from '../_lib/menu.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -95,6 +95,22 @@ export function priceCustomBowl(key, mods, pricing) {
   if (baseCents == null) return { error: `Unknown bowl: ${key}` };
   const spec = BOWL_BY_NAME[String(key).toUpperCase()];
   if (!spec || spec.hidden) return { error: `Unknown bowl: ${key}` };
+
+  // TEMPORARILY 86'd. This is the enforcement, not the badge on the order page — checkout accepts
+  // whatever id is in the request body, so a cart built before the owner marked it sold out, a
+  // stale tab, the 60s menu cache, or a hand-crafted POST all arrive here. Without this the flag
+  // is decoration and the bowl still sells.
+  //
+  // Absent `pricing` (unit tests, D1 unreachable) there is nothing to check and it prices as
+  // before — a sold-out state that fails CLOSED when the database is down would take the whole
+  // storefront off sale over one missing column.
+  const availability = (pricing && pricing.availability && pricing.availability[key]) || 'available';
+  if (availability !== 'available') {
+    const label = (AVAILABILITY[availability] || AVAILABILITY.unavailable).label.toLowerCase();
+    // Named, and separated from "Unknown bowl" on purpose: that message means a typo or a bad
+    // request, this one means the kitchen. Whoever reads it should not have to guess which.
+    return { error: `${spec.name} is ${label} right now — please remove it from your order.`, unavailable: true };
+  }
   const buildNames = spec.build.map((x) => x.item);
   const protein = buildNames[0];
   const m = mods || {};
@@ -192,6 +208,13 @@ export const onRequestPost = async ({ request, env }) => {
     } else {
       const prod = menu.nonBowls[it && it.id];
       if (!prod) return bad(`Unknown item: ${it && it.id}`);
+      // A drink or add-on can be 86'd too — the kitchen runs out of guava soda the same way it
+      // runs out of tuna. Same enforcement as the bowl branch, same open-on-missing-data rule.
+      const av = (menu.availability && menu.availability[it.id]) || 'available';
+      if (av !== 'available') {
+        const label = (AVAILABILITY[av] || AVAILABILITY.unavailable).label.toLowerCase();
+        return bad(`${prod.name} is ${label} right now — please remove it from your order.`);
+      }
       const qty = Math.floor(Number(it.qty));
       if (!Number.isFinite(qty) || qty < 1 || qty > 20) return bad(`Invalid quantity for ${prod.name}.`);
       const cents = prod.price_cents;

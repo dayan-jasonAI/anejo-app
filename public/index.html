@@ -1485,7 +1485,11 @@ document.querySelectorAll('#navLinks a').forEach(a => {
     if(!d || !d.ok) return;
     (d.bowls||[]).forEach(function(b){
       var el = document.querySelector('[data-bowl-price="' + b.id + '"]');
-      if(el && typeof b.price === 'number') el.textContent = money(b.price);
+      if(!el) return;
+      // A price is an offer. Printing one next to a bowl nobody can order sends people to /order
+      // to find it greyed out, so the shelf price is replaced by the reason instead.
+      if(b.available === false){ el.textContent = b.availability_label || 'Sold out'; el.style.opacity = '.6'; return; }
+      if(typeof b.price === 'number') el.textContent = money(b.price);
     });
     // The Fit line is quoted as one "$X each" shelf price. If the flavors ever diverge that
     // sentence becomes false, so leave it alone rather than pick one of them.

@@ -378,7 +378,10 @@ function remainingFor(idv){
   const r = avail.remaining ? avail.remaining[idv] : avail.limit;
   return (r==null) ? avail.limit : r;
 }
-function maxFor(idv){ return mode==='ondemand' ? Math.min(20, remainingFor(idv)) : 20; }
+// Owner-set unavailability, looked up from the live catalog. Zero means the add control cannot
+// open — the badge alone would not stop the "Add another" button on a bowl already in the cart.
+function isOffMenu(idv){ const it = PRICE[idv]; return !!(it && it.available === false); }
+function maxFor(idv){ if(isOffMenu(idv)) return 0; return mode==='ondemand' ? Math.min(20, remainingFor(idv)) : 20; }
 // How many MORE of this bowl can be added right now (per-day cap minus what's already in the cart).
 function canAddBowl(key){ return Math.max(0, maxFor(key) - countBowls(key)); }
 
@@ -394,6 +397,12 @@ function fromApi(it){
     desc: it.desc || '',
     descEs: it.desc_es || it.desc || '',
     img: it.img || null,
+    // Temporarily 86'd by the owner. Distinct from the same-day production cap below: the cap is
+    // "we made ten and they went", this is "we are not selling it at all right now", and it
+    // applies to scheduled orders too.
+    available: it.available !== false,
+    availLabel: it.availability_label || 'Sold out',
+    availLabelEs: it.availability_label_es || 'Agotado',
   };
 }
 function applyModifierPrices(m){
@@ -405,9 +414,16 @@ function applyModifierPrices(m){
 }
 // An item the owner deactivated between first paint and the fetch could still be sitting in the
 // cart — drop it rather than show a line the server would reject at checkout.
+// Also drops anything the owner has since marked sold out. Same reasoning as a deactivated item:
+// leaving it in the cart means the customer fills in an address, presses pay, and only then gets
+// told — checkout does refuse it by name, but being refused at the till is a worse way to find out
+// than seeing it go.
 function pruneCart(){
-  for(let i=bowls.length-1;i>=0;i--) if(!PRICE[bowls[i].key]) bowls.splice(i,1);
-  Object.keys(addons).forEach(k=>{ if(!PRICE[k]) delete addons[k]; });
+  const gone = (k) => !PRICE[k] || PRICE[k].available === false;
+  let dropped = 0;
+  for(let i=bowls.length-1;i>=0;i--) if(gone(bowls[i].key)){ bowls.splice(i,1); dropped++; }
+  Object.keys(addons).forEach(k=>{ if(gone(k)){ delete addons[k]; dropped++; } });
+  return dropped;
 }
 async function loadCatalog(){
   try{
@@ -551,9 +567,14 @@ function renderCatalog(){
     <div class="group"><h2>${L(g.group, g.groupEs||g.group)}</h2>
       ${g.items.map(i=>{
         const onD = mode==='ondemand', bowl = isBowl(i.id), rem = remainingFor(i.id);
-        const soldOut = onD && bowl && avail && rem<=0;
+        // An owner-set state wins over the daily cap and is NOT gated on same-day mode — a bowl
+        // that is off is off, whether you want it today or next Tuesday.
+        const offMenu = i.available === false;
+        const soldOut = offMenu || (onD && bowl && avail && rem<=0);
         let stock='';
-        if(onD && bowl && avail){
+        if(offMenu){
+          stock='<div class="prod-stock out">'+L(i.availLabel, i.availLabelEs)+'</div>';
+        } else if(onD && bowl && avail){
           if(rem<=0) stock='<div class="prod-stock out">'+L('Sold out today','Agotado hoy')+'</div>';
           else if(rem<=3) stock='<div class="prod-stock low">'+L('Only '+rem+' left today','Solo quedan '+rem+' hoy')+'</div>';
           else stock='<div class="prod-stock ok">'+L(rem+' available today',rem+' disponibles hoy')+'</div>';
@@ -561,7 +582,9 @@ function renderCatalog(){
         if(bowl){
           const n = countBowls(i.id), capped = onD && avail && rem>0 && n>=rem;
           const incart = n>0 ? '<div class="incart">'+L(n+' in your order',n+' en tu pedido')+'</div>' : '';
-          const control = soldOut
+          const control = offMenu
+            ? '<span class="soldout-tag">'+L(i.availLabel, i.availLabelEs)+'</span>'
+            : soldOut
             ? '<span class="soldout-tag">'+L('Sold out','Agotado')+'</span>'
             : capped
               ? '<span class="soldout-tag">'+L('Max today','Máx hoy')+'</span>'

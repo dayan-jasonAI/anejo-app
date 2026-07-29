@@ -1,0 +1,11 @@
+-- Temporarily 86 an item without deleting it or hiding it.
+--
+-- DELIBERATELY NOT the existing `active` column. loadMenu() queries `WHERE active = 1`, so setting
+-- active=0 removes the row from /api/menu entirely — the bowl disappears from the order page
+-- rather than showing as sold out, and the customer cannot tell "we stopped making it" from "it
+-- ran out this morning". `active` stays what it is: a permanent hide. This is the temporary one.
+--
+-- Values: 'available' | 'sold_out' | 'out_of_stock' | 'unavailable' | 'coming_soon'
+-- Everything except 'available' blocks ordering; the difference between them is only what the
+-- customer is told, which is the entire point of having more than one.
+ALTER TABLE menu_items ADD COLUMN availability TEXT NOT NULL DEFAULT 'available';

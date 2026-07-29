@@ -305,6 +305,11 @@
     var badges = '';
     if (!it.active) badges += ' <span class="badge">hidden</span>';
     if (!it.orderable) badges += ' <span class="badge crit" data-i18n>can’t be bought</span>';
+    // A separate badge from "can't be bought" on purpose: that one means no recipe exists and
+    // needs a developer, this one means the kitchen ran out and needs a dropdown.
+    if (it.availability && it.availability !== 'available') {
+      badges += ' <span class="badge crit">' + esc(it.availability_label || 'unavailable') + '</span>';
+    }
     return '<div class="card" style="margin-bottom:10px">' +
       '<div class="mn-head">' +
         '<div><strong>' + esc(it.name) + '</strong>' + badges +
@@ -317,6 +322,15 @@
       '<div class="mn-price"><span class="pre">$</span>' +
         '<input id="p_' + it.id + '" type="text" inputmode="decimal" value="' + (it.price_cents / 100).toFixed(2) + '">' +
         '<span class="hint" style="margin:0" data-i18n>per unit</span></div>' +
+      // Deliberately OUTSIDE the collapsed section. Taking a bowl off sale happens mid-service
+      // with one hand, and a control you have to go looking for is one that gets skipped.
+      '<div class="form-row" style="margin:8px 0 0"><label data-i18n>Availability</label>' +
+        '<select id="av_' + it.id + '">' +
+          (data.availability_options || [{ key:'available', label:'Available' }]).map(function (o) {
+            return '<option value="' + esc(o.key) + '"' + (o.key === (it.availability || 'available') ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+          }).join('') +
+        '</select>' +
+        '<p class="hint">Anything other than Available keeps the item on the site but blocks it at checkout — customers see the wording you pick. To remove it from the site entirely, untick “Show on the website” below.</p></div>' +
       '<details class="mn-more"><summary data-i18n>Name, description, photo, order</summary>' +
         '<div class="form-two">' +
           '<div class="form-row"><label data-i18n>Name</label><input id="n_' + it.id + '" value="' + esc(it.name) + '"></div>' +
@@ -357,8 +371,14 @@
       name: $('#n_' + it.id).value, name_es: $('#ne_' + it.id).value,
       description: $('#d_' + it.id).value, description_es: $('#de_' + it.id).value,
       image: $('#i_' + it.id).value, sort: Number($('#s_' + it.id).value),
-      active: $('#a_' + it.id).checked
+      active: $('#a_' + it.id).checked,
+      availability: ($('#av_' + it.id) || {}).value || 'available'
     };
+    // Taking something off sale is a bigger deal than a typo in a description, and it is the one
+    // change on this form a customer notices within the minute. Confirm it like a price change.
+    var wasAv = it.availability || 'available';
+    if (body.availability !== wasAv && body.availability !== 'available' &&
+        !confirm('Mark ' + it.name + ' as "' + body.availability.replace(/_/g, ' ') + '"?\n\nIt stays on the site but nobody can order it, starting within about a minute.')) return;
     if (r.cents !== it.price_cents &&
         !confirm('Change ' + it.name + ' from ' + money(it.price_cents) + ' to ' + money(r.cents) +
                  '?\n\nThis is what customers are charged on the next order.')) return;

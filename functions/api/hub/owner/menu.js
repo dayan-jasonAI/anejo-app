@@ -32,7 +32,7 @@
 //      be handed fallback prices.
 import { json, id, now, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { orderability } from '../../../_lib/menu.js';
+import { orderability, AVAILABILITY, AVAILABILITY_KEYS, availabilityOf } from '../../../_lib/menu.js';
 import { BOWL_IDS } from '../../../_lib/ondemand.js';
 
 const KINDS = ['bowl', 'drink', 'addon'];
@@ -77,7 +77,10 @@ const logStmt = (env, itemId, field, oldCents, newCents, by, ts) =>
  * here would eventually disagree with the thing that takes the money.
  */
 function decorate(row) {
-  const out = { ...row, ...orderability(row) };
+  // Normalized rather than passed through raw: a row written before the migration has no
+  // availability at all, and the HUB dropdown needs a value to select.
+  const out = { ...row, ...orderability(row), availability: availabilityOf(row) };
+  out.availability_label = AVAILABILITY[out.availability].label;
   if (row.kind !== 'bowl') return out;
   // Not a blocker, and deliberately still the hardcoded list: /api/order-availability now derives
   // the cap from the live menu, but checkout.js tallies each cart against ondemand.js BOWL_IDS,
@@ -180,6 +183,9 @@ async function snapshot(env, request) {
     modifiers: (rm && rm.results) || [],
     log: (rl && rl.results) || [],
     warnings: warningsFor(items),
+    // Sent rather than hardcoded in the page, so adding a state is one edit in _lib/menu.js
+    // instead of two that can disagree.
+    availability_options: AVAILABILITY_KEYS.map((k) => ({ key: k, label: AVAILABILITY[k].label, sells: AVAILABILITY[k].sells })),
     storefront: await storefrontCheck(env, request),
   };
 }
@@ -240,19 +246,31 @@ export const onRequestPost = async ({ request, env }) => {
       else next.sort = n;
     }
     if ('active' in body) next.active = body.active ? 1 : 0;
+    if ('availability' in body) {
+      const v = String(body.availability || 'available').trim().toLowerCase();
+      // Rejected rather than coerced: silently turning a typo into 'available' would put a bowl
+      // the owner meant to 86 back on sale.
+      if (!AVAILABILITY_KEYS.includes(v)) errors.push(`Availability must be one of: ${AVAILABILITY_KEYS.join(', ')}.`);
+      else next.availability = v;
+    }
     if (errors.length) return json({ ok: false, error: 'validation failed', errors }, 400);
 
     const stmts = [
       env.DB.prepare(
         `UPDATE menu_items SET name=?, name_es=?, price_cents=?, description=?, description_es=?,
-           image=?, sort=?, active=?, updated_at=? WHERE id=?`
+           image=?, sort=?, active=?, availability=?, updated_at=? WHERE id=?`
       ).bind(
         next.name, next.name_es, next.price_cents, next.description, next.description_es,
-        next.image, next.sort, next.active, ts, itemId,
+        next.image, next.sort, next.active, next.availability || 'available', ts, itemId,
       ),
     ];
     if (next.price_cents !== row.price_cents) {
       stmts.push(logStmt(env, itemId, 'price_cents', row.price_cents, next.price_cents, actor, ts));
+    }
+    // "When did VIDA come off sale, and who did it?" is exactly the question the price log exists
+    // to answer, and going sold-out changes what customers can buy just as much as a price does.
+    if ((next.availability || 'available') !== (row.availability || 'available')) {
+      stmts.push(logStmt(env, itemId, 'availability:' + (next.availability || 'available'), null, null, actor, ts));
     }
     await env.DB.batch(stmts);
     return json({ ...(await snapshot(env, request)), saved: itemId });
