@@ -213,16 +213,17 @@ test('line amounts come off the STORED invoice, never recomputed', () => {
 });
 
 test('EVERY line carries an ItemRef', () => {
-  // Found only by reading Intuit's docs, never by the stub: a SalesItemLineDetail line WITHOUT an
-  // ItemRef is treated as a description line and its Amount is IGNORED. The invoice posts fine,
-  // we get an id back, and the client's books show ZERO. Silent, and only visible from their side.
+  // CORRECTED after testing against the live sandbox (2026-07-29). Intuit's docs say the Amount is
+  // ignored without an ItemRef; it is not — $266.00 posted with no ItemRef came back as TotalAmt
+  // 266.00. What QuickBooks actually does is substitute its DEFAULT item (Id 1, "Services").
+  // So this pins revenue to OUR catering item and income account, rather than guarding a $0 post.
   const lines = invoiceLines(
     { total_cents: 26600, lunches: 38 },
     { sites: [{ name: 'Delray Beach', lunches: 38, subtotal_cents: 22800, delivery_cents: 3800, rush_cents: 0 }] },
     '7',
   );
   for (const l of lines) {
-    assert.equal(l.SalesItemLineDetail.ItemRef.value, '7', 'no ItemRef ⇒ QuickBooks books $0');
+    assert.equal(l.SalesItemLineDetail.ItemRef.value, '7', 'no ItemRef ⇒ revenue files under QuickBooks\' default item');
   }
 });
 
@@ -346,8 +347,8 @@ test('a successful push stores the link immediately', async () => {
       assert.equal(body.DocNumber, 'DGP-0001');
       assert.equal(body.BillEmail.Address, 'ap@dgp.test');
       assert.equal(body.TxnDate, '2026-07-15');
-      // The payload actually SENT is asserted, not just the response. The ItemRef bug lived here
-      // precisely because the stub answered "created!" to a payload that would have booked $0.
+      // The payload actually SENT is asserted, not just the response — a stub that answers
+      // "created!" to any payload proves nothing about what QuickBooks did with it.
       assert.ok(body.Line.length > 0);
       for (const l of body.Line) assert.equal(l.SalesItemLineDetail.ItemRef.value, '7');
       return jsonRes({ Invoice: { Id: '1001' } });

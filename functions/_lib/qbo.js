@@ -268,10 +268,17 @@ async function cachedItemId(env) {
 /**
  * The Item id to put on every invoice line.
  *
- * THIS IS NOT OPTIONAL. QuickBooks treats a SalesItemLineDetail line with no ItemRef as a
- * DESCRIPTION line and IGNORES its Amount — so an invoice built without one posts successfully and
- * books ZERO. That failure is invisible from our side (we get an invoice id back) and only shows
- * up as an empty invoice in the client's books.
+ * VERIFIED AGAINST THE LIVE SANDBOX API (2026-07-29), because the docs and the behaviour differ:
+ *
+ *   Intuit's docs say a SalesItemLineDetail line without an ItemRef is treated as a description
+ *   line and its Amount is IGNORED. That is NOT what happens. Posting $266.00 with no ItemRef
+ *   returned TotalAmt 266.00 — the money was kept. What QuickBooks actually did was silently
+ *   substitute its DEFAULT item (Id 1, "Services").
+ *
+ * So this is not protection against a zero-value invoice; it is control over WHERE the revenue
+ * lands. Without it every catering sale files itself under a generic "Services" item and whatever
+ * income account that maps to, which is a mess for the bookkeeper and invisible from our side.
+ * With it, the revenue posts under a named Catering item on an income account we chose.
  */
 export async function ensureItem(env) {
   const cached = await cachedItemId(env);
@@ -322,7 +329,8 @@ export async function ensureItem(env) {
 // the PDF cannot disagree about what the client owes. That is the same rule invoiceEmailHtml
 // follows in contracts.js.
 //
-// `itemId` is REQUIRED — see ensureItem. Passing nothing here would post a $0 invoice.
+// `itemId` is required — see ensureItem. Omitting it does not lose the money (verified live), but
+// it lets QuickBooks file the revenue under its default "Services" item instead of ours.
 export function invoiceLines(inv, lineItems, itemId) {
   const money = (c) => Math.round(Number(c) || 0) / 100;
   const ref = { ItemRef: { value: String(itemId) } };
@@ -367,9 +375,8 @@ export async function pushInvoice(env, { invoiceId }) {
 
   const cust = await ensureCustomer(env, account);
   if (!cust.ok) return cust;
-  // Resolved BEFORE building the payload, and a failure aborts: a line with no ItemRef posts an
-  // invoice QuickBooks values at zero, which is worse than not posting at all because it looks
-  // like it worked.
+  // Resolved BEFORE building the payload, and a failure aborts rather than posting an invoice
+  // whose revenue would file itself under QuickBooks' default "Services" item.
   const item = await ensureItem(env);
   if (!item.ok) return item;
 
@@ -391,14 +398,15 @@ export async function pushInvoice(env, { invoiceId }) {
   const qboId = made.body && made.body.Invoice && made.body.Invoice.Id;
   if (!qboId) return { ok: false, error: 'QuickBooks did not return an invoice id.' };
 
-  // READ-AFTER-WRITE. This exists because of a real bug: a line missing its ItemRef posts
-  // "successfully", returns an id, and books ZERO — QuickBooks silently ignores the Amount. A 200
-  // is therefore NOT evidence that the client was billed the right amount, and no amount of
-  // testing against a stub can prove otherwise. So we ask QuickBooks what it actually recorded and
-  // compare it to what we meant to bill.
+  // READ-AFTER-WRITE. A 200 with an invoice id is not evidence that the client was billed the
+  // RIGHT AMOUNT — it only says QuickBooks accepted the request. It silently rewrites parts of a
+  // payload it does not like (verified live: a line with no ItemRef was accepted and quietly
+  // assigned QuickBooks' default item), so what we sent and what it recorded can differ without
+  // any error surfacing.
   //
-  // This catches ANY payload-shape mismatch, not only the one already found — which matters
-  // because the live handshake has never been exercised against the real API.
+  // So we ask what it actually recorded and compare. This catches ANY payload-shape mismatch —
+  // including ones nobody has thought of — which is the only honest way to run a money path whose
+  // shapes were inferred from documentation.
   const expected = Math.round(Number(inv.total_cents) || 0);
   const posted = Math.round(Number(made.body.Invoice.TotalAmt) * 100);
   if (Number.isFinite(posted) && posted !== expected) {
