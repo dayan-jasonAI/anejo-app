@@ -34,6 +34,26 @@ export function isLive(row, nowMs = Date.now()) {
 }
 
 /**
+ * Where one queued entry stands, for the owner's list. Deliberately distinguishes the four states
+ * a single "on/off" toggle collapses — an owner staring at a switched-ON message that nobody can
+ * see needs to be told WHY, and "ended" vs "not yet" are opposite problems.
+ *   off       — switched off; the window is irrelevant
+ *   ended     — its window has closed; it retired itself
+ *   scheduled — switched on, window has not opened yet
+ *   waiting   — on and in-window, but another entry in the same slot outranks it
+ *   showing   — this is the one on the site right now
+ */
+export function stateOf(row, nowMs = Date.now(), liveId = undefined) {
+  if (!row || !row.active) return 'off';
+  const s = Number(row.starts_at) || 0;
+  const e = Number(row.ends_at) || 0;
+  if (e && nowMs >= e) return 'ended';
+  if (s && nowMs < s) return 'scheduled';
+  if (liveId !== undefined && row.id !== liveId) return 'waiting';
+  return 'showing';
+}
+
+/**
  * What the storefront should render for a slot, or null.
  * `lang` picks the body; Spanish missing returns the English text WITH needsTranslation set, so the
  * page can hand it to the existing translator instead of silently showing English.

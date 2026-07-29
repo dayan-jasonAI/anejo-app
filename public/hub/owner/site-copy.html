@@ -22,6 +22,24 @@
   .live.on  { background:#e7f0ea; border:1px solid #2c6b3f; color:#1b4d2b; }
   .live.off { background:#f6f5f1; border:1px solid var(--line); color:var(--green); }
   .prev { border-radius:10px; padding:11px 14px; margin:8px 0 0; text-align:center; font-size:14px; }
+  .entry { border:1px solid var(--line); border-left:4px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px; background:#fff; }
+  .entry.showing { border-left-color:#2c6b3f; background:#f4faf6; }
+  .entry.scheduled { border-left-color:#C6A85B; }
+  .entry.waiting { border-left-color:#8c8f8a; }
+  .entry.ended, .entry.off { opacity:.62; }
+  .entry-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px; }
+  .entry-body { font-size:14px; line-height:1.5; color:var(--ink); }
+  .entry-when { font-size:12px; color:var(--green); opacity:.75; margin-top:5px; }
+  .tag { font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; border-radius:20px; padding:3px 9px; white-space:nowrap; }
+  .tag.showing { background:#2c6b3f; color:#fff; }
+  .tag.scheduled { background:#efe7cf; color:#8a7a2e; }
+  .tag.waiting { background:#e6e6e3; color:#4a4d49; }
+  .tag.ended { background:#e6e6e3; color:#6b6e6a; }
+  .tag.off { background:#f0efec; color:#8a8d88; }
+  .entry-acts { display:flex; gap:8px; margin-top:10px; }
+  .entry-acts button { flex:1; padding:8px 10px; font-size:13px; font-weight:700; border-radius:8px; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--green); }
+  .entry-acts button.del { color:#8a2b22; border-color:#e3c9c5; }
+  .editing { border:1px solid var(--green); border-radius:10px; padding:14px; margin-bottom:12px; background:#fbfaf7; }
 </style>
 </head>
 <body>
@@ -58,61 +76,126 @@
   }
   function fromLocal(v) { var t = Date.parse(v); return Number.isFinite(t) ? t : null; }
 
-  function render(slots) {
+  var SLOTS = [];
+  var editing = null;   // { slot, id|null } — which entry the form is currently bound to
+
+  function when(e) {
+    if (!e.starts_at && !e.ends_at) return 'No dates — on until you switch it off.';
+    var f = function (ms) { return new Date(Number(ms)).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+    if (e.starts_at && e.ends_at) return f(e.starts_at) + ' → ' + f(e.ends_at);
+    return e.starts_at ? 'From ' + f(e.starts_at) : 'Until ' + f(e.ends_at);
+  }
+  var STATE_WORD = {
+    showing: 'On the site now', scheduled: 'Scheduled', waiting: 'Queued behind another',
+    ended: 'Finished', off: 'Off',
+  };
+
+  function entryCard(s, e) {
+    var toneBg = e.tone === 'urgent' ? '#8a2b22' : e.tone === 'good' ? '#2c6b3f' : '#1A3D2E';
+    return '<div class="entry ' + e.state + '">' +
+      '<div class="entry-head"><span class="tag ' + e.state + '">' + STATE_WORD[e.state] + '</span></div>' +
+      '<div class="prev" style="margin:0;background:' + toneBg + ';color:#F5F2EC">' + esc(e.body_en || '(empty)') +
+        (e.link_url ? ' <b style="color:#C6A85B;text-decoration:underline">' + esc(e.link_label || 'Learn more') + '</b>' : '') + '</div>' +
+      '<div class="entry-when">' + esc(when(e)) + '</div>' +
+      '<div class="entry-acts">' +
+        '<button data-edit="' + esc(e.id) + '" data-slot="' + esc(s.slot) + '">Edit</button>' +
+        '<button class="del" data-del="' + esc(e.id) + '" data-slot="' + esc(s.slot) + '">Delete</button>' +
+      '</div></div>';
+  }
+
+  function form(s, e) {
+    e = e || { body_en: '', body_es: '', link_url: '', link_label: '', tone: 'info', active: true, starts_at: null, ends_at: null };
+    return '<div class="editing">' +
+      '<div class="form-row"><label>' + (e.id ? 'Edit message' : 'New message') + ' (English)</label>' +
+        '<textarea id="en" maxlength="' + s.max + '">' + esc(e.body_en) + '</textarea>' +
+        '<p class="hint">Keep it to one line — it sits across the top of every public page.</p></div>' +
+
+      '<div class="form-row"><label>Message (Spanish, optional)</label>' +
+        '<textarea id="es" maxlength="' + s.max + '">' + esc(e.body_es) + '</textarea>' +
+        '<p class="hint">Leave blank and the site translates the English automatically. Write it here when the wording matters.</p></div>' +
+
+      '<div class="two">' +
+        '<div class="form-row"><label>Link (optional)</label><input id="url" value="' + esc(e.link_url) + '" placeholder="/order"></div>' +
+        '<div class="form-row"><label>Link text</label><input id="ltext" value="' + esc(e.link_label) + '" placeholder="Order now"></div>' +
+      '</div>' +
+
+      '<div class="two">' +
+        '<div class="form-row"><label>Style</label><select id="tone">' +
+          TONES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === e.tone ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="form-row"><label>Show it</label>' +
+          '<label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px">' +
+          '<input type="checkbox" id="on" ' + (e.active ? 'checked' : '') + ' style="width:auto"> Switched on</label></div>' +
+      '</div>' +
+
+      '<div class="two">' +
+        '<div class="form-row"><label>Start (optional)</label><input id="from" type="datetime-local" value="' + toLocal(e.starts_at) + '"></div>' +
+        '<div class="form-row"><label>End (optional)</label><input id="to" type="datetime-local" value="' + toLocal(e.ends_at) + '"></div>' +
+      '</div>' +
+      '<p class="hint">Give it dates and write it now — it appears and retires on its own. An end time is what stops a promo bar living on past the promo.</p>' +
+
+      '<button class="btn primary block" id="save" style="margin-top:12px">' + (e.id ? 'Save changes' : 'Add to the queue') + '</button>' +
+      (e.id ? '<button class="btn ghost block" id="cancel" style="margin-top:8px">Cancel</button>' : '') +
+      '</div>';
+  }
+
+  function render() {
     var root = document.getElementById('owner-root'); root.className = '';
-    root.innerHTML = slots.map(function (s) {
+    root.innerHTML = SLOTS.map(function (s) {
+      var open = editing && editing.slot === s.slot ? editing : null;
+      var current = open && open.id ? s.entries.filter(function (x) { return x.id === open.id; })[0] : null;
+      // A queue changes the headline question from "is it on?" to "is anything showing, and what
+      // is lined up behind it?" — a slot can be full of messages and still be blank today.
+      var upcoming = s.entries.filter(function (e) { return e.state === 'scheduled'; }).length;
       return '<div class="hub-section"><h2>' + esc(s.label) + '</h2>' +
         '<p class="hint" style="margin-bottom:10px">' + esc(s.where) + '</p>' +
 
-        // State before settings: "switched on" and "a visitor can see it" are different things once
-        // scheduling exists, and the toggle alone cannot explain why the bar is missing.
         '<div class="live ' + (s.live_now ? 'on' : 'off') + '">' +
           (s.live_now ? '🟢 <b>Showing on the site right now.</b>' :
-            (s.active ? '🕒 <b>Switched on, but not showing</b> — outside its scheduled window.'
-                      : '⚪ <b>Not showing.</b> Switch it on below when you are ready.')) +
+            '⚪ <b>Nothing showing.</b> ' + (s.entries.length ? 'Nothing in the queue covers today.' : 'Write one below.')) +
+          (upcoming ? ' <span style="opacity:.8">' + upcoming + ' scheduled for later.</span>' : '') +
         '</div>' +
 
-        (s.body_en ? '<div class="prev" style="background:' +
-          (s.tone === 'urgent' ? '#8a2b22' : s.tone === 'good' ? '#2c6b3f' : '#1A3D2E') +
-          ';color:#F5F2EC">' + esc(s.body_en) + (s.link_url ? ' <b style="color:#C6A85B;text-decoration:underline">' + esc(s.link_label || 'Learn more') + '</b>' : '') + '</div>' : '') +
+        (open || !s.entries.length ? form(s, current) :
+          '<button class="btn primary block" id="add_' + esc(s.slot) + '" data-add="' + esc(s.slot) + '" style="margin-bottom:12px">+ Write another message</button>') +
 
-        '<div class="form-row" style="margin-top:12px"><label>Message (English)</label>' +
-          '<textarea id="en" maxlength="' + s.max + '">' + esc(s.body_en) + '</textarea>' +
-          '<p class="hint">Keep it to one line — it sits across the top of every public page.</p></div>' +
-
-        '<div class="form-row"><label>Message (Spanish, optional)</label>' +
-          '<textarea id="es" maxlength="' + s.max + '">' + esc(s.body_es) + '</textarea>' +
-          '<p class="hint">Leave blank and the site translates the English automatically. Write it here when the wording matters.</p></div>' +
-
-        '<div class="two">' +
-          '<div class="form-row"><label>Link (optional)</label><input id="url" value="' + esc(s.link_url) + '" placeholder="/order"></div>' +
-          '<div class="form-row"><label>Link text</label><input id="ltext" value="' + esc(s.link_label) + '" placeholder="Order now"></div>' +
-        '</div>' +
-
-        '<div class="two">' +
-          '<div class="form-row"><label>Style</label><select id="tone">' +
-            TONES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === s.tone ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') +
-          '</select></div>' +
-          '<div class="form-row"><label>Show it</label>' +
-            '<label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px">' +
-            '<input type="checkbox" id="on" ' + (s.active ? 'checked' : '') + ' style="width:auto"> Live on the site</label></div>' +
-        '</div>' +
-
-        '<div class="two">' +
-          '<div class="form-row"><label>Start (optional)</label><input id="from" type="datetime-local" value="' + toLocal(s.starts_at) + '"></div>' +
-          '<div class="form-row"><label>End (optional)</label><input id="to" type="datetime-local" value="' + toLocal(s.ends_at) + '"></div>' +
-        '</div>' +
-        '<p class="hint">An end time switches it off by itself — a promo bar nobody remembers to remove is worse than none.</p>' +
-
-        '<button class="btn primary block" id="save" style="margin-top:12px">Save</button>' +
-        '<div class="hint" id="msg" style="margin-top:8px"></div></div>';
+        (s.entries.length ? s.entries.map(function (e) { return entryCard(s, e); }).join('')
+          : '<p class="hint">Nothing written yet.</p>') +
+        '</div>';
     }).join('');
+    wire();
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
 
-    var s0 = slots[0];
-    document.getElementById('save').addEventListener('click', function () {
-      var btn = this; btn.disabled = true; btn.textContent = 'Saving…';
-      Hub.api('/api/hub/owner/site-copy', { method: 'POST', body: {
-        slot: s0.slot,
+  function wire() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-add]'), function (b) {
+      b.addEventListener('click', function () { editing = { slot: b.getAttribute('data-add'), id: null }; render(); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-edit]'), function (b) {
+      b.addEventListener('click', function () { editing = { slot: b.getAttribute('data-slot'), id: b.getAttribute('data-edit') }; render(); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-del]'), function (b) {
+      b.addEventListener('click', function () {
+        if (!window.confirm('Delete this message? This cannot be undone.')) return;
+        Hub.api('/api/hub/owner/site-copy', { method: 'POST', body: { op: 'delete', slot: b.getAttribute('data-slot'), id: b.getAttribute('data-del') } })
+          .then(function (r) {
+            if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not delete'); return; }
+            Hub.toast(r.live_now ? 'Deleted — another message is showing now' : 'Deleted — nothing showing');
+            editing = null; load();
+          });
+      });
+    });
+    var cancel = document.getElementById('cancel');
+    if (cancel) cancel.addEventListener('click', function () { editing = null; render(); });
+
+    var save = document.getElementById('save');
+    if (!save) return;
+    save.addEventListener('click', function () {
+      var slot = (editing && editing.slot) || SLOTS[0].slot;
+      var btn = this, label = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Saving…';
+      var body = {
+        slot: slot,
         body_en: document.getElementById('en').value,
         body_es: document.getElementById('es').value,
         link_url: document.getElementById('url').value,
@@ -121,22 +204,27 @@
         active: document.getElementById('on').checked,
         starts_at: fromLocal(document.getElementById('from').value),
         ends_at: fromLocal(document.getElementById('to').value)
-      } }).then(function (r) {
-        btn.disabled = false; btn.textContent = 'Save';
+      };
+      if (editing && editing.id) body.id = editing.id;
+      Hub.api('/api/hub/owner/site-copy', { method: 'POST', body: body }).then(function (r) {
+        btn.disabled = false; btn.textContent = label;
         if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not save'); return; }
-        // Report the RESULT, not the submission — saved and visible are different.
-        Hub.toast(r.live_now ? 'Saved — it is showing on the site now'
-                             : (r.active ? 'Saved — it will show inside its scheduled window' : 'Saved — not showing'));
-        load();
+        // Report the RESULT, not the submission. With a queue there is a third answer beyond
+        // saved/scheduled: on, in-window, and STILL not showing because another entry outranks it.
+        Hub.toast(r.this_one_live ? 'Saved — this is the one on the site now'
+          : r.state === 'scheduled' ? 'Saved — it will appear inside its window'
+          : r.state === 'waiting' ? 'Saved — another message is showing until its window ends'
+          : r.state === 'ended' ? 'Saved — its window has already passed, so it will not show'
+          : 'Saved — switched off');
+        editing = null; load();
       });
     });
-    if (window.AnejoI18n) window.AnejoI18n.refresh();
   }
 
   function load() {
     Owner.get('/api/hub/owner/site-copy').then(function (d) {
       if (!d || !d.ok) { document.getElementById('owner-root').innerHTML = '<div class="hub-empty">Could not load.</div>'; return; }
-      render(d.slots);
+      SLOTS = d.slots; render();
     });
   }
   load();
