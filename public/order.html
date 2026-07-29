@@ -204,7 +204,14 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
       <div class="lbl" style="margin-top:14px">Your details</div>
       <label class="flbl" for="custName">First name</label>
       <input id="custName" type="text" autocomplete="given-name" placeholder="First name" required>
-      <label class="flbl" for="custPhone">Mobile number</label>
+      <!-- REQUIRED. Without it a guest order stores customer_email = NULL, and everything keyed on
+           it silently does nothing: no rewards points (awardOrderPoints returns 0 with no email),
+           no order-tracking notifications, no receipt, and no way to recover an abandoned cart.
+           Every order before this one was placed by a guest and earned zero points. -->
+      <label class="flbl" for="custEmail">Email</label>
+      <input id="custEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@email.com" required>
+      <p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:#6b6b6b">For your receipt, order updates, and to earn rewards points on this order.</p>
+      <label class="flbl" for="custPhone" style="margin-top:14px">Mobile number</label>
       <input id="custPhone" type="tel" autocomplete="tel" placeholder="Mobile number (optional)">
       <div class="sms-optin" style="background:rgba(0,0,0,.03);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:8px">
         <label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#333;cursor:pointer;line-height:1.45">
@@ -814,6 +821,7 @@ async function checkout(){
   }
   const contact = {
     first_name: $('custName').value.trim(),
+    email: $('custEmail').value.trim(),
     phone: $('custPhone').value.trim(),
     sms_consent: $('smsConsent').checked,
     // Marketing consent is its own permission — sent separately so the server can stamp the
@@ -821,6 +829,8 @@ async function checkout(){
     marketing_sms_consent: $('mktgSmsConsent').checked
   };
   if(!contact.first_name){ fail($('custName'),L('Please enter your first name.','Por favor ingresa tu nombre.')); return; }
+  // Required: without it the order earns no points, sends no updates, and cannot be recovered.
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact.email)){ fail($('custEmail'),L('Please enter a valid email for your receipt and rewards.','Por favor ingresa un correo válido para tu recibo y recompensas.')); return; }
   const address = {
     street: $('addrStreet').value.trim(), unit: $('addrUnit').value.trim(),
     city: $('addrCity').value.trim(), state: $('addrState').value.trim() || 'FL',
@@ -857,7 +867,7 @@ async function loadRewards(){
     if (me.prefill){
       var pf = me.prefill;
       var setIf = function(id, v){ var el = $(id); if (el && !el.value && v) el.value = v; };
-      setIf('custName', pf.name); setIf('custPhone', pf.phone);
+      setIf('custName', pf.name); setIf('custEmail', pf.email); setIf('custPhone', pf.phone);
       if (pf.address){ setIf('addrStreet', pf.address.street); setIf('addrUnit', pf.address.unit); setIf('addrCity', pf.address.city); setIf('addrState', pf.address.state); setIf('addrZip', pf.address.zip); setIf('addrNotes', pf.address.notes); }
     }
     if (me.rewards){
@@ -882,7 +892,7 @@ $('addrZip').addEventListener('blur', function(){
   const v=this.value.trim();
   this.classList.toggle('input-error', !!v && !/^\d{5}$/.test(v));
 });
-['custName','addrStreet','addrCity','addrZip','delivDate'].forEach(id=>{
+['custName','custEmail','addrStreet','addrCity','addrZip','delivDate'].forEach(id=>{
   const el=$(id); if(el) el.addEventListener('input', function(){ this.classList.remove('input-error'); });
 });
 // Re-render JS-built strings in the chosen language: on toggle (anejo:langchange) and once the

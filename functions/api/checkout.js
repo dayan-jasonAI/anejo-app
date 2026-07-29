@@ -286,6 +286,12 @@ export const onRequestPost = async ({ request, env }) => {
   const firstName = (contact.first_name || contact.name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
   if (!firstName) return bad('Please enter your first name so we can label your order.');
   const custPhone = normalizePhone(contact.phone);
+  // Guest email. Until now the order only recorded an email when the buyer happened to be SIGNED
+  // IN, so every guest order stored NULL — and everything keyed on it silently did nothing:
+  // awardOrderPoints returns 0 without an email, order notifications had nobody to reach, and an
+  // abandoned cart could never be followed up. That is why points_ledger had one row against real
+  // orders.
+  const typedEmail = String(contact.email || '').trim().toLowerCase().slice(0, 160);
   const smsConsent = ((contact.sms_consent === true || contact.sms_consent === 1) && custPhone) ? 1 : 0;
   // Marketing SMS consent is a SEPARATE permission (0047/0048). `sms_consent` above was collected
   // with order-and-delivery wording — transactional only — and a promotional text needs its own
@@ -485,7 +491,8 @@ export const onRequestPost = async ({ request, env }) => {
         // revenue by fee×tax and skewed rewards tiers, P&L and COGS snapshots that read this field.
         Math.round(Math.max(0, subtotalCents - finalDiscountCents) * (1 + Number(taxPct) / 100)) + feeCents,
         redeemPts || null, finalDiscountCents || null,
-        firstName, sessEmail, custPhone, smsConsent,
+        // A proven session wins over a typed address; otherwise the typed one is what we have.
+        firstName, (sessEmail || (isEmail(typedEmail) ? typedEmail : null)), custPhone, smsConsent,
         mktgSmsConsent, mktgSmsConsent ? t : null, mktgSmsConsent ? 'checkout:order' : null,
         addr.street, addr.unit, addr.city, addr.state, addr.zip, addr.notes,
         lat, lng, geocodedAt, promo ? promo.code : null, promo ? promo.points_mult : null,
