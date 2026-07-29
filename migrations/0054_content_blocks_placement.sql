@@ -1,0 +1,12 @@
+-- How an announcement PRESENTS itself: a bar across the top, or a centred pop-up.
+--
+-- The bar is right for a standing line ("order by 9am for same-day"). It is the wrong shape for
+-- something the owner actually needs read once — a closure, a menu change, a policy update — which
+-- is the thing people mean by "that pop-up that appears when I'm scrolling".
+--
+-- Deliberately ONE new column rather than a second table: a pop-up is the same message with the
+-- same window and the same queue rules, presented differently. Splitting them would mean two
+-- schedulers, two owner screens, and two ways for a live message to be forgotten.
+--
+-- 'bar' is the default so every row written before this migration keeps behaving exactly as it did.
+ALTER TABLE content_blocks ADD COLUMN placement TEXT NOT NULL DEFAULT 'bar';   -- bar | modal
