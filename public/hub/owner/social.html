@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Social</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .post { border:1px solid var(--line); border-left:4px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px; background:#fff; }
+  .post.published { border-left-color:#2c6b3f; background:#f4faf6; }
+  .post.scheduled { border-left-color:var(--gold); }
+  .post.failed { border-left-color:var(--crit,#b3402f); background:#fdf0ef; }
+  .post.publishing { border-left-color:#5b7fa6; }
+  .post-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px; }
+  .tag { font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; border-radius:20px; padding:3px 9px; white-space:nowrap; }
+  .tag.published { background:#2c6b3f; color:#fff; }
+  .tag.scheduled { background:#efe7cf; color:#8a7a2e; }
+  .tag.draft { background:#e6e6e3; color:#4a4d49; }
+  .tag.failed { background:#b3402f; color:#fff; }
+  .tag.publishing { background:#5b7fa6; color:#fff; }
+  .cap { font-size:13.5px; line-height:1.5; white-space:pre-wrap; color:var(--ink); }
+  .thumb { width:100%; max-width:220px; border-radius:8px; margin-top:8px; display:block; }
+  .acts { display:flex; gap:8px; margin-top:10px; }
+  .acts button { flex:1; padding:8px 10px; font-size:13px; font-weight:700; border-radius:8px; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--green); }
+  .acts button.go { background:var(--gold); border-color:var(--gold); color:var(--green); }
+  .acts button.del { color:#8a2b22; border-color:#e3c9c5; }
+  .form-row { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+  .form-row label { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--green); opacity:.8; }
+  .form-row input, .form-row textarea { padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; font-size:14px; }
+  .form-row textarea { min-height:110px; resize:vertical; line-height:1.5; }
+  .hint { font-size:12px; color:var(--green); opacity:.72; line-height:1.5; margin:2px 0 0; }
+  .live { border-radius:10px; padding:12px 14px; margin-bottom:12px; font-size:13px; line-height:1.5; }
+  .live.on { background:#e7f0ea; border:1px solid #2c6b3f; color:#1b4d2b; }
+  .live.off { background:#f6f5f1; border:1px solid var(--line); color:var(--green); }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · SOCIAL</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+  var esc = Hub.esc;
+  var DATA = null;
+
+  var WORD = { draft:'Draft', scheduled:'Scheduled', publishing:'Publishing…', published:'Live on Instagram', failed:'Failed' };
+
+  function when(p) {
+    if (p.published_at) return 'Posted ' + new Date(Number(p.published_at)).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    if (p.scheduled_at) return 'Scheduled for ' + new Date(Number(p.scheduled_at)).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    return 'Not scheduled';
+  }
+
+  function postCard(p) {
+    // The image preview uses the HUB-authenticated route, never the public token — the owner is
+    // signed in, and printing the public URL here would put it in screenshots.
+    return '<div class="post ' + esc(p.status) + '">' +
+      '<div class="post-head"><span class="tag ' + esc(p.status) + '">' + (WORD[p.status] || esc(p.status)) + '</span>' +
+        '<span class="row-sub" style="font-size:11.5px">' + esc(when(p)) + '</span></div>' +
+      '<div class="cap">' + esc(p.caption || '(no caption)') + '</div>' +
+      '<img class="thumb" src="/api/hub/media/' + esc(p.media_key) + '" alt="" loading="lazy">' +
+      (p.error ? '<div class="row-sub" style="color:var(--crit);margin-top:6px">' + esc(p.error) + '</div>' : '') +
+      (p.permalink ? '<div style="margin-top:8px"><a href="' + esc(p.permalink) + '" target="_blank" rel="noopener">View on Instagram →</a></div>' : '') +
+      (p.status === 'published' ? '' :
+        '<div class="acts">' +
+          '<button class="go" data-pub="' + esc(p.id) + '">' + (p.status === 'failed' ? 'Retry' : 'Publish now') + '</button>' +
+          '<button class="del" data-del="' + esc(p.id) + '">Delete</button>' +
+        '</div>') +
+      '</div>';
+  }
+
+  function render() {
+    var d = DATA;
+    var root = document.getElementById('owner-root'); root.className = '';
+    if (!d || !d.ok) { root.innerHTML = '<div class="hub-empty">Could not load.</div>'; return; }
+
+    // Three states, three different actions: add credentials, fix a broken token, or nothing.
+    var status;
+    if (!d.configured) {
+      status = '<div class="live off"><b>Not set up yet.</b> ' + esc(d.setup || '') + '</div>';
+    } else if (d.connected) {
+      status = '<div class="live on">🟢 <b>Connected as @' + esc(d.account.username) + '</b> · ' +
+        (d.account.followers || 0) + ' followers · ' + (d.account.media_count || 0) + ' posts' +
+        '<div class="row-sub" style="margin-top:4px">' + d.remaining_today + ' of ' + d.daily_cap + ' posts left today (Instagram\'s limit).</div></div>';
+    } else {
+      status = '<div class="live off">⚠️ <b>Set up, but Instagram refused the token.</b> ' + esc(d.account_error || '') +
+        '<div class="row-sub" style="margin-top:4px">Long-lived tokens expire after ~60 days — this usually means it needs renewing.</div></div>';
+    }
+
+    root.innerHTML =
+      '<div class="hub-section"><h2>Instagram</h2>' + status +
+        '<div class="card">' +
+          '<div class="form-row"><label>Image</label>' +
+            '<input id="mkey" type="text" placeholder="studio/2026-07/xxxx.jpg">' +
+            '<p class="hint">The R2 key of a Creative Studio image. JPEG only — Instagram rejects PNG and WebP.</p></div>' +
+          '<div class="form-row"><label>Caption</label><textarea id="cap" maxlength="2200" placeholder="Write the caption…"></textarea>' +
+            '<p class="hint">Up to 2,200 characters. Hashtags count toward it.</p></div>' +
+          '<div class="form-row"><label>Schedule (optional)</label><input id="sched" type="datetime-local">' +
+            '<p class="hint">Leave empty to save as a draft you publish by hand.</p></div>' +
+          '<button class="btn gold block" id="save">Save post</button>' +
+        '</div></div>' +
+      '<div class="hub-section"><h2>Posts</h2>' +
+        (d.posts.length ? d.posts.map(postCard).join('') : '<div class="card"><p class="row-sub">Nothing yet.</p></div>') +
+      '</div>';
+
+    wire();
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function wire() {
+    var save = document.getElementById('save');
+    if (save) save.addEventListener('click', function () {
+      var key = (document.getElementById('mkey') || {}).value || '';
+      var cap = (document.getElementById('cap') || {}).value || '';
+      var s = (document.getElementById('sched') || {}).value || '';
+      if (!key.trim()) { Hub.toast('Pick an image first.'); return; }
+      var when = s ? Date.parse(s) : null;
+      save.disabled = true;
+      Hub.api('/api/hub/owner/social', { method:'POST', body:{ op:'draft', media_key:key.trim(), caption:cap, scheduled_at: Number.isFinite(when) ? when : null } })
+        .then(function (r) {
+          save.disabled = false;
+          if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not save'); return; }
+          Hub.toast(r.status === 'scheduled' ? 'Scheduled' : 'Saved as a draft');
+          load();
+        });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-pub]'), function (b) {
+      b.addEventListener('click', function () {
+        if (!window.confirm('Publish this to Instagram now? It goes on the public profile.')) return;
+        b.disabled = true; b.textContent = 'Publishing…';
+        // Deliberately slow: Instagram fetches the image and we poll until it is ready, so this
+        // can take ~20 seconds. Better to make them wait than to report success early.
+        Hub.api('/api/hub/owner/social', { method:'POST', body:{ op:'publish', id:b.getAttribute('data-pub') } })
+          .then(function (r) {
+            if (r && r.ok) Hub.toast(r.already ? 'That was already live' : 'Posted to Instagram');
+            else Hub.toast((r && r.error) || 'Could not publish');
+            load();
+          });
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-del]'), function (b) {
+      b.addEventListener('click', function () {
+        if (!window.confirm('Delete this post? It has not gone out.')) return;
+        Hub.api('/api/hub/owner/social', { method:'POST', body:{ op:'delete', id:b.getAttribute('data-del') } })
+          .then(function (r) { if (r && r.ok) { Hub.toast('Deleted'); load(); } else Hub.toast((r && r.error) || 'Could not delete'); });
+      });
+    });
+  }
+
+  function load() { Owner.get('/api/hub/owner/social').then(function (d) { DATA = d; render(); }); }
+  Owner.init('content', load);
+})();
+</script>
+<script src="assets/operator.js" defer></script>
+</body>
+</html>
