@@ -69,6 +69,17 @@
     return fetch(path, init).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (!r.ok) { data._status = r.status; }
+        // A LOST SESSION MUST NOT LOOK LIKE AN EMPTY BUSINESS.
+        //
+        // Every owner endpoint answers an expired session with 401 { error }. No `ok` field, so
+        // each panel's own `if (!d || !d.ok)` branch fires and renders its EMPTY state: "No runs
+        // yet.", "No contract accounts yet.", "No forecast yet." A signed-out owner therefore saw
+        // a HUB that looked like a company with no automations, no accounts and no data — and
+        // nothing anywhere said "sign in". That is how "AI Ops shows nothing" happens with 248
+        // agent_runs rows sitting in the database.
+        //
+        // Handled once here rather than in ~30 panels, because the next page added would forget.
+        if (r.status === 401) Hub.sessionLost(data && data.error);
         Hub.i18nRefresh();
         return data;
       });
@@ -78,6 +89,46 @@
       // caller's normal `if (!resp.ok)` path runs: re-enables the button + shows the toast.
       return { _networkError: true, error: 'Network error — check your connection and try again.' };
     });
+  };
+
+  // ---------- signed out ----------
+  // Shown once, over the page, when any call comes back 401. Deliberately BLOCKING rather than a
+  // dismissable strip: behind it every panel is showing its empty state, and an owner who reads
+  // those as real ("we have no contract accounts?") is worse off than one who is simply stopped.
+  // It carries the control that fixes it — the standing rule that an alert must carry its fix.
+  Hub._signedOut = false;
+  Hub.sessionLost = function (msg) {
+    if (Hub._signedOut) return;             // many panels load at once; one notice, not eight
+    Hub._signedOut = true;
+    // /login is a customer-and-staff portal and already routes staff back to /hub/ on success,
+    // so no `next` parameter is invented here — it would be ignored.
+    var wrap = document.createElement('div');
+    wrap.id = 'hub-signed-out';
+    wrap.setAttribute('role', 'alertdialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(20,28,24,.72);' +
+      'display:flex;align-items:center;justify-content:center;padding:24px;' +
+      'font:400 15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:14px;padding:22px 20px;max-width:380px;width:100%;' +
+      'box-shadow:0 18px 48px rgba(0,0,0,.3);text-align:center;color:#1A3D2E';
+    var h = document.createElement('div');
+    h.style.cssText = 'font-weight:700;font-size:17px;margin-bottom:6px';
+    h.textContent = 'You have been signed out';
+    var p = document.createElement('p');
+    p.style.cssText = 'margin:0 0 16px;color:#4a5a52;font-size:14px';
+    // Say what is actually on screen behind the card, or the owner will trust it.
+    p.textContent = (msg && String(msg) !== 'Not signed in.' ? String(msg) + ' ' : '') +
+      'Anything showing behind this is empty because the HUB could not load it — not because there is nothing there.';
+    var a = document.createElement('a');
+    a.href = '/login';
+    a.textContent = 'Sign in again';
+    a.style.cssText = 'display:block;background:#1A3D2E;color:#F5F2EC;text-decoration:none;' +
+      'padding:12px 16px;border-radius:9px;font-weight:700';
+    card.appendChild(h); card.appendChild(p); card.appendChild(a);
+    wrap.appendChild(card);
+    var mount = function () { if (document.body && !document.getElementById('hub-signed-out')) document.body.appendChild(wrap); };
+    if (document.body) mount(); else document.addEventListener('DOMContentLoaded', mount);
   };
 
   // ---------- session ----------
