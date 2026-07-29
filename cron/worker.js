@@ -36,7 +36,13 @@ const EXTRA_ENDPOINTS = {
 };
 
 // Endpoints POSTed on EVERY minute tick (frequent sweeps).
-const EVERY_MINUTE = ['/api/hub/admin/offers-tick'];
+//
+// campaigns-tick sends any campaign whose scheduled time has arrived, and resumes any that is
+// mid-send — a list bigger than one tick's budget sits at 'sending' with rows still queued, and
+// without a resume it would stall there. Every-minute matters for a different reason than the
+// offer sweep: a campaign scheduled for 08:00 that goes out at 08:00 is the feature; one that
+// goes out at 08:45 because the sweep is hourly is not what anyone meant by "schedule".
+const EVERY_MINUTE = ['/api/hub/admin/offers-tick', '/api/hub/admin/campaigns-tick'];
 
 // Minimal cron field matcher — supports '*', exact numbers, and comma lists (covers every
 // expression above). dom/dow are ANDed here (all our schedules leave one of them '*').

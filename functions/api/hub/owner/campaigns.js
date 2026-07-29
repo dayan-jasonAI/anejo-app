@@ -19,6 +19,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml } from '../../../_lib/email.js';
 import { sendSms, isTwilioConfigured } from '../../../_lib/twilio.js';
 import { SEGMENTS, isSegment, resolveAudience, testRecipients } from '../../../_lib/audience.js';
+import { capture } from '../../../_lib/track.js';
 import { renderTemplate, ensureCompliance, sanitizeTemplate, htmlToText, templateAudit } from '../../../_lib/email-template.js';
 
 // A Worker has a wall-clock budget. A 500-recipient campaign therefore cannot be one request —
@@ -120,6 +121,175 @@ function smsBody(text) {
   return /reply\s+stop/i.test(b) ? b : `${b}\n\n${SMS_OPT_OUT}`;
 }
 
+// ---------- the send itself ----------
+//
+// Extracted from the 'send' op so a TIMER can drive it as well as the page. Both callers need the
+// identical guarantees — freeze the audience once, claim each recipient before sending, recompute
+// counters from the roster — and two copies of that would drift. Returns a plain object rather
+// than a Response so the tick can read `done` and decide whether to keep going.
+export async function sendCampaignBatch({ env, request, cid, expect }) {
+  const t = now();
+  const c = await env.DB.prepare('SELECT * FROM campaigns WHERE id=?').bind(cid).first();
+  if (!c) return { ok: false, error: 'Campaign not found.', code: 404 };
+  if (c.status === 'sent') return { ok: false, error: 'That campaign has already been sent.', code: 409 };
+  if (c.status === 'canceled') return { ok: false, error: 'That campaign was canceled.', code: 409 };
+
+  const channel = c.channel === 'sms' ? 'sms' : 'email';
+  // Refuse loudly rather than marking a whole audience 'failed' one address at a time.
+  if (channel === 'email' && !env.RESEND_API_KEY) return { ok: false, error: 'Email is not configured (RESEND_API_KEY).', code: 503 };
+  if (channel === 'sms' && !isTwilioConfigured(env)) return { ok: false, error: 'SMS is not configured (Twilio).', code: 503 };
+
+  // FIRST invocation only: freeze the audience into campaign_sends. Every later batch works
+  // from those rows, never from a re-resolved query that could have grown or shrunk underneath
+  // the send — and UNIQUE(campaign_id,address) means a retry can never add someone twice.
+  // 'scheduled' freezes here too: the audience is whoever qualifies when it FIRES, not who
+  // qualified when it was scheduled, which is the answer that matches what the owner expects
+  // from "send this Friday".
+  if (c.status === 'draft' || c.status === 'scheduled') {
+    const a = await resolveAudience(env, { segment: c.segment, channel });
+    if (!a.recipients.length) return { ok: false, error: 'Nobody in that segment is reachable on this channel right now.', code: 409 };
+
+    // The owner confirmed a number on screen. If the audience moved between preview and send,
+    // stop — "I thought I was mailing 40 people" is exactly the mistake worth one extra click.
+    // A scheduled send passes no expectation: nobody is watching, and there is no number on a
+    // screen to have been wrong about.
+    const want = Number(expect);
+    if (Number.isFinite(want) && want !== a.recipients.length) {
+      return {
+        ok: false,
+        error: `The audience changed since you previewed it — it is ${a.recipients.length} now, not ${want}. Preview again, then send.`,
+        code: 409,
+      };
+    }
+
+    // Claim the campaign, and only from the status we read. Two clicks — or a click racing the
+    // scheduler — hit here; exactly one changes a row, and the loser is told so instead of
+    // starting a second send.
+    const claim = await env.DB.prepare(
+      "UPDATE campaigns SET status='sending', recipients=?, updated_at=? WHERE id=? AND status=?"
+    ).bind(a.recipients.length, t, cid, c.status).run();
+    if (!claim.meta || claim.meta.changes !== 1) return { ok: false, error: 'That campaign is already sending.', code: 409 };
+
+    // Every recipient MUST carry `address` — see the contract on resolveAudience. A segment that
+    // returns a different shape binds undefined here, and INSERT OR IGNORE swallows it: the
+    // campaign then claims N recipients and sits at 'sending' with an empty roster, no email, and
+    // no error anywhere. That is precisely how the first real test send failed. Fail loudly.
+    const bogus = a.recipients.filter((r) => !r || typeof r.address !== 'string' || !r.address.trim());
+    if (bogus.length) {
+      await env.DB.prepare("UPDATE campaigns SET status='draft', recipients=0, updated_at=? WHERE id=?").bind(t, cid).run();
+      return {
+        ok: false,
+        error: `Internal error: ${bogus.length} of ${a.recipients.length} recipients had no address. Nothing was sent — the campaign is back to draft.`,
+        code: 500,
+      };
+    }
+
+    const ins = env.DB.prepare(
+      "INSERT OR IGNORE INTO campaign_sends (id, campaign_id, address, name, status, created_at) VALUES (?,?,?,?,'queued',?)"
+    );
+    const stmts = a.recipients.map((r) => ins.bind(id('snd'), cid, r.address, r.name || null, t));
+    for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
+  }
+
+  // Recovery: 'sending' with an empty roster means the claim landed but the roster write did
+  // not. Put it back to draft rather than declaring a campaign complete that never left.
+  const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM campaign_sends WHERE campaign_id=?').bind(cid).first();
+  if (!total || !total.n) {
+    await env.DB.prepare("UPDATE campaigns SET status='draft', recipients=0, updated_at=? WHERE id=?").bind(t, cid).run();
+    return { ok: false, error: 'The recipient list did not save — the campaign is back to draft. Try sending again.', code: 409 };
+  }
+
+  // Resolved once per request rather than per recipient — one query for a value that cannot
+  // change mid-batch.
+  const postal = await addressLine(env);
+
+  const startedAt = Date.now();
+  const base = appBaseUrl(env, request).replace(/\/$/, '');
+  const q = await env.DB.prepare(
+    "SELECT id, address, name FROM campaign_sends WHERE campaign_id=? AND status='queued' ORDER BY rowid LIMIT ?"
+  ).bind(cid, BATCH).all();
+  const work = (q && q.results) || [];
+
+  let sent = 0, failed = 0, skipped = 0;
+  for (const row of work) {
+    if (Date.now() - startedAt > TIME_BUDGET_MS) break;   // leave the rest queued; the caller resumes
+
+    // CLAIM BEFORE SENDING — deliberately at-most-once. This conditional UPDATE is the only
+    // mutex available, so a crash between the claim and the send costs one undelivered message.
+    // The alternative (mark after sending) loses the mutex and can text the same person the
+    // same promo twice: an annoyance on email, a per-message TCPA event on SMS.
+    const claimed = await env.DB.prepare(
+      "UPDATE campaign_sends SET status='sent', reason=NULL WHERE id=? AND status='queued'"
+    ).bind(row.id).run();
+    if (!claimed.meta || claimed.meta.changes !== 1) continue;   // another batch already has it
+
+    let ok = false, skip = false, reason = null;
+    try {
+      if (channel === 'email') {
+        const unsub = unsubscribeUrlFor(base, row.address);
+        const msg = renderCampaignEmail({
+          body: c.body, format: c.body_format, unsubUrl: unsub, postal, name: row.name, address: row.address,
+        });
+        const res = await sendEmail(env, {
+          to: row.address,
+          subject: c.subject || c.name,
+          html: msg.html,
+          text: msg.text,             // text/plain alternative; bulk HTML without one scores as spam
+          unsubscribeUrl: unsub,      // List-Unsubscribe + one-click POST
+        });
+        // sendEmail refuses bounced/complained addresses. That is a skip, not a failure —
+        // nothing went wrong and retrying would only hurt the sending domain.
+        if (res && res.skipped) { skip = true; reason = 'suppressed: ' + (res.suppressed || 'unknown'); }
+        else ok = true;
+      } else {
+        const res = await sendSms(env, { to: row.address, body: smsBody(c.body) });
+        if (res && res.noop) { skip = true; reason = 'sms provider not configured'; }
+        else if (res && res.ok && res.sent) ok = true;
+        else reason = ((res && res.error) || 'send failed').toString().slice(0, 200);
+      }
+    } catch (e) {
+      reason = String((e && e.message) || e).slice(0, 200);
+    }
+
+    if (ok) { sent += 1; continue; }                        // row is already 'sent' from the claim
+    await env.DB.prepare('UPDATE campaign_sends SET status=?, reason=? WHERE id=?')
+      .bind(skip ? 'skipped' : 'failed', reason, row.id).run();
+    if (skip) skipped += 1; else failed += 1;
+  }
+
+  // Counters are recomputed from campaign_sends, never incremented: the rows are the truth, and
+  // an interrupted batch must not leave the campaign claiming numbers the roster disagrees with.
+  const tally = await env.DB.prepare(
+    `SELECT SUM(status='sent') AS sent, SUM(status='failed') AS failed,
+            SUM(status='skipped') AS skipped, SUM(status='queued') AS queued
+       FROM campaign_sends WHERE campaign_id=?`
+  ).bind(cid).first();
+  const totals = {
+    sent: Number((tally && tally.sent) || 0),
+    failed: Number((tally && tally.failed) || 0),
+    skipped: Number((tally && tally.skipped) || 0),
+  };
+  const remaining = Number((tally && tally.queued) || 0);
+  const done = remaining === 0;
+  const t2 = now();
+
+  if (done) {
+    await env.DB.prepare(
+      "UPDATE campaigns SET sent_count=?, failed_count=?, status='sent', updated_at=?, sent_at=COALESCE(sent_at,?) WHERE id=?"
+    ).bind(totals.sent, totals.failed, t2, t2, cid).run();
+  } else {
+    await env.DB.prepare('UPDATE campaigns SET sent_count=?, failed_count=?, updated_at=? WHERE id=?')
+      .bind(totals.sent, totals.failed, t2, cid).run();
+  }
+
+  return {
+    ok: true, id: cid, done,
+    status: done ? 'sent' : 'sending',
+    batch: { sent, failed, skipped },
+    totals, remaining,
+  };
+}
+
 // ---------- GET ----------
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -130,6 +300,7 @@ export const onRequestGet = async ({ request, env }) => {
   try {
     const r = await env.DB.prepare(
       `SELECT c.id, c.channel, c.name, c.subject, c.body, c.body_format, c.segment, c.status, c.recipients,
+              c.scheduled_at, c.schedule_note,
               c.sent_count, c.failed_count, c.created_by, c.created_at, c.updated_at, c.sent_at,
               (SELECT COUNT(*) FROM campaign_sends s WHERE s.campaign_id=c.id AND s.status='queued')  AS queued,
               (SELECT COUNT(*) FROM campaign_sends s WHERE s.campaign_id=c.id AND s.status='skipped') AS skipped
@@ -138,9 +309,22 @@ export const onRequestGet = async ({ request, env }) => {
     campaigns = (r && r.results) || [];
   } catch { campaigns = []; }
 
+  let templates = [];
+  try {
+    const r = await env.DB.prepare(
+      'SELECT id, name, channel, subject, body, body_format, created_at, updated_at FROM campaign_templates ORDER BY name'
+    ).all();
+    templates = (r && r.results) || [];
+  } catch { templates = []; }
+
   return json({
     ok: true,
     campaigns,
+    templates,
+    // The scheduler is a SEPARATE Cloudflare Worker from the Pages app — if it is not deployed,
+    // a scheduled campaign sits there and never sends. Saying so next to the control is the
+    // difference between a feature and a trap.
+    scheduler_ready: !!env.CRON_KEY,
     segments: Object.keys(SEGMENTS).map((k) => ({ key: k, label: SEGMENTS[k].label, why: SEGMENTS[k].why })),
     test_recipients: (await testRecipients(env)).join(', '),
     postal_address: await addressLine(env),
@@ -230,7 +414,9 @@ export const onRequestPost = async ({ request, env }) => {
       // Editing a campaign that has gone out rewrites history: the copy in the database would no
       // longer be the copy sitting in people's inboxes, and that record is the defence if anyone
       // ever asks what was sent.
-      if (row.status !== 'draft') {
+      // A scheduled campaign has not gone anywhere yet, so it is still editable. Only mail that
+      // has actually left is frozen — that record is the defence if anyone asks what was sent.
+      if (row.status !== 'draft' && row.status !== 'scheduled') {
         return bad('That campaign has already gone out — start a new draft instead of editing it.', 409);
       }
       await env.DB.prepare(
@@ -247,162 +433,80 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ ok: true, id: nid, body_format: format, audit: format === 'html' ? templateAudit(body) : null });
   }
 
-  // --- Send (or resume sending).
+  // --- Schedule a draft to send later, or take the schedule off again.
+  if (op === 'schedule' || op === 'unschedule') {
+    const cid = (b.id || '').toString().trim();
+    if (!cid) return bad('Missing campaign.');
+    const row = await env.DB.prepare('SELECT status FROM campaigns WHERE id=?').bind(cid).first();
+    if (!row) return bad('Campaign not found.', 404);
+    // Only something that has not left yet. A campaign mid-send or already sent cannot be
+    // rescheduled, and pretending otherwise would show a future date on mail already delivered.
+    if (row.status !== 'draft' && row.status !== 'scheduled') {
+      return bad('Only a draft can be scheduled — that one has already started sending.', 409);
+    }
+
+    if (op === 'unschedule') {
+      await env.DB.prepare("UPDATE campaigns SET status='draft', scheduled_at=NULL, schedule_note=NULL, updated_at=? WHERE id=?")
+        .bind(t, cid).run();
+      return json({ ok: true, id: cid, status: 'draft' });
+    }
+
+    const when = Number(b.scheduled_at);
+    if (!Number.isFinite(when) || when <= 0) return bad('Pick a date and time.');
+    // A minute of slack, so "schedule for 9:00" typed at 9:00:30 is not rejected as the past.
+    if (when < t - 60000) return bad('That time has already passed.');
+    // The sweep runs every minute and each pass sends a batch, so a campaign scheduled a year out
+    // is fine — but it is far more often a mistyped year than an intention.
+    if (when > t + 400 * 24 * 3600 * 1000) return bad('That is more than a year away — check the date.');
+
+    await env.DB.prepare("UPDATE campaigns SET status='scheduled', scheduled_at=?, schedule_note=NULL, updated_at=? WHERE id=?")
+      .bind(when, t, cid).run();
+    await capture(env, {
+      event: 'campaign.scheduled',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { campaign_id: cid, lead_minutes: Math.round((when - t) / 60000) },
+    });
+    return json({ ok: true, id: cid, status: 'scheduled', scheduled_at: when });
+  }
+
+  // --- The template library: save the current body for reuse, or drop one.
+  if (op === 'template_save') {
+    const name = (b.name || '').toString().trim().slice(0, 120);
+    if (!name) return bad('Give the template a name.');
+    const body = (b.body || '').toString();
+    if (!body.trim()) return bad('There is nothing to save yet.');
+    const channel = b.channel === 'sms' ? 'sms' : 'email';
+    const format = channel === 'email' && b.body_format === 'html' ? 'html' : 'text';
+    const subject = (b.subject || '').toString().trim().slice(0, 200);
+    // Saving under a name already in use REPLACES it — that is what "save" means when you have
+    // just edited the thing you loaded. A second "Founders 8am" in the dropdown is not useful.
+    await env.DB.prepare(
+      `INSERT INTO campaign_templates (id, name, channel, subject, body, body_format, created_by, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(channel, name) DO UPDATE SET
+         subject=excluded.subject, body=excluded.body, body_format=excluded.body_format, updated_at=excluded.updated_at`
+    ).bind(id('tpl'), name, channel, subject || null, body, format, ctx.email || ctx.distinct_id || null, t, t).run();
+    const saved = await env.DB.prepare('SELECT id FROM campaign_templates WHERE channel=? AND name=?').bind(channel, name).first();
+    return json({ ok: true, id: saved && saved.id, name });
+  }
+
+  if (op === 'template_delete') {
+    const tid = (b.id || '').toString().trim();
+    if (!tid) return bad('Missing template.');
+    // Deleting a template touches no campaign: a campaign copies the body at save time, so a
+    // template is a starting point, never a live link to mail already sent.
+    const r = await env.DB.prepare('DELETE FROM campaign_templates WHERE id=?').bind(tid).run();
+    if (!r.meta || r.meta.changes !== 1) return bad('That template no longer exists.', 404);
+    return json({ ok: true, deleted: tid });
+  }
+
+  // --- Send (or resume sending). The work lives in sendCampaignBatch so the scheduler can
+  // drive the identical path.
   if (op === 'send') {
     const cid = (b.id || '').toString().trim();
     if (!cid) return bad('Missing campaign.');
-    const c = await env.DB.prepare('SELECT * FROM campaigns WHERE id=?').bind(cid).first();
-    if (!c) return bad('Campaign not found.', 404);
-    if (c.status === 'sent') return bad('That campaign has already been sent.', 409);
-    if (c.status === 'canceled') return bad('That campaign was canceled.', 409);
-
-    const channel = c.channel === 'sms' ? 'sms' : 'email';
-    // Refuse loudly rather than marking a whole audience 'failed' one address at a time.
-    if (channel === 'email' && !env.RESEND_API_KEY) return bad('Email is not configured (RESEND_API_KEY).', 503);
-    if (channel === 'sms' && !isTwilioConfigured(env)) return bad('SMS is not configured (Twilio).', 503);
-
-    // FIRST invocation only: freeze the audience into campaign_sends. Every later batch works
-    // from those rows, never from a re-resolved query that could have grown or shrunk underneath
-    // the send — and UNIQUE(campaign_id,address) means a retry can never add someone twice.
-    if (c.status === 'draft') {
-      const a = await resolveAudience(env, { segment: c.segment, channel });
-      if (!a.recipients.length) return bad('Nobody in that segment is reachable on this channel right now.', 409);
-
-      // The owner confirmed a number on screen. If the audience moved between preview and send,
-      // stop — "I thought I was mailing 40 people" is exactly the mistake worth one extra click.
-      const expect = Number(b.expect);
-      if (Number.isFinite(expect) && expect !== a.recipients.length) {
-        return bad(
-          `The audience changed since you previewed it — it is ${a.recipients.length} now, not ${expect}. Preview again, then send.`,
-          409
-        );
-      }
-
-      // Claim the campaign, and only from 'draft'. Two clicks race here; exactly one of them
-      // changes a row, and the loser is told so instead of starting a second send.
-      const claim = await env.DB.prepare(
-        "UPDATE campaigns SET status='sending', recipients=?, updated_at=? WHERE id=? AND status='draft'"
-      ).bind(a.recipients.length, t, cid).run();
-      if (!claim.meta || claim.meta.changes !== 1) return bad('That campaign is already sending.', 409);
-
-      // Every recipient MUST carry `address` — see the contract on resolveAudience. A segment that
-      // returns a different shape binds undefined here, and INSERT OR IGNORE swallows it: the
-      // campaign then claims N recipients and sits at 'sending' with an empty roster, no email, and
-      // no error anywhere. That is precisely how the first real test send failed. Fail loudly.
-      const bogus = a.recipients.filter((r) => !r || typeof r.address !== 'string' || !r.address.trim());
-      if (bogus.length) {
-        await env.DB.prepare("UPDATE campaigns SET status='draft', recipients=0, updated_at=? WHERE id=?").bind(t, cid).run();
-        return bad(
-          `Internal error: ${bogus.length} of ${a.recipients.length} recipients had no address. Nothing was sent — the campaign is back to draft.`,
-          500,
-        );
-      }
-
-      const ins = env.DB.prepare(
-        "INSERT OR IGNORE INTO campaign_sends (id, campaign_id, address, name, status, created_at) VALUES (?,?,?,?,'queued',?)"
-      );
-      const stmts = a.recipients.map((r) => ins.bind(id('snd'), cid, r.address, r.name || null, t));
-      for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
-    }
-
-    // Recovery: 'sending' with an empty roster means the claim landed but the roster write did
-    // not. Put it back to draft rather than declaring a campaign complete that never left.
-    const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM campaign_sends WHERE campaign_id=?').bind(cid).first();
-    if (!total || !total.n) {
-      await env.DB.prepare("UPDATE campaigns SET status='draft', recipients=0, updated_at=? WHERE id=?").bind(t, cid).run();
-      return bad('The recipient list did not save — the campaign is back to draft. Try sending again.', 409);
-    }
-
-    // Resolved once per request rather than per recipient — one query for a value that cannot
-    // change mid-batch.
-    const postal = await addressLine(env);
-
-    const startedAt = Date.now();
-    const base = appBaseUrl(env, request).replace(/\/$/, '');
-    const q = await env.DB.prepare(
-      "SELECT id, address, name FROM campaign_sends WHERE campaign_id=? AND status='queued' ORDER BY rowid LIMIT ?"
-    ).bind(cid, BATCH).all();
-    const work = (q && q.results) || [];
-
-    let sent = 0, failed = 0, skipped = 0;
-    for (const row of work) {
-      if (Date.now() - startedAt > TIME_BUDGET_MS) break;   // leave the rest queued; the page resumes
-
-      // CLAIM BEFORE SENDING — deliberately at-most-once. This conditional UPDATE is the only
-      // mutex available, so a crash between the claim and the send costs one undelivered message.
-      // The alternative (mark after sending) loses the mutex and can text the same person the
-      // same promo twice: an annoyance on email, a per-message TCPA event on SMS.
-      const claimed = await env.DB.prepare(
-        "UPDATE campaign_sends SET status='sent', reason=NULL WHERE id=? AND status='queued'"
-      ).bind(row.id).run();
-      if (!claimed.meta || claimed.meta.changes !== 1) continue;   // another batch already has it
-
-      let ok = false, skip = false, reason = null;
-      try {
-        if (channel === 'email') {
-          const unsub = unsubscribeUrlFor(base, row.address);
-          const msg = renderCampaignEmail({
-            body: c.body, format: c.body_format, unsubUrl: unsub, postal, name: row.name, address: row.address,
-          });
-          const res = await sendEmail(env, {
-            to: row.address,
-            subject: c.subject || c.name,
-            html: msg.html,
-            text: msg.text,             // text/plain alternative; bulk HTML without one scores as spam
-            unsubscribeUrl: unsub,      // List-Unsubscribe + one-click POST
-          });
-          // sendEmail refuses bounced/complained addresses. That is a skip, not a failure —
-          // nothing went wrong and retrying would only hurt the sending domain.
-          if (res && res.skipped) { skip = true; reason = 'suppressed: ' + (res.suppressed || 'unknown'); }
-          else ok = true;
-        } else {
-          const res = await sendSms(env, { to: row.address, body: smsBody(c.body) });
-          if (res && res.noop) { skip = true; reason = 'sms provider not configured'; }
-          else if (res && res.ok && res.sent) ok = true;
-          else reason = ((res && res.error) || 'send failed').toString().slice(0, 200);
-        }
-      } catch (e) {
-        reason = String((e && e.message) || e).slice(0, 200);
-      }
-
-      if (ok) { sent += 1; continue; }                        // row is already 'sent' from the claim
-      await env.DB.prepare('UPDATE campaign_sends SET status=?, reason=? WHERE id=?')
-        .bind(skip ? 'skipped' : 'failed', reason, row.id).run();
-      if (skip) skipped += 1; else failed += 1;
-    }
-
-    // Counters are recomputed from campaign_sends, never incremented: the rows are the truth, and
-    // an interrupted batch must not leave the campaign claiming numbers the roster disagrees with.
-    const tally = await env.DB.prepare(
-      `SELECT SUM(status='sent') AS sent, SUM(status='failed') AS failed,
-              SUM(status='skipped') AS skipped, SUM(status='queued') AS queued
-         FROM campaign_sends WHERE campaign_id=?`
-    ).bind(cid).first();
-    const totals = {
-      sent: Number((tally && tally.sent) || 0),
-      failed: Number((tally && tally.failed) || 0),
-      skipped: Number((tally && tally.skipped) || 0),
-    };
-    const remaining = Number((tally && tally.queued) || 0);
-    const done = remaining === 0;
-    const t2 = now();
-
-    if (done) {
-      await env.DB.prepare(
-        "UPDATE campaigns SET sent_count=?, failed_count=?, status='sent', updated_at=?, sent_at=COALESCE(sent_at,?) WHERE id=?"
-      ).bind(totals.sent, totals.failed, t2, t2, cid).run();
-    } else {
-      await env.DB.prepare('UPDATE campaigns SET sent_count=?, failed_count=?, updated_at=? WHERE id=?')
-        .bind(totals.sent, totals.failed, t2, cid).run();
-    }
-
-    return json({
-      ok: true, id: cid, done,
-      status: done ? 'sent' : 'sending',
-      batch: { sent, failed, skipped },
-      totals, remaining,
-    });
+    const r = await sendCampaignBatch({ env, request, cid, expect: b.expect });
+    return r.ok ? json(r) : bad(r.error, r.code || 400);
   }
-
   return bad('Unknown action.');
 };

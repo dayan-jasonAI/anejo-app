@@ -64,7 +64,7 @@
   var data = { campaigns: [], segments: [], email_ready: false, sms_ready: false };
   var view = 'list';                 // 'list' | 'compose' | 'detail'
   var detailId = null;
-  var draft = { id: null, name: '', channel: 'email', segment: 'launch_list', subject: '', body: '', body_format: 'text' };
+  var draft = { id: null, name: '', channel: 'email', segment: 'launch_list', subject: '', body: '', body_format: 'text', scheduled_at: null, schedule_note: null };
   var preview = null;                // last /preview result for the current segment+channel
   var previewT = 0;
   var sending = false;
@@ -75,6 +75,7 @@
     return k;
   }
   function statusBadge(s) {
+    if (s === 'scheduled') return '<span class="badge warn">scheduled</span>';
     if (s === 'sent')     return '<span class="badge ok">sent</span>';
     if (s === 'sending')  return '<span class="badge warn">sending</span>';
     if (s === 'canceled') return '<span class="badge">canceled</span>';
@@ -115,7 +116,7 @@
   }
 
   function newDraft() {
-    draft = { id: null, name: '', channel: 'email', segment: 'launch_list', subject: '', body: '', body_format: 'text' };
+    draft = { id: null, name: '', channel: 'email', segment: 'launch_list', subject: '', body: '', body_format: 'text', scheduled_at: null, schedule_note: null };
     preview = null;
   }
 
@@ -126,7 +127,9 @@
       return;
     }
     $('#pane').innerHTML = data.campaigns.map(function (c) {
-      var right = c.status === 'draft'
+      var right = c.status === 'scheduled'
+        ? '<span>' + esc(whenLabel(c.scheduled_at)) + '</span>'
+        : c.status === 'draft'
         ? '<span data-i18n>draft</span>'
         : (c.sent_count || 0) + ' <span data-i18n>sent</span>' +
           (c.failed_count ? ' · ' + c.failed_count + ' <span data-i18n>failed</span>' : '') +
@@ -147,9 +150,10 @@
   function open(cid) {
     var c = data.campaigns.filter(function (x) { return x.id === cid; })[0];
     if (!c) return;
-    if (c.status === 'draft') {
+    if (c.status === 'draft' || c.status === 'scheduled') {
       draft = { id: c.id, name: c.name || '', channel: c.channel || 'email', segment: c.segment,
-                subject: c.subject || '', body: c.body || '', body_format: c.body_format === 'html' ? 'html' : 'text' };
+                subject: c.subject || '', body: c.body || '', body_format: c.body_format === 'html' ? 'html' : 'text',
+                scheduled_at: c.scheduled_at || null, schedule_note: c.schedule_note || null };
       preview = null;
       view = 'compose';
     } else {
@@ -269,6 +273,19 @@
           : '') +
         '<div class="form-row" id="subjrow" style="' + (isSms ? 'display:none' : '') + '">' +
           '<label data-i18n>Subject line</label><input id="f_subj" autocomplete="off" value="' + esc(draft.subject) + '"></div>' +
+        // Saved templates for THIS channel. An email template in an SMS dropdown is a trap.
+        (function () {
+          var mine = (data.templates || []).filter(function (x) { return (x.channel || 'email') === draft.channel; });
+          if (!mine.length) return '<p class="hint" style="margin-bottom:10px">No saved templates yet — write or load one below, then “Save as template”.</p>';
+          return '<div class="form-row"><label>Saved templates</label>' +
+            '<div style="display:flex;gap:8px"><select id="f_tpl" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px">' +
+              '<option value="">— pick a template —</option>' +
+              mine.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + (x.body_format === 'html' ? ' (HTML)' : '') + '</option>'; }).join('') +
+            '</select>' +
+            '<button class="btn ghost" id="f_tplload" type="button" style="white-space:nowrap">Load</button>' +
+            '<button class="btn ghost" id="f_tpldel" type="button" style="white-space:nowrap;color:#8a2b22">Delete</button></div>' +
+            '<p class="hint">Loading replaces the subject, format and message below. It does not change the segment, and it never touches a campaign already sent.</p></div>';
+        })() +
         // Email only. SMS has no HTML, so offering the choice there would be a control that
         // cannot do anything.
         (isSms ? '' :
@@ -287,18 +304,27 @@
         (isHtml ? '<div class="form-two" style="margin-bottom:6px"><button class="btn ghost" id="f_prev" type="button">Preview it</button><span></span></div>' : '') +
         '<p class="hint" id="bodyhint"></p>' +
         '<div id="tplaudit"></div>' +
+        // A schedule that did not fire must say so HERE, not vanish into a draft that looks like
+        // the owner never scheduled it.
+        (draft.schedule_note ? '<div class="warn" style="margin-top:10px">' + esc(draft.schedule_note) + '</div>' : '') +
         '<div id="reach"></div>' +
         '<p class="legal" id="legal"></p>' +
         '<div class="form-two" style="margin-top:12px">' +
           '<button class="btn ghost" id="f_save" data-i18n>Save draft</button>' +
-          '<button class="btn gold" id="f_send" data-i18n>Send…</button>' +
+          '<button class="btn gold" id="f_send" data-i18n>Send now…</button>' +
         '</div>' +
+        '<div class="form-two" style="margin-top:8px">' +
+          '<button class="btn ghost" id="f_tplsave" type="button">Save as template</button><span></span>' +
+        '</div>' +
+        scheduleBlock() +
         '<p class="prog" id="prog"></p>' +
         '<p class="hint" id="msg"></p>' +
       '</div>';
 
     paintSegWhy();
     paintLegal();
+    wireTemplates();
+    wireSchedule();
     paintBodyHint();
     loadPreview();
 
@@ -350,6 +376,120 @@
     $('#f_save').addEventListener('click', function () { collect(); save().then(function (ok) { if (ok) { $('#msg').textContent = 'Draft saved.'; load(); } }); });
     $('#f_send').addEventListener('click', function () { collect(); startSend(); });
     refresh();
+  }
+
+  // ---------- schedule ----------
+  function whenLabel(ms) {
+    return new Date(Number(ms)).toLocaleString([], { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+  }
+
+  // Default the picker to the next round hour, local time. datetime-local wants a local-time
+  // string with no zone, so it is built from the local parts — using toISOString here would offset
+  // it by the timezone and quietly schedule the send four hours early.
+  function defaultWhen() {
+    var d = new Date(Date.now() + 60 * 60 * 1000);
+    d.setMinutes(0, 0, 0);
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function scheduleBlock() {
+    if (!draft.id && !draft.scheduled_at) {
+      return '<p class="hint" style="margin-top:10px">Save the draft first, then you can schedule it.</p>';
+    }
+    // A campaign already scheduled shows WHEN, and one control: take it off again.
+    if (draft.scheduled_at) {
+      return '<div class="reach" style="margin-top:12px">' +
+        '<div><b>Scheduled to send ' + esc(whenLabel(draft.scheduled_at)) + '</b> — your local time.</div>' +
+        (data.scheduler_ready ? '' :
+          '<div class="warn" style="margin:8px 0 0">The scheduler is not configured, so this will <b>not</b> send on its own. Use “Send now” instead.</div>') +
+        '<div class="form-two" style="margin-top:10px"><button class="btn ghost" id="f_unsched" type="button">Cancel schedule</button><span></span></div>' +
+      '</div>';
+    }
+    return '<div class="form-row" style="margin-top:12px"><label>Or send it later</label>' +
+      '<div style="display:flex;gap:8px"><input id="f_when" type="datetime-local" style="flex:1" value="' + defaultWhen() + '">' +
+      '<button class="btn ghost" id="f_sched" type="button" style="white-space:nowrap">Schedule</button></div>' +
+      '<p class="hint">Your local time. The audience is worked out when it fires, not now — so anyone who joins between now and then is included.' +
+      (data.scheduler_ready ? '' : ' <b>The scheduler is not configured yet, so a scheduled campaign would not send.</b>') + '</p></div>';
+  }
+
+  function wireSchedule() {
+    var sc = document.getElementById('f_sched');
+    if (sc) sc.addEventListener('click', function () {
+      collect();
+      var raw = (document.getElementById('f_when') || {}).value || '';
+      var when = raw ? Date.parse(raw) : NaN;
+      if (!Number.isFinite(when)) { Hub.toast('Pick a date and time.'); return; }
+      // Save first: scheduling copy that was never written to the row would send the OLD body.
+      save().then(function (ok) {
+        if (!ok) return;
+        Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: { op: 'schedule', id: draft.id, scheduled_at: when } })
+          .then(function (r) {
+            if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not schedule'); return; }
+            draft.scheduled_at = r.scheduled_at;
+            Hub.toast('Scheduled for ' + whenLabel(r.scheduled_at));
+            load();
+          });
+      });
+    });
+    var un = document.getElementById('f_unsched');
+    if (un) un.addEventListener('click', function () {
+      Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: { op: 'unschedule', id: draft.id } })
+        .then(function (r) {
+          if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not cancel'); return; }
+          draft.scheduled_at = null;
+          Hub.toast('Schedule cancelled — it is a draft again.');
+          load();
+        });
+    });
+  }
+
+  // ---------- the template library ----------
+  function wireTemplates() {
+    var ld = document.getElementById('f_tplload');
+    if (ld) ld.addEventListener('click', function () {
+      var sel = document.getElementById('f_tpl');
+      var t = (data.templates || []).filter(function (x) { return x.id === (sel && sel.value); })[0];
+      if (!t) { Hub.toast('Pick a template first.'); return; }
+      // Deliberately NOT silent: this overwrites what is in the box.
+      if (draft.body.trim() && !window.confirm('Replace the message below with “' + t.name + '”?')) return;
+      draft.subject = t.subject || draft.subject;
+      draft.body = t.body || '';
+      draft.body_format = t.body_format === 'html' ? 'html' : 'text';
+      render();
+      Hub.toast('Loaded “' + t.name + '”');
+    });
+
+    var dl = document.getElementById('f_tpldel');
+    if (dl) dl.addEventListener('click', function () {
+      var sel = document.getElementById('f_tpl');
+      var t = (data.templates || []).filter(function (x) { return x.id === (sel && sel.value); })[0];
+      if (!t) { Hub.toast('Pick a template first.'); return; }
+      if (!window.confirm('Delete the template “' + t.name + '”? Campaigns already sent are not affected.')) return;
+      Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: { op: 'template_delete', id: t.id } })
+        .then(function (r) { if (r && r.ok) { Hub.toast('Deleted'); load(); } else Hub.toast((r && r.error) || 'Could not delete'); });
+    });
+
+    var sv = document.getElementById('f_tplsave');
+    if (sv) sv.addEventListener('click', function () {
+      collect();
+      if (!draft.body.trim()) { Hub.toast('There is nothing to save yet.'); return; }
+      var name = window.prompt('Save this as a template called:', draft.name || '');
+      if (name === null) return;
+      name = name.trim();
+      if (!name) { Hub.toast('Give the template a name.'); return; }
+      var existing = (data.templates || []).filter(function (x) {
+        return x.name === name && (x.channel || 'email') === draft.channel;
+      })[0];
+      if (existing && !window.confirm('“' + name + '” already exists. Replace it?')) return;
+      Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: {
+        op: 'template_save', name: name, channel: draft.channel,
+        subject: draft.subject, body: draft.body, body_format: draft.body_format
+      } }).then(function (r) {
+        if (r && r.ok) { Hub.toast('Saved “' + name + '”'); load(); }
+        else Hub.toast((r && r.error) || 'Could not save');
+      });
+    });
   }
 
   function paintSegWhy() {
@@ -578,6 +718,8 @@
       data = {
         campaigns: (d && d.campaigns) || [],
         segments: (d && d.segments) || [],
+        templates: (d && d.templates) || [],
+        scheduler_ready: !!(d && d.scheduler_ready),
         test_recipients: (d && d.test_recipients) || '',
         postal_address: (d && d.postal_address) || '',
         postal_is_fallback: !!(d && d.postal_is_fallback),
