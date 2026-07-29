@@ -123,7 +123,10 @@
     if (!data || !data.ok) { grid.innerHTML = '<div class="hub-empty" data-i18n>Could not load schedule.</div>'; return; }
     var drivers = data.drivers || [];
     if (!drivers.length) {
-      grid.innerHTML = '<div class="hub-empty" data-i18n>No active drivers yet. Add drivers in Staff.</div>';
+      // Naming the page that fixes this and then not linking to it is the withheld-control shape:
+      // the HUB knows exactly where to go and still makes the owner find it.
+      grid.innerHTML = '<div class="hub-empty"><p data-i18n>No active drivers yet — there is nobody to schedule.</p>' +
+        '<a class="btn primary" href="/hub/owner/staff.html" style="margin-top:8px;display:inline-block;text-decoration:none" data-i18n>Add a driver in Staff</a></div>';
       return;
     }
     var days = [];
