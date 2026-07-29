@@ -36,6 +36,69 @@
 
   var days = 7;
 
+  // ---------- QuickBooks ----------
+  // Three states needing three different actions, so they are never collapsed into "not working":
+  // no app credentials yet (nothing the owner can do here), not connected (press Connect), and
+  // connection expired (reconnect — a different action from retrying).
+  function qboRender(d) {
+    var el = document.getElementById('qbo'); if (!el) return;
+    if (!d || !d.ok) { el.innerHTML = '<p class="row-sub" data-i18n>Could not load the QuickBooks status.</p>'; return; }
+
+    if (!d.configured) {
+      el.innerHTML = '<p class="row-sub"><b>Not set up yet.</b> ' + Owner.esc(d.setup || '') + '</p>' +
+        '<p class="row-sub" style="margin-top:6px">Invoices still generate, send and mark paid without it — QuickBooks is an extra copy for the books, not where the money lives.</p>';
+      return;
+    }
+    if (d.connected) {
+      el.innerHTML = '<p><b>✅ Connected</b> <span class="row-sub">company ' + Owner.esc(d.realm_id || '') +
+          (d.environment === 'sandbox' ? ' · sandbox' : '') + '</span></p>' +
+        (d.refreshed_at ? '<p class="row-sub">Token last refreshed ' + Owner.timeAgo(d.refreshed_at) + '.</p>' : '') +
+        (d.last_error ? '<p class="row-sub" style="color:var(--crit)">Last error: ' + Owner.esc(d.last_error) + '</p>' : '') +
+        '<p class="row-sub" style="margin-top:6px">Send an invoice to QuickBooks from the invoice page.</p>' +
+        '<button class="btn ghost block" id="qbo-off" type="button" style="margin-top:8px" data-i18n>Disconnect</button>';
+    } else {
+      el.innerHTML = '<p><b>' + (d.needs_reconnect ? '⚠️ The connection expired' : 'Not connected') + '</b></p>' +
+        (d.last_error ? '<p class="row-sub" style="color:var(--crit)">' + Owner.esc(d.last_error) + '</p>' : '') +
+        '<button class="btn gold block" id="qbo-on" type="button" style="margin-top:8px">' +
+          (d.needs_reconnect ? 'Reconnect QuickBooks' : 'Connect QuickBooks') + '</button>' +
+        // redirect_uri_mismatch is the usual first-time failure and its error message says nothing
+        // useful, so the exact value to register is printed here.
+        '<p class="row-sub" style="margin-top:8px">Redirect URI to register on the Intuit app: <code>' + Owner.esc(d.redirect_uri || '') + '</code></p>';
+    }
+
+    var on = document.getElementById('qbo-on');
+    if (on) on.addEventListener('click', function () {
+      on.disabled = true;
+      Hub.api('/api/hub/owner/qbo', { method: 'POST', body: { op: 'connect' } }).then(function (r) {
+        if (r && r.ok && r.url) { location.href = r.url; return; }
+        on.disabled = false; Hub.toast((r && r.error) || 'Could not start the connection');
+      });
+    });
+    var off = document.getElementById('qbo-off');
+    if (off) off.addEventListener('click', function () {
+      if (!window.confirm('Disconnect QuickBooks? Invoices already sent there stay where they are.')) return;
+      off.disabled = true;
+      Hub.api('/api/hub/owner/qbo', { method: 'POST', body: { op: 'disconnect' } }).then(function (r) {
+        if (r && r.ok) { Hub.toast('QuickBooks disconnected'); qboLoad(); }
+        else { off.disabled = false; Hub.toast('Could not disconnect'); }
+      });
+    });
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+  function qboLoad() { Owner.get('/api/hub/owner/qbo').then(qboRender); }
+
+  // The callback bounces back here with the outcome, so it is read in the HUB rather than as a
+  // bare status code on a blank page.
+  function qboFlash() {
+    var p = new URLSearchParams(location.search);
+    var s = p.get('qbo');
+    if (!s) return;
+    if (s === 'connected') Hub.toast('QuickBooks connected');
+    else if (s === 'cancelled') Hub.toast('QuickBooks connection cancelled');
+    else Hub.toast(p.get('qbo_msg') || 'Could not connect QuickBooks');
+    history.replaceState({}, '', location.pathname);
+  }
+
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML =
@@ -44,6 +107,7 @@
       '<div id="tiles" class="card-grid"></div>' +
       '<div class="hub-section"><a class="btn ghost block" href="/hub/owner/payouts.html" style="text-align:center;text-decoration:none">💵 Driver payouts — who’s owed what →</a>' +
       '<a class="btn ghost block" href="/hub/owner/trainers.html" style="text-align:center;text-decoration:none;margin-top:8px">🤝 Trainer commissions — partners &amp; clients →</a></div>' +
+      '<div class="hub-section"><h2 data-i18n>QuickBooks</h2><div id="qbo" class="card"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Pending expenses</h2><div id="pexp" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Export report</h2><div class="card">' +
       '<div class="field"><label data-i18n>Report type</label><select id="rtype">' +
