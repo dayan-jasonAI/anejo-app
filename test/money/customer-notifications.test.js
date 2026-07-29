@@ -163,3 +163,42 @@ test('a new stage REPLACES the previous notice rather than stacking', () => {
 test('tapping a notification reuses an open tab', () => {
   assert.match(SW, /matchAll\(\{ type: 'window'/);
 });
+
+// ---------- order confirmed ----------
+//
+// Until now the only thing sent on payment was a POINTS message — a reward notice, not a
+// confirmation. Someone who has just paid wants to know we HAVE the order, not their balance.
+// Square emails its own receipt, but that is Square's branding and says nothing about delivery.
+
+const WEBHOOK = readFileSync(new URL('../../functions/api/webhooks/square.js', import.meta.url), 'utf8');
+
+test('paying confirms the order to the customer', () => {
+  assert.match(WEBHOOK, /ORDER_EVENTS\.paid\.title/);
+  assert.match(WEBHOOK, /dedupeKey: `order:\$\{o\.id\}:paid`/);
+});
+
+test('a Square webhook RETRY cannot confirm the same order twice', () => {
+  // Square retries deliveries; without the dedupe key a customer gets "order confirmed" repeatedly.
+  assert.match(WEBHOOK, /dedupeKey: `order:\$\{o\.id\}:paid`/);
+  const src = readFileSync(new URL('../../functions/_lib/notifications.js', import.meta.url), 'utf8');
+  assert.match(src, /dedupe_key/);
+});
+
+test('the confirmation names the delivery date, so the row must carry it', () => {
+  // ORDER_EVENTS.paid.body reads o.delivery_date — if the SELECT omits it the message silently
+  // degrades to a bare "We've got your order".
+  assert.match(WEBHOOK, /promo_points_mult, delivery_date FROM orders/);
+});
+
+test('confirmation is attempted even when the buyer left no email', () => {
+  // A guest with SMS consent must still get told. The email-gated block below it is for POINTS.
+  const idx = WEBHOOK.indexOf('dedupeKey: `order:${o.id}:paid`');
+  const guard = WEBHOOK.lastIndexOf('if (o) {', idx);
+  const emailGuard = WEBHOOK.lastIndexOf('if (o && o.customer_email)', idx);
+  assert.ok(guard > emailGuard, 'the confirm block must not sit inside the email-only branch');
+});
+
+test('a failed confirmation never breaks the payment webhook', () => {
+  // Square retries on a non-200; throwing here would replay the whole payment handler.
+  assert.match(WEBHOOK, /catch \(e\) \{ console\.log\('confirm notify error:'/);
+});

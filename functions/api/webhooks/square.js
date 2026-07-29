@@ -5,6 +5,8 @@
 import { now, ctEq } from '../../_lib/util.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { notifyClientById, notifyPointsEarned } from '../../_lib/notify.js';
+import { notifyCustomer, ORDER_EVENTS } from '../../_lib/notifications.js';
+import { sendSms } from '../../_lib/twilio.js';
 import { awardOrderPoints, redeemOrderPoints, rewardsSummary } from '../../_lib/rewards.js';
 import { creditAffiliateForOrder } from '../../_lib/promo.js';
 import { raiseAlert } from '../../_lib/alerts.js';
@@ -144,12 +146,39 @@ export const onRequestPost = async ({ request, env }) => {
         // First flip to paid → award Añejo Rewards points (idempotent in awardOrderPoints).
         if (paidUpd.meta && paidUpd.meta.changes === 1) {
           try {
-            const o = await env.DB.prepare("SELECT id, customer_email, customer_phone, sms_consent, subtotal_cents, redeem_points, promo_code, promo_points_mult FROM orders WHERE square_order_id=? LIMIT 1").bind(pay.order_id).first();
+            const o = await env.DB.prepare("SELECT id, customer_email, customer_phone, sms_consent, subtotal_cents, redeem_points, promo_code, promo_points_mult, delivery_date FROM orders WHERE square_order_id=? LIMIT 1").bind(pay.order_id).first();
             // Affiliate commission on this à-la-carte sale (idempotent; no-op unless the order
             // used an influencer code). Runs even if the buyer has no email on file.
             if (o) {
               try { await creditAffiliateForOrder(env, { orderId: o.id, grossCents: o.subtotal_cents }); }
               catch (e) { console.log('affiliate credit error:', e && e.message); }
+            }
+            // ORDER CONFIRMED — the first thing a new customer waits for.
+            //
+            // Until now the only thing we sent on payment was a POINTS message, which is a reward
+            // notice, not a confirmation: someone who has just paid $50 wants to know we have the
+            // order, not what their balance is. Square emails its own receipt, but that is Square's
+            // branding and says nothing about when the food arrives.
+            //
+            // Deduped on `order:<id>:paid`, so the webhook retrying — which Square does — cannot
+            // confirm the same order twice.
+            if (o) {
+              try {
+                await notifyCustomer(env, {
+                  email: o.customer_email,
+                  dedupeKey: `order:${o.id}:paid`,
+                  kind: 'order',
+                  title: ORDER_EVENTS.paid.title,
+                  body: ORDER_EVENTS.paid.body(o),
+                  url: '/account',
+                  orderId: o.id,
+                  smsFallback: async () => {
+                    if (!(o.sms_consent === 1 && o.customer_phone)) return false;
+                    await sendSms(env, { to: o.customer_phone, body: "Añejo Catering Co.: order confirmed — we'll text you when it's on the way." });
+                    return true;
+                  },
+                });
+              } catch (e) { console.log('confirm notify error:', e && e.message); }
             }
             if (o && o.customer_email) {
               const earned = await awardOrderPoints(env, { orderId: o.id, email: o.customer_email, subtotalCents: o.subtotal_cents, promoMult: o.promo_points_mult });
