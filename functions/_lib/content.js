@@ -53,15 +53,44 @@ export function render(row, lang = 'en', nowMs = Date.now()) {
   };
 }
 
+/**
+ * One slot holds a QUEUE. Given every row for a slot, which one shows right now?
+ *
+ * Only live rows are candidates, then the MOST SPECIFIC window wins:
+ *   1. A row with an end date beats an open-ended one. A dated notice ("closed the 4th") is always
+ *      more urgent than the evergreen line it temporarily displaces, and it retires by itself —
+ *      so the evergreen one comes back with no one touching it.
+ *   2. Then the latest start — the most recently begun message is the current one.
+ *   3. Then the most recently edited, so an owner fixing a typo sees their edit win immediately.
+ *
+ * Ties resolve deterministically rather than "whatever the database returned first", because two
+ * overlapping announcements flickering between page loads is worse than either one of them.
+ */
+export function pickLive(rows, nowMs = Date.now()) {
+  const live = (rows || []).filter((r) => isLive(r, nowMs));
+  if (!live.length) return null;
+  return live.slice().sort((a, b) => {
+    const bounded = (r) => (Number(r.ends_at) > 0 ? 1 : 0);
+    return (bounded(b) - bounded(a))
+      || ((Number(b.starts_at) || 0) - (Number(a.starts_at) || 0))
+      || ((Number(b.updated_at) || 0) - (Number(a.updated_at) || 0));
+  })[0];
+}
+
 /** Read every live slot. Never throws — a copy block must not be able to break a page. */
 export async function liveBlocks(env, lang = 'en', nowMs = Date.now()) {
   const out = {};
   if (!env || !env.DB) return out;
   try {
     const r = await env.DB.prepare('SELECT * FROM content_blocks WHERE active = 1').all();
+    const bySlot = new Map();
     for (const row of (r && r.results) || []) {
-      const v = render(row, lang, nowMs);
-      if (v) out[row.slot] = v;
+      if (!bySlot.has(row.slot)) bySlot.set(row.slot, []);
+      bySlot.get(row.slot).push(row);
+    }
+    for (const [slot, rows] of bySlot) {
+      const v = render(pickLive(rows, nowMs), lang, nowMs);
+      if (v) out[slot] = v;
     }
   } catch { /* an empty object renders nothing, which is the safe default */ }
   return out;
