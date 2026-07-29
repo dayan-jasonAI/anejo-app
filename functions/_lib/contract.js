@@ -7,8 +7,33 @@ import { sendSms } from './twilio.js';
 const BILLING_MODELS = ['weekly_autopay', 'biweekly', 'monthly', 'same_day'];
 const CADENCE_BY_MODEL = { weekly_autopay: 'weekly', biweekly: 'biweekly', monthly: 'monthly', same_day: 'daily' };
 
-const DOW_NAMES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+export const DOW_NAMES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DOW_LABEL = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// contract_sites.delivery_days is a CSV of day NAMES ('mon,tue,wed'). It was ALSO being read as a
+// CSV of numbers in one place (admin/cutoff-check), where Number('mon') is NaN — so no site ever
+// matched and the pre-cutoff reminder never fired for anybody. One parser now, tolerant of both
+// shapes, so a stray '1,2,3' from an older row or an integration still resolves instead of
+// silently disabling a site's delivery schedule.
+//   Accepts: 'mon' | 'Monday' | 'MON' | 1..7 (Mon..Sun) | 0 (Sun, JS getDay convention).
+//   Returns: canonical lowercase names, deduped, ordered Mon→Sun. [] when nothing parses.
+export function parseDeliveryDays(raw) {
+  const out = new Set();
+  for (const part of String(raw == null ? '' : raw).split(',')) {
+    const s = part.trim().toLowerCase();
+    if (!s) continue;
+    if (/^\d+$/.test(s)) {
+      const n = Number(s);
+      // 0 = Sunday (JS getDay), 1..7 = Mon..Sun (ISO). Anything else is not a weekday.
+      if (n === 0) out.add('sun');
+      else if (n >= 1 && n <= 7) out.add(DOW_NAMES[n - 1]);
+      continue;
+    }
+    const hit = DOW_NAMES.find((d) => s === d || s.startsWith(d));
+    if (hit) out.add(hit);
+  }
+  return DOW_NAMES.filter((d) => out.has(d));
+}
 
 function etToday(ms) {
   const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ms));
@@ -203,7 +228,7 @@ export async function processIntake(env, { token, count, notes, name, phone, lan
   const n = Math.floor(Number(count));
   if (!Number.isFinite(n) || n < 1 || n > 500) return { ok: false, error: 'Enter a head count between 1 and 500.' };
   const date = etToday(typeof nowMs === 'number' ? nowMs : now());
-  const days = String(site.delivery_days || 'mon,tue,wed').split(',').map((d) => d.trim().toLowerCase());
+  const days = parseDeliveryDays(site.delivery_days || 'mon,tue,wed');
   if (!days.includes(DOW_NAMES[dowMon(date) - 1])) return { ok: false, error: `No delivery is scheduled for ${site.name} today.` };
   return await requestIntakeOtp(env, { token, name, phone, lang, nowMs });
 }
@@ -225,7 +250,7 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
 
   const date = etToday(t);
   const dow = dowMon(date);
-  const days = String(site.delivery_days || 'mon,tue,wed').split(',').map((d) => d.trim().toLowerCase());
+  const days = parseDeliveryDays(site.delivery_days || 'mon,tue,wed');
   if (!days.includes(DOW_NAMES[dow - 1])) {
     return { ok: false, error: `No delivery is scheduled for ${site.name} today.` };
   }
