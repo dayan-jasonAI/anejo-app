@@ -19,6 +19,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml } from '../../../_lib/email.js';
 import { sendSms, isTwilioConfigured } from '../../../_lib/twilio.js';
 import { SEGMENTS, isSegment, resolveAudience, testRecipients } from '../../../_lib/audience.js';
+import { renderTemplate, ensureCompliance, sanitizeTemplate, htmlToText, templateAudit } from '../../../_lib/email-template.js';
 
 // A Worker has a wall-clock budget. A 500-recipient campaign therefore cannot be one request —
 // it is many small ones, each resumable, driven by the page. Half-sent-and-lost is the failure
@@ -68,6 +69,46 @@ function marketingFooter(unsubUrl, addr) {
   </div>`;
 }
 
+// The same two facts, for a designed template. A separate block because the plain-text footer
+// above assumes the Añejo shell's cream card: dropped under an owner's artwork it could be grey
+// text on a background of any colour, including its own. This one carries its own light band, so
+// it stays legible no matter what it lands beneath — which is the point of a legal notice.
+//
+// It is what an owner AVOIDS by putting {{unsubscribe_url}} and {{postal_address}} in their own
+// footer, and the HUB tells them so before they send.
+function appendedHtmlFooter(unsubUrl, addr) {
+  // The band is set FOUR ways on purpose. Outlook ignores CSS `background` on a table, and if the
+  // band silently fails to paint, #5b5b5b text lands on whatever the template's body colour is —
+  // on the dark template that prompted this feature, that is near-black on near-black. An
+  // unreadable opt-out is legally the same as no opt-out, so the colour is carried by the bgcolor
+  // ATTRIBUTE (which every client honours) as well as by CSS, on both the table and the cell.
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#f4f2ec" style="background:#f4f2ec;border-collapse:collapse;"><tr><td align="center" bgcolor="#f4f2ec" style="background:#f4f2ec;padding:22px 18px;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.75;color:#5b5b5b;">
+    You're receiving this because you ordered from Añejo or asked us to keep you posted.<br>
+    <a href="${escHtml(unsubUrl)}" style="color:#8B6B3E">Unsubscribe from marketing email</a><br>
+    ${escHtml(addr || ADDRESS_FALLBACK)}
+  </td></tr></table>`;
+}
+
+// One place decides what a campaign actually looks like on the wire, so the plain and template
+// paths cannot drift apart on the thing they must agree about: the exit.
+export function renderCampaignEmail({ body, format, unsubUrl, postal, name, address }) {
+  if (format !== 'html') {
+    return { html: emailShell(bodyHtml(body) + marketingFooter(unsubUrl, postal), { footer: false }), text: null, footerAppended: true };
+  }
+  const raw = sanitizeTemplate(body);
+  const rendered = renderTemplate(raw, {
+    unsubscribe_url: unsubUrl,
+    postal_address: postal,
+    name: name || '',
+    first_name: String(name || '').trim().split(/\s+/)[0] || '',
+    email: address || '',
+  });
+  const { html, footerAppended } = ensureCompliance(rendered, { rawTemplate: raw, footerHtml: appendedHtmlFooter(unsubUrl, postal) });
+  // Derived from the FINAL html, so the text part carries the unsubscribe link too — for a client
+  // that shows text/plain, that link is the only exit there is.
+  return { html, text: htmlToText(html), footerAppended };
+}
+
 function unsubscribeUrlFor(base, address) {
   return `${base}/api/unsubscribe?a=${encodeURIComponent(address)}&c=email`;
 }
@@ -88,7 +129,7 @@ export const onRequestGet = async ({ request, env }) => {
   let campaigns = [];
   try {
     const r = await env.DB.prepare(
-      `SELECT c.id, c.channel, c.name, c.subject, c.body, c.segment, c.status, c.recipients,
+      `SELECT c.id, c.channel, c.name, c.subject, c.body, c.body_format, c.segment, c.status, c.recipients,
               c.sent_count, c.failed_count, c.created_by, c.created_at, c.updated_at, c.sent_at,
               (SELECT COUNT(*) FROM campaign_sends s WHERE s.campaign_id=c.id AND s.status='queued')  AS queued,
               (SELECT COUNT(*) FROM campaign_sends s WHERE s.campaign_id=c.id AND s.status='skipped') AS skipped
@@ -178,6 +219,9 @@ export const onRequestPost = async ({ request, env }) => {
     if (!body) return bad('Write the message.');
     const subject = (b.subject || '').toString().trim().slice(0, 200);
     if (channel === 'email' && !subject) return bad('An email campaign needs a subject line.');
+    // SMS has no HTML. Silently storing 'html' on an SMS campaign would put a format on a row that
+    // can never honour it, and the send path would have to guess later.
+    const format = channel === 'email' && b.body_format === 'html' ? 'html' : 'text';
 
     const cid = (b.id || '').toString().trim();
     if (cid) {
@@ -190,17 +234,17 @@ export const onRequestPost = async ({ request, env }) => {
         return bad('That campaign has already gone out — start a new draft instead of editing it.', 409);
       }
       await env.DB.prepare(
-        'UPDATE campaigns SET channel=?, name=?, subject=?, body=?, segment=?, updated_at=? WHERE id=?'
-      ).bind(channel, name, subject || null, body, segment, t, cid).run();
-      return json({ ok: true, id: cid });
+        'UPDATE campaigns SET channel=?, name=?, subject=?, body=?, body_format=?, segment=?, updated_at=? WHERE id=?'
+      ).bind(channel, name, subject || null, body, format, segment, t, cid).run();
+      return json({ ok: true, id: cid, body_format: format, audit: format === 'html' ? templateAudit(body) : null });
     }
 
     const nid = id('cmp');
     await env.DB.prepare(
-      `INSERT INTO campaigns (id, channel, name, subject, body, segment, status, created_by, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,'draft',?,?,?)`
-    ).bind(nid, channel, name, subject || null, body, segment, ctx.email || ctx.distinct_id || null, t, t).run();
-    return json({ ok: true, id: nid });
+      `INSERT INTO campaigns (id, channel, name, subject, body, body_format, segment, status, created_by, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,'draft',?,?,?)`
+    ).bind(nid, channel, name, subject || null, body, format, segment, ctx.email || ctx.distinct_id || null, t, t).run();
+    return json({ ok: true, id: nid, body_format: format, audit: format === 'html' ? templateAudit(body) : null });
   }
 
   // --- Send (or resume sending).
@@ -255,9 +299,9 @@ export const onRequestPost = async ({ request, env }) => {
       }
 
       const ins = env.DB.prepare(
-        "INSERT OR IGNORE INTO campaign_sends (id, campaign_id, address, status, created_at) VALUES (?,?,?,'queued',?)"
+        "INSERT OR IGNORE INTO campaign_sends (id, campaign_id, address, name, status, created_at) VALUES (?,?,?,?,'queued',?)"
       );
-      const stmts = a.recipients.map((r) => ins.bind(id('snd'), cid, r.address, t));
+      const stmts = a.recipients.map((r) => ins.bind(id('snd'), cid, r.address, r.name || null, t));
       for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
     }
 
@@ -276,7 +320,7 @@ export const onRequestPost = async ({ request, env }) => {
     const startedAt = Date.now();
     const base = appBaseUrl(env, request).replace(/\/$/, '');
     const q = await env.DB.prepare(
-      "SELECT id, address FROM campaign_sends WHERE campaign_id=? AND status='queued' ORDER BY rowid LIMIT ?"
+      "SELECT id, address, name FROM campaign_sends WHERE campaign_id=? AND status='queued' ORDER BY rowid LIMIT ?"
     ).bind(cid, BATCH).all();
     const work = (q && q.results) || [];
 
@@ -297,10 +341,14 @@ export const onRequestPost = async ({ request, env }) => {
       try {
         if (channel === 'email') {
           const unsub = unsubscribeUrlFor(base, row.address);
+          const msg = renderCampaignEmail({
+            body: c.body, format: c.body_format, unsubUrl: unsub, postal, name: row.name, address: row.address,
+          });
           const res = await sendEmail(env, {
             to: row.address,
             subject: c.subject || c.name,
-            html: emailShell(bodyHtml(c.body) + marketingFooter(unsub, postal), { footer: false }),
+            html: msg.html,
+            text: msg.text,             // text/plain alternative; bulk HTML without one scores as spam
             unsubscribeUrl: unsub,      // List-Unsubscribe + one-click POST
           });
           // sendEmail refuses bounced/complained addresses. That is a skip, not a failure —

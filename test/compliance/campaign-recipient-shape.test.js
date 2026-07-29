@@ -104,10 +104,15 @@ test('the campaign send resolves the postal address before using it', () => {
   // time that node --check cannot see and no test exercised. Pin the ordering.
   const src = readFileSync(new URL('../../functions/api/hub/owner/campaigns.js', import.meta.url), 'utf8');
   const decl = src.indexOf('const postal = await addressLine(env)');
-  const use = src.indexOf('marketingFooter(unsub, postal)');
+  // Both render paths now go through renderCampaignEmail, so the address is handed to it once
+  // rather than concatenated at the call site — the ordering it pins is the same.
+  const use = src.indexOf('unsubUrl: unsub, postal');
   assert.ok(decl !== -1, 'postal is declared');
   assert.ok(use !== -1, 'postal is used');
   assert.ok(decl < use, 'and declared BEFORE it is used');
+  // And it reaches the footer of whichever path renders: plain shell or owner HTML template.
+  assert.match(src, /marketingFooter\(unsubUrl, postal\)/, 'plain-text path');
+  assert.match(src, /appendedHtmlFooter\(unsubUrl, postal\)/, 'html-template path');
 });
 
 test('the postal address is settable, with the service area only as a fallback', () => {

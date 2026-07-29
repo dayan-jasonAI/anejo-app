@@ -64,7 +64,7 @@
   var data = { campaigns: [], segments: [], email_ready: false, sms_ready: false };
   var view = 'list';                 // 'list' | 'compose' | 'detail'
   var detailId = null;
-  var draft = { id: null, name: '', channel: 'email', segment: 'launch_list', subject: '', body: '' };
+  var draft = { id: null, name: '', channel: 'email', segment: 'launch_list', subject: '', body: '', body_format: 'text' };
   var preview = null;                // last /preview result for the current segment+channel
   var previewT = 0;
   var sending = false;
@@ -115,7 +115,7 @@
   }
 
   function newDraft() {
-    draft = { id: null, name: '', channel: 'email', segment: 'launch_list', subject: '', body: '' };
+    draft = { id: null, name: '', channel: 'email', segment: 'launch_list', subject: '', body: '', body_format: 'text' };
     preview = null;
   }
 
@@ -149,7 +149,7 @@
     if (!c) return;
     if (c.status === 'draft') {
       draft = { id: c.id, name: c.name || '', channel: c.channel || 'email', segment: c.segment,
-                subject: c.subject || '', body: c.body || '' };
+                subject: c.subject || '', body: c.body || '', body_format: c.body_format === 'html' ? 'html' : 'text' };
       preview = null;
       view = 'compose';
     } else {
@@ -232,6 +232,7 @@
   // ---------- compose ----------
   function paintCompose() {
     var isSms = draft.channel === 'sms';
+    var isHtml = !isSms && draft.body_format === 'html';
     $('#pane').innerHTML =
       '<div class="card">' +
         '<h3 data-i18n>' + (draft.id ? 'Edit draft' : 'New campaign') + '</h3>' +
@@ -268,9 +269,24 @@
           : '') +
         '<div class="form-row" id="subjrow" style="' + (isSms ? 'display:none' : '') + '">' +
           '<label data-i18n>Subject line</label><input id="f_subj" autocomplete="off" value="' + esc(draft.subject) + '"></div>' +
+        // Email only. SMS has no HTML, so offering the choice there would be a control that
+        // cannot do anything.
+        (isSms ? '' :
+          '<div class="form-row"><label data-i18n>Message format</label><select id="f_fmt">' +
+            '<option value="text"' + (isHtml ? '' : ' selected') + '>Write it here (plain text)</option>' +
+            '<option value="html"' + (isHtml ? ' selected' : '') + '>Use a designed HTML template</option>' +
+          '</select></div>') +
+        (isHtml
+          ? '<div class="form-row"><label>Template file</label>' +
+            '<input id="f_file" type="file" accept=".html,.htm,text/html">' +
+            '<p class="hint">Pick a .html file and it loads into the box below. Nothing is uploaded — the file is read here in the browser.</p></div>'
+          : '') +
         '<div class="form-row"><label data-i18n>Message</label>' +
-          '<textarea id="f_body" placeholder="Blank line starts a new paragraph.">' + esc(draft.body) + '</textarea></div>' +
+          '<textarea id="f_body"' + (isHtml ? ' spellcheck="false" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;min-height:220px"' : '') +
+            ' placeholder="' + (isHtml ? 'Paste the full HTML document, or pick a file above.' : 'Blank line starts a new paragraph.') + '">' + esc(draft.body) + '</textarea></div>' +
+        (isHtml ? '<div class="form-two" style="margin-bottom:6px"><button class="btn ghost" id="f_prev" type="button">Preview it</button><span></span></div>' : '') +
         '<p class="hint" id="bodyhint"></p>' +
+        '<div id="tplaudit"></div>' +
         '<div id="reach"></div>' +
         '<p class="legal" id="legal"></p>' +
         '<div class="form-two" style="margin-top:12px">' +
@@ -294,6 +310,30 @@
       draft.segment = $('#f_seg').value; collect(); render(); loadPreview();
     });
     $('#f_body').addEventListener('input', paintBodyHint);
+    (function () {
+      var fm = document.getElementById('f_fmt');
+      if (fm) fm.addEventListener('change', function () {
+        draft.body_format = fm.value === 'html' ? 'html' : 'text';
+        collect(); render();
+      });
+      var fi = document.getElementById('f_file');
+      if (fi) fi.addEventListener('change', function () {
+        var f = fi.files && fi.files[0];
+        if (!f) return;
+        var rd = new FileReader();
+        rd.onload = function () {
+          $('#f_body').value = String(rd.result || '');
+          draft.body = $('#f_body').value;
+          if (!draft.name) { draft.name = f.name.replace(/\.html?$/i, ''); var n = document.getElementById('f_name'); if (n) n.value = draft.name; }
+          paintBodyHint();
+          Hub.toast('Loaded ' + f.name);
+        };
+        rd.onerror = function () { Hub.toast('Could not read that file.'); };
+        rd.readAsText(f);
+      });
+      var pv = document.getElementById('f_prev');
+      if (pv) pv.addEventListener('click', function () { collect(); openPreview(); });
+    })();
     bindTestTo();
     (function () {
       var pa = document.getElementById('f_postal');
@@ -321,9 +361,13 @@
   // not a disclaimer bolted on at send time.
   function paintLegal() {
     var el = $('#legal'); if (!el) return;
+    var addr = data.postal_address || 'Añejo Catering Co. · Palm Beach County, FL';
     el.innerHTML = draft.channel === 'sms'
       ? 'Every text ends with “Reply STOP to opt out.” — added automatically if you don’t write it. Only people who gave express consent for <em>marketing</em> texts are included.'
-      : 'Every email carries a one-click unsubscribe link and “Añejo Catering Co. · Palm Beach County, FL” in the footer. That is what makes emailing your customer list lawful, so it is not optional.';
+      : 'Every email carries a one-click unsubscribe link and “' + esc(addr) + '” in the footer. That is what makes emailing your customer list lawful, so it is not optional.' +
+        (draft.body_format === 'html'
+          ? ' A designed template gets that footer added underneath it — unless the template places <code>{{unsubscribe_url}}</code> and <code>{{postal_address}}</code> itself, in which case the design is left alone.'
+          : '');
   }
 
   function paintBodyHint() {
@@ -332,9 +376,67 @@
     if (draft.channel === 'sms') {
       var withOptOut = n + 26;   // "\n\nReply STOP to opt out."
       el.textContent = n + ' characters (~' + withOptOut + ' with the opt-out line). Over 160 sends as multiple segments and is billed per segment.';
+    } else if (draft.body_format === 'html') {
+      var src = ($('#f_body') && $('#f_body').value) || '';
+      var kb = (new Blob([src]).size / 1024);
+      el.textContent = Math.round(kb * 10) / 10 + ' KB of HTML.';
+      paintTemplateAudit(src, kb);
     } else {
       el.textContent = n + ' characters. A blank line starts a new paragraph.';
     }
+  }
+
+  // Everything below is knowable before the send, so it is said before the send. Finding out that
+  // a grey compliance strip was stapled under your artwork by looking at your own inbox copy —
+  // after it reached the list — is the outcome this panel exists to prevent.
+  function paintTemplateAudit(src, kb) {
+    var el = document.getElementById('tplaudit'); if (!el) return;
+    if (!src.trim()) { el.innerHTML = ''; return; }
+    var hasUnsub  = /\{\{\s*unsubscribe_url\s*\}\}/i.test(src);
+    var hasPostal = /\{\{\s*postal_address\s*\}\}/i.test(src);
+    var notes = [];
+    if (!(hasUnsub && hasPostal)) {
+      notes.push('A compliance footer will be <b>added below your design</b> — it carries the unsubscribe link and the postal address, both legally required. ' +
+        'To place them yourself instead, put <code>{{unsubscribe_url}}</code> and <code>{{postal_address}}</code> in your own footer. ' +
+        'Both are needed; one on its own still gets the added block.');
+    } else {
+      notes.push('Your template carries the unsubscribe link and postal address itself, so <b>nothing is added</b> — the design goes out exactly as written.');
+    }
+    if (kb > 99) notes.push('<b>Over 100 KB.</b> Gmail clips messages around that size and hides the rest behind “View entire message” — including the unsubscribe link, which sits at the bottom.');
+    if (/<link\b[^>]*rel=["\']?stylesheet/i.test(src)) notes.push('There is a <code>&lt;link&gt;</code> stylesheet (usually a webfont). Gmail and Outlook strip it, so the email falls back to the fonts named inline. That is normal, not a fault — it just will not look like the browser.');
+    if (/<script\b/i.test(src)) notes.push('There is a <code>&lt;script&gt;</code> tag. It is removed before sending — no email client runs scripts.');
+    if (!/<body\b/i.test(src) && !/<html\b/i.test(src)) notes.push('This looks like a fragment rather than a whole document. It will still send, but a full <code>&lt;html&gt;</code>…<code>&lt;/html&gt;</code> renders more predictably.');
+    notes.push('You can also use <code>{{first_name}}</code>, <code>{{name}}</code> and <code>{{email}}</code> anywhere in the template.');
+    el.innerHTML = '<div class="excl" style="margin-top:10px"><h4>Before you send</h4>' +
+      notes.map(function (n) { return '<div class="excl-row"><span>' + n + '</span></div>'; }).join('') + '</div>';
+  }
+
+  // Rendered in a sandboxed frame: it is the owner's own markup, but a preview that could run
+  // script in the HUB would be a preview with more privileges than the inbox it is imitating.
+  function openPreview() {
+    var src = draft.body || '';
+    if (!src.trim()) { Hub.toast('Nothing to preview yet.'); return; }
+    var w = document.getElementById('tplframe');
+    if (w) w.remove();
+    var wrap = document.createElement('div');
+    wrap.id = 'tplframe';
+    wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99995;display:flex;flex-direction:column;padding:14px;';
+    wrap.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">' +
+        '<span style="color:#fff;font-size:13px">Preview — merge tokens shown as sample values</span>' +
+        '<button id="tplclose" class="btn ghost" style="background:#fff">Close</button></div>' +
+      '<iframe sandbox="" style="flex:1;width:100%;border:0;border-radius:10px;background:#fff"></iframe>';
+    document.body.appendChild(wrap);
+    // Sample values, clearly marked: a preview that silently renders an empty {{first_name}} looks
+    // like a bug, and one that renders a real unsubscribe URL invites clicking it.
+    var demo = src
+      .replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, '#unsubscribe-link')
+      .replace(/\{\{\s*postal_address\s*\}\}/gi, esc(data.postal_address || ''))
+      .replace(/\{\{\s*first_name\s*\}\}/gi, 'Arianne')
+      .replace(/\{\{\s*name\s*\}\}/gi, 'Arianne Vega')
+      .replace(/\{\{\s*email\s*\}\}/gi, 'arianne@example.com');
+    wrap.querySelector('iframe').srcdoc = demo;
+    document.getElementById('tplclose').addEventListener('click', function () { wrap.remove(); });
   }
 
   // Save the test recipients as soon as focus leaves the field, so the setting is not lost if the
@@ -356,13 +458,15 @@
     if ($('#f_body')) draft.body = $('#f_body').value;
     if ($('#f_subj')) draft.subject = $('#f_subj').value.trim();
     if ($('#f_seg')) draft.segment = $('#f_seg').value;
+    if ($('#f_fmt')) draft.body_format = $('#f_fmt').value === 'html' ? 'html' : 'text';
   }
 
   // Save first, always: a campaign has to exist as a row before it can be sent, and that row is
   // the audit trail of exactly what copy went out.
   function save() {
     var body = { op: 'save', id: draft.id, name: draft.name, channel: draft.channel,
-                 segment: draft.segment, subject: draft.subject, body: draft.body };
+                 segment: draft.segment, subject: draft.subject, body: draft.body,
+                 body_format: draft.body_format || 'text' };
     if (!body.name) { $('#msg').textContent = 'Give the campaign a name.'; return Promise.resolve(false); }
     if (!body.body) { $('#msg').textContent = 'Write the message.'; return Promise.resolve(false); }
     if (draft.channel === 'email' && !body.subject) { $('#msg').textContent = 'An email campaign needs a subject line.'; return Promise.resolve(false); }
@@ -452,7 +556,11 @@
           : '') +
         '<p class="prog" id="prog"></p>' +
         '<p class="hint" style="margin-top:12px" data-i18n>Message sent</p>' +
-        '<div class="card" style="white-space:pre-wrap;font-size:14px;line-height:1.6">' + esc(c.body || '') + '</div>' +
+        (c.body_format === 'html'
+          // Escaped source would be a wall of markup. Sandboxed so viewing the record of what was
+          // sent cannot execute anything.
+          ? '<iframe sandbox="" style="width:100%;height:420px;border:1px solid var(--line);border-radius:10px;background:#fff" srcdoc="' + esc(c.body || '') + '"></iframe>'
+          : '<div class="card" style="white-space:pre-wrap;font-size:14px;line-height:1.6">' + esc(c.body || '') + '</div>') +
       '</div>';
     $('#back').addEventListener('click', function () { view = 'list'; render(); });
     var r = $('#resume');
@@ -465,9 +573,14 @@
   // ---------- load ----------
   function load() {
     Owner.get('/api/hub/owner/campaigns').then(function (d) {
+      // These three were being dropped on the floor, which is why the postal-address control never
+      // appeared and the test-recipients field always painted empty even with recipients saved.
       data = {
         campaigns: (d && d.campaigns) || [],
         segments: (d && d.segments) || [],
+        test_recipients: (d && d.test_recipients) || '',
+        postal_address: (d && d.postal_address) || '',
+        postal_is_fallback: !!(d && d.postal_is_fallback),
         email_ready: !!(d && d.email_ready),
         sms_ready: !!(d && d.sms_ready)
       };
