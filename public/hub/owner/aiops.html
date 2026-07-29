@@ -82,12 +82,27 @@
     ticket_triage: 'Triage',
     sentiment_scan: 'Sentiment',
     daily_summary: 'Summary',
-    eod_chase: 'EOD'
+    eod_chase: 'EOD',
+    owner_ask: 'You asked'
   };
+  // Every other type here EXECUTES something on accept — a route is created, a draft PO is
+  // written. This one has no executor and must not pretend otherwise: accepting it records the
+  // decision, and the owner still has to do the thing.
+  var NO_EXECUTOR = { owner_ask: 1, payroll_prep: 1 };
 
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML =
+      // First, because it is the thing an owner actually arrives wanting to do. The panels below
+      // answer the questions the system decided to ask; this one answers his.
+      '<div class="hub-section"><h2 data-i18n>💬 Ask the HUB</h2>' +
+        '<div class="card">' +
+          '<textarea id="ask-q" rows="2" placeholder="How much contract work is sitting un-invoiced?" ' +
+            'style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;resize:vertical"></textarea>' +
+          '<button class="btn primary block" id="ask-go" type="button" style="margin-top:8px" data-i18n>Ask</button>' +
+          '<p class="row-sub" style="margin-top:8px" data-i18n>Reads the live database and answers from it. It cannot change anything — if the answer implies an action, it is filed in AI Suggestions below for you to approve.</p>' +
+          '<div id="ask-out" style="display:none;margin-top:10px"></div>' +
+        '</div></div>' +
       '<div class="hub-section"><h2 data-i18n>📊 Demand forecast &amp; prep sheet</h2>' +
         '<div class="card" id="ops-forecast"><div class="hub-loading">…</div></div>' +
         '<button class="btn ghost block" id="ops-run" type="button" style="margin-top:8px" data-i18n>Run forecast now</button></div>' +
@@ -104,6 +119,7 @@
         '<p class="row-sub" id="backup-status" style="margin-top:8px"></p></div>' +
         '<div id="backups" class="list" style="margin-top:8px"><div class="hub-loading">…</div></div></div>';
 
+    wireAsk();
     renderRunButtons();
     loadOps();
     loadSuggestions();
@@ -114,6 +130,63 @@
     var or = document.getElementById('ops-run');
     if (or) or.addEventListener('click', runOpsNow);
     if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  // ---------- ask the HUB ----------
+  // Shows the ANSWER and the numbers it came from. An assistant that states a figure about your
+  // own business without showing its source is asking to be believed on trust — and the one time
+  // it is wrong costs more than every time it was right.
+  function money(c) { return '$' + ((Number(c) || 0) / 100).toFixed(2); }
+  function factLines(f) {
+    if (!f) return '';
+    var rows = [
+      ['Orders today', (f.orders_today.count || 0) + ' · ' + money(f.orders_today.revenue_cents)],
+      ['Orders, last 30 days', (f.orders_last_30d.count || 0) + ' · ' + money(f.orders_last_30d.revenue_cents)],
+      ['Active subscriptions', f.active_subscriptions],
+      ['Un-invoiced contract work', (f.uninvoiced_contract_work.days || 0) + ' days · ' + money(f.uninvoiced_contract_work.cents)],
+      ['Open tickets', f.open_tickets],
+      ['Pending suggestions', f.pending_suggestions],
+      ['Contract accounts', (f.contract_accounts || []).length + ' · ' + (f.contract_sites || []).length + ' locations'],
+      ['Below par in inventory', (f.below_par_inventory || []).length]
+    ];
+    return '<details style="margin-top:10px"><summary class="row-sub" style="cursor:pointer">What this answer was based on</summary>' +
+      '<div style="margin-top:6px">' + rows.map(function (r) {
+        return '<div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px dotted var(--line);font-size:13px">' +
+          '<span class="row-sub">' + Owner.esc(r[0]) + '</span><b>' + Owner.esc(String(r[1])) + '</b></div>';
+      }).join('') + '<div class="row-sub" style="margin-top:6px">Read live at ' + Owner.esc(f.today) + '.</div></div></details>';
+  }
+  function wireAsk() {
+    var go = document.getElementById('ask-go');
+    if (!go) return;
+    go.addEventListener('click', function () {
+      var q = (document.getElementById('ask-q') || {}).value || '';
+      if (!q.trim()) { Hub.toast('Type a question first.'); return; }
+      var out = document.getElementById('ask-out');
+      go.disabled = true; go.textContent = 'Asking…';
+      out.style.display = 'block';
+      out.innerHTML = '<div class="hub-loading">…</div>';
+      Hub.api('/api/hub/owner/ask', { method: 'POST', body: { question: q } }).then(function (r) {
+        go.disabled = false; go.textContent = 'Ask';
+        if (!r || !r.ok) {
+          out.innerHTML = '<p class="row-sub" style="color:var(--crit)">' + Owner.esc((r && r.error) || 'Could not ask.') + '</p>';
+          return;
+        }
+        // No API key is a configuration state, not a failure — the live figures are still real.
+        var html = r.answer
+          ? '<div style="font-size:14.5px;line-height:1.6">' + Owner.esc(r.answer) + '</div>'
+          : '<p class="row-sub">' + Owner.esc(r.unavailable || 'No answer.') + '</p>';
+        if (r.action) {
+          html += '<div class="card" style="margin-top:10px;border-left:3px solid var(--gold)">' +
+            '<div class="row-title">Proposed: ' + Owner.esc(r.action) + '</div>' +
+            '<div class="row-sub">' + (r.suggestion_id
+              ? 'Filed in AI Suggestions below — approve or dismiss it there. Nothing happens until you do.'
+              : 'Could not file this to the queue; it is shown here only.') + '</div></div>';
+        }
+        out.innerHTML = html + factLines(r.facts);
+        if (r.suggestion_id) loadSuggestions();
+        if (window.AnejoI18n) window.AnejoI18n.refresh();
+      });
+    });
   }
 
   // ---------- demand forecast & prep sheet (Phase 4a) ----------
@@ -296,8 +369,11 @@
         return '<div class="row"><div class="row-main">' +
           '<div class="row-title">' + Owner.badge(badge, 'info') + ' ' + Owner.esc(s.summary || '') + '</div>' +
           detailHtml(s.suggestion_type, s.payload) +
+          (NO_EXECUTOR[s.suggestion_type]
+            ? '<div class="row-sub">Accepting records your decision — the HUB does not carry this out for you.</div>' : '') +
           '<div class="row-sub">' + Owner.timeAgo(s.created_at) + '</div></div>' +
-          '<button class="btn gold" data-accept="' + Owner.esc(s.id) + '" data-stype="' + Owner.esc(s.suggestion_type) + '" type="button" data-i18n>Accept</button>' +
+          '<button class="btn gold" data-accept="' + Owner.esc(s.id) + '" data-stype="' + Owner.esc(s.suggestion_type) + '" type="button" data-i18n>' +
+            (NO_EXECUTOR[s.suggestion_type] ? 'Noted' : 'Accept') + '</button>' +
           '<button class="btn ghost" data-dismiss="' + Owner.esc(s.id) + '" data-stype="' + Owner.esc(s.suggestion_type) + '" type="button" data-i18n>Dismiss</button>' +
           '</div>';
       }).join('');
