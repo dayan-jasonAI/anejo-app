@@ -77,6 +77,7 @@
   function fromLocal(v) { var t = Date.parse(v); return Number.isFinite(t) ? t : null; }
 
   var SLOTS = [];
+  var LEGAL = [];
   var editing = null;   // { slot, id|null } — which entry the form is currently bound to
 
   function when(e) {
@@ -162,8 +163,9 @@
         (s.entries.length ? s.entries.map(function (e) { return entryCard(s, e); }).join('')
           : '<p class="hint">Nothing written yet.</p>') +
         '</div>';
-    }).join('');
+    }).join('') + legalSection(LEGAL);
     wire();
+    wireLegal();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
   }
 
@@ -221,10 +223,61 @@
     });
   }
 
+  // ---------- legal pages ----------
+  // Terms / Privacy / Refund. These are the pages the owner is legally obliged to keep current and
+  // the only way to change one was a developer and a deploy. Published text overrides the shipped
+  // page at the edge, so the page stays server-rendered and crawlable either way.
+  function legalSection(docs) {
+    return '<div class="hub-section"><h2>Legal pages</h2>' +
+      '<p class="hint" style="margin-bottom:10px">Terms, Privacy and Refund. Leave one empty to keep the version that ships with the site — clearing your text restores it rather than publishing a blank page.</p>' +
+      docs.map(function (l) {
+        return '<div class="entry ' + (l.published ? 'showing' : 'off') + '">' +
+          '<div class="entry-head">' +
+            '<b>' + esc(l.label) + '</b>' +
+            '<span class="tag ' + (l.published ? 'showing' : 'off') + '">' + (l.published ? 'Your version is live' : 'Shipped version') + '</span>' +
+          '</div>' +
+          '<div class="entry-when"><a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.url) + '</a>' +
+            (l.updated_at ? ' · edited ' + new Date(Number(l.updated_at)).toLocaleDateString() : '') + '</div>' +
+          '<div class="form-row" style="margin-top:8px"><label>Page body (HTML)</label>' +
+            '<textarea id="lg_' + esc(l.slug) + '" style="min-height:150px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px">' + esc(l.body) + '</textarea>' +
+            '<p class="hint">Headings, paragraphs and lists — &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;. The page title, table of contents and legal schema stay as they are; this replaces the document body.</p></div>' +
+          '<div class="entry-acts">' +
+            '<button data-legal="' + esc(l.slug) + '">Publish</button>' +
+            (l.published ? '<button class="del" data-legalclear="' + esc(l.slug) + '">Restore shipped version</button>' : '') +
+          '</div></div>';
+      }).join('') + '</div>';
+  }
+  function wireLegal() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-legal]'), function (b) {
+      b.addEventListener('click', function () {
+        var slug = b.getAttribute('data-legal');
+        b.disabled = true;
+        Hub.api('/api/hub/owner/site-copy', { method: 'POST', body: { op: 'save_legal', doc: slug, body: (document.getElementById('lg_' + slug) || {}).value || '' } })
+          .then(function (r) {
+            b.disabled = false;
+            if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not save'); return; }
+            Hub.toast(r.published ? 'Published — ' + r.url + ' now shows your text' : 'Cleared — the shipped page is back');
+            load();
+          });
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-legalclear]'), function (b) {
+      b.addEventListener('click', function () {
+        var slug = b.getAttribute('data-legalclear');
+        if (!window.confirm('Restore the shipped ' + slug + ' page? Your edited text will be removed.')) return;
+        Hub.api('/api/hub/owner/site-copy', { method: 'POST', body: { op: 'save_legal', doc: slug, body: '' } })
+          .then(function (r) {
+            if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not clear'); return; }
+            Hub.toast('The shipped page is back'); load();
+          });
+      });
+    });
+  }
+
   function load() {
     Owner.get('/api/hub/owner/site-copy').then(function (d) {
       if (!d || !d.ok) { document.getElementById('owner-root').innerHTML = '<div class="hub-empty">Could not load.</div>'; return; }
-      SLOTS = d.slots; render();
+      SLOTS = d.slots; LEGAL = d.legal || []; render();
     });
   }
   load();

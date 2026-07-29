@@ -12,7 +12,39 @@ import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { now, id } from '../../../_lib/hub.js';
 import { SLOTS, isSlot, normalizeTone, isLive, pickLive, stateOf } from '../../../_lib/content.js';
+import { LEGAL_SLUGS, LEGAL_LABEL, LEGAL_DOC_ID } from '../../../_lib/legal.js';
 import { capture } from '../../../_lib/track.js';
+
+// Terms / Privacy / Refund live here rather than in the docs library because this is the desk for
+// "what the public site says", and these are the pages the owner is legally obliged to keep
+// current — an auto-renewal disclosure, an SMS clause, a refund window — each of which previously
+// needed a developer and a deploy.
+//
+// Published copy OVERRIDES the shipped page at the edge (functions/legal/_middleware.js). Empty
+// means the shipped page stands, so "delete my edit" is a real, safe action rather than a way to
+// publish a blank Terms of Service.
+async function legalDocs(env) {
+  let rows = [];
+  try {
+    const r = await env.DB.prepare("SELECT id, body, updated_at FROM docs WHERE doc_type = 'legal' AND active = 1").all();
+    rows = (r && r.results) || [];
+  } catch { rows = []; }
+  const byId = {};
+  for (const row of rows) byId[row.id] = row;
+  return LEGAL_SLUGS.map((slug) => {
+    const row = byId[LEGAL_DOC_ID[slug]] || null;
+    const body = String((row && row.body) || '').trim();
+    return {
+      slug,
+      label: LEGAL_LABEL[slug],
+      url: '/legal/' + slug,
+      body,
+      updated_at: (row && row.updated_at) || null,
+      // The distinction that matters: is the public page YOUR text, or the one that shipped?
+      published: !!body,
+    };
+  });
+}
 
 // Newest window first, so the list reads like a calendar rather than insertion order.
 const byWhen = (a, b) => (Number(b.starts_at) || 0) - (Number(a.starts_at) || 0)
@@ -32,6 +64,7 @@ export const onRequestGet = async ({ request, env }) => {
   const t = now();
   return json({
     ok: true,
+    legal: await legalDocs(env),
     slots: Object.keys(SLOTS).map((k) => {
       const mine = rows.filter((r) => r.slot === k).sort(byWhen);
       const live = pickLive(mine, t);
@@ -71,6 +104,34 @@ export const onRequestPost = async ({ request, env }) => {
 
   let b;
   try { b = await request.json(); } catch { return bad('Invalid request.'); }
+
+  // POST { op:'save_legal', doc:'terms'|'privacy'|'refund', body }  → publish (or clear) a legal page
+  if (b && b.op === 'save_legal') {
+    const doc = String(b.doc || '').trim();
+    if (!LEGAL_SLUGS.includes(doc)) return bad('Unknown legal page.');
+    const body = String(b.body == null ? '' : b.body).trim();
+    const docId = LEGAL_DOC_ID[doc];
+    const t2 = now();
+    // A deterministic id, upserted: the edge override looks the document up BY id, so a new row id
+    // on every save would leave the public page reading a document nobody edits any more.
+    try {
+      await env.DB.prepare(
+        `INSERT INTO docs (id, doc_type, title, body, version, active, created_by, created_at, updated_at)
+         VALUES (?, 'legal', ?, ?, 1, 1, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET body=excluded.body, version=docs.version+1,
+           active=1, updated_at=excluded.updated_at`
+      ).bind(docId, LEGAL_LABEL[doc], body || null, ctx.distinct_id || null, t2, t2).run();
+    } catch (e) {
+      return bad('Could not save that page. ' + String((e && e.message) || '').slice(0, 120), 500);
+    }
+    await capture(env, {
+      event: 'content.legal_saved',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { doc, published: !!body },
+    });
+    // Say which document the PUBLIC now gets — the owner's text, or the one that shipped.
+    return json({ ok: true, doc, published: !!body, url: '/legal/' + doc });
+  }
 
   const slot = String((b && b.slot) || '').trim();
   if (!isSlot(slot)) return bad('Unknown slot.');

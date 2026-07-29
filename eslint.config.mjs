@@ -13,7 +13,9 @@ export default [
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',
-      globals: { ...globals.node, ...globals.browser, ...globals.worker },
+      // HTMLRewriter is Cloudflare-specific and absent from `globals.worker`; the legal-page
+      // override streams through it at the edge.
+      globals: { ...globals.node, ...globals.browser, ...globals.worker, HTMLRewriter: 'readonly' },
     },
     rules: {
       // Graceful-degradation `catch {}` is intentional throughout the Functions.
