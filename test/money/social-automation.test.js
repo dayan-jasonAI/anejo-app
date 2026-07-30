@@ -184,3 +184,50 @@ test('the planner is TOLD the real ordering rule, not left to guess', () => {
   assert.match(AUTO, /6 PM the DAY BEFORE — a rolling daily cutoff, not a weekly one/);
   assert.match(AUTO, /deadlines, cutoffs/);
 });
+
+// ---------- the planner reads the REAL brand standards ----------
+
+test('the bundled brief is byte-identical to the markdown source', () => {
+  // Workers cannot read files at runtime, so the brief ships as a generated module. Two copies of
+  // a source of truth is one too many unless something forces them equal — this does.
+  const md = readFileSync(new URL('../../docs/brand-standards-brief.md', import.meta.url), 'utf8');
+  const mod = readFileSync(new URL('../../functions/_lib/brand_brief.js', import.meta.url), 'utf8');
+  const exported = JSON.parse(mod.slice(mod.indexOf('export const BRAND_BRIEF = ') + 'export const BRAND_BRIEF = '.length).replace(/;\s*$/, ''));
+  assert.equal(exported, md, 'run scripts/sync-brand-brief.py after editing the markdown');
+});
+
+test('the planner prompt carries the whole brief, not a paraphrase', () => {
+  // The one-line "warm, family-rooted" note I wrote by hand is gone. It was a summary of a
+  // document the code had never read, and it produced off-brand output that looked on-brand to
+  // every check we had — because the checks were written against the same paraphrase.
+  assert.match(AUTO, /import \{ BRAND_BRIEF \} from '\.\/brand_brief\.js'/);
+  assert.match(AUTO, /BRAND_BRIEF \+/);
+  assert.ok(!/warm, family-rooted, quietly confident/.test(AUTO), 'the hand-written paraphrase is deleted');
+  assert.match(AUTO, /image_brief must follow the Photo standard section/);
+});
+
+// ---------- upload and edit are real, on the page ----------
+
+test('upload rejects by MAGIC BYTES, not filename, and forces the .jpg key', () => {
+  const UP = readFileSync(new URL('../../functions/api/hub/owner/social-upload.js', import.meta.url), 'utf8');
+  assert.match(UP, /JPEG_MAGIC = \[0xff, 0xd8, 0xff\]/);
+  assert.match(UP, /contentType: 'image\/jpeg', ext: 'jpg'/);
+  assert.match(UP, /an iPhone HEIC/, 'the commonest failure is named, with the fix');
+});
+
+test('the page has a real caption editor and a real upload button', () => {
+  // "You can edit the caption inline" was false: the API op existed, the page had no field. The
+  // claim is now pinned to the DOM it describes.
+  const PAGE = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+  assert.match(PAGE, /data-editcap/, 'a save-caption control exists on the card');
+  assert.match(PAGE, /textarea id="cap_/, 'the caption is a field, not a div, until published');
+  assert.match(PAGE, /data-upload/, 'an upload button exists on imageless cards');
+  assert.match(PAGE, /social-upload/, 'and it posts to the upload endpoint');
+  assert.match(PAGE, /input type="file" id="mfile" accept="image\/jpeg"/, 'the compose form uploads too');
+});
+
+test('a published caption is read-only', () => {
+  // Our copy changing after the fact would disagree with what people actually read.
+  const PAGE = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+  assert.match(PAGE, /p\.status === 'published'\s*\? '<div class="cap">/);
+});

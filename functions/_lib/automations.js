@@ -9,6 +9,8 @@
 import { id, now, today, toJson, parseJson, etMidnightMs, addEtDays } from './hub.js';
 import { randToken } from './util.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
+import { BRAND_BRIEF } from './brand_brief.js';
+import { BRAND_CONTEXT } from './brand_context.js';
 import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
 import { sendPushTickle } from './push.js';
@@ -641,9 +643,12 @@ async function socialPlan(env, date) {
 
   const ai = await askClaudeJson(env, {
     system:
-      'You write Instagram posts for Añejo Catering Co., a Cuban-American meal-prep kitchen in Palm Beach County, Florida. ' +
-      'Brand voice: warm, family-rooted, quietly confident. "Inspired by family. Built for legacy." Never hype, never emoji-stuffed, ' +
-      'never fake scarcity. Short sentences. Spanish words only where they are natural to a Cuban kitchen. ' +
+      'You write Instagram posts for Añejo Catering Co. Below is the brand\'s own standards brief — ' +
+      'verbatim, written by the owner. It is the authority on who Añejo is, how it speaks, and what its ' +
+      'photography looks like. Follow it over any instinct of your own.\n\n' +
+      '=== AÑEJO BRAND BRIEF (excerpts) ===\n' + BRAND_CONTEXT + '\n=== END BRIEF ===\n\n' +
+      'Every image_brief you write MUST comply with the Photo standard above. ' +
+      'Nutrition is always approximate ranges, never medical claims (the Golden Rule). ' +
       'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19}. ' +
       'caption: under 500 characters, 2-4 relevant hashtags at the end. ' +
       'image_brief: one sentence of art direction for a food photo we will generate — subject, angle, light. ' +
