@@ -163,3 +163,11 @@ test('the social page highlights its own nav tab', () => {
   assert.match(PAGE, /Owner\.init\('social', load\)/);
   assert.match(NAV, /\{ view: 'social', href: '\/hub\/owner\/social\.html'/);
 });
+
+test('a caption cannot name a weekday that contradicts its own slot', () => {
+  // The first real run wrote "Monday starts with intention" into a THURSDAY slot. Given only an
+  // ISO date, the model derived the weekday itself and got it wrong — and a reader has no way to
+  // know the post was scheduled, so it just reads as careless.
+  assert.match(AUTO, /NEVER name a weekday, date or time of day in the caption unless it matches the day_offset/);
+  assert.match(AUTO, /day_offset 0 is today, 1 is \$\{new Date/, 'the weekdays are spelled out rather than derived');
+});

@@ -647,9 +647,18 @@ async function socialPlan(env, date) {
       'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19}. ' +
       'caption: under 500 characters, 2-4 relevant hashtags at the end. ' +
       'image_brief: one sentence of art direction for a food photo we will generate — subject, angle, light. ' +
-      'day_offset: days from today. hour: local hour to post, spread across the week, never two posts in the same hour.',
+      'day_offset: days from today. hour: local hour to post, spread across the week, never two posts in the same hour. ' +
+      'NEVER name a weekday, date or time of day in the caption unless it matches the day_offset you chose for that same post — ' +
+      'a caption that opens "Monday starts with intention" published on a Thursday reads as careless, and the reader has no way ' +
+      'to know it was scheduled. When in doubt, do not name a day at all.',
     user:
-      `Today is ${date}. Write ${need} posts for the coming week.\n\n` +
+      // The weekday of each offset, spelled out. Told only the ISO date, the model has to derive
+      // the weekday itself, and it got it wrong on the first real run — a caption saying "Monday"
+      // landed on a Thursday slot.
+      `Today is ${date}, a ${new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })}. ` +
+      `day_offset 0 is today, 1 is ${new Date(Date.parse(`${date}T12:00:00Z`) + 86400000).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })}, ` +
+      `and so on through 6.\n\n` +
+      `Write ${need} posts for the coming week.\n\n` +
       `ON THE MENU RIGHT NOW (these are the only items you may promote):\n${menuLines.join('\n')}\n\n` +
       `${soldOutLine}\n\n` +
       'Vary the angle across the set: the food itself, the kitchen/process, the people it feeds, and one that simply invites an order. ' +
