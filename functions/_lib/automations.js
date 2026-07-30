@@ -6,13 +6,15 @@
 // sentiment_scan act directly (triage updates + alerts). ALL AI calls are optional and
 // degrade to deterministic fallbacks without env.ANTHROPIC_API_KEY.
 // Files under functions/_lib are NOT routed.
-import { id, now, today, toJson, parseJson } from './hub.js';
+import { id, now, today, toJson, parseJson, etMidnightMs, addEtDays } from './hub.js';
+import { randToken } from './util.js';
+import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
 import { sendPushTickle } from './push.js';
 
 const MODEL = 'claude-sonnet-4-6';
-export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep'];
+export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan'];
 export const PLANNED = [];
 
 async function scalar(env, sql, ...args) {
@@ -587,7 +589,120 @@ async function payrollPrep(env, date) {
   };
 }
 
+/**
+ * social_plan — write the week's Instagram posts from what is actually true this week.
+ *
+ * The account has six posts because writing them is a job nobody has time for, not because the
+ * business has nothing to say. This does the part that takes the time: what to post, what it
+ * should look like, and when.
+ *
+ * TWO RULES SHAPE THIS, and neither is negotiable:
+ *
+ *  1. IT NEVER POSTS. Everything lands as a DRAFT that a human approves. Generated copy going
+ *     straight to a real brand account is how a business ends up publicly advertising a bowl it
+ *     stopped selling, in a voice that is not its own, with nobody having read it first.
+ *
+ *  2. IT ONLY WRITES WHAT IS TRUE TODAY. The prompt is built from the LIVE menu — availability
+ *     included — so it cannot promote something that is sold out. That is not a nicety: this
+ *     week five of seven bowls are off, and an "order VIDA tonight" post would send people to a
+ *     greyed-out card. Prices come from the same rows the storefront charges from.
+ */
+async function socialPlan(env, date) {
+  const menu = await loadMenu(env);
+  const bowls = (menu.items || []).filter((it) => it.kind === 'bowl');
+  const onSale = bowls.filter((it) => isAvailable(it) && isOrderable(it));
+  const off = bowls.filter((it) => !isAvailable(it));
+
+  // Nothing to sell means nothing to post. Better to say so than to generate cheerful copy about
+  // an empty menu.
+  if (!onSale.length) {
+    return {
+      outcome: 'skipped',
+      output: { date, reason: 'no_bowls_available', bowls_off: off.length },
+      summary: 'No bowls are available right now, so there is nothing to promote. Nothing was drafted.',
+    };
+  }
+
+  // How many drafts are already waiting? A planner that tops the queue up every week regardless
+  // becomes a backlog nobody reads.
+  const pending = await scalar(env, "SELECT COUNT(*) n FROM social_posts WHERE status IN ('draft','scheduled')");
+  const WANT = 5;
+  const need = Math.max(0, WANT - Number(pending || 0));
+  if (!need) {
+    return {
+      outcome: 'skipped',
+      output: { date, pending: Number(pending || 0) },
+      summary: `${pending} posts are already waiting for approval — nothing new drafted.`,
+    };
+  }
+
+  const menuLines = onSale.map((b) => `${b.name} ($${((b.price_cents || 0) / 100).toFixed(2)}) — ${b.description || ''}`.trim());
+  const soldOutLine = off.length ? `Currently SOLD OUT and must not be mentioned: ${off.map((b) => b.name).join(', ')}.` : '';
+
+  const ai = await askClaudeJson(env, {
+    system:
+      'You write Instagram posts for Añejo Catering Co., a Cuban-American meal-prep kitchen in Palm Beach County, Florida. ' +
+      'Brand voice: warm, family-rooted, quietly confident. "Inspired by family. Built for legacy." Never hype, never emoji-stuffed, ' +
+      'never fake scarcity. Short sentences. Spanish words only where they are natural to a Cuban kitchen. ' +
+      'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19}. ' +
+      'caption: under 500 characters, 2-4 relevant hashtags at the end. ' +
+      'image_brief: one sentence of art direction for a food photo we will generate — subject, angle, light. ' +
+      'day_offset: days from today. hour: local hour to post, spread across the week, never two posts in the same hour.',
+    user:
+      `Today is ${date}. Write ${need} posts for the coming week.\n\n` +
+      `ON THE MENU RIGHT NOW (these are the only items you may promote):\n${menuLines.join('\n')}\n\n` +
+      `${soldOutLine}\n\n` +
+      'Vary the angle across the set: the food itself, the kitchen/process, the people it feeds, and one that simply invites an order. ' +
+      'Do not invent menu items, prices, discounts, delivery areas or claims about ingredients we have not been told.',
+    maxTokens: 1600,
+  });
+
+  if (!ai || !Array.isArray(ai.data)) {
+    // No key, or an answer we could not parse. Deliberately no deterministic fallback: a
+    // hand-rolled template post is worse than no post, and would train the owner to ignore this.
+    return {
+      outcome: 'skipped',
+      output: { date, reason: env.ANTHROPIC_API_KEY ? 'no_usable_response' : 'no_api_key' },
+      summary: 'Could not draft posts (no AI response). Nothing was queued.',
+    };
+  }
+
+  const t = now();
+  const made = [];
+  for (const item of ai.data.slice(0, need)) {
+    const caption = String((item && item.caption) || '').trim().slice(0, 2200);
+    if (!caption) continue;
+    const brief = String((item && item.image_brief) || '').trim().slice(0, 400) || null;
+    const dayOffset = Math.min(6, Math.max(0, Math.floor(Number(item && item.day_offset)) || 0));
+    const hour = Math.min(19, Math.max(8, Math.floor(Number(item && item.hour)) || 11));
+    // A SUGGESTED time only. The row stays a draft with scheduled_at set, so approving it is one
+    // click and changing the time is one edit — but nothing fires until a human moves it.
+    const when = etMidnightMs(addEtDays(date, dayOffset)) + hour * 3600 * 1000;
+
+    try {
+      await env.DB.prepare(
+        `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at)
+         VALUES (?,'instagram',?,NULL,?,'draft',?,?,'planner','system',?,?)`
+      ).bind(id('sp'), caption, randToken(24), when, brief, t, t).run();
+      made.push({ hour, day_offset: dayOffset });
+    } catch { /* one bad row must not lose the rest of the week */ }
+  }
+
+  return {
+    outcome: made.length ? 'success' : 'skipped',
+    tokens: ai.tokens || null,
+    output: {
+      date, drafted: made.length, already_pending: Number(pending || 0),
+      promoted: onSale.map((b) => b.name), withheld_sold_out: off.map((b) => b.name),
+    },
+    summary: made.length
+      ? `Drafted ${made.length} Instagram posts for the week from ${onSale.length} available bowls. They are waiting for an image and your approval — nothing posts on its own.`
+      : 'Nothing could be drafted.',
+  };
+}
+
 const RUNNERS = {
+  social_plan: socialPlan,
   daily_summary: dailySummary,
   eod_chase: eodChase,
   route_optimize: routeOptimize,

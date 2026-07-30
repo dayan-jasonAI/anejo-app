@@ -76,7 +76,10 @@ test('a stalled mid-send campaign is resumed, not abandoned', () => {
 
 test('the scheduler is actually wired into the cron worker', () => {
   // The endpoint existing is not the feature. Being POSTed every minute is.
-  assert.match(CRON, /const EVERY_MINUTE = \['\/api\/hub\/admin\/offers-tick', '\/api\/hub\/admin\/campaigns-tick'\]/);
+  // Asserts MEMBERSHIP, not the exact array — pinning the whole list made adding a sibling tick
+  // fail a test about campaigns, which tells you nothing about campaigns.
+  const line = (CRON.match(/const EVERY_MINUTE = \[[^\]]*\]/) || [''])[0];
+  assert.ok(line.includes("'/api/hub/admin/campaigns-tick'"), 'campaigns-tick is swept every minute');
 });
 
 test('the HUB says so when the scheduler is not configured', () => {

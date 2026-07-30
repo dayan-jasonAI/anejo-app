@@ -13,6 +13,10 @@ const SCHEDULE = {
   '0 18 * * *': ['sentiment_scan', 'ticket_triage'],// 18:00 UTC — early afternoon ET
   '0 10 * * 1': ['restock_suggest'],                // Mondays 10:00 UTC
   '0 12 1,15 * *': ['payroll_prep'],                // 1st + 15th 12:00 UTC
+  // Sundays 14:00 UTC ≈ 10am ET — draft the coming week's Instagram posts from the LIVE menu.
+  // Weekly, not daily: a planner that tops the queue up every morning becomes a backlog nobody
+  // reads. It only drafts; nothing reaches the profile without a human approving it.
+  '0 14 * * 0': ['social_plan'],
 };
 
 // Schedule (UTC) → direct admin endpoints POSTed with the X-Cron-Key header.
@@ -42,7 +46,10 @@ const EXTRA_ENDPOINTS = {
 // without a resume it would stall there. Every-minute matters for a different reason than the
 // offer sweep: a campaign scheduled for 08:00 that goes out at 08:00 is the feature; one that
 // goes out at 08:45 because the sweep is hourly is not what anyone meant by "schedule".
-const EVERY_MINUTE = ['/api/hub/admin/offers-tick', '/api/hub/admin/campaigns-tick'];
+// social-tick publishes posts whose scheduled time has arrived. Every minute for the same reason
+// as campaigns: a post set for 11:00 that goes out at 11:45 is not what anyone meant by scheduled,
+// and on a public profile the timing IS part of the post.
+const EVERY_MINUTE = ['/api/hub/admin/offers-tick', '/api/hub/admin/campaigns-tick', '/api/hub/admin/social-tick'];
 
 // Minimal cron field matcher — supports '*', exact numbers, and comma lists (covers every
 // expression above). dom/dow are ANDed here (all our schedules leave one of them '*').

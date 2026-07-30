@@ -21,7 +21,7 @@ export const onRequestGet = async ({ request, env }) => {
   let posts = [];
   try {
     const r = await env.DB.prepare(
-      'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
+      'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
     ).all();
     posts = (r && r.results) || [];
   } catch { posts = []; }
@@ -93,6 +93,56 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ ok: true, id: postId, status: scheduledAt ? 'scheduled' : 'draft' });
   }
 
+  // Attach an image to a planned post.
+  if (op === 'attach') {
+    const postId = String(b.id || '').trim();
+    const mediaKey = String(b.media_key || '').trim();
+    if (!postId) return bad('Missing id.');
+    if (!mediaKey) return bad('Pick an image first.');
+    if (mediaKey.includes('..')) return bad('Invalid image.');
+    if (!JPEG_ONLY.test(mediaKey)) return bad('Instagram only accepts JPEG images. Re-export this one as .jpg.');
+    const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    if (!row) return bad('That post no longer exists.', 404);
+    if (row.status === 'published') return bad('That one is already live.', 409);
+    await env.DB.prepare('UPDATE social_posts SET media_key=?, updated_at=? WHERE id=?').bind(mediaKey, now(), postId).run();
+    return json({ ok: true, id: postId, media_key: mediaKey });
+  }
+
+  // Approve a draft onto the schedule. THIS is the human gate: the planner writes, a person says
+  // yes, and only then does the tick have anything to publish.
+  if (op === 'schedule') {
+    const postId = String(b.id || '').trim();
+    if (!postId) return bad('Missing id.');
+    const row = await env.DB.prepare('SELECT status, media_key FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    if (!row) return bad('That post no longer exists.', 404);
+    if (row.status !== 'draft' && row.status !== 'scheduled' && row.status !== 'failed') {
+      return bad('That post is already on its way out.', 409);
+    }
+    // A post with no picture cannot go on the schedule, or the tick would have to decide what to
+    // do about it at 11am on a Tuesday — and the only honest answer then is "nothing".
+    if (!row.media_key) return bad('Add an image before scheduling it.', 409);
+    const when = Number(b.scheduled_at);
+    if (!Number.isFinite(when) || when <= 0) return bad('Pick a date and time.');
+    if (when < now() - 60000) return bad('That time has already passed.');
+    await env.DB.prepare("UPDATE social_posts SET status='scheduled', scheduled_at=?, error=NULL, updated_at=? WHERE id=?")
+      .bind(when, now(), postId).run();
+    await capture(env, {
+      event: 'social.post_scheduled',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { post_id: postId, lead_minutes: Math.round((when - now()) / 60000) },
+    });
+    return json({ ok: true, id: postId, status: 'scheduled', scheduled_at: when });
+  }
+
+  if (op === 'unschedule') {
+    const postId = String(b.id || '').trim();
+    if (!postId) return bad('Missing id.');
+    const r = await env.DB.prepare("UPDATE social_posts SET status='draft', scheduled_at=NULL, updated_at=? WHERE id=? AND status='scheduled'")
+      .bind(now(), postId).run();
+    if (!r.meta || r.meta.changes !== 1) return bad('That post is not scheduled.', 409);
+    return json({ ok: true, id: postId, status: 'draft' });
+  }
+
   if (op === 'delete') {
     const postId = String(b.id || '').trim();
     if (!postId) return bad('Missing id.');
@@ -113,6 +163,9 @@ export const onRequestPost = async ({ request, env }) => {
     const post = await env.DB.prepare('SELECT * FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
     if (!post) return bad('That post no longer exists.', 404);
     if (post.status === 'published') return json({ ok: true, already: true, permalink: post.permalink, media_id: post.ig_media_id });
+    // A planned post has its words and its timing but no picture yet. Refuse clearly rather than
+    // letting Instagram fetch a 404 and reporting that back as a publish failure.
+    if (!post.media_key) return bad('This post has no image yet — add one before publishing.', 409);
 
     // CLAIM IT FIRST. The publish flow takes ~20s (Instagram fetches the image, we poll), and a
     // second click — or the scheduler firing mid-click — would otherwise post the same photo twice.
