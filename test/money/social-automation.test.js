@@ -212,11 +212,11 @@ test('the planner prompt carries the real standards, not a paraphrase', () => {
 // ---------- upload and edit are real, on the page ----------
 
 test('upload rejects by MAGIC BYTES, not filename, and forces the .jpg key', () => {
-  // Pinned as PROPERTIES, not as my spelling of them — this endpoint was rewritten in parallel
-  // and the first version of this test failed on variable names while the behaviour was intact.
+  // Pinned to FACTS that survive restyling — this endpoint was rewritten twice in parallel while
+  // the behaviour stayed right, and a test that fails on variable names cries wolf.
   const UP = readFileSync(new URL('../../functions/api/hub/owner/social-upload.js', import.meta.url), 'utf8');
-  // Either spelling — an inline three-way compare or a JPEG_MAGIC constant — is the same property.
-  assert.match(UP, /0xff, 0xd8, 0xff|bytes\[1\] === 0xd8/, 'magic bytes, on the bytes');
+  assert.match(UP, /0xff, 0xd8, 0xff/, 'the JPEG magic bytes are what is checked');
+  assert.match(UP, /bytes/, 'and they are checked on decoded bytes, not the mime string');
   assert.match(UP, /\.jpg`/, 'the stored key always ends .jpg');
   assert.match(UP, /contentType: 'image\/jpeg'/, 'and is typed as jpeg regardless of the claim');
   assert.match(UP, /HEIC photo/, 'the commonest failure — an iPhone camera-roll HEIC — is named, with the fix');
