@@ -233,7 +233,7 @@
   }
 
   function load() { Owner.get('/api/hub/owner/social').then(function (d) { DATA = d; render(); }); }
-  Owner.init('content', load);
+  Owner.init('social', load);
 })();
 </script>
 <script src="assets/operator.js" defer></script>

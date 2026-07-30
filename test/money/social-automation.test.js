@@ -11,7 +11,7 @@
 //   3. LATE IS WRONG, NOT LATE. Timing is part of a social post in a way it is not for an email.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const AUTO = readFileSync(new URL('../../functions/_lib/automations.js', import.meta.url), 'utf8');
 const TICK = readFileSync(new URL('../../functions/api/hub/admin/social-tick.js', import.meta.url), 'utf8');
@@ -123,4 +123,43 @@ test('a planner post is marked as one', () => {
   // So an owner's own draft is never treated as disposable, and tone can be reviewed later.
   assert.match(MIG, /source\s+TEXT NOT NULL DEFAULT 'owner'/);
   assert.match(AUTO, /'planner','system'/);
+});
+
+// ---------- a page nobody can reach is a page that does not exist ----------
+
+test('every owner page is reachable — from the nav or from another page', () => {
+  // social.html shipped three commits without a nav entry and no inbound link from anywhere. It
+  // worked, it was deployed, it was tested — and the only way to open it was to type the URL.
+  // This checks reachability rather than nav membership, because plenty of pages are deliberately
+  // reached from Overview or a sibling instead of the bottom bar.
+  const dir = new URL('../../public/hub/owner/', import.meta.url);
+  const nav = readFileSync(new URL('assets/owner.js', dir), 'utf8');
+  const pages = readdirSync(dir).filter((f) => f.endsWith('.html') && f !== 'index.html');
+
+  // Everything that could link to an owner page.
+  const corpus = [];
+  for (const d of ['../../public/hub/owner/', '../../public/hub/', '../../public/hub/kitchen/', '../../public/hub/driver/']) {
+    let files = [];
+    try { files = readdirSync(new URL(d, import.meta.url)); } catch { files = []; }
+    for (const f of files) {
+      if (!/\.(html|js)$/.test(f)) continue;
+      try { corpus.push({ name: f, text: readFileSync(new URL(d + f, import.meta.url), 'utf8') }); } catch { /* dir */ }
+    }
+  }
+
+  const unreachable = pages.filter((p) => {
+    const href = `/hub/owner/${p}`;
+    if (nav.includes(`href: '${href}'`)) return false;
+    return !corpus.some((c) => c.name !== p && c.text.includes(href));
+  });
+  assert.deepEqual(unreachable, [], `unreachable owner pages: ${unreachable.join(', ')}`);
+});
+
+test('the social page highlights its own nav tab', () => {
+  // It was copied from content.html and kept init('content'), so it would have lit the wrong tab
+  // even once linked — and two pages claiming one view key is its own small confusion.
+  const PAGE = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+  const NAV = readFileSync(new URL('../../public/hub/owner/assets/owner.js', import.meta.url), 'utf8');
+  assert.match(PAGE, /Owner\.init\('social', load\)/);
+  assert.match(NAV, /\{ view: 'social', href: '\/hub\/owner\/social\.html'/);
 });

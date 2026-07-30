@@ -20,6 +20,7 @@
     { view: 'trainers', href: '/hub/owner/trainers.html', ico: '🤝', label: 'Trainers' },
     { view: 'partners', href: '/hub/owner/partners.html', ico: '📣', label: 'Affiliate' },
     { view: 'campaigns', href: '/hub/owner/campaigns.html', ico: '📨', label: 'Campaigns' },
+    { view: 'social', href: '/hub/owner/social.html', ico: '📸', label: 'Social' },
     { view: 'inventory', href: '/hub/kitchen/inventory.html', ico: '📦', label: 'Inventory' },
     { view: 'studio', href: '/studio/', ico: '🎨', label: 'Studio' },
     { view: 'brief', href: '/hub/owner/brief-proposals.html', ico: '📋', label: 'Reviews' },
