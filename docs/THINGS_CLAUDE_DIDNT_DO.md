@@ -46,7 +46,66 @@ stay wrong for that history.
 
 ---
 
-## 3. Subscription rotations ignore a sold-out bowl
+## 3. Driver route pay was never repriced after geocoding was fixed
+
+**Status:** money, not yet wrong · **Added:** 2026-07-30
+
+Pay formula (`_lib/pay.js`): `$0 base + $3.00/stop + $0.70/mile, minimum $20.00`.
+
+Miles are NULL on every route to date, because there were no coordinates to measure — so the
+mileage term contributed $0 and every route fell through to the $20 minimum. Pompano and Delray
+are a real drive from the Boca commissary; at $0.70/mile a 25-mile round trip is $17.50 that was
+never counted.
+
+**All five routes are still `unpaid`**, so this is a mistake not yet made rather than a correction
+owed.
+
+**What to do, in order:** backfill the coordinates (item 2), then reprice the routes, then pay.
+
+**UNVERIFIED and needs checking first:** `total_meters` is the driven distance computed at
+dispatch, and it is separate from an address's coordinates. Whether repricing a historic route is
+even wired up is unknown — it may need a manual recalculation. Do not promise "one click" until
+that is checked.
+
+**Cost of leaving it:** drivers get paid the $20 floor for routes that earned more.
+
+---
+
+## 4. There is no marketing ANALYTICS loop — nothing learns
+
+**Status:** not built at all · **Added:** 2026-07-30
+
+Nothing reads Instagram insights. `instagram_business_manage_insights` was deliberately left off
+the app. No post performance is recorded, nothing compares posts, and the weekly planner writes
+the next week with no knowledge of how the last one did.
+
+Calling the current system a "marketing team that learns" would be false. It drafts from the MENU,
+not from results.
+
+**What to build:** add `manage_insights`, record reach/likes/comments/saves per post after ~48h,
+and feed the top performers back into the planner prompt as examples.
+
+**Cost of leaving it:** week 10 is written exactly as well as week 1.
+
+---
+
+## 5. Nothing answers a DM or a comment yet
+
+**Status:** primitives built, no brain · **Added:** 2026-07-30
+
+`sendDirectMessage()` and `replyToComment()` exist and are tested. **Nothing calls them.** The
+webhook receives and files a message into Añejo Comms; no code drafts a reply, and Ana (the
+website assistant, `api/chat.js`) has no Instagram awareness at all.
+
+**What to build:** on an inbound Instagram message, draft a reply with Ana's existing knowledge
+base, save it to the thread as `ai_drafted`, and let a human send it. Auto-send only after the
+drafts have been read for a while and are consistently right.
+
+**Cost of leaving it:** the inbox collects messages that a human still has to answer from scratch.
+
+---
+
+## 6. Subscription rotations ignore a sold-out bowl
 
 **Status:** known gap, currently harmless · **Added:** 2026-07-29
 
@@ -64,7 +123,7 @@ something that cannot be made.
 
 ---
 
-## 4. QuickBooks is still on sandbox credentials
+## 7. QuickBooks is still on sandbox credentials
 
 **Status:** proven in sandbox, never against real books · **Added:** 2026-07-28
 
@@ -78,7 +137,7 @@ invoice POST, read-back of TotalAmt. `QBO_ENVIRONMENT` still points at sandbox.
 
 ---
 
-## 5. Instagram token expiry is unhandled
+## 8. Instagram token expiry is unhandled
 
 **Status:** works now, fails silently in ~60 days · **Added:** 2026-07-30
 
@@ -93,7 +152,7 @@ which does not expire.
 
 ---
 
-## 6. Untested paths (deployed, never executed once)
+## 9. Untested paths (deployed, never executed once)
 
 **Status:** cannot be closed by writing code · **Added:** 2026-07-30
 
