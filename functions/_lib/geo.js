@@ -78,11 +78,27 @@ export async function geoSelfTest(env) {
   const r = await geocode(env, probe);
   if (r) return { ok: true, configured: true, probe, resolved: r.formatted, lat: r.lat, lng: r.lng };
   const f = lastFailure || {};
-  const hint = f.status === 'REQUEST_DENIED'
-    ? 'The key is rejecting server-side calls. In Google Cloud: enable the GEOCODING API for this key, and set its Application restriction to "None" or "IP addresses" — an HTTP-referrer restriction is browser-only and blocks Cloudflare.'
-    : f.status === 'OVER_QUERY_LIMIT' ? 'Billing or quota on the Google Cloud project.'
-    : f.status === 'ZERO_RESULTS' ? 'The key answered but could not resolve a known-good address — check that the Geocoding API (not Places) is the one enabled.'
-    : 'No usable response from Google.';
+  // READ THE MESSAGE, NOT JUST THE STATUS. Google returns REQUEST_DENIED for billing, for a
+  // referrer-restricted key, and for an API that is not enabled — three different fixes behind one
+  // code. Keying the advice off the status alone confidently pointed at the wrong one, which is
+  // worse than no advice: it sends someone to change a setting that was never the problem.
+  const msg = String(f.message || '').toLowerCase();
+  let hint;
+  if (msg.includes('billing')) {
+    hint = 'BILLING is not enabled on the Google Cloud project. Open console.cloud.google.com → Billing, link a billing account to this project, then reload. Nothing about the key needs changing.';
+  } else if (msg.includes('not authorized') || msg.includes('api is not enabled') || msg.includes('has not been used')) {
+    hint = 'The Geocoding API is not enabled on this project. Google Cloud → APIs & Services → Library → Geocoding API → Enable. Enable the Routes API too, which driver routing uses.';
+  } else if (msg.includes('referer') || msg.includes('referrer') || msg.includes('ip address') || msg.includes('restrict')) {
+    hint = 'The key is restricted in a way that blocks server-side calls. Google Cloud → Credentials → this key → Application restrictions → None. An HTTP-referrer restriction is browser-only and blocks Cloudflare.';
+  } else if (f.status === 'REQUEST_DENIED') {
+    hint = 'Google refused the request. The message above is the specific reason — the usual causes are billing not enabled, the Geocoding API not enabled, or a referrer restriction on the key.';
+  } else if (f.status === 'OVER_QUERY_LIMIT') {
+    hint = 'Quota or billing limit on the Google Cloud project.';
+  } else if (f.status === 'ZERO_RESULTS') {
+    hint = 'The key answered but could not resolve a known-good address — check that the Geocoding API (not Places) is the one enabled.';
+  } else {
+    hint = 'No usable response from Google.';
+  }
   return { ok: false, configured: true, probe, status: f.status || 'NO_RESULT', message: f.message || null, hint };
 }
 

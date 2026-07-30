@@ -75,3 +75,17 @@ test('shift duration is reported while the shift is still open', () => {
 test('an open shift is labelled as running, not presented as a finished total', () => {
   assert.match(EOD, /so far/);
 });
+
+// ---------- the geocoding diagnostic must not confidently mislead ----------
+
+test('the geo hint reads Google\'s MESSAGE, not just the status code', () => {
+  // Google returns REQUEST_DENIED for billing, for a referrer-restricted key, AND for an API that
+  // is not enabled — three different fixes behind one code. Keying advice off the status alone
+  // pointed at the wrong one, which is worse than no advice: it sends someone to change a setting
+  // that was never the problem. It did exactly that on the first real run.
+  const GEO = readFileSync(new URL('../../functions/_lib/geo.js', import.meta.url), 'utf8');
+  assert.match(GEO, /const msg = String\(f\.message \|\| ''\)\.toLowerCase\(\)/);
+  assert.match(GEO, /if \(msg\.includes\('billing'\)\)/);
+  assert.ok(GEO.indexOf("msg.includes('billing')") < GEO.indexOf("f.status === 'REQUEST_DENIED'"),
+    'the message is checked BEFORE falling back to the bare status');
+});
