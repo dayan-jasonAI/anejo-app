@@ -196,23 +196,31 @@ test('the bundled brief is byte-identical to the markdown source', () => {
   assert.equal(exported, md, 'run scripts/sync-brand-brief.py after editing the markdown');
 });
 
-test('the planner prompt carries the whole brief, not a paraphrase', () => {
-  // The one-line "warm, family-rooted" note I wrote by hand is gone. It was a summary of a
-  // document the code had never read, and it produced off-brand output that looked on-brand to
-  // every check we had — because the checks were written against the same paraphrase.
-  assert.match(AUTO, /import \{ BRAND_BRIEF \} from '\.\/brand_brief\.js'/);
-  assert.match(AUTO, /BRAND_BRIEF \+/);
+test('the planner prompt carries the real standards, not a paraphrase', () => {
+  // The one-line "warm, family-rooted" note I wrote by hand is gone. Two real sources now feed the
+  // prompt: the curated brand context (voice, photo standard, the Reposado ruling) and §3 of the
+  // sync-enforced full brief — the product lines — because the standing objective is that people
+  // know EVERYTHING Añejo sells, and excerpts that stop at voice would keep the planner writing
+  // bowl posts forever.
+  assert.match(AUTO, /BRAND_CONTEXT/);
+  assert.match(AUTO, /WHAT AÑEJO SELLS \(promote across ALL of it, not only bowls\)/);
+  assert.match(AUTO, /productLines\(\)/);
   assert.ok(!/warm, family-rooted, quietly confident/.test(AUTO), 'the hand-written paraphrase is deleted');
-  assert.match(AUTO, /image_brief must follow the Photo standard section/);
+  assert.match(AUTO, /image_brief you write MUST comply with the Photo standard/);
 });
 
 // ---------- upload and edit are real, on the page ----------
 
 test('upload rejects by MAGIC BYTES, not filename, and forces the .jpg key', () => {
+  // Pinned as PROPERTIES, not as my spelling of them — this endpoint was rewritten in parallel
+  // and the first version of this test failed on variable names while the behaviour was intact.
   const UP = readFileSync(new URL('../../functions/api/hub/owner/social-upload.js', import.meta.url), 'utf8');
-  assert.match(UP, /JPEG_MAGIC = \[0xff, 0xd8, 0xff\]/);
-  assert.match(UP, /contentType: 'image\/jpeg', ext: 'jpg'/);
-  assert.match(UP, /an iPhone HEIC/, 'the commonest failure is named, with the fix');
+  // Either spelling — an inline three-way compare or a JPEG_MAGIC constant — is the same property.
+  assert.match(UP, /0xff, 0xd8, 0xff|bytes\[1\] === 0xd8/, 'magic bytes, on the bytes');
+  assert.match(UP, /\.jpg`/, 'the stored key always ends .jpg');
+  assert.match(UP, /contentType: 'image\/jpeg'/, 'and is typed as jpeg regardless of the claim');
+  assert.match(UP, /HEIC photo/, 'the commonest failure — an iPhone camera-roll HEIC — is named, with the fix');
+  assert.match(UP, /requireRole\(request, env, \['owner'\]\)/, 'owner-only');
 });
 
 test('the page has a real caption editor and a real upload button', () => {

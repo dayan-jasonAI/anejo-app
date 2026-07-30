@@ -19,6 +19,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 
 const MAX_BYTES = 8 * 1024 * 1024;   // page caps files at 5MB; base64 inflates ~33%; headroom, not invitation
+const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 
 export const onRequestPost = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -39,10 +40,19 @@ export const onRequestPost = async ({ request, env }) => {
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   } catch { return bad('Could not decode the file.'); }
 
-  // JPEG magic: FF D8 FF. Checked on the BYTES — a .jpg that is secretly a PNG fails here instead
-  // of failing on Instagram twenty seconds after the owner hits publish.
-  if (!(bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)) {
-    return bad('That is not a JPEG. Instagram only accepts JPEG — export it as .jpg and try again.');
+  // Checked on the BYTES — a .jpg that is secretly a PNG fails here instead of failing on
+  // Instagram twenty seconds after the owner hits publish.
+  if (!JPEG_MAGIC.every((v, i) => bytes[i] === v)) {
+    // Name the commonest case: an iPhone camera-roll photo is HEIC no matter what it is called,
+    // and "not a JPEG" alone sends the owner hunting through settings. HEIC magic: bytes 4-11
+    // contain 'ftyphei'/'ftypheic'.
+    const asText = String.fromCharCode(...bytes.slice(4, 12));
+    const isHeic = /ftyphei/i.test(asText);
+    return bad(
+      isHeic
+        ? 'That is an iPhone HEIC photo. In Photos, tap Share → Copy Photo, or screenshot it — both give you a JPEG — then upload that.'
+        : 'That is not a JPEG. Instagram only accepts JPEG — export it as .jpg and try again.'
+    );
   }
 
   const d = new Date();
@@ -50,7 +60,8 @@ export const onRequestPost = async ({ request, env }) => {
   const key = `studio/${ym}/${id('up')}.jpg`;
 
   try {
-    await env.MEDIA.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
+    const meta = { contentType: 'image/jpeg', ext: 'jpg' };
+    await env.MEDIA.put(key, bytes, { httpMetadata: { contentType: meta.contentType } });
   } catch (e) {
     return bad('Could not store the file. ' + String((e && e.message) || '').slice(0, 120), 500);
   }

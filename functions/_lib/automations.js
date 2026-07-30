@@ -11,6 +11,18 @@ import { randToken } from './util.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { BRAND_BRIEF } from './brand_brief.js';
 import { BRAND_CONTEXT } from './brand_context.js';
+
+// §3 of the brief — the three product lines. Fed to the planner SEPARATELY from the voice
+// excerpts because of Dayan's decision #6: the standing objective is that people know EVERYTHING
+// Añejo sells — bowls, the Macro Portal, meal plans, catering. Excerpts that stop at voice keep
+// the planner writing bowl posts forever, which is exactly the rut the account was already in.
+function productLines() {
+  const start = BRAND_BRIEF.indexOf('## 3. Our three product lines');
+  if (start === -1) return '';
+  const rest = BRAND_BRIEF.slice(start);
+  const end = rest.search(/^## 4\./m);
+  return (end === -1 ? rest : rest.slice(0, end)).trim();
+}
 import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
 import { sendPushTickle } from './push.js';
@@ -647,6 +659,11 @@ async function socialPlan(env, date) {
       'verbatim, written by the owner. It is the authority on who Añejo is, how it speaks, and what its ' +
       'photography looks like. Follow it over any instinct of your own.\n\n' +
       '=== AÑEJO BRAND BRIEF (excerpts) ===\n' + BRAND_CONTEXT + '\n=== END BRIEF ===\n\n' +
+      '=== WHAT AÑEJO SELLS (promote across ALL of it, not only bowls) ===\n' + productLines() +
+      '\n=== END PRODUCT LINES ===\n' +
+      'Across any set of posts, cover the breadth of the offer: the bowls, the Macro Portal ' +
+      '(personalized macro plans), meal-plan subscriptions, and catering. A week of only bowl ' +
+      'photos fails the objective even if every caption is perfect.\n\n' +
       'Every image_brief you write MUST comply with the Photo standard above. ' +
       'Nutrition is always approximate ranges, never medical claims (the Golden Rule). ' +
       'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19}. ' +

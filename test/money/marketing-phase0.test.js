@@ -59,7 +59,8 @@ test('the page and the endpoint agree on one contract', () => {
 test('JPEG is verified by MAGIC BYTES, never by the label', () => {
   // The data-URL mime string is browser-written; the publish path refuses non-.jpg keys, so a
   // mislabelled PNG accepted here would create an upload that can never be posted.
-  assert.match(UPLOAD, /bytes\[0\] === 0xff && bytes\[1\] === 0xd8 && bytes\[2\] === 0xff/);
+  assert.match(UPLOAD, /JPEG_MAGIC = \[0xff, 0xd8, 0xff\]/);
+  assert.match(UPLOAD, /JPEG_MAGIC\.every/);
   assert.match(UPLOAD, /not a JPEG/);
 });
 
