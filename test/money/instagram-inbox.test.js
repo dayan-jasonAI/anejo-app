@@ -11,7 +11,7 @@
 //   3. The webhook is public and writes to the team's inbox, so it fails CLOSED.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { replyWindow, sendDirectMessage } from '../../functions/_lib/instagram_messaging.js';
 
 const HOOK = readFileSync(new URL('../../functions/api/webhooks/instagram.js', import.meta.url), 'utf8');
@@ -133,4 +133,41 @@ test('a spam comment is HIDDEN, never deleted, and never automatically', () => {
   assert.match(MSG, /export async function hideComment/);
   assert.ok(!/DELETE|deleteComment/.test(MSG));
   assert.match(MSG, /Reserved for spam, and never automatic/);
+});
+
+// ---------- the deploy has to actually happen ----------
+
+test('CI builds the Worker, not just lint and tests', () => {
+  // This file shipped with `../../../_lib/util.js` — one `../` too many. Lint passed, 677 tests
+  // passed, CI went green, and the Cloudflare build FAILED, leaving production silently on the
+  // previous commit. Nothing in the old pipeline resolved the module graph: node --check is
+  // syntax-only and these tests read route files as text.
+  const CI = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  assert.match(CI, /wrangler pages functions build/);
+});
+
+test('every functions import resolves from its own directory depth', () => {
+  // The specific mistake, pinned: files under functions/api/<x>/ reach _lib with ../../, and
+  // functions/api/<x>/<y>/ with ../../../. Getting it wrong is invisible until deploy.
+  const root = new URL('../../functions/', import.meta.url);
+  const bad = [];
+  const walk = (rel) => {
+    for (const f of readdirSync(new URL(rel, root))) {
+      const p = rel + f;
+      if (statSync(new URL(p, root)).isDirectory()) { walk(p + '/'); continue; }
+      if (!f.endsWith('.js')) continue;
+      const depth = (p.match(/\//g) || []).length;      // how far below functions/ this file sits
+      // Comment lines only, skipped: several _lib modules document their own usage with an
+      // example import written from a ROUTE's depth, which is correct in the comment and wrong
+      // as code. Matching raw text flagged those as bugs — the third time this session that a
+      // blunt regex accused working code.
+      const lines = readFileSync(new URL(p, root), 'utf8').split('\n')
+        .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l));
+      for (const m of lines.join('\n').matchAll(/from '((?:\.\.\/)+)_lib\//g)) {
+        if ((m[1].match(/\.\.\//g) || []).length !== depth) bad.push(`${p} → ${m[1]}_lib/`);
+      }
+    }
+  };
+  walk('');
+  assert.deepEqual(bad, [], `wrong relative depth to _lib: ${bad.join(', ')}`);
 });
