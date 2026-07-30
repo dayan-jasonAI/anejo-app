@@ -1,6 +1,19 @@
 # Añejo Marketing & Sales Team — design
 
-**Status:** proposal, awaiting Dayan's decisions. Nothing here is built.
+**Status:** decisions made 2026-07-31 — building. Phase 0 first.
+
+## 0. Dayan's decisions (2026-07-31)
+
+1. **Autonomy:** everything approved from the HUB at first; auto-publish opens up per CATEGORY as
+   trust is earned. The Lead proposes; nothing public moves without a yes until then.
+2. **Budget:** hard ceiling **$50/week** on model spend. The HUB shows spend against it.
+3. **Video:** not required now. No video producer; templates/photo only.
+4. **Lead autonomy:** acts only on approval first; graduates to autonomous per category later.
+5. **Competitors:** the Lead identifies them itself — from the website, the brand brief and what
+   Añejo offers. Dayan is not supplying a list.
+6. **Objective: BOTH brand-building and lead-gen.** The mandate is awareness of the full offer:
+   bowls, the Macro Portal, meal-plan options, catering — reaching everyone who could be
+   interested. Premium brand, and people actually knowing what Añejo sells.
 
 ---
 
