@@ -35,6 +35,11 @@ export function formatAddress(a) {
 }
 
 // Geocode a one-line address → { lat, lng, formatted } or null (no key / not found / error).
+// Why the last geocode failed, for the owner diagnostic. Module scope and best-effort within an
+// isolate — a hint for a human, never a data source.
+let lastFailure = null;
+export function lastGeocodeFailure() { return lastFailure; }
+
 export async function geocode(env, address) {
   if (!geoConfigured(env)) return null;
   const q = typeof address === 'string' ? address : formatAddress(address);
@@ -46,14 +51,39 @@ export async function geocode(env, address) {
       '&components=country:US|administrative_area:FL';
     const res = await fetch(url);
     const data = await res.json();
-    if (data.status !== 'OK' || !data.results || !data.results.length) return null;
+    if (data.status !== 'OK' || !data.results || !data.results.length) {
+      // Google says WHY — REQUEST_DENIED for a browser-restricted key, ZERO_RESULTS for an address
+      // that does not exist, OVER_QUERY_LIMIT for billing. Swallowing it meant every order stored
+      // no coordinates and nobody could tell a broken key from a bad address.
+      lastFailure = { status: data.status || 'UNKNOWN', message: data.error_message || null, at: Date.now() };
+      return null;
+    }
     const r = data.results[0];
     const loc = r.geometry && r.geometry.location;
     if (!loc) return null;
     return { lat: loc.lat, lng: loc.lng, formatted: r.formatted_address || q };
-  } catch {
+  } catch (e) {
+    lastFailure = { status: 'FETCH_FAILED', message: String((e && e.message) || e).slice(0, 200), at: Date.now() };
     return null;
   }
+}
+
+/**
+ * Prove the key works, and say plainly what is wrong when it does not. One lookup against a
+ * known-good address, so the answer is about the KEY rather than the input.
+ */
+export async function geoSelfTest(env) {
+  if (!geoConfigured(env)) return { ok: false, configured: false, reason: 'GOOGLE_MAPS_API_KEY is not set.' };
+  const probe = '301 N Olive Ave, West Palm Beach, FL 33401';
+  const r = await geocode(env, probe);
+  if (r) return { ok: true, configured: true, probe, resolved: r.formatted, lat: r.lat, lng: r.lng };
+  const f = lastFailure || {};
+  const hint = f.status === 'REQUEST_DENIED'
+    ? 'The key is rejecting server-side calls. In Google Cloud: enable the GEOCODING API for this key, and set its Application restriction to "None" or "IP addresses" — an HTTP-referrer restriction is browser-only and blocks Cloudflare.'
+    : f.status === 'OVER_QUERY_LIMIT' ? 'Billing or quota on the Google Cloud project.'
+    : f.status === 'ZERO_RESULTS' ? 'The key answered but could not resolve a known-good address — check that the Geocoding API (not Places) is the one enabled.'
+    : 'No usable response from Google.';
+  return { ok: false, configured: true, probe, status: f.status || 'NO_RESULT', message: f.message || null, hint };
 }
 
 const latLng = (lat, lng) => ({ location: { latLng: { latitude: Number(lat), longitude: Number(lng) } } });

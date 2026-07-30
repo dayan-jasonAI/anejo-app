@@ -8,14 +8,16 @@
 import { json, bad } from '../../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
-import { id, now, today, toJson } from '../../../../_lib/hub.js';
+import { id, now, today, toJson, etDayBounds, etDateOf, addEtDays } from '../../../../_lib/hub.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
 // Pull a compact picture of the driver's day to feed the draft (and the structured field).
 async function gatherDay(env, staffId, date) {
-  const dayStart = new Date(`${date}T00:00:00`).getTime();
-  const dayEnd = dayStart + 86400000;
+  // ET bounds, not `new Date(date+'T00:00:00')`. That parse has no zone, so on a Worker it means
+  // midnight UTC — 8 PM the previous evening in ET. A driver who clocked in at 1 PM and filed
+  // after midnight had their entire shift fall outside its own report.
+  const { start: dayStart, end: dayEnd } = etDayBounds(date);
 
   const shift = await env.DB
     .prepare('SELECT * FROM shifts WHERE staff_id=? AND clock_in_at>=? AND clock_in_at<? ORDER BY clock_in_at DESC LIMIT 1')
@@ -42,8 +44,21 @@ async function gatherDay(env, staffId, date) {
     .bind(staffId, dayStart, dayEnd)
     .first();
 
+  // total_minutes is only written at clock-out, and a driver writes their EOD BEFORE going home —
+  // so this was null on every report ever filed. Elapsed-so-far is the honest number, and it is
+  // marked as still running rather than presented as a finished total.
+  let shiftMinutes = null, shiftOpen = false;
+  if (shift) {
+    if (shift.total_minutes != null) shiftMinutes = shift.total_minutes;
+    else if (shift.clock_in_at) {
+      shiftMinutes = Math.max(0, Math.round((now() - Number(shift.clock_in_at)) / 60000));
+      shiftOpen = true;
+    }
+  }
+
   return {
-    shift_minutes: shift ? shift.total_minutes : null,
+    shift_minutes: shiftMinutes,
+    shift_still_open: shiftOpen,
     route_status: route ? route.status : null,
     stops_completed: route ? route.stops_completed : (delTally && delTally.completed) || 0,
     deliveries_completed: (delTally && delTally.completed) || 0,
@@ -54,11 +69,40 @@ async function gatherDay(env, staffId, date) {
   };
 }
 
+/**
+ * Which day does this report belong to?
+ *
+ * A shift that crosses midnight breaks the obvious answer. Anejo House Delivery clocked in at
+ * 1:08 PM and out at 12:38 AM; filing at 12:37 AM stamped the report with TOMORROW's date, which
+ * has no shift, no route and no deliveries on it — so every field came back empty. The report
+ * belongs to the shift being closed, not to whatever the clock says while writing it.
+ *
+ * Only looks back one day, and only at a shift that is still open or just closed, so a driver
+ * filing a genuinely new day's report at 6 AM is not dragged backwards.
+ */
+async function reportDateFor(env, staffId, etToday) {
+  const prev = addEtDays(etToday, -1);
+  const { start } = etDayBounds(prev);
+  const shift = await env.DB
+    .prepare('SELECT clock_in_at, clock_out_at FROM shifts WHERE staff_id=? AND clock_in_at>=? ORDER BY clock_in_at DESC LIMIT 1')
+    .bind(staffId, start)
+    .first()
+    .catch(() => null);
+  if (!shift || !shift.clock_in_at) return etToday;
+  const shiftDate = etDateOf(Number(shift.clock_in_at));
+  if (shiftDate === etToday) return etToday;
+  // Started yesterday (ET). Claim it only if it is still running, or ended within the last few
+  // hours — i.e. this really is that shift being wrapped up.
+  const ended = shift.clock_out_at ? Number(shift.clock_out_at) : null;
+  const stillRelevant = ended == null || (now() - ended) < 6 * 60 * 60 * 1000;
+  return stillRelevant ? shiftDate : etToday;
+}
+
 function fallbackSummary(d) {
   const parts = [];
   parts.push(`Completed ${d.deliveries_completed} deliveries${d.deliveries_failed ? `, ${d.deliveries_failed} failed` : ''}.`);
   if (d.route_status) parts.push(`Route ${d.route_status}.`);
-  if (d.shift_minutes != null) parts.push(`On shift ${Math.round(d.shift_minutes / 60 * 10) / 10}h.`);
+  if (d.shift_minutes != null) parts.push(`On shift ${Math.round(d.shift_minutes / 60 * 10) / 10}h${d.shift_still_open ? ' so far' : ''}.`);
   parts.push(`${d.temp_logs} temperature checks${d.temp_excursions ? ` (${d.temp_excursions} out of range)` : ''}.`);
   if (d.tickets_created) parts.push(`${d.tickets_created} issue(s) reported.`);
   return parts.join(' ');
@@ -103,7 +147,7 @@ export const onRequestGet = async ({ request, env }) => {
   if (!staff) return bad('No staff profile for this account.', 403);
 
   const url = new URL(request.url);
-  const date = url.searchParams.get('report_date') || today();
+  const date = url.searchParams.get('report_date') || await reportDateFor(env, staff.id, today());
   const day = await gatherDay(env, staff.id, date);
 
   // Existing report for the day (so the UI can show/edit it).
@@ -132,7 +176,7 @@ export const onRequestPost = async ({ request, env }) => {
   const summary = (b && b.summary || '').toString().trim();
   if (!summary) return bad('summary is required.');
 
-  const date = (b && b.report_date) || today();
+  const date = (b && b.report_date) || await reportDateFor(env, staff.id, today());
   const ts = now();
   const hasBlockers = b && b.has_blockers ? 1 : 0;
   const blockers = (b && b.blockers || '').toString().slice(0, 4000) || null;
@@ -140,11 +184,12 @@ export const onRequestPost = async ({ request, env }) => {
   const aiDrafted = b && b.ai_drafted ? 1 : 0;
   const structured = b && b.structured ? toJson(b.structured) : toJson(await gatherDay(env, staff.id, date));
 
-  // Link the most recent shift for the day if present.
-  const dayStart = new Date(`${date}T00:00:00`).getTime();
+  // Link the most recent shift for the day if present. Same ET bounds as gatherDay — these two
+  // disagreeing is how a report gets a shift_id whose data is not in its own structured payload.
+  const { start: dayStart, end: dayEnd } = etDayBounds(date);
   const shift = await env.DB
     .prepare('SELECT id FROM shifts WHERE staff_id=? AND clock_in_at>=? AND clock_in_at<? ORDER BY clock_in_at DESC LIMIT 1')
-    .bind(staff.id, dayStart, dayStart + 86400000)
+    .bind(staff.id, dayStart, dayEnd)
     .first();
 
   const existing = await env.DB
