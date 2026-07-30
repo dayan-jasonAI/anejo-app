@@ -59,7 +59,7 @@ test('with nothing on sale it writes nothing, rather than cheerful copy about an
 });
 
 test('it is told not to invent prices, discounts or claims', () => {
-  assert.match(AUTO, /Do not invent menu items, prices, discounts, delivery areas or claims/);
+  assert.match(AUTO, /Do not invent menu items, prices, discounts, delivery areas, deadlines, cutoffs or claims/);
 });
 
 test('no AI response means no posts — there is no template fallback', () => {
@@ -170,4 +170,17 @@ test('a caption cannot name a weekday that contradicts its own slot', () => {
   // know the post was scheduled, so it just reads as careless.
   assert.match(AUTO, /NEVER name a weekday, date or time of day in the caption unless it matches the day_offset/);
   assert.match(AUTO, /day_offset 0 is today, 1 is \$\{new Date/, 'the weekdays are spelled out rather than derived');
+});
+
+test('a draft caption can be corrected before approval', () => {
+  // The first planner run wrote "Order for the week before Wednesday" — an ordering deadline that
+  // does not exist. Without an edit op the only options were publish-it-wrong or delete-and-rerun.
+  assert.match(API, /if \(op === 'edit'\)/);
+  assert.match(API, /already live — edit the caption in the Instagram app/);
+});
+
+test('the planner is TOLD the real ordering rule, not left to guess', () => {
+  // It invented a weekly cutoff. The real one is 6 PM the day before, rolling daily.
+  assert.match(AUTO, /6 PM the DAY BEFORE — a rolling daily cutoff, not a weekly one/);
+  assert.match(AUTO, /deadlines, cutoffs/);
 });

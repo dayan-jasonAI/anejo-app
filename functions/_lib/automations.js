@@ -662,7 +662,13 @@ async function socialPlan(env, date) {
       `ON THE MENU RIGHT NOW (these are the only items you may promote):\n${menuLines.join('\n')}\n\n` +
       `${soldOutLine}\n\n` +
       'Vary the angle across the set: the food itself, the kitchen/process, the people it feeds, and one that simply invites an order. ' +
-      'Do not invent menu items, prices, discounts, delivery areas or claims about ingredients we have not been told.',
+      'HOW ORDERING ACTUALLY WORKS, and the only version you may state: scheduled delivery is ordered by ' +
+      '6 PM the DAY BEFORE — a rolling daily cutoff, not a weekly one. There is no "order by Wednesday" ' +
+      'and no weekly deadline of any kind. Same-day delivery is available during opening hours. ' +
+      'We deliver in Palm Beach County.\n\n' +
+      'Do not invent menu items, prices, discounts, delivery areas, deadlines, cutoffs or claims about ' +
+      'ingredients we have not been told. If you are unsure of an operational detail, leave it out — ' +
+      '"link in bio" is always safe, a wrong deadline makes someone think they missed their window.',
     maxTokens: 1600,
   });
 

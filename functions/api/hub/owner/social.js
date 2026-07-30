@@ -93,6 +93,23 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ ok: true, id: postId, status: scheduledAt ? 'scheduled' : 'draft' });
   }
 
+  // Edit the words before approving them. An approval step you cannot correct is not an approval
+  // step — it is a yes/no on someone else's draft, and the first planner run produced a caption
+  // that invented an ordering deadline. Fixing one line has to be cheaper than deleting and
+  // re-running.
+  if (op === 'edit') {
+    const postId = String(b.id || '').trim();
+    if (!postId) return bad('Missing id.');
+    const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    if (!row) return bad('That post no longer exists.', 404);
+    // A published caption lives on Instagram; changing our copy would make the record disagree
+    // with what people actually read.
+    if (row.status === 'published') return bad('That is already live — edit the caption in the Instagram app.', 409);
+    const caption = String(b.caption == null ? '' : b.caption).slice(0, 2200);
+    await env.DB.prepare('UPDATE social_posts SET caption=?, updated_at=? WHERE id=?').bind(caption, now(), postId).run();
+    return json({ ok: true, id: postId });
+  }
+
   // Attach an image to a planned post.
   if (op === 'attach') {
     const postId = String(b.id || '').trim();
