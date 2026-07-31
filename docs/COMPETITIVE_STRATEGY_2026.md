@@ -254,8 +254,35 @@ on Forbes' `/health/l/` marketplace path, not the editorial `/health/nutrition/`
 *does* publish real methodology for other rankings (three advisory-board experts, six metrics), and
 **the meal-delivery page does not route through it.** Chasing that page means buying a slot.
 
-The genuinely editorial lists — CNET, Good Housekeeping's Institute, EatingWell — do real testing,
-and **all of them gate on national shipping**. They write for a national audience; a
+**The more precise version of how that model works**, from Forbes Health's own About page: their
+business team *"reviews our content after it's written and identifies potential advertising
+opportunities. That team then secures compensation from some of the brands identified in our
+content."* Editorial names brands first, then sales signs them. The practical consequence is that a
+brand which cannot be signed to an affiliate deal is **monetarily invisible** — not rejected on
+quality, just never economically worth a slot. Forbes Vetted's CMS even carries a per-product field
+literally named `paidRank` with an on/off switch and a position slot (switched off on the article
+inspected, but the machinery is a built product feature).
+
+Worth knowing that these are not independent opinions either: Healthline belongs to RVO Health,
+CNET to Ziff Davis, EatingWell and Verywell to People Inc. (IAC), and Forbes Advisor/Health are run
+by Forbes Marketplace, in which Forbes Media holds only a **minority (~39.5%) stake**. Four commerce
+businesses running one playbook on different domains.
+
+**Two honest exceptions.** Healthline states its rankings are set *"without regard to any financial
+or advertising relationship."* And **Wirecutter is the real outlier** — it says plainly that *"no
+pick on Wirecutter has ever been sponsored"* and, decisively, that *"in some cases, Wirecutter makes
+no money at all on a pick, simply because the only high-quality retailer that sells the item doesn't
+run an affiliate program."* There, having no affiliate program does not disqualify you.
+
+**If national coverage ever becomes a goal**, the prerequisite is a live affiliate program on a
+network these publishers already transact on. As of May 2026 Rakuten is migrating onto impact.com as
+its exclusive platform, and impact.com also owns Trackonomics — so **impact.com is the default rail**
+to build on. Añejo already has a commission engine; it is not on a network. (For scale: Skimlinks'
+Preferred Partner Program, at $200/month, openly sells *"preferential ranking"* to publishers — the
+cheapest published pay-for-visibility product in the stack.)
+
+None of this changes the conclusion, because the genuinely editorial lists — CNET, Good
+Housekeeping's Institute, EatingWell, Wirecutter — **all gate on national shipping**. They write for a national audience; a
 Palm-Beach-only brand is unrecommendable to 99% of their readers no matter how good the food is.
 That is not a PR problem to solve, it's a structural mismatch. Note also that no outlet publishes
 its scoring *weights*, and several roundup "winners" are one company — HelloFresh SE owns
