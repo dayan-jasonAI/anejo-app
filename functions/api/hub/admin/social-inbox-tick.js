@@ -1,0 +1,177 @@
+// POST /api/hub/admin/social-inbox-tick — Aña drafts replies to waiting Instagram DMs and
+// comments. Auth: owner session OR the X-Cron-Key header, same as every other tick. Fired every
+// minute by anejo-cron; safe to fire by hand.
+//
+// THIS TICK ONLY DRAFTS. sendDirectMessage and replyToComment are deliberately NOT imported —
+// the owner's decision #1 is that nothing reaches a customer or the public profile without a
+// human pressing send, and the strongest way to keep that true is for the sending code to not
+// even be reachable from here. The send path lives in owner/social-inbox.js behind an owner
+// session.
+//
+// Idempotency comes from the data, not a lock:
+//   · a comment is drafted once because handled=0 is flipped when its rows land;
+//   · a DM thread is drafted once because the draft row itself becomes the thread's last message,
+//     and the tick only touches threads whose LAST message is the customer's.
+// A dismissed draft still occupies that slot (dismissed_at, not DELETE), so "owner said no"
+// never turns into "ask Aña again every minute".
+import { json, bad, id, now, ctEq } from '../../../_lib/util.js';
+import { requireRole } from '../../../_lib/roles.js';
+import { sendPushTickle } from '../../../_lib/push.js';
+import { draftReply } from '../../../_lib/ana_social.js';
+
+// Claude calls per tick. The tick runs every minute, so a backlog drains at ~4/min — fast enough
+// that a busy post gets answered within minutes, bounded enough that a spam flood can't turn the
+// inbox into an open-ended API bill.
+const DRAFT_BUDGET = 4;
+
+// Mirrors the messaging library's 24-hour rule (which the send path re-checks itself — the
+// library stays unimported here, so this constant is duplicated on purpose). The tick doesn't
+// send, but drafting for a thread whose window already closed produces copy the send op must
+// then refuse — a draft that exists only to be rejected. Better to not write it.
+const WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export const onRequestPost = async ({ request, env }) => {
+  const cronKey = request.headers.get('x-cron-key') || '';
+  const viaCron = !!(env.CRON_KEY && ctEq(cronKey, env.CRON_KEY));
+  if (!viaCron) {
+    const ctx = await requireRole(request, env, ['owner']);
+    if (ctx instanceof Response) return ctx;
+  }
+  if (!env.DB) return bad('Database not configured.', 500);
+  if (!env.ANTHROPIC_API_KEY) return json({ ok: true, skipped: 'anthropic_not_configured' });
+
+  const t = now();
+  let budget = DRAFT_BUDGET;
+  let drafted = 0, escalated = 0, skipped = 0;
+
+  // ---------- comments (public, no reply window) ----------
+  let events = [];
+  try {
+    const r = await env.DB.prepare(
+      "SELECT * FROM social_events WHERE platform='instagram' AND kind='comment' AND handled=0 ORDER BY created_at ASC LIMIT ?"
+    ).bind(DRAFT_BUDGET).all();
+    events = (r && r.results) || [];
+  } catch { events = []; }
+
+  for (const ev of events) {
+    if (budget <= 0) break;
+    // Our own replies echo back through the webhook as comments. Aña answering Aña would loop
+    // forever, so they are marked handled without spending a draft on them.
+    if (env.IG_USER_ID && String(ev.from_id || '') === String(env.IG_USER_ID)) {
+      try { await env.DB.prepare('UPDATE social_events SET handled=1 WHERE id=?').bind(ev.id).run(); } catch { /* retried next tick */ }
+      skipped += 1;
+      continue;
+    }
+
+    budget -= 1;
+    const d = await draftReply(env, { kind: 'comment', text: ev.text || '', username: ev.from_username });
+    // A failed draft leaves handled=0 on purpose — the next tick retries it. Marking it handled
+    // here would silently drop a real customer's comment on an API blip.
+    if (!d.ok) continue;
+
+    try {
+      const threadId = await commentThread(env, ev, t);
+      if (!threadId) continue;
+
+      // The comment itself, as an inbound row — the thread must read as a conversation, not a
+      // lone Aña draft with no visible question above it.
+      await env.DB.prepare(
+        `INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, ref_id, created_at)
+         VALUES (?,?,'inbound','instagram',?,'customer',?,0,?,?)`
+      ).bind(id('msg'), threadId, ev.from_id || null, String(ev.text || '').slice(0, 4000), ev.id, t).run();
+
+      if (d.escalate) {
+        await insertEscalation(env, threadId, ev.id, d.reason, t);
+        escalated += 1;
+      } else {
+        await insertDraft(env, threadId, ev.id, d.draft, t);
+        drafted += 1;
+      }
+      await env.DB.prepare('UPDATE threads SET last_message_at=?, updated_at=? WHERE id=?').bind(t, t, threadId).run();
+      await env.DB.prepare('UPDATE social_events SET thread_id=?, handled=1 WHERE id=?').bind(threadId, ev.id).run();
+    } catch { /* event stays handled=0 and is retried; a duplicate draft beats a dropped comment */ }
+  }
+
+  // ---------- DMs (24-hour reply window) ----------
+  // "Needs a draft" is one condition: the thread's LAST message is the customer's. A pending
+  // draft, a dismissed draft, an escalation marker, or an owner send are all outbound rows that
+  // take the thread out of this set until the customer writes again.
+  let threads = [];
+  try {
+    const r = await env.DB.prepare(
+      `SELECT * FROM threads
+        WHERE audience='instagram' AND status='open'
+          AND COALESCE(ref_type,'') != 'ig_media'
+          AND last_inbound_at > ?
+        ORDER BY last_inbound_at ASC LIMIT 20`
+    ).bind(t - WINDOW_MS).all();
+    threads = (r && r.results) || [];
+  } catch { threads = []; }
+
+  for (const th of threads) {
+    if (budget <= 0) break;
+    let last = null;
+    try {
+      last = await env.DB.prepare('SELECT * FROM messages WHERE thread_id=? ORDER BY created_at DESC LIMIT 1').bind(th.id).first();
+    } catch { continue; }
+    if (!last || last.direction !== 'inbound') continue;
+
+    budget -= 1;
+    const d = await draftReply(env, { kind: 'dm', text: last.body || '', username: th.external_username });
+    if (!d.ok) continue;
+
+    try {
+      if (d.escalate) {
+        await insertEscalation(env, th.id, null, d.reason, t);
+        escalated += 1;
+      } else {
+        await insertDraft(env, th.id, null, d.draft, t);
+        drafted += 1;
+      }
+    } catch { /* retried next tick — the thread's last message is still inbound */ }
+  }
+
+  // One tickle however many drafts landed — the owner opens the inbox once, not four times.
+  // Payload-less web push; no-op safe without VAPID, and never allowed to fail the tick.
+  if (drafted || escalated) {
+    try { await sendPushTickle(env, { roles: ['owner'] }); } catch { /* best-effort */ }
+  }
+
+  return json({ ok: true, drafted, escalated, skipped });
+};
+
+// Find-or-create the Comms thread for a comment's MEDIA (one thread per post, many comments).
+// last_inbound_at is deliberately NEVER set on comment threads: a public comment grants no DM
+// permission, and leaving it NULL means even a mis-routed sendDirectMessage fails closed with
+// "never_messaged_us" instead of DMing someone who only commented.
+async function commentThread(env, ev, t) {
+  const key = ev.media_id || ev.id;
+  const existing = await env.DB.prepare(
+    "SELECT id FROM threads WHERE audience='instagram' AND external_id=? LIMIT 1"
+  ).bind(key).first();
+  if (existing) return existing.id;
+  const tid = id('thr');
+  await env.DB.prepare(
+    `INSERT INTO threads (id, audience, subject, external_id, external_username, ref_type, ref_id, last_message_at, status, created_at, updated_at)
+     VALUES (?, 'instagram', ?, ?, ?, 'ig_media', ?, ?, 'open', ?, ?)`
+  ).bind(tid, 'Instagram comments', key, ev.from_username || null, ev.media_id || null, t, t, t).run();
+  return tid;
+}
+
+// A pending draft: outbound + ai_drafted, with sent_at/dismissed_at both NULL until the owner acts.
+async function insertDraft(env, threadId, refId, body, t) {
+  await env.DB.prepare(
+    `INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, ref_id, created_at)
+     VALUES (?,?,'outbound','instagram','ana','ana_draft',?,1,?,?)`
+  ).bind(id('msg'), threadId, body, refId, t).run();
+}
+
+// Aña refused to draft (angry / medical / refund). The marker row carries the reason into the
+// thread and, because sender_role is not 'ana_draft', the send op cannot ever send it. It also
+// stops the tick re-asking Aña about the same message every minute.
+async function insertEscalation(env, threadId, refId, reason, t) {
+  await env.DB.prepare(
+    `INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, ref_id, dismissed_at, created_at)
+     VALUES (?,?,'outbound','instagram','ana','ana_escalation',?,0,?,?,?)`
+  ).bind(id('msg'), threadId, `Aña escalated this to you — ${String(reason || 'needs the owner').slice(0, 200)}. No reply was drafted.`, refId, t, t).run();
+}
