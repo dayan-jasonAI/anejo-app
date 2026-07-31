@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { draftReply } from '../../functions/_lib/ana_social.js';
+import { draftReply, reactionReplyFor, looksLikeScaffolding } from '../../functions/_lib/ana_social.js';
 import { onRequestPost as tickPost } from '../../functions/api/hub/admin/social-inbox-tick.js';
 
 const ANA = readFileSync(new URL('../../functions/_lib/ana_social.js', import.meta.url), 'utf8');
@@ -278,4 +278,34 @@ test('a reply typed in Comms on an Instagram thread ACTUALLY reaches Instagram',
   assert.match(COMMS, /replyToComment\(env, \{ commentId: lastIn\.ref_id/, 'comment threads reply under the actual comment');
   assert.match(COMMS, /if \(!ig \|\| !ig\.ok\) return bad/, 'a refused send is an error, never a fake success');
   assert.match(COMMS, /sender_role='ana_draft' AND sent_at IS NULL AND dismissed_at IS NULL/, "a human reply supersedes Aña's pending draft");
+});
+
+// ---------- the public scaffolding leak, pinned with the real fixture ----------
+
+test('the EXACT reply that leaked publicly can never be auto-sent again', () => {
+  // Posted live under a customer's 🔥 on 2026-07-31, deleted by the owner within a minute:
+  const leaked = "I'd be happy to help, but I don't see a comment or question yet! Did you want me to draft a reply to a specific Instagram comment from a customer? Just paste the comment here and I'll write it up for you right away.";
+  assert.equal(looksLikeScaffolding(leaked), true, 'the fixture itself is caught');
+  assert.equal(looksLikeScaffolding('Gracias! We put our whole heart in that one 🌿'), false, 'a real reply passes');
+  assert.equal(looksLikeScaffolding(''), true, 'an empty reply never posts');
+  const TICK2 = readFileSync(new URL('../../functions/api/hub/admin/social-inbox-tick.js', import.meta.url), 'utf8');
+  assert.match(TICK2, /autoOk\('comment'\) && !looksLikeScaffolding\(d\.draft\)/, 'guard gates comment auto-send');
+  assert.match(TICK2, /if \(looksLikeScaffolding\(d\.draft\)\) \{ continue; \}/, 'guard gates DM auto-send');
+});
+
+test('a bare emoji never reaches the model — applause gets a warm fixed line', () => {
+  assert.ok(reactionReplyFor('🔥', 'c1'), 'fire emoji → rotation reply');
+  assert.ok(reactionReplyFor('😍😍', 'c2'), 'emoji run → rotation reply');
+  assert.ok(reactionReplyFor('!!', 'c3'), 'bare punctuation too');
+  assert.equal(reactionReplyFor('is this gluten free?', 'c4'), null, 'real words go to the model');
+  assert.equal(reactionReplyFor('🔥', 'same'), reactionReplyFor('🔥', 'same'), 'stable on retry');
+  const TICK2 = readFileSync(new URL('../../functions/api/hub/admin/social-inbox-tick.js', import.meta.url), 'utf8');
+  assert.match(TICK2, /const reaction = reactionReplyFor\(ev\.text, ev\.id\)/);
+});
+
+test('the prompt frame now tells the truth about auto mode', () => {
+  const ANA2 = readFileSync(new URL('../../functions/_lib/ana_social.js', import.meta.url), 'utf8');
+  assert.match(ANA2, /posted to Instagram the moment you write it/, 'auto mode says so');
+  assert.match(ANA2, /NEVER ask where the comment is/, 'the confusion that leaked is named');
+  assert.ok(!/nothing you write is sent automatically. Still write it exactly/.test(ANA2), 'the stale always-a-draft frame is gone');
 });

@@ -17,7 +17,7 @@
 import { json, bad, id, now, ctEq } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendPushTickle } from '../../../_lib/push.js';
-import { draftReply } from '../../../_lib/ana_social.js';
+import { draftReply, reactionReplyFor, looksLikeScaffolding } from '../../../_lib/ana_social.js';
 // The tick was built structurally unable to send — by design, while every reply awaited the
 // owner's tap. On 2026-07-31 the owner reviewed Aña's live drafts and the FAQ set and turned
 // auto-reply ON. The carve-outs are not negotiable: escalations still send NOTHING, the 24-hour
@@ -79,11 +79,20 @@ export const onRequestPost = async ({ request, env }) => {
       continue;
     }
 
-    budget -= 1;
-    const d = await draftReply(env, { kind: 'comment', text: ev.text || '', username: ev.from_username });
-    // A failed draft leaves handled=0 on purpose — the next tick retries it. Marking it handled
-    // here would silently drop a real customer's comment on an API blip.
-    if (!d.ok) continue;
+    // Applause first: a bare 🔥/❤️ gets a warm fixed-rotation line and never touches the model.
+    // The live failure this prevents: Haiku, handed an emoji with nothing to answer, broke
+    // character and posted its own scaffolding under a real customer's comment.
+    const reaction = reactionReplyFor(ev.text, ev.id);
+    let d;
+    if (reaction) {
+      d = { ok: true, draft: reaction };
+    } else {
+      budget -= 1;
+      d = await draftReply(env, { kind: 'comment', text: ev.text || '', username: ev.from_username, auto: autoOk('comment') });
+      // A failed draft leaves handled=0 on purpose — the next tick retries it. Marking it handled
+      // here would silently drop a real customer's comment on an API blip.
+      if (!d.ok) continue;
+    }
 
     try {
       const threadId = await commentThread(env, ev, t);
@@ -103,8 +112,10 @@ export const onRequestPost = async ({ request, env }) => {
         const mid = await insertDraft(env, threadId, ev.id, d.draft, t);
         drafted += 1;
         if (d.special) { specials += 1; await specialAlert(env, threadId, ev.text, t); }
-        // Public comment replies have no 24-hour window — the reply is public.
-        if (autoOk('comment')) {
+        // Public comment replies have no 24-hour window — the reply is public. The guard is the
+        // last gate: a reply that smells like scaffolding stays a human-review draft, because a
+        // broken-character reply on a public post costs more than a slow one.
+        if (autoOk('comment') && !looksLikeScaffolding(d.draft)) {
           const res = await replyToComment(env, { commentId: ev.id, text: d.draft });
           if (res && res.ok && await markSent(env, mid, t)) sent += 1;
         }
@@ -139,7 +150,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (!last || last.direction !== 'inbound') continue;
 
     budget -= 1;
-    const d = await draftReply(env, { kind: 'dm', text: last.body || '', username: th.external_username });
+    const d = await draftReply(env, { kind: 'dm', text: last.body || '', username: th.external_username, auto: autoOk('dm') });
     if (!d.ok) continue;
 
     try {
@@ -153,6 +164,7 @@ export const onRequestPost = async ({ request, env }) => {
         if (autoOk('dm')) {
           // sendDirectMessage re-checks never-messaged-first and the 24-hour ceiling internally —
           // the legality gate is not this file's to skip.
+          if (looksLikeScaffolding(d.draft)) { continue; }   // quarantined as a draft, never sent
           const res = await sendDirectMessage(env, { thread: th, recipientId: th.external_id, text: d.draft });
           if (res && res.ok && await markSent(env, mid, t)) sent += 1;
         }

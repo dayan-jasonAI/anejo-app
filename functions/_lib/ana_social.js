@@ -156,9 +156,44 @@ GUARDRAILS
 // malformed JSON "escalation" that gets treated as copy and sent to an angry customer is the
 // exact failure this exists to prevent.
 const ESCALATE_PREFIX = 'ESCALATE:';
-const socialAddendum = (kind, username) => `
-CONTEXT CHANGE — you are DRAFTING, not chatting.
-This is an Instagram ${kind === 'comment' ? 'public comment on one of Añejo\'s posts' : 'direct message'} from ${username ? '@' + username : 'a customer'}. Write a DRAFT reply for the owner to review, edit, and send — nothing you write is sent automatically. Still write it exactly as it should read when sent: Aña's warm voice, ready to go, no placeholders and no notes to the owner.
+
+// A bare 🔥 or ❤️ is not a question — it is applause. Sending it to a language model invites the
+// exact failure that happened live: Haiku, given nothing to answer, fell out of character and
+// posted its own scaffolding ("just paste the comment here...") under a real customer's comment.
+// Applause gets a warm human line from a fixed rotation, deterministically picked per comment id —
+// varied across comments, stable on retry, and NO model in the loop.
+const REACTION_REPLIES = [
+  '🌿 Gracias! Come taste it.',
+  '🔥 Gracias — that\'s the energy we cook with.',
+  'Gracias! We put our whole heart in that one 🌿',
+  '🙏 Gracias — see you at the table.',
+];
+export function reactionReplyFor(text, seedStr) {
+  const stripped = String(text || '').replace(/[\p{Extended_Pictographic}\p{Emoji_Component}\s\p{P}\p{S}]/gu, '');
+  if (stripped.length >= 3) return null;   // real words present — the model can earn its keep
+  let h = 0;
+  for (const ch of String(seedStr || '')) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return REACTION_REPLIES[h % REACTION_REPLIES.length];
+}
+
+// ── The output guard: code decides what may be posted, not the model ──
+// Pinned against the EXACT reply that leaked: an owner-addressed, drafting-frame meta-response.
+// If the model breaks character, the reply is quarantined as a human-review draft — never posted.
+export function looksLikeScaffolding(t) {
+  const x = String(t || '');
+  if (!x.trim()) return true;
+  if (/\b(draft|paste (the|your|a) comment|write it up|happy to help)\b/i.test(x)) return true;
+  if (/\b(as an ai|assistant|language model|the owner|for you to review)\b/i.test(x)) return true;
+  if (/don'?t see (a|the|any) (comment|question|message)/i.test(x)) return true;
+  if (x.length > 900) return true;
+  return false;
+}
+const socialAddendum = (kind, username, auto) => `
+CONTEXT CHANGE — you ARE Añejo's Instagram account, speaking publicly.
+This is an Instagram ${kind === 'comment' ? 'public comment on one of Añejo\'s posts' : 'direct message'} from ${username ? '@' + username : 'a customer'}. ${auto
+  ? 'Your reply is posted to Instagram the moment you write it. There is no reviewer, no owner reading over your shoulder, and no second chance — you are speaking DIRECTLY to this person, in public.'
+  : 'Write the reply exactly as it should read when sent — the owner may review it first, but it must be finished, with no placeholders and no notes to anyone.'}
+NEVER mention drafting, reviewing, pasting, assistants, or the owner. NEVER ask where the comment is — the message above IS the comment. If it is a short compliment or a reaction, answer with ONE warm human sentence and stop; no links, no pitch, no hashtags unless they asked a question.
 
 SPECIAL REQUESTS — never refuse, never promise
 If someone missed an ordering window, wants a date we may not serve, or asks for something custom
@@ -185,7 +220,7 @@ ${ESCALATE_PREFIX} <a few words saying why this needs the owner>`;
  *                                           is nothing downstream to accidentally send
  *   { ok:false }                          — no key / empty text / API failure; caller retries later
  */
-export async function draftReply(env, { kind = 'dm', text, username } = {}) {
+export async function draftReply(env, { kind = 'dm', text, username, auto = false } = {}) {
   if (!env || !env.ANTHROPIC_API_KEY) return { ok: false, reason: 'not_configured' };
   // The $50/week ceiling covers EVERY model call, and a DM backlog at 4 drafts/minute is exactly
   // the kind of quiet spender the ceiling exists for. Gated before any work, like every caller.
@@ -196,7 +231,7 @@ export async function draftReply(env, { kind = 'dm', text, username } = {}) {
   // Prices and rules are read per draft, same as chat.js — loadMenu never throws, it degrades to
   // last-known-good, so the draft always quotes what checkout charges.
   const menu = await loadMenu(env);
-  const system = anaSystemPrompt(menu) + '\n' + socialAddendum(kind, username);
+  const system = anaSystemPrompt(menu) + '\n' + socialAddendum(kind, username, auto);
 
   let r;
   try {
