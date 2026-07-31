@@ -106,11 +106,21 @@ async function executeAction(env, action) {
       const caption = String((a && a.caption) || '').trim().slice(0, 2200);
       if (!caption) continue;
       const brief = String((a && a.image_brief) || '').trim().slice(0, 400) || null;
+      const postId = id('sp');
       try {
         await env.DB.prepare(
           `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at)
            VALUES (?,'instagram',?,NULL,?,'draft',NULL,?,'planner','lead',?,?)`
-        ).bind(id('sp'), caption, randToken(24), brief, t, t).run();
+        ).bind(postId, caption, randToken(24), brief, t, t).run();
+        // EVERY generated draft is scored, whichever door it came through — the planner's inserts
+        // are audited in socialPlan, and a Lead that could slip unscored copy past governance
+        // would make the gate decorative. Failure leaves audit_at NULL: visibly unscored, and
+        // the trust ledger's auto-publish requires an explicit 'pass', so unscored never ships.
+        try {
+          const audit = await auditDraft(env, { caption, image_brief: brief });
+          await env.DB.prepare('UPDATE social_posts SET audit_score=?, audit_flags=?, audit_at=?, audit_status=? WHERE id=?')
+            .bind(audit.brand_score, JSON.stringify(audit.flags), now(), audit.verdict === 'pass' ? 'pass' : 'flag', postId).run();
+        } catch { /* draft stands, visibly unscored */ }
         made.push(caption.split('\n')[0].slice(0, 60));
       } catch { /* one bad row must not lose the rest of the set */ }
     }

@@ -250,3 +250,11 @@ test('the migration is additive and the message roles are constrained to owner|l
   assert.match(MIG, /CHECK \(role IN \('owner','lead'\)\)/);
   assert.match(MIG, /CHECK \(status IN \('draft','approved','archived'\)\)/);
 });
+
+test('Lead-created drafts pass through governance too — no unscored door', () => {
+  // The planner's inserts are audited in socialPlan; a Lead that could slip unscored copy past
+  // the gate would make governance decorative. Found at integration, pinned here.
+  const TEAM = readFileSync(new URL('../../functions/api/hub/owner/team.js', import.meta.url), 'utf8');
+  assert.match(TEAM, /auditDraft\(env, \{ caption, image_brief: brief \}\)/);
+  assert.match(TEAM, /audit_status=\? WHERE id=\?/);
+});
