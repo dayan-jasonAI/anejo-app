@@ -9,6 +9,7 @@
 // imported here (a source-pinned test enforces it) — a draft that can reach Instagram from this
 // file would be one refactor away from auto-replying to a customer, which is the one thing the
 // owner said may never happen.
+import { budgetGate, recordSpend } from './ai_budget.js';
 import { loadMenu, isOrderable, isAvailable } from './menu.js';
 import { BASE_BOWL_PRICE_USD } from './sizing.js';
 
@@ -176,6 +177,9 @@ ${ESCALATE_PREFIX} <a few words saying why this needs the owner>`;
  */
 export async function draftReply(env, { kind = 'dm', text, username } = {}) {
   if (!env || !env.ANTHROPIC_API_KEY) return { ok: false, reason: 'not_configured' };
+  // The $50/week ceiling covers EVERY model call, and a DM backlog at 4 drafts/minute is exactly
+  // the kind of quiet spender the ceiling exists for. Gated before any work, like every caller.
+  if (!(await budgetGate(env)).ok) return { ok: false, reason: 'budget' };
   const msg = String(text || '').trim();
   if (!msg) return { ok: false, reason: 'empty' };
 
@@ -201,6 +205,7 @@ export async function draftReply(env, { kind = 'dm', text, username } = {}) {
 
   let data;
   try { data = await r.json(); } catch { return { ok: false }; }
+  await recordSpend(env, { feature: 'ana_social_draft', model: DRAFT_MODEL, usage: data && data.usage });
   const out = ((data && data.content) || []).map((c) => c.text || '').join('').trim();
   if (!out) return { ok: false };
 
