@@ -264,8 +264,11 @@ literally named `paidRank` with an on/off switch and a position slot (switched o
 inspected, but the machinery is a built product feature).
 
 Worth knowing that these are not independent opinions either: Healthline belongs to RVO Health,
-CNET to Ziff Davis, EatingWell and Verywell to People Inc. (IAC), and Forbes Advisor/Health are run
-by Forbes Marketplace, in which Forbes Media holds only a **minority (~39.5%) stake**. Four commerce
+CNET to Ziff Davis, EatingWell and Verywell to People Inc. (whose parent IAC itself renamed to
+People Incorporated in June 2026), and Forbes Advisor/Health are run by Forbes Marketplace, in which
+Forbes Media held a **minority stake — 39.53% as of the last public filing in 2022**, though Forbes
+consolidates it as a variable interest entity. Forbes is private now, so treat that as
+last-documented rather than current. Four commerce
 businesses running one playbook on different domains.
 
 **Two honest exceptions.** Healthline states its rankings are set *"without regard to any financial
@@ -336,6 +339,15 @@ credentials they reward, which are obtainable at any size (below).
 - **Good Food Awards** (now run by the Specialty Food Association) and the **sofi Awards** both
   require a **retail-ready product**; sofi additionally requires six months of prior retail sales,
   paid membership, and 25 shipped samples. Neither is reachable without spinning off a shelf SKU.
+- **Good Housekeeping's award programs** — same blocker, and now with a price on it. Entry is
+  **$795 per product** for the 2027 programs, the twelve categories are all packaged goods
+  (Snack, Kitchen, Toy, Bedding, Travel…), and **winning does not include the emblem** — the logo
+  is a *separate paid licence* negotiated afterwards, with no published rate. A fresh delivered
+  meal has no category to enter. The **GH Seal** is a different programme again
+  (`GHSeal@hearst.com`, no published fee; the old "must advertise in a Hearst title" requirement
+  appears only in 2009 reporting, not in current terms). *Men's Health* runs no submission
+  process at all — editors pick, and `accolades@hearst.com` licenses the logo afterwards.
+  All of this reinforces the same rule: **these programmes are built for products on a shelf.**
 - **Michelin** now covers Palm Beach County — Emelina took a star in the 2026 Florida selection —
   but with no dining room there is realistically no path.
 - **New Times Broward-Palm Beach "Best Of"** has been consolidated away: its Best Of URL now
