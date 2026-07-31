@@ -27,6 +27,10 @@ const EXTRA_ENDPOINTS = {
   '30 0 * * *': ['/api/hub/admin/ops-report?type=eod_dinner'],   // ≈ 8:30pm ET — end of dinner service
   '0 12 * * 0': ['/api/hub/admin/ops-report?type=weekly_summary'], // Sundays ≈ 8am ET — weekly summary
   '0 10 * * 1': ['/api/hub/admin/backup'],
+  // Daily Instagram performance snapshot ≈ 6am ET — the learning loop's input. Daily because the
+  // day-over-day curve IS the signal; a weekly pull would flatten "died instantly" and "slow
+  // burner" into the same number.
+  '0 10 * * *': ['/api/hub/admin/insights-tick'],
   // Contract cutoff check — "has every site sent today's lunch count?" — fired a few minutes
   // BEFORE the 09:15 cutoff, while there is still time to send one text.
   //

@@ -21,7 +21,7 @@ export const onRequestGet = async ({ request, env }) => {
   let posts = [];
   try {
     const r = await env.DB.prepare(
-      'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
+      'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
     ).all();
     posts = (r && r.results) || [];
   } catch { posts = []; }
@@ -38,6 +38,18 @@ export const onRequestGet = async ({ request, env }) => {
     for (const row of (m && m.results) || []) (bySlide[row.post_id] = bySlide[row.post_id] || []).push({ id: row.id, seq: row.seq, media_key: row.media_key });
     for (const post of posts) post.media = bySlide[post.id] || [];
   } catch { for (const post of posts) post.media = []; }
+
+  // Latest performance snapshot per media id, attached to our published posts. NULL until the
+  // daily sweep has run — the page says "no data yet", never fake zeros.
+  try {
+    const mr = await env.DB.prepare(
+      `SELECT media_id, likes, comments, reach, saved, capture_date FROM ig_media_metrics
+        WHERE capture_date = (SELECT MAX(capture_date) FROM ig_media_metrics)`
+    ).all();
+    const byMedia = {};
+    for (const row of (mr && mr.results) || []) byMedia[row.media_id] = row;
+    for (const post of posts) if (post.ig_media_id && byMedia[post.ig_media_id]) post.metrics = byMedia[post.ig_media_id];
+  } catch { /* metrics are additive; the page works without them */ }
 
   let publishedToday = 0;
   try {

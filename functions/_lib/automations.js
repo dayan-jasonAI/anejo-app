@@ -11,6 +11,7 @@ import { randToken } from './util.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { BRAND_BRIEF } from './brand_brief.js';
 import { BRAND_CONTEXT } from './brand_context.js';
+import { performanceBrief } from './instagram_insights.js';
 
 // §3 of the brief — the three product lines. Fed to the planner SEPARATELY from the voice
 // excerpts because of Dayan's decision #6: the standing objective is that people know EVERYTHING
@@ -652,6 +653,10 @@ async function socialPlan(env, date) {
 
   const menuLines = onSale.map((b) => `${b.name} ($${((b.price_cents || 0) / 100).toFixed(2)}) — ${b.description || ''}`.trim());
   const soldOutLine = off.length ? `Currently SOLD OUT and must not be mentioned: ${off.map((b) => b.name).join(', ')}.` : '';
+  // What the last posts actually did. Empty string until the first insights sweep lands — the
+  // planner must never see an empty scaffold that reads like data. THIS is the line that makes
+  // week 10 better than week 1.
+  const performance = await performanceBrief(env);
 
   const ai = await askClaudeJson(env, {
     system:
@@ -681,6 +686,7 @@ async function socialPlan(env, date) {
       `day_offset 0 is today, 1 is ${new Date(Date.parse(`${date}T12:00:00Z`) + 86400000).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })}, ` +
       `and so on through 6.\n\n` +
       `Write ${need} posts for the coming week.\n\n` +
+      (performance ? performance + '\n\n' : '') +
       `ON THE MENU RIGHT NOW (these are the only items you may promote):\n${menuLines.join('\n')}\n\n` +
       `${soldOutLine}\n\n` +
       'Vary the angle across the set: the food itself, the kitchen/process, the people it feeds, and one that simply invites an order. ' +
