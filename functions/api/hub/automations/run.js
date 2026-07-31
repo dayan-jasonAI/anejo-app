@@ -12,6 +12,7 @@
 import { json, bad, id, now } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { runAutomation, IMPLEMENTED, PLANNED } from '../../../_lib/automations.js';
+import { underBudget, currentWeek, WEEKLY_LIMIT_MICRO } from '../../../_lib/ai_budget.js';
 
 // A run is only "in flight" for as long as a request can plausibly still be alive. Past this
 // the placeholder below can never be closed by anyone, so it is a dead job, not a slow one.
@@ -119,10 +120,20 @@ export const onRequestGet = async ({ request, env }) => {
   const last = await env.DB
     .prepare('SELECT automation_type, MAX(started_at) AS last_started, outcome AS last_outcome, error AS last_error, COUNT(*) AS run_count FROM agent_runs WHERE automation_type IS NOT NULL GROUP BY automation_type')
     .all();
+  // The budget meter, in dollars for the panel. Microdollars stay server-side: the UI should
+  // never re-derive money, only display what the gate itself is enforcing against.
+  const budget = await underBudget(env);
+  const usd = (micro) => Math.round(micro / 10000) / 100;
   return json({
     ok: true,
     runs: (res && res.results) || [],
     last_runs: (last && last.results) || [],
+    ai_budget: {
+      week: currentWeek(),
+      spent_usd: usd(budget.spent),
+      limit_usd: usd(WEEKLY_LIMIT_MICRO),
+      remaining_usd: usd(budget.remaining),
+    },
     server_now: Date.now(),   // staleness is judged against server time, not a skewed client clock
     stuck_after_ms: STUCK_AFTER_MS,  // shared threshold so the panel and the sweep agree
     implemented: IMPLEMENTED,

@@ -9,6 +9,7 @@ import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson } from '../../../../_lib/hub.js';
 import { buildStudioSystem } from '../../../../_lib/studio_context.js';
 import { getMedia, contentTypeForKey } from '../../../../_lib/media.js';
+import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
 const MODEL = 'claude-sonnet-4-6';
 const ASSIST_TYPES = ['guidance', 'research', 'substitution', 'scaling', 'critique'];
@@ -86,6 +87,9 @@ async function buildTranscript(env, sessionId, beforeTs = null) {
 }
 
 async function callClaude(env, sessionId, userText, assistType, beforeTs = null) {
+  // Weekly AI budget spent → throw BEFORE any prompt building, and the caller's existing
+  // catch answers the turn with the demo reply — the chef still gets coaching copy.
+  if (!(await budgetGate(env)).ok) throw new Error('weekly AI budget reached');
   const { msgs: history, photoKeys } = await buildTranscript(env, sessionId, beforeTs);
   // Same retrieval as the streaming path — the non-streaming fallback must not answer from a
   // smaller world than the streaming one, or the same question gives different answers by route.
@@ -108,6 +112,7 @@ async function callClaude(env, sessionId, userText, assistType, beforeTs = null)
   });
   if (!r.ok) throw new Error(`AI ${r.status}`);
   const data = await r.json();
+  await recordSpend(env, { feature: 'studio_chat', model: MODEL, usage: data.usage });
   return (data.content || []).map((c) => c.text || '').join('').trim();
 }
 

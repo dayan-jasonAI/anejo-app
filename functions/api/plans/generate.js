@@ -2,6 +2,7 @@
 // Stateless V1 demo endpoint. Takes an intake JSON, calls Claude Sonnet 4.6,
 // returns a structured plan. No DB writes — saving + checkout ship in V1.1.
 import { limitOr429 } from '../../_lib/ratelimit.js';
+import { budgetGate, recordSpend } from '../../_lib/ai_budget.js';
 import { computeSizing, RECOMMENDED_BOWL_COUNT } from '../../_lib/sizing.js';
 import { SITE_BOWLS, SITE_BOWL_NAMES } from '../../_lib/bowlspec.js';
 
@@ -169,6 +170,12 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ error: 'Server is not configured (missing ANTHROPIC_API_KEY).' }, 500);
   }
 
+  // Weekly AI budget spent: refuse before validating input — a public, unauthenticated
+  // surface is exactly where an exhausted budget must not keep billing.
+  if (!(await budgetGate(env)).ok) {
+    return json({ error: 'The plan generator is unavailable right now. Please try again next week.' }, 503);
+  }
+
   let body;
   try {
     body = await request.json();
@@ -221,6 +228,7 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   const data = await apiResp.json();
+  await recordSpend(env, { feature: 'plan_generate', model: MODEL, usage: data.usage });
   const text = (data.content || []).map(c => c.text || '').join('');
 
   let plan;

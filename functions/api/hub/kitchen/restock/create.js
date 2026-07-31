@@ -6,6 +6,7 @@
 import { json, bad } from '../../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { id, now, bit } from '../../../../_lib/hub.js';
+import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -28,6 +29,8 @@ const PANTRY = [
 
 async function aiSuggest(env, day, orderCount, bowlTally) {
   if (!env.ANTHROPIC_API_KEY) return null;
+  // Weekly AI budget spent → null, same as no key: the demo suggestion path answers.
+  if (!(await budgetGate(env)).ok) return null;
   const sys = 'You are the kitchen purchasing assistant for Añejo Catering Co. (Mediterranean-Cuban bowls, Palm Beach County). Given recent order volume, suggest restock quantities. Return ONLY a JSON array of {name, qty, unit} objects. Use realistic restaurant quantities. No prose.';
   const user = [
     `Date: ${day}. Recent orders: ${orderCount}.`,
@@ -43,6 +46,7 @@ async function aiSuggest(env, day, orderCount, bowlTally) {
     });
     if (!r.ok) return null;
     const data = await r.json();
+    await recordSpend(env, { feature: 'kitchen_restock', model: MODEL, usage: data.usage });
     const text = (data.content || []).map((c) => c.text || '').join('');
     const first = text.indexOf('[');
     const last = text.lastIndexOf(']');

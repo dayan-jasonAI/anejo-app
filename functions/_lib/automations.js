@@ -27,6 +27,7 @@ function productLines() {
 import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
 import { sendPushTickle } from './push.js';
+import { budgetGate, recordSpend } from './ai_budget.js';
 
 const MODEL = 'claude-sonnet-4-6';
 export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan'];
@@ -50,8 +51,11 @@ async function rows(env, sql, ...args) {
 
 // Small Claude call that must return JSON. Fully guarded: returns null on any failure
 // (no key, network error, non-JSON answer) so callers always fall back deterministically.
-async function askClaudeJson(env, { system, user, maxTokens = 400 }) {
+async function askClaudeJson(env, { system, user, maxTokens = 400, feature = 'automation' }) {
   if (!env || !env.ANTHROPIC_API_KEY) return null;
+  // The $50/week ceiling is HARD: at the limit this refuses exactly like the no-key path,
+  // so every caller's deterministic fallback runs and nothing bills into next week.
+  if (!(await budgetGate(env)).ok) return null;
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -65,6 +69,9 @@ async function askClaudeJson(env, { system, user, maxTokens = 400 }) {
     });
     if (!r.ok) return null;
     const j = await r.json();
+    // Metered HERE, not after the parse: an unparseable answer was still a billed answer,
+    // and skipping it would undercount the very calls that wasted money.
+    await recordSpend(env, { feature, model: MODEL, usage: j.usage });
     let text = (j.content && j.content[0] && j.content[0].text || '').trim();
     if (!text) return null;
     // Tolerate code fences / leading prose around the JSON.
@@ -176,7 +183,8 @@ async function dailySummary(env, date) {
   let tokens = null;
 
   // Optional AI polish — fully guarded; deterministic narrative stands if it fails.
-  if (env.ANTHROPIC_API_KEY) {
+  // Gated like every model call: over the weekly ceiling the plain narrative ships instead.
+  if (env.ANTHROPIC_API_KEY && (await budgetGate(env)).ok) {
     try {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -190,6 +198,7 @@ async function dailySummary(env, date) {
       });
       if (r.ok) {
         const j = await r.json();
+        await recordSpend(env, { feature: 'daily_summary', model: MODEL, usage: j.usage });
         const text = (j.content && j.content[0] && j.content[0].text || '').trim();
         if (text) narrative = text;
         if (j.usage) tokens = (j.usage.input_tokens || 0) + (j.usage.output_tokens || 0);
@@ -259,6 +268,7 @@ async function routeOptimize(env, date) {
     system: 'You are a delivery route planner for a catering company. Given JSON stops with delivery_window (lunch is served before dinner) and created_at, return ONLY JSON {"order_ids":[...]} — every input id exactly once, sequenced for an efficient day (all lunch stops first, then dinner; earlier-created orders earlier within a window).',
     user: JSON.stringify({ date, stops: ordered.map((o) => ({ id: o.id, window: o.delivery_window, created_at: o.created_at })) }),
     maxTokens: 600,
+    feature: 'route_optimize',
   });
   if (ai && ai.data && Array.isArray(ai.data.order_ids)) {
     const proposed = ai.data.order_ids.map(String);
@@ -369,6 +379,7 @@ async function restockSuggest(env, date) {
     system: 'You are a kitchen purchasing assistant for a catering company. Given proposed restock lines derived from 14 days of order demand, refine quantities and add obvious missing staples (oil, rice, beans, foil, containers...). Return ONLY JSON {"items":[{"name":"...","qty":1,"unit":"ea"}]} with at most 20 items, integer qty >= 1.',
     user: JSON.stringify({ date, demand_14d: top.map(([name, qty]) => ({ name, qty })), proposed: items }),
     maxTokens: 700,
+    feature: 'restock_suggest',
   });
   if (ai && ai.data && Array.isArray(ai.data.items)) {
     const refined = ai.data.items
@@ -427,6 +438,7 @@ async function ticketTriage(env, date) {
       system: 'You are a triage assistant for a catering operations team. Classify the ticket severity as one of low|medium|high|urgent (urgent = safety, injury, fire, vehicle, food-safety risk). Return ONLY JSON {"severity":"...","rationale":"one short sentence"}.',
       user: JSON.stringify({ ticket_type: tk.ticket_type, title: tk.title, body: (tk.body || '').slice(0, 1500) }),
       maxTokens: 120,
+      feature: 'ticket_triage',
     });
     if (ai && ai.data && SEVERITY_RANK[ai.data.severity] != null) {
       verdict = { severity: ai.data.severity, rationale: (ai.data.rationale || '').toString().slice(0, 240) || 'Classified by AI triage.' };
@@ -512,6 +524,7 @@ async function sentimentScan(env, date) {
     system: 'You scan internal catering-ops messages for negative sentiment that the owner should see (angry customers, unsafe conditions, staff about to quit, failed deliveries). Return ONLY JSON {"flags":[{"source":"...","quote":"verbatim excerpt","reason":"short"}]} — empty array if nothing notable. Max 10 flags.',
     user: body,
     maxTokens: 700,
+    feature: 'sentiment_scan',
   });
   if (ai && ai.data && Array.isArray(ai.data.flags)) {
     flags = ai.data.flags
@@ -623,6 +636,18 @@ async function payrollPrep(env, date) {
  *     greyed-out card. Prices come from the same rows the storefront charges from.
  */
 async function socialPlan(env, date) {
+  // The $50/week spend ceiling is checked FIRST, and the refusal is named: 'budget' in the
+  // run log, plain words in the summary. Rule 1 of this planner already rejects template
+  // fallbacks, so at the ceiling the only honest outcome is a skip the owner can read —
+  // never a quiet week that looks like the planner broke.
+  const gate = await budgetGate(env);
+  if (!gate.ok) {
+    return {
+      outcome: 'skipped',
+      output: { date, reason: 'budget', spent_microdollars: gate.spent },
+      summary: 'Weekly AI budget reached — no posts were drafted. The planner resumes when the new week starts.',
+    };
+  }
   const menu = await loadMenu(env);
   const bowls = (menu.items || []).filter((it) => it.kind === 'bowl');
   const onSale = bowls.filter((it) => isAvailable(it) && isOrderable(it));
@@ -698,6 +723,7 @@ async function socialPlan(env, date) {
       'ingredients we have not been told. If you are unsure of an operational detail, leave it out — ' +
       '"link in bio" is always safe, a wrong deadline makes someone think they missed their window.',
     maxTokens: 1600,
+    feature: 'social_plan',
   });
 
   if (!ai || !Array.isArray(ai.data)) {

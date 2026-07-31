@@ -5,6 +5,7 @@
 // Files under _lib are NOT routed.
 import { id, now, parseJson } from './hub.js';
 import { buildBrandContext } from './studio_context.js';
+import { budgetGate, recordSpend } from './ai_budget.js';
 
 const MODEL = 'claude-sonnet-4-6';
 export const BRAND_DOC_ID = 'doc_brand_main';
@@ -77,6 +78,8 @@ export async function draftBriefChange(env, { sessionId, instruction }) {
       proposed_body: current || 'Añejo Brand & Standards Brief (demo).',
     };
   }
+  // Weekly AI budget spent → the deterministic fallback draft, same as a failed call.
+  if (!(await budgetGate(env)).ok) return fallbackDraft(current, instruction);
   let transcript = '';
   if (sessionId) {
     try {
@@ -102,6 +105,7 @@ export async function draftBriefChange(env, { sessionId, instruction }) {
     }, AI_TIMEOUT_MS);
     if (!r.ok) return fallbackDraft(current, instruction);
     const data = await r.json();
+    await recordSpend(env, { feature: 'brief_draft', model: MODEL, usage: data.usage });
     const text = (data.content || []).map((c) => c.text || '').join('');
     const a = text.indexOf('{'); const b = text.lastIndexOf('}');
     if (a === -1 || b === -1) return fallbackDraft(current, instruction);

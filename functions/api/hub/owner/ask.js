@@ -18,6 +18,7 @@
 import { json, bad, id, now } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
+import { budgetGate, recordSpend } from '../../../_lib/ai_budget.js';
 
 const MODEL = 'claude-sonnet-4-6';
 const MAX_Q = 400;
@@ -117,6 +118,7 @@ async function askClaude(env, { question, facts }) {
     });
     if (!r.ok) return { error: `Assistant returned ${r.status}.` };
     const j = await r.json();
+    await recordSpend(env, { feature: 'owner_ask', model: MODEL, usage: j.usage });
     let text = ((j.content && j.content[0] && j.content[0].text) || '').trim();
     if (!text) return { error: 'The assistant returned nothing.' };
     const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -149,6 +151,15 @@ export const onRequestPost = async ({ request, env }) => {
 
   const t = now();
   const facts = await factSheet(env, t);
+
+  // Weekly AI budget spent: same shape as the no-key path — the fact sheet is still live
+  // and still useful, only the phrasing is withheld. Never an empty error at the owner.
+  if (!(await budgetGate(env)).ok) {
+    return json({
+      ok: true, question, answer: null, facts,
+      unavailable: 'The weekly AI budget is spent, so the HUB cannot phrase an answer until the new week. The figures above are live.',
+    });
+  }
 
   const res = await askClaude(env, { question, facts });
 

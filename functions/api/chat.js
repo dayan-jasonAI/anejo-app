@@ -4,6 +4,7 @@
 // message history each turn. Rate-limited as a cost-abuse guard.
 import { json, bad } from '../_lib/util.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
+import { budgetGate, recordSpend } from '../_lib/ai_budget.js';
 import { loadMenu, isOrderable, isAvailable } from '../_lib/menu.js';
 import { BASE_BOWL_PRICE_USD } from '../_lib/sizing.js';
 
@@ -142,6 +143,9 @@ export const onRequestPost = async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: 'chat', limit: 20, windowSec: 60 });
   if (limited) return limited;
   if (!env.ANTHROPIC_API_KEY) return json({ error: 'Chat is not available right now.' }, 503);
+  // The $50/week model-spend ceiling is HARD. Over it, Aña answers with the same graceful
+  // copy as the no-key path — a customer must never see a budget error, just "not right now".
+  if (!(await budgetGate(env)).ok) return json({ error: 'Chat is not available right now.' }, 503);
 
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
@@ -170,6 +174,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (!r.ok) return json({ error: 'The assistant is briefly unavailable. Please try again.' }, 502);
 
   const data = await r.json();
+  await recordSpend(env, { feature: 'chat', model: MODEL, usage: data.usage });
   const reply = (data.content || []).map((c) => c.text || '').join('').trim();
   return json({ reply: reply || "Sorry, I didn't catch that — could you say it another way?" });
 };

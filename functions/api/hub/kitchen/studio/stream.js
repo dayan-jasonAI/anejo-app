@@ -9,6 +9,7 @@ import { id, now, toJson } from '../../../../_lib/hub.js';
 import { buildStudioSystem } from '../../../../_lib/studio_context.js';
 import { getMedia, contentTypeForKey } from '../../../../_lib/media.js';
 import { generatePlateImage } from '../../../../_lib/plate_image.js';
+import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
 const MODEL = 'claude-sonnet-4-6';
 const IMG_SENTINEL = '⟦IMG⟧';   // model puts image requests after this; the app renders them, chef never sees it
@@ -89,6 +90,9 @@ export const onRequestPost = async ({ request, env }) => {
   if (!text) return bad('Missing text.');
   const assistType = ASSIST_TYPES.includes(b && b.assist_type) ? b.assist_type : 'guidance';
   if (!env.ANTHROPIC_API_KEY) return bad('Creative Studio AI is not configured. This turn was not drafted.', 503);
+  // Weekly AI budget spent → refuse before opening a stream. This route's contract is
+  // "fail visibly when AI is unavailable", and over-budget is unavailable.
+  if (!(await budgetGate(env)).ok) return bad('The weekly AI budget is spent. This turn was not drafted.', 503);
 
   const session = await env.DB.prepare('SELECT * FROM recipe_sessions WHERE id = ?').bind(sessionId).first();
   if (!session) return bad('Session not found.', 404);
@@ -144,6 +148,9 @@ export const onRequestPost = async ({ request, env }) => {
   const stream = new ReadableStream({
     async start(controller) {
       let full = '', emitted = 0, sentinelAt = -1;
+      // Streaming bills like any call, but usage arrives in pieces: input_tokens ride
+      // message_start, the final output_tokens ride the last message_delta.
+      const usage = { input_tokens: 0, output_tokens: 0 };
       const HOLD = IMG_SENTINEL.length; // hold back a few chars so a forming sentinel never leaks
       const flush = (final) => {
         let end = sentinelAt === -1 ? full.length : sentinelAt;
@@ -181,6 +188,9 @@ export const onRequestPost = async ({ request, env }) => {
           }
         }
         if (!demo) await persist((shown + appended).trim(), false);
+        // Metered even on the error path (demo=true after a partial stream): whatever
+        // usage events arrived were billed tokens, and skipping them undercounts.
+        await recordSpend(env, { feature: 'studio_chat', model: MODEL, usage });
       };
       try {
         // Parse Anthropic SSE: emit text from content_block_delta/text_delta.
@@ -201,6 +211,8 @@ export const onRequestPost = async ({ request, env }) => {
             try {
               const evt = JSON.parse(payload);
               if (evt.type === 'content_block_delta' && evt.delta && evt.delta.type === 'text_delta') push(evt.delta.text || '');
+              else if (evt.type === 'message_start' && evt.message && evt.message.usage) usage.input_tokens = evt.message.usage.input_tokens || 0;
+              else if (evt.type === 'message_delta' && evt.usage) usage.output_tokens = evt.usage.output_tokens || usage.output_tokens;
             } catch { /* ignore keep-alive / partial */ }
           }
         }

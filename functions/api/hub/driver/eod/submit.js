@@ -9,6 +9,7 @@ import { json, bad } from '../../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, today, toJson, etDayBounds, etDateOf, addEtDays } from '../../../../_lib/hub.js';
+import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -110,6 +111,9 @@ function fallbackSummary(d) {
 
 async function aiDraft(env, day) {
   if (!env.ANTHROPIC_API_KEY) return { summary: fallbackSummary(day), ai_drafted: false };
+  // Over the weekly AI budget the built-from-data summary ships, same as the no-key path —
+  // the driver always gets something to edit, never a budget error.
+  if (!(await budgetGate(env)).ok) return { summary: fallbackSummary(day), ai_drafted: false };
   const userPrompt =
     'Write a concise, first-person end-of-day report for a catering delivery driver. ' +
     "2-4 sentences, plain and professional. Note anything that needs the owner's attention " +
@@ -132,6 +136,7 @@ async function aiDraft(env, day) {
     });
     if (!resp.ok) return { summary: fallbackSummary(day), ai_drafted: false };
     const data = await resp.json();
+    await recordSpend(env, { feature: 'eod_draft_driver', model: MODEL, usage: data.usage });
     const text = (data.content || []).map((c) => c.text || '').join('').trim();
     return text ? { summary: text, ai_drafted: true } : { summary: fallbackSummary(day), ai_drafted: false };
   } catch {

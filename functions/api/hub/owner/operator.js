@@ -16,6 +16,7 @@
 //      mutate anything. There is no write path in this file, by construction.
 import { json } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
+import { budgetGate, recordSpend } from '../../../_lib/ai_budget.js';
 
 const MODEL = 'claude-haiku-4-5-20251001';
 
@@ -117,6 +118,16 @@ export const onRequestPost = async ({ request, env }) => {
 
   if (!env.DB) return json({ ok: false, error: 'no_database', detail: 'D1 is not bound; there is nothing to ground an answer in.' }, 501);
 
+  // Same honest-refusal doctrine as the missing key: over the weekly AI budget the operator
+  // says so rather than quietly billing past the owner's own ceiling.
+  if (!(await budgetGate(env)).ok) {
+    return json({
+      ok: false,
+      error: 'operator_unavailable',
+      detail: 'The weekly AI budget is spent. The operator refuses rather than exceeding the $50/week ceiling you set.',
+    }, 503);
+  }
+
   const data = await buildContext(env);
 
   try {
@@ -131,6 +142,7 @@ export const onRequestPost = async ({ request, env }) => {
       }),
     });
     const j = await r.json();
+    await recordSpend(env, { feature: 'operator', model: MODEL, usage: j?.usage });
     const reply = (j?.content || []).map((b) => b.text || '').join('').trim();
     if (!reply) return json({ ok: false, error: 'empty_reply', detail: j?.error?.message || 'model returned nothing' }, 502);
 
