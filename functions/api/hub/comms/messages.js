@@ -15,10 +15,11 @@ import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { id, now, bit } from '../../../_lib/hub.js';
 import { sendSms, sendWhatsApp } from '../../../_lib/twilio.js';
+import { sendDirectMessage, replyToComment } from '../../../_lib/instagram_messaging.js';
 import { sendPushTickle } from '../../../_lib/push.js';
 
 const ALL_ROLES = ['owner', 'kitchen', 'driver', 'vendor', 'trainer', 'client'];
-const CHANNELS = ['in_app', 'sms', 'whatsapp'];
+const CHANNELS = ['in_app', 'sms', 'whatsapp', 'instagram'];
 
 // Same visibility rules as threads.js, applied to one loaded thread row.
 function canAccessThread(ctx, t) {
@@ -127,7 +128,7 @@ export const onRequestPost = async ({ request, env }) => {
   const body = ((b && b.body) || '').toString().trim().slice(0, 4000);
   if (!threadId) return bad('Missing thread_id.');
   if (!body) return bad('Missing message body.');
-  const channel = (b && b.channel) || 'in_app';
+  let channel = (b && b.channel) || 'in_app';
   if (!CHANNELS.includes(channel)) return bad('Unknown channel.');
   const aiDrafted = bit(b && b.ai_drafted);
 
@@ -136,6 +137,47 @@ export const onRequestPost = async ({ request, env }) => {
   if (!canAccessThread(ctx, thread)) return bad('Forbidden for this thread.', 403);
 
   const ts = now();
+
+  // AN INSTAGRAM THREAD REPLIES ON INSTAGRAM — inferred from the thread, never from what the page
+  // sent. Before this, typing into an Instagram thread stored an 'in_app' row that LOOKED sent in
+  // the HUB while the customer received nothing: the worst kind of gap, because nothing looks
+  // broken. The page needs no change; the same reply box now routes correctly.
+  if (thread.audience === 'instagram') channel = 'instagram';
+  if (channel === 'instagram') {
+    if (thread.audience !== 'instagram') return bad('Only an Instagram thread can send to Instagram.');
+    let ig;
+    if (thread.ref_type === 'ig_media') {
+      // A comment thread: the reply goes PUBLICLY under the customer's last comment.
+      const lastIn = await env.DB.prepare(
+        "SELECT ref_id FROM messages WHERE thread_id=? AND direction='inbound' AND ref_id IS NOT NULL ORDER BY created_at DESC LIMIT 1"
+      ).bind(thread.id).first();
+      if (!lastIn || !lastIn.ref_id) return bad('No comment on this thread to reply under.');
+      ig = await replyToComment(env, { commentId: lastIn.ref_id, text: body });
+    } else {
+      // A DM: sendDirectMessage re-checks never-messaged-first and Meta's 24-hour ceiling
+      // internally — a closed window comes back here as a plain-English refusal, not a fake send.
+      ig = await sendDirectMessage(env, { thread, recipientId: thread.external_id, text: body });
+    }
+    if (!ig || !ig.ok) return bad((ig && ig.error) || 'Instagram refused the message.', 502);
+
+    const mid = id('msg');
+    await env.DB.prepare(
+      `INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, sent_at, created_at)
+       VALUES (?,?,'outbound','instagram',?,?,?,?,?,?)`
+    ).bind(mid, thread.id, ctx.distinct_id || null, ctx.role, body, aiDrafted, ts, ts).run();
+    await env.DB.prepare('UPDATE threads SET last_message_at=?, updated_at=? WHERE id=?').bind(ts, ts, thread.id).run();
+    // A human answered — any unsent Aña draft on this thread is now superseded, and leaving it
+    // would let it be auto-or-manually sent AFTER the human's reply, out of order and duplicate.
+    await env.DB.prepare(
+      "UPDATE messages SET dismissed_at=? WHERE thread_id=? AND sender_role='ana_draft' AND sent_at IS NULL AND dismissed_at IS NULL"
+    ).bind(ts, thread.id).run();
+    await capture(env, {
+      event: 'message.sent',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { channel: 'instagram', audience: thread.audience, ai_drafted: !!aiDrafted, thread_id: thread.id },
+    });
+    return json({ ok: true, id: mid, channel: 'instagram', delivered: true });
+  }
 
   // SMS/WhatsApp bridge when the counterparty staff row has a phone (no-op without creds).
   let sms = null;

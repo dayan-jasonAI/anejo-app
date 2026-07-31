@@ -268,3 +268,14 @@ test('model scaffolding is stripped from the draft — the first live draft leak
     assert.ok(r.draft.startsWith('Hey!'), 'the message itself is intact');
   } finally { f.restore(); }
 });
+
+test('a reply typed in Comms on an Instagram thread ACTUALLY reaches Instagram', () => {
+  // Before this, Comms stored the reply as an in_app row that looked sent in the HUB while the
+  // customer received nothing — found because the owner asked "does it reflect on Instagram?".
+  const COMMS = readFileSync(new URL('../../functions/api/hub/comms/messages.js', import.meta.url), 'utf8');
+  assert.match(COMMS, /if \(thread\.audience === 'instagram'\) channel = 'instagram'/, 'inferred from the thread, not the page');
+  assert.match(COMMS, /sendDirectMessage\(env, \{ thread, recipientId: thread\.external_id/, 'DMs route through the window-checked send');
+  assert.match(COMMS, /replyToComment\(env, \{ commentId: lastIn\.ref_id/, 'comment threads reply under the actual comment');
+  assert.match(COMMS, /if \(!ig \|\| !ig\.ok\) return bad/, 'a refused send is an error, never a fake success');
+  assert.match(COMMS, /sender_role='ana_draft' AND sent_at IS NULL AND dismissed_at IS NULL/, "a human reply supersedes Aña's pending draft");
+});
