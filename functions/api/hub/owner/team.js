@@ -11,6 +11,7 @@ import { toJson, parseJson } from '../../../_lib/hub.js';
 import { capture } from '../../../_lib/track.js';
 import { leadReply, buildSpine, ALLOWED_ACTIONS } from '../../../_lib/team_lead.js';
 import { auditDraft } from '../../../_lib/governance.js';
+import { bowlArtFor } from '../../../_lib/bowl_art.js';
 
 const MAX_DRAFT_POSTS = 5;
 
@@ -99,6 +100,10 @@ async function executeAction(env, action) {
     // Drafts come from the Lead's OWN provided assets — this executor writes them down verbatim,
     // it does not generate. status 'draft' + source 'planner' is the same shape socialPlan
     // produces, so the Social page's existing approve/attach/schedule flow picks them up as-is.
+    //
+    // A draft about one identifiable bowl gets that bowl's staged brand image, so the owner sees a
+    // whole post instead of a caption with an empty frame. It is a starting point, replaceable
+    // with the 📷 upload — never a claim the art direction was rendered.
     const assets = Array.isArray(action.assets) ? action.assets : [];
     const count = Math.min(MAX_DRAFT_POSTS, Math.max(0, Math.floor(Number(action.count)) || assets.length));
     const briefId = String(action.brief_id || '').slice(0, 60) || null;
@@ -108,11 +113,12 @@ async function executeAction(env, action) {
       if (!caption) continue;
       const brief = String((a && a.image_brief) || '').trim().slice(0, 400) || null;
       const postId = id('sp');
+      const art = bowlArtFor(`${caption}\n${brief || ''}`);
       try {
         await env.DB.prepare(
           `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at)
-           VALUES (?,'instagram',?,NULL,?,'draft',NULL,?,'planner','lead',?,?)`
-        ).bind(postId, caption, randToken(24), brief, t, t).run();
+           VALUES (?,'instagram',?,?,?,'draft',NULL,?,'planner','lead',?,?)`
+        ).bind(postId, caption, art, randToken(24), brief, t, t).run();
         // EVERY generated draft is scored, whichever door it came through — the planner's inserts
         // are audited in socialPlan, and a Lead that could slip unscored copy past governance
         // would make the gate decorative. Failure leaves audit_at NULL: visibly unscored, and

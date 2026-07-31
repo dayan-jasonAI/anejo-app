@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import {
   buildSpine, renderSpine, leadReply, parseActionBlock, parseActionBlocks, leadModel, FALLBACK_MODEL, ALLOWED_ACTIONS,
 } from '../../functions/_lib/team_lead.js';
+import { bowlArtFor } from '../../functions/_lib/bowl_art.js';
 import { WEEKLY_LIMIT_MICRO } from '../../functions/_lib/ai_budget.js';
 
 const LIB = readFileSync(new URL('../../functions/_lib/team_lead.js', import.meta.url), 'utf8');
@@ -272,4 +273,16 @@ test('EVERY action block is accounted for — the phantom-draft bug, pinned', ()
   const TEAM = readFileSync(new URL('../../functions/api/hub/owner/team.js', import.meta.url), 'utf8');
   assert.match(TEAM, /for \(const blk of blocks\)/, 'the executor iterates all blocks');
   assert.match(TEAM, /dropped: true, reason: blk\.reason/, 'dropped blocks reach the thread');
+});
+
+test('a one-bowl draft gets that bowl\'s staged art; ambiguous or none gets nothing', () => {
+  // The Lead writes art direction, not pixels, and Workers cannot render at request time — a
+  // draft used to land media_key NULL and read to the owner as half a post.
+  assert.equal(bowlArtFor('COCO — coconut-lime shrimp over quinoa'), 'studio/bowls/coco.jpg');
+  assert.equal(bowlArtFor('single RAÍZ bowl, centered'), 'studio/bowls/raiz.jpg', 'accent-insensitive');
+  assert.equal(bowlArtFor('COCO or FUEGO, your pick'), null, 'two bowls named → attach nothing');
+  assert.equal(bowlArtFor('Meal prep that respects your goals'), null, 'no bowl named → nothing');
+  assert.equal(bowlArtFor('marinated, marbled, marvelous'), null, 'MAR must not match inside words');
+  const TEAM = readFileSync(new URL('../../functions/api/hub/owner/team.js', import.meta.url), 'utf8');
+  assert.match(TEAM, /const art = bowlArtFor/, 'the executor actually attaches it');
 });
