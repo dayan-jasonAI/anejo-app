@@ -1,0 +1,194 @@
+// GET/POST /api/hub/owner/team — the owner's strategy chat with the Marketing Team Lead. Owner-only.
+//
+// The split of powers is the whole design: the LEAD proposes (words + at most one action block),
+// and THIS FILE executes — deterministically, from a fixed allowlist, writing only draft rows.
+// The model never holds the pen on the database, so a hallucinated field name or a fourth verb
+// dies in the parser instead of becoming data. Nothing here can schedule or publish; those ops
+// live in social.js behind the owner's own clicks.
+import { json, bad, id, now, randToken } from '../../../_lib/util.js';
+import { requireRole } from '../../../_lib/roles.js';
+import { toJson, parseJson } from '../../../_lib/hub.js';
+import { capture } from '../../../_lib/track.js';
+import { leadReply, buildSpine, ALLOWED_ACTIONS } from '../../../_lib/team_lead.js';
+
+const MAX_DRAFT_POSTS = 5;
+
+async function loadMessages(env, limit = 40) {
+  try {
+    const r = await env.DB.prepare(
+      'SELECT id, role, body, actions_json, created_at FROM team_messages ORDER BY created_at DESC LIMIT ?'
+    ).bind(limit).all();
+    // Stored newest-first for the LIMIT, served oldest-first because it is a chat.
+    return (((r && r.results) || [])).reverse();
+  } catch { return []; }
+}
+
+async function loadBriefs(env, limit = 20) {
+  try {
+    const r = await env.DB.prepare(
+      'SELECT id, title, objective, audience, angle, channels, cadence, success_metric, status, created_at FROM team_briefs ORDER BY created_at DESC LIMIT ?'
+    ).bind(limit).all();
+    return (r && r.results) || [];
+  } catch { return []; }
+}
+
+// The sidebar headline, cut from the same spine the Lead reads — one gathering pass, no second
+// slightly-different set of numbers for the human.
+function spineSummary(spine) {
+  return {
+    budget: spine.budget,
+    followers: spine.metrics.account ? spine.metrics.account.followers : null,
+    metrics_as_of: spine.metrics.account ? spine.metrics.account.capture_date : null,
+    drafts_pending: spine.drafts.count,
+    menu_available: spine.menu.filter((m) => m.available).length,
+    menu_total: spine.menu.length,
+  };
+}
+
+/**
+ * Execute the Lead's single action block. Deterministic on purpose: every branch validates its
+ * own fields and writes draft-state rows only. Returns a result object that is persisted into
+ * the lead message's actions_json — the audit trail of what the proposal actually did.
+ */
+async function executeAction(env, action) {
+  if (!action || !ALLOWED_ACTIONS.includes(action.action)) return null;
+  const t = now();
+
+  if (action.action === 'create_brief') {
+    const title = String(action.title || '').trim().slice(0, 200);
+    if (!title) return { action: 'create_brief', ok: false, error: 'missing title' };
+    const briefId = id('tb');
+    const channels = Array.isArray(action.channels) ? action.channels.map(String).slice(0, 10) : null;
+    try {
+      await env.DB.prepare(
+        `INSERT INTO team_briefs (id, title, objective, audience, angle, channels, assets_json, cadence, success_metric, status, created_by, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,'draft','lead',?,?)`
+      ).bind(
+        briefId, title,
+        String(action.objective || '').slice(0, 1000) || null,
+        String(action.audience || '').slice(0, 500) || null,
+        String(action.angle || '').slice(0, 1000) || null,
+        channels ? toJson(channels) : null,
+        Array.isArray(action.assets) && action.assets.length ? toJson(action.assets.slice(0, 10)) : null,
+        String(action.cadence || '').slice(0, 300) || null,
+        String(action.success_metric || '').slice(0, 300) || null,
+        t, t
+      ).run();
+      return { action: 'create_brief', ok: true, brief_id: briefId, title };
+    } catch (e) {
+      return { action: 'create_brief', ok: false, error: String((e && e.message) || '').slice(0, 120) };
+    }
+  }
+
+  if (action.action === 'request_intel') {
+    const question = String(action.question || '').trim().slice(0, 1000);
+    if (!question) return { action: 'request_intel', ok: false, error: 'missing question' };
+    const reqId = id('intel');
+    try {
+      await env.DB.prepare(
+        "INSERT INTO intel_requests (id, question, status, requested_by, created_at) VALUES (?,?,'pending','lead',?)"
+      ).bind(reqId, question, t).run();
+      return { action: 'request_intel', ok: true, request_id: reqId, question };
+    } catch (e) {
+      return { action: 'request_intel', ok: false, error: String((e && e.message) || '').slice(0, 120) };
+    }
+  }
+
+  if (action.action === 'draft_posts') {
+    // Drafts come from the Lead's OWN provided assets — this executor writes them down verbatim,
+    // it does not generate. status 'draft' + source 'planner' is the same shape socialPlan
+    // produces, so the Social page's existing approve/attach/schedule flow picks them up as-is.
+    const assets = Array.isArray(action.assets) ? action.assets : [];
+    const count = Math.min(MAX_DRAFT_POSTS, Math.max(0, Math.floor(Number(action.count)) || assets.length));
+    const briefId = String(action.brief_id || '').slice(0, 60) || null;
+    const made = [];
+    for (const a of assets.slice(0, count)) {
+      const caption = String((a && a.caption) || '').trim().slice(0, 2200);
+      if (!caption) continue;
+      const brief = String((a && a.image_brief) || '').trim().slice(0, 400) || null;
+      try {
+        await env.DB.prepare(
+          `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at)
+           VALUES (?,'instagram',?,NULL,?,'draft',NULL,?,'planner','lead',?,?)`
+        ).bind(id('sp'), caption, randToken(24), brief, t, t).run();
+        made.push(caption.split('\n')[0].slice(0, 60));
+      } catch { /* one bad row must not lose the rest of the set */ }
+    }
+    return { action: 'draft_posts', ok: made.length > 0, brief_id: briefId, drafted: made.length, titles: made };
+  }
+
+  return null;
+}
+
+export const onRequestGet = async ({ request, env }) => {
+  const ctx = await requireRole(request, env, ['owner']);
+  if (ctx instanceof Response) return ctx;
+  if (!env.DB) return bad('Database not configured.', 500);
+
+  const spine = await buildSpine(env);
+  const messages = await loadMessages(env);
+  for (const m of messages) m.actions = parseJson(m.actions_json, null);
+  return json({ ok: true, messages, briefs: await loadBriefs(env), spine: spineSummary(spine) });
+};
+
+export const onRequestPost = async ({ request, env }) => {
+  const ctx = await requireRole(request, env, ['owner']);
+  if (ctx instanceof Response) return ctx;
+  if (!env.DB) return bad('Database not configured.', 500);
+
+  let b;
+  try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
+  const message = String((b && b.message) || '').trim().slice(0, 4000);
+  if (!message) return bad('Say something first.');
+
+  // History BEFORE persisting the new message, so the model sees prior turns + the new message
+  // exactly once each.
+  const history = (await loadMessages(env, 20)).map((m) => ({ role: m.role, body: m.body }));
+
+  const t = now();
+  try {
+    await env.DB.prepare('INSERT INTO team_messages (id, role, body, actions_json, created_at) VALUES (?,?,?,NULL,?)')
+      .bind(id('tm'), 'owner', message, t).run();
+  } catch (e) {
+    return bad('Could not save the message. ' + String((e && e.message) || '').slice(0, 120), 500);
+  }
+
+  const reply = await leadReply(env, { history, message });
+
+  let leadBody, executed = null, model = null;
+  if (reply.ok) {
+    leadBody = reply.text;
+    model = reply.model;
+    executed = await executeAction(env, reply.action);
+  } else if (reply.reason === 'budget') {
+    // Deterministic copy, not a model call — at the ceiling the refusal must cost nothing.
+    leadBody = 'The weekly AI budget is used up, so I can\'t think out loud until the new week starts. The briefs and drafts already on the board still stand.';
+  } else if (reply.reason === 'no_api_key') {
+    leadBody = 'The AI key isn\'t configured, so the Team Lead is offline. Add ANTHROPIC_API_KEY to bring this desk to life.';
+  } else {
+    leadBody = 'I couldn\'t reach the model just now — nothing was lost, try that message again in a moment.';
+  }
+
+  try {
+    await env.DB.prepare('INSERT INTO team_messages (id, role, body, actions_json, created_at) VALUES (?,?,?,?,?)')
+      .bind(id('tm'), 'lead', leadBody, executed ? toJson(executed) : null, now()).run();
+  } catch { /* the reply still returns below even if persisting it failed */ }
+
+  await capture(env, {
+    event: 'team_lead.message',
+    distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+    properties: { ok: reply.ok, model, action: executed ? executed.action : null, reason: reply.ok ? null : reply.reason },
+  });
+
+  const spine = await buildSpine(env);
+  const messages = await loadMessages(env);
+  for (const m of messages) m.actions = parseJson(m.actions_json, null);
+  return json({
+    ok: true,
+    reply: { body: leadBody, model, executed },
+    degraded: reply.ok ? null : reply.reason,
+    messages,
+    briefs: await loadBriefs(env),
+    spine: spineSummary(spine),
+  });
+};
