@@ -23,8 +23,16 @@ const MIG = readFileSync(new URL('../../migrations/0061_social_planning.sql', im
 
 test('the planner writes DRAFTS — it has no path to publish', () => {
   const planner = AUTO.slice(AUTO.indexOf('async function socialPlan'), AUTO.indexOf('const RUNNERS'));
-  assert.match(planner, /VALUES \(\?,'instagram',\?,NULL,\?,'draft'/, 'always draft, never scheduled');
-  assert.ok(!/publishImage|media_publish|status='scheduled'/.test(planner), 'the planner cannot publish or self-schedule');
+  assert.match(planner, /VALUES \(\?,'instagram',\?,NULL,\?,'draft'/, 'every insert lands as a draft');
+  assert.ok(!/publishImage|media_publish/.test(planner), 'the planner cannot publish');
+  // 0072 amended rule 1: the ONE path from draft to scheduled inside the planner is the trust
+  // promotion, and its single UPDATE carries both gates in the same WHERE — the owner's
+  // auto_publish toggle (the id only enters the loop via autoPublishCategories) and a PASSED
+  // governance audit. Anything else the planner writes stays a draft for a human.
+  const promotions = planner.match(/status='scheduled'/g) || [];
+  assert.equal(promotions.length, 1, 'exactly one, gated, promotion site');
+  assert.match(planner, /SET status='scheduled', updated_at=\? WHERE id=\? AND status='draft' AND audit_status='pass'/);
+  assert.match(planner, /autoPublishCategories\(env\)/);
 });
 
 test('scheduling is a separate, explicit human action', () => {

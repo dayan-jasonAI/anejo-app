@@ -29,6 +29,7 @@ import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
 import { sendPushTickle } from './push.js';
 import { budgetGate, recordSpend } from './ai_budget.js';
+import { TRUST_CATEGORIES, captionHash, autoPublishCategories } from './trust_ledger.js';
 
 const MODEL = 'claude-sonnet-4-6';
 export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan'];
@@ -705,7 +706,10 @@ async function socialPlan(env, date) {
       'photos fails the objective even if every caption is perfect.\n\n' +
       'Every image_brief you write MUST comply with the Photo standard above. ' +
       'Nutrition is always approximate ranges, never medical claims (the Golden Rule). ' +
-      'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19}. ' +
+      'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19, "category": string}. ' +
+      // The category feeds the trust ledger (0072): approvals are counted PER LANE, so it must
+      // come from this fixed list — an invented lane would start a streak nobody can toggle.
+      `category: exactly one of ${TRUST_CATEGORIES.map((c) => `"${c}"`).join(', ')} — the post's primary subject. ` +
       'caption: under 500 characters, 2-4 relevant hashtags at the end. ' +
       'image_brief: one sentence of art direction for a food photo we will generate — subject, angle, light. ' +
       'day_offset: days from today. hour: local hour to post, spread across the week, never two posts in the same hour. ' +
@@ -757,20 +761,52 @@ async function socialPlan(env, date) {
     // click and changing the time is one edit — but nothing fires until a human moves it.
     const when = etMidnightMs(addEtDays(date, dayOffset)) + hour * 3600 * 1000;
 
+    // Trust ledger (0072): file the post under one of the FIXED lanes, or none at all — an
+    // invented category would start an approval streak no toggle exists for. The caption hash
+    // is taken AS DRAFTED; approval later compares against it to decide clean vs edited.
+    const category = TRUST_CATEGORIES.includes(item && item.category) ? item.category : null;
+    const postId = id('sp');
     try {
-      await env.DB.prepare(
-        `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at)
-         VALUES (?,'instagram',?,NULL,?,'draft',?,?,'planner','system',?,?)`
-      ).bind(id('sp'), caption, randToken(24), when, brief, t, t).run();
-      made.push({ hour, day_offset: dayOffset });
+      try {
+        await env.DB.prepare(
+          `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at, category, original_caption_hash)
+           VALUES (?,'instagram',?,NULL,?,'draft',?,?,'planner','system',?,?,?,?)`
+        ).bind(postId, caption, randToken(24), when, brief, t, t, category, captionHash(caption)).run();
+      } catch {
+        // Pre-0072 schema (deploy window): the plain draft insert must still land — a missed
+        // trust datum is recoverable, a missed week of posts is not.
+        await env.DB.prepare(
+          `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at)
+           VALUES (?,'instagram',?,NULL,?,'draft',?,?,'planner','system',?,?)`
+        ).bind(postId, caption, randToken(24), when, brief, t, t).run();
+      }
+      made.push({ hour, day_offset: dayOffset, id: postId, category });
     } catch { /* one bad row must not lose the rest of the week */ }
   }
+
+  // GRADUATED AUTONOMY, honored: a lane the owner has toggled to auto_publish=1 gets its draft
+  // promoted straight to 'scheduled' at the suggested time — but ONLY if the governance audit
+  // has stamped it 'pass'. Both conditions live in the one UPDATE: no toggle → the id set is
+  // empty; no audit verdict (or a flag) → the WHERE matches nothing; and on a database without
+  // the audit columns the statement throws into the catch, so everything stays a draft. Rule 1
+  // ("it never posts") survives as: it never posts anything a human process hasn't cleared.
+  let autoScheduled = 0;
+  try {
+    const autoLanes = await autoPublishCategories(env);
+    for (const m of made) {
+      if (!m.category || !autoLanes.has(m.category)) continue;
+      const r = await env.DB.prepare(
+        "UPDATE social_posts SET status='scheduled', updated_at=? WHERE id=? AND status='draft' AND audit_status='pass'"
+      ).bind(now(), m.id).run();
+      if (r && r.meta && r.meta.changes === 1) autoScheduled++;
+    }
+  } catch { /* governance columns not migrated yet → draft-only, exactly as before 0072 */ }
 
   return {
     outcome: made.length ? 'success' : 'skipped',
     tokens: ai.tokens || null,
     output: {
-      date, drafted: made.length, already_pending: Number(pending || 0),
+      date, drafted: made.length, already_pending: Number(pending || 0), auto_scheduled: autoScheduled,
       promoted: onSale.map((b) => b.name), withheld_sold_out: off.map((b) => b.name),
     },
     summary: made.length

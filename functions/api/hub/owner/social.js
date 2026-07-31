@@ -8,6 +8,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { igConfigured, accountInfo, JPEG_ONLY, CAROUSEL_MAX } from '../../../_lib/instagram.js';
 import { publishSocialPost, loadPostMedia } from '../../../_lib/social_publish.js';
+import { noteTrustApproval } from '../../../_lib/trust_ledger.js';
 
 // Instagram's own cap. Worth knowing locally so a scheduled batch cannot quietly burn it.
 const DAILY_CAP = 25;
@@ -234,6 +235,10 @@ export const onRequestPost = async ({ request, env }) => {
     if (when < now() - 60000) return bad('That time has already passed.');
     await env.DB.prepare("UPDATE social_posts SET status='scheduled', scheduled_at=?, error=NULL, updated_at=? WHERE id=?")
       .bind(when, now(), postId).run();
+    // Trust ledger (0072): the FIRST human yes on a planner draft is the datum — untouched
+    // caption extends the category's clean streak, an edited one resets it. Only counted on
+    // draft → scheduled so re-scheduling (or retrying a failure) cannot inflate the streak.
+    if (row.status === 'draft') await noteTrustApproval(env, postId);
     await capture(env, {
       event: 'social.post_scheduled',
       distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
@@ -284,6 +289,10 @@ export const onRequestPost = async ({ request, env }) => {
     if (!claim || !claim.meta || claim.meta.changes !== 1) {
       return bad('That post is already being published.', 409);
     }
+
+    // Trust ledger (0072): publishing straight from draft IS the approval, so count it here;
+    // a scheduled post was already counted when the owner approved it onto the schedule.
+    if (post.status === 'draft') await noteTrustApproval(env, postId);
 
     // Single image or carousel — decided inside the ONE shared path the tick also uses, which
     // writes the outcome rows itself so a failure can never strand the post in 'publishing'.
