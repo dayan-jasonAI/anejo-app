@@ -4,7 +4,8 @@
 // "here is what we know, here is what is being looked into" in one round trip. POST files a
 // question; the intel tick answers it on its next run — research runs on the cron's budget
 // clock, never inline in a page request that would sit for 30 seconds of web searching.
-import { json, bad, id, now, parseJson } from '../../../_lib/util.js';
+import { json, bad, id, now } from '../../../_lib/util.js';
+import { parseJson } from '../../../_lib/hub.js';
 import { requireRole } from '../../../_lib/roles.js';
 
 const KINDS = ['competitor', 'market', 'platform', 'adhoc'];
