@@ -21,7 +21,7 @@ export const onRequestGet = async ({ request, env }) => {
   let posts = [];
   try {
     const r = await env.DB.prepare(
-      'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
+      'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
     ).all();
     posts = (r && r.results) || [];
   } catch { posts = []; }

@@ -29,6 +29,7 @@ import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
 import { sendPushTickle } from './push.js';
 import { budgetGate, recordSpend } from './ai_budget.js';
+import { auditDraft } from './governance.js';
 
 const MODEL = 'claude-sonnet-4-6';
 export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan'];
@@ -758,10 +759,21 @@ async function socialPlan(env, date) {
     const when = etMidnightMs(addEtDays(date, dayOffset)) + hour * 3600 * 1000;
 
     try {
+      const postId = id('sp');
       await env.DB.prepare(
         `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at)
          VALUES (?,'instagram',?,NULL,?,'draft',?,?,'planner','system',?,?)`
-      ).bind(id('sp'), caption, randToken(24), when, brief, t, t).run();
+      ).bind(postId, caption, randToken(24), when, brief, t, t).run();
+      // Governance gate: score the draft the moment it exists, so nothing waits for the owner
+      // unscored — a planner caption once invented an ordering deadline, and the audit columns
+      // are how the review screen says WHY a draft needs a second look. auditDraft itself
+      // fails closed to 'flag'; this inner catch only covers the pre-migration column gap,
+      // where losing the audit write must not lose the draft.
+      try {
+        const audit = await auditDraft(env, { caption, image_brief: brief });
+        await env.DB.prepare('UPDATE social_posts SET audit_score=?, audit_flags=?, audit_at=? WHERE id=?')
+          .bind(audit.brand_score, toJson(audit.flags), now(), postId).run();
+      } catch { /* the draft stands, visibly unscored (NULL audit_at) */ }
       made.push({ hour, day_offset: dayOffset });
     } catch { /* one bad row must not lose the rest of the week */ }
   }
