@@ -49,7 +49,10 @@ test('with no credentials it no-ops instead of throwing', async () => {
 test('the public route serves ONLY the media_key its token points at', () => {
   // The caller names a token, never a key — so there is no path from this route to a proof photo
   // even with a valid token in hand.
-  assert.match(PUBLIC, /SELECT media_key, status FROM social_posts WHERE public_token = \?/);
+  // Tokens are per-SLIDE since carousels; the property is unchanged — the caller names a token,
+  // never a key, and the token resolves through the post's status.
+  assert.match(PUBLIC, /FROM social_post_media m/);
+  assert.match(PUBLIC, /WHERE m\.public_token = \?/);
   assert.ok(!/params\.path|params\.key/.test(PUBLIC), 'the caller cannot name an object');
 });
 
@@ -155,7 +158,9 @@ test('an already-published post reports itself instead of posting again', () => 
 
 test('a failure returns the post to a RETRYABLE state, never stuck', () => {
   // Left in 'publishing', nothing would ever pick it up again.
-  assert.match(API, /SET status='failed', error=\?/);
+  // The outcome write moved into the shared publish path both callers use.
+  const SHARED_LIB = readFileSync(new URL('../../functions/_lib/social_publish.js', import.meta.url), 'utf8');
+  assert.match(SHARED_LIB, /SET status='failed', error=\?/);
 });
 
 test('deleting a live post is refused', () => {

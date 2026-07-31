@@ -9,7 +9,7 @@
 // rather than reimplemented:
 //   · the CLAIM (status='publishing' guarded on the previous status) is what stops a tick
 //     overlapping a click and putting the same photo up twice
-//   · publishImage polls Instagram's container until FINISHED and never publishes on a guess
+//   · the shared publish path polls every container until FINISHED and never publishes on a guess
 //
 // What is specific to running unattended:
 //   · LATE IS NOT DUE. A post written for a 9 AM breakfast slot that fires at 4 PM because the
@@ -20,7 +20,8 @@
 //     rather than in a burst that would look like a bot and burn the daily cap.
 import { json, bad, now, ctEq } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { igConfigured, publishImage } from '../../../_lib/instagram.js';
+import { igConfigured } from '../../../_lib/instagram.js';
+import { publishSocialPost } from '../../../_lib/social_publish.js';
 import { capture } from '../../../_lib/track.js';
 
 // A social post is tied to a moment — a lunch window, a drop, a weekend. Two hours late is a
@@ -28,7 +29,6 @@ import { capture } from '../../../_lib/track.js';
 const GRACE_MS = 2 * 60 * 60 * 1000;
 const PER_TICK = 1;
 
-const publicUrlFor = (request, token) => `${new URL(request.url).origin}/api/social/media/${token}`;
 
 export const onRequestPost = async ({ request, env }) => {
   const cronKey = request.headers.get('x-cron-key') || '';
@@ -49,10 +49,11 @@ export const onRequestPost = async ({ request, env }) => {
   let due = [];
   try {
     const r = await env.DB.prepare(
-      // media_key IS NOT NULL: a planner draft has a caption and a time but no picture yet.
-      // Instagram will not accept a post without an image, so those must never be claimed here —
-      // they would burn through 'publishing' into 'failed' once a minute.
-      "SELECT id, caption, media_key, public_token, scheduled_at FROM social_posts WHERE status='scheduled' AND media_key IS NOT NULL AND scheduled_at IS NOT NULL AND scheduled_at <= ? ORDER BY scheduled_at LIMIT 5"
+      // EXISTS a slide: a planner draft has a caption and a time but no picture yet. Instagram
+      // will not accept a post without an image, so those must never be claimed here — they would
+      // burn through 'publishing' into 'failed' once a minute. Slides live in social_post_media
+      // now (carousels), so the old media_key IS NOT NULL check would miss every new post.
+      "SELECT id, caption, scheduled_at FROM social_posts WHERE status='scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= ? AND EXISTS (SELECT 1 FROM social_post_media m WHERE m.post_id = social_posts.id) ORDER BY scheduled_at LIMIT 5"
     ).bind(t).all();
     due = (r && r.results) || [];
   } catch { due = []; }
@@ -80,24 +81,14 @@ export const onRequestPost = async ({ request, env }) => {
     ).bind(now(), p.id).run();
     if (!claim || !claim.meta || claim.meta.changes !== 1) continue;   // a click got there first
 
-    const res = await publishImage(env, {
-      imageUrl: publicUrlFor(request, p.public_token),
-      caption: p.caption,
-      mediaKey: p.media_key,
-    });
-
-    const t2 = now();
+    // The SAME publish path the owner's button uses — single image or carousel decided inside it.
+    // The tick knowing how to publish differently from the button is exactly the drift the shared
+    // function exists to prevent.
+    const res = await publishSocialPost(env, request, p);
     if (!res.ok) {
-      await env.DB.prepare(
-        "UPDATE social_posts SET status='failed', error=?, ig_container_id=COALESCE(?,ig_container_id), updated_at=? WHERE id=?"
-      ).bind(String(res.error || 'Publish failed').slice(0, 300), res.container_id || null, t2, p.id).run();
       failed.push({ id: p.id, error: res.error || null });
       continue;
     }
-
-    await env.DB.prepare(
-      "UPDATE social_posts SET status='published', ig_container_id=?, ig_media_id=?, permalink=?, published_at=?, error=NULL, updated_at=? WHERE id=?"
-    ).bind(res.container_id || null, res.media_id, res.permalink || null, res.published_at || t2, t2, p.id).run();
 
     await capture(env, {
       event: 'social.post_published',

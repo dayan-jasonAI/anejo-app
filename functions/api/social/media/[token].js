@@ -24,10 +24,16 @@ export const onRequestGet = async ({ env, params }) => {
   // would turn a typo into a scan of the table.
   if (!token || token.length < 16 || !env.DB || !env.MEDIA) return notFound();
 
+  // Tokens live per-SLIDE since carousels: Instagram fetches every slide separately and
+  // anonymously, so each has its own token. The join carries the post's status, which is what
+  // decides whether the window is still open. Migration 0063 backfilled every legacy token into
+  // this table, so one query covers old posts too.
   let post = null;
   try {
     post = await env.DB.prepare(
-      "SELECT media_key, status FROM social_posts WHERE public_token = ? LIMIT 1"
+      `SELECT m.media_key, p.status FROM social_post_media m
+         JOIN social_posts p ON p.id = m.post_id
+        WHERE m.public_token = ? LIMIT 1`
     ).bind(token).first();
   } catch { return notFound(); }
   if (!post || !post.media_key) return notFound();

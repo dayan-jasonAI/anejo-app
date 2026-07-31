@@ -143,6 +143,117 @@ export async function accountInfo(env) {
 }
 
 /**
+ * Poll a container until FINISHED. One definition of "ready to publish", shared by the single
+ * image and every carousel child and parent — two poll loops would eventually disagree about
+ * what counts as finished, and the one that guessed is the one that double-posts.
+ */
+async function waitFinished(env, base, containerId) {
+  let state = null;
+  for (let i = 0; i < POLL_MAX; i++) {
+    await new Promise((res) => setTimeout(res, pollMs(env)));
+    const st = await graph(env, `/${containerId}`, { params: { fields: 'status_code,status' } }, base);
+    if (!st.ok) return st;
+    state = (st.body && st.body.status_code) || null;
+    if (state === 'FINISHED') return { ok: true };
+    if (state === 'ERROR' || state === 'EXPIRED') {
+      return { ok: false, error: `Instagram could not process the image (${state}). ${(st.body && st.body.status) || ''}`.trim() };
+    }
+  }
+  // Deliberately NOT published: a container that never finished is retried from scratch later
+  // (they expire in 24h). Publishing on a guess is how the same photo goes up twice.
+  return { ok: false, error: 'Instagram is still processing the image. It will be retried — nothing was posted.' };
+}
+
+// Meta's own bounds for a carousel. Enforced here as well as at attach time, because this module
+// must hold even if a future caller forgets the UI-side check.
+export const CAROUSEL_MIN = 2;
+export const CAROUSEL_MAX = 10;
+
+/**
+ * Publish a CAROUSEL: 2-10 images as one post.
+ *
+ * The flow is the single-image flow one level deeper, and the same rule governs every level:
+ * NOTHING IS PUBLISHED ON A GUESS. Every child container is polled to FINISHED before the parent
+ * is even created — a parent built over an unfinished child fails at Meta — and the parent is
+ * polled to FINISHED before media_publish. If child 3 of 5 fails, the whole post fails and is
+ * retried from scratch: a truncated carousel is a WRONG post on a public profile, not a partial
+ * success. Abandoned containers cost nothing and expire in 24h.
+ *
+ * `opts.publish=false` (dry run) stops after the parent container is FINISHED: every real Meta
+ * step exercised, nothing on the profile. It exists so the first carousel can be verified live
+ * without posting.
+ */
+export async function publishCarousel(env, { items, caption } = {}, opts = {}) {
+  if (!igConfigured(env)) return { ok: false, reason: 'not_configured' };
+  const list = Array.isArray(items) ? items : [];
+  if (list.length < CAROUSEL_MIN || list.length > CAROUSEL_MAX) {
+    return { ok: false, error: `A carousel is ${CAROUSEL_MIN}-${CAROUSEL_MAX} photos — this post has ${list.length}.` };
+  }
+  for (const it of list) {
+    if (!it || !it.imageUrl) return { ok: false, error: 'A slide is missing its image.' };
+    if (it.mediaKey && !JPEG_ONLY.test(it.mediaKey)) {
+      return { ok: false, error: 'Instagram only accepts JPEG images. Re-export the non-JPEG slide as .jpg.' };
+    }
+  }
+
+  const target = await resolveTarget(env);
+  if (!target.ok) return target;
+  const { base, id: igId } = target;
+
+  // 1) children, IN ORDER — slide order is the order of creation ids handed to the parent.
+  const childIds = [];
+  for (const it of list) {
+    const made = await graph(env, `/${igId}/media`, {
+      method: 'POST',
+      params: { image_url: it.imageUrl, is_carousel_item: 'true' },
+    }, base);
+    if (!made.ok) return { ...made, children: childIds };
+    const cid = made.body && made.body.id;
+    if (!cid) return { ok: false, error: 'Instagram did not return a container for a slide.', children: childIds };
+    childIds.push(cid);
+  }
+
+  // 2) EVERY child must finish before the parent exists at all.
+  for (const cid of childIds) {
+    const done = await waitFinished(env, base, cid);
+    if (!done.ok) return { ...done, children: childIds };
+  }
+
+  // 3) the parent carousel container
+  const parent = await graph(env, `/${igId}/media`, {
+    method: 'POST',
+    params: {
+      media_type: 'CAROUSEL',
+      children: childIds.join(','),
+      ...(caption ? { caption: String(caption).slice(0, 2200) } : {}),
+    },
+  }, base);
+  if (!parent.ok) return { ...parent, children: childIds };
+  const parentId = parent.body && parent.body.id;
+  if (!parentId) return { ok: false, error: 'Instagram did not return the carousel container.', children: childIds };
+
+  const parentDone = await waitFinished(env, base, parentId);
+  if (!parentDone.ok) return { ...parentDone, container_id: parentId, children: childIds };
+
+  if (opts.publish === false) {
+    return { ok: true, dry_run: true, container_id: parentId, children: childIds };
+  }
+
+  // 4) publish, and read the permalink BACK — a 200 means Meta accepted the call, not that a
+  // post exists on the profile.
+  const pub = await graph(env, `/${igId}/media_publish`, { method: 'POST', params: { creation_id: parentId } }, base);
+  if (!pub.ok) return { ...pub, container_id: parentId };
+  const mediaId = pub.body && pub.body.id;
+  if (!mediaId) return { ok: false, container_id: parentId, error: 'Instagram did not return a post id.' };
+
+  let permalink = null;
+  const back = await graph(env, `/${mediaId}`, { params: { fields: 'permalink' } }, base);
+  if (back.ok) permalink = (back.body && back.body.permalink) || null;
+
+  return { ok: true, container_id: parentId, media_id: mediaId, permalink, published_at: now() };
+}
+
+/**
  * Publish one post. `imageUrl` must be PUBLICLY reachable — Instagram fetches it itself, with no
  * credentials, so anything behind our HUB auth is invisible to it.
  *
@@ -174,22 +285,8 @@ export async function publishImage(env, { imageUrl, caption, mediaKey } = {}) {
   if (!creationId) return { ok: false, error: 'Instagram did not return a media container.' };
 
   // 2) POLL. Publishing an unfinished container fails, and the wait is Instagram fetching our URL.
-  let state = null;
-  for (let i = 0; i < POLL_MAX; i++) {
-    await new Promise((res) => setTimeout(res, pollMs(env)));
-    const st = await graph(env, `/${creationId}`, { params: { fields: 'status_code,status' } }, base);
-    if (!st.ok) return { ...st, container_id: creationId };
-    state = (st.body && st.body.status_code) || null;
-    if (state === 'FINISHED') break;
-    if (state === 'ERROR' || state === 'EXPIRED') {
-      return { ok: false, container_id: creationId, error: `Instagram could not process the image (${state}). ${(st.body && st.body.status) || ''}`.trim() };
-    }
-  }
-  if (state !== 'FINISHED') {
-    // Deliberately NOT published: a container that never finished is retried from scratch later
-    // (they expire in 24h). Publishing on a guess is how the same photo goes up twice.
-    return { ok: false, container_id: creationId, error: 'Instagram is still processing the image. It will be retried — nothing was posted.' };
-  }
+  const done = await waitFinished(env, base, creationId);
+  if (!done.ok) return { ...done, container_id: creationId };
 
   // 3) publish
   const pub = await graph(env, `/${igId}/media_publish`, { method: 'POST', params: { creation_id: creationId } }, base);

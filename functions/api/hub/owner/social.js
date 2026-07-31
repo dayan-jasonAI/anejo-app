@@ -6,12 +6,12 @@
 import { json, bad, id, now, randToken } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
-import { igConfigured, accountInfo, publishImage, JPEG_ONLY } from '../../../_lib/instagram.js';
+import { igConfigured, accountInfo, JPEG_ONLY, CAROUSEL_MAX } from '../../../_lib/instagram.js';
+import { publishSocialPost, loadPostMedia } from '../../../_lib/social_publish.js';
 
 // Instagram's own cap. Worth knowing locally so a scheduled batch cannot quietly burn it.
 const DAILY_CAP = 25;
 
-const publicUrlFor = (request, token) => `${new URL(request.url).origin}/api/social/media/${token}`;
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -25,6 +25,19 @@ export const onRequestGet = async ({ request, env }) => {
     ).all();
     posts = (r && r.results) || [];
   } catch { posts = []; }
+
+  // Slides, per post, in order. One query for the page, grouped here — social_post_media is the
+  // authority; the legacy media_key column is display-only history.
+  try {
+    const m = await env.DB.prepare(
+      `SELECT id, post_id, seq, media_key FROM social_post_media
+        WHERE post_id IN (SELECT id FROM social_posts ORDER BY created_at DESC LIMIT 60)
+        ORDER BY seq, created_at`
+    ).all();
+    const bySlide = {};
+    for (const row of (m && m.results) || []) (bySlide[row.post_id] = bySlide[row.post_id] || []).push({ id: row.id, seq: row.seq, media_key: row.media_key });
+    for (const post of posts) post.media = bySlide[post.id] || [];
+  } catch { for (const post of posts) post.media = []; }
 
   let publishedToday = 0;
   try {
@@ -82,6 +95,11 @@ export const onRequestPost = async ({ request, env }) => {
         `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, created_by, created_at, updated_at)
          VALUES (?,'instagram',?,?,?,?,?,?,?,?)`
       ).bind(postId, caption || null, mediaKey, randToken(24), scheduledAt ? 'scheduled' : 'draft', scheduledAt, ctx.distinct_id || null, t, t).run();
+      // The slide row is what publishing actually reads; the legacy column above is write-through
+      // for the deploy window only.
+      await env.DB.prepare(
+        `INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,0,?,?,?)`
+      ).bind(id('spm'), postId, mediaKey, randToken(24), t).run();
     } catch (e) {
       return bad('Could not save the post. ' + String((e && e.message) || '').slice(0, 120), 500);
     }
@@ -121,8 +139,69 @@ export const onRequestPost = async ({ request, env }) => {
     const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
     if (!row) return bad('That post no longer exists.', 404);
     if (row.status === 'published') return bad('That one is already live.', 409);
-    await env.DB.prepare('UPDATE social_posts SET media_key=?, updated_at=? WHERE id=?').bind(mediaKey, now(), postId).run();
-    return json({ ok: true, id: postId, media_key: mediaKey });
+    if (row.status === 'publishing') return bad('That post is being published right now.', 409);
+    const existing = await loadPostMedia(env, postId);
+    // Meta's carousel ceiling. Refused at attach — the moment the 11th photo is picked — rather
+    // than 20 seconds into a publish that was always going to fail.
+    if (existing.length >= CAROUSEL_MAX) return bad(`Instagram allows at most ${CAROUSEL_MAX} photos in one post.`, 409);
+    const t2 = now();
+    await env.DB.prepare(
+      `INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,?,?,?,?)`
+    ).bind(id('spm'), postId, existing.length, mediaKey, randToken(24), t2).run();
+    await env.DB.prepare('UPDATE social_posts SET updated_at=? WHERE id=?').bind(t2, postId).run();
+    return json({ ok: true, id: postId, media_key: mediaKey, slides: existing.length + 1 });
+  }
+
+  // Remove one slide. Reversible curation, so no confirm theatre — but never on a live post,
+  // whose slides are a public record of what went out.
+  if (op === 'detach') {
+    const postId = String(b.id || '').trim();
+    const slideId = String(b.media_id || '').trim();
+    if (!postId || !slideId) return bad('Missing id.');
+    const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    if (!row) return bad('That post no longer exists.', 404);
+    if (row.status === 'published' || row.status === 'publishing') return bad('That post is already on its way out.', 409);
+    const r = await env.DB.prepare('DELETE FROM social_post_media WHERE id=? AND post_id=?').bind(slideId, postId).run();
+    if (!r.meta || r.meta.changes !== 1) return bad('That photo is not on this post.', 404);
+    // Reseal the order so seq stays 0..n-1 — slide order is editorial data, not an accident.
+    const left = await loadPostMedia(env, postId);
+    for (let i = 0; i < left.length; i++) {
+      if (left[i].seq !== i) await env.DB.prepare('UPDATE social_post_media SET seq=? WHERE id=?').bind(i, left[i].id).run();
+    }
+    return json({ ok: true, id: postId, slides: left.length });
+  }
+
+  // Reorder slides: the array IS the new order. Ignores ids that are not on the post rather than
+  // failing the whole reorder over a stale page.
+  if (op === 'reorder') {
+    const postId = String(b.id || '').trim();
+    const order = Array.isArray(b.media_ids) ? b.media_ids.map(String) : [];
+    if (!postId || !order.length) return bad('Missing id.');
+    const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    if (!row) return bad('That post no longer exists.', 404);
+    if (row.status === 'published' || row.status === 'publishing') return bad('That post is already on its way out.', 409);
+    const existing = await loadPostMedia(env, postId);
+    const mine = new Set(existing.map((m) => m.id));
+    let seq = 0;
+    for (const mid of order) {
+      if (!mine.has(mid)) continue;
+      await env.DB.prepare('UPDATE social_post_media SET seq=? WHERE id=? AND post_id=?').bind(seq++, mid, postId).run();
+    }
+    return json({ ok: true, id: postId });
+  }
+
+  // Build the real containers at Meta and STOP — nothing reaches the profile. How a carousel is
+  // verified live before anyone trusts it with a real post.
+  if (op === 'dry_run') {
+    if (!igConfigured(env)) return bad('Instagram is not set up yet.', 400);
+    const postId = String(b.id || '').trim();
+    if (!postId) return bad('Missing id.');
+    const post = await env.DB.prepare('SELECT * FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    if (!post) return bad('That post no longer exists.', 404);
+    // Deliberately NO claim: a dry run must not move the post's status, and the shared path
+    // writes nothing in dry mode.
+    const res = await publishSocialPost(env, request, post, { publish: false });
+    return res.ok ? json({ ok: true, dry_run: true, container_id: res.container_id, slides: (res.children || []).length }) : bad(res.error || 'Dry run failed.', 502);
   }
 
   // Approve a draft onto the schedule. THIS is the human gate: the planner writes, a person says
@@ -130,14 +209,14 @@ export const onRequestPost = async ({ request, env }) => {
   if (op === 'schedule') {
     const postId = String(b.id || '').trim();
     if (!postId) return bad('Missing id.');
-    const row = await env.DB.prepare('SELECT status, media_key FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
     if (!row) return bad('That post no longer exists.', 404);
     if (row.status !== 'draft' && row.status !== 'scheduled' && row.status !== 'failed') {
       return bad('That post is already on its way out.', 409);
     }
     // A post with no picture cannot go on the schedule, or the tick would have to decide what to
     // do about it at 11am on a Tuesday — and the only honest answer then is "nothing".
-    if (!row.media_key) return bad('Add an image before scheduling it.', 409);
+    if (!(await loadPostMedia(env, postId)).length) return bad('Add a photo before scheduling it.', 409);
     const when = Number(b.scheduled_at);
     if (!Number.isFinite(when) || when <= 0) return bad('Pick a date and time.');
     if (when < now() - 60000) return bad('That time has already passed.');
@@ -182,7 +261,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (post.status === 'published') return json({ ok: true, already: true, permalink: post.permalink, media_id: post.ig_media_id });
     // A planned post has its words and its timing but no picture yet. Refuse clearly rather than
     // letting Instagram fetch a 404 and reporting that back as a publish failure.
-    if (!post.media_key) return bad('This post has no image yet — add one before publishing.', 409);
+
 
     // CLAIM IT FIRST. The publish flow takes ~20s (Instagram fetches the image, we poll), and a
     // second click — or the scheduler firing mid-click — would otherwise post the same photo twice.
@@ -194,24 +273,10 @@ export const onRequestPost = async ({ request, env }) => {
       return bad('That post is already being published.', 409);
     }
 
-    const res = await publishImage(env, {
-      imageUrl: publicUrlFor(request, post.public_token),
-      caption: post.caption,
-      mediaKey: post.media_key,
-    });
-
-    const t = now();
-    if (!res.ok) {
-      // Back to a retryable state with the reason attached — never left stuck in 'publishing',
-      // which nothing would ever pick up again.
-      await env.DB.prepare("UPDATE social_posts SET status='failed', error=?, ig_container_id=COALESCE(?,ig_container_id), updated_at=? WHERE id=?")
-        .bind(String(res.error || 'Publish failed').slice(0, 300), res.container_id || null, t, postId).run();
-      return bad(res.error || 'Could not publish to Instagram.', 502);
-    }
-
-    await env.DB.prepare(
-      "UPDATE social_posts SET status='published', ig_container_id=?, ig_media_id=?, permalink=?, published_at=?, error=NULL, updated_at=? WHERE id=?"
-    ).bind(res.container_id || null, res.media_id, res.permalink || null, res.published_at || t, t, postId).run();
+    // Single image or carousel — decided inside the ONE shared path the tick also uses, which
+    // writes the outcome rows itself so a failure can never strand the post in 'publishing'.
+    const res = await publishSocialPost(env, request, post);
+    if (!res.ok) return bad(res.error || 'Could not publish to Instagram.', 502);
 
     await capture(env, {
       event: 'social.post_published',

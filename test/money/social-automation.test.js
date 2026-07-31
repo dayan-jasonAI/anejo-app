@@ -35,13 +35,16 @@ test('scheduling is a separate, explicit human action', () => {
 test('a post with no image cannot be scheduled or published', () => {
   // Otherwise the tick has to decide what to do about it at 11am on a Tuesday, and the only
   // honest answer then is "nothing".
-  assert.match(API, /if \(!row\.media_key\) return bad\('Add an image before scheduling it\.'/);
-  assert.match(API, /if \(!post\.media_key\) return bad\('This post has no image yet/);
+  // Slides live in social_post_media now; the guard counts them instead of reading the legacy
+  // column, and the no-image publish refusal lives in the shared path.
+  assert.match(API, /if \(!\(await loadPostMedia\(env, postId\)\)\.length\) return bad\('Add a photo before scheduling it\.'/);
+  const SHARED_LIB = readFileSync(new URL('../../functions/_lib/social_publish.js', import.meta.url), 'utf8');
+  assert.match(SHARED_LIB, /This post has no image yet — add one before publishing\./);
 });
 
 test('the tick never even picks up an imageless post', () => {
   // Belt and braces: without this it would churn one through publishing→failed every minute.
-  assert.match(TICK, /status='scheduled' AND media_key IS NOT NULL AND scheduled_at IS NOT NULL/);
+  assert.match(TICK, /EXISTS \(SELECT 1 FROM social_post_media m WHERE m\.post_id = social_posts\.id\)/);
 });
 
 // ---------- 2. it cannot promote what it cannot sell ----------
