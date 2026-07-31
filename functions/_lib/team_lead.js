@@ -93,7 +93,17 @@ export async function buildSpine(env) {
   const briefs = await rows(env,
     'SELECT id, title, objective, status, created_at FROM team_briefs ORDER BY created_at DESC LIMIT 5');
 
-  return { brand: BRAND_CONTEXT, menu: menuItems, metrics, drafts, budget, briefs };
+  // Ordering surfaces — fixed facts the Lead kept (correctly) refusing to invent and spending
+  // request_intel on. Cheaper to state them once than to answer the same intel question weekly.
+  const surfaces = {
+    order_url: 'https://anejocateringco.com/order',
+    links_hub: 'https://anejocateringco.com/go',
+    macro_portal: 'https://anejocateringco.com/portal',
+    macro_calculator: 'https://anejocateringco.com/calculator',
+    ordering: 'Order online at /order — one-time boxes or weekly plans (5, 10 or 12 meals); plans pause/skip/cancel anytime. Next-day orders until 8 PM ET; the website is the authority on cutoffs.',
+  };
+
+  return { brand: BRAND_CONTEXT, menu: menuItems, metrics, drafts, budget, briefs, surfaces };
 }
 
 // The spine as prompt text. Facts the spine does not have are stated as absent, in words, so the
@@ -123,6 +133,12 @@ export function renderSpine(spine) {
     '=== ON THE MENU RIGHT NOW (live prices; the only items that exist) ===\n' + menuLines + '\n\n' +
     '=== INSTAGRAM PERFORMANCE ===\n' + metricLines + '\n\n' +
     '=== DRAFT QUEUE ===\n' + draftLines + '\n\n' +
+    (spine.surfaces
+      ? '=== ORDERING SURFACES (fixed facts — use these, do not spend intel re-asking) ===\n' +
+        `Order: ${spine.surfaces.order_url} · Links hub: ${spine.surfaces.links_hub} · ` +
+        `Macro portal: ${spine.surfaces.macro_portal} · Macro calculator: ${spine.surfaces.macro_calculator}\n` +
+        spine.surfaces.ordering + '\n\n'
+      : '') +
     `=== AI BUDGET === This week's model spend: $${spine.budget.spent_usd.toFixed(2)} of the $${spine.budget.limit_usd.toFixed(2)} weekly ceiling ` +
     `($${spine.budget.remaining_usd.toFixed(2)} left). Factor this into how much generation you propose.\n\n` +
     '=== RECENT CAMPAIGN BRIEFS ===\n' + briefLines
