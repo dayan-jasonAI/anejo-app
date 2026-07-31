@@ -266,25 +266,80 @@ credentials they reward, which are obtainable at any size (below).
 
 ### What is actually winnable
 
-- **Palm Beach County Community's Choice Awards** (Palm Beach Post / Gannett) — the highest-value
-  target by far. Free to enter, two stages (open nominations, then a voting round where supporters
-  can vote **once per day**). It rewards precisely what a local brand has and a national brand
-  doesn't: a customer list you can mobilize daily. Verify the current stage — the 2026 cycle
-  appeared open as of today.
-- **Boca Raton Observer Readers' Choice** — 100+ categories, winners published in the October Food
-  + Drink issue. **Nominations closed July 12, 2026** — this year is missed; calendar the ~June
-  window for 2027.
-- **New Times Broward-Palm Beach "Best Of"** — editorial Best Of plus a readers' poll. Program
-  confirmed, current window not. This is the local equivalent of the trophy Jet Fuel Meals and
-  AthleticsFit put in their bios.
-- **Certifications you can simply earn** — the same credentials national winners advertise, open to
-  any producer meeting the standard regardless of footprint: USDA Organic, Non-GMO Project,
-  Certified Gluten-Free, Whole30 Approved. These give press something concrete and travel into
-  every future list.
-- **Local TV lifestyle segments** — the West Palm Beach market (WPTV, WPBF 25, CBS12, WFLX) runs
-  morning segments that need local food guests. Booking contacts need verifying before outreach.
-- **"Best for GLP-1 users" is the newest and least crowded category** in the national taxonomy —
-  further reason to move on §6 now.
+**Open right now (weeks, not months):**
+
+- **Boca Raton Observer Readers' Choice — VOTING IS LIVE, closes Aug 30, 2026.** 100+ categories,
+  reader-voted, winners printed in the October Food + Drink issue. No entry cost published. This is
+  the nearest deadline on the list — mobilise the customer and email list this month.
+  `info@bocaratonobserver.com` · 561-982-8960. (Confirm a caterer / meal-delivery category exists;
+  the ballot loads dynamically and could not be enumerated.)
+- **Culinary Clash: Palm Beach Edition** — chefs apply through a public form; preliminaries
+  **Sept 7, 14 and 21, 2026**, grand finale Oct 26. Cash prizes shared with a local charity, plus
+  media coverage. No entry fee stated. `culinary-studio.com/culinary-clash`
+
+**Calendar these:**
+
+- **Palm Beach County Community's Choice Awards** (USA Today Ventures with The Palm Beach Post) —
+  **170+ categories including "Caterer/Catering Company"**, free, two rounds, and supporters can
+  vote **once per day**. It rewards exactly what a local brand has and a national one doesn't.
+  The 2026 cycle already ran (nominations Oct 13–31 2025, voting Dec 17–31 2025, winners announced
+  Mar 12 2026), so **the next nomination window opens around mid-October 2026.** `yourchoiceawards.com/palmbeach/`
+- **NACE ONE Awards — $125/entry, and industry awards are explicitly open to non-members.**
+  "Catered Event of the Year" covers **off-premise** events, and budget subcategories level the
+  field for small operators. Requires client sign-off. Entries opened late January in 2026, so
+  expect **late Jan 2027** — start collecting event photography and client permissions now.
+- **CATIE Awards** (International Caterers Association) — the best-targeted national award for this
+  business, because it is **judged on a PDF and photography with no samples to ship**. Entry fee
+  includes ICA membership for up to 10 employees. Expect a fall 2026 window for 2027.
+- **SBA State Small Business Person of the Year** — free, federal, state-level. The 2026 deadline
+  was Dec 22 2025, so expect the next around **December 2026**.
+
+**Credentials you can simply buy or earn — better value than most awards:**
+
+- **FRLA Seal of Commitment — $250/year, and FRLA membership is NOT required.** Requires manager
+  and employee food-safety certification plus FRLA's sanitation course. Comes with decals, a
+  website listing, magazine inclusion and a press release. **Best cost-to-credential ratio on this
+  entire list.** Palm Beach chapter director: Jodi Cross, 561-410-0035.
+- **Whole30 Approved** is the only certification with an explicit **meal-delivery** track. Caveat
+  worth resolving before spending: their *packaged product* rules require national availability,
+  while their *menu* rules do not — ask them directly whether a single-metro operator qualifies.
+
+**Rule these out, so no time is wasted:**
+
+- **Good Food Awards** (now run by the Specialty Food Association) and the **sofi Awards** both
+  require a **retail-ready product**; sofi additionally requires six months of prior retail sales,
+  paid membership, and 25 shipped samples. Neither is reachable without spinning off a shelf SKU.
+- **Michelin** now covers Palm Beach County — Emelina took a star in the 2026 Florida selection —
+  but with no dining room there is realistically no path.
+- **New Times Broward-Palm Beach "Best Of"** has been consolidated away: its Best Of URL now
+  redirects to Miami New Times. Treat as unavailable. *(This corrects the earlier note above.)*
+- **Yelp's Top 100** is purely algorithmic off review volume and rating — not enterable, and a
+  business filed under Caterers may sit outside the eligible pool entirely.
+- **`bestofpalmbeachcounty.com` is NOT the Palm Beach Post's program.** It is an unaffiliated
+  Royal Palm Beach nonprofit with no transparent voting mechanism. Likewise, Boca Raton Magazine's
+  "Best of Dining Destinations" is **paid branded content**, not an award — their real
+  "Best of Boca" is editors' choice with no nomination process.
+
+### Press outreach — the free stack, and the names that were verified
+
+**Correction worth knowing: Connectively is dead.** Cison rebranded HARO to Connectively, shut it
+down in Dec 2024, then sold the HARO brand to Featured.com, which relaunched it free in April 2025.
+Do not sign up for Connectively. The **$0 stack** is: **Source of Sources** (HARO's original
+founder, heavily moderated), **SourceBottle** (skews lifestyle/health/food — strongest fit here),
+**HARO** (free, high volume, spammy), and **Qwoted Basic** (2 pitches/month).
+
+Verified named contacts:
+
+- **Christiana Lilly, Editor-in-Chief, Boca Raton Magazine — `christiana@bocamag.com`** — handles
+  print queries *and* dining guide inquiries. The single most actionable food contact found.
+  Tyler Childress (`tyler@bocamag.com`) is the fastest web turnaround.
+- **CBS12 / WPEC — `newstips@cbs12.com`** — cleanest direct email of the four TV stations.
+- **Megan Hayes, WFLX Fox 29 — `megan@wflx.com`** — best verified named TV contact.
+- **WPTV "Let's Hear It" form** — and note **WPTV produces WFLX's newscasts** from the same
+  newsroom, so one relationship reaches two stations.
+- The **Palm Beach Post dining beat is in transition** — Liz Balmaseda retired and the Food &
+  Dining Reporter role is posted open. Confirm by phone before pitching.
+- Local food influencers with real reach: **@eatpalmbeach** (~31K), **@foodpalmbeach** (21.6K).
 
 ### And the unglamorous work that matters more than any award
 
@@ -335,8 +390,9 @@ That is a differentiated, published partner program in a market where nobody has
 4. Claim Yelp, NoStove and the local directories. Free, and they own the search results.
 
 **Next (weeks):**
-5. **Enter the Palm Beach County Community's Choice Awards** while the cycle is open — free, and
-   daily voting favours a local list. Calendar Boca Raton Observer nominations for ~June 2027.
+5. **Boca Raton Observer Readers' Choice — voting closes Aug 30, 2026.** Nearest deadline on the
+   board; mobilise the list. Then apply to Culinary Clash (prelims Sept 7) and calendar the
+   Community's Choice nominations for ~mid-October 2026.
 6. Write and publish the founder story.
 7. Name the plans as programs; add a purpose line per bowl.
 8. GLP-1 landing page, factual framing only — the least crowded category in the whole taxonomy.
@@ -364,8 +420,10 @@ Fuel's "1,000+ 5-star" is self-reported and uncorroborated. Follower counts were
 only for @jetfuelmeals (50.4K) and @athleticsfitmiami (28.5K); others come from search snippets.
 Ad spend and event activation for local competitors are **unknown, not confirmed absent**. The
 absence of Cuban positioning in PBC is an absence-of-evidence finding across a targeted search —
-consistent, but not proof. On awards: the Palm Beach County Community's Choice and Boca Raton
-Observer programs were verified directly; New Times Broward-Palm Beach's current nomination window
-was **not**, and Boca Raton Magazine, Palm Beach Illustrated, Chamber and FRLA award programs are
-**unverified leads, not confirmed programs**. Local TV booking contacts need verifying before any
-outreach is built on them.
+consistent, but not proof. On awards: Community's Choice, Boca Raton Observer, Boca Raton Magazine,
+FRLA, Culinary Clash and the chamber programs were each loaded and verified directly. Still
+**unverified**: South Florida Business Journal programs (bizjournals.com is blocked here — Fast 50
+and 40 Under 40 deadlines, fees and URLs are all unconfirmed); FRLA's Stars of the Industry page
+still shows a 2019 deadline; Whole30, GFCO, CATIE 2027 and Inc. 2027 fees are unpublished;
+Michelin's delivery-only exclusion is plausible but unconfirmed; and WPBF 25's pitch path could not
+be verified at all. Phone before acting on any of those.
