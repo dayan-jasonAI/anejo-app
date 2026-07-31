@@ -1,6 +1,8 @@
 # Añejo Marketing & Sales Team — design
 
-**Status:** decisions made 2026-07-31 — building. Phase 0 first.
+**Status:** LIVE as of 2026-07-31. Publishing, carousels, scheduling, learning loop, attribution,
+budget meter, and Aña auto-replies all deployed and live-verified. Remaining: Team Lead surface,
+trust ledger, HUB pages for inbox/budget/links, App Review paperwork (Track B).
 
 ## 0. Dayan's decisions (2026-07-31)
 
@@ -14,6 +16,24 @@
 6. **Objective: BOTH brand-building and lead-gen.** The mandate is awareness of the full offer:
    bowls, the Macro Portal, meal-plan options, catering — reaching everyone who could be
    interested. Premium brand, and people actually knowing what Añejo sells.
+
+### Decisions added later on 2026-07-31 (Aña automation)
+
+7. **Aña auto-replies are ON** (`app_settings social.auto_reply='both'`) after Dayan reviewed her
+   live drafts and the FAQ set. Replies go out ~1 minute after a DM/comment arrives. Escalations
+   (angry/medical/refund) still send nothing and page the owner. Auto-sent rows are labelled
+   `ana_auto`. Flipping the setting off restores draft-only instantly.
+8. **The name is Aña** (not Ana) in every customer-facing surface — the same agent identity across
+   the website chat and Instagram.
+9. **Cutoffs are the owner's dial, never a quoted fact.** `ops.order_by_hour` (currently 20 = 8 PM)
+   drives checkout enforcement, page copy, and the planner. Aña never states a cutoff from memory.
+10. **Special requests: never refuse, never promise.** Aña sends a "checking with the kitchen"
+    holding reply and raises a deduped `special_request` alert to kitchen + owner.
+11. **Plans knowledge:** 5/10/12-bowl plans; pause, skip a week, cancel anytime; trainers can be
+    part of a member's plan; accountability check-ins are part of the offer.
+12. **No on-follow greeting exists legitimately** — no Meta trigger for it anywhere; the
+    first-message moment is Aña's. Meta Business Suite canned automations verified OFF to avoid
+    double-replying alongside her.
 
 ---
 
