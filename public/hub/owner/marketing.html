@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Marketing</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .meter { height:14px; border-radius:8px; background:#eceae4; overflow:hidden; margin:8px 0 4px; }
+  .meter > span { display:block; height:100%; border-radius:8px; background:var(--gold); }
+  .meter > span.hot { background:#b3402f; }
+  .mini-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .mini-table th { text-align:left; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--green); opacity:.7; padding:6px 8px 4px; }
+  .mini-table td { padding:6px 8px; border-top:1px solid var(--line); }
+  .mini-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .lane { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-top:1px solid var(--line); }
+  .lane:first-of-type { border-top:0; }
+  .lane .name { font-weight:700; font-size:13.5px; }
+  .lane .streak { font-size:12px; color:var(--green); opacity:.8; }
+  .pips { display:inline-flex; gap:3px; margin-left:6px; vertical-align:middle; }
+  .pips i { width:8px; height:8px; border-radius:50%; background:#e0ddd4; display:inline-block; }
+  .pips i.on { background:#2c6b3f; }
+  .lane button { padding:7px 12px; font-size:12.5px; font-weight:700; border-radius:8px; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--green); white-space:nowrap; }
+  .lane button.on { background:#2c6b3f; border-color:#2c6b3f; color:#fff; }
+  .inbox-item { padding:9px 0; border-top:1px solid var(--line); font-size:13px; }
+  .inbox-item:first-of-type { border-top:0; }
+  .hint { font-size:12px; color:var(--green); opacity:.72; line-height:1.5; margin:2px 0 0; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · MARKETING</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+  var esc = Hub.esc;
+  // The four feeds behind the four cards. Each card renders its own failure state, so one dead
+  // endpoint dims one card — it must not blank the cockpit.
+  var DATA = { budget: null, links: null, inbox: null, trust: null };
+
+  var CAT_WORD = { menu: 'Menu', macro_portal: 'Macro Portal', catering: 'Catering', brand_story: 'Brand story', promo: 'Promos' };
+
+  // ---- Card 1: the AI budget meter (spend vs the owner's weekly ceiling). ----
+  function budgetCard() {
+    var d = DATA.budget;
+    var b = d && d.ok && d.ai_budget;
+    if (!b) return '<div class="card"><h3>AI budget</h3><p class="row-sub">Could not load the meter.</p></div>';
+    var pct = b.limit_usd > 0 ? Math.min(100, Math.round((b.spent_usd / b.limit_usd) * 100)) : 0;
+    return '<div class="card"><h3>AI budget · week ' + esc(String(b.week)) + '</h3>' +
+      '<div class="meter"><span class="' + (pct >= 90 ? 'hot' : '') + '" style="width:' + pct + '%"></span></div>' +
+      '<div class="row-sub">$' + b.spent_usd.toFixed(2) + ' of $' + b.limit_usd.toFixed(2) + ' spent · $' + b.remaining_usd.toFixed(2) + ' left</div>' +
+      '<p class="hint">Hard ceiling: at the limit every AI feature waits for the new week — nothing borrows ahead.</p></div>';
+  }
+
+  // ---- Card 2: tracked links — clicks and the orders they turned into. ----
+  function linksCard() {
+    var d = DATA.links;
+    if (!d || !d.ok) return '<div class="card"><h3>Tracked links</h3><p class="row-sub">Could not load links.</p></div>';
+    var rows = (d.links || []).map(function (l) {
+      return '<tr><td><b>' + esc(l.code) + '</b>' + (l.active ? '' : ' <span class="badge">off</span>') +
+        '<div class="row-sub" style="font-size:11px">' + esc(l.label || '') + '</div></td>' +
+        '<td class="num">' + (l.clicks_7d || 0) + '</td>' +
+        '<td class="num">' + (l.clicks_30d || 0) + '</td>' +
+        '<td class="num"><b>' + (l.orders_attributed || 0) + '</b></td></tr>';
+    }).join('');
+    return '<div class="card"><h3>Tracked links</h3>' +
+      ((d.links || []).length
+        ? '<table class="mini-table"><thead><tr><th>Link</th><th style="text-align:right">7d</th><th style="text-align:right">30d</th><th style="text-align:right">Orders</th></tr></thead><tbody>' + rows + '</tbody></table>'
+        : '<p class="row-sub">No links yet.</p>') +
+      '<p class="hint">Orders are attributed by campaign — the same tag the /l/ redirect stamps on the visit.</p></div>';
+  }
+
+  // ---- Card 3: Aña's inbox — drafts waiting for a yes, and what she escalated. ----
+  function inboxCard() {
+    var d = DATA.inbox;
+    if (!d || !d.ok) return '<div class="card"><h3>Aña’s inbox</h3><p class="row-sub">Could not load the inbox.</p></div>';
+    var withWork = (d.items || []).filter(function (t) { return (t.drafts || []).length || (t.escalations || []).length; }).slice(0, 8);
+    var body = withWork.length ? withWork.map(function (t) {
+      var esct = (t.escalations || []).length;
+      return '<div class="inbox-item">' +
+        '<b>' + esc(t.username ? '@' + t.username : (t.subject || 'Thread')) + '</b>' +
+        ' <span class="row-sub" style="font-size:11px">' + (t.kind === 'dm' ? 'DM' : 'comment') + '</span>' +
+        ((t.drafts || []).length ? ' ' + Owner.badge((t.drafts || []).length + ' draft' + ((t.drafts || []).length > 1 ? 's' : ''), 'warn') : '') +
+        (esct ? ' ' + Owner.badge(esct + ' escalated', 'crit') : '') +
+        (t.window && t.window.hours_left != null ? '<div class="row-sub" style="font-size:11.5px">' + t.window.hours_left + 'h left in the reply window</div>' : '') +
+        '<div style="margin-top:4px"><a href="/hub/owner/comms.html">Review in Comms →</a></div>' +
+        '</div>';
+    }).join('') : '<p class="row-sub">Nothing waiting — Aña’s queue is clear.</p>';
+    return '<div class="card"><h3>Aña’s inbox' + (d.pending ? ' ' + Owner.badge(d.pending + ' pending', 'warn') : '') + '</h3>' + body + '</div>';
+  }
+
+  // ---- Card 4: the trust ledger — streaks, eligibility, and the owner's toggles. ----
+  function trustCard() {
+    var d = DATA.trust;
+    if (!d || !d.ok) return '<div class="card"><h3>Trust ledger</h3><p class="row-sub">Could not load the ledger.</p></div>';
+    var n = d.threshold || 5;
+    var lanes = (d.categories || []).map(function (c) {
+      var pips = '';
+      for (var i = 0; i < n; i++) pips += '<i class="' + (i < Math.min(c.approved_clean, n) ? 'on' : '') + '"></i>';
+      return '<div class="lane">' +
+        '<div><div class="name">' + esc(CAT_WORD[c.category] || c.category) +
+          (c.auto_publish ? ' ' + Owner.badge('auto', 'ok') : (c.eligible ? ' ' + Owner.badge('eligible', 'ok') : '')) + '</div>' +
+        '<div class="streak">' + Math.min(c.approved_clean, 99) + '/' + n + ' clean approvals<span class="pips">' + pips + '</span></div></div>' +
+        '<button data-trust="' + esc(c.category) + '" data-on="' + (c.auto_publish ? 0 : 1) + '"' +
+          (c.auto_publish || c.eligible ? '' : ' disabled style="opacity:.45;cursor:default"') +
+          ' class="' + (c.auto_publish ? 'on' : '') + '">' + (c.auto_publish ? 'Auto-publish ON' : 'Turn on') + '</button>' +
+        '</div>';
+    }).join('');
+    return '<div class="card"><h3>Trust ledger</h3>' + lanes +
+      '<p class="hint">A lane earns auto-publish after ' + n + ' drafts in a row approved without an edit. ' +
+      'One edit resets its streak. The switch is yours — nothing flips it for you.</p></div>';
+  }
+
+  function render() {
+    var root = document.getElementById('owner-root'); root.className = '';
+    root.innerHTML =
+      '<div class="hub-section"><h2>Marketing cockpit</h2>' +
+        budgetCard() + linksCard() + inboxCard() + trustCard() +
+      '</div>';
+    wire();
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function wire() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-trust]'), function (b) {
+      b.addEventListener('click', function () {
+        var cat = b.getAttribute('data-trust');
+        var on = Number(b.getAttribute('data-on'));
+        // Turning autonomy ON is the one decision this page exists to make deliberate.
+        if (on && !window.confirm('Let ' + (CAT_WORD[cat] || cat) + ' posts schedule themselves once the audit clears them?\n\nYou can turn this off any time.')) return;
+        Hub.api('/api/hub/owner/trust', { method: 'POST', body: { category: cat, auto_publish: on } })
+          .then(function (r) {
+            if (r && r.ok) { Hub.toast(on ? 'Auto-publish on' : 'Back to manual approval'); load(); }
+            else Hub.toast((r && r.error) || 'Could not change that');
+          });
+      });
+    });
+  }
+
+  // Four independent fetches; render once, with whatever answered. Promise.all is safe because
+  // Hub.api never rejects — a failed endpoint answers {} and its card says so.
+  function load() {
+    Promise.all([
+      Hub.api('/api/hub/automations/run'),
+      Hub.api('/api/hub/owner/links'),
+      Hub.api('/api/hub/owner/social-inbox'),
+      Hub.api('/api/hub/owner/trust')
+    ]).then(function (r) {
+      DATA.budget = r[0]; DATA.links = r[1]; DATA.inbox = r[2]; DATA.trust = r[3];
+      render();
+    });
+  }
+  Owner.init('marketing', load);
+})();
+</script>
+<script src="assets/operator.js" defer></script>
+</body>
+</html>

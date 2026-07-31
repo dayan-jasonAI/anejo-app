@@ -22,6 +22,7 @@
     { view: 'campaigns', href: '/hub/owner/campaigns.html', ico: '📨', label: 'Campaigns' },
     { view: 'social', href: '/hub/owner/social.html', ico: '📸', label: 'Social' },
     { view: 'team', href: '/hub/owner/team.html', ico: '🧠', label: 'Team' },
+    { view: 'marketing', href: '/hub/owner/marketing.html', ico: '📈', label: 'Marketing' },
     { view: 'inventory', href: '/hub/kitchen/inventory.html', ico: '📦', label: 'Inventory' },
     { view: 'studio', href: '/studio/', ico: '🎨', label: 'Studio' },
     { view: 'brief', href: '/hub/owner/brief-proposals.html', ico: '📋', label: 'Reviews' },
