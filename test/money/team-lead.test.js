@@ -285,4 +285,7 @@ test('a one-bowl draft gets that bowl\'s staged art; ambiguous or none gets noth
   assert.equal(bowlArtFor('marinated, marbled, marvelous'), null, 'MAR must not match inside words');
   const TEAM = readFileSync(new URL('../../functions/api/hub/owner/team.js', import.meta.url), 'utf8');
   assert.match(TEAM, /const art = bowlArtFor/, 'the executor actually attaches it');
+  // social_post_media is the authority and the public window is per-slide: setting only the
+  // legacy media_key column would look illustrated in the queue yet be unpublishable.
+  assert.match(TEAM, /INSERT INTO social_post_media/, 'a real slide row is written, not just the column');
 });

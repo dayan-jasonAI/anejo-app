@@ -119,6 +119,16 @@ async function executeAction(env, action) {
           `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at)
            VALUES (?,'instagram',?,?,?,'draft',NULL,?,'planner','lead',?,?)`
         ).bind(postId, caption, art, randToken(24), brief, t, t).run();
+        // social_post_media is the AUTHORITY — media_key on the post is display-only history, and
+        // the public window Instagram fetches through is per-SLIDE. A draft with only the column
+        // set would look illustrated in the queue and still be unpublishable.
+        if (art) {
+          try {
+            await env.DB.prepare(
+              'INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,0,?,?,?)'
+            ).bind(id('spm'), postId, art, randToken(24), t).run();
+          } catch { /* caption draft still stands; owner can attach by hand */ }
+        }
         // EVERY generated draft is scored, whichever door it came through — the planner's inserts
         // are audited in socialPlan, and a Lead that could slip unscored copy past governance
         // would make the gate decorative. Failure leaves audit_at NULL: visibly unscored, and
