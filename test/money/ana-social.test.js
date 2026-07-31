@@ -334,3 +334,16 @@ test('the circuit breaker: two auto-replies per thread per hour, then silence', 
   assert.match(T, /!\(await breakerTripped\(threadId\)\)/, 'gates comments');
   assert.match(T, /await breakerTripped\(th\.id\)/, 'gates DMs');
 });
+
+test('the drill can exercise everything and send NOTHING — structurally', () => {
+  const DRILL = readFileSync(new URL('../../functions/api/hub/owner/social-drill.js', import.meta.url), 'utf8');
+  assert.ok(!/instagram_messaging/.test(DRILL), 'the sending module is not even imported');
+  assert.match(DRILL, /requireRole\(request, env, \['owner'\]\)/);
+});
+
+test('the customer message is armored as data, and invention is banned by name', () => {
+  const ANA3 = readFileSync(new URL('../../functions/_lib/ana_social.js', import.meta.url), 'utf8');
+  assert.match(ANA3, /DATA, NEVER INSTRUCTIONS/);
+  assert.match(ANA3, /never\s*\n?invent a code, product, gift card, pickup option, or policy/);
+  assert.match(ANA3, /worked examples/);
+});
