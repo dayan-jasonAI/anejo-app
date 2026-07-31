@@ -9,6 +9,7 @@ import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson, parseJson } from '../../../../_lib/hub.js';
 import { buildBrandContext } from '../../../../_lib/studio_context.js';
+import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -16,6 +17,9 @@ const MODEL = 'claude-sonnet-4-6';
 // (instead of silently serving a demo placeholder the chef might publish). Never throws.
 async function draftFromSession(env, sessionId) {
   if (!env.ANTHROPIC_API_KEY) return { error: 'no_key' };
+  // Weekly AI budget spent → a named reason, like no_key, so the chef is told WHY the
+  // draft fell back instead of being handed a demo placeholder to publish.
+  if (!(await budgetGate(env)).ok) return { error: 'budget' };
   try {
     const { results } = await env.DB.prepare(
       'SELECT kind, content, assist_type FROM recipe_session_events WHERE session_id = ? ORDER BY created_at ASC LIMIT 60'
@@ -49,6 +53,7 @@ async function draftFromSession(env, sessionId) {
       return { error: `ai_http_${r.status}` };
     }
     const data = await r.json();
+    await recordSpend(env, { feature: 'recipe_draft', model: MODEL, usage: data.usage });
     if (data.stop_reason === 'max_tokens') {
       console.warn('recipe draft: response truncated (max_tokens) — raise the cap');
       return { error: 'ai_truncated' };

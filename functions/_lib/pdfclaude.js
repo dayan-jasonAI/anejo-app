@@ -13,6 +13,8 @@
 // and tables without any of that. For a document library that will be quoted back as food-safety
 // and licensing guidance, correctness beats cleverness, and we already have the API key.
 
+import { budgetGate, recordSpend } from './ai_budget.js';
+
 const MODEL = 'claude-sonnet-4-5';
 
 // Claude's PDF support has a page ceiling per request, and a bulletin is a few pages while a full
@@ -45,6 +47,9 @@ function toBase64(bytes) {
 export async function extractPdfWithClaude(env, bytes) {
   if (!env || !env.ANTHROPIC_API_KEY || !bytes || !bytes.length) return '';
   if (bytes.length > MAX_PDF_BYTES) return '';
+  // Weekly AI budget spent → '' like every other failure here; a PDF transcription is the
+  // single most expensive call in the codebase and must not be the one that blows the ceiling.
+  if (!(await budgetGate(env)).ok) return '';
 
   let b64;
   try { b64 = toBase64(bytes); } catch { return ''; }
@@ -74,6 +79,7 @@ export async function extractPdfWithClaude(env, bytes) {
       return '';
     }
     const data = await r.json();
+    await recordSpend(env, { feature: 'pdf_extract', model: MODEL, usage: data.usage });
     let out = ((data.content && data.content[0] && data.content[0].text) || '').trim();
     if (out.indexOf('```') === 0) out = out.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
     return out;

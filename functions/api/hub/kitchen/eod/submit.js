@@ -8,6 +8,7 @@ import { json, bad } from '../../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, today, toJson, bit } from '../../../../_lib/hub.js';
+import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -35,6 +36,9 @@ async function gatherStats(env, day, _staffId) {
 
 async function aiDraft(env, day, stats) {
   if (!env.ANTHROPIC_API_KEY) return null;
+  // Over the weekly AI budget: null, exactly like no key, so the caller's demo draft runs
+  // and the kitchen still gets something to edit.
+  if (!(await budgetGate(env)).ok) return null;
   const sys = 'You write a brief, professional kitchen end-of-day report for Añejo Catering Co. Given the day\'s stats, write 3-5 plain sentences covering throughput, quality, and anything to flag. First person plural ("we"). No markdown.';
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -44,6 +48,7 @@ async function aiDraft(env, day, stats) {
     });
     if (!r.ok) return null;
     const data = await r.json();
+    await recordSpend(env, { feature: 'eod_draft_kitchen', model: MODEL, usage: data.usage });
     return (data.content || []).map((c) => c.text || '').join('').trim() || null;
   } catch { return null; }
 }

@@ -10,6 +10,7 @@ import { id, now, toJson } from '../../../../_lib/hub.js';
 import { buildBrandContext } from '../../../../_lib/studio_context.js';
 import { generatePlateImage } from '../../../../_lib/plate_image.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../../../../_lib/bowlspec.js';
+import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
 const MODEL = 'claude-sonnet-4-6';
 // Image generation (model + plating style) lives in _lib/plate_image.js since 59909ea.
@@ -46,6 +47,8 @@ function demoContent(name) {
 
 async function generateText(env, { name, transcript }) {
   if (!env.ANTHROPIC_API_KEY) return { ...demoContent(name), demo: true };
+  // Weekly AI budget spent → demo content, same shape as the no-key path.
+  if (!(await budgetGate(env)).ok) return { ...demoContent(name), demo: true };
   const brand = await buildBrandContext(env).catch(() => '');
   const system = `${brand}
 
@@ -63,6 +66,7 @@ You are Añejo Catering Co.'s content studio. From the dish below, write marketi
     });
     if (!r.ok) throw new Error(`AI ${r.status}`);
     const data = await r.json();
+    await recordSpend(env, { feature: 'studio_content', model: MODEL, usage: data.usage });
     const parsed = extractJson((data.content || []).map((c) => c.text || '').join(''));
     if (!parsed || !parsed.caption_en) throw new Error('unparseable');
     return { ...demoContent(name), ...parsed, demo: false };

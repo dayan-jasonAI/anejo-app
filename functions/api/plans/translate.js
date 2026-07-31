@@ -4,6 +4,7 @@
 // Returns: { rationale, lifestyle_notes } in the target language. Stateless; rate-limited.
 import { json, bad } from '../../_lib/util.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
+import { budgetGate, recordSpend } from '../../_lib/ai_budget.js';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -17,6 +18,9 @@ export const onRequestPost = async ({ request, env }) => {
   const limited = await limitOr429(env, request, { name: 'translate', limit: 12, windowSec: 60 });
   if (limited) return limited;
   if (!env.ANTHROPIC_API_KEY) return json({ error: 'Translation is not available right now.' }, 503);
+  // Weekly AI budget spent → same graceful copy as the no-key path; the reader keeps the
+  // original language rather than seeing a budget error.
+  if (!(await budgetGate(env)).ok) return json({ error: 'Translation is not available right now.' }, 503);
 
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
@@ -49,6 +53,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (!r.ok) return json({ error: 'Translation service is briefly unavailable.' }, 502);
 
   const data = await r.json();
+  await recordSpend(env, { feature: 'plan_translate', model: MODEL, usage: data.usage });
   const text = (data.content || []).map((c) => c.text || '').join('');
 
   let out;
