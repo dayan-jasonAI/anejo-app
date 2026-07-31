@@ -828,6 +828,28 @@ async function loadAutoPromo(){
   } catch(_){}
 }
 
+// ---- Campaign attribution (0044), same pattern and sessionStorage key as /launch. Tracked
+// links (/l/ig-order) and paid clicks land here with utm_* or src in the URL; captured on load
+// and stashed so an in-session navigation doesn't lose the source — WITHOUT this, the tap the
+// redirect recorded can never be joined to the order it produced. First touch wins.
+var anejoAttr = (function () {
+  var KEY = 'anejo:attr';
+  function read() { try { return JSON.parse(sessionStorage.getItem(KEY) || 'null') || null; } catch (e) { return null; } }
+  var q;
+  try { q = new URLSearchParams(location.search); } catch (e) { q = null; }
+  var g = function (k) { return (q && q.get(k) || '').trim().slice(0, 120) || null; };
+  var a = { src: g('src') || g('ref'), utm_source: g('utm_source'), utm_medium: g('utm_medium'), utm_campaign: g('utm_campaign') };
+  // Google/Meta auto-tagging sends only a click id — without this those clicks look like
+  // direct traffic. Never overrides an explicit utm_source.
+  if (!a.utm_source && g('gclid')) { a.utm_source = 'google'; a.utm_medium = a.utm_medium || 'cpc'; }
+  if (!a.utm_source && g('fbclid')) { a.utm_source = 'facebook'; a.utm_medium = a.utm_medium || 'social'; }
+  if (a.src || a.utm_source || a.utm_medium || a.utm_campaign) {
+    try { sessionStorage.setItem(KEY, JSON.stringify(a)); } catch (e) { /* private mode — in-memory only */ }
+    return a;
+  }
+  return read() || a;
+})();
+
 async function checkout(){
   const btn=document.getElementById('checkoutBtn'), err=document.getElementById('err');
   err.textContent='';
@@ -865,6 +887,8 @@ async function checkout(){
   btn.disabled=true; const label=btn.textContent; btn.textContent=L('Redirecting to secure checkout…','Redirigiendo al pago seguro…');
   try{
     const payload = { items, fulfillment, address, contact };
+    // Descriptive only — the server slices and stores it (parseAttribution), never prices from it.
+    if (anejoAttr && (anejoAttr.src || anejoAttr.utm_source || anejoAttr.utm_campaign)) payload.attribution = anejoAttr;
     if (rewardsRedeemPts > 0) payload.redeem_points = rewardsRedeemPts;
     // Only send a code the customer actually typed — a member's lifetime benefit is applied
     // server-side automatically, so we never risk blocking checkout on it.
