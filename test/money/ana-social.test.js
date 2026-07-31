@@ -289,8 +289,9 @@ test('the EXACT reply that leaked publicly can never be auto-sent again', () => 
   assert.equal(looksLikeScaffolding('Gracias! We put our whole heart in that one 🌿'), false, 'a real reply passes');
   assert.equal(looksLikeScaffolding(''), true, 'an empty reply never posts');
   const TICK2 = readFileSync(new URL('../../functions/api/hub/admin/social-inbox-tick.js', import.meta.url), 'utf8');
-  assert.match(TICK2, /autoOk\('comment'\) && !looksLikeScaffolding\(d\.draft\)/, 'guard gates comment auto-send');
-  assert.match(TICK2, /if \(looksLikeScaffolding\(d\.draft\)\) \{ continue; \}/, 'guard gates DM auto-send');
+  // The gates grew stronger since first pinned: identity + scaffolding + circuit breaker.
+  assert.match(TICK2, /identityKnown && autoOk\('comment'\) && !looksLikeScaffolding\(d\.draft\) && !\(await breakerTripped\(threadId\)\)/, 'comment auto-send: all three gates');
+  assert.match(TICK2, /!identityKnown \|\| looksLikeScaffolding\(d\.draft\) \|\| await breakerTripped\(th\.id\)/, 'DM auto-send: all three gates');
 });
 
 test('a bare emoji never reaches the model — applause gets a warm fixed line', () => {
@@ -308,4 +309,28 @@ test('the prompt frame now tells the truth about auto mode', () => {
   assert.match(ANA2, /posted to Instagram the moment you write it/, 'auto mode says so');
   assert.match(ANA2, /NEVER ask where the comment is/, 'the confusion that leaked is named');
   assert.ok(!/nothing you write is sent automatically. Still write it exactly/.test(ANA2), 'the stale always-a-draft frame is gone');
+});
+
+// ---------- the self-reply loop, pinned ----------
+
+test('self-identity comes from the live API, never from env config alone', () => {
+  // env.IG_USER_ID held a different id than Meta stamps on our own comments; the check silently
+  // never matched, and Aña answered her own replies in public seven times before the owner
+  // deleted them by hand. /me is the authority now, with username as a second signal.
+  const T = readFileSync(new URL('../../functions/api/hub/admin/social-inbox-tick.js', import.meta.url), 'utf8');
+  assert.match(T, /const target = await resolveTarget\(env\)/);
+  assert.match(T, /selfName && String\(ev\.from_username \|\| ''\)\.toLowerCase\(\) === selfName/);
+  assert.match(T, /const identityKnown = !!\(selfId \|\| selfName\)/);
+  assert.match(T, /identityKnown && autoOk\('comment'\)/, 'unknown identity means NOTHING auto-sends');
+  const W = readFileSync(new URL('../../functions/api/webhooks/instagram.js', import.meta.url), 'utf8');
+  assert.match(W, /String\(fromId \|\| ''\) === String\(self\.id\)/, 'the webhook refuses to store our own comments');
+});
+
+test('the circuit breaker: two auto-replies per thread per hour, then silence', () => {
+  const T = readFileSync(new URL('../../functions/api/hub/admin/social-inbox-tick.js', import.meta.url), 'utf8');
+  assert.match(T, /sent_at > \?/, 'rolling window, not calendar hour');
+  assert.match(T, /Number\(\(r && r\.n\) \|\| 0\) >= 2/, 'the cap is 2');
+  assert.match(T, /catch \{ return true; \}/, 'cannot count means do not send');
+  assert.match(T, /!\(await breakerTripped\(threadId\)\)/, 'gates comments');
+  assert.match(T, /await breakerTripped\(th\.id\)/, 'gates DMs');
 });

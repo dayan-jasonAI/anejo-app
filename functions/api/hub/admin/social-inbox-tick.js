@@ -24,6 +24,7 @@ import { draftReply, reactionReplyFor, looksLikeScaffolding } from '../../../_li
 // legality window stays enforced inside sendDirectMessage itself, and the whole path only runs
 // when the social.auto_reply setting says so — flipping it off restores draft-only instantly.
 import { sendDirectMessage, replyToComment } from '../../../_lib/instagram_messaging.js';
+import { resolveTarget, accountInfo } from '../../../_lib/instagram.js';
 import { raiseAlert } from '../../../_lib/alerts.js';
 
 // Claude calls per tick. The tick runs every minute, so a backlog drains at ~4/min — fast enough
@@ -58,6 +59,37 @@ export const onRequestPost = async ({ request, env }) => {
   } catch { autoMode = 'off'; }
   const autoOk = (kind) => autoMode === 'both' || autoMode === kind;
 
+  // WHO WE ARE, from the live API — never from env config. The 2026-07-31 self-reply loop
+  // happened because env.IG_USER_ID held a different id than the one Meta stamps on our own
+  // comments (17841410209362773): the self-check silently never matched, Aña treated her own
+  // replies as new customers, and answered herself in public seven times. /me is the authority;
+  // the username is matched too, so either signal alone is enough to recognise ourselves.
+  const target = await resolveTarget(env);
+  const acct = target.ok ? await accountInfo(env) : { ok: false };
+  const selfId = String((target.ok && target.id) || '');
+  const selfName = String((acct.ok && acct.username) || '').toLowerCase();
+  const isSelf = (ev) =>
+    (selfId && String(ev.from_id || '') === selfId) ||
+    (selfName && String(ev.from_username || '').toLowerCase() === selfName) ||
+    (env.IG_USER_ID && String(ev.from_id || '') === String(env.IG_USER_ID));
+  // If we cannot confirm our own identity, we must not auto-send anything: replying to an
+  // unidentified account risks replying to ourselves, which is exactly the loop.
+  const identityKnown = !!(selfId || selfName);
+
+  // THE CIRCUIT BREAKER. Even with every identity check right, a conversation loop (with
+  // ourselves, with another bot, with a hostile prankster) burns trust at machine speed. No
+  // thread may receive more than 2 auto-sent replies in any rolling hour — past that, Aña goes
+  // quiet on that thread and everything lands as human-review drafts. A slow reply costs a
+  // little; a machine-gun reply thread on a public post costs the brand.
+  const breakerTripped = async (threadId) => {
+    try {
+      const r = await env.DB.prepare(
+        "SELECT COUNT(*) n FROM messages WHERE thread_id=? AND direction='outbound' AND channel='instagram' AND sent_at IS NOT NULL AND sent_at > ?"
+      ).bind(threadId, t - 3600 * 1000).first();
+      return Number((r && r.n) || 0) >= 2;
+    } catch { return true; }   // cannot count → do not send
+  };
+
   let drafted = 0, escalated = 0, sent = 0, specials = 0, skipped = 0;
 
   // ---------- comments (public, no reply window) ----------
@@ -73,7 +105,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (budget <= 0) break;
     // Our own replies echo back through the webhook as comments. Aña answering Aña would loop
     // forever, so they are marked handled without spending a draft on them.
-    if (env.IG_USER_ID && String(ev.from_id || '') === String(env.IG_USER_ID)) {
+    if (isSelf(ev)) {
       try { await env.DB.prepare('UPDATE social_events SET handled=1 WHERE id=?').bind(ev.id).run(); } catch { /* retried next tick */ }
       skipped += 1;
       continue;
@@ -115,7 +147,7 @@ export const onRequestPost = async ({ request, env }) => {
         // Public comment replies have no 24-hour window — the reply is public. The guard is the
         // last gate: a reply that smells like scaffolding stays a human-review draft, because a
         // broken-character reply on a public post costs more than a slow one.
-        if (autoOk('comment') && !looksLikeScaffolding(d.draft)) {
+        if (identityKnown && autoOk('comment') && !looksLikeScaffolding(d.draft) && !(await breakerTripped(threadId))) {
           const res = await replyToComment(env, { commentId: ev.id, text: d.draft });
           if (res && res.ok && await markSent(env, mid, t)) sent += 1;
         }
@@ -164,7 +196,7 @@ export const onRequestPost = async ({ request, env }) => {
         if (autoOk('dm')) {
           // sendDirectMessage re-checks never-messaged-first and the 24-hour ceiling internally —
           // the legality gate is not this file's to skip.
-          if (looksLikeScaffolding(d.draft)) { continue; }   // quarantined as a draft, never sent
+          if (!identityKnown || looksLikeScaffolding(d.draft) || await breakerTripped(th.id)) { continue; }   // quarantined, never sent
           const res = await sendDirectMessage(env, { thread: th, recipientId: th.external_id, text: d.draft });
           if (res && res.ok && await markSent(env, mid, t)) sent += 1;
         }

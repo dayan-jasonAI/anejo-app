@@ -86,8 +86,12 @@ export const onRequestPost = async ({ request, env }) => {
       if (!v) continue;
       if (ch.field === 'comments') {
         const fromId = (v.from && v.from.id) || null;
-        // Our own replies come back as comments too.
         if (!v.id) continue;
+        // Our own replies come back as comment webhooks. Identity from the live API (memoized),
+        // never from env config — the config mismatch is how the self-reply loop happened. If we
+        // cannot resolve who we are, we still store the event; the tick's own check catches it.
+        const self = await resolveTarget(env).catch(() => null);
+        if (self && self.ok && String(fromId || '') === String(self.id)) continue;
         seen.push(await ingest(env, {
           eventId: v.id, kind: 'comment', fromId,
           fromUsername: (v.from && v.from.username) || null,
