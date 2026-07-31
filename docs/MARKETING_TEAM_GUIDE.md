@@ -35,8 +35,11 @@ Aña replies are ~$0.003 each. You will struggle to spend $5 in a normal week.
    facts about your own business.
 3. **Write campaign briefs** (objective, audience, angle, cadence, success metric) that
    persist and steer future drafting.
-4. **Draft posts on command** — every draft is governance-scored before you see it.
-   Nothing unscored can exist in the queue, whichever door it came through.
+4. **Draft posts on command** — every draft is governance-scored before you see it, and a
+   draft about one identifiable bowl arrives **with the image already attached** (the staged
+   brand-treated bowl photo). Two bowls named or none → no image, deliberately: a wrong bowl
+   on a post is worse than an empty frame. Replace any of it with your own photo using the
+   📷 button in HUB → Social — that is still the best image you can give a post.
 5. **Plan the week automatically** — the planner drafts against performance data daily;
    carousels (2–10 slides) fully supported, timer-published unattended.
 6. **Run the front of house.** Aña answers DMs and comments in seconds, English or

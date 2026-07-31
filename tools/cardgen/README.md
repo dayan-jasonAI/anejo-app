@@ -10,6 +10,12 @@ would have evaporated with the session.
   26-card series in R2 under `studio/2026-07/series/`.
 - `og_calculator.py` — the 1200×630 link-preview card for `/calculator` (macro donut).
   Output ships in the repo at `public/assets/img/og_calculator.png`.
+- `bowl_post.py` — the 1080×1350 bowl post image (real photography + gold frame, emblem,
+  bowl name, URL). Output is staged in R2 at `studio/bowls/<bowl>.jpg` and auto-attached to
+  any Lead draft that names exactly one bowl (`functions/_lib/bowl_art.js`). Re-run and
+  re-upload after changing bowl photography:
+  `python3 tools/cardgen/bowl_post.py /tmp/bowlposts` then
+  `npx wrangler r2 object put anejo-media/studio/bowls/<bowl>.jpg --file /tmp/bowlposts/<bowl>.jpg --content-type image/jpeg`
 - `fonts/` — the exact variable TTFs the brand renders with. Do not swap these for
   system fonts; weight axes are set per-text (`set_variation_by_axes`).
 - `references/` — **drop new template examples here.** See below.
