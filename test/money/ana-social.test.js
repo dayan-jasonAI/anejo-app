@@ -219,3 +219,16 @@ test('comment threads never gain DM permission — last_inbound_at stays NULL on
   assert.ok(createSql, 'thread create SQL found');
   assert.ok(!/last_inbound_at/.test(createSql[0]), 'comment thread create sets no last_inbound_at');
 });
+
+test('model scaffolding is stripped from the draft — the first live draft leaked "**DRAFT REPLY:**"', async () => {
+  // The prompt forbids it, but a guarantee lives in code, not in a request. Verified against the
+  // exact prefix the first real draft produced.
+  const f = stubFetch(() => claudeSays('**DRAFT REPLY:**\n\nHey! We are Añejo — bowls at anejocateringco.com/order 🌿'));
+  try {
+    const r = await draftReply({ ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'what do you sell?' });
+    assert.equal(r.ok, true);
+    assert.ok(!/draft reply/i.test(r.draft), 'label gone');
+    assert.ok(!r.draft.includes('**'), 'markdown emphasis gone');
+    assert.ok(r.draft.startsWith('Hey!'), 'the message itself is intact');
+  } finally { f.restore(); }
+});

@@ -160,8 +160,10 @@ CONTEXT CHANGE — you are DRAFTING, not chatting.
 This is an Instagram ${kind === 'comment' ? 'public comment on one of Añejo\'s posts' : 'direct message'} from ${username ? '@' + username : 'a customer'}. Write a DRAFT reply for the owner to review, edit, and send — nothing you write is sent automatically. Still write it exactly as it should read when sent: Aña's warm voice, ready to go, no placeholders and no notes to the owner.
 
 RULES FOR THIS DRAFT (on top of the guardrails above)
+- PLAIN TEXT ONLY: no markdown, no **bold**, no headings, and never a label like "Draft reply:" — your entire output is the message body itself and nothing else.
+- Instagram cannot open a bare path like /order. Any link must be the full domain: anejocateringco.com/order (never a leading slash on its own).
 - Keep it under 400 characters — one to three short sentences. ${kind === 'comment' ? 'This reply is PUBLIC, under the post, so keep it upbeat and never discuss a specific order in public — invite them to DM or email instead.' : ''}
-- Quote ONLY prices, hours, and delivery rules stated above. Never invent a price, a deadline, or a delivery promise. If the answer is not above, say you will check and point them to /order or dayan@anejocateringco.com.
+- Quote ONLY prices, hours, and delivery rules stated above. Never invent a price, a deadline, or a delivery promise. If the answer is not above, say you will check and point them to anejocateringco.com/order or dayan@anejocateringco.com.
 - Never promise refunds, discounts, credits, or exceptions of any kind.
 - If the message is angry or heated, threatens a bad review, asks about a refund, a chargeback, or a billing problem, or describes anything medical (an allergic reaction, feeling sick, an injury) — do NOT draft a reply. Instead respond with exactly one line:
 ${ESCALATE_PREFIX} <a few words saying why this needs the owner>`;
@@ -213,5 +215,13 @@ export async function draftReply(env, { kind = 'dm', text, username } = {}) {
     const reason = out.slice(ESCALATE_PREFIX.length).trim().slice(0, 200) || 'needs the owner';
     return { ok: true, escalate: true, reason };
   }
-  return { ok: true, draft: out.slice(0, MAX_DRAFT_CHARS) };
+  // The first live draft opened with a literal "**DRAFT REPLY:**" — model scaffolding that would
+  // have been sent to a customer verbatim. The prompt now forbids it, but a guarantee lives in
+  // code, not in a request: strip leading labels and markdown emphasis. After the escalation
+  // check on purpose, so the ESCALATE prefix is never touched.
+  const scrubbed = out
+    .replace(/^\s*(\*\*)?\s*(draft(\s+reply)?|reply)\s*:?\s*(\*\*)?\s*/i, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .trim();
+  return { ok: true, draft: (scrubbed || out).slice(0, MAX_DRAFT_CHARS) };
 }
