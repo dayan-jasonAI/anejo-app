@@ -16,3 +16,8 @@ ALTER TABLE social_posts ADD COLUMN audit_flags TEXT;
 -- When the audit ran (epoch ms). An audit is a snapshot of the LIVE menu and ops dials at one
 -- moment; the timestamp is what makes a verdict recognizably stale after a price change.
 ALTER TABLE social_posts ADD COLUMN audit_at INTEGER;
+
+-- The canonical yes/no the trust ledger's auto-publish gate reads. The two sibling modules were
+-- built blind to each other and assumed different spellings (score/flags here, audit_status in
+-- trust); this is the reconciliation: 'pass' | 'flag', NULL = never audited.
+ALTER TABLE social_posts ADD COLUMN audit_status TEXT;
