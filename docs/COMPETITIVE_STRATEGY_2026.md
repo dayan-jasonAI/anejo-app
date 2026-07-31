@@ -406,6 +406,20 @@ competitor (CateredFit) even claims gym partnerships, and publishes no terms. Th
 programs found — in-gym fridges, co-branded member pages, commission per subscription — belong to
 out-of-market brands. MealPro's affiliate program pays 3–5%.
 
+**What the category actually pays per referred customer** — useful for pricing Añejo's own gym,
+trainer and creator commissions, since these are the rates those partners are benchmarking against:
+**Purple Carrot $25 per subscription (30-day cookie), BistroMD $20 flat (30-day), Hungryroot $10
+(14-day)**. Each is documented by the brand or its agency. So roughly **$20–$25 for a new
+subscriber** is the going rate a national brand pays a publisher — and Añejo's advantage is that it
+can pay a *local gym* on renewals too, which is where the economics actually work.
+
+Two practical notes if a network is ever considered: sub-networks such as FlexOffers retain roughly
+**55–85% of the CPA** (Hungryroot pays $10 direct but $4 through FlexOffers), so go direct. And
+**impact.com is the category's centre of gravity** — HelloFresh Group, CookUnity, Purple Carrot,
+BistroMD and Sunbasket all sit on it, ShareASale has been folded into Awin, and Rakuten is migrating
+its ~2,000 advertiser programs onto impact.com. None of this is urgent for a single-metro brand
+running its own commission engine; it matters only if national publisher distribution becomes a goal.
+
 Añejo already has the trainer portal, the affiliate application, and the commission engine **built
 and idle**. One gym with 400 members is worth more than a year of posting at 37 followers. The
 package to take to gym owners:
