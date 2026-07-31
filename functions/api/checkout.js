@@ -233,6 +233,9 @@ export const onRequestPost = async ({ request, env }) => {
   const onDemand = !!(b.fulfillment && b.fulfillment.mode === 'on_demand') || b.mode === 'on_demand';
 
   let win, dateStr, fulfillmentMode, fulfillLabel;
+  // Hoisted: assigned on the scheduled branch, reused for the zip check on BOTH branches. As a
+  // const inside the else-block it made every on-demand order throw ReferenceError at the reuse.
+  let schedOps = null;
   if (onDemand) {
     fulfillmentMode = 'on_demand';
     // Same overrides as the storefront. If only the display honored scheduled-only, a crafted
@@ -285,8 +288,20 @@ export const onRequestPost = async ({ request, env }) => {
     if (Number.isNaN(midnightUtc)) return bad('Invalid delivery date.');
     const dow = new Date(midnightUtc).getUTCDay();
     if (dow === 0) return bad('We deliver Monday–Saturday. Please pick another date.');
-    const cutoff = midnightUtc - 2 * 3600 * 1000;   // ≈ 6 PM ET the prior day (EDT = UTC-4)
-    if (Date.now() >= cutoff) return bad('That date has passed its order cutoff (6 PM the day before). Pick a later date.');
+    // THE OWNER'S CUTOFF, not a hard-coded one. scheduleOpenFor was built settings-aware,
+    // imported here, and never wired in — the lint warning that sat on this file all month was
+    // the receipt. With it unwired, the page could promise the owner's configured hour while
+    // checkout silently refused at a fossilised 6 PM: worse than either bug alone, because every
+    // customer between the two hours is told the site lied to them.
+    schedOps = await loadOperating(env);
+    const gate = scheduleOpenFor(schedOps, dateStr);
+    if (!gate.ok) {
+      const hr = Number(schedOps.order_by_hour) || 18;
+      const hh = `${hr % 12 || 12} ${hr >= 12 ? 'PM' : 'AM'}`;
+      if (gate.reason === 'past_deadline') return bad(`That date has passed its order cutoff (${hh} the day before). Pick a later date.`);
+      if (gate.reason === 'no_delivery_day' || gate.reason === 'closed') return bad('We are not delivering that day. Please pick another date.');
+      return bad('Please choose an upcoming delivery date.');
+    }
     if (midnightUtc - Date.now() > 24 * 24 * 3600 * 1000) return bad('Please choose a delivery date within the next few weeks.');
     fulfillLabel = `${DOW[dow]} ${dateStr} · ${WINDOWS[win]}`;
   }
@@ -301,7 +316,7 @@ export const onRequestPost = async ({ request, env }) => {
   //
   // Empty setting = unrestricted, i.e. exactly today's behaviour, so this cannot start rejecting
   // real customers the moment it deploys. The owner turns it on in the HUB.
-  const ops = await loadOperating(env);
+  const ops = schedOps || await loadOperating(env);
   const area = zipAllowed(ops, addr.zip);
   if (!area.ok) {
     return bad(

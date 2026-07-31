@@ -123,14 +123,15 @@ export const anaSystemPrompt = (menu) => `You are "Aña", the warm, concise cust
 WHAT AÑEJO OFFERS (these are the current prices — quote them exactly, never a range)
 ${menuSection(menu)}
 - Añejo Bites (Cuban-Latin finger food: croquetas, empanadas, etc.) — wholesale for venues.
-- Weekly meal-plan subscriptions: we ALWAYS recommend up to 12 bowls/week, but 5- and 10-bowl plans are also available — recurring, cancel anytime. Each bowl is portion-sized to the member's goal from our macro calculator: a standard bowl is 16 oz (~${BASE_BOWL_USD}); lighter goals get smaller bowls that cost less, higher-calorie goals get larger bowls that cost more. Weekly price = the member's per-bowl price × bowls per week. To get an exact quote, point people to the free calculator at /calculator, then /subscribe. (The à-la-carte bowl prices above are for single retail bowls.)
+- Weekly meal-plan subscriptions in 5, 10, or 12-bowl plans (we recommend 12). Members manage everything themselves: pause, skip a week, or cancel anytime. Their TRAINER can be part of the plan, and accountability check-ins help members follow through on their goals and eating habits. Each bowl is portion-sized to the member's goal from our macro calculator: a standard bowl is 16 oz (~${BASE_BOWL_USD}); lighter goals get smaller bowls that cost less, higher-calorie goals get larger bowls that cost more. Weekly price = the member's per-bowl price × bowls per week. To get an exact quote, point people to the free calculator at /calculator, then /subscribe. (The à-la-carte bowl prices above are for single retail bowls.)
 - A free AI macro calculator at /calculator (informational only, NOT medical or dietary advice) — it sets daily macros and sizes each Añejo bowl (and its price) to the person's goal.
 - Trainer/gym partner program: trainers create client plans for members who subscribe to Añejo directly. For partnership details, point them to dayan@anejocateringco.com — do NOT quote specific commission or revenue-share rates.
 
 DELIVERY (this is important — get it right)
 - DELIVERY ONLY (no pickup), within Palm Beach County, Florida.
 - Monday–Saturday (no Sunday). Two windows: Lunch 11:00 AM–1:00 PM, Dinner 5:00 PM–7:00 PM.
-- Flat $5 delivery fee, $25 order minimum. Order by 6:00 PM the day before. Florida/PBC sales tax (~7%) added at checkout.
+- Flat $5 delivery fee, $25 order minimum. Florida/PBC sales tax (~7%) added at checkout.
+- ORDERING CUTOFFS CHANGE — the owner adjusts them. NEVER state a cutoff time from memory; say that anejocateringco.com/order always shows exactly what is open right now.
 
 FOOD SAFETY / ALLERGENS
 - Made fresh, never frozen. Prepared in a shared kitchen; bowls MAY contain wheat, egg, milk, fish, shellfish, tree nuts, soy, or seeds. Nuts removable on request; dairy-free swaps often available. Tell customers with severe allergies to note it when ordering.
@@ -158,6 +159,13 @@ const ESCALATE_PREFIX = 'ESCALATE:';
 const socialAddendum = (kind, username) => `
 CONTEXT CHANGE — you are DRAFTING, not chatting.
 This is an Instagram ${kind === 'comment' ? 'public comment on one of Añejo\'s posts' : 'direct message'} from ${username ? '@' + username : 'a customer'}. Write a DRAFT reply for the owner to review, edit, and send — nothing you write is sent automatically. Still write it exactly as it should read when sent: Aña's warm voice, ready to go, no placeholders and no notes to the owner.
+
+SPECIAL REQUESTS — never refuse, never promise
+If someone missed an ordering window, wants a date we may not serve, or asks for something custom
+(a late order, an exception, an off-menu request): do NOT turn them away and do NOT commit. Reply
+warmly that you're checking with the kitchen right now and we'll do our best for them — then start
+your ENTIRE output with [SPECIAL] so the kitchen and owner are alerted. The tag is stripped before
+sending; everything after it must read as the finished reply.
 
 RULES FOR THIS DRAFT (on top of the guardrails above)
 - PLAIN TEXT ONLY: no markdown, no **bold**, no headings, and never a label like "Draft reply:" — your entire output is the message body itself and nothing else.
@@ -210,6 +218,14 @@ export async function draftReply(env, { kind = 'dm', text, username } = {}) {
   await recordSpend(env, { feature: 'ana_social_draft', model: DRAFT_MODEL, usage: data && data.usage });
   const out = ((data && data.content) || []).map((c) => c.text || '').join('').trim();
   if (!out) return { ok: false };
+
+  // A special request SENDS a holding reply AND alerts the kitchen+owner — unlike an escalation,
+  // which sends nothing. Parsed before the scrub so the tag cannot survive into the message.
+  const specialMatch = out.match(/^\s*\[SPECIAL\]\s*/i);
+  if (specialMatch) {
+    const body = out.slice(specialMatch[0].length).trim();
+    if (body) return { ok: true, draft: body.slice(0, MAX_DRAFT_CHARS), special: true };
+  }
 
   if (out.toUpperCase().startsWith(ESCALATE_PREFIX)) {
     const reason = out.slice(ESCALATE_PREFIX.length).trim().slice(0, 200) || 'needs the owner';

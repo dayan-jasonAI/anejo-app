@@ -18,6 +18,13 @@ import { json, bad, id, now, ctEq } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendPushTickle } from '../../../_lib/push.js';
 import { draftReply } from '../../../_lib/ana_social.js';
+// The tick was built structurally unable to send — by design, while every reply awaited the
+// owner's tap. On 2026-07-31 the owner reviewed Aña's live drafts and the FAQ set and turned
+// auto-reply ON. The carve-outs are not negotiable: escalations still send NOTHING, the 24-hour
+// legality window stays enforced inside sendDirectMessage itself, and the whole path only runs
+// when the social.auto_reply setting says so — flipping it off restores draft-only instantly.
+import { sendDirectMessage, replyToComment } from '../../../_lib/instagram_messaging.js';
+import { raiseAlert } from '../../../_lib/alerts.js';
 
 // Claude calls per tick. The tick runs every minute, so a backlog drains at ~4/min — fast enough
 // that a busy post gets answered within minutes, bounded enough that a spam flood can't turn the
@@ -42,7 +49,16 @@ export const onRequestPost = async ({ request, env }) => {
 
   const t = now();
   let budget = DRAFT_BUDGET;
-  let drafted = 0, escalated = 0, skipped = 0;
+  // 'both' | 'dm' | 'comment' | 'off'. Default OFF in code — the prod row is what turns it on,
+  // so a fresh environment can never auto-send before an owner has decided it should.
+  let autoMode = 'off';
+  try {
+    const r = await env.DB.prepare("SELECT value FROM app_settings WHERE key='social.auto_reply'").first();
+    if (r && ['both', 'dm', 'comment'].includes(String(r.value))) autoMode = String(r.value);
+  } catch { autoMode = 'off'; }
+  const autoOk = (kind) => autoMode === 'both' || autoMode === kind;
+
+  let drafted = 0, escalated = 0, sent = 0, specials = 0, skipped = 0;
 
   // ---------- comments (public, no reply window) ----------
   let events = [];
@@ -84,8 +100,14 @@ export const onRequestPost = async ({ request, env }) => {
         await insertEscalation(env, threadId, ev.id, d.reason, t);
         escalated += 1;
       } else {
-        await insertDraft(env, threadId, ev.id, d.draft, t);
+        const mid = await insertDraft(env, threadId, ev.id, d.draft, t);
         drafted += 1;
+        if (d.special) { specials += 1; await specialAlert(env, threadId, ev.text, t); }
+        // Public comment replies have no 24-hour window — the reply is public.
+        if (autoOk('comment')) {
+          const res = await replyToComment(env, { commentId: ev.id, text: d.draft });
+          if (res && res.ok && await markSent(env, mid, t)) sent += 1;
+        }
       }
       await env.DB.prepare('UPDATE threads SET last_message_at=?, updated_at=? WHERE id=?').bind(t, t, threadId).run();
       await env.DB.prepare('UPDATE social_events SET thread_id=?, handled=1 WHERE id=?').bind(threadId, ev.id).run();
@@ -125,8 +147,15 @@ export const onRequestPost = async ({ request, env }) => {
         await insertEscalation(env, th.id, null, d.reason, t);
         escalated += 1;
       } else {
-        await insertDraft(env, th.id, null, d.draft, t);
+        const mid = await insertDraft(env, th.id, null, d.draft, t);
         drafted += 1;
+        if (d.special) { specials += 1; await specialAlert(env, th.id, last.body, t); }
+        if (autoOk('dm')) {
+          // sendDirectMessage re-checks never-messaged-first and the 24-hour ceiling internally —
+          // the legality gate is not this file's to skip.
+          const res = await sendDirectMessage(env, { thread: th, recipientId: th.external_id, text: d.draft });
+          if (res && res.ok && await markSent(env, mid, t)) sent += 1;
+        }
       }
     } catch { /* retried next tick — the thread's last message is still inbound */ }
   }
@@ -137,7 +166,7 @@ export const onRequestPost = async ({ request, env }) => {
     try { await sendPushTickle(env, { roles: ['owner'] }); } catch { /* best-effort */ }
   }
 
-  return json({ ok: true, drafted, escalated, skipped });
+  return json({ ok: true, mode: autoMode, drafted, sent, specials, escalated, skipped });
 };
 
 // Find-or-create the Comms thread for a comment's MEDIA (one thread per post, many comments).
@@ -160,10 +189,35 @@ async function commentThread(env, ev, t) {
 
 // A pending draft: outbound + ai_drafted, with sent_at/dismissed_at both NULL until the owner acts.
 async function insertDraft(env, threadId, refId, body, t) {
+  const mid = id('msg');
   await env.DB.prepare(
     `INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, ref_id, created_at)
      VALUES (?,?,'outbound','instagram','ana','ana_draft',?,1,?,?)`
-  ).bind(id('msg'), threadId, body, refId, t).run();
+  ).bind(mid, threadId, body, refId, t).run();
+  return mid;
+}
+
+// A special request pings the kitchen and the owner — Aña has already sent the holding reply, so
+// the alert is the promise that a human follows through. Deduped per thread per day.
+async function specialAlert(env, threadId, text, t) {
+  try {
+    await raiseAlert(env, {
+      type: 'special_request',
+      severity: 'action',
+      title: 'Instagram special request — Aña is holding',
+      body: `"${String(text || '').slice(0, 180)}" — Aña told them we are checking with the kitchen. Someone needs to actually check.`,
+      dedupe_key: `special:${threadId}:${new Date(t).toISOString().slice(0, 10)}`,
+    });
+  } catch { /* the thread row still exists either way */ }
+}
+
+// Mark a draft as auto-sent. sender_role 'ana_auto' keeps the audit trail honest: the owner can
+// always tell which replies a human approved and which Aña sent herself.
+async function markSent(env, mid, t) {
+  try {
+    await env.DB.prepare("UPDATE messages SET sent_at=?, sender_role='ana_auto' WHERE id=? AND sent_at IS NULL").bind(t, mid).run();
+    return true;
+  } catch { return false; }
 }
 
 // Aña refused to draft (angry / medical / refund). The marker row carries the reason into the

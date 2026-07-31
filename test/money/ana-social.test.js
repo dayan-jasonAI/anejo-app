@@ -28,15 +28,51 @@ const claudeSays = (text) => new Response(JSON.stringify({ content: [{ text }] }
 // The tick: draft-only, structurally
 // ---------------------------------------------------------------------------
 
-test('the tick cannot send — the send functions are not even imported', () => {
-  // Source pin, not a behavioral stub, on purpose: the guarantee is that no code path in the
-  // tick can reach Instagram, including paths a future edit might add. The tick's header may
-  // NAME the functions to say they are banned; what must never appear is a call or an import.
-  assert.ok(!/sendDirectMessage\s*\(/.test(TICK), 'no sendDirectMessage call in the tick');
-  assert.ok(!/replyToComment\s*\(/.test(TICK), 'no replyToComment call in the tick');
-  assert.ok(!/instagram_messaging/.test(TICK), 'the tick must not import the sending module at all');
-  // And the drafting module keeps the same promise, so the tick cannot inherit a send path.
+test('auto-send exists ONLY behind the owner setting, and off is the code default', () => {
+  // HISTORY: this test used to pin that the tick could not send at all — the send module was not
+  // even imported. On 2026-07-31 the owner reviewed Aña's live drafts and the FAQ set and turned
+  // auto-reply ON, so the requirement changed and this pin changed WITH it, deliberately. What
+  // must now hold instead:
+  //   1. code defaults to 'off' — a fresh environment can never auto-send before an owner decides
+  //   2. every send call sits behind the autoOk() gate
+  //   3. the DRAFTING module still cannot send — the brain and the hands stay separate
+  assert.match(TICK, /let autoMode = 'off'/);
+  assert.match(TICK, /social\.auto_reply/);
+  const sends = [...TICK.matchAll(/(sendDirectMessage|replyToComment)\s*\(/g)];
+  assert.ok(sends.length >= 2, 'both send paths exist now');
+  for (const m of sends) {
+    const before = TICK.slice(Math.max(0, m.index - 400), m.index);
+    assert.match(before, /autoOk\('(dm|comment)'\)/, `${m[1]} is gated by autoOk`);
+  }
   assert.ok(!/instagram_messaging/.test(ANA), 'ana_social must not import the sending module');
+});
+
+test('escalations still send NOTHING — the carve-out survived automation', () => {
+  // The escalate branches insert a marker and increment a counter; no send call may live there.
+  for (const block of TICK.split(/if \(d\.escalate\)/).slice(1)) {
+    const branch = block.split('} else {')[0];
+    assert.ok(!/sendDirectMessage|replyToComment/.test(branch), 'no send inside an escalate branch');
+  }
+});
+
+test('a special request sends the holding reply AND alerts the kitchen+owner', () => {
+  assert.match(TICK, /specialAlert/);
+  assert.match(TICK, /type: 'special_request'/);
+  assert.match(ANA, /\[SPECIAL\]/);
+});
+
+test('auto-sent replies are labelled ana_auto — the audit trail stays honest', () => {
+  assert.match(TICK, /sender_role='ana_auto' WHERE id=\? AND sent_at IS NULL/);
+});
+
+test('the 24-hour legality gate still lives inside the send, not the tick', () => {
+  const MSG_LIB = readFileSync(new URL('../../functions/_lib/instagram_messaging.js', import.meta.url), 'utf8');
+  assert.match(MSG_LIB, /const win = replyWindow\(thread\)/);
+});
+
+test("Aña never quotes a cutoff hour — the owner's dial is not a fact", () => {
+  assert.ok(!/6:00 PM the day before/.test(ANA), 'the fossilised 6 PM is gone');
+  assert.match(ANA, /NEVER state a cutoff time from memory/);
 });
 
 test('the tick is not open to the internet', () => {

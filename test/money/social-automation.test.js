@@ -184,7 +184,11 @@ test('a draft caption can be corrected before approval', () => {
 
 test('the planner is TOLD the real ordering rule, not left to guess', () => {
   // It invented a weekly cutoff. The real one is 6 PM the day before, rolling daily.
-  assert.match(AUTO, /6 PM the DAY BEFORE — a rolling daily cutoff, not a weekly one/);
+  // The hour itself became DYNAMIC (the owner moved 6 PM to 8 PM and moves it at will) — a
+  // hard-coded hour in the prompt was just the next wrong deadline waiting to be published. The
+  // pin now asserts the hour is READ, not written.
+  assert.match(AUTO, /orderByLabel. the DAY BEFORE — a rolling daily cutoff, not a weekly one/);
+  assert.match(AUTO, /const schedOps = await loadOperating\(env\)/);
   assert.match(AUTO, /deadlines, cutoffs/);
 });
 

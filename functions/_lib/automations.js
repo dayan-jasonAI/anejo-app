@@ -9,6 +9,7 @@
 import { id, now, today, toJson, parseJson, etMidnightMs, addEtDays } from './hub.js';
 import { randToken } from './util.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
+import { loadOperating } from './operating.js';
 import { BRAND_BRIEF } from './brand_brief.js';
 import { BRAND_CONTEXT } from './brand_context.js';
 import { performanceBrief } from './instagram_insights.js';
@@ -682,6 +683,14 @@ async function socialPlan(env, date) {
   // planner must never see an empty scaffold that reads like data. THIS is the line that makes
   // week 10 better than week 1.
   const performance = await performanceBrief(env);
+  // The cutoff is the OWNER'S DIAL (ops.order_by_hour) and it moves — a hard-coded hour here is
+  // just the next wrong deadline waiting to be published. Read it at plan time.
+  let orderByLabel = 'the posted cutoff';
+  try {
+    const schedOps = await loadOperating(env);
+    const hr = Number(schedOps.order_by_hour) || 18;
+    orderByLabel = `${hr % 12 || 12} ${hr >= 12 ? 'PM' : 'AM'}`;
+  } catch { /* the neutral label above states no specific hour */ }
 
   const ai = await askClaudeJson(env, {
     system:
@@ -716,7 +725,7 @@ async function socialPlan(env, date) {
       `${soldOutLine}\n\n` +
       'Vary the angle across the set: the food itself, the kitchen/process, the people it feeds, and one that simply invites an order. ' +
       'HOW ORDERING ACTUALLY WORKS, and the only version you may state: scheduled delivery is ordered by ' +
-      '6 PM the DAY BEFORE — a rolling daily cutoff, not a weekly one. There is no "order by Wednesday" ' +
+      `${orderByLabel} the DAY BEFORE — a rolling daily cutoff, not a weekly one. There is no "order by Wednesday" ` +
       'and no weekly deadline of any kind. Same-day delivery is available during opening hours. ' +
       'We deliver in Palm Beach County.\n\n' +
       'Do not invent menu items, prices, discounts, delivery areas, deadlines, cutoffs or claims about ' +
