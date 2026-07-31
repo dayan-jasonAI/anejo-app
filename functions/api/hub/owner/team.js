@@ -10,6 +10,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { toJson, parseJson } from '../../../_lib/hub.js';
 import { capture } from '../../../_lib/track.js';
 import { leadReply, buildSpine, ALLOWED_ACTIONS } from '../../../_lib/team_lead.js';
+import { auditDraft } from '../../../_lib/governance.js';
 
 const MAX_DRAFT_POSTS = 5;
 
@@ -153,7 +154,19 @@ export const onRequestPost = async ({ request, env }) => {
 
   // History BEFORE persisting the new message, so the model sees prior turns + the new message
   // exactly once each.
-  const history = (await loadMessages(env, 20)).map((m) => ({ role: m.role, body: m.body }));
+  // Execution results ride along in the history the Lead reads: without them the model has only
+  // its own prose to go on, and it will assert state that never materialized (the phantom-draft
+  // bug — "draft #5 is in your queue" about a block the old executor silently dropped).
+  const history = (await loadMessages(env, 20)).map((m) => {
+    let body = m.body;
+    const acts = parseJson(m.actions_json, null);
+    if (m.role === 'lead' && acts) {
+      const list = (Array.isArray(acts) ? acts : [acts]).map((a) =>
+        a.dropped ? `DROPPED (${a.reason})` : `${a.action || '?'}: ${a.ok ? 'ok' : 'FAILED'}`);
+      body += `\n[system record — what actually executed from this message: ${list.join('; ')}]`;
+    }
+    return { role: m.role, body };
+  });
 
   const t = now();
   try {
@@ -169,7 +182,15 @@ export const onRequestPost = async ({ request, env }) => {
   if (reply.ok) {
     leadBody = reply.text;
     model = reply.model;
-    executed = await executeAction(env, reply.action);
+    // Every block, in order — and dropped blocks pass through as their own results, so the
+    // thread the Lead reads next turn states exactly what ran and what did not.
+    const blocks = Array.isArray(reply.actions) ? reply.actions : (reply.action ? [reply.action] : []);
+    const results = [];
+    for (const blk of blocks) {
+      if (blk && blk.dropped) { results.push({ ok: false, dropped: true, reason: blk.reason }); continue; }
+      results.push(await executeAction(env, blk));
+    }
+    executed = results.length === 0 ? null : (results.length === 1 ? results[0] : results);
   } else if (reply.reason === 'budget') {
     // Deterministic copy, not a model call — at the ceiling the refusal must cost nothing.
     leadBody = 'The weekly AI budget is used up, so I can\'t think out loud until the new week starts. The briefs and drafts already on the board still stand.';
@@ -187,7 +208,10 @@ export const onRequestPost = async ({ request, env }) => {
   await capture(env, {
     event: 'team_lead.message',
     distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
-    properties: { ok: reply.ok, model, action: executed ? executed.action : null, reason: reply.ok ? null : reply.reason },
+    properties: {
+      ok: reply.ok, model, reason: reply.ok ? null : reply.reason,
+      action: executed ? (Array.isArray(executed) ? executed.map((r) => r.action || 'dropped').join(',') : executed.action) : null,
+    },
   });
 
   const spine = await buildSpine(env);

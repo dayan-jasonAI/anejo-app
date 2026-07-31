@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  buildSpine, renderSpine, leadReply, parseActionBlock, leadModel, FALLBACK_MODEL, ALLOWED_ACTIONS,
+  buildSpine, renderSpine, leadReply, parseActionBlock, parseActionBlocks, leadModel, FALLBACK_MODEL, ALLOWED_ACTIONS,
 } from '../../functions/_lib/team_lead.js';
 import { WEEKLY_LIMIT_MICRO } from '../../functions/_lib/ai_budget.js';
 
@@ -257,4 +257,19 @@ test('Lead-created drafts pass through governance too — no unscored door', () 
   const TEAM = readFileSync(new URL('../../functions/api/hub/owner/team.js', import.meta.url), 'utf8');
   assert.match(TEAM, /auditDraft\(env, \{ caption, image_brief: brief \}\)/);
   assert.match(TEAM, /audit_status=\? WHERE id=\?/);
+});
+
+test('EVERY action block is accounted for — the phantom-draft bug, pinned', () => {
+  // Live failure: the Lead emitted create_brief + draft_posts in one reply; the executor took
+  // the first and silently dropped the second; the Lead then told the owner "draft #5 is in
+  // your queue" about a draft that never existed. Dropped blocks now come back as results.
+  const two = parseActionBlocks('a ```json\n{"action":"create_brief","title":"t"}\n``` b ```json\n{"action":"draft_posts","assets":[]}\n``` c');
+  assert.equal(two.length, 2);
+  assert.equal(two[1].action, 'draft_posts', 'the second block is no longer dropped');
+  const bad = parseActionBlocks('```json\n{"action":"launch_missiles"}\n```');
+  assert.equal(bad[0].dropped, true, 'unknown verbs are reported, not silently ignored');
+  assert.match(bad[0].reason, /unknown action/);
+  const TEAM = readFileSync(new URL('../../functions/api/hub/owner/team.js', import.meta.url), 'utf8');
+  assert.match(TEAM, /for \(const blk of blocks\)/, 'the executor iterates all blocks');
+  assert.match(TEAM, /dropped: true, reason: blk\.reason/, 'dropped blocks reach the thread');
 });

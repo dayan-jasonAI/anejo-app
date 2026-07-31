@@ -2,7 +2,7 @@
 // functions/_lib are NOT routed.
 //
 // The Lead TALKS and PROPOSES; it never touches the outside world. Its whole output is words
-// plus at most ONE machine-readable action block per reply, and the three allowed actions all
+// plus up to three machine-readable action blocks per reply, and the three allowed actions all
 // write DRAFT rows the owner reviews elsewhere (a brief, an intel question, planner drafts).
 // Scheduling and publishing are deliberately impossible from this file — the owner's decision
 // #1/#4 — and a source-pinned test enforces that the publish/schedule machinery is never even
@@ -142,28 +142,45 @@ const SYSTEM_RULES =
   'you do not know it. Never invent one; use a request_intel action to ask instead.\n' +
   '3. Customer-facing copy you draft speaks as "Aña", the Añejo assistant persona, and follows the ' +
   'brand brief above.\n\n' +
-  'ACTIONS: you may end a reply with AT MOST ONE fenced json block, and only these forms:\n' +
+  'ACTIONS: you may end a reply with up to THREE fenced json blocks, and only these forms:\n' +
   '```json\n{"action":"create_brief","title":"...","objective":"...","audience":"...","angle":"...",' +
   '"channels":["instagram"],"cadence":"...","success_metric":"...","assets":[]}\n```\n' +
   '```json\n{"action":"request_intel","question":"one specific question you need answered"}\n```\n' +
   '```json\n{"action":"draft_posts","brief_id":"...","count":2,"assets":[{"caption":"...","image_brief":"one sentence of art direction"}]}\n```\n' +
   'draft_posts requires assets (max 5) — one caption + image_brief per post; they land as DRAFTS ' +
   'for owner review, never on the schedule. Emit an action only when the conversation has actually ' +
-  'earned it; plain discussion needs no block.';
+  'earned it; plain discussion needs no block.\n' +
+  'EXECUTION TRUTH: an action block is a REQUEST, not a result. After each of your messages a ' +
+  '[system record] line states what actually executed. Never tell the owner an action ran, a draft ' +
+  'exists, or a brief was filed unless that record (or the context above) confirms it — if the ' +
+  'record is missing or says FAILED/DROPPED, say so plainly and re-emit if still needed.';
 
 /**
- * Extract and validate the single action block from a Lead reply.
- * Returns the parsed object when its `action` is one of ALLOWED_ACTIONS, else null — an unknown
- * verb is ignored wholesale rather than "best-effort" executed.
+ * Extract and validate EVERY action block from a Lead reply, capped at 3.
+ *
+ * The first version took only the first block and silently dropped the rest — and the Lead,
+ * never told, asserted phantom state to the owner ("draft #5 is in your queue" about a draft
+ * that never existed). Every block is now accounted for: valid ones execute in order, and each
+ * dropped one comes back as {dropped, reason} so the Lead's next context contains the truth.
  */
+export const MAX_ACTIONS_PER_REPLY = 3;
+export function parseActionBlocks(text) {
+  const out = [];
+  const re = /```json\s*([\s\S]*?)```/g;
+  let m;
+  while ((m = re.exec(String(text || ''))) !== null) {
+    if (out.length >= MAX_ACTIONS_PER_REPLY) { out.push({ dropped: true, reason: `over the ${MAX_ACTIONS_PER_REPLY}-action cap` }); continue; }
+    let obj;
+    try { obj = JSON.parse(m[1]); } catch { out.push({ dropped: true, reason: 'unparseable JSON block' }); continue; }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) { out.push({ dropped: true, reason: 'not an action object' }); continue; }
+    if (!ALLOWED_ACTIONS.includes(obj.action)) { out.push({ dropped: true, reason: `unknown action '${String(obj.action).slice(0, 30)}'` }); continue; }
+    out.push(obj);
+  }
+  return out;
+}
+/** Back-compat single-block view used by older pins: the first VALID action or null. */
 export function parseActionBlock(text) {
-  const m = String(text || '').match(/```json\s*([\s\S]*?)```/);
-  if (!m) return null;
-  let obj;
-  try { obj = JSON.parse(m[1]); } catch { return null; }
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
-  if (!ALLOWED_ACTIONS.includes(obj.action)) return null;
-  return obj;
+  return parseActionBlocks(text).find((a) => !a.dropped) || null;
 }
 
 // One messages call. Returns the raw Response-parsed body plus status so the caller can tell
@@ -228,5 +245,5 @@ export async function leadReply(env, { history = [], message } = {}) {
 
   const text = ((res.body.content && res.body.content[0] && res.body.content[0].text) || '').trim();
   if (!text) return { ok: false, reason: 'empty_response' };
-  return { ok: true, text, action: parseActionBlock(text), model };
+  return { ok: true, text, action: parseActionBlock(text), actions: parseActionBlocks(text), model };
 }

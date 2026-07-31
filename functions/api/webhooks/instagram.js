@@ -11,6 +11,7 @@
 // Meta RETRIES deliveries, so every event is claimed by its own id before anything is written.
 // A retry must not become a second copy of the same DM or a second reply to the same comment.
 import { json, bad, id, now } from '../../_lib/util.js';
+import { resolveTarget } from '../../_lib/instagram.js';
 
 const enc = new TextEncoder();
 
