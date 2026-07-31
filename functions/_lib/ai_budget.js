@@ -20,6 +20,10 @@ const PRICES = {
   'claude-sonnet-4-6': { in: 3, out: 15 },
   'claude-sonnet-4-5': { in: 3, out: 15 },   // pdfclaude.js still pins this id
   'claude-haiku-4-5': { in: 1, out: 5 },
+  // The Team Lead's frontier tier. Without a row here an opus call priced at the sonnet rate —
+  // a 5x UNDERCOUNT against the $50 ceiling, flagged by the lead module's own build report.
+  'claude-opus-4-6': { in: 15, out: 75 },
+  'claude-opus-4-5': { in: 15, out: 75 },
 };
 
 // Cost of a call in microdollars. Dated ids ('claude-haiku-4-5-20251001') resolve by longest

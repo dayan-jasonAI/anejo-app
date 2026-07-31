@@ -31,6 +31,10 @@ const EXTRA_ENDPOINTS = {
   // day-over-day curve IS the signal; a weekly pull would flatten "died instantly" and "slow
   // burner" into the same number.
   '0 10 * * *': ['/api/hub/admin/insights-tick'],
+  // Mondays 11:00 UTC — the intel bench: drains owner/Lead questions, and refreshes the
+  // competitor sweep when the newest one is older than 21 days. Weekly, because intel that
+  // changes daily is news, not intelligence.
+  '0 11 * * 1': ['/api/hub/admin/intel-tick'],
   // Contract cutoff check — "has every site sent today's lunch count?" — fired a few minutes
   // BEFORE the 09:15 cutoff, while there is still time to send one text.
   //

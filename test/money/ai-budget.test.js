@@ -81,8 +81,9 @@ test('pricing: dated model ids resolve by prefix, unknown models are priced HIGH
   // Haiku at $1/MTok input: a full MTok of input is exactly $1 = 1,000,000 microdollars.
   assert.equal(priceFor('claude-haiku-4-5-20251001', { in: 1_000_000, out: 0 }), 1_000_000);
   // An id the table has never heard of bills at the most expensive row — undercounting an
-  // unknown model is how spend sails past the ceiling unnoticed.
-  assert.equal(priceFor('claude-mystery-9', { in: 1_000_000, out: 0 }), 3_000_000);
+  // unknown model is how spend sails past the ceiling unnoticed. Opus rows raised this ceiling
+  // from sonnet's $3 to opus's $15 per input MTok, which is the point: MORE conservative.
+  assert.equal(priceFor('claude-mystery-9', { in: 1_000_000, out: 0 }), 15_000_000);
   assert.equal(priceFor('claude-sonnet-4-6', { in: 0, out: 1_000_000 }), 15_000_000);
 });
 
