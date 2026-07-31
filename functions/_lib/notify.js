@@ -9,6 +9,7 @@
 import { sendSms, sendMms } from './twilio.js';
 import { sendEmail, emailShell, escHtml } from './email.js';
 import { notifyCustomer, ORDER_EVENTS } from './notifications.js';
+import { now } from './hub.js';
 
 const BRAND = 'Añejo Catering Co.';
 const STOP = 'Reply STOP to opt out.';
@@ -131,6 +132,46 @@ export async function notifyDelivered(env, order, { photoUrl, feedbackUrl } = {}
   } catch { /* best-effort */ }
 }
 
+// ── The Google review ask ─────────────────────────────────────────────────────
+//
+// Fires ONCE per order, on delivery, and only when the owner has set reviews.google_url in
+// app_settings — dormant until then, because inventing a review link would send customers to
+// nothing. Deliberately EMAIL-ONLY and gentle: the ask rides the moment the food landed, offers a
+// reply path for problems BEFORE the public button, and never fires twice — a repeated review
+// nag is how a five-star experience becomes a three-star review.
+export async function askForReview(env, order) {
+  try {
+    if (!env || !env.DB || !order) return;
+    const em = ((order.customer_email || '') + '').trim().toLowerCase();
+    if (!em) return;
+    let url = '';
+    try {
+      const r = await env.DB.prepare("SELECT value FROM app_settings WHERE key='reviews.google_url'").first();
+      url = String((r && r.value) || '').trim();
+    } catch { return; }
+    if (!/^https:\/\//.test(url)) return;   // unset or malformed → dormant, never a broken link
+
+    // The ledger row IS the dedupe: a fixed id per order means the second caller's INSERT changes
+    // nothing and no second email leaves.
+    const claim = await env.DB.prepare(
+      "INSERT OR IGNORE INTO notifications (id, email, kind, title, body, url, created_at) VALUES (?,?,?,?,?,?,?)"
+    ).bind(`ntf_review_${order.id}`, em, 'review', 'How was everything?', 'Review request sent', url, now()).run();
+    if (!claim || !claim.meta || claim.meta.changes !== 1) return;
+
+    const first = ((order.customer_name || '') + '').trim().split(/\s+/)[0];
+    await sendEmail(env, {
+      to: em,
+      subject: 'How was everything? ⭐',
+      html: emailWrap('How was everything?',
+        `<p>${first ? `Hi ${escHtml(first)} — ` : 'Hi — '}your Añejo order was just delivered, and we genuinely want to know how it landed.</p>` +
+        `<p>If anything wasn't right, <strong>just reply to this email</strong> — a human reads every one and we'll make it right.</p>` +
+        `<p>And if we earned it, a Google review takes about 30 seconds and means the world to a young kitchen:</p>` +
+        `<p style="text-align:center;margin:26px 0"><a href="${escHtml(url)}" style="background:#C08418;color:#fff;text-decoration:none;padding:13px 28px;border-radius:999px;font-family:Arial,sans-serif;font-size:14px;letter-spacing:1px">⭐ Rate us on Google</a></p>` +
+        `<p style="font-size:13px;color:#8a8a8a">Thank you for eating with us — Dayan &amp; the Añejo kitchen.</p>`),
+    });
+  } catch { /* never let a review ask break a delivery flow */ }
+}
+
 // ── Legacy helpers (used by the Square webhook + subscriptions) ────────────────
 
 const BODY = {
@@ -148,6 +189,8 @@ const BODY = {
 export async function notifyOrderDelivery(env, order, kind) {
   try {
     if (!env || !env.DB || !order || !BODY[kind]) return;
+    // The review ask rides the delivered moment — fire-and-forget, its own guards inside.
+    if (kind === 'delivered') askForReview(env, order).catch(() => {});
     const c = await contactForOrder(env, order);
     const em = ((order.customer_email || '') + '').trim().toLowerCase();
     const ev = ORDER_EVENTS[kind];

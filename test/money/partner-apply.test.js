@@ -57,3 +57,14 @@ test('the trainers deep-link preselects the gym/trainer path', () => {
   assert.match(PAGE, /location\.hash === '#trainers'/);
   assert.match(MIG, /'creator' \| 'gym_trainer'/);
 });
+
+// ---------- the Google review ask ----------
+
+test('the review ask fires once per order, on delivery, and is dormant without the link', () => {
+  const NOTIFY = readFileSync(new URL('../../functions/_lib/notify.js', import.meta.url), 'utf8');
+  assert.match(NOTIFY, /if \(kind === 'delivered'\) askForReview/, 'rides the delivered moment only');
+  assert.match(NOTIFY, /if \(!\/\^https:\\\/\\\/\/\.test\(url\)\) return/, 'no link set means no email, never a broken button');
+  assert.match(NOTIFY, /INSERT OR IGNORE INTO notifications/, 'the ledger row IS the dedupe');
+  assert.match(NOTIFY, /ntf_review_\$\{order\.id\}/, 'fixed id per order — a second delivery event changes nothing');
+  assert.match(NOTIFY, /just reply to this email/, 'the make-it-right path comes BEFORE the public button');
+});
