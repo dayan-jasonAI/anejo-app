@@ -141,6 +141,14 @@
               '<button class="btn ghost" data-attach="' + esc(p.id) + '" style="white-space:nowrap">Attach</button></div></details></div>') +
       (p.error ? '<div class="row-sub" style="color:var(--crit);margin-top:6px">' + esc(p.error) + '</div>' : '') +
       (p.permalink ? '<div style="margin-top:8px"><a href="' + esc(p.permalink) + '" target="_blank" rel="noopener">View on Instagram →</a></div>' : '') +
+      (p.metrics
+        ? '<div class="row-sub" style="margin-top:6px;font-size:12px">📊 ' +
+          [p.metrics.reach != null ? 'reach ' + p.metrics.reach : null,
+           p.metrics.likes != null ? p.metrics.likes + ' likes' : null,
+           p.metrics.saved != null ? p.metrics.saved + ' saves' : null,
+           p.metrics.comments != null ? p.metrics.comments + ' comments' : null
+          ].filter(Boolean).join(' · ') + ' <span style="opacity:.6">(' + esc(p.metrics.capture_date) + ')</span></div>'
+        : (p.status === 'published' ? '<div class="row-sub" style="margin-top:6px;font-size:12px;opacity:.6">📊 No performance data yet — the daily sweep collects it.</div>' : '')) +
       (p.status === 'published' ? '' :
         // Approving a time is the human gate the planner deliberately stops short of.
         ((p.media || []).length
