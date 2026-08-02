@@ -67,13 +67,41 @@ const BRAND_BUDGET = 20000;
  *
  * No role_scope filter: this is an owner-only surface, and the owner sees every doc in the HUB.
  */
+/**
+ * A proposal is not a standard.
+ *
+ * The Studio appends kitchen proposals awaiting the owner's review into the SAME `docs` row as the
+ * ratified brief, under `## Proposed Studio Brief Change`. That was harmless while the Lead read
+ * the compiled snapshot; the moment live D1 won, unapproved content became brief content. One such
+ * block is a price list quoting three bowls above what the storefront actually charges — the Lead
+ * would have been reasoning from the owner's inbox instead of his decisions.
+ *
+ * Dropped at injection rather than at rest: the owner's approval flow keeps writing proposals into
+ * that row, and deleting them there would be editing his document to fix our prompt. Ruling: Dayan
+ * 2026-08-02.
+ *
+ * Level-2 headings decide. Every `## ` re-opens the question, so a proposal's own `### ` subsections
+ * and body ride along with it, and the ratified section that follows comes straight back.
+ */
+const PROPOSAL_HEADING = /^##\s+Proposed Studio Brief Change\b/i;
+
+function withoutProposals(body) {
+  const kept = [];
+  let skipping = false;
+  for (const line of String(body).split('\n')) {
+    if (/^##\s/.test(line)) skipping = PROPOSAL_HEADING.test(line);
+    if (!skipping) kept.push(line);
+  }
+  return kept.join('\n').trim();
+}
+
 async function loadBrand(env) {
   const docs = await rows(env,
     "SELECT title, body FROM docs WHERE active = 1 AND doc_type = 'brand' ORDER BY updated_at DESC LIMIT 10");
   const parts = [];
   let used = 0;
   for (const d of docs) {
-    const body = String(d.body || '').trim();
+    const body = withoutProposals(d.body || '');
     if (!body || used >= BRAND_BUDGET) continue;
     const block = `### ${d.title || 'Brand & Standards Brief'}\n${body}`.slice(0, BRAND_BUDGET - used);
     parts.push(block);
