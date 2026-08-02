@@ -45,6 +45,13 @@
   .expiry-set { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
   .expiry-set input[type="date"] { width:auto; padding:8px 10px; }
   .expiry-set button { white-space:nowrap; }
+  /* Food-first indicator: Instagram's grid shows ONLY the first slide, so a text-card cover is
+     invisible in every other view of the post — this is the one place the owner can catch it
+     before the profile does. 'info' = publishing will fix it automatically (a photo exists
+     later); 'warn' = it will not, because there is no photo to promote. */
+  .cover-note { font-size:12px; line-height:1.45; border-radius:8px; padding:7px 10px; margin-top:8px; }
+  .cover-note.info { background:#eef3fb; border:1px solid #9db8de; color:#2c4a72; }
+  .cover-note.warn { background:#fbf3da; border:1px solid var(--gold-dark); color:var(--gold-dark); font-weight:600; }
 </style>
 </head>
 <body>
@@ -167,6 +174,20 @@
     op({ op: 'reorder', id: postId, media_ids: ids }, 'Order updated');
   }
 
+  // Instagram's grid shows only slide 1 — the owner could not see a text-card cover anywhere
+  // else, which is exactly how the account ended up "a wall of dark-green typography" in the
+  // first place. This is computed server-side (coverStatus in functions/_lib/social_publish.js)
+  // from each slide's filename ROLE SUFFIX (`_cover`/`_cta`/`_hook`/`_rule`/`_facts`/`_why` = text
+  // card; `_photo` or a bowl name = food photo) — a cheap, explicit signal, not image analysis, so
+  // it can be wrong in both directions and an unrecognized filename is left alone rather than
+  // guessed at; see that file's comment for the limits.
+  function coverNote(p) {
+    var s = p.cover_status;
+    if (!s) return '';
+    var icon = s.level === 'warn' ? '⚠️' : 'ℹ️';
+    return '<div class="cover-note ' + esc(s.level) + '">' + icon + ' ' + esc(s.message) + '</div>';
+  }
+
   function postCard(p) {
     // The image preview uses the HUB-authenticated route, never the public token — the owner is
     // signed in, and printing the public URL here would put it in screenshots.
@@ -184,6 +205,7 @@
       // Slides. One photo is a normal post; 2-10 is a carousel, and the ORDER is editorial — the
       // strip shows it and the arrows change it. All of it locks once the post is live.
       slideStrip(p) +
+      coverNote(p) +
       (p.status === 'published' ? '' :
         '<div class="card" style="margin-top:8px;background:#fbfaf6">' +
           (!(p.media || []).length && p.image_brief ? '<div class="row-sub" style="margin-bottom:6px"><b>Photo to make:</b> ' + esc(p.image_brief) + '</div>' : '') +
