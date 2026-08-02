@@ -77,6 +77,11 @@
     if (s.budget) bits.push('$' + Number(s.budget.spent_usd).toFixed(2) + ' / $' + Number(s.budget.limit_usd).toFixed(0) + ' AI this week');
     bits.push(Hub.esc(String(s.drafts_pending)) + ' drafts pending');
     if (s.menu_total) bits.push(Hub.esc(String(s.menu_available)) + '/' + Hub.esc(String(s.menu_total)) + ' bowls on sale');
+    // WHICH brief the Lead read, in words. The API has reported this since the spine fix; without
+    // it on the page, a Lead answering off-brand and a Lead that never received the brief read
+    // identically from the chat. Stated, not colour-coded — the distinction has to survive a
+    // screenshot and a colourblind reader.
+    if (s.brand_source) bits.push(s.brand_source === 'd1' ? 'brief: live from the HUB' : 'brief: repo snapshot');
     el.innerHTML = '<p class="row-sub">' + bits.join(' · ') + '</p>';
   }
 

@@ -334,6 +334,16 @@ test('the endpoint is owner-only and the page exists with the chat idiom', () =>
   assert.match(OWNER_JS, /team\.html', ico: '[^']+', label: 'Team'/, 'the nav knows the page');
 });
 
+test('the page SHOWS which brief the Lead read — reporting it in JSON alone is invisible', () => {
+  // spineSummary has carried brand_source since the spine fix, but nothing painted it, so the
+  // one symptom it exists to disambiguate — an off-brand Lead vs a brief that never arrived —
+  // still looked identical from the chat. Pinned at the surface, where the owner actually reads.
+  assert.match(API, /brand_source: spine\.brand_source/, 'the endpoint reports the source');
+  assert.match(PAGE, /s\.brand_source/, 'the page reads it');
+  assert.match(PAGE, /brief: live from the HUB/, 'the live case is named in words');
+  assert.match(PAGE, /brief: repo snapshot/, 'the snapshot case is named in words');
+});
+
 test('the migration is additive and the message roles are constrained to owner|lead', () => {
   assert.ok(!/DROP TABLE/.test(MIG) && !/ALTER TABLE/.test(MIG), 'additive only');
   assert.match(MIG, /CHECK \(role IN \('owner','lead'\)\)/);
