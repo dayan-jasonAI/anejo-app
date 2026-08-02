@@ -36,6 +36,15 @@
   .live { border-radius:10px; padding:12px 14px; margin-bottom:12px; font-size:13px; line-height:1.5; }
   .live.on { background:#e7f0ea; border:1px solid #2c6b3f; color:#1b4d2b; }
   .live.off { background:#f6f5f1; border:1px solid var(--line); color:var(--green); }
+  /* Token-expiry banner. Escalates by COLOR AND WEIGHT with how close the recorded date is —
+     'unknown' is deliberately its own quiet, neutral tone: it is a gap to fill, not a fire. */
+  .live.expiry-unknown { background:#f6f5f1; border:1px solid var(--line); color:var(--green); }
+  .live.expiry-ok { background:#f6f5f1; border:1px solid var(--line); color:var(--green); opacity:.85; }
+  .live.expiry-warning { background:#fbf3da; border:1px solid var(--gold-dark); color:var(--gold-dark); }
+  .live.expiry-urgent, .live.expiry-expired { background:#fbe3e1; border:1px solid var(--crit); color:var(--crit); font-weight:600; }
+  .expiry-set { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+  .expiry-set input[type="date"] { width:auto; padding:8px 10px; }
+  .expiry-set button { white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -74,6 +83,54 @@
 
   function whenLabel(ms) {
     return new Date(Number(ms)).toLocaleString([], { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+  }
+
+  // datetime-local's local-parts trick (see localValue below), but for a plain date field.
+  function dateInputValue(ms) {
+    var d = new Date(Number(ms)); function p(n){ return (n<10?'0':'')+n; }
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+  }
+
+  // The expiry banner. Escalates quietly→loud as the recorded date approaches, and is HONEST when
+  // there is nothing recorded: 'unknown' never renders as "all good" — that is exactly the gap
+  // that let a token die silently in the first place.
+  var EXPIRY_MSG = {
+    unknown: '⏳ <b>Token expiry not recorded.</b> Instagram gives no warning before a long-lived token dies — publishing, the DM inbox, and insights all go dark at once. Record the date Meta showed when this token was generated so the HUB can warn ahead of it.',
+    ok: null, // no line needed far out; the record-it control below still shows the date
+    warning: '🟡 <b>Instagram token expires in {days} days</b> ({date}). Plan the swap to a Meta System User token (never expires) — see {doc}.',
+    urgent: '🔴 <b>Instagram token expires in {days} day{plural} — do this now.</b> When it dies, publishing, the DM inbox, and insights stop working with no warning. See {doc}.',
+    expired: '⛔ <b>Instagram token expired {date}.</b> Publishing, the DM inbox, and insights are down until it is replaced. See {doc}.',
+  };
+
+  function expiryBanner(d) {
+    var te = d.token_expiry || { status: 'unknown', at: null, days_left: null, swap_doc: 'docs/INSTAGRAM_TOKEN_SWAP.md' };
+    var docLink = '<a href="https://github.com/dayan-jasonAI/anejo-app/blob/main/' + te.swap_doc + '" target="_blank" rel="noopener">' + esc(te.swap_doc) + '</a>';
+    var dateStr = te.at ? new Date(Number(te.at)).toLocaleDateString([], { year:'numeric', month:'long', day:'numeric' }) : '';
+    var tpl = EXPIRY_MSG[te.status];
+    var body;
+    if (tpl == null) {
+      // 'ok' — quiet by design (thresholds: warn inside 30 days, urgent inside 7). Still says the
+      // date so "quiet" never means "nothing is shown".
+      body = te.at ? '🟢 Instagram token recorded — expires ' + esc(dateStr) + ' (' + te.days_left + ' days).' : '';
+    } else {
+      body = tpl
+        .replace('{days}', te.days_left != null ? Math.abs(te.days_left) : '?')
+        .replace('{plural}', Math.abs(te.days_left) === 1 ? '' : 's')
+        .replace('{date}', esc(dateStr))
+        .replace('{doc}', docLink);
+    }
+    if (!body) return '';
+    return '<div class="live expiry-' + esc(te.status) + '">' + body + recordControl(te) + '</div>';
+  }
+
+  // Owner-entered only — this NEVER calls Instagram. It just records the date Meta's own
+  // dashboard showed at generation time, so the banner above has a fact to measure against.
+  function recordControl(te) {
+    return '<div class="expiry-set">' +
+      '<input type="date" id="te_date" value="' + (te.at ? dateInputValue(te.at) : '') + '">' +
+      '<button class="btn ghost" id="te_save" type="button" style="padding:6px 12px;font-size:12px">Record expiry date</button>' +
+      (te.at ? '<button class="btn ghost" id="te_clear" type="button" style="padding:6px 12px;font-size:12px">Clear</button>' : '') +
+      '</div>';
   }
 
   // The slide strip: thumbnails in order, each with move/remove until the post is live. The
@@ -191,7 +248,7 @@
     }
 
     root.innerHTML =
-      '<div class="hub-section"><h2>Instagram</h2>' + status +
+      '<div class="hub-section"><h2>Instagram</h2>' + status + expiryBanner(d) +
         '<div class="card">' +
           '<div class="form-row"><label>Photo</label>' +
             '<input type="file" id="mfile" accept="image/jpeg" style="display:none">' +
@@ -307,6 +364,22 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-unsched]'), function (b) {
       b.addEventListener('click', function () { op({ op:'unschedule', id:b.getAttribute('data-unsched') }, 'Back to draft'); });
     });
+    var teSave = document.getElementById('te_save');
+    if (teSave) teSave.addEventListener('click', function () {
+      var raw = (document.getElementById('te_date') || {}).value || '';
+      if (!raw) { Hub.toast('Pick a date first.'); return; }
+      // Parsed as local midnight, same as every other date-only field in the HUB — the exact
+      // hour does not matter for a warning measured in days.
+      var at = Date.parse(raw + 'T00:00:00');
+      if (!Number.isFinite(at)) { Hub.toast('That date did not parse.'); return; }
+      op({ op:'set_token_expiry', expires_at: at }, 'Expiry recorded');
+    });
+    var teClear = document.getElementById('te_clear');
+    if (teClear) teClear.addEventListener('click', function () {
+      if (!window.confirm('Clear the recorded expiry date? The HUB will show it as unknown until you record it again.')) return;
+      op({ op:'set_token_expiry', expires_at: null }, 'Cleared');
+    });
+
     var mpick = document.getElementById('mpick');
     if (mpick) mpick.addEventListener('click', function () {
       var fi = document.getElementById('mfile');

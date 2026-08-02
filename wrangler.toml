@@ -11,6 +11,13 @@ pages_build_output_dir = "public"
 #   SQUARE_LOCATION_ID  (Var)
 #   SQUARE_WEBHOOK_KEY  (Secret, encrypted)   <- verify Square webhooks
 #   SQUARE_ENV          (Var)                 <- "sandbox" | "production" (the go-live flip)
+#   IG_ACCESS_TOKEN     (Secret, encrypted)   <- Instagram publishing/DMs/insights (functions/_lib/instagram.js)
+#   IG_USER_ID          (Var)                 <- only required on the Facebook Login host (graph.facebook.com);
+#                                                 the Instagram Login host (graph.instagram.com) resolves it via /me
+#   IG_API_HOST         (Var, optional)       <- "instagram" | "facebook" | a full https URL — skips the
+#                                                 auto-probe between the two Instagram APIs (see instagram.js)
+# A new/changed Secret or Var here is INERT until the next deploy — Pages bakes bindings into each
+# deployment, so redeploy after changing one. See docs/INSTAGRAM_TOKEN_SWAP.md before touching IG_*.
 
 # --- D1 + KV bindings ---
 # Create these once (see PROVISIONING.md), then paste the IDs below OR set the
