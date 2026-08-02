@@ -8,6 +8,7 @@
 // timer only ever takes a scheduled post). Everything after the claim lives here.
 import { now } from './hub.js';
 import { publishImage, publishCarousel } from './instagram.js';
+import { BOWL_ART } from './bowl_art.js';
 
 /** A post's slides, in order. The child table is authoritative — social_posts.media_key is legacy. */
 export async function loadPostMedia(env, postId) {
@@ -31,38 +32,77 @@ const publicUrlFor = (request, token) => `${new URL(request.url).origin}/api/soc
 // read of the grid).
 //
 // DETECTION IS A FILENAME CONVENTION, NOT IMAGE ANALYSIS — this stack has no image classifier, and
-// claiming certainty it does not have would be worse than the bug it replaces. The signal is the
-// generator's own layout, documented in tools/cardgen/README.md: series_cards.py's output lives
-// under a `series/` folder, and `_cover` names the title slide within it. Both are cheap and
-// knowable from the R2 key alone.
-//   · FALSE NEGATIVE: a text card produced some other way (renamed, hand-made, a future generator
-//     with different naming) is invisible to this check and is left exactly where it was.
-//   · FALSE POSITIVE: a real photo an owner happens to name "*_cover.jpg" or drops in a folder
-//     called "series/" would be misjudged as a text card.
-// Both directions are the CONSERVATIVE side for a food business: we never invent an image, and an
-// unmatched key is always treated as a photo rather than flagged and possibly reordered away from
-// where a human put it.
-const TEXT_CARD_HINT = /(^|\/)series\/|_cover(?:\.[a-z0-9]+)?$/i;
+// claiming certainty it does not have would be worse than the bug it replaces.
+//
+// FIRST DRAFT OF THIS GUARD MATCHED ON THE `series/` FOLDER AND WAS WRONG: in production the
+// `series/` folder holds text cards AND the real food photos together (e.g.
+// studio/2026-07/series/p6_photo.jpg lives right next to p6_cover.jpg). Matching the folder made
+// every slide of every affected carousel "look like a text card", including the photos — so the
+// guard found no photo to promote on posts that had one, reordered nothing, and raised a false
+// "no photo" warning exactly where the feature needed to work. Caught in review before it shipped
+// against real keys.
+//
+// The corrected signal ignores the folder entirely and reads the filename's ROLE SUFFIX — the
+// token after the last underscore, which is how tools/cardgen names each slide of a series:
+//   · PHOTO  (positive match) — suffix `_photo`, OR the whole filename (no suffix) is one of the
+//     eight bowl names `_lib/bowl_art.js` stages at `studio/bowls/<bowl>.jpg`, OR the suffix IS one
+//     of those bowl names (a bowl photo reused inside a series/ carousel, e.g. `p1_vida.jpg`).
+//   · TEXT CARD (positive match) — suffix is one of the known card roles series_cards.py produces:
+//     `cover`, `cta`, `hook`, `rule`, `facts`, `why`.
+//   · ANYTHING ELSE — UNKNOWN. Not a photo, not a card. Never promoted, never counted toward "no
+//     photo found", never treated as the cover to warn about. This is deliberate: a slide named
+//     `p3_inside.jpg` is real content we do not have a rule for, and guessing which side of the
+//     line it falls on is exactly the certainty this guard is not allowed to claim.
+// Limits, honestly:
+//   · FALSE NEGATIVE — a text card or a photo that does not carry one of these exact role suffixes
+//     (renamed, hand-uploaded, a future generator with different naming — including the owner's
+//     own phone photos, which upload as studio/<yyyy-mm>/up_<id>.jpg with no role at all) is
+//     UNKNOWN and left exactly where it was. It will never be auto-promoted to slide 1 even if it
+//     is plainly a photo to a human.
+//   · FALSE POSITIVE — a real photo an owner happens to name "*_cover.jpg" would be misjudged as a
+//     text card; a graphic named "*_photo.jpg" would be misjudged as food.
+// Both directions are the CONSERVATIVE side for a food business: nothing is invented, and an
+// unrecognized slide is never reordered on a guess.
+const BOWL_NAMES = new Set(Object.keys(BOWL_ART));
+const CARD_ROLES = new Set(['cover', 'cta', 'hook', 'rule', 'facts', 'why']);
 
-export function looksLikeTextCard(mediaKey) {
-  return TEXT_CARD_HINT.test(String(mediaKey || ''));
+/** The role suffix of one slide's filename, or null when it matches neither known bucket. */
+function slideRole(mediaKey) {
+  const base = String(mediaKey || '').split('/').pop() || '';
+  const stem = base.replace(/\.[a-z0-9]+$/i, '').toLowerCase();
+  if (!stem) return null;
+  // studio/bowls/<bowl>.jpg — the WHOLE filename IS the bowl name, no role suffix to split off.
+  if (BOWL_NAMES.has(stem)) return 'photo';
+  // Everything else names its role after the last underscore: p6_photo, p1_vida, p6_cover.
+  // Bowl names never contain an underscore, so this also catches a bowl photo reused inside a
+  // series/ carousel (p1_vida.jpg) the same way it catches p6_photo.jpg.
+  const m = /_([a-z0-9]+)$/.exec(stem);
+  if (!m) return null;
+  const role = m[1];
+  if (role === 'photo' || BOWL_NAMES.has(role)) return 'photo';
+  if (CARD_ROLES.has(role)) return 'card';
+  return null;
 }
 
+export function isFoodPhoto(mediaKey) { return slideRole(mediaKey) === 'photo'; }
+export function isTextCard(mediaKey) { return slideRole(mediaKey) === 'card'; }
+
 /**
- * If slide 1 looks like a text card and a later slide looks like a real photo, move that photo to
+ * If slide 1 is a known text card and some later slide is a known food photo, move that photo to
  * the front. Nothing is invented or dropped — reordering `seq` is the only lever (see
  * migrations/0063_social_carousel.sql: "slide ORDER is real data ... not the accident of array
- * position"), and every other slide keeps its relative order.
+ * position"), and every other slide (including unknowns) keeps its relative order.
  *
- * Deliberately does NOT touch a post where every slide matches the text-card convention: with no
- * photo to promote, reordering would just move which text card leads, and publishing should not
- * silently paper over "this post has no food photo at all" — that is a human decision
- * (`no_photo_found: true` tells the caller to warn, not block; see coverStatus below).
+ * Deliberately does NOT touch a post where no slide is a recognized photo: with nothing to
+ * promote, publishing should not silently paper over "this post has no food photo at all" — that
+ * is a human decision (`no_photo_found: true` tells the caller to warn, not block; see
+ * coverStatus below). An UNKNOWN slide never counts as the photo being promoted, even if it sits
+ * right where a photo would make sense — only a recognized role does.
  */
 export function foodFirstOrder(media) {
   if (!Array.isArray(media) || media.length < 2) return { media, reordered: false, no_photo_found: false };
-  if (!looksLikeTextCard(media[0].media_key)) return { media, reordered: false, no_photo_found: false };
-  const photoIdx = media.findIndex((m) => !looksLikeTextCard(m.media_key));
+  if (!isTextCard(media[0].media_key)) return { media, reordered: false, no_photo_found: false };
+  const photoIdx = media.findIndex((m) => isFoodPhoto(m.media_key));
   if (photoIdx === -1) return { media, reordered: false, no_photo_found: true };
   const reordered = [media[photoIdx], ...media.slice(0, photoIdx), ...media.slice(photoIdx + 1)];
   return { media: reordered, reordered: true, no_photo_found: false };
@@ -72,27 +112,28 @@ export function foodFirstOrder(media) {
  * Read-only status for the HUB list view (functions/api/hub/owner/social.js GET) — computed from
  * whatever order the slides are CURRENTLY stored in, so it stays honest even for a draft that has
  * not been through publishSocialPost yet.
- *   · null            → slide 1 does not match the text-card convention; nothing to say.
- *   · level 'info'     → slide 1 looks like a text card, but a real photo exists later — publishing
- *                        will reorder it automatically (foodFirstOrder above). Informational: the
- *                        owner should still SEE the underlying problem, per the owner's own read
- *                        that the grid problem was invisible to him until it was pointed out.
- *   · level 'warn'     → no photo anywhere on the post (or it is a single text-card slide) — this
- *                        is the case publishing will NOT fix and NOT block; a human has to add a
- *                        photo or decide the text card is the point.
+ *   · null           → slide 1 is not a recognized text card; nothing to say.
+ *   · level 'info'    → slide 1 is a text card, but a recognized food photo exists later —
+ *                       publishing will reorder it automatically (foodFirstOrder above).
+ *                       Informational: the owner should still SEE the underlying problem, per the
+ *                       owner's own read that the grid problem was invisible to him until it was
+ *                       pointed out.
+ *   · level 'warn'    → NO recognized food photo anywhere on the post (or it is a single text-card
+ *                       slide). This is a true finding, not a "publishing will handle it" — say so
+ *                       plainly: the post has no food photo and needs one before it goes out.
  */
 export function coverStatus(media) {
   if (!Array.isArray(media) || !media.length) return null;
-  if (!looksLikeTextCard(media[0].media_key)) return null;
+  if (!isTextCard(media[0].media_key)) return null;
   const order = foodFirstOrder(media);
   if (order.reordered) {
-    return { level: 'info', message: 'Cover looks like a text card — a photo later in this carousel will lead instead once this publishes.' };
+    return { level: 'info', message: 'Cover looks like a text card — a food photo later in this carousel will lead instead once this publishes.' };
   }
   return {
     level: 'warn',
     message: media.length > 1
-      ? "Every slide here looks like a text card — Instagram's grid will show typography, not food. Add a real photo before this goes out."
-      : 'This is a single text card — the grid will show it as-is, no food. Add a photo if this post should lead with one.',
+      ? 'This post has no food photo — every slide is a text card. Add a real photo before it goes out.'
+      : 'This is a single text card with no food photo. Add one if this post should lead with food.',
   };
 }
 

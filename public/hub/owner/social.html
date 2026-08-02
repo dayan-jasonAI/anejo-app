@@ -177,8 +177,10 @@
   // Instagram's grid shows only slide 1 — the owner could not see a text-card cover anywhere
   // else, which is exactly how the account ended up "a wall of dark-green typography" in the
   // first place. This is computed server-side (coverStatus in functions/_lib/social_publish.js)
-  // from the R2 key naming convention (`series/`, `_cover`) — a cheap, explicit signal, not image
-  // analysis, so it can be wrong in both directions; see that file's comment for the limits.
+  // from each slide's filename ROLE SUFFIX (`_cover`/`_cta`/`_hook`/`_rule`/`_facts`/`_why` = text
+  // card; `_photo` or a bowl name = food photo) — a cheap, explicit signal, not image analysis, so
+  // it can be wrong in both directions and an unrecognized filename is left alone rather than
+  // guessed at; see that file's comment for the limits.
   function coverNote(p) {
     var s = p.cover_status;
     if (!s) return '';
