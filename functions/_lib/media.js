@@ -9,7 +9,7 @@ import { id } from './util.js';
 
 export const MAX_MEDIA_BYTES = 5 * 1024 * 1024; // 5MB cap
 
-const KINDS = ['proof', 'studio', 'receipt', 'docimg'];
+const KINDS = ['proof', 'studio', 'receipt', 'docimg', 'training'];
 
 const EXT_BY_TYPE = {
   'image/jpeg': 'jpg',
