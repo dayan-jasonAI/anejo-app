@@ -80,10 +80,16 @@ test('no AI response means no posts — there is no template fallback', () => {
   assert.match(planner, /reason: env\.ANTHROPIC_API_KEY \? 'no_usable_response' : 'no_api_key'/);
 });
 
-test('it tops up to a target instead of piling on every week', () => {
+test('it tops up to the CADENCE target, scoped to this week, instead of piling on forever', () => {
   const planner = AUTO.slice(AUTO.indexOf('async function socialPlan'), AUTO.indexOf('const RUNNERS'));
-  assert.match(planner, /const need = Math\.max\(0, WANT - Number\(pending \|\| 0\)\)/);
+  assert.match(planner, /const cadence = await getCadenceConfig\(env\)/);
+  assert.match(planner, /const need = Math\.max\(0, cadence\.feed_per_week - Number\(pending \|\| 0\)\)/);
   assert.match(planner, /if \(!need\)/);
+  // The bug this replaces: WANT was a flat ceiling on the ENTIRE backlog with no time bound, so
+  // an owner behind on approvals kept a permanent pile at/above the ceiling and the planner
+  // drafted nothing ever again. The count must be scoped to THIS week's schedule window.
+  assert.match(planner, /AND scheduled_at >= \? AND scheduled_at < \?/);
+  assert.match(planner, /const weekStart = etWeekStartOf\(date\)/);
 });
 
 // ---------- 3. late is wrong ----------
