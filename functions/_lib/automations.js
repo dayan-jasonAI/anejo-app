@@ -16,6 +16,7 @@ import { performanceBrief } from './instagram_insights.js';
 import { retrieve, formatPassages } from './knowledge.js';
 import { getCadenceConfig } from './social_cadence.js';
 import { getPostingTimes, assignSlot, weekdayIndexOf } from './posting_times.js';
+import { trainingContext } from './training.js';
 
 // §3 of the brief — the three product lines. Fed to the planner SEPARATELY from the voice
 // excerpts because of Dayan's decision #6: the standing objective is that people know EVERYTHING
@@ -126,6 +127,18 @@ async function plannerExtraContext(env) {
       if (text) parts.push('=== FROM AÑEJO\'S OWN KNOWLEDGE BASE (nothing outside this is a citable fact) ===\n' + text);
     }
   } catch { /* no VECTORIZE/AI binding, or nothing indexed yet */ }
+
+  // What the OWNER taught the team from the HUB — his rules and the notes on the reference
+  // photos he flagged good or bad (HUB → Train the team, functions/_lib/training.js). This goes
+  // LAST on purpose: it is the most specific and most recent instruction in the whole prompt, it
+  // came from the person whose business this is, and a model weighs the end of a long system
+  // prompt more heavily than its middle. Before this existed, teaching the team anything meant
+  // editing a markdown file on a laptop, running a build script and redeploying — which is
+  // exactly why the team kept producing work the owner had already told someone he disliked.
+  try {
+    const training = await trainingContext(env, { maxChars: 4000 });
+    if (training) parts.push(training);
+  } catch { /* pre-0075 schema — planner runs exactly as it did before this wiring */ }
 
   return parts.join('\n\n');
 }

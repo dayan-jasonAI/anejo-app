@@ -24,6 +24,7 @@ import { budgetGate, recordSpend, weekSpend, WEEKLY_LIMIT_MICRO } from './ai_bud
 import { BRAND_CONTEXT } from './brand_context.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from './bowlspec.js';
+import { trainingContext } from './training.js';
 
 // Strategy is the one surface worth frontier tokens: it runs a handful of times a day, owner-
 // initiated, and its output steers every cheaper call downstream. But a model id in an env var
@@ -213,10 +214,16 @@ export async function buildSpine(env) {
     ordering: 'Order online at /order — one-time boxes or weekly plans (5, 10 or 12 meals); plans pause/skip/cancel anytime. Next-day orders until 8 PM ET; the website is the authority on cutoffs.',
   };
 
+  // What the owner taught the team from HUB → Train the team. Its own try/catch because a spine
+  // that throws is a Lead that cannot answer at all — an untrained team is workable, a dead one
+  // is not.
+  let training = '';
+  try { training = await trainingContext(env, { maxChars: 4000 }); } catch { training = ''; }
+
   return {
     brand: brand.text, brand_source: brand.source,
     menu: menuItems, other_items: otherItems,
-    metrics, drafts, budget, briefs, surfaces,
+    metrics, drafts, budget, briefs, surfaces, training,
   };
 }
 
@@ -284,7 +291,12 @@ export function renderSpine(spine) {
       : '') +
     `=== AI BUDGET === This week's model spend: $${spine.budget.spent_usd.toFixed(2)} of the $${spine.budget.limit_usd.toFixed(2)} weekly ceiling ` +
     `($${spine.budget.remaining_usd.toFixed(2)} left). Factor this into how much generation you propose.\n\n` +
-    '=== RECENT CAMPAIGN BRIEFS ===\n' + briefLines
+    '=== RECENT CAMPAIGN BRIEFS ===\n' + briefLines +
+    // The owner's own training, last and therefore loudest. The Lead proposes strategy the owner
+    // argues with — so the things he has already told it, in his own words, must outrank the
+    // model's instincts rather than sit buried above the menu. Empty string until he trains it,
+    // which is the honest state: an untrained team should not read as a trained one.
+    (spine.training ? '\n\n' + spine.training : '')
   );
 }
 
