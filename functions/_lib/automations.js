@@ -6,13 +6,16 @@
 // sentiment_scan act directly (triage updates + alerts). ALL AI calls are optional and
 // degrade to deterministic fallbacks without env.ANTHROPIC_API_KEY.
 // Files under functions/_lib are NOT routed.
-import { id, now, today, toJson, parseJson, etMidnightMs, addEtDays } from './hub.js';
+import { id, now, today, toJson, parseJson, etMidnightMs, addEtDays, etDateOf } from './hub.js';
 import { randToken } from './util.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { loadOperating } from './operating.js';
 import { BRAND_BRIEF } from './brand_brief.js';
 import { BRAND_CONTEXT } from './brand_context.js';
 import { performanceBrief } from './instagram_insights.js';
+import { retrieve, formatPassages } from './knowledge.js';
+import { getCadenceConfig } from './social_cadence.js';
+import { getPostingTimes, assignSlot, weekdayIndexOf } from './posting_times.js';
 
 // §3 of the brief — the three product lines. Fed to the planner SEPARATELY from the voice
 // excerpts because of Dayan's decision #6: the standing objective is that people know EVERYTHING
@@ -24,6 +27,107 @@ function productLines() {
   const rest = BRAND_BRIEF.slice(start);
   const end = rest.search(/^## 4\./m);
   return (end === -1 ? rest : rest.slice(0, end)).trim();
+}
+
+// The planner's role, in the Team Lead's voice (team_lead.js SYSTEM_RULES) — specific and
+// checkable, not motivational filler. Before this, the planner's ENTIRE role framing was one
+// clause: "You write Instagram posts for Añejo Catering Co." No persona, no audience, no
+// objective, no idea of what actually works for a food account on this platform. A model given
+// no role plays the most generic one available to it — cheerful stock-caption Instagram,
+// optimizing for looking good rather than for someone ordering a bowl.
+const PLANNER_ROLE =
+  'You are the content writer on the Añejo Marketing Team, executing the Team Lead\'s campaign ' +
+  'direction (below, when there is any) against the brand\'s own standards. You write Instagram ' +
+  'posts for Añejo Catering Co., a made-to-order bowl kitchen and caterer serving Palm Beach ' +
+  'County.\n\n' +
+  'AUDIENCE: people nearby, deciding what to eat today or who to call for their next event — not ' +
+  'a general food-content audience scattered across the country. Every post should read like it ' +
+  'was written for someone who could have a bowl in their hands within the hour.\n\n' +
+  'OBJECTIVE: orders in Palm Beach County, not vanity metrics. A post that gets likes but sends ' +
+  'no one to order has failed, no matter how it performs on reach. Write toward the action, not ' +
+  'toward the scroll.\n\n' +
+  'PLATFORM REALITY THIS ACCOUNT MUST RESPECT (food content, Instagram, 2026):\n' +
+  '- THE COVER FRAME IS THE SALE. Whatever shows first — the top image of a carousel, the ' +
+  'opening frame of a Reel, the single photo of a static post — must show the FOOD ITSELF, ' +
+  'plated and lit like something to order right now. A cover that opens on a logo, a quote card, ' +
+  'or a person with no food in frame loses the scroll before the caption is ever read.\n' +
+  '- Carousels and Reels reach further than one static photo. When the subject can be shown as a ' +
+  'short sequence (the build, the sauce going on, the box closing) or a multi-image story ' +
+  '(ingredient, plated bowl, the person eating it), prefer that format over a single static ' +
+  'frame — say so in the image_brief.\n' +
+  '- Saves and shares matter more than likes. A like costs nothing and proves nothing; a save ' +
+  'means "I intend to order this" and a share means "I am recommending this to someone else." ' +
+  'Pick subjects and write captions that earn a save or a share, not just a scroll-past like.\n' +
+  '- Every caption gives a reason to act NOW, not "someday": today\'s cutoff, "on the menu this ' +
+  'week," a bowl that\'s back, same-day delivery still open. A caption with no reason to act ' +
+  'today is one the reader can defer forever — which means never.\n\n';
+
+// Monday-anchored ET week containing `dateStr`. The cadence fix below needs "this week's"
+// boundary decided the same way every time it is asked, or the top-up count and the seed query
+// could disagree about which posts belong to the week being planned.
+function etWeekStartOf(dateStr) {
+  const dow = weekdayIndexOf(dateStr);
+  const back = dow === 0 ? 6 : dow - 1; // Sunday is 6 days after its own Monday
+  return addEtDays(dateStr, -back);
+}
+
+// Inverse of `etMidnightMs(date) + hour*3600000` — how scheduled_at is built a few lines below.
+// Decoding it this way (rather than re-deriving the ET hour from the raw timestamp with its own
+// Intl call) guarantees round-tripping: whatever encoded a slot is exactly what decodes it.
+function etHourOfSchedule(ms) {
+  if (!Number.isFinite(ms)) return null;
+  const d = etDateOf(ms);
+  return Math.round((ms - etMidnightMs(d)) / 3600000);
+}
+
+/**
+ * Context the planner has been blind to. Each source is independent and degrades SILENTLY to
+ * nothing on any failure — a missing table (pre-migration), an empty one, or no Vectorize/AI
+ * binding must never break the weekly run; it should just leave the planner exactly as informed
+ * as it was before this function existed.
+ */
+async function plannerExtraContext(env) {
+  const parts = [];
+
+  // The Lead's own campaign direction (team_lead.js writes these via create_brief). Same
+  // business, same week — and until now the planner that is supposed to EXECUTE a brief never
+  // read one. Archived briefs are excluded: they are closed business, not this week's direction.
+  try {
+    const briefs = await rows(env,
+      "SELECT title, objective, audience, angle, status FROM team_briefs WHERE status != 'archived' ORDER BY created_at DESC LIMIT 3");
+    if (briefs.length) {
+      parts.push('=== CAMPAIGN DIRECTION FROM THE TEAM LEAD (follow this over a generic pick) ===\n' +
+        briefs.map((b) => `- [${b.status}] ${b.title}` +
+          (b.objective ? ` — objective: ${b.objective}` : '') +
+          (b.audience ? `; audience: ${b.audience}` : '') +
+          (b.angle ? `; angle: ${b.angle}` : '')).join('\n'));
+    }
+  } catch { /* pre-0069 schema, or no briefs filed yet — planner runs exactly as before this wiring */ }
+
+  // Web research the Intel Bench already paid for (functions/_lib/intel.js writes market_intel)
+  // and that nothing else in the codebase had ever read. Hard-truncated per row: this is a
+  // competitor/market SIGNAL to inform a caption, never a document to reproduce inside one.
+  try {
+    const intel = await rows(env, 'SELECT kind, title, body FROM market_intel ORDER BY created_at DESC LIMIT 2');
+    if (intel.length) {
+      parts.push('=== RECENT MARKET INTEL (context only — never quote or present as Añejo\'s own claim) ===\n' +
+        intel.map((r) => `[${r.kind}] ${r.title}\n${String(r.body || '').slice(0, 600)}`).join('\n\n'));
+    }
+  } catch { /* pre-0070 schema, or nothing researched yet */ }
+
+  // The owner's uploaded knowledge base (manuals, SOPs, brand material), via the SAME retrieval
+  // path Creative Studio uses (functions/_lib/knowledge.js retrieve) — until now the only
+  // consumer. A fixed content-planning query so retrieval has something to match even when no
+  // specific post idea has been picked yet.
+  try {
+    const passages = await retrieve(env, 'Instagram content ideas, food photography, and promotions for Añejo Catering', { topK: 4 });
+    if (passages.length) {
+      const { text } = formatPassages(passages, 2500);
+      if (text) parts.push('=== FROM AÑEJO\'S OWN KNOWLEDGE BASE (nothing outside this is a citable fact) ===\n' + text);
+    }
+  } catch { /* no VECTORIZE/AI binding, or nothing indexed yet */ }
+
+  return parts.join('\n\n');
 }
 import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
@@ -666,16 +770,35 @@ async function socialPlan(env, date) {
     };
   }
 
-  // How many drafts are already waiting? A planner that tops the queue up every week regardless
-  // becomes a backlog nobody reads.
-  const pending = await scalar(env, "SELECT COUNT(*) n FROM social_posts WHERE status IN ('draft','scheduled')");
-  const WANT = 5;
-  const need = Math.max(0, WANT - Number(pending || 0));
+  // CADENCE (owner-settable, functions/_lib/social_cadence.js): a weekly target for NEW feed
+  // posts, not a flat top-up ceiling. The previous WANT=5 was compared against the ENTIRE
+  // unshipped backlog with no time bound, so an owner who fell behind on approvals accumulated
+  // a pile that sat at or above 5 forever — every following week's run saw "5 pending" and
+  // drafted ZERO. That is the exact complaint this fixes: not that the planner ran once and
+  // stopped, but that after one slow approval week it silently never ran again, which reads as
+  // "one post a day" when the truth was "the queue never re-opened." Scoping the count to THIS
+  // ET week (etWeekStartOf) means a stale backlog from three weeks ago no longer counts against
+  // this week's target — a current run can never be suppressed by old, unrelated drafts.
+  const cadence = await getCadenceConfig(env);
+  if (!cadence.feed_per_week) {
+    return {
+      outcome: 'skipped',
+      output: { date, reason: 'cadence_zero' },
+      summary: 'The feed cadence is set to 0 in cadence settings — the planner is paused. Raise feed_per_week to resume.',
+    };
+  }
+  const weekStart = etWeekStartOf(date);
+  const weekStartMs = etMidnightMs(weekStart);
+  const weekEndMs = etMidnightMs(addEtDays(weekStart, 7));
+  const pending = await scalar(env,
+    "SELECT COUNT(*) n FROM social_posts WHERE status IN ('draft','scheduled') AND scheduled_at >= ? AND scheduled_at < ?",
+    weekStartMs, weekEndMs);
+  const need = Math.max(0, cadence.feed_per_week - Number(pending || 0));
   if (!need) {
     return {
       outcome: 'skipped',
-      output: { date, pending: Number(pending || 0) },
-      summary: `${pending} posts are already waiting for approval — nothing new drafted.`,
+      output: { date, pending: Number(pending || 0), week_target: cadence.feed_per_week },
+      summary: `${pending} of ${cadence.feed_per_week} posts for this week are already scheduled — nothing new drafted.`,
     };
   }
 
@@ -694,11 +817,15 @@ async function socialPlan(env, date) {
     orderByLabel = `${hr % 12 || 12} ${hr >= 12 ? 'PM' : 'AM'}`;
   } catch { /* the neutral label above states no specific hour */ }
 
+  // Team briefs, market intel, and knowledge-base passages — see plannerExtraContext for why
+  // each of these was previously invisible to this planner. Empty string when none apply.
+  const extraContext = await plannerExtraContext(env);
+
   const ai = await askClaudeJson(env, {
     system:
-      'You write Instagram posts for Añejo Catering Co. Below is the brand\'s own standards brief — ' +
-      'verbatim, written by the owner. It is the authority on who Añejo is, how it speaks, and what its ' +
-      'photography looks like. Follow it over any instinct of your own.\n\n' +
+      PLANNER_ROLE +
+      'Below is the brand\'s own standards brief — verbatim, written by the owner. It is the authority ' +
+      'on who Añejo is, how it speaks, and what its photography looks like. Follow it over any instinct of your own.\n\n' +
       '=== AÑEJO BRAND BRIEF (excerpts) ===\n' + BRAND_CONTEXT + '\n=== END BRIEF ===\n\n' +
       '=== WHAT AÑEJO SELLS (promote across ALL of it, not only bowls) ===\n' + productLines() +
       '\n=== END PRODUCT LINES ===\n' +
@@ -713,7 +840,11 @@ async function socialPlan(env, date) {
       `category: exactly one of ${TRUST_CATEGORIES.map((c) => `"${c}"`).join(', ')} — the post's primary subject. ` +
       'caption: under 500 characters, 2-4 relevant hashtags at the end. ' +
       'image_brief: one sentence of art direction for a food photo we will generate — subject, angle, light. ' +
-      'day_offset: days from today. hour: local hour to post, spread across the week, never two posts in the same hour. ' +
+      'day_offset: days from today. hour: local hour to post — the strongest windows for a food ' +
+      'account are 11-13 (lunch decision) and 17-19 (dinner decision) on weekdays, Friday ' +
+      'performs best, weekends are weakest so use 17-19 if you place one there. Spread posts ' +
+      'across the week, never two posts in the same hour on the same day — the server also ' +
+      'enforces this, but a considered choice beats a corrected one. ' +
       'NEVER name a weekday, date or time of day in the caption unless it matches the day_offset you chose for that same post — ' +
       'a caption that opens "Monday starts with intention" published on a Thursday reads as careless, and the reader has no way ' +
       'to know it was scheduled. When in doubt, do not name a day at all.',
@@ -728,6 +859,7 @@ async function socialPlan(env, date) {
       (performance ? performance + '\n\n' : '') +
       `ON THE MENU RIGHT NOW (these are the only items you may promote):\n${menuLines.join('\n')}\n\n` +
       `${soldOutLine}\n\n` +
+      (extraContext ? extraContext + '\n\n' : '') +
       'Vary the angle across the set: the food itself, the kitchen/process, the people it feeds, and one that simply invites an order. ' +
       'HOW ORDERING ACTUALLY WORKS, and the only version you may state: scheduled delivery is ordered by ' +
       `${orderByLabel} the DAY BEFORE — a rolling daily cutoff, not a weekly one. There is no "order by Wednesday" ` +
@@ -750,6 +882,27 @@ async function socialPlan(env, date) {
     };
   }
 
+  // POSTING-TIME TABLE (functions/_lib/posting_times.js): owner-overridable default slots, and
+  // the enforcement the prompt has always asked the model for ("never two posts in the same
+  // hour") but never actually checked — a model repeat used to collide silently. Seeded with
+  // whatever is ALREADY scheduled this week so a fresh batch cannot collide with the calendar,
+  // not just with itself.
+  const postingTimes = await getPostingTimes(env);
+  const usedByDate = new Map(); // ET date string -> Set(hour already claimed that day)
+  try {
+    const existingThisWeek = await rows(env,
+      "SELECT scheduled_at FROM social_posts WHERE status IN ('draft','scheduled') AND scheduled_at >= ? AND scheduled_at < ?",
+      weekStartMs, weekEndMs);
+    for (const r of existingThisWeek) {
+      if (!r.scheduled_at) continue;
+      const d = etDateOf(r.scheduled_at);
+      const h = etHourOfSchedule(r.scheduled_at);
+      if (h == null) continue;
+      if (!usedByDate.has(d)) usedByDate.set(d, new Set());
+      usedByDate.get(d).add(h);
+    }
+  } catch { /* seeding is a nicety — an empty seed just means this batch only dedupes itself */ }
+
   const t = now();
   const made = [];
   for (const item of ai.data.slice(0, need)) {
@@ -757,10 +910,18 @@ async function socialPlan(env, date) {
     if (!caption) continue;
     const brief = String((item && item.image_brief) || '').trim().slice(0, 400) || null;
     const dayOffset = Math.min(6, Math.max(0, Math.floor(Number(item && item.day_offset)) || 0));
-    const hour = Math.min(19, Math.max(8, Math.floor(Number(item && item.hour)) || 11));
+    const postDate = addEtDays(date, dayOffset);
+    const dow = weekdayIndexOf(postDate);
+    const requestedHour = Math.floor(Number(item && item.hour));
+    if (!usedByDate.has(postDate)) usedByDate.set(postDate, new Set());
+    const daySlots = usedByDate.get(postDate);
+    // Snap to the nearest free table slot for this weekday; falls back to any free hour in
+    // 8-19 if the table's slots for the day are already spoken for. Always unique per day.
+    const hour = assignSlot(postingTimes, dow, requestedHour, daySlots);
+    daySlots.add(hour);
     // A SUGGESTED time only. The row stays a draft with scheduled_at set, so approving it is one
     // click and changing the time is one edit — but nothing fires until a human moves it.
-    const when = etMidnightMs(addEtDays(date, dayOffset)) + hour * 3600 * 1000;
+    const when = etMidnightMs(postDate) + hour * 3600 * 1000;
 
     // Trust ledger (0072): file the post under one of the FIXED lanes, or none at all — an
     // invented category would start an approval streak no toggle exists for. The caption hash
