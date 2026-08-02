@@ -483,6 +483,94 @@ marketing prompts, `intel_reports` → any reader, Lead's `team_briefs` → the 
 
 ---
 
+## 13. The owner could not train the team without a laptop and a deploy
+
+**Status:** ✅ SHIPPED 2026-08-02 · **Added:** 2026-08-02
+
+> "it's hard for me to do it from the local files, the hub should be the only place I go, and
+> future owners will have to train it from the hub itself."
+
+**HUB → Train the team** (`/hub/owner/team-training`) now takes plain-language rules and reference
+photos with the owner's own notes ("this is the look I want" / "never do this"), stored in D1 +
+R2 (migration `0075`, applied). No file, no script, no deploy.
+
+The feature that matters most is the panel at the top: **"What the team currently believes"** shows
+the *literal text* handed to the AI, with a character budget counter. The owner can verify his
+training actually landed instead of taking it on faith — which is the whole answer to "how do I
+know this isn't just generic AI."
+
+**Wired into both surfaces that write marketing** — the weekly planner (`_lib/automations.js`) and
+the Team Lead (`_lib/team_lead.js`), each budget-capped at 4,000 chars, each degrading silently to
+empty if the tables are missing. **The wiring is source-pinned by test** (`training-wiring.test.js`)
+because this repo already had two features that looked live from the HUB and were read by nothing:
+the knowledge base (Studio-only) and `market_intel` (no reader at all). Both are now also wired
+into the planner.
+
+Live-verified end to end: added a rule through the real page on production, watched it appear in
+the "what the team believes" panel as prompt text (`162 / 6,000 characters`), then removed it —
+0 active rules, page back to *"The team has not been trained yet."*
+
+**Honest empty state:** with nothing recorded, `trainingContext()` returns an empty string and the
+page says so plainly. An untrained team must never read as a trained one.
+
+---
+
+## 14. The planner was a caption generator wearing the team's name
+
+**Status:** ✅ SHIPPED 2026-08-02 · **Added:** 2026-08-02
+
+Three things changed in `socialPlan()`:
+
+**A real role.** The old framing was one clause — *"You write Instagram posts for Añejo Catering
+Co."* It now carries a specified strategist role in the same voice as the Team Lead, including the
+food-business specifics it lacked: the cover frame must show food, carousels and Reels out-reach
+static posts, saves and shares beat likes, a caption needs a reason to act now.
+
+**Cadence that cannot stall.** `WANT = 5` was a top-up against the *entire* unshipped backlog with
+no time bound — so a stale approval queue pinned the count at 5 and drafted **zero, forever**. That
+is the trickle the owner was seeing. It is now a real weekly target scoped to the current ET week,
+owner-settable without a redeploy at `/api/hub/owner/social-cadence-config`.
+
+Defaults, and why they are not what was asked for: the owner asked for **3–6 posts daily**. For
+*feed* posts that is wrong — 2026 data (Buffer's 2M-post analysis, Hootsuite) shows past 3–5/week
+average reach *drops*, because the algorithm weights early engagement per post. At 46 followers,
+six daily feed posts split one small audience six ways. So: **feed 4/week**, **stories 3–6/day** —
+his number, on the surface where it is correct.
+
+**A posting-time table.** There was none; the model picked an hour 8–19, defaulting to 11.
+Now `/api/hub/owner/social-posting-times`, defaulting to weekdays `[12, 18]` and weekends `[18]`
+ET — the researched food windows (lunch decision 11am–1pm, dinner 5–7pm; Tue–Thu strongest,
+weekends weakest for feed). Slots are de-duplicated against posts already on the calendar, so the
+"never two posts in the same hour" rule the old prompt merely *asked* for is now enforced.
+
+**Not verified:** no planner run has executed against the live config yet — the weekly job fires
+Sundays. First real run is the proof.
+
+---
+
+## 15. The grid showed text cards because the grid shows slide 1
+
+**Status:** ✅ SHIPPED 2026-08-02 · **Added:** 2026-08-02
+
+Instagram's profile grid renders only the **first slide** of a carousel, and slide 1 was a text
+card. `publishSocialPost()` now promotes the first real food photo to the front when the cover is a
+known text card. **Reordering only** — nothing is invented, nothing is dropped, no post is blocked.
+
+**The detection signal, and a defect caught in review.** The first implementation keyed off the
+`series/` folder. Production keys prove that folder holds cards *and photos side by side*
+(`p6_cover.jpg` next to `p6_photo.jpg`), so every slide matched, nothing was ever promoted, and it
+raised a false "no photo" warning on the posts that did have one — a no-op exactly where it
+mattered. Detection is now the filename's **role suffix**: photo = `_photo` or one of the eight
+bowl names (imported from `bowl_art.js` so the lists cannot drift); card = `_cover|_cta|_hook|
+_rule|_facts|_why`; **anything else is unknown and left alone**.
+
+Verified against the five real production carousels: `p1`, `p3`, `p6` reorder to lead with food;
+`p4` and `p5` are correctly identified as having **no food photo at all** — flagged for a human,
+not blocked, not faked. That last finding is real and the owner needs it: two queued posts have no
+food image in them anywhere.
+
+---
+
 ## Appendix — what "coordinates" are for
 
 `orders.delivery_lat` / `delivery_lng`. An address is text; a route needs numbers. Without them:
