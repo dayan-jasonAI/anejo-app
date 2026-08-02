@@ -363,9 +363,26 @@ apartment-heavy market that is a wrong warning on a large share of real orders, 
 to tap through the one warning that matters. The comparison is now street-and-ZIP only, and there is
 a named regression test for it at both the unit and the full-handler level.
 
-**Not verified:** no real Google API call was made from the test suite (mocked responses shaped from
-the real backfill evidence), and no real customer has hit the warning yet. The first genuinely bad
-address is what proves it end to end.
+**Live-verified against production, with the real address from the incident.** `POST /api/checkout`
+against `anejocateringco.com`, hitting the real Google Geocoding API:
+
+- `10330 City Center Blvb, Pembroke Pines, FL 33025` → **HTTP 409**, `reason: "corrected"`, and the
+  suggestion offered back is `10330 City Center Blvd, Pembroke Pines, FL 33025` — the actual fix,
+  one tap. **The address that shipped once is now caught.**
+- `99999 Nonexistent Fakestreet Blvd, Lake Worth, FL 33461` → **HTTP 409**, `suggestion: null`.
+- Neither created an order: `SELECT COUNT(*) FROM orders` for those test contacts = **0**. The gate
+  returns before Square is ever called, so a warned customer has nothing to clean up.
+
+A second defect was caught *by that live test* and fixed before this entry was written. The first
+run answered the fake street with `suggestion: {formatted: "Palm Springs, FL 33461, USA", street:
+null}` — Google answers an unrecognised street with the surrounding city. Offered as a one-tap "Use
+this address", that would have overwritten the customer's **city** while leaving their street alone,
+producing an address neither party meant and pointing a driver at the wrong town. A suggestion now
+requires a street; without one the customer just gets "deliver here anyway". Pinned by a regression
+test named after the real response.
+
+**Still not verified:** no real customer has hit the warning yet, and the confirm-anyway path has
+not been exercised by a human. The first genuinely bad address a customer types is what closes that.
 
 ---
 
