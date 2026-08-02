@@ -7,7 +7,7 @@ import { json, bad, id, now, randToken } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { igConfigured, accountInfo, JPEG_ONLY, CAROUSEL_MAX } from '../../../_lib/instagram.js';
-import { publishSocialPost, loadPostMedia } from '../../../_lib/social_publish.js';
+import { publishSocialPost, loadPostMedia, coverStatus } from '../../../_lib/social_publish.js';
 import { noteTrustApproval } from '../../../_lib/trust_ledger.js';
 import { loadTokenExpiry, saveTokenExpiry, tokenExpiryStatus } from '../../../_lib/instagram_token_expiry.js';
 
@@ -40,6 +40,12 @@ export const onRequestGet = async ({ request, env }) => {
     for (const row of (m && m.results) || []) (bySlide[row.post_id] = bySlide[row.post_id] || []).push({ id: row.id, seq: row.seq, media_key: row.media_key });
     for (const post of posts) post.media = bySlide[post.id] || [];
   } catch { for (const post of posts) post.media = []; }
+
+  // Food-first indicator (see functions/_lib/social_publish.js coverStatus): computed straight
+  // from the stored order so this is honest whether or not the post has ever been published — a
+  // draft shows what publishing WILL fix or warn about; a published post shows what actually went
+  // out, because publishSocialPost persists its own reorder before calling Instagram.
+  for (const post of posts) post.cover_status = coverStatus(post.media);
 
   // Latest performance snapshot per media id, attached to our published posts. NULL until the
   // daily sweep has run — the page says "no data yet", never fake zeros.
