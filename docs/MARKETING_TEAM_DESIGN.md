@@ -85,7 +85,10 @@ guessing.
 
 This is the part that makes it "know Añejo". Built once, used by all.
 
-1. **Brand Brief** — `docs/brand-standards-brief.md`, chunked and indexed into Vectorize. Voice
+1. **Brand Brief** — `docs/brand-standards-brief.md`. *Corrected 2026-08-02: this said "chunked
+   and indexed into Vectorize". It is not, and never was. The brief reaches the team as a
+   compiled constant (`_lib/brand_context.js`, deploy-gated) for the planner, and as a live D1
+   `docs` row for the Team Lead. Vectorize holds the Knowledge Base only.* Voice
    (§11), photo standard (§10), plating, the Golden Rule (§4), allergen rules (§8).
 2. **Live business state** — menu, availability, real prices, delivery area, operating hours,
    ordering cutoffs. Already in D1. Not paraphrased: read at request time.
@@ -124,6 +127,14 @@ you are paying frontier prices for drafting.
 ## 5. Specialists
 
 Grouped by real job. Several roles on your list are **deliberately code, not agents** — see §6.
+
+> **⚠️ THIS TABLE IS THE DESIGN, NOT THE BUILD (audited 2026-08-02).** Four of these exist in
+> code: **Brand Auditor** (`_lib/governance.js`), **DM/Comment Drafter** (Aña,
+> `_lib/ana_social.js`), **Market Researcher / Competitor Watch** (`_lib/intel.js`), plus the
+> Team Lead strategist (`_lib/team_lead.js`) and the weekly planner (`_lib/automations.js`)
+> which this table does not list. **The rest are unbuilt.** Read a row here as a plan, never as
+> a capability the business currently has — that gap is exactly how "the marketing team" gets
+> credited with work nothing is doing.
 
 | Group | Agent | Job | Model |
 |---|---|---|---|

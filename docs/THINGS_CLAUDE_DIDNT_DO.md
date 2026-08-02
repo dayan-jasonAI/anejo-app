@@ -145,6 +145,47 @@ before paying anything.
 
 **Nothing was changed.** No route was marked paid, no `pay_cents` was edited, no rate was touched.
 
+### 2026-08-02, later — the owner chose a model, then paused it. DO NOT BUILD THIS YET.
+
+Dayan chose **pure per-mile at the IRS rate, no floor, no per-stop**, with miles from the
+**planned Google route distance**, and then explicitly held it: *"don't make this live on the HUB
+yet and ensure it doesn't get deployed live… I want to compare the differences and make a decision
+later today."* **No pay code has been written.** This section is analysis only.
+
+Three facts that changed the picture:
+
+1. **The IRS rate is 76¢, not 65–70¢.** 2026 opened at 72.5¢ and the IRS **raised it to 76¢
+   effective July 1, 2026**. The live config is `per_mile_cents: 70` — six cents under. Whatever
+   gets built must make the rate owner-editable *with an effective date*; a mid-year federal change
+   already caught this once.
+2. **Every route has `gps=0`, `started=0`, `delivered=0`** — including the two marked `completed`.
+   No route has ever been started in the app, no GPS point recorded, no stop marked delivered.
+   Mileage pay has nothing to stand on until the tracking actually happens. The tracking is the
+   real project; the formula is the easy half.
+3. **Classification is unset.** `staff.employment_type` supports `w2|contractor|external` and is
+   **NULL for all three drivers**. This decides whether no-floor per-mile is safe: Florida minimum
+   wage is $14.00/hr, $15.00 from 2026-09-30, and a 12-mile route that takes 90 minutes pays $9.12
+   — about $6/hour. The IRS mileage rate is a *reimbursement for vehicle cost*, not wages. This is
+   an accountant question, not a code question.
+
+Comparison at 76¢/mile (estimated miles, Boca base — same caveats as the table above):
+
+| | Recorded | Current formula | Pure per-mile @76¢ |
+|---|---|---|---|
+| All five routes | $100.00 | $190.04 | **$180.28** |
+
+Pure per-mile pays **less overall** than the current formula, because dropping $3.00/stop costs the
+two-stop routes more than the 6¢ rate rise returns. It pays *more* on the long single-stop run.
+
+**Attribution is disputed and must be settled before anyone is paid.** The owner: *"Vitian did one
+delivery that I had to close out under Anejo House because she failed to use the hub properly."*
+Evidence points at `route_b0272e` (07-29, Pembroke, **single** delivery, recorded under Anejo
+House). Reattributing it swings **$54**: Vitian $95.46 → $149.42, Anejo House $84.82 → $30.86.
+
+Also unresolved: `route_a3b3af` (07-23) has `offer_status='unfilled'`, was declined by Vitian,
+never started, 0 of 1 stops delivered — yet it is `assigned` and carries $20. It looks like work
+nobody did.
+
 **Also noticed:** `route_a3b3af6a…` (07-23) still sits at `assigned` with 0 of 1 stops completed,
 and `route_c1c5d254…` (07-29) at `assigned` with 1 of 2. Both are more than a week stale. Either
 they were finished and never marked, or they were abandoned — worth resolving, because status is
@@ -383,6 +424,62 @@ test named after the real response.
 
 **Still not verified:** no real customer has hit the warning yet, and the confirm-anyway path has
 not been exercised by a human. The first genuinely bad address a customer types is what closes that.
+
+---
+
+## 11. AI images looked like AI, and the grid looked like a green block
+
+**Status:** ⚠️ engine SHIPPED 2026-08-02 — **inert until two API keys are added** · **Added:** 2026-08-02
+
+The owner's verdict: *"you can tell it's AI"*, and *"the ig page of a food business should show
+food at first glance and right now it looks like a green block."* Both were correct, with two
+separate causes.
+
+**Cause 1 — the model.** `_lib/plate_image.js` ran only `@cf/leonardo/phoenix-1.0` on Workers AI.
+It is now a fallback **chain**: OpenAI `gpt-image-1` → Gemini image → Workers AI, reorderable from
+KV without a redeploy, metered into the same `$50/week` `ai_spend` ceiling (not a separate budget),
+per-provider timeouts, and a provenance ledger (`image_generations`, migration `0074`, applied)
+that records which provider actually made each image and why the others were skipped — so a silent
+degradation back to the worst model is visible instead of mysterious.
+
+**It does nothing until `OPENAI_API_KEY` and `GEMINI_API_KEY` are set as Pages secrets.** Without
+them the chain skips both and behaves exactly as before. Adding a secret is inert until redeploy.
+
+**Cause 2 — the covers were never AI at all.** The green grid came from
+`tools/cardgen/series_cards.py`, a **local Python script** rendering text cards on `BG=(9,20,10)`,
+run by hand and uploaded. Instagram's grid shows only slide 1 of a carousel, so the food photos on
+slides 2–4 were never visible. Handled separately — see the food-first guard.
+
+**Not verified:** no image has been generated through the new chain yet (0 rows in
+`image_generations`), and the response shapes for `gpt-image-1` and `gemini-2.5-flash-image` come
+from documentation, not a live call. Watch the first real generation.
+
+---
+
+## 12. "Is the marketing team a real role, or generic AI?" — audited, answered
+
+**Status:** answered 2026-08-02, honestly · **Added:** 2026-08-02
+
+The owner asked directly. The answer from the code is: **both, and that split is the problem.**
+
+- There **is** a genuine strategist — `_lib/team_lead.js`: *"You are the Añejo Marketing Team Lead
+  — the strategist on a small marketing team… PROPOSE strategy with reasoning the owner can argue
+  with."* Opus, with a rich context spine (brand, live menu with kitchen build, Instagram results,
+  budget). Not generic.
+- But **it does not write the posts.** The weekly planner that does (`socialPlan()` in
+  `_lib/automations.js`) had a role of exactly one clause: *"You write Instagram posts for Añejo
+  Catering Co."* No audience, no objective, no funnel, no format theory.
+
+**Why it could not notice it was failing:**
+- It has **never seen an image** — it writes a text `image_brief` and inserts `media_key = NULL`.
+- Its results feed is top-3 + weakest-1 from a **single** capture date, captions cut to 90 chars.
+  No trend, no per-category rollup, no attribution from a result back to what produced it.
+- `intel_reports` — the web research it commissions — **had no reader anywhere in the codebase.**
+
+**Do NOT add another agent on top of Creative Studio.** Studio already generates images but cannot
+post them; the marketing pipeline needs images but cannot generate them. The gaps were four missing
+**wires**, not a missing brain: Studio's image generator → `social_post_media`, knowledge base →
+marketing prompts, `intel_reports` → any reader, Lead's `team_briefs` → the planner.
 
 ---
 

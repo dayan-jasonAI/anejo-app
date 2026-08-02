@@ -40,8 +40,10 @@ Aña replies are ~$0.003 each. You will struggle to spend $5 in a normal week.
    brand-treated bowl photo). Two bowls named or none → no image, deliberately: a wrong bowl
    on a post is worse than an empty frame. Replace any of it with your own photo using the
    📷 button in HUB → Social — that is still the best image you can give a post.
-5. **Plan the week automatically** — the planner drafts against performance data daily;
-   carousels (2–10 slides) fully supported, timer-published unattended.
+5. **Plan the week automatically** — the planner drafts against performance data **weekly**
+   (Sundays, `cron/worker.js`); carousels (2–10 slides) fully supported, timer-published
+   unattended. *Corrected 2026-08-02: this line used to say "daily", which was never true. Only
+   the insights sweep that feeds it runs daily.*
 6. **Run the front of house.** Aña answers DMs and comments in seconds, English or
    Spanish, on-brand, with hard safety rails: no invented facts, no medical claims, no
    made-up discounts; angry/medical/refund messages send NOTHING and page you; special
