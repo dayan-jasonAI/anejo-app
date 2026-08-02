@@ -36,13 +36,25 @@ message written, tested and deployed goes nowhere.
 
 ## 2. Backfill coordinates for the 9 pre-geocoding orders
 
-**Status:** one button, unpressed · **Added:** 2026-07-30
+**Status:** ✅ DONE 2026-08-02, on Dayan's explicit approval · **Added:** 2026-07-30
 
-See the note below on what coordinates are for. The button exists at
-`/api/hub/owner/geo-check`; nobody has pressed it. It is safe, idempotent, and takes seconds.
+Pressed by a lead session through Dayan's own logged-in owner session at
+`/api/hub/owner/geo-check` — the auth gate was used, not worked around.
 
-**Cost of leaving it:** route optimisation, driven-miles driver pay and every distance calculation
-stay wrong for that history.
+Evidence, against production D1 (`wrangler d1 execute anejo --remote`):
+
+- Before: `orders` with an address and not canceled = 9, of which geocoded = **0**;
+  `contract_sites` = 2, geocoded = **0**.
+- The self-test passed first (the endpoint refuses to run otherwise): resolved
+  `301 N Olive Ave, West Palm Beach, FL 33401` → `26.7156493, -80.0520646`.
+- Endpoint returned: *"Backfilled. 9 orders, 2 sites, 0 clients."* — **zero failures**.
+- After: 9/9 orders and 2/2 sites carry coordinates. `SELECT COUNT(*) … WHERE delivery_lat=0 OR
+  delivery_lng=0` = **0** — nothing was written as 0,0.
+
+**One thing this turned up, which matters to item 10.** The typo address that shipped once,
+`10330 City Center Blvb` (Pembroke Pines), **geocoded successfully** — Google silently corrected
+`Blvb` to the real street and returned `26.0059265, -80.2850607`. A plain "does this resolve?"
+check would have passed the exact typo it was meant to catch.
 
 ---
 
@@ -62,10 +74,52 @@ owed.
 
 **What to do, in order:** backfill the coordinates (item 2), then reprice the routes, then pay.
 
-**UNVERIFIED and needs checking first:** `total_meters` is the driven distance computed at
-dispatch, and it is separate from an address's coordinates. Whether repricing a historic route is
-even wired up is unknown — it may need a manual recalculation. Do not promise "one click" until
-that is checked.
+### Investigated 2026-08-02 — the UNVERIFIED question above is now answered
+
+**`total_meters` is NULL on all five routes, and there is no code path that recomputes pay for a
+route that already exists.** So the routes cannot be repriced from stored data, and it is not one
+click. Verified against production D1 and the source:
+
+- All 5 routes: `total_meters` NULL, `total_miles_est` NULL, `pay_cents` = **2000** (the $20 floor)
+  — every one of them, which is the signature of the mileage term contributing nothing.
+- Root cause chain, in `_lib/routing.js`: the routes were built while every order had
+  `delivery_lat` NULL, so `geoStops.length === orderIds.length` was false → `optimizeRoute()` was
+  never called → `totalMeters` stayed null → the haversine fallback also needs stop coordinates, so
+  `miles` stayed null → `computeRoutePay` charged 0 miles → `$3.00 × stops` alone is below $20 →
+  floored.
+- `pay_cents` is written **once**, in the INSERT at `_lib/routing.js:91`. Nothing in
+  `owner/routes.js`, `owner/payouts.js` or `owner/pay-config.js` ever recalculates it. Changing the
+  rate card does not reprice an existing route either.
+
+**What it is worth.** Every stop on all five routes now has real coordinates (item 2), and
+`KITCHEN_ORIGIN_LAT` / `KITCHEN_ORIGIN_LNG` / `GOOGLE_MAPS_API_KEY` are all present and working in
+the production Pages environment — so miles are computable now, they simply were not then. Figures
+below use the app's **own** fallback estimator (`estimateRouteMiles`, haversine × 1.3 circuity) and
+the live rate card `$0/base + $3.00/stop + $0.70/mile, min $20.00`. Base assumed to be the Boca
+commissary (~26.394, -80.203); the exact origin is an encrypted Pages secret and was not read.
+
+| Route | Date | Status | Stops | Est. miles | Recorded | Corrected | Δ |
+|---|---|---|---|---|---|---|---|
+| `route_a3b3af6a…` | 07-23 | assigned | 1 (Lake Worth) | 44.4 | $20.00 | $34.08 | +$14.08 |
+| `route_3c9b7d27…` | 07-27 | completed | 2 (Delray, Pompano) | 40.6 | $20.00 | $34.42 | +$14.42 |
+| `route_6cc05ca7…` | 07-28 | completed | 2 (Pompano, Delray) | 40.6 | $20.00 | $34.42 | +$14.42 |
+| `route_c1c5d254…` | 07-29 | assigned | 2 (Pompano, Delray) | 40.6 | $20.00 | $34.42 | +$14.42 |
+| `route_b0272e99…` | 07-29 | completed | 1 (Pembroke Pines) | 71.0 | $20.00 | $52.70 | +$32.70 |
+
+**Only three of the five are actually owed today** — `payRollupColumns()` counts a route as owed
+when it is `completed` AND unpaid. The 07-27, 07-28 and 07-29 Pembroke routes qualify: **$60.00
+recorded vs $121.54 corrected, so ~$61.54 short.** All five together: $100.00 vs $190.04.
+
+The number moves with the base. A central-Palm-Beach base instead of Boca gives $255.97 across all
+five rather than $190.04, because the Pompano and Pembroke legs get longer. Confirm the origin
+before paying anything.
+
+**Nothing was changed.** No route was marked paid, no `pay_cents` was edited, no rate was touched.
+
+**Also noticed:** `route_a3b3af6a…` (07-23) still sits at `assigned` with 0 of 1 stops completed,
+and `route_c1c5d254…` (07-29) at `assigned` with 1 of 2. Both are more than a week stale. Either
+they were finished and never marked, or they were abandoned — worth resolving, because status is
+what decides whether a driver is owed.
 
 **Cost of leaving it:** drivers get paid the $20 floor for routes that earned more.
 
@@ -169,10 +223,35 @@ pass" is not the same as "has worked once".
 | Instagram webhook **receiving** | ✅ proven — 27 events received |
 | **Sending** a DM reply | ✅ proven — 25 outbound Instagram replies |
 | `social-tick` **publishing** | ✅ proven — 4 posts published by the timer |
-| `campaigns-tick` **sending** | ❌ STILL NEVER RUN — no campaign has ever been scheduled. Proven to refuse a stale one only. |
+| `campaigns-tick` **sending** | ✅ proven — see below. This row said "STILL NEVER RUN" and was already wrong when written. |
 
-The one that remains is the one that emails the whole list unattended. Prove it with a scheduled
-send to the `test` segment before trusting it with a real audience.
+**`campaigns-tick` sending — closed 2026-08-02.** Two separate pieces of evidence, and the first
+one contradicts the row above.
+
+*It had already been sending for two days.* Production `campaigns` shows scheduled sends that
+fired long before this session: `cmp_8162d1ba…` (`test` segment) scheduled 07-31 06:48Z, sent
+06:49Z; `cmp_f9bd4378…` (`all`) scheduled 07-31 15:00Z, sent 15:00Z, 20 delivered; `cmp_f2437edc…`
+(`all`) scheduled 08-01 11:00Z, sent 11:01Z, 20 delivered. Whoever last edited this table did not
+check the table it describes.
+
+*Proven again from scratch, 2026-08-02.* A campaign to the `test` segment (which resolves to
+`dayan@dayanrealtyhub.com` only — `app_settings['campaign.test_recipients']`) was inserted into
+production D1 as `status='scheduled'`, `scheduled_at` = 09:05:28.395Z. It was left alone. The
+`anejo-cron` Worker's next minute tick picked it up: `campaigns` went to `status='sent'`,
+`recipients=1`, `sent_count=1`, `failed_count=0`, `sent_at` = **09:06:23.483Z** — 55 seconds after
+its moment. `campaign_sends` held exactly one row: `dayan@dayanrealtyhub.com`, `status='sent'`,
+`reason` NULL. The email itself landed in that inbox at 09:06:23Z from
+`noreply@anejocateringco.com`, subject "Scheduler send proof", so this is proven at the mailbox and
+not merely in the database. Both rows were then deleted from production.
+
+Worth knowing: `wrangler tail anejo-cron` confirms the Worker runs every minute and posts
+`offers-tick`, `campaigns-tick`, `social-tick` and `social-inbox-tick` in that order, each
+returning HTTP 200.
+
+**Standing caution, unchanged:** three more campaigns to the `all` segment sit `scheduled` for
+08-02 11:00Z, 08-03 11:00Z and 08-04 11:00Z, created by `dayan@anejocateringco.com`. The scheduler
+is now demonstrably capable of sending them unattended. That is the feature working, but it means
+an unwanted scheduled campaign is a live outgoing risk, not a theoretical one.
 
 ---
 
