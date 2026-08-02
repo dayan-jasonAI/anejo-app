@@ -128,6 +128,17 @@ commissary (~26.394, -80.203); the exact origin is an encrypted Pages secret and
 when it is `completed` AND unpaid. The 07-27, 07-28 and 07-29 Pembroke routes qualify: **$60.00
 recorded vs $121.54 corrected, so ~$61.54 short.** All five together: $100.00 vs $190.04.
 
+Per driver, which is how it actually gets paid — confirmed by running the app's own rollup against
+production:
+
+| Driver | Routes owed | Recorded | Corrected (Boca base) | Short by |
+|---|---|---|---|---|
+| Anejo House Delivery | 2 (07-27, 07-29 Pembroke) | $40.00 | $87.12 | **$47.12** |
+| Vitian Perez | 1 (07-28) | $20.00 | $34.42 | **$14.42** |
+
+Vitian also holds the two stale `assigned` routes, worth $40.00 as recorded and $68.50 corrected —
+neither owed until their status is resolved.
+
 The number moves with the base. A central-Palm-Beach base instead of Boca gives $255.97 across all
 five rather than $190.04, because the Pompano and Pembroke legs get longer. Confirm the origin
 before paying anything.
