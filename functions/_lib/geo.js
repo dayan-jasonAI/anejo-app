@@ -34,11 +34,32 @@ export function formatAddress(a) {
   return [line1, cityLine, a.delivery_zip || a.zip].filter(Boolean).join(', ').trim();
 }
 
-// Geocode a one-line address → { lat, lng, formatted } or null (no key / not found / error).
-// Why the last geocode failed, for the owner diagnostic. Module scope and best-effort within an
-// isolate — a hint for a human, never a data source.
+// Geocode a one-line address → { lat, lng, formatted, partialMatch, locationType, types,
+// components } or null (no key / not found / error). `partialMatch` and `locationType` are the
+// signal that catches a resolved-but-WRONG address: Google's Geocoding API will happily return
+// status OK for "10330 City Center Blvb" by silently correcting the typo to "Blvd" — a naive
+// "did it geocode?" check would have shipped that exact typo. `partial_match:true` means Google
+// could not match the input exactly and substituted something close; `location_type` says how
+// precisely — ROOFTOP/RANGE_INTERPOLATED found the actual address, GEOMETRIC_CENTER/APPROXIMATE
+// only found the neighborhood or block. Callers that need to warn-and-ask compare these (and the
+// formatted string) against what the customer typed; callers that only want a pin for routing can
+// still just read lat/lng like before.
 let lastFailure = null;
 export function lastGeocodeFailure() { return lastFailure; }
+
+// address_components -> the few fields checkout needs to offer a corrected address back to the
+// customer as editable fields (not just a formatted string they'd have to retype).
+function pickComponents(components) {
+  const list = Array.isArray(components) ? components : [];
+  const of = (type) => { const c = list.find((x) => x.types && x.types.includes(type)); return (c && c.short_name) || null; };
+  const streetNum = of('street_number'), route = of('route');
+  return {
+    street: [streetNum, route].filter(Boolean).join(' ') || null,
+    city: of('locality') || of('sublocality') || of('postal_town') || null,
+    state: of('administrative_area_level_1') || null,
+    zip: of('postal_code') || null,
+  };
+}
 
 export async function geocode(env, address) {
   if (!geoConfigured(env)) return null;
@@ -61,11 +82,45 @@ export async function geocode(env, address) {
     const r = data.results[0];
     const loc = r.geometry && r.geometry.location;
     if (!loc) return null;
-    return { lat: loc.lat, lng: loc.lng, formatted: r.formatted_address || q };
+    return {
+      lat: loc.lat, lng: loc.lng, formatted: r.formatted_address || q,
+      partialMatch: !!r.partial_match,
+      locationType: (r.geometry && r.geometry.location_type) || null,
+      types: Array.isArray(r.types) ? r.types : [],
+      components: pickComponents(r.address_components),
+    };
   } catch (e) {
     lastFailure = { status: 'FETCH_FAILED', message: String((e && e.message) || e).slice(0, 200), at: Date.now() };
     return null;
   }
+}
+
+// Expand common street-type / directional abbreviations so "St" and "Street" (or "N" and "North")
+// compare equal — the point is to catch a REAL difference (the typo Google silently corrected, a
+// different street entirely), not to nag the customer over formatting Google's response happens to
+// prefer. Order matters: longer words first so e.g. "street" doesn't get half-replaced.
+const ADDR_WORD = [
+  ['street', 'st'], ['avenue', 'ave'], ['boulevard', 'blvd'], ['drive', 'dr'], ['road', 'rd'],
+  ['lane', 'ln'], ['court', 'ct'], ['place', 'pl'], ['parkway', 'pkwy'], ['circle', 'cir'],
+  ['highway', 'hwy'], ['terrace', 'ter'], ['trail', 'trl'], ['square', 'sq'], ['apartment', 'apt'],
+  ['suite', 'ste'], ['north', 'n'], ['south', 's'], ['east', 'e'], ['west', 'w'],
+];
+function normalizeAddressText(s) {
+  let t = String(s || '').toLowerCase();
+  t = t.replace(/,?\s*usa\s*$/, '');           // Google appends ", USA" — never something typed
+  t = t.replace(/[.,#]/g, ' ');
+  for (const [word, abbr] of ADDR_WORD) t = t.replace(new RegExp('\\b' + word + '\\b', 'g'), abbr);
+  return t.replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+}
+
+// True when the geocoder's formatted address is a MEANINGFULLY different string from what the
+// customer typed. This is the check that actually catches "10330 City Center Blvb, Pembroke
+// Pines": Google returns status OK (it resolved!) with `partial_match` sometimes unset, but the
+// formatted_address comes back with "Blvd" — a resolves/doesn't-resolve check alone would have let
+// that exact typo straight through to the kitchen.
+export function addressWasCorrected(typedLine, formatted) {
+  if (!typedLine || !formatted) return false;
+  return normalizeAddressText(typedLine) !== normalizeAddressText(formatted);
 }
 
 /**

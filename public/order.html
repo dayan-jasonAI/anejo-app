@@ -68,6 +68,16 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 .btn:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
 @media(prefers-reduced-motion:reduce){.btn{transition:none}.btn:hover:not(:disabled){transform:none}}
 .err{color:#9b2226;font-size:13px;margin-top:10px;min-height:1px}
+/* Server-side address verification (checkout.js). WARN AND ASK, never a hard block — same red
+   palette as .avail-banner.closed so it reads as "pay attention", not as a generic modal. */
+.addr-check{background:#FBE9E8;border:1px solid rgba(155,34,38,.3);border-radius:10px;padding:14px 16px;margin:14px 0 4px}
+.addr-check p{font-size:13px;line-height:1.5;margin:0 0 8px;color:#6b2020}
+.addr-check p:last-of-type{margin-bottom:0}
+.addr-check .addr-you strong,.addr-check .addr-found strong{color:var(--ink)}
+.addr-check-actions{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.addr-check-actions .btn{margin-top:0}
+.addr-check-edit{display:block;margin:8px auto 0;background:none;border:none;color:#6b2020;font:inherit;font-size:12px;cursor:pointer;padding:0;text-decoration:underline}
+.customize.block{display:block;width:100%;text-align:center;white-space:normal}
 .modeseg{display:flex;gap:6px;background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:4px;margin-bottom:12px}
 .modeseg button{flex:1;border:none;background:transparent;color:var(--green);font-family:inherit;font-size:13px;font-weight:700;letter-spacing:.5px;padding:9px 8px;border-radius:7px;cursor:pointer;line-height:1.2}
 .modeseg button .seg-sub{display:block;font-size:10px;font-weight:500;letter-spacing:.2px;color:var(--muted);margin-top:3px;text-transform:none}
@@ -243,6 +253,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
       <input id="addrNotes" type="text" placeholder="Gate code, drop-off notes (optional)" aria-label="Delivery notes">
     </div>
 
+    <div class="addr-check" id="addrCheck" style="display:none" role="alert" aria-live="polite"></div>
     <button class="btn" id="checkoutBtn" disabled onclick="checkout()">Proceed to checkout</button>
     <div class="err" id="err" role="alert" aria-live="assertive"></div>
   </aside>
@@ -850,9 +861,66 @@ var anejoAttr = (function () {
   return read() || a;
 })();
 
+// ---- Server-side address verification (functions/api/checkout.js). The server geocodes the
+// delivery address and, when it can't confirm it, answers 409 + needs_confirmation instead of
+// either silently accepting it OR refusing the order — new construction and gated communities are
+// real orders Google has genuinely never heard of. `addressConfirmed` is the one-time "yes,
+// proceed" the customer gives; ANY edit to the address fields clears it, so a stale confirmation
+// can never wave through a DIFFERENT address the customer typed after confirming the first one.
+let addressConfirmed = false;
+let lastAddressCheck = null;   // the {reason, typed, suggestion} the server sent, for the buttons below
+function hideAddressCheck(){ const el=$('addrCheck'); if(el){ el.style.display='none'; el.innerHTML=''; } }
+function resetAddressConfirmation(){ addressConfirmed=false; lastAddressCheck=null; hideAddressCheck(); }
+function showAddressCheck(check){
+  lastAddressCheck = check || {};
+  const el = $('addrCheck'); if(!el) return;
+  const MSG = {
+    not_found: L("We couldn't find this delivery address.", 'No pudimos encontrar esta dirección de entrega.'),
+    corrected: L("We couldn't quite match this address.", 'No pudimos confirmar esta dirección exactamente.'),
+    coarse: L('We could only find the general area for this address, not the exact building.', 'Solo pudimos ubicar el área general de esta dirección, no el edificio exacto.'),
+  };
+  let html = '<p>⚠️ '+(MSG[lastAddressCheck.reason]||MSG.not_found)+' '+L('Is it right?','¿Es correcta?')+'</p>';
+  const sug = lastAddressCheck.suggestion;
+  if (sug && sug.formatted){
+    html += '<p class="addr-you">'+L('You typed:','Escribiste:')+' <strong>'+escHtml(lastAddressCheck.typed||'')+'</strong></p>';
+    html += '<p class="addr-found">'+L('We found:','Encontramos:')+' <strong>'+escHtml(sug.formatted)+'</strong></p>';
+    html += '<div class="addr-check-actions">'
+      + '<button type="button" class="btn" onclick="acceptAddressSuggestion()">'+L('Use this address','Usar esta dirección')+'</button>'
+      + '<button type="button" class="customize block" onclick="confirmTypedAddress()">'+L("No, use what I typed","No, usar lo que escribí")+'</button>'
+      + '</div>';
+  } else {
+    html += '<div class="addr-check-actions">'
+      + '<button type="button" class="customize block" onclick="confirmTypedAddress()">'+L('Yes, deliver here anyway','Sí, entregar aquí de todos modos')+'</button>'
+      + '</div>';
+  }
+  html += '<button type="button" class="addr-check-edit" onclick="dismissAddressCheck()">'+L('Edit my address','Editar mi dirección')+'</button>';
+  el.innerHTML = html;
+  el.style.display = 'block';
+  el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+function dismissAddressCheck(){ resetAddressConfirmation(); $('addrStreet').focus(); }
+// "No, use what I typed" — proceed with EXACTLY the address on screen; checkout.js records this
+// as address_verify_status='unverified_confirmed' so the kitchen/driver side knows the pin (if
+// any) was never confidently matched, not silently trust it like a clean geocode.
+function confirmTypedAddress(){ addressConfirmed=true; hideAddressCheck(); checkout(); }
+// "Use this address" — fill the form with Google's corrected/suggested fields and resubmit. Marks
+// confirmed too, so if the retry is STILL only imprecise (coarse, not a text mismatch) the order
+// still goes through on the first tap rather than looping the customer through a second warning.
+function acceptAddressSuggestion(){
+  const sug = lastAddressCheck && lastAddressCheck.suggestion; if(!sug) return;
+  if (sug.street) $('addrStreet').value = sug.street;
+  if (sug.city) $('addrCity').value = sug.city;
+  if (sug.state) $('addrState').value = sug.state;
+  if (sug.zip) $('addrZip').value = sug.zip;
+  addressConfirmed = true;
+  hideAddressCheck();
+  checkout();
+}
+
 async function checkout(){
   const btn=document.getElementById('checkoutBtn'), err=document.getElementById('err');
   err.textContent='';
+  hideAddressCheck();
   document.querySelectorAll('.input-error').forEach(e=>e.classList.remove('input-error'));
   const fail=(el,msg)=>{ err.textContent=msg; if(el){ el.classList.add('input-error'); el.focus(); } };
   const items = bowls.map(b=>({ id:b.key, qty:1, mods:{ removed:b.removed, base:b.base, sauces:b.sauces, extras:b.extras } }))
@@ -894,8 +962,19 @@ async function checkout(){
     // server-side automatically, so we never risk blocking checkout on it.
     if (appliedPromo && !appliedPromo.auto) payload.promo_code = appliedPromo.code;
     if(delivery) payload.delivery = delivery;
+    // Set once the customer has explicitly said "use this anyway" (or accepted a suggested
+    // correction) after a previous 409 — see showAddressCheck()/confirmTypedAddress() above.
+    if (addressConfirmed) payload.address_confirmed = true;
     const r = await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const data = await r.json();
+    // The server couldn't confirm the delivery address — WARN AND ASK, not a hard failure. Show
+    // the same options it gave us and stop here; the customer's next tap resubmits this exact
+    // request with address_confirmed set (or a corrected address), never a dead end.
+    if (r.status === 409 && data && data.needs_confirmation){
+      showAddressCheck(data.address_check);
+      btn.disabled=false; btn.textContent=label;
+      return;
+    }
     if(!r.ok || !data.url) throw new Error(data.error||L('Checkout failed. Please try again.','El pago falló. Inténtalo de nuevo.'));
     // Stash order value (for the GA4 purchase event) AND contact info (for the push opt-in prompt)
     // on /order/confirmed — both survive the Square round-trip. Square's own redirect carries
@@ -952,6 +1031,13 @@ $('addrZip').addEventListener('blur', function(){
 });
 ['custName','custEmail','addrStreet','addrCity','addrZip','delivDate'].forEach(id=>{
   const el=$(id); if(el) el.addEventListener('input', function(){ this.classList.remove('input-error'); });
+});
+// Any hand-edit to the delivery address invalidates a standing "use this anyway" confirmation —
+// otherwise confirming one (bad) address could silently wave a LATER, different address through
+// unverified. acceptAddressSuggestion()/confirmTypedAddress() set the fields programmatically and
+// re-arm the flag themselves right after, so this only fires on the customer's own typing.
+['addrStreet','addrUnit','addrCity','addrState','addrZip'].forEach(id=>{
+  const el=$(id); if(el) el.addEventListener('input', resetAddressConfirmation);
 });
 // Re-render JS-built strings in the chosen language: on toggle (anejo:langchange) and once the
 // i18n engine has loaded + applied any persisted language (window load runs after i18n.js).

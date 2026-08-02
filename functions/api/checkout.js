@@ -5,7 +5,7 @@
 import { json, bad, id, appBaseUrl, normalizePhone, isEmail } from '../_lib/util.js';
 import { square, squareConfigured } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
-import { geocode, formatAddress } from '../_lib/geo.js';
+import { geocode, formatAddress, geoConfigured, lastGeocodeFailure, addressWasCorrected } from '../_lib/geo.js';
 import { loadOrderingSettings, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
 import { loadOperating, zipAllowed, scheduleOpenFor } from '../_lib/operating.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
@@ -167,6 +167,65 @@ export function priceCustomBowl(key, mods, pricing) {
   };
 }
 
+// Location types Google itself marks imprecise — it found the block or the neighborhood, not the
+// building. Still real data (never a fabricated pin), just not proof this exact address exists.
+const COARSE_LOCATION_TYPES = new Set(['APPROXIMATE', 'GEOMETRIC_CENTER']);
+
+// Decide whether a geocode() result (or its absence) should stop checkout to ask the customer to
+// confirm their delivery address, and why. Pure — no fetch, no D1 — so the exact rule that has to
+// catch "10330 City Center Blvb, Pembroke Pines" (Google returns status OK, having silently
+// corrected "Blvb" to "Blvd") can be pinned by name, not just exercised end-to-end through a
+// mocked HTTP call. A plain "did geocode() return something?" check would have let that typo
+// straight through — Google resolved it.
+//
+// Compares STREET (number + route) and ZIP only — never the unit, never the whole formatted
+// line. formatAddress() folds the unit into line 1, and Google very often can't verify an
+// apartment/suite: it just omits it from formatted_address and sets partial_match:true. Comparing
+// whole lines (or trusting a bare partial_match) turned THAT into a false "we couldn't match this
+// address" on a large share of real, apartment-heavy South Florida orders — which trains
+// customers to tap through the one warning that actually matters. What decides which BUILDING the
+// driver drives to is the street + zip; the unit is real information the kitchen/driver still
+// get (order.html's acceptAddressSuggestion() never touches addrUnit), it's just not part of
+// THIS check.
+//   g          — geocode() result, or null when nothing came back at all
+//   addr       — the parsed delivery address ({ street, unit, zip, … } from parseAddress())
+//   failStatus — lastGeocodeFailure().status when g is null; unused when g is set
+// Returns { suspect, reason, suggestion } — reason is 'not_found' | 'corrected' | 'coarse'.
+export function classifyAddressCheck(g, addr, failStatus) {
+  if (g) {
+    const a = addr || {};
+    const hasUnit = !!(a.unit && String(a.unit).trim());
+    const gStreet = g.components && g.components.street;
+    const gZip = g.components && g.components.zip;
+    // Only compared when Google actually returned a structured street/zip to compare against —
+    // without one there is nothing to diff, so it is never treated as a mismatch by default.
+    const streetChanged = gStreet ? addressWasCorrected(a.street, gStreet) : false;
+    const zipChanged = !!(a.zip && gZip && String(a.zip).slice(0, 5) !== String(gZip).slice(0, 5));
+    // A bare partial_match only counts when NO unit was typed. With a unit, partial_match is
+    // overwhelmingly "I couldn't verify the apartment" — not the street — and is not worth
+    // interrupting checkout for.
+    const partialSuspect = g.partialMatch && !hasUnit;
+    const corrected = streetChanged || zipChanged || partialSuspect;
+    const coarse = COARSE_LOCATION_TYPES.has(g.locationType);
+    if (!corrected && !coarse) return { suspect: false, reason: null, suggestion: null };
+    return {
+      suspect: true,
+      reason: corrected ? 'corrected' : 'coarse',
+      // A one-tap alternative only when there IS a different address to offer — a coarse-but-
+      // matching result has nothing new to suggest, just less confidence in the pin itself.
+      suggestion: corrected ? { formatted: g.formatted, ...g.components } : null,
+    };
+  }
+  // Nothing came back. A genuinely nonexistent address (ZERO_RESULTS/NOT_FOUND) is exactly the
+  // class this feature exists to ask about. A PROVIDER problem — billing, quota, a dead fetch, a
+  // bad key — is NOT evidence the customer typed anything wrong, so it must never be treated the
+  // same; the caller fails open on those before a "reason" is even needed.
+  if (failStatus === 'ZERO_RESULTS' || failStatus === 'NOT_FOUND') {
+    return { suspect: true, reason: 'not_found', suggestion: null };
+  }
+  return { suspect: false, reason: null, suggestion: null };
+}
+
 export const onRequestPost = async ({ request, env }) => {
   // Abuse guard: cap checkout creations per IP (each creates a Square order/payment link).
   const limited = await limitOr429(env, request, { name: 'checkout', limit: 15, windowSec: 60 });
@@ -325,6 +384,48 @@ export const onRequestPost = async ({ request, env }) => {
     );
   }
   const addrLine = formatAddress({ street: addr.street, unit: addr.unit, city: addr.city, state: addr.state, zip: addr.zip });
+
+  // ---- Server-side address verification. WARN AND ASK, NEVER HARD-BLOCK. A real order once
+  // shipped to "10330 City Center Blvb" — a typo for Blvd — and nobody caught it; a client-only
+  // check is bypassable (and untested), so this runs here, server-side, before Square ever sees
+  // the order. New construction and gated communities are real orders Google's index has
+  // genuinely never heard of, so an unresolved/corrected/imprecise address is a QUESTION back to
+  // the customer (409 + needs_confirmation), never a refusal — the browser resends with
+  // `address_confirmed:true` (or the accepted suggestion, which will simply verify clean) to go
+  // through. If the provider itself is unreachable, unkeyed, rate-limited or misconfigured this
+  // stays 'unavailable' and checkout proceeds exactly as it always has — an outage at Google must
+  // never cost the business an order.
+  let addressVerifyStatus = 'unavailable', addressVerifyReason = null, verifiedGeo = null;
+  if (geoConfigured(env)) {
+    const g = await geocode(env, addrLine).catch(() => null);
+    const failStatus = g ? null : ((lastGeocodeFailure() || {}).status || null);
+    const check = classifyAddressCheck(g, addr, failStatus);
+    if (check.suspect) {
+      if (!b.address_confirmed) {
+        const MSG = {
+          not_found: "We couldn't find this delivery address — is it right?",
+          corrected: "We couldn't quite match this address — is it right?",
+          coarse: 'We could only find the general area for this address, not the exact building — is it right?',
+        };
+        return json({
+          error: MSG[check.reason],
+          needs_confirmation: true,
+          address_check: { reason: check.reason, typed: addrLine, suggestion: check.suggestion },
+        }, 409);
+      }
+      // The customer said "use it anyway" (or accepted the suggestion and this IS that resend).
+      // Record the outcome on the order so the kitchen/driver side can see this pin — if any —
+      // was never confidently confirmed, rather than silently trusting it like a clean match.
+      addressVerifyStatus = 'unverified_confirmed';
+      addressVerifyReason = check.reason;
+      if (g) verifiedGeo = g;   // still real data from the provider — worth a pin, just flagged
+    } else if (g) {
+      addressVerifyStatus = 'verified';
+      verifiedGeo = g;
+    }
+    // else: provider trouble (REQUEST_DENIED, OVER_QUERY_LIMIT, FETCH_FAILED, …) — 'unavailable'
+    // stands and checkout proceeds. Google being down is not evidence the address is wrong.
+  }
 
   // Customer contact — a first name is REQUIRED so every order is identifiable for the kitchen
   // and the delivery driver. Phone + SMS consent are optional; with consent we can text delivery
@@ -515,11 +616,13 @@ export const onRequestPost = async ({ request, env }) => {
   if (env.DB) {
     try {
       const t = Date.now();
-      // Best-effort geocode for routing (no-ops without GOOGLE_MAPS_API_KEY → lat/lng stay null,
-      // the owner route builder falls back to manual ordering).
-      let lat = null, lng = null, geocodedAt = null;
-      const g = await geocode(env, addrLine).catch(() => null);
-      if (g) { lat = g.lat; lng = g.lng; geocodedAt = t; }
+      // Geocode already ran above (the verification gate) — reuse it rather than call Google
+      // twice for the same address. lat/lng stay NULL when nothing came back at all; a suspect-
+      // but-real result the customer confirmed anyway still carries real coordinates (see
+      // addressVerifyStatus below for the trust signal the kitchen/driver side reads).
+      const lat = verifiedGeo ? verifiedGeo.lat : null;
+      const lng = verifiedGeo ? verifiedGeo.lng : null;
+      const geocodedAt = verifiedGeo ? t : null;
       const orderId = id('ord');
       await env.DB.prepare(
         `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
@@ -527,9 +630,10 @@ export const onRequestPost = async ({ request, env }) => {
             customer_name, customer_email, customer_phone, sms_consent,
             marketing_sms_consent, marketing_sms_consent_at, marketing_sms_consent_src,
             delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
-            delivery_lat, delivery_lng, geocoded_at, promo_code, promo_points_mult,
+            delivery_lat, delivery_lng, geocoded_at, address_verify_status, address_verify_reason,
+            promo_code, promo_points_mult,
             src, utm_source, utm_medium, utm_campaign, status, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)`
       ).bind(
         orderId, pl.order_id || null, pl.id || null, JSON.stringify(orderItems), dateStr, win,
         fulfillmentMode, subtotalCents, feeCents, Number(taxPct),
@@ -542,7 +646,8 @@ export const onRequestPost = async ({ request, env }) => {
         firstName, (sessEmail || (isEmail(typedEmail) ? typedEmail : null)), custPhone, smsConsent,
         mktgSmsConsent, mktgSmsConsent ? t : null, mktgSmsConsent ? 'checkout:order' : null,
         addr.street, addr.unit, addr.city, addr.state, addr.zip, addr.notes,
-        lat, lng, geocodedAt, promo ? promo.code : null, promo ? promo.points_mult : null,
+        lat, lng, geocodedAt, addressVerifyStatus, addressVerifyReason,
+        promo ? promo.code : null, promo ? promo.points_mult : null,
         attribution.src, attribution.utm_source, attribution.utm_medium, attribution.utm_campaign, t, t
       ).run();
       // Consume the code against this order (idempotent per order). The webhook later reads the
