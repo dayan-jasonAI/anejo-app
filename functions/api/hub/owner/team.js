@@ -44,6 +44,10 @@ function spineSummary(spine) {
     drafts_pending: spine.drafts.count,
     menu_available: spine.menu.filter((m) => m.available).length,
     menu_total: spine.menu.length,
+    // Which brand brief the Lead actually read: 'd1' = the owner-maintained doc in the HUB,
+    // 'repo' = the compiled snapshot that ships with the deploy. Surfaced because a Lead that
+    // sounds off-brand and a brief that never reached it look identical from the chat.
+    brand_source: spine.brand_source || 'repo',
   };
 }
 

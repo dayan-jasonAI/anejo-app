@@ -13,9 +13,17 @@
 // taught the invented-deadline lesson — a model asked about operations it cannot see will make
 // them up — so the prompt binds the Lead to the spine and gives it request_intel as the honest
 // alternative to guessing.
+//
+// That lesson has a second half, learned the same way. Binding the Lead to the spine only helps if
+// the spine holds the product: asked for a bowl campaign it could only answer with a table of what
+// it did not know, because the menu reached it as names and prices and the brand brief reached it
+// as five of twelve sections. Honest, and useless. The spine now carries the kitchen spec (every
+// ingredient and its weight, macros, tags) and the whole marketing half of the brief, so the Lead's
+// honesty has something to be honest ABOUT.
 import { budgetGate, recordSpend, weekSpend, WEEKLY_LIMIT_MICRO } from './ai_budget.js';
 import { BRAND_CONTEXT } from './brand_context.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
+import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from './bowlspec.js';
 
 // Strategy is the one surface worth frontier tokens: it runs a handful of times a day, owner-
 // initiated, and its output steers every cheaper call downstream. But a model id in an env var
@@ -40,21 +48,95 @@ async function firstRow(env, sql, ...args) {
   try { return await env.DB.prepare(sql).bind(...args).first(); } catch { return null; }
 }
 
+// Char cap on the injected brief. The compiled brief is ~15k; the Studio budgets 18k for the same
+// document, so this is headroom, not a squeeze.
+const BRAND_BUDGET = 20000;
+
+/**
+ * The brand brief, preferring the copy the OWNER can edit.
+ *
+ * Two copies exist and they are not interchangeable. `docs` rows (doc_type='brand') are live: the
+ * Studio grounds on them, and an owner-approved brief change (_lib/brief.js) overwrites them. The
+ * compiled BRAND_CONTEXT is a build-time snapshot of docs/brand-standards-brief.md — it ships with
+ * the code and cannot move until a deploy. Reading only the snapshot is what made an approval in
+ * the HUB change the Studio's brief and not the Lead's: same business, two answers.
+ *
+ * So: live wins, snapshot is the floor, and `source` is reported rather than hidden — if the D1 doc
+ * is thinner than the brief it replaces, the owner needs to SEE 'd1' on the page to know why the
+ * Lead got vaguer, instead of guessing at the model.
+ *
+ * No role_scope filter: this is an owner-only surface, and the owner sees every doc in the HUB.
+ */
+async function loadBrand(env) {
+  const docs = await rows(env,
+    "SELECT title, body FROM docs WHERE active = 1 AND doc_type = 'brand' ORDER BY updated_at DESC LIMIT 10");
+  const parts = [];
+  let used = 0;
+  for (const d of docs) {
+    const body = String(d.body || '').trim();
+    if (!body || used >= BRAND_BUDGET) continue;
+    const block = `### ${d.title || 'Brand & Standards Brief'}\n${body}`.slice(0, BRAND_BUDGET - used);
+    parts.push(block);
+    used += block.length;
+  }
+  return parts.length
+    ? { text: parts.join('\n\n'), source: 'd1' }
+    : { text: BRAND_CONTEXT, source: 'repo' };
+}
+
+/**
+ * One menu row as the Lead needs to see it: what it costs, whether it sells, and — for a bowl —
+ * what is actually IN it.
+ *
+ * bowlspec.js is the kitchen's own spec sheet and the same recipe checkout re-prices against, so
+ * this is the build the customer receives, not a marketing paraphrase of it. A row with no spec is
+ * reported as having none: "no ingredients" and "ingredients I was not given" lead to very
+ * different captions, and only one of them is safe to write.
+ */
+function describeItem(row) {
+  const key = String(row.id || '').toUpperCase();
+  const spec = BOWL_BY_NAME[key] || null;
+  const macros = spec ? scaledBowlMacros(key, 1) : null;
+  return {
+    name: row.name || BOWL_LABEL[key] || key,
+    price_usd: Math.round(row.price_cents || 0) / 100,
+    available: isAvailable(row) && isOrderable(row),
+    // Menu copy is what the customer actually reads on the site; the spec blurb is the fallback
+    // so a bowl is never described to the strategist in silence.
+    description: String(row.description || (spec && spec.description) || '').trim(),
+    macros,
+    build: spec ? spec.build.map((x) => ({ item: x.item, oz: x.oz })) : null,
+    tags: spec && Array.isArray(spec.tags) ? spec.tags : null,
+  };
+}
+
 /**
  * Everything the Lead is allowed to treat as true, assembled fresh per reply.
  * Returns { menu, metrics, drafts, budget, briefs, brand } — structured, so the API can serve
  * the summary and the prompt can render the text from ONE gathering pass that cannot drift.
  */
 export async function buildSpine(env) {
-  // Live menu — names, prices, availability. Same rows the storefront charges from, so the Lead
-  // can never argue for a campaign around a bowl that is off sale without knowing it is off sale.
+  // The brand brief — live copy if the owner has one, compiled snapshot otherwise.
+  const brand = await loadBrand(env);
+
+  // Live menu — prices, availability, and the kitchen build. Same rows the storefront charges
+  // from, so the Lead can never argue for a campaign around a bowl that is off sale without
+  // knowing it is off sale.
   const menu = await loadMenu(env);
-  const bowls = (menu.items || []).filter((it) => it.kind === 'bowl');
-  const menuItems = bowls.map((b) => ({
-    name: b.name || String(b.id).toUpperCase(),
-    price_usd: Math.round(b.price_cents || 0) / 100,
-    available: isAvailable(b) && isOrderable(b),
-  }));
+  const items = menu.items || [];
+  const menuItems = items.filter((it) => it.kind === 'bowl').map(describeItem);
+  // Drinks and add-ons were invisible here until now — the filter above kept only bowls, so the
+  // Añejo Fit line and the sauce add-on could not be promoted by a strategist who did not know
+  // they existed. They carry no bowlspec (nothing to build), so they list as name/price/state.
+  const otherItems = items
+    .filter((it) => it.kind === 'drink' || it.kind === 'addon')
+    .map((it) => ({
+      name: it.name || String(it.id).toUpperCase(),
+      kind: it.kind,
+      price_usd: Math.round(it.price_cents || 0) / 100,
+      available: isAvailable(it) && isOrderable(it),
+      description: String(it.description || '').trim(),
+    }));
 
   // Latest account snapshot + the strongest three and weakest one posts from the newest capture
   // day. Top-3/bottom-1 is the same shape performanceBrief feeds the planner: enough signal to
@@ -103,15 +185,43 @@ export async function buildSpine(env) {
     ordering: 'Order online at /order — one-time boxes or weekly plans (5, 10 or 12 meals); plans pause/skip/cancel anytime. Next-day orders until 8 PM ET; the website is the authority on cutoffs.',
   };
 
-  return { brand: BRAND_CONTEXT, menu: menuItems, metrics, drafts, budget, briefs, surfaces };
+  return {
+    brand: brand.text, brand_source: brand.source,
+    menu: menuItems, other_items: otherItems,
+    metrics, drafts, budget, briefs, surfaces,
+  };
 }
 
 // The spine as prompt text. Facts the spine does not have are stated as absent, in words, so the
 // model's honest move (ask via request_intel) is easier than its dishonest one (invent).
 export function renderSpine(spine) {
+  // Availability stays on the name line: it is the one fact that changes whether a bowl may be
+  // promoted at all, and it should be unmissable above the detail.
+  const bowlBlock = (m) => {
+    const head = `- ${m.name} ($${m.price_usd.toFixed(2)})${m.available ? '' : ' — OFF SALE right now, do not build campaigns that promote it'}`;
+    const lines = [head];
+    if (m.macros) {
+      lines.push(`  16 oz standard bowl — approx ${m.macros.kcal} kcal · ${m.macros.protein_g}g protein / ` +
+        `${m.macros.carbs_g}g carbs / ${m.macros.fat_g}g fat · ${m.macros.fiber_g}g fiber`);
+    }
+    if (m.description) lines.push(`  ${m.description}`);
+    if (m.build && m.build.length) {
+      lines.push('  Built from: ' + m.build.map((x) => `${x.item} ${x.oz} oz`).join(' · '));
+    }
+    if (m.tags && m.tags.length) lines.push(`  Tags: ${m.tags.join(', ')}`);
+    if (!m.macros && !m.build) {
+      lines.push('  No kitchen spec on file for this one — do not state its ingredients or macros; ask with request_intel.');
+    }
+    return lines.join('\n');
+  };
   const menuLines = spine.menu.length
-    ? spine.menu.map((m) => `- ${m.name} ($${m.price_usd.toFixed(2)})${m.available ? '' : ' — OFF SALE right now, do not build campaigns that promote it'}`).join('\n')
+    ? spine.menu.map(bowlBlock).join('\n')
     : '- (menu unavailable right now)';
+  const otherLines = (spine.other_items || []).length
+    ? '\n\n=== DRINKS & ADD-ONS (also on sale — promotable) ===\n' +
+      spine.other_items.map((o) => `- ${o.name} ($${o.price_usd.toFixed(2)})` +
+        `${o.available ? '' : ' — OFF SALE right now'}${o.description ? ` — ${o.description}` : ''}`).join('\n')
+    : '';
   const acct = spine.metrics.account;
   const postLine = (p, i) => `${i}. [${p.media_type || 'POST'}] "${String(p.caption || '').slice(0, 90)}" — ` +
     ['reach ' + (p.reach ?? '?'), (p.likes ?? '?') + ' likes', (p.saved ?? '?') + ' saves', (p.comments ?? '?') + ' comments'].join(', ');
@@ -128,9 +238,14 @@ export function renderSpine(spine) {
   const briefLines = spine.briefs.length
     ? spine.briefs.map((b) => `- [${b.status}] ${b.title}${b.objective ? ' — ' + String(b.objective).slice(0, 100) : ''}`).join('\n')
     : '(none yet)';
+  const briefHeader = spine.brand_source === 'd1'
+    ? '=== AÑEJO BRAND BRIEF (live from the HUB, owner-maintained — the authority on voice and standards) ==='
+    : '=== AÑEJO BRAND BRIEF (verbatim, the authority on voice and standards) ===';
   return (
-    '=== AÑEJO BRAND BRIEF (verbatim, the authority on voice and standards) ===\n' + spine.brand + '\n=== END BRIEF ===\n\n' +
-    '=== ON THE MENU RIGHT NOW (live prices; the only items that exist) ===\n' + menuLines + '\n\n' +
+    briefHeader + '\n' + spine.brand + '\n=== END BRIEF ===\n\n' +
+    '=== ON THE MENU RIGHT NOW (live prices + the kitchen build; the only items that exist) ===\n' +
+    'Ingredient weights are the kitchen spec for a standard 16 oz bowl. Macros are approximate — ' +
+    'never present them as precise or medical.\n' + menuLines + otherLines + '\n\n' +
     '=== INSTAGRAM PERFORMANCE ===\n' + metricLines + '\n\n' +
     '=== DRAFT QUEUE ===\n' + draftLines + '\n\n' +
     (spine.surfaces
@@ -153,11 +268,16 @@ const SYSTEM_RULES =
   '1. You NEVER schedule and NEVER publish anything. Approving, scheduling and publishing are the ' +
   "owner's decisions alone, made outside this chat. Do not offer to do them, do not claim to have " +
   'done them.\n' +
-  '2. You only state operational facts that appear in the context above — menu, prices, metrics, ' +
-  'budget, briefs. Ordering cutoffs, delivery areas, discounts, dates: if it is not in the context, ' +
-  'you do not know it. Never invent one; use a request_intel action to ask instead.\n' +
+  '2. You only state operational facts that appear in the context above — menu, prices, ingredients, ' +
+  'macros, metrics, budget, briefs. Ordering cutoffs, delivery areas, discounts, dates: if it is not ' +
+  'in the context, you do not know it. Never invent one; use a request_intel action to ask instead.\n' +
   '3. Customer-facing copy you draft speaks as "Aña", the Añejo assistant persona, and follows the ' +
-  'brand brief above.\n\n' +
+  'brand brief above.\n' +
+  '4. You now hold the kitchen build for each bowl. Use it to write specifically — name the real ' +
+  'ingredients. Two limits: macros are approximate, never precise or medical claims; and you may ' +
+  'never write an allergen SAFETY claim ("nut-free", "safe for celiac", "no dairy"). The brief\'s ' +
+  'allergen rules are disclosure rules, not clearance to reassure — a bowl without an ingredient is ' +
+  'not a bowl certified free of it.\n\n' +
   'ACTIONS: you may end a reply with up to THREE fenced json blocks, and only these forms:\n' +
   '```json\n{"action":"create_brief","title":"...","objective":"...","audience":"...","angle":"...",' +
   '"channels":["instagram"],"cadence":"...","success_metric":"...","assets":[]}\n```\n' +

@@ -23,12 +23,30 @@ export function section(src, heading) {
   return (heading + (next === -1 ? rest : rest.slice(0, next))).trim();
 }
 
+// Every section of the brief that bears on what we SAY and SELL. The first cut of this list took
+// five sections and the Team Lead spent a strategy session telling the owner it could not name the
+// ingredients in his own bowls — §6 was sitting in the doc the whole time. A marketing surface that
+// cannot describe the product is not grounded, it is just polite. So the rule now is inclusion by
+// default: a section is left out only when it cannot touch a caption, a claim or a campaign.
+//
+// §9 (food-safety & cold-chain) is the one deliberate omission — kitchen execution the Lead can
+// neither act on nor write about. Allergens live in §8 and ARE included, because copy makes
+// allergen claims and getting one wrong is the expensive kind of wrong.
+//
+// §10 replaces the bare '### Photo standard' subsection this list used to carry: the photo rules
+// were reaching the AI while the plating and packaging standards around them were not.
 const SECTIONS = [
   '## 1. Who we are',
   '## 2. Vision & mission',
+  '## 3. Our three product lines',
   '## 4. The Golden Rule',
-  '### Photo standard',
+  '## 5. Culinary house style',
+  '## 6. Menu',
+  '## 7. Ingredient & sourcing standards',
+  '## 8. Allergens & dietary rules',
+  '## 10. Plating & presentation',
   '## 11. Brand voice',
+  '## 12. Non-negotiables',
 ];
 
 const body = SECTIONS.map((h) => section(md, h)).join('\n\n');
