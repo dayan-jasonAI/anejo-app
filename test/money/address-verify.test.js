@@ -137,36 +137,89 @@ test('addressWasCorrected catches a genuinely different street', () => {
 });
 
 // ---- checkout.js: classifyAddressCheck() — the WARN AND ASK / FAIL OPEN boundary --------------
+//
+// classifyAddressCheck(g, addr, failStatus) compares STREET + ZIP only, never the unit and never
+// the whole formatted line — see the header comment on the function itself for why: formatAddress
+// folds the unit into line 1, and Google routinely can't verify an apartment/suite (it just omits
+// it and sets partial_match:true). A whole-line or bare-partial_match comparison turned that into
+// a false "we couldn't match this address" on a large share of real, apartment-heavy South
+// Florida orders.
+
+const addr = (street, unit, zip) => ({ street, unit: unit || '', city: 'x', state: 'FL', zip, notes: null });
 
 const ROOFTOP_EXACT = { formatted: '123 Main St, West Palm Beach, FL 33401', partialMatch: false, locationType: 'ROOFTOP', components: {} };
 const CORRECTED_TYPO = { formatted: '10330 City Center Blvd, Pembroke Pines, FL 33025, USA', partialMatch: false, locationType: 'ROOFTOP', components: { street: '10330 City Center Blvd', city: 'Pembroke Pines', state: 'FL', zip: '33025' } };
-const PARTIAL_MATCH = { formatted: '9 Some Other St, Lake Worth, FL 33460', partialMatch: true, locationType: 'ROOFTOP', components: { street: '9 Some Other St', city: 'Lake Worth', state: 'FL', zip: '33460' } };
 const COARSE = { formatted: '500 New Build Way, Boynton Beach, FL 33437', partialMatch: false, locationType: 'GEOMETRIC_CENTER', components: {} };
 
 test('an exact, ROOFTOP, non-partial match is NOT suspect', () => {
-  const r = classifyAddressCheck(ROOFTOP_EXACT, '123 Main St, West Palm Beach, FL 33401', null);
+  const r = classifyAddressCheck(ROOFTOP_EXACT, addr('123 Main St', '', '33401'), null);
   assert.equal(r.suspect, false);
 });
 
 // THE test the lead specifically asked for: geocode SUCCEEDS (status OK, a real result) but the
 // formatted address was silently corrected — this must still warn and ask.
 test('resolved-but-corrected (the "Blvb"→"Blvd" shape) IS suspect, reason "corrected", and offers the suggestion', () => {
-  const r = classifyAddressCheck(CORRECTED_TYPO, '10330 City Center Blvb, Pembroke Pines, FL 33025', null);
+  const r = classifyAddressCheck(CORRECTED_TYPO, addr('10330 City Center Blvb', '', '33025'), null);
   assert.equal(r.suspect, true);
   assert.equal(r.reason, 'corrected');
   assert.equal(r.suggestion.formatted, CORRECTED_TYPO.formatted);
   assert.equal(r.suggestion.street, '10330 City Center Blvd');
 });
 
-test('partial_match:true is suspect even when the normalized text happens to look similar', () => {
-  const r = classifyAddressCheck(PARTIAL_MATCH, '9 Some Other St, Lake Worth, FL 33460', null);
+// THE regression test for the lead's review comment. A customer at a real apartment types a
+// perfectly good address; Google can't verify the unit, drops it from formatted_address, and sets
+// partial_match:true — but the STREET and ZIP it returned match exactly what was typed. This must
+// NOT interrupt checkout. Do not delete this test.
+test('REGRESSION: a typed UNIT that Google cannot verify (partial_match, street/zip otherwise identical) is NOT suspect', () => {
+  const g = {
+    formatted: '4342 Clinton Blvd, Lake Worth, FL 33461, USA',   // unit dropped by Google
+    partialMatch: true,
+    locationType: 'ROOFTOP',
+    components: { street: '4342 Clinton Blvd', city: 'Lake Worth', state: 'FL', zip: '33461' },
+  };
+  const r = classifyAddressCheck(g, addr('4342 Clinton Blvd', 'Unit F8', '33461'), null);
+  assert.equal(r.suspect, false, 'an unverifiable apartment must never trigger the warning');
+});
+
+test('partial_match:true with NO unit typed IS suspect (there is nothing else it could be about)', () => {
+  const g = {
+    formatted: '9 Some Other St, Lake Worth, FL 33460',
+    partialMatch: true,
+    locationType: 'ROOFTOP',
+    components: { street: '9 Some Other St', city: 'Lake Worth', state: 'FL', zip: '33460' },
+  };
+  const r = classifyAddressCheck(g, addr('9 Some Other St', '', '33460'), null);
   assert.equal(r.suspect, true);
   assert.equal(r.reason, 'corrected');
   assert.ok(r.suggestion);
 });
 
+test('a genuinely different street (not a unit issue) IS suspect, even with no partial_match flag', () => {
+  const g = {
+    formatted: '100 Oak Street, Boca Raton, FL 33432',
+    partialMatch: false,
+    locationType: 'ROOFTOP',
+    components: { street: '100 Oak Street', city: 'Boca Raton', state: 'FL', zip: '33432' },
+  };
+  const r = classifyAddressCheck(g, addr('100 Elm Street', '', '33432'), null);
+  assert.equal(r.suspect, true);
+  assert.equal(r.reason, 'corrected');
+});
+
+test('a ZIP mismatch with an otherwise-matching street IS suspect', () => {
+  const g = {
+    formatted: '100 Main St, Delray Beach, FL 33445',
+    partialMatch: false,
+    locationType: 'ROOFTOP',
+    components: { street: '100 Main St', city: 'Delray Beach', state: 'FL', zip: '33445' },
+  };
+  const r = classifyAddressCheck(g, addr('100 Main St', 'Apt 4', '33483'), null);   // typed a different zip
+  assert.equal(r.suspect, true);
+  assert.equal(r.reason, 'corrected', 'a real zip mismatch must still warn even WITH a unit typed');
+});
+
 test('a coarse/imprecise match (APPROXIMATE, GEOMETRIC_CENTER) is suspect with NO suggestion to offer', () => {
-  const r = classifyAddressCheck(COARSE, '500 New Build Way, Boynton Beach, FL 33437', null);
+  const r = classifyAddressCheck(COARSE, addr('500 New Build Way', '', '33437'), null);
   assert.equal(r.suspect, true);
   assert.equal(r.reason, 'coarse');
   assert.equal(r.suggestion, null, 'nothing DIFFERENT to suggest — the text already matched');
@@ -174,7 +227,7 @@ test('a coarse/imprecise match (APPROXIMATE, GEOMETRIC_CENTER) is suspect with N
 
 test('no result at all + ZERO_RESULTS/NOT_FOUND is suspect ("not_found")', () => {
   for (const status of ['ZERO_RESULTS', 'NOT_FOUND']) {
-    const r = classifyAddressCheck(null, '999 Imaginary Ave, Nowhere, FL 00000', status);
+    const r = classifyAddressCheck(null, addr('999 Imaginary Ave', '', '00000'), status);
     assert.equal(r.suspect, true, status);
     assert.equal(r.reason, 'not_found', status);
     assert.equal(r.suggestion, null);
@@ -184,7 +237,7 @@ test('no result at all + ZERO_RESULTS/NOT_FOUND is suspect ("not_found")', () =>
 // FAIL OPEN — a provider problem must never masquerade as a bad address.
 test('a PROVIDER problem (no result, but not a clean not-found) is NEVER suspect — fails open', () => {
   for (const status of ['REQUEST_DENIED', 'OVER_QUERY_LIMIT', 'FETCH_FAILED', 'UNKNOWN_ERROR', null, undefined]) {
-    const r = classifyAddressCheck(null, '123 Main St', status);
+    const r = classifyAddressCheck(null, addr('123 Main St', '', '33401'), status);
     assert.equal(r.suspect, false, `status=${status} must fail open`);
   }
 });
@@ -249,10 +302,39 @@ test('checkout warns and asks (409 + needs_confirmation) on the real "Blvb" typo
   );
 });
 
+// End-to-end regression for the lead's review comment, through the REAL onRequestPost handler
+// (not just classifyAddressCheck in isolation) — an apartment-heavy South Florida order must sail
+// through checkout with no 409 at all, even though Google can't verify the unit.
+test('REGRESSION: a real apartment order (unit Google cannot verify) never sees the 409 warning', async () => {
+  await withFetch(
+    fetchRouter({
+      geo: () => new Response(JSON.stringify(googleResult({
+        formatted: '4342 Clinton Blvd, Lake Worth, FL 33461, USA',   // unit dropped by Google
+        partialMatch: true,
+        components: { streetNumber: '4342', route: 'Clinton Blvd', city: 'Lake Worth', state: 'FL', zip: '33461' },
+      }))),
+      square: SQUARE_OK,
+    }),
+    async () => {
+      const body = GOOD_ORDER_BODY();
+      body.address = { street: '4342 Clinton Blvd', unit: 'Unit F8', city: 'Lake Worth', zip: '33461' };
+      const res = await postCheckout({ ...SQUARE_ENV, GOOGLE_MAPS_API_KEY: 'k' }, body);
+      assert.equal(res.status, 200, 'must not warn over an unverifiable apartment unit');
+      const j = await res.json();
+      assert.equal(j.url, 'https://square.example/pay/pl_1');
+    }
+  );
+});
+
 test('address_confirmed:true bypasses the warning and completes checkout — never a hard block', async () => {
   await withFetch(
     fetchRouter({
-      geo: () => new Response(JSON.stringify(googleResult({ formatted: '10330 City Center Blvd, Pembroke Pines, FL 33025, USA' }))),
+      // Components included so this actually exercises the suspect+confirmed path (a street
+      // correction), not just an absence of data to compare against.
+      geo: () => new Response(JSON.stringify(googleResult({
+        formatted: '10330 City Center Blvd, Pembroke Pines, FL 33025, USA',
+        components: { streetNumber: '10330', route: 'City Center Blvd', city: 'Pembroke Pines', state: 'FL', zip: '33025' },
+      }))),
       square: SQUARE_OK,
     }),
     async () => {
@@ -321,7 +403,12 @@ test('a genuinely unresolvable address (ZERO_RESULTS) still warns and asks, and 
 test('an exact, verified match never interrupts checkout (no needs_confirmation)', async () => {
   await withFetch(
     fetchRouter({
-      geo: () => new Response(JSON.stringify(googleResult({ formatted: '10330 City Center Blvb, Pembroke Pines, FL 33025, USA' }))),
+      // Components echo exactly what was typed (no street/zip diff) — a genuine clean match,
+      // not just an absence of structured data to compare against.
+      geo: () => new Response(JSON.stringify(googleResult({
+        formatted: '10330 City Center Blvb, Pembroke Pines, FL 33025, USA',
+        components: { streetNumber: '10330', route: 'City Center Blvb', city: 'Pembroke Pines', state: 'FL', zip: '33025' },
+      }))),
       square: SQUARE_OK,
     }),
     async () => {
@@ -373,7 +460,10 @@ test('a clean, verified address is recorded as verified WITH its real coordinate
   const DB = menuAndOpsD1([[/^INSERT INTO orders/, () => 1]]);
   await withFetch(
     fetchRouter({
-      geo: () => new Response(JSON.stringify(googleResult({ formatted: '10330 City Center Blvb, Pembroke Pines, FL 33025, USA' }))),
+      geo: () => new Response(JSON.stringify(googleResult({
+        formatted: '10330 City Center Blvb, Pembroke Pines, FL 33025, USA',
+        components: { streetNumber: '10330', route: 'City Center Blvb', city: 'Pembroke Pines', state: 'FL', zip: '33025' },
+      }))),
       square: SQUARE_OK,
     }),
     async () => {

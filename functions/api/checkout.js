@@ -177,13 +177,35 @@ const COARSE_LOCATION_TYPES = new Set(['APPROXIMATE', 'GEOMETRIC_CENTER']);
 // corrected "Blvb" to "Blvd") can be pinned by name, not just exercised end-to-end through a
 // mocked HTTP call. A plain "did geocode() return something?" check would have let that typo
 // straight through — Google resolved it.
+//
+// Compares STREET (number + route) and ZIP only — never the unit, never the whole formatted
+// line. formatAddress() folds the unit into line 1, and Google very often can't verify an
+// apartment/suite: it just omits it from formatted_address and sets partial_match:true. Comparing
+// whole lines (or trusting a bare partial_match) turned THAT into a false "we couldn't match this
+// address" on a large share of real, apartment-heavy South Florida orders — which trains
+// customers to tap through the one warning that actually matters. What decides which BUILDING the
+// driver drives to is the street + zip; the unit is real information the kitchen/driver still
+// get (order.html's acceptAddressSuggestion() never touches addrUnit), it's just not part of
+// THIS check.
 //   g          — geocode() result, or null when nothing came back at all
-//   typedLine  — the one-line address the customer typed (formatAddress(addr))
+//   addr       — the parsed delivery address ({ street, unit, zip, … } from parseAddress())
 //   failStatus — lastGeocodeFailure().status when g is null; unused when g is set
 // Returns { suspect, reason, suggestion } — reason is 'not_found' | 'corrected' | 'coarse'.
-export function classifyAddressCheck(g, typedLine, failStatus) {
+export function classifyAddressCheck(g, addr, failStatus) {
   if (g) {
-    const corrected = g.partialMatch || addressWasCorrected(typedLine, g.formatted);
+    const a = addr || {};
+    const hasUnit = !!(a.unit && String(a.unit).trim());
+    const gStreet = g.components && g.components.street;
+    const gZip = g.components && g.components.zip;
+    // Only compared when Google actually returned a structured street/zip to compare against —
+    // without one there is nothing to diff, so it is never treated as a mismatch by default.
+    const streetChanged = gStreet ? addressWasCorrected(a.street, gStreet) : false;
+    const zipChanged = !!(a.zip && gZip && String(a.zip).slice(0, 5) !== String(gZip).slice(0, 5));
+    // A bare partial_match only counts when NO unit was typed. With a unit, partial_match is
+    // overwhelmingly "I couldn't verify the apartment" — not the street — and is not worth
+    // interrupting checkout for.
+    const partialSuspect = g.partialMatch && !hasUnit;
+    const corrected = streetChanged || zipChanged || partialSuspect;
     const coarse = COARSE_LOCATION_TYPES.has(g.locationType);
     if (!corrected && !coarse) return { suspect: false, reason: null, suggestion: null };
     return {
@@ -377,7 +399,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (geoConfigured(env)) {
     const g = await geocode(env, addrLine).catch(() => null);
     const failStatus = g ? null : ((lastGeocodeFailure() || {}).status || null);
-    const check = classifyAddressCheck(g, addrLine, failStatus);
+    const check = classifyAddressCheck(g, addr, failStatus);
     if (check.suspect) {
       if (!b.address_confirmed) {
         const MSG = {
