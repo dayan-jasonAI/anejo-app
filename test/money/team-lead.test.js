@@ -187,6 +187,35 @@ test('the brief the OWNER edits wins over the compiled snapshot, and the source 
   assert.match(renderSpine(spine), /live from the HUB/, 'the owner can see which copy the Lead read');
 });
 
+test('an unapproved Studio proposal never reaches the Lead as though it were the brief', async () => {
+  // The Studio appends owner-review proposals into the same docs row as the ratified brief. Live
+  // production carried one quoting LIGERO $21.99 / RAÍZ $20.99 / CONGREEN $22.99 against real
+  // storefront prices of $19.99 / $21.99 / $20.99 — the Lead would have been reading the owner's
+  // inbox as his price list. Dropped at injection; the row itself is his to keep.
+  const { db } = stubDb([
+    { re: /FROM docs/, all: [{ title: 'Brand & Standards Brief', body: [
+      '## 11. Brand voice',
+      'Warm, direct, never clinical.',
+      '',
+      '## Proposed Studio Brief Change / Cambio propuesto desde Studio',
+      '',
+      '### Precios oficiales',
+      'LIGERO $21.99 · RAÍZ $20.99 · CONGREEN $22.99',
+      '',
+      '## 12. Non-negotiables',
+      'Standard bowls are 16 oz.',
+    ].join('\n') }] },
+  ]);
+  const spine = await buildSpine({ DB: db });
+  assert.equal(spine.brand_source, 'd1');
+  assert.doesNotMatch(spine.brand, /Proposed Studio Brief Change/, 'the proposal heading is gone');
+  assert.doesNotMatch(spine.brand, /21\.99/, 'and so is the unapproved price it carried');
+  assert.doesNotMatch(spine.brand, /Precios oficiales/, 'including its own subsections');
+  // The ratified sections on BOTH sides survive — this strips a block, it does not truncate.
+  assert.match(spine.brand, /Warm, direct, never clinical/, 'the section before it stands');
+  assert.match(spine.brand, /Standard bowls are 16 oz/, 'the section after it comes back');
+});
+
 test('with no brand doc in D1 the compiled brief is the floor, never an empty brief', async () => {
   const { db } = stubDb([]);
   const spine = await buildSpine({ DB: db });
