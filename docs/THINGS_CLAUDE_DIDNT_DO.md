@@ -325,6 +325,50 @@ an unwanted scheduled campaign is a live outgoing risk, not a theoretical one.
 
 ---
 
+## 10. Delivery addresses were never checked at checkout
+
+**Status:** ✅ SHIPPED 2026-08-02 · **Added:** 2026-08-02
+
+A real order shipped to **"10330 City Center Blvb"** — a typo for Blvd — and nothing caught it.
+
+**The thing that makes this harder than it sounds.** Proven, not assumed: when the geo backfill ran
+that exact address through the live Google geocoder, it **resolved successfully** — Google silently
+corrected `Blvb` to `Blvd` and returned coordinates. So the obvious implementation, "does this
+address geocode?", would have passed the very typo it was built for. The signal that actually works
+is comparing what the customer typed against what Google *found*.
+
+Checkout now geocodes server-side (a client-only check is bypassable) and interrupts only when the
+part that decides **which building the driver drives to** looks wrong: the street number/name
+differs from Google's, the ZIP differs, Google flagged `partial_match` on an address with no unit,
+or the result is only block-level (`APPROXIMATE`/`GEOMETRIC_CENTER`).
+
+**It warns and asks — it never blocks.** The customer sees "you typed X, we found Y", can accept the
+correction in one tap or say "no, use what I typed", and the order goes through either way. New
+construction and gated communities are real orders Google has genuinely never heard of; refusing
+them would refuse money. The outcome is recorded on the order (`address_verify_status` /
+`address_verify_reason`, migration `0073`, applied to production before this code shipped) and the
+driver's stop card shows an "unverified" badge — a driver who knows an address is unconfirmed
+behaves differently.
+
+**Fails open, deliberately.** No key, provider down, rate-limited, misconfigured, dead fetch → status
+`unavailable` and checkout proceeds exactly as before. An outage at Google must never cost an order.
+Unresolvable addresses keep NULL coordinates; **0,0 is never written**.
+
+**One defect was caught in review and fixed before deploy**, worth recording because it nearly
+shipped: the first implementation compared the *whole* typed line against Google's whole formatted
+address. `formatAddress()` folds the unit into line 1, and Google routinely cannot verify an
+apartment — it drops it and sets `partial_match`. Every apartment order would have gotten a red
+"we couldn't quite match this address" warning showing their own street minus the unit. In an
+apartment-heavy market that is a wrong warning on a large share of real orders, and it trains people
+to tap through the one warning that matters. The comparison is now street-and-ZIP only, and there is
+a named regression test for it at both the unit and the full-handler level.
+
+**Not verified:** no real Google API call was made from the test suite (mocked responses shaped from
+the real backfill evidence), and no real customer has hit the warning yet. The first genuinely bad
+address is what proves it end to end.
+
+---
+
 ## Appendix — what "coordinates" are for
 
 `orders.delivery_lat` / `delivery_lng`. An address is text; a route needs numbers. Without them:
