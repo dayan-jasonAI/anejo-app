@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   priceFor, isoWeekOf, recordSpend, weekSpend, underBudget, budgetGate, WEEKLY_LIMIT_MICRO,
+  priceForImage, recordImageSpend,
 } from '../../functions/_lib/ai_budget.js';
 import { runAutomation } from '../../functions/_lib/automations.js';
 
@@ -136,6 +137,25 @@ test('money is integer microdollars end to end, and the ledger says why', () => 
   assert.match(MIG, /cost_microdollars INTEGER/);
   assert.match(MIG, /floating-point money drifts/i);
   assert.equal(WEEKLY_LIMIT_MICRO, 50_000_000, 'the owner said $50, the constant says $50');
+});
+
+test('image spend draws from the SAME ai_spend ledger — recordImageSpend is not a side budget', async () => {
+  const { db, inserts } = stubDb(0);
+  await recordImageSpend({ DB: db }, { feature: 'plate_image', provider: 'openai', model: 'gpt-image-1' });
+  assert.equal(inserts.length, 1, 'lands in the identical ai_spend table text/chat calls use');
+  const [, week, , feature, model, inTok, outTok, cost] = inserts[0];
+  assert.equal(feature, 'plate_image');
+  assert.equal(model, 'gpt-image-1');
+  assert.equal(inTok, 0, 'image spend is flat-rate, not token-metered');
+  assert.equal(outTok, 0);
+  assert.equal(cost, priceForImage('gpt-image-1'));
+  assert.ok(cost > 0);
+  assert.equal(week, isoWeekOf(new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })));
+});
+
+test('an unpriced/unknown image model bills at the highest KNOWN row, never free', () => {
+  const known = ['gpt-image-1', 'gemini-2.5-flash-image', '@cf/leonardo/phoenix-1.0'].map(priceForImage);
+  assert.equal(priceForImage('some-future-image-model'), Math.max(...known));
 });
 
 test('the owner can SEE the meter: the automations GET carries ai_budget in dollars', () => {

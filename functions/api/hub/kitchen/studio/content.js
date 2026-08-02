@@ -76,8 +76,12 @@ You are Añejo Catering Co.'s content studio. From the dish below, write marketi
 }
 
 async function generateImage(env, imagePrompt) {
-  if (!env.AI) return { url: null, reason: 'ai_binding_absent' };
-  const url = await generatePlateImage(env, imagePrompt);   // shared engine (Leonardo Phoenix + natural style)
+  // No pre-check on env.AI here on purpose: plate_image.js now tries OpenAI/Gemini before
+  // Workers AI, and both feature-detect their own API keys independently of the AI binding.
+  // Gating on env.AI up front used to silently kill the OpenAI/Gemini paths too whenever the
+  // Workers AI binding was absent (e.g. a dev environment) — exactly the "assume it's
+  // available" bug the provider chain is designed to avoid.
+  const url = await generatePlateImage(env, imagePrompt);
   return url ? { url } : { url: null, reason: 'gen_failed' };
 }
 

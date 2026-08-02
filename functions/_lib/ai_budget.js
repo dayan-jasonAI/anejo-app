@@ -100,3 +100,48 @@ export async function budgetGate(env, limitMicro = WEEKLY_LIMIT_MICRO) {
   if (b.ok) return { ok: true, spent: b.spent, remaining: b.remaining };
   return { ok: false, reason: 'weekly AI budget reached', spent: b.spent, remaining: 0 };
 }
+
+// Flat USD-per-image prices, in microdollars, for providers billed per-image rather than
+// per-token (image generation isn't metered in input/output tokens the way Claude calls are).
+// Looked up from each provider's own pricing docs/community writeups on 2026-08-02 — see
+// _lib/plate_image.js for the provider chain these price. Same STALE-PRICES-UNDERCOUNT warning
+// as PRICES above (review quarterly), and rounded UP toward the documented high end of each
+// provider's range for the same reason unknown models price HIGH there: overcounting throttles
+// early and visibly, undercounting quietly sails past the $50 ceiling.
+const IMAGE_PRICES_MICRO = {
+  // OpenAI gpt-image-1, 1024x1024 'medium' quality (the tier plate_image.js requests): OpenAI's
+  // own published range runs roughly $0.04-$0.19/image depending on quality/size; priced near
+  // the top of that range rather than the bottom.
+  'gpt-image-1': 80_000,
+  // Google gemini-2.5-flash-image ("nano banana"): billed as output tokens, 1290 tokens/image
+  // at $30/MTok = ~$0.0387/image. Rounded up for headroom.
+  'gemini-2.5-flash-image': 45_000,
+  // Workers AI Leonardo Phoenix: 1024x1024 = four 512x512 tiles (530 neurons each) + 30 steps
+  // (10 neurons each) = 2420 neurons, at $0.011/1,000 neurons = ~$0.0266/image.
+  '@cf/leonardo/phoenix-1.0': 30_000,
+};
+// An unpriced/unknown model bills at the most expensive KNOWN row — same "undercounting breaks
+// the ceiling, overcounting just throttles early" rule priceFor() uses for text models.
+const DEFAULT_IMAGE_PRICE_MICRO = Math.max(...Object.values(IMAGE_PRICES_MICRO));
+
+export function priceForImage(model) {
+  return IMAGE_PRICES_MICRO[model] ?? DEFAULT_IMAGE_PRICE_MICRO;
+}
+
+// Record one image call's spend into the SAME ai_spend ledger the $50/week ceiling is computed
+// over — image generation is not a separate budget, it draws from the identical pool the
+// chat/social/eod-draft features already share. Best-effort by design, same as recordSpend: a
+// failed insert must never break the feature that just successfully made an image.
+export async function recordImageSpend(env, { feature, provider, model } = {}) {
+  if (!env || !env.DB) return;
+  const day = today();
+  try {
+    await env.DB.prepare(
+      'INSERT INTO ai_spend (id, week, day, feature, model, input_tokens, output_tokens, cost_microdollars, created_at) VALUES (?,?,?,?,?,?,?,?,?)'
+    ).bind(
+      id('ais'), isoWeekOf(day), day,
+      String(feature || 'unknown').slice(0, 60), String(model || provider || 'unknown').slice(0, 80),
+      0, 0, priceForImage(model), now()
+    ).run();
+  } catch { /* best-effort — see recordSpend note above */ }
+}

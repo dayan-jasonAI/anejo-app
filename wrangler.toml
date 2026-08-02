@@ -16,6 +16,14 @@ pages_build_output_dir = "public"
 #                                                 the Instagram Login host (graph.instagram.com) resolves it via /me
 #   IG_API_HOST         (Var, optional)       <- "instagram" | "facebook" | a full https URL — skips the
 #                                                 auto-probe between the two Instagram APIs (see instagram.js)
+#   OPENAI_API_KEY      (Secret, encrypted)   <- plate-image engine, 1st choice (functions/_lib/plate_image.js)
+#   GEMINI_API_KEY      (Secret, encrypted)   <- plate-image engine, 2nd choice (falls back from OpenAI)
+#                                                 Neither is required: absent = that provider is skipped and the
+#                                                 chain falls through to the next (Workers AI/Leonardo is last).
+#   IMAGE_PROVIDER_ORDER    (Var, optional)   <- e.g. "gemini,openai,workers_ai" — env-level default order,
+#                                                 overridden live by the owner via KV (cfg:image_providers,
+#                                                 /api/hub/owner/image-provider-config)
+#   IMAGE_PROVIDER_DISABLED (Var, optional)   <- e.g. "openai" — env-level default disable-list, same override rule
 # A new/changed Secret or Var here is INERT until the next deploy — Pages bakes bindings into each
 # deployment, so redeploy after changing one. See docs/INSTAGRAM_TOKEN_SWAP.md before touching IG_*.
 
