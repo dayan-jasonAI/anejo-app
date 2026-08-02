@@ -204,6 +204,11 @@ p{color:var(--muted);font-size:15px;line-height:1.65;margin-bottom:14px}
     if (btn) { btn.disabled = true; btn.textContent = L('Enabling…','Activando…'); }
     if (!email) { showFallback('no stashed email — cannot register a subscription without one'); return; }
 
+    // Wrapped because the very first call can throw SYNCHRONOUSLY rather than reject: Safari
+    // before 16 implements requestPermission() in its older callback form, which returns undefined,
+    // and `.then` on undefined is a TypeError that no .catch below would ever see. The visible
+    // symptom is a button stuck on "Enabling…" forever — the one outcome this card must not have.
+    try {
     Notification.requestPermission().then(function(perm){
       if (perm !== 'granted') return Promise.reject(new Error('permission ' + perm));
       return fetch('/api/push/subscribe').then(function(r){ return r.json(); }).then(function(cfg){
@@ -230,6 +235,9 @@ p{color:var(--muted);font-size:15px;line-height:1.65;margin-bottom:14px}
       // a network hiccup — the customer still needs an answer, not a stuck "Enabling…" button.
       showFallback((err && err.message) || 'push enable failed');
     });
+    } catch (err) {
+      showFallback('requestPermission threw synchronously: ' + ((err && err.message) || err));
+    }
   }
 
   if (!email) {
