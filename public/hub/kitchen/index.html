@@ -65,6 +65,11 @@
   .ord-filter .chip.active { background:var(--green-700); color:#fff; border-color:var(--green-700); }
   .ord-filter .chip .badge { background:rgba(0,0,0,.12); }
   .ord-filter .chip.active .badge { background:rgba(255,255,255,.22); color:#fff; }
+  /* Rotation-sold-out warning: same red the RUSH badge and allergy line already use, so it reads
+     as urgent through the existing palette rather than a bolted-on alert box. */
+  .rotation-warn { margin:8px 0 0; padding:8px 10px; border-radius:8px; background:#fbe3e1; border:1px solid var(--crit); }
+  .rotation-warn-row { font-size:13px; font-weight:700; color:var(--crit); line-height:1.4; }
+  .rotation-warn-row + .rotation-warn-row { margin-top:2px; }
 </style>
 </head>
 <body>
@@ -361,6 +366,19 @@
       return '<li class="bowl-item' + (done ? ' done' : '') + '">' + head + detail + '</li>';
     }).join('') + '</ul>';
   }
+  // Meal-plan rotation bowls sold out RIGHT NOW (computed live server-side each poll — see
+  // functions/_lib/menu.js planRotationWarnings). Report only: it never hides the ticket, never
+  // reorders it, and never picks a replacement bowl — a person reads this and decides.
+  function rotationWarn(o) {
+    var list = o.rotation_warnings;
+    if (!list || !list.length) return '';
+    var es = window.AnejoLang && window.AnejoLang.get && window.AnejoLang.get() === 'es';
+    return '<div class="rotation-warn">' + list.map(function (w) {
+      var label = (es && w.label_es) ? w.label_es : w.label;
+      return '<div class="rotation-warn-row">⚠ ' + esc(w.bowl) + ' — ' + esc(label) + '</div>';
+    }).join('') + '</div>';
+  }
+
   function bowlsDoneLabel(o) {
     if (!o.bowls || !o.bowls.length) return '';
     var done = o.bowls.filter(function (bw) { return bw.prep_state === 'done'; }).length;
@@ -383,11 +401,12 @@
     var rush = o.is_rush ? '<span class="badge crit" style="font-weight:700">⚡ RUSH</span>' : '';
     var doneLbl = (stage === 'prep' || stage === 'ready') ? bowlsDoneLabel(o) : '';
     var allerg = (o.is_contract && o.delivery_notes) ? '<div class="row-sub" style="color:var(--crit);font-weight:700;margin-top:4px">⚠ ' + esc(o.delivery_notes) + '</div>' : '';
+    var rotWarn = rotationWarn(o);
     var body = (o.bowls && o.bowls.length) ? bowlRows(o, stage === 'prep') : orderItems(o);
     var n = o.item_count || 0;
     return '<div class="card order-card">' +
       '<div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + n + (n === 1 ? ' item' : ' items') + doneLbl + '</div>' +
-      '<div class="order-badges">' + contract + rush + sub + dt + win + '</div>' + allerg +
+      '<div class="order-badges">' + contract + rush + sub + dt + win + '</div>' + allerg + rotWarn +
       body + actions + '</div>';
   }
 

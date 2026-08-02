@@ -21,6 +21,7 @@ import { id, now, today, parseJson } from '../../../_lib/hub.js';
 import { ensureOrderBowls, fetchBowlsForOrders } from '../../../_lib/orderbowls.js';
 import { matchStaffByPin } from '../../../_lib/pinmatch.js';
 import { limitOr429 } from '../../../_lib/ratelimit.js';
+import { loadMenu, planRotationWarnings } from '../../../_lib/menu.js';
 
 // Append a row to the PIN-gated kitchen audit trail. Best-effort; never blocks the action.
 async function audit(env, { action, orderId, bowlId, staff, viaPin }) {
@@ -31,8 +32,7 @@ async function audit(env, { action, orderId, bowlId, staff, viaPin }) {
   } catch { /* audit is best-effort */ }
 }
 
-function itemCount(itemsJson) {
-  const items = parseJson(itemsJson, []) || [];
+function itemCount(items) {
   if (!Array.isArray(items)) return 0;
   return items.reduce((n, it) => n + (Number(it && it.qty) || 1), 0);
 }
@@ -60,13 +60,24 @@ export const onRequestGet = async ({ request, env }) => {
        LIMIT 200`
   ).all();
 
-  const orders = (results || []).map((o) => ({
-    ...o,
-    item_count: itemCount(o.items),
-    is_subscription: !!o.subscription_id, // drives the "Subscription" tag on the board
-    is_contract: !!o.contract_site_id,    // B2B contract order (e.g. DGP office lunches)
-    is_rush: !!o.is_rush,
-  }));
+  // Loaded once for the whole board: rotation-sold-out is a LIVE check (a bowl can run out
+  // mid-shift, well after this ticket printed), not something baked into the order row at
+  // creation time. See planRotationWarnings() for why it never touches à-la-carte items.
+  const menu = await loadMenu(env);
+
+  const orders = (results || []).map((o) => {
+    const items = parseJson(o.items, []) || [];
+    return {
+      ...o,
+      item_count: itemCount(items),
+      is_subscription: !!o.subscription_id, // drives the "Subscription" tag on the board
+      is_contract: !!o.contract_site_id,    // B2B contract order (e.g. DGP office lunches)
+      is_rush: !!o.is_rush,
+      // Report only — see menu.js. Rendering decides how loud to be; nothing here substitutes,
+      // reorders, or hides the order for being on this list.
+      rotation_warnings: planRotationWarnings(items, menu),
+    };
+  });
 
   const board = { pending: [], prep: [], ready: [] };
   for (const o of orders) {

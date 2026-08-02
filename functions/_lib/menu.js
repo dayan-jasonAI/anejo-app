@@ -158,6 +158,56 @@ export function isOrderable(item) {
   return orderability(item).orderable;
 }
 
+/**
+ * Is a bowl SOLD OUT right now, for a bowl already committed to a PAID ticket (a meal-plan
+ * rotation slot) — a different question from "can this be bought", which is what isAvailable()
+ * and orderability() answer for a NEW cart. The kitchen already has the money; this only asks
+ * whether the promise it printed can still be kept, using the same two signals checkout.js
+ * enforces before taking that money: the owner's availability dropdown, and today's manual
+ * stock count (migrations 0059/0060).
+ *
+ * Returns 'availability' | 'stock' | null. Missing data — bowlId not present on the loaded menu
+ * at all (a deleted item, a stale rotation, or loadMenu() having fallen back to the module
+ * constants, which carry neither map) — is UNKNOWN, not sold out. Warning on data we don't have
+ * would train the kitchen to ignore the warning the one day it is real.
+ */
+export function rotationBowlSoldOut(menu, bowlId) {
+  const availability = menu && menu.availability;
+  if (!bowlId || !availability || !Object.prototype.hasOwnProperty.call(availability, bowlId)) return null;
+  if (availability[bowlId] !== 'available') return 'availability';
+  const stock = menu && menu.stock;
+  if (stock && Object.prototype.hasOwnProperty.call(stock, bowlId) && stock[bowlId] <= 0) return 'stock';
+  return null;
+}
+
+/**
+ * Scan a ticket's items for meal-plan rotation bowls that are sold out RIGHT NOW, and say so —
+ * naming the bowl, never picking a replacement for it. A rotation bowl line only ever comes from
+ * kitchenBowlLine() (functions/_lib/bowlspec.js), which ids it 'bowl_<name>'; an à-la-carte
+ * item's id is the bare menu id (e.g. 'vida', from checkout.js), so this never fires on a regular
+ * order — only on the plan/subscription deliveries suborders.js materializes.
+ *
+ * Deliberately just a report: NO substitution, NO reordering, NO hiding the ticket. What to do
+ * about a sold-out rotation bowl is a decision for a person, not this function.
+ */
+export function planRotationWarnings(items, menu) {
+  const warnings = [];
+  for (const it of (Array.isArray(items) ? items : [])) {
+    const itemId = it && it.id;
+    if (typeof itemId !== 'string' || !itemId.startsWith('bowl_')) continue; // not a rotation line
+    const bowlId = itemId.slice(5);
+    const reason = rotationBowlSoldOut(menu, bowlId);
+    if (!reason) continue;
+    let label = 'Sold out — 0 made today', labelEs = 'Agotado — 0 preparados hoy';
+    if (reason === 'availability') {
+      const av = AVAILABILITY[menu.availability[bowlId]] || AVAILABILITY.unavailable;
+      label = av.label; labelEs = av.label_es;
+    }
+    warnings.push({ item_id: itemId, bowl: (it && it.name) || bowlId.toUpperCase(), reason, label, label_es: labelEs });
+  }
+  return warnings;
+}
+
 /** Public catalog shape for /api/menu and the order page. */
 export function publicCatalog(menu) {
   const byKind = { bowl: [], drink: [], addon: [] };
