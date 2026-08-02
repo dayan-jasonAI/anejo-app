@@ -213,7 +213,17 @@ export function classifyAddressCheck(g, addr, failStatus) {
       reason: corrected ? 'corrected' : 'coarse',
       // A one-tap alternative only when there IS a different address to offer — a coarse-but-
       // matching result has nothing new to suggest, just less confidence in the pin itself.
-      suggestion: corrected ? { formatted: g.formatted, ...g.components } : null,
+      //
+      // A street is REQUIRED for the offer. Google answers an unrecognised street with the
+      // surrounding city ("Palm Springs, FL 33461, USA" — street_number and route both absent),
+      // which is not an alternative address, it is a shrug. Offering it as "Use this address"
+      // meant a tap could overwrite the customer's CITY while leaving their street untouched,
+      // producing an address neither of them meant and sending a driver to the wrong town. With
+      // no street we fall through to the plain "deliver here anyway" confirmation instead, which
+      // is the honest option when we have nothing better to propose.
+      suggestion: corrected && g.components && g.components.street
+        ? { formatted: g.formatted, ...g.components }
+        : null,
     };
   }
   // Nothing came back. A genuinely nonexistent address (ZERO_RESULTS/NOT_FOUND) is exactly the

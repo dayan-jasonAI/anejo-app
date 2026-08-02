@@ -194,6 +194,24 @@ test('partial_match:true with NO unit typed IS suspect (there is nothing else it
   assert.ok(r.suggestion);
 });
 
+// Taken from a REAL production response. Posting "99999 Nonexistent Fakestreet Blvd, Lake Worth,
+// FL 33461" to the live endpoint came back partial_match with the surrounding city and NO street:
+// formatted "Palm Springs, FL 33461, USA", street_number and route both absent. That is Google
+// shrugging, not proposing an address. Offered as a one-tap "Use this address" it would have
+// overwritten the customer's CITY while leaving their street alone — an address neither party
+// meant, pointing a driver at the wrong town.
+test('a city-level result with no street is still suspect but offers NO suggestion to accept', () => {
+  const g = {
+    formatted: 'Palm Springs, FL 33461, USA',
+    partialMatch: true,
+    locationType: 'APPROXIMATE',
+    components: { street: null, city: 'Palm Springs', state: 'FL', zip: '33461' },
+  };
+  const r = classifyAddressCheck(g, addr('99999 Nonexistent Fakestreet Blvd', '', '33461'), null);
+  assert.equal(r.suspect, true, 'a street Google cannot find must still ask the customer');
+  assert.equal(r.suggestion, null, 'never offer a city as a replacement for a street address');
+});
+
 test('a genuinely different street (not a unit issue) IS suspect, even with no partial_match flag', () => {
   const g = {
     formatted: '100 Oak Street, Boca Raton, FL 33432',
