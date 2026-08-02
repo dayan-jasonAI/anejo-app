@@ -9,7 +9,25 @@ This is not a wishlist. Everything here is a known gap in something already ship
 
 ## 1. Customer subscribe prompt for push notifications
 
-**Status:** built but unreachable · **Added:** 2026-07-30
+**Status:** ✅ SHIPPED 2026-08-02 (deploy `d35c0ca`) · **Added:** 2026-07-30
+
+The prompt now exists on `/order/confirmed`. Live-verified against production: the page returns
+HTTP 200 and serves the opt-in card, the iPhone "Add to Home Screen" instructions, and the SMS
+fallback copy. `GET /api/push/subscribe` returns `configured:true` with a real VAPID public key, so
+the client has what it needs to subscribe. `/order` now stashes the customer's email and *whether*
+they consented to SMS (never the number) through the Square round-trip, because Square's redirect
+carries neither.
+
+Behaviour: iPhone outside Home Screen gets instructions instead of a button that cannot work;
+anything else gets a real Enable button; **every** failure path — declined, unsupported, VAPID
+unconfigured, network error — falls back to naming the channel that still covers them (SMS if they
+consented, otherwise email plus a link to `/sms`).
+
+**Not yet true:** no customer has actually subscribed yet, and real iOS behaviour has not been
+exercised on a device. The gap this entry described — "there is no moment where a customer is
+asked" — is closed; "a customer has said yes" is not, and cannot be closed by writing code.
+
+*Original entry follows.*
 
 The order-tracking notification pipeline is finished and deployed — pending, in prep, out for
 delivery, approaching, delivered, rate your experience. It has **never fired to a customer**,
@@ -166,7 +184,27 @@ drafts have been read for a while and are consistently right.
 
 ## 6. Subscription rotations ignore a sold-out bowl
 
-**Status:** known gap, currently harmless · **Added:** 2026-07-29
+**Status:** ✅ SHIPPED 2026-08-02 (deploy `d35c0ca`) · **Added:** 2026-07-29
+
+The kitchen ticket now warns, and only warns. `planRotationWarnings()` in `_lib/menu.js` checks
+each plan-rotation line (`bowl_<name>`, the id `suborders.js` gives them — à-la-carte lines use the
+bare menu id, so a regular order can never trip it) against the **live** menu on every board poll,
+not against what was true when the ticket printed, because a bowl can sell out mid-shift.
+
+Deliberately absent: any substitution, reordering, or hiding of the ticket. It names the bowl and
+the reason; a person decides. A bowl with no availability data recorded reads as *unknown*, not
+sold out — warning on data we do not have would train the kitchen to ignore the warning on the day
+it is real.
+
+15 tests cover sold-out-by-availability, sold-out-by-stock-count, in-stock, never-tracked, unknown
+bowl id, à-la-carte lines, and multiple sold-out bowls on one ticket each named separately.
+
+**Live verification is partial, and honestly so.** `/api/hub/kitchen/orders` serves 200 in
+production with the new field wired in, but the board was empty at deploy time and there are still
+**0 active plans**, so no real ticket has actually rendered a warning. The path is proven by test,
+not by a live sold-out rotation. The first real subscriber is what closes that.
+
+*Original entry follows.*
 
 `plans.bowl_rotation` is fixed at signup and nothing on the subscription path re-checks the menu.
 A bowl marked sold out would still reach kitchen tickets via `suborders.js`.
@@ -198,7 +236,28 @@ invoice POST, read-back of TotalAmt. `QBO_ENVIRONMENT` still points at sandbox.
 
 ## 8. Instagram token expiry is unhandled
 
-**Status:** works now, fails silently in ~60 days · **Added:** 2026-07-30
+**Status:** ⚠️ SHIPPED 2026-08-02 (deploy `d35c0ca`) — **but it needs one thing from Dayan** ·
+**Added:** 2026-07-30
+
+The HUB Social page now carries an expiry banner that escalates: quiet past 30 days, a visible
+warning inside 30, red and urgent inside 7, and a distinct expired state. `docs/
+INSTAGRAM_TOKEN_SWAP.md` is the runbook for replacing the expiring user token with a Meta **System
+User** token, which does not expire — including the fact that a new Pages secret is inert until the
+project is redeployed. The current token was not touched, read, refreshed, or printed.
+
+Live-verified: `GET /api/hub/owner/social` in production returns
+`token_expiry: {at: null, status: "unknown", days_left: null, swap_doc: "docs/INSTAGRAM_TOKEN_SWAP.md"}`.
+
+**Why this is ⚠️ and not ✅.** The expiry date is **owner-entered**, because the only way to read a
+token's real expiry is to interrogate the token itself, which was explicitly out of bounds — and
+seeding a guessed date would have produced a precise-looking number nobody had verified. So the
+banner currently says *"Token expiry not recorded"*, which is honest but is **not yet a warning**.
+
+**Dayan: open the HUB Social page and record the expiry date once.** Until that happens this item
+protects nothing, and the token still dies in late September with no notice. That is the one manual
+step, and it takes about ten seconds.
+
+*Original entry follows.*
 
 The token was generated from the App Dashboard, so it is long-lived — about 60 days, expiring
 late September 2026. The Social page reports a refused token clearly, but nothing warns *before*
