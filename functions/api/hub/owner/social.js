@@ -9,6 +9,7 @@ import { capture } from '../../../_lib/track.js';
 import { igConfigured, accountInfo, JPEG_ONLY, CAROUSEL_MAX } from '../../../_lib/instagram.js';
 import { publishSocialPost, loadPostMedia } from '../../../_lib/social_publish.js';
 import { noteTrustApproval } from '../../../_lib/trust_ledger.js';
+import { loadTokenExpiry, saveTokenExpiry, tokenExpiryStatus } from '../../../_lib/instagram_token_expiry.js';
 
 // Instagram's own cap. Worth knowing locally so a scheduled batch cannot quietly burn it.
 const DAILY_CAP = 25;
@@ -64,6 +65,11 @@ export const onRequestGet = async ({ request, env }) => {
   const configured = igConfigured(env);
   const account = configured ? await accountInfo(env) : null;
 
+  // The expiry banner reads from app_settings, not from Meta — see instagram_token_expiry.js for
+  // why. `at` is null (and status 'unknown') until an owner has recorded it once.
+  const recordedExpiry = await loadTokenExpiry(env);
+  const expiry = tokenExpiryStatus(recordedExpiry.at);
+
   return json({
     ok: true,
     configured,
@@ -77,6 +83,12 @@ export const onRequestGet = async ({ request, env }) => {
     // Which of the two Instagram APIs the token turned out to belong to. Worth surfacing: it
     // decides where the token gets renewed in 60 days.
     host: account && account.ok ? account.host : null,
+    token_expiry: {
+      at: recordedExpiry.at,
+      status: expiry.status,           // 'unknown' | 'ok' | 'warning' | 'urgent' | 'expired'
+      days_left: expiry.days_left,
+      swap_doc: 'docs/INSTAGRAM_TOKEN_SWAP.md',
+    },
     posts,
   });
 };
@@ -305,6 +317,25 @@ export const onRequestPost = async ({ request, env }) => {
       properties: { post_id: postId, has_permalink: !!res.permalink },
     });
     return json({ ok: true, id: postId, media_id: res.media_id, permalink: res.permalink });
+  }
+
+  // Record what Meta's own dashboard says the token expires on — never fetched, never guessed.
+  // Blank/omitted clears it back to 'unknown' rather than leaving a stale date behind, because a
+  // stale-but-present date is worse than none: it reads as current and can lull past a real one.
+  if (op === 'set_token_expiry') {
+    let at = null;
+    if (b.expires_at !== null && b.expires_at !== undefined && b.expires_at !== '') {
+      at = Number(b.expires_at);
+      if (!Number.isFinite(at) || at <= 0) return bad('That is not a valid date.');
+    }
+    const r = await saveTokenExpiry(env, at, ctx.distinct_id || null);
+    if (!r.ok) return bad('Could not save that.', 500);
+    await capture(env, {
+      event: 'social.ig_token_expiry_set',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { cleared: at === null },
+    });
+    return json({ ok: true, at: r.at });
   }
 
   return bad('Unknown action.');
