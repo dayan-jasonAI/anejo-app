@@ -15,6 +15,11 @@
   .stop-eta{font-size:11px;font-weight:700;color:var(--gold-700,#8a7a2e);white-space:nowrap;margin-left:6px}
   .stop-addr{font-size:13px;color:var(--green);margin:3px 0}
   .stop-note{font-size:12px;color:#8a6d3b;background:#fbf3da;border-radius:6px;padding:4px 8px;margin-top:4px}
+  /* The customer typed this address through a "we couldn't verify this" warning and confirmed it
+     anyway — real, but never confidently matched. Same visual language as .stop-note (a flag for
+     the driver to read), a different color so it doesn't get mistaken for a drop-off instruction. */
+  .stop-warn{font-size:12px;color:#9b2226;background:#fbe9e8;border-radius:6px;padding:4px 8px;margin-top:4px}
+  .stop-warn-tag{font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:#9b2226;white-space:nowrap;margin-left:6px}
   .cur-card{border:2px solid var(--gold,#C6A85B);background:linear-gradient(180deg,#fffdf6,#fff8e9);box-shadow:0 6px 22px rgba(198,168,91,.22)}
   .cur-name{font-size:21px;font-weight:800;color:var(--green);display:flex;align-items:center;flex-wrap:wrap;gap:6px}
   .cur-actions{display:flex;flex-direction:column;gap:8px;margin-top:14px}
@@ -340,6 +345,7 @@
       var eta = cur.eta_clock ? '<span class="stop-eta">ETA ' + Hub.esc(cur.eta_clock) + '</span>' : '';
       curEl.innerHTML = '<div class="card cur-card"><div class="cur-name">' + Hub.esc(cur.first_name) + ' ' + eta + '</div>' +
         '<div class="stop-addr">' + Hub.esc(cur.address || '') + '</div>' +
+        (cur.address_unverified ? '<div class="stop-warn" data-i18n>⚠️ Customer confirmed this address, but we couldn\'t verify it — double-check on arrival.</div>' : '') +
         (cur.delivery_notes ? '<div class="stop-note">📝 ' + Hub.esc(cur.delivery_notes) + '</div>' : '') +
         '<div class="cur-actions">' +
         '<button class="btn gold" id="nav-btn" type="button" data-i18n>' + (nav ? '🧭 Re-open navigation' : '🧭 Navigate (notify customer)') + '</button>' +
@@ -357,6 +363,7 @@
 
     document.getElementById('stops').innerHTML = stops.map(function (s, i) {
       return '<div class="row"><div class="row-main"><div class="row-title">' + (i + 1) + '. ' + Hub.esc(s.first_name) +
+        (s.address_unverified ? '<span class="stop-warn-tag" data-i18n title="Address confirmed by the customer but not verified">⚠️ Unverified</span>' : '') +
         '</div><div class="row-sub">' + Hub.esc(s.address || '') + '</div></div>' + stopPill(s, cur) + '</div>';
     }).join('');
   }

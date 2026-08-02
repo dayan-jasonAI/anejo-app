@@ -38,7 +38,7 @@ export const onRequestGet = async ({ request, env }) => {
               rs.nav_started_at, rs.arriving_at, rs.delivered_at,
               o.id AS order_id, o.customer_name, o.items,
               o.delivery_street, o.delivery_unit, o.delivery_city, o.delivery_state, o.delivery_zip,
-              o.delivery_notes, o.delivery_lat, o.delivery_lng
+              o.delivery_notes, o.delivery_lat, o.delivery_lng, o.address_verify_status
          FROM route_stops rs JOIN orders o ON o.id = rs.order_id
         WHERE rs.route_id=? ORDER BY rs.seq ASC, rs.created_at ASC`
     )
@@ -55,6 +55,10 @@ export const onRequestGet = async ({ request, env }) => {
       items,
       total_bowls: items.reduce((n, it) => n + (Number(it && it.qty) || 1), 0),
       address: addrLine,
+      // The pin (if any) was never confidently confirmed at checkout — the customer typed it
+      // through a "we couldn't verify this — use it anyway?" warning. Surfaced so the driver
+      // double-checks the address on arrival instead of trusting the map blindly.
+      address_unverified: s.address_verify_status === 'unverified_confirmed',
       delivery_notes: s.delivery_notes || null,
       eta_at: s.eta_at || null,
       eta_clock: s.eta_at ? clockET(s.eta_at) : null,
