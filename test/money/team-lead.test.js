@@ -13,6 +13,7 @@ import {
 } from '../../functions/_lib/team_lead.js';
 import { bowlArtFor } from '../../functions/_lib/bowl_art.js';
 import { WEEKLY_LIMIT_MICRO } from '../../functions/_lib/ai_budget.js';
+import { BRAND_CONTEXT } from '../../functions/_lib/brand_context.js';
 
 const LIB = readFileSync(new URL('../../functions/_lib/team_lead.js', import.meta.url), 'utf8');
 const API = readFileSync(new URL('../../functions/api/hub/owner/team.js', import.meta.url), 'utf8');
@@ -117,6 +118,93 @@ test('spine sources are pinned: brand brief verbatim, live loadMenu, latest ig m
   assert.match(LIB, /ig_media_metrics/);
   assert.match(LIB, /weekSpend\(env\)/, 'budget comes from ai_budget\'s own accessor, not a private query');
   assert.match(LIB, /team_briefs/);
+  assert.match(LIB, /from '\.\/bowlspec\.js'/, 'the kitchen spec is the ingredient source, not the model');
+});
+
+// ---------------------------------------------------------------------------
+// The product is IN the spine
+//
+// The Lead was asked for a bowl campaign and answered with a table of what it did not know: it
+// could name COCO and FUEGO only because their ingredients had leaked in through Instagram
+// captions, and knew nothing at all about the other five. Menu rows carried name and price; the
+// brief arrived as 5 of 12 sections, without §6. Every test below is that session.
+// ---------------------------------------------------------------------------
+
+test('every bowl arrives with its kitchen build, macros and tags — no more "what I am missing"', async () => {
+  const { db } = SPINE_DB();
+  const spine = await buildSpine({ DB: db });
+
+  const vida = spine.menu[0];
+  assert.equal(vida.macros.kcal, 510);
+  assert.equal(vida.macros.protein_g, 40);
+  assert.ok(vida.build.some((b) => b.item === 'Seared tuna' && b.oz === 4.5), 'per-ingredient oz, from bowlspec');
+  assert.ok(vida.tags.includes('pescatarian'));
+  assert.ok(vida.description, 'a bowl is never described to the strategist in silence');
+
+  const text = renderSpine(spine);
+  assert.match(text, /Built from: Seared tuna 4\.5 oz/, 'the build is rendered, not just carried');
+  assert.match(text, /approx 510 kcal · 40g protein/);
+  assert.match(text, /never present them as precise or medical/, 'macros ship with their caveat');
+  // The regression that started this: availability must stay on the name line, above the detail.
+  assert.match(text, /FUEGO.*OFF SALE/);
+});
+
+test('a menu row with no kitchen spec says so, instead of going quiet', async () => {
+  const { db } = stubDb([
+    { re: /FROM menu_items/, all: [
+      { id: 'mystery', kind: 'bowl', name: 'MYSTERY', price_cents: 1500, availability: 'available', active: 1 },
+    ] },
+  ]);
+  const spine = await buildSpine({ DB: db });
+  assert.equal(spine.menu[0].build, null);
+  const text = renderSpine(spine);
+  assert.match(text, /No kitchen spec on file/);
+  assert.match(text, /do not state its ingredients or macros/);
+});
+
+test('drinks and add-ons are promotable too — they used to be invisible', async () => {
+  const { db } = stubDb([
+    { re: /FROM menu_items/, all: [
+      { id: 'fit_gold', kind: 'drink', name: 'Añejo Fit — Gold Vitality', price_cents: 999, availability: 'available', active: 1 },
+      { id: 'sauce_extra', kind: 'addon', name: 'Extra Signature Sauce (2 oz)', price_cents: 150, availability: 'sold_out', active: 1 },
+    ] },
+  ]);
+  const spine = await buildSpine({ DB: db });
+  assert.equal(spine.other_items.length, 2);
+  const text = renderSpine(spine);
+  assert.match(text, /DRINKS & ADD-ONS/);
+  assert.match(text, /Gold Vitality \(\$9\.99\)/);
+  assert.match(text, /Extra Signature Sauce.*OFF SALE/);
+});
+
+test('the brief the OWNER edits wins over the compiled snapshot, and the source is reported', async () => {
+  const { db } = stubDb([
+    { re: /FROM docs/, all: [{ title: 'Brand & Standards Brief', body: 'Live brief the owner approved in the HUB.' }] },
+  ]);
+  const spine = await buildSpine({ DB: db });
+  assert.equal(spine.brand_source, 'd1');
+  assert.match(spine.brand, /Live brief the owner approved/);
+  assert.match(renderSpine(spine), /live from the HUB/, 'the owner can see which copy the Lead read');
+});
+
+test('with no brand doc in D1 the compiled brief is the floor, never an empty brief', async () => {
+  const { db } = stubDb([]);
+  const spine = await buildSpine({ DB: db });
+  assert.equal(spine.brand_source, 'repo');
+  assert.match(spine.brand, /40% protein \/ 30% carbs \/ 30% fat/, 'the Golden Rule still arrives');
+});
+
+test('the brief carries the sections the Lead was answering without', () => {
+  // §6 is the one it asked the owner for by name; §8 is the one that makes copy safe.
+  assert.match(BRAND_CONTEXT, /coconut-lime sauce/, '§6 Menu — the per-bowl ingredient lists');
+  assert.match(BRAND_CONTEXT, /Allergen discipline is non-negotiable/, '§8 Allergens');
+  assert.match(BRAND_CONTEXT, /Standard à la carte bowls are \*\*16 oz\*\*/, '§12 Non-negotiables');
+  assert.match(BRAND_CONTEXT, /Signature bowl layout/, '§10 plating, not just the photo standard');
+});
+
+test('ingredient detail does not become permission to make allergen claims', () => {
+  assert.match(LIB, /never write an allergen SAFETY claim/);
+  assert.match(LIB, /macros are approximate/);
 });
 
 // ---------------------------------------------------------------------------
@@ -244,6 +332,16 @@ test('the endpoint is owner-only and the page exists with the chat idiom', () =>
   assert.match(PAGE, /Hub\.boot\(\)/);
   const OWNER_JS = readFileSync(new URL('../../public/hub/owner/assets/owner.js', import.meta.url), 'utf8');
   assert.match(OWNER_JS, /team\.html', ico: '[^']+', label: 'Team'/, 'the nav knows the page');
+});
+
+test('the page SHOWS which brief the Lead read — reporting it in JSON alone is invisible', () => {
+  // spineSummary has carried brand_source since the spine fix, but nothing painted it, so the
+  // one symptom it exists to disambiguate — an off-brand Lead vs a brief that never arrived —
+  // still looked identical from the chat. Pinned at the surface, where the owner actually reads.
+  assert.match(API, /brand_source: spine\.brand_source/, 'the endpoint reports the source');
+  assert.match(PAGE, /s\.brand_source/, 'the page reads it');
+  assert.match(PAGE, /brief: live from the HUB/, 'the live case is named in words');
+  assert.match(PAGE, /brief: repo snapshot/, 'the snapshot case is named in words');
 });
 
 test('the migration is additive and the message roles are constrained to owner|lead', () => {
