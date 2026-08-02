@@ -897,8 +897,19 @@ async function checkout(){
     const r = await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const data = await r.json();
     if(!r.ok || !data.url) throw new Error(data.error||L('Checkout failed. Please try again.','El pago falló. Inténtalo de nuevo.'));
-    // Stash order value for the GA4 purchase event on /order/confirmed (survives the Square round-trip).
-    try{ var _gv=parseFloat(($('cartGrand').textContent||'').replace(/[^0-9.]/g,'')); sessionStorage.setItem('anejo:pendingOrder', JSON.stringify({ value: isFinite(_gv)?_gv:undefined, currency:'USD', items: items.length })); }catch(_e){}
+    // Stash order value (for the GA4 purchase event) AND contact info (for the push opt-in prompt)
+    // on /order/confirmed — both survive the Square round-trip. Square's own redirect carries
+    // neither: /order/confirmed has no other way to know who just checked out.
+    try{
+      var _gv=parseFloat(($('cartGrand').textContent||'').replace(/[^0-9.]/g,''));
+      sessionStorage.setItem('anejo:pendingOrder', JSON.stringify({
+        value: isFinite(_gv)?_gv:undefined, currency:'USD', items: items.length,
+        email: contact.email || undefined,
+        // Only whether SMS is already covered, not the number itself — the confirmation screen
+        // needs to know which fallback message to show, nothing more.
+        sms_consent: !!contact.sms_consent,
+      }));
+    }catch(_e){}
     window.location.href = data.url;   // → Square hosted checkout
   }catch(e){
     err.textContent = e.message; btn.disabled=false; btn.textContent=label;

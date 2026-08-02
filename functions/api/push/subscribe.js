@@ -9,6 +9,7 @@
 // The email is what ties a device to an order. It is stored lowercased, matching the CRM key.
 import { json, bad, id, now, isEmail } from '../../_lib/util.js';
 import { getVapidPublicKey } from '../../_lib/push.js';
+import { limitOr429 } from '../../_lib/ratelimit.js';
 
 export const onRequestGet = async ({ env }) => {
   const key = getVapidPublicKey(env);
@@ -18,6 +19,11 @@ export const onRequestGet = async ({ env }) => {
 };
 
 export const onRequestPost = async ({ request, env }) => {
+  // No session gates this route (see file header), so a rate limit is the only thing standing
+  // between it and someone scripting thousands of fake rows against a real customer's email —
+  // the same guard /api/leads and /api/preferences already carry for the same reason.
+  const limited = await limitOr429(env, request, { name: 'push_subscribe', limit: 12, windowSec: 60 });
+  if (limited) return limited;
   if (!env.DB) return bad('Database not configured.', 500);
   let b;
   try { b = await request.json(); } catch { return bad('Invalid request.'); }
@@ -54,6 +60,8 @@ export const onRequestPost = async ({ request, env }) => {
 // DELETE — turn them off again. Offered because a notification you cannot switch off is the
 // fastest way to get the whole channel blocked at the OS level.
 export const onRequestDelete = async ({ request, env }) => {
+  const limited = await limitOr429(env, request, { name: 'push_subscribe', limit: 12, windowSec: 60 });
+  if (limited) return limited;
   if (!env.DB) return bad('Database not configured.', 500);
   let b;
   try { b = await request.json(); } catch { return bad('Invalid request.'); }
