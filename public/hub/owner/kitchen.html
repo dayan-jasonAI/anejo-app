@@ -44,6 +44,18 @@
     }).join('') + '</ul>';
   }
 
+  // Meal-plan rotation bowls sold out RIGHT NOW (computed live server-side each poll — see
+  // functions/_lib/menu.js planRotationWarnings). Report only, same as the kitchen board: no
+  // substitution, no hiding the order, just naming what's wrong so a person can decide.
+  function rotationWarn(o) {
+    var list = o.rotation_warnings;
+    if (!list || !list.length) return '';
+    return '<div style="margin:8px 0 0;padding:8px 10px;border-radius:8px;background:#fbe3e1;border:1px solid var(--crit)">' +
+      list.map(function (w) {
+        return '<div style="font-size:13px;font-weight:700;color:var(--crit);line-height:1.4">⚠ ' + Owner.esc(w.bowl) + ' — ' + Owner.esc(w.label) + '</div>';
+      }).join('') + '</div>';
+  }
+
   function orderRow(o) {
     var n = 0; try { (JSON.parse(o.items || '[]') || []).forEach(function (it) { n += Number(it && it.qty) || 1; }); } catch (e) {}
     var badges = (o.delivery_date ? '<span class="badge ok">' + Owner.esc(o.delivery_date) + '</span> ' : '') +
@@ -51,7 +63,7 @@
       '<span class="badge">' + Owner.esc(o.status) + '</span>';
     return '<div class="card order-card"><div class="row" style="padding:0;border:none">' +
       '<div class="row-main"><div class="row-title">' + Owner.esc(o.customer_name || 'Order') + ' · ' + n + ' items</div>' +
-      '<div class="row-sub">' + Owner.esc(o.id) + '</div></div><div>' + badges + '</div></div>' + orderItems(o) + '</div>';
+      '<div class="row-sub">' + Owner.esc(o.id) + '</div></div><div>' + badges + '</div></div>' + rotationWarn(o) + orderItems(o) + '</div>';
   }
 
   function todayStr() { try { return new Date().toLocaleDateString('en-CA'); } catch (e) { return new Date().toISOString().slice(0, 10); } }
