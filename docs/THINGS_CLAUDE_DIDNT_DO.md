@@ -73,7 +73,9 @@ that is checked.
 
 ## 4. There is no marketing ANALYTICS loop — nothing learns
 
-**Status:** not built at all · **Added:** 2026-07-30
+**Status:** ✅ DONE by a later session (2026-07-31) — verified against prod on the 31st: 14 rows in
+`ig_media_metrics`, 2 in `ig_account_metrics`, daily `insights-tick` in the cron worker (e5fa801).
+Kept for history. · **Added:** 2026-07-30
 
 Nothing reads Instagram insights. `instagram_business_manage_insights` was deliberately left off
 the app. No post performance is recorded, nothing compares posts, and the weekly planner writes
@@ -91,7 +93,10 @@ and feed the top performers back into the planner prompt as examples.
 
 ## 5. Nothing answers a DM or a comment yet
 
-**Status:** primitives built, no brain · **Added:** 2026-07-30
+**Status:** ✅ DONE by later sessions (2026-07-31) — Aña drafts and now AUTO-SENDS
+(`social.auto_reply='both'`, re-approved by Dayan after the self-reply incident 32f0649 and two
+certification rounds). Verified: 27 webhook events, 7 IG threads, 25 outbound replies in prod.
+Kept for history. · **Added:** 2026-07-30
 
 `sendDirectMessage()` and `replyToComment()` exist and are tested. **Nothing calls them.** The
 webhook receives and files a message into Añejo Comms; no code drafts a reply, and Ana (the
@@ -159,16 +164,15 @@ which does not expire.
 Each of these is built and deployed but has never run against real data. Listed because "tests
 pass" is not the same as "has worked once".
 
-| Path | Why it has never run |
+| Path | Status as of the 2026-07-31 audit |
 |---|---|
-| Instagram webhook **receiving** | App not published; 0 events ever received |
-| **Sending** a DM reply | `sendDirectMessage` has never called Meta |
-| **Replying** to a comment | Never called |
-| `social-tick` **publishing** | The one live post was published by hand, not by the timer |
-| `campaigns-tick` **sending** | Only the "too late, send nothing" path has been exercised |
+| Instagram webhook **receiving** | ✅ proven — 27 events received |
+| **Sending** a DM reply | ✅ proven — 25 outbound Instagram replies |
+| `social-tick` **publishing** | ✅ proven — 4 posts published by the timer |
+| `campaigns-tick` **sending** | ❌ STILL NEVER RUN — no campaign has ever been scheduled. Proven to refuse a stale one only. |
 
-The scheduler distinction matters most: it has been proven to **refuse** a stale campaign, never
-to **send** a fresh one. Different code paths; only the harmless one has run.
+The one that remains is the one that emails the whole list unattended. Prove it with a scheduled
+send to the `test` segment before trusting it with a real audience.
 
 ---
 
