@@ -571,6 +571,7 @@ food image in them anywhere.
 
 ---
 
+<<<<<<< HEAD
 ## 16. One person could order for a site, and nobody could override it
 
 **Status:** ✅ SHIPPED 2026-08-03 · **Added:** 2026-08-03
@@ -733,6 +734,55 @@ exported `PLATING_STYLE`/`NEGATIVE_PROMPT` constants.
 
 **Not verified:** no expansion has run against a live model, and no image has been generated
 through the chain (`image_generations` is empty). The first real generation is the proof.
+=======
+## 16. The quality gate could name the defect and not fix it
+
+**Status:** ✅ SHIPPED 2026-08-03 · **Added:** 2026-08-03
+
+The owner asked the right question about §15's warning: *if the goal is post quality, why does the
+team raise the alert instead of fixing it before scheduling?*
+
+He was right on both counts, and the second reason is worse than the first.
+
+**The guard shipped after the posts.** §15 landed 2026-08-02; the flagged slides are from
+`studio/2026-07/series/`. `p4`/`p5` were a backfill finding, not a new failure.
+
+**But nothing on the team could have satisfied the gate anyway.** The planner writes `caption` +
+`image_brief` and inserts `media_key NULL` — art direction, never pixels, and *nothing downstream
+had ever read that brief*. The Team Lead attaches one staged bowl image, and only when the caption
+names exactly one bowl; a caption about "every Añejo bowl" names none, so it attaches nothing. A
+text-card-only post was a state the team could **create and could not repair**. The warning was the
+entire remedy, and it handed the work back to the person the team works for.
+
+**The capability was already in the building, wired to the wrong surface.** `_lib/plate_image.js`
+generates an on-brand plate photo (OpenAI → Gemini → Workers AI, under the same $50/week ceiling)
+and was reachable only from Creative Studio. `_lib/food_photo.js` is that wire, shared by all three
+doors — planner, Team Lead, and the owner's button — for the same reason `publishSocialPost` is
+shared.
+
+**Prevent + repair.** New drafts get a food photo at creation (planner always; Lead only when no
+bowl art matched, because real photography must win). Existing warned drafts get a
+**🍽️ Generate a food photo** button on the warning itself → `op: 'generate_cover'`.
+
+**Two traps that would have made it a fake fix**, both pinned by test:
+- **Format.** Instagram is JPEG-only and this Worker has no image binding to transcode with.
+  gpt-image-1 defaults to PNG. Asked for `output_format: jpeg`; a provider that still returns
+  non-JPEG is **skipped** (`not_jpeg`) rather than stored — a PNG slide is a repair that produces
+  an unpublishable post.
+- **Naming.** `putMedia` mints `studio/2026-08/med_x.jpg`, which the §15 guard reads as UNKNOWN.
+  Without the new `role` suffix, the image this app generated *as food* would not be recognised as
+  food and the warning would survive its own fix.
+
+**What it deliberately does not do:** never changes a post's status (attaching an image is not
+approval — an AI-made bowl photo must not schedule itself onto the grid), never replaces an
+existing slide, never runs on a post that already has a recognised photo. Generated covers are
+stamped `social_post_media.origin = 'ai_generated'` (migrations/0076) and **badged AI in the slide
+strip** — a placeholder the owner replaces with real photography, never a claim to be one.
+
+**Not verified:** no image has been generated against live provider keys yet. The chain, the
+skip-on-non-JPEG, the ordering and the refusals are unit-tested; the first real generation is the
+proof. npm test: 1073/1073 pass. npm run lint: clean.
+>>>>>>> claude/social-food-photo
 
 ---
 

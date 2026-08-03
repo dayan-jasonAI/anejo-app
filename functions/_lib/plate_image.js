@@ -152,7 +152,11 @@ const openaiModel = (env) => (env && env.OPENAI_IMAGE_MODEL) || OPENAI_MODEL_DEF
 // Each callX() below now takes `promptData` — the ALREADY-SHAPED { prompt, negative_prompt }
 // from buildImagePrompt(env, brief, { provider }) — rather than the raw one-line brief. Shaping
 // happens once per provider attempt in generatePlateImage's loop; these functions just send it.
-async function callOpenAI(env, promptData) {
+async function callOpenAI(env, promptData, opts = {}) {
+  // gpt-image-* defaults to PNG. Instagram accepts JPEG ONLY (JPEG_ONLY in _lib/instagram.js),
+  // and this Worker has no image binding to transcode with — so when the caller needs a
+  // publishable slide, the format has to be asked for at the source or the image is unusable.
+  const jpeg = opts.requireJpeg === true;
   const r = await fetchWithTimeout(
     'https://api.openai.com/v1/images/generations',
     {
@@ -160,7 +164,10 @@ async function callOpenAI(env, promptData) {
       headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'content-type': 'application/json' },
       // 'medium' quality: a deliberate cost/quality balance, not the max — this is a meal-prep
       // Instagram grid, not print work, and 'high' can be 3-4x the cost for a marginal gain here.
-      body: JSON.stringify({ model: openaiModel(env), prompt: promptData.prompt, size: '1024x1024', quality: 'medium', n: 1 }),
+      body: JSON.stringify({
+        model: openaiModel(env), prompt: promptData.prompt, size: '1024x1024', quality: 'medium', n: 1,
+        ...(jpeg ? { output_format: 'jpeg' } : {}),
+      }),
     },
     TIMEOUT_MS.openai
   );
@@ -168,7 +175,9 @@ async function callOpenAI(env, promptData) {
   const data = await r.json();
   const b64 = data && data.data && data.data[0] && data.data[0].b64_json;
   if (!b64) throw new Error('openai_empty_response');
-  return { bytes: base64ToBytes(b64), contentType: 'image/png', ext: 'png', model: openaiModel(env) };
+  return jpeg
+    ? { bytes: base64ToBytes(b64), contentType: 'image/jpeg', ext: 'jpg', model: openaiModel(env) }
+    : { bytes: base64ToBytes(b64), contentType: 'image/png', ext: 'png', model: openaiModel(env) };
 }
 
 // Same reasoning as the OpenAI model above — overridable without a deploy.
@@ -247,10 +256,23 @@ async function recordProvenance(env, { imageUrl, provider, model, skipped, promp
   } catch { /* best-effort — see comment above */ }
 }
 
-// Generate ONE on-brand plate photo → store to R2 → return its short URL (or null on any
-// failure). Tries providers in the configured order, skipping any that are disabled or
-// unconfigured, and falling through on error/timeout. NEVER throws.
-export async function generatePlateImage(env, prompt) {
+/**
+ * Generate ONE on-brand plate photo → store to R2 → return the full stored record, or null.
+ * Tries providers in the configured order, skipping any that are disabled or unconfigured, and
+ * falling through on error/timeout. NEVER throws.
+ *
+ * opts.requireJpeg — the caller needs an Instagram-publishable image. OpenAI is ASKED for JPEG
+ *   (output_format); Workers AI already returns JPEG; Gemini's image model returns whatever it
+ *   returns, so a non-JPEG response is SKIPPED as `not_jpeg` and the chain moves on. Skipping is
+ *   the honest outcome: there is no image binding in wrangler.toml to transcode with, so storing
+ *   a PNG here would produce a slide the publish path refuses — a "fixed" post that cannot post.
+ * opts.role — role suffix for the R2 filename, so the food-first guard can recognise what this
+ *   produced (see putMedia in _lib/media.js).
+ *
+ * Returns { url, key, provider, model }. generatePlateImage below keeps the older bare-URL
+ * contract its existing Studio callers were written against.
+ */
+export async function generatePlateImageDetailed(env, prompt, opts = {}) {
   if (!env || !prompt) return null;
   const skipped = [];
   try {
@@ -282,20 +304,31 @@ export async function generatePlateImage(env, prompt) {
 
       let result;
       try {
-        result = await withTimeout(PROVIDER_FN[name](env, promptData), TIMEOUT_MS[name]);
+        result = await withTimeout(PROVIDER_FN[name](env, promptData, opts), TIMEOUT_MS[name]);
       } catch (e) {
         skipped.push({ provider: name, reason: e && e.message === 'timeout' ? 'timeout' : String((e && e.message) || 'error') });
         continue;
       }
 
-      const stored = await putMedia(env, { kind: 'studio', bytes: result.bytes, contentType: result.contentType, ext: result.ext });
+      // Checked AFTER the call, not before: only OpenAI can be asked for a format up front, and a
+      // provider that happens to return JPEG anyway should still count. The spend is not recorded
+      // for a skip here — nothing usable was produced, and recording it would let an unusable
+      // format quietly eat the weekly ceiling.
+      if (opts.requireJpeg === true && result.contentType !== 'image/jpeg') {
+        skipped.push({ provider: name, reason: `not_jpeg:${result.contentType || 'unknown'}` });
+        continue;
+      }
+
+      const stored = await putMedia(env, {
+        kind: 'studio', bytes: result.bytes, contentType: result.contentType, ext: result.ext, role: opts.role,
+      });
       if (!stored || !stored.stored) { skipped.push({ provider: name, reason: 'store_failed' }); continue; }
 
       // Spend is only recorded for the provider that actually produced an image — matching how
       // recordSpend only fires on billed tokens, providers only bill on a successful generation.
       await recordImageSpend(env, { feature: 'plate_image', provider: name, model: result.model });
       await recordProvenance(env, { imageUrl: stored.url, provider: name, model: result.model, prompt, skipped });
-      return stored.url;
+      return { url: stored.url, key: stored.key, provider: name, model: result.model };
     }
 
     await recordProvenance(env, { imageUrl: null, provider: null, model: null, prompt, skipped });
@@ -303,4 +336,14 @@ export async function generatePlateImage(env, prompt) {
   } catch {
     return null;
   }
+}
+
+/**
+ * The original contract, unchanged for the Studio callers written against it: a bare short URL,
+ * or null. New callers that need the R2 key (a social slide stores media_key, not a URL) should
+ * use generatePlateImageDetailed above rather than trying to parse the key back out of the URL.
+ */
+export async function generatePlateImage(env, prompt) {
+  const out = await generatePlateImageDetailed(env, prompt);
+  return out ? out.url : null;
 }

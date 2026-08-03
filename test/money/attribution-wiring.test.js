@@ -46,9 +46,20 @@ test('attribution can never cost the week its posts', () => {
   assert.match(guarded, /catch \{ directingBriefId = null; \}/);
 });
 
-test('format is left UNSET by the planner rather than guessed', () => {
-  // The planner attaches no media — slides arrive later from the owner or Studio. Recording
-  // "single" here would be a confident answer to a question not yet decided, and it would then
-  // pollute every carousel-vs-single comparison the rollup makes.
-  assert.match(planner, /format: undefined, slideCount: undefined/);
+test('format is recorded only when a photo actually landed — never guessed', () => {
+  // The RULE has not changed: never record a format the planner does not know, because a
+  // confident "single" pollutes every carousel-vs-single comparison the rollup makes.
+  //
+  // The FACT it rested on has. This test used to assert a flat `format: undefined, slideCount:
+  // undefined` because "the planner attaches no media — slides arrive later from the owner or
+  // Studio". Since _lib/food_photo.js, the planner generates a food photo at draft time, so on
+  // success the shape IS known and 'single' is a fact rather than a guess. On failure — no
+  // provider, weekly AI ceiling reached, non-JPEG — nothing is attached and both stay undefined,
+  // which is the honesty the original was protecting.
+  const stamp = planner.slice(planner.indexOf('await stampPostProvenance('), planner.indexOf('made.push('));
+  assert.match(stamp, /format: photo\.ok \? 'single' : undefined/, 'format must be conditional on a photo having landed');
+  assert.match(stamp, /slideCount: photo\.ok \? photo\.slides : undefined/);
+  // And the stamp must come AFTER the generation, or it would record the shape from before it.
+  assert.ok(planner.indexOf('await ensureFoodPhoto(') < planner.indexOf('await stampPostProvenance('),
+    'the photo must be attached before its shape is recorded');
 });

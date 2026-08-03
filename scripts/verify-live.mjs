@@ -188,6 +188,43 @@ else {
     }
   } catch (e) { fail('could not read sms_log: ' + String(e.message || e).slice(0, 120)); }
 
+  // FOOD-FIRST REPAIR. The guard could name "this post has no food photo" and not fix it; the
+  // repair generates one. Two things are worth reading from production rather than assuming:
+  // whether the schema the badge needs is actually there, and whether anything the repair
+  // produced is publishable at all.
+  try {
+    const col = d1("SELECT name FROM pragma_table_info('social_post_media') WHERE name='origin'");
+    if (!col.length) fail("social_post_media.origin missing — migration 0076 never ran, so a generated cover cannot be badged AI");
+    else ok('social_post_media.origin present (generated covers can be badged)');
+  } catch (e) { fail('could not read social_post_media schema: ' + String(e.message || e).slice(0, 120)); }
+
+  try {
+    // Instagram is JPEG-only and this Worker cannot transcode. A generated cover stored as PNG is
+    // a repair that produced an unpublishable post — the exact failure requireJpeg exists to stop.
+    const gen = d1("SELECT media_key, origin FROM social_post_media WHERE origin='ai_generated'");
+    if (!gen.length) skip('no AI-generated cover exists yet — the provider chain is unproven against live keys');
+    else {
+      const notJpeg = gen.filter((g) => !/\.jpe?g$/i.test(g.media_key));
+      const notRole = gen.filter((g) => !/_photo\.[a-z0-9]+$/i.test(g.media_key));
+      if (notJpeg.length) fail(`${notJpeg.length} generated cover(s) are not JPEG — Instagram will refuse them`);
+      else ok(`${gen.length} generated cover(s), all JPEG`);
+      if (notRole.length) fail(`${notRole.length} generated cover(s) lack the _photo role suffix — the guard cannot see its own repair and keeps warning`);
+      else ok('every generated cover carries the _photo role suffix');
+    }
+  } catch (e) { fail('could not read generated covers: ' + String(e.message || e).slice(0, 120)); }
+
+  try {
+    // The original complaint: drafts whose every slide is a text card. Reported, not failed —
+    // fixing them is the owner tapping a button, not something a deploy can do.
+    const stuck = d1(
+      "SELECT p.id FROM social_posts p WHERE p.status IN ('draft','scheduled') " +
+      "AND EXISTS (SELECT 1 FROM social_post_media m WHERE m.post_id=p.id) " +
+      "AND NOT EXISTS (SELECT 1 FROM social_post_media m WHERE m.post_id=p.id AND (m.media_key LIKE '%_photo.%' OR m.media_key LIKE 'studio/bowls/%'))"
+    );
+    if (stuck.length) skip(`${stuck.length} unshipped draft(s) still have no food photo — tap "Generate a food photo" on each`);
+    else ok('no unshipped draft is text-cards-only');
+  } catch (e) { fail('could not survey drafts: ' + String(e.message || e).slice(0, 120)); }
+
   try {
     // An owner override must be visible as such. A corrected count that looks like a client
     // submission is a record that cannot be explained when the invoice is questioned.

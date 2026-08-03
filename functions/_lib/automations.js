@@ -159,6 +159,7 @@ import { sendPushTickle } from './push.js';
 import { budgetGate, recordSpend } from './ai_budget.js';
 import { auditDraft } from './governance.js';
 import { TRUST_CATEGORIES, captionHash, autoPublishCategories } from './trust_ledger.js';
+import { ensureFoodPhoto } from './food_photo.js';
 
 const MODEL = 'claude-sonnet-4-6';
 export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan'];
@@ -1007,20 +1008,37 @@ async function socialPlan(env, date) {
         await env.DB.prepare('UPDATE social_posts SET audit_score=?, audit_flags=?, audit_at=?, audit_status=? WHERE id=?')
           .bind(audit.brand_score, toJson(audit.flags), now(), audit.verdict === 'pass' ? 'pass' : 'flag', postId).run();
       } catch { /* the draft stands, visibly unscored (NULL audit_at) */ }
+      // FOOD PHOTO AT DRAFT TIME (_lib/food_photo.js). This planner has always written an
+      // image_brief — "art direction for a food photo we will generate" — and nothing has ever
+      // generated from it, so every drafted post landed with an empty frame for the owner to
+      // fill. Worse, a post with no photo is precisely what the food-first guard warns about
+      // AFTER the fact; a quality gate that reports a defect the same system just created,
+      // without fixing it, is a gate that only makes work. Generating here means the warning has
+      // nothing to find on anything drafted from now on.
+      //
+      // Best-effort by construction: ensureFoodPhoto never throws and never touches status, so a
+      // provider outage, the weekly AI ceiling, or a missing key costs this post its image — the
+      // exact state it would have been in before — and never the caption or the week's cadence.
+      const photo = await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
+
       // Record WHAT produced this post — which of the owner's rules were in force and which brief
       // directed it — so the reach it eventually earns can be traced back to a cause. Without
       // this, the owner writes a rule, reach moves, and nothing anywhere connects the two: the
       // team follows instructions but can never learn which instruction was worth following.
       // Best-effort by contract (see post_provenance.js); a lost stamp costs one row of analysis,
       // never the post.
+      //
+      // STAMPED AFTER THE PHOTO, deliberately. The comment this replaces said "the planner never
+      // attaches media ... slides arrive later", which stopped being true the moment the line
+      // above started generating one. Recording format/slide_count only when a photo actually
+      // landed keeps the honesty the original had: a post the chain could not illustrate leaves
+      // both undefined for whoever knows better later, rather than claiming a shape it lacks.
       await stampPostProvenance(env, {
         postId, ruleIds: activeRuleIds, briefId: directingBriefId, category,
-        // The planner never attaches media — media_key is NULL here and slides arrive later from
-        // the owner or Studio. Passing undefined leaves format untouched for whoever knows it,
-        // rather than recording a confident "single" that is merely premature.
-        format: undefined, slideCount: undefined,
+        format: photo.ok ? 'single' : undefined,
+        slideCount: photo.ok ? photo.slides : undefined,
       });
-      made.push({ hour, day_offset: dayOffset, id: postId, category });
+      made.push({ hour, day_offset: dayOffset, id: postId, category, photo: photo.ok ? photo.provider : null });
     } catch { /* one bad row must not lose the rest of the week */ }
   }
 
@@ -1047,13 +1065,23 @@ async function socialPlan(env, date) {
     tokens: ai.tokens || null,
     output: {
       date, drafted: made.length, already_pending: Number(pending || 0), auto_scheduled: autoScheduled,
+      illustrated: made.filter((m) => m.photo).length,
       promoted: onSale.map((b) => b.name), withheld_sold_out: off.map((b) => b.name),
       // Which brief this run actually read — 'd1' vs 'repo' — so a thin owner edit is visible in
       // the run log instead of a mystery ("why did this week read generic?").
       brand_source: brand.source,
     },
+    // Says how many actually got a photo rather than assuming all or none. The old line ("waiting
+    // for an image") was about to become false for most runs and misleading for the rest — and a
+    // run where every provider was down has to read differently from one where none were.
     summary: made.length
-      ? `Drafted ${made.length} Instagram posts for the week from ${onSale.length} available bowls. They are waiting for an image and your approval — nothing posts on its own.`
+      ? `Drafted ${made.length} Instagram posts for the week from ${onSale.length} available bowls. `
+        + (made.filter((m) => m.photo).length === made.length
+          ? 'Each one has a generated food photo to start from — replace it with real photography if you have it. '
+          : made.filter((m) => m.photo).length
+            ? `${made.filter((m) => m.photo).length} have a generated food photo; the rest are waiting for an image. `
+            : 'They are waiting for an image. ')
+        + 'Nothing posts on its own — they need your approval.'
       : 'Nothing could be drafted.',
   };
 }

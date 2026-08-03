@@ -12,6 +12,7 @@ import { capture } from '../../../_lib/track.js';
 import { leadReply, buildSpine, ALLOWED_ACTIONS } from '../../../_lib/team_lead.js';
 import { auditDraft } from '../../../_lib/governance.js';
 import { bowlArtFor } from '../../../_lib/bowl_art.js';
+import { ensureFoodPhoto } from '../../../_lib/food_photo.js';
 
 const MAX_DRAFT_POSTS = 5;
 
@@ -132,6 +133,16 @@ async function executeAction(env, action) {
               'INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,0,?,?,?)'
             ).bind(id('spm'), postId, art, randToken(24), t).run();
           } catch { /* caption draft still stands; owner can attach by hand */ }
+        } else {
+          // NO staged bowl art matched — the caption names two bowls, or none. That is the common
+          // case for the posts this business actually wants (macro plans, catering, "every Anejo
+          // bowl"), and until now it meant the Lead produced a caption with an empty frame that
+          // the food-first guard would later warn about. Generate one instead: same shared path
+          // the planner and the owner's repair button use (_lib/food_photo.js).
+          //
+          // Only in the `else` — a matched bowl image IS real photography, and the generated
+          // stand-in must never displace it or be paid for alongside it.
+          await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
         }
         // EVERY generated draft is scored, whichever door it came through — the planner's inserts
         // are audited in socialPlan, and a Lead that could slip unscored copy past governance
