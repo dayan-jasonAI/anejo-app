@@ -29,6 +29,11 @@
   .aud{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
   .aud summary{cursor:pointer;font-weight:700;color:var(--green);font-size:13px;padding:9px 12px}
   .aud[open] summary{border-bottom:1px solid var(--line)}
+  /* Roster rows inside "Who can order". Wraps rather than truncating — you have to be able to
+     tell two colleagues apart before removing one. */
+  .strow{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;padding:8px 12px;border-bottom:1px solid var(--line)}
+  .strow button{border:1px solid var(--line);background:#fff;border-radius:7px;font:inherit;font-size:11.5px;font-weight:700;color:var(--green);padding:4px 10px;cursor:pointer;white-space:nowrap}
+  .aud .linkrow{padding:0 12px 4px}
   .dev,.evrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
   .dev:last-child,.evrow:last-child{border-bottom:0}
   .dev.rev{opacity:.5}
@@ -318,9 +323,84 @@
         '<div class="linkrow"><input id="cn_' + s.id + '" placeholder="Contact name" value="' + esc(s.contact_name || '') + '" style="flex:1">' +
         '<input id="cp_' + s.id + '" placeholder="Mobile e.g. 561-555-0142" value="' + esc(s.contact_phone || '') + '" style="flex:1.3">' +
         '<button onclick="__setContact(\'' + aid + '\',\'' + s.id + '\')">Save</button></div></div>' +
+      staffBlock(s, aid) +
+      (pending ? '' : overrideBlock(s, aid)) +
       (pending ? '' : editTermsForm(s, aid)) +
       '<table class="led"><tr><th>Date</th><th class="r">Lunches</th><th class="r">Total</th><th class="r">Inv.</th></tr>' + rows + '</table></div>';
   }
+
+  // WHO MAY ORDER FOR THIS SITE.
+  //
+  // The office contact box above is the site's MAIN contact — one person, one number. Until
+  // migrations/0077 that number was the only place a verification code could ever go, so when the
+  // Pompano contact was out on 2026-08-03 the covering staffer typed her own name and her own
+  // mobile and the code still went to the absent contact's phone. Nobody could order; the day
+  // went unrecorded. This list is the fix: anyone on it gets their own code, and the main contact
+  // stays copied on every receipt.
+  //
+  // Someone who had to cover before being added shows as PENDING — they ordered, verified by a
+  // code to their own phone, and are recorded by name; placing one order does not authorize them.
+  function staffBlock(s, aid) {
+    var staff = s.staff || [];
+    var rows = staff.map(function (p) {
+      var tag = p.is_primary ? '<span class="pill gold">main</span>'
+              : (p.active ? '' : '<span class="pill" style="background:#f7e3de;color:#7a2418">pending</span>');
+      var btn = p.is_primary ? ''
+              : (p.active
+                  ? '<button onclick="__staff(\'' + aid + '\',\'' + s.id + '\',\'' + esc(p.id) + '\',false)">Remove</button>'
+                  : '<button onclick="__staff(\'' + aid + '\',\'' + s.id + '\',\'' + esc(p.id) + '\',true)">Allow</button>');
+      return '<div class="strow"><span>' + esc(p.name) + ' <span style="color:var(--muted)">' + esc(p.phone_hint || '') + '</span> ' + tag + '</span>' + btn + '</div>';
+    }).join('') || '<div style="font-size:12px;color:var(--muted);padding:6px 0">Only the main contact above can order — add a backup so a sick day never blocks the count.</div>';
+    return '<details class="aud"><summary>👥 Who can order (' + staff.filter(function (p) { return p.active; }).length + ')</summary>' +
+      rows +
+      '<div class="linkrow" style="margin-top:8px"><input id="sn_' + s.id + '" placeholder="Name" style="flex:1">' +
+      '<input id="sp_' + s.id + '" placeholder="Mobile e.g. 561-555-0142" style="flex:1.3">' +
+      '<button onclick="__addStaff(\'' + aid + '\',\'' + s.id + '\')">Add</button></div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:5px">Each person gets their own 6-digit code by text. The main contact is copied on every receipt.</div>' +
+      '</details>';
+  }
+  window.__addStaff = function (aid, sid) {
+    var name = ((document.getElementById('sn_' + sid) || {}).value || '').trim();
+    var phone = ((document.getElementById('sp_' + sid) || {}).value || '').trim();
+    if (!name || !phone) { Hub.toast('Name and mobile are both needed.'); return; }
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'add_staff', site_id: sid, name: name, phone: phone } })
+      .then(function (r) { Hub.toast(r && r.ok ? 'Added — they can order now.' : (r && r.error) || 'Could not add.'); if (r && r.ok) load(); });
+  };
+  window.__staff = function (aid, sid, staffId, active) {
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'set_staff_active', site_id: sid, staff_id: staffId, active: active } })
+      .then(function (r) { Hub.toast(r && r.ok ? (active ? 'Allowed.' : 'Removed.') : (r && r.error) || 'Could not update.'); if (r && r.ok) load(); });
+  };
+
+  // RECORD A COUNT YOURSELF — the control that did not exist on 2026-08-03, when Pompano's count
+  // arrived as a text message and there was no way to enter it, so the day went unbilled.
+  //
+  // Sends NO text to the client. This is you correcting your own books, not the office confirming
+  // an order — and a "✅ Order confirmed" receipt for something they never submitted would be a
+  // confirmation of a thing that did not happen. The reason is required and lands on the
+  // append-only audit trail as an 'owner_override' row, so six weeks later the invoice can be
+  // explained.
+  function overrideBlock(s, aid) {
+    return '<details class="aud"><summary>✍️ Record a count yourself</summary>' +
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">For a count phoned or texted in, or a day the office could not use the form. No text is sent to the client. Overwrites the day if it already has a count.</div>' +
+      '<div class="linkrow"><input id="od_' + s.id + '" type="date" style="flex:1.1">' +
+      '<input id="oc_' + s.id + '" type="number" min="0" max="500" placeholder="Lunches" style="flex:.8"></div>' +
+      '<div class="linkrow" style="margin-top:6px"><input id="or_' + s.id + '" placeholder="Where it came from — e.g. texted by Roxana" style="flex:1">' +
+      '<button onclick="__setCount(\'' + aid + '\',\'' + s.id + '\')">Record</button></div>' +
+      '</details>';
+  }
+  window.__setCount = function (aid, sid) {
+    var date = ((document.getElementById('od_' + sid) || {}).value || '').trim();
+    var count = ((document.getElementById('oc_' + sid) || {}).value || '').trim();
+    var reason = ((document.getElementById('or_' + sid) || {}).value || '').trim();
+    if (!date) { Hub.toast('Pick the service date.'); return; }
+    if (count === '') { Hub.toast('Enter the head count.'); return; }
+    if (!reason) { Hub.toast('Say where the count came from — it goes on the record.'); return; }
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'set_headcount', site_id: sid, service_date: date, headcount: Number(count), reason: reason } })
+      .then(function (r) {
+        Hub.toast(r && r.ok ? 'Recorded ' + r.headcount + ' for ' + r.service_date + ' — no text sent.' : (r && r.error) || 'Could not record.');
+        if (r && r.ok) load();
+      });
+  };
 
   function fld(aid, key, label, val) {
     return '<div><label style="font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px">' + label + '</label>' +

@@ -56,6 +56,13 @@
   /* identity + verification */
   .txt{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 13px;font:inherit;font-size:15px;background:var(--cream)}
   .txt:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(198,168,91,.16)}
+  select.txt{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--green) 50%),linear-gradient(135deg,var(--green) 50%,transparent 50%);background-position:calc(100% - 19px) 21px,calc(100% - 13px) 21px;background-size:6px 6px,6px 6px;background-repeat:no-repeat;padding-right:38px}
+  .hint{font-size:12.5px;line-height:1.5;color:#6b6257}
+  /* Roster rows: the main contact's list of who may order. Wraps rather than truncating a name —
+     the person reading this has to be able to tell two colleagues apart before removing one. */
+  .strow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .mini{border:1px solid var(--green);background:#fff;color:var(--green);border-radius:8px;font:inherit;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer;white-space:nowrap}
+  .mini.danger{border-color:#d9c3bd;color:var(--crit)}
   .secure{display:flex;gap:7px;align-items:flex-start;font-size:12.5px;color:var(--muted);margin-top:13px;line-height:1.5}
   .code{width:100%;text-align:center;letter-spacing:12px;font-size:34px;font-weight:800;color:var(--green);border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--cream);margin-top:6px}
   .code:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(198,168,91,.16)}
@@ -97,6 +104,22 @@
     change:{en:'Need to change it? Reopen this link before {c} AM.',es:'¿Necesitas cambiarlo? Reabre este enlace antes de las {c} AM.'},
     yourName:{en:'Your name',es:'Tu nombre'},
     yourNamePh:{en:'Who’s placing this order?',es:'¿Quién hace este pedido?'},
+    whoOrdering:{en:'Who’s ordering today?',es:'¿Quién pide hoy?'},
+    otherPerson:{en:'Someone else is covering today',es:'Otra persona cubre hoy'},
+    coverNote:{en:'Covering for the office today? Enter your name and your own mobile — the code comes to you and the order is recorded under your name.',es:'¿Cubres la oficina hoy? Ingresa tu nombre y tu propio celular — el código te llega a ti y el pedido queda a tu nombre.'},
+    secureStaff:{en:'🔒 To confirm it’s you, we’ll text a 6-digit code to {hint}.',es:'🔒 Para confirmar que eres tú, enviaremos un código de 6 dígitos al {hint}.'},
+    secureCover:{en:'🔒 We’ll text a 6-digit code to the mobile above to confirm it’s you.',es:'🔒 Enviaremos un código de 6 dígitos al celular de arriba para confirmar que eres tú.'},
+    notYou:{en:'Not you? Someone else is ordering',es:'¿No eres tú? Otra persona hace el pedido'},
+    manageTitle:{en:'Who can order for this location',es:'Quién puede pedir en esta ubicación'},
+    manageAdd:{en:'Add someone',es:'Agregar a alguien'},
+    manageName:{en:'Name',es:'Nombre'},
+    manageMobile:{en:'Mobile',es:'Celular'},
+    manageSave:{en:'Add',es:'Agregar'},
+    manageApprove:{en:'Allow',es:'Permitir'},
+    manageRemove:{en:'Remove',es:'Quitar'},
+    managePending:{en:'ordered as a stand-in — not yet on the list',es:'pidió como suplente — aún no está en la lista'},
+    manageMain:{en:'main contact',es:'contacto principal'},
+    manageHelp:{en:'Anyone on this list can place the order and gets their own code by text. You’re copied on every receipt.',es:'Cualquiera en esta lista puede hacer el pedido y recibe su propio código por SMS. Recibes copia de cada recibo.'},
     yourMobile:{en:'Your mobile number',es:'Tu número de celular'},
     yourMobilePh:{en:'For your receipt + a one-time code',es:'Para tu recibo + un código único'},
     secureNote:{en:'🔒 To confirm it’s you, we’ll text a 6-digit code to {hint}.',es:'🔒 Para confirmar que eres tú, enviaremos un código de 6 dígitos al {hint}.'},
@@ -154,17 +177,58 @@
           '<button type="button" onclick="bump(1)">+</button></div>'+
         '<span class="lab" style="margin-top:18px">'+tr('allerg')+'</span>'+
         '<textarea id="notes" maxlength="400" placeholder="'+esc(tr('allergPh'))+'">'+esc(pre&&pre.notes||'')+'</textarea>'+
-        '<span class="lab" style="margin-top:18px">'+tr('yourName')+'</span>'+
-        '<input id="who" class="txt" type="text" maxlength="80" autocomplete="name" placeholder="'+esc(tr('yourNamePh'))+'" value="'+esc(ctx.contact_name||'')+'">'+
-        (ctx.enroll_needed
-          ? '<span class="lab" style="margin-top:16px">'+tr('yourMobile')+'</span><input id="mob" class="txt" type="tel" inputmode="tel" maxlength="24" autocomplete="tel" placeholder="'+esc(tr('yourMobilePh'))+'">'
-          : '')+
-        '<div class="secure">'+(ctx.device_trusted
-            ? tr('trustedNote')
-            : (ctx.has_contact_phone ? tr('secureNote',{hint:esc(ctx.phone_hint||'')}) : tr('secureEnroll')))+'</div>'+
+        whoBlock()+
         '<button class="btn" id="go" onclick="submitCount()">'+(pre?tr('update'):tr('submit'))+'</button>'+
-      '</div>'+monthCard();
+      '</div>'+monthCard()+managePanel();
   }
+
+  // WHO IS ORDERING.
+  //
+  // This used to be one free-text name box, and the 6-digit code went to the site's ONE
+  // registered number regardless of what was typed in it. On 2026-08-03 the Pompano contact was
+  // out, a colleague filled this in with her own name and her own mobile, and the code still went
+  // to the absent contact's phone — so the office could not order at all. The name box was, in
+  // effect, decorative.
+  //
+  // Now the roster is the control: pick who you are and the code goes to YOUR number, or say
+  // someone else is covering and enter your own mobile. Either way it is still one code, one
+  // verified person, one audit row — the security did not move, the bottleneck did.
+  var other=false;       // 'someone else is covering today' selected
+  var notMe=false;       // trusted device, but a different person is at the keyboard
+  var pickedId=null;     // roster id currently selected; kept in state so a re-render never
+                         // reads it back out of the DOM node it is about to replace
+
+  function whoBlock(){
+    var staff=(ctx.staff||[]).filter(function(s){return s.active!==false;});
+    // A verified device with nobody claiming otherwise: keep the one-tap path it always had.
+    if(ctx.device_trusted && !notMe){
+      return '<div class="secure">'+tr('trustedNote')+
+        ' <a href="#" onclick="claimNotMe();return false;" style="color:var(--green);font-weight:700">'+tr('notYou')+'</a></div>';
+    }
+    if(!pickedId&&staff.length) pickedId=staff[0].id;
+    var opts='';
+    for(var i=0;i<staff.length;i++){
+      opts+='<option value="'+esc(staff[i].id)+'"'+((!other&&staff[i].id===pickedId)?' selected':'')+'>'+esc(staff[i].name)+' · '+esc(staff[i].phone_hint||'')+'</option>';
+    }
+    opts+='<option value="__other__"'+(other?' selected':'')+'>'+esc(tr('otherPerson'))+'</option>';
+    var pickedHint='';
+    if(!other) for(var j=0;j<staff.length;j++) if(staff[j].id===pickedId) pickedHint=staff[j].phone_hint||'';
+    return '<span class="lab" style="margin-top:18px">'+tr('whoOrdering')+'</span>'+
+      (staff.length
+        ? '<select id="whoSel" class="txt" onchange="onWho()">'+opts+'</select>'
+        : '')+
+      (other||!staff.length
+        ? '<div class="hint" style="margin-top:8px">'+tr('coverNote')+'</div>'+
+          '<span class="lab" style="margin-top:12px">'+tr('yourName')+'</span>'+
+          '<input id="who" class="txt" type="text" maxlength="80" autocomplete="name" placeholder="'+esc(tr('yourNamePh'))+'">'+
+          '<span class="lab" style="margin-top:16px">'+tr('yourMobile')+'</span>'+
+          '<input id="mob" class="txt" type="tel" inputmode="tel" maxlength="24" autocomplete="tel" placeholder="'+esc(tr('yourMobilePh'))+'">'+
+          '<div class="secure">'+tr('secureCover')+'</div>'
+        : '<div class="secure">'+tr('secureStaff',{hint:esc(pickedHint)})+'</div>');
+  }
+
+  function onWho(){ var s=document.getElementById('whoSel'); var v=s?s.value:''; other=(v==='__other__'); if(!other&&v) pickedId=v; render(); }
+  function claimNotMe(){ notMe=true; other=false; render(); }
 
   // The month/spend card is GONE from this page on purpose.
   //
@@ -177,6 +241,55 @@
   // invoicing reads them there. They simply never reach this screen.
   function monthCard(){ return ''; }
 
+  // ROSTER MANAGEMENT, for the site's MAIN CONTACT only (can_manage_staff is decided server-side
+  // by comparing this device's verified number against the site's contact number — holding the
+  // link is deliberately not enough, because the link lives in an office inbox).
+  //
+  // This is the piece that stops 2026-08-03 repeating. The office had someone ready to cover and
+  // no way to authorize her, so the only path left was a text message to the owner. The main
+  // contact can now add that person BEFORE the day they are out — and approve anyone who had to
+  // order as a stand-in.
+  function managePanel(){
+    if(!ctx.can_manage_staff) return '';
+    var rows=(ctx.staff||[]).map(function(s){
+      var tag = s.is_primary ? ' <span class="hint">('+esc(tr('manageMain'))+')</span>'
+              : (s.active===false ? ' <span class="hint">— '+esc(tr('managePending'))+'</span>' : '');
+      var btn = s.is_primary ? ''
+              : (s.active===false
+                  ? '<button type="button" class="mini" onclick="staffOp(\'approve\',\''+esc(s.id)+'\')">'+tr('manageApprove')+'</button>'
+                  : '<button type="button" class="mini danger" onclick="staffOp(\'remove\',\''+esc(s.id)+'\')">'+tr('manageRemove')+'</button>');
+      return '<div class="strow"><span>'+esc(s.name)+' · '+esc(s.phone_hint||'')+tag+'</span>'+btn+'</div>';
+    }).join('');
+    return '<div class="card"><div class="site" style="font-size:17px">'+tr('manageTitle')+'</div>'+
+      '<div class="hint" style="margin:6px 0 12px">'+tr('manageHelp')+'</div>'+
+      rows+
+      '<span class="lab" style="margin-top:14px">'+tr('manageAdd')+'</span>'+
+      '<input id="stName" class="txt" type="text" maxlength="80" placeholder="'+esc(tr('manageName'))+'">'+
+      '<input id="stPhone" class="txt" style="margin-top:8px" type="tel" inputmode="tel" maxlength="24" placeholder="'+esc(tr('manageMobile'))+'">'+
+      '<button type="button" class="btn" style="margin-top:12px" onclick="staffAdd()">'+tr('manageSave')+'</button>'+
+      '<div id="stErr"></div></div>';
+  }
+
+  function staffPost(body){
+    body.t=token;
+    return fetch('/api/contract/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){return r.json();}).then(function(d){
+        if(d&&d.ok){ ctx.staff=d.staff; pickedId=null; render(); return; }
+        var e=document.getElementById('stErr');
+        if(e) e.innerHTML='<div class="banner crit" style="margin-top:10px">'+esc((d&&d.error)||tr('submitErr'))+'</div>';
+      }).catch(function(){
+        var e=document.getElementById('stErr');
+        if(e) e.innerHTML='<div class="banner crit" style="margin-top:10px">'+tr('submitErr')+'</div>';
+      });
+  }
+  function staffAdd(){
+    var n=((document.getElementById('stName')||{}).value||'').trim();
+    var p=((document.getElementById('stPhone')||{}).value||'').trim();
+    if(!n||!p){ var e=document.getElementById('stErr'); if(e)e.innerHTML='<div class="banner crit" style="margin-top:10px">'+esc(tr('nameReq'))+'</div>'; return; }
+    staffPost({op:'add', name:n, phone:p});
+  }
+  function staffOp(op,id){ staffPost({op:op, staff_id:id}); }
+
   function bump(d){ var i=document.getElementById('n'); var v=Math.max(0,(parseInt(i.value,10)||0)+d); i.value=v||''; }
 
   var pending=null; // the order being submitted, held across the verification step
@@ -185,11 +298,28 @@
   function submitCount(){
     var i=document.getElementById('n'); var n=parseInt(i.value,10);
     if(!n||n<1){ i.focus(); return; }
+    var notes=(document.getElementById('notes')||{}).value||'';
+
+    // Verified device, nobody claiming otherwise → the server already knows who this is.
+    if(ctx.device_trusted && !notMe){
+      pending={count:n, notes:notes, name:ctx.contact_name||'', phone:'', staff_id:null};
+      postIntake(null); return;
+    }
+    var sel=document.getElementById('whoSel');
+    var picked=(!other&&sel&&sel.value&&sel.value!=='__other__')?sel.value:null;
+    if(picked){
+      // The NUMBER is never sent from here: requestIntakeOtp reads it from the roster row by id,
+      // so a page cannot point somebody else's name at its own handset.
+      var nm=''; var st=(ctx.staff||[]);
+      for(var k=0;k<st.length;k++) if(st[k].id===picked) nm=st[k].name;
+      pending={count:n, notes:notes, name:nm, phone:'', staff_id:picked};
+      postIntake(null); return;
+    }
     var name=((document.getElementById('who')||{}).value||'').trim();
     if(!name){ formError(tr('nameReq')); var w=document.getElementById('who'); if(w)w.focus(); return; }
     var mobEl=document.getElementById('mob'); var phone=mobEl?(mobEl.value||'').trim():'';
-    if(mobEl && !phone){ formError(tr('mobileReq')); mobEl.focus(); return; }
-    pending={count:n, notes:(document.getElementById('notes')||{}).value||'', name:name, phone:phone};
+    if(!phone){ formError(tr('mobileReq')); if(mobEl)mobEl.focus(); return; }
+    pending={count:n, notes:notes, name:name, phone:phone, staff_id:null};
     postIntake(null);
   }
 
@@ -198,6 +328,7 @@
     var b=document.getElementById('vgo')||document.getElementById('go');
     if(b){ b.disabled=true; b.textContent=tr(code!=null?'verifying':'sending'); }
     var body={t:token, lang:lang, count:pending.count, notes:pending.notes, name:pending.name, phone:pending.phone};
+    if(pending.staff_id) body.staff_id=pending.staff_id;
     if(code!=null) body.code=code;
     fetch('/api/contract/headcount',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
       .then(function(r){return r.json();}).then(function(d){

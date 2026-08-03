@@ -1,8 +1,12 @@
-// POST /api/contract/headcount  { t, count, notes?, name, phone?, lang?, code? }
+// POST /api/contract/headcount  { t, count, notes?, name, phone?, staff_id?, lang?, code? }
 //   PUBLIC (token-gated). Enforces verify-device-once for non-repudiation:
 //     • trusted device (cookie)         → records the order + texts a receipt.
 //     • untrusted, no code               → texts a 6-digit code, returns { needs_verify }.
 //     • untrusted, code present          → verifies, trusts the device (Set-Cookie), records.
+//   `staff_id` picks a person from the site's roster and the code goes to THEIR number (read
+//   server-side from the roster row, never from this request). `phone` is the "someone else is
+//   covering today" path. Before either existed, every code went to the site's one registered
+//   contact — so an absent contact meant the office could not order at all.
 //   Every submission writes an append-only audit row. ok:false is returned 200 so the intake
 //   page can show the message inline. Rate-limited.
 import { json, bad } from '../../_lib/util.js';
@@ -22,6 +26,7 @@ export const onRequestPost = async ({ request, env }) => {
     notes: b && b.notes,
     name: b && b.name,
     phone: b && b.phone,
+    staff_id: b && b.staff_id,
     lang: b && b.lang,
     code: b && b.code,
     cookieHeader: request.headers.get('Cookie') || '',

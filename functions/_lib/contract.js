@@ -147,25 +147,164 @@ function otpBody(lang, code, site) {
   return `Añejo code: ${code}. Enter it to confirm today's lunch order for ${site}. Expires in 10 min. Do not share it.`;
 }
 
-// Step 1 of verify-device-once: text a single-use code to the office's number (the one on
-// file, or — on first use of a site with no number yet — the mobile the contact enters, which
-// becomes the site's contact on success). Code is held in KV, single-use, 10-min TTL.
-export async function requestIntakeOtp(env, { token, name, phone, lang, nowMs } = {}) {
+// ---- The site's staff roster: who may order for this site --------------------------------
+//
+// Before this existed, `contract_sites.contact_phone` was the only number a verification code
+// could ever reach. When Pompano's registered contact was out on 2026-08-03, the covering staffer
+// typed her own name and her own mobile and the code still went to the absent contact's phone —
+// so the office could not order at all and the day went unrecorded. contract_intake_devices had
+// always allowed many trusted devices per site; the single enrollment phone was the bottleneck.
+// See migrations/0077_contract_site_staff.sql.
+
+/** Authorized staff for a site, primary first. `all:true` also returns removed/pending rows. */
+export async function listSiteStaff(env, siteId, { all = false } = {}) {
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT id, site_id, name, phone, is_primary, added_by, active, created_at, last_used_at
+         FROM contract_site_staff WHERE site_id = ?${all ? '' : ' AND active = 1'}
+        ORDER BY is_primary DESC, active DESC, name ASC`
+    ).bind(siteId).all();
+    return results || [];
+  } catch { return []; }
+}
+
+/**
+ * Add (or re-activate) a person on a site's roster. Idempotent per (site, phone) — the unique
+ * index means re-verifying a number that is already known updates it instead of duplicating it,
+ * which is what keeps a stand-in from appearing twice after they are approved.
+ *
+ * `active:false` is how a stand-in is recorded: they ordered, verified by a code to their own
+ * phone, and are visible to the owner — but authorization is a deliberate act, not a side effect
+ * of having placed one order.
+ */
+export async function addSiteStaff(env, { site_id, account_id, name, phone, added_by = 'owner', active = true, is_primary = false, nowMs } = {}) {
+  if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
+  const ph = normalizePhone(phone);
+  if (!ph) return { ok: false, error: 'Enter a valid mobile number.' };
+  const cleanName = (name || '').toString().trim().slice(0, 80);
+  if (!cleanName) return { ok: false, error: 'Enter the person’s name.' };
+  const t = typeof nowMs === 'number' ? nowMs : now();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO contract_site_staff (id, site_id, account_id, name, phone, is_primary, added_by, active, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(site_id, phone) DO UPDATE SET
+         name=excluded.name, active=excluded.active, is_primary=excluded.is_primary`
+    ).bind(id('cst'), site_id, account_id || null, cleanName, ph, is_primary ? 1 : 0, added_by, active ? 1 : 0, t).run();
+    return { ok: true, phone_hint: maskPhone(ph) };
+  } catch { return { ok: false, error: 'Could not save that person.' }; }
+}
+
+/** Authorize a pending stand-in, or remove someone. Never deletes — the audit trail needs the row. */
+export async function setStaffActive(env, { staff_id, active } = {}) {
+  if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
+  try {
+    const r = await env.DB.prepare('UPDATE contract_site_staff SET active = ?, added_by = CASE WHEN ? = 1 AND added_by = \'stand_in\' THEN \'approved\' ELSE added_by END WHERE id = ?')
+      .bind(active ? 1 : 0, active ? 1 : 0, staff_id).run();
+    if (!r || !r.meta || r.meta.changes !== 1) return { ok: false, error: 'That person is not on this roster.' };
+    return { ok: true };
+  } catch { return { ok: false, error: 'Could not update that person.' }; }
+}
+
+/**
+ * Roster rows shaped for a PUBLIC page: names, masked phones, no full numbers.
+ * The intake page has no login — the token is in the URL — so a full number returned to it is
+ * readable by anyone the link was forwarded to.
+ */
+export function maskSiteStaff(rows) {
+  return (rows || []).map((s) => ({
+    id: s.id, name: s.name, phone_hint: maskPhone(s.phone),
+    is_primary: !!s.is_primary, active: !!s.active, added_by: s.added_by || null,
+  }));
+}
+
+/**
+ * Resolve a request to the site's PRIMARY CONTACT, or refuse with a reason.
+ *
+ * The gate is the TRUSTED DEVICE, not the intake token. The link is meant to be shareable inside
+ * an office, so holding it cannot be enough to change who may commit this account to spend. The
+ * caller must have completed the 6-digit verification on this device AND the number that device
+ * verified against must be the site's registered contact number.
+ */
+export async function primaryContactDevice(env, token, cookieHeader) {
+  if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
+  const { site, account } = await resolveSite(env, token);
+  if (!site) return { ok: false, error: 'This link is not valid. Please contact Añejo.' };
+  if (account && account.status && account.status !== 'active') return { ok: false, error: 'Your account is being set up.' };
+  const device = await trustedDevice(env, site, cookieHeader);
+  if (!device) return { ok: false, error: 'Confirm a lunch order from this device first — that verifies who you are.' };
+  const onFile = normalizePhone(site.contact_phone);
+  if (!onFile || normalizePhone(device.phone) !== onFile) {
+    return { ok: false, error: 'Only the main contact on file can change who orders for this site.' };
+  }
+  return { ok: true, site, account, device };
+}
+
+/** The active roster row for a phone, or null. Used to tell a known staffer from a stand-in. */
+async function staffByPhone(env, siteId, phone) {
+  const ph = normalizePhone(phone);
+  if (!ph) return null;
+  try { return (await env.DB.prepare('SELECT * FROM contract_site_staff WHERE site_id = ? AND phone = ?').bind(siteId, ph).first()) || null; }
+  catch { return null; }
+}
+
+// Step 1 of verify-device-once: text a single-use code to the person actually placing the order.
+//
+// THREE WAYS to name a destination, in this order of trust:
+//   1. `staff_id` — a person picked from the site's roster. The number is read from the ROSTER
+//      ROW, never from the request: a client that could hand us both an id and a phone could
+//      point somebody else's name at its own handset.
+//   2. `phone` — "I'm covering for them today". A staffer not on the roster enters their own
+//      mobile, gets the code there, and orders under their own name. This is the path that was
+//      missing, and it is why the Pompano office could not order at all.
+//   3. neither — fall back to the site's primary contact on file (the old behaviour, kept so a
+//      cached page or an older client still works).
+// Code is held in KV, single-use, 10-min TTL. One pending code per site: if two people request
+// at the same moment the later request wins, which is the same as before this change.
+export async function requestIntakeOtp(env, { token, name, phone, staff_id, lang, nowMs } = {}) {
   if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
   const { site, account } = await resolveSite(env, token);
   if (!site) return { ok: false, error: 'This link is not valid. Please contact Añejo.' };
   if (account && account.status && account.status !== 'active') return { ok: false, error: 'Your account is being set up. Añejo will confirm when ordering is live.' };
-  const cleanName = (name || '').toString().trim().slice(0, 80);
+  let cleanName = (name || '').toString().trim().slice(0, 80);
+
+  let dest = null;
+  let known = null;
+  if (staff_id) {
+    try { known = await env.DB.prepare('SELECT * FROM contract_site_staff WHERE id = ? AND site_id = ? AND active = 1').bind(String(staff_id), site.id).first(); } catch { known = null; }
+    if (!known) return { ok: false, error: 'That person is no longer set up to order for this site. Use “Someone else is covering today”.' };
+    dest = normalizePhone(known.phone);
+    cleanName = cleanName || known.name;
+  } else if (phone) {
+    dest = normalizePhone(phone);
+    if (!dest) return { ok: false, error: 'Enter a valid mobile number — the code is texted to you.' };
+    known = await staffByPhone(env, site.id, dest);
+  } else {
+    dest = normalizePhone(site.contact_phone);
+  }
   if (!cleanName) return { ok: false, error: 'Please enter your name.' };
-  const onFile = normalizePhone(site.contact_phone);
-  const dest = onFile || normalizePhone(phone);
   if (!dest) return { ok: false, error: 'Enter the mobile number that should receive your confirmation code.' };
+
+  // `enrolled` means "no primary contact on file yet" — this number becomes the site's contact on
+  // success. It is NOT set for a stand-in: a covering staffer must never silently replace the
+  // office's registered contact, which is who stays copied on every receipt.
+  const noPrimaryYet = !normalizePhone(site.contact_phone);
   const t = typeof nowMs === 'number' ? nowMs : now();
-  const rec = { code: otpCode(), name: cleanName, phone: dest, enrolled: onFile ? 0 : 1, exp: t + OTP_TTL_SEC * 1000, tries: 0 };
+  const rec = {
+    code: otpCode(), name: cleanName, phone: dest,
+    enrolled: noPrimaryYet ? 1 : 0,
+    // A person with no ACTIVE roster row is a stand-in: they may order, and the audit trail and
+    // the owner's roster both say so.
+    stand_in: known && known.active ? 0 : 1,
+    exp: t + OTP_TTL_SEC * 1000, tries: 0,
+  };
   try { if (env.SESSIONS) await env.SESSIONS.put('cintake_otp:' + site.id, JSON.stringify(rec), { expirationTtl: OTP_TTL_SEC }); }
   catch { return { ok: false, error: 'Could not start verification. Please try again.' }; }
   const sms = await sendSms(env, { to: dest, body: otpBody(lang, rec.code, site.name) });
-  return { ok: false, needs_verify: true, phone_hint: maskPhone(dest), enrolling: !onFile, sms_sent: !!(sms && sms.sent) };
+  return {
+    ok: false, needs_verify: true, phone_hint: maskPhone(dest),
+    enrolling: noPrimaryYet, stand_in: !!rec.stand_in, sms_sent: !!(sms && sms.sent),
+  };
 }
 
 // Step 2: verify the code, register a trusted device, and (if self-enrolled) save the number
@@ -192,24 +331,57 @@ export async function verifyIntakeOtp(env, { token, code, ip, userAgent, nowMs }
       .bind(devTok, site.id, site.account_id, rec.name || null, rec.phone || null, t, t).run();
   } catch { return { ok: false, error: 'Could not register this device. Please try again.' }; }
   if (rec.enrolled) {
+    // Only when the site had NO primary contact at all. A stand-in never lands here — see the
+    // note on `enrolled` in requestIntakeOtp.
     try { await env.DB.prepare('UPDATE contract_sites SET contact_phone = ?, contact_name = COALESCE(contact_name, ?), updated_at = ? WHERE id = ?').bind(rec.phone, rec.name || null, t, site.id).run(); } catch {}
+    await addSiteStaff(env, { site_id: site.id, account_id: site.account_id, name: rec.name, phone: rec.phone, added_by: 'seed', active: true, is_primary: true, nowMs: t });
+  } else if (rec.stand_in) {
+    // A covering staffer: recorded so the owner and the primary contact can SEE who ordered, but
+    // active = 0. Placing one order does not make you authorized — that is a deliberate act by
+    // the owner or the site's primary contact (the roster answer this was built to).
+    await addSiteStaff(env, { site_id: site.id, account_id: site.account_id, name: rec.name, phone: rec.phone, added_by: 'stand_in', active: false, nowMs: t });
+  } else {
+    try { await env.DB.prepare('UPDATE contract_site_staff SET last_used_at = ? WHERE site_id = ? AND phone = ?').bind(t, site.id, rec.phone).run(); } catch { /* roster touch is cosmetic */ }
   }
-  await writeEvent(env, { site_id: site.id, account_id: site.account_id, service_date: etToday(t), event: 'verified', name: rec.name, phone: rec.phone, verified: 1, device_id: devTok, ip, user_agent: userAgent });
-  return { ok: true, verified: true, device_token: devTok, device_cookie: deviceCookieName(site.id), name: rec.name, phone: rec.phone };
+  await writeEvent(env, {
+    site_id: site.id, account_id: site.account_id, service_date: etToday(t),
+    event: rec.stand_in ? 'verified_stand_in' : 'verified',
+    name: rec.name, phone: rec.phone, verified: 1, device_id: devTok, ip, user_agent: userAgent,
+  });
+  return { ok: true, verified: true, device_token: devTok, device_cookie: deviceCookieName(site.id), name: rec.name, phone: rec.phone, stand_in: !!rec.stand_in };
 }
 
 // Single entrypoint for the intake page. Enforces verify-device-once, records the order, writes
 // the append-only audit trail, and texts the receipt. May return { needs_verify } (show the code
 // step) or, on success, set_cookie:{ name, value, maxAge } for the endpoint to set.
-export async function processIntake(env, { token, count, notes, name, phone, lang, code, cookieHeader, ip, userAgent, nowMs } = {}) {
+export async function processIntake(env, { token, count, notes, name, phone, staff_id, lang, code, cookieHeader, ip, userAgent, nowMs } = {}) {
   if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
   const { site, account } = await resolveSite(env, token);
   if (!site) return { ok: false, error: 'This link is not valid. Please contact Añejo.' };
   if (account && account.status && account.status !== 'active') return { ok: false, error: 'Your account is being set up. Añejo will confirm when ordering is live.' };
 
   // Already a trusted device → record immediately.
+  //
+  // UNLESS THE PERSON SAYS THEY ARE SOMEBODY ELSE. An office shares one computer, so the trusted
+  // cookie belongs to the DEVICE, not to whoever is sitting at it. Without this, the covering
+  // staffer would type her own name into the registered contact's browser and the order would be
+  // filed — with a receipt and an audit row — under the name of a person who was not at work
+  // that day. When the request names a different person, the shortcut is skipped and a fresh code
+  // goes to that person's own phone: identity beats convenience on the record that gets invoiced.
   const device = await trustedDevice(env, site, cookieHeader);
+  let claimsSomeoneElse = false;
   if (device) {
+    const devPhone = normalizePhone(device.phone);
+    if (staff_id) {
+      // Picking your own name out of the roster on your own verified device is not "someone
+      // else" — it must not cost you a needless code.
+      const picked = await env.DB.prepare('SELECT phone FROM contract_site_staff WHERE id = ? AND site_id = ?').bind(String(staff_id), site.id).first().catch(() => null);
+      claimsSomeoneElse = !picked || normalizePhone(picked.phone) !== devPhone;
+    } else if (phone && normalizePhone(phone)) {
+      claimsSomeoneElse = normalizePhone(phone) !== devPhone;
+    }
+  }
+  if (device && !claimsSomeoneElse) {
     const r = await submitHeadcount(env, { token, count, notes, name: name || device.contact_name, lang, deviceId: device.id, phone: device.phone, verified: true, ip, userAgent, nowMs });
     if (r.ok) { try { await env.DB.prepare('UPDATE contract_intake_devices SET last_used_at = ? WHERE id = ?').bind(now(), device.id).run(); } catch {} }
     return r;
@@ -230,7 +402,7 @@ export async function processIntake(env, { token, count, notes, name, phone, lan
   const date = etToday(typeof nowMs === 'number' ? nowMs : now());
   const days = parseDeliveryDays(site.delivery_days || 'mon,tue,wed');
   if (!days.includes(DOW_NAMES[dowMon(date) - 1])) return { ok: false, error: `No delivery is scheduled for ${site.name} today.` };
-  return await requestIntakeOtp(env, { token, name, phone, lang, nowMs });
+  return await requestIntakeOtp(env, { token, name, phone, staff_id, lang, nowMs });
 }
 
 // Submit a site's headcount for today. Idempotent per (site, service_date): a re-submit
@@ -317,15 +489,31 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
     device_id: deviceId || null, confirmation_no, ip, user_agent: userAgent,
   });
 
+  // RECEIPT GOES TO BOTH THE SUBMITTER AND THE SITE'S PRIMARY CONTACT.
+  //
+  // It used to go only to site.contact_phone. Now that somebody other than the registered contact
+  // can order, that alone is wrong in both directions: the person who actually placed the order
+  // would never receive their own confirmation number, and the office's registered contact would
+  // have no idea an order went in on their site while they were out. De-duplicated, so the
+  // ordinary case — the primary contact ordering for themselves — is still exactly one text.
   let receipt_sent = false;
-  const receiptTo = normalizePhone(site.contact_phone) || normalizePhone(phone);
-  if (sendReceipt && receiptTo) {
-    const sms = await sendSms(env, { to: receiptTo, body: receiptBody(lang, {
-      site: site.name, weekday, date, count: n, total_cents: total, is_rush: isRush,
-      name: submitter, time: etClock(t), confirmation_no, cutoff: site.cutoff_time || '09:00',
-    }) });
-    receipt_sent = !!(sms && sms.sent);
+  const body = receiptBody(lang, {
+    site: site.name, weekday, date, count: n, total_cents: total, is_rush: isRush,
+    name: submitter, time: etClock(t), confirmation_no, cutoff: site.cutoff_time || '09:00',
+  });
+  const submitterPhone = normalizePhone(phone);
+  const primaryPhone = normalizePhone(site.contact_phone);
+  const recipients = [...new Set([submitterPhone, primaryPhone].filter(Boolean))];
+  if (sendReceipt) {
+    for (const to of recipients) {
+      const sms = await sendSms(env, { to, body });
+      if (sms && sms.sent) receipt_sent = true;
+    }
   }
+  // What the SUBMITTER sees on screen is their own number when we have it — telling the covering
+  // staffer "receipt texted to ••••3642" when 3642 is the absent contact's phone is a small lie
+  // that makes them hunt for a text that went to somebody else's handset.
+  const receiptTo = submitterPhone || primaryPhone;
 
   return {
     ok: true, account: account.name, site: site.name, date, weekday,
@@ -368,6 +556,7 @@ export async function siteContext(env, token, nowMs, opts = {}) {
   const account = await env.DB.prepare('SELECT name FROM contract_accounts WHERE id = ?').bind(site.account_id).first().catch(() => null);
   const device = await trustedDevice(env, site, opts.cookieHeader || '');
   const onFile = normalizePhone(site.contact_phone);
+  const staff = await listSiteStaff(env, site.id);
   const date = etToday(t);
   const dow = dowMon(date);
   const days = parseDeliveryDays(site.delivery_days);
@@ -390,6 +579,14 @@ export async function siteContext(env, token, nowMs, opts = {}) {
     phone_hint: onFile ? maskPhone(onFile) : null,
     has_contact_phone: !!onFile,
     enroll_needed: !device && !onFile,
+    // WHO MAY ORDER FOR THIS SITE — the picker that replaces "one registered profile".
+    // NAMES AND MASKED PHONES ONLY. This page is public: the token is in the URL and there is no
+    // login, so a full number returned here is readable by anyone the link is forwarded to. The
+    // client never sends us a number for a roster pick either — requestIntakeOtp reads it from
+    // the roster row by id, so an id cannot be pointed at somebody else's handset.
+    staff: staff.map((s) => ({ id: s.id, name: s.name, phone_hint: maskPhone(s.phone), is_primary: !!s.is_primary })),
+    // Whether this device's own person is allowed to manage the roster from the intake page.
+    can_manage_staff: !!(device && normalizePhone(device.phone) && normalizePhone(device.phone) === onFile),
   };
 }
 
@@ -403,6 +600,105 @@ export async function setSiteContact(env, { site_id, contact_name, contact_phone
       .bind((contact_name || '').toString().trim().slice(0, 80) || null, ph, now(), site_id).run();
     return { ok: true, phone_hint: ph ? maskPhone(ph) : null };
   } catch { return { ok: false, error: 'Could not save the contact.' }; }
+}
+
+/**
+ * OWNER OVERRIDE — set or correct any site's head count for any service date.
+ *
+ * On 2026-08-03 Pompano's count arrived as a text message to the owner because the office could
+ * not use the form, and there was NO WAY TO ENTER IT: this API could set a contact, revoke a
+ * device and raise an invoice, but nothing could write a day's count. The day went unbilled.
+ *
+ * Differs from submitHeadcount in exactly three ways, each deliberate:
+ *   · NO SMS, EVER. This is the owner correcting his own books, not the client confirming an
+ *     order. Texting a client "order confirmed" for something they never submitted would be a
+ *     confirmation of a thing that did not happen.
+ *   · A REASON IS REQUIRED and stored on the audit row. An override with no stated source is
+ *     indistinguishable from a typo six weeks later when the invoice is questioned.
+ *   · It IGNORES the delivery-day and cutoff rules. Those exist to stop a client ordering into a
+ *     day we do not serve; they must not stop the owner recording what was actually delivered.
+ * `is_rush` is set explicitly by the caller rather than derived from the clock — recording a
+ * lunch after it has been eaten would otherwise mark every backfill as a rush order.
+ */
+export async function ownerSetHeadcount(env, { site_id, service_date, headcount, reason, notes, by, is_rush = false, nowMs } = {}) {
+  if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
+  const t = typeof nowMs === 'number' ? nowMs : now();
+  const date = String(service_date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: 'Pick a service date (YYYY-MM-DD).' };
+  const n = Math.floor(Number(headcount));
+  if (!Number.isFinite(n) || n < 0 || n > 500) return { ok: false, error: 'Enter a head count between 0 and 500.' };
+  const why = (reason || '').toString().trim().slice(0, 240);
+  if (!why) return { ok: false, error: 'Say where this count came from — it goes on the record.' };
+
+  const site = await env.DB.prepare('SELECT * FROM contract_sites WHERE id = ?').bind(String(site_id || '')).first().catch(() => null);
+  if (!site) return { ok: false, error: 'Site not found.' };
+  const account = await env.DB.prepare('SELECT * FROM contract_accounts WHERE id = ?').bind(site.account_id).first().catch(() => null);
+  if (!account) return { ok: false, error: 'Account not found.' };
+
+  const pricePer = Number(site.price_per_lunch_cents) || 0;
+  const deliveryFee = Number(site.delivery_fee_cents) || 0;
+  const rushFee = is_rush ? (Number(site.rush_fee_cents) || 0) : 0;
+  const subtotal = n * pricePer;
+  const total = subtotal + deliveryFee + rushFee;
+  const item = await resolveItem(env, account, date);
+  const shortName = `${(account.name || 'Contract').split(' ')[0]} · ${site.name}`;
+  const cleanNotes = (notes || '').toString().trim().slice(0, 400) || null;
+  const orderId = `octr_${site.id}_${date}`;
+  const prior = await env.DB.prepare('SELECT id, status FROM orders WHERE id = ?').bind(orderId).first().catch(() => null);
+
+  // A backfilled day has already been cooked and delivered — it must not reappear as outstanding
+  // work on the kitchen board or a driver's run. A NEW row for a PAST date lands 'fulfilled';
+  // today or later starts 'paid' like any scheduled contract order. An EXISTING row keeps
+  // whatever status it already has: this call corrects a number, it does not re-open a day.
+  const todayEt = etToday(t);
+  const status = prior ? prior.status : (date < todayEt ? 'fulfilled' : 'paid');
+  const items = toJson([{ id: 'contract_lunch', name: item, qty: n }]);
+  try {
+    await env.DB.prepare(
+      `INSERT INTO orders
+         (id, items, delivery_date, delivery_window, subtotal_cents, fee_cents, total_estimate_cents,
+          status, customer_name, delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip, delivery_notes,
+          delivery_lat, delivery_lng, fulfillment_mode, contract_site_id, headcount, is_rush, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'scheduled', ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         items=excluded.items, subtotal_cents=excluded.subtotal_cents, fee_cents=excluded.fee_cents,
+         total_estimate_cents=excluded.total_estimate_cents, delivery_notes=excluded.delivery_notes,
+         headcount=excluded.headcount, is_rush=excluded.is_rush, updated_at=excluded.updated_at`
+    ).bind(
+      orderId, items, date, site.delivery_window || 'lunch', subtotal, deliveryFee + rushFee, total,
+      status, shortName, site.street || null, site.unit || null, site.city || null, site.state || null, site.zip || null, cleanNotes,
+      site.delivery_lat != null ? site.delivery_lat : null, site.delivery_lng != null ? site.delivery_lng : null,
+      site.id, n, is_rush ? 1 : 0, t, t
+    ).run();
+  } catch { return { ok: false, error: 'Could not write the kitchen order.' }; }
+
+  try {
+    await env.DB.prepare(
+      `INSERT INTO contract_orders
+         (id, site_id, account_id, service_date, headcount, item_name, price_per_lunch_cents,
+          delivery_fee_cents, rush_fee_cents, total_cents, order_id, submitted_by, is_rush, notes, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(site_id, service_date) DO UPDATE SET
+         headcount=excluded.headcount, item_name=excluded.item_name, delivery_fee_cents=excluded.delivery_fee_cents,
+         rush_fee_cents=excluded.rush_fee_cents, total_cents=excluded.total_cents, order_id=excluded.order_id,
+         submitted_by=excluded.submitted_by, is_rush=excluded.is_rush, notes=excluded.notes, updated_at=excluded.updated_at`
+    ).bind(
+      id('cord'), site.id, account.id, date, n, item, pricePer, deliveryFee, rushFee, total,
+      orderId, (by || 'Owner').toString().slice(0, 80), is_rush ? 1 : 0, cleanNotes, t, t
+    ).run();
+  } catch { return { ok: false, error: 'Could not write the billing ledger.' }; }
+
+  // The audit row is what makes this defensible: a distinct event name, the reason, and the
+  // person. `verified: 0` is honest — an override is asserted by the owner, not proven by a code.
+  await writeEvent(env, {
+    site_id: site.id, account_id: account.id, service_date: date, order_id: orderId,
+    event: 'owner_override', headcount: n, total_cents: total,
+    notes: cleanNotes ? `${why} · ${cleanNotes}` : why,
+    name: (by || 'Owner').toString().slice(0, 80), phone: null, verified: 0,
+    confirmation_no: null, ip: null, user_agent: 'owner-hub',
+  });
+
+  return { ok: true, site: site.name, service_date: date, headcount: n, total_cents: total, item, order_status: status, created: !prior, sms_sent: false };
 }
 
 export async function revokeDevice(env, { device_id } = {}) {

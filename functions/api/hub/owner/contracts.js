@@ -3,7 +3,7 @@
 import { json, bad, randToken, now, id, isEmail } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
-import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount } from '../../../_lib/contract.js';
+import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount } from '../../../_lib/contract.js';
 import { capture } from '../../../_lib/track.js';
 
 // The edit-terms / invoice-lifecycle helpers below live here rather than in _lib/contract.js
@@ -336,6 +336,10 @@ export const onRequestGet = async ({ request, env }) => {
     } catch { termsEvents = []; }
     const devices = await listDevices(env, a.id);   // trusted intake devices (who can order)
     const events = await listEvents(env, a.id, 60);  // append-only audit trail
+    // Who may order for each site (migrations/0077), INCLUDING inactive rows: a stand-in who
+    // covered while the registered contact was out lands here as pending, and the owner needs to
+    // see them in order to authorize or remove them. Masked — the HUB never needs full numbers.
+    for (const s of sites) s.staff = maskSiteStaff(await listSiteStaff(env, s.id, { all: true }));
     out.push({ account: a, sites, recent, invoices, devices, events, terms_events: termsEvents });
   }
   return json({ ok: true, accounts: out });
@@ -482,6 +486,43 @@ export const onRequestPost = async ({ request, env }) => {
   if (op === 'revoke_device') {
     if (!b.device_id) return bad('Missing device_id.');
     const r = await revokeDevice(env, { device_id: b.device_id });
+    return json(r);
+  }
+
+  // WHO MAY ORDER FOR A SITE. Before contract_site_staff (migrations/0077) this was one column,
+  // contract_sites.contact_phone, and every verification code went there no matter who was
+  // filling in the form — so on 2026-08-03 an absent contact meant the Pompano office could not
+  // order at all and the day went unrecorded.
+  if (op === 'add_staff') {
+    if (!b.site_id) return bad('Missing site_id.');
+    const site = await env.DB.prepare('SELECT account_id FROM contract_sites WHERE id = ?').bind(b.site_id).first().catch(() => null);
+    if (!site) return bad('Site not found.', 404);
+    const r = await addSiteStaff(env, {
+      site_id: b.site_id, account_id: site.account_id, name: b.name, phone: b.phone, added_by: 'owner', active: true,
+    });
+    if (!r.ok) return json(r);
+    return json({ ok: true, staff: maskSiteStaff(await listSiteStaff(env, b.site_id, { all: true })) });
+  }
+
+  if (op === 'set_staff_active') {
+    if (!b.staff_id || !b.site_id) return bad('Missing staff_id.');
+    const r = await setStaffActive(env, { staff_id: b.staff_id, active: !!b.active });
+    if (!r.ok) return json(r);
+    return json({ ok: true, staff: maskSiteStaff(await listSiteStaff(env, b.site_id, { all: true })) });
+  }
+
+  // THE OVERRIDE THAT DID NOT EXIST. On 2026-08-03 the Pompano count reached the owner as a text
+  // message because the office could not use the form — and this API could set a contact, revoke
+  // a device and raise an invoice, but had no way to write a day's head count, so the day went
+  // unbilled. Records the ledger + kitchen order + an 'owner_override' audit row, and sends NO
+  // text to the client: this is the owner correcting his own books, not a client confirming an
+  // order that never happened.
+  if (op === 'set_headcount') {
+    const r = await ownerSetHeadcount(env, {
+      site_id: b.site_id, service_date: b.service_date, headcount: b.headcount,
+      reason: b.reason, notes: b.notes, is_rush: !!b.is_rush,
+      by: (ctx && ctx.name) || 'Owner',
+    });
     return json(r);
   }
   return bad('Unknown action.');

@@ -571,6 +571,64 @@ food image in them anywhere.
 
 ---
 
+## 16. One person could order for a site, and nobody could override it
+
+**Status:** ✅ SHIPPED 2026-08-03 · **Added:** 2026-08-03
+
+**The incident.** Pompano Beach, Mon 2026-08-03. The registered contact was out. A colleague
+opened the intake link, typed her own name and her own mobile — and the 6-digit code went to the
+absent contact's phone anyway. The office could not order. The count reached the owner as a text
+message from the accountant, and **he could not enter it either**: this API could set a contact,
+revoke a device and raise an invoice, but nothing could write a head count. The day was recorded
+nowhere — no ledger row, no kitchen order, no audit event. It would have gone unbilled.
+
+**The cause was one line** in `_lib/contract.js`:
+
+```js
+const dest = onFile || normalizePhone(phone);   // onFile wins, forever
+```
+
+Once a site had a `contact_phone`, that was the only number a code could ever reach; the phone a
+person typed was used solely on a site's *first* use, to self-enrol. The name box was, in effect,
+decorative. `contract_intake_devices` had always allowed **many** trusted devices per site — the
+roster was never the limit, the single enrolment phone was.
+
+**The roster is now real** (`contract_site_staff`, migrations/0077). Pick who you are and the code
+goes to *your* number; or say **someone else is covering today**, enter your own mobile, and order
+under your own name. Either way it is still one code, one verified person, one audit row — the
+security did not move, the bottleneck did. A stand-in is recorded `active = 0`: they could order,
+and they are visible, but **placing one order does not authorize you** — the owner or the site's
+primary contact promotes them. Both can add people; the primary contact does it from the intake
+page itself, gated on their *verified device* rather than on holding the link, because the link
+lives in an office inbox and cannot be the credential that decides who may commit an account to
+spend.
+
+**Two things the roster forced open:**
+- **Receipts now go to the submitter AND the site primary**, de-duplicated. Sending only to the
+  contact on file would mean the person who actually ordered never gets their confirmation
+  number, and the registered contact never learns an order went in while they were out.
+- **A trusted device no longer files an order under the wrong name.** An office shares one
+  browser; the cookie belongs to the device, not to whoever is sitting at it. A request naming a
+  different person now re-verifies instead of sailing through.
+
+**And the owner can record a count himself** — `set_headcount` → `ownerSetHeadcount`. It sends
+**no text** (this is the owner correcting his own books, not a client confirming an order that
+never happened), **requires a reason** that lands on an `owner_override` audit row with
+`verified = 0`, and ignores the delivery-day and cutoff rules, which exist to stop a *client*
+ordering into a day we do not serve and must never stop us recording what was delivered. A
+backfilled past day lands `fulfilled` so it cannot reappear as work on the kitchen board.
+
+**2026-08-03 was recorded by hand** (23 lunches · $138 + $20 delivery = $158, `is_rush = 0` —
+the office was blocked by our own form, not late), with the same three writes and an
+`owner_override` audit row stating where the count came from.
+
+**Not verified:** not yet deployed, and migration 0077 is not yet applied — the roster is empty
+until it runs, and the code falls back to the old single-contact behaviour until then, which is
+why the migration seeds each site's existing contact as its own primary. npm test: 1074/1074 pass.
+npm run lint: clean.
+
+---
+
 ## Appendix — what "coordinates" are for
 
 `orders.delivery_lat` / `delivery_lng`. An address is text; a route needs numbers. Without them:
