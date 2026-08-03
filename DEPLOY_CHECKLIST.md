@@ -34,6 +34,43 @@ a commit before you have applied its migration, so apply migrations as soon as t
 rather than at push time. A code-before-migration window is survivable here only because every
 read is wrapped in try/catch and degrades — do not rely on that.
 
+## 0.9 AFTER the deploy: read production. `npm test` passing is not the same as it working.
+
+**Dayan's ruling, 2026-08-03.** In one evening three defects shipped with a fully green suite:
+
+1. The owner's roster + override ops were **unreachable** — they sat below an
+   `if (!b.account_id) return bad(...)` guard while the HUB sent only `site_id`. The test asserted
+   that `/op === 'set_headcount'/` appeared in the source file. **A source match proves code is
+   present; it proves nothing about a request reaching it.** The owner clicked Add, saw a message,
+   and the roster stayed empty.
+2. The **Allow** button for a pending stand-in rendered but could never be used — the API only ever
+   returned *active* roster rows. No test opened the page as the main contact.
+3. The first real invite text read *"Añejo Catering: Añejo added you"* — the session context carries
+   no `name`, so the one line meant to say WHO added you repeated the brand instead. No test read
+   the message a human would actually receive.
+
+All three were found by reading production afterwards — the D1 rows, `sms_log`, the live JSON.
+None by the suite. So the read is a step, not a habit:
+
+```
+npm run verify:live          # public surfaces + API shape
+node scripts/verify-live.mjs --db    # + the live database (needs wrangler auth)
+```
+
+- [ ] Ran it **after** the Pages build finished. Static assets and the Functions bundle deploy
+      separately and have lagged each other by ~15s — a page that looks updated over an API that is
+      not is a real state, and it is how "it's live" gets said too early.
+- [ ] Exit code 0. **Skipped checks are not passes** — the script says so; re-run with the flags it
+      names, or state plainly what is still unverified.
+- [ ] For anything behind a login the script cannot reach: say so out loud rather than implying it
+      was checked. Then have the human do the one real click and confirm the result in the data.
+- [ ] Fixed and re-deployed until the verifier is green. A defect found in production is not
+      "reported" until the read comes back clean.
+
+*Machine-enforced:* invariant **I52** in `Aether/mission-control-mvp/executor/verify-invariants.mjs`
+fails the build if `scripts/verify-live.mjs` is missing, cannot fail, is not named here, or if no
+test in `test/money` drives a real route handler.
+
 ## 1. Cloudflare Pages → anejo-app → Settings → Variables and secrets
 Without these, the storefront/subscriptions return 503 ("not configured") but the rest of the site works.
 
