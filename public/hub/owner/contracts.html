@@ -34,6 +34,8 @@
   .strow{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;padding:8px 12px;border-bottom:1px solid var(--line)}
   .strow button{border:1px solid var(--line);background:#fff;border-radius:7px;font:inherit;font-size:11.5px;font-weight:700;color:var(--green);padding:4px 10px;cursor:pointer;white-space:nowrap}
   .aud .linkrow{padding:0 12px 4px}
+  .invitebox{display:flex;align-items:center;gap:8px;padding:2px 12px;font-size:12.5px;color:var(--ink);cursor:pointer}
+  .invitebox input{width:16px;height:16px;flex:0 0 auto}
   .dev,.evrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
   .dev:last-child,.evrow:last-child{border-bottom:0}
   .dev.rev{opacity:.5}
@@ -356,7 +358,13 @@
       '<div class="linkrow" style="margin-top:8px"><input id="sn_' + s.id + '" placeholder="Name" style="flex:1">' +
       '<input id="sp_' + s.id + '" placeholder="Mobile e.g. 561-555-0142" style="flex:1.3">' +
       '<button onclick="__addStaff(\'' + aid + '\',\'' + s.id + '\')">Add</button></div>' +
-      '<div style="font-size:11px;color:var(--muted);margin-top:5px">Each person gets their own 6-digit code by text. The main contact is copied on every receipt. Nothing is sent to them when you add them — send them the ordering link above.</div>' +
+      // Ticked by default, because a person added WITHOUT the link is authorized and has no way
+      // in — that was the first version's gap. But it stays a tick, not an automatic send: the
+      // box is the per-send tap for a text going to a client's employee, and it comes off for
+      // someone you would rather tell yourself.
+      '<label class="invitebox"><input type="checkbox" id="si_' + s.id + '" checked>' +
+      '<span>Text them the ordering link now</span></label>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:5px">Each person gets their own 6-digit code by text when they order. The main contact is copied on every receipt.</div>' +
       '</details>';
   }
 
@@ -387,10 +395,20 @@
     var name = ((document.getElementById('sn_' + sid) || {}).value || '').trim();
     var phone = ((document.getElementById('sp_' + sid) || {}).value || '').trim();
     if (!name || !phone) { Hub.toast('Name and mobile are both needed.'); return; }
-    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'add_staff', site_id: sid, name: name, phone: phone } })
+    var invEl = document.getElementById('si_' + sid);
+    var invite = !invEl || invEl.checked;
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'add_staff', site_id: sid, name: name, phone: phone, invite: invite } })
       .then(function (r) {
-        if (r && r.ok) { Hub.toast(name + ' can order now — send them the link.'); redrawStaff(aid, sid, r.staff || []); }
-        else Hub.toast((r && r.error) || 'Could not add.');
+        if (r && r.ok) {
+          // Says what actually happened to the text, not what was requested — a silent SMS
+          // failure would otherwise read as "they've been sent the link" when they have not.
+          var msg = invite
+            ? (r.invited && r.invited.sent ? name + ' can order now — link texted to ' + r.invited.to_hint
+                                           : name + ' can order now, but the text did not go through — send them the link above.')
+            : name + ' can order now — send them the link above.';
+          Hub.toast(msg);
+          redrawStaff(aid, sid, r.staff || []);
+        } else Hub.toast((r && r.error) || 'Could not add.');
       });
   };
   window.__staff = function (aid, sid, staffId, active) {

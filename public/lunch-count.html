@@ -63,6 +63,8 @@
   .strow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;padding:9px 0;border-bottom:1px solid var(--line)}
   .mini{border:1px solid var(--green);background:#fff;color:var(--green);border-radius:8px;font:inherit;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer;white-space:nowrap}
   .mini.danger{border-color:#d9c3bd;color:var(--crit)}
+  .invitebox{display:flex;align-items:center;gap:9px;margin-top:12px;font-size:13.5px;cursor:pointer}
+  .invitebox input{width:18px;height:18px;flex:0 0 auto}
   .secure{display:flex;gap:7px;align-items:flex-start;font-size:12.5px;color:var(--muted);margin-top:13px;line-height:1.5}
   .code{width:100%;text-align:center;letter-spacing:12px;font-size:34px;font-weight:800;color:var(--green);border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--cream);margin-top:6px}
   .code:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(198,168,91,.16)}
@@ -119,6 +121,7 @@
     manageRemove:{en:'Remove',es:'Quitar'},
     managePending:{en:'ordered as a stand-in — not yet on the list',es:'pidió como suplente — aún no está en la lista'},
     manageMain:{en:'main contact',es:'contacto principal'},
+    manageInvite:{en:'Text them the ordering link now',es:'Enviarle el enlace por SMS ahora'},
     manageHelp:{en:'Anyone on this list can place the order and gets their own code by text. You’re copied on every receipt.',es:'Cualquiera en esta lista puede hacer el pedido y recibe su propio código por SMS. Recibes copia de cada recibo.'},
     yourMobile:{en:'Your mobile number',es:'Tu número de celular'},
     yourMobilePh:{en:'For your receipt + a one-time code',es:'Para tu recibo + un código único'},
@@ -266,6 +269,7 @@
       '<span class="lab" style="margin-top:14px">'+tr('manageAdd')+'</span>'+
       '<input id="stName" class="txt" type="text" maxlength="80" placeholder="'+esc(tr('manageName'))+'">'+
       '<input id="stPhone" class="txt" style="margin-top:8px" type="tel" inputmode="tel" maxlength="24" placeholder="'+esc(tr('manageMobile'))+'">'+
+      '<label class="invitebox"><input type="checkbox" id="stInvite" checked><span>'+tr('manageInvite')+'</span></label>'+
       '<button type="button" class="btn" style="margin-top:12px" onclick="staffAdd()">'+tr('manageSave')+'</button>'+
       '<div id="stErr"></div></div>';
   }
@@ -286,7 +290,8 @@
     var n=((document.getElementById('stName')||{}).value||'').trim();
     var p=((document.getElementById('stPhone')||{}).value||'').trim();
     if(!n||!p){ var e=document.getElementById('stErr'); if(e)e.innerHTML='<div class="banner crit" style="margin-top:10px">'+esc(tr('nameReq'))+'</div>'; return; }
-    staffPost({op:'add', name:n, phone:p});
+    var inv=document.getElementById('stInvite');
+    staffPost({op:'add', name:n, phone:p, invite: !inv || inv.checked, lang: lang});
   }
   function staffOp(op,id){ staffPost({op:op, staff_id:id}); }
 

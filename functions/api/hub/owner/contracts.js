@@ -3,7 +3,7 @@
 import { json, bad, randToken, now, id, isEmail } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
-import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount } from '../../../_lib/contract.js';
+import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite } from '../../../_lib/contract.js';
 import { capture } from '../../../_lib/track.js';
 
 // The edit-terms / invoice-lifecycle helpers below live here rather than in _lib/contract.js
@@ -410,7 +410,19 @@ export const onRequestPost = async ({ request, env }) => {
         site_id: site.id, account_id: site.account_id, name: b.name, phone: b.phone, added_by: 'owner', active: true,
       });
       if (!r.ok) return json(r);
-      return json({ ok: true, staff: maskSiteStaff(await listSiteStaff(env, site.id, { all: true })) });
+      // The invite text is sent ONLY when the owner ticked the box. Being added and being TOLD
+      // you were added are separate acts: without the link the person is authorized and has no
+      // way in, but a text to a client's employee is not something to send on their behalf by
+      // default. The tick is the per-send tap.
+      let invited = null;
+      if (b.invite) {
+        const full = await env.DB.prepare('SELECT id, name, intake_token FROM contract_sites WHERE id = ?').bind(site.id).first().catch(() => null);
+        invited = await sendStaffInvite(env, {
+          site: full, name: b.name, phone: b.phone, lang: b.lang,
+          addedBy: (ctx && ctx.name) || 'Añejo', origin: new URL(request.url).origin,
+        });
+      }
+      return json({ ok: true, invited, staff: maskSiteStaff(await listSiteStaff(env, site.id, { all: true })) });
     }
 
     if (op === 'set_staff_active') {

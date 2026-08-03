@@ -14,7 +14,40 @@
 // including an authorized non-primary staffer and any stand-in — gets a flat refusal.
 import { json, bad, normalizePhone } from '../../_lib/util.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
-import { primaryContactDevice, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff } from '../../_lib/contract.js';
+import { primaryContactDevice, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, sendStaffInvite } from '../../_lib/contract.js';
+import { raiseAlert } from '../../_lib/alerts.js';
+
+/**
+ * Tell the owner when a CLIENT changes who may order for their own site.
+ *
+ * The owner handed the primary contact this power so a sick day cannot block the count. Knowing
+ * when it is used is how he keeps that power delegated instead of taking it back: the people on
+ * this list are the ones who can commit the account to spend, and a roster that grows without him
+ * ever seeing it is a billing record he cannot explain later.
+ *
+ * raiseAlert is the existing owner channel — an alert row plus a payload-less push tickle to his
+ * devices. No new notification path, and nothing here reaches the client. Never throws: losing
+ * the heads-up must not fail the roster change the office just made.
+ */
+async function notifyOwnerRosterChange(env, { site, action, name, by }) {
+  try {
+    const who = (name || 'Someone').toString().slice(0, 60);
+    const actor = (by || 'The main contact').toString().slice(0, 60);
+    await raiseAlert(env, {
+      alert_type: 'contract_roster_changed',
+      severity: action === 'removed' ? 'warning' : 'info',
+      title: `${site.name}: ${who} ${action === 'added' ? 'can now order' : action === 'allowed' ? 'was allowed to order' : 'can no longer order'}`,
+      body: `${actor} ${action} ${who} on the ${site.name} lunch-order list. Anyone on that list gets their own 6-digit code and can submit the daily head count.`,
+      team: 'owner',
+      ref_type: 'contract_site',
+      ref_id: site.id,
+      source: 'contract_intake',
+      // Per site + person + action, so repeated taps on the same row do not stack up alerts —
+      // but a later, different change to the same person still raises a fresh one.
+      dedupe_key: `roster:${site.id}:${who}:${action}`,
+    });
+  } catch { /* best-effort: the office's change stands either way */ }
+}
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -35,7 +68,15 @@ export const onRequestPost = async ({ request, env }) => {
       name: b.name, phone: b.phone, added_by: 'site_contact', active: true,
     });
     if (!r.ok) return json(r, 200);
-    return json({ ok: true, staff: maskSiteStaff(await listSiteStaff(env, site.id, { all: true })) });
+    let invited = null;
+    if (b.invite) {
+      invited = await sendStaffInvite(env, {
+        site, name: b.name, phone: b.phone, lang: b.lang,
+        addedBy: site.contact_name || 'Your office', origin: new URL(request.url).origin,
+      });
+    }
+    await notifyOwnerRosterChange(env, { site, action: 'added', name: b.name, by: site.contact_name });
+    return json({ ok: true, invited, staff: maskSiteStaff(await listSiteStaff(env, site.id, { all: true })) });
   }
 
   // 'approve' promotes a stand-in who already ordered; 'remove' deactivates anybody.
@@ -52,6 +93,9 @@ export const onRequestPost = async ({ request, env }) => {
     if (normalizePhone(ctx.device.phone) !== normalizePhone(site.contact_phone)) return json({ ok: false, error: 'Only the main contact can change this list.' }, 200);
     const r = await setStaffActive(env, { staff_id: staffId, active: op === 'approve' });
     if (!r.ok) return json(r, 200);
+    await notifyOwnerRosterChange(env, {
+      site, action: op === 'approve' ? 'allowed' : 'removed', name: row.name, by: site.contact_name,
+    });
     return json({ ok: true, staff: maskSiteStaff(await listSiteStaff(env, site.id, { all: true })) });
   }
 

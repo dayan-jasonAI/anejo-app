@@ -195,6 +195,43 @@ export async function addSiteStaff(env, { site_id, account_id, name, phone, adde
   } catch { return { ok: false, error: 'Could not save that person.' }; }
 }
 
+function inviteBody(lang, { site, link, addedBy }) {
+  if (lang === 'es') {
+    return `Añejo Catering: ${addedBy} te agregó para pedir los almuerzos de ${site}.\nUsa este enlace cada mañana: ${link}\nTe enviaremos un código de 6 dígitos a este número para confirmar que eres tú.`;
+  }
+  return `Añejo Catering: ${addedBy} added you to place the lunch order for ${site}.\nUse this link each morning: ${link}\nWe'll text a 6-digit code to this number to confirm it's you.`;
+}
+
+/**
+ * Text a newly-added staffer their ordering link.
+ *
+ * NOT called from addSiteStaff. Adding a row to a table and sending a message to a client's
+ * employee are different kinds of act, and folding the second into the first would mean every
+ * future caller of addSiteStaff silently sends a text. The routes send this only when the person
+ * doing the adding explicitly asked for it — that tick is the per-send tap, not a default the
+ * system takes on their behalf.
+ *
+ * The link carries the site's intake token, which IS the ordering credential. That is the point:
+ * without it the person is authorized and has no way in. It is the same link the office already
+ * holds, sent to a number the owner or the primary contact just vouched for.
+ *
+ * Never throws — a failed text must not unwind an add that already succeeded, or the roster and
+ * the message would disagree about whether the person exists.
+ */
+export async function sendStaffInvite(env, { site, name, phone, addedBy, lang, origin } = {}) {
+  try {
+    const to = normalizePhone(phone);
+    if (!to || !site || !site.intake_token) return { sent: false, reason: 'no_link' };
+    const base = String((env && env.APP_BASE_URL) || origin || 'https://anejocateringco.com').replace(/\/+$/, '');
+    const link = `${base}/lunch-count?t=${encodeURIComponent(site.intake_token)}`;
+    const sms = await sendSms(env, {
+      to,
+      body: inviteBody(lang, { site: site.name, link, addedBy: (addedBy || 'Añejo').toString().slice(0, 60) }),
+    });
+    return { sent: !!(sms && sms.sent), to_hint: maskPhone(to), name: name || null };
+  } catch { return { sent: false, reason: 'error' }; }
+}
+
 /** Authorize a pending stand-in, or remove someone. Never deletes — the audit trail needs the row. */
 export async function setStaffActive(env, { staff_id, active } = {}) {
   if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };

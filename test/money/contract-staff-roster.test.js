@@ -369,3 +369,67 @@ test('everyone else sees only who may CURRENTLY order — this page is public', 
   assert.deepEqual(ctx.staff.map((s) => s.id), ['cst_p'], 'an unauthorized person’s name is not for whoever holds the link');
   assert.equal(ctx.staff[0].active, undefined, 'and the flag is only meaningful to a manager');
 });
+
+// ---------------------------------------------------------------------------
+// Invites + the owner's heads-up. Both were missing from the first cut: adding somebody
+// authorized them and told them nothing, so they were on the list with no link and no idea.
+// ---------------------------------------------------------------------------
+
+test('the invite carries the ordering link and says who added them', async () => {
+  const { sendStaffInvite } = await import('../../functions/_lib/contract.js');
+  const sent = [];
+  const env = {
+    APP_BASE_URL: 'https://anejocateringco.com',
+    TWILIO_ACCOUNT_SID: 'x', TWILIO_AUTH_TOKEN: 'y', TWILIO_FROM: '+15610000000',
+  };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (u, i) => { sent.push({ u: String(u), body: String(i && i.body || '') }); return new Response(JSON.stringify({ sid: 'SM1' }), { status: 201 }); };
+  try {
+    const r = await sendStaffInvite(env, {
+      site: { id: 'site_x', name: 'Pompano Beach', intake_token: 'TOK123' },
+      name: 'Roxana', phone: COVER, addedBy: 'Dayan',
+    });
+    assert.equal(r.sent, true);
+    const body = decodeURIComponent(sent[0].body.replace(/\+/g, ' '));
+    assert.match(body, /lunch-count\?t=TOK123/, 'without the link they are authorized and have no way in');
+    assert.match(body, /Pompano Beach/);
+    assert.match(body, /Dayan/, 'an unexplained link from an unknown number reads as a scam');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('no link means no invite is attempted — never a text with a dead URL', async () => {
+  const { sendStaffInvite } = await import('../../functions/_lib/contract.js');
+  const r = await sendStaffInvite({}, { site: { id: 's', name: 'X' }, phone: COVER });
+  assert.equal(r.sent, false);
+  assert.equal(r.reason, 'no_link');
+});
+
+test('adding somebody NEVER sends on its own — only the explicit tick does', () => {
+  const LIBSRC = readFileSync(new URL('../../functions/_lib/contract.js', import.meta.url), 'utf8');
+  const fn = LIBSRC.slice(LIBSRC.indexOf('export async function addSiteStaff'), LIBSRC.indexOf('function inviteBody'));
+  assert.ok(!/sendSms|sendStaffInvite/.test(fn), 'folding the send into the write would make every future caller text a client’s employee');
+  const OWNER = readFileSync(new URL('../../functions/api/hub/owner/contracts.js', import.meta.url), 'utf8');
+  assert.match(OWNER, /if \(b\.invite\)/, 'the owner route sends only when asked');
+  assert.match(STAFF_API, /if \(b\.invite\)/, 'and so does the client route');
+});
+
+test('the owner is told when a CLIENT changes their own roster', () => {
+  assert.match(STAFF_API, /notifyOwnerRosterChange/);
+  assert.match(STAFF_API, /raiseAlert/, 'reuses the existing owner channel rather than inventing one');
+  assert.match(STAFF_API, /dedupe_key: `roster:/, 'repeated taps on one row must not stack up alerts');
+  // Every mutating branch of the client route reports.
+  for (const marker of ["op === 'add'", "op === 'approve' || op === 'remove'"]) {
+    const i = STAFF_API.indexOf(marker);
+    assert.ok(i > -1, marker);
+    assert.match(STAFF_API.slice(i, i + 1400), /notifyOwnerRosterChange/, `${marker} must notify`);
+  }
+});
+
+test('both UIs offer the tick and default it ON', () => {
+  assert.match(HUB, /id="si_'/, 'owner tick-box');
+  assert.match(HUB, /invite: invite/);
+  assert.match(INTAKE, /id="stInvite" checked/, 'client tick-box, ticked by default');
+  assert.match(INTAKE, /invite: !inv \|\| inv\.checked/);
+  // The toast must report what happened to the text, not what was requested.
+  assert.match(HUB, /the text did not go through/);
+});
