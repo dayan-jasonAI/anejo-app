@@ -133,7 +133,13 @@ test('OpenAI returns an HTTP error → falls through to Gemini, which wins', asy
 
 test('OpenAI hangs past its timeout → falls through to Gemini, which wins (bounded, not blocked forever)', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const { env, imageGenInserts } = makeEnv({ extra: { OPENAI_API_KEY: 'sk-test', GEMINI_API_KEY: 'gk-test' } });
+  const { env, imageGenInserts } = makeEnv({ extra: {
+    OPENAI_API_KEY: 'sk-test', GEMINI_API_KEY: 'gk-test',
+    // Pin the bound HERE rather than inheriting the production default. The real default is 90s
+    // (a reasoning image model needs it), and a test that ticks a real 90s clock is a test nobody
+    // will keep. This also proves the env override itself works.
+    IMAGE_TIMEOUT_OPENAI_MS: '15000',
+  } });
   const pending = withFetch(
     fetchRouter({ openai: () => new Promise(() => {}), gemini: () => geminiOk() }), // OpenAI never resolves
     () => generatePlateImage(env, 'seared salmon bowl')
@@ -144,7 +150,7 @@ test('OpenAI hangs past its timeout → falls through to Gemini, which wins (bou
   // is a macrotask, so awaiting one guarantees every pending microtask has already run by the
   // time we tick, and the timer we're about to fire actually exists.
   await new Promise((resolve) => setImmediate(resolve));
-  // Advance past OpenAI's 15s bound — see TIMEOUT_MS in plate_image.js for why 15s.
+  // Advance past the 15s bound this test pinned via IMAGE_TIMEOUT_OPENAI_MS above.
   t.mock.timers.tick(15_000);
   const url = await pending;
   assert.match(url, /^\/api\/hub\/media\//);

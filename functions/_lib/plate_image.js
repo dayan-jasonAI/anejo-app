@@ -95,15 +95,28 @@ export const IMAGE_PROVIDERS = PROVIDERS;
 // here) because it has its own D1/KV/Anthropic dependencies this file otherwise has no reason to
 // carry, and because plate_image.js's job is the PROVIDER CHAIN, not prompt authoring.
 // ---------------------------------------------------------------------------------------------
-// Timeouts. A slow provider must not hang the request that's waiting on it.
-//   - openai / gemini: 15s. These are the FIRST two links in the chain — a hung external call
-//     still has to leave enough of the Function's wall-clock budget for the remaining providers
-//     to get a real attempt, not just a token one.
-//   - workers_ai: 20s. It's the LAST resort (nothing follows it if it's slow), and 20s matches
-//     what the original single-provider code implicitly tolerated — env.AI.run() had no timeout
-//     at all before this rewrite, so 20s is a bound being ADDED, not one being tightened.
-// ---------------------------------------------------------------------------------------------
-const TIMEOUT_MS = { openai: 15_000, gemini: 15_000, workers_ai: 20_000 };
+// MEASURED, not guessed. The first real gpt-image-2 call in production was killed by the old 15s
+// bound — image_generations recorded `openai: "The operation was aborted"` and the chain silently
+// handed back a Workers AI image, which is precisely the "you can tell it's AI" outcome the whole
+// provider chain exists to prevent. gpt-image-2 is a REASONING image model: it deliberates before
+// it draws, and tens of seconds is normal, not a fault. A budget written for the older
+// non-reasoning models turns a working key into an invisible no-op.
+//
+// Now generous by default and overridable per environment, because the right number is a fact
+// about a vendor's current model and will move again.
+//   - openai 90s: room for a reasoning model to finish. Nobody is blocked on this — Studio shows
+//     a pending state, and the weekly planner runs unattended.
+//   - gemini 45s: also a real generation, but not a reasoning one.
+//   - workers_ai 20s: unchanged. It is the last resort and was always the fast one.
+const numEnv = (v, fallback) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : fallback;
+};
+const timeoutsFor = (env) => ({
+  openai: numEnv(env && env.IMAGE_TIMEOUT_OPENAI_MS, 90_000),
+  gemini: numEnv(env && env.IMAGE_TIMEOUT_GEMINI_MS, 45_000),
+  workers_ai: numEnv(env && env.IMAGE_TIMEOUT_WORKERS_AI_MS, 20_000),
+});
 
 // Race any promise against a timeout. Does not (cannot, for env.AI.run) cancel the underlying
 // work — losing the race just means we stop waiting on it and move to the next provider; the
@@ -169,7 +182,7 @@ async function callOpenAI(env, promptData, opts = {}) {
         ...(jpeg ? { output_format: 'jpeg' } : {}),
       }),
     },
-    TIMEOUT_MS.openai
+    timeoutsFor(env).openai
   );
   if (!r.ok) throw new Error(`openai_${r.status}`);
   const data = await r.json();
@@ -193,7 +206,7 @@ async function callGemini(env, promptData) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ contents: [{ parts: [{ text: promptData.prompt }] }] }),
     },
-    TIMEOUT_MS.gemini
+    timeoutsFor(env).gemini
   );
   if (!r.ok) throw new Error(`gemini_${r.status}`);
   const data = await r.json();
@@ -286,6 +299,8 @@ export async function generatePlateImageDetailed(env, prompt, opts = {}) {
       return null;
     }
 
+    const timeouts = timeoutsFor(env);
+
     const { order, disabled } = await getImageProviderConfig(env);
     for (const name of order) {
       if (disabled.includes(name)) { skipped.push({ provider: name, reason: 'disabled' }); continue; }
@@ -304,7 +319,9 @@ export async function generatePlateImageDetailed(env, prompt, opts = {}) {
 
       let result;
       try {
-        result = await withTimeout(PROVIDER_FN[name](env, promptData, opts), TIMEOUT_MS[name]);
+        // opts carries requireJpeg/role for the social repair; timeouts[name] is main's
+        // per-provider budget (a reasoning image model needs longer than Leonardo). Both.
+        result = await withTimeout(PROVIDER_FN[name](env, promptData, opts), timeouts[name]);
       } catch (e) {
         skipped.push({ provider: name, reason: e && e.message === 'timeout' ? 'timeout' : String((e && e.message) || 'error') });
         continue;
