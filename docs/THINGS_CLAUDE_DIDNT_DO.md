@@ -629,6 +629,113 @@ npm run lint: clean.
 
 ---
 
+## 16. Four guidance stores, none reaching every surface
+
+**Status:** ✅ SHIPPED 2026-08-03 · **Added:** 2026-08-03
+
+An audit of who-reads-what found the owner could edit guidance in the HUB and have it reach some
+of his team and not the rest, with no way to tell which:
+
+| Store | Team Lead | Planner | Brand Auditor | Aña | Studio |
+|---|---|---|---|---|---|
+| Owner Training | ✅ | ✅ | **was NO** | **was NO** | no |
+| Knowledge Base | no | ✅ | no | **was NO** | ✅ |
+| Live D1 brand doc | ✅ | **was NO** | **was NO** | no | ✅ |
+| Compiled snapshot (deploy-gated) | fallback | was primary | was primary | no | no |
+
+**The brand-brief split was the trap.** Editing the brief in HUB → Content moved the Team Lead and
+Studio but NOT the planner or the Brand Auditor — those read the compiled snapshot, which only
+changes on a deploy. The owner could rewrite his brand voice and have the auditor still judging
+against the old text, silently.
+
+Fixed by extracting `loadBrand()` / `withoutProposals()` into `_lib/brand_source.js` — live D1
+first, compiled snapshot as the floor, unapproved Studio proposals still stripped (Dayan's ruling:
+one of those proposals quotes wrong prices, and an unapproved proposal is not a standard). Planner,
+Auditor and Lead now share one definition. Source (`d1`/`repo`) is reported, so a thin D1 doc is
+visible rather than mysterious.
+
+**The Brand Auditor now reads the owner's training**, and a training-rule violation is a `flag`
+enforced in *code* — an inattentive model cannot verdict `pass` over the owner's own rule.
+
+---
+
+## 17. Aña was auto-talking to customers and could not be trained
+
+**Status:** ✅ SHIPPED 2026-08-03 · **Added:** 2026-08-03
+
+She drafts and **auto-sends** DM and comment replies (`social.auto_reply='both'`, the owner's
+approval) and was grounded in nothing but the live menu and prices. The one part of the system
+actually speaking to customers was the one part with no trainable input at all.
+
+She now reads owner training (1,200 chars) and knowledge-base retrieval (topK 3, 1,200 chars) —
+budgeted far tighter than the planner's 4,000 because she runs on Haiku on every inbound message.
+Both degrade to empty independently; a missing table never blocks a reply.
+
+**Her safety rails were not touched and are pinned by test**: no invented facts, no medical claims,
+no made-up discounts, and an angry/medical/refund message still escalates with **no draft leaked**.
+`social.auto_reply` was not changed — verified `'both'` in production after deploy.
+
+---
+
+## 18. The team could not learn from its own results
+
+**Status:** ✅ SHIPPED 2026-08-03 — needs data before it says anything · **Added:** 2026-08-03
+
+The real ceiling on the whole system. `performanceBrief()` gave the planner the top 3 and weakest 1
+posts from a **single capture date**, captions cut to 90 characters. No trend, no per-category
+rollup, and **no attribution**: nothing recorded which rule, brief or format produced a post. The
+owner could write a rule, watch reach move, and nothing anywhere connected the two.
+
+Now: `post_provenance` (migration `0076`, applied) stamps every planner-written post with the
+training rules in force, the directing brief, and the category. `attributionRollup()` reports reach
+by rule, brief, category and format — median and mean, with sample size beside every number.
+
+**It refuses to rank below n=5 per side** (matching `AUTO_PUBLISH_AFTER`, this codebase's own
+existing bar for "enough repeats to trust a signal"). That refusal matters more than the feature: a
+confident ranking built on two posts would train both the owner and the AI on noise.
+
+Live-verified after deploy: `minSampleSize: 5`, `totalPublished: 2`, `totalWithProvenance: 0`,
+every comparison `enoughData: false` with null reach. It says nothing, honestly, which is correct —
+stamping begins with the next planner run.
+
+**Both halves are source-pinned by test.** Stamping without reading is a table nobody queries;
+reading without stamping is a report with nothing in it. This repo has shipped two features before
+that looked live from the HUB and were connected to nothing.
+
+---
+
+## 19. Photography style was locked in code
+
+**Status:** ✅ SHIPPED 2026-08-03 · **Added:** 2026-08-03
+
+The owner compared his ChatGPT images to the app's and called it "day and night". Two causes, and
+it is worth separating them because only one is fixable by training:
+
+- **The renderer** — model-bound. `OPENAI_API_KEY`/`GEMINI_API_KEY` are still **absent**, so every
+  image still falls through to Workers AI Leonardo. No volume of rules moves this. The key is the
+  fix, and it is not substitutable.
+- **The prompt** — was a one-line `image_brief` plus a hardcoded `PLATING_STYLE` constant. The
+  owner could not change how his own food is photographed without a developer.
+
+`_lib/image_prompt.js` now expands the brief into a rich, provider-shaped prompt grounded in the
+owner's training first, the brand photo standard second, and the old constant only as the floor
+when nothing has been trained. This is the ChatGPT-app behaviour we were missing: that app silently
+rewrites a short prompt into a long one before rendering, and we did none of it.
+
+Cheap model (Haiku), metered into the same `$50/week` ceiling, cached in KV per (brief,
+training-version) so an edit to training invalidates by changing the key rather than by deletion.
+**Only successful expansions are cached** — so adding the API key or a budget reset takes effect
+immediately instead of being masked by a cached "not configured" answer.
+
+**Fails safe to byte-identical current behaviour** on: no API key, budget exhausted, HTTP error,
+thrown error, timeout, unparseable output, refusal-shaped output. Pinned directly against the
+exported `PLATING_STYLE`/`NEGATIVE_PROMPT` constants.
+
+**Not verified:** no expansion has run against a live model, and no image has been generated
+through the chain (`image_generations` is empty). The first real generation is the proof.
+
+---
+
 ## Appendix — what "coordinates" are for
 
 `orders.delivery_lat` / `delivery_lng`. An address is text; a route needs numbers. Without them:
