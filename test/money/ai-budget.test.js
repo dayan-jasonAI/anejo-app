@@ -141,20 +141,20 @@ test('money is integer microdollars end to end, and the ledger says why', () => 
 
 test('image spend draws from the SAME ai_spend ledger — recordImageSpend is not a side budget', async () => {
   const { db, inserts } = stubDb(0);
-  await recordImageSpend({ DB: db }, { feature: 'plate_image', provider: 'openai', model: 'gpt-image-1' });
+  await recordImageSpend({ DB: db }, { feature: 'plate_image', provider: 'openai', model: 'gpt-image-2' });
   assert.equal(inserts.length, 1, 'lands in the identical ai_spend table text/chat calls use');
   const [, week, , feature, model, inTok, outTok, cost] = inserts[0];
   assert.equal(feature, 'plate_image');
-  assert.equal(model, 'gpt-image-1');
+  assert.equal(model, 'gpt-image-2');
   assert.equal(inTok, 0, 'image spend is flat-rate, not token-metered');
   assert.equal(outTok, 0);
-  assert.equal(cost, priceForImage('gpt-image-1'));
+  assert.equal(cost, priceForImage('gpt-image-2'));
   assert.ok(cost > 0);
   assert.equal(week, isoWeekOf(new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })));
 });
 
 test('an unpriced/unknown image model bills at the highest KNOWN row, never free', () => {
-  const known = ['gpt-image-1', 'gemini-2.5-flash-image', '@cf/leonardo/phoenix-1.0'].map(priceForImage);
+  const known = ['gpt-image-2', 'gpt-image-1', 'gemini-2.5-flash-image', '@cf/leonardo/phoenix-1.0'].map(priceForImage);
   assert.equal(priceForImage('some-future-image-model'), Math.max(...known));
 });
 

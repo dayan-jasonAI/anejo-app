@@ -113,6 +113,15 @@ const IMAGE_PRICES_MICRO = {
   // own published range runs roughly $0.04-$0.19/image depending on quality/size; priced near
   // the top of that range rather than the bottom.
   'gpt-image-1': 80_000,
+  // OpenAI gpt-image-2 — the current flagship and what plate_image.js now asks for by default.
+  // Published range runs about $0.005-$0.211/image across quality tiers and sizes; we request
+  // 1024x1024 'medium', but this is priced near the TOP of the range on purpose, for the same
+  // reason every other row is: an undercount sails past the $50 ceiling silently, an overcount
+  // just throttles early and visibly. Revisit with a real invoice once live traffic has run.
+  'gpt-image-2': 90_000,
+  // gpt-image-1.5 — priced only so a deliberate rollback to it is still metered rather than
+  // falling through to the unknown-model default. Not the default anywhere.
+  'gpt-image-1.5': 85_000,
   // Google gemini-2.5-flash-image ("nano banana"): billed as output tokens, 1290 tokens/image
   // at $30/MTok = ~$0.0387/image. Rounded up for headroom.
   'gemini-2.5-flash-image': 45_000,

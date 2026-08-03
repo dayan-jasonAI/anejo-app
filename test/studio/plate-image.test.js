@@ -1,4 +1,4 @@
-// The plate-image provider chain (functions/_lib/plate_image.js): OpenAI (gpt-image-1) ->
+// The plate-image provider chain (functions/_lib/plate_image.js): OpenAI (gpt-image-2) ->
 // Gemini (nano-banana image) -> Workers AI (Leonardo Phoenix, the old single-provider path).
 //
 // The owner's complaint that started this rewrite was "you can tell it's AI" on the Leonardo-only
@@ -100,9 +100,9 @@ test('OpenAI succeeds: it is tried first and wins — Gemini/Workers AI are neve
   );
   assert.match(url, /^\/api\/hub\/media\//);
   assert.equal(imageGenInserts[0][2], 'openai', 'provider column');
-  assert.equal(imageGenInserts[0][3], 'gpt-image-1', 'model column');
+  assert.equal(imageGenInserts[0][3], 'gpt-image-2', 'model column');
   assert.equal(aiSpendInserts.length, 1, 'exactly one spend row, for the winning provider only');
-  assert.equal(aiSpendInserts[0][4], 'gpt-image-1');
+  assert.equal(aiSpendInserts[0][4], 'gpt-image-2');
 });
 
 test('OpenAI has no key configured → silently skipped, Gemini wins, no throw', async () => {

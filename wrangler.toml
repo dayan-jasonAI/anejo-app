@@ -11,6 +11,10 @@ pages_build_output_dir = "public"
 #   SQUARE_LOCATION_ID  (Var)
 #   SQUARE_WEBHOOK_KEY  (Secret, encrypted)   <- verify Square webhooks
 #   SQUARE_ENV          (Var)                 <- "sandbox" | "production" (the go-live flip)
+#   OPENAI_API_KEY      (Secret, encrypted)   <- image generation (gpt-image-2). Org verification required.
+#   OPENAI_IMAGE_MODEL  (Var, optional)       <- override the model id without a deploy; default gpt-image-2
+#   GEMINI_API_KEY      (Secret, encrypted)   <- image generation fallback
+#   GEMINI_IMAGE_MODEL  (Var, optional)       <- override; default gemini-2.5-flash-image
 #   IG_ACCESS_TOKEN     (Secret, encrypted)   <- Instagram publishing/DMs/insights (functions/_lib/instagram.js)
 #   IG_USER_ID          (Var)                 <- only required on the Facebook Login host (graph.facebook.com);
 #                                                 the Instagram Login host (graph.instagram.com) resolves it via /me

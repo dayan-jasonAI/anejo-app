@@ -4,7 +4,7 @@
 //
 // The owner's verdict on the old single-model path (Workers AI / Leonardo Phoenix only) was
 // "you can tell it's AI." He has OpenAI and Google accounts and loves ChatGPT's visuals, so this
-// is now a FALLBACK CHAIN, tried in order: OpenAI (gpt-image-1) → Gemini (nano-banana image) →
+// is now a FALLBACK CHAIN, tried in order: OpenAI (gpt-image-2) → Gemini (nano-banana image) →
 // Workers AI (Leonardo Phoenix, unchanged from before — the last resort, not the first choice).
 //
 // Every step feature-detects and NEVER throws into a caller: no key configured, a request that
@@ -140,7 +140,14 @@ const EXT_BY_MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'we
 // Providers. Each returns { bytes, contentType, ext, model } on success, or THROWS (caught by
 // the chain in generatePlateImage) — never returns partial/garbage data for the chain to store.
 // ---------------------------------------------------------------------------------------------
-const OPENAI_MODEL = 'gpt-image-1';
+// A model id is a fact about the FUTURE, and this one already expired once: the original
+// hardcoded 'gpt-image-1' is on OpenAI's deprecation list for 2026-10-23, and 'gpt-image-1.5'
+// follows on 2026-12-01. Hardcoding the current flagship just re-arms the same trap on a later
+// date — and the failure is silent from the outside, because the chain simply falls through to
+// the next provider and the owner sees worse images with no error anywhere. So: current default,
+// overridable from the environment WITHOUT a code change, exactly like TEAM_LEAD_MODEL.
+export const OPENAI_MODEL_DEFAULT = 'gpt-image-2';
+const openaiModel = (env) => (env && env.OPENAI_IMAGE_MODEL) || OPENAI_MODEL_DEFAULT;
 
 // Each callX() below now takes `promptData` — the ALREADY-SHAPED { prompt, negative_prompt }
 // from buildImagePrompt(env, brief, { provider }) — rather than the raw one-line brief. Shaping
@@ -153,7 +160,7 @@ async function callOpenAI(env, promptData) {
       headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'content-type': 'application/json' },
       // 'medium' quality: a deliberate cost/quality balance, not the max — this is a meal-prep
       // Instagram grid, not print work, and 'high' can be 3-4x the cost for a marginal gain here.
-      body: JSON.stringify({ model: OPENAI_MODEL, prompt: promptData.prompt, size: '1024x1024', quality: 'medium', n: 1 }),
+      body: JSON.stringify({ model: openaiModel(env), prompt: promptData.prompt, size: '1024x1024', quality: 'medium', n: 1 }),
     },
     TIMEOUT_MS.openai
   );
@@ -161,13 +168,15 @@ async function callOpenAI(env, promptData) {
   const data = await r.json();
   const b64 = data && data.data && data.data[0] && data.data[0].b64_json;
   if (!b64) throw new Error('openai_empty_response');
-  return { bytes: base64ToBytes(b64), contentType: 'image/png', ext: 'png', model: OPENAI_MODEL };
+  return { bytes: base64ToBytes(b64), contentType: 'image/png', ext: 'png', model: openaiModel(env) };
 }
 
-const GEMINI_MODEL = 'gemini-2.5-flash-image';
+// Same reasoning as the OpenAI model above — overridable without a deploy.
+export const GEMINI_MODEL_DEFAULT = 'gemini-2.5-flash-image';
+const geminiModel = (env) => (env && env.GEMINI_IMAGE_MODEL) || GEMINI_MODEL_DEFAULT;
 
 async function callGemini(env, promptData) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel(env)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
   const r = await fetchWithTimeout(
     url,
     {
@@ -183,7 +192,7 @@ async function callGemini(env, promptData) {
   const imgPart = parts.find((p) => p && p.inlineData && p.inlineData.data);
   if (!imgPart) throw new Error('gemini_empty_response');
   const mime = imgPart.inlineData.mimeType || 'image/png';
-  return { bytes: base64ToBytes(imgPart.inlineData.data), contentType: mime, ext: EXT_BY_MIME[mime] || 'png', model: GEMINI_MODEL };
+  return { bytes: base64ToBytes(imgPart.inlineData.data), contentType: mime, ext: EXT_BY_MIME[mime] || 'png', model: geminiModel(env) };
 }
 
 // Leonardo Phoenix 1.0: photographic, strong prompt adherence, supports a negative prompt so we
