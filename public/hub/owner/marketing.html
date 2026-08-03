@@ -55,9 +55,9 @@
     lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
   }
   var esc = Hub.esc;
-  // The four feeds behind the four cards. Each card renders its own failure state, so one dead
+  // The five feeds behind the five cards. Each card renders its own failure state, so one dead
   // endpoint dims one card — it must not blank the cockpit.
-  var DATA = { budget: null, links: null, inbox: null, trust: null };
+  var DATA = { budget: null, links: null, inbox: null, trust: null, attribution: null };
 
   var CAT_WORD = { menu: 'Menu', macro_portal: 'Macro Portal', catering: 'Catering', brand_story: 'Brand story', promo: 'Promos' };
 
@@ -132,11 +132,51 @@
       'One edit resets its streak. The switch is yours — nothing flips it for you.</p></div>';
   }
 
+  // ---- Card 5: reach by cause — does a rule/brief/category/format actually correlate with
+  // better reach? Backed by functions/_lib/instagram_insights.js:attributionRollup, which refuses
+  // to rank a comparison built on too few posts. This card must show THAT refusal as plainly as
+  // it shows a real result — a missing "not enough data" line would let a confident-looking
+  // number stand in for one the system itself doesn't trust yet.
+  function causeRow(label, c) {
+    var withM = Math.round(c.withMedianReach || 0), withoutM = Math.round(c.withoutMedianReach || 0);
+    var dir = withM > withoutM ? 'higher ↑' : (withM < withoutM ? 'lower ↓' : 'no different');
+    return '<tr><td>' + esc(label) + '</td>' +
+      (c.enoughData
+        ? '<td class="num">' + withM + ' vs ' + withoutM + '</td><td class="num">' + dir + '</td><td class="num">n=' + c.withN + ' / ' + c.withoutN + '</td>'
+        : '<td class="num" colspan="2" style="text-align:left;color:var(--green);opacity:.7">Not enough data yet</td><td class="num">n=' + c.withN + ' / ' + c.withoutN + '</td>') +
+      '</tr>';
+  }
+  function attributionCard() {
+    var d = DATA.attribution;
+    if (!d || !d.ok) return '<div class="card"><h3>Reach by cause</h3><p class="row-sub">Could not load the rollup.</p></div>';
+    if (!d.totalPublished) {
+      return '<div class="card"><h3>Reach by cause</h3>' +
+        '<p class="row-sub">No published posts with measured reach yet — this fills in once the daily Instagram sweep has something to compare.</p></div>';
+    }
+    var used = function (rows) { return (rows || []).filter(function (r) { return r.withN > 0; }); };
+    var sections = [
+      { title: 'Training rules', rows: used(d.byRule), label: function (r) { return r.ruleText; } },
+      { title: 'Categories', rows: used(d.byCategory), label: function (r) { return CAT_WORD[r.category] || r.category; } },
+      { title: 'Format', rows: used(d.byFormat), label: function (r) { return r.format === 'carousel' ? 'Carousel' : 'Single image'; } },
+      { title: 'Campaign briefs', rows: used(d.byBrief), label: function (r) { return r.briefTitle; } },
+    ];
+    var body = sections.map(function (s) {
+      if (!s.rows.length) return '';
+      var rows = s.rows.map(function (r) { return causeRow(s.label(r), r); }).join('');
+      return '<p class="row-sub" style="margin:10px 0 2px;font-weight:700;text-transform:uppercase;font-size:10.5px;letter-spacing:.06em">' + esc(s.title) + '</p>' +
+        '<table class="mini-table"><thead><tr><th>vs. without</th><th style="text-align:right">median reach</th><th></th><th style="text-align:right">sample</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    }).join('');
+    return '<div class="card"><h3>Reach by cause</h3>' +
+      (body || '<p class="row-sub">Nothing has been attributed to a rule, brief, category or format yet.</p>') +
+      '<p class="hint">Comparing published posts WITH each cause against published posts WITHOUT it, by median reach. ' +
+      'Below ' + d.minSampleSize + ' posts on either side, this refuses to rank — one post is not a pattern.</p></div>';
+  }
+
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML =
       '<div class="hub-section"><h2>Marketing cockpit</h2>' +
-        budgetCard() + linksCard() + inboxCard() + trustCard() +
+        budgetCard() + linksCard() + inboxCard() + trustCard() + attributionCard() +
       '</div>';
     wire();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
@@ -158,16 +198,17 @@
     });
   }
 
-  // Four independent fetches; render once, with whatever answered. Promise.all is safe because
+  // Five independent fetches; render once, with whatever answered. Promise.all is safe because
   // Hub.api never rejects — a failed endpoint answers {} and its card says so.
   function load() {
     Promise.all([
       Hub.api('/api/hub/automations/run'),
       Hub.api('/api/hub/owner/links'),
       Hub.api('/api/hub/owner/social-inbox'),
-      Hub.api('/api/hub/owner/trust')
+      Hub.api('/api/hub/owner/trust'),
+      Hub.api('/api/hub/owner/marketing-attribution')
     ]).then(function (r) {
-      DATA.budget = r[0]; DATA.links = r[1]; DATA.inbox = r[2]; DATA.trust = r[3];
+      DATA.budget = r[0]; DATA.links = r[1]; DATA.inbox = r[2]; DATA.trust = r[3]; DATA.attribution = r[4];
       render();
     });
   }

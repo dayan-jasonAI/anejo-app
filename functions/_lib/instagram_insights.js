@@ -12,7 +12,9 @@
 //      (reach, saved) rather than losing everything because 'views' was renamed again. A partial
 //      snapshot beats no snapshot; the columns simply stay NULL.
 import { resolveTarget, igConfigured } from './instagram.js';
-import { etDateOf } from './hub.js';
+import { etDateOf, parseJson } from './hub.js';
+import { TRUST_CATEGORIES } from './trust_ledger.js';
+import { loadTraining } from './training.js';
 
 async function graphGet(env, base, path, params) {
   const qs = new URLSearchParams({ ...params, access_token: env.IG_ACCESS_TOKEN });
@@ -128,6 +130,194 @@ export async function performanceBrief(env) {
       (bottom ? `Weakest:\n${bottom}\n` : '') +
       `Write toward what the numbers say people respond to — subject, angle and format — without repeating captions verbatim.\n` +
       `=== END PERFORMANCE ===`
+    );
+  } catch { return ''; }
+}
+
+// ---------------------------------------------------------------------------
+// Attribution rollup — reporting results back BY CAUSE, not just a top-3 list.
+//
+// performanceBrief() (above) answers "what did well." This answers the question the owner
+// actually has: "did the rule I wrote / the brief I approved / this format actually help?" — by
+// comparing the reach of published posts WITH a given cause against published posts WITHOUT it.
+//
+// STATISTICAL HONESTY IS THE POINT, NOT A NICETY. The account has a handful of published posts.
+// A ranking built on n=2 vs n=1 is not a finding, it is noise wearing a finding's clothes — and a
+// planner or owner that trusts it will optimize for the noise. So every comparison below reports
+// its sample size, and MIN_SAMPLE_SIZE (chosen to match AUTO_PUBLISH_AFTER in trust_ledger.js —
+// the same "five in a row" bar this codebase already uses to decide a signal is real enough to
+// act on) gates whether a comparison is allowed to say anything more than "not enough data yet."
+// Below that bar, one outlier post can flip which side looks better; this refuses to rank rather
+// than produce a confident-looking order from noise.
+export const MIN_SAMPLE_SIZE = 5;
+
+function median(nums) {
+  if (!nums.length) return null;
+  const s = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+function mean(nums) {
+  if (!nums.length) return null;
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+// pairs: [{ reach, inGroup }], already restricted to the posts where this dimension is actually
+// KNOWN (see the per-dimension universe comments in attributionRollup). `enoughData` is the only
+// field a caller should gate a ranking or a "this helped" claim on.
+function compareGroups(pairs) {
+  const withArr = [];
+  const withoutArr = [];
+  for (const p of pairs) (p.inGroup ? withArr : withoutArr).push(p.reach);
+  return {
+    withN: withArr.length,
+    withoutN: withoutArr.length,
+    withMedianReach: median(withArr),
+    withMeanReach: mean(withArr),
+    withoutMedianReach: median(withoutArr),
+    withoutMeanReach: mean(withoutArr),
+    enoughData: withArr.length >= MIN_SAMPLE_SIZE && withoutArr.length >= MIN_SAMPLE_SIZE,
+  };
+}
+
+/**
+ * Every published post that has a reach reading, joined against its provenance (0076) if any.
+ * `hasProvenance` says whether a post_provenance row exists at all — the row-presence signal
+ * that separates "predates this feature" from "recorded, and confirmed empty" (see
+ * post_provenance.js). `ruleIds` is `null` when unknown (no row, or the row never recorded rule
+ * ids) and an array — possibly empty — when known; that null/array distinction is what lets the
+ * rollup tell "no rules were in force" apart from "we don't know."
+ */
+async function publishedPostsWithReach(env) {
+  const r = await env.DB.prepare(
+    `SELECT p.id AS post_id, m.reach AS reach,
+            (pv.post_id IS NOT NULL) AS has_provenance,
+            pv.rule_ids AS rule_ids, pv.brief_id AS brief_id, pv.category AS category, pv.format AS format
+       FROM social_posts p
+       JOIN ig_media_metrics m
+         ON m.post_id = p.id
+        AND m.capture_date = (SELECT MAX(m2.capture_date) FROM ig_media_metrics m2 WHERE m2.media_id = m.media_id)
+       LEFT JOIN post_provenance pv ON pv.post_id = p.id
+      WHERE p.status = 'published' AND m.reach IS NOT NULL`
+  ).all();
+  return ((r && r.results) || []).map((row) => ({
+    postId: row.post_id,
+    reach: Number(row.reach),
+    hasProvenance: !!row.has_provenance,
+    ruleIds: row.rule_ids != null ? parseJson(row.rule_ids, null) : null,
+    briefId: row.brief_id ?? null,
+    category: row.category ?? null,
+    format: row.format ?? null,
+  }));
+}
+
+const EMPTY_ROLLUP = { ok: true, generatedAt: null, minSampleSize: MIN_SAMPLE_SIZE, totalPublished: 0, totalWithProvenance: 0, byRule: [], byBrief: [], byCategory: [], byFormat: [] };
+
+/**
+ * Reach by cause: per training rule, per campaign brief, per category, per format — each as a
+ * with-it vs without-it comparison of published posts, honestly capped at what the sample size
+ * actually supports. Never throws (a DB hiccup, a pre-0076 schema, or zero published posts all
+ * degrade to the same empty-but-valid shape) — a caller can always safely render this.
+ *
+ * WHICH POSTS COUNT FOR WHICH COMPARISON (the "known universe" for each dimension — see
+ * post_provenance.js for why these are not all the same test):
+ *   · byRule     — posts where rule_ids was actually recorded (an array, possibly empty). A post
+ *                  with no provenance row at all contributes to NEITHER side of a rule comparison.
+ *   · byBrief    — posts where a provenance row exists at all (brief_id NULL there is read as
+ *                  "confirmed no brief," per the migration's convention).
+ *   · byCategory — same gate as byBrief.
+ *   · byFormat   — posts where format was explicitly recorded ('single' or 'carousel'). Format is
+ *                  the one field expected to be stamped in a LATER call than rule/brief/category
+ *                  (Creative Studio decides it, downstream of the planner), so a provenance row
+ *                  existing is not enough here — only an actual format value is.
+ */
+export async function attributionRollup(env) {
+  if (!env || !env.DB) return EMPTY_ROLLUP;
+  try {
+    const items = await publishedPostsWithReach(env);
+    const totalPublished = items.length;
+    if (!totalPublished) return { ...EMPTY_ROLLUP, generatedAt: Date.now() };
+    const totalWithProvenance = items.filter((it) => it.hasProvenance).length;
+
+    let rules = [];
+    try { rules = (await loadTraining(env)).rules || []; } catch { rules = []; }
+    const ruleUniverse = items.filter((it) => it.ruleIds !== null);
+    const byRule = rules.map((rule) => ({
+      ruleId: rule.id,
+      ruleText: String(rule.text || '').replace(/\s+/g, ' ').trim().slice(0, 140),
+      ...compareGroups(ruleUniverse.map((it) => ({ reach: it.reach, inGroup: it.ruleIds.includes(rule.id) }))),
+    }));
+
+    let briefRows = [];
+    try {
+      const r = await env.DB.prepare('SELECT id, title FROM team_briefs ORDER BY created_at DESC LIMIT 50').all();
+      briefRows = (r && r.results) || [];
+    } catch { briefRows = []; }
+    const briefUniverse = items.filter((it) => it.hasProvenance);
+    const byBrief = briefRows.map((brief) => ({
+      briefId: brief.id,
+      briefTitle: String(brief.title || '').slice(0, 140),
+      ...compareGroups(briefUniverse.map((it) => ({ reach: it.reach, inGroup: it.briefId === brief.id }))),
+    }));
+
+    const categoryUniverse = items.filter((it) => it.hasProvenance);
+    const byCategory = TRUST_CATEGORIES.map((cat) => ({
+      category: cat,
+      ...compareGroups(categoryUniverse.map((it) => ({ reach: it.reach, inGroup: it.category === cat }))),
+    }));
+
+    const formatUniverse = items.filter((it) => it.format !== null);
+    const byFormat = ['single', 'carousel'].map((fmt) => ({
+      format: fmt,
+      ...compareGroups(formatUniverse.map((it) => ({ reach: it.reach, inGroup: it.format === fmt }))),
+    }));
+
+    return { ok: true, generatedAt: Date.now(), minSampleSize: MIN_SAMPLE_SIZE, totalPublished, totalWithProvenance, byRule, byBrief, byCategory, byFormat };
+  } catch {
+    return EMPTY_ROLLUP;
+  }
+}
+
+/**
+ * A compact planner-facing summary of the rollup above — same discipline as performanceBrief():
+ * returns '' when there is nothing worth saying, so a caller that concatenates it into a prompt
+ * never injects a scaffold that reads like data. Only comparisons that clear MIN_SAMPLE_SIZE on
+ * both sides are surfaced; everything else stays silent rather than teaching the planner (or the
+ * owner) a pattern that is really just noise from a handful of posts.
+ */
+export async function attributionBrief(env) {
+  if (!env || !env.DB) return '';
+  try {
+    const rollup = await attributionRollup(env);
+    if (!rollup.ok || !rollup.totalPublished) return '';
+
+    const lines = [];
+    const fmtDelta = (c) => {
+      const withM = Math.round(c.withMedianReach);
+      const withoutM = Math.round(c.withoutMedianReach);
+      const dir = withM > withoutM ? 'higher' : withM < withoutM ? 'lower' : 'no different';
+      return `median reach ${withM} vs ${withoutM} without it (${dir}; n=${c.withN} vs n=${c.withoutN})`;
+    };
+    for (const r of rollup.byRule) {
+      if (r.enoughData) lines.push(`Rule "${r.ruleText}": ${fmtDelta(r)}.`);
+    }
+    for (const b of rollup.byBrief) {
+      if (b.enoughData) lines.push(`Brief "${b.briefTitle}": ${fmtDelta(b)}.`);
+    }
+    for (const c of rollup.byCategory) {
+      if (c.enoughData) lines.push(`Category ${c.category}: ${fmtDelta(c)}.`);
+    }
+    for (const f of rollup.byFormat) {
+      if (f.enoughData) lines.push(`Format ${f.format}: ${fmtDelta(f)}.`);
+    }
+    if (!lines.length) return '';
+
+    return (
+      `=== WHAT IS ACTUALLY WORKING (${rollup.totalPublished} published posts measured) ===\n` +
+      lines.join('\n') + '\n' +
+      `Comparisons below ${rollup.minSampleSize} posts on either side are withheld as not statistically meaningful yet — do not invent a pattern to fill the gap.\n` +
+      `=== END WHAT IS WORKING ===`
     );
   } catch { return ''; }
 }
