@@ -12,6 +12,7 @@ pages_build_output_dir = "public"
 #   SQUARE_WEBHOOK_KEY  (Secret, encrypted)   <- verify Square webhooks
 #   SQUARE_ENV          (Var)                 <- "sandbox" | "production" (the go-live flip)
 #   OPENAI_API_KEY      (Secret, encrypted)   <- image generation (gpt-image-2). Org verification required.
+#   IMAGE_TIMEOUT_OPENAI_MS (Var, optional)   <- default 90000; gpt-image-2 reasons before it draws
 #   OPENAI_IMAGE_MODEL  (Var, optional)       <- override the model id without a deploy; default gpt-image-2
 #   GEMINI_API_KEY      (Secret, encrypted)   <- image generation fallback
 #   GEMINI_IMAGE_MODEL  (Var, optional)       <- override; default gemini-2.5-flash-image
