@@ -14,7 +14,8 @@
 import { budgetGate, recordSpend } from './ai_budget.js';
 import { loadMenu } from './menu.js';
 import { loadOperating } from './operating.js';
-import { BRAND_CONTEXT } from './brand_context.js';
+import { loadBrand } from './brand_source.js';
+import { trainingContext } from './training.js';
 
 // Audits are per-draft and frequent, so they ride Haiku like Aña's DM drafts do. The judge
 // does not need frontier reasoning — it needs the brand brief and the live menu in front of
@@ -23,7 +24,20 @@ const AUDIT_MODEL = 'claude-haiku-4-5';
 
 // The only flag types a model answer may carry. Anything else it invents is coerced to
 // 'claim' rather than trusted into the owner's UI as a new category nobody designed for.
-const MODEL_FLAG_TYPES = new Set(['claim', 'voice', 'photo']);
+// 'training' was added alongside the owner-training injection below — a flag naming a
+// violated HUB rule is a distinct kind of finding from a brand-voice nit or a photo miss.
+const MODEL_FLAG_TYPES = new Set(['claim', 'voice', 'photo', 'training']);
+
+// Char cap on the brand brief the auditor reads — the SAME ceiling the Team Lead and the
+// planner carry (brand_source.js). Before brand_source.js existed the auditor had no cap at
+// all: it always embedded the FULL compiled snapshot (~15.3k chars), so 20000 is headroom,
+// not a squeeze, and preserves this judge's read of the brief exactly as it was.
+const BRAND_BUDGET = 20000;
+
+// Owner training (0075/training.js) reaching the judge too. Same budget the Team Lead and the
+// planner already use for the same feed — this is the third and last consumer of
+// trainingContext(), not a fourth, differently-sized one.
+const TRAINING_BUDGET = 4000;
 
 // Every price the live menu actually charges, in integer cents — drawn from the same
 // loadMenu rows checkout prices from (fallback maps included, so a D1 blip does not turn
@@ -94,13 +108,20 @@ export function deterministicFlags(caption, { priceCents, orderByHour }) {
 }
 
 // The judge's brief: the brand document verbatim (summarising it is how the brand drifts),
-// the live menu, and the claim rules written as rules rather than vibes.
-function auditSystemPrompt(menuLines) {
+// the live menu, the owner's own training rules, and the claim rules written as rules rather
+// than vibes.
+//
+// `brand` is { text, source } from brand_source.js — 'd1' when the owner has a live brief in the
+// HUB, 'repo' for the compiled snapshot floor. `training` is trainingContext()'s output, already
+// budget-capped; '' on a fresh install, meaning the training section below is omitted entirely
+// rather than rendered as an empty, misleading header.
+function auditSystemPrompt(menuLines, brand, training) {
   return (
     'You are the brand auditor for Añejo Catering Co. You review DRAFT Instagram posts before ' +
-    'the owner sees them. Below is the brand\'s own standards brief — verbatim, written by the ' +
-    'owner. It is the authority on who Añejo is and how it speaks.\n\n' +
-    '=== AÑEJO BRAND BRIEF (excerpts) ===\n' + BRAND_CONTEXT + '\n=== END BRIEF ===\n\n' +
+    'the owner sees them. Below is the brand\'s own standards brief' +
+    (brand.source === 'd1' ? ' — live from the HUB, owner-maintained' : ' — verbatim, written by the owner') +
+    '. It is the authority on who Añejo is and how it speaks.\n\n' +
+    '=== AÑEJO BRAND BRIEF ===\n' + brand.text + '\n=== END BRIEF ===\n\n' +
     '=== THE LIVE MENU (the ONLY items, names, ingredients and prices that exist) ===\n' +
     menuLines.join('\n') + '\n=== END MENU ===\n\n' +
     'HARD CLAIM RULES — every violation is a flag of type "claim":\n' +
@@ -114,8 +135,21 @@ function auditSystemPrompt(menuLines) {
     '- Links must carry a full domain (e.g. anejocateringco.com/order), never a bare path.\n\n' +
     'Also judge the caption\'s voice against the brand voice section ("voice" flags) and the ' +
     'image_brief against the Photo standard ("photo" flags).\n\n' +
+    (training
+      ? '=== OWNER\'S TRAINING FOR THE TEAM (rules and examples he taught from the HUB) ===\n' +
+        training + '\n=== END TRAINING ===\n\n' +
+        // The scoring rule this exists to state, in words a Haiku judge cannot miss: a training
+        // RULE is an instruction from the person who owns the business, not a style preference to
+        // weigh against everything else. Treat it exactly like a HARD CLAIM RULE above — a
+        // violation is a flag of type "training", and a draft that breaks one can never verdict
+        // "pass", even if it is otherwise on-brand, factually clean, and well photographed.
+        'Each RULE above is a direct instruction from the owner — not a suggestion, not one voice ' +
+        'consideration among several. If the draft violates ANY rule above, that is a flag of type ' +
+        '"training": name the rule (or paraphrase it) and quote the part of the draft that breaks it. ' +
+        'A draft that violates an owner rule must NEVER verdict "pass".\n\n'
+      : '') +
     'Return ONLY JSON, nothing else: {"brand_score": <integer 0-100>, ' +
-    '"flags": [{"type": "claim"|"voice"|"photo", "detail": "<one short sentence>"}], ' +
+    '"flags": [{"type": "claim"|"voice"|"photo"|"training", "detail": "<one short sentence>"}], ' +
     '"verdict": "pass"|"flag"}. verdict "pass" only if the draft could reach the owner with no reservations.'
   );
 }
@@ -145,6 +179,15 @@ export async function auditDraft(env, { caption, image_brief } = {}) {
 
   const hard = deterministicFlags(caption, { priceCents: menuPriceCents(menu), orderByHour });
 
+  // The brand brief (shared with the Team Lead and the planner via brand_source.js — one
+  // definition, no drift) and the owner's own training rules (0075/training.js). Both degrade
+  // silently: loadBrand always returns at least the compiled snapshot, and trainingContext
+  // returns '' on a fresh install or a pre-migration database — neither can ever throw the audit
+  // into 'unavailable', because an unscored draft is worse than one judged without training.
+  const brand = await loadBrand(env, { maxChars: BRAND_BUDGET });
+  let training = '';
+  try { training = await trainingContext(env, { maxChars: TRAINING_BUDGET }); } catch { training = ''; }
+
   let model = null;          // { score, flags, verdict } once the judge has answered
   let unavailable = null;    // why it has not, in a word the owner can read
   if (!env || !env.ANTHROPIC_API_KEY) unavailable = 'no API key';
@@ -157,7 +200,7 @@ export async function auditDraft(env, { caption, image_brief } = {}) {
         body: JSON.stringify({
           model: AUDIT_MODEL,
           max_tokens: 500,
-          system: auditSystemPrompt(menuLinesOf(menu)),
+          system: auditSystemPrompt(menuLinesOf(menu), brand, training),
           messages: [{
             role: 'user',
             content: JSON.stringify({
@@ -197,14 +240,27 @@ export async function auditDraft(env, { caption, image_brief } = {}) {
       brand_score: 0,
       flags: [...hard, { type: 'audit_unavailable', detail: `The brand audit could not run (${unavailable}). Review this draft by hand.` }],
       verdict: 'flag',
+      brand_source: brand.source,
     };
   }
+
+  // A training rule is an instruction, not a vibe — the same "code catches lies, it does not
+  // grant absolution" discipline the deterministic price/cutoff/link checks already apply. The
+  // prompt already tells the model a training violation can never verdict "pass" (see
+  // auditSystemPrompt), but a prompt is a request; this is the guarantee. If the model ever DOES
+  // report a "training" flag alongside verdict "pass" — its own instructions ignored — the code
+  // overrules it here, exactly like a deterministic claim flag does.
+  const trainingViolation = model.flags.some((f) => f.type === 'training');
 
   return {
     brand_score: model.score,
     flags: [...hard, ...model.flags],
-    // The model may say pass; the deterministic checks can still overrule it. Never the
-    // other way around — code catches lies, it does not grant absolution.
-    verdict: model.verdict === 'pass' && !hard.length ? 'pass' : 'flag',
+    // The model may say pass; the deterministic checks AND a reported training violation can
+    // still overrule it. Never the other way around — code catches lies, it does not grant
+    // absolution.
+    verdict: model.verdict === 'pass' && !hard.length && !trainingViolation ? 'pass' : 'flag',
+    // Which brief this audit actually judged against — 'd1' vs 'repo' — so a thin owner edit is
+    // visible on the draft's audit row rather than a mystery.
+    brand_source: brand.source,
   };
 }

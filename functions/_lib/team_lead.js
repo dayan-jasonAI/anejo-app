@@ -21,7 +21,7 @@
 // ingredient and its weight, macros, tags) and the whole marketing half of the brief, so the Lead's
 // honesty has something to be honest ABOUT.
 import { budgetGate, recordSpend, weekSpend, WEEKLY_LIMIT_MICRO } from './ai_budget.js';
-import { BRAND_CONTEXT } from './brand_context.js';
+import { loadBrand } from './brand_source.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from './bowlspec.js';
 import { trainingContext } from './training.js';
@@ -50,68 +50,10 @@ async function firstRow(env, sql, ...args) {
 }
 
 // Char cap on the injected brief. The compiled brief is ~15k; the Studio budgets 18k for the same
-// document, so this is headroom, not a squeeze.
+// document, so this is headroom, not a squeeze. loadBrand() itself lives in brand_source.js —
+// shared with the content planner and the Brand Auditor, so there is one definition of "the
+// brand brief" instead of three that can silently drift apart.
 const BRAND_BUDGET = 20000;
-
-/**
- * The brand brief, preferring the copy the OWNER can edit.
- *
- * Two copies exist and they are not interchangeable. `docs` rows (doc_type='brand') are live: the
- * Studio grounds on them, and an owner-approved brief change (_lib/brief.js) overwrites them. The
- * compiled BRAND_CONTEXT is a build-time snapshot of docs/brand-standards-brief.md — it ships with
- * the code and cannot move until a deploy. Reading only the snapshot is what made an approval in
- * the HUB change the Studio's brief and not the Lead's: same business, two answers.
- *
- * So: live wins, snapshot is the floor, and `source` is reported rather than hidden — if the D1 doc
- * is thinner than the brief it replaces, the owner needs to SEE 'd1' on the page to know why the
- * Lead got vaguer, instead of guessing at the model.
- *
- * No role_scope filter: this is an owner-only surface, and the owner sees every doc in the HUB.
- */
-/**
- * A proposal is not a standard.
- *
- * The Studio appends kitchen proposals awaiting the owner's review into the SAME `docs` row as the
- * ratified brief, under `## Proposed Studio Brief Change`. That was harmless while the Lead read
- * the compiled snapshot; the moment live D1 won, unapproved content became brief content. One such
- * block is a price list quoting three bowls above what the storefront actually charges — the Lead
- * would have been reasoning from the owner's inbox instead of his decisions.
- *
- * Dropped at injection rather than at rest: the owner's approval flow keeps writing proposals into
- * that row, and deleting them there would be editing his document to fix our prompt. Ruling: Dayan
- * 2026-08-02.
- *
- * Level-2 headings decide. Every `## ` re-opens the question, so a proposal's own `### ` subsections
- * and body ride along with it, and the ratified section that follows comes straight back.
- */
-const PROPOSAL_HEADING = /^##\s+Proposed Studio Brief Change\b/i;
-
-function withoutProposals(body) {
-  const kept = [];
-  let skipping = false;
-  for (const line of String(body).split('\n')) {
-    if (/^##\s/.test(line)) skipping = PROPOSAL_HEADING.test(line);
-    if (!skipping) kept.push(line);
-  }
-  return kept.join('\n').trim();
-}
-
-async function loadBrand(env) {
-  const docs = await rows(env,
-    "SELECT title, body FROM docs WHERE active = 1 AND doc_type = 'brand' ORDER BY updated_at DESC LIMIT 10");
-  const parts = [];
-  let used = 0;
-  for (const d of docs) {
-    const body = withoutProposals(d.body || '');
-    if (!body || used >= BRAND_BUDGET) continue;
-    const block = `### ${d.title || 'Brand & Standards Brief'}\n${body}`.slice(0, BRAND_BUDGET - used);
-    parts.push(block);
-    used += block.length;
-  }
-  return parts.length
-    ? { text: parts.join('\n\n'), source: 'd1' }
-    : { text: BRAND_CONTEXT, source: 'repo' };
-}
 
 /**
  * One menu row as the Lead needs to see it: what it costs, whether it sells, and — for a bowl —
@@ -146,7 +88,7 @@ function describeItem(row) {
  */
 export async function buildSpine(env) {
   // The brand brief — live copy if the owner has one, compiled snapshot otherwise.
-  const brand = await loadBrand(env);
+  const brand = await loadBrand(env, { maxChars: BRAND_BUDGET });
 
   // Live menu — prices, availability, and the kitchen build. Same rows the storefront charges
   // from, so the Lead can never argue for a campaign around a bowl that is off sale without

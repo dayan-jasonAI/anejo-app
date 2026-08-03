@@ -21,8 +21,9 @@ const SOCIAL_API = readFileSync(new URL('../../functions/api/hub/owner/social.js
 const MIG = readFileSync(new URL('../../migrations/0071_governance.sql', import.meta.url), 'utf8');
 
 // A D1 stub that serves a live menu, the owner's ops dials, the budget SUM, and captures
-// ai_spend inserts — everything auditDraft touches.
-function stubDb({ weekSpent = 0, menuItems = [], settings = [] } = {}) {
+// ai_spend inserts — everything auditDraft touches. `docsRows`/`trainingRows` are optional so
+// most tests exercise the honest-empty path (no live brief, no training) without having to say so.
+function stubDb({ weekSpent = 0, menuItems = [], settings = [], docsRows = [], trainingRows = [] } = {}) {
   const spendInserts = [];
   const db = {
     prepare(sql) {
@@ -34,6 +35,9 @@ function stubDb({ weekSpent = 0, menuItems = [], settings = [] } = {}) {
           if (/FROM menu_items/.test(sql)) return { results: menuItems };
           if (/menu_modifier_prices/.test(sql)) return { results: [] };
           if (/FROM app_settings/.test(sql)) return { results: settings };
+          if (/FROM docs/.test(sql)) return { results: docsRows };
+          if (/FROM training_rules/.test(sql)) return { results: trainingRows };
+          if (/FROM training_examples/.test(sql)) return { results: [] };
           return { results: [] };
         },
         async run() {
@@ -174,4 +178,90 @@ test('the auditor itself is gated AND metered — the sweep in ai-budget.test.js
   assert.ok(GOV.includes('budgetGate('), 'gate before the call');
   assert.ok(GOV.includes('recordSpend('), 'meter after the call');
   assert.match(GOV, /feature: 'governance_audit'/);
+});
+
+// ---------------------------------------------------------------------------
+// One brand source: the auditor reads the SAME shared loader as the Team Lead and the planner
+// (functions/_lib/brand_source.js), not a private BRAND_CONTEXT import — source-pinned so an
+// unused import can never pass for wiring.
+// ---------------------------------------------------------------------------
+
+test('the auditor reads the shared brand loader, not a private BRAND_CONTEXT import', () => {
+  assert.match(GOV, /import \{ loadBrand \} from '\.\/brand_source\.js'/);
+  assert.match(GOV, /await loadBrand\(env, \{ maxChars: BRAND_BUDGET \}\)/, 'and must actually CALL it — an unused import is not wiring');
+  assert.ok(!/from '\.\/brand_context\.js'/.test(GOV), 'no private brand_context import left behind');
+});
+
+test('the auditor prefers the live D1 brief and falls back to the compiled snapshot, same as the Team Lead and planner', async () => {
+  const { db } = stubDb({ menuItems: MENU, docsRows: [{ title: 'Brand & Standards Brief', body: 'Owner-approved voice, live from the HUB.' }] });
+  const realFetch = globalThis.fetch;
+  let sentBody = null;
+  globalThis.fetch = async (url, init) => { sentBody = JSON.parse(init.body); return modelAnswer({ brand_score: 90, flags: [], verdict: 'pass' })(); };
+  try {
+    await auditDraft({ DB: db, ANTHROPIC_API_KEY: 'k' }, { caption: 'Fresh bowls this week. Link in bio.' });
+    assert.match(sentBody.system, /live from the HUB, owner-maintained/, 'the header names the live source');
+    assert.match(sentBody.system, /Owner-approved voice, live from the HUB\./, 'the live text itself reached the judge');
+  } finally { globalThis.fetch = realFetch; }
+
+  // No live doc in D1 → the compiled snapshot is the floor, never an empty brief.
+  const { db: dbEmpty } = stubDb({ menuItems: MENU });
+  globalThis.fetch = async (url, init) => { sentBody = JSON.parse(init.body); return modelAnswer({ brand_score: 90, flags: [], verdict: 'pass' })(); };
+  try {
+    const a = await auditDraft({ DB: dbEmpty, ANTHROPIC_API_KEY: 'k' }, { caption: 'Fresh bowls this week. Link in bio.' });
+    assert.equal(a.brand_source, 'repo');
+    assert.match(sentBody.system, /verbatim, written by the owner/);
+    assert.match(sentBody.system, /40% protein \/ 30% carbs \/ 30% fat/, 'the Golden Rule from the compiled snapshot');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+// ---------------------------------------------------------------------------
+// Owner training reaches the judge too — a rule is an instruction, and violating one is a flag
+// that can never verdict "pass", even when the model itself says otherwise.
+// ---------------------------------------------------------------------------
+
+test("owner training reaches the audit prompt, framed as instructions the judge must enforce", async () => {
+  const { db } = stubDb({ menuItems: MENU, trainingRows: [{ id: 't1', text: 'Never use the word "diet" anywhere in a caption.', created_by: 'owner', created_at: 1, updated_at: 2 }] });
+  let sentBody = null;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { sentBody = JSON.parse(init.body); return modelAnswer({ brand_score: 90, flags: [], verdict: 'pass' })(); };
+  try {
+    await auditDraft({ DB: db, ANTHROPIC_API_KEY: 'k' }, { caption: 'Fresh bowls. Link in bio.' });
+    assert.match(sentBody.system, /Never use the word "diet" anywhere in a caption\./, 'the owner rule reached the judge');
+    assert.match(sentBody.system, /must NEVER verdict "pass"/, 'the scoring instruction is explicit, not implied');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('a reported training violation OVERRULES a model "pass" — the same discipline as a deterministic claim flag', async () => {
+  const { db } = stubDb({ menuItems: MENU, trainingRows: [{ id: 't1', text: 'Never mention a competitor.', created_by: 'owner', created_at: 1, updated_at: 2 }] });
+  const realFetch = globalThis.fetch;
+  // The model reports the violation it was asked to look for, but (a bug, or an inattentive
+  // judge) still calls the draft "pass" — the code must not trust that.
+  globalThis.fetch = modelAnswer({ brand_score: 88, flags: [{ type: 'training', detail: 'Mentions a rival caterer by name.' }], verdict: 'pass' });
+  try {
+    const a = await auditDraft({ DB: db, ANTHROPIC_API_KEY: 'k' }, { caption: 'Better than [Rival Caterer], every time.' });
+    assert.equal(a.verdict, 'flag', 'a training violation can never pass, regardless of what the model claims');
+    assert.ok(a.flags.some((f) => f.type === 'training' && /rival caterer/i.test(f.detail)));
+    assert.equal(a.brand_score, 88, 'the score itself is still the model\'s — only the verdict is overruled');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('with no training recorded, the audit prompt and verdict logic are exactly as before this wiring', async () => {
+  const { db } = stubDb({ menuItems: MENU }); // trainingRows defaults to []
+  let sentBody = null;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { sentBody = JSON.parse(init.body); return modelAnswer({ brand_score: 92, flags: [], verdict: 'pass' })(); };
+  try {
+    const a = await auditDraft({ DB: db, ANTHROPIC_API_KEY: 'k' }, { caption: 'VIDA is back. Link in bio.' });
+    assert.ok(!sentBody.system.includes("OWNER'S TRAINING"), 'no header when there is nothing to say — never a dangling section');
+    assert.equal(a.verdict, 'pass');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('"training" joins the model flag allowlist without weakening it — an unknown type still coerces to claim', () => {
+  assert.match(GOV, /new Set\(\['claim', 'voice', 'photo', 'training'\]\)/);
+});
+
+test('training is wired with an explicit, budget-capped call — source pin', () => {
+  assert.match(GOV, /import \{ trainingContext \} from '\.\/training\.js'/);
+  assert.match(GOV, /await trainingContext\(env, \{ maxChars: TRAINING_BUDGET \}\)/, 'an unused import is not wiring');
 });

@@ -218,12 +218,12 @@ test('the bundled brief is byte-identical to the markdown source', () => {
 });
 
 test('the planner prompt carries the real standards, not a paraphrase', () => {
-  // The one-line "warm, family-rooted" note I wrote by hand is gone. Two real sources now feed the
-  // prompt: the curated brand context (voice, photo standard, the Reposado ruling) and §3 of the
-  // sync-enforced full brief — the product lines — because the standing objective is that people
-  // know EVERYTHING Añejo sells, and excerpts that stop at voice would keep the planner writing
-  // bowl posts forever.
-  assert.match(AUTO, /BRAND_CONTEXT/);
+  // The one-line "warm, family-rooted" note I wrote by hand is gone. Real sources now feed the
+  // prompt: the brand brief (shared loader, brand_source.js — live D1 preferred, BRAND_CONTEXT as
+  // its fallback floor) and §3 of the sync-enforced full brief — the product lines — because the
+  // standing objective is that people know EVERYTHING Añejo sells, and excerpts that stop at
+  // voice would keep the planner writing bowl posts forever.
+  assert.match(AUTO, /from '\.\/brand_source\.js'/, 'the planner reads the SHARED brand loader, not a private BRAND_CONTEXT import');
   assert.match(AUTO, /WHAT AÑEJO SELLS \(promote across ALL of it, not only bowls\)/);
   assert.match(AUTO, /productLines\(\)/);
   assert.ok(!/warm, family-rooted, quietly confident/.test(AUTO), 'the hand-written paraphrase is deleted');

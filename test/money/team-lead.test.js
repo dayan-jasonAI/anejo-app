@@ -112,7 +112,11 @@ test('an empty world renders as stated ABSENCE, never as fake data', async () =>
 });
 
 test('spine sources are pinned: brand brief verbatim, live loadMenu, latest ig metrics, ai_spend week', () => {
-  assert.match(LIB, /BRAND_CONTEXT/);
+  // The Lead no longer keeps a private copy of the brand loader — it shares ONE with the planner
+  // and the Brand Auditor (brand_source.js), so an owner edit in the HUB reaches all three the
+  // same run instead of only whichever surface happened to read D1 directly.
+  assert.match(LIB, /import \{ loadBrand \} from '\.\/brand_source\.js'/, 'the Lead must import the SHARED loader');
+  assert.match(LIB, /await loadBrand\(env, \{ maxChars: BRAND_BUDGET \}\)/, 'and must actually CALL it — an unused import is not wiring');
   assert.match(LIB, /loadMenu\(env\)/);
   assert.match(LIB, /ig_account_metrics/);
   assert.match(LIB, /ig_media_metrics/);
