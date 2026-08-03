@@ -35,7 +35,12 @@ test('the context carries the sections that define the brand, verbatim', () => {
 });
 
 test('the planner prompt is built FROM the brief and defers to it', () => {
-  assert.match(AUTO, /import \{ BRAND_CONTEXT \} from '\.\/brand_context\.js'/);
+  // The planner no longer keeps its own copy of BRAND_CONTEXT — it shares ONE brand loader with
+  // the Team Lead and the Brand Auditor (functions/_lib/brand_source.js), so an owner edit in the
+  // HUB reaches all three the same run. brand_context.js/BRAND_CONTEXT is still the fallback
+  // FLOOR inside that shared loader for a fresh/empty database — see brand_source.js itself.
+  assert.match(AUTO, /import \{ loadBrand \} from '\.\/brand_source\.js'/, 'planner must import the SHARED loader');
+  assert.match(AUTO, /await loadBrand\(env, \{ maxChars: PLANNER_BRAND_BUDGET \}\)/, 'and must actually CALL it — an unused import is not wiring');
   assert.match(AUTO, /=== AÑEJO BRAND BRIEF \(excerpts\) ===/);
   assert.match(AUTO, /Follow it over any instinct of your own/);
   // The hand-written one-liner it replaces must be gone — two voices is worse than one.

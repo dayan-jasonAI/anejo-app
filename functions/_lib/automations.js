@@ -11,7 +11,7 @@ import { randToken } from './util.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { loadOperating } from './operating.js';
 import { BRAND_BRIEF } from './brand_brief.js';
-import { BRAND_CONTEXT } from './brand_context.js';
+import { loadBrand } from './brand_source.js';
 import { performanceBrief } from './instagram_insights.js';
 import { retrieve, formatPassages } from './knowledge.js';
 import { getCadenceConfig } from './social_cadence.js';
@@ -151,6 +151,12 @@ import { TRUST_CATEGORIES, captionHash, autoPublishCategories } from './trust_le
 
 const MODEL = 'claude-sonnet-4-6';
 export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan'];
+
+// Char cap on the brand brief injected into the planner's prompt — same ceiling the Team Lead
+// carries (brand_source.js), so the planner never sees LESS of the owner's live brief than the
+// Lead does. Before brand_source.js existed the planner had no cap at all: it always embedded
+// the FULL compiled snapshot (~15.3k chars), so 20000 is headroom, not a squeeze.
+const PLANNER_BRAND_BUDGET = 20000;
 export const PLANNED = [];
 
 async function scalar(env, sql, ...args) {
@@ -834,12 +840,19 @@ async function socialPlan(env, date) {
   // each of these was previously invisible to this planner. Empty string when none apply.
   const extraContext = await plannerExtraContext(env);
 
+  // The brand brief — brand_source.js's shared loader, so an owner edit in the HUB reaches this
+  // prompt on the SAME run it reaches the Team Lead and the Studio, not only on the next deploy.
+  const brand = await loadBrand(env, { maxChars: PLANNER_BRAND_BUDGET });
+  const briefHeader = brand.source === 'd1'
+    ? '=== AÑEJO BRAND BRIEF (live from the HUB, owner-maintained) ==='
+    : '=== AÑEJO BRAND BRIEF (excerpts) ===';
+
   const ai = await askClaudeJson(env, {
     system:
       PLANNER_ROLE +
       'Below is the brand\'s own standards brief — verbatim, written by the owner. It is the authority ' +
       'on who Añejo is, how it speaks, and what its photography looks like. Follow it over any instinct of your own.\n\n' +
-      '=== AÑEJO BRAND BRIEF (excerpts) ===\n' + BRAND_CONTEXT + '\n=== END BRIEF ===\n\n' +
+      briefHeader + '\n' + brand.text + '\n=== END BRIEF ===\n\n' +
       '=== WHAT AÑEJO SELLS (promote across ALL of it, not only bowls) ===\n' + productLines() +
       '\n=== END PRODUCT LINES ===\n' +
       'Across any set of posts, cover the breadth of the offer: the bowls, the Macro Portal ' +
@@ -995,6 +1008,9 @@ async function socialPlan(env, date) {
     output: {
       date, drafted: made.length, already_pending: Number(pending || 0), auto_scheduled: autoScheduled,
       promoted: onSale.map((b) => b.name), withheld_sold_out: off.map((b) => b.name),
+      // Which brief this run actually read — 'd1' vs 'repo' — so a thin owner edit is visible in
+      // the run log instead of a mystery ("why did this week read generic?").
+      brand_source: brand.source,
     },
     summary: made.length
       ? `Drafted ${made.length} Instagram posts for the week from ${onSale.length} available bowls. They are waiting for an image and your approval — nothing posts on its own.`

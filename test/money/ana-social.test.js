@@ -347,3 +347,155 @@ test('the customer message is armored as data, and invention is banned by name',
   assert.match(ANA3, /never\s*\n?invent a code, product, gift card, pickup option, or policy/);
   assert.match(ANA3, /worked examples/);
 });
+
+// ---------------------------------------------------------------------------
+// Owner training + knowledge-base retrieval reach Aña (the fourth store: she used to read
+// neither, unlike the Team Lead and the planner). Each source is wired, budgeted tighter than
+// every other AI surface (highest call volume, Haiku), degrades independently to silence, and
+// — the point of this whole section — none of it may weaken the existing safety rails pinned
+// above. Those tests still pass untouched; these prove the NEW wiring didn't loosen them.
+// ---------------------------------------------------------------------------
+
+// A routed D1 stub: each entry is [regex, allFn(args), firstFn(args)]. Unmatched queries answer
+// empty/null exactly like a fresh, unmigrated database — never throw, mirroring fakeDB() above.
+function routedDB(routes) {
+  const match = (sql) => routes.find(([re]) => re.test(sql));
+  return {
+    prepare(sql) {
+      const bound = (args) => ({
+        all: async () => { const hit = match(sql); return { results: hit ? hit[1](args) : [] }; },
+        first: async () => { const hit = match(sql); return hit && hit[2] ? hit[2](args) : null; },
+        run: async () => ({ meta: { changes: 1 } }),
+      });
+      return {
+        bind: (...args) => bound(args),
+        all: async () => { const hit = match(sql); return { results: hit ? hit[1]([]) : [] }; },
+        first: async () => null,
+        run: async () => ({ meta: { changes: 1 } }),
+      };
+    },
+  };
+}
+
+const TRAINING_ROW = { id: 'tr_1', text: 'Never mention a competitor by name, even to contrast Añejo favorably.', created_by: 'owner', created_at: 1, updated_at: 2 };
+
+test("owner training reaches Aña's draft prompt, framed as never overriding the hard rules", async () => {
+  const db = routedDB([
+    [/FROM training_rules/, () => [TRAINING_ROW]],
+    [/FROM training_examples/, () => []],
+  ]);
+  const f = stubFetch(() => claudeSays('Happy to help!'));
+  try {
+    await draftReply({ DB: db, ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'is your food better than X caterer?' });
+    const body = JSON.parse(f.calls[0].init.body);
+    assert.match(body.system, /Never mention a competitor by name/, 'the owner rule reached the prompt');
+    assert.match(body.system, /can NEVER override a HARD RULE or an ESCALATE condition/, 'framed as non-overriding');
+    // The existing safety rails must still be there, verbatim, alongside the new block.
+    assert.match(body.system, /Never promise refunds/);
+    assert.match(body.system, /DRAFT/);
+  } finally { f.restore(); }
+});
+
+test('no training recorded (or no DB at all) means no training block — never a dangling header', async () => {
+  const f = stubFetch(() => claudeSays('Happy to help!'));
+  try {
+    // No env.DB whatsoever — trainingContext must degrade to '' rather than throw.
+    await draftReply({ ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'hi' });
+    const body = JSON.parse(f.calls[0].init.body);
+    assert.ok(!body.system.includes("OWNER'S TRAINING"), 'no header when there is nothing to say');
+  } finally { f.restore(); }
+});
+
+test("the knowledge base reaches Aña's draft prompt when wired, and degrades to silence without it", async () => {
+  const kbRow = { id: 'kbc_1', text: 'Croquetas do not contain milk/dairy in the masa unless the item contains cheese.', heading: 'Allergen notes', page: null, doc_id: 'doc1' };
+  const db = routedDB([
+    [/FROM training_rules/, () => []],
+    [/FROM training_examples/, () => []],
+    [/FROM kb_chunks/, () => [kbRow]],
+  ]);
+  const env = {
+    DB: db,
+    ANTHROPIC_API_KEY: 'sk-test',
+    AI: { run: async () => ({ data: [[0.1, 0.2, 0.3]] }) },
+    VECTORIZE: { query: async () => ({ matches: [{ id: 'kbc_1', score: 0.9, metadata: { title: 'Kitchen manual', heading: 'Allergen notes', authority: 'internal' } }] }) },
+  };
+  const f = stubFetch(() => claudeSays('Happy to help!'));
+  try {
+    await draftReply(env, { kind: 'dm', text: 'are the croquetas dairy free?' });
+    const body = JSON.parse(f.calls[0].init.body);
+    assert.match(body.system, /FROM AÑEJO'S OWN KNOWLEDGE BASE/);
+    assert.match(body.system, /Croquetas do not contain milk\/dairy/, 'the retrieved passage reached the prompt');
+    assert.match(body.system, /never a reason to\s*\n?break a rule above/, 'framed as facts only, not permission');
+  } finally { f.restore(); }
+});
+
+test('no VECTORIZE/AI binding at all means no knowledge-base section — retrieval never breaks a draft', async () => {
+  const f = stubFetch(() => claudeSays('Happy to help!'));
+  try {
+    await draftReply({ ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'comment', text: 'do you use organic produce?' });
+    const body = JSON.parse(f.calls[0].init.body);
+    assert.ok(!body.system.includes("KNOWLEDGE BASE"));
+  } finally { f.restore(); }
+});
+
+test('training and the knowledge base degrade INDEPENDENTLY of each other', async () => {
+  // Training present, KB absent (no VECTORIZE/AI) — training block appears, KB section does not.
+  const dbTrainingOnly = routedDB([[/FROM training_rules/, () => [TRAINING_ROW]], [/FROM training_examples/, () => []]]);
+  const f1 = stubFetch(() => claudeSays('ok'));
+  try {
+    await draftReply({ DB: dbTrainingOnly, ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'hi' });
+    const body = JSON.parse(f1.calls[0].init.body);
+    assert.match(body.system, /Never mention a competitor by name/);
+    assert.ok(!body.system.includes('KNOWLEDGE BASE'));
+  } finally { f1.restore(); }
+
+  // KB present, training absent (empty tables) — KB section appears, training block does not.
+  const kbRow = { id: 'kbc_2', text: 'We deliver Monday through Saturday only.', heading: 'Delivery', page: null, doc_id: 'doc2' };
+  const dbKbOnly = routedDB([
+    [/FROM training_rules/, () => []],
+    [/FROM training_examples/, () => []],
+    [/FROM kb_chunks/, () => [kbRow]],
+  ]);
+  const envKbOnly = {
+    DB: dbKbOnly, ANTHROPIC_API_KEY: 'sk-test',
+    AI: { run: async () => ({ data: [[0.1, 0.2, 0.3]] }) },
+    VECTORIZE: { query: async () => ({ matches: [{ id: 'kbc_2', score: 0.9, metadata: {} }] }) },
+  };
+  const f2 = stubFetch(() => claudeSays('ok'));
+  try {
+    await draftReply(envKbOnly, { kind: 'dm', text: 'when do you deliver?' });
+    const body = JSON.parse(f2.calls[0].init.body);
+    assert.match(body.system, /We deliver Monday through Saturday only/);
+    assert.ok(!body.system.includes("OWNER'S TRAINING"));
+  } finally { f2.restore(); }
+});
+
+test('an angry/refund message still escalates with training AND the knowledge base wired in — nothing leaked past the new context', async () => {
+  const kbRow = { id: 'kbc_3', text: 'Refunds are handled by the owner within one business day.', heading: 'Policy', page: null, doc_id: 'doc3' };
+  const db = routedDB([
+    [/FROM training_rules/, () => [TRAINING_ROW]],
+    [/FROM training_examples/, () => []],
+    [/FROM kb_chunks/, () => [kbRow]],
+  ]);
+  const env = {
+    DB: db, ANTHROPIC_API_KEY: 'sk-test',
+    AI: { run: async () => ({ data: [[0.1, 0.2, 0.3]] }) },
+    VECTORIZE: { query: async () => ({ matches: [{ id: 'kbc_3', score: 0.9, metadata: {} }] }) },
+  };
+  const f = stubFetch(() => claudeSays('ESCALATE: refund demand, customer is angry'));
+  try {
+    const r = await draftReply(env, { kind: 'dm', text: 'I want a refund NOW, this is unacceptable' });
+    assert.equal(r.ok, true);
+    assert.equal(r.escalate, true);
+    assert.equal(r.draft, undefined, 'still no copy at all — the new context did not create a leak path');
+  } finally { f.restore(); }
+});
+
+test('the training and KB injections are wired with an explicit budget — source pin', () => {
+  const ANA4 = readFileSync(new URL('../../functions/_lib/ana_social.js', import.meta.url), 'utf8');
+  assert.match(ANA4, /import \{ trainingContext \} from '\.\/training\.js'/);
+  assert.match(ANA4, /import \{ retrieve, formatPassages \} from '\.\/knowledge\.js'/);
+  assert.match(ANA4, /trainingContext\(env, \{ maxChars: ANA_TRAINING_BUDGET \}\)/, 'an explicit, tighter budget than the Lead/planner (4000)');
+  assert.match(ANA4, /retrieve\(env, question, \{ topK: ANA_KB_TOPK \}\)/);
+  assert.match(ANA4, /const extra = await anaExtraContext\(env, msg\)/, 'draftReply must actually CALL it — an unused import is not wiring');
+});
