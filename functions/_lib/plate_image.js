@@ -20,6 +20,7 @@
 import { id as newId, now as clock } from './util.js';
 import { putMedia } from './media.js';
 import { budgetGate, recordImageSpend } from './ai_budget.js';
+import { buildImagePrompt, buildFallbackCore, shapeForProvider } from './image_prompt.js';
 
 // ---------------------------------------------------------------------------------------------
 // Provider order/enablement — owner-configurable WITHOUT a redeploy. Mirrors the KV-override →
@@ -87,39 +88,12 @@ export async function setImageProviderConfig(env, cfg) {
 export const IMAGE_PROVIDERS = PROVIDERS;
 
 // ---------------------------------------------------------------------------------------------
-// Prompt shaping. Natural, appetizing food photography — deliberately NOT editorial/CGI. The
-// underlying INTENT (real photo, imperfect home plating, warm natural light, avoid the glossy
-// "CGI/plastic" look) is shared, but the SYNTAX to express it differs per provider: Workers AI's
-// Leonardo Phoenix takes a separate `negative_prompt` field; OpenAI and Gemini have no such
-// parameter, so their "avoid" cues have to live inside one positive prompt string instead.
-// ---------------------------------------------------------------------------------------------
-const PLATING_STYLE =
-  'Natural food photography of a Mediterranean-Cuban meal-prep bowl on a real kitchen counter in ' +
-  'soft window daylight, candid slightly-imperfect home plating, real food texture, fresh herbs and ' +
-  'vegetables, matte ceramic bowl, warm natural tones, shallow depth of field — looks like a genuine ' +
-  'photo a chef snapped on a phone, appetizing and believable.';
-const NEGATIVE_PROMPT =
-  'CGI, 3D render, digital art, illustration, cartoon, plastic, waxy, artificial, over-glossy, ' +
-  'oversaturated, hyperreal, airbrushed, fake, video-game, watermark, text, logo, deformed, blurry.';
-
-// OpenAI (gpt-image-1) follows literal, camera-forward language well and has no negative-prompt
-// field — the "avoid" list becomes an explicit trailing clause.
-function openaiPrompt(dishPrompt) {
-  return (
-    `Photorealistic food photo, shot on a DSLR with a 50mm lens: ${dishPrompt}. ${PLATING_STYLE} ` +
-    `Do NOT render this as: ${NEGATIVE_PROMPT}`
-  );
-}
-
-// Gemini's image model responds better to narrative, scene-setting prompts than to a bare
-// keyword list, so the same intent is phrased as a short scene description instead.
-function geminiPrompt(dishPrompt) {
-  return (
-    `A candid, unstaged photo — the kind a chef snaps on their phone right before service — of ${dishPrompt}. ` +
-    `${PLATING_STYLE} This must read as a real photograph, never as: ${NEGATIVE_PROMPT}`
-  );
-}
-
+// Prompt shaping now lives in _lib/image_prompt.js (buildImagePrompt). It turns the caller's
+// one-line brief into a rich, TRAINABLE prompt — grounded in the owner's Team Training first,
+// the brand's Photo standard second, and the original hardcoded PLATING_STYLE/NEGATIVE_PROMPT
+// only as a floor when the owner has trained nothing. Kept as a separate module (not inlined
+// here) because it has its own D1/KV/Anthropic dependencies this file otherwise has no reason to
+// carry, and because plate_image.js's job is the PROVIDER CHAIN, not prompt authoring.
 // ---------------------------------------------------------------------------------------------
 // Timeouts. A slow provider must not hang the request that's waiting on it.
 //   - openai / gemini: 15s. These are the FIRST two links in the chain — a hung external call
@@ -168,7 +142,10 @@ const EXT_BY_MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'we
 // ---------------------------------------------------------------------------------------------
 const OPENAI_MODEL = 'gpt-image-1';
 
-async function callOpenAI(env, dishPrompt) {
+// Each callX() below now takes `promptData` — the ALREADY-SHAPED { prompt, negative_prompt }
+// from buildImagePrompt(env, brief, { provider }) — rather than the raw one-line brief. Shaping
+// happens once per provider attempt in generatePlateImage's loop; these functions just send it.
+async function callOpenAI(env, promptData) {
   const r = await fetchWithTimeout(
     'https://api.openai.com/v1/images/generations',
     {
@@ -176,7 +153,7 @@ async function callOpenAI(env, dishPrompt) {
       headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'content-type': 'application/json' },
       // 'medium' quality: a deliberate cost/quality balance, not the max — this is a meal-prep
       // Instagram grid, not print work, and 'high' can be 3-4x the cost for a marginal gain here.
-      body: JSON.stringify({ model: OPENAI_MODEL, prompt: openaiPrompt(dishPrompt), size: '1024x1024', quality: 'medium', n: 1 }),
+      body: JSON.stringify({ model: OPENAI_MODEL, prompt: promptData.prompt, size: '1024x1024', quality: 'medium', n: 1 }),
     },
     TIMEOUT_MS.openai
   );
@@ -189,14 +166,14 @@ async function callOpenAI(env, dishPrompt) {
 
 const GEMINI_MODEL = 'gemini-2.5-flash-image';
 
-async function callGemini(env, dishPrompt) {
+async function callGemini(env, promptData) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
   const r = await fetchWithTimeout(
     url,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: geminiPrompt(dishPrompt) }] }] }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: promptData.prompt }] }] }),
     },
     TIMEOUT_MS.gemini
   );
@@ -211,15 +188,14 @@ async function callGemini(env, dishPrompt) {
 
 // Leonardo Phoenix 1.0: photographic, strong prompt adherence, supports a negative prompt so we
 // can steer AWAY from the glossy "CGI/plastic" look. (Returns raw image bytes, not base64.)
-// UNCHANGED from the pre-chain version — this is the fallback of last resort, not a place to
-// experiment. Handles both raw-bytes models (Phoenix/SDXL: ReadableStream/Response) and
-// base64 models (flux), same as before.
+// This is the fallback of last resort, not a place to experiment. Handles both raw-bytes models
+// (Phoenix/SDXL: ReadableStream/Response) and base64 models (flux), same as before.
 const WORKERS_AI_MODEL = '@cf/leonardo/phoenix-1.0';
 
-async function callWorkersAI(env, dishPrompt) {
+async function callWorkersAI(env, promptData) {
   const out = await env.AI.run(WORKERS_AI_MODEL, {
-    prompt: `${dishPrompt}. ${PLATING_STYLE}`,
-    negative_prompt: NEGATIVE_PROMPT,
+    prompt: promptData.prompt,
+    negative_prompt: promptData.negative_prompt,
     width: 1024, height: 1024, num_steps: 30, guidance: 3,
   });
   if (out && typeof out.arrayBuffer === 'function') {
@@ -284,9 +260,20 @@ export async function generatePlateImage(env, prompt) {
       if (disabled.includes(name)) { skipped.push({ provider: name, reason: 'disabled' }); continue; }
       if (!providerAvailable(env, name)) { skipped.push({ provider: name, reason: 'no_api_key' }); continue; }
 
+      // Expand the one-line brief into this provider's shaped prompt. buildImagePrompt() is
+      // documented to never throw, but it draws on training/AI/KV — the outer try/catch is
+      // belt-and-suspenders so a bug in the expansion path degrades to the exact deterministic
+      // concatenation (buildFallbackCore) rather than skipping a provider that could have worked.
+      let promptData;
+      try {
+        promptData = await buildImagePrompt(env, prompt, { provider: name });
+      } catch {
+        promptData = shapeForProvider(name, buildFallbackCore(prompt));
+      }
+
       let result;
       try {
-        result = await withTimeout(PROVIDER_FN[name](env, prompt), TIMEOUT_MS[name]);
+        result = await withTimeout(PROVIDER_FN[name](env, promptData), TIMEOUT_MS[name]);
       } catch (e) {
         skipped.push({ provider: name, reason: e && e.message === 'timeout' ? 'timeout' : String((e && e.message) || 'error') });
         continue;
