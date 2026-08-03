@@ -331,3 +331,41 @@ test('the migration seeds every existing site so no picker is empty after deploy
   assert.match(MIGRATION, /idx_css_site_phone/, 'one row per number per site');
   assert.match(MIGRATION, /'cst_primary_' \|\| s\.id/, 'a derived id, so re-running the migration is a no-op');
 });
+
+// ---------------------------------------------------------------------------
+// siteContext — what each kind of viewer is allowed to see
+// Caught live, after deploy: the manage panel renders an "Allow" button for a pending stand-in,
+// but siteContext only ever returned ACTIVE staff and omitted the active flag — so the control
+// existed and could never be reached on page load. A half-built feature, found by reading the
+// real production response instead of trusting the unit tests.
+// ---------------------------------------------------------------------------
+
+test('the MAIN CONTACT sees pending stand-ins — otherwise the Allow button is unreachable', async () => {
+  const { siteContext } = await import('../../functions/_lib/contract.js');
+  const env = harness({
+    devices: [{ id: 'd1', site_id: 'site_x', phone: PRIMARY, revoked: 0 }],
+    staff: [
+      { id: 'cst_p', site_id: 'site_x', name: 'Primary', phone: PRIMARY, active: 1, is_primary: 1 },
+      { id: 'cst_s', site_id: 'site_x', name: 'Stand-in', phone: COVER, active: 0, is_primary: 0, added_by: 'stand_in' },
+    ],
+  });
+  const ctx = await siteContext(env, 'tok', Date.parse('2026-08-03T14:00:00Z'), { cookieHeader: 'aintake_site_x=d1' });
+  assert.equal(ctx.can_manage_staff, true);
+  const pending = ctx.staff.find((s) => s.id === 'cst_s');
+  assert.ok(pending, 'the person awaiting approval must be visible to the person who approves them');
+  assert.equal(pending.active, false);
+});
+
+test('everyone else sees only who may CURRENTLY order — this page is public', async () => {
+  const { siteContext } = await import('../../functions/_lib/contract.js');
+  const env = harness({
+    staff: [
+      { id: 'cst_p', site_id: 'site_x', name: 'Primary', phone: PRIMARY, active: 1, is_primary: 1 },
+      { id: 'cst_s', site_id: 'site_x', name: 'Stand-in', phone: COVER, active: 0, is_primary: 0 },
+    ],
+  });
+  const ctx = await siteContext(env, 'tok', Date.parse('2026-08-03T14:00:00Z'), { cookieHeader: '' });
+  assert.equal(ctx.can_manage_staff, false);
+  assert.deepEqual(ctx.staff.map((s) => s.id), ['cst_p'], 'an unauthorized person’s name is not for whoever holds the link');
+  assert.equal(ctx.staff[0].active, undefined, 'and the flag is only meaningful to a manager');
+});

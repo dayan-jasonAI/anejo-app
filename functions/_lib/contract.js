@@ -556,7 +556,13 @@ export async function siteContext(env, token, nowMs, opts = {}) {
   const account = await env.DB.prepare('SELECT name FROM contract_accounts WHERE id = ?').bind(site.account_id).first().catch(() => null);
   const device = await trustedDevice(env, site, opts.cookieHeader || '');
   const onFile = normalizePhone(site.contact_phone);
-  const staff = await listSiteStaff(env, site.id);
+  // The MAIN CONTACT sees the whole roster, pending stand-ins included — they are the person who
+  // approves them, and a list that hides them makes the "Allow" control unreachable. Everyone
+  // else sees only who may currently order: this page is public (token in the URL, no login), so
+  // the names of people who are NOT authorized are not something to hand to whoever holds the
+  // link. `active` is only meaningful to a manager and is only sent to one.
+  const canManage = !!(device && normalizePhone(device.phone) && normalizePhone(device.phone) === onFile);
+  const staff = await listSiteStaff(env, site.id, { all: canManage });
   const date = etToday(t);
   const dow = dowMon(date);
   const days = parseDeliveryDays(site.delivery_days);
@@ -584,9 +590,12 @@ export async function siteContext(env, token, nowMs, opts = {}) {
     // login, so a full number returned here is readable by anyone the link is forwarded to. The
     // client never sends us a number for a roster pick either — requestIntakeOtp reads it from
     // the roster row by id, so an id cannot be pointed at somebody else's handset.
-    staff: staff.map((s) => ({ id: s.id, name: s.name, phone_hint: maskPhone(s.phone), is_primary: !!s.is_primary })),
+    staff: staff.map((s) => ({
+      id: s.id, name: s.name, phone_hint: maskPhone(s.phone), is_primary: !!s.is_primary,
+      ...(canManage ? { active: !!s.active, added_by: s.added_by || null } : {}),
+    })),
     // Whether this device's own person is allowed to manage the roster from the intake page.
-    can_manage_staff: !!(device && normalizePhone(device.phone) && normalizePhone(device.phone) === onFile),
+    can_manage_staff: canManage,
   };
 }
 
