@@ -390,6 +390,46 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ ...r, next: 'Set the negotiated terms, then Activate to turn on their links.' });
   }
 
+  // SITE-SCOPED OPS RESOLVE THEIR OWN ACCOUNT, so they must run BEFORE the account_id guard.
+  //
+  // They shipped AFTER it and were therefore unreachable in production: the roster and override
+  // controls sent only `site_id`, so every click died on "Missing account_id." before touching
+  // its handler — the owner added someone, saw a message, and nothing happened. The tests said
+  // the ops existed because they string-matched the source; a match proves code is PRESENT, never
+  // that it is REACHABLE. contract-staff-roster.test.js now drives onRequestPost for real.
+  //
+  // A site id already determines its account, so demanding both is asking the caller to repeat
+  // something the database knows. Resolved here, once, for every site-scoped op.
+  if (op === 'add_staff' || op === 'set_staff_active' || op === 'set_headcount') {
+    if (!b || !b.site_id) return bad('Missing site_id.');
+    const site = await env.DB.prepare('SELECT id, account_id FROM contract_sites WHERE id = ?').bind(String(b.site_id)).first().catch(() => null);
+    if (!site) return bad('Site not found.', 404);
+
+    if (op === 'add_staff') {
+      const r = await addSiteStaff(env, {
+        site_id: site.id, account_id: site.account_id, name: b.name, phone: b.phone, added_by: 'owner', active: true,
+      });
+      if (!r.ok) return json(r);
+      return json({ ok: true, staff: maskSiteStaff(await listSiteStaff(env, site.id, { all: true })) });
+    }
+
+    if (op === 'set_staff_active') {
+      if (!b.staff_id) return bad('Missing staff_id.');
+      const r = await setStaffActive(env, { staff_id: b.staff_id, active: !!b.active });
+      if (!r.ok) return json(r);
+      return json({ ok: true, staff: maskSiteStaff(await listSiteStaff(env, site.id, { all: true })) });
+    }
+
+    // THE OVERRIDE. Records the ledger + kitchen order + an 'owner_override' audit row, and sends
+    // NO text to the client: this is the owner correcting his own books, not a client confirming
+    // an order that never happened.
+    return json(await ownerSetHeadcount(env, {
+      site_id: site.id, service_date: b.service_date, headcount: b.headcount,
+      reason: b.reason, notes: b.notes, is_rush: !!b.is_rush,
+      by: (ctx && ctx.name) || 'Owner',
+    }));
+  }
+
   if (!b || !b.account_id) return bad('Missing account_id.');
 
   // A second/third clinic on an account that already exists.
@@ -489,41 +529,5 @@ export const onRequestPost = async ({ request, env }) => {
     return json(r);
   }
 
-  // WHO MAY ORDER FOR A SITE. Before contract_site_staff (migrations/0077) this was one column,
-  // contract_sites.contact_phone, and every verification code went there no matter who was
-  // filling in the form — so on 2026-08-03 an absent contact meant the Pompano office could not
-  // order at all and the day went unrecorded.
-  if (op === 'add_staff') {
-    if (!b.site_id) return bad('Missing site_id.');
-    const site = await env.DB.prepare('SELECT account_id FROM contract_sites WHERE id = ?').bind(b.site_id).first().catch(() => null);
-    if (!site) return bad('Site not found.', 404);
-    const r = await addSiteStaff(env, {
-      site_id: b.site_id, account_id: site.account_id, name: b.name, phone: b.phone, added_by: 'owner', active: true,
-    });
-    if (!r.ok) return json(r);
-    return json({ ok: true, staff: maskSiteStaff(await listSiteStaff(env, b.site_id, { all: true })) });
-  }
-
-  if (op === 'set_staff_active') {
-    if (!b.staff_id || !b.site_id) return bad('Missing staff_id.');
-    const r = await setStaffActive(env, { staff_id: b.staff_id, active: !!b.active });
-    if (!r.ok) return json(r);
-    return json({ ok: true, staff: maskSiteStaff(await listSiteStaff(env, b.site_id, { all: true })) });
-  }
-
-  // THE OVERRIDE THAT DID NOT EXIST. On 2026-08-03 the Pompano count reached the owner as a text
-  // message because the office could not use the form — and this API could set a contact, revoke
-  // a device and raise an invoice, but had no way to write a day's head count, so the day went
-  // unbilled. Records the ledger + kitchen order + an 'owner_override' audit row, and sends NO
-  // text to the client: this is the owner correcting his own books, not a client confirming an
-  // order that never happened.
-  if (op === 'set_headcount') {
-    const r = await ownerSetHeadcount(env, {
-      site_id: b.site_id, service_date: b.service_date, headcount: b.headcount,
-      reason: b.reason, notes: b.notes, is_rush: !!b.is_rush,
-      by: (ctx && ctx.name) || 'Owner',
-    });
-    return json(r);
-  }
   return bad('Unknown action.');
 };
