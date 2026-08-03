@@ -433,3 +433,33 @@ test('both UIs offer the tick and default it ON', () => {
   // The toast must report what happened to the text, not what was requested.
   assert.match(HUB, /the text did not go through/);
 });
+
+test('the invite never uses the brand as the person who added you', async () => {
+  // The first live invites read "Añejo Catering: Añejo added you to place the lunch order" —
+  // the session context has no `name` (contextFromSession: type/role/distinct_id/team/email), so
+  // `ctx.name` always fell through to the brand and the one line meant to carry the WHO said
+  // nothing. With no name known, the sentence must drop its subject, not repeat the brand.
+  const { sendStaffInvite } = await import('../../functions/_lib/contract.js');
+  const sent = [];
+  const env = { APP_BASE_URL: 'https://x.test', TWILIO_ACCOUNT_SID: 'a', TWILIO_AUTH_TOKEN: 'b', TWILIO_FROM: '+15610000000' };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (u, i) => { sent.push(String((i && i.body) || '')); return new Response(JSON.stringify({ sid: 'SM1' }), { status: 201 }); };
+  try {
+    await sendStaffInvite(env, { site: { id: 's', name: 'Pompano Beach', intake_token: 'T' }, phone: COVER, addedBy: null });
+    const body = decodeURIComponent(sent[0].replace(/\+/g, ' '));
+    assert.match(body, /You have been added to place the lunch order/);
+    assert.ok(!/Añejo added you/.test(body), body);
+
+    sent.length = 0;
+    await sendStaffInvite(env, { site: { id: 's', name: 'Pompano Beach', intake_token: 'T' }, phone: COVER, addedBy: 'Dayan' });
+    assert.match(decodeURIComponent(sent[0].replace(/\+/g, ' ')), /Dayan added you/);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('the owner route reads the real staff name, not the session context', () => {
+  const OWNER = readFileSync(new URL('../../functions/api/hub/owner/contracts.js', import.meta.url), 'utf8');
+  assert.match(OWNER, /async function staffName/);
+  assert.match(OWNER, /SELECT name FROM staff WHERE/);
+  assert.match(OWNER, /addedBy: await staffName\(env, ctx\)/);
+  assert.ok(!/addedBy: \(ctx && ctx\.name\)/.test(OWNER), 'ctx has no name field — reading it silently loses the sender');
+});

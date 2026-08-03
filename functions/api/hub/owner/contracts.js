@@ -10,6 +10,26 @@ import { capture } from '../../../_lib/track.js';
 // because they are owner-desk-only: nothing on the public intake path (/lunch-count) may reach
 // them, and keeping them beside the requireRole guard makes that obvious.
 
+/**
+ * The signed-in staffer's real name, or null.
+ *
+ * `requireRole` hands back a session CONTEXT — type, role, distinct_id, team, email, is_lead —
+ * and no name (contextFromSession in _lib/roles.js). Anything that wants to say WHO did something
+ * has to read the staff row. Returns null rather than a placeholder so callers can choose
+ * wording that still reads properly with no name at all.
+ */
+async function staffName(env, ctx) {
+  try {
+    if (!ctx || !env || !env.DB) return null;
+    const where = ctx.distinct_id ? 'id = ?' : 'email = ?';
+    const arg = ctx.distinct_id || ctx.email;
+    if (!arg) return null;
+    const row = await env.DB.prepare(`SELECT name FROM staff WHERE ${where}`).bind(arg).first();
+    const n = row && String(row.name || '').trim();
+    return n ? n.slice(0, 60) : null;
+  } catch { return null; }
+}
+
 // ---------- terms validation ----------
 // Money is INTEGER CENTS end to end (same Number → round → clamp coercion activateAccount uses),
 // plus an upper bound: a renegotiation typed as "600" meaning $6.00 would otherwise sail through
@@ -419,7 +439,13 @@ export const onRequestPost = async ({ request, env }) => {
         const full = await env.DB.prepare('SELECT id, name, intake_token FROM contract_sites WHERE id = ?').bind(site.id).first().catch(() => null);
         invited = await sendStaffInvite(env, {
           site: full, name: b.name, phone: b.phone, lang: b.lang,
-          addedBy: (ctx && ctx.name) || 'Añejo', origin: new URL(request.url).origin,
+          // The session context carries type/role/distinct_id/team/email — NOT a name
+          // (contextFromSession in _lib/roles.js). Reading ctx.name always fell through to the
+          // brand, so the first live invites went out reading "Añejo Catering: Añejo added you
+          // to place the lunch order" — the one thing the sender line exists to say, missing.
+          // The staff row has the real name; look it up, and fall back to a phrase that reads
+          // like a sentence rather than to a word that repeats the brand.
+          addedBy: await staffName(env, ctx), origin: new URL(request.url).origin,
         });
       }
       return json({ ok: true, invited, staff: maskSiteStaff(await listSiteStaff(env, site.id, { all: true })) });

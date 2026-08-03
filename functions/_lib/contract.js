@@ -195,11 +195,18 @@ export async function addSiteStaff(env, { site_id, account_id, name, phone, adde
   } catch { return { ok: false, error: 'Could not save that person.' }; }
 }
 
+// The sender line exists so an unexplained link from an unknown number does not read as a scam.
+// When we genuinely do not know who added them, the sentence drops the subject rather than
+// naming the brand twice — the first live invites went out as "Añejo Catering: Añejo added you
+// to place the lunch order", which spent the one line that was supposed to carry the WHO.
 function inviteBody(lang, { site, link, addedBy }) {
+  const who = String(addedBy || '').trim();
   if (lang === 'es') {
-    return `Añejo Catering: ${addedBy} te agregó para pedir los almuerzos de ${site}.\nUsa este enlace cada mañana: ${link}\nTe enviaremos un código de 6 dígitos a este número para confirmar que eres tú.`;
+    const opener = who ? `${who} te agregó` : 'Te agregamos';
+    return `Añejo Catering: ${opener} para pedir los almuerzos de ${site}.\nUsa este enlace cada mañana: ${link}\nTe enviaremos un código de 6 dígitos a este número para confirmar que eres tú.`;
   }
-  return `Añejo Catering: ${addedBy} added you to place the lunch order for ${site}.\nUse this link each morning: ${link}\nWe'll text a 6-digit code to this number to confirm it's you.`;
+  const opener = who ? `${who} added you` : 'You have been added';
+  return `Añejo Catering: ${opener} to place the lunch order for ${site}.\nUse this link each morning: ${link}\nWe'll text a 6-digit code to this number to confirm it's you.`;
 }
 
 /**
@@ -226,7 +233,7 @@ export async function sendStaffInvite(env, { site, name, phone, addedBy, lang, o
     const link = `${base}/lunch-count?t=${encodeURIComponent(site.intake_token)}`;
     const sms = await sendSms(env, {
       to,
-      body: inviteBody(lang, { site: site.name, link, addedBy: (addedBy || 'Añejo').toString().slice(0, 60) }),
+      body: inviteBody(lang, { site: site.name, link, addedBy: addedBy ? String(addedBy).slice(0, 60) : null }),
     });
     return { sent: !!(sms && sms.sent), to_hint: maskPhone(to), name: name || null };
   } catch { return { sent: false, reason: 'error' }; }
