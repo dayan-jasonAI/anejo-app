@@ -56,7 +56,14 @@ export function contentTypeForKey(key) {
 
 // Store a media blob in R2. Accepts a base64 dataUrl OR raw bytes + contentType.
 // Returns { stored:false } when the binding is absent or input is unusable — never throws.
-export async function putMedia(env, { kind, dataUrl, bytes, contentType, ext } = {}) {
+//
+// `role` appends a ROLE SUFFIX to the filename (`..._photo.jpg`). It exists because the
+// food-first guard (functions/_lib/social_publish.js) reads a slide's role from the token after
+// the last underscore — it has no image classifier. Without this, an image this app GENERATED as
+// food would be stored as `studio/2026-08/med_x.jpg`, land in the UNKNOWN bucket, and the guard
+// would keep warning "this post has no food photo" about the photo it had just made. The suffix
+// is how a generator tells the guard what it produced.
+export async function putMedia(env, { kind, dataUrl, bytes, contentType, ext, role } = {}) {
   try {
     if (!env || !env.MEDIA) return { stored: false };
     if (!KINDS.includes(kind)) return { stored: false, error: 'bad_kind' };
@@ -75,7 +82,10 @@ export async function putMedia(env, { kind, dataUrl, bytes, contentType, ext } =
 
     const useExt = (ext || EXT_BY_TYPE[type] || 'bin').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
     const yyyymm = new Date().toISOString().slice(0, 7); // yyyy-mm
-    const key = `${kind}/${yyyymm}/${id('med')}.${useExt}`;
+    // Sanitised to [a-z0-9] for the same reason the extension is: this becomes part of an R2 key,
+    // and a caller-supplied string with a slash or a dot in it would silently reshape the path.
+    const useRole = String(role || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const key = `${kind}/${yyyymm}/${id('med')}${useRole ? `_${useRole}` : ''}.${useExt}`;
 
     await env.MEDIA.put(key, body, { httpMetadata: { contentType: type } });
     return { stored: true, key, url: `/api/hub/media/${key}` };

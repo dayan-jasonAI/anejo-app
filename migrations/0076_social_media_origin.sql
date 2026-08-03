@@ -1,0 +1,19 @@
+-- Where a carousel slide came from.
+--
+-- The food-first guard (functions/_lib/social_publish.js) can now REPAIR the problem it reports
+-- instead of only naming it: when a post has no food photo anywhere, _lib/food_photo.js generates
+-- one from the post's image_brief and puts it in front. That image is a placeholder made by a
+-- model, not photography of food Anejo actually cooked, and the owner has to be able to tell the
+-- difference at a glance in the slide strip -- otherwise the repair quietly lowers the bar it was
+-- built to raise, and a generated bowl ends up on the grid because it looked fine in a thumbnail.
+--
+-- NULL is the honest default for every row that already exists: this app has never recorded the
+-- origin of a slide, and back-filling a guess would be inventing history. NULL means "not
+-- recorded", not "human" -- readers must treat only the explicit 'ai_generated' value as a claim.
+--
+-- Kept on social_post_media rather than joined out of image_generations (0074): that table is
+-- keyed by image URL because plate_image.js is a shared helper that must not know its callers'
+-- schemas, and the slide strip needs this on the row it is already rendering. 0074 stays the
+-- provenance ledger (WHICH provider, and why the others were skipped); this column is the one bit
+-- the UI needs without a join.
+ALTER TABLE social_post_media ADD COLUMN origin TEXT;

@@ -8,6 +8,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { igConfigured, accountInfo, JPEG_ONLY, CAROUSEL_MAX } from '../../../_lib/instagram.js';
 import { publishSocialPost, loadPostMedia, coverStatus } from '../../../_lib/social_publish.js';
+import { ensureFoodPhoto } from '../../../_lib/food_photo.js';
 import { noteTrustApproval } from '../../../_lib/trust_ledger.js';
 import { loadTokenExpiry, saveTokenExpiry, tokenExpiryStatus } from '../../../_lib/instagram_token_expiry.js';
 
@@ -30,16 +31,31 @@ export const onRequestGet = async ({ request, env }) => {
 
   // Slides, per post, in order. One query for the page, grouped here — social_post_media is the
   // authority; the legacy media_key column is display-only history.
+  // `origin` (migrations/0076) is what lets the slide strip badge an AI-generated cover, so the
+  // owner can tell a generated placeholder from food Anejo actually cooked. Selected in its own
+  // try so a pre-0076 database still renders the page with slides, just without the badge —
+  // losing a label must never cost the carousel.
   try {
     const m = await env.DB.prepare(
-      `SELECT id, post_id, seq, media_key FROM social_post_media
+      `SELECT id, post_id, seq, media_key, origin FROM social_post_media
         WHERE post_id IN (SELECT id FROM social_posts ORDER BY created_at DESC LIMIT 60)
         ORDER BY seq, created_at`
     ).all();
     const bySlide = {};
-    for (const row of (m && m.results) || []) (bySlide[row.post_id] = bySlide[row.post_id] || []).push({ id: row.id, seq: row.seq, media_key: row.media_key });
+    for (const row of (m && m.results) || []) (bySlide[row.post_id] = bySlide[row.post_id] || []).push({ id: row.id, seq: row.seq, media_key: row.media_key, origin: row.origin || null });
     for (const post of posts) post.media = bySlide[post.id] || [];
-  } catch { for (const post of posts) post.media = []; }
+  } catch {
+    try {
+      const m = await env.DB.prepare(
+        `SELECT id, post_id, seq, media_key FROM social_post_media
+          WHERE post_id IN (SELECT id FROM social_posts ORDER BY created_at DESC LIMIT 60)
+          ORDER BY seq, created_at`
+      ).all();
+      const bySlide = {};
+      for (const row of (m && m.results) || []) (bySlide[row.post_id] = bySlide[row.post_id] || []).push({ id: row.id, seq: row.seq, media_key: row.media_key, origin: null });
+      for (const post of posts) post.media = bySlide[post.id] || [];
+    } catch { for (const post of posts) post.media = []; }
+  }
 
   // Food-first indicator (see functions/_lib/social_publish.js coverStatus): computed straight
   // from the stored order so this is honest whether or not the post has ever been published — a
@@ -181,6 +197,43 @@ export const onRequestPost = async ({ request, env }) => {
     ).bind(id('spm'), postId, existing.length, mediaKey, randToken(24), t2).run();
     await env.DB.prepare('UPDATE social_posts SET updated_at=? WHERE id=?').bind(t2, postId).run();
     return json({ ok: true, id: postId, media_key: mediaKey, slides: existing.length + 1 });
+  }
+
+  // THE REPAIR the food-first warning offers. coverStatus tells the owner "this post has no food
+  // photo — add a real photo before it goes out", and until now that was the whole feature: a
+  // finding, handed back to the person the team is supposed to be working for. This turns the
+  // warning into a button. Everything about HOW lives in _lib/food_photo.js, shared with the
+  // planner and the Team Lead so all three doors mean the same thing by "a food photo".
+  //
+  // OWNER-TRIGGERED, and it stays a draft. Attaching an image is not approval — nothing here
+  // touches status, so a generated bowl photo can never schedule itself onto the grid.
+  if (op === 'generate_cover') {
+    const postId = String(b.id || '').trim();
+    if (!postId) return bad('Missing id.');
+    const row = await env.DB.prepare('SELECT status, caption, image_brief FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    if (!row) return bad('That post no longer exists.', 404);
+    if (row.status === 'published') return bad('That one is already live — its slides are the public record of what went out.', 409);
+    if (row.status === 'publishing') return bad('That post is being published right now.', 409);
+
+    const out = await ensureFoodPhoto(env, { postId, caption: row.caption, imageBrief: row.image_brief });
+    if (!out.ok) {
+      // Each reason gets its own sentence, because each has a different next move and "could not
+      // generate an image" would send the owner to the wrong one.
+      const WHY = {
+        already_has_photo: 'This post already has a food photo — publishing moves it to the front on its own.',
+        no_prompt: 'There is no art direction or usable caption on this post to generate from. Write the caption first, or upload a photo with 📷.',
+        carousel_full: `This post already has Instagram's maximum of ${CAROUSEL_MAX} slides. Remove one to make room for a food cover.`,
+        generation_failed: 'No image provider was able to make a JPEG right now — the weekly AI budget may be spent, or the providers are unreachable. Upload a real photo with 📷, or try again later.',
+        db_failed: 'The image was made but could not be attached. Try again.',
+      };
+      return bad(WHY[out.reason] || 'Could not generate a food photo.', out.reason === 'already_has_photo' ? 409 : 502);
+    }
+    await capture(env, {
+      event: 'social.cover_generated',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { provider: out.provider, slides: out.slides, from_brief: !!row.image_brief },
+    });
+    return json({ ok: true, id: postId, media_key: out.media_key, provider: out.provider, slides: out.slides });
   }
 
   // Remove one slide. Reversible curation, so no confirm theatre — but never on a live post,
