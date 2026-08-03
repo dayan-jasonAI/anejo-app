@@ -12,7 +12,8 @@ import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { loadOperating } from './operating.js';
 import { BRAND_BRIEF } from './brand_brief.js';
 import { loadBrand } from './brand_source.js';
-import { performanceBrief } from './instagram_insights.js';
+import { performanceBrief, attributionBrief } from './instagram_insights.js';
+import { stampPostProvenance } from './post_provenance.js';
 import { retrieve, formatPassages } from './knowledge.js';
 import { getCadenceConfig } from './social_cadence.js';
 import { getPostingTimes, assignSlot, weekdayIndexOf } from './posting_times.js';
@@ -139,6 +140,16 @@ async function plannerExtraContext(env) {
     const training = await trainingContext(env, { maxChars: 4000 });
     if (training) parts.push(training);
   } catch { /* pre-0075 schema — planner runs exactly as it did before this wiring */ }
+
+  // What actually WORKED, by cause — which rules and formats the reach followed, not just which
+  // captions scored well. performanceBrief() above says "these three posts did best"; this says
+  // "posts written under this rule reached more, across N of them". It returns '' until there is
+  // enough data to say anything honest, and that silence is the feature: a ranking built on two
+  // posts would teach the planner, and the owner, to chase noise.
+  try {
+    const attribution = await attributionBrief(env);
+    if (attribution) parts.push(attribution);
+  } catch { /* pre-0076 schema, or nothing published under a recorded cause yet */ }
 
   return parts.join('\n\n');
 }
@@ -930,6 +941,22 @@ async function socialPlan(env, date) {
   } catch { /* seeding is a nicety — an empty seed just means this batch only dedupes itself */ }
 
   const t = now();
+
+  // Read ONCE for the whole batch, not per post: every draft this run produces was written under
+  // the same rules and the same standing brief, and re-querying per row would let the two drift
+  // apart mid-loop if the owner edited a rule while the run was in flight. Both default to "none
+  // recorded" rather than throwing — attribution is analysis, and analysis must never be able to
+  // cost the week's posts.
+  let activeRuleIds = [];
+  try {
+    activeRuleIds = (await rows(env, 'SELECT id FROM training_rules WHERE active = 1')).map((r) => r.id);
+  } catch { activeRuleIds = []; }
+  let directingBriefId = null;
+  try {
+    const b = await rows(env, "SELECT id FROM team_briefs WHERE status != 'archived' ORDER BY created_at DESC LIMIT 1");
+    directingBriefId = (b[0] && b[0].id) || null;
+  } catch { directingBriefId = null; }
+
   const made = [];
   for (const item of ai.data.slice(0, need)) {
     const caption = String((item && item.caption) || '').trim().slice(0, 2200);
@@ -980,6 +1007,19 @@ async function socialPlan(env, date) {
         await env.DB.prepare('UPDATE social_posts SET audit_score=?, audit_flags=?, audit_at=?, audit_status=? WHERE id=?')
           .bind(audit.brand_score, toJson(audit.flags), now(), audit.verdict === 'pass' ? 'pass' : 'flag', postId).run();
       } catch { /* the draft stands, visibly unscored (NULL audit_at) */ }
+      // Record WHAT produced this post — which of the owner's rules were in force and which brief
+      // directed it — so the reach it eventually earns can be traced back to a cause. Without
+      // this, the owner writes a rule, reach moves, and nothing anywhere connects the two: the
+      // team follows instructions but can never learn which instruction was worth following.
+      // Best-effort by contract (see post_provenance.js); a lost stamp costs one row of analysis,
+      // never the post.
+      await stampPostProvenance(env, {
+        postId, ruleIds: activeRuleIds, briefId: directingBriefId, category,
+        // The planner never attaches media — media_key is NULL here and slides arrive later from
+        // the owner or Studio. Passing undefined leaves format untouched for whoever knows it,
+        // rather than recording a confident "single" that is merely premature.
+        format: undefined, slideCount: undefined,
+      });
       made.push({ hour, day_offset: dayOffset, id: postId, category });
     } catch { /* one bad row must not lose the rest of the week */ }
   }
