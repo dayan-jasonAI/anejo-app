@@ -5,7 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const HTML = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+// The branding + carousel tools moved out of social.html when the four marketing pages were
+// consolidated into one workspace (social.html is now a redirect stub). These assertions guard
+// the rule that matters most in this whole feature — an image model must NEVER draw the Añejo
+// logo — so they follow the markup rather than the filename.
+const HTML = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
 
 // ---------------------------------------------------------------------------
 // Branding: the ONE RULE — an image model never draws the logo
