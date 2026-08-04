@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Marketing Settings</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .ms-meta { font-size:12px; color:var(--muted); }
+  .ms-empty { border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:#f6f5f1; color:var(--green); font-size:13.5px; line-height:1.55; }
+  .warn-box { border:1px solid rgba(214,69,69,.5); background:rgba(214,69,69,.08); border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.6; margin:12px 0; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:640px){ .grid2 { grid-template-columns:1fr; } }
+
+  .ms-day { display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
+  .ms-day:last-child { border-bottom:0; }
+  .ms-day .ms-day-label { width:88px; flex-shrink:0; font-weight:600; font-size:13px; padding-top:11px; }
+  .ms-day .ms-day-col { flex:1; }
+  .ms-day-default { font-size:11px; color:var(--muted); margin-top:4px; }
+
+  .ms-provider { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .ms-provider:last-child { border-bottom:0; }
+  .ms-prov-rank { width:20px; font-weight:800; color:var(--green); font-size:14px; }
+  .ms-prov-name { flex:1; min-width:160px; font-weight:600; font-size:14px; }
+  .ms-prov-acts { display:flex; gap:6px; align-items:center; }
+  .ms-arrow { padding:6px 11px; font-size:13px; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--green); cursor:pointer; }
+  .ms-arrow:disabled { opacity:.35; cursor:not-allowed; }
+  .ms-toggle { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); margin:0; }
+  .ms-toggle input { width:auto; }
+
+  .ms-brief { border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-top:10px; }
+  .ms-brief-title { font-weight:600; margin-top:4px; }
+  .ms-brief-body { font-size:13px; line-height:1.6; white-space:pre-wrap; margin-top:6px; }
+  .ms-sources { margin-top:8px; font-size:11.5px; }
+  .ms-sources a { display:block; color:var(--info); word-break:break-all; margin-top:2px; }
+
+  .ms-q-row { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .ms-q-row:last-child { border-bottom:0; }
+
+  input, select, textarea { width:100%; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · MARKETING SETTINGS</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+  var esc = Hub.esc;
+
+  function root() { return document.getElementById('owner-root'); }
+
+  function render() {
+    root().className = '';
+    root().innerHTML =
+      '<p class="sub" data-i18n>Four things that used to only be changeable with curl: how often the feed posts, when posts go out, which AI draws the plate photos, and what the research bench has found. Everything below reads and writes the same settings the automations already use — nothing here needs a redeploy to take effect.</p>' +
+
+      '<section class="card">' +
+        '<h2 data-i18n>Feed &amp; Stories cadence</h2>' +
+        '<p class="ms-meta" data-i18n>How many NEW feed (grid) posts the planner tops up to each week. 2026 research on food accounts: 3-5 posts/week is the sweet spot — average reach PER POST starts falling once an account crosses roughly 5/week, so posting more can mean fewer people see each one.</p>' +
+        '<div id="cadenceBody" style="margin-top:10px"><div class="hub-loading">…</div></div>' +
+      '</section>' +
+
+      '<section class="card">' +
+        '<h2 data-i18n>Posting times</h2>' +
+        '<p class="ms-meta" data-i18n>Default hour(s), Eastern Time, the planner snaps a drafted post onto for each weekday. Research behind these: the weekday lunch-decision window, 11:00–13:00 ET, is the strongest slot — it lands while someone is deciding what to eat TODAY. A secondary evening window, 17:00–19:00 ET, catches the dinner-decision crowd the same way. Friday out-performs every other day; Tuesday–Thursday are strong; weekends are the weakest days for FEED reach specifically — even so, evening is still the best hour of a weak weekend day. Hours must be 8–19 (8 AM–7 PM); anything outside that range is dropped, and a day left with none reverts to its researched default.</p>' +
+        '<div id="timesBody" style="margin-top:10px"><div class="hub-loading">…</div></div>' +
+      '</section>' +
+
+      '<section class="card">' +
+        '<h2 data-i18n>Plate image providers</h2>' +
+        '<p class="ms-meta" data-i18n>The Creative Studio tries providers in this order for every plate photo it generates, skipping any that are disabled — the first one that succeeds wins, and the rest never run.</p>' +
+        '<p class="ms-meta" data-i18n>A provider marked <strong>no API key</strong> is skipped on every call and the chain falls through to the next one — it cannot produce an image no matter where you rank it.</p>' +
+        '<div id="providersBody"><div class="hub-loading">…</div></div>' +
+      '</section>' +
+
+      '<section class="card">' +
+        '<h2 data-i18n>Market intelligence</h2>' +
+        '<p class="ms-meta" data-i18n>Research the intel bench has produced — a standing local-competitor sweep, a recurring Instagram platform pulse, and questions you file yourself. Every answer cites the URLs it used, so nothing here is an opinion you cannot check.</p>' +
+        '<div id="intelBody" style="margin-top:10px"><div class="hub-loading">…</div></div>' +
+      '</section>';
+
+    loadCadence();
+    loadTimes();
+    loadProviders();
+    loadIntel();
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  // ---------------- Cadence ----------------
+  function loadCadence() {
+    Owner.get('/api/hub/owner/social-cadence-config').then(function (d) {
+      var el = document.getElementById('cadenceBody');
+      if (!d || !d.ok) { el.innerHTML = '<div class="ms-empty" data-i18n>Could not load cadence settings.</div>'; return; }
+      var c = d.config, def = d.defaults;
+      el.innerHTML =
+        '<div class="field"><label data-i18n>Feed posts per week</label>' +
+        '<input id="feedPerWeek" type="number" min="0" max="14" value="' + esc(c.feed_per_week) + '">' +
+        '<p class="ms-meta" style="margin-top:4px" data-i18n>0 pauses the planner. 14 is a hard ceiling. Shipped default: ' + esc(def.feed_per_week) + '/week.</p></div>' +
+        '<div class="warn-box"><strong data-i18n>Recorded, not automated.</strong> ' +
+        '<span data-i18n>Stories are same-day camera-roll content — nothing in the product drafts or posts a Story today. The two numbers below only record your target cadence for when that ships. Changing them does not cause any Story to be posted.</span></div>' +
+        '<div class="grid2">' +
+          '<div class="field"><label data-i18n>Stories per day — min</label><input id="storiesMin" type="number" min="0" value="' + esc(c.stories_per_day_min) + '"></div>' +
+          '<div class="field"><label data-i18n>Stories per day — max</label><input id="storiesMax" type="number" min="0" value="' + esc(c.stories_per_day_max) + '"></div>' +
+        '</div>' +
+        '<button id="saveCadence" class="btn primary" style="margin-top:12px" type="button" data-i18n>Save cadence</button>' +
+        '<div id="cadenceStat" class="ms-meta" style="margin-top:8px"></div>';
+
+      document.getElementById('saveCadence').addEventListener('click', function () {
+        var body = {
+          feed_per_week: Number(document.getElementById('feedPerWeek').value),
+          stories_per_day_min: Number(document.getElementById('storiesMin').value),
+          stories_per_day_max: Number(document.getElementById('storiesMax').value)
+        };
+        var stat = document.getElementById('cadenceStat');
+        stat.textContent = 'Saving…';
+        Hub.api('/api/hub/owner/social-cadence-config', { method: 'POST', body: body }).then(function (r) {
+          if (r && r.ok) { Hub.toast('Cadence saved'); loadCadence(); }
+          else { stat.textContent = (r && r.error) || 'Could not save.'; }
+        });
+      });
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  // ---------------- Posting times ----------------
+  var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  function loadTimes() {
+    Owner.get('/api/hub/owner/social-posting-times').then(function (d) {
+      var el = document.getElementById('timesBody');
+      if (!d || !d.ok) { el.innerHTML = '<div class="ms-empty" data-i18n>Could not load posting times.</div>'; return; }
+      var table = d.table || {}, def = d.defaults || {};
+      var rows = '';
+      for (var i = 0; i <= 6; i++) {
+        var cur = (table[i] || table[String(i)] || []).join(', ');
+        var dflt = (def[i] || def[String(i)] || []).join(', ');
+        rows += '<div class="ms-day"><div class="ms-day-label">' + esc(DAY_NAMES[i]) + '</div>' +
+          '<div class="ms-day-col"><input data-day="' + i + '" type="text" value="' + esc(cur) + '" placeholder="e.g. 12, 18">' +
+          '<div class="ms-day-default">Researched default: ' + esc(dflt || '—') + ' ET</div></div></div>';
+      }
+      el.innerHTML = rows +
+        '<button id="saveTimes" class="btn primary" style="margin-top:12px" type="button" data-i18n>Save posting times</button>' +
+        '<div id="timesStat" class="ms-meta" style="margin-top:8px"></div>';
+
+      document.getElementById('saveTimes').addEventListener('click', function () {
+        var t = {};
+        Array.prototype.forEach.call(el.querySelectorAll('[data-day]'), function (inp) {
+          var day = inp.getAttribute('data-day');
+          var hours = inp.value.split(',').map(function (s) { return parseInt(s.trim(), 10); }).filter(function (n) { return Number.isFinite(n); });
+          t[day] = hours;
+        });
+        var stat = document.getElementById('timesStat');
+        stat.textContent = 'Saving…';
+        Hub.api('/api/hub/owner/social-posting-times', { method: 'POST', body: { table: t } }).then(function (r) {
+          // Reload from GET rather than trusting what we sent — the server silently clamps
+          // out-of-range hours and reverts an empty day to its default, and the owner needs
+          // to see what actually got saved, not what was typed.
+          if (r && r.ok) { Hub.toast('Posting times saved'); loadTimes(); }
+          else { stat.textContent = (r && r.error) || 'Could not save.'; }
+        });
+      });
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  // ---------------- Image providers ----------------
+  var PROVIDER_LABEL = {
+    openai: 'OpenAI — gpt-image-2',
+    gemini: 'Gemini — nano-banana image',
+    workers_ai: 'Workers AI — Leonardo Phoenix'
+  };
+  var provState = null; // { order: [...], disabled: { code: true } }
+
+  function loadProviders() {
+    Owner.get('/api/hub/owner/image-provider-config').then(function (d) {
+      var el = document.getElementById('providersBody');
+      if (!d || !d.ok) { el.innerHTML = '<div class="ms-empty" data-i18n>Could not load provider settings.</div>'; return; }
+      // `providers` is [{name, available}]. Tolerate the older bare-string shape too, so a HUB
+      // page cached from before the endpoint grew `available` degrades to "unknown" rather than
+      // rendering [object Object] as a provider name.
+      var list = (d.providers || []).map(function (p) {
+        return (p && typeof p === 'object') ? p : { name: p, available: null };
+      });
+      var avail = {};
+      list.forEach(function (p) { avail[p.name] = p.available; });
+      var order = (d.config && d.config.order && d.config.order.length)
+        ? d.config.order
+        : list.map(function (p) { return p.name; });
+      provState = { order: order.slice(), disabled: {}, available: avail };
+      ((d.config && d.config.disabled) || []).forEach(function (p) { provState.disabled[p] = true; });
+      renderProviders();
+    });
+  }
+
+  function renderProviders() {
+    var el = document.getElementById('providersBody');
+    var order = provState.order;
+    el.innerHTML = order.map(function (p, i) {
+      var isOff = !!provState.disabled[p];
+      // An unconfigured provider is skipped SILENTLY on every call — the owner sees worse images
+      // and no error. Saying "no API key" here is the whole point of showing availability: an
+      // ordering preference that can never run is not a preference, it is a dead entry.
+      var av = provState.available ? provState.available[p] : null;
+      var avTag = av === false ? ' ' + Owner.badge('no API key', 'crit')
+        : (av === null || av === undefined ? ' ' + Owner.badge('unknown', 'warn') : '');
+      return '<div class="ms-provider">' +
+        '<div class="ms-prov-rank">' + (i + 1) + '</div>' +
+        '<div class="ms-prov-name">' + esc(PROVIDER_LABEL[p] || p) + avTag + (isOff ? ' ' + Owner.badge('disabled', '') : '') + '</div>' +
+        '<div class="ms-prov-acts">' +
+          '<button type="button" class="ms-arrow" data-up="' + esc(p) + '"' + (i === 0 ? ' disabled' : '') + ' aria-label="Move up">↑</button>' +
+          '<button type="button" class="ms-arrow" data-down="' + esc(p) + '"' + (i === order.length - 1 ? ' disabled' : '') + ' aria-label="Move down">↓</button>' +
+          '<label class="ms-toggle"><input type="checkbox" data-toggle="' + esc(p) + '"' + (isOff ? ' checked' : '') + '> <span data-i18n>Disabled</span></label>' +
+        '</div></div>';
+    }).join('') +
+    '<button id="saveProviders" class="btn primary" style="margin-top:12px" type="button" data-i18n>Save order</button>' +
+    '<div id="providersStat" class="ms-meta" style="margin-top:8px"></div>';
+
+    Array.prototype.forEach.call(el.querySelectorAll('[data-up]'), function (b) {
+      b.addEventListener('click', function () { moveProvider(b.getAttribute('data-up'), -1); });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-down]'), function (b) {
+      b.addEventListener('click', function () { moveProvider(b.getAttribute('data-down'), 1); });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-toggle]'), function (b) {
+      b.addEventListener('click', function () {
+        var p = b.getAttribute('data-toggle');
+        if (b.checked) provState.disabled[p] = true; else delete provState.disabled[p];
+        renderProviders();
+      });
+    });
+    document.getElementById('saveProviders').addEventListener('click', function () {
+      var stat = document.getElementById('providersStat');
+      stat.textContent = 'Saving…';
+      Hub.api('/api/hub/owner/image-provider-config', {
+        method: 'POST',
+        body: { order: provState.order, disabled: Object.keys(provState.disabled) }
+      }).then(function (r) {
+        if (r && r.ok) { Hub.toast('Provider order saved'); loadProviders(); }
+        else { stat.textContent = (r && r.error) || 'Could not save.'; }
+      });
+    });
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function moveProvider(p, dir) {
+    var i = provState.order.indexOf(p);
+    var j = i + dir;
+    if (i < 0 || j < 0 || j >= provState.order.length) return;
+    var tmp = provState.order[i]; provState.order[i] = provState.order[j]; provState.order[j] = tmp;
+    renderProviders();
+  }
+
+  // ---------------- Intel ----------------
+  var INTEL_KINDS = ['competitor', 'market', 'platform', 'adhoc'];
+  var INTEL_LABELS = {
+    competitor: 'Local competitor sweep',
+    market: 'Market',
+    platform: 'Instagram platform pulse',
+    adhoc: 'Most recent owner question, answered'
+  };
+  var INTEL_EMPTY = {
+    competitor: 'No competitor sweep yet. Runs automatically on the weekly tick when the question queue is empty and the last sweep is 3+ weeks old, or tap "Run the queue now" below.',
+    market: 'Nothing here yet — and nothing in the product currently generates a "market" brief. This kind exists in the schema but no sweep or workflow writes to it yet.',
+    platform: 'No platform pulse yet. Runs the same way the competitor sweep does, or tap "Run the queue now" below.',
+    adhoc: 'No owner question has been answered yet. Ask one below.'
+  };
+
+  function loadIntel() {
+    Owner.get('/api/hub/owner/intel').then(function (d) {
+      var el = document.getElementById('intelBody');
+      if (!d || !d.ok) { el.innerHTML = '<div class="ms-empty" data-i18n>Could not load intel.</div>'; return; }
+
+      var briefs = INTEL_KINDS.map(function (k) {
+        var b = d.latest && d.latest[k];
+        if (!b) {
+          return '<div class="ms-brief"><strong>' + esc(INTEL_LABELS[k]) + '</strong>' +
+            '<div class="ms-empty" style="margin-top:6px">' + esc(INTEL_EMPTY[k]) + '</div></div>';
+        }
+        var srcs = (b.sources || []);
+        var sourcesHtml = srcs.length
+          ? '<div class="ms-sources">' + srcs.map(function (u) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(u) + '</a>'; }).join('') + '</div>'
+          : '<div class="ms-meta" style="margin-top:6px" data-i18n>No sources recorded.</div>';
+        return '<div class="ms-brief"><strong>' + esc(INTEL_LABELS[k]) + '</strong>' +
+          '<span class="ms-meta"> · ' + Owner.timeAgo(b.created_at) + '</span>' +
+          '<div class="ms-brief-title">' + esc(b.title) + '</div>' +
+          '<div class="ms-brief-body">' + esc(b.body) + '</div>' + sourcesHtml + '</div>';
+      }).join('');
+
+      var reqs = d.requests || [];
+      var queue = reqs.length
+        ? reqs.map(function (r) {
+            var kind = r.status === 'done' ? 'ok' : (r.status === 'failed' ? 'crit' : 'warn');
+            return '<div class="ms-q-row"><div style="flex:1"><div>' + esc(r.question) + '</div>' +
+              '<div class="ms-meta">' + esc(r.requested_by || 'owner') + ' · ' + Owner.timeAgo(r.created_at) + '</div></div>' +
+              Owner.badge(r.status, kind) + '</div>';
+          }).join('')
+        : '<div class="ms-empty" data-i18n>No questions filed yet.</div>';
+
+      el.innerHTML =
+        '<button id="runIntel" class="btn ghost" type="button" data-i18n>Run the queue now</button>' +
+        '<div id="intelRunStat" class="ms-meta" style="margin-top:6px"></div>' +
+        briefs +
+        '<h3 style="margin-top:18px;font-size:14px" data-i18n>Ask a research question</h3>' +
+        '<p class="ms-meta" data-i18n>Filed now, answered on the next intel run — this does real web research and never runs inline in a page load.</p>' +
+        '<textarea id="intelQ" style="min-height:60px;margin-top:6px" placeholder="e.g. What are competitors in Delray Beach charging for a weekly bowl subscription?"></textarea>' +
+        '<button id="askIntel" class="btn primary" style="margin-top:8px" type="button" data-i18n>Ask</button>' +
+        '<div id="askStat" class="ms-meta" style="margin-top:6px"></div>' +
+        '<h3 style="margin-top:18px;font-size:14px" data-i18n>Question queue</h3>' +
+        queue;
+
+      document.getElementById('runIntel').addEventListener('click', function () {
+        var btn = document.getElementById('runIntel');
+        var stat = document.getElementById('intelRunStat');
+        btn.disabled = true; stat.textContent = 'Running…';
+        Hub.api('/api/hub/admin/intel-tick', { method: 'POST', body: {} }).then(function (r) {
+          btn.disabled = false;
+          if (r && r.ok) {
+            var bits = [];
+            if (r.answered && r.answered.length) bits.push(r.answered.length + ' answered');
+            if (r.failed && r.failed.length) bits.push(r.failed.length + ' failed');
+            if (r.sweep) bits.push(r.sweep.ok ? 'sweep refreshed' : 'sweep skipped (' + r.sweep.reason + ')');
+            if (r.skipped) bits.push('waiting on: ' + r.skipped);
+            stat.textContent = bits.length ? bits.join(' · ') : 'Nothing to do — queue is empty and sweeps are fresh.';
+            Hub.toast('Intel tick ran');
+            loadIntel();
+          } else { stat.textContent = (r && r.error) || 'Could not run.'; }
+        });
+      });
+
+      document.getElementById('askIntel').addEventListener('click', function () {
+        var q = document.getElementById('intelQ').value.trim();
+        if (!q) return;
+        var stat = document.getElementById('askStat');
+        stat.textContent = 'Filing…';
+        Hub.api('/api/hub/owner/intel', { method: 'POST', body: { question: q } }).then(function (r) {
+          if (r && r.ok) { Hub.toast('Question queued'); document.getElementById('intelQ').value = ''; loadIntel(); }
+          else { stat.textContent = (r && r.error) || 'Could not queue.'; }
+        });
+      });
+
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  Owner.init('marketing-settings', render);
+})();
+</script>
+</body>
+</html>
