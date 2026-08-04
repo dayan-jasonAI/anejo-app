@@ -9,12 +9,10 @@ export default [
   { ignores: ['node_modules/**', 'public/**', '.wrangler/**', 'hub-app/**', 'dist/**'] },
   js.configs.recommended,
   {
-    // .mjs as well as .js. This block is the ONLY place globals are declared, so a file the
-    // pattern misses is linted with no `process`, no `URL`, no `fetch` — every reference to one
-    // becomes a no-undef error. That is latent, not theoretical: test/predeploy-guard.test.mjs
-    // arrived as the first .mjs under test/ that touches node globals and turned CI red on every
-    // open PR at once. Extension is not a proxy for environment here; both are modules and both
-    // run in the same places.
+    // .mjs as well as .js — `test/*.test.mjs` is a real, npm-test-globbed shape in this repo, and
+    // with only '**/*.js' here those files inherited no globals at all, so any use of `process`,
+    // `URL` or `console` in one was an instant no-undef error. That made the lint script quietly
+    // untrue to its own comment ("covers ALL of functions/ + test/") for a whole file extension.
     files: ['**/*.js', '**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2023,

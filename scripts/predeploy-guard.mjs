@@ -27,10 +27,20 @@
 // origin trunk to compare against. A guard that blocks deploys when GitHub is unreachable would be
 // worse than the problem it prevents. That set is now much smaller than it was.
 //
-// KNOWN LIMIT, stated so nobody mistakes this for full coverage: npm runs this via the `predeploy`
-// hook, so it only fires for `npm run deploy`. A bare `npx wrangler pages deploy public
-// --project-name=anejo-app` — the form CLAUDE.md documents, and the form used on 2026-08-04 —
-// never reaches this file. Deploy through `npm run deploy` if you want the check.
+// HOW THIS GETS RUN, and the limit that remains. npm runs it via the `predeploy` hook, so it fires
+// for `npm run deploy` and nothing else. wrangler has no pre-deploy hook to hang it on — `build` is
+// not in wrangler's supportedPagesConfigFields for Pages (checked against 3.114.17) — so a bare
+// `npx wrangler pages deploy` cannot be intercepted at the tool.
+//
+// What WAS fixable: the bare form was the command this repo's own CLAUDE.md and
+// docs/INSTAGRAM_TOKEN_SWAP.md told you to run, so following the documentation meant bypassing the
+// guard, which is what happened on 2026-08-04. Both now point at `npm run deploy`, and
+// test/deploy-command-docs.test.mjs fails if an unguarded command reappears in any tracked file.
+//
+// STILL UNCOVERED, deliberately not oversold: typing `npx wrangler pages deploy` by hand, a global
+// wrangler, or `npx wrangler@3` (which ignores node_modules). Closing that needs a detector rather
+// than a guard — compare the LIVE deployment's source commit against origin/main after the fact
+// (`wrangler pages deployment list` reports it) — and no such check exists yet.
 import { execFileSync } from 'node:child_process';
 
 const sh = (args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
