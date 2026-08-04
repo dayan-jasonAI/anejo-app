@@ -274,7 +274,7 @@ async function insertDraft(env, threadId, refId, body, t) {
 async function specialAlert(env, threadId, text, t) {
   try {
     await raiseAlert(env, {
-      type: 'special_request',
+      alert_type: 'special_request',
       severity: 'action',
       title: 'Instagram special request — Aña is holding',
       body: `"${String(text || '').slice(0, 180)}" — Aña told them we are checking with the kitchen. Someone needs to actually check.`,

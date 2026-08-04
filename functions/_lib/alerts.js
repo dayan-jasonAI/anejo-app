@@ -20,6 +20,13 @@ export const ALERT_TYPES = [
   // A high-confidence commercial DM/comment (catering, bulk/corporate, wholesale/partnership,
   // subscription) captured as a lead by _lib/social_leads.js. See migrations/0078_social_leads.sql.
   'social_commercial_lead',
+  // Both of these were RAISED from day one and never reached the table: their call sites passed
+  // `type:` while raiseAlert reads `opts.alert_type` and returns {ok:false} on the miss — a silent
+  // no-op with no error anywhere. The customer-facing half is what makes it bad: Aña tells a
+  // person "we're checking with the kitchen" and nobody was ever told to check. Listing them here
+  // alongside the fixed call sites so the next reader sees the full set of real alert types.
+  'special_request',
+  'partner_application',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:
