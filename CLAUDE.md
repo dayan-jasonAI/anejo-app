@@ -32,7 +32,11 @@ All of the above passes `node --check`; none of it has been pushed yet.
    - KV `SESSIONS` → `id = afbedd5c3613449b931b27ee0353a4b0`
    - Both IDs are now in `wrangler.toml`; migration `0001_init.sql` applied to remote (9 tables verified).
    - Re-run for a fresh env: `wrangler d1 create anejo` / `wrangler kv namespace create SESSIONS` / `wrangler d1 execute anejo --remote --file=migrations/0001_init.sql`.
-3. **Deploy**: commit + push to `main` (auto-deploys), or `npx wrangler pages deploy public`.
+3. **Deploy**: commit + push to `main` (auto-deploys), or `npm run deploy` — **never a bare
+   `npx wrangler pages deploy`**. The npm script runs `scripts/predeploy-guard.mjs` first, which
+   refuses to publish a checkout that is behind `origin/main`; wrangler invoked directly has no
+   such check and will happily revert the live site from a stale clone. Extra flags pass through:
+   `npm run deploy -- --branch=main`. Pinned by `test/deploy-command-docs.test.mjs`.
 4. Then continue the workflow: trainer dashboard UI (#19), subscription checkout + 10% rev-share (#20), storefront (#21), content/SEO/legal (#22–24), QA (#25).
 
 ## THE STORE IS LIVE (go-live 2026-07-21 — DBPR license in hand, `SQUARE_ENV=production`)

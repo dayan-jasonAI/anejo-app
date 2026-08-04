@@ -9,7 +9,11 @@ export default [
   { ignores: ['node_modules/**', 'public/**', '.wrangler/**', 'hub-app/**', 'dist/**'] },
   js.configs.recommended,
   {
-    files: ['**/*.js'],
+    // .mjs as well as .js — `test/*.test.mjs` is a real, npm-test-globbed shape in this repo, and
+    // with only '**/*.js' here those files inherited no globals at all, so any use of `process`,
+    // `URL` or `console` in one was an instant no-undef error. That made the lint script quietly
+    // untrue to its own comment ("covers ALL of functions/ + test/") for a whole file extension.
+    files: ['**/*.js', '**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',

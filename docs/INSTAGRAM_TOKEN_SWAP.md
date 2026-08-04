@@ -176,8 +176,10 @@ environment bindings into each build/deploy, Functions don't read the dashboard 
 new `IG_ACCESS_TOKEN` in the dashboard changes nothing about the running site by itself.
 
 Trigger a redeploy the normal way for this project — push any commit to `main` (auto-deploys), or
-run `npx wrangler pages deploy public --project-name=anejo-app` from a machine with the right
-Cloudflare credentials. **Do not run a `wrangler` deploy from an AI coding session** — per this
+run `npm run deploy` from a machine with the right Cloudflare credentials. Use `npm run deploy`,
+never a bare `wrangler pages deploy`: the npm script is what runs `scripts/predeploy-guard.mjs`
+first, and that guard is the only thing stopping a stale checkout from reverting the live site.
+(Extra wrangler flags still work — `npm run deploy -- --branch=main`.) **Do not run a `wrangler` deploy from an AI coding session** — per this
 repo's standing rule, only the project lead deploys; this step is for a human at the terminal.
 
 ## Step 8 — Verify
