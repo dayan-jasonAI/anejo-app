@@ -52,6 +52,15 @@
   .cover-note { font-size:12px; line-height:1.45; border-radius:8px; padding:7px 10px; margin-top:8px; }
   .cover-note.info { background:#eef3fb; border:1px solid #9db8de; color:#2c4a72; }
   .cover-note.warn { background:#fbf3da; border:1px solid var(--gold-dark); color:var(--gold-dark); font-weight:600; }
+  /* Media-type badge (migrations/0080): a REEL/STORY is not a feed post, and the owner has to be
+     able to tell at a glance — the tag next to status answers "what IS this", the status tag
+     already answers "what state is it in". Both show; they answer different questions. */
+  .mtype { font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; border-radius:20px; padding:3px 9px; white-space:nowrap; background:#2c4a72; color:#fff; }
+  .mtype.STORIES { background:#8a2b8a; }
+  /* A video slide. Deliberately NOT an <img> — Instagram's grid/story is video, and rendering it as
+     a broken photo thumbnail (or worse, silently as nothing) is exactly the "looks like a photo
+     post" mistake this feature exists to avoid. */
+  .vidslide { width:96px; height:96px; object-fit:cover; border-radius:8px; border:1px solid var(--line); background:#111; }
 </style>
 </head>
 <body>
@@ -140,6 +149,13 @@
       '</div>';
   }
 
+  // A video file, purely by extension — the same signal functions/_lib/instagram.js's VIDEO_ONLY
+  // uses server-side (MP4/MOV are the only formats Instagram's Reels/Stories containers accept).
+  // Checked on the slide's OWN key rather than trusting post.media_type alone: a legacy/untyped
+  // post can never carry a video key today (draft/attach both refuse one — see social.js), but
+  // this keeps the render honest even if that ever changes, instead of silently trusting a column.
+  var VIDEO_EXT = /\.(mp4|mov)$/i;
+
   // The slide strip: thumbnails in order, each with move/remove until the post is live. The
   // preview uses the HUB-authenticated media route, never the public tokens.
   function slideStrip(p) {
@@ -147,8 +163,14 @@
     if (!media.length) return '';
     var locked = p.status === 'published' || p.status === 'publishing';
     return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' + media.map(function (m, i) {
+      var isVideo = VIDEO_EXT.test(m.media_key || '');
+      // A video slide is NEVER rendered as an <img> — a broken-image icon (or worse, a silently
+      // empty box) reads as "this post has no picture", which is a worse lie than showing nothing.
+      // <video> with controls lets the owner actually confirm what is about to go out.
       return '<div style="position:relative;width:96px">' +
-        '<img src="/api/hub/media/' + esc(m.media_key) + '" alt="" loading="lazy" style="width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">' +
+        (isVideo
+          ? '<video class="vidslide" src="/api/hub/media/' + esc(m.media_key) + '" controls muted preload="metadata"></video>'
+          : '<img src="/api/hub/media/' + esc(m.media_key) + '" alt="" loading="lazy" style="width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">') +
         '<span style="position:absolute;top:3px;left:5px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;border-radius:8px;padding:1px 6px">' + (i + 1) + '</span>' +
         // A generated cover is a PLACEHOLDER, and it has to say so on the thumbnail. Unlabelled,
         // it looks exactly like photography of food Anejo actually cooked — which would make the
@@ -208,11 +230,51 @@
     return '<div class="cover-note ' + esc(s.level) + '">' + icon + ' ' + esc(s.message) + fix + '</div>';
   }
 
+  // What the "type" tag says, and what the publish button/confirm dialog should call this post —
+  // one lookup instead of the REELS/STORIES check spelled out at every call site below.
+  var MTYPE_WORD = { REELS: 'Reel', STORIES: 'Story' };
+
+  // The "attach media" card under a draft. `slideCap` is 1 for a REEL/STORY, 10 for everything
+  // else (Meta's carousel ceiling) — see postCard, which computes it once per post.
+  //
+  // The 📷 uploader (functions/api/hub/owner/social-upload.js) only ever accepts a JPEG — video
+  // upload is not wired up in the HUB (see the "no video for now" note there, the owner's own
+  // standing decision). A REEL needs a video, so the uploader can never produce a valid Reel asset
+  // and is not offered for one at all; a STORY may legitimately be a JPEG photo, so it keeps the
+  // uploader for that case. Either way, "paste a Studio image key" is what actually lets an
+  // already-staged MP4/MOV (e.g. from a future SORA-driven path, or a manual R2 upload) reach a
+  // Reel or a video Story today — it is the one working path, not a fallback for a broken one.
+  function uploadCard(p, mtype, slideCap) {
+    var count = (p.media || []).length;
+    var full = count >= slideCap;
+    var isReel = mtype === 'REELS';
+    return '<div class="card" style="margin-top:8px;background:#fbfaf6">' +
+      (!count && p.image_brief ? '<div class="row-sub" style="margin-bottom:6px"><b>Photo to make:</b> ' + esc(p.image_brief) + '</div>' : '') +
+      '<input type="file" id="file_' + esc(p.id) + '" accept="image/jpeg" style="display:none">' +
+      (full
+        ? '<p class="hint">' + (isReel ? 'One video — Instagram allows only one on a Reel.'
+            : mtype === 'STORIES' ? 'One photo or video — Instagram allows only one on a Story.'
+            : slideCap + ' photos — Instagram\'s limit for one post.') + '</p>'
+        : (isReel
+            ? '<p class="hint">Paste the key of an MP4/MOV already staged in R2 below — video upload from this screen is not available yet.</p>'
+            : '<button class="btn ' + (count ? 'ghost' : 'gold') + ' block" data-upload="' + esc(p.id) + '">📷 ' +
+              (count ? 'Add another photo (' + count + '/' + slideCap + ')' : 'Upload a photo') + '</button>')) +
+      (full ? '' :
+        '<details style="margin-top:6px"' + (isReel ? ' open' : '') + '><summary style="font-size:11.5px;opacity:.6;cursor:pointer">or paste a Studio ' + (mtype ? 'image/video' : 'image') + ' key</summary>' +
+          '<div style="display:flex;gap:8px;margin-top:6px"><input type="text" id="mk_' + esc(p.id) + '" placeholder="studio/2026-07/xxxx.' + (isReel ? 'mp4' : 'jpg') + '" ' +
+            'style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px">' +
+            '<button class="btn ghost" data-attach="' + esc(p.id) + '" style="white-space:nowrap">Attach</button></div></details>') +
+      '</div>';
+  }
+
   function postCard(p) {
+    var mtype = p.media_type || null;   // null = legacy/undeclared (migrations/0080) — image/carousel by slide count, as always
+    var slideCap = (mtype === 'REELS' || mtype === 'STORIES') ? 1 : 10;   // Meta allows no carousel for either
     // The image preview uses the HUB-authenticated route, never the public token — the owner is
     // signed in, and printing the public URL here would put it in screenshots.
     return '<div class="post ' + esc(p.status) + '">' +
-      '<div class="post-head"><span class="tag ' + esc(p.status) + '">' + (WORD[p.status] || esc(p.status)) + '</span>' +
+      '<div class="post-head"><span style="display:flex;gap:6px;align-items:center"><span class="tag ' + esc(p.status) + '">' + (WORD[p.status] || esc(p.status)) + '</span>' +
+        (MTYPE_WORD[mtype] ? '<span class="mtype ' + esc(mtype) + '">' + esc(MTYPE_WORD[mtype]) + '</span>' : '') + '</span>' +
         '<span class="row-sub" style="font-size:11.5px">' + esc(when(p)) + '</span></div>' +
       (p.source === 'planner' ? '<div class="row-sub" style="font-size:11px;margin-bottom:4px">✍️ Drafted for you — review before it goes anywhere</div>' : '') +
       // The caption is EDITABLE until it is live. This existed as an API op and not as a field —
@@ -226,18 +288,7 @@
       // strip shows it and the arrows change it. All of it locks once the post is live.
       slideStrip(p) +
       coverNote(p) +
-      (p.status === 'published' ? '' :
-        '<div class="card" style="margin-top:8px;background:#fbfaf6">' +
-          (!(p.media || []).length && p.image_brief ? '<div class="row-sub" style="margin-bottom:6px"><b>Photo to make:</b> ' + esc(p.image_brief) + '</div>' : '') +
-          '<input type="file" id="file_' + esc(p.id) + '" accept="image/jpeg" style="display:none">' +
-          ((p.media || []).length < 10
-            ? '<button class="btn ' + ((p.media || []).length ? 'ghost' : 'gold') + ' block" data-upload="' + esc(p.id) + '">📷 ' +
-              ((p.media || []).length ? 'Add another photo (' + (p.media || []).length + '/10)' : 'Upload a photo') + '</button>'
-            : '<p class="hint">10 photos — Instagram\'s limit for one post.</p>') +
-          '<details style="margin-top:6px"><summary style="font-size:11.5px;opacity:.6;cursor:pointer">or paste a Studio image key</summary>' +
-            '<div style="display:flex;gap:8px;margin-top:6px"><input type="text" id="mk_' + esc(p.id) + '" placeholder="studio/2026-07/xxxx.jpg" ' +
-              'style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px">' +
-              '<button class="btn ghost" data-attach="' + esc(p.id) + '" style="white-space:nowrap">Attach</button></div></details></div>') +
+      (p.status === 'published' ? '' : uploadCard(p, mtype, slideCap)) +
       (p.error ? '<div class="row-sub" style="color:var(--crit);margin-top:6px">' + esc(p.error) + '</div>' : '') +
       (p.permalink ? '<div style="margin-top:8px"><a href="' + esc(p.permalink) + '" target="_blank" rel="noopener">View on Instagram →</a></div>' : '') +
       (p.metrics
@@ -247,7 +298,14 @@
            p.metrics.saved != null ? p.metrics.saved + ' saves' : null,
            p.metrics.comments != null ? p.metrics.comments + ' comments' : null
           ].filter(Boolean).join(' · ') + ' <span style="opacity:.6">(' + esc(p.metrics.capture_date) + ')</span></div>'
-        : (p.status === 'published' ? '<div class="row-sub" style="margin-top:6px;font-size:12px;opacity:.6">📊 No performance data yet — the daily sweep collects it.</div>' : '')) +
+        : (p.status !== 'published' ? '' :
+            // A Story's insights are impressions/taps/exits, not reach/likes/saves — and this app
+            // does not fetch them at all yet (see the STORIES section of _lib/instagram.js). Saying
+            // "the daily sweep collects it" here would promise data that is never coming; say what
+            // is actually true instead.
+            mtype === 'STORIES'
+              ? '<div class="row-sub" style="margin-top:6px;font-size:12px;opacity:.6">📊 Stories report different metrics (views, replies, exits) that this HUB does not fetch yet — check them in the Instagram app.</div>'
+              : '<div class="row-sub" style="margin-top:6px;font-size:12px;opacity:.6">📊 No performance data yet — the daily sweep collects it.</div>')) +
       (p.status === 'published' ? '' :
         // Approving a time is the human gate the planner deliberately stops short of.
         ((p.media || []).length
@@ -260,8 +318,11 @@
               '</div></div>'
           : '') +
         '<div class="acts">' +
-          ((p.media || []).length ? '<button class="go" data-pub="' + esc(p.id) + '">' +
-            (p.status === 'failed' ? 'Retry' : ((p.media || []).length > 1 ? 'Publish carousel · ' + (p.media || []).length + ' photos' : 'Publish now')) + '</button>' : '') +
+          ((p.media || []).length ? '<button class="go" data-pub="' + esc(p.id) + '" data-mtype="' + esc(mtype || '') + '">' +
+            (p.status === 'failed' ? 'Retry' :
+              mtype === 'REELS' ? 'Publish Reel' :
+              mtype === 'STORIES' ? 'Publish to Story' :
+              (p.media || []).length > 1 ? 'Publish carousel · ' + (p.media || []).length + ' photos' : 'Publish now') + '</button>' : '') +
           '<button class="del" data-del="' + esc(p.id) + '">Delete</button>' +
         '</div>') +
       '</div>';
@@ -289,16 +350,37 @@
         '<div class="row-sub" style="margin-top:4px">Long-lived tokens expire after ~60 days — this usually means it needs renewing.</div></div>';
     }
 
+    // Composer post-type: what the "Photo" field below accepts, and what the draft is tagged with
+    // (migrations/0080). Kept in DATA (same pattern as _pickedKey) so choosing it does not lose an
+    // already-picked file across the re-render.
+    var draftType = (DATA && DATA._draftType) || '';
+    var draftIsReel = draftType === 'REELS';
+    var draftIsStory = draftType === 'STORIES';
+
     root.innerHTML =
       '<div class="hub-section"><h2>Instagram</h2>' + status + expiryBanner(d) +
         '<div class="card">' +
-          '<div class="form-row"><label>Photo</label>' +
+          '<div class="form-row"><label>Post type</label>' +
+            '<select id="mtypesel">' +
+              '<option value=""' + (draftType === '' ? ' selected' : '') + '>Feed photo or carousel</option>' +
+              '<option value="REELS"' + (draftIsReel ? ' selected' : '') + '>Reel (video)</option>' +
+              '<option value="STORIES"' + (draftIsStory ? ' selected' : '') + '>Story (photo or video)</option>' +
+            '</select>' +
+            '<p class="hint">' + (draftIsReel ? 'A Reel is one video, and Instagram has no carousel for it.'
+              : draftIsStory ? 'A Story is one photo or video, live for 24 hours — no carousel.'
+              : 'A feed post: one photo, or a 2-10 photo carousel added after saving.') + '</p></div>' +
+          '<div class="form-row"><label>' + (draftIsReel ? 'Video' : draftIsStory ? 'Photo or video' : 'Photo') + '</label>' +
             '<input type="file" id="mfile" accept="image/jpeg" style="display:none">' +
-            '<button class="btn ghost" id="mpick" type="button">📷 ' + ((DATA && DATA._pickedKey) ? 'Change photo' : 'Upload a photo') + '</button>' +
+            (draftIsReel ? '' :
+              '<button class="btn ghost" id="mpick" type="button">📷 ' + ((DATA && DATA._pickedKey) ? 'Change photo' : 'Upload a photo') + '</button>') +
             ((DATA && DATA._pickedKey) ? '<p class="hint">✓ ' + esc(DATA._pickedKey) + '</p>' : '') +
-            '<details style="margin-top:4px"><summary style="font-size:11.5px;opacity:.6;cursor:pointer">or paste a Studio image key</summary>' +
-              '<input id="mkey" type="text" placeholder="studio/2026-07/xxxx.jpg" style="margin-top:6px" value="' + esc((DATA && DATA._pickedKey) || '') + '"></details>' +
-            '<p class="hint">JPEG from your phone or computer. Instagram rejects PNG and WebP; iPhone HEIC needs sharing as JPEG first.</p></div>' +
+            '<details style="margin-top:4px"' + (draftIsReel ? ' open' : '') + '><summary style="font-size:11.5px;opacity:.6;cursor:pointer">or paste a Studio ' + (draftType ? 'image/video' : 'image') + ' key</summary>' +
+              '<input id="mkey" type="text" placeholder="studio/2026-07/xxxx.' + (draftIsReel ? 'mp4' : 'jpg') + '" style="margin-top:6px" value="' + esc((DATA && DATA._pickedKey) || '') + '"></details>' +
+            '<p class="hint">' + (draftIsReel
+              ? 'MP4 or MOV, already staged in R2 — video upload from this screen is not available yet, paste the key above.'
+              : draftIsStory
+                ? 'JPEG from your phone/computer uploads here; an MP4/MOV Story needs a key already staged in R2, pasted above — video upload from this screen is not available yet.'
+                : 'JPEG from your phone or computer. Instagram rejects PNG and WebP; iPhone HEIC needs sharing as JPEG first.') + '</p></div>' +
           '<div class="form-row"><label>Caption</label><textarea id="cap" maxlength="2200" placeholder="Write the caption…"></textarea>' +
             '<p class="hint">Up to 2,200 characters. Hashtags count toward it.</p></div>' +
           '<div class="form-row"><label>Schedule (optional)</label><input id="sched" type="datetime-local">' +
@@ -439,6 +521,12 @@
       op({ op:'set_token_expiry', expires_at: null }, 'Cleared');
     });
 
+    var mtypesel = document.getElementById('mtypesel');
+    if (mtypesel) mtypesel.addEventListener('change', function () {
+      DATA._draftType = mtypesel.value;
+      render();
+    });
+
     var mpick = document.getElementById('mpick');
     if (mpick) mpick.addEventListener('click', function () {
       var fi = document.getElementById('mfile');
@@ -459,10 +547,11 @@
       var key = (document.getElementById('mkey') || {}).value || '';
       var cap = (document.getElementById('cap') || {}).value || '';
       var s = (document.getElementById('sched') || {}).value || '';
-      if (!key.trim()) { Hub.toast('Pick an image first.'); return; }
+      var mtype = (document.getElementById('mtypesel') || {}).value || '';
+      if (!key.trim()) { Hub.toast(mtype === 'REELS' ? 'Paste a video key first.' : 'Pick an image first.'); return; }
       var when = s ? Date.parse(s) : null;
       save.disabled = true;
-      Hub.api('/api/hub/owner/social', { method:'POST', body:{ op:'draft', media_key:key.trim(), caption:cap, scheduled_at: Number.isFinite(when) ? when : null } })
+      Hub.api('/api/hub/owner/social', { method:'POST', body:{ op:'draft', media_key:key.trim(), media_type: mtype || null, caption:cap, scheduled_at: Number.isFinite(when) ? when : null } })
         .then(function (r) {
           save.disabled = false;
           if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not save'); return; }
@@ -473,7 +562,14 @@
 
     Array.prototype.forEach.call(document.querySelectorAll('[data-pub]'), function (b) {
       b.addEventListener('click', function () {
-        if (!window.confirm('Publish this to Instagram now? It goes on the public profile.')) return;
+        var mt = b.getAttribute('data-mtype');
+        // A Story is not a feed post — say so in the one place the owner confirms an irreversible
+        // public action, or "the public profile" reads as the grid when it is actually the
+        // 24-hour Story tray.
+        var confirmMsg = mt === 'REELS' ? 'Publish this Reel now? It goes on your public profile.'
+          : mt === 'STORIES' ? 'Publish this to your Story now? It is public for 24 hours, then gone.'
+          : 'Publish this to Instagram now? It goes on the public profile.';
+        if (!window.confirm(confirmMsg)) return;
         b.disabled = true; b.textContent = 'Publishing…';
         // Deliberately slow: Instagram fetches the image and we poll until it is ready, so this
         // can take ~20 seconds. Better to make them wait than to report success early.
