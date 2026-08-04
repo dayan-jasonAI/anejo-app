@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { draftReply, reactionReplyFor, looksLikeScaffolding } from '../../functions/_lib/ana_social.js';
 import { onRequestPost as tickPost } from '../../functions/api/hub/admin/social-inbox-tick.js';
+import { ALERT_SEVERITIES } from '../../functions/_lib/alerts.js';
 
 const ANA = readFileSync(new URL('../../functions/_lib/ana_social.js', import.meta.url), 'utf8');
 const TICK = readFileSync(new URL('../../functions/api/hub/admin/social-inbox-tick.js', import.meta.url), 'utf8');
@@ -60,6 +61,7 @@ test('a special request sends the holding reply AND alerts the kitchen+owner', (
   // alert_type, not type: raiseAlert reads opts.alert_type and silently returns {ok:false}
   // otherwise. This alert no-op'd from the day it was written — pin the working spelling.
   assert.match(TICK, /alert_type: 'special_request'/);
+  assert.ok(!/\btype: 'special_request'/.test(TICK), 'the dead `type:` key never comes back');
   assert.match(ANA, /\[SPECIAL\]/);
 });
 
@@ -87,7 +89,12 @@ test('the tick is not open to the internet', () => {
 // INSERT/UPDATE, and answers anything unrecognized (loadMenu's catalog reads) with empty results
 // so the menu degrades to its fallback exactly like a fresh local DB.
 function fakeDB(state) {
+  // Alerts are optional for most cases; default them so every existing state object keeps working.
+  state.alertInserts = state.alertInserts || [];
   const route = (sql, args) => {
+    if (sql.startsWith('INSERT INTO alerts')) {
+      return { run: async () => { state.alertInserts.push(args); return { meta: { changes: 1 } }; } };
+    }
     if (sql.includes('FROM social_events')) return { all: async () => ({ results: state.events }) };
     if (sql.startsWith('UPDATE social_events')) {
       return { run: async () => { state.eventUpdates.push(args); return { meta: { changes: 1 } }; } };
@@ -152,6 +159,44 @@ test('the tick drafts for a waiting comment and DM — and talks ONLY to Claude'
     // The comment event was claimed (thread_id set + handled=1) so a retry cannot double-draft.
     assert.ok(state.eventUpdates.some((a) => a.includes('C1')), 'social event marked handled');
   } finally { f.restore(); }
+});
+
+test('[SPECIAL] actually lands an alerts ROW, at a severity raiseAlert recognises', async () => {
+  // The `type:`/`alert_type:` no-op is fixed, but a source-text pin cannot tell a raised alert from
+  // a swallowed one — the whole failure mode here is code that reads correct and does nothing. This
+  // drives the real call and reads the INSERT. It also catches the half that outlived the first fix:
+  // severity 'action' is not on raiseAlert's scale, so every special request logged "unknown
+  // severity" while landing as 'warning' anyway.
+  const state = {
+    events: [{ id: 'C3', platform: 'instagram', kind: 'comment', from_id: 'igu_4', from_username: 'lucia', media_id: 'M9', text: 'can you do 40 bowls dairy-free for Saturday?', handled: 0, created_at: 1 }],
+    dmThreads: [], lastMessage: {}, eventUpdates: [], threadInserts: [], messageInserts: [], alertInserts: [],
+  };
+  const warnings = [];
+  const realWarn = console.warn;
+  console.warn = (...a) => { warnings.push(a.join(' ')); };
+  const f = stubFetch(() => claudeSays('[SPECIAL] Let me check with the kitchen and come right back to you! 🌿'));
+  try {
+    const res = await tickPost({ request: cronReq(), env: { DB: fakeDB(state), CRON_KEY: 'k', ANTHROPIC_API_KEY: 'sk-test' } });
+    const j = await res.json();
+    assert.equal(j.specials, 1, 'the tick counted a special request');
+
+    assert.equal(state.alertInserts.length, 1, 'raiseAlert reached the INSERT');
+    // Column order comes from the INSERT in _lib/alerts.js:
+    //   id, alert_type, severity, title, body, team, ref_type, ref_id, source, dedupe_key, created, updated
+    const [, alertType, severity, title, , team, , , , dedupe] = state.alertInserts[0];
+    assert.equal(alertType, 'special_request');
+    assert.ok(ALERT_SEVERITIES.includes(severity), `severity ${severity} is on raiseAlert's scale`);
+    assert.notEqual(severity, 'critical', 'one order needing a human must not turn the dashboard red');
+    assert.equal(team, 'kitchen', 'routed to the people who have to actually check');
+    assert.match(String(title), /special request/i);
+    assert.match(String(dedupe), /^special:/, 'deduped per thread per day, not once per tick');
+    assert.deepEqual(warnings.filter((w) => /unknown severity/.test(w)), [], 'the caller passed a severity raiseAlert knows');
+
+    // The holding reply still went out as a draft, with the tag stripped.
+    const drafts = state.messageInserts.filter((m) => m.sql.includes("'ana_draft'"));
+    assert.equal(drafts.length, 1);
+    assert.ok(!drafts[0].args.some((a) => String(a).includes('[SPECIAL]')), 'the tag never reaches the customer');
+  } finally { f.restore(); console.warn = realWarn; }
 });
 
 test('a comment from our own account is skipped, not answered — Aña must not talk to herself', async () => {

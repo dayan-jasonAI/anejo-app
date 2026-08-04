@@ -271,11 +271,17 @@ async function insertDraft(env, threadId, refId, body, t) {
 
 // A special request pings the kitchen and the owner — Aña has already sent the holding reply, so
 // the alert is the promise that a human follows through. Deduped per thread per day.
+//
+// 'warning', not 'action': raiseAlert's scale is info|warning|critical and 'action' is not on it.
+// normSeverity() coerced it to 'warning' anyway, so the alert did land — but it console.warn'd
+// "unknown severity" on every single special request, which is the noise that hides a REAL
+// miswiring. 'warning' is also the honest rank: one order needs a human, the day still runs.
 async function specialAlert(env, threadId, text, t) {
   try {
     await raiseAlert(env, {
       alert_type: 'special_request',
-      severity: 'action',
+      severity: 'warning',
+      team: 'kitchen',
       title: 'Instagram special request — Aña is holding',
       body: `"${String(text || '').slice(0, 180)}" — Aña told them we are checking with the kitchen. Someone needs to actually check.`,
       dedupe_key: `special:${threadId}:${new Date(t).toISOString().slice(0, 10)}`,
