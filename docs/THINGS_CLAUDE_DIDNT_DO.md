@@ -871,3 +871,75 @@ the HUB renders video slides as video.
   labelled *"Recorded, not automated"*, and read by nothing that posts.
 - Reels transcode timing, Stories `permalink` behaviour and exact duration/aspect bounds are
   **unverified against the real API** — everything Meta-side was exercised against mocked fetch.
+
+---
+
+## 24. The intel question queue could never be answered — CLOSED 2026-08-04
+
+The owner reported it as a missing feature: *"there is no way to input an answer, it needs one."*
+It was a real defect underneath.
+
+`0069_team_lead.sql` creates `intel_requests` WITHOUT `answer_intel_id`/`updated_at`.
+`0070_intel.sql` declares the same table WITH them — as `CREATE TABLE IF NOT EXISTS`, by which
+point the table existed. **0070 was a silent no-op**, so production carried the 0069 shape while
+every reader was written against 0070's. Verified live before fixing:
+
+```
+SELECT ... answer_intel_id ...     → no such column: answer_intel_id
+UPDATE ... SET updated_at = ?      → no such column: updated_at
+```
+
+Consequences, all of which the owner had actually observed:
+- the research sweep could not attach an answer or move a request off `pending`
+- an OWNER-filed question threw on INSERT — which is why every historical row is
+  `requested_by='lead'` and not one was the owner's
+- three questions sat `pending` from 2026-07-31 for this reason alone
+
+Fixed by `0082_intel_requests_drift.sql` (both columns added nullable — 0070 declares NOT NULL,
+which SQLite cannot add to a populated table without inventing a default). `updated_at` was
+backfilled to each row's own `created_at`, NOT to "now": those rows genuinely had not been
+touched since creation, and stamping today's date would have put a lie in the data.
+
+**A regression this nearly shipped.** A subagent reported the opposite diagnosis — that
+`updated_at` was NOT NULL in production and the Lead's INSERT was wrongly omitting it — and
+"fixed" the code to write it. That would have broken the ONLY intel path that worked. Migration
+files describe intent; only the live database describes reality. Check production, not the
+migration.
+
+## 25. Four pages for one job — CLOSED 2026-08-04
+
+The owner: *"I'm having trouble finding value on having Team + Social + Campaign + Train the Team
+all in different tabs when it should all be one smooth automation under one tab."*
+
+`marketing.html` is now one workspace with three tabs — **Today** (results, trust, attribution,
+performance watch), **Teach** (Team Lead strategy + training rules/examples), **Create &
+schedule** (Instagram and Email as two structurally separate lanes). `team.html`,
+`team-training.html`, `social.html` and `campaigns.html` are redirect stubs, so every bookmark,
+HUB tile and alert deep-link still resolves.
+
+Two things deliberately did NOT collapse:
+- **Email is not merged into social.** Separate mounts, separate scripts, separate send buttons,
+  separate confirms. They carry different consent law (TCPA vs CAN-SPAM) and one going out
+  believing it was the other reaches real inboxes.
+- **Settings stayed a separate page.** Cadence, posting times, image providers and intel are
+  configuration, and configuration should not share prominence with today's drafts.
+
+Zero files under `functions/` changed — no endpoint became easier to publish or send, and every
+`window.confirm()` survived, pinned by test.
+
+## 26. Branding on generated images — SHIPPED, with a real limit — 2026-08-04
+
+**The rule held: an image model never draws the Añejo logo.** An AI-approximated mark is wrong
+forever and ships to a live profile. Cloudflare Workers have no canvas and the account has no
+Images binding, so there is no honest server-side composite — the work happens in the owner's own
+browser on a real `<canvas>`, loading the actual committed asset (`logo_full.png`, in the repo
+since 2026-06-25 and already on the public homepage). Wording is drawn as canvas text from the
+owner's exact typed string, so **there is no generation step a typo could come from**.
+
+**The limit, stated plainly: branding is a button the owner presses.** Posts the weekly planner
+drafts unattended are NOT branded. Anyone expecting automatic branding on every post will be
+wrong, and that is a mechanism that does not exist yet rather than a bug.
+
+Carousel generation is on-demand, capped 2–10, appends slides and never overwrites owner-uploaded
+photography. Set cohesion comes from reusing one dish prompt with a rotating angle clause —
+honestly weaker than reference-image conditioning, which none of the three providers support.
