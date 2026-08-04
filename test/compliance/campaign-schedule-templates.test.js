@@ -17,7 +17,16 @@ const API = readFileSync(new URL('../../functions/api/hub/owner/campaigns.js', i
 const TICK = readFileSync(new URL('../../functions/api/hub/admin/campaigns-tick.js', import.meta.url), 'utf8');
 const MIG = readFileSync(new URL('../../migrations/0058_campaign_templates_and_schedule.sql', import.meta.url), 'utf8');
 const CRON = readFileSync(new URL('../../cron/worker.js', import.meta.url), 'utf8');
-const UI = readFileSync(new URL('../../public/hub/owner/campaigns.html', import.meta.url), 'utf8');
+// 2026-08-04: the campaigns compose form now lives inside the Create > Email tab of the unified
+// marketing.html workspace, next to (never mixed with) the Instagram lane. UI is scoped to just
+// the Email module's own script block below, not the whole merged page — the Instagram module
+// carries an unrelated code comment that happens to contain the literal text "toISOString()",
+// which would otherwise false-positive the "no UTC round-trip" pin further down.
+const MARKETING_PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
+const UI = MARKETING_PAGE.slice(
+  MARKETING_PAGE.indexOf('MODULE: Create > Email'),
+  MARKETING_PAGE.indexOf('SHELL — tab strip')
+);
 
 // ---------- one send path, not two ----------
 

@@ -22,7 +22,9 @@ import {
 } from '../../functions/_lib/instagram_token_expiry.js';
 
 const API = readFileSync(new URL('../../functions/api/hub/owner/social.js', import.meta.url), 'utf8');
-const PAGE = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+// 2026-08-04: the expiry banner now renders inside the Create > Instagram tab of the unified
+// marketing.html workspace (see that file's own header comment).
+const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
 
 const DAY = 86400000;
 const NOW = 1785000000000; // fixed instant, so "days left" math is deterministic

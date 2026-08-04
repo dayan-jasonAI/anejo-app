@@ -146,7 +146,15 @@ test('a planner post is marked as one', () => {
 
 // ---------- a page nobody can reach is a page that does not exist ----------
 
-test('every owner page is reachable — from the nav or from another page', () => {
+// 2026-08-04: team.html, team-training.html, social.html and campaigns.html were consolidated
+// into one workspace (/hub/owner/marketing.html — Today / Teach / Create). Each old filename now
+// holds a thin compat redirect (`location.replace(...)`) so a stale bookmark or deep-link still
+// lands somewhere real. A redirect stub is deliberately NOT linked from the nav or from any other
+// page — that would defeat the point of consolidating — so it must not trip the "orphan page"
+// check below. It earns its exemption by actually redirecting, checked in the next test.
+const REDIRECT_STUBS = new Set(['team.html', 'team-training.html', 'social.html', 'campaigns.html']);
+
+test('every owner page is reachable — from the nav, from another page, or as a compat redirect', () => {
   // social.html shipped three commits without a nav entry and no inbound link from anywhere. It
   // worked, it was deployed, it was tested — and the only way to open it was to type the URL.
   // This checks reachability rather than nav membership, because plenty of pages are deliberately
@@ -167,6 +175,7 @@ test('every owner page is reachable — from the nav or from another page', () =
   }
 
   const unreachable = pages.filter((p) => {
+    if (REDIRECT_STUBS.has(p)) return false;
     const href = `/hub/owner/${p}`;
     if (nav.includes(`href: '${href}'`)) return false;
     return !corpus.some((c) => c.name !== p && c.text.includes(href));
@@ -174,13 +183,30 @@ test('every owner page is reachable — from the nav or from another page', () =
   assert.deepEqual(unreachable, [], `unreachable owner pages: ${unreachable.join(', ')}`);
 });
 
-test('the social page highlights its own nav tab', () => {
-  // It was copied from content.html and kept init('content'), so it would have lit the wrong tab
-  // even once linked — and two pages claiming one view key is its own small confusion.
-  const PAGE = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+test('each redirect stub actually forwards into the marketing workspace', () => {
+  const dir = new URL('../../public/hub/owner/', import.meta.url);
+  const targets = {
+    'team.html': '/hub/owner/marketing.html#teach',
+    'team-training.html': '/hub/owner/marketing.html#teach',
+    'social.html': '/hub/owner/marketing.html#create-instagram',
+    'campaigns.html': '/hub/owner/marketing.html#create-email',
+  };
+  for (const [file, target] of Object.entries(targets)) {
+    const src = readFileSync(new URL(file, dir), 'utf8');
+    assert.match(src, new RegExp(`location\\.replace\\('${target.replace(/[.#/]/g, '\\$&')}'\\)`), `${file} must forward to ${target}`);
+  }
+});
+
+test('the consolidated workspace highlights ONE nav tab, and the four old ones are gone', () => {
+  // Team/Social/Campaigns/Train-the-team used to be four separate 'view' keys claiming four
+  // separate nav entries. Consolidating into marketing.html means there is now exactly one.
+  const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
   const NAV = readFileSync(new URL('../../public/hub/owner/assets/owner.js', import.meta.url), 'utf8');
-  assert.match(PAGE, /Owner\.init\('social', load\)/);
-  assert.match(NAV, /\{ view: 'social', href: '\/hub\/owner\/social\.html'/);
+  assert.match(PAGE, /Owner\.init\('marketing', load\)/);
+  assert.match(NAV, /\{ view: 'marketing', href: '\/hub\/owner\/marketing\.html'/);
+  for (const href of ['/hub/owner/team.html', '/hub/owner/social.html', '/hub/owner/campaigns.html']) {
+    assert.doesNotMatch(NAV, new RegExp(`href: '${href.replace(/[./]/g, '\\$&')}'`), `${href} must not have its own nav entry anymore`);
+  }
 });
 
 test('a caption cannot name a weekday that contradicts its own slot', () => {
@@ -248,8 +274,8 @@ test('upload rejects by MAGIC BYTES, not filename, and forces the .jpg key', () 
 
 test('the page has a real caption editor and a real upload button', () => {
   // "You can edit the caption inline" was false: the API op existed, the page had no field. The
-  // claim is now pinned to the DOM it describes.
-  const PAGE = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+  // claim is now pinned to the DOM it describes — the Create > Instagram tab of marketing.html.
+  const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
   assert.match(PAGE, /data-editcap/, 'a save-caption control exists on the card');
   assert.match(PAGE, /textarea id="cap_/, 'the caption is a field, not a div, until published');
   assert.match(PAGE, /data-upload/, 'an upload button exists on imageless cards');
@@ -259,6 +285,6 @@ test('the page has a real caption editor and a real upload button', () => {
 
 test('a published caption is read-only', () => {
   // Our copy changing after the fact would disagree with what people actually read.
-  const PAGE = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+  const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
   assert.match(PAGE, /p\.status === 'published'\s*\? '<div class="cap">/);
 });

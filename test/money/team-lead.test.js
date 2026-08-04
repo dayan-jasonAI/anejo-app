@@ -18,7 +18,9 @@ import { BRAND_CONTEXT } from '../../functions/_lib/brand_context.js';
 const LIB = readFileSync(new URL('../../functions/_lib/team_lead.js', import.meta.url), 'utf8');
 const API = readFileSync(new URL('../../functions/api/hub/owner/team.js', import.meta.url), 'utf8');
 const MIG = readFileSync(new URL('../../migrations/0069_team_lead.sql', import.meta.url), 'utf8');
-const PAGE = readFileSync(new URL('../../public/hub/owner/team.html', import.meta.url), 'utf8');
+// 2026-08-04: the Team Lead chat now lives inside the Teach tab of the unified marketing.html
+// workspace (see that file's own header comment for the consolidation).
+const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
 
 // A D1 stub: answers each regex-matched query from `answers`, records every INSERT.
 function stubDb(answers = [], { weekSpent = 0 } = {}) {
@@ -363,8 +365,14 @@ test('the endpoint is owner-only and the page exists with the chat idiom', () =>
   assert.match(API, /requireRole\(request, env, \['owner'\]\)/);
   assert.match(PAGE, /\/api\/hub\/owner\/team/);
   assert.match(PAGE, /Hub\.boot\(\)/);
+  // 2026-08-04: Team no longer has its own nav tab — it is the Teach tab of the single
+  // 'marketing' nav entry (see owner.js's consolidation comment). Old bookmarks to
+  // /hub/owner/team.html still work: that file now redirects into marketing.html#teach.
   const OWNER_JS = readFileSync(new URL('../../public/hub/owner/assets/owner.js', import.meta.url), 'utf8');
-  assert.match(OWNER_JS, /team\.html', ico: '[^']+', label: 'Team'/, 'the nav knows the page');
+  assert.match(OWNER_JS, /\{ view: 'marketing', href: '\/hub\/owner\/marketing\.html'/, 'the nav knows the workspace');
+  assert.doesNotMatch(OWNER_JS, /href: '\/hub\/owner\/team\.html'/, 'no separate Team tab — consolidated');
+  const STUB = readFileSync(new URL('../../public/hub/owner/team.html', import.meta.url), 'utf8');
+  assert.match(STUB, /location\.replace\('\/hub\/owner\/marketing\.html#teach'\)/, 'the old URL forwards into Teach');
 });
 
 test('the page SHOWS which brief the Lead read — reporting it in JSON alone is invisible', () => {

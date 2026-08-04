@@ -20,7 +20,9 @@ import { generatePlateImageDetailed } from '../../functions/_lib/plate_image.js'
 const PLANNER = readFileSync(new URL('../../functions/_lib/automations.js', import.meta.url), 'utf8');
 const LEAD = readFileSync(new URL('../../functions/api/hub/owner/team.js', import.meta.url), 'utf8');
 const API = readFileSync(new URL('../../functions/api/hub/owner/social.js', import.meta.url), 'utf8');
-const HTML = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+// 2026-08-04: the warning + repair button now render inside the Create > Instagram tab of the
+// unified marketing.html workspace.
+const HTML = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
 const MODULE = readFileSync(new URL('../../functions/_lib/food_photo.js', import.meta.url), 'utf8');
 
 // ---------------------------------------------------------------------------

@@ -15,7 +15,9 @@ import { publishSocialPost } from '../../functions/_lib/social_publish.js';
 const MIG = readFileSync(new URL('../../migrations/0080_social_media_type.sql', import.meta.url), 'utf8');
 const SHARED = readFileSync(new URL('../../functions/_lib/social_publish.js', import.meta.url), 'utf8');
 const API = readFileSync(new URL('../../functions/api/hub/owner/social.js', import.meta.url), 'utf8');
-const HTML = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+// 2026-08-04: post cards (media-type badges, video slides, publish labels) now render inside the
+// Create > Instagram tab of the unified marketing.html workspace.
+const HTML = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
 
 function stubFetch(handler) {
   const real = globalThis.fetch;

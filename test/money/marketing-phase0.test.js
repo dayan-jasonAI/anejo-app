@@ -11,7 +11,9 @@ import { readFileSync } from 'node:fs';
 import { section } from '../../scripts/build-brand-context.mjs';
 import { BRAND_CONTEXT, BRAND_SECTIONS } from '../../functions/_lib/brand_context.js';
 
-const PAGE = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+// 2026-08-04: the Social compose form and post cards now live inside the Create > Instagram tab
+// of the unified marketing.html workspace (see that file's own header comment).
+const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
 const UPLOAD = readFileSync(new URL('../../functions/api/hub/owner/social-upload.js', import.meta.url), 'utf8');
 const AUTO = readFileSync(new URL('../../functions/_lib/automations.js', import.meta.url), 'utf8');
 const BRIEF = readFileSync(new URL('../../docs/brand-standards-brief.md', import.meta.url), 'utf8');
