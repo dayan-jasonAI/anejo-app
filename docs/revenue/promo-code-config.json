@@ -1,0 +1,15 @@
+{
+  "_what": "The 48-hour campaign code referenced by campaign-01 and campaign-02. Minted from the HUB: Partners (/hub/owner/partners.html) -> create a code. This file is the exact request body for POST /api/hub/owner/partners.",
+  "_kind_note": "kind:'campaign' is the shareable, no-partner code. evaluatePromo applies no binding and no self-referral check to it -- the only limits are expires_at and max_uses, which is what makes the deadline real rather than decorative.",
+  "_owner_decision": "pct_off is the one number to reconsider. 10 matches every other discount in this codebase (the old customer-code default and the standard affiliate commission). 15 converts harder but comes straight out of food cost, and the real margin lives in pricing_config (food_cost_per_head, target_net_margin) which is not in git -- check it in HUB -> Pricing before going above 10.",
+  "_max_uses_note": "null = unlimited. Set an integer if you want the scarcity to be real in units as well as in time -- the kitchen has a capacity ceiling and an unlimited code on a good day can write checks the prep list cannot cash.",
+
+  "op": "create_code",
+  "kind": "campaign",
+  "code": "FUEL48",
+  "pct_off": 10,
+  "points_mult": 1,
+  "max_uses": null,
+  "expires_days": 2,
+  "note": "48h launch-list + past-customer campaign, staged 2026-08-04"
+}
