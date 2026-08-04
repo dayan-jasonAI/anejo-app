@@ -931,6 +931,85 @@
     });
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // REFERENCE VARIANT — the owner's own request: "teach [the model] to use the original bowl
+  // images and just change the positions, background, themes as we work in different campaigns."
+  // Sends one of the 8 REAL bowl photos (public/assets/img/bowl_*.jpg, staged in R2 by
+  // _lib/bowl_art.js) into OpenAI/Gemini as a reference image and asks it to restyle only the
+  // surroundings — see _lib/reference_variant.js for the exact faithfulness boundary in the prompt.
+  //
+  // ON DEMAND ONLY, by design (the owner's own next sentence: "there is not that many posts that
+  // require replicating the original bowl images"). This tool is the ONLY way `generate_reference_
+  // variant` is ever called — never the planner, never a repair button, never automatic.
+  //
+  // PREVIEW-THEN-COMMIT, same posture as the branding tool right above: Generate makes and STORES
+  // the image server-side but does not touch this post; the owner sees it, then taps "Use this —
+  // add as a new slide" (the ordinary 'attach' op) or discards it. Nothing is added without that
+  // second, explicit tap.
+  function referenceVariantTool(p) {
+    var locked = p.status === 'published' || p.status === 'publishing';
+    if (locked) return '';
+    var count = photoSlides(p).length;
+    if (count >= 10) return ''; // Instagram's own ceiling — nothing left to add
+    var bowls = (DATA && DATA.reference_bowls) || [];
+    if (!bowls.length) return '';
+    var geminiNote = (DATA && DATA.reference_gemini_configured)
+      ? ''
+      : ' Runs on OpenAI today — Gemini is built in but not connected yet, so it never gets tried, and OpenAI is never blocked by that.';
+    return '<details style="margin-top:8px"><summary style="font-size:11.5px;opacity:.7;cursor:pointer">🖼️ Reference variant — same bowl, new scene</summary>' +
+      '<div class="refvar-panel" data-post="' + esc(p.id) + '" style="margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fbfaf6">' +
+        // THE ONE LINE THE BUILD BRIEF SAID NEVER TO BURY: this is a styled variant of a real
+        // photo, not a new picture of the actual food. Plain, up front, every time this panel is
+        // opened — not a tooltip, not a footnote.
+        '<p class="hint" style="margin-bottom:6px"><b>This makes a styled variant of a real Añejo photo</b> — the exact same dish, ' +
+          'a different background and setting. It is never a new picture of food, and the bowl itself is never changed.' + esc(geminiNote) + '</p>' +
+        '<div class="form-row"><label>Which bowl</label><select class="refvar-bowl">' +
+          bowls.map(function (bw) { return '<option value="' + esc(bw.key) + '">' + esc(bw.label) + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="form-row"><label>Campaign look</label><input class="refvar-look" type="text" maxlength="300" placeholder="e.g. beach picnic, golden hour" style="width:100%">' +
+          '<p class="hint">Background, surface, camera angle, lighting, theme — whatever this campaign needs. The food never changes.</p></div>' +
+        '<button class="btn ghost block refvar-gen" type="button">Generate</button>' +
+        '<div class="refvar-result" style="margin-top:8px"></div>' +
+      '</div></details>';
+  }
+
+  function wireReferenceVariant() {
+    Array.prototype.forEach.call(document.querySelectorAll('.refvar-gen'), function (btn) {
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var panel = btn.closest('.refvar-panel');
+        var postId = panel.getAttribute('data-post');
+        var bowlSel = panel.querySelector('.refvar-bowl');
+        var bowl = bowlSel ? bowlSel.value : '';
+        var look = panel.querySelector('.refvar-look').value;
+        if (!look || !look.trim()) { Hub.toast('Describe the campaign look first.'); return; }
+        var resultBox = panel.querySelector('.refvar-result');
+        // A provider call through OpenAI's reasoning image model, same wall-clock shape as
+        // generate_cover — self-disable BEFORE the call so a slow response cannot be read as
+        // "nothing happened" and re-clicked into a second charge against the weekly budget.
+        btn.disabled = true; btn.textContent = 'Generating…';
+        Hub.api('/api/hub/owner/social', { method: 'POST', body: { op: 'generate_reference_variant', id: postId, bowl: bowl, look: look } })
+          .then(function (r) {
+            btn.disabled = false; btn.textContent = 'Generate';
+            if (!r || !r.ok || !r.media_key) { Hub.toast((r && r.error) || 'Could not generate a variant'); return; }
+            resultBox.innerHTML =
+              '<img src="/api/hub/media/' + esc(r.media_key) + '" alt="" style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:6px">' +
+              '<p class="hint" style="margin-bottom:6px">Styled variant of the real ' + esc(bowlSel ? bowlSel.options[bowlSel.selectedIndex].text : '') + ' photo — made by ' + esc(r.provider || 'the image provider') + '. Still a draft; add it or discard it.</p>' +
+              '<div style="display:flex;gap:8px"><button class="btn gold refvar-use" type="button">Use this — add as a new slide</button>' +
+                '<button class="btn ghost refvar-discard" type="button">Discard</button></div>';
+            resultBox.querySelector('.refvar-use').addEventListener('click', function () {
+              var useBtn = resultBox.querySelector('.refvar-use');
+              if (useBtn.disabled) return;
+              useBtn.disabled = true; useBtn.textContent = 'Adding…';
+              op({ op: 'attach', id: postId, media_key: r.media_key }, 'Reference variant added as a new slide');
+            });
+            resultBox.querySelector('.refvar-discard').addEventListener('click', function () { resultBox.innerHTML = ''; });
+          })
+          .catch(function () { btn.disabled = false; btn.textContent = 'Generate'; Hub.toast('Could not generate a variant'); });
+      });
+    });
+  }
+
   function postCard(p) {
     var mtype = p.media_type || null;   // null = legacy/undeclared (migrations/0080) — image/carousel by slide count, as always
     var slideCap = (mtype === 'REELS' || mtype === 'STORIES') ? 1 : 10;   // Meta allows no carousel for either
@@ -953,7 +1032,7 @@
       // strip shows it and the arrows change it. All of it locks once the post is live.
       slideStrip(p) +
       coverNote(p) +
-      (isFeed ? brandingTool(p) + carouselTool(p) : '') +
+      (isFeed ? brandingTool(p) + carouselTool(p) + referenceVariantTool(p) : '') +
       (p.status === 'published' ? '' : uploadCard(p, mtype, slideCap)) +
       (p.error ? '<div class="row-sub" style="color:var(--crit);margin-top:6px">' + esc(p.error) + '</div>' : '') +
       (p.permalink ? '<div style="margin-top:8px"><a href="' + esc(p.permalink) + '" target="_blank" rel="noopener">View on Instagram →</a></div>' : '') +
@@ -1134,6 +1213,7 @@
     });
     wireBranding();
     wireCarousel();
+    wireReferenceVariant();
     Array.prototype.forEach.call(document.querySelectorAll('[data-detach]'), function (b) {
       b.addEventListener('click', function () {
         var parts = b.getAttribute('data-detach').split('|');

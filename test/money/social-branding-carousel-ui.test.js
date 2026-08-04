@@ -61,8 +61,8 @@ test('branding is offered only on a draft/scheduled/failed post, never on a live
   assert.match(fn, /if \(locked\) return '';/);
 });
 
-test('branding and carousel generation are offered only on feed posts, not Reels/Stories', () => {
-  assert.match(HTML, /\(isFeed \? brandingTool\(p\) \+ carouselTool\(p\) : ''\)/);
+test('branding, carousel generation, and the reference-variant tool are offered only on feed posts, not Reels/Stories', () => {
+  assert.match(HTML, /\(isFeed \? brandingTool\(p\) \+ carouselTool\(p\) \+ referenceVariantTool\(p\) : ''\)/);
   assert.match(HTML, /var isFeed = mtype !== 'REELS' && mtype !== 'STORIES';/);
 });
 

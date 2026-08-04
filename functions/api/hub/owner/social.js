@@ -10,6 +10,7 @@ import { igConfigured, accountInfo, JPEG_ONLY, VIDEO_ONLY, CAROUSEL_MAX } from '
 import { publishSocialPost, loadPostMedia, coverStatus } from '../../../_lib/social_publish.js';
 import { ensureFoodPhoto } from '../../../_lib/food_photo.js';
 import { generateCarouselSlides } from '../../../_lib/carousel_gen.js';
+import { generateReferenceVariant, REFERENCE_BOWL_KEYS, BOWL_DISPLAY } from '../../../_lib/reference_variant.js';
 import { noteTrustApproval } from '../../../_lib/trust_ledger.js';
 import { loadTokenExpiry, saveTokenExpiry, tokenExpiryStatus } from '../../../_lib/instagram_token_expiry.js';
 import { stampPostProvenance } from '../../../_lib/post_provenance.js';
@@ -124,6 +125,14 @@ export const onRequestGet = async ({ request, env }) => {
       days_left: expiry.days_left,
       swap_doc: 'docs/INSTAGRAM_TOKEN_SWAP.md',
     },
+    // For the "reference variant" tool's bowl picker (see marketing.html's referenceVariantTool)
+    // — sourced from bowl_art.js/bowlspec.js server-side so the client never has to keep its own
+    // copy of the 8 bowl names/display labels in sync with the menu.
+    reference_bowls: REFERENCE_BOWL_KEYS.map((key) => ({ key, label: BOWL_DISPLAY[key] })),
+    // Surfaced so the HUB can say plainly that Gemini's leg of the reference-variant tool is not
+    // live yet, rather than the owner discovering it only when a generation silently used OpenAI
+    // every time. OPENAI_API_KEY is live in production, so the tool still works without this.
+    reference_gemini_configured: !!env.GEMINI_API_KEY,
     posts,
   });
 };
@@ -327,6 +336,56 @@ export const onRequestPost = async ({ request, env }) => {
       ? `Added ${out.added} of ${out.requested} — the rest hit the weekly AI budget or a provider issue. Try again later for the remainder.`
       : `Added ${out.added} photo${out.added === 1 ? '' : 's'} — ${out.slides} slides total.`;
     return json({ ok: true, id: postId, added: out.added, requested: out.requested, slides: out.slides, message });
+  }
+
+  // Reference-conditioned variant: the SAME real bowl photo, restyled surroundings only — the
+  // owner's own request ("teach [the model] to use the original bowl images and just change the
+  // positions, background, themes"), never wired into the planner or any repair button. This op
+  // only runs when the owner picks a bowl, types a campaign look, and taps Generate in the Create
+  // > Instagram tab. See _lib/reference_variant.js for how the faithfulness boundary is enforced
+  // in the prompt and which providers can even attempt it.
+  //
+  // MATCHES THE BRANDING TOOL'S OWN POSTURE, not generate_cover/generate_carousel's: this
+  // GENERATES AND STORES the image (via generatePlateImageDetailed -> putMedia) but does NOT
+  // attach it to the post. The owner previews it client-side and taps "Use this", which calls the
+  // ordinary 'attach' op below — the same op the branding tool's own preview uses. An image nobody
+  // asked to keep is a click to discard, never a slide someone has to notice and remove.
+  if (op === 'generate_reference_variant') {
+    const postId = String(b.id || '').trim();
+    const bowl = String(b.bowl || '').trim().toLowerCase();
+    const lookBrief = String(b.look || '').trim();
+    if (!postId) return bad('Missing id.');
+    const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    if (!row) return bad('That post no longer exists.', 404);
+    if (row.status === 'published') return bad('That one is already live — its slides are the public record of what went out.', 409);
+    if (row.status === 'publishing') return bad('That post is being published right now.', 409);
+
+    // Refused here, before spending anything, for the same reason 'attach' refuses an 11th photo
+    // at the moment it's picked rather than after generating one that could never be added.
+    const existing = await loadPostMedia(env, postId);
+    if (existing.length >= CAROUSEL_MAX) return bad(`Instagram allows at most ${CAROUSEL_MAX} photos in one post.`, 409);
+
+    const out = await generateReferenceVariant(env, { bowl, lookBrief });
+    if (!out.ok) {
+      // Each reason gets its own sentence — see generate_cover's WHY table above for why a shared
+      // "could not generate" message would send the owner to the wrong next move.
+      const WHY = {
+        bad_bowl: 'Pick one of the eight Añejo bowls.',
+        no_look: 'Describe the campaign look first — background, surface, camera, lighting, theme.',
+        reference_missing: 'That bowl’s real photo is not staged yet — there is nothing to base a styled variant on.',
+        generation_failed: 'OpenAI and Gemini could not make this right now — Gemini may not be configured yet, the weekly AI budget may be spent, or both are unreachable. Try again later.',
+      };
+      const status = (out.reason === 'bad_bowl' || out.reason === 'no_look') ? 400 : (out.reason === 'reference_missing' ? 404 : 502);
+      return bad(WHY[out.reason] || 'Could not generate a variant.', status);
+    }
+    await capture(env, {
+      event: 'social.reference_variant_generated',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { post_id: postId, bowl, provider: out.provider },
+    });
+    // NOT attached — see header note above. The caller (marketing.html's referenceVariantTool)
+    // previews media_key and calls 'attach' itself once the owner accepts it.
+    return json({ ok: true, media_key: out.media_key, provider: out.provider, source_bowl: out.source_bowl });
   }
 
   // Remove one slide. Reversible curation, so no confirm theatre — but never on a live post,

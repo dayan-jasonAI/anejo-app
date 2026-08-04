@@ -147,7 +147,26 @@ function base64ToBytes(b64) {
   return bytes;
 }
 
+// The other direction of base64ToBytes above — needed once a REFERENCE image (real bowl bytes
+// pulled from R2) has to ride along INSIDE a JSON body (Gemini's inlineData part). OpenAI's edits
+// endpoint below needs no such thing: it takes the raw bytes directly as a multipart file part.
+function bytesToBase64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
 const EXT_BY_MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+
+// Which providers in the chain can even ACCEPT a reference image. Checked in the loop below
+// BEFORE a provider is ever called, not discovered by letting the call fail — the alternative
+// (silently rendering text-only when a reference was supplied) is the single worst outcome named
+// in the reference-variant build brief: a "styled variant" that quietly became a DIFFERENT dish.
+// Workers AI's Leonardo Phoenix model is text-to-image only — verified against Cloudflare's own
+// model schema (no image input parameter exists) — so it is never a candidate for this path.
+export function providerSupportsReference(name) {
+  return name === 'openai' || name === 'gemini';
+}
 
 // ---------------------------------------------------------------------------------------------
 // Providers. Each returns { bytes, contentType, ext, model } on success, or THROWS (caught by
@@ -165,25 +184,55 @@ const openaiModel = (env) => (env && env.OPENAI_IMAGE_MODEL) || OPENAI_MODEL_DEF
 // Each callX() below now takes `promptData` — the ALREADY-SHAPED { prompt, negative_prompt }
 // from buildImagePrompt(env, brief, { provider }) — rather than the raw one-line brief. Shaping
 // happens once per provider attempt in generatePlateImage's loop; these functions just send it.
+//
+// `opts.referenceImage` — { bytes: Uint8Array, contentType: string } — is how reference_variant.js
+// (and any future caller) hands a REAL photo in to condition on. Only set by a caller that
+// actually has one; every existing caller (food_photo.js, carousel_gen.js, Studio chat/content)
+// leaves it undefined and gets EXACTLY the text-to-image behavior this file always had.
 async function callOpenAI(env, promptData, opts = {}) {
   // gpt-image-* defaults to PNG. Instagram accepts JPEG ONLY (JPEG_ONLY in _lib/instagram.js),
   // and this Worker has no image binding to transcode with — so when the caller needs a
   // publishable slide, the format has to be asked for at the source or the image is unusable.
   const jpeg = opts.requireJpeg === true;
-  const r = await fetchWithTimeout(
-    'https://api.openai.com/v1/images/generations',
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'content-type': 'application/json' },
-      // 'medium' quality: a deliberate cost/quality balance, not the max — this is a meal-prep
-      // Instagram grid, not print work, and 'high' can be 3-4x the cost for a marginal gain here.
-      body: JSON.stringify({
-        model: openaiModel(env), prompt: promptData.prompt, size: '1024x1024', quality: 'medium', n: 1,
-        ...(jpeg ? { output_format: 'jpeg' } : {}),
-      }),
-    },
-    timeoutsFor(env).openai
-  );
+  const ref = opts.referenceImage;
+  let r;
+  if (ref && ref.bytes && ref.bytes.length) {
+    // Image-to-image via POST /v1/images/edits: the reference photo rides along as a real
+    // multipart file part, not just described in words. This is the ONLY thing that makes "the
+    // bowl stays faithful" possible — the generations call below (text only) has nothing to be
+    // faithful TO, and would be re-imagining the dish from a paragraph, exactly what a reference-
+    // conditioned call exists to avoid. FormData/Blob are standard Workers-runtime globals — fetch
+    // sets the multipart boundary itself, so no content-type header is set here (setting one by
+    // hand would omit the boundary and the request would arrive unparseable).
+    const form = new FormData();
+    form.append('model', openaiModel(env));
+    form.append('prompt', promptData.prompt);
+    form.append('image', new Blob([ref.bytes], { type: ref.contentType || 'image/jpeg' }), `reference.${EXT_BY_MIME[ref.contentType] || 'jpg'}`);
+    form.append('size', '1024x1024');
+    form.append('quality', 'medium');
+    form.append('n', '1');
+    if (jpeg) form.append('output_format', 'jpeg');
+    r = await fetchWithTimeout(
+      'https://api.openai.com/v1/images/edits',
+      { method: 'POST', headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}` }, body: form },
+      timeoutsFor(env).openai
+    );
+  } else {
+    r = await fetchWithTimeout(
+      'https://api.openai.com/v1/images/generations',
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, 'content-type': 'application/json' },
+        // 'medium' quality: a deliberate cost/quality balance, not the max — this is a meal-prep
+        // Instagram grid, not print work, and 'high' can be 3-4x the cost for a marginal gain here.
+        body: JSON.stringify({
+          model: openaiModel(env), prompt: promptData.prompt, size: '1024x1024', quality: 'medium', n: 1,
+          ...(jpeg ? { output_format: 'jpeg' } : {}),
+        }),
+      },
+      timeoutsFor(env).openai
+    );
+  }
   if (!r.ok) throw new Error(`openai_${r.status}`);
   const data = await r.json();
   const b64 = data && data.data && data.data[0] && data.data[0].b64_json;
@@ -197,21 +246,33 @@ async function callOpenAI(env, promptData, opts = {}) {
 export const GEMINI_MODEL_DEFAULT = 'gemini-2.5-flash-image';
 const geminiModel = (env) => (env && env.GEMINI_IMAGE_MODEL) || GEMINI_MODEL_DEFAULT;
 
-async function callGemini(env, promptData) {
+async function callGemini(env, promptData, opts = {}) {
+  const ref = opts.referenceImage;
+  const reqParts = [];
+  // Reference image FIRST, text second — Gemini's image-editing contract: an inlineData part
+  // alongside a text instruction in the SAME generateContent call, no separate edit endpoint the
+  // way OpenAI has one. GEMINI_API_KEY is not set in production today (see the build brief), so
+  // this branch is inert there until a key is added — nothing about that absence is allowed to
+  // touch the OpenAI branch above; providerAvailable() already gates this whole function from
+  // ever being called without a key.
+  if (ref && ref.bytes && ref.bytes.length) {
+    reqParts.push({ inlineData: { mimeType: ref.contentType || 'image/jpeg', data: bytesToBase64(ref.bytes) } });
+  }
+  reqParts.push({ text: promptData.prompt });
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel(env)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
   const r = await fetchWithTimeout(
     url,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: promptData.prompt }] }] }),
+      body: JSON.stringify({ contents: [{ parts: reqParts }] }),
     },
     timeoutsFor(env).gemini
   );
   if (!r.ok) throw new Error(`gemini_${r.status}`);
   const data = await r.json();
-  const parts = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
-  const imgPart = parts.find((p) => p && p.inlineData && p.inlineData.data);
+  const resParts = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+  const imgPart = resParts.find((p) => p && p.inlineData && p.inlineData.data);
   if (!imgPart) throw new Error('gemini_empty_response');
   const mime = imgPart.inlineData.mimeType || 'image/png';
   return { bytes: base64ToBytes(imgPart.inlineData.data), contentType: mime, ext: EXT_BY_MIME[mime] || 'png', model: geminiModel(env) };
@@ -223,7 +284,14 @@ async function callGemini(env, promptData) {
 // (Phoenix/SDXL: ReadableStream/Response) and base64 models (flux), same as before.
 const WORKERS_AI_MODEL = '@cf/leonardo/phoenix-1.0';
 
-async function callWorkersAI(env, promptData) {
+async function callWorkersAI(env, promptData, opts = {}) {
+  // Belt-and-suspenders: generatePlateImageDetailed's loop already skips Workers AI outright
+  // (reason 'img2img_unsupported', see providerSupportsReference above) before ever reaching here
+  // whenever a reference image is attached — Leonardo Phoenix has no image-input parameter to
+  // send it to. This throw exists so a future change to that loop can never silently hand this
+  // provider a reference it would just ignore, which would render a photo of a DIFFERENT dish
+  // under a caption that promised the real one.
+  if (opts.referenceImage) throw new Error('img2img_unsupported');
   const out = await env.AI.run(WORKERS_AI_MODEL, {
     prompt: promptData.prompt,
     negative_prompt: promptData.negative_prompt,
@@ -261,15 +329,31 @@ export function providerAvailable(env, name) {
 // table, because this is a shared _lib helper called from more than one route (studio content +
 // studio chat today) and must not know its callers' schemas. Never throws — a lost provenance
 // row must not cost the customer the image itself.
-async function recordProvenance(env, { imageUrl, provider, model, skipped, prompt }) {
+// sourceBowl/referenceKey (migrations/0083) are how a reference-conditioned image (see
+// _lib/reference_variant.js) records its lineage — WHICH real photo it was derived from — so it
+// can never be mistaken in this ledger for an ordinary text-to-image render. Both are undefined
+// for every other caller, so their INSERT is unaffected.
+async function recordProvenance(env, { imageUrl, provider, model, skipped, prompt, sourceBowl, referenceKey }) {
   if (!env || !env.DB) return;
   try {
-    await env.DB.prepare(
-      'INSERT INTO image_generations (id, image_url, provider, model, skipped, prompt, created_at) VALUES (?,?,?,?,?,?,?)'
-    ).bind(
-      newId('img'), imageUrl || null, provider || null, model || null,
-      JSON.stringify(skipped || []), String(prompt || '').slice(0, 500), clock()
-    ).run();
+    try {
+      await env.DB.prepare(
+        'INSERT INTO image_generations (id, image_url, provider, model, skipped, prompt, source_bowl, reference_key, created_at) VALUES (?,?,?,?,?,?,?,?,?)'
+      ).bind(
+        newId('img'), imageUrl || null, provider || null, model || null,
+        JSON.stringify(skipped || []), String(prompt || '').slice(0, 500),
+        sourceBowl || null, referenceKey || null, clock()
+      ).run();
+    } catch {
+      // Pre-0083 schema (deploy window): a provenance row missing its reference lineage is still
+      // far better than no row at all — the image itself is already stored regardless.
+      await env.DB.prepare(
+        'INSERT INTO image_generations (id, image_url, provider, model, skipped, prompt, created_at) VALUES (?,?,?,?,?,?,?)'
+      ).bind(
+        newId('img'), imageUrl || null, provider || null, model || null,
+        JSON.stringify(skipped || []), String(prompt || '').slice(0, 500), clock()
+      ).run();
+    }
   } catch { /* best-effort — see comment above */ }
 }
 
@@ -285,6 +369,16 @@ async function recordProvenance(env, { imageUrl, provider, model, skipped, promp
  *   a PNG here would produce a slide the publish path refuses — a "fixed" post that cannot post.
  * opts.role — role suffix for the R2 filename, so the food-first guard can recognise what this
  *   produced (see putMedia in _lib/media.js).
+ * opts.referenceImage — { bytes, contentType } of a REAL photo to condition on (reference_variant.js
+ *   is the one caller today). Providers that cannot take an input image (Workers AI) are skipped
+ *   outright — reason 'img2img_unsupported' — rather than called and left to silently ignore it.
+ * opts.core — a pre-shaped, provider-agnostic prompt CORE ({ positive, negative, source }) that,
+ *   when given, is shaped per-provider with shapeForProvider() directly instead of going through
+ *   buildImagePrompt()'s owner-training expansion. reference_variant.js uses this: the faithfulness
+ *   boundary ("keep the food exactly as shown") has to hold regardless of what the owner has
+ *   trained the team on for ORDINARY photography, so it is built deterministically, not expanded.
+ * opts.provenance — { sourceBowl, referenceKey } recorded onto the image_generations row
+ *   (migrations/0083) when this call is reference-conditioned; omitted, both columns stay NULL.
  *
  * Returns { url, key, provider, model }. generatePlateImage below keeps the older bare-URL
  * contract its existing Studio callers were written against.
@@ -292,14 +386,17 @@ async function recordProvenance(env, { imageUrl, provider, model, skipped, promp
 export async function generatePlateImageDetailed(env, prompt, opts = {}) {
   if (!env || !prompt) return null;
   const skipped = [];
+  const provenanceExtra = { sourceBowl: opts.provenance && opts.provenance.sourceBowl, referenceKey: opts.provenance && opts.provenance.referenceKey };
+  const hasReference = !!(opts.referenceImage && opts.referenceImage.bytes && opts.referenceImage.bytes.length);
   try {
     // The image chain draws from the SAME $50/week ceiling as every other AI surface (chat,
     // social plan, eod drafts) — checked once up front, not bypassed by trying "just OpenAI".
     // See ai_budget.js: the last call before the ceiling may overshoot slightly (its cost lands
-    // only after it runs), and that overshoot is the only slack the owner accepted.
+    // only after it runs), and that overshoot is the only slack the owner accepted. A reference-
+    // conditioned call is not exempt — it is still an image_generations/gpt-image-2 call.
     const gate = await budgetGate(env);
     if (!gate.ok) {
-      await recordProvenance(env, { imageUrl: null, provider: null, model: null, prompt, skipped: [{ provider: 'all', reason: 'weekly_ai_budget_reached' }] });
+      await recordProvenance(env, { imageUrl: null, provider: null, model: null, prompt, skipped: [{ provider: 'all', reason: 'weekly_ai_budget_reached' }], ...provenanceExtra });
       return null;
     }
 
@@ -309,22 +406,34 @@ export async function generatePlateImageDetailed(env, prompt, opts = {}) {
     for (const name of order) {
       if (disabled.includes(name)) { skipped.push({ provider: name, reason: 'disabled' }); continue; }
       if (!providerAvailable(env, name)) { skipped.push({ provider: name, reason: 'no_api_key' }); continue; }
+      // Checked BEFORE the provider is ever called — see providerSupportsReference's own comment
+      // for why this must never be discovered by letting the call fail (or worse, succeed with a
+      // text-only render that quietly ignored the reference).
+      if (hasReference && !providerSupportsReference(name)) { skipped.push({ provider: name, reason: 'img2img_unsupported' }); continue; }
 
-      // Expand the one-line brief into this provider's shaped prompt. buildImagePrompt() is
-      // documented to never throw, but it draws on training/AI/KV — the outer try/catch is
-      // belt-and-suspenders so a bug in the expansion path degrades to the exact deterministic
-      // concatenation (buildFallbackCore) rather than skipping a provider that could have worked.
+      // Expand the one-line brief into this provider's shaped prompt — UNLESS the caller already
+      // supplied a pre-shaped core (opts.core), in which case that core is used AS-IS. Owner
+      // training/AI expansion is for ordinary photography direction; a reference-conditioned call
+      // has one non-negotiable instruction (keep the food exactly as shown) that must not be
+      // diluted by an expansion step built for a different job. buildImagePrompt() is documented
+      // to never throw, but it draws on training/AI/KV — the outer try/catch is belt-and-suspenders
+      // so a bug in the expansion path degrades to the exact deterministic concatenation
+      // (buildFallbackCore) rather than skipping a provider that could have worked.
       let promptData;
-      try {
-        promptData = await buildImagePrompt(env, prompt, { provider: name });
-      } catch {
-        promptData = shapeForProvider(name, buildFallbackCore(prompt));
+      if (opts.core) {
+        promptData = shapeForProvider(name, opts.core);
+      } else {
+        try {
+          promptData = await buildImagePrompt(env, prompt, { provider: name });
+        } catch {
+          promptData = shapeForProvider(name, buildFallbackCore(prompt));
+        }
       }
 
       let result;
       try {
-        // opts carries requireJpeg/role for the social repair; timeouts[name] is main's
-        // per-provider budget (a reasoning image model needs longer than Leonardo). Both.
+        // opts carries requireJpeg/role/referenceImage for the caller's needs; timeouts[name] is
+        // main's per-provider budget (a reasoning image model needs longer than Leonardo). Both.
         result = await withTimeout(PROVIDER_FN[name](env, promptData, opts), timeouts[name]);
       } catch (e) {
         skipped.push({ provider: name, reason: e && e.message === 'timeout' ? 'timeout' : String((e && e.message) || 'error') });
@@ -347,12 +456,15 @@ export async function generatePlateImageDetailed(env, prompt, opts = {}) {
 
       // Spend is only recorded for the provider that actually produced an image — matching how
       // recordSpend only fires on billed tokens, providers only bill on a successful generation.
-      await recordImageSpend(env, { feature: 'plate_image', provider: name, model: result.model });
-      await recordProvenance(env, { imageUrl: stored.url, provider: name, model: result.model, prompt, skipped });
+      // Tagged with a distinct feature name when reference-conditioned so the owner's weekly
+      // ai_spend rollup can tell "made from scratch" and "styled from a real photo" apart, the
+      // same distinction image_generations now carries in its own columns.
+      await recordImageSpend(env, { feature: hasReference ? 'reference_variant' : 'plate_image', provider: name, model: result.model });
+      await recordProvenance(env, { imageUrl: stored.url, provider: name, model: result.model, prompt, skipped, ...provenanceExtra });
       return { url: stored.url, key: stored.key, provider: name, model: result.model };
     }
 
-    await recordProvenance(env, { imageUrl: null, provider: null, model: null, prompt, skipped });
+    await recordProvenance(env, { imageUrl: null, provider: null, model: null, prompt, skipped, ...provenanceExtra });
     return null;
   } catch {
     return null;
