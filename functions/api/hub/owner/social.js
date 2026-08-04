@@ -9,8 +9,10 @@ import { capture } from '../../../_lib/track.js';
 import { igConfigured, accountInfo, JPEG_ONLY, VIDEO_ONLY, CAROUSEL_MAX } from '../../../_lib/instagram.js';
 import { publishSocialPost, loadPostMedia, coverStatus } from '../../../_lib/social_publish.js';
 import { ensureFoodPhoto } from '../../../_lib/food_photo.js';
+import { generateCarouselSlides } from '../../../_lib/carousel_gen.js';
 import { noteTrustApproval } from '../../../_lib/trust_ledger.js';
 import { loadTokenExpiry, saveTokenExpiry, tokenExpiryStatus } from '../../../_lib/instagram_token_expiry.js';
+import { stampPostProvenance } from '../../../_lib/post_provenance.js';
 
 // Instagram's own cap. Worth knowing locally so a scheduled batch cannot quietly burn it.
 const DAILY_CAP = 25;
@@ -281,6 +283,50 @@ export const onRequestPost = async ({ request, env }) => {
       properties: { provider: out.provider, slides: out.slides, from_brief: !!row.image_brief },
     });
     return json({ ok: true, id: postId, media_key: out.media_key, provider: out.provider, slides: out.slides });
+  }
+
+  // Generate the REST of a carousel — several MORE photos that look like one set (same light,
+  // surface, palette; different dish/angle/detail), not automatically, only when the owner picks a
+  // size and taps this. See _lib/carousel_gen.js for how the set stays cohesive without a reference
+  // image, and why a partial batch (budget ran out midway) is reported honestly, not padded.
+  //
+  // OWNER-TRIGGERED, and it stays a draft — same posture as generate_cover above. This only ADDS
+  // slides after whatever is already on the post; an owner-uploaded photo is never touched, moved,
+  // or replaced by anything this generates.
+  if (op === 'generate_carousel') {
+    const postId = String(b.id || '').trim();
+    if (!postId) return bad('Missing id.');
+    const row = await env.DB.prepare('SELECT status, caption, image_brief FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    if (!row) return bad('That post no longer exists.', 404);
+    if (row.status === 'published') return bad('That one is already live — its slides are the public record of what went out.', 409);
+    if (row.status === 'publishing') return bad('That post is being published right now.', 409);
+
+    const out = await generateCarouselSlides(env, {
+      postId, caption: row.caption, imageBrief: row.image_brief, targetCount: b.count,
+    });
+    if (!out.ok) {
+      // Each reason gets its own sentence — see generate_cover's WHY table above for why a shared
+      // "could not generate" message would send the owner to the wrong next move.
+      const WHY = {
+        bad_count: `Pick a carousel size between 2 and ${CAROUSEL_MAX}.`,
+        no_prompt: 'There is no art direction or usable caption on this post to generate from. Write the caption first, or upload photos with 📷.',
+        carousel_full: `This post is already at Instagram's maximum of ${CAROUSEL_MAX} slides.`,
+        already_at_target: `This post already has ${out.slides} slides — that is at or past what you asked for.`,
+        generation_failed: 'No image provider could make any of the extra slides right now — the weekly AI budget may be spent, or the providers are unreachable. Try again later, or add photos with 📷.',
+      };
+      return bad(WHY[out.reason] || 'Could not generate the carousel.', out.reason === 'bad_count' ? 400 : (out.reason === 'already_at_target' ? 409 : 502));
+    }
+    // Best-effort — the post is already saved regardless of whether this write lands.
+    await stampPostProvenance(env, { postId, format: 'carousel', slideCount: out.slides });
+    await capture(env, {
+      event: 'social.carousel_generated',
+      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { post_id: postId, added: out.added, requested: out.requested, slides: out.slides },
+    });
+    const message = out.added < out.requested
+      ? `Added ${out.added} of ${out.requested} — the rest hit the weekly AI budget or a provider issue. Try again later for the remainder.`
+      : `Added ${out.added} photo${out.added === 1 ? '' : 's'} — ${out.slides} slides total.`;
+    return json({ ok: true, id: postId, added: out.added, requested: out.requested, slides: out.slides, message });
   }
 
   // Remove one slide. Reversible curation, so no confirm theatre — but never on a live post,

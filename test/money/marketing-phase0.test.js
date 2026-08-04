@@ -76,7 +76,11 @@ test('upload is owner-only and size-capped on the SERVER', () => {
 });
 
 test('uploads land under studio/ with a random name, content-typed as JPEG', () => {
-  assert.match(UPLOAD, /`studio\/\$\{ym\}\/\$\{id\('up'\)\}\.jpg`/);
+  // The literal grew an optional `_<role>` suffix (see social-upload.js's header — the branding
+  // tool re-uploads a client-composited photo through this route and needs to carry the source
+  // slide's role forward), but a plain phone-photo upload with no role still gets the exact old
+  // shape: `role` is '' when not sent, and `${'' ? ... : ''}` contributes nothing.
+  assert.match(UPLOAD, /`studio\/\$\{ym\}\/\$\{id\('up'\)\}\$\{role \? `_\$\{role\}` : ''\}\.jpg`/);
   assert.match(UPLOAD, /contentType: 'image\/jpeg'/);
 });
 

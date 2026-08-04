@@ -267,9 +267,247 @@
       '</div>';
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // BRANDING — logo + optional short wording, composited onto a Studio photo entirely IN THE
+  // OWNER'S BROWSER, not asked of the image model.
+  //
+  // THE ONE RULE: an image model never draws the Añejo logo. An AI "approximation" of a logo is a
+  // corrupted logo — wrong proportions, wrong glyphs, subtly wrong forever — and that is a worse
+  // outcome than no logo at all on a real client-facing profile. So the logo pixel data has to come
+  // from the REAL asset (public/assets/img/logo_full.png), and it has to be COMPOSITED, not
+  // generated. There is no way to do that server-side in this app today: wrangler.toml binds D1,
+  // KV, Workers AI, R2 and Vectorize — nothing that can draw one raster image onto another (no
+  // Cloudflare Images binding, no Image Resizing zone feature configured, no canvas/image library
+  // in package.json, and Cloudflare Pages Functions have no canvas API of their own). The one place
+  // in this whole stack that DOES have a real 2D compositor is the browser the owner is looking at
+  // right now — every browser ships <canvas>. So branding happens HERE, client-side, using the
+  // actual logo file, and the result is uploaded as an ordinary JPEG through the same
+  // social-upload route a phone photo goes through.
+  //
+  // WORDING (optional, short — a headline/price/CTA) is drawn the SAME way, as real canvas text
+  // from the owner's own typed characters. This is a deliberate departure from asking gpt-image-2
+  // to render the words onto the photo: that model renders text well but not perfectly, and there
+  // is no automated way to catch a misspelling after the fact except a human reading it. Drawing
+  // the owner's exact string with the Canvas API cannot misspell it — there is no generation step
+  // for a typo to come from. The tradeoff is honest too: it reads as a text overlay stamped on the
+  // photo, not as thin gold script painted into the scene the way a model might attempt it. Given
+  // the choice between "provably correct, looks like an overlay" and "looks native, unverifiable
+  // without a human catching every render", the ONE RULE above picks the first for the logo, and
+  // the same logic extends to the wording riding along with it.
+  //
+  // OPTIONAL, PER IMAGE. Clicking "Preview" never touches the post — it only renders a canvas and
+  // shows it. Nothing is uploaded or attached until the owner taps "Use this", and even then the
+  // ORIGINAL slide is left exactly where it is; the branded version is added as a NEW slide, so a
+  // bad render costs a click to discard, never a photo the owner already had.
+  function loadImageEl(src) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { reject(new Error('image_load_failed')); };
+      img.src = src;
+    });
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // photoUrl: the HUB-authenticated media route for the slide being branded (same-origin, so the
+  // canvas is never "tainted" and toDataURL works). Returns a Promise<string> of a JPEG data URL.
+  function compositeBranding(photoUrl, opts) {
+    opts = opts || {};
+    return Promise.all([loadImageEl(photoUrl), loadImageEl('/assets/img/logo_full.png')]).then(function (imgs) {
+      var photo = imgs[0], logo = imgs[1];
+      var canvas = document.createElement('canvas');
+      canvas.width = photo.naturalWidth || photo.width;
+      canvas.height = photo.naturalHeight || photo.height;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
+
+      // The REAL logo file, sized relative to the shorter side so it reads the same on a square
+      // Studio render or a taller phone photo. A soft dark plate sits behind it (same black the
+      // brand bar uses, public/assets/brand.css --black) so the gold mark stays legible over a
+      // light or busy background instead of picking one fixed corner treatment and hoping.
+      var pad = Math.round(Math.min(canvas.width, canvas.height) * 0.035);
+      var logoW = Math.round(Math.min(canvas.width, canvas.height) * 0.22);
+      var logoH = Math.round(logoW * ((logo.naturalHeight || logo.height) / (logo.naturalWidth || logo.width)));
+      var pos = opts.position || 'br';
+      var lx = pos.indexOf('l') >= 0 ? pad : canvas.width - logoW - pad;
+      var ly = pos.indexOf('t') >= 0 ? pad : canvas.height - logoH - pad;
+      var plate = Math.round(logoW * 0.16);
+      ctx.fillStyle = 'rgba(13,13,13,0.55)';
+      roundRectPath(ctx, lx - plate, ly - plate, logoW + plate * 2, logoH + plate * 2, Math.round(plate * 1.3));
+      ctx.fill();
+      ctx.drawImage(logo, lx, ly, logoW, logoH);
+
+      // Wording — real canvas text from the owner's exact string, see the header comment above for
+      // why this is drawn instead of asked of the image model. Capped short on purpose: this is a
+      // headline/price/CTA, not a caption, and a long line would overflow a square image.
+      var text = String(opts.text || '').trim().slice(0, 40);
+      if (text) {
+        var fontSize = Math.round(canvas.width * 0.06);
+        ctx.font = '700 ' + fontSize + 'px "Josefin Sans", sans-serif';
+        ctx.textBaseline = 'alphabetic';
+        var upper = text.toUpperCase();
+        var metrics = ctx.measureText(upper);
+        var tx = Math.max(pad, Math.round((canvas.width - metrics.width) / 2));
+        var top = !!opts.textTop;
+        var ty = top ? Math.round(canvas.height * 0.15) : Math.round(canvas.height * 0.92);
+        var bandPad = Math.round(fontSize * 0.55);
+        ctx.fillStyle = 'rgba(7,18,7,0.62)';
+        ctx.fillRect(0, ty - fontSize, canvas.width, fontSize + bandPad);
+        ctx.fillStyle = '#C8BC6E';
+        ctx.fillText(upper, tx, ty);
+      }
+
+      return canvas.toDataURL('image/jpeg', 0.92);
+    });
+  }
+
+  // Reused by both tools below: only photo slides can be branded or extended — a video slide has
+  // no meaning for either.
+  function photoSlides(p) {
+    return (p.media || []).filter(function (m) { return !VIDEO_EXT.test(m.media_key || ''); });
+  }
+
+  function brandingTool(p) {
+    var locked = p.status === 'published' || p.status === 'publishing';
+    if (locked) return '';
+    var media = photoSlides(p);
+    if (!media.length) return '';
+    return '<details style="margin-top:8px"><summary style="font-size:11.5px;opacity:.7;cursor:pointer">🏷️ Add branding (logo + optional wording)</summary>' +
+      '<div class="brand-panel" data-post="' + esc(p.id) + '" style="margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fbfaf6">' +
+        '<div class="form-row"><label>Which photo</label><select class="brand-slide">' +
+          media.map(function (m, i) { return '<option value="' + esc(m.id) + '" data-key="' + esc(m.media_key) + '">Slide ' + (i + 1) + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="form-row"><label>Logo position</label><select class="brand-pos">' +
+          '<option value="br">Bottom right</option><option value="bl">Bottom left</option>' +
+          '<option value="tr">Top right</option><option value="tl">Top left</option>' +
+        '</select></div>' +
+        '<div class="form-row"><label>Wording (optional)</label><input class="brand-text" type="text" maxlength="40" placeholder="e.g. ORDER BY THURSDAY">' +
+          '<p class="hint">Drawn from these exact characters, never generated — it cannot be misspelled. Leave blank for a clean logo mark with no text.</p></div>' +
+        '<button class="btn ghost block brand-preview" type="button">Preview branded photo</button>' +
+        '<div class="brand-result" style="margin-top:8px"></div>' +
+      '</div></details>';
+  }
+
+  function wireBranding() {
+    Array.prototype.forEach.call(document.querySelectorAll('.brand-preview'), function (btn) {
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var panel = btn.closest('.brand-panel');
+        var postId = panel.getAttribute('data-post');
+        var slideSel = panel.querySelector('.brand-slide');
+        var chosen = slideSel.options[slideSel.selectedIndex];
+        var key = chosen ? chosen.getAttribute('data-key') : '';
+        if (!key) { Hub.toast('Pick a photo first.'); return; }
+        var pos = panel.querySelector('.brand-pos').value;
+        var text = panel.querySelector('.brand-text').value;
+        var resultBox = panel.querySelector('.brand-result');
+        btn.disabled = true; btn.textContent = 'Compositing…';
+        compositeBranding('/api/hub/media/' + key, { position: pos, text: text })
+          .then(function (dataUrl) {
+            btn.disabled = false; btn.textContent = 'Preview branded photo';
+            resultBox.innerHTML =
+              '<img src="' + dataUrl + '" alt="" style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:6px">' +
+              '<div style="display:flex;gap:8px"><button class="btn gold brand-use" type="button">Use this — add as a new slide</button>' +
+              '<button class="btn ghost brand-discard" type="button">Discard</button></div>';
+            resultBox.querySelector('.brand-use').addEventListener('click', function () {
+              var useBtn = resultBox.querySelector('.brand-use');
+              if (useBtn.disabled) return;
+              useBtn.disabled = true; useBtn.textContent = 'Saving…';
+              // Carry the source slide's role suffix forward (e.g. `_photo`) so a branded AI-made
+              // food photo is still RECOGNISED as a food photo by the food-first guard afterward —
+              // see social-upload.js's `role` param comment for why this matters.
+              var sourceRole = (key.match(/_([a-z0-9]+)\.[a-z0-9]+$/i) || [])[1] || '';
+              Hub.api('/api/hub/owner/social-upload', { method: 'POST', body: { data_url: dataUrl, role: sourceRole } })
+                .then(function (r) {
+                  if (!r || !r.ok || !r.media_key) {
+                    Hub.toast((r && r.error) || 'Could not save the branded photo');
+                    useBtn.disabled = false; useBtn.textContent = 'Use this — add as a new slide';
+                    return;
+                  }
+                  op({ op: 'attach', id: postId, media_key: r.media_key }, 'Branded photo added as a new slide — the original is unchanged');
+                })
+                .catch(function () {
+                  Hub.toast('Could not save the branded photo');
+                  useBtn.disabled = false; useBtn.textContent = 'Use this — add as a new slide';
+                });
+            });
+            resultBox.querySelector('.brand-discard').addEventListener('click', function () { resultBox.innerHTML = ''; });
+          })
+          .catch(function () {
+            btn.disabled = false; btn.textContent = 'Preview branded photo';
+            Hub.toast('Could not composite the logo onto that photo — try again.');
+          });
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // CAROUSEL — generate the REST of a carousel for a draft. One photo is what Creative Studio has
+  // always made; a carousel needs several that look shot together, and until now the owner's only
+  // way to get more was to generate a cover one at a time and hope the "one at a time" stayed
+  // consistent. This calls _lib/carousel_gen.js through the `generate_carousel` op: the owner picks
+  // a TOTAL slide count, the server makes however many are missing, and every one of them draws
+  // from the SAME art direction as the rest of this post (image_brief or caption) so the set reads
+  // as one shoot, not five unrelated bowls.
+  //
+  // ON DEMAND ONLY — this button is the only thing that calls it; nothing in the planner or any
+  // background job generates a carousel automatically, because every slide is a real charge against
+  // the weekly AI budget (see the op's `message` on a partial batch for what a spent budget looks
+  // like from here).
+  function carouselTool(p) {
+    var locked = p.status === 'published' || p.status === 'publishing';
+    if (locked) return '';
+    var count = photoSlides(p).length;
+    if (count >= 10) return ''; // Instagram's own ceiling (instagram.js CAROUSEL_MAX) — nothing left to add
+    var opts = [];
+    var start = Math.max(2, count + 1);
+    var dflt = Math.min(count + 4, 10);
+    for (var n = start; n <= 10; n++) opts.push('<option value="' + n + '"' + (n === dflt ? ' selected' : '') + '>' + n + ' photos total</option>');
+    return '<details style="margin-top:8px"><summary style="font-size:11.5px;opacity:.7;cursor:pointer">🎞️ Generate the rest of a carousel</summary>' +
+      '<div style="margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fbfaf6">' +
+        '<p class="hint" style="margin-bottom:6px">Makes more photos in the same light, surface and palette as the rest of the Studio house style — a different angle or detail on each one, so the set looks shot together. Costs against the weekly AI budget: one provider call per new slide.</p>' +
+        '<div style="display:flex;gap:8px;align-items:center">' +
+          '<select class="carousel-count" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px">' + opts.join('') + '</select>' +
+          '<button class="btn gold carousel-gen" data-carousel="' + esc(p.id) + '" type="button" style="white-space:nowrap">Generate</button>' +
+        '</div>' +
+      '</div></details>';
+  }
+
+  function wireCarousel() {
+    Array.prototype.forEach.call(document.querySelectorAll('.carousel-gen'), function (b) {
+      b.addEventListener('click', function () {
+        if (b.disabled) return;
+        var panel = b.closest('details');
+        var sel = panel ? panel.querySelector('.carousel-count') : null;
+        var count = Number(sel && sel.value);
+        if (!count) { Hub.toast('Pick a size first.'); return; }
+        // Several ~20-90s provider calls run back to back here — self-disable BEFORE the call for
+        // the same reason generate_cover's button does: without it, an owner who sees nothing
+        // happen clicks again and pays for a second batch on top of the first.
+        b.disabled = true; b.textContent = 'Generating…';
+        Hub.api('/api/hub/owner/social', { method: 'POST', body: { op: 'generate_carousel', id: b.getAttribute('data-carousel'), count: count } })
+          .then(function (r) {
+            if (r && r.ok) { Hub.toast(r.message || 'Carousel updated'); load(); }
+            else { Hub.toast((r && r.error) || 'Could not generate the carousel'); b.disabled = false; b.textContent = 'Generate'; }
+          })
+          .catch(function () { b.disabled = false; b.textContent = 'Generate'; Hub.toast('Could not generate the carousel'); });
+      });
+    });
+  }
+
   function postCard(p) {
     var mtype = p.media_type || null;   // null = legacy/undeclared (migrations/0080) — image/carousel by slide count, as always
     var slideCap = (mtype === 'REELS' || mtype === 'STORIES') ? 1 : 10;   // Meta allows no carousel for either
+    var isFeed = mtype !== 'REELS' && mtype !== 'STORIES';   // branding + carousel generation are feed-post concepts only
     // The image preview uses the HUB-authenticated route, never the public token — the owner is
     // signed in, and printing the public URL here would put it in screenshots.
     return '<div class="post ' + esc(p.status) + '">' +
@@ -288,6 +526,7 @@
       // strip shows it and the arrows change it. All of it locks once the post is live.
       slideStrip(p) +
       coverNote(p) +
+      (isFeed ? brandingTool(p) + carouselTool(p) : '') +
       (p.status === 'published' ? '' : uploadCard(p, mtype, slideCap)) +
       (p.error ? '<div class="row-sub" style="color:var(--crit);margin-top:6px">' + esc(p.error) + '</div>' : '') +
       (p.permalink ? '<div style="margin-top:8px"><a href="' + esc(p.permalink) + '" target="_blank" rel="noopener">View on Instagram →</a></div>' : '') +
@@ -466,6 +705,8 @@
           .catch(function () { b.disabled = false; b.textContent = '🍽️ Generate a food photo'; });
       });
     });
+    wireBranding();
+    wireCarousel();
     Array.prototype.forEach.call(document.querySelectorAll('[data-detach]'), function (b) {
       b.addEventListener('click', function () {
         var parts = b.getAttribute('data-detach').split('|');

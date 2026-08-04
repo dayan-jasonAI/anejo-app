@@ -1,5 +1,5 @@
 // POST /api/hub/owner/social-upload — upload a JPEG from a phone or computer. Owner-only.
-//   Body: { data_url: "data:image/jpeg;base64,..." }
+//   Body: { data_url: "data:image/jpeg;base64,...", role?: "photo" }
 //
 // Until now the only way to give a post an image was to paste an R2 key — true for Studio output,
 // useless for a photo on the owner's phone, which is where real food photography lives.
@@ -14,6 +14,16 @@
 //   · Whatever lands in this bucket becomes publicly servable through a social token once staged.
 //     Sniff on the way in; never trust a label the browser wrote.
 // Video is deliberately not accepted (owner's decision #3 — no video for now).
+//
+// OPTIONAL `role`: same filename-suffix convention media.js's putMedia uses for server-generated
+// images (`..._photo.jpg`), extended to a BROWSER upload for one reason — the branding tool in
+// social.html composites the real Añejo logo onto a Studio photo entirely client-side (Canvas API;
+// see social.html's compositeBranding), then re-uploads the result through THIS route because it
+// is, from the server's point of view, just a JPEG the owner's browser produced. Without a way to
+// carry the source photo's role forward, a branded food photo would re-upload with NO role suffix,
+// the food-first guard (social_publish.js) would file it as UNKNOWN, and a repair that started
+// from a recognised photo would silently stop being recognised as one. Sanitised identically to
+// putMedia's `role` (own-only endpoint; still never trust a client string into a path unfiltered).
 import { json, bad, id } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
@@ -55,9 +65,12 @@ export const onRequestPost = async ({ request, env }) => {
     );
   }
 
+  // Sanitised to [a-z0-9], same rule as media.js's putMedia — this becomes part of an R2 key, and
+  // an unfiltered client string could reshape the path with a slash or a dot in it.
+  const role = String((b && b.role) || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
   const d = new Date();
   const ym = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-  const key = `studio/${ym}/${id('up')}.jpg`;
+  const key = `studio/${ym}/${id('up')}${role ? `_${role}` : ''}.jpg`;
 
   try {
     const meta = { contentType: 'image/jpeg', ext: 'jpg' };
