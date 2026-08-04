@@ -1,0 +1,29 @@
+-- Give a post a declared MEDIA TYPE, so the publisher stops guessing IMAGE vs CAROUSEL from slide
+-- count alone and can also express the two kinds it has never been able to post at all: REELS and
+-- STORIES.
+--
+-- THE GAP THIS CLOSES: functions/_lib/instagram.js only ever built ONE media_type literal
+-- ('CAROUSEL', for a multi-slide post) — everything else was inferred by
+-- functions/_lib/social_publish.js counting rows in social_post_media. That inference is fine for
+-- a feed post (1 photo = image, 2-10 = carousel) and it is NOT a decision anyone can make from
+-- slide count for a Reel (a video, always exactly one "slide") or a Story (a photo OR a video,
+-- also exactly one). Without a place to record intent, a video slide would fall into the same
+-- "1 slide -> publishImage" branch a photo takes and get posted as a broken feed image.
+--
+-- NULLABLE, AND THAT NULL IS LOAD-BEARING — same convention as post_provenance.format (0076):
+-- every post that exists today (six published, ten drafts, per the audit that motivated this
+-- migration) was created before this column existed and must keep behaving EXACTLY as before.
+-- NULL is read by social_publish.js as "not declared — fall back to slide-count", which is
+-- precisely today's behavior. It is NOT backfilled to 'IMAGE'/'CAROUSEL' for existing rows,
+-- because backfilling would assert a decision nobody made — the slide-count fallback already
+-- produces the identical outcome for every one of those rows, so there is nothing to gain and a
+-- CHECK-constrained guess to get wrong.
+--
+-- VALUES MATCH META'S OWN media_type PARAMETER NAMES (IMAGE, CAROUSEL, REELS, STORIES) rather than
+-- inventing a second vocabulary that functions/_lib/instagram.js would have to translate — the
+-- column value IS the string handed to the Graph API's /media call for REELS/STORIES.
+--
+-- SQLite added column-level CHECK support for ALTER TABLE ADD COLUMN; this stays additive (no
+-- table rebuild) the same way 0076_social_media_origin.sql added `origin` — nothing existing moves.
+ALTER TABLE social_posts ADD COLUMN media_type TEXT
+  CHECK (media_type IS NULL OR media_type IN ('IMAGE', 'CAROUSEL', 'REELS', 'STORIES'));

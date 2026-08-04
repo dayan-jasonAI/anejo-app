@@ -26,6 +26,18 @@ const DEFAULTS = {
   stories_per_day_max: 6,
 };
 
+// STILL COSMETIC — migrations/0080 gave _lib/instagram.js the ability to publish a Story
+// (media_type=STORIES) and _lib/social_publish.js knows how to route one, but NOTHING reads
+// stories_per_day_min/max to decide when or how many to post. Grep confirms it: outside this file,
+// the only other reference is functions/api/hub/owner/social-cadence-config.js, which just
+// round-trips the two numbers to/from the owner settings screen — it does not act on them either.
+// Teaching the publisher to SEND a Story (this task) is a different problem from teaching
+// something to DECIDE to send 3-6 of them a day — that needs same-day camera-roll content, a
+// schedule/tracker for "how many went out today", and an ingestion path this app deliberately does
+// not have yet (see the "no video for now" note in functions/api/hub/owner/social-upload.js).
+// Wiring a real Stories cadence is future work, not a byproduct of adding the publish call; do not
+// read the presence of publishStory() as evidence this number does anything.
+
 const FIELDS = ['feed_per_week', 'stories_per_day_min', 'stories_per_day_max'];
 
 // feed_per_week=0 is a valid, deliberate "pause the planner" setting (mirrors WANT=0 semantics

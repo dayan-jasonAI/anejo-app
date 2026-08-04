@@ -6,7 +6,7 @@
 import { json, bad, id, now, randToken } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
-import { igConfigured, accountInfo, JPEG_ONLY, CAROUSEL_MAX } from '../../../_lib/instagram.js';
+import { igConfigured, accountInfo, JPEG_ONLY, VIDEO_ONLY, CAROUSEL_MAX } from '../../../_lib/instagram.js';
 import { publishSocialPost, loadPostMedia, coverStatus } from '../../../_lib/social_publish.js';
 import { ensureFoodPhoto } from '../../../_lib/food_photo.js';
 import { noteTrustApproval } from '../../../_lib/trust_ledger.js';
@@ -24,10 +24,21 @@ export const onRequestGet = async ({ request, env }) => {
   let posts = [];
   try {
     const r = await env.DB.prepare(
-      'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
+      'SELECT id, platform, caption, media_key, media_type, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
     ).all();
     posts = (r && r.results) || [];
-  } catch { posts = []; }
+  } catch {
+    // A database that predates migrations/0080 has no media_type column at all — fall back to the
+    // pre-0080 SELECT rather than showing an empty page over one missing column. Every post reads
+    // as media_type=null (the correct, honest value: "not declared"), same as it would once 0080
+    // has actually run.
+    try {
+      const r2 = await env.DB.prepare(
+        'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
+      ).all();
+      posts = ((r2 && r2.results) || []).map((p) => ({ ...p, media_type: null }));
+    } catch { posts = []; }
+  }
 
   // Slides, per post, in order. One query for the page, grouped here — social_post_media is the
   // authority; the legacy media_key column is display-only history.
@@ -130,18 +141,39 @@ export const onRequestPost = async ({ request, env }) => {
     const caption = String(b.caption || '').trim().slice(0, 2200);
     if (!mediaKey) return bad('Pick an image first.');
     if (mediaKey.includes('..')) return bad('Invalid image.');
+
+    // media_type (migrations/0080): NULL/omitted is the historic default and behaves exactly as
+    // before — image or carousel, decided later by slide count. REELS/STORIES are the only values
+    // a caller may declare up front, because those two are the ones publishSocialPost cannot infer
+    // from slide count (a Reel is one video; so is a photo post — the count alone cannot tell them
+    // apart). 'IMAGE'/'CAROUSEL' are valid per the migration's CHECK but pointless to pass here:
+    // this app still decides those two the same way it always has.
+    const mediaType = String(b.media_type || '').trim().toUpperCase() || null;
+    if (mediaType && !['IMAGE', 'CAROUSEL', 'REELS', 'STORIES'].includes(mediaType)) {
+      return bad('Unknown post type.');
+    }
+    const isVideoType = mediaType === 'REELS' || mediaType === 'STORIES';
     // Refuse here rather than at publish time: telling someone their post failed 20 seconds after
     // they hit publish, for a reason knowable now, is a worse experience than refusing the draft.
-    if (!JPEG_ONLY.test(mediaKey)) return bad('Instagram only accepts JPEG images. Re-export this one as .jpg.');
+    // REELS is video-only. STORIES may be a photo OR a video (isVideo is decided by the file
+    // extension actually uploaded, same as social_publish.js does at publish time). Everything
+    // else (NULL/IMAGE/CAROUSEL) keeps the JPEG-only rule this app has always enforced.
+    if (mediaType === 'REELS' && !VIDEO_ONLY.test(mediaKey)) {
+      return bad('Reels only accept MP4 or MOV video. Re-export this one and try again.');
+    } else if (mediaType === 'STORIES' && !VIDEO_ONLY.test(mediaKey) && !JPEG_ONLY.test(mediaKey)) {
+      return bad('Stories only accept a JPEG photo or an MP4/MOV video. Re-export this one and try again.');
+    } else if (!isVideoType && !JPEG_ONLY.test(mediaKey)) {
+      return bad('Instagram only accepts JPEG images. Re-export this one as .jpg.');
+    }
 
     const postId = id('sp');
     const t = now();
     const scheduledAt = Number(b.scheduled_at) > 0 ? Math.floor(Number(b.scheduled_at)) : null;
     try {
       await env.DB.prepare(
-        `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, created_by, created_at, updated_at)
-         VALUES (?,'instagram',?,?,?,?,?,?,?,?)`
-      ).bind(postId, caption || null, mediaKey, randToken(24), scheduledAt ? 'scheduled' : 'draft', scheduledAt, ctx.distinct_id || null, t, t).run();
+        `INSERT INTO social_posts (id, platform, caption, media_key, media_type, public_token, status, scheduled_at, created_by, created_at, updated_at)
+         VALUES (?,'instagram',?,?,?,?,?,?,?,?,?)`
+      ).bind(postId, caption || null, mediaKey, mediaType, randToken(24), scheduledAt ? 'scheduled' : 'draft', scheduledAt, ctx.distinct_id || null, t, t).run();
       // The slide row is what publishing actually reads; the legacy column above is write-through
       // for the deploy window only.
       await env.DB.prepare(
@@ -153,7 +185,7 @@ export const onRequestPost = async ({ request, env }) => {
     await capture(env, {
       event: 'social.post_drafted',
       distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
-      properties: { scheduled: !!scheduledAt, has_caption: !!caption },
+      properties: { scheduled: !!scheduledAt, has_caption: !!caption, media_type: mediaType },
     });
     return json({ ok: true, id: postId, status: scheduledAt ? 'scheduled' : 'draft' });
   }
@@ -175,19 +207,34 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ ok: true, id: postId });
   }
 
-  // Attach an image to a planned post.
+  // Attach an image (or, for a REELS/STORIES post, a video) to a planned post.
   if (op === 'attach') {
     const postId = String(b.id || '').trim();
     const mediaKey = String(b.media_key || '').trim();
     if (!postId) return bad('Missing id.');
     if (!mediaKey) return bad('Pick an image first.');
     if (mediaKey.includes('..')) return bad('Invalid image.');
-    if (!JPEG_ONLY.test(mediaKey)) return bad('Instagram only accepts JPEG images. Re-export this one as .jpg.');
-    const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    const row = await env.DB.prepare('SELECT status, media_type FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
     if (!row) return bad('That post no longer exists.', 404);
     if (row.status === 'published') return bad('That one is already live.', 409);
     if (row.status === 'publishing') return bad('That post is being published right now.', 409);
+    const mediaType = row.media_type || null;
+    // Format rule matches the post's declared type, not a blanket JPEG check — a REELS/STORIES
+    // draft is allowed a video key. See the 'draft' op above for why each type accepts what it does.
+    if (mediaType === 'REELS' && !VIDEO_ONLY.test(mediaKey)) {
+      return bad('Reels only accept MP4 or MOV video. Re-export this one and try again.');
+    } else if (mediaType === 'STORIES' && !VIDEO_ONLY.test(mediaKey) && !JPEG_ONLY.test(mediaKey)) {
+      return bad('Stories only accept a JPEG photo or an MP4/MOV video. Re-export this one and try again.');
+    } else if (mediaType !== 'REELS' && mediaType !== 'STORIES' && !JPEG_ONLY.test(mediaKey)) {
+      return bad('Instagram only accepts JPEG images. Re-export this one as .jpg.');
+    }
     const existing = await loadPostMedia(env, postId);
+    // A Reel is ONE video; a Story is ONE photo or video — Meta's Stories/Reels containers have no
+    // carousel equivalent at all (see the STORIES section of _lib/instagram.js), so a second slide
+    // is refused outright rather than silently becoming a carousel Instagram would reject.
+    if ((mediaType === 'REELS' || mediaType === 'STORIES') && existing.length >= 1) {
+      return bad(mediaType === 'REELS' ? 'A Reel is one video — this post already has one.' : 'A Story is one photo or video — this post already has one.', 409);
+    }
     // Meta's carousel ceiling. Refused at attach — the moment the 11th photo is picked — rather
     // than 20 seconds into a publish that was always going to fail.
     if (existing.length >= CAROUSEL_MAX) return bad(`Instagram allows at most ${CAROUSEL_MAX} photos in one post.`, 409);

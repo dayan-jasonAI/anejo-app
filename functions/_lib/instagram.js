@@ -38,8 +38,15 @@ const hostLabel = (base) => (String(base).includes('graph.instagram.com') ? 'ins
 // container is never published. A slow suite is a suite people stop running.
 const POLL_MS = 2000;
 const POLL_MAX = 12;          // ~24s
+// Video containers go through actual transcoding at Meta, not just a fetch — a Reel or a Story
+// video routinely takes tens of seconds where a JPEG takes two or three polls. Same helper, same
+// cadence, just a longer leash before giving up. Still finite: a container that never finishes
+// fails cleanly at this ceiling rather than hanging the tick indefinitely.
+const VIDEO_POLL_MAX = 90;    // ~180s at the default cadence — headroom over observed Reels processing, not unbounded
 const pollMs = (env) => { const n = Number(env && env.IG_POLL_MS); return Number.isFinite(n) && n >= 0 ? n : POLL_MS; };
 export const JPEG_ONLY = /\.jpe?g$/i;
+// Instagram's video containers (Reels and video Stories) accept MP4 or MOV only.
+export const VIDEO_ONLY = /\.(mp4|mov)$/i;
 
 // IG_USER_ID is NOT required on the Instagram Login path — /me tells us who we are, and making the
 // owner run a curl to find a 17-digit number is a step that exists only to be got wrong.
@@ -144,12 +151,15 @@ export async function accountInfo(env) {
 
 /**
  * Poll a container until FINISHED. One definition of "ready to publish", shared by the single
- * image and every carousel child and parent — two poll loops would eventually disagree about
- * what counts as finished, and the one that guessed is the one that double-posts.
+ * image, every carousel child and parent, and now video (Reels/Stories) — two poll loops would
+ * eventually disagree about what counts as finished, and the one that guessed is the one that
+ * double-posts. `maxAttempts` is the only thing a caller may vary — video needs a longer ceiling
+ * (VIDEO_POLL_MAX above) than an image, but the definition of FINISHED/ERROR/EXPIRED, and what
+ * happens on each, is identical for every media type.
  */
-async function waitFinished(env, base, containerId) {
+async function waitFinished(env, base, containerId, maxAttempts = POLL_MAX) {
   let state = null;
-  for (let i = 0; i < POLL_MAX; i++) {
+  for (let i = 0; i < maxAttempts; i++) {
     await new Promise((res) => setTimeout(res, pollMs(env)));
     const st = await graph(env, `/${containerId}`, { params: { fields: 'status_code,status' } }, base);
     if (!st.ok) return st;
@@ -296,6 +306,135 @@ export async function publishImage(env, { imageUrl, caption, mediaKey } = {}) {
 
   // READ BACK. A 200 means Meta accepted the call, not that a post exists on the profile. The
   // permalink is the only proof, and it is what the owner actually wants to click.
+  let permalink = null;
+  const back = await graph(env, `/${mediaId}`, { params: { fields: 'permalink' } }, base);
+  if (back.ok) permalink = (back.body && back.body.permalink) || null;
+
+  return { ok: true, container_id: creationId, media_id: mediaId, permalink, published_at: now() };
+}
+
+// ---------------------------------------------------------------------------
+// REELS
+//
+// Shape lifted from the same three-step contract documented at the top of this file, with the
+// media_type parameter that was the whole missing piece: Meta's Content Publishing API treats a
+// Reel as a container like any other, just declared with media_type=REELS and video_url instead of
+// image_url. See https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reels-publishing
+// (as of the 2026 API version this file already pins — graph.instagram.com/v23.0 or
+// graph.facebook.com/v23.0, see HOSTS above).
+//
+// Meta's own bounds worth knowing, honestly — not all enforced here, because this app has no way
+// to inspect a video file's actual duration/dimensions before handing Instagram a URL, and a wrong
+// guess here is worse than letting Meta's own validation (surfaced through the ERROR status in
+// waitFinished) be the source of truth:
+//   · length: roughly 3 seconds to 15 minutes (specific ceiling has moved over API versions)
+//   · aspect ratio: 9:16 (vertical) is what actually gets recommended placement; anything from
+//     0.01:1 to 10:1 is technically accepted but cropped/letterboxed unpredictably outside 9:16
+//   · format: MP4 or MOV — checked here, before a container is spent, same as JPEG for images
+export async function publishReel(env, { videoUrl, caption, mediaKey, coverUrl } = {}) {
+  if (!igConfigured(env)) return { ok: false, reason: 'not_configured' };
+  if (!videoUrl) return { ok: false, error: 'No video to publish.' };
+
+  if (mediaKey && !VIDEO_ONLY.test(mediaKey)) {
+    return { ok: false, error: 'Instagram Reels only accept MP4 or MOV video. Re-export this one and try again.' };
+  }
+
+  const target = await resolveTarget(env);
+  if (!target.ok) return target;
+  const { base, id: igId } = target;
+
+  // 1) container — media_type=REELS is the one literal this whole feature was missing.
+  const made = await graph(env, `/${igId}/media`, {
+    method: 'POST',
+    params: {
+      media_type: 'REELS',
+      video_url: videoUrl,
+      ...(caption ? { caption: String(caption).slice(0, 2200) } : {}),
+      ...(coverUrl ? { cover_url: coverUrl } : {}),   // optional still-frame thumbnail; Meta picks one if omitted
+    },
+  }, base);
+  if (!made.ok) return made;
+  const creationId = made.body && made.body.id;
+  if (!creationId) return { ok: false, error: 'Instagram did not return a media container.' };
+
+  // 2) POLL — video is transcoded server-side, so this genuinely takes longer than an image fetch.
+  // waitFinished already treats ERROR/EXPIRED as an explicit failure with Meta's reason attached
+  // and gives up (never hangs) past maxAttempts; VIDEO_POLL_MAX just gives that same logic more
+  // time before it does.
+  const done = await waitFinished(env, base, creationId, VIDEO_POLL_MAX);
+  if (!done.ok) return { ...done, container_id: creationId };
+
+  // 3) publish
+  const pub = await graph(env, `/${igId}/media_publish`, { method: 'POST', params: { creation_id: creationId } }, base);
+  if (!pub.ok) return { ...pub, container_id: creationId };
+  const mediaId = pub.body && pub.body.id;
+  if (!mediaId) return { ok: false, container_id: creationId, error: 'Instagram did not return a post id.' };
+
+  let permalink = null;
+  const back = await graph(env, `/${mediaId}`, { params: { fields: 'permalink' } }, base);
+  if (back.ok) permalink = (back.body && back.body.permalink) || null;
+
+  return { ok: true, container_id: creationId, media_id: mediaId, permalink, published_at: now() };
+}
+
+// ---------------------------------------------------------------------------
+// STORIES
+//
+// Same container → poll → publish shape again, this time with media_type=STORIES. Told honestly,
+// because the next person to touch this needs to know a Story is not "a feed post with a shorter
+// fuse" — it is a genuinely different object on Meta's side:
+//   · NO CAROUSEL. A Story container takes exactly one image_url OR one video_url. There is no
+//     children/CAROUSEL equivalent for Stories at all — this function does not accept a list.
+//   · 24-HOUR LIFE. The post disappears from the profile on its own; `permalink` (when Meta returns
+//     one at all) and `ig_media_id` age into pointing at nothing. Nothing in this app currently
+//     tries to detect or record that expiry — a published Story row just goes quiet.
+//   · INSIGHTS DIFFER. Feed posts report reach/likes/comments/saves (see ig_media_metrics, filled
+//     by _lib/instagram_insights.js — a file this task does not touch). Stories report an
+//     impressions-based set (impressions, taps_forward, taps_back, exits, replies) through a
+//     different metrics endpoint. This module does not fetch Story insights; publishing one here
+//     does not give the HUB parity with the feed-post metrics row it already shows.
+//   · Both a photo and a video Story go through this ONE function — `isVideo` picks the param name
+//     and the format check (JPEG vs MP4/MOV), everything else about the flow is identical.
+export async function publishStory(env, { mediaUrl, mediaKey, isVideo } = {}) {
+  if (!igConfigured(env)) return { ok: false, reason: 'not_configured' };
+  if (!mediaUrl) return { ok: false, error: 'No photo or video to publish.' };
+
+  if (isVideo) {
+    if (mediaKey && !VIDEO_ONLY.test(mediaKey)) {
+      return { ok: false, error: 'Instagram Stories video must be MP4 or MOV. Re-export this one and try again.' };
+    }
+  } else if (mediaKey && !JPEG_ONLY.test(mediaKey)) {
+    return { ok: false, error: 'Instagram only accepts JPEG images. Re-export this one as .jpg and try again.' };
+  }
+
+  const target = await resolveTarget(env);
+  if (!target.ok) return target;
+  const { base, id: igId } = target;
+
+  // 1) container — STORIES, never CAROUSEL: one item, image_url or video_url, never both.
+  const made = await graph(env, `/${igId}/media`, {
+    method: 'POST',
+    params: { media_type: 'STORIES', ...(isVideo ? { video_url: mediaUrl } : { image_url: mediaUrl }) },
+  }, base);
+  if (!made.ok) return made;
+  const creationId = made.body && made.body.id;
+  if (!creationId) return { ok: false, error: 'Instagram did not return a media container.' };
+
+  // 2) POLL — a video Story processes like any other video; a photo Story is as fast as a feed
+  // image. Bound accordingly rather than making every Story wait out the video ceiling.
+  const done = await waitFinished(env, base, creationId, isVideo ? VIDEO_POLL_MAX : POLL_MAX);
+  if (!done.ok) return { ...done, container_id: creationId };
+
+  // 3) publish
+  const pub = await graph(env, `/${igId}/media_publish`, { method: 'POST', params: { creation_id: creationId } }, base);
+  if (!pub.ok) return { ...pub, container_id: creationId };
+  const mediaId = pub.body && pub.body.id;
+  if (!mediaId) return { ok: false, container_id: creationId, error: 'Instagram did not return a post id.' };
+
+  // Stories are not guaranteed to return a usable permalink the way a feed post does — read-back is
+  // still attempted (same honesty principle as every other publish path: a 200 from media_publish
+  // means Meta accepted the call, not that anything is confirmed live), but `permalink: null` here
+  // is an EXPECTED outcome for a Story, not a sign something went wrong.
   let permalink = null;
   const back = await graph(env, `/${mediaId}`, { params: { fields: 'permalink' } }, base);
   if (back.ok) permalink = (back.body && back.body.permalink) || null;

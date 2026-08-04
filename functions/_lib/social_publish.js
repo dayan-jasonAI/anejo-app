@@ -7,7 +7,7 @@
 // because what states they may claim FROM genuinely differs (a click may retry a failure; the
 // timer only ever takes a scheduled post). Everything after the claim lives here.
 import { now } from './hub.js';
-import { publishImage, publishCarousel } from './instagram.js';
+import { publishImage, publishCarousel, publishReel, publishStory, VIDEO_ONLY } from './instagram.js';
 import { BOWL_ART } from './bowl_art.js';
 
 /** A post's slides, in order. The child table is authoritative — social_posts.media_key is legacy. */
@@ -138,63 +138,105 @@ export function coverStatus(media) {
 }
 
 /**
- * Publish a claimed post — single image or carousel decided by how many slides it actually has,
- * in exactly one place. The caller has already moved it to status='publishing'; this function
- * finishes the job and writes the outcome, so a failure can never strand a post mid-state.
+ * Publish a claimed post — routed by the post's DECLARED media type (migrations/0080), falling
+ * back to today's slide-count inference (1 slide -> image, 2-10 -> carousel) when that column is
+ * NULL. NULL is not a bug to fix here: it is every post that existed before 0080, and the whole
+ * point of that migration was that those posts must keep behaving exactly as they did — see its
+ * comment for why nothing was backfilled.
+ *
+ * `media_type` decides the whole shape of what happens, not just which Instagram function gets
+ * called: a REEL or a STORY is a single asset with no carousel concept, so the food-first guard
+ * (which reorders MULTIPLE slides) and the "single vs carousel" slide-count branch both belong
+ * only to the legacy/IMAGE/CAROUSEL path.
+ *
+ * The caller has already moved the post to status='publishing'; this function finishes the job and
+ * writes the outcome, so a failure can never strand a post mid-state.
  *
  * `opts.publish=false` runs the whole container flow at Meta and stops short of media_publish —
  * the dry run. The caller must NOT have claimed the post for a dry run; nothing is written here
- * when dry-running.
+ * when dry-running. Reels and Stories have no dry-run mode (see below) — same posture as a single
+ * image, which never had one either.
  */
 export async function publishSocialPost(env, request, post, opts = {}) {
   let media = await loadPostMedia(env, post.id);
   const dry = opts.publish === false;
+  // NULL/absent = not declared by 0080 -> the legacy inference this app has always used. Any other
+  // value is an explicit instruction and is trusted over the slide count.
+  const mediaType = post.media_type || null;
+  const isReel = mediaType === 'REELS';
+  const isStory = mediaType === 'STORIES';
 
   if (!media.length) {
-    // A planner draft with no picture. The tick filters these out with EXISTS; this guard is for
-    // the direct callers, and it must not leave the post stuck in 'publishing'.
+    // A planner draft with no picture, or a Reel/Story draft with no video/photo attached yet. The
+    // tick filters these out with EXISTS; this guard is for the direct callers, and it must not
+    // leave the post stuck in 'publishing'.
     if (!dry) {
       await env.DB.prepare("UPDATE social_posts SET status='failed', error=?, updated_at=? WHERE id=?")
-        .bind('This post has no image yet — add one before publishing.', now(), post.id).run();
+        .bind('This post has no photo or video yet — add one before publishing.', now(), post.id).run();
     }
-    return { ok: false, error: 'This post has no image yet — add one before publishing.' };
+    return { ok: false, error: 'This post has no photo or video yet — add one before publishing.' };
   }
 
-  // FOOD-FIRST GUARD (see foodFirstOrder/coverStatus above). This runs INSIDE the one shared
-  // publish path so both the owner's button and the unattended tick get it — the whole point of
-  // this function is that neither caller knows how to publish differently from the other. When a
-  // photo is found to promote, seq is rewritten so the fix is structural: the next time this post
-  // (or a retry of it) is read anywhere — the HUB slide strip, a future publish — it is already
-  // food-first, not just food-first for this one call.
-  const order = foodFirstOrder(media);
-  if (order.reordered) {
-    media = order.media;
-    if (!dry) {
-      for (let i = 0; i < media.length; i++) {
-        await env.DB.prepare('UPDATE social_post_media SET seq=? WHERE id=?').bind(i, media[i].id).run();
+  // FOOD-FIRST GUARD (see foodFirstOrder/coverStatus above) only means anything for a MULTI-SLIDE
+  // feed carousel — it exists to stop a text card leading the grid over a real food photo. A Reel
+  // is one video; a Story is one photo or video. Neither has a "later slide" to promote, so running
+  // this against them would not be a narrower version of the guard, it would be image-carousel
+  // logic pointed at a video for no reason. In practice slideRole() (above) already returns null
+  // for a video filename — it matches neither the photo nor the text-card suffix set — so
+  // coverStatus/foodFirstOrder are inert on a video today even without this guard; the explicit
+  // skip is what keeps that true on purpose rather than by the accident of a filename convention.
+  if (!isReel && !isStory) {
+    const order = foodFirstOrder(media);
+    if (order.reordered) {
+      media = order.media;
+      if (!dry) {
+        for (let i = 0; i < media.length; i++) {
+          await env.DB.prepare('UPDATE social_post_media SET seq=? WHERE id=?').bind(i, media[i].id).run();
+        }
       }
     }
+    // order.no_photo_found is NOT handled here: no image is invented, and publishing is not
+    // blocked over it (a real, human-approved text-only post is a legitimate thing to post). The
+    // HUB warns via coverStatus BEFORE this ever runs, which is where a human gets the chance to
+    // add a photo.
   }
-  // order.no_photo_found is NOT handled here: no image is invented, and publishing is not blocked
-  // over it (a real, human-approved text-only post is a legitimate thing to post). The HUB warns
-  // via coverStatus BEFORE this ever runs, which is where a human gets the chance to add a photo.
 
-  // publishImage has NO dry mode — falling through would publish for real, which is the exact
-  // accident a dry run exists to prevent. Refuse before the branch, not after.
+  // publishImage/publishReel/publishStory have NO dry mode — falling through would publish for
+  // real, which is the exact accident a dry run exists to prevent. Refuse before the branch, not
+  // after. A Reel or a Story is always media.length===1 (Stories cannot even hold a second slide,
+  // see the 'attach' guard in functions/api/hub/owner/social.js), so this same check already covers
+  // them — no separate refusal needed.
   if (dry && media.length < 2) {
-    return { ok: false, error: 'Dry run is for carousels (2+ photos) — a single-image post has nothing new to verify.' };
+    return { ok: false, error: 'Dry run is for carousels (2+ photos) — a single item has nothing new to verify.' };
   }
 
-  const res = media.length === 1
-    ? await publishImage(env, {
-        imageUrl: publicUrlFor(request, media[0].public_token),
-        caption: post.caption,
-        mediaKey: media[0].media_key,
-      })
-    : await publishCarousel(env, {
-        items: media.map((m) => ({ imageUrl: publicUrlFor(request, m.public_token), mediaKey: m.media_key })),
-        caption: post.caption,
-      }, { publish: !dry });
+  let res;
+  if (isReel) {
+    res = await publishReel(env, {
+      videoUrl: publicUrlFor(request, media[0].public_token),
+      caption: post.caption,
+      mediaKey: media[0].media_key,
+    });
+  } else if (isStory) {
+    res = await publishStory(env, {
+      mediaUrl: publicUrlFor(request, media[0].public_token),
+      mediaKey: media[0].media_key,
+      isVideo: VIDEO_ONLY.test(media[0].media_key || ''),
+    });
+  } else {
+    // The legacy path, unchanged: single image or carousel decided by slide count, exactly as
+    // before migrations/0080 existed.
+    res = media.length === 1
+      ? await publishImage(env, {
+          imageUrl: publicUrlFor(request, media[0].public_token),
+          caption: post.caption,
+          mediaKey: media[0].media_key,
+        })
+      : await publishCarousel(env, {
+          items: media.map((m) => ({ imageUrl: publicUrlFor(request, m.public_token), mediaKey: m.media_key })),
+          caption: post.caption,
+        }, { publish: !dry });
+  }
 
   if (dry) return res;
 

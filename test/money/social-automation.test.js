@@ -47,7 +47,9 @@ test('a post with no image cannot be scheduled or published', () => {
   // column, and the no-image publish refusal lives in the shared path.
   assert.match(API, /if \(!\(await loadPostMedia\(env, postId\)\)\.length\) return bad\('Add a photo before scheduling it\.'/);
   const SHARED_LIB = readFileSync(new URL('../../functions/_lib/social_publish.js', import.meta.url), 'utf8');
-  assert.match(SHARED_LIB, /This post has no image yet — add one before publishing\./);
+  // Wording widened for Reels/Stories (migrations/0080) — a Reel has no "image", it has a video —
+  // but the rule is identical: nothing publishes without SOME media attached.
+  assert.match(SHARED_LIB, /This post has no photo or video yet — add one before publishing\./);
 });
 
 test('the tick never even picks up an imageless post', () => {
