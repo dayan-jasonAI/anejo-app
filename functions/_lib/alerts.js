@@ -32,6 +32,12 @@ export const ALERT_TYPES = [
   // alongside the fixed call sites so the next reader sees the full set of real alert types.
   'special_request',
   'partner_application',
+  // Raised by api/hub/admin/backup.js when the weekly D1 → R2 backup fails. Unlike the two above
+  // it was never broken — it passes `alert_type` correctly and has always reached the table — it
+  // was simply missing from this list. Recording it because this list is the reference a reader
+  // trusts to be the full set, and an alert type that fires in production but is absent here
+  // teaches the next person that the list is unreliable.
+  'backup_failed',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:
