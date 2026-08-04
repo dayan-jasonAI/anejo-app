@@ -3,164 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Añejo HUB · Team</title>
+<title>Añejo HUB · Marketing</title>
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#1b3a2b">
-<link rel="manifest" href="/hub/manifest.webmanifest">
-<link rel="icon" type="image/png" href="/assets/img/favicon.png">
-<link rel="stylesheet" href="/hub/assets/hub.css">
-<style>
-/* Chat-specific layout only; everything else rides hub.css. */
-.team-chat { display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; padding: 4px 0; }
-.team-msg { max-width: 86%; padding: 10px 12px; border-radius: 12px; white-space: pre-wrap; word-break: break-word; }
-.team-msg.owner { align-self: flex-end; background: #1b3a2b; color: #fff; border-bottom-right-radius: 4px; }
-.team-msg.lead { align-self: flex-start; background: rgba(0,0,0,.06); border-bottom-left-radius: 4px; }
-.team-msg .msg-meta { font-size: 11px; opacity: .65; margin-top: 6px; }
-.team-send { display: flex; gap: 8px; margin-top: 10px; }
-.team-send textarea { flex: 1; min-height: 44px; max-height: 140px; resize: vertical; }
-</style>
 </head>
 <body>
-<div class="hub-bar">
-  <h1>AÑEJO · TEAM</h1>
-  <div class="hub-bar-actions">
-    <a href="/hub/owner/team-training.html" title="Train the team" aria-label="Train the team" style="text-decoration:none;font-size:20px;margin-right:10px;line-height:1">🧑‍🏫</a>
-    <button id="lang-toggle" type="button">ES</button>
-  </div>
-</div>
-
-<div class="hub-wrap">
-  <div id="owner-root" class="hub-loading"><p data-i18n>Loading the team desk…</p></div>
-</div>
-
-<nav id="owner-nav" class="hub-nav"></nav>
-
-<script src="/assets/js/i18n.js"></script>
-<script src="/hub/assets/hub.js"></script>
-<script src="/hub/owner/assets/owner.js"></script>
-<script>
-(function () {
-  Hub.boot();
-  var lt = document.getElementById('lang-toggle');
-  if (lt && window.AnejoLang) {
-    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
-    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
-  }
-
-  var state = { messages: [], briefs: [], spine: null };
-
-  function render() {
-    var root = document.getElementById('owner-root'); root.className = '';
-    root.innerHTML =
-      '<div class="hub-section">' +
-        '<h2 data-i18n>Marketing Team Lead</h2>' +
-        '<p class="row-sub" data-i18n>Talk strategy. The Lead proposes and drafts — you approve, schedule and publish elsewhere.</p>' +
-        '<div id="spine-head"></div>' +
-        '<div id="chat" class="team-chat"></div>' +
-        '<div class="team-send">' +
-          '<textarea id="msg" placeholder="Ask for a plan, a brief, a read on the numbers…"></textarea>' +
-          '<button class="btn gold" id="send" type="button" data-i18n>Send</button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="hub-section"><h2 data-i18n>Campaign briefs</h2><div id="briefs" class="list"><div class="hub-loading">…</div></div></div>';
-    document.getElementById('send').addEventListener('click', send);
-    document.getElementById('msg').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
-    });
-    paint();
-    if (window.AnejoI18n) window.AnejoI18n.refresh();
-  }
-
-  function paintSpine() {
-    var el = document.getElementById('spine-head');
-    if (!el || !state.spine) return;
-    var s = state.spine;
-    var bits = [];
-    if (s.followers != null) bits.push(Hub.esc(String(s.followers)) + ' followers');
-    if (s.budget) bits.push('$' + Number(s.budget.spent_usd).toFixed(2) + ' / $' + Number(s.budget.limit_usd).toFixed(0) + ' AI this week');
-    bits.push(Hub.esc(String(s.drafts_pending)) + ' drafts pending');
-    if (s.menu_total) bits.push(Hub.esc(String(s.menu_available)) + '/' + Hub.esc(String(s.menu_total)) + ' bowls on sale');
-    // WHICH brief the Lead read, in words. The API has reported this since the spine fix; without
-    // it on the page, a Lead answering off-brand and a Lead that never received the brief read
-    // identically from the chat. Stated, not colour-coded — the distinction has to survive a
-    // screenshot and a colourblind reader.
-    if (s.brand_source) bits.push(s.brand_source === 'd1' ? 'brief: live from the HUB' : 'brief: repo snapshot');
-    el.innerHTML = '<p class="row-sub">' + bits.join(' · ') + '</p>';
-  }
-
-  function paintChat() {
-    var el = document.getElementById('chat');
-    if (!el) return;
-    if (!state.messages.length) {
-      el.innerHTML = '<div class="team-msg lead" data-i18n>No conversation yet. Ask the Lead where marketing should go next.</div>';
-      return;
-    }
-    el.innerHTML = state.messages.map(function (m) {
-      var meta = '';
-      if (m.actions && m.actions.ok) {
-        if (m.actions.action === 'create_brief') meta = 'Created brief: ' + (m.actions.title || m.actions.brief_id);
-        else if (m.actions.action === 'request_intel') meta = 'Logged intel request';
-        else if (m.actions.action === 'draft_posts') meta = 'Drafted ' + m.actions.drafted + ' post(s) for review on the Social page';
-      }
-      // Hide the machine block from the human — the executed summary line replaces it.
-      var body = String(m.body || '').replace(/```json[\s\S]*?```/g, '').trim();
-      return '<div class="team-msg ' + (m.role === 'owner' ? 'owner' : 'lead') + '">' + Hub.esc(body) +
-        (meta ? '<div class="msg-meta">⚙ ' + Hub.esc(meta) + '</div>' : '') +
-        '<div class="msg-meta">' + Owner.timeAgo(m.created_at) + '</div></div>';
-    }).join('');
-    el.scrollTop = el.scrollHeight;
-  }
-
-  function paintBriefs() {
-    var el = document.getElementById('briefs');
-    if (!el) return;
-    if (!state.briefs.length) {
-      el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No briefs yet — ask the Lead to propose a campaign.</p></div>';
-      return;
-    }
-    el.innerHTML = state.briefs.map(function (b) {
-      var kind = b.status === 'approved' ? 'ok' : b.status === 'archived' ? '' : 'warn';
-      return '<div class="row"><div class="row-main">' +
-        '<div class="row-title">' + Owner.esc(b.title) + '</div>' +
-        (b.objective ? '<div class="row-sub">' + Owner.esc(b.objective) + '</div>' : '') +
-        '<div class="row-sub">' + (b.success_metric ? 'Success: ' + Owner.esc(b.success_metric) + ' · ' : '') + Owner.timeAgo(b.created_at) + '</div>' +
-        '</div>' + Owner.badge(b.status, kind) + '</div>';
-    }).join('');
-  }
-
-  function paint() { paintSpine(); paintChat(); paintBriefs(); }
-
-  function apply(d) {
-    if (!d || !d.ok) return;
-    state.messages = d.messages || [];
-    state.briefs = d.briefs || [];
-    state.spine = d.spine || null;
-    paint();
-    if (window.AnejoI18n) window.AnejoI18n.refresh();
-  }
-
-  function load() { Owner.get('/api/hub/owner/team').then(apply); }
-
-  function send() {
-    var inp = document.getElementById('msg');
-    var btn = document.getElementById('send');
-    var text = (inp.value || '').trim();
-    if (!text || btn.disabled) return;
-    btn.disabled = true;
-    // Optimistic echo so the chat feels alive during the model's think time.
-    state.messages = state.messages.concat([{ role: 'owner', body: text, created_at: Date.now() }]);
-    paintChat();
-    inp.value = '';
-    Hub.api('/api/hub/owner/team', { method: 'POST', body: { message: text } }).then(function (d) {
-      btn.disabled = false;
-      if (d && d.ok) { apply(d); if (d.degraded) Hub.toast('Lead is degraded: ' + d.degraded); }
-      else Hub.toast((d && d.error) || 'Could not send.');
-    }).catch(function () { btn.disabled = false; Hub.toast('Could not send.'); });
-  }
-
-  render();
-  load();
-})();
-</script>
+<!-- 2026-08-04 consolidation: "Team + Social + Campaign + Train the Team all in different tabs"
+     was the owner's own complaint. They are now one workspace, /hub/owner/marketing.html, with
+     this page's content (the Team Lead chat) living under its Teach tab. This file stays only so
+     an old bookmark or a stale deep-link still lands somewhere real instead of a 404 — nobody is
+     meant to reach it on purpose, so it is not linked from the nav or from any other page. -->
+<script>window.location.replace('/hub/owner/marketing.html#teach');</script>
+<noscript><meta http-equiv="refresh" content="0; url=/hub/owner/marketing.html#teach"></noscript>
+<p><a href="/hub/owner/marketing.html#teach">Continue to Marketing → Teach</a></p>
 </body>
 </html>

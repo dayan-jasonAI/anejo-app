@@ -15,7 +15,10 @@ const TICK = readFileSync(new URL('../../functions/api/hub/admin/insights-tick.j
 const MIG = readFileSync(new URL('../../migrations/0064_ig_insights.sql', import.meta.url), 'utf8');
 const AUTO = readFileSync(new URL('../../functions/_lib/automations.js', import.meta.url), 'utf8');
 const CRON = readFileSync(new URL('../../cron/worker.js', import.meta.url), 'utf8');
-const PAGE = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+// 2026-08-04: Social's post cards (including this "no performance data yet" state) now live
+// inside the Create > Instagram tab of the unified marketing.html workspace — see
+// docs or public/hub/owner/marketing.html's own header comment for the consolidation.
+const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
 
 const env = (tok) => ({ IG_ACCESS_TOKEN: tok, IG_USER_ID: '17841400000000000', IG_API_HOST: 'facebook' });
 

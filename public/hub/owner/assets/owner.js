@@ -19,9 +19,9 @@
     { view: 'finance', href: '/hub/owner/finance.html', ico: '💵', label: 'Finance' },
     { view: 'trainers', href: '/hub/owner/trainers.html', ico: '🤝', label: 'Trainers' },
     { view: 'partners', href: '/hub/owner/partners.html', ico: '📣', label: 'Affiliate' },
-    { view: 'campaigns', href: '/hub/owner/campaigns.html', ico: '📨', label: 'Campaigns' },
-    { view: 'social', href: '/hub/owner/social.html', ico: '📸', label: 'Social' },
-    { view: 'team', href: '/hub/owner/team.html', ico: '🧠', label: 'Team' },
+    // 2026-08-04: Campaigns / Social / Team / Train-the-team used to be four separate nav tabs for
+    // one job (the owner's own complaint — see marketing.html). They are now one workspace behind
+    // this single tab: Today / Teach / Create inside /hub/owner/marketing.html.
     { view: 'marketing', href: '/hub/owner/marketing.html', ico: '📈', label: 'Marketing' },
     { view: 'inventory', href: '/hub/kitchen/inventory.html', ico: '📦', label: 'Inventory' },
     { view: 'studio', href: '/studio/', ico: '🎨', label: 'Studio' },

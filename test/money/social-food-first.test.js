@@ -25,7 +25,9 @@ import {
 
 const SHARED = readFileSync(new URL('../../functions/_lib/social_publish.js', import.meta.url), 'utf8');
 const API = readFileSync(new URL('../../functions/api/hub/owner/social.js', import.meta.url), 'utf8');
-const HTML = readFileSync(new URL('../../public/hub/owner/social.html', import.meta.url), 'utf8');
+// 2026-08-04: the cover-note indicator now renders inside the Create > Instagram tab of the
+// unified marketing.html workspace.
+const HTML = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
 
 const slide = (id, media_key, seq) => ({ id, media_key, seq });
 
