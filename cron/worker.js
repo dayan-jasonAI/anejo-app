@@ -26,7 +26,10 @@ const EXTRA_ENDPOINTS = {
   '30 18 * * *': ['/api/hub/admin/ops-report?type=eod_lunch'],   // ≈ 2:30pm ET — end of lunch service
   '30 0 * * *': ['/api/hub/admin/ops-report?type=eod_dinner'],   // ≈ 8:30pm ET — end of dinner service
   '0 12 * * 0': ['/api/hub/admin/ops-report?type=weekly_summary'], // Sundays ≈ 8am ET — weekly summary
-  '0 10 * * 1': ['/api/hub/admin/backup'],
+  // Mondays 10:00 UTC — weekly backup, then the activity_log retention sweep. Retention runs
+  // AFTER the backup on purpose: the week's pruned rows are already captured in R2 before they
+  // leave D1. ?apply=1 because postPath() always sends '{}', and the endpoint dry-runs by default.
+  '0 10 * * 1': ['/api/hub/admin/backup', '/api/hub/admin/retention-tick?apply=1'],
   // Daily Instagram performance snapshot ≈ 6am ET — the learning loop's input. Daily because the
   // day-over-day curve IS the signal; a weekly pull would flatten "died instantly" and "slow
   // burner" into the same number.

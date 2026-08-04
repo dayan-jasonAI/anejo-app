@@ -1,76 +1,164 @@
+# Añejo — Tracking Plan v2
+#
+# WHAT CHANGED FROM v1, AND WHY IT MATTERS
+# v1 (2026-06-06) declared "Greenfield: no current tracking" and named PostHog as the destination.
+# Both were false by the time anyone read them again. All 46 v1 events were built, 57 MORE shipped
+# undocumented, and PostHog was never bound in production — verified 2026-08-04 by reading the
+# Cloudflare Pages config: 34 env vars, no POSTHOG_KEY. Every event has always gone to D1.
+#
+# The dual-write in functions/_lib/track.js is the only reason this data exists: it writes
+# activity_log FIRST and treats PostHog as optional. Built exactly as v1 specified, Añejo would
+# have zero telemetry today. v2 documents what is real.
+#
+# READ BEFORE EDITING: _AI_COLLABORATION_COMMAND_CENTER/TELEMETRY_ESTATE.md (the cross-surface
+# registry). It is authoritative over this file. Do not re-propose PostHog or session replay.
+
 meta:
-  product: "Añejo HUB"
-  version: 1
+  product: "Añejo"
+  version: 2
   created: 2026-06-06
-  updated: 2026-06-06
+  updated: 2026-08-04
   owner: "Dayan (owner) / Añejo ops"
-  destinations: [posthog]
+  estate_registry: "_AI_COLLABORATION_COMMAND_CENTER/TELEMETRY_ESTATE.md — read it BEFORE changing this file"
+  audit: ".telemetry/delta-2026-08-03-audit.md — the reconciliation this version is built on"
+  changelog:
+    - >-
+      v2 (2026-08-04): destination corrected from posthog to first-party D1 (proven: PostHog never
+      bound). 57 undocumented events added. entities.user traits, groups traits and snapshot_sync
+      DELETED as dead vendor scaffolding. Marketing site added as a second surface. Tiered retention
+      and a client-event allowlist added. Naming/group semantics clarified. No event was removed.
   naming_convention: "object.action snake_case"
-  pii_policy: traits_only
-  internal_user_policy: "track all human staff; tag automation with actor_type=system; exclude actor_type=system from adoption metrics"
-  notes: >
-    Internal single-tenant ops app extending anejo-app (Cloudflare Pages + D1 + KV).
-    This plan is the master feature inventory for the build workflow. Every event below
-    maps to a screen/capability that must exist. Greenfield: no current tracking.
+  pii_policy: none
+  pii_policy_detail: >-
+    No PII in event properties, on any surface — no names, emails, phones, addresses or answer text.
+    The code already follows this: it sends has_email, email_changed, has_address, has_receipt as
+    BOOLEANS, never values. Identity is always a staff/user id (ctx.distinct_id, sess.uid, staff.id),
+    NEVER an email. This is the standing DMD law that PII never leaves the Mac, and the estate rule
+    "Identify by user_id only. Never by email."
+  internal_user_policy: >-
+    Track all human staff; automation is tagged actor_type=system. EXCLUDE actor_type='system' from
+    every adoption metric. Enforced at the read side by /api/hub/owner/adoption.
 
-# ---- shared property conventions ----
-# Every event SHOULD carry: actor_id, actor_role, actor_type (human|system), team, platform (pwa|web|sms|api), client_ts
-# These are added globally by the tracking module, not repeated per-event below unless required for meaning.
+# ---------------------------------------------------------------------------------------------
+# SURFACES — Añejo is TWO surfaces sharing one repo. Conflating them is what hid the GA4 property
+# from the estate registry for two months.
+# ---------------------------------------------------------------------------------------------
+surfaces:
+  - name: hub
+    what: "The internal ops app at /hub/* — owner, kitchen, driver, trainer, client, vendor roles."
+    destination: d1_activity_log
+    id: "table: activity_log (D1 binding DB)"
+    module: "functions/_lib/track.js → capture() / captureSystem()"
+    client_rail: "Hub.track(name, props) → POST /api/hub/track (identity resolved server-side, never trusted from the body)"
+    events: "every event in the events: block below (103 live)"
+    posthog: >-
+      Optional, dead, and staying that way. track.js POSTs only if POSTHOG_KEY is bound; it is not,
+      and per estate decision 4 it is not required anywhere. The $groups payload built after that
+      early return is unreachable code.
+  - name: marketing_site
+    what: "The public site — 53 pages under public/ (menu, calculator, meal-prep SEO pages, EN/ES)."
+    destination: ga4
+    id: "G-FXFE29V2PL — Añejo's OWN property. Never share a property across DRH / Aether / Añejo."
+    module: "public/assets/js/consent.js"
+    consent: >-
+      OPT-IN gated. GA4 does not load until the visitor clicks Accept; 'declined' never loads it.
+      This means GA4 undercounts by design and is NOT the site's traffic source of truth.
+    second_destination: first_party_page_views
+    second_destination_detail: >-
+      table: page_views (migration 0033) — first-party, cookieless, no IP, no user-agent. Ungated,
+      so it sees every visitor. THIS is the traffic source of truth; it backs /hub/owner/traffic.html.
+    zero_overlap: "No /hub/* page loads consent.js. No marketing page emits a capture() event. Verified 2026-08-04."
+    cloudflare_web_analytics: "NOT present on this surface — checked 2026-08-04 (no cloudflareinsights beacon, no /cdn-cgi/rum)."
 
-entities:
-  user:
-    id_property: user_id
-    id_format: "usr_*"
-    traits:
-      - { name: email, type: string, pii: true, update: on-change, required: true }
-      - { name: name, type: string, pii: true, update: on-change, required: true }
-      - { name: phone, type: string, pii: true, update: on-change, required: false }
-      - { name: role, type: string, enum: [owner, kitchen, driver, trainer, client, vendor], update: on-change, required: true }
-      - { name: team, type: string, enum: [kitchen, delivery, training, front_office, vendors], update: on-change, required: false }
-      - { name: employment_type, type: string, enum: [w2, contractor, external], update: on-change, required: false }
-      - { name: is_active, type: boolean, update: on-change, required: true }
-      - { name: created_at, type: datetime, update: one-time, required: true }
-      - { name: activated_at, type: datetime, update: one-time, required: false }
-      - { name: last_active_at, type: datetime, update: scheduled, required: false }
-      # snapshot metrics (scheduled)
-      - { name: shifts_last_30d_count, type: integer, update: scheduled, required: false }
-      - { name: eod_reports_last_30d_count, type: integer, update: scheduled, required: false }
-      - { name: eod_compliance_rate_30d, type: number, update: scheduled, required: false }
-      - { name: deliveries_completed_count, type: integer, update: scheduled, required: false }
-      - { name: tickets_open_count, type: integer, update: scheduled, required: false }
-      - { name: recipes_created_count, type: integer, update: scheduled, required: false }
+# ---------------------------------------------------------------------------------------------
+# READER — the estate rule: name the surface that reads this and the person who reads it, or the
+# table becomes the fifth "engine with no screen".
+# ---------------------------------------------------------------------------------------------
+reader:
+  - question: "Is my team actually using the HUB, and are they filing EOD reports?"
+    surface: "/hub/owner/adoption.html"
+    who: "Dayan (owner)"
+    source: "activity_log WHERE actor_type='human'"
+  - question: "What just happened in my business?"
+    surface: "/hub/owner/ (activity feed)"
+    who: "Dayan (owner)"
+    source: "GET /api/hub/owner/activity"
+  - question: "How much traffic does the public site get, and from where?"
+    surface: "/hub/owner/traffic.html"
+    who: "Dayan (owner)"
+    source: "page_views (first-party), NOT GA4"
 
+# ---------------------------------------------------------------------------------------------
+# GROUPS — exactly TWO types. v1 declared two but then used five values for group_level
+# (business, team, kitchen, delivery, vendors). kitchen/delivery/vendors are TEAM NAMES, not group
+# types. The code was always right: track.js emits business + team_<name> and nothing else.
+# ---------------------------------------------------------------------------------------------
 groups:
   - type: business
-    id_format: "biz_anejo"
-    is_top_level: true
-    triggers: [creation, trait-change, scheduled]
-    traits:
-      - { name: name, type: string }
-      - { name: active_staff_count, type: integer, update: scheduled }
-      - { name: orders_open_count, type: integer, update: scheduled }
-      - { name: deliveries_today_count, type: integer, update: scheduled }
-      - { name: eod_compliance_rate_today, type: number, update: scheduled }
-      - { name: mrr_cents, type: integer, update: scheduled }
+    id: "biz_anejo"
+    note: "Constant. Añejo is single-tenant — this exists for shape, not for slicing."
   - type: team
     id_format: "team_*"
     parent_type: business
-    triggers: [creation, trait-change, scheduled]
-    traits:
-      - { name: name, type: string, enum: [kitchen, delivery, training, front_office, vendors] }
-      - { name: member_count, type: integer, update: scheduled }
-      - { name: on_shift_count, type: integer, update: scheduled }
+    values: [kitchen, delivery, training, front_office, vendors]
+    note: "Stored as the 'team' COLUMN on activity_log. Slicing by team is a GROUP BY, not a group object."
+group_level_semantics: >-
+  In the events: block, group_level: business means the event is business-scoped. ANY OTHER VALUE
+  (team, kitchen, delivery, vendors) means team-scoped, and the value is the team name. There are
+  only two group types. Left as authored rather than mass-edited, so the v1 entries stay verbatim.
 
-snapshot_sync:
-  cadence: hourly
-  traits:
-    - { entity: business, trait: orders_open_count, source: "COUNT orders WHERE status IN (pending,paid)" }
-    - { entity: business, trait: deliveries_today_count, source: "COUNT deliveries WHERE date=today" }
-    - { entity: business, trait: eod_compliance_rate_today, source: "eod_reports submitted / staff on shift today" }
-    - { entity: team, trait: on_shift_count, source: "COUNT shifts open WHERE team=?" }
-    - { entity: user, trait: eod_compliance_rate_30d, source: "eod submitted / shifts worked, last 30d" }
-    - { entity: user, trait: last_active_at, source: "MAX(event ts) per user" }
+# ---------------------------------------------------------------------------------------------
+# RETENTION — tiered. Ruled by Dayan 2026-08-04.
+# Size is NOT the driver: production holds ~4,400 activity rows over 57 days (~78/day) in a 6.3 MB
+# database against a 10 GB limit. This is about hygiene and never destroying a financial record.
+# ---------------------------------------------------------------------------------------------
+retention:
+  policy: tiered
+  never_prune:
+    reason: "Money, food safety and contractual records. These are the durable trail — Square and DBPR may need them."
+    events: [order.refunded, order.canceled, expense.submitted, expense.reviewed, temp_log.recorded,
+             delivery.completed, delivery.failed, qbo.invoice_pushed, contract.account_created,
+             contract.site_added, contract.billing_contact_set, ticket.created, ticket.resolved]
+  prune_after_days: 180
+  prune_only:
+    reason: "High-volume navigation noise with no evidentiary value."
+    events: [dashboard.viewed, doc.viewed, order_summary.viewed, customer.viewed, track.rejected]
+  everything_else: "KEPT. The default is to retain — pruning is opt-in per event name, never a blanket sweep."
+  job: "POST /api/hub/admin/retention-tick (X-Cron-Key), weekly. Reports counts; deletes only the prune_only list."
 
+# ---------------------------------------------------------------------------------------------
+# CLIENT EVENT ALLOWLIST — /api/hub/track accepted ANY string until v2. Unknown names are now
+# rejected 400 AND recorded as track.rejected, so a name I failed to allowlist shows up loudly
+# instead of dying silently.
+# ---------------------------------------------------------------------------------------------
+client_allowlist:
+  enforced_at: "functions/api/hub/track.js"
+  source_of_truth: "functions/_lib/track-allowlist.js — generated from THIS file, not hand-maintained"
+  on_unknown: "HTTP 400 + capture('track.rejected', { attempted, reason })"
+  currently_allowed: [dashboard.viewed, app.installed, customer.viewed, customer.login_link_sent, lead.converted]
+
+# ---------------------------------------------------------------------------------------------
+# DELETED IN v2 — recorded so nobody rebuilds them.
+# ---------------------------------------------------------------------------------------------
+removed_in_v2:
+  - what: "entities.user (15 person traits: email, name, role, eod_compliance_rate_30d, …)"
+    why: >-
+      PostHog person traits with no PostHog. There is no person object to attach them to. Every one
+      of these already lives on the staff table — join to it rather than mirroring it into a vendor.
+  - what: "groups.traits (business: 6, team: 3) and all $groupidentify intent"
+    why: >-
+      Never emitted. The $groups payload is unreachable code behind the dead PostHog branch. Añejo
+      is single-tenant; business is a constant and team is a column.
+  - what: "snapshot_sync (hourly sync of 6 rollup traits)"
+    why: >-
+      Its only purpose was pushing traits to a vendor. The same six numbers are live SQL against D1
+      whenever a screen asks for them — which is exactly what /hub/owner/adoption now does. Building
+      an hourly sync to a dead endpoint is the estate's "engine with no screen" pattern.
+
+# ---------------------------------------------------------------------------------------------
+# EVENTS — 46 from v1 (verbatim) + 60 added in v2.
+# Entries carrying 'undocumented_until: v2' shipped in production BEFORE they were ever planned.
+# ---------------------------------------------------------------------------------------------
 events:
   # ---------- Lifecycle / adoption ----------
   - { name: user.invited, category: lifecycle, group_level: business, description: "Owner/admin invites a staff member or external contact", expected_frequency: low,
@@ -170,7 +258,7 @@ events:
 
   # ---------- AI automation (cross-cutting) ----------
   - { name: automation.run, category: ai, group_level: business, description: "A scheduled/triggered automation executes", expected_frequency: high,
-      properties: [ {name: automation_type, type: string, enum: [route_optimize,daily_summary,restock_suggest,eod_chase,ticket_triage,sentiment_scan,payroll_prep,d1_backup], required: true}, {name: outcome, type: string, enum: [success,partial,failed], required: true}, {name: actor_type, type: string, enum: [system], required: true} ] }
+      properties: [ {name: automation_type, type: string, enum: [route_optimize,daily_summary,restock_suggest,eod_chase,ticket_triage,sentiment_scan,payroll_prep,d1_backup,activity_retention], required: true}, {name: outcome, type: string, enum: [success,partial,failed], required: true}, {name: actor_type, type: string, enum: [system], required: true} ] }
   - { name: agent_task.completed, category: ai, group_level: team, description: "An AI agent finishes a unit of work", expected_frequency: high,
       properties: [ {name: task_type, type: string, required: true}, {name: duration_ms, type: integer, required: false}, {name: tokens, type: integer, required: false} ] }
   - { name: ai_suggestion.actioned, category: ai, group_level: team, description: "A human accepts/dismisses an AI suggestion (measures AI value)", expected_frequency: high,
@@ -181,3 +269,211 @@ events:
       properties: [ {name: restock_order_id, type: string, required: true} ] }
   - { name: vendor.delivery_confirmed, category: core_value, group_level: vendors, description: "Vendor marks a PO delivered / kitchen receives it", expected_frequency: medium,
       properties: [ {name: restock_order_id, type: string, required: true}, {name: received_complete, type: boolean, required: true} ] }
+
+  # ---------- Contracts / multi-site catering ----------
+  - { name: contract.account_created, category: core_value, group_level: business, description: "A corporate catering account is created", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: account_id, type: string, required: false}, {name: sites, type: string, required: false}, {name: source, type: string, required: false} ] }
+  - { name: contract.site_added, category: core_value, group_level: business, description: "A delivery site is added to a contract account", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: account_id, type: string, required: false}, {name: site_id, type: string, required: false}, {name: inherited_terms, type: string, required: false} ] }
+  - { name: contract.billing_contact_set, category: core_value, group_level: business, description: "Billing contact set on a contract account", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: account_id, type: string, required: false}, {name: has_email, type: string, required: false} ] }
+  - { name: contract.cutoff_missing, category: core_value, group_level: business, description: "AUTOMATION: a site has not sent its lunch count before the 09:15 ET cutoff", expected_frequency: medium,
+      undocumented_until: v2, actor_type: system,
+      properties: [ {name: date, type: string, required: false}, {name: missing, type: string, required: false}, {name: count, type: string, required: false} ] }
+  - { name: ordering.settings_changed, category: core_value, group_level: business, description: "Owner changes ordering rules (e.g. scheduled-only)", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: changed, type: string, required: false}, {name: scheduled_only, type: string, required: false} ] }
+
+  # ---------- Order money & kitchen state ----------
+  - { name: order.canceled, category: core_value, group_level: business, description: "MONEY: an order is cancelled; money may still be held at Square", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: order_id, type: string, required: false}, {name: from_status, type: string, required: false}, {name: reason, type: string, required: false}, {name: money_held_cents, type: string, required: false} ] }
+  - { name: order.refunded, category: core_value, group_level: business, description: "MONEY: an order is refunded in full or part. The durable trail — Square is the source of truth for the money itself", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: order_id, type: string, required: false}, {name: amount_cents, type: string, required: false}, {name: reason, type: string, required: false}, {name: partial, type: string, required: false}, {name: refund_id, type: string, required: false}, {name: refund_status, type: string, required: false}, {name: manual_followups, type: string, required: false} ] }
+  - { name: order.bowl_checked, category: core_value, group_level: kitchen, description: "Kitchen ticks a bowl off an order on the board", expected_frequency: high,
+      undocumented_until: v2,
+      properties: [ {name: order_id, type: string, required: false}, {name: state, type: string, required: false}, {name: via_pin, type: string, required: false} ] }
+  - { name: order.kitchen_cleared, category: core_value, group_level: kitchen, description: "Order cleared from the kitchen board", expected_frequency: high,
+      undocumented_until: v2,
+      properties: [ {name: order_id, type: string, required: false}, {name: via_pin, type: string, required: false} ] }
+  - { name: recipe.cost_calculated, category: core_value, group_level: kitchen, description: "Recipe costed against current inventory prices", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: recipe_id, type: string, required: false}, {name: est_cost_cents, type: string, required: false}, {name: unmatched_count, type: string, required: false} ] }
+  - { name: menu.stock_counted, category: core_value, group_level: kitchen, description: "Menu item stock counted", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: item_id, type: string, required: false}, {name: stock_count, type: string, required: false}, {name: was, type: string, required: false} ] }
+
+  # ---------- Inventory ----------
+  - { name: inventory.counted, category: core_value, group_level: kitchen, description: "Inventory item physically counted", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: item_id, type: string, required: false}, {name: on_hand, type: string, required: false}, {name: par_level, type: string, required: false} ] }
+  - { name: inventory.updated, category: core_value, group_level: kitchen, description: "Inventory item edited (par level, add, remove)", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: item_id, type: string, required: false}, {name: action, type: string, required: false}, {name: par_level, type: string, required: false} ] }
+
+  # ---------- Driver route lifecycle (offer → accept → drive) ----------
+  - { name: route.accepted, category: core_value, group_level: delivery, description: "Driver accepts an offered route", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: route_id, type: string, required: false} ] }
+  - { name: route.declined, category: core_value, group_level: delivery, description: "Driver declines an offered route", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: route_id, type: string, required: false} ] }
+  - { name: route.released, category: core_value, group_level: delivery, description: "Owner releases a route back to the offer pool", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: route_id, type: string, required: false}, {name: stops_released, type: string, required: false}, {name: offer_status, type: string, required: false} ] }
+  - { name: route.reoffered, category: core_value, group_level: delivery, description: "Route re-offered after a decline or timeout", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: route_id, type: string, required: false}, {name: driver_id, type: string, required: false}, {name: unfilled, type: string, required: false} ] }
+  - { name: delivery.picked, category: core_value, group_level: delivery, description: "Driver confirms pickup/loadout of a stop", expected_frequency: high,
+      undocumented_until: v2,
+      properties: [ {name: route_id, type: string, required: false}, {name: stop_id, type: string, required: false}, {name: confirmed, type: string, required: false}, {name: total, type: string, required: false}, {name: flagged, type: string, required: false}, {name: via_pin, type: string, required: false} ] }
+  - { name: delivery.en_route, category: core_value, group_level: delivery, description: "Driver departs for a stop", expected_frequency: high,
+      undocumented_until: v2,
+      properties: [ {name: route_id, type: string, required: false}, {name: stop_id, type: string, required: false}, {name: eta_min, type: string, required: false} ] }
+  - { name: delivery.arriving, category: core_value, group_level: delivery, description: "Arrival imminent — drives the customer heads-up", expected_frequency: high,
+      undocumented_until: v2,
+      properties: [ {name: route_id, type: string, required: false}, {name: stop_id, type: string, required: false}, {name: eta_min, type: string, required: false}, {name: trigger, type: string, required: false} ] }
+  - { name: driver.availability, category: core_value, group_level: delivery, description: "Driver marks themselves available or unavailable", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: available, type: string, required: false} ] }
+
+  # ---------- Scheduling ----------
+  - { name: shift.scheduled, category: core_value, group_level: team, description: "Owner schedules a shift for a staff member", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: schedule_id, type: string, required: false}, {name: staff_id, type: string, required: false}, {name: shift_date, type: string, required: false}, {name: start, type: string, required: false}, {name: end, type: string, required: false}, {name: label, type: string, required: false} ] }
+  - { name: shift.schedule_canceled, category: core_value, group_level: team, description: "A scheduled shift is cancelled", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: schedule_id, type: string, required: false}, {name: staff_id, type: string, required: false}, {name: shift_date, type: string, required: false} ] }
+  - { name: staff.nudged, category: core_value, group_level: team, description: "Owner nudges a staff member (EOD chase, reminder)", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: staff_id, type: string, required: false}, {name: kind, type: string, required: false}, {name: lang, type: string, required: false}, {name: first_time, type: string, required: false}, {name: sent_at, type: string, required: false} ] }
+
+  # ---------- Training ----------
+  - { name: training.completed, category: core_value, group_level: team, description: "Staff completes a training module", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: module, type: string, required: false}, {name: lang, type: string, required: false} ] }
+  - { name: training.rule_added, category: core_value, group_level: kitchen, description: "A rule is added to the training/brand corpus", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: id, type: string, required: false} ] }
+  - { name: training.example_added, category: core_value, group_level: kitchen, description: "A worked example is added to the training corpus", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: id, type: string, required: false}, {name: flag, type: string, required: false} ] }
+  - { name: training.image_uploaded, category: core_value, group_level: kitchen, description: "A reference image is uploaded to the training corpus", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: bytes, type: string, required: false}, {name: key, type: string, required: false}, {name: content_type, type: string, required: false} ] }
+
+  # ---------- Social / content engine ----------
+  - { name: social.post_drafted, category: core_value, group_level: business, description: "A social post is drafted", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: scheduled, type: string, required: false}, {name: has_caption, type: string, required: false}, {name: media_type, type: string, required: false} ] }
+  - { name: social.post_scheduled, category: core_value, group_level: business, description: "A social post is scheduled", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: post_id, type: string, required: false}, {name: lead_minutes, type: string, required: false} ] }
+  - { name: social.post_published, category: core_value, group_level: business, description: "A social post goes live on the profile", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: post_id, type: string, required: false}, {name: scheduled, type: string, required: false}, {name: has_permalink, type: string, required: false} ] }
+  - { name: social.media_uploaded, category: core_value, group_level: business, description: "Media uploaded for a social post", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: bytes, type: string, required: false}, {name: key, type: string, required: false} ] }
+  - { name: social.carousel_generated, category: ai, group_level: business, description: "AI generates a multi-slide carousel", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: post_id, type: string, required: false}, {name: added, type: string, required: false}, {name: requested, type: string, required: false}, {name: slides, type: string, required: false} ] }
+  - { name: social.cover_generated, category: ai, group_level: business, description: "AI generates a cover image", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: provider, type: string, required: false}, {name: slides, type: string, required: false}, {name: from_brief, type: string, required: false} ] }
+  - { name: social.reference_variant_generated, category: ai, group_level: business, description: "AI generates a bowl photo conditioned on a reference image", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: post_id, type: string, required: false}, {name: bowl, type: string, required: false}, {name: provider, type: string, required: false} ] }
+  - { name: social.ig_token_expiry_set, category: core_value, group_level: business, description: "Instagram token expiry recorded or cleared", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: cleared, type: string, required: false} ] }
+  - { name: campaign.scheduled, category: core_value, group_level: business, description: "An email/SMS campaign is scheduled", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: campaign_id, type: string, required: false}, {name: lead_minutes, type: string, required: false} ] }
+
+  # ---------- Site copy / content blocks ----------
+  - { name: content.slot_updated, category: core_value, group_level: business, description: "A public-site content slot is updated", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: slot, type: string, required: false}, {name: active, type: string, required: false}, {name: scheduled, type: string, required: false}, {name: created, type: string, required: false}, {name: placement, type: string, required: false} ] }
+  - { name: content.slot_deleted, category: core_value, group_level: business, description: "A public-site content slot is deleted", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: slot, type: string, required: false} ] }
+  - { name: content.legal_saved, category: core_value, group_level: business, description: "A legal page is saved and optionally published", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: doc, type: string, required: false}, {name: published, type: string, required: false} ] }
+
+  # ---------- Creative Studio briefs ----------
+  - { name: brief_proposal.created, category: core_value, group_level: kitchen, description: "The Studio proposes a change to the brand Brief", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: proposal_id, type: string, required: false}, {name: session_id, type: string, required: false} ] }
+  - { name: brief_proposal.approved, category: core_value, group_level: business, description: "Owner approves a Brief change (overwrites the live Brief). NOTE: emitted as \"brief_proposal.\" + status", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: proposal_id, type: string, required: false} ] }
+  - { name: brief_proposal.rejected, category: core_value, group_level: business, description: "Owner rejects a Brief change. Same runtime-composed name", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: proposal_id, type: string, required: false} ] }
+  - { name: brief_proposal.needs_info, category: core_value, group_level: business, description: "Owner asks for clarification before deciding. Same runtime-composed name", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: proposal_id, type: string, required: false} ] }
+  - { name: brief_version.restored, category: core_value, group_level: business, description: "A previous Brief version is restored", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: doc_id, type: string, required: false}, {name: version_id, type: string, required: false} ] }
+  - { name: studio.content_generated, category: ai, group_level: kitchen, description: "Studio generates content in a session", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: session_id, type: string, required: false}, {name: has_image, type: string, required: false}, {name: demo, type: string, required: false} ] }
+
+  # ---------- Knowledge / AI assistant ----------
+  - { name: knowledge.document_indexed, category: ai, group_level: business, description: "A document is indexed into the knowledge base", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: doc_id, type: string, required: false}, {name: source_kind, type: string, required: false}, {name: authority, type: string, required: false}, {name: chunks, type: string, required: false}, {name: indexed, type: string, required: false}, {name: failed, type: string, required: false}, {name: status, type: string, required: false}, {name: extractor, type: string, required: false} ] }
+  - { name: hub.question_asked, category: ai, group_level: business, description: "Owner asks the HUB assistant a question", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: chars, type: string, required: false}, {name: filed, type: string, required: false}, {name: tokens, type: string, required: false} ] }
+  - { name: team_lead.message, category: ai, group_level: team, description: "The Team Lead agent produces a reply", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: ok, type: string, required: false}, {name: model, type: string, required: false}, {name: reason, type: string, required: false}, {name: action, type: string, required: false} ] }
+
+  # ---------- Customers / CRM ----------
+  - { name: customer.viewed, category: navigation, group_level: business, description: "Owner opens a customer record", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: has_client, type: string, required: false}, {name: orders_count, type: string, required: false}, {name: platform, type: string, required: false} ] }
+  - { name: customer.profile_updated, category: core_value, group_level: business, description: "A customer profile is edited", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: fields, type: string, required: false}, {name: email_changed, type: string, required: false} ] }
+  - { name: customer.login_link_sent, category: core_value, group_level: business, description: "A sign-in link is emailed to a customer", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: platform, type: string, required: false} ] }
+  - { name: lead.converted, category: core_value, group_level: business, description: "A lead is converted to a customer", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: kind, type: string, required: false}, {name: already, type: string, required: false}, {name: platform, type: string, required: false} ] }
+  - { name: rewards.founding_repaired, category: core_value, group_level: business, description: "Founding-member rewards backfilled for a customer", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: granted, type: string, required: false} ] }
+
+  # ---------- Finance integration ----------
+  - { name: qbo.invoice_pushed, category: core_value, group_level: business, description: "An invoice is pushed to QuickBooks", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [ {name: invoice_id, type: string, required: false}, {name: already, type: string, required: false}, {name: customer_created, type: string, required: false} ] }
+  - { name: qbo.disconnected, category: core_value, group_level: business, description: "The QuickBooks connection is removed", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [  ] }
+
+  # ---------- Reminders & push ----------
+  - { name: reminder.created, category: core_value, group_level: kitchen, description: "A scheduled reminder is created", expected_frequency: medium,
+      undocumented_until: v2,
+      properties: [ {name: reminder_type, type: string, required: false}, {name: reminder_id, type: string, required: false}, {name: target_team, type: string, required: false}, {name: targeted, type: string, required: false} ] }
+  - { name: push.subscribed, category: lifecycle, group_level: team, description: "A device subscribes to push notifications", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [  ] }
+  - { name: push.unsubscribed, category: lifecycle, group_level: team, description: "A device unsubscribes from push", expected_frequency: low,
+      undocumented_until: v2,
+      properties: [  ] }
+
+  # ---------- Telemetry governance ----------
+  - { name: track.rejected, category: governance, group_level: business, description: "SYSTEM: a client posted an event name not in this plan; the name is recorded so nothing dies silently", expected_frequency: low,
+      undocumented_until: v2, actor_type: system,
+      properties: [ {name: attempted, type: string, required: false}, {name: reason, type: string, required: false} ] }

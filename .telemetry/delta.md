@@ -1,3 +1,7 @@
+> ⚠️ **STALE — DO NOT PLAN FROM THIS FILE (marked 2026-08-03).** Its premise is false: all 46 events
+> below were built, and 50 more shipped on top of them. Kept only as the historical record of the
+> 2026-06-06 design intent. The honest delta is **`delta-2026-08-03-audit.md`**.
+
 # Delta: Current → Target — Añejo HUB
 
 **Current state: greenfield.** The `anejo-app` codebase has no analytics SDK and no telemetry instrumentation. Therefore the delta is **ADD everything** (46 events). A formal audit (`product-tracking-audit-current-tracking`) would confirm zero existing events; this delta assumes that and should be re-validated if any tracking is later found.

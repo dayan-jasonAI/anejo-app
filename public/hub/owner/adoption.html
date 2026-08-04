@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Adoption</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  /* Deliberately mirrors traffic.html so the two analytics screens read as one system.
+     Same card rhythm, same segmented control, same serif numerals. */
+  .tcard{margin-bottom:14px}
+  .trow{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dotted var(--line)}
+  .trow:last-child{border-bottom:0}
+  .trow .lbl{color:var(--green);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* The EOD row's label is a full sentence, not a name — let it wrap rather than ellipsis away
+     the part that says what the ratio means. Truncation is fine for arbitrary data (names, event
+     ids); it is not fine for the one label that explains the number next to it. */
+  .trow.wrap .lbl{white-space:normal;overflow:visible}
+  .trow .n{font-weight:700;color:var(--gold-dark);font-variant-numeric:tabular-nums}
+  .trow .sub{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+  .big{font-family:'Cormorant Garamond',Georgia,serif;font-size:34px;color:var(--green);font-weight:600;font-variant-numeric:tabular-nums}
+  .seg{display:flex;gap:6px;margin:8px 0 14px}
+  /* 44px min height — touch target floor. */
+  .seg button{flex:1;min-height:44px;padding:8px;border:1px solid var(--line);background:#fff;border-radius:8px;font:inherit;cursor:pointer}
+  .seg button.on{background:var(--green);color:#fff;border-color:var(--green)}
+  .seg button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  /* Bullet/progress meter. The NUMBER is always rendered as text next to it — the bar is a
+     secondary cue, never the only one (colour-blind + screen-reader safe). */
+  .meter{height:10px;border-radius:999px;background:var(--green-200);overflow:hidden;margin:8px 0 6px}
+  .meter > i{display:block;height:100%;border-radius:999px;background:var(--ok);transition:width .3s ease-out}
+  .meter.warn > i{background:var(--warn)}
+  .meter.crit > i{background:var(--crit)}
+  .grade{font-size:12px;font-weight:700;letter-spacing:.02em}
+  .grade.ok{color:var(--ok)} .grade.warn{color:var(--gold-dark)} .grade.crit{color:var(--crit)}
+
+  /* Sparkline for daily actives: 4+ points only, else the number card says it better. */
+  .spark{display:flex;align-items:flex-end;gap:2px;height:44px;margin-top:10px}
+  .spark > i{flex:1;background:var(--green-500);opacity:.55;border-radius:2px 2px 0 0;min-height:2px}
+  .spark > i.last{opacity:1;background:var(--gold)}
+  .note{color:var(--muted);font-size:12px;line-height:1.5}
+  @media (prefers-reduced-motion: reduce){ .meter > i{transition:none} }
+</style>
+</head>
+<body>
+<div class="hub-bar"><h1>AÑEJO · ADOPTION</h1><div class="hub-bar-actions"><a href="/hub/owner/" style="color:var(--gold);text-decoration:none;font-size:13px">← Command</a></div></div>
+<div class="hub-wrap">
+  <div class="seg" id="seg" role="group" aria-label="Time range">
+    <button type="button" data-d="7">7 days</button>
+    <button type="button" data-d="30" class="on" aria-pressed="true">30 days</button>
+    <button type="button" data-d="90">90 days</button>
+  </div>
+
+  <div class="card tcard">
+    <div class="row-sub">Staff active in the HUB</div>
+    <div class="big" id="active">—</div>
+    <div class="row-sub" id="activeSub">people who did real work · humans only</div>
+    <div class="spark" id="spark" aria-hidden="true"></div>
+    <div class="note" id="sparkNote"></div>
+  </div>
+
+  <div class="card tcard">
+    <h2>EOD compliance</h2>
+    <div class="meter" id="eodMeter"><i id="eodBar" style="width:0%"></i></div>
+    <div class="trow wrap"><span class="lbl">Reports filed vs shifts ended</span><span class="n" id="eodRatio">—</span></div>
+    <div class="row-sub"><span class="grade" id="eodGrade"></span> <span id="eodNote"></span></div>
+  </div>
+
+  <div class="card tcard"><h2>Who is using it</h2><div id="byPerson"></div></div>
+  <div class="card tcard"><h2>By role</h2><div id="byRole"></div></div>
+  <div class="card tcard"><h2>What they do most</h2><div id="topEvents"></div></div>
+
+  <div class="card tcard">
+    <h2>Why these numbers are humans-only</h2>
+    <div class="note" id="sysNote">—</div>
+  </div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];});}
+function empty(el,msg){el.innerHTML='<div class="row-sub">'+esc(msg)+'</div>';}
+
+function rows(el,arr,fmt){
+  el.innerHTML=(arr&&arr.length)?arr.map(fmt).join(''):'<div class="row-sub">No activity yet in this window.</div>';
+}
+function ago(ts){
+  if(!ts) return '';
+  var m=Math.floor((Date.now()-ts)/60000);
+  if(m<60) return m+'m ago';
+  var h=Math.floor(m/60); if(h<24) return h+'h ago';
+  return Math.floor(h/24)+'d ago';
+}
+// Thresholds are stated as TEXT as well as colour — never colour alone.
+function grade(pct){
+  if(pct>=90) return {cls:'ok',label:'GOOD',note:'at or above 90%'};
+  if(pct>=70) return {cls:'warn',label:'WATCH',note:'below the 90% target'};
+  return {cls:'crit',label:'LOW',note:'well below the 90% target'};
+}
+
+async function load(days){
+  document.getElementById('activeSub').textContent='last '+days+' days · people who did real work · humans only';
+  var r;
+  try{
+    r=await fetch('/api/hub/owner/adoption?days='+days,{credentials:'same-origin'});
+  }catch(e){ document.getElementById('active').textContent='—'; return; }
+  if(r.status===401||r.status===403){document.getElementById('active').textContent='Sign in as owner';return;}
+  var d;
+  try{ d=await r.json(); }catch(e){ document.getElementById('active').textContent='—'; return; }
+
+  // Headline: active / roster, with the denominator visible so the number means something.
+  document.getElementById('active').textContent =
+    (d.adoption_rate==null) ? String(d.active_staff||0)
+                            : (d.active_staff||0)+' / '+(d.roster||0);
+
+  // Daily actives sparkline — only when there are enough points to show a trend.
+  var spark=document.getElementById('spark'), note=document.getElementById('sparkNote');
+  var byDay=d.by_day||[];
+  if(byDay.length>=4){
+    var max=Math.max.apply(null,byDay.map(function(x){return x.n;}))||1;
+    spark.innerHTML=byDay.map(function(x,i){
+      return '<i class="'+(i===byDay.length-1?'last':'')+'" style="height:'+Math.max(2,Math.round(x.n/max*44))+'px"></i>';
+    }).join('');
+    note.textContent='Daily active staff · peak '+max+' · '+byDay.length+' days with activity';
+  }else{
+    spark.innerHTML='';
+    note.textContent=byDay.length?('Only '+byDay.length+' day(s) with activity — too few to plot a trend.'):'';
+  }
+
+  // EOD compliance: bar + ratio + explicit percentage + text grade.
+  var bar=document.getElementById('eodBar'), meter=document.getElementById('eodMeter');
+  var g=document.getElementById('eodGrade'), n=document.getElementById('eodNote');
+  if(d.eod_compliance_rate==null){
+    bar.style.width='0%'; meter.className='meter';
+    document.getElementById('eodRatio').textContent=(d.eod_submitted||0)+' / 0';
+    g.textContent=''; g.className='grade';
+    n.textContent='No shifts ended in this window, so there is nothing to comply with yet.';
+  }else{
+    var pct=Math.min(100,d.eod_compliance_rate), gr=grade(pct);
+    bar.style.width=pct+'%';
+    meter.className='meter '+(gr.cls==='ok'?'':gr.cls);
+    document.getElementById('eodRatio').textContent=(d.eod_submitted||0)+' / '+(d.eod_expected||0)+'  ('+d.eod_compliance_rate+'%)';
+    g.textContent=gr.label; g.className='grade '+gr.cls;
+    n.textContent='— '+gr.note+'.';
+  }
+
+  rows(document.getElementById('byPerson'),d.by_person,function(p){
+    return '<div class="trow"><span class="lbl">'+esc(p.name)+' <span class="sub">· '+esc(p.role)+' · '+esc(ago(p.last_seen))+'</span></span><span class="n">'+p.events+'</span></div>';
+  });
+  rows(document.getElementById('byRole'),d.by_role,function(x){
+    return '<div class="trow"><span class="lbl">'+esc(x.role)+' <span class="sub">· '+x.people+' active</span></span><span class="n">'+x.events+'</span></div>';
+  });
+  rows(document.getElementById('topEvents'),d.top_events,function(x){
+    return '<div class="trow"><span class="lbl">'+esc(x.event)+'</span><span class="n">'+x.n+'</span></div>';
+  });
+
+  // Make the exclusion legible rather than implicit — otherwise the totals here will never
+  // reconcile with the activity feed and the screen looks broken.
+  var sys=d.system_events_excluded||0, tot=d.total_events||0;
+  document.getElementById('sysNote').textContent = tot
+    ? (sys.toLocaleString()+' of '+tot.toLocaleString()+' events in this window were automation (actor_type=system) and are excluded from every number above. Counting them would make adoption look healthy even if nobody signed in.')
+    : 'No events recorded in this window.';
+}
+
+document.getElementById('seg').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('#seg button').forEach(function(x){x.classList.remove('on');x.removeAttribute('aria-pressed');});
+  b.classList.add('on'); b.setAttribute('aria-pressed','true');
+  load(b.dataset.d);
+});
+
+Hub.boot();
+Owner.init('overview', function(){ load(30); });
+</script>
+<script src="assets/operator.js" defer></script>
+</body>
+</html>
