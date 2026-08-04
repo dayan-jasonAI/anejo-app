@@ -1,0 +1,14 @@
+-- Post provenance gains an intel link (0081): the owner's real complaint was that the Intel
+-- Bench (0070) produced a genuinely good finding — "Añejo has to justify its price, nobody else
+-- in this market charges this much for a meal-plan subscription" — and NOTHING in the product
+-- ever turned that into content. market_intel was written, shown to the owner, and injected as
+-- passive context into the weekly planner's prompt ("context only — never quote"), but no post
+-- was ever traceable back to the finding that (maybe) shaped it. rule_ids and brief_id already
+-- answer "what caused this post" for training rules and campaign briefs; intel_id is the same
+-- question for market research, not a parallel mechanism.
+--
+-- Same additive contract as 0076: a row with intel_id NULL means "recorded, and confirmed no
+-- intel finding directed this post" (the planner ran with none relevant, or found none). NO ROW
+-- AT ALL for a post_id still means UNKNOWN, exactly as 0076 established — this column does not
+-- change that convention, it only adds one more fact a row can carry.
+ALTER TABLE post_provenance ADD COLUMN intel_id TEXT REFERENCES market_intel(id);

@@ -92,9 +92,13 @@ async function executeAction(env, action) {
     if (!question) return { action: 'request_intel', ok: false, error: 'missing question' };
     const reqId = id('intel');
     try {
+      // NB: updated_at genuinely did NOT exist in production until migration 0082 — 0070 declared
+      // it but was a no-op (see that migration's header). This INSERT without it is the ONLY
+      // intel_requests write that ever succeeded, which is why every historical row is
+      // requested_by='lead'. Now that 0082 has added the column, write it like everyone else.
       await env.DB.prepare(
-        "INSERT INTO intel_requests (id, question, status, requested_by, created_at) VALUES (?,?,'pending','lead',?)"
-      ).bind(reqId, question, t).run();
+        "INSERT INTO intel_requests (id, question, status, requested_by, created_at, updated_at) VALUES (?,?,'pending','lead',?,?)"
+      ).bind(reqId, question, t, t).run();
       return { action: 'request_intel', ok: true, request_id: reqId, question };
     } catch (e) {
       return { action: 'request_intel', ok: false, error: String((e && e.message) || '').slice(0, 120) };
