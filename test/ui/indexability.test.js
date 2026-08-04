@@ -22,7 +22,8 @@ const PRIVATE = [
   'login.html', 'lunch-count.html', 'preferences.html', 'feedback.html',
   'client/dashboard.html', 'trainer/dashboard.html',
   'hub/index.html', 'hub/owner/index.html', 'hub/owner/contracts.html',
-  'hub/owner/knowledge.html', 'hub/kitchen/index.html', 'hub/driver/index.html',
+  'hub/owner/knowledge.html', 'hub/owner/marketing-settings.html',
+  'hub/kitchen/index.html', 'hub/driver/index.html',
 ];
 
 for (const p of PUBLIC) {
