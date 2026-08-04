@@ -40,6 +40,10 @@
 
   .ms-q-row { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
   .ms-q-row:last-child { border-bottom:0; }
+  .ms-answer { border-left:3px solid var(--green); padding:8px 0 2px 10px; margin-top:8px; }
+  .ms-answer-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
+  .ms-unanswered { font-size:12px; color:#a6690a; font-weight:600; margin-top:4px; }
+  .ms-manual-answer { margin-top:8px; }
 
   input, select, textarea { width:100%; }
 </style>
@@ -287,6 +291,45 @@
     adhoc: 'No owner question has been answered yet. Ask one below.'
   };
 
+  // An answered request now carries its answer inline (0081 fix) — before this, "done" was a bare
+  // badge and reading the actual text meant hoping it was still the single newest 'adhoc' brief
+  // above. This renders that answer the SAME way a brief renders (ms-brief-body + sources), so a
+  // researched answer and a manually-typed one look identical here.
+  function renderAnswer(a) {
+    if (!a) return '';
+    var srcs = a.sources || [];
+    var sourcesHtml = srcs.length
+      ? '<div class="ms-sources">' + srcs.map(function (u) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(u) + '</a>'; }).join('') + '</div>'
+      : '';
+    return '<div class="ms-answer"><div class="ms-answer-label" data-i18n>Answer</div>' +
+      '<div class="ms-brief-body">' + esc(a.body) + '</div>' + sourcesHtml +
+      '<div class="ms-meta" style="margin-top:4px">' + Owner.timeAgo(a.created_at) + '</div></div>';
+  }
+
+  // A row with no answer gets an explicit "Unanswered" line PLUS the manual-answer form — the
+  // owner's complaint was literally "no way to input an answer." Status alone (a pending/failed
+  // badge) is easy to misread as "the system is on it"; the label says the same thing in words no
+  // one can skim past.
+  function renderQueueRow(r) {
+    var kind = r.status === 'done' ? 'ok' : (r.status === 'failed' ? 'crit' : 'warn');
+    var answered = r.status === 'done' && r.answer;
+    return '<div class="ms-q-row" data-req-id="' + esc(r.id) + '"><div style="flex:1">' +
+      '<div>' + esc(r.question) + '</div>' +
+      '<div class="ms-meta">' + esc(r.requested_by || 'owner') + ' · ' + Owner.timeAgo(r.created_at) + '</div>' +
+      (answered
+        ? renderAnswer(r.answer)
+        : '<div class="ms-unanswered" data-i18n>Unanswered — ' + (r.status === 'failed' ? 'the research attempt failed.' : 'waiting on research, or answer it yourself below.') + '</div>' +
+          '<div class="ms-manual-answer">' +
+            '<button class="btn ghost q-answer-toggle" type="button" data-i18n>Answer manually</button>' +
+            '<div class="q-answer-form" style="display:none;margin-top:6px">' +
+              '<textarea class="q-answer-text" style="min-height:50px" placeholder="Type the answer yourself…"></textarea>' +
+              '<button class="btn primary q-answer-submit" style="margin-top:6px" type="button" data-i18n>Save answer</button>' +
+              '<span class="ms-meta q-answer-stat" style="margin-left:8px"></span>' +
+            '</div>' +
+          '</div>') +
+      '</div>' + Owner.badge(r.status, kind) + '</div>';
+  }
+
   function loadIntel() {
     Owner.get('/api/hub/owner/intel').then(function (d) {
       var el = document.getElementById('intelBody');
@@ -309,14 +352,7 @@
       }).join('');
 
       var reqs = d.requests || [];
-      var queue = reqs.length
-        ? reqs.map(function (r) {
-            var kind = r.status === 'done' ? 'ok' : (r.status === 'failed' ? 'crit' : 'warn');
-            return '<div class="ms-q-row"><div style="flex:1"><div>' + esc(r.question) + '</div>' +
-              '<div class="ms-meta">' + esc(r.requested_by || 'owner') + ' · ' + Owner.timeAgo(r.created_at) + '</div></div>' +
-              Owner.badge(r.status, kind) + '</div>';
-          }).join('')
-        : '<div class="ms-empty" data-i18n>No questions filed yet.</div>';
+      var queue = reqs.length ? reqs.map(renderQueueRow).join('') : '<div class="ms-empty" data-i18n>No questions filed yet.</div>';
 
       el.innerHTML =
         '<button id="runIntel" class="btn ghost" type="button" data-i18n>Run the queue now</button>' +
@@ -357,6 +393,33 @@
         Hub.api('/api/hub/owner/intel', { method: 'POST', body: { question: q } }).then(function (r) {
           if (r && r.ok) { Hub.toast('Question queued'); document.getElementById('intelQ').value = ''; loadIntel(); }
           else { stat.textContent = (r && r.error) || 'Could not queue.'; }
+        });
+      });
+
+      // Per-button listeners, queried fresh after this innerHTML write — same idiom runIntel/
+      // askIntel above already use. NOT delegated on `el`: `el` (#intelBody) is the one node
+      // that survives every loadIntel() re-render (only its innerHTML is replaced), so a
+      // listener attached to `el` itself would stack one more copy on every refresh. Each button
+      // below is a brand-new element created by this render, so its listener dies with it.
+      Array.prototype.forEach.call(el.querySelectorAll('.q-answer-toggle'), function (toggle) {
+        toggle.addEventListener('click', function () {
+          var form = toggle.nextElementSibling;
+          form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        });
+      });
+      Array.prototype.forEach.call(el.querySelectorAll('.q-answer-submit'), function (submit) {
+        submit.addEventListener('click', function () {
+          var row = submit.closest('.ms-q-row');
+          var reqId = row.getAttribute('data-req-id');
+          var text = row.querySelector('.q-answer-text').value.trim();
+          var stat2 = row.querySelector('.q-answer-stat');
+          if (!text) { stat2.textContent = 'Write an answer first.'; return; }
+          submit.disabled = true; stat2.textContent = 'Saving…';
+          Hub.api('/api/hub/owner/intel', { method: 'POST', body: { request_id: reqId, answer: text } }).then(function (r) {
+            submit.disabled = false;
+            if (r && r.ok) { Hub.toast('Answer saved'); loadIntel(); }
+            else { stat2.textContent = (r && r.error) || 'Could not save.'; }
+          });
         });
       });
 

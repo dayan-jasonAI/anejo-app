@@ -92,9 +92,13 @@ async function executeAction(env, action) {
     if (!question) return { action: 'request_intel', ok: false, error: 'missing question' };
     const reqId = id('intel');
     try {
+      // updated_at is NOT NULL in the shared schema (0070) — omitting it here used to throw on
+      // every single lead-filed question, which the catch below swallowed into a silent
+      // { ok:false }, so the Lead's request_intel action looked wired up but never actually
+      // queued anything.
       await env.DB.prepare(
-        "INSERT INTO intel_requests (id, question, status, requested_by, created_at) VALUES (?,?,'pending','lead',?)"
-      ).bind(reqId, question, t).run();
+        "INSERT INTO intel_requests (id, question, status, requested_by, created_at, updated_at) VALUES (?,?,'pending','lead',?,?)"
+      ).bind(reqId, question, t, t).run();
       return { action: 'request_intel', ok: true, request_id: reqId, question };
     } catch (e) {
       return { action: 'request_intel', ok: false, error: String((e && e.message) || '').slice(0, 120) };

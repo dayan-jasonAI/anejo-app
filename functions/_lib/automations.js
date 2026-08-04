@@ -87,9 +87,17 @@ function etHourOfSchedule(ms) {
  * nothing on any failure — a missing table (pre-migration), an empty one, or no Vectorize/AI
  * binding must never break the weekly run; it should just leave the planner exactly as informed
  * as it was before this function existed.
+ *
+ * Returns { text, intelIds }: `text` is the prompt section (unchanged shape from before this
+ * comment), `intelIds` is the Set of market_intel.id values that were ACTUALLY shown to the
+ * model this run. The planner is about to be asked to name which intel id (if any) shaped a
+ * post's angle — intelIds is how the caller checks that answer against the truth instead of
+ * trusting whatever id string the model hands back. A hallucinated id must never reach
+ * post_provenance as if it were a real citation.
  */
 async function plannerExtraContext(env) {
   const parts = [];
+  const intelIds = new Set();
 
   // The Lead's own campaign direction (team_lead.js writes these via create_brief). Same
   // business, same week — and until now the planner that is supposed to EXECUTE a brief never
@@ -106,14 +114,32 @@ async function plannerExtraContext(env) {
     }
   } catch { /* pre-0069 schema, or no briefs filed yet — planner runs exactly as before this wiring */ }
 
-  // Web research the Intel Bench already paid for (functions/_lib/intel.js writes market_intel)
-  // and that nothing else in the codebase had ever read. Hard-truncated per row: this is a
-  // competitor/market SIGNAL to inform a caption, never a document to reproduce inside one.
+  // Web research the Intel Bench already paid for (functions/_lib/intel.js writes market_intel).
+  // Until this wiring, a finding like "Añejo is the priciest meal-plan subscription in this
+  // market" reached this prompt as inert paragraph text the planner was free to skim past — the
+  // owner's actual complaint. Each row now carries its id so the planner can NAME which finding
+  // it built a post around (see the intel_id field in the output schema below), and
+  // post_provenance.intel_id (0081) makes that citation checkable later, the same way brief_id
+  // already makes a campaign brief's effect checkable.
+  //
+  // THE BOUNDARY, stated where the model cannot miss it: intel is a reason to talk about VALUE
+  // (ingredient quality, macro precision, portioning, time saved), never a source of FACTS about
+  // anyone but Añejo. A pricing signal earns a post about what the price buys — it does not earn
+  // a competitor's name, a competitor's price, or a claim of being better/cheaper/healthier than
+  // anyone. Nothing here overrides the Golden Rule or the claim rules above; if this section and
+  // the brand brief ever conflict, the brand brief wins.
   try {
-    const intel = await rows(env, 'SELECT kind, title, body FROM market_intel ORDER BY created_at DESC LIMIT 2');
+    const intel = await rows(env, 'SELECT id, kind, title, body FROM market_intel ORDER BY created_at DESC LIMIT 2');
     if (intel.length) {
-      parts.push('=== RECENT MARKET INTEL (context only — never quote or present as Añejo\'s own claim) ===\n' +
-        intel.map((r) => `[${r.kind}] ${r.title}\n${String(r.body || '').slice(0, 600)}`).join('\n\n'));
+      for (const r of intel) if (r && r.id) intelIds.add(r.id);
+      parts.push(
+        '=== RECENT MARKET INTEL — read for DIRECTION, never for FACTS to state ===\n' +
+        'Use a finding below only to choose what ANGLE to write about Añejo itself (value, quality, ' +
+        'portioning, macros, time saved). You may NEVER: state a competitor\'s price or name, say or ' +
+        'imply Añejo is cheaper/better/healthier than anyone, or present this research as something ' +
+        'Añejo is claiming about itself. If a finding is not clearly usable within those limits, ' +
+        'ignore it — writing nothing about it is always safe; overreaching is not.\n\n' +
+        intel.map((r) => `[id: ${r.id}] [${r.kind}] ${r.title}\n${String(r.body || '').slice(0, 600)}`).join('\n\n'));
     }
   } catch { /* pre-0070 schema, or nothing researched yet */ }
 
@@ -161,7 +187,7 @@ async function plannerExtraContext(env) {
     if (reaction) parts.push(reaction);
   } catch { /* pre-0064 schema, or nothing published yet */ }
 
-  return parts.join('\n\n');
+  return { text: parts.join('\n\n'), intelIds };
 }
 import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
@@ -860,7 +886,9 @@ async function socialPlan(env, date) {
 
   // Team briefs, market intel, and knowledge-base passages — see plannerExtraContext for why
   // each of these was previously invisible to this planner. Empty string when none apply.
-  const extraContext = await plannerExtraContext(env);
+  // intelIds is the set of market_intel ids actually shown to the model this run — used below to
+  // reject any intel_id the model returns that was not one of the ones it was actually given.
+  const { text: extraContext, intelIds } = await plannerExtraContext(env);
 
   // The brand brief — brand_source.js's shared loader, so an owner edit in the HUB reaches this
   // prompt on the SAME run it reaches the Team Lead and the Studio, not only on the next deploy.
@@ -882,12 +910,21 @@ async function socialPlan(env, date) {
       'photos fails the objective even if every caption is perfect.\n\n' +
       'Every image_brief you write MUST comply with the Photo standard above. ' +
       'Nutrition is always approximate ranges, never medical claims (the Golden Rule). ' +
-      'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19, "category": string}. ' +
+      'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19, "category": string, "intel_id": string|null}. ' +
       // The category feeds the trust ledger (0072): approvals are counted PER LANE, so it must
       // come from this fixed list — an invented lane would start a streak nobody can toggle.
       `category: exactly one of ${TRUST_CATEGORIES.map((c) => `"${c}"`).join(', ')} — the post's primary subject. ` +
       'caption: under 500 characters, 2-4 relevant hashtags at the end. ' +
       'image_brief: one sentence of art direction for a food photo we will generate — subject, angle, light. ' +
+      // intel_id closes the loop the owner actually complained about: a finding sitting in the
+      // Intel Bench that nobody acted on. Copy the "[id: ...]" value VERBATIM from a RECENT
+      // MARKET INTEL entry above ONLY when that entry's finding genuinely shaped this post's
+      // angle (within the VALUE boundary stated up there) — otherwise null. Told to the model
+      // rather than left to trust: the server checks this id against the intel it actually gave
+      // you, so an invented one accomplishes nothing but null the field would not have.
+      'intel_id: the market_intel id (copied exactly from a "[id: ...]" tag above) whose finding ' +
+      'shaped this post\'s angle, or null if none did. The server checks this id against the intel ' +
+      'it actually gave you, so inventing one accomplishes nothing. ' +
       'day_offset: days from today. hour: local hour to post — the strongest windows for a food ' +
       'account are 11-13 (lunch decision) and 17-19 (dinner decision) on weekdays, Friday ' +
       'performs best, weekends are weakest so use 17-19 if you place one there. Spread posts ' +
@@ -991,6 +1028,11 @@ async function socialPlan(env, date) {
     // invented category would start an approval streak no toggle exists for. The caption hash
     // is taken AS DRAFTED; approval later compares against it to decide clean vs edited.
     const category = TRUST_CATEGORIES.includes(item && item.category) ? item.category : null;
+    // Only an id the model was ACTUALLY shown (intelIds, built in plannerExtraContext from the
+    // same query) is trusted — a string the model invented, or one left over from a stale prompt
+    // it half-remembers, must never be recorded as a real citation. Silent drop, not a flag: an
+    // unusable intel_id is exactly as fine as the model never having offered one.
+    const intelId = intelIds.has(item && item.intel_id) ? item.intel_id : null;
     const postId = id('sp');
     try {
       // Trust datum first (schema-tolerant), then the governance gate — the audit must complete
@@ -1031,10 +1073,11 @@ async function socialPlan(env, date) {
       // exact state it would have been in before — and never the caption or the week's cadence.
       const photo = await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
 
-      // Record WHAT produced this post — which of the owner's rules were in force and which brief
-      // directed it — so the reach it eventually earns can be traced back to a cause. Without
-      // this, the owner writes a rule, reach moves, and nothing anywhere connects the two: the
-      // team follows instructions but can never learn which instruction was worth following.
+      // Record WHAT produced this post — which of the owner's rules were in force, which brief
+      // directed it, and which market intel finding (if any) shaped its angle — so the reach it
+      // eventually earns can be traced back to a cause. Without this, the owner writes a rule (or
+      // the Intel Bench surfaces a finding), reach moves, and nothing anywhere connects the two:
+      // the team follows instructions but can never learn which one was worth following.
       // Best-effort by contract (see post_provenance.js); a lost stamp costs one row of analysis,
       // never the post.
       //
@@ -1044,11 +1087,11 @@ async function socialPlan(env, date) {
       // landed keeps the honesty the original had: a post the chain could not illustrate leaves
       // both undefined for whoever knows better later, rather than claiming a shape it lacks.
       await stampPostProvenance(env, {
-        postId, ruleIds: activeRuleIds, briefId: directingBriefId, category,
+        postId, ruleIds: activeRuleIds, briefId: directingBriefId, intelId, category,
         format: photo.ok ? 'single' : undefined,
         slideCount: photo.ok ? photo.slides : undefined,
       });
-      made.push({ hour, day_offset: dayOffset, id: postId, category, photo: photo.ok ? photo.provider : null });
+      made.push({ hour, day_offset: dayOffset, id: postId, category, intel_id: intelId, photo: photo.ok ? photo.provider : null });
     } catch { /* one bad row must not lose the rest of the week */ }
   }
 
@@ -1076,6 +1119,10 @@ async function socialPlan(env, date) {
     output: {
       date, drafted: made.length, already_pending: Number(pending || 0), auto_scheduled: autoScheduled,
       illustrated: made.filter((m) => m.photo).length,
+      // How many of this run's posts actually cited a market_intel finding for their angle — the
+      // one number that answers "is the team acting on intel or just storing it." Zero is honest
+      // when there was no usable intel this run, not a bug to chase.
+      intel_driven: made.filter((m) => m.intel_id).length,
       promoted: onSale.map((b) => b.name), withheld_sold_out: off.map((b) => b.name),
       // Which brief this run actually read — 'd1' vs 'repo' — so a thin owner edit is visible in
       // the run log instead of a mystery ("why did this week read generic?").

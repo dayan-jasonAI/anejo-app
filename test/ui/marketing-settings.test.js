@@ -69,3 +69,23 @@ test('every write goes through Hub.api / Owner.get, never a bespoke fetch', () =
   const bodyOnly = PAGE.slice(PAGE.indexOf('<script>\n(function () {'));
   assert.doesNotMatch(bodyOnly, /\bfetch\(/, 'must reuse the shared session-aware client, not roll its own fetch');
 });
+
+// The owner's second complaint: a questions queue with no way to see or type an answer. These
+// pin that an unanswered row says so in words (not just a badge a click-through could miss) and
+// that a manual answer is submitted through the same POST /api/hub/owner/intel every other write
+// on this page already uses — not a new endpoint.
+test('a done question with no answer object is never rendered as if it were answered', () => {
+  assert.match(PAGE, /var answered = r\.status === 'done' && r\.answer;/);
+});
+
+test('an unanswered question says so in words, and can be answered by hand right there', () => {
+  assert.match(PAGE, /Unanswered/);
+  assert.match(PAGE, /Answer manually/);
+  assert.match(PAGE, /Save answer/);
+  assert.match(PAGE, /request_id:\s*reqId,\s*answer:\s*text/);
+});
+
+test('a research-produced answer renders with its sources, exactly like a standing brief', () => {
+  assert.match(PAGE, /function renderAnswer\(a\)/);
+  assert.match(PAGE, /renderAnswer\(r\.answer\)/);
+});

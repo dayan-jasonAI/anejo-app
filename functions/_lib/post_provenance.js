@@ -1,5 +1,6 @@
-// Post provenance (0076): what CAUSED a post to look the way it does — which owner training
-// rules were in force, which campaign brief (if any) directed it, its category, and its format.
+// Post provenance (0076, +intel_id 0081): what CAUSED a post to look the way it does — which
+// owner training rules were in force, which campaign brief (if any) directed it, which market
+// intel finding (if any) gave it its angle, its category, and its format.
 // Files under functions/_lib are not routed.
 //
 // WHY THIS FILE EXISTS. The owner just built a training surface (training_rules/training_examples,
@@ -35,6 +36,7 @@ import { now, toJson, parseJson } from './hub.js';
  *     postId: 'sp_abc123',
  *     ruleIds: ['rul_1', 'rul_7'],   // training_rules.id values active when this post was written
  *     briefId: 'brf_9' | null,       // the team_briefs.id that directed it, or null for none
+ *     intelId: 'mi_4' | null,        // the market_intel.id whose finding gave this post its angle, or null for none
  *     category: 'menu',              // one of TRUST_CATEGORIES (trust_ledger.js), or null
  *     format: 'single' | 'carousel', // omit until Studio has actually decided
  *     slideCount: 3,                 // carousel slide count; omit/null for a single image
@@ -53,6 +55,7 @@ export async function stampPostProvenance(env, opts = {}) {
     fields.rule_ids = toJson(arr);
   }
   if (opts.briefId !== undefined) fields.brief_id = opts.briefId ? String(opts.briefId) : null;
+  if (opts.intelId !== undefined) fields.intel_id = opts.intelId ? String(opts.intelId) : null;
   if (opts.category !== undefined) fields.category = opts.category ? String(opts.category) : null;
   if (opts.format !== undefined) {
     fields.format = (opts.format === 'single' || opts.format === 'carousel') ? opts.format : null;
@@ -96,7 +99,7 @@ export async function getPostProvenance(env, postId) {
   if (!env || !env.DB || !postId) return { recorded: false };
   try {
     const row = await env.DB.prepare(
-      'SELECT post_id, rule_ids, brief_id, category, format, slide_count, created_at, updated_at FROM post_provenance WHERE post_id=?'
+      'SELECT post_id, rule_ids, brief_id, intel_id, category, format, slide_count, created_at, updated_at FROM post_provenance WHERE post_id=?'
     ).bind(postId).first();
     if (!row) return { recorded: false };
     return {
@@ -104,6 +107,7 @@ export async function getPostProvenance(env, postId) {
       postId: row.post_id,
       ruleIds: parseJson(row.rule_ids, null),
       briefId: row.brief_id ?? null,
+      intelId: row.intel_id ?? null,
       category: row.category ?? null,
       format: row.format ?? null,
       slideCount: row.slide_count ?? null,
