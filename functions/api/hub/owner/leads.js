@@ -26,10 +26,16 @@ async function getOrCreateHouseTrainer(env) {
   }
 }
 
-async function listLeads(env, kind, q) {
-  // src/utm_* are captured at signup (0044) — SELECT them or the attribution is write-only and
-  // the owner can never see which creator or campaign a lead came from.
-  let sql = 'SELECT id, kind, name, email, phone, company, interest, message, source_lang, sms_consent, src, utm_source, utm_medium, utm_campaign, referrer, created_at FROM leads';
+// Columns that existed before 0078 — the fallback shape when the Instagram columns aren't there
+// yet (migrations are applied by hand per environment in this repo; the owner leads page must not
+// go blank just because 0078 hasn't run somewhere).
+const LEAD_COLS_BASE = 'id, kind, name, email, phone, company, interest, message, source_lang, sms_consent, src, utm_source, utm_medium, utm_campaign, referrer, created_at';
+// src/utm_* are captured at signup (0044) — SELECT them or the attribution is write-only and the
+// owner can never see which creator or campaign a lead came from. channel/ig_*/trigger_message/
+// source_thread_id (0078) are the same idea for Instagram-sourced leads.
+const LEAD_COLS_FULL = LEAD_COLS_BASE + ', channel, ig_username, ig_user_id, ig_intent, ig_confidence, trigger_message, source_thread_id';
+
+async function listLeads(env, kind, q, channel) {
   const where = [], binds = [];
   if (['tasting', 'wholesale', 'launch', 'sms'].includes(kind)) { where.push('kind = ?'); binds.push(kind); }
   if (q) {
@@ -37,14 +43,29 @@ async function listLeads(env, kind, q) {
     const like = `%${q}%`;
     binds.push(like, like, like, like);
   }
-  if (where.length) sql += ' WHERE ' + where.join(' AND ');
-  sql += ' ORDER BY created_at DESC LIMIT 200';
+  // A separate dimension from `kind` — an Instagram lead's kind is still tasting/wholesale (the
+  // closest existing bucket), so filtering by channel has to be its own clause, not folded into
+  // the kind whitelist above. Kept OUT of the shared where/binds so the 0078-missing fallback
+  // below can drop just this clause without touching kind/q filtering.
+  const wantsChannel = channel === 'instagram';
+  const orderLimit = ' ORDER BY created_at DESC LIMIT 200';
 
   let rows = [];
   try {
-    const res = await env.DB.prepare(sql).bind(...binds).all();
+    const w = wantsChannel ? [...where, 'channel = ?'] : where;
+    const b = wantsChannel ? [...binds, 'instagram'] : binds;
+    const sql = `SELECT ${LEAD_COLS_FULL} FROM leads` + (w.length ? ' WHERE ' + w.join(' AND ') : '') + orderLimit;
+    const res = await env.DB.prepare(sql).bind(...b).all();
     rows = (res && res.results) || [];
-  } catch { rows = []; }
+  } catch {
+    // migrations/0078 not applied here yet. Degrade to the pre-Instagram column set — a channel
+    // filter can't be honored without the column, so it's dropped rather than failing the request.
+    try {
+      const sql = `SELECT ${LEAD_COLS_BASE} FROM leads` + (where.length ? ' WHERE ' + where.join(' AND ') : '') + orderLimit;
+      const res = await env.DB.prepare(sql).bind(...binds).all();
+      rows = (res && res.results) || [];
+    } catch { rows = []; }
+  }
 
   // Which lead emails already have a client row? One pass, so the owner can see what's converted.
   const emails = Array.from(new Set(rows.map((r) => emailKey(r.email)).filter(Boolean)));
@@ -75,6 +96,16 @@ async function listLeads(env, kind, q) {
     utm_medium: r.utm_medium || null,
     utm_campaign: r.utm_campaign || null,
     referrer: r.referrer || null,
+    // Instagram capture (0078). Every one of these is undefined on the pre-0078 fallback query
+    // above, and `|| null`/`|| 'web'` turns that into the exact same shape a web lead already has
+    // — the frontend never has to special-case "column doesn't exist yet".
+    channel: r.channel || 'web',
+    ig_username: r.ig_username || null,
+    ig_user_id: r.ig_user_id || null,
+    ig_intent: r.ig_intent || null,
+    ig_confidence: r.ig_confidence || null,
+    trigger_message: r.trigger_message || null,
+    source_thread_id: r.source_thread_id || null,
     created_at: r.created_at,
     converted: converted.has(emailKey(r.email)),
   }));
@@ -88,16 +119,24 @@ export const onRequestGet = async ({ request, env }) => {
   const url = new URL(request.url);
   const kind = (url.searchParams.get('kind') || '').trim();
   const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
-  const items = await listLeads(env, kind, q);
+  const channel = (url.searchParams.get('channel') || '').trim();
+  const items = await listLeads(env, kind, q, channel);
 
-  // Unfiltered counts for the filter chips (so badges don't change as you filter).
-  let counts = { tasting: 0, wholesale: 0, launch: 0, sms: 0, total: 0 };
+  // Unfiltered counts for the filter chips (so badges don't change as you filter). `instagram` is
+  // queried SEPARATELY from tasting/wholesale/launch/sms — the channel column is newer (0078), and
+  // folding it into the one combined query would zero out every count (not just Instagram's) the
+  // moment that one column is missing on an environment that hasn't migrated yet.
+  let counts = { tasting: 0, wholesale: 0, launch: 0, sms: 0, instagram: 0, total: 0 };
   try {
     const cr = await env.DB.prepare(
       "SELECT SUM(kind='tasting') AS tasting, SUM(kind='wholesale') AS wholesale, SUM(kind='launch') AS launch, SUM(kind='sms') AS sms, COUNT(*) AS total FROM leads"
     ).first();
-    if (cr) counts = { tasting: cr.tasting || 0, wholesale: cr.wholesale || 0, launch: cr.launch || 0, sms: cr.sms || 0, total: cr.total || 0 };
+    if (cr) counts = { ...counts, tasting: cr.tasting || 0, wholesale: cr.wholesale || 0, launch: cr.launch || 0, sms: cr.sms || 0, total: cr.total || 0 };
   } catch { /* leave zeros */ }
+  try {
+    const cr = await env.DB.prepare("SELECT COUNT(*) AS n FROM leads WHERE channel='instagram'").first();
+    counts.instagram = (cr && cr.n) || 0;
+  } catch { /* 0078 not applied here yet — instagram stays 0, the rest of counts is unaffected */ }
 
   return json({ ok: true, items, count: items.length, counts });
 };

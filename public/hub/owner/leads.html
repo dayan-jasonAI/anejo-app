@@ -49,6 +49,7 @@
 
   var esc = Hub.esc, $ = Hub.$;
   var curKind = '';          // '' = all
+  var curChannel = '';       // '' = all, 'instagram' = IG-sourced only
   var searchT = 0;
 
   function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
@@ -58,6 +59,22 @@
     if (kind === 'launch') return '<span class="badge" style="background:#fff8e9;border-color:var(--gold,#C6A85B);color:#8B6B3E" data-i18n>launch list</span>';
     if (kind === 'sms') return '<span class="badge" data-i18n>SMS opt-in</span>';
     return '<span class="badge ok" data-i18n>tasting</span>';
+  }
+
+  // Instagram-sourced leads (0078) — a distinct pink/purple badge so they read as unmistakably
+  // different from the web-form kinds above, at a glance in the list. INTENT_LABEL mirrors
+  // functions/_lib/social_leads.js's INTENT_LABEL — kept as a small literal copy since the HUB is
+  // static HTML/JS with no shared module loader for _lib code.
+  var IG_INTENT_LABEL = {
+    catering: 'catering/event', bulk_corporate: 'bulk/corporate', wholesale_partnership: 'wholesale/partner', subscription: 'subscription'
+  };
+  function igBadge(l) {
+    if (l.channel !== 'instagram') return '';
+    var label = IG_INTENT_LABEL[l.ig_intent] || 'Instagram';
+    var conf = l.ig_confidence === 'high'
+      ? '<span class="badge" style="background:#fdecea;border-color:#e0837a;color:#9a2f22">high confidence</span>'
+      : '<span class="badge" style="background:#f2f2f2;border-color:var(--line);color:var(--green);opacity:.75">unconfirmed</span>';
+    return ' <span class="badge" style="background:#f3ecfb;border-color:#b98ee0;color:#5a2d84">📷 ' + esc(label) + '</span> ' + conf;
   }
 
   // ---------- skeleton ----------
@@ -85,20 +102,26 @@
   }
 
   function renderChips(counts) {
-    var c = counts || { tasting: 0, wholesale: 0, launch: 0, sms: 0, total: 0 };
+    var c = counts || { tasting: 0, wholesale: 0, launch: 0, sms: 0, instagram: 0, total: 0 };
     var defs = [
-      { k: '', label: 'All', n: c.total },
-      { k: 'launch', label: 'Launch list', n: c.launch },
-      { k: 'tasting', label: 'Tasting', n: c.tasting },
-      { k: 'wholesale', label: 'Wholesale', n: c.wholesale },
-      { k: 'sms', label: 'SMS', n: c.sms }
+      { k: '', ch: '', label: 'All', n: c.total },
+      { k: '', ch: 'instagram', label: '📷 Instagram', n: c.instagram },
+      { k: 'launch', ch: '', label: 'Launch list', n: c.launch },
+      { k: 'tasting', ch: '', label: 'Tasting', n: c.tasting },
+      { k: 'wholesale', ch: '', label: 'Wholesale', n: c.wholesale },
+      { k: 'sms', ch: '', label: 'SMS', n: c.sms }
     ];
     $('#chips').innerHTML = defs.map(function (d) {
-      return '<button data-k="' + d.k + '" class="' + (d.k === curKind ? 'sel' : '') + '">' +
+      var sel = (d.ch ? d.ch === curChannel : (d.k === curKind && !curChannel));
+      return '<button data-k="' + d.k + '" data-ch="' + d.ch + '" class="' + (sel ? 'sel' : '') + '">' +
         '<span data-i18n>' + d.label + '</span> <span class="badge">' + (d.n || 0) + '</span></button>';
     }).join('');
     $('#chips').querySelectorAll('[data-k]').forEach(function (b) {
-      b.addEventListener('click', function () { curKind = b.getAttribute('data-k'); loadList(); });
+      b.addEventListener('click', function () {
+        curKind = b.getAttribute('data-k') || '';
+        curChannel = b.getAttribute('data-ch') || '';
+        loadList();
+      });
     });
     refresh();
   }
@@ -108,6 +131,7 @@
     var q = $('#q') ? $('#q').value.trim() : '';
     var params = [];
     if (curKind) params.push('kind=' + encodeURIComponent(curKind));
+    if (curChannel) params.push('channel=' + encodeURIComponent(curChannel));
     if (q) params.push('q=' + encodeURIComponent(q));
     Owner.get('/api/hub/owner/leads' + (params.length ? '?' + params.join('&') : '')).then(function (d) {
       if (!d || !d.ok) return;
@@ -120,12 +144,19 @@
         return;
       }
       el.innerHTML = d.items.map(function (l) {
-        var badges = kindBadge(l.kind);
+        var isIg = l.channel === 'instagram';
+        var badges = kindBadge(l.kind) + igBadge(l);
         if (l.converted) badges += ' <span class="badge ok" data-i18n>in CRM</span>';
         if (l.sms_consent) badges += ' <span class="badge ok">SMS ✓</span>';
-        var sub = [l.company, l.email, l.phone].filter(Boolean).map(esc).join(' · ');
+        var title = l.name || (isIg ? ('@' + (l.ig_username || 'instagram')) : l.email) || '—';
+        // For an Instagram lead there is no company/email/phone yet — what they actually SAID is
+        // the whole point (the bug this closes: that message used to vanish into `messages` with
+        // nothing pointing back at it), so it takes the subtitle's place instead of "no contact info".
+        var sub = isIg
+          ? (l.trigger_message ? '"' + esc(l.trigger_message.slice(0, 90)) + (l.trigger_message.length > 90 ? '…' : '') + '"' : '')
+          : [l.company, l.email, l.phone].filter(Boolean).map(esc).join(' · ');
         return '<div class="row" data-id="' + esc(l.id) + '" style="cursor:pointer">' +
-          '<div class="row-main"><div class="row-title">' + esc(l.name || l.email || '—') + ' ' + badges + '</div>' +
+          '<div class="row-main"><div class="row-title">' + esc(title) + ' ' + badges + '</div>' +
           '<div class="row-sub">' + (sub || '<span data-i18n>no contact info</span>') + '</div></div>' +
           '<div class="lead-right">' + Owner.timeAgo(l.created_at) + '</div></div>';
       }).join('');
@@ -155,8 +186,18 @@
     var l = findLead(id);
     if (!l) { dv.innerHTML = backBtn() + '<div class="card accent"><p data-i18n>Inquiry not found. Go back and reopen.</p></div>'; bindBack(); refresh(); return; }
 
+    var isIg = l.channel === 'instagram';
     var rows = [];
-    rows.push(['Type', kindBadge(l.kind)]);
+    rows.push(['Type', kindBadge(l.kind) + igBadge(l)]);
+    if (isIg) {
+      // Instagram context FIRST for an IG lead — who, and how sure the classifier is — since that
+      // is what makes this row different from every other inquiry above it in the list.
+      rows.push(['Instagram', l.ig_username
+        ? '<a href="https://instagram.com/' + encodeURIComponent(l.ig_username) + '" target="_blank" rel="noopener">@' + esc(l.ig_username) + ' ↗</a>'
+        : '<span data-i18n>Unknown handle</span>']);
+      rows.push(['Detected as', esc((IG_INTENT_LABEL[l.ig_intent] || l.ig_intent || '—')) +
+        (l.ig_confidence === 'high' ? ' — <strong data-i18n>high confidence</strong>' : ' — <span data-i18n>unconfirmed, worth a human read</span>')]);
+    }
     if (l.company) rows.push(['Company', esc(l.company)]);
     rows.push(['Email', esc(l.email || '—')]);
     rows.push(['Phone', esc(l.phone || '—')]);
@@ -170,18 +211,28 @@
     if (l.referrer) rows.push(['Came from', esc(String(l.referrer).slice(0, 80))]);
     rows.push(['Received', esc(Owner.timeAgo(l.created_at))]);
     var grid = rows.map(function (r) { return '<div class="k" data-i18n>' + r[0] + '</div><div>' + r[1] + '</div>'; }).join('');
-    var msg = l.message ? '<div class="lead-msg">' + esc(l.message) + '</div>' : '';
+    // For an Instagram lead, `message` (the web form's free-text field) is always empty — what the
+    // customer actually said is trigger_message, shown the same way so it reads the same as any
+    // other inquiry's notes rather than looking like a second, unexplained field.
+    var msgText = isIg ? l.trigger_message : l.message;
+    var msg = msgText ? '<div class="lead-msg">' + esc(msgText) + '</div>' : '';
+    var openThread = isIg ? '<p style="margin-top:10px"><a href="/hub/owner/marketing.html" data-i18n>View the Instagram conversation in the inbox →</a></p>' : '';
 
     var mailto = l.email ? 'mailto:' + encodeURIComponent(l.email) +
       '?subject=' + encodeURIComponent('Añejo Catering Co. — your ' + l.kind + ' inquiry') : '';
+    // Converting needs a name+email (functions/api/hub/owner/leads.js POST convert) — an
+    // Instagram lead usually has neither yet, so offering the button would just produce a
+    // confusing "no valid email" error. Point the owner at getting contact info first instead.
     var convertBtn = l.converted
       ? '<a class="btn ghost" href="/hub/owner/customers.html#c=' + encodeURIComponent((l.email || '').toLowerCase()) + '" data-i18n>View in CRM →</a>'
-      : '<button class="btn gold" id="convert-btn" type="button" data-i18n>+ Add to CRM</button>';
+      : (l.email
+        ? '<button class="btn gold" id="convert-btn" type="button" data-i18n>+ Add to CRM</button>'
+        : (isIg ? '<span class="row-sub" data-i18n>Get their email on Instagram, then add to CRM</span>' : ''));
 
     dv.innerHTML =
       backBtn() +
-      '<div class="hub-section"><h2>' + esc(l.name || l.email || 'Inquiry') + '</h2>' +
-      '<div class="card"><div class="profile-grid">' + grid + '</div>' + msg + '</div>' +
+      '<div class="hub-section"><h2>' + esc(l.name || (isIg ? '@' + (l.ig_username || 'Instagram') : l.email) || 'Inquiry') + '</h2>' +
+      '<div class="card"><div class="profile-grid">' + grid + '</div>' + msg + openThread + '</div>' +
       '<div class="detail-actions">' +
         (mailto ? '<a class="btn ghost" href="' + mailto + '" data-i18n>✉️ Email</a>' : '') +
         convertBtn +

@@ -5,6 +5,7 @@ import { sendEmail, emailShell, escHtml } from '../_lib/email.js';
 import { issueCustomerCode } from '../_lib/promo.js';
 import { sendSms } from '../_lib/twilio.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
+import { insertLead } from '../_lib/leads.js';
 
 // Founding Legacy Member program — first N launch-list signups get a founding number.
 const FOUNDING_CAP = 100;
@@ -209,17 +210,10 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
       } catch { /* fall through to normal insert */ }
     }
 
-    await env.DB
-      .prepare(
-        `INSERT INTO leads (id, kind, name, email, phone, company, interest, message, source_lang, sms_consent,
-            marketing_sms_consent, marketing_sms_consent_at, marketing_sms_consent_src,
-            src, utm_source, utm_medium, utm_campaign, referrer, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-      )
-      .bind(rec.id, rec.kind, rec.name, rec.email, rec.phone, rec.company, rec.interest, rec.message, rec.source_lang, rec.sms_consent,
-        rec.marketing_sms_consent, rec.marketing_sms_consent_at, rec.marketing_sms_consent_src,
-        rec.src, rec.utm_source, rec.utm_medium, rec.utm_campaign, rec.referrer, rec.created_at)
-      .run();
+    // Shared with Instagram-sourced capture (_lib/social_leads.js) — see _lib/leads.js. This web
+    // path never sets channel/ig_*/trigger_message/source_*; insertLead() defaults them to
+    // 'web'/null exactly like the inline SQL this replaced.
+    await insertLead(env, rec);
     stored = true;
 
     if (kind === 'launch') {

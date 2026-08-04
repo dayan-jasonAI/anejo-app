@@ -61,7 +61,7 @@ export const onRequestPost = async ({ request, env }) => {
   // The owner hears about every application; the applicant is promised only a review.
   try {
     await raiseAlert(env, {
-      type: 'partner_application',
+      alert_type: 'partner_application',
       severity: 'info',
       title: `Partner application: ${name}${instagram ? ' (@' + instagram + ')' : ''}`,
       body: `${type === 'gym_trainer' ? 'Gym/Trainer' : 'Creator'} · ${email}${b.area ? ' · ' + clean(b.area, 60) : ''} — review in the Partners desk.`,

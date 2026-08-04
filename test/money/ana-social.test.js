@@ -57,7 +57,9 @@ test('escalations still send NOTHING — the carve-out survived automation', () 
 
 test('a special request sends the holding reply AND alerts the kitchen+owner', () => {
   assert.match(TICK, /specialAlert/);
-  assert.match(TICK, /type: 'special_request'/);
+  // alert_type, not type: raiseAlert reads opts.alert_type and silently returns {ok:false}
+  // otherwise. This alert no-op'd from the day it was written — pin the working spelling.
+  assert.match(TICK, /alert_type: 'special_request'/);
   assert.match(ANA, /\[SPECIAL\]/);
 });
 

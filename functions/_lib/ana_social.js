@@ -190,6 +190,82 @@ export function looksLikeScaffolding(t) {
   if (x.length > 900) return true;
   return false;
 }
+// ── Commercial intent detection: code decides, not the model ──
+//
+// THE BUG THIS FIXES: on a real buying signal ("I want to book catering for 60 people") Aña
+// warmly deflects to a web form she cannot see anyone fill out (see the routing line in
+// HOW TO HELP below) — the DM lands in `messages` and NOTHING captures it as a lead. This runs
+// on every inbound DM/comment, independent of draftReply: it must not depend on the Claude call
+// succeeding, the AI budget having room, or the model's mood, because none of those should be
+// allowed to silently drop a sale. It is deliberately NOT another model call — Aña already runs on
+// every unhandled message, every minute, so a second LLM call here would double the highest-volume
+// AI surface in this file tree for a task a keyword/pattern match does predictably and for free.
+//
+// Categories are checked in order below; a message naming more than one keyword keeps the FIRST
+// match, most-specific-first — a wedding caterer's ask is not corporate wholesale even though both
+// words could theoretically appear near each other.
+const INTENT_PATTERNS = [
+  // Catering / events. Broad and common — people say "cater" or name an event type casually, so
+  // this alone is not enough for 'high' (see strongByDefault below).
+  { intent: 'catering', strongByDefault: false,
+    re: /\b(cater(?:ing)?|wedding(?:s)?|boda(?:s)?|quincea[nñ]era(?:s)?|banquet(?:s)?|reception(?:s)?)\b/i },
+  // Bulk / corporate orders — office lunches, team events, a headcount for "our company".
+  { intent: 'bulk_corporate', strongByDefault: false,
+    re: /\b(bulk order|corporate (?:order|lunch|event|account)s?|for (?:my|our) (?:office|team|company|staff)|office (?:lunch|catering))\b/i },
+  // Wholesale / partnership / distribution approaches. These words are almost never used
+  // casually on a food brand's account — someone saying "wholesale" or "distributor" is
+  // essentially always a real commercial approach, so this category is strong by default.
+  { intent: 'wholesale_partnership', strongByDefault: true,
+    re: /\b(wholesale|distribut(?:or|ion)|reseller|become a partner|partnership (?:inquiry|opportunity)|carry your (?:bowls|products?)|stock(?:ing)? (?:your|our) (?:bowls|products?))\b/i },
+  // Subscription / meal-plan interest.
+  { intent: 'subscription', strongByDefault: false,
+    re: /\b(subscri(?:be|ption)|meal[- ]plan|weekly (?:bowls|meals|order)|recurring order)\b/i },
+];
+
+// A headcount is the strongest non-verbal signal a DM can carry — nobody types "60 people" or
+// "40 empleados" unless they are actually sizing an order.
+const HEADCOUNT_RE = /\b(?:\d{2,}|dozens?|hundreds?|docenas?)\s*(?:people|guests|employees|staff|attendees|invitados|personas|empleados)\b/i;
+// Verbs that turn "we do X" (browsing) into "I want X now" (buying). Deliberately does not
+// include bare "do you" / "is there" question stems — asking whether something exists is real
+// interest, but not yet the commitment language 'high' confidence is meant to represent.
+const INTENT_VERB_RE = /\b(?:book(?:ing)?|reserve|reservar|order(?:ing)?|need|want|quiero|necesito|quote|pricing for|price for|hire|planning|planeando|interested in|looking for|inquir(?:e|y|ing)|contratar|sign(?:ing)? up)\b/i;
+// A keyword sitting inside a negation ("we don't need catering", "no wholesale please") is the
+// OPPOSITE of a lead. Recording one would be worse than missing it, so a nearby negation
+// suppresses the match entirely — it never even reaches 'low'. Checked in a small window on
+// either side of the match rather than the whole message, so an unrelated "no" earlier in a long
+// DM ("no worries — by the way, do you do catering?") does not falsely suppress a real question.
+const NEGATION_RE = /\b(?:no|not|don'?t|doesn'?t|never|isn'?t|without|thanks but)\b/i;
+const NEGATION_WINDOW = 22;
+
+/**
+ * Classify one inbound Instagram message for commercial intent. Pure and deterministic (no
+ * network call) — see the block comment above for why. Called on every inbound DM/comment; most
+ * of the time (menu questions, compliments, "when do you deliver") it returns null.
+ *
+ * Returns null when nothing commercial is present. Otherwise:
+ *   { intent, confidence, matched }
+ *     intent      — 'catering' | 'bulk_corporate' | 'wholesale_partnership' | 'subscription'
+ *     confidence  — 'high' | 'low'. Deliberately only two tiers, no middle "maybe": 'high' is
+ *                   earned by an intent verb or a headcount (or belongs to a category that is
+ *                   strong on its own — see strongByDefault); anything softer stays 'low'. Only
+ *                   'high' raises an alert (see social_leads.js) — "a maybe is not a yes."
+ *     matched     — the literal substring that triggered the category, for debugging/QA.
+ */
+export function detectCommercialIntent(text) {
+  const raw = String(text || '');
+  if (!raw.trim()) return null;
+  for (const { intent, strongByDefault, re } of INTENT_PATTERNS) {
+    const m = raw.match(re);
+    if (!m) continue;
+    const start = Math.max(0, m.index - NEGATION_WINDOW);
+    const end = Math.min(raw.length, m.index + m[0].length + NEGATION_WINDOW);
+    if (NEGATION_RE.test(raw.slice(start, end))) return null;
+    const strong = strongByDefault || HEADCOUNT_RE.test(raw) || INTENT_VERB_RE.test(raw);
+    return { intent, confidence: strong ? 'high' : 'low', matched: m[0] };
+  }
+  return null;
+}
+
 const socialAddendum = (kind, username, auto) => `
 CONTEXT CHANGE — you ARE Añejo's Instagram account, speaking publicly.
 This is an Instagram ${kind === 'comment' ? 'public comment on one of Añejo\'s posts' : 'direct message'} from ${username ? '@' + username : 'a customer'}. ${auto
