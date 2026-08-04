@@ -17,6 +17,9 @@ import { sendPushTickle } from './push.js';
 export const ALERT_TYPES = [
   'eod_missing', 'temp_excursion', 'delivery_failed', 'late_clock_in',
   'expense_pending', 'low_stock', 'negative_sentiment',
+  // A high-confidence commercial DM/comment (catering, bulk/corporate, wholesale/partnership,
+  // subscription) captured as a lead by _lib/social_leads.js. See migrations/0078_social_leads.sql.
+  'social_commercial_lead',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:

@@ -26,6 +26,11 @@ import { draftReply, reactionReplyFor, looksLikeScaffolding } from '../../../_li
 import { sendDirectMessage, replyToComment } from '../../../_lib/instagram_messaging.js';
 import { resolveTarget, accountInfo } from '../../../_lib/instagram.js';
 import { raiseAlert } from '../../../_lib/alerts.js';
+// The sales half of this tick: detect a commercial DM/comment and capture it as a lead. Runs
+// alongside Aña's escalate/[SPECIAL] classification, never instead of it — a message can trip
+// both (an angry customer demanding a refund on a 60-person catering order still needs to become
+// a lead, even though Aña refuses to draft a reply to it).
+import { captureInstagramLead } from '../../../_lib/social_leads.js';
 
 // Claude calls per tick. The tick runs every minute, so a backlog drains at ~4/min — fast enough
 // that a busy post gets answered within minutes, bounded enough that a spam flood can't turn the
@@ -132,10 +137,21 @@ export const onRequestPost = async ({ request, env }) => {
 
       // The comment itself, as an inbound row — the thread must read as a conversation, not a
       // lone Aña draft with no visible question above it.
+      const inboundMid = id('msg');
       await env.DB.prepare(
         `INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, ref_id, created_at)
          VALUES (?,?,'inbound','instagram',?,'customer',?,0,?,?)`
-      ).bind(id('msg'), threadId, ev.from_id || null, String(ev.text || '').slice(0, 4000), ev.id, t).run();
+      ).bind(inboundMid, threadId, ev.from_id || null, String(ev.text || '').slice(0, 4000), ev.id, t).run();
+
+      // Sales capture — independent of whether Aña's reply above was a draft, an escalation, or a
+      // special request. captureInstagramLead already catches its own errors (a missing `leads`
+      // table/0078 columns on this environment must degrade to a no-op, not an outage); the
+      // try/catch here is belt-and-suspenders so even an unexpected throw cannot roll this
+      // comment back into "handled=0, retried forever" the way the outer catch below would.
+      try { await captureInstagramLead(env, {
+        kind: 'comment', threadId, igUserId: ev.from_id || null, igUsername: ev.from_username || null,
+        messageId: inboundMid, text: ev.text || '', t,
+      }); } catch { /* the comment's own reply must not be held hostage by the sales side-effect */ }
 
       if (d.escalate) {
         await insertEscalation(env, threadId, ev.id, d.reason, t);
@@ -180,6 +196,18 @@ export const onRequestPost = async ({ request, env }) => {
       last = await env.DB.prepare('SELECT * FROM messages WHERE thread_id=? ORDER BY created_at DESC LIMIT 1').bind(th.id).first();
     } catch { continue; }
     if (!last || last.direction !== 'inbound') continue;
+
+    // Sales capture BEFORE the draft budget is spent and before draftReply runs at all — a
+    // catering enquiry must still become a lead on a day the AI budget is exhausted or the
+    // Anthropic API is down. th.external_id is the customer's IGSID; a DM thread is already 1:1
+    // with one external person (webhooks/instagram.js keys it that way), so no extra actor id
+    // is needed beyond what the thread itself carries. try/catch here for the same reason as the
+    // comment branch above — this loop has no outer catch, so an unexpected throw would otherwise
+    // abort every remaining DM thread in the tick over a feature that is allowed to just degrade.
+    try { await captureInstagramLead(env, {
+      kind: 'dm', threadId: th.id, igUserId: th.external_id || null, igUsername: th.external_username || null,
+      messageId: last.id, text: last.body || '', t,
+    }); } catch { /* Aña's draft for this thread must not be held hostage by the sales side-effect */ }
 
     budget -= 1;
     const d = await draftReply(env, { kind: 'dm', text: last.body || '', username: th.external_username, auto: autoOk('dm') });
