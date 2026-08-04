@@ -15,3 +15,4 @@ public/studio/assets/*.map
 # (wrangler.toml sets pages_build_output_dir = "public"), and every parallel agent that runs a
 # build rewrites it, producing noisy conflicting diffs.
 _worker.bundle
+node_modules

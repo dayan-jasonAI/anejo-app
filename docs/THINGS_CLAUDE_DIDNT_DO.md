@@ -571,7 +571,12 @@ food image in them anywhere.
 
 ---
 
-<<<<<<< HEAD
+> **Note on numbering.** Several sections below share a number (three `## 16.`). Parallel
+> Claude sessions appended to this log independently and each picked the next number it
+> could see. A later merge left conflict markers here, which sat on `main` until 2026-08-04.
+> The markers are gone; the duplicate numbers are left as-is on purpose — renumbering would
+> break references from other sections. Treat the numbers as labels, not an ordering.
+
 ## 16. One person could order for a site, and nobody could override it
 
 **Status:** ✅ SHIPPED 2026-08-03 · **Added:** 2026-08-03
@@ -734,7 +739,6 @@ exported `PLATING_STYLE`/`NEGATIVE_PROMPT` constants.
 
 **Not verified:** no expansion has run against a live model, and no image has been generated
 through the chain (`image_generations` is empty). The first real generation is the proof.
-=======
 ## 16. The quality gate could name the defect and not fix it
 
 **Status:** ✅ SHIPPED 2026-08-03 · **Added:** 2026-08-03
@@ -782,7 +786,6 @@ strip** — a placeholder the owner replaces with real photography, never a clai
 **Not verified:** no image has been generated against live provider keys yet. The chain, the
 skip-on-non-JPEG, the ordering and the refusals are unit-tested; the first real generation is the
 proof. npm test: 1073/1073 pass. npm run lint: clean.
->>>>>>> claude/social-food-photo
 
 ---
 
