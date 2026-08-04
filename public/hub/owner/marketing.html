@@ -57,7 +57,7 @@
   var esc = Hub.esc;
   // The five feeds behind the five cards. Each card renders its own failure state, so one dead
   // endpoint dims one card — it must not blank the cockpit.
-  var DATA = { budget: null, links: null, inbox: null, trust: null, attribution: null };
+  var DATA = { budget: null, links: null, inbox: null, trust: null, attribution: null, perf: null };
 
   var CAT_WORD = { menu: 'Menu', macro_portal: 'Macro Portal', catering: 'Catering', brand_story: 'Brand story', promo: 'Promos' };
 
@@ -172,11 +172,50 @@
       'Below ' + d.minSampleSize + ' posts on either side, this refuses to rank — one post is not a pattern.</p></div>';
   }
 
+  // ---- Card 6: performance watch — is anything posted actually landing, and is the team
+  // reacting? Backed by functions/_lib/instagram_insights.js:detectPerformanceSignals (0079).
+  // Each of the four signals renders its OWN "not enough data yet" state independently — a
+  // missing table or a thin history for one signal must never blank the other three.
+  function perfRow(label, ok, readingHtml, statusHtml) {
+    return '<tr><td>' + esc(label) + '</td>' +
+      (ok
+        ? '<td class="num">' + readingHtml + '</td><td class="num">' + statusHtml + '</td>'
+        : '<td class="num" colspan="2" style="text-align:left;color:var(--green);opacity:.7">Not enough data yet</td>') +
+      '</tr>';
+  }
+  function perfCard() {
+    var d = DATA.perf;
+    if (!d || !d.ok) return '<div class="card"><h3>Performance watch</h3><p class="row-sub">Could not load the performance watch.</p></div>';
+    var sp = d.singlePost || {}, wr = d.weakRun || {}, ft = d.followerTrend || {}, sl = d.silence || {};
+    var rows =
+      perfRow('Latest post', sp.enoughData,
+        sp.reach + ' vs ' + Math.round(sp.baselineMedian || 0) + ' baseline',
+        sp.flagged ? 'Soft ↓' : 'On track') +
+      perfRow('Last ' + (d.weakRunLength || 3) + ' posts', wr.enoughData,
+        (wr.reaches || []).join(', ') + ' vs ' + Math.round(wr.baselineMedian || 0),
+        wr.flagged ? 'Weak run ↓' : 'On track') +
+      perfRow('Followers (' + (d.followerWindowDays || 14) + 'd)', ft.enoughData,
+        ft.latestFollowers + ' (' + (ft.delta >= 0 ? '+' : '') + ft.delta + ')',
+        ft.falling ? 'Falling ↓' : (ft.flat ? 'Flat →' : 'Growing ↑')) +
+      perfRow('Posting activity', sl.enoughData,
+        sl.daysSince + ' days since last post',
+        sl.flagged ? 'Silent ↓' : 'Active');
+    // "here is what is and isn't working, and here is what the team is doing about it" — the
+    // owner's own bar for this card. Only a real weak run (enough data AND flagged) changes what
+    // the planner tries; everything else is left honestly alone rather than reacting to noise.
+    var doing = (wr.enoughData && wr.flagged)
+      ? 'The planner has been told to try a different format, category and angle this week instead of repeating what the last three posts used.'
+      : 'No change to the planner’s approach — nothing here has cleared the bar for a real pattern yet.';
+    return '<div class="card"><h3>Performance watch</h3>' +
+      '<table class="mini-table"><thead><tr><th>Signal</th><th style="text-align:right">Reading</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<p class="hint">' + esc(doing) + ' Below the sample floor, this stays silent rather than guess — a false "it’s not working" is worse than no answer.</p></div>';
+  }
+
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML =
       '<div class="hub-section"><h2>Marketing cockpit</h2>' +
-        budgetCard() + linksCard() + inboxCard() + trustCard() + attributionCard() +
+        budgetCard() + linksCard() + inboxCard() + trustCard() + attributionCard() + perfCard() +
       '</div>';
     wire();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
@@ -206,9 +245,10 @@
       Hub.api('/api/hub/owner/links'),
       Hub.api('/api/hub/owner/social-inbox'),
       Hub.api('/api/hub/owner/trust'),
-      Hub.api('/api/hub/owner/marketing-attribution')
+      Hub.api('/api/hub/owner/marketing-attribution'),
+      Hub.api('/api/hub/owner/performance-alerts')
     ]).then(function (r) {
-      DATA.budget = r[0]; DATA.links = r[1]; DATA.inbox = r[2]; DATA.trust = r[3]; DATA.attribution = r[4];
+      DATA.budget = r[0]; DATA.links = r[1]; DATA.inbox = r[2]; DATA.trust = r[3]; DATA.attribution = r[4]; DATA.perf = r[5];
       render();
     });
   }

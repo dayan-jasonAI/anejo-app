@@ -12,7 +12,7 @@ import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { loadOperating } from './operating.js';
 import { BRAND_BRIEF } from './brand_brief.js';
 import { loadBrand } from './brand_source.js';
-import { performanceBrief, attributionBrief } from './instagram_insights.js';
+import { performanceBrief, attributionBrief, reactionBrief } from './instagram_insights.js';
 import { stampPostProvenance } from './post_provenance.js';
 import { retrieve, formatPassages } from './knowledge.js';
 import { getCadenceConfig } from './social_cadence.js';
@@ -150,6 +150,16 @@ async function plannerExtraContext(env) {
     const attribution = await attributionBrief(env);
     if (attribution) parts.push(attribution);
   } catch { /* pre-0076 schema, or nothing published under a recorded cause yet */ }
+
+  // WHAT TO DO ABOUT IT (0079). attributionBrief above says what CORRELATED with more reach;
+  // this is a direct, imperative instruction to change format/category/angle when the account's
+  // last three posts underperformed its own baseline — or an equally direct "not enough data"
+  // note when the history is too thin to justify changing anything, so the planner never mistakes
+  // silence for permission to guess. See instagram_insights.js:reactionBrief for the reasoning.
+  try {
+    const reaction = await reactionBrief(env);
+    if (reaction) parts.push(reaction);
+  } catch { /* pre-0064 schema, or nothing published yet */ }
 
   return parts.join('\n\n');
 }

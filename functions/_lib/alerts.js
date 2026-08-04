@@ -17,6 +17,11 @@ import { sendPushTickle } from './push.js';
 export const ALERT_TYPES = [
   'eod_missing', 'temp_excursion', 'delivery_failed', 'late_clock_in',
   'expense_pending', 'low_stock', 'negative_sentiment',
+  // Instagram performance detection (0079, instagram_insights.js:alertsForSignals) — one type
+  // covers all four signals (soft post / weak run / follower trend / silence); title and body
+  // carry which one fired, same pattern 'eod_missing' already uses for both a per-staffer miss
+  // and the aggregate low-compliance nudge.
+  'social_underperform',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:

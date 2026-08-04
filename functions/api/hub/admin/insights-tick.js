@@ -13,7 +13,8 @@ import { json, bad, now, ctEq } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { etDateOf } from '../../../_lib/hub.js';
 import { igConfigured } from '../../../_lib/instagram.js';
-import { sweepAccountInsights } from '../../../_lib/instagram_insights.js';
+import { sweepAccountInsights, detectPerformanceSignals, alertsForSignals } from '../../../_lib/instagram_insights.js';
+import { raiseAlert } from '../../../_lib/alerts.js';
 
 export const onRequestPost = async ({ request, env }) => {
   const cronKey = request.headers.get('x-cron-key') || '';
@@ -63,6 +64,19 @@ export const onRequestPost = async ({ request, env }) => {
     } catch { /* best-effort */ }
   }
 
+  // UNDERPERFORMANCE DETECTION (0079). Today's snapshot is stored above; now ask whether it says
+  // something worth the owner's attention. alertsForSignals is pure (severity/wording reasoning
+  // lives there, in instagram_insights.js) — raising is best-effort here so a detection hiccup,
+  // or a database on an older schema, costs an alert and never the tick itself.
+  let alertsRaised = 0;
+  try {
+    const signals = await detectPerformanceSignals(env);
+    for (const a of alertsForSignals(signals)) {
+      const r = await raiseAlert(env, { ...a, team: null, source: 'automation' });
+      if (r && r.ok && !r.deduped) alertsRaised++;
+    }
+  } catch { /* alerting must never fail the tick that just captured real data */ }
+
   return json({
     ok: true,
     date: day,
@@ -72,5 +86,6 @@ export const onRequestPost = async ({ request, env }) => {
     // the fix is obvious from the response alone.
     insights_error: sweep.insights_error || null,
     hint: sweep.insights_error ? 'Regenerate the token under Instagram → API setup with Instagram business login, then update IG_ACCESS_TOKEN.' : null,
+    alerts_raised: alertsRaised,
   });
 };

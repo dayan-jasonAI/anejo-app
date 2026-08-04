@@ -12,7 +12,7 @@
 //      (reach, saved) rather than losing everything because 'views' was renamed again. A partial
 //      snapshot beats no snapshot; the columns simply stay NULL.
 import { resolveTarget, igConfigured } from './instagram.js';
-import { etDateOf, parseJson } from './hub.js';
+import { etDateOf, etMidnightMs, addEtDays, parseJson } from './hub.js';
 import { TRUST_CATEGORIES } from './trust_ledger.js';
 import { loadTraining } from './training.js';
 
@@ -319,5 +319,323 @@ export async function attributionBrief(env) {
       `Comparisons below ${rollup.minSampleSize} posts on either side are withheld as not statistically meaningful yet — do not invent a pattern to fill the gap.\n` +
       `=== END WHAT IS WORKING ===`
     );
+  } catch { return ''; }
+}
+
+// ---------------------------------------------------------------------------
+// UNDERPERFORMANCE DETECTION (0079) — the piece that was always missing. Everything above in
+// this file answers "what happened" (performanceBrief, attributionRollup); nothing before this
+// noticed when the answer was bad and said so. The owner's own words: a real strategist "should
+// realize its results are not catching anyone's attention." This is that realization, made
+// mechanical — and, per the same audit, it must react without manufacturing confidence a
+// six-post account cannot support.
+//
+// FOUR DISTINCT FAILURE MODES, because they are not the same problem and do not deserve the same
+// response:
+//   · a single post landing far below the account's own recent baseline (usually ordinary
+//     variance for an account this small — informational, never a page)
+//   · a RUN of consecutive weak posts (a pattern, not a blip — worth changing the approach)
+//   · the follower count flat or falling over a real window (the account itself losing ground)
+//   · total silence — nothing published at all for a stretch (today NOTHING notices this)
+//
+// STATISTICAL HONESTY CARRIES THROUGH FROM ABOVE. Every signal needs its own baseline with
+// enough history to mean something, and reports `enoughData: false` instead of a confident
+// verdict when it lacks that — the same discipline attributionRollup uses (see MIN_SAMPLE_SIZE
+// above), applied to a single account's own trend rather than a with/without split.
+
+// Smaller than MIN_SAMPLE_SIZE (5) ON PURPOSE. MIN_SAMPLE_SIZE gates a two-way split (with a
+// cause vs without it), where a thin n on EITHER side is easily flipped by one outlier. A
+// baseline here describes only ONE group — the account's own immediately-prior history — so a
+// lower bar (three posts) is enough to say "the newest post/run looked different from what came
+// right before it," without pretending to a rigor a six-post account can never supply.
+export const BASELINE_MIN_POSTS = 3;
+
+// A post at or below half its own account's recent median reach is not noise — that is a large,
+// unambiguous gap, not the kind of day-to-day wobble a handful of posts would produce by chance.
+// A RATIO, not a fixed reach count, because this account's reach has moved from single digits to
+// triple digits over its life; a fixed number would either never fire early on or fire on nearly
+// every post once reach grows.
+export const UNDERPERFORM_RATIO = 0.5;
+
+// A RUN gets a shallower per-post bar (0.7, not 0.5) because its evidence is repetition, not the
+// size of any one miss — three posts each modestly soft is still a real pattern that a single
+// 50%-miss check, run post-by-post, would not catch.
+export const WEAK_RUN_LENGTH = 3;
+export const WEAK_RUN_RATIO = 0.7;
+
+// Two weeks: long enough that ordinary day-to-day follower noise (a few unrelated unfollows)
+// washes out, short enough to catch a real stall before a full month of it passes unnoticed —
+// which is exactly what "reach could go to zero for a month and nothing would say a word" today
+// describes.
+export const FOLLOWER_TREND_WINDOW_DAYS = 14;
+
+// Ten days is comfortably past this account's own rhythm: the default cadence targets 4 feed
+// posts/week (~1.75 days apart), and even a slow week of owner-approval delay rarely stretches
+// past one week. Ten days is over 5x the expected gap between posts — long enough that a normal
+// quiet week cannot trip it, short enough that a pipeline actually gone dark gets noticed inside
+// two weeks, not never.
+export const SILENCE_DAYS = 10;
+
+function daysBetween(earlierDateStr, laterDateStr) {
+  return Math.round((etMidnightMs(laterDateStr) - etMidnightMs(earlierDateStr)) / 86400000);
+}
+
+/**
+ * Latest reach reading for every post on the account (ours or pre-pipeline — same whole-account
+ * sweep philosophy as sweepAccountInsights), newest first. This is the one read both the
+ * single-post and weak-run detectors share; a failure here costs both signals together, which is
+ * honest — they are two analyses of the same underlying read, not two independent ones.
+ */
+async function recentAccountReach(env, { limit = 30 } = {}) {
+  const r = await env.DB.prepare(
+    `SELECT m.media_id, m.post_id, m.caption, m.posted_at, m.reach
+       FROM ig_media_metrics m
+      WHERE m.reach IS NOT NULL AND m.posted_at IS NOT NULL
+        AND m.capture_date = (SELECT MAX(m2.capture_date) FROM ig_media_metrics m2 WHERE m2.media_id = m.media_id)
+      ORDER BY m.posted_at DESC
+      LIMIT ?`
+  ).bind(limit).all();
+  return ((r && r.results) || []).map((row) => ({
+    mediaId: row.media_id,
+    postId: row.post_id ?? null,
+    caption: row.caption ?? null,
+    postedAt: Number(row.posted_at),
+    reach: Number(row.reach),
+  }));
+}
+
+// items: newest-first, from recentAccountReach. Compares the single newest post against the
+// median of everything before it.
+function singlePostUnderperformance(items) {
+  if (!items.length) return { enoughData: false };
+  const [newest, ...rest] = items;
+  if (rest.length < BASELINE_MIN_POSTS) return { enoughData: false };
+  const baselineMedian = median(rest.map((it) => it.reach));
+  if (!baselineMedian) return { enoughData: false };
+  const ratio = newest.reach / baselineMedian;
+  return {
+    enoughData: true,
+    flagged: ratio <= UNDERPERFORM_RATIO,
+    mediaId: newest.mediaId, postId: newest.postId, caption: newest.caption,
+    reach: newest.reach, baselineMedian, baselineN: rest.length, ratio,
+  };
+}
+
+// The baseline for a RUN is computed from the posts BEFORE the run, excluding the run itself —
+// comparing a run to a median that includes the run would let the run drag down its own
+// yardstick, quietly making itself look less bad than it is.
+function weakRunDetection(items) {
+  if (items.length < WEAK_RUN_LENGTH + BASELINE_MIN_POSTS) return { enoughData: false };
+  const run = items.slice(0, WEAK_RUN_LENGTH);
+  const baseline = items.slice(WEAK_RUN_LENGTH);
+  const baselineMedian = median(baseline.map((it) => it.reach));
+  if (!baselineMedian) return { enoughData: false };
+  const flagged = run.every((it) => it.reach <= baselineMedian * WEAK_RUN_RATIO);
+  return {
+    enoughData: true,
+    flagged,
+    mediaIds: run.map((it) => it.mediaId),
+    postIds: run.map((it) => it.postId).filter(Boolean),
+    reaches: run.map((it) => it.reach),
+    baselineMedian, baselineN: baseline.length,
+  };
+}
+
+// Falling or flat followers over FOLLOWER_TREND_WINDOW_DAYS. Requires the account's OWN history
+// to actually reach back that far — a three-day-old install must never be told it has a 14-day
+// trend, because it does not.
+async function followerTrend(env) {
+  const r = await env.DB.prepare(
+    'SELECT capture_date, followers FROM ig_account_metrics ORDER BY capture_date ASC'
+  ).all();
+  const rows = ((r && r.results) || []).filter((row) => Number.isFinite(row.followers));
+  if (rows.length < 2) return { enoughData: false };
+  const today = etDateOf(Date.now());
+  const windowStart = addEtDays(today, -FOLLOWER_TREND_WINDOW_DAYS);
+  const earliest = rows[0];
+  if (earliest.capture_date > windowStart) return { enoughData: false };
+  const latest = rows[rows.length - 1];
+  // The snapshot closest to (but not after) the window boundary — the last row seen while
+  // walking forward that is still <= windowStart.
+  let baselineRow = earliest;
+  for (const row of rows) {
+    if (row.capture_date <= windowStart) baselineRow = row; else break;
+  }
+  const delta = latest.followers - baselineRow.followers;
+  return {
+    enoughData: true,
+    falling: delta < 0,
+    flat: delta === 0,
+    delta,
+    latestFollowers: latest.followers,
+    baselineFollowers: baselineRow.followers,
+    windowDays: daysBetween(baselineRow.capture_date, latest.capture_date),
+  };
+}
+
+// Nothing published at all for SILENCE_DAYS+ — the failure mode nothing in this codebase noticed
+// before 0079. Uses the whole-account posted_at (not just our pipeline's published_at) so a hand
+// posted photo still resets the clock, same as sweepAccountInsights's whole-account philosophy.
+async function silenceDetection(env) {
+  const row = await env.DB.prepare(
+    'SELECT MAX(posted_at) AS last FROM ig_media_metrics WHERE posted_at IS NOT NULL'
+  ).first();
+  const lastPostedAt = row && Number.isFinite(row.last) ? Number(row.last) : null;
+  // No posting history at all reads as "we don't know yet," never as "silent" — a fresh install
+  // or a sweep that has not run yet must not open with a false alarm.
+  if (!lastPostedAt) return { enoughData: false };
+  const today = etDateOf(Date.now());
+  const lastDate = etDateOf(lastPostedAt);
+  const daysSince = daysBetween(lastDate, today);
+  return { enoughData: true, flagged: daysSince >= SILENCE_DAYS, daysSince, lastPostedAt };
+}
+
+const EMPTY_SIGNALS = {
+  ok: true, generatedAt: null,
+  baselineMinPosts: BASELINE_MIN_POSTS, underperformRatio: UNDERPERFORM_RATIO,
+  weakRunLength: WEAK_RUN_LENGTH, weakRunRatio: WEAK_RUN_RATIO,
+  followerWindowDays: FOLLOWER_TREND_WINDOW_DAYS, silenceDays: SILENCE_DAYS,
+  singlePost: { enoughData: false }, weakRun: { enoughData: false },
+  followerTrend: { enoughData: false }, silence: { enoughData: false },
+};
+
+/**
+ * The four signals above, each computed and degraded INDEPENDENTLY — a missing or pre-0064
+ * table costs the specific signal(s) that read it, never the whole snapshot, and never the
+ * caller (insights-tick.js's daily run, or the weekly planner via reactionBrief below). Never
+ * throws; a caller can always safely read every field.
+ */
+export async function detectPerformanceSignals(env) {
+  if (!env || !env.DB) return EMPTY_SIGNALS;
+  let singlePost = { enoughData: false };
+  let weakRun = { enoughData: false };
+  try {
+    const items = await recentAccountReach(env, { limit: 30 });
+    singlePost = singlePostUnderperformance(items);
+    weakRun = weakRunDetection(items);
+  } catch { /* pre-0064 schema, or a query hiccup — both signals stay "not enough data" */ }
+
+  let followerT = { enoughData: false };
+  try { followerT = await followerTrend(env); }
+  catch { /* pre-0064 schema, or ig_account_metrics not populated yet */ }
+
+  let silence = { enoughData: false };
+  try { silence = await silenceDetection(env); }
+  catch { /* pre-0064 schema */ }
+
+  return { ...EMPTY_SIGNALS, generatedAt: Date.now(), singlePost, weakRun, followerTrend: followerT, silence };
+}
+
+/**
+ * Turn a signals snapshot into the alerts it warrants. PURE — no DB, no raiseAlert call — so the
+ * severity/wording rules can be tested without mocking D1 or Instagram. insights-tick.js calls
+ * this once per day and raises whatever comes back.
+ *
+ * SEVERITY, decided once here instead of at each call site:
+ *   · singlePost → 'info'. One quiet post is ordinary variance for an account this size — the
+ *     task this was built for is explicit that a single post must never page anyone.
+ *   · weakRun → 'warning'. Three in a row is a pattern the team should look at, but it does not
+ *     break the day's operation (alerts.js's own definition of 'critical'), so it stays below
+ *     that bar.
+ *   · followerTrend falling → 'warning' (the account is actually losing ground); flat → 'info'
+ *     (no loss, but no movement either — worth knowing, not worth interrupting anyone for).
+ *   · silence → 'warning'. A dark pipeline is an operational gap the team can act on today, but
+ *     — like the others — it never rises to 'critical', because no day's operation depends on an
+ *     Instagram post going out.
+ * Nothing here ever returns 'critical': none of these four conditions "breaks the whole day's
+ * operation unless someone acts now," which is the only bar alerts.js reserves that severity for.
+ */
+export function alertsForSignals(signals) {
+  const out = [];
+  if (!signals) return out;
+  const { singlePost, weakRun, followerTrend: ft, silence } = signals;
+
+  if (singlePost && singlePost.enoughData && singlePost.flagged) {
+    out.push({
+      alert_type: 'social_underperform',
+      severity: 'info',
+      title: 'A post landed well below its recent baseline',
+      body: `Reach ${singlePost.reach} vs a baseline median of ${Math.round(singlePost.baselineMedian)} ` +
+        `across the ${singlePost.baselineN} posts before it (${Math.round(singlePost.ratio * 100)}% of baseline).`,
+      ref_type: 'ig_media', ref_id: singlePost.mediaId || null,
+      dedupe_key: `social_underperform:single:${singlePost.mediaId}`,
+    });
+  }
+
+  if (weakRun && weakRun.enoughData && weakRun.flagged) {
+    out.push({
+      alert_type: 'social_underperform',
+      severity: 'warning',
+      title: `${WEAK_RUN_LENGTH} posts in a row underperformed`,
+      body: `Reach ${weakRun.reaches.join(', ')} vs a baseline median of ${Math.round(weakRun.baselineMedian)} ` +
+        `across the ${weakRun.baselineN} posts before them.`,
+      ref_type: 'ig_media', ref_id: (weakRun.mediaIds && weakRun.mediaIds[0]) || null,
+      dedupe_key: `social_underperform:weak_run:${(weakRun.mediaIds || []).join(',')}`,
+    });
+  }
+
+  if (ft && ft.enoughData && (ft.falling || ft.flat)) {
+    out.push({
+      alert_type: 'social_underperform',
+      severity: ft.falling ? 'warning' : 'info',
+      title: ft.falling ? 'Followers are trending down' : 'Followers are flat',
+      body: `${ft.latestFollowers} followers now vs ${ft.baselineFollowers} ${ft.windowDays} days ago ` +
+        `(${ft.delta >= 0 ? '+' : ''}${ft.delta}).`,
+      ref_type: 'ig_account', ref_id: null,
+      dedupe_key: `social_underperform:followers:${ft.falling ? 'falling' : 'flat'}`,
+    });
+  }
+
+  if (silence && silence.enoughData && silence.flagged) {
+    out.push({
+      alert_type: 'social_underperform',
+      severity: 'warning',
+      title: 'Nothing has posted to Instagram in over a week',
+      body: `${silence.daysSince} days since the last post to the account.`,
+      ref_type: 'ig_account', ref_id: null,
+      dedupe_key: 'social_underperform:silence',
+    });
+  }
+
+  return out;
+}
+
+/**
+ * The planner's explicit, IMPERATIVE response to sustained underperformance — the piece that
+ * turns "here is what happened" (performanceBrief/attributionBrief above) into "here is what to
+ * do differently." Only the WEAK RUN signal instructs a change: a single soft post is ordinary
+ * variance (see UNDERPERFORM_RATIO), and instructing the planner to react to it would train it
+ * to chase noise every week. Below the sample floor this says so PLAINLY instead of staying
+ * silent, so the planner is never left guessing whether quiet data means "nothing to react to
+ * yet" or "everything is fine" — those are different claims, and only one of them licenses the
+ * planner to leave its approach alone with confidence.
+ */
+export async function reactionBrief(env) {
+  if (!env || !env.DB) return '';
+  try {
+    const signals = await detectPerformanceSignals(env);
+    const { weakRun } = signals;
+    if (weakRun.enoughData && weakRun.flagged) {
+      return (
+        `=== REACT: THE LAST ${WEAK_RUN_LENGTH} POSTS UNDERPERFORMED (reach ${weakRun.reaches.join(', ')}, ` +
+        `vs a baseline median of ${Math.round(weakRun.baselineMedian)} across the ${weakRun.baselineN} posts before them) ===\n` +
+        `Do NOT repeat the same format, category and angle this run used. Pick a DIFFERENT format ` +
+        `(single image vs carousel), a DIFFERENT category than these three leaned on, and a DIFFERENT ` +
+        `angle (the food itself / the kitchen-process / the people it feeds / a direct invitation to ` +
+        `order) for at least one post this week. This is an instruction to try something different, ` +
+        `not a suggestion — three posts in a row below baseline is a pattern, not noise.\n` +
+        `=== END REACT ===`
+      );
+    }
+    if (!weakRun.enoughData) {
+      return (
+        `=== NOT ENOUGH DATA TO REACT ===\n` +
+        `There is not yet enough published-post history to tell whether recent performance is a real ` +
+        `pattern or ordinary variance for this account. Do NOT change format, category or angle in ` +
+        `response to performance this week — follow the brand and menu guidance above as usual.\n` +
+        `=== END NOT ENOUGH DATA ===`
+      );
+    }
+    return '';
   } catch { return ''; }
 }
