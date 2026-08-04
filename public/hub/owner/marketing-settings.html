@@ -91,7 +91,7 @@
       '<section class="card">' +
         '<h2 data-i18n>Plate image providers</h2>' +
         '<p class="ms-meta" data-i18n>The Creative Studio tries providers in this order for every plate photo it generates, skipping any that are disabled — the first one that succeeds wins, and the rest never run.</p>' +
-        '<div class="warn-box"><strong data-i18n>Gap:</strong> <span data-i18n>this screen cannot show whether a provider actually has its API key configured in this environment — the endpoint behind it does not return that (it was built to save order/disabled only). Treat the order below as a preference, not a guarantee. An unconfigured provider is skipped automatically by the generator and the chain falls through to the next one — silently, with no signal here if that happens on every single call.</span></div>' +
+        '<p class="ms-meta" data-i18n>A provider marked <strong>no API key</strong> is skipped on every call and the chain falls through to the next one — it cannot produce an image no matter where you rank it.</p>' +
         '<div id="providersBody"><div class="hub-loading">…</div></div>' +
       '</section>' +
 
@@ -197,8 +197,18 @@
     Owner.get('/api/hub/owner/image-provider-config').then(function (d) {
       var el = document.getElementById('providersBody');
       if (!d || !d.ok) { el.innerHTML = '<div class="ms-empty" data-i18n>Could not load provider settings.</div>'; return; }
-      var order = (d.config && d.config.order && d.config.order.length) ? d.config.order : d.providers;
-      provState = { order: order.slice(), disabled: {} };
+      // `providers` is [{name, available}]. Tolerate the older bare-string shape too, so a HUB
+      // page cached from before the endpoint grew `available` degrades to "unknown" rather than
+      // rendering [object Object] as a provider name.
+      var list = (d.providers || []).map(function (p) {
+        return (p && typeof p === 'object') ? p : { name: p, available: null };
+      });
+      var avail = {};
+      list.forEach(function (p) { avail[p.name] = p.available; });
+      var order = (d.config && d.config.order && d.config.order.length)
+        ? d.config.order
+        : list.map(function (p) { return p.name; });
+      provState = { order: order.slice(), disabled: {}, available: avail };
       ((d.config && d.config.disabled) || []).forEach(function (p) { provState.disabled[p] = true; });
       renderProviders();
     });
@@ -209,9 +219,15 @@
     var order = provState.order;
     el.innerHTML = order.map(function (p, i) {
       var isOff = !!provState.disabled[p];
+      // An unconfigured provider is skipped SILENTLY on every call — the owner sees worse images
+      // and no error. Saying "no API key" here is the whole point of showing availability: an
+      // ordering preference that can never run is not a preference, it is a dead entry.
+      var av = provState.available ? provState.available[p] : null;
+      var avTag = av === false ? ' ' + Owner.badge('no API key', 'crit')
+        : (av === null || av === undefined ? ' ' + Owner.badge('unknown', 'warn') : '');
       return '<div class="ms-provider">' +
         '<div class="ms-prov-rank">' + (i + 1) + '</div>' +
-        '<div class="ms-prov-name">' + esc(PROVIDER_LABEL[p] || p) + (isOff ? ' ' + Owner.badge('disabled', '') : '') + '</div>' +
+        '<div class="ms-prov-name">' + esc(PROVIDER_LABEL[p] || p) + avTag + (isOff ? ' ' + Owner.badge('disabled', '') : '') + '</div>' +
         '<div class="ms-prov-acts">' +
           '<button type="button" class="ms-arrow" data-up="' + esc(p) + '"' + (i === 0 ? ' disabled' : '') + ' aria-label="Move up">↑</button>' +
           '<button type="button" class="ms-arrow" data-down="' + esc(p) + '"' + (i === order.length - 1 ? ' disabled' : '') + ' aria-label="Move down">↓</button>' +

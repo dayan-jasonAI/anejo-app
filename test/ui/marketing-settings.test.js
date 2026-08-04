@@ -1,9 +1,9 @@
 // Marketing settings HUB page — four owner-gated JSON APIs (social cadence, posting times,
 // image provider order, intel) previously reachable only with curl. The whole point of this
 // page is honesty: it must never claim Stories are being posted, never claim a "market" intel
-// brief exists when nothing produces one, and never claim to know a provider's API-key
-// availability when the endpoint behind it does not report that. These tests pin those claims
-// as literal strings so a future edit cannot quietly soften them into a fabricated default.
+// brief exists when nothing produces one, and never misreport a provider's API-key availability
+// — configured, unconfigured and unknown must stay three distinct states. These tests pin those
+// claims as literal strings so a future edit cannot quietly soften them into a fabricated default.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -37,9 +37,26 @@ test('the "market" intel kind is honestly empty — no sweep produces it, and th
   assert.match(PAGE, /nothing in the product currently generates a "market" brief/);
 });
 
-test('image provider availability gap is disclosed, not faked', () => {
-  assert.match(PAGE, /cannot show whether a provider actually has its API key configured/);
-  assert.match(PAGE, /the endpoint behind it does not return that/);
+// The gap this used to pin (the endpoint not reporting availability) is now CLOSED: the route
+// maps each provider through providerAvailable(). What must stay pinned is the honesty of the
+// three states — configured, not configured, and genuinely unknown must all render differently.
+// Collapsing "unknown" into "fine" is the regression that would put us back where we started:
+// a provider that never runs, looking exactly like one that does.
+test('an unconfigured image provider is labelled, never silently ranked as if it worked', () => {
+  assert.match(PAGE, /no API key/);
+  assert.match(PAGE, /skipped on every call/);
+});
+
+test('unknown availability renders as unknown, not as available', () => {
+  assert.match(PAGE, /av === false/);
+  assert.match(PAGE, /av === null \|\| av === undefined/);
+  assert.match(PAGE, /Owner\.badge\('unknown'/);
+});
+
+test('the page tolerates the older bare-string providers shape without rendering objects', () => {
+  // A cached page from before the endpoint grew `available` must degrade to "unknown", not
+  // print [object Object] where a provider name belongs.
+  assert.match(PAGE, /\(p && typeof p === 'object'\) \? p : \{ name: p, available: null \}/);
 });
 
 test('posting-time save reloads from GET rather than trusting the client-typed value', () => {

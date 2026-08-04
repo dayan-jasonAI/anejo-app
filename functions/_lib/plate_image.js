@@ -244,7 +244,11 @@ const PROVIDER_FN = { openai: callOpenAI, gemini: callGemini, workers_ai: callWo
 
 // Feature-detect: is this provider even configured in this environment? No key → not available,
 // full stop — we never assume a provider works just because it's in the order.
-function providerAvailable(env, name) {
+// Exported so the HUB can show an UNCONFIGURED provider as unconfigured. Without this the settings
+// page can only list the order, and a provider that is silently skipped every single call looks
+// identical to one that is working — which is exactly how "the images still look AI-generated"
+// goes undiagnosed for weeks.
+export function providerAvailable(env, name) {
   if (name === 'openai') return !!(env && env.OPENAI_API_KEY);
   if (name === 'gemini') return !!(env && env.GEMINI_API_KEY);
   if (name === 'workers_ai') return !!(env && env.AI);

@@ -7,12 +7,18 @@
 // this config fresh on every call).
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { getImageProviderConfig, setImageProviderConfig, IMAGE_PROVIDERS } from '../../../_lib/plate_image.js';
+import { getImageProviderConfig, setImageProviderConfig, IMAGE_PROVIDERS, providerAvailable } from '../../../_lib/plate_image.js';
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
   if (ctx instanceof Response) return ctx;
-  return json({ ok: true, config: await getImageProviderConfig(env), providers: IMAGE_PROVIDERS });
+  // `available` is the difference between a settings page and a guess. The chain skips an
+  // unconfigured provider SILENTLY and falls through to the next one, so an owner who believes
+  // OpenAI is first gets Workers AI images and no error anywhere — the exact complaint that
+  // started this work. Reporting configured-ness per provider is what makes that visible.
+  // Reports only whether a key is BOUND, never the key itself or any part of it.
+  const providers = IMAGE_PROVIDERS.map((name) => ({ name, available: providerAvailable(env, name) }));
+  return json({ ok: true, config: await getImageProviderConfig(env), providers });
 };
 
 export const onRequestPost = async ({ request, env }) => {
