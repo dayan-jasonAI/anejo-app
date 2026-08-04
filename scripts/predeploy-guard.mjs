@@ -37,10 +37,11 @@
 // guard, which is what happened on 2026-08-04. Both now point at `npm run deploy`, and
 // test/deploy-command-docs.test.mjs fails if an unguarded command reappears in any tracked file.
 //
-// STILL UNCOVERED, deliberately not oversold: typing `npx wrangler pages deploy` by hand, a global
-// wrangler, or `npx wrangler@3` (which ignores node_modules). Closing that needs a detector rather
-// than a guard — compare the LIVE deployment's source commit against origin/main after the fact
-// (`wrangler pages deployment list` reports it) — and no such check exists yet.
+// NOT COVERED HERE, by construction: typing `npx wrangler pages deploy` by hand, a global
+// wrangler, or `npx wrangler@3` (which ignores node_modules). Nothing that runs before a deploy
+// can see those. `scripts/verify-live-deploy.mjs` covers them from the other side — it reads what
+// is actually live and compares it to the trunk, so it does not care how the deploy was invoked.
+// Run it any time with `npm run verify:deploy`; `npm run deploy` runs it automatically afterwards.
 import { execFileSync } from 'node:child_process';
 
 const sh = (args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();

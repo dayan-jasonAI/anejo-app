@@ -37,6 +37,12 @@ All of the above passes `node --check`; none of it has been pushed yet.
    refuses to publish a checkout that is behind `origin/main`; wrangler invoked directly has no
    such check and will happily revert the live site from a stale clone. Extra flags pass through:
    `npm run deploy -- --branch=main`. Pinned by `test/deploy-command-docs.test.mjs`.
+   - **Check what is actually live: `npm run verify:deploy`** (needs `CLOUDFLARE_API_TOKEN` +
+     `CLOUDFLARE_ACCOUNT_ID`; fails open and says so without them). It reads the live production
+     deployment and fails if production went BACKWARDS, diverged, or is serving a commit that is
+     not on the trunk — regardless of how the deploy was invoked, so it catches the bare-wrangler
+     path the guard cannot see. `npm run deploy` runs it automatically afterwards. Add `--strict`
+     to make warnings and skips fatal for unattended runs.
 4. Then continue the workflow: trainer dashboard UI (#19), subscription checkout + 10% rev-share (#20), storefront (#21), content/SEO/legal (#22–24), QA (#25).
 
 ## THE STORE IS LIVE (go-live 2026-07-21 — DBPR license in hand, `SQUARE_ENV=production`)

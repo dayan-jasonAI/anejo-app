@@ -20,8 +20,8 @@
 // WHAT THIS DOES NOT DO — stated plainly so it is not mistaken for full coverage. Nothing here
 // stops someone typing `npx wrangler pages deploy` by hand, or using a globally installed
 // wrangler, or `npx wrangler@3` (which ignores node_modules entirely). Prevention ends at the
-// documented path. Catching the rest means checking the LIVE deployment's source commit against
-// origin/main after the fact — a detector, not a guard, and it does not exist yet.
+// documented path. That half is covered from the other side by scripts/verify-live-deploy.mjs,
+// which reads what is actually live and compares it to the trunk — `npm run verify:deploy`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -30,16 +30,22 @@ import { readFileSync } from 'node:fs';
 const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 const read = (rel) => readFileSync(`${ROOT}/${rel}`, 'utf8');
 
-// Every tracked text file, from git itself — so a new doc cannot slip in unscanned.
-function trackedTextFiles() {
-  const out = execFileSync('git', ['-C', ROOT, 'ls-files', '-z'], { encoding: 'utf8' });
-  return out.split('\0').filter((f) => f && /\.(md|mjs|js|json|sh|ya?ml|toml|txt)$/.test(f));
+// Every text file git can see — TRACKED AND UNTRACKED (minus ignored), from git itself.
+//
+// The untracked half is not decoration. This scan first shipped as `ls-files` alone, and a new
+// file added in the same session passed the suite right up until it was committed — green for the
+// reason the check exists to prevent, on the very commit that introduced it. Anything a `git add`
+// would sweep in gets scanned now, so the answer does not depend on when you happen to run it.
+function scannableTextFiles() {
+  const out = execFileSync('git', ['-C', ROOT, 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], { encoding: 'utf8' });
+  return [...new Set(out.split('\0').filter((f) => f && /\.(md|mjs|js|json|sh|ya?ml|toml|txt)$/.test(f)))];
 }
 
 // Files that DESCRIBE the rule rather than tell anyone to run the command. They still get scanned
 // for the pattern; they are simply allowed to contain it.
 const EXPLAINERS = new Set([
   'scripts/predeploy-guard.mjs',
+  'scripts/verify-live-deploy.mjs',
   'test/deploy-command-docs.test.mjs',
 ]);
 
@@ -58,7 +64,7 @@ test('no file tells anyone to run an UNGUARDED wrangler deploy', () => {
   // The regression: CLAUDE.md said `npx wrangler pages deploy public`, so following the docs meant
   // skipping the guard. Docs are the control surface here — this is the check on them.
   const offenders = [];
-  for (const file of trackedTextFiles()) {
+  for (const file of scannableTextFiles()) {
     if (EXPLAINERS.has(file)) continue;
     const lines = read(file).split('\n');
     lines.forEach((line, i) => {
