@@ -796,3 +796,75 @@ proof. npm test: 1073/1073 pass. npm run lint: clean.
 
 Every new order geocodes on checkout now that the Google key works. Historic orders do not fix
 themselves — nothing re-geocodes an order after the fact, which is why the backfill exists.
+
+---
+
+## 20. The team could measure itself and could not react — CLOSED 2026-08-04
+
+The owner's words: a real strategist *"should realize its results are not catching anyone's
+attention."* Of the four levels that phrase implies, three existed and the fourth did not:
+data stored (yes), shown to a human (yes), fed into the AI's prompt (yes), **the system
+autonomously reacts (no)**. `ALERT_TYPES` had no performance entry; none of the 53 `raiseAlert`
+call sites was keyed on reach, followers or saves; the one autonomy dial (`trust_ledger.js`)
+counts owner APPROVALS, never outcomes. Reach could have gone to zero for a month with no code
+path behaving differently.
+
+Now: four detectors (single soft post, weak run, follower trend, silence), an alert type, and an
+imperative reaction injected into the planner **only when the data earns it**.
+
+**Verified against the live account, not a fixture** (2026-08-04, real `ig_media_metrics`):
+
+- single soft post → **flagged**: reach 27 vs baseline median 70 over n=8 (39%), severity `info`
+- weak run → correctly NOT flagged (an 89-reach post breaks the run)
+- follower trend → **"not enough data"**, with 5 days against a 14-day window — even though
+  followers had in fact grown 37→51. It refused to call a real trend it could not yet prove.
+- silence → not flagged, 1 day since last post
+- planner reaction text → **empty**, by design. One weak post is n=1; it does not rewrite
+  strategy on noise.
+
+That third bullet is the point. The detector had every chance to claim a correct-by-luck finding
+and declined.
+
+## 21. Instagram had no sales half at all — CLOSED 2026-08-04
+
+There was exactly ONE `INSERT INTO leads` in the codebase (`functions/api/leads.js:214`) and
+every caller was a public web form. Aña classified a DM as escalate / `[SPECIAL]` / normal —
+none of which is commercial intent — and on a real buying signal she DEFLECTED to a URL. A DM
+saying *"I want to book catering for 60 people"* produced a warm reply, a `messages` row, and
+**nothing in `leads`, no alert, no notification**.
+
+Now: deterministic intent detection (catering / bulk / wholesale / subscription) running BEFORE
+Aña's budget-gated model call, so an Anthropic outage cannot cost a lead; capture through the
+same `insertLead()` the web form uses (extracted, not copied); dedupe enforced as a partial
+UNIQUE INDEX, not just application logic; alert only on high confidence — a maybe is not a yes.
+
+**Known limitation, stated plainly:** it is a keyword classifier. It will miss a creatively
+phrased ask. Low-confidence hits are recorded but never alert, so the alert threshold is the
+real filter.
+
+## 22. Two alerts never reached the table, from the day they were written — CLOSED 2026-08-04
+
+`social-inbox-tick.js` and `partner-apply.js` both called `raiseAlert(env, { type: ... })` while
+`raiseAlert` reads `opts.alert_type` and returns `{ok:false}` on the miss. Silent no-op, no error
+anywhere. The customer-facing half is the bad one: **Aña tells someone "we're checking with the
+kitchen" and nobody was ever told to check.**
+
+Honest scope: production had zero `[SPECIAL]` messages and zero partner applications, so this
+cost nothing — it was armed to fail the first time it mattered. Found while building §21, not by
+the tests, which had pinned the broken spelling.
+
+## 23. Reels, Stories and video — publishing built, generation NOT — 2026-08-04
+
+`_lib/instagram.js` now speaks `REELS` and `STORIES` (container → poll → publish, reusing the
+existing `waitFinished` rather than a second poll loop), `social_posts.media_type` models it, and
+the HUB renders video slides as video.
+
+**What is still absent, and should not be read as done:**
+- **No video is generated.** SORA is not integrated. ElevenLabs is not integrated — there is no
+  `ELEVENLABS_*` var anywhere.
+- **No video upload widget.** `social-upload.js` carries a standing owner ruling ("no video for
+  now"); the only path to a Reel today is pasting an already-staged R2 key.
+- **Stories cadence remains cosmetic.** `stories_per_day_min/max` is stored, shown in the HUB
+  labelled *"Recorded, not automated"*, and read by nothing that posts.
+- Reels transcode timing, Stories `permalink` behaviour and exact duration/aspect bounds are
+  **unverified against the real API** — everything Meta-side was exercised against mocked fetch.
