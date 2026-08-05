@@ -4,12 +4,21 @@
 // against the bar — cut off in practice and awkward to tap. And the driver's route action sheet was
 // pinned at a hard `bottom:16px`, which put the buttons a driver taps at every stop UNDERNEATH the
 // nav entirely.
+//
+// 2026-08-04: the owner reported the bar STILL covering content on the phone even after the fix
+// above. Measured live: body's padding-bottom was correct (84px) but three text nodes rendered
+// 5-14px INTO the nav anyway. Root cause was a different rule entirely — `html, body { height:
+// 100% }` (border-box) gives body a FIXED box; the padding-bottom is carved out of that box. Every
+// owner page is taller than one screen, so real content overflows the fixed box, and overflowing
+// content ignores a box's own padding — it lands flush against the viewport edge instead of
+// clearing it. The fix is `min-height`, which lets the box grow with content (padding included).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const CSS = readFileSync(new URL('../../public/hub/assets/hub.css', import.meta.url), 'utf8');
 const ROUTE = readFileSync(new URL('../../public/hub/driver/route.html', import.meta.url), 'utf8');
+const OPERATOR = readFileSync(new URL('../../public/hub/owner/assets/operator.js', import.meta.url), 'utf8');
 
 const varPx = (name) => {
   const m = CSS.match(new RegExp('--' + name + ':\\s*(\\d+)px'));
@@ -51,4 +60,27 @@ test('the nav height and its padding stay in sync', () => {
   const navRule = CSS.match(/\.hub-nav\s*\{[\s\S]*?\}/)[0];
   assert.ok(navRule.includes('--nav-h'), 'nav height is derived, not literal');
   assert.ok(navRule.includes('safe-area-inset-bottom'));
+});
+
+test('html/body use min-height, not a fixed height — or padding-bottom stops protecting content', () => {
+  // `height: 100%` on a border-box element gives it a FIXED box; content taller than one screen
+  // (every owner page) overflows that box, and overflowing content ignores the box's own
+  // padding-bottom. min-height lets the box grow with content so the reserved clearance is real
+  // no matter how long the page is. This is the regression test for the live 2026-08-04 bug.
+  const rootRule = CSS.match(/html,\s*body\s*\{[\s\S]*?\}/);
+  assert.ok(rootRule, 'a combined html, body rule must exist');
+  assert.ok(/min-height:\s*100%/.test(rootRule[0]), 'must be min-height so content can grow past one screen');
+  assert.ok(!/(?<!min-)height:\s*100%/.test(rootRule[0]),
+    'a plain `height: 100%` here caps the box and swallows the padding-bottom reservation');
+});
+
+test('the Æ operator FAB/hint clear the nav by the same margin real content does', () => {
+  // The FAB/hint used to hard-code bottom:22px/38px, oblivious to --nav-h — on the owner HUB that
+  // put the FAB ON TOP of the nav bar (measured live: fab bottom 1031 vs nav top 993). They must
+  // derive from the nav height, not a literal that drifts the moment --nav-h changes.
+  const fabRule = OPERATOR.match(/\.aop-fab\{[^}]*\}/);
+  assert.ok(fabRule, '.aop-fab rule must exist');
+  assert.ok(!/bottom:\s*\d+px/.test(fabRule[0]), 'no literal bottom offset — that is what put it on the nav');
+  assert.ok(/bottom:\s*var\(--aop-base/.test(fabRule[0]), 'must derive from the shared nav-clearance base');
+  assert.ok(/--nav-h/.test(OPERATOR), 'the shared base must itself reference --nav-h');
 });

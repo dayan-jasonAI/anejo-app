@@ -17,7 +17,15 @@
 
   var css = document.createElement('style');
   css.textContent = [
-    '.aop-fab{position:fixed;right:22px;bottom:22px;width:62px;height:62px;border-radius:50%;',
+    // The FAB/hint/panel used to hard-code their bottom offset (22/38/96px), unaware of the
+    // fixed bottom nav (--nav-h, defined in hub.css). On the owner HUB that meant the FAB sat
+    // ON TOP of the nav bar instead of above it — the reported bug. --aop-base reuses the exact
+    // clearance hub.css already documents for anything a page pins to the bottom itself
+    // (.hub-above-nav: nav height + nav gap + the iPhone home-indicator safe area), so the FAB
+    // always clears the bar by the same margin real content does, on any HUB page, phone or
+    // desktop, notch or none.
+    ':root{--aop-base:calc(var(--nav-h, 60px) + var(--nav-gap, 24px) + env(safe-area-inset-bottom, 0px));}',
+    '.aop-fab{position:fixed;right:22px;bottom:var(--aop-base);width:62px;height:62px;border-radius:50%;',
     'border:1px solid rgba(198,167,94,.55);background:radial-gradient(circle at 32% 28%,#2c2c26,#14140f);',
     'color:#e8dfc8;display:grid;place-items:center;cursor:pointer;z-index:9998;',
     'box-shadow:0 10px 30px rgba(0,0,0,.45);transition:transform .18s ease,box-shadow .18s ease}',
@@ -25,10 +33,13 @@
     '.aop-fab.listening{box-shadow:0 0 0 0 rgba(198,167,94,.55);animation:aopPulse 1.4s infinite}',
     '.aop-fab.thinking{opacity:.65}',
     '@keyframes aopPulse{70%{box-shadow:0 0 0 16px rgba(198,167,94,0)}100%{box-shadow:0 0 0 0 rgba(198,167,94,0)}}',
-    '.aop-hint{position:fixed;right:96px;bottom:38px;background:#14140f;color:#e8dfc8;border:1px solid rgba(198,167,94,.35);',
+    // +16px keeps the hint vertically centered on the fab (same 16px offset as the original
+    // 22/38 pair), just measured from the new base instead of the viewport edge.
+    '.aop-hint{position:fixed;right:96px;bottom:calc(var(--aop-base) + 16px);background:#14140f;color:#e8dfc8;border:1px solid rgba(198,167,94,.35);',
     'padding:7px 12px;border-radius:8px;font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9998}',
     '.aop-hint.show{opacity:1}',
-    '.aop-panel{position:fixed;right:22px;bottom:96px;width:min(420px,calc(100vw - 44px));max-height:58vh;overflow:auto;',
+    // +74px preserves the original gap between the fab and the panel above it (96 - 22 = 74).
+    '.aop-panel{position:fixed;right:22px;bottom:calc(var(--aop-base) + 74px);width:min(420px,calc(100vw - 44px));max-height:58vh;overflow:auto;',
     'background:#14140f;border:1px solid rgba(198,167,94,.35);border-radius:14px;padding:14px;z-index:9998;display:none;',
     'box-shadow:0 18px 50px rgba(0,0,0,.5)}',
     '.aop-panel.open{display:block}',
