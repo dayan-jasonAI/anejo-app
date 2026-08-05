@@ -24,6 +24,9 @@ const PRIVATE = [
   'hub/index.html', 'hub/owner/index.html', 'hub/owner/contracts.html',
   'hub/owner/knowledge.html', 'hub/owner/marketing-settings.html',
   'hub/kitchen/index.html', 'hub/driver/index.html',
+  // An internal design prototype, served from the customer domain only so the team can open it on
+  // a real phone. Fixture prices, no working checkout — it must never be a search result.
+  'prototype/anejobuyer/index.html',
 ];
 
 for (const p of PUBLIC) {

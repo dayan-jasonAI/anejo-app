@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
+<meta name="theme-color" content="#0D0D0D">
+<title>Añejo Buyer Experience Prototype</title>
+<meta name="description" content="Isolated visual prototype for the Añejo customer buying journey.">
+<!-- NOINDEX, and it must stay. This is an internal design prototype that happens to live on the
+     customer domain so the team can open it on a real phone. It shows fixture prices the fine
+     print itself calls non-authoritative, and it has no working checkout. A customer arriving
+     here from a Google result would be reading made-up numbers under the real brand. The rule
+     and both its directions are pinned in test/ui/indexability.test.js — which exists because
+     Search Console once flagged the OPPOSITE mistake on /business.html. -->
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500;1,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to prototype</a>
+
+<header class="site-nav" aria-label="Prototype navigation">
+  <a class="brand-lockup" href="#home" aria-label="Añejo prototype home">
+    <img src="/assets/img/emblem.png" alt="" aria-hidden="true">
+    <span>AÑEJO</span>
+  </a>
+  <nav class="nav-links" aria-label="Desktop navigation">
+    <a href="#menu">Menu</a>
+    <a href="#macro">Macro Portal</a>
+    <a href="#plans">Plans</a>
+    <a href="#journey">How it works</a>
+  </nav>
+  <a class="nav-action" href="#order-flow">Order Today</a>
+</header>
+
+<main id="main">
+  <section class="hero" id="home">
+    <div class="hero-copy">
+      <p class="eyebrow">Clean Fuel. Bold Flavors. Cooked Fresh. Delivered Daily.</p>
+      <h1>Fresh Añejo bowls cooked today and delivered across Palm Beach County.</h1>
+      <p class="hero-lede">Real ingredients, Cuban-American flavor, and flexible portions for busy people who want excellent food without planning, cooking, or settling for frozen meal prep.</p>
+      <div class="hero-actions">
+        <a class="btn btn-gold" href="#order-flow">Order Today</a>
+        <a class="btn btn-ghost" href="#menu">See Today's Menu</a>
+      </div>
+      <dl class="trust-strip" aria-label="Añejo differentiators">
+        <div><dt>Fresh today</dt><dd>same-day cooking</dd></div>
+        <div><dt>Delivered daily</dt><dd>lunch or dinner</dd></div>
+        <div><dt>Personalized</dt><dd>standard or macro</dd></div>
+      </dl>
+    </div>
+    <div class="hero-media" aria-label="Food and delivery visual proof">
+      <div class="video-card" data-hero-video-card>
+        <video class="hero-video" muted autoplay loop playsinline preload="metadata"
+          poster="/assets/img/bowl_fuego.jpg"
+          data-desktop-src="./media/anejo-hero-loop-desktop.mp4"
+          data-mobile-src="./media/anejo-hero-loop-mobile.mp4"
+          aria-label="Añejo same-day preparation and delivery hero video"></video>
+        <div class="story-frame story-one is-active">
+          <img src="/assets/img/bowl_fuego.jpg" alt="FUEGO steak bowl with chimichurri and roasted vegetables">
+          <span>12:18 PM · kitchen packout</span>
+        </div>
+        <div class="story-frame story-two">
+          <img src="/assets/img/bowl_mar.jpg" alt="MAR salmon bowl with quinoa, vegetables, and Ajo Citrico">
+          <span>12:42 PM · delivery route</span>
+        </div>
+        <div class="story-frame story-three">
+          <img src="/assets/img/bowl_vida.jpg" alt="VIDA tuna mango bowl ready to eat at a work desk">
+          <span>1:07 PM · lunch lands</span>
+        </div>
+      </div>
+      <div class="fresh-ticket">
+        <span class="ticket-kicker">Today's order</span>
+        <strong>Cooked after the morning prep list closes.</strong>
+        <span>Timed animatic now; final Sora video drops into the same hero slot.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="split-band" id="journey">
+    <div>
+      <p class="eyebrow">The simple path</p>
+      <h2>Choose fresh meals now, or build around a goal.</h2>
+    </div>
+    <div class="path-grid">
+      <article class="path-card">
+        <span>Standard</span>
+        <h3>I want fresh meals.</h3>
+        <p>Pick bowls, drinks, delivery date, and window. Standard bowls are 16 oz and priced individually.</p>
+        <a href="#menu">Browse meals</a>
+      </article>
+      <article class="path-card">
+        <span>Personalized</span>
+        <h3>I want meals built around my goals.</h3>
+        <p>Start with the Macro Portal, enter body and goal inputs, then receive portion-sized bowl guidance.</p>
+        <a href="#macro">Explore macros</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="menu-section" id="menu">
+    <div class="section-head">
+      <p class="eyebrow">Today's menu prototype</p>
+      <h2>Real Añejo bowls, real fallback prices, clearer buying choices.</h2>
+      <p>Fixture data mirrors code fallbacks when D1 is unavailable. Production checkout and owner-managed D1 prices remain authoritative.</p>
+    </div>
+    <div class="toolbar" role="group" aria-label="Menu filters">
+      <button class="chip is-selected" type="button" data-filter="all">All bowls</button>
+      <button class="chip" type="button" data-filter="high-protein">High protein</button>
+      <button class="chip" type="button" data-filter="pescatarian">Pescatarian</button>
+      <button class="chip" type="button" data-filter="plant-forward">Plant-forward</button>
+    </div>
+    <div class="product-grid" id="productGrid" aria-live="polite"></div>
+  </section>
+
+  <section class="detail-lab" id="order-flow">
+    <div class="detail-panel">
+      <div class="state-tabs" role="tablist" aria-label="Prototype route states">
+        <button type="button" class="is-active" data-state="standard">Product</button>
+        <button type="button" data-state="macro">Macro</button>
+        <button type="button" data-state="plan">Plan</button>
+        <button type="button" data-state="cart">Cart</button>
+        <button type="button" data-state="checkout">Checkout</button>
+        <button type="button" data-state="confirm">Confirm</button>
+        <button type="button" data-state="states">States</button>
+        <button type="button" data-state="messages">SMS/Email</button>
+      </div>
+      <div id="stateView"></div>
+    </div>
+    <aside class="order-summary" aria-label="Prototype cart summary">
+      <h2>Your order</h2>
+      <div id="cartLines"></div>
+      <div class="money-lines">
+        <div><span>Subtotal</span><strong id="subtotal">$0.00</strong></div>
+        <div><span>Delivery fee</span><strong id="delivery">$0.00</strong></div>
+        <div><span>Est. sales tax</span><strong id="tax">$0.00</strong></div>
+        <div class="total"><span>Estimated total</span><strong id="total">$0.00</strong></div>
+      </div>
+      <p class="fine-print">Prototype only. Server checkout is authoritative for tax, delivery, order minimum, availability, rewards, promo codes, and Square payment state.</p>
+      <button class="btn btn-gold btn-block" type="button" data-goto="checkout">Checkout Entry</button>
+    </aside>
+  </section>
+
+  <section class="macro-band" id="macro">
+    <div>
+      <p class="eyebrow">Macro Portal introduction</p>
+      <h2>Personalized meals without making nutrition another job.</h2>
+      <p>The Macro Portal estimates a plan from customer inputs, then adapts bowl portions and plan pricing around the customer's goal. It is a parallel path, not a requirement for everyone.</p>
+    </div>
+    <div class="macro-steps">
+      <div><strong>1</strong><span>Enter basics, schedule, and goal.</span></div>
+      <div><strong>2</strong><span>Receive calories, protein, carbs, fat, and bowl size.</span></div>
+      <div><strong>3</strong><span>Choose a weekly cadence and checkout through the existing subscription flow.</span></div>
+    </div>
+  </section>
+
+  <section class="plans" id="plans">
+    <div class="section-head">
+      <p class="eyebrow">Plan selection</p>
+      <h2>Subscriptions communicate predictable value.</h2>
+    </div>
+    <div class="plan-grid" id="planGrid"></div>
+  </section>
+</main>
+
+<div class="mobile-order-bar" aria-label="Mobile order shortcut">
+  <span>Fresh bowls today</span>
+  <a href="#order-flow">Order</a>
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>
