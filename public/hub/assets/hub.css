@@ -240,9 +240,17 @@ textarea { min-height: 90px; resize: vertical; }
 .hub-nav::-webkit-scrollbar { display: none; }
 .hub-nav a, .hub-nav-more {
   flex: 1 0 auto;
-  min-width: 64px;
-  /* 44pt Apple HIG minimum tap target: the row is --nav-h (60px) tall by at least 64px wide,
-     comfortably over the floor even before the icon/label content is measured. */
+  /* 62, not 64. Six slots is what every role now renders — five primary tabs plus ⋯ More — and
+     6 x 64 = 384 against a 375px viewport, so the LAST slot (the More button on every role) was
+     clipped by 9px and the bar scrolled a hair on the commonest phone width. 6 x 62 = 372: it
+     fits exactly, with no scroll. Measured in a browser against the live owner/kitchen/driver
+     renderers, not derived.
+     44pt Apple HIG minimum tap target is still comfortably clear: the row is --nav-h (60px) tall
+     by at least 62px wide, before the icon/label content is measured.
+     LIMIT, stated so nobody re-measures it: this fits SIX slots at >=372px. A seventh slot
+     overflows at any phone width, and a 320px device (iPhone SE 1st gen) still scrolls. Six is
+     the budget — if a role needs another destination, it goes in the More sheet, not the bar. */
+  min-width: 62px;
   min-height: 44px;
   display: flex;
   flex-direction: column;
