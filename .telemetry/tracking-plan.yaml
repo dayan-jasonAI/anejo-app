@@ -477,3 +477,14 @@ events:
   - { name: track.rejected, category: governance, group_level: business, description: "SYSTEM: a client posted an event name not in this plan; the name is recorded so nothing dies silently", expected_frequency: low,
       undocumented_until: v2, actor_type: system,
       properties: [ {name: attempted, type: string, required: false}, {name: reason, type: string, required: false} ] }
+
+  # ---------- Privacy: the user's half of read-and-purge ----------
+  # TELEMETRY_ESTATE.md §4.1 — "a log you cannot read and purge is surveillance". Añejo's subjects
+  # are STAFF, and activity_log is also the accountability evidence, so Dayan ruled 2026-08-05:
+  # staff read + request, OWNER executes. Both names are in PURGE_EXCLUDED so the record of an
+  # erasure outlives the erasure (clause 3).
+  - { name: privacy.purge_requested, category: governance, group_level: team, description: "A staff member asks the owner to erase their telemetry", expected_frequency: low,
+      properties: [ {name: note_len, type: integer, required: false}, {name: note, type: string, required: false} ] }
+  - { name: privacy.purge_executed, category: governance, group_level: business, description: "SYSTEM: the owner executed an erasure. Carries the subject and the executor; never purgeable", expected_frequency: low,
+      actor_type: system,
+      properties: [ {name: subject_staff_id, type: string, required: true}, {name: executed_by, type: string, required: false}, {name: deleted, type: integer, required: false}, {name: kept, type: integer, required: false} ] }

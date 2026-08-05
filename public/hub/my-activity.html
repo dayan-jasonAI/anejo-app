@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · My data</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  /* Same card rhythm and serif numerals as traffic.html / adoption.html — one visual system. */
+  .tcard{margin-bottom:14px}
+  .trow{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dotted var(--line);align-items:flex-start}
+  .trow:last-child{border-bottom:0}
+  .trow .lbl{color:var(--green)}
+  .trow .when{color:var(--muted);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .big{font-family:'Cormorant Garamond',Georgia,serif;font-size:34px;color:var(--green);font-weight:600;font-variant-numeric:tabular-nums}
+  .split{display:flex;gap:10px;margin-top:10px}
+  .split > div{flex:1;border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px}
+  .split .n{font-weight:700;color:var(--gold-dark);font-variant-numeric:tabular-nums;font-size:20px}
+  .split .k{color:var(--muted);font-size:12px;line-height:1.4}
+  .kept-tag{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin-left:6px;white-space:nowrap}
+  .btn{min-height:44px;padding:10px 16px;border-radius:8px;border:1px solid var(--line);background:#fff;font:inherit;cursor:pointer}
+  .btn.warn{background:var(--crit);color:#fff;border-color:var(--crit)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .note{color:var(--muted);font-size:12px;line-height:1.55}
+  .ok{color:var(--ok);font-weight:600}
+</style>
+</head>
+<body>
+<div class="hub-bar"><h1>MY DATA</h1><div class="hub-bar-actions"><a href="/hub/" style="color:var(--gold);text-decoration:none;font-size:13px">← Hub</a></div></div>
+<div class="hub-wrap">
+
+  <div class="card tcard">
+    <div class="row-sub">What the HUB has recorded about you</div>
+    <div class="big" id="total">—</div>
+    <div class="split">
+      <div><div class="n" id="purgeable">—</div><div class="k">can be erased if you ask</div></div>
+      <div><div class="n" id="kept">—</div><div class="k">kept as business records</div></div>
+    </div>
+    <p class="note" id="keptWhy" style="margin-top:10px"></p>
+  </div>
+
+  <div class="card tcard">
+    <h2>Ask for your data to be erased</h2>
+    <p class="note">Your request goes to the owner, who carries it out. Money, food-safety and
+      contract records stay — those are the business's books, not a record of how you used the app.</p>
+    <p class="note" id="reqState" style="margin-top:8px"></p>
+    <button class="btn warn" id="reqBtn" type="button">Request erasure</button>
+  </div>
+
+  <div class="card tcard"><h2>Your activity</h2><div id="rows"></div>
+    <div style="margin-top:10px"><button class="btn" id="more" type="button" hidden>Load older</button></div>
+  </div>
+
+</div>
+<script src="/hub/assets/hub.js"></script>
+<script>
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];});}
+function when(ts){
+  if(!ts) return '';
+  var d=new Date(ts), m=Math.floor((Date.now()-ts)/60000);
+  if(m<60) return m+'m ago';
+  if(m<1440) return Math.floor(m/60)+'h ago';
+  return d.toISOString().slice(0,10);
+}
+var cursor=null;
+
+function render(d, append){
+  document.getElementById('total').textContent=(d.total||0).toLocaleString();
+  document.getElementById('purgeable').textContent=(d.purgeable||0).toLocaleString();
+  document.getElementById('kept').textContent=(d.kept||0).toLocaleString();
+  document.getElementById('keptWhy').textContent=d.kept_reason||'';
+  var host=document.getElementById('rows');
+  var html=(d.rows||[]).map(function(r){
+    return '<div class="trow"><span class="lbl">'+esc(r.label||r.event)+
+      (r.purgeable?'':'<span class="kept-tag">kept</span>')+
+      '</span><span class="when">'+esc(when(r.created_at))+'</span></div>';
+  }).join('');
+  if(append) host.insertAdjacentHTML('beforeend',html);
+  else host.innerHTML = html || '<div class="row-sub">Nothing recorded about you yet.</div>';
+  cursor=d.next_before;
+  document.getElementById('more').hidden=!cursor;
+}
+
+async function load(before, append){
+  var r;
+  try{ r=await fetch('/api/hub/me/activity'+(before?('?before='+before):''),{credentials:'same-origin'}); }
+  catch(e){ document.getElementById('total').textContent='—'; return; }
+  if(r.status===401){ document.getElementById('total').textContent='Sign in'; return; }
+  var d; try{ d=await r.json(); }catch(e){ return; }
+  render(d, append);
+}
+
+async function loadReq(){
+  try{
+    var r=await fetch('/api/hub/me/purge-request',{credentials:'same-origin'});
+    var d=await r.json();
+    var s=document.getElementById('reqState'), b=document.getElementById('reqBtn');
+    if(d && d.open){
+      s.innerHTML='<span class="ok">Requested '+esc(when(d.open.requested_at))+'.</span> Waiting for the owner to carry it out.';
+      b.disabled=true; b.textContent='Request already sent';
+    }
+  }catch(e){}
+}
+
+document.getElementById('reqBtn').addEventListener('click', async function(){
+  var b=this;
+  if(!window.confirm('Send an erasure request to the owner?\n\nYour money, food-safety and contract records will be kept.')) return;
+  b.disabled=true; b.textContent='Sending…';
+  try{
+    await fetch('/api/hub/me/purge-request',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});
+    b.textContent='Request sent';
+    await loadReq();
+  }catch(e){ b.disabled=false; b.textContent='Request erasure'; }
+});
+document.getElementById('more').addEventListener('click',function(){ if(cursor) load(cursor,true); });
+
+Hub.boot();
+load(); loadReq();
+</script>
+</body>
+</html>

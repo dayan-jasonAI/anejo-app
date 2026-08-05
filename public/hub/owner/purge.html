@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Data requests</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .tcard{margin-bottom:14px}
+  .trow{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dotted var(--line);align-items:center}
+  .trow:last-child{border-bottom:0}
+  .trow .lbl{color:var(--green)}
+  .trow .sub{color:var(--muted);font-size:12px}
+  .n{font-weight:700;color:var(--gold-dark);font-variant-numeric:tabular-nums}
+  .btn{min-height:44px;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;font:inherit;cursor:pointer}
+  .btn.warn{background:var(--crit);color:#fff;border-color:var(--crit)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .note{color:var(--muted);font-size:12px;line-height:1.55}
+  input[type=text]{width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;box-sizing:border-box}
+  .preview{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-top:10px}
+  .warnbox{border:1px solid var(--crit);border-radius:var(--radius-sm);padding:10px;margin-top:10px;background:#fff6f5}
+</style>
+</head>
+<body>
+<div class="hub-bar"><h1>AÑEJO · DATA REQUESTS</h1><div class="hub-bar-actions"><a href="/hub/owner/" style="color:var(--gold);text-decoration:none;font-size:13px">← Command</a></div></div>
+<div class="hub-wrap">
+
+  <div class="card tcard">
+    <h2>Open erasure requests</h2>
+    <p class="note">Staff ask from their own <strong>My data</strong> screen. You carry it out here.
+      Money, food-safety and contract records are never erased — they are the business's books, and
+      the record of the erasure itself is kept too.</p>
+    <div id="open" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card tcard">
+    <h2>Preview and execute</h2>
+    <p class="note">Nothing is deleted until you retype the staff id. Preview first — it shows
+      exactly what would go and what would stay.</p>
+    <div style="margin-top:10px"><input type="text" id="sid" placeholder="staff id, e.g. usr_…" autocomplete="off" spellcheck="false"></div>
+    <div style="margin-top:8px"><button class="btn" id="prev" type="button">Preview</button></div>
+    <div id="out"></div>
+  </div>
+
+</div>
+<nav id="owner-nav" class="hub-nav"></nav>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];});}
+function when(ts){ if(!ts) return ''; var m=Math.floor((Date.now()-ts)/60000); if(m<60)return m+'m ago'; if(m<1440)return Math.floor(m/60)+'h ago'; return Math.floor(m/1440)+'d ago'; }
+
+async function loadOpen(){
+  var host=document.getElementById('open');
+  try{
+    var r=await fetch('/api/hub/owner/purge',{credentials:'same-origin'});
+    if(r.status===401||r.status===403){ host.innerHTML='<div class="row-sub">Sign in as owner.</div>'; return; }
+    var d=await r.json();
+    var list=d.open_requests||[];
+    host.innerHTML = list.length ? list.map(function(x){
+      return '<div class="trow"><span class="lbl">'+esc(x.name)+
+        ' <span class="sub">· '+esc(x.actor_role||'—')+' · asked '+esc(when(x.requested_at))+'</span></span>'+
+        '<button class="btn" type="button" data-sid="'+esc(x.actor_id)+'">Review</button></div>';
+    }).join('') : '<div class="row-sub">No open requests.</div>';
+  }catch(e){ host.innerHTML='<div class="row-sub">—</div>'; }
+}
+
+document.getElementById('open').addEventListener('click',function(e){
+  var b=e.target.closest('button[data-sid]'); if(!b) return;
+  document.getElementById('sid').value=b.dataset.sid;
+  preview();
+});
+
+async function preview(){
+  var sid=document.getElementById('sid').value.trim();
+  var out=document.getElementById('out');
+  if(!sid){ out.innerHTML='<div class="row-sub">Enter a staff id.</div>'; return; }
+  out.innerHTML='<div class="row-sub">Checking…</div>';
+  var r=await fetch('/api/hub/owner/purge?staff_id='+encodeURIComponent(sid),{credentials:'same-origin'});
+  var d=await r.json();
+  var go=Object.entries(d.per_event||{}), keep=Object.entries(d.kept_per_event||{});
+  out.innerHTML =
+    '<div class="preview"><div class="trow"><span class="lbl">Would be erased</span><span class="n">'+(d.purgeable||0)+'</span></div>'+
+    (go.length?go.map(function(x){return '<div class="trow"><span class="sub">'+esc(x[0])+'</span><span class="sub">'+x[1]+'</span></div>';}).join(''):'<div class="row-sub">Nothing.</div>')+
+    '</div>'+
+    '<div class="preview"><div class="trow"><span class="lbl">Kept — business records</span><span class="n">'+(d.kept||0)+'</span></div>'+
+    (keep.length?keep.map(function(x){return '<div class="trow"><span class="sub">'+esc(x[0])+'</span><span class="sub">'+x[1]+'</span></div>';}).join(''):'<div class="row-sub">None.</div>')+
+    '</div>'+
+    ((d.purgeable||0)>0 ?
+      '<div class="warnbox"><p class="note"><strong>This cannot be undone.</strong> Retype the staff id to confirm.</p>'+
+      '<input type="text" id="cfm" placeholder="'+esc(sid)+'" autocomplete="off" spellcheck="false">'+
+      '<div style="margin-top:8px"><button class="btn warn" id="go" type="button" data-sid="'+esc(sid)+'">Erase '+(d.purgeable||0)+' records</button></div></div>'
+      : '');
+}
+document.getElementById('prev').addEventListener('click',preview);
+
+document.getElementById('out').addEventListener('click',async function(e){
+  var b=e.target.closest('#go'); if(!b) return;
+  var sid=b.dataset.sid, cfm=(document.getElementById('cfm')||{}).value||'';
+  if(cfm.trim()!==sid){ alert('The confirmation must match the staff id exactly.'); return; }
+  b.disabled=true; b.textContent='Erasing…';
+  var r=await fetch('/api/hub/owner/purge',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({staff_id:sid,confirm:cfm.trim()})});
+  var d=await r.json();
+  document.getElementById('out').innerHTML = r.ok
+    ? '<div class="preview"><strong>Erased '+(d.deleted||0)+' records.</strong> Kept '+(d.kept||0)+' business records. The erasure has been logged.</div>'
+    : '<div class="warnbox">'+esc(d.error||'Failed.')+'</div>';
+  loadOpen();
+});
+
+Hub.boot();
+Owner.init('overview', function(){ loadOpen(); });
+</script>
+</body>
+</html>
