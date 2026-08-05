@@ -35,6 +35,37 @@ async function loadBriefs(env, limit = 20) {
   } catch { return []; }
 }
 
+// The owner's complaint, part two: "it's just a random chat box that lacks." The Lead already
+// DOES three real things (create_brief, request_intel, draft_posts, all in executeAction above) —
+// what was missing was a place that shows the doing. These two queries are that place: the posts
+// the Lead actually commissioned and the questions it actually filed, so the panel above the chat
+// reads as a team member with a track record instead of a transcript.
+//
+// source='planner' AND created_by='lead' is the exact fingerprint executeAction's draft_posts
+// branch writes (see the INSERT above) — the SAME source value the automated weekly planner also
+// uses, but that one always writes created_by='system' (functions/_lib/automations.js), so the
+// AND clause is what keeps this list to the Lead's own work and out of the automation's.
+async function loadLeadDrafts(env, limit = 8) {
+  try {
+    const r = await env.DB.prepare(
+      "SELECT id, caption, status, created_at FROM social_posts WHERE source='planner' AND created_by='lead' ORDER BY created_at DESC LIMIT ?"
+    ).bind(limit).all();
+    return (r && r.results) || [];
+  } catch { return []; }
+}
+
+// requested_by='lead' is the value request_intel's own INSERT writes (see executeAction above) —
+// the intel_requests table is shared with the owner's own manual questions (api/hub/owner/intel.js)
+// and the discovery cron, so this filter is what keeps the list to what the LEAD asked for.
+async function loadLeadIntel(env, limit = 8) {
+  try {
+    const r = await env.DB.prepare(
+      "SELECT id, question, status, created_at FROM intel_requests WHERE requested_by='lead' ORDER BY created_at DESC LIMIT ?"
+    ).bind(limit).all();
+    return (r && r.results) || [];
+  } catch { return []; }
+}
+
 // The sidebar headline, cut from the same spine the Lead reads — one gathering pass, no second
 // slightly-different set of numbers for the human.
 function spineSummary(spine) {
@@ -174,7 +205,10 @@ export const onRequestGet = async ({ request, env }) => {
   const spine = await buildSpine(env);
   const messages = await loadMessages(env);
   for (const m of messages) m.actions = parseJson(m.actions_json, null);
-  return json({ ok: true, messages, briefs: await loadBriefs(env), spine: spineSummary(spine) });
+  return json({
+    ok: true, messages, briefs: await loadBriefs(env), spine: spineSummary(spine),
+    activity: { drafts: await loadLeadDrafts(env), intel: await loadLeadIntel(env) },
+  });
 };
 
 export const onRequestPost = async ({ request, env }) => {
@@ -259,5 +293,6 @@ export const onRequestPost = async ({ request, env }) => {
     messages,
     briefs: await loadBriefs(env),
     spine: spineSummary(spine),
+    activity: { drafts: await loadLeadDrafts(env), intel: await loadLeadIntel(env) },
   });
 };

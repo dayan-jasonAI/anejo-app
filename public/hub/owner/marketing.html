@@ -108,6 +108,20 @@
   .team-msg .msg-meta { font-size: 11px; opacity: .65; margin-top: 6px; }
   .team-send { display: flex; gap: 8px; margin-top: 10px; }
   .team-send textarea { flex: 1; min-height: 44px; max-height: 140px; resize: vertical; }
+  /* The Lead's three real actions (create_brief, request_intel, draft_posts — see team.js's
+     executeAction), made VISIBLE next to the chat instead of only discoverable by guessing the
+     right sentence. Always-open rows, not another accordion to click through — "the owner should
+     see at a glance that the Lead can..." was the actual ask. */
+  .orch-item { padding:10px 0; border-top:1px solid var(--line); }
+  .orch-item:first-of-type { border-top:0; padding-top:0; }
+  .orch-label { font-size:13.5px; line-height:1.45; margin-bottom:6px; }
+  .orch-controls { display:flex; gap:6px; flex-wrap:wrap; }
+  .orch-controls input[type="text"] { flex:1; min-width:140px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font:inherit; font-size:13px; }
+  .orch-controls select { padding:8px 6px; border:1px solid var(--line); border-radius:8px; font:inherit; font-size:13px; width:auto; }
+  .orch-controls button { white-space:nowrap; padding:8px 14px; font-size:12.5px; font-weight:700; border-radius:8px; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--green); }
+  /* The track record: what the Lead has actually DONE, not just what it can do — "a team member
+     with a track record, not a text box." */
+  .orch-recent { font-size:12px; color:var(--green); opacity:.85; line-height:1.6; margin-top:6px; }
 
   /* ---- Teach > Train the team (from the old Train-the-Team page) ---- */
   .tt-drop { border:1.5px dashed rgba(198,168,91,.5); border-radius:14px; padding:22px 16px; text-align:center; cursor:pointer; background:rgba(198,168,91,.06); }
@@ -182,12 +196,48 @@
 <script>
 (function () {
   if (!window.MarketingTabs) window.MarketingTabs = {};
-  var state = { messages: [], briefs: [], spine: null };
+  var state = { messages: [], briefs: [], spine: null, activity: { drafts: [], intel: [] } };
 
   function render() {
     var root = document.getElementById('team-root'); root.className = '';
     root.innerHTML =
       '<div id="spine-head"></div>' +
+      // ORCHESTRATOR PANEL — the owner's complaint, verbatim: "I used Team and its original design
+      // was to orchestrate the rest of the team and now its just a random chat box that lacks."
+      // team.js's executeAction has always implemented exactly three real actions (create_brief,
+      // request_intel, draft_posts); the gap was never capability, it was that each one appeared
+      // exactly once, buried in a transcript. This is the SAME three actions, surfaced as labelled
+      // controls next to the conversation — invoking one still goes through the Lead (its judgement
+      // on HOW to draft/brief/research is the point, per the build brief), but the owner no longer
+      // has to guess the right sentence to reach it.
+      '<div class="card" id="orch-panel" style="margin-bottom:14px">' +
+        '<h3 style="margin:0 0 2px" data-i18n>What the Lead can do</h3>' +
+        '<p class="row-sub" style="margin-bottom:10px" data-i18n>Ask for one of these directly, or just talk it through below — same three things either way.</p>' +
+        '<div class="orch-item">' +
+          '<div class="orch-label"><b>📝 <span data-i18n>Draft posts</span></b> — <span class="row-sub" data-i18n>writes captions and stages them in Create for your review</span></div>' +
+          '<div class="orch-controls">' +
+            '<input type="text" id="orch-draft-topic" placeholder="Topic (optional) — e.g. the FUEGO bowl">' +
+            '<select id="orch-draft-count"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="5">5</option></select>' +
+            '<button id="orch-draft-go" type="button" data-i18n>Draft posts</button>' +
+          '</div>' +
+          '<div id="orch-draft-recent" class="orch-recent"></div>' +
+        '</div>' +
+        '<div class="orch-item">' +
+          '<div class="orch-label"><b>📋 <span data-i18n>Create a campaign brief</span></b> — <span class="row-sub" data-i18n>objective, audience and angle, filed for the record</span></div>' +
+          '<div class="orch-controls">' +
+            '<input type="text" id="orch-brief-topic" placeholder="What is this campaign about?">' +
+            '<button id="orch-brief-go" type="button" data-i18n>Create brief</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="orch-item">' +
+          '<div class="orch-label"><b>🔍 <span data-i18n>Commission research</span></b> — <span class="row-sub" data-i18n>files a question for the Intel Bench to answer</span></div>' +
+          '<div class="orch-controls">' +
+            '<input type="text" id="orch-intel-q" placeholder="What do you need researched?">' +
+            '<button id="orch-intel-go" type="button" data-i18n>Ask</button>' +
+          '</div>' +
+          '<div id="orch-intel-recent" class="orch-recent"></div>' +
+        '</div>' +
+      '</div>' +
       '<div id="chat" class="team-chat"></div>' +
       '<div class="team-send">' +
         '<textarea id="team-msg" placeholder="Ask for a plan, a brief, a read on the numbers…"></textarea>' +
@@ -199,6 +249,30 @@
     document.getElementById('team-msg').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
     });
+
+    // Each control composes an explicit, unambiguous request and sends it exactly like a typed
+    // message — the Lead still decides HOW (what to write, what to ask), but WHETHER to try is no
+    // longer left to the owner phrasing it just right.
+    document.getElementById('orch-draft-go').addEventListener('click', function (e) {
+      var topic = (document.getElementById('orch-draft-topic').value || '').trim();
+      var count = document.getElementById('orch-draft-count').value || '2';
+      var msg = 'Draft ' + count + ' post' + (count === '1' ? '' : 's') +
+        (topic ? ' about ' + topic : ' for the approval queue') + '.';
+      sendMessage(msg, e.currentTarget);
+    });
+    document.getElementById('orch-brief-go').addEventListener('click', function (e) {
+      var topic = (document.getElementById('orch-brief-topic').value || '').trim();
+      if (!topic) { Hub.toast('Say what the campaign is about first.'); return; }
+      sendMessage('Create a campaign brief for: ' + topic + '.', e.currentTarget);
+      document.getElementById('orch-brief-topic').value = '';
+    });
+    document.getElementById('orch-intel-go').addEventListener('click', function (e) {
+      var q = (document.getElementById('orch-intel-q').value || '').trim();
+      if (!q) { Hub.toast('Say what you need researched first.'); return; }
+      sendMessage('I need this researched: ' + q, e.currentTarget);
+      document.getElementById('orch-intel-q').value = '';
+    });
+
     paint();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
   }
@@ -243,6 +317,32 @@
     el.scrollTop = el.scrollHeight;
   }
 
+  // The track record: what the Lead has actually done, not just what it can do. Same data the
+  // owner would otherwise have to scroll the whole transcript to find — team_briefs is already
+  // shown below the chat, so this covers the other two (social_posts it commissioned, questions it
+  // filed), pulled straight from the `activity` the API now reports (functions/api/hub/owner/team.js).
+  function paintOrchestrator() {
+    var drafts = (state.activity && state.activity.drafts) || [];
+    var intel = (state.activity && state.activity.intel) || [];
+    var dEl = document.getElementById('orch-draft-recent');
+    if (dEl) {
+      dEl.innerHTML = drafts.length
+        ? '<div data-i18n>Recently commissioned:</div>' + drafts.slice(0, 3).map(function (r) {
+            return '<div>· ' + Hub.esc(String(r.caption || '').split('\n')[0].slice(0, 70)) +
+              ' (' + Hub.esc(r.status) + ', ' + Owner.timeAgo(r.created_at) + ')</div>';
+          }).join('')
+        : '';
+    }
+    var iEl = document.getElementById('orch-intel-recent');
+    if (iEl) {
+      iEl.innerHTML = intel.length
+        ? '<div data-i18n>Recently asked:</div>' + intel.slice(0, 3).map(function (r) {
+            return '<div>· ' + Hub.esc(r.question) + ' (' + Hub.esc(r.status) + ')</div>';
+          }).join('')
+        : '';
+    }
+  }
+
   function paintBriefs() {
     var el = document.getElementById('briefs');
     if (!el) return;
@@ -260,34 +360,50 @@
     }).join('');
   }
 
-  function paint() { paintSpine(); paintChat(); paintBriefs(); }
+  function paint() { paintSpine(); paintChat(); paintBriefs(); paintOrchestrator(); }
 
   function apply(d) {
     if (!d || !d.ok) return;
     state.messages = d.messages || [];
     state.briefs = d.briefs || [];
     state.spine = d.spine || null;
+    state.activity = d.activity || { drafts: [], intel: [] };
     paint();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
   }
 
   function load() { Owner.get('/api/hub/owner/team').then(apply); }
 
-  function send() {
-    var inp = document.getElementById('team-msg');
+  // The one call every path into the Lead makes — the free-text box below AND the three
+  // orchestrator controls above. `extraBtn` (the specific control clicked) is disabled alongside
+  // the main Send button so a slow model turn cannot be read as "nothing happened" and re-clicked
+  // into a duplicate brief/draft/intel request.
+  function sendMessage(text, extraBtn) {
     var btn = document.getElementById('send');
-    var text = (inp.value || '').trim();
-    if (!text || btn.disabled) return;
-    btn.disabled = true;
+    if (!text || (btn && btn.disabled) || (extraBtn && extraBtn.disabled)) return;
+    if (btn) btn.disabled = true;
+    if (extraBtn) extraBtn.disabled = true;
     // Optimistic echo so the chat feels alive during the model's think time.
     state.messages = state.messages.concat([{ role: 'owner', body: text, created_at: Date.now() }]);
     paintChat();
-    inp.value = '';
     Hub.api('/api/hub/owner/team', { method: 'POST', body: { message: text } }).then(function (d) {
-      btn.disabled = false;
+      if (btn) btn.disabled = false;
+      if (extraBtn) extraBtn.disabled = false;
       if (d && d.ok) { apply(d); if (d.degraded) Hub.toast('Lead is degraded: ' + d.degraded); }
       else Hub.toast((d && d.error) || 'Could not send.');
-    }).catch(function () { btn.disabled = false; Hub.toast('Could not send.'); });
+    }).catch(function () {
+      if (btn) btn.disabled = false;
+      if (extraBtn) extraBtn.disabled = false;
+      Hub.toast('Could not send.');
+    });
+  }
+
+  function send() {
+    var inp = document.getElementById('team-msg');
+    var text = (inp.value || '').trim();
+    if (!text) return;
+    inp.value = '';
+    sendMessage(text);
   }
 
   window.MarketingTabs.teachTeam = function () { render(); load(); };
@@ -1010,6 +1126,67 @@
     });
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // GENERATE AN IMAGE — the same tool as genImageBlock() in the composer above, offered again
+  // HERE for a post that already exists: a Team-Lead-drafted post ("✍️ Drafted for you" below)
+  // often has a caption and no picture at all, and until now the only automated way to give it one
+  // was generate_cover's food-first repair — which renders from THIS post's own caption/image_brief,
+  // not from whatever the owner actually wants pictured. This lets the owner describe something
+  // else entirely (a lifestyle shot, a text-card idea, anything) and preview it before it becomes
+  // part of the post.
+  //
+  // PREVIEW-THEN-ATTACH, same posture as referenceVariantTool right above: the server call only
+  // generates and stores the image; the owner's own tap on "Use this" is the ordinary 'attach' op
+  // that actually puts it on the post. Nothing here can add a slide by itself.
+  function promptImageTool(p) {
+    var locked = p.status === 'published' || p.status === 'publishing';
+    if (locked) return '';
+    var count = photoSlides(p).length;
+    if (count >= 10) return ''; // Instagram's own ceiling — nothing left to add
+    return '<details style="margin-top:8px"><summary style="font-size:11.5px;opacity:.7;cursor:pointer">✨ Generate an image from a description</summary>' +
+      '<div class="genimg-panel" data-post="' + esc(p.id) + '" style="margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fbfaf6">' +
+        '<div class="form-row"><label>Describe the photo</label><input class="genimg-prompt" type="text" maxlength="400" placeholder="e.g. RAÍZ bowl on a slate board, soft morning light" style="width:100%"></div>' +
+        '<button class="btn ghost block genimg-gen" type="button">Generate</button>' +
+        '<div class="genimg-result" style="margin-top:8px"></div>' +
+      '</div></details>';
+  }
+
+  function wirePromptImage() {
+    Array.prototype.forEach.call(document.querySelectorAll('.genimg-gen'), function (btn) {
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var panel = btn.closest('.genimg-panel');
+        var postId = panel.getAttribute('data-post');
+        var promptEl = panel.querySelector('.genimg-prompt');
+        var val = ((promptEl && promptEl.value) || '').trim();
+        if (!val) { Hub.toast('Describe the photo first.'); return; }
+        var resultBox = panel.querySelector('.genimg-result');
+        // Same wall-clock shape as every other generate button here — self-disable BEFORE the
+        // call so a slow provider response cannot be read as "nothing happened" and re-clicked
+        // into a second charge against the weekly budget.
+        btn.disabled = true; btn.textContent = 'Generating…';
+        Hub.api('/api/hub/owner/social', { method: 'POST', body: { op: 'generate_cover', id: postId, prompt: val } })
+          .then(function (r) {
+            btn.disabled = false; btn.textContent = 'Generate';
+            if (!r || !r.ok || !r.media_key) { Hub.toast((r && r.error) || 'Could not generate an image'); return; }
+            resultBox.innerHTML =
+              '<img src="/api/hub/media/' + esc(r.media_key) + '" alt="" style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:6px">' +
+              '<p class="hint" style="margin-bottom:6px">Made by ' + esc(r.provider || 'the image provider') + '. Still a draft; add it or discard it.</p>' +
+              '<div style="display:flex;gap:8px"><button class="btn gold genimg-use" type="button">Use this — add as a new slide</button>' +
+                '<button class="btn ghost genimg-discard" type="button">Discard</button></div>';
+            resultBox.querySelector('.genimg-use').addEventListener('click', function () {
+              var useBtn = resultBox.querySelector('.genimg-use');
+              if (useBtn.disabled) return;
+              useBtn.disabled = true; useBtn.textContent = 'Adding…';
+              op({ op: 'attach', id: postId, media_key: r.media_key }, 'Generated photo added as a new slide');
+            });
+            resultBox.querySelector('.genimg-discard').addEventListener('click', function () { resultBox.innerHTML = ''; });
+          })
+          .catch(function () { btn.disabled = false; btn.textContent = 'Generate'; Hub.toast('Could not generate an image'); });
+      });
+    });
+  }
+
   function postCard(p) {
     var mtype = p.media_type || null;   // null = legacy/undeclared (migrations/0080) — image/carousel by slide count, as always
     var slideCap = (mtype === 'REELS' || mtype === 'STORIES') ? 1 : 10;   // Meta allows no carousel for either
@@ -1032,7 +1209,7 @@
       // strip shows it and the arrows change it. All of it locks once the post is live.
       slideStrip(p) +
       coverNote(p) +
-      (isFeed ? brandingTool(p) + carouselTool(p) + referenceVariantTool(p) : '') +
+      (isFeed ? brandingTool(p) + carouselTool(p) + referenceVariantTool(p) + promptImageTool(p) : '') +
       (p.status === 'published' ? '' : uploadCard(p, mtype, slideCap)) +
       (p.error ? '<div class="row-sub" style="color:var(--crit);margin-top:6px">' + esc(p.error) + '</div>' : '') +
       (p.permalink ? '<div style="margin-top:8px"><a href="' + esc(p.permalink) + '" target="_blank" rel="noopener">View on Instagram →</a></div>' : '') +
@@ -1071,6 +1248,47 @@
           '<button class="del" data-del="' + esc(p.id) + '">Delete</button>' +
         '</div>') +
       '</div>';
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // GENERATE AN IMAGE — the owner's own complaint, verbatim: "Team used to generate images and
+  // now it does a draft I can turn into a real image... I don't see generate image of a single
+  // prompt." Everything else that makes a photo in this tab starts from something the post
+  // already carries — generate_cover repairs FROM the post's own caption/image_brief,
+  // referenceVariantTool restyles ONE of the 8 real bowl photos. Neither is "type a description,
+  // get a picture." This is, and it lives in the composer (the FIRST-CLASS spot for a new post,
+  // not buried behind a warning state that only appears once a post already exists and is
+  // missing a photo).
+  //
+  // Runs through the exact same op as the repair button (`generate_cover` -> _lib/plate_image.js
+  // -> OpenAI -> Gemini -> Workers AI, same $50/week budget gate, same owner-training grounding)
+  // — see that op's `prompt` branch in social.js for why this is an extension, not a second path.
+  //
+  // PREVIEW FIRST, NEVER AUTO-ATTACHED: the server call only generates and stores the image; nothing
+  // is added to the post being composed until the owner taps "Use this photo" (which sets the SAME
+  // _pickedKey the 📷 uploader sets — the composer does not know or care which source a photo came
+  // from) or "Discard" (which simply forgets the preview). An owner-uploaded photo is never
+  // touched — this tool only ever writes to `_pickedKey` when the owner explicitly asks it to.
+  //
+  // State lives on DATA (same pattern as _pickedKey/_draftType) so the typed prompt and any
+  // pending preview survive the composer's own re-render, the same way an uploaded key does.
+  function genImageBlock() {
+    var promptVal = (DATA && DATA._genPrompt) || '';
+    var preview = DATA && DATA._genPreview;
+    return '<details style="margin-top:8px"><summary style="font-size:11.5px;opacity:.7;cursor:pointer">✨ or generate an image from a description</summary>' +
+      '<div style="margin-top:6px">' +
+        '<div style="display:flex;gap:8px">' +
+          '<input id="genprompt" type="text" maxlength="400" placeholder="e.g. FUEGO bowl on a rustic wood table, morning light" style="flex:1" value="' + esc(promptVal) + '">' +
+          '<button class="btn ghost" id="genimg" type="button" style="white-space:nowrap">Generate</button>' +
+        '</div>' +
+        '<p class="hint">Runs through the same AI photo chain as the rest of Studio — OpenAI, then Gemini, then Workers AI — and costs against the weekly AI budget. Preview first; nothing is used until you tap "Use this photo".</p>' +
+        (preview
+          ? '<div style="margin-top:8px"><img src="/api/hub/media/' + esc(preview.key) + '" alt="" style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:6px">' +
+              '<p class="hint" style="margin-bottom:6px">Made by ' + esc(preview.provider || 'the image provider') + ' — still just a preview.</p>' +
+              '<div style="display:flex;gap:8px"><button class="btn gold" id="genuse" type="button">Use this photo</button>' +
+                '<button class="btn ghost" id="gendiscard" type="button">Discard</button></div></div>'
+          : '') +
+      '</div></details>';
   }
 
   function render() {
@@ -1125,7 +1343,8 @@
               ? 'MP4 or MOV, already staged in R2 — video upload from this screen is not available yet, paste the key above.'
               : draftIsStory
                 ? 'JPEG from your phone/computer uploads here; an MP4/MOV Story needs a key already staged in R2, pasted above — video upload from this screen is not available yet.'
-                : 'JPEG from your phone or computer. Instagram rejects PNG and WebP; iPhone HEIC needs sharing as JPEG first.') + '</p></div>' +
+                : 'JPEG from your phone or computer. Instagram rejects PNG and WebP; iPhone HEIC needs sharing as JPEG first.') + '</p>' +
+            (draftIsReel ? '' : genImageBlock()) + '</div>' +
           '<div class="form-row"><label>Caption</label><textarea id="cap" maxlength="2200" placeholder="Write the caption…"></textarea>' +
             '<p class="hint">Up to 2,200 characters. Hashtags count toward it.</p></div>' +
           '<div class="form-row"><label>Schedule (optional)</label><input id="sched" type="datetime-local">' +
@@ -1214,6 +1433,7 @@
     wireBranding();
     wireCarousel();
     wireReferenceVariant();
+    wirePromptImage();
     Array.prototype.forEach.call(document.querySelectorAll('[data-detach]'), function (b) {
       b.addEventListener('click', function () {
         var parts = b.getAttribute('data-detach').split('|');
@@ -1289,6 +1509,40 @@
       };
       fi.click();
     });
+
+    var genBtn = document.getElementById('genimg');
+    if (genBtn) genBtn.addEventListener('click', function () {
+      if (genBtn.disabled) return;
+      var val = ((document.getElementById('genprompt') || {}).value || '').trim();
+      if (!val) { Hub.toast('Describe the photo first.'); return; }
+      DATA._genPrompt = val;
+      // A 20-90s provider call that looks like nothing happened gets clicked twice and charged
+      // twice against the weekly AI budget — self-disable BEFORE the call, same as every other
+      // generate button in this tab (generate_cover's own repair button, the carousel tool, the
+      // reference-variant tool).
+      genBtn.disabled = true; genBtn.textContent = 'Generating…';
+      Hub.api('/api/hub/owner/social', { method: 'POST', body: { op: 'generate_cover', prompt: val } })
+        .then(function (r) {
+          genBtn.disabled = false; genBtn.textContent = 'Generate';
+          if (!r || !r.ok || !r.media_key) { Hub.toast((r && r.error) || 'Could not generate an image'); return; }
+          DATA._genPreview = { key: r.media_key, provider: r.provider };
+          render();
+        })
+        .catch(function () { genBtn.disabled = false; genBtn.textContent = 'Generate'; Hub.toast('Could not generate an image'); });
+    });
+    var genUse = document.getElementById('genuse');
+    if (genUse) genUse.addEventListener('click', function () {
+      if (!DATA._genPreview) return;
+      // The SAME field the 📷 uploader sets — the composer does not care which source a photo
+      // came from, only that one is now picked. Nothing is attached to a real post yet: that only
+      // happens when "Save post" below actually creates the draft.
+      DATA._pickedKey = DATA._genPreview.key;
+      DATA._genPreview = null;
+      Hub.toast('Photo ready — Save post to use it');
+      render();
+    });
+    var genDiscard = document.getElementById('gendiscard');
+    if (genDiscard) genDiscard.addEventListener('click', function () { DATA._genPreview = null; render(); });
 
     var save = document.getElementById('save');
     if (save) save.addEventListener('click', function () {

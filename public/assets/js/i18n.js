@@ -305,7 +305,40 @@
     "Terms":"Términos","Privacy":"Privacidad",
     // ===== driver HUB — location-sharing banner (route.html) =====
     "📍 Location sharing is ON for this route — it turns off automatically the moment the route is done.":
-      "📍 Compartir ubicación está ACTIVADO para esta ruta — se apaga automáticamente en cuanto la ruta termina."
+      "📍 Compartir ubicación está ACTIVADO para esta ruta — se apaga automáticamente en cuanto la ruta termina.",
+    // ===== HUB owner — Marketing workspace: Create > Instagram "generate an image from a
+    // description" tool + the Teach > Team Lead orchestrator panel (2026-08-04 repair of the
+    // owner's "discombobulated" complaint — see marketing.html's own header comment) =====
+    "✨ or generate an image from a description":"✨ o genera una imagen a partir de una descripción",
+    "✨ Generate an image from a description":"✨ Generar una imagen a partir de una descripción",
+    "Runs through the same AI photo chain as the rest of Studio — OpenAI, then Gemini, then Workers AI — and costs against the weekly AI budget. Preview first; nothing is used until you tap \"Use this photo\".":"Pasa por la misma cadena de fotos con IA que el resto de Studio — OpenAI, luego Gemini, luego Workers AI — y cuesta contra el presupuesto semanal de IA. Primero es una vista previa; no se usa nada hasta que toques «Usar esta foto».",
+    "Generate":"Generar","Generating…":"Generando…","Adding…":"Agregando…","Discard":"Descartar",
+    "Use this photo":"Usar esta foto",
+    "Use this — add as a new slide":"Usar esta — agregar como nueva foto del carrusel",
+    "Photo ready — Save post to use it":"Foto lista — Guarda la publicación para usarla",
+    "Generated photo added as a new slide":"Foto generada agregada como nueva foto del carrusel",
+    "Describe the photo first.":"Describe la foto primero.",
+    "Could not generate an image":"No se pudo generar una imagen",
+    "Describe the photo":"Describe la foto",
+    "e.g. FUEGO bowl on a rustic wood table, morning light":"ej. bowl FUEGO sobre una mesa de madera rústica, luz de mañana",
+    "e.g. RAÍZ bowl on a slate board, soft morning light":"ej. bowl RAÍZ sobre una tabla de pizarra, luz suave de mañana",
+    "What the Lead can do":"Lo que el Líder puede hacer",
+    "Ask for one of these directly, or just talk it through below — same three things either way.":"Pide una de estas acciones directamente, o simplemente coméntalo abajo — son las mismas tres cosas de cualquier forma.",
+    "Draft posts":"Redactar publicaciones",
+    "writes captions and stages them in Create for your review":"escribe textos y los deja listos en Crear para tu revisión",
+    "Create a campaign brief":"Crear un brief de campaña",
+    "objective, audience and angle, filed for the record":"objetivo, audiencia y enfoque, archivado como registro",
+    "Create brief":"Crear brief",
+    "Commission research":"Encargar una investigación",
+    "files a question for the Intel Bench to answer":"registra una pregunta para que el Banco de Inteligencia la responda",
+    "Ask":"Preguntar",
+    "Recently commissioned:":"Encargado recientemente:",
+    "Recently asked:":"Preguntado recientemente:",
+    "Say what the campaign is about first.":"Primero di de qué trata la campaña.",
+    "Say what you need researched first.":"Primero di qué necesitas investigar.",
+    "Topic (optional) — e.g. the FUEGO bowl":"Tema (opcional) — ej. el bowl FUEGO",
+    "What is this campaign about?":"¿De qué trata esta campaña?",
+    "What do you need researched?":"¿Qué necesitas investigar?"
   };
 
   var origText = new WeakMap();   // text node / option -> original english value

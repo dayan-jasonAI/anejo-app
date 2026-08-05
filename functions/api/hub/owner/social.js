@@ -9,6 +9,11 @@ import { capture } from '../../../_lib/track.js';
 import { igConfigured, accountInfo, JPEG_ONLY, VIDEO_ONLY, CAROUSEL_MAX } from '../../../_lib/instagram.js';
 import { publishSocialPost, loadPostMedia, coverStatus } from '../../../_lib/social_publish.js';
 import { ensureFoodPhoto } from '../../../_lib/food_photo.js';
+// The owner's own complaint: "I don't see generate image of a single prompt." generate_cover
+// below already wires the provider chain to a POST'S OWN caption/image_brief; a typed prompt is
+// the same chain called directly, so it is pulled in here rather than duplicated. See the
+// `generate_cover` op's `prompt` branch.
+import { generatePlateImageDetailed } from '../../../_lib/plate_image.js';
 import { generateCarouselSlides } from '../../../_lib/carousel_gen.js';
 import { generateReferenceVariant, REFERENCE_BOWL_KEYS, BOWL_DISPLAY } from '../../../_lib/reference_variant.js';
 import { noteTrustApproval } from '../../../_lib/trust_ledger.js';
@@ -266,6 +271,33 @@ export const onRequestPost = async ({ request, env }) => {
   // OWNER-TRIGGERED, and it stays a draft. Attaching an image is not approval — nothing here
   // touches status, so a generated bowl photo can never schedule itself onto the grid.
   if (op === 'generate_cover') {
+    // FIRST-CLASS "generate an image from a prompt" — the owner's own complaint: Creative Studio
+    // could do this once, then the pipeline moved to captions and it quietly disappeared. This
+    // branch is deliberately checked BEFORE the postId is required below: it is not the food-first
+    // REPAIR flow (which renders from a POST'S OWN caption/image_brief and auto-attaches as slide
+    // 1 — see the header comment on this op and on _lib/food_photo.js). A typed prompt runs the
+    // SAME chain (generatePlateImageDetailed -> OpenAI -> Gemini -> Workers AI, the same $50/week
+    // budget gate, the same owner-training grounding in _lib/image_prompt.js) but is NEVER
+    // attached automatically — it is generated and stored, then handed back for the owner to
+    // preview. The caller (marketing.html) either has no post yet (the Create > Instagram
+    // composer — the returned key becomes the picked photo for the draft about to be saved) or an
+    // existing draft (the caller then taps "Use this", which is the ordinary 'attach' op below,
+    // same two-step posture as generate_reference_variant). `id`, if present, is simply unused
+    // here — the image itself has no post to belong to yet.
+    const promptText = String(b.prompt || '').trim();
+    if (promptText) {
+      const out = await generatePlateImageDetailed(env, promptText.slice(0, 400), { requireJpeg: true, role: 'photo' });
+      if (!out || !out.key) {
+        return bad('No image provider was able to make a JPEG right now — the weekly AI budget may be spent, or the providers are unreachable. Try again later.', 502);
+      }
+      await capture(env, {
+        event: 'social.image_generated_from_prompt',
+        distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+        properties: { provider: out.provider },
+      });
+      return json({ ok: true, media_key: out.key, provider: out.provider });
+    }
+
     const postId = String(b.id || '').trim();
     if (!postId) return bad('Missing id.');
     const row = await env.DB.prepare('SELECT status, caption, image_brief FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);

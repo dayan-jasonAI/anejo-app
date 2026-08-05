@@ -61,8 +61,11 @@ test('branding is offered only on a draft/scheduled/failed post, never on a live
   assert.match(fn, /if \(locked\) return '';/);
 });
 
-test('branding, carousel generation, and the reference-variant tool are offered only on feed posts, not Reels/Stories', () => {
-  assert.match(HTML, /\(isFeed \? brandingTool\(p\) \+ carouselTool\(p\) \+ referenceVariantTool\(p\) : ''\)/);
+test('branding, carousel generation, the reference-variant tool, and the prompt-image tool are offered only on feed posts, not Reels/Stories', () => {
+  // promptImageTool (2026-08-04, the "generate image of a single prompt" gap) joined the other
+  // three on the same line — same isFeed gate, same reasoning: a Reel/Story has no still-photo
+  // slide concept at all.
+  assert.match(HTML, /\(isFeed \? brandingTool\(p\) \+ carouselTool\(p\) \+ referenceVariantTool\(p\) \+ promptImageTool\(p\) : ''\)/);
   assert.match(HTML, /var isFeed = mtype !== 'REELS' && mtype !== 'STORIES';/);
 });
 

@@ -250,8 +250,11 @@ test('PREVENT — the Team Lead generates only when no staged bowl photo matched
 test('REPAIR — the warning carries a button, and it is owner-only and draft-only', () => {
   assert.match(API, /op === 'generate_cover'/);
   assert.match(API, /ensureFoodPhoto\(env, \{ postId, caption: row\.caption, imageBrief: row\.image_brief \}\)/);
-  assert.match(API, /generate_cover'\)[\s\S]{0,900}status === 'published'/, 'refuses a live post — its slides are the public record');
-  assert.match(API, /generate_cover'\)[\s\S]{0,900}status === 'publishing'/);
+  // Window widened 2026-08-04: the op now opens with a `prompt`-mode branch (the standalone
+  // "generate an image from a description" tool — see that branch's own header comment) BEFORE
+  // the postId is even read, pushing the published/publishing checks further from the op string.
+  assert.match(API, /generate_cover'\)[\s\S]{0,2600}status === 'published'/, 'refuses a live post — its slides are the public record');
+  assert.match(API, /generate_cover'\)[\s\S]{0,2600}status === 'publishing'/);
   // requireRole(['owner']) already guards the whole POST handler; pin that it still does.
   assert.match(API, /requireRole\(request, env, \['owner'\]\)/);
 });
