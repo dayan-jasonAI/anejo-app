@@ -29,7 +29,9 @@
     "Temp Log · Añejo Driver": "Temperatura · Añejo Conductor", "Sign in · Añejo": "Iniciar sesión · Añejo",
 
     // ---- nav + sections ----
+    // "More" 2026-08-04: the owner bottom-nav overflow trigger — see hub/owner/assets/owner.js.
     "Messages": "Mensajes", "Schedule": "Horario", "Driver schedule": "Horario de conductores",
+    "More": "Más",
     "Overview": "Resumen", "Deliveries": "Entregas", "Kitchen": "Cocina", "Staff": "Personal",
     "Finance": "Finanzas", "Comms": "Mensajes", "Orders": "Pedidos", "Checklists": "Listas",
     "Studio": "Estudio", "Library": "Biblioteca", "EOD": "Fin de día", "Today": "Hoy",

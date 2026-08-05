@@ -8,37 +8,111 @@
   var Owner = {};
 
   // Bottom/desktop nav for the owner surface. Active tab is highlighted by `view`.
+  //
+  // 2026-08-04: all 15 of these used to render as one horizontally-scrolling row — the owner's
+  // own complaint ("the menu bar in the bottom is covering information... specially in the
+  // phone version"). Icons collided at desktop width and the bar was unusable on a phone.
+  // `primary: true` marks the 5 an owner reaches for daily (Overview, Deliveries, Kitchen,
+  // Marketing, Finance — order chosen to match how often each is opened, per Dayan's own
+  // description of his day: check the board, watch deliveries, run the kitchen, work marketing,
+  // check money). Every other destination is unchanged and still lives at the same URL — it
+  // just now opens from the "More" sheet instead of the bar itself. Nothing was dropped.
   var NAV = [
-    { view: 'overview', href: '/hub/owner/', ico: '◎', label: 'Overview' },
+    { view: 'overview', href: '/hub/owner/', ico: '◎', label: 'Overview', primary: true },
     { view: 'customers', href: '/hub/owner/customers.html', ico: '🧑‍🤝‍🧑', label: 'Customers' },
     { view: 'rewards', href: '/hub/owner/rewards.html', ico: '🎁', label: 'Rewards' },
-    { view: 'deliveries', href: '/hub/owner/deliveries.html', ico: '🚚', label: 'Deliveries' },
-    { view: 'kitchen', href: '/hub/owner/kitchen.html', ico: '🍳', label: 'Kitchen' },
+    { view: 'deliveries', href: '/hub/owner/deliveries.html', ico: '🚚', label: 'Deliveries', primary: true },
+    { view: 'kitchen', href: '/hub/owner/kitchen.html', ico: '🍳', label: 'Kitchen', primary: true },
     { view: 'menu', href: '/hub/owner/menu.html', ico: '🍽️', label: 'Menu' },
     { view: 'staff', href: '/hub/owner/staff.html', ico: '👥', label: 'Staff' },
-    { view: 'finance', href: '/hub/owner/finance.html', ico: '💵', label: 'Finance' },
+    { view: 'finance', href: '/hub/owner/finance.html', ico: '💵', label: 'Finance', primary: true },
     { view: 'trainers', href: '/hub/owner/trainers.html', ico: '🤝', label: 'Trainers' },
     { view: 'partners', href: '/hub/owner/partners.html', ico: '📣', label: 'Affiliate' },
     // 2026-08-04: Campaigns / Social / Team / Train-the-team used to be four separate nav tabs for
     // one job (the owner's own complaint — see marketing.html). They are now one workspace behind
     // this single tab: Today / Teach / Create inside /hub/owner/marketing.html.
-    { view: 'marketing', href: '/hub/owner/marketing.html', ico: '📈', label: 'Marketing' },
+    { view: 'marketing', href: '/hub/owner/marketing.html', ico: '📈', label: 'Marketing', primary: true },
     { view: 'inventory', href: '/hub/kitchen/inventory.html', ico: '📦', label: 'Inventory' },
     { view: 'studio', href: '/studio/', ico: '🎨', label: 'Studio' },
     { view: 'brief', href: '/hub/owner/brief-proposals.html', ico: '📋', label: 'Reviews' },
     { view: 'comms', href: '/hub/owner/comms.html', ico: '💬', label: 'Comms' }
   ];
 
+  function navLinkHtml(n) {
+    // aria-current carries what the gold `active` colour conveys visually; the icon is
+    // decorative and hidden so AT reads "Deliveries", not "delivery truck Deliveries".
+    var cls = n.active ? ' class="active" aria-current="page"' : '';
+    return '<a href="' + n.href + '"' + cls + '><span class="nav-ico" aria-hidden="true">' + n.ico + '</span><span data-i18n>' + n.label + '</span></a>';
+  }
+
+  // Build (once) and wire the "More" sheet holding every non-primary destination. Returns
+  // { open, close } so renderNav can flag the trigger's active state.
+  function buildMoreSheet(overflowItems, active) {
+    var backdrop = document.getElementById('hub-more-backdrop');
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.id = 'hub-more-backdrop';
+      backdrop.className = 'hub-more-backdrop';
+      backdrop.innerHTML =
+        '<div class="hub-more-sheet" role="dialog" aria-modal="true" aria-label="More">' +
+          '<div class="hub-more-head"><h2 data-i18n>More</h2>' +
+            '<button type="button" class="hub-more-close" aria-label="Close">&times;</button></div>' +
+          '<div class="list" id="hub-more-list"></div>' +
+        '</div>';
+      document.body.appendChild(backdrop);
+      // Backdrop tap (not the sheet itself) closes — standard sheet-dismiss affordance.
+      backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+      backdrop.querySelector('.hub-more-close').addEventListener('click', close);
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && backdrop.classList.contains('open')) close();
+      });
+    }
+    var list = backdrop.querySelector('#hub-more-list');
+    list.innerHTML = overflowItems.map(function (n) {
+      return '<a class="row' + (n.view === active ? ' active' : '') + '" href="' + n.href + '"' +
+        (n.view === active ? ' aria-current="page"' : '') + '>' +
+        '<span class="nav-ico" aria-hidden="true">' + n.ico + '</span>' +
+        '<span class="row-main row-title" data-i18n>' + n.label + '</span></a>';
+    }).join('');
+
+    var trigger = null; // set by caller after this returns
+    function open() {
+      backdrop.classList.add('open');
+      trigger && trigger.setAttribute('aria-expanded', 'true');
+      var closeBtn = backdrop.querySelector('.hub-more-close');
+      closeBtn.focus();
+      document.body.style.overflow = 'hidden'; // sheet owns scrolling while open
+    }
+    function close() {
+      backdrop.classList.remove('open');
+      trigger && trigger.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+      trigger && trigger.focus();              // return focus to the control that opened it
+    }
+    if (window.Hub && Hub.i18nRefresh) Hub.i18nRefresh();
+    return { open: open, close: close, setTrigger: function (t) { trigger = t; } };
+  }
+
   Owner.renderNav = function (active) {
     var nav = document.getElementById('owner-nav');
     if (!nav) return;
     nav.className = 'hub-nav';
-    nav.innerHTML = NAV.map(function (n) {
-      // aria-current carries what the gold `active` colour conveys visually; the icon is
-      // decorative and hidden so AT reads "Deliveries", not "delivery truck Deliveries".
-      var cls = n.view === active ? ' class="active" aria-current="page"' : '';
-      return '<a href="' + n.href + '"' + cls + '><span class="nav-ico" aria-hidden="true">' + n.ico + '</span><span data-i18n>' + n.label + '</span></a>';
-    }).join('');
+    var primary = [], overflow = [];
+    NAV.forEach(function (orig) {
+      var item = { view: orig.view, href: orig.href, ico: orig.ico, label: orig.label, active: orig.view === active };
+      (orig.primary ? primary : overflow).push(item);
+    });
+    var activeIsOverflow = overflow.some(function (n) { return n.active; });
+    nav.innerHTML = primary.map(navLinkHtml).join('') +
+      '<button type="button" class="hub-nav-more' + (activeIsOverflow ? ' active' : '') + '" ' +
+        'aria-haspopup="dialog" aria-expanded="false"' + (activeIsOverflow ? ' aria-current="page"' : '') + '>' +
+        '<span class="nav-ico" aria-hidden="true">⋯</span><span data-i18n>More</span></button>';
+
+    var sheet = buildMoreSheet(overflow, active);
+    var trigger = nav.querySelector('.hub-nav-more');
+    sheet.setTrigger(trigger);
+    trigger.addEventListener('click', sheet.open);
+
     if (window.Hub && Hub.i18nRefresh) Hub.i18nRefresh();
   };
 
