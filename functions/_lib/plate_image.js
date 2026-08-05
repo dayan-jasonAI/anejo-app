@@ -164,6 +164,30 @@ const EXT_BY_MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'we
 // in the reference-variant build brief: a "styled variant" that quietly became a DIFFERENT dish.
 // Workers AI's Leonardo Phoenix model is text-to-image only — verified against Cloudflare's own
 // model schema (no image input parameter exists) — so it is never a candidate for this path.
+// ---------------------------------------------------------------------------------------------
+// CANVAS SIZE — the one place it is decided, per provider, for the whole app.
+//
+// Portrait exists because the Reposado layout needs height: the title, the mark and the accent
+// line are composited into calm space ABOVE the bowl, and a square frame has nowhere to put them
+// (see BRAND_PHOTO_STANDARD's "leave the upper third calm").
+//
+// IT IS 2:3, NOT 9:16, AND THAT IS DELIBERATE. gpt-image-2's tallest native size is 1024x1536.
+// There is no 9:16 to ask for. Asking anyway gets a 400 or a silently squashed frame, and a
+// squashed frame means distorted food — the one thing the food rules forbid. So the model renders
+// the tallest ratio it actually supports, and the branding tool's poster mode extends 2:3 to an
+// exact 9:16 on a forest-green field when a Story needs it. Extending adds brand-coloured space;
+// stretching would deform the bowl.
+export const IMAGE_SIZES = {
+  square: { openai: '1024x1024', width: 1024, height: 1024 },
+  // Workers AI (Leonardo Phoenix) is the fallback of last resort and its dimension ceiling is not
+  // something to discover in production, so portrait there stays inside 1024 on BOTH axes:
+  // 680x1024 is the same 2:3, multiple-of-8, provably within any 1024 cap.
+  portrait: { openai: '1024x1536', width: 680, height: 1024 },
+};
+export function sizeFor(opts) {
+  return IMAGE_SIZES[opts && opts.aspect === 'portrait' ? 'portrait' : 'square'];
+}
+
 export function providerSupportsReference(name) {
   return name === 'openai' || name === 'gemini';
 }
@@ -208,7 +232,7 @@ async function callOpenAI(env, promptData, opts = {}) {
     form.append('model', openaiModel(env));
     form.append('prompt', promptData.prompt);
     form.append('image', new Blob([ref.bytes], { type: ref.contentType || 'image/jpeg' }), `reference.${EXT_BY_MIME[ref.contentType] || 'jpg'}`);
-    form.append('size', '1024x1024');
+    form.append('size', sizeFor(opts).openai);
     form.append('quality', 'medium');
     form.append('n', '1');
     if (jpeg) form.append('output_format', 'jpeg');
@@ -226,7 +250,7 @@ async function callOpenAI(env, promptData, opts = {}) {
         // 'medium' quality: a deliberate cost/quality balance, not the max — this is a meal-prep
         // Instagram grid, not print work, and 'high' can be 3-4x the cost for a marginal gain here.
         body: JSON.stringify({
-          model: openaiModel(env), prompt: promptData.prompt, size: '1024x1024', quality: 'medium', n: 1,
+          model: openaiModel(env), prompt: promptData.prompt, size: sizeFor(opts).openai, quality: 'medium', n: 1,
           ...(jpeg ? { output_format: 'jpeg' } : {}),
         }),
       },
@@ -247,6 +271,13 @@ export const GEMINI_MODEL_DEFAULT = 'gemini-2.5-flash-image';
 const geminiModel = (env) => (env && env.GEMINI_IMAGE_MODEL) || GEMINI_MODEL_DEFAULT;
 
 async function callGemini(env, promptData, opts = {}) {
+  // PORTRAIT IS DECLINED HERE, LOUDLY, rather than served square and hoped about. This call has no
+  // size or aspect parameter — it sends parts and takes what comes back — so a portrait request
+  // reaching Gemini would return a SQUARE image that every caller downstream believes is 2:3. A
+  // poster composed against the wrong height is a silently broken slide, which is worse than a
+  // provider that says no: the chain catches this, records the reason, and moves to the next
+  // provider exactly as it does for `img2img_unsupported` above.
+  if (opts.aspect === 'portrait') throw new Error('portrait_unsupported');
   const ref = opts.referenceImage;
   const reqParts = [];
   // Reference image FIRST, text second — Gemini's image-editing contract: an inlineData part
@@ -295,7 +326,7 @@ async function callWorkersAI(env, promptData, opts = {}) {
   const out = await env.AI.run(WORKERS_AI_MODEL, {
     prompt: promptData.prompt,
     negative_prompt: promptData.negative_prompt,
-    width: 1024, height: 1024, num_steps: 30, guidance: 3,
+    width: sizeFor(opts).width, height: sizeFor(opts).height, num_steps: 30, guidance: 3,
   });
   if (out && typeof out.arrayBuffer === 'function') {
     return { bytes: new Uint8Array(await out.arrayBuffer()), contentType: 'image/jpeg', ext: 'jpg', model: WORKERS_AI_MODEL };

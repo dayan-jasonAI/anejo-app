@@ -59,8 +59,20 @@ test('wording is drawn from the exact owner string — real canvas text, never s
 const BRAND_SECTION = HTML.slice(HTML.indexOf('  var MARK_SRC ='), HTML.indexOf('// CAROUSEL —'));
 
 test('PREVENT — nothing opaque is ever drawn behind the mark', () => {
-  assert.ok(!/roundRectPath/.test(HTML), 'the rounded-plate helper must stay deleted');
-  const draw = BRAND_SECTION.slice(BRAND_SECTION.indexOf('var drawable ='), BRAND_SECTION.indexOf('return canvas.toDataURL'));
+  // This used to assert the name `roundRectPath` never came back, which was the wrong rule twice
+  // over: it banned a SHAPE rather than the offence, and the poster's hairline frame legitimately
+  // needs a rounded rect. The offence was always FILLING one. So the rule is now what it always
+  // meant — the frame path may be stroked, never filled.
+  const frame = BRAND_SECTION.slice(BRAND_SECTION.indexOf('function hairlineFramePath'));
+  assert.match(frame, /hairlineFramePath\(ctx, inset, inset[\s\S]{0,80}?ctx\.stroke\(\)/,
+    'the frame is stroked');
+  assert.ok(!/hairlineFramePath\([\s\S]{0,120}?ctx\.fill\(\)/.test(frame),
+    'a filled rounded rect is a plate, and plates are what the owner rejected');
+  // Anchored FORWARD from the mark draw. There are now two `return canvas.toDataURL` in this
+  // section — the poster's and the overlay's — and the poster's comes first in the file, so an
+  // unanchored search sliced backwards and silently yielded an empty string that passed nothing.
+  const drawStart = BRAND_SECTION.indexOf('var drawable =');
+  const draw = BRAND_SECTION.slice(drawStart, BRAND_SECTION.indexOf('return canvas.toDataURL', drawStart));
   assert.match(draw, /ctx\.drawImage\(drawable/, 'the mark is drawn');
   assert.ok(!/fillRect|\.fill\(/.test(draw), 'no plate, halo only — the mark sits on the photograph');
   assert.match(draw, /ctx\.shadowColor = haloFor\(/, 'separation comes from a soft halo, which has no edge');
@@ -86,6 +98,40 @@ test('type is set in the KIT, and never in white', () => {
   assert.ok(!/css: '#F5F2EC'/.test(BRAND_SECTION), 'near-white must never be an ink value');
   assert.match(BRAND_SECTION, /titleInk = BRAND_INK\.parchment;\s*\n\s*accentInk = BRAND_INK\.gold;/,
     'on the fade the pairing is fixed: parchment title, gold accents');
+});
+
+// ---------------------------------------------------------------------------
+// Reposado poster
+// ---------------------------------------------------------------------------
+
+test('the poster EXTENDS a short photo — it never stretches or crops the food', () => {
+  const fn = BRAND_SECTION.slice(BRAND_SECTION.indexOf('function posterCanvas'), BRAND_SECTION.indexOf('function composePoster'));
+  assert.match(fn, /x\.drawImage\(photo, 0, dy, pw, ph\)/, 'the photo is drawn at its own pixel size');
+  assert.match(fn, /if \(ph >= H\) \{/, 'a photo already tall enough is used untouched');
+  assert.ok(!/drawImage\(photo, 0, 0, pw, H\)/.test(fn), 'the photo is never scaled to the taller canvas');
+});
+
+test('the extended field is pulled towards the brand, not sampled raw', () => {
+  // Sampling alone produced a BEIGE poster from a bowl shot on pale stone, and gold on beige is
+  // mush. Three parts forest to one part photo is what puts the field back in the brand world.
+  const fn = BRAND_SECTION.slice(BRAND_SECTION.indexOf('function posterCanvas'), BRAND_SECTION.indexOf('function composePoster'));
+  assert.match(fn, /var FOREST = \[11, 26, 18\]/);
+  assert.match(fn, /sampled\[i\] \* 0\.25 \+ FOREST\[i\] \* 0\.75/, 'the field lands in the forest world');
+});
+
+test('the poster sets the company name as TYPE and the mark as the real asset', () => {
+  const fn = BRAND_SECTION.slice(BRAND_SECTION.indexOf('function composePoster'));
+  assert.match(fn, /tintMark\(mark, mw, mh, gold\.css\)/, 'the emblem is the real asset, re-inked');
+  assert.match(fn, /drawTracked\(ctx, 'AÑEJO CATERING CO\.'/, 'the company name is letterspaced type, not artwork');
+  // The full lockup already contains that name as artwork; using it here would print the name
+  // twice, in two faces, at two sizes.
+  assert.match(BRAND_SECTION, /opts\.preset === 'poster' \? 'emblem'/, 'poster mode forces the emblem');
+});
+
+test('the poster star is a PATH, never a glyph', () => {
+  const fn = BRAND_SECTION.slice(BRAND_SECTION.indexOf('function drawStar'), BRAND_SECTION.indexOf('function hairlineFramePath'));
+  assert.match(fn, /ctx\.beginPath\(\)/);
+  assert.ok(!/fillText/.test(fn), 'a missing glyph renders as a tofu box in a finished poster');
 });
 
 test('the mark can be placed top-centre and bottom-centre, not only in corners', () => {

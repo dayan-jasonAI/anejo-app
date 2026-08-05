@@ -1065,15 +1065,246 @@
     return bl.score > br.score + 0.5 ? 'caption' : 'editorial';
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // REPOSADO POSTER — the full editorial composition from the owner's reference posters, rather
+  // than a mark and two lines dropped onto a photograph.
+  //
+  // THE DIVISION OF LABOUR, and it is the whole design: the GENERATOR makes the scene — the dark
+  // stone, the draped fabric, the olive branches, the calm upper third (see BRAND_PHOTO_STANDARD)
+  // — and this composes the FRAME AND THE TYPE onto it. Nothing here draws a botanical or a
+  // texture, because a canvas cannot fake one convincingly and the photograph already has real
+  // ones. And nothing there sets a word, because a model cannot be trusted with the mark or with
+  // spelling. Each side does the half it cannot get wrong.
+  // ---------------------------------------------------------------------------------------------
+  var POSTER_RATIO = 9 / 16;
+
+  // A four-point star, drawn as a PATH. The reference posters use one between blocks, and the
+  // obvious implementation — setting '✦' as text — renders a tofu box in the middle of a finished
+  // poster on any device whose font stack lacks the glyph. A path cannot go missing.
+  function drawStar(ctx, cx, cy, r) {
+    var inner = r * 0.3;
+    ctx.beginPath();
+    for (var i = 0; i < 8; i++) {
+      var ang = (Math.PI / 4) * i - Math.PI / 2;
+      var rad = i % 2 === 0 ? r : inner;
+      var px = cx + Math.cos(ang) * rad, py = cy + Math.sin(ang) * rad;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // The hairline frame. STROKED, never filled — it is a rule, not a plate, and the guard test that
+  // keeps plates out of this file checks exactly that distinction.
+  function hairlineFramePath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function averageColour(ctx, x, y, w, h) {
+    try {
+      var d = ctx.getImageData(x, y, w, h).data;
+      var n = w * h, stride = Math.max(1, Math.floor(n / 800)), r = 0, g = 0, b = 0, c = 0;
+      for (var i = 0; i < n; i += stride) { var o = i * 4; r += d[o]; g += d[o + 1]; b += d[o + 2]; c++; }
+      return [Math.round(r / c), Math.round(g / c), Math.round(b / c)];
+    } catch (e) { return [12, 26, 18]; }
+  }
+
+  // Give the photograph the height the layout needs, by EXTENDING it — never by stretching or
+  // cropping. Stretching deforms the bowl, which the food rules forbid outright; cropping eats the
+  // food, which is the whole subject. So the photo keeps its exact pixels and sits at the bottom
+  // of a taller canvas, and the space above it is filled with a field sampled FROM THIS PHOTO'S
+  // OWN TOP EDGE — a continuation of this frame rather than a swatch stuck above it — with the
+  // join feathered so there is no seam to find. A photo already at least 9:16 is used untouched.
+  function posterCanvas(photo) {
+    var pw = photo.naturalWidth || photo.width, ph = photo.naturalHeight || photo.height;
+    var c = document.createElement('canvas');
+    var H = Math.round(pw / POSTER_RATIO);
+    if (ph >= H) { c.width = pw; c.height = ph; c.getContext('2d').drawImage(photo, 0, 0); return c; }
+    c.width = pw; c.height = H;
+    var x = c.getContext('2d');
+    var probe = document.createElement('canvas');
+    probe.width = pw; probe.height = ph;
+    var pctx = probe.getContext('2d');
+    pctx.drawImage(photo, 0, 0);
+    // PULLED TOWARDS THE BRAND, not sampled raw. Sampling alone was the first attempt and it is
+    // wrong for exactly the photos that need extending most: a bowl shot on pale stone averages
+    // beige at the top, so the poster grew a beige field, and gold on beige is mush — the opposite
+    // of the deep forest world the references are built in. Mixing three parts forest to one part
+    // photo keeps a trace of this frame's own hue while landing the field firmly in the brand.
+    // A photo that is ALREADY dark barely moves, which is the case the generators now produce.
+    var sampled = averageColour(pctx, 0, 0, pw, Math.max(1, Math.round(ph * 0.06)));
+    var FOREST = [11, 26, 18];
+    var f = [0, 1, 2].map(function (i) { return Math.round(sampled[i] * 0.25 + FOREST[i] * 0.75); });
+    var rgb = f[0] + ',' + f[1] + ',' + f[2];
+    x.fillStyle = 'rgb(' + rgb + ')';
+    x.fillRect(0, 0, pw, H);
+    var dy = H - ph;
+    x.drawImage(photo, 0, dy, pw, ph);
+    var featherTop = Math.max(0, dy - Math.round(H * 0.10));
+    var g = x.createLinearGradient(0, featherTop, 0, dy + Math.round(H * 0.10));
+    g.addColorStop(0, 'rgba(' + rgb + ',1)');
+    g.addColorStop(0.45, 'rgba(' + rgb + ',0.9)');
+    g.addColorStop(1, 'rgba(' + rgb + ',0)');
+    x.fillStyle = g;
+    x.fillRect(0, featherTop, pw, dy + Math.round(H * 0.10) - featherTop);
+    return c;
+  }
+
+  function composePoster(photo, mark, opts) {
+    var canvas = posterCanvas(photo);
+    var ctx = canvas.getContext('2d');
+    var W = canvas.width, H = canvas.height;
+    var gold = BRAND_INK.gold, parch = BRAND_INK.parchment;
+    var inset = Math.round(W * 0.045);
+
+    // The frame.
+    ctx.save();
+    ctx.strokeStyle = gold.css;
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = Math.max(1, Math.round(W * 0.002));
+    hairlineFramePath(ctx, inset, inset, W - inset * 2, H - inset * 2, Math.round(W * 0.022));
+    ctx.stroke();
+    ctx.restore();
+
+    var cx = Math.round(W / 2);
+    var maxW = W - inset * 2 - Math.round(W * 0.08);
+    ctx.save();
+    ctx.textBaseline = 'top';
+    ctx.shadowColor = 'rgba(7,18,7,0.35)';
+    ctx.shadowBlur = Math.round(W * 0.012);
+
+    var y = inset + Math.round(W * 0.055);
+
+    // The mark, then the company name set as TYPE. Drawing "AÑEJO CATERING CO." in Josefin is not
+    // a logo — the logo is the emblem above it, composited from the real asset. The references set
+    // that line as letterspaced sans exactly this way, separate from the mark.
+    var mw = Math.round(W * 0.16);
+    var mh = Math.round(mw * ((mark.naturalHeight || mark.height) / (mark.naturalWidth || mark.width)));
+    ctx.drawImage(tintMark(mark, mw, mh, gold.css), Math.round(cx - mw / 2), y, mw, mh);
+    y += mh + Math.round(W * 0.028);
+
+    ctx.fillStyle = gold.css;
+    var namePx = Math.round(W * 0.026);
+    ctx.font = kickerFont(namePx);
+    ctx.textAlign = 'left';
+    var nameTrack = namePx * 0.36;
+    var nameW = trackedWidth(ctx, 'AÑEJO CATERING CO.', nameTrack);
+    drawTracked(ctx, 'AÑEJO CATERING CO.', Math.round(cx - nameW / 2), y, nameTrack);
+    y += namePx + Math.round(W * 0.042);
+
+    drawStar(ctx, cx, y + Math.round(W * 0.012), Math.round(W * 0.013));
+    y += Math.round(W * 0.05);
+
+    // TITLE — uppercased. The references set bowl names in caps, and casing is presentation, not
+    // spelling: the owner's exact characters are still the only source, so this cannot introduce a
+    // typo the way a model rendering the word could.
+    var title = String(opts.text || '').trim().slice(0, 28).toUpperCase();
+    if (title) {
+      var tPx = Math.round(W * 0.135), tTrack;
+      while (tPx > Math.round(W * 0.05)) {
+        ctx.font = headlineFont(tPx);
+        if (trackedWidth(ctx, title, tPx * 0.04) <= maxW) break;
+        tPx = Math.round(tPx * 0.94);
+      }
+      ctx.font = headlineFont(tPx);
+      tTrack = tPx * 0.04;
+      ctx.fillStyle = parch.css;
+      var tw = trackedWidth(ctx, title, tTrack);
+      drawTracked(ctx, title, Math.round(cx - tw / 2), y, tTrack);
+      y += Math.round(tPx * 1.12);
+    }
+
+    // Subtitle — letterspaced caps, gold.
+    var sub = String(opts.kicker || '').trim().slice(0, 40).toUpperCase();
+    if (sub) {
+      var sPx = Math.max(Math.round(W * 0.028), 10);
+      ctx.font = kickerFont(sPx);
+      ctx.fillStyle = gold.css;
+      var sTrack = sPx * 0.3;
+      var sw = trackedWidth(ctx, sub, sTrack);
+      while (sw > maxW && sPx > 9) { sPx = Math.round(sPx * 0.94); ctx.font = kickerFont(sPx); sTrack = sPx * 0.3; sw = trackedWidth(ctx, sub, sTrack); }
+      drawTracked(ctx, sub, Math.round(cx - sw / 2), y, sTrack);
+      y += sPx + Math.round(W * 0.03);
+    }
+
+    // Accent — one restrained italic serif line. The style calls for exactly one; the field is
+    // capped short so it stays that way.
+    var accent = String(opts.accent || '').trim().slice(0, 44);
+    if (accent) {
+      var aPx = Math.round(W * 0.048);
+      ctx.font = 'italic 500 ' + aPx + 'px "Cormorant Garamond", Georgia, serif';
+      while (ctx.measureText(accent).width > maxW && aPx > 12) { aPx = Math.round(aPx * 0.94); ctx.font = 'italic 500 ' + aPx + 'px "Cormorant Garamond", Georgia, serif'; }
+      ctx.fillStyle = gold.css;
+      ctx.textAlign = 'center';
+      ctx.fillText(accent, cx, y);
+      y += Math.round(aPx * 1.3);
+      ctx.textAlign = 'left';
+    }
+
+    // Rule with a centred star, closing the title block off from the food below it.
+    ctx.fillStyle = gold.css;
+    var ruleY = y + Math.round(W * 0.012);
+    var half = Math.round(W * 0.22), gap = Math.round(W * 0.035);
+    var rh = Math.max(1, Math.round(W * 0.0016));
+    ctx.globalAlpha = 0.6;
+    ctx.fillRect(cx - half, ruleY, half - gap, rh);
+    ctx.fillRect(cx + gap, ruleY, half - gap, rh);
+    ctx.globalAlpha = 1;
+    drawStar(ctx, cx, ruleY + Math.round(rh / 2), Math.round(W * 0.011));
+
+    // Footer — the second italic line, sitting above the bottom frame edge.
+    var footer = String(opts.footer || '').trim().slice(0, 52);
+    if (footer) {
+      var fPx = Math.round(W * 0.040);
+      ctx.font = 'italic 500 ' + fPx + 'px "Cormorant Garamond", Georgia, serif';
+      while (ctx.measureText(footer).width > maxW && fPx > 11) { fPx = Math.round(fPx * 0.94); ctx.font = 'italic 500 ' + fPx + 'px "Cormorant Garamond", Georgia, serif'; }
+      var fy = H - inset - Math.round(W * 0.055) - fPx;
+      // The closing line sits at the BOTTOM, which on a poster is over the photograph itself —
+      // and a bowl is the brightest thing in the frame. Measured, not assumed: MAR's line landed
+      // on a pale ceramic rim and vanished. If gold cannot hold there, the same edge-anchored
+      // fade the overlay uses goes down first — a gradient to zero alpha, never a bar.
+      var fStats = regionStats(ctx, canvas, inset, fy - Math.round(W * 0.06), W - inset * 2, fPx + Math.round(W * 0.09));
+      if (inkContrast(gold, fStats) < 3) {
+        var fadeTop = Math.round(H * 0.72);
+        var fg = ctx.createLinearGradient(0, fadeTop, 0, H);
+        fg.addColorStop(0, 'rgba(' + VEIL_RGB + ',0)');
+        fg.addColorStop(1, 'rgba(' + VEIL_RGB + ',0.72)');
+        ctx.save();
+        ctx.shadowColor = 'transparent';
+        ctx.fillStyle = fg;
+        ctx.fillRect(0, fadeTop, W, H - fadeTop);
+        ctx.restore();
+      }
+      drawStar(ctx, cx, fy - Math.round(W * 0.035), Math.round(W * 0.011));
+      ctx.fillStyle = gold.css;
+      ctx.textAlign = 'center';
+      ctx.fillText(footer, cx, fy);
+      ctx.textAlign = 'left';
+    }
+    ctx.restore();
+
+    return canvas.toDataURL('image/jpeg', 0.92);
+  }
+
   // photoUrl: the HUB-authenticated media route for the slide being branded (same-origin, so the
   // canvas is never "tainted" and both getImageData and toDataURL work). Returns a
   // Promise<string> of a JPEG data URL.
   function compositeBranding(photoUrl, opts) {
     opts = opts || {};
-    var markKey = opts.mark === 'lockup' ? 'lockup' : 'emblem';
+    // Poster mode always uses the EMBLEM: it sets the company name as type on its own line, so the
+    // full lockup would print that name twice, once as artwork and once as type, at two different
+    // sizes in two different faces. The references use the emblem for exactly this reason.
+    var markKey = opts.preset === 'poster' ? 'emblem' : (opts.mark === 'lockup' ? 'lockup' : 'emblem');
     return ensureBrandFonts()
       .then(function () { return Promise.all([loadImageEl(photoUrl), loadImageEl(MARK_SRC[markKey])]); })
       .then(function (imgs) {
+      if (opts.preset === 'poster') return composePoster(imgs[0], imgs[1], opts);
       var photo = imgs[0], logo = imgs[1];
       var canvas = document.createElement('canvas');
       canvas.width = photo.naturalWidth || photo.width;
@@ -1247,10 +1478,18 @@
         // Wording first, controls second: the owner came here to say something. Both fields are
         // optional and separately labelled rather than one field with magic syntax — the kicker and
         // the headline are set in different faces at different sizes, so they are different inputs.
+        '<div class="form-row"><label>Style</label><select class="brand-preset">' +
+          '<option value="overlay">Overlay — mark and wording on the photo</option>' +
+          '<option value="poster">Reposado poster — full editorial layout</option>' +
+        '</select>' +
+          '<p class="hint">The poster builds the whole composition: gold hairline frame, emblem and AÑEJO CATERING CO. centred at the top, the title, a star rule, and a closing line. It needs height, so a square photo is EXTENDED to 9:16 on a field sampled from its own top edge — the food is never stretched or cropped.</p></div>' +
         '<div class="form-row"><label>Wording (optional)</label><input class="brand-text" type="text" maxlength="48" placeholder="e.g. Order by Thursday">' +
           '<p class="hint">Set in Cormorant Garamond, in your own capitalisation. Drawn from these exact characters, never generated — it cannot be misspelled. It resizes and wraps itself to fit the photo.</p></div>' +
         '<div class="form-row"><label>Small line above (optional)</label><input class="brand-kicker" type="text" maxlength="28" placeholder="e.g. This week only">' +
-          '<p class="hint">The letterspaced line above the headline. Always set in capitals.</p></div>' +
+          '<p class="hint">The letterspaced line above the headline. Always set in capitals. On a poster this is the subtitle under the title — e.g. PLANT-BASED WELLNESS BOWL.</p></div>' +
+        '<div class="form-row"><label>Accent line — poster only (optional)</label><input class="brand-accent" type="text" maxlength="44" placeholder="e.g. Rooted. Warm. Nourishing.">' +
+          '<p class="hint">One restrained italic line, and one is enough — the style says so, and the field is capped to keep it that way.</p></div>' +
+        '<div class="form-row"><label>Closing line — poster only (optional)</label><input class="brand-footer" type="text" maxlength="52" placeholder="e.g. Clean sips to pair with your bowl."></div>' +
         '<div class="form-two">' +
           '<div class="form-row"><label>Layout</label><select class="brand-layout">' +
             '<option value="auto">Auto — read the photo</option>' +
@@ -1299,6 +1538,9 @@
           position: pos === 'auto' ? '' : pos,   // '' means "measure the photo and decide"
           text: text,
           kicker: panel.querySelector('.brand-kicker').value,
+          accent: panel.querySelector('.brand-accent').value,
+          footer: panel.querySelector('.brand-footer').value,
+          preset: panel.querySelector('.brand-preset').value,
           layout: panel.querySelector('.brand-layout').value,
           mark: panel.querySelector('.brand-mark').value,
           finish: panel.querySelector('.brand-finish').value
@@ -1869,7 +2111,14 @@
       // generate button in this tab (generate_cover's own repair button, the carousel tool, the
       // reference-variant tool).
       genBtn.disabled = true; genBtn.textContent = 'Generating…';
-      Hub.api('/api/hub/owner/social', { method: 'POST', body: { op: 'generate_cover', prompt: val } })
+      // Shape the render to the surface it is being made for, from the media type already chosen
+      // right above this control. A Reel or Story is 9:16 and a square render there gets dead
+      // pillarbox bars; a FEED post is the opposite — Instagram's tallest feed ratio is 4:5, and
+      // portrait is 2:3, so a tall render on a feed post gets cropped by Instagram instead.
+      var mtSel = document.getElementById('mtypesel');
+      var mtVal = mtSel ? mtSel.value : '';
+      var aspect = (mtVal === 'REELS' || mtVal === 'STORIES') ? 'portrait' : 'square';
+      Hub.api('/api/hub/owner/social', { method: 'POST', body: { op: 'generate_cover', prompt: val, aspect: aspect } })
         .then(function (r) {
           genBtn.disabled = false; genBtn.textContent = 'Generate';
           if (!r || !r.ok || !r.media_key) { Hub.toast((r && r.error) || 'Could not generate an image'); return; }

@@ -286,7 +286,14 @@ export const onRequestPost = async ({ request, env }) => {
     // here — the image itself has no post to belong to yet.
     const promptText = String(b.prompt || '').trim();
     if (promptText) {
-      const out = await generatePlateImageDetailed(env, promptText.slice(0, 400), { requireJpeg: true, role: 'photo' });
+      // ASPECT IS THE CALLER'S TO CHOOSE, and it is not cosmetic. A Reel or Story is a 9:16
+      // surface: a square render there gets pillarboxed with dead bars. A FEED post is the
+      // opposite trap — Instagram's tallest supported feed ratio is 4:5, and portrait here is
+      // 2:3 (the tallest gpt-image-2 renders natively, see IMAGE_SIZES), so a portrait image on a
+      // feed post would be CROPPED by Instagram, not letterboxed. Neither default is right for
+      // both, so the composer says which surface it is building for and this only validates.
+      const aspect = b.aspect === 'portrait' ? 'portrait' : 'square';
+      const out = await generatePlateImageDetailed(env, promptText.slice(0, 400), { requireJpeg: true, role: 'photo', aspect });
       if (!out || !out.key) {
         return bad('No image provider was able to make a JPEG right now — the weekly AI budget may be spent, or the providers are unreachable. Try again later.', 502);
       }
