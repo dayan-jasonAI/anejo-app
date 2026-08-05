@@ -9,6 +9,16 @@
 <link rel="manifest" href="/hub/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link rel="stylesheet" href="/hub/assets/hub.css">
+<!-- The two Añejo brand faces, the SAME link the public site uses (public/index.html). They are
+     not here to restyle the hub — hub.css pins its own system font stack and nothing below
+     changes that. They are here because the branding tool typesets real Cormorant Garamond and
+     Josefin Sans INTO A CANVAS, and canvas can only draw a face the document has actually loaded.
+     Without this link `ctx.font = '... "Cormorant Garamond"'` silently fell back to the system
+     serif, which is why the old wording never looked like Añejo. font-display:swap + the timeout
+     race in ensureBrandFonts() mean a slow or blocked CDN degrades the composite, never blocks it. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
 <style>
   /* 2026-08-04 — one Marketing workspace, not six pages.
      The owner: "having trouble finding value on having Team + Social + Campaign + Train the Team
@@ -811,37 +821,72 @@
   }
 
   // ---------------------------------------------------------------------------------------------
-  // BRANDING — logo + optional short wording, composited onto a Studio photo entirely IN THE
-  // OWNER'S BROWSER, not asked of the image model.
+  // BRANDING — the Añejo mark and an optional editorial line, composited onto a Studio photo
+  // entirely IN THE OWNER'S BROWSER, not asked of the image model.
   //
   // THE ONE RULE: an image model never draws the Añejo logo. An AI "approximation" of a logo is a
   // corrupted logo — wrong proportions, wrong glyphs, subtly wrong forever — and that is a worse
   // outcome than no logo at all on a real client-facing profile. So the logo pixel data has to come
-  // from the REAL asset (public/assets/img/logo_full.png), and it has to be COMPOSITED, not
-  // generated. There is no way to do that server-side in this app today: wrangler.toml binds D1,
-  // KV, Workers AI, R2 and Vectorize — nothing that can draw one raster image onto another (no
-  // Cloudflare Images binding, no Image Resizing zone feature configured, no canvas/image library
-  // in package.json, and Cloudflare Pages Functions have no canvas API of their own). The one place
-  // in this whole stack that DOES have a real 2D compositor is the browser the owner is looking at
-  // right now — every browser ships <canvas>. So branding happens HERE, client-side, using the
-  // actual logo file, and the result is uploaded as an ordinary JPEG through the same
-  // social-upload route a phone photo goes through.
+  // from the REAL assets (MARK_SRC below — the committed emblem and full lockup), and it has to be
+  // COMPOSITED, not generated. There is no way to do that server-side in this app today:
+  // wrangler.toml binds D1, KV, Workers AI, R2 and Vectorize — nothing that can draw one raster
+  // image onto another (no Cloudflare Images binding, no Image Resizing zone feature configured, no
+  // canvas/image library in package.json, and Cloudflare Pages Functions have no canvas API of
+  // their own). The one place in this whole stack that DOES have a real 2D compositor is the
+  // browser the owner is looking at right now — every browser ships <canvas>. So branding happens
+  // HERE, client-side, from the actual logo files, and the result is uploaded as an ordinary JPEG
+  // through the same social-upload route a phone photo goes through.
   //
-  // WORDING (optional, short — a headline/price/CTA) is drawn the SAME way, as real canvas text
-  // from the owner's own typed characters. This is a deliberate departure from asking gpt-image-2
-  // to render the words onto the photo: that model renders text well but not perfectly, and there
-  // is no automated way to catch a misspelling after the fact except a human reading it. Drawing
-  // the owner's exact string with the Canvas API cannot misspell it — there is no generation step
-  // for a typo to come from. The tradeoff is honest too: it reads as a text overlay stamped on the
-  // photo, not as thin gold script painted into the scene the way a model might attempt it. Given
-  // the choice between "provably correct, looks like an overlay" and "looks native, unverifiable
-  // without a human catching every render", the ONE RULE above picks the first for the logo, and
-  // the same logic extends to the wording riding along with it.
+  // NO PLATE, NO BAND (owner ruling 2026-08-05). The first version of this tool bought legibility
+  // the cheap way: a dark rounded rectangle behind the mark and a full-width dark band behind the
+  // wording. Both read as stickers stuck onto the photo — "it cannot have the box in the back or
+  // the logo in the square". Both are gone, and nothing replaced them that draws an edge. The mark
+  // now sits on the photograph itself and stays legible three ways:
+  //   1. ADAPTIVE INK — the pixels underneath are read and the mark is re-inked in ONE brand
+  //      colour picked for contrast: gold whenever it clears 3:1 (WCAG's floor for large graphic
+  //      objects), otherwise cream on a dark frame or deep forest on a light one. A single-colour
+  //      mark over photography is also simply what editorial does; the two-tone lockup is for
+  //      stationery, and it is still available as "Original colours" when the owner wants it.
+  //   2. A SOFT HALO — one wide, low-alpha canvas shadow in the opposite polarity. It has no
+  //      boundary to see; it only stops the mark dissolving into a busy plate rim.
+  //   3. PLACEMENT THAT READS THE PHOTO — every candidate corner is scored on the contrast it can
+  //      reach and on how BUSY it is, and the calmest, highest-contrast one that does not collide
+  //      with the wording wins. That is what "blends nicely" actually costs: measurement, not one
+  //      fixed corner treatment plus hope.
+  // Only when a wording block still cannot clear 3:1 after all of that does a fourth mechanism
+  // appear — a vertical gradient anchored to the image edge that fades to fully transparent. A
+  // fade has no boundary anywhere along it, which is precisely what makes it not a box.
+  //
+  // WORDING IS TYPESET, NOT STAMPED. It is still real canvas text drawn from the owner's own typed
+  // characters — a deliberate departure from asking gpt-image-2 to render words onto the photo,
+  // because that model renders text well but not perfectly and there is no automated way to catch a
+  // misspelling after the fact except a human reading it. Drawing the owner's exact string with the
+  // Canvas API cannot misspell it; there is no generation step for a typo to come from. What
+  // CHANGED is the typography. It is now the Añejo editorial system, the same one the public site
+  // uses: a hairline rule, a letterspaced Josefin Sans kicker in caps, and a Cormorant Garamond
+  // headline set in the owner's own casing. Sizes are all derived from the image's shorter side and
+  // the headline auto-fits — it shrinks and wraps to two lines — so the same wording composes
+  // correctly on a 1024² Studio render and on a tall phone photo without anyone retyping it.
   //
   // OPTIONAL, PER IMAGE. Clicking "Preview" never touches the post — it only renders a canvas and
   // shows it. Nothing is uploaded or attached until the owner taps "Use this", and even then the
   // ORIGINAL slide is left exactly where it is; the branded version is added as a NEW slide, so a
   // bad render costs a click to discard, never a photo the owner already had.
+
+  // The REAL committed assets, and the only two images this tool will ever draw as the mark. Both
+  // are true alpha PNGs (verified transparent to the corner pixel), which is what lets them sit on
+  // the photograph with nothing behind them.
+  var MARK_SRC = { emblem: '/assets/img/emblem.png', lockup: '/assets/img/logo_full.png' };
+
+  // The kit's three inks (public/assets/brand.css --gold / --cream / --forest). A mark or a line of
+  // type is drawn in one of these and nothing else — no white, no neutral grey, no invented colour.
+  var BRAND_INK = {
+    gold:  { css: '#C8BC6E', rgb: [200, 188, 110] },
+    cream: { css: '#F5F2EC', rgb: [245, 242, 236] },
+    deep:  { css: '#0A180C', rgb: [10, 24, 12] }
+  };
+  var VEIL_RGB = '7,18,7'; // --forest, used only ever as a gradient that reaches zero alpha
+
   function loadImageEl(src) {
     return new Promise(function (resolve, reject) {
       var img = new Image();
@@ -851,21 +896,167 @@
     });
   }
 
-  function roundRectPath(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
+  // Canvas can only draw a face the DOCUMENT has already loaded — an unloaded family in ctx.font is
+  // not an error, it is a silent fallback to the generic. That is exactly what used to happen here.
+  // Resolved once per page; a slow or blocked font CDN loses the race after 3s and the composite
+  // goes ahead on the Georgia/Helvetica fallbacks named in the stacks below. Wrong face, right
+  // words — never a hung preview button.
+  var brandFontsReady = null;
+  function ensureBrandFonts() {
+    if (brandFontsReady) return brandFontsReady;
+    if (!document.fonts || !document.fonts.load) { brandFontsReady = Promise.resolve(false); return brandFontsReady; }
+    var wanted = Promise.all([
+      document.fonts.load('600 96px "Cormorant Garamond"'),
+      document.fonts.load('500 96px "Josefin Sans"')
+    ]).then(function () { return true; }).catch(function () { return false; });
+    var timeout = new Promise(function (resolve) { setTimeout(function () { resolve(false); }, 3000); });
+    brandFontsReady = Promise.race([wanted, timeout]);
+    return brandFontsReady;
+  }
+  function headlineFont(px) { return '600 ' + px + 'px "Cormorant Garamond", Georgia, "Times New Roman", serif'; }
+  function kickerFont(px) { return '500 ' + px + 'px "Josefin Sans", "Helvetica Neue", Arial, sans-serif'; }
+
+  // WCAG relative luminance + contrast ratio. Used for real decisions below, not decoration: which
+  // ink to draw in, whether a wording block needs the fade, which corner the mark goes to.
+  function chanLum(c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+  function relLum(rgb) { return 0.2126 * chanLum(rgb[0]) + 0.7152 * chanLum(rgb[1]) + 0.0722 * chanLum(rgb[2]); }
+  function contrastRatio(a, b) { var hi = Math.max(a, b), lo = Math.min(a, b); return (hi + 0.05) / (lo + 0.05); }
+
+  // What is actually under a rect: how bright (mean luminance) and how BUSY (std deviation of it).
+  // Busy matters independently of bright — a mark over a mid-grey wall and a mark over a mid-grey
+  // pile of chopped herbs measure the same average and look nothing alike. Sampled on a stride so
+  // this stays cheap on a 2048px photo. If getImageData ever throws (a tainted canvas), the caller
+  // gets neutral-dark stats and the composite degrades to a sensible default instead of failing.
+  function regionStats(ctx, canvas, x, y, w, h) {
+    x = Math.max(0, Math.min(canvas.width - 1, Math.round(x)));
+    y = Math.max(0, Math.min(canvas.height - 1, Math.round(y)));
+    w = Math.max(1, Math.min(canvas.width - x, Math.round(w)));
+    h = Math.max(1, Math.min(canvas.height - y, Math.round(h)));
+    try {
+      var data = ctx.getImageData(x, y, w, h).data;
+      var total = w * h;
+      var stride = Math.max(1, Math.floor(total / 1500));
+      var sum = 0, sumSq = 0, n = 0;
+      for (var i = 0; i < total; i += stride) {
+        var o = i * 4;
+        var l = relLum([data[o], data[o + 1], data[o + 2]]);
+        sum += l; sumSq += l * l; n++;
+      }
+      var mean = sum / n;
+      return { lum: mean, busy: Math.sqrt(Math.max(0, sumSq / n - mean * mean)) };
+    } catch (e) {
+      return { lum: 0.3, busy: 0.12 };
+    }
+  }
+
+  // Contrast against the WORST end of the region, never against its average. This is the single
+  // measurement that decides whether type over a photograph can be read, and averaging it is how
+  // the first attempt at this got it wrong: a strip of bowl measuring mean 0.19 with a spread of
+  // 0.20 runs from black shadow to mid-grey quinoa, and an ink picked against 0.19 is invisible
+  // across half of it — which is exactly how a kicker disappears into a plate. Treating the region
+  // as the band mean ± spread and scoring the worse end encodes the thing that actually matters:
+  // a busy background is hostile to type no matter how its average comes out.
+  function inkContrast(ink, stats) {
+    var l = relLum(ink.rgb);
+    var lo = Math.max(0, stats.lum - stats.busy);
+    var hi = Math.min(1, stats.lum + stats.busy);
+    return Math.min(contrastRatio(l, lo), contrastRatio(l, hi));
+  }
+
+  // Brand first, legibility floor second. Gold is the Añejo accent and is used whenever it clears
+  // 3:1 (WCAG's floor for large graphic objects) across that whole band; below that it would be
+  // mush, so the drawing falls to whichever of cream / deep forest actually separates. Never white,
+  // never a box.
+  function pickInk(stats) {
+    if (inkContrast(BRAND_INK.gold, stats) >= 3) return BRAND_INK.gold;
+    return inkContrast(BRAND_INK.cream, stats) >= inkContrast(BRAND_INK.deep, stats)
+      ? BRAND_INK.cream : BRAND_INK.deep;
+  }
+  // The halo is the opposite polarity of the ink, always weak and always wide — separation without
+  // an edge. This is what replaced the plate.
+  function haloFor(ink) { return relLum(ink.rgb) > 0.4 ? 'rgba(7,18,7,0.42)' : 'rgba(245,242,236,0.5)'; }
+
+  // Re-ink the mark: draw it into an offscreen canvas, then flood that canvas through the mark's own
+  // alpha with `source-in`. The result is the REAL asset's exact silhouette in one brand colour —
+  // no redrawn glyphs, no traced shapes, nothing generated.
+  function tintMark(img, w, h, css) {
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, w); c.height = Math.max(1, h);
+    var x = c.getContext('2d');
+    x.drawImage(img, 0, 0, c.width, c.height);
+    x.globalCompositeOperation = 'source-in';
+    x.fillStyle = css;
+    x.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+
+  // Letterspacing, by hand. ctx.letterSpacing exists in Chromium and nowhere else that matters, and
+  // a kicker without tracking is not a kicker — it is just small text.
+  function trackedWidth(ctx, str, tracking) {
+    var w = 0;
+    for (var i = 0; i < str.length; i++) w += ctx.measureText(str.charAt(i)).width;
+    return w + tracking * Math.max(0, str.length - 1);
+  }
+  function drawTracked(ctx, str, x, y, tracking) {
+    for (var i = 0; i < str.length; i++) {
+      var ch = str.charAt(i);
+      ctx.fillText(ch, x, y);
+      x += ctx.measureText(ch).width + tracking;
+    }
+  }
+
+  function wrapLines(ctx, text, maxWidth) {
+    var words = text.split(/\s+/), lines = [], cur = '';
+    for (var i = 0; i < words.length; i++) {
+      var next = cur ? cur + ' ' + words[i] : words[i];
+      if (!cur || ctx.measureText(next).width <= maxWidth) cur = next;
+      else { lines.push(cur); cur = words[i]; }
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
+  // Auto-fit: start at the ideal size for this image and step down until the headline fits the safe
+  // measure in at most two lines. This is the "must be able to resize" requirement — one typed
+  // string composes on a square Studio render and a 4:5 phone photo without being retyped.
+  function fitHeadline(ctx, text, maxWidth, startPx, minPx) {
+    var px = startPx, lines = [text];
+    while (px > minPx) {
+      ctx.font = headlineFont(px);
+      lines = wrapLines(ctx, text, maxWidth);
+      var widest = 0;
+      for (var i = 0; i < lines.length; i++) widest = Math.max(widest, ctx.measureText(lines[i]).width);
+      if (lines.length <= 2 && widest <= maxWidth) break;
+      px = Math.max(minPx, Math.round(px * 0.93));
+    }
+    ctx.font = headlineFont(px);
+    return { px: px, lines: wrapLines(ctx, text, maxWidth).slice(0, 2) };
+  }
+
+  // Where the wording goes when the owner leaves it on Auto. Compares the calm of the bottom band
+  // against the top band, and — inside whichever wins at the bottom — whether the left half is
+  // meaningfully calmer than the right. Busy is weighted far above contrast because contrast can be
+  // fixed by re-inking and clutter cannot.
+  function chooseLayout(ctx, canvas) {
+    var W = canvas.width, H = canvas.height;
+    function calm(r) { var s = regionStats(ctx, canvas, r[0], r[1], r[2], r[3]); return { s: s, score: Math.min(inkContrast(pickInk(s), s), 8) * 0.5 - s.busy * 8 }; }
+    var bottom = calm([W * 0.08, H * 0.62, W * 0.84, H * 0.30]);
+    var top = calm([W * 0.08, H * 0.06, W * 0.84, H * 0.26]);
+    if (top.score > bottom.score + 0.6) return 'masthead';
+    var bl = calm([W * 0.08, H * 0.62, W * 0.46, H * 0.30]);
+    var br = calm([W * 0.46, H * 0.62, W * 0.46, H * 0.30]);
+    return bl.score > br.score + 0.5 ? 'caption' : 'editorial';
   }
 
   // photoUrl: the HUB-authenticated media route for the slide being branded (same-origin, so the
-  // canvas is never "tainted" and toDataURL works). Returns a Promise<string> of a JPEG data URL.
+  // canvas is never "tainted" and both getImageData and toDataURL work). Returns a
+  // Promise<string> of a JPEG data URL.
   function compositeBranding(photoUrl, opts) {
     opts = opts || {};
-    return Promise.all([loadImageEl(photoUrl), loadImageEl('/assets/img/logo_full.png')]).then(function (imgs) {
+    var markKey = opts.mark === 'lockup' ? 'lockup' : 'emblem';
+    return ensureBrandFonts()
+      .then(function () { return Promise.all([loadImageEl(photoUrl), loadImageEl(MARK_SRC[markKey])]); })
+      .then(function (imgs) {
       var photo = imgs[0], logo = imgs[1];
       var canvas = document.createElement('canvas');
       canvas.width = photo.naturalWidth || photo.width;
@@ -873,41 +1064,132 @@
       var ctx = canvas.getContext('2d');
       ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
 
-      // The REAL logo file, sized relative to the shorter side so it reads the same on a square
-      // Studio render or a taller phone photo. A soft dark plate sits behind it (same black the
-      // brand bar uses, public/assets/brand.css --black) so the gold mark stays legible over a
-      // light or busy background instead of picking one fixed corner treatment and hoping.
-      var pad = Math.round(Math.min(canvas.width, canvas.height) * 0.035);
-      var logoW = Math.round(Math.min(canvas.width, canvas.height) * 0.22);
-      var logoH = Math.round(logoW * ((logo.naturalHeight || logo.height) / (logo.naturalWidth || logo.width)));
-      var pos = opts.position || 'br';
-      var lx = pos.indexOf('l') >= 0 ? pad : canvas.width - logoW - pad;
-      var ly = pos.indexOf('t') >= 0 ? pad : canvas.height - logoH - pad;
-      var plate = Math.round(logoW * 0.16);
-      ctx.fillStyle = 'rgba(13,13,13,0.55)';
-      roundRectPath(ctx, lx - plate, ly - plate, logoW + plate * 2, logoH + plate * 2, Math.round(plate * 1.3));
-      ctx.fill();
-      ctx.drawImage(logo, lx, ly, logoW, logoH);
+      var W = canvas.width, H = canvas.height;
+      var S = Math.min(W, H);                    // every size below derives from the SHORTER side,
+      var M = Math.round(S * 0.075);             // so a square render and a tall photo compose alike
+      var safeW = W - M * 2;
 
-      // Wording — real canvas text from the owner's exact string, see the header comment above for
-      // why this is drawn instead of asked of the image model. Capped short on purpose: this is a
-      // headline/price/CTA, not a caption, and a long line would overflow a square image.
-      var text = String(opts.text || '').trim().slice(0, 40);
-      if (text) {
-        var fontSize = Math.round(canvas.width * 0.06);
-        ctx.font = '700 ' + fontSize + 'px "Josefin Sans", sans-serif';
-        ctx.textBaseline = 'alphabetic';
-        var upper = text.toUpperCase();
-        var metrics = ctx.measureText(upper);
-        var tx = Math.max(pad, Math.round((canvas.width - metrics.width) / 2));
-        var top = !!opts.textTop;
-        var ty = top ? Math.round(canvas.height * 0.15) : Math.round(canvas.height * 0.92);
-        var bandPad = Math.round(fontSize * 0.55);
-        ctx.fillStyle = 'rgba(7,18,7,0.62)';
-        ctx.fillRect(0, ty - fontSize, canvas.width, fontSize + bandPad);
-        ctx.fillStyle = '#C8BC6E';
-        ctx.fillText(upper, tx, ty);
+      // ---- WORDING ---------------------------------------------------------------------------
+      // Drawn first so the mark can be told where NOT to go. The headline keeps the owner's exact
+      // characters and casing; only the kicker is uppercased, because a letterspaced cap kicker is
+      // the form itself, not a transform of meaning.
+      var headline = String(opts.text || '').trim().slice(0, 48);
+      var kicker = String(opts.kicker || '').trim().slice(0, 28).toUpperCase();
+      var layout = opts.layout && opts.layout !== 'auto' ? opts.layout : ((headline || kicker) ? chooseLayout(ctx, canvas) : 'editorial');
+      var wordRect = null;
+
+      if (headline || kicker) {
+        var align = layout === 'caption' ? 'left' : 'center';
+        var atTop = layout === 'masthead';
+
+        var head = headline ? fitHeadline(ctx, headline, safeW, Math.round(S * 0.088), Math.round(S * 0.042)) : { px: 0, lines: [] };
+        var kickPx = Math.max(Math.round((head.px || S * 0.075) * 0.27), Math.round(S * 0.021));
+        var tracking = kickPx * 0.34;
+        var lineH = Math.round(head.px * 1.16);
+        var ruleH = Math.max(1, Math.round(S * 0.0028));
+        var ruleW = Math.round(S * 0.085);
+        var gapRule = Math.round(kickPx * 0.95);
+        var gapKick = kicker ? Math.round((head.px || kickPx) * 0.44) : 0;
+
+        // Canvas measures from the em-box TOP, so a line of size px hangs its descenders BELOW
+        // top + px. Without this allowance the last line of a bottom-anchored block runs off the
+        // bottom of the photo — which is precisely what a two-line auto-fit headline did.
+        var descAllow = head.lines.length ? Math.round(head.px * 0.32) : 0;
+        var blockH = ruleH + gapRule + (kicker ? kickPx + gapKick : 0) + head.lines.length * lineH + descAllow;
+        var top = atTop ? M : H - M - blockH;
+
+        // Measure what is actually behind the block, then decide ink. Type is held to 4.5:1 (the
+        // WCAG floor for text, not the looser one for large graphics) across the whole band, and
+        // only when the best available ink cannot reach it does the edge fade appear — a gradient
+        // that reaches zero alpha, so there is no line anywhere on it to read as a box.
+        var wStats = regionStats(ctx, canvas, M, top - S * 0.02, align === 'left' ? Math.round(safeW * 0.68) : safeW, blockH + S * 0.04);
+        var ink = pickInk(wStats);
+        if (inkContrast(ink, wStats) < 4.5) {
+          var fadeSpan = Math.round(S * 0.22);
+          var solid = 'rgba(' + VEIL_RGB + ',0.66)', clear = 'rgba(' + VEIL_RGB + ',0)';
+          var g = atTop
+            ? ctx.createLinearGradient(0, 0, 0, top + blockH + fadeSpan)
+            : ctx.createLinearGradient(0, top - fadeSpan, 0, H);
+          g.addColorStop(0, atTop ? solid : clear);   // the edge it is anchored to is the only
+          g.addColorStop(1, atTop ? clear : solid);   // opaque end; the other reaches zero alpha
+          ctx.fillStyle = g;
+          if (atTop) ctx.fillRect(0, 0, W, top + blockH + fadeSpan);
+          else ctx.fillRect(0, top - fadeSpan, W, H - (top - fadeSpan));
+          ink = BRAND_INK.cream;
+        }
+
+        var cx = align === 'left' ? M : Math.round(W / 2);
+        ctx.save();
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = ink.css;
+        ctx.shadowColor = haloFor(ink);
+        ctx.shadowBlur = Math.round(S * 0.018);
+
+        var y = top;
+        var ruleX = align === 'left' ? M : Math.round(cx - ruleW / 2);
+        ctx.fillRect(ruleX, y, ruleW, ruleH);
+        y += ruleH + gapRule;
+
+        if (kicker) {
+          ctx.font = kickerFont(kickPx);
+          ctx.textAlign = 'left';
+          var kw = trackedWidth(ctx, kicker, tracking);
+          drawTracked(ctx, kicker, align === 'left' ? M : Math.round(cx - kw / 2), y, tracking);
+          y += kickPx + gapKick;
+        }
+        if (head.lines.length) {
+          ctx.font = headlineFont(head.px);
+          ctx.textAlign = align === 'left' ? 'left' : 'center';
+          for (var li = 0; li < head.lines.length; li++) {
+            ctx.fillText(head.lines[li], align === 'left' ? M : cx, y);
+            y += lineH;
+          }
+        }
+        ctx.restore();
+        wordRect = { x: M, y: top, w: align === 'left' ? Math.round(safeW * 0.68) : safeW, h: blockH };
       }
+
+      // ---- THE MARK --------------------------------------------------------------------------
+      // Sized restrained (the lockup is a tall three-part composition; at the old 22% it dominated
+      // a square render). Placement is measured, not assumed, and never lands on the wording.
+      var markW = Math.round(S * (markKey === 'lockup' ? 0.17 : 0.115));
+      var markH = Math.round(markW * ((logo.naturalHeight || logo.height) / (logo.naturalWidth || logo.width)));
+      var anchors = {
+        tl: [M, M], tr: [W - markW - M, M],
+        bl: [M, H - markH - M], br: [W - markW - M, H - markH - M]
+      };
+      function collides(a) {
+        if (!wordRect) return false;
+        var pad = Math.round(M * 0.6);
+        return !(a[0] + markW + pad < wordRect.x || a[0] > wordRect.x + wordRect.w + pad ||
+                 a[1] + markH + pad < wordRect.y || a[1] > wordRect.y + wordRect.h + pad);
+      }
+
+      var chosen = anchors[opts.position] || null;
+      if (!chosen) {
+        var keys = Object.keys(anchors).filter(function (k) { return !collides(anchors[k]); });
+        if (!keys.length) keys = Object.keys(anchors);
+        var best = null;
+        keys.forEach(function (k) {
+          var a = anchors[k];
+          var st = regionStats(ctx, canvas, a[0], a[1], markW, markH);
+          // Contrast is capped because past a point more of it buys nothing, while clutter keeps
+          // costing — a calm corner at 5:1 beats a cluttered one at 12:1 every time. Busy is only
+          // lightly weighted here on top of that because inkContrast already charges for it.
+          var score = Math.min(inkContrast(pickInk(st), st), 8) - st.busy * 5;
+          if (!best || score > best.score) best = { score: score, a: a, st: st };
+        });
+        chosen = best.a;
+      }
+
+      var mStats = regionStats(ctx, canvas, chosen[0], chosen[1], markW, markH);
+      var mInk = pickInk(mStats);
+      var drawable = opts.finish === 'original' ? logo : tintMark(logo, markW, markH, mInk.css);
+      ctx.save();
+      ctx.shadowColor = haloFor(opts.finish === 'original' ? BRAND_INK.gold : mInk);
+      ctx.shadowBlur = Math.round(S * 0.045);
+      ctx.drawImage(drawable, chosen[0], chosen[1], markW, markH);
+      ctx.restore();
 
       return canvas.toDataURL('image/jpeg', 0.92);
     });
@@ -929,12 +1211,37 @@
         '<div class="form-row"><label>Which photo</label><select class="brand-slide">' +
           media.map(function (m, i) { return '<option value="' + esc(m.id) + '" data-key="' + esc(m.media_key) + '">Slide ' + (i + 1) + '</option>'; }).join('') +
         '</select></div>' +
-        '<div class="form-row"><label>Logo position</label><select class="brand-pos">' +
-          '<option value="br">Bottom right</option><option value="bl">Bottom left</option>' +
-          '<option value="tr">Top right</option><option value="tl">Top left</option>' +
-        '</select></div>' +
-        '<div class="form-row"><label>Wording (optional)</label><input class="brand-text" type="text" maxlength="40" placeholder="e.g. ORDER BY THURSDAY">' +
-          '<p class="hint">Drawn from these exact characters, never generated — it cannot be misspelled. Leave blank for a clean logo mark with no text.</p></div>' +
+        // Wording first, controls second: the owner came here to say something. Both fields are
+        // optional and separately labelled rather than one field with magic syntax — the kicker and
+        // the headline are set in different faces at different sizes, so they are different inputs.
+        '<div class="form-row"><label>Wording (optional)</label><input class="brand-text" type="text" maxlength="48" placeholder="e.g. Order by Thursday">' +
+          '<p class="hint">Set in Cormorant Garamond, in your own capitalisation. Drawn from these exact characters, never generated — it cannot be misspelled. It resizes and wraps itself to fit the photo.</p></div>' +
+        '<div class="form-row"><label>Small line above (optional)</label><input class="brand-kicker" type="text" maxlength="28" placeholder="e.g. This week only">' +
+          '<p class="hint">The letterspaced line above the headline. Always set in capitals.</p></div>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label>Layout</label><select class="brand-layout">' +
+            '<option value="auto">Auto — read the photo</option>' +
+            '<option value="editorial">Editorial — lower centre</option>' +
+            '<option value="caption">Caption — lower left</option>' +
+            '<option value="masthead">Masthead — top</option>' +
+          '</select></div>' +
+          '<div class="form-row"><label>Mark</label><select class="brand-mark">' +
+            '<option value="emblem">Emblem — tree only</option>' +
+            '<option value="lockup">Full lockup</option>' +
+          '</select></div>' +
+        '</div>' +
+        '<div class="form-two">' +
+          '<div class="form-row"><label>Mark position</label><select class="brand-pos">' +
+            '<option value="auto">Auto — calmest corner</option>' +
+            '<option value="br">Bottom right</option><option value="bl">Bottom left</option>' +
+            '<option value="tr">Top right</option><option value="tl">Top left</option>' +
+          '</select></div>' +
+          '<div class="form-row"><label>Mark finish</label><select class="brand-finish">' +
+            '<option value="adaptive">Adaptive — one brand colour</option>' +
+            '<option value="original">Original colours</option>' +
+          '</select></div>' +
+        '</div>' +
+        '<p class="hint" style="margin-bottom:8px">No plate behind the mark and no band behind the wording. The photo underneath is read first, and the mark and the type are inked in whichever kit colour separates from it — gold, cream or deep forest — so they sit on the image instead of on a box.</p>' +
         '<button class="btn ghost block brand-preview" type="button">Preview branded photo</button>' +
         '<div class="brand-result" style="margin-top:8px"></div>' +
       '</div></details>';
@@ -954,7 +1261,14 @@
         var text = panel.querySelector('.brand-text').value;
         var resultBox = panel.querySelector('.brand-result');
         btn.disabled = true; btn.textContent = 'Compositing…';
-        compositeBranding('/api/hub/media/' + key, { position: pos, text: text })
+        compositeBranding('/api/hub/media/' + key, {
+          position: pos === 'auto' ? '' : pos,   // '' means "measure the photo and decide"
+          text: text,
+          kicker: panel.querySelector('.brand-kicker').value,
+          layout: panel.querySelector('.brand-layout').value,
+          mark: panel.querySelector('.brand-mark').value,
+          finish: panel.querySelector('.brand-finish').value
+        })
           .then(function (dataUrl) {
             btn.disabled = false; btn.textContent = 'Preview branded photo';
             resultBox.innerHTML =
