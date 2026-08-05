@@ -95,6 +95,46 @@ The client mirror lives in `public/hub/assets/hub.js` (`Hub.track(event, props)`
 - **Design tokens** (`hub.css`): deep green + gold brand, mobile-first, bottom-nav component (becomes a top tab bar on desktop ≥900px for the owner command center), cards, list rows, badges, forms, toasts.
 - **Capabilities:** installable to home screen; camera/mic/GPS used by driver proof photos, temp-log photos, and Creative Studio voice — all via standard web APIs, no native wrapper.
 
+### The bottom-nav budget — SIX SLOTS. Read this before adding a destination.
+
+**Every role renders exactly six slots: five primary tabs + `⋯ More`.** That is a hard budget, not
+a convention, and it is set by arithmetic against the phone the HUB is actually used on:
+
+| Slots | Width at `min-width: 62px` | 375px viewport |
+|---|---|---|
+| 6 | 372px | fits |
+| 7 | 434px | **overflows by 59px** |
+
+`min-width` is **62px, not 64px** — `6 × 64 = 384` clipped the last slot (the `More` button on every
+role) by 9px and made the bar scroll a hair. `6 × 62 = 372` fits with room to spare, and the tap
+target is still 62×60, far above the 44×44 floor. Measured in a browser against the live renderers,
+before and after — not derived.
+
+**If a role needs another destination, it goes in the `More` sheet — never as a seventh tab.** Add
+it to that role's `NAV` array *without* `primary: true`; the split is then automatic. Two
+implementations do the same job, so edit the one your role uses:
+- **owner** — `Owner.renderNav()` in `public/hub/owner/assets/owner.js`, which has carried its own
+  primary/overflow split since the bar was fixed. Owner's `NAV` is **17 destinations and 5 primary**;
+  the other 12 all live in the sheet, which is exactly why 17 entries still render 6 slots.
+- **kitchen / driver / shared pages** — `Hub.renderNavWithMore()` in `public/hub/assets/hub.js`.
+
+**Counting primaries with `grep -c 'primary: true'` gives the wrong answer** — the explanatory
+comment above owner's `NAV` contains that literal string, so it counts itself. It returns 6 for a
+5-primary array, which is how the owner bar briefly got misdiagnosed as broken. Count entry lines,
+or just render it and measure.
+
+Known limits, stated so nobody re-measures them:
+- **320px (iPhone SE 1st gen) still scrolls** — 52px over. Six slots need ≥372px. Accepted: the
+  field devices are modern phones and a kitchen tablet.
+- The desktop ≥900px breakpoint turns this into a top tab bar, where the budget does not bind.
+
+History worth not repeating: the owner bar once put **all 15 destinations it then had** into the bar
+itself, which collided on desktop and was unusable on a phone — the original reported bug. The
+`More` sheet was built for that, and owner has since grown to 17 destinations without the bar
+changing size. Kitchen briefly hit seven slots (`7 × 64 = 448`, 73px over) on 2026-08-05 when
+`My activity` was added as a plain tab before the helper was wired — that is the exact failure this
+budget exists to prevent, and it survived about ten minutes.
+
 ## How website orders flow into kitchen/driver views
 
 The **`orders` table is the bridge.** Square remains the payment source of truth; the public site writes order rows (see `functions/api/orders.js` / `webhooks/square.js`). The HUB consumes them:
