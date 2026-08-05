@@ -9,9 +9,18 @@ import { now, today } from '../../../_lib/hub.js';
 import { etaSeconds, clockET } from '../../../_lib/geo.js';
 import { notifyArrivingSoon } from '../../../_lib/notify.js';
 
+// ANY route the driver has today that isn't finished — not just one flagged status='started'.
+// Root cause of the 2026-08-04 incident: drivers routinely skip the pickup-confirmation step
+// and tap "Mark delivered" directly, so routes.status never flips to 'started'. Gating GPS
+// acceptance on that status meant the ping loop upstream (route.html) had nothing to report to,
+// this row's driver_lat/driver_lng stayed NULL all day, and stop.js's fromPoint() fell back to
+// the kitchen — a driver 3 minutes from the customer got quoted a ~35-minute kitchen drive.
+// 'completed'/'canceled' are excluded because tracking someone once the job is over is a
+// different product; a 'pending' offer is excluded because the driver hasn't taken the job yet.
 async function activeRoute(env, driverId) {
   return env.DB.prepare(
-    "SELECT * FROM routes WHERE driver_id=? AND route_date=? AND status='started' ORDER BY created_at DESC LIMIT 1"
+    "SELECT * FROM routes WHERE driver_id=? AND route_date=? AND status NOT IN ('completed','canceled') " +
+    "AND COALESCE(offer_status,'accepted')<>'pending' ORDER BY created_at DESC LIMIT 1"
   ).bind(driverId, today()).first();
 }
 

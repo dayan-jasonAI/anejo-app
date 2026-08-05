@@ -1,7 +1,7 @@
 // POST /api/hub/driver/stop — per-stop driver actions during an active route.
 //   { stop_id, action:'nav_start' } → driver tapped Navigate to this stop:
 //       marks the stop en_route, advances the route's current_seq, computes the live ETA,
-//       and texts THIS customer "your order is on the way" (+ estimated arrival).
+//       and texts THIS customer "your order is on the way" (+ estimated arrival, IF confident).
 //   { stop_id, action:'arriving' }  → manual "Arriving soon": texts the customer the
 //       ~10-min heads-up (the GPS auto-trigger in /location does this automatically too).
 // Guarded for driver/owner. Each notice is consent-gated + no-op safe.
@@ -18,12 +18,21 @@ async function activeRoute(env, driverId) {
   ).bind(driverId, today()).first();
 }
 
-// Where the driver currently is: last GPS fix on the route if fresh (<5 min), else the kitchen.
+// Where the driver currently is, and whether we actually KNOW that vs. are guessing.
+// `confident` is only true for a real GPS fix on THIS route logged in the last 5 minutes.
+// Everything downstream must treat `confident:false` as "no usable position" — never silently
+// substitute the kitchen and hand out a number as if it meant something. That silent substitution
+// is exactly what produced the 2026-08-04 incident: a driver 3 minutes from the customer, but
+// driver_lat was NULL (GPS never ran — see location.js), so this fell back to the kitchen and
+// Google dutifully returned a real ~35-minute Boca→West Palm Beach drive time, which got texted
+// to the customer as "Estimated arrival around 6:58 PM". Part A (GPS on any active route, not
+// just 'started') makes a fresh fix available far more often; this flag is the backstop for the
+// remaining gap — a dead phone, airplane mode, a route just accepted with no ping yet.
 function fromPoint(env, route) {
   if (route && Number.isFinite(route.driver_lat) && route.driver_loc_at && (Date.now() - route.driver_loc_at < 5 * 60000)) {
-    return { lat: route.driver_lat, lng: route.driver_lng };
+    return { point: { lat: route.driver_lat, lng: route.driver_lng }, confident: true };
   }
-  return kitchenOrigin(env);
+  return { point: kitchenOrigin(env), confident: false };
 }
 
 export const onRequestPost = async ({ request, env, waitUntil }) => {
@@ -55,12 +64,17 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
   const ts = now();
   const order = stop;   // joined row carries all order columns
 
-  // Live ETA from the driver's position (or kitchen) to this stop.
+  // Live ETA from the driver's ACTUAL position to this stop — a precise number (clock time or
+  // minute count) is only ever computed when `confident` is true. When it's not (no fresh fix
+  // yet), etaMin/etaClock/etaAtMs stay null on purpose: notifyOnTheWay() below already has true,
+  // vague copy for that case ("your order is on the way ... we'll text you when close"), and a
+  // null eta_clock means route.html simply shows no ETA badge instead of a fabricated one.
   let etaMin = null, etaClock = null, etaAtMs = null;
   const to = (Number.isFinite(order.delivery_lat) && Number.isFinite(order.delivery_lng))
     ? { lat: order.delivery_lat, lng: order.delivery_lng } : null;
-  if (to) {
-    const secs = await etaSeconds(env, fromPoint(env, route), to).catch(() => null);
+  const from = fromPoint(env, route);
+  if (to && from.confident) {
+    const secs = await etaSeconds(env, from.point, to).catch(() => null);
     if (secs != null) { etaMin = Math.max(1, Math.round(secs / 60)); etaAtMs = ts + secs * 1000; etaClock = clockET(etaAtMs); }
   }
 

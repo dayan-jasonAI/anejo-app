@@ -68,7 +68,11 @@ const emailWrap = (heading, bodyHtml) => emailShell(
 
 // ── Per-stop fulfillment notices ──────────────────────────────────────────────
 
-// Fired when the driver starts navigating to THIS stop.
+// Fired when the driver starts navigating to THIS stop. etaText MUST be omitted (null/undefined)
+// unless it was computed from a real, fresh driver GPS fix (see stop.js's `confident` flag) — a
+// specific-sounding time built from a stale position or the kitchen-origin fallback is how a
+// driver 3 minutes away got quoted a ~35-minute drive on 2026-08-04. No etaText still sends a
+// true, useful notice: the order left, and a second text follows when the driver is close.
 export async function notifyOnTheWay(env, order, etaText) {
   try {
     const c = await contactForOrder(env, order);
@@ -84,14 +88,21 @@ export async function notifyOnTheWay(env, order, etaText) {
 }
 
 // Fired ~10–15 min out (auto from live GPS ETA, or the driver's manual "Arriving soon").
+// etaText is only ever a specific number when it came from a real, fresh GPS fix (the auto
+// trigger in location.js always is; the manual button in stop.js is gated the same way). A stale
+// or missing position must never manufacture one here — the old `|| '10 minutes'` default did
+// exactly that: a driver could tap "Arriving soon" with no usable fix and the customer would be
+// told a precise-sounding "about 10 minutes" that had no basis at all. No etaText still means
+// something true and worth sending (that's why this fired): the driver is close by.
 export async function notifyArrivingSoon(env, order, etaText) {
   try {
     const c = await contactForOrder(env, order);
     if (!c) return;
+    const near = etaText ? `about ${etaText} away` : 'close by';
     await deliver(env, c, {
-      sms: `${BRAND}: Your driver is about ${etaText || '10 minutes'} away with your order. ${STOP}`,
+      sms: `${BRAND}: Your driver is ${near} with your order. ${STOP}`,
       emailSubject: `Your ${BRAND} order is arriving soon`,
-      emailHtml: emailWrap('Arriving soon', `<p>Your driver is about <strong>${escHtml(etaText || '10 minutes')}</strong> away.</p>`),
+      emailHtml: emailWrap('Arriving soon', `<p>Your driver is <strong>${escHtml(near)}</strong>.</p>`),
     });
   } catch { /* best-effort */ }
 }

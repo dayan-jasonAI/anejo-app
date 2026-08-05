@@ -302,7 +302,10 @@
     "Start subscription":"Iniciar suscripción",
     "Yes, text me order & delivery updates from Añejo Catering Co. at this number.":"Sí, envíenme avisos de pedidos y entregas de Añejo Catering Co. a este número.",
     "Message frequency varies (you may get a text for each order & delivery). Msg & data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase.":"La frecuencia de mensajes varía (puedes recibir un texto por cada pedido y entrega). Pueden aplicar tarifas de mensajes y datos. Responde HELP para ayuda, STOP para cancelar. El consentimiento no es condición de compra.",
-    "Terms":"Términos","Privacy":"Privacidad"
+    "Terms":"Términos","Privacy":"Privacidad",
+    // ===== driver HUB — location-sharing banner (route.html) =====
+    "📍 Location sharing is ON for this route — it turns off automatically the moment the route is done.":
+      "📍 Compartir ubicación está ACTIVADO para esta ruta — se apaga automáticamente en cuanto la ruta termina."
   };
 
   var origText = new WeakMap();   // text node / option -> original english value

@@ -121,14 +121,21 @@ export const onRequestPost = async ({ request, env }) => {
       totalMinutes = Math.round(opt.totalDriveSeconds / 60) + Math.round((stopServiceSeconds(env) * cOrders.length) / 60);
       miles = opt.totalMeters != null ? Math.round((opt.totalMeters / 1609.344) * 10) / 10 : null;
       optimized = true;
-    } else {
-      const stepMs = 15 * 60 * 1000;
-      etaCompleteAt = departAt + cOrders.length * stepMs;
-      totalMinutes = cOrders.length * 15;
     }
     if (miles == null && origin && geoStops.length) {
       const ordered = orderIds.map((oid) => geoStops.find((s) => s.id === oid)).filter(Boolean);
       if (ordered.length) miles = estimateRouteMiles(origin, ordered);
+    }
+    // Fallback path — mirrors assignRoute() in _lib/routing.js (the code that actually persists
+    // the route once the owner assigns this preview). The old flat "15 min per stop" guess had no
+    // relationship to `miles`, so a preview could show a real distance next to an impossible drive
+    // time. Deriving time from the same distance keeps the preview honest with what gets stored.
+    if (!optimized) {
+      const AVG_ROUTE_MPH = 22;
+      const driveMinutes = miles != null ? Math.max(1, Math.round((miles / AVG_ROUTE_MPH) * 60)) : cOrders.length * 12;
+      const serviceMinutes = Math.round((stopServiceSeconds(env) * cOrders.length) / 60);
+      totalMinutes = driveMinutes + serviceMinutes;
+      etaCompleteAt = departAt + totalMinutes * 60 * 1000;
     }
 
     const pay = computeRoutePay(payCfg, { stops: cOrders.length, miles });

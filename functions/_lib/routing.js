@@ -71,11 +71,6 @@ export async function assignRoute(env, { orders, orderIds, routeDate, driverId =
     totalMinutes = Math.round(opt.totalDriveSeconds / 60) + Math.round((stopServiceSeconds(env) * orderIds.length) / 60);
     totalMeters = opt.totalMeters || null;
     optimized = true;
-  } else {
-    const stepMs = 15 * 60 * 1000;
-    seqIds.forEach((oid, i) => { etaById[oid] = departAt + (i + 1) * stepMs; });
-    etaCompleteAt = departAt + seqIds.length * stepMs;
-    totalMinutes = seqIds.length * 15;
   }
 
   let miles = totalMeters != null ? Math.round((totalMeters / 1609.344) * 10) / 10 : null;
@@ -83,6 +78,24 @@ export async function assignRoute(env, { orders, orderIds, routeDate, driverId =
     const orderedGeo = seqIds.map((oid) => byId.get(oid)).filter((o) => o && o.delivery_lat != null && o.delivery_lng != null).map((o) => ({ lat: o.delivery_lat, lng: o.delivery_lng }));
     const origin = kitchenOrigin(env);
     if (origin && orderedGeo.length) miles = estimateRouteMiles(origin, orderedGeo);
+  }
+
+  // Fallback path — no Google optimization (missing key, an ungeocoded stop, or an API miss).
+  // The old estimate was a flat "15 min per stop" guess with ZERO relationship to `miles`, which
+  // is how a single-stop route stored total_miles_est=45.6 next to total_minutes=15 — a 182 mph
+  // average that nobody could act on. Derive the time from the SAME distance we're about to
+  // persist as total_miles_est, so the two numbers describing one route can't silently disagree.
+  // This does NOT touch driver pay: computeRoutePay() below prices on stops + miles only, never
+  // on total_minutes — changing this estimate changes nothing about what a driver is owed.
+  if (!optimized) {
+    const AVG_ROUTE_MPH = 22; // conservative in-town-with-stops average; a planning estimate,
+    // never the customer-facing ETA — that only ever comes from live GPS (see notify.js).
+    const driveMinutes = miles != null ? Math.max(1, Math.round((miles / AVG_ROUTE_MPH) * 60)) : seqIds.length * 12;
+    const serviceMinutes = Math.round((stopServiceSeconds(env) * seqIds.length) / 60);
+    totalMinutes = driveMinutes + serviceMinutes;
+    const perStopMs = Math.round((totalMinutes * 60 * 1000) / Math.max(1, seqIds.length));
+    seqIds.forEach((oid, i) => { etaById[oid] = departAt + (i + 1) * perStopMs; });
+    etaCompleteAt = departAt + totalMinutes * 60 * 1000;
   }
 
   const pay = computeRoutePay(await getPayConfig(env), { stops: orderIds.length, miles });

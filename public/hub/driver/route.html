@@ -46,10 +46,34 @@
   .pick-done{font-size:12px;font-weight:700;color:var(--green)}
   .small{font-size:12px;color:#6b6b6b}
   .pay-line{margin-top:6px;font-size:14px;font-weight:700;color:var(--green);background:#eef5ef;border:1px solid #cfe2d4;border-radius:8px;padding:7px 10px;display:inline-block}
+  /* Location-sharing banner — only ever visible while GPS pings are actually going out
+     (toggled by setTracking() in the page script, never independently). Solid green/cream
+     matches the app's own filled buttons (.btn) rather than inventing a new color, so it reads
+     as "part of this app" and not a browser-style warning strip. */
+  .gps-banner{display:none;align-items:center;gap:9px;background:var(--green);color:var(--cream);
+    padding:10px 16px;font-size:13px;font-weight:600;line-height:1.35;
+    padding-top:calc(10px + env(safe-area-inset-top, 0px))}
+  .gps-banner.show{display:flex}
+  .gps-banner-dot{width:9px;height:9px;border-radius:50%;background:#5fd98a;flex:0 0 auto;
+    box-shadow:0 0 0 0 rgba(95,217,138,.6);animation:gpsPulse 1.8s ease-out infinite}
+  @keyframes gpsPulse{
+    0%{box-shadow:0 0 0 0 rgba(95,217,138,.55)}
+    70%{box-shadow:0 0 0 8px rgba(95,217,138,0)}
+    100%{box-shadow:0 0 0 0 rgba(95,217,138,0)}
+  }
 </style>
 </head>
 <body>
 <div class="hub-bar"><h1>AÑEJO · ROUTE</h1><div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div></div>
+
+<!-- Location-sharing notice: shown/hidden by setTracking(), never by a separate copy of the
+     "is this route active" check — see route.html's setTracking(). Plain-worded, no dismiss
+     button and no consent checkbox: sharing location on an active route isn't optional, it's how
+     the ETA the customer was texted stays honest, so this is a statement of fact, not a request. -->
+<div id="gps-banner" class="gps-banner">
+  <span class="gps-banner-dot" aria-hidden="true"></span>
+  <span data-i18n>📍 Location sharing is ON for this route — it turns off automatically the moment the route is done.</span>
+</div>
 
 <div class="hub-wrap">
   <div class="hub-section">
@@ -147,7 +171,16 @@
   var pickSection = document.getElementById('pickup-section');
   var delivSection = document.getElementById('deliver-section');
   var sheet = document.getElementById('sheet');
+  var gpsBanner = document.getElementById('gps-banner');
   var refresh = function () { if (window.AnejoI18n) window.AnejoI18n.refresh(); };
+
+  // One switch for "is location being shared right now" — starts/stops the ping loop AND
+  // shows/hides the on-screen notice at the same time, so the banner can never say tracking is
+  // on while gpsTimer is actually null (or vice versa). See setTracking() call sites in render().
+  function setTracking(on) {
+    if (on) startGps(); else stopGps();
+    if (gpsBanner) gpsBanner.classList.toggle('show', !!on);
+  }
 
   // ---- PIN prompt (pickup confirmation) ----
   // askPin(title, submit): submit(pin, helpers); helpers.fail(msg) keeps the modal open with an
@@ -205,13 +238,13 @@
     if (routeData && routeData._networkError) {
       head.innerHTML = '<p class="row-sub" data-i18n>Couldn’t load your route — check your connection.</p>' +
         '<button class="btn ghost block" id="retry-load" type="button" style="margin-top:8px" data-i18n>Retry</button>';
-      pickSection.hidden = true; delivSection.hidden = true; stopGps();
+      pickSection.hidden = true; delivSection.hidden = true; setTracking(false);
       var rb = document.getElementById('retry-load'); if (rb) rb.addEventListener('click', loadAll);
       refresh(); return;
     }
     if (!routeData || !routeData.route) {
       head.innerHTML = '<p class="row-sub" data-i18n>No route assigned for today.</p>';
-      pickSection.hidden = true; delivSection.hidden = true; stopGps(); refresh(); return;
+      pickSection.hidden = true; delivSection.hidden = true; setTracking(false); refresh(); return;
     }
     var r = routeData.route;
 
@@ -226,7 +259,7 @@
         '<button class="btn gold" id="offer-accept" type="button" data-i18n>✅ Accept order</button>' +
         '<button class="btn ghost" id="offer-decline" type="button" data-i18n>Deny</button>' +
         '</div></div>';
-      pickSection.hidden = true; delivSection.hidden = true; stopGps();
+      pickSection.hidden = true; delivSection.hidden = true; setTracking(false);
       document.getElementById('offer-accept').addEventListener('click', function () {
         var b = this; b.disabled = true;
         Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'accept' } }).then(function (resp) {
@@ -265,13 +298,23 @@
 
     // Mode: pickup gate first
     if (!allPicked && r.status !== 'completed') {
-      pickSection.hidden = false; delivSection.hidden = true; stopGps();
+      pickSection.hidden = false; delivSection.hidden = true;
       renderPickup();
     } else {
       pickSection.hidden = true; delivSection.hidden = false;
       renderDelivery();
-      if (r.status === 'started' && !allHandled) startGps(); else stopGps();
     }
+
+    // Location sharing tracks the JOB, not a tap the driver might skip. The old condition
+    // (`status === 'started'`) required the driver to tap "Start deliveries" past the pickup
+    // gate — but drivers routinely skip straight to "Mark delivered", so status never flips and
+    // the ping loop never ran (the 2026-08-04 incident: a driver 3 min away got quoted a
+    // ~35-min kitchen-origin ETA because nobody's position was ever recorded). Now: tracking
+    // runs for the whole life of an accepted, unfinished route — pickup through the last
+    // stop — and turns off the instant the route is done/canceled or every stop is handled.
+    // An app that keeps pinging after the shift ends is a different product.
+    var stillOpen = r.status !== 'completed' && r.status !== 'canceled' && !allHandled;
+    setTracking(stillOpen);
     refresh();
   }
 
@@ -482,7 +525,10 @@
   }
   function startGps() { if (gpsTimer) return; pingOnce(); gpsTimer = setInterval(pingOnce, 45000); }
   function stopGps() { if (gpsTimer) { clearInterval(gpsTimer); gpsTimer = null; } }
-  document.addEventListener('visibilitychange', function () { if (!document.hidden && routeData && routeData.route && routeData.route.status === 'started') { pingOnce(); loadAll(); } });
+  // gpsTimer IS the source of truth for "are we tracking right now" (set only by setTracking) —
+  // checking it here instead of re-deriving route state keeps this in lockstep with the banner
+  // and the ping loop instead of a third copy of the "is this route still open" logic.
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && gpsTimer) { pingOnce(); loadAll(); } });
 
   function cssEsc(s) { return String(s).replace(/["\\\]]/g, '\\$&'); }
 
