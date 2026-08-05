@@ -878,12 +878,18 @@
   // the photograph with nothing behind them.
   var MARK_SRC = { emblem: '/assets/img/emblem.png', lockup: '/assets/img/logo_full.png' };
 
-  // The kit's three inks (public/assets/brand.css --gold / --cream / --forest). A mark or a line of
-  // type is drawn in one of these and nothing else — no white, no neutral grey, no invented colour.
+  // The kit's inks (public/assets/brand.css). A mark or a line of type is drawn in one of these and
+  // nothing else — no white, no neutral grey, no invented colour.
+  //
+  // PARCHMENT, NOT CREAM (owner note 2026-08-05: "the wording only have white color"). --cream
+  // #F5F2EC is very nearly white, and against a dark forest field it reads as exactly that: white
+  // text on a photo, which is the generic look every brand has. --parchment #E8E2CA is the aged
+  // paper tone the reference posters actually set their titles in — warmer, quieter, and unmistakably
+  // Añejo. Cream is gone from the type path entirely.
   var BRAND_INK = {
-    gold:  { css: '#C8BC6E', rgb: [200, 188, 110] },
-    cream: { css: '#F5F2EC', rgb: [245, 242, 236] },
-    deep:  { css: '#0A180C', rgb: [10, 24, 12] }
+    gold:      { css: '#C8BC6E', rgb: [200, 188, 110] },  // --gold, the antique accent
+    parchment: { css: '#E8E2CA', rgb: [232, 226, 202] },  // --parchment, the title tone
+    deep:      { css: '#0A180C', rgb: [10, 24, 12] }      // --forest, a shade deeper
   };
   var VEIL_RGB = '7,18,7'; // --forest, used only ever as a gradient that reaches zero alpha
 
@@ -963,15 +969,26 @@
     return Math.min(contrastRatio(l, lo), contrastRatio(l, hi));
   }
 
-  // Brand first, legibility floor second. Gold is the Añejo accent and is used whenever it clears
-  // 3:1 (WCAG's floor for large graphic objects) across that whole band; below that it would be
-  // mush, so the drawing falls to whichever of cream / deep forest actually separates. Never white,
-  // never a box.
-  function pickInk(stats) {
-    if (inkContrast(BRAND_INK.gold, stats) >= 3) return BRAND_INK.gold;
-    return inkContrast(BRAND_INK.cream, stats) >= inkContrast(BRAND_INK.deep, stats)
-      ? BRAND_INK.cream : BRAND_INK.deep;
+  // TWO INKS, not one — read straight off the reference posters. The big serif title is set in
+  // PARCHMENT; the kicker, the hairline rules and the mark are GOLD. That split is what makes a
+  // layout read as Añejo instead of as white type on a photo: gold carries the brand, parchment
+  // carries the words, and neither is asked to do the other's job.
+  //
+  // On a LIGHT frame both collapse to deep forest. Gold on pale stone is mush, and the references
+  // never put gold on anything bright — the gold in them always sits on the dark green field.
+  function pickTitleInk(stats) {
+    return inkContrast(BRAND_INK.parchment, stats) >= inkContrast(BRAND_INK.deep, stats)
+      ? BRAND_INK.parchment : BRAND_INK.deep;
   }
+  // Gold wherever gold holds — 3:1 is WCAG's floor for large graphic objects, which is what an
+  // accent rule, a letterspaced kicker and the mark all are.
+  function pickAccentInk(stats) {
+    if (inkContrast(BRAND_INK.gold, stats) >= 3) return BRAND_INK.gold;
+    return pickTitleInk(stats);
+  }
+  // The generic "best ink here", used by the mark and by the placement scoring so a corner is
+  // always judged in the ink it will actually be drawn in. The mark is an accent element.
+  function pickInk(stats) { return pickAccentInk(stats); }
   // The halo is the opposite polarity of the ink, always weak and always wide — separation without
   // an edge. This is what replaced the plate.
   function haloFor(ink) { return relLum(ink.rgb) > 0.4 ? 'rgba(7,18,7,0.42)' : 'rgba(245,242,236,0.5)'; }
@@ -1103,8 +1120,11 @@
         // only when the best available ink cannot reach it does the edge fade appear — a gradient
         // that reaches zero alpha, so there is no line anywhere on it to read as a box.
         var wStats = regionStats(ctx, canvas, M, top - S * 0.02, align === 'left' ? Math.round(safeW * 0.68) : safeW, blockH + S * 0.04);
-        var ink = pickInk(wStats);
-        if (inkContrast(ink, wStats) < 4.5) {
+        var titleInk = pickTitleInk(wStats);
+        var accentInk = pickAccentInk(wStats);
+        // Gated on the TITLE, because it is the biggest and most-read element: if the title needs
+        // the fade to be legible, the accents riding with it need it too.
+        if (inkContrast(titleInk, wStats) < 4.5) {
           var fadeSpan = Math.round(S * 0.22);
           var solid = 'rgba(' + VEIL_RGB + ',0.66)', clear = 'rgba(' + VEIL_RGB + ',0)';
           var g = atTop
@@ -1115,18 +1135,23 @@
           ctx.fillStyle = g;
           if (atTop) ctx.fillRect(0, 0, W, top + blockH + fadeSpan);
           else ctx.fillRect(0, top - fadeSpan, W, H - (top - fadeSpan));
-          ink = BRAND_INK.cream;
+          // The fade lays down the same deep forest field the reference posters are built on, and
+          // on that field the brand pairing stops being a judgement call: parchment title, gold
+          // accents, exactly as printed.
+          titleInk = BRAND_INK.parchment;
+          accentInk = BRAND_INK.gold;
         }
 
         var cx = align === 'left' ? M : Math.round(W / 2);
         ctx.save();
         ctx.textBaseline = 'top';
-        ctx.fillStyle = ink.css;
-        ctx.shadowColor = haloFor(ink);
         ctx.shadowBlur = Math.round(S * 0.018);
 
+        // Rule and kicker: GOLD.
         var y = top;
         var ruleX = align === 'left' ? M : Math.round(cx - ruleW / 2);
+        ctx.fillStyle = accentInk.css;
+        ctx.shadowColor = haloFor(accentInk);
         ctx.fillRect(ruleX, y, ruleW, ruleH);
         y += ruleH + gapRule;
 
@@ -1137,7 +1162,10 @@
           drawTracked(ctx, kicker, align === 'left' ? M : Math.round(cx - kw / 2), y, tracking);
           y += kickPx + gapKick;
         }
+        // Title: PARCHMENT.
         if (head.lines.length) {
+          ctx.fillStyle = titleInk.css;
+          ctx.shadowColor = haloFor(titleInk);
           ctx.font = headlineFont(head.px);
           ctx.textAlign = align === 'left' ? 'left' : 'center';
           for (var li = 0; li < head.lines.length; li++) {
@@ -1154,9 +1182,14 @@
       // a square render). Placement is measured, not assumed, and never lands on the wording.
       var markW = Math.round(S * (markKey === 'lockup' ? 0.17 : 0.115));
       var markH = Math.round(markW * ((logo.naturalHeight || logo.height) / (logo.naturalWidth || logo.width)));
+      // Six anchors, not four. TOP CENTRE is where the reference posters put the mark — centred
+      // above the title, the whole layout hanging off it — and BOTTOM CENTRE is its mirror for a
+      // photo whose subject sits high. Both are in the Auto pool too, so a centred layout can
+      // actually choose the centred mark instead of being forced into a corner.
+      var cxMark = Math.round((W - markW) / 2);
       var anchors = {
-        tl: [M, M], tr: [W - markW - M, M],
-        bl: [M, H - markH - M], br: [W - markW - M, H - markH - M]
+        tl: [M, M],          tc: [cxMark, M],          tr: [W - markW - M, M],
+        bl: [M, H - markH - M], bc: [cxMark, H - markH - M], br: [W - markW - M, H - markH - M]
       };
       function collides(a) {
         if (!wordRect) return false;
@@ -1232,7 +1265,8 @@
         '</div>' +
         '<div class="form-two">' +
           '<div class="form-row"><label>Mark position</label><select class="brand-pos">' +
-            '<option value="auto">Auto — calmest corner</option>' +
+            '<option value="auto">Auto — calmest spot</option>' +
+            '<option value="tc">Top centre</option><option value="bc">Bottom centre</option>' +
             '<option value="br">Bottom right</option><option value="bl">Bottom left</option>' +
             '<option value="tr">Top right</option><option value="tl">Top left</option>' +
           '</select></div>' +

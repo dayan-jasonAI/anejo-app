@@ -49,14 +49,37 @@ const CACHE_TTL_SEC = 60 * 60 * 24 * 30; // 30 days
 // unreachable by the owner without a developer. Kept verbatim (moved from plate_image.js, not
 // rewritten) so the fallback path below is provably identical to pre-existing behavior.
 // ---------------------------------------------------------------------------------------------
+// REPLACED 2026-08-05 (owner ruling, with reference posters). What was here described the exact
+// OPPOSITE of the house look: "candid slightly-imperfect home plating ... looks like a genuine
+// photo a chef snapped on a phone". That was a deliberate choice once — it reads as authentic on a
+// feed — but it is not what Añejo is, and it fought the brand photo standard sitting directly
+// below it, which has always asked for luxury and editorial. The owner chose one direction for
+// every generated image rather than two that argue.
+//
+// The old text is not lost: it is quoted in this file's own history and in the test that pins the
+// fallback path. Nothing about the fallback MECHANISM changed — buildFallbackCore still returns
+// `dishPrompt + PLATING_STYLE`, and its tests interpolate this constant rather than a literal, so
+// they keep passing by construction. Only the direction changed.
 export const PLATING_STYLE =
-  'Natural food photography of a Mediterranean-Cuban meal-prep bowl on a real kitchen counter in ' +
-  'soft window daylight, candid slightly-imperfect home plating, real food texture, fresh herbs and ' +
-  'vegetables, matte ceramic bowl, warm natural tones, shallow depth of field — looks like a genuine ' +
-  'photo a chef snapped on a phone, appetizing and believable.';
+  'Premium editorial food photography of a Mediterranean-Cuban bowl, presented rather than merely ' +
+  'photographed: one hero bowl, centred, on dark stone or a softly draped dark surface, against a ' +
+  'deep forest-green near-black field. Warm directional late-afternoon light falls across the food ' +
+  'with controlled falloff into shadow — the food stays luminous, detailed, moist and fresh while ' +
+  'the surrounding environment stays moody and quiet. Handcrafted matte ceramic, tactile natural ' +
+  'materials, restrained botanical elements at the edges. Generous negative space, calm and ' +
+  'ceremonial, appetite-forward. Aged warmth, never shiny; still presentation, bold flavour.';
+
+// TEXT AND LOGO ARE FORBIDDEN OUTPUT, and that is now load-bearing rather than tidy. The owner's
+// reference posters carry a title and the Añejo mark, but those are COMPOSITED afterwards by the
+// branding tool from the real asset and his own typed characters (owner decision 2026-08-05: the
+// models never set type). A model that renders "AÑEJO" itself produces an approximated logo and
+// unverifiable spelling — the precise failure the branding tool exists to prevent. So every
+// wording for lettering is listed here, not just the word "text".
 export const NEGATIVE_PROMPT =
   'CGI, 3D render, digital art, illustration, cartoon, plastic, waxy, artificial, over-glossy, ' +
-  'oversaturated, hyperreal, airbrushed, fake, video-game, watermark, text, logo, deformed, blurry.';
+  'oversaturated, hyperreal, airbrushed, fake, video-game, watermark, text, lettering, typography, ' +
+  'words, letters, captions, labels, signage, menu text, logo, wordmark, emblem, brand mark, ' +
+  'deformed, blurry, harsh flash, clinical white background, cluttered props.';
 
 // Compiled from docs/brand-standards-brief.md section 10 ("Plating & presentation" -> "Photo
 // standard" + "Signature bowl layout") plus the 2026-07-27 Reposado light ruling (brand_context.js
@@ -73,7 +96,38 @@ export const BRAND_PHOTO_STANDARD =
   'with only the food lit, and never bright-everything either. Ingredients look bright and ' +
   'high-quality; sauce may be shown as a controlled drizzle for the photo even though it is ' +
   'served on the side operationally. No messy edges, no overfilled containers, no soggy greens, ' +
-  'no cheap takeout look.';
+  'no cheap takeout look. ' +
+  // ------------------------------------------------------------------------------------------
+  // Añejo Reposado Editorial (owner, 2026-08-05, supplied with two reference posters). This is
+  // the art direction the references actually encode, written as instruction rather than mood.
+  //
+  // WHY IT LIVES HERE AND NOT IN brand_context.js: R-0031 rules that the words behind this
+  // feeling stay internal — "cultivated stillness" must not reach a menu, caption, deck or any
+  // customer-facing copy until Dayan says otherwise. brand_context.js feeds captions and chat,
+  // so the language would leak. An image prompt cannot leak it: its only output is a photograph.
+  //
+  // R-0031 also settles precedence, and it is quoted rather than re-litigated: "Añejo governs
+  // brand-wide. Reposado is an input, not the ruling document. Where the two ever disagree,
+  // Añejo wins." So everything above this line — the bowl build, the Golden Rule plating, the
+  // allergen-safe honesty of what is shown — still outranks everything below it.
+  // ------------------------------------------------------------------------------------------
+  // Kept DELIBERATELY TIGHT. The size guard in the tests caps this constant, and that cap is a
+  // real constraint rather than a nuisance: this text is prepended to every image prompt, and a
+  // long mood essay dilutes the one thing that varies — the dish brief itself. Every clause below
+  // is an instruction a model can act on. Adjectives that only describe a feeling were cut.
+  'HOUSE LOOK — a luxury culinary editorial shot in a quiet Mediterranean estate at golden hour, ' +
+  'read through Cuban warmth: calm, grounded, ceremonial. Palette is deep forest green and ' +
+  'near-black, warm cream, aged parchment, muted antique gold, natural stone — the food is the ' +
+  'only brightness. Gold reads aged, never shiny or metallic. Surfaces are dark stone or marble, ' +
+  'handcrafted ceramic, softly draped dark fabric, restrained olive branches, with visible grain ' +
+  'and tactile imperfection. One dominant bowl, one hierarchy, generous negative space, centred ' +
+  'or carefully balanced, no clutter and no competing focal point. ' +
+  'LEAVE THE UPPER THIRD CALM, unbusy and free of subject matter — a title and the Añejo mark are ' +
+  'composited into that space afterwards. Do not fill it. ' +
+  'DO NOT REDESIGN THE FOOD: the scene, bowl, and light around it may change; the build inside ' +
+  'the bowl may not, unless the brief explicitly asks. ' +
+  'Never sterile wellness branding, white clinical backgrounds, excessive gold, fantasy ' +
+  'ingredients, shadows covering the food, or decoration that overpowers appetite.';
 
 // ---------------------------------------------------------------------------------------------
 // Small helpers — deliberately local rather than imported from a route/other lib file:

@@ -72,7 +72,27 @@ test('PREVENT — the only background treatment behind wording is a gradient tha
   assert.match(BRAND_SECTION, /createLinearGradient/, 'it is a gradient, not a filled band');
   assert.ok(!/ctx\.fillStyle = 'rgba\(7,18,7,0\.6/.test(BRAND_SECTION), 'no flat translucent band may be filled behind text');
   // And it only appears when measurement says the type cannot be read without it.
-  assert.match(BRAND_SECTION, /if \(inkContrast\(ink, wStats\) < 4\.5\) \{/, 'the fade is contrast-gated, not always-on');
+  assert.match(BRAND_SECTION, /if \(inkContrast\(titleInk, wStats\) < 4\.5\) \{/, 'the fade is contrast-gated, not always-on');
+});
+
+test('type is set in the KIT, and never in white', () => {
+  // "The wording only have white color" — owner, 2026-08-05. --cream #F5F2EC is a hair off white
+  // and read as exactly that. Titles are parchment, accents are gold, and neither is negotiable.
+  assert.match(BRAND_SECTION, /parchment: \{ css: '#E8E2CA'/, 'the title tone is --parchment');
+  assert.match(BRAND_SECTION, /gold: *\{ css: '#C8BC6E'/, 'the accent tone is --gold');
+  // Pinned as a VALUE, not as text — the comment above BRAND_INK names #F5F2EC to explain why it
+  // was removed, and a test that cannot tell an ink from a sentence about an ink is a nuisance.
+  assert.ok(!/\bcream:\s*\{/.test(BRAND_SECTION), 'there is no cream ink to reach for');
+  assert.ok(!/css: '#F5F2EC'/.test(BRAND_SECTION), 'near-white must never be an ink value');
+  assert.match(BRAND_SECTION, /titleInk = BRAND_INK\.parchment;\s*\n\s*accentInk = BRAND_INK\.gold;/,
+    'on the fade the pairing is fixed: parchment title, gold accents');
+});
+
+test('the mark can be placed top-centre and bottom-centre, not only in corners', () => {
+  assert.match(BRAND_SECTION, /tc: \[cxMark, M\]/, 'top centre exists');
+  assert.match(BRAND_SECTION, /bc: \[cxMark, H - markH - M\]/, 'bottom centre exists');
+  assert.match(HTML, /<option value="tc">Top centre<\/option><option value="bc">Bottom centre<\/option>/,
+    'and both are offered to the owner');
 });
 
 test('legibility is measured against the WORST end of the region, never its average', () => {
