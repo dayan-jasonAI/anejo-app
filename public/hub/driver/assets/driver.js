@@ -12,12 +12,23 @@
   // Bottom nav shared across driver screens. `active` = page key.
   D.nav = function (active) {
     var items = [
-      { key: 'home', href: '/hub/driver/', ico: '🏠', label: 'Today' },
-      { key: 'route', href: '/hub/driver/route.html', ico: '🗺️', label: 'Route' },
-      { key: 'temp', href: '/hub/driver/temp.html', ico: '🌡️', label: 'Temp' },
-      { key: 'expenses', href: '/hub/driver/expenses.html', ico: '🧾', label: 'Expenses' },
-      { key: 'eod', href: '/hub/driver/eod.html', ico: '📋', label: 'EOD' }
+      { key: 'home', href: '/hub/driver/', ico: '🏠', label: 'Today', primary: true },
+      { key: 'route', href: '/hub/driver/route.html', ico: '🗺️', label: 'Route', primary: true },
+      { key: 'temp', href: '/hub/driver/temp.html', ico: '🌡️', label: 'Temp', primary: true },
+      { key: 'expenses', href: '/hub/driver/expenses.html', ico: '🧾', label: 'Expenses', primary: true },
+      { key: 'eod', href: '/hub/driver/eod.html', ico: '📋', label: 'EOD', primary: true },
+      // Keep LAST. It is a rights surface, not a task surface — a driver never opens it mid-route,
+      // so it must not push a task tab out of reach. Mirror any change in hub.js NAVS.driver.
+      { key: 'mydata', href: '/hub/my-activity.html', ico: '🔒', label: 'My data' }
     ];
+    if (window.Hub && Hub.renderNavWithMore) {
+      var n2 = document.createElement('nav');
+      n2.className = 'hub-nav';
+      document.body.appendChild(n2);
+      Hub.renderNavWithMore(n2, items, active);
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+      return;
+    }
     var html = items.map(function (it) {
       return '<a href="' + it.href + '" class="' + (it.key === active ? 'active' : '') +
         '" ' + (it.key === active ? 'aria-current="page" ' : '') + '><span class="nav-ico" aria-hidden="true">' + it.ico + '</span><span data-i18n>' + it.label + '</span></a>';

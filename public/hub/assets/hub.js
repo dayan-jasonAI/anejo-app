@@ -166,20 +166,25 @@
     // Mirror kitchen.js exactly so the bar is identical on a kitchen user's own pages and
     // on the shared comms/account/team pages.
     kitchen: [
-      { key: 'board', ico: '🍽️', label: 'Orders', href: '/hub/kitchen/' },
-      { key: 'checklists', ico: '✅', label: 'Checklists', href: '/hub/kitchen/checklists.html' },
-      { key: 'inventory', ico: '📦', label: 'Inventory', href: '/hub/kitchen/inventory.html' },
-      { key: 'studio', ico: '🎨', label: 'Studio', href: '/studio/' },
+      { key: 'board', ico: '🍽️', label: 'Orders', href: '/hub/kitchen/', primary: true },
+      { key: 'checklists', ico: '✅', label: 'Checklists', href: '/hub/kitchen/checklists.html', primary: true },
+      { key: 'inventory', ico: '📦', label: 'Inventory', href: '/hub/kitchen/inventory.html', primary: true },
+      { key: 'studio', ico: '🎨', label: 'Studio', href: '/studio/', primary: true },
+      { key: 'eod', ico: '🌙', label: 'EOD', href: '/hub/kitchen/eod.html', primary: true },
+      // Behind ⋯ More: both are look-something-up surfaces, not service tasks. Library moved
+      // here so the bar stays 6 slots wide — adding a 7th made the last item invisible at 375px.
       { key: 'library', ico: '📚', label: 'Library', href: '/hub/kitchen/library.html' },
-      { key: 'eod', ico: '🌙', label: 'EOD', href: '/hub/kitchen/eod.html' }
+      { key: 'mydata', ico: '🔒', label: 'My data', href: '/hub/my-activity.html' }
     ],
     // Mirror driver.js exactly (same reason).
     driver: [
-      { key: 'home', ico: '🏠', label: 'Today', href: '/hub/driver/' },
-      { key: 'route', ico: '🗺️', label: 'Route', href: '/hub/driver/route.html' },
-      { key: 'temp', ico: '🌡️', label: 'Temp', href: '/hub/driver/temp.html' },
-      { key: 'expenses', ico: '🧾', label: 'Expenses', href: '/hub/driver/expenses.html' },
-      { key: 'eod', ico: '📋', label: 'EOD', href: '/hub/driver/eod.html' }
+      { key: 'home', ico: '🏠', label: 'Today', href: '/hub/driver/', primary: true },
+      { key: 'route', ico: '🗺️', label: 'Route', href: '/hub/driver/route.html', primary: true },
+      { key: 'temp', ico: '🌡️', label: 'Temp', href: '/hub/driver/temp.html', primary: true },
+      { key: 'expenses', ico: '🧾', label: 'Expenses', href: '/hub/driver/expenses.html', primary: true },
+      { key: 'eod', ico: '📋', label: 'EOD', href: '/hub/driver/eod.html', primary: true },
+      // Behind ⋯ More — a driver never opens this mid-route, and it must not cost a task tab.
+      { key: 'mydata', ico: '🔒', label: 'My data', href: '/hub/my-activity.html' }
     ],
     vendor: [
       { key: 'home', ico: '🏠', label: 'Home', href: '/hub/vendor/' },
@@ -190,6 +195,90 @@
 
   // Render the fixed bottom nav for `role` (no-op if the page already has one, or role
   // has no nav defined). `activeKey` highlights the current tab.
+  // ---------- shared "More" overflow sheet ----------
+  // Ported from owner.js, which has carried 15 destinations behind a ⋯ More button since the
+  // "owner crammed 15 tabs into the bar" fix. Kitchen and driver never had it, so their bars
+  // could only grow by pushing items off-screen: at 375px a 6-slot bar overflows 9px and a
+  // 7-slot bar overflows 73px — enough to make the LAST item completely invisible, reachable
+  // only by a horizontal swipe with no affordance. Adding "My data" to kitchen without this
+  // would have shipped a link nobody could find.
+  // owner.js keeps its own copy deliberately: it works, it is on a surface this change has no
+  // reason to touch, and no page loads both renderers.
+  function moreSheet(overflowItems, activeKey) {
+    var backdrop = document.getElementById('hub-more-backdrop');
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.id = 'hub-more-backdrop';
+      backdrop.className = 'hub-more-backdrop';
+      backdrop.innerHTML =
+        '<div class="hub-more-sheet" role="dialog" aria-modal="true" aria-label="More">' +
+          '<div class="hub-more-head"><h2 data-i18n>More</h2>' +
+            '<button type="button" class="hub-more-close" aria-label="Close">&times;</button></div>' +
+          '<div class="list" id="hub-more-list"></div>' +
+        '</div>';
+      document.body.appendChild(backdrop);
+      // These three listeners are registered ONCE, on the singleton backdrop, so they must not
+      // capture the closure of whichever sheet happened to build it first. They dispatch through
+      // backdrop._close, which every moreSheet() call re-points at itself — otherwise a second
+      // nav on the page closes the sheet while resetting the FIRST nav's aria-expanded, leaving
+      // the real trigger stuck at "true". Caught in a two-nav harness; one nav per page today,
+      // but this helper is shared now and the next caller should not have to know that.
+      backdrop.addEventListener('click', function (e) { if (e.target === backdrop && backdrop._close) backdrop._close(); });
+      backdrop.querySelector('.hub-more-close').addEventListener('click', function () { if (backdrop._close) backdrop._close(); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && backdrop.classList.contains('open') && backdrop._close) backdrop._close();
+      });
+    }
+    backdrop.querySelector('#hub-more-list').innerHTML = overflowItems.map(function (n) {
+      var on = n.key === activeKey;
+      return '<a class="row' + (on ? ' active' : '') + '" href="' + n.href + '"' + (on ? ' aria-current="page"' : '') + '>' +
+        '<span class="nav-ico" aria-hidden="true">' + n.ico + '</span>' +
+        '<span class="row-main row-title" data-i18n>' + n.label + '</span></a>';
+    }).join('');
+
+    var trigger = null;
+    backdrop._close = function () { close(); };   // the live sheet owns the shared listeners
+    function open() {
+      backdrop.classList.add('open');
+      trigger && trigger.setAttribute('aria-expanded', 'true');
+      backdrop.querySelector('.hub-more-close').focus();
+      document.body.style.overflow = 'hidden';
+    }
+    function close() {
+      backdrop.classList.remove('open');
+      trigger && trigger.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+      trigger && trigger.focus();
+    }
+    return { open: open, close: close, setTrigger: function (t) { trigger = t; } };
+  }
+
+  // Render `items` into `navEl`: those flagged `primary` become tabs, the rest go behind ⋯ More.
+  Hub.renderNavWithMore = function (navEl, items, activeKey) {
+    var primary = items.filter(function (n) { return n.primary; });
+    var overflow = items.filter(function (n) { return !n.primary; });
+    var activeIsOverflow = overflow.some(function (n) { return n.key === activeKey; });
+
+    navEl.innerHTML = primary.map(function (n) {
+      var on = n.key === activeKey;
+      return '<a href="' + n.href + '" class="' + (on ? 'active' : '') + '"' + (on ? ' aria-current="page"' : '') + '>' +
+        '<span class="nav-ico" aria-hidden="true">' + n.ico + '</span><span data-i18n>' + n.label + '</span></a>';
+    }).join('') +
+      (overflow.length
+        ? '<button type="button" class="hub-nav-more' + (activeIsOverflow ? ' active' : '') + '" ' +
+          'aria-haspopup="dialog" aria-expanded="false"' + (activeIsOverflow ? ' aria-current="page"' : '') + '>' +
+          '<span class="nav-ico" aria-hidden="true">⋯</span><span data-i18n>More</span></button>'
+        : '');
+
+    if (overflow.length) {
+      var sheet = moreSheet(overflow, activeKey);
+      var trigger = navEl.querySelector('.hub-nav-more');
+      sheet.setTrigger(trigger);
+      trigger.addEventListener('click', sheet.open);
+    }
+    if (Hub.i18nRefresh) Hub.i18nRefresh();
+  };
+
   Hub.nav = function (role, activeKey) {
     try {
       if (document.querySelector('.hub-nav')) return; // page already renders its own
@@ -197,6 +286,11 @@
       if (!items) return;
       var nav = document.createElement('nav');
       nav.className = 'hub-nav';
+      if (items.some(function (n) { return n.primary; })) {
+        document.body.appendChild(nav);
+        Hub.renderNavWithMore(nav, items, activeKey);
+        return;
+      }
       nav.innerHTML = items.map(function (n) {
         // aria-current carries what the gold `active` colour conveys visually; the icon is
         // decorative and hidden so AT reads "Deliveries", not "delivery truck Deliveries".
