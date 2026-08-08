@@ -32,6 +32,20 @@ const SITE = {
   price_per_lunch_cents: 600, delivery_fee_cents: 2000, rush_fee_cents: 0, window_label: '11:30–12:30',
 };
 
+// A FIXED clock, for the paths that check the delivery schedule.
+//
+// processIntake() and submitHeadcount() refuse a day the site does not take delivery on, and SITE
+// above delivers 'mon,tue,wed'. Tests that called them without a clock therefore read the REAL
+// weekday and passed Monday through Wednesday, failing Thursday through Sunday — CI on main was
+// red four days out of seven for a reason that had nothing to do with the code under test.
+//
+// Both functions already accept `nowMs` for exactly this. Pinning it here is not a workaround: a
+// test of who may file an order should not also be a test of what day it is.
+//
+// 2026-08-03, 09:00 ET — a Monday (a delivery day), before the 09:15 cutoff so nothing is rush.
+// It is the date of the incident in the header, which is the day these paths were written for.
+const MONDAY_9AM_ET = Date.UTC(2026, 7, 3, 13, 0, 0);
+
 // A D1 + KV + SMS stand-in scoped to what these paths touch, in the fakeDB style already used in
 // contract-billing-contact.test.js. Every SMS is captured, never sent.
 function harness({ staff = [], devices = [], site = SITE } = {}) {
@@ -185,7 +199,7 @@ test('a trusted device does NOT let one person file an order under another\'s na
   const env = harness({ devices: [{ id: 'dev1', site_id: 'site_x', phone: PRIMARY, contact_name: 'Primary', revoked: 0 }] });
   const r = await processIntake(env, {
     token: 'tok', count: 23, name: 'Roxana', phone: COVER,
-    cookieHeader: 'aintake_site_x=dev1',
+    cookieHeader: 'aintake_site_x=dev1', nowMs: MONDAY_9AM_ET,
   });
   assert.equal(r.needs_verify, true, 'a different person must prove who they are');
   assert.equal((await otpDestination(env)).phone, COVER);
@@ -197,7 +211,7 @@ test('the trusted device\'s OWN person still gets the one-tap path — no needle
     devices: [{ id: 'dev1', site_id: 'site_x', phone: PRIMARY, contact_name: 'Primary', revoked: 0 }],
     staff: [{ id: 'cst_p', site_id: 'site_x', name: 'Primary', phone: PRIMARY, active: 1, is_primary: 1 }],
   });
-  const r = await processIntake(env, { token: 'tok', count: 20, name: 'Primary', staff_id: 'cst_p', cookieHeader: 'aintake_site_x=dev1' });
+  const r = await processIntake(env, { token: 'tok', count: 20, name: 'Primary', staff_id: 'cst_p', cookieHeader: 'aintake_site_x=dev1', nowMs: MONDAY_9AM_ET });
   assert.equal(r.ok, true, r.error);
   assert.equal(await otpDestination(env), null, 'picking your own name on your own verified device costs nothing');
 });
