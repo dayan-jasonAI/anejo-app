@@ -4,6 +4,7 @@
 // Falls back to a built-in house-style blurb when no brand doc exists yet, so the
 // Studio never degrades. Files under functions/_lib are not routed. Never throws.
 import { parseJson } from './hub.js';
+import { withoutProposals } from './brand_source.js';
 
 // Core behavior contract — stable regardless of the owner's brand/SOP content.
 const BASE = `You are the Creative Studio sous-chef AI for Añejo Catering Co. A chef is developing a recipe live — speaking, snapping photos, and chatting with you. Your job is to guide, research, critique, scale, and suggest substitutions.
@@ -28,9 +29,15 @@ const FALLBACK_BRAND =
   'quinoa-forward bases, bright citrus and chimichurri/Añejo sauces.';
 
 // Char caps for injected context. The brand brief is the canonical bible and is sized
-// to fit a full multi-section document (~14.5k today) with headroom; ~4k tokens is
-// trivial for Sonnet 4.6's context. SOPs are summarized alongside it.
-const BRAND_BUDGET = 18000; // char cap for brand docs (full Brand & Standards Brief)
+// to fit a full multi-section document with headroom; ~5k tokens is trivial for Sonnet
+// 4.6's context. SOPs are summarized alongside it.
+//
+// 18000 was too small once the live doc grew. It cut §13 Kitchen production specs in half —
+// the Studio, the surface a chef consults MID-RECIPE, was the one reader losing the production
+// specs. 20000 also matches every other brand reader (Team Lead, planner, Brand Auditor, all via
+// brand_source.js), so the caps stop being four different numbers nobody can hold in their head.
+// The ratified brief is 19,942 chars today and now arrives whole. (Dayan, 2026-08-05)
+const BRAND_BUDGET = 20000; // char cap for brand docs (full Brand & Standards Brief)
 const SOP_BUDGET = 8000;    // char cap for standards/SOP docs
 
 // A doc with no role_scope is visible to all staff; otherwise it must include kitchen or owner.
@@ -68,7 +75,16 @@ export async function buildBrandContext(env) {
       const sopParts = [];
       for (const d of results || []) {
         if (!visibleToKitchen(d.role_scope)) continue;
-        const body = (d.body || '').toString().trim();
+        // Proposals are not standards. brief.js appends kitchen change-requests awaiting the
+        // owner's approval onto the END of doc_brand_main, so they are exactly what a RAISED
+        // budget reaches first — at 18000 they sat safely past the cut, and the only thing
+        // protecting the Studio was the cap being too small to do its job. Raising it without
+        // this would have traded half of §13 for the top of an unapproved price list, on the
+        // surface a chef consults mid-recipe. Same ruling the other three readers follow
+        // (Dayan 2026-08-02, brand_source.js) — brand docs only, since that is the only
+        // doc_type brief.js writes proposals into.
+        const raw = (d.doc_type === 'brand' ? withoutProposals(d.body || '') : (d.body || '').toString());
+        const body = raw.trim();
         if (!body) continue;
         const block = `### ${d.title || d.doc_type}\n${body}`;
         if (d.doc_type === 'brand') brandParts.push(block);
