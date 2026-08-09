@@ -18,7 +18,7 @@ export const WEEKLY_LIMIT_MICRO = 50_000_000;
 // this table quarterly.
 const PRICES = {
   'claude-sonnet-4-6': { in: 3, out: 15 },
-  'claude-sonnet-4-5': { in: 3, out: 15 },   // pdfclaude.js still pins this id
+  'claude-sonnet-4-5': { in: 3, out: 15 },   // retired id — kept so historical spend rows still price
   'claude-haiku-4-5': { in: 1, out: 5 },
   // The Team Lead's frontier tier. Without a row here an opus call priced at the sonnet rate —
   // a 5x UNDERCOUNT against the $50 ceiling, flagged by the lead module's own build report.

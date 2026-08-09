@@ -290,7 +290,10 @@ test('the tick runs every minute — reply speed is the feature', () => {
 });
 
 test('one Aña, not two — the website chat imports the same prompt the drafter uses', () => {
-  assert.match(CHAT, /import \{ anaSystemPrompt \} from '\.\.\/_lib\/ana_social\.js'/);
+  // Tolerates co-imports from the same module (chat.js also pulls in detectCommercialIntent for
+  // web-chat lead capture) — the invariant is that anaSystemPrompt comes from ana_social.js, not
+  // that it is the only name on the line.
+  assert.match(CHAT, /import \{[^}]*\banaSystemPrompt\b[^}]*\} from '\.\.\/_lib\/ana_social\.js'/);
   assert.ok(!/You are "Aña"/.test(CHAT), 'chat.js no longer carries its own copy of the prompt');
   assert.match(ANA, /You are "Aña"/);
 });

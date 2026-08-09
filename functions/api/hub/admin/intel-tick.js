@@ -8,10 +8,11 @@
 // budget opens, and only a real failure marks it 'failed'.
 import { json, bad, now, ctEq } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { runIntel, competitorSweep } from '../../../_lib/intel.js';
+import { runIntel, competitorSweep, platformPulse } from '../../../_lib/intel.js';
 
 // A competitor brief older than this is a map of last month's market. 21 days keeps the
 // sweep roughly monthly-with-slack on a weekly tick without ever running it twice in a row.
+// The Instagram platform pulse ages the same way and shares this threshold.
 const SWEEP_STALE_MS = 21 * 24 * 60 * 60 * 1000;
 
 export const onRequestPost = async ({ request, env }) => {
@@ -56,18 +57,30 @@ export const onRequestPost = async ({ request, env }) => {
     }
   }
 
-  // Quiet queue → keep the standing competitor picture fresh. Only when there was no queue
-  // work at all: a run that already answered questions has spent enough for one tick.
+  // Quiet queue → keep the two standing pictures fresh: the local-competitor sweep and the
+  // Instagram platform pulse. Only when there was no queue work at all: a run that already
+  // answered questions has spent enough for one tick. AT MOST ONE freshness brief per tick —
+  // each is a multi-search web-research call, so running both here would double the burst the
+  // "2 questions per run" ceiling exists to prevent. Competitor takes precedence when both are
+  // stale; the pulse then refreshes on the next weekly tick. runIntel's own budget/no-key gate
+  // is the backstop: a skip leaves the brief simply un-refreshed, exactly as before.
   let sweep = null;
+  let pulse = null;
   if (!pending.length && !skipped) {
-    let newest = 0;
-    try {
-      const r = await env.DB.prepare("SELECT MAX(created_at) t FROM market_intel WHERE kind='competitor'").first();
-      newest = Number(r && r.t) || 0;
-    } catch { newest = 0; }
-    if (now() - newest > SWEEP_STALE_MS) {
+    const staleSince = (kind) => {
+      // Freshest brief of this kind; 0 = none ever, which is always "stale" and runs first.
+      return env.DB.prepare('SELECT MAX(created_at) t FROM market_intel WHERE kind=?')
+        .bind(kind).first()
+        .then((r) => Number(r && r.t) || 0)
+        .catch(() => 0);
+    };
+    const t = now();
+    if (t - (await staleSince('competitor')) > SWEEP_STALE_MS) {
       const res = await competitorSweep(env);
       sweep = res.ok ? { ok: true, intel_id: res.intel_id, searches: res.searches } : { ok: false, reason: res.skipped || res.error || 'unknown' };
+    } else if (t - (await staleSince('platform')) > SWEEP_STALE_MS) {
+      const res = await platformPulse(env);
+      pulse = res.ok ? { ok: true, intel_id: res.intel_id, searches: res.searches } : { ok: false, reason: res.skipped || res.error || 'unknown' };
     }
   }
 
@@ -80,5 +93,6 @@ export const onRequestPost = async ({ request, env }) => {
     // the ISO week rolls; 'no_api_key' needs a secret set.
     skipped,
     sweep,
+    pulse,
   });
 };

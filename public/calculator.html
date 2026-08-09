@@ -164,6 +164,15 @@
         </div>
       </div>
 
+      <div class="card">
+        <h3>Email me my plan <span style="font-weight:400;color:var(--muted)">(optional)</span></h3>
+        <label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;cursor:pointer;line-height:1.45">
+          <input type="checkbox" id="calc-optin" name="calc_optin" style="width:auto;flex:0 0 auto;margin:3px 0 0" />
+          <span>Yes — save my results and keep me posted on new Añejo plans &amp; offers. Your plan still shows instantly either way, and you can unsubscribe anytime.</span>
+        </label>
+        <div class="row" style="margin-top:10px"><label for="calc-email">Email</label><input id="calc-email" name="email" type="email" autocomplete="email" placeholder="you@email.com" /></div>
+      </div>
+
       <div id="error" class="error" style="display:none"></div>
       <button type="submit" class="btn btn--gold btn--block" id="submit-btn">Build My Plan →</button>
     </form>

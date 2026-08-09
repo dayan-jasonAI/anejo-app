@@ -32,7 +32,7 @@ export const onRequestGet = async ({ request, env }) => {
   let posts = [];
   try {
     const r = await env.DB.prepare(
-      'SELECT id, platform, caption, media_key, media_type, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
+      'SELECT id, platform, caption, media_key, media_type, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, audit_status, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
     ).all();
     posts = (r && r.results) || [];
   } catch {
@@ -42,7 +42,7 @@ export const onRequestGet = async ({ request, env }) => {
     // has actually run.
     try {
       const r2 = await env.DB.prepare(
-        'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
+        'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, audit_status, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
       ).all();
       posts = ((r2 && r2.results) || []).map((p) => ({ ...p, media_type: null }));
     } catch { posts = []; }
@@ -93,6 +93,42 @@ export const onRequestGet = async ({ request, env }) => {
     for (const row of (mr && mr.results) || []) byMedia[row.media_id] = row;
     for (const post of posts) if (post.ig_media_id && byMedia[post.ig_media_id]) post.metrics = byMedia[post.ig_media_id];
   } catch { /* metrics are additive; the page works without them */ }
+
+  // Provenance (migrations/0076 + intel_id 0081): what CAUSED each draft — the campaign brief that
+  // directed it, the market-intel finding that gave it its angle, its category/format, and how many
+  // training rules were active. post_provenance.js owns the storage contract (stampPostProvenance /
+  // getPostProvenance, the latter single-post); this reads the whole page in ONE batched join, then
+  // resolves brief_id/intel_id to their human titles so the card shows a name, not an opaque id. A
+  // post with no row reads as UNKNOWN (attribute absent) — never as "recorded zero", exactly the
+  // distinction the migration draws. Its own try so a pre-0076 database still renders every post.
+  try {
+    const pr = await env.DB.prepare(
+      `SELECT pp.post_id, pp.rule_ids, pp.brief_id, pp.intel_id, pp.category, pp.format, pp.slide_count,
+              tb.title AS brief_title, mi.title AS intel_title, mi.kind AS intel_kind
+         FROM post_provenance pp
+         LEFT JOIN team_briefs tb ON tb.id = pp.brief_id
+         LEFT JOIN market_intel mi ON mi.id = pp.intel_id
+        WHERE pp.post_id IN (SELECT id FROM social_posts ORDER BY created_at DESC LIMIT 60)`
+    ).all();
+    const byProv = {};
+    for (const row of (pr && pr.results) || []) {
+      let rulesCount = 0;
+      if (row.rule_ids) { try { const a = JSON.parse(row.rule_ids); if (Array.isArray(a)) rulesCount = a.length; } catch { rulesCount = 0; } }
+      byProv[row.post_id] = {
+        recorded: true,
+        category: row.category || null,
+        format: row.format || null,
+        slide_count: row.slide_count != null ? row.slide_count : null,
+        rules_count: rulesCount,
+        brief_id: row.brief_id || null,
+        brief_title: row.brief_title || null,
+        intel_id: row.intel_id || null,
+        intel_title: row.intel_title || null,
+        intel_kind: row.intel_kind || null,
+      };
+    }
+    for (const post of posts) post.provenance = byProv[post.id] || { recorded: false };
+  } catch { /* provenance is additive; the page works without it (pre-0076 schema) */ }
 
   let publishedToday = 0;
   try {

@@ -86,6 +86,28 @@
   .cover-note { font-size:12px; line-height:1.45; border-radius:8px; padding:7px 10px; margin-top:8px; }
   .cover-note.info { background:#eef3fb; border:1px solid #9db8de; color:#2c4a72; }
   .cover-note.warn { background:#fbf3da; border:1px solid var(--gold-dark); color:var(--gold-dark); font-weight:600; }
+  /* Brand Auditor verdict (migrations/0071 audit_score/audit_flags/audit_status). The Haiku judge
+     scores every planner draft the moment it exists; this surfaces that verdict on the card so the
+     owner reads WHY a draft is clean or flagged before approving a time — the same audit the
+     auto-publish gate reads (automations.js). NULL columns = predates the auditor = UNSCORED,
+     shown neutrally, never as passed. */
+  .audit { font-size:12px; line-height:1.45; border-radius:8px; padding:7px 10px; margin-top:8px; }
+  .audit.pass { background:#e7f0ea; border:1px solid #2c6b3f; color:#1b4d2b; }
+  .audit.flag { background:#fbf3da; border:1px solid var(--gold-dark); color:var(--gold-dark); }
+  .audit.unscored { background:#f6f5f1; border:1px solid var(--line); color:var(--green); opacity:.9; }
+  .audit .audit-head { font-weight:700; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .audit .audit-score { font-variant-numeric:tabular-nums; }
+  .audit ul { margin:6px 0 0; padding-left:18px; }
+  .audit li { margin:2px 0; }
+  /* Provenance (migrations/0076 + intel_id 0081): what CAUSED this draft — the campaign brief that
+     directed it, the market-intel finding behind its angle, its category/format, and how many
+     training rules were active. Data comes from social.js's batched post_provenance join. A post
+     with no row is UNKNOWN (predates the feature), shown as a quiet neutral line, never as "none". */
+  .prov { font-size:11.5px; line-height:1.5; border-radius:8px; padding:7px 10px; margin-top:8px; background:#f4f1ea; border:1px solid var(--line); color:var(--green); }
+  .prov .prov-head { font-weight:700; display:flex; gap:6px; align-items:center; }
+  .prov ul { margin:4px 0 0; padding-left:18px; }
+  .prov li { margin:2px 0; }
+  .prov .prov-unknown { opacity:.7; font-style:italic; }
   /* Media-type badge (migrations/0080): a REEL/STORY is not a feed post, and the owner has to be
      able to tell at a glance — the tag next to status answers "what IS this", the status tag
      already answers "what state is it in". Both show; they answer different questions. */
@@ -1777,6 +1799,59 @@
     });
   }
 
+  // BRAND AUDITOR verdict on the card. The row already carries the Haiku judge's output
+  // (audit_score / audit_flags / audit_status from migrations/0071, now selected in social.js);
+  // this is the missing UI-OUT half — the score, the compact reason list, and the pass/flag
+  // verdict the owner should read before approving a time. NULL audit_at (row predates the
+  // auditor) reads as UNSCORED, never as passed — matching the migration's own contract.
+  function auditBadge(p) {
+    var scored = p.audit_at != null || p.audit_status != null || p.audit_score != null;
+    if (!scored) {
+      return '<div class="audit unscored"><span class="audit-head">🔍 Brand Auditor · not scored yet</span></div>';
+    }
+    var flags = [];
+    if (p.audit_flags) { try { flags = JSON.parse(p.audit_flags) || []; } catch (e) { flags = []; } }
+    if (!Array.isArray(flags)) flags = [];
+    var status = p.audit_status === 'pass' ? 'pass' : p.audit_status === 'flag' ? 'flag'
+      : (flags.length ? 'flag' : 'pass');   // derive from flags if the canonical column is absent
+    var label = status === 'pass' ? '✅ Brand Auditor · Pass' : '⚠️ Brand Auditor · Flagged';
+    var scoreStr = (p.audit_score != null) ? '<span class="audit-score">Score ' + esc(String(p.audit_score)) + '/100</span>' : '';
+    var flagList = flags.length
+      ? '<ul>' + flags.map(function (f) {
+          var t = f && f.type ? String(f.type) : 'note';
+          var d = f && f.detail ? String(f.detail) : '';
+          return '<li><b>' + esc(t) + '</b>' + (d ? ' — ' + esc(d) : '') + '</li>';
+        }).join('') + '</ul>'
+      : (status === 'pass' ? '<div class="row-sub" style="margin-top:2px;font-size:11.5px">No brand or claims issues found.</div>' : '');
+    return '<div class="audit ' + status + '"><span class="audit-head">' + label +
+      (scoreStr ? ' <span style="opacity:.7">·</span> ' + scoreStr : '') + '</span>' + flagList + '</div>';
+  }
+
+  // PROVENANCE on the card — what CAUSED this post, from social.js's batched post_provenance join
+  // (migrations/0076 + intel_id 0081). Connects "I wrote a training rule / ran a brief / had this
+  // market read" to the post it produced, so effect is finally traceable to cause. A post with no
+  // recorded row is UNKNOWN — it predates the feature — and says so plainly rather than implying
+  // nothing was behind it. When a row IS present, only the parts that are actually attributed show.
+  function provenanceBadge(p) {
+    var pr = p.provenance;
+    if (!pr || !pr.recorded) {
+      return '<div class="prov"><span class="prov-head">🧭 Provenance</span> <span class="prov-unknown">not recorded — this post predates provenance tracking.</span></div>';
+    }
+    var items = [];
+    if (pr.brief_title || pr.brief_id) items.push('<li>📋 Campaign brief: <b>' + esc(pr.brief_title || pr.brief_id) + '</b></li>');
+    if (pr.intel_title || pr.intel_id) {
+      var kind = pr.intel_kind ? ' (' + esc(pr.intel_kind) + ')' : '';
+      items.push('<li>🔎 Market intel' + kind + ': <b>' + esc(pr.intel_title || pr.intel_id) + '</b></li>');
+    }
+    if (pr.category) items.push('<li>🏷️ Category: <b>' + esc(pr.category) + '</b></li>');
+    if (pr.format) items.push('<li>🖼️ Format: <b>' + esc(pr.format) + (pr.slide_count != null && pr.format === 'carousel' ? ' · ' + esc(String(pr.slide_count)) + ' slides' : '') + '</b></li>');
+    if (pr.rules_count != null) items.push('<li>📐 Training rules active: <b>' + esc(String(pr.rules_count)) + '</b></li>');
+    var body = items.length
+      ? '<ul>' + items.join('') + '</ul>'
+      : ' <span class="prov-unknown">recorded, but no brief, intel, or rules were attributed to it.</span>';
+    return '<div class="prov"><span class="prov-head">🧭 Provenance</span>' + body + '</div>';
+  }
+
   function postCard(p) {
     var mtype = p.media_type || null;   // null = legacy/undeclared (migrations/0080) — image/carousel by slide count, as always
     var slideCap = (mtype === 'REELS' || mtype === 'STORIES') ? 1 : 10;   // Meta allows no carousel for either
@@ -1795,6 +1870,11 @@
         ? '<div class="cap">' + esc(p.caption || '(no caption)') + '</div>'
         : '<textarea id="cap_' + esc(p.id) + '" maxlength="2200" style="width:100%;min-height:96px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13.5px;line-height:1.5;resize:vertical">' + esc(p.caption || '') + '</textarea>' +
           '<div style="display:flex;justify-content:flex-end;margin-top:4px"><button class="btn ghost" data-editcap="' + esc(p.id) + '" style="font-size:12px;padding:6px 12px">Save caption</button></div>') +
+      // Brand Auditor verdict — the score/flags/status the row already carries, so the owner reads
+      // WHY a draft is clean or flagged before approving a time.
+      auditBadge(p) +
+      // Provenance — the brief / market intel / category / format / training rules behind this post.
+      provenanceBadge(p) +
       // Slides. One photo is a normal post; 2-10 is a carousel, and the ORDER is editorial — the
       // strip shows it and the arrows change it. All of it locks once the post is live.
       slideStrip(p) +

@@ -96,6 +96,30 @@ form.addEventListener('submit', async (ev) => {
     if (audience === 'trainer') {
       stash.trainer = { plan_id: result.plan_id, public_token: result.public_token, client_id: result.client_id };
     }
+    // OPT-IN lead capture (public calculator only). Fires ONLY when the visitor ticked the box and
+    // left an email — and only AFTER the free plan is in hand, so it can never delay or block the
+    // result. keepalive lets the POST survive the navigation to /plan.html below; a failure is
+    // swallowed. The endpoint (api/plans/lead.js) writes to the SAME leads table and SENDS NOTHING.
+    if (audience === 'public') {
+      var optIn = form.querySelector('#calc-optin');
+      var leadEmail = (payload.email || '').trim();
+      if (optIn && optIn.checked && leadEmail) {
+        try {
+          fetch('/api/plans/lead', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            keepalive: true,
+            body: JSON.stringify({
+              email: leadEmail,
+              name: payload.name || '',
+              primary_goal: payload.primary_goal || '',
+              lang: lang,
+              attribution: { src: 'calculator' }
+            })
+          }).catch(function () {});
+        } catch (_) { /* never let capture affect the result */ }
+      }
+    }
     sessionStorage.setItem('anejo:lastPlan', JSON.stringify(stash));
     window.location.href = '/plan.html';
   } catch (e) {

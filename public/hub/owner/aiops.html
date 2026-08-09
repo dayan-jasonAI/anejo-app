@@ -34,7 +34,7 @@
     lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
   }
 
-  // The 7 on-demand automations (some may return 501 not_implemented; handled below).
+  // The on-demand automations (some may return 501 not_implemented; handled below).
   var RUN_TYPES = [
     { type: 'daily_summary', label: 'Daily summary' },
     { type: 'eod_chase', label: 'EOD chase' },
@@ -42,7 +42,12 @@
     { type: 'restock_suggest', label: 'Restock suggest' },
     { type: 'ticket_triage', label: 'Ticket triage' },
     { type: 'sentiment_scan', label: 'Sentiment scan' },
-    { type: 'payroll_prep', label: 'Payroll prep' }
+    { type: 'payroll_prep', label: 'Payroll prep' },
+    // The weekly Instagram planner (automations.js socialPlan, in IMPLEMENTED). It only ever
+    // writes DRAFTS for review in Create → Instagram — it never publishes — so an on-demand run
+    // is safe and was simply missing from this list. Routes through the same owner-gated runNow
+    // → POST { type:'social_plan' } as every other button.
+    { type: 'social_plan', label: 'Social planner' }
   ];
 
   // Expected cadence of every scheduled job, mirroring cron/wrangler.toml + cron/worker.js

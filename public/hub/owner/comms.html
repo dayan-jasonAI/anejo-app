@@ -38,6 +38,9 @@
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML =
       '<div class="hub-section"><a class="btn gold block" href="/hub/comms.html">💬 <span data-i18n>Open Messages</span></a></div>' +
+      // Aña auto-reply control. Surfaces the existing app_settings key social.auto_reply (read by
+      // social-inbox-tick.js). Default stays OFF/draft-only; turning it on confirms first.
+      '<div class="hub-section"><h2 data-i18n>Aña auto-reply</h2><div id="autoreply" class="card"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Open tickets</h2><div id="tickets" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>All alerts</h2>' +
       '<div class="card"><label data-i18n>Filter</label><select id="afilter"><option value="open" data-i18n>Open</option><option value="all" data-i18n>All</option></select></div>' +
@@ -46,10 +49,48 @@
 
     var f = document.getElementById('afilter');
     f.addEventListener('change', function () { loadAlerts(f.value); });
+    loadAutoReply();
     loadTickets();
     loadAlerts('open');
     loadFeed();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  // Aña auto-reply toggle. Reads/writes app_settings key social.auto_reply via the owner-gated
+  // /api/hub/owner/social-autoreply endpoint. This SURFACES control only — the code default in
+  // social-inbox-tick.js keeps it OFF (draft-only) until an owner deliberately turns it on, which
+  // this UI confirms first. Flipping back to Off restores draft-only on the next tick.
+  var AR_LABEL = { off: 'Off — draft replies only', dm: 'DMs only', comment: 'Comments only', both: 'DMs and comments' };
+  function loadAutoReply() {
+    Owner.get('/api/hub/owner/social-autoreply').then(function (d) {
+      var el = document.getElementById('autoreply');
+      if (!el) return;
+      if (!d || !d.ok) { el.innerHTML = '<p class="row-sub" data-i18n>Could not load the auto-reply setting.</p>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
+      var cur = d.mode || 'off';
+      var opts = (d.options || ['off', 'dm', 'comment', 'both']).map(function (m) {
+        return '<option value="' + Owner.esc(m) + '"' + (m === cur ? ' selected' : '') + '>' + Owner.esc(AR_LABEL[m] || m) + '</option>';
+      }).join('');
+      el.innerHTML =
+        '<p class="row-sub" data-i18n>When Aña may send replies herself. Off means she only drafts replies for you to review and send. Currently: <b>' + Owner.esc(AR_LABEL[cur] || cur) + '</b>.</p>' +
+        '<label data-i18n>Mode</label><select id="ar-mode">' + opts + '</select>' +
+        '<div style="margin-top:8px"><button class="btn gold" id="ar-save" type="button" data-i18n>Save</button></div>';
+      var save = document.getElementById('ar-save');
+      var sel = document.getElementById('ar-mode');
+      save.addEventListener('click', function () {
+        var next = sel.value;
+        // Confirm whenever this TURNS ON auto-sending (moving to any non-off mode). Turning it off
+        // needs no confirmation — that is always the safe direction.
+        if (next !== 'off' && next !== cur) {
+          if (!window.confirm('Turn on Aña auto-reply (' + (AR_LABEL[next] || next) + ')? She will send replies to real customers on your behalf. You can switch this back to Off at any time.')) return;
+        }
+        save.disabled = true;
+        Hub.api('/api/hub/owner/social-autoreply', { method: 'POST', body: { mode: next } }).then(function (r) {
+          if (r && r.ok) { Hub.toast('Auto-reply set to ' + (AR_LABEL[r.mode] || r.mode)); loadAutoReply(); }
+          else { save.disabled = false; Hub.toast((r && r.error) || 'Could not save'); }
+        });
+      });
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
   }
 
   function loadTickets() {
