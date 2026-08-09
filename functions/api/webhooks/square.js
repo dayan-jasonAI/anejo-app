@@ -10,6 +10,7 @@ import { sendSms } from '../../_lib/twilio.js';
 import { awardOrderPoints, redeemOrderPoints, rewardsSummary } from '../../_lib/rewards.js';
 import { creditAffiliateForOrder } from '../../_lib/promo.js';
 import { raiseAlert } from '../../_lib/alerts.js';
+import { markDepositPaid } from '../../_lib/catering_deposit.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
 
@@ -192,6 +193,22 @@ export const onRequestPost = async ({ request, env }) => {
             }
           } catch (e) { console.log('points award error:', e && e.message); }
         }
+
+        // CATERING DEPOSIT: a paid deposit link → flip the quote to deposit-paid and leave the
+        // balance owing. Idempotent via the deposit_status guard, so Square's retries are no-ops.
+        // Deliberately silent when nothing matches: most payments are not deposits.
+        try {
+          const cq = await markDepositPaid(env, pay.order_id, (pay.amount_money && Number(pay.amount_money.amount)) || null);
+          if (cq) {
+            await raiseAlert(env, {
+              alert_type: 'catering_deposit_paid', severity: 'info',
+              dedupe_key: 'catering_deposit_paid:' + cq,
+              title: 'Catering deposit paid',
+              body: `Quote ${cq} — the deposit cleared, the date is booked. The balance is still owed; the final headcount deadline is on the quote.`,
+              ref_type: 'catering_quote', ref_id: cq,
+            }).catch(() => {});
+          }
+        } catch (e) { console.log('catering deposit error:', e && e.message); }
 
         // Per-delivery ADD-ONS: a paid add-on payment link → mark paid and attach the items
         // to that day's order so the kitchen + driver see them. Idempotent: the status guard

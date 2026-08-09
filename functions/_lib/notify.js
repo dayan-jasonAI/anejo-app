@@ -143,6 +143,69 @@ export async function notifyDelivered(env, order, { photoUrl, feedbackUrl } = {}
   } catch { /* best-effort */ }
 }
 
+// ── The delivery that did NOT happen ──────────────────────────────────────────
+//
+// Until now this moment was invisible to the customer. driver/delivery/fail.js recorded the
+// failure, flipped the stop, and raised an OWNER alert — and the person who ordered lunch and is
+// standing by the door heard nothing at all. Every other step of the journey texts them; the one
+// step where something went wrong was the only silent one, which is precisely backwards. Somebody
+// waiting on food they paid for finds out fastest by being told.
+//
+// THREE THINGS THE COPY HAS TO DO, and they are the reason it reads the way it does:
+//   · Say what actually happened, in the reason's own terms. "We couldn't complete your delivery"
+//     with no cause reads as a shrug; "nobody came to the door" tells them what to fix.
+//   · Say what WE are doing next. The honest answer is "a human is on it", because at this point
+//     a person really does have to decide between a re-run and a refund. We do not promise a
+//     redelivery the kitchen has not agreed to.
+//   · Give them a human. No survey link, no tracking page — a phone number and a reply path.
+//
+// AT MOST ONCE, and the claim is what guarantees it: the `delivery_failed_notified_at` stamp is
+// written with an `IS NULL` guard, and the message only goes out when that UPDATE changed exactly
+// one row. A driver double-tapping Fail, or a retry, sends nothing the second time. If migration
+// 0087 has not been applied the claim throws, and the failure mode is silence — never a duplicate.
+const FAIL_CAUSE = {
+  no_answer: 'we couldn’t reach anyone at the delivery address',
+  wrong_address: 'the address on the order didn’t get us to you',
+  refused: 'the delivery was turned away at the door',
+  damaged: 'your order was damaged on the way and we won’t hand over food we wouldn’t eat',
+  other: 'we hit a problem on the way to you',
+};
+
+export async function notifyDeliveryFailed(env, order, { reason, contactPhone } = {}) {
+  try {
+    if (!env || !env.DB || !order || !order.id) return { sent: false };
+
+    // Claim first. Nothing below this line runs twice for the same order.
+    let claimed = false;
+    try {
+      const r = await env.DB.prepare(
+        'UPDATE orders SET delivery_failed_notified_at = ?, updated_at = ? WHERE id = ? AND delivery_failed_notified_at IS NULL'
+      ).bind(now(), now(), order.id).run();
+      claimed = !!(r && r.meta && r.meta.changes === 1);
+    } catch { return { sent: false, reason: 'claim_failed' }; }
+    if (!claimed) return { sent: false, duplicate: true };
+
+    const c = await contactForOrder(env, order);
+    if (!c) return { sent: false, reason: 'no_contact' };
+
+    const cause = FAIL_CAUSE[reason] || FAIL_CAUSE.other;
+    const hi = c.name ? `${c.name}, ` : '';
+    const phone = (contactPhone || env.OWNER_PHONE || '').toString().trim();
+    const callLine = phone ? ` Call or text us at ${phone}` : ' Reply to this message';
+
+    return await deliver(env, c, {
+      sms: `${BRAND}: ${hi}we could not complete your delivery today — ${cause}. Your order is safe with us and nothing more will be charged. A person here is sorting out a redelivery or a refund and will be in touch shortly.${callLine} if you want to sort it out right now. ${STOP}`,
+      emailSubject: `We couldn’t complete your ${BRAND} delivery`,
+      emailHtml: emailWrap('We couldn’t complete your delivery', `
+        <p>${hi ? escHtml(hi) : 'Hi — '}we’re sorry: we could not complete your delivery today because ${escHtml(cause)}.</p>
+        <p><strong>What that means right now.</strong> Your order is safe with us, and nothing further will be charged to you.</p>
+        <p><strong>What we’re doing.</strong> A person here — not an automation — is deciding between getting it back out to you and refunding you in full, and will contact you shortly with which one it is. If you’d rather choose yourself, tell us and that’s what happens.</p>
+        <p><strong>Reaching a human.</strong> ${phone ? `Call or text <strong>${escHtml(phone)}</strong>` : 'Reply to this email'} and you’ll get a person, not a queue.</p>
+        <p>We know this is the part that actually matters, and we’re sorry it happened.</p>`),
+    });
+  } catch { return { sent: false }; }  // a notification must never break the driver's flow
+}
+
 // ── The Google review ask ─────────────────────────────────────────────────────
 //
 // Fires ONCE per order, on delivery, and only when the owner has set reviews.google_url in

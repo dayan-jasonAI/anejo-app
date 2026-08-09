@@ -38,6 +38,14 @@ export const ALERT_TYPES = [
   // trusts to be the full set, and an alert type that fires in production but is absent here
   // teaches the next person that the list is unreliable.
   'backup_failed',
+  // A catering deposit cleared (api/webhooks/square.js). Info, not action: the point is that the
+  // date is now BOOKED and a balance plus a headcount deadline exist from this moment on.
+  'catering_deposit_paid',
+  // An automatic contract charge or a payout was REFUSED by one of the two money safeties — the
+  // owner toggle being off, or the amount never having been approved (_lib/autopay.js). Raised as
+  // a warning because the invoice is still unpaid and someone has to decide; the refusal itself is
+  // the system working, not failing.
+  'autopay_refused',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:

@@ -107,6 +107,7 @@
       '<div id="tiles" class="card-grid"></div>' +
       '<div class="hub-section"><a class="btn ghost block" href="/hub/owner/payouts.html" style="text-align:center;text-decoration:none">💵 Driver payouts — who’s owed what →</a>' +
       '<a class="btn ghost block" href="/hub/owner/trainers.html" style="text-align:center;text-decoration:none;margin-top:8px">🤝 Trainer commissions — partners &amp; clients →</a></div>' +
+      '<div class="hub-section"><h2 data-i18n>Automatic payments</h2><div id="autopay" class="card"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>QuickBooks</h2><div id="qbo" class="card"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Pending expenses</h2><div id="pexp" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Export report</h2><div class="card">' +
@@ -123,10 +124,101 @@
     document.getElementById('exportBtn').addEventListener('click', doExport);
     load();
     loadExpenses();
+    autopayLoad();
     qboLoad();
     qboFlash();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
   }
+
+  // ---------- Automatic payments ----------
+  // Dayan asked for "an on/off switch button to the hub that is visible and properly wired so I
+  // can turn it on and off as I please, OR leave it on with the rule that it doesn't send unless
+  // Dayan approves the number." Both are here, because they are different guarantees:
+  //   · the SWITCHES are the standing posture — off means nothing automatic can charge at all;
+  //   · the APPROVE button below is per-invoice and per-amount, and re-approval is required if
+  //     the invoice total moves after it was approved.
+  // Both default OFF and the page says so out loud, so nobody has to guess what state it is in.
+  function autopayRender(d) {
+    var el = document.getElementById('autopay'); if (!el) return;
+    if (!d || !d.ok) { el.innerHTML = '<p class="row-sub" data-i18n>Could not load the automatic-payment switches.</p>'; return; }
+    var s = d.settings || {};
+
+    function sw(which, on, label, sub) {
+      return '<div class="row"><div class="row-main">' +
+        '<div class="row-title">' + label + ' — <b style="color:' + (on ? 'var(--ok,#2e7d32)' : 'var(--crit,#b3261e)') + '">' +
+          (on ? 'ON' : 'OFF') + '</b></div>' +
+        '<div class="row-sub">' + sub + '</div></div>' +
+        '<button class="btn ' + (on ? 'ghost' : 'gold') + '" type="button" data-switch="' + which + '" data-next="' + (on ? '0' : '1') + '">' +
+          (on ? 'Turn OFF' : 'Turn ON') + '</button></div>';
+    }
+
+    var pending = (d.invoices || []).filter(function (i) { return !i.autopay_approved_at; });
+    var approved = (d.invoices || []).filter(function (i) { return !!i.autopay_approved_at; });
+
+    var rows = (d.invoices || []).map(function (i) {
+      var isApproved = !!i.autopay_approved_at;
+      var stale = isApproved && Number(i.autopay_approved_cents) !== Number(i.total_cents);
+      return '<div class="row"><div class="row-main">' +
+        '<div class="row-title">' + Owner.esc(i.account_name || i.id) + ' · ' + Owner.money(i.total_cents) + '</div>' +
+        '<div class="row-sub">' + Owner.esc(i.number || i.id) + ' · ' + Owner.esc(i.status) +
+          (i.has_card ? ' · card ' + Owner.esc(i.card_brand || '') + ' ••' + Owner.esc(i.card_last4 || '') : ' · <b>no card on file</b>') +
+          (stale ? ' · <b style="color:var(--crit,#b3261e)">approved ' + Owner.money(i.autopay_approved_cents) + ' — amount changed, approve again</b>'
+                 : (isApproved ? ' · <b>approved ' + Owner.money(i.autopay_approved_cents) + '</b>' : ' · not approved')) +
+          (i.autopay_error ? ' · last error: ' + Owner.esc(i.autopay_error) : '') +
+        '</div></div>' +
+        (isApproved && !stale
+          ? '<button class="btn ghost" type="button" data-revoke="' + Owner.esc(i.id) + '">Un-approve</button>'
+          : '<button class="btn gold" type="button" data-approve-inv="' + Owner.esc(i.id) + '" data-cents="' + Number(i.total_cents || 0) + '">Approve ' + Owner.money(i.total_cents) + '</button>') +
+        '</div>';
+    }).join('');
+
+    el.innerHTML =
+      sw('contracts', !!s.contracts_enabled, 'Charge contract invoices automatically',
+         'When ON, an approved invoice is charged to that account’s card on file. When OFF, nothing is ever charged automatically — invoices still generate and send.') +
+      sw('payouts', !!s.payouts_enabled, 'Allow payouts to be marked paid',
+         'When OFF, driver and partner payouts cannot be marked paid at all. When ON, each payout still needs its exact amount approved first.') +
+      '<p class="row-sub" style="margin-top:10px"><b>Both safeties always apply.</b> A charge needs the switch ON <i>and</i> the exact amount approved. ' +
+        'Change the invoice total after approving and the charge refuses instead of charging the new number.</p>' +
+      (s.degraded ? '<p class="row-sub" style="color:var(--crit,#b3261e)">Settings could not be read — treating both switches as OFF.</p>' : '') +
+      '<h3 style="margin:16px 0 6px">Unpaid contract invoices (' + approved.length + ' approved · ' + pending.length + ' waiting)</h3>' +
+      (rows || '<p class="row-sub">No open contract invoices.</p>');
+
+    el.querySelectorAll('[data-switch]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var which = btn.getAttribute('data-switch');
+        var next = btn.getAttribute('data-next') === '1';
+        if (next && !window.confirm('Turn ' + which + ' automatic payments ON? Approved amounts will then be able to move money.')) return;
+        btn.disabled = true;
+        Hub.api('/api/hub/owner/autopay', { method: 'POST', body: { op: 'set', which: which, on: next } }).then(function (r) {
+          if (r && r.ok) { Hub.toast(which + ' automatic payments ' + (next ? 'ON' : 'OFF')); autopayLoad(); }
+          else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not change that switch'); }
+        });
+      });
+    });
+    el.querySelectorAll('[data-approve-inv]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var invId = btn.getAttribute('data-approve-inv');
+        var cents = Number(btn.getAttribute('data-cents'));
+        if (!window.confirm('Approve ' + Owner.money(cents) + ' to be charged automatically to this account’s card?')) return;
+        btn.disabled = true;
+        Hub.api('/api/hub/owner/autopay', { method: 'POST', body: { op: 'approve_invoice', invoice_id: invId, amount_cents: cents } }).then(function (r) {
+          if (r && r.ok) { Hub.toast('Approved ' + Owner.money(cents)); autopayLoad(); }
+          else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not approve'); }
+        });
+      });
+    });
+    el.querySelectorAll('[data-revoke]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        Hub.api('/api/hub/owner/autopay', { method: 'POST', body: { op: 'revoke_invoice', invoice_id: btn.getAttribute('data-revoke') } }).then(function (r) {
+          if (r && r.ok) { Hub.toast('Approval withdrawn'); autopayLoad(); }
+          else { btn.disabled = false; Hub.toast('Could not withdraw that approval'); }
+        });
+      });
+    });
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+  function autopayLoad() { Owner.get('/api/hub/owner/autopay').then(autopayRender); }
 
   function loadExpenses() {
     Owner.get('/api/hub/owner/expenses?status=pending').then(function (d) {

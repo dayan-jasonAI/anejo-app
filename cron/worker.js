@@ -48,6 +48,19 @@ const EXTRA_ENDPOINTS = {
   // useful and actively misleading.
   '3 13 * * 1,2,3,4,5': ['/api/hub/admin/cutoff-check'],
   '3 14 * * 1,2,3,4,5': ['/api/hub/admin/cutoff-check'],
+  // Hourly at :20 — the abandoned-checkout sweep + its ONE recovery message per order, and the
+  // contract-autopay charge pass.
+  //
+  // HOURLY, NOT EVERY MINUTE, for both. The recovery message deliberately waits hours before it
+  // sends (see _lib/abandoned.js), and an autopay charge waits on a human approval — neither gets
+  // better with minute resolution, and both would cost 1,440 no-op queries a day.
+  //
+  // The sweep also used to run ONLY when the owner happened to open the order-history page, so a
+  // quiet day left the order list wrong until somebody looked. Now it is on a clock.
+  //
+  // autopay-tick short-circuits on one settings read when the contracts switch is off, which is
+  // the default — so scheduling it costs nothing until Dayan turns it on.
+  '20 * * * *': ['/api/hub/admin/abandoned-tick', '/api/hub/admin/autopay-tick'],
 };
 
 // Endpoints POSTed on EVERY minute tick (frequent sweeps).

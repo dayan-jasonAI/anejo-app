@@ -56,7 +56,14 @@
         var rows = (dr.unpaid_routes || []).map(function (r) {
           return '<div class="rt"><span>' + esc(r.route_date || '') + ' · ' + (r.stop_count || 0) + ' stops' + (r.total_miles_est != null ? ' · ' + r.total_miles_est + ' mi' : '') + '</span><span>' + money(r.pay_cents) + '</span></div>';
         }).join('');
-        var payBtn = (dr.owed_cents > 0) ? '<button class="btn gold block" style="margin-top:10px" onclick="__pay(\'' + esc(dr.driver_id) + '\')">Mark ' + money(dr.owed_cents) + ' paid</button>' : '';
+        // Two buttons, in the order the money moves: approve the NUMBER, then mark it paid.
+        // Marking paid without an approval is refused by the API (Decision #13), so showing one
+        // button would just produce a confusing 403 — the approve step is part of the flow, not a
+        // hidden precondition.
+        var payBtn = (dr.owed_cents > 0)
+          ? '<button class="btn ghost block" style="margin-top:10px" onclick="__approve(\'' + esc(dr.driver_id) + '\',' + Number(dr.owed_cents) + ')">1 · Approve ' + money(dr.owed_cents) + '</button>' +
+            '<button class="btn gold block" style="margin-top:6px" onclick="__pay(\'' + esc(dr.driver_id) + '\')">2 · Mark ' + money(dr.owed_cents) + ' paid</button>'
+          : '';
         return '<div class="pcard"><div class="nm">' + esc(dr.driver_name || 'Driver') + '</div>' +
           '<div class="amt">' + money(dr.owed_cents || 0) + ' <small>owed now</small></div>' +
           '<div class="meta"><span class="pill gold">' + (dr.completed_routes || 0) + ' routes done</span>' +
@@ -72,10 +79,24 @@
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
   }
+  // Step 1. Approve the exact figure. This moves no money — it authorises ONE later mark-paid for
+  // exactly this amount, and is spent the moment it is used.
+  window.__approve = function (driverId, cents) {
+    if (!window.confirm('Approve ' + money(cents) + ' for this driver? This authorises one payout of exactly that amount.')) return;
+    Hub.api('/api/hub/owner/autopay', { method: 'POST', body: { op: 'approve_payout', kind: 'driver', subject_id: driverId, amount_cents: cents, scope: { days: days } } }).then(function (r) {
+      if (r && r.ok) Hub.toast('Approved ' + money(cents) + ' — now mark it paid');
+      else Hub.toast((r && r.error) || 'Could not approve');
+    });
+  };
+  // Step 2. The API re-checks BOTH safeties (payouts switch on + a matching unused approval) and
+  // refuses without touching a single route if either is missing.
   window.__pay = function (driverId) {
     if (!window.confirm('Mark this driver’s completed routes as paid for the selected period? This records the payout.')) return;
     Hub.api('/api/hub/owner/payouts', { method: 'POST', body: { op: 'mark_paid', driver_id: driverId, days: days } }).then(function (r) {
-      if (r && r.ok) { Hub.toast('Marked ' + (r.marked || 0) + ' route(s) paid'); render(); } else Hub.toast((r && r.error) || 'Could not mark paid');
+      if (r && r.ok) { Hub.toast('Marked ' + (r.marked || 0) + ' route(s) paid'); render(); }
+      else if (r && r.refused === 'payouts_off') Hub.toast('Payouts are switched OFF — turn them on in Finance → Automatic payments');
+      else if (r && r.refused === 'not_approved') Hub.toast('Approve the amount first (step 1)');
+      else Hub.toast((r && r.error) || 'Could not mark paid');
     });
   };
   Owner.init('payouts', render);

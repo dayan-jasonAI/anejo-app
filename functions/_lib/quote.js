@@ -121,7 +121,17 @@ export function buildQuote(input, guestCount) {
   };
 }
 
-/** Deposit due at booking. Percentage is Dayan's to set; there is no industry default here. */
+/**
+ * Deposit due at booking. Percentage is still REQUIRED here — this engine does not assume a rate,
+ * for the same reason it refuses to assume a food cost.
+ *
+ * The rate itself is no longer an open question: Dayan ratified 25% (Decision #12), and it lives
+ * in _lib/catering_terms.js as DEPOSIT_PCT alongside the rest of the booking terms and the
+ * published catering policies they are anchored to. Money that actually moves goes through
+ * _lib/catering_deposit.js — depositSplit() works in integer cents and derives the balance by
+ * subtraction, so the two halves always sum to the total. This function stays as it is because it
+ * is the human-readable dollars view used when reasoning about a quote, not the payment path.
+ */
 export function depositFor(quote, depositPct) {
   if (!quote || !quote.ok) return { ok: false, error: "no valid quote" };
   if (depositPct == null || Number.isNaN(Number(depositPct)))

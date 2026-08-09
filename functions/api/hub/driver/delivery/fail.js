@@ -8,6 +8,7 @@ import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { raiseAlert } from '../../../../_lib/alerts.js';
 import { id, now, toJson } from '../../../../_lib/hub.js';
+import { notifyDeliveryFailed } from '../../../../_lib/notify.js';
 
 const REASONS = ['no_answer', 'wrong_address', 'refused', 'damaged', 'other'];
 
@@ -71,6 +72,15 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
   // The stop is already flipped to 'failed' above; defer analytics (a PostHog network call)
   // so it never blocks the driver's response — same freeze fix as delivery/complete.
   const sideEffects = (async () => {
+    // THE CUSTOMER GETS TOLD. This endpoint used to alert the owner and stop there, so the person
+    // waiting on food they had paid for was the only party to a failed delivery who heard nothing.
+    // Deferred with the analytics for the same reason: the driver is standing on a doorstep and
+    // must not wait on an SMS round-trip. At-most-once is enforced inside notifyDeliveryFailed by
+    // an order-row claim, so a double-tap on Fail cannot text anyone twice.
+    try {
+      const ord = await env.DB.prepare('SELECT * FROM orders WHERE id = ? LIMIT 1').bind(orderId).first();
+      if (ord) await notifyDeliveryFailed(env, ord, { reason });
+    } catch { /* the customer notice must never break the driver's flow */ }
     try {
       await capture(env, {
         event: 'delivery.failed',

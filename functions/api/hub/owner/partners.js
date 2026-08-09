@@ -13,6 +13,7 @@ import { json, bad, id, now, isEmail, normalizePhone, affiliateCode, appBaseUrl 
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
 import { ensureAffiliateCode, payoutOptions, norm } from '../../../_lib/promo.js';
+import { authorizePayout } from '../../../_lib/autopay.js';
 
 const DEFAULT_COMMISSION = 10;
 const cleanCode = (c) => norm(c).replace(/[^A-Z0-9._-]/g, '').slice(0, 32);
@@ -153,13 +154,34 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   // --- Settle everything currently pending for a partner.
+  //
+  // Both money safeties (Decision #13), same as driver payouts: the payouts switch must be ON and
+  // the EXACT pending total must carry an unused approval. The total is summed here from the
+  // ledger, so the approval is checked against what will actually be settled, not against a figure
+  // the caller supplied. Refusals leave every row 'pending' and are recorded in money_movements.
   if (op === 'mark_paid') {
     const pid = (b.partner_id || '').toString().trim();
     if (!pid) return bad('Missing partner.');
+
+    let owed;
+    try {
+      owed = await env.DB.prepare(
+        "SELECT COALESCE(SUM(share_cents),0) c, COUNT(*) n FROM rev_share_events WHERE trainer_id=? AND payout_status='pending'"
+      ).bind(pid).first();
+    } catch { return bad('Could not read what that partner is owed.', 500); }
+    const total = (owed && owed.c) || 0;
+    if (!owed || !owed.n) return json({ ok: true, settled: 0, total_cents: 0 });
+
+    const auth = await authorizePayout(env, {
+      kind: 'partner', subjectId: pid, amountCents: total, ref: `partner:${pid}`,
+      actor: (ctx && (ctx.email || ctx.distinct_id)) || null,
+    });
+    if (!auth.ok) return json({ ok: false, refused: auth.reason, error: auth.error }, 403);
+
     const r = await env.DB.prepare(
       "UPDATE rev_share_events SET payout_status='paid' WHERE trainer_id=? AND payout_status='pending'"
     ).bind(pid).run();
-    return json({ ok: true, settled: (r.meta && r.meta.changes) || 0 });
+    return json({ ok: true, settled: (r.meta && r.meta.changes) || 0, total_cents: total, approval_id: auth.approval_id });
   }
 
   // --- Mint a code by hand. 'campaign' = shareable, no partner, optional limits.
