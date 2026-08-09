@@ -23,8 +23,15 @@
 -- ---- 1) Card on file for a contract account -------------------------------------------------
 -- Square customer + card id. There is no card data here and never will be — Square holds the
 -- instrument, we hold an opaque id and the last four for the owner to recognise it by.
-ALTER TABLE contract_accounts ADD COLUMN square_customer_id TEXT;
-ALTER TABLE contract_accounts ADD COLUMN square_card_id     TEXT;
+--
+-- NOTE (2026-08-09): `square_customer_id` and `square_card_id` are NOT added here. Migration
+-- 0027_contract_billing_model.sql:7-8 already added both, and it IS applied in production —
+-- verified against the live D1 (`pragma_table_info('contract_accounts')` returns both columns).
+-- D1/SQLite has no ADD COLUMN IF NOT EXISTS, so re-adding them raises "duplicate column name"
+-- and ABORTS the rest of this file, silently leaving the invoice-approval columns below unbuilt
+-- while the deploy appears to proceed. That is the code-before-migration failure the deploy
+-- checklist warns about, arriving through the migration itself. The two lines are deliberately
+-- left out rather than "fixed later".
 ALTER TABLE contract_accounts ADD COLUMN card_brand         TEXT;
 ALTER TABLE contract_accounts ADD COLUMN card_last4         TEXT;
 ALTER TABLE contract_accounts ADD COLUMN card_added_at      INTEGER;
