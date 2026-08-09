@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Catering &amp; Quotes</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .qcard{border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:14px;margin:10px 0;background:#fff}
+  .qcard .nm{font-weight:800;color:var(--green);font-size:17px}
+  .split{display:flex;gap:8px;margin:10px 0}
+  .split .s{flex:1;background:var(--cream);border-radius:10px;padding:10px;text-align:center}
+  .split .s .v{font-size:19px;font-weight:800;color:var(--green)}
+  .split .s .l{font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-top:2px}
+  .meta{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .pill{font-size:11px;font-weight:700;background:#eee;color:#555;border-radius:20px;padding:3px 9px}
+  .pill.gold{background:#efe7cf;color:#8a7a2e}.pill.green{background:#e1efe5;color:#1A3D2E}
+  .pill.crit{background:#f7e3de;color:#7a2418}
+  .terms{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+  .terms summary{font-size:12.5px;font-weight:700;color:var(--green);cursor:pointer}
+  .terms li{font-size:12.5px;color:var(--muted);line-height:1.55;margin:6px 0 0 16px}
+  .lnk{font-size:12px;word-break:break-all}
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · CATERING</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading quotes…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var esc = Hub.esc, money = Owner.money;
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+
+  var ENDPOINT = '/api/hub/owner/catering-deposit';
+
+  // Dollars typed by a human → integer cents. The API refuses anything over $100,000 as a
+  // "you typed dollars where cents were meant" guard, so this conversion has to be the only one.
+  function toCents(v) {
+    var n = Number(String(v == null ? '' : v).replace(/[^0-9.]/g, ''));
+    return Number.isFinite(n) ? Math.round(n * 100) : NaN;
+  }
+  function pct(row) {
+    // THE ROW'S OWN RATE, never a constant from this file. A quote sold at a different percentage
+    // must display that percentage — see the terms note below.
+    var p = Number(row && row.deposit_pct);
+    return Number.isFinite(p) ? Math.round(p * 100) + '%' : '';
+  }
+  function day(ms) { if (!ms) return ''; try { return new Date(ms).toLocaleDateString(); } catch (e) { return ''; } }
+
+  // ---------- the terms ----------
+  // RENDERED FROM THE SNAPSHOT ON THE ROW. `q.terms` is the parsed terms_json that was written
+  // when the deposit link was minted. This page never calls termsFor(), never reads DEPOSIT_PCT,
+  // and never rebuilds a line of this copy: a customer who booked in August agreed to August's
+  // terms, and changing the constants next year must not retroactively re-word their contract.
+  function termsHtml(q) {
+    var t = q && q.terms;
+    if (!t || !t.lines || !t.lines.length) {
+      return '<div class="terms"><p class="row-sub">No terms snapshot on this quote — it predates stored terms. Do not quote terms from this screen; check what was sent.</p></div>';
+    }
+    return '<details class="terms"><summary>Terms this customer agreed to · ' +
+      esc(t.version || q.terms_version || 'unversioned') + '</summary><ul>' +
+      t.lines.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join('') +
+      '</ul></details>';
+  }
+
+  function quoteCard(q) {
+    var paid = q.deposit_status === 'paid';
+    var balPaid = q.balance_status === 'paid';
+    return '<div class="qcard">' +
+      '<div class="nm">' + esc(q.customer_name || 'Quote ' + q.id) + '</div>' +
+      '<div class="row-sub">' + (q.guests || 0) + ' guests' +
+        (q.event_date ? ' · event ' + esc(q.event_date) : ' · no event date') +
+        (q.customer_email ? ' · ' + esc(q.customer_email) : '') + '</div>' +
+
+      // The split, straight off the row: deposit + balance were computed by depositSplit() at
+      // creation and stored, so they always sum to the total on screen exactly as they do in D1.
+      '<div class="split">' +
+        '<div class="s"><div class="v">' + money(q.deposit_cents) + '</div><div class="l">Deposit ' + pct(q) + '</div></div>' +
+        '<div class="s"><div class="v">' + money(q.balance_cents) + '</div><div class="l">Balance</div></div>' +
+        '<div class="s"><div class="v">' + money(q.total_cents) + '</div><div class="l">Total</div></div>' +
+      '</div>' +
+
+      '<div class="meta">' +
+        '<span class="pill ' + (paid ? 'green' : 'crit') + '">Deposit ' + esc(q.deposit_status || 'unpaid') +
+          (paid && q.deposit_paid_at ? ' · ' + day(q.deposit_paid_at) : '') + '</span>' +
+        '<span class="pill ' + (balPaid ? 'green' : 'gold') + '">Balance ' + esc(q.balance_status || 'due') +
+          (q.balance_due_date ? ' · due ' + esc(q.balance_due_date) : '') + '</span>' +
+        (q.final_count_due ? '<span class="pill">Final count by ' + esc(q.final_count_due) + '</span>' : '') +
+      '</div>' +
+
+      (q.payment_link_url
+        ? '<div class="row-sub lnk">Deposit link: <a href="' + esc(q.payment_link_url) + '" target="_blank" rel="noopener">' + esc(q.payment_link_url) + '</a></div>'
+        : '<div class="row-sub">No deposit link on this quote.</div>') +
+
+      termsHtml(q) +
+
+      (!balPaid && paid
+        ? '<button class="btn ghost block" style="margin-top:10px" data-balance="' + esc(q.id) + '">Mark ' + money(q.balance_cents) + ' balance paid</button>'
+        : '') +
+    '</div>';
+  }
+
+  // ---------- the create form ----------
+  function formHtml(d) {
+    return '<div class="hub-section"><h2>New catering quote</h2><div class="card">' +
+      '<div class="field"><label>Customer name</label><input id="q-name" type="text" placeholder="Who the event is for"></div>' +
+      '<div class="field"><label>Email</label><input id="q-email" type="email" placeholder="For the deposit link"></div>' +
+      '<div class="field"><label>Phone</label><input id="q-phone" type="tel"></div>' +
+      '<div class="field"><label>Event date</label><input id="q-date" type="date"></div>' +
+      '<div class="field"><label>Guests</label><input id="q-guests" type="number" min="1" step="1"></div>' +
+      '<div class="field"><label>Agreed total (dollars)</label><input id="q-total" type="text" inputmode="decimal" placeholder="1200.00"></div>' +
+      '<div class="field"><label>Note (optional)</label><input id="q-note" type="text"></div>' +
+      '<button class="btn ghost block" id="q-preview" type="button">Preview the ' +
+        Math.round(Number(d.deposit_pct || 0) * 100) + '% split</button>' +
+      '<div id="q-split"></div>' +
+      '<button class="btn gold block" id="q-create" type="button" style="margin-top:8px">Create deposit checkout</button>' +
+      '<p class="row-sub" style="margin-top:8px">Creating the checkout mints a Square payment link for the deposit only and stores the terms as they stand today. It charges nothing — the customer pays the link.</p>' +
+      '</div></div>';
+  }
+
+  function body() {
+    return {
+      customer_name: document.getElementById('q-name').value.trim(),
+      customer_email: document.getElementById('q-email').value.trim(),
+      customer_phone: document.getElementById('q-phone').value.trim(),
+      event_date: document.getElementById('q-date').value,
+      guests: Number(document.getElementById('q-guests').value),
+      total_cents: toCents(document.getElementById('q-total').value),
+      note: document.getElementById('q-note').value.trim(),
+    };
+  }
+
+  function wireForm() {
+    document.getElementById('q-preview').addEventListener('click', function () {
+      var b = body();
+      if (!Number.isFinite(b.total_cents) || b.total_cents <= 0) { Hub.toast('Enter the agreed total first'); return; }
+      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'preview', total_cents: b.total_cents, event_date: b.event_date } }).then(function (r) {
+        var el = document.getElementById('q-split');
+        if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not price that'); el.innerHTML = ''; return; }
+        el.innerHTML = '<div class="split" style="margin-top:10px">' +
+          '<div class="s"><div class="v">' + money(r.deposit_cents) + '</div><div class="l">Deposit ' + Math.round(r.deposit_pct * 100) + '%</div></div>' +
+          '<div class="s"><div class="v">' + money(r.balance_cents) + '</div><div class="l">Balance</div></div>' +
+          '<div class="s"><div class="v">' + money(r.total_cents) + '</div><div class="l">Total</div></div></div>' +
+          (r.terms && r.terms.final_count_due ? '<p class="row-sub">Final count due ' + esc(r.terms.final_count_due) + ' · balance due ' + esc(r.terms.balance_due_date || '') + '</p>' : '');
+      });
+    });
+
+    document.getElementById('q-create').addEventListener('click', function () {
+      var btn = this, b = body();
+      if (!Number.isFinite(b.total_cents) || b.total_cents <= 0) { Hub.toast('Enter the agreed total'); return; }
+      if (!Number.isFinite(b.guests) || b.guests <= 0) { Hub.toast('Enter the guest count'); return; }
+      if (!window.confirm('Create a deposit checkout for ' + money(b.total_cents) + '? This mints a payable link and stores today’s terms on the quote.')) return;
+      btn.disabled = true;
+      b.op = 'create';
+      Hub.api(ENDPOINT, { method: 'POST', body: b }).then(function (r) {
+        btn.disabled = false;
+        if (r && r.ok) { Hub.toast('Deposit link created — ' + money(r.deposit_cents)); render(); }
+        else Hub.toast((r && r.error) || 'Could not create the deposit link');
+      });
+    });
+  }
+
+  function render() {
+    Owner.get(ENDPOINT).then(function (d) {
+      var root = document.getElementById('owner-root');
+      root.className = '';
+      if (!d || !d.ok) { root.innerHTML = '<div class="card"><p class="row-sub">Could not load catering quotes.</p></div>'; return; }
+      var qs = d.quotes || [];
+      var unpaid = qs.filter(function (q) { return q.deposit_status !== 'paid'; });
+      var owed = qs.reduce(function (n, q) { return n + (q.balance_status === 'due' ? Number(q.balance_cents || 0) : 0); }, 0);
+
+      root.innerHTML =
+        '<div class="card-grid">' +
+          Owner.tile(String(qs.length), 'Quotes') +
+          Owner.tile(String(unpaid.length), 'Deposits unpaid', { accent: unpaid.length ? 'accent' : '' }) +
+          Owner.tile(money(owed), 'Balances still owed') +
+        '</div>' +
+        formHtml(d) +
+        '<div class="hub-section"><h2>Quotes</h2>' +
+        (qs.length ? qs.map(quoteCard).join('') : '<div class="hub-empty">No catering quotes yet.</div>') +
+        '</div>';
+
+      wireForm();
+      root.querySelectorAll('[data-balance]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (!window.confirm('Mark this balance paid? This records the money as received — it does not charge anybody.')) return;
+          btn.disabled = true;
+          Hub.api(ENDPOINT, { method: 'POST', body: { op: 'mark_balance_paid', quote_id: btn.getAttribute('data-balance') } }).then(function (r) {
+            if (r && r.ok) { Hub.toast('Balance closed'); render(); }
+            else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not close that balance'); }
+          });
+        });
+      });
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  Owner.init('catering', render);
+})();
+</script>
+<script src="assets/operator.js" defer></script>
+</body>
+</html>

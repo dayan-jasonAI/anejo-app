@@ -36,25 +36,32 @@ import { id, now } from './hub.js';
 export const AUTOPAY_KEYS = {
   contracts: 'autopay.contracts_enabled',
   payouts: 'autopay.payouts_enabled',
+  // 2026-08-09: the third switch. `contracts` decides whether an approved invoice may be charged;
+  // this one decides whether the customer-facing card-on-file page will accept a card AT ALL. It
+  // is separate because it guards a different door: a public, token-gated endpoint that talks to
+  // Square. OFF by default like the other two, so applying the migration and shipping the page
+  // changes nothing until the owner deliberately opens it.
+  card_capture: 'autopay.card_capture_enabled',
 };
 
 const isOn = (v) => v === '1' || v === 1 || v === 'true' || v === true;
 
 export async function getAutopaySettings(env) {
-  const out = { contracts_enabled: false, payouts_enabled: false, degraded: false };
+  const out = { contracts_enabled: false, payouts_enabled: false, card_capture_enabled: false, degraded: false };
   if (!env || !env.DB) return { ...out, degraded: true };
   try {
     const r = await env.DB.prepare(
-      "SELECT key, value FROM app_settings WHERE key IN ('autopay.contracts_enabled','autopay.payouts_enabled')"
+      "SELECT key, value FROM app_settings WHERE key IN ('autopay.contracts_enabled','autopay.payouts_enabled','autopay.card_capture_enabled')"
     ).all();
     for (const row of (r && r.results) || []) {
       if (row.key === AUTOPAY_KEYS.contracts) out.contracts_enabled = isOn(row.value);
       if (row.key === AUTOPAY_KEYS.payouts) out.payouts_enabled = isOn(row.value);
+      if (row.key === AUTOPAY_KEYS.card_capture) out.card_capture_enabled = isOn(row.value);
     }
   } catch {
     // FAIL CLOSED. Anything we cannot read is off. The failure mode of an unreadable settings
     // table must be "no money moves", never "money moves on last-known-good".
-    return { contracts_enabled: false, payouts_enabled: false, degraded: true };
+    return { contracts_enabled: false, payouts_enabled: false, card_capture_enabled: false, degraded: true };
   }
   return out;
 }

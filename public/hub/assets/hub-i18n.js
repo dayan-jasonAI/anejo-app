@@ -33,6 +33,8 @@
     "Messages": "Mensajes", "Schedule": "Horario", "Driver schedule": "Horario de conductores",
     "More": "Más",
     "Overview": "Resumen", "Deliveries": "Entregas", "Kitchen": "Cocina", "Staff": "Personal",
+    // "Catering" 2026-08-09: the deposit desk's nav label — see hub/owner/assets/owner.js.
+    "Catering": "Catering",
     "Finance": "Finanzas", "Comms": "Mensajes", "Orders": "Pedidos", "Checklists": "Listas",
     "Studio": "Estudio", "Library": "Biblioteca", "EOD": "Fin de día", "Today": "Hoy",
     "Route": "Ruta", "Temp": "Temp.", "Expenses": "Gastos", "Routes": "Rutas", "Account": "Cuenta",

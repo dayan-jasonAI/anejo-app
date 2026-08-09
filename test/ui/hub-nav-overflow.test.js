@@ -20,8 +20,19 @@ assert.ok(navBlock, 'owner.js must define a NAV array');
 const items = [...navBlock[1].matchAll(/\{\s*view:\s*'([\w-]+)',\s*href:\s*'([^']+)'[^}]*?label:\s*'([^']+)'(,\s*primary:\s*true)?\s*\}/g)]
   .map((m) => ({ view: m[1], href: m[2], label: m[3], primary: !!m[4] }));
 
-test('sanity: the NAV literal parses to all 15 original destinations', () => {
-  assert.equal(items.length, 15, 'a destination was dropped or the parser regex is stale');
+// 2026-08-09: a 16th destination — the catering deposit desk (/hub/owner/catering.html). It went
+// into the More sheet, not the bar: the 5 primary slots are what the owner opens daily and a
+// catering quote is a weekly job. The bar itself is unchanged, which is the property this file
+// exists to protect.
+test('sanity: the NAV literal parses to all 16 destinations', () => {
+  assert.equal(items.length, 16, 'a destination was dropped or the parser regex is stale');
+});
+
+test('the catering deposit desk is IN the nav — the endpoint had no screen at all before it', () => {
+  const catering = items.find((i) => i.view === 'catering');
+  assert.ok(catering, 'catering must be a real nav destination, not an orphan page');
+  assert.equal(catering.href, '/hub/owner/catering.html');
+  assert.equal(catering.primary, false, 'it belongs in More, not in the 5-slot bar');
 });
 
 test('exactly 5 primary tabs, matching what the owner opens daily', () => {
@@ -32,7 +43,7 @@ test('exactly 5 primary tabs, matching what the owner opens daily', () => {
 
 test('every non-primary destination still has a real href — nothing was dropped from the app, only from the bar', () => {
   const overflow = items.filter((i) => !i.primary);
-  assert.equal(overflow.length, 10);
+  assert.equal(overflow.length, 11);
   for (const i of overflow) {
     assert.match(i.href, /^\//, `${i.view} must still resolve to a real path`);
   }

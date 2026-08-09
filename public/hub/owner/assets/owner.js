@@ -26,6 +26,11 @@
     { view: 'menu', href: '/hub/owner/menu.html', ico: '🍽️', label: 'Menu' },
     { view: 'staff', href: '/hub/owner/staff.html', ico: '👥', label: 'Staff' },
     { view: 'finance', href: '/hub/owner/finance.html', ico: '💵', label: 'Finance', primary: true },
+    // 2026-08-09: the catering deposit desk. /api/hub/owner/catering-deposit shipped live and
+    // tested with no screen anywhere that called it — an endpoint you cannot reach is a feature
+    // that does not exist. It goes in the More sheet rather than the bar: a catering quote is a
+    // weekly job, not a daily one, and the bar's 5 primary slots are already spoken for.
+    { view: 'catering', href: '/hub/owner/catering.html', ico: '🥂', label: 'Catering' },
     { view: 'trainers', href: '/hub/owner/trainers.html', ico: '🤝', label: 'Trainers' },
     { view: 'partners', href: '/hub/owner/partners.html', ico: '📣', label: 'Affiliate' },
     // 2026-08-04: Campaigns / Social / Team / Train-the-team used to be four separate nav tabs for

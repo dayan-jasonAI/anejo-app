@@ -106,7 +106,8 @@
       '<div class="card"><label data-i18n>Days</label><select id="days"><option value="7">7</option><option value="30">30</option><option value="90">90</option></select></div></div>' +
       '<div id="tiles" class="card-grid"></div>' +
       '<div class="hub-section"><a class="btn ghost block" href="/hub/owner/payouts.html" style="text-align:center;text-decoration:none">💵 Driver payouts — who’s owed what →</a>' +
-      '<a class="btn ghost block" href="/hub/owner/trainers.html" style="text-align:center;text-decoration:none;margin-top:8px">🤝 Trainer commissions — partners &amp; clients →</a></div>' +
+      '<a class="btn ghost block" href="/hub/owner/trainers.html" style="text-align:center;text-decoration:none;margin-top:8px">🤝 Trainer commissions — partners &amp; clients →</a>' +
+      '<a class="btn ghost block" href="/hub/owner/catering.html" style="text-align:center;text-decoration:none;margin-top:8px">🥂 Catering quotes — deposits &amp; balances →</a></div>' +
       '<div class="hub-section"><h2 data-i18n>Automatic payments</h2><div id="autopay" class="card"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>QuickBooks</h2><div id="qbo" class="card"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Pending expenses</h2><div id="pexp" class="list"><div class="hub-loading">…</div></div></div>' +
@@ -172,16 +173,67 @@
         '</div>';
     }).join('');
 
+    // Cards on file. Without one, every automatic charge for that account refuses with
+    // "no card on file" no matter how many switches are on and how carefully the amount was
+    // approved — so the accounts MISSING a card are listed first and marked, because those are
+    // the only ones the owner can do anything about.
+    var accts = d.accounts || [];
+    var noCard = accts.filter(function (a) { return !a.has_card; });
+    var cardRows = accts.length ? accts.map(function (a) {
+      var link = a.card_link_token ? (location.origin + '/lunch-card?t=' + encodeURIComponent(a.card_link_token)) : '';
+      return '<div class="row"><div class="row-main">' +
+        '<div class="row-title">' + Owner.esc(a.name || a.id) +
+          (a.has_card ? ' · <b>' + Owner.esc(a.card_brand || 'card') + ' ••' + Owner.esc(a.card_last4 || '') + '</b>'
+                      : ' · <b style="color:var(--crit,#b3261e)">no card on file</b>') + '</div>' +
+        '<div class="row-sub">' + Owner.esc(a.status || '') + ' · ' + Owner.esc(a.billing_model || '') +
+          (a.has_card
+            ? ' · added ' + Owner.timeAgo(a.card_added_at) +
+              (a.card_consent_name ? ' · authorized by ' + Owner.esc(a.card_consent_name) : '') +
+              (a.card_consent_version ? ' (' + Owner.esc(a.card_consent_version) + ')' : '')
+            : ' · automatic charging will refuse for this account until a card is added') +
+        '</div>' +
+        (link ? '<div class="row-sub">Card link: <code>' + Owner.esc(link) + '</code></div>' : '') +
+        '</div>' +
+        (a.has_card
+          ? '<button class="btn ghost" type="button" data-remove-card="' + Owner.esc(a.id) + '">Remove card</button>'
+          : (link ? '<button class="btn gold" type="button" data-copy-link="' + Owner.esc(link) + '">Copy link</button>' : '')) +
+        '</div>';
+    }).join('') : '<p class="row-sub">No contract accounts yet.</p>';
+
     el.innerHTML =
       sw('contracts', !!s.contracts_enabled, 'Charge contract invoices automatically',
          'When ON, an approved invoice is charged to that account’s card on file. When OFF, nothing is ever charged automatically — invoices still generate and send.') +
       sw('payouts', !!s.payouts_enabled, 'Allow payouts to be marked paid',
          'When OFF, driver and partner payouts cannot be marked paid at all. When ON, each payout still needs its exact amount approved first.') +
+      sw('card_capture', !!s.card_capture_enabled, 'Let clients add a card on file',
+         'When ON, the card link below works and a client can authorize a card. When OFF, the page refuses. This never charges anything — it only stores the card and the authorization they agreed to.') +
       '<p class="row-sub" style="margin-top:10px"><b>Both safeties always apply.</b> A charge needs the switch ON <i>and</i> the exact amount approved. ' +
         'Change the invoice total after approving and the charge refuses instead of charging the new number.</p>' +
       (s.degraded ? '<p class="row-sub" style="color:var(--crit,#b3261e)">Settings could not be read — treating both switches as OFF.</p>' : '') +
+      '<h3 style="margin:16px 0 6px">Cards on file (' + (accts.length - noCard.length) + ' of ' + accts.length + ' accounts)</h3>' +
+      '<p class="row-sub" style="margin-bottom:6px">Send a client their card link and they authorize it themselves. Añejo never sees the card number — only the brand and last four.</p>' +
+      cardRows +
       '<h3 style="margin:16px 0 6px">Unpaid contract invoices (' + approved.length + ' approved · ' + pending.length + ' waiting)</h3>' +
       (rows || '<p class="row-sub">No open contract invoices.</p>');
+
+    el.querySelectorAll('[data-copy-link]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var link = btn.getAttribute('data-copy-link');
+        if (navigator.clipboard) navigator.clipboard.writeText(link).then(function () { Hub.toast('Card link copied'); },
+          function () { window.prompt('Copy this link', link); });
+        else window.prompt('Copy this link', link);
+      });
+    });
+    el.querySelectorAll('[data-remove-card]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!window.confirm('Remove this card and withdraw the authorization? Automatic charging for this account will refuse until a new card is added.')) return;
+        btn.disabled = true;
+        Hub.api('/api/hub/owner/autopay', { method: 'POST', body: { op: 'remove_card', account_id: btn.getAttribute('data-remove-card') } }).then(function (r) {
+          if (r && r.ok) { Hub.toast('Card removed'); autopayLoad(); }
+          else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not remove that card'); }
+        });
+      });
+    });
 
     el.querySelectorAll('[data-switch]').forEach(function (btn) {
       btn.addEventListener('click', function () {

@@ -20,6 +20,9 @@ const PUBLIC = ['index.html', 'business.html', 'order.html', 'subscribe.html'];
 // Private: internal tools, authenticated areas, token links, post-transaction pages.
 const PRIVATE = [
   'login.html', 'lunch-count.html', 'preferences.html', 'feedback.html',
+  // Token links: the daily count and, from 2026-08-09, the card-on-file authorization page.
+  // A card page that could be reached from a search result is a phishing template.
+  'lunch-card.html', 'hub/owner/catering.html',
   'client/dashboard.html', 'trainer/dashboard.html',
   'hub/index.html', 'hub/owner/index.html', 'hub/owner/contracts.html',
   'hub/owner/knowledge.html', 'hub/owner/marketing-settings.html',

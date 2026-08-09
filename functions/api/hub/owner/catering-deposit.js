@@ -1,6 +1,8 @@
 // /api/hub/owner/catering-deposit — the payable end of the catering quote engine.
 //
-//   GET                          → recent quotes with their deposit/balance state
+//   GET                          → recent quotes with their deposit/balance state AND the terms
+//                                  snapshot each one was sold under
+//   POST { op:'preview', … }     → the split and the terms for a total, touching nothing
 //   POST { op:'create', … }      → build a quote, mint the 25% deposit checkout, store the terms
 //   POST { op:'mark_balance_paid', quote_id, ref? } → close out the balance after the event
 //
@@ -10,10 +12,10 @@
 // do is guess.
 import { json, bad, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { now } from '../../../_lib/hub.js';
+import { now, parseJson } from '../../../_lib/hub.js';
 import { buildQuote } from '../../../_lib/quote.js';
-import { DEPOSIT_PCT } from '../../../_lib/catering_terms.js';
-import { createDepositCheckout } from '../../../_lib/catering_deposit.js';
+import { DEPOSIT_PCT, TERMS_VERSION, termsFor } from '../../../_lib/catering_terms.js';
+import { createDepositCheckout, depositSplit } from '../../../_lib/catering_deposit.js';
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -24,14 +26,25 @@ export const onRequestGet = async ({ request, env }) => {
   try {
     const r = await env.DB.prepare(
       `SELECT id, customer_name, customer_email, event_date, guests, total_cents, deposit_pct,
-              deposit_cents, balance_cents, deposit_status, deposit_paid_at, balance_status,
-              balance_due_date, final_count_due, payment_link_url, terms_version, created_at
+              deposit_cents, balance_cents, deposit_status, deposit_paid_at, deposit_paid_cents,
+              balance_status, balance_paid_at, balance_due_date, final_count_due,
+              payment_link_url, terms_version, terms_json, note, created_at
          FROM catering_quotes ORDER BY created_at DESC LIMIT 50`
     ).all();
-    quotes = (r && r.results) || [];
+    // THE TERMS COME OFF THE ROW, PARSED — never rebuilt from today's constants. A quote sold last
+    // year under a different deposit rate or a different cancellation ladder must read back as
+    // what that customer agreed to, which is why termsFor() is NOT called anywhere in this handler.
+    // `terms_json` itself is dropped from the payload: the parsed object is the same information
+    // and shipping both invites a caller to pick the wrong one.
+    quotes = ((r && r.results) || []).map((q) => {
+      const { terms_json, ...rest } = q;
+      return { ...rest, terms: parseJson(terms_json, null) };
+    });
   } catch { quotes = []; }
 
-  return json({ ok: true, deposit_pct: DEPOSIT_PCT, quotes });
+  // deposit_pct / terms_version here describe what a NEW quote would be sold under. Every existing
+  // row carries its own, and the desk must render each row's own.
+  return json({ ok: true, deposit_pct: DEPOSIT_PCT, terms_version: TERMS_VERSION, quotes });
 };
 
 export const onRequestPost = async ({ request, env }) => {
@@ -53,6 +66,27 @@ export const onRequestPost = async ({ request, env }) => {
       if (!r || !r.meta || r.meta.changes !== 1) return bad('That balance is not open, or the quote does not exist.', 400);
       return json({ ok: true, quote_id: qid, balance_status: 'paid' });
     } catch { return bad('Could not close the balance.', 500); }
+  }
+
+  // The desk shows the owner the deposit, the balance and the deadlines BEFORE he mints a link a
+  // customer can pay. This op is the honest way to do that: the same depositSplit()/termsFor()
+  // the create path uses, so the figure on screen and the figure Square is asked for are computed
+  // by one function. It writes nothing, contacts nobody, and mints no link.
+  if (op === 'preview') {
+    const split = depositSplit(b.total_cents);
+    if (!split.ok) return bad(split.error, 400);
+    if (split.total_cents > 10000000) return bad('That total looks wrong (over $100,000) — enter cents, not dollars.');
+    return json({
+      ok: true,
+      preview: true,
+      ...split,
+      terms: termsFor({
+        totalCents: split.total_cents,
+        depositCents: split.deposit_cents,
+        balanceCents: split.balance_cents,
+        eventDate: b.event_date,
+      }),
+    });
   }
 
   if (op !== 'create') return bad('Unknown action.');

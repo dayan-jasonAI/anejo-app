@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card on file — Añejo Catering Co.</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<style>
+  :root{--black:#0D0D0D;--green:#1A3D2E;--gold:#C6A85B;--gold-deep:#C08418;--cream:#F5F2EC;--ink:#1f2a24;--muted:#6f7b74;--line:#e3ddcf;--crit:#b3402f}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .hero{background:radial-gradient(120% 120% at 50% 0%,#16331f 0%,var(--black) 70%);color:var(--cream);padding:26px 22px 28px;text-align:center}
+  .hero img{height:48px;margin-bottom:8px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.4))}
+  .hero .brand{font-family:Georgia,serif;letter-spacing:7px;color:var(--gold);font-size:20px}
+  .hero .sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(245,242,236,.72);margin-top:8px}
+  .wrap{max-width:470px;margin:0 auto;padding:22px 18px 64px}
+  .card{background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:16px;padding:22px;box-shadow:0 10px 34px rgba(26,61,46,.08)}
+  h1{font-size:21px;color:var(--green);margin-bottom:4px}
+  .who{font-size:14px;color:var(--muted);margin-bottom:16px}
+  p.lead{color:var(--ink);font-size:14px;line-height:1.55;margin-bottom:16px}
+  label.lab{display:block;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--green);margin:20px 0 8px}
+  .txt{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 13px;font:inherit;font-size:15px;background:var(--cream)}
+  .txt:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(198,168,91,.16)}
+  #card-field{border:1px solid var(--line);border-radius:10px;padding:6px 10px;background:var(--cream);min-height:52px}
+  /* The authorization is the loudest thing on the page, not fine print at the bottom. */
+  .consent{border:1px solid var(--gold);background:#fffdf7;border-radius:12px;padding:15px 16px;margin-top:20px}
+  .consent h2{font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--green);margin-bottom:9px}
+  .consent pre{white-space:pre-wrap;font:inherit;font-size:13.5px;line-height:1.6;color:var(--ink)}
+  .agree{display:flex;gap:11px;align-items:flex-start;margin-top:14px;font-size:14px;line-height:1.45;cursor:pointer}
+  .agree input{width:20px;height:20px;flex:0 0 auto;margin-top:1px}
+  .btn{display:block;width:100%;margin-top:20px;padding:15px;border:none;border-radius:999px;font-size:14px;letter-spacing:1px;text-transform:uppercase;font-weight:800;cursor:pointer;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#1c1606}
+  .btn:disabled{opacity:.45;cursor:default}
+  .msg{margin-top:14px;font-size:13.5px;border-radius:10px;padding:11px 13px;display:none;line-height:1.5}
+  .msg.err{display:block;background:#f7e3de;border:1px solid var(--crit);color:#7a2418}
+  .msg.ok{display:block;background:#e1efe5;border:1px solid var(--green);color:var(--green)}
+  .msg.info{display:block;background:#fbf3da;border:1px solid var(--gold);color:#6b5320}
+  .onfile{background:#e1efe5;border:1px solid var(--green);border-radius:10px;padding:11px 13px;font-size:13.5px;color:var(--green);margin-bottom:16px}
+  .lock{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;justify-content:center;margin-top:12px;text-align:center;line-height:1.5}
+  .state{text-align:center;padding:48px 20px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="hero">
+  <img src="/assets/img/emblem.png" alt="Añejo">
+  <div class="brand">AÑEJO</div>
+  <div class="sub">Card on file</div>
+</div>
+<div class="wrap">
+  <div id="root" class="state">Loading…</div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var root = document.getElementById('root');
+  var token = new URLSearchParams(location.search).get('t') || '';
+  var payments = null, cardField = null, ctx = null;
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+  function show(kind, text) {
+    var m = document.getElementById('msg');
+    if (!m) return;
+    m.className = 'msg ' + kind;
+    m.textContent = text;
+  }
+
+  function stopped(text) { root.className = 'state'; root.innerHTML = '<p>' + esc(text) + '</p>'; }
+
+  function draw(d) {
+    ctx = d;
+    root.className = '';
+    // The switch is off → say so plainly and render NO card field. A form that collects a card
+    // nothing will accept is worse than no form.
+    if (!d.enabled) {
+      stopped('Saving a card on file is not switched on for this account yet. Please call Añejo — nothing has been charged and nothing is stored.');
+      return;
+    }
+
+    var onfile = d.has_card
+      ? '<div class="onfile"><b>A card is already on file</b> — ' + esc(d.card_brand || 'card') + ' ending ' +
+        esc(d.card_last4 || '••••') + (d.consent_on_file_by ? ', authorized by ' + esc(d.consent_on_file_by) : '') +
+        '. Saving another card replaces it.</div>'
+      : '';
+
+    root.innerHTML = '<div class="card">' +
+      '<h1>Put a card on file</h1>' +
+      '<div class="who">' + esc(d.account_name || 'Your account') +
+        (d.site_name ? ' · ' + esc(d.site_name) : '') + '</div>' +
+      onfile +
+      '<p class="lead">This saves a card so your lunch invoices can be paid automatically instead of chased. ' +
+        '<b>Nothing is charged today.</b></p>' +
+
+      '<label class="lab" for="agreed-name">Your name</label>' +
+      '<input class="txt" id="agreed-name" type="text" autocomplete="name" placeholder="Who is authorizing this">' +
+
+      '<label class="lab" for="agreed-email">Your email <span style="text-transform:none;font-weight:600;color:var(--muted)">(optional)</span></label>' +
+      '<input class="txt" id="agreed-email" type="email" autocomplete="email" placeholder="For your records">' +
+
+      '<label class="lab" for="card-field">Card</label>' +
+      '<div id="card-field"></div>' +
+
+      '<div class="consent"><h2>Authorization</h2><pre id="consent-text">' + esc(d.consent_text || '') + '</pre>' +
+        '<label class="agree"><input type="checkbox" id="consent">' +
+        '<span>I have read the authorization above and I agree to it.</span></label></div>' +
+
+      '<button class="btn" id="save" disabled>Save card on file</button>' +
+      '<div class="msg" id="msg"></div>' +
+      '<div class="lock">🔒 Entered directly with Square. Añejo never sees or stores your card number — only the brand and last four digits.</div>' +
+    '</div>';
+
+    document.getElementById('save').addEventListener('click', submit);
+    document.getElementById('consent').addEventListener('change', refreshBtn);
+    document.getElementById('agreed-name').addEventListener('input', refreshBtn);
+    mountCard();
+  }
+
+  // The button cannot be pressed until the box is ticked and a name is typed. The server refuses
+  // both cases anyway (that is the real gate) — this just stops a customer entering a card and
+  // then being told no.
+  function refreshBtn() {
+    var btn = document.getElementById('save');
+    if (!btn) return;
+    var ok = !!cardField &&
+      document.getElementById('consent').checked &&
+      document.getElementById('agreed-name').value.trim().length > 0;
+    btn.disabled = !ok;
+  }
+
+  async function mountCard() {
+    var cfg;
+    try { cfg = await (await fetch('/api/square-config')).json(); }
+    catch (e) { show('err', 'Could not reach the server.'); return; }
+    if (!cfg || !cfg.applicationId || !cfg.locationId) { show('err', 'Payments are not configured yet.'); return; }
+    var src = cfg.env === 'production'
+      ? 'https://web.squarecdn.com/v1/square.js'
+      : 'https://sandbox.web.squarecdn.com/v1/square.js';
+    await new Promise(function (res, rej) {
+      var s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    }).catch(function () {});
+    if (!window.Square) { show('err', 'Could not load the secure card field.'); return; }
+    try {
+      payments = window.Square.payments(cfg.applicationId, cfg.locationId);
+      cardField = await payments.card();
+      await cardField.attach('#card-field');
+      refreshBtn();
+    } catch (e) { show('err', 'Could not load the card field: ' + (e.message || e)); }
+  }
+
+  async function submit() {
+    var btn = document.getElementById('save');
+    if (!cardField) return;
+    show('', '');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      // tokenize() is where the card number goes to Square and NOWHERE else. What comes back is a
+      // single-use token; that is the only card-shaped thing this page ever sends to our server.
+      var r = await cardField.tokenize();
+      if (r.status !== 'OK' || !r.token) {
+        throw new Error((r.errors && r.errors[0] && r.errors[0].message) || 'Card not accepted.');
+      }
+      var resp = await fetch('/api/contract/card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          t: token,
+          source_id: r.token,
+          consent: document.getElementById('consent').checked === true,
+          agreed_name: document.getElementById('agreed-name').value.trim(),
+          agreed_email: document.getElementById('agreed-email').value.trim(),
+        }),
+      });
+      var d = await resp.json();
+      if (!d || !d.ok) throw new Error((d && d.error) || 'Could not save the card.');
+      show('ok', 'Card saved' + (d.brand && d.last4 ? ' — ' + d.brand + ' ending ' + d.last4 : '') +
+        '. Nothing has been charged. Your invoices can now be paid automatically.');
+      btn.textContent = 'Saved ✓';
+    } catch (e) {
+      show('err', (e && e.message) || 'Could not save the card.');
+      btn.textContent = 'Save card on file';
+      refreshBtn();
+    }
+  }
+
+  if (!token) { stopped('This link is missing its code. Ask Añejo for a new one.'); return; }
+  fetch('/api/contract/card?t=' + encodeURIComponent(token))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.ok) { stopped((d && d.error) || 'This link is not valid. Ask Añejo for a new one.'); return; }
+      draw(d);
+    })
+    .catch(function () { stopped('Could not reach Añejo. Please try again.'); });
+})();
+</script>
+</body>
+</html>
