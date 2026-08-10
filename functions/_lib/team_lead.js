@@ -25,6 +25,7 @@ import { loadBrand } from './brand_source.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from './bowlspec.js';
 import { trainingContext } from './training.js';
+import { buildRetrospective, renderRetrospective } from './retrospective.js';
 
 // Strategy is the one surface worth frontier tokens: it runs a handful of times a day, owner-
 // initiated, and its output steers every cheaper call downstream. But a model id in an env var
@@ -162,10 +163,15 @@ export async function buildSpine(env) {
   let training = '';
   try { training = await trainingContext(env, { maxChars: 4000 }); } catch { training = ''; }
 
+  // How the last round actually went, measured against what the briefs said they were for.
+  // Never throws — a broken retrospective must cost the Lead its memory, never its desk.
+  let retro = null;
+  try { retro = await buildRetrospective(env); } catch { retro = null; }
+
   return {
     brand: brand.text, brand_source: brand.source,
     menu: menuItems, other_items: otherItems,
-    metrics, drafts, budget, briefs, surfaces, training,
+    metrics, drafts, budget, briefs, surfaces, training, retro,
   };
 }
 
@@ -215,6 +221,10 @@ export function renderSpine(spine) {
   const briefLines = spine.briefs.length
     ? spine.briefs.map((b) => `- [${b.status}] ${b.title}${b.objective ? ' — ' + String(b.objective).slice(0, 100) : ''}`).join('\n')
     : '(none yet)';
+  // '' on a fresh install with no history — the prompt then reads exactly as it did before the
+  // learning loop was closed, rather than carrying an empty "here is how it went" heading.
+  const retroText = renderRetrospective(spine.retro);
+  const retroBlock = retroText ? retroText + '\n\n' : '';
   const briefHeader = spine.brand_source === 'd1'
     ? '=== AÑEJO BRAND BRIEF (live from the HUB, owner-maintained — the authority on voice and standards) ==='
     : '=== AÑEJO BRAND BRIEF (verbatim, the authority on voice and standards) ===';
@@ -223,7 +233,11 @@ export function renderSpine(spine) {
     '=== ON THE MENU RIGHT NOW (live prices + the kitchen build; the only items that exist) ===\n' +
     'Ingredient weights are the kitchen spec for a standard 16 oz bowl. Macros are approximate — ' +
     'never present them as precise or medical.\n' + menuLines + otherLines + '\n\n' +
-    '=== INSTAGRAM PERFORMANCE ===\n' + metricLines + '\n\n' +
+    // The retrospective sits ABOVE the raw numbers deliberately: §7 step 4 says the next planning
+    // session OPENS with how the last one went. Numbers underneath it are the detail behind the
+    // verdict, not a second, unreconciled account of the same week.
+    retroBlock +
+    '=== INSTAGRAM PERFORMANCE (the raw rows behind the read above) ===\n' + metricLines + '\n\n' +
     '=== DRAFT QUEUE ===\n' + draftLines + '\n\n' +
     (spine.surfaces
       ? '=== ORDERING SURFACES (fixed facts — use these, do not spend intel re-asking) ===\n' +
