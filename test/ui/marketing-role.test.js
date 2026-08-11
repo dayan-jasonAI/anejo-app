@@ -177,9 +177,13 @@ test('the optimistic bar is corrected once the real role is known', () => {
 // ---------- what she may reach ----------
 
 const DESK_APIS = ['team', 'team-training', 'team-training-upload', 'social', 'social-inbox',
-  'social-upload', 'social-autoreply', 'social-cadence-config', 'social-cleanup', 'social-drill',
+  'social-upload', 'social-cadence-config', 'social-cleanup', 'social-drill',
   'social-posting-times', 'campaigns', 'links', 'marketing-attribution', 'performance-alerts',
-  'trust', 'site-copy', 'partners', 'traffic', 'adoption', 'content'];
+  'site-copy', 'partners', 'traffic', 'adoption', 'content'];
+
+// Read-open, write-owner: she may SEE the state, but the write is the owner's approval authority
+// itself. Listed apart from DESK_APIS so a mixed guard reads as intended rather than half-done.
+const SPLIT_APIS = ['trust', 'social-autoreply'];
 
 test('the marketing, website, affiliate and content APIs admit the desk', () => {
   for (const name of DESK_APIS) {
@@ -187,6 +191,11 @@ test('the marketing, website, affiliate and content APIs admit the desk', () => 
     assert.match(src, /requireRole\(request, env, MARKETING_DESK\)/, `${name} must admit the desk`);
     assert.ok(!/requireRole\(request, env, \['owner'\]\)/.test(src),
       `${name} still has an owner-only guard — a half-widened endpoint 403s one verb and not the other`);
+  }
+  for (const name of SPLIT_APIS) {
+    const src = read(`../../functions/api/hub/owner/${name}.js`);
+    assert.match(src, /requireRole\(request, env, MARKETING_DESK\)/, `${name} must let her read the state`);
+    assert.match(src, /requireRole\(request, env, \['owner'\]\)/, `${name}'s write must stay owner-only`);
   }
 });
 
@@ -342,5 +351,37 @@ test('every file using a roles.js constant imports it', () => {
       assert.match(src, new RegExp(`import \\{[^}]*\\b${name}\\b[^}]*\\} from '[^']*roles\\.js'`),
         `${file.slice(root.length + 1)} uses ${name} without importing it`);
     }
+  }
+});
+
+// ---------- the owner's approval authority is not hers to hand herself ----------
+
+test('the two autonomy switches stay owner-only', () => {
+  // Both of these decide whether a HUMAN TAP is still required before something reaches a
+  // customer — trust_ledger.auto_publish for Instagram, social.auto_reply for Aña's replies.
+  // Both were widened to the desk in error on 2026-08-11. A role whose output is the thing
+  // being approved cannot also be the role that decides approval is no longer needed.
+  for (const [file, what] of [['trust.js', 'auto-publish'], ['social-autoreply.js', 'Aña auto-reply']]) {
+    const src = read(`../../functions/api/hub/owner/${file}`);
+    const post = src.slice(src.indexOf('onRequestPost'));
+    assert.match(post, /requireRole\(request, env, \['owner'\]\)/,
+      `the ${what} toggle must ask for the owner, not the desk`);
+    // ...while the GET stays hers, so she can see what still needs his eyes.
+    const get = src.slice(src.indexOf('onRequestGet'), src.indexOf('onRequestPost'));
+    assert.match(get, /requireRole\(request, env, MARKETING_DESK\)/,
+      `reading the ${what} state must stay available to her`);
+  }
+});
+
+test('she runs the affiliate programme but cannot pay an affiliate', () => {
+  // partners.js is hers in full EXCEPT the two ops that touch money. mark_paid settles what a
+  // partner is owed; authorizePayout's safeties answer "was this amount approved", not "may
+  // this person spend" — so the role check has to be here as well.
+  const P = read('../../functions/api/hub/owner/partners.js');
+  assert.match(P, /const ownerOnly = \(o\) => o === 'set_payout' \|\| o === 'mark_paid';/);
+  assert.match(P, /if \(ownerOnly\(op\) && ctx\.role !== 'owner'\)/);
+  // The programme ops stay hers — otherwise "she handles affiliates" means she can only look.
+  for (const op of ['onboard', 'create_code', 'set_code_status', 'resend_welcome']) {
+    assert.ok(!new RegExp(`ownerOnly[\\s\\S]{0,80}'${op}'`).test(P), `${op} must remain hers`);
   }
 });

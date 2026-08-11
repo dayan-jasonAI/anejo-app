@@ -143,6 +143,18 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   // --- Cash vs 1.5x Añejo credit.
+  // ---- The two money ops below are OWNER-ONLY, inside an endpoint the marketing desk may
+  // otherwise use in full. Running the affiliate PROGRAMME (onboarding, codes, resending a
+  // welcome) is the marketing expert's job; deciding how a partner is paid and settling what
+  // they are owed is not. `mark_paid` moves real money — it is double-gated by authorizePayout
+  // already, but the safeties answer "was this amount approved", not "may this person spend".
+  // Added 2026-08-11 with the marketing role: without it, widening this file handed her the
+  // payout button as a side effect of giving her affiliates.
+  const ownerOnly = (o) => o === 'set_payout' || o === 'mark_paid';
+  if (ownerOnly(op) && ctx.role !== 'owner') {
+    return bad('Only the owner can set or settle partner payouts.', 403);
+  }
+
   if (op === 'set_payout') {
     const pid = (b.partner_id || '').toString().trim();
     const method = ['cash', 'credit'].includes(b.payout_method) ? b.payout_method : null;
