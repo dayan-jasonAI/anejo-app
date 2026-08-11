@@ -15,6 +15,10 @@ export const SEGMENTS = {
   },
   past_customers: { label: 'Past customers', why: 'Anyone with a paid order. Existing business relationship.' },
   subscribers: { label: 'Active subscribers', why: 'Current weekly-plan members.' },
+  founder_legacy_members: {
+    label: 'Founder Legacy Members',
+    why: 'Launch-list members who have earned legacy standing with at least one paid order.',
+  },
   all: { label: 'Everyone reachable', why: 'The union of the above, de-duplicated by address.' },
   // A send-to-myself segment, so a real campaign can be rehearsed end to end — subject line,
   // paragraph breaks, the footer, the unsubscribe link — WITHOUT touching a customer. Every other
@@ -114,6 +118,19 @@ export async function resolveAudience(env, { segment, channel = 'email' }) {
       `SELECT c.name, c.email, c.phone, c.${consentCol} AS consent FROM clients c
         JOIN subscriptions s ON s.client_id = c.id WHERE s.status IN ('active','paused')`
     )) push(r, 'subscribers');
+  }
+  if (segment === 'founder_legacy_members') {
+    for (const r of await q(
+      `SELECT l.name, l.email, l.phone, l.${consentCol} AS consent
+         FROM leads l
+        WHERE l.kind='launch'
+          AND l.email IS NOT NULL AND TRIM(l.email) <> ''
+          AND EXISTS (
+            SELECT 1 FROM orders o
+             WHERE LOWER(TRIM(o.customer_email)) = LOWER(TRIM(l.email))
+               AND o.status IN ('paid','prep','ready','fulfilled')
+          )`
+    )) push(r, 'founder_legacy_members');
   }
 
   // Past customers come from `orders`, which has no marketing-consent column of its own. For SMS
