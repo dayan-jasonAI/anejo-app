@@ -108,6 +108,8 @@ export async function captureInstagramLead(env, { kind, threadId, igUserId, igUs
       const via = kind === 'comment' ? 'a public comment' : 'a DM';
       const res = await raiseAlert(env, {
         alert_type: 'social_commercial_lead',
+      // Her business as much as his (2026-08-11): she works these daily.
+      notifyRoles: ['marketing'],
         severity: 'warning', // a single enquiry needs a human; the day still runs — see ALERT_SEVERITIES in alerts.js
         title: `Instagram ${label} enquiry — ${who}`,
         body: `Via ${via}: "${trigger.slice(0, 200)}" — open it in the HUB: /hub/owner/leads.html#l=${leadId}`,

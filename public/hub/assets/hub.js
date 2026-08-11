@@ -224,6 +224,7 @@
       { key: 'traffic', ico: '📈', label: 'Traffic', href: '/hub/owner/traffic.html' },
       { key: 'adoption', ico: '🧭', label: 'Adoption', href: '/hub/owner/adoption.html' },
       { key: 'studio', ico: '🎨', label: 'Studio', href: '/studio/' },
+      { key: 'sms-test', ico: '📲', label: 'SMS test', href: '/hub/owner/sms-test.html' },
       { key: 'training', ico: '🎓', label: 'Training', href: '/hub/training?role=marketing' },
       { key: 'account', ico: '👤', label: 'Account', href: '/hub/account.html' },
       { key: 'mydata', ico: '🔒', label: 'My data', href: '/hub/my-activity.html' }

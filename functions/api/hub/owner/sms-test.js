@@ -3,11 +3,11 @@
 // Twilio is configured and what happened (sent / noop / failed), so you can confirm SMS works
 // without waiting for a real order. Logged to sms_log like any other send.
 import { json, bad, normalizePhone } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { sendSms, isTwilioConfigured } from '../../../_lib/twilio.js';
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
 
   let b;
