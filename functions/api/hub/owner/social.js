@@ -387,6 +387,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     const out = await generateCarouselSlides(env, {
       postId, caption: row.caption, imageBrief: row.image_brief, targetCount: b.count,
+      instruction: String(b.instruction || '').trim().slice(0, 400) || null,   // team-lead / owner steer for the story
     });
     if (!out.ok) {
       // Each reason gets its own sentence — see generate_cover's WHY table above for why a shared
@@ -409,8 +410,10 @@ export const onRequestPost = async ({ request, env }) => {
     });
     const message = out.added < out.requested
       ? `Added ${out.added} of ${out.requested} — the rest hit the weekly AI budget or a provider issue. Try again later for the remainder.`
-      : `Added ${out.added} photo${out.added === 1 ? '' : 's'} — ${out.slides} slides total.`;
-    return json({ ok: true, id: postId, added: out.added, requested: out.requested, slides: out.slides, message });
+      : `Added ${out.added} ${out.planned ? 'story frame' : 'photo'}${out.added === 1 ? '' : 's'} — ${out.slides} slides total.`;
+    // overlays = the Team Lead's per-slide wording (headline/sub) to PRE-FILL the branding tool,
+    // so the owner isn't retyping the story onto each frame. Empty when planning was unavailable.
+    return json({ ok: true, id: postId, added: out.added, requested: out.requested, slides: out.slides, message, planned: !!out.planned, overlays: out.overlays || [] });
   }
 
   // Reference-conditioned variant: the SAME real bowl photo, restyled surroundings only — the

@@ -34,9 +34,83 @@
 import { id, now, randToken } from './util.js';
 import { loadPostMedia } from './social_publish.js';
 import { generatePlateImageDetailed } from './plate_image.js';
-import { budgetGate } from './ai_budget.js';
+import { budgetGate, recordSpend } from './ai_budget.js';
 import { dishPromptFor, ORIGIN_AI } from './food_photo.js';
 import { CAROUSEL_MAX } from './instagram.js';
+
+const PLAN_MODEL = 'claude-sonnet-4-6';
+
+// Balanced-brace JSON scan (mirrors image_prompt.js — a _lib file must not import a routed api/ file).
+function extractJson(text) {
+  const s = String(text || '');
+  const a = s.indexOf('{'); if (a < 0) return null;
+  let d = 0;
+  for (let i = a; i < s.length; i++) {
+    if (s[i] === '{') d++;
+    else if (s[i] === '}' && --d === 0) { try { return JSON.parse(s.slice(a, i + 1)); } catch { return null; } }
+  }
+  return null;
+}
+
+// THE FIX for "generate the rest just clones the same bowl": the Team Lead reads the COVER (its
+// caption + art direction) plus any instruction, and PLANS the remaining frames as one story that
+// flows from the cover and ends on a CTA. Each frame returns a distinct on-brand food-photo `scene`
+// (varied dish/setting, not the same bowl re-angled) AND the short overlay text that carries the
+// narrative (headline/sub) — which the branding tool pre-fills, so a person isn't retyping it.
+// Returns an array of { role, headline, sub, scene } (length = count-1), or null to fall back to
+// the old angle-variant behavior (no key, budget closed, model error, or unparseable output).
+async function planCarouselFrames(env, { caption, imageBrief, instruction, count }) {
+  if (!env || !env.ANTHROPIC_API_KEY) return null;
+  const n = Math.max(1, Math.min(CAROUSEL_MAX - 1, Math.floor(count) - 1));
+  if (n < 1) return null;
+  try {
+    const gate = await budgetGate(env);
+    if (!gate.ok) return null;
+    const system =
+      "You are Añejo Catering Co.'s social Team Lead planning ONE Instagram carousel (premium " +
+      "Cuban-American longevity food brand, Palm Beach County; voice warm, polished, never medical, " +
+      "no health claims). Frame 1 (the cover) already exists. Plan the NEXT frames so the carousel " +
+      "reads as ONE story that continues the cover and ENDS on a call-to-action.\n" +
+      "Each frame is an on-brand FOOD PHOTO with SHORT text overlaid afterward — the photo itself " +
+      "carries NO text. Return, per frame:\n" +
+      '- "scene": a concrete food-photo direction (dish + setting + angle), VARIED per frame (never ' +
+      'the same bowl re-angled), and keep the UPPER THIRD calm/empty for the overlaid title.\n' +
+      '- "headline": <=6 words. "sub": <=140 chars (a short list may use " · " between items).\n' +
+      "If the cover is informational (e.g. \"Areas We Service\"), the body frames DELIVER that info " +
+      "(e.g. the cities/areas), matching the cover's theme. The LAST frame has role \"cta\" with an " +
+      "action headline (e.g. \"Order this week\", \"Tap the link in bio\") over a hero closing shot.\n" +
+      `Return ONLY JSON: {"frames":[{"role":"body|cta","headline":"...","sub":"...","scene":"..."}]} with EXACTLY ${n} frames; the last must be role "cta".`;
+    const user =
+      `COVER caption: ${caption ? String(caption).slice(0, 600) : '(none)'}\n` +
+      `COVER art direction: ${imageBrief ? String(imageBrief).slice(0, 400) : '(none)'}\n` +
+      `Team-lead / user instruction: ${instruction ? String(instruction).slice(0, 400) : '(none — infer the most fitting continuation from the cover)'}\n` +
+      `Plan the next ${n} frame(s).`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20000);
+    let data;
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: PLAN_MODEL, max_tokens: 1200, system, messages: [{ role: 'user', content: user }] }),
+        signal: ctrl.signal,
+      });
+      if (!r.ok) return null;
+      data = await r.json();
+    } finally { clearTimeout(timer); }
+    await recordSpend(env, { feature: 'carousel_plan', model: PLAN_MODEL, usage: data && data.usage }).catch(() => {});
+    const text = (data && data.content && data.content[0] && data.content[0].text) || '';
+    const parsed = extractJson(text);
+    const frames = parsed && Array.isArray(parsed.frames) ? parsed.frames : null;
+    if (!frames || !frames.length) return null;
+    return frames.slice(0, n).map((f, i) => ({
+      role: (i === n - 1 || f.role === 'cta') ? 'cta' : 'body',
+      headline: String(f.headline || '').trim().slice(0, 60),
+      sub: String(f.sub || '').trim().slice(0, 160),
+      scene: String(f.scene || '').trim().slice(0, 400),
+    })).filter((f) => f.scene);
+  } catch { return null; }
+}
 
 // Framing/detail-only variation — the plating style, lighting and palette come from the SHARED
 // grounding every call goes through (see file header), so these clauses deliberately say nothing
@@ -71,7 +145,7 @@ export const ANGLE_VARIANTS = [
  * LESS than `requested` — the weekly budget or a flaky provider can stop a batch partway through,
  * and that is reported honestly rather than padded or silently retried into a stuck request.
  */
-export async function generateCarouselSlides(env, { postId, caption, imageBrief, targetCount } = {}) {
+export async function generateCarouselSlides(env, { postId, caption, imageBrief, targetCount, instruction } = {}) {
   if (!env || !env.DB || !postId) return { ok: false, reason: 'missing_args' };
 
   const target = Math.floor(Number(targetCount));
@@ -81,17 +155,24 @@ export async function generateCarouselSlides(env, { postId, caption, imageBrief,
   if (existing.length >= CAROUSEL_MAX) return { ok: false, reason: 'carousel_full', slides: existing.length };
   if (existing.length >= target) return { ok: false, reason: 'already_at_target', slides: existing.length };
 
-  const prompt = dishPromptFor({ imageBrief, caption });
-  if (!prompt) return { ok: false, reason: 'no_prompt' };
+  // Plan the story first (Team Lead). Falls back to the angle-variant base prompt if planning is
+  // unavailable — so this is strictly an ADDITION over the old behavior, never a regression.
+  const plan = await planCarouselFrames(env, { caption, imageBrief, instruction, count: target });
+  const basePrompt = dishPromptFor({ imageBrief, caption });
+  if (!plan && !basePrompt) return { ok: false, reason: 'no_prompt' };
 
   const toAdd = Math.min(target - existing.length, CAROUSEL_MAX - existing.length);
   let seq = existing.length;
   let added = 0;
   const madeKeys = [];
+  const overlays = [];   // per-slide { seq, headline, sub, role } — pre-fills the branding wording
 
   for (let i = 0; i < toAdd; i++) {
-    const variant = ANGLE_VARIANTS[i % ANGLE_VARIANTS.length];
-    const slidePrompt = `${prompt} — ${variant}`.slice(0, 500);
+    // plan[0] is the 2nd slide overall (0-based seq 1), so a slide at seq S maps to plan[S-1].
+    const pf = plan && seq - 1 >= 0 && seq - 1 < plan.length ? plan[seq - 1] : null;
+    const slidePrompt = pf
+      ? pf.scene.slice(0, 500)
+      : `${basePrompt} — ${ANGLE_VARIANTS[i % ANGLE_VARIANTS.length]}`.slice(0, 500);
 
     // Same as ensureFoodPhoto: requireJpeg because Instagram accepts JPEG only and this Worker has
     // no image binding to transcode with; role 'photo' because the filename suffix IS how the
@@ -122,6 +203,7 @@ export async function generateCarouselSlides(env, { postId, caption, imageBrief,
           'INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,?,?,?,?)'
         ).bind(id('spm'), postId, seq, made.key, randToken(24), t).run();
       }
+      overlays.push({ seq, headline: pf ? pf.headline : '', sub: pf ? pf.sub : '', role: pf ? pf.role : 'body' });
       seq += 1;
       added += 1;
       madeKeys.push(made.key);
@@ -137,5 +219,5 @@ export async function generateCarouselSlides(env, { postId, caption, imageBrief,
   }
 
   if (!added) return { ok: false, reason: 'generation_failed', slides: existing.length };
-  return { ok: true, added, requested: toAdd, slides: existing.length + added, media_keys: madeKeys };
+  return { ok: true, added, requested: toAdd, slides: existing.length + added, media_keys: madeKeys, overlays, planned: !!plan };
 }
