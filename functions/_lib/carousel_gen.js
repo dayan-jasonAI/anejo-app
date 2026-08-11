@@ -192,16 +192,26 @@ export async function generateCarouselSlides(env, { postId, caption, imageBrief,
     }
 
     const t = now();
+    const spmId = id('spm'), tok = randToken(24);
+    const oHead = pf ? (pf.headline || null) : null;   // Team-Lead wording stored ON the slide so
+    const oSub = pf ? (pf.sub || null) : null;          // the branding tool pre-fills it (0091).
     try {
       try {
         await env.DB.prepare(
-          'INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at, origin) VALUES (?,?,?,?,?,?,?)'
-        ).bind(id('spm'), postId, seq, made.key, randToken(24), t, ORIGIN_AI).run();
+          'INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at, origin, overlay_headline, overlay_sub) VALUES (?,?,?,?,?,?,?,?,?)'
+        ).bind(spmId, postId, seq, made.key, tok, t, ORIGIN_AI, oHead, oSub).run();
       } catch {
-        // Pre-0076 schema (deploy window) — the slide matters more than the badge on it.
-        await env.DB.prepare(
-          'INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,?,?,?,?)'
-        ).bind(id('spm'), postId, seq, made.key, randToken(24), t).run();
+        try {
+          // Pre-0091 schema (has origin, no overlay columns).
+          await env.DB.prepare(
+            'INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at, origin) VALUES (?,?,?,?,?,?,?)'
+          ).bind(spmId, postId, seq, made.key, tok, t, ORIGIN_AI).run();
+        } catch {
+          // Pre-0076 schema (deploy window) — the slide matters more than the badge on it.
+          await env.DB.prepare(
+            'INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,?,?,?,?)'
+          ).bind(spmId, postId, seq, made.key, tok, t).run();
+        }
       }
       overlays.push({ seq, headline: pf ? pf.headline : '', sub: pf ? pf.sub : '', role: pf ? pf.role : 'body' });
       seq += 1;
