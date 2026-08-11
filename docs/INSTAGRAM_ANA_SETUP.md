@@ -1,9 +1,13 @@
-# Getting Aña live on Instagram — Meta setup & App Review checklist
+# Aña on Instagram — status & the Ice-Breakers delta
 
-Aña's brain and inbound flow are already built (`_lib/ana_social.js`, `webhooks/instagram.js`,
-`social-inbox-tick.js`, auto-reply toggle). What's left to make her answer DMs on the real
-account is a **Meta app + permissions + App Review + connecting the account**. This is Meta's
-process, not code — follow it top to bottom.
+> **Aña is already LIVE.** She has her own Meta app and has been replying to DMs and comments on
+> the real Instagram account for a week. We are **NOT** creating a new app or a new agent. The only
+> new thing here is **Ice Breakers** (the tappable welcome) — Steps 1–6 below are reference/verify
+> only; the one action item is Step 7.
+
+**Delta to activate the new welcome:** in the existing Meta app's Webhooks, make sure
+**`messaging_postbacks`** is subscribed (so button taps reach Aña), then publish the ice breakers
+(Step 7). Nothing else changes.
 
 ## What Aña can and cannot do (the rules, so nothing here surprises you)
 - ✅ **Reply to anyone who DMs, comments, or replies to a story** — within 24 hours of their message.
