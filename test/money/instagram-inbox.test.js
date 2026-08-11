@@ -114,8 +114,25 @@ test('a retried delivery is stored once, and draws no second reply', () => {
 
 test('our own echoed messages are not treated as the customer writing', () => {
   // An echo would reset the 24-hour window on our OWN reply and look like a new inbound.
+  //
+  // Pinned as three PROPERTIES rather than one literal line. The guard used to read
+  // `if (!mid || !fromId || isEcho) continue` on one line; the ice-breaker/postback work moved
+  // the sender check earlier (the postback branch needs fromId before a mid exists) and the
+  // combined literal stopped matching — a red build for a refactor that changed no behaviour.
+  // What actually has to stay true is that a DM with no sender, no id, or an echo flag never
+  // reaches ingest().
   assert.match(HOOK, /const isEcho = !!\(m && m\.message && m\.message\.is_echo\)/);
-  assert.match(HOOK, /if \(!mid \|\| !fromId \|\| isEcho\) continue/);
+
+  const dmLoop = HOOK.slice(HOOK.indexOf('for (const m of entry.messaging'), HOOK.indexOf('// --- Comments and mentions'));
+  assert.match(dmLoop, /if \(!fromId\) continue/, 'a DM with no sender is skipped');
+  assert.match(dmLoop, /if \([^)]*!mid[^)]*\) continue/, 'a DM with no message id is skipped');
+  assert.match(dmLoop, /if \([^)]*isEcho[^)]*\) continue/, 'our own echo is skipped');
+  // …and the echo check must guard the ingest call, not sit somewhere decorative. Scoped to the
+  // plain-message branch: the postback branch above has its own earlier ingest, and comparing
+  // against that one compares the guard to an unrelated call.
+  const plainMessage = dmLoop.slice(dmLoop.indexOf('const mid ='));
+  assert.ok(plainMessage.indexOf('isEcho') < plainMessage.indexOf('seen.push'),
+    'the echo guard must precede the ingest it protects');
 });
 
 // ---------- it lands where the team already looks ----------

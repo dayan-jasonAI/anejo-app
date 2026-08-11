@@ -1,13 +1,21 @@
 # Añejo HUB — Marketing Expert: Complete System Handoff
 
 **Purpose of this document.** Everything true about the Marketing Expert role in the Añejo HUB as of
-**2026-08-11**, written so it can be turned into an onboarding package, a user manual, a role scope,
-and a metrics sheet without anyone having to read the code.
+**2026-08-11 (second revision)**, written so it can be turned into an onboarding package, a user
+manual, a role scope, and a metrics sheet without anyone having to read the code.
+
+**What changed in this revision.** Dayan ruled on the open questions and asked for more, and it all
+shipped: SMS test added to her remit; a **time trace** of engaged work (still no clock-in); an
+**end-of-session report** to the owner; **improvement requests** as a tracked object with a status;
+**push notifications that actually reach her** (a real bug — his replies were waking nobody); **action
+cards** on his alerts so a decision carries the way to make it; and her desk rebuilt as a studio.
+Three authority leaks were closed. Sections 8, 10, 14 and 16 changed the most.
 
 **Read this first:** every statement below is drawn from the shipped code, not from intent. Where
 something does not exist, this document says so plainly rather than describing what it *should* do.
-The section **"Known gaps — what does NOT exist"** is the most important section for planning, and
-**"Decisions Dayan still owes"** lists four things nobody has ruled on yet.
+For planning, the two sections that matter most are **§14 Limitations** (what the system cannot do,
+including four things that are not built at all) and **§16.2 Still open** — three decisions nobody
+has ruled on, one of which is the Marketing Expert's own compensation.
 
 **Audience:** Dayan (owner), the incoming Marketing Expert, and whatever tool builds the onboarding
 package from this file.
@@ -17,8 +25,8 @@ package from this file.
 | Role key (in the system) | `marketing` |
 | Team key | `marketing` |
 | Landing surface | `https://anejocateringco.com/hub/marketing/` |
-| Shipped in | PR #39, merged to `main` 2026-08-11 |
-| Status | **Live in production**, except one migration (see §14) |
+| Shipped in | PRs #39 and #40, both merged to `main` 2026-08-11 |
+| Status | **Live in production**, except two migrations (see §2.1) |
 
 ---
 
@@ -44,7 +52,8 @@ This is deliberately not a second owner account. The role **cannot reach**:
 - The customer book (`customers`), data-erasure requests (`purge`)
 - Staff administration (adding/editing/deactivating staff, resetting PINs)
 - Driver schedule, routes, deliveries, dispatch
-- The two **autonomy switches** (see §7) and **affiliate payouts** (see §5.4)
+- The two **autonomy switches** (see §7), **affiliate payouts**, and **affiliate commission terms**
+  (see §5.4)
 
 Attempting any of these returns HTTP **403 Forbidden** from the API, and the HUB redirects her back
 to her own desk. This is enforced server-side, not just hidden in the UI, and there are automated
@@ -62,25 +71,36 @@ tests that fail the build if any of it is widened by accident
 
 ## 2. Registration and setup (do this before her first day)
 
-### 2.1 Prerequisite: apply the migration
+### 2.1 Prerequisite: apply the migrations
 
-**This has not been done yet.** Until it is, her daily-run checks will not save.
+**Neither has been applied yet.** This is the single most important item on the list.
 
 ```bash
-CLOUDFLARE_API_TOKEN=$(cat Aether/cf-dns-token) \
-CLOUDFLARE_ACCOUNT_ID=5f4657e9b2f17a109f7c0406be0c7119 \
+export CLOUDFLARE_API_TOKEN=$(cat Aether/cf-dns-token)
+export CLOUDFLARE_ACCOUNT_ID=5f4657e9b2f17a109f7c0406be0c7119
 npx wrangler d1 execute anejo --remote --file=migrations/0089_marketing_desk.sql
+npx wrangler d1 execute anejo --remote --file=migrations/0090_marketing_desk_ops.sql
 ```
 
-Verify:
+Verify all four tables:
 
 ```bash
-npx wrangler d1 execute anejo --remote \
-  --command="SELECT name FROM sqlite_master WHERE name='marketing_daily_runs';"
+npx wrangler d1 execute anejo --remote --command="SELECT name FROM sqlite_master WHERE name IN \
+  ('marketing_daily_runs','marketing_sessions','improvement_requests','partner_applications');"
 ```
 
-Everything else about the role works without it — she can sign in, open every page, and use "Tell
-the owner". Only the seven daily-run checkboxes fail to persist.
+⚠️ **The failure mode here is silent, which is why it matters.** The code catches the missing
+tables rather than erroring, so the desk *looks* fine — it opens, the checks render, the buttons
+respond. Nothing persists. Her first day would leave no trace at all.
+
+Without them: the daily run, the time trace and the requests board all record nothing. With them,
+everything in this document works.
+
+**Note — two files are numbered `0090`.** `0090_marketing_desk_ops.sql` (this role) and
+`0090_partner_application_decisions.sql` (the affiliate auto-flow, built in parallel by another
+session). Both apply cleanly because they are run by explicit filename, and neither touches the
+other's tables. Apply the partner one too if it has not been:
+`npx wrangler d1 execute anejo --remote --file=migrations/0090_partner_application_decisions.sql`
 
 ### 2.2 Create her account
 
@@ -140,7 +160,7 @@ have full Spanish. Her role appears as `marketing` in both languages (the word i
 
 ### 2.8 Onboarding checklist (day one)
 
-- [ ] Migration applied (§2.1)
+- [ ] **Both migrations applied (§2.1)** — nothing records without them
 - [ ] Account created, role `marketing`, team `marketing`, **Team lead ticked**
 - [ ] PIN handed over in person
 - [ ] She has signed in and set her own PIN
@@ -148,7 +168,8 @@ have full Spanish. Her role appears as `marketing` in both languages (the word i
 - [ ] Language set to her preference
 - [ ] She has completed the **tutorial** at `/hub/training?role=marketing`
 - [ ] She has the **printed quick card** from `/hub/training-card.html?role=marketing`
-- [ ] Push notifications enabled (Account → Enable notifications)
+- [ ] Push notifications enabled (Account → Enable notifications) — she now receives his replies
+      and her own alerts, so this is no longer optional decoration
 - [ ] Dayan has confirmed her training completion on **Training compliance**
 - [ ] Decisions in §16 answered
 
@@ -175,6 +196,7 @@ Behind **⋯ More**:
 | Tile | Destination | What it is |
 |---|---|---|
 | ⚙️ Marketing settings | `/hub/owner/marketing-settings.html` | Cadence, posting times, image providers, market intel |
+| 📲 SMS test | `/hub/owner/sms-test.html` | Send a test SMS — added to her remit 2026-08-11 |
 | 📚 Content | `/hub/owner/content.html` | Document library + Creative Studio briefs |
 | 📈 Traffic | `/hub/owner/traffic.html` | First-party website analytics |
 | 🧭 Adoption | `/hub/owner/adoption.html` | Is the team actually using the HUB |
@@ -183,15 +205,29 @@ Behind **⋯ More**:
 | 👤 Account | `/hub/account.html` | Change PIN, notifications, sign out |
 | 🔒 My data | `/hub/my-activity.html` | Everything the system has logged about her |
 
-### 3.2 Today — her desk (`/hub/marketing/`)
+### 3.2 Today — her desk, "the Studio" (`/hub/marketing/`)
 
-Four sections, top to bottom:
+Rebuilt 2026-08-11 as a studio rather than a dashboard. Dayan's framing: *"this is the HEART of the
+company... it produces every emotion and experience we want our face to show."* A checklist that
+looks like a form does not put anyone in the frame of mind to make the brand's face.
 
-1. **Today's run** — the seven checks (§4). Progress reads `n/7 checked`.
-2. **Close the run** — a note field for Dayan and the close button.
-3. **Tell the owner** — her direct feedback route (§8.1).
-4. **Last two weeks** — a strip of the last 14 runs; green = clean, red = had issues, with the
+Top to bottom:
+
+1. **The stage** — a dark editorial band: "Our face to the world." Sets what the surface is for.
+2. **The live session strip** — engaged time worked today, a pulsing dot while the session is live,
+   and the **End session & report** button (§10).
+3. **Today's run** — the seven checks (§4) with a gold progress rail. A row dims when answered
+   `ok` and picks up a red wash when answered `issue`, so the state of the run is legible without
+   reading it.
+4. **Close the run** — a note field for Dayan and the close button.
+5. **Tell the owner** — her direct feedback route (§8.1).
+6. **Requests to Dayan** — the improvement-request board (§8.2), with every request's status and
+   his reason on it.
+7. **Last two weeks** — a strip of the last 14 runs; green = clean, red = had issues, with the
    issue count. Hovering a chip shows that day's note.
+
+Every colour is an existing Añejo brand token — the studio is a different *arrangement* of the
+palette, never a second palette. All motion is disabled under `prefers-reduced-motion`.
 
 ### 3.3 Marketing workspace (`/hub/owner/marketing.html`)
 
@@ -220,14 +256,19 @@ One page, three tabs, hash-routed so links work:
 ### 3.4 Affiliate (`/hub/owner/partners.html`)
 
 - **Onboard** a partner
+- **Approve or decline an application in one tap** — the auto-flow (added 2026-08-11 alongside this
+  role) sends an instant confirmation on application, and the approve/decline decision goes out as
+  a warm email without retyping anything
 - **Create discount codes** — three kinds: `campaign` (shareable, optional limits), `customer`,
   `affiliate`
 - **Activate/deactivate** a code
 - **Resend** a partner's welcome
 - **Read** what each partner is owed
-- ❌ **Cannot** set a payout method or settle what is owed — owner only (§5.4)
+- ❌ **Cannot** set a payout method, set a commission rate, or settle what is owed — owner only
+  (§5.4). She approves the *partner*; Dayan sets the *terms*.
 
-Public application form: `/affiliate.html` → files a `partner_application` alert.
+Public application form: `/affiliate.html` → files a `partner_application` alert, which now carries
+a deep-link push and one-tap approve/decline.
 
 ### 3.5 Site copy (`/hub/owner/site-copy.html`)
 
@@ -242,7 +283,8 @@ Edits **live text on the public website** with no deploy.
 - Also holds the **legal blocks**
 - A **"restore the shipped page"** action reverts to what was deployed
 
-⚠️ Changes here are **live to customers immediately**. See §16 Decision 2.
+⚠️ Changes here are **live to customers immediately** — no approval step, no undo history. Dayan
+ confirmed this is intended (§16.1 D2).
 
 ### 3.6 Marketing settings (`/hub/owner/marketing-settings.html`)
 
@@ -353,6 +395,7 @@ of her lists — he can always see and do what she can.
 | Attribution | `/api/hub/owner/marketing-attribution` | ✅ Read |
 | Performance alerts | `/api/hub/owner/performance-alerts` | ✅ Read |
 | Site copy | `/api/hub/owner/site-copy` | ✅ Read + write (**live** — §16 D2) |
+| SMS test | `/api/hub/owner/sms-test` | ✅ Full — added 2026-08-11 |
 | Content library | `/api/hub/owner/content` | ✅ Read + write |
 | Affiliates | `/api/hub/owner/partners` | ✅ Except payouts (§5.4) |
 | Traffic | `/api/hub/owner/traffic` | ✅ Read |
@@ -363,6 +406,8 @@ of her lists — he can always see and do what she can.
 | Push notifications | `/api/hub/push/*` | ✅ Full |
 | Her own training | `/api/hub/training/complete` | ✅ Full |
 | Her daily run | `/api/hub/marketing/run` | ✅ Full |
+| Her session / time trace | `/api/hub/marketing/session` | ✅ Full |
+| Improvement requests | `/api/hub/marketing/requests` | ✅ File + read. **Deciding is owner-only** |
 | Her own activity log | `/api/hub/me/activity` | ✅ Read |
 | **Finance / payouts / autopay / pricing / invoices / expenses** | various | ❌ **403** |
 | **Kitchen / orders / order actions / kitchen audit** | various | ❌ **403** |
@@ -379,27 +424,39 @@ payout ops are widened. This is not documentation-only.
 
 ### 5.4 The affiliate money carve-out
 
-`partners.js` is hers **except** two operations, which return 403 for her:
+`partners.js` is hers **except** the parts that decide money:
 
-- `set_payout` — how a partner is paid (cash or credit)
-- `mark_paid` — settling everything a partner is owed
+- `set_payout` — how a partner is paid (cash or credit) → **403 for her**
+- `mark_paid` — settling everything a partner is owed → **403 for her**
+- `commission_pct` / `payout_method` **anywhere they are accepted** — including on `onboard` and on
+  the one-tap `approve_application` — are ignored for anyone who is not the owner and fall back to
+  the house default (10%, cash).
 
 `mark_paid` moves real money. It is already double-gated (the payouts switch must be on, and the
 exact total must carry an unused approval), but those safeties answer *"was this amount approved"*,
 not *"may this person spend"* — so the role check is separate and explicit.
 
+**Why the third bullet exists.** The one-tap approve/decline flow was built in parallel by another
+session and lands *before* the payout guard in the same handler, and it accepts a commission rate.
+That is `set_payout` by another name: without the fallback, "she handles affiliates" would quietly
+have included signing one at 50%. She keeps the **act** — approve, decline, onboard; Dayan keeps
+the **numbers**. Pinned by a test, because the two features are maintained independently and this
+will drift again otherwise.
+
 ---
 
 ## 6. Communication — every channel, in both directions
 
-### 6.1 The four routes
+### 6.1 The six routes
 
 | # | Route | Her → Dayan | Dayan → Her | Best for |
 |---|---|---|---|---|
-| 1 | **Tell the owner** (Today) | ✅ | — | Findings, problems, improvement requests |
-| 2 | **Daily run note** | ✅ | — | The day's summary |
-| 3 | **Comms / Messages** | ✅ | ✅ | Two-way conversation, questions, direction |
-| 4 | **Push notification** | — | ✅ | Waking her device |
+| 1 | **Tell the owner** (Today) | ✅ | — | A finding: something is wrong, right now |
+| 2 | **Requests to Dayan** (Today) | ✅ | ✅ | A change to the system. Tracked until he decides |
+| 3 | **End-of-session report** | ✅ | — | What she did, obstacles, good/bad news, feedback |
+| 4 | **Daily run note** | ✅ | — | The day's one-line summary, attached to the run |
+| 5 | **Comms / Messages** | ✅ | ✅ | Two-way conversation, questions, direction |
+| 6 | **Push notification** | ✅ | ✅ | Waking either device — now genuinely both ways |
 
 ### 6.2 Comms is genuinely two-way
 
@@ -422,8 +479,21 @@ No message content ever rides in the push payload.
 
 - She enables it herself: **Account → Enable notifications** (requires the PWA install on iOS)
 - Fan-out targets staff IDs, roles, or emails
-- **Note:** alerts raised by the system currently tickle `roles: ['owner']` only. She is not
-  push-notified when Dayan replies. See §16 Decision 3.
+
+**Fixed 2026-08-11 — a real bug, not a missing feature.** When a staffer opens a thread, the routing
+sets `staff_id` to the **owner** (staff always reach the front office) and `created_by` to the
+staffer. The push logic then asked "is `staff_id` someone other than the sender?" — no, on his reply
+it is him — and fell through to "is the sender not the owner?" — also no. **Both branches missed and
+nobody was woken.** She was never told she had an answer, on any thread she started. It now targets
+the other *participant* rather than guessing by role.
+
+**She now also receives**, on her own device:
+- Instagram performance signals (soft post, weak run, follower trend, silence)
+- A high-confidence commercial DM captured as a lead
+- A trust lane reaching eligibility (it is her streak)
+
+Alerts carry an opt-in `notifyRoles`, so this is per-alert rather than "wake the whole roster" —
+the owner is always included and extras never replace him.
 
 ---
 
@@ -438,7 +508,8 @@ states — `draft` → `scheduled` → `publishing` → `published` — and each
 pressing something. Email campaigns must be composed, previewed, and sent.
 
 **What this means in practice:** she is the human doing the tapping for day-to-day marketing. This
-is per-item authority, not autonomy — but it is *her* tap, not Dayan's. See §16 Decision 1.
+is per-item authority, not autonomy — but it is *her* tap, not Dayan's, and he confirmed that is
+intended (§16.1 D1).
 
 ### 7.2 Mechanism 2 — the trust ledger (earned autonomy)
 
@@ -454,6 +525,14 @@ Five lanes: `menu`, `macro_portal`, `catering`, `brand_story`, `promo`.
 
 **She can see the ledger; she cannot flip it.** A role whose output is the thing being approved
 cannot be the role that decides approval is no longer needed.
+
+**The lane now announces itself (2026-08-11).** The moment a lane earns its fifth clean approval it
+raises a `trust_lane_eligible` alert — push to his phone, plus an **action card** carrying a button
+straight to the switch. He cannot flip a switch nobody told him about, and a lane could otherwise
+sit at the bar indefinitely because nobody mentioned it. Deduped per lane: eligibility is a *state*,
+not an event, so re-announcing it on every further approval would train him to ignore the one alert
+that asks him for a decision. She is notified too — it is her streak, and she is the one who will
+ask him about it.
 
 ### 7.3 Mechanism 3 — Aña's auto-reply mode
 
@@ -482,13 +561,15 @@ amount carrying an unused approval. Refusals leave rows pending and are recorded
 | Change cadence, posting times, image providers | **Her** |
 | **Enable auto-publish for a lane** | **Dayan only** |
 | **Turn Aña's auto-reply on/off** | **Dayan only** |
-| **Set a partner's payout method** | **Dayan only** |
+| Approve or decline an affiliate application | **Her** |
+| **Set a partner's commission rate or payout method** | **Dayan only** |
 | **Settle what a partner is owed** | **Dayan only** |
+| **Decide an improvement request** | **Dayan only** |
 | Anything touching finance, kitchen, customers, staff | **Dayan only** |
 
 ---
 
-## 8. Her two routes to Dayan, in detail
+## 8. Her routes to Dayan, in detail
 
 ### 8.1 Direct feedback — "Tell the owner"
 
@@ -508,25 +589,69 @@ not a repeat.
 
 **Guidance for her:** send it when she finds it. Do not save it up for the run close.
 
-### 8.2 System improvement / update requests
+### 8.2 System improvement / update requests — the Requests board
 
-There is **no separate "feature request" route.** This is a real gap, and the honest answer is that
-improvement requests go through one of two existing channels:
+**Built 2026-08-11.** This used to share the alert feed with findings; it no longer does, because
+they are different objects with different lifetimes.
 
-| Kind of request | Route | Why |
-|---|---|---|
-| "This is broken / this is costing us output" | **Tell the owner**, warning severity | Lands as an actionable alert |
-| "We should build/change X" | **Tell the owner** (info) *or* **Comms thread** | Info alerts are the low-urgency lane; a thread is better when it needs discussion |
+> A finding ("the bio link is dead") is read once, acted on, acknowledged — an alert is exactly
+> right. A request ("we should be able to schedule Stories") has no natural end: it is open until
+> somebody decides, and the person who filed it needs to see **that** it was decided. Sharing the
+> alert feed meant every request was acknowledged into silence, which teaches the person filing
+> them to stop.
 
-**Recommended convention** (a process, not a feature — adopt it, do not expect the system to
-enforce it):
+**On her desk**, under **Requests to Dayan**:
 
-- Prefix improvement requests with **`IMPROVEMENT:`** in the title
-- Prefix bugs with **`BUG:`**
-- Prefix questions with **`Q:`**
+| Field | Notes |
+|---|---|
+| **Kind** | `Improvement` · `Bug` · `Question` |
+| **Title** | Required, max 160 chars |
+| **Why it matters** | Optional, max 4000 chars |
 
-That makes them greppable in Dayan's alert feed and separable when someone builds the real thing
-later. See §16 Decision 4.
+**The lifecycle**, which only Dayan can move:
+
+| Status | Meaning |
+|---|---|
+| `open` | He has not decided. It stays on the board. |
+| `accepted` | He wants it. |
+| `declined` | He does not — **with a reason, shown back to her verbatim** |
+| `shipped` | It exists now. |
+
+**Declining is a first-class outcome.** A decided request is a served request; the failure mode this
+route exists to prevent is the *unanswered* one.
+
+**How he decides:** the board renders Accept / Decline / Shipped buttons **only for him**, and the
+filing alert carries an action card straight to it. She files and reads; she cannot decide her own
+request, or the status would mean nothing.
+
+**Guidance for her:** use *Tell the owner* when something is broken today; use *Requests* when the
+system itself should change. If in doubt, a request is safer — it will not get lost.
+
+---
+
+### 8.3 The end-of-session report
+
+**Built 2026-08-11**, at Dayan's request: *"an update report at the end of her session... the works
+she did, the obstacles she ran into, any good news and bad news... feedback is very important and it
+also gives a sense of accountability."*
+
+She taps **End session & report** on the studio's session strip. Five named questions:
+
+1. **What you got done**
+2. **What got in the way**
+3. **Good news**
+4. **Bad news**
+5. **Feedback**
+
+Five fields rather than one box on purpose: *a person asked five specific things answers five; a
+person given a blank field writes "all good".* Anything left blank is simply omitted.
+
+**What Dayan gets:** an alert titled `Marketing update — N min worked`, carrying the answers and the
+**engaged minutes from the time trace** (§10), plus a push. Severity is `info` normally and
+**`warning` when the report carries bad news**, so the feed's colour says which reports need him
+today.
+
+Submitting closes the session. There is no reopen — the next sitting starts a new one.
 
 ---
 
@@ -534,9 +659,14 @@ later. See §16 Decision 4.
 
 ### 9.1 Daily — 30 seconds
 
-1. Open `/hub/owner/` — **Alerts**: any `marketing_feedback` items are hers
-2. Open `/hub/marketing/` — he has full access; the **Last two weeks** strip shows at a glance
-   whether runs are being closed and whether they are clean
+1. Open `/hub/owner/` — **Alerts**. Hers are `marketing_feedback` (a finding),
+   `marketing_session_report` (her end-of-session update, with minutes worked),
+   `improvement_request` (a request awaiting his decision) and `trust_lane_eligible` (a switch
+   waiting on him). **Each carries a button to the place the decision is made** — see §9.8.
+2. Open `/hub/marketing/` — he has full access; the session strip shows time worked today and the
+   **Last two weeks** strip shows whether runs are being closed and whether they are clean.
+
+He does not have to go looking: everything above also pushes to his phone.
 
 ### 9.2 The run record itself
 
@@ -560,6 +690,19 @@ throughout, so automation cannot inflate it.
 tutorial, with the timestamp and the language they took it in. Her marketing module appears here.
 **Owner-only** — she cannot see her own compliance row from that screen.
 
+### 9.5b Time worked
+
+`marketing_sessions` records every sitting: when it started, when it ended, and **engaged seconds**.
+See §10 for why that number is trustworthy. Visible on her desk (today's total, live) and carried
+on every end-of-session report.
+
+### 9.5c Session reports and the requests board
+
+- Every **end-of-session report** is an alert and a row — the answers are kept, not just announced.
+- The **requests board** shows every request and its status. An `open` count that grows week over
+  week is the clearest early signal that he has stopped deciding, which is the failure this route
+  was built to prevent.
+
 ### 9.6 Result metrics she is accountable for
 
 All available to both of them:
@@ -582,41 +725,86 @@ pending checkouts do not. This is the honest number.
 
 | When | What |
 |---|---|
-| Daily (2 min) | Alerts + did yesterday's run close |
-| Weekly (20 min) | Two-week strip, tracked-link clicks → attributed orders, trust streaks, AI spend |
+| Daily (2 min) | Alerts + did yesterday's run close + any session report |
+| Weekly (20 min) | Two-week strip, time worked, open requests, tracked-link clicks → attributed orders, trust streaks, AI spend |
 | Monthly (45 min) | Traffic trend, campaign performance, affiliate growth, cadence adjustments |
+
+### 9.8 Action cards — alerts that carry their own next step
+
+**Built 2026-08-11.** An alert that *asks* him for something now renders a button to the place the
+thing is done. Acknowledging "this lane earned auto-publish" with no route to the switch is how a
+decision sits unmade for a month — he reads it on his phone, means to act, and the card is gone.
+
+| Alert | Button goes to |
+|---|---|
+| `trust_lane_eligible` | The trust cockpit — the switch itself |
+| `improvement_request` | The requests board, to decide it |
+| `marketing_session_report` / `marketing_feedback` | Her studio |
+| `social_commercial_lead` | The lead |
+| `partner_application` | The application, for one-tap approve/decline |
+| `marketing_review_ready` | The Instagram queue — **registered but nothing raises it yet, see §14** |
+
+Alerts with no real next action stay Ack-only, deliberately: if every card had a button, a button
+would stop meaning anything.
 
 ---
 
-## 10. Clock-in / clock-out and EOD — the honest answer
+## 10. Time tracking — a trace, not a timeclock
 
-### 10.1 There is no clock-in for this role
+### 10.1 There is still no clock-in, and that is deliberate
 
-Time clock exists **only for kitchen and driver** (`/api/hub/kitchen/clock-in`,
-`/api/hub/driver/clock-in`). Those write to the `shifts` table, which is what feeds the owner's
-"On shift now" tile and the lateness tracking.
+Dayan's ruling: *"i don't need her to clock in or out but I do need a time log or time trace of her
+activity and time actively working in the hub."*
 
-**The marketing role has no clock-in, no clock-out, no shift record, and will never appear in
-"On shift now."** This was not an oversight in her build — the timeclock is tied to hourly food-ops
-work and she is not that. But it does mean:
+The kitchen/driver timeclock (`shifts`) is the wrong shape for this role — it is a shift a person
+starts and ends, tied to hourly food ops, and it drives lateness tracking and the "On shift now"
+roster. **She has no clock-in button, writes no shift row, and will never appear in "On shift
+now."** She is not on payroll (§16 D5).
 
-- ❌ Hours worked are not tracked by the system
-- ❌ Lateness is not tracked
-- ❌ She does not appear in the on-shift roster
+### 10.2 What exists instead — the engaged-time trace
 
-### 10.2 There is no EOD report for this role either
+**Built 2026-08-11.** A session opens **by itself** the first time she touches the desk and is kept
+alive by a heartbeat every 60 seconds. She never starts or stops anything; the only deliberate act
+is ending it with a report.
 
-`/api/hub/kitchen/eod/submit` and `/api/hub/driver/eod/submit` are role-specific. There is no
-marketing EOD.
+### 10.3 Why the number is trustworthy — read this before quoting it
 
-### 10.3 What replaces both
+The recorded figure is **engaged seconds accrued per heartbeat**, not `ended_at - started_at`.
+That distinction is the whole point:
 
-**The daily run is her attendance record and her EOD in one.** A closed run with a timestamp is
-evidence that she worked the system that day; the note is her end-of-day report. The two-week strip
-is her attendance history.
+| Situation | Wall clock would say | What is recorded |
+|---|---|---|
+| 90 min of steady work | 90 min | **90 min** |
+| Tab open through a 2-hour lunch | +120 min | **0 for the gap** |
+| Laptop left open overnight | ~10 hours | **0** |
+| Phone locked mid-session | counts | **0 for the gap** |
 
-**If Dayan needs actual hours** (for payroll, or because she is hourly rather than salaried), that
-is a build, not a setting. See §16 Decision 5.
+Three rules make that true:
+
+1. **A gap wider than 5 minutes contributes zero.** A heartbeat further apart than that is treated
+   as her having walked away.
+2. **The client stops beating on a hidden tab.** A backgrounded tab cannot hold a session open.
+3. **A session silent for 30 minutes is closed where it stopped, not where we noticed.** Its
+   `ended_at` is the last heartbeat, so nothing is invented after the fact.
+
+This is verified by executed tests, not by reading the code: `test/marketing/session-time.test.js`
+simulates a working day with a two-hour lunch and asserts **135 minutes, not 255**.
+
+### 10.4 What it does NOT do
+
+- ❌ It is not payroll-grade and is not meant to be. It measures HUB engagement, not work done
+  away from the HUB (a shoot, a call, editing in Canva).
+- ❌ It cannot tell focused work from an idle-but-moving tab within the 5-minute window.
+- ❌ No lateness, no schedule, no expected hours — the system has no opinion about when she works.
+
+**How to read it:** as evidence of engagement and a trend line, not as a timesheet. "She closed a
+run every weekday and logged 40–60 minutes a day" is the question it answers well.
+
+### 10.5 There is still no EOD report for this role
+
+`/api/hub/kitchen/eod/submit` and `/api/hub/driver/eod/submit` are role-specific. **The
+end-of-session report (§8.3) is her EOD**, and it is richer: it carries the time worked and asks
+five questions instead of a form.
 
 ---
 
@@ -638,6 +826,12 @@ is a build, not a setting. See §16 Decision 5.
 7. **Watch the reach-per-post curve.** Above ~5 feed posts/week, average reach per post falls.
 8. **Teach the AI when she corrects it.** A correction made only in the draft is lost; the same
    correction as a training rule or example changes every future draft.
+9. **End the session with a report, every time.** It is the only thing that turns a day of work
+   into something Dayan can see. Two honest lines beat a polished paragraph written weekly.
+10. **Say the bad news.** It is a named field because it is the most valuable one — and it is what
+    changes the report's severity so he actually looks today.
+11. **Use Requests for anything structural.** A finding is read once; a request stays on the board
+    until he decides. If it should change the system, file it as a request.
 
 ### 11.2 For Dayan
 
@@ -646,13 +840,17 @@ is a build, not a setting. See §16 Decision 5.
 2. **Do not grant auto-publish early.** Five clean approvals is the bar because it is evidence.
 3. **Answer improvement requests, even with "no".** An unanswered request becomes an unasked one.
 4. **Review the two-week strip weekly, not the individual runs.** The pattern is the signal.
-5. **Revisit the §16 decisions after two weeks** of watching how she actually works.
+5. **Decide requests, do not let them queue.** A growing `open` count is the clearest sign the
+   route has stopped working, and declining with a reason costs thirty seconds.
+6. **Read the session reports rather than the time number.** The minutes are context; the five
+   answers are the content.
+7. **Revisit the §16 decisions after two weeks** of watching how she actually works.
 
 ### 11.3 Her optimal daily routine (~30–45 min)
 
 | Time | Action |
 |---|---|
-| Open | Today → read yesterday's numbers and any overnight alerts |
+| Open | Open the studio — the session starts itself. Read yesterday's numbers and overnight alerts |
 | 1 | Instagram inbox — clear DMs and comments (check 1) |
 | 2 | Drafts — move anything approved onto the schedule (check 2) |
 | 3 | Campaigns — confirm due sends went, queued ones read right (check 3) |
@@ -660,8 +858,9 @@ is a build, not a setting. See §16 Decision 5.
 | 5 | Site copy — confirm nothing expired is still showing (check 5) |
 | 6 | Affiliates — new applications, pending links (check 6) |
 | 7 | Traffic — yesterday against what we published (check 7) |
-| — | Anything found → **Tell the owner** immediately |
-| Close | Write the note, close the run |
+| — | Anything found → **Tell the owner** immediately. Anything structural → **file a request** |
+| Close | Write the run note, close the run |
+| End | **End session & report** — the five questions. This is what Dayan actually reads |
 
 ### 11.4 Weekly (beyond the daily run)
 
@@ -693,7 +892,7 @@ ledger and the auto-reply switch, not a per-post approval queue. If per-post own
 wanted, that is a build (§16 D1).
 
 **Q: Can she send an email campaign to the whole list without asking?**
-Yes, today. Flagged as §16 Decision 1 because it is high-stakes and irreversible.
+Yes. High-stakes and irreversible, and Dayan confirmed it is intended (§16.1 D1).
 
 **Q: What happens if she edits site copy wrongly?**
 It is live immediately. There is a "restore the shipped page" action, and slots can be scheduled or
@@ -718,8 +917,28 @@ Dayan has full access to her desk and can do the run himself. The run is per-day
 No. There is no reopen. The next day's run is a new row.
 
 **Q: Does she get notified when Dayan replies?**
-Not by push today — system alerts tickle the owner only. She sees unread counts when she opens
-Comms. See §16 Decision 3.
+Yes, since 2026-08-11 — this was a real bug (his replies woke nobody) and it is fixed. She is also
+pushed for Instagram performance signals, commercial DMs, and a trust lane reaching eligibility.
+Requires the PWA install on iOS.
+
+**Q: Is her time tracked? Does she clock in?**
+No clock-in. Engaged time is traced automatically from a heartbeat while she works — see §10, and
+read §10.3 before quoting the number: a tab left open overnight records zero, not ten hours.
+
+**Q: What happens if she forgets to end her session?**
+It closes itself after 30 minutes of silence, at the last heartbeat — so no time is invented. Only
+the report is lost, and she can still file the update the next time she opens the desk.
+
+**Q: Can she decide her own improvement request?**
+No. She files and reads; only Dayan moves a status. Otherwise the status would mean nothing.
+
+**Q: Can she set an affiliate's commission rate?**
+No. She can approve, decline and onboard; the rate and payout method fall back to the house default
+(10%, cash) unless Dayan sets them.
+
+**Q: Is she paid commission on sales she generates?**
+Not yet — it is agreed in principle (10%) but not built. See §16.2 D6. **No data is being
+lost meanwhile**: order-level `utm_source`/`utm_campaign` attribution is already recorded.
 
 **Q: Can she see other staff's messages?**
 No. Her comms are scoped to her own threads plus broadcasts.
@@ -776,21 +995,33 @@ URLs**. Treat an uncited claim as an opinion.
 
 | # | Limitation | Impact | Workaround |
 |---|---|---|---|
-| 1 | **Migration `0089` not yet applied** | Daily-run checks do not save | Run §2.1 |
-| 2 | No clock-in/out for the role | No hours tracked | Daily run is the attendance proxy |
-| 3 | No EOD report for the role | — | The run note is the EOD |
-| 4 | **$50/week hard AI ceiling** | At the limit every AI feature waits for the new week | Plan generation early in the week |
-| 5 | Stories cadence is **recorded, not automated** | Nothing drafts or posts a Story | Manual, outside the HUB |
-| 6 | No per-post owner approval queue | She publishes on her own tap | §16 D1 |
-| 7 | Site copy is live with no approval and no undo history | A mistake is public until fixed | "Restore the shipped page"; §16 D2 |
-| 8 | She is not push-notified for replies | May miss a message until she opens Comms | §16 D3 |
-| 9 | No dedicated feature-request route | Requests mix with findings | Title prefixes (§8.2) |
-| 10 | She cannot see her own training-compliance row | Cosmetic | Dayan can tell her |
-| 11 | No reopen on a closed run | A mistake stands for the day | Use "Tell the owner" to correct |
+| 1 | **Migrations `0089` + `0090` not applied** | Run, time trace and requests record **silently nothing** | Run §2.1 — highest priority |
+| 2 | **She earns no commission yet** | The 10% is agreed but unbuilt | §16 D6. Attribution data is already being captured, so nothing is lost by waiting |
+| 3 | **Google Business reviews: not built at all** | No autoreply, no live website review section, no review-sourced posts | §16 D7 — blocked on Google API access, which takes days to obtain |
+| 4 | `marketing_review_ready` **has no trigger** | The alert type and action card exist; nothing raises them | By design for now: she publishes on her own tap, so nothing genuinely waits on him except trust eligibility. §16 D8 |
+| 5 | Time trace is **not payroll-grade** | Measures HUB engagement only — not a shoot, a call, or editing in Canva | §10.4. Read as a trend, not a timesheet |
+| 6 | **$50/week hard AI ceiling** | At the limit every AI feature waits for the new week | Plan generation early in the week |
+| 7 | Stories cadence is **recorded, not automated** | Nothing drafts or posts a Story | Manual, outside the HUB |
+| 8 | No per-post owner approval queue | She publishes on her own tap | §16 D1 — Dayan's explicit choice |
+| 9 | Site copy is live with no approval and no undo history | A mistake is public until fixed | "Restore the shipped page"; §16 D2 — Dayan's explicit choice |
+| 10 | No reopen on a closed run or a closed session | A mistake stands for the day | Use "Tell the owner" to correct |
+| 11 | She cannot see her own training-compliance row | Cosmetic | Dayan can tell her |
 | 12 | Bottom nav budget is **7 slots max** at 320px | New destinations go behind ⋯ More | By design |
 | 13 | 12-hour idle session | Re-enter PIN after a long gap | Security, by design |
-| 14 | Push requires the PWA install on iOS | No install, no notifications | §2.6 |
-| 15 | Run is per-day, not per-person | Two marketing seats would share a run | Intentional; revisit if a second seat exists |
+| 14 | Push requires the PWA install on iOS | No install, no notifications — and she now depends on them | §2.6, non-optional |
+| 15 | Run and session are per-day / per-person-per-sitting | Two marketing seats would share a day's run | Intentional; revisit if a second seat exists |
+| 16 | Two migrations both numbered `0090` | Cosmetic — they apply by filename and touch different tables | Noted in §2.1 |
+
+### 14.1 Resolved since the first revision
+
+Kept so the change is visible rather than silently edited away:
+
+- ~~No clock-in, no time tracking of any kind~~ → **engaged-time trace** (§10)
+- ~~No end-of-session report~~ → **five-question report to the owner** (§8.3)
+- ~~No dedicated improvement-request route~~ → **the Requests board** (§8.2)
+- ~~She is not push-notified when Dayan replies~~ → **fixed; it was a bug, not a gap** (§6.3)
+- ~~SMS test is owner-only~~ → **hers** (§3.1)
+- ~~An eligible trust lane tells nobody~~ → **alert + push + action card** (§7.2)
 
 ---
 
@@ -798,63 +1029,79 @@ URLs**. Treat an uncited claim as an opinion.
 
 ### 15.1 Verified — read from the shipped code
 
-- The role, its guards, its nav, its login path, and every ❌/✅ in §5
-- The seven checks, the three answers, the completeness rule, the one-run-per-day constraint
-- The alert routing for her feedback, and the issues-only alert on close
-- The four approval mechanisms in §7, including the two owner-only switches and the payout carve-out
-- The $50/week AI ceiling; the 12h/30d session policy; the 5-approval trust threshold
-- No clock-in, no clock-out, no EOD for this role
-- Comms auto-routing of a staff thread to the first active owner
-- The welcome SMS/email content, and that neither carries the PIN
-- Full test suite: **1680 passing** at the time of writing
+- The role, its guards, its nav, its login path, and every ✅/❌ in §5
+- The seven checks, the three answers, the completeness rule, one-run-per-day
+- Every alert route in §6 and §9, including which ones push to whom
+- The four approval mechanisms in §7, the two owner-only switches, the payout **and commission**
+  carve-outs
+- The time-trace arithmetic in §10.3 — executed, not inspected
+  (`test/marketing/session-time.test.js`)
+- The request lifecycle and that only the owner can move it
+- $50/week AI ceiling; 12h/30d session policy; 5-approval trust threshold
+- No clock-in, no shift row, no EOD for this role
+- Full suite: **1705 passing** at the time of writing
 
 ### 15.2 Verified by the owner
 
-- The floating bottom-nav fix is confirmed working on his device (2026-08-11)
+- The floating bottom-nav fix, confirmed on his device (2026-08-11)
 
 ### 15.3 Unknown — nobody has measured or decided these
 
-- **Whether the migration has been applied.** As of writing, no.
-- **Whether the daily run takes 30 minutes or two hours in practice.** The §11.3 estimate is
-  reasoning, not measurement. Ask her at the end of week one.
+- **Whether the migrations have been applied.** As of writing, no.
+- **How long her daily run actually takes.** The §11.3 estimate is reasoning, not measurement.
+  The time trace will answer this within a week — it is the first thing to check on day 5.
+- **How much time she will actually spend in the HUB per day.** Genuinely unknown; there is no
+  prior. Do not set an expectation before the trace has two weeks of data.
 - **Whether seven checks is the right number.** Untested against real use.
-- **Whether $50/week is enough** once someone is working the system daily rather than occasionally.
-  Historic burn was ~$0.60/week — that is *not* a prediction of her usage.
-- **Whether she will use "Tell the owner" or default to texting.** Depends mostly on whether Dayan
-  visibly acts on what arrives there.
-- **Her actual employment terms** — hourly vs salaried, expected hours, days on. The system does not
-  know and cannot enforce them.
+- **Whether $50/week is enough** once someone works the system daily. Historic burn was ~$0.60/week
+  — that is *not* a prediction of her usage.
+- **Whether she will use the routes or default to texting.** Depends almost entirely on whether
+  Dayan visibly acts on what arrives — decided requests and answered reports are what make the
+  routes real.
+- **What her 10% is 10% *of*.** Not decided — see §16 D6. This is her pay; it should not stay open.
 - **Real reach/engagement baselines** for the account. The cadence research in the product is
   general 2026 food-account research, not measured on Añejo.
-- **What "good" looks like** for her KPIs — no baselines exist yet. Suggested targets in §17 are
-  starting points to be replaced with real numbers after 30 days.
+- **What "good" looks like** for her KPIs — no baselines exist. §17 targets are starting points to
+  be replaced after 30 days.
 
 ---
 
-## 16. Decisions Dayan still owes
+## 16. Decisions
 
-Each of these is a real authority question the build had to answer one way. The current answer is
-recorded; changing it is a small code change.
+### 16.1 Ruled on 2026-08-11
 
-**Decision 1 — Should she be able to send an email campaign to the full list unilaterally?**
-*Current:* Yes. *Consider:* a send is irreversible and reaches every customer. Options: leave as is;
-require owner approval above an audience-size threshold; require owner approval for all sends.
+| # | Question | Ruling |
+|---|---|---|
+| D1 | May she send an email campaign to the full list unilaterally? | **Yes** — kept |
+| D2 | Should site copy go live without approval? | **Yes** — kept |
+| D3 | Should she receive push notifications? | **Yes** — built |
+| D4 | Does she need a real improvement-request route? | **Yes** — built (§8.2) |
+| D5 | Does she need hours tracked? | **No clock-in; a time trace instead** — built (§10). She is not on payroll |
 
-**Decision 2 — Should site copy changes go live without approval?**
-*Current:* Yes, immediately. *Consider:* this is text on the public storefront. Options: leave as
-is; add an owner approval step; restrict her to scheduled entries only.
+### 16.2 Still open
 
-**Decision 3 — Should she receive push notifications?**
-*Current:* No — system alerts tickle the owner only. *Consider:* adding the marketing role to
-relevant push fan-outs so she is woken by a reply or a performance alert.
+**D6 — What is her 10% of, and for how long?**
+Agreed in principle: every lead from social media is tracked, and where marketing produced the sale
+she earns 10%. Not built, because two answers change the schema:
+1. **10% of gross order value, or net of food cost?**
+2. **First order only, or every order that customer ever places?** (i.e. is it a bounty or a
+   lifetime rev-share)
 
-**Decision 4 — Does she need a real improvement-request route?**
-*Current:* No; requests share the alert feed with findings. *Consider:* a distinct request type with
-its own status (open / accepted / declined / shipped) so requests are tracked rather than read once.
+⚠️ This is her **compensation**. It should be answered before she starts, even if the build comes
+later. No data is lost meanwhile — order-level `utm_source`/`utm_campaign` attribution is already
+recorded on every order, so the ledger can be computed retroactively.
 
-**Decision 5 — Does she need hours tracked?**
-*Current:* No clock-in exists for the role. *Consider:* if she is hourly, either extend the timeclock
-to marketing or track hours outside the HUB.
+**D7 — Google Business Profile reviews.**
+Wanted: auto-reply to Google reviews, sync them live into the website's review section, and reuse
+them as post content. Not started, and **blocked on Dayan, not on the build**: it needs Google
+Business Profile API access via OAuth on the verified location. Worth requesting now — verification
+takes days. Once the credential exists the pipeline is a normal build.
+
+**D8 — Should anything actually wait for his review?**
+Today nothing does: she publishes on her own tap (D1/D2), so the only thing awaiting him is trust
+eligibility, which pushes. A "work ready for review" queue would mean making some of her actions
+approval-gated — the opposite of D1/D2. The alert type and action card are registered and unused,
+ready the moment he names something that should wait.
 
 ---
 
@@ -869,7 +1116,10 @@ days of measurement.
 |---|---|---|
 | Runs closed per week | Two-week strip | 5/5 working days |
 | Checks answered per run | Run record | 7/7 (enforced) |
+| **Session reports filed per week** | Alerts / `marketing_sessions` | 5/5 — one per sitting |
+| **Engaged time per working day** | Session strip | ⚠️ **No baseline. Measure for two weeks before setting one** |
 | Days from finding → reported | Alerts | Same day |
+| **Open requests older than 7 days** | Requests board | 0 — this measures **Dayan**, not her |
 | Training rules/examples added | Teach tab | ≥1/week |
 
 ### 17.2 Output metrics — is the system producing
@@ -908,6 +1158,11 @@ For whoever maintains this next.
 | Role definitions, guards, teams | `functions/_lib/roles.js` |
 | The seven checks | `functions/_lib/marketing_run.js` |
 | Daily run API | `functions/api/hub/marketing/run.js` |
+| **Time trace + session report** | `functions/api/hub/marketing/session.js` |
+| **Improvement requests** | `functions/api/hub/marketing/requests.js` |
+| **Time-trace arithmetic tests** | `test/marketing/session-time.test.js` |
+| **Action cards on the alert feed** | `public/hub/owner/index.html` → `actionFor()` |
+| **Push targeting on a reply** | `functions/api/hub/comms/messages.js` |
 | Her desk | `public/hub/marketing/index.html` |
 | Her desk helpers | `public/hub/marketing/assets/marketing.js` |
 | Her nav definition | `public/hub/assets/hub.js` → `NAVS.marketing` |
@@ -915,7 +1170,7 @@ For whoever maintains this next.
 | Alerts (her feedback route) | `functions/_lib/alerts.js` |
 | Trust ledger | `functions/_lib/trust_ledger.js`, `functions/api/hub/owner/trust.js` |
 | AI budget ceiling | `functions/_lib/ai_budget.js` |
-| Schema | `migrations/0089_marketing_desk.sql` |
+| Schema | `migrations/0089_marketing_desk.sql`, `migrations/0090_marketing_desk_ops.sql` |
 | Her tutorial | `public/hub/training.html` → `marketing:` |
 | Her quick card | `public/hub/training-card.html` → `marketing:` |
 | Spanish strings | `public/hub/assets/hub-i18n.js` |
@@ -924,6 +1179,10 @@ For whoever maintains this next.
 
 ---
 
-*Compiled 2026-08-11 from the Añejo HUB codebase at merge of PR #39. Every capability, limitation
-and gap stated here was read from shipped code. Where something is unknown or undecided, it is
-listed in §15.3 or §16 rather than guessed.*
+*Compiled 2026-08-11 from the Añejo HUB codebase; second revision at merge of PR #40 (`70a32b3`).
+Every capability, limitation and gap stated here was read from shipped code. Where something is
+unknown or undecided, it is listed in §15.3 or §16.2 rather than guessed. Items resolved since the
+first revision are kept struck through in §14.1 rather than deleted, so the change is visible.*
+
+**Three things to settle before she starts:** apply the migrations (§2.1), answer what her 10% is
+10% of (§16 D6), and request Google Business Profile API access (§16 D7).
