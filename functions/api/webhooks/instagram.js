@@ -12,6 +12,7 @@
 // A retry must not become a second copy of the same DM or a second reply to the same comment.
 import { json, bad, id, now } from '../../_lib/util.js';
 import { resolveTarget } from '../../_lib/instagram.js';
+import { iceBreakerText } from '../../_lib/instagram_icebreakers.js';
 
 const enc = new TextEncoder();
 
@@ -69,12 +70,26 @@ export const onRequestPost = async ({ request, env }) => {
   for (const entry of (payload && payload.entry) || []) {
     // --- Direct messages
     for (const m of entry.messaging || []) {
-      const mid = m && m.message && m.message.mid;
       const fromId = m && m.sender && m.sender.id;
+      if (!fromId) continue;
+
+      // Ice-breaker / quick-reply taps arrive as postbacks. The user tapped a button we showed
+      // when they opened the chat — a genuine inbound that opens the 24-hour window — so we route
+      // it into Aña's normal reply flow as the intent phrase the button stands for.
+      const pb = m && m.postback;
+      if (pb) {
+        const pbText = iceBreakerText(pb.payload) || pb.title || '';
+        if (!pbText) continue;
+        const pbId = pb.mid || `pb_${fromId}_${m.timestamp || t}`;
+        seen.push(await ingest(env, { eventId: pbId, kind: 'message', fromId, text: pbText, raw: m, t }));
+        continue;
+      }
+
+      const mid = m && m.message && m.message.mid;
       // Our own outbound messages echo back. Storing them as inbound would reset the 24-hour
       // window on our own reply and make it look like the customer wrote again.
       const isEcho = !!(m && m.message && m.message.is_echo);
-      if (!mid || !fromId || isEcho) continue;
+      if (!mid || isEcho) continue;
       seen.push(await ingest(env, {
         eventId: mid, kind: 'message', fromId,
         text: (m.message && m.message.text) || '', raw: m, t,
