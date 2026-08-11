@@ -228,29 +228,37 @@ textarea { min-height: 90px; resize: vertical; }
   background: var(--green-700);
   display: flex;
   z-index: 20;
-  /* Owner used to cram 15 destinations into this bar (scrolling + collisions on mobile —
-     the reported bug). It now shows 5 primary tabs + "More", which fits without scrolling on
-     every role. overflow-x stays as a safety net for any future role that outgrows the bar,
-     never as the fix for one that already has. Hidden scrollbar for a clean fixed bar. */
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  /* 2026-08-11 — "the home bar is floating": on the phone the bar (and the Æ FAB, which shares
+     this failure mode) detached from the bottom of the screen and sat in the MIDDLE of a scrolled
+     owner page, with tiles rendering underneath it.
+     Cause: this bar used to be its own touch-scrolling container — `overflow-x: auto` plus
+     `-webkit-overflow-scrolling: touch`. On iOS that hands the element to the legacy
+     UIScrollView-backed path, which is repositioned only AFTER a scroll gesture settles instead of
+     being composited against the visual viewport. Mid-scroll (and on rubber-band) the bar is
+     painted at its pre-scroll offset — a fixed bar floating over content, exactly as reported.
+     Fix: the bar is not a scroller. `-webkit-overflow-scrolling` has been a no-op since iOS 13 and
+     `overflow: hidden` clips without creating a scrolling layer, so the bar stays glued to the
+     viewport. Promoting it to its own compositor layer (translateZ) keeps it there during the
+     gesture rather than one frame behind it.
+     NEVER give this element `overflow: auto/scroll` again — the bar not fitting is solved by
+     moving destinations into the More sheet (see .hub-nav a below), not by letting it scroll. */
+  overflow: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
 }
-.hub-nav::-webkit-scrollbar { display: none; }
 .hub-nav a, .hub-nav-more {
-  flex: 1 0 auto;
-  /* 62, not 64. Six slots is what every role now renders — five primary tabs plus ⋯ More — and
-     6 x 64 = 384 against a 375px viewport, so the LAST slot (the More button on every role) was
-     clipped by 9px and the bar scrolled a hair on the commonest phone width. 6 x 62 = 372: it
-     fits exactly, with no scroll. Measured in a browser against the live owner/kitchen/driver
-     renderers, not derived.
-     44pt Apple HIG minimum tap target is still comfortably clear: the row is --nav-h (60px) tall
-     by at least 62px wide, before the icon/label content is measured.
-     LIMIT, stated so nobody re-measures it: this fits SIX slots at >=372px. A seventh slot
-     overflows at any phone width, and a 320px device (iPhone SE 1st gen) still scrolls. Six is
-     the budget — if a role needs another destination, it goes in the More sheet, not the bar. */
-  min-width: 62px;
+  /* Slots divide the bar evenly (`1 1 0`) instead of being sized to their content and allowed to
+     overflow (`1 0 auto` + min-width:62px, which is what needed the scroller this rule used to
+     rely on). Even thirds/sixths always fit, so the bar never scrolls and `overflow: hidden`
+     above can never clip a destination.
+     44pt Apple HIG tap target is preserved BY ARITHMETIC, not by a min-width: the row is --nav-h
+     (60px) tall, and the narrowest phone we support (320px, iPhone SE 1st gen) divided by the six
+     slots every role renders — five primary tabs plus ⋯ More — is 53px wide. Still clear of 44.
+     LIMIT, stated so nobody re-measures it: 320 / 44 = SEVEN slots. An eighth drops below the tap
+     floor at 320px. If a role needs another destination it goes in the More sheet, not the bar. */
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 44px;
   display: flex;
   flex-direction: column;
@@ -269,6 +277,17 @@ textarea { min-height: 90px; resize: vertical; }
   cursor: pointer;
 }
 .hub-nav a .nav-ico, .hub-nav-more .nav-ico { font-size: 20px; line-height: 1; }
+/* Now that a slot is a share of the bar rather than at least 62px, a long label ("Marketing",
+   "Entregas") can be wider than its slot. Ellipsis it: the icon above it still identifies the
+   destination, and a label pushing into the neighbouring slot is how the bar looked broken
+   before. Not applied to .nav-ico — clipping the icon would defeat the point. */
+.hub-nav a > span:not(.nav-ico),
+.hub-nav-more > span:not(.nav-ico) {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .hub-nav a.active, .hub-nav-more.active { color: var(--gold); }
 
 /* ---------- "More" overflow sheet (owner: 10 destinations that don't fit as primary tabs) ---------- */

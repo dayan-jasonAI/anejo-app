@@ -289,7 +289,9 @@
       SLOTS = d.slots; LEGAL = d.legal || []; render();
     });
   }
-  load();
+  // Was a bare load() — no role guard (the page relied entirely on the API's 403) and the
+  // <nav id="owner-nav"> above was left empty, so this page alone had no bottom bar.
+  Owner.init('site-copy', load, { roles: Owner.MARKETING_DESK });
 })();
 </script>
 </body>

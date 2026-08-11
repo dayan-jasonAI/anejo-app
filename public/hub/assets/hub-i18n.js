@@ -37,6 +37,23 @@
     "Catering": "Catering",
     "Finance": "Finanzas", "Comms": "Mensajes", "Orders": "Pedidos", "Checklists": "Listas",
     "Studio": "Estudio", "Library": "Biblioteca", "EOD": "Fin de día", "Today": "Hoy",
+    // ---- the marketing expert's desk (2026-08-11) ----
+    "Affiliate": "Afiliados", "Site copy": "Textos del sitio", "Marketing settings": "Ajustes de marketing",
+    "Content": "Contenido", "Traffic": "Tráfico", "Adoption": "Adopción", "Training": "Capacitación",
+    "My data": "Mis datos",
+    "Loading the marketing desk…": "Cargando el escritorio de marketing…",
+    "Today’s run": "La ronda de hoy", "checked": "revisadas", "closed": "cerrada",
+    "Run this once a day. Every check answered — “not today” counts, silence does not.":
+      "Haz esto una vez al día. Cada revisión respondida — “hoy no” cuenta, el silencio no.",
+    "Open it": "Ábrelo",
+    "Close the run": "Cerrar la ronda", "Close today’s run": "Cerrar la ronda de hoy",
+    "Run closed": "Ronda cerrada", "Answer every check first.": "Responde todas las revisiones primero.",
+    "What should Dayan know about today?": "¿Qué debe saber Dayan sobre hoy?",
+    "Tell the owner": "Avísale al dueño", "Send to owner": "Enviar al dueño",
+    "Goes straight to Dayan’s alerts — the same feed he reads every morning. Send it when you find it; don’t wait for the run to close.":
+      "Va directo a las alertas de Dayan — el mismo panel que lee cada mañana. Mándalo cuando lo encuentres; no esperes a cerrar la ronda.",
+    "This is costing us output today": "Esto nos está costando producción hoy",
+    "Last two weeks": "Las últimas dos semanas", "No runs recorded yet.": "Aún no hay rondas registradas.",
     "Route": "Ruta", "Temp": "Temp.", "Expenses": "Gastos", "Routes": "Rutas", "Account": "Cuenta",
     "Checklist": "Lista", "Summary": "Resumen", "Creative Studio": "Estudio Creativo",
     "Daily summary": "Resumen diario", "Report issue": "Reportar problema", "Temp log": "Registro de temperatura",
@@ -203,6 +220,10 @@
 
     // ---- role / team enum labels (dropdowns + badges) ----
     "owner": "dueño", "driver": "conductor", "kitchen": "cocina", "vendor": "proveedor",
+    // "marketing" is BOTH a role and a team (the marketing expert leads her own team), and the
+    // word is the same in Spanish — listed anyway so the next reader does not read its absence
+    // as an oversight and "fix" it into something like "mercadeo", which nobody here says.
+    "marketing": "marketing",
     "delivery": "reparto", "training": "entrenamiento", "front_office": "oficina", "vendors": "proveedores",
     "trainer": "entrenador", "client": "cliente",
 

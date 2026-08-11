@@ -11,14 +11,17 @@
 // are the counterparty, the creator, or audience='broadcast'; trainer/client see their own.
 // Fires message.sent {channel, audience, ai_drafted}.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { id, now, bit } from '../../../_lib/hub.js';
 import { sendSms, sendWhatsApp } from '../../../_lib/twilio.js';
 import { sendDirectMessage, replyToComment } from '../../../_lib/instagram_messaging.js';
 import { sendPushTickle } from '../../../_lib/push.js';
 
-const ALL_ROLES = ['owner', 'kitchen', 'driver', 'vendor', 'trainer', 'client'];
+// Every role, staff and portal alike — this endpoint is open to anyone signed in.
+// Imported rather than re-typed: as a literal it silently omitted each newly added role
+// (marketing, 2026-08-11) and the omission reads as a deliberate exclusion.
+const ALL_ROLES = HUB_ROLES;
 const CHANNELS = ['in_app', 'sms', 'whatsapp', 'instagram'];
 
 // Same visibility rules as threads.js, applied to one loaded thread row.

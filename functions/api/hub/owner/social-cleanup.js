@@ -7,7 +7,7 @@
 //   · dry run by default; { confirm: true } actually deletes
 // It cannot touch a customer's comment: the username gate runs before the content gate.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { resolveTarget, accountInfo } from '../../../_lib/instagram.js';
 import { looksLikeScaffolding } from '../../../_lib/ana_social.js';
 
@@ -20,7 +20,7 @@ async function g(env, base, path, params = {}) {
 }
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
 
   let b = {};

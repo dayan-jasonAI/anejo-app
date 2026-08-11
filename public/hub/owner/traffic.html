@@ -55,7 +55,7 @@ document.getElementById('seg').addEventListener('click',function(e){var b=e.targ
 // Owner-gated boot + bottom nav. Without it a signed-out visitor landed on a dead page with no
 // session guard and no way back into the HUB.
 Hub.boot();
-Owner.init('overview', function () { load(30); });
+Owner.init('traffic', function () { load(30); }, { roles: Owner.MARKETING_DESK });
 </script>
 <script src="assets/operator.js" defer></script>
 </body>

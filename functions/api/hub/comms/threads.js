@@ -15,12 +15,15 @@
 //          Trainer/client: a thread bound to their own trainer_id/client_id.
 // Fires thread.created (on create) + message.sent. SMS/WhatsApp delivery is no-op safe.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { id, now, bit } from '../../../_lib/hub.js';
 import { sendSms, sendWhatsApp } from '../../../_lib/twilio.js';
 
-const ALL_ROLES = ['owner', 'kitchen', 'driver', 'vendor', 'trainer', 'client'];
+// Every role, staff and portal alike — this endpoint is open to anyone signed in.
+// Imported rather than re-typed: as a literal it silently omitted each newly added role
+// (marketing, 2026-08-11) and the omission reads as a deliberate exclusion.
+const ALL_ROLES = HUB_ROLES;
 const CHANNELS = ['in_app', 'sms', 'whatsapp'];
 
 // Who this thread "is with", from the viewer's perspective.

@@ -95,9 +95,9 @@ test('the ledger NEVER flips auto_publish — both upsert branches leave the tog
 
 // ---------- 3: the toggle is the owner's ----------
 
-test('the trust endpoint is owner-only, both verbs', () => {
-  const guards = TRUST.match(/requireRole\(request, env, \['owner'\]\)/g) || [];
-  assert.equal(guards.length, 2, 'GET and POST each ask for the owner');
+test('the trust endpoint is gated to the marketing desk, both verbs', () => {
+  const guards = TRUST.match(/requireRole\(request, env, MARKETING_DESK\)/g) || [];
+  assert.equal(guards.length, 2, 'GET and POST each ask for the marketing desk');
 });
 
 test('turning autonomy ON requires the earned streak, in the UPDATE itself; OFF is unconditional', () => {
@@ -162,5 +162,5 @@ test('the marketing cockpit hits all four endpoints — budget, links, inbox, tr
 test('the cockpit is on the nav and lights its own tab', () => {
   assert.match(NAV, /\{ view: 'marketing', href: '\/hub\/owner\/marketing\.html'/);
   assert.match(NAV, /label: 'Marketing'/);
-  assert.match(PAGE, /Owner\.init\('marketing', load\)/);
+  assert.match(PAGE, /Owner\.init\('marketing', load, \{ roles: Owner\.MARKETING_DESK \}\)/);
 });

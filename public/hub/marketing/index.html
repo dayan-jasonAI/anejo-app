@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Marketing desk</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="apple-touch-icon" href="/assets/img/emblem.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Añejo Marketing">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  /* One row per check: the question on the left, the three answers on the right. Kept as a
+     grid rather than a flex row so the answer buttons stay aligned down the column — a
+     ragged right edge is what makes a checklist feel like a form instead of a run. */
+  .chk { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:start; padding:12px 0; border-bottom:1px solid var(--line); }
+  .chk:last-child { border-bottom:0; }
+  .chk-main .row-title { font-size:14px; }
+  .chk-main .row-sub { font-size:12.5px; margin-top:2px; }
+  .chk-main a { font-size:12px; display:inline-block; margin-top:6px; }
+  .chk-ans { display:flex; gap:6px; }
+  /* 44px square minimum — these are tapped seven times a day on a phone. */
+  .chk-ans button {
+    min-width:44px; min-height:44px; border-radius:var(--radius-sm); border:1px solid var(--line);
+    background:var(--white); font:inherit; font-size:16px; line-height:1; cursor:pointer; color:var(--muted);
+  }
+  .chk-ans button[aria-pressed="true"] { border-color:var(--green); background:var(--green-200); color:var(--green); font-weight:700; }
+  .chk-ans button[aria-pressed="true"][data-result="issue"] { border-color:var(--crit); background:#fbe9e7; color:var(--crit); }
+  .chk-ans button[aria-pressed="true"][data-result="skip"] { border-color:var(--muted); background:var(--cream-dark); color:var(--ink); }
+  .run-progress { font-size:12px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+  .hist { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .hist span { font-size:11px; padding:4px 8px; border-radius:999px; background:var(--cream-dark); color:var(--ink); }
+  .hist span.ok { background:var(--green-200); color:var(--green); }
+  .hist span.iss { background:#fbe9e7; color:var(--crit); }
+  textarea { width:100%; font:inherit; font-size:14px; padding:10px; border:1px solid var(--line); border-radius:var(--radius-sm); resize:vertical; }
+  input[type="text"] { width:100%; font:inherit; font-size:14px; padding:10px; border:1px solid var(--line); border-radius:var(--radius-sm); }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · MARKETING</h1>
+  <div class="hub-bar-actions">
+    <a href="/hub/training?role=marketing" title="Training" aria-label="Training" style="text-decoration:none;font-size:20px;margin-right:10px;line-height:1">🎓</a><button id="lang-toggle" type="button">ES</button>
+  </div>
+</div>
+
+<div class="hub-wrap">
+  <div id="mkt-root" class="hub-loading"><p data-i18n>Loading the marketing desk…</p></div>
+</div>
+
+<nav id="mkt-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/marketing/assets/marketing.js"></script>
+<script>
+(function () {
+  Hub.boot();
+  var esc = Hub.esc;
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () {
+      var n = window.AnejoLang.get() === 'es' ? 'en' : 'es';
+      window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES';
+    });
+  }
+
+  var CHECKS = [];      // definitions from the server (functions/_lib/marketing_run.js)
+  var RUN = null;       // today's answers
+  var RUN_HISTORY = []; // the last 14 closed runs, for the strip at the bottom
+
+  var ANSWERS = [
+    { result: 'ok', ico: '✓', label: 'Working' },
+    { result: 'issue', ico: '!', label: 'Problem' },
+    { result: 'skip', ico: '–', label: 'Not today' }
+  ];
+
+  function checkRow(c) {
+    var picked = (RUN && RUN.checks && RUN.checks[c.key]) || '';
+    return '<div class="chk">' +
+      '<div class="chk-main">' +
+        '<div class="row-title" data-i18n>' + esc(c.label) + '</div>' +
+        '<div class="row-sub" data-i18n>' + esc(c.detail) + '</div>' +
+        '<a href="' + esc(c.href) + '" data-i18n>Open it</a>' +
+      '</div>' +
+      '<div class="chk-ans" role="group" aria-label="' + esc(c.label) + '">' +
+        ANSWERS.map(function (a) {
+          return '<button type="button" data-key="' + esc(c.key) + '" data-result="' + a.result + '" ' +
+            'aria-pressed="' + (picked === a.result ? 'true' : 'false') + '" ' +
+            'title="' + a.label + '" aria-label="' + esc(c.label) + ' — ' + a.label + '">' + a.ico + '</button>';
+        }).join('') +
+      '</div>' +
+    '</div>';
+  }
+
+  function answered() {
+    if (!RUN || !RUN.checks) return 0;
+    return CHECKS.filter(function (c) { return !!RUN.checks[c.key]; }).length;
+  }
+
+  function historyHtml(items) {
+    if (!items || !items.length) return '';
+    return '<div class="hist">' + items.map(function (h) {
+      var cls = h.submitted_at ? (h.issues ? 'iss' : 'ok') : '';
+      var day = String(h.run_date || '').slice(5);   // MM-DD — the year is never the question
+      return '<span class="' + cls + '" title="' + esc(h.note || '') + '">' + esc(day) +
+        (h.issues ? ' · ' + h.issues : '') + '</span>';
+    }).join('') + '</div>';
+  }
+
+  function render() {
+    var root = document.getElementById('mkt-root');
+    root.className = '';
+    var done = answered(), total = CHECKS.length;
+    var closed = !!(RUN && RUN.submitted_at);
+
+    root.innerHTML =
+      '<div class="hub-section">' +
+        '<h2 data-i18n>Today’s run</h2>' +
+        '<div class="card">' +
+          '<p class="run-progress">' + done + '/' + total + ' <span data-i18n>checked</span>' +
+            (closed ? ' · <span data-i18n>closed</span>' : '') + '</p>' +
+          '<p class="row-sub" style="margin-top:6px" data-i18n>Run this once a day. Every check answered — “not today” counts, silence does not.</p>' +
+          '<div id="checks" style="margin-top:6px">' + CHECKS.map(checkRow).join('') + '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="hub-section">' +
+        '<h2 data-i18n>Close the run</h2>' +
+        '<div class="card">' +
+          '<label class="row-sub" for="run-note" data-i18n>What should Dayan know about today?</label>' +
+          '<textarea id="run-note" rows="3" placeholder="Optional"' + (closed ? ' disabled' : '') + '>' +
+            esc((RUN && RUN.note) || '') + '</textarea>' +
+          '<button class="btn block" id="run-submit" type="button" style="margin-top:10px"' +
+            (closed || done < total ? ' disabled' : '') + ' data-i18n>' +
+            (closed ? 'Run closed' : 'Close today’s run') + '</button>' +
+          (done < total && !closed
+            ? '<p class="row-sub" style="margin-top:8px" data-i18n>Answer every check first.</p>' : '') +
+        '</div>' +
+      '</div>' +
+
+      '<div class="hub-section">' +
+        '<h2 data-i18n>Tell the owner</h2>' +
+        '<div class="card">' +
+          '<p class="row-sub" data-i18n>Goes straight to Dayan’s alerts — the same feed he reads every morning. Send it when you find it; don’t wait for the run to close.</p>' +
+          '<input type="text" id="fb-title" placeholder="What you found" style="margin-top:10px">' +
+          '<textarea id="fb-body" rows="3" placeholder="Detail, and what you think we should change" style="margin-top:8px"></textarea>' +
+          '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px">' +
+            '<input type="checkbox" id="fb-warn"> <span data-i18n>This is costing us output today</span></label>' +
+          '<button class="btn ghost block" id="fb-send" type="button" style="margin-top:10px" data-i18n>Send to owner</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="hub-section">' +
+        '<h2 data-i18n>Last two weeks</h2>' +
+        '<div class="card">' +
+          (RUN_HISTORY.length
+            ? historyHtml(RUN_HISTORY)
+            : '<p class="row-sub" data-i18n>No runs recorded yet.</p>') +
+        '</div>' +
+      '</div>';
+
+    wire();
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function wire() {
+    document.querySelectorAll('.chk-ans button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (RUN && RUN.submitted_at) { Hub.toast('Today’s run is already closed'); return; }
+        setCheck(b.getAttribute('data-key'), b.getAttribute('data-result'));
+      });
+    });
+
+    var sub = document.getElementById('run-submit');
+    if (sub) sub.addEventListener('click', function () {
+      sub.disabled = true;
+      post({ op: 'submit', note: document.getElementById('run-note').value }).then(function (r) {
+        if (r && r.ok) { RUN = r.run; Hub.toast('Run closed'); load(); }
+        else { sub.disabled = false; Hub.toast((r && r.error) || 'Could not close the run'); }
+      });
+    });
+
+    var fb = document.getElementById('fb-send');
+    if (fb) fb.addEventListener('click', function () {
+      var title = document.getElementById('fb-title').value.trim();
+      if (!title) { Hub.toast('Say what you found'); return; }
+      fb.disabled = true;
+      post({
+        op: 'feedback',
+        title: title,
+        body: document.getElementById('fb-body').value,
+        severity: document.getElementById('fb-warn').checked ? 'warning' : 'info'
+      }).then(function (r) {
+        fb.disabled = false;
+        if (r && r.ok) {
+          document.getElementById('fb-title').value = '';
+          document.getElementById('fb-body').value = '';
+          document.getElementById('fb-warn').checked = false;
+          Hub.toast('Sent to Dayan');
+        } else { Hub.toast((r && r.error) || 'Could not send'); }
+      });
+    });
+  }
+
+  // Optimistic: the button state flips immediately and is corrected by the server's answer.
+  // Seven taps that each wait on a round-trip is what makes a daily checklist stop being daily.
+  function setCheck(key, result) {
+    if (!RUN.checks) RUN.checks = {};
+    var prev = RUN.checks[key];
+    RUN.checks[key] = result;
+    paintCheck(key, result);
+    post({ op: 'check', key: key, result: result }).then(function (r) {
+      if (r && r.ok && r.run) { RUN = r.run; paintCheck(key, RUN.checks[key]); paintProgress(); }
+      else {
+        RUN.checks[key] = prev;
+        paintCheck(key, prev);
+        Hub.toast((r && r.error) || 'Could not save that');
+      }
+      paintProgress();
+    });
+    paintProgress();
+  }
+
+  function paintCheck(key, result) {
+    document.querySelectorAll('.chk-ans button[data-key="' + key + '"]').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-result') === result ? 'true' : 'false');
+    });
+  }
+
+  function paintProgress() {
+    var el = document.querySelector('.run-progress');
+    if (!el) return;
+    var done = answered();
+    el.innerHTML = done + '/' + CHECKS.length + ' <span data-i18n>checked</span>' +
+      (RUN && RUN.submitted_at ? ' · <span data-i18n>closed</span>' : '');
+    var sub = document.getElementById('run-submit');
+    if (sub && !(RUN && RUN.submitted_at)) sub.disabled = done < CHECKS.length;
+    if (window.AnejoI18n) window.AnejoI18n.refresh();
+  }
+
+  function post(body) {
+    return Hub.api('/api/hub/marketing/run', { method: 'POST', body: body })
+      .catch(function () { return null; });
+  }
+
+  function load() {
+    return Marketing.get('/api/hub/marketing/run').then(function (d) {
+      if (!d || !d.ok) { Marketing.fail(); return; }
+      CHECKS = d.checks || [];
+      RUN = d.run || { checks: {} };
+      RUN_HISTORY = d.history || [];
+      render();
+    });
+  }
+
+  Marketing.init('mkt-today', load);
+})();
+</script>
+</body>
+</html>

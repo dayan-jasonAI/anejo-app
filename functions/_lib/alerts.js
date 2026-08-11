@@ -46,6 +46,12 @@ export const ALERT_TYPES = [
   // a warning because the invoice is still unpaid and someone has to decide; the refusal itself is
   // the system working, not failing.
   'autopay_refused',
+  // The Marketing Expert's feedback to the owner (api/hub/marketing/run.js). She runs and tests
+  // the marketing system daily; what she finds has to reach Dayan somewhere he already looks,
+  // which is this feed on /hub/owner/. Severity is hers to choose: 'info' for an observation,
+  // 'warning' for something costing us output today. Deliberately NOT deduped — two findings on
+  // the same day are two things he needs to know, not a repeat.
+  'marketing_feedback',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:

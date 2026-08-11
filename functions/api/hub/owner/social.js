@@ -4,7 +4,7 @@
 // path from "generated" to "on the profile". Six posts on the account is what happens when that
 // path is a human copying files.
 import { json, bad, id, now, randToken } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { igConfigured, accountInfo, JPEG_ONLY, VIDEO_ONLY, CAROUSEL_MAX } from '../../../_lib/instagram.js';
 import { publishSocialPost, loadPostMedia, coverStatus } from '../../../_lib/social_publish.js';
@@ -25,7 +25,7 @@ const DAILY_CAP = 25;
 
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
@@ -179,7 +179,7 @@ export const onRequestGet = async ({ request, env }) => {
 };
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 

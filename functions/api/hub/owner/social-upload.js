@@ -25,14 +25,14 @@
 // from a recognised photo would silently stop being recognised as one. Sanitised identically to
 // putMedia's `role` (own-only endpoint; still never trust a client string into a path unfiltered).
 import { json, bad, id } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 
 const MAX_BYTES = 8 * 1024 * 1024;   // page caps files at 5MB; base64 inflates ~33%; headroom, not invitation
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.MEDIA) return bad('Media storage is not configured.', 500);
 

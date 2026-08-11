@@ -4,17 +4,17 @@
 // Owner-only. Takes effect on the NEXT social_plan run — the weekly Sunday tick or a manual
 // re-run from the HUB (functions/api/hub/admin/*); nothing here re-runs the planner itself.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { getCadenceConfig, setCadenceConfig, CADENCE_DEFAULTS } from '../../../_lib/social_cadence.js';
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   return json({ ok: true, config: await getCadenceConfig(env), defaults: CADENCE_DEFAULTS });
 };
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }

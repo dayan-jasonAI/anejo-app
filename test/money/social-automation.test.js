@@ -202,7 +202,7 @@ test('the consolidated workspace highlights ONE nav tab, and the four old ones a
   // separate nav entries. Consolidating into marketing.html means there is now exactly one.
   const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
   const NAV = readFileSync(new URL('../../public/hub/owner/assets/owner.js', import.meta.url), 'utf8');
-  assert.match(PAGE, /Owner\.init\('marketing', load\)/);
+  assert.match(PAGE, /Owner\.init\('marketing', load, \{ roles: Owner\.MARKETING_DESK \}\)/);
   assert.match(NAV, /\{ view: 'marketing', href: '\/hub\/owner\/marketing\.html'/);
   for (const href of ['/hub/owner/team.html', '/hub/owner/social.html', '/hub/owner/campaigns.html']) {
     assert.doesNotMatch(NAV, new RegExp(`href: '${href.replace(/[./]/g, '\\$&')}'`), `${href} must not have its own nav entry anymore`);
@@ -269,7 +269,7 @@ test('upload rejects by MAGIC BYTES, not filename, and forces the .jpg key', () 
   assert.match(UP, /\.jpg`/, 'the stored key always ends .jpg');
   assert.match(UP, /contentType: 'image\/jpeg'/, 'and is typed as jpeg regardless of the claim');
   assert.match(UP, /HEIC photo/, 'the commonest failure — an iPhone camera-roll HEIC — is named, with the fix');
-  assert.match(UP, /requireRole\(request, env, \['owner'\]\)/, 'owner-only');
+  assert.match(UP, /requireRole\(request, env, MARKETING_DESK\)/, 'the marketing desk, not the whole staff');
 });
 
 test('the page has a real caption editor and a real upload button', () => {

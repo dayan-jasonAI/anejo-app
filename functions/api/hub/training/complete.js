@@ -4,12 +4,12 @@
 // Any staff role may complete their own training; the owner reads compliance via
 // /api/hub/owner/training-status.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole, currentStaff } from '../../../_lib/roles.js';
+import { requireRole, currentStaff, STAFF_ROLES } from '../../../_lib/roles.js';
 import { id, now } from '../../../_lib/hub.js';
 import { capture } from '../../../_lib/track.js';
 
-const MODULES = ['owner', 'kitchen', 'driver', 'vendor'];
-const STAFF_ROLES = ['owner', 'kitchen', 'driver', 'vendor'];
+// One tutorial module per staff role — the module IS the role, so they share a list.
+const MODULES = STAFF_ROLES;
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, STAFF_ROLES);

@@ -9,12 +9,15 @@
 //        → delete the row for that endpoint (allowed hard delete: user opt-out).
 // Fires push.subscribed / push.unsubscribed.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { id, now } from '../../../_lib/hub.js';
 import { getVapidPublicKey } from '../../../_lib/push.js';
 
-const ALL_ROLES = ['owner', 'kitchen', 'driver', 'vendor', 'trainer', 'client'];
+// Every role, staff and portal alike — this endpoint is open to anyone signed in.
+// Imported rather than re-typed: as a literal it silently omitted each newly added role
+// (marketing, 2026-08-11) and the omission reads as a deliberate exclusion.
+const ALL_ROLES = HUB_ROLES;
 
 export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);

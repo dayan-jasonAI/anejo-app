@@ -134,8 +134,28 @@
   // ---------- session ----------
   // Returns the /api/me payload. We tolerate both the trainer shape and a future
   // staff/role shape (role lives at top level or under .staff / .trainer).
+  // The nav is rendered synchronously, before /api/me can answer — so without a remembered role
+  // every shared page would paint the OWNER's bar first and correct itself a round-trip later.
+  // For the marketing expert that flash shows her Finance/Kitchen/Staff tabs she cannot open.
+  // The cache is a display hint only: every guard still re-checks the real role server-side, and
+  // a stale value costs one corrected repaint, never access.
+  var ROLE_KEY = 'anejo_hub_role';
+  Hub.cachedRole = function () {
+    try { return window.localStorage.getItem(ROLE_KEY) || null; } catch (e) { return null; }
+  };
+  Hub.rememberRole = function (role) {
+    try {
+      if (role) window.localStorage.setItem(ROLE_KEY, role);
+      else window.localStorage.removeItem(ROLE_KEY);
+    } catch (e) { /* private mode / storage disabled — the nav just repaints once */ }
+  };
+
   Hub.me = function () {
-    return Hub.api('/api/me').then(function (data) { Hub._me = data; return data; });
+    return Hub.api('/api/me').then(function (data) {
+      Hub._me = data;
+      Hub.rememberRole(data && data.authenticated ? Hub.roleFromMe(data) : null);
+      return data;
+    });
   };
 
   Hub.roleFromMe = function (data) {
@@ -186,12 +206,39 @@
       // Behind ⋯ More — a driver never opens this mid-route, and it must not cost a task tab.
       { key: 'mydata', ico: '🔒', label: 'My data', href: '/hub/my-activity.html' }
     ],
+    // The Marketing Expert's desk (2026-08-11). Five primary tabs are the five things she does
+    // every day — read yesterday's result, work the marketing workspace, mind affiliates, edit
+    // the site's own words, answer people — and everything else sits behind ⋯ More. This is the
+    // ONE definition of her bar: owner.js delegates here rather than filtering the owner's NAV,
+    // so her bar cannot drift between her own pages and the shared ones.
+    // Note what is absent and is meant to be: finance, payouts, kitchen, orders, the customer
+    // book, staff administration. Her remit is the marketing system, not the business's money.
+    marketing: [
+      { key: 'mkt-today', ico: '◎', label: 'Today', href: '/hub/marketing/', primary: true },
+      { key: 'marketing', ico: '📈', label: 'Marketing', href: '/hub/owner/marketing.html', primary: true },
+      { key: 'partners', ico: '📣', label: 'Affiliate', href: '/hub/owner/partners.html', primary: true },
+      { key: 'site-copy', ico: '📢', label: 'Site copy', href: '/hub/owner/site-copy.html', primary: true },
+      { key: 'comms', ico: '💬', label: 'Comms', href: '/hub/comms.html', primary: true },
+      { key: 'mkt-settings', ico: '⚙️', label: 'Marketing settings', href: '/hub/owner/marketing-settings.html' },
+      { key: 'content', ico: '📚', label: 'Content', href: '/hub/owner/content.html' },
+      { key: 'traffic', ico: '📈', label: 'Traffic', href: '/hub/owner/traffic.html' },
+      { key: 'adoption', ico: '🧭', label: 'Adoption', href: '/hub/owner/adoption.html' },
+      { key: 'studio', ico: '🎨', label: 'Studio', href: '/studio/' },
+      { key: 'training', ico: '🎓', label: 'Training', href: '/hub/training?role=marketing' },
+      { key: 'account', ico: '👤', label: 'Account', href: '/hub/account.html' },
+      { key: 'mydata', ico: '🔒', label: 'My data', href: '/hub/my-activity.html' }
+    ],
     vendor: [
       { key: 'home', ico: '🏠', label: 'Home', href: '/hub/vendor/' },
       { key: 'comms', ico: '💬', label: 'Comms', href: '/hub/comms.html' },
       { key: 'account', ico: '👤', label: 'Account', href: '/hub/account.html' }
     ]
   };
+
+  // The nav item list for a role, or null. Exposed so the owner surface can render the
+  // marketing expert's bar on the pages she shares with the owner (see owner.js renderNav)
+  // instead of showing her the owner's Finance/Kitchen/Staff tabs.
+  Hub.navFor = function (role) { return NAVS[role] || null; };
 
   // Render the fixed bottom nav for `role` (no-op if the page already has one, or role
   // has no nav defined). `activeKey` highlights the current tab.
@@ -308,6 +355,7 @@
       case 'owner': return '/hub/owner';
       case 'kitchen': return '/hub/kitchen';
       case 'driver': return '/hub/driver';
+      case 'marketing': return '/hub/marketing';
       case 'vendor': return '/hub/vendor';
       case 'trainer': return '/trainer/dashboard';
       case 'client': return '/client/dashboard';
