@@ -13,8 +13,9 @@ Three authority leaks were closed. Sections 8, 10, 14 and 16 changed the most.
 
 **Read this first:** every statement below is drawn from the shipped code, not from intent. Where
 something does not exist, this document says so plainly rather than describing what it *should* do.
-The section **"Known gaps — what does NOT exist"** is the most important section for planning, and
-**"Decisions Dayan still owes"** lists four things nobody has ruled on yet.
+For planning, the two sections that matter most are **§14 Limitations** (what the system cannot do,
+including four things that are not built at all) and **§16.2 Still open** — three decisions nobody
+has ruled on, one of which is the Marketing Expert's own compensation.
 
 **Audience:** Dayan (owner), the incoming Marketing Expert, and whatever tool builds the onboarding
 package from this file.
