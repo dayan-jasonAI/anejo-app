@@ -86,6 +86,7 @@ export const onRequestGet = async ({ request, env }) => {
       for (const row of (m && m.results) || []) (bySlide[row.post_id] = bySlide[row.post_id] || []).push({ id: row.id, seq: row.seq, media_key: row.media_key, origin: null });
       for (const post of posts) post.media = bySlide[post.id] || [];
     } catch { for (const post of posts) post.media = []; }
+   }
   }
 
   // Food-first indicator (see functions/_lib/social_publish.js coverStatus): computed straight
