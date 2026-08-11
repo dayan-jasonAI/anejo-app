@@ -532,3 +532,16 @@ test('the round-two tables exist', () => {
   assert.match(M, /CREATE TABLE IF NOT EXISTS improvement_requests/);
   assert.match(M, /active_seconds INTEGER NOT NULL DEFAULT 0/);
 });
+
+test('she can approve an affiliate but not set their commission', () => {
+  // The one-tap approve/decline ops arrived AFTER the payout guard and run before it, and both
+  // accept commission_pct / payout_method — which is `set_payout` by another name. Terms fall
+  // back to the house default for anyone who is not the owner.
+  const P = read('../../functions/api/hub/owner/partners.js');
+  assert.match(P, /const terms = \(raw\) => \(ctx\.role === 'owner'/);
+  assert.match(P, /commission_pct: undefined, payout_method: undefined/);
+  assert.match(P, /onboardPartner\(env, request, terms\(b\)\)/, 'the onboard op must launder its input');
+  assert.match(P, /onboardPartner\(env, request, terms\(\{/, 'and so must approve_application');
+  // The act itself stays hers — approving affiliates is the job.
+  assert.ok(!/ownerOnly[\s\S]{0,120}approve_application/.test(P), 'approving must remain hers');
+});

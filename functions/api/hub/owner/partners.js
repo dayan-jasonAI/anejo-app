@@ -170,8 +170,18 @@ export const onRequestPost = async ({ request, env }) => {
   const t = now();
 
   // --- Onboard a creator partner: trainer row + live code + onboarding email, in one action.
+  // Deciding a partner's TERMS is the owner's, wherever it is asked for. `set_payout` below is
+  // owner-only, but onboarding and approving an application both accept commission_pct and
+  // payout_method too — and they run before that guard. Without this, "she handles affiliates"
+  // would quietly include signing one at 50%. She keeps the act (onboard, approve, decline); the
+  // numbers fall back to the house default unless the owner set them. (2026-08-11: the approve/
+  // decline ops arrived after the payout guard and reopened the hole it had closed.)
+  const terms = (raw) => (ctx.role === 'owner'
+    ? raw
+    : { ...raw, commission_pct: undefined, payout_method: undefined });
+
   if (op === 'onboard') {
-    const r = await onboardPartner(env, request, b);
+    const r = await onboardPartner(env, request, terms(b));
     if (!r.ok) return bad(r.error, r.status || 500);
     return json({ ok: true, partner_id: r.partner_id, code: r.code, commission_pct: r.commission_pct, emailed: r.emailed });
   }
@@ -185,11 +195,11 @@ export const onRequestPost = async ({ request, env }) => {
     if (!app) return bad('Application not found.', 404);
     if (app.status === 'approved') return json({ ok: true, already: true, partner_id: app.partner_id });
 
-    const r = await onboardPartner(env, request, {
+    const r = await onboardPartner(env, request, terms({
       email: app.email, name: app.name, handle: app.instagram, city: app.area, phone: app.phone,
       commission_pct: b.commission_pct, payout_method: b.payout_method, code: b.code,
       send_welcome: b.send_welcome !== false,
-    });
+    }));
     if (!r.ok && r.status !== 409) return bad(r.error, r.status || 500);
     const partnerId = r.partner_id || null;
     await env.DB.prepare("UPDATE partner_applications SET status='approved', partner_id=?, decided_at=? WHERE id=?")
