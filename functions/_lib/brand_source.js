@@ -51,6 +51,47 @@ export function withoutProposals(body) {
 }
 
 /**
+ * The sections of the brief that govern what a CUSTOMER-FACING agent may say.
+ *
+ * Aña answers a stranger in under 400 characters, on Haiku, on every inbound DM. Handing her the
+ * whole brief would be 25,000 chars of plating geometry and kitchen production specs to decide a
+ * two-sentence reply — 3.8x the tokens for context she cannot use. These five are the ones that
+ * actually constrain her: who we are (§1), the Golden Rule (§4), allergens (§8), voice (§11) and
+ * the non-negotiables (§12). Measured at 6,701 chars against the live doc.
+ *
+ * §6 Menu is DELIBERATELY absent. She already receives live prices and availability from
+ * menu_items; the brief's menu section is prose that can lag a price change by however long it
+ * takes the owner to edit two documents. One source per fact.
+ */
+export const CUSTOMER_FACING_SECTIONS = [1, 4, 8, 11, 12];
+
+/**
+ * Keep only the numbered `## N.` sections asked for.
+ *
+ * Numbered headings are the selector because the rest of the codebase already refers to this
+ * document that way (§8, §10, §11 appear in comments and test names), and because an unnumbered
+ * `## ` heading is, by construction, not part of the ratified brief — the Studio's proposals are
+ * the only unnumbered sections there are, so they can never survive this filter either.
+ *
+ * Returns '' when nothing matches. That is a signal, not an answer: loadBrand() treats an empty
+ * slice as "the document has been renumbered under us" and falls back to the whole brief rather
+ * than handing a customer-facing agent a brief with no allergen rules in it.
+ */
+export function onlySections(body, numbers) {
+  const want = new Set(numbers.map(Number));
+  const kept = [];
+  let keeping = false;
+  for (const line of String(body).split('\n')) {
+    if (/^##\s/.test(line)) {
+      const m = /^##\s+(\d+)\s*\./.exec(line);
+      keeping = !!m && want.has(Number(m[1]));
+    }
+    if (keeping) kept.push(line);
+  }
+  return kept.join('\n').trim();
+}
+
+/**
  * The brand brief, preferring the copy the OWNER can edit.
  *
  * Two copies exist and they are not interchangeable. `docs` rows (doc_type='brand') are live: the
@@ -72,13 +113,20 @@ export function withoutProposals(body) {
  * No role_scope filter: every caller of this function is an internal AI surface reasoning about
  * the owner's own brand, not a staff-facing view that needs to hide anything.
  */
-export async function loadBrand(env, { maxChars = 20000 } = {}) {
+export async function loadBrand(env, { maxChars = 20000, sections = null } = {}) {
+  // Narrow the document to the caller's sections, if it asked for any. An empty result means the
+  // numbering moved, so the caller gets the whole brief rather than a confidently empty one.
+  const narrow = (body) => {
+    if (!sections) return body;
+    return onlySections(body, sections) || body;
+  };
+
   const docs = await rows(env,
     "SELECT title, body FROM docs WHERE active = 1 AND doc_type = 'brand' ORDER BY updated_at DESC LIMIT 10");
   const parts = [];
   let used = 0;
   for (const d of docs) {
-    const body = withoutProposals(d.body || '');
+    const body = narrow(withoutProposals(d.body || ''));
     if (!body || used >= maxChars) continue;
     const block = `### ${d.title || 'Brand & Standards Brief'}\n${body}`.slice(0, maxChars - used);
     parts.push(block);
@@ -86,5 +134,7 @@ export async function loadBrand(env, { maxChars = 20000 } = {}) {
   }
   return parts.length
     ? { text: parts.join('\n\n'), source: 'd1' }
-    : { text: BRAND_CONTEXT, source: 'repo' };
+    // The compiled snapshot is generated from the same markdown and keeps the same `## N.`
+    // numbering, so the section filter applies to the floor exactly as it does to the live copy.
+    : { text: narrow(BRAND_CONTEXT).slice(0, maxChars), source: 'repo' };
 }

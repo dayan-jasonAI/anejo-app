@@ -14,6 +14,7 @@ import { loadMenu, isOrderable, isAvailable } from './menu.js';
 import { BASE_BOWL_PRICE_USD } from './sizing.js';
 import { trainingContext } from './training.js';
 import { retrieve, formatPassages } from './knowledge.js';
+import { loadBrand, CUSTOMER_FACING_SECTIONS } from './brand_source.js';
 
 // Drafts are cheap and frequent (every unanswered DM and comment), so they ride Haiku; the
 // website chat keeps Sonnet in chat.js. Same knowledge, different cost profile.
@@ -120,7 +121,45 @@ function menuSection(menu) {
   return lines.join('\n');
 }
 
-export const anaSystemPrompt = (menu) => `You are "Aña", the warm, concise customer-service assistant for Añejo Catering Co. — a premium Cuban-American longevity food brand in Palm Beach County, Florida. Tagline: "Clean Fuel. Bold Flavor. Built for Life." Voice: friendly, polished, hospitable, never pushy. Keep replies short (2–5 sentences). Mirror the customer's language — reply in Spanish if they write in Spanish, English if English.
+// The brand brief, as Aña receives it. Optional on purpose: if the load fails, she falls back to
+// exactly the prompt she has always had rather than losing her voice to a D1 hiccup.
+//
+// WHY SHE NEEDS IT AT ALL. Every other agent reads the brief — Team Lead, planner, Brand Auditor
+// through brand_source.js, the Studio through its own loader. Aña did not, and she is the ONLY one
+// that speaks to a customer unattended. Her voice came from the hand-written prose below, which is
+// a second, drifting copy of §11: change the voice in the HUB and every surface moved except the
+// one the customer actually hears.
+//
+// 8,000 chars is headroom over the five sections' measured 6,701, so an ordinary edit to the voice
+// section does not silently start truncating her allergen rules.
+export const ANA_BRAND_BUDGET = 8000;
+
+const brandBlock = (brand) => {
+  const text = String(brand || '').trim();
+  if (!text) return '';
+  return `
+
+=== AÑEJO BRAND STANDARDS (from the brief Dayan maintains in the HUB — the authority on voice, allergens, and what we will not say) ===
+${text}
+=== END STANDARDS ===
+Two rules about the section above. The PRICES AND AVAILABILITY EARLIER IN THIS PROMPT WIN over anything the standards imply about what things cost or what is on sale — those are read live, the standards are prose. And it does not change your length: still 2–5 sentences, still under 400 characters. It governs HOW you sound and WHAT YOU MAY NOT CLAIM, not how much you write.`;
+};
+
+/**
+ * Load Aña's slice of the brief. Shared by both her mouths — the Instagram drafter below and the
+ * website chat in api/chat.js — because two loaders is how they would come to disagree, which is
+ * the whole reason the prompt itself lives in one file.
+ *
+ * Never throws: on any failure she keeps the prompt she has always had.
+ */
+export async function anaBrand(env) {
+  try {
+    const b = await loadBrand(env, { maxChars: ANA_BRAND_BUDGET, sections: CUSTOMER_FACING_SECTIONS });
+    return (b && b.text) || '';
+  } catch { return ''; }
+}
+
+export const anaSystemPrompt = (menu, brand) => `You are "Aña", the warm, concise customer-service assistant for Añejo Catering Co. — a premium Cuban-American longevity food brand in Palm Beach County, Florida. Tagline: "Clean Fuel. Bold Flavor. Built for Life." Voice: friendly, polished, hospitable, never pushy. Keep replies short (2–5 sentences). Mirror the customer's language — reply in Spanish if they write in Spanish, English if English.
 
 WHAT AÑEJO OFFERS (these are the current prices — quote them exactly, never a range)
 ${menuSection(menu)}
@@ -151,7 +190,7 @@ GUARDRAILS
 - Never invent menu items, prices, or policies beyond what's above; if unsure, say you're not certain and point them to dayan@anejocateringco.com or 561-567-1047.
 - Never give medical, dietary, or health advice — recommend a doctor or registered dietitian, and note the calculator is informational only.
 - Never promise refunds, discounts, delivery outside PBC, or anything not stated here. Don't take payment details in chat — direct them to the secure checkout.
-- Contact: dayan@anejocateringco.com · 561-567-1047 · Instagram @anejo.catering.co.`;
+- Contact: dayan@anejocateringco.com · 561-567-1047 · Instagram @anejo.catering.co.${brandBlock(brand)}`;
 
 // What changes when Aña drafts for Instagram instead of chatting on the website. The escalation
 // sentinel is a plain-text prefix rather than JSON because a refusal must be unmistakable — a
@@ -388,7 +427,10 @@ export async function draftReply(env, { kind = 'dm', text, username, auto = fals
   // environment that hasn't set either up, so the system prompt is byte-identical to before this
   // wiring existed until the owner actually trains the team or uploads a document.
   const extra = await anaExtraContext(env, msg);
-  const system = anaSystemPrompt(menu) + '\n' + socialAddendum(kind, username, auto) + extra;
+  // The voice and allergen rules the owner maintains, same source the rest of the team reads.
+  // Never throws — loadBrand degrades to the compiled snapshot, and brandBlock() to ''.
+  const brand = await anaBrand(env);
+  const system = anaSystemPrompt(menu, brand) + '\n' + socialAddendum(kind, username, auto) + extra;
 
   let r;
   try {

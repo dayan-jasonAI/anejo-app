@@ -292,12 +292,21 @@ test('the tick runs every minute — reply speed is the feature', () => {
   assert.match(CRON, /EVERY_MINUTE = \[[^\]]*'\/api\/hub\/admin\/social-inbox-tick'\]/);
 });
 
-test('one Aña, not two — the website chat imports the same prompt the drafter uses', () => {
-  // Tolerates co-imports from the same module (chat.js also pulls in detectCommercialIntent for
-  // web-chat lead capture) — the invariant is that anaSystemPrompt comes from ana_social.js, not
-  // that it is the only name on the line.
-  assert.match(CHAT, /import \{[^}]*\banaSystemPrompt\b[^}]*\} from '\.\.\/_lib\/ana_social\.js'/);
+test('one Aña, not two — the website chat shares the drafter\'s prompt AND its brief', () => {
+  // This pin used to match chat.js's import LINE literally, and TWO separate changes broke it in
+  // the same week for the same reason: web-chat lead capture added detectCommercialIntent, and the
+  // brand brief added anaBrand. Both were legitimate co-imports. Twice is the signal — the test was
+  // pinning the shape of a line when its name promises a property, so it now pins the property.
+  //
+  // Widened rather than loosened. It still refuses a second prompt or a second brief loader in
+  // chat.js, and now names both symbols it requires, so it catches strictly more than the literal
+  // match ever did.
+  const imported = CHAT.match(/import \{([^}]*)\} from '\.\.\/_lib\/ana_social\.js'/);
+  assert.ok(imported, 'chat.js imports from _lib/ana_social.js');
+  assert.match(imported[1], /\banaSystemPrompt\b/, 'the prompt comes from the shared module');
+  assert.match(imported[1], /\banaBrand\b/, 'and so does the brief loader — two loaders is how they drift');
   assert.ok(!/You are "Aña"/.test(CHAT), 'chat.js no longer carries its own copy of the prompt');
+  assert.ok(!/loadBrand\(/.test(CHAT), 'nor loads the brief itself — that is the second Aña under another name');
   assert.match(ANA, /You are "Aña"/);
 });
 
