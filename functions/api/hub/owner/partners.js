@@ -48,6 +48,61 @@ async function sendPartnerWelcome(env, request, p) {
   } catch { return false; }
 }
 
+// ---------- polite decline email ----------
+async function sendPartnerDecline(env, p) {
+  if (!env.RESEND_API_KEY || !isEmail(p.email)) return false;
+  const html = emailShell([
+    `<p>Hi ${escHtml((p.name || '').split(/\s+/)[0] || 'there')},</p>`,
+    `<p>Thank you so much for your interest in partnering with <strong>Añejo Catering Co.</strong> — we truly appreciate you thinking of us.</p>`,
+    `<p>Right now we're keeping our creator roster small and focused, so we're not able to move forward at this time. This isn't a no forever — our program grows, and we'd genuinely welcome you to apply again down the road.</p>`,
+    `<p>In the meantime, we'd love to have you as a guest — come taste what we're building at anejocateringco.com.</p>`,
+    `<p>With gratitude,<br>— The Añejo Team 🌿</p>`,
+  ].join(''));
+  try { await sendEmail(env, { to: p.email, subject: 'Thank you from Añejo Catering Co.', html }); return true; }
+  catch { return false; }
+}
+
+// ---------- shared onboarding core (used by manual onboard AND application approval) ----------
+// Creates the trainer/partner row + live affiliate code + welcome email in one step.
+// Returns { ok, partner_id, code, commission_pct, emailed } or { ok:false, error, status }.
+async function onboardPartner(env, request, a) {
+  const t = now();
+  const email = normalizeEmail(a.email);
+  if (!isEmail(email)) return { ok: false, error: 'Enter a valid email address.', status: 400 };
+  const name = (a.name || '').toString().trim();
+  if (!name) return { ok: false, error: 'Enter the partner’s name.', status: 400 };
+  const handle = (a.handle || '').toString().trim().replace(/^@/, '') || null;
+  const city = (a.city || '').toString().trim() || null;
+  const phone = normalizePhone(a.phone) || null;
+  const commission = Math.max(0, Math.min(50, Math.round(Number(a.commission_pct) || DEFAULT_COMMISSION)));
+  const payout = ['cash', 'credit'].includes(a.payout_method) ? a.payout_method : 'cash';
+
+  let code = cleanCode(a.code) || affiliateCode();
+  if (code === 'HOUSE') return { ok: false, error: 'HOUSE is a reserved code.', status: 400 };
+
+  const dup = await env.DB.prepare('SELECT id, affiliate_code FROM trainers WHERE email=?').bind(email).first();
+  if (dup) return { ok: false, error: 'A partner with that email already exists.', status: 409, partner_id: dup.id, code: dup.affiliate_code };
+
+  const tid = id('tr');
+  const insert = (c) => env.DB.prepare(
+    'INSERT INTO trainers (id, email, name, gym_name, gym_city, phone, affiliate_code, payout_method, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+  ).bind(tid, email, name, handle ? '@' + handle : null, city, phone, c, payout, 1, t, t).run();
+  try {
+    await insert(code);
+  } catch (e) {
+    if (String(e.message || '').includes('UNIQUE')) { code = affiliateCode(); await insert(code); }
+    else return { ok: false, error: 'Could not create that partner.', status: 500 };
+  }
+
+  const live = await ensureAffiliateCode(env, { partnerId: tid, code, commissionPct: commission });
+  if (!live) return { ok: false, error: 'Partner created, but the code could not be activated — try a different code.', status: 500 };
+
+  const emailed = (a.send_welcome === false) ? false
+    : await sendPartnerWelcome(env, request, { name, email, code, commission_pct: commission });
+
+  return { ok: true, partner_id: tid, code, commission_pct: commission, emailed };
+}
+
 // ---------- GET ----------
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, MARKETING_DESK);
@@ -90,7 +145,17 @@ export const onRequestGet = async ({ request, env }) => {
     });
   } catch { partners = []; }
 
-  return json({ ok: true, partners, codes, default_commission_pct: DEFAULT_COMMISSION });
+  // Pending applications from the public /affiliate form — shown as actionable cards at the top.
+  let applications = [];
+  try {
+    const r = await env.DB.prepare(
+      `SELECT id, type, name, email, phone, instagram, other_socials, area, audience_size, heard_from, reason, created_at
+         FROM partner_applications WHERE status='new' ORDER BY created_at DESC LIMIT 100`
+    ).all();
+    applications = (r && r.results) || [];
+  } catch { applications = []; }
+
+  return json({ ok: true, partners, codes, applications, default_commission_pct: DEFAULT_COMMISSION });
 };
 
 // ---------- POST ----------
@@ -106,40 +171,42 @@ export const onRequestPost = async ({ request, env }) => {
 
   // --- Onboard a creator partner: trainer row + live code + onboarding email, in one action.
   if (op === 'onboard') {
-    const email = normalizeEmail(b.email);
-    if (!isEmail(email)) return bad('Enter a valid email address.');
-    const name = (b.name || '').toString().trim();
-    if (!name) return bad('Enter the partner’s name.');
-    const handle = (b.handle || '').toString().trim().replace(/^@/, '') || null;
-    const city = (b.city || '').toString().trim() || null;
-    const phone = normalizePhone(b.phone) || null;
-    const commission = Math.max(0, Math.min(50, Math.round(Number(b.commission_pct) || DEFAULT_COMMISSION)));
-    const payout = ['cash', 'credit'].includes(b.payout_method) ? b.payout_method : 'cash';
+    const r = await onboardPartner(env, request, b);
+    if (!r.ok) return bad(r.error, r.status || 500);
+    return json({ ok: true, partner_id: r.partner_id, code: r.code, commission_pct: r.commission_pct, emailed: r.emailed });
+  }
 
-    let code = cleanCode(b.code) || affiliateCode();
-    if (code === 'HOUSE') return bad('HOUSE is a reserved code.');
+  // --- Approve a stored application: onboard straight from the saved data (NO retyping), then
+  //     mark the application approved + link it to the new partner. One tap from the desk.
+  if (op === 'approve_application') {
+    const appId = (b.application_id || '').toString().trim();
+    if (!appId) return bad('Missing application_id.');
+    const app = await env.DB.prepare('SELECT * FROM partner_applications WHERE id=?').bind(appId).first();
+    if (!app) return bad('Application not found.', 404);
+    if (app.status === 'approved') return json({ ok: true, already: true, partner_id: app.partner_id });
 
-    const dup = await env.DB.prepare('SELECT id FROM trainers WHERE email=?').bind(email).first();
-    if (dup) return bad('A partner with that email already exists.', 409);
+    const r = await onboardPartner(env, request, {
+      email: app.email, name: app.name, handle: app.instagram, city: app.area, phone: app.phone,
+      commission_pct: b.commission_pct, payout_method: b.payout_method, code: b.code,
+      send_welcome: b.send_welcome !== false,
+    });
+    if (!r.ok && r.status !== 409) return bad(r.error, r.status || 500);
+    const partnerId = r.partner_id || null;
+    await env.DB.prepare("UPDATE partner_applications SET status='approved', partner_id=?, decided_at=? WHERE id=?")
+      .bind(partnerId, t, appId).run();
+    return json({ ok: true, partner_id: partnerId, code: r.code, commission_pct: r.commission_pct, emailed: r.emailed, existing: r.status === 409 });
+  }
 
-    const tid = id('tr');
-    const insert = (c) => env.DB.prepare(
-      'INSERT INTO trainers (id, email, name, gym_name, gym_city, phone, affiliate_code, payout_method, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-    ).bind(tid, email, name, handle ? '@' + handle : null, city, phone, c, payout, 1, t, t).run();
-    try {
-      await insert(code);
-    } catch (e) {
-      if (String(e.message || '').includes('UNIQUE')) { code = affiliateCode(); await insert(code); }
-      else return bad('Could not create that partner.', 500);
-    }
-
-    const live = await ensureAffiliateCode(env, { partnerId: tid, code, commissionPct: commission });
-    if (!live) return bad('Partner created, but the code could not be activated — try a different code.', 500);
-
-    const emailed = (b.send_welcome === false) ? false
-      : await sendPartnerWelcome(env, request, { name, email, code, commission_pct: commission });
-
-    return json({ ok: true, partner_id: tid, code, commission_pct: commission, emailed });
+  // --- Decline a stored application: send a warm decline, mark it. Also one tap.
+  if (op === 'decline_application') {
+    const appId = (b.application_id || '').toString().trim();
+    if (!appId) return bad('Missing application_id.');
+    const app = await env.DB.prepare('SELECT * FROM partner_applications WHERE id=?').bind(appId).first();
+    if (!app) return bad('Application not found.', 404);
+    if (app.status === 'declined') return json({ ok: true, already: true });
+    const emailed = (b.send_email === false) ? false : await sendPartnerDecline(env, { name: app.name, email: app.email });
+    await env.DB.prepare("UPDATE partner_applications SET status='declined', decided_at=? WHERE id=?").bind(t, appId).run();
+    return json({ ok: true, emailed });
   }
 
   // --- Cash vs 1.5x Añejo credit.

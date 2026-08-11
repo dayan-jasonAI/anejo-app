@@ -4,10 +4,12 @@
 //
 // Public + writes to D1 means two gates before anything else: a rate limit (an unauthenticated
 // form is a spam magnet) and server-side validation that does not trust the page's own checks.
-import { json, bad, id, now } from '../_lib/util.js';
+import { json, bad, id, now, appBaseUrl } from '../_lib/util.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { raiseAlert } from '../_lib/alerts.js';
 import { sendPushTickle } from '../_lib/push.js';
+import { sendEmail, emailShell, escHtml } from '../_lib/email.js';
+import { sendSms } from '../_lib/twilio.js';
 
 const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim());
 const clean = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
@@ -69,6 +71,53 @@ export const onRequestPost = async ({ request, env }) => {
     });
   } catch { /* the row is stored either way */ }
   try { await sendPushTickle(env, { roles: ['owner'] }); } catch { /* best-effort */ }
+
+  // Applicant hears back INSTANTLY — email always, SMS if they left a phone. Transactional
+  // (they just filled out our form), on-brand, promises only a review. Best-effort, never fails the submit.
+  const applicantPhone = clean(b.phone, 40);
+  try {
+    if (env.RESEND_API_KEY) {
+      await sendEmail(env, {
+        to: email,
+        subject: 'We got your Añejo partner application 🌿',
+        html: emailShell([
+          `<p>Hi ${escHtml(name.split(/\s+/)[0] || 'there')},</p>`,
+          `<p>Thanks for applying to partner with <strong>Añejo Catering Co.</strong> — we got it, and a real person (not a bot) reviews every application personally.</p>`,
+          `<p>We look at your Instagram first${instagram ? ` (<strong>@${escHtml(instagram)}</strong>)` : ''}, so make sure your best food content is easy to find. If it's a fit, you'll hear back with your affiliate code, your link, and exactly how the income works.</p>`,
+          `<p>Hang tight — we'll be in touch soon.</p>`,
+          `<p>— The Añejo Team<br><em>Clean Fuel. Bold Flavor. Built for Life.</em></p>`,
+        ].join('')),
+      });
+    }
+  } catch { /* best-effort */ }
+  try {
+    if (applicantPhone) {
+      await sendSms(env, { to: applicantPhone, body: `Añejo Catering Co.: got your partner application! We review every one personally and will reach out soon with next steps. Reply STOP to opt out.` });
+    }
+  } catch { /* best-effort */ }
+
+  // Owner gets an email + SMS on top of the push/alert — the whole card is here, no retyping.
+  try {
+    const base = appBaseUrl(env, request).replace(/\/$/, '');
+    const ownerTo = env.OWNER_EMAIL || 'dayan@anejocateringco.com';
+    if (env.RESEND_API_KEY) {
+      await sendEmail(env, {
+        to: ownerTo,
+        subject: `New partner application: ${name}${instagram ? ' (@' + instagram + ')' : ''}`,
+        html: emailShell([
+          `<p><strong>${escHtml(type === 'gym_trainer' ? 'Gym / Trainer' : 'Creator')} application</strong></p>`,
+          `<p><strong>${escHtml(name)}</strong>${instagram ? ` · <a href="https://instagram.com/${escHtml(instagram)}">@${escHtml(instagram)}</a>` : ''}<br>` +
+            `${escHtml(email)}${applicantPhone ? ' · ' + escHtml(applicantPhone) : ''}` +
+            `${b.area ? '<br>Area: ' + escHtml(clean(b.area, 60)) : ''}${b.audience_size ? '<br>Audience: ' + escHtml(clean(b.audience_size, 40)) : ''}</p>`,
+          `<p style="color:#3d4a41"><em>${escHtml(reason)}</em></p>`,
+          `<p style="margin-top:20px"><a href="${base}/hub/owner/partners.html" style="background:#1A3D2E;color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px">Review &amp; approve in the Partners desk →</a></p>`,
+        ].join('')),
+      });
+    }
+    if (env.OWNER_PHONE) {
+      await sendSms(env, { to: env.OWNER_PHONE, body: `Añejo: new ${type === 'gym_trainer' ? 'gym/trainer' : 'creator'} application — ${name}${instagram ? ' (@' + instagram + ')' : ''}. Review + approve in the HUB Partners desk.` });
+    }
+  } catch { /* best-effort */ }
 
   return json({ ok: true, id: appId });
 };

@@ -56,9 +56,9 @@ export const onRequestGet = async ({ request, env }) => {
   if (ctx.role === 'owner') {
     try {
       const row = await env.DB.prepare(
-        "SELECT title, body, created_at FROM alerts WHERE status = 'open' AND created_at > ? ORDER BY created_at DESC LIMIT 1"
+        "SELECT title, body, alert_type, created_at FROM alerts WHERE status = 'open' AND created_at > ? ORDER BY created_at DESC LIMIT 1"
       ).bind(now() - ALERT_FRESH_MS).first();
-      if (row) alert = { title: row.title || null, body: row.body || null, created_at: row.created_at };
+      if (row) alert = { title: row.title || null, body: row.body || null, alert_type: row.alert_type || null, created_at: row.created_at };
     } catch { alert = null; }
   }
 
@@ -86,5 +86,12 @@ export const onRequestGet = async ({ request, env }) => {
     body = unread === 1 ? 'You have 1 unread message.' : `You have ${unread} unread messages.`;
   }
 
-  return json({ ok: true, unread, alert, offer, title, body });
+  // Deep-link the notification tap to the right place, so the owner lands ON the item.
+  let url = '/hub/';
+  if (offer) url = '/hub/driver/route.html';
+  else if (alert && alert.alert_type === 'partner_application') url = '/hub/owner/partners.html';
+  else if (alert) url = '/hub/owner/';                 // other owner alerts → command center
+  else if (unread) url = ctx.role === 'owner' ? '/hub/owner/comms.html' : '/hub/comms.html';
+
+  return json({ ok: true, unread, alert, offer, title, body, url });
 };

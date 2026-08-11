@@ -10,7 +10,7 @@
    - web push             → "tickle" pattern: pushes carry no payload; on push we fetch
                             /api/hub/push/peek (cookie-authed) and render the notification.
    Bump CACHE on shell changes to invalidate. */
-const CACHE = 'anejo-hub-v6';
+const CACHE = 'anejo-hub-v7';
 const SHELL = [
   '/hub/',
   '/hub/index.html',
@@ -110,7 +110,7 @@ self.addEventListener('push', (event) => {
           tag: 'anejo-hub',
           renotify: true,           // re-alert (sound/vibrate) on each message, don't replace silently
           vibrate: [80, 40, 80],
-          data: { url: '/hub/comms.html' },
+          data: { url: (d && d.url) || '/hub/comms.html' },   // deep-link to the actual item
         });
       })
       .catch(() =>
@@ -132,7 +132,11 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
       for (const w of wins) {
-        if (w.url.includes('/hub') && 'focus' in w) return w.focus();
+        if (w.url.includes('/hub') && 'focus' in w) {
+          // Focus the existing HUB window AND send it to the notification's target.
+          if ('navigate' in w) { try { return w.navigate(url).then((c) => (c || w).focus()); } catch (e) { /* fall through */ } }
+          return w.focus();
+        }
       }
       return clients.openWindow(url);
     })
