@@ -16,7 +16,8 @@
 // the money. The tests at the bottom pin what she must NOT reach.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -313,5 +314,33 @@ test('her role label and the desk\'s visible strings have Spanish', () => {
   for (const s of ['Affiliate', 'Site copy', 'Today’s run', 'Tell the owner', 'Send to owner',
                    'Close today’s run', 'Marketing settings']) {
     assert.ok(HUB_I18N.includes(`"${s}"`), `"${s}" is rendered to her and has no Spanish entry`);
+  }
+});
+
+// ---------- the constants are imported wherever they are used ----------
+
+test('every file using a roles.js constant imports it', () => {
+  // CI caught this and the local suite did not: traffic.js used MARKETING_DESK without importing
+  // it — a ReferenceError on the first request, and the ONLY signal was eslint's no-undef. Every
+  // test here reads source as text, so a missing import is invisible to all of them. This walks
+  // functions/ and closes that gap without needing eslint installed.
+  const NAMES = ['MARKETING_DESK', 'HUB_ROLES', 'STAFF_ROLES', 'STAFF_TEAMS'];
+  const root = new URL('../../functions', import.meta.url).pathname;
+
+  const walk = (dir) => readdirSync(dir).flatMap((e) => {
+    const full = join(dir, e);
+    return statSync(full).isDirectory() ? walk(full) : (full.endsWith('.js') ? [full] : []);
+  });
+
+  for (const file of walk(root)) {
+    if (file.endsWith('_lib/roles.js')) continue;   // where they are declared
+    const src = readFileSync(file, 'utf8');
+    for (const name of NAMES) {
+      // Uses, not the import clause itself.
+      const stripped = src.replace(/import \{[^}]*\} from '[^']*';/g, '');
+      if (!new RegExp(`\\b${name}\\b`).test(stripped)) continue;
+      assert.match(src, new RegExp(`import \\{[^}]*\\b${name}\\b[^}]*\\} from '[^']*roles\\.js'`),
+        `${file.slice(root.length + 1)} uses ${name} without importing it`);
+    }
   }
 });

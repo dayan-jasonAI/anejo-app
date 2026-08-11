@@ -1,6 +1,8 @@
-// GET /api/hub/owner/traffic — first-party analytics summary (owner-only). Reads page_views.
+// GET /api/hub/owner/traffic — first-party analytics summary. Reads page_views.
+// Gated to the marketing desk (owner + the marketing expert): reading yesterday's numbers
+// against what we published is one of the checks on her daily run.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
