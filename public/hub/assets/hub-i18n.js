@@ -54,6 +54,36 @@
       "Va directo a las alertas de Dayan — el mismo panel que lee cada mañana. Mándalo cuando lo encuentres; no esperes a cerrar la ronda.",
     "This is costing us output today": "Esto nos está costando producción hoy",
     "Last two weeks": "Las últimas dos semanas", "No runs recorded yet.": "Aún no hay rondas registradas.",
+    // ---- the marketing studio (2026-08-11) ----
+    "SMS test": "Prueba de SMS", "Opening the studio…": "Abriendo el estudio…",
+    "The Marketing Studio": "El Estudio de Marketing",
+    "Our face to the world": "Nuestra cara ante el mundo",
+    "The website and Instagram are what people meet before they ever taste the food. This is where that gets made, checked, and kept alive.":
+      "La web e Instagram son lo que la gente conoce antes de probar la comida. Aquí es donde eso se crea, se revisa y se mantiene vivo.",
+    "Working today": "Trabajando hoy",
+    "End session & report": "Terminar sesión y reportar",
+    "Wrap up": "Cierre",
+    "This goes to Dayan with the time you worked. Anything you leave blank is simply left out.":
+      "Esto le llega a Dayan junto con el tiempo trabajado. Lo que dejes en blanco simplemente no se incluye.",
+    "What you got done": "Lo que lograste", "What got in the way": "Qué se interpuso",
+    "Good news": "Buenas noticias", "Bad news": "Malas noticias", "Feedback": "Comentarios",
+    "Send update & end session": "Enviar reporte y terminar sesión",
+    "Answer every check first — “not today” counts, silence does not.":
+      "Responde todas las revisiones primero — “hoy no” cuenta, el silencio no.",
+    "Goes straight to Dayan’s alerts and his phone. Send it when you find it; don’t wait for the run to close.":
+      "Va directo a las alertas de Dayan y a su teléfono. Mándalo cuando lo encuentres; no esperes a cerrar la ronda.",
+    "Detail, and what you think we should change": "Detalle, y qué crees que debemos cambiar",
+    "Requests to Dayan": "Solicitudes a Dayan",
+    "Ask for a change to the system itself. Unlike a finding, this stays on the board until he decides — and you see the decision.":
+      "Pide un cambio al sistema mismo. A diferencia de un hallazgo, esto queda en la lista hasta que él decida — y tú ves la decisión.",
+    "Improvement": "Mejora", "Bug": "Falla", "Question": "Pregunta",
+    "What you want": "Qué quieres", "Why it matters": "Por qué importa",
+    "File it": "Enviar solicitud", "Nothing filed yet.": "Aún no hay solicitudes.",
+    "Accept": "Aceptar", "Decline": "Rechazar", "Shipped": "Entregado", "Dayan:": "Dayan:",
+    "Open the trust cockpit": "Abrir el panel de confianza",
+    "Review the queue": "Revisar la cola", "Decide the request": "Decidir la solicitud",
+    "Open the studio": "Abrir el estudio", "Open the lead": "Abrir el prospecto",
+    "Review the application": "Revisar la solicitud",
     "Route": "Ruta", "Temp": "Temp.", "Expenses": "Gastos", "Routes": "Rutas", "Account": "Cuenta",
     "Checklist": "Lista", "Summary": "Resumen", "Creative Studio": "Estudio Creativo",
     "Daily summary": "Resumen diario", "Report issue": "Reportar problema", "Temp log": "Registro de temperatura",

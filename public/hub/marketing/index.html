@@ -3,53 +3,187 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Añejo HUB · Marketing desk</title>
+<title>Añejo HUB · Marketing Studio</title>
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#1b3a2b">
+<meta name="theme-color" content="#0D0D0D">
 <link rel="manifest" href="/hub/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link rel="apple-touch-icon" href="/assets/img/emblem.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Añejo Marketing">
+<meta name="apple-mobile-web-app-title" content="Añejo Studio">
 <link rel="stylesheet" href="/hub/assets/hub.css">
 <style>
-  /* One row per check: the question on the left, the three answers on the right. Kept as a
-     grid rather than a flex row so the answer buttons stay aligned down the column — a
-     ragged right edge is what makes a checklist feel like a form instead of a run. */
-  .chk { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:start; padding:12px 0; border-bottom:1px solid var(--line); }
-  .chk:last-child { border-bottom:0; }
-  .chk-main .row-title { font-size:14px; }
-  .chk-main .row-sub { font-size:12.5px; margin-top:2px; }
-  .chk-main a { font-size:12px; display:inline-block; margin-top:6px; }
-  .chk-ans { display:flex; gap:6px; }
-  /* 44px square minimum — these are tapped seven times a day on a phone. */
-  .chk-ans button {
-    min-width:44px; min-height:44px; border-radius:var(--radius-sm); border:1px solid var(--line);
-    background:var(--white); font:inherit; font-size:16px; line-height:1; cursor:pointer; color:var(--muted);
+  /* ═══ THE MARKETING STUDIO ═══════════════════════════════════════════════════════════════
+     Dayan: "this is the HEART of the company... it produces every emotion and experience we
+     want our face to show". A checklist that looks like a form does not put anyone in the frame
+     of mind to make the brand's face. So this surface is treated as a studio, not a dashboard:
+     an editorial dark stage at the top, generous rhythm, gold hairlines, and one thing asked at
+     a time. Every colour is a hub.css brand token — the studio is a different ARRANGEMENT of the
+     Añejo palette, never a second palette.
+     Motion is small and purposeful and every bit of it is disabled under prefers-reduced-motion. */
+
+  :root {
+    --stage: #0D0D0D;
+    --stage-2: #15170F;
+    --ink-gold: #C6A85B;
+    --hair: rgba(198,168,91,.22);
   }
-  .chk-ans button[aria-pressed="true"] { border-color:var(--green); background:var(--green-200); color:var(--green); font-weight:700; }
-  .chk-ans button[aria-pressed="true"][data-result="issue"] { border-color:var(--crit); background:#fbe9e7; color:var(--crit); }
-  .chk-ans button[aria-pressed="true"][data-result="skip"] { border-color:var(--muted); background:var(--cream-dark); color:var(--ink); }
-  .run-progress { font-size:12px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
-  .hist { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
-  .hist span { font-size:11px; padding:4px 8px; border-radius:999px; background:var(--cream-dark); color:var(--ink); }
-  .hist span.ok { background:var(--green-200); color:var(--green); }
-  .hist span.iss { background:#fbe9e7; color:var(--crit); }
-  textarea { width:100%; font:inherit; font-size:14px; padding:10px; border:1px solid var(--line); border-radius:var(--radius-sm); resize:vertical; }
-  input[type="text"] { width:100%; font:inherit; font-size:14px; padding:10px; border:1px solid var(--line); border-radius:var(--radius-sm); }
+
+  /* ── The stage: a dark editorial band the page opens on ───────────────────────────────── */
+  .stage {
+    background:
+      radial-gradient(120% 90% at 12% 0%, rgba(198,168,91,.14), transparent 60%),
+      linear-gradient(160deg, var(--stage-2), var(--stage));
+    color: var(--cream);
+    margin: calc(var(--pad) * -1) calc(var(--pad) * -1) 20px;
+    padding: 26px var(--pad) 22px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .stage-eyebrow {
+    font-size: 10px; letter-spacing: 3.5px; text-transform: uppercase;
+    color: var(--ink-gold); opacity: .9; margin-bottom: 10px;
+  }
+  .stage h1 {
+    font-size: 27px; line-height: 1.15; font-weight: 700; letter-spacing: -.3px;
+    margin-bottom: 6px;
+  }
+  .stage .stage-sub { font-size: 13.5px; line-height: 1.5; color: rgba(245,242,236,.6); max-width: 46ch; }
+
+  /* The live session strip — the one always-on piece of state on the page. */
+  .session {
+    display: flex; align-items: center; gap: 14px;
+    margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--hair);
+  }
+  .session-dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--ink-gold); flex: 0 0 auto;
+    box-shadow: 0 0 0 0 rgba(198,168,91,.6); animation: pulse 2.6s infinite;
+  }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 9px rgba(198,168,91,0); } 100% { box-shadow: 0 0 0 0 rgba(198,168,91,0); } }
+  .session-main { flex: 1; min-width: 0; }
+  .session-time {
+    font-size: 22px; font-weight: 700; letter-spacing: .5px;
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .session-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: rgba(245,242,236,.45); margin-top: 3px; }
+  .session .btn {
+    background: transparent; border: 1px solid var(--hair); color: var(--ink-gold);
+    padding: 10px 15px; font-size: 12.5px; letter-spacing: .6px; white-space: nowrap;
+    min-height: 44px;
+  }
+  .session .btn:hover { background: rgba(198,168,91,.09); }
+
+  /* ── Section headings, editorial ──────────────────────────────────────────────────────── */
+  .sec { margin-bottom: 30px; }
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .sec-head h2 {
+    font-size: 12px; letter-spacing: 2.6px; text-transform: uppercase; color: var(--green);
+    font-weight: 700;
+  }
+  .sec-head .sec-meta {
+    font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted);
+    margin-left: auto; font-variant-numeric: tabular-nums;
+  }
+  .panel {
+    background: var(--white); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: 0 1px 2px rgba(13,13,13,.04), 0 8px 24px -18px rgba(13,13,13,.4);
+    overflow: hidden;
+  }
+  .panel-pad { padding: 16px; }
+  .panel + .panel { margin-top: 12px; }
+  .lede { font-size: 13px; line-height: 1.55; color: var(--muted); }
+
+  /* ── The run ──────────────────────────────────────────────────────────────────────────── */
+  /* Progress rail: the run's completeness as one glanceable bar rather than a fraction alone. */
+  .rail { height: 3px; background: var(--cream-dark); position: relative; }
+  .rail i { position: absolute; inset: 0 auto 0 0; background: var(--gold); transition: width .3s ease; display: block; }
+  @media (prefers-reduced-motion: reduce) { .rail i { transition: none; } }
+
+  .chk { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start;
+         padding: 15px 16px; border-bottom: 1px solid var(--line); }
+  .chk:last-child { border-bottom: 0; }
+  .chk[data-state="issue"] { background: linear-gradient(90deg, rgba(179,38,30,.05), transparent 40%); }
+  .chk[data-state="ok"] .chk-t { color: var(--muted); }
+  .chk-t { font-size: 14.5px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+  .chk-d { font-size: 12.5px; line-height: 1.5; color: var(--muted); margin-top: 3px; }
+  .chk-go {
+    font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700;
+    color: var(--green); text-decoration: none; display: inline-block; margin-top: 8px;
+    border-bottom: 1px solid var(--gold); padding-bottom: 1px;
+  }
+  .chk-ans { display: flex; gap: 6px; }
+  .chk-ans button {
+    min-width: 44px; min-height: 44px; border-radius: var(--radius-sm);
+    border: 1px solid var(--line); background: var(--white); font: inherit; font-size: 16px;
+    line-height: 1; cursor: pointer; color: var(--muted); transition: transform .12s ease;
+  }
+  .chk-ans button:active { transform: scale(.94); }
+  @media (prefers-reduced-motion: reduce) { .chk-ans button { transition: none; } .chk-ans button:active { transform: none; } }
+  .chk-ans button[aria-pressed="true"] { border-color: var(--green); background: var(--green-200); color: var(--green); font-weight: 700; }
+  .chk-ans button[aria-pressed="true"][data-result="issue"] { border-color: var(--crit); background: #fbe9e7; color: var(--crit); }
+  .chk-ans button[aria-pressed="true"][data-result="skip"] { border-color: var(--muted); background: var(--cream-dark); color: var(--ink); }
+
+  /* ── History strip ────────────────────────────────────────────────────────────────────── */
+  .hist { display: flex; gap: 5px; flex-wrap: wrap; }
+  .hist span {
+    font-size: 10.5px; letter-spacing: .4px; padding: 5px 9px; border-radius: 999px;
+    background: var(--cream-dark); color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .hist span.ok { background: var(--green-200); color: var(--green); font-weight: 700; }
+  .hist span.iss { background: #fbe9e7; color: var(--crit); font-weight: 700; }
+
+  /* ── Forms ────────────────────────────────────────────────────────────────────────────── */
+  .f { margin-bottom: 12px; }
+  .f:last-of-type { margin-bottom: 0; }
+  .f label {
+    display: block; font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--green); font-weight: 700; margin-bottom: 6px;
+  }
+  textarea, input[type="text"], select {
+    width: 100%; font: inherit; font-size: 15px; padding: 11px 12px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--cream); color: var(--ink);
+  }
+  textarea { resize: vertical; line-height: 1.5; }
+  textarea:focus, input[type="text"]:focus, select:focus { background: var(--white); }
+  .row2 { display: flex; gap: 8px; }
+  .row2 > * { flex: 1; min-width: 0; }
+
+  /* ── Requests ─────────────────────────────────────────────────────────────────────────── */
+  .req { padding: 13px 16px; border-bottom: 1px solid var(--line); }
+  .req:last-child { border-bottom: 0; }
+  .req-top { display: flex; align-items: center; gap: 8px; }
+  .req-t { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; }
+  .req-b { font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.5; white-space: pre-wrap; }
+  .req-note {
+    font-size: 12.5px; margin-top: 8px; padding: 9px 11px; border-radius: var(--radius-sm);
+    background: var(--cream); border-left: 3px solid var(--gold); line-height: 1.5;
+  }
+  .tag {
+    font-size: 9.5px; letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700;
+    padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+  }
+  .tag.open { background: var(--cream-dark); color: var(--ink); }
+  .tag.accepted { background: var(--green-200); color: var(--green); }
+  .tag.shipped { background: var(--green); color: var(--cream); }
+  .tag.declined { background: #efe7e6; color: var(--crit); }
+  .tag.bug { background: #fbe9e7; color: var(--crit); }
+  .tag.question { background: #e8eef5; color: var(--info); }
+  .tag.improvement { background: rgba(198,168,91,.18); color: var(--gold-dark); }
+
+  .empty { padding: 26px 16px; text-align: center; color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
 <div class="hub-bar">
-  <h1>AÑEJO · MARKETING</h1>
+  <h1>AÑEJO · STUDIO</h1>
   <div class="hub-bar-actions">
     <a href="/hub/training?role=marketing" title="Training" aria-label="Training" style="text-decoration:none;font-size:20px;margin-right:10px;line-height:1">🎓</a><button id="lang-toggle" type="button">ES</button>
   </div>
 </div>
 
 <div class="hub-wrap">
-  <div id="mkt-root" class="hub-loading"><p data-i18n>Loading the marketing desk…</p></div>
+  <div id="mkt-root" class="hub-loading"><p data-i18n>Opening the studio…</p></div>
 </div>
 
 <nav id="mkt-nav" class="hub-nav"></nav>
@@ -61,6 +195,7 @@
 (function () {
   Hub.boot();
   var esc = Hub.esc;
+
   var lt = document.getElementById('lang-toggle');
   if (lt && window.AnejoLang) {
     lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
@@ -70,9 +205,9 @@
     });
   }
 
-  var CHECKS = [];      // definitions from the server (functions/_lib/marketing_run.js)
-  var RUN = null;       // today's answers
-  var RUN_HISTORY = []; // the last 14 closed runs, for the strip at the bottom
+  var CHECKS = [], RUN = null, RUN_HISTORY = [];
+  var SESSION = null, TODAY_SECONDS = 0, REPORT_FIELDS = [];
+  var REQUESTS = [], CAN_DECIDE = false;
 
   var ANSWERS = [
     { result: 'ok', ico: '✓', label: 'Working' },
@@ -80,13 +215,42 @@
     { result: 'skip', ico: '–', label: 'Not today' }
   ];
 
+  // ── helpers ───────────────────────────────────────────────────────────────────────────
+  function hhmm(sec) {
+    var s = Math.max(0, Math.round(sec || 0));
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h ? (h + 'h ' + String(m).padStart(2, '0') + 'm') : (m + 'm');
+  }
+  function answered() {
+    if (!RUN || !RUN.checks) return 0;
+    return CHECKS.filter(function (c) { return !!RUN.checks[c.key]; }).length;
+  }
+
+  // ── render ────────────────────────────────────────────────────────────────────────────
+  function stageHtml() {
+    var live = SESSION && SESSION.live;
+    return '<div class="stage">' +
+      '<div class="stage-eyebrow" data-i18n>The Marketing Studio</div>' +
+      '<h1 data-i18n>Our face to the world</h1>' +
+      '<p class="stage-sub" data-i18n>The website and Instagram are what people meet before they ever taste the food. This is where that gets made, checked, and kept alive.</p>' +
+      '<div class="session">' +
+        (live ? '<span class="session-dot" aria-hidden="true"></span>' : '') +
+        '<div class="session-main">' +
+          '<div class="session-time" id="sess-time">' + hhmm(TODAY_SECONDS) + '</div>' +
+          '<div class="session-label" data-i18n>' + (live ? 'Working today' : 'Today') + '</div>' +
+        '</div>' +
+        '<button class="btn" id="sess-end" type="button" data-i18n>End session &amp; report</button>' +
+      '</div>' +
+    '</div>';
+  }
+
   function checkRow(c) {
     var picked = (RUN && RUN.checks && RUN.checks[c.key]) || '';
-    return '<div class="chk">' +
-      '<div class="chk-main">' +
-        '<div class="row-title" data-i18n>' + esc(c.label) + '</div>' +
-        '<div class="row-sub" data-i18n>' + esc(c.detail) + '</div>' +
-        '<a href="' + esc(c.href) + '" data-i18n>Open it</a>' +
+    return '<div class="chk" data-state="' + esc(picked) + '" data-row="' + esc(c.key) + '">' +
+      '<div>' +
+        '<div class="chk-t" data-i18n>' + esc(c.label) + '</div>' +
+        '<div class="chk-d" data-i18n>' + esc(c.detail) + '</div>' +
+        '<a class="chk-go" href="' + esc(c.href) + '" data-i18n>Open it</a>' +
       '</div>' +
       '<div class="chk-ans" role="group" aria-label="' + esc(c.label) + '">' +
         ANSWERS.map(function (a) {
@@ -98,19 +262,35 @@
     '</div>';
   }
 
-  function answered() {
-    if (!RUN || !RUN.checks) return 0;
-    return CHECKS.filter(function (c) { return !!RUN.checks[c.key]; }).length;
+  function historyHtml() {
+    if (!RUN_HISTORY.length) return '<div class="empty" data-i18n>No runs recorded yet.</div>';
+    return '<div class="panel-pad"><div class="hist">' + RUN_HISTORY.map(function (h) {
+      var cls = h.submitted_at ? (h.issues ? 'iss' : 'ok') : '';
+      return '<span class="' + cls + '" title="' + esc(h.note || '') + '">' +
+        esc(String(h.run_date || '').slice(5)) + (h.issues ? ' · ' + h.issues : '') + '</span>';
+    }).join('') + '</div></div>';
   }
 
-  function historyHtml(items) {
-    if (!items || !items.length) return '';
-    return '<div class="hist">' + items.map(function (h) {
-      var cls = h.submitted_at ? (h.issues ? 'iss' : 'ok') : '';
-      var day = String(h.run_date || '').slice(5);   // MM-DD — the year is never the question
-      return '<span class="' + cls + '" title="' + esc(h.note || '') + '">' + esc(day) +
-        (h.issues ? ' · ' + h.issues : '') + '</span>';
-    }).join('') + '</div>';
+  function requestsHtml() {
+    if (!REQUESTS.length) return '<div class="empty" data-i18n>Nothing filed yet.</div>';
+    return REQUESTS.map(function (r) {
+      return '<div class="req">' +
+        '<div class="req-top">' +
+          '<span class="tag ' + esc(r.kind) + '">' + esc(r.kind) + '</span>' +
+          '<span class="req-t">' + esc(r.title) + '</span>' +
+          '<span class="tag ' + esc(r.status) + '">' + esc(r.status) + '</span>' +
+        '</div>' +
+        (r.body ? '<div class="req-b">' + esc(r.body) + '</div>' : '') +
+        (r.owner_note ? '<div class="req-note"><strong data-i18n>Dayan:</strong> ' + esc(r.owner_note) + '</div>' : '') +
+        (CAN_DECIDE && r.status === 'open'
+          ? '<div class="row2" style="margin-top:10px">' +
+              '<button class="btn ghost" type="button" data-decide="accepted" data-id="' + esc(r.id) + '" data-i18n>Accept</button>' +
+              '<button class="btn ghost" type="button" data-decide="declined" data-id="' + esc(r.id) + '" data-i18n>Decline</button>' +
+              '<button class="btn ghost" type="button" data-decide="shipped" data-id="' + esc(r.id) + '" data-i18n>Shipped</button>' +
+            '</div>'
+          : '') +
+      '</div>';
+    }).join('');
   }
 
   function render() {
@@ -118,57 +298,76 @@
     root.className = '';
     var done = answered(), total = CHECKS.length;
     var closed = !!(RUN && RUN.submitted_at);
+    var pct = total ? Math.round(done / total * 100) : 0;
 
-    root.innerHTML =
-      '<div class="hub-section">' +
-        '<h2 data-i18n>Today’s run</h2>' +
-        '<div class="card">' +
-          '<p class="run-progress">' + done + '/' + total + ' <span data-i18n>checked</span>' +
-            (closed ? ' · <span data-i18n>closed</span>' : '') + '</p>' +
-          '<p class="row-sub" style="margin-top:6px" data-i18n>Run this once a day. Every check answered — “not today” counts, silence does not.</p>' +
-          '<div id="checks" style="margin-top:6px">' + CHECKS.map(checkRow).join('') + '</div>' +
+    root.innerHTML = stageHtml() +
+
+      '<div class="sec">' +
+        '<div class="sec-head"><h2 data-i18n>Today’s run</h2>' +
+          '<span class="sec-meta" id="run-meta">' + done + '/' + total + (closed ? ' · closed' : '') + '</span></div>' +
+        '<div class="panel">' +
+          '<div class="rail"><i id="rail" style="width:' + pct + '%"></i></div>' +
+          '<div id="checks">' + CHECKS.map(checkRow).join('') + '</div>' +
+        '</div>' +
+        '<div class="panel">' +
+          '<div class="panel-pad">' +
+            '<div class="f"><label for="run-note" data-i18n>What should Dayan know about today?</label>' +
+              '<textarea id="run-note" rows="3" placeholder="Optional"' + (closed ? ' disabled' : '') + '>' +
+              esc((RUN && RUN.note) || '') + '</textarea></div>' +
+            '<button class="btn block" id="run-submit" type="button"' +
+              (closed || done < total ? ' disabled' : '') + ' data-i18n>' +
+              (closed ? 'Run closed' : 'Close today’s run') + '</button>' +
+            (done < total && !closed ? '<p class="lede" style="margin-top:9px" data-i18n>Answer every check first — “not today” counts, silence does not.</p>' : '') +
+          '</div>' +
         '</div>' +
       '</div>' +
 
-      '<div class="hub-section">' +
-        '<h2 data-i18n>Close the run</h2>' +
-        '<div class="card">' +
-          '<label class="row-sub" for="run-note" data-i18n>What should Dayan know about today?</label>' +
-          '<textarea id="run-note" rows="3" placeholder="Optional"' + (closed ? ' disabled' : '') + '>' +
-            esc((RUN && RUN.note) || '') + '</textarea>' +
-          '<button class="btn block" id="run-submit" type="button" style="margin-top:10px"' +
-            (closed || done < total ? ' disabled' : '') + ' data-i18n>' +
-            (closed ? 'Run closed' : 'Close today’s run') + '</button>' +
-          (done < total && !closed
-            ? '<p class="row-sub" style="margin-top:8px" data-i18n>Answer every check first.</p>' : '') +
-        '</div>' +
-      '</div>' +
-
-      '<div class="hub-section">' +
-        '<h2 data-i18n>Tell the owner</h2>' +
-        '<div class="card">' +
-          '<p class="row-sub" data-i18n>Goes straight to Dayan’s alerts — the same feed he reads every morning. Send it when you find it; don’t wait for the run to close.</p>' +
-          '<input type="text" id="fb-title" placeholder="What you found" style="margin-top:10px">' +
-          '<textarea id="fb-body" rows="3" placeholder="Detail, and what you think we should change" style="margin-top:8px"></textarea>' +
-          '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px">' +
+      '<div class="sec">' +
+        '<div class="sec-head"><h2 data-i18n>Tell the owner</h2></div>' +
+        '<div class="panel"><div class="panel-pad">' +
+          '<p class="lede" data-i18n>Goes straight to Dayan’s alerts and his phone. Send it when you find it; don’t wait for the run to close.</p>' +
+          '<div class="f" style="margin-top:12px"><label for="fb-title" data-i18n>What you found</label>' +
+            '<input type="text" id="fb-title" placeholder="Short and plain"></div>' +
+          '<div class="f"><label for="fb-body" data-i18n>Detail, and what you think we should change</label>' +
+            '<textarea id="fb-body" rows="3"></textarea></div>' +
+          '<label style="display:flex;align-items:center;gap:9px;font-size:13.5px;margin-bottom:12px">' +
             '<input type="checkbox" id="fb-warn"> <span data-i18n>This is costing us output today</span></label>' +
-          '<button class="btn ghost block" id="fb-send" type="button" style="margin-top:10px" data-i18n>Send to owner</button>' +
+          '<button class="btn gold block" id="fb-send" type="button" data-i18n>Send to owner</button>' +
+        '</div></div>' +
+      '</div>' +
+
+      '<div class="sec">' +
+        '<div class="sec-head"><h2 data-i18n>Requests to Dayan</h2>' +
+          '<span class="sec-meta">' + REQUESTS.filter(function (r) { return r.status === 'open'; }).length + ' open</span></div>' +
+        '<div class="panel"><div class="panel-pad">' +
+          '<p class="lede" data-i18n>Ask for a change to the system itself. Unlike a finding, this stays on the board until he decides — and you see the decision.</p>' +
+          '<div class="row2" style="margin-top:12px">' +
+            '<select id="rq-kind" aria-label="Kind">' +
+              '<option value="improvement" data-i18n>Improvement</option>' +
+              '<option value="bug" data-i18n>Bug</option>' +
+              '<option value="question" data-i18n>Question</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="f" style="margin-top:8px"><label for="rq-title" data-i18n>What you want</label>' +
+            '<input type="text" id="rq-title" placeholder="One line"></div>' +
+          '<div class="f"><label for="rq-body" data-i18n>Why it matters</label>' +
+            '<textarea id="rq-body" rows="3"></textarea></div>' +
+          '<button class="btn block" id="rq-send" type="button" data-i18n>File it</button>' +
+        '</div>' +
+        '<div id="req-list">' + requestsHtml() + '</div>' +
         '</div>' +
       '</div>' +
 
-      '<div class="hub-section">' +
-        '<h2 data-i18n>Last two weeks</h2>' +
-        '<div class="card">' +
-          (RUN_HISTORY.length
-            ? historyHtml(RUN_HISTORY)
-            : '<p class="row-sub" data-i18n>No runs recorded yet.</p>') +
-        '</div>' +
+      '<div class="sec">' +
+        '<div class="sec-head"><h2 data-i18n>Last two weeks</h2></div>' +
+        '<div class="panel">' + historyHtml() + '</div>' +
       '</div>';
 
     wire();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
   }
 
+  // ── wiring ────────────────────────────────────────────────────────────────────────────
   function wire() {
     document.querySelectorAll('.chk-ans button').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -180,8 +379,8 @@
     var sub = document.getElementById('run-submit');
     if (sub) sub.addEventListener('click', function () {
       sub.disabled = true;
-      post({ op: 'submit', note: document.getElementById('run-note').value }).then(function (r) {
-        if (r && r.ok) { RUN = r.run; Hub.toast('Run closed'); load(); }
+      postRun({ op: 'submit', note: document.getElementById('run-note').value }).then(function (r) {
+        if (r && r.ok) { Hub.toast('Run closed'); loadAll(); }
         else { sub.disabled = false; Hub.toast((r && r.error) || 'Could not close the run'); }
       });
     });
@@ -191,9 +390,8 @@
       var title = document.getElementById('fb-title').value.trim();
       if (!title) { Hub.toast('Say what you found'); return; }
       fb.disabled = true;
-      post({
-        op: 'feedback',
-        title: title,
+      postRun({
+        op: 'feedback', title: title,
         body: document.getElementById('fb-body').value,
         severity: document.getElementById('fb-warn').checked ? 'warning' : 'info'
       }).then(function (r) {
@@ -206,60 +404,203 @@
         } else { Hub.toast((r && r.error) || 'Could not send'); }
       });
     });
+
+    var rq = document.getElementById('rq-send');
+    if (rq) rq.addEventListener('click', function () {
+      var title = document.getElementById('rq-title').value.trim();
+      if (!title) { Hub.toast('Give it a title'); return; }
+      rq.disabled = true;
+      Hub.api('/api/hub/marketing/requests', { method: 'POST', body: {
+        op: 'file', kind: document.getElementById('rq-kind').value,
+        title: title, body: document.getElementById('rq-body').value
+      } }).catch(function () { return null; }).then(function (r) {
+        rq.disabled = false;
+        if (r && r.ok) {
+          document.getElementById('rq-title').value = '';
+          document.getElementById('rq-body').value = '';
+          Hub.toast('Filed');
+          loadRequests();
+        } else { Hub.toast((r && r.error) || 'Could not file that'); }
+      });
+    });
+
+    document.querySelectorAll('[data-decide]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var status = b.getAttribute('data-decide');
+        var note = window.prompt(status === 'declined' ? 'Why not? (she sees this)' : 'Note (optional)') || '';
+        b.disabled = true;
+        Hub.api('/api/hub/marketing/requests', { method: 'POST', body: {
+          op: 'decide', id: b.getAttribute('data-id'), status: status, note: note
+        } }).catch(function () { return null; }).then(function (r) {
+          if (r && r.ok) { Hub.toast('Marked ' + status); loadRequests(); }
+          else { b.disabled = false; Hub.toast((r && r.error) || 'Could not save'); }
+        });
+      });
+    });
+
+    var se = document.getElementById('sess-end');
+    if (se) se.addEventListener('click', openReport);
   }
 
-  // Optimistic: the button state flips immediately and is corrected by the server's answer.
-  // Seven taps that each wait on a round-trip is what makes a daily checklist stop being daily.
+  // Optimistic: the button flips now and the server's answer corrects it. Seven taps that each
+  // wait on a round-trip is what makes a daily routine stop being daily.
   function setCheck(key, result) {
     if (!RUN.checks) RUN.checks = {};
     var prev = RUN.checks[key];
     RUN.checks[key] = result;
-    paintCheck(key, result);
-    post({ op: 'check', key: key, result: result }).then(function (r) {
-      if (r && r.ok && r.run) { RUN = r.run; paintCheck(key, RUN.checks[key]); paintProgress(); }
-      else {
-        RUN.checks[key] = prev;
-        paintCheck(key, prev);
-        Hub.toast((r && r.error) || 'Could not save that');
-      }
+    paintCheck(key, result); paintProgress();
+    postRun({ op: 'check', key: key, result: result }).then(function (r) {
+      if (r && r.ok && r.run) { RUN = r.run; paintCheck(key, RUN.checks[key]); }
+      else { RUN.checks[key] = prev; paintCheck(key, prev); Hub.toast((r && r.error) || 'Could not save that'); }
       paintProgress();
     });
-    paintProgress();
   }
 
   function paintCheck(key, result) {
     document.querySelectorAll('.chk-ans button[data-key="' + key + '"]').forEach(function (b) {
       b.setAttribute('aria-pressed', b.getAttribute('data-result') === result ? 'true' : 'false');
     });
+    var row = document.querySelector('.chk[data-row="' + key + '"]');
+    if (row) row.setAttribute('data-state', result || '');
   }
 
   function paintProgress() {
-    var el = document.querySelector('.run-progress');
-    if (!el) return;
-    var done = answered();
-    el.innerHTML = done + '/' + CHECKS.length + ' <span data-i18n>checked</span>' +
-      (RUN && RUN.submitted_at ? ' · <span data-i18n>closed</span>' : '');
+    var done = answered(), total = CHECKS.length;
+    var meta = document.getElementById('run-meta');
+    var closed = !!(RUN && RUN.submitted_at);
+    if (meta) meta.textContent = done + '/' + total + (closed ? ' · closed' : '');
+    var rail = document.getElementById('rail');
+    if (rail) rail.style.width = (total ? Math.round(done / total * 100) : 0) + '%';
     var sub = document.getElementById('run-submit');
-    if (sub && !(RUN && RUN.submitted_at)) sub.disabled = done < CHECKS.length;
+    if (sub && !closed) sub.disabled = done < total;
+  }
+
+  // ── the end-of-session report ─────────────────────────────────────────────────────────
+  // Five named questions, not one empty box. A person asked five specific things answers five;
+  // a person given a blank field writes "all good".
+  function openReport() {
+    var back = document.createElement('div');
+    back.className = 'hub-more-backdrop open';
+    back.innerHTML =
+      '<div class="hub-more-sheet" role="dialog" aria-modal="true" aria-label="End of session report">' +
+        '<div class="hub-more-head"><h2 data-i18n>Wrap up</h2>' +
+          '<button class="hub-more-close" type="button" aria-label="Close">✕</button></div>' +
+        '<div style="padding:4px 2px 8px">' +
+          '<p class="lede" style="margin-bottom:14px" data-i18n>This goes to Dayan with the time you worked. Anything you leave blank is simply left out.</p>' +
+          REPORT_FIELDS.map(function (f) {
+            return '<div class="f"><label for="rp-' + f.key + '" data-i18n>' + esc(f.label) + '</label>' +
+              '<textarea id="rp-' + f.key + '" rows="2"></textarea></div>';
+          }).join('') +
+          '<button class="btn gold block" id="rp-send" type="button" style="margin-top:6px" data-i18n>Send update &amp; end session</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(back);
     if (window.AnejoI18n) window.AnejoI18n.refresh();
+
+    function close() { back.remove(); }
+    back.querySelector('.hub-more-close').addEventListener('click', close);
+    back.addEventListener('click', function (e) { if (e.target === back) close(); });
+    document.addEventListener('keydown', function esc2(e) {
+      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc2); }
+    });
+
+    back.querySelector('#rp-send').addEventListener('click', function () {
+      var body = { op: 'report' };
+      var any = false;
+      REPORT_FIELDS.forEach(function (f) {
+        var v = back.querySelector('#rp-' + f.key).value.trim();
+        body[f.key] = v; if (v) any = true;
+      });
+      if (!any) { Hub.toast('Write at least one line'); return; }
+      var btn = back.querySelector('#rp-send');
+      btn.disabled = true;
+      Hub.api('/api/hub/marketing/session', { method: 'POST', body: body })
+        .catch(function () { return null; })
+        .then(function (r) {
+          if (r && r.ok) { close(); Hub.toast('Sent to Dayan — ' + hhmm((r.active_seconds || 0)) + ' logged'); loadSession(); }
+          else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not send'); }
+        });
+    });
   }
 
-  function post(body) {
-    return Hub.api('/api/hub/marketing/run', { method: 'POST', body: body })
-      .catch(function () { return null; });
+  // ── the heartbeat ─────────────────────────────────────────────────────────────────────
+  // Engaged time is accrued server-side from these pings; a gap wider than the server's idle
+  // window counts for nothing, so a tab left open overnight never reads as work. Paused while
+  // the tab is hidden, which is what makes that true rather than merely intended.
+  var HEARTBEAT_MS = 60000;
+  var beat = null;
+  function ping() {
+    if (document.hidden) return;
+    Hub.api('/api/hub/marketing/session', { method: 'POST', body: { op: 'ping' } })
+      .catch(function () { return null; })
+      .then(function (r) {
+        if (r && r.ok && r.session) {
+          SESSION = r.session;
+          var el = document.getElementById('sess-time');
+          if (el) el.textContent = hhmm(TODAY_BASE + (SESSION.active_seconds || 0));
+        }
+      });
+  }
+  // Today's total from sessions ALREADY closed, so the live one is added rather than counted twice.
+  var TODAY_BASE = 0;
+  function startBeat() {
+    if (beat) return;
+    ping();
+    beat = setInterval(ping, HEARTBEAT_MS);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) ping(); });
   }
 
-  function load() {
+  // ── loading ───────────────────────────────────────────────────────────────────────────
+  function postRun(body) {
+    return Hub.api('/api/hub/marketing/run', { method: 'POST', body: body }).catch(function () { return null; });
+  }
+
+  function loadSession() {
+    return Marketing.get('/api/hub/marketing/session').then(function (d) {
+      if (!d || !d.ok) return;
+      SESSION = d.session;
+      REPORT_FIELDS = d.fields || [];
+      TODAY_SECONDS = d.today_active_seconds || 0;
+      TODAY_BASE = TODAY_SECONDS - ((SESSION && SESSION.active_seconds) || 0);
+      var el = document.getElementById('sess-time');
+      if (el) el.textContent = hhmm(TODAY_SECONDS);
+    });
+  }
+
+  function loadRequests() {
+    return Marketing.get('/api/hub/marketing/requests').then(function (d) {
+      if (!d || !d.ok) return;
+      REQUESTS = d.items || [];
+      CAN_DECIDE = !!d.can_decide;
+      var el = document.getElementById('req-list');
+      if (el) { el.innerHTML = requestsHtml(); wire(); if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+    });
+  }
+
+  function loadAll() {
     return Marketing.get('/api/hub/marketing/run').then(function (d) {
       if (!d || !d.ok) { Marketing.fail(); return; }
       CHECKS = d.checks || [];
       RUN = d.run || { checks: {} };
       RUN_HISTORY = d.history || [];
-      render();
+      return Promise.all([
+        Marketing.get('/api/hub/marketing/session'),
+        Marketing.get('/api/hub/marketing/requests')
+      ]).then(function (res) {
+        var s = res[0], q = res[1];
+        if (s && s.ok) {
+          SESSION = s.session; REPORT_FIELDS = s.fields || [];
+          TODAY_SECONDS = s.today_active_seconds || 0;
+          TODAY_BASE = TODAY_SECONDS - ((SESSION && SESSION.active_seconds) || 0);
+        }
+        if (q && q.ok) { REQUESTS = q.items || []; CAN_DECIDE = !!q.can_decide; }
+        render();
+        startBeat();
+      });
     });
   }
 
-  Marketing.init('mkt-today', load);
+  Marketing.init('mkt-today', loadAll);
 })();
 </script>
 </body>

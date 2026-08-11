@@ -129,14 +129,43 @@
     });
   }
 
+  // An alert that ASKS the owner for something must carry the way to do it. Acknowledging a
+  // "this lane earned auto-publish" card without a route to the switch is how a decision sits
+  // unmade for a month — he reads it on his phone, means to act, and the card is gone.
+  // Only alert types with a real next action get a button; everything else stays Ack-only.
+  function actionFor(a) {
+    switch (a && a.alert_type) {
+      case 'trust_lane_eligible':
+        // Straight to the switch. Only he can flip it, which is exactly why the prompt has to
+        // reach him rather than wait for him to go looking.
+        return { href: '/hub/owner/marketing.html#today', label: 'Open the trust cockpit' };
+      case 'marketing_review_ready':
+        return { href: '/hub/owner/marketing.html#create-instagram', label: 'Review the queue' };
+      case 'improvement_request':
+        return { href: '/hub/marketing/', label: 'Decide the request' };
+      case 'marketing_session_report':
+      case 'marketing_feedback':
+        return { href: '/hub/marketing/', label: 'Open the studio' };
+      case 'social_commercial_lead':
+        return { href: '/hub/owner/leads.html', label: 'Open the lead' };
+      case 'partner_application':
+        return { href: '/hub/owner/partners.html', label: 'Review the application' };
+      default:
+        return null;
+    }
+  }
+
   function loadAlerts() {
     Owner.get('/api/hub/owner/alerts?status=open&limit=8').then(function (d) {
       var el = document.getElementById('alerts');
       if (!d || !d.ok || !d.items.length) { el.innerHTML = '<div class="card"><p class="row-sub" data-i18n>No open alerts. All clear.</p></div>'; if (window.AnejoI18n) window.AnejoI18n.refresh(); return; }
       el.innerHTML = '<div class="list">' + d.items.map(function (a) {
+        var act = actionFor(a);
         return '<div class="row">' +
           '<div class="row-main"><div class="row-title">' + Owner.esc(a.title || a.alert_type) + '</div>' +
-          '<div class="row-sub">' + Owner.esc(a.body || '') + ' · ' + Owner.timeAgo(a.created_at) + '</div></div>' +
+          '<div class="row-sub">' + Owner.esc(a.body || '') + ' · ' + Owner.timeAgo(a.created_at) + '</div>' +
+          (act ? '<a class="btn gold" style="margin-top:9px;display:inline-flex" href="' + act.href + '" data-i18n>' + act.label + '</a>' : '') +
+          '</div>' +
           Owner.badge(a.severity, Owner.kindFor(a.severity)) +
           '<button class="btn ghost" data-ack="' + Owner.esc(a.id) + '" type="button" data-i18n>Ack</button>' +
           '</div>';

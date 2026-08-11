@@ -212,10 +212,21 @@ export const onRequestPost = async ({ request, env }) => {
   // context). If the thread has a staff counterparty and the sender isn't them,
   // wake that staffer's devices; when the sender IS the counterparty (staff,
   // trainer or client replying), wake the owner. No-op safe without VAPID.
+  // 2026-08-11 — this used to wake NOBODY on the commonest staff thread. When a non-owner opens
+  // a thread, threads.js sets staff_id to the OWNER (that is the routing: staff always reach the
+  // front office) and created_by to the staffer. So on the owner's reply, `staff_id !== sender`
+  // was false and `role !== 'owner'` was false too, and both branches fell through — the staffer
+  // was never told she had an answer. Target the other PARTICIPANT instead of guessing by role:
+  // whichever of staff_id / created_by is not the sender.
   try {
-    if (thread.staff_id && thread.staff_id !== ctx.distinct_id) {
-      await sendPushTickle(env, { staffIds: [thread.staff_id] });
+    const others = [thread.staff_id, thread.created_by]
+      .filter((x) => x && x !== ctx.distinct_id);
+    const targets = [...new Set(others)];
+    if (targets.length) {
+      await sendPushTickle(env, { staffIds: targets });
     } else if (ctx.role !== 'owner') {
+      // A thread with no identifiable counterparty (broadcast, or a portal identity) — the
+      // owner is the fallback, as before.
       await sendPushTickle(env, { roles: ['owner'] });
     }
   } catch { /* push must never break messaging */ }

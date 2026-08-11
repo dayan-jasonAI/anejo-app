@@ -52,6 +52,22 @@ export const ALERT_TYPES = [
   // 'warning' for something costing us output today. Deliberately NOT deduped — two findings on
   // the same day are two things he needs to know, not a repeat.
   'marketing_feedback',
+  // The marketing desk's end-of-session update (api/hub/marketing/session.js): what she got
+  // done, what got in the way, good news, bad news, feedback. 'warning' when it carries bad
+  // news, so the feed's colour says which reports need him today.
+  'marketing_session_report',
+  // A filed improvement/bug/question (api/hub/marketing/requests.js). The request itself lives
+  // in improvement_requests with a status he moves — this only TELLS him one arrived.
+  'improvement_request',
+  // A trust lane has earned its fifth consecutive clean approval and is now eligible for
+  // auto-publish. Raised by _lib/trust_ledger.js the moment the streak lands, because the
+  // switch is the owner's alone and he cannot flip a switch nobody told him about. Deduped per
+  // lane while open: eligibility is a state, not an event, and re-announcing it every approval
+  // would train him to ignore it.
+  'trust_lane_eligible',
+  // Marketing work is staged and waiting on the owner. Same reasoning: a review queue nobody
+  // is told about is a queue that does not get worked.
+  'marketing_review_ready',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:
@@ -113,7 +129,13 @@ export async function raiseAlert(env, opts = {}) {
     // Tickle the owner's devices (payload-less web push; SW peeks for context).
     // sendPushTickle never throws and no-ops without VAPID secrets — but keep it
     // wrapped so it can never affect raiseAlert's return.
-    try { await sendPushTickle(env, { roles: ['owner'] }); } catch { /* best-effort */ }
+    // The owner always. Plus anyone the caller names in `notifyRoles` — added 2026-08-11 so an
+    // alert aimed at the marketing desk actually reaches her device instead of only his. Kept as
+    // an opt-in per call rather than "notify the team": most alerts are the owner's business and
+    // waking the whole roster for a temp excursion is how people turn notifications off.
+    const extra = Array.isArray(opts.notifyRoles) ? opts.notifyRoles.filter(Boolean) : [];
+    const audience = ['owner', ...extra.filter((r) => r !== 'owner')];
+    try { await sendPushTickle(env, { roles: audience }); } catch { /* best-effort */ }
 
     return { ok: true, id: aid, deduped: false };
   } catch {

@@ -106,7 +106,7 @@ test('her desk guards itself and is private', () => {
   assert.match(DESK_PAGE, /<meta\s+name="robots"\s+content="noindex">/);
   assert.match(DESK_JS, /M\.ROLES = \['owner', 'marketing'\]/);
   assert.match(DESK_JS, /Hub\.guard\(M\.ROLES\)/, 'the surface guards, it does not rely on the API alone');
-  assert.match(DESK_PAGE, /Marketing\.init\('mkt-today', load\)/);
+  assert.match(DESK_PAGE, /Marketing\.init\('mkt-today', loadAll\)/);
 });
 
 test('the "no role yet" copy names the role, or she is told to ask for one that is not offered', () => {
@@ -142,7 +142,9 @@ test('every destination on her bar is one her role can actually open', () => {
   const hrefs = [...navBlock[1].matchAll(/href: '([^']+)'/g)].map((m) => m[1]);
   const DESK_WIDENED = ['/hub/owner/marketing.html', '/hub/owner/partners.html',
     '/hub/owner/site-copy.html', '/hub/owner/content.html', '/hub/owner/traffic.html',
-    '/hub/owner/adoption.html', '/hub/owner/marketing-settings.html'];
+    '/hub/owner/adoption.html', '/hub/owner/marketing-settings.html',
+    // "sms test?... its all part of marketing at the end of the day" — Dayan, 2026-08-11.
+    '/hub/owner/sms-test.html'];
   for (const href of hrefs) {
     if (href.startsWith('/hub/owner/')) {
       assert.ok(DESK_WIDENED.includes(href), `${href} is an owner page not widened to the desk`);
@@ -176,7 +178,7 @@ test('the optimistic bar is corrected once the real role is known', () => {
 
 // ---------- what she may reach ----------
 
-const DESK_APIS = ['team', 'team-training', 'team-training-upload', 'social', 'social-inbox',
+const DESK_APIS = ['sms-test', 'team', 'team-training', 'team-training-upload', 'social', 'social-inbox',
   'social-upload', 'social-cadence-config', 'social-cleanup', 'social-drill',
   'social-posting-times', 'campaigns', 'links', 'marketing-attribution', 'performance-alerts',
   'site-copy', 'partners', 'traffic', 'adoption', 'content'];
@@ -384,4 +386,149 @@ test('she runs the affiliate programme but cannot pay an affiliate', () => {
   for (const op of ['onboard', 'create_code', 'set_code_status', 'resend_welcome']) {
     assert.ok(!new RegExp(`ownerOnly[\\s\\S]{0,80}'${op}'`).test(P), `${op} must remain hers`);
   }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════
+// Round two (2026-08-11): time trace, session report, requests, and the notification wiring.
+// ══════════════════════════════════════════════════════════════════════════════════════════
+
+const SESSION_API = read('../../functions/api/hub/marketing/session.js');
+const REQUESTS_API = read('../../functions/api/hub/marketing/requests.js');
+const MESSAGES_API = read('../../functions/api/hub/comms/messages.js');
+const ALERTS_LIB = read('../../functions/_lib/alerts.js');
+const TRUST_LIB = read('../../functions/_lib/trust_ledger.js');
+const OWNER_INDEX = read('../../public/hub/owner/index.html');
+
+// ---------- time trace, without a timeclock ----------
+
+test('engaged time is accrued from heartbeats, not from wall clock', () => {
+  // The whole honesty of the number. (ended - started) would let a tab left open overnight read
+  // as ten hours of work, which is worse than not measuring at all.
+  assert.match(SESSION_API, /export function accrue\(prevSeenAt, atMs\)/);
+  assert.match(SESSION_API, /if \(gap > IDLE_GAP_MS\) return 0;/,
+    'a gap wider than the idle window must contribute nothing');
+  assert.match(SESSION_API, /active_seconds=active_seconds\+\?/,
+    'time is accumulated per heartbeat, never computed from the endpoints');
+});
+
+test('a stale session is closed where it stopped, not where we noticed', () => {
+  assert.match(SESSION_API, /STALE_SESSION_MS/);
+  assert.match(SESSION_API, /UPDATE marketing_sessions SET ended_at=\?[\s\S]{0,120}\.bind\(live\.last_seen_at/,
+    'ended_at must be the last heartbeat — anything later invents time she did not work');
+});
+
+test('the heartbeat pauses when the tab is hidden', () => {
+  // Server-side idle rejection is the real guard, but a client that keeps pinging a backgrounded
+  // tab would keep the session alive all night and defeat it.
+  assert.match(DESK_PAGE, /if \(document\.hidden\) return;/);
+  assert.match(DESK_PAGE, /op: 'ping'/);
+});
+
+test('there is still no clock-in — this is a trace, not a shift', () => {
+  // The kitchen/driver timeclock writes `shifts` rows and drives lateness + the on-shift roster.
+  // Dayan: "i don't need her to clock in or out but I do need a time log".
+  assert.ok(!/INSERT INTO shifts|clock_in/.test(SESSION_API),
+    'the marketing desk must never write a shift row');
+  assert.match(SESSION_API, /op !== 'ping' && op !== 'report'/, 'the only two ops are ping and report');
+});
+
+// ---------- the end-of-session report ----------
+
+test('the report asks five named questions, not for one free-text blob', () => {
+  // A person asked five specific things answers five; a person given a blank box writes "all good".
+  const keys = [...SESSION_API.matchAll(/\{ key: '(\w+)', label:/g)].map((m) => m[1]);
+  assert.deepEqual(keys, ['work_done', 'obstacles', 'good_news', 'bad_news', 'feedback']);
+});
+
+test('the report reaches the owner with the time worked attached', () => {
+  assert.match(SESSION_API, /alert_type: 'marketing_session_report'/);
+  assert.match(SESSION_API, /Marketing update — \$\{mins\} min worked/);
+  assert.match(ALERTS_LIB, /'marketing_session_report',/, 'registered, or raiseAlert drops it');
+});
+
+test('bad news raises the severity — the feed colour says which reports need him today', () => {
+  assert.match(SESSION_API, /const severity = vals\.bad_news \? 'warning' : 'info';/);
+});
+
+test('an empty report is refused', () => {
+  assert.match(SESSION_API, /Write at least one line before sending the update/);
+});
+
+// ---------- improvement requests as a tracked object ----------
+
+test('a request has a status the owner moves, and declining is a real outcome', () => {
+  assert.match(REQUESTS_API, /export const REQUEST_STATUSES = \['open', 'accepted', 'declined', 'shipped'\]/);
+  assert.match(REQUESTS_API, /status === 'open'[\s\S]{0,80}Decide it: accepted, declined or shipped/,
+    'deciding must not be able to set it back to open');
+});
+
+test('only the owner decides — she files and reads', () => {
+  // Without this she could mark her own request accepted and the status would mean nothing.
+  assert.match(REQUESTS_API, /if \(ctx\.role !== 'owner'\) return bad\('Only the owner decides a request\.', 403\)/);
+  assert.match(REQUESTS_API, /op === 'file'/, 'and filing stays hers');
+});
+
+test('his reason comes back to her verbatim', () => {
+  assert.match(REQUESTS_API, /owner_note/);
+  assert.match(DESK_PAGE, /req-note/, 'and the desk renders it');
+});
+
+test('filing a request still tells him, through the feed he already reads', () => {
+  assert.match(REQUESTS_API, /alert_type: 'improvement_request'/);
+  assert.match(ALERTS_LIB, /'improvement_request',/);
+});
+
+// ---------- notifications ----------
+
+test('a reply wakes the other PARTICIPANT, not a guessed role', () => {
+  // The bug this replaces: a staff-opened thread has staff_id = the OWNER (that is the routing)
+  // and created_by = the staffer. On his reply, `staff_id !== sender` was false and
+  // `role !== 'owner'` was false, so BOTH branches fell through and she was never told.
+  assert.match(MESSAGES_API, /\[thread\.staff_id, thread\.created_by\]/);
+  assert.match(MESSAGES_API, /\.filter\(\(x\) => x && x !== ctx\.distinct_id\)/);
+  assert.match(MESSAGES_API, /sendPushTickle\(env, \{ staffIds: targets \}\)/);
+});
+
+test('an alert can be aimed at someone other than the owner', () => {
+  assert.match(ALERTS_LIB, /opts\.notifyRoles/);
+  assert.match(ALERTS_LIB, /const audience = \['owner', \.\.\.extra\.filter\(\(r\) => r !== 'owner'\)\]/,
+    'the owner is always included; extras never replace him');
+});
+
+test('the alerts that are her work reach her device too', () => {
+  for (const [file, what] of [
+    ['_lib/instagram_insights.js', 'performance signals'],
+    ['_lib/social_leads.js', 'a commercial DM'],
+  ]) {
+    const src = read(`../../functions/${file}`);
+    assert.match(src, /notifyRoles: \['marketing'\]/, `${what} must notify the marketing desk`);
+  }
+});
+
+test('a lane that EARNS auto-publish tells him — he cannot flip a switch nobody mentioned', () => {
+  assert.match(TRUST_LIB, /alert_type: 'trust_lane_eligible'/);
+  assert.match(TRUST_LIB, /dedupe_key: `trust_eligible:\$\{category\}`/,
+    'eligibility is a state, not an event — re-announcing it trains him to ignore it');
+  assert.match(TRUST_LIB, /if \(Number\(r\.auto_publish\) === 1\) return;/,
+    'a lane already running unattended has nothing to decide');
+  assert.match(TRUST_LIB, /notifyRoles: \['marketing'\]/, 'and she is told, since it is her streak');
+});
+
+test('an alert that asks for a decision carries the way to make it', () => {
+  // Acknowledging "this lane earned auto-publish" with no route to the switch is how a decision
+  // sits unmade for a month.
+  assert.match(OWNER_INDEX, /function actionFor\(a\)/);
+  assert.match(OWNER_INDEX, /case 'trust_lane_eligible':/);
+  assert.match(OWNER_INDEX, /Open the trust cockpit/);
+  assert.match(OWNER_INDEX, /act \? '<a class="btn gold"/, 'and it renders as a real button on the card');
+  assert.match(OWNER_INDEX, /default:\s*\n\s*return null;/, 'alerts with no next action stay Ack-only');
+});
+
+// ---------- schema ----------
+
+test('the round-two tables exist', () => {
+  const M = read('../../migrations/0090_marketing_desk_ops.sql');
+  assert.match(M, /CREATE TABLE IF NOT EXISTS marketing_sessions/);
+  assert.match(M, /CREATE TABLE IF NOT EXISTS improvement_requests/);
+  assert.match(M, /active_seconds INTEGER NOT NULL DEFAULT 0/);
 });
