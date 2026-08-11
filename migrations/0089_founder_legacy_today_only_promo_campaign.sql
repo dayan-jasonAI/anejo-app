@@ -1,4 +1,4 @@
--- 0084 - Draft-only Founder Legacy thank-you promo campaign.
+-- 0089 - Draft-only Founder Legacy thank-you promo campaign.
 --
 -- This seeds the Marketing Team Lead's email lane with a reusable HTML template and a matching
 -- campaign draft. It does NOT create or activate a promo code, send anything, schedule anything,
@@ -22,7 +22,7 @@ INSERT OR IGNORE INTO team_briefs (
   'Today-only launch, send only after Dayan approves the exact offer and compliance settings.',
   'Subscription starts attributed to this campaign within 48 hours of send.',
   'draft',
-  'system:migration:0084',
+  'system:migration:0089',
   CAST(strftime('%s','now') AS INTEGER) * 1000,
   CAST(strftime('%s','now') AS INTEGER) * 1000
 );
@@ -109,7 +109,7 @@ INSERT INTO campaign_templates (
 </body>
 </html>',
   'html',
-  'system:migration:0084',
+  'system:migration:0089',
   CAST(strftime('%s','now') AS INTEGER) * 1000,
   CAST(strftime('%s','now') AS INTEGER) * 1000
 )
@@ -131,7 +131,7 @@ SELECT
   body_format,
   'founder_legacy_members',
   'draft',
-  'system:migration:0084',
+  'system:migration:0089',
   CAST(strftime('%s','now') AS INTEGER) * 1000,
   CAST(strftime('%s','now') AS INTEGER) * 1000
 FROM campaign_templates

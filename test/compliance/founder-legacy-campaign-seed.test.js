@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const MIG = readFileSync(new URL('../../migrations/0084_founder_legacy_today_only_promo_campaign.sql', import.meta.url), 'utf8');
+const MIG = readFileSync(new URL('../../migrations/0089_founder_legacy_today_only_promo_campaign.sql', import.meta.url), 'utf8');
 
 test('Founder Legacy promo seed creates draft-only email campaign assets', () => {
   assert.match(MIG, /INSERT OR IGNORE INTO team_briefs/);
