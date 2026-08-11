@@ -66,6 +66,14 @@ async function briefPerformance(env) {
   return out;
 }
 
+// 'audit_unavailable' is governance.js saying the audit COULD NOT RUN — the model was unreachable
+// or unconfigured. It is an outage, not a brand judgement, and tallying it beside claim/voice would
+// tell the strategist the brand is failing when what failed was the auditor. Counted separately and
+// said in different words, because the response is different too: one is "write differently", the
+// other is "your gate is down". Drafts it lands on are unscored, and automations.js will only
+// auto-schedule a draft whose audit_status is 'pass', so they are stuck rather than at risk.
+const NOT_A_REJECTION = new Set(['audit_unavailable']);
+
 /**
  * What the Brand Auditor keeps rejecting. §7 step 5: "recurring misses become prompt rules" — and
  * the first step of that is the strategist being able to SEE which miss recurs.
@@ -76,6 +84,7 @@ async function recurringFlags(env) {
       WHERE audit_flags IS NOT NULL AND audit_flags != '[]'
       ORDER BY created_at DESC LIMIT ${FLAG_SAMPLE}`);
   const tally = new Map();
+  let unaudited = 0;
   for (const r of list) {
     const flags = parseJson(r.audit_flags, null);
     if (!Array.isArray(flags)) continue;
@@ -85,13 +94,18 @@ async function recurringFlags(env) {
       // every flag as "[object Object] (21×)", which is worse than saying nothing — it looks like
       // a finding. code/flag/string are tolerated for older rows and hand-written fixtures.
       const key = String((f && (f.type || f.code || f.flag)) || (typeof f === 'string' ? f : '') || '').trim().slice(0, 40);
-      if (key) tally.set(key, (tally.get(key) || 0) + 1);
+      if (!key) continue;
+      if (NOT_A_REJECTION.has(key)) { unaudited += 1; continue; }
+      tally.set(key, (tally.get(key) || 0) + 1);
     }
   }
-  return [...tally.entries()]
-    .filter(([, n]) => n >= 2)                 // once is an incident, twice is a pattern
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, TOP_FLAGS);
+  return {
+    flags: [...tally.entries()]
+      .filter(([, n]) => n >= 2)               // once is an incident, twice is a pattern
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, TOP_FLAGS),
+    unaudited,
+  };
 }
 
 /**
@@ -115,9 +129,12 @@ export async function buildRetrospective(env) {
                JOIN social_posts sp ON sp.id = pp.post_id
               WHERE pp.brief_id IS NOT NULL AND sp.status = 'published') AS attributed`);
 
+  const audit = await recurringFlags(env);
+
   return {
     signals,
-    flags: await recurringFlags(env),
+    flags: audit.flags,
+    unaudited: audit.unaudited,
     coverage: { published: Number((cov && cov.published) || 0), attributed: Number((cov && cov.attributed) || 0) },
     briefs: briefs.map((b) => {
       const p = perf.get(String(b.id)) || null;
@@ -218,6 +235,15 @@ export function renderRetrospective(retro, { maxChars = RETRO_BUDGET } = {}) {
   if (retro.flags.length) {
     parts.push('', 'What the Brand Auditor keeps rejecting: ' +
       retro.flags.map(([code, n]) => `${code} (${n}×)`).join(', ') + '.');
+  }
+
+  // Deliberately NOT folded into the line above. "The auditor could not run" is an outage the
+  // owner can fix; "your captions keep making claims" is writing the Lead can fix. Reporting them
+  // as one number would hand the strategist a brand problem it cannot solve.
+  if (retro.unaudited > 0) {
+    parts.push(`The Brand Auditor could not RUN on ${retro.unaudited} recent draft${retro.unaudited === 1 ? '' : 's'} — ` +
+      'that is the gate failing, not the writing. Those drafts are unscored, and an unscored draft is ' +
+      'never auto-scheduled, so they are stuck rather than at risk.');
   }
 
   parts.push('',

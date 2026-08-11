@@ -134,6 +134,38 @@ test('the PRODUCTION flag shape tallies — { type, detail }, not a bare string'
   assert.doesNotMatch(text, /\[object Object\]/, 'never again');
 });
 
+test('"the auditor could not run" is an outage, never a brand rejection', async () => {
+  // governance.js emits { type: 'audit_unavailable' } when the model is unreachable. Tallied beside
+  // claim/voice it would tell the strategist the BRAND is failing when the GATE was down — the same
+  // class of mistake as [object Object]: data rendered as something it is not. Different cause,
+  // different fix, so it gets its own sentence.
+  const retro = await buildRetrospective(envOf({
+    briefs: [], perf: [], coverage: { published: 0, attributed: 0 },
+    audited: [
+      { audit_flags: JSON.stringify([{ type: 'audit_unavailable', detail: 'no key' }]) },
+      { audit_flags: JSON.stringify([{ type: 'audit_unavailable', detail: 'timeout' }]) },
+      { audit_flags: JSON.stringify([{ type: 'claim', detail: 'x' }]) },
+      { audit_flags: JSON.stringify([{ type: 'claim', detail: 'y' }]) },
+    ],
+  }));
+  assert.equal(retro.unaudited, 2);
+  const text = renderRetrospective(retro);
+  assert.match(text, /could not RUN on 2 recent drafts/);
+  assert.match(text, /that is the gate failing, not the writing/);
+  assert.match(text, /never auto-scheduled/, 'and says why it is not an emergency');
+  assert.match(text, /keeps rejecting: claim \(2×\)/, 'the real rejections still tally');
+  assert.doesNotMatch(text, /rejecting:[^\n]*audit_unavailable/, 'and the outage is not among them');
+});
+
+test('no outage means no outage line — silence when there is nothing wrong', async () => {
+  const retro = await buildRetrospective(envOf({
+    briefs: [], perf: [], coverage: { published: 0, attributed: 0 },
+    audited: [{ audit_flags: JSON.stringify([{ type: 'claim', detail: 'x' }]) }],
+  }));
+  assert.equal(retro.unaudited, 0);
+  assert.doesNotMatch(renderRetrospective(retro), /could not RUN/);
+});
+
 test('malformed audit_flags never break the retrospective', async () => {
   const retro = await buildRetrospective(envOf({
     briefs: [], perf: [], coverage: { published: 0, attributed: 0 },
