@@ -13,7 +13,7 @@
 // functions/_lib/training.js's `trainingContext()` — this file never duplicates that rendering
 // logic, it only writes the rows trainingContext() reads.
 import { json, bad, id, now } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { getMedia } from '../../../_lib/media.js';
 import { loadTraining, formatTraining, DEFAULT_MAX_CHARS } from '../../../_lib/training.js';
 import { capture } from '../../../_lib/track.js';
@@ -22,7 +22,7 @@ const MAX_RULE_CHARS = 2000;
 const MAX_NOTE_CHARS = 1000;
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
@@ -47,7 +47,7 @@ export const onRequestGet = async ({ request, env }) => {
 };
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 

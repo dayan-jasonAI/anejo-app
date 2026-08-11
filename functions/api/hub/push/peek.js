@@ -9,10 +9,13 @@
 //   title/body — best notification text: a fresh alert wins (owner), otherwise
 //            'New message at Añejo HUB' with the unread count.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 import { now } from '../../../_lib/hub.js';
 
-const ALL_ROLES = ['owner', 'kitchen', 'driver', 'vendor', 'trainer', 'client'];
+// Every role, staff and portal alike — this endpoint is open to anyone signed in.
+// Imported rather than re-typed: as a literal it silently omitted each newly added role
+// (marketing, 2026-08-11) and the omission reads as a deliberate exclusion.
+const ALL_ROLES = HUB_ROLES;
 const ALERT_FRESH_MS = 10 * 60 * 1000;
 
 // Visibility WHERE clause for the session (mirror of comms/unread.js scopeWhere).

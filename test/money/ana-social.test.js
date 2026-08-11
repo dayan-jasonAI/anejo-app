@@ -263,8 +263,11 @@ test('no API key or empty text means no draft — never a guess', async () => {
 // The owner API: the only door out, and it is owner-shaped
 // ---------------------------------------------------------------------------
 
-test('sending requires an owner session — and only rows marked as Aña drafts can be acted on', () => {
-  assert.match(OWNER, /requireRole\(request, env, \['owner'\]\)/);
+test('sending requires a marketing-desk session — and only rows marked as Aña drafts can be acted on', () => {
+  // Widened from owner-only to the marketing desk 2026-08-11: answering Instagram is the
+  // marketing expert's daily job. The gate itself is unchanged — an anonymous request still 401s,
+  // and every other role is still refused.
+  assert.match(OWNER, /requireRole\(request, env, MARKETING_DESK\)/);
   assert.match(OWNER, /sender_role !== 'ana_draft'/);
   assert.match(OWNER, /m\.sent_at\) return bad\('This draft was already sent\.', 409\)/);
   assert.match(OWNER, /m\.dismissed_at\) return bad\('This draft was dismissed\.', 409\)/);
@@ -388,7 +391,7 @@ test('the circuit breaker: two auto-replies per thread per hour, then silence', 
 test('the drill can exercise everything and send NOTHING — structurally', () => {
   const DRILL = readFileSync(new URL('../../functions/api/hub/owner/social-drill.js', import.meta.url), 'utf8');
   assert.ok(!/instagram_messaging/.test(DRILL), 'the sending module is not even imported');
-  assert.match(DRILL, /requireRole\(request, env, \['owner'\]\)/);
+  assert.match(DRILL, /requireRole\(request, env, MARKETING_DESK\)/);
 });
 
 test('the customer message is armored as data, and invention is banned by name', () => {

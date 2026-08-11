@@ -2,7 +2,7 @@
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
   const url = new URL(request.url);

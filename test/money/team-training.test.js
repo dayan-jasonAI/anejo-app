@@ -51,24 +51,24 @@ function fakeR2(objects = {}) {
 
 // ---------- auth gate ----------
 
-test('GET is owner-gated', async () => {
+test('GET is gated to the marketing desk', async () => {
   const env = { SESSIONS: makeKV({}), DB: makeD1([]) };
   const res = await trainingGet({ request: new Request('https://anejocateringco.com/api/hub/owner/team-training'), env });
   assert.equal(res.status, 401);
-  assert.match(API, /requireRole\(request, env, \['owner'\]\)/);
+  assert.match(API, /requireRole\(request, env, MARKETING_DESK\)/);
 });
 
-test('POST is owner-gated', async () => {
+test('POST is gated to the marketing desk', async () => {
   const env = { SESSIONS: makeKV({}), DB: makeD1([]) };
   const res = await trainingPost({ request: post('/api/hub/owner/team-training', { op: 'add_rule', text: 'x' }), env });
   assert.equal(res.status, 401);
 });
 
-test('upload is owner-gated', async () => {
+test('upload is gated to the marketing desk', async () => {
   const env = { SESSIONS: makeKV({}), DB: makeD1([]) };
   const res = await uploadPost({ request: post('/api/hub/owner/team-training-upload', { data_url: 'data:image/jpeg;base64,AAAA' }), env });
   assert.equal(res.status, 401);
-  assert.match(UPLOAD, /requireRole\(request, env, \['owner'\]\)/);
+  assert.match(UPLOAD, /requireRole\(request, env, MARKETING_DESK\)/);
 });
 
 // ---------- honest when empty ----------

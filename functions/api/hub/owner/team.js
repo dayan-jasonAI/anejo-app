@@ -6,7 +6,7 @@
 // dies in the parser instead of becoming data. Nothing here can schedule or publish; those ops
 // live in social.js behind the owner's own clicks.
 import { json, bad, id, now, randToken } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { toJson, parseJson } from '../../../_lib/hub.js';
 import { capture } from '../../../_lib/track.js';
 import { leadReply, buildSpine, ALLOWED_ACTIONS } from '../../../_lib/team_lead.js';
@@ -198,7 +198,7 @@ async function executeAction(env, action) {
 }
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
@@ -212,7 +212,7 @@ export const onRequestGet = async ({ request, env }) => {
 };
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 

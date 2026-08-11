@@ -10,7 +10,7 @@
 // Partners are `trainers` rows (same rails as gym affiliates), so commission on subscription
 // renewals flows through the EXISTING per-invoice rev-share path with no extra plumbing.
 import { json, bad, id, now, isEmail, normalizePhone, affiliateCode, appBaseUrl } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
 import { ensureAffiliateCode, payoutOptions, norm } from '../../../_lib/promo.js';
 import { authorizePayout } from '../../../_lib/autopay.js';
@@ -50,7 +50,7 @@ async function sendPartnerWelcome(env, request, p) {
 
 // ---------- GET ----------
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
@@ -95,7 +95,7 @@ export const onRequestGet = async ({ request, env }) => {
 
 // ---------- POST ----------
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 

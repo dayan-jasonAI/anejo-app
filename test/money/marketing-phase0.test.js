@@ -71,9 +71,9 @@ test('JPEG is verified by MAGIC BYTES, never by the label', () => {
   assert.match(UPLOAD, /not a JPEG/);
 });
 
-test('upload is owner-only and size-capped on the SERVER', () => {
+test('upload is gated to the marketing desk and size-capped on the SERVER', () => {
   // The page's 5MB check is convenience; a crafted request skips the page entirely.
-  assert.match(UPLOAD, /requireRole\(request, env, \['owner'\]\)/);
+  assert.match(UPLOAD, /requireRole\(request, env, MARKETING_DESK\)/);
   assert.match(UPLOAD, /bin\.length > MAX_BYTES/);
 });
 

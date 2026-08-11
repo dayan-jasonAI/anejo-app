@@ -293,7 +293,7 @@
     }).catch(function () { Owner.fail('owner-root'); });
   }
 
-  Owner.init('partners', load);
+  Owner.init('partners', load, { roles: Owner.MARKETING_DESK });
 })();
 </script>
 <script src="assets/operator.js" defer></script>

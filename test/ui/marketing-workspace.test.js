@@ -21,15 +21,17 @@ const INDEX = readFileSync(new URL('../../public/hub/owner/index.html', import.m
 
 // ---------- shared HUB shell + gate ----------
 
-test('is private (noindex) and owner-gated like every other HUB page', () => {
+test('is private (noindex) and gated to the marketing desk', () => {
   assert.match(PAGE, /<meta\s+name="robots"\s+content="noindex">/);
   assert.match(PAGE, /<link rel="stylesheet" href="\/hub\/assets\/hub\.css">/);
   assert.match(PAGE, /<script src="\/hub\/assets\/hub\.js"><\/script>/);
   assert.match(PAGE, /<script src="\/hub\/owner\/assets\/owner\.js"><\/script>/);
-  // ONE Owner.init call for the whole page — Hub.guard(['owner']) runs once, not once per tab.
+  // ONE Owner.init call for the whole page — the guard runs once, not once per tab. Since
+  // 2026-08-11 it guards to Owner.MARKETING_DESK (owner + the marketing expert) rather than the
+  // owner alone: this workspace is her daily job. Still exactly one call.
   const initCalls = PAGE.match(/Owner\.init\(/g) || [];
   assert.equal(initCalls.length, 1, 'exactly one Owner.init call — the four merged modules must not each guard separately');
-  assert.match(PAGE, /Owner\.init\('marketing', load\)/);
+  assert.match(PAGE, /Owner\.init\('marketing', load, \{ roles: Owner\.MARKETING_DESK \}\)/);
   assert.match(PAGE, /id="owner-nav"/, 'shares the bottom nav shell');
 });
 

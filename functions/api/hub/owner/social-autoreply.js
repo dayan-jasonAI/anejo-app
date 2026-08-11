@@ -8,7 +8,7 @@
 // Turning it on is a deliberate owner action — the UI confirms first — and flipping back to
 // 'off' restores draft-only instantly on the next tick.
 import { json, bad, now } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 
 const MODES = ['off', 'dm', 'comment', 'both'];
 
@@ -23,14 +23,14 @@ async function currentMode(env) {
 }
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
   return json({ ok: true, mode: await currentMode(env), options: MODES });
 };
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
   let b;

@@ -4,14 +4,16 @@
 //   POST { op:'update', id, ...}→ edit role/team/is_lead/active
 //   POST { op:'reset_pin', id, pin? } → set/reset a PIN (random if omitted), forces change
 import { json, bad, id as genId, now, isEmail } from '../../../../_lib/util.js';
-import { requireRole } from '../../../../_lib/roles.js';
+import { requireRole, STAFF_ROLES, STAFF_TEAMS } from '../../../../_lib/roles.js';
 import { newSalt, hashPin, validPinFormat, randomPin } from '../../../../_lib/pin.js';
 import { capture } from '../../../../_lib/track.js';
 import { sendSms } from '../../../../_lib/twilio.js';
 import { sendEmail, emailShell, escHtml } from '../../../../_lib/email.js';
 
-const ROLES = ['owner', 'kitchen', 'driver', 'vendor'];
-const TEAMS = ['kitchen', 'delivery', 'training', 'front_office', 'vendors'];
+// The vocabulary lives in _lib/roles.js so the dropdown, this validator and every guard
+// cannot drift apart — which is exactly how a new role gets half-added.
+const ROLES = STAFF_ROLES;
+const TEAMS = STAFF_TEAMS;
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);

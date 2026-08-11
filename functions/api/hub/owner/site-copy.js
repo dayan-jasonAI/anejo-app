@@ -9,7 +9,7 @@
 // Now a month of them can be written in one sitting, each with its own window, and whichever
 // window contains "now" is the one on the site.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { now, id } from '../../../_lib/hub.js';
 import { SLOTS, isSlot, normalizeTone, normalizePlacement, isLive, pickLive, stateOf } from '../../../_lib/content.js';
 import { LEGAL_SLUGS, LEGAL_LABEL, LEGAL_DOC_ID } from '../../../_lib/legal.js';
@@ -51,7 +51,7 @@ const byWhen = (a, b) => (Number(b.starts_at) || 0) - (Number(a.starts_at) || 0)
   || (Number(b.updated_at) || 0) - (Number(a.updated_at) || 0);
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
@@ -99,7 +99,7 @@ export const onRequestGet = async ({ request, env }) => {
 // POST { slot, id?, body_en, … }            → create (no id) or update one queued entry
 // POST { op:'delete', slot, id }            → remove one
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 

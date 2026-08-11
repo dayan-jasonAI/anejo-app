@@ -12,14 +12,14 @@
 // THIS IS THE ONLY FILE THAT SENDS. The tick drafts, this endpoint delivers — and only behind an
 // owner session, on an explicit op, one message at a time. There is no "send all".
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { now } from '../../../_lib/hub.js';
 import { replyWindow, sendDirectMessage, replyToComment } from '../../../_lib/instagram_messaging.js';
 
 export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
 
   const { results } = await env.DB.prepare(
@@ -82,7 +82,7 @@ export const onRequestGet = async ({ request, env }) => {
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
 
   let b;

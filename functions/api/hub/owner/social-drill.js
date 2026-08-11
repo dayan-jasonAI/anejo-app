@@ -6,11 +6,11 @@
 // Budget note: every non-reaction case is a real metered Haiku call. That is the point — a drill
 // against a mock brain certifies the mock.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { draftReply, reactionReplyFor, looksLikeScaffolding } from '../../../_lib/ana_social.js';
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
 
   let b;

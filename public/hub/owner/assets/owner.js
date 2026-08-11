@@ -98,10 +98,33 @@
     return { open: open, close: close, setTrigger: function (t) { trigger = t; } };
   }
 
+  // Roles allowed on the marketing-desk pages under /hub/owner/ — the marketing workspace,
+  // affiliates, site copy, content, traffic, adoption, marketing settings. Those pages live here
+  // because the owner opens them too; sharing the file is not the same as sharing the role.
+  // Mirrors MARKETING_DESK in functions/_lib/roles.js, which is what actually enforces it.
+  Owner.MARKETING_DESK = ['owner', 'marketing'];
+
+  // Which role the bar currently on screen was drawn for, so Owner.init can tell a correct
+  // optimistic render from a stale one instead of redrawing on every page load.
+  var renderedRole = null;
+
   Owner.renderNav = function (active) {
     var nav = document.getElementById('owner-nav');
     if (!nav) return;
     nav.className = 'hub-nav';
+
+    // A non-owner on a shared page gets THEIR bar, not the owner's. Without this the marketing
+    // expert would be looking at Finance / Kitchen / Staff tabs that bounce her on tap. The role
+    // comes from the cache because the nav paints before /api/me answers; Owner.init re-renders
+    // once the real role is known, so a wrong cache costs one repaint and nothing else.
+    var role = (Hub.cachedRole && Hub.cachedRole()) || 'owner';
+    if (role !== 'owner' && Hub.navFor && Hub.navFor(role)) {
+      renderedRole = role;
+      Hub.renderNavWithMore(nav, Hub.navFor(role), active);
+      return;
+    }
+    renderedRole = 'owner';
+
     var primary = [], overflow = [];
     NAV.forEach(function (orig) {
       var item = { view: orig.view, href: orig.href, ico: orig.ico, label: orig.label, active: orig.view === active };
@@ -121,11 +144,19 @@
     if (window.Hub && Hub.i18nRefresh) Hub.i18nRefresh();
   };
 
-  // Guard to owner, render nav, fire dashboard.viewed, then run the page renderer.
-  Owner.init = function (view, render) {
+  // Guard, render nav, fire dashboard.viewed, then run the page renderer.
+  // `roles` defaults to owner-only; pass Owner.MARKETING_DESK on the pages the marketing expert
+  // shares with the owner. Whatever is passed must match that page's API guard — widening one
+  // without the other gives her a screen that loads and then 403s on every request.
+  Owner.init = function (view, render, opts) {
+    var roles = (opts && opts.roles) || ['owner'];
     Owner.renderNav(view);
-    return Hub.guard(['owner']).then(function (me) {
+    return Hub.guard(roles).then(function (me) {
       if (!me) return;            // guard already redirected
+      // The guard has just refreshed the cached role. If the optimistic bar above was drawn from
+      // a stale value (first sign-in, or a shared tablet changing hands), redraw it now — this is
+      // the correction that makes rendering before /api/me safe.
+      if (Hub.roleFromMe(me) !== renderedRole) Owner.renderNav(view);
       Hub.track('dashboard.viewed', { view: view, platform: 'pwa' });
       try { render(me); } catch (e) { Owner.fail(); }
       if (window.AnejoI18n) window.AnejoI18n.refresh();

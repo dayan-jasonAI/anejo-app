@@ -47,7 +47,7 @@ test('the owner quick card carries the new day-to-day actions', () => {
 test('every role is warned that an empty screen may mean signed out', () => {
   // This one is not an owner nicety: a cook prepping to a blank board, or a driver assuming there
   // is no work, is a real operational failure caused purely by a lapsed session.
-  for (const role of ['kitchen', 'driver', 'vendor']) {
+  for (const role of ['kitchen', 'driver', 'marketing', 'vendor']) {
     const start = MODULES.indexOf(`  ${role}: [`);
     const end = MODULES.indexOf('\n  ],', start);
     const block = MODULES.slice(start, end === -1 ? undefined : end);
@@ -59,7 +59,7 @@ test('every role is warned that an empty screen may mean signed out', () => {
 test('the staff additions are bilingual, not English bolted onto a Spanish module', () => {
   // Staff modules are EN/ES throughout; a step with no t2/z2 renders English text to a Spanish
   // reader, which is the exact defect the language work existed to fix.
-  for (const role of ['kitchen', 'driver', 'vendor']) {
+  for (const role of ['kitchen', 'driver', 'marketing', 'vendor']) {
     const start = MODULES.indexOf(`  ${role}: [`);
     const end = MODULES.indexOf('\n  ],', start);
     const block = MODULES.slice(start, end === -1 ? undefined : end);

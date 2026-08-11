@@ -34,8 +34,11 @@
     lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
   }
 
-  var ROLES = ['owner', 'kitchen', 'driver', 'vendor'];
-  var TEAMS = ['kitchen', 'delivery', 'training', 'front_office', 'vendors'];
+  // Mirrors STAFF_ROLES / STAFF_TEAMS in functions/_lib/roles.js — the API rejects anything
+  // outside those lists, so a value offered here that is missing there fails on submit with
+  // "Pick a valid role". test/ui/marketing-role.test.js pins the two lists together.
+  var ROLES = ['owner', 'kitchen', 'driver', 'marketing', 'vendor'];
+  var TEAMS = ['kitchen', 'delivery', 'marketing', 'training', 'front_office', 'vendors'];
   function opt(list, sel) { return list.map(function (v) { return '<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + v + '</option>'; }).join(''); }
   function pinBanner(name, pin) {
     var box = document.getElementById('pin-banner');

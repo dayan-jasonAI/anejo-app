@@ -9,10 +9,13 @@
 // directive: never delete data). No tracking event is fired — an author action
 // like archiving a thread needs no analytics capture here.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 import { now } from '../../../_lib/hub.js';
 
-const ALL_ROLES = ['owner', 'kitchen', 'driver', 'vendor', 'trainer', 'client'];
+// Every role, staff and portal alike — this endpoint is open to anyone signed in.
+// Imported rather than re-typed: as a literal it silently omitted each newly added role
+// (marketing, 2026-08-11) and the omission reads as a deliberate exclusion.
+const ALL_ROLES = HUB_ROLES;
 const ACTIONS = ['close', 'reopen'];
 
 export const onRequestPost = async ({ request, env }) => {
