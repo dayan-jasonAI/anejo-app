@@ -27,7 +27,7 @@ const WORK_EVENTS = [
 ];
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, MARKETING_DESK);
+  const ctx = await requireRole(request, env, ['owner']);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 

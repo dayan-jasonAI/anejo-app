@@ -14,7 +14,7 @@ export const RUN_CHECKS = [
     key: 'inbox',
     label: 'Instagram inbox answered',
     detail: 'Every DM and comment from yesterday has a reply or a deliberate skip.',
-    href: '/hub/owner/marketing.html',
+    href: '/hub/comms.html',
   },
   {
     key: 'drafts',

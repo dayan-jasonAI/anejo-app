@@ -30,6 +30,13 @@ function canAccessThread(ctx, t) {
   if (ctx.role === 'owner') return true;
   if (ctx.role === 'trainer') return !!t.trainer_id && t.trainer_id === ctx.distinct_id;
   if (ctx.role === 'client') return !!t.client_id && t.client_id === ctx.distinct_id;
+  // Marketing sees only Instagram threads and her own line to the owner (mirror of
+  // threads.js scopeWhere) — not broadcasts, not other staff threads.
+  if (ctx.role === 'marketing') return (
+    t.audience === 'instagram' ||
+    (!!t.staff_id && t.staff_id === ctx.distinct_id) ||
+    (!!t.created_by && t.created_by === ctx.distinct_id)
+  );
   return (
     (!!t.staff_id && t.staff_id === ctx.distinct_id) ||
     (!!t.created_by && t.created_by === ctx.distinct_id) ||
@@ -49,6 +56,7 @@ async function counterpartyStaff(env, ctx, t) {
 // Display name for the thread header (mirror of threads.js counterpartyName).
 async function headerName(env, ctx, t) {
   if (t.audience === 'broadcast') return 'Broadcast';
+  if (t.audience === 'instagram') return t.external_username ? '@' + t.external_username : (t.subject || 'Instagram DM');
   if (t.client_id) {
     const c = await env.DB.prepare('SELECT name FROM clients WHERE id = ?').bind(t.client_id).first();
     if (c && c.name) return c.name;

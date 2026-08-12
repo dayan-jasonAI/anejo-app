@@ -224,6 +224,16 @@ export const onRequestPost = async ({ request, env }) => {
   const action = (b && b.action || '').toString().trim();
   const ts = now();
 
+  // Content-library edits are the OWNER's call. The marketing desk reads brand standards and
+  // briefs (GET stays open to her) and drafts briefs from reviews, but she cannot mutate the
+  // canonical docs — a change she wants goes to the owner as a request ("submitted as a draft
+  // to owner for final approval"), which the studio's "Requests to Dayan" already carries. This
+  // is enforced here, not just hidden in the UI, so the rule holds no matter who calls the API.
+  const OWNER_ONLY_ACTIONS = new Set(['create', 'update', 'remove_image', 'archive', 'restore']);
+  if (OWNER_ONLY_ACTIONS.has(action) && ctx.role !== 'owner') {
+    return bad('Only the owner can change content files. Send the change as a request to Dayan and he’ll approve it.', 403);
+  }
+
   // ---------- Creative Studio: success conversations ----------
   // Collect the current success conversations = real 4–5★ post-delivery reviews with a comment.
   if (action === 'list_success') {
