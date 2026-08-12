@@ -96,6 +96,7 @@ export const onRequestPost = async ({ request, env }) => {
   };
 
   let drafted = 0, escalated = 0, sent = 0, specials = 0, skipped = 0;
+  let billingBlocked = false;   // set if any draft failed on an Anthropic credit/billing error
 
   // ---------- comments (public, no reply window) ----------
   let events = [];
@@ -128,7 +129,7 @@ export const onRequestPost = async ({ request, env }) => {
       d = await draftReply(env, { kind: 'comment', text: ev.text || '', username: ev.from_username, auto: autoOk('comment') });
       // A failed draft leaves handled=0 on purpose — the next tick retries it. Marking it handled
       // here would silently drop a real customer's comment on an API blip.
-      if (!d.ok) continue;
+      if (!d.ok) { if (d.reason === 'billing') billingBlocked = true; continue; }
     }
 
     try {
@@ -211,7 +212,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     budget -= 1;
     const d = await draftReply(env, { kind: 'dm', text: last.body || '', username: th.external_username, auto: autoOk('dm') });
-    if (!d.ok) continue;
+    if (!d.ok) { if (d.reason === 'billing') billingBlocked = true; continue; }
 
     try {
       if (d.escalate) {
@@ -238,7 +239,28 @@ export const onRequestPost = async ({ request, env }) => {
     try { await sendPushTickle(env, { roles: ['owner'] }); } catch { /* best-effort */ }
   }
 
-  return json({ ok: true, mode: autoMode, drafted, sent, specials, escalated, skipped });
+  // Aña went silent on a billing error — make it LOUD (owner feed + push, marketing too). Deduped
+  // to a single open alert, so it stands until acknowledged instead of firing every minute. This
+  // is the fix for the failure that hid for days: a credit-exhausted Anthropic account now announces
+  // itself instead of just dropping every reply.
+  if (billingBlocked) {
+    try {
+      await raiseAlert(env, {
+        alert_type: 'ana_offline',
+        severity: 'critical',
+        title: 'Aña is offline — Anthropic credit needed',
+        body: 'Instagram replies and the Studio\'s Claude features are failing: "credit balance is too low". Add credit at console.anthropic.com → Plans & Billing. She resumes on her own once funded.',
+        team: 'marketing',
+        source: 'social_inbox_tick',
+        ref_type: 'billing',
+        ref_id: 'anthropic',
+        dedupe_key: 'ana_offline',
+        notifyRoles: ['marketing'],
+      });
+    } catch { /* an alert failure must never fail the tick */ }
+  }
+
+  return json({ ok: true, mode: autoMode, drafted, sent, specials, escalated, skipped, billingBlocked });
 };
 
 // Find-or-create the Comms thread for a comment's MEDIA (one thread per post, many comments).

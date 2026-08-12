@@ -82,7 +82,7 @@ async function planCarouselFrames(env, { caption, imageBrief, instruction, count
       `Return ONLY JSON: {"frames":[{"role":"body|cta","headline":"...","sub":"...","scene":"..."}]} with EXACTLY ${n} frames; the last must be role "cta".`;
     const user =
       `COVER caption: ${caption ? String(caption).slice(0, 600) : '(none)'}\n` +
-      `COVER art direction: ${imageBrief ? String(imageBrief).slice(0, 400) : '(none)'}\n` +
+      `COVER art direction: ${imageBrief ? String(imageBrief).slice(0, 1500) : '(none)'}\n` +
       `Team-lead / user instruction: ${instruction ? String(instruction).slice(0, 400) : '(none — infer the most fitting continuation from the cover)'}\n` +
       `Plan the next ${n} frame(s).`;
     const ctrl = new AbortController();

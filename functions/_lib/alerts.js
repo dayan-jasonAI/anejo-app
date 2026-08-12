@@ -25,6 +25,11 @@ export const ALERT_TYPES = [
   // A high-confidence commercial DM/comment (catering, bulk/corporate, wholesale/partnership,
   // subscription) captured as a lead by _lib/social_leads.js. See migrations/0078_social_leads.sql.
   'social_commercial_lead',
+  // Aña's Claude drafting is failing on a billing/credit error (social-inbox-tick.js). Deduped so
+  // one open alert stands until acknowledged, not one per minute. Critical because every Instagram
+  // reply is silently failing until the Anthropic account is funded — the exact "silent for days"
+  // failure this alert exists to make loud.
+  'ana_offline',
   // Both of these were RAISED from day one and never reached the table: their call sites passed
   // `type:` while raiseAlert reads `opts.alert_type` and returns {ok:false} on the miss — a silent
   // no-op with no error anywhere. The customer-facing half is what makes it bad: Aña tells a

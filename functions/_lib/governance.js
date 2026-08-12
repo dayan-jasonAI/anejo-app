@@ -205,7 +205,7 @@ export async function auditDraft(env, { caption, image_brief } = {}) {
             role: 'user',
             content: JSON.stringify({
               caption: String(caption || '').slice(0, 2200),
-              image_brief: String(image_brief || '').slice(0, 400),
+              image_brief: String(image_brief || '').slice(0, 1500),
             }),
           }],
         }),
