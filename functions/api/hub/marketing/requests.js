@@ -16,6 +16,7 @@ import { json, bad } from '../../../_lib/util.js';
 import { requireRole, MARKETING_DESK, currentStaff } from '../../../_lib/roles.js';
 import { id as genId, now } from '../../../_lib/hub.js';
 import { raiseAlert } from '../../../_lib/alerts.js';
+import { sendPushTickle } from '../../../_lib/push.js';
 import { capture } from '../../../_lib/track.js';
 
 export const REQUEST_KINDS = ['improvement', 'bug', 'question'];
@@ -121,6 +122,12 @@ export const onRequestPost = async ({ request, env }) => {
       ).bind(status, note, t, ctx.distinct_id || ctx.email || null, t, rid).run();
     } catch { return bad('Could not save that decision.', 500); }
     if (!r || !r.meta || r.meta.changes !== 1) return bad('Request not found.', 404);
+
+    // Actively tell the marketing desk her request was decided — a push straight to her device,
+    // NOT an alert row (that lands in the owner's feed and he just made the decision). The peek
+    // endpoint reads the freshly-decided request and turns this tickle into "Dayan accepted your
+    // request: …". Never blocks the response. She also sees it on her Requests board regardless.
+    try { await sendPushTickle(env, { roles: ['marketing'] }); } catch { /* best-effort */ }
 
     await capture(env, {
       event: 'marketing.request_decided',

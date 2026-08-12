@@ -62,6 +62,20 @@ export const onRequestGet = async ({ request, env }) => {
     } catch { alert = null; }
   }
 
+  // Marketing only: a request the owner JUST decided is the headline she's waiting on. Reads the
+  // freshest decided-in-the-last-10-min improvement_request (mirror of the owner's alert window)
+  // and turns her payload-less tickle into "Dayan accepted your request: …". Degrades to unread
+  // if the table isn't there or nothing was decided recently.
+  let decision = null;
+  if (ctx.role === 'marketing') {
+    try {
+      const row = await env.DB.prepare(
+        "SELECT title, status, owner_note, decided_at FROM improvement_requests WHERE decided_at IS NOT NULL AND decided_at > ? ORDER BY decided_at DESC LIMIT 1"
+      ).bind(now() - ALERT_FRESH_MS).first();
+      if (row) decision = { title: row.title || '', status: row.status || 'decided', note: row.owner_note || null };
+    } catch { decision = null; }
+  }
+
   // Driver only: a pending delivery-order offer is the most important headline.
   let offer = null;
   if (ctx.role === 'driver') {
@@ -81,17 +95,23 @@ export const onRequestGet = async ({ request, env }) => {
   } else if (alert) {
     title = alert.title || 'New alert at Añejo HUB';
     body = alert.body || 'Open the Owner Command Center for details.';
+  } else if (decision) {
+    const verb = decision.status === 'accepted' ? 'accepted' : decision.status === 'declined' ? 'declined'
+      : decision.status === 'shipped' ? 'shipped' : 'decided';
+    title = `Dayan ${verb} your request`;
+    body = decision.title + (decision.note ? ' — ' + decision.note : '');
   } else {
     title = 'New message at Añejo HUB';
     body = unread === 1 ? 'You have 1 unread message.' : `You have ${unread} unread messages.`;
   }
 
-  // Deep-link the notification tap to the right place, so the owner lands ON the item.
+  // Deep-link the notification tap to the right place, so the reader lands ON the item.
   let url = '/hub/';
   if (offer) url = '/hub/driver/route.html';
   else if (alert && alert.alert_type === 'partner_application') url = '/hub/owner/partners.html';
   else if (alert) url = '/hub/owner/';                 // other owner alerts → command center
+  else if (decision) url = '/hub/marketing/';          // her Requests-to-Dayan board
   else if (unread) url = ctx.role === 'owner' ? '/hub/owner/comms.html' : '/hub/comms.html';
 
-  return json({ ok: true, unread, alert, offer, title, body, url });
+  return json({ ok: true, unread, alert, offer, decision, title, body, url });
 };
