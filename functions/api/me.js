@@ -11,6 +11,11 @@ export const onRequestGet = async ({ request, env }) => {
   const ctx = await currentRole(env, request);
   if (ctx && ctx.type === 'staff') {
     const r = await currentStaff(env, request);
+    // A deactivated (or removed) staff member is signed out EVERYWHERE, not just blocked at the
+    // data endpoints: a still-unexpired session must report signed-out so the HUB shell sends them
+    // to /login (where every path already refuses them) instead of loading an empty frame. This is
+    // what makes a firing a clean lockout rather than "logged in but nothing works."
+    if (!r || !r.active) return json({ authenticated: false }, 200);
     // Whitelist fields — NEVER expose pin_hash / pin_salt / lockout internals.
     const staff = {
       id: ctx.distinct_id,
