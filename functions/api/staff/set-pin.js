@@ -17,6 +17,10 @@ export const onRequestPost = async ({ request, env }) => {
 
   const staff = await env.DB.prepare('SELECT * FROM staff WHERE id=?').bind(ctx.distinct_id).first();
   if (!staff) return json({ error: 'Account not found.' }, 404);
+  // A deactivated account's still-valid session must not touch even a self-service endpoint like
+  // this one — no PIN changes for someone who's been let go. (They can't log in with any PIN
+  // anyway; this keeps a fired employee's token from being honored at ANY authenticated route.)
+  if (!staff.active) return json({ error: 'Account deactivated.' }, 401);
 
   // If they already have a PIN and aren't being forced to reset, require the current one.
   if (staff.pin_hash && !staff.must_change_pin) {
