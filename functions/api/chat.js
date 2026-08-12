@@ -10,7 +10,7 @@ import { json, bad, id, now, isEmail } from '../_lib/util.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { budgetGate, recordSpend } from '../_lib/ai_budget.js';
 import { loadMenu } from '../_lib/menu.js';
-import { anaSystemPrompt, detectCommercialIntent } from '../_lib/ana_social.js';
+import { anaSystemPrompt, anaBrand, detectCommercialIntent } from '../_lib/ana_social.js';
 import { insertLead } from '../_lib/leads.js';
 
 const MODEL = 'claude-sonnet-4-6';
@@ -100,13 +100,17 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
   // Prices are read per request. loadMenu never throws — it degrades to last-known-good — so the
   // assistant always has a menu to quote from, just possibly a slightly stale one.
   const menu = await loadMenu(env);
+  // The owner's voice and allergen rules, from the same brief the rest of the team reads. Read per
+  // request like the menu is, so a change approved in the HUB reaches the website on the next
+  // message rather than the next deploy.
+  const brand = await anaBrand(env);
 
   let r;
   try {
     r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, max_tokens: 600, system: anaSystemPrompt(menu), messages: msgs }),
+      body: JSON.stringify({ model: MODEL, max_tokens: 600, system: anaSystemPrompt(menu, brand), messages: msgs }),
     });
   } catch {
     return json({ error: 'Could not reach the assistant. Please email dayan@anejocateringco.com.' }, 502);

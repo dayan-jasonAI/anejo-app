@@ -132,11 +132,11 @@ const ownerReq = (init = {}) => new Request('https://anejocateringco.com/api/hub
   headers: { Cookie: 'anejo_sess=tok', 'Content-Type': 'application/json' }, ...init,
 });
 
-test('the links API is owner-gated — no session, no report', async () => {
+test('the links API is gated to the marketing desk — no session, no report', async () => {
   const env = { SESSIONS: makeKV({}), DB: makeD1([]) };
   const res = await linksGet({ request: new Request('https://anejocateringco.com/api/hub/owner/links'), env });
   assert.equal(res.status, 401);
-  assert.match(LINKS, /requireRole\(request, env, \['owner'\]\)/);
+  assert.match(LINKS, /requireRole\(request, env, MARKETING_DESK\)/);
 });
 
 test('the report joins clicks to PAID orders by utm_campaign — pending checkouts do not count', async () => {

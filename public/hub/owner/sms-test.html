@@ -84,7 +84,7 @@
   // Owner-gated boot + bottom nav. Without it this diagnostic had no session guard and no way
   // back into the HUB — the 401/403 messages above are the fallback, not the front door.
   Hub.boot();
-  Owner.init('overview', function () {});
+  Owner.init('sms-test', function () {}, { roles: Owner.MARKETING_DESK });
 })();
 </script>
 <script src="assets/operator.js" defer></script>

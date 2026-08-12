@@ -16,13 +16,13 @@
 // "Remove" is always a soft archive (active=0) — rows are NEVER deleted.
 // Reads by staff fire doc.viewed elsewhere (kitchen/docs); authoring is not tracked.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, STAFF_ROLES, MARKETING_DESK } from '../../../_lib/roles.js';
 import { id as genId, now, today, parseJson, toJson } from '../../../_lib/hub.js';
 import { putMedia } from '../../../_lib/media.js';
 
 // 'brand' = the owner-authored Brand & Standards brief that grounds the Creative Studio AI.
 const DOC_TYPES = ['brand', 'manual', 'policy', 'procedure', 'recipe', 'content_brief', 'legal'];
-const SCOPE_ROLES = ['owner', 'kitchen', 'driver', 'vendor'];
+const SCOPE_ROLES = STAFF_ROLES;
 
 // ── Creative Studio: success conversations → brief + receipt ──────────────────
 // A "success conversation" is a REAL 4–5★ post-delivery review with a comment
@@ -150,7 +150,7 @@ function nextOccurrence(rec, tz = 'America/New_York') {
 }
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
@@ -215,7 +215,7 @@ export const onRequestGet = async ({ request, env }) => {
 };
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
@@ -223,6 +223,16 @@ export const onRequestPost = async ({ request, env }) => {
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const action = (b && b.action || '').toString().trim();
   const ts = now();
+
+  // Content-library edits are the OWNER's call. The marketing desk reads brand standards and
+  // briefs (GET stays open to her) and drafts briefs from reviews, but she cannot mutate the
+  // canonical docs — a change she wants goes to the owner as a request ("submitted as a draft
+  // to owner for final approval"), which the studio's "Requests to Dayan" already carries. This
+  // is enforced here, not just hidden in the UI, so the rule holds no matter who calls the API.
+  const OWNER_ONLY_ACTIONS = new Set(['create', 'update', 'remove_image', 'archive', 'restore']);
+  if (OWNER_ONLY_ACTIONS.has(action) && ctx.role !== 'owner') {
+    return bad('Only the owner can change content files. Send the change as a request to Dayan and he’ll approve it.', 403);
+  }
 
   // ---------- Creative Studio: success conversations ----------
   // Collect the current success conversations = real 4–5★ post-delivery reviews with a comment.

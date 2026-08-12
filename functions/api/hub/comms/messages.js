@@ -11,14 +11,17 @@
 // are the counterparty, the creator, or audience='broadcast'; trainer/client see their own.
 // Fires message.sent {channel, audience, ai_drafted}.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { id, now, bit } from '../../../_lib/hub.js';
 import { sendSms, sendWhatsApp } from '../../../_lib/twilio.js';
 import { sendDirectMessage, replyToComment } from '../../../_lib/instagram_messaging.js';
 import { sendPushTickle } from '../../../_lib/push.js';
 
-const ALL_ROLES = ['owner', 'kitchen', 'driver', 'vendor', 'trainer', 'client'];
+// Every role, staff and portal alike — this endpoint is open to anyone signed in.
+// Imported rather than re-typed: as a literal it silently omitted each newly added role
+// (marketing, 2026-08-11) and the omission reads as a deliberate exclusion.
+const ALL_ROLES = HUB_ROLES;
 const CHANNELS = ['in_app', 'sms', 'whatsapp', 'instagram'];
 
 // Same visibility rules as threads.js, applied to one loaded thread row.
@@ -27,6 +30,13 @@ function canAccessThread(ctx, t) {
   if (ctx.role === 'owner') return true;
   if (ctx.role === 'trainer') return !!t.trainer_id && t.trainer_id === ctx.distinct_id;
   if (ctx.role === 'client') return !!t.client_id && t.client_id === ctx.distinct_id;
+  // Marketing sees only Instagram threads and her own line to the owner (mirror of
+  // threads.js scopeWhere) — not broadcasts, not other staff threads.
+  if (ctx.role === 'marketing') return (
+    t.audience === 'instagram' ||
+    (!!t.staff_id && t.staff_id === ctx.distinct_id) ||
+    (!!t.created_by && t.created_by === ctx.distinct_id)
+  );
   return (
     (!!t.staff_id && t.staff_id === ctx.distinct_id) ||
     (!!t.created_by && t.created_by === ctx.distinct_id) ||
@@ -46,6 +56,7 @@ async function counterpartyStaff(env, ctx, t) {
 // Display name for the thread header (mirror of threads.js counterpartyName).
 async function headerName(env, ctx, t) {
   if (t.audience === 'broadcast') return 'Broadcast';
+  if (t.audience === 'instagram') return t.external_username ? '@' + t.external_username : (t.subject || 'Instagram DM');
   if (t.client_id) {
     const c = await env.DB.prepare('SELECT name FROM clients WHERE id = ?').bind(t.client_id).first();
     if (c && c.name) return c.name;
@@ -209,10 +220,21 @@ export const onRequestPost = async ({ request, env }) => {
   // context). If the thread has a staff counterparty and the sender isn't them,
   // wake that staffer's devices; when the sender IS the counterparty (staff,
   // trainer or client replying), wake the owner. No-op safe without VAPID.
+  // 2026-08-11 — this used to wake NOBODY on the commonest staff thread. When a non-owner opens
+  // a thread, threads.js sets staff_id to the OWNER (that is the routing: staff always reach the
+  // front office) and created_by to the staffer. So on the owner's reply, `staff_id !== sender`
+  // was false and `role !== 'owner'` was false too, and both branches fell through — the staffer
+  // was never told she had an answer. Target the other PARTICIPANT instead of guessing by role:
+  // whichever of staff_id / created_by is not the sender.
   try {
-    if (thread.staff_id && thread.staff_id !== ctx.distinct_id) {
-      await sendPushTickle(env, { staffIds: [thread.staff_id] });
+    const others = [thread.staff_id, thread.created_by]
+      .filter((x) => x && x !== ctx.distinct_id);
+    const targets = [...new Set(others)];
+    if (targets.length) {
+      await sendPushTickle(env, { staffIds: targets });
     } else if (ctx.role !== 'owner') {
+      // A thread with no identifiable counterparty (broadcast, or a portal identity) — the
+      // owner is the fallback, as before.
       await sendPushTickle(env, { roles: ['owner'] });
     }
   } catch { /* push must never break messaging */ }

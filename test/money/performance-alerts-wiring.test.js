@@ -160,11 +160,11 @@ const perfReq = () => new Request('https://anejocateringco.com/api/hub/owner/per
   headers: { Cookie: 'anejo_sess=tok' },
 });
 
-test('GET /performance-alerts is owner-gated', async () => {
+test('GET /performance-alerts is gated to the marketing desk', async () => {
   const env = { SESSIONS: makeKV({}), DB: makeD1([]) };
   const res = await onRequestGet({ request: perfReq(), env });
   assert.equal(res.status, 401);
-  assert.match(API, /requireRole\(request, env, \['owner'\]\)/);
+  assert.match(API, /requireRole\(request, env, MARKETING_DESK\)/);
 });
 
 test('GET /performance-alerts forwards an honest empty snapshot on a fresh install', async () => {

@@ -95,9 +95,15 @@ test('the ledger NEVER flips auto_publish — both upsert branches leave the tog
 
 // ---------- 3: the toggle is the owner's ----------
 
-test('the trust endpoint is owner-only, both verbs', () => {
-  const guards = TRUST.match(/requireRole\(request, env, \['owner'\]\)/g) || [];
-  assert.equal(guards.length, 2, 'GET and POST each ask for the owner');
+test('reading the ledger is the desk\'s; flipping autonomy is the OWNER\'S alone', () => {
+  // The asymmetry is the point. auto_publish=1 is the act of removing the owner from the
+  // approval loop, so the role whose drafts are being approved must not be able to perform it.
+  const desk = TRUST.match(/requireRole\(request, env, MARKETING_DESK\)/g) || [];
+  const owner = TRUST.match(/requireRole\(request, env, \['owner'\]\)/g) || [];
+  assert.equal(desk.length, 1, 'exactly the GET admits the marketing desk');
+  assert.equal(owner.length, 1, 'exactly the POST — the toggle — is owner-only');
+  const post = TRUST.slice(TRUST.indexOf('onRequestPost'));
+  assert.match(post, /requireRole\(request, env, \['owner'\]\)/, 'and it is the POST that is owner-only');
 });
 
 test('turning autonomy ON requires the earned streak, in the UPDATE itself; OFF is unconditional', () => {
@@ -162,5 +168,5 @@ test('the marketing cockpit hits all four endpoints — budget, links, inbox, tr
 test('the cockpit is on the nav and lights its own tab', () => {
   assert.match(NAV, /\{ view: 'marketing', href: '\/hub\/owner\/marketing\.html'/);
   assert.match(NAV, /label: 'Marketing'/);
-  assert.match(PAGE, /Owner\.init\('marketing', load\)/);
+  assert.match(PAGE, /Owner\.init\('marketing', load, \{ roles: Owner\.MARKETING_DESK \}\)/);
 });

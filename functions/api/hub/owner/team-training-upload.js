@@ -11,7 +11,7 @@
 // JPEG, and this upload never touches Instagram's publish path — the JPEG-only constraint that
 // applies there doesn't apply here.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { putMedia, decodeDataUrl } from '../../../_lib/media.js';
 import { capture } from '../../../_lib/track.js';
 
@@ -25,7 +25,7 @@ const SIGNATURES = [
 ];
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.MEDIA) return bad('Media storage is not configured.', 500);
 

@@ -1,5 +1,5 @@
 // DEV-ONLY instant staff login for the local HUB walkthrough.
-//   GET /api/dev/login?role=owner|kitchen|driver
+//   GET /api/dev/login?role=owner|kitchen|driver|marketing
 // Reusable (unlike single-use magic links). Creates a staff session and drops you
 // into /hub/. HARD-GUARDED to localhost: returns 404 on any non-local host, so it
 // can never act as a backdoor on the deployed site (prod host is anejocateringco.com).
@@ -10,6 +10,10 @@ const STAFF = {
   owner:   { uid: 'stf_owner',  role: 'owner',   team: 'front_office', email: 'owner@anejo.test' },
   kitchen: { uid: 'stf_chef',   role: 'kitchen', team: 'kitchen',      email: 'chef@anejo.test' },
   driver:  { uid: 'stf_driver', role: 'driver',  team: 'delivery',     email: 'driver@anejo.test' },
+  // The marketing expert signs in as a lead of her own team — that is what her surface assumes
+  // (visibilityScope gives a lead their team; without is_lead the walkthrough shows her an
+  // empty desk and looks broken).
+  marketing: { uid: 'stf_mkt', role: 'marketing', team: 'marketing', email: 'marketing@anejo.test', is_lead: true },
 };
 
 export const onRequestGet = async ({ request, env }) => {
@@ -19,9 +23,9 @@ export const onRequestGet = async ({ request, env }) => {
   if (!isLocal) return json({ error: 'Not found' }, 404);
 
   const who = STAFF[(url.searchParams.get('role') || 'owner').toLowerCase()];
-  if (!who) return json({ error: 'Unknown role. Use role=owner|kitchen|driver.' }, 400);
+  if (!who) return json({ error: 'Unknown role. Use role=owner|kitchen|driver|marketing.' }, 400);
 
-  const sess = await createSession(env, { type: 'staff', uid: who.uid, role: who.role, team: who.team, email: who.email });
+  const sess = await createSession(env, { type: 'staff', uid: who.uid, role: who.role, team: who.team, email: who.email, is_lead: !!who.is_lead });
   return new Response(null, {
     status: 302,
     headers: { Location: `${url.origin}/hub/`, 'Set-Cookie': sessionCookie(sess, undefined, isSecureRequest(request)) },

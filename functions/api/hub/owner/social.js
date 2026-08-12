@@ -4,7 +4,7 @@
 // path from "generated" to "on the profile". Six posts on the account is what happens when that
 // path is a human copying files.
 import { json, bad, id, now, randToken } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { igConfigured, accountInfo, JPEG_ONLY, VIDEO_ONLY, CAROUSEL_MAX } from '../../../_lib/instagram.js';
 import { publishSocialPost, loadPostMedia, coverStatus } from '../../../_lib/social_publish.js';
@@ -25,7 +25,7 @@ const DAILY_CAP = 25;
 
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
@@ -55,6 +55,18 @@ export const onRequestGet = async ({ request, env }) => {
   // try so a pre-0076 database still renders the page with slides, just without the badge —
   // losing a label must never cost the carousel.
   try {
+    // overlay_headline/overlay_sub (0091) = the Team Lead's planned wording per slide, so the
+    // branding tool can pre-fill the wording box. Own try so a pre-0091 DB still renders slides.
+    const m = await env.DB.prepare(
+      `SELECT id, post_id, seq, media_key, origin, overlay_headline, overlay_sub FROM social_post_media
+        WHERE post_id IN (SELECT id FROM social_posts ORDER BY created_at DESC LIMIT 60)
+        ORDER BY seq, created_at`
+    ).all();
+    const bySlide = {};
+    for (const row of (m && m.results) || []) (bySlide[row.post_id] = bySlide[row.post_id] || []).push({ id: row.id, seq: row.seq, media_key: row.media_key, origin: row.origin || null, overlay_headline: row.overlay_headline || null, overlay_sub: row.overlay_sub || null });
+    for (const post of posts) post.media = bySlide[post.id] || [];
+  } catch {
+   try {
     const m = await env.DB.prepare(
       `SELECT id, post_id, seq, media_key, origin FROM social_post_media
         WHERE post_id IN (SELECT id FROM social_posts ORDER BY created_at DESC LIMIT 60)
@@ -63,7 +75,7 @@ export const onRequestGet = async ({ request, env }) => {
     const bySlide = {};
     for (const row of (m && m.results) || []) (bySlide[row.post_id] = bySlide[row.post_id] || []).push({ id: row.id, seq: row.seq, media_key: row.media_key, origin: row.origin || null });
     for (const post of posts) post.media = bySlide[post.id] || [];
-  } catch {
+   } catch {
     try {
       const m = await env.DB.prepare(
         `SELECT id, post_id, seq, media_key FROM social_post_media
@@ -74,6 +86,7 @@ export const onRequestGet = async ({ request, env }) => {
       for (const row of (m && m.results) || []) (bySlide[row.post_id] = bySlide[row.post_id] || []).push({ id: row.id, seq: row.seq, media_key: row.media_key, origin: null });
       for (const post of posts) post.media = bySlide[post.id] || [];
     } catch { for (const post of posts) post.media = []; }
+   }
   }
 
   // Food-first indicator (see functions/_lib/social_publish.js coverStatus): computed straight
@@ -179,7 +192,7 @@ export const onRequestGet = async ({ request, env }) => {
 };
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
@@ -387,6 +400,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     const out = await generateCarouselSlides(env, {
       postId, caption: row.caption, imageBrief: row.image_brief, targetCount: b.count,
+      instruction: String(b.instruction || '').trim().slice(0, 400) || null,   // team-lead / owner steer for the story
     });
     if (!out.ok) {
       // Each reason gets its own sentence — see generate_cover's WHY table above for why a shared
@@ -409,8 +423,10 @@ export const onRequestPost = async ({ request, env }) => {
     });
     const message = out.added < out.requested
       ? `Added ${out.added} of ${out.requested} — the rest hit the weekly AI budget or a provider issue. Try again later for the remainder.`
-      : `Added ${out.added} photo${out.added === 1 ? '' : 's'} — ${out.slides} slides total.`;
-    return json({ ok: true, id: postId, added: out.added, requested: out.requested, slides: out.slides, message });
+      : `Added ${out.added} ${out.planned ? 'story frame' : 'photo'}${out.added === 1 ? '' : 's'} — ${out.slides} slides total.`;
+    // overlays = the Team Lead's per-slide wording (headline/sub) to PRE-FILL the branding tool,
+    // so the owner isn't retyping the story onto each frame. Empty when planning was unavailable.
+    return json({ ok: true, id: postId, added: out.added, requested: out.requested, slides: out.slides, message, planned: !!out.planned, overlays: out.overlays || [] });
   }
 
   // Reference-conditioned variant: the SAME real bowl photo, restyled surroundings only — the

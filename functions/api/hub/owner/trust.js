@@ -8,11 +8,11 @@
 // untouched drafts in a row has not demonstrated it can run without eyes on it. Disabling is
 // always allowed: taking autonomy away must never have preconditions.
 import { json, bad, now } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { TRUST_CATEGORIES, AUTO_PUBLISH_AFTER } from '../../../_lib/trust_ledger.js';
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
@@ -42,6 +42,11 @@ export const onRequestGet = async ({ request, env }) => {
   });
 };
 
+// OWNER ONLY, not MARKETING_DESK. Reading the ledger is the marketing expert's business —
+// it tells her which lanes still need Dayan's eyes. Flipping the switch is not: auto_publish=1
+// is precisely the act of REMOVING the owner from the approval loop, and a role whose work is
+// the thing being approved cannot be the one who decides it no longer needs approving.
+// (Widened to the desk in error on 2026-08-11 and narrowed back the same day.)
 export const onRequestPost = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
   if (ctx instanceof Response) return ctx;

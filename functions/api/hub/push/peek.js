@@ -9,10 +9,13 @@
 //   title/body — best notification text: a fresh alert wins (owner), otherwise
 //            'New message at Añejo HUB' with the unread count.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 import { now } from '../../../_lib/hub.js';
 
-const ALL_ROLES = ['owner', 'kitchen', 'driver', 'vendor', 'trainer', 'client'];
+// Every role, staff and portal alike — this endpoint is open to anyone signed in.
+// Imported rather than re-typed: as a literal it silently omitted each newly added role
+// (marketing, 2026-08-11) and the omission reads as a deliberate exclusion.
+const ALL_ROLES = HUB_ROLES;
 const ALERT_FRESH_MS = 10 * 60 * 1000;
 
 // Visibility WHERE clause for the session (mirror of comms/unread.js scopeWhere).
@@ -53,10 +56,24 @@ export const onRequestGet = async ({ request, env }) => {
   if (ctx.role === 'owner') {
     try {
       const row = await env.DB.prepare(
-        "SELECT title, body, created_at FROM alerts WHERE status = 'open' AND created_at > ? ORDER BY created_at DESC LIMIT 1"
+        "SELECT title, body, alert_type, created_at FROM alerts WHERE status = 'open' AND created_at > ? ORDER BY created_at DESC LIMIT 1"
       ).bind(now() - ALERT_FRESH_MS).first();
-      if (row) alert = { title: row.title || null, body: row.body || null, created_at: row.created_at };
+      if (row) alert = { title: row.title || null, body: row.body || null, alert_type: row.alert_type || null, created_at: row.created_at };
     } catch { alert = null; }
+  }
+
+  // Marketing only: a request the owner JUST decided is the headline she's waiting on. Reads the
+  // freshest decided-in-the-last-10-min improvement_request (mirror of the owner's alert window)
+  // and turns her payload-less tickle into "Dayan accepted your request: …". Degrades to unread
+  // if the table isn't there or nothing was decided recently.
+  let decision = null;
+  if (ctx.role === 'marketing') {
+    try {
+      const row = await env.DB.prepare(
+        "SELECT title, status, owner_note, decided_at FROM improvement_requests WHERE decided_at IS NOT NULL AND decided_at > ? ORDER BY decided_at DESC LIMIT 1"
+      ).bind(now() - ALERT_FRESH_MS).first();
+      if (row) decision = { title: row.title || '', status: row.status || 'decided', note: row.owner_note || null };
+    } catch { decision = null; }
   }
 
   // Driver only: a pending delivery-order offer is the most important headline.
@@ -78,10 +95,23 @@ export const onRequestGet = async ({ request, env }) => {
   } else if (alert) {
     title = alert.title || 'New alert at Añejo HUB';
     body = alert.body || 'Open the Owner Command Center for details.';
+  } else if (decision) {
+    const verb = decision.status === 'accepted' ? 'accepted' : decision.status === 'declined' ? 'declined'
+      : decision.status === 'shipped' ? 'shipped' : 'decided';
+    title = `Dayan ${verb} your request`;
+    body = decision.title + (decision.note ? ' — ' + decision.note : '');
   } else {
     title = 'New message at Añejo HUB';
     body = unread === 1 ? 'You have 1 unread message.' : `You have ${unread} unread messages.`;
   }
 
-  return json({ ok: true, unread, alert, offer, title, body });
+  // Deep-link the notification tap to the right place, so the reader lands ON the item.
+  let url = '/hub/';
+  if (offer) url = '/hub/driver/route.html';
+  else if (alert && alert.alert_type === 'partner_application') url = '/hub/owner/partners.html';
+  else if (alert) url = '/hub/owner/';                 // other owner alerts → command center
+  else if (decision) url = '/hub/marketing/';          // her Requests-to-Dayan board
+  else if (unread) url = ctx.role === 'owner' ? '/hub/owner/comms.html' : '/hub/comms.html';
+
+  return json({ ok: true, unread, alert, offer, decision, title, body, url });
 };

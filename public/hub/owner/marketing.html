@@ -1495,7 +1495,7 @@
     return '<details style="margin-top:8px"><summary style="font-size:11.5px;opacity:.7;cursor:pointer">🏷️ Add branding (logo + optional wording)</summary>' +
       '<div class="brand-panel" data-post="' + esc(p.id) + '" style="margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fbfaf6">' +
         '<div class="form-row"><label>Which photo</label><select class="brand-slide">' +
-          media.map(function (m, i) { return '<option value="' + esc(m.id) + '" data-key="' + esc(m.media_key) + '">Slide ' + (i + 1) + '</option>'; }).join('') +
+          media.map(function (m, i) { return '<option value="' + esc(m.id) + '" data-key="' + esc(m.media_key) + '" data-headline="' + esc(m.overlay_headline || '') + '">Slide ' + (i + 1) + '</option>'; }).join('') +
         '</select></div>' +
         // Wording first, controls second: the owner came here to say something. Both fields are
         // optional and separately labelled rather than one field with magic syntax — the kicker and
@@ -1543,6 +1543,22 @@
   }
 
   function wireBranding() {
+    // Pre-fill the wording box from the Team Lead's planned overlay for the selected slide, and
+    // re-fill when the owner switches slides — so branding a planned carousel needs no retyping.
+    Array.prototype.forEach.call(document.querySelectorAll('.brand-panel'), function (panel) {
+      var slideSel = panel.querySelector('.brand-slide');
+      var txt = panel.querySelector('.brand-text');
+      if (!slideSel || !txt) return;
+      // Load the selected slide's planned wording. Runs on open and on every slide switch, so each
+      // slide shows its own line ready to preview or tweak.
+      function fillWording() {
+        var opt = slideSel.options[slideSel.selectedIndex];
+        var h = opt ? (opt.getAttribute('data-headline') || '') : '';
+        if (h) txt.value = h.slice(0, 48);
+      }
+      slideSel.addEventListener('change', fillWording);
+      fillWording();
+    });
     Array.prototype.forEach.call(document.querySelectorAll('.brand-preview'), function (btn) {
       btn.addEventListener('click', function () {
         if (btn.disabled) return;
@@ -1629,11 +1645,13 @@
     for (var n = start; n <= 10; n++) opts.push('<option value="' + n + '"' + (n === dflt ? ' selected' : '') + '>' + n + ' photos total</option>');
     return '<details style="margin-top:8px"><summary style="font-size:11.5px;opacity:.7;cursor:pointer">🎞️ Generate the rest of a carousel</summary>' +
       '<div style="margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fbfaf6">' +
-        '<p class="hint" style="margin-bottom:6px">Makes more photos in the same light, surface and palette as the rest of the Studio house style — a different angle or detail on each one, so the set looks shot together. Costs against the weekly AI budget: one provider call per new slide.</p>' +
+        '<p class="hint" style="margin-bottom:6px">The Team Lead reads your cover and plans the rest as ONE story — distinct on-brand frames that flow from it and end on a call-to-action — and writes the wording for each frame so you can paste it straight into branding. Costs against the weekly AI budget: one provider call per new slide.</p>' +
+        '<textarea class="carousel-instr" placeholder="What should the rest be about? (optional) — e.g. “the Palm Beach cities we deliver to”. Leave blank and it infers from the cover." style="width:100%;min-height:46px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;margin-bottom:6px"></textarea>' +
         '<div style="display:flex;gap:8px;align-items:center">' +
           '<select class="carousel-count" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px">' + opts.join('') + '</select>' +
           '<button class="btn gold carousel-gen" data-carousel="' + esc(p.id) + '" type="button" style="white-space:nowrap">Generate</button>' +
         '</div>' +
+        '<div class="carousel-overlays" style="margin-top:8px"></div>' +
       '</div></details>';
   }
 
@@ -1643,16 +1661,32 @@
         if (b.disabled) return;
         var panel = b.closest('details');
         var sel = panel ? panel.querySelector('.carousel-count') : null;
+        var instrEl = panel ? panel.querySelector('.carousel-instr') : null;
+        var overEl = panel ? panel.querySelector('.carousel-overlays') : null;
         var count = Number(sel && sel.value);
         if (!count) { Hub.toast('Pick a size first.'); return; }
         // Several ~20-90s provider calls run back to back here — self-disable BEFORE the call for
         // the same reason generate_cover's button does: without it, an owner who sees nothing
         // happen clicks again and pays for a second batch on top of the first.
         b.disabled = true; b.textContent = 'Generating…';
-        Hub.api('/api/hub/owner/social', { method: 'POST', body: { op: 'generate_carousel', id: b.getAttribute('data-carousel'), count: count } })
+        var body = { op: 'generate_carousel', id: b.getAttribute('data-carousel'), count: count };
+        var instr = instrEl && instrEl.value.trim(); if (instr) body.instruction = instr;
+        Hub.api('/api/hub/owner/social', { method: 'POST', body: body })
           .then(function (r) {
-            if (r && r.ok) { Hub.toast(r.message || 'Carousel updated'); load(); }
-            else { Hub.toast((r && r.error) || 'Could not generate the carousel'); b.disabled = false; b.textContent = 'Generate'; }
+            if (r && r.ok) {
+              Hub.toast(r.message || 'Carousel updated');
+              // Surface the Team Lead's per-slide wording so branding is paste-ready, not retyped.
+              if (overEl && r.overlays && r.overlays.length) {
+                overEl.innerHTML = '<p class="hint" style="margin:2px 0 4px"><b>Wording for each new frame</b> (paste into branding):</p>' +
+                  r.overlays.map(function (o) {
+                    var line = (o.headline || '') + (o.sub ? ' — ' + o.sub : '');
+                    if (!line.trim()) return '';
+                    return '<div style="font-size:12.5px;padding:4px 0;border-top:1px solid var(--line)">' +
+                      '<b>' + esc(o.role === 'cta' ? 'CTA' : ('Frame ' + ((o.seq || 0) + 1))) + ':</b> ' + esc(line) + '</div>';
+                  }).join('');
+              }
+              load();
+            } else { Hub.toast((r && r.error) || 'Could not generate the carousel'); b.disabled = false; b.textContent = 'Generate'; }
           })
           .catch(function () { b.disabled = false; b.textContent = 'Generate'; Hub.toast('Could not generate the carousel'); });
       });
@@ -3277,7 +3311,7 @@
     loadToday();
   }
 
-  Owner.init('marketing', load);
+  Owner.init('marketing', load, { roles: Owner.MARKETING_DESK });
 })();
 </script>
 <script src="assets/operator.js" defer></script>

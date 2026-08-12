@@ -5,17 +5,17 @@
 //                           omitted days keep their current value), saves, returns table.
 // Owner-only. Takes effect on the NEXT social_plan run.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { getPostingTimes, setPostingTimes, DEFAULT_POSTING_SLOTS } from '../../../_lib/posting_times.js';
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   return json({ ok: true, table: await getPostingTimes(env), defaults: DEFAULT_POSTING_SLOTS });
 };
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }

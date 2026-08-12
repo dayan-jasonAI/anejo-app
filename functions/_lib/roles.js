@@ -6,7 +6,31 @@
 import { currentUser } from './session.js';
 import { json } from './util.js';
 
-export const HUB_ROLES = ['owner', 'kitchen', 'driver', 'trainer', 'client', 'vendor'];
+// 'marketing' — the Marketing Expert / strategy manager (added 2026-08-11). She runs the
+// marketing system daily, tests it end to end, and reports back to Dayan. Her remit is the
+// marketing desk: the marketing workspace and its team, the website's own copy, affiliates,
+// and communication. It is deliberately NOT the owner role: money (finance, payouts, autopay,
+// pricing, invoices), the kitchen, the customer book, and staff administration stay with Dayan.
+// See MARKETING_DESK below for the machine-readable version of that sentence.
+export const HUB_ROLES = ['owner', 'kitchen', 'driver', 'marketing', 'trainer', 'client', 'vendor'];
+
+// Roles a person can actually be EMPLOYED as — i.e. what a staff row's `role` may hold, and so
+// what the owner's staff dropdown offers. 'trainer' and 'client' are in HUB_ROLES but are not
+// staff: they come from the portal, not the roster.
+// This is the list; call sites import it rather than re-typing the literal, which is how the
+// previous role additions ended up enumerated inconsistently across a dozen files.
+export const STAFF_ROLES = ['owner', 'kitchen', 'driver', 'marketing', 'vendor'];
+
+// The marketing desk: who may reach a marketing/website/affiliate/communication surface.
+// The owner keeps everything he had; the marketing expert is added alongside him. Import this
+// rather than writing ['owner','marketing'] inline, so widening or narrowing her remit later is
+// one edit and not a grep.
+export const MARKETING_DESK = ['owner', 'marketing'];
+
+// Teams a staff row may belong to. 'marketing' is the marketing expert's own team — she is the
+// lead of it, which is what gives her visibilityScope() over the marketing team's records
+// without giving her the owner's all:true.
+export const STAFF_TEAMS = ['kitchen', 'delivery', 'marketing', 'training', 'front_office', 'vendors'];
 
 // Map a raw session object to a normalized role context.
 // Staff sessions:   { type:'staff',   uid, role, team, email }
@@ -71,9 +95,9 @@ export async function requireRole(request, env, allowedRoles = []) {
   return ctx;
 }
 
-// Guard specifically for staff (any staff role): owner/kitchen/driver/vendor.
+// Guard specifically for staff (any staff role).
 export function requireStaff(request, env) {
-  return requireRole(request, env, ['owner', 'kitchen', 'driver', 'vendor']);
+  return requireRole(request, env, STAFF_ROLES);
 }
 
 // Visibility scope for list endpoints (manager/lead tier):

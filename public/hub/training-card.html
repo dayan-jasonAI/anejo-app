@@ -75,6 +75,12 @@ var CARD={
     steps:{en:['<b>Accept</b> or <b>Deny</b> on the Route screen (deny / 2-min silence → next driver).','At the kitchen, tap each bowl as you load it and <b>Confirm pickup</b> (flag anything short).','<b>Start deliveries</b> (you can’t until pickup is confirmed).','<b>Navigate</b> per stop → the customer is auto-texted “on the way.”','At the door: take a <b>proof photo</b> → <b>Mark delivered</b> → app jumps to the next stop.','A drop fails? <b>Report a problem</b> and pick the reason.','Log <b>temps/expenses</b>; <b>Complete route</b> + file <b>EOD</b>.'],
       es:['<b>Acepta</b> o <b>Rechaza</b> en la pantalla de Ruta (rechazo / 2 min sin respuesta → otro conductor).','En la cocina, toca cada bowl al cargarlo y <b>Confirma recogida</b> (marca lo que falte).','<b>Empieza entregas</b> (no puedes hasta confirmar la recogida).','<b>Navega</b> por parada → al cliente se le avisa “en camino.”','En la puerta: toma una <b>foto de prueba</b> → <b>Marca entregado</b> → la app salta a la siguiente parada.','¿Falla una entrega? <b>Reporta un problema</b> y elige la razón.','Registra <b>temps/gastos</b>; <b>Completa la ruta</b> + envía <b>EOD</b>.']},
     rem:{en:['Confirming pickup re-checks what the kitchen prepped — it gates delivery.','Take the proof photo; the customer is texted “delivered” automatically.','<b>No route showing? Check you are signed in.</b> An expired session empties every screen and looks exactly like having no work.'],es:['Confirmar la recogida reconfirma lo que preparó la cocina — habilita la entrega.','Toma la foto de prueba; al cliente se le avisa “entregado” automáticamente.','<b>¿No ves ruta? Revisa tu sesión.</b> Una sesión expirada vacía todas las pantallas y se ve igual que no tener trabajo.']} },
+  marketing:{ role:{en:'Marketing expert',es:'Experta en marketing'}, t:{en:'Marketing — quick card',es:'Marketing — tarjeta rápida'},
+    sub:{en:'You run the marketing system daily and tell Dayan what needs changing.',es:'Manejas el sistema de marketing a diario y le dices a Dayan qué hay que cambiar.'},
+    trig:{en:'A new day — open Today and work the seven checks.',es:'Un día nuevo — abre Hoy y trabaja las siete revisiones.'},
+    steps:{en:['Open <b>Today</b> and work down the run — ✓ working, ! problem, – not today.','<b>Open each thing you check.</b> A green summary is a claim; opening it is the evidence.','Found something? <b>Tell the owner</b> right away — it lands in Dayan’s alerts.','Write the note and <b>close the run</b>. Issues alert him automatically.'],
+      es:['Abre <b>Hoy</b> y baja por la ronda — ✓ funciona, ! problema, – hoy no.','<b>Abre cada cosa que revisas.</b> Un resumen en verde es una afirmación; abrirlo es la evidencia.','¿Encontraste algo? <b>Avísale al dueño</b> enseguida — llega a las alertas de Dayan.','Escribe la nota y <b>cierra la ronda</b>. Los problemas le avisan automáticamente.']},
+    rem:{en:['Never close a run you did not actually do — a clean run sends no alert, so silence has to mean the day was clean.','<b>Screens all blank? Check you are signed in.</b> An expired session empties every one of them.'],es:['Nunca cierres una ronda que no hiciste — una ronda limpia no manda alerta, así que el silencio tiene que significar que el día salió limpio.','<b>¿Todo en blanco? Revisa tu sesión.</b> Una sesión expirada las vacía todas.']} },
   vendor:{ role:{en:'Vendor',es:'Proveedor'}, t:{en:'Vendor — quick card',es:'Proveedor — tarjeta rápida'},
     sub:{en:'You only see your own purchase orders and what to deliver.',es:'Solo ves tus propias órdenes de compra y qué entregar.'},
     trig:{en:'The owner approves an order and the kitchen submits a purchase order — it lands in your portal.',es:'El dueño aprueba un pedido y la cocina envía una orden de compra — llega a tu portal.'},
@@ -97,7 +103,7 @@ function cardHtml(rk){
     '<div class="foot">'+UI.foot[lang]+'</div></div>';
 }
 function render(){
-  var list = role==='all' ? ['owner','kitchen','driver','vendor'] : [role];
+  var list = role==='all' ? ['owner','kitchen','driver','marketing','vendor'] : [role];
   document.getElementById('cards').innerHTML = list.map(cardHtml).join('');
 }
 setLang('en');

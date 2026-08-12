@@ -39,6 +39,11 @@
   var editing = null;           // null | {} (new) | full doc object
   var editingRecipe = null;     // Recipe COGS fields for a recipe-linked doc, or null
   var roster = [];              // active staff for the reminder target select
+  // Only the owner edits the content library. The marketing desk reads brand standards + briefs
+  // and sends a change as a request to Dayan (enforced server-side in content.js too). Set from
+  // the session on the first render and kept across tab switches.
+  var CAN_EDIT = false;
+  var viewing = null;           // doc shown in the read-only viewer (marketing), or null
 
   var CHIPS = [
     { v: '', label: 'All' },
@@ -72,7 +77,8 @@
   function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
 
   // ---------- shell ----------
-  function render() {
+  function render(me) {
+    if (me && me.role) CAN_EDIT = (me.role === 'owner');
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML =
       '<div class="hub-section"><div class="row" style="gap:8px">' +
@@ -134,13 +140,16 @@
         return '<button class="btn ' + (typeFilter === c.v ? 'gold' : 'ghost') + '" data-chip="' + c.v + '" type="button" data-i18n>' + c.label + '</button>';
       }).join('') +
       '</div></div>' +
-      '<div class="hub-section"><button class="btn gold block" id="newDoc" type="button" data-i18n>New document</button></div>' +
+      (CAN_EDIT
+        ? '<div class="hub-section"><button class="btn gold block" id="newDoc" type="button" data-i18n>New document</button></div>'
+        : '<div class="hub-section"><p class="row-sub" data-i18n>You can read every content file here. To change one, open it and send the change to Dayan for approval.</p></div>') +
       '<div id="editor"></div>' +
       '<div class="hub-section"><div id="docs" class="list"><div class="hub-loading" data-i18n>Loading…</div></div></div>';
     el.querySelectorAll('[data-chip]').forEach(function (b) {
       b.addEventListener('click', function () { typeFilter = b.getAttribute('data-chip'); renderLibrary(); });
     });
-    document.getElementById('newDoc').addEventListener('click', function () {
+    var nd = document.getElementById('newDoc');
+    if (nd) nd.addEventListener('click', function () {
       editing = { id: null, doc_type: typeFilter || 'manual', title: '', body: '', role_scope: null, image_key: null };
       editingRecipe = null;
       pendingImg = null;
@@ -167,12 +176,22 @@
           '<div class="row-title">' + Hub.esc(doc.title) +
           (archived ? ' <span class="badge warn" data-i18n>Archived</span>' : '') + '</div>' +
           '<div class="row-sub">' + sub + '</div></div>' +
-          '<button class="btn ghost" data-edit="' + Hub.esc(doc.id) + '" type="button" data-i18n>Edit</button>' +
-          (archived
-            ? '<button class="btn gold" data-restore="' + Hub.esc(doc.id) + '" type="button" data-i18n>Restore</button>'
-            : '<button class="btn ghost" data-archive="' + Hub.esc(doc.id) + '" type="button" data-i18n>Archive</button>') +
+          (CAN_EDIT
+            ? '<button class="btn ghost" data-edit="' + Hub.esc(doc.id) + '" type="button" data-i18n>Edit</button>' +
+              (archived
+                ? '<button class="btn gold" data-restore="' + Hub.esc(doc.id) + '" type="button" data-i18n>Restore</button>'
+                : '<button class="btn ghost" data-archive="' + Hub.esc(doc.id) + '" type="button" data-i18n>Archive</button>')
+            : '<button class="btn ghost" data-view="' + Hub.esc(doc.id) + '" type="button" data-i18n>View</button>') +
           '</div>';
       }).join('');
+      el.querySelectorAll('[data-view]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          Hub.api('/api/hub/owner/content?id=' + encodeURIComponent(b.getAttribute('data-view'))).then(function (r) {
+            if (r && r.ok && r.doc) { viewing = r.doc; renderViewer(); window.scrollTo(0, 0); }
+            else Hub.toast('Could not load document');
+          });
+        });
+      });
       el.querySelectorAll('[data-edit]').forEach(function (b) {
         b.addEventListener('click', function () {
           Hub.api('/api/hub/owner/content?id=' + encodeURIComponent(b.getAttribute('data-edit'))).then(function (r) {
@@ -196,9 +215,45 @@
     });
   }
 
+  // Read-only doc view for the marketing desk. She reads the file in full; any change she wants
+  // goes to Dayan as a request on the SAME board she already uses ("Requests to Dayan"), which he
+  // decides on — never a silent direct edit. content.js also refuses her write ops server-side.
+  function renderViewer() {
+    var el = document.getElementById('editor');
+    if (!el) return;
+    if (!viewing) { el.innerHTML = ''; return; }
+    var d = viewing;
+    el.innerHTML =
+      '<div class="card">' +
+        '<div class="row-title" style="font-size:18px;margin-bottom:2px">' + Hub.esc(d.title || 'Untitled') + '</div>' +
+        '<div class="row-sub" style="margin-bottom:10px">' + Hub.esc(d.doc_type) + ' · v' + Hub.esc(String(d.version)) + '</div>' +
+        (d.image_key ? '<img src="' + Hub.esc(d.image_key) + '" alt="" style="max-width:100%;border-radius:8px;margin-bottom:10px">' : '') +
+        '<div style="white-space:pre-wrap;line-height:1.55;font-size:14.5px">' + Hub.esc(d.body || '') + '</div>' +
+        '<div class="row" style="gap:8px;margin-top:14px">' +
+          '<button class="btn gold" id="viewSuggest" type="button" data-i18n>Send a change to Dayan</button>' +
+          '<button class="btn ghost" id="viewClose" type="button" data-i18n>Close</button>' +
+        '</div>' +
+      '</div>';
+    refresh();
+    document.getElementById('viewClose').addEventListener('click', function () { viewing = null; renderEditor(); });
+    document.getElementById('viewSuggest').addEventListener('click', function () {
+      var change = window.prompt('What should change in “' + (d.title || 'this file') + '”? Dayan sees this and decides.');
+      if (!change || !change.trim()) return;
+      Hub.api('/api/hub/marketing/requests', { method: 'POST', body: {
+        op: 'file', kind: 'improvement',
+        title: 'Content change: ' + (d.title || d.id),
+        body: change.trim(), area: 'content:' + d.id
+      } }).then(function (r) {
+        if (r && r.ok) { Hub.toast('Sent to Dayan'); viewing = null; renderEditor(); }
+        else Hub.toast((r && r.error) || 'Could not send');
+      });
+    });
+  }
+
   function renderEditor() {
     var el = document.getElementById('editor');
     if (!el) return;
+    if (viewing) return;   // the read-only viewer owns #editor while open
     if (!editing) { el.innerHTML = ''; return; }
     var scope = editing.role_scope || [];
     el.innerHTML =
@@ -502,7 +557,7 @@
     });
   }
 
-  Owner.init('content', render);
+  Owner.init('content', render, { roles: Owner.MARKETING_DESK });
 })();
 </script>
 <script src="assets/operator.js" defer></script>

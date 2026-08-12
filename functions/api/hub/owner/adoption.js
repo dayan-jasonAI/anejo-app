@@ -15,7 +15,7 @@
 // signal and make adoption look healthy while nobody logged in. The new composite index
 // idx_activity_actor_type_created (migration 0073) is what makes that filter cheap.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 
 // Events that mean "a human did real work", as opposed to merely looking at a screen. Adoption
 // measured by pageviews flatters itself; adoption measured by work done does not.

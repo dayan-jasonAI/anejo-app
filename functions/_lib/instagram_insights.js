@@ -553,6 +553,8 @@ export function alertsForSignals(signals) {
   if (singlePost && singlePost.enoughData && singlePost.flagged) {
     out.push({
       alert_type: 'social_underperform',
+      // Her business as much as his (2026-08-11): she works these daily.
+      notifyRoles: ['marketing'],
       severity: 'info',
       title: 'A post landed well below its recent baseline',
       body: `Reach ${singlePost.reach} vs a baseline median of ${Math.round(singlePost.baselineMedian)} ` +
@@ -565,6 +567,8 @@ export function alertsForSignals(signals) {
   if (weakRun && weakRun.enoughData && weakRun.flagged) {
     out.push({
       alert_type: 'social_underperform',
+      // Her business as much as his (2026-08-11): she works these daily.
+      notifyRoles: ['marketing'],
       severity: 'warning',
       title: `${WEAK_RUN_LENGTH} posts in a row underperformed`,
       body: `Reach ${weakRun.reaches.join(', ')} vs a baseline median of ${Math.round(weakRun.baselineMedian)} ` +
@@ -577,6 +581,8 @@ export function alertsForSignals(signals) {
   if (ft && ft.enoughData && (ft.falling || ft.flat)) {
     out.push({
       alert_type: 'social_underperform',
+      // Her business as much as his (2026-08-11): she works these daily.
+      notifyRoles: ['marketing'],
       severity: ft.falling ? 'warning' : 'info',
       title: ft.falling ? 'Followers are trending down' : 'Followers are flat',
       body: `${ft.latestFollowers} followers now vs ${ft.baselineFollowers} ${ft.windowDays} days ago ` +
@@ -589,6 +595,8 @@ export function alertsForSignals(signals) {
   if (silence && silence.enoughData && silence.flagged) {
     out.push({
       alert_type: 'social_underperform',
+      // Her business as much as his (2026-08-11): she works these daily.
+      notifyRoles: ['marketing'],
       severity: 'warning',
       title: 'Nothing has posted to Instagram in over a week',
       body: `${silence.daysSince} days since the last post to the account.`,

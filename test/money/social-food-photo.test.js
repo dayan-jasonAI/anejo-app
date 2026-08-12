@@ -247,7 +247,7 @@ test('PREVENT — the Team Lead generates only when no staged bowl photo matched
   assert.match(branch, /\} else \{[\s\S]*ensureFoodPhoto/, 'ensureFoodPhoto must sit in the else of `if (art)`');
 });
 
-test('REPAIR — the warning carries a button, and it is owner-only and draft-only', () => {
+test('REPAIR — the warning carries a button, and it is marketing-desk-only and draft-only', () => {
   assert.match(API, /op === 'generate_cover'/);
   assert.match(API, /ensureFoodPhoto\(env, \{ postId, caption: row\.caption, imageBrief: row\.image_brief \}\)/);
   // Window widened 2026-08-04: the op now opens with a `prompt`-mode branch (the standalone
@@ -259,8 +259,10 @@ test('REPAIR — the warning carries a button, and it is owner-only and draft-on
   // response to an honest failure, not a way of silencing one. Read the branch before you widen.
   assert.match(API, /generate_cover'\)[\s\S]{0,3200}status === 'published'/, 'refuses a live post — its slides are the public record');
   assert.match(API, /generate_cover'\)[\s\S]{0,3200}status === 'publishing'/);
-  // requireRole(['owner']) already guards the whole POST handler; pin that it still does.
-  assert.match(API, /requireRole\(request, env, \['owner'\]\)/);
+  // The POST handler's own guard already covers this op; pin that it still does. It is
+  // MARKETING_DESK (owner + marketing expert) since 2026-08-11, not owner alone — generating a
+  // cover for a draft is her work. The draft-only refusals above are what keep it off live posts.
+  assert.match(API, /requireRole\(request, env, MARKETING_DESK\)/);
 });
 
 test('REPAIR — the repair route never changes a post\'s status', () => {

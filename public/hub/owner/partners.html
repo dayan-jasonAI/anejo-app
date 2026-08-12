@@ -72,10 +72,12 @@
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML =
+      '<div class="hub-section"><div id="apps"></div></div>' +
       '<div class="hub-section">' +
         '<div class="pt-chips" id="chips"></div>' +
         '<div id="pane"></div>' +
       '</div>';
+    paintApps();
     $('#chips').innerHTML = [
       { k: 'partners', label: 'Partners' },
       { k: 'codes',    label: 'Codes' },
@@ -272,6 +274,62 @@
   }
 
   // ---------- shared POST ----------
+  // ---------- pending applications (the top-of-page inbox) ----------
+  function paintApps() {
+    var el = $('#apps'); if (!el) return;
+    var apps = data.applications || [];
+    if (!apps.length) { el.innerHTML = ''; return; }
+    el.innerHTML =
+      '<div class="card accent" style="margin-bottom:10px"><strong>' + apps.length + ' new application' + (apps.length > 1 ? 's' : '') + '</strong> — review &amp; decide below</div>' +
+      apps.map(function (a) {
+        var badge = a.type === 'gym_trainer'
+          ? '<span class="badge">gym / trainer</span>'
+          : '<span class="badge" style="background:#fff8e9;border-color:#C6A85B;color:#8B6B3E">creator</span>';
+        var ig = a.instagram
+          ? '<div>📸 <a href="https://instagram.com/' + esc(a.instagram) + '" target="_blank" rel="noopener">@' + esc(a.instagram) + '</a></div>' : '';
+        return '<div class="card" style="margin-bottom:10px;border-left:4px solid #C6A85B">' +
+          '<div><strong>' + esc(a.name || a.email) + '</strong> ' + badge + '</div>' +
+          '<div style="font-size:13px;color:#3d4a41;margin-top:5px;line-height:1.55">' +
+            ig +
+            '<div>✉️ ' + esc(a.email) + (a.phone ? ' · 📱 ' + esc(a.phone) : '') + '</div>' +
+            (a.area ? '<div>📍 ' + esc(a.area) + '</div>' : '') +
+            (a.audience_size ? '<div>👥 ' + esc(a.audience_size) + '</div>' : '') +
+            (a.reason ? '<div style="margin-top:6px"><em>“' + esc(a.reason) + '”</em></div>' : '') +
+          '</div>' +
+          '<div class="detail-actions">' +
+            '<button class="btn" data-approve="' + esc(a.id) + '">Approve &amp; onboard</button>' +
+            '<button class="btn ghost" data-decline="' + esc(a.id) + '">Decline</button>' +
+            '<span class="hint" data-appmsg="' + esc(a.id) + '"></span>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    el.querySelectorAll('[data-approve]').forEach(function (btn) {
+      btn.addEventListener('click', function () { decide(btn.getAttribute('data-approve'), 'approve_application', 'Onboarding…', btn); });
+    });
+    el.querySelectorAll('[data-decline]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!confirm('Decline this application? We’ll send a warm decline email.')) return;
+        decide(btn.getAttribute('data-decline'), 'decline_application', 'Declining…', btn);
+      });
+    });
+  }
+  function decide(appId, op, working, btn) {
+    var msg = document.querySelector('[data-appmsg="' + appId + '"]');
+    btn.disabled = true; if (msg) msg.textContent = working;
+    fetch('/api/hub/owner/partners', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: op, application_id: appId }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok) { if (msg) msg.textContent = (d && d.error) || 'Something went wrong.'; btn.disabled = false; return; }
+        if (msg) {
+          msg.textContent = op === 'approve_application'
+            ? ('✓ Onboarded · code ' + (d.code || '') + (d.emailed === false ? ' (welcome email not sent)' : ' · welcome sent'))
+            : ('✓ Declined' + (d.emailed === false ? '' : ' · email sent'));
+        }
+        load();   // refresh — the decided application drops off the list
+      })
+      .catch(function () { if (msg) msg.textContent = 'Network error.'; btn.disabled = false; });
+  }
+
   function post(body, okMsg, after) {
     var msg = $('#msg');
     if (msg) { msg.textContent = '…'; }
@@ -288,12 +346,12 @@
 
   function load() {
     Owner.get('/api/hub/owner/partners').then(function (d) {
-      data = { partners: (d && d.partners) || [], codes: (d && d.codes) || [] };
+      data = { partners: (d && d.partners) || [], codes: (d && d.codes) || [], applications: (d && d.applications) || [] };
       render();
     }).catch(function () { Owner.fail('owner-root'); });
   }
 
-  Owner.init('partners', load);
+  Owner.init('partners', load, { roles: Owner.MARKETING_DESK });
 })();
 </script>
 <script src="assets/operator.js" defer></script>

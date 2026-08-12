@@ -7,11 +7,11 @@
 // math of its own; it only gates access and forwards the signals so the HUB card can render "not
 // enough data yet" itself — same discipline as marketing-attribution.js.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { detectPerformanceSignals } from '../../../_lib/instagram_insights.js';
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 

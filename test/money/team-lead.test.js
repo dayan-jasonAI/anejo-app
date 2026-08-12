@@ -361,8 +361,8 @@ test('a non-model failure does NOT retry-loop — one refusal, reason named', as
 // Surface wiring
 // ---------------------------------------------------------------------------
 
-test('the endpoint is owner-only and the page exists with the chat idiom', () => {
-  assert.match(API, /requireRole\(request, env, \['owner'\]\)/);
+test('the endpoint is marketing-desk-only and the page exists with the chat idiom', () => {
+  assert.match(API, /requireRole\(request, env, MARKETING_DESK\)/);
   assert.match(PAGE, /\/api\/hub\/owner\/team/);
   assert.match(PAGE, /Hub\.boot\(\)/);
   // 2026-08-04: Team no longer has its own nav tab — it is the Teach tab of the single

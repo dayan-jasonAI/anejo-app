@@ -121,6 +121,7 @@ var ROLES = [
   { key:'owner',   ic:'◎',  full:true, en:'Owner — full end-to-end', es:'Dueño — todo de principio a fin', den:'The entire system: order & subscription flow, dispatch, staff, finance, the AI Ops agent, automations, alerts.', des:'Todo el sistema: pedidos y suscripciones, despacho, personal, finanzas, el agente AI Ops, automatizaciones, alertas.' },
   { key:'kitchen', ic:'🍳', en:'Kitchen', es:'Cocina', den:'Your board, per-bowl prep with PIN, inventory, checklists, Creative Studio, EOD.', des:'Tu tablero, preparación por bowl con PIN, inventario, listas, Creative Studio, EOD.' },
   { key:'driver',  ic:'🚚', en:'Driver', es:'Conductor', den:'Accept a run, confirm pickup, deliver with proof, report problems, expenses, EOD.', des:'Aceptar una ruta, confirmar recogida, entregar con prueba, reportar problemas, gastos, EOD.' },
+  { key:'marketing', ic:'📈', en:'Marketing expert', es:'Experta en marketing', den:'The marketing workspace, the daily run, affiliates, the site’s own words, and how you send Dayan what you find.', des:'El espacio de marketing, la ronda diaria, afiliados, los textos del sitio, y cómo le envías a Dayan lo que encuentras.' },
   { key:'vendor',  ic:'📦', en:'Vendor', es:'Proveedor', den:'Receive purchase orders, acknowledge, and confirm what you delivered.', des:'Recibir órdenes de compra, confirmar y marcar lo entregado.' }
 ];
 
@@ -389,6 +390,38 @@ var MOD = {
       y:'Look for a “You have been signed out” card. If it is there, press Sign in again before assuming there is no work.',
       z:'An expired session makes every screen go empty, which looks exactly like having no route. If that card is NOT showing, you genuinely have no route yet — and an offer will arrive by push and text when one is ready.',
       t2:'Si se ve vacío: revisa si tu sesión sigue abierta', x2:'Abres la app y no hay ruta, cuando esperabas una.', y2:'Busca el aviso “Se cerró tu sesión”. Si aparece, vuelve a iniciar sesión antes de suponer que no hay trabajo.', z2:'Una sesión expirada deja todas las pantallas vacías, igual que no tener ruta. Si ese aviso NO aparece, de verdad aún no tienes ruta — y te llegará una oferta por push y mensaje cuando haya una.'})
+  ],
+  marketing: [
+    S({k:'Who you are',t:'You run the marketing system',
+      x:'Dayan set you up as the marketing expert with your own login.',
+      y:'Sign in and land on your desk — Today. That is your home, not the owner’s command center.',
+      z:'You reach the marketing workspace, affiliates, the site’s copy, content, traffic and messages. You do NOT see finance, the kitchen board or the customer list — that is deliberate, not a permission missing.',
+      t2:'Quién eres: tú manejas el sistema de marketing', x2:'Dayan te configuró como experta en marketing con tu propio acceso.', y2:'Inicia sesión y llegas a tu escritorio — Hoy. Ese es tu inicio, no el centro de mando del dueño.', z2:'Tienes acceso al espacio de marketing, afiliados, los textos del sitio, contenido, tráfico y mensajes. NO ves finanzas, el tablero de cocina ni la lista de clientes — eso es a propósito, no es un permiso que falte.'}),
+    S({k:'What starts your day',t:'The daily run',m:'<div class="m-card"><div class="m-t">0/7 checked</div><div class="m-s">Run this once a day</div></div>',
+      x:'You open Today. Seven checks are waiting, one per part of the system.',
+      y:'Work down the list. Answer each one: ✓ working, ! problem, – not today.',
+      z:'Nothing closes until every check has an answer. “Not today” counts; leaving one blank does not — that is the difference between “we looked and it was fine” and “nobody looked”.',
+      t2:'Qué inicia tu día: la ronda diaria', x2:'Abres Hoy. Te esperan siete revisiones, una por cada parte del sistema.', y2:'Baja por la lista. Responde cada una: ✓ funciona, ! problema, – hoy no.', z2:'No se cierra hasta que cada revisión tenga respuesta. “Hoy no” cuenta; dejarla en blanco no — esa es la diferencia entre “revisamos y estaba bien” y “nadie revisó”.'}),
+    S({k:'Test it, don’t trust it',t:'Open each thing you are checking',
+      x:'A check asks whether the tracked links still work.',
+      y:'Tap “Open it” and actually try the link, the draft, the campaign. Then answer.',
+      z:'A dashboard that says green is a claim; opening the thing is the evidence. Every dead redirect we ever shipped looked fine on a summary screen.',
+      t2:'Pruébalo, no lo asumas: abre cada cosa que revisas', x2:'Una revisión pregunta si los enlaces rastreados siguen funcionando.', y2:'Toca “Ábrelo” y prueba de verdad el enlace, el borrador, la campaña. Luego responde.', z2:'Un panel en verde es una afirmación; abrir la cosa es la evidencia. Cada redirección muerta que publicamos se veía bien en una pantalla de resumen.'}),
+    S({k:'Tell the owner',t:'Send what you find, when you find it',
+      x:'You spot something wrong — or something worth changing.',
+      y:'Use “Tell the owner”. Title it plainly, say what you think we should change, and tick the box if it is costing us output today.',
+      z:'It lands in Dayan’s alerts, the same feed he reads every morning. Don’t hold it until the run closes, and don’t put it in a text message — an alert is the only place he is guaranteed to see it.',
+      t2:'Avísale al dueño: manda lo que encuentres, cuando lo encuentres', x2:'Ves algo mal — o algo que vale la pena cambiar.', y2:'Usa “Avísale al dueño”. Ponle un título claro, di qué crees que debemos cambiar, y marca la casilla si nos está costando producción hoy.', z2:'Llega a las alertas de Dayan, el mismo panel que lee cada mañana. No lo guardes hasta cerrar la ronda, y no lo mandes por mensaje — una alerta es el único lugar donde seguro lo verá.'}),
+    S({k:'Close it out',t:'Close the run and leave the note',
+      x:'All seven checks are answered.',
+      y:'Write what Dayan should know about today, then close the run.',
+      z:'A closed run with issues alerts him automatically. A clean one does not — silence from the system means the day was clean, so never close a run you did not actually do.',
+      t2:'Ciérrala: cierra la ronda y deja la nota', x2:'Las siete revisiones están respondidas.', y2:'Escribe lo que Dayan debe saber de hoy, y cierra la ronda.', z2:'Una ronda cerrada con problemas le avisa automáticamente. Una limpia no — el silencio del sistema significa que el día salió limpio, así que nunca cierres una ronda que no hiciste.'}),
+    S({k:'If it looks empty',t:'Nothing loading? Check you are still signed in',m:'<div class="m-card"><div class="m-t">You have been signed out</div><div class="m-s">Sign in again</div></div>',
+      x:'You open your desk and the checks, the inbox or the campaigns are all blank.',
+      y:'Look for a “You have been signed out” card. If it is there, press Sign in again.',
+      z:'An expired session empties every screen at once, which looks exactly like a quiet day. If that card is NOT showing, the screens really are empty.',
+      t2:'Si se ve vacío: revisa si tu sesión sigue abierta', x2:'Abres tu escritorio y las revisiones, la bandeja o las campañas están en blanco.', y2:'Busca el aviso “Se cerró tu sesión”. Si aparece, vuelve a iniciar sesión.', z2:'Una sesión expirada vacía todas las pantallas a la vez, igual que un día tranquilo. Si ese aviso NO aparece, de verdad están vacías.'})
   ],
   vendor: [
     S({k:'Who you are',t:'Your vendor portal',

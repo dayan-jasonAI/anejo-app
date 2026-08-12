@@ -22,11 +22,11 @@ const req = () => new Request('https://anejocateringco.com/api/hub/owner/marketi
   headers: { Cookie: 'anejo_sess=tok' },
 });
 
-test('GET is owner-gated', async () => {
+test('GET is gated to the marketing desk', async () => {
   const env = { SESSIONS: makeKV({}), DB: makeD1([]) };
   const res = await onRequestGet({ request: req(), env });
   assert.equal(res.status, 401);
-  assert.match(API, /requireRole\(request, env, \['owner'\]\)/);
+  assert.match(API, /requireRole\(request, env, MARKETING_DESK\)/);
 });
 
 test('GET forwards the rollup as-is on a fresh install (no published posts)', async () => {

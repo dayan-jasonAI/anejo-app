@@ -6,11 +6,11 @@
 // Owner-only. Takes effect on the NEXT image generated (nothing to invalidate — the chain reads
 // this config fresh on every call).
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { getImageProviderConfig, setImageProviderConfig, IMAGE_PROVIDERS, providerAvailable } from '../../../_lib/plate_image.js';
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   // `available` is the difference between a settings page and a guess. The chain skips an
   // unconfigured provider SILENTLY and falls through to the next one, so an owner who believes
@@ -22,7 +22,7 @@ export const onRequestGet = async ({ request, env }) => {
 };
 
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }

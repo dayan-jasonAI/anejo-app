@@ -8,9 +8,12 @@
 // thread_reads ships in migration 0007 — until the table exists, count degrades to 0.
 // Intended for the global hub badge (polled by the shell), so it stays one query.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 
-const ALL_ROLES = ['owner', 'kitchen', 'driver', 'vendor', 'trainer', 'client'];
+// Every role, staff and portal alike — this endpoint is open to anyone signed in.
+// Imported rather than re-typed: as a literal it silently omitted each newly added role
+// (marketing, 2026-08-11) and the omission reads as a deliberate exclusion.
+const ALL_ROLES = HUB_ROLES;
 
 // Visibility WHERE clause for the session (mirror of threads.js scopeWhere).
 function scopeWhere(ctx) {

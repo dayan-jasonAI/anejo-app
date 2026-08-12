@@ -15,7 +15,7 @@
 //      mail without them, because the day a rushed send skips it is the day the sending domain
 //      that also carries receipts and magic links starts landing in spam.
 import { json, bad, id, now, appBaseUrl } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml } from '../../../_lib/email.js';
 import { sendSms, isTwilioConfigured } from '../../../_lib/twilio.js';
 import { SEGMENTS, isSegment, resolveAudience, testRecipients } from '../../../_lib/audience.js';
@@ -292,7 +292,7 @@ export async function sendCampaignBatch({ env, request, cid, expect }) {
 
 // ---------- GET ----------
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
@@ -336,7 +336,7 @@ export const onRequestGet = async ({ request, env }) => {
 
 // ---------- POST ----------
 export const onRequestPost = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 

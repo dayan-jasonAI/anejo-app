@@ -14,6 +14,7 @@
 // publish it is riding along with, and a pre-0072 database simply records nothing.
 // Files under functions/_lib are NOT routed.
 import { now } from './hub.js';
+import { raiseAlert } from './alerts.js';
 
 // The five fixed lanes. The planner is asked to file every post under exactly one of these;
 // anything else it invents is stored as NULL and never counts toward (or against) a streak.
@@ -61,8 +62,46 @@ export async function noteTrustApproval(env, postId) {
          ON CONFLICT(category) DO UPDATE SET approved_clean = 0, updated_at = excluded.updated_at`
       ).bind(row.category, t).run();
     }
+    // 2026-08-11 — tell the owner the moment a lane EARNS eligibility. The auto-publish switch
+    // is his alone (api/hub/owner/trust.js), which means a lane can sit at five clean approvals
+    // indefinitely because nobody mentioned it. Deduped per lane while the alert is open:
+    // eligibility is a STATE, not an event, so re-announcing it on every further approval would
+    // train him to ignore the one alert that asks him for a decision.
+    // The marketing role is notified too — the streak is the result of her work, and she is the
+    // one who will ask him about it.
+    if (clean) await maybeAnnounceEligible(env, row.category);
+
     return { counted: true, clean, category: row.category };
   } catch { return { counted: false }; }
+}
+
+// Raise 'trust_lane_eligible' the first time a lane reaches the bar. Never throws: a failure here
+// must not affect the approval that triggered it.
+async function maybeAnnounceEligible(env, category) {
+  try {
+    const r = await env.DB
+      .prepare('SELECT approved_clean, auto_publish FROM trust_ledger WHERE category=?')
+      .bind(category).first();
+    if (!r) return;
+    // Already running unattended → nothing to decide.
+    if (Number(r.auto_publish) === 1) return;
+    // Announce on the exact approval that crosses the bar, not every one after it. The dedupe
+    // key below is the real guard; this keeps the common case from even querying.
+    if (Number(r.approved_clean) < AUTO_PUBLISH_AFTER) return;
+
+    await raiseAlert(env, {
+      alert_type: 'trust_lane_eligible',
+      severity: 'info',
+      title: `"${category}" has earned auto-publish — your call`,
+      body: `${AUTO_PUBLISH_AFTER} drafts in a row approved without an edit. Open the trust cockpit to turn it on, or leave it off and it keeps asking you. Only you can flip this switch.`,
+      team: 'marketing',
+      source: 'trust_ledger',
+      ref_type: 'trust_lane',
+      ref_id: category,
+      dedupe_key: `trust_eligible:${category}`,
+      notifyRoles: ['marketing'],
+    });
+  } catch { /* best-effort — never block an approval */ }
 }
 
 // The set of categories the owner has switched to auto-publish. Empty set on any failure —

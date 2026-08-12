@@ -15,17 +15,24 @@
 //          Trainer/client: a thread bound to their own trainer_id/client_id.
 // Fires thread.created (on create) + message.sent. SMS/WhatsApp delivery is no-op safe.
 import { json, bad } from '../../../_lib/util.js';
-import { requireRole } from '../../../_lib/roles.js';
+import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { id, now, bit } from '../../../_lib/hub.js';
 import { sendSms, sendWhatsApp } from '../../../_lib/twilio.js';
 
-const ALL_ROLES = ['owner', 'kitchen', 'driver', 'vendor', 'trainer', 'client'];
+// Every role, staff and portal alike — this endpoint is open to anyone signed in.
+// Imported rather than re-typed: as a literal it silently omitted each newly added role
+// (marketing, 2026-08-11) and the omission reads as a deliberate exclusion.
+const ALL_ROLES = HUB_ROLES;
 const CHANNELS = ['in_app', 'sms', 'whatsapp'];
 
 // Who this thread "is with", from the viewer's perspective.
 function counterpartyName(t, ctx) {
   if (t.audience === 'broadcast') return 'Broadcast';
+  // An Instagram DM/comment thread is "with" the person on Instagram. Their handle lives on the
+  // thread as external_username (migrations/0062) — surface it so the inbox says "@shelby.sapp",
+  // not the anonymous "Conversation" fallback that made every DM look like the same stranger.
+  if (t.audience === 'instagram') return t.external_username ? '@' + t.external_username : (t.subject || 'Instagram DM');
   if (t.client_name) return t.client_name;
   if (t.trainer_name) return t.trainer_name;
   if (t.staff_id && t.staff_id !== ctx.distinct_id) return t.staff_name || 'Staff';
@@ -38,6 +45,14 @@ function scopeWhere(ctx) {
   if (ctx.role === 'owner') return { where: '1=1', binds: [] };
   if (ctx.role === 'trainer') return { where: 't.trainer_id = ?', binds: [ctx.distinct_id] };
   if (ctx.role === 'client') return { where: 't.client_id = ?', binds: [ctx.distinct_id] };
+  // The marketing desk's inbox is deliberately just two things: the Instagram DMs she works, and
+  // her own line to the owner. NOT staff broadcasts, NOT anyone else's threads — "only instagram
+  // DM, and internal conversation with the owner, nobody else". staff_id = her is the owner's
+  // reply thread to her; created_by = her is the thread she opened to him.
+  if (ctx.role === 'marketing') return {
+    where: "(t.audience = 'instagram' OR t.staff_id = ? OR t.created_by = ?)",
+    binds: [ctx.distinct_id, ctx.distinct_id],
+  };
   return {
     where: "(t.staff_id = ? OR t.created_by = ? OR t.audience = 'broadcast')",
     binds: [ctx.distinct_id, ctx.distinct_id],
