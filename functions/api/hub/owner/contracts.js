@@ -230,6 +230,32 @@ async function markInvoicePaid(env, ctx, b) {
   }
 }
 
+// Void an invoice and RELEASE its days back to the un-invoiced pool, so a period billed wrong
+// (e.g. a picker that grabbed the current week too) can be corrected by re-generating the right
+// range. A PAID invoice is never voided this way — money already moved, so that needs a credit,
+// not a silent un-bill. voided_at/voided_by may not exist on older schemas → status-only fallback.
+async function voidInvoice(env, ctx, b) {
+  const { inv, error } = await loadInvoice(env, b.account_id, b.invoice_id);
+  if (error) return { ok: false, error };
+  if (inv.status === 'paid') return { ok: false, error: 'A paid invoice can’t be voided — issue a credit or refund instead.' };
+  if (inv.status === 'void') return { ok: true, already: true, status: 'void' };
+
+  const t = now();
+  // Release first: the days returning to the pool is the whole point, and it must happen even if
+  // the status write below has to fall back. invoice_id is cleared so a re-generate re-groups them.
+  try { await env.DB.prepare('UPDATE contract_orders SET invoiced = 0, invoice_id = NULL, updated_at = ? WHERE invoice_id = ?').bind(t, inv.id).run(); } catch { /* best-effort */ }
+  try {
+    await env.DB.prepare("UPDATE contract_invoices SET status='void', voided_at=?, voided_by=?, updated_at=? WHERE id=?")
+      .bind(t, actorOf(ctx), t, inv.id).run();
+    return { ok: true, status: 'void', voided_at: t };
+  } catch {
+    try {
+      await env.DB.prepare("UPDATE contract_invoices SET status='void', updated_at=? WHERE id=?").bind(t, inv.id).run();
+      return { ok: true, status: 'void', degraded: 'invoice_void_columns_missing' };
+    } catch { return { ok: false, error: 'Could not void the invoice.' }; }
+  }
+}
+
 // The emailed invoice: the same figures as the printable page, flattened into one table so it
 // survives every mail client. Amounts come straight off the stored row — never recomputed here,
 // or the email and the PDF could disagree about what the client owes.
@@ -512,6 +538,12 @@ export const onRequestPost = async ({ request, env }) => {
     if (!b.invoice_id) return bad('Missing invoice_id.');
     const r = await markInvoicePaid(env, ctx, b);
     if (!r.ok) return bad(r.error || 'Could not mark the invoice paid.', 400);
+    return json(r);
+  }
+  if (op === 'void_invoice') {
+    if (!b.invoice_id) return bad('Missing invoice_id.');
+    const r = await voidInvoice(env, ctx, b);
+    if (!r.ok) return bad(r.error || 'Could not void the invoice.', 400);
     return json(r);
   }
   if (op === 'send_invoice') {

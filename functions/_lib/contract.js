@@ -931,11 +931,20 @@ export async function generateInvoice(env, { accountId, from, to } = {}) {
 
   const t = now();
   const invId = id('inv');
+  // picked_period (migrations/0093) records whether the owner chose this exact from/to range on
+  // purpose, vs. the range being whatever was un-invoiced. Fall back to the pre-0093 column list on
+  // an older schema — the invoice still has to get created either way.
   try {
     await env.DB.prepare(
-      'INSERT INTO contract_invoices (id, account_id, number, period_from, period_to, lunches, subtotal_cents, delivery_cents, rush_cents, total_cents, line_items, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-    ).bind(invId, accountId, number, minD, maxD, lunches, subtotal, delivery, rush, total, toJson(lineItems), 'open', t, t).run();
-  } catch (e) { return { ok: false, error: 'Could not create the invoice.' }; }
+      'INSERT INTO contract_invoices (id, account_id, number, period_from, period_to, lunches, subtotal_cents, delivery_cents, rush_cents, total_cents, line_items, status, picked_period, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+    ).bind(invId, accountId, number, minD, maxD, lunches, subtotal, delivery, rush, total, toJson(lineItems), 'open', (from || to) ? 1 : 0, t, t).run();
+  } catch {
+    try {
+      await env.DB.prepare(
+        'INSERT INTO contract_invoices (id, account_id, number, period_from, period_to, lunches, subtotal_cents, delivery_cents, rush_cents, total_cents, line_items, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+      ).bind(invId, accountId, number, minD, maxD, lunches, subtotal, delivery, rush, total, toJson(lineItems), 'open', t, t).run();
+    } catch (e) { return { ok: false, error: 'Could not create the invoice.' }; }
+  }
 
   // Mark the rolled-up ledger rows invoiced (so they can't be double-billed).
   try {
