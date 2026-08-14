@@ -908,22 +908,39 @@ export async function generateInvoice(env, { accountId, from, to } = {}) {
   let siteNames = {};
   try { for (const s of (((await env.DB.prepare('SELECT id, name FROM contract_sites WHERE account_id = ?').bind(accountId).all()).results) || [])) siteNames[s.id] = s.name; } catch { /* fall back to id */ }
 
+  // DELIVERY IS PER TRIP, NOT PER SITE. When an account has more than one location, a single
+  // delivery run can serve every site ordering that day — the driver makes one trip, not one per
+  // office. Billing delivery_fee_cents on EVERY site's order row (the original shape — each row
+  // carries its own site's fee, meant for a single-site account) silently doubled it the moment a
+  // second site started ordering the same day: two $20 rows read as $40 for one trip. Confirmed
+  // against a real invoice DGP-0002 was corrected to match by hand ($1,686 = $1,566 lunches + ONE
+  // $20/day delivery charge across 6 days, not two). So delivery is rolled up ONCE per
+  // (account, service_date) here — the higher of any co-occurring site rates for that day, which
+  // reduces to the single rate whenever only one site orders (i.e. every existing single-site
+  // account is completely unaffected; DGP is currently the only multi-site account in the system).
   const bySite = new Map();
-  let lunches = 0, subtotal = 0, delivery = 0, rush = 0, total = 0;
+  const byDate = new Map();   // service_date -> highest delivery_fee_cents among rows that day
+  let lunches = 0, subtotal = 0, rush = 0;
   let minD = null, maxD = null;
   for (const r of rows) {
     const sub = (Number(r.headcount) || 0) * (Number(r.price_per_lunch_cents) || 0);
-    lunches += Number(r.headcount) || 0; subtotal += sub; delivery += Number(r.delivery_fee_cents) || 0;
-    rush += Number(r.rush_fee_cents) || 0; total += Number(r.total_cents) || 0;
+    const rushFee = Number(r.rush_fee_cents) || 0;
+    lunches += Number(r.headcount) || 0; subtotal += sub; rush += rushFee;
     if (!minD || r.service_date < minD) minD = r.service_date;
     if (!maxD || r.service_date > maxD) maxD = r.service_date;
     const key = r.site_id;
-    if (!bySite.has(key)) bySite.set(key, { name: siteNames[key] || key, lunches: 0, subtotal_cents: 0, delivery_cents: 0, rush_cents: 0, days: [] });
+    if (!bySite.has(key)) bySite.set(key, { name: siteNames[key] || key, lunches: 0, subtotal_cents: 0, rush_cents: 0, days: [] });
     const g = bySite.get(key);
-    g.lunches += Number(r.headcount) || 0; g.subtotal_cents += sub; g.delivery_cents += Number(r.delivery_fee_cents) || 0; g.rush_cents += Number(r.rush_fee_cents) || 0;
+    g.lunches += Number(r.headcount) || 0; g.subtotal_cents += sub; g.rush_cents += rushFee;
     g.days.push({ date: r.service_date, count: r.headcount, price_cents: r.price_per_lunch_cents, total_cents: r.total_cents, rush: !!r.is_rush });
+
+    const fee = Number(r.delivery_fee_cents) || 0;
+    if (!byDate.has(r.service_date) || fee > byDate.get(r.service_date)) byDate.set(r.service_date, fee);
   }
-  const lineItems = { sites: [...bySite.values()] };
+  const deliveryDays = [...byDate.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([date, cents]) => ({ date, cents }));
+  const delivery = deliveryDays.reduce((s, d) => s + d.cents, 0);
+  const total = subtotal + delivery + rush;
+  const lineItems = { sites: [...bySite.values()], delivery: { days: deliveryDays, total_cents: delivery } };
 
   // Per-account sequential invoice number, e.g. DGP-0001.
   let seq = 1;

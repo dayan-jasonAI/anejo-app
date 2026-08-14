@@ -261,15 +261,27 @@ async function voidInvoice(env, ctx, b) {
 // or the email and the PDF could disagree about what the client owes.
 function invoiceEmailHtml({ inv, account, lineItems, payUrl }) {
   const m = (c) => '$' + ((Number(c) || 0) / 100).toFixed(2);
-  const rows = (lineItems.sites || []).map((s) => {
+  // Mirror of invoice.html's row builder — delivery is billed once per day for the whole account
+  // (one shared trip, not one charge per site on that trip), so each site's block is lunches (+
+  // rush, genuinely per-order) only, and delivery gets its own block below. See the long comment on
+  // generateInvoice in _lib/contract.js for why.
+  let rows = (lineItems.sites || []).map((s) => {
     const days = (s.days || []).map((d) =>
       `<tr><td style="padding:5px 8px;color:#6f7b74;font-size:12.5px">${escHtml(d.date)}${d.rush ? ' · RUSH' : ''}</td>` +
       `<td style="padding:5px 8px;text-align:right;color:#6f7b74;font-size:12.5px">${escHtml(d.count)}</td>` +
       `<td style="padding:5px 8px;text-align:right;color:#6f7b74;font-size:12.5px">${m(d.total_cents)}</td></tr>`).join('');
     return `<tr><td colspan="3" style="padding:7px 8px;background:#F5F2EC;font-weight:700;color:#1A3D2E">${escHtml(s.name)}</td></tr>` + days +
       `<tr><td colspan="2" style="padding:6px 8px;border-bottom:1px solid #e3ddcf">${escHtml(s.name)} — ${escHtml(s.lunches)} lunches</td>` +
-      `<td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e3ddcf"><b>${m((s.subtotal_cents || 0) + (s.delivery_cents || 0) + (s.rush_cents || 0))}</b></td></tr>`;
+      `<td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e3ddcf"><b>${m((s.subtotal_cents || 0) + (s.rush_cents || 0))}</b></td></tr>`;
   }).join('');
+  if (lineItems.delivery && lineItems.delivery.days && lineItems.delivery.days.length) {
+    const dDays = lineItems.delivery.days;
+    rows += `<tr><td colspan="3" style="padding:7px 8px;background:#F5F2EC;font-weight:700;color:#1A3D2E">Delivery — shared route</td></tr>` +
+      dDays.map((d) => `<tr><td style="padding:5px 8px;color:#6f7b74;font-size:12.5px">${escHtml(d.date)}</td><td></td>` +
+        `<td style="padding:5px 8px;text-align:right;color:#6f7b74;font-size:12.5px">${m(d.cents)}</td></tr>`).join('') +
+      `<tr><td colspan="2" style="padding:6px 8px;border-bottom:1px solid #e3ddcf">Delivery subtotal — ${dDays.length} day${dDays.length === 1 ? '' : 's'}</td>` +
+      `<td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e3ddcf"><b>${m(lineItems.delivery.total_cents)}</b></td></tr>`;
+  }
   const firstName = account.billing_contact ? String(account.billing_contact).trim().split(/\s+/)[0] : '';
   return emailShell([
     `<p>Hi${firstName ? ' ' + escHtml(firstName) : ''},</p>`,

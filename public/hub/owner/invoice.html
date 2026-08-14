@@ -155,23 +155,27 @@
     if(d && d._status===401){ location.href='/login'; return; }
     if(!d || !d.ok){ root.innerHTML='Invoice not found.'; return; }
     var inv=d.invoice, a=d.account, li=inv.line_items||{sites:[]};
-    // Each site's delivery and rush fees used to be folded silently into one bold subtotal row —
-    // the invoice never showed the per-site delivery figure, only ONE combined "Delivery" total
-    // for the whole account in the summary below. That is exactly the gap that made a correctly
-    // configured $20/site/day fee look, on paper, like "$20 combined" — nothing to do with the
-    // billed amount (it was always per-site), only with what the invoice made visible. Breaking
-    // delivery out per site, with the day-count × rate spelled out, closes that reading gap for
-    // good — for the owner checking the numbers and for the client receiving the bill.
+    // Delivery is billed ONCE PER DAY FOR THE WHOLE ACCOUNT, not once per site — a shared route
+    // is one trip whether it serves one office or several (see the long comment on generateInvoice
+    // in _lib/contract.js for the real invoice this was corrected against, dollar for dollar).
+    // Each site's block below is lunches (+ rush, which genuinely is per-order) only; delivery gets
+    // its own block underneath so "one shared trip, $X/day" is exactly as visible as every lunch
+    // line above it — that visibility is what the earlier per-site version got backwards.
     var rows=(li.sites||[]).map(function(s){
       var hd='<tr class="sitehd"><td colspan="4">'+esc(s.name)+'</td></tr>';
       var days=(s.days||[]).map(function(x){ return '<tr class="day"><td>'+fmtDate(x.date)+(x.rush?' · RUSH':'')+'</td><td>'+x.count+'</td><td>'+money(x.price_cents)+'</td><td>'+money(x.total_cents)+'</td></tr>'; }).join('');
-      var nDays=(s.days||[]).length;
-      var delivRate=nDays?Math.round(s.delivery_cents/nDays):0;
-      var deliv=s.delivery_cents?('<tr class="fee"><td>'+esc(s.name)+' — delivery ('+nDays+' day'+(nDays===1?'':'s')+' × '+money(delivRate)+' each)</td><td></td><td></td><td>'+money(s.delivery_cents)+'</td></tr>'):'';
       var rush=s.rush_cents?('<tr class="fee"><td>'+esc(s.name)+' — rush fees</td><td></td><td></td><td>'+money(s.rush_cents)+'</td></tr>'):'';
-      var sub='<tr class="sitesub"><td>'+esc(s.name)+' subtotal — '+s.lunches+' lunches</td><td></td><td></td><td>'+money(s.subtotal_cents+s.delivery_cents+s.rush_cents)+'</td></tr>';
-      return hd+days+deliv+rush+sub;
+      var sub='<tr class="sitesub"><td>'+esc(s.name)+' subtotal — '+s.lunches+' lunches</td><td></td><td></td><td>'+money((s.subtotal_cents||0)+(s.rush_cents||0))+'</td></tr>';
+      return hd+days+rush+sub;
     }).join('');
+    // Falls back cleanly for an invoice generated before this shape existed (li.delivery absent) —
+    // the account-level Delivery total in the summary below still reads inv.delivery_cents either way.
+    if (li.delivery && li.delivery.days && li.delivery.days.length) {
+      var dDays=li.delivery.days;
+      rows += '<tr class="sitehd"><td colspan="4">Delivery — shared route</td></tr>' +
+        dDays.map(function(x){ return '<tr class="day"><td>'+fmtDate(x.date)+'</td><td></td><td></td><td>'+money(x.cents)+'</td></tr>'; }).join('') +
+        '<tr class="sitesub"><td>Delivery subtotal — '+dDays.length+' day'+(dDays.length===1?'':'s')+'</td><td></td><td></td><td>'+money(li.delivery.total_cents)+'</td></tr>';
+    }
     root.className=''; root.innerHTML=
       '<div class="inv">'+
         '<div class="top"><div class="brand">AÑEJO<small>Añejo Catering Co. LLC · anejocateringco.com</small></div>'+
