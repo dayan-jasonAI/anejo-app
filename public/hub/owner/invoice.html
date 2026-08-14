@@ -27,6 +27,8 @@
   thead th{background:var(--green);color:var(--cream);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
   .sitehd td{background:var(--cream);font-weight:700;color:var(--green)}
   .day td{color:var(--muted);font-size:12.5px}
+  .fee td{color:var(--muted);font-size:12.5px;font-style:italic}
+  .sitesub td{font-weight:700;color:var(--green);border-top:1px solid var(--line)}
   .totals{margin-top:16px;margin-left:auto;width:280px}
   .totals .r{display:flex;justify-content:space-between;padding:5px 0;font-size:14px}
   .totals .r.grand{border-top:2px solid var(--green);margin-top:6px;padding-top:10px;font-size:18px;font-weight:800;color:var(--green)}
@@ -130,11 +132,22 @@
     if(d && d._status===401){ location.href='/login'; return; }
     if(!d || !d.ok){ root.innerHTML='Invoice not found.'; return; }
     var inv=d.invoice, a=d.account, li=inv.line_items||{sites:[]};
+    // Each site's delivery and rush fees used to be folded silently into one bold subtotal row —
+    // the invoice never showed the per-site delivery figure, only ONE combined "Delivery" total
+    // for the whole account in the summary below. That is exactly the gap that made a correctly
+    // configured $20/site/day fee look, on paper, like "$20 combined" — nothing to do with the
+    // billed amount (it was always per-site), only with what the invoice made visible. Breaking
+    // delivery out per site, with the day-count × rate spelled out, closes that reading gap for
+    // good — for the owner checking the numbers and for the client receiving the bill.
     var rows=(li.sites||[]).map(function(s){
       var hd='<tr class="sitehd"><td colspan="4">'+esc(s.name)+'</td></tr>';
       var days=(s.days||[]).map(function(x){ return '<tr class="day"><td>'+fmtDate(x.date)+(x.rush?' · RUSH':'')+'</td><td>'+x.count+'</td><td>'+money(x.price_cents)+'</td><td>'+money(x.total_cents)+'</td></tr>'; }).join('');
-      var sub='<tr><td>'+esc(s.name)+' — '+s.lunches+' lunches</td><td></td><td></td><td><b>'+money(s.subtotal_cents+s.delivery_cents+s.rush_cents)+'</b></td></tr>';
-      return hd+days+sub;
+      var nDays=(s.days||[]).length;
+      var delivRate=nDays?Math.round(s.delivery_cents/nDays):0;
+      var deliv=s.delivery_cents?('<tr class="fee"><td>'+esc(s.name)+' — delivery ('+nDays+' day'+(nDays===1?'':'s')+' × '+money(delivRate)+' each)</td><td></td><td></td><td>'+money(s.delivery_cents)+'</td></tr>'):'';
+      var rush=s.rush_cents?('<tr class="fee"><td>'+esc(s.name)+' — rush fees</td><td></td><td></td><td>'+money(s.rush_cents)+'</td></tr>'):'';
+      var sub='<tr class="sitesub"><td>'+esc(s.name)+' subtotal — '+s.lunches+' lunches</td><td></td><td></td><td>'+money(s.subtotal_cents+s.delivery_cents+s.rush_cents)+'</td></tr>';
+      return hd+days+deliv+rush+sub;
     }).join('');
     root.className=''; root.innerHTML=
       '<div class="inv">'+
