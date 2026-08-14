@@ -3,6 +3,7 @@
 import { id, now, parseJson, toJson } from './hub.js';
 import { randToken, isEmail, ctEq, normalizePhone } from './util.js';
 import { sendSms } from './twilio.js';
+import { square, squareConfigured } from './square.js';
 
 const BILLING_MODELS = ['weekly_autopay', 'biweekly', 'monthly', 'same_day'];
 const CADENCE_BY_MODEL = { weekly_autopay: 'weekly', biweekly: 'biweekly', monthly: 'monthly', same_day: 'daily' };
@@ -961,6 +962,96 @@ export async function getInvoice(env, invId) {
   if (!inv) return { ok: false, error: 'not_found' };
   const account = await env.DB.prepare('SELECT name, billing_email, billing_contact FROM contract_accounts WHERE id = ?').bind(inv.account_id).first().catch(() => null);
   return { ok: true, invoice: { ...inv, line_items: parseJson(inv.line_items, { sites: [] }) }, account: account || {} };
+}
+
+// A real, LIVE Square payment link for a contract invoice — same hosted-checkout mechanism the
+// catering deposit already uses (_lib/catering_deposit.js createDepositCheckout), reused rather
+// than reinvented. SQUARE_ENV governs sandbox-vs-live for the whole app; nothing here is separate
+// from that, so a production deploy makes this real money the moment a client clicks it.
+//
+// Idempotent from BOTH ends: Square's idempotency_key (the invoice id — stable, one link per
+// invoice for its lifetime) means a retried request returns the SAME link rather than minting a
+// second Square order, and this function itself short-circuits to the already-stored URL if one
+// exists, so repeat clicks on "Get payment link" in the HUB never re-hit Square at all.
+export async function createInvoicePaymentLink(env, invId, { baseUrl } = {}) {
+  if (!env || !env.DB) return { ok: false, error: 'Database not configured.' };
+  if (!squareConfigured(env)) return { ok: false, error: 'Square is not configured — no payment link can be created.' };
+
+  const inv = await env.DB.prepare('SELECT * FROM contract_invoices WHERE id = ?').bind(invId).first().catch(() => null);
+  if (!inv) return { ok: false, error: 'Invoice not found.' };
+  if (inv.status === 'void') return { ok: false, error: 'That invoice is void — it cannot be paid.' };
+  if (inv.status === 'paid') return { ok: false, error: 'That invoice is already marked paid.' };
+  if (inv.payment_link_url) return { ok: true, url: inv.payment_link_url, already: true };
+
+  const account = await env.DB.prepare('SELECT name FROM contract_accounts WHERE id = ?').bind(inv.account_id).first().catch(() => null);
+  const total = Math.round(Number(inv.total_cents) || 0);
+  if (total <= 0) return { ok: false, error: 'This invoice has no amount due.' };
+
+  const base = (baseUrl || '').replace(/\/$/, '');
+  const label = `Invoice ${inv.number || inv.id} — ${account && account.name ? account.name : 'Añejo Catering Co.'}` +
+    (inv.period_from ? ` (${inv.period_from} – ${inv.period_to || inv.period_from})` : '');
+
+  const { ok, status, data } = await square(env, '/v2/online-checkout/payment-links', {
+    method: 'POST',
+    body: {
+      idempotency_key: inv.id,
+      order: {
+        location_id: env.SQUARE_LOCATION_ID,
+        line_items: [{
+          name: label.slice(0, 300),
+          quantity: '1',
+          base_price_money: { amount: total, currency: 'USD' },
+        }],
+        reference_id: 'contract-invoice',
+      },
+      checkout_options: {
+        redirect_url: base ? `${base}/hub/owner/invoice.html?id=${inv.id}` : undefined,
+        ask_for_shipping_address: false,
+        allow_tipping: false,
+      },
+    },
+  });
+
+  if (!ok) {
+    const detail = data && data.errors && data.errors[0] && data.errors[0].detail;
+    return { ok: false, error: detail || `Square could not create the payment link (${status}).` };
+  }
+  const pl = (data && data.payment_link) || null;
+  const url = pl && (pl.long_url || pl.url);
+  if (!url) return { ok: false, error: 'Square did not return a payment link URL.' };
+
+  try {
+    await env.DB.prepare(
+      'UPDATE contract_invoices SET square_order_id=?, payment_link_id=?, payment_link_url=?, updated_at=? WHERE id=?'
+    ).bind(pl.order_id || null, pl.id || null, url, now(), inv.id).run();
+  } catch (e) {
+    // The link exists in Square but we could not record it — say so plainly rather than handing
+    // back a URL nothing will ever reconcile when it's paid (same rule as the deposit checkout).
+    return { ok: false, error: 'The payment link was created but could not be saved. Do not send it — try again. ' + String((e && e.message) || '').slice(0, 120) };
+  }
+
+  return { ok: true, url, order_id: pl.order_id || null };
+}
+
+// A contract invoice's Square payment link was paid → mark it paid automatically. Called from the
+// Square webhook the same way markDepositPaid is (_lib/catering_deposit.js) — matched on
+// square_order_id, guarded on status != 'paid' so a webhook retry is a no-op. Returns the invoice
+// id when THIS call is the one that flipped it, else null.
+export async function markContractInvoicePaidBySquareOrder(env, squareOrderId, capturedCents) {
+  if (!env || !env.DB || !squareOrderId) return null;
+  try {
+    const inv = await env.DB
+      .prepare("SELECT id, total_cents FROM contract_invoices WHERE square_order_id = ? AND status != 'paid' AND status != 'void' LIMIT 1")
+      .bind(squareOrderId).first();
+    if (!inv) return null;
+    const t = now();
+    const ref = Number.isFinite(Number(capturedCents)) && Number(capturedCents) > 0
+      ? `Square · $${(Number(capturedCents) / 100).toFixed(2)}` : 'Square';
+    const r = await env.DB.prepare(
+      "UPDATE contract_invoices SET status='paid', paid_at=?, paid_by=?, paid_ref=?, updated_at=? WHERE id=? AND status != 'paid' AND status != 'void'"
+    ).bind(t, 'square_webhook', ref, t, inv.id).run();
+    return (r && r.meta && r.meta.changes === 1) ? inv.id : null;
+  } catch { return null; }
 }
 
 // Owner activation: set the negotiated terms across an account's sites + flip it active.

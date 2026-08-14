@@ -46,6 +46,10 @@ export const ALERT_TYPES = [
   // A catering deposit cleared (api/webhooks/square.js). Info, not action: the point is that the
   // date is now BOOKED and a balance plus a headcount deadline exist from this moment on.
   'catering_deposit_paid',
+  // A B2B contract invoice's Square payment link was paid (api/webhooks/square.js, mirrors the
+  // deposit alert directly above). Info — the money already moved, so there is nothing to decide,
+  // only the fact that a contract account's invoice is now settled.
+  'contract_invoice_paid',
   // An automatic contract charge or a payout was REFUSED by one of the two money safeties — the
   // owner toggle being off, or the amount never having been approved (_lib/autopay.js). Raised as
   // a warning because the invoice is still unpaid and someone has to decide; the refusal itself is

@@ -1,9 +1,9 @@
 // GET /api/hub/owner/contracts — owner view of B2B contract accounts: each account, its sites
 // (with the per-site intake link, lazily minted), and the recent daily-count ledger. Owner-only.
-import { json, bad, randToken, now, id, isEmail } from '../../../_lib/util.js';
+import { json, bad, randToken, now, id, isEmail, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
-import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite } from '../../../_lib/contract.js';
+import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite, createInvoicePaymentLink } from '../../../_lib/contract.js';
 import { capture } from '../../../_lib/track.js';
 
 // The edit-terms / invoice-lifecycle helpers below live here rather than in _lib/contract.js
@@ -259,7 +259,7 @@ async function voidInvoice(env, ctx, b) {
 // The emailed invoice: the same figures as the printable page, flattened into one table so it
 // survives every mail client. Amounts come straight off the stored row — never recomputed here,
 // or the email and the PDF could disagree about what the client owes.
-function invoiceEmailHtml({ inv, account, lineItems }) {
+function invoiceEmailHtml({ inv, account, lineItems, payUrl }) {
   const m = (c) => '$' + ((Number(c) || 0) / 100).toFixed(2);
   const rows = (lineItems.sites || []).map((s) => {
     const days = (s.days || []).map((d) =>
@@ -288,10 +288,14 @@ function invoiceEmailHtml({ inv, account, lineItems }) {
     inv.status === 'paid'
       ? `<p style="margin-top:14px;padding:10px 12px;background:#e8f1ea;border-radius:8px;color:#1b5c37"><strong>This is a copy — no payment is due.</strong> We received payment in full.</p>`
       : '',
-    // NOTE: no link. The only invoice page is /hub/owner/invoice.html, which is owner-gated and
-    // bounces a client to the STAFF login — an undeliverable link on every invoice we send. The
-    // figures above are the invoice; a token-scoped public route (like contract_sites.intake_token)
-    // would be the way to add one back.
+    // A real, LIVE Square-hosted payment link — closes the gap the old note here used to document
+    // ("the only invoice page is owner-gated and bounces a client to staff login"). Square's own
+    // checkout page needs no login, so this is the first link on a contract invoice a client can
+    // actually use. Omitted when there's no link (Square not configured, or the invoice is paid).
+    (payUrl && inv.status !== 'paid')
+      ? `<p style="margin-top:20px;text-align:center"><a href="${escHtml(payUrl)}" style="display:inline-block;background:#1A3D2E;color:#fff;text-decoration:none;padding:13px 28px;border-radius:24px;font-weight:700;font-size:14.5px">Pay ${m(inv.total_cents)} now</a></p>` +
+        `<p style="margin-top:6px;text-align:center;font-size:12px;color:#6f7b74">Or by check/ACH — reply to this email and we'll send the details.</p>`
+      : '',
     `<p style="margin-top:20px">Thank you for your business — just reply to this email with any questions.</p>`,
     `<p>— Dayan<br>Añejo Catering Co.</p>`,
   ].join(''));
@@ -299,7 +303,7 @@ function invoiceEmailHtml({ inv, account, lineItems }) {
 
 // Email the invoice to the account's billing contact. Only an 'open' invoice becomes 'sent': a
 // paid or void one can still be re-sent as a copy without walking its status backwards.
-async function sendInvoiceEmail(env, ctx, b) {
+async function sendInvoiceEmail(env, ctx, b, request) {
   const { inv, error } = await loadInvoice(env, b.account_id, b.invoice_id);
   if (error) return { ok: false, error };
   // markInvoicePaid refuses a void invoice; sending one had no guard at all, so a stale tab or a
@@ -312,12 +316,23 @@ async function sendInvoiceEmail(env, ctx, b) {
   let lineItems = { sites: [] };
   try { lineItems = JSON.parse(inv.line_items || '{}') || { sites: [] }; } catch { lineItems = { sites: [] }; }
 
+  // Best-effort: get (or reuse) a Square payment link for an unpaid invoice, so the email can carry
+  // a real "Pay now" button. A Square hiccup must never block the invoice itself from going out —
+  // the figures are still the bill even without a clickable pay button.
+  let payUrl = inv.payment_link_url || null;
+  if (!payUrl && inv.status !== 'paid') {
+    try {
+      const link = await createInvoicePaymentLink(env, inv.id, { baseUrl: appBaseUrl(env, request) });
+      if (link && link.ok) payUrl = link.url;
+    } catch { /* email still sends without a pay link */ }
+  }
+
   let res;
   try {
     res = await sendEmail(env, {
       to,
       subject: `Invoice ${inv.number || inv.id} — Añejo Catering Co.`,
-      html: invoiceEmailHtml({ inv, account: account || {}, lineItems }),
+      html: invoiceEmailHtml({ inv, account: account || {}, lineItems, payUrl }),
     });
   } catch (e) {
     return { ok: false, error: 'Could not send the invoice email. ' + String((e && e.message) || '').slice(0, 120) };
@@ -548,8 +563,14 @@ export const onRequestPost = async ({ request, env }) => {
   }
   if (op === 'send_invoice') {
     if (!b.invoice_id) return bad('Missing invoice_id.');
-    const r = await sendInvoiceEmail(env, ctx, b);
+    const r = await sendInvoiceEmail(env, ctx, b, request);
     if (!r.ok) return bad(r.error || 'Could not send the invoice.', 400);
+    return json(r);
+  }
+  if (op === 'create_payment_link') {
+    if (!b.invoice_id) return bad('Missing invoice_id.');
+    const r = await createInvoicePaymentLink(env, b.invoice_id, { baseUrl: appBaseUrl(env, request) });
+    if (!r.ok) return bad(r.error || 'Could not create the payment link.', 400);
     return json(r);
   }
   if (op === 'set_contact') {
