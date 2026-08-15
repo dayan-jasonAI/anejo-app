@@ -12,7 +12,7 @@ import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js'
 import { currentUser } from '../_lib/session.js';
 import { rewardsSummary } from '../_lib/rewards.js';
 import { evaluatePromo, recordRedemption, autoCustomerCodeFor, claimPromoUse, releasePromoUse } from '../_lib/promo.js';
-import { loadMenu, AVAILABILITY } from '../_lib/menu.js';
+import { loadMenu, AVAILABILITY, FALLBACK_BOWLS } from '../_lib/menu.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -63,8 +63,15 @@ function parseAttribution(raw) {
 // the same prices in cents (fit_gold 999 = $9.99). Two copies of a price is how a price drifts, so
 // the duplicate is gone and menu.js is the single source. Removed 2026-07-28.
 
-// Bowl base prices in cents (authoritative). Each bowl can be customized per-instance.
-const BOWL_BASE = { vida: 1999, fuego: 2299, ligero: 1899, mar: 2299, coco: 2299, congreen: 2099, raiz: 1899 };
+// Bowl base prices: the SAME single source as the note directly above, for the same reason.
+// This was a third copy — `const BOWL_BASE = { vida: 1999, … }`, labelled "authoritative", which
+// it had not been since the day loadMenu started resolving prices from D1. Production never read
+// it (the live caller below always passes `pricing`, and loadMenu always populates `.bowls`), so
+// it drifted invisibly: by 2026-08-15 it still held prices the owner had raised months earlier,
+// and the checkout-pricing suite was asserting those stale numbers as if they were current.
+// Deleted 2026-08-15 and pointed at menu.js, so "the price of a VIDA" now has exactly ONE
+// definition in this repo and `npm run verify:live` guards that one against live D1.
+const BOWL_BASE = FALLBACK_BOWLS;
 const HOUSE_SAUCES = ['Mango Omega', 'Ajo Cítrico', 'Chimichurri Vital', 'Golden Turmeric', 'Aguacate Cilantro'];
 // Extra of an on-bowl ingredient: veg/grain/garnish $1.50, protein/premium $3.00.
 const EXTRA_STD_CENTS = 150, EXTRA_PREMIUM_CENTS = 300;

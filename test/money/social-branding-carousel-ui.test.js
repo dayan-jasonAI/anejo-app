@@ -213,8 +213,37 @@ test('the generate button self-disables before the call — a multi-image batch 
 });
 
 test('carousel generation reloads the post list on success so the new slides actually show', () => {
+  // WAS an exact-adjacency string match: `toast(...); load();` on one literal line. That is an
+  // implementation detail, not the behaviour this guards — it broke the moment the per-slide
+  // overlay wording (2026-08-14, "paste-ready, not retyped") was inserted BETWEEN them, even
+  // though load() still ran on every success exactly as before. A brittle assertion failing on a
+  // real, working change is the same trained-to-ignore-red outcome as I53/I54's "never add to a
+  // known-debt list without a ruling" — so this is fixed at the assertion, not silenced.
+  //
+  // The actual invariant: load() must run on EVERY successful response, whether or not the
+  // now-conditional overlay block runs (`if (overEl && r.overlays && r.overlays.length)`). So
+  // this locates load() STRUCTURALLY — inside the r.ok branch, but outside/after that inner
+  // conditional's own closing brace — by walking braces rather than assuming a fixed layout.
   const section = HTML.slice(HTML.indexOf('function wireCarousel'), HTML.indexOf('function postCard'));
-  assert.match(section, /Hub\.toast\(r\.message \|\| 'Carousel updated'\); load\(\);/);
+  const okStart = section.indexOf('if (r && r.ok) {');
+  const elseStart = section.indexOf('} else {', okStart);
+  assert.ok(okStart > -1 && elseStart > okStart, 'the success branch must exist');
+  const successBranch = section.slice(okStart, elseStart);
+  assert.match(successBranch, /Hub\.toast\(r\.message \|\| 'Carousel updated'\);/, 'still toasts on success');
+
+  const overlaysIf = successBranch.indexOf('if (overEl && r.overlays && r.overlays.length) {');
+  assert.ok(overlaysIf > -1, 'the per-slide overlay wording must still be offered');
+  // Walk from the inner if's own '{' to its matching '}', counting nested braces (the map()
+  // callback inside it has its own { }, so a naive indexOf('}') would stop short).
+  let depth = 0, i = successBranch.indexOf('{', overlaysIf), closeAt = -1;
+  for (; i < successBranch.length; i++) {
+    if (successBranch[i] === '{') depth++;
+    else if (successBranch[i] === '}') { depth--; if (depth === 0) { closeAt = i; break; } }
+  }
+  assert.ok(closeAt > -1, 'the overlay block must be a balanced, closed statement');
+  const afterOverlays = successBranch.slice(closeAt + 1);
+  assert.match(afterOverlays, /load\(\);/,
+    'load() must run AFTER the overlay block closes — i.e. unconditionally, not nested inside "if overlays present"');
 });
 
 test('the carousel tool and the branding tool are both actually invoked from wire()', () => {

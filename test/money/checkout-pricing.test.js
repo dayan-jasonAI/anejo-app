@@ -6,10 +6,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { priceCustomBowl } from '../../functions/api/checkout.js';
+import { FALLBACK_BOWLS } from '../../functions/_lib/menu.js';
 
-// VIDA: base $19.99. build = Seared tuna (protein) / Quinoa / Cucumber / Mango / Mixed greens /
-// Chia seeds / Mango Omega / Ajo Cítrico. See functions/_lib/bowlspec.js.
-const VIDA_BASE = 1999;
+// VIDA build = Seared tuna (protein) / Quinoa / Cucumber / Mango / Mixed greens / Chia seeds /
+// Mango Omega / Ajo Cítrico. See functions/_lib/bowlspec.js.
+//
+// DERIVED, NEVER RETYPED. This was `const VIDA_BASE = 1999`, and it quietly went stale: the owner
+// repriced VIDA to $22.99 from the HUB, checkout followed (it resolves through loadMenu/D1), and
+// this suite carried on asserting $19.99 and passing — a green test pinning a price the business
+// had stopped charging. Reading the shared constant means the base can only ever be wrong here if
+// it is wrong everywhere, and `npm run verify:live` is what checks THAT against live D1.
+// The arithmetic below (base + extras) is what this file actually exists to prove, and it holds
+// at any base.
+const VIDA_BASE = FALLBACK_BOWLS.vida;
 
 test('an unmodified bowl prices at its base and carries no kitchen note', () => {
   const p = priceCustomBowl('vida', {});
@@ -75,12 +84,12 @@ test('extra of a PREMIUM ingredient is $3.00, a standard one is $1.50', () => {
   );
   assert.equal(
     priceCustomBowl('raiz', { extras: [{ type: 'ingredient', name: 'Crispy tofu' }] }).unitCents,
-    1899 + 300,
+    FALLBACK_BOWLS.raiz + 300,
     'tofu is the RAÍZ protein and prices as premium'
   );
   assert.equal(
     priceCustomBowl('congreen', { extras: [{ type: 'ingredient', name: 'Queso fresco' }] }).unitCents,
-    2099 + 300,
+    FALLBACK_BOWLS.congreen + 300,
     'queso is premium'
   );
 });
@@ -91,7 +100,7 @@ test('extra of a PREMIUM ingredient is $3.00, a standard one is $1.50', () => {
 test('extra almonds bill at the PREMIUM rate (plural must match)', () => {
   assert.equal(
     priceCustomBowl('ligero', { extras: [{ type: 'ingredient', name: 'Toasted almonds' }] }).unitCents,
-    1899 + 300
+    FALLBACK_BOWLS.ligero + 300
   );
 });
 

@@ -9,15 +9,30 @@
 //
 // A row here makes an item LISTED and PRICED. For a bowl that is still not enough to make it
 // BUYABLE — see orderability() below.
+//
+// ── KEEPING THIS TABLE HONEST (Dayan, 2026-08-15) ────────────────────────────────────────────
+// "Last-known-good" only stays good if somebody keeps it good. Between migration 0043 and
+// 2026-08-15 the owner repriced from the HUB — as designed, no deploy — and these constants
+// silently became a year-old snapshot: 5 bowls up to $3.00 BELOW live, and all three Fit drinks
+// $2.50 ABOVE it. Display and charge never disagreed (both resolve through loadMenu), so no
+// customer was ever shown one price and charged another — but a D1 outage would have quietly
+// discounted the bowls and OVERCHARGED every drink, which is the half that has to be answered
+// to a real person holding a real receipt.
+//
+// Synced to live D1 on 2026-08-15 (read from /api/menu, source:"d1"). Drift is no longer left to
+// anyone noticing: `npm run verify:live` now diffs this table against the live menu on every run
+// and fails, naming each item and the direction. It refuses to compare when /api/menu is itself
+// serving these fallbacks — otherwise the check would pass by comparing the table to itself in
+// exactly the outage it exists to catch. When the owner reprices, re-run it and update here.
 import { BOWL_BY_NAME } from './bowlspec.js';
 
 export const FALLBACK_BOWLS = {
-  vida: 1999, fuego: 2299, ligero: 1899, mar: 2299, coco: 2299, congreen: 2099, raiz: 1899,
+  vida: 2299, fuego: 2399, ligero: 1999, mar: 2499, coco: 2299, congreen: 2099, raiz: 2199,
 };
 export const FALLBACK_NON_BOWLS = {
-  fit_gold: { name: 'Añejo Fit — Gold Vitality', price_cents: 999 },
-  fit_hibiscus: { name: 'Añejo Fit — Hibiscus Zen', price_cents: 999 },
-  fit_emerald: { name: 'Añejo Fit — Emerald Hydrate', price_cents: 999 },
+  fit_gold: { name: 'Añejo Fit — Gold Vitality', price_cents: 749 },
+  fit_hibiscus: { name: 'Añejo Fit — Hibiscus Zen', price_cents: 749 },
+  fit_emerald: { name: 'Añejo Fit — Emerald Hydrate', price_cents: 749 },
   sauce_extra: { name: 'Extra Signature Sauce (2 oz)', price_cents: 150 },
 };
 export const FALLBACK_MODIFIERS = {
