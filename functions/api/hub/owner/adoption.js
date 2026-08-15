@@ -27,7 +27,14 @@ const WORK_EVENTS = [
 ];
 
 export const onRequestGet = async ({ request, env }) => {
-  const ctx = await requireRole(request, env, ['owner']);
+  // The marketing desk reads this too (role added 2026-08-11). She runs the marketing team, and
+  // "is the team actually using the HUB, and are they filing their EOD reports?" is a question
+  // about running a team. The import of MARKETING_DESK has been sitting here unused since the
+  // role landed — the guard itself was the one line of the widening that never got made, which is
+  // the half-added-role failure test/ui/marketing-role.test.js exists to catch. It did catch it.
+  // Money, kitchen, customers and staff administration stay owner-only; that half is pinned by
+  // the negative tests in the same file and is untouched.
+  const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 

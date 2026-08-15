@@ -214,7 +214,15 @@ test('the generate button self-disables before the call — a multi-image batch 
 
 test('carousel generation reloads the post list on success so the new slides actually show', () => {
   const section = HTML.slice(HTML.indexOf('function wireCarousel'), HTML.indexOf('function postCard'));
-  assert.match(section, /Hub\.toast\(r\.message \|\| 'Carousel updated'\); load\(\);/);
+  // Scope to the SUCCESS branch and assert the two calls are both in it, rather than matching them
+  // as one adjacent line. The single-line form broke the moment the overlay-wording feature was
+  // inserted between the toast and the reload — a true regression report for a change that kept
+  // the behaviour this test is named for exactly intact. A test that fails on formatting spends
+  // someone's afternoon and teaches them the suite cries wolf.
+  const success = section.slice(section.indexOf('if (r && r.ok) {'), section.indexOf('} else {'));
+  assert.ok(success, 'could not find the success branch — wireCarousel was restructured, fix this check');
+  assert.match(success, /Hub\.toast\(r\.message \|\| 'Carousel updated'\)/);
+  assert.match(success, /\bload\(\);/, 'the post list must be reloaded on success or the new slides never appear');
 });
 
 test('the carousel tool and the branding tool are both actually invoked from wire()', () => {
