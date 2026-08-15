@@ -222,6 +222,12 @@
       { key: 'mkt-settings', ico: '⚙️', label: 'Marketing settings', href: '/hub/owner/marketing-settings.html' },
       { key: 'content', ico: '📚', label: 'Content', href: '/hub/owner/content.html' },
       { key: 'traffic', ico: '📈', label: 'Traffic', href: '/hub/owner/traffic.html' },
+      // Traffic answers a question about customers; Adoption answers one about the team she runs
+      // ("are they using the HUB, are they filing EOD reports?"). Paired here deliberately. Not
+      // primary: the five on the bar are her daily run, and this is a periodic check. Icon and
+      // label match the owner's own tile on /hub/owner/ so it is the same thing in both places,
+      // and `key` matches the view Owner.init('adoption') passes, so the tab highlights.
+      { key: 'adoption', ico: '🧭', label: 'Adoption', href: '/hub/owner/adoption.html' },
       { key: 'studio', ico: '🎨', label: 'Studio', href: '/studio/' },
       { key: 'sms-test', ico: '📲', label: 'SMS test', href: '/hub/owner/sms-test.html' },
       { key: 'training', ico: '🎓', label: 'Training', href: '/hub/training?role=marketing' },
