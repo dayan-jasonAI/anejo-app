@@ -123,7 +123,68 @@ head('API');
   else ok('/api/contract/staff is routed and refuses an invalid token');
 }
 
-// 4) What the owner surfaces WRITE. This is the half a public probe cannot see: the endpoints
+// 4) FALLBACK PRICE DRIFT — what a customer would be charged if D1 were unreachable.
+//
+//    Every price the store quotes and charges comes from loadMenu(env), which reads D1 so the
+//    owner can reprice from the HUB without a deploy. When D1 cannot be read, loadMenu falls back
+//    to the hardcoded tables in functions/_lib/menu.js and the storefront KEEPS SELLING — that
+//    fail-open is deliberate (failing closed would take the whole store off sale over one missing
+//    column, see the note beside `availability` in functions/api/checkout.js).
+//
+//    The consequence nobody sees until it happens: those constants are a SNAPSHOT. Display and
+//    charge always move together — both call loadMenu, so a customer is never shown one price and
+//    charged another, and that is NOT what this checks. What drifts is the fallback against the
+//    owner's CURRENT intended price. Found 2026-08-15 auditing the pay tiers: the bowls had
+//    drifted up to $3.00 BELOW live and the Fit drinks $2.50 ABOVE it, so an outage would have
+//    quietly sold bowls at a discount and overcharged every drink.
+//
+//    Overcharging is called out separately and first. Underselling is lost margin; charging a
+//    real card MORE than the published price is the one that has to be answered to a customer.
+head('Menu fallback prices (what an outage would charge)');
+{
+  const r = await get('/api/menu');
+  if (r.status !== 200 || !r.json) {
+    fail(`/api/menu → HTTP ${r.status} — cannot read live prices to compare the fallback against`);
+  } else if (r.json.source !== 'd1') {
+    // NOT A PASS. If the live endpoint is itself serving the fallback, comparing it to the
+    // fallback compares a table to itself and agrees every time — a vacuous green. The one
+    // moment this check matters most is the one where it cannot run, so it says so instead.
+    skip(`/api/menu is serving "${r.json.source}" prices, not d1 — the live table is unreadable right now, so fallback drift CANNOT be measured (re-run when D1 answers)`);
+  } else {
+    const { FALLBACK_BOWLS, FALLBACK_NON_BOWLS } = await import('../functions/_lib/menu.js');
+    // FALLBACK_BOWLS is {id: cents}; FALLBACK_NON_BOWLS is {id: {name, price_cents}}.
+    const fallback = new Map();
+    for (const [id, cents] of Object.entries(FALLBACK_BOWLS)) fallback.set(id, Number(cents));
+    for (const [id, v] of Object.entries(FALLBACK_NON_BOWLS)) fallback.set(id, Number(v && v.price_cents));
+
+    const live = new Map();
+    for (const row of [...(r.json.bowls || []), ...(r.json.drinks || []), ...(r.json.addons || [])]) {
+      if (row && row.id != null) live.set(String(row.id), Number(row.price_cents));
+    }
+
+    const money = (c) => '$' + (Number(c) / 100).toFixed(2);
+    const over = [], under = [], missing = [], orphan = [];
+    for (const [id, liveCents] of live) {
+      if (!fallback.has(id)) { missing.push(id); continue; }
+      const f = fallback.get(id);
+      if (!Number.isFinite(f) || !Number.isFinite(liveCents)) continue;
+      if (f > liveCents) over.push(`${id} ${money(f)} vs ${money(liveCents)} live (+${money(f - liveCents)})`);
+      else if (f < liveCents) under.push(`${id} ${money(f)} vs ${money(liveCents)} live (−${money(liveCents - f)})`);
+    }
+    for (const id of fallback.keys()) if (!live.has(id)) orphan.push(id);
+
+    if (over.length) fail(`fallback OVERCHARGES ${over.length} item(s) if D1 goes down — a real card billed above the published price: ${over.join(' · ')}. Fix in functions/_lib/menu.js`);
+    if (under.length) fail(`fallback UNDERSELLS ${under.length} item(s) if D1 goes down — sold below the owner's current price: ${under.join(' · ')}. Fix in functions/_lib/menu.js`);
+    // A live item with NO fallback is worse than a stale one: loadMenu cannot price it at all
+    // during an outage, so it silently vanishes from a storefront that is still taking orders.
+    if (missing.length) fail(`${missing.length} live item(s) have NO fallback price — they disappear from the menu during a D1 outage: ${missing.join(', ')}`);
+    // The reverse is only stale weight, not a money bug — reported, never failed.
+    if (orphan.length) skip(`${orphan.length} fallback item(s) are no longer in the live menu (stale entries, harmless): ${orphan.join(', ')}`);
+    if (!over.length && !under.length && !missing.length) ok(`all ${live.size} live price(s) match the fallback — an outage would charge exactly what the menu shows`);
+  }
+}
+
+// 5) What the owner surfaces WRITE. This is the half a public probe cannot see: the endpoints
 //    need a signed-in session, and this script has none and must not invent one. What it can do
 //    is check the data those endpoints are supposed to produce.
 head('Live data (--db)');
