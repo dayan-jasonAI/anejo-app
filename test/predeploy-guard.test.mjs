@@ -108,9 +108,11 @@ test('BLOCKS main itself when it is behind origin/main', () => {
   } finally { cleanup(s); }
 });
 
-test('BLOCKS a pushed branch that is behind its OWN counterpart', () => {
-  // Level with the trunk, but someone else pushed to this branch. Deploying would publish without
-  // their commit — same class of loss, different ref.
+test('WARNS but does not block a pushed branch behind its OWN counterpart', () => {
+  // Level with the trunk, but someone else pushed to this branch. This USED to block, on the
+  // reasoning that it was "the same class of loss, different ref". It is not: their commit is not
+  // on the trunk, so it was never published, so deploying a trunk-level tree cannot erase it. The
+  // honest report is "you may be shipping without work you meant to include" — a warning.
   const s = scenario();
   try {
     git(s.clone, 'checkout', '-q', '-b', 'shared');
@@ -122,9 +124,38 @@ test('BLOCKS a pushed branch that is behind its OWN counterpart', () => {
     git(other, 'push', '-q', 'origin', 'shared');
 
     const r = runGuard(s.clone);
-    assert.equal(r.code, 1);
-    assert.match(r.out, /BEHIND origin\/shared/);
-    assert.match(r.out, /a colleague pushed this/);
+    assert.equal(r.code, 0, 'nothing RELEASED is at risk — this must not block the deploy');
+    assert.match(r.out, /1 commit\(s\) on origin\/shared are not in this tree/);
+    assert.match(r.out, /Not blocking/);
+    assert.match(r.out, /git merge origin\/shared/, 'it still says how to include that work');
+    assert.ok(!/DEPLOY BLOCKED/.test(r.out));
+  } finally { cleanup(s); }
+});
+
+test('ALLOWS a branch restarted from main after a squash merge', () => {
+  // THE FALSE POSITIVE THAT FORCED THE RULE ABOVE TO CHANGE, as its own regression test.
+  // Squash-merging rewrites the branch's commits into one new commit on main and discards the
+  // link, so git cannot tell that the branch's content is already in the trunk. Restart the branch
+  // from main — this repo's standard post-merge workflow — and the stale remote branch ref makes
+  // the fresh, perfectly current checkout look "behind". Blocking here blocked the normal case.
+  const s = scenario();
+  try {
+    git(s.clone, 'checkout', '-q', '-b', 'claude/feature');
+    commit(s.clone, 'feature work');
+    git(s.clone, 'push', '-q', '-u', 'origin', 'claude/feature');
+
+    // The PR is squash-merged: main gains ONE new commit carrying that content, unrelated by id.
+    advanceTrunk(s, 'feature work (#42)');
+
+    // Standard post-merge restart: same branch name, rebuilt from the trunk.
+    git(s.clone, 'fetch', '-q', 'origin');
+    git(s.clone, 'checkout', '-q', '-B', 'claude/feature', 'origin/main');
+
+    const r = runGuard(s.clone);
+    assert.equal(r.code, 0, 'a checkout level with the trunk is never stale, whatever a branch ref says');
+    assert.match(r.out, /up to date with origin\/main/);
+    assert.match(r.out, /Expected right after a squash merge/);
+    assert.ok(!/DEPLOY BLOCKED/.test(r.out));
   } finally { cleanup(s); }
 });
 
