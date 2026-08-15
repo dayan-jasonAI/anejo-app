@@ -174,7 +174,10 @@ document.getElementById('seg').addEventListener('click',function(e){
 });
 
 Hub.boot();
-Owner.init('adoption', function(){ load(30); });
+// Guarded to the desk to MATCH the API, the way traffic.html already is. Widening one and not the
+// other is the worst of both: the endpoint answers her and the page redirects her straight back
+// out, which reads as the app being broken rather than as a permission she lacks.
+Owner.init('adoption', function(){ load(30); }, { roles: Owner.MARKETING_DESK });
 </script>
 <script src="assets/operator.js" defer></script>
 </body>
