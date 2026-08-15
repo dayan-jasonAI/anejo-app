@@ -87,11 +87,30 @@ function main() {
     return block(behindTrunk, trunkRef, fix);
   }
 
-  // Secondary: a branch that HAS been pushed must not be behind its own counterpart either —
-  // someone else may have pushed to it, and this tree would publish without their work.
+  // Secondary: a branch that HAS been pushed may be behind its own counterpart — someone else
+  // pushed to it, and this tree would deploy without their work.
+  //
+  // THIS WARNS, IT DOES NOT BLOCK (changed 2026-08-15). It used to block, on the reasoning that
+  // this was "the same class of loss, different ref". It is not the same class. What must never
+  // happen is REVERTING RELEASED WORK, and released means the TRUNK — a colleague's commit sitting
+  // on a shared branch has not been published, so deploying a tree level with the trunk does not
+  // erase it. It only means you may be shipping without work you meant to include, which is worth
+  // saying and not worth blocking.
+  //
+  // The cost of getting that wrong was a guard that fires on the NORMAL case: after a squash merge
+  // the PR branch is restarted from main, the stale remote branch still points at the pre-squash
+  // commits, and git reports the fresh checkout as behind them — content that is already IN the
+  // tree, under different commit ids. Squash-merging discards the link and git cannot see through
+  // it. This repo squash-merges its PRs, so the old rule blocked the standard workflow, and a gate
+  // that fires on the normal case is a gate everyone learns to bypass. Found in aether-launch on
+  // this guard's first run there, 2026-08-15, and ported back.
   if (branch && branch !== trunk) {
     const behindOwn = countRange(`HEAD..origin/${branch}`);
-    if (behindOwn !== null && behindOwn > 0) return block(behindOwn, `origin/${branch}`, 'git pull --ff-only');
+    if (behindOwn !== null && behindOwn > 0) {
+      console.log(`! deploy guard: ${behindOwn} commit(s) on origin/${branch} are not in this tree.`);
+      console.log(`  Not blocking — this tree is level with ${trunkRef}, so nothing RELEASED is lost.`);
+      console.log(`  Expected right after a squash merge. If you meant to include that work: git merge origin/${branch}`);
+    }
   }
 
   const ahead = countRange(`${trunkRef}..HEAD`) || 0;

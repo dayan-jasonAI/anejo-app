@@ -27,6 +27,8 @@
   thead th{background:var(--green);color:var(--cream);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
   .sitehd td{background:var(--cream);font-weight:700;color:var(--green)}
   .day td{color:var(--muted);font-size:12.5px}
+  .fee td{color:var(--muted);font-size:12.5px;font-style:italic}
+  .sitesub td{font-weight:700;color:var(--green);border-top:1px solid var(--line)}
   .totals{margin-top:16px;margin-left:auto;width:280px}
   .totals .r{display:flex;justify-content:space-between;padding:5px 0;font-size:14px}
   .totals .r.grand{border-top:2px solid var(--green);margin-top:6px;padding-top:10px;font-size:18px;font-weight:800;color:var(--green)}
@@ -80,6 +82,15 @@
         '<button class="send" id="btn-send">✉️ '+(inv.sent_at||inv.status==='sent'?'Re-send':'Send')+' to client</button></div>' +
         (paid?'':'<div class="line"><input id="ref" placeholder="Payment reference (check #, ACH, Square…)">' +
           '<button class="pay" id="btn-pay">✓ Mark paid</button></div>') +
+        // A real, LIVE Square-hosted "Pay now" link (functions/_lib/contract.js
+        // createInvoicePaymentLink) — the same checkout mechanism the catering deposit already
+        // uses. Auto-created on send, but shown/copyable here too so it can go out over text or a
+        // channel other than email. A paid invoice already collected the money, and a void one
+        // cannot be paid — no link control on either.
+        (paid||voided?'':(inv.payment_link_url
+          ? '<div class="line"><input id="paylink" readonly value="'+esc(inv.payment_link_url)+'" onclick="this.select()">' +
+            '<button class="send" id="btn-copylink">📋 Copy</button></div>'
+          : '<div class="line"><button class="send" id="btn-paylink">💳 Create Square payment link</button></div>')) +
         // Only offered once QuickBooks is actually connected — a button that always fails is
         // worse than no button. Already-booked invoices say so instead of inviting a second post,
         // which in a client's books reads as being billed twice.
@@ -96,6 +107,20 @@
       Hub.api('/api/hub/owner/contracts',{method:'POST',body:{op:'send_invoice',account_id:inv.account_id,invoice_id:inv.id,to:to,link:location.href}})
         .then(function(r){ bs.disabled=false;
           if(r&&r.ok){ Hub.toast('Invoice emailed'); load(); } else Hub.toast((r&&r.error)||'Could not send'); });
+    });
+    var bpl=document.getElementById('btn-paylink');
+    if(bpl) bpl.addEventListener('click', function(){
+      bpl.disabled=true;
+      Hub.api('/api/hub/owner/contracts',{method:'POST',body:{op:'create_payment_link',account_id:inv.account_id,invoice_id:inv.id}})
+        .then(function(r){ bpl.disabled=false;
+          if(r&&r.ok){ Hub.toast('Payment link created'); load(); } else Hub.toast((r&&r.error)||'Could not create the payment link'); });
+    });
+    var bcl=document.getElementById('btn-copylink');
+    if(bcl) bcl.addEventListener('click', function(){
+      var input=document.getElementById('paylink');
+      if(!input) return;
+      input.select();
+      navigator.clipboard && navigator.clipboard.writeText(input.value).then(function(){ Hub.toast('Copied'); }).catch(function(){});
     });
     // Reveal the QuickBooks button only when there is a live connection behind it.
     var qline=document.getElementById('qbo-line');
@@ -130,12 +155,27 @@
     if(d && d._status===401){ location.href='/login'; return; }
     if(!d || !d.ok){ root.innerHTML='Invoice not found.'; return; }
     var inv=d.invoice, a=d.account, li=inv.line_items||{sites:[]};
+    // Delivery is billed ONCE PER DAY FOR THE WHOLE ACCOUNT, not once per site — a shared route
+    // is one trip whether it serves one office or several (see the long comment on generateInvoice
+    // in _lib/contract.js for the real invoice this was corrected against, dollar for dollar).
+    // Each site's block below is lunches (+ rush, which genuinely is per-order) only; delivery gets
+    // its own block underneath so "one shared trip, $X/day" is exactly as visible as every lunch
+    // line above it — that visibility is what the earlier per-site version got backwards.
     var rows=(li.sites||[]).map(function(s){
       var hd='<tr class="sitehd"><td colspan="4">'+esc(s.name)+'</td></tr>';
       var days=(s.days||[]).map(function(x){ return '<tr class="day"><td>'+fmtDate(x.date)+(x.rush?' · RUSH':'')+'</td><td>'+x.count+'</td><td>'+money(x.price_cents)+'</td><td>'+money(x.total_cents)+'</td></tr>'; }).join('');
-      var sub='<tr><td>'+esc(s.name)+' — '+s.lunches+' lunches</td><td></td><td></td><td><b>'+money(s.subtotal_cents+s.delivery_cents+s.rush_cents)+'</b></td></tr>';
-      return hd+days+sub;
+      var rush=s.rush_cents?('<tr class="fee"><td>'+esc(s.name)+' — rush fees</td><td></td><td></td><td>'+money(s.rush_cents)+'</td></tr>'):'';
+      var sub='<tr class="sitesub"><td>'+esc(s.name)+' subtotal — '+s.lunches+' lunches</td><td></td><td></td><td>'+money((s.subtotal_cents||0)+(s.rush_cents||0))+'</td></tr>';
+      return hd+days+rush+sub;
     }).join('');
+    // Falls back cleanly for an invoice generated before this shape existed (li.delivery absent) —
+    // the account-level Delivery total in the summary below still reads inv.delivery_cents either way.
+    if (li.delivery && li.delivery.days && li.delivery.days.length) {
+      var dDays=li.delivery.days;
+      rows += '<tr class="sitehd"><td colspan="4">Delivery — shared route</td></tr>' +
+        dDays.map(function(x){ return '<tr class="day"><td>'+fmtDate(x.date)+'</td><td></td><td></td><td>'+money(x.cents)+'</td></tr>'; }).join('') +
+        '<tr class="sitesub"><td>Delivery subtotal — '+dDays.length+' day'+(dDays.length===1?'':'s')+'</td><td></td><td></td><td>'+money(li.delivery.total_cents)+'</td></tr>';
+    }
     root.className=''; root.innerHTML=
       '<div class="inv">'+
         '<div class="top"><div class="brand">AÑEJO<small>Añejo Catering Co. LLC · anejocateringco.com</small></div>'+

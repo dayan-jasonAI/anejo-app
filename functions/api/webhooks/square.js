@@ -11,6 +11,7 @@ import { awardOrderPoints, redeemOrderPoints, rewardsSummary } from '../../_lib/
 import { creditAffiliateForOrder } from '../../_lib/promo.js';
 import { raiseAlert } from '../../_lib/alerts.js';
 import { markDepositPaid } from '../../_lib/catering_deposit.js';
+import { markContractInvoicePaidBySquareOrder } from '../../_lib/contract.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
 
@@ -209,6 +210,22 @@ export const onRequestPost = async ({ request, env }) => {
             }).catch(() => {});
           }
         } catch (e) { console.log('catering deposit error:', e && e.message); }
+
+        // CONTRACT INVOICE: a paid Square payment link on a B2B contract invoice → mark it paid
+        // automatically, same idempotent pattern as the catering deposit above (guarded on
+        // status != 'paid'/'void', so a webhook retry is a no-op — see markContractInvoicePaidBySquareOrder).
+        try {
+          const paidInvId = await markContractInvoicePaidBySquareOrder(env, pay.order_id, (pay.amount_money && Number(pay.amount_money.amount)) || null);
+          if (paidInvId) {
+            await raiseAlert(env, {
+              alert_type: 'contract_invoice_paid', severity: 'info',
+              dedupe_key: 'contract_invoice_paid:' + paidInvId,
+              title: 'Contract invoice paid',
+              body: `Invoice ${paidInvId} was paid via its Square payment link.`,
+              ref_type: 'contract_invoice', ref_id: paidInvId,
+            }).catch(() => {});
+          }
+        } catch (e) { console.log('contract invoice paid error:', e && e.message); }
 
         // Per-delivery ADD-ONS: a paid add-on payment link → mark paid and attach the items
         // to that day's order so the kitchen + driver see them. Idempotent: the status guard

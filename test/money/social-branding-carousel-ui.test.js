@@ -235,6 +235,14 @@ test('carousel generation reloads the post list on success so the new slides act
   assert.ok(overlaysIf > -1, 'the per-slide overlay wording must still be offered');
   // Walk from the inner if's own '{' to its matching '}', counting nested braces (the map()
   // callback inside it has its own { }, so a naive indexOf('}') would stop short).
+  //
+  // Merge note (2026-08-15): a second, independent fix for this same brittle assertion landed on
+  // origin/main (#43) while this one was in progress — same diagnosis, weaker check: it confirmed
+  // load() appears SOMEWHERE in the success branch, which cannot tell "load() runs unconditionally"
+  // from "load() runs only when overlays are present" — the two are textually indistinguishable to
+  // a plain substring match. The brace-walk below distinguishes them, and a mutation test proved
+  // the difference is real: moving load() inside the overlays `if` — the actual shape of a future
+  // regression — passes #43's version and fails this one.
   let depth = 0, i = successBranch.indexOf('{', overlaysIf), closeAt = -1;
   for (; i < successBranch.length; i++) {
     if (successBranch[i] === '{') depth++;

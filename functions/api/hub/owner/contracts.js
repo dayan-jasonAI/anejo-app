@@ -1,9 +1,9 @@
 // GET /api/hub/owner/contracts — owner view of B2B contract accounts: each account, its sites
 // (with the per-site intake link, lazily minted), and the recent daily-count ledger. Owner-only.
-import { json, bad, randToken, now, id, isEmail } from '../../../_lib/util.js';
+import { json, bad, randToken, now, id, isEmail, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
-import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite } from '../../../_lib/contract.js';
+import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite, createInvoicePaymentLink } from '../../../_lib/contract.js';
 import { capture } from '../../../_lib/track.js';
 
 // The edit-terms / invoice-lifecycle helpers below live here rather than in _lib/contract.js
@@ -230,20 +230,58 @@ async function markInvoicePaid(env, ctx, b) {
   }
 }
 
+// Void an invoice and RELEASE its days back to the un-invoiced pool, so a period billed wrong
+// (e.g. a picker that grabbed the current week too) can be corrected by re-generating the right
+// range. A PAID invoice is never voided this way — money already moved, so that needs a credit,
+// not a silent un-bill. voided_at/voided_by may not exist on older schemas → status-only fallback.
+async function voidInvoice(env, ctx, b) {
+  const { inv, error } = await loadInvoice(env, b.account_id, b.invoice_id);
+  if (error) return { ok: false, error };
+  if (inv.status === 'paid') return { ok: false, error: 'A paid invoice can’t be voided — issue a credit or refund instead.' };
+  if (inv.status === 'void') return { ok: true, already: true, status: 'void' };
+
+  const t = now();
+  // Release first: the days returning to the pool is the whole point, and it must happen even if
+  // the status write below has to fall back. invoice_id is cleared so a re-generate re-groups them.
+  try { await env.DB.prepare('UPDATE contract_orders SET invoiced = 0, invoice_id = NULL, updated_at = ? WHERE invoice_id = ?').bind(t, inv.id).run(); } catch { /* best-effort */ }
+  try {
+    await env.DB.prepare("UPDATE contract_invoices SET status='void', voided_at=?, voided_by=?, updated_at=? WHERE id=?")
+      .bind(t, actorOf(ctx), t, inv.id).run();
+    return { ok: true, status: 'void', voided_at: t };
+  } catch {
+    try {
+      await env.DB.prepare("UPDATE contract_invoices SET status='void', updated_at=? WHERE id=?").bind(t, inv.id).run();
+      return { ok: true, status: 'void', degraded: 'invoice_void_columns_missing' };
+    } catch { return { ok: false, error: 'Could not void the invoice.' }; }
+  }
+}
+
 // The emailed invoice: the same figures as the printable page, flattened into one table so it
 // survives every mail client. Amounts come straight off the stored row — never recomputed here,
 // or the email and the PDF could disagree about what the client owes.
-function invoiceEmailHtml({ inv, account, lineItems }) {
+function invoiceEmailHtml({ inv, account, lineItems, payUrl }) {
   const m = (c) => '$' + ((Number(c) || 0) / 100).toFixed(2);
-  const rows = (lineItems.sites || []).map((s) => {
+  // Mirror of invoice.html's row builder — delivery is billed once per day for the whole account
+  // (one shared trip, not one charge per site on that trip), so each site's block is lunches (+
+  // rush, genuinely per-order) only, and delivery gets its own block below. See the long comment on
+  // generateInvoice in _lib/contract.js for why.
+  let rows = (lineItems.sites || []).map((s) => {
     const days = (s.days || []).map((d) =>
       `<tr><td style="padding:5px 8px;color:#6f7b74;font-size:12.5px">${escHtml(d.date)}${d.rush ? ' · RUSH' : ''}</td>` +
       `<td style="padding:5px 8px;text-align:right;color:#6f7b74;font-size:12.5px">${escHtml(d.count)}</td>` +
       `<td style="padding:5px 8px;text-align:right;color:#6f7b74;font-size:12.5px">${m(d.total_cents)}</td></tr>`).join('');
     return `<tr><td colspan="3" style="padding:7px 8px;background:#F5F2EC;font-weight:700;color:#1A3D2E">${escHtml(s.name)}</td></tr>` + days +
       `<tr><td colspan="2" style="padding:6px 8px;border-bottom:1px solid #e3ddcf">${escHtml(s.name)} — ${escHtml(s.lunches)} lunches</td>` +
-      `<td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e3ddcf"><b>${m((s.subtotal_cents || 0) + (s.delivery_cents || 0) + (s.rush_cents || 0))}</b></td></tr>`;
+      `<td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e3ddcf"><b>${m((s.subtotal_cents || 0) + (s.rush_cents || 0))}</b></td></tr>`;
   }).join('');
+  if (lineItems.delivery && lineItems.delivery.days && lineItems.delivery.days.length) {
+    const dDays = lineItems.delivery.days;
+    rows += `<tr><td colspan="3" style="padding:7px 8px;background:#F5F2EC;font-weight:700;color:#1A3D2E">Delivery — shared route</td></tr>` +
+      dDays.map((d) => `<tr><td style="padding:5px 8px;color:#6f7b74;font-size:12.5px">${escHtml(d.date)}</td><td></td>` +
+        `<td style="padding:5px 8px;text-align:right;color:#6f7b74;font-size:12.5px">${m(d.cents)}</td></tr>`).join('') +
+      `<tr><td colspan="2" style="padding:6px 8px;border-bottom:1px solid #e3ddcf">Delivery subtotal — ${dDays.length} day${dDays.length === 1 ? '' : 's'}</td>` +
+      `<td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e3ddcf"><b>${m(lineItems.delivery.total_cents)}</b></td></tr>`;
+  }
   const firstName = account.billing_contact ? String(account.billing_contact).trim().split(/\s+/)[0] : '';
   return emailShell([
     `<p>Hi${firstName ? ' ' + escHtml(firstName) : ''},</p>`,
@@ -262,10 +300,14 @@ function invoiceEmailHtml({ inv, account, lineItems }) {
     inv.status === 'paid'
       ? `<p style="margin-top:14px;padding:10px 12px;background:#e8f1ea;border-radius:8px;color:#1b5c37"><strong>This is a copy — no payment is due.</strong> We received payment in full.</p>`
       : '',
-    // NOTE: no link. The only invoice page is /hub/owner/invoice.html, which is owner-gated and
-    // bounces a client to the STAFF login — an undeliverable link on every invoice we send. The
-    // figures above are the invoice; a token-scoped public route (like contract_sites.intake_token)
-    // would be the way to add one back.
+    // A real, LIVE Square-hosted payment link — closes the gap the old note here used to document
+    // ("the only invoice page is owner-gated and bounces a client to staff login"). Square's own
+    // checkout page needs no login, so this is the first link on a contract invoice a client can
+    // actually use. Omitted when there's no link (Square not configured, or the invoice is paid).
+    (payUrl && inv.status !== 'paid')
+      ? `<p style="margin-top:20px;text-align:center"><a href="${escHtml(payUrl)}" style="display:inline-block;background:#1A3D2E;color:#fff;text-decoration:none;padding:13px 28px;border-radius:24px;font-weight:700;font-size:14.5px">Pay ${m(inv.total_cents)} now</a></p>` +
+        `<p style="margin-top:6px;text-align:center;font-size:12px;color:#6f7b74">Or by check/ACH — reply to this email and we'll send the details.</p>`
+      : '',
     `<p style="margin-top:20px">Thank you for your business — just reply to this email with any questions.</p>`,
     `<p>— Dayan<br>Añejo Catering Co.</p>`,
   ].join(''));
@@ -273,7 +315,7 @@ function invoiceEmailHtml({ inv, account, lineItems }) {
 
 // Email the invoice to the account's billing contact. Only an 'open' invoice becomes 'sent': a
 // paid or void one can still be re-sent as a copy without walking its status backwards.
-async function sendInvoiceEmail(env, ctx, b) {
+async function sendInvoiceEmail(env, ctx, b, request) {
   const { inv, error } = await loadInvoice(env, b.account_id, b.invoice_id);
   if (error) return { ok: false, error };
   // markInvoicePaid refuses a void invoice; sending one had no guard at all, so a stale tab or a
@@ -286,12 +328,23 @@ async function sendInvoiceEmail(env, ctx, b) {
   let lineItems = { sites: [] };
   try { lineItems = JSON.parse(inv.line_items || '{}') || { sites: [] }; } catch { lineItems = { sites: [] }; }
 
+  // Best-effort: get (or reuse) a Square payment link for an unpaid invoice, so the email can carry
+  // a real "Pay now" button. A Square hiccup must never block the invoice itself from going out —
+  // the figures are still the bill even without a clickable pay button.
+  let payUrl = inv.payment_link_url || null;
+  if (!payUrl && inv.status !== 'paid') {
+    try {
+      const link = await createInvoicePaymentLink(env, inv.id, { baseUrl: appBaseUrl(env, request) });
+      if (link && link.ok) payUrl = link.url;
+    } catch { /* email still sends without a pay link */ }
+  }
+
   let res;
   try {
     res = await sendEmail(env, {
       to,
       subject: `Invoice ${inv.number || inv.id} — Añejo Catering Co.`,
-      html: invoiceEmailHtml({ inv, account: account || {}, lineItems }),
+      html: invoiceEmailHtml({ inv, account: account || {}, lineItems, payUrl }),
     });
   } catch (e) {
     return { ok: false, error: 'Could not send the invoice email. ' + String((e && e.message) || '').slice(0, 120) };
@@ -514,10 +567,22 @@ export const onRequestPost = async ({ request, env }) => {
     if (!r.ok) return bad(r.error || 'Could not mark the invoice paid.', 400);
     return json(r);
   }
+  if (op === 'void_invoice') {
+    if (!b.invoice_id) return bad('Missing invoice_id.');
+    const r = await voidInvoice(env, ctx, b);
+    if (!r.ok) return bad(r.error || 'Could not void the invoice.', 400);
+    return json(r);
+  }
   if (op === 'send_invoice') {
     if (!b.invoice_id) return bad('Missing invoice_id.');
-    const r = await sendInvoiceEmail(env, ctx, b);
+    const r = await sendInvoiceEmail(env, ctx, b, request);
     if (!r.ok) return bad(r.error || 'Could not send the invoice.', 400);
+    return json(r);
+  }
+  if (op === 'create_payment_link') {
+    if (!b.invoice_id) return bad('Missing invoice_id.');
+    const r = await createInvoicePaymentLink(env, b.invoice_id, { baseUrl: appBaseUrl(env, request) });
+    if (!r.ok) return bad(r.error || 'Could not create the payment link.', 400);
     return json(r);
   }
   if (op === 'set_contact') {

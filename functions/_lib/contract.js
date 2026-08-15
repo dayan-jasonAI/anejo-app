@@ -3,6 +3,7 @@
 import { id, now, parseJson, toJson } from './hub.js';
 import { randToken, isEmail, ctEq, normalizePhone } from './util.js';
 import { sendSms } from './twilio.js';
+import { square, squareConfigured } from './square.js';
 
 const BILLING_MODELS = ['weekly_autopay', 'biweekly', 'monthly', 'same_day'];
 const CADENCE_BY_MODEL = { weekly_autopay: 'weekly', biweekly: 'biweekly', monthly: 'monthly', same_day: 'daily' };
@@ -907,22 +908,39 @@ export async function generateInvoice(env, { accountId, from, to } = {}) {
   let siteNames = {};
   try { for (const s of (((await env.DB.prepare('SELECT id, name FROM contract_sites WHERE account_id = ?').bind(accountId).all()).results) || [])) siteNames[s.id] = s.name; } catch { /* fall back to id */ }
 
+  // DELIVERY IS PER TRIP, NOT PER SITE. When an account has more than one location, a single
+  // delivery run can serve every site ordering that day — the driver makes one trip, not one per
+  // office. Billing delivery_fee_cents on EVERY site's order row (the original shape — each row
+  // carries its own site's fee, meant for a single-site account) silently doubled it the moment a
+  // second site started ordering the same day: two $20 rows read as $40 for one trip. Confirmed
+  // against a real invoice DGP-0002 was corrected to match by hand ($1,686 = $1,566 lunches + ONE
+  // $20/day delivery charge across 6 days, not two). So delivery is rolled up ONCE per
+  // (account, service_date) here — the higher of any co-occurring site rates for that day, which
+  // reduces to the single rate whenever only one site orders (i.e. every existing single-site
+  // account is completely unaffected; DGP is currently the only multi-site account in the system).
   const bySite = new Map();
-  let lunches = 0, subtotal = 0, delivery = 0, rush = 0, total = 0;
+  const byDate = new Map();   // service_date -> highest delivery_fee_cents among rows that day
+  let lunches = 0, subtotal = 0, rush = 0;
   let minD = null, maxD = null;
   for (const r of rows) {
     const sub = (Number(r.headcount) || 0) * (Number(r.price_per_lunch_cents) || 0);
-    lunches += Number(r.headcount) || 0; subtotal += sub; delivery += Number(r.delivery_fee_cents) || 0;
-    rush += Number(r.rush_fee_cents) || 0; total += Number(r.total_cents) || 0;
+    const rushFee = Number(r.rush_fee_cents) || 0;
+    lunches += Number(r.headcount) || 0; subtotal += sub; rush += rushFee;
     if (!minD || r.service_date < minD) minD = r.service_date;
     if (!maxD || r.service_date > maxD) maxD = r.service_date;
     const key = r.site_id;
-    if (!bySite.has(key)) bySite.set(key, { name: siteNames[key] || key, lunches: 0, subtotal_cents: 0, delivery_cents: 0, rush_cents: 0, days: [] });
+    if (!bySite.has(key)) bySite.set(key, { name: siteNames[key] || key, lunches: 0, subtotal_cents: 0, rush_cents: 0, days: [] });
     const g = bySite.get(key);
-    g.lunches += Number(r.headcount) || 0; g.subtotal_cents += sub; g.delivery_cents += Number(r.delivery_fee_cents) || 0; g.rush_cents += Number(r.rush_fee_cents) || 0;
+    g.lunches += Number(r.headcount) || 0; g.subtotal_cents += sub; g.rush_cents += rushFee;
     g.days.push({ date: r.service_date, count: r.headcount, price_cents: r.price_per_lunch_cents, total_cents: r.total_cents, rush: !!r.is_rush });
+
+    const fee = Number(r.delivery_fee_cents) || 0;
+    if (!byDate.has(r.service_date) || fee > byDate.get(r.service_date)) byDate.set(r.service_date, fee);
   }
-  const lineItems = { sites: [...bySite.values()] };
+  const deliveryDays = [...byDate.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([date, cents]) => ({ date, cents }));
+  const delivery = deliveryDays.reduce((s, d) => s + d.cents, 0);
+  const total = subtotal + delivery + rush;
+  const lineItems = { sites: [...bySite.values()], delivery: { days: deliveryDays, total_cents: delivery } };
 
   // Per-account sequential invoice number, e.g. DGP-0001.
   let seq = 1;
@@ -931,11 +949,20 @@ export async function generateInvoice(env, { accountId, from, to } = {}) {
 
   const t = now();
   const invId = id('inv');
+  // picked_period (migrations/0093) records whether the owner chose this exact from/to range on
+  // purpose, vs. the range being whatever was un-invoiced. Fall back to the pre-0093 column list on
+  // an older schema — the invoice still has to get created either way.
   try {
     await env.DB.prepare(
-      'INSERT INTO contract_invoices (id, account_id, number, period_from, period_to, lunches, subtotal_cents, delivery_cents, rush_cents, total_cents, line_items, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-    ).bind(invId, accountId, number, minD, maxD, lunches, subtotal, delivery, rush, total, toJson(lineItems), 'open', t, t).run();
-  } catch (e) { return { ok: false, error: 'Could not create the invoice.' }; }
+      'INSERT INTO contract_invoices (id, account_id, number, period_from, period_to, lunches, subtotal_cents, delivery_cents, rush_cents, total_cents, line_items, status, picked_period, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+    ).bind(invId, accountId, number, minD, maxD, lunches, subtotal, delivery, rush, total, toJson(lineItems), 'open', (from || to) ? 1 : 0, t, t).run();
+  } catch {
+    try {
+      await env.DB.prepare(
+        'INSERT INTO contract_invoices (id, account_id, number, period_from, period_to, lunches, subtotal_cents, delivery_cents, rush_cents, total_cents, line_items, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+      ).bind(invId, accountId, number, minD, maxD, lunches, subtotal, delivery, rush, total, toJson(lineItems), 'open', t, t).run();
+    } catch (e) { return { ok: false, error: 'Could not create the invoice.' }; }
+  }
 
   // Mark the rolled-up ledger rows invoiced (so they can't be double-billed).
   try {
@@ -952,6 +979,96 @@ export async function getInvoice(env, invId) {
   if (!inv) return { ok: false, error: 'not_found' };
   const account = await env.DB.prepare('SELECT name, billing_email, billing_contact FROM contract_accounts WHERE id = ?').bind(inv.account_id).first().catch(() => null);
   return { ok: true, invoice: { ...inv, line_items: parseJson(inv.line_items, { sites: [] }) }, account: account || {} };
+}
+
+// A real, LIVE Square payment link for a contract invoice — same hosted-checkout mechanism the
+// catering deposit already uses (_lib/catering_deposit.js createDepositCheckout), reused rather
+// than reinvented. SQUARE_ENV governs sandbox-vs-live for the whole app; nothing here is separate
+// from that, so a production deploy makes this real money the moment a client clicks it.
+//
+// Idempotent from BOTH ends: Square's idempotency_key (the invoice id — stable, one link per
+// invoice for its lifetime) means a retried request returns the SAME link rather than minting a
+// second Square order, and this function itself short-circuits to the already-stored URL if one
+// exists, so repeat clicks on "Get payment link" in the HUB never re-hit Square at all.
+export async function createInvoicePaymentLink(env, invId, { baseUrl } = {}) {
+  if (!env || !env.DB) return { ok: false, error: 'Database not configured.' };
+  if (!squareConfigured(env)) return { ok: false, error: 'Square is not configured — no payment link can be created.' };
+
+  const inv = await env.DB.prepare('SELECT * FROM contract_invoices WHERE id = ?').bind(invId).first().catch(() => null);
+  if (!inv) return { ok: false, error: 'Invoice not found.' };
+  if (inv.status === 'void') return { ok: false, error: 'That invoice is void — it cannot be paid.' };
+  if (inv.status === 'paid') return { ok: false, error: 'That invoice is already marked paid.' };
+  if (inv.payment_link_url) return { ok: true, url: inv.payment_link_url, already: true };
+
+  const account = await env.DB.prepare('SELECT name FROM contract_accounts WHERE id = ?').bind(inv.account_id).first().catch(() => null);
+  const total = Math.round(Number(inv.total_cents) || 0);
+  if (total <= 0) return { ok: false, error: 'This invoice has no amount due.' };
+
+  const base = (baseUrl || '').replace(/\/$/, '');
+  const label = `Invoice ${inv.number || inv.id} — ${account && account.name ? account.name : 'Añejo Catering Co.'}` +
+    (inv.period_from ? ` (${inv.period_from} – ${inv.period_to || inv.period_from})` : '');
+
+  const { ok, status, data } = await square(env, '/v2/online-checkout/payment-links', {
+    method: 'POST',
+    body: {
+      idempotency_key: inv.id,
+      order: {
+        location_id: env.SQUARE_LOCATION_ID,
+        line_items: [{
+          name: label.slice(0, 300),
+          quantity: '1',
+          base_price_money: { amount: total, currency: 'USD' },
+        }],
+        reference_id: 'contract-invoice',
+      },
+      checkout_options: {
+        redirect_url: base ? `${base}/hub/owner/invoice.html?id=${inv.id}` : undefined,
+        ask_for_shipping_address: false,
+        allow_tipping: false,
+      },
+    },
+  });
+
+  if (!ok) {
+    const detail = data && data.errors && data.errors[0] && data.errors[0].detail;
+    return { ok: false, error: detail || `Square could not create the payment link (${status}).` };
+  }
+  const pl = (data && data.payment_link) || null;
+  const url = pl && (pl.long_url || pl.url);
+  if (!url) return { ok: false, error: 'Square did not return a payment link URL.' };
+
+  try {
+    await env.DB.prepare(
+      'UPDATE contract_invoices SET square_order_id=?, payment_link_id=?, payment_link_url=?, updated_at=? WHERE id=?'
+    ).bind(pl.order_id || null, pl.id || null, url, now(), inv.id).run();
+  } catch (e) {
+    // The link exists in Square but we could not record it — say so plainly rather than handing
+    // back a URL nothing will ever reconcile when it's paid (same rule as the deposit checkout).
+    return { ok: false, error: 'The payment link was created but could not be saved. Do not send it — try again. ' + String((e && e.message) || '').slice(0, 120) };
+  }
+
+  return { ok: true, url, order_id: pl.order_id || null };
+}
+
+// A contract invoice's Square payment link was paid → mark it paid automatically. Called from the
+// Square webhook the same way markDepositPaid is (_lib/catering_deposit.js) — matched on
+// square_order_id, guarded on status != 'paid' so a webhook retry is a no-op. Returns the invoice
+// id when THIS call is the one that flipped it, else null.
+export async function markContractInvoicePaidBySquareOrder(env, squareOrderId, capturedCents) {
+  if (!env || !env.DB || !squareOrderId) return null;
+  try {
+    const inv = await env.DB
+      .prepare("SELECT id, total_cents FROM contract_invoices WHERE square_order_id = ? AND status != 'paid' AND status != 'void' LIMIT 1")
+      .bind(squareOrderId).first();
+    if (!inv) return null;
+    const t = now();
+    const ref = Number.isFinite(Number(capturedCents)) && Number(capturedCents) > 0
+      ? `Square · $${(Number(capturedCents) / 100).toFixed(2)}` : 'Square';
+    const r = await env.DB.prepare(
+      "UPDATE contract_invoices SET status='paid', paid_at=?, paid_by=?, paid_ref=?, updated_at=? WHERE id=? AND status != 'paid' AND status != 'void'"
+    ).bind(t, 'square_webhook', ref, t, inv.id).run();
+    return (r && r.meta && r.meta.changes === 1) ? inv.id : null;
+  } catch { return null; }
 }
 
 // Owner activation: set the negotiated terms across an account's sites + flip it active.

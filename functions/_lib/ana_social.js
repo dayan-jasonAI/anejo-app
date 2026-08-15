@@ -444,14 +444,25 @@ export async function draftReply(env, { kind = 'dm', text, username, auto = fals
         messages: [{ role: 'user', content: msg.slice(0, 1500) }],
       }),
     });
-  } catch { return { ok: false }; }
-  if (!r.ok) return { ok: false };
+  } catch (e) { try { console.warn('[ana_draft] fetch threw:', String((e && e.message) || e)); } catch {} return { ok: false, reason: 'threw' }; }
+  if (!r.ok) {
+    // A silent non-200 here is exactly how "Aña stopped replying" hid for days — most often an
+    // Anthropic billing/credit error (400 "credit balance is too low"), which the app's own
+    // spend ledger cannot show because it only records SUCCESSFUL calls. Surface it in the logs.
+    let detail = ''; try { detail = (await r.text()).slice(0, 300); } catch {}
+    try { console.warn('[ana_draft] Anthropic API ' + r.status + ': ' + detail); } catch {}
+    // A credit/billing failure is a distinct, owner-actionable state (fund the Anthropic account),
+    // NOT a transient API hiccup — the tick raises a visible alert only for this, so a week of
+    // silent 400s can't happen again.
+    const billing = r.status === 402 || /credit balance|too low|billing|payment required|quota|insufficient/i.test(detail);
+    return { ok: false, reason: billing ? 'billing' : 'api_' + r.status };
+  }
 
   let data;
-  try { data = await r.json(); } catch { return { ok: false }; }
+  try { data = await r.json(); } catch { try { console.warn('[ana_draft] bad json from Anthropic'); } catch {} return { ok: false, reason: 'bad_json' }; }
   await recordSpend(env, { feature: 'ana_social_draft', model: DRAFT_MODEL, usage: data && data.usage });
   const out = ((data && data.content) || []).map((c) => c.text || '').join('').trim();
-  if (!out) return { ok: false };
+  if (!out) { try { console.warn('[ana_draft] Anthropic returned empty content'); } catch {} return { ok: false, reason: 'empty' }; }
 
   // A special request SENDS a holding reply AND alerts the kitchen+owner — unlike an escalation,
   // which sends nothing. Parsed before the scrub so the tag cannot survive into the message.

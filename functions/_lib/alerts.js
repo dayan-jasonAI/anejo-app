@@ -25,6 +25,11 @@ export const ALERT_TYPES = [
   // A high-confidence commercial DM/comment (catering, bulk/corporate, wholesale/partnership,
   // subscription) captured as a lead by _lib/social_leads.js. See migrations/0078_social_leads.sql.
   'social_commercial_lead',
+  // Aña's Claude drafting is failing on a billing/credit error (social-inbox-tick.js). Deduped so
+  // one open alert stands until acknowledged, not one per minute. Critical because every Instagram
+  // reply is silently failing until the Anthropic account is funded — the exact "silent for days"
+  // failure this alert exists to make loud.
+  'ana_offline',
   // Both of these were RAISED from day one and never reached the table: their call sites passed
   // `type:` while raiseAlert reads `opts.alert_type` and returns {ok:false} on the miss — a silent
   // no-op with no error anywhere. The customer-facing half is what makes it bad: Aña tells a
@@ -41,6 +46,10 @@ export const ALERT_TYPES = [
   // A catering deposit cleared (api/webhooks/square.js). Info, not action: the point is that the
   // date is now BOOKED and a balance plus a headcount deadline exist from this moment on.
   'catering_deposit_paid',
+  // A B2B contract invoice's Square payment link was paid (api/webhooks/square.js, mirrors the
+  // deposit alert directly above). Info — the money already moved, so there is nothing to decide,
+  // only the fact that a contract account's invoice is now settled.
+  'contract_invoice_paid',
   // An automatic contract charge or a payout was REFUSED by one of the two money safeties — the
   // owner toggle being off, or the amount never having been approved (_lib/autopay.js). Raised as
   // a warning because the invoice is still unpaid and someone has to decide; the refusal itself is

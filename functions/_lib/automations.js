@@ -1009,7 +1009,7 @@ async function socialPlan(env, date) {
   for (const item of ai.data.slice(0, need)) {
     const caption = String((item && item.caption) || '').trim().slice(0, 2200);
     if (!caption) continue;
-    const brief = String((item && item.image_brief) || '').trim().slice(0, 400) || null;
+    const brief = String((item && item.image_brief) || '').trim().slice(0, 1500) || null;
     const dayOffset = Math.min(6, Math.max(0, Math.floor(Number(item && item.day_offset)) || 0));
     const postDate = addEtDays(date, dayOffset);
     const dow = weekdayIndexOf(postDate);

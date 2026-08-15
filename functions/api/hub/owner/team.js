@@ -151,7 +151,7 @@ async function executeAction(env, action) {
     for (const a of assets.slice(0, count)) {
       const caption = String((a && a.caption) || '').trim().slice(0, 2200);
       if (!caption) continue;
-      const brief = String((a && a.image_brief) || '').trim().slice(0, 400) || null;
+      const brief = String((a && a.image_brief) || '').trim().slice(0, 1500) || null;
       const postId = id('sp');
       const art = bowlArtFor(`${caption}\n${brief || ''}`);
       try {

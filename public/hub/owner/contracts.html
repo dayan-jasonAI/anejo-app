@@ -508,7 +508,7 @@
       });
   };
 
-  function invoiceList(invs) {
+  function invoiceList(invs, aid) {
     if (!invs || !invs.length) return '';
     return '<div style="margin-top:10px"><div class="row-sub" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Invoices</div>' +
       invs.map(function (v) {
@@ -516,9 +516,16 @@
         // word alone carries the state, exactly as it did before.
         var when = v.paid_at ? ' ' + new Date(v.paid_at).toLocaleDateString()
           : (v.sent_at ? ' ' + new Date(v.sent_at).toLocaleDateString() : '');
-        return '<a href="/hub/owner/invoice.html?id=' + esc(v.id) + '" style="display:flex;justify-content:space-between;text-decoration:none;color:var(--ink);padding:7px 0;border-bottom:1px solid var(--line);font-size:13px">' +
-          '<span>🧾 ' + esc(v.number || v.id) + ' <span class="row-sub" style="font-weight:400">' + esc(v.period_from || '') + '–' + esc(v.period_to || '') + '</span></span>' +
-          '<span>' + money(v.total_cents) + ' · ' + (v.status === 'paid' ? '✅ ' : (v.status === 'sent' ? '✉️ ' : '')) + esc(v.status || '') + esc(when) + '</span></a>';
+        // Void is the "edit" for a wrongly-scoped invoice: not open/sent already-paid money, just
+        // release the days so the owner can re-generate the right range. Refused server-side once
+        // status is 'paid' (see voidInvoice in contracts.js) — the button just never appears there.
+        var canVoid = v.status !== 'paid' && v.status !== 'void';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px">' +
+          '<a href="/hub/owner/invoice.html?id=' + esc(v.id) + '" style="flex:1;min-width:0;text-decoration:none;color:var(--ink)">' +
+          '🧾 ' + esc(v.number || v.id) + ' <span class="row-sub" style="font-weight:400">' + esc(v.period_from || '') + '–' + esc(v.period_to || '') + '</span><br>' +
+          '<span class="row-sub">' + money(v.total_cents) + ' · ' + (v.status === 'paid' ? '✅ ' : (v.status === 'sent' ? '✉️ ' : (v.status === 'void' ? '🚫 ' : ''))) + esc(v.status || '') + esc(when) + '</span></a>' +
+          (canVoid ? '<button class="btn ghost" type="button" style="flex:0 0 auto" onclick="__voidInvoice(\'' + esc(aid) + '\',\'' + esc(v.id) + '\')">Void</button>' : '') +
+          '</div>';
       }).join('') + '</div>';
   }
   window.__setContact = function (aid, sid) {
@@ -580,11 +587,78 @@
     return '<details class="aud"><summary>🧾 Audit trail — who submitted what (' + events.length + ')</summary>' + rows + '</details>';
   }
 
+  // ---------- invoice period picker ----------
+  // THE FIX: "Generate invoice" used to fire with no from/to at all, so the backend (which has
+  // always supported a date range — functions/_lib/contract.js generateInvoice) fell back to
+  // billing EVERY un-invoiced day, silently pulling the current week into whatever period was
+  // meant to close. This panel makes the range explicit — presets for the common cases (this
+  // week, last week, the last two weeks / biweekly) plus a custom picker for anything else, like
+  // GDP's Jul 27 – Aug 5 catch-up period, which isn't a clean calendar week at all.
+  function iso(d) { return d.toISOString().slice(0, 10); }
+  function mondayOf(d) { var x = new Date(d); var day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); return x; }
+  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  var INV_PRESETS = [
+    { key: 'this_week', label: 'This week', range: function () { var m = mondayOf(new Date()); return [iso(m), iso(new Date())]; } },
+    { key: 'last_week', label: 'Last week', range: function () { var m = addDays(mondayOf(new Date()), -7); return [iso(m), iso(addDays(m, 6))]; } },
+    { key: 'biweekly', label: 'Last 2 weeks (biweekly)', range: function () { var m = addDays(mondayOf(new Date()), -14); return [iso(m), iso(addDays(m, 13))]; } },
+    { key: 'all', label: 'All un-invoiced', range: function () { return [null, null]; } }
+  ];
+
+  function invoiceGenPanel(aid) {
+    return '<details class="terms-edit" id="invgen_' + aid + '">' +
+      '<summary>🧾 Generate invoice (choose period)</summary><div class="body">' +
+      '<div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:10px" id="invp_' + aid + '">' +
+        INV_PRESETS.map(function (p) {
+          return '<button class="btn ghost" type="button" data-preset="' + p.key + '" onclick="__invPreset(\'' + aid + '\',\'' + p.key + '\')">' + esc(p.label) + '</button>';
+        }).join('') +
+      '</div>' +
+      '<div class="terms-grid">' +
+        '<div><label>From</label><input id="invf_' + aid + '" type="date"></div>' +
+        '<div><label>To</label><input id="invt_' + aid + '" type="date"></div>' +
+      '</div>' +
+      '<div class="terms-note" style="font-size:11px;color:var(--muted);margin-top:6px">Pick a preset above, or set From/To yourself for a period like a mid-month catch-up. Only un-invoiced days inside the range are billed — anything already invoiced is skipped, never double-billed.</div>' +
+      '<button class="btn gold block" style="margin-top:10px" onclick="__invoice(\'' + aid + '\')">Generate invoice for this period</button>' +
+      '</div></details>';
+  }
+
+  window.__invPreset = function (aid, key) {
+    var p = INV_PRESETS.filter(function (x) { return x.key === key; })[0];
+    if (!p) return;
+    var r = p.range();
+    var f = document.getElementById('invf_' + aid), t = document.getElementById('invt_' + aid);
+    if (f) f.value = r[0] || '';
+    if (t) t.value = r[1] || '';
+    var wrap = document.getElementById('invp_' + aid);
+    if (wrap) wrap.querySelectorAll('[data-preset]').forEach(function (b) {
+      b.className = 'btn ' + (b.getAttribute('data-preset') === key ? 'gold' : 'ghost');
+    });
+  };
+
   window.__invoice = function (aid) {
-    if (!window.confirm('Generate an invoice for all un-invoiced days for this account? Those days will be marked invoiced.')) return;
-    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'invoice', account_id: aid } }).then(function (r) {
+    var f = (document.getElementById('invf_' + aid) || {}).value || '';
+    var t = (document.getElementById('invt_' + aid) || {}).value || '';
+    if ((f && !t) || (!f && t)) { Hub.toast('Set both From and To, or leave both blank for all un-invoiced days.'); return; }
+    if (f && t && f > t) { Hub.toast('From must be before To.'); return; }
+    var msg = f ? ('Generate an invoice for ' + f + ' – ' + t + '? Un-invoiced days in that range will be marked invoiced.')
+      : 'Generate an invoice for ALL un-invoiced days for this account? Those days will be marked invoiced.';
+    if (!window.confirm(msg)) return;
+    var body = { op: 'invoice', account_id: aid };
+    if (f) { body.from = f; body.to = t; }
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: body }).then(function (r) {
       if (r && r.ok) { Hub.toast('Invoice ' + r.number + ' created'); location.href = '/hub/owner/invoice.html?id=' + r.invoice_id; }
       else Hub.toast((r && r.error) || 'Could not generate invoice');
+    });
+  };
+
+  // Correcting a wrongly-scoped invoice: void it, which releases its days back to un-invoiced
+  // (functions/api/hub/owner/contracts.js voidInvoice), then re-generate with the right range
+  // above. A paid invoice refuses here server-side — money already moved, so that needs a credit,
+  // not a silent un-bill.
+  window.__voidInvoice = function (aid, invId) {
+    if (!window.confirm('Void this invoice? Its days go back to un-invoiced so you can re-generate the correct period. This cannot be used on a paid invoice.')) return;
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'void_invoice', account_id: aid, invoice_id: invId } }).then(function (r) {
+      if (r && r.ok) { Hub.toast('Invoice voided — its days are un-invoiced again'); render(); }
+      else Hub.toast((r && r.error) || 'Could not void that invoice');
     });
   };
 
@@ -620,8 +694,8 @@
             termsHistory(a.terms_events, a.sites) +
             auditBlock(a.events) +
             '<div class="acct-total"><span>Unbilled this period</span><span>' + money(unbilled) + '</span></div>' +
-            (unbilled > 0 ? '<button class="btn gold block" style="margin-top:8px" onclick="__invoice(\'' + acc.id + '\')">🧾 Generate invoice (close period)</button>' : '') +
-            invoiceList(a.invoices)
+            (unbilled > 0 ? invoiceGenPanel(acc.id) : '') +
+            invoiceList(a.invoices, acc.id)
           ) + '</div>';
       }).join('');
       if (window.AnejoI18n) window.AnejoI18n.refresh();
