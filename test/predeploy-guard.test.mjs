@@ -11,8 +11,14 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const GUARD = new URL('../scripts/predeploy-guard.mjs', import.meta.url).pathname;
+// `.pathname` on a file: URL is percent-encoded — a checkout under e.g. "Dayan Workspace" (a real
+// path on the machine this suite actually runs on) turns the space into a literal `%20`, and
+// execFileSync then tries to run a file that does not exist. fileURLToPath() decodes it. Found
+// 2026-08-15: this made EVERY case below fail with ENOENT/MODULE_NOT_FOUND, on an unrelated
+// deploy — the guard's own test suite blocked the guard from ever running.
+const GUARD = fileURLToPath(new URL('../scripts/predeploy-guard.mjs', import.meta.url));
 
 const git = (cwd, ...args) => execFileSync('git', args, {
   cwd,

@@ -26,8 +26,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// fileURLToPath, not `.pathname`: the latter is percent-encoded, so a checkout under a path with
+// a space (e.g. "Dayan Workspace" — real, on the machine this runs on) turns into a literal %20
+// and every read below ENOENTs. Same bug, same fix, as predeploy-guard.test.mjs and
+// marketing-role.test.js — found together 2026-08-15 auditing why `npm run deploy` couldn't run.
+const ROOT = fileURLToPath(new URL('..', import.meta.url)).replace(/[/\\]$/, '');
 const read = (rel) => readFileSync(`${ROOT}/${rel}`, 'utf8');
 
 // Every text file git can see — TRACKED AND UNTRACKED (minus ignored), from git itself.

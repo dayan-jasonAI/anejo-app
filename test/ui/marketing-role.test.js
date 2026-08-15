@@ -18,6 +18,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -336,7 +337,10 @@ test('every file using a roles.js constant imports it', () => {
   // test here reads source as text, so a missing import is invisible to all of them. This walks
   // functions/ and closes that gap without needing eslint installed.
   const NAMES = ['MARKETING_DESK', 'HUB_ROLES', 'STAFF_ROLES', 'STAFF_TEAMS'];
-  const root = new URL('../../functions', import.meta.url).pathname;
+  // fileURLToPath, not `.pathname`: the latter is percent-encoded, so a checkout under a path
+  // with a space (e.g. "Dayan Workspace" — real, on the machine this runs on) turns into a
+  // literal %20 and readdirSync ENOENTs on a directory that does not exist. Found 2026-08-15.
+  const root = fileURLToPath(new URL('../../functions', import.meta.url));
 
   const walk = (dir) => readdirSync(dir).flatMap((e) => {
     const full = join(dir, e);
