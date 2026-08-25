@@ -6,6 +6,10 @@ pages_build_output_dir = "public"
 #   ANTHROPIC_API_KEY   (Secret, encrypted)   <- AI calculator
 #   RESEND_API_KEY      (Secret, encrypted)   <- transactional email (magic links, receipts)
 #   EMAIL_FROM          (Var)                 <- e.g. "Añejo <noreply@anejocateringco.com>"
+#   OWNER_BCC           (Var, optional)       <- the owner's own address, blind-copied on CUSTOMER-FACING
+#                                                INVOICE sends only (functions/api/hub/owner/contracts.js
+#                                                sendInvoiceEmail). Unset = no bcc anywhere, exactly as
+#                                                before. Order confirmations and magic links never carry it.
 #   APP_BASE_URL        (Var)                 <- e.g. "https://anejocateringco.com"
 #   SQUARE_ACCESS_TOKEN (Secret, encrypted)   <- storefront + subscriptions
 #   SQUARE_LOCATION_ID  (Var)

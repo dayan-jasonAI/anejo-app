@@ -200,6 +200,23 @@ async function updateTerms(env, ctx, b) {
 }
 
 // ---------- invoice lifecycle ----------
+// Every money event on an invoice, one shape. capture() itself is best-effort (it never throws on
+// the caller), so an audit outage can't stop an owner from closing a bill.
+//
+// WHY THIS EXISTS. account_created, site_added and billing_contact_set were captured; invoice
+// generated / sent / paid / voided were not. Page views were audited and money was not, so
+// reconstructing what happened to DGP-0004 on 2026-08-25 meant querying D1 by hand.
+async function invoiceEvent(env, ctx, event, inv, extra) {
+  await capture(env, {
+    event,
+    distinct_id: ctx && ctx.distinct_id, role: ctx && ctx.role, team: ctx && ctx.team,
+    properties: {
+      account_id: inv.account_id, invoice_id: inv.id, number: inv.number || null,
+      total_cents: Number(inv.total_cents) || 0, ...(extra || {}),
+    },
+  });
+}
+
 async function loadInvoice(env, accountId, invoiceId) {
   const inv = await env.DB.prepare('SELECT * FROM contract_invoices WHERE id = ?').bind(invoiceId).first().catch(() => null);
   if (!inv) return { error: 'Invoice not found.' };
@@ -218,16 +235,20 @@ async function markInvoicePaid(env, ctx, b) {
 
   const t = now();
   const ref = (b.paid_ref || '').toString().trim().slice(0, 120) || null;
+  let degraded = null;
   try {
     await env.DB.prepare("UPDATE contract_invoices SET status='paid', paid_at=?, paid_by=?, paid_ref=?, updated_at=? WHERE id=?")
       .bind(t, actorOf(ctx), ref, t, inv.id).run();
-    return { ok: true, status: 'paid', paid_at: t };
   } catch {
     try {
       await env.DB.prepare("UPDATE contract_invoices SET status='paid', updated_at=? WHERE id=?").bind(t, inv.id).run();
-      return { ok: true, status: 'paid', degraded: 'invoice_paid_columns_missing' };
+      degraded = 'invoice_paid_columns_missing';
     } catch { return { ok: false, error: 'Could not mark the invoice paid.' }; }
   }
+  // Audited AFTER the write succeeds, so a failed close never reads as money received. The
+  // already-paid early return above emits nothing: it changed no state.
+  await invoiceEvent(env, ctx, 'contract.invoice_paid', inv, { has_ref: !!ref });
+  return { ok: true, status: 'paid', paid_at: t, ...(degraded ? { degraded } : {}) };
 }
 
 // Void an invoice and RELEASE its days back to the un-invoiced pool, so a period billed wrong
@@ -244,16 +265,18 @@ async function voidInvoice(env, ctx, b) {
   // Release first: the days returning to the pool is the whole point, and it must happen even if
   // the status write below has to fall back. invoice_id is cleared so a re-generate re-groups them.
   try { await env.DB.prepare('UPDATE contract_orders SET invoiced = 0, invoice_id = NULL, updated_at = ? WHERE invoice_id = ?').bind(t, inv.id).run(); } catch { /* best-effort */ }
+  let degraded = null;
   try {
     await env.DB.prepare("UPDATE contract_invoices SET status='void', voided_at=?, voided_by=?, updated_at=? WHERE id=?")
       .bind(t, actorOf(ctx), t, inv.id).run();
-    return { ok: true, status: 'void', voided_at: t };
   } catch {
     try {
       await env.DB.prepare("UPDATE contract_invoices SET status='void', updated_at=? WHERE id=?").bind(t, inv.id).run();
-      return { ok: true, status: 'void', degraded: 'invoice_void_columns_missing' };
+      degraded = 'invoice_void_columns_missing';
     } catch { return { ok: false, error: 'Could not void the invoice.' }; }
   }
+  await invoiceEvent(env, ctx, 'contract.invoice_voided', inv, {});
+  return { ok: true, status: 'void', voided_at: t, ...(degraded ? { degraded } : {}) };
 }
 
 // The emailed invoice: the same figures as the printable page, flattened into one table so it
@@ -313,6 +336,31 @@ function invoiceEmailHtml({ inv, account, lineItems, payUrl }) {
   ].join(''));
 }
 
+// Just the domain of an address, for telemetry. Money events are worth auditing; the client's
+// accounts-payable address is not something to ship to PostHog to get that. `null` for anything
+// that isn't an address, so a property is never a half-parsed string.
+function emailDomain(addr) {
+  const s = String(addr == null ? '' : addr);
+  const at = s.lastIndexOf('@');
+  return at > 0 && at < s.length - 1 ? s.slice(at + 1) : null;
+}
+
+// The account row an invoice send needs. allow_card_payment arrives with migrations/0095; until
+// it's applied the SELECT throws on the unknown column — and losing billing_email (and with it the
+// ability to invoice at all) over a missing flag would be far worse than losing the flag. So fall
+// back to the pre-0095 column list and treat card payment as OFF, which is the safe direction:
+// the degraded path shows a client fewer ways to pay, never one they didn't agree to.
+async function loadBillingAccount(env, accountId) {
+  try {
+    return await env.DB.prepare('SELECT id, name, billing_email, billing_contact, allow_card_payment FROM contract_accounts WHERE id = ?').bind(accountId).first();
+  } catch {
+    try {
+      const a = await env.DB.prepare('SELECT id, name, billing_email, billing_contact FROM contract_accounts WHERE id = ?').bind(accountId).first();
+      return a ? { ...a, allow_card_payment: 0 } : null;
+    } catch { return null; }
+  }
+}
+
 // Email the invoice to the account's billing contact. Only an 'open' invoice becomes 'sent': a
 // paid or void one can still be re-sent as a copy without walking its status backwards.
 async function sendInvoiceEmail(env, ctx, b, request) {
@@ -321,23 +369,41 @@ async function sendInvoiceEmail(env, ctx, b, request) {
   // markInvoicePaid refuses a void invoice; sending one had no guard at all, so a stale tab or a
   // direct POST could bill a client for an invoice that was deliberately cancelled.
   if (inv.status === 'void') return { ok: false, error: 'That invoice is void — it cannot be sent.' };
-  const account = await env.DB.prepare('SELECT id, name, billing_email, billing_contact FROM contract_accounts WHERE id = ?').bind(inv.account_id).first().catch(() => null);
+  const account = await loadBillingAccount(env, inv.account_id);
   const to = normalizeEmail(b.to || (account && account.billing_email) || '');
   if (!isEmail(to)) return { ok: false, error: 'No billing email on this account — add one before sending.' };
 
   let lineItems = { sites: [] };
   try { lineItems = JSON.parse(inv.line_items || '{}') || { sites: [] }; } catch { lineItems = { sites: [] }; }
 
-  // Best-effort: get (or reuse) a Square payment link for an unpaid invoice, so the email can carry
-  // a real "Pay now" button. A Square hiccup must never block the invoice itself from going out —
-  // the figures are still the bill even without a clickable pay button.
-  let payUrl = inv.payment_link_url || null;
-  if (!payUrl && inv.status !== 'paid') {
-    try {
-      const link = await createInvoicePaymentLink(env, inv.id, { baseUrl: appBaseUrl(env, request) });
-      if (link && link.ok) payUrl = link.url;
-    } catch { /* email still sends without a pay link */ }
+  // CARD CHECKOUT IS OPT-IN, PER ACCOUNT (migrations/0095, allow_card_payment, default 0).
+  //
+  // This block used to run unconditionally: every unpaid invoice minted a Square link and the email
+  // rendered a "Pay now" button. Invoice DGP-0004 went out that way on 2026-08-25 to a client whose
+  // signed vendor agreement is direct deposit — offering them a card rail contradicts the agreement
+  // and costs ~2.7% on a bill of $1,668. The flag gates BOTH halves: no link is minted, and an
+  // already-stored payment_link_url is not rendered either (the stored value is deliberately left
+  // in the row — those links were real and may already be in a client's hands).
+  //
+  // A Square hiccup must never block the invoice itself from going out — the figures are still the
+  // bill even without a clickable pay button.
+  let payUrl = null;
+  if (account && Number(account.allow_card_payment)) {
+    payUrl = inv.payment_link_url || null;
+    if (!payUrl && inv.status !== 'paid') {
+      try {
+        const link = await createInvoicePaymentLink(env, inv.id, { baseUrl: appBaseUrl(env, request) });
+        if (link && link.ok) payUrl = link.url;
+      } catch { /* email still sends without a pay link */ }
+    }
   }
+
+  // The owner's own copy of what the client received. Customer-facing invoice mail ONLY — order
+  // confirmations and magic links deliberately do not carry it. Unset OWNER_BCC = today's exact
+  // behaviour (sendEmail omits the key entirely). Skipped when it would duplicate the recipient,
+  // which happens for real: DGP-0002 was sent to the owner's own address.
+  const ownerBcc = normalizeEmail(env.OWNER_BCC || '');
+  const bcc = (isEmail(ownerBcc) && ownerBcc !== to) ? ownerBcc : null;
 
   let res;
   try {
@@ -345,6 +411,7 @@ async function sendInvoiceEmail(env, ctx, b, request) {
       to,
       subject: `Invoice ${inv.number || inv.id} — Añejo Catering Co.`,
       html: invoiceEmailHtml({ inv, account: account || {}, lineItems, payUrl }),
+      ...(bcc ? { bcc } : {}),
     });
   } catch (e) {
     return { ok: false, error: 'Could not send the invoice email. ' + String((e && e.message) || '').slice(0, 120) };
@@ -355,15 +422,45 @@ async function sendInvoiceEmail(env, ctx, b, request) {
 
   const t = now();
   const nextStatus = inv.status === 'open' ? 'sent' : inv.status;
+  // Resend's message id — the receipt. Dropping it (what every caller did) meant delivery could
+  // only be proven by leaving the product and searching the Resend dashboard. migrations/0096.
+  const msgId = (res && typeof res.id === 'string' && res.id) ? res.id.slice(0, 120) : null;
+  let degraded = null;
   try {
-    await env.DB.prepare('UPDATE contract_invoices SET status=?, sent_at=?, sent_to=?, sent_by=?, updated_at=? WHERE id=?')
-      .bind(nextStatus, t, to, actorOf(ctx), t, inv.id).run();
-    return { ok: true, status: nextStatus, sent_to: to, sent_at: t };
+    await env.DB.prepare('UPDATE contract_invoices SET status=?, sent_at=?, sent_to=?, sent_by=?, resend_message_id=?, updated_at=? WHERE id=?')
+      .bind(nextStatus, t, to, actorOf(ctx), msgId, t, inv.id).run();
   } catch {
-    // migrations/0046 not applied. The mail is already out, so still record what the schema holds.
-    try { await env.DB.prepare('UPDATE contract_invoices SET status=?, updated_at=? WHERE id=?').bind(nextStatus, t, inv.id).run(); } catch { /* best-effort */ }
-    return { ok: true, status: nextStatus, sent_to: to, degraded: 'invoice_sent_columns_missing' };
+    // Older schema. The mail is already out either way, so step down one column set at a time and
+    // say which rung we landed on, rather than losing the send record entirely.
+    try {
+      await env.DB.prepare('UPDATE contract_invoices SET status=?, sent_at=?, sent_to=?, sent_by=?, updated_at=? WHERE id=?')
+        .bind(nextStatus, t, to, actorOf(ctx), t, inv.id).run();
+      degraded = 'invoice_resend_id_column_missing';   // migrations/0096 not applied
+    } catch {
+      // migrations/0046 not applied. Record what the schema does hold.
+      try { await env.DB.prepare('UPDATE contract_invoices SET status=?, updated_at=? WHERE id=?').bind(nextStatus, t, inv.id).run(); } catch { /* best-effort */ }
+      degraded = 'invoice_sent_columns_missing';
+    }
   }
+
+  // MONEY IS AUDITED NOW. Page views were captured; an invoice leaving the building was not, so
+  // reconstructing the 2026-08-25 send needed direct D1 queries. Domain only — never the client's
+  // full AP address, which would land in PostHog.
+  await capture(env, {
+    event: 'contract.invoice_sent',
+    distinct_id: ctx && ctx.distinct_id, role: ctx && ctx.role, team: ctx && ctx.team,
+    properties: {
+      account_id: inv.account_id, invoice_id: inv.id, number: inv.number || null,
+      total_cents: Number(inv.total_cents) || 0, sent_to_domain: emailDomain(to),
+      card_link: !!payUrl, bcc: !!bcc,
+    },
+  });
+
+  return {
+    ok: true, status: nextStatus, sent_to: to, sent_at: t,
+    ...(msgId ? { resend_message_id: msgId } : {}),
+    ...(degraded ? { degraded } : {}),
+  };
 }
 
 export const onRequestGet = async ({ request, env }) => {
@@ -559,6 +656,9 @@ export const onRequestPost = async ({ request, env }) => {
   if (op === 'invoice') {
     const r = await generateInvoice(env, { accountId: b.account_id, from: b.from, to: b.to });
     if (!r.ok) return bad(r.error || 'Could not generate the invoice.', 400);
+    await invoiceEvent(env, ctx, 'contract.invoice_generated',
+      { account_id: b.account_id, id: r.invoice_id, number: r.number, total_cents: r.total_cents },
+      { lunches: Number(r.lunches) || 0, picked_period: !!(b.from || b.to) });
     return json(r);
   }
   if (op === 'mark_paid') {
@@ -607,23 +707,69 @@ export const onRequestPost = async ({ request, env }) => {
     // a typo here means invoices bounce and the owner waits on a payment that was never asked for.
     if (email && !isEmail(email)) return bad('That does not look like a valid email address.');
     const contact = String(b.billing_contact || '').trim().slice(0, 120);
+    // Card checkout for this account (migrations/0095). Written ONLY when the caller sends the
+    // field — an older page body can never silently flip a client's pay button in either
+    // direction. activeField is the repo's existing 0/1 coercion, reused rather than reinvented.
+    const card = activeField(b.allow_card_payment);
+
+    // Read the row FIRST: it is the "before" side of the audit trail. Changing who receives an
+    // account's invoices, or whether the client is shown a card button, are both money decisions
+    // and neither left any record before now.
+    const before = await loadBillingAccount(env, accountId);
 
     const t = now();
+    const write = (withCard) => env.DB.prepare(
+      withCard
+        ? 'UPDATE contract_accounts SET billing_email = ?, billing_contact = ?, allow_card_payment = ?, updated_at = ? WHERE id = ?'
+        : 'UPDATE contract_accounts SET billing_email = ?, billing_contact = ?, updated_at = ? WHERE id = ?'
+    ).bind(...(withCard
+      ? [email || null, contact || null, card.v, t, accountId]
+      : [email || null, contact || null, t, accountId])).run();
+
+    let r, degraded = null;
     try {
-      const r = await env.DB.prepare(
-        'UPDATE contract_accounts SET billing_email = ?, billing_contact = ?, updated_at = ? WHERE id = ?'
-      ).bind(email || null, contact || null, t, accountId).run();
-      if (!r || !r.meta || r.meta.changes !== 1) return bad('Account not found.', 404);
+      r = await write(!card.skip);
     } catch (e) {
-      return bad('Could not save the billing contact. ' + String((e && e.message) || '').slice(0, 120), 500);
+      if (card.skip) return bad('Could not save the billing contact. ' + String((e && e.message) || '').slice(0, 120), 500);
+      // migrations/0095 not applied. Save the billing contact rather than losing that too, and
+      // say the flag didn't land — a silently-ignored card toggle is how this went wrong before.
+      try { r = await write(false); degraded = 'card_payment_column_missing'; }
+      catch (e2) { return bad('Could not save the billing contact. ' + String((e2 && e2.message) || '').slice(0, 120), 500); }
     }
+    if (!r || !r.meta || r.meta.changes !== 1) return bad('Account not found.', 404);
+
+    // Before/after, in the same append-only history the terms changes use. The full address is
+    // recorded HERE on purpose: this row lives in the database that already stores billing_email.
+    // The analytics event below gets the domain only.
+    await writeTermsEvent(env, {
+      account_id: accountId, event: 'billing_changed',
+      changed_by: actorOf(ctx), changed_role: ctx.role,
+      before: {
+        billing_email: (before && before.billing_email) || null,
+        ...(card.skip ? {} : { allow_card_payment: Number(before && before.allow_card_payment) || 0 }),
+      },
+      after: {
+        billing_email: email || null,
+        ...(card.skip || degraded ? {} : { allow_card_payment: card.v }),
+      },
+      note: b.note,
+    });
 
     await capture(env, {
       event: 'contract.billing_contact_set',
       distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
-      properties: { account_id: accountId, has_email: !!email },
+      properties: {
+        account_id: accountId, has_email: !!email,
+        email_domain: emailDomain(email),
+        email_changed: ((before && before.billing_email) || null) !== (email || null),
+        ...(card.skip ? {} : { allow_card_payment: card.v }),
+      },
     });
-    return json({ ok: true, account_id: accountId, billing_email: email || null, billing_contact: contact || null });
+    return json({
+      ok: true, account_id: accountId, billing_email: email || null, billing_contact: contact || null,
+      ...(card.skip ? {} : { allow_card_payment: degraded ? Number(before && before.allow_card_payment) || 0 : card.v }),
+      ...(degraded ? { degraded } : {}),
+    });
   }
 
   if (op === 'revoke_device') {

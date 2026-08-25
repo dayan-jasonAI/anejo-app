@@ -943,8 +943,25 @@ export async function generateInvoice(env, { accountId, from, to } = {}) {
   const lineItems = { sites: [...bySite.values()], delivery: { days: deliveryDays, total_cents: delivery } };
 
   // Per-account sequential invoice number, e.g. DGP-0001.
+  //
+  // COUNT(*) was wrong: a voided invoice keeps its row, so every void burned a number. DGP received
+  // exactly two invoices and the third one they were sent read DGP-0004, which is a number a client
+  // has to reconcile against a payables system that never saw 0001 or 0002.
+  //
+  // MAX of the numeric suffix instead. Existing rows are NEVER renumbered (DGP-0004 is already in a
+  // customer's books) and a number is never reused: a gap in the sequence is a cosmetic oddity, a
+  // duplicate number is two different bills claiming to be the same document. So the sequence stays
+  // monotonic and simply steps over the voids. Rows with no number, or a number from an older
+  // format with no suffix, CAST to NULL and are ignored by MAX — the count then starts at 1, which
+  // is the same place the old code started.
   let seq = 1;
-  try { const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM contract_invoices WHERE account_id = ?').bind(accountId).first(); seq = (Number(c && c.n) || 0) + 1; } catch { /* default 1 */ }
+  try {
+    const c = await env.DB.prepare(
+      "SELECT MAX(CAST(substr(number, instr(number,'-')+1) AS INTEGER)) AS n " +
+      'FROM contract_invoices WHERE account_id = ?'
+    ).bind(accountId).first();
+    seq = (Number(c && c.n) || 0) + 1;
+  } catch { /* default 1 */ }
   const number = `${(account.name || 'INV').split(' ')[0].toUpperCase().replace(/[^A-Z0-9]/g, '')}-${String(seq).padStart(4, '0')}`;
 
   const t = now();
@@ -978,7 +995,25 @@ export async function getInvoice(env, invId) {
   const inv = await env.DB.prepare('SELECT * FROM contract_invoices WHERE id = ?').bind(invId).first().catch(() => null);
   if (!inv) return { ok: false, error: 'not_found' };
   const account = await env.DB.prepare('SELECT name, billing_email, billing_contact FROM contract_accounts WHERE id = ?').bind(inv.account_id).first().catch(() => null);
-  return { ok: true, invoice: { ...inv, line_items: parseJson(inv.line_items, { sites: [] }) }, account: account || {} };
+
+  // Every address this ACCOUNT has already been invoiced at. The send control uses it to tell a
+  // routine re-send (which keeps its one-tap confirm) from a FIRST send to an address that has
+  // never received an invoice from this account — the case where a bill goes to the wrong company.
+  // NULL, not [], when sent_to can't be read (pre-migrations/0046): "we don't know" must not read
+  // as "nobody" and put a warning in front of every routine send.
+  let knownRecipients = null;
+  try {
+    knownRecipients = (((await env.DB.prepare(
+      "SELECT DISTINCT sent_to FROM contract_invoices WHERE account_id = ? AND sent_to IS NOT NULL AND sent_to != ''"
+    ).bind(inv.account_id).all()).results) || []).map((r) => String(r.sent_to).trim().toLowerCase());
+  } catch { knownRecipients = null; }
+
+  return {
+    ok: true,
+    invoice: { ...inv, line_items: parseJson(inv.line_items, { sites: [] }) },
+    account: account || {},
+    known_recipients: knownRecipients,
+  };
 }
 
 // A real, LIVE Square payment link for a contract invoice — same hosted-checkout mechanism the
