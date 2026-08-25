@@ -95,8 +95,21 @@ test('the shell footer can be suppressed so the address appears once', async () 
 test('suppressing the footer does not damage the rest of the shell', async () => {
   const { emailShell } = await import('../../functions/_lib/email.js');
   const h = emailShell('<p>body copy</p>', { footer: false });
-  assert.match(h, /AÑEJO/, 'branding intact');
+  // Branding is the real logo lockup now, not a letter-spaced "AÑEJO" typed into a div.
+  assert.match(h, /<img[^>]+src="https:\/\/anejocateringco\.com\/assets\/img\/email_logo\.png"/, 'branding intact');
   assert.match(h, /body copy/, 'content intact');
+});
+
+test('the header logo is an ABSOLUTE https url with alt text', async () => {
+  const { emailShell } = await import('../../functions/_lib/email.js');
+  const h = emailShell('<p>hi</p>');
+  // A relative src resolves against the mail client, never the site, so it is always a broken
+  // image in the inbox. This is the one property of the logo that cannot regress.
+  const src = /<img[^>]+src="([^"]+)"/.exec(h);
+  assert.ok(src, 'the shell renders a logo image');
+  assert.match(src[1], /^https:\/\//, 'logo src must be absolute — a relative path breaks in email');
+  // Images are blocked by default in most clients; alt text is what the recipient actually reads.
+  assert.match(h, /alt="Añejo Catering Co\.[^"]*"/, 'logo carries alt text for blocked-image clients');
 });
 
 test('the campaign send resolves the postal address before using it', () => {

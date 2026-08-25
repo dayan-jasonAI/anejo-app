@@ -91,6 +91,21 @@ export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppr
   return r.json();
 }
 
+// The real logo lockup, not a typed wordmark. An invoice that reaches a client's accounts-payable
+// desk is the most formal thing this business sends, and it was arriving with the brand spelled out
+// in letter-spaced text — which is what a placeholder looks like.
+//
+// THREE THINGS THIS ASSET HAS TO BE, none of which the site's own logo_full.png is:
+//   1. ABSOLUTE URL. A relative src resolves against the mail client, not the site, so it is always
+//      broken. Nothing here may become a relative path.
+//   2. FLATTENED ONTO THE CARD CREAM, no alpha. Older Outlook composites PNG transparency against
+//      black, which would put a black slab where the logo goes.
+//   3. LIGHT BEHIND IT. The lockup's "CLEAN FUEL. BOLD FLAVOR" tagline is dark green; on the dark
+//      green band this header used to have, that line is invisible and the logo reads as clipped.
+// Generated from public/assets/img/logo_full.png at 2x the 200px display width (440x481, palette-
+// quantised to ~40KB). Re-derive it from logo_full.png if the brand mark ever changes.
+const LOGO_URL = 'https://anejocateringco.com/assets/img/email_logo.png';
+
 // Branded wrapper so every Añejo email looks consistent.
 // `opts.footer:false` suppresses the shell's own address line. Marketing email prints its own
 // footer (the unsubscribe link and the postal address must travel together with the copy), and
@@ -99,7 +114,11 @@ export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppr
 export function emailShell(innerHtml, opts) {
   return `<div style="background:#0b1f0a;padding:32px 0;font-family:Georgia,serif">
   <div style="max-width:520px;margin:0 auto;background:#fffdf7;border-radius:16px;overflow:hidden">
-    <div style="background:#163414;padding:22px 28px;color:#C8BC6E;font-size:22px;letter-spacing:3px">AÑEJO</div>
+    <div style="background:#fffdf7;padding:26px 28px 20px;text-align:center;border-bottom:2px solid #C8BC6E">
+      <a href="https://anejocateringco.com" style="text-decoration:none;border:0"><img src="${LOGO_URL}"
+        alt="Añejo Catering Co. — Clean Fuel, Bold Flavor" width="200" height="219"
+        style="display:block;margin:0 auto;width:200px;max-width:62%;height:auto;border:0;outline:none;text-decoration:none"></a>
+    </div>
     <div style="padding:28px;color:#1a1a1a;font-size:15px;line-height:1.6">${innerHtml}</div>
     ${(opts && opts.footer === false) ? '' : `<div style="padding:18px 28px;color:#8a8a8a;font-size:12px;border-top:1px solid #eee">
       Añejo Catering Co. · Palm Beach County, FL
