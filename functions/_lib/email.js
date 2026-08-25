@@ -45,8 +45,9 @@ export async function removeSuppression(env, email) {
 
 // Transactional email via Resend. Skips any address on the suppression list (bounced/complained/
 // unsubscribed) to protect sender reputation — pass { bypassSuppression:true } only for a
-// deliberate, owner-justified exception. Returns Resend's JSON on send, or {skipped,suppressed}.
-export async function sendEmail(env, { to, subject, html, text, bypassSuppression, unsubscribeUrl } = {}) {
+// deliberate, owner-justified exception. Returns Resend's JSON on send (its `id` is the message
+// receipt), or {skipped,suppressed}. `bcc` is opt-in per call — see the note on body.bcc below.
+export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppression, unsubscribeUrl } = {}) {
   if (!env.RESEND_API_KEY) throw new Error('Email not configured (missing RESEND_API_KEY).');
   const addr = normalizeEmail(to);
   if (!bypassSuppression && addr) {
@@ -55,6 +56,16 @@ export async function sendEmail(env, { to, subject, html, text, bypassSuppressio
   }
   const from = env.EMAIL_FROM || 'Añejo Catering Co. <noreply@anejocateringco.com>';
   const body = { from, to: [to], subject, html };
+  // Blind copy — OPT-IN PER CALL, never global. The owner had no copy of his own outbound
+  // customer mail: after invoice DGP-0004 was emailed on 2026-08-25 the only record of what the
+  // client actually received was in Resend. This puts that copy in his inbox for the sends that
+  // warrant it (see sendInvoiceEmail) and leaves order confirmations and magic links untouched —
+  // copying the owner on every receipt would bury the ones that matter.
+  // The key is added ONLY when a caller passes one, so an unset OWNER_BCC leaves the request body
+  // byte-identical to what it has always been. The suppression check above deliberately governs
+  // the PRIMARY recipient only: a bcc is our own address, not a customer we could damage.
+  const bccAddr = normalizeEmail(bcc);
+  if (bccAddr) body.bcc = [bccAddr];
   // A text/plain alternative when the caller has one. Bulk HTML with no text part is a documented
   // spam signal, and it is what a screen reader and a watch notification actually read.
   if (text) body.text = text;

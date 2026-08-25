@@ -29,6 +29,12 @@ inboxes. To re-create in a fresh env:
    - `RESEND_API_KEY` (Secret)
    - `EMAIL_FROM` = `Añejo Catering Co. <noreply@anejocateringco.com>` (Var)
    - `APP_BASE_URL` = `https://anejocateringco.com` (Var)
+   - `OWNER_BCC` (Var, optional) — the owner's own address. Blind-copied on **customer-facing
+     invoice sends only**, so there is a copy of what a client actually received without opening
+     Resend to find out (which is what proving the 2026-08-25 DGP-0004 send required). Leave it
+     unset and nothing changes: no bcc is added to any email. Order confirmations, receipts and
+     magic links deliberately never carry it — copying the owner on every transactional mail buries
+     the ones that matter. Set it in the Pages dashboard; never commit a value.
 
 ## 3. Square (commerce + subscriptions)
 1. Finish Square business verification + connect bank.
@@ -57,6 +63,7 @@ Only once the **DBPR catering license is in hand**: set `SQUARE_ENV=production`,
 | ANTHROPIC_API_KEY | Secret | AI calculator (already set) |
 | RESEND_API_KEY | Secret | email |
 | EMAIL_FROM / APP_BASE_URL | Var | email + link building |
+| OWNER_BCC | Var (optional) | owner's blind copy of customer-facing invoice email |
 | SQUARE_ACCESS_TOKEN / SQUARE_WEBHOOK_KEY | Secret | payments |
 | SQUARE_LOCATION_ID / SQUARE_ENV | Var | payments / go-live flip |
 | QBO_CLIENT_ID / QBO_CLIENT_SECRET | Secret | QuickBooks (see §6) |

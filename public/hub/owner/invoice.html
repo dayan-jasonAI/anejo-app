@@ -44,6 +44,16 @@
   .acts button[disabled]{opacity:.5;cursor:default}
   .acts .hint{font-size:12px;color:var(--muted);line-height:1.55}
   .acts .done{font-size:13.5px;color:var(--green);font-weight:700}
+  /* A voided invoice keeps its number and sits in the list beside live ones; on paper the status
+     word alone was the only thing separating "you owe $1,668" from "this document is cancelled". */
+  .stamp{display:inline-block;border:3px solid #b3261e;color:#b3261e;padding:3px 12px;border-radius:6px;
+         font-weight:900;letter-spacing:3px;font-size:19px;transform:rotate(-6deg);opacity:.9}
+  .stamp.paid{border-color:#1b5c37;color:#1b5c37}
+  .void .totals .grand{color:#b3261e;text-decoration:line-through;text-decoration-thickness:2px}
+  .void table tbody{opacity:.55}
+  .acts .warn{border:2px solid #b3261e;background:#fdf0ef;border-radius:10px;padding:11px 13px;margin-bottom:10px;font-size:13px;line-height:1.5}
+  .acts .warn b{color:#b3261e}
+  .acts button.danger{background:#b3261e;color:#fff}
   @media print{ body{background:#fff} .toolbar,.acts{display:none} .inv{box-shadow:none;border:none;margin:0;max-width:none} @page{margin:16mm} }
 </style>
 </head>
@@ -64,7 +74,7 @@
 
   // Send / mark-paid. Without these an invoice sits at 'open' forever — the printable page was
   // the end of the road. Both are owner-only server-side; this is just the trigger.
-  function actions(inv, a){
+  function actions(inv, a, known){
     var el=document.getElementById('acts');
     if(!el) return;
     var paid=inv.status==='paid', voided=inv.status==='void';
@@ -72,10 +82,15 @@
     // fall back to the status word rather than showing a blank "paid on ".
     var paidLine = paid ? ('✅ Paid'+(inv.paid_at?' · '+esc(fmtWhen(inv.paid_at)):'')+(inv.paid_by?' · marked by '+esc(inv.paid_by):'')+(inv.paid_ref?' · ref '+esc(inv.paid_ref):'')) : '';
     var sentLine = inv.sent_at ? ('✉️ Emailed to '+esc(inv.sent_to||'')+' · '+esc(fmtWhen(inv.sent_at))) : (inv.status==='sent' ? '✉️ Emailed' : '');
+    // Resend's message id (migrations/0096) — the delivery receipt. Without it stored, the only way
+    // to prove an invoice actually left the building was to log in to Resend and search for it,
+    // which is exactly what proving the 2026-08-25 send required.
+    var receiptLine = inv.resend_message_id ? ('Resend id '+esc(inv.resend_message_id)) : '';
     el.className='acts';
     el.innerHTML =
       '<h2>Invoice actions</h2>' +
-      (sentLine?'<div class="done" style="margin-bottom:8px">'+sentLine+'</div>':'') +
+      (sentLine?'<div class="done" style="margin-bottom:'+(receiptLine?'2px':'8px')+'">'+sentLine+'</div>':'') +
+      (receiptLine?'<div class="hint" style="margin-bottom:8px;font-size:11.5px">'+receiptLine+'</div>':'') +
       (paidLine?'<div class="done" style="margin-bottom:8px">'+paidLine+'</div>':'') +
       (voided?'<div class="hint">This invoice is void.</div>':
         '<div class="line"><input id="to" type="email" value="'+esc(a.billing_email||'')+'" placeholder="Billing email">' +
@@ -100,13 +115,42 @@
         '<div class="hint">Send emails this invoice to the billing contact and moves it to <b>sent</b>. Mark paid closes it — it stops counting as outstanding.</div>');
 
     var bs=document.getElementById('btn-send');
-    if(bs) bs.addEventListener('click', function(){
-      var to=(document.getElementById('to')||{}).value||'';
-      if(!window.confirm('Email invoice '+(inv.number||inv.id)+' to '+to+'?')) return;
+    function doSend(to){
       bs.disabled=true;
       Hub.api('/api/hub/owner/contracts',{method:'POST',body:{op:'send_invoice',account_id:inv.account_id,invoice_id:inv.id,to:to,link:location.href}})
         .then(function(r){ bs.disabled=false;
           if(r&&r.ok){ Hub.toast('Invoice emailed'); load(); } else Hub.toast((r&&r.error)||'Could not send'); });
+    }
+    // FIRST CONTACT ONLY. A routine re-send keeps the one-tap confirm it has always had: the
+    // 2026-08-25 send named its recipient and the owner confirmed it correctly, and friction on
+    // every send is friction nobody reads by the third time. This escalates for an address this
+    // ACCOUNT has never been invoiced at — the case where a bill reaches the wrong company. When
+    // known_recipients is null the schema can't answer, and "unknown" must not become a warning.
+    function isFirstContact(to){
+      if(!Array.isArray(known)) return false;
+      return known.indexOf(String(to).trim().toLowerCase())===-1;
+    }
+    if(bs) bs.addEventListener('click', function(){
+      var to=((document.getElementById('to')||{}).value||'').trim();
+      if(!to) { Hub.toast('Add a billing email first'); return; }
+      if(isFirstContact(to)){
+        var warn=document.getElementById('first-contact');
+        if(warn){ warn.scrollIntoView({block:'nearest'}); return; }
+        warn=document.createElement('div');
+        warn.className='warn'; warn.id='first-contact';
+        warn.innerHTML='<b>⚠️ This account has never been invoiced at '+esc(to)+'.</b><br>'+
+          'Invoice '+esc(inv.number||inv.id)+' is '+Hub.money(inv.total_cents)+'. Check the address against the account before it goes out — '+
+          'a bill sent to the wrong company is not something an email can take back.'+
+          '<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'+
+            '<button class="danger" id="btn-send-anyway">Send to '+esc(to)+'</button>'+
+            '<button class="send" id="btn-send-cancel">Cancel</button></div>';
+        el.insertBefore(warn, el.firstChild.nextSibling);
+        document.getElementById('btn-send-anyway').addEventListener('click', function(){ warn.remove(); doSend(to); });
+        document.getElementById('btn-send-cancel').addEventListener('click', function(){ warn.remove(); });
+        return;
+      }
+      if(!window.confirm('Email invoice '+(inv.number||inv.id)+' to '+to+'?')) return;
+      doSend(to);
     });
     var bpl=document.getElementById('btn-paylink');
     if(bpl) bpl.addEventListener('click', function(){
@@ -176,22 +220,26 @@
         dDays.map(function(x){ return '<tr class="day"><td>'+fmtDate(x.date)+'</td><td></td><td></td><td>'+money(x.cents)+'</td></tr>'; }).join('') +
         '<tr class="sitesub"><td>Delivery subtotal — '+dDays.length+' day'+(dDays.length===1?'':'s')+'</td><td></td><td></td><td>'+money(li.delivery.total_cents)+'</td></tr>';
     }
-    root.className=''; root.innerHTML=
+    root.className=(inv.status==='void'?'void':''); root.innerHTML=
       '<div class="inv">'+
         '<div class="top"><div class="brand">AÑEJO<small>Añejo Catering Co. LLC · anejocateringco.com</small></div>'+
           '<div class="it"><h1>INVOICE</h1><div class="num">'+esc(inv.number||'')+'</div><div class="num" style="font-weight:400;color:var(--muted)">'+esc(inv.period_from||'')+' – '+esc(inv.period_to||'')+'</div></div></div>'+
         '<div class="parties"><div><div class="lab">Bill to</div><b>'+esc(a.name||'')+'</b>'+(a.billing_contact?'<br>'+esc(a.billing_contact):'')+(a.billing_email?'<br>'+esc(a.billing_email):'')+'</div>'+
-          '<div style="text-align:right"><div class="lab">Status</div><b>'+esc((inv.status||'open').toUpperCase())+'</b></div></div>'+
+          '<div style="text-align:right"><div class="lab">Status</div>'+
+            (inv.status==='void' ? '<span class="stamp">VOID</span>'
+              : (inv.status==='paid' ? '<span class="stamp paid">PAID</span>'
+                : '<b>'+esc((inv.status||'open').toUpperCase())+'</b>'))+'</div></div>'+
         '<table><thead><tr><th>Date / item</th><th>Lunches</th><th>Price</th><th>Amount</th></tr></thead><tbody>'+rows+'</tbody></table>'+
         '<div class="totals">'+
           '<div class="r"><span>Lunches ('+inv.lunches+')</span><span>'+money(inv.subtotal_cents)+'</span></div>'+
           '<div class="r"><span>Delivery</span><span>'+money(inv.delivery_cents)+'</span></div>'+
           (inv.rush_cents?'<div class="r"><span>Rush fees</span><span>'+money(inv.rush_cents)+'</span></div>':'')+
-          '<div class="r grand"><span>Total due</span><span>'+money(inv.total_cents)+'</span></div>'+
+          // A void invoice is a cancelled document, not a bill. It said "Total due $1,668" on paper.
+          '<div class="r grand"><span>'+(inv.status==='void'?'Void — nothing due':(inv.status==='paid'?'Paid in full':'Total due'))+'</span><span>'+money(inv.total_cents)+'</span></div>'+
         '</div>'+
         '<div class="foot">Thank you for your business. Please remit to Añejo Catering Co. LLC. Questions about this invoice? Reply to the email it was sent with.</div>'+
       '</div>';
-    actions(inv, a||{});
+    actions(inv, a||{}, d.known_recipients);
   }).catch(function(){ document.getElementById('root').innerHTML='Could not load.'; });
   }
   load();

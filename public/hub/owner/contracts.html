@@ -496,14 +496,31 @@
           '<input id="bc_' + aid + '" type="text" autocomplete="off" placeholder="Name (optional)" value="' + esc(acc.billing_contact || '') + '"' +
           ' style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px"></div>' +
       '</div>' +
+      // CARD CHECKOUT IS OPT-IN (migrations/0095). Every invoice email used to carry a Square
+      // "Pay now" button with no way to turn it off, including for accounts on a signed
+      // direct-deposit agreement — which is how DGP-0004 went out on 2026-08-25. Unticked by
+      // default, and the label says what ticking it actually does to the client's email rather
+      // than naming a column.
+      '<label style="display:flex;gap:8px;align-items:flex-start;margin-top:11px;font-size:12.5px;line-height:1.45;cursor:pointer">' +
+        '<input type="checkbox" id="card_' + aid + '"' + (acc.allow_card_payment ? ' checked' : '') + ' style="margin-top:2px;flex:0 0 auto">' +
+        '<span>Show this client a <b>“Pay now” card button</b> in their invoice emails' +
+          '<span class="row-sub" style="display:block">Off by default. Card costs ~2.7% and offers a rail a direct-deposit vendor agreement doesn’t include — tick it only for an account that asked to pay by card.</span>' +
+        '</span></label>' +
       '<button class="btn block" style="margin-top:10px" onclick="__setBilling(\'' + aid + '\')">Save billing contact</button></div>';
   }
   window.__setBilling = function (aid) {
     var email = ((document.getElementById('be_' + aid) || {}).value || '').trim();
     var name = ((document.getElementById('bc_' + aid) || {}).value || '').trim();
-    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'set_billing', account_id: aid, billing_email: email, billing_contact: name } })
+    var card = !!(document.getElementById('card_' + aid) || {}).checked;
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'set_billing', account_id: aid, billing_email: email, billing_contact: name, allow_card_payment: card ? 1 : 0 } })
       .then(function (r) {
-        if (r && r.ok) { Hub.toast(email ? 'Invoices will go to ' + email : 'Billing contact cleared'); render(); }
+        if (r && r.ok) {
+          // Say what changed about the CLIENT'S experience, not that a save happened.
+          Hub.toast(r.degraded === 'card_payment_column_missing'
+            ? 'Saved — but the card setting needs migration 0095'
+            : (email ? 'Invoices will go to ' + email + (card ? ' · card button ON' : '') : 'Billing contact cleared'));
+          render();
+        }
         else Hub.toast((r && r.error) || 'Could not save');
       });
   };
@@ -520,10 +537,17 @@
         // release the days so the owner can re-generate the right range. Refused server-side once
         // status is 'paid' (see voidInvoice in contracts.js) — the button just never appears there.
         var canVoid = v.status !== 'paid' && v.status !== 'void';
-        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px">' +
+        // A VOIDED invoice keeps its number and sits in this list next to the live ones. The only
+        // thing separating "$1,668 outstanding" from "cancelled document" was the status word at
+        // the end of the second line. Disarm it visually: a chip up front, and the amount struck
+        // through, so a glance down the column can't read a void row as money owed.
+        var isVoid = v.status === 'void';
+        var chip = isVoid ? '<span style="display:inline-block;background:#fdf0ef;color:#b3261e;border:1px solid #b3261e;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:.8px;padding:1px 5px;margin-right:5px;vertical-align:1px">VOID</span>' : '';
+        var strike = isVoid ? 'text-decoration:line-through;' : '';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px' + (isVoid ? ';opacity:.72' : '') + '">' +
           '<a href="/hub/owner/invoice.html?id=' + esc(v.id) + '" style="flex:1;min-width:0;text-decoration:none;color:var(--ink)">' +
-          '🧾 ' + esc(v.number || v.id) + ' <span class="row-sub" style="font-weight:400">' + esc(v.period_from || '') + '–' + esc(v.period_to || '') + '</span><br>' +
-          '<span class="row-sub">' + money(v.total_cents) + ' · ' + (v.status === 'paid' ? '✅ ' : (v.status === 'sent' ? '✉️ ' : (v.status === 'void' ? '🚫 ' : ''))) + esc(v.status || '') + esc(when) + '</span></a>' +
+          chip + '🧾 <span style="' + strike + '">' + esc(v.number || v.id) + '</span> <span class="row-sub" style="font-weight:400">' + esc(v.period_from || '') + '–' + esc(v.period_to || '') + '</span><br>' +
+          '<span class="row-sub"><span style="' + strike + '">' + money(v.total_cents) + '</span> · ' + (v.status === 'paid' ? '✅ ' : (v.status === 'sent' ? '✉️ ' : (isVoid ? '🚫 ' : ''))) + esc(v.status || '') + esc(when) + '</span></a>' +
           (canVoid ? '<button class="btn ghost" type="button" style="flex:0 0 auto" onclick="__voidInvoice(\'' + esc(aid) + '\',\'' + esc(v.id) + '\')">Void</button>' : '') +
           '</div>';
       }).join('') + '</div>';
@@ -555,7 +579,11 @@
 
   // Terms history — who changed the rate, when, and from what. Renders nothing until
   // migrations/0046 (contract_terms_events) is applied, so the desk looks the same as before.
-  var TERM_LABEL = { price_per_lunch_cents: '$/lunch', delivery_fee_cents: 'delivery', rush_fee_cents: 'rush', cutoff_time: 'cut-off' };
+  var TERM_LABEL = { price_per_lunch_cents: '$/lunch', delivery_fee_cents: 'delivery', rush_fee_cents: 'rush', cutoff_time: 'cut-off',
+    billing_email: 'invoices to', allow_card_payment: 'card button' };
+  // Only these three are cents. The formatter used to treat EVERY audited field as money, so the
+  // billing-contact history would have rendered a client's email address as "$0.00".
+  var MONEY_KEYS = { price_per_lunch_cents: 1, delivery_fee_cents: 1, rush_fee_cents: 1 };
   function termsHistory(evts, sites) {
     if (!evts || !evts.length) return '';
     var names = {}; (sites || []).forEach(function (s) { names[s.id] = s.name; });
@@ -564,7 +592,11 @@
       try { before = JSON.parse(e.before_json || '{}') || {}; } catch (x) {}
       try { after = JSON.parse(e.after_json || '{}') || {}; } catch (x) {}
       var diffs = Object.keys(after).map(function (k) {
-        var fmt = function (v) { return k === 'cutoff_time' ? (v || '—') : ('$' + ((Number(v) || 0) / 100).toFixed(2)); };
+        var fmt = function (v) {
+          if (MONEY_KEYS[k]) return '$' + ((Number(v) || 0) / 100).toFixed(2);
+          if (k === 'allow_card_payment') return Number(v) ? 'on' : 'off';
+          return v === null || v === undefined || v === '' ? '—' : String(v);
+        };
         var was = before[k];
         return (TERM_LABEL[k] || k) + ' ' + (was === undefined || was === null ? '' : fmt(was) + ' → ') + fmt(after[k]);
       }).join(' · ');
