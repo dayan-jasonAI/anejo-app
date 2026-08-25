@@ -1,5 +1,9 @@
 // Abandoned-checkout sweep.
 //
+// emailShell is a pure string function with no credentials and no side effects at import, so it
+// does not compromise the senders-as-arguments rule documented on sendRecovery below.
+import { emailShell } from './email.js';
+//
 // checkout.js writes the orders row BEFORE the customer pays — it has to, because the row is what
 // holds same-day production capacity while they are on Square's hosted page. When someone opens
 // checkout and walks away, that row stays `pending` forever, sitting in the order list looking
@@ -193,7 +197,12 @@ export async function recoverAbandoned(env, {
         const r = await send.email({
           to: email,
           subject: RECOVERY_EMAIL_SUBJECT,
-          html: recoveryEmailBody(name, link),
+          // Shelled like every other Añejo email. This was the one customer-facing message that
+          // went out as bare <p> tags — no header, no emblem, no footer — which reads as a
+          // phishing attempt on the one message whose entire job is to be trusted enough to
+          // re-open a checkout. recoveryEmailBody stays the BODY (its test asserts on the copy);
+          // the shell is applied here, where the email is assembled.
+          html: emailShell(recoveryEmailBody(name, link)),
           unsubscribeUrl: unsub,
         });
         // sendEmail returns { skipped:true } for a suppressed address — that is not a send.

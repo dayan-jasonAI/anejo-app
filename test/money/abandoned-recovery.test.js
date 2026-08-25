@@ -171,6 +171,19 @@ test('THE OPT-OUT IS REAL: one-click on the email, STOP on the text', async () =
     'the same RFC 8058 route campaigns use, not a bespoke dead link');
 });
 
+test('the recovery email is BRANDED — it goes out in the Añejo shell', async () => {
+  // This was the one customer-facing email that shipped as bare <p> tags: no header band, no
+  // emblem, no footer. The message whose entire job is to be trusted enough to re-open a
+  // checkout was the one that looked least like it came from Añejo.
+  const h = harness({ rows: [{ ...ROW, sms_consent: 0 }] });
+  await recoverAbandoned({ DB: h.DB }, { nowMs: NOW, baseUrl: BASE, send: h.send });
+  const html = h.email[0].html;
+  assert.match(html, /email_emblem\.png/, 'carries the gold emblem like every other Añejo email');
+  assert.match(html, />AÑEJO</, 'and the wordmark beside it');
+  assert.match(html, /Palm Beach County/, 'and the shell footer');
+  assert.match(html, /nothing was charged|<strong>nothing<\/strong> was charged/i, 'body copy survives the wrap');
+});
+
 test('the copy is a nudge, not a sales pitch', () => {
   const sms = RECOVERY_SMS('Marisol', `${BASE}/order`);
   const html = recoveryEmailBody('Marisol', `${BASE}/order`);

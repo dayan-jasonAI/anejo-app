@@ -91,20 +91,25 @@ export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppr
   return r.json();
 }
 
-// The real logo lockup, not a typed wordmark. An invoice that reaches a client's accounts-payable
-// desk is the most formal thing this business sends, and it was arriving with the brand spelled out
-// in letter-spaced text — which is what a placeholder looks like.
+// The gold emblem beside the wordmark, on the dark green band.
 //
-// THREE THINGS THIS ASSET HAS TO BE, none of which the site's own logo_full.png is:
-//   1. ABSOLUTE URL. A relative src resolves against the mail client, not the site, so it is always
-//      broken. Nothing here may become a relative path.
-//   2. FLATTENED ONTO THE CARD CREAM, no alpha. Older Outlook composites PNG transparency against
-//      black, which would put a black slab where the logo goes.
-//   3. LIGHT BEHIND IT. The lockup's "CLEAN FUEL. BOLD FLAVOR" tagline is dark green; on the dark
-//      green band this header used to have, that line is invisible and the logo reads as clipped.
-// Generated from public/assets/img/logo_full.png at 2x the 200px display width (440x481, palette-
-// quantised to ~40KB). Re-derive it from logo_full.png if the brand mark ever changes.
-const LOGO_URL = 'https://anejocateringco.com/assets/img/email_logo.png';
+// THE WORDMARK STAYS LIVE TEXT ON PURPOSE. Dropping in a single image of the whole lockup was
+// tried and reverted: the header then depends entirely on the image loading, and the first test
+// send proved why — Gmail rendered an empty white band where the logo should have been. Gold
+// "AÑEJO" as real text always renders; the emblem is decoration layered on top of something that
+// already works. That is also why its alt is empty — with the word right there in text, an alt
+// string would just print the brand twice in an images-off client.
+//
+// TWO RULES FOR THE ASSET:
+//   1. ABSOLUTE URL. A relative src resolves against the mail client, not the site, so it is
+//      always a broken image in an inbox.
+//   2. FLATTENED ONTO THE HEADER GREEN, no alpha. Older Outlook composites PNG transparency
+//      against black, which would ring the gold mark in a black box on the green band. This is
+//      why the asset is derived rather than pointing straight at emblem.png.
+// Generated from public/assets/img/emblem.png at 2x the 38px display height (80x76, ~10KB).
+// Re-derive it if the mark changes, and keep the background matched to HEADER_BG.
+const HEADER_BG = '#163414';
+const EMBLEM_URL = 'https://anejocateringco.com/assets/img/email_emblem.png';
 
 // Branded wrapper so every Añejo email looks consistent.
 // `opts.footer:false` suppresses the shell's own address line. Marketing email prints its own
@@ -114,10 +119,12 @@ const LOGO_URL = 'https://anejocateringco.com/assets/img/email_logo.png';
 export function emailShell(innerHtml, opts) {
   return `<div style="background:#0b1f0a;padding:32px 0;font-family:Georgia,serif">
   <div style="max-width:520px;margin:0 auto;background:#fffdf7;border-radius:16px;overflow:hidden">
-    <div style="background:#fffdf7;padding:26px 28px 20px;text-align:center;border-bottom:2px solid #C8BC6E">
-      <a href="https://anejocateringco.com" style="text-decoration:none;border:0"><img src="${LOGO_URL}"
-        alt="Añejo Catering Co. — Clean Fuel, Bold Flavor" width="200" height="219"
-        style="display:block;margin:0 auto;width:200px;max-width:62%;height:auto;border:0;outline:none;text-decoration:none"></a>
+    <div style="background:${HEADER_BG};padding:16px 28px">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tr>
+        <td style="vertical-align:middle;padding-right:13px;line-height:0"><img src="${EMBLEM_URL}"
+          alt="" width="40" height="38" style="display:block;border:0;outline:none"></td>
+        <td style="vertical-align:middle;color:#C8BC6E;font-family:Georgia,serif;font-size:22px;letter-spacing:3px">AÑEJO</td>
+      </tr></table>
     </div>
     <div style="padding:28px;color:#1a1a1a;font-size:15px;line-height:1.6">${innerHtml}</div>
     ${(opts && opts.footer === false) ? '' : `<div style="padding:18px 28px;color:#8a8a8a;font-size:12px;border-top:1px solid #eee">
