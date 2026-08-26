@@ -932,7 +932,14 @@ export async function generateInvoice(env, { accountId, from, to } = {}) {
     if (!bySite.has(key)) bySite.set(key, { name: siteNames[key] || key, lunches: 0, subtotal_cents: 0, rush_cents: 0, days: [] });
     const g = bySite.get(key);
     g.lunches += Number(r.headcount) || 0; g.subtotal_cents += sub; g.rush_cents += rushFee;
-    g.days.push({ date: r.service_date, count: r.headcount, price_cents: r.price_per_lunch_cents, total_cents: r.total_cents, rush: !!r.is_rush });
+    // LUNCHES + RUSH, NEVER DELIVERY. The order row's own total_cents includes that day's delivery
+    // fee, and printing it here put delivery in a column whose subtotal excludes it: DGP-0004's
+    // Delray rows added to $744 under a subtotal that read $624, and because delivery is rolled up
+    // once per DATE (one van, one trip) while every site's row carries it, the day column showed
+    // $240 of delivery for a trip billed at $120 — which the Delivery block then charged again.
+    // The invoice TOTAL was always right; only the itemisation a client reads was not. This is the
+    // figure the site subtotal line is actually built from (subtotal_cents + rush_cents).
+    g.days.push({ date: r.service_date, count: r.headcount, price_cents: r.price_per_lunch_cents, total_cents: sub + rushFee, rush: !!r.is_rush });
 
     const fee = Number(r.delivery_fee_cents) || 0;
     if (!byDate.has(r.service_date) || fee > byDate.get(r.service_date)) byDate.set(r.service_date, fee);

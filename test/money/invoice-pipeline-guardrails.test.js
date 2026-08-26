@@ -529,3 +529,61 @@ test('autopay never charges a voided invoice', () => {
   assert.ok(/status IN \('open','sent'\)/.test(AUTOPAY));
   assert.ok(/status IN \('open','sent'\)/.test(TICK));
 });
+
+// A CLIENT MUST BE ABLE TO ADD THE COLUMN THEY WERE GIVEN.
+//
+// The per-day figure used to be the ORDER row's total_cents, which carries that day's delivery
+// fee, while the site subtotal line beneath it is built from lunches + rush. On DGP-0004 the
+// Delray rows printed to $744 under a subtotal that read $624. Worse: delivery is rolled up ONCE
+// PER DATE (one van, one trip) but every site's row carried it, so a two-site day showed $40 of
+// delivery for a $20 trip — and the Delivery block then charged the correct amount again below.
+// The invoice TOTAL was always right; the itemisation was not, and that is what gets an invoice
+// queried by an accounts-payable desk.
+test('the printed day rows reconcile with the subtotal printed beneath them', async () => {
+  // Two sites ordering on the SAME day — the shape that made the old bug worst.
+  const ORDERS = [
+    { id: 'a', site_id: 's1', service_date: '2026-08-10', headcount: 21, price_per_lunch_cents: 600, rush_fee_cents: 0, delivery_fee_cents: 2000, total_cents: 14600, is_rush: 1 },
+    { id: 'b', site_id: 's2', service_date: '2026-08-10', headcount: 25, price_per_lunch_cents: 600, rush_fee_cents: 0, delivery_fee_cents: 2000, total_cents: 17000, is_rush: 1 },
+    { id: 'c', site_id: 's1', service_date: '2026-08-11', headcount: 17, price_per_lunch_cents: 600, rush_fee_cents: 500, delivery_fee_cents: 2000, total_cents: 12700, is_rush: 1 },
+  ];
+  let written = null;
+  const env = {
+    DB: {
+      prepare(q) {
+        const stmt = () => ({
+          async first() {
+            if (q.includes('FROM contract_accounts')) return { id: 'acct', name: 'DGP Health', status: 'active' };
+            if (q.includes('MAX(CAST(substr(number')) return { n: 0 };
+            throw new Error('Unrouted first(): ' + q);
+          },
+          async all() {
+            if (q.includes('FROM contract_orders')) return { results: ORDERS };
+            if (q.includes('FROM contract_sites')) return { results: [{ id: 's1', name: 'Delray' }, { id: 's2', name: 'Pompano' }] };
+            throw new Error('Unrouted all(): ' + q);
+          },
+          async run() { return { meta: { changes: 1 } }; },
+        });
+        return { bind: (...b) => { if (q.startsWith('INSERT INTO contract_invoices')) written = b; return stmt(); }, ...stmt() };
+      },
+    },
+  };
+
+  const r = await generateInvoice(env, { accountId: 'acct' });
+  assert.equal(r.ok, true, JSON.stringify(r));
+
+  const li = JSON.parse(written[10]);   // line_items column
+  for (const s of li.sites) {
+    const rowSum = s.days.reduce((a, d) => a + d.total_cents, 0);
+    assert.equal(rowSum, s.subtotal_cents + s.rush_cents,
+      `${s.name}: the day rows a client adds up must equal the subtotal printed under them`);
+  }
+
+  // Delivery is billed once per DATE, and appears ONLY in its own block — never inside a day row.
+  assert.equal(li.delivery.days.length, 2, 'two distinct service dates, not three site-days');
+  assert.equal(li.delivery.total_cents, 4000, 'one $20 trip per date, not one per site per date');
+
+  // And the money itself is untouched: this was always a display defect.
+  const lunches = 21 * 600 + 25 * 600 + 17 * 600;
+  assert.equal(r.subtotal_cents, lunches);
+  assert.equal(r.total_cents, lunches + 4000 + 500, 'lunches + one-per-date delivery + rush');
+});
