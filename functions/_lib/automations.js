@@ -197,7 +197,7 @@ import { auditDraft } from './governance.js';
 import { TRUST_CATEGORIES, captionHash, autoPublishCategories } from './trust_ledger.js';
 import { ensureFoodPhoto } from './food_photo.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan'];
 
 // Char cap on the brand brief injected into the planner's prompt — same ceiling the Team Lead

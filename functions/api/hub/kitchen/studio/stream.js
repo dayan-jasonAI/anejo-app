@@ -11,7 +11,7 @@ import { getMedia, contentTypeForKey } from '../../../../_lib/media.js';
 import { generatePlateImage } from '../../../../_lib/plate_image.js';
 import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 const IMG_SENTINEL = '⟦IMG⟧';   // model puts image requests after this; the app renders them, chef never sees it
 const MAX_GEN_IMAGES = 6;
 const ASSIST_TYPES = ['guidance', 'research', 'substitution', 'scaling', 'critique'];

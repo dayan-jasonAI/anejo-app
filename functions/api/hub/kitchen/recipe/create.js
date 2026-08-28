@@ -11,7 +11,7 @@ import { id, now, toJson, parseJson } from '../../../../_lib/hub.js';
 import { buildBrandContext } from '../../../../_lib/studio_context.js';
 import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 
 // Returns { draft } on success, or { error: <reason> } so the caller can explain WHY it fell back
 // (instead of silently serving a demo placeholder the chef might publish). Never throws.

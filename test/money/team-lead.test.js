@@ -330,7 +330,7 @@ test('no API key means an honest refusal, not a fake reply', async () => {
 test('the frontier id is env.TEAM_LEAD_MODEL with a default, and model_not_found falls back to Sonnet', async () => {
   assert.equal(leadModel({}), 'claude-opus-4-6');
   assert.equal(leadModel({ TEAM_LEAD_MODEL: 'claude-x' }), 'claude-x');
-  assert.equal(FALLBACK_MODEL, 'claude-sonnet-4-6');
+  assert.equal(FALLBACK_MODEL, 'claude-sonnet-5');
 
   const { db, inserts } = SPINE_DB();
   const f = stubFetch((n) => (n === 1 ? modelNotFound() : claudeSays('Fallback thinking.')));
@@ -339,10 +339,10 @@ test('the frontier id is env.TEAM_LEAD_MODEL with a default, and model_not_found
     assert.equal(r.ok, true);
     assert.equal(f.calls.length, 2, 'exactly one retry');
     assert.equal(JSON.parse(f.calls[0].init.body).model, 'claude-opus-4-6');
-    assert.equal(JSON.parse(f.calls[1].init.body).model, 'claude-sonnet-4-6');
-    assert.equal(r.model, 'claude-sonnet-4-6', 'the ANSWERING model is reported');
+    assert.equal(JSON.parse(f.calls[1].init.body).model, 'claude-sonnet-5');
+    assert.equal(r.model, 'claude-sonnet-5', 'the ANSWERING model is reported');
     const spendRow = inserts.find((i) => /INSERT INTO ai_spend/.test(i.sql));
-    assert.equal(spendRow.args[4], 'claude-sonnet-4-6', 'spend is priced on the model that answered');
+    assert.equal(spendRow.args[4], 'claude-sonnet-5', 'spend is priced on the model that answered');
   } finally { f.restore(); }
 });
 

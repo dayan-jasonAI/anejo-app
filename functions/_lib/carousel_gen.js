@@ -38,7 +38,7 @@ import { budgetGate, recordSpend } from './ai_budget.js';
 import { dishPromptFor, ORIGIN_AI } from './food_photo.js';
 import { CAROUSEL_MAX } from './instagram.js';
 
-const PLAN_MODEL = 'claude-sonnet-4-6';
+const PLAN_MODEL = 'claude-sonnet-5';
 
 // Balanced-brace JSON scan (mirrors image_prompt.js — a _lib file must not import a routed api/ file).
 function extractJson(text) {

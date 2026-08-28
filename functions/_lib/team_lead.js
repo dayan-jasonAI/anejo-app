@@ -31,7 +31,7 @@ import { buildRetrospective, renderRetrospective } from './retrospective.js';
 // initiated, and its output steers every cheaper call downstream. But a model id in an env var
 // is a fact about the future ("model_not_found" the week a name rotates), so the caller must
 // survive it — see the fallback in leadReply.
-export const FALLBACK_MODEL = 'claude-sonnet-4-6';
+export const FALLBACK_MODEL = 'claude-sonnet-5';
 export const leadModel = (env) => (env && env.TEAM_LEAD_MODEL) || 'claude-opus-4-6';
 
 // The only verbs the Lead may emit. An executor keyed off this list — rather than off "whatever

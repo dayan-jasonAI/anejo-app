@@ -12,7 +12,7 @@ import { generatePlateImage } from '../../../../_lib/plate_image.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../../../../_lib/bowlspec.js';
 import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 // Image generation (model + plating style) lives in _lib/plate_image.js since 59909ea.
 
 // Pull the first balanced {...} JSON object out of a model reply (tolerates ```json fences / prose).

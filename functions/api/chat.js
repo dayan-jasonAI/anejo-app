@@ -13,7 +13,7 @@ import { loadMenu } from '../_lib/menu.js';
 import { anaSystemPrompt, anaBrand, detectCommercialIntent } from '../_lib/ana_social.js';
 import { insertLead } from '../_lib/leads.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 
 // Best-fit onto the existing leads.kind enum, mirroring _lib/social_leads.js so a web-chat lead
 // lands in the SAME owner filter chips as an Instagram one instead of inventing a taxonomy.

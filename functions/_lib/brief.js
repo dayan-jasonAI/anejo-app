@@ -7,7 +7,7 @@ import { id, now, parseJson } from './hub.js';
 import { buildBrandContext } from './studio_context.js';
 import { budgetGate, recordSpend } from './ai_budget.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 export const BRAND_DOC_ID = 'doc_brand_main';
 const MAX_BODY = 60000;
 const AI_TIMEOUT_MS = 25000;

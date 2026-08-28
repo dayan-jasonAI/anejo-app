@@ -11,7 +11,7 @@ import { capture } from '../../../../_lib/track.js';
 import { id, now, today, toJson, etDayBounds, etDateOf, addEtDays } from '../../../../_lib/hub.js';
 import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 
 // Pull a compact picture of the driver's day to feed the draft (and the structured field).
 async function gatherDay(env, staffId, date) {

@@ -11,7 +11,7 @@ import { buildStudioSystem } from '../../../../_lib/studio_context.js';
 import { getMedia, contentTypeForKey } from '../../../../_lib/media.js';
 import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 const ASSIST_TYPES = ['guidance', 'research', 'substitution', 'scaling', 'critique'];
 const MAX_VISION = 2;                       // most-recent session photos sent to the model per turn
 const VISION_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];

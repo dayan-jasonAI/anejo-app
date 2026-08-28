@@ -86,6 +86,11 @@ test('pricing: dated model ids resolve by prefix, unknown models are priced HIGH
   // from sonnet's $3 to opus's $15 per input MTok, which is the point: MORE conservative.
   assert.equal(priceFor('claude-mystery-9', { in: 1_000_000, out: 0 }), 15_000_000);
   assert.equal(priceFor('claude-sonnet-4-6', { in: 0, out: 1_000_000 }), 15_000_000);
+  // The CURRENT workhorse must have its own row. Without it Sonnet 5 would fall through to the
+  // unknown-model branch and price at opus rates — a 7.5x OVERCOUNT that would throttle the
+  // $50/week ceiling long before the money was actually spent.
+  assert.equal(priceFor('claude-sonnet-5', { in: 0, out: 1_000_000 }), 10_000_000);
+  assert.equal(priceFor('claude-sonnet-5', { in: 1_000_000, out: 0 }), 2_000_000);
 });
 
 test('ISO weeks own the year boundary — Jan 1 must not start a fresh budget mid-week', () => {

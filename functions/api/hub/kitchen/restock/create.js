@@ -8,7 +8,7 @@ import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { id, now, bit } from '../../../../_lib/hub.js';
 import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 
 // A small static pantry baseline used both for demo suggestions and as the AI prompt seed.
 const PANTRY = [

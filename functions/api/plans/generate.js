@@ -6,7 +6,7 @@ import { budgetGate, recordSpend } from '../../_lib/ai_budget.js';
 import { computeSizing, RECOMMENDED_BOWL_COUNT } from '../../_lib/sizing.js';
 import { SITE_BOWLS, SITE_BOWL_NAMES } from '../../_lib/bowlspec.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 
 // Conditions excluded from AI plan generation in V1. Any of these → refuse + recommend RD/MD review.
 const EXCLUDED_CONDITIONS = new Set([

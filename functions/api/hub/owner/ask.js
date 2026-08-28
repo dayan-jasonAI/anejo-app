@@ -20,7 +20,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { budgetGate, recordSpend } from '../../../_lib/ai_budget.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 const MAX_Q = 400;
 
 // Today in ET — the business day everyone in the kitchen is talking about, not UTC.

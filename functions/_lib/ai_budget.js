@@ -17,7 +17,8 @@ export const WEEKLY_LIMIT_MICRO = 50_000_000;
 // rise we have not copied in lets real spend sail past the $50 ceiling unnoticed — review
 // this table quarterly.
 const PRICES = {
-  'claude-sonnet-4-6': { in: 3, out: 15 },
+  'claude-sonnet-5': { in: 2, out: 10 },     // current workhorse (2026-08-28): newer AND cheaper than 4-6
+  'claude-sonnet-4-6': { in: 3, out: 15 },   // retired id — kept so historical spend rows still price
   'claude-sonnet-4-5': { in: 3, out: 15 },   // retired id — kept so historical spend rows still price
   'claude-haiku-4-5': { in: 1, out: 5 },
   // The Team Lead's frontier tier. Without a row here an opus call priced at the sonnet rate —

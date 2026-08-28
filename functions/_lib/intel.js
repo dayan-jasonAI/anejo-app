@@ -12,7 +12,7 @@ import { id, now, today, toJson } from './hub.js';
 import { budgetGate, recordSpend, isoWeekOf } from './ai_budget.js';
 import { BRAND_CONTEXT } from './brand_context.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 
 // Anthropic's server-side web search tool, capped at 5 searches per run: at $10/1,000 that
 // bounds one brief's search bill to 5¢, and five queries is plenty for a focused question.

@@ -15,7 +15,7 @@
 
 import { budgetGate, recordSpend } from './ai_budget.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 
 // Claude's PDF support has a page ceiling per request, and a bulletin is a few pages while a full
 // manual is not. Callers split large documents; this guards the single-request case.

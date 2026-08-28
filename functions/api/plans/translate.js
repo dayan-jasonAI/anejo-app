@@ -6,7 +6,7 @@ import { json, bad } from '../../_lib/util.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
 import { budgetGate, recordSpend } from '../../_lib/ai_budget.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 
 // Canonical legal disclaimer per language — must match functions/api/plans/generate.js.
 const DISCLAIMER = {

@@ -10,7 +10,7 @@ import { capture } from '../../../../_lib/track.js';
 import { id, now, today, toJson, bit } from '../../../../_lib/hub.js';
 import { budgetGate, recordSpend } from '../../../../_lib/ai_budget.js';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-sonnet-5';
 
 async function gatherStats(env, day, _staffId) {
   const since = new Date(`${day}T00:00:00`).getTime();
