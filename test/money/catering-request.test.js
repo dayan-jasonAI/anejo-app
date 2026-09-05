@@ -20,6 +20,7 @@ const valid = {
   company: 'Reyes Studio', menu_options: ['Añejo Fit Menu', 'Cuban Food', 'Individual Cajitas'],
   event_date: '2026-10-18', event_time: '12:30', guests: 60,
   event_type: 'Office or team meal', location: 'West Palm Beach 33401',
+  event_theme: 'First birthday', theme_colors: 'Pink and gold with custom guest tags',
   dietary_needs: 'Two vegetarian meals; one nut allergy',
   event_details: 'Individually packed. Please include serving utensils.',
 };
@@ -72,6 +73,8 @@ test('the public form stores one complete catering request in the shared Hub lea
   assert.match(args[7], /Event date: 2026-10-18/);
   assert.match(args[7], /Guest count: 60/);
   assert.match(args[7], /Location: West Palm Beach 33401/);
+  assert.match(args[7], /Event theme \/ occasion: First birthday/);
+  assert.match(args[7], /Colors \/ special touches: Pink and gold/);
   assert.match(args[7], /Two vegetarian meals; one nut allergy/);
   assert.match(args[7], /Individually packed/);
   assert.doesNotMatch(args[7], /\$\d/, 'a request must not fabricate a catering price');
@@ -101,6 +104,8 @@ test('a catering submission sends the full brief to the configured Añejo inbox'
   assert.match(calls[0].body.subject, /catering quote request.*60 guests/i);
   assert.match(calls[0].body.html, /West Palm Beach 33401/);
   assert.match(calls[0].body.html, /Individual Cajitas/);
+  assert.match(calls[0].body.html, /First birthday/);
+  assert.match(calls[0].body.html, /Pink and gold/);
   assert.match(calls[0].body.html, /Two vegetarian meals/);
 });
 
@@ -158,6 +163,10 @@ test('the customer and owner surfaces expose one connected catering journey', ()
   assert.match(PAGE, /name="menu_option"[^>]+Cuban Food/);
   assert.match(PAGE, /name="menu_option"[^>]+Individual Cajitas/);
   assert.match(PAGE, /name="guests"/);
+  assert.match(PAGE, /name="event_theme"/);
+  assert.match(PAGE, /name="theme_colors"/);
+  assert.match(PAGE, /Mini sandwiches and sliders/);
+  assert.match(PAGE, /Croquetas and empanadas/);
   assert.match(PAGE, /fetch\('\/api\/leads'/);
   assert.match(PAGE, /mailto:dayan@anejocateringco\.com/, 'email fallback preserves the request');
   assert.match(HUB, /Website quote requests/);
@@ -176,6 +185,10 @@ test('La Cajita has one canonical public route and enters the catering form pres
   assert.match(CAJITA, /href="\/catering\?menu=cajita#quote"/);
   assert.match(PAGE, /requestedMenu==='cajita'/);
   assert.match(PAGE, /getElementById\('menu-cajita'\)/);
+  assert.match(CAJITA, /pink-first-birthday-cajita-held\.jpg/);
+  assert.match(CAJITA, /Your theme\. Your colors\. Your Cajita\./);
+  assert.match(CAJITA, /First birthdays/);
+  assert.doesNotMatch(CAJITA, /bowl_congreen\.jpg/, 'the Cajita page must use real Cajita photography');
   assert.doesNotMatch(CAJITA, /\$\d/, 'the Cajita page must not invent a price');
 });
 

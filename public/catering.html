@@ -59,7 +59,8 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.96);backdrop-filt
 .option{background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);padding:27px 25px;min-height:225px}
 .option-num{color:var(--gold-dark);font-size:12px;letter-spacing:2px;font-weight:700}
 .option h3{font-family:'Cormorant Garamond',Georgia,serif;color:var(--green);font-size:29px;line-height:1.1;margin:11px 0 12px}
-.option p{color:var(--muted);font-size:15px}.option a{display:inline-block;margin-top:14px;color:var(--green);font-size:13px;font-weight:700;letter-spacing:.5px;text-decoration:none;border-bottom:1px solid var(--gold)}
+.option p{color:var(--muted);font-size:15px}.option ul{list-style:none;margin-top:16px;border-top:1px solid var(--line);padding-top:12px}.option li{position:relative;padding:5px 0 5px 17px;color:var(--green);font-size:14px;line-height:1.4}.option li:before{content:'·';position:absolute;left:2px;color:var(--gold-dark);font-weight:700}.option a{display:inline-block;margin-top:16px;color:var(--green);font-size:13px;font-weight:700;letter-spacing:.5px;text-decoration:none;border-bottom:1px solid var(--gold)}
+.menu-note{max-width:760px;margin:24px auto 0;text-align:center;color:var(--muted);font-size:14px}
 .quote-section{padding:68px 24px 90px;background:var(--green-dark);color:var(--cream)}
 .quote-grid{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr);gap:56px;align-items:start}
 .quote-aside{position:sticky;top:100px;padding-top:10px}
@@ -138,8 +139,8 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
       </div>
     </div>
     <div class="hero-photo">
-      <img src="/assets/img/bowl_fuego.jpg" alt="Añejo Fuego bowl with steak, vegetables, and chimichurri" width="900" height="900">
-      <div class="hero-stamp">Cuban-American soul · Built for your group</div>
+      <img src="/assets/img/cajita/pink-first-birthday-catering-spread.jpg" alt="Pink first-birthday catering spread with customized Añejo Cajitas, mini sandwiches, savory bites, and party trays" width="1800" height="1350" fetchpriority="high">
+      <div class="hero-stamp">Real Añejo event · Custom pink first birthday</div>
     </div>
   </section>
 
@@ -151,10 +152,11 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
         <p>Choose one direction or mix ideas. Every request is reviewed personally before we confirm availability and pricing.</p>
       </div>
       <div class="options">
-        <article class="option"><span class="option-num">01 · FIT</span><h3>Añejo Fit Menu</h3><p>Build a custom group order around our signature bowls, proteins, fresh sides, sauces, and macro-friendly options.</p></article>
-        <article class="option"><span class="option-num">02 · CUBAN</span><h3>Cuban Food</h3><p>Comforting Cuban flavors made for celebrations, office lunches, family gatherings, and special events.</p></article>
-        <article class="option"><span class="option-num">03 · LA CAJITA</span><h3>Individual Cajitas</h3><p>Individually packed Cuban meal boxes for an easy, polished handoff—ideal for teams, meetings, and events.</p><a href="/cajita">See La Cajita →</a></article>
+        <article class="option"><span class="option-num">01 · FIT</span><h3>Añejo Fit Menu</h3><p>Build a group order around our fresh, macro-friendly menu.</p><ul><li>Signature Añejo bowls</li><li>Protein, base, vegetable, and sauce choices</li><li>Macro-friendly portions</li><li>Individual labels available</li></ul><a href="/catering?menu=fit#quote">Request Añejo Fit →</a></article>
+        <article class="option"><span class="option-num">02 · CUBAN</span><h3>Cuban Party Spread</h3><p>Mix familiar Cuban bites and party-ready trays for the way your group will gather.</p><ul><li>Mini sandwiches and sliders</li><li>Croquetas and empanadas</li><li>Party salads and grazing bites</li><li>Tray service or individual packing</li></ul><a href="/catering?menu=cuban#quote">Request Cuban catering →</a></article>
+        <article class="option"><span class="option-num">03 · LA CAJITA</span><h3>Individual Cajitas</h3><p>A polished personal box with savory bites, a side, and event-matched presentation.</p><ul><li>Mini sandwich and savory bites</li><li>Side salad and fruit or grazing accents</li><li>Personalized tag or label</li><li>Event-color liners and packaging</li></ul><a href="/cajita">Explore La Cajita →</a></article>
       </div>
+      <p class="menu-note">These are starting points, not fixed packages. Mix ideas and tell us your event theme, colors, guest count, and dietary needs. Exact items and availability are confirmed with your custom quote.</p>
     </div>
   </section>
 
@@ -188,8 +190,10 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
           <div class="field"><label for="event-date">Event date <span class="req">*</span></label><input id="event-date" name="event_date" type="date" required></div>
           <div class="field"><label for="event-time">Serving time</label><input id="event-time" name="event_time" type="time"></div>
           <div class="field"><label for="guests">Number of people <span class="req">*</span></label><input id="guests" name="guests" type="number" inputmode="numeric" min="1" max="5000" step="1" placeholder="Example: 40" required></div>
-          <div class="field"><label for="event-type">Type of gathering <span class="req">*</span></label><select id="event-type" name="event_type" required><option value="">Choose one</option><option>Office or team meal</option><option>Private celebration</option><option>Wedding or formal event</option><option>Fitness or wellness event</option><option>Community event</option><option>Other</option></select></div>
+          <div class="field"><label for="event-type">Type of gathering <span class="req">*</span></label><select id="event-type" name="event_type" required><option value="">Choose one</option><option>Birthday party</option><option>Baby shower or gender reveal</option><option>Holiday gathering</option><option>Office or team meal</option><option>Private celebration</option><option>Wedding or formal event</option><option>Fitness or wellness event</option><option>Community event</option><option>Other</option></select></div>
           <div class="field full"><label for="location">Event city or ZIP code <span class="req">*</span></label><input id="location" name="location" type="text" autocomplete="postal-code" maxlength="160" placeholder="Palm Beach County location" required></div>
+          <div class="field"><label for="event-theme">Event theme or occasion</label><input id="event-theme" name="event_theme" type="text" maxlength="160" placeholder="First birthday, baby shower, holiday…"></div>
+          <div class="field"><label for="theme-colors">Colors or special touches</label><input id="theme-colors" name="theme_colors" type="text" maxlength="300" placeholder="Pink and gold, custom tags, matching liners…"></div>
           <div class="field full"><label for="dietary">Dietary needs or allergies</label><textarea id="dietary" name="dietary_needs" maxlength="1000" placeholder="Tell us about vegetarian, dairy-free, gluten-sensitive, allergy, or other needs. Food is prepared in a shared kitchen."></textarea></div>
           <div class="field full"><label for="details">What would make this order right for your group?</label><textarea id="details" name="event_details" maxlength="2500" placeholder="Menu ideas, service expectations, packaging, budget range, or anything else Añejo should know."></textarea></div>
           <div class="field full consent"><input id="sms-consent" name="sms_consent" type="checkbox"><label for="sms-consent">You may text me about this catering request. This does not subscribe me to marketing messages.</label></div>
@@ -237,7 +241,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
     var selected=menus();
     if(!selected.length){show('Choose at least one menu direction.','error');document.getElementById('menu-fit').focus();return;}
     if(!form.checkValidity()){form.reportValidity();return;}
-    var data={kind:'catering',lang:'en',name:val('name'),company:val('company'),email:val('email'),phone:val('phone'),menu_options:selected,event_date:val('event_date'),event_time:val('event_time'),guests:Number(val('guests')),event_type:val('event_type'),location:val('location'),dietary_needs:val('dietary_needs'),event_details:val('event_details'),sms_consent:!!form.elements.sms_consent.checked};
+    var data={kind:'catering',lang:'en',name:val('name'),company:val('company'),email:val('email'),phone:val('phone'),menu_options:selected,event_date:val('event_date'),event_time:val('event_time'),guests:Number(val('guests')),event_type:val('event_type'),location:val('location'),event_theme:val('event_theme'),theme_colors:val('theme_colors'),dietary_needs:val('dietary_needs'),event_details:val('event_details'),sms_consent:!!form.elements.sms_consent.checked};
     button.disabled=true;button.textContent='Sending…';
     try{
       var response=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
