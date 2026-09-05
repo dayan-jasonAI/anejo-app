@@ -149,7 +149,7 @@ explicitly archive the synthetic evidence row rather than deleting it silently.
 - Public menu: the Catering page now names and shows Lechón, Congrí, and Cuban Tamales as requestable
   trays. Each tray action preselects Cuban Food and carries the specific item into the request brief.
 - La Cajita: the hero now uses the polished Cajita presentation and the sample menu names the mini
-  Cuban sandwich, empanada, croqueta, creamy party salad, and salami-cheese-grape bite shown in the
+  sandwich, empanada, croqueta, creamy party salad, and salami-cheese-grape bite shown in the
   supplied image.
 - Assets: four non-destructive, web-sized generated edits are stored under
   `public/assets/img/cajita/*editorial-v2.png`; the supplied originals and previous real-event gallery

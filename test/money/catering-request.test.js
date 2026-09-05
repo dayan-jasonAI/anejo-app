@@ -193,7 +193,7 @@ test('La Cajita has one canonical public route and enters the catering form pres
   assert.match(PAGE, /requestedMenu==='cajita'/);
   assert.match(PAGE, /getElementById\('menu-cajita'\)/);
   assert.match(CAJITA, /pink-first-birthday-cajita-editorial-v2\.png/);
-  assert.match(CAJITA, /mini Cuban sandwich, empanada, croqueta, creamy party salad/);
+  assert.match(CAJITA, /mini sandwich, empanada, croqueta, creamy party salad/);
   assert.match(CAJITA, /Your theme\. Your colors\. Your Cajita\./);
   assert.match(CAJITA, /First birthdays/);
   assert.doesNotMatch(CAJITA, /bowl_congreen\.jpg/, 'the Cajita page must use real Cajita photography');
