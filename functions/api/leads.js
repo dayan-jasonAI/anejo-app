@@ -6,6 +6,7 @@ import { issueCustomerCode } from '../_lib/promo.js';
 import { sendSms } from '../_lib/twilio.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { insertLead } from '../_lib/leads.js';
+import { raiseAlert } from '../_lib/alerts.js';
 
 // Founding Legacy Member program — first N launch-list signups get a founding number.
 const FOUNDING_CAP = 100;
@@ -198,6 +199,9 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
 
   const catering = kind === 'catering' ? normalizeCateringRequest(b) : null;
   if (catering && !catering.ok) return bad(catering.error);
+  if (catering && !env.DB) {
+    return bad('The catering request form is briefly unavailable. Please email dayan@anejocateringco.com.', 503);
+  }
 
   const attr = parseAttribution(b);
 
@@ -293,7 +297,27 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     }
   }
 
-  // Notify Dayan (best-effort; never block the visitor on email).
+  // A catering request is an owner action item, not just a row waiting to be discovered. Raise a
+  // durable HUB alert after the lead write succeeds; raiseAlert also sends a payload-less push to
+  // every subscribed owner device. The request row remains the source of truth even if push is
+  // unavailable, and the catering desk reads it directly.
+  let hubAlerted = false;
+  if (catering && stored) {
+    const alert = await raiseAlert(env, {
+      alert_type: 'catering_request',
+      severity: 'info',
+      title: `Catering request: ${rec.name} · ${catering.guests} guests`,
+      body: `${catering.event_date} · ${catering.location} · ${catering.interest}. Open the Catering desk to review and quote.`,
+      ref_type: 'lead',
+      ref_id: rec.id,
+      dedupe_key: `catering:${rec.id}`,
+    });
+    hubAlerted = !!(alert && alert.ok);
+  }
+
+  // Notify Dayan after storage. A provider failure never discards the request; it raises a second
+  // HUB warning so the missing email is visible and the stored lead can still be handled.
+  let emailAccepted = false;
   if (env.RESEND_API_KEY) {
     const to = env.LEADS_NOTIFY_TO || 'dayan@anejocateringco.com';
     const rows = Object.entries({
@@ -308,18 +332,37 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
       Source: rec.src, Campaign: rec.utm_campaign || rec.utm_source,
     }).filter(([, v]) => v).map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#8a8a8a">${escHtml(k)}</td><td>${escHtml(v)}</td></tr>`).join('');
     try {
-      await sendEmail(env, {
+      const sent = await sendEmail(env, {
         to,
         subject: (catering
           ? `New catering quote request — ${rec.name} · ${catering.guests} guests`
           : `New ${rec.kind} inquiry — ${rec.name}`).slice(0, 120),
-        html: emailShell(`<p>${catering ? 'New catering quote request' : `New ${rec.kind} inquiry`} from the website:</p><table>${rows}</table>`),
+        html: emailShell(`<p>${catering ? 'New catering quote request' : `New ${rec.kind} inquiry`} from the website:</p><table>${rows}</table>${catering ? '<p style="margin-top:22px"><a href="https://anejocateringco.com/hub/owner/catering.html" style="background:#C6A85B;color:#0d2419;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700">Open the Catering desk →</a></p>' : ''}`),
       });
-    } catch { /* swallow — the lead is already stored */ }
+      emailAccepted = !!(sent && !sent.skipped && sent.id);
+    } catch { /* the lead is already stored; HUB warning below makes the failure visible */ }
+  }
+
+  if (catering && stored && !emailAccepted) {
+    await raiseAlert(env, {
+      alert_type: 'catering_email_failed',
+      severity: 'warning',
+      title: `Catering email did not send: ${rec.name}`,
+      body: `The request is saved in the Catering desk. Review it there and check the email configuration.`,
+      ref_type: 'lead',
+      ref_id: rec.id,
+      dedupe_key: `catering-email:${rec.id}`,
+    });
   }
 
   if (!stored && !env.RESEND_API_KEY) {
     return bad('Inbox not configured yet.', 503);
   }
-  return json({ ok: true, id: kind === 'catering' ? rec.id : undefined, member, cap: FOUNDING_CAP });
+  return json({
+    ok: true,
+    id: kind === 'catering' ? rec.id : undefined,
+    member,
+    cap: FOUNDING_CAP,
+    ...(catering ? { notifications: { hub: hubAlerted, email: emailAccepted } } : {}),
+  });
 };

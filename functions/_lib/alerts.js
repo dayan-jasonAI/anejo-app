@@ -77,6 +77,10 @@ export const ALERT_TYPES = [
   // Marketing work is staged and waiting on the owner. Same reasoning: a review queue nobody
   // is told about is a queue that does not get worked.
   'marketing_review_ready',
+  // A public catering quote request was durably stored in leads and needs owner follow-up. The
+  // companion failure type is raised only when the email provider does not accept its alert.
+  'catering_request',
+  'catering_email_failed',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:

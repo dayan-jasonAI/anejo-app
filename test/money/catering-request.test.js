@@ -10,6 +10,9 @@ const PAGE = readFileSync(new URL('../../public/catering.html', import.meta.url)
 const CAJITA = readFileSync(new URL('../../public/cajita.html', import.meta.url), 'utf8');
 const HOME = readFileSync(new URL('../../public/index.html', import.meta.url), 'utf8');
 const HUB = readFileSync(new URL('../../public/hub/owner/catering.html', import.meta.url), 'utf8');
+const OWNER_HOME = readFileSync(new URL('../../public/hub/owner/index.html', import.meta.url), 'utf8');
+const PUSH_PEEK = readFileSync(new URL('../../functions/api/hub/push/peek.js', import.meta.url), 'utf8');
+const ALERTS = readFileSync(new URL('../../functions/_lib/alerts.js', import.meta.url), 'utf8');
 const SITEMAP = readFileSync(new URL('../../public/sitemap.xml', import.meta.url), 'utf8');
 
 const valid = {
@@ -45,6 +48,12 @@ test('the lead route rejects JSON that is not an object before reading fields', 
   const response = await post(null, {});
   assert.equal(response.status, 400);
   assert.match((await response.json()).error, /Invalid request body/);
+});
+
+test('a catering request refuses to pretend it was recorded when D1 is unavailable', async () => {
+  const response = await post(valid, { RESEND_API_KEY: 'resend-test' });
+  assert.equal(response.status, 503);
+  assert.match((await response.json()).error, /form is briefly unavailable/i);
 });
 
 test('the public form stores one complete catering request in the shared Hub lead stream', async () => {
@@ -95,6 +104,52 @@ test('a catering submission sends the full brief to the configured Añejo inbox'
   assert.match(calls[0].body.html, /Two vegetarian meals/);
 });
 
+test('a stored request raises a durable Hub alert and reports an accepted owner email', async () => {
+  const alertTypes = [];
+  const DB = makeD1([
+    [/INSERT INTO leads/i, () => 1],
+    [/SELECT id FROM alerts WHERE dedupe_key/i, () => null],
+    [/INSERT INTO alerts/i, ({ args }) => { alertTypes.push(args[1]); return 1; }],
+    [/INSERT INTO activity_log/i, () => 1],
+    [/SELECT email, reason FROM email_suppressions/i, () => null],
+  ]);
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ id: 'email_catering_1' }) });
+  try {
+    const response = await post(valid, { DB, RESEND_API_KEY: 'resend-test', LEADS_NOTIFY_TO: 'owner@example.test' });
+    const out = await response.json();
+    assert.equal(response.status, 200);
+    assert.deepEqual(out.notifications, { hub: true, email: true });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.deepEqual(alertTypes, ['catering_request']);
+});
+
+test('an email outage leaves the request stored and raises a visible Hub warning', async () => {
+  let leadWrites = 0;
+  const alertTypes = [];
+  const DB = makeD1([
+    [/INSERT INTO leads/i, () => { leadWrites++; return 1; }],
+    [/SELECT id FROM alerts WHERE dedupe_key/i, () => null],
+    [/INSERT INTO alerts/i, ({ args }) => { alertTypes.push(args[1]); return 1; }],
+    [/INSERT INTO activity_log/i, () => 1],
+    [/SELECT email, reason FROM email_suppressions/i, () => null],
+  ]);
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, text: async () => 'provider unavailable' });
+  try {
+    const response = await post(valid, { DB, RESEND_API_KEY: 'resend-test' });
+    const out = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(leadWrites, 1);
+    assert.deepEqual(out.notifications, { hub: true, email: false });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.deepEqual(alertTypes, ['catering_request', 'catering_email_failed']);
+});
+
 test('the customer and owner surfaces expose one connected catering journey', () => {
   assert.match(HOME, /href="\/catering">Catering<\/a>/, 'Catering is in the homepage header/footer');
   assert.match(HOME, /href="\/cajita">La Cajita<\/a>/, 'La Cajita is linked from the homepage');
@@ -108,6 +163,9 @@ test('the customer and owner surfaces expose one connected catering journey', ()
   assert.match(HUB, /Website quote requests/);
   assert.match(HUB, /data-prefill/);
   assert.match(HUB, /Start a quote/);
+  assert.match(ALERTS, /'catering_request'/);
+  assert.match(OWNER_HOME, /case 'catering_request'/);
+  assert.match(PUSH_PEEK, /alert_type === 'catering_request'/);
   assert.match(SITEMAP, /https:\/\/anejocateringco\.com\/catering/);
   assert.match(SITEMAP, /https:\/\/anejocateringco\.com\/cajita/);
 });

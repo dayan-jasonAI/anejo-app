@@ -150,6 +150,9 @@
         return { href: '/hub/owner/leads.html', label: 'Open the lead' };
       case 'partner_application':
         return { href: '/hub/owner/partners.html', label: 'Review the application' };
+      case 'catering_request':
+      case 'catering_email_failed':
+        return { href: '/hub/owner/catering.html', label: 'Open the Catering desk' };
       default:
         return null;
     }

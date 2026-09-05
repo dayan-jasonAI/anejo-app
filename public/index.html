@@ -684,7 +684,7 @@ footer {
       <a href="/login">Log in</a>
       <a href="/order" class="nav-cta">Order</a>
     </div>
-    <button class="nav-burger" onclick="document.getElementById('navLinks').classList.toggle('open')" aria-label="Menu">☰</button>
+    <button class="nav-burger" id="navBurger" type="button" aria-label="Open menu" aria-controls="navLinks" aria-expanded="false">☰</button>
   </div>
 </nav>
 
@@ -1464,9 +1464,22 @@ async function submitWholesale(e) {
   return false;
 }
 
+// Accessible mobile navigation state.
+const navBurger = document.getElementById('navBurger');
+const navLinks = document.getElementById('navLinks');
+navBurger.addEventListener('click', () => {
+  const open = navLinks.classList.toggle('open');
+  navBurger.setAttribute('aria-expanded', String(open));
+  navBurger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+});
+
 // Close mobile nav on link click
 document.querySelectorAll('#navLinks a').forEach(a => {
-  a.addEventListener('click', () => document.getElementById('navLinks').classList.remove('open'));
+  a.addEventListener('click', () => {
+    navLinks.classList.remove('open');
+    navBurger.setAttribute('aria-expanded', 'false');
+    navBurger.setAttribute('aria-label', 'Open menu');
+  });
 });
 </script>
 
