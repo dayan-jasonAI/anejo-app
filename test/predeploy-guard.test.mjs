@@ -11,8 +11,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const GUARD = new URL('../scripts/predeploy-guard.mjs', import.meta.url).pathname;
+const GUARD = fileURLToPath(new URL('../scripts/predeploy-guard.mjs', import.meta.url));
 
 const git = (cwd, ...args) => execFileSync('git', args, {
   cwd,

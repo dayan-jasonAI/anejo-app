@@ -26,8 +26,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+const ROOT = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
 const read = (rel) => readFileSync(`${ROOT}/${rel}`, 'utf8');
 
 // Every text file git can see — TRACKED AND UNTRACKED (minus ignored), from git itself.

@@ -57,7 +57,7 @@ const OLD_ROW = {
   terms_json: JSON.stringify(OLD_TERMS), note: null, created_at: 1740000000000,
 };
 
-function ownerEnv({ quotes = [OLD_ROW], onWrite = () => ({ meta: { changes: 1 } }) } = {}) {
+function ownerEnv({ quotes = [OLD_ROW], requests = [], onWrite = () => ({ meta: { changes: 1 } }) } = {}) {
   const kv = new Map([['session:tok-owner', JSON.stringify({ type: 'staff', role: 'owner', uid: 'stf_1', email: 'owner@test', la: Date.now(), created: Date.now() })]]);
   const sql = [];
   const db = {
@@ -70,6 +70,7 @@ function ownerEnv({ quotes = [OLD_ROW], onWrite = () => ({ meta: { changes: 1 } 
         },
         async all() {
           if (/FROM catering_quotes/i.test(flat)) return { results: quotes.map((r) => ({ ...r })) };
+          if (/FROM leads WHERE kind='catering'/i.test(flat)) return { results: requests.map((r) => ({ ...r })) };
           return { results: [] };
         },
         async run() { sql.push({ flat, args }); return onWrite({ flat, args }); },
@@ -110,6 +111,20 @@ test('the desk gets the quotes with their split — and deposit + balance still 
   assert.equal(q.deposit_paid_at, 1741000000000, 'and WHEN it was paid, not just that it was');
   assert.equal(q.balance_due_date, '2025-03-11');
   assert.equal(q.final_count_due, '2025-03-01');
+});
+
+test('website catering requests appear on the quote desk before any price or payment link exists', async () => {
+  const request = {
+    id: 'ld_cater', name: 'Marisol Reyes', email: 'marisol@example.test', phone: '561-555-0102',
+    company: 'Reyes Studio', interest: 'Cuban Food, Individual Cajitas',
+    message: 'Event type: Office or team meal\nEvent date: 2026-10-18\nGuest count: 60\nLocation: West Palm Beach 33401',
+    source_lang: 'en', created_at: 1781660000000,
+  };
+  const out = await (await get(ownerEnv({ requests: [request] }))).json();
+  assert.equal(out.ok, true);
+  assert.equal(out.requests.length, 1);
+  assert.deepEqual(out.requests[0], request);
+  assert.equal(out.quotes.length, 1, 'the request is not silently promoted into a priced quote');
 });
 
 test('THE TERMS COME OFF THE ROW. A booked customer keeps the deal they actually agreed to', async () => {
@@ -209,6 +224,8 @@ test('the desk calls the real endpoint, for the list and for the create', () => 
   assert.match(DESK, /op: 'preview'/, 'the split is previewed before a payable link exists');
   assert.match(DESK, /op: 'mark_balance_paid'/, 'and the balance can be closed after the event');
   assert.match(DESK, /Owner\.init\('catering'/, 'it renders the owner nav, so it is not a floating page');
+  assert.match(DESK, /d\.requests/, 'website requests are read from the owner endpoint');
+  assert.match(DESK, /Start a quote/, 'a request can prefill the existing quote flow');
 });
 
 test('the desk renders the SNAPSHOT and cannot re-derive the terms', () => {

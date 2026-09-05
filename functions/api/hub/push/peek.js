@@ -109,6 +109,7 @@ export const onRequestGet = async ({ request, env }) => {
   let url = '/hub/';
   if (offer) url = '/hub/driver/route.html';
   else if (alert && alert.alert_type === 'partner_application') url = '/hub/owner/partners.html';
+  else if (alert && (alert.alert_type === 'catering_request' || alert.alert_type === 'catering_email_failed')) url = '/hub/owner/catering.html';
   else if (alert) url = '/hub/owner/';                 // other owner alerts → command center
   else if (decision) url = '/hub/marketing/';          // her Requests-to-Dayan board
   else if (unread) url = ctx.role === 'owner' ? '/hub/owner/comms.html' : '/hub/comms.html';

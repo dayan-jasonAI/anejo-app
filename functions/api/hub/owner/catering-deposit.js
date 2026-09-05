@@ -23,6 +23,7 @@ export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
 
   let quotes = [];
+  let requests = [];
   try {
     const r = await env.DB.prepare(
       `SELECT id, customer_name, customer_email, event_date, guests, total_cents, deposit_pct,
@@ -42,9 +43,20 @@ export const onRequestGet = async ({ request, env }) => {
     });
   } catch { quotes = []; }
 
+  // Website quote requests stay in the shared leads table until Dayan agrees a price. They are
+  // deliberately separate from catering_quotes: a customer's request is not yet an offer, and it
+  // must never create a payable deposit link or imply an approved total on its own.
+  try {
+    const r = await env.DB.prepare(
+      `SELECT id, name, email, phone, company, interest, message, source_lang, created_at
+         FROM leads WHERE kind='catering' ORDER BY created_at DESC LIMIT 50`
+    ).all();
+    requests = (r && r.results) || [];
+  } catch { requests = []; }
+
   // deposit_pct / terms_version here describe what a NEW quote would be sold under. Every existing
   // row carries its own, and the desk must render each row's own.
-  return json({ ok: true, deposit_pct: DEPOSIT_PCT, terms_version: TERMS_VERSION, quotes });
+  return json({ ok: true, deposit_pct: DEPOSIT_PCT, terms_version: TERMS_VERSION, requests, quotes });
 };
 
 export const onRequestPost = async ({ request, env }) => {
