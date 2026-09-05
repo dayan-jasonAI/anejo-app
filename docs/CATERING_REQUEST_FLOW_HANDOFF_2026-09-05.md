@@ -111,3 +111,14 @@ and deposit links.
 
 Rollback: revert production commit `dd3a9c1`; no production migration exists to reverse. Preserve or
 explicitly archive the synthetic evidence row rather than deleting it silently.
+
+## Customer-facing naming correction
+
+- Approver: Dayan, by direct instruction in the active Codex session on 2026-09-05
+- Scope: remove personal-name references from the public Catering and La Cajita customer journey
+- Result: follow-up copy now names the Añejo team, and the event-details prompt reads
+  `anything else Añejo should know.`
+- Preserved: the operational `dayan@anejocateringco.com` inbox address and founder attribution on
+  the homepage remain unchanged.
+- Validation: catering request suite 10 passed, repository suite 1,764 passed, lint passed, and
+  `git diff --check` passed.

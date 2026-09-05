@@ -163,9 +163,9 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
       <aside class="quote-aside">
         <div class="eyebrow">Start the conversation</div>
         <h2 id="quote-heading">Request your custom quote.</h2>
-        <p>We won’t guess at a price before we understand the menu, guest count, date, and location. Send the full request and Dayan will follow up with availability and next steps.</p>
+        <p>We won’t guess at a price before we understand the menu, guest count, date, and location. Send the full request and the Añejo team will follow up with availability and next steps.</p>
         <div class="promise"><span class="promise-mark">01</span><div><strong>Your request reaches the Añejo Hub</strong><span>The event details stay together for follow-up.</span></div></div>
-        <div class="promise"><span class="promise-mark">02</span><div><strong>An inbox notification is sent</strong><span>Dayan receives the request at the Añejo business inbox.</span></div></div>
+        <div class="promise"><span class="promise-mark">02</span><div><strong>An inbox notification is sent</strong><span>The Añejo team receives the request at the business inbox.</span></div></div>
         <div class="promise"><span class="promise-mark">03</span><div><strong>No payment is taken here</strong><span>This form requests a quote; it does not place or charge an order.</span></div></div>
       </aside>
 
@@ -191,7 +191,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
           <div class="field"><label for="event-type">Type of gathering <span class="req">*</span></label><select id="event-type" name="event_type" required><option value="">Choose one</option><option>Office or team meal</option><option>Private celebration</option><option>Wedding or formal event</option><option>Fitness or wellness event</option><option>Community event</option><option>Other</option></select></div>
           <div class="field full"><label for="location">Event city or ZIP code <span class="req">*</span></label><input id="location" name="location" type="text" autocomplete="postal-code" maxlength="160" placeholder="Palm Beach County location" required></div>
           <div class="field full"><label for="dietary">Dietary needs or allergies</label><textarea id="dietary" name="dietary_needs" maxlength="1000" placeholder="Tell us about vegetarian, dairy-free, gluten-sensitive, allergy, or other needs. Food is prepared in a shared kitchen."></textarea></div>
-          <div class="field full"><label for="details">What would make this order right for your group?</label><textarea id="details" name="event_details" maxlength="2500" placeholder="Menu ideas, service expectations, packaging, budget range, or anything else Dayan should know."></textarea></div>
+          <div class="field full"><label for="details">What would make this order right for your group?</label><textarea id="details" name="event_details" maxlength="2500" placeholder="Menu ideas, service expectations, packaging, budget range, or anything else Añejo should know."></textarea></div>
           <div class="field full consent"><input id="sms-consent" name="sms_consent" type="checkbox"><label for="sms-consent">You may text me about this catering request. This does not subscribe me to marketing messages.</label></div>
           <div class="field full">
             <button class="btn btn-gold form-submit" id="submitBtn" type="submit">Send quote request</button>
@@ -244,7 +244,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
       var out=await response.json().catch(function(){return {};});
       if(!response.ok)throw new Error(out.error||'We could not send the request.');
       if(window.gtag)window.gtag('event','generate_lead',{form_id:'catering'});
-      form.innerHTML='<div class="success-card"><div class="check" aria-hidden="true">✓</div><h3 id="request-received" tabindex="-1">Request received.</h3><p>Your catering details are with Añejo. Dayan will review them and follow up about availability, the menu, and your custom quote.</p><p style="margin-top:18px"><a class="btn btn-gold" href="/">Back to Añejo</a></p></div>';
+      form.innerHTML='<div class="success-card"><div class="check" aria-hidden="true">✓</div><h3 id="request-received" tabindex="-1">Request received.</h3><p>Your catering details are with the Añejo team. We’ll review them and follow up about availability, the menu, and your custom quote.</p><p style="margin-top:18px"><a class="btn btn-gold" href="/">Back to Añejo</a></p></div>';
       document.getElementById('request-received').focus();
     }catch(err){
       show((err&&err.message?err.message:'We could not send the request.')+' Opening your email app as a backup…','error');
