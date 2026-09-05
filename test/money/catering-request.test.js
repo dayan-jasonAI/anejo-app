@@ -178,3 +178,11 @@ test('La Cajita has one canonical public route and enters the catering form pres
   assert.match(PAGE, /getElementById\('menu-cajita'\)/);
   assert.doesNotMatch(CAJITA, /\$\d/, 'the Cajita page must not invent a price');
 });
+
+test('customer-facing catering copy speaks for the Añejo team, not an individual', () => {
+  assert.match(PAGE, /anything else Añejo should know\./);
+  assert.match(PAGE, /the Añejo team will follow up/i);
+  assert.match(CAJITA, /the Añejo team will follow up/i);
+  assert.doesNotMatch(PAGE, /\bDayan\b/);
+  assert.doesNotMatch(CAJITA, /\bDayan\b/);
+});
