@@ -3,7 +3,7 @@
 Date: 2026-09-05
 Branch: `codex/anejo-catering-request`
 Base: `origin/main` at `b5c952a891cd9efe3472e8443877690c942fb3bc`
-Status: Local implementation validated; not deployed
+Status: Production deployment and synthetic end-to-end proof completed
 
 ## Direct-session authorization record
 
@@ -78,22 +78,36 @@ and deposit links.
   - Result: the live D1 `leads` schema contains every column used by `insertLead`; `DB`, `SESSIONS`,
     Resend/email, and VAPID bindings are configured; two owner push subscriptions exist
 
-The repository-wide `npm test --silent` run is not a clean completion signal in this checkout. Its
-unchanged deploy/test helpers convert the workspace path through `URL.pathname` without decoding
-it, then try to access `/Users/aiagent/Dayan%20Workspace/...`; those path-based tests fail before
-they can exercise the repository. The catering-focused and indexability suites above run directly
-and pass. This pre-existing runner defect is separate from the catering feature.
+## Production evidence
+
+- Production source: `origin/main` at `dd3a9c109fc0f86537863a7094185851909a4365`
+- Cloudflare Pages deployment: `6914706f.anejo-app.pages.dev`, status `Active`
+- Public routes:
+  - `https://anejocateringco.com/catering` — HTTP 200 and canonical URL matches
+  - `https://anejocateringco.com/cajita` — HTTP 200 and canonical URL matches
+  - `https://anejocateringco.com/catering?menu=cajita` — HTTP 200
+- Synthetic live request:
+  - Lead ID: `ld_e90a508f39922d6eb400`
+  - D1 result: one `kind='catering'` row with the submitted name, email, menu, guest count, event
+    details, and `channel='web'`
+  - Hub result: open `catering_request` alert `alert_5987b92d61339d48bf7a`, linked to the lead
+  - API result: `notifications.hub=true` and `notifications.email=true`
+  - Inbox result: message received from Añejo Catering Co. at 12:02 PM with subject
+    `New catering quote request — Anejo QA Live Test 2026-09-05 · 24 guests`
+- Live browser QA: the deployed Catering and La Cajita pages rendered with the expected controls,
+  links, form fields, and dedicated URLs.
 
 ## Remaining risks and approval state
 
-- Public deployment of both `/catering` and `/cajita` is authorized after the clean validation
-  above; live propagation and the synthetic production proof remain pending.
-- After deployment, a synthetic request must prove all four live outcomes: success confirmation,
-  `kind='catering'` D1 row, owner inbox notification, and request card in the Catering Hub desk.
-- Email delivery remains best-effort by design so an email-provider problem cannot discard a request
-  already stored in the Hub.
+- The synthetic QA request remains in the production Catering desk and inbox, clearly labeled to be
+  ignored for sales follow-up. It was retained as the audit record rather than deleted.
+- Future requests are committed to D1 before notification delivery. If the owner email provider does
+  not accept a send, the saved request remains available and a separate `catering_email_failed` Hub
+  alert is created.
+- The durable Hub alert is proven in D1. A device-level push display still depends on each subscribed
+  device's browser/OS notification permissions and cannot be proven from the server alone.
 - Exact Cuban/Cajita menus and catering prices remain intentionally unspecified. The flow gathers
   the event facts and requires Dayan to review pricing before creating a deposit link.
 
-Rollback: revert the feature commit before merging or deploying; no production migration or data
-change exists to reverse.
+Rollback: revert production commit `dd3a9c1`; no production migration exists to reverse. Preserve or
+explicitly archive the synthetic evidence row rather than deleting it silently.
