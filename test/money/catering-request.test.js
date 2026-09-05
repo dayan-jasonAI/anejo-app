@@ -7,6 +7,7 @@ import { makeD1 } from '../helpers/d1.js';
 import { normalizeCateringRequest, onRequestPost } from '../../functions/api/leads.js';
 
 const PAGE = readFileSync(new URL('../../public/catering.html', import.meta.url), 'utf8');
+const CAJITA = readFileSync(new URL('../../public/cajita.html', import.meta.url), 'utf8');
 const HOME = readFileSync(new URL('../../public/index.html', import.meta.url), 'utf8');
 const HUB = readFileSync(new URL('../../public/hub/owner/catering.html', import.meta.url), 'utf8');
 const SITEMAP = readFileSync(new URL('../../public/sitemap.xml', import.meta.url), 'utf8');
@@ -96,6 +97,7 @@ test('a catering submission sends the full brief to the configured Añejo inbox'
 
 test('the customer and owner surfaces expose one connected catering journey', () => {
   assert.match(HOME, /href="\/catering">Catering<\/a>/, 'Catering is in the homepage header/footer');
+  assert.match(HOME, /href="\/cajita">La Cajita<\/a>/, 'La Cajita is linked from the homepage');
   assert.match(PAGE, /id="cateringForm"/);
   assert.match(PAGE, /name="menu_option"[^>]+Añejo Fit Menu/);
   assert.match(PAGE, /name="menu_option"[^>]+Cuban Food/);
@@ -107,4 +109,14 @@ test('the customer and owner surfaces expose one connected catering journey', ()
   assert.match(HUB, /data-prefill/);
   assert.match(HUB, /Start a quote/);
   assert.match(SITEMAP, /https:\/\/anejocateringco\.com\/catering/);
+  assert.match(SITEMAP, /https:\/\/anejocateringco\.com\/cajita/);
+});
+
+test('La Cajita has one canonical public route and enters the catering form preselected', () => {
+  assert.match(CAJITA, /<link rel="canonical" href="https:\/\/anejocateringco\.com\/cajita">/);
+  assert.match(CAJITA, /<meta property="og:url" content="https:\/\/anejocateringco\.com\/cajita">/);
+  assert.match(CAJITA, /href="\/catering\?menu=cajita#quote"/);
+  assert.match(PAGE, /requestedMenu==='cajita'/);
+  assert.match(PAGE, /getElementById\('menu-cajita'\)/);
+  assert.doesNotMatch(CAJITA, /\$\d/, 'the Cajita page must not invent a price');
 });

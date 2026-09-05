@@ -108,7 +108,7 @@ The 3 plan variation IDs in `functions/_lib/plans.js` are **sandbox**. When flip
 `SQUARE_PLAN_5_VAR`, `SQUARE_PLAN_10_VAR`, `SQUARE_PLAN_12_VAR` = the prod variation IDs.
 
 ## 5. Post-deploy smoke tests (against anejocateringco.com)
-- `/`, `/catering`, `/order`, `/subscribe`, `/trainer/dashboard` (sign-in gate), `/legal/{terms,privacy,refund}`, `/robots.txt`, `/sitemap.xml` → 200
+- `/`, `/catering`, `/cajita`, `/order`, `/subscribe`, `/trainer/dashboard` (sign-in gate), `/legal/{terms,privacy,refund}`, `/robots.txt`, `/sitemap.xml` → 200
 - Catering request (synthetic details only) → success confirmation, `kind='catering'` lead row, owner inbox alert, and visible card in `/hub/owner/catering.html`
 - Security headers present (CSP, HSTS, X-Frame-Options) — and the **Square card form renders** under CSP on `/subscribe`
 - `POST /api/leads` → `{"ok":true}`  ·  `/api/square-config` → returns IDs

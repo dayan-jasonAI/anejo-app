@@ -15,7 +15,10 @@ const read = (p) => readFileSync(new URL('../../public/' + p, import.meta.url), 
 const noindexed = (html) => /<meta\s+name="robots"\s+content="[^"]*noindex/i.test(html);
 
 // Marketing pages: a customer could plausibly arrive here from a search.
-const PUBLIC = ['index.html', 'business.html', 'order.html', 'subscribe.html'];
+const PUBLIC = [
+  'index.html', 'business.html', 'order.html', 'subscribe.html',
+  'catering.html', 'cajita.html',
+];
 
 // Private: internal tools, authenticated areas, token links, post-transaction pages.
 const PRIVATE = [
@@ -55,6 +58,14 @@ test('the business page has the SEO a commercial page needs', () => {
 test('the business page is in the sitemap', () => {
   const sm = readFileSync(new URL('../../public/sitemap.xml', import.meta.url), 'utf8');
   assert.ok(sm.includes('https://anejocateringco.com/business'), 'submitted for crawling');
+});
+
+test('the catering and Cajita pages have canonical routes in the sitemap', () => {
+  const sm = readFileSync(new URL('../../public/sitemap.xml', import.meta.url), 'utf8');
+  assert.ok(sm.includes('https://anejocateringco.com/catering'), 'catering submitted for crawling');
+  assert.ok(sm.includes('https://anejocateringco.com/cajita'), 'Cajita submitted for crawling');
+  assert.match(read('catering.html'), /<link rel="canonical" href="https:\/\/anejocateringco\.com\/catering">/);
+  assert.match(read('cajita.html'), /<link rel="canonical" href="https:\/\/anejocateringco\.com\/cajita">/);
 });
 
 test('no page is both in the sitemap and noindexed', () => {
