@@ -165,8 +165,15 @@ test('the customer and owner surfaces expose one connected catering journey', ()
   assert.match(PAGE, /name="guests"/);
   assert.match(PAGE, /name="event_theme"/);
   assert.match(PAGE, /name="theme_colors"/);
-  assert.match(PAGE, /Mini sandwiches and sliders/);
-  assert.match(PAGE, /Croquetas and empanadas/);
+  assert.match(PAGE, /Lechón and congrí trays/);
+  assert.match(PAGE, /Cuban tamales/);
+  assert.match(PAGE, /cuban-lechon-tray-editorial-v2\.png/);
+  assert.match(PAGE, /cuban-congri-tray-editorial-v2\.png/);
+  assert.match(PAGE, /cuban-tamales-tray-editorial-v2\.png/);
+  assert.match(PAGE, /item=lechon#quote/);
+  assert.match(PAGE, /item=congri#quote/);
+  assert.match(PAGE, /item=tamales#quote/);
+  assert.match(PAGE, /Menu item requested:/);
   assert.match(PAGE, /fetch\('\/api\/leads'/);
   assert.match(PAGE, /mailto:dayan@anejocateringco\.com/, 'email fallback preserves the request');
   assert.match(HUB, /Website quote requests/);
@@ -185,7 +192,8 @@ test('La Cajita has one canonical public route and enters the catering form pres
   assert.match(CAJITA, /href="\/catering\?menu=cajita#quote"/);
   assert.match(PAGE, /requestedMenu==='cajita'/);
   assert.match(PAGE, /getElementById\('menu-cajita'\)/);
-  assert.match(CAJITA, /pink-first-birthday-cajita-held\.jpg/);
+  assert.match(CAJITA, /pink-first-birthday-cajita-editorial-v2\.png/);
+  assert.match(CAJITA, /mini Cuban sandwich, empanada, croqueta, creamy party salad/);
   assert.match(CAJITA, /Your theme\. Your colors\. Your Cajita\./);
   assert.match(CAJITA, /First birthdays/);
   assert.doesNotMatch(CAJITA, /bowl_congreen\.jpg/, 'the Cajita page must use real Cajita photography');

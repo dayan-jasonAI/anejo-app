@@ -61,6 +61,15 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.96);backdrop-filt
 .option h3{font-family:'Cormorant Garamond',Georgia,serif;color:var(--green);font-size:29px;line-height:1.1;margin:11px 0 12px}
 .option p{color:var(--muted);font-size:15px}.option ul{list-style:none;margin-top:16px;border-top:1px solid var(--line);padding-top:12px}.option li{position:relative;padding:5px 0 5px 17px;color:var(--green);font-size:14px;line-height:1.4}.option li:before{content:'·';position:absolute;left:2px;color:var(--gold-dark);font-weight:700}.option a{display:inline-block;margin-top:16px;color:var(--green);font-size:13px;font-weight:700;letter-spacing:.5px;text-decoration:none;border-bottom:1px solid var(--gold)}
 .menu-note{max-width:760px;margin:24px auto 0;text-align:center;color:var(--muted);font-size:14px}
+.tray-showcase{padding:76px 24px;background:#fff}
+.tray-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.tray-card{margin:0;background:var(--cream);border:1px solid var(--line);overflow:hidden}
+.tray-card img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover}
+.tray-copy{padding:22px 22px 24px}
+.tray-copy span{color:var(--gold-dark);font-size:12px;letter-spacing:2px;font-weight:700;text-transform:uppercase}
+.tray-copy h3{font-family:'Cormorant Garamond',Georgia,serif;color:var(--green);font-size:32px;line-height:1.05;margin:7px 0 8px}
+.tray-copy p{color:var(--muted);font-size:15px}
+.tray-copy a{display:inline-block;margin-top:14px;color:var(--green);font-size:13px;font-weight:700;text-decoration:none;border-bottom:1px solid var(--gold)}
 .quote-section{padding:68px 24px 90px;background:var(--green-dark);color:var(--cream)}
 .quote-grid{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr);gap:56px;align-items:start}
 .quote-aside{position:sticky;top:100px;padding-top:10px}
@@ -105,8 +114,8 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(198,168,91,.36);b
 footer{background:var(--black);color:rgba(245,242,236,.68);padding:34px 24px;text-align:center;font-size:13px;letter-spacing:.4px}
 footer a{color:var(--gold);text-decoration:none}
 a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
-@media(max-width:900px){.hero{grid-template-columns:1fr}.hero-copy{padding:68px 28px}.hero-photo{min-height:330px}.hero-photo:after{background:linear-gradient(0deg,rgba(13,13,13,.5),transparent 55%)}.options{grid-template-columns:1fr}.quote-grid{grid-template-columns:1fr}.quote-aside{position:static}.choices{grid-template-columns:1fr}.nav-burger{display:block}.nav-links{display:none;position:absolute;top:68px;left:0;right:0;background:var(--black);padding:20px 24px;flex-direction:column;align-items:flex-start;border-bottom:1px solid rgba(198,168,91,.25)}.nav-links.open{display:flex}.nav-links a{width:100%;padding:6px 0}.nav-cta{padding:10px 14px!important;width:auto!important}}
-@media(max-width:620px){.hero h1{font-size:48px}.fields{grid-template-columns:1fr}.field.full{grid-column:auto}.quote-section{padding-left:16px;padding-right:16px}.form-card{padding:23px 18px}.intro{padding-left:18px;padding-right:18px}}
+@media(max-width:900px){.hero{grid-template-columns:1fr}.hero-copy{padding:68px 28px}.hero-photo{min-height:330px}.hero-photo:after{background:linear-gradient(0deg,rgba(13,13,13,.5),transparent 55%)}.options,.tray-grid{grid-template-columns:1fr}.quote-grid{grid-template-columns:1fr}.quote-aside{position:static}.choices{grid-template-columns:1fr}.nav-burger{display:block}.nav-links{display:none;position:absolute;top:68px;left:0;right:0;background:var(--black);padding:20px 24px;flex-direction:column;align-items:flex-start;border-bottom:1px solid rgba(198,168,91,.25)}.nav-links.open{display:flex}.nav-links a{width:100%;padding:6px 0}.nav-cta{padding:10px 14px!important;width:auto!important}}
+@media(max-width:620px){.hero h1{font-size:48px}.fields{grid-template-columns:1fr}.field.full{grid-column:auto}.quote-section{padding-left:16px;padding-right:16px}.form-card{padding:23px 18px}.intro,.tray-showcase{padding-left:18px;padding-right:18px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}.btn:hover{transform:none}}
 </style>
 </head>
@@ -153,10 +162,26 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
       </div>
       <div class="options">
         <article class="option"><span class="option-num">01 · FIT</span><h3>Añejo Fit Menu</h3><p>Build a group order around our fresh, macro-friendly menu.</p><ul><li>Signature Añejo bowls</li><li>Protein, base, vegetable, and sauce choices</li><li>Macro-friendly portions</li><li>Individual labels available</li></ul><a href="/catering?menu=fit#quote">Request Añejo Fit →</a></article>
-        <article class="option"><span class="option-num">02 · CUBAN</span><h3>Cuban Party Spread</h3><p>Mix familiar Cuban bites and party-ready trays for the way your group will gather.</p><ul><li>Mini sandwiches and sliders</li><li>Croquetas and empanadas</li><li>Party salads and grazing bites</li><li>Tray service or individual packing</li></ul><a href="/catering?menu=cuban#quote">Request Cuban catering →</a></article>
-        <article class="option"><span class="option-num">03 · LA CAJITA</span><h3>Individual Cajitas</h3><p>A polished personal box with savory bites, a side, and event-matched presentation.</p><ul><li>Mini sandwich and savory bites</li><li>Side salad and fruit or grazing accents</li><li>Personalized tag or label</li><li>Event-color liners and packaging</li></ul><a href="/cajita">Explore La Cajita →</a></article>
+        <article class="option"><span class="option-num">02 · CUBAN</span><h3>Cuban Party Spread</h3><p>Mix familiar Cuban bites and party-ready trays for the way your group will gather.</p><ul><li>Lechón and congrí trays</li><li>Cuban tamales</li><li>Croquetas, empanadas, and mini sandwiches</li><li>Tray service or individual packing</li></ul><a href="/catering?menu=cuban#quote">Request Cuban catering →</a></article>
+        <article class="option"><span class="option-num">03 · LA CAJITA</span><h3>Individual Cajitas</h3><p>A polished personal box with savory bites, a side, and event-matched presentation.</p><ul><li>Mini sandwich, empanada, and croqueta</li><li>Creamy party salad and grazing bite</li><li>Personalized tag or label</li><li>Event-color liners and packaging</li></ul><a href="/cajita">Explore La Cajita →</a></article>
       </div>
       <p class="menu-note">These are starting points, not fixed packages. Mix ideas and tell us your event theme, colors, guest count, and dietary needs. Exact items and availability are confirmed with your custom quote.</p>
+    </div>
+  </section>
+
+  <section class="tray-showcase" aria-labelledby="tray-heading">
+    <div class="section-inner">
+      <div class="section-head">
+        <div class="eyebrow">From the Cuban catering menu</div>
+        <h2 id="tray-heading">Party trays made for the full table.</h2>
+        <p>These are the lechón, congrí, and tamales prepared for our pink first-birthday catering event. Request them together, add Cajitas, or ask the Añejo team to shape a different mix for your guests.</p>
+      </div>
+      <div class="tray-grid">
+        <figure class="tray-card"><img src="/assets/img/cajita/cuban-lechon-tray-editorial-v2.png" alt="Catering tray of Añejo lechón with sliced onions" width="720" height="900" loading="lazy" decoding="async"><figcaption class="tray-copy"><span>Cuban tray</span><h3>Lechón</h3><p>Slow-roasted, pulled pork with browned pieces and sliced onion, served in a party-ready tray.</p><a href="/catering?menu=cuban&amp;item=lechon#quote">Add to a quote request →</a></figcaption></figure>
+        <figure class="tray-card"><img src="/assets/img/cajita/cuban-congri-tray-editorial-v2.png" alt="Catering tray of Añejo congrí rice and black beans" width="720" height="900" loading="lazy" decoding="async"><figcaption class="tray-copy"><span>Cuban tray</span><h3>Congrí</h3><p>Cuban rice and black beans prepared for sharing alongside the rest of your event menu.</p><a href="/catering?menu=cuban&amp;item=congri#quote">Add to a quote request →</a></figcaption></figure>
+        <figure class="tray-card"><img src="/assets/img/cajita/cuban-tamales-tray-editorial-v2.png" alt="Catering tray of sliced Añejo Cuban tamales" width="720" height="900" loading="lazy" decoding="async"><figcaption class="tray-copy"><span>Cuban tray</span><h3>Tamales</h3><p>Cuban tamales sliced for easy serving and presented in a generous event tray.</p><a href="/catering?menu=cuban&amp;item=tamales#quote">Add to a quote request →</a></figcaption></figure>
+      </div>
+      <p class="menu-note">Tray sizes, portions, combinations, and availability are confirmed after we review your date, location, and guest count.</p>
     </div>
   </section>
 
@@ -220,10 +245,14 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
   var date=document.getElementById('event-date');
   var tomorrow=new Date(); tomorrow.setDate(tomorrow.getDate()+1);
   date.min=tomorrow.getFullYear()+'-'+String(tomorrow.getMonth()+1).padStart(2,'0')+'-'+String(tomorrow.getDate()).padStart(2,'0');
-  var requestedMenu=new URLSearchParams(window.location.search).get('menu');
+  var params=new URLSearchParams(window.location.search);
+  var requestedMenu=params.get('menu');
   if(requestedMenu==='cajita')document.getElementById('menu-cajita').checked=true;
   if(requestedMenu==='fit')document.getElementById('menu-fit').checked=true;
   if(requestedMenu==='cuban')document.getElementById('menu-cuban').checked=true;
+  var requestedItems={lechon:'Lechón tray',congri:'Congrí tray',tamales:'Cuban tamales tray'};
+  var requestedItem=requestedItems[params.get('item')];
+  if(requestedItem)document.getElementById('details').value='Menu item requested: '+requestedItem+'.';
 
   var form=document.getElementById('cateringForm');
   var status=document.getElementById('formStatus');
