@@ -233,7 +233,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
   function show(message,type){status.textContent=message;status.className='form-status show '+type;}
   function mailto(data){
     var subject=encodeURIComponent('Catering Quote Request — '+data.name+' · '+data.guests+' guests');
-    var body=encodeURIComponent('Name: '+data.name+'\nCompany: '+(data.company||'—')+'\nEmail: '+data.email+'\nPhone: '+(data.phone||'—')+'\nMenu: '+data.menu_options.join(', ')+'\nEvent: '+data.event_type+'\nDate: '+data.event_date+'\nTime: '+(data.event_time||'—')+'\nGuests: '+data.guests+'\nLocation: '+data.location+'\nDietary needs: '+(data.dietary_needs||'—')+'\n\nDetails:\n'+(data.event_details||'—'));
+    var body=encodeURIComponent('Name: '+data.name+'\nCompany: '+(data.company||'—')+'\nEmail: '+data.email+'\nPhone: '+(data.phone||'—')+'\nMenu: '+data.menu_options.join(', ')+'\nEvent: '+data.event_type+'\nDate: '+data.event_date+'\nTime: '+(data.event_time||'—')+'\nGuests: '+data.guests+'\nLocation: '+data.location+'\nTheme or occasion: '+(data.event_theme||'—')+'\nColors or special touches: '+(data.theme_colors||'—')+'\nDietary needs: '+(data.dietary_needs||'—')+'\n\nDetails:\n'+(data.event_details||'—'));
     window.location.href='mailto:dayan@anejocateringco.com?subject='+subject+'&body='+body;
   }
   form.addEventListener('submit',async function(e){

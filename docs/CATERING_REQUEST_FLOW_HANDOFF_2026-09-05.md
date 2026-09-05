@@ -122,3 +122,19 @@ explicitly archive the synthetic evidence row rather than deleting it silently.
   the homepage remain unchanged.
 - Validation: catering request suite 10 passed, repository suite 1,764 passed, lint passed, and
   `git diff --check` passed.
+
+## Real-event gallery and themed catering expansion
+
+- Approver: Dayan, by direct instruction with seven supplied event photographs in the active Codex
+  session on 2026-09-05
+- Public story: the Catering and La Cajita pages now use real photography from a pink first-birthday
+  event and explain that colors, liners, labels, packaging, and menu selections can be customized
+- Catering menu: public starting points now name Añejo Fit bowls, Cuban party trays and bites, and
+  individual Cajitas; exact items and availability remain subject to the custom quote
+- Intake: optional event-theme and color/special-touch fields are saved in the lead record, included
+  in the owner email, visible in the Hub request brief, and preserved in the email fallback
+- Assets: seven supplied photos were resized for web delivery and stored under
+  `public/assets/img/cajita/`; no generated food imagery is used in the new sections
+- Validation: focused catering/Hub/indexability suites passed 48 tests, the repository suite passed
+  1,764 tests, lint passed, local `/catering` and `/cajita` returned HTTP 200, and the deploy guard
+  passed with the branch current against `origin/main`
