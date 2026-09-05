@@ -26,6 +26,8 @@ export function normalizeCateringRequest(b) {
   const eventTime = text(b.event_time, 5);
   const eventType = text(b.event_type, 120);
   const location = text(b.location, 160);
+  const eventTheme = text(b.event_theme, 160);
+  const themeColors = text(b.theme_colors, 300);
   const dietary = text(b.dietary_needs, 1000);
   const details = text(b.event_details, 2500);
 
@@ -52,12 +54,15 @@ export function normalizeCateringRequest(b) {
     `Guest count: ${guests}`,
     `Location: ${location}`,
     `Menu: ${menus.join(', ')}`,
+    `Event theme / occasion: ${eventTheme || 'Not provided'}`,
+    `Colors / special touches: ${themeColors || 'Not provided'}`,
     `Dietary needs / allergies: ${dietary || 'None provided'}`,
     `Request details: ${details || 'None provided'}`,
   ];
   return {
     ok: true, menus, guests, event_date: eventDate, event_time: eventTime || null,
-    event_type: eventType, location, dietary_needs: dietary || null, event_details: details || null,
+    event_type: eventType, location, event_theme: eventTheme || null,
+    theme_colors: themeColors || null, dietary_needs: dietary || null, event_details: details || null,
     interest: menus.join(', '), message: lines.join('\n'),
   };
 }
@@ -326,6 +331,7 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
       ...(catering ? {
         Menu: catering.interest, 'Event type': catering.event_type, 'Event date': catering.event_date,
         'Serving time': catering.event_time, Guests: catering.guests, Location: catering.location,
+        'Event theme / occasion': catering.event_theme, 'Colors / special touches': catering.theme_colors,
         'Dietary needs / allergies': catering.dietary_needs, Details: catering.event_details,
       } : { Interest: rec.interest, Message: rec.message }),
       // Where this lead came from — the owner reads campaign performance straight off the alert.
