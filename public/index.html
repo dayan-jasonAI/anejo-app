@@ -100,6 +100,7 @@
     { "@type": "Question", "name": "Where do you deliver, and when?", "acceptedAnswer": { "@type": "Answer", "text": "We deliver across Palm Beach County, Monday through Saturday, in two windows — lunch (11:00 AM–2:00 PM) and dinner (5:00 PM–8:00 PM). Choose your window at checkout." } },
     { "@type": "Question", "name": "How fresh are the bowls, and how do I store them?", "acceptedAnswer": { "@type": "Answer", "text": "Every bowl is made fresh — never frozen — with about a 3-day refrigerated shelf life. They're microwave- and cold-friendly, with the signature sauce on the side so you control the moment." } },
     { "@type": "Question", "name": "Can you accommodate allergies and dietary needs?", "acceptedAnswer": { "@type": "Answer", "text": "Bowls may contain wheat, egg, milk, fish, shellfish, tree nuts, or seeds depending on the recipe, and are prepared in a shared kitchen. Nuts are removable on request and dairy-free substitutions are often available. Please tell us about severe allergies before ordering — see each bowl's label for full disclosure." } },
+    { "@type": "Question", "name": "Does Añejo offer catering?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Añejo offers custom catering across Palm Beach County, including Añejo Fit menu selections, Cuban food, and individually packed Cajitas. Submit the catering quote request with your date, location, and guest count for availability and custom pricing." } },
     { "@type": "Question", "name": "How do the weekly meal-plan subscriptions work?", "acceptedAnswer": { "@type": "Answer", "text": "Pick a weekly tier — 5, 10, or 12 bowls — and we deliver on your schedule. Subscriptions renew automatically each week and you can cancel anytime; see our Refund & Cancellation policy." } },
     { "@type": "Question", "name": "Is the AI macro calculator medical or nutritional advice?", "acceptedAnswer": { "@type": "Answer", "text": "No. The macro calculator and any generated plans are for general fitness and wellness information only — they are estimates, not medical or dietary advice. Consult your healthcare provider before starting any new nutrition program." } },
     { "@type": "Question", "name": "How does pricing and tax work?", "acceptedAnswer": { "@type": "Answer", "text": "Bowl and drink prices are shown on the menu; applicable Florida and Palm Beach County sales tax is added at checkout. Payments are processed securely by Square." } },
@@ -173,7 +174,7 @@ nav {
   display: flex; align-items: center; justify-content: center;
   font-family: Georgia, serif; font-size: 20px; font-weight: 800;
 }
-.nav-links { display: flex; gap: 28px; }
+.nav-links { display: flex; gap: 20px; }
 .nav-links a {
   color: var(--cream); text-decoration: none;
   font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase;
@@ -564,7 +565,7 @@ footer {
 .footer-legal a:hover { color: var(--gold); }
 
 /* ---------- RESPONSIVE ---------- */
-@media (max-width: 820px) {
+@media (max-width: 1040px) {
   .nav-burger { display: block; }
   .nav-links { display: none; position: absolute; top: 64px; right: 0; left: 0; background: var(--black); flex-direction: column; padding: 20px; gap: 16px; border-bottom: 1px solid rgba(198, 168, 91, 0.2); }
   .nav-links.open { display: flex; }
@@ -674,6 +675,7 @@ footer {
     <div class="nav-links" id="navLinks">
       <a href="#story">Story</a>
       <a href="#menu">Menu</a>
+      <a href="/catering">Catering</a>
       <a href="/subscribe">Weekly Plans</a>
       <a href="#fit">Añejo Fit</a>
       <a href="#services">Services</a>
@@ -701,9 +703,9 @@ footer {
     <div style="display:inline-flex;align-items:center;gap:8px;margin:4px auto 22px;background:var(--gold);color:var(--black);font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:9px 18px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.28)">🌿 Cooked and delivered fresh daily</div>
     <div class="hero-buttons">
       <a href="/order" class="btn btn-gold">Order Now</a>
+      <a href="/catering" class="btn btn-outline">Request Catering</a>
       <a href="/subscribe" class="btn btn-outline">Weekly Plans</a>
       <a href="#menu" class="btn btn-outline">View the Menu</a>
-      <a href="#tasting" class="btn btn-outline">Reserve a Tasting</a>
     </div>
     <div class="hero-seal">PBC · HERITAGE CRAFTED · FRESH NEVER FROZEN</div>
   </div>
@@ -1265,6 +1267,10 @@ footer {
         <div class="faq-a">Bowls may contain wheat, egg, milk, fish, shellfish, tree nuts, or seeds depending on the recipe, and are prepared in a shared kitchen. Nuts are removable on request and dairy-free substitutions are often available. Please tell us about severe allergies before ordering — see each bowl's label for full disclosure.</div>
       </details>
       <details class="faq-item">
+        <summary>Does Añejo offer catering?</summary>
+        <div class="faq-a">Yes. We build custom catering around the Añejo Fit menu, Cuban food, and individually packed Cajitas. <a href="/catering">Tell us your date, location, and guest count to request a custom quote →</a></div>
+      </details>
+      <details class="faq-item">
         <summary>How do the weekly meal-plan subscriptions work?</summary>
         <div class="faq-a">Pick a weekly tier — 5, 10, or 12 bowls — and we deliver on your schedule. Subscriptions renew automatically each week and you can cancel anytime; see our <a href="/legal/refund">Refund &amp; Cancellation policy</a>.</div>
       </details>
@@ -1346,6 +1352,7 @@ footer {
       <h5>Explore</h5>
       <a href="/order">Order</a>
       <a href="#menu">Menu</a>
+      <a href="/catering">Catering</a>
       <a href="/menu/">Our Bowls</a>
       <a href="/meal-prep/">Delivery Areas</a>
       <a href="#fit">Añejo Fit</a>

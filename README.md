@@ -7,6 +7,7 @@ One Cloudflare Pages project = the marketing site **+** the AI macro calculator 
 | URL | What it is |
 |-----|------------|
 | `/` | Marketing site (anejocateringco.com). Includes a "Macro Calculator" nav link + a calculator section. |
+| `/catering` | Public catering request for Añejo Fit, Cuban food, and Cajitas. Saves to the Hub lead stream and emails the configured owner inbox. |
 | `/calculator` | **Public self-serve** calculator — a visitor enters their own stats → AI macro plan + bowl rotation. |
 | `/portal` | **Trainer** landing (also the home for `portal.anejocateringco.com`). |
 | `/intake.html` | Trainer enters a client → generates a plan. |

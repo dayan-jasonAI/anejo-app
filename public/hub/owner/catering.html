@@ -24,6 +24,10 @@
   .terms summary{font-size:12.5px;font-weight:700;color:var(--green);cursor:pointer}
   .terms li{font-size:12.5px;color:var(--muted);line-height:1.55;margin:6px 0 0 16px}
   .lnk{font-size:12px;word-break:break-all}
+  .rcard{border:1px solid var(--line);border-left:4px solid var(--green);border-radius:12px;padding:15px;margin:10px 0;background:#fff}
+  .rcard .nm{font-weight:800;color:var(--green);font-size:17px}
+  .rbody{margin-top:10px;padding:10px 12px;background:var(--cream);border-radius:9px;color:var(--muted);font-size:13px;line-height:1.55;white-space:pre-line}
+  .ractions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ractions .btn{width:auto}
 </style>
 </head>
 <body>
@@ -120,6 +124,33 @@
     '</div>';
   }
 
+  // ---------- inbound website requests ----------
+  function msgField(message, label) {
+    var line = String(message || '').split('\n').find(function (x) { return x.indexOf(label + ':') === 0; });
+    return line ? line.slice(label.length + 1).trim() : '';
+  }
+
+  function requestCard(r) {
+    var payload = {
+      name: r.name || '', email: r.email || '', phone: r.phone || '',
+      event_date: msgField(r.message, 'Event date'),
+      guests: Number(msgField(r.message, 'Guest count')) || '',
+      note: [r.interest ? 'Requested menu: ' + r.interest : '', r.message || ''].filter(Boolean).join('\n'),
+    };
+    var contact = [r.email || '', r.phone || ''].filter(Boolean).join(' · ');
+    return '<article class="rcard">' +
+      '<div class="nm">' + esc(r.name || 'Catering request') + '</div>' +
+      '<div class="row-sub">' + esc(r.interest || 'Menu not specified') +
+        (r.company ? ' · ' + esc(r.company) : '') +
+        (r.created_at ? ' · received ' + day(r.created_at) : '') + '</div>' +
+      (contact ? '<div class="row-sub">' + esc(contact) + '</div>' : '') +
+      '<div class="rbody">' + esc(r.message || 'No event details provided.') + '</div>' +
+      '<div class="ractions">' +
+        '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">Start a quote</button>' +
+        (r.email ? '<a class="btn ghost" href="mailto:' + esc(encodeURIComponent(r.email)) + '?subject=' + encodeURIComponent('Your Añejo catering request') + '">Email customer</a>' : '') +
+      '</div></article>';
+  }
+
   // ---------- the create form ----------
   function formHtml(d) {
     return '<div class="hub-section"><h2>New catering quote</h2><div class="card">' +
@@ -180,20 +211,43 @@
     });
   }
 
+  function wireRequests(root) {
+    root.querySelectorAll('[data-prefill]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var r;
+        try { r = JSON.parse(btn.getAttribute('data-prefill') || '{}'); } catch (e) { r = {}; }
+        document.getElementById('q-name').value = r.name || '';
+        document.getElementById('q-email').value = r.email || '';
+        document.getElementById('q-phone').value = r.phone || '';
+        document.getElementById('q-date').value = r.event_date || '';
+        document.getElementById('q-guests').value = r.guests || '';
+        document.getElementById('q-note').value = r.note || '';
+        document.getElementById('q-total').focus();
+        document.getElementById('q-total').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        Hub.toast('Request copied into a new quote — enter the agreed total');
+      });
+    });
+  }
+
   function render() {
     Owner.get(ENDPOINT).then(function (d) {
       var root = document.getElementById('owner-root');
       root.className = '';
       if (!d || !d.ok) { root.innerHTML = '<div class="card"><p class="row-sub">Could not load catering quotes.</p></div>'; return; }
       var qs = d.quotes || [];
+      var rs = d.requests || [];
       var unpaid = qs.filter(function (q) { return q.deposit_status !== 'paid'; });
       var owed = qs.reduce(function (n, q) { return n + (q.balance_status === 'due' ? Number(q.balance_cents || 0) : 0); }, 0);
 
       root.innerHTML =
         '<div class="card-grid">' +
+          Owner.tile(String(rs.length), 'Website requests', { accent: rs.length ? 'accent' : '' }) +
           Owner.tile(String(qs.length), 'Quotes') +
           Owner.tile(String(unpaid.length), 'Deposits unpaid', { accent: unpaid.length ? 'accent' : '' }) +
           Owner.tile(money(owed), 'Balances still owed') +
+        '</div>' +
+        '<div class="hub-section"><h2>Website quote requests</h2>' +
+        (rs.length ? rs.map(requestCard).join('') : '<div class="hub-empty">No website catering requests yet.</div>') +
         '</div>' +
         formHtml(d) +
         '<div class="hub-section"><h2>Quotes</h2>' +
@@ -201,6 +255,7 @@
         '</div>';
 
       wireForm();
+      wireRequests(root);
       root.querySelectorAll('[data-balance]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           if (!window.confirm('Mark this balance paid? This records the money as received — it does not charge anybody.')) return;
