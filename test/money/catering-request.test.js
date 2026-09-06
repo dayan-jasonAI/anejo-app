@@ -230,6 +230,13 @@ test('La Cajita has one canonical public route and enters the catering form pres
   assert.match(CAJITA, /First birthdays/);
   assert.match(CAJITA, /id="theme-gallery"/);
   assert.match(CAJITA, /prefers-reduced-motion/);
+  assert.match(CAJITA, /one Cajita closed with its coordinated round label and gift tag, and one open/);
+  for (const asset of [
+    'anejo-signature-duo-v2.jpg', 'gender-reveal-duo-v2.jpg', 'halloween-duo-v2.jpg',
+    'christmas-duo-v2.jpg', 'valentines-duo-v2.jpg', 'easter-duo-v2.jpg',
+    'patriotic-duo-v2.jpg', 'custom-occasion-duo-v2.jpg',
+  ]) assert.match(CAJITA, new RegExp(asset.replace('.', '\\.')));
+  assert.doesNotMatch(CAJITA, /class="brand-plate"/, 'the actual themed labels must remain visible without a duplicate overlay');
   assert.match(CAJITA, /Gender Reveal/);
   assert.match(CAJITA, /Halloween/);
   assert.match(CAJITA, /Christmas/);
