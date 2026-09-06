@@ -54,6 +54,25 @@ export const onRequestGet = async ({ request, env }) => {
     requests = (r && r.results) || [];
   } catch { requests = []; }
 
+  // Attachments are private R2 objects. Return metadata only; the authenticated download route
+  // performs a fresh owner check and streams the bytes on demand.
+  if (requests.length) {
+    try {
+      const a = await env.DB.prepare(
+        `SELECT id, lead_id, filename, content_type, byte_size, created_at
+           FROM catering_attachments WHERE lead_id IS NOT NULL ORDER BY created_at ASC LIMIT 250`
+      ).all();
+      const byLead = new Map();
+      for (const row of ((a && a.results) || [])) {
+        if (!byLead.has(row.lead_id)) byLead.set(row.lead_id, []);
+        byLead.get(row.lead_id).push(row);
+      }
+      requests = requests.map((requestRow) => ({ ...requestRow, attachments: byLead.get(requestRow.id) || [] }));
+    } catch {
+      requests = requests.map((requestRow) => ({ ...requestRow, attachments: [] }));
+    }
+  }
+
   // deposit_pct / terms_version here describe what a NEW quote would be sold under. Every existing
   // row carries its own, and the desk must render each row's own.
   return json({ ok: true, deposit_pct: DEPOSIT_PCT, terms_version: TERMS_VERSION, requests, quotes });

@@ -29,6 +29,7 @@ export function normalizeCateringRequest(b) {
   const eventTheme = text(b.event_theme, 160);
   const themeColors = text(b.theme_colors, 300);
   const dietary = text(b.dietary_needs, 1000);
+  const designNotes = text(b.design_notes, 1500);
   const details = text(b.event_details, 2500);
 
   if (!menus.length) return { ok: false, error: 'Please choose at least one catering menu option.' };
@@ -56,13 +57,15 @@ export function normalizeCateringRequest(b) {
     `Menu: ${menus.join(', ')}`,
     `Event theme / occasion: ${eventTheme || 'Not provided'}`,
     `Colors / special touches: ${themeColors || 'Not provided'}`,
+    `Personal design request: ${designNotes || 'Not provided'}`,
     `Dietary needs / allergies: ${dietary || 'None provided'}`,
     `Request details: ${details || 'None provided'}`,
   ];
   return {
     ok: true, menus, guests, event_date: eventDate, event_time: eventTime || null,
     event_type: eventType, location, event_theme: eventTheme || null,
-    theme_colors: themeColors || null, dietary_needs: dietary || null, event_details: details || null,
+    theme_colors: themeColors || null, design_notes: designNotes || null,
+    dietary_needs: dietary || null, event_details: details || null,
     interest: menus.join(', '), message: lines.join('\n'),
   };
 }
@@ -208,6 +211,31 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     return bad('The catering request form is briefly unavailable. Please email dayan@anejocateringco.com.', 503);
   }
 
+  // If the customer uploaded inspiration, prove the short-lived session exists and is still
+  // unclaimed before saving the lead. The R2 keys never enter the public payload or email.
+  let attachments = [];
+  const uploadSessionId = catering ? String(b.upload_session_id || '').trim() : '';
+  if (catering && uploadSessionId) {
+    if (!/^cup_[0-9a-f]{20}$/.test(uploadSessionId)) return bad('The design upload session is invalid. Please attach the files again.');
+    let uploadSession;
+    try {
+      uploadSession = await env.DB.prepare(
+        'SELECT id, expires_at, claimed_lead_id FROM catering_upload_sessions WHERE id=?'
+      ).bind(uploadSessionId).first();
+      const result = await env.DB.prepare(
+        `SELECT id, filename, content_type, byte_size
+           FROM catering_attachments WHERE session_id=? AND lead_id IS NULL ORDER BY slot`
+      ).bind(uploadSessionId).all();
+      attachments = (result && result.results) || [];
+    } catch { return bad('We could not verify the design files. Please try again.', 500); }
+    if (!uploadSession || uploadSession.claimed_lead_id || Number(uploadSession.expires_at) <= now()) {
+      return bad('The design upload session expired. Please attach the files again.', 410);
+    }
+    if (!attachments.length || attachments.length > 5) return bad('The design files could not be verified. Please attach them again.');
+    catering.attachment_count = attachments.length;
+    catering.message += `\nPrivate design files: ${attachments.length} attachment${attachments.length === 1 ? '' : 's'}`;
+  }
+
   const attr = parseAttribution(b);
 
   // Marketing SMS consent (0047) — a SEPARATE permission from `sms_consent`, which was collected
@@ -280,6 +308,23 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     await insertLead(env, rec);
     stored = true;
 
+    if (catering && attachments.length) {
+      try {
+        await env.DB.batch([
+          env.DB.prepare(
+            'UPDATE catering_attachments SET lead_id=? WHERE session_id=? AND lead_id IS NULL'
+          ).bind(rec.id, uploadSessionId),
+          env.DB.prepare(
+            'UPDATE catering_upload_sessions SET claimed_lead_id=?, claimed_at=? WHERE id=? AND claimed_lead_id IS NULL'
+          ).bind(rec.id, now(), uploadSessionId),
+        ]);
+      } catch {
+        // Keep the lead (the customer must not be asked to submit twice) and make the linkage
+        // failure visible in the same owner alert stream used by every catering request.
+        catering.attachment_link_failed = true;
+      }
+    }
+
     if (kind === 'launch') {
       try {
         const c = await env.DB.prepare("SELECT COUNT(*) AS n FROM leads WHERE kind='launch'").first();
@@ -312,7 +357,7 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
       alert_type: 'catering_request',
       severity: 'info',
       title: `Catering request: ${rec.name} · ${catering.guests} guests`,
-      body: `${catering.event_date} · ${catering.location} · ${catering.interest}. Open the Catering desk to review and quote.`,
+      body: `${catering.event_date} · ${catering.location} · ${catering.interest}${attachments.length ? ` · ${attachments.length} private design file${attachments.length === 1 ? '' : 's'}` : ''}.${catering.attachment_link_failed ? ' The file link needs attention.' : ''} Open the Catering desk to review and quote.`,
       ref_type: 'lead',
       ref_id: rec.id,
       dedupe_key: `catering:${rec.id}`,
@@ -332,6 +377,8 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
         Menu: catering.interest, 'Event type': catering.event_type, 'Event date': catering.event_date,
         'Serving time': catering.event_time, Guests: catering.guests, Location: catering.location,
         'Event theme / occasion': catering.event_theme, 'Colors / special touches': catering.theme_colors,
+        'Personal design request': catering.design_notes,
+        'Private design files': attachments.length ? `${attachments.length} — open them securely in Añejo Hub` : null,
         'Dietary needs / allergies': catering.dietary_needs, Details: catering.event_details,
       } : { Interest: rec.interest, Message: rec.message }),
       // Where this lead came from — the owner reads campaign performance straight off the alert.
@@ -343,7 +390,7 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
         subject: (catering
           ? `New catering quote request — ${rec.name} · ${catering.guests} guests`
           : `New ${rec.kind} inquiry — ${rec.name}`).slice(0, 120),
-        html: emailShell(`<p>${catering ? 'New catering quote request' : `New ${rec.kind} inquiry`} from the website:</p><table>${rows}</table>${catering ? '<p style="margin-top:22px"><a href="https://anejocateringco.com/hub/owner/catering.html" style="background:#C6A85B;color:#0d2419;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700">Open the Catering desk →</a></p>' : ''}`),
+        html: emailShell(`<p>${catering ? 'New catering quote request' : `New ${rec.kind} inquiry`} from the website:</p><table>${rows}</table>${catering ? `<p style="margin-top:22px"><a href="https://anejocateringco.com/hub/owner/catering.html?lead=${encodeURIComponent(rec.id)}" style="background:#C6A85B;color:#0d2419;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700">Open the Catering desk →</a></p>` : ''}`),
       });
       emailAccepted = !!(sent && !sent.skipped && sent.id);
     } catch { /* the lead is already stored; HUB warning below makes the failure visible */ }
@@ -369,6 +416,9 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     id: kind === 'catering' ? rec.id : undefined,
     member,
     cap: FOUNDING_CAP,
-    ...(catering ? { notifications: { hub: hubAlerted, email: emailAccepted } } : {}),
+    ...(catering ? {
+      notifications: { hub: hubAlerted, email: emailAccepted },
+      attachments: { received: attachments.length, linked: !catering.attachment_link_failed },
+    } : {}),
   });
 };
