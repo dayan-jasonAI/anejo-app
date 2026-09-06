@@ -20,7 +20,10 @@ const TYPES = [
 function cleanFilename(value, ext) {
   let name = '';
   try { name = decodeURIComponent(String(value || '')); } catch { name = String(value || ''); }
-  name = name.replace(/[\u0000-\u001f\u007f]/g, '').replace(/[\\/]/g, '-').trim().slice(0, 180);
+  name = Array.from(name).filter((char) => {
+    const code = char.charCodeAt(0);
+    return code > 31 && code !== 127;
+  }).join('').replace(/[\\/]/g, '-').trim().slice(0, 180);
   return name || `design-request.${ext}`;
 }
 

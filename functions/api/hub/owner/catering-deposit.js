@@ -67,10 +67,10 @@ export const onRequestGet = async ({ request, env }) => {
         if (!byLead.has(row.lead_id)) byLead.set(row.lead_id, []);
         byLead.get(row.lead_id).push(row);
       }
-      requests = requests.map((requestRow) => ({ ...requestRow, attachments: byLead.get(requestRow.id) || [] }));
-    } catch {
-      requests = requests.map((requestRow) => ({ ...requestRow, attachments: [] }));
-    }
+      requests = requests.map((requestRow) => byLead.has(requestRow.id)
+        ? ({ ...requestRow, attachments: byLead.get(requestRow.id) })
+        : requestRow);
+    } catch { /* attachment migration may not be applied yet; requests still load */ }
   }
 
   // deposit_pct / terms_version here describe what a NEW quote would be sold under. Every existing

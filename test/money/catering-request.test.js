@@ -21,6 +21,7 @@ const valid = {
   event_date: '2026-10-18', event_time: '12:30', guests: 60,
   event_type: 'Office or team meal', location: 'West Palm Beach 33401',
   event_theme: 'First birthday', theme_colors: 'Pink and gold with custom guest tags',
+  design_notes: 'Use the invitation artwork and a playful family photo on the gift tag.',
   dietary_needs: 'Two vegetarian meals; one nut allergy',
   event_details: 'Individually packed. Please include serving utensils.',
 };
@@ -75,6 +76,7 @@ test('the public form stores one complete catering request in the shared Hub lea
   assert.match(args[7], /Location: West Palm Beach 33401/);
   assert.match(args[7], /Event theme \/ occasion: First birthday/);
   assert.match(args[7], /Colors \/ special touches: Pink and gold/);
+  assert.match(args[7], /Personal design request: Use the invitation artwork/);
   assert.match(args[7], /Two vegetarian meals; one nut allergy/);
   assert.match(args[7], /Individually packed/);
   assert.doesNotMatch(args[7], /\$\d/, 'a request must not fabricate a catering price');
@@ -106,6 +108,7 @@ test('a catering submission sends the full brief to the configured Añejo inbox'
   assert.match(calls[0].body.html, /Individual Cajitas/);
   assert.match(calls[0].body.html, /First birthday/);
   assert.match(calls[0].body.html, /Pink and gold/);
+  assert.match(calls[0].body.html, /Use the invitation artwork/);
   assert.match(calls[0].body.html, /Two vegetarian meals/);
 });
 
@@ -129,6 +132,33 @@ test('a stored request raises a durable Hub alert and reports an accepted owner 
     globalThis.fetch = realFetch;
   }
   assert.deepEqual(alertTypes, ['catering_request']);
+});
+
+test('private design files are claimed by the saved request before the owner is notified', async () => {
+  const updates = [];
+  const DB = makeD1([
+    [/SELECT id, expires_at, claimed_lead_id FROM catering_upload_sessions/i, () => ({
+      id: 'cup_0123456789abcdefabcd', expires_at: Date.now() + 60_000, claimed_lead_id: null,
+    })],
+    [/FROM catering_attachments WHERE session_id=.*lead_id IS NULL/i, () => [
+      { id: 'cat_0123456789abcdefabcd', filename: 'party-idea.pdf', content_type: 'application/pdf', byte_size: 2400 },
+    ]],
+    [/INSERT INTO leads/i, () => 1],
+    [/UPDATE catering_attachments SET lead_id/i, () => 1],
+    [/UPDATE catering_upload_sessions SET claimed_lead_id/i, () => 1],
+  ]);
+  DB.batch = async (statements) => {
+    for (const statement of statements) updates.push(await statement.run());
+    return updates;
+  };
+
+  const response = await post({ ...valid, upload_session_id: 'cup_0123456789abcdefabcd' }, { DB });
+  const out = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(out.attachments, { received: 1, linked: true });
+  assert.equal(updates.length, 2, 'both the file rows and upload session are claimed');
+  assert.ok(DB.sqlLog().some((sql) => /UPDATE catering_attachments SET lead_id/.test(sql)));
+  assert.ok(DB.sqlLog().some((sql) => /UPDATE catering_upload_sessions SET claimed_lead_id/.test(sql)));
 });
 
 test('an email outage leaves the request stored and raises a visible Hub warning', async () => {
@@ -165,6 +195,8 @@ test('the customer and owner surfaces expose one connected catering journey', ()
   assert.match(PAGE, /name="guests"/);
   assert.match(PAGE, /name="event_theme"/);
   assert.match(PAGE, /name="theme_colors"/);
+  assert.match(PAGE, /name="design_notes"/);
+  assert.match(PAGE, /name="design_files"[^>]+multiple/);
   assert.match(PAGE, /Lechón and congrí trays/);
   assert.match(PAGE, /Cuban tamales/);
   assert.match(PAGE, /cuban-lechon-tray-editorial-v2\.png/);
@@ -196,6 +228,13 @@ test('La Cajita has one canonical public route and enters the catering form pres
   assert.match(CAJITA, /mini sandwich, empanada, croqueta, creamy party salad/);
   assert.match(CAJITA, /Your theme\. Your colors\. Your Cajita\./);
   assert.match(CAJITA, /First birthdays/);
+  assert.match(CAJITA, /id="theme-gallery"/);
+  assert.match(CAJITA, /prefers-reduced-motion/);
+  assert.match(CAJITA, /Gender Reveal/);
+  assert.match(CAJITA, /Halloween/);
+  assert.match(CAJITA, /Christmas/);
+  assert.match(CAJITA, /Hanukkah/);
+  assert.match(CAJITA, /Sweet 16/);
   assert.doesNotMatch(CAJITA, /bowl_congreen\.jpg/, 'the Cajita page must use real Cajita photography');
   assert.doesNotMatch(CAJITA, /\$\d/, 'the Cajita page must not invent a price');
 });

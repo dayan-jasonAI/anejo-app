@@ -3,8 +3,11 @@ import { json } from '../../../../_lib/util.js';
 import { requireRole } from '../../../../_lib/roles.js';
 
 function safeDownloadName(value) {
-  return String(value || 'catering-design')
-    .replace(/[\u0000-\u001f\u007f"\\/]/g, '-')
+  return Array.from(String(value || 'catering-design'))
+    .map((char) => {
+      const code = char.charCodeAt(0);
+      return code <= 31 || code === 127 || char === '"' || char === '\\' || char === '/' ? '-' : char;
+    }).join('')
     .trim()
     .slice(0, 180) || 'catering-design';
 }
