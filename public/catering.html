@@ -70,6 +70,10 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.96);backdrop-filt
 .tray-copy h3{font-family:'Cormorant Garamond',Georgia,serif;color:var(--green);font-size:32px;line-height:1.05;margin:7px 0 8px}
 .tray-copy p{color:var(--muted);font-size:15px}
 .tray-copy a{display:inline-block;margin-top:14px;color:var(--green);font-size:13px;font-weight:700;text-decoration:none;border-bottom:1px solid var(--gold)}
+.theme-preview{padding:76px 24px;background:var(--cream)}
+.theme-preview-grid{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);gap:40px;align-items:center}
+.theme-preview-copy h2{font-family:'Cormorant Garamond',Georgia,serif;color:var(--green);font-size:clamp(38px,5vw,58px);line-height:1.02}.theme-preview-copy p{color:var(--muted);font-size:17px;margin:16px 0 22px}.theme-preview-copy .btn{background:var(--green);color:#fff}
+.theme-preview-images{display:grid;grid-template-columns:1fr 1fr;gap:10px}.theme-preview-images figure{position:relative;overflow:hidden;background:#ddd;aspect-ratio:4/3}.theme-preview-images figure:first-child{grid-column:1/-1;aspect-ratio:2/1}.theme-preview-images img{width:100%;height:100%;object-fit:cover;display:block}.theme-preview-images figcaption{position:absolute;left:10px;bottom:10px;background:rgba(13,13,13,.75);color:#fff;padding:5px 8px;font-size:11px;letter-spacing:1px;text-transform:uppercase}
 .quote-section{padding:68px 24px 90px;background:var(--green-dark);color:var(--cream)}
 .quote-grid{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr);gap:56px;align-items:start}
 .quote-aside{position:sticky;top:100px;padding-top:10px}
@@ -108,13 +112,14 @@ input:focus,select:focus,textarea:focus{outline:3px solid rgba(198,168,91,.36);b
 .form-status.show{display:block}
 .form-status.error{background:#f8e9e7;color:var(--danger);border:1px solid #e6bbb5}
 .form-status.success{background:#e6f0e8;color:var(--green);border:1px solid #b9d1bf}
+.file-drop{border:1px dashed rgba(26,61,46,.42);border-radius:7px;background:#fff;padding:16px}.file-drop input{border:0;padding:0;min-height:44px}.file-drop p{font-size:13px;color:var(--muted);margin-top:7px}.file-list{list-style:none;margin-top:8px}.file-list li{font-size:13px;color:var(--green);padding:4px 0;border-top:1px solid var(--line)}
 .success-card{text-align:center;padding:26px 8px}
 .success-card .check{font-size:42px;color:var(--gold-dark)}
 .success-card h3{font-size:38px;margin:8px 0}
 footer{background:var(--black);color:rgba(245,242,236,.68);padding:34px 24px;text-align:center;font-size:13px;letter-spacing:.4px}
 footer a{color:var(--gold);text-decoration:none}
 a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
-@media(max-width:900px){.hero{grid-template-columns:1fr}.hero-copy{padding:68px 28px}.hero-photo{min-height:330px}.hero-photo:after{background:linear-gradient(0deg,rgba(13,13,13,.5),transparent 55%)}.options,.tray-grid{grid-template-columns:1fr}.quote-grid{grid-template-columns:1fr}.quote-aside{position:static}.choices{grid-template-columns:1fr}.nav-burger{display:block}.nav-links{display:none;position:absolute;top:68px;left:0;right:0;background:var(--black);padding:20px 24px;flex-direction:column;align-items:flex-start;border-bottom:1px solid rgba(198,168,91,.25)}.nav-links.open{display:flex}.nav-links a{width:100%;padding:6px 0}.nav-cta{padding:10px 14px!important;width:auto!important}}
+@media(max-width:900px){.hero{grid-template-columns:1fr}.hero-copy{padding:68px 28px}.hero-photo{min-height:330px}.hero-photo:after{background:linear-gradient(0deg,rgba(13,13,13,.5),transparent 55%)}.options,.tray-grid,.theme-preview-grid{grid-template-columns:1fr}.quote-grid{grid-template-columns:1fr}.quote-aside{position:static}.choices{grid-template-columns:1fr}.nav-burger{display:block}.nav-links{display:none;position:absolute;top:68px;left:0;right:0;background:var(--black);padding:20px 24px;flex-direction:column;align-items:flex-start;border-bottom:1px solid rgba(198,168,91,.25)}.nav-links.open{display:flex}.nav-links a{width:100%;padding:6px 0}.nav-cta{padding:10px 14px!important;width:auto!important}}
 @media(max-width:620px){.hero h1{font-size:48px}.fields{grid-template-columns:1fr}.field.full{grid-column:auto}.quote-section{padding-left:16px;padding-right:16px}.form-card{padding:23px 18px}.intro,.tray-showcase{padding-left:18px;padding-right:18px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}.btn:hover{transform:none}}
 </style>
@@ -128,6 +133,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
       <a href="/">Home</a>
       <a href="/menu/">Menu</a>
       <a href="/catering" aria-current="page">Catering</a>
+      <a href="/cajita">La Cajita</a>
       <a href="/calculator">Macros</a>
       <a href="/login">Log in</a>
       <a href="/order" class="nav-cta">Order bowls</a>
@@ -185,6 +191,17 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
     </div>
   </section>
 
+  <section class="theme-preview" aria-labelledby="theme-preview-heading">
+    <div class="theme-preview-grid">
+      <div class="theme-preview-copy"><div class="eyebrow">Presentation, personalized</div><h2 id="theme-preview-heading">The same Cajita. A completely different celebration.</h2><p>Keep Añejo’s premium identity while changing the palette, liner, label, tag, and finishing touches for your occasion. See the interactive theme gallery, then send your own photo, PDF, or written design idea with the quote request.</p><a class="btn" href="/cajita#theme-gallery">Explore Cajita themes</a></div>
+      <div class="theme-preview-images">
+        <figure><img src="/assets/img/cajita/pink-first-birthday-cajita-editorial-v2.png" alt="Añejo Cajita in the standard blush celebration presentation" width="1200" height="900" loading="lazy"><figcaption>Añejo celebration</figcaption></figure>
+        <figure><img src="/assets/img/cajita/themes/gender-reveal.jpg" alt="Cajita presentation in blush, blue, and cocoa colors" width="1400" height="1050" loading="lazy"><figcaption>Gender reveal</figcaption></figure>
+        <figure><img src="/assets/img/cajita/themes/halloween.jpg" alt="Cajita presentation in premium purple and orange Halloween colors" width="1400" height="1050" loading="lazy"><figcaption>Halloween</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
   <section class="quote-section" id="quote" aria-labelledby="quote-heading">
     <div class="quote-grid">
       <aside class="quote-aside">
@@ -219,6 +236,8 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
           <div class="field full"><label for="location">Event city or ZIP code <span class="req">*</span></label><input id="location" name="location" type="text" autocomplete="postal-code" maxlength="160" placeholder="Palm Beach County location" required></div>
           <div class="field"><label for="event-theme">Event theme or occasion</label><input id="event-theme" name="event_theme" type="text" maxlength="160" placeholder="First birthday, baby shower, holiday…"></div>
           <div class="field"><label for="theme-colors">Colors or special touches</label><input id="theme-colors" name="theme_colors" type="text" maxlength="300" placeholder="Pink and gold, custom tags, matching liners…"></div>
+          <div class="field full"><label for="design-notes">Personal design idea</label><textarea id="design-notes" name="design_notes" maxlength="1500" placeholder="Describe the look you want—an inside joke, someone’s big-head photo, a holiday, invitation style, custom wording, or any other personal idea."></textarea></div>
+          <div class="field full"><label for="design-files">Upload design inspiration</label><div class="file-drop"><input id="design-files" name="design_files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" aria-describedby="file-help file-list"><p id="file-help">Optional: up to 5 private PDF, JPG, or PNG files, 10MB each. Files are stored with this request and are visible only in Añejo Hub.</p><ul class="file-list" id="file-list" aria-live="polite"></ul></div></div>
           <div class="field full"><label for="dietary">Dietary needs or allergies</label><textarea id="dietary" name="dietary_needs" maxlength="1000" placeholder="Tell us about vegetarian, dairy-free, gluten-sensitive, allergy, or other needs. Food is prepared in a shared kitchen."></textarea></div>
           <div class="field full"><label for="details">What would make this order right for your group?</label><textarea id="details" name="event_details" maxlength="2500" placeholder="Menu ideas, service expectations, packaging, budget range, or anything else Añejo should know."></textarea></div>
           <div class="field full consent"><input id="sms-consent" name="sms_consent" type="checkbox"><label for="sms-consent">You may text me about this catering request. This does not subscribe me to marketing messages.</label></div>
@@ -257,12 +276,42 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
   var form=document.getElementById('cateringForm');
   var status=document.getElementById('formStatus');
   var button=document.getElementById('submitBtn');
+  var fileInput=document.getElementById('design-files');
+  var fileList=document.getElementById('file-list');
   function val(name){var el=form.elements[name];return el?String(el.value||'').trim():'';}
   function menus(){return Array.from(form.querySelectorAll('input[name="menu_option"]:checked')).map(function(el){return el.value;});}
   function show(message,type){status.textContent=message;status.className='form-status show '+type;}
+  function selectedFiles(){return Array.from((fileInput&&fileInput.files)||[]);}
+  function validateFiles(files){
+    if(files.length>5)return 'Choose no more than five design files.';
+    for(var i=0;i<files.length;i++){
+      if(files[i].size>10*1024*1024)return files[i].name+' is larger than 10MB.';
+      if(!/^(application\/pdf|image\/jpeg|image\/png)$/.test(files[i].type))return files[i].name+' is not a PDF, JPG, or PNG file.';
+    }
+    return '';
+  }
+  function drawFiles(){
+    var files=selectedFiles(),error=validateFiles(files);
+    fileList.innerHTML=files.map(function(file){return '<li>'+file.name.replace(/[<>&]/g,'')+' · '+Math.max(1,Math.round(file.size/1024))+' KB</li>';}).join('');
+    if(error)show(error,'error');
+  }
+  fileInput.addEventListener('change',drawFiles);
+  async function uploadDesignFiles(files){
+    if(!files.length)return '';
+    var start=await fetch('/api/catering-uploads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'create'})});
+    var session=await start.json().catch(function(){return {};});
+    if(!start.ok)throw new Error(session.error||'We could not start the secure design upload.');
+    for(var i=0;i<files.length;i++){
+      button.textContent='Uploading '+(i+1)+' of '+files.length+'…';
+      var uploaded=await fetch('/api/catering-uploads',{method:'POST',headers:{'Content-Type':files[i].type,'X-Upload-Session':session.session_id,'X-File-Name':encodeURIComponent(files[i].name)},body:files[i]});
+      var result=await uploaded.json().catch(function(){return {};});
+      if(!uploaded.ok)throw new Error(result.error||'We could not upload '+files[i].name+'.');
+    }
+    return session.session_id;
+  }
   function mailto(data){
     var subject=encodeURIComponent('Catering Quote Request — '+data.name+' · '+data.guests+' guests');
-    var body=encodeURIComponent('Name: '+data.name+'\nCompany: '+(data.company||'—')+'\nEmail: '+data.email+'\nPhone: '+(data.phone||'—')+'\nMenu: '+data.menu_options.join(', ')+'\nEvent: '+data.event_type+'\nDate: '+data.event_date+'\nTime: '+(data.event_time||'—')+'\nGuests: '+data.guests+'\nLocation: '+data.location+'\nTheme or occasion: '+(data.event_theme||'—')+'\nColors or special touches: '+(data.theme_colors||'—')+'\nDietary needs: '+(data.dietary_needs||'—')+'\n\nDetails:\n'+(data.event_details||'—'));
+    var body=encodeURIComponent('Name: '+data.name+'\nCompany: '+(data.company||'—')+'\nEmail: '+data.email+'\nPhone: '+(data.phone||'—')+'\nMenu: '+data.menu_options.join(', ')+'\nEvent: '+data.event_type+'\nDate: '+data.event_date+'\nTime: '+(data.event_time||'—')+'\nGuests: '+data.guests+'\nLocation: '+data.location+'\nTheme or occasion: '+(data.event_theme||'—')+'\nColors or special touches: '+(data.theme_colors||'—')+'\nPersonal design idea: '+(data.design_notes||'—')+'\nDesign files selected: '+(selectedFiles().map(function(f){return f.name;}).join(', ')||'—')+'\nDietary needs: '+(data.dietary_needs||'—')+'\n\nDetails:\n'+(data.event_details||'—'));
     window.location.href='mailto:dayan@anejocateringco.com?subject='+subject+'&body='+body;
   }
   form.addEventListener('submit',async function(e){
@@ -270,9 +319,13 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
     var selected=menus();
     if(!selected.length){show('Choose at least one menu direction.','error');document.getElementById('menu-fit').focus();return;}
     if(!form.checkValidity()){form.reportValidity();return;}
-    var data={kind:'catering',lang:'en',name:val('name'),company:val('company'),email:val('email'),phone:val('phone'),menu_options:selected,event_date:val('event_date'),event_time:val('event_time'),guests:Number(val('guests')),event_type:val('event_type'),location:val('location'),event_theme:val('event_theme'),theme_colors:val('theme_colors'),dietary_needs:val('dietary_needs'),event_details:val('event_details'),sms_consent:!!form.elements.sms_consent.checked};
+    var files=selectedFiles(),fileError=validateFiles(files);
+    if(fileError){show(fileError,'error');fileInput.focus();return;}
+    var data={kind:'catering',lang:'en',name:val('name'),company:val('company'),email:val('email'),phone:val('phone'),menu_options:selected,event_date:val('event_date'),event_time:val('event_time'),guests:Number(val('guests')),event_type:val('event_type'),location:val('location'),event_theme:val('event_theme'),theme_colors:val('theme_colors'),design_notes:val('design_notes'),dietary_needs:val('dietary_needs'),event_details:val('event_details'),sms_consent:!!form.elements.sms_consent.checked};
     button.disabled=true;button.textContent='Sending…';
     try{
+      data.upload_session_id=await uploadDesignFiles(files);
+      button.textContent='Sending request…';
       var response=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
       var out=await response.json().catch(function(){return {};});
       if(!response.ok)throw new Error(out.error||'We could not send the request.');

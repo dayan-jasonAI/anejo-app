@@ -25,9 +25,11 @@
   .terms li{font-size:12.5px;color:var(--muted);line-height:1.55;margin:6px 0 0 16px}
   .lnk{font-size:12px;word-break:break-all}
   .rcard{border:1px solid var(--line);border-left:4px solid var(--green);border-radius:12px;padding:15px;margin:10px 0;background:#fff}
+  .rcard.targeted{box-shadow:0 0 0 3px rgba(198,168,91,.38);border-left-color:var(--gold)}
   .rcard .nm{font-weight:800;color:var(--green);font-size:17px}
   .rbody{margin-top:10px;padding:10px 12px;background:var(--cream);border-radius:9px;color:var(--muted);font-size:13px;line-height:1.55;white-space:pre-line}
   .ractions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ractions .btn{width:auto}
+  .rfiles{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#faf8f2}.rfiles b{display:block;color:var(--green);font-size:12px;margin-bottom:5px}.rfiles a{display:block;font-size:12.5px;line-height:1.6;word-break:break-word}
 </style>
 </head>
 <body>
@@ -138,13 +140,21 @@
       note: [r.interest ? 'Requested menu: ' + r.interest : '', r.message || ''].filter(Boolean).join('\n'),
     };
     var contact = [r.email || '', r.phone || ''].filter(Boolean).join(' · ');
-    return '<article class="rcard">' +
+    var targetLead = new URLSearchParams(window.location.search).get('lead');
+    var files = (r.attachments || []).map(function (file) {
+      var base = '/api/hub/owner/catering-attachments/' + encodeURIComponent(file.id);
+      var size = Math.max(1, Math.round(Number(file.byte_size || 0) / 1024));
+      return '<a href="' + base + '" target="_blank" rel="noopener">Preview ' + esc(file.filename) + ' · ' + size + ' KB</a>' +
+        '<a href="' + base + '?download=1">Download ' + esc(file.filename) + '</a>';
+    }).join('');
+    return '<article class="rcard' + (targetLead === r.id ? ' targeted' : '') + '"' + (targetLead === r.id ? ' id="selected-request"' : '') + '>' +
       '<div class="nm">' + esc(r.name || 'Catering request') + '</div>' +
       '<div class="row-sub">' + esc(r.interest || 'Menu not specified') +
         (r.company ? ' · ' + esc(r.company) : '') +
         (r.created_at ? ' · received ' + day(r.created_at) : '') + '</div>' +
       (contact ? '<div class="row-sub">' + esc(contact) + '</div>' : '') +
       '<div class="rbody">' + esc(r.message || 'No event details provided.') + '</div>' +
+      (files ? '<div class="rfiles"><b>Private design files · owner only</b>' + files + '</div>' : '') +
       '<div class="ractions">' +
         '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">Start a quote</button>' +
         (r.email ? '<a class="btn ghost" href="mailto:' + esc(encodeURIComponent(r.email)) + '?subject=' + encodeURIComponent('Your Añejo catering request') + '">Email customer</a>' : '') +
@@ -256,6 +266,8 @@
 
       wireForm();
       wireRequests(root);
+      var selected = document.getElementById('selected-request');
+      if (selected) selected.scrollIntoView({ behavior: 'smooth', block: 'center' });
       root.querySelectorAll('[data-balance]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           if (!window.confirm('Mark this balance paid? This records the money as received — it does not charge anybody.')) return;
