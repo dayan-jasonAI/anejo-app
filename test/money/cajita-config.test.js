@@ -7,7 +7,7 @@ import { makeD1 } from '../helpers/d1.js';
 const config = {
   version: 1,
   variants: [
-    { id: 'standard', name: 'Standard', quantity: 20, items: [{ id: 'sandwich', quantity: 1 }, { id: 'empanada', quantity: 1 }, { id: 'tres-leches', quantity: 0 }], theme: { preset: 'signature', name: 'Añejo', colors: { background: '#112233' }, pattern: 'none', pickShape: 'round' }, personalization: { labelText: 'Team', tagText: 'Thanks', pickText: '', artworks: [] } },
+    { id: 'standard', name: 'Standard', quantity: 20, items: [{ id: 'sandwich', quantity: 1 }, { id: 'empanada', quantity: 1 }, { id: 'tres-leches', quantity: 0 }], theme: { preset: 'signature', name: 'Añejo', colors: { background: '#112233' }, pattern: 'none', pickShape: 'round', prompt: 'Gold details', artworkAttachmentId: null }, personalization: { labelText: 'Team', tagText: 'Thanks', pickText: '', textPlacements: [{ surface: 'label', x: 0.5, y: 0.5, scale: 1, rotation: 0 }], artworks: [] }, packagingRequest: 'Please show a larger box option.\nNo confirmed dimensions.' },
     { id: 'no-dessert', name: 'No dessert', quantity: 10, items: [{ id: 'sandwich', quantity: 1 }, { id: 'salad', quantity: 1 }, { id: 'tres-leches', quantity: 0 }], theme: { colors: { box: '#abcdef' } }, personalization: { artworks: [] } },
   ],
 };
@@ -19,7 +19,25 @@ test('normalizes two variants and produces complete kitchen totals', () => {
   assert.match(out.summary, /Version No dessert \(10 boxes\)/);
   assert.match(out.summary, /sandwich x30/);
   assert.match(out.json, /tres-leches/);
+  assert.match(out.summary, /Packaging request: Please show a larger box option/);
+  assert.match(out.summary, /text placements=label@0.5,0.5/);
   assert.deepEqual(extractCajitaConfiguration(`Cajita configuration JSON: ${out.json}`).config, out.value);
+});
+
+test('extract preserves theme artwork ownership and exact artwork placement details', () => {
+  const input = {
+    ...config,
+    variants: [{
+      ...config.variants[0],
+      theme: { ...config.variants[0].theme, artworkAttachmentId: 'cat_abc' },
+      personalization: { ...config.variants[0].personalization, artworks: [{ attachmentId: 'cat_abc', surface: 'label', x: 12, y: 8, scale: 1.25, rotation: 15 }] },
+    }],
+  };
+  const normalized = normalizeCajitaConfiguration(input, { attachmentIds: new Set(['cat_abc']) });
+  assert.equal(normalized.ok, true);
+  const extracted = extractCajitaConfiguration(`Cajita configuration JSON: ${normalized.json}`);
+  assert.equal(extracted.config.variants[0].theme.artworkAttachmentId, 'cat_abc');
+  assert.match(extracted.summary, /cat_abc@label:12,8 scale 1.25 rot 15/);
 });
 
 test('rejects invented IDs, unsafe text, invalid counts, colors, and unclaimed artwork', () => {
@@ -29,6 +47,11 @@ test('rejects invented IDs, unsafe text, invalid counts, colors, and unclaimed a
     { ...config, variants: [{ ...config.variants[0], theme: { colors: { box: 'red' } } }] },
     { ...config, variants: [{ ...config.variants[0], name: '<script>x</script>' }] },
     { ...config, variants: [{ ...config.variants[0], personalization: { artworks: [{ attachmentId: 'cat_missing', surface: 'box', x: 0, y: 0, scale: 1, rotation: 0 }] } }] },
+    { ...config, variants: [{ ...config.variants[0], id: 'same' }, { ...config.variants[1], id: 'same' }] },
+    { ...config, variants: [{ ...config.variants[0], items: [{ id: 'sandwich', quantity: 1 }, { id: 'sandwich', quantity: 1 }] }] },
+    { ...config, variants: [{ ...config.variants[0], items: [{ id: 'sandwich', quantity: 0 }] }] },
+    { ...config, variants: [{ ...config.variants[0], items: [{ id: 'sandwich', quantity: 51 }] }] },
+    { ...config, variants: [{ ...config.variants[0], personalization: { textPlacements: [{ surface: 'label', x: 2, y: 0, scale: 1, rotation: 0 }] } }] },
   ]) assert.equal(normalizeCajitaConfiguration(bad).ok, false);
 });
 

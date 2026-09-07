@@ -154,6 +154,7 @@
         (r.created_at ? ' · received ' + day(r.created_at) : '') + '</div>' +
       (contact ? '<div class="row-sub">' + esc(contact) + '</div>' : '') +
       '<div class="rbody">' + esc(r.message || 'No event details provided.') + '</div>' +
+      (r.cajita_summary ? '<details class="rbody"><summary>Exact Cajita configuration</summary><pre>' + esc(r.cajita_summary) + '</pre></details>' : '') +
       (files ? '<div class="rfiles"><b>Private design files · owner only</b>' + files + '</div>' : '') +
       '<div class="ractions">' +
         '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">Start a quote</button>' +

@@ -60,5 +60,19 @@ export function dataUrlFromBytes(bytes, contentType) {
 }
 
 export function capability(env) {
-  return { available: !!(env && env.DB && env.MEDIA && (env.OPENAI_API_KEY || env.GEMINI_API_KEY || env.AI)), budget: 'shared_weekly_50_usd' };
+  return { available: env && env.CAJITA_AI_PREVIEW_ENABLED === 'true' && !!(env.DB && env.MEDIA && env.SESSIONS), budget: 'shared_weekly_50_usd' };
+}
+
+export async function strictRateLimit(env, request) {
+  if (!env || !env.SESSIONS) return { ok: false, unavailable: true };
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const win = 3600;
+  const bucket = Math.floor(Date.now() / (win * 1000));
+  const key = `rl:cajita-theme:${ip}:${bucket}`;
+  try {
+    const count = parseInt((await env.SESSIONS.get(key)) || '0', 10) || 0;
+    if (count >= 3) return { ok: false, retryAfter: win };
+    await env.SESSIONS.put(key, String(count + 1), { expirationTtl: win + 5 });
+    return { ok: true };
+  } catch { return { ok: false, unavailable: true }; }
 }

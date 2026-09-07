@@ -24,11 +24,17 @@ test('origin check accepts same origin and rejects foreign origin', () => {
 });
 
 test('GET reports capability without exposing secrets', async () => {
-  const response = await onRequestGet({ env: { DB: {}, MEDIA: {}, OPENAI_API_KEY: 'secret' } });
+  const response = await onRequestGet({ env: { DB: {}, MEDIA: {}, SESSIONS: {}, CAJITA_AI_PREVIEW_ENABLED: 'true', OPENAI_API_KEY: 'secret' } });
   const body = await response.json();
   assert.equal(body.ok, true);
   assert.equal(body.capability.available, true);
   assert.equal(JSON.stringify(body).includes('secret'), false);
+});
+
+test('GET is unavailable until the owner explicitly enables the feature', async () => {
+  const response = await onRequestGet({ env: { DB: {}, MEDIA: {}, SESSIONS: {}, OPENAI_API_KEY: 'secret' } });
+  const body = await response.json();
+  assert.equal(body.capability.available, false);
 });
 
 test('POST fails closed when budget/storage state is unavailable', async () => {
@@ -37,4 +43,12 @@ test('POST fails closed when budget/storage state is unavailable', async () => {
     env: {},
   });
   assert.equal(response.status, 503);
+});
+
+test('POST rejects oversized bodies and missing rate-limit binding', async () => {
+  const request = new Request('https://anejocateringco.com/api/cajita-theme', { method: 'POST', body: 'x'.repeat(5000), headers: { Origin: 'https://anejocateringco.com' } });
+  const response = await onRequestPost({ request, env: { DB: {}, MEDIA: {} } });
+  assert.equal(response.status, 503);
+  const bounded = await onRequestPost({ request, env: { DB: {}, MEDIA: {}, SESSIONS: { get: async () => '0', put: async () => {} }, CAJITA_AI_PREVIEW_ENABLED: 'true' } });
+  assert.equal(bounded.status, 413);
 });
