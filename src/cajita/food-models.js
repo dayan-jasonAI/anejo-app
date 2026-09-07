@@ -27,7 +27,7 @@ function roundedBox(size, material, radius = .1, bevel = 3) {
   g.rotateX(-Math.PI / 2); g.translate(0, y / 2, 0); return new THREE.Mesh(g, material);
 }
 function sphere(r, material, scale = [1, 1, 1]) { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 10), material); m.scale.set(...scale); return m; }
-function item(group, mesh, x, y, z) { mesh.position.set(x, y, z); group.add(mesh); return mesh; }
+function item(group, mesh, x, y, z, componentId) { mesh.position.set(x, y, z); if (componentId) mesh.userData.componentId = componentId; group.add(mesh); return mesh; }
 function finish(group, opts, label = '') {
   group.userData.cajitaLabel = label; group.userData.pickColor = opts.pickColor; group.userData.pickShape = opts.pickShape;
   return group;
@@ -52,7 +52,7 @@ function croqueta(opts) { const g = new THREE.Group(); const m = mat(C.crumb, .9
 function salad(opts) { const g = new THREE.Group(); const glass = mat(C.clear,.08,{transparent:true,opacity:.22,roughness:.08}); item(g,sphere(.4,glass,[1,.8,1]),0,.39,0); const fill=mat(C.salad,.58); item(g,sphere(.34,fill,[1,.45,1]),0,.36,0); for(let i=0;i<7;i++) item(g,sphere(.07,mat([0xd6ab73,0x9eae60,0xf4e1ad][i%3],.7),[1.3,.7,.9]),-.23+(i%3)*.22,.53+(i%2)*.06,-.18+((i*2)%3)*.16); return finish(g,opts,'salad'); }
 function grazing(opts) { const g=new THREE.Group(); item(g,sphere(.16,mat(C.grape,.35)), -.28,.3,0); item(g,sphere(.18,mat(C.ham,.5),[.7,1.2,1]),-.03,.3,0); item(g,roundedBox([.3,.22,.28],mat(C.cheese,.45),.04),.22,.28,0); item(g,sphere(.13,mat(C.guava,.4)),.38,.3,0); skewer(g,opts); return finish(g,opts,'grazing'); }
 function tresLeches(opts) { const g=new THREE.Group(); const glass=mat(C.clear,.06,{transparent:true,opacity:.2}); item(g,sphere(.4,glass,[.8,1,.8]),0,.38,0); item(g,sphere(.32,mat(0xf4d7b2,.35),[.9,.55,.9]),0,.33,0); item(g,sphere(.25,mat(C.cream,.3),[1,.4,1]),0,.68,0); return finish(g,opts,'tres-leches'); }
-function skewerFood(opts) { const g=new THREE.Group(); item(g,sphere(.14,mat(C.grape,.35)),-.3,.34,0); const ham=new THREE.Mesh(new THREE.TorusGeometry(.14,.055,8,14,Math.PI*1.35),mat(C.ham,.55)); ham.rotation.x=Math.PI/2; item(g,ham,-.05,.34,0); item(g,roundedBox([.23,.2,.2],mat(C.cheese,.4),.03),.18,.3,0); item(g,sphere(.12,mat(C.guava,.4)),.38,.31,0); item(g,roundedBox([.22,.18,.2],mat(C.pineapple,.45),.03),.58,.31,0); skewer(g,opts); return finish(g,opts,'skewer'); }
+function skewerFood(opts) { const g=new THREE.Group(); item(g,sphere(.14,mat(C.grape,.35)),-.3,.34,0,'grape'); const ham=new THREE.Mesh(new THREE.TorusGeometry(.14,.055,8,14,Math.PI*1.35),mat(C.ham,.55)); ham.rotation.x=Math.PI/2; item(g,ham,-.05,.34,0,'ham'); item(g,roundedBox([.23,.2,.2],mat(C.cheese,.4),.03),.18,.3,0,'cheese'); item(g,sphere(.12,mat(C.guava,.4)),.38,.31,0,'guava'); item(g,roundedBox([.22,.18,.2],mat(C.pineapple,.45),.03),.58,.31,0,'pineapple'); skewer(g,opts); return finish(g,opts,'skewer'); }
 
 const BUILDERS = { sandwich, empanada, croqueta, salad, grazing, 'tres-leches': tresLeches, skewer: skewerFood };
 export function createFoodModel(id, options = {}) { const builder = BUILDERS[id]; if (!builder) throw new Error(`Unknown Cajita food model: ${id}`); const g = builder(options); g.scale.setScalar(.82); return g; }
