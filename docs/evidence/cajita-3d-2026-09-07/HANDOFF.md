@@ -23,7 +23,7 @@ Dayan's direct instruction authorizes custom food selections, duplicates/removal
 
 - `npm run build:cajita`: exit 0.
 - `npm run lint`: exit 0 (existing lint scope: functions, tests, scripts).
-- `npm test --silent`: 1,784 tests passed, 0 failed, exit 0, measured in this session.
+- `npm test --silent`: 1,787 tests passed, 0 failed, exit 0, measured in this session after the final submission-lock and kitchen-event changes.
 - `git diff --check`: exit 0.
 - Additional backend evidence: `BACKEND_AUDIT.md` (earlier 1,779-test run, before the five model/catalog tests).
 - Browser local URL: `http://localhost:8788/cajita-builder`.
@@ -33,10 +33,13 @@ Dayan's direct instruction authorizes custom food selections, duplicates/removal
 - Mobile viewport 390×844 initially exposed horizontal overflow; min-width/grid fix applied. Retest measured document width=390 and viewport width=390, with food stepper controls visible.
 - Browser saw a deprecated shadow-map warning; replaced with supported PCFShadowMap and rebuilt. No observed browser error entries during this interaction run.
 - Mesh tests cover finite coordinates/bounds, quantity math, palette colors, protected food colors and external texture disposal. Standard six plus skewer measured 11,850 triangles.
+- Final browser interactions exercised closed/open lid, reset view, replay assembly, gift-tag text and rotation slider, and save. No browser error entries were returned.
+- Submission snapshots contact values and locks editor/form controls while uploads are pending. Save/submit refuses to run while artwork or AI generation is loading; asynchronous file placement retains its originally selected version/surface.
+- Kitchen query was corrected to use existing lead columns. A structured Cajita event JSON record now preserves multiline dietary requirements and event details rather than truncating them to the first line. This is fixture-tested, not production-verified.
 
 ## Real 3D generation attempt — blocked externally
 
-Two direct image-to-3D conversion attempts returned `400 Bad Request / Failed to generate 3D model`; neither returned a job ID or model file. First used the existing Cajita editorial image. Second used a clean isolated skewer reference, independently checked HTTP 200 and image/png.
+Three direct image-to-3D conversion attempts returned `400 Bad Request / Failed to generate 3D model`; none returned a job ID or model file. First used the existing Cajita editorial image. Second used a clean isolated skewer reference, independently checked HTTP 200 and image/png. A third fast-quality diagnostic on the isolated reference failed at 2026-09-07T18:31:36Z. Repeating unchanged attempts was stopped.
 
 Built-in ImageGen produced `public/assets/img/cajita/models-reference/skewer-reference-v1.png` (1,034,348 bytes). It is a generated reference, not an actual product photograph and not a 3D model. Original source remains under `.codex/generated_images/01a0722b-6149-71e1-a30d-beb0982de996/exec-064fa6c0-9338-481b-a93b-63fe5d1d65a3.png`.
 
@@ -51,7 +54,7 @@ ImageGen prompt: “Use case: product-mockup. Generate ONE isolated appetizer sk
 3. Public AI themes: disabled. Verify spend for all attempted/fallback providers, strict shared budget concurrency, content output suitability, cleanup and retention before enabling. Existing ledger helpers swallow spend write failures; reservation conservatively retained. Do not assert a proven hard financial cap.
 4. PDF upload currently attaches instructions only; it is NOT positioned/rasterized in the manual editor. JPG/PNG works. Broader artwork/text typography/layout capabilities and preview parity with print production need review.
 5. Live end-to-end proof still required: submission persisted, attachment ownership/linking, owner and kitchen views, alert receipt and email delivery (not just provider acceptance), retry/idempotency, deliberate provider failure paths. Tests do not establish real inbox delivery.
-6. Lead route lacks full request-idempotency; frontend warns about uncertain network receipt and does not silently mailto away a design. Add a durable idempotency contract before production release.
+6. Lead route lacks full request-idempotency; frontend warns about uncertain network receipt and does not silently mailto away a design. Add a durable idempotency/outbox recovery contract before production release. The unused helper and its tests are preparatory only. Its unshipped SQL was moved out of active migrations into `draft-idempotency.sql`; no migration was run. Route integration was rejected because completing a key before attachments and notification delivery would strand retries.
 7. Scene caps visible food meshes at 28 while preserving all requested counts; UI discloses first-N shown. Physical dimensions, practical limits and layout packing remain unverified. Some input/scene changes rebuild geometry; tune before mobile release.
 8. Keep new builder unlinked from live navigation until all required release checks pass. No production approval is being requested a second time: these are missing proof/quality, not a duplicate permission gate.
 

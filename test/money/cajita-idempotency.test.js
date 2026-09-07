@@ -16,7 +16,7 @@ test('payload hash is stable across object key order and changes with details', 
 });
 
 test('draft migration atomically reserves the request key and stores the payload fingerprint', () => {
-  const sql = readFileSync(new URL('../../migrations/0095_catering_request_idempotency.sql', import.meta.url), 'utf8');
+  const sql = readFileSync(new URL('../../docs/evidence/cajita-3d-2026-09-07/draft-idempotency.sql', import.meta.url), 'utf8');
   assert.match(sql, /request_id TEXT PRIMARY KEY/);
   assert.match(sql, /payload_hash TEXT NOT NULL/);
   assert.match(sql, /lead_id TEXT NOT NULL UNIQUE/);

@@ -244,7 +244,8 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     });
     if (!config.ok) return bad(config.error);
     cajitaConfiguration = config;
-    catering.message += `\n${config.summary}\nCajita configuration JSON: ${config.json}`;
+    const eventJson = JSON.stringify({ event_date: catering.event_date, event_time: catering.event_time, guests: catering.guests, dietary_needs: catering.dietary_needs, event_details: catering.event_details });
+    catering.message += `\nCajita event JSON: ${eventJson}\n${config.summary}\nCajita configuration JSON: ${config.json}`;
   }
 
   const attr = parseAttribution(b);

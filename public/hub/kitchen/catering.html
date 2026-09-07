@@ -6,7 +6,7 @@
   try {
     var response=await fetch('/api/hub/kitchen/catering'); var data=await response.json();
     if(!response.ok||!data.ok) throw new Error(data.error||'Could not load requests.');
-    root.innerHTML=(data.requests||[]).map(function(r){return '<article><h2>'+esc(r.event_date||'Catering request')+'</h2><p>'+esc(r.interest||'')+' · '+esc(r.guests||'')+' guests</p><pre>'+esc(r.cajita_summary||'No Cajita configuration.')+'</pre></article>';}).join('')||'<p>No catering requests.</p>';
+    root.innerHTML=(data.requests||[]).map(function(r){return '<article><h2>'+esc(r.event_date||'Catering request')+'</h2><p>'+esc(r.interest||'')+' · '+esc(r.guests||'')+' guests · serving '+esc(r.serving_time||'not provided')+'</p><p><b>Dietary/allergy notes:</b> '+esc(r.dietary_needs||'None provided')+'</p><p><b>Event details:</b> '+esc(r.event_details||'None provided')+'</p><pre>'+esc(r.cajita_summary||'No Cajita configuration.')+'</pre></article>';}).join('')||'<p>No catering requests.</p>';
   } catch(e){ root.textContent=e.message||'Could not load requests.'; }
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 })();

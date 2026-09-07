@@ -1,4 +1,4 @@
--- Cajita lead retries: drafted only; apply remotely only after review.
+-- Future-only draft; intentionally outside migrations/ so active migration runners do not apply it.
 CREATE TABLE IF NOT EXISTS catering_request_idempotency (
   request_id TEXT PRIMARY KEY,
   payload_hash TEXT NOT NULL,

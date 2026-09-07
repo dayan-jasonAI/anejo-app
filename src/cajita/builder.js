@@ -9,6 +9,7 @@ let config = { version: 1, variants: [newVariant()] },
   current = 0,
   scene,
   generatedBusy = false,
+  assetBusy = false,
   submitting = false,
   dirty = false;
 const active = () => config.variants[current];
@@ -440,13 +441,16 @@ function drawFiles() {
   }
 }
 $("art-files").onchange = async () => {
+  assetBusy = true;
+  const targetVariant = active(),
+    targetSurface = $("surface").value;
   try {
     for (const f of $("art-files").files) {
       const id = await addAsset(f, f.name);
       if (f.type.startsWith("image/"))
-        active().personalization.artworks.push({
+        targetVariant.personalization.artworks.push({
           attachmentId: id,
-          surface: $("surface").value,
+          surface: targetSurface,
           x: 5000,
           y: 7600,
           scale: 0.6,
@@ -461,6 +465,7 @@ $("art-files").onchange = async () => {
   } catch (e) {
     say(e.message);
   } finally {
+    assetBusy = false;
     $("art-files").value = "";
     drawFiles();
   }
@@ -521,6 +526,12 @@ $("clear-ai").onclick = () => {
 };
 
 function check() {
+  if (assetBusy || generatedBusy)
+    return {
+      ok: false,
+      error:
+        "Please let the artwork or theme finish loading before saving or submitting.",
+    };
   for (const input of document.querySelectorAll(
     "#controls input[type=number]",
   )) {
@@ -626,6 +637,16 @@ $("quote-form").onsubmit = async (e) => {
     return;
   }
   if (!form.reportValidity()) return;
+  const eventFields = Object.fromEntries(new FormData(form));
+  const smsConsent = form.elements.sms_consent.checked;
+  const locked = [
+    ...document.querySelectorAll(
+      "#controls input,#controls select,#controls textarea,#controls button,#quote-form input,#quote-form textarea,#quote-form button",
+    ),
+  ].map((node) => ({ node, disabled: node.disabled }));
+  locked.forEach(({ node }) => {
+    node.disabled = true;
+  });
   submitting = true;
   $("submit").disabled = true;
   say("Saving your exact design request…", "quote-status");
@@ -667,13 +688,13 @@ $("quote-form").onsubmit = async (e) => {
       for (const a of v.personalization.artworks)
         a.attachmentId = idMap.get(a.attachmentId);
     }
-    const data = Object.fromEntries(new FormData(form));
+    const data = eventFields;
     Object.assign(data, {
       kind: "catering",
       lang: "en",
       guests: Number(data.guests),
       menu_options: ["Individual Cajitas"],
-      sms_consent: form.elements.sms_consent.checked,
+      sms_consent: smsConsent,
       cajita_configuration: sent,
       upload_session_id: sessionId,
       event_theme: "Multiple Cajita versions — see exact configuration",
@@ -723,6 +744,9 @@ $("quote-form").onsubmit = async (e) => {
     );
     $("submit").disabled = false;
   } finally {
+    locked.forEach(({ node, disabled }) => {
+      node.disabled = disabled;
+    });
     submitting = false;
   }
 };
