@@ -168,24 +168,13 @@
     "Yes. Our trainer portal lets you generate macro-targeted bowl plans for your members, who subscribe to Añejo directly. Ask us about our trainer & gym partner program.":"Sí. Nuestro portal de entrenadores te permite generar planes de bowls con macros para tus miembros, que se suscriben a Añejo directamente. Pregúntanos por nuestro programa de socios para entrenadores y gimnasios.",
     "Explore the trainer portal →":"Explora el portal de entrenadores →",
     "FAQ":"Preguntas",
-    // testimonials
-    "Word of Mouth":"Lo Que Dicen","What people are":"Lo que la gente está","saying":"diciendo",
-    "Healthy doesn't have to taste like a cleanse. It can taste like home.":"Lo saludable no tiene que saber a dieta. Puede saber a casa.",
-    "— The Añejo promise":"— La promesa Añejo",
-    "Your review could be here — be one of our first members and tell your story.":"Tu reseña podría estar aquí — sé uno de nuestros primeros miembros y cuenta tu historia.",
-    "— Reserve a tasting":"— Reserva una degustación",
-    "Trainers and gyms: share how Añejo plans changed your members' results.":"Entrenadores y gimnasios: cuenten cómo los planes Añejo cambiaron los resultados de sus miembros.",
-    "— Partner with us":"— Asóciate con nosotros",
-    "Verified customer reviews will appear here as our first orders ship.":"Las reseñas verificadas de clientes aparecerán aquí cuando lleguen nuestros primeros pedidos.",
-    // testimonials
-    "Word of Mouth":"De Boca en Boca","What people are":"Lo que la gente está","saying":"diciendo",
-    "Healthy doesn't have to taste like a cleanse. It can taste like home.":"Lo saludable no tiene que saber a dieta. Puede saber a casa.",
-    "— The Añejo promise":"— La promesa Añejo",
-    "Your review could be here — be one of our first members and tell your story.":"Tu reseña podría estar aquí — sé uno de nuestros primeros miembros y cuenta tu historia.",
-    "— Reserve a tasting":"— Reserva una degustación",
-    "Trainers and gyms: share how Añejo plans changed your members' results.":"Entrenadores y gimnasios: cuenten cómo los planes Añejo cambiaron los resultados de sus miembros.",
-    "— Partner with us":"— Asóciate con nosotros",
-    "Verified customer reviews will appear here as our first orders ship.":"Las reseñas verificadas de clientes aparecerán aquí cuando salgan nuestros primeros pedidos.",
+    // Review quotes and names retain their original wording via translate="no".
+    "From our Google reviews":"De nuestras reseñas en Google",
+    "What people are":"Lo que la gente está","saying":"diciendo",
+    "from 6 Google reviews":"de 6 reseñas en Google",
+    "Read review on Google ↗":"Leer reseña en Google ↗",
+    "See all reviews on Google ↗":"Ver todas las reseñas en Google ↗",
+    "Review excerpts in their original language. Rating checked September 7, 2026; not a live feed.":"Extractos de reseñas en su idioma original. Calificación consultada el 7 de septiembre de 2026; no se actualiza en tiempo real.",
     // macro calculator (home hero)
     "Free":"Gratis","AI-Personalized":"Personalizado con IA","~10 Seconds":"~10 Segundos","No Sign-Up":"Sin Registro",
     "See your macros.":"Descubre tus macros.","Meet your bowls.":"Conoce tus bowls.",
@@ -424,7 +413,7 @@
       if (c.nodeType === 3){ fn(c); }
       else if (c.nodeType === 1){
         var tag = c.tagName.toLowerCase();
-        if (tag === 'script' || tag === 'style' || c.id === 'langToggle') continue;
+        if (tag === 'script' || tag === 'style' || c.id === 'langToggle' || c.getAttribute('translate') === 'no') continue;
         walk(c, fn);
       }
     }
@@ -450,6 +439,7 @@
     var phs = document.querySelectorAll('[placeholder]');
     for (var i = 0; i < phs.length; i++){
       var el = phs[i];
+      if (el.closest('[translate="no"]')) continue;
       if (!origPH.has(el)) origPH.set(el, el.getAttribute('placeholder'));
       var o = origPH.get(el);
       if (es && tr(o) === undefined) queue(o);
@@ -462,7 +452,7 @@
       var els = document.querySelectorAll('[' + attr + ']');
       for (var j = 0; j < els.length; j++){
         var e2 = els[j];
-        if (e2.id === 'langToggle') continue;          // "Language / Idioma" is already bilingual
+        if (e2.id === 'langToggle' || e2.closest('[translate="no"]')) continue; // Preserve attributed source text too.
         var store = origAttr[attr] || (origAttr[attr] = new WeakMap());
         if (!store.has(e2)) store.set(e2, e2.getAttribute(attr));
         var ov = store.get(e2);
