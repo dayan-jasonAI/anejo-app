@@ -16,6 +16,7 @@ import { now, parseJson } from '../../../_lib/hub.js';
 import { buildQuote } from '../../../_lib/quote.js';
 import { DEPOSIT_PCT, TERMS_VERSION, termsFor } from '../../../_lib/catering_terms.js';
 import { createDepositCheckout, depositSplit } from '../../../_lib/catering_deposit.js';
+import { extractCajitaConfiguration } from '../../../_lib/cajita-config.js';
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -51,7 +52,10 @@ export const onRequestGet = async ({ request, env }) => {
       `SELECT id, name, email, phone, company, interest, message, source_lang, created_at
          FROM leads WHERE kind='catering' ORDER BY created_at DESC LIMIT 50`
     ).all();
-    requests = (r && r.results) || [];
+    requests = ((r && r.results) || []).map((row) => {
+      const parsed = extractCajitaConfiguration(row.message);
+      return parsed ? { ...row, cajita_configuration: parsed.config, cajita_summary: parsed.summary } : row;
+    });
   } catch { requests = []; }
 
   // Attachments are private R2 objects. Return metadata only; the authenticated download route

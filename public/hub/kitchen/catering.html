@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Catering production · Añejo Hub</title></head><body>
+<main><h1>Catering production</h1><p>Kitchen view — customer contact details are intentionally omitted.</p><div id="app">Loading…</div></main>
+<script>
+(async function(){
+  var root=document.getElementById('app');
+  try {
+    var response=await fetch('/api/hub/kitchen/catering'); var data=await response.json();
+    if(!response.ok||!data.ok) throw new Error(data.error||'Could not load requests.');
+    root.innerHTML=(data.requests||[]).map(function(r){return '<article><h2>'+esc(r.event_date||'Catering request')+'</h2><p>'+esc(r.interest||'')+' · '+esc(r.guests||'')+' guests</p><pre>'+esc(r.cajita_summary||'No Cajita configuration.')+'</pre></article>';}).join('')||'<p>No catering requests.</p>';
+  } catch(e){ root.textContent=e.message||'Could not load requests.'; }
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+})();
+</script></body></html>

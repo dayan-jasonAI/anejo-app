@@ -7,6 +7,7 @@ import { sendSms } from '../_lib/twilio.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { insertLead } from '../_lib/leads.js';
 import { raiseAlert } from '../_lib/alerts.js';
+import { normalizeCajitaConfiguration } from '../_lib/cajita-config.js';
 
 // Founding Legacy Member program — first N launch-list signups get a founding number.
 const FOUNDING_CAP = 100;
@@ -236,6 +237,16 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     catering.message += `\nPrivate design files: ${attachments.length} attachment${attachments.length === 1 ? '' : 's'}`;
   }
 
+  let cajitaConfiguration = null;
+  if (catering && b.cajita_configuration != null) {
+    const config = normalizeCajitaConfiguration(b.cajita_configuration, {
+      attachmentIds: new Set(attachments.map((attachment) => attachment.id)),
+    });
+    if (!config.ok) return bad(config.error);
+    cajitaConfiguration = config;
+    catering.message += `\n${config.summary}\nCajita configuration JSON: ${config.json}`;
+  }
+
   const attr = parseAttribution(b);
 
   // Marketing SMS consent (0047) — a SEPARATE permission from `sms_consent`, which was collected
@@ -378,6 +389,7 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
         'Serving time': catering.event_time, Guests: catering.guests, Location: catering.location,
         'Event theme / occasion': catering.event_theme, 'Colors / special touches': catering.theme_colors,
         'Personal design request': catering.design_notes,
+        'Cajita configuration': cajitaConfiguration ? cajitaConfiguration.summary : null,
         'Private design files': attachments.length ? `${attachments.length} — open them securely in Añejo Hub` : null,
         'Dietary needs / allergies': catering.dietary_needs, Details: catering.event_details,
       } : { Interest: rec.interest, Message: rec.message }),
