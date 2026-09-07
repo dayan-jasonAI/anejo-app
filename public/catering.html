@@ -278,6 +278,8 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
   var button=document.getElementById('submitBtn');
   var fileInput=document.getElementById('design-files');
   var fileList=document.getElementById('file-list');
+  var submitting=false,pendingSubmission=null,pendingLocks=null;
+  window.addEventListener('beforeunload',function(e){if(submitting||pendingSubmission){e.preventDefault();e.returnValue='';}});
   function val(name){var el=form.elements[name];return el?String(el.value||'').trim():'';}
   function menus(){return Array.from(form.querySelectorAll('input[name="menu_option"]:checked')).map(function(el){return el.value;});}
   function show(message,type){status.textContent=message;status.className='form-status show '+type;}
@@ -298,44 +300,60 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
   fileInput.addEventListener('change',drawFiles);
   async function uploadDesignFiles(files){
     if(!files.length)return '';
-    var start=await fetch('/api/catering-uploads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'create'})});
+    var start=await fetch('/api/catering-uploads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'create'}),signal:AbortSignal.timeout(30000)});
     var session=await start.json().catch(function(){return {};});
-    if(!start.ok)throw new Error(session.error||'We could not start the secure design upload.');
+    if(!start.ok||!session.session_id)throw new Error(session.error||'We could not start the secure design upload.');
     for(var i=0;i<files.length;i++){
       button.textContent='Uploading '+(i+1)+' of '+files.length+'…';
-      var uploaded=await fetch('/api/catering-uploads',{method:'POST',headers:{'Content-Type':files[i].type,'X-Upload-Session':session.session_id,'X-File-Name':encodeURIComponent(files[i].name)},body:files[i]});
+      var uploaded=await fetch('/api/catering-uploads',{method:'POST',headers:{'Content-Type':files[i].type,'X-Upload-Session':session.session_id,'X-File-Name':encodeURIComponent(files[i].name)},body:files[i],signal:AbortSignal.timeout(120000)});
       var result=await uploaded.json().catch(function(){return {};});
-      if(!uploaded.ok)throw new Error(result.error||'We could not upload '+files[i].name+'.');
+      if(!uploaded.ok||!result.attachment_id)throw new Error(result.error||'We could not upload '+files[i].name+'.');
     }
     return session.session_id;
   }
-  function mailto(data){
-    var subject=encodeURIComponent('Catering Quote Request — '+data.name+' · '+data.guests+' guests');
-    var body=encodeURIComponent('Name: '+data.name+'\nCompany: '+(data.company||'—')+'\nEmail: '+data.email+'\nPhone: '+(data.phone||'—')+'\nMenu: '+data.menu_options.join(', ')+'\nEvent: '+data.event_type+'\nDate: '+data.event_date+'\nTime: '+(data.event_time||'—')+'\nGuests: '+data.guests+'\nLocation: '+data.location+'\nTheme or occasion: '+(data.event_theme||'—')+'\nColors or special touches: '+(data.theme_colors||'—')+'\nPersonal design idea: '+(data.design_notes||'—')+'\nDesign files selected: '+(selectedFiles().map(function(f){return f.name;}).join(', ')||'—')+'\nDietary needs: '+(data.dietary_needs||'—')+'\n\nDetails:\n'+(data.event_details||'—'));
-    window.location.href='mailto:dayan@anejocateringco.com?subject='+subject+'&body='+body;
-  }
   form.addEventListener('submit',async function(e){
-    e.preventDefault(); status.className='form-status';
+    e.preventDefault();
+    if(submitting)return;
+    status.className='form-status';
     var selected=menus();
     if(!selected.length){show('Choose at least one menu direction.','error');document.getElementById('menu-fit').focus();return;}
     if(!form.checkValidity()){form.reportValidity();return;}
     var files=selectedFiles(),fileError=validateFiles(files);
     if(fileError){show(fileError,'error');fileInput.focus();return;}
     var data={kind:'catering',lang:'en',name:val('name'),company:val('company'),email:val('email'),phone:val('phone'),menu_options:selected,event_date:val('event_date'),event_time:val('event_time'),guests:Number(val('guests')),event_type:val('event_type'),location:val('location'),event_theme:val('event_theme'),theme_colors:val('theme_colors'),design_notes:val('design_notes'),dietary_needs:val('dietary_needs'),event_details:val('event_details'),sms_consent:!!form.elements.sms_consent.checked};
+    var locked=pendingLocks||Array.from(form.querySelectorAll('input,select,textarea,button')).map(function(node){return {node:node,disabled:node.disabled};});
+    locked.forEach(function(entry){entry.node.disabled=true;});
+    submitting=true;
     button.disabled=true;button.textContent='Sending…';
     try{
-      data.upload_session_id=await uploadDesignFiles(files);
+      if(!pendingSubmission){
+        data.request_id=crypto.randomUUID();
+        data.upload_session_id=await uploadDesignFiles(files);
+        pendingSubmission=data;
+        pendingLocks=locked;
+      }
       button.textContent='Sending request…';
-      var response=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+      var response=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pendingSubmission),signal:AbortSignal.timeout(30000)});
       var out=await response.json().catch(function(){return {};});
-      if(!response.ok)throw new Error(out.error||'We could not send the request.');
-      if(window.gtag)window.gtag('event','generate_lead',{form_id:'catering'});
-      form.innerHTML='<div class="success-card"><div class="check" aria-hidden="true">✓</div><h3 id="request-received" tabindex="-1">Request received.</h3><p>Your catering details are with the Añejo team. We’ll review them and follow up about availability, the menu, and your custom quote.</p><p style="margin-top:18px"><a class="btn btn-gold" href="/">Back to Añejo</a></p></div>';
+      if(!response.ok||!out.ok||!out.id){
+        // An ambiguous earlier success may precede a rate limit. Never replace
+        // its request ID merely because the retry receives 429 or a server error.
+        if([400,410,413,422].includes(response.status))pendingSubmission=null;
+        throw new Error(out.error||'We could not confirm receipt.');
+      }
+      pendingSubmission=null;
+      form.innerHTML='<div class="success-card"><h3 id="request-received" tabindex="-1">Request received.</h3><p id="request-reference"></p><p>Your complete request is saved. The Añejo team will review availability, your menu, and your custom quote.</p><p id="request-notifications"></p><p style="margin-top:18px"><a class="btn btn-gold" href="/">Back to Añejo</a></p></div>';
+      document.getElementById('request-reference').textContent='Reference: '+out.id;
+      document.getElementById('request-notifications').textContent=out.notifications&&out.notifications.queued?'Team notifications are queued for delivery. Please keep your reference.':'Please keep your reference. The request is saved; team notification status needs review.';
       document.getElementById('request-received').focus();
+      try{if(window.gtag)window.gtag('event','generate_lead',{form_id:'catering'});}catch(_analyticsError){/* Analytics must never turn a saved request into a retry. */}
     }catch(err){
-      show((err&&err.message?err.message:'We could not send the request.')+' Opening your email app as a backup…','error');
-      setTimeout(function(){mailto(data);},700);
-      button.disabled=false;button.textContent='Send quote request';
+      var message=err&&err.message?err.message:'We could not confirm receipt.';
+      show(pendingSubmission?message+' Your exact request is held here. Tap Retry same request to safely check receipt without creating another order. Keep this page open. Request reference: '+pendingSubmission.request_id:message+' Your details and files are still here. Correct the issue and try again.','error');
+      button.disabled=false;button.textContent=pendingSubmission?'Retry same request':'Send quote request';
+    }finally{
+      if(!pendingSubmission){locked.forEach(function(entry){entry.node.disabled=entry.disabled;});pendingLocks=null;}
+      submitting=false;
     }
   });
 })();

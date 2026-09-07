@@ -172,12 +172,15 @@ export function createScene(host, selectItem) {
           pickText: v.personalization.pickText,
           pickTexture: pickTex,
         });
+        const bounds = new THREE.Box3().setFromObject(model);
+        const itemScale = Math.min(foodScale, 0.92 / (bounds.max.y - bounds.min.y));
+        const restingY = 0.14 - bounds.min.y * itemScale;
         model.position.set(
           ((idx % cols) - (cols - 1) / 2) * cellX,
-          0.15,
+          restingY,
           (Math.floor(idx / cols) - (rows - 1) / 2) * cellZ,
         );
-        model.scale.setScalar(foodScale);
+        model.scale.setScalar(itemScale);
         model.userData.itemId = item.id;
         model.traverse((o) => {
           if (o.isMesh) {
@@ -191,8 +194,8 @@ export function createScene(host, selectItem) {
         if (animate && !reduced) {
           animations.push({
             obj: model,
-            target: 0.15,
-            scale: foodScale,
+            target: restingY,
+            scale: itemScale,
             start: performance.now() + idx * 85,
           });
           model.position.y = 3.4;
