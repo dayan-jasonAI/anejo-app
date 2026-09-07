@@ -11,15 +11,17 @@ export const onRequestGet = async ({ request, env }) => {
   let rows;
   try {
     const result = await env.DB.prepare(
-      `SELECT id, event_date, guests, interest, message, created_at
+      `SELECT id, interest, message, created_at
          FROM leads WHERE kind='catering' ORDER BY created_at DESC LIMIT 50`
     ).all();
     rows = (result && result.results) || [];
   } catch { return bad('Could not load catering production requests.', 500); }
   return json({ ok: true, requests: rows.map((row) => {
+    const field = (label) => { const match = String(row.message || '').split('\n').find((line) => line.startsWith(`${label}:`)); return match ? match.slice(label.length + 1).trim() : null; };
     const parsed = extractCajitaConfiguration(row.message);
     return {
-      id: row.id, event_date: row.event_date || null, guests: row.guests || null,
+      id: row.id, event_date: field('Event date'), serving_time: field('Serving time'), guests: Number(field('Guest count')) || null,
+      location: null, dietary_needs: field('Dietary needs / allergies'),
       interest: row.interest || null, created_at: row.created_at,
       cajita_configuration: parsed ? parsed.config : null,
       cajita_summary: parsed ? parsed.summary : null,

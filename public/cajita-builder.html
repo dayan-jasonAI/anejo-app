@@ -1,39 +1,402 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#1a3d2e">
-<title>Your Cajita Atelier · Añejo Catering Co.</title>
-<link rel="icon" href="/assets/img/favicon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/css/cajita-builder.css">
-<script src="/assets/js/cajita-builder.js" defer></script>
-</head>
-<body>
-<a class="skip" href="#controls">Skip to customization</a>
-<header><a href="/cajita" aria-label="Añejo, back to La Cajita"><img src="/assets/img/emblem.png" alt=""> AÑEJO</a><nav aria-label="Main"><a href="/catering">Catering</a><a href="/cajita">La Cajita</a></nav></header>
-<main>
-<div class="intro"><p class="eyebrow">LA CAJITA ATELIER · PRIVATE DESIGN PREVIEW</p><h1>A little box.<br><em>Entirely yours.</em></h1><p>Build the bites. Dress the details. Make every guest feel celebrated.</p></div>
-<div class="workspace">
-<section class="visual" aria-label="Cajita preview">
-<div class="scene-wrap"><div id="scene" role="img" aria-label="Interactive 3D Cajita preview. Use the food controls to add or remove items."></div><div class="scene-label"><span id="scene-theme">Añejo Signature</span><span id="scene-count">6 bites · 1 box</span></div><p id="scene-fallback" hidden>3D is unavailable on this device. All customization controls and the item summary still work.</p></div>
-<div class="view-tools"><button type="button" id="lid">Show closed box</button><button type="button" id="reset-view">Reset view</button><button type="button" id="replay">Replay assembly</button></div>
-<p class="hint">Drag to rotate · pinch to zoom · tap a bite to find its controls</p>
-<p class="preview-note">Design prototype · illustrative 3D food, not a photograph. Packaging scale is provisional; Añejo confirms box size, food presentation, availability and pricing.</p>
-<div class="brand-note"><img src="/assets/img/emblem.png" alt=""><div><strong>Always Añejo.</strong><p>Our original emblem and wordmark stay intact. Your colors, your occasion, your finishing touches.</p></div></div>
-</section>
-<section class="controls" id="controls" aria-label="Customize your Cajita">
-<div class="version-bar"><label>Your event versions<select id="variant"></select></label><button type="button" id="duplicate">+ Copy version</button></div>
-<div class="two"><label>Version name<input id="version-name" maxlength="120"></label><label>Number of boxes<input id="quantity" type="number" min="1" max="5000" value="1" step="1"></label></div><button type="button" class="text-button" id="remove-version">Remove this version</button>
-<div class="steps" role="tablist" aria-label="Design steps"><button role="tab" id="tab-food" aria-controls="panel-food" aria-selected="true" data-tab="food">01 · Bites</button><button role="tab" id="tab-theme" aria-controls="panel-theme" aria-selected="false" data-tab="theme">02 · Theme</button><button role="tab" id="tab-details" aria-controls="panel-details" aria-selected="false" data-tab="details">03 · Details</button></div>
-<section id="panel-food" role="tabpanel" aria-labelledby="tab-food"><h2>Fill it with favorites.</h2><p>Quantities are per box. Add duplicates or remove any item, including dessert.</p><div id="food-list"></div><label>Food & kitchen notes<textarea id="notes" maxlength="1000" placeholder="Fillings, substitutions, allergies, or anything Añejo should know."></textarea></label><label>Packaging requests<textarea id="packaging" maxlength="300" placeholder="Larger box, extra room, or special presentation. Final size confirmed by Añejo."></textarea></label><p class="hint">For a larger custom assortment beyond the controls, describe it here. All requests are reviewed, not automatically approved.</p></section>
-<section id="panel-theme" role="tabpanel" aria-labelledby="tab-theme" hidden><h2>Your occasion. Your palette.</h2><label>Start with an occasion<select id="preset"></select></label><label>Name your theme<input id="theme-name" maxlength="120" placeholder="Anything you can imagine"></label><div id="colors" class="colors"></div><div class="two"><label>Decorative pattern<select id="pattern"><option value="none">Clean</option><option value="botanical">Botanical</option><option value="flowers">Flowers</option><option value="hearts">Hearts</option><option value="stars">Stars</option><option value="fall">Autumn leaves</option></select></label><label>Toothpick topper<select id="pick-shape"><option value="circle">Round seal</option><option value="heart">Heart</option><option value="star">Star</option><option value="flower">Flower</option><option value="flag">Flag</option></select></label></div>
-<div class="ai-card"><p class="eyebrow">IMAGINE SOMETHING NEW</p><h3>Describe your own theme.</h3><p>Generate a decorative background for your design. Your food and original Añejo branding remain separate and unchanged.</p><label>Theme direction<textarea id="theme-prompt" maxlength="500" placeholder="An enchanted garden, sage and lilac, delicate wildflowers…"></textarea></label><button type="button" id="generate">Generate theme preview</button><button type="button" class="text-button" id="clear-ai">Remove generated pattern</button><p id="ai-status" role="status"></p></div></section>
-<section id="panel-details" role="tabpanel" aria-labelledby="tab-details" hidden><h2>The finishing touches.</h2><p>Personalize the round label, gift tag and toothpick topper. Original Añejo branding is protected in every design.</p><label>Design surface<select id="surface"><option value="label">Round label</option><option value="tag">Gift tag</option><option value="pick">Toothpick topper</option></select></label><canvas id="artboard" width="640" height="640" aria-label="Live label and artwork editor"></canvas><label>Personal message<input id="surface-text" maxlength="80" placeholder="Your celebration, your words"></label><label>Place a layer<select id="layer"><option value="text">Personal message</option></select></label><div class="two"><label>Horizontal position<input type="range" id="pos-x" min="0" max="100" value="50"></label><label>Vertical position<input type="range" id="pos-y" min="0" max="100" value="83"></label><label>Size<input type="range" id="scale" min="10" max="180" value="100"></label><label>Rotation<input type="range" id="rotation" min="-180" max="180" step="1" value="0"></label></div><p class="hint">Drag on the label to position the selected layer, or use the sliders. The brand mark is drawn above artwork and cannot be moved or replaced.</p><label class="upload">Add artwork or design instructions<input type="file" id="art-files" accept="image/png,image/jpeg,application/pdf" multiple></label><p class="hint">Up to 5 files, 10MB each, including generated themes. JPG/PNG artwork can be positioned; PDFs are attached as production references, not rendered on the label.</p><ul id="files"></ul><button type="button" id="remove-art" class="text-button">Remove selected artwork from this surface</button></section>
-<div class="draft-actions"><button type="button" id="save-draft">Save on this device</button><button type="button" id="download">Download design details</button><a class="button primary" href="#quote">Review & request quote →</a></div><p id="status" role="status" aria-live="polite"></p>
-</section></div>
-<section class="quote-section" id="quote"><div><p class="eyebrow">MADE FOR YOUR GUESTS</p><h2>One event.<br><em>Every detail considered.</em></h2><p>Create as many designs as your gathering needs—up to 20 versions in one online request. Food quantities below include every box, not just the version on screen.</p><div id="summary"></div><p>No payment today. Añejo reviews your food, artwork, packaging and availability before providing a custom quote.</p></div>
-<form id="quote-form"><h3>Tell us about your event.</h3><div class="two"><label>Your name<input name="name" required maxlength="120" autocomplete="name"></label><label>Email<input name="email" type="email" required maxlength="200" autocomplete="email"></label><label>Phone<input name="phone" type="tel" maxlength="40" autocomplete="tel"></label><label>Guest count<input name="guests" type="number" min="1" max="5000" step="1" required></label><label>Event date<input name="event_date" type="date" required></label><label>Serving time<input name="event_time" type="time"></label></div><label>Occasion<input name="event_type" required maxlength="120" placeholder="Birthday, team event, just because…"></label><label>Event city or ZIP code<input name="location" maxlength="160" required autocomplete="postal-code"></label><label>Dietary needs or allergies<textarea name="dietary_needs" maxlength="1000" placeholder="Please include which version these apply to. Food is prepared in a shared kitchen."></textarea></label><label>Anything Añejo should know<textarea name="event_details" maxlength="2500"></textarea></label><label class="check"><input name="sms_consent" type="checkbox">You may text me about this request. This does not subscribe me to marketing messages.</label><button id="submit" class="primary" type="submit">Send customized quote request</button><p id="quote-status" role="status" aria-live="polite"></p><p class="hint">Your submitted designs and uploaded files are provided to Añejo for reviewing and preparing this request. A preview is not a confirmed production proof.</p></form></section>
-</main><footer>Añejo Catering Co. · <a href="/cajita">La Cajita</a> · <a href="/catering">Catering</a><br>Handcrafted hospitality. Personally yours.</footer>
-</body></html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#1a3d2e" />
+    <title>Your Cajita Atelier · Añejo Catering Co.</title>
+    <link rel="icon" href="/assets/img/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/assets/css/cajita-builder.css" />
+    <script src="/assets/js/cajita-builder.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#controls">Skip to customization</a>
+    <header>
+      <a href="/cajita" aria-label="Añejo, back to La Cajita"
+        ><img src="/assets/img/emblem.png" alt="" /> AÑEJO</a
+      >
+      <nav aria-label="Main">
+        <a href="/catering">Catering</a><a href="/cajita">La Cajita</a>
+      </nav>
+    </header>
+    <main>
+      <div class="intro">
+        <p class="eyebrow">LA CAJITA ATELIER · PRIVATE DESIGN PREVIEW</p>
+        <h1>A little box.<br /><em>Entirely yours.</em></h1>
+        <p>
+          Build the bites. Dress the details. Make every guest feel celebrated.
+        </p>
+      </div>
+      <div class="workspace">
+        <section class="visual" aria-label="Cajita preview">
+          <div class="scene-wrap">
+            <div
+              id="scene"
+              role="img"
+              aria-label="Interactive 3D Cajita preview. Use the food controls to add or remove items."
+            ></div>
+            <div class="scene-label">
+              <span id="scene-theme">Añejo Signature</span
+              ><span id="scene-count">6 bites · 1 box</span>
+            </div>
+            <p id="scene-fallback" hidden>
+              3D is unavailable on this device. All customization controls and
+              the item summary still work.
+            </p>
+          </div>
+          <div class="view-tools">
+            <button type="button" id="lid">Show closed box</button
+            ><button type="button" id="reset-view">Reset view</button
+            ><button type="button" id="replay">Replay assembly</button>
+          </div>
+          <p class="hint">
+            Drag to rotate · pinch to zoom · tap a bite to find its controls
+          </p>
+          <p class="preview-note">
+            Design prototype · illustrative 3D food, not a photograph. Packaging
+            scale is provisional; Añejo confirms box size, food presentation,
+            availability and pricing.
+          </p>
+          <div class="brand-note">
+            <img src="/assets/img/emblem.png" alt="" />
+            <div>
+              <strong>Always Añejo.</strong>
+              <p>
+                Our original emblem and wordmark stay intact. Your colors, your
+                occasion, your finishing touches.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section
+          class="controls"
+          id="controls"
+          aria-label="Customize your Cajita"
+        >
+          <div class="version-bar">
+            <label>Your event versions<select id="variant"></select></label
+            ><button type="button" id="duplicate">+ Copy version</button>
+          </div>
+          <div class="two">
+            <label
+              >Version name<input id="version-name" maxlength="120" /></label
+            ><label
+              >Number of boxes<input
+                id="quantity"
+                type="number"
+                min="1"
+                max="5000"
+                value="1"
+                step="1"
+            /></label>
+          </div>
+          <button type="button" class="text-button" id="remove-version">
+            Remove this version
+          </button>
+          <div class="steps" role="tablist" aria-label="Design steps">
+            <button
+              role="tab"
+              id="tab-food"
+              aria-controls="panel-food"
+              aria-selected="true"
+              data-tab="food"
+            >
+              01 · Bites</button
+            ><button
+              role="tab"
+              id="tab-theme"
+              aria-controls="panel-theme"
+              aria-selected="false"
+              data-tab="theme"
+            >
+              02 · Theme</button
+            ><button
+              role="tab"
+              id="tab-details"
+              aria-controls="panel-details"
+              aria-selected="false"
+              data-tab="details"
+            >
+              03 · Details
+            </button>
+          </div>
+          <section id="panel-food" role="tabpanel" aria-labelledby="tab-food">
+            <h2>Fill it with favorites.</h2>
+            <p>
+              Quantities are per box. Add duplicates or remove any item,
+              including dessert.
+            </p>
+            <div id="food-list"></div>
+            <label
+              >Food & kitchen notes<textarea
+                id="notes"
+                maxlength="1000"
+                placeholder="Fillings, substitutions, allergies, or anything Añejo should know."
+              ></textarea></label
+            ><label
+              >Packaging requests<textarea
+                id="packaging"
+                maxlength="300"
+                placeholder="Larger box, extra room, or special presentation. Final size confirmed by Añejo."
+              ></textarea>
+            </label>
+            <p class="hint">
+              For a larger custom assortment beyond the controls, describe it
+              here. All requests are reviewed, not automatically approved.
+            </p>
+          </section>
+          <section
+            id="panel-theme"
+            role="tabpanel"
+            aria-labelledby="tab-theme"
+            hidden
+          >
+            <h2>Your occasion. Your palette.</h2>
+            <label>Start with an occasion<select id="preset"></select></label
+            ><label
+              >Name your theme<input
+                id="theme-name"
+                maxlength="120"
+                placeholder="Anything you can imagine"
+            /></label>
+            <div id="colors" class="colors"></div>
+            <div class="two">
+              <label
+                >Decorative pattern<select id="pattern">
+                  <option value="none">Clean</option>
+                  <option value="botanical">Botanical</option>
+                  <option value="flowers">Flowers</option>
+                  <option value="hearts">Hearts</option>
+                  <option value="stars">Stars</option>
+                  <option value="fall">Autumn leaves</option>
+                </select></label
+              ><label
+                >Toothpick topper<select id="pick-shape">
+                  <option value="circle">Round seal</option>
+                  <option value="heart">Heart</option>
+                  <option value="star">Star</option>
+                  <option value="flower">Flower</option>
+                  <option value="flag">Flag</option>
+                </select></label
+              >
+            </div>
+            <div class="ai-card">
+              <p class="eyebrow">IMAGINE SOMETHING NEW</p>
+              <h3>Describe your own theme.</h3>
+              <p>
+                Generate a decorative background for your design. Your food and
+                original Añejo branding remain separate and unchanged.
+              </p>
+              <label
+                >Theme direction<textarea
+                  id="theme-prompt"
+                  maxlength="500"
+                  placeholder="An enchanted garden, sage and lilac, delicate wildflowers…"
+                ></textarea></label
+              ><button type="button" id="generate">
+                Generate theme preview</button
+              ><button type="button" class="text-button" id="clear-ai">
+                Remove generated pattern
+              </button>
+              <p id="ai-status" role="status"></p>
+            </div>
+          </section>
+          <section
+            id="panel-details"
+            role="tabpanel"
+            aria-labelledby="tab-details"
+            hidden
+          >
+            <h2>The finishing touches.</h2>
+            <p>
+              Personalize the round label, gift tag and toothpick topper.
+              Original Añejo branding is protected in every design.
+            </p>
+            <label
+              >Design surface<select id="surface">
+                <option value="label">Round label</option>
+                <option value="tag">Gift tag</option>
+                <option value="pick">Toothpick topper</option>
+              </select></label
+            ><canvas
+              id="artboard"
+              width="640"
+              height="640"
+              aria-label="Live label and artwork editor"
+            ></canvas
+            ><label
+              >Personal message<input
+                id="surface-text"
+                maxlength="80"
+                placeholder="Your celebration, your words" /></label
+            ><label
+              >Place a layer<select id="layer">
+                <option value="text">Personal message</option>
+              </select></label
+            >
+            <div class="two">
+              <label
+                >Horizontal position<input
+                  type="range"
+                  id="pos-x"
+                  min="0"
+                  max="100"
+                  value="50" /></label
+              ><label
+                >Vertical position<input
+                  type="range"
+                  id="pos-y"
+                  min="0"
+                  max="100"
+                  value="83" /></label
+              ><label
+                >Size<input
+                  type="range"
+                  id="scale"
+                  min="10"
+                  max="180"
+                  value="100" /></label
+              ><label
+                >Rotation<input
+                  type="range"
+                  id="rotation"
+                  min="-180"
+                  max="180"
+                  step="1"
+                  value="0"
+              /></label>
+            </div>
+            <p class="hint">
+              Drag on the label to position the selected layer, or use the
+              sliders. The brand mark is drawn above artwork and cannot be moved
+              or replaced.
+            </p>
+            <label class="upload"
+              >Add artwork or design instructions<input
+                type="file"
+                id="art-files"
+                accept="image/png,image/jpeg,application/pdf"
+                multiple
+            /></label>
+            <p class="hint">
+              Up to 5 files, 10MB each, including generated themes. JPG/PNG
+              artwork can be positioned; PDFs are attached as production
+              references, not rendered on the label.
+            </p>
+            <ul id="files"></ul>
+            <button type="button" id="remove-art" class="text-button">
+              Remove selected artwork from this surface
+            </button>
+          </section>
+          <div class="draft-actions">
+            <button type="button" id="save-draft">Save on this device</button
+            ><button type="button" id="download">Download design details</button
+            ><a class="button primary" href="#quote"
+              >Review & request quote →</a
+            >
+          </div>
+          <p id="status" role="status" aria-live="polite"></p>
+        </section>
+      </div>
+      <section class="quote-section" id="quote">
+        <div>
+          <p class="eyebrow">MADE FOR YOUR GUESTS</p>
+          <h2>One event.<br /><em>Every detail considered.</em></h2>
+          <p>
+            Create as many designs as your gathering needs—up to 20 versions in
+            one online request. Food quantities below include every box, not
+            just the version on screen.
+          </p>
+          <div id="summary"></div>
+          <p>
+            No payment today. Añejo reviews your food, artwork, packaging and
+            availability before providing a custom quote.
+          </p>
+        </div>
+        <form id="quote-form">
+          <h3>Tell us about your event.</h3>
+          <div class="two">
+            <label
+              >Your name<input
+                name="name"
+                required
+                maxlength="120"
+                autocomplete="name" /></label
+            ><label
+              >Email<input
+                name="email"
+                type="email"
+                required
+                maxlength="200"
+                autocomplete="email" /></label
+            ><label
+              >Phone<input
+                name="phone"
+                type="tel"
+                maxlength="40"
+                autocomplete="tel" /></label
+            ><label
+              >Guest count<input
+                name="guests"
+                type="number"
+                min="1"
+                max="5000"
+                step="1"
+                required /></label
+            ><label
+              >Event date<input name="event_date" type="date" required /></label
+            ><label>Serving time<input name="event_time" type="time" /></label>
+          </div>
+          <label
+            >Occasion<input
+              name="event_type"
+              required
+              maxlength="120"
+              placeholder="Birthday, team event, just because…" /></label
+          ><label
+            >Event city or ZIP code<input
+              name="location"
+              maxlength="160"
+              required
+              autocomplete="postal-code" /></label
+          ><label
+            >Dietary needs or allergies<textarea
+              name="dietary_needs"
+              maxlength="1000"
+              placeholder="Please include which version these apply to. Food is prepared in a shared kitchen."
+            ></textarea></label
+          ><label
+            >Anything Añejo should know<textarea
+              name="event_details"
+              maxlength="2500"
+            ></textarea></label
+          ><label class="check"
+            ><input name="sms_consent" type="checkbox" />You may text me about
+            this request. This does not subscribe me to marketing
+            messages.</label
+          ><button id="submit" class="primary" type="submit">
+            Send customized quote request
+          </button>
+          <p id="quote-status" role="status" aria-live="polite"></p>
+          <p class="hint">
+            Your submitted designs and uploaded files are provided to Añejo for
+            reviewing and preparing this request. A preview is not a confirmed
+            production proof.
+          </p>
+        </form>
+      </section>
+    </main>
+    <footer>
+      Añejo Catering Co. · <a href="/cajita">La Cajita</a> ·
+      <a href="/catering">Catering</a><br />Handcrafted hospitality. Personally
+      yours.
+    </footer>
+  </body>
+</html>
