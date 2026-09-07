@@ -56,8 +56,10 @@ export async function storeCateringRequest(env, { rec, catering, requestId, payl
       .bind(rec.id, uploadSessionId, uploadSessionId, rec.id));
   }
   statements.push(env.DB.prepare(`INSERT INTO catering_requests
-    (request_id,payload_hash,lead_id,upload_session_id,attachment_ids,created_at) VALUES (?,?,?,?,?,?)`)
-    .bind(requestId, payloadHash, rec.id, uploadSessionId || null, JSON.stringify(attachments.map((a) => a.id)), t));
+    (request_id,payload_hash,event_json,lead_id,upload_session_id,attachment_ids,created_at) VALUES (?,?,?,?,?,?,?)`)
+    .bind(requestId, payloadHash, JSON.stringify({ event_date: catering.event_date, event_time: catering.event_time,
+      guests: catering.guests, dietary_needs: catering.dietary_needs, event_details: catering.event_details }),
+    rec.id, uploadSessionId || null, JSON.stringify(attachments.map((a) => a.id)), t));
   const hub = {
     alert_type: 'catering_request', severity: 'info',
     title: `Catering request: ${rec.name} · ${catering.guests} guests`,
@@ -81,11 +83,14 @@ export async function storeCateringRequest(env, { rec, catering, requestId, payl
 }
 
 export async function cateringReceipt(env, saved) {
-  const rows = await env.DB.prepare('SELECT channel,status FROM catering_notification_outbox WHERE request_id=?')
-    .bind(saved.request_id).all();
-  const status = Object.fromEntries((rows.results || []).map((row) => [row.channel, row.status]));
+  let status = { hub: 'unknown', email: 'unknown' };
+  try {
+    const rows = await env.DB.prepare('SELECT channel,status FROM catering_notification_outbox WHERE request_id=?')
+      .bind(saved.request_id).all();
+    status = Object.fromEntries((rows.results || []).map((row) => [row.channel, row.status]));
+  } catch { /* the successful transaction/replay proves capture even if this status read fails */ }
   return { ok: true, id: saved.id, request_id: saved.request_id, replayed: saved.replayed,
-    notifications: { hub: status.hub === 'accepted', email: status.email === 'accepted' },
+    notifications: { hub: status.hub === 'accepted', email: status.email === 'accepted', queued: true },
     notification_status: status,
     attachments: { received: saved.attachment_count, linked: true } };
 }

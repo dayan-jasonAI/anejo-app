@@ -3,11 +3,22 @@
 CREATE TABLE IF NOT EXISTS catering_requests (
   request_id TEXT PRIMARY KEY,
   payload_hash TEXT NOT NULL,
+  event_json TEXT NOT NULL CHECK(json_valid(event_json)),
   lead_id TEXT NOT NULL UNIQUE REFERENCES leads(id),
   upload_session_id TEXT REFERENCES catering_upload_sessions(id),
   attachment_ids TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(attachment_ids)),
   created_at INTEGER NOT NULL
 );
+
+-- An upload can finish its R2 write after intake claims the session. Reject its metadata
+-- insert at the database boundary; the upload route already removes the unclaimed R2 object.
+CREATE TRIGGER IF NOT EXISTS catering_attachment_session_guard
+BEFORE INSERT ON catering_attachments
+BEGIN
+  SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM catering_upload_sessions
+    WHERE id=NEW.session_id AND claimed_lead_id IS NULL AND expires_at>NEW.created_at)
+    THEN RAISE(ABORT, 'catering_upload_session_closed') END;
+END;
 
 CREATE TRIGGER IF NOT EXISTS catering_request_claim_guard
 BEFORE INSERT ON catering_requests

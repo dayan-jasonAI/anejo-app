@@ -121,7 +121,9 @@ export function summarizeCajitaConfiguration(config) {
 }
 
 export function extractCajitaConfiguration(message) {
-  const match = String(message || '').match(/Cajita configuration JSON: (\{.*\})$/m);
+  // The server appends this record LAST. Earlier lookalike lines in customer notes
+  // must never override the kitchen's actual, validated configuration.
+  const match = String(message || '').match(/(?:^|\n)Cajita configuration JSON: (\{[^\n]*\})\s*$/);
   if (!match) return null;
   try {
     const parsed = JSON.parse(match[1]);

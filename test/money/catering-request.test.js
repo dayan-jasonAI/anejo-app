@@ -127,7 +127,7 @@ test('a stored request raises a durable Hub alert and reports an accepted owner 
     const response = await post(valid, { DB, RESEND_API_KEY: 'resend-test', LEADS_NOTIFY_TO: 'owner@example.test' });
     const out = await response.json();
     assert.equal(response.status, 200);
-    assert.deepEqual(out.notifications, { hub: true, email: true });
+    assert.deepEqual(out.notifications, { hub: true, email: true, queued: true });
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -181,7 +181,7 @@ test('an email outage leaves the request stored and raises a visible Hub warning
     const out = await response.json();
     assert.equal(response.status, 200);
     assert.equal(leadWrites, 1);
-    assert.deepEqual(out.notifications, { hub: true, email: false });
+    assert.deepEqual(out.notifications, { hub: true, email: false, queued: true });
   } finally {
     globalThis.fetch = realFetch;
   }

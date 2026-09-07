@@ -77,7 +77,7 @@ const EXTRA_ENDPOINTS = {
 // minute because reply speed is what converts — a DM answered while the person is still on the
 // app is a sale, one answered tomorrow is an apology — and Meta's 24-hour reply window is
 // burning from the moment they write.
-const EVERY_MINUTE = ['/api/admin/catering-outbox', '/api/hub/admin/offers-tick', '/api/hub/admin/campaigns-tick', '/api/hub/admin/social-tick', '/api/hub/admin/social-inbox-tick'];
+const EVERY_MINUTE = ['/api/hub/admin/offers-tick', '/api/hub/admin/campaigns-tick', '/api/hub/admin/social-tick', '/api/hub/admin/social-inbox-tick'];
 
 // Minimal cron field matcher — supports '*', exact numbers, and comma lists (covers every
 // expression above). dom/dow are ANDed here (all our schedules leave one of them '*').
@@ -127,6 +127,19 @@ async function scheduled(event, env) {
 }
 
 export default {
-  scheduled,
+  async scheduled(event, env, ctx) {
+    // Isolate notification retries from dispatch/campaign scheduling. A provider outage must
+    // not hold up delivery offers. The server retains leases/pending jobs if this call expires.
+    const base = (env.HUB_BASE_URL || 'https://anejocateringco.com').replace(/\/$/, '');
+    const outbox = fetch(`${base}/api/admin/catering-outbox`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Cron-Key': env.CRON_KEY || '' },
+      body: '{}', signal: AbortSignal.timeout(25000),
+    }).then((response) => {
+      console.log(`anejo-cron: catering-outbox → HTTP ${response.status}`);
+      return response.body?.cancel();
+    }).catch(() => { console.warn('anejo-cron: catering-outbox retry unavailable'); });
+    if (ctx?.waitUntil) { ctx.waitUntil(outbox); await scheduled(event, env); }
+    else await Promise.all([outbox, scheduled(event, env)]);
+  },
   fetch: () => new Response('anejo-cron ok'),
 };

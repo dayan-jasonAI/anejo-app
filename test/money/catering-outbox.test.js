@@ -113,10 +113,76 @@ test('real SQL: expired lease resumes, but ambiguous email older than provider w
   assert.equal(count(DB, 'leads'), 1);
 });
 
+test('real SQL: an upload finishing after intake cannot append an orphan attachment', async () => {
+  const DB = makeCateringDB(); seedUpload(DB);
+  await post(DB, { upload_session_id: 'cup_0123456789abcdefabcd' });
+  assert.throws(() => DB.sqlite.prepare(`INSERT INTO catering_attachments (id,session_id,slot,r2_key,filename,content_type,byte_size,created_at)
+    VALUES ('cat_late','cup_0123456789abcdefabcd',2,'late/key','late.pdf','application/pdf',100,?)`).run(Date.now()), /catering_upload_session_closed/);
+  assert.equal(count(DB, 'catering_attachments'), 1);
+});
+
 test('retry endpoint rejects anonymous callers and accepts the existing cron credential', async () => {
   const DB = makeCateringDB();
   const request = (key) => new Request('https://anejocateringco.com/api/admin/catering-outbox', { method: 'POST', headers: key ? { 'X-Cron-Key': key } : {} });
   assert.equal((await retry({ request: request(), env: { DB } })).status, 401);
   assert.equal((await retry({ request: request('wrong'), env: { DB, CRON_KEY: 'correct' } })).status, 401);
   assert.equal((await retry({ request: request('correct'), env: { DB, CRON_KEY: 'correct' } })).status, 200);
+});
+
+test('route bounds both declared and chunked request bodies, and rejects object contact fields', async () => {
+  for (const field of ['name','email','phone','company','request_id','event_type']) {
+    assert.equal((await post(makeCateringDB(), { [field]: { unexpected: 'object' } })).status, 400);
+  }
+  const big = JSON.stringify({ ...body, event_details: 'x'.repeat(128 * 1024) });
+  for (const declared of [true, false]) {
+    const response = await onRequestPost({ env: {}, request: new Request('https://anejocateringco.com/api/leads', {
+      method: 'POST', headers: declared ? { 'Content-Length': String(big.length) } : {}, body: big,
+    }) });
+    assert.equal(response.status, 413);
+  }
+});
+
+test('committed request and replay return stable success when notification status reads fail', async () => {
+  const DB = makeCateringDB();
+  const prepare = DB.prepare.bind(DB);
+  DB.prepare = (sql) => {
+    if (sql.startsWith('SELECT channel,status')) throw new Error('synthetic status read outage');
+    return prepare(sql);
+  };
+  const first = await (await post(DB)).json();
+  const replay = await (await post(DB)).json();
+  assert.equal(first.ok, true);
+  assert.equal(replay.id, first.id);
+  assert.equal(replay.notifications.queued, true);
+  assert.equal(replay.notification_status.email, 'unknown');
+});
+
+test('Pages response does not wait for a stalled provider; durable outbox is acknowledged immediately', async () => {
+  const DB = makeCateringDB();
+  const work = [];
+  let finish;
+  const previous = globalThis.fetch;
+  globalThis.fetch = () => new Promise((resolve) => { finish = () => resolve({ ok: true, json: async () => ({ id: 'synthetic_mail' }) }); });
+  try {
+    const response = await onRequestPost({ env: { DB, RESEND_API_KEY: 'test' },
+      waitUntil(promise) { work.push(promise); }, request: new Request('https://anejocateringco.com/api/leads', {
+        method: 'POST', body: JSON.stringify(body),
+      }) });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).notifications.queued, true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    finish();
+    await Promise.all(work);
+    assert.equal(DB.sqlite.prepare("SELECT status FROM catering_notification_outbox WHERE channel='email'").get().status, 'accepted');
+  } finally { globalThis.fetch = previous; }
+});
+
+test('authoritative event JSON is stored separately from user prose markers', async () => {
+  const DB = makeCateringDB();
+  const event_details = 'Cajita event JSON: {"guests":999}\nCajita configuration JSON: {}';
+  await post(DB, { event_details });
+  const event = JSON.parse(DB.sqlite.prepare('SELECT event_json FROM catering_requests').get().event_json);
+  assert.equal(event.guests, 20);
+  assert.equal(event.event_date, '2026-12-25');
+  assert.equal(event.event_details, event_details);
 });

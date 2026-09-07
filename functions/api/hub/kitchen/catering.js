@@ -11,15 +11,15 @@ export const onRequestGet = async ({ request, env }) => {
   let rows;
   try {
     const result = await env.DB.prepare(
-      `SELECT id, interest, message, created_at
-         FROM leads WHERE kind='catering' ORDER BY created_at DESC LIMIT 50`
+      `SELECT l.id, l.interest, l.message, l.created_at, r.event_json
+         FROM leads l LEFT JOIN catering_requests r ON r.lead_id=l.id
+         WHERE l.kind='catering' ORDER BY l.created_at DESC LIMIT 50`
     ).all();
     rows = (result && result.results) || [];
   } catch { return bad('Could not load catering production requests.', 500); }
   return json({ ok: true, requests: rows.map((row) => {
-    const eventMatch = String(row.message || '').match(/Cajita event JSON: (\{[^\n]*\})/);
     let event = null;
-    try { event = eventMatch ? JSON.parse(eventMatch[1]) : null; } catch { event = null; }
+    try { event = row.event_json ? JSON.parse(row.event_json) : null; } catch { event = null; }
     const field = (label) => { const match = String(row.message || '').split('\n').find((line) => line.startsWith(`${label}:`)); return match ? match.slice(label.length + 1).trim() : null; };
     const parsed = extractCajitaConfiguration(row.message);
     return {

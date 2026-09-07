@@ -731,7 +731,9 @@ $("quote-form").onsubmit = async (e) => {
     });
     const out = await response.json();
     if (!response.ok || !out.ok || !out.id) {
-      if (response.status >= 400 && response.status < 500 && response.status !== 409) pendingSubmission = null;
+      // Rate limiting/auth infrastructure can happen after an earlier ambiguous success.
+      // Only definitive validation rejections unlock editing; never mint a new retry ID on 429.
+      if ([400, 410, 413, 422].includes(response.status)) pendingSubmission = null;
       throw new Error(out.error || "We could not confirm receipt.");
     }
     pendingSubmission = null;

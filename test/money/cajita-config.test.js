@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeCajitaConfiguration, extractCajitaConfiguration } from '../../functions/_lib/cajita-config.js';
 import { onRequestPost } from '../../functions/api/leads.js';
-import { makeD1 } from '../helpers/d1.js';
+import { makeCateringDB as makeD1 } from './catering-outbox-fixture.js';
 
 const config = {
   version: 1,

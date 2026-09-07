@@ -192,14 +192,43 @@ export const onRequestGet = async ({ env }) => {
   return json({ ok: true, claimed, cap: FOUNDING_CAP, remaining: Math.max(0, FOUNDING_CAP - claimed) });
 };
 
-export const onRequestPost = async ({ request, env, waitUntil }) => {
+export const onRequestPost = async (context) => {
+  const { request, env } = context;
   // Spam guard: cap form submissions per IP.
   const limited = await limitOr429(env, request, { name: 'leads', limit: 6, windowSec: 60 });
   if (limited) return limited;
 
   let b;
-  try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
+  // Bound chunked bodies too: Content-Length alone is untrusted and often absent. The largest
+  // valid Cajita config is 48KB; 128KiB leaves room for the complete event/contact fields.
+  const maxBytes = 128 * 1024;
+  if (Number(request.headers.get('content-length')) > maxBytes) return bad('Request body is too large.', 413);
+  try {
+    const reader = request.body?.getReader();
+    if (!reader) return bad('Invalid JSON body.');
+    const chunks = [];
+    let length = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > maxBytes) {
+        await reader.cancel();
+        return bad('Request body is too large.', 413);
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(length);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    b = JSON.parse(new TextDecoder().decode(bytes));
+  } catch { return bad('Invalid JSON body.'); }
   if (!b || typeof b !== 'object' || Array.isArray(b)) return bad('Invalid request body.');
+  for (const field of ['kind','name','email','phone','company','interest','message','lang','request_id',
+    'upload_session_id','event_date','event_time','event_type','location','event_theme','theme_colors',
+    'dietary_needs','design_notes','event_details']) {
+    if (b[field] != null && typeof b[field] !== 'string') return bad(`Invalid ${field} field.`);
+  }
 
   const kind = ['wholesale', 'sms', 'launch', 'catering'].includes(b.kind) ? b.kind : 'tasting';
   const name = (b.name || '').trim().slice(0, 120);
@@ -300,11 +329,13 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     } catch { return bad('We could not save the request. Please retry with the same details.', 503); }
     // External effects cannot make a durably captured request look unsuccessful. The scheduler
     // drains anything left behind by an isolate shutdown, timeout or provider outage.
-    try { await drainCateringOutbox(env, { requestId, limit: 2 }); } catch { /* durable retry */ }
+    const drain = drainCateringOutbox(env, { requestId, limit: 2 }).catch(() => {});
+    if (typeof context.waitUntil === 'function') context.waitUntil(drain);
+    else await drain;
     try { return json(await cateringReceipt(env, saved)); }
     catch {
       return json({ ok: true, id: saved.id, request_id: requestId, replayed: saved.replayed,
-        notifications: { hub: false, email: false }, notification_status: { hub: 'pending', email: 'pending' },
+        notifications: { hub: false, email: false, queued: true }, notification_status: { hub: 'pending', email: 'pending' },
         attachments: { received: saved.attachment_count, linked: true } });
     }
   }
@@ -388,7 +419,7 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
       // Instant welcome — deferred so it never delays the response. Email sends now;
       // the SMS half stays gated inside sendLaunchWelcome (LAUNCH_WELCOME_SMS) until Twilio is fixed.
       const welcome = sendLaunchWelcome(env, rec, member, promo).catch(() => {});
-      if (typeof waitUntil === 'function') waitUntil(welcome);
+      if (typeof context.waitUntil === 'function') context.waitUntil(welcome);
     }
   }
 

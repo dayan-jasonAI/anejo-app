@@ -120,7 +120,7 @@ export function createScene(host, selectItem) {
     // not dimensioned products: never imply that unlimited items physically fit.
     const w = 7, d = 5;
     const cellX = (w - 0.4) / cols, cellZ = (d - 0.4) / rows;
-    const foodScale = Math.min(0.82, cellX / 1.6, cellZ / 1.5);
+    const foodScale = Math.min(1.85, cellX / 1.25, cellZ / 1.1);
     const clearMat = new THREE.MeshPhysicalMaterial({
       color: v.theme.colors.box,
       roughness: 0.15,
