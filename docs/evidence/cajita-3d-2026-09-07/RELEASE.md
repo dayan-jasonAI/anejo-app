@@ -54,3 +54,9 @@ Production publication is pending at this record's creation. Use reviewed branch
 - npm run verify:live passed its public/API checks; its generic --db section was skipped. Targeted D1 checks above were executed separately.
 - Mac locked during final live browser checks; authenticated owner/kitchen screen rendering remains Unverified. Local browser interaction checks preceded deployment; live server/API/email checks continued while UI was blocked.
 - Follow-up: add direct kitchen/owner navigation to the design summary and publish this evidence. No additional approval needed for the authorized release. Remaining feature work is photorealistic models, enabled AI previews, larger matching packaging and broader print-design parity—not represented as finished.
+
+## Final publication check — 20:51 UTC
+
+Navigation follow-up f34fb8e2365d32e542bdd0e0bfa9a3319f12f0f5 is published as Pages production 35bde217-1bad-434f-ae9c-4740c7221232. Live kitchen navigation includes the design-request link. Repeated full suite: 1,823/1,823 pass; lint and diff checks pass. The live builder JavaScript SHA256 matches the locally tested bundle exactly; HTML matches until Cloudflare's added end-of-body challenge script. All 23 homepage, 13 Cajita and 8 catering statically referenced local images tested returned 200.
+
+The generic strict deploy verifier could not run because its required token environment variables were absent. No credentials were changed to satisfy it. Authenticated Wrangler production listing independently established the deployment ID/main/source above; public reads established actual served content. This evidence-only addendum is retained on the release branch and does not require another application deployment.
