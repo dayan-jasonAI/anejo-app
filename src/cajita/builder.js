@@ -670,9 +670,10 @@ $("quote-form").onsubmit = async (e) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ op: "create" }),
+        signal: AbortSignal.timeout(30000),
       });
       const session = await start.json();
-      if (!start.ok)
+      if (!start.ok || !session.session_id)
         throw new Error(session.error || "Cannot start secure uploads.");
       sessionId = session.session_id;
       let n = 0;
@@ -686,6 +687,7 @@ $("quote-form").onsubmit = async (e) => {
             "X-File-Name": encodeURIComponent(a.name),
           },
           body: a.blob,
+          signal: AbortSignal.timeout(120000),
         });
         const result = await response.json();
         if (!response.ok || !result.attachment_id)

@@ -199,3 +199,96 @@ test('invalid or non-final kitchen JSON is rejected without falling back to an e
   assert.equal(extractCajitaConfiguration(`${valid}\nCajita configuration JSON: {"version":1,"variants":[]}`), null);
   assert.equal(extractCajitaConfiguration(`${valid}\nCajita configuration JSON: {invalid}`), null);
 });
+
+function cateringFixture(responses, files = []) {
+  const html = readFileSync(new URL('../../public/catering.html', import.meta.url), 'utf8');
+  const start = html.indexOf("  var form=document.getElementById('cateringForm');");
+  const end = html.indexOf('\n})();', start);
+  assert.ok(start >= 0 && end > start);
+  const nodes = new Map(['cateringForm', 'formStatus', 'submitBtn', 'design-files', 'file-list', 'request-reference', 'request-notifications', 'request-received'].map((id) => [id, node()]));
+  const form = nodes.get('cateringForm');
+  form.elements = Object.fromEntries(Object.entries({ name: 'Release Test', email: 'test@example.test', guests: '20', event_date: '2030-10-15' }).map(([key, value]) => [key, { value, disabled: false }]));
+  form.elements.sms_consent = { checked: true, disabled: false };
+  form.checkValidity = () => true;
+  form.addEventListener = (_event, handler) => { form.onsubmit = handler; };
+  const controlNodes = [...Object.values(form.elements), nodes.get('submitBtn'), nodes.get('design-files')];
+  form.querySelectorAll = (selector) => selector.includes(':checked') ? [{ value: 'Individual Cajitas' }] : controlNodes;
+  nodes.get('design-files').files = files;
+  nodes.get('design-files').addEventListener = () => {};
+  const requests = [];
+  let ids = 0;
+  const ctx = vm.createContext({
+    document: { getElementById: (id) => nodes.get(id) },
+    window: { addEventListener() {}, get location() { throw new Error('No automatic mail app navigation is allowed'); } },
+    crypto: { randomUUID: () => `request-${++ids}` }, AbortSignal,
+    fetch: async (url, options) => {
+      requests.push({ url, body: options.body });
+      const out = responses.shift();
+      assert.ok(out, 'Every network call is expected');
+      if (out instanceof Error) throw out;
+      return typeof out === 'function' ? out() : out;
+    },
+  });
+  vm.runInContext(html.slice(start, end), ctx);
+  return { ctx, nodes, form, requests, submit: () => form.onsubmit({ preventDefault() {} }) };
+}
+
+test('catering upload locks and snapshots fields; ambiguous retries never reupload or mint an ID', async () => {
+  let finishUpload;
+  const f = cateringFixture([
+    response(200, { session_id: 'cup_test' }),
+    () => new Promise((resolve) => { finishUpload = resolve; }),
+    new Error('Connection lost after saving'),
+    response(429, { error: 'Rate limited' }),
+    response(200, { ok: true, id: 'lead-catering', notifications: { queued: true } }),
+  ], [{ name: 'design.png', type: 'image/png', size: 100 }]);
+  const submitting = f.submit();
+  while (!finishUpload) await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(f.form.elements.name.disabled, true);
+  assert.equal(f.nodes.get('design-files').disabled, true);
+  f.form.elements.name.value = 'Changed while uploading';
+  await f.submit(); // Duplicate click during upload is ignored.
+  assert.equal(f.requests.length, 2);
+  finishUpload(response(200, { attachment_id: 'art-uploaded' }));
+  await submitting;
+  assert.equal(f.ctx.pendingSubmission.name, 'Release Test');
+  assert.equal(f.nodes.get('submitBtn').textContent, 'Retry same request');
+  assert.equal(f.form.elements.name.disabled, true);
+  await f.submit();
+  assert.equal(f.ctx.pendingSubmission.request_id, 'request-1');
+  await f.submit();
+  assert.equal(f.requests.length, 5);
+  assert.equal(f.requests[2].body, f.requests[3].body);
+  assert.equal(f.requests[3].body, f.requests[4].body);
+  assert.equal(f.ctx.pendingSubmission, null);
+  assert.equal(f.form.elements.name.disabled, false);
+  assert.equal(f.nodes.get('request-reference').textContent, 'Reference: lead-catering');
+  assert.match(f.nodes.get('request-notifications').textContent, /queued for delivery/);
+  assert.doesNotMatch(f.nodes.get('request-notifications').textContent, /email delivered|inbox received/i);
+});
+
+test('catering 200 without a lead receipt is not success and keeps the same retry payload', async () => {
+  const f = cateringFixture([
+    response(200, { ok: true }),
+    response(200, { ok: true, id: 'lead-confirmed', notifications: { queued: true } }),
+  ]);
+  await f.submit();
+  assert.ok(f.ctx.pendingSubmission);
+  assert.match(f.nodes.get('formStatus').textContent, /Request reference: request-1/);
+  await f.submit();
+  assert.equal(f.requests[0].body, f.requests[1].body);
+  assert.equal(f.nodes.get('request-reference').textContent, 'Reference: lead-confirmed');
+});
+
+test('catering upload failure leaves files and fields available without sending an incomplete lead', async () => {
+  const file = { name: 'design.pdf', type: 'application/pdf', size: 100 };
+  const f = cateringFixture([response(200, {})], [file]);
+  await f.submit();
+  assert.equal(f.requests.length, 1);
+  assert.equal(f.requests[0].url, '/api/catering-uploads');
+  assert.equal(f.ctx.pendingSubmission, null);
+  assert.equal(f.nodes.get('design-files').files[0], file);
+  assert.equal(f.form.elements.name.disabled, false);
+  assert.equal(f.nodes.get('submitBtn').disabled, false);
+  assert.match(f.nodes.get('formStatus').textContent, /details and files are still here/);
+});

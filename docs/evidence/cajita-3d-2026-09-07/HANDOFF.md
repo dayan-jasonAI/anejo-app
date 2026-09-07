@@ -1,5 +1,7 @@
 # Cajita configurator — working draft, not production-ready
 
+Historical draft record. See [RELEASE.md](RELEASE.md) for the later direct publish authorization, release fixes and current initial-release boundary; limitations below describe the earlier draft state.
+
 Date: 2026-09-07. Owner: Codex, direct Dayan session request. Branch: `codex/cajita-3d-builder`.
 
 ## Authorization and release state

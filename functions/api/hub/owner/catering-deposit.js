@@ -64,8 +64,9 @@ export const onRequestGet = async ({ request, env }) => {
     try {
       const a = await env.DB.prepare(
         `SELECT id, lead_id, filename, content_type, byte_size, created_at
-           FROM catering_attachments WHERE lead_id IS NOT NULL ORDER BY created_at ASC LIMIT 250`
-      ).all();
+           FROM catering_attachments WHERE lead_id IN (${requests.map(() => '?').join(',')})
+           ORDER BY created_at ASC`
+      ).bind(...requests.map((row) => row.id)).all();
       const byLead = new Map();
       for (const row of ((a && a.results) || [])) {
         if (!byLead.has(row.lead_id)) byLead.set(row.lead_id, []);
