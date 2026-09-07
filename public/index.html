@@ -635,11 +635,21 @@ footer {
 
 /* ---------- TESTIMONIALS ---------- */
 .testi{background:#fff}
-.testi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.testi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+@media(max-width:900px){.testi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.testi-grid{grid-template-columns:minmax(0,1fr)}}
 .testi-card{background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:24px}
 .testi-card .quote{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:18px;color:var(--green);line-height:1.5}
 .testi-card .who{margin-top:14px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-dark);font-weight:600}
-.testi-soon{text-align:center;color:var(--muted);font-size:13px;margin-top:26px}
+.testi-card{display:flex;flex-direction:column}
+.testi-card blockquote{margin:0;flex:1}
+.testi-card cite{font-style:normal}
+.testi-source{display:inline-block;color:var(--green);font-size:13px;text-underline-offset:4px;padding:12px 0;align-self:flex-start}
+.testi-source:focus-visible,.testi-all:focus-visible{outline:2px solid var(--green);outline-offset:5px}
+.testi-rating{text-align:center;color:var(--green);margin:-10px 0 28px;font-size:17px}
+.testi-rating strong{font-size:26px}
+.testi-note{text-align:center;color:var(--muted);font-size:13px;margin-top:26px}
+.testi-all{display:inline-block;color:var(--green);font-weight:600;padding:12px;text-underline-offset:4px}
 </style>
 <script>if(location.hostname.indexOf("portal.")===0 && location.pathname==="/"){location.replace("/portal");}</script>
 
@@ -1294,24 +1304,46 @@ footer {
 <section class="testi" id="testimonials">
   <div class="section-inner">
     <div class="section-head">
-      <div class="eyebrow">Word of Mouth</div>
+      <div class="eyebrow">From our Google reviews</div>
       <h2>What people are <strong>saying</strong>.</h2>
     </div>
+    <p class="testi-rating"><strong>5.0 / 5</strong> <span>from 6 Google reviews</span></p>
     <div class="testi-grid">
-      <div class="testi-card">
-        <div class="quote">Healthy doesn't have to taste like a cleanse. It can taste like home.</div>
-        <div class="who">— The Añejo promise</div>
-      </div>
-      <div class="testi-card">
-        <div class="quote">Your review could be here — be one of our first members and tell your story.</div>
-        <div class="who">— Reserve a tasting</div>
-      </div>
-      <div class="testi-card">
-        <div class="quote">Trainers and gyms: share how Añejo plans changed your members' results.</div>
-        <div class="who">— Partner with us</div>
-      </div>
+      <article class="testi-card">
+        <blockquote class="quote" lang="en" translate="no">The food was absolutely delicious everything was fresh, flavorful, and cooked perfectly.</blockquote>
+        <div class="who"><cite translate="no">WA WA</cite></div>
+        <a class="testi-source" href="https://share.google/yhoMF3rSC82P140qA" target="_blank" rel="noopener noreferrer">Read review on Google ↗</a>
+      </article>
+      <article class="testi-card">
+        <blockquote class="quote" lang="en" translate="no">Absolutely amazing food and exceptional service!</blockquote>
+        <div class="who"><cite translate="no">Herduin Garcia Heal</cite></div>
+        <a class="testi-source" href="https://share.google/wjOAoPjHXu8GDnRNb" target="_blank" rel="noopener noreferrer">Read review on Google ↗</a>
+      </article>
+      <article class="testi-card">
+        <blockquote class="quote" lang="en" translate="no">The best food in town by far, a taste like no other &amp; very professional customer service.</blockquote>
+        <div class="who"><cite translate="no">Randy Sanchez</cite></div>
+        <a class="testi-source" href="https://share.google/Pxi2BRwOCn6ctE2SE" target="_blank" rel="noopener noreferrer">Read review on Google ↗</a>
+      </article>
+      <article class="testi-card">
+        <blockquote class="quote" lang="es" translate="no">Me encanta la comida y si es saludable mucho mejor.tienen que probarla todo riquísimo.</blockquote>
+        <div class="who"><cite translate="no">Michel Diaz Mordoche</cite></div>
+        <a class="testi-source" href="https://share.google/PvZ47z3bdcR9XXxPe" target="_blank" rel="noopener noreferrer">Read review on Google ↗</a>
+      </article>
+      <article class="testi-card">
+        <blockquote class="quote" lang="es" translate="no">Excelente calidad, si quieres comer saludable y delicioso tienes que probar Añejo!</blockquote>
+        <div class="who"><cite translate="no">Gabriela Barrios</cite></div>
+        <a class="testi-source" href="https://share.google/jdBJZipGFgiN1TjhZ" target="_blank" rel="noopener noreferrer">Read review on Google ↗</a>
+      </article>
+      <article class="testi-card">
+        <blockquote class="quote" lang="es" translate="no">Dios mío tienen que probar las croquetas definitivamente volveré a pedir gracias añejo por tanta calidad</blockquote>
+        <div class="who"><cite translate="no">Barbaro Gonzalez</cite></div>
+        <a class="testi-source" href="https://share.google/9og2RSX7UtOrQTaCD" target="_blank" rel="noopener noreferrer">Read review on Google ↗</a>
+      </article>
     </div>
-    <p class="testi-soon">Verified customer reviews will appear here as our first orders ship.</p>
+    <div class="testi-note">
+      <p>Review excerpts in their original language. Rating checked September 7, 2026; not a live feed.</p>
+      <a class="testi-all" href="https://www.google.com/maps/place/A%C3%B1ejo+Catering+Co./data=!4m2!3m1!1s0x0:0xd07b3989f9f471fc" target="_blank" rel="noopener noreferrer">See all reviews on Google ↗</a>
+    </div>
   </div>
 </section>
 
@@ -1483,7 +1515,7 @@ document.querySelectorAll('#navLinks a').forEach(a => {
 });
 </script>
 
-<script src="/assets/js/i18n.js"></script>
+<script src="/assets/js/i18n.js?v=20260907-reviews"></script>
 <script src="/assets/js/announce.js" defer></script>
 <script src="/assets/js/consent.js"></script>
 <script>
