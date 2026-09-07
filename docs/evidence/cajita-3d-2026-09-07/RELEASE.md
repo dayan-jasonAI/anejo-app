@@ -40,3 +40,17 @@ Post-change bookmark: 000005e3-0000002c-000050df-c28b8680b78678c77d57f6aca42470c
 ## Publication and rollback
 
 Production publication is pending at this record's creation. Use reviewed branch → main Pages auto-deploy, then deploy the cron Worker preserving existing variables. Verify production assets and a clearly marked non-customer test request. Roll back website/cron code if needed; retain additive tables and all new requests. Never restore the entire database over subsequent customer data merely to undo a code release.
+
+## Live evidence — 2026-09-07, 20:48 UTC
+
+- Release commit 738fa89d5324ed5ef4c65b9888f4f81547cfbd7d was fast-forwarded through the existing authenticated Git connection to main. The GitHub connector could not create a PR (403), browser GitHub was logged out; no repository protections/settings changed. Local full checks and Hub lint/16 tests/build passed before push.
+- GitHub CI run 34160397361 completed successfully: https://github.com/dayan-jasonAI/anejo-app/actions/runs/34160397361.
+- Pages production deployment 5cf62851-a86f-46d5-81a6-8cbba9dfca78, source 738fa89, branch main. Live homepage, /catering, /cajita, /cajita-builder and builder bundle returned 200. Live AI capability correctly reports unavailable.
+- Cron version 4e2af65d-99bc-47cc-8a41-17b52c3639f5 deployed with --keep-vars. A real scheduled execution at 20:48 UTC returned catering-outbox HTTP 200, no exceptions, existing scheduled jobs also HTTP 200. Tail stopped after this evidence.
+- Synthetic request release-qa-20260907-738fa89-01 created lead ld_8ce712e5901acbc31d4c. Same-payload retry returned that same lead with replayed=true. One private PNG linked: cat_222cf10727c654b2b906 (4,709 bytes). Test clearly says DO NOT PREPARE, no customer contact/payment/SMS.
+- D1 read confirmed 20 standard and 10 dessert-free Cajitas, 30 of each standard savory item, 20 tres leches and 10 skewers; Christmas/star/label artwork placement retained for second variant. Both outbox rows accepted in one attempt, no errors. Hub alert alert_9dd8d715c7b06d01ed0a is open.
+- Resend email 1a70c8d8-291b-4711-b8d3-b814c189fad4 reports delivered to dayan@anejocateringco.com. Gmail search found the exact notification with INBOX and UNREAD labels, message 1a07d9f387980131. This proves receipt in the connected inbox, not only provider acceptance.
+- Unauthenticated owner, kitchen and private attachment APIs return 401. No private data/file exposed in these checks.
+- npm run verify:live passed its public/API checks; its generic --db section was skipped. Targeted D1 checks above were executed separately.
+- Mac locked during final live browser checks; authenticated owner/kitchen screen rendering remains Unverified. Local browser interaction checks preceded deployment; live server/API/email checks continued while UI was blocked.
+- Follow-up: add direct kitchen/owner navigation to the design summary and publish this evidence. No additional approval needed for the authorized release. Remaining feature work is photorealistic models, enabled AI previews, larger matching packaging and broader print-design parity—not represented as finished.

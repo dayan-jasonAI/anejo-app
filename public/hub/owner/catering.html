@@ -257,7 +257,7 @@
           Owner.tile(String(unpaid.length), 'Deposits unpaid', { accent: unpaid.length ? 'accent' : '' }) +
           Owner.tile(money(owed), 'Balances still owed') +
         '</div>' +
-        '<div class="hub-section"><h2>Website quote requests</h2>' +
+        '<div class="hub-section"><h2>Website quote requests</h2><p><a href="/hub/kitchen/catering.html">Open kitchen design-request summary</a></p>' +
         (rs.length ? rs.map(requestCard).join('') : '<div class="hub-empty">No website catering requests yet.</div>') +
         '</div>' +
         formHtml(d) +
