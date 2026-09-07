@@ -77,7 +77,7 @@ const EXTRA_ENDPOINTS = {
 // minute because reply speed is what converts — a DM answered while the person is still on the
 // app is a sale, one answered tomorrow is an apology — and Meta's 24-hour reply window is
 // burning from the moment they write.
-const EVERY_MINUTE = ['/api/hub/admin/offers-tick', '/api/hub/admin/campaigns-tick', '/api/hub/admin/social-tick', '/api/hub/admin/social-inbox-tick'];
+const EVERY_MINUTE = ['/api/admin/catering-outbox', '/api/hub/admin/offers-tick', '/api/hub/admin/campaigns-tick', '/api/hub/admin/social-tick', '/api/hub/admin/social-inbox-tick'];
 
 // Minimal cron field matcher — supports '*', exact numbers, and comma lists (covers every
 // expression above). dom/dow are ANDed here (all our schedules leave one of them '*').

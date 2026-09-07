@@ -11,6 +11,9 @@ let config = { version: 1, variants: [newVariant()] },
   generatedBusy = false,
   assetBusy = false,
   submitting = false,
+  pendingSubmission = null,
+  pendingLocks = null,
+  brandReady = false,
   dirty = false;
 const active = () => config.variants[current];
 const say = (message, id = "status") => {
@@ -152,6 +155,8 @@ function drawSummary() {
   );
 }
 function drawScene(animate = false) {
+  const total = active().items.reduce((n, item) => n + item.quantity, 0);
+  $("scene-count").textContent = `${total} items per box · ${active().quantity} boxes`;
   if (scene) {
     const { total, shown } = scene.update(active(), assets, animate);
     $("scene-count").textContent =
@@ -467,7 +472,8 @@ $("art-files").onchange = async () => {
   } finally {
     assetBusy = false;
     $("art-files").value = "";
-    drawFiles();
+    fillSurface();
+    changed();
   }
 };
 $("generate").onclick = async () => {
@@ -621,7 +627,7 @@ $("save-draft").onclick = async () => {
   }
 };
 window.addEventListener("beforeunload", (e) => {
-  if (dirty && !submitting) {
+  if (dirty || pendingSubmission || submitting) {
     e.preventDefault();
     e.returnValue = "";
   }
@@ -630,6 +636,10 @@ window.addEventListener("beforeunload", (e) => {
 $("quote-form").onsubmit = async (e) => {
   e.preventDefault();
   if (submitting) return;
+  if (!brandReady) {
+    say("Please reload to load the original Añejo artwork before submitting.", "quote-status");
+    return;
+  }
   const form = $("quote-form"),
     checked = check();
   if (!checked.ok) {
@@ -639,7 +649,7 @@ $("quote-form").onsubmit = async (e) => {
   if (!form.reportValidity()) return;
   const eventFields = Object.fromEntries(new FormData(form));
   const smsConsent = form.elements.sms_consent.checked;
-  const locked = [
+  const locked = pendingLocks || [
     ...document.querySelectorAll(
       "#controls input,#controls select,#controls textarea,#controls button,#quote-form input,#quote-form textarea,#quote-form button",
     ),
@@ -651,6 +661,7 @@ $("quote-form").onsubmit = async (e) => {
   $("submit").disabled = true;
   say("Saving your exact design request…", "quote-status");
   try {
+    if (!pendingSubmission) {
     const sent = clone(checked.value);
     let sessionId = "";
     const idMap = new Map();
@@ -682,15 +693,21 @@ $("quote-form").onsubmit = async (e) => {
         idMap.set(local, result.attachment_id);
       }
     }
+    const remoteId = (local) => {
+      const id = idMap.get(local);
+      if (!id) throw new Error("An artwork file was not uploaded. Your request has not been sent.");
+      return id;
+    };
     for (const v of sent.variants) {
       if (v.theme.artworkAttachmentId)
-        v.theme.artworkAttachmentId = idMap.get(v.theme.artworkAttachmentId);
+        v.theme.artworkAttachmentId = remoteId(v.theme.artworkAttachmentId);
       for (const a of v.personalization.artworks)
-        a.attachmentId = idMap.get(a.attachmentId);
+        a.attachmentId = remoteId(a.attachmentId);
     }
     const data = eventFields;
     Object.assign(data, {
       kind: "catering",
+      request_id: crypto.randomUUID(),
       lang: "en",
       guests: Number(data.guests),
       menu_options: ["Individual Cajitas"],
@@ -701,15 +718,23 @@ $("quote-form").onsubmit = async (e) => {
       design_notes:
         "Cajita Atelier request. Exact versioned configuration and artwork placements attached to this record.",
     });
+    pendingSubmission = data;
+    pendingLocks = locked;
+    }
+    const sent = pendingSubmission.cajita_configuration;
     say("Submitting the event and all Cajita versions…", "quote-status");
     const response = await fetch("/api/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+      body: JSON.stringify(pendingSubmission),
+      signal: AbortSignal.timeout(30000),
     });
     const out = await response.json();
-    if (!response.ok || !out.ok || !out.id)
+    if (!response.ok || !out.ok || !out.id) {
+      if (response.status >= 400 && response.status < 500 && response.status !== 409) pendingSubmission = null;
       throw new Error(out.error || "We could not confirm receipt.");
+    }
+    pendingSubmission = null;
     dirty = false;
     const received = el("div");
     received.append(
@@ -727,7 +752,7 @@ $("quote-form").onsubmit = async (e) => {
           "Your request is saved, but an attachment link needs team attention. Keep your original files and this reference.",
         ),
       );
-    if (!out.notifications?.email || !out.notifications?.hub)
+    if (!out.notifications?.queued && (!out.notifications?.email || !out.notifications?.hub))
       received.append(
         el(
           "p",
@@ -739,14 +764,18 @@ $("quote-form").onsubmit = async (e) => {
     received.focus();
   } catch (error) {
     say(
-      `${error.message} Your design is still here. If the connection failed after sending, receipt is uncertain; contact Añejo before resubmitting to avoid a duplicate. No email app was opened and no files were discarded.`,
+      pendingSubmission
+        ? `${error.message} Your exact request is held here. Tap Retry same request to safely check receipt without creating another order. Keep this page open. Request reference: ${pendingSubmission.request_id}`
+        : `${error.message} Your design and files are still here. Correct the issue and try again.`,
       "quote-status",
     );
     $("submit").disabled = false;
+    $("submit").textContent = pendingSubmission ? "Retry same request" : "Send quote request";
   } finally {
-    locked.forEach(({ node, disabled }) => {
-      node.disabled = disabled;
-    });
+    if (!pendingSubmission) {
+      locked.forEach(({ node, disabled }) => { node.disabled = disabled; });
+      pendingLocks = null;
+    }
     submitting = false;
   }
 };
@@ -754,6 +783,7 @@ $("quote-form").onsubmit = async (e) => {
 async function init() {
   try {
     await loadBrand();
+    brandReady = true;
   } catch {
     say(
       "The original brand artwork could not load. Please reload before requesting a quote.",
@@ -774,14 +804,15 @@ async function init() {
         attachmentIds: ids,
       });
       if (checked.ok) {
-        config = checked.value;
         for (const a of saved.assets) await addAsset(a.blob, a.name, a.id);
+        config = checked.value;
         say(
           "Your saved design was restored from this device. It has not been submitted.",
         );
       }
     }
   } catch {
+    assets.clear();
     say(
       "Saved draft could not be restored. The new design controls are available.",
     );
@@ -800,6 +831,7 @@ async function init() {
   try {
     const res = await fetch("/api/cajita-theme");
     const out = await res.json();
+    $("generate").disabled = !out.capability?.available;
     if (!out.capability?.available) {
       $("generate").disabled = true;
       say(

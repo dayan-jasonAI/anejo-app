@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { makeD1 } from '../helpers/d1.js';
+import { makeCateringDB as makeD1, seedUpload } from './catering-outbox-fixture.js';
 import { normalizeCateringRequest, onRequestPost } from '../../functions/api/leads.js';
 
 const PAGE = readFileSync(new URL('../../public/catering.html', import.meta.url), 'utf8');
@@ -147,16 +147,19 @@ test('private design files are claimed by the saved request before the owner is 
     [/UPDATE catering_attachments SET lead_id/i, () => 1],
     [/UPDATE catering_upload_sessions SET claimed_lead_id/i, () => 1],
   ]);
+  seedUpload(DB);
+  const batch = DB.batch.bind(DB);
   DB.batch = async (statements) => {
-    for (const statement of statements) updates.push(await statement.run());
-    return updates;
+    const result = await batch(statements);
+    updates.push(...result);
+    return result;
   };
 
   const response = await post({ ...valid, upload_session_id: 'cup_0123456789abcdefabcd' }, { DB });
   const out = await response.json();
   assert.equal(response.status, 200);
   assert.deepEqual(out.attachments, { received: 1, linked: true });
-  assert.equal(updates.length, 2, 'both the file rows and upload session are claimed');
+  assert.equal(updates.length, 6, 'lead, session, attachments, identity and both outbox jobs share one transaction');
   assert.ok(DB.sqlLog().some((sql) => /UPDATE catering_attachments SET lead_id/.test(sql)));
   assert.ok(DB.sqlLog().some((sql) => /UPDATE catering_upload_sessions SET claimed_lead_id/.test(sql)));
 });

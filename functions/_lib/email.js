@@ -47,7 +47,7 @@ export async function removeSuppression(env, email) {
 // unsubscribed) to protect sender reputation — pass { bypassSuppression:true } only for a
 // deliberate, owner-justified exception. Returns Resend's JSON on send (its `id` is the message
 // receipt), or {skipped,suppressed}. `bcc` is opt-in per call — see the note on body.bcc below.
-export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppression, unsubscribeUrl } = {}) {
+export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppression, unsubscribeUrl, idempotencyKey, timeoutMs } = {}) {
   if (!env.RESEND_API_KEY) throw new Error('Email not configured (missing RESEND_API_KEY).');
   const addr = normalizeEmail(to);
   if (!bypassSuppression && addr) {
@@ -84,7 +84,9 @@ export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppr
     headers: {
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
       'Content-Type': 'application/json',
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     },
+    ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error('Email send failed: ' + (await r.text()).slice(0, 300));

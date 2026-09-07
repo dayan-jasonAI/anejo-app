@@ -54,7 +54,8 @@ export function createScene(host, selectItem) {
     closed = false,
     animations = [],
     textures = [],
-    frames = 0;
+    frames = 0,
+    contextLost = false;
   let reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   function reset() {
     camera.position.set(7.3, 8.6, 9.7);
@@ -105,6 +106,8 @@ export function createScene(host, selectItem) {
     animations = [];
   }
   function update(v, assets, animate = false) {
+    const itemTotal = v.items.reduce((n, i) => n + i.quantity, 0);
+    if (contextLost) return { total: itemTotal, shown: 0 };
     clear();
     group = new THREE.Group();
     scene.add(group);
@@ -113,9 +116,11 @@ export function createScene(host, selectItem) {
       shown = Math.min(total, 28),
       cols = Math.max(3, Math.ceil(Math.sqrt(shown * 1.45))),
       rows = Math.max(2, Math.ceil(shown / cols));
-    const w = Math.max(5.6, cols * 1.5),
-      d = Math.max(3.7, rows * 1.42);
-    group.scale.setScalar(Math.min(1, 6.7 / w));
+    // Confirmed Leafiew B0D1CB87P2 footprint. Food models are illustrative,
+    // not dimensioned products: never imply that unlimited items physically fit.
+    const w = 7, d = 5;
+    const cellX = (w - 0.4) / cols, cellZ = (d - 0.4) / rows;
+    const foodScale = Math.min(0.82, cellX / 1.6, cellZ / 1.5);
     const clearMat = new THREE.MeshPhysicalMaterial({
       color: v.theme.colors.box,
       roughness: 0.15,
@@ -132,11 +137,12 @@ export function createScene(host, selectItem) {
       transparent: true,
       opacity: 0.75,
     });
-    box(w, 0.09, d, clearMat, 0, 0.04);
-    box(w, 0.77, 0.035, clearMat, 0, 0.46, -d / 2);
-    box(w, 0.77, 0.035, clearMat, 0, 0.46, d / 2);
-    box(0.035, 0.77, d, clearMat, -w / 2, 0.46);
-    box(0.035, 0.77, d, clearMat, w / 2, 0.46);
+    const paper = new THREE.MeshStandardMaterial({ color: v.theme.colors.box, roughness: 0.9 });
+    box(w, 0.09, d, paper, 0, 0.04);
+    box(w, 0.77, 0.035, paper, 0, 0.46, -d / 2);
+    box(w, 0.77, 0.035, paper, 0, 0.46, d / 2);
+    box(0.035, 0.77, d, paper, -w / 2, 0.46);
+    box(0.035, 0.77, d, paper, w / 2, 0.46);
     for (const z of [-d / 2, d / 2]) box(w, 0.035, 0.035, rim, 0, 0.86, z);
     for (const x of [-w / 2, w / 2]) box(0.035, 0.035, d, rim, x, 0.86);
     const liner = document.createElement("canvas");
@@ -167,10 +173,11 @@ export function createScene(host, selectItem) {
           pickTexture: pickTex,
         });
         model.position.set(
-          ((idx % cols) - (cols - 1) / 2) * 1.47,
+          ((idx % cols) - (cols - 1) / 2) * cellX,
           0.15,
-          (Math.floor(idx / cols) - (rows - 1) / 2) * 1.37,
+          (Math.floor(idx / cols) - (rows - 1) / 2) * cellZ,
         );
+        model.scale.setScalar(foodScale);
         model.userData.itemId = item.id;
         model.traverse((o) => {
           if (o.isMesh) {
@@ -185,6 +192,7 @@ export function createScene(host, selectItem) {
           animations.push({
             obj: model,
             target: 0.15,
+            scale: foodScale,
             start: performance.now() + idx * 85,
           });
           model.position.y = 3.4;
@@ -234,7 +242,9 @@ export function createScene(host, selectItem) {
   }
   renderer.domElement.addEventListener("webglcontextlost", (e) => {
     e.preventDefault();
+    contextLost = true;
     document.getElementById("scene-fallback").hidden = false;
+    for (const id of ["lid", "reset-view", "replay"]) document.getElementById(id).disabled = true;
   });
   let down;
   renderer.domElement.addEventListener("pointerdown", (e) => {
@@ -257,13 +267,13 @@ export function createScene(host, selectItem) {
   });
   function loop(now) {
     requestAnimationFrame(loop);
-    if (document.hidden) return;
+    if (document.hidden || contextLost) return;
     controls.update();
     for (const a of animations) {
       const t = Math.min(1, Math.max(0, (now - a.start) / 600)),
         k = 1 - Math.pow(1 - t, 3);
       a.obj.position.y = 3.4 + (a.target - 3.4) * k;
-      a.obj.scale.setScalar(0.82 * Math.max(0.01, k));
+      a.obj.scale.setScalar(a.scale * Math.max(0.01, k));
     }
     animations = animations.filter((a) => now < a.start + 600);
     if (++frames % 2 === 0 || animations.length) renderer.render(scene, camera);

@@ -8,6 +8,7 @@ import { limitOr429 } from '../_lib/ratelimit.js';
 import { insertLead } from '../_lib/leads.js';
 import { raiseAlert } from '../_lib/alerts.js';
 import { normalizeCajitaConfiguration } from '../_lib/cajita-config.js';
+import { validCateringRequestId, cateringPayloadHash, findCateringReplay, storeCateringRequest, cateringReceipt, drainCateringOutbox } from '../_lib/catering-request.js';
 
 // Founding Legacy Member program — first N launch-list signups get a founding number.
 const FOUNDING_CAP = 100;
@@ -212,6 +213,20 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     return bad('The catering request form is briefly unavailable. Please email dayan@anejocateringco.com.', 503);
   }
 
+  // Resolve successful retries BEFORE testing the now-claimed upload session. A request id is
+  // a high-entropy browser capability, not an email-based lookup that exposes other customers.
+  const requestId = catering ? (b.request_id || crypto.randomUUID()) : null;
+  let payloadHash = null;
+  if (catering) {
+    if (!validCateringRequestId(requestId)) return bad('Invalid request ID. Please reload the form.');
+    payloadHash = await cateringPayloadHash(b);
+    try {
+      const replay = await findCateringReplay(env, requestId, payloadHash);
+      if (replay?.conflict) return bad('This request ID was already used with different details. Start a new request.', 409);
+      if (replay) return json(await cateringReceipt(env, replay));
+    } catch { return bad('We could not verify the request. Please retry with the same details.', 503); }
+  }
+
   // If the customer uploaded inspiration, prove the short-lived session exists and is still
   // unclaimed before saving the lead. The R2 keys never enter the public payload or email.
   let attachments = [];
@@ -275,6 +290,24 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     utm_campaign: attr.utm_campaign, referrer: attr.referrer,
     created_at: now(),
   };
+
+  if (catering) {
+    let saved;
+    try {
+      saved = await storeCateringRequest(env, { rec, catering, requestId, payloadHash, uploadSessionId, attachments });
+      if (saved.conflict) return bad('This request ID was already used with different details. Start a new request.', 409);
+      if (saved.uploadConflict) return bad('These design files changed or were already submitted. Please attach them again.', 409);
+    } catch { return bad('We could not save the request. Please retry with the same details.', 503); }
+    // External effects cannot make a durably captured request look unsuccessful. The scheduler
+    // drains anything left behind by an isolate shutdown, timeout or provider outage.
+    try { await drainCateringOutbox(env, { requestId, limit: 2 }); } catch { /* durable retry */ }
+    try { return json(await cateringReceipt(env, saved)); }
+    catch {
+      return json({ ok: true, id: saved.id, request_id: requestId, replayed: saved.replayed,
+        notifications: { hub: false, email: false }, notification_status: { hub: 'pending', email: 'pending' },
+        attachments: { received: saved.attachment_count, linked: true } });
+    }
+  }
 
   let stored = false;
   let member = null; // Founding Legacy Member number (launch list only)
