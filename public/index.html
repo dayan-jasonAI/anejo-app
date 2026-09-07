@@ -245,6 +245,8 @@ nav {
   color: var(--gold); font-weight: 600;
   opacity: 0.7;
 }
+.cajita-hero{max-width:1120px;margin:58px auto 0;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(280px,.95fr);gap:28px;align-items:stretch;text-align:left}
+.cajita-hero-copy{padding:26px 0 18px}.cajita-kicker{color:var(--gold);font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:700}.cajita-hero h2{font-family:'Cormorant Garamond',Georgia,serif;color:var(--cream);font-size:clamp(30px,4vw,48px);line-height:1.02;font-weight:500;margin:10px 0 12px}.cajita-hero-copy p{color:rgba(245,242,236,.78);max-width:560px;font-size:16px;line-height:1.6}.cajita-steps{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 22px}.cajita-step{border:1px solid rgba(198,168,91,.4);border-radius:999px;padding:8px 12px;color:var(--cream);font-size:11px;letter-spacing:1px;text-transform:uppercase}.cajita-steps .cajita-step:first-child{background:var(--gold);color:var(--black)}.cajita-hero-actions{display:flex;flex-wrap:wrap;gap:10px}.cajita-hero-actions .btn{padding:12px 18px}.cajita-gallery{position:relative;min-height:300px;border:1px solid rgba(198,168,91,.3);border-radius:8px;overflow:hidden;background:var(--green-dark);box-shadow:0 14px 36px rgba(0,0,0,.28)}.cajita-gallery img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease}.cajita-gallery img.is-active{opacity:1}.cajita-gallery::after{content:'Real Añejo Cajita moments';position:absolute;left:16px;bottom:14px;color:var(--cream);font-size:11px;letter-spacing:1.4px;text-transform:uppercase;background:rgba(13,13,13,.72);padding:8px 10px;border-left:2px solid var(--gold)}
 
 /* ---------- SECTIONS ---------- */
 section { padding: 80px 24px; }
@@ -571,12 +573,14 @@ footer {
   .nav-links.open { display: flex; }
   .wholesale-row { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
+  .cajita-hero{grid-template-columns:1fr;max-width:720px}.cajita-gallery{min-height:280px}
 }
 @media (max-width: 480px) {
   .hero { padding: 70px 20px 60px; }
   section { padding: 60px 20px; }
   .footer-grid { grid-template-columns: 1fr; gap: 30px; }
   .bowl-image { height: 180px; }
+  .cajita-hero{margin-top:38px}.cajita-gallery{min-height:230px}.cajita-hero-copy{padding-top:0}
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -718,6 +722,23 @@ footer {
       <a href="#menu" class="btn btn-outline">View the Menu</a>
     </div>
     <div class="hero-seal">PBC · HERITAGE CRAFTED · FRESH NEVER FROZEN</div>
+    <div class="cajita-hero" aria-labelledby="cajita-hero-heading">
+      <div class="cajita-hero-copy">
+        <div class="cajita-kicker">La Cajita · built for your gathering</div>
+        <h2 id="cajita-hero-heading">One thoughtful box. Your occasion.</h2>
+        <p>Choose the bites, set the feeling, and tell us what your group needs. We’ll review the details and shape the menu with you.</p>
+        <div class="cajita-steps" aria-label="How La Cajita works">
+          <span class="cajita-step">01 · Choose bites</span><span class="cajita-step">02 · Set the theme</span><span class="cajita-step">03 · Request a quote</span>
+        </div>
+        <div class="cajita-hero-actions"><a class="btn btn-gold" href="/cajita-builder">Design your Cajita</a><a class="btn btn-outline" href="/catering">Request catering</a></div>
+      </div>
+      <div class="cajita-gallery" aria-label="Añejo Cajita event photography" data-cajita-gallery>
+        <img class="is-active" src="/assets/img/cajita/event-gallery/event-1.jpg" alt="Añejo Cajitas arranged for an event" width="900" height="700">
+        <img src="/assets/img/cajita/event-gallery/event-4.jpg" alt="Añejo Cajita event table" width="900" height="700" loading="lazy">
+        <img src="/assets/img/cajita/themes/anejo-signature.jpg" alt="Añejo signature theme presentation" width="900" height="700" loading="lazy">
+        <img src="/assets/img/cajita/themes/custom-occasion.jpg" alt="Custom occasion Cajita theme presentation" width="900" height="700" loading="lazy">
+      </div>
+    </div>
   </div>
 </section>
 
@@ -1558,5 +1579,6 @@ document.querySelectorAll('#navLinks a').forEach(a => {
   <script src="/assets/js/motion.js" defer></script>
   <script src="/assets/js/fuelcore.js" defer></script>
   <script src="/assets/js/logo-life.js" defer></script>
+  <script src="/assets/js/cajita-hero.js" defer></script>
 </body>
 </html>
