@@ -66,6 +66,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
   <section class="cta" aria-labelledby="quote-heading"><div class="cta-inner"><div class="eyebrow">Ready to plan it?</div><h2 id="quote-heading">Request La Cajita for your group.</h2><p>No guessed pricing and no payment today. Send the full event request, and the Añejo team will follow up about availability, menu, and a custom quote.</p><div class="button-row"><a class="btn btn-gold" href="/catering?menu=cajita#quote">Start your request</a></div></div></section>
 </main>
 <footer>Añejo Catering Co. · Palm Beach County, Florida · <a href="/catering">Catering</a> · <a href="mailto:dayan@anejocateringco.com">dayan@anejocateringco.com</a></footer>
+<script src="/assets/js/cajita-gallery-v3.js"></script>
 <script>(function(){
   var b=document.querySelector('.nav-burger'),n=document.getElementById('navLinks');b.addEventListener('click',function(){var o=n.classList.toggle('open');b.setAttribute('aria-expanded',String(o));b.setAttribute('aria-label',o?'Close menu':'Open menu');});n.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){n.classList.remove('open');b.setAttribute('aria-expanded','false');});});
   var themes=[
@@ -78,13 +79,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
     {name:'Patriotic',src:'/assets/img/cajita/themes/patriotic-duo-v2.jpg',alt:'Two patriotic Cajitas with navy, cranberry, ivory, gold, and seasonal Cuban bites',description:'Navy, cranberry, ivory, and gold unite the label, tag, ribbon, star details, and fresh strawberry, blueberry, and cheese accents.'},
     {name:'Custom Occasion',src:'/assets/img/cajita/themes/custom-occasion-duo-v2.jpg',alt:'Two custom occasion Cajitas with emerald and gold labels and a personalized Cuban menu',description:'Emerald, black, ivory, and gold create a flexible premium canvas with a coordinated label, tag, liners, picks, guava bite, and celebratory dessert.'}
   ];
-  var index=0,paused=false,timer=null,reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var stage=document.getElementById('themeStage'),image=document.getElementById('themeImage'),name=document.getElementById('themeName'),description=document.getElementById('themeDescription'),toggle=document.getElementById('themeToggle'),tabs=Array.from(document.querySelectorAll('[data-theme]'));
-  function renderTheme(next,userAction){index=(next+themes.length)%themes.length;var t=themes[index];image.src=t.src;image.alt=t.alt;name.textContent=t.name;description.textContent=t.description;tabs.forEach(function(tab,i){tab.setAttribute('aria-pressed',String(i===index));});if(userAction)pause();}
-  function pause(){paused=true;clearInterval(timer);toggle.textContent='Play themes';toggle.setAttribute('aria-pressed','true');}
-  function play(){paused=false;clearInterval(timer);timer=setInterval(function(){renderTheme(index+1,false);},5000);toggle.textContent='Pause themes';toggle.setAttribute('aria-pressed','false');}
-  document.getElementById('themePrev').addEventListener('click',function(){renderTheme(index-1,true);});document.getElementById('themeNext').addEventListener('click',function(){renderTheme(index+1,true);});toggle.addEventListener('click',function(){if(paused)play();else pause();});tabs.forEach(function(tab){tab.addEventListener('click',function(){renderTheme(Number(tab.getAttribute('data-theme')),true);});});
-  if(reduced){paused=true;toggle.textContent='Play themes';toggle.setAttribute('aria-pressed','true');}else play();
+  window.initCajitaThemeGallery(themes);
 })();</script>
 <script src="/assets/js/announce.js" defer></script><script src="/assets/js/consent.js"></script><script src="/assets/js/chat.js" defer></script>
 </body>
