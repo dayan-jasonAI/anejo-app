@@ -40,6 +40,10 @@ Only short verbatim excerpts are displayed. No exact publication dates or indivi
 
 ## Release state / remaining risks
 
-Prepared for scoped PR and existing Git-triggered Cloudflare release. Production verification pending at this checkpoint. New reviews and aggregate changes require a future refresh; no automated synchronization was added. Revert this scoped release commit to roll back without touching the Cajita draft.
+Published through [PR 60](https://github.com/dayan-jasonAI/anejo-app/pull/60), merge commit `c50aedb2098a02f33d0eb794459a2364d913509c`. Functions CI, Hub lint/test/build, and Cloudflare Pages checks passed. The Cloudflare skill kept this release on the existing Git-triggered path with no deployment-setting changes.
 
-No information blocker or additional approval required for this scoped change. While release checks run, only regression tests and evidence review are in scope. Next action: merge after green checks, verify live homepage, and retain this fix on the separate builder draft branch without deploying that draft.
+Production browser verification on 2026-09-07 at `https://anejocateringco.com/#testimonials`: observed all six exact quote/author/source mappings, 5.0/6 aggregate, dated non-live disclaimer, versioned i18n script, three-column desktop grid and no horizontal overflow. Visually inspected live cards; placeholder review cards are absent. This scoped update is complete with live artifact and test evidence. The production change was merged back into `codex/cajita-3d-builder` with `[skip deploy]` to preserve the unfinished draft without publishing it.
+
+New reviews and aggregate changes require a future refresh; no automated synchronization was added. Revert this scoped release commit to roll back without touching the Cajita draft.
+
+No information blocker or additional approval remains for this scoped change. While release checks ran, regression tests and evidence review continued. Next action for Dayan: view the live reviews section. Automatic refresh would be a separate future enhancement, not a feature of this release.
