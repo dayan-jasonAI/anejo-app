@@ -25,6 +25,8 @@ Date: 2026-09-07. Owner: Codex. Direct-session authorization: Dayan asked to cor
 
 ## Release and remaining risk
 
-Production publication and post-release browser checks are pending at this record's creation. Network/image failures remain possible but are now explicit and retryable. Existing generated artwork and its branding fidelity are not newly certified by this functional repair. No new approvals or purchases needed. Rollback: revert this scoped commit, keeping all unrelated application work intact.
+Published through PR #59, merge `dd54aec524d6fde06692a4298bc28799d274231b`, after both GitHub CI jobs and the Cloudflare preview check passed. Post-release browser reload of `https://anejocateringco.com/cajita` confirmed the versioned gallery script and status element. All eight live buttons were clicked; each produced its matching title, image URL, active button, loaded width 1448 and empty loading/error status. Live image bytes for all eight URLs matched source files (HTTP 200 image/jpeg).
 
-While the audit ran, the main agent implemented and browser-tested the gallery; the delegated test harness was reviewed and corrected for portable paths and isolated mock state. Next action: publish this isolated correction, then repeat all eight live selections.
+Network/image failures remain possible but are now explicit and retryable. Existing generated artwork and its branding fidelity are not newly certified by this functional repair. No new approvals or purchases needed. Rollback: revert the scoped gallery commit `eecb43f`, keeping all unrelated application work intact.
+
+While the audit ran, the main agent implemented and browser-tested the gallery; the delegated test harness was reviewed and corrected for portable paths and isolated mock state. The live fix was also merged into the separate 3D draft branch so a future draft release retains it. No 3D draft application changes were published. Next action for Dayan: reload the existing browser page to receive the corrected gallery.
