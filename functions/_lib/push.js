@@ -1,9 +1,8 @@
-// Añejo HUB — Web Push "tickle" sender (VAPID over WebCrypto, NO payload).
+// Añejo HUB — event-specific encrypted Web Push; legacy customer tickles remain payload-less.
 // Files under functions/_lib are NOT routed.
 //
-// Pattern: we POST an EMPTY push to the endpoint (no payload → no Web Push
-// encryption needed). The service worker wakes on the 'push' event, fetches
-// /api/hub/push/peek for fresh context, and renders the notification itself.
+// Staff events include safe bilingual copy encrypted for each subscription. This works
+// without a live cookie/session fetch on a locked iPhone. Customer tickles are unchanged.
 //
 //   import { sendPushTickle } from '../../_lib/push.js';
 //   await sendPushTickle(env, { staffIds: ['stf_x'] });        // target people
@@ -13,6 +12,9 @@
 // point), VAPID_PRIVATE_JWK (JSON string with {d,x,y} base64url JWK params),
 // VAPID_SUBJECT (mailto:). When any are absent — e.g. local dev — everything
 // no-ops safely. Best-effort: sendPushTickle never throws on the caller.
+
+import { buildPushPayload } from '@block65/webcrypto-web-push';
+import { createHubPushMessage } from './push-message.js';
 
 const MAX_SENDS = 20;             // hard cap per call — keep ops cheap
 const JWT_TTL_SECONDS = 12 * 60 * 60; // VAPID JWT exp: now + 12h (spec max 24h)
@@ -103,7 +105,7 @@ export async function sendPushToEmail(env, addr) {
 // Returns { sent, failed } — or { sent:0, noop:true } when VAPID isn't
 // configured. Expired endpoints (404/410) get their push_subscriptions row
 // deleted (the one allowed hard delete: dead subscription cleanup). Never throws.
-export async function sendPushTickle(env, { staffIds = [], roles = [], emails = [] } = {}) {
+export async function sendPushTickle(env, { staffIds = [], roles = [], emails = [], notification = null } = {}) {
   try {
     if (!env || !env.DB) return { sent: 0, noop: true };
     if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_JWK || !env.VAPID_SUBJECT) {
@@ -135,7 +137,7 @@ export async function sendPushTickle(env, { staffIds = [], roles = [], emails = 
       binds.push(...ems);
     }
     const { results } = await env.DB.prepare(
-      `SELECT id, endpoint FROM push_subscriptions WHERE ${clauses.join(' OR ')} LIMIT ${MAX_SENDS}`
+      `SELECT id, endpoint, p256dh, auth, audience FROM push_subscriptions WHERE ${clauses.join(' OR ')} LIMIT ${MAX_SENDS}`
     ).bind(...binds).all();
     const subs = results || [];
     if (!subs.length) return { sent: 0, failed: 0 };
@@ -147,20 +149,30 @@ export async function sendPushTickle(env, { staffIds = [], roles = [], emails = 
     let failed = 0;
     for (const sub of subs) {
       try {
-        const origin = new URL(sub.endpoint).origin;
+        const endpoint = new URL(sub.endpoint);
+        if (endpoint.protocol !== 'https:') { failed++; continue; }
+        const origin = endpoint.origin;
         let jwt = jwtByOrigin.get(origin);
         if (!jwt) {
           jwt = await vapidJwt(key, origin, env.VAPID_SUBJECT);
           jwtByOrigin.set(origin, jwt);
         }
-        const res = await fetch(sub.endpoint, {
+        let request = {
           method: 'POST',
           headers: {
             Authorization: `vapid t=${jwt}, k=${env.VAPID_PUBLIC_KEY}`,
             TTL: '86400',
           },
-          // EMPTY body on purpose: payload-less pushes skip RFC 8291 encryption.
-        });
+          // Legacy/customer path only: retain its existing queue-peek behavior.
+        };
+        if (notification && sub.audience !== 'customer') {
+          request = await buildPushPayload(
+            { data: createHubPushMessage(notification), options: { ttl: 3600, urgency: 'high' } },
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            { subject: env.VAPID_SUBJECT, publicKey: env.VAPID_PUBLIC_KEY, privateKey: jwk.d }
+          );
+        }
+        const res = await fetch(sub.endpoint, { ...request, signal: AbortSignal.timeout(8000) });
         if (res.status === 200 || res.status === 201 || res.status === 202) {
           sent++;
         } else {

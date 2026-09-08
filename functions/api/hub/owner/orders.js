@@ -18,6 +18,7 @@ import { capture } from '../../../_lib/track.js';
 import { parseJson } from '../../../_lib/hub.js';
 import { geocode, formatAddress } from '../../../_lib/geo.js';
 import { awardOrderPoints } from '../../../_lib/rewards.js';
+import { raiseAlert } from '../../../_lib/alerts.js';
 
 // Delivery address — optional here (a counter sale has none), but a partial one is rejected:
 // half an address can't be geocoded or routed. Mirrors checkout.js's parseAddress.
@@ -162,6 +163,18 @@ export const onRequestPost = async ({ request, env }) => {
     addr ? addr.state : null, addr ? addr.zip : null, addr ? addr.notes : null,
     lat, lng, geocodedAt, t, t
   ).run();
+
+  // The stored payment state controls the label: an unpaid phone order is not a paid sale.
+  // These fixed bilingual details also remain in the owner's feed if a phone is offline.
+  await raiseAlert(env, {
+    alert_type: status === 'paid' ? 'new_paid_order' : 'new_order', severity: 'info',
+    title: status === 'paid' ? 'New paid order / Nuevo pedido pagado' : 'New order / Nuevo pedido',
+    body: status === 'paid'
+      ? `Order ${orderId}: payment recorded by the owner. / Pedido ${orderId}: pago registrado por administración.`
+      : `Order ${orderId}: awaiting payment; do not prepare yet. / Pedido ${orderId}: pendiente de pago; no preparar todavía.`,
+    ref_type: 'order', ref_id: orderId, source: 'manual_order',
+    dedupe_key: `manual_order:${orderId}`, url: `/hub/owner/orders.html?order=${encodeURIComponent(orderId)}`,
+  });
 
   if (status === 'paid' && customerEmail) {
     try { await awardOrderPoints(env, { orderId, email: customerEmail, subtotalCents }); } catch (_) { /* non-fatal */ }

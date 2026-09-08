@@ -11,6 +11,7 @@
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 import { now } from '../../../_lib/hub.js';
+import { createHubPushMessage } from '../../../_lib/push-message.js';
 
 // Every role, staff and portal alike — this endpoint is open to anyone signed in.
 // Imported rather than re-typed: as a literal it silently omitted each newly added role
@@ -56,9 +57,9 @@ export const onRequestGet = async ({ request, env }) => {
   if (ctx.role === 'owner') {
     try {
       const row = await env.DB.prepare(
-        "SELECT title, body, alert_type, created_at FROM alerts WHERE status = 'open' AND created_at > ? ORDER BY created_at DESC LIMIT 1"
+        "SELECT id, alert_type, created_at FROM alerts WHERE status = 'open' AND created_at > ? ORDER BY created_at DESC LIMIT 1"
       ).bind(now() - ALERT_FRESH_MS).first();
-      if (row) alert = { title: row.title || null, body: row.body || null, alert_type: row.alert_type || null, created_at: row.created_at };
+      if (row) alert = { id: row.id, alert_type: row.alert_type || null, created_at: row.created_at };
     } catch { alert = null; }
   }
 
@@ -70,9 +71,9 @@ export const onRequestGet = async ({ request, env }) => {
   if (ctx.role === 'marketing') {
     try {
       const row = await env.DB.prepare(
-        "SELECT title, status, owner_note, decided_at FROM improvement_requests WHERE decided_at IS NOT NULL AND decided_at > ? ORDER BY decided_at DESC LIMIT 1"
+        "SELECT id, status, decided_at FROM improvement_requests WHERE decided_at IS NOT NULL AND decided_at > ? ORDER BY decided_at DESC LIMIT 1"
       ).bind(now() - ALERT_FRESH_MS).first();
-      if (row) decision = { title: row.title || '', status: row.status || 'decided', note: row.owner_note || null };
+      if (row) decision = { id: row.id, status: row.status || 'decided', decided_at: row.decided_at };
     } catch { decision = null; }
   }
 
@@ -87,24 +88,6 @@ export const onRequestGet = async ({ request, env }) => {
     } catch { offer = null; }
   }
 
-  let title;
-  let body;
-  if (offer) {
-    title = 'New delivery order — Añejo HUB';
-    body = `${offer.stops || ''} stop(s)${offer.date ? ' on ' + offer.date : ''}. Tap to accept or deny.`;
-  } else if (alert) {
-    title = alert.title || 'New alert at Añejo HUB';
-    body = alert.body || 'Open the Owner Command Center for details.';
-  } else if (decision) {
-    const verb = decision.status === 'accepted' ? 'accepted' : decision.status === 'declined' ? 'declined'
-      : decision.status === 'shipped' ? 'shipped' : 'decided';
-    title = `Dayan ${verb} your request`;
-    body = decision.title + (decision.note ? ' — ' + decision.note : '');
-  } else {
-    title = 'New message at Añejo HUB';
-    body = unread === 1 ? 'You have 1 unread message.' : `You have ${unread} unread messages.`;
-  }
-
   // Deep-link the notification tap to the right place, so the reader lands ON the item.
   let url = '/hub/';
   if (offer) url = '/hub/driver/route.html';
@@ -113,6 +96,10 @@ export const onRequestGet = async ({ request, env }) => {
   else if (alert) url = '/hub/owner/';                 // other owner alerts → command center
   else if (decision) url = '/hub/marketing/';          // her Requests-to-Dayan board
   else if (unread) url = ctx.role === 'owner' ? '/hub/owner/comms.html' : '/hub/comms.html';
-
-  return json({ ok: true, unread, alert, offer, decision, title, body, url });
+  const notification = createHubPushMessage({
+    type: offer ? 'delivery_offer' : alert ? alert.alert_type : decision ? 'marketing_decision' : 'new_message',
+    id: offer ? offer.route_id : alert ? alert.id : decision ? decision.id : undefined,
+    url,
+  });
+  return json({ ok: true, unread, alert, offer, decision, notify: !!(offer || alert || decision || unread), ...notification });
 };

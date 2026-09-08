@@ -25,6 +25,7 @@
 <script src="/assets/js/i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
+<script src="/hub/owner/assets/readiness.js"></script>
 <script>
 (function () {
   Hub.boot();
@@ -37,6 +38,11 @@
   function localToday() {
     try { return new Date().toLocaleDateString('en-CA'); } catch (e) { return new Date().toISOString().slice(0, 10); }
   }
+  var linkParams = new URLSearchParams(window.location.search);
+  var linkedOrder = linkParams.get('order') || '';
+  var linkedDate = /^\d{4}-\d{2}-\d{2}$/.test(linkParams.get('date') || '') ? linkParams.get('date') : '';
+  var assignmentRequest = 0;
+  var assignmentVerified = false;
   function money(c) { return '$' + ((Number(c) || 0) / 100).toFixed(2); }
   function clockET(ms) { try { return new Date(Number(ms)).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
   // The line every route shows: pay · stops · miles · finish ETA.
@@ -184,18 +190,28 @@
   };
 
   function loadAssign() {
+    var requestNumber = ++assignmentRequest;
+    assignmentVerified = false;
+    updateAssignBtn();
     var date = (document.getElementById('rdate') || {}).value || localToday();
     Owner.get('/api/hub/owner/routes?date=' + encodeURIComponent(date)).then(function (d) {
+      if (requestNumber !== assignmentRequest) return;
       var dsel = document.getElementById('rdriver');
       var ords = document.getElementById('rorders');
       var rlist = document.getElementById('rexisting');
       if (!dsel || !ords || !rlist) return;
-      if (!d || !d.ok) { ords.innerHTML = '<p class="row-sub" data-i18n>No data.</p>'; return; }
+      var notice = document.getElementById('assignment-status');
+      if (!d || !d.ok) { assignmentVerified = false; updateAssignBtn(); OwnerReadiness.setLabel(notice, 'Could not refresh assignment data. Previous choices are unchanged; retry before assigning.', 'No se pudieron actualizar los datos. Tus selecciones no cambiaron; vuelve a intentar antes de asignar.'); return; }
+      assignmentVerified = true;
+      var selectedDriver = dsel.value;
+      var selectedOrders = Array.prototype.map.call(ords.querySelectorAll('.rorder:checked'), function (cb) { return cb.value; });
+      OwnerReadiness.setLabel(notice, 'Assignment data refreshed. Kitchen readiness above updates automatically.', 'Datos de asignación actualizados. El estado de cocina arriba se actualiza automáticamente.');
 
       var availN = (d.drivers || []).filter(function (s) { return s.available; }).length;
       dsel.innerHTML = '<option value="" data-i18n>Select a driver</option>' + (d.drivers || []).map(function (s) {
-        return '<option value="' + Owner.esc(s.id) + '">' + Owner.esc(s.name || s.id) + (s.available ? ' 🟢 available' : '') + '</option>';
+        return '<option translate="no" value="' + Owner.esc(s.id) + '">' + Owner.esc(s.name || s.id) + (s.available ? OwnerReadiness.text(' 🟢 available', ' 🟢 disponible') : '') + '</option>';
       }).join('');
+      dsel.value = selectedDriver;
       // A <select> cannot hold a link, so the control that resolves this sits beside it rather
       // than being named and withheld.
       var dfix = document.getElementById('rdriver-fix');
@@ -230,11 +246,13 @@
           : '<div class="row-sub"><span class="badge crit" data-i18n>no address</span></div>';
         var od = o.needs_dispatch ? '<span class="badge crit">🛵 ASAP · DISPATCH</span> '
           : (o.on_demand ? '<span class="badge warn">🛵 ASAP</span> ' : '');
-        return '<label class="row" style="cursor:pointer' + (o.needs_dispatch ? ';background:#fff8e9' : '') + '"><input type="checkbox" class="rorder" value="' + Owner.esc(o.id) + '" style="margin-right:10px">' +
-          '<div class="row-main"><div class="row-title">' + Owner.esc(o.customer_name || o.id) + '</div>' +
-          '<div class="row-sub">' + Owner.esc(items || '—') + ' · ' + Owner.esc(o.delivery_window || '') + '</div>' + addr + '</div>' +
-          od + Owner.badge(o.status, Owner.kindFor(o.status)) + '</label>';
+        var ready = o.status === 'ready';
+        return '<label class="row" data-order-id="' + Owner.esc(o.id) + '" style="cursor:pointer' + (ready ? ';background:#fff8e9' : '') + (linkedOrder === o.id ? ';outline:2px solid var(--gold)' : '') + '"><input type="checkbox" class="rorder" value="' + Owner.esc(o.id) + '" style="margin-right:10px"' + (selectedOrders.indexOf(o.id) >= 0 ? ' checked' : '') + '>' +
+          '<div class="row-main"><div class="row-title" translate="no">' + Owner.esc(o.customer_name || o.id) + '</div>' +
+          '<div class="row-sub" translate="no">' + Owner.esc(items || '—') + ' · ' + Owner.esc(o.delivery_window || '') + '</div>' + addr + '</div>' +
+          od + (ready ? '<span translate="no" class="badge ok">' + OwnerReadiness.label('Ready for delivery', 'Listo para entregar') + '</span>' : Owner.badge(o.status, Owner.kindFor(o.status))) + '</label>';
       }).join('') : '<p class="row-sub" data-i18n>No unassigned orders for this date.</p>');
+      if (linkedOrder && !unassigned.some(function (o) { return o.id === linkedOrder; })) OwnerReadiness.setLabel(notice, 'The linked order is not in this date’s unassigned list. It may already have a route or a different delivery date. Review existing routes below.', 'El pedido del enlace no está en la lista sin asignar de esta fecha. Puede tener ruta o una fecha distinta. Revisa las rutas existentes abajo.');
 
       ords.querySelectorAll('.rorder').forEach(function (cb) { cb.addEventListener('change', updateAssignBtn); });
       updateAssignBtn();
@@ -265,11 +283,12 @@
     var n = document.querySelectorAll('#rorders .rorder:checked').length;
     var btn = document.getElementById('rassign');
     if (!btn) return;
-    btn.disabled = !n;
+    btn.disabled = !n || !assignmentVerified;
     btn.textContent = n === 1 ? 'Assign 1 stop' : 'Assign ' + n + ' stops';
   }
 
   function doAssign() {
+    if (!assignmentVerified) { Hub.toast(OwnerReadiness.text('Refresh assignment data before assigning.', 'Actualiza los datos antes de asignar.')); return; }
     var date = (document.getElementById('rdate') || {}).value || localToday();
     var driver = (document.getElementById('rdriver') || {}).value;
     var ids = Array.prototype.map.call(document.querySelectorAll('#rorders .rorder:checked'), function (cb) { return cb.value; });
@@ -284,8 +303,10 @@
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
     root.innerHTML =
-      '<div class="hub-section"><h2 data-i18n>Assign a route</h2><div class="card">' +
-      '<div class="field"><label data-i18n>Date</label><input type="date" id="rdate" value="' + localToday() + '"></div>' +
+      '<div id="ready-panel" class="hub-section"></div>' +
+      '<div id="assign" class="hub-section"><h2 data-i18n>Assign a route</h2><div class="card">' +
+      '<p id="assignment-status" role="status" translate="no"></p><button id="assignment-refresh" class="btn ghost" type="button" translate="no">' + OwnerReadiness.label('Refresh assignment list', 'Actualizar lista de asignación') + '</button>' +
+      '<div class="field"><label data-i18n>Date</label><input type="date" id="rdate" value="' + (linkedDate || localToday()) + '"></div>' +
       '<div class="field"><label data-i18n>Driver</label><select id="rdriver"></select>' +
         '<div id="rdriver-fix" style="display:none;margin-top:6px"></div></div>' +
       '<div class="field"><label data-i18n>Unassigned orders</label><div id="rorders" class="list"><div class="hub-loading">…</div></div></div>' +
@@ -303,6 +324,8 @@
       '<div class="hub-section"><h2 data-i18n>Deliveries</h2><div id="drops" class="list"><div class="hub-loading">…</div></div></div>';
 
     document.getElementById('rdate').addEventListener('change', loadAssign);
+    document.getElementById('assignment-refresh').addEventListener('click', loadAssign);
+    OwnerReadiness.mount('ready-panel');
     document.getElementById('rassign').addEventListener('click', doAssign);
     var pb = document.getElementById('rplanbtn'); if (pb) pb.addEventListener('click', planRoutes);
     loadAssign();

@@ -459,8 +459,17 @@
   // ---------- service worker ----------
   Hub.registerSW = function () {
     if ('serviceWorker' in navigator) {
+      function syncPushLanguage() {
+        var lang = 'en';
+        try { lang = window.AnejoLang ? window.AnejoLang.get() : localStorage.getItem('anejo:lang'); } catch (_) {}
+        navigator.serviceWorker.ready.then(function (reg) {
+          if (reg.active) reg.active.postMessage({ type: 'HUB_PUSH_LANGUAGE', lang: lang === 'es' ? 'es' : 'en' });
+        }).catch(function () {});
+      }
+      document.addEventListener('anejo:langchange', syncPushLanguage);
+      navigator.serviceWorker.addEventListener('controllerchange', syncPushLanguage);
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/hub/sw.js', { scope: '/hub/' }).catch(function () {});
+        navigator.serviceWorker.register('/hub/sw.js', { scope: '/hub/' }).then(syncPushLanguage).catch(function () {});
       });
     }
   };

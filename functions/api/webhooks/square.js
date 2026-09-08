@@ -145,6 +145,25 @@ export const onRequestPost = async ({ request, env }) => {
             });
           } catch (e) { console.log('paid-after-cancel alert error:', e && e.message); }
         }
+        // An authorization (APPROVED) is not a completed payment. It may already have
+        // moved the order into the existing kitchen flow above, so COMPLETED must not
+        // depend only on this invocation's row-change count. Once-ever dedupe survives
+        // webhook retries, concurrent deliveries and an owner acknowledging the alert.
+        if (pay.status === 'COMPLETED') {
+          try {
+            const paidOrder = await env.DB.prepare(
+              "SELECT id FROM orders WHERE square_order_id=? AND status IN ('paid','prep','ready','fulfilled') LIMIT 1"
+            ).bind(pay.order_id).first();
+            if (paidOrder) await raiseAlert(env, {
+              alert_type: 'new_paid_order', severity: 'info', onceEver: true,
+              dedupe_key: `order_paid:${paidOrder.id}`,
+              title: 'New paid order / Nuevo pedido pagado',
+              body: `Order ${paidOrder.id}: payment completed. / Pedido ${paidOrder.id}: pago completado.`,
+              ref_type: 'order', ref_id: paidOrder.id, source: 'square_payment',
+              url: `/hub/owner/orders.html?order=${encodeURIComponent(paidOrder.id)}`,
+            });
+          } catch (e) { console.log('paid order alert error:', e && e.message); }
+        }
         // First flip to paid → award Añejo Rewards points (idempotent in awardOrderPoints).
         if (paidUpd.meta && paidUpd.meta.changes === 1) {
           try {

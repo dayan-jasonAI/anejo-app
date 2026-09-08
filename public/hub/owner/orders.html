@@ -65,6 +65,7 @@
 <script src="/assets/js/i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
+<script src="/hub/owner/assets/readiness.js"></script>
 <script>
 (function () {
   Hub.boot();
@@ -75,7 +76,8 @@
   }
 
   var esc = Hub.esc, $ = Hub.$;
-  var curStatus = '';      // '' = all
+  var query = new URLSearchParams(window.location.search);
+  var curStatus = ['pending','prep','ready','fulfilled','canceled','abandoned'].indexOf(query.get('status')) >= 0 ? query.get('status') : '';
   var searchT = 0;
   var cache = {};          // id -> order summary
 
@@ -83,9 +85,9 @@
   function ymd(ms) { var d = new Date(ms); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function money(c) { return '$' + (((Number(c) || 0)) / 100).toFixed(2); }
 
-  // status badge (cleared shows as a distinct chip even though the row stays 'ready')
+  // Clearing the kitchen board does not mean the delivery is complete.
   function statusBadge(o) {
-    if (o.cleared_at && o.status === 'ready') return '<span class="st st-cleared">handed off</span>';
+    if (o.status === 'ready') return '<span translate="no" class="st st-ready">' + OwnerReadiness.label('Ready for delivery', 'Listo para entregar') + '</span>';
     return '<span class="st st-' + esc(o.status || 'pending') + '">' + esc(o.status || 'pending') + '</span>';
   }
   var ACTION = {
@@ -100,6 +102,7 @@
     var root = document.getElementById('owner-root'); root.className = '';
     var to = ymd(Date.now()); var from = ymd(Date.now() - 30 * 86400000);
     root.innerHTML =
+      '<div id="ready-panel" class="hub-section"></div>' +
       '<div id="list-view">' +
         '<div class="hub-section"><h2 data-i18n>Order history</h2>' +
           '<div class="oh-filters">' +
@@ -117,6 +120,8 @@
     ['from', 'to'].forEach(function (idv) { $('#' + idv).addEventListener('change', function () { loadList(); }); });
     $('#q').addEventListener('input', function () { clearTimeout(searchT); searchT = setTimeout(loadList, 300); });
     window.addEventListener('hashchange', route);
+    OwnerReadiness.mount('ready-panel');
+    if (query.get('order') && !window.location.hash) window.location.hash = '#o=' + encodeURIComponent(query.get('order'));
     renderChips();
     route();
     loadList();
@@ -200,6 +205,7 @@
     dv.innerHTML =
       '<button class="btn ghost block" id="back-btn" type="button" data-i18n>← Back to orders</button>' +
       '<div class="hub-section"><h2>' + head + '</h2>' + sum +
+      '<a class="btn ghost block" translate="no" href="' + esc(OwnerReadiness.deliveryUrl(o || { id:id })) + '">' + OwnerReadiness.label('Open delivery assignment', 'Abrir asignación de entregas') + '</a>' +
       '<div class="card"><div class="row-title" data-i18n>Kitchen PIN trail</div>' +
       '<div id="trail"><div class="hub-loading">…</div></div></div>' +
       '<div id="actions"><div class="hub-loading">…</div></div></div>';

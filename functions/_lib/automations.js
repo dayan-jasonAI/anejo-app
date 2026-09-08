@@ -330,7 +330,9 @@ async function eodChase(env, date) {
   // Nudge the people who owe the report, not only the owner — raiseAlert's push
   // targets roles:['owner'], so without this the staffer is never prompted.
   if (missing.length) {
-    try { await sendPushTickle(env, { staffIds: missing.map((m) => m.id) }); } catch { /* best-effort */ }
+    try { await sendPushTickle(env, { staffIds: missing.map((m) => m.id), notification: {
+      type: 'eod_missing', id: `eod:${date}`, url: '/hub/',
+    } }); } catch { /* best-effort */ }
   }
   return {
     outcome: 'success',

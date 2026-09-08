@@ -233,10 +233,12 @@ export const onRequestPost = async ({ request, env }) => {
     } catch { /* retried next tick — the thread's last message is still inbound */ }
   }
 
-  // One tickle however many drafts landed — the owner opens the inbox once, not four times.
-  // Payload-less web push; no-op safe without VAPID, and never allowed to fail the tick.
+  // One event-specific push however many drafts landed — the owner opens the inbox once.
+  // Fixed bilingual copy exposes no customer messages; a failure never fails the tick.
   if (drafted || escalated) {
-    try { await sendPushTickle(env, { roles: ['owner'] }); } catch { /* best-effort */ }
+    try { await sendPushTickle(env, { roles: ['owner'], notification: {
+      type: 'social_inbox', id: `social:${t}`, url: '/hub/owner/comms.html',
+    } }); } catch { /* best-effort */ }
   }
 
   // Aña went silent on a billing error — make it LOUD (owner feed + push, marketing too). Deduped

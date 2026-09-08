@@ -7,10 +7,11 @@
                             Never cache redirected/non-OK responses.
    - other navigations    → browser-native (not the HUB's concern).
    - static assets        → cache-first with background refresh.
-   - web push             → "tickle" pattern: pushes carry no payload; on push we fetch
-                            /api/hub/push/peek (cookie-authed) and render the notification.
+   - web push             → encrypted event-specific payload, with legacy tickle fallback.
    Bump CACHE on shell changes to invalidate. */
-const CACHE = 'anejo-hub-v7';
+const CACHE = 'anejo-hub-v8';
+const PREFERENCES_CACHE = 'anejo-hub-preferences';
+const LANGUAGE_KEY = '/hub/__push-language';
 const SHELL = [
   '/hub/',
   '/hub/index.html',
@@ -30,7 +31,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('anejo-hub-v') && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -92,47 +93,74 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// ---------- Web push (tickle pattern) ----------
-// Pushes are sent with NO payload (avoids RFC8291 encryption); the SW fetches a compact,
-// cookie-authed summary and shows it. If the fetch fails we still show a generic note —
-// browsers require a notification for every push event.
+// Store only the display preference, never auth or customer data. Persists through SW restarts.
+self.addEventListener('message', (event) => {
+  if (!event.data || event.data.type !== 'HUB_PUSH_LANGUAGE') return;
+  try {
+    const source = new URL(event.source && event.source.url);
+    if (source.origin !== self.location.origin || !source.pathname.startsWith('/hub/')) return;
+  } catch { return; }
+  event.waitUntil(caches.open(PREFERENCES_CACHE).then((c) => c.put(LANGUAGE_KEY,
+    new Response(event.data.lang === 'es' ? 'es' : 'en'))));
+});
+
+async function pushLanguage() {
+  try {
+    const value = await (await caches.open(PREFERENCES_CACHE)).match(LANGUAGE_KEY);
+    if (value) return (await value.text()) === 'es' ? 'es' : 'en';
+  } catch { /* default to the device language */ }
+  return String(self.navigator.language || 'en').toLowerCase().startsWith('es') ? 'es' : 'en';
+}
+
+function safePushUrl(value) {
+  try {
+    if (typeof value !== 'string' || !value.startsWith('/hub/') || /[\\\r\n]/.test(value)) return '/hub/';
+    const parsed = new URL(value, self.location.origin);
+    return parsed.origin === self.location.origin && parsed.pathname.startsWith('/hub/')
+      ? parsed.pathname + parsed.search + parsed.hash : '/hub/';
+  } catch { return '/hub/'; }
+}
+
+async function displayHubPush(event) {
+  const lang = await pushLanguage();
+  let d = null;
+  // Payload is the exact event which triggered this push, not a later unrelated alert.
+  if (event.data) {
+    try { d = event.data.json(); } catch { /* unreadable payload: explicit fallback below */ }
+  } else {
+    try {
+      const response = await fetch('/api/hub/push/peek', { credentials: 'same-origin', cache: 'no-store' });
+      if (response.ok) d = await response.json();
+    } catch { /* offline/session unavailable */ }
+  }
+  // A legacy wake with no pending event must not claim a new order/message exists.
+  if (d && d.notify === false) return;
+  const valid = d && typeof d.title === 'string' && typeof d.body === 'string';
+  const title = valid ? ((lang === 'es' && d.title_es) || d.title)
+    : (lang === 'es' ? 'Detalles de notificación no disponibles' : 'Notification details unavailable');
+  const body = valid ? ((lang === 'es' && d.body_es) || d.body)
+    : (lang === 'es' ? 'Abre Añejo Hub para revisar tus notificaciones. Puede que necesites iniciar sesión.'
+      : 'Open Añejo Hub to review your notifications. You may need to sign in.');
+  return self.registration.showNotification(title, {
+    body, lang, icon: '/assets/img/emblem.png', badge: '/assets/img/emblem.png',
+    tag: (valid && typeof d.tag === 'string' && /^anejo-hub-[a-zA-Z0-9_-]{1,100}$/.test(d.tag))
+      ? d.tag : `anejo-hub-legacy-${Date.now()}`,
+    renotify: true, vibrate: [80, 40, 80], data: { url: safePushUrl(valid && d.url) },
+  });
+}
+
 self.addEventListener('push', (event) => {
-  event.waitUntil(
-    fetch('/api/hub/push/peek', { credentials: 'same-origin' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        const title = (d && d.title) || 'Añejo HUB';
-        const body = (d && d.body) || 'You have a new update.';
-        return self.registration.showNotification(title, {
-          body,
-          icon: '/assets/img/emblem.png',
-          badge: '/assets/img/emblem.png',
-          tag: 'anejo-hub',
-          renotify: true,           // re-alert (sound/vibrate) on each message, don't replace silently
-          vibrate: [80, 40, 80],
-          data: { url: (d && d.url) || '/hub/comms.html' },   // deep-link to the actual item
-        });
-      })
-      .catch(() =>
-        self.registration.showNotification('Añejo HUB', {
-          body: 'You have a new update.',
-          icon: '/assets/img/emblem.png',
-          tag: 'anejo-hub',
-          renotify: true,
-          vibrate: [80, 40, 80],
-          data: { url: '/hub/comms.html' },
-        })
-      )
-  );
+  event.waitUntil(displayHubPush(event));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/hub/';
+  const url = safePushUrl(event.notification.data && event.notification.data.url);
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
       for (const w of wins) {
-        if (w.url.includes('/hub') && 'focus' in w) {
+        const windowUrl = new URL(w.url);
+        if (windowUrl.origin === self.location.origin && windowUrl.pathname.startsWith('/hub/') && 'focus' in w) {
           // Focus the existing HUB window AND send it to the notification's target.
           if ('navigate' in w) { try { return w.navigate(url).then((c) => (c || w).focus()); } catch (e) { /* fall through */ } }
           return w.focus();

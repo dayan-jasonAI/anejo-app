@@ -22,6 +22,7 @@ import { ensureOrderBowls, fetchBowlsForOrders } from '../../../_lib/orderbowls.
 import { matchStaffByPin } from '../../../_lib/pinmatch.js';
 import { limitOr429 } from '../../../_lib/ratelimit.js';
 import { loadMenu, planRotationWarnings } from '../../../_lib/menu.js';
+import { markKitchenReady } from '../../../_lib/kitchen-ready.js';
 
 // Append a row to the PIN-gated kitchen audit trail. Best-effort; never blocks the action.
 async function audit(env, { action, orderId, bowlId, staff, viaPin }) {
@@ -173,6 +174,7 @@ export const onRequestPost = async ({ request, env }) => {
   // state transitions (prep_start and mark_ready); per-bowl check-offs are quick taps attributed
   // to the signed-in cook so prepping a multi-bowl order isn't a string of PIN prompts.
   if (action === 'bowl_done' || action === 'bowl_undo') {
+    if (order.status === 'ready') return bad('This order is already ready. / Este pedido ya está listo.', 409);
     const bowlId = (b && b.bowl_id || '').toString().trim();
     const seq = Number(b && b.seq);
     if (!bowlId && !Number.isInteger(seq)) return bad('Missing bowl_id or seq.');
@@ -181,10 +183,11 @@ export const onRequestPost = async ({ request, env }) => {
     const actor = await currentStaff(env, request); // attributed to the signed-in session cook
     const viaPin = false;
 
-    const where = bowlId ? 'id = ?' : 'order_id = ? AND seq = ?';
-    const binds = bowlId ? [bowlId] : [orderId, seq];
+    const where = bowlId ? 'id = ? AND order_id = ?' : 'order_id = ? AND seq = ?';
+    const binds = bowlId ? [bowlId, orderId] : [orderId, seq];
     const res = await env.DB.prepare(
-      `UPDATE order_bowls SET prep_state = ?, prep_by = ?, prep_at = ?, updated_at = ? WHERE ${where}`
+      `UPDATE order_bowls SET prep_state = ?, prep_by = ?, prep_at = ?, updated_at = ? WHERE ${where}
+        AND EXISTS (SELECT 1 FROM orders WHERE id=order_bowls.order_id AND status IN ('paid','prep'))`
     ).bind(done ? 'done' : 'pending', done && actor ? actor.id : null, done ? ts : null, ts, ...binds).run();
     if (!res || !res.meta || !res.meta.changes) return bad('Bowl not found.', 404);
 
@@ -200,13 +203,15 @@ export const onRequestPost = async ({ request, env }) => {
   // prep_start — PIN-gated (pending → prep). Requires the cook's PIN, attributed + audited, so
   // every order's prep has an accountable owner the moment it leaves the queue.
   if (action === 'prep_start') {
+    if (order.status === 'ready') return bad('This order is already ready. / Este pedido ya está listo.', 409);
     const limited = await limitOr429(env, request, { name: 'kitchen-pin', limit: 20, windowSec: 60 });
     if (limited) return limited;
     const startedBy = await matchStaffByPin(env, (b && b.pin || '').toString(), { roles: ['kitchen', 'owner'] });
     if (!startedBy) return bad('PIN not recognized.', 401);
 
-    await env.DB.prepare("UPDATE orders SET status = 'prep', updated_at = ? WHERE id = ?")
+    const prepUpdate = await env.DB.prepare("UPDATE orders SET status = 'prep', updated_at = ? WHERE id = ? AND status IN ('paid','prep')")
       .bind(ts, orderId).run();
+    if (!prepUpdate?.meta?.changes) return bad('Order changed. Refresh the board. / El pedido cambió. Actualiza el tablero.', 409);
     await ensureOrderBowls(env, order); // materialize the per-bowl check-off rows
     await audit(env, { action: 'prep_start', orderId, bowlId: null, staff: startedBy, viaPin: true });
     await capture(env, {
@@ -257,13 +262,21 @@ export const onRequestPost = async ({ request, env }) => {
   const startedFrom = order.status === 'prep' ? Number(order.updated_at) : Number(order.created_at);
   if (startedFrom) prepMinutes = Math.max(0, Math.round((ts - startedFrom) / 60000));
 
-  await env.DB.prepare("UPDATE orders SET status = 'ready', updated_at = ? WHERE id = ?")
-    .bind(ts, orderId).run();
+  let receipt;
+  try { receipt = await markKitchenReady(env, order, ts); }
+  catch {
+    return bad('Could not save readiness and the owner alert. Please retry. / No se pudo guardar el estado y la alerta. Inténtalo de nuevo.', 503);
+  }
+  if (!receipt.changed) {
+    const current = await env.DB.prepare('SELECT status FROM orders WHERE id=?').bind(orderId).first();
+    if (current?.status === 'ready') return json({ ok: true, id: orderId, status: 'ready', already: true });
+    return bad('Order changed. Refresh and check all items before trying again. / El pedido cambió. Actualiza y revisa todos los artículos antes de volver a intentar.', 409);
+  }
   await audit(env, { action: 'mark_ready', orderId, bowlId: null, staff: readyBy, viaPin: true });
   await capture(env, {
     event: 'order.ready',
     distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
     properties: { order_id: orderId, prep_minutes: prepMinutes, via_pin: true },
   });
-  return json({ ok: true, id: orderId, status: 'ready', prep_minutes: prepMinutes, by: readyBy.name });
+  return json({ ok: true, id: orderId, status: 'ready', prep_minutes: prepMinutes, by: readyBy.name, alert_id: receipt.alert_id });
 };

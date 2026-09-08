@@ -216,8 +216,8 @@ export const onRequestPost = async ({ request, env }) => {
     properties: { channel, audience: thread.audience, ai_drafted: !!aiDrafted, thread_id: thread.id },
   });
 
-  // Tickle the receiving side with a payload-less web push (the SW peeks for
-  // context). If the thread has a staff counterparty and the sender isn't them,
+  // Notify the receiving side with fixed bilingual message copy (never the private
+  // message body). If the thread has a staff counterparty and the sender isn't them,
   // wake that staffer's devices; when the sender IS the counterparty (staff,
   // trainer or client replying), wake the owner. No-op safe without VAPID.
   // 2026-08-11 — this used to wake NOBODY on the commonest staff thread. When a non-owner opens
@@ -230,12 +230,13 @@ export const onRequestPost = async ({ request, env }) => {
     const others = [thread.staff_id, thread.created_by]
       .filter((x) => x && x !== ctx.distinct_id);
     const targets = [...new Set(others)];
+    const notification = { type: 'new_message', id: mid, url: '/hub/comms.html' };
     if (targets.length) {
-      await sendPushTickle(env, { staffIds: targets });
+      await sendPushTickle(env, { staffIds: targets, notification });
     } else if (ctx.role !== 'owner') {
       // A thread with no identifiable counterparty (broadcast, or a portal identity) — the
       // owner is the fallback, as before.
-      await sendPushTickle(env, { roles: ['owner'] });
+      await sendPushTickle(env, { roles: ['owner'], notification });
     }
   } catch { /* push must never break messaging */ }
 

@@ -46,6 +46,7 @@
 <script src="/assets/js/i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
+<script src="/hub/owner/assets/readiness.js"></script>
 <script>
 (function () {
   Hub.boot();
@@ -62,6 +63,7 @@
     var root = document.getElementById('owner-root');
     root.className = '';
     root.innerHTML =
+      '<div id="ready-panel" class="hub-section"></div>' +
       '<div class="hub-section"><h2 data-i18n>At a glance</h2><div id="tiles" class="card-grid"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Alerts</h2><div id="alerts"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Activity</h2>' +
@@ -69,6 +71,7 @@
         '<button id="feed-toggle" class="btn ghost block" type="button" style="display:none" data-i18n>Expand</button></div>';
 
     loadTiles();
+    OwnerReadiness.mount('ready-panel');
     loadAlerts();
     loadFeed();
 
@@ -135,6 +138,8 @@
   // Only alert types with a real next action get a button; everything else stays Ack-only.
   function actionFor(a) {
     switch (a && a.alert_type) {
+      case 'kitchen_ready_delivery':
+        return { href: OwnerReadiness.deliveryUrl({ id:a.ref_id }), labelHtml: OwnerReadiness.label('Review ready order', 'Revisar pedido listo') };
       case 'trust_lane_eligible':
         // Straight to the switch. Only he can flip it, which is exactly why the prompt has to
         // reach him rather than wait for him to go looking.
@@ -167,7 +172,7 @@
         return '<div class="row">' +
           '<div class="row-main"><div class="row-title">' + Owner.esc(a.title || a.alert_type) + '</div>' +
           '<div class="row-sub">' + Owner.esc(a.body || '') + ' · ' + Owner.timeAgo(a.created_at) + '</div>' +
-          (act ? '<a class="btn gold" style="margin-top:9px;display:inline-flex" href="' + act.href + '" data-i18n>' + act.label + '</a>' : '') +
+          (act ? '<a class="btn gold" style="margin-top:9px;display:inline-flex" href="' + act.href + '"' + (act.labelHtml ? ' translate="no"' : ' data-i18n') + '>' + (act.labelHtml || act.label) + '</a>' : '') +
           '</div>' +
           Owner.badge(a.severity, Owner.kindFor(a.severity)) +
           '<button class="btn ghost" data-ack="' + Owner.esc(a.id) + '" type="button" data-i18n>Ack</button>' +

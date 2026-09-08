@@ -64,7 +64,9 @@ export async function sendOffer(env, route, driver) {
     .bind(driver.id, t, t, route.id).run();
   await recordOutcome(env, route.id, driver.id, 'offered');
 
-  try { await sendPushTickle(env, { staffIds: [driver.id] }); } catch { /* push best-effort */ }
+  try { await sendPushTickle(env, { staffIds: [driver.id], notification: {
+    type: 'delivery_offer', id: `${route.id}:${t}`, url: '/hub/driver/route.html',
+  } }); } catch { /* push best-effort */ }
 
   if (driver.phone) {
     const link = `${appBase(env)}/hub/driver/route.html`;

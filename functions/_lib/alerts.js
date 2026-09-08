@@ -81,6 +81,7 @@ export const ALERT_TYPES = [
   // companion failure type is raised only when the email provider does not accept its alert.
   'catering_request',
   'catering_email_failed',
+  'kitchen_ready_delivery', 'new_order', 'new_paid_order',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:
@@ -110,13 +111,17 @@ export async function raiseAlert(env, opts = {}) {
     // If a dedupe_key is given and an open alert already exists, don't duplicate.
     if (dedupe) {
       const existing = await env.DB
-        .prepare("SELECT id FROM alerts WHERE dedupe_key = ? AND status = 'open' LIMIT 1")
+        .prepare(opts.onceEver
+          ? 'SELECT id FROM alerts WHERE dedupe_key = ? LIMIT 1'
+          : "SELECT id FROM alerts WHERE dedupe_key = ? AND status = 'open' LIMIT 1")
         .bind(dedupe)
         .first();
       if (existing && existing.id) return { ok: true, id: existing.id, deduped: true };
     }
 
-    const aid = id('alert');
+    // A deterministic primary key also closes concurrent once-ever races after
+    // acknowledgement (the open-only dedupe index cannot protect those).
+    const aid = opts.onceEver && dedupe ? `alert_once_${dedupe}` : id('alert');
     const t = now();
     await env.DB
       .prepare(
@@ -148,7 +153,9 @@ export async function raiseAlert(env, opts = {}) {
     // waking the whole roster for a temp excursion is how people turn notifications off.
     const extra = Array.isArray(opts.notifyRoles) ? opts.notifyRoles.filter(Boolean) : [];
     const audience = ['owner', ...extra.filter((r) => r !== 'owner')];
-    try { await sendPushTickle(env, { roles: audience }); } catch { /* best-effort */ }
+    try { await sendPushTickle(env, { roles: audience, notification: {
+      type: alert_type, id: aid, refId: opts.ref_id || null, url: opts.url,
+    } }); } catch { /* best-effort */ }
 
     return { ok: true, id: aid, deduped: false };
   } catch {

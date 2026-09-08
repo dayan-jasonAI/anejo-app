@@ -7,7 +7,6 @@
 import { json, bad, id, now, appBaseUrl } from '../_lib/util.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { raiseAlert } from '../_lib/alerts.js';
-import { sendPushTickle } from '../_lib/push.js';
 import { sendEmail, emailShell, escHtml } from '../_lib/email.js';
 import { sendSms } from '../_lib/twilio.js';
 
@@ -70,7 +69,6 @@ export const onRequestPost = async ({ request, env }) => {
       dedupe_key: `papp:${email}`,
     });
   } catch { /* the row is stored either way */ }
-  try { await sendPushTickle(env, { roles: ['owner'] }); } catch { /* best-effort */ }
 
   // Applicant hears back INSTANTLY — email always, SMS if they left a phone. Transactional
   // (they just filled out our form), on-brand, promises only a review. Best-effort, never fails the submit.

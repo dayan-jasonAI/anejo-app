@@ -124,10 +124,12 @@ export const onRequestPost = async ({ request, env }) => {
     if (!r || !r.meta || r.meta.changes !== 1) return bad('Request not found.', 404);
 
     // Actively tell the marketing desk her request was decided — a push straight to her device,
-    // NOT an alert row (that lands in the owner's feed and he just made the decision). The peek
-    // endpoint reads the freshly-decided request and turns this tickle into "Dayan accepted your
-    // request: …". Never blocks the response. She also sees it on her Requests board regardless.
-    try { await sendPushTickle(env, { roles: ['marketing'] }); } catch { /* best-effort */ }
+    // NOT an alert row (that lands in the owner's feed and he just made the decision).
+    // Fixed bilingual copy identifies the event without exposing the request or owner's note.
+    // She also sees the full decision on her Requests board regardless of push delivery.
+    try { await sendPushTickle(env, { roles: ['marketing'], notification: {
+      type: 'marketing_decision', id: `${rid}:${t}`, url: '/hub/marketing/',
+    } }); } catch { /* best-effort */ }
 
     await capture(env, {
       event: 'marketing.request_decided',
