@@ -13,7 +13,8 @@
 // VAPID_SUBJECT (mailto:). When any are absent — e.g. local dev — everything
 // no-ops safely. Best-effort: sendPushTickle never throws on the caller.
 
-import { buildPushPayload } from '@block65/webcrypto-web-push';
+// Checked-in bundle: Pages' Functions compiler does not install root npm dependencies.
+import { buildPushPayload } from './vendor/webcrypto-web-push.js';
 import { createHubPushMessage } from './push-message.js';
 
 const MAX_SENDS = 20;             // hard cap per call — keep ops cheap
