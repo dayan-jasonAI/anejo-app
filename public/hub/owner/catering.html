@@ -30,12 +30,13 @@
   .rbody{margin-top:10px;padding:10px 12px;background:var(--cream);border-radius:9px;color:var(--muted);font-size:13px;line-height:1.55;white-space:pre-line}
   .ractions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ractions .btn{width:auto}
   .rfiles{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#faf8f2}.rfiles b{display:block;color:var(--green);font-size:12px;margin-bottom:5px}.rfiles a{display:block;font-size:12.5px;line-height:1.6;word-break:break-word}
+  .cajita-review-summary{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
 </style>
 </head>
 <body>
 <div class="hub-bar">
   <h1>AÑEJO · CATERING</h1>
-  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button" aria-label="Language / Idioma" translate="no">ES</button></div>
 </div>
 
 <div class="hub-wrap">
@@ -45,12 +46,13 @@
 <nav id="owner-nav" class="hub-nav"></nav>
 
 <script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/catering-i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
 <script>
 (function () {
   Hub.boot();
-  var esc = Hub.esc, money = Owner.money;
+  var esc = Hub.esc, money = Owner.money, C = window.CateringI18n;
   var lt = document.getElementById('lang-toggle');
   if (lt && window.AnejoLang) {
     lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
@@ -144,21 +146,21 @@
     var files = (r.attachments || []).map(function (file) {
       var base = '/api/hub/owner/catering-attachments/' + encodeURIComponent(file.id);
       var size = Math.max(1, Math.round(Number(file.byte_size || 0) / 1024));
-      return '<a href="' + base + '" target="_blank" rel="noopener">Preview ' + esc(file.filename) + ' · ' + size + ' KB</a>' +
-        '<a href="' + base + '?download=1">Download ' + esc(file.filename) + '</a>';
+      return '<a href="' + base + '" target="_blank" rel="noopener">' + C.label('Preview') + ' ' + esc(file.filename) + ' · ' + size + ' KB</a>' +
+        '<a href="' + base + '?download=1">' + C.label('Download') + ' ' + esc(file.filename) + '</a>';
     }).join('');
-    return '<article class="rcard' + (targetLead === r.id ? ' targeted' : '') + '"' + (targetLead === r.id ? ' id="selected-request"' : '') + '>' +
-      '<div class="nm">' + esc(r.name || 'Catering request') + '</div>' +
-      '<div class="row-sub">' + esc(r.interest || 'Menu not specified') +
+    return '<article translate="no" class="rcard' + (targetLead === r.id ? ' targeted' : '') + '"' + (targetLead === r.id ? ' id="selected-request"' : '') + '>' +
+      '<div class="nm">' + (r.name ? esc(r.name) : C.label('Catering request')) + '</div>' +
+      '<div class="row-sub">' + (r.interest ? C.menu(r.interest) : C.label('Menu not specified')) +
         (r.company ? ' · ' + esc(r.company) : '') +
-        (r.created_at ? ' · received ' + day(r.created_at) : '') + '</div>' +
+        (r.created_at ? ' · ' + C.label('received') + ' ' + day(r.created_at) : '') + '</div>' +
       (contact ? '<div class="row-sub">' + esc(contact) + '</div>' : '') +
-      '<div class="rbody">' + esc(r.message || 'No event details provided.') + '</div>' +
-      (r.cajita_summary ? '<details class="rbody"><summary>Exact Cajita configuration</summary><pre>' + esc(r.cajita_summary) + '</pre></details>' : '') +
-      (files ? '<div class="rfiles"><b>Private design files · owner only</b>' + files + '</div>' : '') +
+      '<div class="rbody"><b>' + C.label('Original request (as submitted)') + '</b><br>' + (r.message ? esc(r.message) : C.label('No event details provided.')) + '</div>' +
+      (r.cajita_configuration || r.cajita_summary ? '<details class="rbody"><summary>' + C.label('Exact Cajita configuration') + '</summary>' + C.summaryHtml(r.cajita_configuration,r.cajita_summary) + '</details>' : '') +
+      (files ? '<div class="rfiles"><b>' + C.label('Private design files · owner only') + '</b>' + files + '</div>' : '') +
       '<div class="ractions">' +
-        '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">Start a quote</button>' +
-        (r.email ? '<a class="btn ghost" href="mailto:' + esc(encodeURIComponent(r.email)) + '?subject=' + encodeURIComponent('Your Añejo catering request') + '">Email customer</a>' : '') +
+        '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">' + C.label('Start a quote') + '</button>' +
+        (r.email ? '<a class="btn ghost" href="mailto:' + esc(encodeURIComponent(r.email)) + '?subject=' + encodeURIComponent('Your Añejo catering request') + '">' + C.label('Email customer') + '</a>' : '') +
       '</div></article>';
   }
 

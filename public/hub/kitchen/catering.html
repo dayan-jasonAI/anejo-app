@@ -1,14 +1,27 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Catering production · Añejo Hub</title></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Catering production · Añejo Hub</title></head><body data-i18n-local-only>
 <style>body{margin:0;background:#f5f2ec;color:#1a3d2e;font:16px/1.6 system-ui,sans-serif}main{max-width:1000px;margin:auto;padding:28px}article{background:white;padding:24px;border:1px solid #c6a85b;border-radius:12px;margin:24px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.65 system-ui,sans-serif}a{color:inherit}</style>
-<main><a href="/hub/">Añejo Hub</a><h1>Catering design requests</h1><p>Kitchen review — these are quote requests, not confirmed production orders. Management must approve the final menu, design, quantities and date before preparation. Customer contact details are intentionally omitted.</p><div id="app">Loading…</div></main>
+<main><a href="/hub/">Añejo Hub</a> <button id="lang-toggle" type="button" aria-label="Language / Idioma" translate="no">ES</button><h1>Catering design requests</h1><p>Kitchen review — these are quote requests, not confirmed production orders. Management must approve the final menu, design, quantities and date before preparation. Customer contact details are intentionally omitted.</p><div id="app" aria-live="polite" translate="no">Loading…</div></main>
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/catering-i18n.js"></script>
 <script>
 (async function(){
-  var root=document.getElementById('app');
+  var root=document.getElementById('app'), C=window.CateringI18n, requests=null, failed=false;
+  var toggle=document.getElementById('lang-toggle');
+  function render(){
+    toggle.textContent=window.AnejoLang.get()==='es'?'EN':'ES';
+    if(failed){root.textContent=C.text('Could not load requests.');return;}
+    if(!requests){root.textContent=C.text('Loading…');return;}
+    root.innerHTML=requests.map(function(r){return '<article><h2>'+esc(r.event_date||C.text('Catering request'))+'</h2><p>'+C.menu(r.interest)+' · '+esc(r.guests||'')+' '+C.text('guests')+' · '+C.text('serving')+' '+esc(r.serving_time||C.text('not provided'))+'</p><p><b>'+C.text('Dietary/allergy notes:')+'</b> '+esc(r.dietary_needs||C.text('None provided'))+'</p><p><b>'+C.text('Event details:')+'</b> '+esc(r.event_details||C.text('None provided'))+'</p>'+C.summaryHtml(r.cajita_configuration,r.cajita_summary)+'</article>';}).join('')||'<p>'+C.text('No catering requests.')+'</p>';
+  }
+  toggle.addEventListener('click',function(){window.AnejoLang.set(window.AnejoLang.get()==='es'?'en':'es');});
+  document.addEventListener('anejo:langchange',render);
+  render();
   try {
     var response=await fetch('/api/hub/kitchen/catering'); var data=await response.json();
-    if(!response.ok||!data.ok) throw new Error(data.error||'Could not load requests.');
-    root.innerHTML=(data.requests||[]).map(function(r){return '<article><h2>'+esc(r.event_date||'Catering request')+'</h2><p>'+esc(r.interest||'')+' · '+esc(r.guests||'')+' guests · serving '+esc(r.serving_time||'not provided')+'</p><p><b>Dietary/allergy notes:</b> '+esc(r.dietary_needs||'None provided')+'</p><p><b>Event details:</b> '+esc(r.event_details||'None provided')+'</p><pre>'+esc(r.cajita_summary||'No Cajita configuration.')+'</pre></article>';}).join('')||'<p>No catering requests.</p>';
-  } catch(e){ root.textContent=e.message||'Could not load requests.'; }
+    if(!response.ok||!data.ok) throw new Error('Could not load requests.');
+    requests=data.requests||[];
+  } catch(e){ failed=true; }
+  render();
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 })();
 </script></body></html>

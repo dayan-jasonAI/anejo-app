@@ -51,7 +51,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
 {"@context":"https://schema.org","@type":"Service","name":"La Cajita by Añejo Catering Co.","description":"Customizable individually packed Cuban meal boxes with event colors and personalized details for celebrations and gatherings in Palm Beach County.","provider":{"@type":"FoodEstablishment","name":"Añejo Catering Co.","url":"https://anejocateringco.com"},"areaServed":{"@type":"AdministrativeArea","name":"Palm Beach County, Florida"},"url":"https://anejocateringco.com/cajita"}
 </script>
 </head>
-<body>
+<body data-i18n-local-only>
 <a class="skip-link" href="#main">Skip to content</a>
 <nav aria-label="Main navigation"><div class="nav-inner"><a class="logo" href="/"><img src="/assets/img/emblem.png" alt=""><span>AÑEJO</span></a><div class="nav-links" id="navLinks"><a href="/">Home</a><a href="/menu/">Menu</a><a href="/catering">Catering</a><a href="/cajita" aria-current="page">La Cajita</a><a href="/calculator">Macros</a><a href="/order" class="nav-cta">Order bowls</a></div><button class="nav-burger" type="button" aria-label="Open menu" aria-controls="navLinks" aria-expanded="false">☰</button></div></nav>
 <main id="main">
@@ -66,7 +66,9 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
   <section class="cta" aria-labelledby="quote-heading"><div class="cta-inner"><div class="eyebrow">Ready to plan it?</div><h2 id="quote-heading">Request La Cajita for your group.</h2><p>No guessed pricing and no payment today. Send the full event request, and the Añejo team will follow up about availability, menu, and a custom quote.</p><div class="button-row"><a class="btn btn-gold" href="/catering?menu=cajita#quote">Start your request</a></div></div></section>
 </main>
 <footer>Añejo Catering Co. · Palm Beach County, Florida · <a href="/catering">Catering</a> · <a href="mailto:dayan@anejocateringco.com">dayan@anejocateringco.com</a></footer>
-<script src="/assets/js/cajita-gallery-v3.js"></script>
+<script src="/assets/js/i18n.js?v=20260908"></script>
+<script src="/assets/js/catering-i18n.js?v=20260908"></script>
+<script src="/assets/js/cajita-gallery-v3.js?v=20260908-bilingual"></script>
 <script>(function(){
   var b=document.querySelector('.nav-burger'),n=document.getElementById('navLinks');b.addEventListener('click',function(){var o=n.classList.toggle('open');b.setAttribute('aria-expanded',String(o));b.setAttribute('aria-label',o?'Close menu':'Open menu');});n.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){n.classList.remove('open');b.setAttribute('aria-expanded','false');});});
   var themes=[

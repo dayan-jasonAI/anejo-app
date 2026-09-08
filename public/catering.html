@@ -124,7 +124,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}.btn:hover{transform:none}}
 </style>
 </head>
-<body>
+<body data-i18n-local-only>
 <a class="skip-link" href="#quote">Skip to quote request</a>
 <nav aria-label="Main navigation">
   <div class="nav-inner">
@@ -254,11 +254,15 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
 
 <footer>Añejo Catering Co. · Palm Beach County, Florida · <a href="mailto:dayan@anejocateringco.com">dayan@anejocateringco.com</a> · <a href="/legal/privacy">Privacy</a></footer>
 
+<script src="/assets/js/i18n.js?v=20260908"></script>
+<script src="/assets/js/catering-i18n.js?v=20260908"></script>
 <script>
 (function(){
+  function t(value){return window.AnejoI18n&&window.AnejoI18n.text?window.AnejoI18n.text(value):value;}
+  function spanish(){return window.AnejoLang&&window.AnejoLang.get()==='es';}
   var burger=document.querySelector('.nav-burger');
   var nav=document.getElementById('navLinks');
-  burger.addEventListener('click',function(){var open=nav.classList.toggle('open');burger.setAttribute('aria-expanded',String(open));burger.setAttribute('aria-label',open?'Close menu':'Open menu');});
+  burger.addEventListener('click',function(){var open=nav.classList.toggle('open');burger.setAttribute('aria-expanded',String(open));burger.setAttribute('aria-label',t(open?'Close menu':'Open menu'));});
   nav.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){nav.classList.remove('open');burger.setAttribute('aria-expanded','false');});});
 
   var date=document.getElementById('event-date');
@@ -271,7 +275,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
   if(requestedMenu==='cuban')document.getElementById('menu-cuban').checked=true;
   var requestedItems={lechon:'Lechón tray',congri:'Congrí tray',tamales:'Cuban tamales tray'};
   var requestedItem=requestedItems[params.get('item')];
-  if(requestedItem)document.getElementById('details').value='Menu item requested: '+requestedItem+'.';
+  if(requestedItem)document.getElementById('details').value=(spanish()?'Producto solicitado: ':'Menu item requested: ')+requestedItem+'.';
 
   var form=document.getElementById('cateringForm');
   var status=document.getElementById('formStatus');
@@ -279,16 +283,30 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
   var fileInput=document.getElementById('design-files');
   var fileList=document.getElementById('file-list');
   var submitting=false,pendingSubmission=null,pendingLocks=null;
+  var statusRenderer=null,buttonRenderer=null;
+  function validateField(field){
+    if(typeof field.setCustomValidity!=='function')return;
+    field.setCustomValidity('');var validity=field.validity;
+    if(!validity||validity.valid)return;
+    var message=validity.valueMissing?'Please complete this field.':validity.typeMismatch?'Please enter a valid email address.':validity.rangeUnderflow||validity.rangeOverflow?'Please choose a date or quantity within the allowed range.':validity.stepMismatch?'Please enter a whole number.':'Please check this value.';
+    field.setCustomValidity(t(message));
+  }
+  form.addEventListener('input',function(event){validateField(event.target);});
+  form.addEventListener('change',function(event){validateField(event.target);});
+  status.setAttribute('translate','no');fileList.setAttribute('translate','no');button.setAttribute('translate','no');
+  function buttonText(render){buttonRenderer=typeof render==='function'?render:function(){return t(render);};button.textContent=buttonRenderer();}
+  buttonText('Send quote request');
+  document.addEventListener('anejo:langchange',function(){if(statusRenderer)status.textContent=statusRenderer();if(buttonRenderer&&button.isConnected)button.textContent=buttonRenderer();form.querySelectorAll('input,select,textarea').forEach(validateField);burger.setAttribute('aria-label',t(burger.getAttribute('aria-expanded')==='true'?'Close menu':'Open menu'));});
   window.addEventListener('beforeunload',function(e){if(submitting||pendingSubmission){e.preventDefault();e.returnValue='';}});
   function val(name){var el=form.elements[name];return el?String(el.value||'').trim():'';}
   function menus(){return Array.from(form.querySelectorAll('input[name="menu_option"]:checked')).map(function(el){return el.value;});}
-  function show(message,type){status.textContent=message;status.className='form-status show '+type;}
+  function show(message,type){statusRenderer=typeof message==='function'?message:function(){return t(message);};status.textContent=statusRenderer();status.className='form-status show '+type;}
   function selectedFiles(){return Array.from((fileInput&&fileInput.files)||[]);}
   function validateFiles(files){
-    if(files.length>5)return 'Choose no more than five design files.';
+    if(files.length>5)return function(){return t('Choose no more than five design files.');};
     for(var i=0;i<files.length;i++){
-      if(files[i].size>10*1024*1024)return files[i].name+' is larger than 10MB.';
-      if(!/^(application\/pdf|image\/jpeg|image\/png)$/.test(files[i].type))return files[i].name+' is not a PDF, JPG, or PNG file.';
+      if(files[i].size>10*1024*1024)return (function(file){return function(){return file.name+(spanish()?' supera los 10 MB.':' is larger than 10MB.');};})(files[i]);
+      if(!/^(application\/pdf|image\/jpeg|image\/png)$/.test(files[i].type))return (function(file){return function(){return file.name+(spanish()?' no es un archivo PDF, JPG o PNG.':' is not a PDF, JPG, or PNG file.');};})(files[i]);
     }
     return '';
   }
@@ -302,12 +320,12 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
     if(!files.length)return '';
     var start=await fetch('/api/catering-uploads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'create'}),signal:AbortSignal.timeout(30000)});
     var session=await start.json().catch(function(){return {};});
-    if(!start.ok||!session.session_id)throw new Error(session.error||'We could not start the secure design upload.');
+    if(!start.ok||!session.session_id)throw new Error('We could not start the secure design upload.');
     for(var i=0;i<files.length;i++){
-      button.textContent='Uploading '+(i+1)+' of '+files.length+'…';
+      (function(current){buttonText(function(){return spanish()?'Subiendo '+current+' de '+files.length+'…':'Uploading '+current+' of '+files.length+'…';});})(i+1);
       var uploaded=await fetch('/api/catering-uploads',{method:'POST',headers:{'Content-Type':files[i].type,'X-Upload-Session':session.session_id,'X-File-Name':encodeURIComponent(files[i].name)},body:files[i],signal:AbortSignal.timeout(120000)});
       var result=await uploaded.json().catch(function(){return {};});
-      if(!uploaded.ok||!result.attachment_id)throw new Error(result.error||'We could not upload '+files[i].name+'.');
+      if(!uploaded.ok||!result.attachment_id){var uploadError=new Error('We could not upload the design file.');uploadError.filename=files[i].name;throw uploadError;}
     }
     return session.session_id;
   }
@@ -317,14 +335,15 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
     status.className='form-status';
     var selected=menus();
     if(!selected.length){show('Choose at least one menu direction.','error');document.getElementById('menu-fit').focus();return;}
+    form.querySelectorAll('input,select,textarea').forEach(validateField);
     if(!form.checkValidity()){form.reportValidity();return;}
     var files=selectedFiles(),fileError=validateFiles(files);
     if(fileError){show(fileError,'error');fileInput.focus();return;}
-    var data={kind:'catering',lang:'en',name:val('name'),company:val('company'),email:val('email'),phone:val('phone'),menu_options:selected,event_date:val('event_date'),event_time:val('event_time'),guests:Number(val('guests')),event_type:val('event_type'),location:val('location'),event_theme:val('event_theme'),theme_colors:val('theme_colors'),design_notes:val('design_notes'),dietary_needs:val('dietary_needs'),event_details:val('event_details'),sms_consent:!!form.elements.sms_consent.checked};
+    var data={kind:'catering',lang:spanish()?'es':'en',name:val('name'),company:val('company'),email:val('email'),phone:val('phone'),menu_options:selected,event_date:val('event_date'),event_time:val('event_time'),guests:Number(val('guests')),event_type:val('event_type'),location:val('location'),event_theme:val('event_theme'),theme_colors:val('theme_colors'),design_notes:val('design_notes'),dietary_needs:val('dietary_needs'),event_details:val('event_details'),sms_consent:!!form.elements.sms_consent.checked};
     var locked=pendingLocks||Array.from(form.querySelectorAll('input,select,textarea,button')).map(function(node){return {node:node,disabled:node.disabled};});
     locked.forEach(function(entry){entry.node.disabled=true;});
     submitting=true;
-    button.disabled=true;button.textContent='Sending…';
+    button.disabled=true;buttonText('Sending…');
     try{
       if(!pendingSubmission){
         data.request_id=crypto.randomUUID();
@@ -332,25 +351,33 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
         pendingSubmission=data;
         pendingLocks=locked;
       }
-      button.textContent='Sending request…';
+      buttonText('Sending request…');
       var response=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pendingSubmission),signal:AbortSignal.timeout(30000)});
       var out=await response.json().catch(function(){return {};});
       if(!response.ok||!out.ok||!out.id){
         // An ambiguous earlier success may precede a rate limit. Never replace
         // its request ID merely because the retry receives 429 or a server error.
         if([400,410,413,422].includes(response.status))pendingSubmission=null;
-        throw new Error(out.error||'We could not confirm receipt.');
+        var requestError=new Error(out.error||'We could not confirm receipt.');requestError.responseStatus=response.status;throw requestError;
       }
       pendingSubmission=null;
       form.innerHTML='<div class="success-card"><h3 id="request-received" tabindex="-1">Request received.</h3><p id="request-reference"></p><p>Your complete request is saved. The Añejo team will review availability, your menu, and your custom quote.</p><p id="request-notifications"></p><p style="margin-top:18px"><a class="btn btn-gold" href="/">Back to Añejo</a></p></div>';
-      document.getElementById('request-reference').textContent='Reference: '+out.id;
-      document.getElementById('request-notifications').textContent=out.notifications&&out.notifications.queued?'Team notifications are queued for delivery. Please keep your reference.':'Please keep your reference. The request is saved; team notification status needs review.';
+      var reference=document.getElementById('request-reference');reference.setAttribute('translate','no');document.getElementById('request-notifications').setAttribute('translate','no');
+      function renderReceipt(){reference.textContent=(spanish()?'Referencia: ':'Reference: ')+out.id;document.getElementById('request-notifications').textContent=t(out.notifications&&out.notifications.queued?'Team notifications are queued for delivery. Please keep your reference.':'Please keep your reference. The request is saved; team notification status needs review.');if(window.AnejoI18n)window.AnejoI18n.refresh();}
+      document.addEventListener('anejo:langchange',renderReceipt);renderReceipt();
       document.getElementById('request-received').focus();
       try{if(window.gtag)window.gtag('event','generate_lead',{form_id:'catering'});}catch(_analyticsError){/* Analytics must never turn a saved request into a retry. */}
     }catch(err){
-      var message=err&&err.message?err.message:'We could not confirm receipt.';
-      show(pendingSubmission?message+' Your exact request is held here. Tap Retry same request to safely check receipt without creating another order. Keep this page open. Request reference: '+pendingSubmission.request_id:message+' Your details and files are still here. Correct the issue and try again.','error');
-      button.disabled=false;button.textContent=pendingSubmission?'Retry same request':'Send quote request';
+      var heldRequest=pendingSubmission;
+      show(function(){
+        var english=err&&err.message?err.message:'We could not confirm receipt.';
+        var message=t(english);
+        // Unknown provider errors are not customer prose and are never translated remotely.
+        if(spanish()&&message===english)message=err&&err.responseStatus===429?'Demasiados intentos. Espera un momento y vuelve a intentarlo.':'No pudimos confirmar la recepción.';
+        if(err&&err.filename)message=(spanish()?'No pudimos subir ':'We could not upload ')+err.filename+'.';
+        return message+(heldRequest?(spanish()?' Tu solicitud exacta se conserva aquí. Toca Reintentar la misma solicitud para confirmar la recepción sin crear otro pedido. Mantén esta página abierta. Referencia: ':' Your exact request is held here. Tap Retry same request to safely check receipt without creating another order. Keep this page open. Request reference: ')+heldRequest.request_id:(spanish()?' Tus datos y archivos siguen aquí. Corrige el problema y vuelve a intentarlo.':' Your details and files are still here. Correct the issue and try again.'));
+      },'error');
+      button.disabled=false;buttonText(pendingSubmission?'Retry same request':'Send quote request');
     }finally{
       if(!pendingSubmission){locked.forEach(function(entry){entry.node.disabled=entry.disabled;});pendingLocks=null;}
       submitting=false;

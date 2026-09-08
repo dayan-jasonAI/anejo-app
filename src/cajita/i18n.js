@@ -3,6 +3,7 @@
 export const language = () => typeof window !== "undefined" && window.AnejoLang?.get?.() === "es" ? "es" : "en";
 
 export const spanish = {
+  "Your own theme": "Tu propio tema", "pick": "palillo",
   "Mini sandwich": "Mini sándwich",
   "Your Añejo sandwich. Tell us about filling requests in your notes.": "Tu sándwich Añejo. Cuéntanos en las notas qué relleno prefieres.",
   "Empanada": "Empanada", "Golden pastry, made for your celebration.": "Una empanada doradita, hecha para tu celebración.",

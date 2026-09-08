@@ -254,7 +254,7 @@ nav {
 .hero .cajita-firstscreen h1{font-size:clamp(40px,4.8vw,62px);line-height:1.04;letter-spacing:0;margin:16px 0}
 .hero .cajita-firstscreen .hero-seal{margin-top:24px;letter-spacing:2px}
 .cajita-firstscreen .cajita-gallery{align-self:stretch;min-height:410px}
-.cajita-gallery::after{content:'Cajita inspiration · presentation varies'}
+.cajita-gallery::after{content:none}.cajita-gallery-caption{position:absolute;z-index:2;left:16px;bottom:14px;color:var(--cream);font-size:11px;letter-spacing:1.4px;text-transform:uppercase;background:rgba(13,13,13,.72);padding:8px 10px;border-left:2px solid var(--gold)}
 .cajita-hero{display:block;text-align:center;max-width:800px}
 .cajita-hero-copy p{margin-left:auto;margin-right:auto}
 .cajita-hero .cajita-steps,.cajita-hero .cajita-hero-actions{justify-content:center}
@@ -722,6 +722,7 @@ footer {
         <img src="/assets/img/cajita/themes/anejo-signature.jpg" alt="Añejo signature theme presentation" width="900" height="700">
         <img src="/assets/img/cajita/themes/custom-occasion.jpg" alt="Custom occasion Cajita theme presentation" width="900" height="700">
         <button class="cajita-gallery-pause" type="button" data-cajita-pause aria-pressed="false">Pause gallery</button>
+        <span class="cajita-gallery-caption">Cajita inspiration · presentation varies</span>
       </div>
       <div class="cajita-hero-copy">
         <div class="cajita-kicker">La Cajita · Cuban-American catering</div>
@@ -1545,7 +1546,8 @@ document.querySelectorAll('#navLinks a').forEach(a => {
 });
 </script>
 
-<script src="/assets/js/i18n.js?v=20260907-reviews"></script>
+<script src="/assets/js/i18n.js?v=20260908"></script>
+<script src="/assets/js/catering-i18n.js?v=20260908"></script>
 <script src="/assets/js/announce.js" defer></script>
 <script src="/assets/js/consent.js"></script>
 <script>
@@ -1588,6 +1590,6 @@ document.querySelectorAll('#navLinks a').forEach(a => {
   <script src="/assets/js/motion.js" defer></script>
   <script src="/assets/js/fuelcore.js" defer></script>
   <script src="/assets/js/logo-life.js" defer></script>
-  <script src="/assets/js/cajita-hero.js" defer></script>
+  <script src="/assets/js/cajita-hero.js?v=20260908-bilingual" defer></script>
 </body>
 </html>

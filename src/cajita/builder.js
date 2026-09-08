@@ -28,6 +28,11 @@ const renderCopy = (node, render) => {
   node.textContent = render();
   return node;
 };
+const clearRendered = (node) => {
+  for (const child of localized.keys())
+    if (child === node || node.contains?.(child)) localized.delete(child);
+  node.replaceChildren();
+};
 const say = (message, id = "status") => {
   renderCopy($(id), typeof message === "function" ? message : () => t(message));
 };
@@ -74,10 +79,8 @@ document.querySelectorAll("[data-tab]").forEach((b) => {
 });
 for (const preset of presets) option($("preset"), preset.id, preset.name);
 for (const key of Object.keys(presets[0].colors)) {
-  const l = el(
-    "label",
-    key === "pick" ? "Toothpick" : key.charAt(0).toUpperCase() + key.slice(1),
-  );
+  const l = el("label");
+  l.append(el("span", key === "pick" ? "Toothpick" : key.charAt(0).toUpperCase() + key.slice(1)));
   const input = el("input");
   input.type = "color";
   input.id = "color-" + key;
@@ -104,7 +107,7 @@ for (const f of foods) {
     num.setAttribute("aria-label", t("{food} per box", "{food} por caja", { food: t(f.name) }));
   };
   labels();
-  window.addEventListener("anejo:langchange", labels);
+  document.addEventListener("anejo:langchange", labels);
   num.id = "count-" + f.id;
   num.type = "number";
   num.min = 0;
@@ -132,7 +135,7 @@ for (const f of foods) {
 }
 function drawVersions() {
   const select = $("variant");
-  select.replaceChildren();
+  clearRendered(select);
   config.variants.forEach((v, i) =>
     option(select, i, () => t("{name} · {count} boxes", "{name} · {count} cajas", { name: v.name, count: v.quantity })),
   );
@@ -142,7 +145,7 @@ function drawVersions() {
 }
 function drawSummary() {
   const summary = $("summary");
-  summary.replaceChildren();
+  clearRendered(summary);
   for (const v of config.variants) {
     const a = el("article");
     a.append(
@@ -324,7 +327,7 @@ function fillLayer() {
 function fillSurface() {
   const surface = $("surface").value;
   $("surface-text").value = active().personalization[surface + "Text"] || "";
-  $("layer").replaceChildren();
+  clearRendered($("layer"));
   option($("layer"), "text", "Personal message");
   for (const a of active().personalization.artworks.filter(
     (a) => a.surface === surface,
@@ -421,7 +424,7 @@ async function addAsset(blob, name, id = crypto.randomUUID()) {
 }
 function drawFiles() {
   const list = $("files");
-  list.replaceChildren();
+  clearRendered(list);
   for (const [id, a] of assets) {
     const li = el(
       "li",
@@ -659,6 +662,25 @@ window.addEventListener("beforeunload", (e) => {
   }
 });
 
+function designSummary(value) {
+  return value.variants.map((v) => [
+    `${v.quantity} × ${v.name}`,
+    ...v.items.map((item) => `${item.quantity} ${t(foods.find((f) => f.id === item.id).name)}`),
+    t("Theme: {theme}", "Tema: {theme}", { theme: themeDisplayName(v) }),
+    v.notes,
+    v.packagingRequest,
+  ].filter(Boolean).join("\n")).join("\n\n");
+}
+
+// Re-render copy, never refill controls: language changes must not change the
+// draft, artwork text, caret position, selected layers, or immutable retry body.
+document.addEventListener("anejo:langchange", () => {
+  for (const [node, render] of localized) {
+    if (node.isConnected) node.textContent = render();
+    else localized.delete(node);
+  }
+});
+
 $("quote-form").onsubmit = async (e) => {
   e.preventDefault();
   if (submitting) return;
@@ -812,25 +834,6 @@ $("quote-form").onsubmit = async (e) => {
     submitting = false;
   }
 };
-
-function designSummary(value) {
-  return value.variants.map((v) => [
-    `${v.quantity} × ${v.name}`,
-    ...v.items.map((item) => `${item.quantity} ${t(foods.find((f) => f.id === item.id).name)}`),
-    t("Theme: {theme}", "Tema: {theme}", { theme: themeDisplayName(v) }),
-    v.notes,
-    v.packagingRequest,
-  ].filter(Boolean).join("\n")).join("\n\n");
-}
-
-// Re-render copy, never refill controls: language changes must not change the
-// draft, artwork text, caret position, selected layers, or immutable retry body.
-window.addEventListener("anejo:langchange", () => {
-  for (const [node, render] of localized) {
-    if (node.isConnected) node.textContent = render();
-    else localized.delete(node);
-  }
-});
 
 async function init() {
   try {

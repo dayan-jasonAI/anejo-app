@@ -15,6 +15,20 @@ const post = (DB, patch = {}, env = {}) => onRequestPost({ env: { DB, ...env }, 
 }) });
 const count = (DB, table) => DB.sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
 
+test('Spanish catering requests retain language and exact customer text without changing canonical menu values', async () => {
+  const DB = makeCateringDB();
+  const details = 'Cumpleaños de mamá — mantener el mensaje “Te queremos, Ana”.';
+  const response = await post(DB, { lang: 'es', event_details: details, event_theme: 'Fiesta de Ana' });
+  assert.equal(response.status, 200);
+  const receipt = await response.json();
+  const row = DB.sqlite.prepare('SELECT source_lang,interest,message FROM leads WHERE id=?').get(receipt.id);
+  assert.equal(row.source_lang, 'es');
+  assert.equal(row.interest, 'Individual Cajitas');
+  assert.ok(row.message.includes(details));
+  const event = JSON.parse(DB.sqlite.prepare('SELECT event_json FROM catering_requests WHERE lead_id=?').get(receipt.id).event_json);
+  assert.equal(event.event_details, details);
+});
+
 test('real SQL: identical replay and simultaneous submissions produce one lead and outbox pair', async () => {
   const DB = makeCateringDB();
   const results = await Promise.all([post(DB), post(DB)]);

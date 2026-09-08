@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { normalizeCajitaConfiguration, extractCajitaConfiguration } from '../../functions/_lib/cajita-config.js';
 import { newVariant, clone, totals } from '../../src/cajita/catalog.js';
+import { t, language, errorText } from '../../src/cajita/i18n.js';
 
 const source = readFileSync(new URL('../../src/cajita/builder.js', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../../public/cajita-builder.html', import.meta.url), 'utf8');
@@ -24,7 +25,7 @@ function node(text = '') {
     textContent: text, disabled: false, children: [], value: '',
     append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; },
-    focus() {},
+    focus() {}, setAttribute() {},
   };
 }
 function submitFixture(responses, { brandReady = true, configuration } = {}) {
@@ -45,8 +46,10 @@ function submitFixture(responses, { brandReady = true, configuration } = {}) {
     check: () => normalizeCajitaConfiguration(config), clone, totals,
     FormData: class { constructor(f) { return Object.entries(f.fields); } },
     crypto: { randomUUID: () => `request-${++ids}` }, AbortSignal,
-    say: (message, id) => { nodes.get(id).textContent = message; },
-    el: (_tag, text) => node(text),
+    t, language, errorText,
+    renderCopy: (target, render) => { target.textContent = render(); },
+    say: (message, id) => { nodes.get(id).textContent = typeof message === 'function' ? message() : message; },
+    el: (_tag, text) => node(typeof text === 'function' ? text() : text),
     fetch: async (url, options) => {
       requests.push({ url, body: options.body });
       const response = responses.shift();
@@ -136,7 +139,8 @@ test('partial file-selection failure refreshes accepted artwork and clears the b
       if (file.type === 'image/gif') throw new Error('Use a JPG, PNG, or PDF file.');
       return 'accepted-id';
     },
-    fillSurface: () => refreshes++, changed: () => changes++, say: (value) => { message = value; },
+    errorText,
+    fillSurface: () => refreshes++, changed: () => changes++, say: (value) => { message = typeof value === 'function' ? value() : value; },
   });
   vm.runInContext(assetSource, ctx);
   await fileInput.onchange();
@@ -218,7 +222,8 @@ function cateringFixture(responses, files = []) {
   const requests = [];
   let ids = 0;
   const ctx = vm.createContext({
-    document: { getElementById: (id) => nodes.get(id) },
+    document: { getElementById: (id) => nodes.get(id), addEventListener() {} },
+    t: (value) => value, spanish: () => false,
     window: { addEventListener() {}, get location() { throw new Error('No automatic mail app navigation is allowed'); } },
     crypto: { randomUUID: () => `request-${++ids}` }, AbortSignal,
     fetch: async (url, options) => {

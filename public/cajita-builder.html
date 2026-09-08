@@ -14,9 +14,11 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/assets/css/cajita-builder.css" />
-    <script src="/assets/js/cajita-builder.js" defer></script>
+    <script src="/assets/js/i18n.js?v=20260908" defer></script>
+    <script src="/assets/js/catering-i18n.js?v=20260908" defer></script>
+    <script src="/assets/js/cajita-builder.js?v=20260908-bilingual" defer></script>
   </head>
-  <body>
+  <body data-i18n-local-only>
     <a class="skip" href="#controls">Skip to customization</a>
     <header>
       <a href="/cajita" aria-label="Añejo, back to La Cajita"
@@ -291,7 +293,7 @@
               artwork can be positioned; PDFs are attached as production
               references, not rendered on the label.
             </p>
-            <ul id="files"></ul>
+            <ul id="files" translate="no"></ul>
             <button type="button" id="remove-art" class="text-button">
               Remove selected artwork from this surface
             </button>

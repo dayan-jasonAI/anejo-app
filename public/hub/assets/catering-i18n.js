@@ -16,6 +16,7 @@
     'No website catering requests yet.': 'Aún no hay solicitudes de catering del sitio web.',
     'Website requests': 'Solicitudes del sitio web',
     'Menu not specified': 'Menú sin especificar', 'received': 'recibida',
+    'Añejo Fit Menu': 'Menú Añejo Fit', 'Cuban Food': 'Comida cubana', 'Individual Cajitas': 'Cajitas individuales',
     'No event details provided.': 'No se proporcionaron detalles del evento.',
     'Exact Cajita configuration': 'Configuración exacta de La Cajita',
     'Private design files · owner only': 'Archivos de diseño privados · solo para el propietario',
@@ -52,6 +53,7 @@
   function t(s, lang) { return (lang || language()) === 'es' && dict[s] ? dict[s] : s; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
   function label(s) { return '<span translate="no" data-catering-label="' + esc(s) + '">' + esc(t(s)) + '</span>'; }
+  function menu(s) { return String(s || '').split(', ').map(function(name) { return ['Añejo Fit Menu','Cuban Food','Individual Cajitas'].indexOf(name) >= 0 ? label(name) : esc(name); }).join(', '); }
   function summary(config, lang) {
     if (!config || !Array.isArray(config.variants)) return t('No Cajita configuration.', lang);
     function tr(s) { return t(s, lang); }
@@ -90,6 +92,6 @@
   }
   if (window.AnejoI18n) window.AnejoI18n.extend(dict);
   else (window.__hubI18nQueue || (window.__hubI18nQueue = [])).push(dict);
-  window.CateringI18n = { text:t, label:label, summary:summary, summaryHtml:summaryHtml, refresh:refresh };
+  window.CateringI18n = { text:t, label:label, menu:menu, summary:summary, summaryHtml:summaryHtml, refresh:refresh };
   document.addEventListener('anejo:langchange', function() { refresh(); });
 })();
