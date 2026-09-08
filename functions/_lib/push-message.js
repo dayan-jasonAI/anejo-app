@@ -19,6 +19,7 @@ const COPY = {
 };
 
 const ALERT_LABELS = {
+  contract_roster_changed: ['Contract roster updated', 'Lista de participantes del contrato actualizada'],
   eod_missing: ['End-of-day report missing', 'Falta el informe de cierre'],
   temp_excursion: ['Kitchen temperature alert', 'Alerta de temperatura de cocina'],
   delivery_failed: ['Delivery needs attention', 'Una entrega necesita atención'],

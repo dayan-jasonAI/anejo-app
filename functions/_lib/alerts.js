@@ -81,7 +81,7 @@ export const ALERT_TYPES = [
   // companion failure type is raised only when the email provider does not accept its alert.
   'catering_request',
   'catering_email_failed',
-  'kitchen_ready_delivery', 'new_order', 'new_paid_order', 'subscription_payment',
+  'kitchen_ready_delivery', 'new_order', 'new_paid_order', 'subscription_payment', 'contract_roster_changed',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:
