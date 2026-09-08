@@ -81,7 +81,7 @@ export const ALERT_TYPES = [
   // companion failure type is raised only when the email provider does not accept its alert.
   'catering_request',
   'catering_email_failed',
-  'kitchen_ready_delivery', 'new_order', 'new_paid_order',
+  'kitchen_ready_delivery', 'new_order', 'new_paid_order', 'subscription_payment',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:
@@ -144,7 +144,7 @@ export async function raiseAlert(env, opts = {}) {
       properties: { alert_type, severity, actor_type: 'system', ref_type: opts.ref_type || null, ref_id: opts.ref_id || null },
     });
 
-    // Tickle the owner's devices (payload-less web push; SW peeks for context).
+    // Send the exact event's encrypted bilingual lock-screen copy to owner's devices.
     // sendPushTickle never throws and no-ops without VAPID secrets — but keep it
     // wrapped so it can never affect raiseAlert's return.
     // The owner always. Plus anyone the caller names in `notifyRoles` — added 2026-08-11 so an

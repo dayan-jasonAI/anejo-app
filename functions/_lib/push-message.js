@@ -1,10 +1,11 @@
 // Lock-screen copy is an allowlist, never customer names, notes, addresses or alert bodies.
 // Both languages travel in the encrypted event so an offline iPhone need not fetch a session.
 const COPY = {
-  kitchen_ready_delivery: ['Kitchen update — order ready for delivery', 'Assign an available driver in the Hub.', 'Actualización de cocina — pedido listo para entregar', 'Asigna un conductor disponible en el Hub.', '/hub/owner/orders.html'],
+  kitchen_ready_delivery: ['Kitchen update — order ready for delivery', 'Review the route and assign a driver if needed.', 'Actualización de cocina — pedido listo para entregar', 'Revisa la ruta y asigna un conductor si hace falta.', '/hub/owner/deliveries.html'],
   kitchen_ready_pickup: ['Kitchen update — order ready for pickup', 'The kitchen has finished preparing an order.', 'Actualización de cocina — pedido listo para recoger', 'La cocina terminó de preparar un pedido.', '/hub/owner/orders.html'],
   new_order: ['You have a new order', 'Open the Hub to review the new order.', 'Tienes un pedido nuevo', 'Abre el Hub para revisar el pedido nuevo.', '/hub/owner/orders.html'],
   new_paid_order: ['New paid order', 'Payment received. Open the Hub to review the order.', 'Nuevo pedido pagado', 'Pago recibido. Abre el Hub para revisar el pedido.', '/hub/owner/orders.html'],
+  subscription_payment: ['Subscription payment received', 'Review the paid meal-plan invoice in the Hub.', 'Pago de suscripción recibido', 'Revisa la factura pagada del plan de comidas en el Hub.', '/hub/owner/orders.html'],
   catering_deposit_paid: ['Catering deposit paid', 'Open Catering to review the confirmed booking.', 'Depósito de catering pagado', 'Abre Catering para revisar la reserva confirmada.', '/hub/owner/catering.html'],
   contract_invoice_paid: ['Contract invoice paid', 'A contract payment was received. Review it in the Hub.', 'Factura de contrato pagada', 'Se recibió un pago de contrato. Revísalo en el Hub.', '/hub/owner/'],
   catering_request: ['New catering quote request', 'A customer submitted an event request. Review it in Catering.', 'Nueva solicitud de cotización de catering', 'Un cliente envió una solicitud para un evento. Revísala en Catering.', '/hub/owner/catering.html'],
@@ -49,8 +50,8 @@ export function safeHubPushUrl(value, fallback = '/hub/') {
 
 export function createHubPushMessage(input = {}) {
   const type = String(input.type || 'hub_notice');
-  const labels = ALERT_LABELS[type];
-  const copy = COPY[type] || (labels && [labels[0], 'Open the Hub to review this alert.', labels[1], 'Abre el Hub para revisar esta alerta.', '/hub/owner/'])
+  const labels = Object.hasOwn(ALERT_LABELS, type) ? ALERT_LABELS[type] : null;
+  const copy = (Object.hasOwn(COPY, type) && COPY[type]) || (labels && [labels[0], 'Open the Hub to review this alert.', labels[1], 'Abre el Hub para revisar esta alerta.', '/hub/owner/'])
     || ['Hub notification', 'Open the Hub to review the notification details.', 'Notificación del Hub', 'Abre el Hub para revisar los detalles de la notificación.', '/hub/'];
   const id = String(input.id || crypto.randomUUID()).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
   return {

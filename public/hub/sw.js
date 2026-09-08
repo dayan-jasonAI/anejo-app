@@ -133,8 +133,13 @@ async function displayHubPush(event) {
       if (response.ok) d = await response.json();
     } catch { /* offline/session unavailable */ }
   }
-  // A legacy wake with no pending event must not claim a new order/message exists.
-  if (d && d.notify === false) return;
+  // Honor userVisibleOnly even for an old queued tickle, but do not invent a new
+  // message/order or let the browser substitute its generic background-update notice.
+  if (d && d.notify === false) d = {
+    title: 'Hub is up to date', body: 'No unread messages or recent alerts were found.',
+    title_es: 'El Hub está al día', body_es: 'No se encontraron mensajes sin leer ni alertas recientes.',
+    tag: 'anejo-hub-current', url: '/hub/',
+  };
   const valid = d && typeof d.title === 'string' && typeof d.body === 'string';
   const title = valid ? ((lang === 'es' && d.title_es) || d.title)
     : (lang === 'es' ? 'Detalles de notificación no disponibles' : 'Notification details unavailable');

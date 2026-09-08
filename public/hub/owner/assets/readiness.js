@@ -4,16 +4,18 @@
   var W = window, D = document;
   function es() { return W.AnejoLang && W.AnejoLang.get() === 'es'; }
   function text(en, spanish) { return es() ? spanish : en; }
+  function windowText(value) { return value === 'lunch' ? text('Lunch', 'Almuerzo') : value === 'dinner' ? text('Dinner', 'Cena') : String(value || ''); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
   function label(en, spanish) { return '<span translate="no" data-ready-en="' + esc(en) + '" data-ready-es="' + esc(spanish) + '">' + esc(text(en, spanish)) + '</span>'; }
-  function setLabel(el, en, spanish) { if (!el) return; el.setAttribute('data-ready-en', en); el.setAttribute('data-ready-es', spanish); el.textContent = text(en, spanish); }
+  function setLabel(el, en, spanish) { if (!el) return; el.setAttribute('translate', 'no'); el.setAttribute('data-ready-en', en); el.setAttribute('data-ready-es', spanish); el.textContent = text(en, spanish); }
   function refreshLabels() { D.querySelectorAll('[data-ready-en]').forEach(function (el) { el.textContent = el.getAttribute(es() ? 'data-ready-es' : 'data-ready-en'); }); }
   D.addEventListener('anejo:langchange', refreshLabels);
   function deliveryUrl(order) {
     var params = new URLSearchParams();
     if (order && order.id) params.set('order', order.id);
+    if (order && order.route_id) params.set('route', order.route_id);
     if (order && /^\d{4}-\d{2}-\d{2}$/.test(order.delivery_date || '')) params.set('date', order.delivery_date);
-    return '/hub/owner/deliveries.html' + (params.toString() ? '?' + params.toString() : '') + '#assign';
+    return '/hub/owner/deliveries.html' + (params.toString() ? '?' + params.toString() : '') + (order && order.route_id ? '#rexisting' : '#assign');
   }
   function mount(id) {
     var root = D.getElementById(id);
@@ -31,8 +33,8 @@
       if (snapshot) {
         body += '<p style="font-weight:700">' + esc(snapshot.total) + ' ' + text('ready', 'listos') + ' · ' + esc(snapshot.awaiting_driver) + ' ' + text('awaiting a driver', 'esperando conductor') + '</p>';
         body += (snapshot.items || []).map(function (o) {
-          return '<div class="row"><div class="row-main" style="overflow-wrap:anywhere"><div class="row-title">' + esc(o.customer_name || o.id) + '</div>' +
-            '<div class="row-sub">' + esc(o.id) + ' · ' + esc(o.delivery_date || '—') + ' ' + esc(o.delivery_window || '') + '</div>' +
+          return '<div class="row" style="flex-wrap:wrap"><div class="row-main" style="overflow-wrap:anywhere;flex:1 1 200px;min-width:0"><div class="row-title">' + esc(o.customer_name || o.id) + '</div>' +
+            '<div class="row-sub">' + esc(o.id) + ' · ' + esc(o.delivery_date || '—') + ' ' + esc(windowText(o.delivery_window)) + '</div>' +
             '<span class="badge ' + (o.awaiting_driver ? 'warn' : 'ok') + '">' + (o.awaiting_driver ? (o.route_id ? text('Ready · awaiting driver', 'Listo · esperando conductor') : text('Ready · assign a driver', 'Listo · asignar conductor')) : text('Ready · route exists', 'Listo · tiene ruta')) + '</span>' +
             '</div><a class="btn ghost" href="' + esc(deliveryUrl(o)) + '">' + (!o.route_id && o.awaiting_driver ? text('Assign driver', 'Asignar conductor') : text('View route', 'Ver ruta')) + '</a></div>';
         }).join('');

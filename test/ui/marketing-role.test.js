@@ -487,7 +487,9 @@ test('a reply wakes the other PARTICIPANT, not a guessed role', () => {
   // `role !== 'owner'` was false, so BOTH branches fell through and she was never told.
   assert.match(MESSAGES_API, /\[thread\.staff_id, thread\.created_by\]/);
   assert.match(MESSAGES_API, /\.filter\(\(x\) => x && x !== ctx\.distinct_id\)/);
-  assert.match(MESSAGES_API, /sendPushTickle\(env, \{ staffIds: targets \}\)/);
+  assert.match(MESSAGES_API, /sendPushTickle\(env, \{ staffIds: targets, notification \}\)/);
+  assert.match(MESSAGES_API, /const notification = \{ type: 'new_message', id: mid, url: '\/hub\/comms\.html' \}/,
+    'the same targeted message carries specific safe copy, not a generic tickle');
 });
 
 test('an alert can be aimed at someone other than the owner', () => {

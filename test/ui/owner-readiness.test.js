@@ -6,16 +6,17 @@ import { readFileSync } from 'node:fs';
 const source = readFileSync(new URL('../../public/hub/owner/assets/readiness.js', import.meta.url), 'utf8');
 const deliveries = readFileSync(new URL('../../public/hub/owner/deliveries.html', import.meta.url), 'utf8');
 function fixture() {
-  let language = 'en', response = { ok:true, total:1, awaiting_driver:1, items:[{ id:'ord-1', customer_name:'María <private>', delivery_date:'2026-09-09', awaiting_driver:true }] };
-  const events = {}, calls = [], root = { innerHTML:'', setAttribute(){}, querySelector:() => ({ addEventListener(){} }) };
+  let language = 'en', response = { ok:true, total:1, awaiting_driver:1, items:[{ id:'ord-1', customer_name:'María <private>', delivery_date:'2026-09-09', delivery_window:'lunch', awaiting_driver:true }] };
+  const events = {}, calls = [], labels = [], root = { innerHTML:'', setAttribute(){}, querySelector:() => ({ addEventListener(){} }) };
+  const listen = (name, fn) => { const prior = events[name]; events[name] = () => { if (prior) prior(); fn(); }; };
   let tick;
   const context = vm.createContext({ URLSearchParams, Date, window:{
     AnejoLang:{ get:() => language },
     Owner:{ get:async url => { calls.push(url); return response; } },
-    setInterval:fn => { tick = fn; return 1; }, clearInterval(){}, addEventListener:(name, fn) => { events[name] = fn; },
-  }, document:{ hidden:false, querySelectorAll:() => [], getElementById:id => id === 'ready-panel' ? root : null, addEventListener:(name, fn) => { events[name] = fn; } } });
+    setInterval:fn => { tick = fn; return 1; }, clearInterval(){}, addEventListener:listen,
+  }, document:{ hidden:false, querySelectorAll:() => labels, getElementById:id => id === 'ready-panel' ? root : null, addEventListener:listen } });
   vm.runInContext(source, context);
-  return { api:context.window.OwnerReadiness, root, calls, events, tick:() => tick(), setResponse:value => { response = value; }, changeLang:value => { language = value; events['anejo:langchange'](); } };
+  return { api:context.window.OwnerReadiness, root, calls, events, labels, tick:() => tick(), setResponse:value => { response = value; }, changeLang:value => { language = value; events['anejo:langchange'](); } };
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
@@ -28,6 +29,7 @@ test('ready panel shows actionable assignment state, exact escaped customer copy
   f.changeLang('es');
   assert.match(f.root.innerHTML, /esperando conductor/);
   assert.match(f.root.innerHTML, /Listo · asignar conductor/);
+  assert.match(f.root.innerHTML, /Almuerzo/);
   assert.match(f.root.innerHTML, /María &lt;private&gt;/);
 });
 
@@ -50,7 +52,25 @@ test('a ready order with an unfilled existing route opens the route rather than 
   f.api.mount('ready-panel'); await flush();
   assert.match(f.root.innerHTML, /Ready · awaiting driver/);
   assert.match(f.root.innerHTML, /View route/);
+  assert.match(f.root.innerHTML, /route=r2#rexisting/);
   assert.doesNotMatch(f.root.innerHTML, />Assign driver</);
+});
+
+test('language changes update assignment text without modifying selected driver values or checked state', () => {
+  const f = fixture(), attributes = {};
+  const driver = { textContent:'', value:'driver-original', selected:true, checked:true, setAttribute:(key,value) => { attributes[key] = value; }, getAttribute:key => attributes[key] };
+  f.labels.push(driver);
+  f.api.setLabel(driver, 'QA María 🟢 available', 'QA María 🟢 disponible');
+  f.changeLang('es');
+  assert.equal(driver.textContent, 'QA María 🟢 disponible');
+  assert.equal(driver.value, 'driver-original');
+  assert.equal(driver.selected, true);
+  assert.equal(driver.checked, true);
+  f.changeLang('en');
+  assert.equal(driver.textContent, 'QA María 🟢 available');
+  assert.equal(attributes.translate, 'no');
+  assert.match(deliveries, /OwnerReadiness\.setLabel\(btn, 'Assign '/);
+  assert.match(deliveries, /OwnerReadiness\.label\('Lunch', 'Almuerzo'\)/);
 });
 
 test('feed refresh is read-only, scoped to panel, and focus refreshes without replacing assignment controls', async () => {

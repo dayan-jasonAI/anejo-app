@@ -5,8 +5,8 @@
 // without a live cookie/session fetch on a locked iPhone. Customer tickles are unchanged.
 //
 //   import { sendPushTickle } from '../../_lib/push.js';
-//   await sendPushTickle(env, { staffIds: ['stf_x'] });        // target people
-//   await sendPushTickle(env, { roles: ['owner'] });           // target roles
+//   await sendPushTickle(env, { staffIds: ['stf_x'], notification: { type:'new_message', id:messageId } });
+//   await sendPushTickle(env, { roles: ['owner'], notification: { type:'new_paid_order', id:alertId } });
 //
 // Secrets (Pages project): VAPID_PUBLIC_KEY (base64url uncompressed P-256
 // point), VAPID_PRIVATE_JWK (JSON string with {d,x,y} base64url JWK params),
@@ -80,10 +80,9 @@ async function vapidJwt(key, aud, sub) {
 }
 
 // ---------------------------------------------------------------------------
-// Tickle sender
+// Notification sender
 // ---------------------------------------------------------------------------
 
-// Send an empty "tickle" push to every subscription matching staffIds OR roles.
 /**
  * Wake a CUSTOMER's devices. Same VAPID machinery as the staff tickle — the difference is only
  * who is looked up, and that customers are keyed by email because they have no staff row.
@@ -136,8 +135,17 @@ export async function sendPushTickle(env, { staffIds = [], roles = [], emails = 
       clauses.push(`(audience = 'customer' AND LOWER(TRIM(email)) IN (${ems.map(() => '?').join(',')}))`);
       binds.push(...ems);
     }
+    // Resolve the CURRENT staff role at delivery, and exclude disabled/deleted staff.
+    // Trainer/client portal subscriptions legitimately have a null staff_id; preserve
+    // those role-only rows without allowing null-id owner/employee rows to bypass checks.
     const { results } = await env.DB.prepare(
-      `SELECT id, endpoint, p256dh, auth, audience FROM push_subscriptions WHERE ${clauses.join(' OR ')} LIMIT ${MAX_SENDS}`
+      `SELECT id, endpoint, p256dh, auth, audience FROM (
+        SELECT p.id, p.endpoint, p.p256dh, p.auth, p.audience, p.staff_id, p.email,
+               CASE WHEN s.id IS NOT NULL THEN s.role ELSE p.role END AS role
+        FROM push_subscriptions p LEFT JOIN staff s ON s.id = p.staff_id
+        WHERE p.audience = 'customer' OR s.active = 1
+           OR (p.staff_id IS NULL AND p.role IN ('trainer', 'client'))
+      ) WHERE ${clauses.join(' OR ')} LIMIT ${MAX_SENDS}`
     ).bind(...binds).all();
     const subs = results || [];
     if (!subs.length) return { sent: 0, failed: 0 };
@@ -147,30 +155,22 @@ export async function sendPushTickle(env, { staffIds = [], roles = [], emails = 
 
     let sent = 0;
     let failed = 0;
-    for (const sub of subs) {
+    async function sendOne(sub) {
       try {
         const endpoint = new URL(sub.endpoint);
-        if (endpoint.protocol !== 'https:') { failed++; continue; }
-        const origin = endpoint.origin;
-        let jwt = jwtByOrigin.get(origin);
-        if (!jwt) {
-          jwt = await vapidJwt(key, origin, env.VAPID_SUBJECT);
-          jwtByOrigin.set(origin, jwt);
-        }
-        let request = {
-          method: 'POST',
-          headers: {
-            Authorization: `vapid t=${jwt}, k=${env.VAPID_PUBLIC_KEY}`,
-            TTL: '86400',
-          },
-          // Legacy/customer path only: retain its existing queue-peek behavior.
-        };
+        if (endpoint.protocol !== 'https:') { failed++; return; }
+        let request;
         if (notification && sub.audience !== 'customer') {
           request = await buildPushPayload(
             { data: createHubPushMessage(notification), options: { ttl: 3600, urgency: 'high' } },
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
             { subject: env.VAPID_SUBJECT, publicKey: env.VAPID_PUBLIC_KEY, privateKey: jwk.d }
           );
+        } else {
+          // Legacy/customer path only: retain its existing queue-peek behavior.
+          if (!jwtByOrigin.has(endpoint.origin)) jwtByOrigin.set(endpoint.origin, vapidJwt(key, endpoint.origin, env.VAPID_SUBJECT));
+          const jwt = await jwtByOrigin.get(endpoint.origin);
+          request = { method: 'POST', headers: { Authorization: `vapid t=${jwt}, k=${env.VAPID_PUBLIC_KEY}`, TTL: '86400' } };
         }
         const res = await fetch(sub.endpoint, { ...request, signal: AbortSignal.timeout(8000) });
         if (res.status === 200 || res.status === 201 || res.status === 202) {
@@ -188,8 +188,14 @@ export async function sendPushTickle(env, { staffIds = [], roles = [], emails = 
         failed++;
       }
     }
+    // At most four simultaneous network sends; one slow endpoint cannot serialize
+    // the entire fleet. Each send retains its independent timeout and cleanup result.
+    let cursor = 0;
+    await Promise.all(Array.from({ length: Math.min(4, subs.length) }, async () => {
+      while (cursor < subs.length) await sendOne(subs[cursor++]);
+    }));
     return { sent, failed };
   } catch {
-    return { sent: 0, failed: 0 };
+    return { sent: 0, failed: 1 };
   }
 }

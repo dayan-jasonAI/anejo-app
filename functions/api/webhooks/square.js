@@ -85,6 +85,17 @@ export const onRequestPost = async ({ request, env }) => {
              VALUES (?,?,?,?,?,?, 'pending')`
           ).bind('rs_' + invoiceId, sub.trainer_id, sub.id, gross, share, now()).run();
 
+          // One subscription-payment event, not a "new order" for every daily prep row.
+          // An acknowledged alert must not reappear when Square retries the same invoice.
+          await raiseAlert(env, {
+            alert_type: 'subscription_payment', severity: 'info', onceEver: true,
+            dedupe_key: `subscription_payment:${invoiceId}`,
+            title: 'Subscription payment received / Pago de suscripción recibido',
+            body: 'A meal-plan invoice received a payment. Review the subscription in the Hub. / Una factura del plan de comidas recibió un pago. Revisa la suscripción en el Hub.',
+            ref_type: 'subscription', ref_id: sub.id, source: 'square_invoice',
+            url: '/hub/owner/orders.html',
+          });
+
           // Roll the daily fresh-prep window forward for this subscription (idempotent — the
           // deterministic per-day/per-window order ids mean duplicate invoice events are no-ops).
           await materializeSubscriptionPrep(env, { subscriptionId: sub.id, horizonDays: 7 });

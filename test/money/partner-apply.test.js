@@ -48,8 +48,12 @@ test('a public write is rate-limited and the IP is hashed, never stored raw', ()
 });
 
 test('the owner hears about every application; the applicant is promised only a review', () => {
-  assert.match(API, /type: 'partner_application'/);
-  assert.match(API, /sendPushTickle\(env, \{ roles: \['owner'\] \}\)/);
+  assert.match(API, /raiseAlert\(env, \{\s*alert_type: 'partner_application'/);
+  assert.ok(!API.includes('sendPushTickle'), 'the central alert sends the push; no second generic popup');
+  const alerts = readFileSync(new URL('../../functions/_lib/alerts.js', import.meta.url), 'utf8');
+  assert.match(alerts, /const audience = \['owner',/);
+  assert.match(alerts, /sendPushTickle\(env, \{ roles: audience, notification:/);
+  assert.match(alerts, /type: alert_type/);
   assert.ok(!/approved|welcome/i.test(API.split('return json')[1] || ''), 'the response promises nothing');
 });
 

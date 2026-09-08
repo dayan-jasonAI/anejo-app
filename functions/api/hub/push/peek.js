@@ -4,10 +4,9 @@
 // to decide what to render:
 //   unread — the session's comms unread count (exact scoping mirror of
 //            functions/api/hub/comms/unread.js, one query).
-//   alert  — owner only: the latest OPEN alerts row raised in the last 10
-//            minutes ({ title, body, created_at }), else null (one query).
-//   title/body — best notification text: a fresh alert wins (owner), otherwise
-//            'New message at Añejo HUB' with the unread count.
+// Legacy fallback only. New sends carry their exact event in encrypted push data.
+// All fallback text uses the same private-data-free bilingual taxonomy as new pushes.
+// notify:false means no pending event exists; do not invent a new-message notification.
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 import { now } from '../../../_lib/hub.js';
@@ -63,10 +62,7 @@ export const onRequestGet = async ({ request, env }) => {
     } catch { alert = null; }
   }
 
-  // Marketing only: a request the owner JUST decided is the headline she's waiting on. Reads the
-  // freshest decided-in-the-last-10-min improvement_request (mirror of the owner's alert window)
-  // and turns her payload-less tickle into "Dayan accepted your request: …". Degrades to unread
-  // if the table isn't there or nothing was decided recently.
+  // Marketing only: a recently decided request. Private request text is not lock-screen copy.
   let decision = null;
   if (ctx.role === 'marketing') {
     try {

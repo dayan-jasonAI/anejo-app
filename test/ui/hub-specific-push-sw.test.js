@@ -38,7 +38,9 @@ test('specific data payload works offline without peek and chooses Spanish saved
 
 test('legacy empty push with zero pending events does not invent a new message', async () => {
   const sw = worker({ peek: { ok: true, notify: false, unread: 0 } });
-  await sw.fire('push'); assert.equal(sw.fetches(), 1); assert.equal(sw.notifications.length, 0);
+  await sw.fire('push'); assert.equal(sw.fetches(), 1); assert.equal(sw.notifications.length, 1);
+  assert.equal(sw.notifications[0].title, 'Hub is up to date');
+  assert.equal(sw.notifications[0].body, 'No unread messages or recent alerts were found.');
 });
 
 test('legacy failure explains missing details, rather than falsely claiming a new order', async () => {
