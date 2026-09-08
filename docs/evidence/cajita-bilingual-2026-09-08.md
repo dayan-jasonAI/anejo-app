@@ -37,4 +37,12 @@ Authenticated production Hub rendering is not newly verified in this turn; deter
 
 ## Publication
 
-Pending at record creation. Publish reviewed feature branch by normal fast-forward to main, preserve all existing deployment settings, then append deployment ID, commit, CI and served-asset evidence.
+Published by normal fast-forward Git push to main as commit 3007c6e, preserving all existing deployment settings. Cloudflare Pages production deployment: 2d52d595-a85c-4f26-8b60-c6495718d128, main source 3007c6e, Active.
+
+- CI run 34250574354 completed successfully: https://github.com/dayan-jasonAI/anejo-app/actions/runs/34250574354.
+- Live /, /catering, /cajita, /cajita-builder, /hub/kitchen/catering and /hub/owner/catering returned 200 and load the new dictionary. These are public shell checks, not authenticated request rendering.
+- Served shared/public/gallery/Hub dictionaries match local SHA256. The builder's actual versioned URL /assets/js/cajita-builder.js?v=20260908-bilingual matches the tested bundle (e985a82b0c7044771ab705e4387d0b61f92f2eb2b58de7d78b8ec13582a1778f).
+- An initial unversioned bundle read returned a stale cached copy and a first Hub dictionary read returned 404 during propagation. Subsequent Hub read returned 200 with exact matching hash; the versioned builder URL used by the HTML returned the correct matching bundle. No configuration changes or cache purge were needed.
+- Live browser verified EN→ES controls, all seven food names, localized summary and quote button. Navigation from builder to /catering retained es and rendered Lleva Añejo a tu mesa. and Enviar solicitud de cotización. No production request was submitted.
+
+No further approval is needed for this language release. Remaining feature limitations are unchanged from the preceding release. Next useful step is customer-side review of the Spanish wording; any requested wording refinement can use the same curated dictionaries.
