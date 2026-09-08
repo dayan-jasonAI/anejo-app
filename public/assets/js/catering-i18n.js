@@ -152,7 +152,15 @@
     'Please enter a valid email address.': 'Introduce un correo electrónico válido.',
     'Please choose a date or quantity within the allowed range.': 'Elige una fecha o cantidad dentro del rango permitido.',
     'Please enter a whole number.': 'Introduce un número entero.',
-    'Please check this value.': 'Revisa este valor.'
+    'Please check this value.': 'Revisa este valor.',
+    'Does Añejo offer catering?': '¿Añejo ofrece catering?',
+    'Yes. We build custom catering around the Añejo Fit menu, Cuban food, and individually packed': 'Sí. Creamos catering personalizado con el menú Añejo Fit, comida cubana y nuestras cajas individuales',
+    'La Cajita meal boxes': 'de comida La Cajita',
+    'Tell us your date, location, and guest count to request a custom quote →': 'Cuéntanos la fecha, la ubicación y la cantidad de invitados para solicitar una cotización personalizada →',
+    'Order Now': 'Pedir ahora', 'Weekly Plans': 'Planes semanales', 'Order': 'Pedir',
+    'Our Bowls': 'Nuestros bowls', 'Delivery Areas': 'Zonas de entrega',
+    'For Business & Offices': 'Para empresas y oficinas', 'Affiliate Program': 'Programa de afiliados',
+    'View the Menu': 'Ver el menú'
   });
   if (window.AnejoI18n) window.AnejoI18n.extend(es);
   else (window.__hubI18nQueue || (window.__hubI18nQueue = [])).push(es);

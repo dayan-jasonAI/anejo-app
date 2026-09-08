@@ -46,6 +46,18 @@ test('catering stores selected locale once and keeps immutable retry payload', (
   assert.match(html, /document\.addEventListener\('anejo:langchange',renderReceipt\)/);
 });
 
+test('new homepage catering FAQ and primary navigation labels have curated Spanish', () => {
+  const html = read('public/index.html');
+  const faq = html.match(/<summary>Does Añejo offer catering\?<\/summary>([\s\S]*?)<\/details>/);
+  assert.ok(faq, 'Catering FAQ is present');
+  const values = ['Does Añejo offer catering?', ...[...faq[1].matchAll(/>([^<>]+)</g)].map((match) => decode(match[1]))];
+  for (const value of values.filter(value => /[a-z]/i.test(value))) assert.ok(dictionary[value], value);
+  for (const label of ['Order Now', 'Weekly Plans', 'Order', 'Our Bowls', 'Delivery Areas', 'For Business & Offices', 'Affiliate Program', 'View the Menu']) {
+    assert.ok(html.includes(label.replace('&', '&amp;')), label);
+    assert.ok(dictionary[label], label);
+  }
+});
+
 test('all eight gallery themes have Spanish names, descriptions and image alternatives', () => {
   const html = read('public/cajita.html');
   const metadata = vm.runInNewContext(html.match(/var themes=(\[[\s\S]*?\]);/)[1]);

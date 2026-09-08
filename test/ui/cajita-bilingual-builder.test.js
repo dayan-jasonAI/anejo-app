@@ -56,6 +56,7 @@ function fixture(lang = 'es', responses = []) {
     ctx, get, requests,
     run: (code) => vm.runInContext(code, ctx),
     switchLanguage(next) { preference = next; document.dispatchEvent(new CustomEvent('anejo:langchange', { detail: { lang: next } })); },
+    dispatchField(type, field) { const event = new Event(type); Object.defineProperty(event, 'target', { value: field }); document.dispatchEvent(event); },
     submit: () => form.onsubmit({ preventDefault() {} }),
   };
 }
@@ -121,4 +122,43 @@ test('filenames remain literal and protected while file actions switch languages
   assert.match(f.get('files').textContent, /Colocar en etiqueta/);
   assert.match(f.get('files').textContent, /Quitar archivo/);
   assert.equal(f.get('files').children[0].attributes.translate, 'no');
+});
+
+test('native validity messages follow site language and clear on edits and language changes without removing constraints', () => {
+  const f = fixture('es'), field = f.get('email-validation');
+  field.type = 'email'; field.required = true; field.maxLength = 160;
+  field.closest = () => f.get('quote-form');
+  field.setCustomValidity = (message) => { field.validationMessage = message; };
+  field.validity = { valid: false, typeMismatch: true };
+  f.dispatchField('invalid', field);
+  assert.equal(field.validationMessage, 'Escribe una dirección de correo electrónico válida.');
+  f.dispatchField('input', field);
+  assert.equal(field.validationMessage, '');
+  f.dispatchField('invalid', field);
+  f.switchLanguage('en');
+  assert.equal(field.validationMessage, '');
+  f.dispatchField('invalid', field);
+  assert.equal(field.validationMessage, 'Please enter a valid email address.');
+  f.dispatchField('change', field);
+  assert.equal(field.validationMessage, '');
+  assert.equal(field.required, true);
+  assert.equal(field.maxLength, 160);
+  field.validity = { valid: false, valueMissing: true };
+  f.switchLanguage('es');
+  f.dispatchField('invalid', field);
+  assert.equal(field.validationMessage, 'Completa este campo obligatorio.');
+});
+
+test('number range and step errors stay localized and keep original numeric constraints', () => {
+  const f = fixture('es'), field = f.get('quantity');
+  Object.assign(field, { type: 'number', min: '1', max: '5000', step: '1', closest: () => f.get('controls') });
+  field.setCustomValidity = (message) => { field.validationMessage = message; };
+  field.validity = { valid: false, rangeOverflow: true };
+  f.dispatchField('invalid', field);
+  assert.equal(field.validationMessage, 'Escribe un valor menor o igual a 5000.');
+  f.dispatchField('input', field);
+  field.validity = { valid: false, stepMismatch: true };
+  f.dispatchField('invalid', field);
+  assert.equal(field.validationMessage, 'Usa el incremento permitido para este campo.');
+  assert.equal(field.min, '1'); assert.equal(field.max, '5000'); assert.equal(field.step, '1');
 });

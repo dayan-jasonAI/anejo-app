@@ -48,3 +48,33 @@ export function errorText(message) {
   if (language() !== "es") return message;
   return spanish[message] || "No se pudo completar esta acción. Revisa los campos y archivos e inténtalo de nuevo.";
 }
+
+// Native browser validation otherwise follows the browser/OS language rather
+// than the customer's site preference. Keep every native constraint intact.
+export function localizeValidity(field) {
+  field.setCustomValidity("");
+  const validity = field.validity;
+  if (validity.valid) return;
+  let message;
+  if (validity.valueMissing)
+    message = t("Please complete this required field.", "Completa este campo obligatorio.");
+  else if (validity.typeMismatch && field.type === "email")
+    message = t("Please enter a valid email address.", "Escribe una dirección de correo electrónico válida.");
+  else if (validity.typeMismatch)
+    message = t("Please enter a valid value.", "Escribe un valor válido.");
+  else if (validity.badInput)
+    message = t("Please enter a valid number or date.", "Escribe un número o una fecha válidos.");
+  else if (validity.rangeUnderflow)
+    message = t("Please enter a value of {min} or greater.", "Escribe un valor mayor o igual a {min}.", { min: field.min });
+  else if (validity.rangeOverflow)
+    message = t("Please enter a value of {max} or less.", "Escribe un valor menor o igual a {max}.", { max: field.max });
+  else if (validity.stepMismatch)
+    message = t("Please use the allowed increment for this field.", "Usa el incremento permitido para este campo.");
+  else if (validity.tooLong)
+    message = t("Please use {max} characters or fewer.", "Usa un máximo de {max} caracteres.", { max: field.maxLength });
+  else if (validity.tooShort)
+    message = t("Please use at least {min} characters.", "Usa al menos {min} caracteres.", { min: field.minLength });
+  else
+    message = t("Please check the format of this field.", "Revisa el formato de este campo.");
+  field.setCustomValidity(message);
+}

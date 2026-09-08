@@ -2,7 +2,7 @@ import { foods, presets, newVariant, totals, clone } from "./catalog.js";
 import { normalizeCajitaConfiguration } from "../../functions/_lib/cajita-config.js";
 import { loadBrand, paintSurface } from "./artwork.js";
 import { createScene } from "./scene.js";
-import { t, language, errorText } from "./i18n.js";
+import { t, language, errorText, localizeValidity } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id),
   assets = new Map();
@@ -672,9 +672,26 @@ function designSummary(value) {
   ].filter(Boolean).join("\n")).join("\n\n");
 }
 
+const localizedValidityFields = new Set();
+document.addEventListener("invalid", (event) => {
+  const field = event.target;
+  if (!field.closest?.("#controls, #quote-form") || !field.setCustomValidity) return;
+  localizeValidity(field);
+  localizedValidityFields.add(field);
+}, true);
+for (const type of ["input", "change"])
+  document.addEventListener(type, (event) => {
+    const field = event.target;
+    if (!localizedValidityFields.has(field)) return;
+    field.setCustomValidity("");
+    localizedValidityFields.delete(field);
+  }, true);
+
 // Re-render copy, never refill controls: language changes must not change the
 // draft, artwork text, caret position, selected layers, or immutable retry body.
 document.addEventListener("anejo:langchange", () => {
+  for (const field of localizedValidityFields) field.setCustomValidity("");
+  localizedValidityFields.clear();
   for (const [node, render] of localized) {
     if (node.isConnected) node.textContent = render();
     else localized.delete(node);
