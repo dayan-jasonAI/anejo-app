@@ -2,7 +2,8 @@
    Persists choice in localStorage. Exposes window.AnejoLang { get, set } and window.AnejoI18n { refresh }. */
 (function () {
   var KEY = 'anejo:lang';
-  var lang = localStorage.getItem(KEY) || 'en';
+  var lang = 'en';
+  try { lang = localStorage.getItem(KEY) === 'es' ? 'es' : 'en'; } catch (_) { /* private storage: language still works in memory */ }
 
   // English -> Spanish. Brand names, bowl names, prices, emails, handles stay as-is (absent from dict).
   var ES = {
@@ -332,8 +333,11 @@
 
   var origText = new WeakMap();   // text node / option -> original english value
   var origPH = new WeakMap();     // element -> original placeholder
+  var lastText = new WeakMap();
+  var lastPH = new WeakMap();
   var ATTRS = ['aria-label', 'title', 'alt'];   // text-bearing attributes, translated like body copy
   var origAttr = {};              // attr -> WeakMap(element -> original value)
+  var lastAttr = {};
   var origTitle = document.title;
   var hubObserver = null;         // re-translates dynamically-rendered HUB content
   var OBS_OPTS = { childList: true, subtree: true, characterData: true };
@@ -368,6 +372,9 @@
   }
 
   function queue(s){
+    // Quote/design pages contain private user text. Their curated translations
+    // must work offline and must never send unknown strings to a provider.
+    if (document.body && document.body.hasAttribute('data-i18n-local-only')) return;
     if (!translatable(s) || REMOTE[s] || asked[s] || pending[s]) return;
     pending[s] = 1;
     if (flushTimer) return;
@@ -405,6 +412,8 @@
   function tr(s){
     var v = ES[s];
     if (v !== undefined) return v;
+    var normalized = s.replace(/\s+/g, ' ').trim();
+    if (ES[normalized] !== undefined) return ES[normalized];
     return REMOTE[s];
   }
 
@@ -414,6 +423,8 @@
       else if (c.nodeType === 1){
         var tag = c.tagName.toLowerCase();
         if (tag === 'script' || tag === 'style' || c.id === 'langToggle' || c.getAttribute('translate') === 'no') continue;
+        // Translating an option without value otherwise changes submitted data.
+        if (tag === 'option' && !c.hasAttribute('value')) c.setAttribute('value', c.textContent.trim());
         walk(c, fn);
       }
     }
@@ -425,7 +436,7 @@
     walk(document.body, function(t){
       var raw = t.nodeValue;
       if (!raw || !raw.trim()) return;
-      if (!origText.has(t)) origText.set(t, raw);
+      if (!origText.has(t) || (lastText.has(t) && lastText.get(t) !== raw)) origText.set(t, raw);
       var orig = origText.get(t);
       if (es){
         var key = orig.trim();
@@ -435,15 +446,17 @@
       } else {
         t.nodeValue = orig;
       }
+      lastText.set(t, t.nodeValue);
     });
     var phs = document.querySelectorAll('[placeholder]');
     for (var i = 0; i < phs.length; i++){
       var el = phs[i];
       if (el.closest('[translate="no"]')) continue;
-      if (!origPH.has(el)) origPH.set(el, el.getAttribute('placeholder'));
+      if (!origPH.has(el) || (lastPH.has(el) && lastPH.get(el) !== el.getAttribute('placeholder'))) origPH.set(el, el.getAttribute('placeholder'));
       var o = origPH.get(el);
       if (es && tr(o) === undefined) queue(o);
       el.setAttribute('placeholder', es ? (tr(o) || o) : o);
+      lastPH.set(el, el.getAttribute('placeholder'));
     }
     // aria-label and title carry real words too — a screen-reader user who picked Spanish should
     // not hear English button names, and a tooltip is text like any other.
@@ -454,7 +467,8 @@
         var e2 = els[j];
         if (e2.id === 'langToggle' || e2.closest('[translate="no"]')) continue; // Preserve attributed source text too.
         var store = origAttr[attr] || (origAttr[attr] = new WeakMap());
-        if (!store.has(e2)) store.set(e2, e2.getAttribute(attr));
+        var last = lastAttr[attr] || (lastAttr[attr] = new WeakMap());
+        if (!store.has(e2) || (last.has(e2) && last.get(e2) !== e2.getAttribute(attr))) store.set(e2, e2.getAttribute(attr));
         var ov = store.get(e2);
         if (!ov || !ov.trim()) continue;
         if (es){
@@ -463,6 +477,7 @@
         } else {
           e2.setAttribute(attr, ov);
         }
+        last.set(e2, e2.getAttribute(attr));
       }
     }
     if (es){ var tv = tr(origTitle); if (tv) document.title = tv; else queue(origTitle); }
@@ -513,12 +528,15 @@
   }
 
   function setLang(l){
-    lang = l; localStorage.setItem(KEY, l); apply(l);
-    document.dispatchEvent(new CustomEvent('anejo:langchange', { detail: { lang: l } }));
+    lang = l === 'es' ? 'es' : 'en';
+    try { localStorage.setItem(KEY, lang); } catch (_) { /* in-memory preference remains usable */ }
+    apply(lang);
+    document.dispatchEvent(new CustomEvent('anejo:langchange', { detail: { lang: lang } }));
   }
 
   window.AnejoLang = { get: function(){ return lang; }, set: setLang };
-  window.AnejoI18n = { refresh: function(){ apply(lang); }, extend: extend };
+  window.AnejoI18n = { refresh: function(){ apply(lang); }, extend: extend,
+    text: function(english){ return lang === 'es' ? (tr(String(english)) || english) : english; } };
 
   function init(){
     ensureToggle();

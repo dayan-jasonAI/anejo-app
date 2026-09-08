@@ -2,6 +2,7 @@ import { foods, presets, newVariant, totals, clone } from "./catalog.js";
 import { normalizeCajitaConfiguration } from "../../functions/_lib/cajita-config.js";
 import { loadBrand, paintSurface } from "./artwork.js";
 import { createScene } from "./scene.js";
+import { t, language, errorText } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id),
   assets = new Map();
@@ -16,17 +17,32 @@ let config = { version: 1, variants: [newVariant()] },
   brandReady = false,
   dirty = false;
 const active = () => config.variants[current];
-const say = (message, id = "status") => {
-  $(id).textContent = message;
+const localized = new Map();
+const protect = (node) => {
+  node.setAttribute("translate", "no");
+  return node;
 };
-const el = (tag, text, cls) => {
+const renderCopy = (node, render) => {
+  protect(node);
+  localized.set(node, render);
+  node.textContent = render();
+  return node;
+};
+const say = (message, id = "status") => {
+  renderCopy($(id), typeof message === "function" ? message : () => t(message));
+};
+const el = (tag, text, cls, userText = false) => {
   const node = document.createElement(tag);
-  if (text != null) node.textContent = text;
+  protect(node);
+  if (text != null) {
+    if (userText) node.textContent = text;
+    else renderCopy(node, typeof text === "function" ? text : () => t(text));
+  }
   if (cls) node.className = cls;
   return node;
 };
-function option(select, value, text) {
-  const op = el("option", text);
+function option(select, value, text, userText = false) {
+  const op = el("option", text, null, userText);
   op.value = value;
   select.append(op);
 }
@@ -82,14 +98,18 @@ for (const f of foods) {
     plus = el("button", "+"),
     num = el("input");
   minus.type = plus.type = "button";
-  minus.setAttribute("aria-label", "Remove one " + f.name);
-  plus.setAttribute("aria-label", "Add one " + f.name);
+  const labels = () => {
+    minus.setAttribute("aria-label", t("Remove one {food}", "Quitar una unidad de {food}", { food: t(f.name) }));
+    plus.setAttribute("aria-label", t("Add one {food}", "Agregar una unidad de {food}", { food: t(f.name) }));
+    num.setAttribute("aria-label", t("{food} per box", "{food} por caja", { food: t(f.name) }));
+  };
+  labels();
+  window.addEventListener("anejo:langchange", labels);
   num.id = "count-" + f.id;
   num.type = "number";
   num.min = 0;
   num.max = 50;
   num.step = 1;
-  num.setAttribute("aria-label", f.name + " per box");
   function set(n) {
     if (!Number.isInteger(n) || n < 0 || n > 50) {
       num.reportValidity();
@@ -114,7 +134,7 @@ function drawVersions() {
   const select = $("variant");
   select.replaceChildren();
   config.variants.forEach((v, i) =>
-    option(select, i, `${v.name} · ${v.quantity} boxes`),
+    option(select, i, () => t("{name} · {count} boxes", "{name} · {count} cajas", { name: v.name, count: v.quantity })),
   );
   select.value = current;
   $("remove-version").disabled = config.variants.length === 1;
@@ -126,43 +146,46 @@ function drawSummary() {
   for (const v of config.variants) {
     const a = el("article");
     a.append(
-      el("h3", `${v.quantity} × ${v.name}`),
+      el("h3", `${v.quantity} × ${v.name}`, null, true),
       el(
         "p",
-        v.items
+        () => v.items
           .filter((i) => i.quantity > 0)
-          .map((i) => `${i.quantity} ${foods.find((f) => f.id === i.id).name}`)
-          .join(" · ") + " per box",
+          .map((i) => `${i.quantity} ${t(foods.find((f) => f.id === i.id).name)}`)
+          .join(" · ") + t(" per box", " por caja"),
       ),
-      el("p", `${v.theme.name} · ${v.theme.pickShape} toothpick topper`),
+      el("p", () => t("{theme} · {shape} toothpick topper", "{theme} · adorno de palillo: {shape}", { theme: themeDisplayName(v), shape: t(v.theme.pickShape) })),
     );
     const dessert = v.items.find((i) => i.id === "tres-leches");
     if (!dessert?.quantity)
       a.append(el("p", "NO TRES LECHES — dessert omitted"));
-    if (v.notes) a.append(el("p", v.notes));
+    if (v.notes) a.append(el("p", v.notes, null, true));
     if (v.packagingRequest)
-      a.append(el("p", "Packaging: " + v.packagingRequest));
+      a.append(el("p", () => t("Packaging: {request}", "Empaque: {request}", { request: v.packagingRequest })));
     summary.append(a);
   }
   const all = totals(config);
   summary.append(
     el(
       "p",
-      `${all.boxes} boxes across ${config.variants.length} version${config.variants.length === 1 ? "" : "s"}`,
+      () => t("{count} boxes across {versions} version(s)", "{count} cajas en {versions} versión(es)", { count: all.boxes, versions: config.variants.length }),
       "summary-total",
     ),
-    el("p", foods.map((f) => `${all.items[f.id]} ${f.name}`).join(" · ")),
+    el("p", () => foods.map((f) => `${all.items[f.id]} ${t(f.name)}`).join(" · ")),
   );
+}
+function themeDisplayName(v) {
+  const preset = presets.find((p) => p.id === v.theme.preset);
+  return preset?.name === v.theme.name ? t(preset.name) : v.theme.name;
 }
 function drawScene(animate = false) {
   const total = active().items.reduce((n, item) => n + item.quantity, 0);
-  $("scene-count").textContent = `${total} items per box · ${active().quantity} boxes`;
+  let shown = total;
   if (scene) {
-    const { total, shown } = scene.update(active(), assets, animate);
-    $("scene-count").textContent =
-      `${total} items per box · ${active().quantity} boxes${shown < total ? " · first " + shown + " shown" : ""}`;
+    shown = scene.update(active(), assets, animate).shown;
   }
-  $("scene-theme").textContent = active().theme.name;
+  renderCopy($("scene-count"), () => t("{total} items per box · {boxes} boxes", "{total} artículos por caja · {boxes} cajas", { total, boxes: active().quantity }) + (shown < total ? t(" · first {shown} shown", " · se muestran los primeros {shown}", { shown }) : ""));
+  renderCopy($("scene-theme"), () => themeDisplayName(active()));
 }
 function changed(animate = false) {
   dirty = true;
@@ -204,7 +227,7 @@ $("duplicate").onclick = () => {
   if (config.variants.length >= 20) return;
   const v = clone(active());
   v.id = crypto.randomUUID();
-  v.name = (v.name + " copy").slice(0, 120);
+  v.name = (v.name + t(" copy", " copia")).slice(0, 120);
   config.variants.push(v);
   current = config.variants.length - 1;
   dirty = true;
@@ -215,7 +238,7 @@ $("duplicate").onclick = () => {
 };
 $("remove-version").onclick = () => {
   if (config.variants.length === 1) return;
-  if (!confirm(`Remove the version “${active().name}” from this draft?`))
+  if (!confirm(t("Remove the version “{name}” from this draft?", "¿Quitar la versión «{name}» de este borrador?", { name: active().name })))
     return;
   config.variants.splice(current, 1);
   current = Math.max(0, current - 1);
@@ -272,7 +295,8 @@ $("theme-prompt").oninput = () => {
 };
 $("lid").onclick = () => {
   if (scene) {
-    $("lid").textContent = scene.toggle() ? "Show open box" : "Show closed box";
+    const message = scene.toggle() ? "Show open box" : "Show closed box";
+    renderCopy($("lid"), () => t(message));
     drawScene();
   }
 };
@@ -309,6 +333,7 @@ function fillSurface() {
       $("layer"),
       a.attachmentId,
       assets.get(a.attachmentId)?.name || "Artwork",
+      !!assets.get(a.attachmentId)?.name,
     );
   fillLayer();
   drawArt();
@@ -400,9 +425,10 @@ function drawFiles() {
   for (const [id, a] of assets) {
     const li = el(
       "li",
-      a.name + " · " + (a.image ? "Artwork" : "PDF instructions") + " ",
+      null,
     );
-    const attach = el("button", "Place on " + $("surface").value);
+    li.append(el("span", () => a.name + " · " + t(a.image ? "Artwork" : "PDF instructions") + " "));
+    const attach = el("button", () => t("Place on {surface}", "Colocar en {surface}", { surface: t($("surface").value) }));
     attach.type = "button";
     attach.disabled = !a.image;
     attach.onclick = () => {
@@ -428,7 +454,7 @@ function drawFiles() {
     const remove = el("button", "Remove file");
     remove.type = "button";
     remove.onclick = () => {
-      if (!confirm("Remove this file and every use of it from all versions?"))
+      if (!confirm(t("Remove this file and every use of it from all versions?")))
         return;
       for (const v of config.variants) {
         v.personalization.artworks = v.personalization.artworks.filter(
@@ -468,7 +494,7 @@ $("art-files").onchange = async () => {
       "Design files added to this draft. They upload securely when you submit.",
     );
   } catch (e) {
-    say(e.message);
+    say(() => errorText(e.message));
   } finally {
     assetBusy = false;
     $("art-files").value = "";
@@ -516,7 +542,7 @@ $("generate").onclick = async () => {
       "ai-status",
     );
   } catch (e) {
-    say(e.message + " Your manual theme and draft are unchanged.", "ai-status");
+    say(() => errorText(e.message) + t(" Your manual theme and draft are unchanged.", " Tu tema manual y tu borrador se mantienen sin cambios."), "ai-status");
   } finally {
     generatedBusy = false;
     $("generate").disabled = false;
@@ -556,7 +582,7 @@ function check() {
 function download() {
   const checked = check();
   if (!checked.ok) {
-    say(checked.error);
+    say(() => errorText(checked.error));
     return;
   }
   const blob = new Blob(
@@ -564,10 +590,10 @@ function download() {
         JSON.stringify(
           {
             configuration: checked.value,
-            summary: checked.summary,
+            summary: designSummary(checked.value),
             files: [...assets].map(([id, a]) => ({ id, name: a.name })),
             notice:
-              "Design request only; not an approved production proof. Files must be attached separately.",
+              t("Design request only; not an approved production proof. Files must be attached separately."),
           },
           null,
           2,
@@ -594,7 +620,7 @@ function db() {
 $("save-draft").onclick = async () => {
   const checked = check();
   if (!checked.ok) {
-    say(checked.error);
+    say(() => errorText(checked.error));
     return;
   }
   try {
@@ -643,7 +669,7 @@ $("quote-form").onsubmit = async (e) => {
   const form = $("quote-form"),
     checked = check();
   if (!checked.ok) {
-    say(checked.error, "quote-status");
+    say(() => errorText(checked.error), "quote-status");
     return;
   }
   if (!form.reportValidity()) return;
@@ -678,7 +704,8 @@ $("quote-form").onsubmit = async (e) => {
       sessionId = session.session_id;
       let n = 0;
       for (const [local, a] of assets) {
-        say(`Uploading design file ${++n} of ${assets.size}…`, "quote-status");
+        const fileNumber = ++n;
+        say(() => t("Uploading design file {number} of {total}…", "Cargando archivo de diseño {number} de {total}…", { number: fileNumber, total: assets.size }), "quote-status");
         const response = await fetch("/api/catering-uploads", {
           method: "POST",
           headers: {
@@ -710,7 +737,7 @@ $("quote-form").onsubmit = async (e) => {
     Object.assign(data, {
       kind: "catering",
       request_id: crypto.randomUUID(),
-      lang: "en",
+      lang: language(),
       guests: Number(data.guests),
       menu_options: ["Individual Cajitas"],
       sms_consent: smsConsent,
@@ -743,10 +770,10 @@ $("quote-form").onsubmit = async (e) => {
     const received = el("div");
     received.append(
       el("h3", "Request received."),
-      el("p", `Reference: ${out.id}`),
+      el("p", () => t("Reference: {id}", "Referencia: {id}", { id: out.id })),
       el(
         "p",
-        `${totals(sent).boxes} boxes across ${sent.variants.length} version(s). The Añejo team will review your details and follow up with a custom quote.`,
+        () => t("{boxes} boxes across {versions} version(s). The Añejo team will review your details and follow up with a custom quote.", "{boxes} cajas en {versions} versión(es). El equipo de Añejo revisará los detalles y te contactará con una cotización personalizada.", { boxes: totals(sent).boxes, versions: sent.variants.length }),
       ),
     );
     if (out.attachments?.linked === false)
@@ -767,14 +794,16 @@ $("quote-form").onsubmit = async (e) => {
     received.tabIndex = -1;
     received.focus();
   } catch (error) {
+    const heldRequest = pendingSubmission?.request_id;
     say(
-      pendingSubmission
-        ? `${error.message} Your exact request is held here. Tap Retry same request to safely check receipt without creating another order. Keep this page open. Request reference: ${pendingSubmission.request_id}`
-        : `${error.message} Your design and files are still here. Correct the issue and try again.`,
+      () => errorText(error.message) + (heldRequest
+        ? t(" Your exact request is held here. Tap Retry same request to safely check receipt without creating another order. Keep this page open. Request reference: {id}", " Tu solicitud exacta se conserva aquí. Pulsa Reintentar la misma solicitud para comprobar su recepción sin crear otro pedido. Mantén esta página abierta. Referencia de la solicitud: {id}", { id: heldRequest })
+        : t(" Your design and files are still here. Correct the issue and try again.", " Tu diseño y tus archivos siguen aquí. Corrige el problema e inténtalo de nuevo.")),
       "quote-status",
     );
     $("submit").disabled = false;
-    $("submit").textContent = pendingSubmission ? "Retry same request" : "Send quote request";
+    const submitCopy = pendingSubmission ? "Retry same request" : "Send quote request";
+    renderCopy($("submit"), () => t(submitCopy));
   } finally {
     if (!pendingSubmission) {
       locked.forEach(({ node, disabled }) => { node.disabled = disabled; });
@@ -783,6 +812,25 @@ $("quote-form").onsubmit = async (e) => {
     submitting = false;
   }
 };
+
+function designSummary(value) {
+  return value.variants.map((v) => [
+    `${v.quantity} × ${v.name}`,
+    ...v.items.map((item) => `${item.quantity} ${t(foods.find((f) => f.id === item.id).name)}`),
+    t("Theme: {theme}", "Tema: {theme}", { theme: themeDisplayName(v) }),
+    v.notes,
+    v.packagingRequest,
+  ].filter(Boolean).join("\n")).join("\n\n");
+}
+
+// Re-render copy, never refill controls: language changes must not change the
+// draft, artwork text, caret position, selected layers, or immutable retry body.
+window.addEventListener("anejo:langchange", () => {
+  for (const [node, render] of localized) {
+    if (node.isConnected) node.textContent = render();
+    else localized.delete(node);
+  }
+});
 
 async function init() {
   try {
