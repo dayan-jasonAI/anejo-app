@@ -156,6 +156,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
  ]
 }
 </script>
+<link rel="stylesheet" href="/assets/css/shop-order.css">
 </head>
 <body>
 <a href="#catalog" class="skip-link">Skip to content</a>
@@ -174,11 +175,11 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
 </header>
 
 <div class="wrap">
-  <section><nav class="menu-tabs" aria-label="Menu categories"><button onclick="selectCategory('catering')">Añejo Catering</button><button onclick="selectCategory('traditional')">Añejo Traditional</button><button onclick="selectCategory('fit')">Añejo Fit</button><button onclick="selectCategory('all')">All / Todo</button></nav><p id="categoryNote"></p><div id="catalog"></div></section>
+  <section><input id="shopSearch" type="search" placeholder="Search the menu / Buscar en el menú" aria-label="Search the menu"><div id="shopCategories" class="shop-nav" aria-label="Menu categories"></div><p id="categoryNote"></p><div id="catalog"></div></section>
 
   <aside class="cart">
     <h3>Your order</h3>
-    <div id="cartLines"><div class="cart-empty">Your cart is empty — add a few bowls.</div></div>
+    <div id="cartLines"><div class="cart-empty">Your cart is empty — choose a favorite.</div></div>
     <div class="cart-sub" id="subRow" style="display:none"><span>Subtotal</span><span id="cartSubtotal">$0.00</span></div>
     <div class="cart-sub" id="feeRow" style="display:none"><span>Delivery fee</span><span id="cartFee">$0.00</span></div>
     <div class="cart-sub" id="rewardsRow" style="display:none;color:#8B6B3E"><span><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="applyRewards"><span id="rewardsLabel">Apply Añejo Rewards</span></label></span><span id="cartDiscount">−$0.00</span></div>
@@ -196,7 +197,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
     <div class="tax-note" id="minNote" style="display:none;color:#9b2226"></div>
     <div class="tax-note" id="taxNote" style="display:none">Final tax &amp; delivery fee are confirmed on the secure Square checkout page.</div>
 
-    <div class="fulfill">
+    <div id="shopSuggestions"></div><details id="checkoutDetails"><summary>Delivery &amp; checkout / Entrega y pago</summary><div class="fulfill">
       <div class="lbl">How would you like it?</div>
       <div class="modeseg" role="tablist" aria-label="Fulfillment mode">
         <button type="button" id="modeOndemand" class="active" role="tab" aria-selected="true" onclick="setMode('ondemand')">ASAP today<span class="seg-sub">Make-now · delivered today</span></button>
@@ -258,10 +259,11 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
 
     <div class="addr-check" id="addrCheck" style="display:none" role="alert" aria-live="polite"></div>
     <button class="btn" id="checkoutBtn" disabled onclick="checkout()">Proceed to checkout</button>
-    <div class="err" id="err" role="alert" aria-live="assertive"></div>
+    <div class="err" id="err" role="alert" aria-live="assertive"></div></details>
   </aside>
 </div>
 
+<dialog id="shopDialog" class="shop-dialog" aria-labelledby="shopModalTitle"><button class="shop-close" aria-label="Close" onclick="document.getElementById('shopDialog').close()">×</button><img id="shopModalImage" alt=""><div class="shop-modal-content"><h2 id="shopModalTitle"></h2><p id="shopScheduled"></p><label for="shopFormat">Size / Tamaño</label><select id="shopFormat"></select><div id="shopChoices"></div></div><footer><button class="btn" id="shopApply" onclick="applyShop()">Add to order</button></footer></dialog><button id="shopCartBar" hidden onclick="shopReview()"></button><div id="shopToast" role="status" aria-live="polite"></div>
 <!-- Per-bowl customization modal -->
 <div class="cz-overlay" id="czOverlay" role="dialog" aria-modal="true" aria-labelledby="czName">
   <div class="cz">
@@ -577,59 +579,9 @@ function paintSchedNote(){
   }
 }
 
-let selectedCategory = new URLSearchParams(location.search).get('category') || 'all';
-function selectCategory(key){selectedCategory=key;if(['catering','traditional'].includes(key)){setMode('scheduled');}else renderCatalog();}
-function renderCatalog(){
-  const root = document.getElementById('catalog');
-  $('categoryNote').textContent = selectedCategory==='catering' ? L('Catering packages are available for scheduled delivery. Photos illustrate the food; counts and weights are listed with each item.','Los paquetes de catering requieren entrega programada. Las fotos ilustran el producto; cada artículo indica sus cantidades y pesos.') : '';
-  document.querySelectorAll('.menu-tabs button').forEach(b=>b.classList.toggle('active',b.getAttribute('onclick').includes("'"+selectedCategory+"'")));
-  root.innerHTML = CATALOG.filter(g=>selectedCategory==='all'||g.key===selectedCategory||(selectedCategory==='fit'&&['bowls','drinks','addons'].includes(g.key))).map(g=>`
-    <div class="group"><h2>${L(g.group, g.groupEs||g.group)}</h2>
-      ${g.items.map(i=>{
-        const onD = mode==='ondemand', bowl = isBowl(i.id), rem = remainingFor(i.id);
-        // An owner-set state wins over the daily cap and is NOT gated on same-day mode — a bowl
-        // that is off is off, whether you want it today or next Tuesday.
-        const offMenu = i.available === false;
-        const scheduledOnly = i.id.startsWith('catering_') || i.id.startsWith('traditional_');
-        const soldOut = offMenu || (onD && bowl && avail && rem<=0);
-        let stock='';
-        if(offMenu){
-          stock='<div class="prod-stock out">'+L(i.availLabel, i.availLabelEs)+'</div>';
-        } else if(onD && bowl && avail){
-          if(rem<=0) stock='<div class="prod-stock out">'+L('Sold out today','Agotado hoy')+'</div>';
-          else if(rem<=3) stock='<div class="prod-stock low">'+L('Only '+rem+' left today','Solo quedan '+rem+' hoy')+'</div>';
-          else stock='<div class="prod-stock ok">'+L(rem+' available today',rem+' disponibles hoy')+'</div>';
-        }
-        if(bowl){
-          const n = countBowls(i.id), capped = onD && avail && rem>0 && n>=rem;
-          const incart = n>0 ? '<div class="incart">'+L(n+' in your order',n+' en tu pedido')+'</div>' : '';
-          const control = offMenu
-            ? '<span class="soldout-tag">'+L(i.availLabel, i.availLabelEs)+'</span>'
-            : soldOut
-            ? '<span class="soldout-tag">'+L('Sold out','Agotado')+'</span>'
-            : capped
-              ? '<span class="soldout-tag">'+L('Max today','Máx hoy')+'</span>'
-              : '<button class="customize" onclick="openCz(\''+esc(i.id)+'\')">'+(n>0?L('Add another','Agregar otro'):L('Customize','Personalizar'))+'</button>';
-          return `<div class="prod${soldOut?' soldout':''}">
-            <img class="prod-photo" src="${escHtml(bowlImg(i.id))}" alt="${escHtml(itemName(i))}" loading="lazy" onerror="this.style.display='none'">
-            <div class="prod-info"><div class="prod-name">${escHtml(itemName(i))}</div><div class="prod-desc">${escHtml(L(i.desc, i.descEs||i.desc))}</div>${stock}${incart}</div>
-            <div class="prod-price">${money(i.price)}</div>
-            ${control}
-          </div>`;
-        }
-        return `<div class="prod">
-          ${i.img ? `<img class="prod-photo" src="/assets/img/${escHtml(i.img)}" alt="${escHtml(itemName(i))}" loading="lazy" onerror="this.style.display='none'">` : ''}
-          <div class="prod-info"><div class="prod-name">${escHtml(itemName(i))}</div><div class="prod-desc">${escHtml(L(i.desc, i.descEs||i.desc))}</div></div>
-          <div class="prod-price">${money(i.price)}</div>
-          <div class="stepper">
-            ${(soldOut || (onD && scheduledOnly)) ? `<span>${L(offMenu ? i.availLabel : 'Schedule delivery',offMenu ? i.availLabelEs : 'Programa la entrega')}</span>` : `<button aria-label="Remove one" onclick="bump('${esc(i.id)}',-1)">–</button>
-            <span class="qty" id="q_${escHtml(i.id)}">${addons[i.id]||0}</span>
-            <button aria-label="Add one" onclick="bump('${esc(i.id)}',1)">+</button>`}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`).join('');
-}
+let selectedCategory = new URLSearchParams(location.search).get('category') || 'meals';
+function selectCategory(key){selectedCategory=key;renderCatalog();}
+function renderCatalog(){if(window.renderShopCatalog) window.renderShopCatalog();}
 
 // Steppers are for non-bowl items only (drinks + side sauce). Bowls go through the customize modal.
 function bump(idv, d){
@@ -740,7 +692,7 @@ function renderCart(){
         totalRow=$('cartTotalRow'), taxNote=$('taxNote'), minNote=$('minNote'), btn=$('checkoutBtn');
   const addonIds = Object.keys(addons);
   if (!bowls.length && !addonIds.length){
-    lines.innerHTML = '<div class="cart-empty">'+L('Your cart is empty — add a few bowls.','Tu carrito está vacío — agrega algunos bowls.')+'</div>';
+    lines.innerHTML = '<div class="cart-empty">'+L('Your cart is empty — add a few bowls.','Tu carrito está vacío — elige tu favorito.')+'</div>';
     [subRow,feeRow,taxRow,totalRow,taxNote,minNote].forEach(e=>e.style.display='none'); btn.disabled=true; return;
   }
   let totalCents=0, html='';
@@ -757,6 +709,7 @@ function renderCart(){
     if(!p){ delete addons[idv]; return; }   // item left the catalog after it was added
     const sub=Math.round(p.price*100)*addons[idv]; totalCents+=sub;
     html += '<div class="cart-line"><span class="ci-name">'+escHtml(itemName(p))+' <small>× '+addons[idv]+'</small>'
+      + '<button class="ci-edit" onclick="editShopItem(\''+esc(idv)+'\')">'+L('edit','editar')+'</button>'
       + '<button class="ci-rm" onclick="rmAddon(\''+esc(idv)+'\')">'+L('remove','quitar')+'</button>'
       + '</span><span>'+money(sub/100)+'</span></div>';
   });
@@ -1063,6 +1016,8 @@ window.addEventListener('load', applyMode);
 $('czOverlay').addEventListener('click', function(e){ if(e.target===this) closeCz(); });
 document.addEventListener('keydown', function(e){ if(e.key==='Escape' && cz) closeCz(); });
 </script>
+<script src="/assets/js/shop-families.js"></script>
+<script src="/assets/js/shop-order.js"></script>
 <script src="/assets/js/i18n.js"></script>
 <script src="/assets/js/announce.js" defer></script>
 <script src="/assets/js/consent.js"></script>
