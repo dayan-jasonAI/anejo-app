@@ -46,3 +46,6 @@ Targeted apply.sql and rollback.sql affect only this request's rows. Original im
 | Tostones rellenos — Lechón | $12.95 | 4 crispy plantain cups with lechón; approximately 4 oz filling total. |
 | White rice | $4.00 | 8 oz cooked white rice. Side for one person. |
 | Garbanzos fritos — side | $6.50 | 6 oz chickpeas sautéed with ham, chorizo, onion and pepper. Side for one. |
+
+## Production verification
+Production deployment f17cec38-4e90-43a7-8eb4-c8d148e589c7, source a0b00b3, verified through authenticated Wrangler listing. Live D1 menu returned 140 SKUs and matched every expected price and image; no salami-bite SKU remains active. The environment-variable postdeploy verifier skipped; authenticated deployment inspection and live catalog checks provided independent evidence. No approval is pending. Next: validate new recipe yields and ingredient/labor costs against the proposed portions and prices.
