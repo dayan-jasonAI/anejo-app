@@ -301,6 +301,10 @@ export const onRequestPost = async ({ request, env }) => {
   const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const onDemand = !!(b.fulfillment && b.fulfillment.mode === 'on_demand') || b.mode === 'on_demand';
 
+  if (onDemand && orderItems.some(it => /^(catering_|traditional_)/.test(it.id))) {
+    return bad('Traditional and catering items require scheduled delivery. Please choose a delivery date.', 409);
+  }
+
   let win, dateStr, fulfillmentMode, fulfillLabel;
   // Hoisted: assigned on the scheduled branch, reused for the zip check on BOTH branches. As a
   // const inside the else-block it made every on-demand order throw ReferenceError at the reuse.

@@ -2,6 +2,8 @@
 (function () {
   'use strict';
   var es = {
+    'View trays & packages': 'Ver bandejas y paquetes',
+    'Explore the full menu · Catering, Traditional & Fit →': 'Explora el menú completo · Catering, Traditional y Fit →',
     'Pink first-birthday Añejo Cajita with a Hawaiian roll, empanada, croqueta, creamy party salad, and grazing bite': 'Cajita Añejo rosa de primer cumpleaños con panecillo hawaiano, empanada, croqueta, ensalada fría cremosa y bocado para picar',
     'Choose the direction for the savory bites, Hawaiian roll, side, and accents. Exact items are confirmed with your quote.': 'Elige los bocados salados, el panecillo hawaiano, el acompañamiento y los detalles. Los artículos exactos se confirman con tu cotización.',
     'Our standard Cajita includes a Hawaiian roll with ham spread, a guava-and-cheese empanada (1.25 oz), a ham croqueta (1.20 oz after frying), 6 oz of creamy macaroni salad, one grape, ham, guava, cheese and pineapple skewer, and a 3–4 oz tres leches cup. The event photo shows the standard selection without dessert, which the host opted out of. Change flavors, add duplicates or remove items in the builder. Final pricing is confirmed with your quote.': 'Nuestra cajita estándar incluye un panecillo hawaiano con pasta de jamón, una empanada de guayaba y queso (1.25 oz), una croqueta de jamón (1.20 oz ya frita), 6 oz de ensalada fría de coditos, una brocheta de uva, jamón, guayaba, queso y piña, y un vasito de tres leches de 3–4 oz. La foto del evento muestra la selección estándar sin postre, por decisión del anfitrión. Cambia sabores, agrega unidades o quita artículos en el personalizador. El precio final se confirma con tu cotización.',

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
 <meta name="theme-color" content="#0D0D0D">
 <title>Order — Añejo Catering Co.</title>
-<meta name="description" content="Order Añejo bowls, Añejo Fit drinks, and add-ons for delivery across Palm Beach County — Monday–Saturday, lunch &amp; dinner windows.">
+<meta name="description" content="Order Añejo Catering packages, Traditional Cuban favorites, Fit bowls and drinks for delivery across Palm Beach County — Monday–Saturday, lunch &amp; dinner windows.">
 <link rel="canonical" href="https://anejocateringco.com/order">
 <meta property="og:title" content="Order Añejo — Cuban-American meal prep delivered in Palm Beach County">
 <meta property="og:description" content="Fresh, macro-friendly bowls and cold-pressed drinks delivered Monday–Saturday across Palm Beach County. Order by 6 PM the day before.">
@@ -132,6 +132,9 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filt
 body:has(.cz-overlay.open) .anc-btn,
 body:has(.cz-overlay.open) .anc-tip,
 body:has(.cz-overlay.open) #langToggle{display:none!important}
+.menu-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}.menu-tabs button{border:1px solid #c6a85b;background:transparent;color:inherit;border-radius:24px;padding:10px 16px;cursor:pointer}.menu-tabs button.active{background:#1a3d2e;color:#f5f2ec}.prod-photo{object-fit:cover}#categoryNote{font-size:14px;line-height:1.6;color:#777}
+.wrap>section{min-width:0}.menu-tabs{position:static;background:transparent;backdrop-filter:none;border:0;color:var(--green)}
+@media(max-width:540px){.prod{display:grid;grid-template-columns:66px minmax(0,1fr) auto;gap:8px 12px;padding:12px}.prod .prod-photo{grid-row:1/3}.prod-info{grid-column:2/4}.prod-price{grid-column:2}.prod .stepper,.prod .customize{grid-column:3}.prod-desc{overflow-wrap:anywhere}.wrap{padding-left:16px;padding-right:16px}.menu-tabs button{font-size:12px;padding:9px 12px}}
 </style>
 <script type="application/ld+json">
 {
@@ -171,7 +174,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
 </header>
 
 <div class="wrap">
-  <div id="catalog"></div>
+  <section><nav class="menu-tabs" aria-label="Menu categories"><button onclick="selectCategory('catering')">Añejo Catering</button><button onclick="selectCategory('traditional')">Añejo Traditional</button><button onclick="selectCategory('fit')">Añejo Fit</button><button onclick="selectCategory('all')">All / Todo</button></nav><p id="categoryNote"></p><div id="catalog"></div></section>
 
   <aside class="cart">
     <h3>Your order</h3>
@@ -290,19 +293,21 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
 // fails; it is a last-known-good copy, not a second source of truth. `key` maps a group onto the
 // array /api/menu returns for it.
 const FALLBACK_CATALOG = [
-  { key:'bowls', group:'Bowls (16 oz)', groupEs:'Bowls (16 oz)', items:[
-    {id:'vida',name:'VIDA',price:19.99,desc:'Tuna, mango, quinoa, chickpeas',descEs:'Atún, mango, quinoa, garbanzos'},
-    {id:'fuego',name:'FUEGO',price:22.99,desc:'Grilled steak, chimichurri, quinoa',descEs:'Bistec a la parrilla, chimichurri, quinoa'},
-    {id:'ligero',name:'LIGERO',price:18.99,desc:'Grilled chicken, chimichurri, quinoa',descEs:'Pollo a la parrilla, chimichurri, quinoa'},
-    {id:'mar',name:'MAR',price:22.99,desc:'Omega-rich salmon, quinoa, greens',descEs:'Salmón rico en omega, quinoa, verdes'},
+  { key:'catering', group:'Añejo Catering', groupEs:'Añejo Catering', items:[] },
+  { key:'traditional', group:'Añejo Traditional', groupEs:'Añejo Traditional', items:[] },
+  { key:'bowls', group:'Añejo Fit — Bowls (16 oz)', groupEs:'Bowls (16 oz)', items:[
+    {id:'vida',name:'VIDA',price:22.99,desc:'Tuna, mango, quinoa, chickpeas',descEs:'Atún, mango, quinoa, garbanzos'},
+    {id:'fuego',name:'FUEGO',price:23.99,desc:'Grilled steak, chimichurri, quinoa',descEs:'Bistec a la parrilla, chimichurri, quinoa'},
+    {id:'ligero',name:'LIGERO',price:19.99,desc:'Grilled chicken, chimichurri, quinoa',descEs:'Pollo a la parrilla, chimichurri, quinoa'},
+    {id:'mar',name:'MAR',price:24.99,desc:'Omega-rich salmon, quinoa, greens',descEs:'Salmón rico en omega, quinoa, verdes'},
     {id:'coco',name:'COCO',price:22.99,desc:'Coconut-lime shrimp, quinoa-corn-edamame',descEs:'Camarón coco-limón, quinoa-maíz-edamame'},
     {id:'congreen',name:'CONGREEN',price:20.99,desc:'Quinoa-blueberry congrí, tuna',descEs:'Congrí de quinoa-arándano, atún'},
-    {id:'raiz',name:'RAÍZ',price:18.99,desc:'Crispy tofu, quinoa, slaw, sweet potato',descEs:'Tofu crujiente, quinoa, ensalada, batata'},
+    {id:'raiz',name:'RAÍZ',price:21.99,desc:'Crispy tofu, quinoa, slaw, sweet potato',descEs:'Tofu crujiente, quinoa, ensalada, batata'},
   ]},
   { key:'drinks', group:'Añejo Fit drinks (12 oz)', groupEs:'Bebidas Añejo Fit (12 oz)', items:[
-    {id:'fit_gold',name:'Gold Vitality',price:9.99,img:'fit_gold.jpg',desc:'Pineapple · ginger · turmeric',descEs:'Piña · jengibre · cúrcuma'},
-    {id:'fit_hibiscus',name:'Hibiscus Zen',price:9.99,img:'fit_hibiscus.jpg',desc:'Hibiscus · lime · ginger · mint',descEs:'Hibisco · limón · jengibre · menta'},
-    {id:'fit_emerald',name:'Emerald Hydrate',price:9.99,img:'fit_emerald.jpg',desc:'Cucumber · mint · lemon · chia',descEs:'Pepino · menta · limón · chía'},
+    {id:'fit_gold',name:'Gold Vitality',price:7.49,img:'fit_gold.jpg',desc:'Pineapple · ginger · turmeric',descEs:'Piña · jengibre · cúrcuma'},
+    {id:'fit_hibiscus',name:'Hibiscus Zen',price:7.49,img:'fit_hibiscus.jpg',desc:'Hibiscus · lime · ginger · mint',descEs:'Hibisco · limón · jengibre · menta'},
+    {id:'fit_emerald',name:'Emerald Hydrate',price:7.49,img:'fit_emerald.jpg',desc:'Cucumber · mint · lemon · chia',descEs:'Pepino · menta · limón · chía'},
   ]},
   { key:'addons', group:'Add-ons', groupEs:'Extras', items:[
     {id:'sauce_extra',name:'Extra Signature Sauce',price:1.50,desc:'2 oz · on the side',descEs:'2 oz · aparte'},
@@ -358,7 +363,7 @@ const addons = {};  // non-bowl items (drinks + side sauce): id -> qty
 const TAX_PCT = 7;  // display estimate only; checkout.js (server) applies the authoritative tax
 const DELIVERY_FEE = 5, ORDER_MIN = 25;  // display only; server (checkout.js) is authoritative
 const BOWL_IDS = ['vida','fuego','ligero','mar','coco','congreen','raiz'];  // capped items (mirrors _lib/ondemand.js)
-let mode = 'ondemand';   // 'ondemand' = make-now today · 'scheduled' = pick a day/window
+let mode = ['catering','traditional'].includes(new URLSearchParams(location.search).get('category')) ? 'scheduled' : 'ondemand';   // 'ondemand' = make-now today · 'scheduled' = pick a day/window
 let avail = null;        // { open, openHour, closeHour, limit, remaining, date } from /api/order-availability
 let sched = null;        // owner-set operating rules: delivery days, order-by deadline, windows, closures
 let temp  = null;        // an active temporary override (expires on its own), if any
@@ -448,7 +453,7 @@ async function loadCatalog(){
       // A bowl with no local BUILDS entry can't be customized here — and checkout's
       // priceCustomBowl would reject it anyway, since bowlspec.js is code, not data. Skip it
       // rather than render something unbuyable.
-      items: (d[g.key]||[]).map(fromApi).filter(i=>g.key!=='bowls' || !!BUILDS[i.id]),
+      items: (g.key==='catering' ? (d.addons||[]).filter(i=>i.id.startsWith('catering_')) : g.key==='traditional' ? (d.addons||[]).filter(i=>i.id.startsWith('traditional_')) : g.key==='addons' ? (d.addons||[]).filter(i=>!i.id.startsWith('traditional_')&&!i.id.startsWith('catering_')) : (d[g.key]||[])).map(fromApi).filter(i=>g.key!=='bowls' || !!BUILDS[i.id]),
     }));
     // `source:'fallback'` means D1 didn't answer, and in that mode /api/menu carries no item rows.
     // Keep what we painted rather than blanking the storefront.
@@ -572,15 +577,20 @@ function paintSchedNote(){
   }
 }
 
+let selectedCategory = new URLSearchParams(location.search).get('category') || 'all';
+function selectCategory(key){selectedCategory=key;if(['catering','traditional'].includes(key)){setMode('scheduled');}else renderCatalog();}
 function renderCatalog(){
   const root = document.getElementById('catalog');
-  root.innerHTML = CATALOG.map(g=>`
+  $('categoryNote').textContent = selectedCategory==='catering' ? L('Catering packages are available for scheduled delivery. Photos illustrate the food; counts and weights are listed with each item.','Los paquetes de catering requieren entrega programada. Las fotos ilustran el producto; cada artículo indica sus cantidades y pesos.') : '';
+  document.querySelectorAll('.menu-tabs button').forEach(b=>b.classList.toggle('active',b.getAttribute('onclick').includes("'"+selectedCategory+"'")));
+  root.innerHTML = CATALOG.filter(g=>selectedCategory==='all'||g.key===selectedCategory||(selectedCategory==='fit'&&['bowls','drinks','addons'].includes(g.key))).map(g=>`
     <div class="group"><h2>${L(g.group, g.groupEs||g.group)}</h2>
       ${g.items.map(i=>{
         const onD = mode==='ondemand', bowl = isBowl(i.id), rem = remainingFor(i.id);
         // An owner-set state wins over the daily cap and is NOT gated on same-day mode — a bowl
         // that is off is off, whether you want it today or next Tuesday.
         const offMenu = i.available === false;
+        const scheduledOnly = i.id.startsWith('catering_') || i.id.startsWith('traditional_');
         const soldOut = offMenu || (onD && bowl && avail && rem<=0);
         let stock='';
         if(offMenu){
@@ -612,9 +622,9 @@ function renderCatalog(){
           <div class="prod-info"><div class="prod-name">${escHtml(itemName(i))}</div><div class="prod-desc">${escHtml(L(i.desc, i.descEs||i.desc))}</div></div>
           <div class="prod-price">${money(i.price)}</div>
           <div class="stepper">
-            <button aria-label="Remove one" onclick="bump('${esc(i.id)}',-1)">–</button>
+            ${(soldOut || (onD && scheduledOnly)) ? `<span>${L(offMenu ? i.availLabel : 'Schedule delivery',offMenu ? i.availLabelEs : 'Programa la entrega')}</span>` : `<button aria-label="Remove one" onclick="bump('${esc(i.id)}',-1)">–</button>
             <span class="qty" id="q_${escHtml(i.id)}">${addons[i.id]||0}</span>
-            <button aria-label="Add one" onclick="bump('${esc(i.id)}',1)">+</button>
+            <button aria-label="Add one" onclick="bump('${esc(i.id)}',1)">+</button>`}
           </div>
         </div>`;
       }).join('')}
@@ -623,6 +633,7 @@ function renderCatalog(){
 
 // Steppers are for non-bowl items only (drinks + side sauce). Bowls go through the customize modal.
 function bump(idv, d){
+  if(d>0 && (!PRICE[idv] || PRICE[idv].available===false || (mode==='ondemand' && /^(catering_|traditional_)/.test(idv)))) return;
   let q = (addons[idv]||0) + d;
   if (q<0) q=0; if (q>20) q=20;
   if (q<=0) delete addons[idv]; else addons[idv]=q;
