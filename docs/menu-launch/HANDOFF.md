@@ -25,3 +25,12 @@ Production costs remain estimates, not measured profitability. Proposed unconfir
 
 ## Concurrent release preserved
 Merged origin/main 9cce3d7 before deployment. That release confirms 6 oz Cajita salad and ham croqueta, superseding the earlier portion uncertainty above. Added ham croqueta single/25/50 formats at the same $2.50/$40/$75 croqueta price: total 79 new SKUs. Cajita pricing remains quote-based in its existing builder. Both sets of bilingual dictionary entries retained.
+
+## Publication verified
+Production deployment 9060afa0-b649-45cb-9f63-b2f20a617d1f from 63cd72e; Wrangler authenticated deployment listing confirms Production/main. Automatic postdeploy verification lacked API-token environment variables, so authenticated Wrangler listing plus live content checks were used instead. Guarded deploy passed all 1,893 tests. Initial upload connection failure was retried successfully.
+
+D1 activation succeeded: 79 new SKUs, 90 total active catalog items, existing Fit prices unchanged. Live gallery shows 54 Catering and 25 Traditional entries. Existing sauce card received a product image without changing its price. Live browser confirmed $8.00 for one 6 oz cold salad and one ham croqueta, scheduled mode, no horizontal overflow and no page errors. No checkout/payment request submitted. See live-checks.json, live-catalog.json and live mobile screenshots.
+
+Live verification script passed its public checks; optional contract database checks were skipped (outside this menu scope). The menu database was independently queried and all 79 prices checked. Main branch and release branch pushed at 63cd72e.
+
+No additional approval needed for this authorized release. Remaining business next step: measure recipe yields/packaging and review margins after initial orders; Cajita/custom services stay quote-based and development items remain unlisted.
