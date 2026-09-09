@@ -52,6 +52,31 @@ function etMinutes(ms) {
 function dowMon(dateStr) { const d = new Date(dateStr + 'T12:00:00Z').getUTCDay(); return ((d + 6) % 7) + 1; }
 function cutoffMin(s) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '09:00')); return m ? (Math.min(23, +m[1]) * 60 + Math.min(59, +m[2])) : 540; }
 
+// TWO CUTOFFS, AND THEY DO DIFFERENT JOBS.
+//
+//   site.cutoff_time (09:00 by default) is SOFT — a count submitted after it still goes through,
+//   it just carries a rush fee. It is a pricing rule.
+//
+//   HARD_CUTOFF_TIME is a LOCK. After it, today's count is what the kitchen is building and the
+//   office cannot move it from the intake page at all. It exists because the soft cutoff was the
+//   only one there was: an office could raise its count at any hour, including after the truck
+//   had left, and the first thing anyone knew about it was a short delivery. The number the
+//   kitchen builds, the number the driver carries and the number on the invoice have to be the
+//   same number, and that is only true if there is a moment after which the number stops moving.
+//
+// 10:45 ET, set by Dayan 2026-09-09, against an 11:30–12:30 delivery window: late enough for an
+// office to do a real morning head count, early enough that a change still fits in a tray.
+// Business-wide on purpose — one number every office can be told and every cook can trust. A site
+// whose window moves later can carry its own `hard_cutoff_time`; nothing sets that column today.
+export const HARD_CUTOFF_TIME = '10:45';
+function hardCutoffMin(site) {
+  return cutoffMin((site && site.hard_cutoff_time) || HARD_CUTOFF_TIME);
+}
+// Is today's count locked against further self-service changes? Clock only — the caller decides
+// what to do about it. The owner's own override path (ownerSetHeadcount) never consults this.
+function countLocked(site, ms) { return etMinutes(ms) >= hardCutoffMin(site); }
+function hardCutoffLabel(site) { return (site && site.hard_cutoff_time) || HARD_CUTOFF_TIME; }
+
 // ISO-ish week index for the rotating menu. Anchored so it advances one per calendar week.
 function weekIndex(dateStr) { return Math.floor(Date.parse(dateStr + 'T00:00:00Z') / 86400000 / 7); }
 
@@ -184,15 +209,72 @@ async function announceCountRaised(env, { orderId, site, date, count, added, t }
   } catch { /* never block recording the order */ }
 }
 
+// An office tried to set or change today's count after the hard cutoff and was refused.
+//
+// The refusal is correct and the number does not move. But a refusal nobody hears is how a client
+// quietly stops being a client: they wanted two more lunches, a form said no, and the first we
+// learn of it is the tone of the next renewal conversation. So the attempt is recorded on the
+// append-only audit trail — the same trail that answers "what did they actually ask for" six
+// weeks later at invoice time — and somebody is told while there is still time to say yes on the
+// phone.
+//
+// Two shapes, and the worse one is the quiet one: a site with NO count recorded at all is an
+// office that is getting no lunch today unless a person acts, so that is critical. A change to a
+// count we are already building is a warning — the food exists, the question is only whether we
+// can stretch it.
+//
+// Deduped per site per day, not per attempt: a contact who taps submit four times has one problem,
+// not four, and an alert that fires per tap is an alert people learn to swipe away. The audit trail
+// keeps every attempt; the alert is the doorbell, not the ledger.
+async function lockedOutAttempt(env, { site, account, date, count, notes, name, phone, verified, deviceId, ip, userAgent }) {
+  const row = await env.DB.prepare('SELECT headcount FROM contract_orders WHERE site_id = ? AND service_date = ?')
+    .bind(site.id, date).first().catch(() => null);
+  const current = row && row.headcount != null ? Number(row.headcount) : null;
+
+  await writeEvent(env, {
+    site_id: site.id, account_id: account && account.id, service_date: date,
+    order_id: `octr_${site.id}_${date}`, event: 'locked_out', headcount: current,
+    notes: `Asked for ${count} after the ${hardCutoffLabel(site)} cutoff${current != null ? ` (on file: ${current})` : ' (nothing on file)'}${notes ? ` · ${String(notes).trim().slice(0, 200)}` : ''}`,
+    name: (name || 'web').toString().trim().slice(0, 80), phone: phone || site.contact_phone || null,
+    verified: verified ? 1 : 0, device_id: deviceId || null, confirmation_no: null, ip, user_agent: userAgent,
+  });
+
+  // Re-submitting the number we already have is not a request for anything. Stay quiet.
+  if (current != null && current === count) return { current };
+
+  const where = `${site.name} · ${date}`;
+  try {
+    await raiseAlert(env, {
+      alert_type: 'contract_count_locked',
+      severity: current == null ? 'critical' : 'warning',
+      team: 'kitchen',
+      ref_type: 'contract_site',
+      ref_id: site.id,
+      source: 'contract',
+      dedupe_key: `contract_count_locked:${site.id}:${date}`,
+      title: current == null
+        ? 'Office ordered after cutoff — nothing is being made for them / Oficina pidió después del corte — no se está preparando nada'
+        : 'Late count change refused — call the office / Cambio de conteo tardío rechazado — llama a la oficina',
+      body: current == null
+        ? `${where}: asked for ${count} lunches after the ${hardCutoffLabel(site)} cutoff and there is NO count on file, so nothing is being built. They are expecting lunch. Call them, then set the count from Contracts if you agree to it. / Pidió ${count} almuerzos después del corte de las ${hardCutoffLabel(site)} y no hay conteo registrado, así que no se está preparando nada. Están esperando el almuerzo. Llámalos y luego ingresa el conteo desde Contratos si aceptas.`
+        : `${where}: wanted ${count} lunches, we are building ${current}. Refused at the ${hardCutoffLabel(site)} cutoff. If the kitchen can still cover it, call them back and set it from Contracts — the form will not. / Quería ${count} almuerzos, estamos preparando ${current}. Rechazado por el corte de las ${hardCutoffLabel(site)}. Si la cocina todavía puede, llámalos y ajústalo desde Contratos — el formulario no lo hará.`,
+      url: '/hub/owner/contracts.html',
+      notifyRoles: ['kitchen'],
+    });
+  } catch { /* the refusal already stands; never let telemetry change the answer */ }
+
+  return { current };
+}
+
 // NO MONEY IN THIS MESSAGE. The office contact who confirms a headcount is not the person who
 // approves spending — pricing, delivery and rush fees are between Añejo and the account's
 // decision-maker, and reach them on the invoice. A texted dollar total puts a number in front of
 // whoever happens to hold that phone.
 function receiptBody(lang, r) {
   if (lang === 'es') {
-    return `Añejo Catering ✅ Pedido confirmado\n${r.site} · ${r.weekday} ${r.date}\n${r.count} almuerzos${r.is_rush ? ' (urgente)' : ''}\nPor: ${r.name} · ${r.time}\nConf# ${r.confirmation_no}\n¿Cambios? Deben entrar antes de las ${r.cutoff}.`;
+    return `Añejo Catering ✅ Pedido confirmado\n${r.site} · ${r.weekday} ${r.date}\n${r.count} almuerzos${r.is_rush ? ' (urgente)' : ''}\nPor: ${r.name} · ${r.time}\nConf# ${r.confirmation_no}\n¿Cambios? Antes de las ${r.cutoff} AM por favor — máximo ${r.hard_cutoff} AM, después llámanos.`;
   }
-  return `Añejo Catering ✅ Order confirmed\n${r.site} · ${r.weekday} ${r.date}\n${r.count} lunches${r.is_rush ? ' (rush)' : ''}\nBy: ${r.name} · ${r.time}\nConf# ${r.confirmation_no}\nNeed a change? Must be in by ${r.cutoff}.`;
+  return `Añejo Catering ✅ Order confirmed\n${r.site} · ${r.weekday} ${r.date}\n${r.count} lunches${r.is_rush ? ' (rush)' : ''}\nBy: ${r.name} · ${r.time}\nConf# ${r.confirmation_no}\nChanges by ${r.cutoff} AM please — ${r.hard_cutoff} AM at the latest, then call us.`;
 }
 function otpBody(lang, code, site) {
   if (lang === 'es') return `Código Añejo: ${code}. Ingrésalo para confirmar el pedido de almuerzo de hoy (${site}). Vence en 10 min. No lo compartas.`;
@@ -495,9 +577,22 @@ export async function processIntake(env, { token, count, notes, name, phone, sta
   // First contact: cheaply validate the count BEFORE texting a code (don't burn an SMS on a bad input).
   const n = Math.floor(Number(count));
   if (!Number.isFinite(n) || n < 1 || n > 500) return { ok: false, error: 'Enter a head count between 1 and 500.' };
-  const date = etToday(typeof nowMs === 'number' ? nowMs : now());
+  const t = typeof nowMs === 'number' ? nowMs : now();
+  const date = etToday(t);
   const days = parseDeliveryDays(site.delivery_days || 'mon,tue,wed');
   if (!days.includes(DOW_NAMES[dowMon(date) - 1])) return { ok: false, error: `No delivery is scheduled for ${site.name} today.` };
+  // Past the hard cutoff there is nothing a correct code could authorize, so the code is not
+  // sent. Texting a stranger a 6-digit password to unlock a refusal is how a security step gets
+  // a reputation for being pointless. The attempt is still recorded and alerted, exactly as it
+  // would be on a verified device — submitHeadcount below is the same wall, reached a step later.
+  if (countLocked(site, t)) {
+    const locked = await lockedOutAttempt(env, { site, account, date, count: n, notes, name, phone, verified: 0, deviceId: null, ip, userAgent });
+    return {
+      ok: false, locked: true, hard_cutoff: hardCutoffLabel(site),
+      count: locked.current, requested: n,
+      error: `Today's count closed at ${hardCutoffLabel(site)} AM and the kitchen is already building it. Please call Añejo to change it.`,
+    };
+  }
   return await requestIntakeOtp(env, { token, name, phone, staff_id, lang, nowMs });
 }
 
@@ -521,6 +616,28 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
   const days = parseDeliveryDays(site.delivery_days || 'mon,tue,wed');
   if (!days.includes(DOW_NAMES[dow - 1])) {
     return { ok: false, error: `No delivery is scheduled for ${site.name} today.` };
+  }
+
+  // THE HARD CUTOFF. Past it, today's count is frozen and this page cannot move it.
+  //
+  // Everything below this line writes: the kitchen order, the per-bowl checklist, the invoice
+  // ledger. Refusing here — before any of it — is the whole point. Once the kitchen has built to
+  // a number, a silent edit does not change the food, it only makes the paperwork disagree with
+  // the tray, which is exactly the failure the checklist reconcile above was written to catch
+  // after the fact. This stops it happening.
+  //
+  // The office is not stonewalled: the refusal names the deadline and tells them to call, and the
+  // attempt is recorded and alerted so somebody on our side knows a change was wanted even if
+  // they never pick up the phone. The owner can still set any count for any date from the Hub
+  // (ownerSetHeadcount) — a human agreeing to a late change is a different act from a form
+  // silently accepting one.
+  if (countLocked(site, t)) {
+    const locked = await lockedOutAttempt(env, { site, account, date, count: n, notes, name, phone, verified, deviceId, ip, userAgent });
+    return {
+      ok: false, locked: true, hard_cutoff: hardCutoffLabel(site),
+      count: locked.current, requested: n,
+      error: `Today's count closed at ${hardCutoffLabel(site)} AM and the kitchen is already building it. Please call Añejo to change it.`,
+    };
   }
 
   const isRush = etMinutes(t) >= cutoffMin(site.cutoff_time);
@@ -608,7 +725,8 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
   let receipt_sent = false;
   const body = receiptBody(lang, {
     site: site.name, weekday, date, count: n, total_cents: total, is_rush: isRush,
-    name: submitter, time: etClock(t), confirmation_no, cutoff: site.cutoff_time || '09:00',
+    name: submitter, time: etClock(t), confirmation_no,
+    cutoff: site.cutoff_time || '09:00', hard_cutoff: hardCutoffLabel(site),
   });
   const submitterPhone = normalizePhone(phone);
   const primaryPhone = normalizePhone(site.contact_phone);
@@ -684,6 +802,10 @@ export async function siteContext(env, token, nowMs, opts = {}) {
     ok: true, account: (account && account.name) || '', site: site.name, date, weekday: DOW_LABEL[dow - 1],
     delivers_today: deliversToday, window: site.window_label || '11:30–12:30',
     cutoff: site.cutoff_time || '09:00', past_cutoff: pastCutoff,
+    // The lock, so the page can close the form instead of letting somebody type a number, tap
+    // submit and only then be told it was too late. `already` below still comes back, because the
+    // most useful thing a locked page can show is what we ARE bringing them.
+    hard_cutoff: hardCutoffLabel(site), count_locked: countLocked(site, t),
     // price_per_lunch_cents is intentionally NOT returned — see the note on submitHeadcount.
     already: existing ? { count: existing.headcount, is_rush: !!existing.is_rush, notes: existing.notes || null } : null,
     month,
