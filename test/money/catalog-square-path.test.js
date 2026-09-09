@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { onRequestPost } from '../../functions/api/checkout.js';
 import { makeD1 } from '../helpers/d1.js';
-const catalog=JSON.parse(readFileSync(new URL('../../docs/homepage-refinement/catalog-snapshot.json',import.meta.url)));
+const catalog=JSON.parse(readFileSync(new URL('../../docs/menu-corrections/expected.json',import.meta.url)));
 const rows=['bowls','drinks','addons'].flatMap((group)=>catalog[group].map(x=>({...x,kind:group==='bowls'?'bowl':group==='drinks'?'drink':'addon',price_cents:Math.round(x.price*100),active:1})));
 test('every live catalog SKU reaches the Square adapter at server price and records an order (mock provider)',async()=>{
  const realFetch=globalThis.fetch;let payload;

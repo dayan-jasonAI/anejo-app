@@ -1,0 +1,329 @@
+[
+  {
+    "id": "catering_combo-bites75",
+    "image": "menu-launch/combo-bites.webp"
+  },
+  {
+    "id": "catering_combo-bites150",
+    "image": "menu-launch/combo-bites.webp"
+  },
+  {
+    "id": "catering_combo-table10",
+    "image": "menu-launch/combo-table.webp"
+  },
+  {
+    "id": "catering_combo-table25",
+    "image": "menu-launch/combo-table.webp"
+  },
+  {
+    "id": "catering_combo-table50",
+    "image": "menu-launch/combo-table.webp"
+  },
+  {
+    "id": "catering_combo-tamal-croq",
+    "image": "menu-launch/combo-tamal.webp"
+  },
+  {
+    "id": "catering_combo-dessert24",
+    "image": "menu-launch/combo-dessert.webp"
+  },
+  {
+    "id": "traditional_combo-bites-snack",
+    "image": "menu-launch/combo-snack.webp"
+  },
+  {
+    "id": "traditional_croq-pollo",
+    "image": "menu-launch/croqueta-single.webp"
+  },
+  {
+    "id": "traditional_croq-jamon",
+    "image": "menu-launch/croqueta-single.webp"
+  },
+  {
+    "id": "catering_croq-pollo-25",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "catering_croq-jamon-25",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "catering_croq-pollo-50",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "catering_croq-jamon-50",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "traditional_croq-res",
+    "image": "menu-launch/croqueta-single.webp"
+  },
+  {
+    "id": "catering_croq-res-25",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "catering_croq-res-50",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "traditional_dressed",
+    "active": 0
+  },
+  {
+    "id": "catering_dressed-25",
+    "image": "menu-launch/tray-dressed.webp"
+  },
+  {
+    "id": "catering_dressed-50",
+    "image": "menu-launch/tray-dressed.webp"
+  },
+  {
+    "id": "traditional_emp-guava",
+    "image": "menu-launch/empanada-single.webp"
+  },
+  {
+    "id": "catering_emp-guava-25",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_emp-guava-50",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_bocadito-25",
+    "image": "menu-launch/tray-bocaditos.webp"
+  },
+  {
+    "id": "catering_bocadito-50",
+    "image": "menu-launch/tray-bocaditos.webp"
+  },
+  {
+    "id": "traditional_salami",
+    "active": 0
+  },
+  {
+    "id": "catering_salami-25",
+    "active": 0
+  },
+  {
+    "id": "catering_salami-50",
+    "active": 0
+  },
+  {
+    "id": "traditional_croq-chorizo",
+    "image": "menu-launch/croqueta-single.webp"
+  },
+  {
+    "id": "catering_croq-chorizo-25",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "catering_croq-chorizo-50",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "traditional_croq-sausage",
+    "image": "menu-launch/croqueta-single.webp"
+  },
+  {
+    "id": "catering_croq-sausage-25",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "catering_croq-sausage-50",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "traditional_croq-tuna",
+    "image": "menu-launch/croqueta-single.webp"
+  },
+  {
+    "id": "catering_croq-tuna-25",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "catering_croq-tuna-50",
+    "image": "menu-launch/tray-croquetas.webp"
+  },
+  {
+    "id": "traditional_emp-cheese",
+    "image": "menu-launch/empanada-single.webp"
+  },
+  {
+    "id": "catering_emp-cheese-25",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_emp-cheese-50",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "traditional_emp-ham",
+    "image": "menu-launch/empanada-single.webp"
+  },
+  {
+    "id": "catering_emp-ham-25",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_emp-ham-50",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "traditional_emp-tuna",
+    "image": "menu-launch/empanada-single.webp"
+  },
+  {
+    "id": "catering_emp-tuna-25",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_emp-tuna-50",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "traditional_emp-pollo",
+    "image": "menu-launch/empanada-single.webp"
+  },
+  {
+    "id": "catering_emp-pollo-25",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_emp-pollo-50",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "traditional_emp-res",
+    "image": "menu-launch/empanada-single.webp"
+  },
+  {
+    "id": "catering_emp-res-25",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_emp-res-50",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "traditional_emp-ham-cheese",
+    "image": "menu-launch/empanada-single.webp"
+  },
+  {
+    "id": "catering_emp-ham-cheese-25",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_emp-ham-cheese-50",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "traditional_emp-guava-only",
+    "image": "menu-launch/empanada-single.webp"
+  },
+  {
+    "id": "catering_emp-guava-only-25",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_emp-guava-only-50",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "traditional_emp-ropa-vieja",
+    "image": "menu-launch/empanada-single.webp"
+  },
+  {
+    "id": "catering_emp-ropa-vieja-25",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_emp-ropa-vieja-50",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "traditional_emp-pulled-pork",
+    "image": "menu-launch/empanada-single.webp"
+  },
+  {
+    "id": "catering_emp-pulled-pork-25",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_emp-pulled-pork-50",
+    "image": "menu-launch/tray-empanadas.webp"
+  },
+  {
+    "id": "catering_skewer-25",
+    "image": "menu-launch/tray-skewers.webp"
+  },
+  {
+    "id": "catering_skewer-50",
+    "image": "menu-launch/tray-skewers.webp"
+  },
+  {
+    "id": "traditional_congri",
+    "image": "menu-launch/congri-single.webp"
+  },
+  {
+    "id": "traditional_yuca",
+    "image": "menu-launch/yuca-single.webp"
+  },
+  {
+    "id": "traditional_fria",
+    "price_cents": 500,
+    "name": "Ensalada fría",
+    "name_es": "Ensalada fría",
+    "image": "menu-launch/fria-single.webp"
+  },
+  {
+    "id": "catering_fria-10",
+    "image": "menu-launch/tray-fria.webp"
+  },
+  {
+    "id": "catering_fria-25",
+    "image": "menu-launch/tray-fria.webp"
+  },
+  {
+    "id": "traditional_verde",
+    "image": "menu-launch/salad-side.webp"
+  },
+  {
+    "id": "traditional_tamal",
+    "image": "menu-launch/tamal-single.webp"
+  },
+  {
+    "id": "traditional_pizza",
+    "image": "menu-launch/pizza-plated.webp"
+  },
+  {
+    "id": "catering_pizza-3",
+    "image": "menu-launch/pizza-plated.webp"
+  },
+  {
+    "id": "traditional_cup-fresa",
+    "image": "menu-launch/cup-fresa.webp"
+  },
+  {
+    "id": "traditional_cake-fresa",
+    "image": "menu-launch/cake-fresa.webp"
+  },
+  {
+    "id": "catering_cake-fresa-c",
+    "image": "menu-launch/cake-fresa.webp"
+  },
+  {
+    "id": "traditional_cup-chocolate",
+    "image": "menu-launch/cup-chocolate.webp"
+  },
+  {
+    "id": "traditional_cake-chocolate",
+    "image": "menu-launch/cake-chocolate.webp"
+  },
+  {
+    "id": "catering_cake-chocolate-c",
+    "image": "menu-launch/cake-chocolate.webp"
+  }
+]
