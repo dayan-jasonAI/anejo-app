@@ -87,6 +87,12 @@ export const ALERT_TYPES = [
   // 'critical' only in the case that cannot be absorbed — the order had already been handed off
   // for loadout, so the office is going to be short unless someone acts.
   'contract_count_changed',
+  // A contract site tried to set or change today's count AFTER the hard cutoff and the intake
+  // page refused it (_lib/contract.js:lockedOutAttempt). The refusal is the correct answer and
+  // the number does not move — this exists so the request still reaches a human who can say yes
+  // on the phone. 'critical' when the site has NO count on file at all, because then nothing is
+  // being made for an office that is expecting lunch.
+  'contract_count_locked',
   'kitchen_ready_delivery', 'new_order', 'new_paid_order', 'subscription_payment', 'contract_roster_changed',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
