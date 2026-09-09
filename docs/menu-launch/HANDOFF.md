@@ -34,3 +34,17 @@ D1 activation succeeded: 79 new SKUs, 90 total active catalog items, existing Fi
 Live verification script passed its public checks; optional contract database checks were skipped (outside this menu scope). The menu database was independently queried and all 79 prices checked. Main branch and release branch pushed at 63cd72e.
 
 No additional approval needed for this authorized release. Remaining business next step: measure recipe yields/packaging and review margins after initial orders; Cajita/custom services stay quote-based and development items remain unlisted.
+
+## 2026-09-09 — Cajita draft pricing follow-up (not deployed)
+
+Direct-session request: Dayan asked to do automatic Cajita pricing next. Created
+an isolated pure pricing prototype, eight tests, reproducible packaging scenario,
+and `cajita-price-proposal-2026-09-09.md`. No existing application code changed.
+Proposed $17.50 standard / $19.50 preset-printed schedule and removal credits
+await Dayan confirmation; no production price or checkout authorization changed.
+While waiting, validated mixed versions, duplicates, removals, unknown-price
+handling and fulfillment gating. Full suite: 1,935 passed, zero failed. Lint:
+zero errors, two existing vendor warnings. `git diff --check` passed; packaging
+scenario assertion passed. Main remaining risks: unmeasured full costs, unapproved
+component price allocation, box-fit/stock and end-to-end payment/notification proof.
+Next: approve or revise the proposal before integrating server-owned checkout.
