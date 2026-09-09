@@ -286,6 +286,90 @@
     refresh();
   }
 
+  // ---------- unsaved edits ----------
+  //
+  // WHY THIS EXISTS (2026-09-09). Dayan edited the whole menu and lost all of it.
+  //
+  // Every row has its own Save button, and `render()` rebuilds every input from server data. It
+  // runs when you save ANY row and when you switch category tab. So editing thirty rows and then
+  // saving one discarded the other twenty-nine, instantly and silently — as did clicking from
+  // Bowls to Drinks. Nothing was stored anywhere: no draft, no warning, no prompt on the way out.
+  // The only hint was a small "not saved" beside a changed PRICE; a renamed bowl or a rewritten
+  // description showed nothing at all.
+  //
+  // Edits now live here, keyed by item id, and every render seeds its inputs from this map first.
+  // A re-render, a tab switch and a save on another row all leave them standing. Nothing is sent
+  // to the server until a Save — this is a buffer, not an autosave.
+  var pending = {};
+
+  // Every editable field: how to read it off the row, and how to read the SAVED value it is
+  // compared against. One list so a new field cannot be added to the form and forgotten here,
+  // which is how "the price is marked dirty but the name isn't" happened in the first place.
+  var FIELDS = [
+    { k: 'price',          el: 'p_',  saved: function (it) { return (it.price_cents / 100).toFixed(2); } },
+    { k: 'stock_count',    el: 'q_',  saved: function (it) { return it.stock_count == null ? '' : String(it.stock_count); } },
+    { k: 'availability',   el: 'av_', saved: function (it) { return it.availability || 'available'; } },
+    { k: 'name',           el: 'n_',  saved: function (it) { return it.name || ''; } },
+    { k: 'name_es',        el: 'ne_', saved: function (it) { return it.name_es || ''; } },
+    { k: 'description',    el: 'd_',  saved: function (it) { return it.description || ''; } },
+    { k: 'description_es', el: 'de_', saved: function (it) { return it.description_es || ''; } },
+    { k: 'image',          el: 'i_',  saved: function (it) { return it.image || ''; } },
+    { k: 'sort',           el: 's_',  saved: function (it) { return String(it.sort == null ? 100 : it.sort); } },
+    { k: 'active',         el: 'a_',  saved: function (it) { return !!it.active; }, bool: true }
+  ];
+
+  // What this row's inputs should show: the unsaved edit if there is one, else what is saved.
+  function shown(it, key) {
+    var f = FIELDS.filter(function (x) { return x.k === key; })[0];
+    var buf = pending[it.id];
+    return (buf && key in buf) ? buf[key] : f.saved(it);
+  }
+
+  // Which fields on this row differ from what is saved. Drives the badges, the count and the
+  // Save-all payloads, so all three can never disagree about what "changed" means.
+  function dirtyFields(it) {
+    var buf = pending[it.id];
+    if (!buf) return [];
+    return FIELDS.filter(function (f) {
+      return (f.k in buf) && String(buf[f.k]) !== String(f.saved(it));
+    }).map(function (f) { return f.k; });
+  }
+
+  function dirtyItems() {
+    return (data.items || []).filter(function (it) { return dirtyFields(it).length; });
+  }
+
+  // Record a keystroke into the buffer. Dropping a field back to its saved value removes it, so
+  // typing a change and undoing it does not leave the page claiming unsaved work forever.
+  function noteEdit(it, key, value) {
+    if (!pending[it.id]) pending[it.id] = {};
+    pending[it.id][key] = value;
+    var f = FIELDS.filter(function (x) { return x.k === key; })[0];
+    if (String(value) === String(f.saved(it))) delete pending[it.id][key];
+    if (!Object.keys(pending[it.id]).length) delete pending[it.id];
+    paintDirty();
+  }
+
+  // The bar that says how much is unsaved, and the per-row marks. Repainted in place rather than
+  // through render(), so typing never rebuilds the field being typed into.
+  function paintDirty() {
+    var items = dirtyItems();
+    var bar = $('#mn-unsaved');
+    if (bar) {
+      bar.style.display = items.length ? 'flex' : 'none';
+      var label = $('#mn-unsaved-text');
+      if (label) {
+        label.textContent = items.length === 1
+          ? '1 unsaved change — ' + items[0].name
+          : items.length + ' unsaved changes — ' + items.map(function (i) { return i.name; }).join(', ');
+      }
+    }
+    (data.items || []).forEach(function (it) {
+      var mark = $('#dirty_' + it.id);
+      if (mark) mark.style.display = dirtyFields(it).length ? '' : 'none';
+    });
+  }
+
   // ---------- items ----------
   function paintItems(kind) {
     var items = data.items.filter(function (i) { return i.kind === kind; });
@@ -293,12 +377,122 @@
       $('#pane').innerHTML = '<div class="card accent"><p data-i18n>Nothing in this group yet — use “+ New item”.</p></div>';
       return;
     }
-    $('#pane').innerHTML = items.map(itemCard).join('');
+    $('#pane').innerHTML = unsavedBar() + items.map(itemCard).join('');
+    wireUnsavedBar();
     items.forEach(function (it) {
-      var price = $('#p_' + it.id);
-      price.addEventListener('input', function () { preview(it); });
+      // EVERY field, not just the price. A renamed bowl used to leave no trace on the page at
+      // all, so there was nothing to tell you it was about to be thrown away.
+      FIELDS.forEach(function (f) {
+        var el = $('#' + f.el + it.id);
+        if (!el) return;
+        el.addEventListener(f.bool ? 'change' : 'input', function () {
+          noteEdit(it, f.k, f.bool ? el.checked : el.value);
+          if (f.k === 'price') preview(it);
+        });
+        if (!f.bool && el.tagName === 'SELECT') el.addEventListener('change', function () { noteEdit(it, f.k, el.value); });
+      });
       $('#save_' + it.id).addEventListener('click', function () { saveItem(it); });
+      preview(it);
     });
+    paintDirty();
+  }
+
+  // The bar that makes unsaved work impossible to walk past.
+  function unsavedBar() {
+    return '<div class="card accent" id="mn-unsaved" style="display:none;position:sticky;top:0;z-index:5;' +
+      'align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+      '<strong id="mn-unsaved-text" style="flex:1;min-width:200px"></strong>' +
+      '<button class="btn gold" id="mn-save-all" data-i18n>Save all changes</button>' +
+      '<button class="btn" id="mn-discard" data-i18n>Discard</button>' +
+      '<span class="msg" id="mn-unsaved-msg"></span></div>';
+  }
+
+  function wireUnsavedBar() {
+    var save = $('#mn-save-all'); if (save) save.addEventListener('click', saveAll);
+    var drop = $('#mn-discard');
+    if (drop) drop.addEventListener('click', function () {
+      var n = dirtyItems().length;
+      if (!n || !confirm('Throw away ' + n + ' unsaved change' + (n === 1 ? '' : 's') + '?')) return;
+      pending = {}; render();
+    });
+  }
+
+  // SAVE EVERYTHING AT ONCE — the thing the page never had.
+  //
+  // One confirmation for the whole batch rather than one per row: thirty dialogs is a thing
+  // people click through without reading, which is worse than no confirmation. Price and
+  // availability changes are still listed by name, because those are what customers feel.
+  function saveAll() {
+    var items = dirtyItems();
+    if (!items.length) return;
+    var money_changes = [], off_sale = [];
+    items.forEach(function (it) {
+      var f = dirtyFields(it);
+      if (f.indexOf('price') >= 0) {
+        var r = toCents(shown(it, 'price'));
+        if (!r.error) money_changes.push(it.name + ': ' + money(it.price_cents) + ' → ' + money(r.cents));
+      }
+      if (f.indexOf('availability') >= 0 && shown(it, 'availability') !== 'available') {
+        off_sale.push(it.name + ' → ' + shown(it, 'availability').replace(/_/g, ' '));
+      }
+    });
+    var lines = ['Save ' + items.length + ' item' + (items.length === 1 ? '' : 's') + '?'];
+    if (money_changes.length) lines.push('', 'Customers are charged these on the next order:', money_changes.join('\n'));
+    if (off_sale.length) lines.push('', 'These stop being orderable:', off_sale.join('\n'));
+    if (!confirm(lines.join('\n'))) return;
+
+    var bar = $('#mn-unsaved-msg');
+    if (bar) { bar.textContent = 'saving 0/' + items.length + '…'; bar.className = 'msg'; }
+    var done = 0, failed = [];
+    // Sequential on purpose: D1 writes plus an audit row each, and a half-applied menu is much
+    // easier to reason about in order than a pile of parallel failures.
+    (function next(i) {
+      if (i >= items.length) {
+        if (bar) {
+          bar.textContent = failed.length
+            ? 'Saved ' + done + ', failed ' + failed.length + ': ' + failed.join(', ')
+            : 'Saved all ' + done + '.';
+          bar.className = 'msg' + (failed.length ? ' err' : '');
+        }
+        return reload().then(function () { if (Hub.toast) Hub.toast('Saved ' + done + ' of ' + items.length); });
+      }
+      var it = items[i];
+      if (bar) bar.textContent = 'saving ' + (i + 1) + '/' + items.length + '…';
+      sendItem(it).then(function (ok) {
+        if (ok) { done++; delete pending[it.id]; } else failed.push(it.name);
+        next(i + 1);
+      });
+    })(0);
+  }
+
+  // POST one item's pending edits. Resolves true/false; never re-renders, so a batch does not
+  // rebuild the page under itself thirty times.
+  function sendItem(it) {
+    var r = toCents(shown(it, 'price'));
+    if (r.error) return Promise.resolve(false);
+    var body = {
+      op: 'update_item', id: it.id, price_cents: r.cents,
+      name: shown(it, 'name'), name_es: shown(it, 'name_es'),
+      description: shown(it, 'description'), description_es: shown(it, 'description_es'),
+      image: shown(it, 'image'), sort: Number(shown(it, 'sort')),
+      active: !!shown(it, 'active'),
+      availability: shown(it, 'availability'),
+      stock_count: String(shown(it, 'stock_count') || '').trim()
+    };
+    return fetch('/api/hub/owner/menu', { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (res) { return res.json().then(function (j) { return res.ok && j && j.ok !== false; }); })
+      .catch(function () { return false; });
+  }
+
+  function reload() {
+    return Owner.get('/api/hub/owner/menu').then(function (d) {
+      if (d && d.ok) {
+        data = { ...d, items: d.items || [], modifiers: d.modifiers || [], log: d.log || [],
+                 warnings: d.warnings || [], storefront: d.storefront || {} };
+      }
+      render();
+    }).catch(function () { render(); });
   }
 
   function itemCard(it) {
@@ -313,6 +507,7 @@
     return '<div class="card" style="margin-bottom:10px">' +
       '<div class="mn-head">' +
         '<div><strong>' + esc(it.name) + '</strong>' + badges +
+          '<span class="badge crit" id="dirty_' + it.id + '" style="display:none" data-i18n>unsaved</span>' +
           '<div class="mn-id">' + esc(it.id) + '</div></div>' +
         '<div class="mn-see"><div class="lbl" data-i18n>Customers see</div>' +
           '<div class="amt" id="see_' + it.id + '">' + money(it.price_cents) + '</div>' +
@@ -320,14 +515,14 @@
       '</div>' +
       (it.blocker ? '<p class="hint" style="color:var(--crit);opacity:1">' + esc(it.blocker) + '</p>' : '') +
       '<div class="mn-price"><span class="pre">$</span>' +
-        '<input id="p_' + it.id + '" type="text" inputmode="decimal" value="' + (it.price_cents / 100).toFixed(2) + '">' +
+        '<input id="p_' + it.id + '" type="text" inputmode="decimal" value="' + esc(shown(it, 'price')) + '">' +
         '<span class="hint" style="margin:0" data-i18n>per unit</span></div>' +
       // Deliberately OUTSIDE the collapsed section. Taking a bowl off sale happens mid-service
       // with one hand, and a control you have to go looking for is one that gets skipped.
       '<div class="form-two" style="margin:8px 0 0">' +
         '<div class="form-row" style="margin:0"><label data-i18n>How many today</label>' +
           '<input id="q_' + it.id + '" type="number" min="0" max="9999" placeholder="no limit" value="' +
-            (it.stock_count == null ? '' : it.stock_count) + '">' +
+            esc(shown(it, 'stock_count')) + '">' +
           '<p class="hint">How many you made today. Leave blank for no limit. What is LEFT counts down from this as orders come in, and resets overnight.</p></div>' +
         '<div class="form-row" style="margin:0"><label data-i18n>Availability</label>' +
         '<select id="av_' + it.id + '">' +
@@ -339,24 +534,24 @@
             { key:'out_of_stock', label:'Out of stock' }, { key:'unavailable', label:'Not available' },
             { key:'coming_soon', label:'Coming soon' },
           ]).map(function (o) {
-            return '<option value="' + esc(o.key) + '"' + (o.key === (it.availability || 'available') ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+            return '<option value="' + esc(o.key) + '"' + (o.key === shown(it, 'availability') ? ' selected' : '') + '>' + esc(o.label) + '</option>';
           }).join('') +
         '</select>' +
         '<p class="hint">Anything other than Available keeps the item on the site but blocks it at checkout — customers see the wording you pick. To remove it from the site entirely, untick “Show on the website” below.</p></div>' +
       '</div>' +
       '<details class="mn-more"><summary data-i18n>Name, description, photo, order</summary>' +
         '<div class="form-two">' +
-          '<div class="form-row"><label data-i18n>Name</label><input id="n_' + it.id + '" value="' + esc(it.name) + '"></div>' +
-          '<div class="form-row"><label>Nombre (ES)</label><input id="ne_' + it.id + '" value="' + esc(it.name_es || '') + '"></div>' +
+          '<div class="form-row"><label data-i18n>Name</label><input id="n_' + it.id + '" value="' + esc(shown(it, 'name')) + '"></div>' +
+          '<div class="form-row"><label>Nombre (ES)</label><input id="ne_' + it.id + '" value="' + esc(shown(it, 'name_es')) + '"></div>' +
         '</div>' +
-        '<div class="form-row"><label data-i18n>Description</label><input id="d_' + it.id + '" value="' + esc(it.description || '') + '"></div>' +
-        '<div class="form-row"><label>Descripción (ES)</label><input id="de_' + it.id + '" value="' + esc(it.description_es || '') + '"></div>' +
+        '<div class="form-row"><label data-i18n>Description</label><input id="d_' + it.id + '" value="' + esc(shown(it, 'description')) + '"></div>' +
+        '<div class="form-row"><label>Descripción (ES)</label><input id="de_' + it.id + '" value="' + esc(shown(it, 'description_es')) + '"></div>' +
         '<div class="form-two">' +
-          '<div class="form-row"><label data-i18n>Photo file</label><input id="i_' + it.id + '" value="' + esc(it.image || '') + '" placeholder="bowl_vida.jpg"></div>' +
-          '<div class="form-row"><label data-i18n>Position</label><input id="s_' + it.id + '" type="number" min="0" max="9999" value="' + (it.sort == null ? 100 : it.sort) + '"></div>' +
+          '<div class="form-row"><label data-i18n>Photo file</label><input id="i_' + it.id + '" value="' + esc(shown(it, 'image')) + '" placeholder="bowl_vida.jpg"></div>' +
+          '<div class="form-row"><label data-i18n>Position</label><input id="s_' + it.id + '" type="number" min="0" max="9999" value="' + esc(shown(it, 'sort')) + '"></div>' +
         '</div>' +
         '<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:10px 0 0">' +
-          '<input type="checkbox" id="a_' + it.id + '" ' + (it.active ? 'checked' : '') + ' style="width:auto"> ' +
+          '<input type="checkbox" id="a_' + it.id + '" ' + (shown(it, 'active') ? 'checked' : '') + ' style="width:auto"> ' +
           '<span data-i18n>Show on the website</span></label>' +
         '<p class="hint" data-i18n>The photo must already exist under /assets/img/ — this box names the file, it does not upload one.</p>' +
       '</details>' +
@@ -397,6 +592,7 @@
     if (r.cents !== it.price_cents &&
         !confirm('Change ' + it.name + ' from ' + money(it.price_cents) + ' to ' + money(r.cents) +
                  '?\n\nThis is what customers are charged on the next order.')) return;
+    delete pending[it.id];   // this row is now saved; every OTHER row's edits stay in the buffer
     post(body, '#msg_' + it.id, 'Saved.');
   }
 
@@ -563,6 +759,14 @@
       })
       .catch(function () { setMsg(msgSel, 'Network error.', 'err'); });
   }
+
+  // The browser's own last line of defence. It cannot say what is unsaved — browsers ignore
+  // custom text here — but it does stop a closed tab from silently taking the work with it.
+  window.addEventListener('beforeunload', function (e) {
+    if (!dirtyItems().length) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
 
   function load() {
     Owner.get('/api/hub/owner/menu').then(function (d) {
