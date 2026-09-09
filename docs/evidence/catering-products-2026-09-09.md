@@ -21,3 +21,11 @@ Owner: Codex. Approval: Dayan's direct-session request to add individual product
 
 ## Boundaries and next step
 No prices invented, no new service purchased, no database migration. Email payload verified in tests, not a new real inbox-delivery test. Deployment/live asset verification pending below. The separate photorealistic 3D work is not claimed complete here.
+
+## Live release evidence
+- Published commit 6720dfd to origin/main; production deployment b8943788-d2f6-43c1-adc8-2f089f6264e9.
+- Live /catering returns 200 and renders the new Spanish product selector. Lechón deep link preselects the correct product; quantity and add-product controls are present.
+- Live /assets/js/catering-products.js returns 200 and exactly matches the locally tested bundle, SHA-256 796cec68210c912511dad37f14a846bd2035e21d594d6096bd4b824227555d96.
+- Final release tests: 1,898 passed, zero failed (/tmp/anejo-products-release-tests.log). Retry controls remain locked during language switching; no new request ID or changed payload is created for ambiguous retry.
+- Blocked: none for this product-selector change. Further approval required: none within the authorized scope. While the deploy guard blocked publication, integrated current main and reran validation instead of overwriting it.
+- Next action: refresh /catering#quote and select categories, products and quantities. Real inbox delivery is not newly verified by this release; database and outbox integration are covered by the tests above.
