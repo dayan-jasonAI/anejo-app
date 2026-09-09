@@ -69,3 +69,63 @@ test('actual i18n walker never visits a protected quote or nested reviewer name'
   vm.runInNewContext(`${walker}\nwalk(body, visit);`, { body, visit: (node) => visited.push(node.nodeValue) });
   assert.deepEqual(visited, ['Read review on Google ↗']);
 });
+
+// ---------------------------------------------------------------------------
+// The Spanish landing page (2026-09-08).
+//
+// The homepage got the six real Google reviews on 2026-09-07, but `/es/` still
+// showed none — a Spanish-speaking visitor, the half of this market the page
+// exists for, saw no social proof at all. `/es/` is a separate hand-written page
+// that deliberately does NOT load the i18n engine, so nothing propagates to it
+// automatically; it has to carry the reviews itself.
+//
+// The homepage remains the single source of truth: its quotes were read off
+// Google's own review dialog and verified live. These tests pin `/es/` to it
+// character for character, so the two pages can never drift into quoting the
+// same person differently, and so a future homepage edit that forgets `/es/`
+// fails here instead of shipping.
+const spanish = readFileSync(path.join(ROOT, 'public/es/index.html'), 'utf8');
+const spanishStart = spanish.indexOf('<h2>Lo que dicen en Google</h2>');
+const spanishReviews = spanish.slice(spanishStart, spanish.indexOf('</main>', spanishStart));
+
+test('the Spanish page quotes the same six people, verbatim, in the same order', () => {
+  const cards = [...spanishReviews.matchAll(/<blockquote lang="([^"]+)" translate="no">([\s\S]*?)<\/blockquote><figcaption><cite translate="no">([\s\S]*?)<\/cite><\/figcaption><a href="([^"]+)"/g)];
+  assert.equal(cards.length, expected.length, '/es/ must carry all six reviews');
+  cards.forEach((match, index) => {
+    const [quote, name, href, lang] = expected[index];
+    assert.deepEqual([htmlText(match[2]), htmlText(match[3]), match[4], match[1]], [quote, name, href, lang],
+      `/es/ review ${index + 1} must match the homepage exactly`);
+  });
+});
+
+test('a real person\'s words are never machine-translated on the Spanish page', () => {
+  // /es/ is served as lang="es", so a browser offers to translate the page. The
+  // three English reviews would be silently rewritten and attributed to the
+  // reviewer anyway. Each quote therefore declares its own language and opts out.
+  const quotes = [...spanishReviews.matchAll(/<blockquote([^>]*)>/g)].map((m) => m[1]);
+  assert.equal(quotes.length, 6);
+  quotes.forEach((attrs) => {
+    assert.match(attrs, /translate="no"/, 'every quote opts out of translation');
+    assert.match(attrs, /lang="(en|es)"/, 'every quote declares its source language');
+  });
+  const names = [...spanishReviews.matchAll(/<cite([^>]*)>/g)].map((m) => m[1]);
+  assert.equal(names.length, 6);
+  names.forEach((attrs) => assert.match(attrs, /translate="no"/, 'reviewer names are never translated'));
+});
+
+test('the Spanish page carries the same dated, non-live disclaimer', () => {
+  assert.match(spanishReviews, /Extractos de reseñas en su idioma original\./);
+  assert.match(spanishReviews, /Calificación verificada el 7 de septiembre de 2026; no es un feed en vivo\./);
+  assert.match(spanishReviews, /5\.0 \/ 5<\/strong> de 6 reseñas en Google/);
+  const all = spanishReviews.match(/class="rev-all" href="([^"]+)"/);
+  assert.ok(all, '/es/ links out to the full listing');
+  assert.ok(reviews.includes(all[1]), '/es/ points at the same Google listing as the homepage');
+});
+
+test('the Spanish page invents no reviews and fetches none', () => {
+  const links = [...spanishReviews.matchAll(/href="(https:\/\/share\.google\/[^"?]+)"/g)].map((m) => m[1]);
+  assert.equal(links.length, 6);
+  assert.equal(new Set(links).size, links.length, 'each card links to its own review');
+  assert.doesNotMatch(spanishReviews, /fetch\s*\(|\/api\//i);
+  assert.doesNotMatch(spanish, /tu reseña podría estar aquí|reseñas verificadas de clientes aparecerán/i);
+});
