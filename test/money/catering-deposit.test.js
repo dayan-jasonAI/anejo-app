@@ -4,7 +4,7 @@
 // no way on earth to pay one: no row, no link, no record of what the customer had been told. The
 // tests below pin the three things that make the new path safe to point at a real customer:
 //
-//   1. THE MATH. 25% of the total, and a balance that is the REMAINDER — deposit + balance is
+//   1. THE MATH. Half the total (25% until 2026-09-09), and a balance that is the REMAINDER — deposit + balance is
 //      exactly the total at every rounding boundary. Two halves that don't sum to the whole is an
 //      argument with a paying customer.
 //   2. THE TERMS ARE STORED, NOT LOOKED UP. What the customer agreed to lives on the row, so
@@ -34,11 +34,11 @@ function stubSquare(response = { payment_link: { id: 'pl_1', order_id: 'sqo_1', 
 
 // ---------- 1. the math ----------
 
-test('the deposit is 25% and the balance is the REMAINDER, not a second percentage', () => {
-  assert.equal(DEPOSIT_PCT, 0.25, 'ratified rate');
+test('the deposit is 50% and the balance is the REMAINDER, not a second percentage', () => {
+  assert.equal(DEPOSIT_PCT, 0.5, 'ratified rate — raised from 25% by Dayan on 2026-09-09');
   const s = depositSplit(120000);            // $1,200.00
-  assert.equal(s.deposit_cents, 30000);
-  assert.equal(s.balance_cents, 90000);
+  assert.equal(s.deposit_cents, 60000);
+  assert.equal(s.balance_cents, 60000);
   assert.equal(s.deposit_cents + s.balance_cents, s.total_cents);
 });
 
@@ -65,36 +65,36 @@ test('a deposit refuses on a total or a rate that cannot be real', () => {
 // ---------- 2. the terms ----------
 
 test('the terms resolve real dates from the event date, and never invent one', () => {
-  const t = termsFor({ totalCents: 120000, depositCents: 30000, balanceCents: 90000, eventDate: '2026-09-20' });
+  const t = termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20' });
   assert.equal(t.final_count_due, '2026-09-10', '10 calendar days before the event');
-  assert.equal(t.balance_due_date, '2026-09-20', 'balance is due on the day');
+  assert.equal(t.balance_due_date, '2026-09-19', 'balance is due the DAY BEFORE the event');
   assert.equal(t.version, TERMS_VERSION);
 
-  const noDate = termsFor({ totalCents: 120000, depositCents: 30000, balanceCents: 90000 });
+  const noDate = termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000 });
   assert.equal(noDate.final_count_due, null, 'no event date must produce NO deadline, not a wrong one');
   assert.equal(dateMinusDays('not-a-date', 10), null);
 });
 
 test('every term the customer needs is actually IN the copy', () => {
-  const t = termsFor({ totalCents: 120000, depositCents: 30000, balanceCents: 90000, eventDate: '2026-09-20' });
+  const t = termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20' });
   const all = t.lines.join(' ');
-  assert.match(all, /\$300\.00/, 'the deposit in dollars');
-  assert.match(all, /\$900\.00/, 'the balance in dollars');
+  assert.match(t.lines.find((l) => l.startsWith('Deposit:')), /\$600\.00/, 'the deposit in dollars');
+  assert.match(t.lines.find((l) => l.startsWith('Balance:')), /\$600\.00/, 'the balance in dollars');
   assert.match(all, /2026-09-10/, 'the final-count deadline');
   assert.match(all, /72 hours/, 'the refundable window');
   assert.match(all, /non-refundable/, 'and when it stops being refundable');
   assert.match(all, /cancel/i, 'the cancellation ladder');
   assert.match(all, /every dollar back/i, 'what happens when WE are the ones who fail');
-  assert.match(termsSummary(t), /25% deposit/);
+  assert.match(termsSummary(t), /50% deposit/);
 });
 
 test('the cancellation ladder is computed from the SNAPSHOT, not from today’s constants', () => {
   // A booking is governed by the terms that were on the customer's screen. Feeding an old snapshot
   // in must produce that snapshot's answer, whatever this file says now.
-  const t = termsFor({ totalCents: 120000, depositCents: 30000, balanceCents: 90000, eventDate: '2026-09-20' });
-  assert.equal(cancellationOutcome(t, { daysBeforeEvent: 30 }).balance_refund_cents, 90000);
-  assert.equal(cancellationOutcome(t, { daysBeforeEvent: 10 }).balance_refund_cents, 90000);
-  assert.equal(cancellationOutcome(t, { daysBeforeEvent: 5 }).balance_refund_cents, 45000, 'half inside a week');
+  const t = termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20' });
+  assert.equal(cancellationOutcome(t, { daysBeforeEvent: 30 }).balance_refund_cents, 60000);
+  assert.equal(cancellationOutcome(t, { daysBeforeEvent: 10 }).balance_refund_cents, 60000);
+  assert.equal(cancellationOutcome(t, { daysBeforeEvent: 5 }).balance_refund_cents, 30000, 'half inside a week');
   assert.equal(cancellationOutcome(t, { daysBeforeEvent: 1 }).balance_refund_cents, 0, 'the food is already bought');
   // The deposit is never refunded by the ladder — it is refundable only in the 72h window.
   for (const d of [30, 10, 5, 1]) assert.equal(cancellationOutcome(t, { daysBeforeEvent: d }).deposit_refund_cents, 0);
@@ -107,7 +107,7 @@ function depositDb(onInsert = () => 1) {
   return makeD1([[/INSERT INTO catering_quotes/i, onInsert]]);
 }
 
-test('the deposit link charges 25%, names what it is, and carries the terms to the checkout page', async () => {
+test('the deposit link charges 50%, names what it is, and carries the terms to the checkout page', async () => {
   const sq = stubSquare();
   let stored = null;
   const env = { ...ENV, DB: depositDb(({ args }) => { stored = args; return 1; }) };
@@ -120,25 +120,25 @@ test('the deposit link charges 25%, names what it is, and carries the terms to t
   sq.restore();
 
   assert.equal(r.ok, true);
-  assert.equal(r.deposit_cents, 30000);
-  assert.equal(r.balance_cents, 90000);
+  assert.equal(r.deposit_cents, 60000);
+  assert.equal(r.balance_cents, 60000);
   assert.equal(r.url, 'https://sq.link/deposit');
 
   const sent = sq.calls[0].body;
   assert.match(sq.calls[0].url, /online-checkout\/payment-links/);
-  assert.equal(sent.order.line_items[0].base_price_money.amount, 30000, 'Square is asked for the DEPOSIT, never the total');
-  assert.match(sent.order.line_items[0].name, /25% of \$1200\.00/, 'the customer sees what it is a percentage OF');
-  assert.match(sent.order.note, /25% deposit/, 'the terms are on the hosted page, at deposit time');
+  assert.equal(sent.order.line_items[0].base_price_money.amount, 60000, 'Square is asked for the DEPOSIT, never the total');
+  assert.match(sent.order.line_items[0].name, /50% of \$1200\.00/, 'the customer sees what it is a percentage OF');
+  assert.match(sent.order.note, /50% deposit/, 'the terms are on the hosted page, at deposit time');
   assert.equal(sent.checkout_options.allow_tipping, false, 'nobody tips a deposit');
 
   // Stored with the quote: the money, the terms, and the deadlines.
-  assert.ok(stored.includes(30000) && stored.includes(90000) && stored.includes(120000));
+  assert.ok(stored.includes(60000) && stored.includes(120000));
   assert.ok(stored.includes(TERMS_VERSION), 'the terms VERSION is on the row');
   assert.ok(stored.includes('2026-09-10'), 'the final-count deadline is on the row');
   assert.ok(stored.includes('marisol@example.test'), 'email normalised');
   const termsJson = stored.find((a) => typeof a === 'string' && a.startsWith('{') && a.includes('cancellation_tiers'));
   assert.ok(termsJson, 'the FULL terms snapshot is stored, not a reference to them');
-  assert.equal(JSON.parse(termsJson).deposit_cents, 30000);
+  assert.equal(JSON.parse(termsJson).deposit_cents, 60000);
 });
 
 test('the idempotency key is the quote id, so a retry cannot mint two links', async () => {
@@ -192,7 +192,7 @@ test('a quote with no guests is refused — the engine does not assume a headcou
 test('a paid deposit flips ONCE and leaves the balance owing', async () => {
   const updates = [];
   const DB = makeD1([
-    [/SELECT id, deposit_cents FROM catering_quotes/i, () => ({ id: 'cq_1', deposit_cents: 30000 })],
+    [/SELECT id, deposit_cents FROM catering_quotes/i, () => ({ id: 'cq_1', deposit_cents: 60000 })],
     [/UPDATE catering_quotes SET deposit_status='paid'/i, ({ args }) => { updates.push(args); return 1; }],
   ]);
   const id = await markDepositPaid({ DB }, 'sqo_1', 30000);
