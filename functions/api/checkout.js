@@ -361,7 +361,8 @@ export const onRequestPost = async ({ request, env }) => {
     const midnightUtc = Date.parse(dateStr + 'T00:00:00Z');
     if (Number.isNaN(midnightUtc)) return bad('Invalid delivery date.');
     const dow = new Date(midnightUtc).getUTCDay();
-    if (dow === 0) return bad('We deliver Monday–Saturday. Please pick another date.');
+    // The owner's configured delivery days are enforced by scheduleOpenFor below.
+    // Do not reject Sunday here when the same operating settings advertise it online.
     // THE OWNER'S CUTOFF, not a hard-coded one. scheduleOpenFor was built settings-aware,
     // imported here, and never wired in — the lint warning that sat on this file all month was
     // the receipt. With it unwired, the page could promise the owner's configured hour while
