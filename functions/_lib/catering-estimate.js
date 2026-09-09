@@ -57,12 +57,31 @@ export const SAUCE_PACKS = {
   'dip-coconut': { bulk: 'catering_dip-coconut-bulk' },
 };
 
-// Flavoured lines whose flavor picks the SKU. An unlisted flavor has no published price and is
-// quoted by a person - croqueta de chorizo, salchicha, atun and the rest are real menu items in
-// the kitchen but have no tray SKU, so they must not be invented one here.
+// Flavoured lines whose flavor picks the SKU.
+//
+// This listed three croqueta fillings and one empanada, on the belief that the rest had no
+// published tray. That was true when it was written and stopped being true on 2026-09-08, when
+// the live menu gained a full set. Verified against production D1 on 2026-09-09: every filling
+// the selector offers now has both a single and two tray sizes, at exactly the same prices as the
+// ones already mapped (croquetas $2.50 / $40 / $75; empanadas $3.50 / $75 / $145, ropa vieja
+// $4.00 / $85 / $165).
+//
+// The cost of the gap was concrete: a 50-piece sausage croqueta line on a real customer order
+// came back "quoted after review" and had to be hand-priced, while the kitchen had a published
+// $75 tray for exactly that item.
+//
+// An unlisted flavor still has no published price and is still quoted by a person — that rule has
+// not changed, the list of what qualifies has.
 const FLAVOR_SKUS = {
-  croqueta: { ham: 'croq-jamon', chicken: 'croq-pollo', beef: 'croq-res' },
-  empanada: { 'guava-cheese': 'emp-guava' },
+  croqueta: {
+    ham: 'croq-jamon', chicken: 'croq-pollo', beef: 'croq-res',
+    chorizo: 'croq-chorizo', sausage: 'croq-sausage', tuna: 'croq-tuna',
+  },
+  empanada: {
+    'guava-cheese': 'emp-guava', cheese: 'emp-cheese', ham: 'emp-ham', tuna: 'emp-tuna',
+    chicken: 'emp-pollo', beef: 'emp-res', 'ham-cheese': 'emp-ham-cheese',
+    guava: 'emp-guava-only', 'ropa-vieja': 'emp-ropa-vieja', 'pulled-pork': 'emp-pulled-pork',
+  },
 };
 
 export function candidates(row) {
