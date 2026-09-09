@@ -72,7 +72,10 @@ function sync() {
   render();
 }
 form.querySelectorAll('[name="menu_option"]').forEach((el) => el.addEventListener('change', sync));
-document.addEventListener('anejo:langchange', () => { if (!form.querySelector('#submitBtn')?.disabled) render(); });
+document.addEventListener('anejo:langchange', () => {
+  // Language changes must not recreate enabled controls during an ambiguous retry.
+  if (!root.querySelector('select')?.disabled) render();
+});
 const requested = new URLSearchParams(location.search).get('item');
 const product = cateringProducts.find((p) => p.id === requested);
 if (product && menus().includes(product.category)) rows.push({ category: product.category, id: product.id, quantity: 1, notes: '' });
