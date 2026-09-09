@@ -48,3 +48,16 @@ zero errors, two existing vendor warnings. `git diff --check` passed; packaging
 scenario assertion passed. Main remaining risks: unmeasured full costs, unapproved
 component price allocation, box-fit/stock and end-to-end payment/notification proof.
 Next: approve or revise the proposal before integrating server-owned checkout.
+
+## 2026-09-09 — Complete-bundle prices approved
+
+Dayan directly approved $18 standard / $20 preset-themed printing. Approval scope
+is recorded in `cajita-bundle-approval-2026-09-09.md`. Added an isolated exact-bundle
+calculator and three regression tests without promoting the old component-credit
+draft. Eleven focused tests passed (zero failed); `git diff --check` passed.
+Created two source/test files and an approval record; modified this handoff.
+No production changes, database writes, checkout activation or deployment.
+Remaining: server/checkout integration, configuration delivery and fulfillment
+proof. No additional approval is needed for these two headline prices. While
+integration remains open, validated tampered prices, invalid quantities,
+duplicates, removals, substitutions and custom packaging rejection.
