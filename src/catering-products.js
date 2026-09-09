@@ -21,7 +21,7 @@ function render() {
   if (!root.isConnected) return;
   root.replaceChildren();
   element('h4', t('Choose products and quantities', 'Elige los productos y las cantidades'), root);
-  element('p', t('Quantities are totals for your event, not per guest. Add another line for a different filling or box version. Pricing is confirmed after review.', 'Las cantidades son totales para tu evento, no por invitado. Agrega otra línea para un relleno o una versión de cajita diferente. El precio se confirma después de revisar.'), root);
+  element('p', t('Quantities are totals for your event, not per guest. Add another line for a different filling or box version. Standard food prices appear below; custom requests need review.', 'Las cantidades son totales para tu evento, no por invitado. Agrega otra línea para otro relleno o versión de cajita. Los precios estándar aparecen abajo; las solicitudes personalizadas requieren revisión.'), root);
   if (!menus().length) element('p', t('Select a category above to see its products.', 'Selecciona una categoría arriba para ver sus productos.'), root);
   for (const category of menus()) {
     const group = element('fieldset', '', root);
@@ -123,7 +123,7 @@ document.addEventListener('anejo:langchange', () => {
 });
 const requested = new URLSearchParams(location.search).get('item');
 const product = cateringProducts.find((p) => p.id === requested);
-if (product && menus().includes(product.category)) rows.push({ category: product.category, id: product.id, quantity: 1, notes: '' });
+if (product && menus().includes(product.category)) rows.push({ category: product.category, id: product.id, quantity: 1, flavor: product.flavorKey ? CAJITA_DEFAULT_FLAVORS[product.flavorKey] : undefined, notes: '' });
 sync();
 window.AnejoQuoteProducts = {
   read: () => rows.filter((r) => menus().includes(r.category)).map(({ id, quantity, flavor, notes }) => ({ id, quantity, flavor, notes })),
