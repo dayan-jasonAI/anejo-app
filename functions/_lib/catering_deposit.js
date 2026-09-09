@@ -20,6 +20,7 @@
 import { square, squareConfigured } from './square.js';
 import { id, now } from './hub.js';
 import { DEPOSIT_PCT, TERMS_VERSION, termsFor, termsSummary } from './catering_terms.js';
+import { mintAccessToken, sendQuote } from './catering_quote_delivery.js';
 
 /**
  * Split a quoted total into deposit + balance at the ratified rate.
@@ -54,6 +55,10 @@ const clean = (s, max) => {
 export async function createDepositCheckout(env, {
   totalCents, guests, eventDate, customerName, customerEmail, customerPhone,
   quoteBreakdown, note, createdBy, baseUrl, depositPct = DEPOSIT_PCT,
+  // Delivery. `lang` is the language the quote is SENT in and is stored, so the hosted page shows
+  // the same language a week later whatever the browser prefers. `smsConsent` is passed through
+  // rather than assumed — no consent, no text, and the email still goes.
+  lang = 'en', smsConsent = false, send = true,
 } = {}) {
   if (!env || !env.DB) return { ok: false, error: 'Database not configured.' };
   if (!squareConfigured(env)) return { ok: false, error: 'Square is not configured — no deposit link can be created.' };
@@ -112,6 +117,10 @@ export async function createDepositCheckout(env, {
   if (!url) return { ok: false, error: 'Square did not return a deposit checkout URL.' };
 
   const t = now();
+  // The link the customer opens. Minted BEFORE the insert so the row is never written without an
+  // address — a quote with no way to reach it is the dead end this module exists to remove.
+  const accessToken = mintAccessToken();
+  const quoteLang = lang === 'es' ? 'es' : 'en';
   try {
     await env.DB.prepare(
       `INSERT INTO catering_quotes
@@ -119,8 +128,9 @@ export async function createDepositCheckout(env, {
           total_cents, deposit_pct, deposit_cents, balance_cents,
           deposit_status, square_order_id, payment_link_id, payment_link_url,
           balance_status, balance_due_date, final_count_due,
-          terms_version, terms_json, quote_json, note, created_by, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?, 'unpaid', ?,?,?, 'due', ?,?, ?,?,?,?,?,?,?)`
+          terms_version, terms_json, quote_json, note, created_by, created_at, updated_at,
+          access_token, lang)
+       VALUES (?,?,?,?,?,?,?,?,?,?, 'unpaid', ?,?,?, 'due', ?,?, ?,?,?,?,?,?,?, ?,?)`
     ).bind(
       quoteId, clean(customerName, 80), (clean(customerEmail, 160) || '').toLowerCase() || null,
       clean(customerPhone, 32), clean(eventDate, 10), g,
@@ -129,11 +139,37 @@ export async function createDepositCheckout(env, {
       terms.balance_due_date, terms.final_count_due,
       TERMS_VERSION, JSON.stringify(terms), quoteBreakdown ? JSON.stringify(quoteBreakdown) : null,
       clean(note, 500), clean(createdBy, 160), t, t,
+      accessToken, quoteLang,
     ).run();
   } catch (e) {
     // The link exists in Square but we could not record it. Say so plainly rather than handing
     // back a URL whose payment nothing will ever reconcile.
     return { ok: false, error: 'The deposit link was created but could not be saved. Do not send it — try again. ' + String((e && e.message) || '').slice(0, 120) };
+  }
+
+  // The quote is safely stored and payable. Sending it is the last step ON PURPOSE: a provider
+  // outage must never cost us a booking that Square has already accepted a link for.
+  let delivery = { sent: false, skipped: 'sending was not requested' };
+  if (send) {
+    delivery = await sendQuote(env, {
+      id: quoteId,
+      customer_name: clean(customerName, 80),
+      customer_email: (clean(customerEmail, 160) || '').toLowerCase() || null,
+      customer_phone: clean(customerPhone, 32),
+      sms_consent: smsConsent ? 1 : 0,
+      event_date: clean(eventDate, 10),
+      guests: g,
+      total_cents: split.total_cents,
+      deposit_pct: split.deposit_pct,
+      deposit_cents: split.deposit_cents,
+      balance_cents: split.balance_cents,
+      balance_due_date: terms.balance_due_date,
+      payment_link_url: url,
+      terms_json: JSON.stringify(terms),
+      quote_json: quoteBreakdown ? JSON.stringify(quoteBreakdown) : null,
+      access_token: accessToken,
+      lang: quoteLang,
+    }, { baseUrl }).catch((e) => ({ ok: false, error: String((e && e.message) || e).slice(0, 200) }));
   }
 
   return {
@@ -144,6 +180,10 @@ export async function createDepositCheckout(env, {
     deposit_cents: split.deposit_cents,
     balance_cents: split.balance_cents,
     deposit_pct: split.deposit_pct,
+    access_token: accessToken,
+    quote_url: `${(baseUrl || 'https://anejocateringco.com').replace(/\/$/, '')}/q/${accessToken}`,
+    lang: quoteLang,
+    delivery,
     terms,
   };
 }
