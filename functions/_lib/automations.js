@@ -204,7 +204,7 @@ export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'res
 // carries (brand_source.js), so the planner never sees LESS of the owner's live brief than the
 // Lead does. Before brand_source.js existed the planner had no cap at all: it always embedded
 // the FULL compiled snapshot (~15.3k chars), so 20000 is headroom, not a squeeze.
-const PLANNER_BRAND_BUDGET = 20000;
+const PLANNER_BRAND_BUDGET = 32000;
 export const PLANNED = [];
 
 async function scalar(env, sql, ...args) {

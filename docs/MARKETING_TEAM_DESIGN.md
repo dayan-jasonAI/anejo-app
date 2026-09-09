@@ -1,5 +1,7 @@
 # Añejo Marketing & Sales Team — design
 
+> **Current product direction — 2026-09-08:** use [Brand & Standards Brief](brand-standards-brief.md) and [Menu, Photography & Marketing Reference](HUB_MENU_MARKETING_REFERENCE.md) for current categories, portions, product photos, and shopping routes. Earlier bowl-only examples below describe system history, not the full current offering. Live /api/menu controls prices and availability.
+
 **Status:** LIVE as of 2026-07-31. Publishing, carousels, scheduling, learning loop, attribution,
 budget meter, and Aña auto-replies all deployed and live-verified. Remaining: Team Lead surface,
 trust ledger, HUB pages for inbox/budget/links, App Review paperwork (Track B).

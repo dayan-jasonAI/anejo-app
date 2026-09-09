@@ -24,7 +24,7 @@ Behavior:
 
 // Used only when the owner hasn't written a brand brief yet.
 const FALLBACK_BRAND =
-  'Añejo Catering Co. — a Mediterranean-Cuban longevity bowl service in Palm Beach County, Florida. ' +
+  'Añejo Catering Co. — one premium Cuban food family in Palm Beach County, Florida: Añejo Catering, Añejo Traditional, and Añejo Fit. La Cajita is the newest addition. Fit nutrition rules apply only to Fit bowls. ' +
   'House style: Mediterranean-Cuban, longevity-forward, high-protein, anti-inflammatory, generous fiber, ' +
   'quinoa-forward bases, bright citrus and chimichurri/Añejo sauces.';
 
@@ -32,12 +32,9 @@ const FALLBACK_BRAND =
 // to fit a full multi-section document with headroom; ~5k tokens is trivial for Sonnet
 // 4.6's context. SOPs are summarized alongside it.
 //
-// 18000 was too small once the live doc grew. It cut §13 Kitchen production specs in half —
-// the Studio, the surface a chef consults MID-RECIPE, was the one reader losing the production
-// specs. 20000 also matches every other brand reader (Team Lead, planner, Brand Auditor, all via
-// brand_source.js), so the caps stop being four different numbers nobody can hold in their head.
-// The ratified brief is 19,942 chars today and now arrives whole. (Dayan, 2026-08-05)
-const BRAND_BUDGET = 20000; // char cap for brand docs (full Brand & Standards Brief)
+// 32k keeps the expanded three-category brief and existing kitchen draft labels intact.
+// All full brand readers share this cap; unapproved proposals are still filtered below.
+const BRAND_BUDGET = 32000; // char cap for brand docs (full Brand & Standards Brief)
 const SOP_BUDGET = 8000;    // char cap for standards/SOP docs
 
 // A doc with no role_scope is visible to all staff; otherwise it must include kitchen or owner.

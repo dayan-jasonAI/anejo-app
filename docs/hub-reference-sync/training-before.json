@@ -1,0 +1,120 @@
+[
+  {
+    "results": [
+      {
+        "id": "rul_693e3539b36c020152f5",
+        "text": "Shoot from a 45° three-quarter overhead angle, with the camera approximately 24–30 inches above the bowl."
+      },
+      {
+        "id": "rul_742537466f527536f03c",
+        "text": "Use a natural 50–70mm full-frame lens perspective, preserving realistic bowl proportions without wide-angle distortion."
+      },
+      {
+        "id": "rul_a6118c87a087117db342",
+        "text": "Keep the bowl fully sharp while allowing the surrounding surface and distant props to fall gently out of focus."
+      },
+      {
+        "id": "rul_161e590ea649ea9ceaef",
+        "text": "Place the bowl centrally or slightly below center, occupying 65–75% of the frame with deliberate breathing room."
+      },
+      {
+        "id": "rul_a76e5a897c4fa211846a",
+        "text": "Light from the upper-left or side-left using one large, diffused source that produces soft directional highlights."
+      },
+      {
+        "id": "rul_7a0813c53137d295ea4c",
+        "text": "Maintain warm-neutral daylight around 4800–5200K; keep whites creamy, greens natural, and proteins richly browned."
+      },
+      {
+        "id": "rul_16b846cba8a18918b04b",
+        "text": "Preserve soft, visible shadows extending opposite the light source; retain shadow detail without flattening or crushing blacks."
+      },
+      {
+        "id": "rul_1a4c4938ca470c18e966",
+        "text": "Use matte dark-forest plaster, charcoal stone, warm limestone, or subtly weathered dark wood as the primary surface."
+      },
+      {
+        "id": "rul_8f1a5257b8965a98bf8c",
+        "text": "Serve food in a low, wide, matte ceramic bowl in warm ivory, sand, stone, or muted forest green."
+      },
+      {
+        "id": "rul_1205268322e4620c8f12",
+        "text": "Build ingredients in loose overlapping sections, leaving portions of the quinoa, grains, or greens visibly exposed."
+      },
+      {
+        "id": "rul_d78b157dcd647eccf5d1",
+        "text": "Position the protein as the dominant focal layer, angled naturally and showing sear, char, flaking, or caramelized edges."
+      },
+      {
+        "id": "rul_ffbacc5a55b302a7165f",
+        "text": "Add one restrained finishing garnish, such as microgreens, chopped herbs, citrus zest, pepitas, or thin pickled onion."
+      },
+      {
+        "id": "rul_a1fbd5476290968011e2",
+        "text": "Show controlled moisture: lightly glossy sauces, juicy proteins, crisp vegetables, and distinct grains without pooled liquid."
+      },
+      {
+        "id": "rul_5da16ff5e84ffbff2aba",
+        "text": "Let food provide the strongest colors against subdued forest, cream, charcoal, stone, and muted-gold surroundings."
+      },
+      {
+        "id": "rul_e870930a6f6f311974d7",
+        "text": "Include no more than two supporting props, using natural linen, cut citrus, loose herbs, or a small sauce vessel."
+      },
+      {
+        "id": "rul_eaeceb9b36b4f9738e23",
+        "text": "Never photograph the bowl inside clear disposable packaging, glossy plastic trays, or visibly inexpensive meal-prep containers."
+      },
+      {
+        "id": "rul_51c4e550c6c9ce736263",
+        "text": "Never use flat frontal lighting, harsh flash, sterile blue-white light, neon rim lighting, or heavy orange restaurant color casts."
+      },
+      {
+        "id": "rul_83ffac019a887752e61c",
+        "text": "Never arrange ingredients into rigid symmetrical wedges, identical compartments, perfect rings, or unnaturally precise repeating patterns."
+      },
+      {
+        "id": "rul_846ba7636d51530c2564",
+        "text": "Never bury the protein beneath garnish, sauce, grains, oversized leaves, or decorative ingredients absent from the dish brief."
+      },
+      {
+        "id": "rul_2973c5e59146b73b3a95",
+        "text": "Never create oily pools, artificial wet-glass highlights, rubbery proteins, plastic vegetables, or excessively glossy sauce surfaces."
+      },
+      {
+        "id": "rul_37bf777e985397b84148",
+        "text": "Never clutter the frame with utensils, scattered ingredients, multiple bowls, decorative leaves, branding objects, or unrelated luxury props."
+      },
+      {
+        "id": "rul_85f7af84fd769fc3e56a",
+        "text": "Never clutter the frame with utensils, scattered ingredients, multiple bowls, decorative leaves, branding objects, or unrelated luxury props."
+      },
+      {
+        "id": "rul_41e5f0c91ba45b9813a2",
+        "text": "Never clutter the frame with utensils, scattered ingredients, multiple bowls, decorative leaves, branding objects, or unrelated luxury props."
+      },
+      {
+        "id": "rul_6b9f7981f338fcd883cf",
+        "text": "Never use bright clinical backgrounds, polished marble, mirror reflections, exaggerated blur, crushed shadows, or dramatic cinematic haze."
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "IAD",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 1.6333
+      },
+      "duration": 1.6333,
+      "changes": 0,
+      "last_row_id": 0,
+      "changed_db": false,
+      "size_after": 10207232,
+      "rows_read": 24,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]

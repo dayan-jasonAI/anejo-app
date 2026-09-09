@@ -385,3 +385,185 @@ The AI, kitchen, and brand must always honor the following:
 11. Packaging must reinforce the premium experience.
 12. The brand must protect trust: honest ingredients, clean execution, safe handling, clear labeling, and no exaggerated claims.
 13. Añejo is built for legacy — every recipe, photo, label, sauce, bowl, delivery, and customer interaction should feel like it belongs to a brand that can scale.
+
+## 13. Kitchen production specs (DRAFT — pending Dayan approval)
+
+⚠️ **These are development drafts proposed during kitchen sessions. None of the specs in this section are official until reviewed and approved by Dayan. / Estos son borradores de desarrollo propuestos durante sesiones de cocina. Ninguno de los specs en esta sección es oficial hasta que Dayan los revise y apruebe.**
+
+---
+
+### 13A. Quinoa Base — Estándar para todos los bowls / Standard for all bowls
+
+**⚠️ DRAFT — pendiente aprobación de Dayan / pending Dayan approval**
+
+This preparation applies as the standard quinoa base across all Añejo bowl lines unless a specific bowl spec states otherwise.
+
+Esta preparación aplica como la base estándar de quinoa en toda la línea de bowls Añejo, salvo que el spec específico de un bowl indique lo contrario.
+
+| Ingrediente / Ingredient | Gramos / Grams |
+|---|---|
+| Quinoa seca / Dry quinoa | 150g |
+| Agua / Water | 750g |
+| Sal kosher / Kosher salt | 3g |
+
+**Método / Method:**
+
+1. Hierve el agua con la sal a fuego alto. / Bring water and salt to a full boil over high heat.
+2. Cuando rompa hervor, agrega la quinoa. / When boiling, add the quinoa.
+3. Baja a fuego medio-alto. / Reduce to medium-high heat.
+4. Cocina 12 minutos sin tapar. / Cook uncovered for 12 minutes.
+5. Cuela y escurre bien. / Strain and drain thoroughly.
+6. Deja reposar 2–3 minutos para que quede suelta y fluffy. / Rest 2–3 minutes so it stays loose and fluffy.
+
+💡 **Sugerencia de presentación / Presentation tip:** After draining, spread quinoa on a sheet tray for 2–3 minutes. It dries better, stays looser, and looks more premium in the bowl. / Después de escurrir, extiende la quinoa en un sheet tray por 2–3 minutos. Se seca mejor, queda más suelta y se ve más premium en el bowl.
+
+**Por bowl / Per bowl:** 85g quinoa seca (3 oz) / 85g dry quinoa (3 oz)
+
+---
+
+### 13B. COCO — Coconut Lime Shrimp Preparation / Preparación del Camarón COCO
+
+**⚠️ DRAFT — pendiente aprobación de Dayan / pending Dayan approval**
+
+**Batch:** 2 lbs / 907g camarón crudo pelado 21/25 / raw peeled shrimp 21/25
+**Rinde / Yields:** aprox. 6 bowls · 142g camarón por bowl / approx. 6 bowls · 142g shrimp per bowl
+
+| Ingrediente / Ingredient | Gramos / Grams |
+|---|---|
+| Camarón crudo pelado 21/25 / Raw peeled shrimp 21/25 | 907g |
+| Aceite de oliva extra virgen / Extra virgin olive oil | 20g |
+| Ajo picado / Minced garlic | 15g |
+| Leche de coco full fat / Full-fat coconut milk | 240g |
+| Sal kosher / Kosher salt | 6g |
+| Pimienta blanca / White pepper | 1.5g |
+| Agua de coco / Coconut water | 750g |
+| Coco rallado sin azúcar / Unsweetened shredded coconut | 30g |
+| Limón fresco exprimido / Fresh squeezed lime juice | 30g |
+
+**Método / Method:**
+
+1. Sofríe el ajo en EVOO a fuego medio hasta que desprenda aroma (aprox. 1–2 min) — no quemar. / Sauté garlic in EVOO over medium heat until fragrant (approx. 1–2 min) — do not burn.
+2. Agrega la leche de coco y deja cocinar unos minutos. / Add coconut milk and cook for a few minutes.
+3. Agrega sal y pimienta — ajusta sazón. / Add salt and pepper — adjust seasoning.
+4. Agrega el agua de coco y deja cocinar unos minutos. / Add coconut water and cook for a few minutes.
+5. Agrega el coco rallado y cocina 3 minutos. / Add shredded coconut and cook 3 minutes.
+6. Prueba y ajusta sazón. / Taste and adjust seasoning.
+7. Agrega el camarón y el limón exprimido. / Add shrimp and lime juice.
+8. Cocina 3–4 minutos hasta que el camarón esté rosado y firme. / Cook 3–4 minutes until shrimp is pink and firm.
+9. Retira del fuego inmediatamente. / Remove from heat immediately.
+
+⚠️ **Allergens / Alérgenos:** Shellfish (shrimp) / Mariscos (camarón) · Coconut / Coco · Cross-contact risk must be disclosed / Se debe declarar riesgo de contaminación cruzada
+
+---
+
+## Proposed Studio Brief Change / Cambio propuesto desde Studio
+
+Title / Titulo: Precios oficiales de venta al cliente Bowl Costo producción Precio de venta Ganancia bruta Food cost % Estado LIGERO $3.27 $21.99 $18.72 14.9% ✅ Excelente margen RAÍZ $3.40 $20.99 $17.59 16.2% ✅ Excel
+
+English: Kitchen staff proposed the following change for owner review.
+
+Precios oficiales de venta al cliente
+Bowl	Costo producción	Precio de venta	Ganancia bruta	Food cost %	Estado
+LIGERO	$3.27	$21.99	$18.72	14.9% ✅	Excelente margen
+RAÍZ	$3.40	$20.99	$17.59	16.2% ✅	Excelente margen
+CONGREEN	$3.88	$22.99	$19.11	16.9% ✅	Excelente margen
+COCO	$4.56	$22.99	$18.43	19.8% ✅	Excelente margen
+FUEGO	$5.41	$23.99	$18.58	22.6% ✅	Muy saludable
+MAR	$6.26	$24.99	$18.73	25.0% ✅	Saludable
+VIDA	$6.70	$22.99	$16.29	29.1% ✅	Aceptable
+ANÁLISIS POR BOWL
+✅ LIGERO — $21.99
+Food cost 14.9% — el margen más alto del menú
+Pollo es proteína más económica — precio de venta muy bien posicionado
+Sin cambios necesarios
+✅ RAÍZ — $20.99
+Food cost 16.2% — segundo mejor margen
+Tofu es la proteína más económica del menú
+Precio competitivo para bowl plant-based premium
+Sin cambios necesarios
+✅ CONGREEN — $22.99
+Food cost 16.9% — margen excelente
+Atún en lata + congri quinoa = costo muy controlado
+Sin cambios necesarios
+✅ COCO — $22.99
+Food cost 19.8% — margen muy sólido
+El camarón es la proteína más costosa después del atún fresco y salmón
+Precio bien posicionado para un bowl de camarón premium
+Sin cambios necesarios
+✅ FUEGO — $23.99
+Food cost 22.6% — muy saludable
+El steak justifica el precio más alto del menú junto a MAR
+Chimichurri Vital tiene costo real por el EVOO ahumado y hierbas frescas
+Sin cambios necesarios
+✅ MAR — $24.99
+Food cost 25.0% — saludable y bien posicionado
+El salmón + salsa de piña con yogur griego sube el costo
+Precio más alto del menú — correcto para un bowl de salmón premium
+Sin cambios necesarios
+✅ VIDA — $22.99
+Food cost 29.1% — aceptable pero es el más ajustado
+El atún fresco Ahi a $14/lb es el driver del costo — 140g por bowl = $4.32 solo en proteína
+Está dentro del rango saludable pero con menos colchón
+Recomendación: Considera subir a $23.99–$24.99 en el futuro para alinearlo con MAR — el atún fresco Ahi justifica ese precio premium
+
+Espanol: El equipo de cocina propuso este cambio para revision del dueno.
+
+---
+
+## Proposed Studio Brief Change / Cambio propuesto desde Studio
+
+Title / Titulo: Verde Vida — Añejo Fit Drink Spec (Draft)
+
+Add the following spec to Section 6 under 'Añejo Fit Drinks — Seasonal / Rotating Items':
+
+---
+
+⚠️ DRAFT — Pending Dayan approval / BORRADOR — Pendiente aprobación de Dayan
+
+---
+
+VERDE VIDA — Añejo Fit Drink
+
+Profile / Perfil:
+Clean green hydration, bright citrus-forward, anti-inflammatory, no added sugar. / Hidratación verde limpia, cítrico-brillante, anti-inflamatoria, sin azúcar añadida.
+
+Serving size / Porción: 1 serving — approximately 16 oz / 1 porción — aproximadamente 16 oz
+
+Ingredients / Ingredientes:
+
+- Fresh cucumber unpeeled / Pepino fresco sin pelar — 120g
+- Fresh baby spinach / Espinaca baby fresca — 30g
+- Fresh lemon juice / Jugo de limón fresco — 30g
+- Fresh grated ginger / Jengibre fresco rallado — 5g
+- Unsweetened coconut water / Agua de coco sin azúcar — 240g
+- Fresh mint / Menta fresca — 4–5 leaves / hojas
+- Ice / Hielo — 100g
+- Sea salt / Sal de mar (pinch / pizca) — 0.5g
+
+Method / Método:
+
+1. Blend cucumber, spinach, ginger, mint, and coconut water until smooth. / Licúa pepino, espinaca, jengibre, menta y agua de coco hasta obtener una mezcla suave.
+2. Add fresh lemon juice and sea salt. Blend briefly. / Agrega jugo de limón fresco y sal de mar. Licúa brevemente.
+3. Strain for a cleaner texture or leave fiber in for a smoothie-style finish. / Cuela para una textura más limpia, o deja la fibra para un acabado estilo smoothie.
+4. Serve over ice in a 16 oz cup. / Sirve sobre hielo en vaso de 16 oz.
+5. Finish with a cucumber slice or lemon wheel on the rim. / Termina con una rodaja de pepino o limón en el borde del vaso.
+
+Approximate nutritional profile / Perfil nutricional aproximado:
+
+- Calories / Calorías: ~60–80 kcal
+- Protein / Proteína: ~2g
+- Carbohydrates / Carbohidratos: ~12–15g
+- Fat / Grasas: ~0.5g
+- Hydration note / Nota de hidratación: High — natural electrolytes from coconut water / Alta — electrolitos naturales del agua de coco
+
+Brand alignment notes / Notas de alineación con la marca:
+
+- No added sugar / Sin azúcar añadida
+- Anti-inflammatory ingredients (ginger, spinach, lemon) / Ingredientes anti-inflamatorios (jengibre, espinaca, limón)
+- Clean sourcing consistent with Añejo ingredient standards / Ingredientes limpios consistentes con los estándares de Añejo
+- Citrus-forward flavor profile aligned to Añejo culinary house style / Perfil de sabor cítrico alineado al estilo culinario de la casa
+- No artificial sweeteners, seed oils, or processed additives / Sin edulcorantes artificiales, aceites de semilla, ni aditivos procesados
+
+Allergen flags / Alertas de alérgenos: None known from base recipe. Confirm coconut water supplier for cross-contact risk. / Ninguno conocido en la receta base. Confirmar riesgo de contacto cruzado con el proveedor de agua de coco.
+
+Status / Estado: SPEC DRAFT — not for public menu or production until approved by Dayan. / BORRADOR DE SPEC — no apto para menú público ni producción hasta aprobación de Dayan.

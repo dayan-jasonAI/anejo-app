@@ -1,5 +1,7 @@
 # Añejo HUB — Marketing Expert: Complete System Handoff
 
+> **Current product direction — 2026-09-08:** use [Brand & Standards Brief](brand-standards-brief.md) and [Menu, Photography & Marketing Reference](HUB_MENU_MARKETING_REFERENCE.md) for current categories, portions, product photos, and shopping routes. Earlier bowl-only examples below describe system history, not the full current offering. Live /api/menu controls prices and availability.
+
 **Purpose of this document.** Everything true about the Marketing Expert role in the Añejo HUB as of
 **2026-08-11 (second revision)**, written so it can be turned into an onboarding package, a user
 manual, a role scope, and a metrics sheet without anyone having to read the code.

@@ -54,7 +54,7 @@ async function firstRow(env, sql, ...args) {
 // document, so this is headroom, not a squeeze. loadBrand() itself lives in brand_source.js —
 // shared with the content planner and the Brand Auditor, so there is one definition of "the
 // brand brief" instead of three that can silently drift apart.
-const BRAND_BUDGET = 20000;
+const BRAND_BUDGET = 32000;
 
 /**
  * One menu row as the Lead needs to see it: what it costs, whether it sells, and — for a bowl —
