@@ -445,7 +445,7 @@ function renderPay(box) {
   const label = `${Math.round(pct * 100)}%`;
   const hold = el('button', 'aq-btn aq-wide', pay, t(`Hold the date — ${label} deposit, ${money(deposit)}`, `Reserva la fecha — ${label} de depósito, ${money(deposit)}`));
   hold.type = 'button';
-  hold.addEventListener('click', () => bookDeposit(hold));
+  hold.addEventListener('click', () => startDeposit(hold));
   el('p', null, pay, t(
     `The balance of ${money(estimate.total_cents - deposit)} is due the day before the event.`,
     `El saldo de ${money(estimate.total_cents - deposit)} vence el día antes del evento.`));

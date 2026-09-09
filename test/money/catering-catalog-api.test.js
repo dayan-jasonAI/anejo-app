@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { onRequestGet } from '../../functions/api/catering-catalog.js';
 import { estimateCateringProducts } from '../../functions/_lib/catering-estimate.js';
 
-const items = JSON.parse(readFileSync(new URL('../../docs/menu-launch/catalog.json', import.meta.url)));
+const items = JSON.parse(readFileSync(new URL('../../docs/menu-2026-09/catalog.json', import.meta.url)));
 const envWith = (rows) => ({ DB: { prepare: (sql) => ({ all: async () => ({ results: sql.includes('menu_items') ? rows : [] }) }) } });
 const get = async (rows = items) => (await onRequestGet({ env: envWith(rows), request: new Request('https://example.com/api/catering-catalog') })).json();
 const find = (data, id) => data.products.find((p) => p.id === id);

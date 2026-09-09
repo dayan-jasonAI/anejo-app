@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { onRequestGet } from '../../functions/api/hub/owner/catering-deposit.js';
 
-const items = JSON.parse(readFileSync(new URL('../../docs/menu-launch/catalog.json', import.meta.url)));
+const items = JSON.parse(readFileSync(new URL('../../docs/menu-2026-09/catalog.json', import.meta.url)));
 const HUB = readFileSync(new URL('../../public/hub/owner/catering.html', import.meta.url), 'utf8');
 
 // Dayan's actual 2026-09-09 birthday request: five priced lines, plus the yuca he had to file as

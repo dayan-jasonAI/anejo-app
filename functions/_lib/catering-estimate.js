@@ -20,24 +20,31 @@ const FIT = new Set(['fuego', 'ligero', 'mar', 'raiz', 'coco', 'vida', 'congreen
 // approved by Dayan. The flavoured cups are offered below under their OWN names instead, which is
 // not a substitution - it is selling the item the menu actually has.
 export const PRODUCT_PACKS = {
-  lechon: { base: 'lechon', sizes: [10, 25] },
-  congri: { base: 'congri', sizes: [10, 25] },
-  tamales: { base: 'tamal', sizes: [10, 25] },
-  salad: { base: 'fria', sizes: [10, 25] },
+  // Sizes are the tray counts the menu actually publishes, and they must match
+  // scripts/menu-2026-09/prices.mjs — a size listed here that D1 does not carry silently sends
+  // the line to "quoted after review"; a size D1 carries and this omits can never be sold.
+  lechon: { base: 'lechon', sizes: [10, 25, 50] },
+  congri: { base: 'congri', sizes: [10, 25, 30, 50] },
+  tamales: { base: 'tamal', sizes: [10, 25, 50] },
+  salad: { base: 'fria', sizes: [10, 25, 50] },
   // Priced by the menu all along and absent from the selector until 2026-09-09: Dayan's own
   // birthday order had to file yuca as "Other custom request", which is what made an otherwise
   // ordinary order unquotable.
-  yuca: { base: 'yuca', sizes: [10, 25] },
-  'salad-fresh': { base: 'verde', sizes: [10, 25] },
-  skewer: { base: 'skewer', sizes: [25, 50] },
-  'croqueta-dressed': { base: 'dressed', sizes: [25, 50] },
-  bomba: { base: 'bomba', sizes: [25, 50] },
-  'salami-bite': { base: 'salami', sizes: [25, 50] },
-  'cup-fresa': { base: 'cup-fresa', sizes: [], packs: [['catering_cups-fresa', 12]] },
-  'cup-chocolate': { base: 'cup-chocolate', sizes: [], packs: [['catering_cups-chocolate', 12]] },
+  yuca: { base: 'yuca', sizes: [10, 25, 30, 50] },
+  'salad-fresh': { base: 'verde', sizes: [10, 25, 50] },
+  skewer: { base: 'skewer', sizes: [10, 25, 50] },
+  bomba: { base: 'bomba', sizes: [10, 25, 50] },
+  // Croqueta platters come in thirties because that is what the tray holds with the sauces
+  // between them. The plain 10-count BOX is a different product (see FLAVOR_FAMILIES) and is
+  // deliberately not in the same pack list — three boxes cost less than one platter and would
+  // otherwise be substituted for it, handing the customer croquetas with no sauce.
+  'croqueta-dressed': { base: 'dressed', sizes: [30, 60, 90] },
+  'cup-fresa': { base: 'cup-fresa', sizes: [10, 25, 50] },
+  'cup-chocolate': { base: 'cup-chocolate', sizes: [10, 25, 50] },
   'cake-fresa': { base: 'cake-fresa', sizes: [] },
   'cake-chocolate': { base: 'cake-chocolate', sizes: [] },
-  pizza: { base: 'pizza', sizes: [], packs: [['catering_pizza-3', 3]] },
+  pizza: { base: 'pizza', sizes: [] },
+  'cajita-standard': { base: 'cajita', sizes: [10, 25, 50] },
 };
 
 // Sauces travel by the single cup or the 8-serving bulk tub. Kept apart from the food table
@@ -72,15 +79,46 @@ export const SAUCE_PACKS = {
 //
 // An unlisted flavor still has no published price and is still quoted by a person — that rule has
 // not changed, the list of what qualifies has.
-const FLAVOR_SKUS = {
+// Flavoured lines whose flavor picks the SKU, WITH the tray sizes that flavour is sold in.
+//
+// The sizes used to be hardcoded as 25 and 50 at the point of use. The 2026-09 menu moved
+// croquetas onto 10/30/60/90 and added ten-counts to the empanadas, so a hardcoded pair would
+// have quietly stopped pricing every croqueta the moment the migration retired the old trays.
+//
+// An unlisted flavor still has no published price and is still quoted by a person — that rule
+// has not changed, only the list of what qualifies and the sizes each one comes in.
+const FLAVOR_FAMILIES = {
+  // The BOX: croquetas loose, no sauce, tens only.
   croqueta: {
-    ham: 'croq-jamon', chicken: 'croq-pollo', beef: 'croq-res',
-    chorizo: 'croq-chorizo', sausage: 'croq-sausage', tuna: 'croq-tuna',
+    sizes: [10],
+    skus: { ham: 'croq-jamon', chicken: 'croq-pollo', beef: 'croq-res',
+            chorizo: 'croq-chorizo', sausage: 'croq-sausage', tuna: 'croq-tuna' },
+  },
+  // The PLATTER: plated with the sauces between them, thirties only. A separate family so the
+  // engine can never swap three cheap boxes in for one platter.
+  'croqueta-platter': {
+    sizes: [30, 60, 90],
+    skus: { ham: 'platter-jamon', chicken: 'platter-pollo', beef: 'platter-res',
+            chorizo: 'platter-chorizo', sausage: 'platter-sausage', tuna: 'platter-tuna' },
   },
   empanada: {
-    'guava-cheese': 'emp-guava', cheese: 'emp-cheese', ham: 'emp-ham', tuna: 'emp-tuna',
-    chicken: 'emp-pollo', beef: 'emp-res', 'ham-cheese': 'emp-ham-cheese',
-    guava: 'emp-guava-only', 'ropa-vieja': 'emp-ropa-vieja', 'pulled-pork': 'emp-pulled-pork',
+    sizes: [10, 25, 50],
+    // Ropa vieja is the one empanada priced apart, and the menu publishes it in 25s and 50s only.
+    sizeOverrides: { 'ropa-vieja': [25, 50] },
+    skus: { 'guava-cheese': 'emp-guava', cheese: 'emp-cheese', ham: 'emp-ham', tuna: 'emp-tuna',
+            chicken: 'emp-pollo', beef: 'emp-res', 'ham-cheese': 'emp-ham-cheese',
+            guava: 'emp-guava-only', 'ropa-vieja': 'emp-ropa-vieja', 'pulled-pork': 'emp-pulled-pork',
+            'dulce-de-leche': 'emp-dulce' },
+  },
+  roll: {
+    sizes: [10, 25, 50],
+    skus: { ham: 'bocadito-jamon', tuna: 'bocadito-atun' },
+  },
+  'papa-rellena': {
+    sizes: [10, 25, 50],
+    skus: { cheese: 'papa-queso', ham: 'papa-jamon', chorizo: 'papa-chorizo',
+            'hot-dog': 'papa-perro', 'ham-cheese': 'papa-jamon-queso',
+            chicken: 'papa-pollo', beef: 'papa-res' },
   },
 };
 
@@ -99,8 +137,13 @@ export function candidates(row) {
   const sauce = SAUCE_PACKS[row.id];
   if (sauce) return [...(sauce.single ? [[sauce.single, 1]] : []), ...(sauce.bulk ? [[sauce.bulk, 8]] : [])];
 
-  const pieces = FLAVOR_SKUS[row.id]?.[row.flavor];
-  return pieces ? [[`traditional_${pieces}`, 1], [`catering_${pieces}-25`, 25], [`catering_${pieces}-50`, 50]] : [];
+  const family = FLAVOR_FAMILIES[row.id];
+  const sku = family?.skus?.[row.flavor];
+  if (!sku) return [];
+  const sizes = family.sizeOverrides?.[row.flavor] || family.sizes;
+  // The single is offered too where one exists; a base with no single (the platters) simply has
+  // no traditional_ row in the menu and is filtered out when the packs are built.
+  return [[`traditional_${sku}`, 1], ...sizes.map((n) => [`catering_${sku}-${n}`, n])];
 }
 
 // Exact bounded knapsack: never round up a guest's pieces/servings. Binary stock chunks keep

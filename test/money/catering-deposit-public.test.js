@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { makeD1 } from '../helpers/d1.js';
 import { onRequestPost } from '../../functions/api/catering-deposit.js';
 
-const items = JSON.parse(readFileSync(new URL('../../docs/menu-launch/catalog.json', import.meta.url)));
+const items = JSON.parse(readFileSync(new URL('../../docs/menu-2026-09/catalog.json', import.meta.url)));
 
 // A day comfortably past the 48-hour rule, in ET.
 const FAR = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
