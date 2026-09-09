@@ -19,3 +19,13 @@ No price changes, purchases, secrets/config/database changes or live payments ma
 
 ## Deployment / rollback
 Deployment receipt and live browser/API verification appended after release. Revert only this release's changes via reviewed commit; do not roll back unrelated grouped catalog/payment updates.
+
+## Production verification receipt
+- Pushed main2184329 and branch codex/kitchen-ready-notifications. Production deploymentff78e51a-6863-439c-8873-2ebbc2461864 includes final owner-calendar consistency fix. Earlier release916ed52e-c520-4a05-be8a-5062e1ac367d verified full selection-to-cart browser path.
+- Main domain /api/catering-estimate returned200,4000cents for25ham croquetas, mapped to one catering_croq-jamon-25 tray. No order created.
+- Main domain /api/checkout rejected insufficient48h notice with bilingual400 before collecting address/payment. Owner-enabled Sunday2026-09-13 passed calendar validation and stopped at missing street address400; no payment link/order created by that probe.
+- Browser confirmed English selection25pieces -> one25piece tray -> $40food subtotal, $5existing delivery estimate, $2.80existing tax estimate. No payment submitted; taxes/pricing configuration unchanged.
+- Main domain Spanish pricing panel showed $40 and “Continuar al pago seguro”. Adding custom instructions removed that button and retained subtotal/review guidance. New UI EN/ES verified; not a claim every pre-existing catalog description is translated.
+- Returning-browser stale cache fixed via versioned script URL. Main-domain bundle matched local SHA256 c14d1daa4a31705ea9cf676551502b3956cef41ad9424d4f0d30939ddf67c55e.
+- Final regression run1927pass/0fail. Changes created pricing/notice helpers, API, tests and release record; modified form bundle, checkout, grouped-shop quantity controls and build entry. No new paid service.
+- Remaining Dayan decision/input: approved standard Cajita sale price and deterministic personalization/add-on price schedule (or measured food/labor cost inputs to derive them). Full bespoke auto-confirmation remains information-blocked; pricing engine never calls missing components free. Kitchen/email paid-order delivery not freshly end-to-end verified. While deployment built, continued browser validation and fixed cache/calendar mismatches.
