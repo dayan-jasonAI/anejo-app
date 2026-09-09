@@ -142,6 +142,8 @@
       event_date: msgField(r.message, 'Event date'),
       guests: Number(msgField(r.message, 'Guest count')) || '',
       note: [r.interest ? 'Requested menu: ' + r.interest : '', r.message || ''].filter(Boolean).join('\n'),
+      // The suggested total travels with the prefill so "Start a quote" opens with a number in it.
+      total: r.suggested && r.suggested.total_cents ? (r.suggested.total_cents / 100).toFixed(2) : '',
     };
     var contact = [r.email || '', r.phone || ''].filter(Boolean).join(' · ');
     var targetLead = new URLSearchParams(window.location.search).get('lead');
@@ -160,10 +162,36 @@
       '<div class="rbody"><b>' + C.label('Original request (as submitted)') + '</b><br>' + (r.message ? esc(r.message) : C.label('No event details provided.')) + '</div>' +
       (r.cajita_configuration || r.cajita_summary ? '<details class="rbody"><summary>' + C.label('Exact Cajita configuration') + '</summary>' + C.summaryHtml(r.cajita_configuration,r.cajita_summary) + '</details>' : '') +
       (files ? '<div class="rfiles"><b>' + C.label('Private design files · owner only') + '</b>' + files + '</div>' : '') +
+      suggestionHtml(r.suggested) +
       '<div class="ractions">' +
         '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">' + C.label('Start a quote') + '</button>' +
         (r.email ? '<a class="btn ghost" href="mailto:' + esc(encodeURIComponent(r.email)) + '?subject=' + encodeURIComponent('Your Añejo catering request') + '">' + C.label('Email customer') + '</a>' : '') +
       '</div></article>';
+  }
+
+  // What the live menu says this request costs, shown ON the request card.
+  //
+  // It is labelled a suggestion everywhere, because that is what it is: the priced lines at
+  // today's menu prices with the standard volume discount, and an explicit list of everything
+  // still needing a hand quote. The Agreed total field stays editable — this replaces a blank
+  // box with a starting point, not Dayan's judgement with a machine's.
+  function suggestionHtml(s) {
+    if (!s || (!s.total_cents && !(s.unpriced || []).length)) return '';
+    var rows = '';
+    if (s.subtotal_cents) rows += '<div class="row-sub">' + C.label('Menu price for the priced lines') + ': <b>' + dollars(s.subtotal_cents) + '</b></div>';
+    if (s.discount_cents) rows += '<div class="row-sub">' + C.label('Volume discount') + ': −' + dollars(s.discount_cents) + '</div>';
+    if (s.total_cents) rows += '<div class="row-sub"><b>' + C.label('Suggested total') + ': ' + dollars(s.total_cents) + '</b></div>';
+    var open = (s.unpriced || []).filter(function (u) { return u && u.id; });
+    if (open.length) {
+      rows += '<div class="row-sub">' + C.label('You still need to price') + ': ' +
+        esc(open.map(function (u) { return (u.quantity || '') + ' × ' + u.id; }).join(', ')) + '</div>';
+    }
+    if (s.live_menu === false) rows += '<div class="row-sub">' + C.label('Live menu unavailable — this is not a current price.') + '</div>';
+    return '<div class="rbody"><b>' + C.label('Suggested from the live menu') + '</b>' + rows + '</div>';
+  }
+
+  function dollars(cents) {
+    return '$' + (Number(cents || 0) / 100).toFixed(2);
   }
 
   // ---------- the create form ----------
@@ -237,9 +265,16 @@
         document.getElementById('q-date').value = r.event_date || '';
         document.getElementById('q-guests').value = r.guests || '';
         document.getElementById('q-note').value = r.note || '';
+        // Prefilled from the live menu when the request carried priceable products. It stays
+        // editable and is still called the AGREED total: the suggestion is a starting point, and
+        // anything the menu could not price is listed on the request card above.
+        document.getElementById('q-total').value = r.total || '';
         document.getElementById('q-total').focus();
+        document.getElementById('q-total').select();
         document.getElementById('q-total').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        Hub.toast('Request copied into a new quote — enter the agreed total');
+        Hub.toast(r.total
+          ? 'Suggested total filled in from the live menu — change it if you agreed something else'
+          : 'Request copied into a new quote — enter the agreed total');
       });
     });
   }

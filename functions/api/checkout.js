@@ -13,6 +13,7 @@ import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js'
 import { currentUser } from '../_lib/session.js';
 import { rewardsSummary } from '../_lib/rewards.js';
 import { evaluatePromo, recordRedemption, autoCustomerCodeFor, claimPromoUse, releasePromoUse } from '../_lib/promo.js';
+import { applyVolumeDiscount } from '../_lib/catering-pricing.js';
 import { loadMenu, AVAILABILITY } from '../_lib/menu.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
@@ -258,6 +259,9 @@ export const onRequestPost = async ({ request, env }) => {
   const lineItems = [];
   const orderItems = [];
   let subtotalCents = 0;
+  // The catering portion of the cart, tracked separately because the volume discount published on
+  // /catering applies to catering trays only — it must never quietly take 5% off a bowl order.
+  let cateringSubtotalCents = 0;
   for (const it of items) {
     if (menu.bowls[it && it.id] != null) {
       // Customized bowl: qty units of one configuration. Re-priced + re-validated server-side.
@@ -289,6 +293,7 @@ export const onRequestPost = async ({ request, env }) => {
       if (!Number.isFinite(qty) || qty < 1 || qty > (/^(catering_|traditional_)/.test(it.id) ? 5000 : 20)) return bad(`Invalid quantity for ${prod.name}.`);
       const cents = prod.price_cents;
       subtotalCents += cents * qty;
+      if (/^(catering_|traditional_)/.test(it.id)) cateringSubtotalCents += cents * qty;
       lineItems.push({ name: prod.name, quantity: String(qty), base_price_money: { amount: cents, currency: 'USD' } });
       orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents });
     }
@@ -534,8 +539,19 @@ export const onRequestPost = async ({ request, env }) => {
       }
     } catch (_) { promo = null; promoDiscountCents = 0; }
   }
-  // Never discount below zero once both discounts are combined.
-  const totalDiscountCents = Math.min(subtotalCents, discountCents + promoDiscountCents);
+  // THE CATERING VOLUME DISCOUNT.
+  //
+  // The quote builder on /catering shows a customer a discounted total and then sends them here to
+  // pay. Until this existed, checkout re-priced the cart from the menu and applied only points and
+  // promo codes — so the page promised $543.70 and the card was charged $546.00. A published
+  // discount that the checkout does not honour is worse than no discount at all.
+  //
+  // Computed by the same shared function the quote builder and the Hub use, off the CATERING
+  // portion of the cart only, so a Fit bowl order is untouched.
+  const volumeDiscountCents = applyVolumeDiscount(cateringSubtotalCents).discount_cents;
+
+  // Never discount below zero once every discount is combined.
+  const totalDiscountCents = Math.min(subtotalCents, discountCents + promoDiscountCents + volumeDiscountCents);
 
   // ATOMIC use-cap claim. evaluatePromo's max_uses check is advisory — a Square round-trip sits
   // between it and the increment, so concurrent checkouts could all pass a 1-use gate. Claim the
@@ -548,7 +564,7 @@ export const onRequestPost = async ({ request, env }) => {
       promo = null; promoDiscountCents = 0;   // auto-applied benefit: degrade silently
     }
   }
-  const finalDiscountCents = promo ? totalDiscountCents : Math.min(subtotalCents, discountCents);
+  const finalDiscountCents = promo ? totalDiscountCents : Math.min(subtotalCents, discountCents + volumeDiscountCents);
 
   // A granted perk has to reach the people who pack the bag — otherwise we've promised a customer
   // something the kitchen never sees. Add it as a $0 line item (kitchen board reads orderItems)
@@ -582,6 +598,12 @@ export const onRequestPost = async ({ request, env }) => {
             uid: 'anejo-rewards',
             name: `Añejo Rewards (${redeemPts} pts)`,
             amount_money: { amount: discountCents, currency: 'USD' },
+            scope: 'ORDER',
+          });
+          if (volumeDiscountCents > 0) ds.push({
+            uid: 'anejo-catering-volume',
+            name: 'Catering volume discount',
+            amount_money: { amount: volumeDiscountCents, currency: 'USD' },
             scope: 'ORDER',
           });
           if (promo && promoDiscountCents > 0) ds.push({

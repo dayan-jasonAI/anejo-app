@@ -18,6 +18,8 @@ import { DEPOSIT_PCT, TERMS_VERSION, termsFor } from '../../../_lib/catering_ter
 import { createDepositCheckout, depositSplit } from '../../../_lib/catering_deposit.js';
 import { createBalanceCheckout } from '../../../_lib/catering_balance.js';
 import { extractCajitaConfiguration } from '../../../_lib/cajita-config.js';
+import { loadMenu } from '../../../_lib/menu.js';
+import { estimateCateringProducts } from '../../../_lib/catering-estimate.js';
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -58,6 +60,50 @@ export const onRequestGet = async ({ request, env }) => {
       return parsed ? { ...row, cajita_configuration: parsed.config, cajita_summary: parsed.summary } : row;
     });
   } catch { requests = []; }
+
+  // A SUGGESTED TOTAL, so "Start a quote" is not an empty box.
+  //
+  // Dayan's complaint, 2026-09-09: "I get no help in pricing out the order." The request card
+  // showed the products the customer chose and then handed him a blank "Agreed total" to fill in
+  // by hand — while the menu has had a published price for most of those lines all along. His own
+  // $1,200 birthday order was priced that way.
+  //
+  // The structured selection lives in catering_requests.event_json (the human-readable lines on
+  // the lead are a rendering of it). Pricing it here, with the SAME estimator and the SAME volume
+  // discount the website quotes against, means the number he is offered is the number the customer
+  // was already shown. It is a SUGGESTION and nothing more: the field stays editable, and lines
+  // with no published price are listed rather than guessed at.
+  if (requests.length) {
+    try {
+      const rows = await env.DB.prepare(
+        `SELECT lead_id, event_json FROM catering_requests WHERE lead_id IN (${requests.map(() => '?').join(',')})`
+      ).bind(...requests.map((row) => row.id)).all();
+      const byLead = new Map(((rows && rows.results) || []).map((row) => [row.lead_id, parseJson(row.event_json, null)]));
+      if (byLead.size) {
+        const menu = await loadMenu(env);
+        requests = requests.map((requestRow) => {
+          const payload = byLead.get(requestRow.id);
+          const products = Array.isArray(payload?.products) ? payload.products : null;
+          if (!products || !products.length) return requestRow;
+          const estimate = estimateCateringProducts(products, menu);
+          return {
+            ...requestRow,
+            suggested: {
+              subtotal_cents: estimate.subtotal_cents,
+              discount_cents: estimate.discount_cents,
+              total_cents: estimate.total_cents,
+              tiers: estimate.tiers,
+              // What he still has to price himself, by name, so the gap between the suggestion
+              // and the real quote is visible instead of silent.
+              unpriced: estimate.unpriced,
+              priced_lines: estimate.items.length,
+              live_menu: menu?.source === 'd1',
+            },
+          };
+        });
+      }
+    } catch { /* the migration may not be applied; the request still loads without a suggestion */ }
+  }
 
   // Attachments are private R2 objects. Return metadata only; the authenticated download route
   // performs a fresh owner check and streams the bytes on demand.

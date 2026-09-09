@@ -45,11 +45,27 @@ test('bespoke notes, missing price equivalence and unknown flavors never silentl
     assert.equal(result.checkout_eligible, false);
     assert.equal(result.unpriced.length, 1);
   }
+  // A NOTED LINE IS NOW EXCLUDED FROM THE CART RATHER THAN REFUSING THE WHOLE ORDER (2026-09-09).
+  // Someone who wrote "change ingredients" must never be charged for the standard item — that is
+  // the guarantee this test was written for, and it is stronger now: the line is not in `items`
+  // at all, so there is no path by which it could be sold. It keeps an indicative price so the
+  // Hub can suggest a number instead of showing an empty box.
   const result = estimate([{id:'lechon',quantity:1,notes:'Change ingredients'}]);
-  assert.equal(result.subtotal_cents, 1095);
+  assert.equal(result.subtotal_cents, 0, 'a noted line is not sellable food');
+  assert.deepEqual(result.items, [], 'and can never reach the checkout cart');
   assert.equal(result.needs_review, true);
-  assert.equal(result.checkout_eligible, false);
-  assert.equal(estimate([{id:'lechon',quantity:1}], menu(), {needsReview:true}).checkout_eligible, false);
+  assert.equal(result.checkout_eligible, false, 'nothing else in this order was priced');
+  assert.equal(result.unpriced[0].reason, 'custom_request');
+  assert.equal(result.unpriced[0].indicative_cents, 1095, 'the Hub still gets a starting number');
+
+  // The same note alongside a clean line sells the clean one and holds the noted one back.
+  const mixed = estimate([{id:'lechon',quantity:2}, {id:'lechon',quantity:1,notes:'no salt'}]);
+  assert.equal(mixed.checkout_eligible, true);
+  assert.equal(mixed.subtotal_cents, 2190, 'two plain servings, not three');
+  assert.equal(mixed.unpriced.length, 1);
+
+  // An event-level design request no longer withholds the food price.
+  assert.equal(estimate([{id:'lechon',quantity:1}], menu(), {needsReview:true}).checkout_eligible, true);
 });
 
 test('invalid selections and invalid prices fail closed; 5000 pieces remain exact', () => {
