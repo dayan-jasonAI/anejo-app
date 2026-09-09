@@ -164,12 +164,12 @@ test('preview returns the depositSplit math and touches NOTHING — no Square, n
   sq.restore();
 
   assert.equal(out.ok, true);
-  assert.equal(out.deposit_cents, 30000);
-  assert.equal(out.balance_cents, 90000);
+  assert.equal(out.deposit_cents, 60000);
+  assert.equal(out.balance_cents, 60000);
   assert.equal(out.total_cents, 120000);
   assert.equal(out.deposit_cents + out.balance_cents, out.total_cents);
   assert.equal(out.terms.final_count_due, '2026-09-10');
-  assert.equal(out.terms.balance_due_date, '2026-09-20');
+  assert.equal(out.terms.balance_due_date, '2026-09-19', 'the day BEFORE the event');
 
   assert.equal(sq.calls.length, 0, 'a preview that contacts Square is not a preview');
   assert.equal(env._sql.length, 0, 'and it writes no row');
@@ -199,10 +199,10 @@ test('the desk’s create button mints the deposit link for the DEPOSIT, not the
   sq.restore();
 
   assert.equal(out.ok, true);
-  assert.equal(out.deposit_cents, 30000);
-  assert.equal(out.balance_cents, 90000);
+  assert.equal(out.deposit_cents, 60000);
+  assert.equal(out.balance_cents, 60000);
   assert.equal(out.url, 'https://sq.link/deposit');
-  assert.equal(sq.calls[0].body.order.line_items[0].base_price_money.amount, 30000);
+  assert.equal(sq.calls[0].body.order.line_items[0].base_price_money.amount, 60000);
   assert.ok(env._sql.some((s) => /INSERT INTO catering_quotes/i.test(s.flat)), 'and the quote is recorded');
 });
 

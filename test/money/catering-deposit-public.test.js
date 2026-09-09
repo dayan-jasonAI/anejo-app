@@ -86,12 +86,12 @@ test('the total is recomputed from the live menu — a browser cannot name its o
     assert.equal(res.status, 200);
     const data = await res.json();
     assert.equal(data.total_cents, 34500, 'the menu decides, not the request body');
-    assert.equal(data.deposit_cents, 8625, '25% of $345.00');
-    assert.equal(data.balance_cents, 25875);
+    assert.equal(data.deposit_cents, 17250, '50% of $345.00');
+    assert.equal(data.balance_cents, 17250);
     assert.equal(data.deposit_cents + data.balance_cents, data.total_cents);
     // And Square was asked for the DEPOSIT, not the total or the client's number.
     const charged = JSON.stringify(sq.calls[0].body);
-    assert.ok(charged.includes('8625'), 'Square must be asked for the recomputed deposit');
+    assert.ok(charged.includes('17250'), 'Square must be asked for the recomputed deposit');
     assert.ok(!charged.includes('99999'));
   } finally { sq.restore(); }
 });
@@ -104,7 +104,7 @@ test('the volume discount is applied before the deposit is taken', async () => {
     const res = await call(env, { ...GOOD, products: [{ id: 'lechon', quantity: 100 }] });
     const data = await res.json();
     assert.equal(data.total_cents, 93700, 'the customer is not deposited against the undiscounted price');
-    assert.equal(data.deposit_cents, 23425);
+    assert.equal(data.deposit_cents, 46850);
   } finally { sq.restore(); }
 });
 
@@ -175,7 +175,7 @@ test('a priced line still books even when another line needs a hand quote', asyn
     assert.equal(res.status, 200, 'the food is bookable; the custom work is quoted separately');
     const data = await res.json();
     assert.equal(data.total_cents, 34500, 'and the unpriced line is NOT charged for');
-    assert.equal(JSON.parse(JSON.stringify(sq.calls[0].body)).order.line_items[0].base_price_money.amount, 8625, 'the card is charged 25% of the priced food only');
+    assert.equal(JSON.parse(JSON.stringify(sq.calls[0].body)).order.line_items[0].base_price_money.amount, 17250, 'the card is charged 50% of the priced food only');
     assert.ok(data.unpriced.length, 'the response tells the page what is still to be quoted');
 
     // The warning belongs on the QUOTE ROW, which is what Dayan reads in the Hub when he picks
