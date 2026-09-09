@@ -197,8 +197,8 @@
   {
     "id": "traditional_bocadito",
     "kind": "addon",
-    "name": "Bocadito / mini sandwich",
-    "name_es": "Bocadito / mini sandwich",
+    "name": "Bocadito — Hawaiian roll with ham spread",
+    "name_es": "Bocadito — pan hawaiano con pasta de jamón",
     "price_cents": 275,
     "description": "1 × 1.5 oz / 43 g mini sandwich",
     "description_es": "1 × 1.5 oz / 43 g mini sandwich",
@@ -210,8 +210,8 @@
   {
     "id": "catering_bocadito-25",
     "kind": "addon",
-    "name": "Bocadito / mini sandwich tray — 25 pieces",
-    "name_es": "Bocadito / mini sandwich tray — 25 unidades",
+    "name": "Bocadito — Hawaiian roll with ham spread tray — 25 pieces",
+    "name_es": "Bocadito — pan hawaiano con pasta de jamón tray — 25 unidades",
     "price_cents": 4500,
     "description": "25 × 1.5 oz / 43 g mini sandwich",
     "description_es": "25 × 1.5 oz / 43 g mini sandwich",
@@ -223,8 +223,8 @@
   {
     "id": "catering_bocadito-50",
     "kind": "addon",
-    "name": "Bocadito / mini sandwich tray — 50 pieces",
-    "name_es": "Bocadito / mini sandwich tray — 50 unidades",
+    "name": "Bocadito — Hawaiian roll with ham spread tray — 50 pieces",
+    "name_es": "Bocadito — pan hawaiano con pasta de jamón tray — 50 unidades",
     "price_cents": 8500,
     "description": "50 × 1.5 oz / 43 g mini sandwich",
     "description_es": "50 × 1.5 oz / 43 g mini sandwich",
@@ -986,5 +986,44 @@
     "sort": 100,
     "active": 1,
     "source_id": "bites-snack"
+  },
+  {
+    "id": "traditional_croq-jamon",
+    "kind": "addon",
+    "name": "Croqueta de jamón",
+    "name_es": "Croqueta de jamón",
+    "price_cents": 250,
+    "description": "1 × 1.20 oz / 34 g croqueta (fried)",
+    "description_es": "1 × 1.20 oz / 34 g croqueta (frita)",
+    "image": "menu-launch/food-croq-pollo.webp",
+    "sort": 200,
+    "active": 1,
+    "source_id": "croq-jamon"
+  },
+  {
+    "id": "catering_croq-jamon-25",
+    "kind": "addon",
+    "name": "Croqueta de jamón tray — 25 pieces",
+    "name_es": "Croqueta de jamón tray — 25 unidades",
+    "price_cents": 4000,
+    "description": "25 × 1.20 oz / 34 g croqueta (fried)",
+    "description_es": "25 × 1.20 oz / 34 g croqueta (frita)",
+    "image": "menu-launch/food-croq-pollo-25.webp",
+    "sort": 201,
+    "active": 1,
+    "source_id": "croq-jamon-25"
+  },
+  {
+    "id": "catering_croq-jamon-50",
+    "kind": "addon",
+    "name": "Croqueta de jamón tray — 50 pieces",
+    "name_es": "Croqueta de jamón tray — 50 unidades",
+    "price_cents": 7500,
+    "description": "50 × 1.20 oz / 34 g croqueta (fried)",
+    "description_es": "50 × 1.20 oz / 34 g croqueta (frita)",
+    "image": "menu-launch/food-croq-pollo-50.webp",
+    "sort": 202,
+    "active": 1,
+    "source_id": "croq-jamon-50"
   }
 ]

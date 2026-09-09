@@ -22,3 +22,6 @@ Owner: Codex. Authorization: Dayan, direct session, “update the website and th
 
 ## Remaining limits
 Production costs remain estimates, not measured profitability. Proposed unconfirmed serving sizes from the pricing guide become menu specifications for the launched products. No real payment/order smoke test is performed. Publishing does not prove kitchen fulfillment or ROI.
+
+## Concurrent release preserved
+Merged origin/main 9cce3d7 before deployment. That release confirms 6 oz Cajita salad and ham croqueta, superseding the earlier portion uncertainty above. Added ham croqueta single/25/50 formats at the same $2.50/$40/$75 croqueta price: total 79 new SKUs. Cajita pricing remains quote-based in its existing builder. Both sets of bilingual dictionary entries retained.
