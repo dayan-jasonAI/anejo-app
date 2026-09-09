@@ -211,17 +211,36 @@ export const onRequestPost = async ({ request, env }) => {
     breakdown = q;
   }
 
+  // LANGUAGE AND SMS CONSENT COME FROM THE LEAD, NOT FROM A CHECKBOX SOMEBODY HAS TO REMEMBER.
+  // She told us both when she filled the form in: `source_lang` is the language she was reading
+  // the site in, and `sms_consent` is what she actually agreed to. Asking the owner to re-enter
+  // them is how a Spanish-speaking customer gets an English quote and no text.
+  let lead = null;
+  if (b.lead_id) {
+    try {
+      lead = await env.DB.prepare('SELECT source_lang, sms_consent, phone FROM leads WHERE id = ?')
+        .bind(String(b.lead_id)).first();
+    } catch { /* no lead is not an error — the owner can quote somebody who never used the form */ }
+  }
+  const lang = (b.lang || lead?.source_lang) === 'es' ? 'es' : 'en';
+  // An explicit body flag can only ever be used to WITHHOLD the text, never to grant a consent
+  // the customer did not give.
+  const smsConsent = (lead?.sms_consent === 1 || lead?.sms_consent === true) && b.sms_consent !== false;
+
   const r = await createDepositCheckout(env, {
     totalCents,
     guests,
     eventDate: b.event_date,
     customerName: b.customer_name,
     customerEmail: b.customer_email,
-    customerPhone: b.customer_phone,
+    customerPhone: b.customer_phone || lead?.phone || null,
     quoteBreakdown: breakdown,
     note: b.note,
     createdBy: (ctx && (ctx.email || ctx.distinct_id)) || null,
     baseUrl: appBaseUrl(env, request),
+    lang,
+    smsConsent,
+    send: b.send !== false,
   });
   if (!r.ok) return bad(r.error || 'Could not create the deposit link.', 400);
   return json(r);
