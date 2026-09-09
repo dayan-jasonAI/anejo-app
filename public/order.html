@@ -286,6 +286,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
   </div>
 </div>
 
+<script src="/assets/js/catering-notice.js"></script>
 <script>
 // Display catalog. GET /api/menu — backed by the SAME D1 rows /api/checkout prices from — is
 // AUTHORITATIVE and overwrites everything below as soon as it answers (see loadCatalog()).
@@ -397,7 +398,7 @@ function remainingFor(idv){
 // Owner-set unavailability, looked up from the live catalog. Zero means the add control cannot
 // open — the badge alone would not stop the "Add another" button on a bowl already in the cart.
 function isOffMenu(idv){ const it = PRICE[idv]; return !!(it && it.available === false); }
-function maxFor(idv){ if(isOffMenu(idv)) return 0; return mode==='ondemand' ? Math.min(20, remainingFor(idv)) : 20; }
+function maxFor(idv){ if(isOffMenu(idv)) return 0; return mode==='ondemand' ? Math.min(20, remainingFor(idv)) : (/^(catering_|traditional_)/.test(idv) ? 5000 : 20); }
 // How many MORE of this bowl can be added right now (per-day cap minus what's already in the cart).
 function canAddBowl(key){ return Math.max(0, maxFor(key) - countBowls(key)); }
 
@@ -466,6 +467,21 @@ async function loadCatalog(){
     CATALOG = next.map((g,i)=>(g.items.length || trustD1) ? g : FALLBACK_CATALOG[i]).filter(g=>g.items.length);
     indexPrices();
     pruneCart();
+    if(trustD1 && new URLSearchParams(location.search).get('from')==='catering'){
+      const raw=sessionStorage.getItem('anejo-catering-cart');
+      if(raw){
+        const transfer=JSON.parse(raw);
+        if(Date.now()-transfer.created>1800000 || !Array.isArray(transfer.items) || !transfer.items.length || transfer.items.some(i=>!PRICE[i.id] || !/^(catering_|traditional_)/.test(i.id) || !Number.isInteger(i.qty) || i.qty<1 || i.qty>5000 || isOffMenu(i.id))){
+          alert(L('Your selection needs review or has changed. Please choose your products from the current menu.','Tu selección requiere revisión o ha cambiado. Elige los productos del menú actual.'));
+        }else{
+          Object.keys(addons).forEach(id=>delete addons[id]);
+          bowls.length=0;
+          transfer.items.forEach(i=>addons[i.id]=(addons[i.id]||0)+i.qty);
+          mode='scheduled';
+        }
+        sessionStorage.removeItem('anejo-catering-cart');
+      }
+    }
   }catch(_){ /* keep the first-paint fallback; checkout re-prices server-side either way */ }
   renderCatalog(); renderCart();
   if(cz) czRender();   // repriced under an open modal
@@ -532,7 +548,7 @@ function applyMode(){
 // is exactly what happened the first time the setting was used. Falls back to the previous
 // constants when the API is unreachable, so the page still works offline of it.
 function buildDates(){
-  const sel=$('delivDate'); const now=Date.now(); const out=[];
+  const sel=$('delivDate'); const keep=sel.value; const now=Date.now(); const out=[];
   const days   = (sched && sched.days && sched.days.length) ? sched.days : [1,2,3,4,5,6];
   const byHour = (sched && typeof sched.orderByHour === 'number') ? sched.orderByHour : 18;
   const closed = (sched && sched.closedDates) || [];
@@ -544,9 +560,11 @@ function buildDates(){
     if(closed.indexOf(iso)!==-1) continue;           // owner marked this date closed
     // Deadline is `byHour` on the day BEFORE, i.e. midnight minus (24 - byHour) hours.
     if(now >= dt.getTime()-(24-byHour)*3600*1000) continue;
+    if(Object.keys(addons).some(id=>/^(catering_|traditional_)/.test(id)) && sched && window.AnejoCateringNotice && !['lunch','dinner'].some(w=>window.AnejoCateringNotice({eventDate:iso,defaultEventTime:sched.windows[w].start}).ok)) continue;
     out.push({v:iso, l:dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})});
   }
   sel.innerHTML = out.length ? out.map(o=>'<option value="'+o.v+'">'+o.l+'</option>').join('') : '<option value="">No dates available</option>';
+  if(out.some(o=>o.v===keep)) sel.value=keep;
   paintSchedNote();
 }
 
@@ -564,7 +582,9 @@ function paintSchedNote(){
   // WHERE we deliver belongs in this sentence. Generating the note originally dropped it, and that
   // line is how a visitor decides whether Añejo reaches them at all — losing it costs orders.
   const area=(sched && sched.areaLabel) ? sched.areaLabel : 'Palm Beach County';
-  el.textContent = 'Delivery only · '+area+' · '+label+'. Order by '+h12+' '+ampm+' the day before.';
+  el.textContent = Object.keys(addons).some(id=>/^(catering_|traditional_)/.test(id))
+    ? L('Standard catering requires at least 48 hours before the delivery window starts. Custom printing requires 72 hours and a custom quote.','El catering estándar requiere al menos 48 horas antes del inicio de la entrega. La impresión personalizada requiere 72 horas y cotización.')
+    : L('Delivery only · '+area+' · '+label+'. Order by '+h12+' '+ampm+' the day before.','Solo entrega · '+area+'. Pide antes de las '+h12+' '+ampm+' del día anterior.');
 
   const win=$('delivWindow');
   if(win && sched && sched.windows){
@@ -574,8 +594,14 @@ function paintSchedNote(){
     win.innerHTML = '<option value="lunch">Lunch · '+fmt(w.lunch.start)+' – '+fmt(w.lunch.end)+'</option>'+
                     '<option value="dinner">Dinner · '+fmt(w.dinner.start)+' – '+fmt(w.dinner.end)+'</option>';
     if(keep) win.value=keep;
+    if(Object.keys(addons).some(id=>/^(catering_|traditional_)/.test(id)) && window.AnejoCateringNotice){
+      [...win.options].forEach(option=>option.disabled=!window.AnejoCateringNotice({eventDate:$('delivDate').value,defaultEventTime:w[option.value].start}).ok);
+      if(win.selectedOptions[0]?.disabled) win.value=[...win.options].find(option=>!option.disabled)?.value||'';
+    }
   }
 }
+
+$('delivDate').addEventListener('change', paintSchedNote);
 
 let selectedCategory = new URLSearchParams(location.search).get('category') || 'all';
 function selectCategory(key){selectedCategory=key;if(['catering','traditional'].includes(key)){setMode('scheduled');}else renderCatalog();}
@@ -736,6 +762,7 @@ function modSummary(b){
 }
 
 function renderCart(){
+  buildDates();
   const lines=$('cartLines'), subRow=$('subRow'), feeRow=$('feeRow'), taxRow=$('taxRow'),
         totalRow=$('cartTotalRow'), taxNote=$('taxNote'), minNote=$('minNote'), btn=$('checkoutBtn');
   const addonIds = Object.keys(addons);
@@ -930,6 +957,7 @@ function acceptAddressSuggestion(){
 
 async function checkout(){
   const btn=document.getElementById('checkoutBtn'), err=document.getElementById('err');
+  if(btn.disabled) return;
   err.textContent='';
   hideAddressCheck();
   document.querySelectorAll('.input-error').forEach(e=>e.classList.remove('input-error'));

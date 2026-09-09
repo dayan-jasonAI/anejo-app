@@ -3,6 +3,7 @@
 Direct-session source: Dayan, 2026-09-08 ET, following the instant-checkout review. Receipt attachment inspected visually. No address or payment details retained.
 
 ## Confirmed
+- Subsequent direct-session clarification supersedes timing/capacity uncertainties below: Dayan approved 48 hours standard and 72 hours custom printing; no owner-set daily capacity cap. This does not prove unlimited stock. "3 cups" remains insufficient to infer the purchased container pack count.
 - Eligible orders should automatically confirm at the displayed checkout price. Do not request this approval again.
 - Trays, standard Cajitas and custom-printed Cajitas require 48–72 hours. Exact category thresholds remain Needs Dayan confirmation; do not silently assign 48 vs 72.
 - Current box replacement cost stated by owner: $19.99 / 25 = $0.7996 each before tax. Historical attached receipt shows $18.99 / 25 = $0.7596. Use current stated replacement cost for planning, preserve distinction.
