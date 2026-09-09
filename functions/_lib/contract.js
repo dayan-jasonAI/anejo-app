@@ -4,6 +4,8 @@ import { id, now, parseJson, toJson } from './hub.js';
 import { randToken, isEmail, ctEq, normalizePhone } from './util.js';
 import { sendSms } from './twilio.js';
 import { square, squareConfigured } from './square.js';
+import { reconcileOrderBowls } from './orderbowls.js';
+import { raiseAlert } from './alerts.js';
 
 const BILLING_MODELS = ['weekly_autopay', 'biweekly', 'monthly', 'same_day'];
 const CADENCE_BY_MODEL = { weekly_autopay: 'weekly', biweekly: 'biweekly', monthly: 'monthly', same_day: 'daily' };
@@ -131,6 +133,55 @@ async function writeEvent(env, ev) {
       (ev.ip || '').toString().slice(0, 64) || null, (ev.user_agent || '').toString().slice(0, 240) || null, now()
     ).run();
   } catch { /* audit is best-effort; must never block recording the order */ }
+}
+
+// The count went UP on an order the kitchen had already started. Correcting the checklist (above)
+// is necessary but silent — a cook who has already walked away from a finished tray will not
+// re-read it. Two things have to happen out loud:
+//
+//   • An order that was called READY is not ready any more: there is food still to build, so it
+//     goes back to PREP and leaves the ready pool dispatch draws from. Only while it is still in
+//     the kitchen — once a cook has handed it off for loadout, the status is a record of what
+//     physically happened and rewriting it would be a lie.
+//   • Somebody is told. If the order already left, that is critical: the office is short and only
+//     a person can fix it. Otherwise it is a warning the kitchen can absorb into the current tray.
+//
+// Deduped on the new count, so re-submitting the same number stays quiet while a further change
+// speaks up again.
+async function announceCountRaised(env, { orderId, site, date, count, added, t }) {
+  const o = await env.DB.prepare('SELECT status, kitchen_cleared_at FROM orders WHERE id = ?')
+    .bind(orderId).first().catch(() => null);
+  if (!o) return;
+  const alreadyLeft = !!o.kitchen_cleared_at;
+
+  if (!alreadyLeft && o.status === 'ready') {
+    try {
+      await env.DB.prepare("UPDATE orders SET status='prep', updated_at=? WHERE id=? AND status='ready'")
+        .bind(t, orderId).run();
+    } catch { /* the checklist is corrected either way; the alert below still fires */ }
+  }
+
+  const where = `${site.name} · ${date}`;
+  const plus = `+${added} lunch${added === 1 ? '' : 'es'}`;
+  try {
+    await raiseAlert(env, {
+      alert_type: 'contract_count_changed',
+      severity: alreadyLeft ? 'critical' : 'warning',
+      team: 'kitchen',
+      ref_type: 'order',
+      ref_id: orderId,
+      source: 'contract',
+      dedupe_key: `contract_count_changed:${orderId}:${count}`,
+      title: alreadyLeft
+        ? 'Count raised AFTER the order left the kitchen / Conteo subió DESPUÉS de que el pedido salió'
+        : 'Lunch count raised — build the extra bowls / Subió el conteo — prepara los bowls extra',
+      body: alreadyLeft
+        ? `${where}: now ${count} lunches (${plus}), but this order was already handed off. The office is short — decide on a second run or a credit. / Ahora ${count} almuerzos (${plus}), pero este pedido ya salió. La oficina va corta — decide si mandas otra entrega o das un crédito.`
+        : `${where}: now ${count} lunches (${plus}). The kitchen checklist and the driver's pickup count have been updated. / Ahora ${count} almuerzos (${plus}). La lista de la cocina y el conteo del conductor ya están actualizados.`,
+      url: '/hub/kitchen/?order=' + encodeURIComponent(orderId),
+      notifyRoles: ['kitchen'],
+    });
+  } catch { /* never block recording the order */ }
 }
 
 // NO MONEY IN THIS MESSAGE. The office contact who confirms a headcount is not the person who
@@ -505,6 +556,19 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
       site.id, n, isRush ? 1 : 0, t, t
     ).run();
   } catch (e) { return { ok: false, error: 'Could not record the order. Please try again.' }; }
+
+  // 1b) Carry the new count into the kitchen's per-bowl checklist. Everything above this line
+  //     already moved on a re-submit — the order row, its items, the totals — and so does the
+  //     ledger below, which is why the INVOICE was always right. The checklist did not, because
+  //     it is materialized once when a cook taps "start prep" and was never revisited. So a
+  //     count raised after prep began left the kitchen building the old number, the readiness
+  //     gate satisfied at the old number, and the driver counting the old number at pickup,
+  //     while the office was invoiced for the new one.
+  //
+  //     No-ops when prep has not started (no checklist to correct) and when the count did not
+  //     move (nothing to add or drop).
+  const bowlSync = prior ? await reconcileOrderBowls(env, { id: orderId, items }) : { added: 0, removed: 0 };
+  if (bowlSync.added > 0) await announceCountRaised(env, { orderId, site, date, count: n, added: bowlSync.added, t });
 
   // 2) Ledger row (source of truth for invoicing; one per site per day).
   try {
