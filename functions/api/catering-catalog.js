@@ -13,6 +13,7 @@ import { json } from '../_lib/util.js';
 import { loadMenu, isAvailable, isOrderable } from '../_lib/menu.js';
 import { candidates } from '../_lib/catering-estimate.js';
 import { DISCOUNT_TIERS } from '../_lib/catering-pricing.js';
+import { DEPOSIT_PCT } from '../_lib/catering_terms.js';
 import { cateringProducts } from '../../public/assets/js/catering-products-catalog.js';
 import { CAJITA_FLAVORS } from '../_lib/cajita-food-options.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
@@ -104,6 +105,11 @@ export async function onRequestGet({ request, env }) {
     live: menu?.source === 'd1',
     products,
     discount_tiers: DISCOUNT_TIERS.filter((t) => t.rate > 0).map((t) => ({ from_cents: t.from_cents, rate: t.rate })),
+    // The deposit rate travels WITH the catalogue. The selector used to hardcode 0.25; when the
+    // rate went to 50% on 2026-09-09 the button still said "25% deposit, $135.93" while the
+    // server minted a link for twice that. A page must never name a price the server will not
+    // charge — so this is served, not copied.
+    deposit_pct: DEPOSIT_PCT,
     minimum_notice_hours: 48,
     custom_printing_notice_hours: 72,
   });
