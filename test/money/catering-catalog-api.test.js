@@ -82,6 +82,62 @@ test('flavours are priced individually, and an unpriced filling stays visible in
   assert.ok(croqueta.flavors.sausage.en, 'and it still has a name to show');
 });
 
+test('every filling the form offers can be priced — verified against production', async () => {
+  // The snapshot fixture predates the 2026-09-08 menu expansion. These rows were read out of the
+  // live D1 on 2026-09-09; they are here so the mapping is pinned against what production really
+  // publishes, not against a fixture that lags it. The gap they close is concrete: a 50-piece
+  // sausage croqueta line on a real order came back "quoted after review" while a $75 tray for
+  // exactly that item was already on sale.
+  const LIVE_EXTRA = [
+    ['croq-chorizo', 250, 4000, 7500], ['croq-sausage', 250, 4000, 7500], ['croq-tuna', 250, 4000, 7500],
+    ['emp-cheese', 350, 7500, 14500], ['emp-ham', 350, 7500, 14500], ['emp-tuna', 350, 7500, 14500],
+    ['emp-pollo', 350, 7500, 14500], ['emp-res', 350, 7500, 14500], ['emp-ham-cheese', 350, 7500, 14500],
+    ['emp-guava-only', 350, 7500, 14500], ['emp-ropa-vieja', 400, 8500, 16500],
+    ['emp-pulled-pork', 350, 7500, 14500],
+  ];
+  const rows = structuredClone(items);
+  for (const [base, one, t25, t50] of LIVE_EXTRA) {
+    rows.push({ id: `traditional_${base}`, kind: 'addon', price_cents: one, active: 1, image: `menu-launch/food-${base}.webp` });
+    rows.push({ id: `catering_${base}-25`, kind: 'addon', price_cents: t25, active: 1, image: `menu-launch/food-${base}-25.webp` });
+    rows.push({ id: `catering_${base}-50`, kind: 'addon', price_cents: t50, active: 1, image: `menu-launch/food-${base}-50.webp` });
+  }
+  const menu = { source: 'd1', items: rows };
+
+  // The exact line from the real order, at the real published price.
+  const sausage = estimateCateringProducts([{ id: 'croqueta', quantity: 50, flavor: 'sausage' }], menu);
+  assert.equal(sausage.subtotal_cents, 7500, '50 sausage croquetas are one $75 tray');
+  assert.equal(sausage.checkout_eligible, true, 'and buyable, not "quoted after review"');
+  assert.deepEqual(sausage.items, [{ id: 'catering_croq-sausage-50', qty: 1 }]);
+
+  // Ropa vieja is the one empanada priced differently; it must not inherit the $75/$145 pair.
+  assert.equal(estimateCateringProducts([{ id: 'empanada', quantity: 50, flavor: 'ropa-vieja' }], menu).subtotal_cents, 16500);
+  assert.equal(estimateCateringProducts([{ id: 'empanada', quantity: 50, flavor: 'cheese' }], menu).subtotal_cents, 14500);
+
+  // EVERY filling the picker offers must now carry a price.
+  const data = await get(rows);
+  for (const product of ['croqueta', 'empanada']) {
+    const entry = data.products.find((p) => p.id === product);
+    for (const [key, f] of Object.entries(entry.flavors)) {
+      assert.notEqual(f.from_cents, null, `${product} · ${key} has no price`);
+      assert.ok(f.packs.length >= 2, `${product} · ${key} should offer a single and trays`);
+    }
+  }
+});
+
+test('a filling with genuinely no published tray is still quoted by a person', async () => {
+  // The rule did not change, only the list of what qualifies. With the SNAPSHOT menu (which has
+  // no sausage SKUs), sausage must still refuse rather than invent a price.
+  const s = estimateCateringProducts([{ id: 'croqueta', quantity: 50, flavor: 'sausage' }], { source: 'd1', items });
+  assert.equal(s.checkout_eligible, false, 'nothing may be sold at a price the menu does not publish');
+  assert.equal(s.subtotal_cents, 0);
+  assert.equal(s.unpriced.length, 1, 'and the line is reported, not dropped');
+  assert.equal(s.unpriced[0].flavor, 'sausage', 'named by the filling that could not be priced');
+  // The reason code differs by WHY: 'needs_custom_price' when nothing maps the product at all,
+  // 'unavailable_exact_quantity' when it maps to SKUs the menu is not currently publishing. Both
+  // refuse; the distinction tells whoever is reading whether to add a mapping or a menu row.
+  assert.ok(['needs_custom_price', 'unavailable_exact_quantity'].includes(s.unpriced[0].reason));
+});
+
 test('sauces are flagged as add-ons rather than a category to browse', async () => {
   const data = await get();
   const sauces = data.products.filter((p) => p.addon);
