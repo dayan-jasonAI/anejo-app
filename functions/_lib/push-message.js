@@ -20,6 +20,9 @@ const COPY = {
 
 const ALERT_LABELS = {
   contract_roster_changed: ['Contract roster updated', 'Lista de participantes del contrato actualizada'],
+  // Generic on purpose, like every label here: which office and how many lunches are in the alert
+  // body behind the Hub's login, never on a lock screen.
+  contract_count_changed: ['Lunch count changed after prep started', 'El conteo de almuerzos cambió después de empezar'],
   eod_missing: ['End-of-day report missing', 'Falta el informe de cierre'],
   temp_excursion: ['Kitchen temperature alert', 'Alerta de temperatura de cocina'],
   delivery_failed: ['Delivery needs attention', 'Una entrega necesita atención'],
