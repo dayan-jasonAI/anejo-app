@@ -17,7 +17,7 @@ window.renderShopCatalog=function(){
 function openShop(key,edit=false){
  shopActive=shopGroups.find(g=>g.key===key);if(!shopActive)return;shopEditing=edit;shopDraft={};
  const valid=shopActive.variants.filter(shopEnabled);if(!valid.length)return;
- if(edit)shopActive.variants.forEach(i=>{if(addons[i.id])shopDraft[i.id]=addons[i.id]});else shopDraft[valid[0].id]=Math.min(1,20-(addons[valid[0].id]||0));
+ if(edit)shopActive.variants.forEach(i=>{if(addons[i.id])shopDraft[i.id]=addons[i.id]});else shopDraft[valid[0].id]=Math.min(1,shopMax(valid[0].id)-(addons[valid[0].id]||0));
  $('shopModalTitle').textContent=shopName(shopActive);$('shopModalImage').src=shopPhoto(valid[0]);$('shopModalImage').alt=shopName(shopActive);
  const formats=[...new Map(shopActive.variants.map(i=>[i.format,L(i.format,i.formatEs)])).entries()];
  $('shopFormat').innerHTML=formats.map(([value,label])=>`<option value="${escHtml(value)}">${escHtml(label)}</option>`).join('');$('shopFormat').value=(shopActive.variants.find(i=>shopDraft[i.id])||valid[0]).format;
@@ -29,12 +29,13 @@ function renderShopChoices(){
  $('shopChoices').innerHTML=shopActive.variants.filter(i=>i.format===format).map(i=>`<div class="shop-choice"><div><strong>${escHtml(shopActive.variants.length>1?L(i.flavor,i.flavorEs):shopName(shopActive))}</strong><p>${escHtml(L(i.desc,i.descEs))}</p><b>${money(i.price)}</b>${shopEnabled(i)?'':`<small>${L('Unavailable','No disponible')}</small>`}</div><div class="stepper"><button aria-label="${escHtml(L('Remove one ','Quitar uno ')+i.flavor)}" onclick="shopChange('${esc(i.id)}',-1)">−</button><span>${shopDraft[i.id]||0}</span><button aria-label="${escHtml(L('Add one ','Agregar uno ')+i.flavor)}" ${shopEnabled(i)?'':'disabled'} onclick="shopChange('${esc(i.id)}',1)">+</button></div></div>`).join('');
  const total=shopActive.variants.reduce((s,i)=>s+Math.round(i.price*100)*(shopDraft[i.id]||0),0);$('shopApply').textContent=L(shopEditing?'Save changes':'Add to order',shopEditing?'Guardar cambios':'Agregar al pedido')+' · '+money(total/100);$('shopApply').disabled=!total&&!shopEditing;
 }
-function shopChange(id,d){if(d>0&&!shopEnabled(PRICE[id]))return;shopDraft[id]=Math.max(0,Math.min(20-(shopEditing?0:(addons[id]||0)),(shopDraft[id]||0)+d));renderShopChoices();if(d>0&&PRICE[id])$('shopModalImage').src=shopPhoto(PRICE[id]);}
+function shopMax(id){return /^(traditional_|catering_)/.test(id)?5000:20;}
+function shopChange(id,d){if(d>0&&!shopEnabled(PRICE[id]))return;shopDraft[id]=Math.max(0,Math.min(shopMax(id)-(shopEditing?0:(addons[id]||0)),(shopDraft[id]||0)+d));renderShopChoices();if(d>0&&PRICE[id])$('shopModalImage').src=shopPhoto(PRICE[id]);}
 function applyShop(){
  if(!shopActive)return;
  for(const i of shopActive.variants){const count=shopDraft[i.id]||0;if(count&&!shopEnabled(i)){renderShopChoices();return;}}
  if(shopEditing)shopActive.variants.forEach(i=>delete addons[i.id]);
- for(const i of shopActive.variants){const count=shopDraft[i.id]||0;if(count)addons[i.id]=Math.min(20,(addons[i.id]||0)+count);}
+ for(const i of shopActive.variants){const count=shopDraft[i.id]||0;if(count)addons[i.id]=Math.min(shopMax(i.id),(addons[i.id]||0)+count);}
  const schedule=shopActive.variants.some(i=>shopDraft[i.id]&&/^(traditional_|catering_)/.test(i.id));$('shopDialog').close();shopActive=null;if(schedule)setMode('scheduled');renderCatalog();renderCart();
  $('shopToast').textContent=L('Your order has been updated.','Tu pedido se ha actualizado.');setTimeout(()=>{$('shopToast').textContent=''},2500);
 }

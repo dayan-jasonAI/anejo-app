@@ -56,8 +56,9 @@ test('real SQL: claimed upload retry succeeds but racing distinct requests canno
   const patch = { upload_session_id: 'cup_0123456789abcdefabcd' };
   const results = await Promise.all([post(DB, patch), post(DB, { ...patch, request_id: 'another-request-unique-12345' })]);
   assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
-  const first = await results[0].json();
-  const replay = await (await post(DB, patch)).json();
+  const winner = results.findIndex(r => r.status === 200);
+  const first = await results[winner].json();
+  const replay = await (await post(DB, winner === 0 ? patch : { ...patch, request_id: 'another-request-unique-12345' })).json();
   assert.equal(replay.id, first.id);
   assert.equal(replay.attachments.linked, true);
   assert.equal(count(DB, 'leads'), 1);

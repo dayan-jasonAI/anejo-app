@@ -91,6 +91,10 @@ function queueEstimate() {
       if (sequence !== estimateSequence) return;
       const amount = new Intl.NumberFormat(es() ? 'es-US' : 'en-US', {style:'currency', currency:'USD'}).format(result.subtotal_cents / 100);
       status.textContent = result.unpriced.length ? t(`Priced items: ${amount}. Some selections need a custom price; this is not the full total.`, `Productos con precio: ${amount}. Algunas selecciones requieren precio personalizado; este no es el total completo.`) : t(`Food subtotal: ${amount}. Delivery and tax are calculated at checkout.`, `Subtotal de comida: ${amount}. Entrega e impuestos se calculan al pagar.`);
+      if (result.unpriced.length) {
+        const list = element('ul', '', panel);
+        result.unpriced.forEach(item => { const product = cateringProducts.find(p => p.id === item.id); element('li', `${item.quantity} × ${product ? (es() ? product.es : product.en) : item.id} — ${t('price / availability needs review', 'precio / disponibilidad por revisar')}`, list); });
+      }
       if (result.checkout_eligible) {
         element('p', t('Buy these standard food items now. Choose your delivery date, address and contact details on the next page. No custom packaging is included.', 'Compra estos productos estándar ahora. Elige fecha, dirección y datos de contacto en la siguiente página. No incluye empaque personalizado.'), panel);
         const buy = element('button', t('Continue to secure checkout', 'Continuar al pago seguro'), panel);
