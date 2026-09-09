@@ -47,8 +47,18 @@ substitution.
 **`api/catering-catalog.js` (new).** Price, photo and real tray sizes per product, off the same
 mapping and the same live menu. Menu image paths get the site's `/assets/img/` prefix.
 
-**`src/catering-products.js` (rewritten).** Cards with photo and price, tray presets that exist,
-one running order summary, sauce add-ons, the discount ladder, both payment buttons.
+**`src/catering-products.js` (rewritten).** Cards with photo and price, one running order summary,
+sauce add-ons, the discount ladder, both payment buttons.
+
+**10 / 25 / 50 on every tray item.** The menu publishes no product with all three — servings come
+as 10 and 25, pieces as 25 and 50, dessert cups by the 12 — so a first pass showed only the
+published sizes and nothing ever offered the three Dayan asked for. The picker now builds the
+missing sizes out of the trays that exist (50 servings of lechón is two 25 trays) and labels each
+button with the exact cost, plus any other published size and a custom box. `exactCost()` mirrors
+the server's knapsack locally for the LABEL only; every charge is still the server's number. It
+also finds combinations cheaper than the obvious one — 25 dessert cups is 12+12+1 at $125.50, not
+25 singles at $137.50 — and `test/money/catering-catalog-api.test.js` pins four of these against
+the estimator so a button price can never drift from what the card is charged.
 
 **`api/catering-deposit.js` (new).** Public 25% deposit booking, re-priced server-side.
 

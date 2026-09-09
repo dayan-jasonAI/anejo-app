@@ -51,6 +51,26 @@ test('a price shown here is a price the estimator charges — never a shop-windo
   }
 });
 
+test('the 10/25/50 buttons the picker offers are prices the estimator actually charges', async () => {
+  // Dayan asked for 10 / 25 / 50 on every tray item. The menu publishes no product with all three
+  // — servings come as 10 and 25, pieces as 25 and 50, dessert cups by the 12 — so the picker
+  // builds the missing sizes out of the trays that exist and labels them with the exact cost.
+  // That label is only honest if the server charges the same, which is what this pins.
+  const m = { source: 'd1', items };
+  const cases = [
+    [{ id: 'lechon', quantity: 50 }, 48000, 'two $240 trays, not a rounded-up 3rd'],
+    [{ id: 'skewer', quantity: 10 }, 3000, 'ten singles — no 10-tray exists'],
+    [{ id: 'yuca', quantity: 50 }, 21000, 'two $105 trays'],
+    // The cheapest exact combination is 12 + 12 + 1 at $125.50, NOT 25 singles at $137.50.
+    [{ id: 'cup-fresa', quantity: 25 }, 12550, 'two 12-packs and a single'],
+  ];
+  for (const [row, cents, why] of cases) {
+    const priced = estimateCateringProducts([row], m);
+    assert.equal(priced.subtotal_cents, cents, `${row.id} x ${row.quantity}: ${why}`);
+    assert.equal(priced.checkout_eligible, true, `${row.id} x ${row.quantity} must be buyable`);
+  }
+});
+
 test('flavours are priced individually, and an unpriced filling stays visible instead of vanishing', async () => {
   const croqueta = find(await get(), 'croqueta');
   assert.equal(croqueta.flavors.ham.from_cents, 150, 'the 50 tray at $75 is $1.50 a piece');

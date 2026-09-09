@@ -9,8 +9,8 @@
 // after they had already guessed at quantities. His own $1,200 birthday order went through that
 // form and came out the other side with no price at all.
 //
-// So: browse products as cards with the photo and the real price on them; tap one and pick a tray
-// size that actually exists (10 / 25 / 50, or whatever the menu publishes for that product);
+// So: browse products as cards with the photo and the real price on them; tap one and pick a
+// quantity — 10 / 25 / 50 on everything, plus any other size the menu publishes, plus custom;
 // everything chosen collapses into ONE running order summary instead of another box; sauces are
 // suggested once there is food to put them on; and the total, the volume discount and both ways
 // to pay are visible the whole time.
@@ -201,10 +201,19 @@ function picker(product, entry) {
   // The tray sizes the menu actually publishes for this product, plus a custom amount. A number
   // box on its own made every customer guess; these are the quantities the kitchen builds.
   const packs = (product.flavorKey ? entry?.flavors?.[state.flavor]?.packs : entry?.packs) || [];
-  const trays = packs.filter((p) => p.size > 1);
+  // 10 / 25 / 50 ON EVERY TRAY ITEM (Dayan, 2026-09-09), plus whatever else the menu publishes.
+  //
+  // The menu does not publish all three for anything: servings come as 10 and 25, pieces as 25 and
+  // 50, dessert cups by the 12. Showing only the published sizes meant no product ever offered the
+  // three he asked for. It does not have to: the pricer builds any quantity out of the trays it
+  // has — 50 servings of lechón is two 25 trays — so the button can exist and still be an exact
+  // price. `exactCost` mirrors that combination locally just to LABEL the button; the cart total
+  // and everything charged still come from the server's own pricing.
+  const offered = [...new Set([10, 25, 50, ...packs.filter((p) => p.size > 1).map((p) => p.size)])].sort((a, b) => a - b);
+  const trays = offered.map((size) => ({ size, cents: exactCost(packs, size) })).filter((x) => x.cents != null);
   if (trays.length) {
     const wrap = el('div', null, box);
-    el('span', 'aq-lab', wrap, t('Choose a tray', 'Elige una bandeja'));
+    el('span', 'aq-lab', wrap, t('Choose a quantity', 'Elige una cantidad'));
     const sizes = el('div', 'aq-sizes', wrap);
     for (const pack of trays) {
       const b = el('button', 'aq-size', sizes);
@@ -293,13 +302,26 @@ function renderAddons(parent) {
 
 // ---------------------------------------------------------------- the running order
 
+// Cheapest EXACT combination of the published packs for a quantity, or null when the packs cannot
+// make it exactly. A small DP, deliberately the same rule the server's knapsack follows: never
+// round a customer up to a quantity they did not ask for. Quantities here are preset-sized, so the
+// table stays tiny. Used only for button labels and the running line totals — never to charge.
+function exactCost(packs, qty) {
+  if (!packs.length || !Number.isInteger(qty) || qty < 1 || qty > 5000) return null;
+  const dp = new Array(qty + 1).fill(Infinity);
+  dp[0] = 0;
+  for (let q = 1; q <= qty; q++) {
+    for (const pack of packs) {
+      if (pack.size <= q && dp[q - pack.size] + pack.cents < dp[q]) dp[q] = dp[q - pack.size] + pack.cents;
+    }
+  }
+  return dp[qty] === Infinity ? null : dp[qty];
+}
+
 function lineAmount(row) {
   const entry = catalogFor(row.id);
   const packs = (entry?.flavors ? entry.flavors[row.flavor]?.packs : entry?.packs) || [];
-  const exact = packs.find((p) => p.size === row.quantity);
-  if (exact) return exact.cents;
-  const unit = packs.find((p) => p.size === 1);
-  return unit ? unit.cents * row.quantity : null;
+  return exactCost(packs, row.quantity);
 }
 
 function renderSummary(parent) {
