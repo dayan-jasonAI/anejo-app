@@ -29,3 +29,12 @@ Photorealistic meshes and box-height verification remain open. Existing AI theme
 ## Publication / rollback
 
 Publication evidence to be appended after production verification. Publish only the reviewed changes and retain previous production source 60c4ca6 for code rollback. Do not restore the database or discard newer customer requests to roll back code.
+
+## Production evidence
+
+- Release 9cce3d7 pushed to the reviewed branch and fast-forwarded to main. Pages production deployment: 9cbbf5f5-f677-47dd-8e7d-8ea697785971, source 9cce3d7, main.
+- Live `/cajita` and `/catering` returned HTTP 200 and the confirmed updated copy.
+- SHA256 comparison of served builder, public catering translation file, and Hub catering translation file against tested local files: all three match. Checked with release query `?release=9cce3d7` after rollout; initial pre-rollout reads correctly showed old assets and were not counted as success.
+- Live builder opened and menu controls inspected: Hawaiian roll, all configured filling choices, ham croqueta, 6 oz salad, 3–4 oz dessert, one skewer visible in Spanish. No request submitted and no customer data changed.
+- Local fresh-tab screenshot confirms square-roll illustrative geometry replaces the patty-like version. Mobile-width control interaction retained ropa-vieja selection in Spanish summary. Photorealism is still not claimed.
+- GitHub workflow API lookup did not establish a CI run; CI status remains unverified. Full local tests and deployed asset identity are the validation evidence for this release.
