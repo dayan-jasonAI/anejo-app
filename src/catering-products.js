@@ -435,13 +435,20 @@ function renderPay(box) {
   full.type = 'button';
   full.addEventListener('click', () => handoff('full'));
 
-  const deposit = Math.round(estimate.total_cents * 0.25);
-  const hold = el('button', 'aq-btn aq-wide', pay, t(`Hold the date — 25% deposit, ${money(deposit)}`, `Reserva la fecha — 25% de depósito, ${money(deposit)}`));
+  // NEVER hardcode the deposit rate here. It lived as 0.25 in this file until 2026-09-09, when
+  // the server moved to 50% and this button carried on offering half the real figure. The rate
+  // comes from /api/catering-catalog; if it is missing we show no deposit button rather than
+  // guess, because a button that names the wrong number is worse than no button.
+  const pct = Number(catalog?.deposit_pct);
+  if (!Number.isFinite(pct) || pct <= 0 || pct >= 1) return;
+  const deposit = Math.round(estimate.total_cents * pct);
+  const label = `${Math.round(pct * 100)}%`;
+  const hold = el('button', 'aq-btn aq-wide', pay, t(`Hold the date — ${label} deposit, ${money(deposit)}`, `Reserva la fecha — ${label} de depósito, ${money(deposit)}`));
   hold.type = 'button';
   hold.addEventListener('click', () => bookDeposit(hold));
   el('p', null, pay, t(
-    `The balance of ${money(estimate.total_cents - deposit)} is due before the event.`,
-    `El saldo de ${money(estimate.total_cents - deposit)} vence antes del evento.`));
+    `The balance of ${money(estimate.total_cents - deposit)} is due the day before the event.`,
+    `El saldo de ${money(estimate.total_cents - deposit)} vence el día antes del evento.`));
 }
 
 // Hand the priced cart to the full-payment checkout. The items are SKUs and quantities only —
@@ -456,10 +463,12 @@ function handoff(mode) {
   location.href = `/order?category=catering&from=catering&pay=${mode}`;
 }
 
-// The 25% deposit goes to its own endpoint, NOT through /order.
+// The deposit goes to its own endpoint, NOT through /order.
 //
 // /order is a pay-in-full checkout and has no concept of a deposit: routing this button there
-// would have shown "25% deposit, $135.93" and then charged the customer $543.70. The deposit path
+// would have named a deposit on the button and then charged the customer the full total. Note
+// this comment names no rate — the rate lives in catering_terms.js and reaches the page through
+// the catalogue, and a copy of it written down anywhere else is the bug of 2026-09-09. The path
 // mints a Square link for the deposit alone and records the quote, the balance and the terms — the
 // same machinery the Hub uses, reached from the public form.
 //
