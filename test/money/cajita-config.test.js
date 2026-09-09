@@ -12,6 +12,22 @@ const config = {
   ],
 };
 
+test('flavors roundtrip and old requests remain unspecified', () => {
+  const input = structuredClone(config);
+  input.variants[0].items[0].flavor = 'ham-spread';
+  input.variants[1].items[0].flavor = 'tuna-spread';
+  const out = normalizeCajitaConfiguration(input);
+  assert.equal(out.ok, true);
+  assert.match(out.summary, /Ham spread \/ Pasta de jamón; 1 per box \/ por caja; 20 total/);
+  assert.match(out.summary, /Tuna spread \/ Pasta de atún/);
+  assert.deepEqual(extractCajitaConfiguration(`Cajita configuration JSON: ${out.json}`).config, out.value);
+  assert.equal(normalizeCajitaConfiguration(config).value.variants[0].items[0].flavor, undefined);
+  for (const flavor of ['made-up', '<script>', 'ham']) {
+    input.variants[0].items[0].flavor = flavor;
+    assert.equal(normalizeCajitaConfiguration(input).ok, false);
+  }
+});
+
 test('normalizes two variants and produces complete kitchen totals', () => {
   const out = normalizeCajitaConfiguration(config);
   assert.equal(out.ok, true);
@@ -63,11 +79,12 @@ test('lead integration persists the complete config and escapes its owner notifi
   try {
     const response = await onRequestPost({
       env: { DB, RESEND_API_KEY: 'test', LEADS_NOTIFY_TO: 'owner@example.test' },
-      request: new Request('https://anejocateringco.com/api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'catering', name: 'Host <x>', email: 'host@example.test', menu_options: ['Individual Cajitas'], guests: 30, event_date: '2030-01-01', event_type: 'Other', location: '33401', cajita_configuration: config }) }),
+      request: new Request('https://anejocateringco.com/api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'catering', name: 'Host <x>', email: 'host@example.test', menu_options: ['Individual Cajitas'], guests: 30, event_date: '2030-01-01', event_type: 'Other', location: '33401', cajita_configuration: { ...config, variants: config.variants.map(v => ({...v, items:v.items.map(i => i.id === 'sandwich' ? {...i,flavor:'ham-spread'} : i)})) } }) }),
     });
     assert.equal(response.status, 200);
   } finally { globalThis.fetch = previous; }
   assert.match(email, /Version Standard/);
   assert.match(email, /sandwich x30/);
+  assert.match(email, /Ham spread/);
   assert.doesNotMatch(email, /Host <x>/);
 });

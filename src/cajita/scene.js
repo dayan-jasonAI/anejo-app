@@ -167,6 +167,7 @@ export function createScene(host, selectItem) {
     for (const item of v.items) {
       for (let n = 0; n < item.quantity && idx < 28; n++, idx++) {
         const model = createFoodModel(item.id, {
+          flavor: item.flavor,
           pickColor: v.theme.colors.pick,
           pickShape: v.theme.pickShape,
           pickText: v.personalization.pickText,

@@ -162,3 +162,21 @@ test('number range and step errors stay localized and keep original numeric cons
   assert.equal(field.validationMessage, 'Usa el incremento permitido para este campo.');
   assert.equal(field.min, '1'); assert.equal(field.max, '5000'); assert.equal(field.step, '1');
 });
+
+test('confirmed defaults and changed flavors survive duplication, language switching and submission', async () => {
+  const f = fixture('en', [{ ok:true, status:200, json:async () => ({ok:true,id:'flavor-test',notifications:{queued:true}}) }]);
+  assert.equal(f.get('flavor-sandwich').value, 'ham-spread');
+  assert.equal(f.get('flavor-empanada').value, 'guava-cheese');
+  assert.equal(f.get('flavor-croqueta').value, 'ham');
+  assert.equal(f.get('count-skewer').value, 1);
+  f.get('flavor-sandwich').value = 'tuna-spread'; f.get('flavor-sandwich').onchange();
+  f.get('duplicate').onclick();
+  f.get('flavor-croqueta').value = 'chorizo'; f.get('flavor-croqueta').onchange();
+  f.switchLanguage('es');
+  assert.match(f.get('summary').textContent, /Pasta de atún/);
+  await f.submit();
+  const variants = JSON.parse(f.requests[0].body).cajita_configuration.variants;
+  assert.equal(variants[0].items.find(i => i.id === 'sandwich').flavor, 'tuna-spread');
+  assert.equal(variants[0].items.find(i => i.id === 'croqueta').flavor, 'ham');
+  assert.equal(variants[1].items.find(i => i.id === 'croqueta').flavor, 'chorizo');
+});

@@ -125,10 +125,11 @@ function skewer(group, opts) {
 function sandwich(opts) {
   const g = new THREE.Group();
   const bread = mat(C.bread, 0.42);
-  const dark = mat(C.filling, 0.7);
-  item(g, sphere(0.53, bread, [1.25, 0.34, 0.78]), 0, 0.51, 0);
-  item(g, roundedBox([1.18, 0.1, 0.7], dark, 0.08), 0, 0.37, 0);
-  item(g, sphere(0.51, mat(C.toast, 0.4), [1.2, 0.25, 0.74]), 0, 0.25, 0);
+  const spread = mat(opts?.flavor === 'tuna-spread' ? 0xd8c6ab : 0xdbaea1, 0.9);
+  // Soft square Hawaiian roll and a thin spread, not a meat patty sandwich.
+  item(g, roundedBox([1.05, 0.32, 0.8], bread, 0.14), 0, 0.51, 0);
+  item(g, roundedBox([0.98, 0.08, 0.75], spread, 0.035), 0, 0.31, 0);
+  item(g, roundedBox([1.02, 0.19, 0.78], mat(C.toast, 0.65), 0.08), 0, 0.18, 0);
   return finish(g, opts, "sandwich");
 }
 function empanada(opts) {
