@@ -299,3 +299,14 @@ test('language and SMS consent come from the LEAD, not from a checkbox to rememb
     'consent must not be readable straight off the request body');
   assert.match(src, /lang,\s+smsConsent,/, 'and both reach createDepositCheckout');
 });
+
+test('the owner gets a copy of exactly what the customer was sent', async () => {
+  // Dayan, 2026-09-09: "make sure I receive a copy of that email quote as well." Same reasoning
+  // as OWNER_BCC on invoice mail — without it the only record of what a client actually received
+  // lives in Resend.
+  const src = readFileSync(new URL('../../functions/_lib/catering_quote_delivery.js', import.meta.url), 'utf8');
+  assert.match(src, /const ownerBcc = normalizeEmail\(env\.OWNER_BCC \|\| ''\);/);
+  assert.match(src, /\.\.\.\(bcc \? \{ bcc \} : \{\}\),/, 'and it reaches sendEmail');
+  // Quoting yourself must not bcc yourself — that happens for real while testing.
+  assert.match(src, /ownerBcc !== normalizeEmail\(row\.customer_email\)/);
+});
