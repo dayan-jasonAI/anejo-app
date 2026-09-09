@@ -36,8 +36,10 @@ test('Hub summaries translate food and metadata while preserving quantities and 
   const spanish = api.summary(config, 'es');
   assert.match(spanish, /Total de cajitas: 30/);
   assert.match(spanish, /Tres leches ×20/);
-  assert.match(spanish, /Brocheta de frutas y jamón ×10/);
-  assert.match(spanish, /Artículos omitidos: Tres leches ×0/);
+  assert.match(spanish, /Brocheta de frutas y jamón ×30/);
+  assert.match(spanish, /Artículos omitidos: .*Tres leches ×0/);
+  assert.match(spanish, /Panecillo hawaiano \(Pasta de jamón\)/);
+  assert.match(spanish, /Croqueta \(Jamón\) ×20/);
   assert.match(spanish, /Tema: Navidad/);
   assert.match(spanish, /Forma del palillo: estrella/);
   for (const text of ['No dessert', 'Happy birthday, María', 'Keep my English exactly', config.variants[1].notes, 'Larger box please']) assert.ok(spanish.includes(text));

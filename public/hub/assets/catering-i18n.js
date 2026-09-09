@@ -2,6 +2,7 @@
 (function () {
   'use strict';
   var dict = {
+    'Hawaiian roll': 'Panecillo hawaiano', 'Ham spread': 'Pasta de jamón', 'Tuna spread': 'Pasta de atún', 'Guava and cheese': 'Guayaba y queso', 'Cheese': 'Queso', 'Ham': 'Jamón', 'Tuna': 'Atún', 'Chicken': 'Pollo', 'Beef': 'Carne de res', 'Ham and cheese': 'Jamón y queso', 'Guava': 'Guayaba', 'Pulled pork': 'Cerdo desmenuzado', 'Sausage': 'Salchicha', 'Flavor not specified': 'Sabor sin especificar',
     'Catering design requests': 'Solicitudes de diseño de catering',
     'Catering production · Añejo Hub': 'Producción de catering · Añejo Hub',
     'Review Cajita versions and ingredient totals. Requests require management approval before preparation.': 'Revisa las versiones de La Cajita y los totales de ingredientes. Las solicitudes requieren aprobación de gerencia antes de prepararse.',
@@ -47,7 +48,7 @@
     'circle': 'círculo', 'heart': 'corazón', 'star': 'estrella', 'bow': 'lazo', 'leaf': 'hoja', 'flag': 'bandera',
     'butterfly': 'mariposa'
   };
-  var foods = { sandwich: 'Mini sandwich', empanada: 'Empanada', croqueta: 'Croqueta', salad: 'Party salad', grazing: 'Grazing bites', 'tres-leches': 'Tres leches', skewer: 'Fruit & ham skewer' };
+  var foods = { sandwich: 'Hawaiian roll', empanada: 'Empanada', croqueta: 'Croqueta', salad: 'Party salad', grazing: 'Grazing bites', 'tres-leches': 'Tres leches', skewer: 'Fruit & ham skewer' };
   var presets = { signature: 'Añejo Signature', 'gender-reveal': 'Gender reveal', birthday: 'Birthday', halloween: 'Halloween', christmas: 'Christmas', hanukkah: 'Hanukkah', 'new-year': 'New Year / New Year’s Eve', valentine: 'Valentine’s Day', easter: 'Easter', mother: 'Mother’s Day', father: 'Father’s Day', veterans: 'Veterans Day', independence: 'Independence Day', labor: 'Labor Day', thanksgiving: 'Thanksgiving', quince: 'Quinceañera / 15th birthday', sweet16: 'Sweet sixteen', special: 'Special occasion', 'just-because': 'Just because', custom: 'Your own theme' };
   function language() { return window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es' : 'en'; }
   function t(s, lang) { return (lang || language()) === 'es' && dict[s] ? dict[s] : s; }
@@ -58,11 +59,17 @@
     if (!config || !Array.isArray(config.variants)) return t('No Cajita configuration.', lang);
     function tr(s) { return t(s, lang); }
     var totals = {}, boxes = 0, lines = [tr('Cajita configuration') + ' v' + config.version, tr('Versions') + ': ' + config.variants.length];
-    function entries(items) { return items.map(function(i) { return tr(foods[i.id] || i.id) + ' ×' + i.quantity; }).join(', '); }
+    function entries(items) { return items.map(function(i) {
+      var flavors = {'ham-spread':'Ham spread','tuna-spread':'Tuna spread','guava-cheese':'Guava and cheese',cheese:'Cheese',ham:'Ham',tuna:'Tuna',chicken:'Chicken',beef:'Beef','ham-cheese':'Ham and cheese',guava:'Guava','ropa-vieja':'Ropa vieja','pulled-pork':'Pulled pork',chorizo:'Chorizo',sausage:'Sausage'};
+      return tr(foods[i.id] || i.id) + (i.flavor ? ' (' + tr(flavors[i.flavor] || i.flavor) + ')' : '') + ' ×' + i.quantity;
+    }).join(', '); }
     config.variants.forEach(function(v) {
       boxes += v.quantity;
       lines.push('\n' + tr('Version') + ' ' + v.name + ' (' + v.quantity + ' ' + tr('boxes') + ')');
       lines.push(tr('Items per box') + ': ' + entries(v.items.filter(function(i) { return i.quantity > 0; })));
+      v.items.filter(function(i) { return i.quantity > 0 && ['sandwich','empanada','croqueta'].indexOf(i.id) >= 0; }).forEach(function(i) {
+        lines.push('  ' + entries([{id:i.id, flavor:i.flavor, quantity:i.quantity * v.quantity}]) + ' ' + tr('Event ingredient totals') + (!i.flavor ? ' — ' + tr('Flavor not specified') : ''));
+      });
       lines.push(tr('Omitted items') + ': ' + (entries(v.items.filter(function(i) { return i.quantity === 0; })) || tr('none')));
       v.items.forEach(function(i) { totals[i.id] = (totals[i.id] || 0) + i.quantity * v.quantity; });
       var theme = v.theme || {}, p = v.personalization || {};

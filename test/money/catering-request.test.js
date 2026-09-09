@@ -228,10 +228,10 @@ test('La Cajita has one canonical public route and enters the catering form pres
   assert.match(PAGE, /requestedMenu==='cajita'/);
   assert.match(PAGE, /getElementById\('menu-cajita'\)/);
   assert.match(CAJITA, /pink-first-birthday-cajita-editorial-v2\.png/);
-  assert.match(CAJITA, /mini sandwich, empanada, croqueta, creamy party salad/);
-  assert.match(CAJITA, /plus tres leches for dessert/);
-  assert.match(CAJITA, /host already had plenty of sweets and chose to leave out the tres leches/);
-  assert.match(PAGE, /Tres leches included in the standard Cajita/);
+  assert.match(CAJITA, /Hawaiian roll with ham spread/);
+  assert.match(CAJITA, /3–4 oz tres leches cup/);
+  assert.match(CAJITA, /without dessert, which the host opted out of/);
+  assert.match(PAGE, /3–4 oz tres leches cup included in the standard Cajita/);
   assert.match(CAJITA, /Your theme\. Your colors\. Your Cajita\./);
   assert.match(CAJITA, /First birthdays/);
   assert.match(CAJITA, /id="theme-gallery"/);
