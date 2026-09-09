@@ -96,6 +96,21 @@ for (const f of foods) {
   row.id = "food-" + f.id;
   const copy = el("div");
   copy.append(el("h3", f.name), el("p", f.detail));
+  if (f.flavors) {
+    const label = el("label", () => t("Filling / flavor", "Relleno / sabor"));
+    const select = el("select");
+    select.id = "flavor-" + f.id;
+    label.htmlFor = select.id;
+    option(select, "", () => t("Not specified — choose a flavor", "Sin especificar — elige un sabor"));
+    for (const [id, en, es] of f.flavors) option(select, id, () => t(en, es));
+    select.onchange = () => {
+      const item = active().items.find((i) => i.id === f.id);
+      if (select.value) item.flavor = select.value;
+      else delete item.flavor;
+      changed();
+    };
+    copy.append(label, select);
+  }
   const counter = el("div", null, "counter");
   const minus = el("button", "−"),
     plus = el("button", "+"),
@@ -154,7 +169,11 @@ function drawSummary() {
         "p",
         () => v.items
           .filter((i) => i.quantity > 0)
-          .map((i) => `${i.quantity} ${t(foods.find((f) => f.id === i.id).name)}`)
+          .map((i) => {
+            const food = foods.find((f) => f.id === i.id);
+            const flavor = food.flavors?.find((f) => f[0] === i.flavor);
+            return `${i.quantity} ${t(food.name)}${flavor ? ` (${t(flavor[1], flavor[2])})` : food.flavors ? t(" (flavor not specified)", " (sabor sin especificar)") : ""}`;
+          })
           .join(" · ") + t(" per box", " por caja"),
       ),
       el("p", () => t("{theme} · {shape} toothpick topper", "{theme} · adorno de palillo: {shape}", { theme: themeDisplayName(v), shape: t(v.theme.pickShape) })),
@@ -208,6 +227,7 @@ function fill() {
     input.value = n;
     input.previousElementSibling.disabled = n === 0;
     input.nextElementSibling.disabled = n === 50;
+    if (f.flavors) $("flavor-" + f.id).value = v.items.find((i) => i.id === f.id)?.flavor || "";
   }
   $("notes").value = v.notes;
   $("packaging").value = v.packagingRequest;

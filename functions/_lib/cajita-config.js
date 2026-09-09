@@ -1,3 +1,4 @@
+import { CAJITA_FLAVORS, flavorLabel } from './cajita-food-options.js';
 // Versioned, provider-free Cajita request contract. Keep this pure so the public lead route,
 // owner desk, kitchen desk, and tests all agree on the exact validation and summary behavior.
 const ITEM_IDS = new Set(['sandwich', 'empanada', 'croqueta', 'salad', 'grazing', 'tres-leches', 'skewer']);
@@ -46,7 +47,9 @@ export function normalizeCajitaConfiguration(input, { attachmentIds = new Set() 
         if (!ITEM_IDS.has(itemId)) throw new Error(`Unknown Cajita item: ${itemId || '(blank)'}.`);
         if (itemIds.has(itemId)) throw new Error(`Duplicate item id in variant ${id}: ${itemId}.`);
         itemIds.add(itemId);
-        return { id: itemId, quantity: integer(item.quantity, 0, 50, `variants[${vi}].items[${ii}].quantity`) };
+        const flavor = item.flavor == null ? '' : text(item.flavor, 40, 'Item flavor');
+        if (flavor && !CAJITA_FLAVORS[itemId]?.some((option) => option[0] === flavor)) throw new Error('Unknown Cajita flavor.');
+        return { id: itemId, quantity: integer(item.quantity, 0, 50, `variants[${vi}].items[${ii}].quantity`), ...(flavor ? { flavor } : {}) };
       });
       if (!items.some((item) => item.quantity > 0)) throw new Error(`Variant ${id} must contain at least one item.`);
       const t = raw.theme || {};
@@ -110,6 +113,9 @@ export function summarizeCajitaConfiguration(config) {
   for (const v of config.variants) {
     lines.push(`Version ${v.name} (${v.quantity} boxes): ${v.items.map((i) => `${i.id} x${i.quantity}`).join(', ')}`);
     for (const i of v.items) totals[i.id] = (totals[i.id] || 0) + i.quantity * v.quantity;
+    for (const i of v.items.filter((item) => item.quantity > 0 && CAJITA_FLAVORS[item.id])) {
+      lines.push(`  ${i.id}: ${i.flavor ? flavorLabel(i.id, i.flavor) + ' / ' + flavorLabel(i.id, i.flavor, 'es') : 'Flavor not specified / Sabor sin especificar'}; ${i.quantity} per box / por caja; ${i.quantity * v.quantity} total`);
+    }
     const c = Object.entries(v.theme.colors).filter(([, value]) => value).map(([key, value]) => `${key}=${value}`).join(', ');
     lines.push(`  Theme: ${v.theme.name || v.theme.preset || 'custom'}${c ? `; colors ${c}` : ''}; pattern=${v.theme.pattern || 'none'}; pick=${v.theme.pickShape || 'default'}; prompt=${v.theme.prompt || 'none'}; background-art=${v.theme.artworkAttachmentId || 'none'}`);
     lines.push(`  Labels: label=${v.personalization.labelText || 'none'}; tag=${v.personalization.tagText || 'none'}; pick=${v.personalization.pickText || 'none'}; text placements=${v.personalization.textPlacements.map((p) => `${p.surface}@${p.x},${p.y} scale ${p.scale} rot ${p.rotation}`).join(' | ') || 'none'}; artwork=${v.personalization.artworks.map((a) => `${a.attachmentId}@${a.surface}:${a.x},${a.y} scale ${a.scale} rot ${a.rotation}`).join(' | ') || 'none'}`);

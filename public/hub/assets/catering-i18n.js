@@ -47,7 +47,7 @@
     'circle': 'círculo', 'heart': 'corazón', 'star': 'estrella', 'bow': 'lazo', 'leaf': 'hoja', 'flag': 'bandera',
     'butterfly': 'mariposa'
   };
-  var foods = { sandwich: 'Mini sandwich', empanada: 'Empanada', croqueta: 'Croqueta', salad: 'Party salad', grazing: 'Grazing bites', 'tres-leches': 'Tres leches', skewer: 'Fruit & ham skewer' };
+  var foods = { sandwich: 'Hawaiian roll', empanada: 'Empanada', croqueta: 'Croqueta', salad: 'Party salad', grazing: 'Grazing bites', 'tres-leches': 'Tres leches', skewer: 'Fruit & ham skewer' };
   var presets = { signature: 'Añejo Signature', 'gender-reveal': 'Gender reveal', birthday: 'Birthday', halloween: 'Halloween', christmas: 'Christmas', hanukkah: 'Hanukkah', 'new-year': 'New Year / New Year’s Eve', valentine: 'Valentine’s Day', easter: 'Easter', mother: 'Mother’s Day', father: 'Father’s Day', veterans: 'Veterans Day', independence: 'Independence Day', labor: 'Labor Day', thanksgiving: 'Thanksgiving', quince: 'Quinceañera / 15th birthday', sweet16: 'Sweet sixteen', special: 'Special occasion', 'just-because': 'Just because', custom: 'Your own theme' };
   function language() { return window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es' : 'en'; }
   function t(s, lang) { return (lang || language()) === 'es' && dict[s] ? dict[s] : s; }

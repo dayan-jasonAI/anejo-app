@@ -1,24 +1,28 @@
+import { CAJITA_FLAVORS, CAJITA_DEFAULT_FLAVORS } from '../../functions/_lib/cajita-food-options.js';
 export const foods = [
   {
     id: "sandwich",
-    name: "Mini sandwich",
+    name: "Hawaiian roll",
     detail:
-      "Your Añejo sandwich. Tell us about filling requests in your notes.",
+      "Soft Hawaiian roll with ham spread by default. Tuna spread is also available.",
+    flavors: CAJITA_FLAVORS.sandwich,
   },
   {
     id: "empanada",
     name: "Empanada",
-    detail: "Golden pastry, made for your celebration.",
+    detail: "1.25 oz empanada. Guava and cheese by default; choose your filling.",
+    flavors: CAJITA_FLAVORS.empanada,
   },
   {
     id: "croqueta",
     name: "Croqueta",
-    detail: "A crisp, savory Cuban favorite.",
+    detail: "1.20 oz after frying. Ham by default; choose your flavor.",
+    flavors: CAJITA_FLAVORS.croqueta,
   },
   {
     id: "salad",
     name: "Party salad",
-    detail: "An individually portioned creamy salad.",
+    detail: "6 oz of our creamy Cuban macaroni salad per Cajita.",
   },
   {
     id: "grazing",
@@ -28,12 +32,12 @@ export const foods = [
   {
     id: "tres-leches",
     name: "Tres leches",
-    detail: "Included in the classic Cajita. Remove it if you prefer.",
+    detail: "A 3–4 oz cup, included in the classic Cajita. Remove it if you prefer.",
   },
   {
     id: "skewer",
     name: "Fruit & ham skewer",
-    detail: "Grape, ham, guava, cheese and pineapple. With a themed pick.",
+    detail: "Grape, ham, guava, cheese and pineapple. One per classic Cajita, with a themed pick.",
   },
 ];
 const palette = (background, liner, logo, accent) => ({
@@ -214,7 +218,7 @@ export function newVariant() {
     id: crypto.randomUUID(),
     name: "Classic Cajita",
     quantity: 1,
-    items: foods.map(({ id }) => ({ id, quantity: id === "skewer" ? 0 : 1 })),
+    items: foods.map(({ id }) => ({ id, quantity: id === "grazing" ? 0 : 1, ...(CAJITA_DEFAULT_FLAVORS[id] ? { flavor: CAJITA_DEFAULT_FLAVORS[id] } : {}) })),
     theme: {
       preset: "signature",
       name: "Añejo Signature",

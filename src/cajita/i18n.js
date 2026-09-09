@@ -3,6 +3,13 @@
 export const language = () => typeof window !== "undefined" && window.AnejoLang?.get?.() === "es" ? "es" : "en";
 
 export const spanish = {
+  "Hawaiian roll": "Panecillo hawaiano",
+  "Soft Hawaiian roll with ham spread by default. Tuna spread is also available.": "Panecillo hawaiano con pasta de jamón de forma predeterminada. También disponible con pasta de atún.",
+  "1.25 oz empanada. Guava and cheese by default; choose your filling.": "Empanada de 1.25 oz. Guayaba y queso de forma predeterminada; elige tu relleno.",
+  "1.20 oz after frying. Ham by default; choose your flavor.": "1.20 oz ya frita. Jamón de forma predeterminada; elige tu sabor.",
+  "6 oz of our creamy Cuban macaroni salad per Cajita.": "6 oz de nuestra ensalada fría cubana de coditos por cajita.",
+  "A 3–4 oz cup, included in the classic Cajita. Remove it if you prefer.": "Un vasito de 3–4 oz, incluido en La Cajita clásica. Puedes quitarlo si prefieres.",
+  "Grape, ham, guava, cheese and pineapple. One per classic Cajita, with a themed pick.": "Uva, jamón, guayaba, queso y piña. Una por cajita clásica, con un palillo temático.",
   "Your own theme": "Tu propio tema", "pick": "palillo",
   "Mini sandwich": "Mini sándwich",
   "Your Añejo sandwich. Tell us about filling requests in your notes.": "Tu sándwich Añejo. Cuéntanos en las notas qué relleno prefieres.",
