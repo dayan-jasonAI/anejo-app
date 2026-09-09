@@ -297,5 +297,5 @@ test('language and SMS consent come from the LEAD, not from a checkbox to rememb
   assert.match(src, /&& b\.sms_consent !== false/);
   assert.ok(!/smsConsent: Boolean\(b\.sms_consent\)/.test(src),
     'consent must not be readable straight off the request body');
-  assert.match(src, /lang,\n    smsConsent,/, 'and both reach createDepositCheckout');
+  assert.match(src, /lang,\s+smsConsent,/, 'and both reach createDepositCheckout');
 });
