@@ -25,3 +25,8 @@ Full tests: 1,907 passed; lint zero errors, two pre-existing vendor warnings. Br
 
 ## Balance release
 Additive migration 0099 creates a dedicated balance-checkout table, without changing existing customer quotes. Real SQLite test verifies exact balance, saved-link reuse, atomic paid status and duplicate-event no-op. Four balance tests added; owner authorization remains required. No payment links were generated for real customers and no charges were attempted.
+
+## Final production verification
+Production source 3c0bbac confirmed through authenticated Wrangler deployment listing (c71dcb07-6469-4708-974a-9c1d8bb63b7c). All eight checked public routes/assets returned 200; owner payment endpoint correctly returned 401 anonymously. Salmon cover, slideshow and Cajita top-bar link are present. Migration file import hit an API authentication error; the identical additive CREATE TABLE succeeded through Wrangler's SQL command endpoint, and sqlite_master confirmed the table. No customer rows were modified. The token-environment postdeploy verifier skipped; independent authenticated deployment and live HTTP/schema verification were used instead.
+
+No approval is pending for the published changes. Device/account eligibility and an actual completed Square transaction cannot be proven by these read-only and mocked-provider checks. Afterpay merchant eligibility was not enabled or asserted.

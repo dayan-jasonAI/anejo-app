@@ -1,0 +1,40 @@
+{
+  "checks": [
+    {
+      "path": "/order",
+      "status": 200
+    },
+    {
+      "path": "/menu",
+      "status": 200
+    },
+    {
+      "path": "/cajita",
+      "status": 200
+    },
+    {
+      "path": "/cajita-builder",
+      "status": 200
+    },
+    {
+      "path": "/catering",
+      "status": 200
+    },
+    {
+      "path": "/subscribe",
+      "status": 200
+    },
+    {
+      "path": "/assets/js/home-background.js",
+      "status": 200
+    },
+    {
+      "path": "/assets/img/menu-launch/lechon-meal.webp",
+      "status": 200
+    }
+  ],
+  "salmon": true,
+  "slideshow": true,
+  "cajita": true,
+  "ownerEndpointStatus": 401
+}
