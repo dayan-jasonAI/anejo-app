@@ -49,6 +49,8 @@ Priced items: /order → customize → cart → Square hosted checkout → confi
 
 Market occasions, not unsupported outcomes: a busy workday, a family meal, a gift cajita, an office gathering or a celebration. Use the live product price and a direct action link. The homepage currently uses a food/event photo slideshow. No verified conversion lift or real payment settlement test is claimed.
 
+ Standard Traditional/Catering orders need at least 48 hours from the selected Eastern delivery-window start; custom printing needs 72 hours and remains quote-only. Eligible standard catering selections can receive a live food estimate and transfer to the existing order cart for Square checkout. Unpriced products, custom printing/uploads, food changes and allergy notes require quote review; do not promise automatic checkout for these requests.
+
 ## Catalog snapshot — 140 active SKUs
 
 Different quantities or fillings may be separate backend SKUs but should remain grouped for customers. Descriptions below are the published menu text, not verified production recipes.

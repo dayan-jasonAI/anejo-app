@@ -20,7 +20,7 @@ Flavor, hospitality, consistency, and honest product representation come first. 
 
 ### A. Añejo Catering
 
-Trays, dressed and regular croquetas, empanadas, Hawaiian bocaditos, full skewers, cold salad, cajitas, desserts, and complete spreads. Use tray images and explicitly stated quantities. Regular and dressed croquetas have different prices; the dressed version adds olive, cheese, and spinach. Custom event requests require a reviewed quote.
+Trays, dressed and regular croquetas, empanadas, Hawaiian bocaditos, full skewers, cold salad, cajitas, desserts, and complete spreads. Use tray images and explicitly stated quantities. Regular and dressed croquetas have different prices; the dressed version adds olive, cheese, and spinach. Bespoke event requests require a reviewed quote.
 
 ### B. Añejo Traditional
 
@@ -37,6 +37,8 @@ Seven bowls: VIDA, FUEGO, LIGERO, MAR, COCO, CONGREEN, and RAÍZ; plus Gold Vita
 The order menu separates **Lunch & dinner, Appetizers, Sides, Desserts, Catering, Añejo Fit, and Sauces**. Flavors and quantities belong inside a family customizer. Optional cart suggestions can pair a bowl with a croqueta, empanada, drink, or dessert; never automatically add or charge an extra.
 
 Priced items go through /order and Square checkout. Traditional and Catering use scheduled delivery; do not promise same-day service. /cajita-builder and /catering collect custom requests for owner review, then a Square deposit and remaining-balance payment link. The quote controls amounts. Card and eligible Apple Pay, Google Pay, and Cash App Pay are supported for one-time checkout; device and eligibility affect visibility. Subscriptions use the recurring flow and eligible card/Apple Pay/Google Pay support; do not promise Cash App or Afterpay for recurring payments. No real settlement test or conversion increase is claimed by this reference update.
+
+ Standard Traditional/Catering orders need at least 48 hours from the selected Eastern delivery-window start; custom printing needs 72 hours and remains quote-only. Eligible standard catering selections can receive a live food estimate and transfer to the existing order cart for Square checkout. Unpriced products, custom printing/uploads, food changes and allergy notes require quote review; do not promise automatic checkout for these requests.
 
 ## 4. The Golden Rule
 
