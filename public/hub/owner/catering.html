@@ -144,6 +144,9 @@
       note: [r.interest ? 'Requested menu: ' + r.interest : '', r.message || ''].filter(Boolean).join('\n'),
       // The suggested total travels with the prefill so "Start a quote" opens with a number in it.
       total: r.suggested && r.suggested.total_cents ? (r.suggested.total_cents / 100).toFixed(2) : '',
+      // So the server can read her language and SMS consent off the lead she created, instead of
+      // asking whoever fills this in to remember what she agreed to.
+      lead_id: r.lead_id || r.id || '',
     };
     var contact = [r.email || '', r.phone || ''].filter(Boolean).join(' · ');
     var targetLead = new URLSearchParams(window.location.search).get('lead');
@@ -204,6 +207,18 @@
       '<div class="field"><label>Guests</label><input id="q-guests" type="number" min="1" step="1"></div>' +
       '<div class="field"><label>Agreed total (dollars)</label><input id="q-total" type="text" inputmode="decimal" placeholder="1200.00"></div>' +
       '<div class="field"><label>Note (optional)</label><input id="q-note" type="text"></div>' +
+      // WHAT SHE READ THE SITE IN IS NOT ALWAYS WHAT SHE WANTS TO BE SOLD IN. The quote defaults
+      // to the language on her lead, and this overrides it. Dayan hit exactly this on 2026-09-09:
+      // a Spanish-speaking client had filled the form in English, so the automatic pick would
+      // have emailed and texted her the English quote.
+      '<div class="field"><label>Send the quote in</label><select id="q-lang">' +
+        '<option value="">Whatever she used on the site</option>' +
+        '<option value="en">English</option>' +
+        '<option value="es">Español</option>' +
+      '</select></div>' +
+      '<label class="field" style="display:flex;gap:8px;align-items:center">' +
+        '<input id="q-send" type="checkbox" checked style="width:auto">' +
+        '<span>Email and text it to her when I create it</span></label>' +
       '<button class="btn ghost block" id="q-preview" type="button">Preview the ' +
         Math.round(Number(d.deposit_pct || 0) * 100) + '% split</button>' +
       '<div id="q-split"></div>' +
@@ -221,8 +236,17 @@
       guests: Number(document.getElementById('q-guests').value),
       total_cents: toCents(document.getElementById('q-total').value),
       note: document.getElementById('q-note').value.trim(),
+      // Empty means "use her lead's language". A blank must NOT be sent as 'en' or it would
+      // override the very thing it is meant to defer to.
+      lang: document.getElementById('q-lang').value || undefined,
+      send: document.getElementById('q-send').checked,
+      lead_id: leadId || undefined,
     };
   }
+
+  // Carried from the request card, so the server can read her language and SMS consent off the
+  // lead rather than asking whoever is filling this in to remember them.
+  var leadId = null;
 
   function wireForm() {
     document.getElementById('q-preview').addEventListener('click', function () {
@@ -243,7 +267,11 @@
       var btn = this, b = body();
       if (!Number.isFinite(b.total_cents) || b.total_cents <= 0) { Hub.toast('Enter the agreed total'); return; }
       if (!Number.isFinite(b.guests) || b.guests <= 0) { Hub.toast('Enter the guest count'); return; }
-      if (!window.confirm('Create a deposit checkout for ' + money(b.total_cents) + '? This mints a payable link and stores today’s terms on the quote.')) return;
+      var willSend = b.send
+        ? 'It will be emailed and texted to her straight away.'
+        : 'Nothing will be sent — you will get the link to send yourself.';
+      if (!window.confirm('Create a deposit checkout for ' + money(b.total_cents) + '?\n\n'
+        + 'This mints a payable link and stores today’s terms on the quote.\n' + willSend)) return;
       btn.disabled = true;
       b.op = 'create';
       Hub.api(ENDPOINT, { method: 'POST', body: b }).then(function (r) {
@@ -265,6 +293,8 @@
         document.getElementById('q-date').value = r.event_date || '';
         document.getElementById('q-guests').value = r.guests || '';
         document.getElementById('q-note').value = r.note || '';
+        leadId = r.lead_id || null;
+        document.getElementById('q-lang').value = '';
         // Prefilled from the live menu when the request carried priceable products. It stays
         // editable and is still called the AGREED total: the suggestion is a starting point, and
         // anything the menu could not price is listed on the request card above.
