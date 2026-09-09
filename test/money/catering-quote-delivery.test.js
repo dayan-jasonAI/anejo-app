@@ -282,3 +282,20 @@ test('creating a quote mints a token and sends it', () => {
     'a provider outage must never cost a booking Square already accepted');
   assert.match(src, /smsConsent \? 1 : 0/, 'consent is passed through, never assumed');
 });
+
+// ---------------------------------------------------------------- the Hub passes it through
+
+test('language and SMS consent come from the LEAD, not from a checkbox to remember', () => {
+  // She told us both when she filled the form in: source_lang is the language she was reading the
+  // site in, sms_consent is what she actually agreed to. Requiring the owner to re-enter them is
+  // how a Spanish-speaking customer gets an English quote and no text.
+  const src = readFileSync(new URL('../../functions/api/hub/owner/catering-deposit.js', import.meta.url), 'utf8');
+  assert.match(src, /SELECT source_lang, sms_consent, phone FROM leads WHERE id = \?/);
+  assert.match(src, /const lang = \(b\.lang \|\| lead\?\.source_lang\) === 'es' \? 'es' : 'en';/);
+  // A body flag may WITHHOLD the text; it must never grant a consent the customer did not give.
+  assert.match(src, /lead\?\.sms_consent === 1 \|\| lead\?\.sms_consent === true/);
+  assert.match(src, /&& b\.sms_consent !== false/);
+  assert.ok(!/smsConsent: Boolean\(b\.sms_consent\)/.test(src),
+    'consent must not be readable straight off the request body');
+  assert.match(src, /lang,\n    smsConsent,/, 'and both reach createDepositCheckout');
+});
