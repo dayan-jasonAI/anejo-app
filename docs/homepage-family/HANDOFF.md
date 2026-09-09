@@ -15,3 +15,8 @@ Application: visible choices by occasion, clear order/quote paths, product photo
 Existing 1,902 tests passed before final copy additions; deploy runs full suite again. Lint has zero errors and two existing vendor warnings. Browser evidence covers desktop 1440px and mobile 390px, images, local anchors and overflow. No test purchases or form submissions.
 
 Analytics measurement ID remains unconfigured; do not claim visitor conversion tracking is active. Compare paid orders, average order value, repeat orders and catering requests weekly; traffic-to-order conversion requires consented visitor analytics and a baseline. Sales lift is a hypothesis, not a verified outcome.
+
+## Published verification
+Production source 47d72b9 verified through authenticated Wrangler deployment listing (production deployment ed5b2d17-cd9f-4d3c-8ee1-45ca2422a4bb). Public homepage HTTP 200: three family tiles, Traditional/Catering/Cajita sections present, obsolete link absent, catering photo HTTP 200. Full predeploy suite: 1,902 passed, zero failed. Final browser checks: no missing images, invalid section anchors or horizontal overflow at either viewport.
+
+The environment-variable postdeploy verifier skipped; authenticated Wrangler and public HTTP checks independently verified deployment. Unrelated optional contract DB checks were not run. No approval is pending for this authorized release. Visitor analytics configuration is the remaining measurement limitation, not a release blocker. Next: establish a conversion baseline before attributing revenue changes.
