@@ -1064,6 +1064,7 @@ export async function createInvoicePaymentLink(env, invId, { baseUrl } = {}) {
         reference_id: 'contract-invoice',
       },
       checkout_options: {
+        accepted_payment_methods: { apple_pay: true, google_pay: true, cash_app_pay: true },
         redirect_url: base ? `${base}/hub/owner/invoice.html?id=${inv.id}` : undefined,
         ask_for_shipping_address: false,
         allow_tipping: false,

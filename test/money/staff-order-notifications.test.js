@@ -27,6 +27,7 @@ function fixture() {
     CREATE TABLE order_addons (id TEXT PRIMARY KEY,square_order_id TEXT,status TEXT);
     CREATE TABLE rev_share_events (id TEXT PRIMARY KEY,trainer_id TEXT,subscription_id TEXT,
       amount_cents INTEGER,share_cents INTEGER,occurred_at INTEGER,payout_status TEXT);`);
+  DB.sqlite.exec(readFileSync(new URL('../../migrations/0099_catering_balance_checkout.sql', import.meta.url), 'utf8'));
   return DB;
 }
 const seed = (DB, status = 'pending') => DB.sqlite.prepare(

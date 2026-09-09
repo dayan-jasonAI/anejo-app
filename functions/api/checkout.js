@@ -605,6 +605,7 @@ export const onRequestPost = async ({ request, env }) => {
         return Object.keys(pp).length ? pp : undefined;
       })(),
       checkout_options: {
+        accepted_payment_methods: { apple_pay: true, google_pay: true, cash_app_pay: true },
         redirect_url: `${base}/order/confirmed`,
         // We collect the delivery address ourselves (stored for routing), so don't ask twice.
         ask_for_shipping_address: false,

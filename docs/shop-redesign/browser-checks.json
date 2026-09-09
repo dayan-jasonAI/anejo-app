@@ -1,0 +1,12 @@
+{
+  "defaultMealCards": 3,
+  "mixedFlavors": true,
+  "cartEdit": true,
+  "cateringSizePrice": true,
+  "bowlSuggestions": true,
+  "checkoutDetails": true,
+  "mobileOverflow": false,
+  "pageErrors": [],
+  "bowlTotal": "$19.99",
+  "noCheckoutSubmitted": true
+}

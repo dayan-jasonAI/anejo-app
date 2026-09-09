@@ -1,0 +1,14 @@
+{
+  "home": {
+    "overflow": false,
+    "salmon": "http://localhost:8769/assets/img/bowl_mar.jpg",
+    "cajitaNav": true,
+    "backgrounds": 3,
+    "reducedMotionPaused": "true"
+  },
+  "shop": {
+    "nonBowlVariants": 121,
+    "families": 56,
+    "categories": 7
+  }
+}

@@ -101,7 +101,8 @@ export async function createAddonPaymentLink(env, { selections, base, order }) {
         reference_id: 'addon',
         note: `Add-on for ${order.customer_name || 'member'} — ${order.delivery_date} ${order.delivery_window}`,
       },
-      checkout_options: { redirect_url: `${base}/add-ons/confirmed`, ask_for_shipping_address: false },
+      checkout_options: {
+        accepted_payment_methods: { apple_pay: true, google_pay: true, cash_app_pay: true }, redirect_url: `${base}/add-ons/confirmed`, ask_for_shipping_address: false },
     },
   });
   if (!ok) return null;

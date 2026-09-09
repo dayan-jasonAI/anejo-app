@@ -16,6 +16,7 @@ import { now, parseJson } from '../../../_lib/hub.js';
 import { buildQuote } from '../../../_lib/quote.js';
 import { DEPOSIT_PCT, TERMS_VERSION, termsFor } from '../../../_lib/catering_terms.js';
 import { createDepositCheckout, depositSplit } from '../../../_lib/catering_deposit.js';
+import { createBalanceCheckout } from '../../../_lib/catering_balance.js';
 import { extractCajitaConfiguration } from '../../../_lib/cajita-config.js';
 
 export const onRequestGet = async ({ request, env }) => {
@@ -30,7 +31,7 @@ export const onRequestGet = async ({ request, env }) => {
       `SELECT id, customer_name, customer_email, event_date, guests, total_cents, deposit_pct,
               deposit_cents, balance_cents, deposit_status, deposit_paid_at, deposit_paid_cents,
               balance_status, balance_paid_at, balance_due_date, final_count_due,
-              payment_link_url, terms_version, terms_json, note, created_at
+              payment_link_url, (SELECT payment_link_url FROM catering_balance_checkouts WHERE quote_id=catering_quotes.id) AS balance_payment_link_url, terms_version, terms_json, note, created_at
          FROM catering_quotes ORDER BY created_at DESC LIMIT 50`
     ).all();
     // THE TERMS COME OFF THE ROW, PARSED — never rebuilt from today's constants. A quote sold last
@@ -92,12 +93,19 @@ export const onRequestPost = async ({ request, env }) => {
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const op = (b && b.op) || 'create';
 
+  if (op === 'create_balance_link') {
+    const qid=String(b.quote_id||'').trim();
+    if(!qid)return bad('Missing quote_id.');
+    try { const result=await createBalanceCheckout(env,qid,appBaseUrl(env,request)); return result.ok?json(result):bad(result.error,409); }
+    catch { return bad('Could not save the balance checkout. Retry to recover the same link.',503); }
+  }
+
   if (op === 'mark_balance_paid') {
     const qid = String((b && b.quote_id) || '').trim();
     if (!qid) return bad('Missing quote_id.');
     try {
       const r = await env.DB.prepare(
-        "UPDATE catering_quotes SET balance_status='paid', balance_paid_at=?, updated_at=? WHERE id=? AND balance_status='due'"
+        "UPDATE catering_quotes SET balance_status='paid', balance_paid_at=?, updated_at=? WHERE id=? AND balance_status='due' AND NOT EXISTS (SELECT 1 FROM catering_balance_checkouts WHERE quote_id=catering_quotes.id)"
       ).bind(now(), now(), qid).run();
       if (!r || !r.meta || r.meta.changes !== 1) return bad('That balance is not open, or the quote does not exist.', 400);
       return json({ ok: true, quote_id: qid, balance_status: 'paid' });

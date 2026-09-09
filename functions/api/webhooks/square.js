@@ -10,6 +10,7 @@ import { sendSms } from '../../_lib/twilio.js';
 import { awardOrderPoints, redeemOrderPoints, rewardsSummary } from '../../_lib/rewards.js';
 import { creditAffiliateForOrder } from '../../_lib/promo.js';
 import { raiseAlert } from '../../_lib/alerts.js';
+import { markBalancePaid } from '../../_lib/catering_balance.js';
 import { markDepositPaid } from '../../_lib/catering_deposit.js';
 import { markContractInvoicePaidBySquareOrder } from '../../_lib/contract.js';
 
@@ -224,6 +225,10 @@ export const onRequestPost = async ({ request, env }) => {
             }
           } catch (e) { console.log('points award error:', e && e.message); }
         }
+
+        // Retry on a balance-storage failure; a received payment must not be silently lost.
+        try { await markBalancePaid(env, pay.order_id, pay.amount_money?.amount, pay.amount_money?.currency); }
+        catch { return new Response('Balance reconciliation temporarily unavailable', { status:503 }); }
 
         // CATERING DEPOSIT: a paid deposit link → flip the quote to deposit-paid and leave the
         // balance owing. Idempotent via the deposit_status guard, so Square's retries are no-ops.

@@ -124,11 +124,16 @@ test('the order page blocks the add control, not just the badge', () => {
   assert.match(ORDER, /function maxFor\(idv\)\{ if\(isOffMenu\(idv\)\) return 0;/);
 });
 
-test('a sold-out state is shown for scheduled orders too, not only same-day', () => {
-  // The existing sold-out UI was gated on mode==='ondemand' because it meant the daily production
-  // cap. An owner-set state applies to next Tuesday as much as to today.
-  assert.match(ORDER, /const offMenu = i\.available === false;/);
-  assert.match(ORDER, /const soldOut = offMenu \|\| \(onD && bowl && avail && rem<=0\);/);
+test('a sold-out state blocks grouped options in scheduled and same-day modes', () => {
+  const code = readFileSync(new URL('../../public/assets/js/shop-order.js', import.meta.url), 'utf8');
+  const enabled = code.match(/function shopEnabled\(i\)\{([\s\S]*?)\}/)[1];
+  const check = new Function('i','isBowl','mode','avail','remainingFor',enabled);
+  for(const mode of ['scheduled','ondemand']) {
+    assert.equal(check({id:'traditional_croq-pollo',available:false},()=>false,mode,null,()=>10),false);
+    assert.equal(check({id:'traditional_croq-pollo',available:true},()=>false,mode,null,()=>10),true);
+    assert.equal(check({id:'vida',available:false},()=>true,mode,null,()=>10),false);
+  }
+  assert.equal(check({id:'vida',available:true},()=>true,'ondemand',{},()=>0),false);
 });
 
 test('a stale cart drops the item rather than failing at the till', () => {
