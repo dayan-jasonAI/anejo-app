@@ -1,0 +1,23 @@
+# Catering quote product selection — 2026-09-09
+
+Owner: Codex. Approval: Dayan's direct-session request to add individual product selection to the quote form, continuing his authorized website updates and publication. Scope excludes prices, payment settings, production data edits and paid services.
+
+## Changes
+- Bilingual product selector under the three categories, with repeatable lines, quantities, units, filling choices, removals and per-line instructions.
+- Fit bowls; Cuban roast pork, congrí, tamales, Hawaiian rolls, empanadas, croquetas, cold salad, skewers and tres leches; standard/custom Cajita versions; custom request entries.
+- Explicit event totals rather than multiplying by guest count. Required notes for custom products. Existing Cajita designer remains available.
+- Shared allowlisted catalog; server validates products, category, quantity and flavor. Product arrays are stored in catering_requests.event_json; bilingual human-readable product lines are retained in the Hub's original inquiry and immutable email outbox payload.
+- Older builder requests without the new field remain supported. Retry request IDs and product snapshots remain immutable.
+
+## Verification
+- `npm run build:catering`: passed; generated public/assets/js/catering-products.js.
+- Focused real SQLite + route tests: 16 passed. Proves saved product quantity/flavor/notes and queued email content. Providers stubbed; no customer emails sent.
+- `npm test --silent`: 1,898 passed after merging the newer published menu work from origin/main; log /tmp/anejo-products-merged-tests.log.
+- `npm run lint`: no errors, two pre-existing vendor warnings.
+- `npx wrangler pages functions build --outfile=/tmp/anejo-products-worker.js`: compiled successfully.
+- Local browser: Spanish product list; congrí deep-link selection; add chicken empanada quantity 10; English switch preserves quantity/flavor; Cajita selection reveals standard/custom versions.
+- Initial full-suite run exposed a fixture missing the new UI interface; updated the fixture and tested immutable product retry payloads. Final suite passes.
+- Predeploy guard initially stopped an outdated checkout. Merged origin/main without conflicts, preserving the other session's published menu work. Guard subsequently passed.
+
+## Boundaries and next step
+No prices invented, no new service purchased, no database migration. Email payload verified in tests, not a new real inbox-delivery test. Deployment/live asset verification pending below. The separate photorealistic 3D work is not claimed complete here.
