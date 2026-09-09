@@ -27,3 +27,9 @@ Owner Codex. Dayan's direct request authorizes public ordering redesign, product
 - Rollback SQL hides only new SKUs and restores previous lechon card fields, preserving orders. Before snapshot retained.
 
 Publication evidence to be appended after rollout.
+
+## Publication verified
+
+Merged concurrent origin/main quote-control fix 6720dfd; release source 714b05a. Authenticated Wrangler listing confirms Production/main deployment 9d7873c0-c071-4a96-b627-94b466fedabf (Git deployment after direct 7c0dd12f). Main and release branch pushed. New SKU/meal SQL activated successfully after code publication. No existing prices changed.
+
+Guarded deployment: 1,902 passed, zero failures. Automatic postdeploy script lacked token environment variables; authenticated Wrangler listing and live browser/API checks independently supplied deployment evidence. live-checks.json confirms three meal cards, ten empanada flavors, $11 mixed-empanada total, optional croqueta upsell after adding LIGERO, no horizontal overflow, no JS errors. Screenshots saved. No payment/checkout submitted. No further approval needed for this authorized release; tostones default remains ropa vieja unless Dayan chooses another filling. Production cost/yield validation remains a business follow-up, not a completed test.
