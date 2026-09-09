@@ -10,6 +10,7 @@ const menus = () => [...form.querySelectorAll('[name="menu_option"]:checked')].m
 const categories = { 'Añejo Fit Menu': 'Menú Añejo Fit', 'Cuban Food': 'Comida cubana', 'Individual Cajitas': 'Cajitas individuales' };
 function element(tag, text, parent) {
   const el = document.createElement(tag);
+  if (['input', 'select', 'textarea'].includes(tag)) el.setAttribute('aria-label', parent.textContent);
   if (text) el.textContent = text;
   parent.append(el);
   return el;

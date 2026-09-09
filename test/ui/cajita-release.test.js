@@ -224,7 +224,7 @@ function cateringFixture(responses, files = []) {
   const ctx = vm.createContext({
     document: { getElementById: (id) => nodes.get(id), addEventListener() {} },
     t: (value) => value, spanish: () => false,
-    window: { addEventListener() {}, get location() { throw new Error('No automatic mail app navigation is allowed'); } },
+    window: { AnejoQuoteProducts: { valid: () => true, read: () => [{ id: 'cajita-standard', quantity: 20, notes: '' }] }, addEventListener() {}, get location() { throw new Error('No automatic mail app navigation is allowed'); } },
     crypto: { randomUUID: () => `request-${++ids}` }, AbortSignal,
     fetch: async (url, options) => {
       requests.push({ url, body: options.body });
@@ -264,6 +264,7 @@ test('catering upload locks and snapshots fields; ambiguous retries never reuplo
   await f.submit();
   assert.equal(f.requests.length, 5);
   assert.equal(f.requests[2].body, f.requests[3].body);
+  assert.equal(JSON.parse(f.requests[2].body).products[0].quantity, 20);
   assert.equal(f.requests[3].body, f.requests[4].body);
   assert.equal(f.ctx.pendingSubmission, null);
   assert.equal(f.form.elements.name.disabled, false);

@@ -112,6 +112,23 @@ test('a catering submission sends the full brief to the configured Añejo inbox'
   assert.match(calls[0].body.html, /Two vegetarian meals/);
 });
 
+test('individual products survive the real D1 transaction, Hub lead and queued email', async () => {
+  const DB = makeD1();
+  const products = [{ id: 'empanada', quantity: 20, flavor: 'chicken', notes: 'Pink picks' }, { id: 'cajita-custom', quantity: 10, notes: 'Sin tres leches' }];
+  const response = await post({ ...valid, products }, { DB });
+  assert.equal(response.status, 200);
+  const lead = DB.sqlite.prepare('SELECT message FROM leads').get();
+  assert.match(lead.message, /20 pieces \/ unidades/);
+  assert.match(lead.message, /Chicken \/ Pollo/);
+  assert.match(lead.message, /Sin tres leches/);
+  const event = JSON.parse(DB.sqlite.prepare('SELECT event_json FROM catering_requests').get().event_json);
+  assert.equal(event.products[0].quantity, 20);
+  assert.equal(event.products[0].flavor, 'chicken');
+  const email = JSON.parse(DB.sqlite.prepare("SELECT payload_json FROM catering_notification_outbox WHERE channel='email'").get().payload_json);
+  assert.match(email.text, /Pink picks/);
+  assert.match(email.html, /Sin tres leches/);
+});
+
 test('a stored request raises a durable Hub alert and reports an accepted owner email', async () => {
   const alertTypes = [];
   const DB = makeD1([
