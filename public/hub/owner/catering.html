@@ -120,9 +120,11 @@
         ? '<div class="row-sub lnk">Deposit link: <a href="' + esc(q.payment_link_url) + '" target="_blank" rel="noopener">' + esc(q.payment_link_url) + '</a></div>'
         : '<div class="row-sub">No deposit link on this quote.</div>') +
 
+      (q.balance_payment_link_url && !balPaid ? '<div class="row-sub lnk">Balance link: <a href="'+esc(q.balance_payment_link_url)+'" target="_blank" rel="noopener">Pay final balance through Square</a></div>' : '') +
+      (!balPaid && paid && !q.balance_payment_link_url ? '<button class="btn gold block" data-balance-link="'+esc(q.id)+'">Create Square balance link</button>' : '') +
       termsHtml(q) +
 
-      (!balPaid && paid
+      (!balPaid && paid && !q.balance_payment_link_url
         ? '<button class="btn ghost block" style="margin-top:10px" data-balance="' + esc(q.id) + '">Mark ' + money(q.balance_cents) + ' balance paid</button>'
         : '') +
     '</div>';
@@ -271,6 +273,7 @@
       wireRequests(root);
       var selected = document.getElementById('selected-request');
       if (selected) selected.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      root.querySelectorAll('[data-balance-link]').forEach(function(btn){ btn.addEventListener('click',function(){btn.disabled=true;Hub.api(ENDPOINT,{method:'POST',body:{op:'create_balance_link',quote_id:btn.getAttribute('data-balance-link')}}).then(function(r){if(r&&r.ok){Hub.toast('Square balance link ready');render();}else{btn.disabled=false;Hub.toast((r&&r.error)||'Could not create the balance link');}});});});
       root.querySelectorAll('[data-balance]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           if (!window.confirm('Mark this balance paid? This records the money as received — it does not charge anybody.')) return;

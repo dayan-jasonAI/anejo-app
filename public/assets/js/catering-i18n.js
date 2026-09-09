@@ -2,6 +2,10 @@
 (function () {
   'use strict';
   var es = {
+    'Create Square balance link': 'Crear enlace de Square para el saldo',
+    'Pay final balance through Square': 'Pagar el saldo final con Square',
+    'Square balance link ready': 'Enlace de Square para el saldo listo',
+
     'Meet La Cajita · The newest addition to the Añejo family →': 'Conoce La Cajita · La nueva integrante de la familia Añejo →',
     'La Cajita · The newest addition to our family': 'La Cajita · La nueva integrante de nuestra familia',
     'Pause background': 'Pausar fondo', 'Play background': 'Reproducir fondo',
