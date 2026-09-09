@@ -2,6 +2,11 @@
 (function () {
   'use strict';
   var es = {
+    'Meet La Cajita · The newest addition to the Añejo family →': 'Conoce La Cajita · La nueva integrante de la familia Añejo →',
+    'La Cajita · The newest addition to our family': 'La Cajita · La nueva integrante de nuestra familia',
+    'Pause background': 'Pausar fondo', 'Play background': 'Reproducir fondo',
+    'Customize & order →': 'Personalizar y pedir →',
+
     "For your everyday.": "Para tu día a día.",
     "For everyone at your table.": "Para todos en tu mesa.",
     "Mediterranean-inspired Cuban bowls. Traditional comfort food. Thoughtful Cajitas and generous catering spreads. One family, made to bring yours together.": "Bowls cubanos de inspiración mediterránea. Comida tradicional, Cajitas especiales y abundantes mesas de catering. Una familia, hecha para reunir a la tuya.",

@@ -95,6 +95,7 @@ export async function createDepositCheckout(env, {
         note: termsSummary(terms).slice(0, 500),
       },
       checkout_options: {
+        accepted_payment_methods: { apple_pay: true, google_pay: true, cash_app_pay: true },
         redirect_url: base ? `${base}/order/confirmed` : undefined,
         ask_for_shipping_address: false,
         allow_tipping: false,
