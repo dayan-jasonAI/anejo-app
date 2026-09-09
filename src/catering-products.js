@@ -4,6 +4,8 @@ import { CAJITA_FLAVORS, CAJITA_DEFAULT_FLAVORS } from '../functions/_lib/cajita
 const root = document.getElementById('quote-products');
 const form = document.getElementById('cateringForm');
 let rows = [];
+let estimateSequence = 0;
+let estimateTimer;
 const es = () => document.documentElement.lang.startsWith('es');
 const t = (en, spanish) => es() ? spanish : en;
 const menus = () => [...form.querySelectorAll('[name="menu_option"]:checked')].map((el) => el.value);
@@ -19,7 +21,7 @@ function render() {
   if (!root.isConnected) return;
   root.replaceChildren();
   element('h4', t('Choose products and quantities', 'Elige los productos y las cantidades'), root);
-  element('p', t('Quantities are totals for your event, not per guest. Add another line for a different filling or box version. Pricing is confirmed after review.', 'Las cantidades son totales para tu evento, no por invitado. Agrega otra línea para un relleno o una versión de cajita diferente. El precio se confirma después de revisar.'), root);
+  element('p', t('Quantities are totals for your event, not per guest. Add another line for a different filling or box version. Standard food prices appear below; custom requests need review.', 'Las cantidades son totales para tu evento, no por invitado. Agrega otra línea para otro relleno o versión de cajita. Los precios estándar aparecen abajo; las solicitudes personalizadas requieren revisión.'), root);
   if (!menus().length) element('p', t('Select a category above to see its products.', 'Selecciona una categoría arriba para ver sus productos.'), root);
   for (const category of menus()) {
     const group = element('fieldset', '', root);
@@ -65,7 +67,50 @@ function render() {
     const add = element('button', t('+ Add a product', '+ Agregar un producto'), group); add.type = 'button';
     add.addEventListener('click', () => { if (rows.length >= 50) return; rows.push({ category, id: '', quantity: 1, notes: '' }); render(); });
   }
+  const pricing = element('section', '', root);
+  pricing.id = 'catering-instant-price';
+  pricing.setAttribute('aria-live', 'polite');
+  queueEstimate();
 }
+function queueEstimate() {
+  const sequence = ++estimateSequence;
+  clearTimeout(estimateTimer);
+  const panel = document.getElementById('catering-instant-price');
+  if (!panel) return;
+  panel.replaceChildren();
+  element('p', t('Standard catering: minimum 48 hours. Custom printing: minimum 72 hours.', 'Catering estándar: mínimo 48 horas. Impresión personalizada: mínimo 72 horas.'), panel);
+  const products = rows.filter(r => menus().includes(r.category)).map(({id, quantity, flavor, notes}) => ({id, quantity, flavor, notes}));
+  if (!products.length || products.some(p => !p.id || !Number.isInteger(p.quantity) || p.quantity < 1)) return;
+  const needsReview = ['event-theme', 'theme-colors', 'design-notes', 'dietary', 'details'].some(id => document.getElementById(id)?.value?.trim()) || [...form.querySelectorAll('input[type=file]')].some(el => el.files.length);
+  const status = element('p', t('Checking current food prices…', 'Consultando precios actuales…'), panel);
+  estimateTimer = setTimeout(async () => {
+    try {
+      const response = await fetch('/api/catering-estimate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({products, needs_review:needsReview})});
+      if (!response.ok) throw new Error('estimate');
+      const result = await response.json();
+      if (sequence !== estimateSequence) return;
+      const amount = new Intl.NumberFormat(es() ? 'es-US' : 'en-US', {style:'currency', currency:'USD'}).format(result.subtotal_cents / 100);
+      status.textContent = result.unpriced.length ? t(`Priced items: ${amount}. Some selections need a custom price; this is not the full total.`, `Productos con precio: ${amount}. Algunas selecciones requieren precio personalizado; este no es el total completo.`) : t(`Food subtotal: ${amount}. Delivery and tax are calculated at checkout.`, `Subtotal de comida: ${amount}. Entrega e impuestos se calculan al pagar.`);
+      if (result.unpriced.length) {
+        const list = element('ul', '', panel);
+        result.unpriced.forEach(item => { const product = cateringProducts.find(p => p.id === item.id); element('li', `${item.quantity} × ${product ? (es() ? product.es : product.en) : item.id} — ${t('price / availability needs review', 'precio / disponibilidad por revisar')}`, list); });
+      }
+      if (result.checkout_eligible) {
+        element('p', t('Buy these standard food items now. Choose your delivery date, address and contact details on the next page. No custom packaging is included.', 'Compra estos productos estándar ahora. Elige fecha, dirección y datos de contacto en la siguiente página. No incluye empaque personalizado.'), panel);
+        const buy = element('button', t('Continue to secure checkout', 'Continuar al pago seguro'), panel);
+        buy.type = 'button';
+        buy.addEventListener('click', () => {
+          try { sessionStorage.setItem('anejo-catering-cart', JSON.stringify({items:result.items, created:Date.now()})); location.href='/order?category=catering&from=catering'; }
+          catch { status.textContent=t('Please enable browser storage or order through the menu.', 'Activa el almacenamiento del navegador o compra desde el menú.'); }
+        });
+      } else element('p', t('For these custom selections, send the complete request below. For Fit bowls, use the menu bowl editor.', 'Para estas selecciones personalizadas, envía la solicitud completa abajo. Para bowls Fit, usa el personalizador del menú.'), panel);
+    } catch {
+      if (sequence === estimateSequence) status.textContent=t('Instant pricing is unavailable. Your quote request can still be submitted below.', 'El precio instantáneo no está disponible. Puedes enviar la solicitud abajo.');
+    }
+  }, 350);
+}
+form.addEventListener('input', queueEstimate);
+form.addEventListener('change', queueEstimate);
 function sync() {
   // Keep deselected categories in memory, but exclude them from submission.
   menus().forEach((category) => { if (!rows.some((r) => r.category === category)) rows.push({ category, id: '', quantity: 1, notes: '' }); });
@@ -78,7 +123,7 @@ document.addEventListener('anejo:langchange', () => {
 });
 const requested = new URLSearchParams(location.search).get('item');
 const product = cateringProducts.find((p) => p.id === requested);
-if (product && menus().includes(product.category)) rows.push({ category: product.category, id: product.id, quantity: 1, notes: '' });
+if (product && menus().includes(product.category)) rows.push({ category: product.category, id: product.id, quantity: 1, flavor: product.flavorKey ? CAJITA_DEFAULT_FLAVORS[product.flavorKey] : undefined, notes: '' });
 sync();
 window.AnejoQuoteProducts = {
   read: () => rows.filter((r) => menus().includes(r.category)).map(({ id, quantity, flavor, notes }) => ({ id, quantity, flavor, notes })),

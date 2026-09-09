@@ -8,6 +8,7 @@ import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress, geoConfigured, lastGeocodeFailure, addressWasCorrected } from '../_lib/geo.js';
 import { loadOrderingSettings, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
 import { loadOperating, zipAllowed, scheduleOpenFor } from '../_lib/operating.js';
+import { validateCateringNotice } from '../_lib/catering-notice.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 import { currentUser } from '../_lib/session.js';
 import { rewardsSummary } from '../_lib/rewards.js';
@@ -285,7 +286,7 @@ export const onRequestPost = async ({ request, env }) => {
         return bad(`${prod.name} is ${label} right now — please remove it from your order.`);
       }
       const qty = Math.floor(Number(it.qty));
-      if (!Number.isFinite(qty) || qty < 1 || qty > 20) return bad(`Invalid quantity for ${prod.name}.`);
+      if (!Number.isFinite(qty) || qty < 1 || qty > (/^(catering_|traditional_)/.test(it.id) ? 5000 : 20)) return bad(`Invalid quantity for ${prod.name}.`);
       const cents = prod.price_cents;
       subtotalCents += cents * qty;
       lineItems.push({ name: prod.name, quantity: String(qty), base_price_money: { amount: cents, currency: 'USD' } });
@@ -360,13 +361,18 @@ export const onRequestPost = async ({ request, env }) => {
     const midnightUtc = Date.parse(dateStr + 'T00:00:00Z');
     if (Number.isNaN(midnightUtc)) return bad('Invalid delivery date.');
     const dow = new Date(midnightUtc).getUTCDay();
-    if (dow === 0) return bad('We deliver Monday–Saturday. Please pick another date.');
+    // The owner's configured delivery days are enforced by scheduleOpenFor below.
+    // Do not reject Sunday here when the same operating settings advertise it online.
     // THE OWNER'S CUTOFF, not a hard-coded one. scheduleOpenFor was built settings-aware,
     // imported here, and never wired in — the lint warning that sat on this file all month was
     // the receipt. With it unwired, the page could promise the owner's configured hour while
     // checkout silently refused at a fossilised 6 PM: worse than either bug alone, because every
     // customer between the two hours is told the site lied to them.
     schedOps = await loadOperating(env);
+    if (orderItems.some(item => /^(catering_|traditional_)/.test(item.id))) {
+      const notice = validateCateringNotice({ eventDate: dateStr, defaultEventTime: schedOps[win + '_start'] });
+      if (!notice.ok) return bad('Catering requires at least 48 hours notice. Choose a later delivery window. / El catering requiere al menos 48 horas de anticipación. Elige una entrega posterior.');
+    }
     const gate = scheduleOpenFor(schedOps, dateStr);
     if (!gate.ok) {
       const hr = Number(schedOps.order_by_hour) || 18;
