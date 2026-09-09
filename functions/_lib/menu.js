@@ -12,12 +12,12 @@
 import { BOWL_BY_NAME } from './bowlspec.js';
 
 export const FALLBACK_BOWLS = {
-  vida: 1999, fuego: 2299, ligero: 1899, mar: 2299, coco: 2299, congreen: 2099, raiz: 1899,
+  vida: 2299, fuego: 2399, ligero: 1999, mar: 2499, coco: 2299, congreen: 2099, raiz: 2199,
 };
 export const FALLBACK_NON_BOWLS = {
-  fit_gold: { name: 'Añejo Fit — Gold Vitality', price_cents: 999 },
-  fit_hibiscus: { name: 'Añejo Fit — Hibiscus Zen', price_cents: 999 },
-  fit_emerald: { name: 'Añejo Fit — Emerald Hydrate', price_cents: 999 },
+  fit_gold: { name: 'Añejo Fit — Gold Vitality', price_cents: 749 },
+  fit_hibiscus: { name: 'Añejo Fit — Hibiscus Zen', price_cents: 749 },
+  fit_emerald: { name: 'Añejo Fit — Emerald Hydrate', price_cents: 749 },
   sauce_extra: { name: 'Extra Signature Sauce (2 oz)', price_cents: 150 },
 };
 export const FALLBACK_MODIFIERS = {

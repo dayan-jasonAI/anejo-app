@@ -2,6 +2,8 @@
 (function () {
   'use strict';
   var es = {
+    'View trays & packages': 'Ver bandejas y paquetes',
+    'Explore the full menu · Catering, Traditional & Fit →': 'Explora el menú completo · Catering, Traditional y Fit →',
     'Catering': 'Catering', 'La Cajita': 'La Cajita', 'Añejo': 'Añejo', 'AÑEJO': 'AÑEJO',
     'Home': 'Inicio', 'Menu': 'Menú', 'Macros': 'Macros', 'Log in': 'Iniciar sesión', 'Order bowls': 'Pedir bowls',
     'Main': 'Principal', 'Main navigation': 'Navegación principal', 'Open menu': 'Abrir menú', 'Close menu': 'Cerrar menú',
