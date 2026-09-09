@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "build:cajita": "node scripts/build-cajita.mjs",
+    "build:catering": "node scripts/build-catering.mjs",
     "build:hub-push": "node scripts/build-hub-push.mjs",
     "dev": "wrangler pages dev public --compatibility-date=2026-05-01",
     "deploy": "wrangler pages deploy public --project-name=anejo-app",

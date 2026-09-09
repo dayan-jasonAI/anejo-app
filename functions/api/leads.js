@@ -8,6 +8,7 @@ import { limitOr429 } from '../_lib/ratelimit.js';
 import { insertLead } from '../_lib/leads.js';
 import { raiseAlert } from '../_lib/alerts.js';
 import { normalizeCajitaConfiguration } from '../_lib/cajita-config.js';
+import { normalizeCateringProducts } from '../_lib/catering-products.js';
 import { validCateringRequestId, cateringPayloadHash, findCateringReplay, storeCateringRequest, cateringReceipt, drainCateringOutbox } from '../_lib/catering-request.js';
 
 // Founding Legacy Member program — first N launch-list signups get a founding number.
@@ -35,6 +36,8 @@ export function normalizeCateringRequest(b) {
   const details = text(b.event_details, 2500);
 
   if (!menus.length) return { ok: false, error: 'Please choose at least one catering menu option.' };
+  const products = normalizeCateringProducts(b.products, menus);
+  if (!products.ok) return products;
   if (!Number.isInteger(guests) || guests < 1 || guests > 5000) {
     return { ok: false, error: 'Please enter a valid number of people.' };
   }
@@ -62,9 +65,10 @@ export function normalizeCateringRequest(b) {
     `Personal design request: ${designNotes || 'Not provided'}`,
     `Dietary needs / allergies: ${dietary || 'None provided'}`,
     `Request details: ${details || 'None provided'}`,
+    ...(products.items.length ? [`Products / Productos:\n${products.summary}`] : []),
   ];
   return {
-    ok: true, menus, guests, event_date: eventDate, event_time: eventTime || null,
+    ok: true, menus, guests, products: products.items, event_date: eventDate, event_time: eventTime || null,
     event_type: eventType, location, event_theme: eventTheme || null,
     theme_colors: themeColors || null, design_notes: designNotes || null,
     dietary_needs: dietary || null, event_details: details || null,

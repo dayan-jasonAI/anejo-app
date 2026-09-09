@@ -225,6 +225,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
               <div class="choice"><input id="menu-cajita" name="menu_option" type="checkbox" value="Individual Cajitas"><label for="menu-cajita">Individual Cajitas<small>Individually packed Cuban meal boxes</small></label></div>
             </div>
           </fieldset>
+          <div id="quote-products" class="field full" translate="no"></div>
           <div class="field"><label for="name">Your name <span class="req">*</span></label><input id="name" name="name" type="text" autocomplete="name" maxlength="120" required></div>
           <div class="field"><label for="company">Company or organization</label><input id="company" name="company" type="text" autocomplete="organization" maxlength="120"></div>
           <div class="field"><label for="email">Email <span class="req">*</span></label><input id="email" name="email" type="email" autocomplete="email" maxlength="160" required></div>
@@ -335,11 +336,13 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
     status.className='form-status';
     var selected=menus();
     if(!selected.length){show('Choose at least one menu direction.','error');document.getElementById('menu-fit').focus();return;}
+    if(!window.AnejoQuoteProducts||!window.AnejoQuoteProducts.valid()){show(function(){return spanish()?'Elige al menos un producto por categoría. Si los productos no aparecen, recarga la página.':'Choose at least one product per category. If products are not showing, reload the page.';},'error');return;}
     form.querySelectorAll('input,select,textarea').forEach(validateField);
     if(!form.checkValidity()){form.reportValidity();return;}
     var files=selectedFiles(),fileError=validateFiles(files);
     if(fileError){show(fileError,'error');fileInput.focus();return;}
     var data={kind:'catering',lang:spanish()?'es':'en',name:val('name'),company:val('company'),email:val('email'),phone:val('phone'),menu_options:selected,event_date:val('event_date'),event_time:val('event_time'),guests:Number(val('guests')),event_type:val('event_type'),location:val('location'),event_theme:val('event_theme'),theme_colors:val('theme_colors'),design_notes:val('design_notes'),dietary_needs:val('dietary_needs'),event_details:val('event_details'),sms_consent:!!form.elements.sms_consent.checked};
+    data.products=window.AnejoQuoteProducts.read();
     var locked=pendingLocks||Array.from(form.querySelectorAll('input,select,textarea,button')).map(function(node){return {node:node,disabled:node.disabled};});
     locked.forEach(function(entry){entry.node.disabled=true;});
     submitting=true;
@@ -386,6 +389,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
 })();
 </script>
 <script src="/assets/js/announce.js" defer></script>
+<script src="/assets/js/catering-products.js" defer></script>
 <script src="/assets/js/consent.js"></script>
 <script src="/assets/js/chat.js" defer></script>
 </body>

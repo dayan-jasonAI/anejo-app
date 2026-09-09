@@ -58,7 +58,7 @@ export async function storeCateringRequest(env, { rec, catering, requestId, payl
   statements.push(env.DB.prepare(`INSERT INTO catering_requests
     (request_id,payload_hash,event_json,lead_id,upload_session_id,attachment_ids,created_at) VALUES (?,?,?,?,?,?,?)`)
     .bind(requestId, payloadHash, JSON.stringify({ event_date: catering.event_date, event_time: catering.event_time,
-      guests: catering.guests, dietary_needs: catering.dietary_needs, event_details: catering.event_details }),
+      guests: catering.guests, dietary_needs: catering.dietary_needs, event_details: catering.event_details, products: catering.products || [] }),
     rec.id, uploadSessionId || null, JSON.stringify(attachments.map((a) => a.id)), t));
   const hub = {
     alert_type: 'catering_request', severity: 'info',
