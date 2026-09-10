@@ -79,10 +79,9 @@ const COPY = {
     subtotal: 'Subtotal',
     discount: 'Volume discount',
     total: 'Total',
-    payHead: 'Two ways to confirm',
-    payNote: (p) => `Reserve your date with ${p} today, or settle the whole thing now — whichever suits you. Either one confirms the booking.`,
+    payHead: 'Reserve your date',
+    payNote: (p) => `Paying the ${p} deposit books your date. The rest is due the day before the event, and we will remind you.`,
     payDeposit: (a, p) => `Pay ${p} deposit · ${a}`,
-    payFull: (a) => `Pay in full · ${a}`,
     balanceNote: (a, d) => `Remaining balance ${a}, due ${d}.`,
     modifyHead: 'Need to change something?',
     modifyBody: 'Adjust quantities, add a dish, or change your guest count. Your quote updates and we are notified straight away.',
@@ -113,10 +112,9 @@ const COPY = {
     subtotal: 'Subtotal',
     discount: 'Descuento por volumen',
     total: 'Total',
-    payHead: 'Dos formas de confirmar',
-    payNote: (p) => `Reserve su fecha con el ${p} hoy, o pague el total ahora — como prefiera. Cualquiera de las dos confirma la reserva.`,
+    payHead: 'Reserve su fecha',
+    payNote: (p) => `Pagar el depósito del ${p} reserva su fecha. El resto vence el día antes del evento, y le recordaremos.`,
     payDeposit: (a, p) => `Pagar depósito del ${p} · ${a}`,
-    payFull: (a) => `Pagar el total · ${a}`,
     balanceNote: (a, d) => `Saldo restante ${a}, con vencimiento el ${d}.`,
     modifyHead: '¿Necesita cambiar algo?',
     modifyBody: 'Ajuste cantidades, agregue un plato o cambie el número de invitados. Su cotización se actualiza y nos avisa de inmediato.',
@@ -202,7 +200,6 @@ export function cateringQuoteEmail({
   balanceCents = 0,
   balanceDueDate,
   depositUrl,
-  payFullUrl,
   modifyUrl,
   termsLines = [],
   altLangUrl,
@@ -251,7 +248,6 @@ export function cateringQuoteEmail({
   <p style="margin:0 0 16px;font-family:Georgia,serif;font-size:14px;line-height:1.6;color:${INK}">${escHtml(c.payNote(pctLabel))}</p>
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse">
     <tr><td style="padding:0 0 10px">${button(depositUrl, c.payDeposit(money(depositCents), pctLabel), { solid: true, full: true })}</td></tr>
-    ${payFullUrl ? `<tr><td style="padding:0 0 10px">${button(payFullUrl, c.payFull(money(totalCents)), { solid: false, full: true })}</td></tr>` : ''}
   </table>
   <p style="margin:0 0 28px;font-family:Georgia,serif;font-size:13px;color:${MUTED}">${escHtml(c.balanceNote(money(balanceCents), balanceDueDate || ''))}</p>
 
@@ -354,7 +350,6 @@ export function cateringQuoteEmail({
     '',
     c.payNote(pctLabel),
     `${c.payDeposit(money(depositCents), pctLabel)}: ${depositUrl || ''}`,
-    payFullUrl ? `${c.payFull(money(totalCents))}: ${payFullUrl}` : null,
     c.balanceNote(money(balanceCents), balanceDueDate || ''),
     '',
     `${c.modifyHead} ${modifyUrl || ''}`,
