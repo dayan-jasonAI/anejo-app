@@ -20,6 +20,10 @@ import { createBalanceCheckout } from '../../../_lib/catering_balance.js';
 import { extractCajitaConfiguration } from '../../../_lib/cajita-config.js';
 import { loadMenu } from '../../../_lib/menu.js';
 import { estimateCateringProducts } from '../../../_lib/catering-estimate.js';
+import { normalizeQuoteLines } from '../../../_lib/catering_quote_lines.js';
+import { cateringQuoteEmail } from '../../../_lib/catering_quote_email.js';
+import { sendQuote, quoteUrl } from '../../../_lib/catering_quote_delivery.js';
+import { renderLines } from '../../../_lib/catering_terms.js';
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -86,9 +90,27 @@ export const onRequestGet = async ({ request, env }) => {
           const products = Array.isArray(payload?.products) ? payload.products : null;
           if (!products || !products.length) return requestRow;
           const estimate = estimateCateringProducts(products, menu);
+          // ONE SUGGESTED LINE PER THING SHE CHOSE, so the quote desk opens with her order laid
+          // out and he edits prices instead of retyping the order. Each line is priced on its own
+          // — no volume discount — because his lines ARE the price once he touches them, and a
+          // discount folded invisibly into a line he then overrides is a number nobody can explain.
+          // A line the menu cannot price comes through with cents: null and he fills it in; that
+          // is the yuca case that made his own order unquotable.
+          const suggestedLines = products.map((product) => {
+            const one = estimateCateringProducts([product], menu);
+            const priced = one.checkout_eligible && one.subtotal_cents > 0;
+            return {
+              name: product.name_en || product.id,
+              name_es: product.name_es || undefined,
+              detail: product.notes || undefined,
+              qty: product.quantity != null ? String(product.quantity) : undefined,
+              cents: priced ? one.subtotal_cents : null,
+            };
+          });
           return {
             ...requestRow,
             suggested: {
+              lines: suggestedLines,
               subtotal_cents: estimate.subtotal_cents,
               discount_cents: estimate.discount_cents,
               total_cents: estimate.total_cents,
@@ -162,8 +184,90 @@ export const onRequestPost = async ({ request, env }) => {
   // customer can pay. This op is the honest way to do that: the same depositSplit()/termsFor()
   // the create path uses, so the figure on screen and the figure Square is asked for are computed
   // by one function. It writes nothing, contacts nobody, and mints no link.
+  // READ IT BEFORE SHE DOES. Renders the exact email the customer would receive, from the values
+  // sitting in the form, and creates NOTHING: no quote row, no Square link, no message. This is
+  // the human preview that op 'send' below refuses to go without.
+  //
+  // Dayan, 2026-09-10: "no email should go out without a human preview, this is law."
+  if (op === 'render') {
+    const guests = Math.round(Number(b.guests));
+    if (!Number.isFinite(guests) || guests <= 0) return bad('guests must be greater than 0.');
+
+    let lines = [];
+    let totalCents = null;
+    if (b.lines != null) {
+      const norm = normalizeQuoteLines(b.lines);
+      if (!norm.ok) return bad(norm.error);
+      lines = norm.lines;
+      totalCents = norm.subtotal_cents;
+    } else {
+      const split0 = depositSplit(b.total_cents);
+      if (!split0.ok) return bad(split0.error, 400);
+      totalCents = split0.total_cents;
+    }
+    const split = depositSplit(totalCents);
+    if (!split.ok) return bad(split.error, 400);
+
+    const terms = termsFor({
+      totalCents: split.total_cents,
+      depositCents: split.deposit_cents,
+      balanceCents: split.balance_cents,
+      eventDate: b.event_date,
+    });
+    const lang = b.lang === 'es' ? 'es' : 'en';
+    // The buttons point at a placeholder because nothing has been minted yet. That is the honest
+    // thing to show: this is what she will READ, and the live links appear once it exists.
+    const { subject, html } = cateringQuoteEmail({
+      lang,
+      customerName: b.customer_name || '',
+      eventDate: b.event_date,
+      guests,
+      quoteId: 'preview',
+      lines,
+      subtotalCents: totalCents,
+      discountCents: 0,
+      totalCents: split.total_cents,
+      depositCents: split.deposit_cents,
+      depositPct: split.deposit_pct,
+      balanceCents: split.balance_cents,
+      balanceDueDate: terms.balance_due_date,
+      depositUrl: '#preview',
+      termsLines: renderLines(terms, lang),
+    });
+    return json({ ok: true, preview: true, subject, html, ...split, terms });
+  }
+
+  // The second, deliberate click. A quote that already exists — and that a human has therefore had
+  // the chance to read — is sent to the customer here. Creating never sends; only this does.
+  if (op === 'send') {
+    const qid = String(b.quote_id || '').trim();
+    if (!qid) return bad('quote_id is required.');
+    let row = null;
+    try {
+      row = await env.DB.prepare(
+        `SELECT id, customer_name, customer_email, customer_phone, event_date, guests, total_cents,
+                deposit_pct, deposit_cents, balance_cents, deposit_status, balance_due_date,
+                terms_json, quote_json, payment_link_url, access_token, lang, email_sent_at, sms_sent_at
+           FROM catering_quotes WHERE id = ?`
+      ).bind(qid).first();
+    } catch { return bad('Could not read that quote.', 500); }
+    if (!row) return bad('No such quote.', 404);
+    if (!row.payment_link_url) return bad('That quote has no deposit link — create it again.');
+
+    const r = await sendQuote(env, row, { baseUrl: appBaseUrl(env, request), force: b.force === true });
+    return json({ ok: true, delivery: r, quote_url: quoteUrl(row.access_token, appBaseUrl(env, request)) });
+  }
+
   if (op === 'preview') {
-    const split = depositSplit(b.total_cents);
+    // Preview from the typed LINES when there are any, so the split on screen is the split of the
+    // same subtotal the create path will charge — not of a number typed into a second field.
+    let previewTotal = b.total_cents;
+    if (b.lines != null) {
+      const norm = normalizeQuoteLines(b.lines);
+      if (!norm.ok) return bad(norm.error);
+      previewTotal = norm.subtotal_cents;
+    }
+    const split = depositSplit(previewTotal);
     if (!split.ok) return bad(split.error, 400);
     if (split.total_cents > 10000000) return bad('That total looks wrong (over $100,000) — enter cents, not dollars.');
     return json({
@@ -184,12 +288,33 @@ export const onRequestPost = async ({ request, env }) => {
   const guests = Number(b.guests);
   if (!Number.isFinite(guests) || guests <= 0) return bad('guests must be greater than 0.');
 
-  // Two ways in. Either the caller supplies a total they have already agreed, or they supply the
-  // cost inputs and the engine builds the total — in which case a missing input is a refusal, not
-  // a default, and it says exactly which one is missing.
+  // Three ways in, in priority order.
+  //
+  // 1. LINES the owner typed. His prices, printed to the customer exactly as entered, and the
+  //    subtotal of those same lines is what the card is charged. This is the path that exists
+  //    because the estimator's number is a suggestion and his is the decision.
+  // 2. A total he has already agreed, with no itemisation.
+  // 3. The cost inputs, from which the engine builds a total — a missing input is a refusal, not
+  //    a default, and it says exactly which one is missing.
   let totalCents = null;
   let breakdown = null;
-  if (b.total_cents != null && b.total_cents !== '') {
+  if (b.lines != null) {
+    const norm = normalizeQuoteLines(b.lines);
+    if (!norm.ok) return bad(norm.error);
+    // A caller that sends BOTH lines and a total that disagrees with them is refused rather than
+    // reconciled. Picking either one silently is how a customer reads $485 in the itemisation and
+    // gets charged the deposit on something else.
+    if (b.total_cents != null && b.total_cents !== '') {
+      const stated = Math.round(Number(b.total_cents));
+      if (Number.isFinite(stated) && stated !== norm.subtotal_cents) {
+        return bad(`The lines add up to $${(norm.subtotal_cents / 100).toFixed(2)} but the agreed total says $${(stated / 100).toFixed(2)}. Fix one of them — the customer must be charged what she reads.`);
+      }
+    }
+    totalCents = norm.subtotal_cents;
+    // `lines` is the key catering_quote_delivery reads to print the itemisation, and
+    // `source: 'manual'` records that no estimator produced these numbers, a person did.
+    breakdown = { source: 'manual', lines: norm.lines, subtotal_cents: norm.subtotal_cents, total_cents: norm.subtotal_cents };
+  } else if (b.total_cents != null && b.total_cents !== '') {
     const t = Math.round(Number(b.total_cents));
     if (!Number.isFinite(t) || t <= 0) return bad('total_cents must be greater than 0.');
     // $100,000 ceiling — the same "typed dollars where cents were meant" guard the contracts desk
@@ -240,7 +365,12 @@ export const onRequestPost = async ({ request, env }) => {
     baseUrl: appBaseUrl(env, request),
     lang,
     smsConsent,
-    send: b.send !== false,
+    // NO EMAIL GOES OUT WITHOUT A HUMAN PREVIEW. Dayan, 2026-09-10, after a quote emailed itself
+    // to a client the moment he hit Create: "no email should go out without a human preview, this
+    // is law." So sending is OPT-IN and the default is silence. Creating a quote mints the Square
+    // link and stores the terms; it contacts nobody. The Hub renders the quote for him to read
+    // and sends it on a second, deliberate click (op: 'send').
+    send: b.send === true,
   });
   if (!r.ok) return bad(r.error || 'Could not create the deposit link.', 400);
   return json(r);

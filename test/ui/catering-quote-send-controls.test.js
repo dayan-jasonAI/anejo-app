@@ -36,15 +36,34 @@ test('the lead id travels with the quote so consent is read, not re-typed', () =
     'and captured when a request is opened');
 });
 
-test('sending can be turned off, and defaults to on', () => {
-  assert.match(PAGE, /id="q-send" type="checkbox" checked/, 'on by default — the point is to send');
-  assert.match(PAGE, /send: document\.getElementById\('q-send'\)\.checked,/);
+// NO EMAIL GOES OUT WITHOUT A HUMAN PREVIEW.
+//
+// Dayan, 2026-09-10, after a quote emailed itself to a real client the instant he pressed Create:
+// "no email should go out without a human preview, this is law." The checkbox that used to sit
+// here CHECKED is the thing that did it — a default that sends is a default that sends something
+// nobody has read. These three tests are the law in machine form.
+
+test('there is no send-on-create control at all', () => {
+  assert.doesNotMatch(PAGE, /id="q-send"/, 'the send-on-create checkbox must not come back');
+  assert.doesNotMatch(PAGE, /send: document\.getElementById/, 'and nothing may put a send flag in the create body');
 });
 
-test('the confirm dialog says whether it is about to message a customer', () => {
-  // "Create a deposit checkout for $815.87?" does not tell you an email and a text are about to
-  // leave. Anything that contacts a customer has to say so before it happens.
-  assert.match(PAGE, /It will be emailed and texted to her straight away\./);
-  assert.match(PAGE, /Nothing will be sent — you will get the link to send yourself\./);
-  assert.match(PAGE, /var willSend = b\.send/);
+test('creating says plainly that it sends nothing', () => {
+  assert.match(PAGE, /<b>It sends nothing\.<\/b>/);
+  assert.match(PAGE, /NOTHING is sent to the customer — you read it and press Send afterwards\./,
+    'the confirm dialog has to say it too, before the click');
+});
+
+test('the customer can only be contacted from a second, named button', () => {
+  // The send path is op:'send' against a quote that already exists — which means it existed long
+  // enough for a person to read it. There is no path from the create form to a customer's inbox.
+  assert.match(PAGE, /id="q-send-now"/);
+  assert.match(PAGE, /op: 'send', quote_id: created\.quote_id/);
+  assert.match(PAGE, /Email this quote to/, 'and it names who it is about to reach');
+});
+
+test('the preview renders the actual email, sandboxed', () => {
+  assert.match(PAGE, /op: 'render'/, 'the preview asks the server for the real rendered email');
+  assert.match(PAGE, /<iframe sandbox=""/, 'a customer-facing document gets no script and no same-origin');
+  assert.match(PAGE, /Read the email she would get/);
 });
