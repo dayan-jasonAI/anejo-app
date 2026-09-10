@@ -258,6 +258,7 @@ test('the email arguments come off the stored row, so the page and the email agr
   assert.equal(args.balanceDueDate, '2026-09-14', 'from the stored terms snapshot, not recomputed');
   assert.equal(args.lines.length, 1);
   assert.match(args.modifyUrl, new RegExp(`/q/${TOKEN}`));
+  assert.equal(args.payFullUrl, undefined, 'no pay-in-full URL: nothing serves /order?quote=');
   assert.match(args.depositUrl, /square\.link/);
   assert.ok(args.termsLines.length > 3, 'the terms she agreed to travel with it');
   assert.match(args.termsLines[0], /Depósito/, 'in the language it was sent in');

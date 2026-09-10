@@ -96,9 +96,10 @@ export function quoteEmailArgs(row, { lang, baseUrl = SITE } = {}) {
     balanceCents: row.balance_cents,
     balanceDueDate: terms?.balance_due_date || row.balance_due_date || null,
     depositUrl: row.payment_link_url,
-    // Pay-in-full goes through the ordinary checkout carrying this quote, so the customer is
-    // never asked to pay a deposit they did not want.
-    payFullUrl: `${baseUrl}/order?quote=${encodeURIComponent(row.access_token)}&pay=full`,
+    // NO PAY-IN-FULL URL. It used to point at /order?quote=<token>&pay=full, and nothing reads
+    // that parameter — the customer landed on an empty shop and had to rebuild her order. A quote
+    // must not carry a button that dead-ends, so the option is gone until there is a real
+    // full-payment Square link to send her to.
     modifyUrl: `${url}?edit=1`,
     termsLines: terms ? renderLines(terms, language) : [],
     altLangUrl: `${url}?lang=${language === 'es' ? 'en' : 'es'}`,

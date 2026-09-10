@@ -30,7 +30,7 @@ const build = (lang) => cateringQuoteEmail({
   subtotalCents: 83250, discountCents: 1663, totalCents: 81587,
   depositCents: 40794, depositPct: DEPOSIT_PCT, balanceCents: 40793,
   balanceDueDate: terms.balance_due_date,
-  depositUrl: 'https://square.link/u/DEP', payFullUrl: 'https://square.link/u/FULL',
+  depositUrl: 'https://square.link/u/DEP',
   modifyUrl: 'https://anejocateringco.com/quote/cq_A7F2K9?t=TOK',
   termsLines: renderLines(terms, lang),
   altLangUrl: 'https://anejocateringco.com/quote/cq_A7F2K9?lang=en',
@@ -43,11 +43,11 @@ test('the Spanish email contains no English customer copy — terms included', (
   assert.match(subject, /Su cotización de catering/);
   // The exact phrases that leaked in the first render.
   for (const leak of ['Deposit:', 'Balance:', 'Changed your mind', 'Final guest count',
-                      'Two ways to confirm', 'Modify my order', 'Need to change something',
+                      'Reserve your date', 'Modify my order', 'Need to change something',
                       'Your menu', 'Volume discount', 'See it in 3D']) {
     assert.ok(!html.includes(leak), `English leaked into the Spanish email: "${leak}"`);
   }
-  for (const want of ['Depósito:', 'Saldo:', 'Su menú', 'Dos formas de confirmar',
+  for (const want of ['Depósito:', 'Saldo:', 'Su menú', 'Reserve su fecha',
                       'Modificar mi pedido', 'Descuento por volumen', 'Verla en 3D']) {
     assert.ok(html.includes(want), `missing Spanish copy: "${want}"`);
   }
@@ -56,7 +56,7 @@ test('the Spanish email contains no English customer copy — terms included', (
 test('the English email is the mirror image, with no Spanish left in it', () => {
   const { html, subject } = build('en');
   assert.match(subject, /Your Añejo catering quote/);
-  for (const leak of ['Depósito:', 'Su menú', 'Modificar mi pedido', 'Dos formas']) {
+  for (const leak of ['Depósito:', 'Su menú', 'Modificar mi pedido', 'Reserve su fecha']) {
     assert.ok(!html.includes(leak), `Spanish leaked into the English email: "${leak}"`);
   }
   assert.ok(html.includes('Your menu') && html.includes('Modify my order'));
@@ -115,10 +115,10 @@ test('a line with no photo still renders a row, not a broken image', () => {
   assert.ok(!html.includes('src=""'), 'an empty src is a broken-image icon in every client');
 });
 
-test('there is a plain-text twin carrying both payment links', () => {
+test('there is a plain-text twin carrying the payment link', () => {
   const { text } = build('es');
   assert.ok(text.includes('https://square.link/u/DEP'));
-  assert.ok(text.includes('https://square.link/u/FULL'));
+  assert.ok(!text.includes('pay=full'), 'no dead pay-in-full link in the text part');
   assert.ok(text.includes('anejocateringco.com/quote/cq_A7F2K9'));
   assert.match(text, /Depósito/, 'the text twin is bilingual too');
   assert.ok(text.length > 400, 'a stub text part makes the HTML look like spam');
@@ -126,12 +126,18 @@ test('there is a plain-text twin carrying both payment links', () => {
 
 // ---------------------------------------------------------------- the money
 
-test('both ways to pay are offered, and neither is buried', () => {
-  const { html } = build('es');
+test('the deposit is the ONLY way to pay, and there is no dead button beside it', () => {
+  // Pay-in-full pointed at /order?quote=<token>&pay=full and NOTHING read that parameter: the
+  // customer landed on an empty shop and had to rebuild her order. A quote carrying a button that
+  // dead-ends is worse than a quote with one button, so it is gone until a real full-payment
+  // Square link exists (Dayan, 2026-09-09).
+  const { html, text } = build('es');
   assert.ok(html.includes('https://square.link/u/DEP'), 'deposit link');
-  assert.ok(html.includes('https://square.link/u/FULL'), 'pay-in-full link');
   assert.ok(html.includes('Pagar depósito del 50% · $407.94'));
-  assert.ok(html.includes('Pagar el total · $815.87'));
+  assert.ok(!/Pagar el total/.test(html), 'no pay-in-full button');
+  assert.ok(!/pay=full/.test(html), 'and no link to the route that does not read it');
+  assert.ok(!/pay=full/.test(text), 'not in the text part either');
+  assert.ok(!/Dos formas/.test(html), 'and the heading no longer promises two');
 });
 
 test('the email formats the figures it is given and never derives its own', () => {
