@@ -87,6 +87,13 @@ export async function createDepositCheckout(env, {
   // what it is a percentage of, and Square renders `note` on the hosted checkout page. That is
   // the "surfaced at deposit time" requirement — the same text is returned to the caller so the
   // quote email carries it in full, and stored on the row so it can be proven later.
+  // The link the customer opens. Minted BEFORE the payment link so Square's redirect can point at
+  // her own quote page, and before the insert so the row is never written without an address — a
+  // quote with no way to reach it is the dead end this module exists to remove. Pure random bytes,
+  // no I/O: doing it early costs nothing, and if the Square call fails nothing has been written.
+  const accessToken = mintAccessToken();
+  const site = (baseUrl || 'https://anejocateringco.com').replace(/\/$/, '');
+
   const { ok, status, data } = await square(env, '/v2/online-checkout/payment-links', {
     method: 'POST',
     body: {
@@ -103,7 +110,7 @@ export async function createDepositCheckout(env, {
       },
       checkout_options: {
         accepted_payment_methods: { apple_pay: true, google_pay: true, cash_app_pay: true },
-        redirect_url: base ? `${base}/order/confirmed` : undefined,
+        redirect_url: `${site}/q/${accessToken}?paid=1`,
         ask_for_shipping_address: false,
         allow_tipping: false,
       },
@@ -119,9 +126,6 @@ export async function createDepositCheckout(env, {
   if (!url) return { ok: false, error: 'Square did not return a deposit checkout URL.' };
 
   const t = now();
-  // The link the customer opens. Minted BEFORE the insert so the row is never written without an
-  // address — a quote with no way to reach it is the dead end this module exists to remove.
-  const accessToken = mintAccessToken();
   const quoteLang = lang === 'es' ? 'es' : 'en';
   try {
     await env.DB.prepare(
@@ -183,7 +187,7 @@ export async function createDepositCheckout(env, {
     balance_cents: split.balance_cents,
     deposit_pct: split.deposit_pct,
     access_token: accessToken,
-    quote_url: `${(baseUrl || 'https://anejocateringco.com').replace(/\/$/, '')}/q/${accessToken}`,
+    quote_url: `${site}/q/${accessToken}`,
     lang: quoteLang,
     delivery,
     terms,
