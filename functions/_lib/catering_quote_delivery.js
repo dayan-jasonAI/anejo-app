@@ -19,7 +19,7 @@
 //      email or SMS fails, that is recorded on the row and reported; the booking still exists.
 //   5. SENDING IS IDEMPOTENT PER CHANNEL. email_sent_at / sms_sent_at mean "already delivered";
 //      a retry re-sends only the channel that has not landed.
-import { sendEmail, isSuppressed } from './email.js';
+import { sendEmail, isSuppressed, normalizeEmail } from './email.js';
 import { sendSms, isTwilioConfigured } from './twilio.js';
 import { cateringQuoteEmail } from './catering_quote_email.js';
 import { renderLines, DEPOSIT_PCT } from './catering_terms.js';
@@ -134,17 +134,25 @@ export async function sendQuote(env, row, { baseUrl = SITE, force = false } = {}
     // sendEmail THROWS on a provider error and returns the Resend body on success; a suppressed
     // address comes back as { skipped: true }. There is no `.ok` on it — checking for one is how
     // a successful send reads as a failure.
+    // The owner's own copy of exactly what the customer received. Dayan asked for this on
+    // 2026-09-09 and the reason is the same one that put OWNER_BCC on invoice mail: without it,
+    // the only record of what a client was actually sent lives in Resend. Skipped when it would
+    // duplicate the recipient — quoting yourself is a real case while testing.
+    const ownerBcc = normalizeEmail(env.OWNER_BCC || '');
+    const bcc = (ownerBcc && ownerBcc.includes('@') && ownerBcc !== normalizeEmail(row.customer_email))
+      ? ownerBcc : null;
     const sent = await sendEmail(env, {
       to: row.customer_email,
       subject,
       html,
       text,
+      ...(bcc ? { bcc } : {}),
       // Two sends of the same quote must not produce two emails in her inbox.
       idempotencyKey: `catering-quote:${row.id}:${lang}`,
     }).catch((e) => ({ error: String((e && e.message) || e).slice(0, 200) }));
     if (sent && sent.error) result.email = { sent: false, error: sent.error };
     else if (sent && sent.skipped) result.email = { sent: false, skipped: `address is suppressed (${sent.suppressed || 'unknown'})` };
-    else result.email = { sent: true, at: t };
+    else result.email = { sent: true, at: t, owner_copy: Boolean(bcc) };
   }
 
   // ---------------------------------------------------------------- text
