@@ -17,8 +17,10 @@ import { onRequestGet } from '../../functions/api/hub/owner/catering-deposit.js'
 const items = JSON.parse(readFileSync(new URL('../../docs/menu-2026-09/catalog.json', import.meta.url)));
 const HUB = readFileSync(new URL('../../public/hub/owner/catering.html', import.meta.url), 'utf8');
 
-// Dayan's actual 2026-09-09 birthday request: five priced lines, plus the yuca he had to file as
-// a custom request and a sausage croqueta the menu publishes no tray for.
+// Dayan's actual 2026-09-09 birthday request. Six of the seven lines price themselves off the
+// ratified 2026-09 menu — including the sausage croquetas, which the old menu cooked and never
+// published. The seventh is the yuca he had to file as "Other custom request", and it stays his
+// to price because nobody can price a line whose only description is free text.
 const HIS_ORDER = [
   { id: 'lechon', quantity: 30 },
   { id: 'congri', quantity: 30 },
@@ -79,18 +81,20 @@ test('the Hub suggests a total instead of an empty box', async () => {
 
 test('the suggestion prices what the menu prices and lists what it cannot', async () => {
   const { suggested } = (await load(env(HIS_ORDER))).requests[0];
-  // The two lines the menu has no published price for must be named, not folded into the total.
+  // The line the menu has no published price for must be named, not folded into the total.
   const openIds = suggested.unpriced.map((u) => u.id);
   assert.ok(openIds.includes('custom-1'), 'the yuca custom line is still his to price');
-  assert.ok(openIds.includes('croqueta'), 'sausage croquetas have no published tray');
+  // The other half of the same story: the sausage croqueta line that used to land here is priced
+  // now. If it ever comes back to this list, a filling has fallen off the menu.
+  assert.ok(!openIds.includes('croqueta'), 'sausage croquetas are published and priced now');
   assert.ok(suggested.total_cents > 0, 'and the rest is still priced rather than refused');
 });
 
 test('the volume discount in the Hub is the one the customer was shown', async () => {
-  const { suggested } = (await load(env([{ id: 'lechon', quantity: 100 }]))).requests[0];
-  assert.equal(suggested.subtotal_cents, 96000, 'four $240 trays');
-  assert.equal(suggested.discount_cents, 2300, '5% of the $460 above $500');
-  assert.equal(suggested.total_cents, 93700);
+  const { suggested } = (await load(env([{ id: 'lechon', quantity: 200 }]))).requests[0];
+  assert.equal(suggested.subtotal_cents, 64000, 'four $160 fifty-trays');
+  assert.equal(suggested.discount_cents, 700, '5% of the $140 above $500');
+  assert.equal(suggested.total_cents, 63300);
   assert.equal(suggested.subtotal_cents - suggested.discount_cents, suggested.total_cents);
 });
 

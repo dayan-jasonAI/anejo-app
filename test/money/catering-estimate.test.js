@@ -44,10 +44,11 @@ test('out of stock packs can use exact available alternatives, never a fallback 
 });
 
 test('bespoke notes, missing price equivalence and unknown flavors never silently enter checkout', () => {
-  // cajita-standard, tuna croquetas and beef empanadas USED to be here. The 2026-09 menu
-  // publishes all three, so they are priced now — that is the menu doing its job. What must
-  // still refuse: a flavour nobody sells, a product with no mapping, and the bespoke cajita.
-  for (const row of [{id:'roll',flavor:'ham-spread'}, {id:'tres-leches'}, {id:'cajita-custom'},
+  // cajita-standard, tuna croquetas, beef empanadas and the ham-spread Hawaiian roll USED to be
+  // here. The 2026-09 menu publishes all of them, so they are priced now — that is the menu doing
+  // its job. What must still refuse: a flavour nobody sells, a product with no mapping at all,
+  // and the bespoke cajita, whose price depends on work that has not been scoped yet.
+  for (const row of [{id:'tres-leches'}, {id:'cajita-custom'},
                      {id:'croqueta',flavor:'lobster'}, {id:'empanada',flavor:'nutella'}]) {
     const result = estimate([{...row,quantity:1}]);
     assert.equal(result.checkout_eligible, false);

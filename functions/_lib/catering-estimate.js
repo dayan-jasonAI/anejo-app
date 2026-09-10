@@ -110,9 +110,12 @@ const FLAVOR_FAMILIES = {
             guava: 'emp-guava-only', 'ropa-vieja': 'emp-ropa-vieja', 'pulled-pork': 'emp-pulled-pork',
             'dulce-de-leche': 'emp-dulce' },
   },
+  // The roll's flavor keys come from CAJITA_FLAVORS.sandwich, which spells them 'ham-spread' and
+  // 'tuna-spread' — not 'ham' and 'tuna'. Spelling them the short way here priced nothing at all,
+  // because the lookup is by exact key and a miss reads as "no published price".
   roll: {
     sizes: [10, 25, 50],
-    skus: { ham: 'bocadito-jamon', tuna: 'bocadito-atun' },
+    skus: { 'ham-spread': 'bocadito-jamon', 'tuna-spread': 'bocadito-atun' },
   },
   'papa-rellena': {
     sizes: [10, 25, 50],
