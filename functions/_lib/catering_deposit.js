@@ -58,7 +58,9 @@ export async function createDepositCheckout(env, {
   // Delivery. `lang` is the language the quote is SENT in and is stored, so the hosted page shows
   // the same language a week later whatever the browser prefers. `smsConsent` is passed through
   // rather than assumed — no consent, no text, and the email still goes.
-  lang = 'en', smsConsent = false, send = true,
+  // Sending DEFAULTS TO OFF. A caller that wants the customer contacted has to say so — see the
+  // note on the Hub endpoint: no email goes out without a human having read it first.
+  lang = 'en', smsConsent = false, send = false,
 } = {}) {
   if (!env || !env.DB) return { ok: false, error: 'Database not configured.' };
   if (!squareConfigured(env)) return { ok: false, error: 'Square is not configured — no deposit link can be created.' };

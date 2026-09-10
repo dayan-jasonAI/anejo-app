@@ -74,12 +74,72 @@ export const onRequestGet = async ({ params, request, env }) => {
        </div>`
     : '';
 
+  // ?edit=1 is the "Modify my order" button. It used to be read by nothing at all, so the button
+  // reloaded the page and looked broken. It now opens a real form, ABOVE the quote so she does not
+  // have to scroll past everything to find what she just clicked.
+  const wantsEdit = url.searchParams.get('edit') === '1' && !paid;
+  const t = lang === 'es'
+    ? { head: '¿Necesita cambiar algo?',
+        body: 'Escríbanos qué desea ajustar — cantidades, un plato más, o el número de invitados. Le enviaremos una cotización actualizada. No se cobra nada al enviar esto.',
+        guests: 'Nuevo número de invitados (opcional)',
+        msg: 'Qué desea cambiar',
+        ph: 'Ejemplo: seríamos 35 personas y quisiéramos agregar una bandeja de croquetas.',
+        cta: 'Enviar mi cambio', sending: 'Enviando…',
+        fail: 'No se pudo enviar. Por favor responda al correo.' }
+    : { head: 'Need to change something?',
+        body: 'Tell us what to adjust — quantities, an extra dish, or your guest count. We will send you an updated quote. Sending this charges nothing.',
+        guests: 'New guest count (optional)',
+        msg: 'What you would like to change',
+        ph: 'For example: we would be 35 people, and we would like to add a tray of croquetas.',
+        cta: 'Send my change', sending: 'Sending…',
+        fail: 'That did not send. Please reply to the email instead.' };
+
+  const editPanel = wantsEdit ? `<div style="max-width:520px;margin:0 auto 14px;padding:20px 22px;background:#fbf9f3;
+      border-radius:10px;font-family:Georgia,serif;color:#0b1f0a">
+    <p style="margin:0 0 6px;font-size:18px">${t.head}</p>
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#6b6558">${t.body}</p>
+    <form id="cqc" novalidate>
+      <label style="display:block;font-size:13px;color:#6b6558;margin:0 0 4px" for="cqc-g">${t.guests}</label>
+      <input id="cqc-g" type="number" min="1" step="1" inputmode="numeric"
+        style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd6c4;border-radius:6px;font:inherit;margin:0 0 12px">
+      <label style="display:block;font-size:13px;color:#6b6558;margin:0 0 4px" for="cqc-m">${t.msg}</label>
+      <textarea id="cqc-m" rows="4" required placeholder="${t.ph}"
+        style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd6c4;border-radius:6px;font:inherit;margin:0 0 12px"></textarea>
+      <button type="submit" style="width:100%;padding:13px;border:0;border-radius:999px;background:#ae8745;
+        color:#fff;font:inherit;font-size:15px;cursor:pointer">${t.cta}</button>
+      <p id="cqc-say" style="margin:12px 0 0;font-size:14px;line-height:1.5;color:#2f6b4f"></p>
+    </form>
+  </div>
+  <script>
+  (function () {
+    var f = document.getElementById('cqc'), say = document.getElementById('cqc-say');
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var m = document.getElementById('cqc-m').value.trim();
+      if (!m) { document.getElementById('cqc-m').focus(); return; }
+      var btn = f.querySelector('button');
+      btn.disabled = true; btn.textContent = ${JSON.stringify(t.sending)};
+      fetch('/api/catering-quote-change', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: ${JSON.stringify(token)}, guests: document.getElementById('cqc-g').value, message: m }),
+      }).then(function (r) { return r.json(); }).then(function (r) {
+        if (r && r.ok) { f.innerHTML = '<p style="margin:0;font-size:15px;color:#2f6b4f">' + (r.message || 'Sent.') + '</p>'; }
+        else { btn.disabled = false; btn.textContent = ${JSON.stringify(t.cta)}; say.style.color = '#a33'; say.textContent = (r && r.error) || ${JSON.stringify(t.fail)}; }
+      }).catch(function () {
+        btn.disabled = false; btn.textContent = ${JSON.stringify(t.cta)};
+        say.style.color = '#a33'; say.textContent = ${JSON.stringify(t.fail)};
+      });
+    });
+  })();
+  </script>` : '';
+
   const page = `<!doctype html><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>${subject.replace(/[<>]/g, '')}</title>
 <body style="margin:0;background:#0b1f0a">
 ${banner ? `<div style="padding:24px 16px 0">${banner}</div>` : ''}
+${editPanel ? `<div style="padding:24px 16px 0">${editPanel}</div>` : ''}
 ${paid ? body.replace(/<table role="presentation"[^>]*>\s*<tr><td style="padding:0 0 10px">[\s\S]*?<\/table>\s*(?=<p style="margin:0 0 28px)/, '') : body}
 </body>`;
 
