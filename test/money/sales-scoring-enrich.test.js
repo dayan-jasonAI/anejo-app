@@ -188,10 +188,30 @@ test('a crawl stays on the organization’s domain, honours robots.txt, and refu
   assert.ok(r.pages[0].signals.some((s) => s.kind === 'capacity' && s.value === 30));
 });
 
+test('robots.txt is re-checked after a redirect: a redirect into a disallowed path is not followed', async () => {
+  const requested = [];
+  const pages = {
+    'https://clinic.org/robots.txt': [200, 'text/plain', 'User-agent: *\nDisallow: /private'],
+    'https://clinic.org/': [200, 'text/html', '<a href="/about">About us</a><p>Adult day program.</p>'],
+    'https://clinic.org/about': [301, 'text/html', '', '/private/team'],
+  };
+  const fetchImpl = async (url) => {
+    requested.push(url);
+    const p = pages[url];
+    if (!p) return new Response('nope', { status: 404, headers: { 'content-type': 'text/html' } });
+    const headers = { 'content-type': p[1] };
+    if (p[3]) headers.location = p[3];
+    return new Response(p[2], { status: p[0], headers });
+  };
+  const r = await crawlOrganization({ website: 'https://clinic.org/', domain: 'clinic.org' }, { fetchImpl });
+  assert.ok(!requested.some((u) => u.includes('/private')), 'the disallowed redirect target was never fetched');
+  assert.ok(r.skipped.some((s) => /robots/.test(s.reason) && /private/.test(s.url)));
+});
+
 // ---------------------------------------------------------------- discovery
 
 test('with no provider configured, discovery FAILS CLEARLY — it never returns sample prospects', async () => {
-  const r = await discoverOrganizations({}, { query: 'behavioral health center', area: 'Palm Beach County, FL' });
+  const r = await discoverOrganizations({}, { approved: true, query: 'behavioral health center', area: 'Palm Beach County, FL' });
   assert.equal(r.ok, false);
   assert.equal(r.code, 'not_configured');
   assert.equal(r.results, undefined);
@@ -216,8 +236,10 @@ test('a Places result normalises into the shared record shape, keyed by place_id
   assert.equal(n.state, 'FL');
   assert.equal(n.source_external_id, 'ChIJabc');
   let body = null;
+  // The adapter itself, exercised as it would run IF approved — approval is locked off in this
+  // release (see test/compliance/sales-places-gate.test.js for the refusal).
   const r = await discoverOrganizations({ GOOGLE_PLACES_API_KEY: 'k' }, {
-    query: 'behavioral health center', area: 'Broward County, FL',
+    approved: true, query: 'behavioral health center', area: 'Broward County, FL',
     fetchImpl: async (url, init) => { body = JSON.parse(init.body); assert.equal(init.headers['X-Goog-Api-Key'], 'k'); return new Response(JSON.stringify({ places: [place], nextPageToken: 'n2' }), { status: 200 }); },
   });
   assert.equal(r.ok, true);
@@ -228,7 +250,7 @@ test('a Places result normalises into the shared record shape, keyed by place_id
 
 test('a provider error is reported, not swallowed into an empty success', async () => {
   const r = await discoverOrganizations({ GOOGLE_PLACES_API_KEY: 'k' }, {
-    query: 'x', fetchImpl: async () => new Response(JSON.stringify({ error: { message: 'Places API (New) has not been used in project' } }), { status: 403 }),
+    approved: true, query: 'x', fetchImpl: async () => new Response(JSON.stringify({ error: { message: 'Places API (New) has not been used in project' } }), { status: 403 }),
   });
   assert.equal(r.ok, false);
   assert.match(r.error, /Places API \(New\)/);

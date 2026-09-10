@@ -72,11 +72,17 @@ async function readCapped(resp, maxBytes) {
 }
 
 /** Fetch one page under the guard, following at most 3 redirects, each re-checked. */
-export async function safeFetch(url, { allowHost, fetchImpl = fetch, accept = 'text/html', timeoutMs = PAGE_TIMEOUT_MS, maxBytes = PAGE_BYTES } = {}) {
+export async function safeFetch(url, { allowHost, pathAllowed, fetchImpl = fetch, accept = 'text/html', timeoutMs = PAGE_TIMEOUT_MS, maxBytes = PAGE_BYTES } = {}) {
   let current = url;
   for (let hop = 0; hop < 4; hop++) {
     const chk = checkUrlSafe(current, { allowHost });
     if (!chk.ok) return { ok: false, url: current, reason: chk.reason };
+    // robots.txt is re-checked on EVERY hop: a redirect to a disallowed path is still a disallowed path.
+    if (pathAllowed) {
+      let path = '/';
+      try { path = new URL(chk.url).pathname || '/'; } catch { /* checked above */ }
+      if (!pathAllowed(path)) return { ok: false, url: chk.url, reason: 'robots.txt disallows' };
+    }
     const ctl = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : null;
     let resp;
@@ -377,8 +383,9 @@ export async function crawlOrganization(org, { fetchImpl = fetch, budgetMs = 250
     let path = '/';
     try { path = new URL(url).pathname || '/'; } catch { /* checked below */ }
     if (!allowed(path)) { skipped.push({ url, reason: 'robots.txt disallows' }); return null; }
-    const r = await safeFetch(url, { allowHost: host, fetchImpl });
-    if (!r.ok) { skipped.push({ url, reason: r.reason }); return null; }
+    const r = await safeFetch(url, { allowHost: host, pathAllowed: allowed, fetchImpl });
+    // Record where it actually stopped — after a redirect that is the target, not the link we followed.
+    if (!r.ok) { skipped.push({ url: r.url || url, reason: r.reason }); return null; }
     const ex = extractFromPage(r.body, r.url, { orgDomain: host });
     pages.push({ url: r.url, emails: ex.emails, phones: ex.phones, people: ex.people, signals: ex.signals, excerpt: cleanText(ex.text, 1200) });
     return ex;

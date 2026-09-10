@@ -28,7 +28,7 @@ Dayan searching or door-knocking. The Sales OS is that path, and nothing else.
 | `functions/_lib/sales/normalize.js` | Pure. Name/website/domain/email/phone/address normalisation; the `dedupeKey` two records of one place must share. Social/directory hosts are never an "own domain". |
 | `functions/_lib/sales/scoring.js` | Pure, **imports nothing**. `scoreOrganization(facts, icp, area)` → points per criterion **with reasons and evidence**, tier, hard disqualifiers. The only thing that decides a score. |
 | `functions/_lib/sales/store.js` | Data layer: organizations (upsert + dedupe, fill-blanks-only merge), contacts (never promoted, SMS/voice always off), immutable evidence, scores, opportunities (one open per org), stage moves, `stopSequences`, suppression checks, activity + telemetry. |
-| `functions/_lib/sales/discovery.js` | Provider interface. `google_places` (Places API New, Text Search) and CSV. No key → a clear failure, never sample data. |
+| `functions/_lib/sales/discovery.js` | Provider interface. CSV is the approved production source. `google_places` (Places API New) is kept, isolated, but **refused at the provider boundary unless `sales.places_persistence_approved`** — a flag locked false in this release (Places terms restrict storing its content). A key alone never enables it. Never sample data. |
 | `functions/_lib/sales/enrich.js` | Reads an org's **own** website: SSRF guard (own domain only, re-checked on every redirect; no IPs/private names/odd ports/credentials), robots.txt, extraction of emails (own domain or published free-mail only), people **named with a leadership title**, and meal-fit signals with the sentence they came from. |
 | `functions/_lib/sales/brief.js` | AI Account Brief (Haiku, budget-gated + metered). Receives structured facts + allowed source URLs; its answer is post-validated in code (unknown sources dropped, un-evidenced people replaced, prices removed, health claims flagged, thin evidence stated). Advisory only. |
 | `functions/_lib/sales/outreach.js` | Compose (deterministic, from verified facts), governance checks, the single renderer (preview == send), approval (requires `render_hash`), the gated send loop, follow-up drafting, reply/stop, provider events. |
@@ -87,9 +87,16 @@ No CHECK constraints: vocabularies live in code, so widening one never needs a D
    body, the compliance footer, From, Reply-To, To — and returns a `render_hash` of all of it.
 3. **Approve** recomputes the render and refuses unless the hash matches the preview the owner saw.
    Flagged claims need an explicit, recorded acknowledgement. Suppressed recipients cannot be approved.
-4. **Send** selects only `approved` rows with `approved_by` + `approved_at`, claims each row with a
-   conditional UPDATE (at most once), re-checks every gate **immediately before delivery**, and
-   renders `body_snapshot` with the same renderer.
+4. **Send** selects only `approved` rows with `approved_by` + `approved_at`, re-checks every gate
+   **immediately before delivery**, renders `body_snapshot` with the same renderer, and **compares the
+   result with `approved_render_hash`**: if the sender, reply-to, postal address or link origin changed
+   since approval, the email goes back to the queue for re-approval instead of out. It then claims the
+   row with a conditional UPDATE (at most once). Links are always built from `APP_BASE_URL`
+   (default `https://anejocateringco.com`), never from the host the Hub was used on.
+   A provider error returns the row to `approved` (up to 3 attempts, then `failed` and the sequence
+   stops) and stops the batch; every send carries the idempotency key `sales-outreach-<id>`, so a
+   retry after an ambiguous failure cannot double-send. A row left in `sending` by an interrupted
+   Worker is returned for retry after 15 minutes.
 5. `sales.auto_send_enabled` and `sales.owner_approval_required` are **locked** in `config.js`; a
    settings write cannot change them, and a row written straight into `app_settings` is ignored.
 

@@ -30,8 +30,9 @@ export const onRequestPost = async ({ request, env }) => {
   if (!/^[a-f0-9]{32}$/.test(t)) return bad('This link is not valid.', 404);
   const opp = await salesRow(env, 'SELECT * FROM sales_opportunities WHERE landing_token = ?', t);
   if (!opp) return bad('This link is not valid.', 404);
-  const org = await salesRow(env, 'SELECT id, name, do_not_contact FROM sales_organizations WHERE id = ?', opp.organization_id);
-  if (!org) return bad('This link is not valid.', 404);
+  const org = await salesRow(env, 'SELECT id, name, do_not_contact, status FROM sales_organizations WHERE id = ?', opp.organization_id);
+  // Same answer as the landing page gives a do-not-contact organization: the link is gone.
+  if (!org || org.do_not_contact || org.status === 'suppressed') return bad('This link is not valid.', 404);
 
   const cfg = await loadSalesConfig(env);
   const kind = Object.prototype.hasOwnProperty.call(KINDS, b.kind) ? b.kind : null;

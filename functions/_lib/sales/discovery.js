@@ -30,19 +30,45 @@ export function placesKey(env) {
   return (env && (env.GOOGLE_PLACES_API_KEY || env.GOOGLE_MAPS_API_KEY)) || null;
 }
 
-/** What the Hub shows under "Discovery sources". Honest about what is and is not wired. */
-export function providerStatus(env) {
+/** True only when Places is BOTH configured and approved for persisting prospect records. */
+export function placesUsable(env, flags) {
+  return !!(placesKey(env) && flags && flags['sales.places_persistence_approved'] === true);
+}
+
+/**
+ * The automated discovery provider a run may use, or null. A credential alone is never enough:
+ * the provider must be approved for production persistence (config.js LOCKED_FLAGS).
+ */
+export function usableDiscoveryProvider(env, flags) {
+  return placesUsable(env, flags) ? 'google_places' : null;
+}
+
+/** What the Hub shows under "Discovery sources". Honest about what is and is not wired or approved. */
+export function providerStatus(env, flags) {
   const key = placesKey(env);
+  const approved = !!(flags && flags['sales.places_persistence_approved'] === true);
   return [
     {
-      key: 'google_places',
-      label: 'Google Places (Text Search)',
-      configured: !!key,
-      note: key
-        ? (env.GOOGLE_PLACES_API_KEY ? 'Key set (GOOGLE_PLACES_API_KEY).' : 'Using GOOGLE_MAPS_API_KEY — the Places API (New) must be enabled on it in Google Cloud, or searches will fail with a clear error.')
-        : 'No key. Set GOOGLE_PLACES_API_KEY in the Pages settings to enable automatic discovery.',
+      key: 'csv', label: 'CSV import (owner-supplied list)', configured: true, approved: true, usable: true,
+      production_status: 'approved',
+      note: 'The production source for this release. Import the Florida AHCA adult day care export, a SAMHSA FindTreatment.gov download, or your own list from Sales → Prospects → Import.',
     },
-    { key: 'csv', label: 'CSV import (owner-supplied list)', configured: true, note: 'Always available from Sales → Prospects → Import.' },
+    {
+      key: 'google_places', label: 'Google Places (Text Search)', configured: !!key, approved, usable: !!key && approved,
+      production_status: approved ? 'approved' : 'not_approved',
+      note: (approved ? '' : 'NOT APPROVED for production prospect records — Google’s terms restrict storing Places content beyond place IDs. Locked off in this release; no discovery run will call it, even with a key set. ')
+        + (key ? 'A key is configured.' : 'No key is configured.'),
+    },
+    {
+      key: 'samhsa_findtreatment', label: 'SAMHSA FindTreatment.gov (federal behavioral-health / substance-use facility directory)',
+      configured: false, approved: false, usable: false, production_status: 'recommended_not_integrated',
+      note: 'Recommended next automated source (federal data, Open Database License). Not integrated in this release — download results and use CSV import.',
+    },
+    {
+      key: 'ahca_healthfinder', label: 'Florida AHCA FloridaHealthFinder (licensed adult day care centers, with licensed capacity)',
+      configured: false, approved: false, usable: false, production_status: 'recommended_not_integrated',
+      note: 'Recommended list source. Not integrated — download the CSV from FloridaHealthFinder and use CSV import (columns map automatically, including Licensed Beds).',
+    },
   ];
 }
 
@@ -121,9 +147,13 @@ async function googlePlaces(env, { query, area, cursor, limit = 20, fetchImpl = 
 
 export const PROVIDERS = { google_places: googlePlaces };
 
-export async function discoverOrganizations(env, { provider = 'google_places', ...opts } = {}) {
+export async function discoverOrganizations(env, { provider = 'google_places', approved = false, ...opts } = {}) {
   const fn = PROVIDERS[provider];
   if (!fn) return { ok: false, error: `Unknown discovery provider "${provider}".`, code: 'unknown_provider' };
+  // Refused at the provider boundary too, so no caller can reach Places by forgetting a check.
+  if (provider === 'google_places' && approved !== true) {
+    return { ok: false, error: 'Google Places is not approved as a production prospect source in this release.', code: 'not_approved' };
+  }
   return fn(env, opts);
 }
 
@@ -178,7 +208,7 @@ export function csvRowToRecord(r) {
       zip: pick(r, 'zip', 'zipcode', 'zip_code', 'postal_code'),
       county: pick(r, 'county'),
       business_category: pick(r, 'category', 'icp_category'),
-      employee_or_capacity_hint: pick(r, 'capacity', 'beds', 'licensed_capacity', 'census'),
+      employee_or_capacity_hint: pick(r, 'capacity', 'beds', 'licensed_beds', 'licensed_capacity', 'census'),
       notes: pick(r, 'notes', 'note'),
       source: 'csv',
     },

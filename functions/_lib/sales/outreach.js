@@ -224,11 +224,22 @@ export function renderOutreachEmail({ subject, body, unsubUrl, postal, orgName, 
 
 // ---------------------------------------------------------------- gates
 
-function baseUrl(env, base) {
-  return String(base || env.APP_BASE_URL || 'https://anejocateringco.com').replace(/\/$/, '');
+// Every prospect-facing link uses the CANONICAL public origin — never the host the owner happened to
+// preview from. Those links are baked into an email a stranger reads; building them from the request
+// put www./preview-deployment hosts into drafts, and made the preview differ from the send.
+export function publicBaseUrl(env) {
+  return String((env && env.APP_BASE_URL) || 'https://anejocateringco.com').replace(/\/$/, '');
 }
-export const landingUrlFor = (env, token, base) => (token ? `${baseUrl(env, base)}/for/${token}` : null);
-export const unsubUrlFor = (env, token, base) => `${baseUrl(env, base)}/api/sales/unsubscribe?t=${token}`;
+export const landingUrlFor = (env, token) => (token ? `${publicBaseUrl(env)}/for/${token}` : null);
+export const unsubUrlFor = (env, token) => `${publicBaseUrl(env)}/api/sales/unsubscribe?t=${token}`;
+
+// Resend accepts only the verified sending domain, which is the one EMAIL_FROM already uses.
+export function sendingDomain(env) {
+  const m = String((env && env.EMAIL_FROM) || '').match(/@([a-z0-9.-]+\.[a-z]{2,})/i);
+  return (m ? m[1] : 'anejocateringco.com').toLowerCase();
+}
+const onSendingDomain = (env, email) => String(email || '').trim().toLowerCase().split('@')[1] === sendingDomain(env);
+const MAX_SEND_ATTEMPTS = 3;
 
 export function fromHeader(sender) {
   if (!sender || !isEmail(sender.from_email || '')) return null;
@@ -256,6 +267,7 @@ export function sendReadiness(env, cfg, { atMs = Date.now(), ignoreWindow = fals
   if (!cfg.flags['sales.email_enabled']) reasons.push('Prospect email is switched off (Sales → Settings).');
   if (!env.RESEND_API_KEY) reasons.push('Email is not configured (RESEND_API_KEY).');
   if (!fromHeader(cfg.sender)) reasons.push('Set the sender name and a from-address on the verified sending domain.');
+  else if (!onSendingDomain(env, cfg.sender.from_email)) reasons.push(`The from-address must be on the verified sending domain (@${sendingDomain(env)}) — the provider refuses any other.`);
   if (!isEmail((cfg.sender && cfg.sender.reply_to) || '')) reasons.push('Set a Reply-To mailbox a person reads — replies are the whole point.');
   if (!cfg.postal_is_real) reasons.push('Set the real postal address (Marketing → Broadcast) — cold email requires one.');
   if (!cfg.offer || !cfg.offer.confirmed) reasons.push('Review and save the institutional offer (Sales → Settings) before anything is sent.');
@@ -265,7 +277,11 @@ export function sendReadiness(env, cfg, { atMs = Date.now(), ignoreWindow = fals
 
 async function sentTodayCount(env, atMs) {
   const { start, end } = etDayBounds(etDateOf(atMs));
-  const r = await salesRow(env, "SELECT COUNT(*) AS n FROM sales_outreach WHERE status = 'sent' AND sent_at >= ? AND sent_at < ?", start, end);
+  // 'sending' rows count too: a concurrent tick's claimed-but-unfinished email is part of today's total.
+  // Date-bounded on both sides, so a row stuck in 'sending' after a crash cannot eat a slot every day.
+  const r = await salesRow(env,
+    "SELECT COUNT(*) AS n FROM sales_outreach WHERE (status = 'sent' AND sent_at >= ? AND sent_at < ?) OR (status = 'sending' AND updated_at >= ? AND updated_at < ?)",
+    start, end, start, end);
   return r ? Number(r.n) || 0 : 0;
 }
 
@@ -286,11 +302,11 @@ async function contactEligible(env, contact, org) {
   return { ok: true };
 }
 
-async function insertDraft(env, { opp, org, contact, enrollment, step, cfg, ctx, base }) {
+async function insertDraft(env, { opp, org, contact, enrollment, step, cfg, ctx }) {
   const signals = await salesRows(env, "SELECT captured_json, source_url FROM sales_prospect_sources WHERE organization_id = ? AND source_type = 'website_page' ORDER BY captured_at DESC LIMIT 20", org.id);
   const sigs = [];
   for (const r of signals) for (const sg of (parseJson(r.captured_json, {}) || {}).signals || []) sigs.push({ ...sg, url: sg.url || r.source_url });
-  const landing = landingUrlFor(env, opp.landing_token, base);
+  const landing = landingUrlFor(env, opp.landing_token);
   const draft = composeEmail({ templateType: step.template_type, org, contact, signals: sigs, cfg, landingUrl: landing });
   const flags = checkDraft(draft, cfg);
   const oid = id('sout');
@@ -321,7 +337,7 @@ async function insertDraft(env, { opp, org, contact, enrollment, step, cfg, ctx,
  * Enroll a contact in a sequence and draft step 1 for approval. Idempotent: a second call returns
  * the existing draft. Nothing is sent here, ever.
  */
-export async function startSequence(env, { opportunity_id, contact_id, sequence_id = DEFAULT_SEQUENCE_ID, cfg, ctx, base } = {}) {
+export async function startSequence(env, { opportunity_id, contact_id, sequence_id = DEFAULT_SEQUENCE_ID, cfg, ctx } = {}) {
   const opp = await salesRow(env, 'SELECT * FROM sales_opportunities WHERE id = ?', opportunity_id);
   if (!opp) return { ok: false, error: 'Opportunity not found.' };
   if (CLOSED_STAGES.includes(opp.stage)) return { ok: false, error: `This opportunity is ${opp.stage}.` };
@@ -347,19 +363,19 @@ export async function startSequence(env, { opportunity_id, contact_id, sequence_
   }
   const existing = await salesRow(env, 'SELECT id FROM sales_outreach WHERE enrollment_id = ? AND step_number = 1', enr.id);
   if (existing) return { ok: true, outreach_id: existing.id, created: false, enrollment_id: enr.id };
-  const d = await insertDraft(env, { opp, org, contact, enrollment: enr, step, cfg, ctx, base });
+  const d = await insertDraft(env, { opp, org, contact, enrollment: enr, step, cfg, ctx });
   if (d.ok) await advanceStage(env, opp.id, 'outreach_ready', ctx);
   return { ...d, enrollment_id: enr.id };
 }
 
 /** Draft the next step for every enrollment whose delay has elapsed. Drafts only — never sends. */
-export async function draftDueFollowups(env, { cfg, atMs = Date.now(), limit = 20, base } = {}) {
-  const out = { drafted: 0, completed: 0, stopped: 0, skipped: [] };
-  if (!cfg.flags['sales.enabled'] || !cfg.flags['sales.followup_enabled']) { out.skipped.push('follow-up is switched off'); return out; }
+export async function draftDueFollowups(env, { cfg, atMs = Date.now(), limit = 20 } = {}) {
+  const out = { drafted: 0, completed: 0, stopped: 0, notes: [] };
+  if (!cfg.flags['sales.enabled'] || !cfg.flags['sales.followup_enabled']) return { ...out, skipped: 'follow-up is switched off' };
   const due = await salesRows(env, "SELECT * FROM sales_enrollments WHERE status = 'active' AND next_step_at IS NOT NULL AND next_step_at <= ? ORDER BY next_step_at LIMIT ?", atMs, limit);
   for (const enr of due) {
     const prev = await salesRow(env, 'SELECT status, replied_at FROM sales_outreach WHERE enrollment_id = ? AND step_number = ?', enr.id, enr.last_step_number);
-    if (!prev || prev.status !== 'sent') { out.skipped.push(`${enr.id}: previous step not sent`); continue; }
+    if (!prev || prev.status !== 'sent') { out.notes.push(`${enr.id}: previous step not sent`); continue; }
     const replied = await salesRow(env, 'SELECT id FROM sales_outreach WHERE opportunity_id = ? AND replied_at IS NOT NULL LIMIT 1', enr.opportunity_id);
     if (replied) { await stopSequences(env, { opportunity_id: enr.opportunity_id, reason: 'reply' }); out.stopped++; continue; }
     const opp = await salesRow(env, 'SELECT * FROM sales_opportunities WHERE id = ?', enr.opportunity_id);
@@ -374,7 +390,7 @@ export async function draftDueFollowups(env, { cfg, atMs = Date.now(), limit = 2
       out.completed++;
       continue;
     }
-    const d = await insertDraft(env, { opp, org, contact, enrollment: enr, step, cfg, ctx: null, base });
+    const d = await insertDraft(env, { opp, org, contact, enrollment: enr, step, cfg, ctx: null });
     if (d.ok && d.created) out.drafted++;
   }
   return out;
@@ -385,10 +401,10 @@ export async function draftDueFollowups(env, { cfg, atMs = Date.now(), limit = 2
 const normSubject = (s) => String(s == null ? '' : s).replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
 const normBody = (s) => String(s == null ? '' : s).replace(/\r\n/g, '\n').trim().slice(0, 6000);
 
-async function renderContext(env, row, cfg, base) {
+async function renderContext(env, row, cfg) {
   const org = await salesRow(env, 'SELECT name FROM sales_organizations WHERE id = ?', row.organization_id);
   return {
-    unsubUrl: unsubUrlFor(env, row.unsub_token, base),
+    unsubUrl: unsubUrlFor(env, row.unsub_token),
     postal: cfg.postal_address,
     orgName: (org && org.name) || 'your organization',
     areaLabel: (cfg.service_area && cfg.service_area.label) || 'South Florida',
@@ -399,10 +415,10 @@ async function renderContext(env, row, cfg, base) {
 }
 
 /** The exact email as it would be sent — for the approval card. Edits can be previewed unsaved. */
-export async function previewOutreach(env, outreachId, { cfg, subject, body, base } = {}) {
+export async function previewOutreach(env, outreachId, { cfg, subject, body } = {}) {
   const row = await salesRow(env, 'SELECT * FROM sales_outreach WHERE id = ?', outreachId);
   if (!row) return { ok: false, error: 'Draft not found.' };
-  const rc = await renderContext(env, row, cfg, base);
+  const rc = await renderContext(env, row, cfg);
   // Normalised EXACTLY as approveOutreach normalises, or a textarea's trailing newline would make
   // the preview hash and the approval hash disagree about the same email.
   const subj = normSubject(subject != null ? subject : row.subject);
@@ -430,7 +446,7 @@ export async function previewOutreach(env, outreachId, { cfg, subject, body, bas
  * Approve — the only door from draft to sendable. Requires the render_hash of the preview the
  * owner saw; refuses on stale previews, suppressed recipients, and unacknowledged flags.
  */
-export async function approveOutreach(env, outreachId, { cfg, subject, body, render_hash, acknowledge_flags, ctx, base } = {}) {
+export async function approveOutreach(env, outreachId, { cfg, subject, body, render_hash, acknowledge_flags, ctx } = {}) {
   if (!ctx || !ctx.distinct_id) return { ok: false, error: 'Approval needs a signed-in owner.' };
   const row = await salesRow(env, 'SELECT * FROM sales_outreach WHERE id = ?', outreachId);
   if (!row) return { ok: false, error: 'Draft not found.' };
@@ -440,7 +456,7 @@ export async function approveOutreach(env, outreachId, { cfg, subject, body, ren
   if (!subj) return { ok: false, error: 'The email needs a subject.' };
   if (!bod) return { ok: false, error: 'The email needs a body.' };
 
-  const rc = await renderContext(env, row, cfg, base);
+  const rc = await renderContext(env, row, cfg);
   const rendered = renderOutreachEmail({ subject: subj, body: bod, ...rc });
   if (!render_hash || render_hash !== rendered.hash) {
     return { ok: false, error: 'This is not the email you previewed — something changed (text, sender, or footer). Preview it again, then approve.', code: 'stale_preview' };
@@ -458,8 +474,9 @@ export async function approveOutreach(env, outreachId, { cfg, subject, body, ren
   const t = now();
   const claim = await env.DB.prepare(
     `UPDATE sales_outreach SET status='approved', subject=?, body_snapshot=?, edited=?, flags_json=?, flags_acknowledged=?,
-       approved_by=?, approved_at=?, queued_at=?, snoozed_until=NULL, updated_at=? WHERE id=? AND status='pending_approval'`
-  ).bind(subj, bod, edited, toJson(flags), flags.length ? 1 : 0, ctx.distinct_id, t, t, t, outreachId).run();
+       approved_by=?, approved_at=?, queued_at=?, approved_render_hash=?, send_attempts=0, failure_reason=NULL, snoozed_until=NULL,
+       updated_at=? WHERE id=? AND status='pending_approval'`
+  ).bind(subj, bod, edited, toJson(flags), flags.length ? 1 : 0, ctx.distinct_id, t, t, rendered.hash, t, outreachId).run();
   if (!claim.meta || claim.meta.changes !== 1) return { ok: false, error: 'Someone else already acted on this draft.' };
   await logActivity(env, {
     organization_id: row.organization_id, opportunity_id: row.opportunity_id, contact_id: row.contact_id, outreach_id: row.id,
@@ -477,8 +494,11 @@ export async function editOutreach(env, outreachId, { subject, body, cfg, ctx } 
   const subj = normSubject(subject != null ? subject : row.subject);
   const bod = normBody(body != null ? body : row.body_snapshot);
   const flags = checkDraft({ subject: subj, body: bod }, cfg);
-  await env.DB.prepare("UPDATE sales_outreach SET subject=?, body_snapshot=?, edited=1, flags_json=?, updated_at=? WHERE id=? AND status='pending_approval'")
+  const w = await env.DB.prepare("UPDATE sales_outreach SET subject=?, body_snapshot=?, edited=1, flags_json=?, updated_at=? WHERE id=? AND status='pending_approval'")
     .bind(subj, bod, toJson(flags), now(), outreachId).run();
+  // Approved (or claimed) between the read and the write: nothing was saved, and saying "saved" would
+  // let the owner believe an edit reached an email that will go out as previously approved.
+  if (!w.meta || w.meta.changes !== 1) return { ok: false, error: 'This email is no longer a pending draft — nothing was saved.' };
   await logActivity(env, { organization_id: row.organization_id, opportunity_id: row.opportunity_id, outreach_id: row.id, kind: 'draft_edited', ctx });
   return { ok: true, outreach_id: row.id, flags };
 }
@@ -490,7 +510,8 @@ export async function rejectOutreach(env, outreachId, { reason, ctx } = {}) {
   const why = String(reason || '').trim().slice(0, 300);
   if (!why) return { ok: false, error: 'Say why — a rejection reason is what the next draft learns from.' };
   const t = now();
-  await env.DB.prepare("UPDATE sales_outreach SET status='rejected', rejected_reason=?, updated_at=? WHERE id=? AND status IN ('pending_approval','approved')").bind(why, t, outreachId).run();
+  const w = await env.DB.prepare("UPDATE sales_outreach SET status='rejected', rejected_reason=?, updated_at=? WHERE id=? AND status IN ('pending_approval','approved')").bind(why, t, outreachId).run();
+  if (!w.meta || w.meta.changes !== 1) return { ok: false, error: 'Too late to reject — this email is already sending or sent.' };
   // A rejected step must not be followed by a follow-up to someone who was never written to.
   if (row.enrollment_id) {
     await env.DB.prepare("UPDATE sales_enrollments SET status='stopped', stop_reason='rejected', stopped_at=?, next_step_at=NULL, updated_at=? WHERE id=? AND status='active'").bind(t, t, row.enrollment_id).run();
@@ -515,10 +536,20 @@ export async function snoozeOutreach(env, outreachId, { until, ctx } = {}) {
  * Send approved emails. At most once per row (claim before send), inside every gate. Returns
  * { ok, sent, skipped, failed, blocked_by[] } — blocked_by explains a zero.
  */
-export async function sendApproved(env, { cfg, atMs = Date.now(), limit = 5, base, ignoreWindow = false } = {}) {
-  const res = { ok: true, sent: 0, skipped: 0, failed: 0, deferred: 0, blocked_by: [] };
+export async function sendApproved(env, { cfg, atMs = Date.now(), limit = 5, ignoreWindow = false } = {}) {
+  const res = { ok: true, sent: 0, skipped: 0, failed: 0, deferred: 0, reapproval: 0, blocked_by: [] };
   const ready = sendReadiness(env, cfg, { atMs, ignoreWindow });
   if (!ready.ok) { res.blocked_by = ready.reasons; return res; }
+  // A Worker killed between the claim and the provider's answer leaves a row in 'sending' forever.
+  // After 15 minutes it goes back to 'approved' for a retry — safe, because the provider deduplicates
+  // on the idempotency key — and the attempt counts toward the three-attempt limit.
+  try {
+    await env.DB.prepare(
+      `UPDATE sales_outreach SET status = CASE WHEN send_attempts + 1 >= ? THEN 'failed' ELSE 'approved' END,
+         send_attempts = send_attempts + 1, failure_reason = 'interrupted while sending — returned for retry', updated_at = ?
+       WHERE status = 'sending' AND updated_at < ?`
+    ).bind(MAX_SEND_ATTEMPTS, now(), Date.now() - 15 * 60000).run();
+  } catch { /* recovery is best-effort; the send pass itself is unaffected */ }
   const remaining = cfg.flags['sales.max_emails_per_day'] - await sentTodayCount(env, atMs);
   if (remaining <= 0) { res.blocked_by = [`Daily cap of ${cfg.flags['sales.max_emails_per_day']} reached.`]; return res; }
   const batch = await salesRows(env,
@@ -555,17 +586,38 @@ export async function sendApproved(env, { cfg, atMs = Date.now(), limit = 5, bas
     // One touch per contact per ET calendar day, across every sequence.
     const today = await salesRow(env, "SELECT id FROM sales_outreach WHERE contact_id = ? AND status = 'sent' AND sent_at >= ? AND sent_at < ? LIMIT 1", row.contact_id, dayStart, dayEnd);
     if (today) { res.deferred++; continue; }
+    // The cap is re-checked per email (claimed 'sending' rows included), so an overlapping tick or a
+    // "send now" click cannot carry the day past it.
+    if (await sentTodayCount(env, atMs) >= cfg.flags['sales.max_emails_per_day']) {
+      res.blocked_by.push(`Daily cap of ${cfg.flags['sales.max_emails_per_day']} reached.`);
+      break;
+    }
+
+    // WHAT GOES OUT IS WHAT WAS APPROVED — headers, footer and links included. If the sender,
+    // reply-to, postal address or link origin changed since approval, the render no longer matches
+    // the approved hash, and the email goes back to the owner instead of out the door.
+    const rc = await renderContext(env, row, cfg);
+    const msg = renderOutreachEmail({ subject: row.subject, body: row.body_snapshot, ...rc });
+    if (!row.approved_render_hash || msg.hash !== row.approved_render_hash) {
+      await env.DB.prepare(
+        `UPDATE sales_outreach SET status='pending_approval', approved_by=NULL, approved_at=NULL, queued_at=NULL,
+           approved_render_hash=NULL, failure_reason=?, updated_at=? WHERE id=? AND status='approved'`
+      ).bind('Changed after approval (sender, reply-to, postal address or link) — preview and approve it again.', now(), row.id).run();
+      res.reapproval++;
+      continue;
+    }
 
     const claim = await env.DB.prepare("UPDATE sales_outreach SET status='sending', updated_at=? WHERE id=? AND status='approved'").bind(now(), row.id).run();
     if (!claim.meta || claim.meta.changes !== 1) continue;
 
-    const rc = await renderContext(env, row, cfg, base);
-    const msg = renderOutreachEmail({ subject: row.subject, body: row.body_snapshot, ...rc });
     let result = null; let err = null;
     try {
       result = await sendEmail(env, {
         to: row.recipient_email, subject: msg.subject, html: msg.html, text: msg.text,
         unsubscribeUrl: rc.unsubUrl, from: rc.from, replyTo: rc.replyTo,
+        // A retry after an ambiguous failure (a timeout AFTER the provider accepted) is deduplicated
+        // by the provider on this key, so returning the row to 'approved' can never double-send.
+        idempotencyKey: `sales-outreach-${row.id}`, timeoutMs: 15000,
       });
     } catch (e) { err = String((e && e.message) || e).slice(0, 200); }
     const t = clock();
@@ -576,9 +628,17 @@ export async function sendApproved(env, { cfg, atMs = Date.now(), limit = 5, bas
       continue;
     }
     if (err || !result) {
-      await env.DB.prepare("UPDATE sales_outreach SET status='failed', failure_reason=?, updated_at=? WHERE id=?").bind(err || 'no provider response', t, row.id).run();
+      // One provider error must not permanently burn an email the owner approved, nor fail the rest
+      // of the queue the same way (a sender/domain problem fails every email identically). The row
+      // returns to 'approved' for the next tick — until the third attempt — and the batch stops.
+      const attempts = Number(row.send_attempts || 0) + 1;
+      await env.DB.prepare('UPDATE sales_outreach SET status=?, send_attempts=?, failure_reason=?, updated_at=? WHERE id=?')
+        .bind(attempts >= MAX_SEND_ATTEMPTS ? 'failed' : 'approved', attempts, `attempt ${attempts}: ${err || 'no provider response'}`, t, row.id).run();
+      // A final failure ends the sequence explicitly, rather than leaving it 'active' with nothing due.
+      if (attempts >= MAX_SEND_ATTEMPTS) await stopSequences(env, { opportunity_id: row.opportunity_id, reason: 'send_failed' });
       res.failed++;
-      continue;
+      res.blocked_by.push(`Provider error — stopped this batch: ${err || 'no provider response'}`);
+      break;
     }
     await env.DB.prepare("UPDATE sales_outreach SET status='sent', provider_id=?, sent_at=?, updated_at=? WHERE id=?").bind(String(result.id || '') || null, t, t, row.id).run();
     if (enr) {

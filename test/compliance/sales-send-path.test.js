@@ -174,13 +174,28 @@ for (const [label, seed] of [
   });
 }
 
-test('the unsubscribe link suppresses the address everywhere and stops the sequence at once (GET and one-click POST)', async () => {
-  for (const method of ['GET', 'POST']) {
+test('a link scanner’s GET of the unsubscribe link changes NOTHING — it only shows the one-button page', async () => {
+  const { env, outreachId, contactId, oppId } = await drafted();
+  const token = env.DB.one('SELECT unsub_token FROM sales_outreach WHERE id = ?', outreachId).unsub_token;
+  const res = await unsubGet({ request: new Request(`https://anejocateringco.com/api/sales/unsubscribe?t=${token}`), env });
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), new RegExp(`<form method="post" action="/api/sales/unsubscribe\\?t=${token}">`));
+  assert.equal(env.DB.one('SELECT suppressed FROM sales_contacts WHERE id = ?', contactId).suppressed, 0);
+  assert.equal(env.DB.one('SELECT status FROM sales_enrollments WHERE opportunity_id = ?', oppId).status, 'active');
+  assert.equal(env.DB.rows('SELECT * FROM sales_unsubscribes').length, 0);
+});
+
+test('the unsubscribe button and RFC 8058 one-click POST suppress the address everywhere and stop the sequence at once', async () => {
+  for (const body of ['confirm=1', 'List-Unsubscribe=One-Click']) {
     const { env, cfg, outreachId, oppId, contactId } = await drafted();
     const token = env.DB.one('SELECT unsub_token FROM sales_outreach WHERE id = ?', outreachId).unsub_token;
-    const req = new Request(`https://anejocateringco.com/api/sales/unsubscribe?t=${token}`, { method });
-    const res = method === 'GET' ? await unsubGet({ request: req, env }) : await unsubPost({ request: req, env });
+    const req = new Request(`https://anejocateringco.com/api/sales/unsubscribe?t=${token}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body,
+    });
+    const res = await unsubPost({ request: req, env });
     assert.equal(res.status, 200);
+    if (body === 'confirm=1') assert.match(await res.text(), /You’re unsubscribed/);
+    else assert.equal(await res.text(), 'unsubscribed');
     assert.equal(env.DB.one('SELECT suppressed, marketing_email_allowed FROM sales_contacts WHERE id = ?', contactId).suppressed, 1);
     assert.equal(env.DB.one('SELECT status FROM sales_enrollments WHERE opportunity_id = ?', oppId).status, 'stopped');
     assert.equal(env.DB.one('SELECT status FROM sales_outreach WHERE id = ?', outreachId).status, 'canceled');

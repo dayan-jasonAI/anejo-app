@@ -29,8 +29,10 @@ export const DECISION_ROLES = ['executive_director', 'administrator', 'operation
 
 // An email we are allowed to put a cold note into. `unverified_guess` is deliberately absent: an
 // address constructed from a name and a domain is not sendable until a verifier says otherwise.
-// `self_provided` is an address the prospect typed into our own request form — they asked us to write.
-export const SENDABLE_EMAIL_STATUSES = ['public_site', 'owner_provided', 'owner_verified', 'provider_verified', 'self_provided'];
+// `self_provided` (typed into the landing-page request form) is deliberately NOT sendable: anyone
+// holding a forwarded landing link can type any address there. The owner replies to it personally,
+// and marks it owner_verified if it should ever enter a sequence.
+export const SENDABLE_EMAIL_STATUSES = ['public_site', 'owner_provided', 'owner_verified', 'provider_verified'];
 
 const lc = (s) => String(s == null ? '' : s).toLowerCase();
 const clamp01 = (x) => Math.max(0, Math.min(1, x));

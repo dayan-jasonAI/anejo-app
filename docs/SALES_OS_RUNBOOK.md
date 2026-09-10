@@ -15,11 +15,13 @@ Nothing below has been done. Each step is yours to approve.
    Then confirm: `SELECT name FROM sqlite_master WHERE name LIKE 'sales_%'` returns 13 tables.
 3. **Deploy the cron Worker** (`cd cron && wrangler deploy`) so the scheduled jobs exist. They
    no-op until their switches are on.
-4. **Optional provider keys** (Pages → Settings → Variables):
-   - `GOOGLE_PLACES_API_KEY` — automatic discovery. Without it, use CSV import. Read the Places
-     terms note in `SALES_OS_COMPLIANCE.md` first.
+4. **Provider settings** (Pages → Settings → Variables):
+   - **Google Places is NOT an approved prospect source in this release** and is locked off in code;
+     setting `GOOGLE_PLACES_API_KEY` does nothing for discovery. Load organizations by CSV (below).
    - In Resend → Webhooks, add `email.delivered`, `email.opened`, `email.clicked` to the existing
      endpoint (bounces/complaints are already subscribed) so the funnel can see delivery.
+   - Optional: `APP_BASE_URL=https://anejocateringco.com`. Every prospect-facing link is built from
+     it (default: that same address) — never from the host you happen to be using the Hub on.
 5. **Configure, in this order, in Hub → More → Sales → Settings:**
    1. Postal address — Marketing → Broadcast (the same one Broadcast uses). A street address or a
       registered mailbox; "Palm Beach County" does not count and cold email will not send without it.
@@ -46,10 +48,15 @@ Nothing below has been done. Each step is yours to approve.
 
 The CSV importer takes any list with a header row (name, website, street, city, zip, county,
 category, capacity, notes, contact_name, contact_title, contact_email, contact_phone, source_url).
-Candidate public sources for the ICP — **check each source's current format and terms before
-relying on it**:
-- Florida AHCA facility/provider search (adult day care centers are AHCA-licensed).
-- Florida DCF licensed substance-abuse provider listings.
+Public sources for the ICP — **check each source's current page and terms at download time**
+(details in `SALES_OS_COMPLIANCE.md`):
+- **Florida AHCA FloridaHealthFinder** (quality.healthfinder.fl.gov → Facility/Provider → Adult Day
+  Care Center): filter by county (Palm Beach, Broward), Download CSV, import as-is — licensed beds
+  come in as capacity. Names without "adult day" in them: add a `category` column set to `adult_day`.
+- **SAMHSA FindTreatment.gov**: search near Palm Beach / Broward for mental-health and substance-use
+  facilities, download, and import. Rename columns if needed: `name1`→`name`, `street1`→`street`.
+  Add `category` = `behavioral_health` or `addiction_treatment` if their names don't say so.
+- Florida DCF SUD Provider Search: use it to verify a license, not as a list.
 - Your own list of programs you know, or referrals.
 Imported emails are marked `owner_provided` and are sendable; an address you are only guessing
 should be entered as "It is a guess" — it will never be emailed.

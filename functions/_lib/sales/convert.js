@@ -229,8 +229,25 @@ export async function convertToContractAccount(env, { proposal_id, ctx, expect_m
   if (p.status === 'converted' && p.converted_account_id) return { ok: true, already: true, account_id: p.converted_account_id };
   if (opp.converted_contract_account_id) return { ok: true, already: true, account_id: opp.converted_contract_account_id };
   if (CLOSED_STAGES.includes(opp.stage)) return { ok: false, error: `This opportunity is ${opp.stage}.` };
-  const resuming = p.status === 'converting' && p.converted_account_id;
-  if (p.status !== 'confirmed' && !resuming) return { ok: false, error: 'Confirm the proposal terms before converting.', code: 'not_confirmed' };
+  let resuming = !!(p.status === 'converting' && p.converted_account_id);
+  // The one unrecorded window: interrupted after registerAccount() created the account but before its
+  // id was saved here. Left alone, the proposal can never move and the orphan PENDING account blocks
+  // every retry as "account exists". After two minutes (so a conversion still running is never
+  // raced), adopt the pending account this proposal created — same name, created after the claim —
+  // or, if none was created, take the conversion back up from the start.
+  let reclaimed = false;
+  if (p.status === 'converting' && !p.converted_account_id) {
+    if (Date.now() - Number(p.updated_at || 0) < 120000) return { ok: false, error: 'This proposal is already being converted.' };
+    const orphan = await salesRow(env,
+      "SELECT id FROM contract_accounts WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND status = 'pending' AND created_at >= ? ORDER BY created_at LIMIT 1",
+      p.account_name, Number(p.updated_at || 0));
+    const took = await env.DB.prepare(
+      "UPDATE sales_proposals SET converted_account_id = ?, updated_at = ? WHERE id = ? AND status = 'converting' AND converted_account_id IS NULL AND updated_at = ?"
+    ).bind(orphan ? orphan.id : null, now(), p.id, p.updated_at).run();
+    if (!took.meta || took.meta.changes !== 1) return { ok: false, error: 'This proposal is already being converted.' };
+    if (orphan) { p.converted_account_id = orphan.id; resuming = true; } else reclaimed = true;
+  }
+  if (p.status !== 'confirmed' && !resuming && !reclaimed) return { ok: false, error: 'Confirm the proposal terms before converting.', code: 'not_confirmed' };
 
   const v = validateProposal({ ...rowToTerms(p), estimated_monthly_cents: p.estimated_monthly_cents });
   if (!v.ok) return { ok: false, error: 'The confirmed terms no longer validate.', errors: v.errors };
@@ -248,8 +265,10 @@ export async function convertToContractAccount(env, { proposal_id, ctx, expect_m
       return { ok: false, code: 'account_exists', existing_account_id: clash.id,
         error: `A contract account named "${clash.name}" (or with this billing email) already exists. Nothing was changed. Link the opportunity to it instead of creating a second one.` };
     }
-    const claim = await env.DB.prepare("UPDATE sales_proposals SET status='converting', conversion_error=NULL, updated_at=? WHERE id=? AND status='confirmed'").bind(now(), p.id).run();
-    if (!claim.meta || claim.meta.changes !== 1) return { ok: false, error: 'This proposal is already being converted.' };
+    if (!reclaimed) {
+      const claim = await env.DB.prepare("UPDATE sales_proposals SET status='converting', conversion_error=NULL, updated_at=? WHERE id=? AND status='confirmed'").bind(now(), p.id).run();
+      if (!claim.meta || claim.meta.changes !== 1) return { ok: false, error: 'This proposal is already being converted.' };
+    }
   }
 
   const fail = async (msg, accountId) => {

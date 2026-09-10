@@ -102,6 +102,9 @@
   // Dollars typed by the owner → integer cents, or null. "9.5" → 950, "9.505" → null (never rounded).
   const toCents = (v) => { const s = String(v == null ? '' : v).trim().replace(/^\$/, '').replace(/,/g, ''); if (!/^\d+(\.\d{1,2})?$/.test(s)) return null; const [d, c = ''] = s.split('.'); return Number(d) * 100 + Number((c + '00').slice(0, 2)); };
   const toDollars = (c) => (c == null || c === '' ? '' : (Number(c) / 100).toFixed(2));
+  // A discovery source's production status, in words — a configured key is not an approval.
+  const srcBadge = (p) => (p.usable ? '✅ approved' : p.production_status === 'not_approved' ? '⛔ not approved for production'
+    : p.production_status === 'recommended_not_integrated' ? '📄 recommended — not integrated' : '⚠️ not configured');
 
   // Every form here writes <label>Text</label><input>. Tie each label to its control so screen
   // readers announce the field and a tap on the label focuses it. Runs after every render; it only
@@ -175,12 +178,12 @@
           <div class="okbar" style="background:#faf8f2;border-color:#e7e2d6;color:#3d4a42"><b>Where it is stuck:</b> ${esc(f.diagnosis.text)}</div>
           <div class="scroll"><table class="t"><tbody>${funnelRows.map(([k, v]) => `<tr><td>${esc(k)}</td><td><b>${esc(v)}</b></td></tr>`).join('')}</tbody></table></div></div>`
       + `<div class="box"><h2>Run now</h2><p class="muted">Each runs once, inside its caps. Switch the scheduled versions on in Settings.</p>
-          <button class="btn2" data-act="discover">Discover new organizations</button>
+          ${d.providers.some((p) => p.usable && p.key !== 'csv') ? '<button class="btn2" data-act="discover">Discover new organizations</button>' : '<p class="muted">Automated discovery: no approved source in this release — load organizations with <a href="#tab=prospects">CSV import</a>.</p>'}
           <button class="btn2" data-act="job" data-job="enrich">Research next batch</button>
           <button class="btn2" data-act="job" data-job="followup">Draft due follow-ups</button>
           <button class="btn2 primary" data-act="sendnow">Send approved emails now</button>
           <div id="run-out" class="muted" style="margin-top:8px"></div></div>`
-      + `<div class="box"><h2>Discovery sources</h2>${d.providers.map((p) => `<div class="toggle"><span><b>${esc(p.label)}</b><br><span class="muted">${esc(p.note)}</span></span><span>${p.configured ? '✅' : '⚠️'}</span></div>`).join('')}
+      + `<div class="box"><h2>Discovery sources</h2>${d.providers.map((p) => `<div class="toggle"><span><b>${esc(p.label)}</b><br><span class="muted">${esc(p.note)}</span></span><span>${esc(srcBadge(p))}</span></div>`).join('')}
           <p class="muted" style="margin-top:8px">${esc(d.reply_detection.note)}</p></div>`
       + `<div class="box"><h2>Recent activity</h2><ul class="feed">${(d.recent || []).map((a) => `<li><b>${esc(a.kind.replace(/_/g, ' '))}</b> ${a.organization_name ? '· ' + esc(a.organization_name) : ''} <span class="muted">· ${esc(when(a.created_at))}</span></li>`).join('') || '<li class="muted">Nothing yet.</li>'}</ul></div>`;
     const out = (r) => { document.getElementById('run-out').textContent = JSON.stringify(r && (r.output || r), null, 0).slice(0, 600); };
@@ -480,6 +483,7 @@
         <div class="ap-to">To: <b>${esc(x.contact_name || 'role address')}</b>${x.contact_title ? ', ' + esc(x.contact_title) : ''} &lt;${esc(x.recipient_email)}&gt; <span class="muted">· ${esc(x.email_status || '')}${x.contact_source_url ? ' · ' + safeLink(x.contact_source_url, 'where we found it') : ''}</span></div>
         <div class="ap-org">Organization: <b><a href="#org=${esc(x.organization_id)}">${esc(x.organization_name)}</a></b> · ${esc(x.city || '')} · ${esc((x.business_category || '').replace(/_/g, ' '))} ${tier(x.current_tier, x.current_score)}</div></div>
         <div class="muted">Step ${esc(x.step_number || 1)}${x.snoozed_until ? ' · snoozed until ' + esc(when(x.snoozed_until)) : ''}</div></div>
+      ${x.failure_reason ? `<div class="warn">${esc(x.failure_reason)}</div>` : ''}
       <details><summary>Why this prospect qualifies</summary><ul class="check">${(x.why || []).map((w) => `<li>${esc(w)}</li>`).join('') || '<li class="muted">No criteria earned points — check before sending.</li>'}</ul></details>
       <label>Subject</label><input class="ap-subj" value="${esc(x.subject || '')}">
       <label>Email</label><textarea class="ap-body" rows="11">${esc(x.body_snapshot || '')}</textarea>
@@ -513,6 +517,7 @@
       'sales.email_enabled': 'Send approved prospect emails', 'sales.followup_enabled': 'Draft follow-ups when due', 'sales.voice_enabled': 'AI voice calls',
       'sales.auto_send_enabled': 'Auto-send without approval', 'sales.owner_approval_required': 'Owner approval required for every email',
       'sales.max_new_prospects_per_day': 'Max new prospects per day', 'sales.max_emails_per_day': 'Max prospect emails per day', 'sales.max_discovery_calls_per_day': 'Max discovery API calls per day',
+      'sales.places_persistence_approved': 'Google Places as a production prospect source',
     };
     const o = d.offer, s = d.sender, pr = d.proof, w = d.send_window, a = d.service_area, icp = d.icp;
     root.innerHTML = readiness(d.send_readiness)
@@ -520,7 +525,7 @@
         const locked = Object.prototype.hasOwnProperty.call(d.locked_flags, k);
         const val = d.flags[k];
         if (typeof val === 'number') return `<div class="toggle"><span>${esc(flagLabels[k] || k)} <span class="lock">(max ${esc(d.caps[k])})</span></span><span><input type="number" min="0" max="${esc(d.caps[k])}" value="${esc(val)}" data-flagnum="${esc(k)}" style="width:80px"> <button class="btn2" data-act="flagnum" data-k="${esc(k)}">Save</button></span></div>`;
-        return `<div class="toggle"><span>${esc(flagLabels[k] || k)}${locked ? `<br><span class="lock">🔒 Locked ${val ? 'on' : 'off'} in this release${k === 'sales.voice_enabled' ? ' — Phase 2, not built' : ' — every prospect email needs your approval'}.</span>` : ''}</span>
+        return `<div class="toggle"><span>${esc(flagLabels[k] || k)}${locked ? `<br><span class="lock">🔒 Locked ${val ? 'on' : 'off'} in this release — ${esc((d.lock_reasons && d.lock_reasons[k]) || '')}</span>` : ''}</span>
           <button class="btn2 ${val ? 'primary' : ''}" data-act="flag" data-k="${esc(k)}" data-v="${val ? '0' : '1'}"${locked ? ' disabled' : ''}>${val ? 'On' : 'Off'}</button></div>`;
       }).join('')}</div>`
       + `<div class="box"><h2>Sender (required before anything sends)</h2><div class="f">
@@ -570,7 +575,7 @@
       + `<div class="box"><h2>Teach the marketing team</h2><p class="muted">The Team Lead, the planner, governance and Aña all read your Brand &amp; Standards Brief. This files ONE added section — institutional recurring meal service as a strategic product, traditional Cuban catering as first-class, live-menu pricing, no customer names without permission — as a proposal in <a href="/hub/owner/brief-proposals.html">Reviews</a>. Nothing changes until you approve it there.</p>
           <button class="btn2" data-act="positioning">Propose the institutional positioning</button></div>`
       + `<div class="box"><h2>Setup status</h2><div class="kv"><div>Email provider</div><div>${d.env.email_provider ? '✅' : '⚠️ RESEND_API_KEY not set'}</div><div>AI briefs</div><div>${d.env.ai ? '✅' : '⚠️ no ANTHROPIC_API_KEY — briefs are built from facts only'}</div><div>Scheduler</div><div>${d.env.scheduler ? '✅' : '⚠️ CRON_KEY not set — scheduled jobs will not run'}</div><div>Delivery/open events</div><div>${d.env.webhook_events ? '✅ Resend webhook secret set' : '⚠️ RESEND_WEBHOOK_SECRET not set'}</div><div>Kitchen origin</div><div>${d.env.kitchen_origin ? '✅' : '— distance scoring uses contract sites only'}</div>
-          ${d.providers.map((p) => `<div>${esc(p.label)}</div><div>${p.configured ? '✅' : '⚠️'} ${esc(p.note)}</div>`).join('')}<div>Replies</div><div>${esc(d.reply_detection.note)}</div></div></div>`;
+          ${d.providers.map((p) => `<div>${esc(p.label)}</div><div>${esc(srcBadge(p))} — ${esc(p.note)}</div>`).join('')}<div>Replies</div><div>${esc(d.reply_detection.note)}</div></div></div>`;
 
     const v = (i) => document.getElementById(i).value;
     const save = async (b, key, value, extra) => { b.disabled = true; const r = await post(SET, { op: 'save', key, value, ...(extra || {}) }); b.disabled = false; toast(r.ok ? 'Saved' : r.error); if (r.ok) settings(); };
@@ -604,7 +609,7 @@
       + readiness(d.send_readiness)
       + sec('1 · Ideal customer (ICP)', `<table class="t"><tbody>${d.icp.categories.map((c) => `<tr><td>${esc(c.label)}</td><td>${esc(Math.round((c.fit || 0) * 100))}% fit</td></tr>`).join('')}</tbody></table><p class="muted">Criteria & max points: ${d.icp.criteria.map((c) => esc(c.label) + ' ' + esc(d.icp.weights[c.key])).join(' · ')}. Tiers A ≥ ${esc(d.icp.tiers.A)}, B ≥ ${esc(d.icp.tiers.B)}, C ≥ ${esc(d.icp.tiers.C)}; out-of-area and closed places are tier D.</p>`)
       + sec('2 · Service geography', `<p>${esc(d.service_area.label)} — counties: ${esc((d.service_area.counties || []).join(', '))}; ${esc((d.service_area.cities || []).length)} cities; near ≤ ${esc(d.service_area.near_miles)} mi.</p>`)
-      + sec('3 · Discovery sources', d.discovery_sources.map((p) => `<p>${p.configured ? '✅' : '⚠️'} <b>${esc(p.label)}</b> — ${esc(p.note)}</p>`).join(''))
+      + sec('3 · Discovery sources', d.discovery_sources.map((p) => `<p>${esc(srcBadge(p))} · <b>${esc(p.label)}</b> — ${esc(p.note)}</p>`).join(''))
       + sec(d.prospects.length === 1 ? '4 · The highest-ranked prospect and why' : `4 · The ${d.prospects.length} highest-ranked prospects and why`,d.prospects.length ? d.prospects.map((o) => `<details><summary>${tier(o.current_tier, o.current_score)} <b>${esc(o.name)}</b> · ${esc(o.city || '')} · ${o.sendable_contacts ? '✉︎ contactable' : 'no email yet'}</summary><ul class="check">${o.criteria.map((c) => `<li>${esc(c.label)} ${esc(c.points)}/${esc(c.max)} — ${c.reasons.map(esc).join(' ')}</li>`).join('')}</ul><a href="#org=${esc(o.id)}">Open</a></details>`).join('') : '<p class="muted">No scored prospects yet.</p>')
       + sec('5 · The institutional offer', `<div class="kv"><div>Product</div><div>${esc(d.offer.product_name)}</div><div>Headline</div><div>${esc(d.offer.headline)}</div><div>Value</div><div>${esc(d.offer.value_prop)}</div><div>CTA</div><div>${esc(d.offer.cta_text)}</div><div>Tasting</div><div>${d.offer.tasting_enabled ? 'offered' : 'off'}</div><div>Pricing</div><div>${d.offer.pricing_display_policy === 'show_from' ? 'from ' + esc(money(d.offer.price_from_cents)) + ' per meal' : 'on request only'}</div><div>Confirmed</div><div>${d.offer.confirmed ? '✅' : '⚠️ not yet'}</div></div>`)
       + sec('6 · The exact first email', d.first_email ? `<p class="muted">${esc(d.first_email.source)} · to ${esc(d.first_email.to)}</p><p><b>${esc(d.first_email.subject)}</b></p><iframe sandbox="" title="First email" srcdoc="${esc(d.first_email.html)}" style="width:100%;height:420px;border:1px solid #e7e2d6;border-radius:8px;background:#fff"></iframe>` : '<p class="muted">Add a prospect with a sendable contact to see it.</p>')

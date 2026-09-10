@@ -171,6 +171,51 @@ test('editing a confirmed proposal un-confirms it: terms he has not re-confirmed
   assert.equal(r.code, 'not_confirmed');
 });
 
+test('a conversion interrupted after the account was created adopts THAT account — no orphan, no second account', async () => {
+  const { env, cfg } = await readyEnv();
+  const baseline = accountCount(env);
+  const { oppId } = await seedProspect(env, cfg);
+  const p = await saveProposal(env, { opportunity_id: oppId, fields: TERMS, ctx: OWNER });
+  await confirmProposal(env, p.proposal_id, { ctx: OWNER, expect_monthly_cents: MONTHLY });
+  // Simulate the crash window: claimed five minutes ago, registerAccount() ran, its id was never saved.
+  env.DB.sqlite.prepare("UPDATE sales_proposals SET status='converting', updated_at=? WHERE id=?").run(Date.now() - 5 * 60000, p.proposal_id);
+  const orphan = await registerAccount(env, {
+    company: TERMS.account_name, billing_email: TERMS.billing_email, billing_model: TERMS.billing_model,
+    sites: TERMS.sites.map((s) => ({ ...s, delivery_days: TERMS.delivery_days })),
+  });
+  const r = await convertToContractAccount(env, { proposal_id: p.proposal_id, ctx: OWNER, expect_monthly_cents: MONTHLY });
+  assert.equal(r.ok, true, r.error);
+  assert.equal(r.account_id, orphan.account_id, 'the orphan was adopted, not duplicated');
+  assert.equal(accountCount(env), baseline + 1);
+  assert.equal(env.DB.one('SELECT status FROM contract_accounts WHERE id = ?', orphan.account_id).status, 'active');
+  assert.equal(env.DB.one('SELECT price_per_lunch_cents FROM contract_sites WHERE account_id = ?', orphan.account_id).price_per_lunch_cents, 950);
+});
+
+test('a conversion interrupted before any account existed is taken back up and converts exactly once', async () => {
+  const { env, cfg } = await readyEnv();
+  const baseline = accountCount(env);
+  const { oppId } = await seedProspect(env, cfg);
+  const p = await saveProposal(env, { opportunity_id: oppId, fields: TERMS, ctx: OWNER });
+  await confirmProposal(env, p.proposal_id, { ctx: OWNER, expect_monthly_cents: MONTHLY });
+  env.DB.sqlite.prepare("UPDATE sales_proposals SET status='converting', updated_at=? WHERE id=?").run(Date.now() - 5 * 60000, p.proposal_id);
+  const r = await convertToContractAccount(env, { proposal_id: p.proposal_id, ctx: OWNER, expect_monthly_cents: MONTHLY });
+  assert.equal(r.ok, true, r.error);
+  assert.equal(accountCount(env), baseline + 1);
+});
+
+test('a conversion that is still running (claimed under two minutes ago) is never raced by a retry', async () => {
+  const { env, cfg } = await readyEnv();
+  const baseline = accountCount(env);
+  const { oppId } = await seedProspect(env, cfg);
+  const p = await saveProposal(env, { opportunity_id: oppId, fields: TERMS, ctx: OWNER });
+  await confirmProposal(env, p.proposal_id, { ctx: OWNER, expect_monthly_cents: MONTHLY });
+  env.DB.sqlite.prepare("UPDATE sales_proposals SET status='converting', updated_at=? WHERE id=?").run(Date.now() - 10000, p.proposal_id);
+  const r = await convertToContractAccount(env, { proposal_id: p.proposal_id, ctx: OWNER, expect_monthly_cents: MONTHLY });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /already being converted/);
+  assert.equal(accountCount(env), baseline);
+});
+
 test('only the owner can convert', async () => {
   const { env, cfg } = await readyEnv();
   const baseline = accountCount(env);

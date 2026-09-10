@@ -44,6 +44,18 @@ test('two locations of one organization that share a website stay TWO rows (mult
   assert.equal(env.DB.rows('SELECT id FROM sales_organizations WHERE domain = ?', 'palmrecovery.org').length, 2);
 });
 
+test('the same name in the same ZIP is NOT merged when the streets or the own domains differ', async () => {
+  const { env } = await readyEnv();
+  const a = await upsertOrganization(env, { name: 'Serenity House', street: '1 A St', city: 'Delray Beach', zip: '33444', source: 'manual' }, { ctx: OWNER });
+  const b = await upsertOrganization(env, { name: 'Serenity House', street: '99 B Ave', city: 'Delray Beach', zip: '33444', source: 'manual' }, { ctx: OWNER });
+  assert.notEqual(a.organization_id, b.organization_id, 'two street addresses are two places');
+  const c = await upsertOrganization(env, { name: 'Harbor House', website: 'harbor-a.org', zip: '33445', source: 'manual' }, { ctx: OWNER });
+  const d = await upsertOrganization(env, { name: 'Harbor House', website: 'harbor-b.org', zip: '33445', source: 'manual' }, { ctx: OWNER });
+  assert.notEqual(c.organization_id, d.organization_id, 'two own domains are two organizations');
+  const e = await upsertOrganization(env, { name: 'Serenity House', street: '1 A Street', city: 'Delray Beach', zip: '33444', source: 'csv' }, { ctx: OWNER });
+  assert.equal(e.organization_id, a.organization_id, 'the same name at the same street still merges');
+});
+
 test('owner edits survive a later re-discovery of the same place', async () => {
   const { env } = await readyEnv();
   const a = await upsertOrganization(env, PLACE, { ctx: OWNER });

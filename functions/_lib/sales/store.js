@@ -151,10 +151,16 @@ export async function findExistingOrganization(env, rec) {
   }
   if (rec.normalized_name) {
     const candidates = await rows(env, 'SELECT * FROM sales_organizations WHERE normalized_name = ? LIMIT 50', rec.normalized_name);
-    const hit = candidates.find((c) =>
-      (where && zip5(c.zip) === where) ||
-      (!where && rec.city && cityKey(c.city) === cityKey(rec.city)) ||
-      (sk && streetKey(c.street) === sk));
+    const hit = candidates.find((c) => {
+      // A shared name is weak evidence. Two different street addresses, or two different own domains,
+      // are two different places — merging them would put one clinic's contacts on another.
+      const cs = streetKey(c.street);
+      if (sk && cs && cs !== sk) return false;
+      if (rec.domain && c.domain && rec.domain !== c.domain) return false;
+      return (where && zip5(c.zip) === where) ||
+        (!where && rec.city && cityKey(c.city) === cityKey(rec.city)) ||
+        (sk && cs === sk);
+    });
     if (hit) return hit;
   }
   return null;
@@ -566,7 +572,13 @@ export async function createOpportunity(env, orgId, { primary_contact_id, ctx } 
   return { ok: true, opportunity_id: oid, created: true };
 }
 
-const STOPPING_STAGES = { lost: 'lost', nurture: 'nurture' };
+// A sequence must not keep writing to someone the conversation has moved past — an already-approved
+// "following up on my note" arriving the day after a tasting was booked. Meeting and proposal stages
+// stop it, cancelling anything drafted or approved, exactly like a reply does.
+const STOPPING_STAGES = {
+  lost: 'lost', nurture: 'nurture',
+  meeting_requested: 'engaged', meeting_booked: 'engaged', tasting: 'engaged', proposal: 'engaged', negotiating: 'engaged',
+};
 
 /** Move a stage. `won` is refused here: it happens only through Convert to Contract Account. */
 export async function setStage(env, oppId, stage, { loss_reason, ctx, note } = {}) {

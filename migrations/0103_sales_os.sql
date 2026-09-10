@@ -207,6 +207,7 @@ CREATE TABLE IF NOT EXISTS sales_enrollments (
   last_sent_at     INTEGER,
   next_step_at     INTEGER,                            -- when the next step may be drafted
   stop_reason      TEXT,                               -- reply | unsubscribe | bounce | complaint | manual | won | lost | do_not_contact | nurture
+                                                       -- | engaged (moved to a meeting/proposal stage) | rejected
   stopped_at       INTEGER,
   created_at       INTEGER NOT NULL,
   updated_at       INTEGER NOT NULL
@@ -253,6 +254,10 @@ CREATE TABLE IF NOT EXISTS sales_outreach (
   failure_reason     TEXT,
   rejected_reason    TEXT,
   snoozed_until      INTEGER,
+  approved_render_hash TEXT,                           -- hash of the EXACT email approved (body, headers, footer, links);
+                                                       -- the send refuses and returns the row for re-approval on any mismatch
+  send_attempts      INTEGER NOT NULL DEFAULT 0,       -- provider errors; the row stays 'approved' (retry-safe via an
+                                                       -- idempotency key) until the third, then 'failed'
   created_by         TEXT,
   created_at         INTEGER NOT NULL,
   updated_at         INTEGER NOT NULL

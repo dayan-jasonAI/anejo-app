@@ -6,10 +6,10 @@
 // Owner-only on purpose, not the marketing desk: approving a cold email to a clinic director and
 // converting a prospect into a billed contract account are the owner's acts. The outreach queue
 // lives in ./outreach.js, settings in ./settings.js, proposals and conversion in ./deal.js.
-import { json, bad, appBaseUrl } from '../../../../_lib/util.js';
+import { json, bad } from '../../../../_lib/util.js';
 import { requireRole } from '../../../../_lib/roles.js';
 import { parseJson } from '../../../../_lib/hub.js';
-import { loadSalesConfig, LOCKED_FLAGS, CAPS } from '../../../../_lib/sales/config.js';
+import { loadSalesConfig, LOCKED_FLAGS, LOCK_REASONS, CAPS } from '../../../../_lib/sales/config.js';
 import {
   upsertOrganization, updateOrganization, addContact, updateContact, scoreAndStore, createOpportunity, setStage,
   updateOpportunity, suppressOrganization, recordSalesUnsubscribe, listOrganizations, organizationDetail,
@@ -20,7 +20,7 @@ import { generateBrief } from '../../../../_lib/sales/brief.js';
 import { providerStatus, parseCsv, csvRowToRecord } from '../../../../_lib/sales/discovery.js';
 import { dashboardCounts, funnel, conversionBy } from '../../../../_lib/sales/metrics.js';
 import {
-  approvalQueue, sendReadiness, previewOutreach, composeEmail, renderOutreachEmail, landingUrlFor, REPLY_DETECTION,
+  approvalQueue, sendReadiness, previewOutreach, composeEmail, renderOutreachEmail, landingUrlFor, publicBaseUrl, REPLY_DETECTION,
   DEFAULT_SEQUENCE_ID,
 } from '../../../../_lib/sales/outreach.js';
 import { ICP_CATEGORIES } from '../../../../_lib/sales/anejo.js';
@@ -45,7 +45,8 @@ function envReadiness(env) {
 }
 
 // The §34 first-run acceptance screen: everything Dayan must see before anything goes live.
-async function launchReview(env, cfg, base) {
+async function launchReview(env, cfg) {
+  const base = publicBaseUrl(env);
   const top = (await listOrganizations(env, { limit: 60 }))
     .filter((o) => !['suppressed', 'converted', 'disqualified'].includes(o.status) && o.current_score != null)
     .slice(0, 20);
@@ -66,7 +67,7 @@ async function launchReview(env, cfg, base) {
   let sample = null;
   const draft = await salesRow(env, "SELECT id FROM sales_outreach WHERE status = 'pending_approval' AND step_number = 1 ORDER BY created_at LIMIT 1");
   if (draft) {
-    const p = await previewOutreach(env, draft.id, { cfg, base });
+    const p = await previewOutreach(env, draft.id, { cfg });
     if (p.ok) sample = { source: 'pending draft', subject: p.subject, text: p.text, html: p.html, to: p.to, flags: p.flags };
   } else if (prospects[0]) {
     const org = await salesRow(env, 'SELECT * FROM sales_organizations WHERE id = ?', prospects[0].id);
@@ -75,7 +76,7 @@ async function launchReview(env, cfg, base) {
     const sigRows = await salesRows(env, "SELECT captured_json, source_url FROM sales_prospect_sources WHERE organization_id = ? AND source_type = 'website_page'", org.id);
     const signals = [];
     for (const r of sigRows) for (const sg of (parseJson(r.captured_json, {}) || {}).signals || []) signals.push({ ...sg, url: sg.url || r.source_url });
-    const c = composeEmail({ templateType: 'intro', org, contact, signals, cfg, landingUrl: opp ? landingUrlFor(env, opp.landing_token, base) : `${base}/for/<personal-link>` });
+    const c = composeEmail({ templateType: 'intro', org, contact, signals, cfg, landingUrl: opp ? landingUrlFor(env, opp.landing_token) :`${base}/for/<personal-link>` });
     const r = renderOutreachEmail({
       subject: c.subject, body: c.body, unsubUrl: `${base}/api/sales/unsubscribe?t=<personal-token>`, postal: cfg.postal_address,
       orgName: org.name, areaLabel: cfg.service_area.label,
@@ -87,7 +88,7 @@ async function launchReview(env, cfg, base) {
   return {
     icp: { categories: Object.entries(ICP_CATEGORIES).map(([k, v]) => ({ key: k, label: v.label, fit: cfg.icp.category_fit[k] })), weights: cfg.icp.weights, tiers: cfg.icp.tiers, criteria: CRITERIA, volume_bands: cfg.icp.volume_bands },
     service_area: cfg.service_area,
-    discovery_sources: providerStatus(env),
+    discovery_sources: providerStatus(env, cfg.flags),
     prospects,
     offer: cfg.offer,
     proof: cfg.proof,
@@ -104,7 +105,7 @@ async function launchReview(env, cfg, base) {
     ],
     proof_wording: cfg.proof.mode === 'none' ? 'No proof line is used.' : cfg.proof.mode === 'named' ? (cfg.proof.named_permission_recorded ? cfg.proof.named_text : 'Named proof selected but permission NOT recorded — nothing is used.') : (cfg.proof.anonymous_text || 'Anonymous proof selected but no text written — nothing is used.'),
     flags,
-    locked_flags: LOCKED_FLAGS,
+    locked_flags: LOCKED_FLAGS, lock_reasons: LOCK_REASONS,
     send_readiness: sendReadiness(env, cfg, { ignoreWindow: true }),
     reply_detection: REPLY_DETECTION,
     manual: [
@@ -131,7 +132,6 @@ export const onRequestGet = async ({ request, env }) => {
   const url = new URL(request.url);
   const view = url.searchParams.get('view') || 'dashboard';
   const cfg = await loadSalesConfig(env);
-  const base = appBaseUrl(env, request);
 
   if (view === 'list') {
     const f = Object.fromEntries(['tier', 'status', 'category', 'county', 'city', 'stage', 'contactable', 'sequence', 'q', 'limit', 'offset'].map((k) => [k, url.searchParams.get(k) || undefined]));
@@ -164,20 +164,20 @@ export const onRequestGet = async ({ request, env }) => {
   }
   if (view === 'settings') {
     return json({
-      ok: true, flags: cfg.flags, locked_flags: LOCKED_FLAGS, caps: CAPS, icp: cfg.icp, offer: cfg.offer, proof: cfg.proof,
+      ok: true, flags: cfg.flags, locked_flags: LOCKED_FLAGS, lock_reasons: LOCK_REASONS, caps: CAPS, icp: cfg.icp, offer: cfg.offer, proof: cfg.proof,
       sender: cfg.sender, send_window: cfg.send_window, service_area: cfg.service_area,
       postal_address: cfg.postal_address, postal_is_real: cfg.postal_is_real, categories: categories(), criteria: CRITERIA,
-      sequence: await sequenceWithSteps(env), providers: providerStatus(env), env: envReadiness(env),
+      sequence: await sequenceWithSteps(env), providers: providerStatus(env, cfg.flags), env: envReadiness(env),
       send_readiness: sendReadiness(env, cfg, { ignoreWindow: true }), reply_detection: REPLY_DETECTION,
     });
   }
-  if (view === 'review') return json({ ok: true, ...(await launchReview(env, cfg, base)) });
+  if (view === 'review') return json({ ok: true, ...(await launchReview(env, cfg)) });
   if (view === 'metrics') {
     return json({ ok: true, funnel: await funnel(env), by_source: await conversionBy(env, 'source'), by_tier: await conversionBy(env, 'tier'), by_template: await conversionBy(env, 'template') });
   }
   return json({
     ok: true, counts: await dashboardCounts(env), funnel: await funnel(env), flags: cfg.flags,
-    send_readiness: sendReadiness(env, cfg), providers: providerStatus(env), reply_detection: REPLY_DETECTION, env: envReadiness(env),
+    send_readiness: sendReadiness(env, cfg), providers: providerStatus(env, cfg.flags), reply_detection: REPLY_DETECTION, env: envReadiness(env),
     recent: (await salesRows(env, 'SELECT a.*, o.name AS organization_name FROM sales_activity a LEFT JOIN sales_organizations o ON o.id = a.organization_id ORDER BY a.created_at DESC LIMIT 25'))
       .map((a) => ({ ...a, detail: parseJson(a.detail_json, null), detail_json: undefined })),
   });
@@ -266,7 +266,7 @@ export const onRequestPost = async ({ request, env }) => {
     case 'run_job': {
       const job = String(b.job || '');
       if (!JOBS.includes(job)) return bad('Unknown job.');
-      return json(await runSalesJob(env, job, { cfg, base: appBaseUrl(env, request), triggeredBy: 'owner' }));
+      return json(await runSalesJob(env, job, { cfg, triggeredBy: 'owner' }));
     }
     default: return bad('Unknown action.');
   }

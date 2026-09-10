@@ -24,6 +24,11 @@ export const FLAG_DEFAULTS = {
   'sales.voice_enabled': false,
   'sales.auto_send_enabled': false,
   'sales.owner_approval_required': true,
+  // Google Places content may not be stored long-term under Google's terms (place IDs excepted), and
+  // a prospect CRM exists to persist organizations. Until a legal review approves it AND a code
+  // change unlocks it, no discovery run — scheduled or owner-initiated — may use Places, whether or
+  // not a key happens to be configured.
+  'sales.places_persistence_approved': false,
   'sales.max_new_prospects_per_day': 25,
   'sales.max_emails_per_day': 10,
   'sales.max_discovery_calls_per_day': 8,
@@ -33,6 +38,15 @@ export const LOCKED_FLAGS = {
   'sales.owner_approval_required': true,
   'sales.auto_send_enabled': false,
   'sales.voice_enabled': false,
+  'sales.places_persistence_approved': false,
+};
+
+// Why each locked flag is locked — shown verbatim by the settings API and the Hub.
+export const LOCK_REASONS = {
+  'sales.owner_approval_required': 'Owner approval of every prospect email is required in this release; it cannot be switched off from the Hub.',
+  'sales.auto_send_enabled': 'Owner approval of every prospect email is required in this release; it cannot be switched off from the Hub.',
+  'sales.voice_enabled': 'The AI voice channel is Phase 2 and is not built in this release.',
+  'sales.places_persistence_approved': 'Google Places is not approved as a production prospect source: its terms restrict storing Places content beyond place IDs, and prospect records must persist. Approval needs a legal review and a code change (docs/SALES_OS_COMPLIANCE.md).',
 };
 
 // Hard ceilings the owner's numbers are clamped to. The first experiment is 20 emails, not 2,000;
@@ -143,10 +157,7 @@ async function put(env, key, value, by) {
 export async function setFlag(env, key, value, by) {
   if (!Object.prototype.hasOwnProperty.call(FLAG_DEFAULTS, key)) return { ok: false, error: `Unknown setting ${key}.` };
   if (Object.prototype.hasOwnProperty.call(LOCKED_FLAGS, key)) {
-    const why = key === 'sales.voice_enabled'
-      ? 'The AI voice channel is Phase 2 and is not built in this release.'
-      : 'Owner approval of every prospect email is required in this release; it cannot be switched off from the Hub.';
-    return { ok: false, error: why, locked: true };
+    return { ok: false, error: LOCK_REASONS[key] || 'This setting is locked in this release.', locked: true };
   }
   let stored;
   if (typeof FLAG_DEFAULTS[key] === 'boolean') stored = parseBool(value, null);

@@ -10,7 +10,7 @@
 //   followup  — daily; DRAFTS due follow-ups into the approval queue (never sends)
 //   send      — hourly; sends only owner-APPROVED emails, in business hours, under the daily cap
 //   metrics   — nightly; funnel snapshot into agent_runs
-import { json, bad, ctEq, appBaseUrl } from '../../../_lib/util.js';
+import { json, bad, ctEq } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { loadSalesConfig } from '../../../_lib/sales/config.js';
 import { runSalesJob, JOBS } from '../../../_lib/sales/jobs.js';
@@ -25,6 +25,6 @@ export const onRequestPost = async ({ request, env }) => {
   const job = new URL(request.url).searchParams.get('job') || '';
   if (!JOBS.includes(job)) return bad(`Unknown job. Use one of: ${JOBS.join(', ')}.`);
   const cfg = await loadSalesConfig(env);
-  const r = await runSalesJob(env, job, { cfg, base: appBaseUrl(env, request), triggeredBy: viaCron ? 'cron' : 'owner' });
+  const r = await runSalesJob(env, job, { cfg, triggeredBy: viaCron ? 'cron' : 'owner' });
   return json(r, r.ok ? 200 : 500);
 };

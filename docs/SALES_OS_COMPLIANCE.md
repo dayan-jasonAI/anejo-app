@@ -11,7 +11,7 @@ outreach, have counsel confirm the points marked **(owner / counsel)**.*
 | No deceptive subject | Governance flags a first-touch subject beginning "Re:" / "Fwd:". | `checkDraft` |
 | Identified as a solicitation | Every footer: "This is a one-time business solicitation from Añejo Catering Co. to …" | `complianceFooterText` |
 | Valid physical postal address | Footer carries the Broadcast postal address. Cold email **refuses to send** on the "Palm Beach County" fallback. | `postal_is_real` |
-| Working opt-out, honoured promptly | One-click link (token, never the address) + `List-Unsubscribe` + `List-Unsubscribe-Post`. Effective immediately — the address is suppressed across every organization and every sequence stops. The law allows 10 business days; we do it on click. | `functions/api/sales/unsubscribe.js` |
+| Working opt-out, honoured promptly | Link (token, never the address) to a single page with one "Unsubscribe me" button, plus `List-Unsubscribe` + `List-Unsubscribe-Post` for mail-client one-click. Effective on that click — the address is suppressed across every organization and every sequence stops. The law allows 10 business days. **Opening the link (GET) changes nothing**: corporate link scanners open every link in an inbound email, and a GET opt-out would unsubscribe prospects the moment an email arrived. | `functions/api/sales/unsubscribe.js`, `sales-send-path.test.js` |
 | Opt-outs checked before every send | `sales_unsubscribes`, `campaign_unsubscribes` (a customer who left Añejo marketing is out of prospecting too), `email_suppressions` (bounces/complaints), contact + organization do-not-contact — at draft, at approval, and immediately before delivery. Fails closed if the check errors. | `isEmailBlocked` |
 | Footer cannot be removed | The footer is appended by the renderer, outside the editable body. | renderer test |
 | Volume | Daily cap (default 10, hard ceiling 40), weekday business hours only, one touch per contact per day, four-step maximum. | `sendApproved` |
@@ -44,14 +44,30 @@ resolves the `all` segment on email and SMS and asserts no prospect appears.
   a name and a domain; an owner-entered guess is stored as `unverified_guess` and is never sendable.
 - Evidence rows are text only and capped at 8 KB.
 
-## Google Places terms (owner / counsel)
+## Discovery sources and their terms
 
-Google Maps Platform terms restrict caching Places content other than place IDs (coordinates may be
-kept temporarily). The code stores the **place_id** as the external id and keeps the provider payload
-in an evidence row; the facts scoring relies on come from the organization's **own website**. Storing
-Places-derived name/address/phone long-term in a CRM is a terms question for the owner to decide
-before turning on automatic discovery. The CSV path (public licensure lists, owner lists) has no such
-restriction.
+**Google Places — NOT APPROVED, locked off.** Google Maps Platform terms restrict caching Places
+content other than place IDs, and a prospect CRM exists to persist organizations. The adapter stays
+in the code, isolated, but `sales.places_persistence_approved` is a **locked** flag (false in code;
+the settings API refuses it; a row written straight to `app_settings` is ignored). No discovery run —
+scheduled, the owner's "discover now", or a direct call to the provider — can reach Places, whether
+or not `GOOGLE_PLACES_API_KEY` / `GOOGLE_MAPS_API_KEY` is set. The Hub labels it "not approved for
+production". Unlocking it requires (1) counsel's reading of the current Maps Platform terms for this
+use, and (2) a deliberate code change to the lock — not a setting. Pinned by
+`test/compliance/sales-places-gate.test.js`.
+
+**CSV / manual — the approved production source for this release.** Recommended public lists
+(verify each source's current page and terms at download time; these were checked 2026-09-10):
+
+| Source | ICP coverage | Access | Terms as found |
+|---|---|---|---|
+| Florida AHCA **FloridaHealthFinder** facility locator — "Adult Day Care Center" | Licensed adult day care centers, with **licensed beds** (a real capacity signal) | Search → Download CSV/XLSX; imports as-is (File Number, Facility name, Street Address, City, Zip, Phone Number, Licensed Beds) | State public-records data; no reuse restriction stated on the page |
+| SAMHSA **FindTreatment.gov** (N-SUMHSS directory) | Behavioral-health and substance-use facilities, incl. service setting (residential / outpatient) | Download from the locator, or the documented keyless JSON API `findtreatment.gov/locator/exportsAsJson/v2` | U.S. Government work published under the **Open Database License** (data.gov) — internal use is fine; attribution and share-alike apply if a derived database is ever made public **(owner / counsel)** |
+| Florida DCF **SUD Provider Search** | Licensed substance-use providers | Interactive search only | Stated purpose "licensing verification and transparency" — use to **verify** a license, not as a marketing list |
+
+**Recommended next automated source:** a FindTreatment.gov adapter behind the existing provider
+interface (`functions/_lib/sales/discovery.js`). Not built in this release: the API's parameters were
+documented but not verified against live responses here, and nothing is integrated on guesswork.
 
 ## Health information
 

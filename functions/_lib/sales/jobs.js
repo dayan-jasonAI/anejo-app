@@ -7,7 +7,7 @@
 // harmless, and (5) writes an agent_runs row, the same trail every HUB automation leaves.
 import { id, now, toJson, etDateOf, etDayBounds } from '../hub.js';
 import { captureSystem } from '../track.js';
-import { discoverOrganizations, placesKey } from './discovery.js';
+import { discoverOrganizations, usableDiscoveryProvider } from './discovery.js';
 import { crawlOrganization } from './enrich.js';
 import { upsertOrganization, addContact, recordSource, scoreAndStore, logActivity, salesRow, salesRows } from './store.js';
 import { classifyCategory } from './scoring.js';
@@ -146,7 +146,10 @@ async function saveCursor(env, c) {
 export async function runDiscoveryTick(env, { cfg, fetchImpl, budgetMs = TICK_BUDGET_MS, atMs = Date.now(), ctx, maxCalls } = {}) {
   if (!cfg.flags['sales.enabled']) return { skipped: 'sales is switched off' };
   if (!ctx && !cfg.flags['sales.discovery_enabled']) return { skipped: 'discovery is switched off' };
-  if (!placesKey(env)) return { skipped: 'no discovery provider configured (GOOGLE_PLACES_API_KEY)', not_configured: true };
+  // A credential is never enough on its own: the provider must be APPROVED for persisting prospect
+  // records. In this release none is (Google Places is locked unapproved), so discovery is CSV/manual.
+  const provider = usableDiscoveryProvider(env, cfg.flags);
+  if (!provider) return { skipped: 'no approved automated discovery source in this release (Google Places is not approved for production prospect records) — use CSV import', not_configured: true };
   const started = Date.now();
   const { start, end } = etDayBounds(etDateOf(atMs));
   const createdToday = await salesRow(env, "SELECT COUNT(*) AS n FROM sales_organizations WHERE source = 'google_places' AND created_at >= ? AND created_at < ?", start, end);
@@ -160,7 +163,7 @@ export async function runDiscoveryTick(env, { cfg, fetchImpl, budgetMs = TICK_BU
   while (created < maxNew && calls < cfg.flags['sales.max_discovery_calls_per_day'] && out.calls < callCap && Date.now() - started < budgetMs) {
     const query = DISCOVERY_QUERIES[cur.qi % DISCOVERY_QUERIES.length];
     const area = DISCOVERY_AREAS[cur.ai % DISCOVERY_AREAS.length];
-    const r = await discoverOrganizations(env, { provider: 'google_places', query, area, cursor: cur.token, limit: 20, fetchImpl });
+    const r = await discoverOrganizations(env, { provider, approved: provider === usableDiscoveryProvider(env, cfg.flags), query, area, cursor: cur.token, limit: 20, fetchImpl });
     calls++; out.calls++;
     let made = 0;
     if (!r.ok) {
@@ -189,21 +192,38 @@ export async function runDiscoveryTick(env, { cfg, fetchImpl, budgetMs = TICK_BU
 
 // ---------------------------------------------------------------- entry point for the tick endpoint
 
-/** Run one named job with agent_runs logging. Never throws. */
-export async function runSalesJob(env, job, { cfg, fetchImpl, base, triggeredBy = 'cron', atMs } = {}) {
+/**
+ * Run one named job with agent_runs logging. Never throws.
+ *
+ * A job that is switched off, or finds nothing to do, returns 'skipped' and writes NOTHING — no
+ * agent_runs row, no automation.run event. With every flag at its default the scheduler fires about
+ * fifty times a day; the deployment must stay inert, not fill the owner's AI Ops log with no-ops.
+ */
+export async function runSalesJob(env, job, { cfg, fetchImpl, triggeredBy = 'cron', atMs } = {}) {
   const started = now();
   const type = `sales_${job}`;
   try {
     let output;
     if (job === 'discovery') output = await runDiscoveryTick(env, { cfg, fetchImpl, atMs });
-    else if (job === 'enrich') output = await runEnrichmentTick(env, { cfg, fetchImpl });
-    else if (job === 'followup') output = await draftDueFollowups(env, { cfg, base, atMs });
-    else if (job === 'send') output = await sendApproved(env, { cfg, base, atMs });
-    else if (job === 'metrics') output = cfg.flags['sales.enabled'] ? await funnel(env) : { skipped: 'sales is switched off' };
-    else return { ok: false, error: `Unknown job ${job}.` };
-    const outcome = output && output.skipped ? 'skipped' : 'success';
-    await logRun(env, type, started, outcome, output, null, triggeredBy);
-    return { ok: true, job, outcome, output };
+    else if (job === 'enrich') {
+      output = await runEnrichmentTick(env, { cfg, fetchImpl });
+      if (!output.skipped && !output.enriched) output = { ...output, skipped: 'nothing to research' };
+    } else if (job === 'followup') {
+      output = await draftDueFollowups(env, { cfg, atMs });
+      if (!output.skipped && !(output.drafted || output.completed || output.stopped)) output = { ...output, skipped: 'nothing due' };
+    } else if (job === 'send') {
+      if (!cfg.flags['sales.enabled'] || !cfg.flags['sales.email_enabled']) output = { skipped: 'prospect email is switched off' };
+      else {
+        const r = await sendApproved(env, { cfg, atMs });
+        output = (r.sent || r.failed || r.skipped || r.reapproval) ? r : { ...r, skipped: 'nothing sent' };
+      }
+    } else if (job === 'metrics') {
+      output = cfg.flags['sales.enabled'] ? await funnel(env) : { skipped: 'sales is switched off' };
+      if (!output.skipped && !output.organizations_discovered) output = { skipped: 'no prospects yet' };
+    } else return { ok: false, error: `Unknown job ${job}.` };
+    if (output && typeof output.skipped === 'string') return { ok: true, job, outcome: 'skipped', output };
+    await logRun(env, type, started, 'success', output, null, triggeredBy);
+    return { ok: true, job, outcome: 'success', output };
   } catch (e) {
     await logRun(env, type, started, 'failed', null, (e && e.message) || e, triggeredBy);
     return { ok: false, job, error: String((e && e.message) || e).slice(0, 300) };
