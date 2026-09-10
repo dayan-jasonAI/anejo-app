@@ -7,8 +7,8 @@
 // same product can never sell, because cheapestExact() always picks the cheaper combination —
 // so it is a silent revenue hole, not a cosmetic problem. Croquetas are the one exception and
 // they are modelled as two separate families precisely so the rule still holds within each.
-import { writeFileSync } from 'node:fs';
-import { PRODUCTS, SINGLES, TOSTONES, LUNCH, RETIRE } from './prices.mjs';
+import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
+import { PRODUCTS, SINGLES, TOSTONES, CAKES, LUNCH, RETIRE, FLAVOR_IMAGES, NAME_OVERRIDES } from './prices.mjs';
 
 const TS = Date.parse('2026-09-09T12:00:00Z');
 const ACTOR = 'Dayan ratified menu 2026-09-09';
@@ -80,6 +80,12 @@ for (const p of PRODUCTS) {
     }
   }
 }
+// Applied last, so a hand-corrected customer-facing name survives a regenerate.
+const displayName = (id, en, es) => {
+  const o = NAME_OVERRIDES[id];
+  return o ? { name: o[0], nameEs: o[1] } : { name: en, nameEs: es };
+};
+
 const seen = new Set();
 const claim = (id) => { if (seen.has(id)) problems.push(`duplicate SKU: ${id}`); seen.add(id); return id; };
 
@@ -97,21 +103,24 @@ for (const p of PRODUCTS) {
     const nameEn = f ? `${flavEn.charAt(0).toUpperCase()}${flavEn.slice(1)} ${p.label.toLowerCase()}` : p.label;
     const nameEs = f ? `${p.labelEs} de ${FLAVOR_ES[f] || f}` : p.labelEs;
     const suffix = f ? `-${f}` : '';
+    // A flavour's own photo where one was shot; otherwise the family's generic one. Never another
+    // flavour's picture standing in for it.
+    const photo = FLAVOR_IMAGES[`${p.base}${suffix}`] || p.image;
     if (p.single != null) {
-      rows.push({ id: claim(`traditional_${p.base}${suffix}`), cents: p.single, image: p.image, sort: sort++,
-        name: nameEn, nameEs });
+      const sid = claim(`traditional_${p.base}${suffix}`);
+      rows.push({ id: sid, cents: p.single, image: photo, sort: sort++, ...displayName(sid, nameEn, nameEs) });
     }
     for (const [size, cents] of p.trays) {
       const unitEn = p.unit === 'servings' ? 'servings' : p.unit;
       const unitEs = p.unit === 'servings' ? 'porciones' : p.unit === 'cups' ? 'vasitos' : p.unit === 'cajitas' ? 'cajitas' : 'unidades';
-      rows.push({ id: claim(`catering_${p.base}${suffix}-${size}`), cents, image: p.image, sort: sort++,
-        name: `${nameEn} — ${size} ${unitEn}${p.note ? ` (${p.note})` : ''}`,
-        nameEs: `${nameEs} — ${size} ${unitEs}` });
+      const tid = claim(`catering_${p.base}${suffix}-${size}`);
+      rows.push({ id: tid, cents, image: photo, sort: sort++,
+        ...displayName(tid, `${nameEn} — ${size} ${unitEn}${p.note ? ` (${p.note})` : ''}`, `${nameEs} — ${size} ${unitEs}`) });
     }
   }
 }
 for (const s of SINGLES) rows.push({ id: claim(s.id), cents: s.cents, image: s.image, sort: sort++, name: s.name, nameEs: s.nameEs });
-for (const t of TOSTONES) rows.push({ id: claim(t.id), cents: t.cents, image: null, sort: null, priceOnly: true });
+for (const t of [...TOSTONES, ...CAKES]) rows.push({ id: claim(t.id), cents: t.cents, image: null, sort: null, priceOnly: true });
 for (const l of LUNCH) rows.push({ id: claim(l.id), cents: l.cents, image: l.image || null, sort: null,
   name: l.name, nameEs: l.nameEs, priceOnly: !l.name });
 
@@ -167,4 +176,33 @@ for (const id of RETIRE) {
 }
 
 writeFileSync(new URL('../../migrations/0100_menu_2026_09.sql', import.meta.url), out.join('\n') + '\n');
-console.log('\nwrote migrations/0100_menu_2026_09.sql');
+
+// The same menu as a loadMenu()-shaped catalogue, so the money tests exercise the rows that are
+// about to be live rather than a snapshot of the menu they replace. Rows that only change price
+// keep whatever the previous catalogue said about them.
+const previous = new Map(JSON.parse(readFileSync(new URL('../../docs/menu-launch/catalog.json', import.meta.url), 'utf8'))
+  .map((r) => [r.id, r]));
+const catalog = rows.map((r) => {
+  const base = previous.get(r.id) || {};
+  return {
+    ...base,
+    id: r.id,
+    kind: base.kind || 'addon',
+    name: r.name || base.name || r.id,
+    name_es: r.nameEs || base.name_es || r.name || r.id,
+    price_cents: r.cents,
+    image: r.image || base.image || null,
+    sort: r.sort ?? base.sort ?? 500,
+    active: 1,
+  };
+});
+// Everything still live that the new table does not mention (bowls, drinks, sauces) carries over.
+const named = new Set(rows.map((r) => r.id));
+const retiring = new Set(RETIRE);
+for (const [id, row] of previous) {
+  if (!named.has(id) && !retiring.has(id)) catalog.push(row);
+}
+mkdirSync(new URL('../../docs/menu-2026-09/', import.meta.url), { recursive: true });
+writeFileSync(new URL('../../docs/menu-2026-09/catalog.json', import.meta.url), JSON.stringify(catalog, null, 2) + '\n');
+
+console.log(`\nwrote migrations/0100_menu_2026_09.sql and docs/menu-2026-09/catalog.json (${catalog.length} rows)`);

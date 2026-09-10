@@ -32,11 +32,45 @@ export const FLAVORS = {
 };
 
 // [size, cents] — the tray ladder for a family.
+// Per-flavour photography, where it EXISTS. Only pollo and res croquetas and the guava-and-cheese
+// empanada were ever shot individually; everything else falls back to the family's generic photo.
+// Without this, `image` is one value per family and every croqueta on the site shows the CHICKEN
+// one — ham, beef, chorizo, sausage and tuna included. A wrong photo of the right food is worse
+// than an honest generic: the customer only finds out when the box is opened.
+export const FLAVOR_IMAGES = {
+  'croq-pollo': 'menu-launch/food-croq-pollo.webp',
+  'croq-res': 'menu-launch/food-croq-res.webp',
+  'emp-guava': 'menu-launch/food-emp-guava.webp',
+  'cup-fresa': 'menu-launch/cup-fresa.webp',
+  'cup-chocolate': 'menu-launch/cup-chocolate.webp',
+};
+
+// Names read by customers, overriding what the label+flavour template would build. Each of these
+// was corrected by hand while reading the generated SQL before it went to production on
+// 2026-09-09, and they live here so a regenerate cannot quietly undo them:
+//   · a $3.25 SINGLE was being called a "platter" because the family label says platter
+//   · the skewer lost the description that tells you what is on it
+//   · "Cuban tamal" alone does not say it is three slices, which is what the price is for
+export const NAME_OVERRIDES = {
+  traditional_dressed: ['Dressed croqueta', 'Croqueta preparada'],
+  traditional_skewer: ['Grape, ham, guava, cheese & pineapple skewer', 'Pincho de uva, jamón, guayaba, queso y piña'],
+  'catering_skewer-10': ['Skewers — 10 pieces', 'Pinchos — 10 unidades'],
+  'catering_skewer-25': ['Skewers — 25 pieces', 'Pinchos — 25 unidades'],
+  'catering_skewer-50': ['Skewers — 50 pieces', 'Pinchos — 50 unidades'],
+  traditional_tamal: ['Cuban tamal — 3 slices', 'Tamal cubano — 3 rodajas'],
+  'catering_cup-fresa-10': ['Strawberry tres leches — 10 cups', 'Tres leches de fresa — 10 vasitos'],
+  'catering_cup-fresa-25': ['Strawberry tres leches — 25 cups', 'Tres leches de fresa — 25 vasitos'],
+  'catering_cup-fresa-50': ['Strawberry tres leches — 50 cups', 'Tres leches de fresa — 50 vasitos'],
+  'catering_cup-chocolate-10': ['Chocolate tres leches — 10 cups', 'Tres leches de chocolate — 10 vasitos'],
+  'catering_cup-chocolate-25': ['Chocolate tres leches — 25 cups', 'Tres leches de chocolate — 25 vasitos'],
+  'catering_cup-chocolate-50': ['Chocolate tres leches — 50 cups', 'Tres leches de chocolate — 50 vasitos'],
+};
+
 export const PRODUCTS = [
   // ---------------------------------------------------------------- croquetas (D1)
   { key: 'croq-box', base: 'croq', label: 'Croqueta', labelEs: 'Croqueta',
     flavors: FLAVORS.croqueta, single: 150, trays: [[10, 1000]], unit: 'pieces',
-    note: 'box — no sauce', image: 'menu-launch/food-croq-pollo.webp' },
+    note: 'box — no sauce', image: 'menu-launch/croqueta-single.webp' },
   { key: 'croq-platter', base: 'platter', label: 'Croqueta platter', labelEs: 'Bandeja de croquetas',
     flavors: FLAVORS.croqueta, single: null, trays: [[30, 3500], [60, 7000], [90, 10500]], unit: 'pieces',
     note: 'plated with sauces', image: 'menu-launch/tray-croquetas.webp' },
@@ -47,14 +81,14 @@ export const PRODUCTS = [
   // ---------------------------------------------------------------- empanadas (D4, D15)
   { key: 'empA', base: 'emp', label: 'Empanada', labelEs: 'Empanada',
     flavors: FLAVORS.empanadaA, single: 250, trays: [[10, 2500], [25, 5000], [50, 7500]], unit: 'pieces',
-    image: 'menu-launch/food-emp-guava.webp' },
+    image: 'menu-launch/empanada-single.webp' },
   { key: 'empB', base: 'emp', label: 'Empanada', labelEs: 'Empanada',
     flavors: FLAVORS.empanadaB, single: 275, trays: [[10, 3000], [25, 6000], [50, 11000]], unit: 'pieces',
     image: 'menu-launch/empanada-single.webp' },
   // Ropa vieja keeps its own higher price — unchanged, and explicitly kept (D15).
   { key: 'empRopa', base: 'emp', label: 'Empanada', labelEs: 'Empanada',
     flavors: ['ropa-vieja'], single: 400, trays: [[25, 8500], [50, 16500]], unit: 'pieces',
-    image: 'menu-launch/food-emp-guava.webp', unchanged: true },
+    image: 'menu-launch/empanada-single.webp', unchanged: true },
 
   // ---------------------------------------------------------------- bites
   { key: 'bomba', base: 'bomba', label: 'La Bomba Tropical', labelEs: 'La Bomba Tropical',
@@ -119,6 +153,13 @@ export const TOSTONES = [
   ...FLAVORS.tostonesB.map((f) => ({ id: `traditional_tostones-${f}`, cents: 325 })),
 ];
 
+// Both whole-cake ids carry the same product; pricing only one leaves the site showing $50
+// beside $45 for the same cake.
+export const CAKES = [
+  { id: 'traditional_cake-fresa', cents: 4500 },
+  { id: 'traditional_cake-chocolate', cents: 4500 },
+];
+
 // Lunch plates (D9, D10, D11).
 export const LUNCH = [
   { id: 'traditional_meal-tacos-pollo', cents: 1000 },
@@ -150,4 +191,6 @@ export const RETIRE = [
   'catering_dressed-25', 'catering_dressed-50',
   'traditional_salami', 'catering_salami-25', 'catering_salami-50',
   'catering_pizza-3',
+  // Superseded by the 10/25/50 cup ladder. Left active they would sit beside it at $60 for 12.
+  'catering_cups-fresa', 'catering_cups-chocolate',
 ];

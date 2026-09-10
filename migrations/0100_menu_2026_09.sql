@@ -8,14 +8,14 @@
 -- Retirement is active=0, never DELETE. Past orders reference these ids and must stay readable.
 
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_croq-jamon','addon','Ham croqueta','Croqueta de jamón',150,'menu-launch/food-croq-pollo.webp',100,1,1788955200000,1788955200000)
+  VALUES ('traditional_croq-jamon','addon','Ham croqueta','Croqueta de jamón',150,'menu-launch/croqueta-single.webp',100,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_croq-jamon','traditional_croq-jamon','price_cents',NULL,150,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_croq-jamon-10','addon','Ham croqueta — 10 pieces (box — no sauce)','Croqueta de jamón — 10 unidades',1000,'menu-launch/food-croq-pollo.webp',101,1,1788955200000,1788955200000)
+  VALUES ('catering_croq-jamon-10','addon','Ham croqueta — 10 pieces (box — no sauce)','Croqueta de jamón — 10 unidades',1000,'menu-launch/croqueta-single.webp',101,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -36,56 +36,56 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_croq-pollo-10','catering_croq-pollo-10','price_cents',NULL,1000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_croq-res','addon','Beef croqueta','Croqueta de res',150,'menu-launch/food-croq-pollo.webp',104,1,1788955200000,1788955200000)
+  VALUES ('traditional_croq-res','addon','Beef croqueta','Croqueta de res',150,'menu-launch/food-croq-res.webp',104,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_croq-res','traditional_croq-res','price_cents',NULL,150,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_croq-res-10','addon','Beef croqueta — 10 pieces (box — no sauce)','Croqueta de res — 10 unidades',1000,'menu-launch/food-croq-pollo.webp',105,1,1788955200000,1788955200000)
+  VALUES ('catering_croq-res-10','addon','Beef croqueta — 10 pieces (box — no sauce)','Croqueta de res — 10 unidades',1000,'menu-launch/food-croq-res.webp',105,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_croq-res-10','catering_croq-res-10','price_cents',NULL,1000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_croq-chorizo','addon','Chorizo croqueta','Croqueta de chorizo',150,'menu-launch/food-croq-pollo.webp',106,1,1788955200000,1788955200000)
+  VALUES ('traditional_croq-chorizo','addon','Chorizo croqueta','Croqueta de chorizo',150,'menu-launch/croqueta-single.webp',106,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_croq-chorizo','traditional_croq-chorizo','price_cents',NULL,150,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_croq-chorizo-10','addon','Chorizo croqueta — 10 pieces (box — no sauce)','Croqueta de chorizo — 10 unidades',1000,'menu-launch/food-croq-pollo.webp',107,1,1788955200000,1788955200000)
+  VALUES ('catering_croq-chorizo-10','addon','Chorizo croqueta — 10 pieces (box — no sauce)','Croqueta de chorizo — 10 unidades',1000,'menu-launch/croqueta-single.webp',107,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_croq-chorizo-10','catering_croq-chorizo-10','price_cents',NULL,1000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_croq-sausage','addon','Sausage croqueta','Croqueta de salchicha',150,'menu-launch/food-croq-pollo.webp',108,1,1788955200000,1788955200000)
+  VALUES ('traditional_croq-sausage','addon','Sausage croqueta','Croqueta de salchicha',150,'menu-launch/croqueta-single.webp',108,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_croq-sausage','traditional_croq-sausage','price_cents',NULL,150,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_croq-sausage-10','addon','Sausage croqueta — 10 pieces (box — no sauce)','Croqueta de salchicha — 10 unidades',1000,'menu-launch/food-croq-pollo.webp',109,1,1788955200000,1788955200000)
+  VALUES ('catering_croq-sausage-10','addon','Sausage croqueta — 10 pieces (box — no sauce)','Croqueta de salchicha — 10 unidades',1000,'menu-launch/croqueta-single.webp',109,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_croq-sausage-10','catering_croq-sausage-10','price_cents',NULL,1000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_croq-tuna','addon','Tuna croqueta','Croqueta de atún',150,'menu-launch/food-croq-pollo.webp',110,1,1788955200000,1788955200000)
+  VALUES ('traditional_croq-tuna','addon','Tuna croqueta','Croqueta de atún',150,'menu-launch/croqueta-single.webp',110,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_croq-tuna','traditional_croq-tuna','price_cents',NULL,150,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_croq-tuna-10','addon','Tuna croqueta — 10 pieces (box — no sauce)','Croqueta de atún — 10 unidades',1000,'menu-launch/food-croq-pollo.webp',111,1,1788955200000,1788955200000)
+  VALUES ('catering_croq-tuna-10','addon','Tuna croqueta — 10 pieces (box — no sauce)','Croqueta de atún — 10 unidades',1000,'menu-launch/croqueta-single.webp',111,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -218,7 +218,7 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_platter-tuna-90','catering_platter-tuna-90','price_cents',NULL,10500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_dressed','addon','Dressed croqueta platter','Bandeja de croquetas preparadas',325,'menu-launch/tray-dressed.webp',130,1,1788955200000,1788955200000)
+  VALUES ('traditional_dressed','addon','Dressed croqueta','Croqueta preparada',325,'menu-launch/tray-dressed.webp',130,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -274,140 +274,140 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-guava-50','catering_emp-guava-50','price_cents',NULL,7500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_emp-cheese','addon','Cheese empanada','Empanada de queso',250,'menu-launch/food-emp-guava.webp',138,1,1788955200000,1788955200000)
+  VALUES ('traditional_emp-cheese','addon','Cheese empanada','Empanada de queso',250,'menu-launch/empanada-single.webp',138,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_emp-cheese','traditional_emp-cheese','price_cents',NULL,250,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-cheese-10','addon','Cheese empanada — 10 pieces','Empanada de queso — 10 unidades',2500,'menu-launch/food-emp-guava.webp',139,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-cheese-10','addon','Cheese empanada — 10 pieces','Empanada de queso — 10 unidades',2500,'menu-launch/empanada-single.webp',139,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-cheese-10','catering_emp-cheese-10','price_cents',NULL,2500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-cheese-25','addon','Cheese empanada — 25 pieces','Empanada de queso — 25 unidades',5000,'menu-launch/food-emp-guava.webp',140,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-cheese-25','addon','Cheese empanada — 25 pieces','Empanada de queso — 25 unidades',5000,'menu-launch/empanada-single.webp',140,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-cheese-25','catering_emp-cheese-25','price_cents',NULL,5000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-cheese-50','addon','Cheese empanada — 50 pieces','Empanada de queso — 50 unidades',7500,'menu-launch/food-emp-guava.webp',141,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-cheese-50','addon','Cheese empanada — 50 pieces','Empanada de queso — 50 unidades',7500,'menu-launch/empanada-single.webp',141,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-cheese-50','catering_emp-cheese-50','price_cents',NULL,7500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_emp-ham','addon','Ham empanada','Empanada de jamón',250,'menu-launch/food-emp-guava.webp',142,1,1788955200000,1788955200000)
+  VALUES ('traditional_emp-ham','addon','Ham empanada','Empanada de jamón',250,'menu-launch/empanada-single.webp',142,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_emp-ham','traditional_emp-ham','price_cents',NULL,250,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-ham-10','addon','Ham empanada — 10 pieces','Empanada de jamón — 10 unidades',2500,'menu-launch/food-emp-guava.webp',143,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-ham-10','addon','Ham empanada — 10 pieces','Empanada de jamón — 10 unidades',2500,'menu-launch/empanada-single.webp',143,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-ham-10','catering_emp-ham-10','price_cents',NULL,2500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-ham-25','addon','Ham empanada — 25 pieces','Empanada de jamón — 25 unidades',5000,'menu-launch/food-emp-guava.webp',144,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-ham-25','addon','Ham empanada — 25 pieces','Empanada de jamón — 25 unidades',5000,'menu-launch/empanada-single.webp',144,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-ham-25','catering_emp-ham-25','price_cents',NULL,5000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-ham-50','addon','Ham empanada — 50 pieces','Empanada de jamón — 50 unidades',7500,'menu-launch/food-emp-guava.webp',145,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-ham-50','addon','Ham empanada — 50 pieces','Empanada de jamón — 50 unidades',7500,'menu-launch/empanada-single.webp',145,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-ham-50','catering_emp-ham-50','price_cents',NULL,7500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_emp-dulce','addon','Dulce de leche empanada','Empanada de dulce de leche',250,'menu-launch/food-emp-guava.webp',146,1,1788955200000,1788955200000)
+  VALUES ('traditional_emp-dulce','addon','Dulce de leche empanada','Empanada de dulce de leche',250,'menu-launch/empanada-single.webp',146,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_emp-dulce','traditional_emp-dulce','price_cents',NULL,250,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-dulce-10','addon','Dulce de leche empanada — 10 pieces','Empanada de dulce de leche — 10 unidades',2500,'menu-launch/food-emp-guava.webp',147,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-dulce-10','addon','Dulce de leche empanada — 10 pieces','Empanada de dulce de leche — 10 unidades',2500,'menu-launch/empanada-single.webp',147,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-dulce-10','catering_emp-dulce-10','price_cents',NULL,2500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-dulce-25','addon','Dulce de leche empanada — 25 pieces','Empanada de dulce de leche — 25 unidades',5000,'menu-launch/food-emp-guava.webp',148,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-dulce-25','addon','Dulce de leche empanada — 25 pieces','Empanada de dulce de leche — 25 unidades',5000,'menu-launch/empanada-single.webp',148,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-dulce-25','catering_emp-dulce-25','price_cents',NULL,5000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-dulce-50','addon','Dulce de leche empanada — 50 pieces','Empanada de dulce de leche — 50 unidades',7500,'menu-launch/food-emp-guava.webp',149,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-dulce-50','addon','Dulce de leche empanada — 50 pieces','Empanada de dulce de leche — 50 unidades',7500,'menu-launch/empanada-single.webp',149,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-dulce-50','catering_emp-dulce-50','price_cents',NULL,7500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_emp-ham-cheese','addon','Ham & cheese empanada','Empanada de jamón y queso',250,'menu-launch/food-emp-guava.webp',150,1,1788955200000,1788955200000)
+  VALUES ('traditional_emp-ham-cheese','addon','Ham & cheese empanada','Empanada de jamón y queso',250,'menu-launch/empanada-single.webp',150,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_emp-ham-cheese','traditional_emp-ham-cheese','price_cents',NULL,250,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-ham-cheese-10','addon','Ham & cheese empanada — 10 pieces','Empanada de jamón y queso — 10 unidades',2500,'menu-launch/food-emp-guava.webp',151,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-ham-cheese-10','addon','Ham & cheese empanada — 10 pieces','Empanada de jamón y queso — 10 unidades',2500,'menu-launch/empanada-single.webp',151,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-ham-cheese-10','catering_emp-ham-cheese-10','price_cents',NULL,2500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-ham-cheese-25','addon','Ham & cheese empanada — 25 pieces','Empanada de jamón y queso — 25 unidades',5000,'menu-launch/food-emp-guava.webp',152,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-ham-cheese-25','addon','Ham & cheese empanada — 25 pieces','Empanada de jamón y queso — 25 unidades',5000,'menu-launch/empanada-single.webp',152,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-ham-cheese-25','catering_emp-ham-cheese-25','price_cents',NULL,5000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-ham-cheese-50','addon','Ham & cheese empanada — 50 pieces','Empanada de jamón y queso — 50 unidades',7500,'menu-launch/food-emp-guava.webp',153,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-ham-cheese-50','addon','Ham & cheese empanada — 50 pieces','Empanada de jamón y queso — 50 unidades',7500,'menu-launch/empanada-single.webp',153,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-ham-cheese-50','catering_emp-ham-cheese-50','price_cents',NULL,7500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_emp-guava-only','addon','Guava empanada','Empanada de guayaba',250,'menu-launch/food-emp-guava.webp',154,1,1788955200000,1788955200000)
+  VALUES ('traditional_emp-guava-only','addon','Guava empanada','Empanada de guayaba',250,'menu-launch/empanada-single.webp',154,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_emp-guava-only','traditional_emp-guava-only','price_cents',NULL,250,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-guava-only-10','addon','Guava empanada — 10 pieces','Empanada de guayaba — 10 unidades',2500,'menu-launch/food-emp-guava.webp',155,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-guava-only-10','addon','Guava empanada — 10 pieces','Empanada de guayaba — 10 unidades',2500,'menu-launch/empanada-single.webp',155,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-guava-only-10','catering_emp-guava-only-10','price_cents',NULL,2500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-guava-only-25','addon','Guava empanada — 25 pieces','Empanada de guayaba — 25 unidades',5000,'menu-launch/food-emp-guava.webp',156,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-guava-only-25','addon','Guava empanada — 25 pieces','Empanada de guayaba — 25 unidades',5000,'menu-launch/empanada-single.webp',156,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-guava-only-25','catering_emp-guava-only-25','price_cents',NULL,5000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-guava-only-50','addon','Guava empanada — 50 pieces','Empanada de guayaba — 50 unidades',7500,'menu-launch/food-emp-guava.webp',157,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-guava-only-50','addon','Guava empanada — 50 pieces','Empanada de guayaba — 50 unidades',7500,'menu-launch/empanada-single.webp',157,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -526,21 +526,21 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-res-50','catering_emp-res-50','price_cents',NULL,11000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_emp-ropa-vieja','addon','Ropa vieja empanada','Empanada de ropa vieja',400,'menu-launch/food-emp-guava.webp',174,1,1788955200000,1788955200000)
+  VALUES ('traditional_emp-ropa-vieja','addon','Ropa vieja empanada','Empanada de ropa vieja',400,'menu-launch/empanada-single.webp',174,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_emp-ropa-vieja','traditional_emp-ropa-vieja','price_cents',NULL,400,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-ropa-vieja-25','addon','Ropa vieja empanada — 25 pieces','Empanada de ropa vieja — 25 unidades',8500,'menu-launch/food-emp-guava.webp',175,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-ropa-vieja-25','addon','Ropa vieja empanada — 25 pieces','Empanada de ropa vieja — 25 unidades',8500,'menu-launch/empanada-single.webp',175,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_emp-ropa-vieja-25','catering_emp-ropa-vieja-25','price_cents',NULL,8500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_emp-ropa-vieja-50','addon','Ropa vieja empanada — 50 pieces','Empanada de ropa vieja — 50 unidades',16500,'menu-launch/food-emp-guava.webp',176,1,1788955200000,1788955200000)
+  VALUES ('catering_emp-ropa-vieja-50','addon','Ropa vieja empanada — 50 pieces','Empanada de ropa vieja — 50 unidades',16500,'menu-launch/empanada-single.webp',176,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -631,28 +631,28 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_bocadito-atun-50','catering_bocadito-atun-50','price_cents',NULL,5000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_skewer','addon','Skewer','Brocheta',300,'menu-launch/food-skewer.webp',189,1,1788955200000,1788955200000)
+  VALUES ('traditional_skewer','addon','Grape, ham, guava, cheese & pineapple skewer','Pincho de uva, jamón, guayaba, queso y piña',300,'menu-launch/food-skewer.webp',189,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_skewer','traditional_skewer','price_cents',NULL,300,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_skewer-10','addon','Skewer — 10 pieces','Brocheta — 10 unidades',3000,'menu-launch/food-skewer.webp',190,1,1788955200000,1788955200000)
+  VALUES ('catering_skewer-10','addon','Skewers — 10 pieces','Pinchos — 10 unidades',3000,'menu-launch/food-skewer.webp',190,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_skewer-10','catering_skewer-10','price_cents',NULL,3000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_skewer-25','addon','Skewer — 25 pieces','Brocheta — 25 unidades',6500,'menu-launch/food-skewer.webp',191,1,1788955200000,1788955200000)
+  VALUES ('catering_skewer-25','addon','Skewers — 25 pieces','Pinchos — 25 unidades',6500,'menu-launch/food-skewer.webp',191,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_skewer-25','catering_skewer-25','price_cents',NULL,6500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_skewer-50','addon','Skewer — 50 pieces','Brocheta — 50 unidades',10000,'menu-launch/food-skewer.webp',192,1,1788955200000,1788955200000)
+  VALUES ('catering_skewer-50','addon','Skewers — 50 pieces','Pinchos — 50 unidades',10000,'menu-launch/food-skewer.webp',192,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -1009,7 +1009,7 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_verde-50','catering_verde-50','price_cents',NULL,6000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_tamal','addon','Cuban tamal','Tamal cubano',450,'menu-launch/tamal-single.webp',243,1,1788955200000,1788955200000)
+  VALUES ('traditional_tamal','addon','Cuban tamal — 3 slices','Tamal cubano — 3 rodajas',450,'menu-launch/tamal-single.webp',243,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -1044,49 +1044,49 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_cup-fresa','traditional_cup-fresa','price_cents',NULL,550,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-fresa-10','addon','Strawberry tres leches cup — 10 cups','Vasito de tres leches de fresa — 10 vasitos',4000,'menu-launch/cup-fresa.webp',248,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-fresa-10','addon','Strawberry tres leches — 10 cups','Tres leches de fresa — 10 vasitos',4000,'menu-launch/cup-fresa.webp',248,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_cup-fresa-10','catering_cup-fresa-10','price_cents',NULL,4000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-fresa-25','addon','Strawberry tres leches cup — 25 cups','Vasito de tres leches de fresa — 25 vasitos',7000,'menu-launch/cup-fresa.webp',249,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-fresa-25','addon','Strawberry tres leches — 25 cups','Tres leches de fresa — 25 vasitos',7000,'menu-launch/cup-fresa.webp',249,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_cup-fresa-25','catering_cup-fresa-25','price_cents',NULL,7000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-fresa-50','addon','Strawberry tres leches cup — 50 cups','Vasito de tres leches de fresa — 50 vasitos',11000,'menu-launch/cup-fresa.webp',250,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-fresa-50','addon','Strawberry tres leches — 50 cups','Tres leches de fresa — 50 vasitos',11000,'menu-launch/cup-fresa.webp',250,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_cup-fresa-50','catering_cup-fresa-50','price_cents',NULL,11000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_cup-chocolate','addon','Chocolate tres leches cup','Vasito de tres leches de chocolate',550,'menu-launch/cup-fresa.webp',251,1,1788955200000,1788955200000)
+  VALUES ('traditional_cup-chocolate','addon','Chocolate tres leches cup','Vasito de tres leches de chocolate',550,'menu-launch/cup-chocolate.webp',251,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_cup-chocolate','traditional_cup-chocolate','price_cents',NULL,550,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-chocolate-10','addon','Chocolate tres leches cup — 10 cups','Vasito de tres leches de chocolate — 10 vasitos',4000,'menu-launch/cup-fresa.webp',252,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-chocolate-10','addon','Chocolate tres leches — 10 cups','Tres leches de chocolate — 10 vasitos',4000,'menu-launch/cup-chocolate.webp',252,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_cup-chocolate-10','catering_cup-chocolate-10','price_cents',NULL,4000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-chocolate-25','addon','Chocolate tres leches cup — 25 cups','Vasito de tres leches de chocolate — 25 vasitos',7000,'menu-launch/cup-fresa.webp',253,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-chocolate-25','addon','Chocolate tres leches — 25 cups','Tres leches de chocolate — 25 vasitos',7000,'menu-launch/cup-chocolate.webp',253,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_cup-chocolate-25','catering_cup-chocolate-25','price_cents',NULL,7000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-chocolate-50','addon','Chocolate tres leches cup — 50 cups','Vasito de tres leches de chocolate — 50 vasitos',11000,'menu-launch/cup-fresa.webp',254,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-chocolate-50','addon','Chocolate tres leches — 50 cups','Tres leches de chocolate — 50 vasitos',11000,'menu-launch/cup-chocolate.webp',254,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -1176,6 +1176,12 @@ INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,chang
 UPDATE menu_items SET price_cents=325, updated_at=1788955200000 WHERE id='traditional_tostones-shrimp';
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_tostones-shrimp','traditional_tostones-shrimp','price_cents',NULL,325,'Dayan ratified menu 2026-09-09',1788955200000);
+UPDATE menu_items SET price_cents=4500, updated_at=1788955200000 WHERE id='traditional_cake-fresa';
+INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
+  VALUES ('m2609-traditional_cake-fresa','traditional_cake-fresa','price_cents',NULL,4500,'Dayan ratified menu 2026-09-09',1788955200000);
+UPDATE menu_items SET price_cents=4500, updated_at=1788955200000 WHERE id='traditional_cake-chocolate';
+INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
+  VALUES ('m2609-traditional_cake-chocolate','traditional_cake-chocolate','price_cents',NULL,4500,'Dayan ratified menu 2026-09-09',1788955200000);
 UPDATE menu_items SET price_cents=1000, updated_at=1788955200000 WHERE id='traditional_meal-tacos-pollo';
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_meal-tacos-pollo','traditional_meal-tacos-pollo','price_cents',NULL,1000,'Dayan ratified menu 2026-09-09',1788955200000);
@@ -1303,3 +1309,9 @@ INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,chang
 UPDATE menu_items SET active=0, updated_at=1788955200000 WHERE id='catering_pizza-3';
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-retire-catering_pizza-3','catering_pizza-3','availability:retired',NULL,NULL,'Dayan ratified menu 2026-09-09',1788955200000);
+UPDATE menu_items SET active=0, updated_at=1788955200000 WHERE id='catering_cups-fresa';
+INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
+  VALUES ('m2609-retire-catering_cups-fresa','catering_cups-fresa','availability:retired',NULL,NULL,'Dayan ratified menu 2026-09-09',1788955200000);
+UPDATE menu_items SET active=0, updated_at=1788955200000 WHERE id='catering_cups-chocolate';
+INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
+  VALUES ('m2609-retire-catering_cups-chocolate','catering_cups-chocolate','availability:retired',NULL,NULL,'Dayan ratified menu 2026-09-09',1788955200000);
