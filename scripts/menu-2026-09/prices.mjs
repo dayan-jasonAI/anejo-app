@@ -45,6 +45,27 @@ export const FLAVOR_IMAGES = {
   'cup-chocolate': 'menu-launch/cup-chocolate.webp',
 };
 
+// Names read by customers, overriding what the label+flavour template would build. Each of these
+// was corrected by hand while reading the generated SQL before it went to production on
+// 2026-09-09, and they live here so a regenerate cannot quietly undo them:
+//   · a $3.25 SINGLE was being called a "platter" because the family label says platter
+//   · the skewer lost the description that tells you what is on it
+//   · "Cuban tamal" alone does not say it is three slices, which is what the price is for
+export const NAME_OVERRIDES = {
+  traditional_dressed: ['Dressed croqueta', 'Croqueta preparada'],
+  traditional_skewer: ['Grape, ham, guava, cheese & pineapple skewer', 'Pincho de uva, jamón, guayaba, queso y piña'],
+  'catering_skewer-10': ['Skewers — 10 pieces', 'Pinchos — 10 unidades'],
+  'catering_skewer-25': ['Skewers — 25 pieces', 'Pinchos — 25 unidades'],
+  'catering_skewer-50': ['Skewers — 50 pieces', 'Pinchos — 50 unidades'],
+  traditional_tamal: ['Cuban tamal — 3 slices', 'Tamal cubano — 3 rodajas'],
+  'catering_cup-fresa-10': ['Strawberry tres leches — 10 cups', 'Tres leches de fresa — 10 vasitos'],
+  'catering_cup-fresa-25': ['Strawberry tres leches — 25 cups', 'Tres leches de fresa — 25 vasitos'],
+  'catering_cup-fresa-50': ['Strawberry tres leches — 50 cups', 'Tres leches de fresa — 50 vasitos'],
+  'catering_cup-chocolate-10': ['Chocolate tres leches — 10 cups', 'Tres leches de chocolate — 10 vasitos'],
+  'catering_cup-chocolate-25': ['Chocolate tres leches — 25 cups', 'Tres leches de chocolate — 25 vasitos'],
+  'catering_cup-chocolate-50': ['Chocolate tres leches — 50 cups', 'Tres leches de chocolate — 50 vasitos'],
+};
+
 export const PRODUCTS = [
   // ---------------------------------------------------------------- croquetas (D1)
   { key: 'croq-box', base: 'croq', label: 'Croqueta', labelEs: 'Croqueta',

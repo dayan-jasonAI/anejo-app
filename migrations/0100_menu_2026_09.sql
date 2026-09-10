@@ -218,7 +218,7 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_platter-tuna-90','catering_platter-tuna-90','price_cents',NULL,10500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_dressed','addon','Dressed croqueta platter','Bandeja de croquetas preparadas',325,'menu-launch/tray-dressed.webp',130,1,1788955200000,1788955200000)
+  VALUES ('traditional_dressed','addon','Dressed croqueta','Croqueta preparada',325,'menu-launch/tray-dressed.webp',130,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -631,28 +631,28 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_bocadito-atun-50','catering_bocadito-atun-50','price_cents',NULL,5000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_skewer','addon','Skewer','Brocheta',300,'menu-launch/food-skewer.webp',189,1,1788955200000,1788955200000)
+  VALUES ('traditional_skewer','addon','Grape, ham, guava, cheese & pineapple skewer','Pincho de uva, jamón, guayaba, queso y piña',300,'menu-launch/food-skewer.webp',189,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_skewer','traditional_skewer','price_cents',NULL,300,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_skewer-10','addon','Skewer — 10 pieces','Brocheta — 10 unidades',3000,'menu-launch/food-skewer.webp',190,1,1788955200000,1788955200000)
+  VALUES ('catering_skewer-10','addon','Skewers — 10 pieces','Pinchos — 10 unidades',3000,'menu-launch/food-skewer.webp',190,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_skewer-10','catering_skewer-10','price_cents',NULL,3000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_skewer-25','addon','Skewer — 25 pieces','Brocheta — 25 unidades',6500,'menu-launch/food-skewer.webp',191,1,1788955200000,1788955200000)
+  VALUES ('catering_skewer-25','addon','Skewers — 25 pieces','Pinchos — 25 unidades',6500,'menu-launch/food-skewer.webp',191,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_skewer-25','catering_skewer-25','price_cents',NULL,6500,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_skewer-50','addon','Skewer — 50 pieces','Brocheta — 50 unidades',10000,'menu-launch/food-skewer.webp',192,1,1788955200000,1788955200000)
+  VALUES ('catering_skewer-50','addon','Skewers — 50 pieces','Pinchos — 50 unidades',10000,'menu-launch/food-skewer.webp',192,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -1009,7 +1009,7 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_verde-50','catering_verde-50','price_cents',NULL,6000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('traditional_tamal','addon','Cuban tamal','Tamal cubano',450,'menu-launch/tamal-single.webp',243,1,1788955200000,1788955200000)
+  VALUES ('traditional_tamal','addon','Cuban tamal — 3 slices','Tamal cubano — 3 rodajas',450,'menu-launch/tamal-single.webp',243,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -1044,21 +1044,21 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_cup-fresa','traditional_cup-fresa','price_cents',NULL,550,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-fresa-10','addon','Strawberry tres leches cup — 10 cups','Vasito de tres leches de fresa — 10 vasitos',4000,'menu-launch/cup-fresa.webp',248,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-fresa-10','addon','Strawberry tres leches — 10 cups','Tres leches de fresa — 10 vasitos',4000,'menu-launch/cup-fresa.webp',248,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_cup-fresa-10','catering_cup-fresa-10','price_cents',NULL,4000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-fresa-25','addon','Strawberry tres leches cup — 25 cups','Vasito de tres leches de fresa — 25 vasitos',7000,'menu-launch/cup-fresa.webp',249,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-fresa-25','addon','Strawberry tres leches — 25 cups','Tres leches de fresa — 25 vasitos',7000,'menu-launch/cup-fresa.webp',249,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_cup-fresa-25','catering_cup-fresa-25','price_cents',NULL,7000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-fresa-50','addon','Strawberry tres leches cup — 50 cups','Vasito de tres leches de fresa — 50 vasitos',11000,'menu-launch/cup-fresa.webp',250,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-fresa-50','addon','Strawberry tres leches — 50 cups','Tres leches de fresa — 50 vasitos',11000,'menu-launch/cup-fresa.webp',250,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
@@ -1072,21 +1072,21 @@ INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,creat
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-traditional_cup-chocolate','traditional_cup-chocolate','price_cents',NULL,550,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-chocolate-10','addon','Chocolate tres leches cup — 10 cups','Vasito de tres leches de chocolate — 10 vasitos',4000,'menu-launch/cup-chocolate.webp',252,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-chocolate-10','addon','Chocolate tres leches — 10 cups','Tres leches de chocolate — 10 vasitos',4000,'menu-launch/cup-chocolate.webp',252,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_cup-chocolate-10','catering_cup-chocolate-10','price_cents',NULL,4000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-chocolate-25','addon','Chocolate tres leches cup — 25 cups','Vasito de tres leches de chocolate — 25 vasitos',7000,'menu-launch/cup-chocolate.webp',253,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-chocolate-25','addon','Chocolate tres leches — 25 cups','Tres leches de chocolate — 25 vasitos',7000,'menu-launch/cup-chocolate.webp',253,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;
 INSERT OR IGNORE INTO menu_price_log (id,item_id,field,old_cents,new_cents,changed_by,created_at)
   VALUES ('m2609-catering_cup-chocolate-25','catering_cup-chocolate-25','price_cents',NULL,7000,'Dayan ratified menu 2026-09-09',1788955200000);
 INSERT INTO menu_items (id,kind,name,name_es,price_cents,image,sort,active,created_at,updated_at)
-  VALUES ('catering_cup-chocolate-50','addon','Chocolate tres leches cup — 50 cups','Vasito de tres leches de chocolate — 50 vasitos',11000,'menu-launch/cup-chocolate.webp',254,1,1788955200000,1788955200000)
+  VALUES ('catering_cup-chocolate-50','addon','Chocolate tres leches — 50 cups','Tres leches de chocolate — 50 vasitos',11000,'menu-launch/cup-chocolate.webp',254,1,1788955200000,1788955200000)
   ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_es=excluded.name_es,
     price_cents=excluded.price_cents, image=COALESCE(excluded.image, menu_items.image),
     sort=excluded.sort, active=1, updated_at=1788955200000;

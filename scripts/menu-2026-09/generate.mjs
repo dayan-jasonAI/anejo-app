@@ -8,7 +8,7 @@
 // so it is a silent revenue hole, not a cosmetic problem. Croquetas are the one exception and
 // they are modelled as two separate families precisely so the rule still holds within each.
 import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
-import { PRODUCTS, SINGLES, TOSTONES, CAKES, LUNCH, RETIRE, FLAVOR_IMAGES } from './prices.mjs';
+import { PRODUCTS, SINGLES, TOSTONES, CAKES, LUNCH, RETIRE, FLAVOR_IMAGES, NAME_OVERRIDES } from './prices.mjs';
 
 const TS = Date.parse('2026-09-09T12:00:00Z');
 const ACTOR = 'Dayan ratified menu 2026-09-09';
@@ -80,6 +80,12 @@ for (const p of PRODUCTS) {
     }
   }
 }
+// Applied last, so a hand-corrected customer-facing name survives a regenerate.
+const displayName = (id, en, es) => {
+  const o = NAME_OVERRIDES[id];
+  return o ? { name: o[0], nameEs: o[1] } : { name: en, nameEs: es };
+};
+
 const seen = new Set();
 const claim = (id) => { if (seen.has(id)) problems.push(`duplicate SKU: ${id}`); seen.add(id); return id; };
 
@@ -101,15 +107,15 @@ for (const p of PRODUCTS) {
     // flavour's picture standing in for it.
     const photo = FLAVOR_IMAGES[`${p.base}${suffix}`] || p.image;
     if (p.single != null) {
-      rows.push({ id: claim(`traditional_${p.base}${suffix}`), cents: p.single, image: photo, sort: sort++,
-        name: nameEn, nameEs });
+      const sid = claim(`traditional_${p.base}${suffix}`);
+      rows.push({ id: sid, cents: p.single, image: photo, sort: sort++, ...displayName(sid, nameEn, nameEs) });
     }
     for (const [size, cents] of p.trays) {
       const unitEn = p.unit === 'servings' ? 'servings' : p.unit;
       const unitEs = p.unit === 'servings' ? 'porciones' : p.unit === 'cups' ? 'vasitos' : p.unit === 'cajitas' ? 'cajitas' : 'unidades';
-      rows.push({ id: claim(`catering_${p.base}${suffix}-${size}`), cents, image: photo, sort: sort++,
-        name: `${nameEn} — ${size} ${unitEn}${p.note ? ` (${p.note})` : ''}`,
-        nameEs: `${nameEs} — ${size} ${unitEs}` });
+      const tid = claim(`catering_${p.base}${suffix}-${size}`);
+      rows.push({ id: tid, cents, image: photo, sort: sort++,
+        ...displayName(tid, `${nameEn} — ${size} ${unitEn}${p.note ? ` (${p.note})` : ''}`, `${nameEs} — ${size} ${unitEs}`) });
     }
   }
 }
