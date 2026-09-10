@@ -61,6 +61,20 @@ const EXTRA_ENDPOINTS = {
   // autopay-tick short-circuits on one settings read when the contracts switch is off, which is
   // the default — so scheduling it costs nothing until Dayan turns it on.
   '20 * * * *': ['/api/hub/admin/abandoned-tick', '/api/hub/admin/autopay-tick'],
+  // Sales OS (2026-09). EVERY one of these no-ops on a single settings read while its feature flag
+  // is off, which is the production default for all but metrics — scheduling them sends nothing and
+  // discovers nothing until Dayan switches each job on in Sales → Settings.
+  //   send     — hourly at :40; only owner-APPROVED emails, inside the ET business-hours window,
+  //              under the daily cap. The endpoint enforces the window itself, so hourly is safe.
+  //   enrich   — hourly at :25; a few organizations' websites per tick.
+  //   discovery— daily ≈ 8:15am ET; bounded by the daily new-prospect and API-call caps.
+  //   followup — daily ≈ 7:10am ET; DRAFTS due follow-ups into the approval queue. Never sends.
+  //   metrics  — nightly ≈ 11:50pm ET; funnel snapshot into agent_runs.
+  '40 * * * *': ['/api/hub/admin/sales-tick?job=send'],
+  '25 * * * *': ['/api/hub/admin/sales-tick?job=enrich'],
+  '15 12 * * *': ['/api/hub/admin/sales-tick?job=discovery'],
+  '10 11 * * *': ['/api/hub/admin/sales-tick?job=followup'],
+  '50 3 * * *': ['/api/hub/admin/sales-tick?job=metrics'],
 };
 
 // Endpoints POSTed on EVERY minute tick (frequent sweeps).

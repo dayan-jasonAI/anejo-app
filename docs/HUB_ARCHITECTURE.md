@@ -123,9 +123,10 @@ even split guarantees. Long labels ellipsis instead of spilling.
 it to that role's `NAV` array *without* `primary: true`; the split is then automatic. Two
 implementations do the same job, so edit the one your role uses:
 - **owner** — `Owner.renderNav()` in `public/hub/owner/assets/owner.js`, which has carried its own
-  primary/overflow split since the bar was fixed. Owner's `NAV` is **16 destinations and 5 primary**;
-  the other 11 all live in the sheet, which is exactly why 16 entries still render 6 slots.
-  (`test/ui/hub-nav-overflow.test.js` asserts the 16 — this doc said 17 and was wrong.)
+  primary/overflow split since the bar was fixed. Owner's `NAV` is **17 destinations and 5 primary**;
+  the other 12 all live in the sheet, which is exactly why 17 entries still render 6 slots.
+  (`test/ui/hub-nav-overflow.test.js` asserts the 17. The 17th is **Sales**, added 2026-09-10 to the
+  More sheet, not the bar.)
 - **kitchen / driver / marketing / shared pages** — `Hub.renderNavWithMore()` in
   `public/hub/assets/hub.js`, fed by `NAVS[role]`. `Owner.renderNav` delegates here for any
   non-owner role, so the marketing expert sees the same bar on her pages and on the owner pages
@@ -169,6 +170,28 @@ Automations are registered in `automations` (type, schedule, config, enabled) an
 - **Anthropic** powers the reasoning (route optimization, daily summaries, restock forecasting, ticket triage, sentiment scan, payroll prep). All AI work is `actor_type='system'` so it is separable from human activity in analysis and excluded from adoption metrics.
 - **"Learns from daily ops" loop (Phase 3):** automations read recent `activity_log` / `agent_runs` / outcomes as context, so suggestions improve from observed history.
 
+## Sales OS — institutional acquisition (2026-09)
+
+The left-hand side of the customer lifecycle: **market → organization → contact → score →
+opportunity → outreach → reply → proposal → contract account**. It ends by calling the existing
+`registerAccount()` / `activateAccount()` in `_lib/contract.js`, so a won prospect lands in the same
+contract-account operation DGP runs on. Full map: **`docs/SALES_OS_ARCHITECTURE.md`**.
+
+| Layer | Where |
+|---|---|
+| Schema | `migrations/0103_sales_os.sql` — `sales_*` tables, additive, no CHECK constraints |
+| Engine (reusable) | `functions/_lib/sales/{normalize,scoring,store,discovery,enrich,brief,outreach,convert,metrics,jobs,config}.js` |
+| Añejo configuration | `functions/_lib/sales/anejo.js` — ICP categories, service area, discovery queries, offer/proof/sender defaults |
+| Owner API (owner-only) | `functions/api/hub/owner/sales/{index,outreach,settings,deal}.js` |
+| Scheduled jobs | `functions/api/hub/admin/sales-tick.js?job=…`, wired in `cron/worker.js`; every job no-ops while its flag is off |
+| Public | `functions/for/[token].js` (landing page), `functions/api/sales/{request,landing-event,unsubscribe}.js` |
+| Owner UI | `public/hub/owner/sales.html` (More sheet) |
+
+Two laws it adds to the HUB: **no prospect email is sent without the owner approving the exact
+previewed email** (approval carries the preview's `render_hash`; auto-send is locked off), and
+**prospects are never part of a Broadcast audience** — cold outreach has its own domain, its own
+opt-out list, and no SMS or voice path.
+
 ## Environment & secrets
 
-Bindings: `DB` (D1), `SESSIONS` (KV). Env vars: `RESEND_API_KEY`, `ANTHROPIC_API_KEY`, Square vars, **`TWILIO_*`** (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` / `TWILIO_MESSAGING_SERVICE_SID`, `TWILIO_WHATSAPP_FROM`), **`POSTHOG_KEY`** / **`POSTHOG_HOST`**. All optional libs no-op without their credentials (sandbox/test posture). **Secrets are never hardcoded; the kitchen street address never appears in any public-facing file (use "Palm Beach County").**
+Bindings: `DB` (D1), `SESSIONS` (KV). Env vars: `RESEND_API_KEY`, `ANTHROPIC_API_KEY`, Square vars, **`TWILIO_*`** (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` / `TWILIO_MESSAGING_SERVICE_SID`, `TWILIO_WHATSAPP_FROM`), **`POSTHOG_KEY`** / **`POSTHOG_HOST`**, **`GOOGLE_PLACES_API_KEY`** (Sales OS discovery; falls back to `GOOGLE_MAPS_API_KEY` if the Places API is enabled on it). All optional libs no-op without their credentials (sandbox/test posture). **Secrets are never hardcoded; the kitchen street address never appears in any public-facing file (use "Palm Beach County").**
