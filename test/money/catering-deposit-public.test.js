@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { makeD1 } from '../helpers/d1.js';
 import { onRequestPost } from '../../functions/api/catering-deposit.js';
 
-const items = JSON.parse(readFileSync(new URL('../../docs/menu-launch/catalog.json', import.meta.url)));
+const items = JSON.parse(readFileSync(new URL('../../docs/menu-2026-09/catalog.json', import.meta.url)));
 
 // A day comfortably past the 48-hour rule, in ET.
 const FAR = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
@@ -77,21 +77,21 @@ test('the total is recomputed from the live menu — a browser cannot name its o
   const sq = stubSquare();
   const { env } = makeEnv();
   try {
-    // $240 lechón tray + $105 yuca tray = $345. The body screams a different number in every
-    // field a tampering client might try.
+    // $85 lechón 25-tray + $45 yuca 25-tray = $130.00, at the 2026-09 ratified prices. The body
+    // screams a different number in every field a tampering client might try.
     const res = await call(env, {
       ...GOOD, products: CART,
       total_cents: 1, subtotal_cents: 1, discount_cents: 99999, deposit_cents: 1, amount: 1,
     });
     assert.equal(res.status, 200);
     const data = await res.json();
-    assert.equal(data.total_cents, 34500, 'the menu decides, not the request body');
-    assert.equal(data.deposit_cents, 17250, '50% of $345.00');
-    assert.equal(data.balance_cents, 17250);
+    assert.equal(data.total_cents, 13000, 'the menu decides, not the request body');
+    assert.equal(data.deposit_cents, 6500, '50% of $130.00');
+    assert.equal(data.balance_cents, 6500);
     assert.equal(data.deposit_cents + data.balance_cents, data.total_cents);
     // And Square was asked for the DEPOSIT, not the total or the client's number.
     const charged = JSON.stringify(sq.calls[0].body);
-    assert.ok(charged.includes('17250'), 'Square must be asked for the recomputed deposit');
+    assert.ok(charged.includes('6500'), 'Square must be asked for the recomputed deposit');
     assert.ok(!charged.includes('99999'));
   } finally { sq.restore(); }
 });
@@ -100,11 +100,11 @@ test('the volume discount is applied before the deposit is taken', async () => {
   const sq = stubSquare();
   const { env } = makeEnv();
   try {
-    // Four lechón trays = $960 → $23 off (5% of the $460 above $500) → $937.
-    const res = await call(env, { ...GOOD, products: [{ id: 'lechon', quantity: 100 }] });
+    // Four $160 fifty-trays = $640 → $7 off (5% of the $140 above $500) → $633.
+    const res = await call(env, { ...GOOD, products: [{ id: 'lechon', quantity: 200 }] });
     const data = await res.json();
-    assert.equal(data.total_cents, 93700, 'the customer is not deposited against the undiscounted price');
-    assert.equal(data.deposit_cents, 46850);
+    assert.equal(data.total_cents, 63300, 'the customer is not deposited against the undiscounted price');
+    assert.equal(data.deposit_cents, 31650);
   } finally { sq.restore(); }
 });
 
@@ -140,7 +140,7 @@ test('a selection with nothing priceable is sent to a human instead of a card re
   const sq = stubSquare();
   const { env } = makeEnv();
   try {
-    const res = await call(env, { ...GOOD, products: [{ id: 'cajita-standard', quantity: 10 }] });
+    const res = await call(env, { ...GOOD, products: [{ id: 'custom-1', quantity: 30, notes: 'themed boxes' }] });
     assert.equal(res.status, 400);
     assert.match((await res.json()).error, /quote/i);
     assert.equal(sq.calls.length, 0);
@@ -174,8 +174,8 @@ test('a priced line still books even when another line needs a hand quote', asyn
     const res = await call(env, { ...GOOD, products: [...CART, { id: 'custom-1', quantity: 30, notes: 'themed boxes' }] });
     assert.equal(res.status, 200, 'the food is bookable; the custom work is quoted separately');
     const data = await res.json();
-    assert.equal(data.total_cents, 34500, 'and the unpriced line is NOT charged for');
-    assert.equal(JSON.parse(JSON.stringify(sq.calls[0].body)).order.line_items[0].base_price_money.amount, 17250, 'the card is charged 50% of the priced food only');
+    assert.equal(data.total_cents, 13000, 'and the unpriced line is NOT charged for');
+    assert.equal(JSON.parse(JSON.stringify(sq.calls[0].body)).order.line_items[0].base_price_money.amount, 6500, 'the card is charged 50% of the priced food only');
     assert.ok(data.unpriced.length, 'the response tells the page what is still to be quoted');
 
     // The warning belongs on the QUOTE ROW, which is what Dayan reads in the Hub when he picks

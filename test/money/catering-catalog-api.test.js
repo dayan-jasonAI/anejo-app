@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { onRequestGet } from '../../functions/api/catering-catalog.js';
 import { estimateCateringProducts } from '../../functions/_lib/catering-estimate.js';
 
-const items = JSON.parse(readFileSync(new URL('../../docs/menu-launch/catalog.json', import.meta.url)));
+const items = JSON.parse(readFileSync(new URL('../../docs/menu-2026-09/catalog.json', import.meta.url)));
 const envWith = (rows) => ({ DB: { prepare: (sql) => ({ all: async () => ({ results: sql.includes('menu_items') ? rows : [] }) }) } });
 const get = async (rows = items) => (await onRequestGet({ env: envWith(rows), request: new Request('https://example.com/api/catering-catalog') })).json();
 const find = (data, id) => data.products.find((p) => p.id === id);
@@ -26,19 +26,23 @@ test('every product carries a price and an image so nothing is picked blind', as
 
 test('the tray sizes offered are the ones the menu actually publishes', async () => {
   const data = await get();
-  assert.deepEqual(find(data, 'lechon').packs.map((p) => p.size), [1, 10, 25]);
-  assert.deepEqual(find(data, 'skewer').packs.map((p) => p.size), [1, 25, 50]);
-  assert.deepEqual(find(data, 'cup-fresa').packs.map((p) => p.size), [1, 12], 'dessert cups come by the 12');
-  assert.deepEqual(find(data, 'pizza').packs.map((p) => p.size), [1, 3]);
+  // Dayan's 2026-09 ratification put 10 / 25 / 50 on every tray item (D-list, 2026-09-09), so the
+  // sizes below are read straight off scripts/menu-2026-09/prices.mjs, not off the old ladders.
+  assert.deepEqual(find(data, 'lechon').packs.map((p) => p.size), [1, 10, 25, 50]);
+  assert.deepEqual(find(data, 'skewer').packs.map((p) => p.size), [1, 10, 25, 50]);
+  assert.deepEqual(find(data, 'cup-fresa').packs.map((p) => p.size), [1, 10, 25, 50],
+    'the 12-cup pack was retired; cups now come on the same 10/25/50 ladder as everything else');
+  // catering_pizza-3 was retired. The single is all the menu publishes, so it is all we offer.
+  assert.deepEqual(find(data, 'pizza').packs.map((p) => p.size), [1]);
 });
 
 test('yuca is offered — the product that made Dayan file his own order as a custom request', async () => {
   const yuca = find(await get(), 'yuca');
   assert.ok(yuca, 'yuca must be a first-class product now');
-  assert.equal(yuca.unit_cents, 550);
-  assert.deepEqual(yuca.packs.map((p) => p.size), [1, 10, 25]);
-  // The 25 tray at $105 is the cheapest way to buy a serving; that is the headline price.
-  assert.equal(yuca.from_cents, 420);
+  assert.equal(yuca.unit_cents, 350, 'the ratified single is $3.50');
+  assert.deepEqual(yuca.packs.map((p) => p.size), [1, 10, 25, 30, 50]);
+  // The 50 tray at $65 works out to $1.30 a serving, the cheapest route in; that is the headline.
+  assert.equal(yuca.from_cents, 130);
 });
 
 test('a price shown here is a price the estimator charges — never a shop-window number', async () => {
@@ -52,17 +56,15 @@ test('a price shown here is a price the estimator charges — never a shop-windo
 });
 
 test('the 10/25/50 buttons the picker offers are prices the estimator actually charges', async () => {
-  // Dayan asked for 10 / 25 / 50 on every tray item. The menu publishes no product with all three
-  // — servings come as 10 and 25, pieces as 25 and 50, dessert cups by the 12 — so the picker
-  // builds the missing sizes out of the trays that exist and labels them with the exact cost.
-  // That label is only honest if the server charges the same, which is what this pins.
+  // Dayan asked for 10 / 25 / 50 on every tray item and the 2026-09 menu publishes exactly that,
+  // so most of these are now a single tray rather than a combination the picker had to invent.
+  // The label is only honest if the server charges the same, which is what this pins.
   const m = { source: 'd1', items };
   const cases = [
-    [{ id: 'lechon', quantity: 50 }, 48000, 'two $240 trays, not a rounded-up 3rd'],
-    [{ id: 'skewer', quantity: 10 }, 3000, 'ten singles — no 10-tray exists'],
-    [{ id: 'yuca', quantity: 50 }, 21000, 'two $105 trays'],
-    // The cheapest exact combination is 12 + 12 + 1 at $125.50, NOT 25 singles at $137.50.
-    [{ id: 'cup-fresa', quantity: 25 }, 12550, 'two 12-packs and a single'],
+    [{ id: 'lechon', quantity: 50 }, 16000, 'the published $160 fifty-tray'],
+    [{ id: 'skewer', quantity: 10 }, 3000, 'the $30 ten-tray — the menu carries one now'],
+    [{ id: 'yuca', quantity: 50 }, 6500, 'the $65 fifty-tray'],
+    [{ id: 'cup-fresa', quantity: 25 }, 7000, 'the $70 twenty-five-tray, not 25 singles at $137.50'],
   ];
   for (const [row, cents, why] of cases) {
     const priced = estimateCateringProducts([row], m);
@@ -73,48 +75,39 @@ test('the 10/25/50 buttons the picker offers are prices the estimator actually c
 
 test('flavours are priced individually, and an unpriced filling stays visible instead of vanishing', async () => {
   const croqueta = find(await get(), 'croqueta');
-  assert.equal(croqueta.flavors.ham.from_cents, 150, 'the 50 tray at $75 is $1.50 a piece');
-  assert.equal(croqueta.flavors.chicken.from_cents, 150);
-  // Chorizo, sausage, tuna are real kitchen items with no published tray. They must still be
-  // offerable — Dayan's order had a sausage croqueta line — but with no invented price.
-  assert.equal(croqueta.flavors.sausage.from_cents, null);
-  assert.deepEqual(croqueta.flavors.sausage.packs, []);
+  // 'croqueta' is the BOX: ten loose croquetas, no sauce, $10.00 — a dollar apiece. The sauced
+  // platter is a separate product on its own thirties ladder, deliberately not folded in here.
+  assert.equal(croqueta.flavors.ham.from_cents, 100, 'the $10 box of ten is $1.00 a piece');
+  assert.equal(croqueta.flavors.chicken.from_cents, 100);
+  // Chorizo, sausage and tuna were the fillings the old menu cooked but never published. The
+  // 2026-09 ratification prices all six, which is what closed Dayan's own unquotable order.
+  assert.equal(croqueta.flavors.sausage.from_cents, 100);
+  assert.deepEqual(croqueta.flavors.sausage.packs.map((p) => p.size), [1, 10]);
   assert.ok(croqueta.flavors.sausage.en, 'and it still has a name to show');
 });
 
 test('every filling the form offers can be priced — verified against production', async () => {
-  // The snapshot fixture predates the 2026-09-08 menu expansion. These rows were read out of the
-  // live D1 on 2026-09-09; they are here so the mapping is pinned against what production really
-  // publishes, not against a fixture that lags it. The gap they close is concrete: a 50-piece
-  // sausage croqueta line on a real order came back "quoted after review" while a $75 tray for
-  // exactly that item was already on sale.
-  const LIVE_EXTRA = [
-    ['croq-chorizo', 250, 4000, 7500], ['croq-sausage', 250, 4000, 7500], ['croq-tuna', 250, 4000, 7500],
-    ['emp-cheese', 350, 7500, 14500], ['emp-ham', 350, 7500, 14500], ['emp-tuna', 350, 7500, 14500],
-    ['emp-pollo', 350, 7500, 14500], ['emp-res', 350, 7500, 14500], ['emp-ham-cheese', 350, 7500, 14500],
-    ['emp-guava-only', 350, 7500, 14500], ['emp-ropa-vieja', 400, 8500, 16500],
-    ['emp-pulled-pork', 350, 7500, 14500],
-  ];
-  const rows = structuredClone(items);
-  for (const [base, one, t25, t50] of LIVE_EXTRA) {
-    rows.push({ id: `traditional_${base}`, kind: 'addon', price_cents: one, active: 1, image: `menu-launch/food-${base}.webp` });
-    rows.push({ id: `catering_${base}-25`, kind: 'addon', price_cents: t25, active: 1, image: `menu-launch/food-${base}-25.webp` });
-    rows.push({ id: `catering_${base}-50`, kind: 'addon', price_cents: t50, active: 1, image: `menu-launch/food-${base}-50.webp` });
-  }
-  const menu = { source: 'd1', items: rows };
+  // This test used to bolt extra rows onto the fixture, because the fixture lagged what production
+  // published. It no longer needs to: the fixture IS the ratified 2026-09 menu, generated from
+  // scripts/menu-2026-09/prices.mjs and applied to production on 2026-09-10. Anything asserted
+  // here is asserted against the same table the live site reads.
+  //
+  // The gap this closes is concrete and was Dayan's own order: a 50-piece SAUSAGE croqueta line
+  // came back "quoted after review" because the menu cooked that filling and never priced it.
+  const menu = { source: 'd1', items };
 
-  // The exact line from the real order, at the real published price.
+  // The exact line from that order, at the ratified price: croquetas by the box are $10 for ten.
   const sausage = estimateCateringProducts([{ id: 'croqueta', quantity: 50, flavor: 'sausage' }], menu);
-  assert.equal(sausage.subtotal_cents, 7500, '50 sausage croquetas are one $75 tray');
+  assert.equal(sausage.subtotal_cents, 5000, '50 sausage croquetas are five $10 boxes');
   assert.equal(sausage.checkout_eligible, true, 'and buyable, not "quoted after review"');
-  assert.deepEqual(sausage.items, [{ id: 'catering_croq-sausage-50', qty: 1 }]);
+  assert.deepEqual(sausage.items, [{ id: 'catering_croq-sausage-10', qty: 5 }]);
 
-  // Ropa vieja is the one empanada priced differently; it must not inherit the $75/$145 pair.
+  // Ropa vieja is the one empanada priced apart and must not inherit the ordinary ladder.
   assert.equal(estimateCateringProducts([{ id: 'empanada', quantity: 50, flavor: 'ropa-vieja' }], menu).subtotal_cents, 16500);
-  assert.equal(estimateCateringProducts([{ id: 'empanada', quantity: 50, flavor: 'cheese' }], menu).subtotal_cents, 14500);
+  assert.equal(estimateCateringProducts([{ id: 'empanada', quantity: 50, flavor: 'cheese' }], menu).subtotal_cents, 7500);
 
-  // EVERY filling the picker offers must now carry a price.
-  const data = await get(rows);
+  // EVERY filling the picker offers must carry a price.
+  const data = await get();
   for (const product of ['croqueta', 'empanada']) {
     const entry = data.products.find((p) => p.id === product);
     for (const [key, f] of Object.entries(entry.flavors)) {
@@ -125,9 +118,11 @@ test('every filling the form offers can be priced — verified against productio
 });
 
 test('a filling with genuinely no published tray is still quoted by a person', async () => {
-  // The rule did not change, only the list of what qualifies. With the SNAPSHOT menu (which has
-  // no sausage SKUs), sausage must still refuse rather than invent a price.
-  const s = estimateCateringProducts([{ id: 'croqueta', quantity: 50, flavor: 'sausage' }], { source: 'd1', items });
+  // The rule did not change, only the list of what qualifies — the 2026-09 menu prices all six
+  // croqueta fillings, so no filling is unpublished today. The rule still has to hold the day one
+  // goes off the menu, which is what this builds: sausage with every sausage row taken away.
+  const rows = structuredClone(items).filter((x) => !/sausage/.test(x.id));
+  const s = estimateCateringProducts([{ id: 'croqueta', quantity: 50, flavor: 'sausage' }], { source: 'd1', items: rows });
   assert.equal(s.checkout_eligible, false, 'nothing may be sold at a price the menu does not publish');
   assert.equal(s.subtotal_cents, 0);
   assert.equal(s.unpriced.length, 1, 'and the line is reported, not dropped');
@@ -136,6 +131,30 @@ test('a filling with genuinely no published tray is still quoted by a person', a
   // 'unavailable_exact_quantity' when it maps to SKUs the menu is not currently publishing. Both
   // refuse; the distinction tells whoever is reading whether to add a mapping or a menu row.
   assert.ok(['needs_custom_price', 'unavailable_exact_quantity'].includes(s.unpriced[0].reason));
+});
+
+// The check that would have caught both ways this has broken: FLAVOR_FAMILIES.roll spelled its
+// fillings 'ham' and 'tuna' while the form spells them 'ham-spread' and 'tuna-spread', so no
+// Hawaiian roll could ever be priced; and salami stayed on the form after migration 0100 retired
+// it. Neither is visible from a single product's test — only from asking the whole form at once.
+test('every product the form lists can be priced, except the bowls and the custom lines', async () => {
+  const data = await get();
+  // Fit bowls are configured in the bowl editor and refused by this path on purpose; a custom
+  // line is by definition unpriced. Everything else the customer can see must carry a price.
+  // cajita-custom is custom by id rather than by flag — functions/_lib/catering-products.js
+  // special-cases it the same way, because it is the one product whose price is the conversation.
+  const exempt = (p) => p.custom || p.addon || /^fit-/.test(p.id) || p.id === 'cajita-custom';
+  const unpriced = data.products.filter((p) => !exempt(p) && p.from_cents == null).map((p) => p.id);
+  assert.deepEqual(unpriced, [], 'listed on the order form with no published price');
+
+  // And the same rule one level down: a filling the picker offers must resolve to a SKU too.
+  const orphanFlavors = [];
+  for (const p of data.products) {
+    for (const [key, f] of Object.entries(p.flavors || {})) {
+      if (f.from_cents == null) orphanFlavors.push(`${p.id}·${key}`);
+    }
+  }
+  assert.deepEqual(orphanFlavors, [], 'offered as a filling but mapped to nothing the menu prices');
 });
 
 test('sauces are flagged as add-ons rather than a category to browse', async () => {
@@ -151,8 +170,10 @@ test('a sold-out or unpublished tray disappears from the shop window, not just f
   rows.find((x) => x.id === 'catering_yuca-25').availability = 'sold_out';
   rows.find((x) => x.id === 'catering_yuca-10').active = 0;
   const yuca = find(await get(rows), 'yuca');
-  assert.deepEqual(yuca.packs.map((p) => p.size), [1], 'only the single serving is still buyable');
-  assert.equal(yuca.from_cents, 550);
+  assert.deepEqual(yuca.packs.map((p) => p.size), [1, 30, 50],
+    'the two withdrawn trays are gone from the window; the two still published stay');
+  // $65 for 50 is $1.30 a serving — the cheapest route left once the 10 and the 25 are pulled.
+  assert.equal(yuca.from_cents, 130);
 });
 
 test('custom lines are listed with no price at all, never a zero', async () => {

@@ -1,4 +1,10 @@
-// Shared by the public selector and server validation. Prices are quoted after review.
+// Shared by the public selector and server validation.
+//
+// EVERY id here must resolve to a published price, or the customer is shown a product they cannot
+// buy. The only exceptions are the Fit bowls (which go through the bowl editor) and the explicitly
+// custom lines. test/money/catering-catalog-api.test.js pins that, because two ways of breaking it
+// have already shipped: a mapping whose flavor keys did not match this file's, and a product left
+// listed after the menu retired it.
 export const cateringProducts = [
   ...['FUEGO', 'LIGERO', 'MAR', 'RAÍZ', 'COCO', 'VIDA', 'CONGREEN'].map((name) => ({ id: `fit-${name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`, category: 'Añejo Fit Menu', en: `${name} bowl`, es: `Bowl ${name}`, unit: ['bowls', 'bowls'] })),
   { id: 'lechon', category: 'Cuban Food', en: 'Roast pork · 6 oz per serving', es: 'Lechón asado · 6 oz por porción', unit: ['servings', 'porciones'] },
@@ -9,7 +15,6 @@ export const cateringProducts = [
   { id: 'croqueta', category: 'Cuban Food', en: 'Croqueta · 1.20 oz fried', es: 'Croqueta · 1.20 oz frita', unit: ['pieces', 'unidades'], flavorKey: 'croqueta' },
   { id: 'salad', category: 'Cuban Food', en: 'Cold macaroni salad · 6 oz per serving', es: 'Ensalada fría de coditos · 6 oz por porción', unit: ['servings', 'porciones'] },
   { id: 'skewer', category: 'Cuban Food', en: 'Grape, ham, guava, cheese & pineapple skewer', es: 'Pincho de uva, jamón, guayaba, queso y piña', unit: ['pieces', 'unidades'] },
-  { id: 'tres-leches', category: 'Cuban Food', en: 'Tres leches cup · 3–4 oz', es: 'Vasito de tres leches · 3–4 oz', unit: ['cups', 'vasitos'] },
   // Added 2026-09-09. Every one of these has had a published tray price on the live menu all
   // along; none of them was offered here, so ordering any of them meant filing an "Other custom
   // request" that no instant quote could price. Yuca is the one that broke Dayan's own order.
@@ -17,7 +22,6 @@ export const cateringProducts = [
   { id: 'salad-fresh', category: 'Cuban Food', en: 'Ensalada fresca · 6 oz per serving', es: 'Ensalada fresca · 6 oz por porción', unit: ['servings', 'porciones'] },
   { id: 'croqueta-dressed', category: 'Cuban Food', en: 'Dressed croqueta', es: 'Croqueta vestida', unit: ['pieces', 'unidades'] },
   { id: 'bomba', category: 'Cuban Food', en: 'La Bomba Tropical', es: 'La Bomba Tropical', unit: ['pieces', 'unidades'] },
-  { id: 'salami-bite', category: 'Cuban Food', en: 'Salami, cheese & grape bite', es: 'Bocado de salami, queso y uva', unit: ['pieces', 'unidades'] },
   { id: 'pizza', category: 'Cuban Food', en: 'Ham, pepperoni & red onion pizza', es: 'Pizza de jamón, pepperoni y cebolla morada', unit: ['servings', 'porciones'] },
   { id: 'cup-fresa', category: 'Cuban Food', en: 'Tres leches de Fresa · cup', es: 'Tres leches de Fresa · vasito', unit: ['cups', 'vasitos'] },
   { id: 'cup-chocolate', category: 'Cuban Food', en: 'Tres leches de Chocolate · cup', es: 'Tres leches de Chocolate · vasito', unit: ['cups', 'vasitos'] },

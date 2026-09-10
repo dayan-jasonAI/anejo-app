@@ -3,16 +3,20 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { estimateCateringProducts } from '../../functions/_lib/catering-estimate.js';
 
-const catalog = JSON.parse(readFileSync(new URL('../../docs/menu-launch/catalog.json', import.meta.url)));
+const catalog = JSON.parse(readFileSync(new URL('../../docs/menu-2026-09/catalog.json', import.meta.url)));
 const menu = () => ({ source: 'd1', items: structuredClone(catalog) });
 const estimate = (rows, m = menu(), options) => estimateCateringProducts(rows, m, options);
 
 test('live tray and singles pricing preserves exact quantities at cheapest published price', () => {
+  // 76 ham croquetas. The 2026-09 menu sells the plain croqueta in boxes of ten at $10 and
+  // singles at $1.50, so the only exact route to 76 is seven boxes and six singles — $79.00.
+  // (The 30/60/90 platters are a DIFFERENT product and must not be substituted in here; if they
+  // ever were, this would come back as two platters plus change and cost the customer more.)
   const result = estimate([{ id: 'croqueta', flavor: 'ham', quantity: 76 }]);
-  assert.equal(result.subtotal_cents, 7500 + 4000 + 250);
+  assert.equal(result.subtotal_cents, 7 * 1000 + 6 * 150);
   assert.equal(result.checkout_eligible, true);
   assert.deepEqual(new Map(result.items.map(x => [x.id, x.qty])), new Map([
-    ['traditional_croq-jamon', 1], ['catering_croq-jamon-25', 1], ['catering_croq-jamon-50', 1],
+    ['traditional_croq-jamon', 6], ['catering_croq-jamon-10', 7],
   ]));
 });
 
@@ -40,7 +44,12 @@ test('out of stock packs can use exact available alternatives, never a fallback 
 });
 
 test('bespoke notes, missing price equivalence and unknown flavors never silently enter checkout', () => {
-  for (const row of [{id:'roll',flavor:'ham-spread'}, {id:'tres-leches'}, {id:'cajita-standard'}, {id:'croqueta',flavor:'tuna'}, {id:'empanada',flavor:'beef'}]) {
+  // cajita-standard, tuna croquetas, beef empanadas and the ham-spread Hawaiian roll USED to be
+  // here. The 2026-09 menu publishes all of them, so they are priced now — that is the menu doing
+  // its job. What must still refuse: a flavour nobody sells, a product with no mapping at all,
+  // and the bespoke cajita, whose price depends on work that has not been scoped yet.
+  for (const row of [{id:'tres-leches'}, {id:'cajita-custom'},
+                     {id:'croqueta',flavor:'lobster'}, {id:'empanada',flavor:'nutella'}]) {
     const result = estimate([{...row,quantity:1}]);
     assert.equal(result.checkout_eligible, false);
     assert.equal(result.unpriced.length, 1);
@@ -56,12 +65,12 @@ test('bespoke notes, missing price equivalence and unknown flavors never silentl
   assert.equal(result.needs_review, true);
   assert.equal(result.checkout_eligible, false, 'nothing else in this order was priced');
   assert.equal(result.unpriced[0].reason, 'custom_request');
-  assert.equal(result.unpriced[0].indicative_cents, 1095, 'the Hub still gets a starting number');
+  assert.equal(result.unpriced[0].indicative_cents, 650, 'the Hub still gets a starting number');
 
   // The same note alongside a clean line sells the clean one and holds the noted one back.
   const mixed = estimate([{id:'lechon',quantity:2}, {id:'lechon',quantity:1,notes:'no salt'}]);
   assert.equal(mixed.checkout_eligible, true);
-  assert.equal(mixed.subtotal_cents, 2190, 'two plain servings, not three');
+  assert.equal(mixed.subtotal_cents, 1300, 'two plain servings, not three');
   assert.equal(mixed.unpriced.length, 1);
 
   // An event-level design request no longer withholds the food price.
@@ -74,7 +83,7 @@ test('invalid selections and invalid prices fail closed; 5000 pieces remain exac
   m.items = [{id:'traditional_lechon',kind:'addon',price_cents:NaN}];
   assert.equal(estimate([{id:'lechon',quantity:1}],m).checkout_eligible,false);
   const result = estimate([{id:'croqueta',flavor:'ham',quantity:5000}]);
-  assert.deepEqual(result.items,[{id:'catering_croq-jamon-50',qty:100}]);
+  assert.deepEqual(result.items,[{id:'catering_croq-jamon-10',qty:500}]);
 });
 
 test('Fit IDs map only recognized orderable live bowls', () => {
