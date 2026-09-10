@@ -345,18 +345,26 @@
     var el = document.getElementById('q-sent');
     if (!el) return;
     var to = document.getElementById('q-email').value.trim();
+    var phone = document.getElementById('q-phone').value.trim();
     el.innerHTML = '<div class="card" style="margin-top:12px">' +
       '<p><b>Created. Nothing has been sent.</b></p>' +
       '<p class="row-sub">Read the preview above one more time. When you are happy, this emails it to ' +
         esc(to || 'the address on the quote') + ' and texts her if she consented to texts.</p>' +
+      '<label style="display:flex;gap:8px;align-items:center;margin:0 0 10px">' +
+        '<input id="q-send-sms" type="checkbox" style="width:auto"' + (phone ? '' : ' disabled') + '>' +
+        '<span>' + (phone ? 'Also text it to ' + esc(phone) : 'No phone number on this quote — email only') + '</span></label>' +
       '<button class="btn gold block" id="q-send-now" type="button">Send it to her now</button>' +
       (created.quote_url ? '<p class="row-sub" style="margin-top:8px">Or send it yourself: <code>' + esc(created.quote_url) + '</code></p>' : '') +
       '</div>';
     document.getElementById('q-send-now').addEventListener('click', function () {
       var btn = this;
-      if (!window.confirm('Email this quote to ' + (to || 'the customer') + ' now?')) return;
+      if (!window.confirm('Email this quote to ' + (to || 'the customer')
+        + (document.getElementById('q-send-sms').checked ? ' and text ' + phone : '') + ' now?')) return;
       btn.disabled = true;
-      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'send', quote_id: created.quote_id } }).then(function (r) {
+      // The text is opt-in per send and it is the owner authorising it, not a consent flag being
+      // read off a row that has none. Unchecked means email only.
+      var wantsSms = document.getElementById('q-send-sms').checked;
+      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'send', quote_id: created.quote_id, sms: wantsSms } }).then(function (r) {
         btn.disabled = false;
         if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not send it'); return; }
         // sendQuote reports each channel separately: { email: {sent, skipped}, sms: {...} }.

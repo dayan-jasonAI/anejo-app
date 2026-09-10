@@ -11,6 +11,7 @@
 // itemisation. These tests pin that his lines now ARE the quote.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { normalizeQuoteLines, MAX_LINES } from '../../functions/_lib/catering_quote_lines.js';
 
 const line = (over = {}) => ({ name: 'Lechón asado', qty: '30', cents: 9500, ...over });
@@ -280,4 +281,19 @@ test('creating a quote contacts nobody, even if the body asks nicely', () => {
     assert.equal(res.status, 200, `send: ${JSON.stringify(b.send)} must still create`);
     assert.deepEqual(sent, [], `send: ${JSON.stringify(b.send)} must not contact the customer`);
   }), Promise.resolve()).finally(() => { globalThis.fetch = realFetch; sq.restore(); });
+});
+
+test('the owner-initiated text is his decision, not a consent flag read off a row that has none', () => {
+  // sendQuote gates SMS on row.sms_consent, and catering_quotes HAS NO SUCH COLUMN — it arrives
+  // from the lead at creation. So a quote read back from the table always looks unconsented, and
+  // every owner-initiated text silently skipped as "no SMS consent on file". That is a dead end
+  // dressed as a policy, and it is exactly the wall Dayan hit trying to text Karina her link.
+  //
+  // What must NOT happen as the fix: writing a consent into leads. That would also license future
+  // marketing to her, which is not the owner's to grant on her behalf.
+  const src = readFileSync(new URL('../../functions/api/hub/owner/catering-deposit.js', import.meta.url), 'utf8');
+  assert.match(src, /const owed = b\.sms === true;/, 'texting is opt-in per send, and only boolean true counts');
+  assert.match(src, /owed \? \{ \.\.\.row, sms_consent: 1 \} : row/, 'and it is applied to the send, not persisted');
+  assert.doesNotMatch(src, /UPDATE\s+leads[\s\S]{0,120}sms_consent/i, 'no consent may be written back onto the lead');
+  assert.match(src, /sms_authorized_by_owner/, 'and the response records who authorised it');
 });

@@ -254,8 +254,28 @@ export const onRequestPost = async ({ request, env }) => {
     if (!row) return bad('No such quote.', 404);
     if (!row.payment_link_url) return bad('That quote has no deposit link — create it again.');
 
-    const r = await sendQuote(env, row, { baseUrl: appBaseUrl(env, request), force: b.force === true });
-    return json({ ok: true, delivery: r, quote_url: quoteUrl(row.access_token, appBaseUrl(env, request)) });
+    // TEXTING IS AN EXPLICIT DECISION HERE, NOT A LOOKUP.
+    //
+    // sendQuote gates SMS on `row.sms_consent`, which arrives from the LEAD at creation time —
+    // catering_quotes has no such column, so a quote read back out of the table always looks
+    // unconsented and every owner-initiated text would silently skip as "no SMS consent on file".
+    // That is a dead end dressed as a policy.
+    //
+    // What is true instead: the owner, who has the relationship, is authorising one transactional
+    // message about a quote this customer asked for. He says so per send. Nothing is written into
+    // `leads.sms_consent` — inventing a consent the customer never gave would also license future
+    // marketing to her, which is a different thing entirely and not his to grant on her behalf.
+    const owed = b.sms === true;
+    const r = await sendQuote(env, owed ? { ...row, sms_consent: 1 } : row, {
+      baseUrl: appBaseUrl(env, request),
+      force: b.force === true,
+    });
+    return json({
+      ok: true,
+      delivery: r,
+      sms_authorized_by_owner: owed,
+      quote_url: quoteUrl(row.access_token, appBaseUrl(env, request)),
+    });
   }
 
   if (op === 'preview') {
