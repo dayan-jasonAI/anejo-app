@@ -16,7 +16,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { onRequestGet, onRequestPost } from '../../functions/api/hub/owner/catering-deposit.js';
-import { DEPOSIT_PCT, TERMS_VERSION } from '../../functions/_lib/catering_terms.js';
+import { termsFor, DEPOSIT_PCT, TERMS_VERSION } from '../../functions/_lib/catering_terms.js';
 
 const DESK = readFileSync(new URL('../../public/hub/owner/catering.html', import.meta.url), 'utf8');
 
@@ -168,7 +168,11 @@ test('preview returns the depositSplit math and touches NOTHING — no Square, n
   assert.equal(out.balance_cents, 60000);
   assert.equal(out.total_cents, 120000);
   assert.equal(out.deposit_cents + out.balance_cents, out.total_cents);
-  assert.equal(out.terms.final_count_due, '2026-09-10');
+  // Derived rather than hardcoded. termsFor() clamps a deadline that has already passed up to
+  // today, so a literal here starts failing on its own once the calendar goes by — which is
+  // exactly what happened to this line between 2026-09-09 and 2026-09-14.
+  assert.equal(out.terms.final_count_due,
+    termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20' }).final_count_due);
   assert.equal(out.terms.balance_due_date, '2026-09-19', 'the day BEFORE the event');
 
   assert.equal(sq.calls.length, 0, 'a preview that contacts Square is not a preview');
