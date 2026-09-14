@@ -226,3 +226,89 @@ test('only the owner can convert', async () => {
   assert.equal(r.ok, false);
   assert.equal(accountCount(env), baseline, 'nothing was created');
 });
+
+// ---------------------------------------------------------------- the door visit
+//
+// The owner walked into a clinic with five buses outside and ran the conversation from memory. It
+// went fine — but the four things that decide whether a visit was worth anything (how many they
+// feed, what they do now, who decides, how to reach them) are the same four things the scorer is
+// missing on nearly every prospect. A note typed at the kerb never becomes a contact row or a
+// capacity figure. These pin that a logged visit writes into the model instead of beside it.
+
+test('a door visit becomes a contact, a capacity and a new score — not a note', async () => {
+  const { readyEnv, OWNER } = await import('../helpers/sales-fixture.js');
+  const { upsertOrganization, scoreAndStore, salesRow, salesRows } = await import('../../functions/_lib/sales/store.js');
+  const { onRequestPost } = await import('../../functions/api/hub/owner/sales/index.js');
+  const { OWNER_COOKIE } = await import('../helpers/sqlite-d1.js');
+  const { env, cfg } = await readyEnv();
+
+  const u = await upsertOrganization(env, {
+    name: 'Five Buses Counseling', city: 'West Palm Beach', county: 'Palm Beach',
+    business_category: 'behavioral_health', source: 'manual',
+  }, { ctx: OWNER });
+  const before = await scoreAndStore(env, u.organization_id, { cfg, ctx: OWNER });
+
+  const post = (body) => onRequestPost({ env, request: new Request('https://anejo.test/api/hub/owner/sales', {
+    method: 'POST', headers: { Cookie: OWNER_COOKIE, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  }) });
+
+  const res = await post({
+    op: 'log_visit', organization_id: u.organization_id,
+    spoke_to_name: 'Maria Ruiz', spoke_to_title: 'Program Director', spoke_to_email: 'mruiz@example.org',
+    headcount: '48', headcount_varies: 'yes', current_solution: 'Staff order sandwiches most days',
+    outcome: 'spoke_to_decision_maker', note: 'Five buses arrive each morning.',
+  });
+  assert.equal(res.status, 200);
+  const out = await res.json();
+  assert.equal(out.ok, true);
+  assert.ok(out.contact_id, 'the person he met becomes a real contact');
+  assert.equal(out.capacity_set, true);
+  assert.equal(out.rescored, true);
+
+  // The contact is sendable — he met them and wrote the address down himself.
+  const c = await salesRow(env, 'SELECT email, email_status, full_name, title FROM sales_contacts WHERE id = ?', out.contact_id);
+  assert.equal(c.email, 'mruiz@example.org');
+  assert.equal(c.email_status, 'owner_verified');
+  assert.equal(c.title, 'Program Director');
+
+  // The headcount is the organization's capacity now, which is what Volume potential reads.
+  const org = await salesRow(env, 'SELECT employee_or_capacity_hint FROM sales_organizations WHERE id = ?', u.organization_id);
+  assert.equal(String(org.employee_or_capacity_hint), '48');
+
+  const after = await scoreAndStore(env, u.organization_id, { cfg, ctx: OWNER });
+  assert.ok(after.score > before.score, `the visit moved the score (${before.score} → ${after.score})`);
+  const vol = after.criteria.find((x) => x.key === 'volume');
+  assert.ok(vol.points > 0, 'capacity learned at the door earns volume points');
+  const contact = after.criteria.find((x) => x.key === 'contact_quality');
+  assert.equal(contact.points, contact.max, 'a named decision-maker with an email is full marks');
+
+  // And it is one readable line in the feed, so the follow-up can be written from what was said.
+  const acts = await salesRows(env, "SELECT kind, detail_json FROM sales_activity WHERE organization_id = ? AND kind = 'visit'", u.organization_id);
+  assert.equal(acts.length, 1);
+  const detail = JSON.parse(acts[0].detail_json);
+  assert.match(detail.summary, /Spoke to the decision-maker/);
+  assert.match(detail.summary, /Maria Ruiz/);
+  assert.match(detail.summary, /48 on site/);
+  assert.equal(detail.current_solution, 'Staff order sandwiches most days');
+});
+
+test('a visit where he only got a name still records, and invents nothing', async () => {
+  const { readyEnv, OWNER } = await import('../helpers/sales-fixture.js');
+  const { upsertOrganization, salesRow, salesRows } = await import('../../functions/_lib/sales/store.js');
+  const { onRequestPost } = await import('../../functions/api/hub/owner/sales/index.js');
+  const { OWNER_COOKIE } = await import('../helpers/sqlite-d1.js');
+  const { env } = await readyEnv();
+  const u = await upsertOrganization(env, { name: 'Front Desk Only Clinic', city: 'Delray Beach', county: 'Palm Beach', source: 'manual' }, { ctx: OWNER });
+
+  const res = await onRequestPost({ env, request: new Request('https://anejo.test/api/hub/owner/sales', {
+    method: 'POST', headers: { Cookie: OWNER_COOKIE, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ op: 'log_visit', organization_id: u.organization_id, spoke_to_name: 'Front desk', outcome: 'left_materials' }),
+  }) });
+  const out = await res.json();
+  assert.equal(out.ok, true);
+  assert.equal(out.capacity_set, false, 'no headcount was given, so none is stored');
+
+  const org = await salesRow(env, 'SELECT employee_or_capacity_hint FROM sales_organizations WHERE id = ?', u.organization_id);
+  assert.ok(!org.employee_or_capacity_hint, 'an unasked question stays unanswered — never a zero');
+  assert.equal((await salesRows(env, "SELECT id FROM sales_activity WHERE organization_id = ? AND kind='visit'", u.organization_id)).length, 1);
+});
