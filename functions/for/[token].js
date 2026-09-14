@@ -65,8 +65,9 @@ export const onRequestGet = async ({ params, request, env }) => {
   let viewer = null;
   try { viewer = await currentRole(env, request); } catch { viewer = null; }
   const staffViewing = !!(viewer && viewer.type === 'staff');
+  const previewing = staffViewing || new URL(request.url).searchParams.get('preview') === '1';
 
-  if (!staffViewing) {
+  if (!previewing) {
     const recent = await salesRow(env, "SELECT id FROM sales_activity WHERE opportunity_id = ? AND kind = 'landing_view' AND created_at > ? LIMIT 1", opp.id, Date.now() - 30 * 60000);
     if (!recent) {
       const seen = await salesRow(env, "SELECT id FROM sales_activity WHERE opportunity_id = ? AND kind = 'landing_view' LIMIT 1", opp.id);
@@ -114,7 +115,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 nav{background:var(--black);padding:13px 22px}nav a{font-family:Georgia,serif;letter-spacing:6px;color:var(--gold);font-weight:600;text-decoration:none;font-size:20px}
 .pv{background:#fbf3da;color:#6b5412;font-size:13px;text-align:center;padding:8px 12px;border-bottom:1px solid #e7d9a6}
 .hero{background:var(--black);color:var(--cream);padding:38px 22px 44px;text-align:center}
-.eyebrow{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:12px}
+.eyebrow{margin-bottom:18px}
+.eyebrow b{display:block;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:rgba(198,168,91,.72);font-weight:600;margin-bottom:7px}
+.eyebrow span{display:block;font-size:clamp(21px,3.6vw,31px);line-height:1.2;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gold);max-width:620px;margin:0 auto;text-wrap:balance}
 .hero h1{font-family:Georgia,serif;font-size:clamp(26px,5vw,38px);font-weight:400;max-width:640px;margin:0 auto}
 .hero p{color:rgba(245,242,236,.8);font-size:15px;margin:14px auto 0;max-width:560px}
 .btn{display:inline-block;margin-top:22px;padding:14px 26px;border:none;border-radius:999px;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;cursor:pointer;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#1c1606;text-decoration:none}
@@ -137,9 +140,9 @@ input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);
 footer{text-align:center;color:var(--muted);font-size:12px;padding:26px 16px}footer a{color:var(--muted)}
 </style></head><body>
 <nav><a href="/">AÑEJO</a></nav>
-${staffViewing ? '<div class="pv">Staff preview — this visit is not recorded as prospect engagement.</div>' : ''}
+${previewing ? '<div class="pv">Preview — this visit is not recorded as prospect engagement.</div>' : ''}
 <header class="hero">
-  <div class="eyebrow">Prepared for ${orgName}</div>
+  <div class="eyebrow"><b>Prepared for</b><span>${orgName}</span></div>
   <h1>${e(offer.headline)}</h1>
   <p>${e(offer.value_prop)}</p>
   <a class="btn" href="#request" data-cta="hero">${tasting ? 'Request pricing or a tasting' : 'Request pricing'}</a>

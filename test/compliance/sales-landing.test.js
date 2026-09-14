@@ -9,7 +9,7 @@ import { onRequestPost as landingEvent } from '../../functions/api/sales/landing
 import { suppressOrganization } from '../../functions/_lib/sales/store.js';
 
 const tokenOf = (env, oppId) => env.DB.one('SELECT landing_token FROM sales_opportunities WHERE id = ?', oppId).landing_token;
-const open = (env, token, cookie = '') => landing({ env, params: { token }, request: new Request(`https://anejocateringco.com/for/${token}`, { headers: cookie ? { Cookie: cookie } : {} }) });
+const open = (env, token, cookie = '', qs = '') => landing({ env, params: { token }, request: new Request(`https://anejocateringco.com/for/${token}${qs}`, { headers: cookie ? { Cookie: cookie } : {} }) });
 
 test('the page names its organization (escaped), is noindex, and shows nothing internal', async () => {
   const { env, cfg } = await readyEnv();
@@ -18,7 +18,7 @@ test('the page names its organization (escaped), is noindex, and shows nothing i
   assert.equal(res.status, 200);
   assert.match(res.headers.get('X-Robots-Tag'), /noindex/);
   const html = await res.text();
-  assert.match(html, /Prepared for Sunrise &lt;b&gt;Recovery&lt;\/b&gt; Center/);
+  assert.match(html, /<b>Prepared for<\/b><span>Sunrise &lt;b&gt;Recovery&lt;\/b&gt; Center<\/span>/);
   assert.doesNotMatch(html, /<b>Recovery<\/b>/);
   assert.match(html, /<meta name="robots" content="noindex, nofollow">/);
   for (const internal of [/\btier\b/i, /current_score/, /Maria Ruiz/, /mruiz@/, /criteria/i, /disqualif/i]) assert.doesNotMatch(html, internal);
@@ -50,7 +50,15 @@ test('a prospect visit is recorded once (and marks the email clicked); a staff p
   await open(env, token, 'anejo_sess=tok-owner');
   assert.equal(env.DB.rows("SELECT id FROM sales_activity WHERE kind = 'landing_view'").length, 0, 'the owner previewing is not engagement');
   const html = await (await open(env, token, 'anejo_sess=tok-owner')).text();
-  assert.match(html, /Staff preview/);
+  assert.match(html, /not recorded as prospect engagement/);
+  // ?preview=1 is the link the Hub hands the owner, and he will not always be signed in when he
+  // taps it — from his phone, from a note to himself. Counting that as the prospect opening the
+  // page reports his own looking back to him as the buyer's interest, which is worse than no
+  // signal at all. Suppressing a metric grants no access, so honouring the parameter is safe.
+  await open(env, token, '', '?preview=1');
+  assert.equal(env.DB.rows("SELECT id FROM sales_activity WHERE kind = 'landing_view'").length, 0, 'an explicit preview is never engagement, signed in or not');
+  assert.match(await (await open(env, token, '', '?preview=1')).text(), /not recorded as prospect engagement/, 'and it says so on the page');
+
   await open(env, token);
   await open(env, token);
   assert.equal(env.DB.rows("SELECT id FROM sales_activity WHERE kind = 'landing_view'").length, 1, 'a reload within 30 minutes is one visit');
