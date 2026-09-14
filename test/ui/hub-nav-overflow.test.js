@@ -24,10 +24,12 @@ const items = [...navBlock[1].matchAll(/\{\s*view:\s*'([\w-]+)',\s*href:\s*'([^'
 // into the More sheet, not the bar: the 5 primary slots are what the owner opens daily and a
 // catering quote is a weekly job. The bar itself is unchanged, which is the property this file
 // exists to protect.
-// 2026-09-10: a 17th — the Añejo Daily desk (/hub/owner/daily.html), also in More for the same
-// reason: scheduling the week's featured lunch is a Sunday job, not a five-times-a-day one.
-test('sanity: the NAV literal parses to all 17 destinations', () => {
-  assert.equal(items.length, 17, 'a destination was dropped or the parser regex is stale');
+// 2026-09-10: a 17th — the Sales OS (/hub/owner/sales.html), and 2026-09-14 an 18th — the Añejo
+// Daily desk (/hub/owner/daily.html). Both into the More sheet, the five primary slots untouched:
+// prospecting is a weekly push and scheduling the featured lunch is a Sunday job, and neither is
+// something the owner opens five times a day.
+test('sanity: the NAV literal parses to all 18 destinations', () => {
+  assert.equal(items.length, 18, 'a destination was dropped or the parser regex is stale');
 });
 
 test('the Añejo Daily desk is IN the nav — the allocation and the cutoff are owner-only controls', () => {
@@ -35,6 +37,13 @@ test('the Añejo Daily desk is IN the nav — the allocation and the cutoff are 
   assert.ok(daily, 'daily must be a real nav destination, not an orphan page');
   assert.equal(daily.href, '/hub/owner/daily.html');
   assert.equal(daily.primary, false, 'it belongs in More, not in the 5-slot bar');
+});
+
+test('the Sales OS is IN the nav, in More — not a sixth primary tab', () => {
+  const sales = items.find((i) => i.view === 'sales');
+  assert.ok(sales, 'the Sales workspace must be reachable from owner navigation');
+  assert.equal(sales.href, '/hub/owner/sales.html');
+  assert.equal(sales.primary, false, 'it belongs in More, not in the 5-slot bar');
 });
 
 test('the catering deposit desk is IN the nav — the endpoint had no screen at all before it', () => {
@@ -52,7 +61,7 @@ test('exactly 5 primary tabs, matching what the owner opens daily', () => {
 
 test('every non-primary destination still has a real href — nothing was dropped from the app, only from the bar', () => {
   const overflow = items.filter((i) => !i.primary);
-  assert.equal(overflow.length, 12);
+  assert.equal(overflow.length, 13);
   for (const i of overflow) {
     assert.match(i.href, /^\//, `${i.view} must still resolve to a real path`);
   }

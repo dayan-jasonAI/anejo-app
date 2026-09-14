@@ -96,6 +96,10 @@ export const ALERT_TYPES = [
   'kitchen_ready_delivery', 'new_order', 'new_paid_order', 'subscription_payment', 'contract_roster_changed',
   // A paid Añejo Daily order landed after its hold lapsed and the day is now over its allocation.
   'daily_oversold',
+  // A prospect asked for pricing, a call or a tasting from their Sales OS landing page
+  // (functions/api/sales/request.js). Their automated sequence has already stopped; this is what
+  // makes sure a person replies while the lead is warm. Deduped per opportunity per request kind.
+  'sales_prospect_request',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:

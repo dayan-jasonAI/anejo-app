@@ -287,6 +287,45 @@ events:
       undocumented_until: v2,
       properties: [ {name: changed, type: string, required: false}, {name: scheduled_only, type: string, required: false} ] }
 
+  # ---------- Sales OS — institutional prospecting (2026-09-10, docs/SALES_OS_ARCHITECTURE.md) ----------
+  # Server-side only; none is client-postable. Every sales_* row is ALSO in the Sales workspace's own
+  # sales_activity feed. Properties are ids, counts and enums — never names, emails, phones or message
+  # text (pii_policy: none). PRIMARY KPI: sales.opportunity_won / sales.contract_account_created.
+  - { name: sales.organization_discovered, category: core_value, group_level: business, description: "A prospect organization is added (discovery, CSV or manual) — new rows only, not dedupe merges", expected_frequency: medium,
+      properties: [ {name: organization_id, type: string, required: true}, {name: source, type: string, required: false}, {name: category, type: string, required: false} ] }
+  - { name: sales.organization_enriched, category: core_value, group_level: business, description: "AUTOMATION or owner: an organization's own website was read for evidence", expected_frequency: medium,
+      properties: [ {name: organization_id, type: string, required: true}, {name: pages, type: number, required: false}, {name: contacts_added, type: number, required: false}, {name: signals, type: number, required: false}, {name: ok, type: boolean, required: false} ] }
+  - { name: sales.prospect_scored, category: core_value, group_level: business, description: "A deterministic ICP score was stored (with its reasons)", expected_frequency: medium,
+      properties: [ {name: organization_id, type: string, required: true}, {name: score, type: number, required: false}, {name: tier, type: string, required: false}, {name: model_version, type: string, required: false} ] }
+  - { name: sales.opportunity_created, category: core_value, group_level: business, description: "An opportunity is opened for a prospect", expected_frequency: low,
+      properties: [ {name: opportunity_id, type: string, required: true}, {name: tier, type: string, required: false}, {name: source, type: string, required: false} ] }
+  - { name: sales.outreach_drafted, category: core_value, group_level: business, description: "A prospect email step is drafted into the approval queue (never sent by this event)", expected_frequency: medium,
+      properties: [ {name: outreach_id, type: string, required: true}, {name: step, type: number, required: false}, {name: template, type: string, required: false}, {name: flags, type: number, required: false} ] }
+  - { name: sales.outreach_approved, category: core_value, group_level: business, description: "The owner approved the exact previewed email", expected_frequency: medium,
+      properties: [ {name: outreach_id, type: string, required: true}, {name: step, type: number, required: false}, {name: edited, type: boolean, required: false}, {name: flags, type: number, required: false} ] }
+  - { name: sales.outreach_sent, category: core_value, group_level: business, description: "AUTOMATION: an approved prospect email was accepted by the provider", expected_frequency: medium, actor_type: system,
+      properties: [ {name: outreach_id, type: string, required: true}, {name: step, type: number, required: false}, {name: edited, type: boolean, required: false} ] }
+  - { name: sales.outreach_delivered, category: core_value, group_level: business, description: "Provider webhook: delivered", expected_frequency: medium, actor_type: system,
+      properties: [ {name: outreach_id, type: string, required: true}, {name: step, type: number, required: false} ] }
+  - { name: sales.outreach_opened, category: core_value, group_level: business, description: "Provider webhook: opened (unreliable — image blocking and privacy proxies)", expected_frequency: medium, actor_type: system,
+      properties: [ {name: outreach_id, type: string, required: true}, {name: step, type: number, required: false} ] }
+  - { name: sales.outreach_clicked, category: core_value, group_level: business, description: "Provider click OR the first visit to the prospect's landing page", expected_frequency: low, actor_type: system,
+      properties: [ {name: opportunity_id, type: string, required: false}, {name: source, type: string, required: false} ] }
+  - { name: sales.reply_received, category: core_value, group_level: business, description: "A prospect replied (owner-marked) or sent a request from their landing page", expected_frequency: low,
+      properties: [ {name: opportunity_id, type: string, required: true}, {name: source, type: string, required: false}, {name: sentiment, type: string, required: false}, {name: kind, type: string, required: false} ] }
+  - { name: sales.meeting_requested, category: core_value, group_level: business, description: "An opportunity reached meeting_requested (call or tasting asked for)", expected_frequency: low,
+      properties: [ {name: opportunity_id, type: string, required: true}, {name: from, type: string, required: false}, {name: to, type: string, required: false} ] }
+  - { name: sales.meeting_booked, category: core_value, group_level: business, description: "An opportunity reached meeting_booked", expected_frequency: low,
+      properties: [ {name: opportunity_id, type: string, required: true}, {name: from, type: string, required: false}, {name: to, type: string, required: false} ] }
+  - { name: sales.proposal_created, category: core_value, group_level: business, description: "Commercial terms were first drafted for an opportunity", expected_frequency: low,
+      properties: [ {name: opportunity_id, type: string, required: true}, {name: proposal_id, type: string, required: false} ] }
+  - { name: sales.opportunity_won, category: core_value, group_level: business, description: "PRIMARY KPI: converted to a contract account (or linked to an existing one)", expected_frequency: low,
+      properties: [ {name: opportunity_id, type: string, required: true}, {name: account_id, type: string, required: false}, {name: sites, type: number, required: false}, {name: estimated_monthly_cents, type: number, required: false}, {name: linked_existing, type: boolean, required: false} ] }
+  - { name: sales.opportunity_lost, category: core_value, group_level: business, description: "An opportunity was closed as lost (a reason is required)", expected_frequency: low,
+      properties: [ {name: opportunity_id, type: string, required: true}, {name: from, type: string, required: false} ] }
+  - { name: sales.contract_account_created, category: core_value, group_level: business, description: "MONEY: Convert to Contract Account created and activated a NEW contract account on owner-confirmed terms", expected_frequency: low,
+      properties: [ {name: account_id, type: string, required: true}, {name: opportunity_id, type: string, required: false}, {name: sites, type: number, required: false} ] }
+
   # ---------- Order money & kitchen state ----------
   - { name: order.canceled, category: core_value, group_level: business, description: "MONEY: an order is cancelled; money may still be held at Square", expected_frequency: low,
       undocumented_until: v2,
