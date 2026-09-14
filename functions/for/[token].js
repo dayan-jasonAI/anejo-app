@@ -20,11 +20,21 @@ const html = (body, status = 200) => new Response(body, { status, headers: HEADE
 
 // Real product photography from the repo (docs/HUB_MENU_MARKETING_REFERENCE.md). Illustrations of
 // the food, not claims about any delivered event.
+//
+// The four say what Añejo can put in front of a program, in the order a buyer cares about:
+// a plated Cuban meal, the everyday menu, volume by the tray, and the Fit line. Two were changed on
+// 2026-09-14 because the originals showed the same thing twice — a second plated Cuban dish and a
+// side salad, neither of which told a prospect anything the first photo had not already said.
+//   · ten-dollar-menu.webp is a 2×2 montage of FOUR EXISTING PRODUCT PHOTOS (chicken tacos, chicken
+//     sandwich, potato lasagna, pan con lechón), composited from the unaltered originals. It is not
+//     generated or painted, so it asserts nothing the four photos do not assert on their own.
+//   · bowl_mar.jpg is the MAR salmon bowl — the Añejo Fit variant, which programs with a dietitian
+//     or a diabetic cohort ask about first and which nothing else on this page showed.
 const PHOTOS = [
   ['/assets/img/menu-launch/lechon-meal.webp', 'Lechón plate with congrí and fresh salad'],
-  ['/assets/img/menu-launch/ropa-vieja-meal.webp', 'Ropa vieja with congrí and maduros'],
+  ['/assets/img/menu-launch/ten-dollar-menu.webp', 'Four everyday menu dishes: chicken tacos, chicken sandwich, potato lasagna and pan con lechón'],
   ['/assets/img/menu-launch/combo-table.webp', 'Trays of roast pork, congrí, yuca and fresh salad'],
-  ['/assets/img/menu-launch/salad-side.webp', 'Fresh salad'],
+  ['/assets/img/bowl_mar.jpg', 'Añejo Fit MAR bowl — salmon with quinoa, arugula and roasted vegetables'],
 ];
 
 const notFound = () => html(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
