@@ -362,3 +362,41 @@ test('an edit saved without approval stays a draft and is flag-checked', async (
   assert.ok(r.flags.some((f) => f.type === 'health'));
   assert.equal(env.DB.one('SELECT status FROM sales_outreach WHERE id = ?', outreachId).status, 'pending_approval');
 });
+
+test('the sign-off carries a formatted phone and the website, and stays plain text', async () => {
+  // 2026-09-14. The first real cold send landed in Gmail's PRIMARY tab, which for a domain with no
+  // cold-sending history is the best available outcome. The branded email shell used for receipts
+  // opens with a coloured header band, the emblem image and the wordmark — the exact shape Gmail
+  // files under Promotions. Legitimacy is bought here instead, with two things that cost nothing:
+  // a phone number written the way a person writes one, and the website.
+  const { composeEmail } = await import('../../functions/_lib/sales/outreach.js');
+  const cfg = {
+    offer: { value_prop: 'We prepare meals fresh and deliver them on a set weekly schedule.', cta_text: 'Would a sample menu be useful?' },
+    sender: { from_name: 'Dayan at Añejo', signature_name: 'Dayan', signature_title: 'Owner', signature_phone: '5615671047' },
+    proof: { mode: 'none' },
+  };
+  const out = composeEmail({
+    templateType: 'intro',
+    org: { name: 'Somewhere Day Program', city: 'Delray Beach', current_tier: 'C' },
+    contact: {}, signals: [], cfg,
+    landingUrl: 'https://anejocateringco.com/for/abc123',
+  });
+
+  assert.match(out.body, /\(561\) 567-1047/, 'digits typed into Settings are shown the way a person writes them');
+  assert.doesNotMatch(out.body, /5615671047/, 'the raw digit run must not survive into the email');
+  assert.match(out.body, /anejocateringco\.com/, 'the website is the cheapest legitimacy signal there is');
+
+  // The site line tracks the links in the same email rather than being hard-coded, so a change of
+  // APP_BASE_URL can never leave the signature pointing somewhere the links do not.
+  const staged = composeEmail({
+    templateType: 'intro',
+    org: { name: 'Somewhere Day Program', city: 'Delray Beach', current_tier: 'C' },
+    contact: {}, signals: [], cfg,
+    landingUrl: 'https://staging.example.com/for/abc123',
+  });
+  assert.match(staged.body, /staging\.example\.com/);
+  assert.doesNotMatch(staged.body, /anejocateringco\.com/);
+
+  // Still a letter, not a template: no markup reaches the composed body.
+  assert.doesNotMatch(out.body, /<[a-z][^>]*>/i, 'the body a stranger reads is plain text');
+});

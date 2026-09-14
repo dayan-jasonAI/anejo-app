@@ -266,6 +266,36 @@
   async function detail(id) {
     const d = await get(S + '?view=detail&id=' + encodeURIComponent(id));
     if (!d || !d.ok) return fail(d);
+  // AT THE DOOR. Collapsed by default — it is a field tool, not something to scroll past on every
+  // prospect — and every word comes from the API (functions/_lib/sales/visit.js) rather than being
+  // written into this page, so the script can be edited without touching the Hub.
+  function visitBox(d) {
+    const v = d.visit; if (!v) return '';
+    const S = v.script;
+    const field = (f) => {
+      if (f.type === 'select') {
+        return `<label>${esc(f.label)}<select data-v="${esc(f.key)}">${f.options.map((o) => `<option value="${esc(o)}">${esc(o || '—')}</option>`).join('')}</select></label><p class="muted">${esc(f.hint)}</p>`;
+      }
+      return `<label>${esc(f.label)}<input data-v="${esc(f.key)}" type="${esc(f.type || 'text')}" autocomplete="off"></label><p class="muted">${esc(f.hint)}</p>`;
+    };
+    return `<div class="box"><h2>At the door</h2>
+      <p class="muted">Open this before you walk in. Fill it in as you talk — what you write here updates the score and the contacts, it is not a scratchpad.</p>
+      <details class="terms-edit"><summary>The script</summary><div class="body">
+        ${S.before.map((x) => `<p class="muted">${esc(x)}</p>`).join('')}
+        <h3>${esc(S.door.label)}</h3>${S.door.lines.map((l) => `<p>${esc(l)}</p>`).join('')}<p class="muted">${esc(S.door.note)}</p>
+        <h3>${esc(S.pitch.label)}</h3>${S.pitch.lines.map((l) => `<p>${esc(l)}</p>`).join('')}
+        <h3>The ask — do not leave without it</h3><p>${esc(S.ask)}</p>
+        <h3>If they push back</h3>${S.objections.map(([q, a]) => `<p><b>${esc(q)}</b><br>${esc(a)}</p>`).join('')}
+        <h3>Never</h3><ul class="check">${S.never.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
+      </div></details>
+      <h3>What you came back with</h3>
+      <div class="f">${v.fields.map(field).join('')}
+        <div class="wide"><label>How it went<select data-v="outcome">${v.outcomes.map((o) => `<option value="${esc(o.key)}">${esc(o.label)}</option>`).join('')}</select></label></div>
+        <div class="wide"><label>Anything else<textarea data-v="note" rows="2"></textarea></label></div></div>
+      <button class="btn2 primary" data-act="logvisit" data-id="${esc(d.organization.id)}">Save visit</button>
+      <span id="visit-out" class="muted"></span></div>`;
+  }
+
     const o = d.organization, opp = d.opportunity && !['won', 'lost'].includes(d.opportunity.stage) ? d.opportunity : null;
     const activeEnr = d.enrollments.find((e) => e.status === 'active');
     const sc = d.score;
@@ -291,6 +321,8 @@
           <div><label>Capacity (only if known)</label><input id="e-cap" value="${esc(o.employee_or_capacity_hint || '')}" placeholder="e.g. 45 clients"></div>
           <div class="wide"><label>Notes</label><textarea id="e-notes" rows="2">${esc(o.notes || '')}</textarea></div></div>
           <button class="btn2" data-act="saveorg">Save</button></details></div>
+
+      ${visitBox(d)}
 
       <div class="box"><h2>Why this score</h2>${sc ? `<p class="muted">${esc(sc.score)}/100 · tier ${esc(sc.tier)} · ${esc(sc.model_version)} · ${esc(when(sc.created_at))} — deterministic, from your ICP settings. The AI brief never changes it.</p>
         ${(sc.disqualified_by || []).length ? `<div class="bad">Disqualified: ${sc.disqualified_by.map(esc).join(' · ')}</div>` : ''}
@@ -331,6 +363,24 @@
     ACT.rescore = (b) => run(b, S, { op: 'rescore', id }, 'Rescored');
     ACT.mkopp = (b) => run(b, S, { op: 'create_opportunity', organization_id: id }, 'Opportunity created');
     ACT.dnc = (b) => { if (confirm('Mark this organization do-not-contact? Every sequence stops and nothing will be sent.')) run(b, S, { op: 'do_not_contact', organization_id: id, reason: 'owner' }, 'Marked do-not-contact'); };
+    ACT.logvisit = async (b) => {
+      const payload = { op: 'log_visit', organization_id: b.dataset.id };
+      document.querySelectorAll('[data-v]').forEach((el) => { if (el.value.trim()) payload[el.dataset.v] = el.value.trim(); });
+      const out = document.getElementById('visit-out');
+      if (!payload.spoke_to_name && !payload.spoke_to_email && !payload.headcount && !payload.note) {
+        out.textContent = 'Nothing to save yet — a name on its own is enough.'; return;
+      }
+      b.disabled = true; out.textContent = 'Saving…';
+      const r = await post(S, payload);
+      b.disabled = false;
+      if (!r.ok) { out.textContent = r.error || 'Could not save that visit.'; return; }
+      // Say what it actually changed, so the form reads as a record and not a comment box.
+      const did = [r.contact_id ? 'contact added' : null, r.capacity_set ? 'headcount saved' : null,
+        r.stage ? 'stage → ' + r.stage : null, r.rescored ? 'rescored' : null].filter(Boolean);
+      out.textContent = did.length ? 'Saved · ' + did.join(' · ') : 'Saved';
+      setTimeout(() => detail(b.dataset.id), 900);
+    };
+
     ACT.saveorg = (b) => run(b, S, { op: 'update_org', id, name: v('e-name'), website: v('e-web'), phone: v('e-phone'), street: v('e-street'), city: v('e-city'), county: v('e-county'), zip: v('e-zip'), business_category: v('e-cat'), employee_or_capacity_hint: v('e-cap'), notes: v('e-notes') }, 'Saved');
     ACT.addcontact = (b) => run(b, S, { op: 'add_contact', organization_id: id, full_name: v('c-name'), title: v('c-title'), role_category: v('c-role') || undefined, email: v('c-email') || undefined, email_status: v('c-status'), phone: v('c-phone') || undefined, source_url: v('c-src') || undefined }, 'Contact added');
     ACT.primary = (b) => run(b, S, { op: 'update_contact', id: b.dataset.cid, is_primary: true }, 'Primary contact set');

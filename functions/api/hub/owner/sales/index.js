@@ -13,9 +13,11 @@ import { loadSalesConfig, LOCKED_FLAGS, LOCK_REASONS, CAPS } from '../../../../_
 import {
   upsertOrganization, updateOrganization, addContact, updateContact, scoreAndStore, createOpportunity, setStage,
   updateOpportunity, suppressOrganization, recordSalesUnsubscribe, listOrganizations, organizationDetail,
-  getContact, salesRow, salesRows, ORG_STATUSES, OPP_STAGES, ROLE_CATEGORIES, EMAIL_STATUSES,
+  getContact, salesRow, salesRows, logActivity, ORG_STATUSES, OPP_STAGES, ROLE_CATEGORIES, EMAIL_STATUSES,
 } from '../../../../_lib/sales/store.js';
+import { VISIT_SCRIPT, VISIT_FIELDS, VISIT_OUTCOMES, visitOutcome, visitSummary } from '../../../../_lib/sales/visit.js';
 import { enrichOne, runDiscoveryTick, runSalesJob, JOBS } from '../../../../_lib/sales/jobs.js';
+import { roleCategoryOf } from '../../../../_lib/sales/enrich.js';
 import { generateBrief } from '../../../../_lib/sales/brief.js';
 import { providerStatus, parseCsv, csvRowToRecord } from '../../../../_lib/sales/discovery.js';
 import { dashboardCounts, funnel, conversionBy } from '../../../../_lib/sales/metrics.js';
@@ -145,6 +147,7 @@ export const onRequestGet = async ({ request, env }) => {
       landing_url: d.opportunity && d.opportunity.landing_token ? `/for/${d.opportunity.landing_token}?preview=1` : null,
       categories: categories(), stages: OPP_STAGES, role_categories: ROLE_CATEGORIES, email_statuses: EMAIL_STATUSES,
       send_readiness: sendReadiness(env, cfg), reply_detection: REPLY_DETECTION,
+      visit: { script: VISIT_SCRIPT, fields: VISIT_FIELDS, outcomes: VISIT_OUTCOMES },
     });
   }
   if (view === 'queue') {
@@ -256,6 +259,64 @@ export const onRequestPost = async ({ request, env }) => {
     case 'create_opportunity': return out(await createOpportunity(env, String(b.organization_id || ''), { primary_contact_id: b.primary_contact_id || null, ctx }));
     case 'update_opportunity': return out(await updateOpportunity(env, String(b.id || ''), b, { ctx }));
     case 'set_stage': return out(await setStage(env, String(b.id || ''), String(b.stage || ''), { loss_reason: b.loss_reason, note: b.note, ctx }));
+    // A DOOR VISIT, WRITTEN INTO THE RECORD. Every field is optional — a visit where the only thing
+    // learned was a name is still worth logging — but each one that IS filled lands where the rest
+    // of the system already looks for it, instead of in a note nobody scores:
+    //   headcount    → the organization's capacity → Volume potential (15 points)
+    //   name + email → a real contact              → Decision-maker quality (10 points)
+    //   outcome      → the opportunity's stage
+    // and the whole visit becomes one line in the activity feed, so the follow-up email can be
+    // written from what was actually said at the door rather than from memory three days later.
+    case 'log_visit': {
+      const orgId = String(b.organization_id || '');
+      const org = await salesRow(env, 'SELECT id FROM sales_organizations WHERE id = ?', orgId);
+      if (!org) return bad('Organization not found.', 404);
+      const done = { contact_id: null, capacity_set: false, stage: null, rescored: false };
+
+      if (b.spoke_to_email || b.spoke_to_name) {
+        const c = await addContact(env, orgId, {
+          full_name: b.spoke_to_name || null, title: b.spoke_to_title || null,
+          email: b.spoke_to_email || null, phone: b.spoke_to_phone || null,
+          // The title he wrote down is classified by the SAME classifier the website scraper uses, so
+          // a person met at the door counts as a decision-maker on exactly the terms a scraped one
+          // does. An unrecognised title falls to 'other' — that is a lower score, never an invented
+          // seniority, and he can correct the role on the contact row.
+          role_category: roleCategoryOf(b.spoke_to_title),
+          // Met in person and written down at the desk — that is the owner vouching for it.
+          email_status: b.spoke_to_email ? 'owner_verified' : undefined,
+        }, { ctx, source: 'manual' });
+        if (c.ok) done.contact_id = c.contact_id; else if (c.error) done.contact_error = c.error;
+      }
+
+      const heads = Number(b.headcount);
+      if (Number.isFinite(heads) && heads > 0) {
+        const u = await updateOrganization(env, orgId, { employee_or_capacity_hint: String(Math.round(heads)) }, { ctx });
+        done.capacity_set = !!(u && u.ok);
+      }
+
+      const oc = visitOutcome(String(b.outcome || ''));
+      const opp = await salesRow(env, "SELECT id, stage FROM sales_opportunities WHERE organization_id = ? AND stage NOT IN ('won','lost') ORDER BY created_at DESC LIMIT 1", orgId);
+      if (opp && oc && oc.stage && opp.stage !== oc.stage) {
+        const st = await setStage(env, opp.id, oc.stage, { note: 'In-person visit', ctx });
+        if (st && st.ok) done.stage = oc.stage;
+      }
+      if (opp && b.best_time) await updateOpportunity(env, opp.id, { next_action: `Follow up after visit — ${String(b.best_time).slice(0, 80)}` }, { ctx });
+
+      await logActivity(env, {
+        organization_id: orgId, opportunity_id: opp ? opp.id : null, contact_id: done.contact_id,
+        kind: 'visit', ctx, event: 'sales.visit_logged',
+        detail: {
+          summary: visitSummary(b),
+          ...Object.fromEntries(VISIT_FIELDS.map((f) => [f.key, b[f.key] || null]).filter(([, v]) => v)),
+          outcome: b.outcome || null, note: b.note || null,
+        },
+      });
+
+      // The score moves the moment the capacity or the contact lands, which is the whole point.
+      if (done.capacity_set || done.contact_id) { await scoreAndStore(env, orgId, { cfg, ctx }); done.rescored = true; }
+      return json({ ok: true, ...done, summary: visitSummary(b) });
+    }
+
     case 'do_not_contact': return out(await suppressOrganization(env, String(b.organization_id || ''), { reason: b.reason, ctx }));
     case 'discover_now': {
       const maxCalls = Math.max(1, Math.min(5, Number(b.max_calls) || 2));

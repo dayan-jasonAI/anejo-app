@@ -19,6 +19,7 @@ import { randToken, isEmail } from '../util.js';
 import { sendEmail, escHtml } from '../email.js';
 import { configHash } from './config.js';
 import { SENDABLE_EMAIL_STATUSES } from './scoring.js';
+import { formatPhone } from './normalize.js';
 import { logActivity, isEmailBlocked, stopSequences, advanceStage, recordSalesUnsubscribe, salesRow, salesRows, CLOSED_STAGES } from './store.js';
 
 export const DEFAULT_SEQUENCE_ID = 'sseq_default_v1';
@@ -76,12 +77,32 @@ export function proofLine(proof) {
   return null;
 }
 
-function signature(sender) {
+/**
+ * The sign-off. Four or five plain lines — deliberately NOT the branded email shell used for
+ * receipts and invoices.
+ *
+ * WHY NOT THE BRANDED TEMPLATE (2026-09-14, asked and answered): the shell opens with a coloured
+ * header band, the emblem image and the wordmark, which is the exact shape Gmail reads as marketing
+ * and files under Promotions — where a clinic administrator never looks. The first real send from
+ * this domain landed in PRIMARY, and that is worth more than a logo. A stranger also reads a
+ * designed template as bulk and a plain note from a named owner as a person. The brand proof lives
+ * one tap away on the /for/ landing page, which the link above this signature opens.
+ *
+ * What legitimacy costs nothing: a properly formatted phone number and the website. Both below.
+ *
+ * The site line is derived from the landing URL rather than hard-coded, so it can never drift away
+ * from the links in the same email if APP_BASE_URL changes.
+ */
+function signature(sender, landingUrl) {
+  let site = 'anejocateringco.com';
+  try { if (landingUrl) site = new URL(landingUrl).host.replace(/^www\./, ''); } catch { /* keep the default */ }
   return [
     sender.signature_name || sender.from_name,
     sender.signature_title || null,
     'Añejo Catering Co.',
-    sender.signature_phone || null,
+    // Typed into Settings as digits; shown the way a person writes one.
+    formatPhone(sender.signature_phone) || sender.signature_phone || null,
+    site,
   ].filter(Boolean).join('\n');
 }
 
@@ -143,7 +164,7 @@ export function composeEmail({ templateType, org, contact, signals, cfg, landing
       if (!fact) claims.push({ about: 'prospect', text: 'No verified fact about this organization — the opener makes no claim about them. Research their site to personalise it.', source: 'none' });
       break;
   }
-  const body = [...paras.filter(Boolean), signature(sender)].join('\n\n');
+  const body = [...paras.filter(Boolean), signature(sender, landingUrl)].join('\n\n');
   return { subject, body, claims };
 }
 
