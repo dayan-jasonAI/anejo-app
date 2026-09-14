@@ -499,63 +499,393 @@
   knot.castShadow = true;
   bow.add(knot);
 
-  // ---- white florals around the base, from her invitation -----------------
-  // Roses as tight layered petals, baby's breath as clusters of tiny spheres. Low-poly on purpose:
-  // they read as the invitation's ivory crown at this scale without costing a thousand triangles.
-  const matPetal = new THREE.MeshStandardMaterial({ color: C(0xfffdf8), roughness: 0.66, metalness: 0, side: THREE.DoubleSide, envMapIntensity: 1.1 });
-  const matPetalWarm = new THREE.MeshStandardMaterial({ color: C(0xf6ecdc), roughness: 0.7, metalness: 0, side: THREE.DoubleSide, envMapIntensity: 1.1 });
-  const matBud = new THREE.MeshStandardMaterial({ color: C(0xfffefb), roughness: 0.8, metalness: 0, envMapIntensity: 1.0 });
-  const matStem = new THREE.MeshStandardMaterial({ color: C(0x6f8a5c), roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
+  // ---- the florals, from her invitation -----------------------------------
+  // Her invitation is a crown of ivory roses and white lilies over greenery, and the first pass at
+  // this was eight identical rosettes of FLAT discs with a ball of dots beside each. At the camera
+  // distance that reads as crumpled tissue, not flowers.
+  //
+  // What actually makes a white flower read as a flower is the shading, and flat facets have none
+  // of it: a real petal is a cupped, twisted surface, so it catches light along its curl and falls
+  // into shadow at its throat. Everything below is built from ONE curved surface with different
+  // numbers — a rose petal, a lily tepal and a eucalyptus leaf are the same sheet wrapped tighter
+  // or looser — plus stems and buds as tapered tubes and blobs.
+  //
+  // And it is all merged. A rose is twenty-three petals; as twenty-three meshes that is twenty-three
+  // draw calls per bloom, and this arrangement has nine of them. Each flower writes its petals into
+  // one buffer, so the whole garland costs under a hundred draws instead of five hundred.
 
-  function rose(r) {
-    const g = new THREE.Group();
-    const core = new THREE.Mesh(new THREE.SphereGeometry(r * 0.42, 12, 10), matBud);
-    g.add(core);
-    for (let ring = 0; ring < 3; ring++) {
-      const n = 5 + ring * 2;
-      const rr = r * (0.55 + ring * 0.28);
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * Math.PI * 2 + ring * 0.5;
-        const p = new THREE.Mesh(
-          new THREE.CircleGeometry(r * (0.42 + ring * 0.1), 7),
-          ring % 2 ? matPetalWarm : matPetal
-        );
-        p.position.set(Math.cos(a) * rr * 0.72, ring * r * 0.12, Math.sin(a) * rr * 0.72);
-        p.rotation.set(-Math.PI / 2 + 0.85 - ring * 0.22, 0, -a);
-        p.castShadow = true;
-        g.add(p);
+  // Deterministic jitter. Random placement is what stops a garland looking stamped out, but
+  // Math.random would rearrange the flowers on every replay — and the reveal is meant to be the
+  // same gift twice.
+  let seed = 0x2b1c9a7 >>> 0;
+  const rnd = (a = 0, b = 1) => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return a + (seed / 4294967296) * (b - a);
+  };
+
+  // The materials, and the lesson in them: an ivory flower rendered in near-white with a bright
+  // studio environment has NOTHING left to shade with. Every highlight is already at the top of
+  // the range, so the form disappears and the bloom reads as a paper cut-out on a cream ground.
+  // These sit a step down from white, and take most of their light from the key rather than the
+  // environment, so a petal's curl is visible as a curl.
+  const matPetal = new THREE.MeshStandardMaterial({
+    color: C(0xf2ebdd), roughness: 0.52, metalness: 0, side: THREE.DoubleSide, envMapIntensity: 0.52,
+  });
+  const matPetalWarm = new THREE.MeshStandardMaterial({
+    color: C(0xe4d5bb), roughness: 0.6, metalness: 0, side: THREE.DoubleSide, envMapIntensity: 0.46,
+  });
+  const matBud = new THREE.MeshStandardMaterial({
+    color: C(0xfaf4e8), roughness: 0.7, metalness: 0, envMapIntensity: 0.6,
+  });
+  const matStem = new THREE.MeshStandardMaterial({
+    color: C(0x4f7a36), roughness: 0.84, metalness: 0, side: THREE.DoubleSide, envMapIntensity: 0.4,
+  });
+  // Two greens, and both darker than they look written down. An ivory flower on a cream ground has
+  // nothing to be seen AGAINST; the foliage is what gives it an edge, and pale foliage gives it
+  // none. The deep one goes underneath as a bed, the sage on top where light reaches.
+  const matSage = new THREE.MeshStandardMaterial({
+    color: C(0x5a7f3c), roughness: 0.76, metalness: 0, side: THREE.DoubleSide, envMapIntensity: 0.48,
+  });
+  const matDeep = new THREE.MeshStandardMaterial({
+    color: C(0x2c4a1f), roughness: 0.82, metalness: 0, side: THREE.DoubleSide, envMapIntensity: 0.3,
+  });
+  // The one warm note in an all-white arrangement: a lily's anthers. They are also the detail that
+  // stops the lilies reading as paper stars.
+  const matAnther = new THREE.MeshStandardMaterial({
+    color: C(0xb8802e), roughness: 0.55, metalness: 0, envMapIntensity: 0.9,
+  });
+
+  // A buffer under construction. Everything a single flower is made of goes into one of these.
+  const mesher = () => ({ pos: [], uv: [], idx: [], n: 0 });
+
+  /** Lay a (cols × rows) quad grid into `m`, positions coming from at(u, v) over the unit square. */
+  function grid(m, cols, rows, at) {
+    const base = m.n;
+    for (let j = 0; j <= rows; j++) {
+      for (let i = 0; i <= cols; i++) {
+        const p = at(i / cols, j / rows);
+        m.pos.push(p[0], p[1], p[2]);
+        m.uv.push(i / cols, j / rows);
+        m.n++;
+        if (i < cols && j < rows) {
+          const a = base + j * (cols + 1) + i, b = a + cols + 1;
+          m.idx.push(a, b, a + 1, a + 1, b, b + 1);
+        }
       }
     }
-    return g;
   }
-  function babysBreath(n, spread) {
-    const g = new THREE.Group();
-    for (let i = 0; i < n; i++) {
-      const b = new THREE.Mesh(new THREE.SphereGeometry(0.016 + Math.random() * 0.012, 6, 5), matBud);
-      b.position.set((Math.random() - 0.5) * spread, Math.random() * spread * 0.7, (Math.random() - 0.5) * spread);
-      g.add(b);
-    }
-    return g;
+
+  function built(m, mat, cast = true) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(m.pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(m.uv, 2));
+    g.setIndex(m.idx);
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, mat);
+    mesh.castShadow = cast;
+    return mesh;
   }
+
+  /**
+   * One petal, written straight into `m` in the flower's own frame.
+   *
+   * Shape is four numbers. `cup` and `cupTip` are how tightly the sheet wraps around the flower's
+   * axis at its base and at its tip — tight at the base and open at the tip is what makes a petal
+   * hold a spoon rather than close into a cone. `recurve` is how far the tip bends back out;
+   * `pinch` is whether it ends round (a rose) or in a point (a lily, a sepal, a leaf).
+   *
+   * Placement is three more: `az` around the bloom, `tilt` from vertical — how far this whorl has
+   * opened — and `rad`, how far out from the centre its base sits.
+   */
+  function petal(m, o) {
+    const { w, h, cup, cupTip, recurve, pinch = 0.45,
+      az = 0, tilt = 0, rad = 0, x0 = 0, y0 = 0, z0 = 0, lean = 0, cols = 6, rows = 7 } = o;
+    const ct = Math.cos(tilt), st = Math.sin(tilt);
+    const ca = Math.cos(az), sa = Math.sin(az);
+    grid(m, cols, rows, (u01, v) => {
+      const u = u01 * 2 - 1;
+      // A narrow claw at the base, broadest in the middle, closed off at the tip by `pinch`.
+      // The first version was nearly half-width at the base, and a petal that wide where it
+      // attaches is not a petal, it is a blade — which is exactly how they read.
+      const half = (w / 2) * Math.pow(Math.sin(Math.PI * (0.04 + v * 0.70)), 0.55)
+        * (1 - Math.pow(v, 3) * pinch);
+      const wrap = u * (cup + (cupTip - cup) * v);
+      const x = Math.sin(wrap) * half + lean * v * v * w;
+      const y = h * Math.sin(v * Math.PI * 0.5);
+      const z = h * recurve * (1 - Math.cos(v * Math.PI * 0.5)) - (1 - Math.cos(wrap)) * half;
+      const y1 = y * ct - z * st, z1 = y * st + z * ct + rad;
+      return [x * ca + z1 * sa + x0, y1 + y0, z1 * ca - x * sa + z0];
+    });
+  }
+
+  /** A tapered tube between two points: stems, filaments, the twigs of a baby's-breath spray. */
+  function strut(m, ax, ay, az0, bx, by, bz, r) {
+    const dx = bx - ax, dy = by - ay, dz = bz - az0;
+    const len = Math.hypot(dx, dy, dz) || 1e-6;
+    const ux = dx / len, uy = dy / len, uz = dz / len;
+    let px = -uy, py = ux, pz = 0;
+    if (Math.hypot(px, py, pz) < 1e-4) { px = 1; py = 0; pz = 0; }
+    const pl = Math.hypot(px, py, pz); px /= pl; py /= pl; pz /= pl;
+    const qx = uy * pz - uz * py, qy = uz * px - ux * pz, qz = ux * py - uy * px;
+    grid(m, 3, 1, (u, v) => {
+      const a = u * Math.PI * 2, co = Math.cos(a), si = Math.sin(a);
+      const rr = r * (1 - v * 0.4);
+      return [ax + dx * v + (px * co + qx * si) * rr,
+        ay + dy * v + (py * co + qy * si) * rr,
+        az0 + dz * v + (pz * co + qz * si) * rr];
+    });
+  }
+
+  /** A small sphere, merged rather than meshed — there are eight hundred of these, and at three
+   *  pixels across none of them earns more than a handful of triangles. */
+  function blob(m, cx, cy, cz, r, sy = 1, cols = 5, rows = 3) {
+    grid(m, cols, rows, (u, v) => {
+      const th = u * Math.PI * 2, ph = v * Math.PI;
+      return [cx + Math.sin(ph) * Math.cos(th) * r, cy + Math.cos(ph) * r * sy,
+        cz + Math.sin(ph) * Math.sin(th) * r];
+    });
+  }
+
   const florals = new THREE.Group();
   root.add(florals);
-  const FLOWERS = [
-    [-1.72, -0.86, 1.30, 0.30], [1.66, -0.88, 1.34, 0.25], [-1.90, -0.90, -0.42, 0.22],
-    [1.92, -0.90, -0.30, 0.27], [-0.72, -0.92, 1.74, 0.20], [0.86, -0.92, 1.70, 0.23],
-    [-1.30, -0.62, 1.62, 0.16], [1.36, -0.64, 1.58, 0.17],
+  const add = (m, mat) => { if (m.n) florals.add(built(m, mat)); };
+
+  /**
+   * A garden rose. Four whorls, from a centre that has barely opened to outer petals folded all
+   * the way back — a bloom whose petals all open by the same amount is the giveaway of a fake one.
+   *
+   * It is built on a PIVOT, and that turned out to matter more than the petals did. A rose modelled
+   * face-up and set on a table is seen edge-on by a camera near table height: a 90cm flower two
+   * centimetres tall. Real garland roses are wired to face the person looking at them, so `face`
+   * and `lean` turn each bloom out of the arrangement and toward the viewer.
+   */
+  function rose(x, y, z, s, turn, face, lean) {
+    const cool = mesher(), warm = mesher(), green = mesher();
+    // A rose petal is BROADER than it is long — the first pass had them twice as long as wide,
+    // and twenty-three blades arranged in a circle is a yucca, not a rose.
+    const WHORLS = [
+      { n: 3, cup: 1.95, cupTip: 1.60, tilt: 0.04, rad: 0.020, h: 0.54, w: 0.46, recurve: 0.02 },
+      { n: 5, cup: 1.62, cupTip: 1.18, tilt: 0.24, rad: 0.075, h: 0.60, w: 0.64, recurve: 0.10 },
+      { n: 7, cup: 1.28, cupTip: 0.78, tilt: 0.46, rad: 0.130, h: 0.66, w: 0.84, recurve: 0.24 },
+      { n: 8, cup: 1.02, cupTip: 0.46, tilt: 0.72, rad: 0.175, h: 0.70, w: 0.96, recurve: 0.40 },
+    ];
+    WHORLS.forEach((W, k) => {
+      for (let i = 0; i < W.n; i++) {
+        petal(k % 2 ? warm : cool, {
+          w: W.w * s, h: W.h * s, cup: W.cup, cupTip: W.cupTip, recurve: W.recurve,
+          pinch: 0.16 + k * 0.03,              // rounded tips, not points
+          az: (i / W.n) * Math.PI * 2 + k * 0.62 + turn,
+          tilt: W.tilt + rnd(-0.08, 0.08), rad: W.rad * s, y0: rnd(-0.015, 0.015) * s,
+          cols: 8, rows: 6,                     // the silhouette is the whole read at this size
+        });
+      }
+    });
+    // The rolled heart of the flower, just visible down the throat.
+    blob(warm, 0, 0.20 * s, 0, 0.11 * s, 1.3, 8, 5);
+    // Sepals folded down underneath. Barely visible, and their absence is a large part of why the
+    // first pass looked like crumpled tissue sitting on a table.
+    for (let i = 0; i < 5; i++) {
+      petal(green, {
+        w: 0.24 * s, h: 0.70 * s, cup: 0.5, cupTip: 0.18, recurve: -0.55, pinch: 0.95,
+        az: (i / 5) * Math.PI * 2 + turn + 0.3, tilt: 2.2, rad: 0.11 * s, cols: 3, rows: 4,
+      });
+    }
+
+    const pivot = new THREE.Group();
+    pivot.position.set(x, y, z);
+    pivot.rotation.y = face;
+    const bloom = new THREE.Group();
+    bloom.rotation.x = lean;
+    pivot.add(bloom);
+    for (const [m, mat] of [[cool, matPetal], [warm, matPetalWarm], [green, matStem]]) {
+      if (m.n) bloom.add(built(m, mat));
+    }
+    florals.add(pivot);
+    return pivot;
+  }
+
+  /**
+   * A white lily: six pointed tepals in two whorls of three, bent right back, with the six anthers
+   * and the single longer pistil standing out of the middle. The recurve is the whole character of
+   * the flower — a lily whose tepals stand up is a star, not a lily.
+   */
+  function lily(x, y, z, s, turn, stem, face, lean) {
+    const white = mesher(), green = mesher();
+    // A lily stands above the rest of the arrangement on its own stem — it is what gives the
+    // garland a second storey instead of one flat band of blooms.
+    if (stem) strut(green, 0, -stem, 0, 0, 0.05 * s, 0, 0.03 * s);
+    for (let k = 0; k < 2; k++) {
+      for (let i = 0; i < 3; i++) {
+        petal(white, {
+          w: 0.60 * s, h: 1.28 * s, cup: 0.86, cupTip: 0.30, recurve: 1.15, pinch: 0.88,
+          az: (i / 3) * Math.PI * 2 + k * (Math.PI / 3) + turn,
+          tilt: (k ? 1.34 : 1.12) + rnd(-0.06, 0.06), rad: 0.07 * s, cols: 5, rows: 8,
+        });
+      }
+    }
+    // Filaments lean out over the tepals; each carries an anther at its tip.
+    const anthers = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + turn + 0.2, t = 0.62 + rnd(-0.08, 0.08), L = 0.78 * s;
+      const tx = Math.sin(a) * Math.sin(t) * L, ty = Math.cos(t) * L, tz = Math.cos(a) * Math.sin(t) * L;
+      strut(white, 0, 0.04 * s, 0, tx, ty, tz, 0.012 * s);
+      anthers.push([tx, ty, tz, a]);
+    }
+    // The pistil: longer than the stamens, pale, and slightly off the vertical.
+    strut(white, 0, 0, 0, Math.sin(turn) * 0.12 * s, 0.96 * s, Math.cos(turn) * 0.12 * s, 0.016 * s);
+    blob(white, Math.sin(turn) * 0.12 * s, 0.96 * s, Math.cos(turn) * 0.12 * s, 0.05 * s, 1.1);
+
+    const pivot = new THREE.Group();
+    pivot.position.set(x, y, z);
+    pivot.rotation.y = face;
+    const bloom = new THREE.Group();
+    bloom.rotation.x = lean;
+    pivot.add(bloom);
+    if (white.n) bloom.add(built(white, matPetal));
+    if (green.n) bloom.add(built(green, matStem));
+    const antherGeo = new THREE.SphereGeometry(0.055 * s, 8, 6);
+    for (const [ax, ay, az0, a] of anthers) {
+      const an = new THREE.Mesh(antherGeo, matAnther);
+      an.position.set(ax, ay, az0);
+      an.scale.set(0.55, 0.55, 1.9);
+      an.rotation.set(0.5, a, 0);
+      bloom.add(an);
+    }
+    florals.add(pivot);
+    return pivot;
+  }
+
+  /**
+   * A spray of baby's breath, emitted into buffers the CLUSTER owns — a cluster carries two or
+   * three sprays and they all belong in one mesh.
+   *
+   * The point of gypsophila is FINENESS. The first version was forty-six loose spheres in a ball,
+   * which at this distance is a puff of smoke. Real gypsophila is visible twigs forking into tiny
+   * blooms, and it is the twigs, not the blooms, that make it read as a flower.
+   */
+  function breathInto(stems, buds, ox, oy, oz, s, n) {
+    for (let i = 0; i < n; i++) {
+      const a = rnd(0, Math.PI * 2), t = rnd(0.18, 1.0), L = s * rnd(0.55, 1.0);
+      const tx = ox + Math.sin(a) * Math.sin(t) * L, ty = oy + Math.cos(t) * L,
+        tz = oz + Math.cos(a) * Math.sin(t) * L;
+      strut(stems, ox, oy, oz, tx, ty, tz, 0.008 * s);
+      blob(buds, tx, ty, tz, 0.026 * s);
+      for (let k = 0; k < 2; k++) {
+        const fa = a + rnd(-1.3, 1.3), fl = L * rnd(0.22, 0.38), ft = t + rnd(-0.45, 0.2);
+        const fx = tx + Math.sin(fa) * Math.sin(ft) * fl;
+        const fy = ty + Math.cos(ft) * fl;
+        const fz = tz + Math.cos(fa) * Math.sin(ft) * fl;
+        strut(stems, tx, ty, tz, fx, fy, fz, 0.006 * s);
+        blob(buds, fx, fy, fz, 0.023 * s);
+      }
+    }
+  }
+
+  /** A sprig of greenery: an arching stem with leaves in opposite pairs, smaller toward the tip. */
+  function sprigInto(m, ox, oy, oz, az, len, s) {
+    const N = 6;
+    // The stem leaves the arrangement low, arches up and comes back down — the line that makes a
+    // sprig look cut and laid rather than planted.
+    const at = (t) => [ox + Math.sin(az) * len * t, oy + len * (t * 1.05 - t * t * 1.15),
+      oz + Math.cos(az) * len * t];
+    let prev = at(0);
+    for (let i = 1; i <= N; i++) {
+      const p = at(i / N);
+      strut(m, prev[0], prev[1], prev[2], p[0], p[1], p[2], 0.016 * s * (1 - i / (N * 1.6)));
+      const size = s * (0.48 - (i / N) * 0.26);
+      for (const side of [1, -1]) {
+        petal(m, {
+          w: size * 1.2, h: size * 1.55, cup: 0.42, cupTip: 0.2, recurve: 0.3, pinch: 0.5,
+          az: az + side * (Math.PI / 2) + rnd(-0.25, 0.25), tilt: 1.2 + rnd(-0.18, 0.18),
+          rad: 0.015, x0: p[0], y0: p[1], z0: p[2], cols: 4, rows: 5,
+        });
+      }
+      prev = p;
+    }
+  }
+
+  // ---- the arrangement ----------------------------------------------------
+  // Clusters, not a ring of identical blooms. A florist builds heaviest where the eye lands — the
+  // front corners — and thins it toward the back, and each cluster is a focal rose with its
+  // supporting cast rather than the same unit repeated eight times.
+  //
+  // `a` is the bearing around the box (0 faces the camera side), `r` how far out from the centre
+  // the cluster sits — just off the box wall, so the garland hugs it rather than ringing it.
+  const TABLE = -1.01;
+  const CLUSTERS = [
+    { a: -0.58, r: 1.72, s: 1.00, lily: true },
+    { a: 0.62, r: 1.70, s: 0.94, lily: true },
+    { a: 0.02, r: 1.62, s: 0.60, lily: false },
+    { a: -1.36, r: 1.74, s: 0.80, lily: true },
+    { a: 1.44, r: 1.76, s: 0.70, lily: false },
+    { a: -2.28, r: 1.72, s: 0.52, lily: false },
+    { a: 2.38, r: 1.74, s: 0.50, lily: true },
+    { a: 3.10, r: 1.66, s: 0.42, lily: false },
   ];
-  for (const [x, y, z, r] of FLOWERS) {
-    const f = rose(r);
-    f.position.set(x, y, z);
-    f.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * 6, (Math.random() - 0.5) * 0.4);
-    florals.add(f);
-    const puff = babysBreath(46, 0.62);
-    puff.position.set(x + (Math.random() - 0.5) * 0.5, y + 0.12, z + (Math.random() - 0.5) * 0.4);
-    florals.add(puff);
-    const leaf = new THREE.Mesh(new THREE.CircleGeometry(r * 1.1, 5), matStem);
-    leaf.position.set(x + (Math.random() - 0.5) * 0.6, y - 0.06, z + (Math.random() - 0.5) * 0.5);
-    leaf.rotation.set(-Math.PI / 2 + 0.25, 0, Math.random() * 6);
-    florals.add(leaf);
+
+  for (const c of CLUSTERS) {
+    // Out from the box, and along the wall: the two directions a cluster is allowed to spread in.
+    const ox = Math.sin(c.a), oz = Math.cos(c.a);
+    const tx = Math.cos(c.a), tz = -Math.sin(c.a);
+    const at = (along, out) => [
+      ox * c.r + tx * along * c.s + ox * out * c.s,
+      oz * c.r + tz * along * c.s + oz * out * c.s,
+    ];
+    const bed = mesher(), stems = mesher(), buds = mesher(), leaves = mesher();
+
+    // The bed first: broad dark leaves lying almost flat, under everything else. They are barely
+    // visible as leaves and they are doing most of the work — they are the dark the white sits on.
+    for (let i = 0; i < 11; i++) {
+      const [px, pz] = at(rnd(-0.62, 0.62), rnd(-0.28, 0.34));
+      petal(bed, {
+        w: 0.40 * c.s, h: 0.52 * c.s, cup: 0.35, cupTip: 0.15, recurve: 0.18, pinch: 0.5,
+        az: c.a + rnd(-2.2, 2.2), tilt: 1.44 + rnd(-0.16, 0.16),
+        rad: 0.02, x0: px, y0: TABLE + 0.02 + i * 0.004, z0: pz, cols: 4, rows: 5,
+      });
+    }
+
+    // Blooms. `face` turns each one out of the arrangement and `lean` tips it up toward the
+    // viewer, with enough scatter that no two sit at the same angle.
+    const nRose = c.s > 0.85 ? 3 : c.s > 0.58 ? 2 : 1;
+    const SPOTS = [[0.00, -0.02, 0.52], [0.42, 0.14, 0.36], [-0.44, -0.06, 0.27]];
+    for (let i = 0; i < nRose; i++) {
+      const [along, out, size] = SPOTS[i];
+      const [px, pz] = at(along, out);
+      rose(px, TABLE + (0.16 + i * 0.03) * c.s, pz, size * c.s, rnd(0, Math.PI * 2),
+        c.a + rnd(-0.5, 0.5), 0.52 + rnd(-0.18, 0.18));
+    }
+
+    // One bloom per big cluster set high and tucked against the wall, so the garland has a second
+    // storey and the eye travels up the box instead of stopping at the table.
+    if (c.s > 0.58) {
+      const [px, pz] = at(-0.18, -0.34);
+      rose(px, TABLE + 0.52 * c.s, pz, 0.30 * c.s, rnd(0, Math.PI * 2),
+        c.a + rnd(-0.3, 0.3), 0.86 + rnd(-0.12, 0.12));
+    }
+
+    if (c.lily) {
+      const [px, pz] = at(-0.16, 0.26);
+      const h = 0.52 * c.s;
+      lily(px, TABLE + h, pz, 0.31 * c.s, rnd(0, Math.PI * 2), h,
+        c.a + rnd(-0.4, 0.4), 0.34 + rnd(-0.12, 0.12));
+    }
+
+    // Filler. Small, tight and close in: gypsophila that sprawls as far as a rose stops being
+    // filler and starts being weeds, which is exactly what the first pass looked like.
+    for (let i = 0; i < (c.s > 0.58 ? 3 : 2); i++) {
+      const [px, pz] = at(rnd(-0.68, 0.68), rnd(-0.10, 0.44));
+      breathInto(stems, buds, px, TABLE + 0.05, pz, 0.30 * c.s, 11);
+    }
+    // Greenery fans out and along the wall, never back INTO the box.
+    for (let i = 0; i < (c.s > 0.58 ? 5 : 3); i++) {
+      const [px, pz] = at(rnd(-0.6, 0.6), rnd(-0.14, 0.22));
+      sprigInto(leaves, px, TABLE + 0.03, pz,
+        c.a + rnd(-1.1, 1.1), rnd(0.34, 0.52) * c.s, 0.30 * c.s);
+    }
+    add(bed, matDeep);
+    add(stems, matStem);
+    add(buds, matBud);
+    add(leaves, matSage);
   }
 
   // ---- THE CAKE, built from the photograph on the site --------------------
