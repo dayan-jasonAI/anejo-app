@@ -457,19 +457,29 @@ export async function suppressOrganization(env, orgId, { reason, ctx } = {}) {
 
 // ---------------------------------------------------------------- scoring
 
+/**
+ * Miles from the nearest place Añejo already drives to, or null with a REASON.
+ *
+ * It returns why, because a distance takes two points and only one of them is the prospect's. The
+ * scorer used to say "no coordinates" whichever side was missing, so an imported list with perfect
+ * coordinates still read as the prospect's fault — and the owner would go looking at the CSV
+ * instead of at KITCHEN_ORIGIN_LAT/LNG, which is the thing actually unset.
+ */
 async function distanceFor(env, org) {
   // NULL coordinates are unknown, not the equator (Number(null) === 0).
-  if (org.lat == null || org.lng == null || org.lat === '' || org.lng === '') return null;
-  if (!Number.isFinite(Number(org.lat)) || !Number.isFinite(Number(org.lng))) return null;
-  const here = { lat: Number(org.lat), lng: Number(org.lng) };
+  const hasOrgCoords = !(org.lat == null || org.lng == null || org.lat === '' || org.lng === '')
+    && Number.isFinite(Number(org.lat)) && Number.isFinite(Number(org.lng));
   const origins = [];
   const k = kitchenOrigin(env);
   if (k) origins.push(k);
   for (const r of await rows(env, "SELECT delivery_lat AS lat, delivery_lng AS lng FROM contract_sites WHERE active = 1 AND delivery_lat IS NOT NULL AND delivery_lng IS NOT NULL")) {
     origins.push({ lat: r.lat, lng: r.lng });
   }
+  if (!origins.length) return { miles: null, reason: 'no_origin' };
+  if (!hasOrgCoords) return { miles: null, reason: 'no_org_coords' };
+  const here = { lat: Number(org.lat), lng: Number(org.lng) };
   const ds = origins.map((o) => haversineMiles(here, o)).filter((d) => d != null);
-  return ds.length ? Math.min(...ds) : null;
+  return ds.length ? { miles: Math.min(...ds), reason: null } : { miles: null, reason: 'no_org_coords' };
 }
 
 /** Signals from the evidence rows (the enrichment stores them there), newest capture first. */
@@ -498,7 +508,7 @@ export async function buildFacts(env, orgId) {
     signals: await signalsFor(env, orgId),
     contacts,
     sibling_count: sib ? Number(sib.n) || 0 : 0,
-    distance_miles: await distanceFor(env, org),
+    ...(await (async () => { const d = await distanceFor(env, org); return { distance_miles: d.miles, distance_unknown_reason: d.reason }; })()),
   };
 }
 

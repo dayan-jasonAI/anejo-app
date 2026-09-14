@@ -273,3 +273,72 @@ test('dedupe keys: an external id wins; own domain + street next; social hosts a
   assert.equal(dedupeKey({ source: 'google_places', source_external_id: 'P1', name: 'x' }), 'x:google_places:P1');
   assert.equal(dedupeKey({ domain: 'a.org', street: '500 Clematis Street, Suite 2', zip: '33401' }), dedupeKey({ domain: 'a.org', street: '500 Clematis St', zip: '33401-1234' }));
 });
+
+// ---------------------------------------------------------------- the files the Hub recommends
+//
+// CSV import is the ONLY approved prospect source in this release, and the Hub names two downloads
+// by name: SAMHSA FindTreatment.gov and a Florida AHCA FloridaHealthFinder export. Recommending a
+// file the importer cannot read is worse than recommending nothing — and that is exactly what
+// happened: a SAMHSA export failed every row with "an organization needs a name", because its
+// column is `name1`. These pin the column names as those sources actually write them.
+
+test('a SAMHSA FindTreatment.gov export imports — name1/street1/latitude are its real column names', () => {
+  const { rows } = parseCsv([
+    'name1,name2,street1,street2,city,state,zip,phone,website,latitude,longitude',
+    'Lake Worth Recovery Center,Outpatient Division,700 Lake Ave,Suite 200,Lake Worth,FL,33460,561-555-0110,https://example.net,26.6168,-80.0684',
+  ].join('\n'));
+  const rec = csvRowToRecord(rows[0]);
+
+  // The row used to arrive with no name at all, and upsertOrganization rejects a nameless org.
+  assert.equal(rec.org.name, 'Lake Worth Recovery Center — Outpatient Division',
+    'name1 and name2 are the organization and its program — joined, because two programs at one address are two prospects');
+  assert.equal(rec.org.street, '700 Lake Ave, Suite 200', 'street1 + street2');
+  assert.equal(rec.org.city, 'Lake Worth');
+  assert.equal(rec.org.zip, '33460');
+  assert.equal(rec.org.website, 'https://example.net');
+
+  // Coordinates are the difference between a ranked list and an alphabetical one: without them the
+  // route criterion cannot measure anything and every prospect looks equally far away.
+  assert.equal(rec.org.lat, 26.6168);
+  assert.equal(rec.org.lng, -80.0684);
+});
+
+test('a Florida AHCA-shaped export imports, licensed beds and all', () => {
+  const { rows } = parseCsv([
+    'Provider Name,Address 1,City,State,Zip Code,County,Licensed Beds,Phone,Provider Type',
+    'Palm Grove Adult Day Center,1200 Okeechobee Blvd,West Palm Beach,FL,33401,Palm Beach,60,561-555-0101,Adult Day Care Center',
+  ].join('\n'));
+  const rec = csvRowToRecord(rows[0]);
+  assert.equal(rec.org.name, 'Palm Grove Adult Day Center');
+  assert.equal(rec.org.street, '1200 Okeechobee Blvd');
+  assert.equal(rec.org.county, 'Palm Beach');
+  assert.equal(rec.org.employee_or_capacity_hint, '60', 'licensed beds is the volume signal');
+  assert.equal(rec.org.business_category, 'Adult Day Care Center');
+});
+
+test('a plain list still imports — the new aliases did not displace the simple headers', () => {
+  const { rows } = parseCsv('name,city,contact_email\nSomewhere Clinic,Delray Beach,admin@example.com');
+  const rec = csvRowToRecord(rows[0]);
+  assert.equal(rec.org.name, 'Somewhere Clinic');
+  assert.equal(rec.org.lat, null, 'a missing coordinate is null, never 0');
+  assert.equal(rec.contact.email, 'admin@example.com');
+});
+
+test('an unmeasurable distance says WHICH side is missing', () => {
+  const base = { ...STRONG, organization: { ...STRONG.organization } };
+
+  // Añejo has no origin configured. Blaming the prospect here sent the owner to audit a CSV that
+  // was perfectly fine, while KITCHEN_ORIGIN_LAT/LNG sat unset.
+  const noOrigin = scoreOrganization({ ...base, distance_miles: null, distance_unknown_reason: 'no_origin' },
+    DEFAULT_ICP, DEFAULT_SERVICE_AREA);
+  const routeA = noOrigin.criteria.find((c) => c.key === 'route_fit');
+  assert.match(routeA.reasons.join(' '), /Añejo has no origin/i);
+  assert.match(routeA.reasons.join(' '), /KITCHEN_ORIGIN_LAT/);
+
+  // The other way round: we can measure, this organization cannot be placed.
+  const noCoords = scoreOrganization({ ...base, distance_miles: null, distance_unknown_reason: 'no_org_coords' },
+    DEFAULT_ICP, DEFAULT_SERVICE_AREA);
+  const routeB = noCoords.criteria.find((c) => c.key === 'route_fit');
+  assert.match(routeB.reasons.join(' '), /this organization has no coordinates/i);
+  assert.doesNotMatch(routeB.reasons.join(' '), /KITCHEN_ORIGIN/);
+});

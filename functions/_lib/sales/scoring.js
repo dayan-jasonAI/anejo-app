@@ -167,7 +167,13 @@ export function scoreOrganization(facts = {}, icp = {}, area = {}) {
       if (d <= Number(area.near_miles || 10)) { f += 0.3; why.push(`${d.toFixed(1)} mi from the kitchen or an existing contract site.`); }
       else if (d <= Number(area.max_miles || 30)) { f += 0.15; why.push(`${d.toFixed(1)} mi from the nearest run.`); }
       else why.push(`${d.toFixed(1)} mi from the nearest run — beyond the configured range.`);
-    } else if (areaCheck.inside) why.push('Distance not measured (no coordinates).');
+    } else if (areaCheck.inside) {
+      // Name the side that is missing. "No coordinates" sent the owner to the import file even when
+      // the import was perfect and it was Añejo's own origin that had never been set.
+      why.push(facts.distance_unknown_reason === 'no_origin'
+        ? 'Distance not measured — Añejo has no origin to measure from yet. Set KITCHEN_ORIGIN_LAT / KITCHEN_ORIGIN_LNG, or add delivery coordinates to an active contract site.'
+        : 'Distance not measured — this organization has no coordinates. Importing a list that carries latitude/longitude, or geocoding it, earns the rest of these points.');
+    }
     add('route_fit', areaCheck.inside ? f : 0, why);
   }
 

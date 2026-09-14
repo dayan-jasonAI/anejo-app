@@ -194,22 +194,53 @@ export function parseCsv(text, { maxRows = 500 } = {}) {
 }
 
 const pick = (r, ...keys) => { for (const k of keys) if (r[k]) return r[k]; return null; };
+// A MISSING COORDINATE IS NOT THE EQUATOR. `Number(null)` and `Number('')` are both 0, and 0 is a
+// finite number off the coast of Africa — the same mistake this codebase already fixed once in the
+// scorer, where an unknown distance scored as "0.0 mi" and earned full route marks.
+const num = (v) => {
+  if (v === null || v === undefined || String(v).trim() === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+// Two halves of one field, the way the federal and state exports write them: SAMHSA splits a
+// facility into name1/name2 (the organization and its program) and street1/street2. Joined rather
+// than dropped — "Lake Worth Recovery Center — Outpatient Division" is two real programs' worth of
+// difference at the same address, and collapsing them to the first line would merge them.
+const joined = (a, b, sep) => [a, b].map((x) => (x ? String(x).trim() : '')).filter(Boolean).join(sep) || null;
 
-/** One CSV row → an organization record plus (optionally) one contact. */
+/**
+ * One CSV row → an organization record plus (optionally) one contact.
+ *
+ * THE ALIASES ARE THE PRODUCT HERE. CSV import is the only approved prospect source in this
+ * release, and the Hub names two files by name: a SAMHSA FindTreatment.gov download and a Florida
+ * AHCA FloridaHealthFinder export. Recommending a file the importer cannot read is worse than
+ * recommending nothing — a SAMHSA export failed EVERY row with "an organization needs a name",
+ * because its column is `name1`. Anything named below has been checked against how that source
+ * actually writes it.
+ */
 export function csvRowToRecord(r) {
   return {
     org: {
-      name: pick(r, 'name', 'organization', 'organization_name', 'company', 'facility', 'facility_name', 'provider_name'),
-      website: pick(r, 'website', 'url', 'web', 'site'),
-      phone: pick(r, 'phone', 'telephone', 'phone_number', 'main_phone'),
-      street: pick(r, 'street', 'address', 'street_address', 'address_1', 'address1'),
+      name: joined(
+        pick(r, 'name', 'name1', 'organization', 'organization_name', 'company', 'facility', 'facility_name', 'provider_name', 'provider'),
+        pick(r, 'name2', 'program', 'program_name', 'division'), ' — '),
+      website: pick(r, 'website', 'url', 'web', 'site', 'website_url'),
+      phone: pick(r, 'phone', 'telephone', 'phone_number', 'main_phone', 'phone1', 'primary_phone'),
+      street: joined(
+        pick(r, 'street', 'address', 'street_address', 'address_1', 'address1', 'street1', 'address_line_1'),
+        pick(r, 'street2', 'address_2', 'address2', 'suite', 'address_line_2'), ', '),
       city: pick(r, 'city', 'town'),
       state: pick(r, 'state', 'st'),
       zip: pick(r, 'zip', 'zipcode', 'zip_code', 'postal_code'),
       county: pick(r, 'county'),
-      business_category: pick(r, 'category', 'icp_category'),
-      employee_or_capacity_hint: pick(r, 'capacity', 'beds', 'licensed_beds', 'licensed_capacity', 'census'),
-      notes: pick(r, 'notes', 'note'),
+      business_category: pick(r, 'category', 'icp_category', 'provider_type', 'facility_type'),
+      employee_or_capacity_hint: pick(r, 'capacity', 'beds', 'licensed_beds', 'licensed_capacity', 'census', 'number_of_beds'),
+      // Coordinates when the export carries them (SAMHSA does). Without these the route criterion
+      // scores "distance not measured" and every prospect looks equally far away, which is the
+      // difference between a ranked list and an alphabetical one.
+      lat: num(pick(r, 'lat', 'latitude', 'y')),
+      lng: num(pick(r, 'lng', 'long', 'longitude', 'x')),
+      notes: pick(r, 'notes', 'note', 'comments'),
       source: 'csv',
     },
     contact: {
