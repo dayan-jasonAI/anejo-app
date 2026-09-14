@@ -278,7 +278,7 @@
       }
       return `<label>${esc(f.label)}<input data-v="${esc(f.key)}" type="${esc(f.type || 'text')}" autocomplete="off"></label><p class="muted">${esc(f.hint)}</p>`;
     };
-    return `<div class="box"><h2>At the door</h2>
+    return `<div class="box" id="visit-box"><h2>At the door</h2>
       <p class="muted">Open this before you walk in. Fill it in as you talk — what you write here updates the score and the contacts, it is not a scratchpad.</p>
       <details class="terms-edit"><summary>The script</summary><div class="body">
         ${S.before.map((x) => `<p class="muted">${esc(x)}</p>`).join('')}
@@ -294,6 +294,42 @@
         <div class="wide"><label>Anything else<textarea data-v="note" rows="2"></textarea></label></div></div>
       <button class="btn2 primary" data-act="logvisit" data-id="${esc(d.organization.id)}">Save visit</button>
       <span id="visit-out" class="muted"></span></div>`;
+  }
+
+  // THE CONVERSATION. Two halves of one loop: what they said goes in, and the next letter comes out
+  // of it. Fields are scoped to data-t / data-f — the visit panel saves with a document-wide
+  // [data-v] sweep, and a shared attribute here would silently post its fields with the visit.
+  function conversationBox(d) {
+    const t = d.touch, ints = d.followup_intents || [];
+    if (!t) return '';
+    const stages = (d.stages || []).map((x) => `<option value="${esc(x)}">${esc(String(x).replace(/_/g, ' '))}</option>`).join('');
+    return `<div class="box" id="conv-box"><h2>The conversation</h2>
+      <p class="muted">Anything they said, from anywhere — a reply in your inbox, a call, a voicemail, a word at the door. What you put here moves the record and is what the next email gets written from.</p>
+
+      <h3>Log what they said</h3>
+      <div class="f">
+        <label>How it came in<select data-t="channel">${t.channels.map((c) => `<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('')}</select></label>
+        <label>How it landed<select data-t="sentiment">${t.sentiments.map((c) => `<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('')}</select></label>
+        <div class="wide"><label>What they said<textarea data-t="summary" rows="3" placeholder="Their words if you have them, otherwise yours."></textarea></label></div>
+        <div class="wide"><label>What they asked for<textarea data-t="asked" rows="2" placeholder="A price, a menu, a callback, a date. Optional."></textarea></label></div>
+        <label>People per day, if they said<input data-t="headcount" type="number" min="1" inputmode="numeric"></label>
+        <label>What time lunch goes out<input data-t="lunch_time" placeholder="e.g. 12:00"></label>
+        <label>Move the stage to<select data-t="stage"><option value="">Leave it where it is</option>${stages}</select></label>
+        <label>Next action<input data-t="next_action" placeholder="Optional. What you owe them next."></label>
+      </div>
+      <button class="btn2 primary" data-act="logtouch" data-id="${esc(d.organization.id)}">Save what they said</button>
+      <span id="touch-out" class="muted"></span>
+      <p class="muted" style="margin-top:6px">A reply, call, text or visit stops any automated sequence for this prospect. Nothing keeps talking over a person who answered.</p>
+
+      <h3 style="margin-top:18px">Write the follow-up</h3>
+      <div class="f">
+        <label>What kind<select data-f="intent"><option value="">Decide from the record</option>${ints.map((i) => `<option value="${esc(i.key)}">${esc(i.label)}</option>`).join('')}</select></label>
+        <div class="wide"><label>Anything to tell the writer<textarea data-f="instruction" rows="2" placeholder="Optional. e.g. keep it to three lines, or mention I will be in the area Thursday."></textarea></label></div>
+      </div>
+      <button class="btn2 primary" data-act="followup" data-id="${esc(d.organization.id)}">Draft follow-up</button>
+      <span id="follow-out" class="muted"></span>
+      <p class="muted" style="margin-top:6px">It is written from this prospect's own record — the visit, everything logged above, what was already sent. It lands in Approvals where you can rewrite every word before it goes.</p>
+    </div>`;
   }
 
     const o = d.organization, opp = d.opportunity && !['won', 'lost'].includes(d.opportunity.stage) ? d.opportunity : null;
@@ -323,6 +359,7 @@
           <button class="btn2" data-act="saveorg">Save</button></details></div>
 
       ${visitBox(d)}
+      ${conversationBox(d)}
 
       <div class="box"><h2>Why this score</h2>${sc ? `<p class="muted">${esc(sc.score)}/100 · tier ${esc(sc.tier)} · ${esc(sc.model_version)} · ${esc(when(sc.created_at))} — deterministic, from your ICP settings. The AI brief never changes it.</p>
         ${(sc.disqualified_by || []).length ? `<div class="bad">Disqualified: ${sc.disqualified_by.map(esc).join(' · ')}</div>` : ''}
@@ -363,9 +400,36 @@
     ACT.rescore = (b) => run(b, S, { op: 'rescore', id }, 'Rescored');
     ACT.mkopp = (b) => run(b, S, { op: 'create_opportunity', organization_id: id }, 'Opportunity created');
     ACT.dnc = (b) => { if (confirm('Mark this organization do-not-contact? Every sequence stops and nothing will be sent.')) run(b, S, { op: 'do_not_contact', organization_id: id, reason: 'owner' }, 'Marked do-not-contact'); };
+    ACT.logtouch = async (b) => {
+      const payload = { op: 'log_touch', organization_id: b.dataset.id };
+      document.querySelectorAll('#conv-box [data-t]').forEach((el) => { if (String(el.value).trim()) payload[el.dataset.t] = String(el.value).trim(); });
+      const out = document.getElementById('touch-out');
+      if (!payload.summary) { out.textContent = 'Write what they said first.'; return; }
+      b.disabled = true; out.textContent = 'Saving…';
+      const r = await post(S, payload);
+      b.disabled = false;
+      if (!r || !r.ok) { out.textContent = (r && r.error) || 'Could not save.'; return; }
+      const said = [r.capacity_set ? 'headcount saved' : '', r.stage ? 'stage moved to ' + r.stage.replace(/_/g, ' ') : '', r.sequence_stopped ? 'automated sequence stopped' : ''].filter(Boolean);
+      toast('Logged' + (said.length ? ' — ' + said.join(', ') : ''));
+      reload();
+    };
+
+    ACT.followup = async (b) => {
+      const payload = { op: 'draft_followup', organization_id: b.dataset.id };
+      document.querySelectorAll('#conv-box [data-f]').forEach((el) => { if (String(el.value).trim()) payload[el.dataset.f] = String(el.value).trim(); });
+      const out = document.getElementById('follow-out');
+      b.disabled = true; out.textContent = 'Writing…';
+      const r = await post(OUT, payload);
+      b.disabled = false;
+      if (!r || !r.ok) { out.textContent = (r && r.error) || 'Could not draft it.'; return; }
+      out.textContent = '';
+      toast(`Drafted (${r.intent_label}) — read it in Approvals before it goes`);
+      location.hash = 'tab=approvals';
+    };
+
     ACT.logvisit = async (b) => {
       const payload = { op: 'log_visit', organization_id: b.dataset.id };
-      document.querySelectorAll('[data-v]').forEach((el) => { if (el.value.trim()) payload[el.dataset.v] = el.value.trim(); });
+      document.querySelectorAll('#visit-box [data-v]').forEach((el) => { if (el.value.trim()) payload[el.dataset.v] = el.value.trim(); });
       const out = document.getElementById('visit-out');
       if (!payload.spoke_to_name && !payload.spoke_to_email && !payload.headcount && !payload.note) {
         out.textContent = 'Nothing to save yet — a name on its own is enough.'; return;
@@ -540,7 +604,7 @@
       b.disabled = true;
       const r = await post(OUT, { op: 'approve', id, ...vals(c), render_hash: b.dataset.hash, acknowledge_flags: !!(ack && ack.checked) });
       if (!r.ok) { b.disabled = false; toast(r.error); if (r.code === 'stale_preview') c.querySelector('.ap-preview').innerHTML = `<div class="bad">${esc(r.error)}</div>`; return; }
-      toast(r.send_readiness && r.send_readiness.ok ? 'Approved — it will send in the next business-hours window' : 'Approved and queued. It will not send until the setup items above are done.');
+      toast(r.send_readiness && r.send_readiness.ok ? 'Approved. Press “Send approved emails now” to send it straight away.' : 'Approved and queued. It will not send until the setup items above are done.');
       approvals();
     };
     ACT.save = async (b) => { const c = cardOf(b); const r = await post(OUT, { op: 'edit', id: c.dataset.id, ...vals(c) }); toast(r.ok ? 'Edit saved (still waiting for approval)' : r.error); };

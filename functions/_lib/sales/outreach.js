@@ -93,7 +93,7 @@ export function proofLine(proof) {
  * The site line is derived from the landing URL rather than hard-coded, so it can never drift away
  * from the links in the same email if APP_BASE_URL changes.
  */
-function signature(sender, landingUrl) {
+export function signature(sender, landingUrl) {
   let site = 'anejocateringco.com';
   try { if (landingUrl) site = new URL(landingUrl).host.replace(/^www\./, ''); } catch { /* keep the default */ }
   return [
@@ -419,8 +419,8 @@ export async function draftDueFollowups(env, { cfg, atMs = Date.now(), limit = 2
 
 // ---------------------------------------------------------------- preview + approval
 
-const normSubject = (s) => String(s == null ? '' : s).replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
-const normBody = (s) => String(s == null ? '' : s).replace(/\r\n/g, '\n').trim().slice(0, 6000);
+export const normSubject = (s) => String(s == null ? '' : s).replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+export const normBody = (s) => String(s == null ? '' : s).replace(/\r\n/g, '\n').trim().slice(0, 6000);
 
 async function renderContext(env, row, cfg) {
   const org = await salesRow(env, 'SELECT name FROM sales_organizations WHERE id = ?', row.organization_id);

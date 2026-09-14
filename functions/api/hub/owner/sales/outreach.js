@@ -6,7 +6,9 @@
 //   POST { op:'approve', id, subject, body, render_hash, acknowledge_flags? }
 //   POST { op:'edit' | 'reject' | 'snooze', id, … }
 //   POST { op:'mark_replied', opportunity_id, sentiment?, note? } / { op:'stop_sequence', opportunity_id }
-//   POST { op:'send_now' }                     → the same gated batch the scheduler runs
+//   POST { op:'draft_followup', organization_id, contact_id?, intent?, instruction? }
+//                                              → a follow-up written from this prospect's OWN record
+//   POST { op:'send_now' }                     → send the approved batch NOW (owner-initiated)
 //
 // "No email leaves the Hub without a human reading it first." approve REQUIRES the render_hash the
 // preview returned; there is no op that sends a draft, and no op that approves without a preview.
@@ -18,6 +20,7 @@ import {
   approvalQueue, sendReadiness, startSequence, previewOutreach, approveOutreach, editOutreach, rejectOutreach,
   snoozeOutreach, markReplied, sendApproved,
 } from '../../../../_lib/sales/outreach.js';
+import { draftFollowup } from '../../../../_lib/sales/followup.js';
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -51,7 +54,16 @@ export const onRequestPost = async ({ request, env }) => {
       const r = await stopSequences(env, { opportunity_id: String(b.opportunity_id || ''), reason: 'manual', ctx });
       return json({ ok: true, ...r });
     }
-    case 'send_now': return json(await sendApproved(env, { cfg, limit: 10 }));
+    case 'draft_followup': return reply(await draftFollowup(env, {
+      organization_id: String(b.organization_id || ''), contact_id: b.contact_id || null,
+      intent: b.intent || null, instruction: b.instruction || null, cfg, ctx,
+    }));
+    // THE OWNER PRESSING A BUTTON IS NOT AUTOMATION. The business-hours window exists so the
+    // scheduler never mails a clinic at 2am on a Sunday; it was never meant to stop him answering a
+    // prospect who replied at 6pm. The window still governs every scheduled pass — only this one,
+    // which he has to press himself and which can only release emails he has already approved,
+    // ignores it. Every other readiness check still applies.
+    case 'send_now': return json(await sendApproved(env, { cfg, limit: 10, ignoreWindow: true }));
     default: return bad('Unknown action.');
   }
 };
