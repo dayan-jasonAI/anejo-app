@@ -26,14 +26,18 @@
     // desktop, notch or none.
     ':root{--aop-base:calc(var(--nav-h, 60px) + var(--nav-gap, 24px) + env(safe-area-inset-bottom, 0px));}',
     // 2026-08-11 — the FAB floated up into the middle of the page alongside the nav bar during a
-    // scroll ("the home bar is floating"). Same cause for every bottom-pinned element on iOS: a
-    // fixed box that is NOT on its own compositor layer is repainted after the scroll gesture
-    // settles, so mid-gesture it is drawn at its old offset. `will-change:transform` promotes it
-    // so it tracks the visual viewport instead. Used rather than a literal `transform` here
-    // because :hover below owns this element's transform and would overwrite it.
+    // scroll ("the home bar is floating"), and `will-change:transform` was added to promote it to
+    // its own compositor layer on the theory that an unpromoted fixed box is repainted only after
+    // the gesture settles.
+    // 2026-09-14 — it floated again, on the Sales page, WITH that promotion in place, and by the
+    // same offset as the nav bar. That is evidence against the theory: promotion is not preventing
+    // this, and on iOS a promoted fixed layer is composited against the scroll offset captured when
+    // it was rasterised, which produces exactly this stale-position painting during momentum
+    // scrolling. Promotion removed from both bottom-pinned elements. The :hover transform below
+    // still animates fine without it — `will-change` is a hint, not a requirement.
     '.aop-fab{position:fixed;right:22px;bottom:var(--aop-base);width:62px;height:62px;border-radius:50%;',
     'border:1px solid rgba(198,167,94,.55);background:radial-gradient(circle at 32% 28%,#2c2c26,#14140f);',
-    'color:#e8dfc8;display:grid;place-items:center;cursor:pointer;z-index:9998;will-change:transform;',
+    'color:#e8dfc8;display:grid;place-items:center;cursor:pointer;z-index:9998;',
     'box-shadow:0 10px 30px rgba(0,0,0,.45);transition:transform .18s ease,box-shadow .18s ease}',
     '.aop-fab:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(198,167,94,.3)}',
     '.aop-fab.listening{box-shadow:0 0 0 0 rgba(198,167,94,.55);animation:aopPulse 1.4s infinite}',
@@ -42,11 +46,11 @@
     // +16px keeps the hint vertically centered on the fab (same 16px offset as the original
     // 22/38 pair), just measured from the new base instead of the viewport edge.
     '.aop-hint{position:fixed;right:96px;bottom:calc(var(--aop-base) + 16px);background:#14140f;color:#e8dfc8;border:1px solid rgba(198,167,94,.35);',
-    'padding:7px 12px;border-radius:8px;font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9998;will-change:transform}',
+    'padding:7px 12px;border-radius:8px;font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9998}',
     '.aop-hint.show{opacity:1}',
     // +74px preserves the original gap between the fab and the panel above it (96 - 22 = 74).
     '.aop-panel{position:fixed;right:22px;bottom:calc(var(--aop-base) + 74px);width:min(420px,calc(100vw - 44px));max-height:58vh;overflow:auto;',
-    'background:#14140f;border:1px solid rgba(198,167,94,.35);border-radius:14px;padding:14px;z-index:9998;display:none;will-change:transform;',
+    'background:#14140f;border:1px solid rgba(198,167,94,.35);border-radius:14px;padding:14px;z-index:9998;display:none;',
     'box-shadow:0 18px 50px rgba(0,0,0,.5)}',
     '.aop-panel.open{display:block}',
     '.aop-msg{margin:0 0 10px;font-size:14px;line-height:1.55;white-space:pre-wrap}',

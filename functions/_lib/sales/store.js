@@ -109,8 +109,19 @@ function cleanOrgInput(input = {}) {
   const name = s(input.name, 160);
   const county = s(String(input.county || '').replace(/\s*county\s*$/i, ''), 60);
   const state = (s(input.state, 20) || 'FL').toUpperCase();
-  const lat = Number(input.lat);
-  const lng = Number(input.lng);
+  // A MISSING COORDINATE IS NOT THE EQUATOR — third time this codebase has had to say it, and the
+  // first two fixes were one layer up. `Number(null)` and `Number('')` are both 0, and `Number.isFinite(0)`
+  // is true, so an organization with no coordinates was stored AT (0, 0) — a point in the Gulf of
+  // Guinea. Every such prospect then measured ~5,600 miles from the nearest run, lost most of its
+  // route points, and read "beyond the configured range" on the score card. Guard the blank BEFORE
+  // coercing, here at the door to the database, which is the layer that actually decides what is stored.
+  const coord = (v) => {
+    if (v === null || v === undefined || String(v).trim() === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const lat = coord(input.lat);
+  const lng = coord(input.lng);
   return {
     name,
     normalized_name: normalizeOrgName(name),
@@ -118,8 +129,8 @@ function cleanOrgInput(input = {}) {
     domain: domainOf(website),
     phone: formatPhone(input.phone) || null,
     street, city, state, zip, county,
-    lat: Number.isFinite(lat) ? lat : null,
-    lng: Number.isFinite(lng) ? lng : null,
+    lat,
+    lng,
     source: s(input.source, 40) || 'manual',
     source_external_id: s(input.source_external_id, 200),
     provider_status: s(input.provider_status, 40),
