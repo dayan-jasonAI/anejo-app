@@ -18,12 +18,13 @@ import {
 import { VISIT_SCRIPT, VISIT_FIELDS, VISIT_OUTCOMES, visitOutcome, visitSummary } from '../../../../_lib/sales/visit.js';
 import { enrichOne, runDiscoveryTick, runSalesJob, JOBS } from '../../../../_lib/sales/jobs.js';
 import { roleCategoryOf } from '../../../../_lib/sales/enrich.js';
+import { TOUCH_CHANNELS, TOUCH_SENTIMENTS, isTouchChannel, isTouchSentiment, FOLLOWUP_INTENTS } from '../../../../_lib/sales/followup.js';
 import { generateBrief } from '../../../../_lib/sales/brief.js';
 import { providerStatus, parseCsv, csvRowToRecord } from '../../../../_lib/sales/discovery.js';
 import { dashboardCounts, funnel, conversionBy } from '../../../../_lib/sales/metrics.js';
 import {
   approvalQueue, sendReadiness, previewOutreach, composeEmail, renderOutreachEmail, landingUrlFor, publicBaseUrl, REPLY_DETECTION,
-  DEFAULT_SEQUENCE_ID,
+  DEFAULT_SEQUENCE_ID, markReplied,
 } from '../../../../_lib/sales/outreach.js';
 import { ICP_CATEGORIES } from '../../../../_lib/sales/anejo.js';
 import { CRITERIA } from '../../../../_lib/sales/scoring.js';
@@ -148,6 +149,8 @@ export const onRequestGet = async ({ request, env }) => {
       categories: categories(), stages: OPP_STAGES, role_categories: ROLE_CATEGORIES, email_statuses: EMAIL_STATUSES,
       send_readiness: sendReadiness(env, cfg), reply_detection: REPLY_DETECTION,
       visit: { script: VISIT_SCRIPT, fields: VISIT_FIELDS, outcomes: VISIT_OUTCOMES },
+      touch: { channels: TOUCH_CHANNELS, sentiments: TOUCH_SENTIMENTS },
+      followup_intents: FOLLOWUP_INTENTS.map((i) => ({ key: i.key, label: i.label })),
     });
   }
   if (view === 'queue') {
@@ -315,6 +318,54 @@ export const onRequestPost = async ({ request, env }) => {
       // The score moves the moment the capacity or the contact lands, which is the whole point.
       if (done.capacity_set || done.contact_id) { await scoreAndStore(env, orgId, { cfg, ctx }); done.rescored = true; }
       return json({ ok: true, ...done, summary: visitSummary(b) });
+    }
+
+    // ANYTHING THE PROSPECT SAID, FROM ANY CHANNEL. A reply in his inbox, a phone call, a voicemail,
+    // a word at the door — all of it is the same class of fact to the follow-up drafter, and none of
+    // it reaches the record on its own. This is the one door for all of it, and like a visit it
+    // WRITES INTO THE MODEL rather than sitting beside it: a headcount becomes capacity, a reply
+    // stops the automated sequence, a stage moves, and the score is recomputed.
+    case 'log_touch': {
+      const orgId = String(b.organization_id || '');
+      const org = await salesRow(env, 'SELECT id FROM sales_organizations WHERE id = ?', orgId);
+      if (!org) return bad('Organization not found.', 404);
+      const summary = String(b.summary || '').trim();
+      if (!summary) return bad('Write what they said — that sentence is the whole point of the record.');
+      const channel = isTouchChannel(b.channel) ? b.channel : 'other';
+      const sentiment = isTouchSentiment(b.sentiment) ? b.sentiment : 'neutral';
+      const done = { capacity_set: false, stage: null, sequence_stopped: false, rescored: false };
+
+      const heads = Number(b.headcount);
+      if (Number.isFinite(heads) && heads > 0) {
+        const u = await updateOrganization(env, orgId, { employee_or_capacity_hint: String(Math.round(heads)) }, { ctx });
+        done.capacity_set = !!(u && u.ok);
+      }
+
+      const opp = await salesRow(env, "SELECT id, stage FROM sales_opportunities WHERE organization_id = ? AND stage NOT IN ('won','lost') ORDER BY created_at DESC LIMIT 1", orgId);
+
+      // A human answered. Nothing automated may keep talking over them.
+      if (opp && ['email_reply', 'phone_call', 'text', 'in_person'].includes(channel)) {
+        const r = await markReplied(env, { opportunity_id: opp.id, sentiment, note: summary.slice(0, 500), ctx });
+        done.sequence_stopped = !!(r && r.ok);
+      }
+      if (opp && OPP_STAGES.includes(b.stage) && b.stage !== opp.stage) {
+        const st = await setStage(env, opp.id, b.stage, { note: 'From a logged conversation', ctx });
+        if (st && st.ok) done.stage = b.stage;
+      }
+      if (opp && b.next_action) await updateOpportunity(env, opp.id, { next_action: String(b.next_action).slice(0, 160) }, { ctx });
+
+      await logActivity(env, {
+        organization_id: orgId, opportunity_id: opp ? opp.id : null, contact_id: b.contact_id || null,
+        kind: 'touch', ctx, event: 'sales.touch_logged',
+        detail: {
+          channel, sentiment, summary,
+          asked: b.asked ? String(b.asked).slice(0, 500) : null,
+          headcount: Number.isFinite(heads) && heads > 0 ? Math.round(heads) : null,
+          lunch_time: b.lunch_time ? String(b.lunch_time).slice(0, 60) : null,
+        },
+      });
+      if (done.capacity_set) { await scoreAndStore(env, orgId, { cfg, ctx }); done.rescored = true; }
+      return json({ ok: true, ...done });
     }
 
     case 'do_not_contact': return out(await suppressOrganization(env, String(b.organization_id || ''), { reason: b.reason, ctx }));
