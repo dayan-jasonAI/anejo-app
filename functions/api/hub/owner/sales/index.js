@@ -368,6 +368,49 @@ export const onRequestPost = async ({ request, env }) => {
       return json({ ok: true, ...done });
     }
 
+    // WORK THE LIST. Thirty-five of thirty-seven prospects sat unworkable because an opportunity is
+    // what mints the landing token and anchors the outreach record, and one had to be created by
+    // hand, one prospect at a time. That is not a decision worth making thirty-five times: creating
+    // an opportunity commits nothing, sends nothing and tells no one — it only makes a prospect
+    // ADDRESSABLE. Researching is bounded much harder because each one is a live website fetch and a
+    // model call against a real budget.
+    //
+    // Takes explicit ids, never a filter, so the owner acts on exactly the rows he is looking at
+    // rather than on a query that may have drifted since the page rendered.
+    case 'bulk_advance': {
+      const ids = Array.isArray(b.ids) ? b.ids.map(String).filter(Boolean).slice(0, 200) : [];
+      if (!ids.length) return bad('Select at least one prospect.');
+      const wanted = Array.isArray(b.actions) ? b.actions : ['create_opportunity'];
+      const doOpp = wanted.includes('create_opportunity');
+      const doResearch = wanted.includes('research');
+      const RESEARCH_CAP = 12;
+
+      const res = { considered: ids.length, opportunities_created: 0, opportunities_existing: 0, researched: 0, skipped: [], errors: [] };
+      let researchBudget = doResearch ? RESEARCH_CAP : 0;
+
+      for (const orgId of ids) {
+        const org = await salesRow(env, 'SELECT id, name, do_not_contact, status, last_enriched_at FROM sales_organizations WHERE id = ?', orgId);
+        if (!org) { res.errors.push({ id: orgId, error: 'not found' }); continue; }
+        if (org.do_not_contact || org.status === 'suppressed') { res.skipped.push({ name: org.name, why: 'marked do-not-contact' }); continue; }
+
+        if (doResearch && !org.last_enriched_at && researchBudget > 0) {
+          researchBudget -= 1;
+          const e = await enrichOne(env, orgId, { cfg, ctx });
+          if (e && e.ok) res.researched += 1; else res.errors.push({ id: orgId, name: org.name, error: (e && e.error) || 'research failed' });
+        }
+        if (doOpp) {
+          const o = await createOpportunity(env, orgId, { ctx });
+          if (!o.ok) res.errors.push({ id: orgId, name: org.name, error: o.error });
+          else if (o.created) res.opportunities_created += 1;
+          else res.opportunities_existing += 1;
+        }
+      }
+      if (doResearch && researchBudget === 0 && res.researched >= RESEARCH_CAP) {
+        res.note = `Researched ${RESEARCH_CAP} this pass — that is the cap per press, because each one reads a live website and costs model budget. Press it again for the next ${RESEARCH_CAP}.`;
+      }
+      return json({ ok: true, ...res });
+    }
+
     case 'do_not_contact': return out(await suppressOrganization(env, String(b.organization_id || ''), { reason: b.reason, ctx }));
     case 'discover_now': {
       const maxCalls = Math.max(1, Math.min(5, Number(b.max_calls) || 2));
