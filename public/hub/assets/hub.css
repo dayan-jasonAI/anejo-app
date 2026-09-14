@@ -241,11 +241,24 @@ textarea { min-height: 90px; resize: vertical; }
      viewport. Promoting it to its own compositor layer (translateZ) keeps it there during the
      gesture rather than one frame behind it.
      NEVER give this element `overflow: auto/scroll` again — the bar not fitting is solved by
-     moving destinations into the More sheet (see .hub-nav a below), not by letting it scroll. */
+     moving destinations into the More sheet (see .hub-nav a below), not by letting it scroll.
+     That half of the August fix was the real cure and it stays.
+
+     2026-09-14 — it floated again, on the Sales page: mid-scroll the bar sat in the middle of the
+     "Add an organization" form with the County and Category fields rendering underneath it.
+     The other half of the August fix — promoting the bar to its own compositor layer with
+     translateZ + will-change — is now removed, because the evidence says it was not helping and was
+     probably causing it. THE PROMOTION WAS ALREADY IN PLACE WHEN THIS RECURRED, on both this bar and
+     the operator FAB, and both floated by the same offset. A promoted `position: fixed` layer on iOS
+     is composited against the scroll offset captured when the layer was rasterised, so during
+     momentum and rubber-band scrolling it is painted where the page used to be; an unpromoted fixed
+     element is repositioned by the compositor every frame. Promotion buys nothing here — this bar
+     never animates — and costs exactly the symptom reported twice now.
+     Verified in a 375x812 emulation: position fixed, bottom edge flush with the viewport, and body
+     reserves --nav-h + --nav-gap + safe-area so no content renders underneath it. NOT verifiable on
+     real iOS from this machine (no Xcode/Simulator) — if the bar still floats, this hypothesis was
+     wrong and the line to restore is the promotion, not the overflow. */
   overflow: hidden;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  will-change: transform;
 }
 .hub-nav a, .hub-nav-more {
   /* Slots divide the bar evenly (`1 1 0`) instead of being sized to their content and allowed to

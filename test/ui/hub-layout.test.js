@@ -91,13 +91,32 @@ test('the bottom nav is not a scroller — that is what let it float away from t
     'the bar must not scroll; a role that outgrows it puts destinations in the More sheet instead');
 });
 
-test('every bottom-pinned chrome element is promoted to its own compositor layer', () => {
-  const navRule = CSS.match(/\.hub-nav\s*\{[\s\S]*?\n\}/)[0];
-  assert.ok(/translateZ\(0\)|will-change:\s*transform/.test(navRule),
-    'the nav must be composited so it tracks the visual viewport during a scroll');
+// 2026-08-11 this asserted the OPPOSITE: that every bottom-pinned element must be promoted to its
+// own compositor layer. 2026-09-14 the bar floated again on the Sales page — WITH that promotion in
+// place on both the nav and the FAB, and both offset by the same amount. Promotion was therefore not
+// preventing it, and on iOS a promoted `position: fixed` layer is composited against the scroll
+// offset captured when it was rasterised, which paints it where the page used to be during momentum
+// scrolling. Neither element animates, so the promotion bought nothing and cost the symptom twice.
+// If the bar still floats on a real iPhone, THIS is the assertion to revisit — not the overflow rule
+// below, which is the part of the August fix that was doing the real work.
+test('no bottom-pinned chrome element is hardware-promoted', () => {
+  const navRule = CSS.match(/\.hub-nav\s*\{[\s\S]*?\n\}/)[0].replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(navRule, /translateZ\(0\)|will-change:\s*transform/,
+    'a promoted fixed bar is painted at a stale scroll offset on iOS');
   const fabRule = OPERATOR.match(/\.aop-fab\{[^}]*\}/)[0];
-  assert.ok(/will-change:\s*transform/.test(fabRule),
-    'the FAB floated by the same offset as the nav and needs the same promotion');
+  assert.doesNotMatch(fabRule, /will-change:\s*transform/,
+    'the FAB floats by the same offset as the nav, so it follows the same rule');
+});
+
+test('the nav bar is still not a scroller — the part of the August fix that worked', () => {
+  // Comments stripped first: the rule's own comment contains the words "overflow: auto/scroll" in
+  // the sentence forbidding them, and a naive scan matches the warning instead of a declaration.
+  const navRule = CSS.match(/\.hub-nav\s*\{[\s\S]*?\n\}/)[0].replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(navRule, /overflow:\s*(auto|scroll)/,
+    'a fixed bar that scrolls is handed to iOS legacy scroll machinery and detaches');
+  assert.doesNotMatch(navRule, /-webkit-overflow-scrolling/,
+    'a no-op since iOS 13, and the original cause of the floating bar');
+  assert.match(navRule, /overflow:\s*hidden/, 'it clips without becoming a scrolling layer');
 });
 
 test('nav slots divide the bar evenly, so hiding overflow can never clip a destination', () => {

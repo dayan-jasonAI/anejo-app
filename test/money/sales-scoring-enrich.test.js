@@ -8,7 +8,7 @@ import { DEFAULT_ICP, DEFAULT_SERVICE_AREA, ICP_CATEGORIES } from '../../functio
 import {
   checkUrlSafe, robotsRules, extractEmails, extractPeople, extractSignals, crawlOrganization, visibleText, pickResearchPages, extractLinks,
 } from '../../functions/_lib/sales/enrich.js';
-import { discoverOrganizations, normalizePlace, parseCsv, csvRowToRecord, providerStatus } from '../../functions/_lib/sales/discovery.js';
+import { discoverOrganizations, normalizePlace, parseCsv, sniffDelimiter, csvRowToRecord, providerStatus } from '../../functions/_lib/sales/discovery.js';
 import { dedupeKey, domainOf, normalizeOrgName } from '../../functions/_lib/sales/normalize.js';
 
 const SITE = 'https://sunriserecovery.org/';
@@ -341,4 +341,65 @@ test('an unmeasurable distance says WHICH side is missing', () => {
   const routeB = noCoords.criteria.find((c) => c.key === 'route_fit');
   assert.match(routeB.reasons.join(' '), /this organization has no coordinates/i);
   assert.doesNotMatch(routeB.reasons.join(' '), /KITCHEN_ORIGIN/);
+});
+
+test('a block copied out of a spreadsheet imports — the clipboard carries tabs, not commas', () => {
+  // How a real list arrives: an AHCA download opened in Excel, or a shared Google Sheet. Parsed as
+  // comma-separated that is one nameless column per line, and every row failed "an organization
+  // needs a name" — the file looked broken when it was merely tab-separated.
+  const tsv = [
+    'name\twebsite\tcity\tzip\tcapacity',
+    'Palm Grove Adult Day\thttps://example.com\tWest Palm Beach\t33401\t60',
+  ].join('\n');
+  assert.equal(sniffDelimiter(tsv), '\t');
+  const rec = csvRowToRecord(parseCsv(tsv).rows[0]);
+  assert.equal(rec.org.name, 'Palm Grove Adult Day');
+  assert.equal(rec.org.zip, '33401');
+  assert.equal(rec.org.employee_or_capacity_hint, '60');
+});
+
+test('a comma inside a quoted field does not turn a CSV into a TSV', () => {
+  // The delimiter is sniffed from the header, counting only outside quotes — otherwise an address
+  // like "100 Main St, Suite 2" could outvote the real separator.
+  const csv = 'name,street,city\nX Clinic,"100 Main St, Suite 2",Boca Raton';
+  assert.equal(sniffDelimiter(csv), ',');
+  const rec = csvRowToRecord(parseCsv(csv).rows[0]);
+  assert.equal(rec.org.street, '100 Main St, Suite 2', 'the quoted comma stays inside the field');
+  assert.equal(rec.org.city, 'Boca Raton');
+});
+
+test('an organization with no coordinates is stored with NONE — not at (0, 0)', async () => {
+  // THE THIRD TIME this codebase has had to say a missing coordinate is not the equator, and the
+  // first two fixes were one layer up (the scorer, then the CSV parser). The gap the existing
+  // unlocated test could not see: it omits `lat` entirely, so `Number(undefined)` is NaN and the
+  // guard holds. The CSV path passes an explicit `null` — and `Number(null)` is 0, which IS finite.
+  // 35 real prospects were stored at (0, 0), a point in the Gulf of Guinea, measured ~5,600 miles
+  // from the nearest run, and lost their route points reading "beyond the configured range".
+  const { readyEnv, OWNER } = await import('../helpers/sales-fixture.js');
+  const { upsertOrganization } = await import('../../functions/_lib/sales/store.js');
+  const { env } = await readyEnv();
+  // Plain object: SQLite hands back a null-prototype row, which deepEqual will not match.
+  const coordsOf = async (id) => {
+    const r = await env.DB.prepare('SELECT lat, lng FROM sales_organizations WHERE id = ?').bind(id).first();
+    return { lat: r.lat, lng: r.lng };
+  };
+
+  const explicitNull = await upsertOrganization(env, {
+    name: 'Null Coordinates Center', city: 'Delray Beach', county: 'Palm Beach', lat: null, lng: null, source: 'csv',
+  }, { ctx: OWNER });
+  assert.equal(explicitNull.ok, true);
+  assert.deepEqual(await coordsOf(explicitNull.organization_id), { lat: null, lng: null },
+    'an explicit null is unknown — this is the one that reached production');
+
+  const blankString = await upsertOrganization(env, {
+    name: 'Blank Coordinates Center', city: 'Boynton Beach', county: 'Palm Beach', lat: '', lng: '', source: 'csv',
+  }, { ctx: OWNER });
+  assert.deepEqual(await coordsOf(blankString.organization_id), { lat: null, lng: null },
+    'a CSV with the columns present but empty says nothing, not zero');
+
+  const real = await upsertOrganization(env, {
+    name: 'Real Coordinates Center', city: 'Boca Raton', county: 'Palm Beach', lat: 26.3683, lng: -80.1289, source: 'csv',
+  }, { ctx: OWNER });
+  assert.deepEqual(await coordsOf(real.organization_id), { lat: 26.3683, lng: -80.1289 },
+    'a real coordinate still stores, negative longitude and all');
 });

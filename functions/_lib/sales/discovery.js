@@ -160,8 +160,32 @@ export async function discoverOrganizations(env, { provider = 'google_places', a
 // ---------------------------------------------------------------- CSV
 
 /** RFC 4180-ish: quoted fields, escaped quotes, commas and newlines inside quotes. */
-export function parseCsv(text, { maxRows = 500 } = {}) {
+/**
+ * Which character separates the columns.
+ *
+ * A spreadsheet is how a real list arrives — an AHCA download opened in Excel, a Google Sheet a
+ * colleague shared — and copying a block out of one puts TABS on the clipboard, not commas. Parsed
+ * as CSV that is a single column per line, so every row failed with "an organization needs a name"
+ * and the file looked broken rather than merely tab-separated. Decided from the HEADER line only:
+ * whichever delimiter splits it into more columns wins, and a tie goes to the comma.
+ */
+export function sniffDelimiter(text) {
+  const header = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/)[0] || '';
+  // Count only outside quotes — "Boca Raton, FL" must not vote for the comma.
+  const count = (ch) => {
+    let n = 0, q = false;
+    for (const c of header) {
+      if (c === '"') { q = !q; continue; }
+      if (c === ch && !q) n++;
+    }
+    return n;
+  };
+  return count('\t') > count(',') ? '\t' : ',';
+}
+
+export function parseCsv(text, { maxRows = 500, delimiter } = {}) {
   const src = String(text || '').replace(/^\uFEFF/, '');
+  const DELIM = delimiter || sniffDelimiter(src);
   const out = [];
   let rowv = [];
   let field = '';
@@ -175,7 +199,7 @@ export function parseCsv(text, { maxRows = 500 } = {}) {
       continue;
     }
     if (ch === '"') { q = true; continue; }
-    if (ch === ',') { rowv.push(field); field = ''; continue; }
+    if (ch === DELIM) { rowv.push(field); field = ''; continue; }
     if (ch === '\n' || ch === '\r') {
       if (ch === '\r' && src[i + 1] === '\n') i++;
       rowv.push(field); field = '';
