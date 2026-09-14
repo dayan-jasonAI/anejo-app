@@ -51,7 +51,8 @@ export const onRequestGet = async ({ params, request, env }) => {
     row = await env.DB.prepare(
       `SELECT id, customer_name, customer_email, customer_phone, event_date, guests,
               total_cents, deposit_pct, deposit_cents, balance_cents, deposit_status,
-              balance_due_date, payment_link_url, terms_json, quote_json, access_token, lang
+              balance_status, balance_due_date, payment_link_url, terms_json, quote_json,
+              access_token, lang
          FROM catering_quotes WHERE access_token = ?`
     ).bind(token).first();
   } catch {
@@ -68,12 +69,19 @@ export const onRequestGet = async ({ params, request, env }) => {
   const paid = row.deposit_status === 'paid';
 
   // THE GIFT REVEAL. Both gates are here, on the server, and both must hold:
-  //   · the deposit is actually PAID — only the Square webhook writes that status; and
-  //   · this particular quote was given a gift, recorded in its own quote_json.
-  // A customer cannot reach either one. Unpaid, or paid with no gift on the quote, renders
-  // nothing at all — not a hidden element, nothing in the document.
+  //
+  //   · the BALANCE is paid — not the deposit. Dayan, 2026-09-14: "once she pays for the
+  //     remaining balance, she can receive the cake gift." Only markBalancePaid() writes that
+  //     status, and only from a Square webhook. Note it is 'paid' specifically: a WAIVED balance
+  //     is not a paid one, and must not earn a gift.
+  //   · this particular quote was given a gift, recorded in its own quote_json — a thing the
+  //     owner turns on per quote and that nothing sets by default.
+  //
+  // A customer cannot reach either one. Anything short of both renders nothing at all — not a
+  // hidden element, nothing in the document.
+  const settled = row.balance_status === 'paid';
   let gift = null;
-  if (paid) {
+  if (settled) {
     try {
       const blob = row.quote_json ? JSON.parse(row.quote_json) : null;
       if (blob && typeof blob.gift === 'string') gift = blob.gift;

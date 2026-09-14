@@ -62,10 +62,18 @@ test('a deposit refuses on a total or a rate that cannot be real', () => {
   assert.equal(depositSplit(10000, 1).ok, false);
 });
 
+
+// A NOTE ON `today`. termsFor() clamps a deadline that has already gone by up to today, so a
+// customer is never handed a date in the past. That makes any test with a fixed event date
+// time-dependent: these all passed when written on 2026-09-09 and began failing on their own once
+// the real date passed the 10th. Every call below pins `today` so the assertions mean what they
+// say on any day. A test that depends on when it is run is not a test.
+const TODAY = '2026-09-01';
+
 // ---------- 2. the terms ----------
 
 test('the terms resolve real dates from the event date, and never invent one', () => {
-  const t = termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20' });
+  const t = termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20', today: TODAY });
   assert.equal(t.final_count_due, '2026-09-10', '10 calendar days before the event');
   assert.equal(t.balance_due_date, '2026-09-19', 'balance is due the DAY BEFORE the event');
   assert.equal(t.version, TERMS_VERSION);
@@ -76,7 +84,7 @@ test('the terms resolve real dates from the event date, and never invent one', (
 });
 
 test('every term the customer needs is actually IN the copy', () => {
-  const t = termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20' });
+  const t = termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20', today: TODAY });
   const all = t.lines.join(' ');
   assert.match(t.lines.find((l) => l.startsWith('Deposit:')), /\$600\.00/, 'the deposit in dollars');
   assert.match(t.lines.find((l) => l.startsWith('Balance:')), /\$600\.00/, 'the balance in dollars');
@@ -91,7 +99,7 @@ test('every term the customer needs is actually IN the copy', () => {
 test('the cancellation ladder is computed from the SNAPSHOT, not from today’s constants', () => {
   // A booking is governed by the terms that were on the customer's screen. Feeding an old snapshot
   // in must produce that snapshot's answer, whatever this file says now.
-  const t = termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20' });
+  const t = termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20', today: TODAY });
   assert.equal(cancellationOutcome(t, { daysBeforeEvent: 30 }).balance_refund_cents, 60000);
   assert.equal(cancellationOutcome(t, { daysBeforeEvent: 10 }).balance_refund_cents, 60000);
   assert.equal(cancellationOutcome(t, { daysBeforeEvent: 5 }).balance_refund_cents, 30000, 'half inside a week');
@@ -134,7 +142,11 @@ test('the deposit link charges 50%, names what it is, and carries the terms to t
   // Stored with the quote: the money, the terms, and the deadlines.
   assert.ok(stored.includes(60000) && stored.includes(120000));
   assert.ok(stored.includes(TERMS_VERSION), 'the terms VERSION is on the row');
-  assert.ok(stored.includes('2026-09-10'), 'the final-count deadline is on the row');
+  // Derived, not hardcoded: createDepositCheckout calls termsFor() on the real clock, so a literal
+  // date here rots the moment the calendar passes it. What this asserts is the claim in the test's
+  // own name — the deadline the terms engine produced is what got stored.
+  const expectedDeadline = termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20' }).final_count_due;
+  assert.ok(stored.includes(expectedDeadline), 'the final-count deadline is on the row');
   assert.ok(stored.includes('marisol@example.test'), 'email normalised');
   const termsJson = stored.find((a) => typeof a === 'string' && a.startsWith('{') && a.includes('cancellation_tiers'));
   assert.ok(termsJson, 'the FULL terms snapshot is stored, not a reference to them');

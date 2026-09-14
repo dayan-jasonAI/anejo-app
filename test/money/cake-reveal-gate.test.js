@@ -1,11 +1,13 @@
 // The gift reveal, and the two gates that decide whether anybody ever sees it.
 //
-// Dayan, 2026-09-10: "no deposit means no gift animation, she is only getting this if she makes
-// the payment."
+// Dayan, 2026-09-14: "once she pays for the remaining balance, she can receive the cake gift ...
+// this gift is not for every quote and for every client, this is only when I decide who to send
+// it to ... it is never a default setting."
 //
 // There are TWO conditions, not one, and the second is the one that protects the kitchen:
 //
-//   1. deposit_status === 'paid'. Only the Square webhook writes that.
+//   1. balance_status === 'paid' — the BALANCE, not the deposit. Only markBalancePaid() writes
+//      it, and only from a Square webhook. A WAIVED balance is not a paid one.
 //   2. the quote's own quote_json carries a `gift`.
 //
 // Without (2), the reveal would play for EVERY customer who pays a catering deposit — and it says
@@ -23,7 +25,7 @@ const QUOTE = {
   id: 'cq_test', customer_name: 'Karina', customer_email: 'k@example.test', customer_phone: null,
   event_date: '2026-09-26', guests: 30,
   total_cents: 48500, deposit_pct: 0.5, deposit_cents: 24250, balance_cents: 24250,
-  deposit_status: 'unpaid', balance_due_date: '2026-09-25',
+  deposit_status: 'paid', balance_status: 'due', balance_due_date: '2026-09-25',
   payment_link_url: 'https://sq.link/deposit', access_token: TOKEN, lang: 'es',
   terms_json: JSON.stringify({ version: 't', balance_due_date: '2026-09-25', lines: [], lines_es: [] }),
   quote_json: JSON.stringify({ source: 'manual', total_cents: 48500, lines: [{ name: 'Lechón', qty: '30', cents: 48500 }] }),
@@ -40,16 +42,16 @@ const get = async (row, path = `/q/${TOKEN}`) => {
 };
 
 const withGift = (over = {}) => ({
-  ...QUOTE, deposit_status: 'paid',
+  ...QUOTE, deposit_status: 'paid', balance_status: 'paid',
   quote_json: JSON.stringify({ ...JSON.parse(QUOTE.quote_json), gift: 'tres-leches-fresa' }),
   ...over,
 });
 
 // ---------------------------------------------------------------- the gate
 
-test('an UNPAID quote gets no reveal, even when the gift is on the quote', async () => {
-  // The exact shape of the mistake worth preventing: the gift is recorded, the customer opens her
-  // link, and she has not paid. She must see her quote and a pay button, and no cake.
+test('a paid DEPOSIT is not enough — the balance decides', async () => {
+  // This is Karina exactly: deposit captured 2026-09-10, balance still due. The gift is recorded
+  // on her quote and she must still see nothing until the balance is settled.
   const { status, html } = await get({
     ...QUOTE,
     quote_json: JSON.stringify({ ...JSON.parse(QUOTE.quote_json), gift: 'tres-leches-fresa' }),
@@ -60,10 +62,10 @@ test('an UNPAID quote gets no reveal, even when the gift is on the quote', async
   assert.doesNotMatch(html, /tres leches de fresa va incluido/, 'and no free cake is promised');
 });
 
-test('a PAID quote with no gift on it gets no reveal — this is every other customer', async () => {
-  // Every catering booking pays a deposit. If paid-alone were the gate, all of them would be told
-  // a free cake is included.
-  const { html } = await get({ ...QUOTE, deposit_status: 'paid' });
+test('a fully PAID quote with no gift gets no reveal — this is every other customer', async () => {
+  // Every catering booking settles its balance eventually. If payment alone were the gate, all of
+  // them would be told a free cake is included.
+  const { html } = await get({ ...QUOTE, balance_status: 'paid' });
   assert.doesNotMatch(html, /cr-root/);
   assert.doesNotMatch(html, /cortesía de la casa/);
 });
@@ -84,8 +86,14 @@ test('an unrecognised gift key reveals nothing rather than an empty frame', asyn
   assert.doesNotMatch(html, /cr-root/);
 });
 
+test('a WAIVED balance is not a paid one and earns nothing', async () => {
+  // 'waived' is how a quote gets written off. Money did not arrive, so a gift is not owed.
+  const { html } = await get(withGift({ balance_status: 'waived' }));
+  assert.doesNotMatch(html, /cr-root/);
+});
+
 test('a corrupt quote_json is no gift, never a crash', async () => {
-  const { status, html } = await get({ ...QUOTE, deposit_status: 'paid', quote_json: '{not json' });
+  const { status, html } = await get({ ...QUOTE, balance_status: 'paid', quote_json: '{not json' });
   assert.equal(status, 200, 'the page still serves');
   assert.doesNotMatch(html, /cr-root/);
 });
@@ -96,8 +104,8 @@ test('the gate cannot be reached from the URL', async () => {
   const { html } = await get({
     ...QUOTE,
     quote_json: JSON.stringify({ ...JSON.parse(QUOTE.quote_json), gift: 'tres-leches-fresa' }),
-  }, `/q/${TOKEN}?paid=1&gift=tres-leches-fresa&deposit_status=paid`);
-  assert.doesNotMatch(html, /cr-root/, 'the row says unpaid, so nothing else matters');
+  }, `/q/${TOKEN}?paid=1&gift=tres-leches-fresa&balance_status=paid`);
+  assert.doesNotMatch(html, /cr-root/, 'the row says the balance is due, so nothing else matters');
 });
 
 // ---------------------------------------------------------------- what it renders
@@ -137,6 +145,42 @@ test('the reveal pins itself to three.js r128 and uses nothing newer', () => {
   }
   assert.match(src, /const missing = NEEDS\.filter/, 'and it verifies its own symbols before running');
   assert.match(src, /could not start on this device/, 'so a failure is legible, not a black box');
+});
+
+test('the reveal is read off the row, so balance_status has to be selected', () => {
+  // It was not, at first. The gate compared undefined to 'paid', which is false forever — the
+  // reveal would simply never have fired and nothing would have said why.
+  const src = readFileSync(new URL('../../functions/q/[token].js', import.meta.url), 'utf8');
+  const select = src.slice(src.indexOf('SELECT id, customer_name'), src.indexOf('FROM catering_quotes'));
+  for (const col of ['balance_status', 'deposit_status', 'quote_json']) {
+    assert.ok(select.includes(col), `${col} must be selected or the gate reads undefined`);
+  }
+});
+
+test('NOTHING but the owner switch ever writes a gift', () => {
+  // "free cakes is not a rule that applies for everyone." There is no default, no config value
+  // and no code path that sets one — creating a quote must never produce a gift.
+  const files = [
+    'functions/_lib/catering_deposit.js',
+    'functions/api/hub/owner/catering-deposit.js',
+    'functions/_lib/catering_quote_lines.js',
+  ].map((f) => [f, readFileSync(new URL('../../' + f, import.meta.url), 'utf8')]);
+
+  for (const [name, src] of files) {
+    const writes = src.match(/\bgift\s*[:=]/g) || [];
+    if (name.endsWith('hub/owner/catering-deposit.js')) {
+      assert.ok(src.includes("op === 'set_gift'"), 'the switch lives here');
+      continue;
+    }
+    assert.equal(writes.length, 0, `${name} must not set a gift — only the Hub switch may`);
+  }
+});
+
+test('the switch refuses a gift that does not exist', () => {
+  // A typo would save silently, render nothing, and leave the owner believing a cake was promised.
+  const src = readFileSync(new URL('../../functions/api/hub/owner/catering-deposit.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(wanted !== null && !GIFTS\[wanted\]\)/);
+  assert.match(src, /There is no gift called/);
 });
 
 test('the gift catalogue carries both languages for every entry', () => {
