@@ -9,6 +9,11 @@
 // Schedule (UTC, standard cron min/hour/dom/mon/dow) → automation types → /api/hub/automations/run
 const SCHEDULE = {
   '30 1 * * *': ['eod_chase', 'daily_summary'],     // 01:30 UTC — evening ET
+  // 13:00 UTC ≈ 9am ET — catering balance reminders, the day before a balance is due and the day
+  // it is due. Morning on purpose: an email about money owed should arrive when somebody can
+  // actually act on it, not at midnight. Each reminder sends once and only once; the job is safe
+  // to run every day forever because the guarantee is a database constraint, not the clock.
+  '0 13 * * *': ['balance_reminder'],
   '30 9 * * *': ['route_optimize'],                 // 09:30 UTC — early morning ET
   '0 18 * * *': ['sentiment_scan', 'ticket_triage'],// 18:00 UTC — early afternoon ET
   '0 10 * * 1': ['restock_suggest'],                // Mondays 10:00 UTC
