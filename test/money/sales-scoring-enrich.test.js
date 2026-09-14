@@ -8,7 +8,7 @@ import { DEFAULT_ICP, DEFAULT_SERVICE_AREA, ICP_CATEGORIES } from '../../functio
 import {
   checkUrlSafe, robotsRules, extractEmails, extractPeople, extractSignals, crawlOrganization, visibleText, pickResearchPages, extractLinks,
 } from '../../functions/_lib/sales/enrich.js';
-import { discoverOrganizations, normalizePlace, parseCsv, csvRowToRecord, providerStatus } from '../../functions/_lib/sales/discovery.js';
+import { discoverOrganizations, normalizePlace, parseCsv, sniffDelimiter, csvRowToRecord, providerStatus } from '../../functions/_lib/sales/discovery.js';
 import { dedupeKey, domainOf, normalizeOrgName } from '../../functions/_lib/sales/normalize.js';
 
 const SITE = 'https://sunriserecovery.org/';
@@ -341,4 +341,29 @@ test('an unmeasurable distance says WHICH side is missing', () => {
   const routeB = noCoords.criteria.find((c) => c.key === 'route_fit');
   assert.match(routeB.reasons.join(' '), /this organization has no coordinates/i);
   assert.doesNotMatch(routeB.reasons.join(' '), /KITCHEN_ORIGIN/);
+});
+
+test('a block copied out of a spreadsheet imports — the clipboard carries tabs, not commas', () => {
+  // How a real list arrives: an AHCA download opened in Excel, or a shared Google Sheet. Parsed as
+  // comma-separated that is one nameless column per line, and every row failed "an organization
+  // needs a name" — the file looked broken when it was merely tab-separated.
+  const tsv = [
+    'name\twebsite\tcity\tzip\tcapacity',
+    'Palm Grove Adult Day\thttps://example.com\tWest Palm Beach\t33401\t60',
+  ].join('\n');
+  assert.equal(sniffDelimiter(tsv), '\t');
+  const rec = csvRowToRecord(parseCsv(tsv).rows[0]);
+  assert.equal(rec.org.name, 'Palm Grove Adult Day');
+  assert.equal(rec.org.zip, '33401');
+  assert.equal(rec.org.employee_or_capacity_hint, '60');
+});
+
+test('a comma inside a quoted field does not turn a CSV into a TSV', () => {
+  // The delimiter is sniffed from the header, counting only outside quotes — otherwise an address
+  // like "100 Main St, Suite 2" could outvote the real separator.
+  const csv = 'name,street,city\nX Clinic,"100 Main St, Suite 2",Boca Raton';
+  assert.equal(sniffDelimiter(csv), ',');
+  const rec = csvRowToRecord(parseCsv(csv).rows[0]);
+  assert.equal(rec.org.street, '100 Main St, Suite 2', 'the quoted comma stays inside the field');
+  assert.equal(rec.org.city, 'Boca Raton');
 });

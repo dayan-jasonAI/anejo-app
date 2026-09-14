@@ -220,10 +220,31 @@
         <div class="wide"><label>Notes</label><input id="n-notes"></div></div>
         <button class="btn2 primary" data-act="create">Add and score</button></div>
       <div class="box"><h2>Import a CSV</h2><p class="muted">Header row required. Recognised columns: name, website, phone, street, city, state, zip, county, category, capacity, notes, contact_name, contact_title, contact_email, contact_phone, source_url. Importing the same file again is safe — duplicates are recognised.</p>
-        <input type="file" id="csv-file" accept=".csv,text/csv"><textarea id="csv-text" rows="4" placeholder="…or paste CSV here"></textarea>
+        <input type="file" id="csv-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"><textarea id="csv-text" rows="4" placeholder="…or paste straight from a spreadsheet — tab-separated works too"></textarea>
         <button class="btn2" data-act="import">Import</button><div id="imp-out" class="muted"></div></div>`;
     Array.prototype.forEach.call(root.querySelectorAll('[data-f]'), (el) => el.addEventListener('change', () => { filters[el.dataset.f] = el.value; prospects(); }));
-    document.getElementById('csv-file').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) f.text().then((t) => { document.getElementById('csv-text').value = t; }); });
+    // A spreadsheet file is not a text file. Picking an .xlsx used to load its raw bytes into the
+    // box and the import then failed on every row for reasons that looked nothing like the cause.
+    // Say the one useful sentence instead: save it as CSV first.
+    const loadFile = (f) => {
+      if (!f) return;
+      const out = document.getElementById('imp-out');
+      if (/\.(xlsx|xls|numbers|ods)$/i.test(f.name)) {
+        out.textContent = `${f.name} is a spreadsheet, not a text file. In Excel or Sheets choose File → Save as / Download → CSV, then pick that. (Or just copy the rows and paste them in the box — tab-separated works.)`;
+        return;
+      }
+      f.text().then((t) => {
+        document.getElementById('csv-text').value = t;
+        const lines = t.trim().split(/\r?\n/).length;
+        out.textContent = `${f.name} loaded — ${Math.max(0, lines - 1)} data row(s). Press Import.`;
+      });
+    };
+    document.getElementById('csv-file').addEventListener('change', (e) => loadFile(e.target.files[0]));
+    // Drop the downloaded file straight onto the box.
+    const drop = document.getElementById('csv-text');
+    ['dragover', 'dragenter'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.style.outline = '2px dashed var(--gold, #C6A85B)'; }));
+    ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, () => { drop.style.outline = ''; }));
+    drop.addEventListener('drop', (e) => { e.preventDefault(); if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
     ACT.open = (b) => { location.hash = 'org=' + b.dataset.id; };
     ACT.create = async (b) => {
       const v = (id) => document.getElementById(id).value;
