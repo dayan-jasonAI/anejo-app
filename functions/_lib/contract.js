@@ -80,21 +80,76 @@ function hardCutoffLabel(site) { return (site && site.hard_cutoff_time) || HARD_
 // ISO-ish week index for the rotating menu. Anchored so it advances one per calendar week.
 function weekIndex(dateStr) { return Math.floor(Date.parse(dateStr + 'T00:00:00Z') / 86400000 / 7); }
 
-// Resolve today's lunch item from the weekly rotation, else a sensible default.
-async function resolveItem(env, account, dateStr) {
+// Resolve a date's lunch from the weekly rotation, else a sensible default.
+//   → { name, meal_id }  — meal_id is the shared menu_items meal definition (migration 0104) when
+//     the owner linked one, which is how the kitchen sees "DGP Wednesday" and "Añejo Daily
+//     Wednesday" as the SAME dish. A slot linked to a meal shows that meal's current name.
+export async function resolveContractMeal(env, account, dateStr) {
   const dow = dowMon(dateStr);
   try {
-    const { results } = await env.DB.prepare('SELECT rotation_week, dow, item_name FROM contract_menu WHERE account_id = ?').bind(account.id).all();
-    const rows = results || [];
+    let rows;
+    try {
+      rows = (await env.DB.prepare(
+        'SELECT cm.rotation_week, cm.dow, cm.item_name, cm.menu_item_id, mi.name AS meal_name FROM contract_menu cm LEFT JOIN menu_items mi ON mi.id = cm.menu_item_id WHERE cm.account_id = ?'
+      ).bind(account.id).all()).results || [];
+    } catch {
+      // Before migration 0104 there is no menu_item_id column: read the rotation exactly as before.
+      rows = (await env.DB.prepare('SELECT rotation_week, dow, item_name FROM contract_menu WHERE account_id = ?').bind(account.id).all()).results || [];
+    }
     if (rows.length) {
       const weeks = [...new Set(rows.map((r) => Number(r.rotation_week) || 1))].sort((a, b) => a - b);
       const wk = weeks[weekIndex(dateStr) % weeks.length];
-      const hit = rows.find((r) => Number(r.rotation_week) === wk && Number(r.dow) === dow && r.item_name);
-      if (hit) return hit.item_name;
+      const hit = rows.find((r) => Number(r.rotation_week) === wk && Number(r.dow) === dow && (r.item_name || r.meal_name));
+      if (hit) return { name: hit.meal_name || hit.item_name, meal_id: hit.meal_name ? hit.menu_item_id : null };
     }
   } catch { /* fall through to default */ }
   const short = (account.name || 'Contract').split(' ')[0];
-  return `${short} Lunch — ${DOW_LABEL[dow - 1]}`;
+  return { name: `${short} Lunch — ${DOW_LABEL[dow - 1]}`, meal_id: null };
+}
+
+/**
+ * Owner edits one slot of an account's rotating menu. Either a shared meal (menu_item_id, any
+ * active kind) or free text (item_name). Blank both = clear the slot.
+ */
+export async function setContractMenuSlot(env, { account_id, rotation_week = 1, dow, menu_item_id, item_name } = {}) {
+  const wk = Number(rotation_week);
+  const d = Number(dow);
+  if (!account_id) return { ok: false, error: 'Pick an account.' };
+  if (!Number.isInteger(wk) || wk < 1 || wk > 8) return { ok: false, error: 'Rotation week must be 1–8.' };
+  if (!Number.isInteger(d) || d < 1 || d > 7) return { ok: false, error: 'Weekday must be 1 (Mon) – 7 (Sun).' };
+  const acct = await env.DB.prepare('SELECT id FROM contract_accounts WHERE id = ?').bind(account_id).first().catch(() => null);
+  if (!acct) return { ok: false, error: 'Account not found.' };
+  const mid = menu_item_id ? String(menu_item_id) : null;
+  let name = item_name ? String(item_name).trim().slice(0, 120) : null;
+  if (mid) {
+    const m = await env.DB.prepare('SELECT id, name FROM menu_items WHERE id = ?').bind(mid).first().catch(() => null);
+    if (!m) return { ok: false, error: 'That meal is not on the menu.' };
+    name = m.name;
+  }
+  if (!mid && !name) {
+    await env.DB.prepare('DELETE FROM contract_menu WHERE account_id = ? AND rotation_week = ? AND dow = ?').bind(account_id, wk, d).run();
+    return { ok: true, cleared: true };
+  }
+  // Before migration 0104 there is neither a menu_item_id column nor the unique constraint this
+  // ON CONFLICT targets, so this statement fails twice over — and an unhandled throw here is a
+  // blank 500 on the owner's desk with nothing to act on.
+  try {
+    await env.DB.prepare(
+      `INSERT INTO contract_menu (id, account_id, rotation_week, dow, item_name, menu_item_id, created_at) VALUES (?,?,?,?,?,?,?)
+       ON CONFLICT(account_id, rotation_week, dow) DO UPDATE SET item_name = excluded.item_name, menu_item_id = excluded.menu_item_id`
+    ).bind(id('cmenu'), account_id, wk, d, name, mid, now()).run();
+  } catch {
+    return { ok: false, error: 'The rotating menu needs database migration 0104, which has not been applied yet.' };
+  }
+  return { ok: true };
+}
+
+export async function listContractMenu(env, accountId) {
+  try {
+    return ((await env.DB.prepare(
+      'SELECT cm.rotation_week, cm.dow, cm.item_name, cm.menu_item_id, mi.name AS meal_name, mi.kind AS meal_kind FROM contract_menu cm LEFT JOIN menu_items mi ON mi.id = cm.menu_item_id WHERE cm.account_id = ? ORDER BY cm.rotation_week, cm.dow'
+    ).bind(accountId).all()).results) || [];
+  } catch { return []; }
 }
 
 // ---- Non-repudiation: device verification, append-only audit, SMS receipts -------------
@@ -646,7 +701,8 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
   const deliveryFee = Number(site.delivery_fee_cents) || 0;
   const subtotal = n * pricePer;
   const total = subtotal + deliveryFee + rushFee;
-  const item = await resolveItem(env, account, date);
+  const meal = await resolveContractMeal(env, account, date);
+  const item = meal.name;
   const shortName = `${(account.name || 'Contract').split(' ')[0]} · ${site.name}`;
   const cleanNotes = (notes || '').toString().trim().slice(0, 400) || null; // allergies / special requests
   const submitter = (name || submittedBy || 'web').toString().trim().slice(0, 80) || 'web';
@@ -654,7 +710,7 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
   // 1) Kitchen order (deterministic id; upsert so re-submits update the count without losing prep state).
   const orderId = `octr_${site.id}_${date}`;
   const prior = await env.DB.prepare('SELECT id FROM orders WHERE id = ?').bind(orderId).first().catch(() => null);
-  const items = toJson([{ id: 'contract_lunch', name: item, qty: n }]);
+  const items = toJson([{ id: 'contract_lunch', name: item, qty: n, meal_id: meal.meal_id }]);
   try {
     await env.DB.prepare(
       `INSERT INTO orders
@@ -880,7 +936,8 @@ export async function ownerSetHeadcount(env, { site_id, service_date, headcount,
   const rushFee = is_rush ? (Number(site.rush_fee_cents) || 0) : 0;
   const subtotal = n * pricePer;
   const total = subtotal + deliveryFee + rushFee;
-  const item = await resolveItem(env, account, date);
+  const meal = await resolveContractMeal(env, account, date);
+  const item = meal.name;
   const shortName = `${(account.name || 'Contract').split(' ')[0]} · ${site.name}`;
   const cleanNotes = (notes || '').toString().trim().slice(0, 400) || null;
   const orderId = `octr_${site.id}_${date}`;
@@ -892,7 +949,7 @@ export async function ownerSetHeadcount(env, { site_id, service_date, headcount,
   // whatever status it already has: this call corrects a number, it does not re-open a day.
   const todayEt = etToday(t);
   const status = prior ? prior.status : (date < todayEt ? 'fulfilled' : 'paid');
-  const items = toJson([{ id: 'contract_lunch', name: item, qty: n }]);
+  const items = toJson([{ id: 'contract_lunch', name: item, qty: n, meal_id: meal.meal_id }]);
   try {
     await env.DB.prepare(
       `INSERT INTO orders

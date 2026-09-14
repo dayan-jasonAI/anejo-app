@@ -24,6 +24,9 @@
   .terms summary{font-size:12.5px;font-weight:700;color:var(--green);cursor:pointer}
   .terms li{font-size:12.5px;color:var(--muted);line-height:1.55;margin:6px 0 0 16px}
   .lnk{font-size:12px;word-break:break-all}
+  .dup{margin-top:10px;padding:10px 12px;border:1px solid #e2c3ba;background:#fdf3f0;border-radius:9px}
+  .dup b{color:#7a2418;font-size:13px}
+  .dup .btn{width:auto;margin-top:8px}
   .rcard{border:1px solid var(--line);border-left:4px solid var(--green);border-radius:12px;padding:15px;margin:10px 0;background:#fff}
   .rcard.targeted{box-shadow:0 0 0 3px rgba(198,168,91,.38);border-left-color:var(--gold)}
   .rcard .nm{font-weight:800;color:var(--green);font-size:17px}
@@ -154,6 +157,18 @@
       (!balPaid && paid && !q.balance_payment_link_url
         ? '<button class="btn ghost block" style="margin-top:10px" data-balance="' + esc(q.id) + '">Mark ' + money(q.balance_cents) + ' balance paid</button>'
         : '') +
+
+      // A DUPLICATE IS FLAGGED, NEVER RESOLVED FOR YOU. The server flags an unpaid quote only when
+      // the same customer has a PAID quote for the same event date — matching amounts alone prove
+      // nothing and never raise this. You read it, you recognise the event, you decide.
+      (q.possible_duplicate_of && !paid
+        ? '<div class="dup"><b>Possible duplicate of ' + esc(q.possible_duplicate_of) + '</b>' +
+          '<p class="row-sub">' + esc(q.duplicate_reason || '') + '</p>' +
+          '<button class="btn ghost" data-void="' + esc(q.id) + '" data-void-name="' + esc(q.customer_name || q.id) + '">Void this quote</button></div>'
+        : (!paid && q.deposit_status !== 'void'
+          ? '<details class="terms"><summary>Void this quote</summary><p class="row-sub">Voiding cancels the quote and switches off the customer\'s link so it can never be paid. A quote with a paid deposit cannot be voided here at all.</p>' +
+            '<button class="btn ghost" data-void="' + esc(q.id) + '" data-void-name="' + esc(q.customer_name || q.id) + '">Void this quote</button></details>'
+          : '')) +
     '</div>';
   }
 
@@ -556,6 +571,17 @@
       var selected = document.getElementById('selected-request');
       if (selected) selected.scrollIntoView({ behavior: 'smooth', block: 'center' });
       root.querySelectorAll('[data-balance-link]').forEach(function(btn){ btn.addEventListener('click',function(){btn.disabled=true;Hub.api(ENDPOINT,{method:'POST',body:{op:'create_balance_link',quote_id:btn.getAttribute('data-balance-link')}}).then(function(r){if(r&&r.ok){Hub.toast('Square balance link ready');render();}else{btn.disabled=false;Hub.toast((r&&r.error)||'Could not create the balance link');}});});});
+      root.querySelectorAll('[data-void]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var who = btn.getAttribute('data-void-name');
+          if (!window.confirm('Void the quote for ' + who + '?\n\nThe quote is cancelled and the customer\'s link stops working. Nothing is refunded and nothing is charged. Make sure this is NOT the quote they paid — a paid quote cannot be voided here, but check the name and the event date yourself before you press OK.')) return;
+          btn.disabled = true;
+          Hub.api(ENDPOINT, { method: 'POST', body: { op: 'void_quote', quote_id: btn.getAttribute('data-void') } }).then(function (r) {
+            if (r && r.ok) { Hub.toast('Quote voided'); render(); }
+            else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not void that quote'); }
+          });
+        });
+      });
       root.querySelectorAll('[data-balance]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           if (!window.confirm('Mark this balance paid? This records the money as received — it does not charge anybody.')) return;

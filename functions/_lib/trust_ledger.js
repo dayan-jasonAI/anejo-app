@@ -16,9 +16,16 @@
 import { now } from './hub.js';
 import { raiseAlert } from './alerts.js';
 
-// The five fixed lanes. The planner is asked to file every post under exactly one of these;
-// anything else it invents is stored as NULL and never counts toward (or against) a streak.
-export const TRUST_CATEGORIES = ['menu', 'macro_portal', 'catering', 'brand_story', 'promo'];
+// The fixed lanes. The planner is asked to file every post under exactly one of these; anything
+// else it invents is stored as NULL and never counts toward (or against) a streak.
+//
+// Three lanes added 2026-09-10 alongside Añejo Daily: 'daily', 'traditional' and 'cajita'. Until
+// then the team could only file a post under menu / macro_portal / catering / brand_story / promo,
+// so a croqueta tray post and a bowl post landed in the same lane and the owner could never grant
+// (or withhold) trust for one line without granting it for the other. Migration 0104 inserts the
+// three rows with auto_publish = 0, and they stay 0: a NEW lane has earned nothing yet, and
+// flipping that switch is the owner's move alone in every lane, old or new.
+export const TRUST_CATEGORIES = ['menu', 'macro_portal', 'catering', 'brand_story', 'promo', 'daily', 'traditional', 'cajita'];
 
 // Clean approvals in a row before the HUB shows a category as eligible — and before the
 // toggle endpoint will accept auto_publish=1. Five, per the owner's decision.

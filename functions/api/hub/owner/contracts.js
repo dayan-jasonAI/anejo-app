@@ -3,7 +3,7 @@
 import { json, bad, randToken, now, id, isEmail, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
-import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite, createInvoicePaymentLink } from '../../../_lib/contract.js';
+import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite, createInvoicePaymentLink , setContractMenuSlot, listContractMenu } from '../../../_lib/contract.js';
 import { capture } from '../../../_lib/track.js';
 
 // The edit-terms / invoice-lifecycle helpers below live here rather than in _lib/contract.js
@@ -510,9 +510,20 @@ export const onRequestGet = async ({ request, env }) => {
     // covered while the registered contact was out lands here as pending, and the owner needs to
     // see them in order to authorize or remove them. Masked — the HUB never needs full numbers.
     for (const s of sites) s.staff = maskSiteStaff(await listSiteStaff(env, s.id, { all: true }));
-    out.push({ account: a, sites, recent, invoices, devices, events, terms_events: termsEvents });
+    // The rotating menu. A slot linked to a menu_items row is the SAME meal definition Añejo
+    // Daily sells, which is what lets the kitchen cook one batch for both.
+    const menu = await listContractMenu(env, a.id);
+    out.push({ account: a, sites, recent, invoices, devices, events, terms_events: termsEvents, menu });
   }
-  return json({ ok: true, accounts: out });
+  // Meals the rotating menu can point at. 'daily' first — those are the shared Añejo Daily
+  // definitions, and pointing a weekday at one is what makes the two services one batch.
+  let meals = [];
+  try {
+    meals = ((await env.DB.prepare(
+      "SELECT id, name, kind, price_cents FROM menu_items WHERE active = 1 AND kind IN ('daily','bowl','addon') ORDER BY CASE kind WHEN 'daily' THEN 0 ELSE 1 END, name"
+    ).all()).results) || [];
+  } catch { meals = []; }
+  return json({ ok: true, accounts: out, meals });
 };
 
 // POST { op:'activate', account_id, price_per_lunch_cents, delivery_fee_cents, rush_fee_cents?, cutoff_time? }
@@ -635,6 +646,19 @@ export const onRequestPost = async ({ request, env }) => {
       properties: { account_id: b.account_id, site_id: r.site_id, inherited_terms: !!r.inherited_terms },
     });
     return json(r);
+  }
+
+  // One weekday of the rotating institutional menu. Pointing it at an Añejo Daily meal is how
+  // "DGP Wednesday" and "Añejo Daily Wednesday" become the same dish in the kitchen — the orders,
+  // the billing and the customers stay entirely separate.
+  if (op === 'set_menu_slot') {
+    const r = await setContractMenuSlot(env, b);
+    if (!r.ok) return bad(r.error || 'Could not save that day.', 400);
+    await writeTermsEvent(env, {
+      account_id: b.account_id, event: 'menu_slot_set', changed_by: actorOf(ctx), changed_role: ctx.role,
+      before: {}, after: { rotation_week: b.rotation_week || 1, dow: b.dow, menu_item_id: b.menu_item_id || null, item_name: b.item_name || null },
+    });
+    return json({ ...r, menu: await listContractMenu(env, b.account_id) });
   }
 
   if (op === 'activate') {

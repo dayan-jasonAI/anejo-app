@@ -686,6 +686,7 @@ footer {
 </script>
 <link rel="alternate" hreflang="en" href="https://anejocateringco.com/"><link rel="alternate" hreflang="es" href="https://anejocateringco.com/es/"><link rel="alternate" hreflang="x-default" href="https://anejocateringco.com/">
 <link rel="stylesheet" href="/assets/css/home-family.css?v=20260909b">
+<link rel="stylesheet" href="/assets/css/daily.css?v=20260910">
 </head>
 <body>
 <a href="#top" class="skip-link">Skip to content</a>
@@ -700,6 +701,7 @@ footer {
     <div class="nav-links" id="navLinks">
       <a href="#story">Story</a>
       <a href="/menu">Menu</a>
+      <a href="/order?daily=1">Añejo Daily</a>
       <a href="/cajita">La Cajita</a>
       <a href="/catering">Catering</a>
       <a href="/subscribe">Weekly Plans</a>
@@ -726,6 +728,13 @@ footer {
 <a class="family-tile" href="#traditional"><img src="/assets/img/menu-launch/lechon-meal.webp?v=congri2" alt="Lechón with congrí and fresh salad" width="800" height="800"><div><span>Comfort, with Cuban roots</span><h2>Añejo Traditional</h2><p>Lunch, dinner, croquetas, empanadas and dessert.</p><b>Explore Traditional →</b></div></a>
 <a class="family-tile" href="#menu"><img src="/assets/img/bowl_mar.jpg" alt="Añejo MAR salmon bowl" width="800" height="800"><div><span>Fresh flavor for your routine</span><h2>Añejo Fit</h2><p>Seven signature bowls, custom options and Fit drinks.</p><b>Explore Fit →</b></div></a>
 </nav></div></section>
+
+<!-- ===================== AÑEJO DAILY =====================
+     Today's featured lunch. Rendered by /assets/js/daily-card.js from /api/daily and kept hidden
+     until that answers: there is no honest static copy for "3 portions left" or "sold out", so the
+     section shows nothing rather than a number it cannot stand behind. -->
+<section class="daily-section" id="daily" hidden></section>
+
 
 
 <section id="traditional" class="family-section"><div class="section-inner"><div class="section-head"><div class="eyebrow">Añejo Traditional</div><h2>Cuban roots. <strong>Everyday comfort.</strong></h2><p class="lede">Make it a full meal, share a few bites, or finish with something sweet. Choose your flavors and quantities when you order.</p></div><div class="family-products">
@@ -1542,6 +1551,21 @@ document.querySelectorAll('#navLinks a').forEach(a => {
 
 <script src="/assets/js/i18n.js?v=20260908"></script>
 <script src="/assets/js/catering-i18n.js?v=20260909"></script>
+<script src="/assets/js/daily-card.js?v=20260910"></script>
+<script>
+// Paint Añejo Daily once the day is known. A failed fetch leaves the section hidden: the rest of
+// the homepage is unaffected, and nothing promises a lunch that may not exist. Repainted on the
+// language switch because the card's copy is built in JS, not from the i18n dictionary.
+(function(){
+  var el = document.getElementById('daily');
+  AnejoDaily.load().then(function(d){
+    if (!d || (!d.today && !d.next)) return;
+    el.hidden = false;
+    AnejoDaily.renderHome(el, d);
+    document.addEventListener('anejo:langchange', function(){ AnejoDaily.renderHome(el, AnejoDaily.data); });
+  });
+})();
+</script>
 <script src="/assets/js/announce.js" defer></script>
 <script src="/assets/js/consent.js"></script>
 <script>

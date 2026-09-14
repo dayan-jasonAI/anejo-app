@@ -157,6 +157,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
 }
 </script>
 <link rel="stylesheet" href="/assets/css/shop-order.css">
+<link rel="stylesheet" href="/assets/css/daily.css?v=20260910">
 </head>
 <body>
 <a href="#catalog" class="skip-link">Skip to content</a>
@@ -175,6 +176,10 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
 </header>
 
 <div class="wrap">
+  <!-- Añejo Daily — today's featured lunch, first thing on the page. Rendered from /api/daily by
+       /assets/js/daily-card.js; stays empty when nothing is scheduled for today. -->
+  <section id="dailyCard" aria-label="Añejo Daily"></section>
+
   <section><input id="shopSearch" type="search" placeholder="Search the menu / Buscar en el menú" aria-label="Search the menu"><div id="shopCategories" class="shop-nav" aria-label="Menu categories"></div><p id="categoryNote"></p><div id="catalog"></div></section>
 
   <aside class="cart">
@@ -198,10 +203,13 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
     <div class="tax-note" id="taxNote" style="display:none">Final tax &amp; delivery fee are confirmed on the secure Square checkout page.</div>
 
     <div id="shopSuggestions"></div><details id="checkoutDetails"><summary>Delivery &amp; checkout / Entrega y pago</summary><div class="fulfill">
+      <div id="dailyFulfill" style="display:none;font-size:12px;color:var(--muted);margin-bottom:10px"></div>
+      <div id="modeChooser">
       <div class="lbl">How would you like it?</div>
       <div class="modeseg" role="tablist" aria-label="Fulfillment mode">
         <button type="button" id="modeOndemand" class="active" role="tab" aria-selected="true" onclick="setMode('ondemand')">ASAP today<span class="seg-sub">Make-now · delivered today</span></button>
         <button type="button" id="modeScheduled" role="tab" aria-selected="false" onclick="setMode('scheduled')">Schedule<span class="seg-sub">Pick a day &amp; window</span></button>
+      </div>
       </div>
       <div id="availBanner" class="avail-banner" style="display:none"></div>
 
@@ -289,6 +297,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
 </div>
 
 <script src="/assets/js/catering-notice.js"></script>
+<script src="/assets/js/daily-card.js?v=20260910"></script>
 <script>
 // Display catalog. GET /api/menu — backed by the SAME D1 rows /api/checkout prices from — is
 // AUTHORITATIVE and overwrites everything below as soon as it answers (see loadCatalog()).
@@ -316,9 +325,21 @@ const FALLBACK_CATALOG = [
     {id:'sauce_extra',name:'Extra Signature Sauce',price:1.50,desc:'2 oz · on the side',descEs:'2 oz · aparte'},
   ]},
 ];
+// ---- AÑEJO DAILY ----------------------------------------------------------------------------
+// Today's featured lunch rides in the ordinary `addons` cart (id -> qty), so every existing cart
+// line, edit and remove keeps working. What is different is the RULES, and only for a cart that
+// holds it: no $25 minimum, same-day whatever the on-demand bowl window says, delivered 11–1, and
+// nothing in the cart but the Daily and drinks. checkout.js enforces every one of those again.
+let DAILY = null;          // the last /api/daily payload
+let DAILY_ITEM = null;     // today's meal as a catalog row, so PRICE/cart/pruneCart just work
+const DRINK_IDS = new Set();   // the only things Añejo Daily can travel with
+
 let CATALOG = FALLBACK_CATALOG;
 const PRICE = {};   // id -> catalog item; rebuilt every time CATALOG is replaced
-function indexPrices(){ Object.keys(PRICE).forEach(k=>delete PRICE[k]); CATALOG.forEach(g=>g.items.forEach(i=>PRICE[i.id]=i)); }
+function indexPrices(){ Object.keys(PRICE).forEach(k=>delete PRICE[k]); CATALOG.forEach(g=>g.items.forEach(i=>PRICE[i.id]=i));
+  // Añejo Daily is not in the general catalog (it is sold only for the day it is scheduled), so it
+  // is re-registered here — otherwise the next catalog refresh would drop it out of the cart.
+  if(DAILY_ITEM) PRICE[DAILY_ITEM.id]=DAILY_ITEM; }
 indexPrices();
 // Per-bowl build (MIRRORS functions/_lib/bowlspec.js — keep in sync). Index 0 = protein (locked,
 // not removable). The server re-validates every mod + re-prices, so this list is UI-only.
@@ -422,6 +443,11 @@ function fromApi(it){
     available: it.available !== false,
     availLabel: it.availability_label || 'Sold out',
     availLabelEs: it.availability_label_es || 'Agotado',
+    // Product family, straight from D1: `kind` ('bowl'|'drink'|'addon') and, for drinks, the
+    // owner's storefront group ('hydrate'|'cuban'|'classic'). shop-families.js files the item by
+    // these instead of guessing from the id prefix.
+    kind: it.kind || null,
+    group: it.group || null,
   };
 }
 function applyModifierPrices(m){
@@ -489,6 +515,64 @@ async function loadCatalog(){
   if(cz) czRender();   // repriced under an open modal
 }
 
+// Añejo Daily: fetch the day, register the meal so the cart can price it, paint the card.
+async function loadDaily(){
+  const el = $('dailyCard');
+  DAILY = await AnejoDaily.load();
+  if(!DAILY){ el.innerHTML=''; return; }
+  (DAILY.drinks||[]).forEach(d=>DRINK_IDS.add(d.id));
+  const t = DAILY.today;
+  if(t){
+    // Registered even on a closed or sold-out day: a cart line added minutes ago must still price
+    // and still render, so the customer sees it refused with a reason rather than silently dropped.
+    DAILY_ITEM = { id:t.item.id, name:t.item.name, nameEs:t.item.name_es||t.item.name,
+      price:t.item.price_cents/100, desc:t.item.description||'', descEs:t.item.description_es||t.item.description||'',
+      img:t.item.image||null, available:t.status!=='unavailable', availLabel:'Sold out', availLabelEs:'Agotado',
+      kind:'daily', group:null, daily_date:t.date };
+    PRICE[DAILY_ITEM.id]=DAILY_ITEM;
+  } else if(DAILY_ITEM){
+    // Rolled over to a day with no Daily: drop it rather than let the cart carry it into checkout.
+    delete addons[DAILY_ITEM.id]; delete PRICE[DAILY_ITEM.id]; DAILY_ITEM=null;
+  }
+  paintDaily();
+  applyMode();   // also renders the cart, and restores the chooser if the Daily just went away
+}
+function paintDaily(){
+  AnejoDaily.renderOrder($('dailyCard'), DAILY, {
+    inCart: (id)=>addons[id]||0,
+    blocked: ()=>dailyBlockReason(),
+  });
+}
+// Is today's Daily in the cart?
+function hasDaily(){ return !!(DAILY_ITEM && addons[DAILY_ITEM.id]); }
+// Añejo Daily travels with drinks and nothing else — everything else is a different delivery day,
+// a catering notice or the on-demand bowl window, and mixing them would let one item's exemptions
+// leak onto another. checkout.js refuses such a cart; this says so before the customer pays.
+function dailyIncompatibleIds(){
+  return Object.keys(addons).filter(id=>!DRINK_IDS.has(id) && !(DAILY_ITEM && id===DAILY_ITEM.id));
+}
+function dailyBlockReason(){
+  if(bowls.length || dailyIncompatibleIds().length){
+    return L('Añejo Daily is delivered on its own schedule — it can only be ordered with drinks. Please place the rest as a separate order.',
+             'Añejo Daily se entrega en su propio horario — solo se puede pedir con bebidas. Haz un pedido aparte para lo demás.');
+  }
+  return '';
+}
+function anejoDailyAdd(){
+  if(!DAILY_ITEM || !DAILY || !DAILY.today || DAILY.today.status!=='open') return;
+  if(dailyBlockReason()){ paintDaily(); return; }
+  addons[DAILY_ITEM.id] = 1;   // one featured lunch per order; extra portions are a separate order
+  paintDaily();
+  applyMode();                 // swaps the fulfillment chooser for the one thing a Daily can be
+  $('checkoutDetails').open = true;
+}
+function anejoDailyRemove(){ if(DAILY_ITEM) delete addons[DAILY_ITEM.id]; paintDaily(); applyMode(); }
+function anejoDailyDrink(id){
+  if(!PRICE[id]) return;
+  addons[id] = Math.min(shopMax(id), (addons[id]||0)+1);
+  paintDaily(); renderCart();
+}
+
 async function loadAvailability(){
   try{
     const r = await fetch('/api/order-availability');
@@ -508,6 +592,17 @@ async function loadAvailability(){
 function setMode(m){ mode = (m==='scheduled') ? 'scheduled' : 'ondemand'; applyMode(); }
 
 function applyMode(){
+  // Añejo Daily has exactly one fulfillment — today, delivered 11 AM–1 PM — so the chooser and the
+  // date picker are replaced by a plain statement of it rather than left there to be contradicted.
+  const dailyCart = hasDaily();
+  const chooser = $('modeChooser'), dailyNote = $('dailyFulfill');
+  if(chooser) chooser.style.display = dailyCart ? 'none' : '';
+  if(dailyNote){
+    dailyNote.style.display = dailyCart ? 'block' : 'none';
+    if(dailyCart) dailyNote.textContent = L('Añejo Daily · delivered today, 11:00 AM–1:00 PM. Delivery only — no pickup.',
+                                            'Añejo Daily · entrega hoy, 11:00 AM–1:00 PM. Solo entrega — sin recogida.');
+  }
+  if(dailyCart){ $('schedFields').style.display='none'; $('availBanner').style.display='none'; renderCatalog(); renderCart(); return; }
   const onD = mode==='ondemand';
   $('modeOndemand').classList.toggle('active', onD);
   $('modeScheduled').classList.toggle('active', !onD);
@@ -701,7 +796,14 @@ function czApply(){
   closeCz(); renderCatalog(); renderCart();
 }
 function rmBowl(idx){ bowls.splice(idx,1); renderCatalog(); renderCart(); }
-function rmAddon(idv){ delete addons[idv]; renderCatalog(); renderCart(); }
+function rmAddon(idv){
+  delete addons[idv]; renderCatalog();
+  // Removing the DAILY line puts the delivery chooser back — applyMode() is what hides and restores
+  // it, and calling only renderCart() left the cart saying "delivered today, 11–1" with the day and
+  // window pickers still hidden for a cart that no longer had a Daily in it.
+  if(DAILY_ITEM && idv===DAILY_ITEM.id){ paintDaily(); applyMode(); return; }
+  renderCart();
+}
 // Localized one-line mod summary for a bowl instance (kitchen sees its own version server-side).
 function modSummary(b){
   const parts=[];
@@ -734,17 +836,27 @@ function renderCart(){
     const p=PRICE[idv];
     if(!p){ delete addons[idv]; return; }   // item left the catalog after it was added
     const sub=Math.round(p.price*100)*addons[idv]; totalCents+=sub;
+    // No edit button on the Añejo Daily line: it has no flavours or sizes to choose, and it is not
+    // in the general catalog that editShopItem() resolves against — the button was inert.
+    const isDaily = !!(DAILY_ITEM && idv===DAILY_ITEM.id);
     html += '<div class="cart-line"><span class="ci-name">'+escHtml(itemName(p))+' <small>× '+addons[idv]+'</small>'
-      + '<button class="ci-edit" onclick="editShopItem(\''+esc(idv)+'\')">'+L('edit','editar')+'</button>'
+      + (isDaily ? '' : '<button class="ci-edit" onclick="editShopItem(\''+esc(idv)+'\')">'+L('edit','editar')+'</button>')
       + '<button class="ci-rm" onclick="rmAddon(\''+esc(idv)+'\')">'+L('remove','quitar')+'</button>'
       + '</span><span>'+money(sub/100)+'</span></div>';
   });
   lines.innerHTML = html;
   lastSubtotalCents = totalCents;   // promo checks price against the same number the cart shows
   const total = totalCents/100;
-  const belowMin = total < ORDER_MIN;
+  // Añejo Daily is exempt from the order minimum — a $10 lunch IS the product. The exemption is
+  // this cart's alone: remove the Daily and the minimum is back, exactly as before.
+  const dailyCart = hasDaily();
+  const belowMin = !dailyCart && total < ORDER_MIN;
   const freeDeliv = rewardsFreeDeliv && !belowMin;
-  const fee = (belowMin || freeDeliv) ? 0 : DELIVERY_FEE;
+  // A Daily delivery starts at the owner's base fee and rises with driving distance when the owner
+  // has switched that on (functions/_lib/delivery_fee.js) — the exact figure is confirmed on the
+  // Square page, which is what the note under the total already says.
+  const dailyFeeFrom = (DAILY && DAILY.delivery) ? DAILY.delivery.base_fee_cents/100 : DELIVERY_FEE;
+  const fee = (belowMin || freeDeliv) ? 0 : (dailyCart ? dailyFeeFrom : DELIVERY_FEE);
   // Añejo Rewards redemption — signed-in client only; 20 pts = $1 (1 pt = $0.05), capped at subtotal.
   var rewardsRow = $('rewardsRow'), applyEl = $('applyRewards');
   var discount = 0; rewardsRedeemPts = 0;
@@ -770,7 +882,8 @@ function renderCart(){
   var taxable = Math.max(0, total - discount);
   const tax = taxable*TAX_PCT/100, grand = taxable + fee + tax;
   $('cartSubtotal').textContent = money(total);
-  $('cartFee').textContent = freeDeliv ? L('Free \u00b7 rewards','Gratis \u00b7 rewards') : money(fee);
+  $('cartFee').textContent = freeDeliv ? L('Free \u00b7 rewards','Gratis \u00b7 rewards')
+    : (dailyCart && DAILY.delivery && DAILY.delivery.distance_based) ? L('From ','Desde ')+money(fee) : money(fee);
   $('cartTax').textContent = money(tax);
   $('cartGrand').textContent = money(grand);
   subRow.style.display='flex'; taxRow.style.display='flex'; totalRow.style.display='flex'; taxNote.style.display='block';
@@ -781,7 +894,12 @@ function renderCart(){
                           'El mínimo de pedido es $'+ORDER_MIN.toFixed(2)+' — agrega $'+(ORDER_MIN-total).toFixed(2)+' más.');
     btn.disabled=true;
   }
-  else if (mode==='ondemand' && avail && avail.open===false){
+  else if (dailyCart && dailyBlockReason()){
+    minNote.style.display='block'; minNote.textContent=dailyBlockReason(); btn.disabled=true;
+  }
+  // A Daily cart is never gated on the on-demand bowl window: it has its own cutoff, already
+  // checked above and re-checked by the server.
+  else if (!dailyCart && mode==='ondemand' && avail && avail.open===false){
     minNote.style.display='block';
     minNote.textContent=L('On-demand ordering is closed right now — we make & deliver '+ordHrs()+' ET. Switch to Schedule to order ahead.',
                           'Los pedidos del mismo día están cerrados ahora — preparamos y entregamos '+ordHrs()+' ET. Cambia a Programar para pedir con anticipación.');
@@ -907,6 +1025,26 @@ function acceptAddressSuggestion(){
   checkout();
 }
 
+// One key per distinct cart: the same cart retried is the same checkout (and can never consume a
+// second portion), a changed cart is a new one.
+//
+// IN sessionStorage, not in memory. Pressing Back from the Square page and paying again is the
+// single most likely thing a customer does here, and a key that only lived in a variable made that
+// a brand-new checkout — a second portion held out of a day that only has ten.
+const DAILY_KEY_STORE = 'anejo:daily-keys';
+function dailyCheckoutKey(sig){
+  let map = {};
+  try { map = JSON.parse(sessionStorage.getItem(DAILY_KEY_STORE) || '{}') || {}; } catch(_){ map = {}; }
+  if(!map[sig]){
+    // crypto, not Math.random(): this value is what the server accepts as "this is my checkout",
+    // and V8's PRNG output is reconstructable from a few observed samples.
+    const buf = new Uint8Array(16); crypto.getRandomValues(buf);
+    map[sig] = 'ck'+[...buf].map(x=>x.toString(16).padStart(2,'0')).join('');
+    try { sessionStorage.setItem(DAILY_KEY_STORE, JSON.stringify(map)); } catch(_){ /* private mode: the server still refuses a double-consume on the same key, we just cannot offer one */ }
+  }
+  return map[sig];
+}
+
 async function checkout(){
   const btn=document.getElementById('checkoutBtn'), err=document.getElementById('err');
   if(btn.disabled) return;
@@ -917,9 +1055,10 @@ async function checkout(){
   const items = bowls.map(b=>({ id:b.key, qty:1, mods:{ removed:b.removed, base:b.base, sauces:b.sauces, extras:b.extras } }))
     .concat(Object.keys(addons).map(id=>({ id, qty:addons[id] })));
   if(!items.length) return;
-  const fulfillment = { mode: mode==='ondemand' ? 'on_demand' : 'scheduled' };
+  const dailyCart = hasDaily();
+  const fulfillment = { mode: dailyCart ? 'scheduled' : mode==='ondemand' ? 'on_demand' : 'scheduled' };
   let delivery = null;
-  if(mode==='scheduled'){
+  if(!dailyCart && mode==='scheduled'){
     delivery = { date: $('delivDate').value, window: $('delivWindow').value };
     if(!delivery.date){ fail($('delivDate'),L('Please choose a delivery date.','Por favor elige una fecha de entrega.')); return; }
   }
@@ -946,6 +1085,13 @@ async function checkout(){
   btn.disabled=true; const label=btn.textContent; btn.textContent=L('Redirecting to secure checkout…','Redirigiendo al pago seguro…');
   try{
     const payload = { items, fulfillment, address, contact };
+    // Añejo Daily: the service date, plus a key that makes a retry idempotent. The key is derived
+    // from the cart itself, so pressing pay twice on the SAME order reuses the one reserved portion
+    // (the server hands back the same Square link) while a changed cart is a genuinely new order.
+    if(dailyCart){
+      payload.daily = { date: DAILY.today.date };
+      payload.checkout_key = dailyCheckoutKey(JSON.stringify([DAILY.today.date, items]));
+    }
     // Descriptive only — the server slices and stores it (parseAttribution), never prices from it.
     if (anejoAttr && (anejoAttr.src || anejoAttr.utm_source || anejoAttr.utm_campaign)) payload.attribution = anejoAttr;
     if (rewardsRedeemPts > 0) payload.redeem_points = rewardsRedeemPts;
@@ -984,6 +1130,7 @@ async function checkout(){
   }catch(e){
     err.textContent = e.message; btn.disabled=false; btn.textContent=label;
     if(mode==='ondemand') loadAvailability();   // a cap/window race may have changed stock — refresh
+    if(hasDaily()) loadDaily();                // someone may have taken the last portion — show the truth
   }
 }
 
@@ -1008,7 +1155,18 @@ async function loadRewards(){
     }
   }catch(_){}
 }
-buildDates(); applyMode(); loadCatalog(); loadAvailability(); loadRewards();
+buildDates(); applyMode(); loadCatalog(); loadAvailability(); loadRewards(); loadDaily();
+// ?daily=1 (the homepage CTA and the nav link) — bring the customer straight to today's lunch.
+if(new URLSearchParams(location.search).get('daily')==='1'){
+  setTimeout(function(){ var el=$('dailyCard'); if(el && el.firstChild) el.scrollIntoView({behavior:'smooth',block:'start'}); }, 600);
+}
+// The card's copy is built in JS, so the language switch has to repaint it.
+document.addEventListener('anejo:langchange', function(){ if(DAILY) paintDaily(); });
+// A tab left open goes stale: past 11 AM the card would still say "order by 11:00 AM ET" with the
+// button live, and the customer would only find out after typing an address. Re-read the day
+// whenever they come back to the tab, and hourly while they are on it.
+document.addEventListener('visibilitychange', function(){ if(!document.hidden && DAILY) loadDaily(); });
+setInterval(function(){ if(!document.hidden && DAILY) loadDaily(); }, 600000);
 (function(){
   var ap = document.getElementById('promoApply'), pi = document.getElementById('promoInput');
   if (ap) ap.addEventListener('click', applyPromo);

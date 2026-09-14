@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Añejo Daily</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .dcard{border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:13px;margin:9px 0;background:#fff}
+  .dcard.past{opacity:.6;border-left-color:var(--line)}
+  .dcard .dday{font-weight:800;color:var(--green);font-size:15px}
+  .dcard .row-sub{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .dgrid{display:grid;grid-template-columns:1.6fr .7fr .8fr auto;gap:8px;align-items:end;margin-top:9px}
+  .dgrid label{display:block;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--green);opacity:.75;margin-bottom:3px}
+  .dgrid select,.dgrid input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;background:#fff}
+  .dgrid .btn{width:auto;padding:9px 14px}
+  .counts{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+  .pill{font-size:11px;font-weight:700;background:#eee;color:#555;border-radius:20px;padding:3px 9px}
+  .pill.gold{background:#efe7cf;color:#8a7a2e}.pill.green{background:#e1efe5;color:#1A3D2E}
+  .pill.crit{background:#f7e3de;color:#7a2418}
+  .form-row{display:flex;flex-direction:column;gap:4px;margin:10px 0 0}
+  .form-row label{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--green);opacity:.8}
+  .form-row input,.form-row select{padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px}
+  .form-three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .hint{font-size:12px;color:var(--green);opacity:.78;line-height:1.55;margin:6px 0 0}
+  .formula{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:var(--cream);border-radius:8px;padding:9px 11px;margin:8px 0 0;color:var(--green)}
+  .prod{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+  .prod th,.prod td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+  .prod th{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .prod .num{text-align:right;font-variant-numeric:tabular-nums}
+  .prod .need{font-weight:800;color:var(--green)}
+  @media(max-width:620px){.dgrid{grid-template-columns:1fr 1fr}.form-three{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · DAILY</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button" aria-label="Language / Idioma" translate="no">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading Añejo Daily…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+/* The Añejo Daily desk. Everything on this screen is a decision only the owner makes:
+   which meal is the featured lunch on which day, HOW MANY portions go to the public, when
+   same-day ordering closes, and how the delivery fee is worked out. Nothing here is automatic —
+   in particular the allocation is never raised by the system, and the API refuses to set it below
+   what is already sold or in checkout. */
+(function () {
+  Hub.boot();
+  var esc = Hub.esc, money = Owner.money;
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
+  }
+  var ENDPOINT = '/api/hub/owner/daily';
+  var DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var STATE = null;
+
+  function post(body, okMsg) {
+    return Hub.api(ENDPOINT, { method: 'POST', body: body }).then(function (r) {
+      if (r && r.ok) { Hub.toast(okMsg); render(); return true; }
+      Hub.toast((r && (r.error || (r.errors && r.errors[0]))) || 'Could not save that.');
+      return false;
+    });
+  }
+
+  // ---------- one day of the schedule ----------
+  function dayCard(d, meals, settings) {
+    var v = d.view;
+    var sold = v ? v.sold : 0, held = v ? v.held : 0, remaining = v ? v.remaining : 0;
+    var chosen = v ? v.item.id : '';
+    // What the institutional (clinic/office) menu already says for this weekday. Shown so the
+    // owner can point the public Daily at the SAME meal and cook one batch — never applied
+    // automatically, and never displayed to a customer.
+    var hint = (d.institutional || []).filter(function (h) { return h.meal_id && h.meal_id !== chosen; });
+    var opts = '<option value="">— no Añejo Daily —</option>' + meals.map(function (m) {
+      return '<option value="' + esc(m.id) + '"' + (m.id === chosen ? ' selected' : '') + (m.tier_ok ? '' : ' disabled') + '>' +
+        esc(m.name) + ' · ' + money(m.price_cents) + (m.tier_ok ? '' : ' (not a Daily tier)') + '</option>';
+    }).join('');
+    return '<div class="dcard" data-date="' + esc(d.date) + '">' +
+      '<div class="dday">' + DOW[d.weekday] + ' · ' + esc(d.date) + '</div>' +
+      (v
+        ? '<div class="counts">' +
+            '<span class="pill ' + (v.status === 'open' ? 'green' : v.status === 'sold_out' ? 'gold' : 'crit') + '">' + esc(v.status.replace('_', ' ')) + '</span>' +
+            '<span class="pill">' + sold + ' sold</span>' +
+            (held ? '<span class="pill gold">' + held + ' in checkout</span>' : '') +
+            '<span class="pill">' + remaining + ' of ' + v.allocation + ' left</span>' +
+            '<span class="pill">closes ' + esc(v.cutoff_label) + '</span>' +
+          '</div>'
+        : '<div class="row-sub">Nothing scheduled.</div>') +
+      (hint.length ? '<div class="row-sub">Institutional menu that day: ' + hint.map(function (h) { return esc(h.name); }).join(', ') +
+        ' — pointing Añejo Daily at the same meal means one batch for both.</div>' : '') +
+      '<div class="dgrid">' +
+        '<div><label>Featured meal</label><select data-f="meal">' + opts + '</select></div>' +
+        '<div><label>Portions</label><input data-f="alloc" type="number" min="0" max="500" step="1" value="' + (v ? v.allocation : settings.default_allocation) + '"></div>' +
+        '<div><label>Closes at</label><input data-f="cutoff" type="time" value="' + esc(v && v.cutoff_time !== settings.cutoff_time ? v.cutoff_time : '') + '" placeholder="' + esc(settings.cutoff_time) + '"></div>' +
+        '<div><button class="btn" data-save="' + esc(d.date) + '">Save</button></div>' +
+      '</div>' +
+      (v && sold + held === 0 ? '<p class="hint"><a href="#" data-cancel="' + esc(d.date) + '">Cancel this day</a></p>' : '') +
+      (v && sold + held > 0 ? '<p class="hint">' + (sold + held) + ' portion(s) are sold or in checkout, so this day cannot be canceled and the meal cannot change. The allocation can only go up, or down to ' + (sold + held) + '.' +
+        (held ? ' <a href="#" data-release="' + esc(d.date) + '">Release the ' + held + ' in checkout</a> if nobody is actually paying.' : '') + '</p>' : '') +
+    '</div>';
+  }
+
+  // ---------- production: one batch, two kinds of demand ----------
+  function prodTable(block) {
+    var rows = block.rows || [];
+    if (!rows.length) return '<div class="hub-empty">Nothing to cook for ' + esc(block.date) + ' yet.</div>';
+    return '<table class="prod"><thead><tr><th>Meal</th><th class="num">Institutional</th><th class="num">Daily sold</th><th class="num">Make now</th><th class="num">Unsold buffer</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        return '<tr><td>' + esc(r.name) +
+          (r.institutional_pending_sites ? '<div class="row-sub">' + r.institutional_pending_sites + ' site(s) have not sent a count yet</div>' : '') +
+          '</td>' +
+          '<td class="num">' + r.institutional_committed + '</td>' +
+          '<td class="num">' + r.public_sold + (r.public_held ? ' <span class="pill gold">+' + r.public_held + ' in checkout</span>' : '') + '</td>' +
+          '<td class="num need">' + r.required_now + '</td>' +
+          '<td class="num">' + (r.public_unsold || 0) + '</td></tr>';
+      }).join('') +
+      '</tbody></table><p class="hint">“Make now” is committed institutional headcount plus Añejo Daily portions actually paid for. The unsold buffer is what is still on offer to the public — cook it only if you choose to.</p>';
+  }
+
+  function settingsCard(s) {
+    return '<div class="hub-section"><h2>Añejo Daily settings</h2><div class="card">' +
+      '<div class="form-three">' +
+        '<div class="form-row"><label for="s_cutoff">Same-day orders close at</label><input id="s_cutoff" type="time" value="' + esc(s.cutoff_time) + '"></div>' +
+        '<div class="form-row"><label for="s_alloc">Default portions per day</label><input id="s_alloc" type="number" min="0" max="500" step="1" value="' + s.default_allocation + '"></div>' +
+        '<div class="form-row"><label for="s_tiers">Price tiers (cents)</label><input id="s_tiers" type="text" value="' + esc((s.tiers || []).join(',')) + '" placeholder="1000,1500"></div>' +
+        '<div class="form-row"><label for="s_max">Portions per order</label><input id="s_max" type="number" min="1" max="50" step="1" value="' + s.max_per_order + '"></div>' +
+      '</div>' +
+      '<p class="hint">Portions per order is what one customer may buy in a single checkout — the storefront offers that many and the server refuses more. A day with no cutoff of its own closes at this time. The default portions figure is only what a new day starts at — it never changes a day you have already scheduled, and nothing raises an allocation on its own. Tiers decide which prices an Añejo Daily meal may carry; which dish belongs at which tier is yours to set on the Menu page.</p>' +
+      '<div class="mn-actions" style="margin-top:12px"><button class="btn" id="saveSettings">Save settings</button></div>' +
+    '</div></div>';
+  }
+
+  function deliveryCard(dl) {
+    var s = dl.settings, st = dl.status;
+    var pol = Object.keys(dl.policies).map(function (k) {
+      return '<option value="' + esc(k) + '"' + (k === s.distance_policy ? ' selected' : '') + '>' + esc(dl.policies[k]) + '</option>';
+    }).join('');
+    return '<div class="hub-section"><h2>Añejo Daily delivery fee</h2><div class="card">' +
+      '<p class="formula">fee = the greater of (base fee) and (driving miles × rate per mile)</p>' +
+      '<p class="hint">This formula applies to Añejo Daily orders only — every other order keeps the flat delivery fee it has today. ' +
+        'The distance is measured by Google for the route a driver would actually drive, from the kitchen to the delivery address. ' +
+        '<b>Which distance is charged is your choice</b>, and the two are very different numbers: one-way counts the trip out; round-trip counts out and back. ' +
+        'The rate is whatever you set here — it is not tied to any government or IRS figure, and the customer is never shown one.</p>' +
+      '<div class="form-three">' +
+        '<div class="form-row"><label for="d_base">Base fee (cents)</label><input id="d_base" type="number" min="0" max="10000" step="1" value="' + s.base_fee_cents + '"></div>' +
+        '<div class="form-row"><label for="d_rate">Rate per mile (cents)</label><input id="d_rate" type="number" min="1" max="1000" step="1" value="' + (s.mileage_rate_cents == null ? '' : s.mileage_rate_cents) + '" placeholder="blank = off"></div>' +
+        '<div class="form-row"><label for="d_policy">Distance charged</label><select id="d_policy">' + pol + '</select></div>' +
+      '</div>' +
+      '<p class="hint">' + (st.active
+        ? 'Distance pricing is <b>live</b>: an order farther out than ' + money(s.base_fee_cents) + ' ÷ ' + s.mileage_rate_cents + '¢ ≈ ' + (s.mileage_rate_cents ? (s.base_fee_cents / s.mileage_rate_cents).toFixed(1) : '—') + ' miles pays more than the base fee.'
+        : 'Distance pricing is <b>not running</b>, so every Añejo Daily order pays the base fee:<br>· ' + st.reasons.map(esc).join('<br>· ')) + '</p>' +
+      '<div class="mn-actions" style="margin-top:12px"><button class="btn" id="saveDelivery">Save delivery settings</button></div>' +
+    '</div></div>';
+  }
+
+  function render() {
+    Owner.get(ENDPOINT).then(function (d) {
+      var root = document.getElementById('owner-root');
+      root.className = '';
+      if (!d || !d.ok) { root.innerHTML = '<div class="card"><p class="row-sub">Could not load Añejo Daily.</p></div>'; return; }
+      STATE = d;
+      var today = d.days[0] && d.days[0].view;
+      var tomorrow = d.days[1] && d.days[1].view;
+      var untiered = (d.meals || []).filter(function (m) { return !m.tier_ok; });
+
+      root.innerHTML =
+        '<div class="card-grid">' +
+          Owner.tile(today ? String(today.remaining) : '—', today ? 'Left today of ' + today.allocation : 'Nothing today', { accent: today && today.remaining === 0 ? 'accent' : '' }) +
+          Owner.tile(today ? today.item.name : '—', 'Today’s meal') +
+          Owner.tile(tomorrow ? tomorrow.item.name : '—', 'Tomorrow’s meal', { accent: tomorrow ? '' : 'accent' }) +
+          Owner.tile(d.settings.cutoff_time, 'Orders close (ET)') +
+        '</div>' +
+
+        (d.meals.length
+          ? (untiered.length ? '<div class="card accent"><p class="row-sub">' + untiered.map(function (m) { return esc(m.name) + ' is priced at ' + money(m.price_cents); }).join('; ') +
+              ', which is not one of your Daily tiers. Fix the price on the <a href="/hub/owner/menu.html">Menu</a> page, or add the tier below, before it can be scheduled.</p></div>' : '')
+          : '<div class="card accent"><p class="row-sub">No Añejo Daily meals exist yet. Create them on the <a href="/hub/owner/menu.html">Menu</a> page — add an item of type <b>Añejo Daily</b>, priced at one of your tiers, with the dish name, what is included and a photo. Then schedule the week here.</p></div>') +
+
+        '<div class="hub-section"><h2>Make today</h2>' + prodTable(d.production.today) + '</div>' +
+        '<div class="hub-section"><h2>Make tomorrow</h2>' + prodTable(d.production.tomorrow) + '</div>' +
+
+        '<div class="hub-section"><h2>The next two weeks</h2>' +
+          '<p class="hint">One featured lunch per day. Mon–Wed can share the institutional meal so the kitchen cooks one batch; Thu–Fri are yours to choose.</p>' +
+          d.days.map(function (x) { return dayCard(x, d.meals, d.settings); }).join('') +
+        '</div>' +
+
+        settingsCard(d.settings) +
+        deliveryCard(d.delivery);
+
+      // ---- wiring
+      root.querySelectorAll('[data-save]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var card = btn.closest('.dcard');
+          var meal = card.querySelector('[data-f="meal"]').value;
+          if (!meal) { Hub.toast('Choose a meal, or use “Cancel this day”.'); return; }
+          btn.disabled = true;
+          post({
+            op: 'set_day', date: btn.getAttribute('data-save'), menu_item_id: meal,
+            allocation: card.querySelector('[data-f="alloc"]').value,
+            cutoff_time: card.querySelector('[data-f="cutoff"]').value || null,
+          }, 'Saved').then(function (ok) { if (!ok) btn.disabled = false; });
+        });
+      });
+      // Unpaid holds, handed back. A hold lasts 30 minutes and blocks both lowering the allocation
+      // and cancelling the day, so an afternoon of abandoned checkouts could leave a day reading
+      // SOLD OUT with nothing sold and no way to take it back. PAID portions are never touched.
+      root.querySelectorAll('[data-release]').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          var date = a.getAttribute('data-release');
+          if (!window.confirm('Hand back every UNPAID reservation on ' + date + '?\n\nAnyone sitting on a Square page right now would have to start again. Nothing that has been paid for is affected.')) return;
+          post({ op: 'release_holds', date: date }, 'Unpaid holds released');
+        });
+      });
+      root.querySelectorAll('[data-cancel]').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          var date = a.getAttribute('data-cancel');
+          if (!window.confirm('Take Añejo Daily off ' + date + '? Nothing is sold for that day, so no customer is affected.')) return;
+          post({ op: 'cancel_day', date: date }, 'Day cleared');
+        });
+      });
+      var ss = document.getElementById('saveSettings');
+      if (ss) ss.addEventListener('click', function () {
+        ss.disabled = true;
+        post({ op: 'save_settings', cutoff_time: document.getElementById('s_cutoff').value,
+          default_allocation: Number(document.getElementById('s_alloc').value),
+          max_per_order: Number(document.getElementById('s_max').value),
+          tiers: document.getElementById('s_tiers').value }, 'Settings saved')
+          .then(function (ok) { if (!ok) ss.disabled = false; });
+      });
+      var sd = document.getElementById('saveDelivery');
+      if (sd) sd.addEventListener('click', function () {
+        sd.disabled = true;
+        var rate = document.getElementById('d_rate').value;
+        post({ op: 'save_delivery', base_fee_cents: Number(document.getElementById('d_base').value),
+          mileage_rate_cents: rate === '' ? '' : Number(rate),
+          distance_policy: document.getElementById('d_policy').value }, 'Delivery settings saved')
+          .then(function (ok) { if (!ok) sd.disabled = false; });
+      });
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    });
+  }
+
+  Owner.init('daily', render);
+})();
+</script>
+</body>
+</html>

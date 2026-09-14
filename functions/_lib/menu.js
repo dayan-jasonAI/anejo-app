@@ -57,8 +57,11 @@ export async function loadMenu(env) {
   // serving "no bowls" would silently take the storefront down, so treat it as a fallback case.
   if (!items.length) return fallback();
 
-  const bowls = {}, nonBowls = {}, availability = {}, stock = {};
+  const bowls = {}, nonBowls = {}, availability = {}, stock = {}, costs = {}, kinds = {};
   for (const it of items) {
+    kinds[it.id] = it.kind;
+    // NULL stays NULL: an unknown cost is not a zero cost, and margin math must be able to tell.
+    costs[it.id] = it.unit_cost_cents == null || it.unit_cost_cents === '' ? null : Number(it.unit_cost_cents);
     // Kept in the price maps even when sold out: removing it here would make checkout answer
     // "Unknown item", which is what it says for a typo. A sold-out bowl is not a typo, and the
     // difference matters to whoever reads the error.
@@ -82,7 +85,7 @@ export async function loadMenu(env) {
   // hardcoded price rather than the owner's last saved one. The whole-menu fallback above already
   // covers the only case that matters — D1 being unreachable or the table being empty.
 
-  return { items, bowls, nonBowls, modifiers, availability, stock, source: 'd1' };
+  return { items, bowls, nonBowls, modifiers, availability, stock, costs, kinds, source: 'd1' };
 }
 
 /**
@@ -234,6 +237,10 @@ export function publicCatalog(menu) {
       // How many were made today, when the owner has said. The storefront shows what is LEFT,
       // which /api/order-availability computes — this is the ceiling, not the remainder.
       stock_count: it.stock_count == null || it.stock_count === '' ? null : Math.max(0, Math.floor(Number(it.stock_count)) || 0),
+      // The row's kind and storefront group, so a packaged drink lands in Drinks (grouped Hydrate /
+      // Cuban / Classic & Zero) instead of falling into Añejo Fit by default.
+      kind: it.kind,
+      group: it.group_key || null,
     });
   }
   return { bowls: byKind.bowl, drinks: byKind.drink, addons: byKind.addon, modifiers: menu.modifiers };

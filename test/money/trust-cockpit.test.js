@@ -18,6 +18,10 @@ const AUTO = readFileSync(new URL('../../functions/_lib/automations.js', import.
 const API = readFileSync(new URL('../../functions/api/hub/owner/social.js', import.meta.url), 'utf8');
 const TRUST = readFileSync(new URL('../../functions/api/hub/owner/trust.js', import.meta.url), 'utf8');
 const MIG = readFileSync(new URL('../../migrations/0072_trust_cockpit.sql', import.meta.url), 'utf8');
+// 0104 (Añejo Daily) adds the three product-family lanes the team gained when it stopped being
+// bowl-only. Read separately because the seeding rule is per-migration: a lane is seeded by the
+// migration that introduced it, never retro-fitted into an older file.
+const MIG_0104 = readFileSync(new URL('../../migrations/0104_anejo_daily.sql', import.meta.url), 'utf8');
 const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
 const NAV = readFileSync(new URL('../../public/hub/owner/assets/owner.js', import.meta.url), 'utf8');
 
@@ -131,14 +135,26 @@ test('the planner promotes to scheduled ONLY behind toggle AND audit_status=pass
 
 // ---------- the fixed category list ----------
 
-test('the five categories are fixed, validated on intake, and seeded in the migration', () => {
-  assert.deepEqual(TRUST_CATEGORIES, ['menu', 'macro_portal', 'catering', 'brand_story', 'promo']);
+// HISTORY: this pinned FIVE categories. On 2026-09-10 the marketing team stopped being bowl-only
+// and three product-family lanes were added — 'daily', 'traditional', 'cajita' — so the pin moved
+// WITH the requirement rather than being deleted. What must still hold, and is asserted below:
+// the list is FIXED and closed, an invented lane still stores as NULL, the toggle endpoint still
+// refuses anything off it, and every lane is seeded by the migration that introduced it with
+// auto_publish = 0.
+const LANES_0072 = ['menu', 'macro_portal', 'catering', 'brand_story', 'promo'];
+const LANES_0104 = ['daily', 'traditional', 'cajita'];
+
+test('the categories are fixed, validated on intake, and seeded in the migration', () => {
+  assert.deepEqual(TRUST_CATEGORIES, [...LANES_0072, ...LANES_0104]);
   // The planner stores an invented lane as NULL — a streak nobody can toggle must never start.
   assert.match(AUTO, /TRUST_CATEGORIES\.includes\(item && item\.category\) \? item\.category : null/);
   assert.match(AUTO, /"category": string/, 'the JSON schema line asks the model for the field');
   // The toggle endpoint refuses anything off the list.
   assert.match(TRUST, /if \(!TRUST_CATEGORIES\.includes\(category\)\) return bad\('Unknown category\.'\)/);
-  for (const c of TRUST_CATEGORIES) assert.ok(MIG.includes(`('${c}',`), `migration seeds ${c}`);
+  for (const c of LANES_0072) assert.ok(MIG.includes(`('${c}',`), `0072 seeds ${c}`);
+  for (const c of LANES_0104) assert.ok(MIG_0104.includes(`('${c}', 0, 0,`), `0104 seeds ${c} with auto_publish = 0`);
+  // A NEW lane has earned nothing. Nothing anywhere may seed one switched on.
+  assert.ok(!/'(daily|traditional|cajita)', \d+, 1/.test(MIG_0104), 'no new lane is seeded auto-publishing');
   assert.match(MIG, /ADD COLUMN category TEXT/);
   assert.match(MIG, /ADD COLUMN original_caption_hash TEXT/);
   assert.match(MIG, /CREATE TABLE IF NOT EXISTS trust_ledger \(\n {2}category\s+TEXT PRIMARY KEY/);

@@ -24,6 +24,10 @@
     { view: 'deliveries', href: '/hub/owner/deliveries.html', ico: '🚚', label: 'Deliveries', primary: true },
     { view: 'kitchen', href: '/hub/owner/kitchen.html', ico: '🍳', label: 'Kitchen', primary: true },
     { view: 'menu', href: '/hub/owner/menu.html', ico: '🍽️', label: 'Menu' },
+    // 2026-09-10: Añejo Daily — today's featured lunch, its public allocation and the delivery-fee
+    // policy. In the More sheet, not the bar: scheduling the week is a Sunday job, and the five
+    // primary slots are the ones the owner opens every day.
+    { view: 'daily', href: '/hub/owner/daily.html', ico: '🍱', label: 'Añejo Daily' },
     { view: 'staff', href: '/hub/owner/staff.html', ico: '👥', label: 'Staff' },
     { view: 'finance', href: '/hub/owner/finance.html', ico: '💵', label: 'Finance', primary: true },
     // 2026-08-09: the catering deposit desk. /api/hub/owner/catering-deposit shipped live and

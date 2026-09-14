@@ -1,6 +1,9 @@
 /* Product families are presentation only: every selection retains its D1 SKU and price. */
 (function(root){
- const sections=[['meals','Lunch & dinner','Almuerzo y cena'],['appetizers','Appetizers','Aperitivos'],['sides','Sides','Acompañamientos'],['desserts','Desserts','Postres'],['catering','Catering','Catering'],['fit','Añejo Fit','Añejo Fit'],['sauces','Sauces','Salsas']];
+ const sections=[['meals','Lunch & dinner','Almuerzo y cena'],['appetizers','Appetizers','Aperitivos'],['sides','Sides','Acompañamientos'],['desserts','Desserts','Postres'],['catering','Catering','Catering'],['fit','Añejo Fit','Añejo Fit'],['drinks','Drinks','Bebidas'],['sauces','Sauces','Salsas']];
+ // Packaged drinks, grouped the way the owner groups them in the Hub (menu_items.group_key). An
+ // item only moves here once the owner has given it a group: nothing is guessed from its name.
+ const drinkGroups={hydrate:['Hydrate','Hidratación'],cuban:['Cuban classics','Clásicos cubanos'],classic:['Classic & Zero','Clásicos y Zero'],other:['Drinks','Bebidas']};
  const flavors={pollo:['Chicken','Pollo'],res:['Beef','Res'],jamon:['Ham','Jamón'],chorizo:['Chorizo','Chorizo'],sausage:['Sausage','Salchicha'],tuna:['Tuna','Atún'],chicken:['Chicken','Pollo'],beef:['Beef','Res'],ham:['Ham','Jamón'],cheese:['Cheese','Queso'],guava:['Guava & cheese','Guayaba y queso'],'ham-cheese':['Ham & cheese','Jamón y queso'],'guava-only':['Guava','Guayaba'],'ropa-vieja':['Ropa vieja','Ropa vieja'],'pulled-pork':['Pulled pork','Lechón'],fresa:['Strawberry','Fresa'],chocolate:['Chocolate','Chocolate']};
  function describe(it){
   const id=it.id,catering=id.startsWith('catering_'),base=id.replace(/^(traditional_|catering_)/,''),stem=base.replace(/-\d+$/,'');
@@ -8,6 +11,10 @@
   const n=base.match(/-(\d+)$/)?.[1];if(n)format=[n+' servings',n+' porciones'];
   if(id==='sauce_extra'||base.startsWith('dip-')){key=id==='sauce_extra'?'dip-signature':base.replace(/-bulk$/,'');category='sauces';format=base.endsWith('-bulk')?['16 fl oz','16 fl oz']:['2 fl oz','2 fl oz'];name=it.name;nameEs=it.nameEs||it.name_es||name;}
   else if(id.startsWith('fit_')){key='fit-drinks';category='fit';name='Fit drinks';nameEs='Bebidas Fit';flavor=[it.name,it.nameEs||it.name_es||it.name];format=['12 fl oz bottle','Botella de 12 fl oz'];}
+  // A packaged drink belongs in Drinks, not in Añejo Fit. It used to land in Fit because the rule
+  // below files EVERY non-catering, non-traditional id there — which is right for a bowl and wrong
+  // for a bottle of Materva. D1 now says what each row is (kind) and where it goes (group_key).
+  else if(it.kind==='drink'){const g=it.group&&drinkGroups[it.group]?it.group:'other';key='drink-'+g;category='drinks';name=drinkGroups[g][0];nameEs=drinkGroups[g][1];flavor=[it.name,it.nameEs||it.name_es||it.name];format=['Packaged','Empacada'];}
   else if(!/^(traditional_|catering_)/.test(id)){category='fit';}
   else if(stem.startsWith('croq-')||stem==='dressed'){key=stem==='dressed'?'dressed-croquetas':'croquetas';name=stem==='dressed'?'Dressed croquetas':'Croquetas';nameEs=stem==='dressed'?'Croquetas preparadas':'Croquetas';category=catering?'catering':'appetizers';flavor=stem==='dressed'?['Dressed · cheese, greens & olive','Preparada · queso, hojas verdes y aceituna']:(flavors[stem.slice(5)]||[stem.slice(5),stem.slice(5)]);format=n?[n+' pieces',n+' unidades']:['Individual · 1.20 oz','Individual · 1.20 oz'];}
   else if(stem.startsWith('emp-')){key='empanadas';name='Empanadas';nameEs='Empanadas';category=catering?'catering':'appetizers';flavor=flavors[stem.slice(4)]||[stem.slice(4),stem.slice(4)];format=n?[n+' pieces',n+' unidades']:['Individual · 1.25 oz','Individual · 1.25 oz'];}

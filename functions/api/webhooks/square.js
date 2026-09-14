@@ -13,6 +13,7 @@ import { raiseAlert } from '../../_lib/alerts.js';
 import { markBalancePaid } from '../../_lib/catering_balance.js';
 import { markDepositPaid } from '../../_lib/catering_deposit.js';
 import { markContractInvoicePaidBySquareOrder } from '../../_lib/contract.js';
+import { confirmClaimsForOrder } from '../../_lib/daily.js';
 
 const ok = (msg = 'ok') => new Response(msg, { status: 200 });
 
@@ -176,6 +177,30 @@ export const onRequestPost = async ({ request, env }) => {
             });
           } catch (e) { console.log('paid order alert error:', e && e.message); }
         }
+        // AÑEJO DAILY: the paid order's reserved portions become SOLD. Idempotent (only held or
+        // released claims move), so it runs on every delivery of the event, not just the first
+        // flip — a retry after a crash between the flip and this line still lands the portions.
+        // A payment that arrives after its hold lapsed and the portion was resold can push a day
+        // past its allocation: that is money for food we owe, so it alerts the owner rather than
+        // being silently refused.
+        try {
+          const dOrder = await env.DB.prepare(
+            "SELECT id FROM orders WHERE square_order_id=? AND status IN ('paid','prep','ready','fulfilled') LIMIT 1"
+          ).bind(pay.order_id).first();
+          if (dOrder) {
+            const dc = await confirmClaimsForOrder(env, dOrder.id);
+            for (const o of dc.oversold) {
+              await raiseAlert(env, {
+                alert_type: 'daily_oversold', severity: 'warning',
+                dedupe_key: `daily_oversold:${o.date}:${dOrder.id}`,
+                title: `Añejo Daily oversold for ${o.date}`,
+                body: `${o.sold} portions are paid against an allocation of ${o.allocation} (order ${dOrder.id} paid after its hold lapsed). Make the extra portion or refund it.`,
+                ref_type: 'order', ref_id: dOrder.id,
+                url: '/hub/owner/daily.html',
+              });
+            }
+          }
+        } catch (e) { console.log('daily claim confirm error:', e && e.message); }
         // First flip to paid → award Añejo Rewards points (idempotent in awardOrderPoints).
         if (paidUpd.meta && paidUpd.meta.changes === 1) {
           try {

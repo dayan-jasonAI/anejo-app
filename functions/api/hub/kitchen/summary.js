@@ -5,6 +5,7 @@ import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { today, parseJson } from '../../../_lib/hub.js';
+import { productionFor } from '../../../_lib/daily.js';
 
 export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -51,6 +52,12 @@ export const onRequestGet = async ({ request, env }) => {
     properties: { date: day, order_count: orders.length },
   });
 
+  // ONE BATCH, TWO KINDS OF DEMAND. The same meal can be the institutional lunch and the public
+  // Añejo Daily on the same day. This groups them by meal WITHOUT merging any order: committed
+  // institutional headcount, public portions actually sold, and the unsold public allocation as
+  // an OPTIONAL buffer that is never added to what must be cooked.
+  const production = await productionFor(env, day).catch(() => []);
+
   return json({
     date: day,
     order_count: orders.length,
@@ -58,5 +65,6 @@ export const onRequestGet = async ({ request, env }) => {
     by_status: byStatus,
     by_window: byWindow,
     items,
+    production,
   });
 };
