@@ -34,6 +34,30 @@ Nothing below has been done. Each step is yours to approve.
    reason, the exact first email, the sequence, a landing page, caps, unsubscribe behaviour, proof
    wording, flags, and what stays manual. Approve there, then switch on what you want.
 
+## Where the list of organizations comes from
+
+There is **no automated discovery source** in this release, so this is the step that decides whether
+there are prospects at all. Import is at **Sales → Prospects → Import a CSV**, and the importer
+reads the exports these sources produce as they are written — no reshaping in a spreadsheet first:
+
+| Source | What it gives you | Columns the importer reads |
+|---|---|---|
+| **SAMHSA FindTreatment.gov** — federal behavioural-health / substance-use facility directory, searchable by distance from a ZIP | Name, program, address, phone, website **and coordinates** | `name1`, `name2`, `street1`, `street2`, `city`, `state`, `zip`, `phone`, `website`, `latitude`, `longitude` |
+| **Florida AHCA FloridaHealthFinder** — licensed facility data, including adult day care | Name, address, county and **licensed beds** (the volume signal) | `Provider Name`, `Address 1`, `City`, `State`, `Zip Code`, `County`, `Licensed Beds`, `Phone`, `Provider Type` |
+| **Your own list** | Whatever you have | `name`, `website`, `phone`, `street`, `city`, `state`, `zip`, `county`, `category`, `capacity`, `notes`, `contact_name`, `contact_title`, `contact_email`, `contact_phone`, `source_url` |
+
+Two things worth knowing:
+
+- **Bring coordinates if the export has them.** Route/geographic fit is worth 15 of the 100 points,
+  and without latitude/longitude it cannot be measured — every prospect then looks equally far away
+  and the ranking flattens. SAMHSA exports carry them; an AHCA export does not.
+- **Importing the same file twice is safe.** Rows already imported are recognised and merged, not
+  duplicated, so a partial import can simply be re-run.
+
+If the score breakdown says *"Distance not measured — Añejo has no origin to measure from yet"*,
+that is not about the file: set `KITCHEN_ORIGIN_LAT` / `KITCHEN_ORIGIN_LNG`, or give an active
+contract site delivery coordinates.
+
 ## Suggested first experiment (spec §22)
 
 - Import or discover ~50 organizations. Research them (button, or turn on scheduled research).
