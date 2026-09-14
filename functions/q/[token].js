@@ -12,6 +12,7 @@
 //     not be served from an intermediary.
 import { cateringQuoteEmail } from '../_lib/catering_quote_email.js';
 import { quoteEmailArgs } from '../_lib/catering_quote_delivery.js';
+import { cakeRevealHtml } from '../_lib/cake_reveal.js';
 
 const html = (body, status = 200) => new Response(body, {
   status,
@@ -65,6 +66,20 @@ export const onRequestGet = async ({ params, request, env }) => {
   // Once the deposit is paid the page must stop offering to take it again. The quote stays
   // readable — it is the customer's record of what they bought — but the buttons go.
   const paid = row.deposit_status === 'paid';
+
+  // THE GIFT REVEAL. Both gates are here, on the server, and both must hold:
+  //   · the deposit is actually PAID — only the Square webhook writes that status; and
+  //   · this particular quote was given a gift, recorded in its own quote_json.
+  // A customer cannot reach either one. Unpaid, or paid with no gift on the quote, renders
+  // nothing at all — not a hidden element, nothing in the document.
+  let gift = null;
+  if (paid) {
+    try {
+      const blob = row.quote_json ? JSON.parse(row.quote_json) : null;
+      if (blob && typeof blob.gift === 'string') gift = blob.gift;
+    } catch { /* an unreadable breakdown is simply no gift */ }
+  }
+  const reveal = gift ? cakeRevealHtml({ gift, name: row.customer_name, lang }) : '';
   const banner = paid
     ? `<div style="max-width:520px;margin:0 auto 14px;padding:14px 18px;background:#e8f1eb;color:#2f6b4f;
          border-radius:10px;font-family:Georgia,serif;font-size:15px;text-align:center">
@@ -138,6 +153,7 @@ export const onRequestGet = async ({ params, request, env }) => {
 <meta name="robots" content="noindex, nofollow">
 <title>${subject.replace(/[<>]/g, '')}</title>
 <body style="margin:0;background:#0b1f0a">
+${reveal ? `<div style="padding:24px 16px 0">${reveal}</div>` : ''}
 ${banner ? `<div style="padding:24px 16px 0">${banner}</div>` : ''}
 ${editPanel ? `<div style="padding:24px 16px 0">${editPanel}</div>` : ''}
 ${paid ? body.replace(/<table role="presentation"[^>]*>\s*<tr><td style="padding:0 0 10px">[\s\S]*?<\/table>\s*(?=<p style="margin:0 0 28px)/, '') : body}
