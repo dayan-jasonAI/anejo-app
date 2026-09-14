@@ -91,6 +91,32 @@
       '</ul></details>';
   }
 
+  // THE GIFT SWITCH — off unless someone turns it on, on ONE quote at a time.
+  //
+  // Dayan, 2026-09-14: "free cakes is not a rule that applies for everyone ... make sure this is
+  // just an option I get to turn on or off from the hub and it is never a default setting."
+  //
+  // So the control renders "No gift" selected unless this quote already carries one, there is no
+  // global setting anywhere that changes that, and the label says plainly what turning it on
+  // costs and when the customer finds out.
+  function giftHtml(q) {
+    var on = q.gift === 'tres-leches-fresa';
+    var balPaid = q.balance_status === 'paid';
+    return '<div class="gift" style="margin-top:10px;padding:10px 12px;border:1px solid #2a4a28;border-radius:8px">' +
+      '<label class="row-sub" style="display:block;margin-bottom:6px">Gift for this customer</label>' +
+      '<select data-gift-for="' + esc(q.id) + '" style="width:100%">' +
+        '<option value=""' + (on ? '' : ' selected') + '>No gift</option>' +
+        '<option value="tres-leches-fresa"' + (on ? ' selected' : '') + '>Strawberry tres leches — free, on the house</option>' +
+      '</select>' +
+      '<p class="row-sub" style="margin:6px 0 0">' +
+        (on
+          ? (balPaid
+            ? 'On. She has paid in full, so the reveal is showing on her quote page now.'
+            : 'On. The reveal appears once she pays the <b>balance</b> — not before.')
+          : 'Off. Nothing is promised and nothing is shown.') +
+      '</p></div>';
+  }
+
   function quoteCard(q) {
     var paid = q.deposit_status === 'paid';
     var balPaid = q.balance_status === 'paid';
@@ -122,6 +148,7 @@
 
       (q.balance_payment_link_url && !balPaid ? '<div class="row-sub lnk">Balance link: <a href="'+esc(q.balance_payment_link_url)+'" target="_blank" rel="noopener">Pay final balance through Square</a></div>' : '') +
       (!balPaid && paid && !q.balance_payment_link_url ? '<button class="btn gold block" data-balance-link="'+esc(q.id)+'">Create Square balance link</button>' : '') +
+      giftHtml(q) +
       termsHtml(q) +
 
       (!balPaid && paid && !q.balance_payment_link_url
@@ -381,6 +408,29 @@
     });
   }
 
+  function wireGifts(root) {
+    root.querySelectorAll('[data-gift-for]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var id = sel.getAttribute('data-gift-for');
+        var val = sel.value;
+        var was = sel.getAttribute('data-was') || '';
+        var msg = val
+          ? 'Give this customer a free strawberry tres leches?\n\nIt costs you a cake, and she is told about it the moment she pays her balance.'
+          : 'Remove the gift from this quote?\n\nIf she has already seen it, taking it away now is a promise withdrawn.';
+        if (!window.confirm(msg)) { sel.value = was; return; }
+        sel.disabled = true;
+        Hub.api(ENDPOINT, { method: 'POST', body: { op: 'set_gift', quote_id: id, gift: val || null } })
+          .then(function (r) {
+            sel.disabled = false;
+            if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not save that'); sel.value = was; return; }
+            Hub.toast(r.gift ? 'Gift on for ' + (r.customer_name || 'this quote') : 'Gift removed');
+            render();
+          });
+      });
+      sel.setAttribute('data-was', sel.value);
+    });
+  }
+
   function wireForm() {
     wireLines();
     document.getElementById('q-preview').addEventListener('click', function () {
@@ -502,6 +552,7 @@
 
       wireForm();
       wireRequests(root);
+      wireGifts(root);
       var selected = document.getElementById('selected-request');
       if (selected) selected.scrollIntoView({ behavior: 'smooth', block: 'center' });
       root.querySelectorAll('[data-balance-link]').forEach(function(btn){ btn.addEventListener('click',function(){btn.disabled=true;Hub.api(ENDPOINT,{method:'POST',body:{op:'create_balance_link',quote_id:btn.getAttribute('data-balance-link')}}).then(function(r){if(r&&r.ok){Hub.toast('Square balance link ready');render();}else{btn.disabled=false;Hub.toast((r&&r.error)||'Could not create the balance link');}});});});

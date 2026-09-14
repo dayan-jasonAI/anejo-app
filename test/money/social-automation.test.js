@@ -121,7 +121,10 @@ test('no Instagram token is a SKIP, not a failure every minute', () => {
 test('both halves are actually scheduled, not just written', () => {
   assert.match(CRON, /'\/api\/hub\/admin\/social-tick'/);
   assert.match(CRON, /'0 14 \* \* 0': \['social_plan'\]/, 'the planner runs weekly');
-  assert.match(AUTO, /IMPLEMENTED = \[.*'social_plan'\]/);
+  // Not anchored to the end of the list: this asserted /'social_plan'\]/ and so quietly required
+  // social_plan to be the LAST automation ever added. The next entry broke it, which is a test
+  // failing on someone else's unrelated work.
+  assert.match(AUTO, /IMPLEMENTED = \[[^\]]*'social_plan'/);
   assert.match(AUTO, /social_plan: socialPlan/);
 });
 
