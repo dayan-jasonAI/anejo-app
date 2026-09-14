@@ -69,7 +69,11 @@ test('no file tells anyone to run an UNGUARDED wrangler deploy', () => {
     if (EXPLAINERS.has(file)) continue;
     const lines = read(file).split('\n');
     lines.forEach((line, i) => {
-      if (!/pages deploy/.test(line)) return;
+      // `pages deployment list` READS the live deployments and changes nothing, but it starts with
+      // the same eleven characters as `pages deploy`. Flagging it pushed a doc away from naming the
+      // read-only command used to verify a release — the opposite of what this check is for. The
+      // lookahead still catches every real `pages deploy …`, whose next character is a space.
+      if (!/pages deploy(?!ment)/.test(line)) return;
       // package.json's own `deploy` script IS the wrangler call — npm guards it via predeploy.
       if (file === 'package.json' && /"deploy"\s*:/.test(line)) return;
       if (guardedLine(line)) return;

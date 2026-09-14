@@ -4,7 +4,7 @@
 `ec93c5c`). The worktree sits outside the 15-minute auto-sync job, which only touches
 `~/Dayan Workspace/Aether/anejo-app`, so nothing here has been pushed by a robot.
 
-**Nothing is live.** Not pushed, not merged, not deployed. Migration 0103 has **not** been applied
+**Nothing is live.** Not pushed, not merged, not deployed. Migration 0105 (renumbered from 0103 — see below) has **not** been applied
 to production D1, and the cron Worker has not been redeployed. Every step to production waits for
 Dayan (spec §2.6, §34).
 
@@ -17,7 +17,7 @@ Dayan (spec §2.6, §34).
 | **BUILT BUT SWITCHED OFF** (flags default off) | Scheduled discovery · scheduled website research · sending approved prospect email · follow-up drafting |
 | **LOCKED OFF IN THIS BUILD** | Auto-send without approval · AI voice · **Google Places as a prospect source** (`sales.places_persistence_approved`, locked false — its terms restrict storing Places content). Owner approval of every prospect email is locked on. |
 | **REQUIRES A CREDENTIAL / PROVIDER** | An approved automated discovery source (recommended: a SAMHSA FindTreatment.gov adapter — not built; CSV is the production source) · Resend webhook events `email.delivered/opened/clicked` (bounces/complaints already subscribed) · `CRON_KEY` + a redeploy of `cron/` (for scheduled jobs) · automated inbound reply detection (**no provider** — replies are marked by hand) |
-| **REQUIRES OWNER APPROVAL** | Merge + deploy · apply `migrations/0103_sales_os.sql` · redeploy the cron Worker · set the real postal address · set sender (From on `@anejocateringco.com`) + Reply-To · read and **confirm** the offer · proof wording (DGP by name only with DGP's recorded permission) · Google Places only after counsel reviews its terms AND a code change unlocks it · approve the positioning proposal in Reviews · read the Launch review · switch on each flag |
+| **REQUIRES OWNER APPROVAL** | Merge + deploy · apply `migrations/0105_sales_os.sql` · redeploy the cron Worker · set the real postal address · set sender (From on `@anejocateringco.com`) + Reply-To · read and **confirm** the offer · proof wording (DGP by name only with DGP's recorded permission) · Google Places only after counsel reviews its terms AND a code change unlocks it · approve the positioning proposal in Reviews · read the Launch review · switch on each flag |
 | **DEFERRED** | Voice (Sprint F) · avatar video · three new cardgen templates · Team Lead writing to prospects (it deliberately cannot) · an email-verification provider (unverified addresses are simply never sendable) · a generic institutional landing page (social CTAs should use `/business`) · extraction into Aether Hub |
 
 ## Pre-production gate (second pass, 2026-09-10)
@@ -25,7 +25,7 @@ Dayan (spec §2.6, §34).
 An adversarial review of `ec93c5c..c35a38a` — by me and by an independent reviewer with no authorship
 context — found defects that are now fixed, each with a regression test
 (`test/compliance/sales-gate-regressions.test.js`, `sales-places-gate.test.js`, plus additions to the
-conversion, idempotency and enrichment suites). Migration 0103 was amended in place (two columns on
+conversion, idempotency and enrichment suites). The migration was amended in place (two columns on
 `sales_outreach`); a read-only query confirmed production D1 has never had any `sales_*` table.
 
 | # | Defect | Fix |
@@ -91,7 +91,10 @@ UI/send agreement, not a security boundary.
 ## Where current `main` differed from the spec, and what was chosen
 
 Summarised here; the full table is in `SALES_OS_ARCHITECTURE.md`.
-- Migration numbering had moved on: this is **0103**, not "after 0090".
+- Migration numbering had moved on: this is **0105**, not "after 0090". It was written as 0103; on
+  2026-09-14 `main` merged and **applied to production** its own `0103_catering_balance_reminders.sql`,
+  and `feat/anejo-daily` took 0104, so this file moved to 0105. Two migrations sharing a number is a
+  production mistake waiting for whoever types "apply 0103".
 - The human-preview law landed on `main` the same morning (#75). The Sales approval mechanism
   enforces it harder than the spec asked: approval carries the preview's hash.
 - A real DGP account is seeded by the migrations. Conversion refuses any name or billing-email match,
@@ -102,7 +105,7 @@ Summarised here; the full table is in `SALES_OS_ARCHITECTURE.md`.
 
 ## Changed files
 
-New: `migrations/0103_sales_os.sql`; `functions/_lib/sales/*` (11 files); `functions/api/hub/owner/sales/{index,outreach,settings,deal}.js`;
+New: `migrations/0105_sales_os.sql`; `functions/_lib/sales/*` (11 files); `functions/api/hub/owner/sales/{index,outreach,settings,deal}.js`;
 `functions/api/hub/admin/sales-tick.js`; `functions/api/sales/{request,landing-event,unsubscribe}.js`;
 `functions/for/[token].js`; `public/hub/owner/sales.html`; four `docs/SALES_OS_*.md`; seven test files +
 two test helpers.
@@ -118,7 +121,7 @@ lock-screen copy) · `functions/_lib/team_lead.js` + `functions/api/hub/owner/te
 ## The shortest path to Clinic #3
 
 1. Review this branch; approve the merge and deploy.
-2. Apply 0103; redeploy the cron Worker.
+2. Apply `migrations/0105_sales_os.sql`; redeploy the cron Worker.
 3. Postal address → sender + Reply-To → confirm the offer (Settings).
 4. Get ~50 organizations in (Places key, or a CSV from a public licensure list) and research them.
 5. Read **Launch review**. Approve up to 20 first emails. Turn on sending + follow-ups.

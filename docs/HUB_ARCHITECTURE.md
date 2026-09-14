@@ -179,7 +179,7 @@ contract-account operation DGP runs on. Full map: **`docs/SALES_OS_ARCHITECTURE.
 
 | Layer | Where |
 |---|---|
-| Schema | `migrations/0103_sales_os.sql` — `sales_*` tables, additive, no CHECK constraints |
+| Schema | `migrations/0105_sales_os.sql` — `sales_*` tables, additive, no CHECK constraints |
 | Engine (reusable) | `functions/_lib/sales/{normalize,scoring,store,discovery,enrich,brief,outreach,convert,metrics,jobs,config}.js` |
 | Añejo configuration | `functions/_lib/sales/anejo.js` — ICP categories, service area, discovery queries, offer/proof/sender defaults |
 | Owner API (owner-only) | `functions/api/hub/owner/sales/{index,outreach,settings,deal}.js` |

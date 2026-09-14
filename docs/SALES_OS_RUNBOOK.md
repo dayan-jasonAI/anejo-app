@@ -11,7 +11,7 @@ Nothing below has been done. Each step is yours to approve.
    nothing a prospect can see: every outbound flag defaults to off.
 2. **Apply the migration** to production D1 (additive; creates `sales_*` tables and the default
    sequence, touches no existing table):
-   `wrangler d1 execute anejo --remote --file=migrations/0103_sales_os.sql`
+   `wrangler d1 execute anejo --remote --file=migrations/0105_sales_os.sql`
    Then confirm: `SELECT name FROM sqlite_master WHERE name LIKE 'sales_%'` returns 13 tables.
 3. **Deploy the cron Worker** (`cd cron && wrangler deploy`) so the scheduled jobs exist. They
    no-op until their switches are on.

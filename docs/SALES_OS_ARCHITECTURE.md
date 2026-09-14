@@ -61,7 +61,7 @@ functions.
 **UI**: `public/hub/owner/sales.html` — Dashboard · Prospects (+ detail) · Approvals · Settings ·
 Launch review. In the owner's More sheet (the six-slot bar is unchanged).
 
-## Data model (`migrations/0103_sales_os.sql`)
+## Data model (`migrations/0105_sales_os.sql`)
 
 | Table | Notes |
 |---|---|
@@ -150,7 +150,7 @@ public page. The kitchen street address appears nowhere.
 
 | Spec said | Current `main` / this build | Why |
 |---|---|---|
-| "migrations after 0090" | New migration is **0103** | `main` already runs to 0102 (and has two files numbered 0090). |
+| "migrations after 0090" | New migration is **0105** | `main` ran to 0102 when this was written, so it was first numbered 0103. On 2026-09-14 main merged its OWN `0103_catering_balance_reminders.sql` and applied it to production, and `feat/anejo-daily` holds 0104 — so this moved to 0105 rather than leave two different migrations sharing a number. |
 | Reuse `campaigns.js` | Separate send path; shares `sendEmail`, `escHtml`, the suppression list and the Broadcast postal address | Broadcast is built around warm, consented segments; cold prospects must never enter them. `sendEmail` gained opt-in `from`/`replyTo`; existing callers' request bodies are byte-identical (tested). |
 | Reply detection | **Not configured** — manual "Reply received"; the landing form counts as a reply | There is no inbound-mail ingestion for the sending domain. Replies go to the owner's Reply-To. The UI says so instead of pretending. |
 | Marketing desk may use Sales | Owner-only | Approving cold outreach and converting to a billed account are owner decisions. |

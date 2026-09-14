@@ -15,7 +15,7 @@
 -- Widening a CHECK on D1 means rebuilding the table, and a rebuild under live foreign keys is
 -- exactly what failed on a sibling D1 on 2026-09-09. A new stage should be a code change.
 --
--- Apply: wrangler d1 execute anejo --remote --file=migrations/0103_sales_os.sql
+-- Apply: wrangler d1 execute anejo --remote --file=migrations/0105_sales_os.sql
 --        (NOT applied to production — requires Dayan's explicit deployment approval.)
 
 -- ---- Organizations: one row per real-world location we might serve ---------------------------
