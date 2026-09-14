@@ -47,15 +47,21 @@ export async function removeSuppression(env, email) {
 // unsubscribed) to protect sender reputation — pass { bypassSuppression:true } only for a
 // deliberate, owner-justified exception. Returns Resend's JSON on send (its `id` is the message
 // receipt), or {skipped,suppressed}. `bcc` is opt-in per call — see the note on body.bcc below.
-export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppression, unsubscribeUrl, idempotencyKey, timeoutMs } = {}) {
+export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppression, unsubscribeUrl, idempotencyKey, timeoutMs, from: fromOverride, replyTo } = {}) {
   if (!env.RESEND_API_KEY) throw new Error('Email not configured (missing RESEND_API_KEY).');
   const addr = normalizeEmail(to);
   if (!bypassSuppression && addr) {
     const sup = await isSuppressed(env, addr);
     if (sup) return { skipped: true, suppressed: sup.reason };  // never email a suppressed address
   }
-  const from = env.EMAIL_FROM || 'Añejo Catering Co. <noreply@anejocateringco.com>';
+  // `from` and `replyTo` are OPT-IN PER CALL, like bcc below. Only the Sales OS passes them: a cold
+  // note to a clinic director from noreply@ is a note nobody can answer, and a reply is the entire
+  // point of prospecting. Every existing caller passes neither, so its request body is byte-identical
+  // to what it has always been (pinned by test/compliance/sales-send-path.test.js).
+  const from = (typeof fromOverride === 'string' && fromOverride.trim()) || env.EMAIL_FROM || 'Añejo Catering Co. <noreply@anejocateringco.com>';
   const body = { from, to: [to], subject, html };
+  const replyAddr = normalizeEmail(replyTo);
+  if (replyAddr && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyAddr)) body.reply_to = [replyAddr];
   // Blind copy — OPT-IN PER CALL, never global. The owner had no copy of his own outbound
   // customer mail: after invoice DGP-0004 was emailed on 2026-08-25 the only record of what the
   // client actually received was in Resend. This puts that copy in his inbox for the sends that

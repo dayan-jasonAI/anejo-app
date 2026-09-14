@@ -37,7 +37,11 @@ export const leadModel = (env) => (env && env.TEAM_LEAD_MODEL) || 'claude-opus-4
 // The only verbs the Lead may emit. An executor keyed off this list — rather than off "whatever
 // the block says" — is what keeps a creative model from inventing a fourth verb that does
 // something nobody reviewed.
-export const ALLOWED_ACTIONS = ['create_brief', 'request_intel', 'draft_posts'];
+// 'propose_campaign' (2026-09-10): the Broadcast bridge. It writes a Broadcast campaign as a DRAFT
+// for one of the existing consented segments — the owner previews and sends it from Broadcast, where
+// _lib/audience.js consent rules still decide who can receive it. It cannot reach a cold prospect:
+// prospects are not a segment, and Sales OS outreach is owner-approved per email in its own queue.
+export const ALLOWED_ACTIONS = ['create_brief', 'request_intel', 'draft_posts', 'propose_campaign'];
 
 async function rows(env, sql, ...args) {
   try {
@@ -279,9 +283,13 @@ const SYSTEM_RULES =
   '"channels":["instagram"],"cadence":"...","success_metric":"...","assets":[]}\n```\n' +
   '```json\n{"action":"request_intel","question":"one specific question you need answered"}\n```\n' +
   '```json\n{"action":"draft_posts","brief_id":"...","count":2,"assets":[{"caption":"...","image_brief":"one sentence of art direction"}]}\n```\n' +
+  '```json\n{"action":"propose_campaign","name":"...","channel":"email","segment":"past_customers","subject":"...","body":"plain text"}\n```\n' +
   'draft_posts requires assets (max 5) — one caption + image_brief per post; they land as DRAFTS ' +
-  'for owner review, never on the schedule. Emit an action only when the conversation has actually ' +
-  'earned it; plain discussion needs no block.\n' +
+  'for owner review, never on the schedule. propose_campaign writes a Broadcast campaign DRAFT for ' +
+  'the owner to preview and send himself; segment must be one of launch_list, past_customers, ' +
+  'subscribers, founder_legacy_members, all, test. Cold B2B prospects are NOT a segment — institutional ' +
+  'prospecting happens in the Sales workspace, one owner-approved email at a time, and you never write to ' +
+  'prospects. Emit an action only when the conversation has actually earned it; plain discussion needs no block.\n' +
   'EXECUTION TRUTH: an action block is a REQUEST, not a result. After each of your messages a ' +
   '[system record] line states what actually executed. Never tell the owner an action ran, a draft ' +
   'exists, or a brief was filed unless that record (or the context above) confirms it — if the ' +

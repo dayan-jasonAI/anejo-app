@@ -5,11 +5,13 @@
 // SETUP (owner, in the Resend dashboard → Webhooks):
 //   1. Add endpoint  https://anejocateringco.com/api/webhooks/resend
 //   2. Subscribe to events: email.bounced, email.complained, email.suppressed
+//      (+ email.delivered, email.opened, email.clicked for the Sales OS funnel — optional)
 //   3. Copy the signing secret → set Pages secret RESEND_WEBHOOK_SECRET (whsec_...).
 // Until the secret is set this endpoint returns 503 and nothing is recorded (the app keeps
 // working; it just isn't yet learning about bounces).
 import { verifySvix } from '../../_lib/svix.js';
 import { addSuppression } from '../../_lib/email.js';
+import { applyProviderEvent } from '../../_lib/sales/outreach.js';
 
 // Resend event → suppression reason. delivery_delayed/failed are TEMPORARY → never suppress.
 const SUPPRESS = { 'email.bounced': 'bounced', 'email.complained': 'complained', 'email.suppressed': 'suppressed' };
@@ -33,6 +35,12 @@ export const onRequestPost = async ({ request, env }) => {
     if (!Array.isArray(recips)) recips = [];
     const detail = (data.bounce && (data.bounce.subType || data.bounce.type)) || evt.type;
     for (const addr of recips) { await addSuppression(env, addr, reason, detail); }
+  }
+  // Sales OS: delivered/opened/clicked/bounced/complained for PROSPECT emails, matched by Resend's
+  // message id. Additive — the suppression block above is unchanged, and an id that is not a sales
+  // email matches no row. A bounce or complaint also stops that prospect's sequence.
+  if (env.DB && evt && evt.type && evt.data && evt.data.email_id) {
+    try { await applyProviderEvent(env, { type: evt.type, email_id: evt.data.email_id }); } catch { /* never fail the webhook */ }
   }
   // Always 200 for handled/ignored event types so Resend doesn't retry-storm.
   return new Response('ok', { status: 200 });

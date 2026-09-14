@@ -1,6 +1,7 @@
 // The Marketing Team Lead: the owner's strategy chat. What carries weight here:
 //   · The Lead can only PROPOSE — schedule/publish machinery is structurally out of reach.
-//   · The executor runs exactly three verbs, deterministically; a fourth verb dies in the parser.
+//   · The executor runs exactly four verbs, deterministically; a fifth verb dies in the parser.
+//     (The fourth, propose_campaign, was added 2026-09-10: a Broadcast DRAFT, never a send.)
 //   · Every model call is budget-gated and metered (feature 'team_lead'), $50/week HARD.
 //   · The frontier model id is an env dial with an automatic Sonnet fallback on model_not_found,
 //     and the answering model is reported, never assumed.
@@ -258,15 +259,17 @@ test('the schedule/publish machinery is not even imported, and the prompt forbid
 });
 
 // ---------------------------------------------------------------------------
-// The action parser and executor: three verbs, no more
+// The action parser and executor: four verbs, no more
 // ---------------------------------------------------------------------------
 
-test('parseActionBlock accepts exactly the three allowed verbs and ignores everything else', () => {
-  assert.deepEqual(ALLOWED_ACTIONS, ['create_brief', 'request_intel', 'draft_posts']);
+test('parseActionBlock accepts exactly the four allowed verbs and ignores everything else', () => {
+  assert.deepEqual(ALLOWED_ACTIONS, ['create_brief', 'request_intel', 'draft_posts', 'propose_campaign']);
   const wrap = (o) => 'Some strategy talk.\n```json\n' + JSON.stringify(o) + '\n```';
   assert.equal(parseActionBlock(wrap({ action: 'create_brief', title: 'X' })).action, 'create_brief');
   assert.equal(parseActionBlock(wrap({ action: 'request_intel', question: 'Q?' })).action, 'request_intel');
   assert.equal(parseActionBlock(wrap({ action: 'draft_posts', count: 2, assets: [] })).action, 'draft_posts');
+  assert.equal(parseActionBlock(wrap({ action: 'propose_campaign', segment: 'past_customers', name: 'N', subject: 'S', body: 'B' })).action, 'propose_campaign');
+  assert.equal(parseActionBlock(wrap({ action: 'send_campaign', id: 'cmp_1' })), null, 'a send verb does not exist');
   // The dangerous verbs a creative model might invent: all dead on arrival.
   assert.equal(parseActionBlock(wrap({ action: 'publish_post', id: 'sp_1' })), null);
   assert.equal(parseActionBlock(wrap({ action: 'schedule_posts', at: 123 })), null);
@@ -280,6 +283,18 @@ test('draft_posts is capped at 5 and the executor validates its own fields', () 
   assert.match(API, /ALLOWED_ACTIONS\.includes\(action\.action\)/, 'the executor re-checks the allowlist itself');
   assert.match(API, /source, created_by/, 'drafts carry provenance');
   assert.match(API, /'planner'/, 'source planner, so the Social page treats them like planner drafts');
+});
+
+test('propose_campaign writes a Broadcast DRAFT for a real consented segment — it can never send or reach a prospect', () => {
+  const branch = API.slice(API.indexOf("if (action.action === 'propose_campaign')"), API.indexOf('return null;\n}', API.indexOf("if (action.action === 'propose_campaign')")));
+  assert.ok(branch.length > 100, 'the executor has a propose_campaign branch');
+  // Code only: the branch's own comment names sendCampaignBatch to explain that it is NOT called.
+  const code = branch.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+  assert.match(code, /isSegment\(segment\)/, 'the audience must be an existing Broadcast segment');
+  assert.match(code, /'draft','lead'/, 'lands as status draft, created_by lead');
+  assert.doesNotMatch(code, /sendCampaignBatch|sendEmail|sendSms|scheduled_at/, 'nothing in the branch sends or schedules');
+  assert.match(LIB, /Cold B2B prospects are NOT a segment/, 'the Lead is told prospects are out of its reach');
+  assert.match(API, /import \{ isSegment \} from '\.\.\/\.\.\/\.\.\/_lib\/audience\.js'/);
 });
 
 test('intel_requests rows are what a refused guess becomes', () => {
