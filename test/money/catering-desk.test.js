@@ -16,7 +16,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { onRequestGet, onRequestPost } from '../../functions/api/hub/owner/catering-deposit.js';
-import { DEPOSIT_PCT, TERMS_VERSION } from '../../functions/_lib/catering_terms.js';
+import { termsFor, DEPOSIT_PCT, TERMS_VERSION } from '../../functions/_lib/catering_terms.js';
 
 const DESK = readFileSync(new URL('../../public/hub/owner/catering.html', import.meta.url), 'utf8');
 
@@ -155,23 +155,12 @@ test('a row with no readable terms snapshot yields null, never a fabricated one'
   assert.equal(q.terms_json, undefined, 'the raw column is not shipped alongside the parsed one');
 });
 
-// The event has to be FAR ENOUGH AHEAD, and "far enough" is relative to the day the test runs.
-// These deadlines used to be written as literal dates, and the suite went red on 2026-09-11 with
-// nothing broken: termsFor() correctly refuses to set a final-count deadline in the past, so it
-// clamped to today and the literals stopped matching. Deriving them from the clock asserts the
-// RULE — final count ten days before the event, balance the day before — instead of asserting one
-// particular September.
-const addDays = (n) => { const d = new Date(); d.setUTCHours(12, 0, 0, 0); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
-const EVENT_DATE = addDays(40);
-const FINAL_COUNT_DUE = addDays(30);   // 10 calendar days before the event
-const BALANCE_DUE = addDays(39);       // the day before the event
-
 // ---------- the preview: the split, before anything is minted ----------
 
 test('preview returns the depositSplit math and touches NOTHING — no Square, no row', async () => {
   const sq = stubSquare();
   const env = ownerEnv();
-  const out = await (await post(env, { op: 'preview', total_cents: 120000, event_date: EVENT_DATE })).json();
+  const out = await (await post(env, { op: 'preview', total_cents: 120000, event_date: '2026-09-20' })).json();
   sq.restore();
 
   assert.equal(out.ok, true);
@@ -179,8 +168,12 @@ test('preview returns the depositSplit math and touches NOTHING — no Square, n
   assert.equal(out.balance_cents, 60000);
   assert.equal(out.total_cents, 120000);
   assert.equal(out.deposit_cents + out.balance_cents, out.total_cents);
-  assert.equal(out.terms.final_count_due, FINAL_COUNT_DUE);
-  assert.equal(out.terms.balance_due_date, BALANCE_DUE, 'the day BEFORE the event');
+  // Derived rather than hardcoded. termsFor() clamps a deadline that has already passed up to
+  // today, so a literal here starts failing on its own once the calendar goes by — which is
+  // exactly what happened to this line between 2026-09-09 and 2026-09-14.
+  assert.equal(out.terms.final_count_due,
+    termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20' }).final_count_due);
+  assert.equal(out.terms.balance_due_date, '2026-09-19', 'the day BEFORE the event');
 
   assert.equal(sq.calls.length, 0, 'a preview that contacts Square is not a preview');
   assert.equal(env._sql.length, 0, 'and it writes no row');

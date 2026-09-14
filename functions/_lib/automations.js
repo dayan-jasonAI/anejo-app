@@ -7,6 +7,7 @@
 // degrade to deterministic fallbacks without env.ANTHROPIC_API_KEY.
 // Files under functions/_lib are NOT routed.
 import { id, now, today, toJson, parseJson, etMidnightMs, addEtDays, etDateOf } from './hub.js';
+import { runBalanceReminders } from './catering_balance_reminder.js';
 import { randToken } from './util.js';
 // The menu, the ordering dials and the brand brief all reach this file through
 // marketing_context.js now — one gathering pass, one definition of "what Añejo sells" and "how
@@ -202,7 +203,7 @@ import { TRUST_CATEGORIES, captionHash, autoPublishCategories } from './trust_le
 import { ensureFoodPhoto } from './food_photo.js';
 
 const MODEL = 'claude-sonnet-5';
-export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan'];
+export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan', 'balance_reminder'];
 
 // Char cap on the brand brief injected into the planner's prompt — same ceiling the Team Lead
 // carries (brand_source.js), so the planner never sees LESS of the owner's live brief than the
@@ -1188,7 +1189,20 @@ async function socialPlan(env, date) {
   };
 }
 
+// Catering balance reminders: the day before the balance is due, and the day it is due. Sends
+// each one ONCE — the guarantee is a UNIQUE(quote_id, kind) row, not this scheduler's discipline,
+// because a scheduler can be retried and a database constraint cannot be talked out of it.
+const balanceReminder = async (env, date) => {
+  const r = await runBalanceReminders(env, date, { baseUrl: env.APP_BASE_URL || undefined });
+  return {
+    outcome: r.ok ? 'success' : 'failed',
+    summary: `${r.sent.length} reminder(s) sent, ${r.skipped.length} skipped, ${r.failed.length} failed`,
+    detail: r,
+  };
+};
+
 const RUNNERS = {
+  balance_reminder: balanceReminder,
   social_plan: socialPlan,
   daily_summary: dailySummary,
   eod_chase: eodChase,

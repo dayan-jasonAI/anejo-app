@@ -22,6 +22,7 @@ import { loadMenu } from '../../../_lib/menu.js';
 import { estimateCateringProducts } from '../../../_lib/catering-estimate.js';
 import { normalizeQuoteLines } from '../../../_lib/catering_quote_lines.js';
 import { cateringQuoteEmail } from '../../../_lib/catering_quote_email.js';
+import { GIFTS } from '../../../_lib/cake_reveal.js';
 import { sendQuote, quoteUrl } from '../../../_lib/catering_quote_delivery.js';
 import { renderLines } from '../../../_lib/catering_terms.js';
 
@@ -37,7 +38,7 @@ export const onRequestGet = async ({ request, env }) => {
       `SELECT id, customer_name, customer_email, event_date, guests, total_cents, deposit_pct,
               deposit_cents, balance_cents, deposit_status, deposit_paid_at, deposit_paid_cents,
               balance_status, balance_paid_at, balance_due_date, final_count_due,
-              payment_link_url, (SELECT payment_link_url FROM catering_balance_checkouts WHERE quote_id=catering_quotes.id) AS balance_payment_link_url, terms_version, terms_json, note, created_at
+              payment_link_url, (SELECT payment_link_url FROM catering_balance_checkouts WHERE quote_id=catering_quotes.id) AS balance_payment_link_url, terms_version, terms_json, quote_json, note, created_at
          FROM catering_quotes ORDER BY created_at DESC LIMIT 50`
     ).all();
     // THE TERMS COME OFF THE ROW, PARSED — never rebuilt from today's constants. A quote sold last
@@ -46,8 +47,10 @@ export const onRequestGet = async ({ request, env }) => {
     // `terms_json` itself is dropped from the payload: the parsed object is the same information
     // and shipping both invites a caller to pick the wrong one.
     quotes = ((r && r.results) || []).map((q) => {
-      const { terms_json, ...rest } = q;
-      return { ...rest, terms: parseJson(terms_json, null) };
+      const { terms_json, quote_json, ...rest } = q;
+      // `gift` is surfaced on its own rather than shipping the whole breakdown: the Hub's switch
+      // needs to show what is currently set, and nothing else on this card reads quote_json.
+      return { ...rest, terms: parseJson(terms_json, null), gift: parseJson(quote_json, null)?.gift || null };
     });
   } catch { quotes = []; }
 
@@ -247,6 +250,43 @@ export const onRequestPost = async ({ request, env }) => {
   // the human preview that op 'send' below refuses to go without.
   //
   // Dayan, 2026-09-10: "no email should go out without a human preview, this is law."
+  // THE GIFT SWITCH. Dayan, 2026-09-14: "this gift is not for every quote and for every client,
+  // this is only when I decide who to send it to ... make sure this is just an option I get to
+  // turn on or off from the hub and it is never a default setting."
+  //
+  // So: it lives on ONE quote, it is written only by this owner-authenticated op, and nothing
+  // else in the codebase ever sets it. Creating a quote does not set it. There is no config value
+  // that turns it on for everybody, deliberately — a free cake has a cost, and the only way one
+  // gets promised is a person choosing this quote and pressing this control.
+  if (op === 'set_gift') {
+    const qid = String(b.quote_id || '').trim();
+    if (!qid) return bad('quote_id is required.');
+
+    // null / '' turns it OFF. Any other value has to be a gift that actually exists, or the
+    // reveal would render nothing and the owner would think a cake had been promised.
+    const wanted = b.gift == null || b.gift === '' ? null : String(b.gift);
+    if (wanted !== null && !GIFTS[wanted]) {
+      return bad(`There is no gift called "${wanted}". Known gifts: ${Object.keys(GIFTS).join(', ')}.`);
+    }
+
+    let row = null;
+    try {
+      row = await env.DB.prepare('SELECT id, quote_json, customer_name FROM catering_quotes WHERE id = ?').bind(qid).first();
+    } catch { return bad('Could not read that quote.', 500); }
+    if (!row) return bad('No such quote.', 404);
+
+    let blob = {};
+    try { blob = row.quote_json ? JSON.parse(row.quote_json) : {}; } catch { blob = {}; }
+    if (wanted === null) delete blob.gift; else blob.gift = wanted;
+
+    try {
+      await env.DB.prepare('UPDATE catering_quotes SET quote_json = ?, updated_at = ? WHERE id = ?')
+        .bind(JSON.stringify(blob), Date.now(), qid).run();
+    } catch { return bad('Could not save that.', 500); }
+
+    return json({ ok: true, quote_id: qid, gift: wanted, customer_name: row.customer_name });
+  }
+
   if (op === 'render') {
     const guests = Math.round(Number(b.guests));
     if (!Number.isFinite(guests) || guests <= 0) return bad('guests must be greater than 0.');
