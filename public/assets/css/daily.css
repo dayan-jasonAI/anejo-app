@@ -1,0 +1,38 @@
+/* Añejo Daily — the homepage module and the /order card. One stylesheet, both pages, so the
+   product looks like one product wherever a customer meets it. Tokens (--gold/--cream/--green)
+   come from the site's own palette; nothing here invents a colour. */
+.daily-section{padding:72px 24px;background:linear-gradient(180deg,#10251c,#0b1a14);color:var(--cream,#f5f2ec)}
+.daily-wrap{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1.05fr 1fr;gap:44px;align-items:center}
+.daily-photo{margin:0;border-radius:14px;overflow:hidden;box-shadow:0 18px 48px rgba(0,0,0,.45)}
+.daily-photo img{display:block;width:100%;height:auto;aspect-ratio:1.2;object-fit:cover}
+.daily-eyebrow{margin:0;color:var(--gold,#c6a85b);font-size:12px;letter-spacing:2.4px;text-transform:uppercase;font-weight:700}
+.daily-kicker{margin:8px 0 0;font-size:15px;letter-spacing:1.2px;text-transform:uppercase;opacity:.85}
+.daily-name{font-size:clamp(30px,4vw,50px);line-height:1.12;margin:14px 0 0}
+.daily-desc{margin:14px 0 0;line-height:1.7;opacity:.92;max-width:46ch}
+.daily-price{margin:18px 0 0;font-size:30px;font-weight:700;color:var(--gold,#c6a85b)}
+.daily-status{margin:10px 0 0;font-size:15px;font-weight:600}
+.daily-open{color:#9fdcb4}
+.daily-out{color:#f0b4a6}
+.daily-next{opacity:.85}
+.daily-cta{display:inline-block;margin:22px 0 0;padding:15px 30px;border:0;border-radius:999px;background:var(--gold,#c6a85b);color:#10251c;font:inherit;font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;cursor:pointer}
+.daily-cta:hover{filter:brightness(1.06)}
+.daily-cta[disabled]{opacity:.5;cursor:not-allowed;filter:none}
+.daily-cta-quiet{background:transparent;color:var(--gold,#c6a85b);border:1px solid var(--gold,#c6a85b)}
+.daily-fine{margin:14px 0 0;font-size:13.5px;line-height:1.6;opacity:.75}
+.daily-cta:focus-visible,.daily-drink:focus-visible{outline:3px solid #aa872a;outline-offset:4px}
+/* /order — the card that sits above everything else on the page. */
+.daily-order-card{display:grid;grid-template-columns:260px 1fr;gap:24px;background:#10251c;color:var(--cream,#f5f2ec);border-radius:14px;overflow:hidden;margin:0 0 26px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.daily-order-photo{width:100%;height:100%;min-height:210px;object-fit:cover;display:block}
+.daily-order-body{padding:26px 26px 28px}
+.daily-order-card .daily-name{font-size:clamp(24px,3vw,34px)}
+.daily-order-card .daily-price{font-size:26px;margin-top:12px}
+.daily-drinks-label{margin-top:20px;font-weight:700;opacity:.9;letter-spacing:.04em;text-transform:uppercase;font-size:12px}
+.daily-drinks{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.daily-drink{display:flex;align-items:center;gap:9px;background:rgba(245,242,236,.08);border:1px solid rgba(198,168,91,.45);color:var(--cream,#f5f2ec);border-radius:999px;padding:7px 14px 7px 7px;font:inherit;font-size:13.5px;cursor:pointer}
+.daily-drink:hover{background:rgba(245,242,236,.16)}
+.daily-drink img{width:30px;height:30px;border-radius:50%;object-fit:cover}
+.daily-drink span{display:flex;flex-direction:column;line-height:1.25;text-align:left}
+.daily-drink small{opacity:.75}
+.daily-drink b{margin-left:4px;color:var(--gold,#c6a85b)}
+@media(max-width:900px){.daily-wrap{grid-template-columns:1fr;gap:26px}.daily-order-card{grid-template-columns:1fr}.daily-order-photo{min-height:180px;aspect-ratio:1.7}}
+@media(max-width:600px){.daily-section{padding:52px 18px}.daily-order-body{padding:20px}}

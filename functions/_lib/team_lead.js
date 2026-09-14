@@ -26,6 +26,10 @@ import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from './bowlspec.js';
 import { trainingContext } from './training.js';
 import { buildRetrospective, renderRetrospective } from './retrospective.js';
+// The Lead reads the catalog and the ordering dials through the SAME module the weekly planner
+// does. Two copies of "what Añejo sells" is how the strategist came to be briefing the writer on
+// a different business from the one the writer was writing about.
+import { productFamilies, renderFamilies, orderingFacts, renderOrderingFacts, dailyMarketingContext } from './marketing_context.js';
 
 // Strategy is the one surface worth frontier tokens: it runs a handful of times a day, owner-
 // initiated, and its output steers every cheaper call downstream. But a model id in an env var
@@ -64,6 +68,11 @@ const BRAND_BUDGET = 32000;
  * this is the build the customer receives, not a marketing paraphrase of it. A row with no spec is
  * reported as having none: "no ingredients" and "ingredients I was not given" lead to very
  * different captions, and only one of them is safe to write.
+ *
+ * THE KITCHEN SPEC ONLY EXISTS FOR BOWLS, which is why this stayed bowl-shaped while the rest of
+ * the catalog moved to product families (marketing_context.js): a croqueta tray has a price and a
+ * count, not a 16 oz build with macros, and inventing one for it would be exactly the kind of
+ * confident fiction this function was written to prevent. The families carry everything else.
  */
 function describeItem(row) {
   const key = String(row.id || '').toUpperCase();
@@ -97,18 +106,24 @@ export async function buildSpine(env) {
   const menu = await loadMenu(env);
   const items = menu.items || [];
   const menuItems = items.filter((it) => it.kind === 'bowl').map(describeItem);
-  // Drinks and add-ons were invisible here until now — the filter above kept only bowls, so the
-  // Añejo Fit line and the sauce add-on could not be promoted by a strategist who did not know
-  // they existed. They carry no bowlspec (nothing to build), so they list as name/price/state.
-  const otherItems = items
-    .filter((it) => it.kind === 'drink' || it.kind === 'addon')
-    .map((it) => ({
-      name: it.name || String(it.id).toUpperCase(),
-      kind: it.kind,
-      price_usd: Math.round(it.price_cents || 0) / 100,
-      available: isAvailable(it) && isOrderable(it),
-      description: String(it.description || '').trim(),
-    }));
+
+  // THE WHOLE CATALOG, grouped by product family. Bowls and drinks were the only two things the
+  // Lead could see; everything else Añejo sells — the traditional plates, the croquetas and
+  // empanadas, the catering trays, La Cajita, Añejo Daily, the office & clinic meal service — was
+  // simply absent, so a strategist asked for a catering campaign could only answer with a table of
+  // what it did not know. `daily` is the PUBLIC Daily view and nothing else: no institutional
+  // account, no headcount, no contract data reaches this desk.
+  const daily = await dailyMarketingContext(env);
+  const families = await productFamilies(env, { menu, daily });
+  // First match wins in marketing_context.js, so "drinks" here means drinks and sauces — not the
+  // hundreds of traditional_/catering_ rows that also carry kind 'addon'.
+  const otherItems = (families.find((f) => f.key === 'drinks') || { items: [] }).items.map((it) => ({
+    name: it.name,
+    kind: it.kind,
+    price_usd: it.price_usd,
+    available: it.available,
+    description: it.description,
+  }));
 
   // Latest account snapshot + the strongest three and weakest one posts from the newest capture
   // day. Top-3/bottom-1 is the same shape performanceBrief feeds the planner: enough signal to
@@ -147,15 +162,24 @@ export async function buildSpine(env) {
   const briefs = await rows(env,
     'SELECT id, title, objective, status, created_at FROM team_briefs ORDER BY created_at DESC LIMIT 5');
 
-  // Ordering surfaces — fixed facts the Lead kept (correctly) refusing to invent and spending
-  // request_intel on. Cheaper to state them once than to answer the same intel question weekly.
+  // Ordering surfaces — the URLs are fixed facts the Lead kept (correctly) refusing to invent and
+  // spending request_intel on. Cheaper to state them once than to answer the same intel question
+  // weekly.
+  //
+  // THE RULES ARE NOT FIXED, AND THIS LINE USED TO PRETEND THEY WERE. It read "Next-day orders
+  // until 8 PM ET" — a sentence that was true the week it was typed and has been a hard-coded
+  // deadline in a strategist's mouth ever since, while ops.order_by_hour moved underneath it and
+  // Añejo Daily arrived with a SECOND, different cutoff of its own. Every ordering fact now comes
+  // from orderingFacts(), which reads the dials the storefront itself enforces.
   const surfaces = {
     order_url: 'https://anejocateringco.com/order',
+    catering_url: 'https://anejocateringco.com/catering',
+    cajita_url: 'https://anejocateringco.com/cajita-builder',
     links_hub: 'https://anejocateringco.com/go',
     macro_portal: 'https://anejocateringco.com/portal',
     macro_calculator: 'https://anejocateringco.com/calculator',
-    ordering: 'Order online at /order — one-time boxes or weekly plans (5, 10 or 12 meals); plans pause/skip/cancel anytime. Next-day orders until 8 PM ET; the website is the authority on cutoffs.',
   };
+  const ordering = await orderingFacts(env);
 
   // What the owner taught the team from HUB → Train the team. Its own try/catch because a spine
   // that throws is a Lead that cannot answer at all — an untrained team is workable, a dead one
@@ -170,7 +194,7 @@ export async function buildSpine(env) {
 
   return {
     brand: brand.text, brand_source: brand.source,
-    menu: menuItems, other_items: otherItems,
+    menu: menuItems, other_items: otherItems, families, daily, ordering,
     metrics, drafts, budget, briefs, surfaces, training, retro,
   };
 }
@@ -228,11 +252,20 @@ export function renderSpine(spine) {
   const briefHeader = spine.brand_source === 'd1'
     ? '=== AÑEJO BRAND BRIEF (live from the HUB, owner-maintained — the authority on voice and standards) ==='
     : '=== AÑEJO BRAND BRIEF (verbatim, the authority on voice and standards) ===';
+  // Everything Añejo sells that is NOT a Fit bowl or a drink — rendered from the live catalog by
+  // product family. The bowls and drinks keep their own, more detailed blocks above (only a bowl
+  // has a kitchen spec), so those two families are skipped here rather than listed twice.
+  const familyLines = (spine.families || []).length
+    ? '\n=== THE REST OF WHAT AÑEJO SELLS (live catalog, by product family — promote across ALL of it) ===\n' +
+      'Añejo Catering Co. is a Cuban catering company. The bowls are ONE line of several; a week of ' +
+      'only bowl posts misrepresents the business.' +
+      renderFamilies(spine.families.filter((f) => f.key !== 'fit' && f.key !== 'drinks')) + '\n'
+    : '';
   return (
     briefHeader + '\n' + spine.brand + '\n=== END BRIEF ===\n\n' +
-    '=== ON THE MENU RIGHT NOW (live prices + the kitchen build; the only items that exist) ===\n' +
+    '=== AÑEJO FIT — ON THE MENU RIGHT NOW (live prices + the kitchen build; the only items that exist) ===\n' +
     'Ingredient weights are the kitchen spec for a standard 16 oz bowl. Macros are approximate — ' +
-    'never present them as precise or medical.\n' + menuLines + otherLines + '\n\n' +
+    'never present them as precise or medical.\n' + menuLines + otherLines + '\n' + familyLines + '\n' +
     // The retrospective sits ABOVE the raw numbers deliberately: §7 step 4 says the next planning
     // session OPENS with how the last one went. Numbers underneath it are the detail behind the
     // verdict, not a second, unreconciled account of the same week.
@@ -241,9 +274,15 @@ export function renderSpine(spine) {
     '=== DRAFT QUEUE ===\n' + draftLines + '\n\n' +
     (spine.surfaces
       ? '=== ORDERING SURFACES (fixed facts — use these, do not spend intel re-asking) ===\n' +
-        `Order: ${spine.surfaces.order_url} · Links hub: ${spine.surfaces.links_hub} · ` +
-        `Macro portal: ${spine.surfaces.macro_portal} · Macro calculator: ${spine.surfaces.macro_calculator}\n` +
-        spine.surfaces.ordering + '\n\n'
+        `Order: ${spine.surfaces.order_url} · Catering: ${spine.surfaces.catering_url} · ` +
+        `La Cajita: ${spine.surfaces.cajita_url} · Links hub: ${spine.surfaces.links_hub} · ` +
+        `Macro portal: ${spine.surfaces.macro_portal} · Macro calculator: ${spine.surfaces.macro_calculator}\n\n`
+      : '') +
+    // The ordering RULES, read from the owner's dials rather than remembered. Never a hard-coded
+    // hour: see buildSpine's note on the "8 PM ET" line this replaces.
+    (spine.ordering
+      ? '=== HOW ORDERING ACTUALLY WORKS (owner settings, read live — the only version you may state) ===\n' +
+        renderOrderingFacts(spine.ordering) + '\n\n'
       : '') +
     `=== AI BUDGET === This week's model spend: $${spine.budget.spent_usd.toFixed(2)} of the $${spine.budget.limit_usd.toFixed(2)} weekly ceiling ` +
     `($${spine.budget.remaining_usd.toFixed(2)} left). Factor this into how much generation you propose.\n\n` +
@@ -265,11 +304,19 @@ const SYSTEM_RULES =
   "owner's decisions alone, made outside this chat. Do not offer to do them, do not claim to have " +
   'done them.\n' +
   '2. You only state operational facts that appear in the context above — menu, prices, ingredients, ' +
-  'macros, metrics, budget, briefs. Ordering cutoffs, delivery areas, discounts, dates: if it is not ' +
-  'in the context, you do not know it. Never invent one; use a request_intel action to ask instead.\n' +
+  'macros, metrics, budget, briefs, and the ordering rules block, which is read live from the ' +
+  "owner's own settings and is the ONLY version of a cutoff, delivery day or delivery area you may " +
+  'state. Anything else — a discount, a date, a second cutoff — you do not know. Never invent one; ' +
+  'use a request_intel action to ask instead.\n' +
   '3. Customer-facing copy you draft speaks as "Aña", the Añejo assistant persona, and follows the ' +
   'brand brief above.\n' +
-  '4. You now hold the kitchen build for each bowl. Use it to write specifically — name the real ' +
+  '4. THE INSTITUTIONAL DESK IS NOT YOURS TO WRITE ABOUT IN SPECIFICS. Añejo runs a standing ' +
+  'office & clinic meal service, and Mon-Wed Añejo Daily is the same dish that service is eating. ' +
+  'You may say exactly that, in those generic words. You may NEVER name a contract account, a ' +
+  'client company, a clinic, a patient, or any headcount — none of it is in your context, and a ' +
+  'business that leaks a customer\'s name in a caption loses the customer. Do not request_intel ' +
+  'for it either.\n' +
+  '5. You now hold the kitchen build for each bowl. Use it to write specifically — name the real ' +
   'ingredients. Two limits: macros are approximate, never precise or medical claims; and you may ' +
   'never write an allergen SAFETY claim ("nut-free", "safe for celiac", "no dairy"). The brief\'s ' +
   'allergen rules are disclosure rules, not clearance to reassure — a bowl without an ingredient is ' +

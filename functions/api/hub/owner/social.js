@@ -19,6 +19,10 @@ import { generateReferenceVariant, REFERENCE_BOWL_KEYS, BOWL_DISPLAY } from '../
 import { noteTrustApproval } from '../../../_lib/trust_ledger.js';
 import { loadTokenExpiry, saveTokenExpiry, tokenExpiryStatus } from '../../../_lib/instagram_token_expiry.js';
 import { stampPostProvenance } from '../../../_lib/post_provenance.js';
+// Relaunch PREP (read-only) + the stale bowl-only drafts it makes visible. Nothing in relaunch.js
+// writes a post; the quick-prompts are data the owner may choose to run.
+import { RELAUNCH_SEQUENCE, ASSET_KINDS, pinnedNow, staleBowlOnlyDrafts } from '../../../_lib/relaunch.js';
+import { productFamilies, dailyMarketingContext } from '../../../_lib/marketing_context.js';
 
 // Instagram's own cap. Worth knowing locally so a scheduled batch cannot quietly burn it.
 const DAILY_CAP = 25;
@@ -32,7 +36,7 @@ export const onRequestGet = async ({ request, env }) => {
   let posts = [];
   try {
     const r = await env.DB.prepare(
-      'SELECT id, platform, caption, media_key, media_type, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, audit_status, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
+      'SELECT id, platform, caption, media_key, media_type, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, audit_status, created_at, catalog_image FROM social_posts ORDER BY created_at DESC LIMIT 60'
     ).all();
     posts = (r && r.results) || [];
   } catch {
@@ -44,9 +48,14 @@ export const onRequestGet = async ({ request, env }) => {
       const r2 = await env.DB.prepare(
         'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, audit_status, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
       ).all();
-      posts = ((r2 && r2.results) || []).map((p) => ({ ...p, media_type: null }));
+      posts = ((r2 && r2.results) || []).map((p) => ({ ...p, media_type: null, catalog_image: null }));
     } catch { posts = []; }
   }
+  // catalog_image (migrations/0104) is the approved menu photo a planner draft is ABOUT. The
+  // primary SELECT above asks for it; a database that has not run 0104 falls into the pre-0080
+  // branch and reads null, which is the honest value. Normalised here so the page never has to
+  // ask whether the field exists.
+  for (const p of posts) if (p.catalog_image === undefined) p.catalog_image = null;
 
   // Slides, per post, in order. One query for the page, grouped here — social_post_media is the
   // authority; the legacy media_key column is display-only history.
@@ -160,9 +169,29 @@ export const onRequestGet = async ({ request, env }) => {
   const recordedExpiry = await loadTokenExpiry(env);
   const expiry = tokenExpiryStatus(recordedExpiry.at);
 
+  // RELAUNCH PREP (read-only). The running order, the pinned three, and the drafts the old
+  // bowl-only planner left behind — all of it surfaced so the owner can DECIDE, none of it acted
+  // on. Its own try: a marketing page that cannot render because a prep list failed to build is a
+  // worse outcome than a page with no prep list.
+  let relaunch = null;
+  try {
+    const daily = await dailyMarketingContext(env);
+    const families = await productFamilies(env, { daily });
+    relaunch = {
+      asset_kinds: ASSET_KINDS,
+      daily_live: daily.scheduled,
+      // La Cajita holds the third pin until Añejo Daily is actually scheduled — a pinned post for
+      // something nobody can order is an advert for a disappointment.
+      pinned: pinnedNow({ dailyLive: daily.scheduled }).map((e) => e.key),
+      sequence: RELAUNCH_SEQUENCE,
+      stale_drafts: await staleBowlOnlyDrafts(env, { families }),
+    };
+  } catch { relaunch = null; }
+
   return json({
     ok: true,
     configured,
+    relaunch,
     connected: !!(account && account.ok),
     account: account && account.ok ? { username: account.username, followers: account.followers_count, media_count: account.media_count } : null,
     account_error: account && !account.ok ? account.error : null,
@@ -303,12 +332,29 @@ export const onRequestPost = async ({ request, env }) => {
     // Meta's carousel ceiling. Refused at attach — the moment the 11th photo is picked — rather
     // than 20 seconds into a publish that was always going to fail.
     if (existing.length >= CAROUSEL_MAX) return bad(`Instagram allows at most ${CAROUSEL_MAX} photos in one post.`, 409);
+    // ASSET PROVENANCE (migrations/0076 `origin`). A slide's origin is a claim about what the
+    // image IS, so only a value from this fixed list is accepted and anything else is stored as
+    // NULL — "not recorded", which is what the migration says NULL must keep meaning. The one that
+    // matters here is 'catalog_jpeg': the marketing Hub can redraw an approved .webp catalog image
+    // as a JPEG in the owner's own browser and attach it, and that image is a MENU ILLUSTRATION.
+    // It may be promotional art. It must never be captioned, or badged, as a photograph of a
+    // delivered order (brand brief §10).
+    const originRaw = String((b && b.origin) || '').trim();
+    const origin = ['ai_generated', 'catalog_jpeg', 'owner_photo'].includes(originRaw) ? originRaw : null;
     const t2 = now();
-    await env.DB.prepare(
-      `INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,?,?,?,?)`
-    ).bind(id('spm'), postId, existing.length, mediaKey, randToken(24), t2).run();
+    try {
+      await env.DB.prepare(
+        `INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, origin, created_at) VALUES (?,?,?,?,?,?,?)`
+      ).bind(id('spm'), postId, existing.length, mediaKey, randToken(24), origin, t2).run();
+    } catch {
+      // Pre-0076 schema: no origin column. The slide still attaches — losing a provenance label is
+      // recoverable, losing the photo the owner just picked is not.
+      await env.DB.prepare(
+        `INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,?,?,?,?)`
+      ).bind(id('spm'), postId, existing.length, mediaKey, randToken(24), t2).run();
+    }
     await env.DB.prepare('UPDATE social_posts SET updated_at=? WHERE id=?').bind(t2, postId).run();
-    return json({ ok: true, id: postId, media_key: mediaKey, slides: existing.length + 1 });
+    return json({ ok: true, id: postId, media_key: mediaKey, origin, slides: existing.length + 1 });
   }
 
   // THE REPAIR the food-first warning offers. coverStatus tells the owner "this post has no food
@@ -567,6 +613,40 @@ export const onRequestPost = async ({ request, env }) => {
     const r = await env.DB.prepare("UPDATE social_posts SET status='draft', scheduled_at=NULL, updated_at=? WHERE id=? AND status='scheduled'")
       .bind(now(), postId).run();
     if (!r.meta || r.meta.changes !== 1) return bad('That post is not scheduled.', 409);
+    return json({ ok: true, id: postId, status: 'draft' });
+  }
+
+  // ARCHIVE — the soft alternative to delete, and the one to reach for on a stale draft.
+  //
+  // The old bowl-only planner left a queue of drafts that only ever mention bowls. Clearing them
+  // out by DELETE would destroy the evidence of how the team used to think, which is exactly the
+  // record worth keeping the week the team stops thinking that way. social_posts.status is free
+  // text with no CHECK constraint, and every path that acts on a post selects status 'draft',
+  // 'scheduled' or 'published' — so an 'archived' row is inert everywhere without a schema change:
+  // it cannot publish, cannot schedule, and is still there to read.
+  //
+  // OWNER-INVOKED, ONE AT A TIME. Nothing archives anything automatically; the stale list in the
+  // GET above is a surfacing, not a sweep.
+  if (op === 'archive') {
+    const postId = String(b.id || '').trim();
+    if (!postId) return bad('Missing id.');
+    const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    if (!row) return bad('That post no longer exists.', 404);
+    if (row.status === 'published') return bad('That is already live on Instagram — archiving our row would just lose the record of it.', 409);
+    if (row.status === 'publishing') return bad('That post is being published right now.', 409);
+    if (row.status === 'archived') return json({ ok: true, id: postId, status: 'archived', already: true });
+    await env.DB.prepare("UPDATE social_posts SET status='archived', scheduled_at=NULL, updated_at=? WHERE id=?")
+      .bind(now(), postId).run();
+    return json({ ok: true, id: postId, status: 'archived' });
+  }
+
+  // UNARCHIVE — because an archive nobody can undo is a delete with better manners.
+  if (op === 'unarchive') {
+    const postId = String(b.id || '').trim();
+    if (!postId) return bad('Missing id.');
+    const r = await env.DB.prepare("UPDATE social_posts SET status='draft', updated_at=? WHERE id=? AND status='archived'")
+      .bind(now(), postId).run();
+    if (!r.meta || r.meta.changes !== 1) return bad('That post is not archived.', 409);
     return json({ ok: true, id: postId, status: 'draft' });
   }
 

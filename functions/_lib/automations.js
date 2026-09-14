@@ -8,9 +8,10 @@
 // Files under functions/_lib are NOT routed.
 import { id, now, today, toJson, parseJson, etMidnightMs, addEtDays, etDateOf } from './hub.js';
 import { randToken } from './util.js';
-import { loadMenu, isAvailable, isOrderable } from './menu.js';
-import { loadOperating } from './operating.js';
-import { BRAND_BRIEF } from './brand_brief.js';
+// The menu, the ordering dials and the brand brief all reach this file through
+// marketing_context.js now — one gathering pass, one definition of "what Añejo sells" and "how
+// ordering works", shared with the Team Lead. Importing loadMenu/loadOperating/BRAND_BRIEF
+// directly here is how the planner came to hold its own, slowly diverging answer to both.
 import { loadBrand } from './brand_source.js';
 import { performanceBrief, attributionBrief, reactionBrief } from './instagram_insights.js';
 import { stampPostProvenance } from './post_provenance.js';
@@ -18,17 +19,17 @@ import { retrieve, formatPassages } from './knowledge.js';
 import { getCadenceConfig } from './social_cadence.js';
 import { getPostingTimes, assignSlot, weekdayIndexOf } from './posting_times.js';
 import { trainingContext } from './training.js';
+import { marketingContext, renderMarketingContext, renderOrderingFacts, anythingSellable, briefSection } from './marketing_context.js';
 
-// §3 of the brief — the three product lines. Fed to the planner SEPARATELY from the voice
-// excerpts because of Dayan's decision #6: the standing objective is that people know EVERYTHING
-// Añejo sells — bowls, the Macro Portal, meal plans, catering. Excerpts that stop at voice keep
-// the planner writing bowl posts forever, which is exactly the rut the account was already in.
+// §3 of the brief — the product lines, in the owner's own words. Fed to the planner SEPARATELY
+// from the voice excerpts because of Dayan's decision #6: the standing objective is that people
+// know EVERYTHING Añejo sells. Excerpts that stop at voice keep the planner writing bowl posts
+// forever, which is exactly the rut the account was already in.
+//
+// The slicing itself now lives in marketing_context.js's briefSection() — the same helper the
+// per-family blurbs use, so the brief is read one way rather than two that can drift.
 function productLines() {
-  const start = BRAND_BRIEF.indexOf('## 3. Our three product lines');
-  if (start === -1) return '';
-  const rest = BRAND_BRIEF.slice(start);
-  const end = rest.search(/^## 4\./m);
-  return (end === -1 ? rest : rest.slice(0, end)).trim();
+  return briefSection('## 3. Our three product lines');
 }
 
 // The planner's role, in the Team Lead's voice (team_lead.js SYSTEM_RULES) — specific and
@@ -40,8 +41,11 @@ function productLines() {
 const PLANNER_ROLE =
   'You are the content writer on the Añejo Marketing Team, executing the Team Lead\'s campaign ' +
   'direction (below, when there is any) against the brand\'s own standards. You write Instagram ' +
-  'posts for Añejo Catering Co., a made-to-order bowl kitchen and caterer serving Palm Beach ' +
-  'County.\n\n' +
+  'posts for Añejo Catering Co., a CUBAN CATERING COMPANY in Palm Beach County. Its lines are ' +
+  'catering & events, traditional Cuban plates and bites, La Cajita, Añejo Fit (the bowls, the ' +
+  'macro calculator and the weekly plans), Añejo Daily, packaged drinks, and a standing office & ' +
+  'clinic meal service. The bowls are ONE line of several — a week of only bowl posts misrepresents ' +
+  'the business.\n\n' +
   'AUDIENCE: people nearby, deciding what to eat today or who to call for their next event — not ' +
   'a general food-content audience scattered across the country. Every post should read like it ' +
   'was written for someone who could have a bowl in their hands within the hour.\n\n' +
@@ -824,18 +828,28 @@ async function socialPlan(env, date) {
       summary: 'Weekly AI budget reached — no posts were drafted. The planner resumes when the new week starts.',
     };
   }
-  const menu = await loadMenu(env);
-  const bowls = (menu.items || []).filter((it) => it.kind === 'bowl');
-  const onSale = bowls.filter((it) => isAvailable(it) && isOrderable(it));
-  const off = bowls.filter((it) => !isAvailable(it));
+  // THE WHOLE CATALOG, grouped by product family (functions/_lib/marketing_context.js).
+  //
+  // This used to read `.filter((it) => it.kind === 'bowl')` and skip the entire run when no bowl
+  // was on sale — which meant the planner could go silent while hundreds of traditional plates,
+  // croquetas, trays, cajitas and drinks sat sellable on the live menu, and meant every post it
+  // DID write could only ever be about a bowl. Añejo is a Cuban catering company; the bowls are
+  // one line of several. The planner now sees all of them, by name, price, description and
+  // catalog photo, with the Añejo Daily and ordering facts read live alongside.
+  const ctx = await marketingContext(env);
+  const catalog = new Map();
+  for (const fam of ctx.families) for (const it of fam.items) catalog.set(it.id, { ...it, family: fam.key });
+  const onSale = [...catalog.values()].filter((it) => it.available);
+  const off = [...catalog.values()].filter((it) => !it.available);
 
   // Nothing to sell means nothing to post. Better to say so than to generate cheerful copy about
-  // an empty menu.
-  if (!onSale.length) {
+  // an empty menu. The bar is now the WHOLE catalog rather than the bowl shelf: a week when every
+  // bowl is off but the croquetas and the trays are on is a week with plenty to say.
+  if (!anythingSellable(ctx.families)) {
     return {
       outcome: 'skipped',
-      output: { date, reason: 'no_bowls_available', bowls_off: off.length },
-      summary: 'No bowls are available right now, so there is nothing to promote. Nothing was drafted.',
+      output: { date, reason: 'nothing_sellable', items_off: off.length },
+      summary: 'Nothing on the menu is available right now, so there is nothing to promote. Nothing was drafted.',
     };
   }
 
@@ -871,20 +885,18 @@ async function socialPlan(env, date) {
     };
   }
 
-  const menuLines = onSale.map((b) => `${b.name} ($${((b.price_cents || 0) / 100).toFixed(2)}) — ${b.description || ''}`.trim());
-  const soldOutLine = off.length ? `Currently SOLD OUT and must not be mentioned: ${off.map((b) => b.name).join(', ')}.` : '';
+  const soldOutLine = off.length
+    ? `Currently OFF SALE and must not be promoted: ${off.slice(0, 30).map((b) => b.name).join(', ')}${off.length > 30 ? `, and ${off.length - 30} more` : ''}.`
+    : '';
   // What the last posts actually did. Empty string until the first insights sweep lands — the
   // planner must never see an empty scaffold that reads like data. THIS is the line that makes
   // week 10 better than week 1.
   const performance = await performanceBrief(env);
-  // The cutoff is the OWNER'S DIAL (ops.order_by_hour) and it moves — a hard-coded hour here is
-  // just the next wrong deadline waiting to be published. Read it at plan time.
-  let orderByLabel = 'the posted cutoff';
-  try {
-    const schedOps = await loadOperating(env);
-    const hr = Number(schedOps.order_by_hour) || 18;
-    orderByLabel = `${hr % 12 || 12} ${hr >= 12 ? 'PM' : 'AM'}`;
-  } catch { /* the neutral label above states no specific hour */ }
+  // The cutoffs are the OWNER'S DIALS (ops.order_by_hour for scheduled delivery, daily.cutoff_time
+  // for Añejo Daily) and they move — a hard-coded hour here is just the next wrong deadline
+  // waiting to be published. Both are read at plan time, by marketingContext above, and rendered
+  // as the ONLY version of the ordering rules the model is allowed to state.
+  const orderingRules = renderOrderingFacts(ctx.ordering);
 
   // Team briefs, market intel, and knowledge-base passages — see plannerExtraContext for why
   // each of these was previously invisible to this planner. Empty string when none apply.
@@ -905,19 +917,29 @@ async function socialPlan(env, date) {
       'Below is the brand\'s own standards brief — verbatim, written by the owner. It is the authority ' +
       'on who Añejo is, how it speaks, and what its photography looks like. Follow it over any instinct of your own.\n\n' +
       briefHeader + '\n' + brand.text + '\n=== END BRIEF ===\n\n' +
-      '=== WHAT AÑEJO SELLS (promote across ALL of it, not only bowls) ===\n' + productLines() +
+      '=== THE PRODUCT LINES, IN THE OWNER\'S OWN WORDS (brand brief §3) ===\n' + productLines() +
       '\n=== END PRODUCT LINES ===\n' +
-      'Across any set of posts, cover the breadth of the offer: the bowls, the Macro Portal ' +
-      '(personalized macro plans), meal-plan subscriptions, and catering. A week of only bowl ' +
+      'Across any set of posts, cover the breadth of the offer: catering & events, traditional ' +
+      'Cuban plates and bites, La Cajita, Añejo Fit (bowls, the macro calculator, the weekly ' +
+      'plans), Añejo Daily, the drinks, and the office & clinic meal service. A week of only bowl ' +
       'photos fails the objective even if every caption is perfect.\n\n' +
       'Every image_brief you write MUST comply with the Photo standard above. ' +
       'Nutrition is always approximate ranges, never medical claims (the Golden Rule). ' +
-      'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19, "category": string, "intel_id": string|null}. ' +
+      'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19, "category": string, "intel_id": string|null, "catalog_item": string|null}. ' +
       // The category feeds the trust ledger (0072): approvals are counted PER LANE, so it must
       // come from this fixed list — an invented lane would start a streak nobody can toggle.
       `category: exactly one of ${TRUST_CATEGORIES.map((c) => `"${c}"`).join(', ')} — the post's primary subject. ` +
       'caption: under 500 characters, 2-4 relevant hashtags at the end. ' +
       'image_brief: one sentence of art direction for a food photo we will generate — subject, angle, light. ' +
+      // The approved catalog photo beats a generated one every time (brand brief §10: "use the
+      // approved product's existing catalog image before generating another"). Those files are
+      // .webp, which Instagram will not accept, so nothing here attaches one — the id is RECORDED
+      // on the draft and the owner's browser stages a JPEG derivative of it in one click. Checked
+      // against the ids actually shown above, exactly like intel_id: an invented id records
+      // nothing, which is the same outcome as null.
+      'catalog_item: the id of the catalog item above this post is actually about, copied exactly, ' +
+      'so the owner can attach its approved photo in one click. null when the post is not about one ' +
+      'specific item. It must be an id from the list above — an invented one is discarded. ' +
       // intel_id closes the loop the owner actually complained about: a finding sitting in the
       // Intel Bench that nobody acted on. Copy the "[id: ...]" value VERBATIM from a RECENT
       // MARKET INTEL entry above ONLY when that entry's finding genuinely shaped this post's
@@ -944,16 +966,16 @@ async function socialPlan(env, date) {
       `and so on through 6.\n\n` +
       `Write ${need} posts for the coming week.\n\n` +
       (performance ? performance + '\n\n' : '') +
-      `ON THE MENU RIGHT NOW (these are the only items you may promote):\n${menuLines.join('\n')}\n\n` +
+      renderMarketingContext(ctx) + '\n\n' +
       `${soldOutLine}\n\n` +
       (extraContext ? extraContext + '\n\n' : '') +
       'Vary the angle across the set: the food itself, the kitchen/process, the people it feeds, and one that simply invites an order. ' +
-      'HOW ORDERING ACTUALLY WORKS, and the only version you may state: scheduled delivery is ordered by ' +
-      `${orderByLabel} the DAY BEFORE — a rolling daily cutoff, not a weekly one. There is no "order by Wednesday" ` +
-      'and no weekly deadline of any kind. Same-day delivery is available during opening hours. ' +
-      'We deliver in Palm Beach County.\n\n' +
+      'Vary the FAMILY too — do not write every post about the same line.\n\n' +
+      orderingRules + '\n\n' +
       'Do not invent menu items, prices, discounts, delivery areas, deadlines, cutoffs or claims about ' +
-      'ingredients we have not been told. If you are unsure of an operational detail, leave it out — ' +
+      'ingredients we have not been told. NEVER name an institutional customer, a headcount, a clinic, ' +
+      'or a patient — the office & clinic meal service may only be described in the generic terms above. ' +
+      'If you are unsure of an operational detail, leave it out — ' +
       '"link in bio" is always safe, a wrong deadline makes someone think they missed their window.',
     maxTokens: 1600,
     feature: 'social_plan',
@@ -1035,6 +1057,13 @@ async function socialPlan(env, date) {
     // it half-remembers, must never be recorded as a real citation. Silent drop, not a flag: an
     // unusable intel_id is exactly as fine as the model never having offered one.
     const intelId = intelIds.has(item && item.intel_id) ? item.intel_id : null;
+    // The approved catalog photo for this post, if the model named a real item. Recorded, NEVER
+    // attached: catalog assets are .webp and Instagram takes JPEG only (JPEG_ONLY in
+    // _lib/instagram.js). Storing the path is what lets the marketing Hub offer "use the menu
+    // photo" — one click that redraws it as a JPEG in the owner's own browser and uploads that
+    // through the existing JPEG route, leaving the canonical .webp on disk untouched.
+    const catalogItem = catalog.get(item && item.catalog_item) || null;
+    const catalogImage = (catalogItem && catalogItem.image) || null;
     const postId = id('sp');
     try {
       // Trust datum first (schema-tolerant), then the governance gate — the audit must complete
@@ -1043,16 +1072,24 @@ async function socialPlan(env, date) {
       // is the canonical one the promotion gates on, written here alongside gov's own columns.
       try {
         await env.DB.prepare(
+          `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at, category, original_caption_hash, catalog_image)
+           VALUES (?,'instagram',?,NULL,?,'draft',?,?,'planner','system',?,?,?,?,?)`
+        ).bind(postId, caption, randToken(24), when, brief, t, t, category, captionHash(caption), catalogImage).run();
+      } catch {
+       try {
+        // Pre-0104 schema: catalog_image does not exist yet. Trust datum still lands.
+        await env.DB.prepare(
           `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at, category, original_caption_hash)
            VALUES (?,'instagram',?,NULL,?,'draft',?,?,'planner','system',?,?,?,?)`
         ).bind(postId, caption, randToken(24), when, brief, t, t, category, captionHash(caption)).run();
-      } catch {
+       } catch {
         // Pre-0072 schema (deploy window): the plain draft insert must still land — a missed
         // trust datum is recoverable, a missed week of posts is not.
         await env.DB.prepare(
           `INSERT INTO social_posts (id, platform, caption, media_key, public_token, status, scheduled_at, image_brief, source, created_by, created_at, updated_at)
            VALUES (?,'instagram',?,NULL,?,'draft',?,?,'planner','system',?,?)`
         ).bind(postId, caption, randToken(24), when, brief, t, t).run();
+       }
       }
       // Governance gate: score the draft the moment it exists — a planner caption once invented
       // an ordering deadline. auditDraft fails closed to 'flag'; this inner catch only covers
@@ -1093,7 +1130,7 @@ async function socialPlan(env, date) {
         format: photo.ok ? 'single' : undefined,
         slideCount: photo.ok ? photo.slides : undefined,
       });
-      made.push({ hour, day_offset: dayOffset, id: postId, category, intel_id: intelId, photo: photo.ok ? photo.provider : null });
+      made.push({ hour, day_offset: dayOffset, id: postId, category, intel_id: intelId, catalog_image: catalogImage, family: catalogItem ? catalogItem.family : null, photo: photo.ok ? photo.provider : null });
     } catch { /* one bad row must not lose the rest of the week */ }
   }
 
@@ -1125,7 +1162,13 @@ async function socialPlan(env, date) {
       // one number that answers "is the team acting on intel or just storing it." Zero is honest
       // when there was no usable intel this run, not a bug to chase.
       intel_driven: made.filter((m) => m.intel_id).length,
-      promoted: onSale.map((b) => b.name), withheld_sold_out: off.map((b) => b.name),
+      // Which FAMILIES this run actually covered — the one number that answers "is the team still
+      // only writing bowl posts?" without reading seven captions. Names are capped: the catalog
+      // runs to hundreds of SKUs and a run log is for reading.
+      families_covered: [...new Set(made.map((m) => m.family).filter(Boolean))],
+      with_catalog_photo: made.filter((m) => m.catalog_image).length,
+      sellable: onSale.length, withheld_off_sale: off.length,
+      promoted: onSale.slice(0, 20).map((b) => b.name), withheld_sold_out: off.slice(0, 20).map((b) => b.name),
       // Which brief this run actually read — 'd1' vs 'repo' — so a thin owner edit is visible in
       // the run log instead of a mystery ("why did this week read generic?").
       brand_source: brand.source,

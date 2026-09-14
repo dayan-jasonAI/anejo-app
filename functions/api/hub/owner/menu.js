@@ -34,8 +34,13 @@ import { json, id, now, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { orderability, AVAILABILITY, AVAILABILITY_KEYS, availabilityOf } from '../../../_lib/menu.js';
 import { BOWL_IDS } from '../../../_lib/ondemand.js';
+import { loadDailySettings, isTierPrice } from '../../../_lib/daily.js';
 
-const KINDS = ['bowl', 'drink', 'addon'];
+// 'daily' = an Añejo Daily meal definition: sold only through a dated daily_schedule row, never
+// in the general catalog, and priced at one of the owner's Daily tiers.
+const KINDS = ['bowl', 'drink', 'addon', 'daily'];
+// Storefront groups for packaged drinks (menu_items.group_key). Blank = ungrouped.
+const DRINK_GROUPS = ['hydrate', 'cuban', 'classic'];
 const SLUG = /^[a-z0-9_]+$/;                                  // checkout matches items by this id
 // A path under /assets/img/ — either a bare filename ("bowl_vida.jpg") or one inside a
 // subfolder ("menu-launch/combo-bites.webp"). Subfolders are not an edge case: 134 of the 144
@@ -52,6 +57,33 @@ const IMAGE = /^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*[A-Za-z0-9._-]+\.(jpg|jpeg|pn
 const MAX_CENTS = 100000;
 // menu_price_log.item_id for a modifier change; its `field` carries the modifier key.
 const MODIFIER_ITEM_ID = 'modifier';
+
+// Supplier cost per unit. Blank = unknown (NULL), which is allowed: cost is never required to sell.
+function parseCost(raw) {
+  if (raw === '' || raw == null) return { cents: null };
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0 || n > MAX_CENTS) return { error: 'Unit cost must be whole cents from 0 to 100000, or blank if unknown.' };
+  return { cents: n };
+}
+function parseGroup(raw, kind) {
+  const v = String(raw == null ? '' : raw).trim().toLowerCase();
+  if (!v) return { group: null };
+  if (kind !== 'drink') return { error: 'Only drinks have a storefront group.' };
+  if (!DRINK_GROUPS.includes(v)) return { error: `Drink group must be one of: ${DRINK_GROUPS.join(', ')}.` };
+  return { group: v };
+}
+// Migration 0104 adds unit_cost_cents + group_key. Until it is applied, saves must keep working
+// on the live schema exactly as before (a failed save loses a price — see the 2026-09-09 note
+// above), so the new columns are only written when they exist.
+async function hasCostColumns(env) {
+  try { await env.DB.prepare('SELECT unit_cost_cents, group_key FROM menu_items LIMIT 0').all(); return true; } catch { return false; }
+}
+const PRE_0104 = 'Unit cost and drink group need database migration 0104 (Añejo Daily), which has not been applied yet.';
+async function dailyTierError(env, cents) {
+  const s = await loadDailySettings(env);
+  if (isTierPrice(s, cents)) return null;
+  return `An Añejo Daily meal must be priced at a Daily tier: ${s.tiers.map((c) => '$' + (c / 100).toFixed(2)).join(' or ')}. Change the tiers on the Añejo Daily page if that is intended.`;
+}
 
 const text = (v, max) => {
   const s = String(v == null ? '' : v).trim().slice(0, max);
@@ -273,20 +305,48 @@ export const onRequestPost = async ({ request, env }) => {
       if (!AVAILABILITY_KEYS.includes(v)) errors.push(`Availability must be one of: ${AVAILABILITY_KEYS.join(', ')}.`);
       else next.availability = v;
     }
+    if ('unit_cost_cents' in body) {
+      const c = parseCost(body.unit_cost_cents);
+      if (c.error) errors.push(c.error); else next.unit_cost_cents = c.cents;
+    }
+    if ('group_key' in body) {
+      const g = parseGroup(body.group_key, row.kind);
+      if (g.error) errors.push(g.error); else next.group_key = g.group;
+    }
+    if (row.kind === 'daily' && next.price_cents !== row.price_cents) {
+      const tierErr = await dailyTierError(env, next.price_cents);
+      if (tierErr) errors.push(tierErr);
+    }
+    const withCost = await hasCostColumns(env);
+    if (!withCost && (next.unit_cost_cents != null || next.group_key)) errors.push(PRE_0104);
     if (errors.length) return json({ ok: false, error: 'validation failed', errors }, 400);
 
     const stmts = [
-      env.DB.prepare(
-        `UPDATE menu_items SET name=?, name_es=?, price_cents=?, description=?, description_es=?,
-           image=?, sort=?, active=?, availability=?, stock_count=?, updated_at=? WHERE id=?`
-      ).bind(
-        next.name, next.name_es, next.price_cents, next.description, next.description_es,
-        next.image, next.sort, next.active, next.availability || 'available',
-        next.stock_count == null ? null : next.stock_count, ts, itemId,
-      ),
+      withCost
+        ? env.DB.prepare(
+          `UPDATE menu_items SET name=?, name_es=?, price_cents=?, description=?, description_es=?,
+             image=?, sort=?, active=?, availability=?, stock_count=?, unit_cost_cents=?, group_key=?, updated_at=? WHERE id=?`
+        ).bind(
+          next.name, next.name_es, next.price_cents, next.description, next.description_es,
+          next.image, next.sort, next.active, next.availability || 'available',
+          next.stock_count == null ? null : next.stock_count,
+          next.unit_cost_cents == null ? null : next.unit_cost_cents, next.group_key || null, ts, itemId,
+        )
+        : env.DB.prepare(
+          `UPDATE menu_items SET name=?, name_es=?, price_cents=?, description=?, description_es=?,
+             image=?, sort=?, active=?, availability=?, stock_count=?, updated_at=? WHERE id=?`
+        ).bind(
+          next.name, next.name_es, next.price_cents, next.description, next.description_es,
+          next.image, next.sort, next.active, next.availability || 'available',
+          next.stock_count == null ? null : next.stock_count, ts, itemId,
+        ),
     ];
     if (next.price_cents !== row.price_cents) {
       stmts.push(logStmt(env, itemId, 'price_cents', row.price_cents, next.price_cents, actor, ts));
+    }
+    // A cost change moves every future margin number — same audit trail as a price.
+    if ((next.unit_cost_cents ?? null) !== (row.unit_cost_cents ?? null)) {
+      stmts.push(logStmt(env, itemId, 'unit_cost_cents', row.unit_cost_cents ?? null, next.unit_cost_cents ?? null, actor, ts));
     }
     // "When did VIDA come off sale, and who did it?" is exactly the question the price log exists
     // to answer, and going sold-out changes what customers can buy just as much as a price does.
@@ -317,6 +377,16 @@ export const onRequestPost = async ({ request, env }) => {
     }
     const image = text(body.image, 120);
     if (image && !IMAGE.test(image)) errors.push('Image must be a file under /assets/img/, e.g. bowl_vida.jpg or menu-launch/combo-bites.webp.');
+    const cost = parseCost(body.unit_cost_cents);
+    if (cost.error) errors.push(cost.error);
+    const grp = parseGroup(body.group_key, kind);
+    if (grp.error) errors.push(grp.error);
+    if (kind === 'daily' && !p.error) {
+      const tierErr = await dailyTierError(env, p.cents);
+      if (tierErr) errors.push(tierErr);
+    }
+    const withCost = await hasCostColumns(env);
+    if (!withCost && (cost.cents != null || grp.group)) errors.push(PRE_0104);
     if (errors.length) return json({ ok: false, error: 'validation failed', errors }, 400);
 
     const clash = await env.DB.prepare('SELECT id FROM menu_items WHERE id = ?').bind(itemId).first();
@@ -324,13 +394,21 @@ export const onRequestPost = async ({ request, env }) => {
 
     const active = 'active' in body ? (body.active ? 1 : 0) : 1;
     await env.DB.batch([
-      env.DB.prepare(
-        `INSERT INTO menu_items (id, kind, name, name_es, price_cents, description, description_es,
-           image, sort, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
-      ).bind(
-        itemId, kind, name, text(body.name_es, 120), p.cents, text(body.description, 400),
-        text(body.description_es, 400), image, sort, active, ts, ts,
-      ),
+      withCost
+        ? env.DB.prepare(
+          `INSERT INTO menu_items (id, kind, name, name_es, price_cents, description, description_es,
+             image, sort, active, unit_cost_cents, group_key, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(
+          itemId, kind, name, text(body.name_es, 120), p.cents, text(body.description, 400),
+          text(body.description_es, 400), image, sort, active, cost.cents, grp.group, ts, ts,
+        )
+        : env.DB.prepare(
+          `INSERT INTO menu_items (id, kind, name, name_es, price_cents, description, description_es,
+             image, sort, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(
+          itemId, kind, name, text(body.name_es, 120), p.cents, text(body.description, 400),
+          text(body.description_es, 400), image, sort, active, ts, ts,
+        ),
       // Creating an item sets a price out of nothing — that is a money event too (old = null).
       logStmt(env, itemId, 'price_cents', null, p.cents, actor, ts),
     ]);

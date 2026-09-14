@@ -70,12 +70,35 @@ function menuLinesOf(menu) {
 }
 
 /**
+ * Every contract (institutional) account name in D1. Never throws, never returns partial garbage:
+ * a database without the table — or without any accounts — yields [], which simply means the
+ * name-matching half of the privacy wall has nothing to match.
+ */
+export async function contractAccountNames(env) {
+  if (!env || !env.DB) return [];
+  const out = [];
+  // BOTH tables. An account is "Dayan Group Practice" but the thing a caption would actually name
+  // is the site the driver goes to — "Wellington Clinic" — and reading only the account name left
+  // exactly that word unguarded.
+  for (const sql of ['SELECT name FROM contract_accounts', 'SELECT name FROM contract_sites']) {
+    try {
+      const r = await env.DB.prepare(sql).all();
+      for (const x of (r && r.results) || []) {
+        const n = String((x && x.name) || '').trim();
+        if (n) out.push(n);
+      }
+    } catch { /* missing table: the other half of the wall still stands */ }
+  }
+  return [...new Set(out)];
+}
+
+/**
  * The checks a model cannot be trusted to run on itself. Pure and synchronous on purpose:
  * they cost nothing, so they run on EVERY draft — including the ones the model call refuses
  * (budget, no key, API down). Caption only: the image_brief is internal art direction that
  * never publishes, and the model still reads it for photo-standard judgement.
  */
-export function deterministicFlags(caption, { priceCents, orderByHour }) {
+export function deterministicFlags(caption, { priceCents, orderByHour, contractNames = [] }) {
   const flags = [];
   const text = String(caption || '');
 
@@ -95,6 +118,49 @@ export function deterministicFlags(caption, { priceCents, orderByHour }) {
   // this string is pinned because it is the one that has actually been published.
   if (/\b6\s?p\.?m\.?\b/i.test(text) && orderByHour !== 18) {
     flags.push({ type: 'claim', detail: `Caption says "6 PM" but the live order-by hour is ${orderByHour}:00.` });
+  }
+
+  // ── THE INSTITUTIONAL PRIVACY WALL (2026-09-10, with Añejo Daily) ──
+  //
+  // Añejo Daily and the institutional (office/clinic) meal service share ONE meal definition
+  // Mon-Wed. That is the whole of what the marketing team is given — publicDaily() is scrubbed and
+  // productionFor() is never called from a marketing path — but "the model was not given it" is a
+  // statement about a prompt, and a prompt is a request. This is the guarantee: a caption that
+  // names a contract account, states an institutional headcount, or talks about patients and
+  // clinics is FLAGGED before the owner ever sees it, whatever the model believed it was doing.
+  //
+  // Flagged, not silently rewritten: the owner has to know the team tried to say it.
+  for (const raw of contractNames) {
+    const name = String(raw || '').trim();
+    // Two characters is not a name, it is a false positive waiting to happen ("La", "Dr").
+    if (name.length < 3) continue;
+    const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp(`(^|[^\\p{L}\\p{N}])${esc}([^\\p{L}\\p{N}]|$)`, 'iu').test(text)) {
+      flags.push({ type: 'privacy', detail: `Names a contract account ("${name}"). Customer names never go in a caption.` });
+    }
+  }
+
+  // An institutional headcount. Deliberately NOT a bare "N meals": Añejo Daily's public allocation
+  // is a small number of portions and saying "only 10 portions today" is the whole point of it.
+  // What may never appear is a count tied to the people a CONTRACT feeds.
+  if (/\bhead\s?counts?\b/i.test(text) ||
+      /\b\d{1,4}\s*(?:patients?|residents?|nurses?|clinicians?|employees?|staff members?)\b/i.test(text) ||
+      /\b(?:feeding|serving|deliver(?:ing|ed)?|lunch(?:es)? for)\s+\d{1,4}\s+(?:people|staff|employees|patients|residents)\b/i.test(text)) {
+    flags.push({ type: 'privacy', detail: 'States an institutional headcount. Contract volumes are private.' });
+  }
+
+  // Patient / clinic wording. Añejo is a caterer; a caption of ours has no business in anyone's
+  // medical life, and this is also the vocabulary a leak would arrive dressed in.
+  //
+  // The ONE approved phrase is exempt. "Office & clinic meal service" is the generic wording the
+  // brief, the Team Lead and the relaunch prompts all tell the team to use — flagging it would make
+  // every compliant institutional post come back with a privacy warning, and a warning that fires
+  // on the correct answer is a warning people learn to click past.
+  const clinical = text
+    .replace(/office\s*(?:&|and)\s*clinic\s+meal\s+service/gi, '')
+    .match(/\b(patients?|clinic|clinical|dialysis|infusion|chemo(?:therapy)?|medical office|doctor'?s office|nursing home|assisted living|HIPAA|PHI)\b/i);
+  if (clinical) {
+    flags.push({ type: 'privacy', detail: `Patient/clinic wording ("${clinical[0]}"). The office & clinic meal service may only be described generically.` });
   }
 
   // Bare '/order' — a path with no domain is a link nobody can tap in an Instagram caption.
@@ -177,7 +243,14 @@ export async function auditDraft(env, { caption, image_brief } = {}) {
     if (Number.isFinite(n)) orderByHour = n;
   } catch { /* the default matches operating.js DEFAULTS */ }
 
-  const hard = deterministicFlags(caption, { priceCents: menuPriceCents(menu), orderByHour });
+  // Every contract account's name, so the wall above has something to match on. Read here rather
+  // than passed in: auditDraft is the ONE door every generated draft goes through, and a guard the
+  // caller has to remember to arm is a guard that will one day not be armed. Empty list on any
+  // failure — the headcount and clinical patterns still fire, and an audit that cannot run at all
+  // already fails closed into review below.
+  const contractNames = await contractAccountNames(env);
+
+  const hard = deterministicFlags(caption, { priceCents: menuPriceCents(menu), orderByHour, contractNames });
 
   // The brand brief (shared with the Team Lead and the planner via brand_source.js — one
   // definition, no drift) and the owner's own training rules (0075/training.js). Both degrade

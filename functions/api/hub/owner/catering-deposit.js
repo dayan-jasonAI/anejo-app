@@ -51,6 +51,39 @@ export const onRequestGet = async ({ request, env }) => {
     });
   } catch { quotes = []; }
 
+  // ---- DUPLICATE QUOTES, SURFACED — NEVER ACTED ON -------------------------------------------
+  //
+  // Karina, 2026-09-10: she paid the deposit on one quote while a second quote for the same event
+  // sat open beside it, and the open one still had a live payment link she could have paid twice.
+  // The fix is a FLAG on this screen and an explicit Void button — not automation.
+  //
+  // MATCHING AMOUNTS ARE NOT EVIDENCE, and this code never treats them as such. Two quotes match
+  // only when they are for the same CUSTOMER and the same EVENT DATE — the things that identify an
+  // event — and a quote is only ever flagged as the *unpaid* twin of a *paid* one. A quote with no
+  // event date is never flagged: without it there is nothing that says these are the same booking.
+  //
+  // Nothing here changes a row. The owner reads the flag, recognises the event, and decides.
+  const keyOf = (q) => {
+    const who = String(q.customer_email || '').trim().toLowerCase() || String(q.customer_name || '').trim().toLowerCase();
+    return who && q.event_date ? who + '|' + q.event_date : null;
+  };
+  const paidByKey = new Map();
+  for (const q of quotes) {
+    const k = keyOf(q);
+    if (k && (q.deposit_status === 'paid' || q.balance_status === 'paid')) paidByKey.set(k, q);
+  }
+  quotes = quotes.map((q) => {
+    if (q.deposit_status === 'paid' || q.balance_status === 'paid' || q.deposit_status === 'void') return q;
+    const k = keyOf(q);
+    const twin = k && paidByKey.get(k);
+    if (!twin || twin.id === q.id) return q;
+    return {
+      ...q,
+      possible_duplicate_of: twin.id,
+      duplicate_reason: `Same customer and the same event date (${q.event_date}) as ${twin.id}, which is already paid. Check that this is the same booking before doing anything — the amounts are not what matched.`,
+    };
+  });
+
   // Website quote requests stay in the shared leads table until Dayan agrees a price. They are
   // deliberately separate from catering_quotes: a customer's request is not yet an offer, and it
   // must never create a payable deposit link or imply an approved total on its own.
@@ -166,6 +199,31 @@ export const onRequestPost = async ({ request, env }) => {
     if(!qid)return bad('Missing quote_id.');
     try { const result=await createBalanceCheckout(env,qid,appBaseUrl(env,request)); return result.ok?json(result):bad(result.error,409); }
     catch { return bad('Could not save the balance checkout. Retry to recover the same link.',503); }
+  }
+
+  // VOID ONE QUOTE — the owner's deliberate act, never the system's.
+  //
+  // It refuses outright on anything with money against it: a paid deposit, a recorded deposit
+  // payment, or a paid balance. That refusal is the whole point — the failure mode this exists to
+  // prevent is voiding the quote the customer actually paid and leaving the unpaid twin standing.
+  // Voiding also REVOKES the customer's link (access_token = NULL), so the dead quote cannot be
+  // opened or paid afterwards, and waives its balance so it stops showing as money owed.
+  if (op === 'void_quote') {
+    const qid = String((b && b.quote_id) || '').trim();
+    if (!qid) return bad('Missing quote_id.');
+    const q = await env.DB.prepare('SELECT id, customer_name, deposit_status, deposit_paid_cents, balance_status FROM catering_quotes WHERE id = ?').bind(qid).first().catch(() => null);
+    if (!q) return bad('That quote does not exist.', 404);
+    if (q.deposit_status === 'paid' || Number(q.deposit_paid_cents) > 0 || q.balance_status === 'paid') {
+      return bad('This quote has been PAID. A paid quote is never voided from here — if a refund is owed, issue it in Square and record it there.', 409);
+    }
+    if (q.deposit_status === 'void') return json({ ok: true, quote_id: qid, already: true });
+    try {
+      const r = await env.DB.prepare(
+        "UPDATE catering_quotes SET deposit_status='void', balance_status='waived', access_token=NULL, updated_at=? WHERE id=? AND deposit_status <> 'paid' AND COALESCE(deposit_paid_cents,0)=0 AND balance_status <> 'paid'"
+      ).bind(now(), qid).run();
+      if (!r || !r.meta || r.meta.changes !== 1) return bad('That quote could not be voided — reload the page and check whether it has been paid.', 409);
+      return json({ ok: true, quote_id: qid, deposit_status: 'void' });
+    } catch { return bad('Could not void that quote.', 500); }
   }
 
   if (op === 'mark_balance_paid') {

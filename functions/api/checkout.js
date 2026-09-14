@@ -4,10 +4,23 @@
 // tampered with from the browser.
 import { json, bad, id, appBaseUrl, normalizePhone, isEmail } from '../_lib/util.js';
 import { square, squareConfigured } from '../_lib/square.js';
-import { limitOr429 } from '../_lib/ratelimit.js';
+import { limitOr429, rateLimit } from '../_lib/ratelimit.js';
 import { geocode, formatAddress, geoConfigured, lastGeocodeFailure, addressWasCorrected } from '../_lib/geo.js';
-import { loadOrderingSettings, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
-import { loadOperating, zipAllowed, scheduleOpenFor } from '../_lib/operating.js';
+import { loadOrderingSettings, onDemandConfig, windowState, remainingByBowl, etParts } from '../_lib/ondemand.js';
+import { loadOperating, zipAllowed, scheduleOpenFor, isClosed, deliveryDays } from '../_lib/operating.js';
+import { DAILY_KIND, loadDailySettings, dayView, claimPortions, attachClaim, releaseClaim, dailyHoldMs } from '../_lib/daily.js';
+
+// Who a Daily claim belongs to. A checkout_key is a random string in a URL body — on its own it
+// must never be enough to be handed back a Square link, because that link carries the first
+// buyer's name, email and phone prefilled. Hashed, not stored: the desk has no use for the address.
+async function buyerHashOf(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return null;
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(e));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+import { dailyDeliveryFee } from '../_lib/delivery_fee.js';
+import { addEtDays } from '../_lib/hub.js';
 import { validateCateringNotice } from '../_lib/catering-notice.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 import { currentUser } from '../_lib/session.js';
@@ -255,6 +268,12 @@ export const onRequestPost = async ({ request, env }) => {
   // falls back to the module constants if D1 is unreachable — a database hiccup must not stop us
   // taking money at the last known-good price.
   const menu = await loadMenu(env);
+  // Supplier cost at the moment of sale, snapshotted onto each order line so margin history does
+  // not move when the owner edits a cost later. NULL = unknown (never zero, never required).
+  const costOf = (itemId) => {
+    const c = menu.costs ? menu.costs[itemId] : null;
+    return Number.isInteger(c) && c >= 0 ? c : null;
+  };
 
   const lineItems = [];
   const orderItems = [];
@@ -278,6 +297,7 @@ export const onRequestPost = async ({ request, env }) => {
         id: it.id, name: lineName + (pr.notes ? ' — ' + pr.notes : ''), qty, price_cents: pr.unitCents,
         size_oz: 16, size_pct: 100, macros: pr.macros, build: pr.build, ingredients: pr.ingredients,
         removals: pr.removed, addons: pr.addons, notes: pr.notes, avocado: pr.avocado, base: pr.base,
+        unit_cost_cents: costOf(it.id),
       });
     } else {
       const prod = menu.nonBowls[it && it.id];
@@ -295,8 +315,66 @@ export const onRequestPost = async ({ request, env }) => {
       subtotalCents += cents * qty;
       if (/^(catering_|traditional_)/.test(it.id)) cateringSubtotalCents += cents * qty;
       lineItems.push({ name: prod.name, quantity: String(qty), base_price_money: { amount: cents, currency: 'USD' } });
-      orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents });
+      orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents, unit_cost_cents: costOf(it.id) });
     }
+  }
+
+  // ---- AÑEJO DAILY. A cart holding the day's featured lunch follows its own rules, and ONLY
+  // those rules move: same-day until the Daily cutoff (not the 48h catering notice, not the
+  // day-before scheduled cutoff), no order minimum, lunch window, delivery only, and a portion
+  // claimed from the day's public allocation before Square is ever called.
+  // MIXED CARTS: Daily + packaged drinks only. Anything else is a different fulfillment (a
+  // scheduled day, catering notice, the on-demand bowl window) and mixing them would let one
+  // item's exemptions leak onto another — so it is refused with a clear message instead.
+  const dailyLines = orderItems.filter((li) => menu.kinds && menu.kinds[li.id] === DAILY_KIND);
+  let daily = null;
+  if (dailyLines.length) {
+    const mealIds = [...new Set(dailyLines.map((li) => li.id))];
+    if (mealIds.length > 1) return bad('Añejo Daily is one featured lunch per day — please keep one Daily meal in your cart.', 409);
+    const others = orderItems.filter((li) => menu.kinds[li.id] !== DAILY_KIND);
+    if (others.some((li) => menu.kinds[li.id] !== 'drink')) {
+      return bad('Añejo Daily is delivered on its own schedule, so it can only be combined with drinks. Please place other items as a separate order. / Añejo Daily solo se combina con bebidas; haz un pedido aparte para lo demás.', 409);
+    }
+    const dailySettings = await loadDailySettings(env);
+    const todayEt = etParts(new Date()).dateStr;
+    const reqDate = b.daily && typeof b.daily.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.daily.date) ? b.daily.date : todayEt;
+    if (reqDate < todayEt || reqDate > addEtDays(todayEt, dailySettings.horizon_days)) return bad('Please choose an upcoming Añejo Daily date.', 409);
+    const view = await dayView(env, reqDate, { settings: dailySettings });
+    if (!view || view.item.id !== mealIds[0]) return bad('That meal is not Añejo Daily on this date anymore — please refresh the page. / Este plato ya no es el Añejo Daily de ese día; actualiza la página.', 409);
+    if (view.status === 'closed') return bad(`Añejo Daily ordering for ${reqDate} closed at ${view.cutoff_label} ET. / Los pedidos de Añejo Daily cerraron a las ${view.cutoff_label}.`, 409);
+    if (view.status === 'unavailable') return bad('Añejo Daily is not available for that date. / Añejo Daily no está disponible ese día.', 409);
+    // Its own local, NOT the hoisted `schedOps` further down: that is declared with `let` below,
+    // and assigning it from up here would be a temporal-dead-zone error on every Daily order.
+    const ops = await loadOperating(env);
+    if (isClosed(ops, reqDate)) return bad('We are closed that day. / Ese día estamos cerrados.', 409);
+    // A Daily skips the day-before deadline, not the delivery CALENDAR. Selling a delivery on a day
+    // nobody drives is a promise we cannot keep, so the weekday still has to be one we deliver on.
+    if (!deliveryDays(ops).includes(new Date(reqDate + 'T12:00:00Z').getUTCDay())) {
+      return bad('We do not deliver on that day. / No entregamos ese día.', 409);
+    }
+    const qty = dailyLines.reduce((s, li) => s + li.qty, 0);
+    // THE CAP THE STOREFRONT ALREADY SHOWS. The page offers one portion; without this the server
+    // would honour a crafted request for the whole day's allocation — ten portions held for half an
+    // hour, unpaid, and the day sold out to everyone else. Owner-configurable on the Daily desk.
+    if (qty > dailySettings.max_per_order) {
+      return bad(dailySettings.max_per_order === 1
+        ? 'Añejo Daily is one lunch per order. / Añejo Daily es un almuerzo por pedido.'
+        : `Añejo Daily is limited to ${dailySettings.max_per_order} per order. / Máximo ${dailySettings.max_per_order} por pedido.`, 409);
+    }
+    // A SECOND, TIGHTER LIMIT on the Daily specifically. The general checkout limit (15/min) is
+    // sized for a storefront where an abandoned checkout costs nothing; here each one holds a
+    // portion of a ten-portion day for 30 minutes. Fails open like every limiter here — a KV
+    // hiccup must not stop someone buying lunch.
+    const dl = await rateLimit(env, request, { name: 'daily-checkout', limit: 4, windowSec: 600 });
+    if (!dl.ok) return bad('Too many Añejo Daily checkouts from this connection. Please try again shortly. / Demasiados intentos; inténtalo en un momento.', 429);
+    if (view.remaining < qty) {
+      return bad(view.remaining > 0
+        ? `Only ${view.remaining} Añejo Daily left for ${reqDate}. / Solo quedan ${view.remaining}.`
+        : 'Añejo Daily is sold out for that day. / Añejo Daily está agotado.', 409);
+    }
+    // A retried or double-clicked checkout carries the same key and can never consume twice.
+    const key = typeof b.checkout_key === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(b.checkout_key) ? b.checkout_key : null;
+    daily = { date: reqDate, mealId: mealIds[0], qty, view, key, holdMs: dailyHoldMs(dailySettings), claimId: null };
   }
 
   // Two fulfillment modes:
@@ -305,7 +383,8 @@ export const onRequestPost = async ({ request, env }) => {
   //   scheduled → an upcoming Mon–Sat delivery, ordered before the 6 PM day-before cutoff.
   const WINDOWS = { lunch: 'Lunch (11:00 AM–1:00 PM)', dinner: 'Dinner (5:00 PM–7:00 PM)', asap: 'ASAP · today' };
   const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const onDemand = !!(b.fulfillment && b.fulfillment.mode === 'on_demand') || b.mode === 'on_demand';
+  // A Daily cart is never on-demand, whatever the browser sent: it has its own same-day rules.
+  const onDemand = !daily && (!!(b.fulfillment && b.fulfillment.mode === 'on_demand') || b.mode === 'on_demand');
 
   if (onDemand && orderItems.some(it => /^(catering_|traditional_)/.test(it.id))) {
     return bad('Traditional and catering items require scheduled delivery. Please choose a delivery date.', 409);
@@ -315,7 +394,12 @@ export const onRequestPost = async ({ request, env }) => {
   // Hoisted: assigned on the scheduled branch, reused for the zip check on BOTH branches. As a
   // const inside the else-block it made every on-demand order throw ReferenceError at the reuse.
   let schedOps = null;
-  if (onDemand) {
+  if (daily) {
+    fulfillmentMode = 'scheduled';
+    dateStr = daily.date;
+    win = 'lunch';
+    fulfillLabel = `Añejo Daily · ${DOW[new Date(daily.date + 'T12:00:00Z').getUTCDay()]} ${daily.date} · ${WINDOWS.lunch}`;
+  } else if (onDemand) {
     fulfillmentMode = 'on_demand';
     // Same overrides as the storefront. If only the display honored scheduled-only, a crafted
     // request could still place a same-day order — the gate has to read the same setting.
@@ -472,12 +556,19 @@ export const onRequestPost = async ({ request, env }) => {
   // below are the proof of consent, so they are never set without it.
   const mktgSmsConsent = ((contact.marketing_sms_consent === true || contact.marketing_sms_consent === 1) && custPhone) ? 1 : 0;
 
-  let deliveryNote = `${onDemand ? 'ON-DEMAND' : 'Delivery'} for ${firstName}: ${fulfillLabel} · ${addrLine}`;
+  let deliveryNote = `${daily ? 'AÑEJO DAILY' : onDemand ? 'ON-DEMAND' : 'Delivery'} for ${firstName}: ${fulfillLabel} · ${addrLine}`;
 
-  // Order minimum + flat delivery fee (configurable via env).
+  // Order minimum + flat delivery fee (configurable via env). Añejo Daily is exempt from the
+  // minimum (a $10 lunch is the whole point) and its fee is max(base, driving miles × rate) — see
+  // _lib/delivery_fee.js. Every other order keeps the minimum and the flat fee exactly as before.
   const orderMinCents = Math.round(Number(env.ORDER_MIN_USD || 25) * 100);
-  if (subtotalCents < orderMinCents) return bad(`Order minimum is $${(orderMinCents / 100).toFixed(2)}. Please add a little more.`);
+  if (!daily && subtotalCents < orderMinCents) return bad(`Order minimum is $${(orderMinCents / 100).toFixed(2)}. Please add a little more.`);
   let feeCents = Math.round(Number(env.DELIVERY_FEE_USD || 5) * 100);
+  if (daily) {
+    const f = await dailyDeliveryFee(env, null, verifiedGeo);
+    feeCents = f.fee_cents;
+    daily.fee = f;
+  }
 
   // FL state 6% + Palm Beach County 1% surtax = 7% by default; override via SALES_TAX_PCT.
   const taxPct = String(env.SALES_TAX_PCT || '7.0');
@@ -556,11 +647,43 @@ export const onRequestPost = async ({ request, env }) => {
   // ATOMIC use-cap claim. evaluatePromo's max_uses check is advisory — a Square round-trip sits
   // between it and the increment, so concurrent checkouts could all pass a 1-use gate. Claim the
   // slot here (conditional UPDATE, exactly one winner) and release it if anything downstream fails.
+  // The order id is fixed here, before Square, so the Daily claim can point at it and the webhook
+  // can confirm the right portions when the money lands.
+  const orderId = id('ord');
+
+  // AÑEJO DAILY PORTION CLAIM — atomic, before Square, before the promo slot (so a duplicate
+  // request that is answered from the first attempt consumes nothing at all).
+  if (daily) {
+    const buyerHash = await buyerHashOf(contact.email);
+    const c = await claimPortions(env, { dateStr: daily.date, mealId: daily.mealId, qty: daily.qty, checkoutKey: daily.key, buyerHash, orderId, holdMs: daily.holdMs });
+    if (!c.ok) {
+      if (c.code === 'duplicate') {
+        // The SAME buyer retrying gets their own link back. Anyone else presenting that key gets
+        // nothing: the link opens a Square page prefilled with the first buyer's name and phone,
+        // so handing it over on a guessed key would hand over their details with it.
+        if (c.existing && c.existing.payment_url && c.existing.buyer_hash && c.existing.buyer_hash === buyerHash) {
+          return json({ url: c.existing.payment_url, reused: true });
+        }
+        return bad('Your checkout is already being prepared — one moment, then refresh. / Tu pago ya se está preparando; espera un momento y actualiza.', 409);
+      }
+      if (c.code === 'already_paid') return bad('This order has already been paid. / Este pedido ya está pagado.', 409);
+      if (c.code === 'sold_out') {
+        return bad(c.remaining > 0
+          ? `Only ${c.remaining} Añejo Daily left. / Solo quedan ${c.remaining}.`
+          : 'Añejo Daily just sold out for that day. / Añejo Daily se acaba de agotar.', 409);
+      }
+      if (c.code === 'stale_key') return bad('Please refresh the page and try again.', 409);
+      return bad('We could not reserve your Añejo Daily. Please try again.', 503);
+    }
+    daily.claimId = c.claim_id;
+  }
+  const releaseDaily = async () => { if (daily && daily.claimId) await releaseClaim(env, daily.claimId); };
+
   let promoClaimed = false;
   if (promo) {
     promoClaimed = await claimPromoUse(env, promo.code);
     if (!promoClaimed) {
-      if (b.promo_code) return bad('That code has reached its limit.');
+      if (b.promo_code) { await releaseDaily(); return bad('That code has reached its limit.'); }
       promo = null; promoDiscountCents = 0;   // auto-applied benefit: degrade silently
     }
   }
@@ -614,7 +737,7 @@ export const onRequestPost = async ({ request, env }) => {
           });
           return ds.length ? ds : undefined;
         })(),
-        reference_id: onDemand ? 'web-ondemand' : 'web-delivery',
+        reference_id: daily ? 'web-daily' : onDemand ? 'web-ondemand' : 'web-delivery',
         note: deliveryNote,   // shows on the Square order for the kitchen
       },
       // Pre-fill Square's contact fields with what the client already gave us on /order,
@@ -643,6 +766,7 @@ export const onRequestPost = async ({ request, env }) => {
   // permanently burns a use from a capped code.
   if (!ok) {
     if (promoClaimed) await releasePromoUse(env, promo.code);
+    await releaseDaily();
     const detail = data && data.errors && data.errors[0] && data.errors[0].detail;
     return bad(detail || `Square checkout failed (${status}).`, 502);
   }
@@ -651,8 +775,11 @@ export const onRequestPost = async ({ request, env }) => {
   const url = pl && (pl.long_url || pl.url);
   if (!url) {
     if (promoClaimed) await releasePromoUse(env, promo.code);
+    await releaseDaily();
     return bad('Square did not return a checkout URL.', 502);
   }
+  // A retry with the same checkout key now gets THIS link back instead of a second claim.
+  if (daily && daily.claimId) await attachClaim(env, daily.claimId, { orderId, paymentUrl: url });
 
   // Persist a pending order for the kitchen view; the webhook marks it paid.
   const attribution = parseAttribution(b.attribution);
@@ -666,7 +793,6 @@ export const onRequestPost = async ({ request, env }) => {
       const lat = verifiedGeo ? verifiedGeo.lat : null;
       const lng = verifiedGeo ? verifiedGeo.lng : null;
       const geocodedAt = verifiedGeo ? t : null;
-      const orderId = id('ord');
       await env.DB.prepare(
         `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
             fulfillment_mode, subtotal_cents, fee_cents, tax_pct, total_estimate_cents, redeem_points, discount_cents,

@@ -265,6 +265,7 @@
     root.innerHTML = '<div class="hub-section">' + banners() +
       '<div class="mn-chips" id="chips"></div><div id="pane"></div></div>';
     $('#chips').innerHTML = [
+      { k: 'daily', label: 'Añejo Daily' },
       { k: 'bowl',  label: 'Bowls' },
       { k: 'drink', label: 'Drinks' },
       { k: 'addon', label: 'Add-ons' },
@@ -315,7 +316,12 @@
     { k: 'description_es', el: 'de_', saved: function (it) { return it.description_es || ''; } },
     { k: 'image',          el: 'i_',  saved: function (it) { return it.image || ''; } },
     { k: 'sort',           el: 's_',  saved: function (it) { return String(it.sort == null ? 100 : it.sort); } },
-    { k: 'active',         el: 'a_',  saved: function (it) { return !!it.active; }, bool: true }
+    { k: 'active',         el: 'a_',  saved: function (it) { return !!it.active; }, bool: true },
+    // Both added 2026-09-10. They belong in this list, not outside it: anything NOT tracked here
+    // is silently thrown away when another row is saved or a tab is switched — the exact data loss
+    // the buffer above was built to stop.
+    { k: 'unit_cost_cents', el: 'c_', saved: function (it) { return it.unit_cost_cents == null ? '' : String(it.unit_cost_cents); } },
+    { k: 'group_key',       el: 'g_', saved: function (it) { return it.group_key || ''; } }
   ];
 
   // What this row's inputs should show: the unsaved edit if there is one, else what is saved.
@@ -477,8 +483,10 @@
       image: shown(it, 'image'), sort: Number(shown(it, 'sort')),
       active: !!shown(it, 'active'),
       availability: shown(it, 'availability'),
-      stock_count: String(shown(it, 'stock_count') || '').trim()
+      stock_count: String(shown(it, 'stock_count') || '').trim(),
+      unit_cost_cents: String(shown(it, 'unit_cost_cents') || '').trim()
     };
+    if (it.kind === 'drink') body.group_key = shown(it, 'group_key');
     return fetch('/api/hub/owner/menu', { method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (res) { return res.json().then(function (j) { return res.ok && j && j.ok !== false; }); })
@@ -550,6 +558,21 @@
           '<div class="form-row"><label data-i18n>Photo file</label><input id="i_' + it.id + '" value="' + esc(shown(it, 'image')) + '" placeholder="bowl_vida.jpg"></div>' +
           '<div class="form-row"><label data-i18n>Position</label><input id="s_' + it.id + '" type="number" min="0" max="9999" value="' + esc(shown(it, 'sort')) + '"></div>' +
         '</div>' +
+        '<div class="form-two">' +
+          // What the food costs YOU. Optional — nothing needs it to sell — but once it is here,
+          // every order line stores the cost as it stood the day it sold, so a price change next
+          // month cannot rewrite last month's margin.
+          '<div class="form-row"><label data-i18n>Your cost (cents)</label><input id="c_' + it.id + '" type="number" min="0" max="100000" step="1" placeholder="unknown" value="' + esc(shown(it, 'unit_cost_cents')) + '">' +
+            '<p class="hint" data-i18n>What this costs you to make or buy, in cents. Leave blank if you do not know it — it is never required to sell, and customers never see it.</p></div>' +
+          (it.kind === 'drink'
+            ? '<div class="form-row"><label data-i18n>Drinks group</label><select id="g_' + it.id + '">' +
+                ['', 'hydrate', 'cuban', 'classic'].map(function (g) {
+                  var label = g === '' ? '— ungrouped —' : g === 'hydrate' ? 'Hydrate' : g === 'cuban' ? 'Cuban classics' : 'Classic & Zero';
+                  return '<option value="' + g + '"' + (shown(it, 'group_key') === g ? ' selected' : '') + '>' + label + '</option>';
+                }).join('') + '</select>' +
+                '<p class="hint" data-i18n>Where this drink appears on the storefront. Ungrouped drinks are listed under Drinks.</p></div>'
+            : '') +
+        '</div>' +
         '<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:10px 0 0">' +
           '<input type="checkbox" id="a_' + it.id + '" ' + (shown(it, 'active') ? 'checked' : '') + ' style="width:auto"> ' +
           '<span data-i18n>Show on the website</span></label>' +
@@ -582,8 +605,11 @@
       active: $('#a_' + it.id).checked,
       availability: ($('#av_' + it.id) || {}).value || 'available',
       // Sent as '' rather than 0 when cleared — '' means no limit, 0 means none left.
-      stock_count: (($('#q_' + it.id) || {}).value || '').trim()
+      stock_count: (($('#q_' + it.id) || {}).value || '').trim(),
+      // Blank cost means UNKNOWN, not free — the server stores NULL for it.
+      unit_cost_cents: (($('#c_' + it.id) || {}).value || '').trim()
     };
+    if ($('#g_' + it.id)) body.group_key = $('#g_' + it.id).value;
     // Taking something off sale is a bigger deal than a typo in a description, and it is the one
     // change on this form a customer notices within the minute. Confirm it like a price change.
     var wasAv = it.availability || 'available';
@@ -662,7 +688,7 @@
         '<h3 data-i18n>Add a menu item</h3>' +
         '<div class="form-two">' +
           '<div class="form-row"><label data-i18n>Type</label><select id="f_kind">' +
-            '<option value="drink">Drink</option><option value="addon">Add-on</option><option value="bowl">Bowl</option>' +
+            '<option value="drink">Drink</option><option value="addon">Add-on</option><option value="bowl">Bowl</option><option value="daily">Añejo Daily meal</option>' +
           '</select></div>' +
           '<div class="form-row"><label data-i18n>Id</label><input id="f_id" placeholder="fit_verde" autocomplete="off"></div>' +
         '</div>' +
@@ -690,6 +716,9 @@
       if (k === 'bowl') {
         el.style.color = 'var(--crit)'; el.style.opacity = '1';
         el.textContent = 'A new BOWL is not orderable from this form alone. Its recipe (ingredients + macros) lives in code, and checkout refuses any bowl it does not have a recipe for — the customer would build a cart and get an error at payment. Add it here, then have the recipe added and deployed. Leave “show on the website” off until then.';
+      } else if (k === 'daily') {
+        el.style.color = ''; el.style.opacity = '';
+        el.textContent = 'An AÑEJO DAILY meal is the featured lunch for a day. It is never listed in the general menu — it goes on sale only on the dates you schedule it on the Añejo Daily page. Its price must be one of your Daily tiers ($10 / $15 unless you changed them). Give it the dish name, what is included in the description, and a photo.';
       } else {
         el.style.color = ''; el.style.opacity = '';
         el.textContent = 'Drinks and add-ons work the moment you save them — they are priced straight from this row.';

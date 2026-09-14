@@ -155,12 +155,23 @@ test('a row with no readable terms snapshot yields null, never a fabricated one'
   assert.equal(q.terms_json, undefined, 'the raw column is not shipped alongside the parsed one');
 });
 
+// The event has to be FAR ENOUGH AHEAD, and "far enough" is relative to the day the test runs.
+// These deadlines used to be written as literal dates, and the suite went red on 2026-09-11 with
+// nothing broken: termsFor() correctly refuses to set a final-count deadline in the past, so it
+// clamped to today and the literals stopped matching. Deriving them from the clock asserts the
+// RULE — final count ten days before the event, balance the day before — instead of asserting one
+// particular September.
+const addDays = (n) => { const d = new Date(); d.setUTCHours(12, 0, 0, 0); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const EVENT_DATE = addDays(40);
+const FINAL_COUNT_DUE = addDays(30);   // 10 calendar days before the event
+const BALANCE_DUE = addDays(39);       // the day before the event
+
 // ---------- the preview: the split, before anything is minted ----------
 
 test('preview returns the depositSplit math and touches NOTHING — no Square, no row', async () => {
   const sq = stubSquare();
   const env = ownerEnv();
-  const out = await (await post(env, { op: 'preview', total_cents: 120000, event_date: '2026-09-20' })).json();
+  const out = await (await post(env, { op: 'preview', total_cents: 120000, event_date: EVENT_DATE })).json();
   sq.restore();
 
   assert.equal(out.ok, true);
@@ -168,8 +179,8 @@ test('preview returns the depositSplit math and touches NOTHING — no Square, n
   assert.equal(out.balance_cents, 60000);
   assert.equal(out.total_cents, 120000);
   assert.equal(out.deposit_cents + out.balance_cents, out.total_cents);
-  assert.equal(out.terms.final_count_due, '2026-09-10');
-  assert.equal(out.terms.balance_due_date, '2026-09-19', 'the day BEFORE the event');
+  assert.equal(out.terms.final_count_due, FINAL_COUNT_DUE);
+  assert.equal(out.terms.balance_due_date, BALANCE_DUE, 'the day BEFORE the event');
 
   assert.equal(sq.calls.length, 0, 'a preview that contacts Square is not a preview');
   assert.equal(env._sql.length, 0, 'and it writes no row');

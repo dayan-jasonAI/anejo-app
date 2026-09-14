@@ -59,16 +59,33 @@ test('the tick never even picks up an imageless post', () => {
 
 // ---------- 2. it cannot promote what it cannot sell ----------
 
-test('the planner is built from the LIVE menu, availability included', () => {
+// HISTORY: these two pinned the planner to BOWLS — `filter((it) => it.kind === 'bowl')`, and a
+// skip reason of 'no_bowls_available'. That was the defect, not the requirement: Añejo is a Cuban
+// catering company whose live catalog is mostly not bowls, and a planner that could only see the
+// bowl shelf went silent on a week when every traditional plate, tray, cajita and drink was on
+// sale. The pins moved WITH the requirement on 2026-09-10. What must still hold — and is what
+// these actually protect — is unchanged: the planner reads the LIVE menu, it respects
+// availability, and with nothing sellable it writes nothing rather than cheerful copy.
+test('the planner is built from the LIVE catalog — every family, availability included', () => {
   const planner = AUTO.slice(AUTO.indexOf('async function socialPlan'), AUTO.indexOf('const RUNNERS'));
-  assert.match(planner, /const onSale = bowls\.filter\(\(it\) => isAvailable\(it\) && isOrderable\(it\)\)/);
-  assert.match(planner, /Currently SOLD OUT and must not be mentioned/);
+  assert.match(planner, /const ctx = await marketingContext\(env\)/);
+  assert.match(planner, /const onSale = \[\.\.\.catalog\.values\(\)\]\.filter\(\(it\) => it\.available\)/);
+  assert.match(planner, /const off = \[\.\.\.catalog\.values\(\)\]\.filter\(\(it\) => !it\.available\)/);
+  assert.match(planner, /Currently OFF SALE and must not be promoted/);
+  // The bowl-only filter is gone and must not come back. Comment lines are stripped first — the
+  // note explaining what was removed quotes the very code it removed, and pinning against the
+  // explanation would forbid explaining it.
+  const code = planner.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  assert.ok(!/kind === 'bowl'/.test(code), 'the planner no longer filters the catalog to bowls');
 });
 
 test('with nothing on sale it writes nothing, rather than cheerful copy about an empty menu', () => {
   const planner = AUTO.slice(AUTO.indexOf('async function socialPlan'), AUTO.indexOf('const RUNNERS'));
-  assert.match(planner, /if \(!onSale\.length\)/);
-  assert.match(planner, /reason: 'no_bowls_available'/);
+  assert.match(planner, /if \(!anythingSellable\(ctx\.families\)\)/);
+  assert.match(planner, /reason: 'nothing_sellable'/);
+  // The bar is the WHOLE catalog now: a week with no bowls but plenty of croquetas is a week with
+  // plenty to say, and skipping it was the bug.
+  assert.ok(!/no_bowls_available/.test(planner), 'the bowl-shelf skip is gone');
 });
 
 test('it is told not to invent prices, discounts or claims', () => {
@@ -225,13 +242,24 @@ test('a draft caption can be corrected before approval', () => {
 });
 
 test('the planner is TOLD the real ordering rule, not left to guess', () => {
-  // It invented a weekly cutoff. The real one is 6 PM the day before, rolling daily.
-  // The hour itself became DYNAMIC (the owner moved 6 PM to 8 PM and moves it at will) — a
-  // hard-coded hour in the prompt was just the next wrong deadline waiting to be published. The
-  // pin now asserts the hour is READ, not written.
-  assert.match(AUTO, /orderByLabel. the DAY BEFORE — a rolling daily cutoff, not a weekly one/);
-  assert.match(AUTO, /const schedOps = await loadOperating\(env\)/);
+  // It invented a weekly cutoff. The real one is a rolling day-before deadline, and the HOUR is
+  // dynamic (the owner moved 6 PM to 8 PM and moves it at will) — a hard-coded hour in the prompt
+  // was just the next wrong deadline waiting to be published.
+  //
+  // HISTORY: this used to pin the planner's own `orderByLabel` + loadOperating() call. Añejo Daily
+  // added a SECOND, different cutoff (daily.cutoff_time), so the reading moved into one shared
+  // place — marketing_context.js — and the pin follows it there. The rule is stronger, not weaker:
+  // BOTH dials are read live, and the rendered block is the only version the model is given.
+  const MC = readFileSync(new URL('../../functions/_lib/marketing_context.js', import.meta.url), 'utf8');
+  assert.match(AUTO, /const orderingRules = renderOrderingFacts\(ctx\.ordering\)/);
+  assert.match(AUTO, /orderingRules \+ '\\n\\n'/, 'the rendered rules are actually in the prompt');
+  assert.match(MC, /a rolling daily cutoff, not a weekly one/);
+  assert.match(MC, /const described = describeOps\(ops\)/, 'the scheduled cutoff is READ from ops');
+  assert.match(MC, /daily_cutoff_label: daily \? fmtCutoff\(daily\.cutoff_time\) : null/, "and so is Añejo Daily's");
   assert.match(AUTO, /deadlines, cutoffs/);
+  // No hour may be written into either file by hand.
+  assert.ok(!/order by 6 ?PM/i.test(AUTO), 'no fossilised hour in the planner');
+  assert.ok(!/order by 6 ?PM/i.test(MC), 'no fossilised hour in the shared context');
 });
 
 // ---------- the planner reads the REAL brand standards ----------
@@ -251,8 +279,15 @@ test('the planner prompt carries the real standards, not a paraphrase', () => {
   // its fallback floor) and §3 of the sync-enforced full brief — the product lines — because the
   // standing objective is that people know EVERYTHING Añejo sells, and excerpts that stop at
   // voice would keep the planner writing bowl posts forever.
+  //
+  // HISTORY 2026-09-10: the "WHAT AÑEJO SELLS" heading moved into marketing_context.js, which now
+  // renders it over the LIVE catalog by product family rather than over §3's prose alone. The
+  // requirement is unchanged and the pin follows the heading to its new home; §3 is still injected
+  // here verbatim, as the owner's own words about what the lines ARE.
+  const MC2 = readFileSync(new URL('../../functions/_lib/marketing_context.js', import.meta.url), 'utf8');
   assert.match(AUTO, /from '\.\/brand_source\.js'/, 'the planner reads the SHARED brand loader, not a private BRAND_CONTEXT import');
-  assert.match(AUTO, /WHAT AÑEJO SELLS \(promote across ALL of it, not only bowls\)/);
+  assert.match(MC2, /WHAT AÑEJO SELLS \(the live catalog — promote across ALL of it, not only bowls\)/);
+  assert.match(AUTO, /renderMarketingContext\(ctx\)/, 'and the planner prompt actually carries it');
   assert.match(AUTO, /productLines\(\)/);
   assert.ok(!/warm, family-rooted, quietly confident/.test(AUTO), 'the hand-written paraphrase is deleted');
   assert.match(AUTO, /image_brief you write MUST comply with the Photo standard/);

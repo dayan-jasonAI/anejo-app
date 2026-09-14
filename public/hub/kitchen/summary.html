@@ -30,6 +30,15 @@
     </div>
   </div>
 
+  <!-- ONE BATCH, TWO KINDS OF DEMAND. The office/clinic lunch and Añejo Daily can be the same
+       dish on the same day. This panel adds them up by MEAL so the kitchen cooks once — the
+       orders themselves stay completely separate, and the unsold public allocation is shown as
+       a buffer, never as something that has to be made. -->
+  <div class="hub-section" id="production-section" hidden>
+    <h2 data-i18n>Make today (shared meals)</h2>
+    <div class="list" id="production"></div>
+  </div>
+
   <div class="hub-section">
     <h2 data-i18n>Item tally (batch prep)</h2>
     <div class="list" id="items"></div>
@@ -58,6 +67,16 @@
       $('#s-bowls').textContent = d.total_bowls || 0;
       $('#s-lunch').textContent = (d.by_window && d.by_window.lunch) || 0;
       $('#s-dinner').textContent = (d.by_window && d.by_window.dinner) || 0;
+      var prod = (d.production || []).filter(function (r) { return r.required_now > 0 || r.public_unsold > 0 || r.institutional_pending_sites > 0; });
+      $('#production-section').hidden = !prod.length;
+      $('#production').innerHTML = prod.map(function (r) {
+        var sub = r.institutional_committed + ' office/clinic + ' + r.public_sold + ' Añejo Daily' +
+          (r.public_held ? ' (' + r.public_held + ' more in checkout)' : '') +
+          (r.public_unsold ? ' · ' + r.public_unsold + ' still on offer' : '') +
+          (r.institutional_pending_sites ? ' · ' + r.institutional_pending_sites + ' site(s) have not sent a count yet' : '');
+        return '<div class="row"><div class="row-main"><div class="row-title">' + esc(r.name) + '</div>' +
+          '<div class="row-sub">' + esc(sub) + '</div></div><span class="badge">' + r.required_now + '</span></div>';
+      }).join('');
       $('#items').innerHTML = (d.items && d.items.length)
         ? d.items.map(function (it) {
             return '<div class="row"><div class="row-main"><div class="row-title">' + esc(it.name) + '</div></div><span class="badge">' + it.qty + '</span></div>';
