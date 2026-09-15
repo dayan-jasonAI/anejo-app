@@ -82,9 +82,40 @@ test('the cut-off warning states the operational fact without quoting a fee', ()
 
 test('invoicing still has the numbers it needs', () => {
   // The guard above must not be satisfied by deleting the pricing logic outright.
-  assert.ok(LIB.includes('const pricePer = Number(site.price_per_lunch_cents)'), 'price still computed');
+  const quote = body(LIB, 'export async function quoteContractDay', '\n}');
+  assert.ok(quote.includes('const sitePrice = Number(site.price_per_lunch_cents)'), 'the site price is still the fallback');
   assert.ok(LIB.includes('rush_fee_cents=excluded.rush_fee_cents'), 'fees still persisted per order');
+  assert.ok(LIB.includes('price_per_lunch_cents=excluded.price_per_lunch_cents'), 'the price actually used is what the ledger snapshots');
   assert.ok(/INSERT INTO contract_orders|contract_orders\s*\n/.test(LIB), 'orders still store money');
+});
+
+test('both head-count paths price a day through the ONE shared rule', () => {
+  // Two copies of count × price + delivery + rush is how an owner override and an office submit
+  // come to disagree about the same day. A per-dish price makes that drift a billing error.
+  const submit = body(LIB, 'export async function submitHeadcount', '\n}');
+  const override = body(LIB, 'export async function ownerSetHeadcount', '\n}');
+  for (const [name, fn] of [['submitHeadcount', submit], ['ownerSetHeadcount', override]]) {
+    assert.ok(fn.includes('await quoteContractDay(env, {'), `${name} must use quoteContractDay`);
+    assert.ok(!/Number\(site\.price_per_lunch_cents\)/.test(fn), `${name} must not price inline`);
+  }
+});
+
+// ---- the weekly menu ----
+// The menu row carries a per-dish PRICE. The office page may be told today's dish; it must never be
+// handed the row the dish came from.
+
+test("today's dish reaches the office as a name only", () => {
+  const ctxFn = body(LIB, 'export async function siteContext', '\n}');
+  const dish = (ctxFn.match(/const todayDish = [^\n]*/) || [''])[0];
+  assert.ok(dish, "siteContext still builds today's dish");
+  assert.ok(/name: menu\.row\.item_name, name_es: menu\.row\.item_name_es/.test(dish), 'built field by field from the name columns');
+  assert.ok(!/price/.test(dish), 'no price field on the dish');
+  assert.ok(!/today_dish: menu/.test(ctxFn), 'the raw menu row is never returned');
+});
+
+test('the office page reads no price off the dish', () => {
+  assert.ok(PAGE.includes('ctx.today_dish'), 'the page shows the dish');
+  assert.ok(!/today_dish\.[a-z_]*price/.test(PAGE), 'and nothing priced about it');
 });
 
 // ---- the campaign test segment ----
