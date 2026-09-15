@@ -58,7 +58,7 @@ Validation on this draft:
 - `npm test --silent`: 2,337 passed, 0 failed. Full output: `/tmp/anejo-conversion-tests-20260915.log`.
 - `npm run lint --silent`: 0 errors; four existing unused-variable warnings in unrelated files.
 - `git diff --check`: passed.
-- Prior homepage SEO validator: 196 indexed pages, 140 city catering pages, 510 JSON-LD blocks, no missing canonicals.
+- Prior local SEO validator: 196 locally indexable pages, 140 city catering pages, 510 JSON-LD blocks, no missing canonicals. This is not Google indexing evidence.
 
 Remaining limits: No deployment or real settlement test in this work stretch. Older checkouts have no new receipt capability and show a non-confirmation fallback. KV propagation or delayed webhooks can delay confirmation; retry is available and users are warned against duplicate payment. Historical orders incorrectly advanced by authorization are not retroactively reclassified. GA4 attribution across Square and the preceding 60 days of traffic remain unverified. Browser access was rejected again after Dayan's "Try now"; no bypass attempted.
 
@@ -80,3 +80,32 @@ Validation: `node --no-warnings --test test/ui/shop-measurement.test.js test/ui/
 Read-only diagnosis is recorded in `docs/BROWSER_ACCESS_DIAGNOSTIC_2026-09-15.md`, including the exact runtime error classification, conflicting allow settings, matching app/runtime versions, and a support-request draft. The effective denying record remains unidentified. No browser-policy, Cloudflare, DNS, Google-account, or production changes were made. No support request was submitted.
 
 While live work remained blocked, `npm test --silent` was rerun against the branch including shopping instrumentation: 2,341 tests passed, 0 failed, exit 0 (terminal session 24898, duration 7451 ms). `git diff --check` also returned exit 0. These results validate local regressions, not production behavior. Existing deployment approval remains in force; browser recovery and live acceptance evidence remain outstanding.
+
+## Unblocked engineering follow-through
+
+Authorization: Dayan's direct-session request on September 15, 2026, "Do everything you can that's not blocked by the browser issue." Owner: Codex; branch: `codex/kitchen-ready-notifications`. No vault, credentials, browser-policy, production database, Google profile, or deployment changes in this work stretch.
+
+Changes and evidence:
+
+- Payment confirmation now contains analytics exceptions. An unavailable/throwing `gtag` no longer restarts verification after a paid response. Added an executable regression for the failure and subsequent analytics recovery.
+- Brief proposal persistence rejects over-60,000-character bodies instead of silently truncating them. Composition retains the full proposal for review; the API returns a length-validation error without saving. Added boundary/no-database-write tests.
+- BriefPanel allows editing the proposed body, displays its length, and disables blank, oversized, and demo submissions. Owner-only approval remains unchanged.
+- Studio invalidates old requests when switching transcripts. Late responses/chunks cannot append to a newly seeded session or clear another request's state. Duplicate sends before rerender and sends without a saved session are rejected. Four mocked-hook/stream tests exercise these cases; these are not rendered-browser tests.
+- Opening Content now closes Brief as well as Recipe. The existing deployed announcement script is preserved in the source HTML so subsequent builds do not drop it.
+- Regenerated `public/studio` through the existing build command. Vite intentionally leaves the non-module shared announcement script external; it remains present in the generated HTML.
+- SEO validator output now says `indexablePages`, correcting the unsupported implication of Google indexing.
+- Fixed the daily-cap test clock. The fixture's fixed September 15 10 AM timestamp became stale relative to the real clock; the test now freezes Date at its intended instant. No production sending logic changed.
+
+Final validation:
+
+- `npm test --silent`: 2,344 passed, zero failed; exit 0; output `/tmp/anejo-unblocked-tests-20260915.log`, terminal session 16367, 6531 ms. Earlier runs exposed the clock-dependent test and a tracked generated asset being replaced during build; final run occurred after build and staging.
+- `npm --prefix hub-app test`: 20 passed across three files; exit 0.
+- `npm run build:studio`: TypeScript and Vite build passed; generated JS `index-BOyPizLN.js`, 369.69 kB / 114.71 kB gzip.
+- `npm --prefix hub-app run lint`: exit 0.
+- Root lint: zero errors, four pre-existing unused-variable warnings; no new warnings from the edited backend/tests.
+- `node scripts/verify-local-seo.mjs`: 196 locally indexable pages, 140 city pages, 196 sitemap entries, 510 parseable JSON-LD blocks, zero missing canonicals. Does not validate Google indexing, ranking, content usefulness, or rich-result eligibility.
+- `git diff --cached --check`: exit 0.
+
+Remaining engineering risks (not browser blockers): `decideProposal` still uses separate writes for snapshot, document replacement, and approval status; failure/race handling needs transactional tests and an atomic implementation. `RecipePanel.publish` creates a recipe again on each retry if creation succeeds but publication fails; preserve the created recipe ID before retrying publication. These are open findings, not resolved by this batch. No claim that all browser-independent work is exhausted.
+
+Browser-blocked acceptance: real AI provider generation, rendered Brief editing and session switching, all live roles, notification delivery, completed Square checkout, Google profile edits, and account analytics. No production readiness or SEO outcome is asserted. Deployment approval persists; release remains pending acceptance evidence. Rollback for this batch is a scoped revert of its commit before deployment; no data migration is involved.

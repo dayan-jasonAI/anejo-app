@@ -10,12 +10,13 @@
   var retry = document.getElementById('paymentRetry');
   function text(en, spanish) { return es ? spanish : en; }
   function measure() {
-    if (!verified || sent || !window.gtag) return;
+    if (!verified || sent || typeof window.gtag !== 'function') return;
     var key = 'anejo:gaPurchase:' + verified.transaction_id;
     try { if (localStorage.getItem(key)) { sent = true; return; } } catch (_) {}
     var params = { transaction_id: verified.transaction_id, currency: verified.currency };
     if (typeof verified.value === 'number' && isFinite(verified.value)) params.value = verified.value;
-    window.gtag('event', 'purchase', params);
+    // Analytics availability must never change a verified payment's UI state.
+    try { window.gtag('event', 'purchase', params); } catch (_) { return; }
     sent = true;
     try { localStorage.setItem(key, '1'); } catch (_) {}
   }

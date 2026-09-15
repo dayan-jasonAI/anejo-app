@@ -4,10 +4,13 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 
 const source = readFileSync(new URL('../../public/assets/js/order-confirmation.js', import.meta.url), 'utf8');
-async function screen({ token = 'a'.repeat(64), consent = true, responses = [{ paid: false }] } = {}) {
+async function screen({ token = 'a'.repeat(64), consent = true, analyticsThrows = false, responses = [{ paid: false }] } = {}) {
   const events = [], listeners = {}, elements = {}, timers = [];
   const local = new Map(); let requests = 0;
-  const window = consent ? { gtag: (...args) => events.push(args) } : {};
+  const window = consent ? { gtag: (...args) => {
+    if (analyticsThrows) throw new Error('analytics unavailable');
+    events.push(args);
+  } } : {};
   const document = {
     getElementById: id => elements[id] ||= { style: {}, hidden: true, addEventListener: (name, fn) => { listeners[id + name] = fn; } },
     addEventListener: (name, fn) => { listeners[name] = fn; },
@@ -55,4 +58,17 @@ test('persistent unpaid state stops polling and offers a retry without claiming 
   assert.equal(s.timers.length, 0);
   assert.equal(s.elements.paymentRetry.hidden, false);
   assert.equal(s.elements.paymentHeading.textContent, 'Payment not yet confirmed');
+});
+
+test('analytics failure never restarts payment polling or downgrades a confirmed payment', async () => {
+  const s = await screen({ analyticsThrows: true, responses: [{ paid: true, transaction_id: 'ord_verified', currency: 'USD', value: 40 }] });
+  assert.equal(s.elements.paymentHeading.textContent, 'Payment confirmed');
+  assert.equal(s.elements.paymentCheck.hidden, false);
+  assert.equal(s.timers.length, 0);
+  assert.equal(s.requests(), 1);
+  assert.doesNotThrow(() => s.listeners['anejo:analytics-ready']());
+  s.window.gtag = (...args) => s.events.push(args);
+  s.listeners['anejo:analytics-ready']();
+  s.listeners['anejo:analytics-ready']();
+  assert.equal(s.events.length, 1);
 });

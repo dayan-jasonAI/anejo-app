@@ -9,7 +9,7 @@ import { budgetGate, recordSpend } from './ai_budget.js';
 
 const MODEL = 'claude-sonnet-5';
 export const BRAND_DOC_ID = 'doc_brand_main';
-const MAX_BODY = 60000;
+export const MAX_BODY = 60000;
 const AI_TIMEOUT_MS = 25000;
 
 function cleanLine(value, fallback, max = 200) {
@@ -28,7 +28,7 @@ function composeProposedBody(current, { title, proposedChange }) {
     '',
     change,
   ].join('\n');
-  return (base ? `${base}\n\n${section}` : section).slice(0, MAX_BODY);
+  return base ? `${base}\n\n${section}` : section;
 }
 
 function fallbackDraft(current, instruction) {
@@ -122,8 +122,8 @@ export async function draftBriefChange(env, { sessionId, instruction }) {
 export async function createProposal(env, { docId, sessionId, staff, role, title, rationale, proposed_body }) {
   const pid = id('bprop');
   const t = now();
-  const body = String(proposed_body || '').slice(0, MAX_BODY);
-  if (!body.trim()) return null;
+  const body = String(proposed_body || '');
+  if (!body.trim() || body.length > MAX_BODY) return null;
   try {
     await env.DB.prepare(
       `INSERT INTO brief_proposals (id, doc_id, session_id, proposed_by, proposed_role, title, rationale, proposed_body, status, created_at, updated_at)

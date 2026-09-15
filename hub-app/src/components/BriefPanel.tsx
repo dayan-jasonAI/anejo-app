@@ -32,7 +32,7 @@ export function BriefPanel({ sessionId, onClose }: { sessionId: string | null; o
   }
 
   async function submit() {
-    if (!sessionId || !draft) return;
+    if (!sessionId || !draft || demo || !draft.proposed_body.trim() || draft.proposed_body.length > 60000) return;
     setSubmitting(true); setErr('');
     const ok = await submitBriefProposal(sessionId, { title: title.trim() || draft.title, rationale: rationale.trim(), proposed_body: draft.proposed_body });
     setSubmitting(false);
@@ -77,10 +77,13 @@ export function BriefPanel({ sessionId, onClose }: { sessionId: string | null; o
               <label>{t('briefRationale')}</label>
               <textarea className="bp-instruction" rows={2} value={rationale} onChange={(e) => setRationale(e.currentTarget.value)} />
               <label>{t('briefProposed')}</label>
-              <pre className="bp-body">{draft.proposed_body}</pre>
+              <textarea className="bp-instruction" rows={16} aria-label={t('briefProposed')}
+                value={draft.proposed_body} disabled={submitting}
+                onChange={(e) => setDraft({ ...draft, proposed_body: e.currentTarget.value })} />
+              <div>{draft.proposed_body.length.toLocaleString()} / 60,000</div>
               <div className="rp-actions">
                 <button type="button" className="cp-copybtn" disabled={submitting} onClick={() => setDraft(null)}>{t('briefRedraft')}</button>
-                <button type="button" className="cp-go" disabled={submitting} onClick={submit}>
+                <button type="button" className="cp-go" disabled={submitting || demo || !draft.proposed_body.trim() || draft.proposed_body.length > 60000} onClick={submit}>
                   {submitting ? t('briefSubmitting') : t('briefSubmit')}
                 </button>
               </div>

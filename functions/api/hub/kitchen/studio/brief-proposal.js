@@ -6,7 +6,7 @@
 import { json, bad } from '../../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
-import { draftBriefChange, createProposal, listMyProposals, BRAND_DOC_ID } from '../../../../_lib/brief.js';
+import { draftBriefChange, createProposal, listMyProposals, BRAND_DOC_ID, MAX_BODY } from '../../../../_lib/brief.js';
 
 async function loadAuthorizedSession(env, sessionId, ctx) {
   if (!sessionId) return { session: null };
@@ -49,6 +49,7 @@ export const onRequestPost = async ({ request, env }) => {
 
   const proposed_body = (b && b.proposed_body || '').toString();
   if (!proposed_body.trim()) return bad('A proposed Brief body is required.');
+  if (proposed_body.length > MAX_BODY) return bad(`The proposed Brief exceeds ${MAX_BODY} characters. Shorten it before submitting; nothing was saved.`);
   const proposal = await createProposal(env, {
     docId: BRAND_DOC_ID,
     sessionId,

@@ -41,7 +41,7 @@ export function useStudioStream(sessionId: string | null) {
 
   const send = useCallback(
     async (text: string, assistType: string) => {
-      if (!text.trim() || streaming) return;
+      if (!sessionId || !text.trim() || streaming || abortRef.current) return;
       setError(null);
       setMessages((m) => [
         ...m,
@@ -51,6 +51,7 @@ export function useStudioStream(sessionId: string | null) {
       setStreaming(true);
       const ctrl = new AbortController();
       abortRef.current = ctrl;
+      const isCurrent = () => abortRef.current === ctrl;
       try {
         const r = await fetch('/api/hub/kitchen/studio/stream', {
           method: 'POST',
@@ -59,12 +60,14 @@ export function useStudioStream(sessionId: string | null) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ session_id: sessionId, text, assist_type: assistType }),
         });
+        if (!isCurrent()) return;
         if (!r.ok || !r.body) {
           let msg = 'Creative Studio AI is unavailable. This turn was not drafted or saved as a recipe-ready AI response.';
           try {
             const d = await r.json();
             if (d && d.error) msg = d.error;
           } catch { /* response was not JSON */ }
+          if (!isCurrent()) return;
           setError(msg);
           replaceLastAssistant(msg);
         } else {
@@ -72,11 +75,14 @@ export function useStudioStream(sessionId: string | null) {
           const dec = new TextDecoder();
           for (;;) {
             const { value, done } = await reader.read();
+            if (!isCurrent()) { await reader.cancel(); return; }
             if (done) break;
             appendToLast(dec.decode(value, { stream: true }));
           }
+          appendToLast(dec.decode());
         }
       } catch (e: any) {
+        if (!isCurrent()) return;
         if (e?.name === 'AbortError') {
           appendToLast(' …(stopped)');
         } else {
@@ -85,8 +91,10 @@ export function useStudioStream(sessionId: string | null) {
           replaceLastAssistant(msg);
         }
       } finally {
-        setStreaming(false);
-        abortRef.current = null;
+        if (isCurrent()) {
+          setStreaming(false);
+          abortRef.current = null;
+        }
       }
     },
     [sessionId, streaming, appendToLast, replaceLastAssistant],
@@ -97,6 +105,8 @@ export function useStudioStream(sessionId: string | null) {
   // Replace the transcript — used when resuming a past conversation or starting a fresh one.
   const seed = useCallback((msgs: ChatMessage[]) => {
     abortRef.current?.abort();
+    // Invalidate the old request before loading another conversation's transcript.
+    abortRef.current = null;
     setError(null);
     setStreaming(false);
     setMessages(msgs);

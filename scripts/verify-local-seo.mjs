@@ -50,7 +50,7 @@ function extractJsonLd(html, file) {
 
 const htmlFiles = (await walk(publicDir)).filter((file) => file.endsWith('.html'));
 let jsonLdBlocks = 0;
-let indexedPages = 0;
+let indexablePages = 0;
 let missingCanonical = 0;
 for (const file of htmlFiles) {
   const rel = path.relative(publicDir, file).replaceAll(path.sep, '/');
@@ -59,7 +59,7 @@ for (const file of htmlFiles) {
   const noindex = /name=["']robots["'][^>]+noindex/i.test(html);
   jsonLdBlocks += extractJsonLd(html, rel);
   if (!isPrivate && !noindex && rel !== '404.html') {
-    indexedPages += 1;
+    indexablePages += 1;
     if (!/<link\s+rel=["']canonical["']\s+href=["']https:\/\/anejocateringco\.com/i.test(html)) {
       missingCanonical += 1;
       fail('Indexable page missing canonical', rel);
@@ -88,7 +88,7 @@ for (const disallow of ['/hub/', '/client/', '/trainer/', '/api/']) {
 
 if (!process.exitCode) {
   console.log(JSON.stringify({
-    indexedPages,
+    indexablePages,
     cateringPages: cateringPages.length,
     sitemapUrls: sitemapUrls.length,
     jsonLdBlocks,

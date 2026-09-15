@@ -38,7 +38,7 @@ export function Studio({ sessionId, initialMessages }: { sessionId: string | nul
         <button
           type="button"
           className={`cp-toggle${showContent ? ' on' : ''}`}
-          onClick={() => { setShowContent((v) => !v); setShowRecipe(false); }}
+          onClick={() => { const v = !showContent; closeAll(); setShowContent(v); }}
         >
           ✨ {t('contentOpen')}
         </button>
