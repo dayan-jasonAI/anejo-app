@@ -38,7 +38,11 @@ test('the billing answer names the four schedules the system actually runs, in t
   for (const m of Object.values(BILLING_MODEL_LABELS)) assert.match(html, new RegExp(m.title.replace(/\+/g, '\\+')));
   // Card payment is opt-in per account (migration 0095). The page must not imply a "Pay now"
   // button is waiting for them.
-  assert.match(html, /switched on per account and only if you ask for it/);
+  assert.match(html, /switched on per account and only at your request/);
+  // Square is named on purpose: "who ends up holding my card number" is the question behind the
+  // question, and the honest answer is one worth giving before they have to ask it.
+  assert.match(html, /processed by <b>Square<\/b>/);
+  assert.match(html, /never see or store your card details/);
 });
 
 test('the page states no fact it was not given: no price, no delivery time, no diet promise, no customer', async () => {
@@ -68,7 +72,11 @@ test('a closed day is explained by what the code actually does — no count, no 
   assert.match(html, /Send no count/);
   assert.match(html, /nothing to invoice/);
   assert.match(html, /no standing order running in the background/);
-  assert.match(html, /We do not keep a holiday calendar/);
+  // The page now PROMISES two things, so the machinery that keeps them ships in the same change
+  // (functions/_lib/holiday_notices.js). Copy that makes a promise the code cannot keep is the one
+  // kind of copy this page must never carry.
+  assert.match(html, /ahead of every US federal holiday we write and ask/i);
+  assert.match(html, /at least seven days beforehand/i);
 });
 
 test('the allergy answer describes the notes box, and promises nothing on the kitchen’s behalf', async () => {

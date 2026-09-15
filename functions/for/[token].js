@@ -128,7 +128,8 @@ export const onRequestGet = async ({ params, request, env }) => {
       + '<p>After the cutoff a count still reaches the kitchen, but it goes in as a rush on the terms agreed for your account. Later in the morning the day’s number is frozen — by then the kitchen has built to it and the driver is counting it, and a silent edit would only make the paperwork disagree with the tray. The page tells you the moment that happens and gives you our phone number, because a person can still change what the kitchen can still cover.</p>'],
     ['What happens on a holiday, or a day we are closed?',
       '<p>Send no count. A delivery only exists because somebody submitted a number, so a day with no count is a day with no delivery and nothing to invoice — there is no standing order running in the background.</p>'
-      + '<p>We do not keep a holiday calendar for your program: your count is the only thing we cook to. Telling us about a closure in advance is welcome, but nothing breaks if you simply do not send one.</p>'],
+      + '<p>You will not have to remember, though. Ahead of every US federal holiday we write and ask whether your program is open that day, so it is settled in advance instead of guessed at on the morning. Holidays that fall at a weekend are observed on the weekday the offices actually close, and that is the day we ask about.</p>'
+      + '<p>And if our own kitchen is closed for a holiday we observe, you hear it from us <b>at least seven days beforehand</b> — never as a surprise on the day.</p>'],
     ['Which areas do you deliver to?',
       `<p>${e(offer.service_area_text || cfg.service_area.label)}${days ? ` — deliveries ${e(days)}` : ''}. Your delivery days, your delivery window and each location’s address are set with you before the first service day, and they are what the kitchen and the driver work from.</p>`],
     ['Can you handle allergies and special requests?',
@@ -136,9 +137,11 @@ export const onRequestGet = async ({ params, request, env }) => {
       + '<p>Which of those the kitchen takes on for your program is agreed with you before you start, not something this page should promise on the kitchen’s behalf. Ask below and you will get a straight answer.</p>'
       + note(offer.dietary_note)],
     ['How does billing work?',
-      '<p>One invoice for the account — not a bill per person and not a card swipe per day. You choose the schedule when the account is opened:</p>'
+      '<p>However suits your office. We fit the way you already pay people rather than asking you to change it for us, so the schedule is yours to pick when the account opens:</p>'
       + billingOptions
-      + '<p>Paying an invoice by card is switched on per account and only if you ask for it; otherwise an invoice is paid by check or bank transfer and we send those details with it.</p>'
+      + '<p>Card payments are processed by <b>Square</b>. We never see or store your card details — Square holds all of it, and we could not keep them if we wanted to.</p>'
+      + '<p>If cards are not how your office works, an invoice is paid by check, bank transfer or direct deposit and we send those details with it, and we can be set up as a W-9 vendor in your accounts payable system. Cash is fine too. If paying for each day when the count goes in is simplest for you, we can charge it that way instead.</p>'
+      + '<p>Nothing is ever charged automatically unless you ask us to set that up — autopay is switched on per account and only at your request.</p>'
       + note(offer.billing_note)],
     ['What does the first service day look like?',
       `<p>Your link opens that morning. Someone sends the count${byCutoff}, the kitchen prepares that number, and it is delivered in your window. Whoever sent the count gets a text receipt, and the day appears in the month-to-date list on the same link.</p>`

@@ -18,7 +18,7 @@ const CADENCE_BY_MODEL = { weekly_autopay: 'weekly', biweekly: 'biweekly', month
 export const BILLING_MODEL_LABELS = {
   weekly_autopay: { title: 'Weekly invoice + autopay', detail: 'One invoice each week, auto-charged to a card or bank account on file.' },
   biweekly: { title: 'Every two weeks', detail: 'A consolidated invoice every two weeks, paid on terms by your billing department.' },
-  monthly: { title: 'Monthly invoice', detail: 'One invoice per month.' },
+  monthly: { title: 'Monthly invoice', detail: 'Arranged case by case. Monthly terms carry a deposit of 50% of the estimated month, held against your final two weeks of service.' },
   same_day: { title: 'Pay per day', detail: 'Pay for each day’s lunches when you submit the head count.' },
 };
 

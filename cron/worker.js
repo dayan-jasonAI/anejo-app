@@ -14,6 +14,9 @@ const SCHEDULE = {
   // actually act on it, not at midnight. Each reminder sends once and only once; the job is safe
   // to run every day forever because the guarantee is a database constraint, not the clock.
   '0 13 * * *': ['balance_reminder'],
+  // 13:20 UTC ≈ 9:20am ET — federal-holiday notices to contract accounts. Morning, and twenty
+  // minutes after the balance reminders so two client emails never land in the same minute.
+  '20 13 * * *': ['holiday_notice'],
   '30 9 * * *': ['route_optimize'],                 // 09:30 UTC — early morning ET
   '0 18 * * *': ['sentiment_scan', 'ticket_triage'],// 18:00 UTC — early afternoon ET
   '0 10 * * 1': ['restock_suggest'],                // Mondays 10:00 UTC
