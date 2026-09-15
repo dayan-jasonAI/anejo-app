@@ -4,7 +4,14 @@ Allow: /
 
 # Application / private surfaces (no SEO value, keep out of the index)
 Disallow: /api/
+Disallow: /hub/
+Disallow: /client/
+Disallow: /trainer/
+Disallow: /prototype/
 Disallow: /intake.html
 Disallow: /plan.html
+Disallow: /go.html
+Disallow: /login.html
+Disallow: /portal.html
 
 Sitemap: https://anejocateringco.com/sitemap.xml
