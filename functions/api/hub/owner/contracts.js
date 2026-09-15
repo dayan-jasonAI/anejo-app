@@ -5,6 +5,8 @@ import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
 import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite, createInvoicePaymentLink } from '../../../_lib/contract.js';
 import { capture } from '../../../_lib/track.js';
+import { holidayOutlook, MIN_CLOSURE_LEAD_DAYS } from '../../../_lib/holiday_notices.js';
+import { HOLIDAY_KEYS, daysUntil } from '../../../_lib/holidays.js';
 
 // The edit-terms / invoice-lifecycle helpers below live here rather than in _lib/contract.js
 // because they are owner-desk-only: nothing on the public intake path (/lunch-count) may reach
@@ -101,10 +103,22 @@ function zipField(raw) {
 // Identity, address and schedule are per-location by nature and require an explicit site_id —
 // broadcasting a street address to every clinic on the account would be silent data loss.
 const TERM_COLS = ['price_per_lunch_cents', 'delivery_fee_cents', 'rush_fee_cents', 'cutoff_time'];
-const SITE_COLS = ['name', 'street', 'unit', 'city', 'state', 'zip', 'delivery_days', 'window_label', 'delivery_window', 'active'];
+const SITE_COLS = ['name', 'street', 'unit', 'city', 'state', 'zip', 'delivery_days', 'window_label', 'delivery_window', 'active', 'ops_email'];
 const ADDRESS_COLS = ['street', 'unit', 'city', 'state', 'zip'];
 const termsOf = (s) => [...TERM_COLS, ...SITE_COLS].reduce((o, k) => { o[k] = s ? s[k] : null; return o; }, {});
 const actorOf = (ctx) => (ctx && (ctx.email || ctx.distinct_id)) || null;
+
+// The person who decides whether a location runs on a holiday (functions/_lib/holiday_notices.js).
+// It rides edit_terms rather than a new op so the change lands in the same audited terms history as
+// every other location field. Blank CLEARS it, which sends holiday email back to the account's
+// billing inbox — never to nobody.
+function opsEmailField(raw) {
+  if (raw === undefined) return { skip: true };
+  const v = String(raw == null ? '' : raw).trim().toLowerCase();
+  if (!v) return { v: null };
+  if (!isEmail(v)) return { err: 'Ops email does not look like a valid email address.' };
+  return { v };
+}
 
 // Append-only terms history (migrations/0046). Best-effort on purpose: if that migration has NOT
 // been applied the table is missing, and losing the owner's rate change over a missing audit row
@@ -146,6 +160,7 @@ async function updateTerms(env, ctx, b) {
     window_label: textField(b.window_label, 'Delivery time', 40, { required: true }),
     delivery_window: windowField(b.delivery_window),
     active: activeField(b.active),
+    ops_email: opsEmailField(b.ops_email),
   };
   for (const f of Object.values(fields)) if (f.err) return { ok: false, error: f.err };
 
@@ -512,7 +527,11 @@ export const onRequestGet = async ({ request, env }) => {
     for (const s of sites) s.staff = maskSiteStaff(await listSiteStaff(env, s.id, { all: true }));
     out.push({ account: a, sites, recent, invoices, devices, events, terms_events: termsEvents });
   }
-  return json({ ok: true, accounts: out });
+  // Holidays sit beside the accounts because they apply to all of them. Best-effort: a holiday view
+  // that fails to build must never cost the owner the contracts desk itself.
+  let holidays = null;
+  try { holidays = await holidayOutlook(env); } catch { holidays = null; }
+  return json({ ok: true, accounts: out, holidays });
 };
 
 // POST { op:'activate', account_id, price_per_lunch_cents, delivery_fee_cents, rush_fee_cents?, cutoff_time? }
@@ -558,6 +577,40 @@ export const onRequestPost = async ({ request, env }) => {
     // Activate form is the single place that records them. Creating it live at $0 would deliver
     // free lunches on the first head count.
     return json({ ...r, next: 'Set the negotiated terms, then Activate to turn on their links.' });
+  }
+
+  // HOLIDAY SETTINGS are the owner's and apply to every account, so — like create_account — they run
+  // before the account_id guard. Which holidays the kitchen closes is the one fact the closure notice
+  // cannot run without, and it is deliberately empty until he sets it here.
+  if (op === 'save_holidays') {
+    const puts = [];
+    if (Array.isArray(b.kitchen_closed)) {
+      const unknown = b.kitchen_closed.filter((k) => !HOLIDAY_KEYS.includes(k));
+      if (unknown.length) return bad(`Unknown holiday: ${unknown.join(', ')}.`);
+      puts.push(['holidays.kitchen_closed', JSON.stringify([...new Set(b.kitchen_closed)])]);
+    }
+    if (typeof b.sms_enabled === 'boolean') puts.push(['holidays.sms_enabled', b.sms_enabled ? 'true' : 'false']);
+    if (!puts.length) return bad('Nothing to save.');
+    const t = now();
+    for (const [k, v] of puts) {
+      await env.DB.prepare(
+        `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES (?,?,?,?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`
+      ).bind(k, v, actorOf(ctx), t).run();
+    }
+    await capture(env, {
+      event: 'contract.holiday_settings_saved', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { kitchen_closed: Array.isArray(b.kitchen_closed) ? b.kitchen_closed.length : null, sms_enabled: typeof b.sms_enabled === 'boolean' ? b.sms_enabled : null },
+    });
+    const o = await holidayOutlook(env);
+    // The seven days is a promise in writing. Closing the kitchen for a holiday already inside that
+    // window cannot keep it, and saying "saved" as if it could would leave a client to find out on
+    // the morning. Say so, and say what to do instead.
+    const nowMs = Date.now();
+    const warnings = o.holidays
+      .filter((h) => h.kitchen_closed && daysUntil(h.observed, nowMs) < MIN_CLOSURE_LEAD_DAYS)
+      .map((h) => `${h.name} is ${daysUntil(h.observed, nowMs)} day(s) away — too late for the promised seven days' notice. Call those locations today; the automatic notice also goes out at the next morning run.`);
+    return json({ ok: true, holidays: o, warnings });
   }
 
   // SITE-SCOPED OPS RESOLVE THEIR OWN ACCOUNT, so they must run BEFORE the account_id guard.
