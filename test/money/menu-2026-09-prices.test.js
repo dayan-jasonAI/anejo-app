@@ -13,9 +13,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { PRODUCTS, RETIRE, FLAVORS } from '../../scripts/menu-2026-09/prices.mjs';
 
 const SQL = readFileSync(new URL('../../migrations/0100_menu_2026_09.sql', import.meta.url), 'utf8');
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 function cheapestExact(want, packs) {
   const best = new Array(want + 1).fill(Infinity);
@@ -43,8 +45,8 @@ test('no tray in the menu is unsellable', () => {
 test('the generator agrees — running its own checker passes', () => {
   // Belt and braces: the check that gates generation is executed here too, so CI fails on a bad
   // edit even if someone changes the test's copy of the rule.
-  const out = execFileSync('node', ['scripts/menu-2026-09/generate.mjs', '--check'],
-    { cwd: new URL('../../', import.meta.url).pathname, encoding: 'utf8' });
+  const out = execFileSync(process.execPath, ['scripts/menu-2026-09/generate.mjs', '--check'],
+    { cwd: ROOT, encoding: 'utf8' });
   assert.match(out, /no tray in the table is unsellable/);
 });
 

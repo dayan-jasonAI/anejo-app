@@ -84,11 +84,6 @@ const broward = [
 
 const cities = [...palmBeach, ...broward];
 
-const accentMap = new Map([
-  ['ano', 'año'],
-  ['AnEJO', 'AÑEJO'],
-]);
-
 function slugify(value) {
   return value
     .normalize('NFD')
@@ -524,7 +519,11 @@ async function updateExistingPages() {
   index = index
     .replace(
       '<title>Cuban Food, Fit Bowls & Catering in Palm Beach | Añejo</title>',
+      '<title>Cuban Catering & Food in Palm Beach and Broward | Añejo</title>',
+    )
+    .replace(
       '<title>Cuban Catering, Cuban Food & Fit Bowls in Palm Beach and Broward | Añejo</title>',
+      '<title>Cuban Catering & Food in Palm Beach and Broward | Añejo</title>',
     )
     .replace(
       '<meta name="description" content="Explore Añejo in Palm Beach County: traditional Cuban meals, customizable Fit bowls, Cajitas and catering trays. Order online or plan your event.">',
@@ -552,7 +551,7 @@ async function updateExistingPages() {
     )
     .replace(
       '"text": "We deliver across Palm Beach County, Monday through Saturday, in two windows — lunch (11:00 AM–2:00 PM) and dinner (5:00 PM–8:00 PM). Choose your window at checkout."',
-      '"text": "Añejo handles orders and catering requests across Palm Beach County and Broward County, depending on date, route, guest count, and product availability. Choose your available delivery window at checkout or submit a catering quote request for events."',
+      '"text": "Añejo handles catering requests across Palm Beach County and Broward County, depending on date, route, guest count, and product availability. Order delivery availability depends on the current checkout options and selected delivery window."',
     )
     .replace(
       '"text": "Yes. Añejo offers custom catering across Palm Beach County, including Añejo Fit menu selections, Cuban food, and individually packed Cajitas. Submit the catering quote request with your date, location, and guest count for availability and custom pricing."',
@@ -666,6 +665,45 @@ async function updateExistingPages() {
     );
   }
   await fs.writeFile(mealPath, meal);
+
+  const menuPath = path.join(publicDir, 'menu.html');
+  let menu = await fs.readFile(menuPath, 'utf8');
+  if (!menu.includes('rel="canonical"')) {
+    menu = menu.replace(
+      '<meta name="description" content="Explore Añejo Catering trays, traditional Cuban favorites, fitness bowls and drinks. See portions, prices and order online.">',
+      '<meta name="description" content="Explore Añejo Catering trays, traditional Cuban favorites, fitness bowls and drinks. See portions, prices and order online."><link rel="canonical" href="https://anejocateringco.com/menu">',
+    );
+  }
+  await fs.writeFile(menuPath, menu);
+
+  const affiliatePath = path.join(publicDir, 'affiliate.html');
+  let affiliate = await fs.readFile(affiliatePath, 'utf8');
+  affiliate = affiliate.replace(
+    '<title>Partner with Añejo — Creators, Gyms &amp; Trainers | Añejo Catering Co.</title>',
+    '<title>Añejo Partner Program for Creators, Gyms and Trainers</title>',
+  );
+  await fs.writeFile(affiliatePath, affiliate);
+
+  const cajitaPath = path.join(publicDir, 'cajita.html');
+  let cajita = await fs.readFile(cajitaPath, 'utf8');
+  cajita = cajita
+    .replace(
+      '<meta name="description" content="Customize La Cajita Cuban meal boxes with event colors, personalized labels, and menu selections for birthdays, baby showers, holidays, and gatherings across Palm Beach County.">',
+      '<meta name="description" content="Customize La Cajita Cuban meal boxes with event colors, personalized labels, and menu selections for birthdays, showers, holidays, and Palm Beach events.">',
+    )
+    .replace(
+      '<meta name="description" content="Customize La Cajita Cuban meal boxes with event colors, personalized labels, and menu selections for birthdays, showers, holidays, and Palm Beach events.">',
+      '<meta name="description" content="Customize La Cajita Cuban meal boxes with event colors, labels, and menu choices for birthdays, showers, holidays, and Palm Beach events.">',
+    );
+  await fs.writeFile(cajitaPath, cajita);
+
+  const vidaPath = path.join(publicDir, 'menu/vida.html');
+  let vida = await fs.readFile(vidaPath, 'utf8');
+  vida = vida.replace(
+    '<meta name="description" content="Seared sushi-grade tuna over quinoa with mango, mixed greens, cucumber, and our citrus-garlic dressing. Omega-rich and high in protein — built for clean energy and recovery.">',
+    '<meta name="description" content="Seared tuna over quinoa with mango, mixed greens, cucumber, and citrus-garlic dressing. Omega-rich Añejo bowl for clean energy and recovery.">',
+  );
+  await fs.writeFile(vidaPath, vida);
 }
 
 async function writeRobots() {
