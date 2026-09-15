@@ -61,3 +61,16 @@ Validation on this draft:
 - Prior homepage SEO validator: 196 indexed pages, 140 city catering pages, 510 JSON-LD blocks, no missing canonicals.
 
 Remaining limits: No deployment or real settlement test in this work stretch. Older checkouts have no new receipt capability and show a non-confirmation fallback. KV propagation or delayed webhooks can delay confirmation; retry is available and users are warned against duplicate payment. Historical orders incorrectly advanced by authorization are not retroactively reclassified. GA4 attribution across Square and the preceding 60 days of traffic remain unverified. Browser access was rejected again after Dayan's "Try now"; no bypass attempted.
+
+## Shopping funnel instrumentation
+
+Added `public/assets/js/shop-measurement.js`, wired through `public/order.html` and `public/assets/js/shop-order.js`:
+
+- `add_to_cart` and `remove_from_cart` report quantity differences, not every render.
+- `view_cart` records an explicit order-review action.
+- `begin_checkout` records a validated submission to the checkout endpoint; repeats count attempts, not unique customers.
+- `checkout_redirect` records Square handoff; it is not a purchase.
+- `checkout_error` records a failed handoff without sending the error text or form fields.
+- Events are consent-gated through the existing GA4 loader. Product IDs, quantities, and displayed item prices are allowlisted; contacts, addresses, and custom notes are not sent. Events before consent are not replayed.
+
+Validation: `node --no-warnings --test test/ui/shop-measurement.test.js test/ui/order-confirmation.test.js` passed all 8 tests. `git diff --check` passed. This new instrumentation cannot reconstruct the prior 60 days. Google Analytics report configuration and real event receipt remain Unverified until account access and a deployed browser test are available.
