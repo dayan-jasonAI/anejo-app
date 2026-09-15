@@ -721,6 +721,17 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
   //     move (nothing to add or drop).
   const bowlSync = prior ? await reconcileOrderBowls(env, { id: orderId, items }) : { added: 0, removed: 0 };
   if (bowlSync.added > 0) await announceCountRaised(env, { orderId, site, date, count: n, added: bowlSync.added, t });
+  // The cook's "inside" and "packed" photos (kitchen-photos.js) show the old count, whichever way it
+  // moved, so both are retaken before the order can be ready again. Not once the food has left the
+  // kitchen: then those photos are the record of what was actually handed to the driver.
+  if (bowlSync.added > 0 || bowlSync.removed > 0) {
+    try {
+      await env.DB.prepare(
+        `UPDATE kitchen_photos SET superseded_at = ? WHERE order_id = ? AND superseded_at IS NULL
+           AND NOT EXISTS (SELECT 1 FROM orders WHERE id = ? AND kitchen_cleared_at IS NOT NULL)`
+      ).bind(t, orderId, orderId).run();
+    } catch { /* no photos taken, or the table is not migrated: nothing to retake */ }
+  }
 
   // 2) Ledger row (source of truth for invoicing; one per site per day).
   try {

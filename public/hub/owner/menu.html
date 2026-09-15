@@ -270,6 +270,7 @@
       { k: 'addon', label: 'Add-ons' },
       { k: 'mods',  label: 'Extras' },
       { k: 'order', label: 'Ordering' },
+      { k: 'timing', label: 'Kitchen timing' },
       { k: 'new',   label: '+ New item' },
       { k: 'log',   label: 'Changes' }
     ].map(function (d) {
@@ -279,6 +280,7 @@
       b.addEventListener('click', function () { view = b.getAttribute('data-v'); render(); });
     });
     if (view === 'order') paintOrdering();
+    else if (view === 'timing') paintTiming();
     else if (view === 'mods') paintMods();
     else if (view === 'new') paintNew();
     else if (view === 'log') paintLog();
@@ -308,6 +310,7 @@
   var FIELDS = [
     { k: 'price',          el: 'p_',  saved: function (it) { return (it.price_cents / 100).toFixed(2); } },
     { k: 'stock_count',    el: 'q_',  saved: function (it) { return it.stock_count == null ? '' : String(it.stock_count); } },
+    { k: 'prep_minutes',   el: 'pm_', saved: function (it) { return it.prep_minutes == null ? '' : String(it.prep_minutes); } },
     { k: 'availability',   el: 'av_', saved: function (it) { return it.availability || 'available'; } },
     { k: 'name',           el: 'n_',  saved: function (it) { return it.name || ''; } },
     { k: 'name_es',        el: 'ne_', saved: function (it) { return it.name_es || ''; } },
@@ -477,7 +480,8 @@
       image: shown(it, 'image'), sort: Number(shown(it, 'sort')),
       active: !!shown(it, 'active'),
       availability: shown(it, 'availability'),
-      stock_count: String(shown(it, 'stock_count') || '').trim()
+      stock_count: String(shown(it, 'stock_count') || '').trim(),
+      prep_minutes: String(shown(it, 'prep_minutes') || '').trim()
     };
     return fetch('/api/hub/owner/menu', { method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -539,6 +543,9 @@
         '</select>' +
         '<p class="hint">Anything other than Available keeps the item on the site but blocks it at checkout — customers see the wording you pick. To remove it from the site entirely, untick “Show on the website” below.</p></div>' +
       '</div>' +
+      '<div class="form-row" style="margin:8px 0 0"><label data-i18n>Prep time (minutes)</label>' +
+        '<input id="pm_' + it.id + '" type="number" min="1" max="600" placeholder="not set" value="' + esc(shown(it, 'prep_minutes')) + '">' +
+        '<p class="hint">How long one takes to make, start to packed. The kitchen uses it to show when to start and a countdown. An order takes as long as its slowest item. Leave blank and the kitchen shows no timer for it.</p></div>' +
       '<details class="mn-more"><summary data-i18n>Name, description, photo, order</summary>' +
         '<div class="form-two">' +
           '<div class="form-row"><label data-i18n>Name</label><input id="n_' + it.id + '" value="' + esc(shown(it, 'name')) + '"></div>' +
@@ -582,7 +589,9 @@
       active: $('#a_' + it.id).checked,
       availability: ($('#av_' + it.id) || {}).value || 'available',
       // Sent as '' rather than 0 when cleared — '' means no limit, 0 means none left.
-      stock_count: (($('#q_' + it.id) || {}).value || '').trim()
+      stock_count: (($('#q_' + it.id) || {}).value || '').trim(),
+      // '' means no estimate: the kitchen shows no timer for this item.
+      prep_minutes: (($('#pm_' + it.id) || {}).value || '').trim()
     };
     // Taking something off sale is a bigger deal than a typo in a description, and it is the one
     // change on this form a customer notices within the minute. Confirm it like a price change.
@@ -737,6 +746,33 @@
           '<td>' + esc(r.changed_by || '—') + '</td>' +
           '<td>' + esc(Owner.timeAgo(r.created_at)) + '</td></tr>';
       }).join('') + '</table></div>';
+  }
+
+  // ---------- kitchen timing ----------
+  // When the food must be ready and how long an office lunch takes. Per-item prep time is on each
+  // item card; these are the numbers around it (functions/_lib/kitchen-timing.js).
+  function paintTiming() {
+    var t = data.kitchen_timing || {};
+    $('#pane').innerHTML = '<div class="card">' +
+      '<p class="hint" style="opacity:1">The kitchen shows each order a <b>start by</b> time, a <b>ready by</b> time and a countdown. Ready by = when the delivery window opens, minus the time below. Start by = ready by, minus the order’s prep time.</p>' +
+      '<div class="form-two">' +
+        '<div class="form-row"><label data-i18n>Lunch window opens</label><input id="kt_lunch" type="time" value="' + esc(t.lunch_start || '') + '"></div>' +
+        '<div class="form-row"><label data-i18n>Dinner window opens</label><input id="kt_dinner" type="time" value="' + esc(t.dinner_start || '') + '"></div>' +
+      '</div>' +
+      '<div class="form-two">' +
+        '<div class="form-row"><label data-i18n>Ready before delivery (minutes)</label><input id="kt_lead" type="number" min="0" max="240" value="' + esc(t.ready_lead_minutes == null ? '' : t.ready_lead_minutes) + '">' +
+          '<p class="hint">Time for packing and the driver to load. 30 is only a starting point.</p></div>' +
+        '<div class="form-row"><label data-i18n>Office lunch prep time (minutes)</label><input id="kt_office" type="number" min="0" max="600" placeholder="not set" value="' + esc(t.office_prep_minutes == null ? '' : t.office_prep_minutes) + '">' +
+          '<p class="hint">Office orders have no menu item, so their estimate is set here. Their window comes from each site.</p></div>' +
+      '</div>' +
+      '<div class="mn-actions"><button class="btn gold" id="kt_save" data-i18n>Save</button><span class="msg" id="kt_msg"></span></div>' +
+    '</div>';
+    $('#kt_save').addEventListener('click', function () {
+      post({ op: 'update_kitchen_timing', timing: {
+        lunch_start: $('#kt_lunch').value, dinner_start: $('#kt_dinner').value,
+        ready_lead_minutes: $('#kt_lead').value, office_prep_minutes: $('#kt_office').value.trim()
+      } }, '#kt_msg', 'Saved.');
+    });
   }
 
   // ---------- shared POST ----------
