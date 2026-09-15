@@ -34,13 +34,40 @@ export const FEDERAL_HOLIDAYS = Object.freeze([
 ]);
 
 export const HOLIDAY_KEYS = Object.freeze(FEDERAL_HOLIDAYS.map((h) => h.key));
-export const holidayByKey = (k) => FEDERAL_HOLIDAYS.find((h) => h.key === k) || null;
+
+// Days the kitchen may close that are NOT federal holidays. Dayan, 2026-09-15: closed on every federal
+// holiday "including New Year's Eve, Easter and Christmas Eve". They never shift for a weekend — the
+// weekend rule is a statute about federal holidays — and they only ever produce a notice when the owner
+// has marked the kitchen closed for them: nobody is asked "will you be open on Christmas Eve?" by default.
+export const EXTRA_OBSERVANCES = Object.freeze([
+  { key: 'new_years_eve', name: "New Year's Eve", rule: { type: 'fixed', month: 12, day: 31 } },
+  { key: 'easter', name: 'Easter Sunday', rule: { type: 'easter' } },
+  { key: 'christmas_eve', name: 'Christmas Eve', rule: { type: 'fixed', month: 12, day: 24 } },
+]);
+export const OBSERVANCE_KEYS = Object.freeze([...HOLIDAY_KEYS, ...EXTRA_OBSERVANCES.map((h) => h.key)]);
+export const holidayByKey = (k) => FEDERAL_HOLIDAYS.find((h) => h.key === k) || EXTRA_OBSERVANCES.find((h) => h.key === k) || null;
 
 const utc = (y, m, d) => new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 const iso = (dt) => dt.toISOString().slice(0, 10);
 
+/**
+ * Easter Sunday — the Anonymous Gregorian algorithm (Meeus/Jones/Butcher). Easter is the one day on the
+ * list that moves by weeks, not by a weekday rule, so it is computed rather than looked up: 2026-04-05,
+ * 2027-03-28, 2028-04-16.
+ */
+function easterDate(year) {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return utc(year, month, day);
+}
+
 /** The holiday's ACTUAL date in a given year, before any weekend shift. */
 function dateOf(rule, year) {
+  if (rule.type === 'easter') return easterDate(year);
   if (rule.type === 'fixed') return utc(year, rule.month, rule.day);
   if (rule.type === 'nth_dow') {
     const first = utc(year, rule.month, 1);
@@ -93,6 +120,29 @@ export function upcomingHolidays(fromMs, days = 30) {
   return all
     .filter((h) => h.observed >= start && h.observed <= end)
     .sort((a, b) => (a.observed < b.observed ? -1 : a.observed > b.observed ? 1 : 0));
+}
+
+/**
+ * Every day the kitchen might close in `year`: the eleven federal holidays with their observed weekday,
+ * plus the extras, which are observed on the day itself. `federal` says which is which, because only a
+ * federal holiday is asked about by default.
+ */
+export function observances(year) {
+  const extras = EXTRA_OBSERVANCES.map((h) => {
+    const d = iso(dateOf(h.rule, year));
+    return { key: h.key, name: h.name, date: d, observed: d, shifted: false, federal: false };
+  });
+  return [...federalHolidays(year).map((h) => ({ ...h, federal: true })), ...extras];
+}
+
+/** Like upcomingHolidays(), across the federal holidays AND the extras. Spans years for the same reason. */
+export function upcomingObservances(fromMs, days = 30) {
+  const y = new Date(fromMs).getUTCFullYear();
+  const start = iso(new Date(fromMs));
+  const end = iso(new Date(fromMs + days * 86400000));
+  return [...observances(y - 1), ...observances(y), ...observances(y + 1)]
+    .filter((h) => h.observed >= start && h.observed <= end)
+    .sort((a, b) => (a.observed < b.observed ? -1 : a.observed > b.observed ? 1 : a.key < b.key ? -1 : 1));
 }
 
 /** Whole days from `fromMs` to an observed date. Negative once the date has passed. */

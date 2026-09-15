@@ -104,7 +104,7 @@ test('a provider error does not burn the approved email or the rest of the queue
 
 test('an email stuck in "sending" (Worker killed mid-send) returns to the queue after 15 minutes and retries under the same idempotency key', async () => {
   const { env, cfg, outreachId } = await approvedDraft();
-  env.DB.sqlite.prepare("UPDATE sales_outreach SET status='sending', updated_at=? WHERE id = ?").run(Date.now() - 20 * 60000, outreachId);
+  env.DB.sqlite.prepare("UPDATE sales_outreach SET status='sending', updated_at=? WHERE id = ?").run(TUESDAY_10AM_ET - 20 * 60000, outreachId);
   const f = stubFetch();
   try {
     const r = await sendApproved(env, { cfg, atMs: TUESDAY_10AM_ET });
@@ -118,7 +118,7 @@ test('an email stuck in "sending" (Worker killed mid-send) returns to the queue 
 
 test('a send claimed moments ago is NOT recovered by another pass (no double work while it is in flight)', async () => {
   const { env, cfg, outreachId } = await approvedDraft();
-  env.DB.sqlite.prepare("UPDATE sales_outreach SET status='sending', updated_at=? WHERE id = ?").run(Date.now() - 60000, outreachId);
+  env.DB.sqlite.prepare("UPDATE sales_outreach SET status='sending', updated_at=? WHERE id = ?").run(TUESDAY_10AM_ET - 60000, outreachId);
   const f = stubFetch();
   try { assert.equal((await sendApproved(env, { cfg, atMs: TUESDAY_10AM_ET })).sent, 0); } finally { f.restore(); }
   assert.equal(env.DB.one('SELECT status FROM sales_outreach WHERE id = ?', outreachId).status, 'sending');

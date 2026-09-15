@@ -36,7 +36,7 @@ test('the owner chooses which holidays the kitchen closes, and the choice is wha
 
   const g = await call(env, 'GET');
   assert.equal(g.body.ok, true);
-  assert.equal(g.body.holidays.catalog.length, 11, 'the checklist offers all eleven, not only the next 90 days');
+  assert.equal(g.body.holidays.catalog.length, 14, 'the checklist offers all eleven federal holidays plus the extras, not only the next 90 days');
   assert.deepEqual(g.body.holidays.settings.kitchen_closed, ['thanksgiving', 'christmas_day']);
   assert.ok(Array.isArray(g.body.accounts), 'the contracts desk itself is still there');
 });

@@ -569,7 +569,12 @@ export async function sendApproved(env, { cfg, atMs = Date.now(), limit = 5, ign
       `UPDATE sales_outreach SET status = CASE WHEN send_attempts + 1 >= ? THEN 'failed' ELSE 'approved' END,
          send_attempts = send_attempts + 1, failure_reason = 'interrupted while sending — returned for retry', updated_at = ?
        WHERE status = 'sending' AND updated_at < ?`
-    ).bind(MAX_SEND_ATTEMPTS, now(), Date.now() - 15 * 60000).run();
+    // The "stuck for 15 minutes" cutoff is measured on the PASS's clock (`atMs`), like everything else
+    // in this pass — never the wall clock. On the wall clock, a test pinned to 2026-09-15 14:00 UTC began
+    // failing for good at 14:15 that day: its deliberately "claimed" row suddenly looked abandoned, was
+    // returned for retry, and was sent past the daily cap. The claim below stamps on this clock too, so a claim
+    // and its recovery can never disagree. In production atMs is Date.now(), so nothing moves.
+    ).bind(MAX_SEND_ATTEMPTS, now(), atMs - 15 * 60000).run();
   } catch { /* recovery is best-effort; the send pass itself is unaffected */ }
   const remaining = cfg.flags['sales.max_emails_per_day'] - await sentTodayCount(env, atMs);
   if (remaining <= 0) { res.blocked_by = [`Daily cap of ${cfg.flags['sales.max_emails_per_day']} reached.`]; return res; }
@@ -628,7 +633,8 @@ export async function sendApproved(env, { cfg, atMs = Date.now(), limit = 5, ign
       continue;
     }
 
-    const claim = await env.DB.prepare("UPDATE sales_outreach SET status='sending', updated_at=? WHERE id=? AND status='approved'").bind(now(), row.id).run();
+    // Stamped on the pass clock, the same clock the 15-minute recovery and the daily cap read it back on.
+    const claim = await env.DB.prepare("UPDATE sales_outreach SET status='sending', updated_at=? WHERE id=? AND status='approved'").bind(clock(), row.id).run();
     if (!claim.meta || claim.meta.changes !== 1) continue;
 
     let result = null; let err = null;

@@ -57,7 +57,10 @@ test('two sites on one account are two questions, by email and by text — none 
     }
   }
   assert.deepEqual(twilioTo(f.calls).sort(), [DELRAY_PHONE, POMPANO_PHONE].sort(), 'each site coordinator got their own text');
-  assert.equal(f.calls.filter((c) => c.url.includes('resend')).length, 2, 'and each site its own email');
+  const mails = f.calls.filter((c) => c.url.includes('resend'));
+  assert.equal(mails.length, 1, 'both locations fall back to the same billing inbox, so they share ONE email');
+  assert.match(mails[0].body.html, new RegExp(delray.name), 'and that one email names both locations');
+  assert.match(mails[0].body.html, new RegExp(pompano.name));
   assert.equal(r.by_channel.sms.sent, 2);
   assert.equal(r.by_channel.email.sent, 2);
 });
