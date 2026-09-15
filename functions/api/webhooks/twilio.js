@@ -9,6 +9,8 @@
 // Routing: the sender's number (last 10 digits) is matched against staff.phone.
 //   match   → latest open thread with that staff_id, else create one
 //             (audience = their role, subject 'SMS from <name>').
+//   roster  → a contract site's ordering contact: subject names the person, client and site, and
+//             carries their answer when the text replies to a holiday notice.
 //   unknown → create a thread audience 'client', subject 'SMS from <last4>'.
 // Inserts the inbound message + sms_log row, bumps thread.last_message_at and
 // fires message.received {channel}. Responds with empty TwiML.
@@ -16,6 +18,7 @@ import { id, now, ctEq } from '../../_lib/util.js';
 import { capture } from '../../_lib/track.js';
 import { logInbound } from '../../_lib/twilio.js';
 import { recordUnsubscribe } from '../../_lib/audience.js';
+import { recordHolidayReply } from '../../_lib/holiday_notices.js';
 
 function twiml() {
   return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
@@ -125,6 +128,12 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   try {
+    // An answer to a holiday notice is recorded on the notice itself, so the owner's holiday view shows
+    // it without anyone reading the inbox. This never swallows the text: it is still threaded below,
+    // exactly as sent.
+    let holidayReply = null;
+    try { holidayReply = await recordHolidayReply(env, { from, body, atMs: ts }); } catch { holidayReply = null; }
+
     // Match the sender against staff phones (last 10 digits, JS-side normalize).
     const fromDigits = digits(from).slice(-10);
     let staff = null;
@@ -143,12 +152,31 @@ export const onRequestPost = async ({ request, env }) => {
       ).bind(staff.id).first();
     }
 
+    // A text from a contract site's ordering roster is not an anonymous number — it is a named
+    // coordinator at a named client, often answering a question we asked. Titling that thread
+    // "SMS from 3642" made the owner work out who was talking before he could act on what they said.
+    let rosterPerson = null;
+    if (!staff && fromDigits.length >= 7) {
+      try {
+        rosterPerson = await env.DB.prepare(
+          `SELECT r.name, st.name AS site_name, a.name AS account_name
+             FROM contract_site_staff r
+             JOIN contract_sites st ON st.id = r.site_id
+             JOIN contract_accounts a ON a.id = st.account_id
+            WHERE r.active = 1 AND r.phone LIKE ?
+            ORDER BY r.is_primary DESC, COALESCE(r.last_used_at, 0) DESC LIMIT 1`
+        ).bind('%' + fromDigits).first();
+      } catch { rosterPerson = null; }
+    }
+
     if (!thread) {
       const tid = id('thr');
       const audience = staff ? staff.role : 'client';
-      const subject = staff
-        ? `SMS from ${staff.name || staff.role}`
-        : `SMS from ${fromDigits.slice(-4) || 'unknown'}`;
+      const who = staff
+        ? (staff.name || staff.role)
+        : rosterPerson ? `${rosterPerson.name} (${rosterPerson.account_name} · ${rosterPerson.site_name})` : (fromDigits.slice(-4) || 'unknown');
+      const answered = holidayReply ? ` — ${holidayReply.holiday}: ${holidayReply.answer ? holidayReply.answer.toUpperCase() : 'replied'}` : '';
+      const subject = `SMS from ${who}${answered}`;
       await env.DB.prepare(
         `INSERT INTO threads (id, audience, subject, created_by, staff_id, last_message_at, status, created_at, updated_at)
          VALUES (?,?,?,?,?,?,'open',?,?)`

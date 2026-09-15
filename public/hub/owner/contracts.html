@@ -162,6 +162,12 @@
         txt('ess', 'State', s.state, 'FL') +
         txt('ezp', 'ZIP', s.zip, '33445') +
       '</div>' +
+
+      '<div class="terms-head">Holiday &amp; operations contact</div>' +
+      '<div class="terms-grid">' +
+        '<div><label>Ops email — who decides if this location is open</label><input id="eoe_' + s.id + '" type="email" value="' + esc(s.ops_email || '') + '" placeholder="office@theirclinic.com"></div>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:4px">Holiday questions go here. Left blank, they go to the billing inbox instead.</div>' +
       '<label class="livetoggle"><input type="checkbox" id="eac_' + s.id + '"' + (Number(s.active) === 0 ? '' : ' checked') + '>' +
         '<span>Accepting head counts — unchecking pauses this location\'s intake link</span></label>' +
 
@@ -184,7 +190,7 @@
     if (v('ec') !== '' && v('ec') !== String(site.cutoff_time || '')) { body.cutoff_time = v('ec'); touched++; }
 
     // Identity/schedule are diffed against what is stored, so an untouched field is never resent.
-    var pairs = [['enm', 'name'], ['est', 'street'], ['eun', 'unit'], ['eci', 'city'], ['ess', 'state'], ['ezp', 'zip'], ['ew', 'window_label']];
+    var pairs = [['enm', 'name'], ['est', 'street'], ['eun', 'unit'], ['eci', 'city'], ['ess', 'state'], ['ezp', 'zip'], ['ew', 'window_label'], ['eoe', 'ops_email']];
     pairs.forEach(function (p) {
       var cur = v(p[0]), was = site[p[1]] == null ? '' : String(site[p[1]]);
       if (cur !== was) { body[p[1]] = cur; touched++; }
@@ -694,11 +700,84 @@
     });
   };
 
+  // HOLIDAYS. One section for every account: what is coming, which locations a notice cannot reach
+  // BEFORE the day rather than after it, which holidays the kitchen is closed, and what came back.
+  // An answer texted to us is only useful if it can be seen here without reading the inbox.
+  function holidaysBlock(h) {
+    if (!h) return '';
+    var closed = (h.settings && h.settings.kitchen_closed) || [];
+    var day = function (iso) {
+      return new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+    };
+
+    var gaps = (h.sites || []).filter(function (x) { return x.email !== 'site' || x.sms !== 'ok'; });
+    var reach = gaps.length
+      ? '<div class="card" style="border-left:3px solid var(--gold);margin-bottom:8px"><b>Fix before the next holiday</b>' + gaps.map(function (x) {
+          var bits = [];
+          if (x.email === 'billing_fallback') bits.push('email goes to the billing inbox — add an ops email on the location');
+          if (x.email === 'none') bits.push('no email address at all');
+          if (x.sms === 'none') bits.push('nobody on the roster can be texted');
+          return '<div class="row-sub">' + esc(x.account_name + ' · ' + x.site_name) + ' — ' + esc(bits.join('; ')) + '</div>';
+        }).join('') + '</div>'
+      : '<div class="row-sub" style="margin-bottom:8px">Every location can be reached by email and by text.</div>';
+
+    var upcoming = (h.holidays || []).slice(0, 6).map(function (x) {
+      return '<div class="row-sub">' + esc(day(x.observed)) + ' · ' + esc(x.name) + (x.shifted ? ' <span style="color:var(--muted)">(observed)</span>' : '') + ' — ' +
+        (x.kitchen_closed ? '<span class="badge warn">kitchen closed</span>' : '<span class="badge">we ask if they are open</span>') + '</div>';
+    }).join('') || '<div class="row-sub">No federal holiday in the next 90 days.</div>';
+
+    var checks = (h.catalog || []).map(function (c) {
+      return '<label class="livetoggle"><input type="checkbox" class="hol-closed" value="' + esc(c.key) + '"' + (closed.indexOf(c.key) >= 0 ? ' checked' : '') + '><span>' + esc(c.name) + '</span></label>';
+    }).join('');
+    var smsOn = !(h.settings && h.settings.sms_enabled === false);
+
+    var rows = (h.notices || []).map(function (n) {
+      var answer = n.reply_answer ? '<b>' + esc(n.reply_answer.toUpperCase()) + '</b>' + (n.reply_text ? '<br><span class="row-sub">“' + esc(n.reply_text) + '”</span>' : '')
+        : (n.reply_text ? '“' + esc(n.reply_text) + '”' : '<span class="row-sub">—</span>');
+      var status = n.outcome === 'sent' && !n.sent_at ? 'interrupted' : n.outcome;
+      return '<tr style="border-top:1px solid var(--line,#e3ddcf)">' +
+        '<td style="padding:6px 8px 6px 0">' + esc(day(n.observed_date)) + '<br><span class="row-sub">' + esc(n.holiday_name) + '</span></td>' +
+        '<td style="padding:6px 8px">' + esc(n.site_name || '') + '</td>' +
+        '<td style="padding:6px 8px">' + esc(n.channel === 'sms' ? 'text' : 'email') + '<br><span class="row-sub">' + esc(n.recipient_phone || n.recipient_email || '') + '</span></td>' +
+        '<td style="padding:6px 8px">' + esc(status) + (n.failure_reason ? '<br><span class="row-sub">' + esc(n.failure_reason) + '</span>' : '') + '</td>' +
+        '<td style="padding:6px 0 6px 8px">' + answer + '</td></tr>';
+    }).join('');
+
+    return '<div class="hub-section"><h2>🗓️ Holidays</h2>' +
+      '<div class="row-sub" style="margin-bottom:8px">Before every federal holiday we ask each location whether they are open. If our kitchen is closed, they hear it at least 7 days ahead.</div>' +
+      reach +
+      '<div class="terms-head">Coming up</div>' + upcoming +
+      '<details class="terms-edit"' + (closed.length ? '' : ' open') + '><summary>Which holidays is our kitchen closed?</summary><div class="body">' +
+        (closed.length ? '' : '<div class="row-sub" style="margin-bottom:6px">None chosen yet — until you choose, no closure notice is ever sent.</div>') +
+        checks +
+        '<label class="livetoggle" style="margin-top:6px"><input type="checkbox" id="hol-sms"' + (smsOn ? ' checked' : '') + '><span>Also text each location’s primary contact (English and Spanish)</span></label>' +
+        '<button class="btn gold block" style="margin-top:10px" onclick="__saveHolidays()">Save holiday settings</button>' +
+      '</div></details>' +
+      (rows ? '<details class="terms-edit"><summary>Notices sent and what they answered</summary><div class="body"><div style="overflow-x:auto">' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>' +
+        '<th align="left" style="padding:0 8px 6px 0">Day</th><th align="left" style="padding:0 8px 6px">Location</th><th align="left" style="padding:0 8px 6px">By</th><th align="left" style="padding:0 8px 6px">Status</th><th align="left" style="padding:0 0 6px 8px">Their answer</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div></div></details>' : '') +
+      '</div>';
+  }
+
+  window.__saveHolidays = function () {
+    var keys = Array.prototype.map.call(document.querySelectorAll('.hol-closed:checked'), function (el) { return el.value; });
+    var sms = !!(document.getElementById('hol-sms') || {}).checked;
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'save_holidays', kitchen_closed: keys, sms_enabled: sms } }).then(function (r) {
+      if (r && r.ok) {
+        // A closure too close to keep the seven-day promise must be seen, not buried in a toast.
+        if (r.warnings && r.warnings.length) window.alert(r.warnings.join('\n\n'));
+        else Hub.toast('Holiday settings saved');
+        render();
+      } else Hub.toast((r && r.error) || 'Could not save holiday settings');
+    });
+  };
+
   function render() {
     Owner.get('/api/hub/owner/contracts').then(function (d) {
       var root = document.getElementById('owner-root'); root.className = '';
       var head = '<div class="hub-section"><a class="btn ghost block" href="/hub/owner/pricing.html" style="text-align:center;text-decoration:none">📊 Pricing &amp; margin model</a></div>' +
-        newAccountForm();
+        newAccountForm() + holidaysBlock(d && d.holidays);
       // The empty state used to be a dead end: "No contract accounts yet." with no way to add one,
       // so the first B2B client could only be created from the public signup form.
       if (!d || !d.ok || !d.accounts || !d.accounts.length) {
