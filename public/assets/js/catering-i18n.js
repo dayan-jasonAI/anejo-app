@@ -2,6 +2,10 @@
 (function () {
   'use strict';
   var es = {
+    'Cuban roots. Made to gather.': 'Raíces cubanas. Para reunirnos.',
+    'Slow-roasted lechón. Golden croquetas. Fresh Mediterranean-inspired bowls. Bring your favorites to the table.': 'Lechón asado a fuego lento. Croquetas doradas. Bowls frescos de inspiración mediterránea. Lleva tus favoritos a la mesa.',
+    'Plan your catering': 'Planifica tu catering',
+    'Personalize your Cajita →': 'Personaliza tu Cajita →',
     'Create Square balance link': 'Crear enlace de Square para el saldo',
     'Pay final balance through Square': 'Pagar el saldo final con Square',
     'Square balance link ready': 'Enlace de Square para el saldo listo',
