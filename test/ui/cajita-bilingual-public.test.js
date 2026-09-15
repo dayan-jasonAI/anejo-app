@@ -30,7 +30,7 @@ test('engine and curated dictionary load before interactions, with private local
     if (file === 'cajita-builder.html') assert.ok(html.indexOf('/assets/js/catering-i18n.js') < html.indexOf('/assets/js/cajita-builder.js'));
   }
   const home = read('public/index.html');
-  assert.match(home, /class="cajita-gallery-caption">Cajita inspiration/);
+  assert.match(home, /class="cajita-show-cap" translate="no">Añejo Signature</, 'the Cajita caption is translated from the curated map, never by the browser');
   assert.equal([...home.matchAll(/<blockquote[^>]+translate="no"/g)].length, 6);
   assert.equal([...home.matchAll(/<cite translate="no"/g)].length, 6);
 });

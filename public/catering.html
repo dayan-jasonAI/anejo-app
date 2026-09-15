@@ -303,7 +303,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
           <div class="field"><label for="event-date">Event date <span class="req">*</span></label><input id="event-date" name="event_date" type="date" required></div>
           <div class="field"><label for="event-time">Serving time</label><input id="event-time" name="event_time" type="time"></div>
           <div class="field"><label for="guests">Number of people <span class="req">*</span></label><input id="guests" name="guests" type="number" inputmode="numeric" min="1" max="5000" step="1" placeholder="Example: 40" required></div>
-          <div class="field"><label for="event-type">Type of gathering <span class="req">*</span></label><select id="event-type" name="event_type" required><option value="">Choose one</option><option>Birthday party</option><option>Baby shower or gender reveal</option><option>Holiday gathering</option><option>Office or team meal</option><option>Private celebration</option><option>Wedding or formal event</option><option>Fitness or wellness event</option><option>Community event</option><option>Other</option></select></div>
+          <div class="field"><label for="event-type">Type of gathering <span class="req">*</span></label><select id="event-type" name="event_type" required><option value="">Choose one</option><option>Birthday party</option><option>Quinceañera or sweet sixteen</option><option>Baby shower or gender reveal</option><option>Holiday gathering</option><option>Office or team meal</option><option>Private celebration</option><option>Wedding or formal event</option><option>Fitness or wellness event</option><option>Community event</option><option>Other</option></select></div>
           <div class="field full"><label for="location">Event city or ZIP code <span class="req">*</span></label><input id="location" name="location" type="text" autocomplete="postal-code" maxlength="160" placeholder="Palm Beach County location" required></div>
           <div class="field"><label for="event-theme">Event theme or occasion</label><input id="event-theme" name="event_theme" type="text" maxlength="160" placeholder="First birthday, baby shower, holiday…"></div>
           <div class="field"><label for="theme-colors">Colors or special touches</label><input id="theme-colors" name="theme_colors" type="text" maxlength="300" placeholder="Pink and gold, custom tags, matching liners…"></div>
@@ -341,6 +341,11 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
   date.min=tomorrow.getFullYear()+'-'+String(tomorrow.getMonth()+1).padStart(2,'0')+'-'+String(tomorrow.getDate()).padStart(2,'0');
   var params=new URLSearchParams(window.location.search);
   var requestedMenu=params.get('menu');
+  // The homepage's celebration cards deep-link the occasion (Weddings, Quinceañeras…) so the form opens already
+  // knowing it. Option values stay English: the i18n engine pins each option's value to its original text.
+  var occasions={wedding:['Wedding or formal event','Wedding'],quinceanera:['Quinceañera or sweet sixteen','Quinceañera'],'sweet-sixteen':['Quinceañera or sweet sixteen','Sweet sixteen'],'baby-shower':['Baby shower or gender reveal',''],birthday:['Birthday party',''],holiday:['Holiday gathering',''],office:['Office or team meal','']};
+  var occasion=occasions[params.get('occasion')];
+  if(occasion){var eventSelect=document.getElementById('event-type');if(eventSelect)eventSelect.value=occasion[0];var themeInput=document.getElementById('event-theme');if(themeInput&&occasion[1]&&!themeInput.value)themeInput.value=occasion[1];}
   if(requestedMenu==='cajita')document.getElementById('menu-cajita').checked=true;
   if(requestedMenu==='fit')document.getElementById('menu-fit').checked=true;
   if(requestedMenu==='cuban')document.getElementById('menu-cuban').checked=true;
