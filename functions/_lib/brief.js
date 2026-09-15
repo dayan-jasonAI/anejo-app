@@ -171,27 +171,36 @@ export async function decideProposal(env, { id: propId, decision, owner, role, n
   // touching the Brief. 'needs_info' = the owner wants changes/clarification before deciding.
   if (decision === 'reject' || decision === 'needs_info') {
     const status = decision === 'reject' ? 'rejected' : 'needs_info';
-    await env.DB.prepare('UPDATE brief_proposals SET status=?, decided_by=?, decided_at=?, decision_note=?, updated_at=? WHERE id=?')
+    const changed = await env.DB.prepare("UPDATE brief_proposals SET status=?, decided_by=?, decided_at=?, decision_note=?, updated_at=? WHERE id=? AND status='pending'")
       .bind(status, ownerId, t, note ? String(note).slice(0, 500) : null, t, propId).run();
+    if (changed.meta?.changes !== 1) return { error: 'Proposal changed during review. Reload before deciding.' };
     return { ok: true, status };
   }
   if (decision !== 'approve') return { error: 'Unknown decision.' };
 
-  const doc = await getDoc(env, p.doc_id);
-  if (doc) {
-    // snapshot the prior body for rollback, then overwrite + bump version.
-    await env.DB.prepare('INSERT INTO doc_versions (id, doc_id, version, body, replaced_by, from_proposal, created_at) VALUES (?,?,?,?,?,?,?)')
-      .bind(id('dver'), p.doc_id, doc.version || 1, doc.body || '', ownerId, propId, t).run();
-    await env.DB.prepare('UPDATE docs SET body=?, version=version+1, updated_at=? WHERE id=?')
-      .bind(p.proposed_body, t, p.doc_id).run();
-  } else {
-    // brand doc doesn't exist yet — create it (active, kitchen+owner visible).
-    await env.DB.prepare(
-      "INSERT INTO docs (id, doc_type, title, body, role_scope, version, active, created_at, updated_at) VALUES (?, 'brand', ?, ?, ?, 1, 1, ?, ?)"
-    ).bind(p.doc_id, p.title || 'Brand & Standards Brief', p.proposed_body, JSON.stringify(['kitchen', 'owner']), t, t).run();
-  }
-  await env.DB.prepare('UPDATE brief_proposals SET status=?, decided_by=?, decided_at=?, decision_note=?, updated_at=? WHERE id=?')
-    .bind('approved', ownerId, t, note ? String(note).slice(0, 500) : null, t, propId).run();
+  // The unique claim is visible only inside D1's atomic batch. A concurrent decision that
+  // already consumed 'pending' makes every later statement a no-op, including the snapshot.
+  const claim = id('approving');
+  try {
+    const results = await env.DB.batch([
+      env.DB.prepare("UPDATE brief_proposals SET status=? WHERE id=? AND status='pending'").bind(claim, propId),
+      env.DB.prepare(`INSERT INTO doc_versions (id, doc_id, version, body, replaced_by, from_proposal, created_at)
+        SELECT ?, d.id, d.version, d.body, ?, ?, ? FROM docs d
+        WHERE d.id=? AND EXISTS (SELECT 1 FROM brief_proposals WHERE id=? AND status=?)`)
+        .bind(id('dver'), ownerId, propId, t, p.doc_id, propId, claim),
+      env.DB.prepare(`UPDATE docs SET body=?, version=version+1, updated_at=? WHERE id=?
+        AND EXISTS (SELECT 1 FROM brief_proposals WHERE id=? AND status=?)`)
+        .bind(p.proposed_body, t, p.doc_id, propId, claim),
+      env.DB.prepare(`INSERT INTO docs (id, doc_type, title, body, role_scope, version, active, created_at, updated_at)
+        SELECT ?, 'brand', ?, ?, ?, 1, 1, ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM docs WHERE id=?)
+        AND EXISTS (SELECT 1 FROM brief_proposals WHERE id=? AND status=?)`)
+        .bind(p.doc_id, p.title || 'Brand & Standards Brief', p.proposed_body, JSON.stringify(['kitchen', 'owner']), t, t, p.doc_id, propId, claim),
+      env.DB.prepare('UPDATE brief_proposals SET status=?, decided_by=?, decided_at=?, decision_note=?, updated_at=? WHERE id=? AND status=?')
+        .bind('approved', ownerId, t, note ? String(note).slice(0, 500) : null, t, propId, claim),
+    ]);
+    if (results[0]?.meta?.changes !== 1) return { error: 'Proposal changed during review. Reload before deciding.' };
+  } catch { return { error: 'Could not approve the Brief. No changes were saved.' }; }
   return { ok: true, status: 'approved' };
 }
 

@@ -109,3 +109,17 @@ Final validation:
 Remaining engineering risks (not browser blockers): `decideProposal` still uses separate writes for snapshot, document replacement, and approval status; failure/race handling needs transactional tests and an atomic implementation. `RecipePanel.publish` creates a recipe again on each retry if creation succeeds but publication fails; preserve the created recipe ID before retrying publication. These are open findings, not resolved by this batch. No claim that all browser-independent work is exhausted.
 
 Browser-blocked acceptance: real AI provider generation, rendered Brief editing and session switching, all live roles, notification delivery, completed Square checkout, Google profile edits, and account analytics. No production readiness or SEO outcome is asserted. Deployment approval persists; release remains pending acceptance evidence. Rollback for this batch is a scoped revert of its commit before deployment; no data migration is involved.
+
+### Second batch: recipe retries and atomic approval
+
+Continued working on both engineering findings above in the same session:
+
+- RecipePanel retains the created recipe ID after a failed publication and retries that ID. The saved name is locked for that retry; requesting a new draft clears the saved ID. Drafting/publication controls cannot intentionally overlap. Three API-flow tests cover failed publication followed by retry, failed creation, and network loss. A lost response from the initial create remains ambiguous; server-side create idempotency is not introduced here.
+- `decideProposal` now claims a pending proposal and performs snapshot, document replacement/creation, and approval together in a D1 batch. A unique per-call claim prevents a competing decision from applying the same proposal. Rejection/needs-info updates also require the proposal still be pending.
+- Four tests run against real in-memory SQLite with all migrations: normal approval/duplicate replay, injected final-write failure with full rollback, competing rejection before batch execution, and owner-only creation of a missing brief.
+- D1 batch transaction behavior checked against official documentation: https://developers.cloudflare.com/d1/worker-api/d1-database/#batch . Production D1 execution remains Unverified.
+- This makes one approval atomic; it does not merge distinct proposals based on older full-document drafts. Owner review of overlapping proposals remains necessary.
+
+Final second-batch validation: root suite 2,348 passed, 0 failed (session 2921; 6934 ms; `/tmp/anejo-unblocked-tests-20260915.log`); Studio 23 tests passed; Studio lint exit 0; root lint exit 0 with the same four existing warnings; Studio TypeScript/Vite build passed, generated JS `index-DYOndVsd.js` (369.87 kB / 114.79 kB gzip); staged whitespace check exit 0. No deployment.
+
+Coordination note: command-center risk R-038 warns that governance writes automatically propagate externally. This session therefore records its handoff, approvals, daily work, validation, and residual risks in this repository log rather than editing shared command-center boards during local-only work. Existing direct-session approvals are retained, not re-requested. No additional Dayan approval is needed for the code in these two batches; browser-dependent acceptance and existing release controls remain outstanding.
