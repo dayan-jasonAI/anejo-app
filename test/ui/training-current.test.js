@@ -30,6 +30,7 @@ const OWNER_MODULE = {
   'QuickBooks': /k:'QuickBooks'/,
   'signed-out vs a quiet day': /A blank HUB means signed out/,
   'bar vs pop-up placement': /k:'Bar or pop-up'/,
+  'the weekly office menu and per-dish prices': /k:'Weekly menus'/,
 };
 
 for (const [feature, re] of Object.entries(OWNER_MODULE)) {
@@ -39,7 +40,7 @@ for (const [feature, re] of Object.entries(OWNER_MODULE)) {
 }
 
 test('the owner quick card carries the new day-to-day actions', () => {
-  for (const re of [/Onboard a new account/, /Edit terms/, /Site copy/, /Ask the HUB/]) {
+  for (const re of [/Onboard a new account/, /Edit terms/, /Site copy/, /Ask the HUB/, /Weekly menu/]) {
     assert.match(CARD, re);
   }
 });
