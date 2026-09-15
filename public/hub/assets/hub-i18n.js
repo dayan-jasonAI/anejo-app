@@ -35,6 +35,8 @@
     "Overview": "Resumen", "Deliveries": "Entregas", "Kitchen": "Cocina", "Staff": "Personal",
     // "Catering" 2026-08-09: the deposit desk's nav label — see hub/owner/assets/owner.js.
     "Catering": "Catering",
+    // "Sales" 2026-09-10: the Sales OS nav label — see hub/owner/assets/owner.js.
+    "Sales": "Ventas",
     "Finance": "Finanzas", "Comms": "Mensajes", "Orders": "Pedidos", "Checklists": "Listas",
     "Studio": "Estudio", "Library": "Biblioteca", "EOD": "Fin de día", "Today": "Hoy",
     // ---- the marketing expert's desk (2026-08-11) ----

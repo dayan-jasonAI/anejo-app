@@ -17,9 +17,9 @@ const stubDb = (results) => ({
   prepare: () => ({ all: async () => ({ results }), first: async () => results[0] ?? null }),
 });
 
-test('the brand budget matches every other brand reader — 20000, not a fourth number', () => {
-  assert.match(SRC, /const BRAND_BUDGET = 20000;/,
-    'Team Lead, planner and Brand Auditor all budget 20000 via brand_source.js; the Studio must not be the odd one out');
+test('the brand budget matches every other brand reader — 32000, not a fourth number', () => {
+  assert.match(SRC, /const BRAND_BUDGET = 32000;/,
+    'Team Lead, planner and Brand Auditor all budget 32000 via brand_source.js; the Studio must not be the odd one out');
 });
 
 test('the whole ratified brief fits — §13 is no longer cut in half', async () => {
@@ -78,4 +78,12 @@ test('SOP docs are left alone — proposals are only ever written into the brand
     DB: stubDb([{ doc_type: 'manual', title: 'Kitchen manual', body: '## Proposed Studio Brief Change\nKeep me — I am a manual, not the brief.', role_scope: null }]),
   });
   assert.match(ctx, /Keep me — I am a manual/, 'the SOP library is not filtered');
+});
+
+
+test('current family brief fits without dropping standards or promoting pending proposals', async () => {
+  const body = readFileSync(new URL('../../docs/hub-reference-sync/expected-brand.md', import.meta.url), 'utf8');
+  const ctx = await buildBrandContext({ DB: stubDb([{ doc_type: 'brand', title: 'Brand', body, role_scope: null }]) });
+  for (const text of ['Añejo Catering', 'Añejo Traditional', 'Añejo Fit', '6 oz', '1.20 oz', 'No standalone salami bite', '## 12.', 'DRAFT']) assert.ok(ctx.includes(text), text);
+  assert.doesNotMatch(ctx, /Proposed Studio Brief Change/);
 });

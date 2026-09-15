@@ -81,7 +81,23 @@ export const ALERT_TYPES = [
   // companion failure type is raised only when the email provider does not accept its alert.
   'catering_request',
   'catering_email_failed',
+  // A contract site raised its headcount after the kitchen had already started prepping that
+  // order (_lib/contract.js:announceCountRaised). The per-bowl checklist is corrected silently;
+  // this is what tells a cook who has already finished the tray that there is more to build.
+  // 'critical' only in the case that cannot be absorbed — the order had already been handed off
+  // for loadout, so the office is going to be short unless someone acts.
+  'contract_count_changed',
+  // A contract site tried to set or change today's count AFTER the hard cutoff and the intake
+  // page refused it (_lib/contract.js:lockedOutAttempt). The refusal is the correct answer and
+  // the number does not move — this exists so the request still reaches a human who can say yes
+  // on the phone. 'critical' when the site has NO count on file at all, because then nothing is
+  // being made for an office that is expecting lunch.
+  'contract_count_locked',
   'kitchen_ready_delivery', 'new_order', 'new_paid_order', 'subscription_payment', 'contract_roster_changed',
+  // A prospect asked for pricing, a call or a tasting from their Sales OS landing page
+  // (functions/api/sales/request.js). Their automated sequence has already stopped; this is what
+  // makes sure a person replies while the lead is warm. Deduped per opportunity per request kind.
+  'sales_prospect_request',
 ];
 // Alert severity is a THREE-level scale and is deliberately not the same scale as
 // `tickets.severity` (low|medium|high|urgent). Callers must map onto these three:

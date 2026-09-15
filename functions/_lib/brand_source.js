@@ -113,7 +113,7 @@ export function onlySections(body, numbers) {
  * No role_scope filter: every caller of this function is an internal AI surface reasoning about
  * the owner's own brand, not a staff-facing view that needs to hide anything.
  */
-export async function loadBrand(env, { maxChars = 20000, sections = null } = {}) {
+export async function loadBrand(env, { maxChars = 32000, sections = null } = {}) {
   // Narrow the document to the caller's sections, if it asked for any. An empty result means the
   // numbering moved, so the caller gets the whole brief rather than a confidently empty one.
   const narrow = (body) => {

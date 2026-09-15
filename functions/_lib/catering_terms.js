@@ -49,10 +49,12 @@
 // booking promised — that argument is settled by the row, not by this file.
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 
-/** Ratified 2026 (Decision #12): a 25% deposit books the date. */
-export const DEPOSIT_PCT = 0.25;
+/** Dayan, 2026-09-09: half up front books the date. Was 25% under 2026-08-v1.
+ *  Raising this changes what NEW quotes promise only — every existing quote carries its own
+ *  deposit_pct and terms_json, so a client already sold at 25% is still owed 25%. */
+export const DEPOSIT_PCT = 0.50;
 
-export const TERMS_VERSION = '2026-08-v1';
+export const TERMS_VERSION = '2026-09-v2';
 
 export const TERMS = {
   version: TERMS_VERSION,
@@ -63,9 +65,11 @@ export const TERMS = {
   deposit_refundable_hours: 72,
   // Headcount deadline, calendar days before the event. [2] 10–15 days; [3] 5 business days.
   final_count_days_before: 10,
-  // Balance: due by the day of the event. [1]
-  balance_due: 'day of event',
-  balance_due_days_before: 0,
+  // Balance: due the day BEFORE the event (Dayan, 2026-09-09). [1] says day-of; collecting on
+  // the day means chasing money while the van is loading, and a card that declines at 8am on the
+  // event morning has no room left to be fixed.
+  balance_due: 'day before event',
+  balance_due_days_before: 1,
   // Cancellation ladder, in calendar days before the event. Shape from [2]/[3]/[4]:
   // notice costs something, no notice costs everything.
   cancellation_tiers: [
@@ -95,8 +99,19 @@ export function dateMinusDays(dateStr, days) {
  * Returns { version, deposit_cents, balance_cents, final_count_due, balance_due_date, lines[] }.
  * `lines` is the customer-facing copy, in order, ready to render as plain text or <li>s.
  */
-export function termsFor({ totalCents, depositCents, balanceCents, eventDate } = {}) {
-  const finalCountDue = dateMinusDays(eventDate, TERMS.final_count_days_before);
+export function termsFor({ totalCents, depositCents, balanceCents, eventDate, today } = {}) {
+  // A SHORT-NOTICE BOOKING MUST NOT PRINT A DEADLINE THAT HAS ALREADY PASSED.
+  // The policy is "10 days before the event", but a client who books six days out would have
+  // been handed "final count due 2026-09-05" on 2026-09-09 — four days in the past, on a
+  // contract (Dayan caught this in the Hub, 2026-09-09). Both deadlines are therefore clamped
+  // forward to today: when the window has already closed, the honest answer is "now", not a
+  // date nobody can act on. `today` is injectable so the clamp is testable and pure.
+  const asOf = String(today || new Date().toISOString().slice(0, 10));
+  const notBeforeToday = (d) => (d && d < asOf ? asOf : d);
+  const rawFinalCount = dateMinusDays(eventDate, TERMS.final_count_days_before);
+  const rawBalanceDue = dateMinusDays(eventDate, TERMS.balance_due_days_before);
+  const finalCountDue = notBeforeToday(rawFinalCount);
+  const balanceDueDate = notBeforeToday(rawBalanceDue);
   const t = {
     ...TERMS,
     total_cents: Math.round(Number(totalCents) || 0),
@@ -104,21 +119,42 @@ export function termsFor({ totalCents, depositCents, balanceCents, eventDate } =
     balance_cents: Math.round(Number(balanceCents) || 0),
     event_date: eventDate || null,
     final_count_due: finalCountDue,
-    balance_due_date: eventDate || null,
+    balance_due_date: balanceDueDate,
+    // Flagged so the quote can say "because you booked inside our normal window" rather than
+    // silently showing a deadline that does not match the published policy.
+    short_notice: Boolean((rawFinalCount && rawFinalCount < asOf) || (rawBalanceDue && rawBalanceDue < asOf)),
   };
 
-  const onDate = (d, fallback) => (d ? `by ${d}` : fallback);
+  t.lines = renderLines(t, 'en');
+  // Both languages travel WITH the snapshot. A quote emailed in Spanish must be arguable in
+  // Spanish later — storing only the English and translating at send time means the terms the
+  // customer read are not the terms anyone can produce afterwards.
+  t.lines_es = renderLines(t, 'es');
+  return t;
+}
 
-  t.lines = [
+/** The customer-facing terms copy, in one language. Pure formatting over a resolved terms row. */
+export function renderLines(t, lang = 'en') {
+  const onDate = (d, fallback) => (d ? (lang === 'es' ? `el ${d}` : `by ${d}`) : fallback);
+  const pct = Math.round(DEPOSIT_PCT * 100);
+  if (lang === 'es') return [
+    `Depósito: ${money(t.deposit_cents)} — el ${pct}% de su cotización de ${money(t.total_cents)}. Pagarlo reserva su fecha; hasta que se pague, la fecha no queda apartada.`,
+    `¿Cambió de opinión? El depósito es totalmente reembolsable durante ${TERMS.deposit_refundable_hours} horas después de pagarlo. Pasado ese plazo no es reembolsable, porque es cuando empezamos a comprometer su fecha con proveedores y personal.`,
+    `Número final de invitados: ${onDate(t.final_count_due, `${TERMS.final_count_days_before} días antes del evento`)}. Compramos y preparamos según ese número, así que es el último momento en que puede bajar. Todavía puede SUBIR después si la cocina tiene espacio — pregúntenos.`,
+    `Saldo: ${money(t.balance_cents)}, con vencimiento ${onDate(t.balance_due_date, 'el día antes del evento')}. Si el número final sube, el saldo sube con él al mismo precio por invitado.`,
+    'Si cancela: 15 días o más antes, el saldo se reembolsa completo y el depósito se retiene. De 8 a 14 días antes, igual. De 3 a 7 días antes, se reembolsa la mitad del saldo. Con menos de 3 días, la comida ya está comprada y preparada, así que no hay reembolso.',
+    'Si NOSOTROS no podemos cumplir — falla de cocina, de nuestro vehículo, de nuestro personal — le devolvemos cada dólar, depósito incluido. Eso corre por nuestra cuenta, no por la suya.',
+    'Preguntas, cambios, o algo que no está bien: responda a este mensaje o llámenos. Una persona lee cada uno.',
+  ];
+  return [
     `Deposit: ${money(t.deposit_cents)} — ${Math.round(DEPOSIT_PCT * 100)}% of your ${money(t.total_cents)} quote. Paying it books your date; until it is paid the date is not held.`,
     `Changed your mind? The deposit is fully refundable for ${TERMS.deposit_refundable_hours} hours after you pay it. After that it is non-refundable, because that is when we start committing your date to suppliers and staff.`,
     `Final guest count: due ${onDate(t.final_count_due, `${TERMS.final_count_days_before} days before the event`)}. We buy and prep against that number, so it is the last point at which it can go down. It can still go UP after that if the kitchen has room — ask us.`,
-    `Balance: ${money(t.balance_cents)}, due ${onDate(t.balance_due_date, 'on the day of the event')}. If the final count goes up, the balance goes up with it at the same per-guest price.`,
+    `Balance: ${money(t.balance_cents)}, due ${onDate(t.balance_due_date, 'the day before the event')}. If the final count goes up, the balance goes up with it at the same per-guest price.`,
     'If you cancel: 15+ days out, the balance is fully refunded and the deposit is kept. 8–14 days out, the same. 3–7 days out, half the balance is refunded. Under 3 days, the food is already bought and prepped, so nothing is refunded.',
     'If WE cannot deliver — kitchen failure, our vehicle, our staffing — you get every dollar back, deposit included. That is on us, not on you.',
     'Questions, changes, or something not right: reply to this message or call us. A human reads every one.',
   ];
-  return t;
 }
 
 /** One paragraph of the same terms — for a Square note field or an SMS, where lines[] is too long. */
@@ -126,7 +162,7 @@ export function termsSummary(t) {
   const pct = Math.round(DEPOSIT_PCT * 100);
   return `${pct}% deposit books the date · fully refundable for ${TERMS.deposit_refundable_hours}h, non-refundable after` +
     ` · final guest count due ${t && t.final_count_due ? t.final_count_due : `${TERMS.final_count_days_before} days before`}` +
-    ` · balance due on the day of the event · cancellation: 8+ days = balance refunded, 3–7 days = half, under 3 days = none.`;
+    ` · balance due the day before the event · cancellation: 8+ days = balance refunded, 3–7 days = half, under 3 days = none.`;
 }
 
 /**

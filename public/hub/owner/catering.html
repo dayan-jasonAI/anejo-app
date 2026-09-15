@@ -91,6 +91,32 @@
       '</ul></details>';
   }
 
+  // THE GIFT SWITCH — off unless someone turns it on, on ONE quote at a time.
+  //
+  // Dayan, 2026-09-14: "free cakes is not a rule that applies for everyone ... make sure this is
+  // just an option I get to turn on or off from the hub and it is never a default setting."
+  //
+  // So the control renders "No gift" selected unless this quote already carries one, there is no
+  // global setting anywhere that changes that, and the label says plainly what turning it on
+  // costs and when the customer finds out.
+  function giftHtml(q) {
+    var on = q.gift === 'tres-leches-fresa';
+    var balPaid = q.balance_status === 'paid';
+    return '<div class="gift" style="margin-top:10px;padding:10px 12px;border:1px solid #2a4a28;border-radius:8px">' +
+      '<label class="row-sub" style="display:block;margin-bottom:6px">Gift for this customer</label>' +
+      '<select data-gift-for="' + esc(q.id) + '" style="width:100%">' +
+        '<option value=""' + (on ? '' : ' selected') + '>No gift</option>' +
+        '<option value="tres-leches-fresa"' + (on ? ' selected' : '') + '>Strawberry tres leches — free, on the house</option>' +
+      '</select>' +
+      '<p class="row-sub" style="margin:6px 0 0">' +
+        (on
+          ? (balPaid
+            ? 'On. She has paid in full, so the reveal is showing on her quote page now.'
+            : 'On. The reveal appears once she pays the <b>balance</b> — not before.')
+          : 'Off. Nothing is promised and nothing is shown.') +
+      '</p></div>';
+  }
+
   function quoteCard(q) {
     var paid = q.deposit_status === 'paid';
     var balPaid = q.balance_status === 'paid';
@@ -122,6 +148,7 @@
 
       (q.balance_payment_link_url && !balPaid ? '<div class="row-sub lnk">Balance link: <a href="'+esc(q.balance_payment_link_url)+'" target="_blank" rel="noopener">Pay final balance through Square</a></div>' : '') +
       (!balPaid && paid && !q.balance_payment_link_url ? '<button class="btn gold block" data-balance-link="'+esc(q.id)+'">Create Square balance link</button>' : '') +
+      giftHtml(q) +
       termsHtml(q) +
 
       (!balPaid && paid && !q.balance_payment_link_url
@@ -142,6 +169,15 @@
       event_date: msgField(r.message, 'Event date'),
       guests: Number(msgField(r.message, 'Guest count')) || '',
       note: [r.interest ? 'Requested menu: ' + r.interest : '', r.message || ''].filter(Boolean).join('\n'),
+      // The suggested total travels with the prefill so "Start a quote" opens with a number in it.
+      total: r.suggested && r.suggested.total_cents ? (r.suggested.total_cents / 100).toFixed(2) : '',
+      // And so does her order, one line at a time, so the desk opens with what she asked for
+      // laid out and he edits PRICES instead of retyping the order. A line the menu could not
+      // price arrives with an empty price for him to fill in.
+      lines: (r.suggested && r.suggested.lines) || [],
+      // So the server can read her language and SMS consent off the lead she created, instead of
+      // asking whoever fills this in to remember what she agreed to.
+      lead_id: r.lead_id || r.id || '',
     };
     var contact = [r.email || '', r.phone || ''].filter(Boolean).join(' · ');
     var targetLead = new URLSearchParams(window.location.search).get('lead');
@@ -160,10 +196,36 @@
       '<div class="rbody"><b>' + C.label('Original request (as submitted)') + '</b><br>' + (r.message ? esc(r.message) : C.label('No event details provided.')) + '</div>' +
       (r.cajita_configuration || r.cajita_summary ? '<details class="rbody"><summary>' + C.label('Exact Cajita configuration') + '</summary>' + C.summaryHtml(r.cajita_configuration,r.cajita_summary) + '</details>' : '') +
       (files ? '<div class="rfiles"><b>' + C.label('Private design files · owner only') + '</b>' + files + '</div>' : '') +
+      suggestionHtml(r.suggested) +
       '<div class="ractions">' +
         '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">' + C.label('Start a quote') + '</button>' +
         (r.email ? '<a class="btn ghost" href="mailto:' + esc(encodeURIComponent(r.email)) + '?subject=' + encodeURIComponent('Your Añejo catering request') + '">' + C.label('Email customer') + '</a>' : '') +
       '</div></article>';
+  }
+
+  // What the live menu says this request costs, shown ON the request card.
+  //
+  // It is labelled a suggestion everywhere, because that is what it is: the priced lines at
+  // today's menu prices with the standard volume discount, and an explicit list of everything
+  // still needing a hand quote. The Agreed total field stays editable — this replaces a blank
+  // box with a starting point, not Dayan's judgement with a machine's.
+  function suggestionHtml(s) {
+    if (!s || (!s.total_cents && !(s.unpriced || []).length)) return '';
+    var rows = '';
+    if (s.subtotal_cents) rows += '<div class="row-sub">' + C.label('Menu price for the priced lines') + ': <b>' + dollars(s.subtotal_cents) + '</b></div>';
+    if (s.discount_cents) rows += '<div class="row-sub">' + C.label('Volume discount') + ': −' + dollars(s.discount_cents) + '</div>';
+    if (s.total_cents) rows += '<div class="row-sub"><b>' + C.label('Suggested total') + ': ' + dollars(s.total_cents) + '</b></div>';
+    var open = (s.unpriced || []).filter(function (u) { return u && u.id; });
+    if (open.length) {
+      rows += '<div class="row-sub">' + C.label('You still need to price') + ': ' +
+        esc(open.map(function (u) { return (u.quantity || '') + ' × ' + u.id; }).join(', ')) + '</div>';
+    }
+    if (s.live_menu === false) rows += '<div class="row-sub">' + C.label('Live menu unavailable — this is not a current price.') + '</div>';
+    return '<div class="rbody"><b>' + C.label('Suggested from the live menu') + '</b>' + rows + '</div>';
+  }
+
+  function dollars(cents) {
+    return '$' + (Number(cents || 0) / 100).toFixed(2);
   }
 
   // ---------- the create form ----------
@@ -174,13 +236,34 @@
       '<div class="field"><label>Phone</label><input id="q-phone" type="tel"></div>' +
       '<div class="field"><label>Event date</label><input id="q-date" type="date"></div>' +
       '<div class="field"><label>Guests</label><input id="q-guests" type="number" min="1" step="1"></div>' +
+      // PRICE IT LINE BY LINE. The estimator's number is a suggestion; these are decisions. What
+      // is typed here is what the customer reads in her quote AND what the deposit is taken on —
+      // one array, no second path, so the itemisation can never disagree with the charge.
+      '<div class="field"><label>Line items <span class="row-sub">(what she reads — leave empty to quote a bare total)</span></label>' +
+        '<div id="q-lines"></div>' +
+        '<button class="btn ghost" id="q-add-line" type="button" style="margin-top:6px">Add a line</button>' +
+        '<div id="q-lines-sum" class="row-sub" style="margin-top:8px"></div>' +
+      '</div>' +
       '<div class="field"><label>Agreed total (dollars)</label><input id="q-total" type="text" inputmode="decimal" placeholder="1200.00"></div>' +
       '<div class="field"><label>Note (optional)</label><input id="q-note" type="text"></div>' +
-      '<button class="btn ghost block" id="q-preview" type="button">Preview the ' +
-        Math.round(Number(d.deposit_pct || 0) * 100) + '% split</button>' +
+      // WHAT SHE READ THE SITE IN IS NOT ALWAYS WHAT SHE WANTS TO BE SOLD IN. The quote defaults
+      // to the language on her lead, and this overrides it. Dayan hit exactly this on 2026-09-09:
+      // a Spanish-speaking client had filled the form in English, so the automatic pick would
+      // have emailed and texted her the English quote.
+      '<div class="field"><label>Send the quote in</label><select id="q-lang">' +
+        '<option value="">Whatever she used on the site</option>' +
+        '<option value="en">English</option>' +
+        '<option value="es">Español</option>' +
+      '</select></div>' +
+      // NO SEND CHECKBOX. It used to sit here checked, and on 2026-09-10 a quote emailed itself to
+      // a client the moment Create was pressed, with no chance to read it first. Sending is now a
+      // separate, deliberate button that only appears BELOW a rendered preview.
+      '<button class="btn ghost block" id="q-preview" type="button">Read the email she would get</button>' +
       '<div id="q-split"></div>' +
+      '<div id="q-mail"></div>' +
       '<button class="btn gold block" id="q-create" type="button" style="margin-top:8px">Create deposit checkout</button>' +
-      '<p class="row-sub" style="margin-top:8px">Creating the checkout mints a Square payment link for the deposit only and stores the terms as they stand today. It charges nothing — the customer pays the link.</p>' +
+      '<p class="row-sub" style="margin-top:8px">Creating the checkout mints a Square payment link for the deposit only and stores the terms as they stand today. <b>It sends nothing.</b> Nothing reaches the customer until you press Send below the preview.</p>' +
+      '<div id="q-sent"></div>' +
       '</div></div>';
   }
 
@@ -191,16 +274,171 @@
       customer_phone: document.getElementById('q-phone').value.trim(),
       event_date: document.getElementById('q-date').value,
       guests: Number(document.getElementById('q-guests').value),
-      total_cents: toCents(document.getElementById('q-total').value),
+      // When there are lines, THEY are the total. Sending a second number invites the two to
+      // drift apart, and the server refuses a body where they disagree.
+      total_cents: readLines().length ? undefined : toCents(document.getElementById('q-total').value),
+      lines: readLines().length ? readLines() : undefined,
       note: document.getElementById('q-note').value.trim(),
+      // Empty means "use her lead's language". A blank must NOT be sent as 'en' or it would
+      // override the very thing it is meant to defer to.
+      lang: document.getElementById('q-lang').value || undefined,
+      lead_id: leadId || undefined,
     };
   }
 
+  // ---------- the line-item editor ----------
+  // Dayan, 2026-09-10: "my decision should override whatever the hub has as a standing rule ...
+  // add the option to manually modify pricing directly from the catering section in the hub
+  // instead of having the hub override me." A row here is a row in her quote email, at his price.
+
+  function lineRowHtml(v) {
+    v = v || {};
+    return '<div class="q-line" style="display:flex;gap:6px;margin-bottom:6px;align-items:flex-start">' +
+      '<input class="q-l-name" type="text" placeholder="Lech\u00f3n asado" value="' + esc(v.name || '') + '" style="flex:3">' +
+      '<input class="q-l-qty" type="text" inputmode="numeric" placeholder="30" value="' + esc(v.qty || '') + '" style="flex:1;min-width:52px">' +
+      '<input class="q-l-price" type="text" inputmode="decimal" placeholder="95.00" value="' + esc(v.price || '') + '" style="flex:1;min-width:72px">' +
+      '<button class="btn ghost q-l-del" type="button" title="Remove this line" style="flex:0 0 auto">\u00d7</button>' +
+      '</div>';
+  }
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  // Read the table back as the server wants it. A row with no name AND no price is a row the user
+  // has not filled in yet, so it is dropped rather than refused — but a half-filled row is kept,
+  // so the server names it and nothing is quietly priced at zero.
+  function readLines() {
+    var out = [];
+    var rows = document.querySelectorAll('#q-lines .q-line');
+    for (var i = 0; i < rows.length; i++) {
+      var name = rows[i].querySelector('.q-l-name').value.trim();
+      var priceRaw = rows[i].querySelector('.q-l-price').value.trim();
+      var qty = rows[i].querySelector('.q-l-qty').value.trim();
+      if (!name && !priceRaw) continue;
+      out.push({ name: name, qty: qty || undefined, cents: priceRaw === '' ? null : toCents(priceRaw) });
+    }
+    return out;
+  }
+
+  function renderLinesSum() {
+    var el = document.getElementById('q-lines-sum');
+    if (!el) return;
+    var rows = readLines();
+    if (!rows.length) { el.textContent = ''; document.getElementById('q-total').disabled = false; return; }
+    // The moment there are lines, they own the total — so the bare-total field is disabled rather
+    // than left editable next to a number it cannot change.
+    var totalEl = document.getElementById('q-total');
+    totalEl.disabled = true;
+    var sum = 0;
+    var incomplete = 0;
+    for (var i = 0; i < rows.length; i++) {
+      if (!rows[i].name || !Number.isInteger(rows[i].cents)) { incomplete++; continue; }
+      sum += rows[i].cents;
+    }
+    totalEl.value = (sum / 100).toFixed(2);
+    el.textContent = rows.length + ' line' + (rows.length === 1 ? '' : 's') + ' \u00b7 ' + dollars(sum) +
+      (incomplete ? ' \u00b7 ' + incomplete + ' still needs a name and a price' : '');
+  }
+
+  function addLine(v) {
+    var host = document.getElementById('q-lines');
+    if (!host) return;
+    host.insertAdjacentHTML('beforeend', lineRowHtml(v));
+    renderLinesSum();
+  }
+
+  function wireLines() {
+    var host = document.getElementById('q-lines');
+    if (!host) return;
+    document.getElementById('q-add-line').addEventListener('click', function () { addLine(); });
+    host.addEventListener('input', renderLinesSum);
+    host.addEventListener('click', function (e) {
+      var del = e.target.closest && e.target.closest('.q-l-del');
+      if (!del) return;
+      del.closest('.q-line').remove();
+      renderLinesSum();
+    });
+    renderLinesSum();
+  }
+
+  // Carried from the request card, so the server can read her language and SMS consent off the
+  // lead rather than asking whoever is filling this in to remember them.
+  var leadId = null;
+
+  // The only control in this desk that contacts a customer. It appears after the quote exists,
+  // under the preview, and it names exactly who it is about to reach.
+  function showSend(created) {
+    var el = document.getElementById('q-sent');
+    if (!el) return;
+    var to = document.getElementById('q-email').value.trim();
+    var phone = document.getElementById('q-phone').value.trim();
+    el.innerHTML = '<div class="card" style="margin-top:12px">' +
+      '<p><b>Created. Nothing has been sent.</b></p>' +
+      '<p class="row-sub">Read the preview above one more time. When you are happy, this emails it to ' +
+        esc(to || 'the address on the quote') + ' and texts her if she consented to texts.</p>' +
+      '<label style="display:flex;gap:8px;align-items:center;margin:0 0 10px">' +
+        '<input id="q-send-sms" type="checkbox" style="width:auto"' + (phone ? '' : ' disabled') + '>' +
+        '<span>' + (phone ? 'Also text it to ' + esc(phone) : 'No phone number on this quote — email only') + '</span></label>' +
+      '<button class="btn gold block" id="q-send-now" type="button">Send it to her now</button>' +
+      (created.quote_url ? '<p class="row-sub" style="margin-top:8px">Or send it yourself: <code>' + esc(created.quote_url) + '</code></p>' : '') +
+      '</div>';
+    document.getElementById('q-send-now').addEventListener('click', function () {
+      var btn = this;
+      if (!window.confirm('Email this quote to ' + (to || 'the customer')
+        + (document.getElementById('q-send-sms').checked ? ' and text ' + phone : '') + ' now?')) return;
+      btn.disabled = true;
+      // The text is opt-in per send and it is the owner authorising it, not a consent flag being
+      // read off a row that has none. Unchecked means email only.
+      var wantsSms = document.getElementById('q-send-sms').checked;
+      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'send', quote_id: created.quote_id, sms: wantsSms } }).then(function (r) {
+        btn.disabled = false;
+        if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not send it'); return; }
+        // sendQuote reports each channel separately: { email: {sent, skipped}, sms: {...} }.
+        var d = r.delivery || {};
+        var mailed = Boolean(d.email && d.email.sent);
+        var texted = Boolean(d.sms && d.sms.sent);
+        Hub.toast(mailed
+          ? (texted ? 'Sent by email and text' : 'Sent by email' + (d.sms && d.sms.skipped ? ' · no text: ' + d.sms.skipped : ''))
+          : ((d.email && d.email.skipped) || d.error || 'Nothing was sent'));
+        btn.textContent = mailed ? 'Sent' : 'Try again';
+        btn.disabled = mailed;
+        render();
+      });
+    });
+  }
+
+  function wireGifts(root) {
+    root.querySelectorAll('[data-gift-for]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var id = sel.getAttribute('data-gift-for');
+        var val = sel.value;
+        var was = sel.getAttribute('data-was') || '';
+        var msg = val
+          ? 'Give this customer a free strawberry tres leches?\n\nIt costs you a cake, and she is told about it the moment she pays her balance.'
+          : 'Remove the gift from this quote?\n\nIf she has already seen it, taking it away now is a promise withdrawn.';
+        if (!window.confirm(msg)) { sel.value = was; return; }
+        sel.disabled = true;
+        Hub.api(ENDPOINT, { method: 'POST', body: { op: 'set_gift', quote_id: id, gift: val || null } })
+          .then(function (r) {
+            sel.disabled = false;
+            if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not save that'); sel.value = was; return; }
+            Hub.toast(r.gift ? 'Gift on for ' + (r.customer_name || 'this quote') : 'Gift removed');
+            render();
+          });
+      });
+      sel.setAttribute('data-was', sel.value);
+    });
+  }
+
   function wireForm() {
+    wireLines();
     document.getElementById('q-preview').addEventListener('click', function () {
       var b = body();
-      if (!Number.isFinite(b.total_cents) || b.total_cents <= 0) { Hub.toast('Enter the agreed total first'); return; }
-      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'preview', total_cents: b.total_cents, event_date: b.event_date } }).then(function (r) {
+      // Either the lines carry the money or the bare total does. Preview the same one the create
+      // path will use, so the split on screen is the split that gets charged.
+      if (!b.lines && (!Number.isFinite(b.total_cents) || b.total_cents <= 0)) { Hub.toast('Enter the agreed total, or add a line'); return; }
+      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'preview', total_cents: b.total_cents, lines: b.lines, event_date: b.event_date } }).then(function (r) {
         var el = document.getElementById('q-split');
         if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not price that'); el.innerHTML = ''; return; }
         el.innerHTML = '<div class="split" style="margin-top:10px">' +
@@ -209,19 +447,36 @@
           '<div class="s"><div class="v">' + money(r.total_cents) + '</div><div class="l">Total</div></div></div>' +
           (r.terms && r.terms.final_count_due ? '<p class="row-sub">Final count due ' + esc(r.terms.final_count_due) + ' · balance due ' + esc(r.terms.balance_due_date || '') + '</p>' : '');
       });
+      // And the email itself, rendered from these exact values. Sandboxed: it is a customer-facing
+      // document being shown inside the Hub, so it gets no script, no forms and no same-origin.
+      Hub.api(ENDPOINT, { method: 'POST', body: {
+        op: 'render', total_cents: b.total_cents, lines: b.lines, event_date: b.event_date,
+        guests: b.guests, customer_name: b.customer_name, lang: b.lang || 'en',
+      } }).then(function (r) {
+        var el = document.getElementById('q-mail');
+        if (!r || !r.ok) { el.innerHTML = '<p class="row-sub">Could not render the email: ' + esc((r && r.error) || 'unknown') + '</p>'; return; }
+        el.innerHTML = '<div style="margin-top:12px"><b>Subject:</b> ' + esc(r.subject) + '</div>' +
+          '<iframe sandbox="" title="The email she would receive" style="width:100%;height:70vh;border:1px solid #2a4a28;border-radius:8px;margin-top:6px;background:#fff"></iframe>' +
+          '<p class="row-sub" style="margin-top:6px">This is what she reads. The Pay button is inert here — the live link is minted when you create the checkout.</p>';
+        el.querySelector('iframe').srcdoc = r.html;
+      });
     });
 
     document.getElementById('q-create').addEventListener('click', function () {
       var btn = this, b = body();
-      if (!Number.isFinite(b.total_cents) || b.total_cents <= 0) { Hub.toast('Enter the agreed total'); return; }
+      var amount = b.lines ? b.lines.reduce(function (n, l) { return n + (Number.isInteger(l.cents) ? l.cents : 0); }, 0) : b.total_cents;
+      if (!Number.isFinite(amount) || amount <= 0) { Hub.toast('Enter the agreed total, or add a line'); return; }
       if (!Number.isFinite(b.guests) || b.guests <= 0) { Hub.toast('Enter the guest count'); return; }
-      if (!window.confirm('Create a deposit checkout for ' + money(b.total_cents) + '? This mints a payable link and stores today’s terms on the quote.')) return;
+      if (!window.confirm('Create a deposit checkout for ' + money(amount) + '?\n\n'
+        + 'This mints a payable link and stores today’s terms on the quote.\n'
+        + 'NOTHING is sent to the customer — you read it and press Send afterwards.')) return;
       btn.disabled = true;
       b.op = 'create';
       Hub.api(ENDPOINT, { method: 'POST', body: b }).then(function (r) {
         btn.disabled = false;
-        if (r && r.ok) { Hub.toast('Deposit link created — ' + money(r.deposit_cents)); render(); }
-        else Hub.toast((r && r.error) || 'Could not create the deposit link');
+        if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not create the deposit link'); return; }
+        Hub.toast('Deposit link created — ' + money(r.deposit_cents) + '. Nothing sent yet.');
+        showSend(r);
       });
     });
   }
@@ -237,9 +492,35 @@
         document.getElementById('q-date').value = r.event_date || '';
         document.getElementById('q-guests').value = r.guests || '';
         document.getElementById('q-note').value = r.note || '';
-        document.getElementById('q-total').focus();
-        document.getElementById('q-total').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        Hub.toast('Request copied into a new quote — enter the agreed total');
+        leadId = r.lead_id || null;
+        document.getElementById('q-lang').value = '';
+        // Prefilled from the live menu when the request carried priceable products. It stays
+        // editable and is still called the AGREED total: the suggestion is a starting point, and
+        // anything the menu could not price is listed on the request card above.
+        // Lay her order out as editable lines. These are suggestions at menu prices; every one
+        // of them is his to overwrite, and once he does, the lines are what she reads and what
+        // the deposit is taken on.
+        var host = document.getElementById('q-lines');
+        var open = 0;
+        if (host) {
+          host.innerHTML = '';
+          (r.lines || []).forEach(function (l) {
+            if (!Number.isInteger(l.cents)) open++;
+            addLine({ name: l.name || '', qty: l.qty || '', price: Number.isInteger(l.cents) ? (l.cents / 100).toFixed(2) : '' });
+          });
+          renderLinesSum();
+        }
+        document.getElementById('q-total').value = r.total || '';
+        var focusOn = (r.lines && r.lines.length) ? document.getElementById('q-lines') : document.getElementById('q-total');
+        if (focusOn === document.getElementById('q-total')) { focusOn.focus(); focusOn.select(); }
+        focusOn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        Hub.toast(r.lines && r.lines.length
+          ? (open
+            ? 'Her order is laid out below — ' + open + ' line' + (open === 1 ? ' has' : 's have') + ' no menu price, and every price is yours to change'
+            : 'Her order is laid out below at menu prices — every one of them is yours to change')
+          : (r.total
+            ? 'Suggested total filled in from the live menu — change it if you agreed something else'
+            : 'Request copied into a new quote — enter the agreed total'));
       });
     });
   }
@@ -271,6 +552,7 @@
 
       wireForm();
       wireRequests(root);
+      wireGifts(root);
       var selected = document.getElementById('selected-request');
       if (selected) selected.scrollIntoView({ behavior: 'smooth', block: 'center' });
       root.querySelectorAll('[data-balance-link]').forEach(function(btn){ btn.addEventListener('click',function(){btn.disabled=true;Hub.api(ENDPOINT,{method:'POST',body:{op:'create_balance_link',quote_id:btn.getAttribute('data-balance-link')}}).then(function(r){if(r&&r.ok){Hub.toast('Square balance link ready');render();}else{btn.disabled=false;Hub.toast((r&&r.error)||'Could not create the balance link');}});});});

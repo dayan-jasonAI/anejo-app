@@ -24,8 +24,17 @@ const items = [...navBlock[1].matchAll(/\{\s*view:\s*'([\w-]+)',\s*href:\s*'([^'
 // into the More sheet, not the bar: the 5 primary slots are what the owner opens daily and a
 // catering quote is a weekly job. The bar itself is unchanged, which is the property this file
 // exists to protect.
-test('sanity: the NAV literal parses to all 16 destinations', () => {
-  assert.equal(items.length, 16, 'a destination was dropped or the parser regex is stale');
+// 2026-09-10: a 17th — the Sales OS (/hub/owner/sales.html). Same rule as catering: into the More
+// sheet, the five primary slots untouched.
+test('sanity: the NAV literal parses to all 17 destinations', () => {
+  assert.equal(items.length, 17, 'a destination was dropped or the parser regex is stale');
+});
+
+test('the Sales OS is IN the nav, in More — not a sixth primary tab', () => {
+  const sales = items.find((i) => i.view === 'sales');
+  assert.ok(sales, 'the Sales workspace must be reachable from owner navigation');
+  assert.equal(sales.href, '/hub/owner/sales.html');
+  assert.equal(sales.primary, false, 'it belongs in More, not in the 5-slot bar');
 });
 
 test('the catering deposit desk is IN the nav — the endpoint had no screen at all before it', () => {
@@ -43,7 +52,7 @@ test('exactly 5 primary tabs, matching what the owner opens daily', () => {
 
 test('every non-primary destination still has a real href — nothing was dropped from the app, only from the bar', () => {
   const overflow = items.filter((i) => !i.primary);
-  assert.equal(overflow.length, 11);
+  assert.equal(overflow.length, 12);
   for (const i of overflow) {
     assert.match(i.href, /^\//, `${i.view} must still resolve to a real path`);
   }

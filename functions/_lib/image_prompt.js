@@ -61,8 +61,8 @@ const CACHE_TTL_SEC = 60 * 60 * 24 * 30; // 30 days
 // `dishPrompt + PLATING_STYLE`, and its tests interpolate this constant rather than a literal, so
 // they keep passing by construction. Only the direction changed.
 export const PLATING_STYLE =
-  'Premium editorial food photography of a Mediterranean-Cuban bowl, presented rather than merely ' +
-  'photographed: one hero bowl, centred, on dark stone or a softly draped dark surface, against a ' +
+  'Premium editorial food photography of the requested Añejo dish and serving format, presented rather than merely ' +
+  'photographed: the complete product, centred, on dark stone or a softly draped dark surface, against a ' +
   'deep forest-green near-black field. Warm directional late-afternoon light falls across the food ' +
   'with controlled falloff into shadow — the food stays luminous, detailed, moist and fresh while ' +
   'the surrounding environment stays moody and quiet. Handcrafted matte ceramic, tactile natural ' +
@@ -88,7 +88,7 @@ export const NEGATIVE_PROMPT =
 // loading); this is not a new brand loader, just the one section of the existing brief this
 // module needs. If docs/brand-standards-brief.md section 10 changes materially, update this too.
 export const BRAND_PHOTO_STANDARD =
-  "Full round bowl visible, bowl front and center. Clockwise sectional plating with the hero " +
+  "Honor the requested tray, cajita, cup, cake or plate. Bowl rules apply only to Fit. Full round bowl visible for Fit. Clockwise sectional plating with the hero " +
   "protein placed roughly 5 o'clock to 7 o'clock; vegetables arranged in clean, intentional " +
   'sections; microgreens finishing the bowl. Background is premium matte black, dark forest ' +
   'green, cream, or another neutral. Lighting reads as luxury and editorial — per the owner\'s ' +
@@ -115,17 +115,17 @@ export const BRAND_PHOTO_STANDARD =
   // real constraint rather than a nuisance: this text is prepended to every image prompt, and a
   // long mood essay dilutes the one thing that varies — the dish brief itself. Every clause below
   // is an instruction a model can act on. Adjectives that only describe a feeling were cut.
-  'HOUSE LOOK — a luxury culinary editorial shot in a quiet Mediterranean estate at golden hour, ' +
+  'HOUSE LOOK — premium culinary editorial at golden hour, ' +
   'read through Cuban warmth: calm, grounded, ceremonial. Palette is deep forest green and ' +
   'near-black, warm cream, aged parchment, muted antique gold, natural stone — the food is the ' +
   'only brightness. Gold reads aged, never shiny or metallic. Surfaces are dark stone or marble, ' +
-  'handcrafted ceramic, softly draped dark fabric, restrained olive branches, with visible grain ' +
-  'and tactile imperfection. One dominant bowl, one hierarchy, generous negative space, centred ' +
+  'handcrafted ceramic, softly draped dark fabric, restrained olive branches, with grain ' +
+  'and tactile imperfection. One dominant product, one hierarchy, generous negative space, centred ' +
   'or carefully balanced, no clutter and no competing focal point. ' +
   'LEAVE THE UPPER THIRD CALM, unbusy and free of subject matter — a title and the Añejo mark are ' +
   'composited into that space afterwards. Do not fill it. ' +
-  'DO NOT REDESIGN THE FOOD: the scene, bowl, and light around it may change; the build inside ' +
-  'the bowl may not, unless the brief explicitly asks. ' +
+  'DO NOT REDESIGN THE FOOD: the scene and light may change; the ingredients and serving format of ' +
+  'the dish may not, unless explicitly requested. ' +
   'Never sterile wellness branding, white clinical backgrounds, excessive gold, fantasy ' +
   'ingredients, shadows covering the food, or decoration that overpowers appetite.';
 

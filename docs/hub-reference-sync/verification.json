@@ -1,0 +1,10 @@
+{
+  "hubDocsExact": true,
+  "trainingRules": 5,
+  "catalogCount": 140,
+  "catalogPricesAndImagesMatch": true,
+  "tests": 1928,
+  "deployment": "16882587-0dae-4dbb-84c2-89a94ef2bf00",
+  "source": "cd9ee99",
+  "verifiedAt": "2026-09-09T03:42:46.313Z"
+}

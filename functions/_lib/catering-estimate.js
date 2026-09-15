@@ -1,19 +1,152 @@
 import { isAvailable, isOrderable } from './menu.js';
+import { applyVolumeDiscount, nextDiscountTier } from './catering-pricing.js';
 
 const FIT = new Set(['fuego', 'ligero', 'mar', 'raiz', 'coco', 'vida', 'congreen']);
-const SERVINGS = { lechon: 'lechon', congri: 'congri', tamales: 'tamal', salad: 'fria' };
 
-function candidates(row) {
+// WHICH LIVE MENU SKUs A SELECTOR PRODUCT MAY BE BUILT FROM.
+//
+// One table, exported, because the price the customer is shown in the picker and the price the
+// knapsack charges have to come from the same place. When this lived as a function body the
+// picker had no way to read it, so the public form could only ever show a single lump subtotal —
+// never a price per product, which is the first thing anyone asking for catering wants to see.
+//
+// Each entry is a base name plus the pack sizes published for it. `traditional_<base>` is the
+// single unit; `catering_<base>-<n>` is the tray of n. Sizes not present in the live menu simply
+// do not become packs, so listing a size here is an offer, never an assumption.
+//
+// NOT LISTED, DELIBERATELY (both boundaries inherited from the original mapping and left intact):
+// the generic bocadito is not substituted for a Hawaiian roll with ham spread, and the live 5 oz
+// flavoured tres leches is not substituted for the requested 3-4 oz cup. Neither equivalence was
+// approved by Dayan. The flavoured cups are offered below under their OWN names instead, which is
+// not a substitution - it is selling the item the menu actually has.
+export const PRODUCT_PACKS = {
+  // Sizes are the tray counts the menu actually publishes, and they must match
+  // scripts/menu-2026-09/prices.mjs — a size listed here that D1 does not carry silently sends
+  // the line to "quoted after review"; a size D1 carries and this omits can never be sold.
+  lechon: { base: 'lechon', sizes: [10, 25, 50] },
+  congri: { base: 'congri', sizes: [10, 25, 30, 50] },
+  tamales: { base: 'tamal', sizes: [10, 25, 50] },
+  salad: { base: 'fria', sizes: [10, 25, 50] },
+  // Priced by the menu all along and absent from the selector until 2026-09-09: Dayan's own
+  // birthday order had to file yuca as "Other custom request", which is what made an otherwise
+  // ordinary order unquotable.
+  yuca: { base: 'yuca', sizes: [10, 25, 30, 50] },
+  'salad-fresh': { base: 'verde', sizes: [10, 25, 50] },
+  skewer: { base: 'skewer', sizes: [10, 25, 50] },
+  bomba: { base: 'bomba', sizes: [10, 25, 50] },
+  // Croqueta platters come in thirties because that is what the tray holds with the sauces
+  // between them. The plain 10-count BOX is a different product (see FLAVOR_FAMILIES) and is
+  // deliberately not in the same pack list — three boxes cost less than one platter and would
+  // otherwise be substituted for it, handing the customer croquetas with no sauce.
+  'croqueta-dressed': { base: 'dressed', sizes: [30, 60, 90] },
+  'cup-fresa': { base: 'cup-fresa', sizes: [10, 25, 50] },
+  'cup-chocolate': { base: 'cup-chocolate', sizes: [10, 25, 50] },
+  'cake-fresa': { base: 'cake-fresa', sizes: [] },
+  'cake-chocolate': { base: 'cake-chocolate', sizes: [] },
+  pizza: { base: 'pizza', sizes: [] },
+  'cajita-standard': { base: 'cajita', sizes: [10, 25, 50] },
+};
+
+// Sauces travel by the single cup or the 8-serving bulk tub. Kept apart from the food table
+// because the picker offers them as add-ons rather than as a category you browse.
+export const SAUCE_PACKS = {
+  'dip-signature': { bulk: 'catering_dip-signature-bulk' },
+  'dip-ajo': { bulk: 'catering_dip-ajo-bulk' },
+  'dip-cilantro': { single: 'traditional_dip-cilantro', bulk: 'catering_dip-cilantro-bulk' },
+  'dip-pineapple': { bulk: 'catering_dip-pineapple-bulk' },
+  'dip-spicy': { single: 'traditional_dip-spicy', bulk: 'catering_dip-spicy-bulk' },
+  'dip-spinach': { single: 'traditional_dip-spinach', bulk: 'catering_dip-spinach-bulk' },
+  'dip-chimi': { bulk: 'catering_dip-chimi-bulk' },
+  'dip-golden': { bulk: 'catering_dip-golden-bulk' },
+  'dip-mango': { bulk: 'catering_dip-mango-bulk' },
+  'dip-avocado': { bulk: 'catering_dip-avocado-bulk' },
+  'dip-light': { bulk: 'catering_dip-light-bulk' },
+  'dip-coconut': { bulk: 'catering_dip-coconut-bulk' },
+};
+
+// Flavoured lines whose flavor picks the SKU.
+//
+// This listed three croqueta fillings and one empanada, on the belief that the rest had no
+// published tray. That was true when it was written and stopped being true on 2026-09-08, when
+// the live menu gained a full set. Verified against production D1 on 2026-09-09: every filling
+// the selector offers now has both a single and two tray sizes, at exactly the same prices as the
+// ones already mapped (croquetas $2.50 / $40 / $75; empanadas $3.50 / $75 / $145, ropa vieja
+// $4.00 / $85 / $165).
+//
+// The cost of the gap was concrete: a 50-piece sausage croqueta line on a real customer order
+// came back "quoted after review" and had to be hand-priced, while the kitchen had a published
+// $75 tray for exactly that item.
+//
+// An unlisted flavor still has no published price and is still quoted by a person — that rule has
+// not changed, the list of what qualifies has.
+// Flavoured lines whose flavor picks the SKU, WITH the tray sizes that flavour is sold in.
+//
+// The sizes used to be hardcoded as 25 and 50 at the point of use. The 2026-09 menu moved
+// croquetas onto 10/30/60/90 and added ten-counts to the empanadas, so a hardcoded pair would
+// have quietly stopped pricing every croqueta the moment the migration retired the old trays.
+//
+// An unlisted flavor still has no published price and is still quoted by a person — that rule
+// has not changed, only the list of what qualifies and the sizes each one comes in.
+const FLAVOR_FAMILIES = {
+  // The BOX: croquetas loose, no sauce, tens only.
+  croqueta: {
+    sizes: [10],
+    skus: { ham: 'croq-jamon', chicken: 'croq-pollo', beef: 'croq-res',
+            chorizo: 'croq-chorizo', sausage: 'croq-sausage', tuna: 'croq-tuna' },
+  },
+  // The PLATTER: plated with the sauces between them, thirties only. A separate family so the
+  // engine can never swap three cheap boxes in for one platter.
+  'croqueta-platter': {
+    sizes: [30, 60, 90],
+    skus: { ham: 'platter-jamon', chicken: 'platter-pollo', beef: 'platter-res',
+            chorizo: 'platter-chorizo', sausage: 'platter-sausage', tuna: 'platter-tuna' },
+  },
+  empanada: {
+    sizes: [10, 25, 50],
+    // Ropa vieja is the one empanada priced apart, and the menu publishes it in 25s and 50s only.
+    sizeOverrides: { 'ropa-vieja': [25, 50] },
+    skus: { 'guava-cheese': 'emp-guava', cheese: 'emp-cheese', ham: 'emp-ham', tuna: 'emp-tuna',
+            chicken: 'emp-pollo', beef: 'emp-res', 'ham-cheese': 'emp-ham-cheese',
+            guava: 'emp-guava-only', 'ropa-vieja': 'emp-ropa-vieja', 'pulled-pork': 'emp-pulled-pork',
+            'dulce-de-leche': 'emp-dulce' },
+  },
+  // The roll's flavor keys come from CAJITA_FLAVORS.sandwich, which spells them 'ham-spread' and
+  // 'tuna-spread' — not 'ham' and 'tuna'. Spelling them the short way here priced nothing at all,
+  // because the lookup is by exact key and a miss reads as "no published price".
+  roll: {
+    sizes: [10, 25, 50],
+    skus: { 'ham-spread': 'bocadito-jamon', 'tuna-spread': 'bocadito-atun' },
+  },
+  'papa-rellena': {
+    sizes: [10, 25, 50],
+    skus: { cheese: 'papa-queso', ham: 'papa-jamon', chorizo: 'papa-chorizo',
+            'hot-dog': 'papa-perro', 'ham-cheese': 'papa-jamon-queso',
+            chicken: 'papa-pollo', beef: 'papa-res' },
+  },
+};
+
+export function candidates(row) {
   if (row.id?.startsWith('fit-') && FIT.has(row.id.slice(4))) return [[row.id.slice(4), 1]];
-  const base = SERVINGS[row.id];
-  if (base) return [[`traditional_${base}`, 1], [`catering_${base}-10`, 10], [`catering_${base}-25`, 25]];
-  let pieces;
-  if (row.id === 'croqueta') pieces = { ham: 'croq-jamon', chicken: 'croq-pollo', beef: 'croq-res' }[row.flavor];
-  if (row.id === 'empanada' && row.flavor === 'guava-cheese') pieces = 'emp-guava';
-  if (row.id === 'skewer') pieces = 'skewer';
-  // Do not substitute the generic bocadito for a Hawaiian roll with ham spread, or the live
-  // 5 oz flavored dessert for the requested 3–4 oz tres leches. Neither equivalence is approved.
-  return pieces ? [[`traditional_${pieces}`, 1], [`catering_${pieces}-25`, 25], [`catering_${pieces}-50`, 50]] : [];
+
+  const entry = PRODUCT_PACKS[row.id];
+  if (entry) {
+    return [
+      [`traditional_${entry.base}`, 1],
+      ...(entry.sizes || []).map((n) => [`catering_${entry.base}-${n}`, n]),
+      ...(entry.packs || []),
+    ];
+  }
+
+  const sauce = SAUCE_PACKS[row.id];
+  if (sauce) return [...(sauce.single ? [[sauce.single, 1]] : []), ...(sauce.bulk ? [[sauce.bulk, 8]] : [])];
+
+  const family = FLAVOR_FAMILIES[row.id];
+  const sku = family?.skus?.[row.flavor];
+  if (!sku) return [];
+  const sizes = family.sizeOverrides?.[row.flavor] || family.sizes;
+  // The single is offered too where one exists; a base with no single (the platters) simply has
+  // no traditional_ row in the menu and is filtered out when the packs are built.
+  return [[`traditional_${sku}`, 1], ...sizes.map((n) => [`catering_${sku}-${n}`, n])];
 }
 
 // Exact bounded knapsack: never round up a guest's pieces/servings. Binary stock chunks keep
@@ -45,7 +178,28 @@ function cheapestExact(quantity, packs) {
 /** Pure estimate using ONLY loadMenu's authoritative D1 rows. No taxes, fees or reservations.
  * Callers must additionally validate scheduling/fulfillment/custom packaging and reprice at
  * checkout. `checkout_eligible` means this food selection is fully mapped, not payment approval.
- * `subtotal_cents` is the known FOOD subtotal when unpriced is nonempty, never a final quote.
+ *
+ * WHAT A LINE THAT "NEEDS REVIEW" DOES TO THE REST OF THE ORDER (changed 2026-09-09).
+ *
+ * It used to stop the whole thing: one custom line, one note, or any event-level design input and
+ * `checkout_eligible` went false for everything. Dayan's own 2026-09-09 birthday order is what
+ * that costs - seven lines, five of them priced straight off the menu, and because two were not
+ * (a yuca line the selector had no product for, and a design attachment) the customer was shown no
+ * price and no way to pay. He then priced it by hand in the Hub.
+ *
+ * Now the three cases are separated, because they are not the same risk:
+ *
+ *   - Event-level design / theme / printing (the `needsReview` option) does NOT block the food.
+ *     Custom packaging is quoted by a person; the roast pork is not.
+ *   - A line carrying NOTES is priced for the quote but never enters the checkout cart. Someone
+ *     who wrote "change ingredients" is not asking for the standard item at the standard price,
+ *     and charging them for one is the exact failure the original guard was protecting against.
+ *     Excluding it from the cart is a stronger guarantee than refusing the whole order was.
+ *   - A line with no price at all stays unpriced and is quoted by a person.
+ *
+ * So `items` is the SELLABLE CART and `subtotal_cents` is what that cart costs. Everything a human
+ * still has to price is in `unpriced`, carrying `indicative_cents` where the menu does have a
+ * number, so the Hub can suggest a total instead of showing an empty box.
  */
 export function estimateCateringProducts(rows, menu, { needsReview = false } = {}) {
   const result = { subtotal_cents: 0, items: [], unpriced: [], needs_review: Boolean(needsReview), checkout_eligible: false };
@@ -60,10 +214,16 @@ export function estimateCateringProducts(rows, menu, { needsReview = false } = {
       result.unpriced.push({ id: row?.id || null, quantity: row?.quantity ?? null, reason: 'invalid_quantity' });
       continue;
     }
-    if (String(row.notes || '').trim()) result.needs_review = true;
-    const key = `${row.id}:${row.flavor || ''}`;
-    const group = groups.get(key) || { ...row, quantity: 0 };
+    const noted = Boolean(String(row.notes || '').trim());
+    if (noted) result.needs_review = true;
+    // Notes are grouped with the line, not just counted globally: two croqueta lines where only
+    // one says "no onions" must not sell BOTH at the standard price, and must not refuse the one
+    // that was ordered plainly. The key already separates them by flavor; a noted line keys apart
+    // from a clean one so they are priced as the two different things they are.
+    const key = `${row.id}:${row.flavor || ''}:${noted ? 'noted' : ''}`;
+    const group = groups.get(key) || { ...row, quantity: 0, noted };
     group.quantity += row.quantity;
+    if (noted) group.notes = row.notes;
     groups.set(key, group);
   }
   const live = new Map((menu?.source === 'd1' ? menu.items || [] : []).map((row) => [row.id, row]));
@@ -85,10 +245,27 @@ export function estimateCateringProducts(rows, menu, { needsReview = false } = {
     });
     const selection = cheapestExact(row.quantity, packs);
     if (!selection) { fail('unavailable_exact_quantity'); continue; }
+    // A line the customer wrote instructions on is priced so the Hub has a number to start from,
+    // but it does NOT join the cart: they asked for something other than the standard item.
+    if (row.noted) {
+      result.unpriced.push({
+        id: row.id, quantity: row.quantity, flavor: row.flavor || null,
+        reason: 'custom_request', indicative_cents: selection.cost,
+      });
+      continue;
+    }
     result.subtotal_cents += selection.cost;
     result.items.push(...selection.items);
   }
   result.needs_review ||= result.unpriced.length > 0;
-  result.checkout_eligible = !result.needs_review && result.items.length > 0;
+
+  // The volume discount rides on the sellable food only. Lines a person still has to price are
+  // not in this number, so the discount cannot be computed off money nobody has agreed to yet.
+  Object.assign(result, applyVolumeDiscount(result.subtotal_cents));
+  result.next_tier = nextDiscountTier(result.subtotal_cents);
+
+  // Sellable means "there is priced, in-stock, exactly-matched food in the cart" - no longer
+  // "nothing anywhere in this request needs a human". See the note on this function.
+  result.checkout_eligible = result.items.length > 0;
   return result;
 }

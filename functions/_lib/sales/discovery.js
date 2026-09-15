@@ -1,0 +1,278 @@
+// Sales OS — prospect discovery: a PROVIDER INTERFACE, not a vendor woven through the app.
+// Files under functions/_lib are NOT routed.
+//
+//   discoverOrganizations(env, { provider, query, area, cursor, limit }) → { ok, results, next_cursor }
+//
+// Every provider normalises into the same record shape upsertOrganization() takes, so dedupe,
+// scoring and the Hub never know which vendor a clinic came from — only `source` says.
+//
+// Providers in this build:
+//   · google_places — Places API (New) Text Search. Needs GOOGLE_PLACES_API_KEY (or the existing
+//     GOOGLE_MAPS_API_KEY with the Places API enabled on it). Without a key it FAILS CLEARLY; it
+//     never returns sample data that could be mistaken for real clinics.
+//   · csv — owner-supplied rows (public licensure lists, a list he bought, his own notes). Always on.
+//
+// TERMS NOTE (see docs/SALES_OS_COMPLIANCE.md): Google's Places terms restrict long-term caching
+// of Places content other than place IDs. This module stores the place_id as the external id and
+// keeps the provider payload in the evidence row; facts the scoring relies on come from the
+// organization's OWN website. Whether to keep Places-derived name/address beyond the terms'
+// window is an owner/legal decision recorded in the compliance doc, not a code default.
+import { cleanText } from './normalize.js';
+
+const PLACES_URL = 'https://places.googleapis.com/v1/places:searchText';
+const PLACES_FIELDS = [
+  'places.id', 'places.displayName', 'places.formattedAddress', 'places.addressComponents', 'places.location',
+  'places.websiteUri', 'places.nationalPhoneNumber', 'places.types', 'places.primaryType', 'places.businessStatus',
+  'nextPageToken',
+].join(',');
+
+export function placesKey(env) {
+  return (env && (env.GOOGLE_PLACES_API_KEY || env.GOOGLE_MAPS_API_KEY)) || null;
+}
+
+/** True only when Places is BOTH configured and approved for persisting prospect records. */
+export function placesUsable(env, flags) {
+  return !!(placesKey(env) && flags && flags['sales.places_persistence_approved'] === true);
+}
+
+/**
+ * The automated discovery provider a run may use, or null. A credential alone is never enough:
+ * the provider must be approved for production persistence (config.js LOCKED_FLAGS).
+ */
+export function usableDiscoveryProvider(env, flags) {
+  return placesUsable(env, flags) ? 'google_places' : null;
+}
+
+/** What the Hub shows under "Discovery sources". Honest about what is and is not wired or approved. */
+export function providerStatus(env, flags) {
+  const key = placesKey(env);
+  const approved = !!(flags && flags['sales.places_persistence_approved'] === true);
+  return [
+    {
+      key: 'csv', label: 'CSV import (owner-supplied list)', configured: true, approved: true, usable: true,
+      production_status: 'approved',
+      note: 'The production source for this release. Import the Florida AHCA adult day care export, a SAMHSA FindTreatment.gov download, or your own list from Sales → Prospects → Import.',
+    },
+    {
+      key: 'google_places', label: 'Google Places (Text Search)', configured: !!key, approved, usable: !!key && approved,
+      production_status: approved ? 'approved' : 'not_approved',
+      note: (approved ? '' : 'NOT APPROVED for production prospect records — Google’s terms restrict storing Places content beyond place IDs. Locked off in this release; no discovery run will call it, even with a key set. ')
+        + (key ? 'A key is configured.' : 'No key is configured.'),
+    },
+    {
+      key: 'samhsa_findtreatment', label: 'SAMHSA FindTreatment.gov (federal behavioral-health / substance-use facility directory)',
+      configured: false, approved: false, usable: false, production_status: 'recommended_not_integrated',
+      note: 'Recommended next automated source (federal data, Open Database License). Not integrated in this release — download results and use CSV import.',
+    },
+    {
+      key: 'ahca_healthfinder', label: 'Florida AHCA FloridaHealthFinder (licensed adult day care centers, with licensed capacity)',
+      configured: false, approved: false, usable: false, production_status: 'recommended_not_integrated',
+      note: 'Recommended list source. Not integrated — download the CSV from FloridaHealthFinder and use CSV import (columns map automatically, including Licensed Beds).',
+    },
+  ];
+}
+
+function component(place, type) {
+  const c = (place.addressComponents || []).find((x) => Array.isArray(x.types) && x.types.includes(type));
+  return c || null;
+}
+
+/** One Places result → the record shape upsertOrganization() takes. */
+export function normalizePlace(place) {
+  const num = component(place, 'street_number');
+  const route = component(place, 'route');
+  const city = component(place, 'locality') || component(place, 'sublocality') || component(place, 'postal_town');
+  const state = component(place, 'administrative_area_level_1');
+  const county = component(place, 'administrative_area_level_2');
+  const zip = component(place, 'postal_code');
+  const loc = place.location || {};
+  return {
+    name: place.displayName && place.displayName.text ? place.displayName.text : null,
+    website: place.websiteUri || null,
+    phone: place.nationalPhoneNumber || null,
+    street: [num && num.longText, route && route.longText].filter(Boolean).join(' ') || null,
+    city: city ? city.longText : null,
+    state: state ? state.shortText : null,
+    zip: zip ? zip.longText : null,
+    county: county ? String(county.longText).replace(/\s*County$/i, '') : null,
+    lat: Number.isFinite(Number(loc.latitude)) ? Number(loc.latitude) : null,
+    lng: Number.isFinite(Number(loc.longitude)) ? Number(loc.longitude) : null,
+    types: Array.isArray(place.types) ? place.types : [],
+    provider_status: place.businessStatus || null,
+    source: 'google_places',
+    source_external_id: place.id || null,
+    source_url: place.id ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(place.id)}` : null,
+    captured: {
+      formatted_address: cleanText(place.formattedAddress, 200),
+      primary_type: place.primaryType || null,
+      types: Array.isArray(place.types) ? place.types.slice(0, 10) : [],
+      business_status: place.businessStatus || null,
+    },
+  };
+}
+
+async function googlePlaces(env, { query, area, cursor, limit = 20, fetchImpl = fetch }) {
+  const key = placesKey(env);
+  if (!key) return { ok: false, error: 'Google Places is not configured (no GOOGLE_PLACES_API_KEY).', code: 'not_configured' };
+  const body = {
+    textQuery: area ? `${query} in ${area}` : query,
+    pageSize: Math.max(1, Math.min(20, Number(limit) || 20)),
+    regionCode: 'US',
+    languageCode: 'en',
+  };
+  if (cursor) body.pageToken = cursor;
+  let r;
+  try {
+    r = await fetchImpl(PLACES_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': PLACES_FIELDS },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    return { ok: false, error: 'Could not reach Google Places: ' + String((e && e.message) || e).slice(0, 120), code: 'network' };
+  }
+  let data = null;
+  try { data = await r.json(); } catch { data = null; }
+  if (!r.ok) {
+    const msg = data && data.error && data.error.message ? data.error.message : `HTTP ${r.status}`;
+    return { ok: false, error: `Google Places refused the search: ${String(msg).slice(0, 200)}`, code: 'provider_error', status: r.status };
+  }
+  const places = (data && Array.isArray(data.places)) ? data.places : [];
+  return {
+    ok: true,
+    results: places.map(normalizePlace).filter((p) => p.name && p.source_external_id),
+    next_cursor: (data && data.nextPageToken) || null,
+  };
+}
+
+export const PROVIDERS = { google_places: googlePlaces };
+
+export async function discoverOrganizations(env, { provider = 'google_places', approved = false, ...opts } = {}) {
+  const fn = PROVIDERS[provider];
+  if (!fn) return { ok: false, error: `Unknown discovery provider "${provider}".`, code: 'unknown_provider' };
+  // Refused at the provider boundary too, so no caller can reach Places by forgetting a check.
+  if (provider === 'google_places' && approved !== true) {
+    return { ok: false, error: 'Google Places is not approved as a production prospect source in this release.', code: 'not_approved' };
+  }
+  return fn(env, opts);
+}
+
+// ---------------------------------------------------------------- CSV
+
+/** RFC 4180-ish: quoted fields, escaped quotes, commas and newlines inside quotes. */
+/**
+ * Which character separates the columns.
+ *
+ * A spreadsheet is how a real list arrives — an AHCA download opened in Excel, a Google Sheet a
+ * colleague shared — and copying a block out of one puts TABS on the clipboard, not commas. Parsed
+ * as CSV that is a single column per line, so every row failed with "an organization needs a name"
+ * and the file looked broken rather than merely tab-separated. Decided from the HEADER line only:
+ * whichever delimiter splits it into more columns wins, and a tie goes to the comma.
+ */
+export function sniffDelimiter(text) {
+  const header = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/)[0] || '';
+  // Count only outside quotes — "Boca Raton, FL" must not vote for the comma.
+  const count = (ch) => {
+    let n = 0, q = false;
+    for (const c of header) {
+      if (c === '"') { q = !q; continue; }
+      if (c === ch && !q) n++;
+    }
+    return n;
+  };
+  return count('\t') > count(',') ? '\t' : ',';
+}
+
+export function parseCsv(text, { maxRows = 500, delimiter } = {}) {
+  const src = String(text || '').replace(/^\uFEFF/, '');
+  const DELIM = delimiter || sniffDelimiter(src);
+  const out = [];
+  let rowv = [];
+  let field = '';
+  let q = false;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (q) {
+      if (ch === '"') {
+        if (src[i + 1] === '"') { field += '"'; i++; } else q = false;
+      } else field += ch;
+      continue;
+    }
+    if (ch === '"') { q = true; continue; }
+    if (ch === DELIM) { rowv.push(field); field = ''; continue; }
+    if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && src[i + 1] === '\n') i++;
+      rowv.push(field); field = '';
+      if (rowv.some((v) => v.trim() !== '')) out.push(rowv);
+      rowv = [];
+      if (out.length > maxRows) break;
+      continue;
+    }
+    field += ch;
+  }
+  if (field !== '' || rowv.length) { rowv.push(field); if (rowv.some((v) => v.trim() !== '')) out.push(rowv); }
+  if (!out.length) return { header: [], rows: [] };
+  const header = out[0].map((h) => h.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''));
+  const rows = out.slice(1, maxRows + 1).map((r) => Object.fromEntries(header.map((h, i) => [h, (r[i] || '').trim()])));
+  return { header, rows, truncated: out.length > maxRows + 1 };
+}
+
+const pick = (r, ...keys) => { for (const k of keys) if (r[k]) return r[k]; return null; };
+// A MISSING COORDINATE IS NOT THE EQUATOR. `Number(null)` and `Number('')` are both 0, and 0 is a
+// finite number off the coast of Africa — the same mistake this codebase already fixed once in the
+// scorer, where an unknown distance scored as "0.0 mi" and earned full route marks.
+const num = (v) => {
+  if (v === null || v === undefined || String(v).trim() === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+// Two halves of one field, the way the federal and state exports write them: SAMHSA splits a
+// facility into name1/name2 (the organization and its program) and street1/street2. Joined rather
+// than dropped — "Lake Worth Recovery Center — Outpatient Division" is two real programs' worth of
+// difference at the same address, and collapsing them to the first line would merge them.
+const joined = (a, b, sep) => [a, b].map((x) => (x ? String(x).trim() : '')).filter(Boolean).join(sep) || null;
+
+/**
+ * One CSV row → an organization record plus (optionally) one contact.
+ *
+ * THE ALIASES ARE THE PRODUCT HERE. CSV import is the only approved prospect source in this
+ * release, and the Hub names two files by name: a SAMHSA FindTreatment.gov download and a Florida
+ * AHCA FloridaHealthFinder export. Recommending a file the importer cannot read is worse than
+ * recommending nothing — a SAMHSA export failed EVERY row with "an organization needs a name",
+ * because its column is `name1`. Anything named below has been checked against how that source
+ * actually writes it.
+ */
+export function csvRowToRecord(r) {
+  return {
+    org: {
+      name: joined(
+        pick(r, 'name', 'name1', 'organization', 'organization_name', 'company', 'facility', 'facility_name', 'provider_name', 'provider'),
+        pick(r, 'name2', 'program', 'program_name', 'division'), ' — '),
+      website: pick(r, 'website', 'url', 'web', 'site', 'website_url'),
+      phone: pick(r, 'phone', 'telephone', 'phone_number', 'main_phone', 'phone1', 'primary_phone'),
+      street: joined(
+        pick(r, 'street', 'address', 'street_address', 'address_1', 'address1', 'street1', 'address_line_1'),
+        pick(r, 'street2', 'address_2', 'address2', 'suite', 'address_line_2'), ', '),
+      city: pick(r, 'city', 'town'),
+      state: pick(r, 'state', 'st'),
+      zip: pick(r, 'zip', 'zipcode', 'zip_code', 'postal_code'),
+      county: pick(r, 'county'),
+      business_category: pick(r, 'category', 'icp_category', 'provider_type', 'facility_type'),
+      employee_or_capacity_hint: pick(r, 'capacity', 'beds', 'licensed_beds', 'licensed_capacity', 'census', 'number_of_beds'),
+      // Coordinates when the export carries them (SAMHSA does). Without these the route criterion
+      // scores "distance not measured" and every prospect looks equally far away, which is the
+      // difference between a ranked list and an alphabetical one.
+      lat: num(pick(r, 'lat', 'latitude', 'y')),
+      lng: num(pick(r, 'lng', 'long', 'longitude', 'x')),
+      notes: pick(r, 'notes', 'note', 'comments'),
+      source: 'csv',
+    },
+    contact: {
+      full_name: pick(r, 'contact_name', 'contact', 'administrator', 'director'),
+      title: pick(r, 'contact_title', 'title'),
+      email: pick(r, 'contact_email', 'email'),
+      phone: pick(r, 'contact_phone'),
+      source_url: pick(r, 'source_url', 'source'),
+    },
+  };
+}

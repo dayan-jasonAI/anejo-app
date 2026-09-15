@@ -13,6 +13,7 @@ import { leadReply, buildSpine, ALLOWED_ACTIONS } from '../../../_lib/team_lead.
 import { auditDraft } from '../../../_lib/governance.js';
 import { bowlArtFor } from '../../../_lib/bowl_art.js';
 import { ensureFoodPhoto } from '../../../_lib/food_photo.js';
+import { isSegment } from '../../../_lib/audience.js';
 
 const MAX_DRAFT_POSTS = 5;
 
@@ -192,6 +193,32 @@ async function executeAction(env, action) {
       } catch { /* one bad row must not lose the rest of the set */ }
     }
     return { action: 'draft_posts', ok: made.length > 0, brief_id: briefId, drafted: made.length, titles: made };
+  }
+
+  if (action.action === 'propose_campaign') {
+    // The Broadcast bridge (2026-09-10). A DRAFT row in `campaigns`, exactly the shape the Broadcast
+    // desk's own 'save' op writes — so it appears in Marketing → Broadcast for the owner to preview,
+    // edit and send. Nothing here sends: sendCampaignBatch runs only from the owner's click or a
+    // schedule HE sets, and resolves the audience through _lib/audience.js consent rules that this
+    // branch cannot widen. The segment must be a real, consented segment — a cold prospect is not one.
+    const channel = action.channel === 'sms' ? 'sms' : 'email';
+    const segment = String(action.segment || '').trim();
+    if (!isSegment(segment)) return { action: 'propose_campaign', ok: false, error: `unknown audience '${segment.slice(0, 40)}'` };
+    const name = String(action.name || action.subject || '').trim().slice(0, 120);
+    const body = String(action.body || '').trim().slice(0, 6000);
+    const subject = String(action.subject || '').trim().slice(0, 200);
+    if (!name || !body) return { action: 'propose_campaign', ok: false, error: 'missing name or body' };
+    if (channel === 'email' && !subject) return { action: 'propose_campaign', ok: false, error: 'an email campaign needs a subject' };
+    const cid = id('cmp');
+    try {
+      await env.DB.prepare(
+        `INSERT INTO campaigns (id, channel, name, subject, body, body_format, segment, status, created_by, created_at, updated_at)
+         VALUES (?,?,?,?,?,'text',?,'draft','lead',?,?)`
+      ).bind(cid, channel, name, channel === 'email' ? subject : null, body, segment, t, t).run();
+      return { action: 'propose_campaign', ok: true, campaign_id: cid, name, segment, channel, status: 'draft' };
+    } catch (e) {
+      return { action: 'propose_campaign', ok: false, error: String((e && e.message) || '').slice(0, 120) };
+    }
   }
 
   return null;

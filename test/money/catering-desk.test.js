@@ -16,7 +16,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { onRequestGet, onRequestPost } from '../../functions/api/hub/owner/catering-deposit.js';
-import { DEPOSIT_PCT, TERMS_VERSION } from '../../functions/_lib/catering_terms.js';
+import { termsFor, DEPOSIT_PCT, TERMS_VERSION } from '../../functions/_lib/catering_terms.js';
 
 const DESK = readFileSync(new URL('../../public/hub/owner/catering.html', import.meta.url), 'utf8');
 
@@ -164,12 +164,16 @@ test('preview returns the depositSplit math and touches NOTHING — no Square, n
   sq.restore();
 
   assert.equal(out.ok, true);
-  assert.equal(out.deposit_cents, 30000);
-  assert.equal(out.balance_cents, 90000);
+  assert.equal(out.deposit_cents, 60000);
+  assert.equal(out.balance_cents, 60000);
   assert.equal(out.total_cents, 120000);
   assert.equal(out.deposit_cents + out.balance_cents, out.total_cents);
-  assert.equal(out.terms.final_count_due, '2026-09-10');
-  assert.equal(out.terms.balance_due_date, '2026-09-20');
+  // Derived rather than hardcoded. termsFor() clamps a deadline that has already passed up to
+  // today, so a literal here starts failing on its own once the calendar goes by — which is
+  // exactly what happened to this line between 2026-09-09 and 2026-09-14.
+  assert.equal(out.terms.final_count_due,
+    termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20' }).final_count_due);
+  assert.equal(out.terms.balance_due_date, '2026-09-19', 'the day BEFORE the event');
 
   assert.equal(sq.calls.length, 0, 'a preview that contacts Square is not a preview');
   assert.equal(env._sql.length, 0, 'and it writes no row');
@@ -199,10 +203,10 @@ test('the desk’s create button mints the deposit link for the DEPOSIT, not the
   sq.restore();
 
   assert.equal(out.ok, true);
-  assert.equal(out.deposit_cents, 30000);
-  assert.equal(out.balance_cents, 90000);
+  assert.equal(out.deposit_cents, 60000);
+  assert.equal(out.balance_cents, 60000);
   assert.equal(out.url, 'https://sq.link/deposit');
-  assert.equal(sq.calls[0].body.order.line_items[0].base_price_money.amount, 30000);
+  assert.equal(sq.calls[0].body.order.line_items[0].base_price_money.amount, 60000);
   assert.ok(env._sql.some((s) => /INSERT INTO catering_quotes/i.test(s.flat)), 'and the quote is recorded');
 });
 

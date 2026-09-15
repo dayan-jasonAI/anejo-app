@@ -92,7 +92,7 @@
     update:{en:'Update count',es:'Actualizar conteo'},
     sending:{en:'Sending…',es:'Enviando…'},
     byCut:{en:'Please submit by {c} AM so the kitchen can prep your lunches fresh.',es:'Por favor envía antes de las {c} AM para que la cocina prepare tus almuerzos frescos.'},
-    rushWarn:{en:'It’s past the {c} AM cut-off. We’ll do our best — late counts go in as a rush.',es:'Ya pasó el corte de las {c} AM. Haremos lo posible — los conteos tardíos entran como urgentes.'},
+    rushWarn:{en:'It’s past the {c} AM cut-off. We’ll do our best — late counts go in as a rush, and today’s count closes for good at {h} AM.',es:'Ya pasó el corte de las {c} AM. Haremos lo posible — los conteos tardíos entran como urgentes, y el conteo de hoy cierra definitivamente a las {h} AM.'},
     already:{en:'Already received today: {n}. You can update it below.',es:'Ya recibido hoy: {n}. Puedes actualizarlo abajo.'},
     noDel:{en:'No lunch delivery is scheduled for your office today. Deliveries run Monday–Wednesday.',es:'No hay entrega de almuerzo programada para tu oficina hoy. Las entregas son de lunes a miércoles.'},
     received:{en:'Count received — {n} lunches',es:'Conteo recibido — {n} almuerzos'},
@@ -104,6 +104,12 @@
     daysL:{en:'Days',es:'Días'},
     noOrders:{en:'No orders yet this month — your first count will appear here.',es:'Aún no hay pedidos este mes — tu primer conteo aparecerá aquí.'},
     change:{en:'Need to change it? Reopen this link before {c} AM.',es:'¿Necesitas cambiarlo? Reabre este enlace antes de las {c} AM.'},
+    lockedBan:{en:'Today’s count closed at {c} AM — the kitchen is already building it.',es:'El conteo de hoy cerró a las {c} AM — la cocina ya lo está preparando.'},
+    lockedHave:{en:'You’re getting {n} lunches today.',es:'Hoy recibes {n} almuerzos.'},
+    lockedNone:{en:'We don’t have a count from you for today.',es:'No tenemos un conteo tuyo para hoy.'},
+    lockedHelp:{en:'Still need a change? Call us and we’ll do whatever the kitchen can still cover.',es:'¿Aún necesitas un cambio? Llámanos y haremos lo que la cocina todavía pueda.'},
+    lockedCall:{en:'Call 561-567-1047',es:'Llama al 561-567-1047'},
+    lockedTomorrow:{en:'Tomorrow’s count opens again overnight — this same link.',es:'El conteo de mañana se abre de nuevo durante la noche — con este mismo enlace.'},
     yourName:{en:'Your name',es:'Tu nombre'},
     yourNamePh:{en:'Who’s placing this order?',es:'¿Quién hace este pedido?'},
     whoOrdering:{en:'Who’s ordering today?',es:'¿Quién pide hoy?'},
@@ -167,8 +173,22 @@
       app.innerHTML='<div class="card">'+head+'<div class="banner warn">'+tr('noDel')+'</div></div>'+monthCard();
       return;
     }
+    // PAST THE HARD CUT-OFF THE FORM IS GONE, not merely disabled. A count box that accepts a
+    // number and then refuses it teaches people to keep trying; a page that tells them what they
+    // ARE getting and hands them a phone number gets the problem to a human who can still fix it.
+    if(ctx.count_locked){
+      app.innerHTML='<div class="card">'+head+
+        '<div class="win">🍱 '+tr('delivery')+' '+esc(ctx.window)+'</div>'+
+        '<div class="banner crit">'+tr('lockedBan',{c:esc(ctx.hard_cutoff||'10:45')})+'</div>'+
+        '<div class="banner ok">'+(ctx.already?tr('lockedHave',{n:ctx.already.count}):tr('lockedNone'))+'</div>'+
+        '<p class="fine" style="margin-top:12px">'+tr('lockedHelp')+'</p>'+
+        '<a class="btn" href="tel:5615671047" style="display:block;text-align:center;text-decoration:none">'+tr('lockedCall')+'</a>'+
+        '<p class="fine" style="margin-top:12px">'+tr('lockedTomorrow')+'</p>'+
+      '</div>'+monthCard();
+      return;
+    }
     var pre=ctx.already;
-    var warn = ctx.past_cutoff ? '<div class="banner crit">'+tr('rushWarn',{c:esc(ctx.cutoff)})+'</div>'
+    var warn = ctx.past_cutoff ? '<div class="banner crit">'+tr('rushWarn',{c:esc(ctx.cutoff),h:esc(ctx.hard_cutoff||'10:45')})+'</div>'
                                : '<div class="banner ok">'+tr('byCut',{c:esc(ctx.cutoff)})+'</div>';
     var preNote = pre ? '<div class="banner ok">'+tr('already',{n:pre.count})+'</div>' : '';
     app.innerHTML=
@@ -338,6 +358,15 @@
     fetch('/api/contract/headcount',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
       .then(function(r){return r.json();}).then(function(d){
         if(d&&d.ok){ confirmed(d); return; }
+        // The page was open before the cut-off and submitted after it. Don't argue inline next to
+        // a form that can no longer do anything — swap the whole page to the locked view, which
+        // says what they're getting and how to reach a person.
+        if(d&&d.locked){
+          ctx.count_locked=true;
+          if(d.hard_cutoff) ctx.hard_cutoff=d.hard_cutoff;
+          if(d.count!=null) ctx.already={count:d.count, is_rush:!!(ctx.already&&ctx.already.is_rush), notes:(ctx.already&&ctx.already.notes)||null};
+          window.scrollTo({top:0,behavior:'smooth'}); render(); return;
+        }
         if(d&&d.needs_verify){ showVerify(d.phone_hint, code!=null?((d&&d.error)||null):null); return; }
         if(b){ b.disabled=false; b.textContent=tr('submit'); }
         formError((d&&d.error)||tr('submitErr'));
@@ -371,7 +400,7 @@
       (d.receipt_sent?'<p class="fine" style="margin-top:10px">'+tr('receiptSent',{hint:esc(d.receipt_to||'')})+'</p>':'')+
       (d.notes?'<div class="banner warn" style="text-align:left;margin-top:12px">⚠ '+esc(d.notes)+'</div>':'')+
       (d.is_rush?'<div class="banner crit" style="text-align:left">'+tr('rushFee')+'</div>':'')+
-      '<p class="fine" style="margin-top:12px">'+tr('change',{c:esc(ctx.cutoff)})+'</p></div>';
+      '<p class="fine" style="margin-top:12px">'+tr('change',{c:esc(ctx.hard_cutoff||'10:45')})+'</p></div>';
     setTimeout(load, 1800); // reload to refresh the live monthly tracker
   }
   document.getElementById('h-sub').textContent=T.sub.en;

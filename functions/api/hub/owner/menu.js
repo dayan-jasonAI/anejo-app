@@ -37,7 +37,16 @@ import { BOWL_IDS } from '../../../_lib/ondemand.js';
 
 const KINDS = ['bowl', 'drink', 'addon'];
 const SLUG = /^[a-z0-9_]+$/;                                  // checkout matches items by this id
-const IMAGE = /^[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp|avif)$/;  // filename under /assets/img/
+// A path under /assets/img/ — either a bare filename ("bowl_vida.jpg") or one inside a
+// subfolder ("menu-launch/combo-bites.webp"). Subfolders are not an edge case: 134 of the 144
+// live menu rows keep their photo in one, and an earlier version of this regex allowed only bare
+// filenames. Because a save posts every field at once, that rejected the WHOLE update — price
+// included — for 93% of the menu, with a red note about an image the owner had never touched.
+// That is how a full menu re-price was silently lost on 2026-09-09.
+// Each folder segment must START with an alphanumeric, underscore or dash, which is what keeps
+// ".." and a leading "/" out: the value is concatenated onto /assets/img/ and must not be able
+// to climb above it.
+const IMAGE = /^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp|avif)$/;
 // $1,000. A fat-fingered 199900 ("dollars" typed into a cents box) would otherwise go live as a
 // $1,999 bowl on a real Square charge.
 const MAX_CENTS = 100000;
@@ -237,7 +246,7 @@ export const onRequestPost = async ({ request, env }) => {
     if ('description_es' in body) next.description_es = text(body.description_es, 400);
     if ('image' in body) {
       const v = text(body.image, 120);
-      if (v && !IMAGE.test(v)) errors.push('Image must be a filename under /assets/img/, e.g. bowl_vida.jpg.');
+      if (v && !IMAGE.test(v)) errors.push('Image must be a file under /assets/img/, e.g. bowl_vida.jpg or menu-launch/combo-bites.webp.');
       else next.image = v;
     }
     if ('sort' in body) {
@@ -307,7 +316,7 @@ export const onRequestPost = async ({ request, env }) => {
       else sort = n;
     }
     const image = text(body.image, 120);
-    if (image && !IMAGE.test(image)) errors.push('Image must be a filename under /assets/img/, e.g. bowl_vida.jpg.');
+    if (image && !IMAGE.test(image)) errors.push('Image must be a file under /assets/img/, e.g. bowl_vida.jpg or menu-launch/combo-bites.webp.');
     if (errors.length) return json({ ok: false, error: 'validation failed', errors }, 400);
 
     const clash = await env.DB.prepare('SELECT id FROM menu_items WHERE id = ?').bind(itemId).first();

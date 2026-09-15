@@ -32,7 +32,7 @@ const MODEL_FLAG_TYPES = new Set(['claim', 'voice', 'photo', 'training']);
 // planner carry (brand_source.js). Before brand_source.js existed the auditor had no cap at
 // all: it always embedded the FULL compiled snapshot (~15.3k chars), so 20000 is headroom,
 // not a squeeze, and preserves this judge's read of the brief exactly as it was.
-const BRAND_BUDGET = 20000;
+const BRAND_BUDGET = 32000;
 
 // Owner training (0075/training.js) reaching the judge too. Same budget the Team Lead and the
 // planner already use for the same feed — this is the third and last consumer of

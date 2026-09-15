@@ -4,53 +4,45 @@
 
 ## 1. Who we are
 
-**Añejo Catering Co. LLC** is a longevity-forward, Mediterranean-Cuban bowl service based in **Palm Beach County, Florida**.
+**Añejo Catering Co. LLC** is one premium Cuban food family in **Palm Beach County, Florida**: **Añejo Catering, Añejo Traditional, and Añejo Fit**. We serve Mediterranean-Cuban bowls, traditional Cuban meals and small bites, individually packed cajitas, and catering for gatherings and teams.
 
-We create high-protein, macro-balanced bowls rooted in clean Mediterranean nutrition, Cuban sazón, premium presentation, and real-life performance. Añejo exists for people who want to live, train, work, and feel better without eating boring "diet food."
+**Owner direction, 2026-09-08:** all three categories deserve prominent food photography and direct shopping paths. La Cajita is our newest family addition, not a fourth competing brand. Añejo Bites is not the replacement name for Añejo Traditional. MAR (salmon) is the Fit cover; the plated lechón with authentic Añejo congrí is the Traditional cover.
 
-Our food should feel fresh, elevated, abundant, flavorful, and intentional.
+Current prices, available options, portions, and product images come from active **D1 menu_items / GET /api/menu**. This brief defines identity and standards; historical drafts and campaign documents do not override the live catalog. Read the matching SKU before quoting a price. Launch cost estimates are not verified profit or production yield.
 
 ## 2. Vision & mission
 
-**Vision:**
-To build Añejo into South Florida's leading premium longevity food brand — a trusted name in healthy bowls, macro-personalized meal plans, gym partnerships, corporate wellness, and elevated catering. Añejo is being built as a legacy brand: Cuban soul, Mediterranean discipline, premium standards, and food that helps people become the best version of themselves.
+Build a lasting South Florida food brand with Cuban soul, premium presentation, and care in every order: a balanced bowl for a busy day, comforting traditional food, a thoughtful cajita, or a full gathering. The same family serves different occasions without making them compete.
 
-**Mission:**
-To make healthy food taste so good that people can stay consistent with their goals without feeling restricted. Every bowl should support performance, longevity, and confidence while delivering the flavor, beauty, and care of a premium culinary experience.
-
-**What makes us different:**
-Añejo is not basic meal prep. We combine chef-driven Cuban flavor, Mediterranean-inspired nutrition, macro discipline, premium packaging, and goal-based customization. We build food for results, but we present it like a high-end lifestyle brand. The difference is: flavor first, health always, presentation never compromised.
+Flavor, hospitality, consistency, and honest product representation come first. Fit supports customers' nutrition goals; Traditional and Catering celebrate Cuban comfort food. Do not apply bowl macro ratios, no-added-sugar claims, or wellness promises to fried bites, desserts, or the whole menu.
 
 ## 3. Our three product lines
 
-### A. À la carte / On-demand bowls / Fit Drinks & Shots
+### A. Añejo Catering
 
-The original launch line.
+Trays, dressed and regular croquetas, empanadas, Hawaiian bocaditos, full skewers, cold salad, cajitas, desserts, and complete spreads. Use tray images and explicitly stated quantities. Regular and dressed croquetas have different prices; the dressed version adds olive, cheese, and spinach. Bespoke event requests require a reviewed quote.
 
-* Fixed at **16 oz**
-* Built to the Golden Rule: **40% protein / 30% carbs / 30% fat**
-* Default product anyone can order
-* Designed for walk-up, delivery, pickup, gyms, offices, clinics, and general customers
-* Nutrition is approximate and stated in ranges
+### B. Añejo Traditional
 
-### B. The Macro Portal
+Lunch and dinner plates, Cuban sandwiches and tacos, appetizers, individual sides, and desserts. Croquetas and empanadas are one family each with flavor and quantity choices. Tostones rellenos offer ropa vieja, ham and cheese, shrimp, and lechón fillings. No standalone salami bite: the full grape–ham/salami–cheese–guava–pineapple skewer appears individually, in La Cajita, or in catering quantities.
 
-Premium subscription service.
+Meals include lechón, ropa vieja, garbanzos fritos, arroz frito, three chicken or lechón tacos, bistec uruguayo with congrí or rice and beans plus salad, pan con lechón, chicken sandwich, chuleta encebollada, potato-and-tuna lasagna, and enchilado de pollo. Published launch portions remain recipe-development assumptions unless specifically owner-confirmed below.
 
-* Targets high-end gym trainers and their clients chasing specific goals
-* Uses the same Añejo bowl system but adjusts portions to each client's macro targets
-* Sold as goal-sized **12-bowl plans**
-* The Golden Rule is the starting point, but the client's prescribed macros override it
-* Built for transformation, accountability, consistency, and premium trainer partnerships
-* *Breakfast line coming soon*
+### C. Añejo Fit
 
-### C. Traditional Cuban Bites for Catering & Events
+Seven bowls: VIDA, FUEGO, LIGERO, MAR, COCO, CONGREEN, and RAÍZ; plus Gold Vitality, Hibiscus Zen, and Emerald Hydrate drinks. Standard bowls are 16 oz. Nutrition is approximate. The Macro Portal and goal-sized 12-bowl plans are services within Fit, not a separate family category. Breakfast, shots, and hidden recipe experiments must not be advertised as available without an active catalog entry.
 
-Chef-driven Cuban bites and platters for catering and events, held to the same ingredient-quality, allergen, food-safety, and presentation standards as the bowl lines.
+### Shopping and payment routes
+
+The order menu separates **Lunch & dinner, Appetizers, Sides, Desserts, Catering, Añejo Fit, and Sauces**. Flavors and quantities belong inside a family customizer. Optional cart suggestions can pair a bowl with a croqueta, empanada, drink, or dessert; never automatically add or charge an extra.
+
+Priced items go through /order and Square checkout. Traditional and Catering use scheduled delivery; do not promise same-day service. /cajita-builder and /catering collect custom requests for owner review, then a Square deposit and remaining-balance payment link. The quote controls amounts. Card and eligible Apple Pay, Google Pay, and Cash App Pay are supported for one-time checkout; device and eligibility affect visibility. Subscriptions use the recurring flow and eligible card/Apple Pay/Google Pay support; do not promise Cash App or Afterpay for recurring payments. No real settlement test or conversion increase is claimed by this reference update.
+
+ Standard Traditional/Catering orders need at least 48 hours from the selected Eastern delivery-window start; custom printing needs 72 hours and remains quote-only. Eligible standard catering selections can receive a live food estimate and transfer to the existing order cart for Square checkout. Unpriced products, custom printing/uploads, food changes and allergy notes require quote review; do not promise automatic checkout for these requests.
 
 ## 4. The Golden Rule
 
-Every standard 16 oz Añejo bowl targets:
+For Añejo Fit only, every standard 16 oz bowl targets:
 
 **40% protein / 30% carbs / 30% fat by calories**
 
@@ -60,7 +52,7 @@ Nutrition must always be presented as **approximate ranges**, never as precise m
 
 ## 5. Culinary house style
 
-Añejo's flavor identity is:
+The following nutrition-led culinary system applies to **Fit bowls**. Traditional and Catering follow their own recipes, including cheese, cured meats, fried foods, and desserts; never describe the entire catalog as sugar-free or macro-balanced. Our shared identity is Cuban sazón and premium care. Fit's flavor identity is:
 
 * Bright citrus
 * Cuban sazón
@@ -104,6 +96,14 @@ Añejo is known for:
 
 ## 6. Menu
 
+### Serving and pricing authority — owner update, 2026-09-08
+
+Owner-confirmed: ensalada fría 6 oz; croqueta 1.20 oz after frying; empanada 1.25 oz; lechón 6 oz per serving; tamal three slices approximately 5.5 oz; congrí 8 oz **by weight**. Do not equate the rice weight with two cups. The 6 oz salad instruction means cold salad, not fresh salad. Other proposed portions require production validation.
+
+Cold salad is $5 individually; the 10-serving tray is $45. Regular croqueta trays are $40/25 and $75/50; dressed trays are $65/25 and $125/50. These are dated reference examples; re-read live SKU prices before publishing. Strawberry and chocolate tres leches each have individual cups and whole round cakes; catering cup packs are separate quantities. Sides use per-person portions and images, not catering trays.
+
+The full catalog and serving-specific asset reference is in Hub's **Menu, Photography & Marketing Reference — September 2026**. Its price table is a dated snapshot; /api/menu remains current authority. Production costs, food-cost percentages, nutrition and margin estimates are not audited results.
+
 ### Current public bowls
 
 **COCO — Coconut Lime Shrimp Bowl**
@@ -142,9 +142,9 @@ Seasonal rotations may include:
 * Gym-partner exclusive bowls
 * Corporate wellness menus
 * Macro Portal custom variations
-* Añejo Fit Drinks: Oro Vital, Hibiscus Zen, and Verde Vida
+* Añejo Fit Drinks: Gold Vitality, Hibiscus Zen, and Emerald Hydrate (use current catalog names)
 
-Seasonal items must still follow Añejo's plating, ingredient quality, allergen, and macro standards.
+Seasonal items follow the relevant category's plating, quality, and allergen standards; Fit bowl macro targets apply only to Fit bowls.
 
 ## 7. Ingredient & sourcing standards
 
@@ -246,7 +246,12 @@ A correct Añejo bowl should look premium before the customer takes a bite.
 
 ### Photo standard
 
-* Full round bowl visible.
+Match the purchased serving format: catering trays for catering, single bites and cream plates for appetizers/sides, cups for individual desserts, round cakes for whole cakes. Cuban pizza must use the plated image without a metal mold, showing crisp cheesy borders. Congrí must retain the owner's purple-brown color, distinct long rice grains, black beans and golden cracklings; avoid pale or mushy substitutes. Croquetas are elongated oval Cuban croquetas. Combo images must show their described components.
+
+Use the approved product's existing catalog image before generating another. Keep the cream, forest-green, charcoal and gold palette; pink packaging is an event theme. Food must remain the hero. Lifestyle imagery must not imply unverified clients or events. AI-enhanced or generated illustrations must not be represented as documentary photos of delivered orders. Existing homepage slideshow uses Añejo food/event images; no AI people video is required.
+
+
+* Full round bowl visible for Fit; complete plate, cup, box, or tray visible for other formats.
 * Bowl front and center.
 * Premium matte black, dark forest green, cream, or neutral backgrounds.
 * Lighting should feel luxury, editorial, and fresh.

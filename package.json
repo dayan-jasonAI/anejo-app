@@ -19,7 +19,9 @@
     "predeploy": "npm test --silent && node scripts/predeploy-guard.mjs",
     "verify:deploy": "node scripts/verify-live-deploy.mjs",
     "postdeploy": "node scripts/verify-live-deploy.mjs",
-    "verify:live": "node scripts/verify-live.mjs"
+    "verify:live": "node scripts/verify-live.mjs",
+    "check:menu": "node scripts/menu-2026-09/generate.mjs --check",
+    "build:menu": "node scripts/menu-2026-09/generate.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

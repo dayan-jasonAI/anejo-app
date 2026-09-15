@@ -9,6 +9,11 @@
 // Schedule (UTC, standard cron min/hour/dom/mon/dow) → automation types → /api/hub/automations/run
 const SCHEDULE = {
   '30 1 * * *': ['eod_chase', 'daily_summary'],     // 01:30 UTC — evening ET
+  // 13:00 UTC ≈ 9am ET — catering balance reminders, the day before a balance is due and the day
+  // it is due. Morning on purpose: an email about money owed should arrive when somebody can
+  // actually act on it, not at midnight. Each reminder sends once and only once; the job is safe
+  // to run every day forever because the guarantee is a database constraint, not the clock.
+  '0 13 * * *': ['balance_reminder'],
   '30 9 * * *': ['route_optimize'],                 // 09:30 UTC — early morning ET
   '0 18 * * *': ['sentiment_scan', 'ticket_triage'],// 18:00 UTC — early afternoon ET
   '0 10 * * 1': ['restock_suggest'],                // Mondays 10:00 UTC
@@ -61,6 +66,20 @@ const EXTRA_ENDPOINTS = {
   // autopay-tick short-circuits on one settings read when the contracts switch is off, which is
   // the default — so scheduling it costs nothing until Dayan turns it on.
   '20 * * * *': ['/api/hub/admin/abandoned-tick', '/api/hub/admin/autopay-tick'],
+  // Sales OS (2026-09). EVERY one of these no-ops on a single settings read while its feature flag
+  // is off, which is the production default for all but metrics — scheduling them sends nothing and
+  // discovers nothing until Dayan switches each job on in Sales → Settings.
+  //   send     — hourly at :40; only owner-APPROVED emails, inside the ET business-hours window,
+  //              under the daily cap. The endpoint enforces the window itself, so hourly is safe.
+  //   enrich   — hourly at :25; a few organizations' websites per tick.
+  //   discovery— daily ≈ 8:15am ET; bounded by the daily new-prospect and API-call caps.
+  //   followup — daily ≈ 7:10am ET; DRAFTS due follow-ups into the approval queue. Never sends.
+  //   metrics  — nightly ≈ 11:50pm ET; funnel snapshot into agent_runs.
+  '40 * * * *': ['/api/hub/admin/sales-tick?job=send'],
+  '25 * * * *': ['/api/hub/admin/sales-tick?job=enrich'],
+  '15 12 * * *': ['/api/hub/admin/sales-tick?job=discovery'],
+  '10 11 * * *': ['/api/hub/admin/sales-tick?job=followup'],
+  '50 3 * * *': ['/api/hub/admin/sales-tick?job=metrics'],
 };
 
 // Endpoints POSTed on EVERY minute tick (frequent sweeps).

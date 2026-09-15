@@ -31,6 +31,10 @@
     // that does not exist. It goes in the More sheet rather than the bar: a catering quote is a
     // weekly job, not a daily one, and the bar's 5 primary slots are already spoken for.
     { view: 'catering', href: '/hub/owner/catering.html', ico: '🥂', label: 'Catering' },
+    // 2026-09-10: the Sales OS — institutional prospecting, the approval queue for every prospect
+    // email, and Convert to Contract Account. In More, not the bar: the five primary slots are
+    // what the owner opens every day, and the six-slot budget (docs/HUB_ARCHITECTURE.md) is law.
+    { view: 'sales', href: '/hub/owner/sales.html', ico: '🎯', label: 'Sales' },
     { view: 'trainers', href: '/hub/owner/trainers.html', ico: '🤝', label: 'Trainers' },
     { view: 'partners', href: '/hub/owner/partners.html', ico: '📣', label: 'Affiliate' },
     // 2026-08-04: Campaigns / Social / Team / Train-the-team used to be four separate nav tabs for

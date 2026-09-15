@@ -1,5 +1,7 @@
 # Añejo Marketing Team — Owner's Guide
 
+> **Current product direction — 2026-09-08:** use [Brand & Standards Brief](brand-standards-brief.md) and [Menu, Photography & Marketing Reference](HUB_MENU_MARKETING_REFERENCE.md) for current categories, portions, product photos, and shopping routes. Earlier bowl-only examples below describe system history, not the full current offering. Live /api/menu controls prices and availability.
+
 *For Dayan. What the AI marketing team can do, how to get the most out of it, and where
 everything lives. Written 2026-07-31, the day the team went fully live.*
 
@@ -98,5 +100,12 @@ R2 bucket `anejo-media` (`studio/2026-07/series/…`); bowl photography in
 ## Not yet built (so you don't go looking)
 
 Video content (your call #3 — deferred); Meta App Review / business verification (Track B,
-your paperwork); email campaigns are a separate system (Broadcast layer) not yet driven by
-the Team Lead; token renewal due ~late September.
+your paperwork); token renewal due ~late September.
+
+**Updated 2026-09-10 (Sales OS branch):** the Team Lead can now *propose* an email campaign — a
+`propose_campaign` action writes a Broadcast **draft** for one of the existing consented segments,
+which you preview and send yourself from Broadcast. It cannot send, schedule, or reach a cold
+prospect: institutional prospecting lives in **HUB → More → Sales**, where every prospect email is
+approved by you individually (`docs/SALES_OS_ARCHITECTURE.md`). The institutional positioning for
+the brief is filed from Sales → Settings as a proposal in Reviews — nothing changes until you
+approve it.
