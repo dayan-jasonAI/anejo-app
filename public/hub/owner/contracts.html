@@ -165,9 +165,9 @@
 
       '<div class="terms-head">Holiday &amp; operations contact</div>' +
       '<div class="terms-grid">' +
-        '<div><label>Ops email — who decides if this location is open</label><input id="eoe_' + s.id + '" type="email" value="' + esc(s.ops_email || '') + '" placeholder="office@theirclinic.com"></div>' +
+        '<div><label>Ops emails, who decides if this location is open</label><input id="eoe_' + s.id + '" type="email" multiple value="' + esc(s.ops_email || '') + '" placeholder="accounting@theirclinic.com, owner@theirclinic.com"></div>' +
       '</div>' +
-      '<div style="font-size:11px;color:var(--muted);margin-top:4px">Holiday questions go here. Left blank, they go to the billing inbox instead.</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:4px">Separate several with commas. Everyone listed is on the same holiday email, so whoever sees it first can answer. Left blank, it goes to the billing inbox.</div>' +
       '<label class="livetoggle"><input type="checkbox" id="eac_' + s.id + '"' + (Number(s.active) === 0 ? '' : ' checked') + '>' +
         '<span>Accepting head counts — unchecking pauses this location\'s intake link</span></label>' +
 

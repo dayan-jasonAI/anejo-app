@@ -49,8 +49,24 @@ export async function removeSuppression(env, email) {
 // receipt), or {skipped,suppressed}. `bcc` is opt-in per call — see the note on body.bcc below.
 export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppression, unsubscribeUrl, idempotencyKey, timeoutMs, from: fromOverride, replyTo } = {}) {
   if (!env.RESEND_API_KEY) throw new Error('Email not configured (missing RESEND_API_KEY).');
-  const addr = normalizeEmail(to);
-  if (!bypassSuppression && addr) {
+  // SEVERAL PEOPLE ON ONE EMAIL (2026-09-15). A client asked for its accountant and an owner to be on
+  // the same holiday email, so that whoever sees it first can answer. An ARRAY `to` is that case, and
+  // each address meets the suppression list on its own: a suppressed address is dropped and the others
+  // still receive it; only when every address is suppressed is the send skipped. A single string takes
+  // the unchanged path below, so every existing caller's request body is byte-identical.
+  let toList = null;
+  const dropped = [];
+  if (Array.isArray(to)) {
+    const list = [...new Set(to.map((x) => normalizeEmail(x)).filter(Boolean))];
+    toList = [];
+    for (const a of list) {
+      const sup = bypassSuppression ? null : await isSuppressed(env, a);
+      if (sup) dropped.push({ email: a, reason: sup.reason }); else toList.push(a);
+    }
+    if (!toList.length) return { skipped: true, suppressed: dropped.map((d) => d.reason).join(', ') || 'no valid address', dropped };
+  }
+  const addr = toList ? null : normalizeEmail(to);
+  if (!toList && !bypassSuppression && addr) {
     const sup = await isSuppressed(env, addr);
     if (sup) return { skipped: true, suppressed: sup.reason };  // never email a suppressed address
   }
@@ -59,7 +75,7 @@ export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppr
   // point of prospecting. Every existing caller passes neither, so its request body is byte-identical
   // to what it has always been (pinned by test/compliance/sales-send-path.test.js).
   const from = (typeof fromOverride === 'string' && fromOverride.trim()) || env.EMAIL_FROM || 'Añejo Catering Co. <noreply@anejocateringco.com>';
-  const body = { from, to: [to], subject, html };
+  const body = { from, to: toList || [to], subject, html };
   const replyAddr = normalizeEmail(replyTo);
   if (replyAddr && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyAddr)) body.reply_to = [replyAddr];
   // Blind copy — OPT-IN PER CALL, never global. The owner had no copy of his own outbound
@@ -96,6 +112,7 @@ export async function sendEmail(env, { to, subject, html, text, bcc, bypassSuppr
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error('Email send failed: ' + (await r.text()).slice(0, 300));
+  if (toList && dropped.length) return { ...(await r.json()), dropped };
   return r.json();
 }
 

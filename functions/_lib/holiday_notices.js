@@ -30,7 +30,7 @@
 import { sendEmail } from './email.js';
 import { sendSms } from './twilio.js';
 import { id, now } from './hub.js';
-import { upcomingHolidays, daysUntil, longDay, holidayByKey, HOLIDAY_KEYS, FEDERAL_HOLIDAYS } from './holidays.js';
+import { upcomingObservances, daysUntil, longDay, holidayByKey, OBSERVANCE_KEYS, FEDERAL_HOLIDAYS, EXTRA_OBSERVANCES } from './holidays.js';
 import { DOW_NAMES } from './contract.js';
 
 export const NOTICE_KINDS = ['confirm_open', 'kitchen_closed'];
@@ -41,10 +41,13 @@ const INK = '#1d2b1c', MUTED = '#6b7268', GOLD = '#ae8745', RULE = '#e4ded0';
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+const isEmailish = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim());
+
 /** Owner settings. Malformed values fall back to the safe end; never throws. */
 export async function loadHolidaySettings(env) {
-  const out = { kitchen_closed: [], confirm_lead_days: CONFIRM_LEAD_DAYS, closure_lead_days: MIN_CLOSURE_LEAD_DAYS, enabled: true, sms_enabled: true };
+  const out = { kitchen_closed: [], confirm_lead_days: CONFIRM_LEAD_DAYS, closure_lead_days: MIN_CLOSURE_LEAD_DAYS, enabled: true, sms_enabled: true, reply_to: null, sender: null };
   if (!env || !env.DB) return out;
+  let explicitReply = null;
   try {
     const r = await env.DB.prepare("SELECT key, value FROM app_settings WHERE key LIKE 'holidays.%'").all();
     for (const row of (r && r.results) || []) {
@@ -52,19 +55,36 @@ export async function loadHolidaySettings(env) {
       if (k === 'kitchen_closed') {
         try {
           const list = JSON.parse(row.value);
-          if (Array.isArray(list)) out.kitchen_closed = list.filter((x) => HOLIDAY_KEYS.includes(x));
+          if (Array.isArray(list)) out.kitchen_closed = list.filter((x) => OBSERVANCE_KEYS.includes(x));
         } catch { /* keep empty — an unreadable list must not become a guessed one */ }
       }
       if (k === 'enabled') out.enabled = row.value !== 'false';
       if (k === 'sms_enabled') out.sms_enabled = row.value !== 'false';
+      if (k === 'reply_to' && isEmailish(row.value)) explicitReply = String(row.value).trim();
       if (k === 'confirm_lead_days') { const n = Number(row.value); if (Number.isInteger(n) && n >= 3 && n <= 60) out.confirm_lead_days = n; }
       // Raising the floor is the owner's business. Lowering it is not: the seven days is a promise
       // made in writing on the landing page, and a settings row cannot be allowed to break it.
       if (k === 'closure_lead_days') { const n = Number(row.value); if (Number.isInteger(n) && n <= 60) out.closure_lead_days = Math.max(MIN_CLOSURE_LEAD_DAYS, n); }
     }
   } catch { /* defaults */ }
+  // WHERE A REPLY LANDS. These emails used to go from noreply@ with no Reply-To, so "a reply is welcome"
+  // was a reply into nothing — and DGP's instruction is that whoever sees it first answers. They now go
+  // out under the owner's own sender, the one he confirmed in writing in Sales → Settings, and replies
+  // land in the mailbox he chose. `holidays.reply_to` overrides it; OWNER_EMAIL is the last resort.
+  try {
+    const snd = await env.DB.prepare("SELECT value FROM app_settings WHERE key = 'sales.sender'").first();
+    const v = snd && snd.value ? JSON.parse(snd.value) : null;
+    if (v && isEmailish(v.from_email)) out.sender = { name: v.from_name || null, email: String(v.from_email).trim() };
+    if (v && isEmailish(v.reply_to)) out.reply_to = String(v.reply_to).trim();
+  } catch { /* an unreadable sender setting leaves the default sender, never a guessed one */ }
+  if (explicitReply) out.reply_to = explicitReply;
+  if (!out.reply_to && isEmailish(env.OWNER_EMAIL)) out.reply_to = String(env.OWNER_EMAIL).trim();
   return out;
 }
+
+/** An ops email field may hold several addresses, separated by commas, semicolons or spaces. */
+export const splitEmails = (v) => [...new Set(String(v || '').split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(isEmailish))];
+const joinNames = (list, and) => (list.length <= 1 ? (list[0] || '') : `${list.slice(0, -1).join(', ')} ${and} ${list[list.length - 1]}`);
 
 const deliversOn = (site, isoDate) => {
   const days = String(site.delivery_days || '').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
@@ -82,8 +102,28 @@ export async function planHolidayNotices(env, { atMs = Date.now(), settings } = 
   if (!s.enabled) return { ok: true, plan, settings: s, reason: 'Holiday notices are switched off.' };
 
   const horizon = Math.max(s.confirm_lead_days, s.closure_lead_days) + 1;
-  const holidays = upcomingHolidays(atMs, horizon);
+  // A federal holiday is always considered; an extra (Christmas Eve, Easter…) only when the kitchen closes for it.
+  const holidays = upcomingObservances(atMs, horizon).filter((h) => h.federal || s.kitchen_closed.includes(h.key));
   if (!holidays.length) return { ok: true, plan, settings: s };
+
+  // ONE NOTICE PER DAY, NOT PER HOLIDAY. Christmas Eve and an observed Christmas can be the same Friday
+  // (25 December 2027 is a Saturday, so it is observed on the 24th); so can New Year's Eve and an observed
+  // New Year's Day. Two messages about one closed Friday is the noise that teaches a client to stop
+  // reading them. The day's notice names every holiday on it, under one deterministic key.
+  const byDate = new Map();
+  for (const h of holidays) { if (!byDate.has(h.observed)) byDate.set(h.observed, []); byDate.get(h.observed).push(h); }
+  const days = [...byDate.entries()].map(([date, members]) => {
+    const shiftedOne = members.find((m) => m.shifted) || null;
+    return {
+      date, members,
+      key: members.map((m) => m.key).sort().join('+'),
+      name: joinNames(orderKeys(members.map((m) => m.key)).map((k) => members.find((m) => m.key === k).name), 'and'),
+      shifted: !!shiftedOne,
+      actual: shiftedOne ? shiftedOne.date : date,
+      shift_key: shiftedOne ? shiftedOne.key : null,
+      closed: members.some((m) => s.kitchen_closed.includes(m.key)),
+    };
+  });
 
   let sites = [];
   try {
@@ -91,21 +131,22 @@ export async function planHolidayNotices(env, { atMs = Date.now(), settings } = 
       `SELECT st.id, st.account_id, st.name, st.delivery_days, st.ops_email, st.contact_name, st.contact_phone,
               a.name AS account_name, a.billing_email, a.status
          FROM contract_sites st JOIN contract_accounts a ON a.id = st.account_id
-        WHERE st.active = 1 AND a.status = 'active'`
+        WHERE st.active = 1 AND a.status = 'active'
+        ORDER BY a.name, st.name`
     ).all()).results) || [];
   } catch { sites = []; }
 
   const roster = s.sms_enabled ? await primaryPhones(env) : new Map();
 
   for (const site of sites) {
-    for (const h of holidays) {
-      const away = daysUntil(h.observed, atMs);
+    for (const d of days) {
+      const away = daysUntil(d.date, atMs);
       if (away < 0) continue;
       // A holiday that lands on a day this site never receives lunch is not their problem, and an
       // email about it is noise that teaches them to ignore the next one.
-      if (!deliversOn(site, h.observed)) continue;
+      if (!deliversOn(site, d.date)) continue;
 
-      const closed = s.kitchen_closed.includes(h.key);
+      const closed = d.closed;
       // When the kitchen is shut, asking "will you be open?" wastes the one email they will read.
       // Tell them instead, and tell them only that.
       const kind = closed ? 'kitchen_closed' : 'confirm_open';
@@ -114,13 +155,19 @@ export async function planHolidayNotices(env, { atMs = Date.now(), settings } = 
 
       const base = {
         account_id: site.account_id, account_name: site.account_name, site_id: site.id, site_name: site.name,
-        holiday_key: h.key, holiday_name: h.name, observed_date: h.observed, shifted: h.shifted, actual_date: h.date,
+        holiday_key: d.key, holiday_name: d.name, holiday_keys: d.members.map((m) => m.key),
+        observed_date: d.date, shifted: d.shifted, actual_date: d.actual, shift_key: d.shift_key,
         kind, days_away: away,
       };
+      // An ops email can hold several people (DGP: its accountant and an owner), so whoever sees it first
+      // answers. Blank falls back to the billing inbox, never to nobody.
+      const opsList = splitEmails(site.ops_email);
+      const emailTo = opsList.length ? opsList : splitEmails(site.billing_email);
       plan.push({
         ...base, channel: 'email',
-        recipient: site.ops_email || site.billing_email || null,
-        recipient_is_fallback: !site.ops_email && !!site.billing_email,
+        recipients: emailTo,
+        recipient: emailTo.join(', ') || null,
+        recipient_is_fallback: !opsList.length && emailTo.length > 0,
       });
       if (s.sms_enabled) {
         // The primary on the roster first; the site's own contact_phone only when nobody is on it yet.
@@ -137,24 +184,30 @@ export async function planHolidayNotices(env, { atMs = Date.now(), settings } = 
   return { ok: true, plan, settings: s };
 }
 
-function body({ kind, holiday_name, observed_date, shifted, actual_date, site_name, account_name }) {
+function body({ kind, holiday_name, observed_date, shifted, actual_date, shift_key, site_name, account_name, multi }) {
   const day = longDay(observed_date);
+  const shiftName = shift_key ? ((holidayByKey(shift_key) || {}).name || holiday_name) : holiday_name;
   const shiftLine = shifted
-    ? `<p style="margin:0 0 14px;color:${MUTED};font-size:14px">${esc(holiday_name)} falls on ${esc(longDay(actual_date))} this year and is observed on ${esc(day)}, which is the delivery day this affects.</p>`
+    ? `<p style="margin:0 0 14px;color:${MUTED};font-size:14px">${esc(shiftName)} falls on ${esc(longDay(actual_date))} this year and is observed on ${esc(day)}, which is the delivery day this affects.</p>`
     : '';
+  // Several people on one email: say so, so nobody waits for somebody else to answer.
+  const anyone = multi ? ' Whoever sees this first can answer.' : '';
   if (kind === 'kitchen_closed') {
     return {
-      subject: `Our kitchen is closed on ${day} — ${holiday_name}`,
-      intro: `Our kitchen will be closed on <b>${esc(day)}</b> for ${esc(holiday_name)}, so there is no delivery to ${esc(site_name)} that day.`,
+      subject: `Our kitchen is closed ${day} for ${holiday_name}`,
+      intro: `Our kitchen will be closed on <b>${esc(day)}</b> for ${esc(holiday_name)}, so there is no lunch delivery to ${esc(site_name)} that day.`,
       shiftLine,
-      ask: 'You do not need to do anything. Send no count for that day and nothing is ordered and nothing is invoiced. Your link works as normal the following service day.',
+      // Dayan, 2026-09-15: "I always find out the day before." The kitchen closing is the half we already
+      // know. What arrives late is the client's office being shut the day after, or the rest of that week,
+      // so ask while there is still a week to plan around the answer.
+      ask: `Nothing is ordered and nothing is invoiced for that day, so there is nothing you need to do for it. One thing we would like to double check: will your office be closed on any other day that week? A quick reply saves us preparing lunch for a day you are out.${anyone}`,
     };
   }
   return {
     subject: `Will ${account_name} be open on ${day}?`,
     intro: `${esc(holiday_name)} is observed on <b>${esc(day)}</b>. We deliver to ${esc(site_name)} on that weekday, so we wanted to ask in advance rather than guess on the morning.`,
     shiftLine,
-    ask: 'If you are closed, simply send no count that day — a day with no count is a day with no delivery and nothing to invoice. If you are open and running as normal, send your count as usual and we will be there. A reply either way is welcome but not needed.',
+    ask: `If you are closed, simply send no count that day. A day with no count is a day with no delivery and nothing to invoice. If you are open and running as normal, send your count as usual and we will be there. A reply either way is welcome.${anyone}`,
   };
 }
 
@@ -197,18 +250,29 @@ const SMS_NAME = {
     new_years_day: "New Year's Day", mlk_day: 'MLK Day', washingtons_birthday: "Presidents' Day", memorial_day: 'Memorial Day',
     juneteenth: 'Juneteenth', independence_day: 'Independence Day', labor_day: 'Labor Day', columbus_day: 'Columbus Day',
     veterans_day: 'Veterans Day', thanksgiving: 'Thanksgiving', christmas_day: 'Christmas',
+    new_years_eve: "New Year's Eve", easter: 'Easter', christmas_eve: 'Christmas Eve',
   },
   es: {
     new_years_day: 'Año Nuevo', mlk_day: 'el Día de Martin Luther King Jr.', washingtons_birthday: 'el Día de los Presidentes',
     memorial_day: 'el Memorial Day', juneteenth: 'Juneteenth', independence_day: 'el Día de la Independencia',
     labor_day: 'el Día del Trabajo', columbus_day: 'el Día de Colón', veterans_day: 'el Día de los Veteranos',
     thanksgiving: 'el Día de Acción de Gracias', christmas_day: 'Navidad',
+    new_years_eve: 'Fin de Año', easter: 'el Domingo de Pascua', christmas_eve: 'Nochebuena',
   },
 };
 const ES_DOW = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const ES_MON = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const esDay = (iso) => { const d = new Date(`${iso}T12:00:00Z`); return `${ES_DOW[d.getUTCDay()]} ${d.getUTCDate()} de ${ES_MON[d.getUTCMonth()]}`; };
 const STOP_LINE = 'Reply STOP to opt out. / Responda STOP para no recibir mensajes.';
+const isExtra = (k) => EXTRA_OBSERVANCES.some((h) => h.key === k);
+// "Christmas Eve and Christmas", never "Christmas and Christmas Eve": the eve reads first.
+const orderKeys = (keys) => keys.slice().sort((a, b) => (Number(isExtra(b)) - Number(isExtra(a))) || (a < b ? -1 : 1));
+/** Short name for a day's key: one holiday, or several joined by '+'. Null when any part is unknown. */
+const shortName = (key, lang = 'en') => {
+  const ks = orderKeys(String(key || '').split('+').filter(Boolean));
+  if (!ks.length || !ks.every((k) => SMS_NAME[lang][k])) return null;
+  return joinNames(ks.map((k) => SMS_NAME[lang][k]), lang === 'es' ? 'y' : 'and');
+};
 
 /**
  * The text. BOTH LANGUAGES, ALWAYS: no language preference is stored for anyone on a roster — the
@@ -220,21 +284,23 @@ const STOP_LINE = 'Reply STOP to opt out. / Responda STOP para no recibir mensaj
  * question asks for OPEN / CLOSED (ABIERTO / CERRADO), none of which is a keyword anywhere.
  */
 export function smsBody(n) {
-  const en = SMS_NAME.en[n.holiday_key] || n.holiday_name;
-  const es = SMS_NAME.es[n.holiday_key] || n.holiday_name;
+  const en = shortName(n.holiday_key, 'en') || n.holiday_name;
+  const es = shortName(n.holiday_key, 'es') || n.holiday_name;
   const day = longDay(n.observed_date);
   const dia = esDay(n.observed_date);
   const site = n.site_name;
   if (n.kind === 'kitchen_closed') {
     return [
-      `Añejo: our kitchen is closed ${day} for ${en}, so there is no lunch delivery to ${site} that day. No need to send a count, and nothing is billed.`,
-      `Añejo: nuestra cocina cierra el ${dia} por ${es}, así que no hay entrega de almuerzo a ${site} ese día. No hace falta enviar conteo y no se cobra nada.`,
+      `Añejo: our kitchen is closed ${day} for ${en}, so there is no lunch delivery to ${site} that day. No need to send a count, and nothing is billed. Closed any other day that week? Reply and let us know.`,
+      `Añejo: nuestra cocina cierra el ${dia} por ${es}, así que no hay entrega de almuerzo a ${site} ese día. No hace falta enviar conteo y no se cobra nada. ¿Cierran algún otro día esa semana? Respondan y avísennos.`,
       STOP_LINE,
     ].join('\n\n');
   }
   // A shifted holiday is the one a person second-guesses — "July 4th is Saturday, why Friday?" — so say it.
-  const enWhen = n.shifted ? `${en} falls on ${longDay(n.actual_date)} and is observed ${day}` : `${en} is ${day}`;
-  const esWhen = n.shifted ? `${es} cae el ${esDay(n.actual_date)} y se observa el ${dia}` : `${es} es el ${dia}`;
+  const shiftEn = n.shift_key ? (shortName(n.shift_key, 'en') || en) : en;
+  const shiftEs = n.shift_key ? (shortName(n.shift_key, 'es') || es) : es;
+  const enWhen = n.shifted ? `${shiftEn} falls on ${longDay(n.actual_date)} and is observed ${day}` : `${en} is ${day}`;
+  const esWhen = n.shifted ? `${shiftEs} cae el ${esDay(n.actual_date)} y se observa el ${dia}` : `${es} es el ${dia}`;
   return [
     `Añejo: ${enWhen}. Will ${site} be open? If you are closed, just send no count that day and nothing is ordered or billed. Reply OPEN or CLOSED.`,
     `Añejo: ${esWhen}. ¿${site} abre ese día? Si cierran, no envíen conteo y no se pide ni se cobra nada. Respondan ABIERTO o CERRADO.`,
@@ -262,55 +328,86 @@ async function smsBlocked(env, phone) {
 }
 
 /**
- * Send what is due. Writes the row BEFORE the send so a crash cannot produce a second message; a
- * notice with no address is recorded as `no_recipient` so it surfaces rather than vanishing. Each
- * channel is its own row with its own outcome — a failed text never hides behind a delivered email.
+ * Send what is due. Writes each row BEFORE the send so a crash cannot produce a second message; a notice
+ * with no address is recorded as `no_recipient` so it surfaces rather than vanishing. Each channel is its
+ * own row with its own outcome — a failed text never hides behind a delivered email.
  */
 export async function runHolidayNotices(env, { atMs = Date.now(), settings, limit = 60 } = {}) {
   const { plan, settings: s } = await planHolidayNotices(env, { atMs, settings });
   const blank = () => ({ sent: 0, failed: 0, no_recipient: 0, withheld: 0 });
-  const res = { ok: true, considered: plan.length, sent: 0, failed: 0, no_recipient: 0, withheld: 0, already: 0, by_channel: { email: blank(), sms: blank() } };
-  const tally = (ch, k) => { res[k] += 1; res.by_channel[ch][k] += 1; };
-  const mark = (rowId, outcome, reason) => env.DB.prepare(
+  const res = { ok: true, considered: plan.length, sent: 0, failed: 0, no_recipient: 0, withheld: 0, already: 0, messages: 0, by_channel: { email: blank(), sms: blank() } };
+  // Tallies count LOCATIONS told, not messages: two sites on one email are two sites told. `messages` counts sends.
+  const tally = (ch, k, n = 1) => { res[k] += n; res.by_channel[ch][k] += n; };
+  const mark = (ids, outcome, reason) => Promise.all(ids.map((rowId) => env.DB.prepare(
     'UPDATE contract_holiday_notices SET outcome = ?, failure_reason = ?, sent_at = ? WHERE id = ?'
-  ).bind(outcome, reason || null, outcome === 'sent' ? now() : null, rowId).run();
+  ).bind(outcome, reason || null, outcome === 'sent' ? now() : null, rowId).run()));
 
+  // ONE MESSAGE PER RECIPIENT, NOT PER LOCATION. DGP's two sites share the same two people, and sending per
+  // site put two identical emails about one holiday into the same two inboxes. Notices for the same
+  // account, day, kind and channel that reach the same recipients become one message naming every location
+  // — while each location still gets its own row, so the once-only guarantee stays per site.
+  const groups = new Map();
   for (const n of plan.slice(0, limit)) {
-    const rowId = id('hnot');
-    const isSms = n.channel === 'sms';
-    try {
-      await env.DB.prepare(
-        `INSERT INTO contract_holiday_notices (id, account_id, site_id, holiday_key, observed_date, kind, channel,
-           recipient_email, recipient_phone, outcome, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?)`
-      ).bind(rowId, n.account_id, n.site_id, n.holiday_key, n.observed_date, n.kind, n.channel,
-        isSms ? null : (n.recipient || null), isSms ? (n.recipient || null) : null,
-        n.recipient ? 'sent' : 'no_recipient', now()).run();
-    } catch {
-      res.already += 1;            // the unique index did its job: this notice, to this site, by this channel, has gone
-      continue;
+    const who = n.channel === 'sms'
+      ? String(n.recipient || '').replace(/\D+/g, '').slice(-10)
+      : (n.recipients || []).slice().sort().join(',');
+    const k = [n.account_id, n.observed_date, n.kind, n.channel, who || `none:${n.site_id}`].join('|');
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(n);
+  }
+
+  for (const items of groups.values()) {
+    const channel = items[0].channel;
+    const isSms = channel === 'sms';
+    const fresh = [];
+    for (const n of items) {
+      const rowId = id('hnot');
+      try {
+        await env.DB.prepare(
+          `INSERT INTO contract_holiday_notices (id, account_id, site_id, holiday_key, observed_date, kind, channel,
+             recipient_email, recipient_phone, outcome, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(rowId, n.account_id, n.site_id, n.holiday_key, n.observed_date, n.kind, channel,
+          isSms ? null : (n.recipient || null), isSms ? (n.recipient || null) : null,
+          n.recipient ? 'sent' : 'no_recipient', now()).run();
+        fresh.push({ n, rowId });
+      } catch {
+        res.already += 1;            // the unique index did its job for this location, on this channel
+      }
     }
-    if (!n.recipient) { tally(n.channel, 'no_recipient'); continue; }
+    if (!fresh.length) continue;
+    const lead = fresh[0].n;
+    const ids = fresh.map((f) => f.rowId);
+    if (!lead.recipient) { tally(channel, 'no_recipient', ids.length); continue; }
+    // The message names only the locations it is actually about this time.
+    const msg = { ...lead, site_name: joinNames(fresh.map((f) => f.n.site_name), 'and'), multi: !isSms && (lead.recipients || []).length > 1 };
     try {
       if (isSms) {
-        const blocked = await smsBlocked(env, n.recipient);
-        if (blocked) { await mark(rowId, 'skipped', blocked); tally('sms', 'withheld'); continue; }
-        const r = await sendSms(env, { to: n.recipient, body: smsBody(n) });
-        if (r && r.sent) { await mark(rowId, 'sent'); tally('sms', 'sent'); }
-        else if (r && r.noop) { await mark(rowId, 'skipped', 'SMS is not configured (TWILIO_* missing)'); tally('sms', 'withheld'); }
-        else { await mark(rowId, 'failed', String((r && r.error) || 'the text was not accepted').slice(0, 300)); tally('sms', 'failed'); }
+        const blocked = await smsBlocked(env, lead.recipient);
+        if (blocked) { await mark(ids, 'skipped', blocked); tally('sms', 'withheld', ids.length); continue; }
+        const r = await sendSms(env, { to: lead.recipient, body: smsBody(msg) });
+        if (r && r.sent) { await mark(ids, 'sent'); tally('sms', 'sent', ids.length); res.messages += 1; }
+        else if (r && r.noop) { await mark(ids, 'skipped', 'SMS is not configured (TWILIO_* missing)'); tally('sms', 'withheld', ids.length); }
+        else { await mark(ids, 'failed', String((r && r.error) || 'the text was not accepted').slice(0, 300)); tally('sms', 'failed', ids.length); }
         continue;
       }
-      const m = html(n);
+      const m = html(msg);
       const r = await sendEmail(env, {
-        to: n.recipient, subject: m.subject, html: m.html, text: m.text,
-        idempotencyKey: `holiday:${n.account_id}:${n.site_id || ''}:${n.holiday_key}:${n.observed_date}:${n.kind}`,
+        to: lead.recipients, subject: m.subject, html: m.html, text: m.text,
+        ...(s.sender ? { from: s.sender.name ? `${String(s.sender.name).replace(/[<>"]/g, '')} <${s.sender.email}>` : s.sender.email } : {}),
+        ...(s.reply_to ? { replyTo: s.reply_to } : {}),
+        idempotencyKey: `holiday:${lead.account_id}:${fresh.map((f) => f.n.site_id || '').sort().join(',')}:${lead.holiday_key}:${lead.observed_date}:${lead.kind}`,
       });
-      if (r && r.skipped) { await mark(rowId, 'skipped', String(r.suppressed || 'suppressed')); tally('email', 'withheld'); }
-      else { await mark(rowId, 'sent'); tally('email', 'sent'); }
+      if (r && r.skipped) { await mark(ids, 'skipped', String(r.suppressed || 'suppressed')); tally('email', 'withheld', ids.length); }
+      else {
+        // Sent, but not to everyone: say who was left off and why, on the row the owner reads.
+        const partial = r && r.dropped && r.dropped.length ? `not sent to ${r.dropped.map((x) => `${x.email} (${x.reason})`).join(', ')}` : null;
+        await mark(ids, 'sent', partial);
+        tally('email', 'sent', ids.length); res.messages += 1;
+      }
     } catch (e) {
-      await mark(rowId, 'failed', String((e && e.message) || e).slice(0, 300));
-      tally(n.channel, 'failed');
+      await mark(ids, 'failed', String((e && e.message) || e).slice(0, 300));
+      tally(channel, 'failed', ids.length);
     }
   }
   if (!res.sent && !res.failed && !res.no_recipient && !res.withheld) {
@@ -364,7 +461,7 @@ export async function recordHolidayReply(env, { from, body, atMs = Date.now() } 
         WHERE id = ?`
     ).bind(answer, text.slice(0, 500), answer, atMs, n.id).run();
   } catch { return null; }
-  return { notice_id: n.id, answer, holiday: SMS_NAME.en[n.holiday_key] || n.holiday_key, observed_date: n.observed_date, site_id: n.site_id };
+  return { notice_id: n.id, answer, holiday: shortName(n.holiday_key, 'en') || n.holiday_key, observed_date: n.observed_date, site_id: n.site_id };
 }
 
 /**
@@ -373,10 +470,12 @@ export async function recordHolidayReply(env, { from, body, atMs = Date.now() } 
  */
 export async function holidayOutlook(env, { atMs = Date.now(), days = 90 } = {}) {
   const s = await loadHolidaySettings(env);
-  const holidays = upcomingHolidays(atMs, days).map((h) => ({ ...h, kitchen_closed: s.kitchen_closed.includes(h.key) }));
+  const holidays = upcomingObservances(atMs, days)
+    .filter((h) => h.federal || s.kitchen_closed.includes(h.key))
+    .map((h) => ({ ...h, kitchen_closed: s.kitchen_closed.includes(h.key) }));
   const { plan } = await planHolidayNotices(env, { atMs, settings: s });
   const mask = (p) => (p ? '•••' + String(p).replace(/\D+/g, '').slice(-4) : null);
-  const nameOf = (k) => (holidayByKey(k) || {}).name || k;
+  const nameOf = (k) => joinNames(orderKeys(String(k || '').split('+').filter(Boolean)).map((x) => (holidayByKey(x) || {}).name || x), 'and');
 
   let notices = [];
   try {
@@ -409,8 +508,8 @@ export async function holidayOutlook(env, { atMs = Date.now(), days = 90 } = {})
 
   return {
     settings: s,
-    // All eleven, for the owner's "which days is the kitchen closed" checklist — not only the next 90 days.
-    catalog: FEDERAL_HOLIDAYS.map(({ key, name }) => ({ key, name })),
+    // Every day the kitchen might close, for the owner's checklist — not only the next 90 days.
+    catalog: [...FEDERAL_HOLIDAYS, ...EXTRA_OBSERVANCES].map(({ key, name }) => ({ key, name })),
     holidays,
     due_now: plan.map((p) => ({ ...p, recipient: p.channel === 'sms' ? mask(p.recipient) : p.recipient })),
     missing_recipients: plan.filter((p) => !p.recipient).length,

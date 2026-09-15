@@ -6,7 +6,7 @@ import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/em
 import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite, createInvoicePaymentLink } from '../../../_lib/contract.js';
 import { capture } from '../../../_lib/track.js';
 import { holidayOutlook, MIN_CLOSURE_LEAD_DAYS } from '../../../_lib/holiday_notices.js';
-import { HOLIDAY_KEYS, daysUntil } from '../../../_lib/holidays.js';
+import { OBSERVANCE_KEYS, daysUntil } from '../../../_lib/holidays.js';
 
 // The edit-terms / invoice-lifecycle helpers below live here rather than in _lib/contract.js
 // because they are owner-desk-only: nothing on the public intake path (/lunch-count) may reach
@@ -114,10 +114,15 @@ const actorOf = (ctx) => (ctx && (ctx.email || ctx.distinct_id)) || null;
 // billing inbox — never to nobody.
 function opsEmailField(raw) {
   if (raw === undefined) return { skip: true };
-  const v = String(raw == null ? '' : raw).trim().toLowerCase();
-  if (!v) return { v: null };
-  if (!isEmail(v)) return { err: 'Ops email does not look like a valid email address.' };
-  return { v };
+  // Several people are allowed. DGP wants its accountant AND an owner on the same holiday email, so that
+  // whoever sees it first answers. Commas, semicolons or spaces between them; stored as "a, b".
+  const parts = String(raw == null ? '' : raw).split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+  if (!parts.length) return { v: null };
+  const wrong = parts.filter((x) => !isEmail(x));
+  if (wrong.length) return { err: `Ops email: "${wrong[0]}" does not look like a valid email address.` };
+  const uniq = [...new Set(parts)];
+  if (uniq.length > 5) return { err: 'Ops email: five addresses at most.' };
+  return { v: uniq.join(', ') };
 }
 
 // Append-only terms history (migrations/0046). Best-effort on purpose: if that migration has NOT
@@ -585,7 +590,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (op === 'save_holidays') {
     const puts = [];
     if (Array.isArray(b.kitchen_closed)) {
-      const unknown = b.kitchen_closed.filter((k) => !HOLIDAY_KEYS.includes(k));
+      const unknown = b.kitchen_closed.filter((k) => !OBSERVANCE_KEYS.includes(k));
       if (unknown.length) return bad(`Unknown holiday: ${unknown.join(', ')}.`);
       puts.push(['holidays.kitchen_closed', JSON.stringify([...new Set(b.kitchen_closed)])]);
     }

@@ -1168,8 +1168,8 @@ const holidayNotice = async (env) => {
   return {
     outcome: r.ok === false ? 'failed' : 'success',
     summary: r.skipped ? String(r.skipped)
-      : `${r.by_channel.email.sent} email(s) and ${r.by_channel.sms.sent} text(s) sent, ${r.no_recipient} with no address, `
-        + `${r.withheld} withheld (opted out or not configured), ${r.failed} failed`,
+      : `${r.messages} message(s) sent, reaching ${r.by_channel.email.sent} location(s) by email and ${r.by_channel.sms.sent} by text; `
+        + `${r.no_recipient} with no address, ${r.withheld} withheld (opted out or not configured), ${r.failed} failed`,
     detail: r,
   };
 };
