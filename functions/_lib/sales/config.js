@@ -14,6 +14,7 @@ import { now } from '../hub.js';
 import {
   DEFAULT_ICP, DEFAULT_OFFER, DEFAULT_PROOF, DEFAULT_SENDER, DEFAULT_SEND_WINDOW, DEFAULT_SERVICE_AREA,
 } from './anejo.js';
+import { DEFAULT_MEDIA } from './media.js';
 
 export const FLAG_DEFAULTS = {
   'sales.enabled': true,
@@ -62,6 +63,11 @@ const NUM_FLAGS = Object.keys(FLAG_DEFAULTS).filter((k) => typeof FLAG_DEFAULTS[
 
 export const JSON_SETTINGS = {
   'sales.icp': DEFAULT_ICP,
+  // The optional video for each self-serve section. Deliberately NOT part of sales.offer: the
+  // offer carries the owner's confirmation of the WORDS that may go to a clinic, and re-attesting
+  // all of that copy because a poster image changed would train him to click through the
+  // confirmation. A video is his own file at his own URL; pointing at it is its own act.
+  'sales.media': DEFAULT_MEDIA,
   'sales.offer': DEFAULT_OFFER,
   'sales.proof': DEFAULT_PROOF,
   'sales.sender': DEFAULT_SENDER,
@@ -133,6 +139,7 @@ export async function loadSalesConfig(env) {
   return {
     flags: flagsFrom(map),
     icp: json('sales.icp'),
+    media: json('sales.media'),
     offer: json('sales.offer'),
     proof: json('sales.proof'),
     sender: json('sales.sender'),

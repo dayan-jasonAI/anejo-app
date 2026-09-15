@@ -10,6 +10,23 @@ import { raiseAlert } from './alerts.js';
 const BILLING_MODELS = ['weekly_autopay', 'biweekly', 'monthly', 'same_day'];
 const CADENCE_BY_MODEL = { weekly_autopay: 'weekly', biweekly: 'biweekly', monthly: 'monthly', same_day: 'daily' };
 
+// The four models in the words a CLIENT already sees. These are not new copy: public/business.html
+// has shipped exactly these titles and descriptions on the self-registration form since 0027, and
+// the prospect landing page and the account onboarding page now have to name the same four things.
+// Three places inventing three vocabularies for one enum is how a client is told "every two weeks"
+// on one page and "biweekly invoice" on another and asks which one they signed.
+export const BILLING_MODEL_LABELS = {
+  weekly_autopay: { title: 'Weekly invoice + autopay', detail: 'One invoice each week, auto-charged to a card or bank account on file.' },
+  biweekly: { title: 'Every two weeks', detail: 'A consolidated invoice every two weeks, paid on terms by your billing department.' },
+  monthly: { title: 'Monthly invoice', detail: 'Arranged case by case. Monthly terms carry a deposit of 50% of the estimated month, held against your final two weeks of service.' },
+  same_day: { title: 'Pay per day', detail: 'Pay for each day’s lunches when you submit the head count.' },
+};
+
+/** The account's model, or null when the column holds something this build does not know. */
+export function billingModelLabel(model) {
+  return BILLING_MODEL_LABELS[String(model || '')] || null;
+}
+
 export const DOW_NAMES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DOW_LABEL = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -36,6 +53,24 @@ export function parseDeliveryDays(raw) {
     if (hit) out.add(hit);
   }
   return DOW_NAMES.filter((d) => out.has(d));
+}
+
+const DOW_FULL = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
+
+/**
+ * 'mon,tue,wed' → 'Monday, Tuesday and Wednesday', for a page a client reads.
+ *
+ * Returns '' — never a guessed week — when the column parses to nothing, for the same reason
+ * admin/cutoff-check stays silent on an unconfigured site: a page that tells an office it is
+ * getting lunch on a day it never ordered is worse than a page that says nothing about days.
+ * Consecutive runs are NOT collapsed into 'Monday–Wednesday': 'mon,tue,thu' would read as a range
+ * to whoever wrote the shortcut and as a lie to whoever reads it on a Wednesday.
+ */
+export function deliveryDaysLabel(raw) {
+  const names = parseDeliveryDays(raw).map((d) => DOW_FULL[d]);
+  if (!names.length) return '';
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
 function etToday(ms) {
@@ -75,7 +110,7 @@ function hardCutoffMin(site) {
 // Is today's count locked against further self-service changes? Clock only — the caller decides
 // what to do about it. The owner's own override path (ownerSetHeadcount) never consults this.
 function countLocked(site, ms) { return etMinutes(ms) >= hardCutoffMin(site); }
-function hardCutoffLabel(site) { return (site && site.hard_cutoff_time) || HARD_CUTOFF_TIME; }
+export function hardCutoffLabel(site) { return (site && site.hard_cutoff_time) || HARD_CUTOFF_TIME; }
 
 // ISO-ish week index for the rotating menu. Anchored so it advances one per calendar week.
 function weekIndex(dateStr) { return Math.floor(Date.parse(dateStr + 'T00:00:00Z') / 86400000 / 7); }

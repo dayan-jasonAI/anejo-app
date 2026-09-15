@@ -8,6 +8,7 @@
 // Files under functions/_lib are NOT routed.
 import { id, now, today, toJson, parseJson, etMidnightMs, addEtDays, etDateOf } from './hub.js';
 import { runBalanceReminders } from './catering_balance_reminder.js';
+import { runHolidayNotices } from './holiday_notices.js';
 import { randToken } from './util.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { loadOperating } from './operating.js';
@@ -199,7 +200,7 @@ import { TRUST_CATEGORIES, captionHash, autoPublishCategories } from './trust_le
 import { ensureFoodPhoto } from './food_photo.js';
 
 const MODEL = 'claude-sonnet-5';
-export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan', 'balance_reminder'];
+export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan', 'balance_reminder', 'holiday_notice'];
 
 // Char cap on the brand brief injected into the planner's prompt — same ceiling the Team Lead
 // carries (brand_source.js), so the planner never sees LESS of the owner's live brief than the
@@ -1158,8 +1159,22 @@ const balanceReminder = async (env, date) => {
   };
 };
 
+// Federal-holiday notices to contract accounts: ask whether the program is open, and warn at least
+// seven days ahead when Añejo's own kitchen is shut. Runs daily and is safe to run daily forever —
+// like the balance reminders, the once-only guarantee is a UNIQUE index, not this scheduler's
+// discipline, because a scheduler can be retried and a database constraint cannot be talked out of it.
+const holidayNotice = async (env) => {
+  const r = await runHolidayNotices(env, {});
+  return {
+    outcome: r.ok === false ? 'failed' : 'success',
+    summary: r.skipped ? String(r.skipped) : `${r.sent} notice(s) sent, ${r.no_recipient} with no address, ${r.failed} failed`,
+    detail: r,
+  };
+};
+
 const RUNNERS = {
   balance_reminder: balanceReminder,
+  holiday_notice: holidayNotice,
   social_plan: socialPlan,
   daily_summary: dailySummary,
   eod_chase: eodChase,

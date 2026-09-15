@@ -1,7 +1,8 @@
 // /api/hub/owner/sales/settings — flags and owner-editable Sales settings (OWNER ONLY).
 //
+//   GET                                                      → the media slots + what is set in each
 //   POST { op:'set_flag', key, value }                       → one feature flag (locked flags refuse)
-//   POST { op:'save', key:'sales.icp'|'sales.offer'|'sales.proof'|'sales.sender'|'sales.send_window'|'sales.service_area', value, confirm? }
+//   POST { op:'save', key:'sales.icp'|'sales.media'|'sales.offer'|'sales.proof'|'sales.sender'|'sales.send_window'|'sales.service_area', value, confirm? }
 //   POST { op:'step_delay', step_id, delay_hours }           → owner-editable sequence timing
 //
 // The OFFER is special: saving it with confirm:true is the owner saying "these are the words and
@@ -9,9 +10,10 @@
 // refuses to send while it is unconfirmed (outreach.js sendReadiness).
 import { json, bad, isEmail } from '../../../../_lib/util.js';
 import { requireRole } from '../../../../_lib/roles.js';
-import { loadSalesConfig, setFlag, saveJsonSetting, JSON_SETTINGS } from '../../../../_lib/sales/config.js';
+import { loadSalesConfig, setFlag, saveJsonSetting, deepMerge, JSON_SETTINGS } from '../../../../_lib/sales/config.js';
 import { logActivity } from '../../../../_lib/sales/store.js';
 import { ICP_CATEGORIES } from '../../../../_lib/sales/anejo.js';
+import { MEDIA_SLOTS, CAPTION_LANGS, validateMedia, mediaSlot } from '../../../../_lib/sales/media.js';
 import { getDoc, createProposal, BRAND_DOC_ID } from '../../../../_lib/brief.js';
 
 // Sprint E: the positioning the marketing team needs, filed as a Brand Brief PROPOSAL — the same
@@ -56,8 +58,46 @@ function validate(key, v) {
     for (const k of Object.keys(v.category_fit || {})) if (!ICP_CATEGORIES[k]) return `Unknown category ${k}.`;
   }
   if (key === 'sales.proof' && v.mode === 'named' && !v.named_permission_recorded) return 'Named proof needs the customer’s permission recorded first.';
+  // The optional orientation / walkthrough videos. There is no upload here and there never will be
+  // from this endpoint: the owner hosts the file (R2, Stream, anywhere on https) and saves the URL,
+  // which is the only part of a video this system is able to have an opinion about.
+  if (key === 'sales.media') return validateMedia(v);
+  // Free text the owner adds to the self-serve answers on the landing page. Capped because these
+  // render inside a <details> a prospect is reading on a phone, not because the words are ours.
+  if (key === 'sales.offer') {
+    for (const k of ['dietary_note', 'billing_note', 'first_day_note']) {
+      if (String(v[k] || '').length > 600) return `That ${k.replace(/_/g, ' ')} is too long (600 characters).`;
+    }
+  }
   return null;
 }
+
+// GET — what the Sales settings tab needs to draw the media panel: every slot, where it renders,
+// and whether a video is currently live in it. It reports `live` from mediaSlot(), the SAME reader
+// the two public pages use, so a URL that is stored but would not actually render (a typo, an
+// http:// address) shows as empty here instead of as configured. The Hub reads the rest of the
+// Sales settings from the dashboard endpoint; this stays scoped to media on purpose.
+export const onRequestGet = async ({ request, env }) => {
+  const ctx = await requireRole(request, env, ['owner']);
+  if (ctx instanceof Response) return ctx;
+  if (!env.DB) return bad('Database not configured.', 500);
+  const cfg = await loadSalesConfig(env);
+  return json({
+    ok: true,
+    caption_languages: CAPTION_LANGS,
+    media: Object.entries(MEDIA_SLOTS).map(([slot, meta]) => {
+      const saved = (cfg.media && cfg.media[slot]) || {};
+      const live = mediaSlot(cfg.media, slot);
+      return {
+        slot, label: meta.label, where: meta.where,
+        url: String(saved.url || ''), poster: String(saved.poster || ''),
+        caption: String(saved.caption || ''), captions_url: String(saved.captions_url || ''),
+        captions_lang: String(saved.captions_lang || 'en'),
+        live: !!live,
+      };
+    }),
+  });
+};
 
 export const onRequestPost = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -83,6 +123,15 @@ export const onRequestPost = async ({ request, env }) => {
       if (value.price_from_cents === '' || value.price_from_cents == null) value.price_from_cents = null;
       else value.price_from_cents = Number(value.price_from_cents);
     }
+    // MEDIA IS THE ONE SETTING THAT MERGES OVER WHAT IS ALREADY SAVED, rather than replacing it.
+    //
+    // Every other JSON setting here is one form the Hub submits whole, so "save" meaning "this is
+    // now the value" is right for them. Media is four independent slots that will be filled in
+    // months apart, one at a time, as videos get recorded — and a per-slot save that quietly wiped
+    // the other three would take a working video off the landing page as a side effect of adding
+    // one to the onboarding page. Clearing stays possible and stays explicit: send the slot with
+    // an empty url and that slot goes dark.
+    if (key === 'sales.media') Object.assign(value, deepMerge((await loadSalesConfig(env)).media, value));
     const err = validate(key, value);
     if (err) return bad(err);
     const r = await saveJsonSetting(env, key, value, by);
