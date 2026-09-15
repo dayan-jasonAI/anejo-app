@@ -1,13 +1,14 @@
 // POST /api/hub/driver/location — the driver app posts its GPS fix while a route is active.
 // Body: { lat, lng, acc? }. Stores the position on the route, recomputes the ETA to the current
 // en-route stop, and AUTO-FIRES the "arriving soon" text once when the ETA drops under the
-// threshold (default 13 min). Foreground-only on the device; the manual "Arriving soon" button
+// five-minute threshold (_lib/stop_progress.js APPROACHING_MIN). Foreground-only on the device; the manual "Arriving soon" button
 // (/stop action:'arriving') is the backup. Consent-gated + no-op safe.
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { now, today } from '../../../_lib/hub.js';
 import { etaSeconds, clockET } from '../../../_lib/geo.js';
 import { notifyArrivingSoon } from '../../../_lib/notify.js';
+import { APPROACHING_MIN } from '../../../_lib/stop_progress.js';
 
 // ANY route the driver has today that isn't finished — not just one flagged status='started'.
 // Root cause of the 2026-08-04 incident: drivers routinely skip the pickup-confirmation step
@@ -59,14 +60,17 @@ export const onRequestPost = async ({ request, env }) => {
   const etaAtMs = ts + secs * 1000;
   await env.DB.prepare('UPDATE route_stops SET eta_at=?, updated_at=? WHERE id=?').bind(etaAtMs, ts, stop.stop_id).run();
 
-  // Auto "arriving soon" — once, when we cross the threshold and haven't already sent it.
-  const threshold = Number(env.DELIVERY_ARRIVING_MIN) || 13;
+  // Auto "arriving soon" — once, at FIVE minutes out (Dayan, 2026-09-15; it was 13). The claim is
+  // conditional, so this GPS trigger and the server-side sweep in _lib/stop_progress.js — which covers the
+  // far more common case of the page being paused behind Maps — can never both send it.
   let fired = false;
-  if (etaMin <= threshold && !stop.arriving_at) {
-    await env.DB.prepare("UPDATE route_stops SET status='arriving', arriving_at=?, updated_at=? WHERE id=?")
+  if (etaMin <= APPROACHING_MIN && !stop.arriving_at) {
+    const claim = await env.DB.prepare("UPDATE route_stops SET status='arriving', arriving_at=?, updated_at=? WHERE id=? AND arriving_at IS NULL")
       .bind(ts, ts, stop.stop_id).run();
-    await notifyArrivingSoon(env, stop, `${etaMin} minutes`);
-    fired = true;
+    if (claim && claim.meta && claim.meta.changes === 1) {
+      await notifyArrivingSoon(env, stop, `${etaMin} minutes`);
+      fired = true;
+    }
   }
 
   return json({ ok: true, eta_min: etaMin, eta_clock: clockET(etaAtMs), arriving_sent: fired });
