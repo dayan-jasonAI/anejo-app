@@ -199,6 +199,17 @@ export async function runDiscoveryTick(env, { cfg, fetchImpl, budgetMs = TICK_BU
  * agent_runs row, no automation.run event. With every flag at its default the scheduler fires about
  * fifty times a day; the deployment must stay inert, not fill the owner's AI Ops log with no-ops.
  */
+/** Is this job switched on? Decides whether a skipped tick is worth a row — see runSalesJob. */
+function jobEnabled(cfg, job) {
+  const f = (cfg && cfg.flags) || {};
+  if (!f['sales.enabled']) return false;
+  if (job === 'discovery') return !!f['sales.discovery_enabled'];
+  if (job === 'enrich') return !!f['sales.enrichment_enabled'];
+  if (job === 'followup') return !!f['sales.followup_enabled'];
+  if (job === 'send') return !!f['sales.email_enabled'];
+  return true; // metrics rides on sales.enabled alone
+}
+
 export async function runSalesJob(env, job, { cfg, fetchImpl, triggeredBy = 'cron', atMs } = {}) {
   const started = now();
   const type = `sales_${job}`;
@@ -221,7 +232,19 @@ export async function runSalesJob(env, job, { cfg, fetchImpl, triggeredBy = 'cro
       output = cfg.flags['sales.enabled'] ? await funnel(env) : { skipped: 'sales is switched off' };
       if (!output.skipped && !output.organizations_discovered) output = { skipped: 'no prospects yet' };
     } else return { ok: false, error: `Unknown job ${job}.` };
-    if (output && typeof output.skipped === 'string') return { ok: true, job, outcome: 'skipped', output };
+    // A SWITCHED-ON JOB THAT SKIPS MUST STILL LEAVE A TRACE. This used to return here, before
+    // logRun, so a job that ran and found nothing to do wrote nothing at all — and a job skipping
+    // every hour for a BAD reason was indistinguishable from a job that had never been scheduled.
+    // The only way to tell them apart was to read this file. That is how an automation stays dead
+    // for weeks while the dashboard stays calm.
+    //
+    // A job that is switched OFF stays silent, exactly as before. That is not an unknown to be
+    // investigated, it is the documented default, and logging it hourly forever would bury the one
+    // line that matters. So the rule is narrow: silence means off, a row means it ran.
+    if (output && typeof output.skipped === 'string') {
+      if (jobEnabled(cfg, job)) await logRun(env, type, started, 'skipped', output, null, triggeredBy);
+      return { ok: true, job, outcome: 'skipped', output };
+    }
     await logRun(env, type, started, 'success', output, null, triggeredBy);
     return { ok: true, job, outcome: 'success', output };
   } catch (e) {

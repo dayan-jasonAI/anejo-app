@@ -208,6 +208,11 @@
         <div><label>Sequence</label><select data-f="sequence">${opt(['active', 'none'], filters.sequence, 'Either')}</select></div>
         <div class="wide"><label>Search</label><input data-f="q" value="${esc(filters.q || '')}" placeholder="Name or city"></div>
       </div></div>
+      <div class="box"><h2>Work this list</h2>
+        <p class="muted">Acts on the ${d.organizations.length} prospect${d.organizations.length === 1 ? '' : 's'} shown above, with the filters you have set. Neither button contacts anybody: an opportunity only makes a prospect addressable, and researching only reads their public website.</p>
+        <button class="btn2 primary" data-act="bulkopp">Create opportunities for all ${d.organizations.length}</button>
+        <button class="btn2" data-act="bulkresearch">Research the ones never researched</button>
+        <div id="bulk-out" class="muted"></div></div>
       <div class="box scroll"><table class="t"><thead><tr><th>Organization</th><th>Tier</th><th>Category</th><th>City</th><th>Stage</th><th>Contact</th><th>Last touch</th><th>Next action</th></tr></thead><tbody>
       ${d.organizations.map((o) => `<tr class="row-link" data-act="open" data-id="${esc(o.id)}"><td><b>${esc(o.name)}</b>${o.do_not_contact ? ' <span class="muted">(do not contact)</span>' : ''}</td><td>${tier(o.current_tier, o.current_score)}</td><td>${esc((o.business_category || '').replace(/_/g, ' '))}</td><td>${esc(o.city || '')}</td><td>${esc((o.opp_stage || o.status || '').replace(/_/g, ' '))}</td><td>${o.sendable_contacts ? '✉︎ ' + esc(o.sendable_contacts) : '—'}</td><td>${esc(o.last_touch_at ? when(o.last_touch_at) : '—')}</td><td>${esc(o.next_action || '')}</td></tr>`).join('') || '<tr><td colspan="8" class="muted">No organizations yet. Add one below, import a CSV, or run discovery.</td></tr>'}
       </tbody></table></div>
@@ -222,6 +227,27 @@
       <div class="box"><h2>Import a CSV</h2><p class="muted">Header row required. Recognised columns: name, website, phone, street, city, state, zip, county, category, capacity, notes, contact_name, contact_title, contact_email, contact_phone, source_url. Importing the same file again is safe — duplicates are recognised.</p>
         <input type="file" id="csv-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"><textarea id="csv-text" rows="4" placeholder="…or paste straight from a spreadsheet — tab-separated works too"></textarea>
         <button class="btn2" data-act="import">Import</button><div id="imp-out" class="muted"></div></div>`;
+    const shownIds = d.organizations.filter((o) => !o.do_not_contact).map((o) => o.id);
+    const bulk = async (btn, actions, working) => {
+      const out = document.getElementById('bulk-out');
+      if (!shownIds.length) { out.textContent = 'Nothing in the list to work on.'; return; }
+      btn.disabled = true; out.textContent = working;
+      const r = await post(S, { op: 'bulk_advance', ids: shownIds, actions });
+      btn.disabled = false;
+      if (!r || !r.ok) { out.textContent = (r && r.error) || 'Could not do that.'; return; }
+      const said = [];
+      if (r.opportunities_created) said.push(`${r.opportunities_created} now addressable`);
+      if (r.opportunities_existing) said.push(`${r.opportunities_existing} already were`);
+      if (r.researched) said.push(`${r.researched} researched and rescored`);
+      if (r.skipped && r.skipped.length) said.push(`${r.skipped.length} skipped (do-not-contact)`);
+      if (r.errors && r.errors.length) said.push(`${r.errors.length} could not be done`);
+      out.textContent = (said.join(', ') || 'Nothing needed doing.') + (r.note ? ' — ' + r.note : '');
+      toast(said[0] || 'Nothing needed doing');
+      prospects();
+    };
+    ACT.bulkopp = (b) => bulk(b, ['create_opportunity'], 'Creating…');
+    ACT.bulkresearch = (b) => bulk(b, ['research'], 'Reading their websites…');
+
     Array.prototype.forEach.call(root.querySelectorAll('[data-f]'), (el) => el.addEventListener('change', () => { filters[el.dataset.f] = el.value; prospects(); }));
     // A spreadsheet file is not a text file. Picking an .xlsx used to load its raw bytes into the
     // box and the import then failed on every row for reasons that looked nothing like the cause.

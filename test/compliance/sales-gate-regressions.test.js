@@ -215,8 +215,15 @@ test('with the production defaults, every scheduled job is inert: no provider ca
     }
     assert.equal(f.calls.length, 0);
   } finally { f.restore(); }
-  assert.equal(env.DB.rows("SELECT id FROM agent_runs WHERE automation_type LIKE 'sales_%'").length, 0);
-  assert.equal(env.DB.rows("SELECT id FROM activity_log WHERE event = 'automation.run'").length, 0);
+  // The guarantee worth defending is that a SWITCHED-OFF job does nothing and says nothing: turning
+  // a flag on is the only thing that starts activity, and a feature that is off must not fill the
+  // run log with hourly proof of its own silence. `metrics` is the exception on purpose — it rides
+  // on sales.enabled alone, so it really is on here, and a job that ran and found nothing to do is
+  // exactly the case this log exists to make visible. Before it recorded that, "ran and found
+  // nothing" and "was never scheduled" looked identical, which is how a dead automation hides.
+  const logged = env.DB.rows("SELECT automation_type FROM agent_runs WHERE automation_type LIKE 'sales_%'").map((r) => r.automation_type);
+  assert.deepEqual(logged, ['sales_metrics'], 'only the always-on job leaves a trace; every flagged job is silent while off');
+  assert.equal(env.DB.rows("SELECT id FROM activity_log WHERE event = 'automation.run'").length, 1);
   assert.equal(env.DB.rows('SELECT id FROM sales_organizations').length, 0);
 });
 
