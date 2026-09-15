@@ -626,7 +626,35 @@
     "Recent backups": "Respaldos recientes", "Creating backup…": "Creando respaldo…",
     "Backup created": "Respaldo creado", "Backup failed": "Error al crear el respaldo",
     "R2 storage is not enabled": "El almacenamiento R2 no está habilitado",
-    "No backups yet": "Aún no hay respaldos", "30 days retained": "Se conservan 30 días"
+    "No backups yet": "Aún no hay respaldos", "30 days retained": "Se conservan 30 días",
+
+    // ---- Staff hours (2026-09-15): breaks on the kitchen/driver clock, the owner timesheet ----
+    "Start break": "Iniciar descanso", "End break": "Terminar descanso", "On break": "En descanso",
+    "Break started": "Descanso iniciado", "Break ended": "Descanso terminado",
+    "Could not update break": "No se pudo actualizar el descanso", "Could not update break.": "No se pudo actualizar el descanso.",
+    "AÑEJO · TIMESHEET": "AÑEJO · HORAS", "Añejo HUB · Timesheet": "Añejo HUB · Hoja de horas",
+    "Timesheet & hours": "Hoja de horas", "Loading timesheet…": "Cargando hoja de horas…",
+    "Previous week": "Semana anterior", "Next week": "Semana siguiente",
+    "Download payroll CSV": "Descargar nómina CSV", "Payroll downloaded": "Nómina descargada",
+    "Hours worked": "Horas trabajadas", "Hourly pay (est.)": "Pago por hora (est.)", "Route pay": "Pago por ruta",
+    "Open shifts": "Turnos abiertos", "Needs your attention": "Requiere tu atención",
+    "Day": "Día", "In": "Entrada", "Out": "Salida", "Break": "Descanso", "Worked": "Trabajado", "Est. pay": "Pago est.",
+    "Fix": "Corregir", "Close shift": "Cerrar turno", "Save correction": "Guardar corrección",
+    "Reason (required)": "Motivo (obligatorio)", "Break minutes": "Minutos de descanso",
+    "A reason is required.": "Se requiere un motivo.", "Enter the time they left.": "Ingresa la hora en que se fue.",
+    "Shift corrected": "Turno corregido", "Shift closed": "Turno cerrado",
+    "forgotten clock-out": "salida olvidada", "on break": "en descanso", "edited": "editado", "over 12h": "más de 12h",
+    "from an earlier week": "de una semana anterior", "so far": "hasta ahora",
+    "Hourly": "Por hora", "Per route": "Por ruta", "Pay: role default": "Pago: según el rol", "role default": "según el rol",
+    "No rate set": "Sin tarifa", "No shifts this week.": "Sin turnos esta semana.", "Week total": "Total de la semana",
+    "Times are Eastern (America/New_York).": "Horas en hora del Este (America/New_York).",
+    "Correction history": "Historial de correcciones", "Could not load the timesheet.": "No se pudo cargar la hoja de horas.",
+    "Hourly staff are paid for worked hours. Per-route drivers show hours but are paid by their routes — never both.":
+      "El personal por hora cobra las horas trabajadas. Los conductores por ruta muestran horas pero cobran por sus rutas — nunca ambas.",
+    "Forgotten clock-outs to close:": "Salidas olvidadas por cerrar:",
+    "Hourly people with no rate set:": "Personas por hora sin tarifa:",
+    "Hourly people whose routes still carry route pay in Payouts — pay one or the other, not both:": "Personas por hora cuyas rutas aún tienen pago por ruta en Pagos — paga uno u otro, no ambos:",
+    "Paid hourly, but routes this week still carry route pay in Payouts:": "Cobra por hora, pero sus rutas de esta semana aún tienen pago por ruta en Pagos:"
   };
 
   // Register with the shared i18n engine; queue if it hasn't loaded yet.

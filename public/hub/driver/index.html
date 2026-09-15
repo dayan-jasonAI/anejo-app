@@ -28,6 +28,7 @@
       <div class="stat-num" id="clock-status" data-i18n>Loading…</div>
       <div class="stat-label" id="clock-sub"></div>
       <button class="btn block gold" id="clock-btn" type="button" style="margin-top:14px" disabled data-i18n>Loading…</button>
+      <button class="btn block ghost" id="break-btn" type="button" style="margin-top:8px;display:none">Start break</button>
     </div>
   </div>
 
@@ -78,6 +79,30 @@
   var clockStatus = document.getElementById('clock-status');
   var clockSub = document.getElementById('clock-sub');
 
+  // Breaks: Start/End break on the open shift. Break minutes come off worked hours; clocking out
+  // ends a break still running.
+  var breakBtn = document.getElementById('break-btn');
+  function shiftOnBreak() {
+    var b = openShift && openShift.breaks;
+    if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { b = []; } }
+    return Array.isArray(b) && b.some(function (x) { return x && x.start && !x.stop; });
+  }
+  function renderBreak() {
+    if (!openShift) { breakBtn.style.display = 'none'; return; }
+    var on = shiftOnBreak();
+    breakBtn.style.display = ''; breakBtn.disabled = false;
+    breakBtn.textContent = on ? 'End break' : 'Start break';
+    breakBtn.className = on ? 'btn block gold' : 'btn block ghost';
+    if (on) clockStatus.textContent = 'On break';
+  }
+  breakBtn.addEventListener('click', function () {
+    breakBtn.disabled = true;
+    Hub.api('/api/hub/driver/break', { method: 'POST', body: { action: shiftOnBreak() ? 'end' : 'start' } }).then(function (r) {
+      if (r && r.ok) { openShift.breaks = r.breaks; Hub.toast(r.on_break ? 'Break started' : 'Break ended'); renderClock(); }
+      else { Hub.toast((r && r.error) || 'Could not update break'); breakBtn.disabled = false; }
+    });
+  });
+
   function renderClock() {
     if (openShift) {
       clockStatus.textContent = 'On the clock';
@@ -91,6 +116,7 @@
       clockBtn.className = 'btn block gold';
     }
     clockBtn.disabled = false;
+    renderBreak();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
   }
 

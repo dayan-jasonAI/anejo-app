@@ -39,6 +39,16 @@
   // "Pick a valid role". test/ui/marketing-role.test.js pins the two lists together.
   var ROLES = ['owner', 'kitchen', 'driver', 'marketing', 'vendor'];
   var TEAMS = ['kitchen', 'delivery', 'marketing', 'training', 'front_office', 'vendors'];
+  var EMPLOYMENT = ['w2', 'contractor', 'external'];
+  // Rate typed in dollars ("12.50") → exact integer cents, without float math. undefined = not a rate.
+  function centsFromDollars(v) {
+    v = String(v == null ? '' : v).trim().replace(/^\$/, '');
+    if (!v) return null;
+    var m = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(v);
+    if (!m) return undefined;
+    return parseInt(m[1], 10) * 100 + (m[2] ? parseInt((m[2] + '0').slice(0, 2), 10) : 0);
+  }
+  function dollarsFromCents(c) { return c == null ? '' : (Math.floor(c / 100) + '.' + ('0' + (c % 100)).slice(-2)); }
   function opt(list, sel) { return list.map(function (v) { return '<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + v + '</option>'; }).join(''); }
   function pinBanner(name, pin) {
     var box = document.getElementById('pin-banner');
@@ -71,6 +81,16 @@
           '<select data-act="lang" title="Language for texts sent to them" style="padding:6px;border-radius:8px">' +
             '<option value="en"' + (s.lang === 'es' ? '' : ' selected') + '>🗣 EN</option>' +
             '<option value="es"' + (s.lang === 'es' ? ' selected' : '') + '>🗣 ES</option></select>' +
+          // Pay — the owner's decision, per person. Basis blank = the role default (kitchen hourly,
+          // driver per route). The rate is $/hr and only used for hourly pay. Every change is logged.
+          (s.role !== 'vendor'
+            ? '<select data-act="pay_basis" title="How they are paid" style="padding:6px;border-radius:8px">' +
+                '<option value=""' + (s.pay_basis ? '' : ' selected') + '>Pay: role default</option>' +
+                '<option value="hourly"' + (s.pay_basis === 'hourly' ? ' selected' : '') + '>Hourly</option>' +
+                '<option value="per_route"' + (s.pay_basis === 'per_route' ? ' selected' : '') + '>Per route</option></select>' +
+              '<input data-act="pay_rate" type="text" inputmode="decimal" placeholder="$/hr" value="' + dollarsFromCents(s.pay_rate_cents) + '" title="Hourly rate in dollars — used only when they are paid hourly" style="width:84px;padding:6px;border-radius:8px">' +
+              '<select data-act="employment_type" title="Employment type" style="padding:6px;border-radius:8px"><option value="">— type —</option>' + opt(EMPLOYMENT, s.employment_type) + '</select>'
+            : '') +
           (s.role === 'vendor' ? '<input data-act="lead_time_days" type="number" min="0" max="60" placeholder="lead days" value="' + (s.lead_time_days != null ? s.lead_time_days : '') + '" title="Vendor lead time (days) — used for Ops order timing" style="width:96px;padding:6px;border-radius:8px">' : '') +
           '<button class="btn ghost" data-act="lead">' + (s.is_lead ? 'Unset lead' : 'Make lead') + '</button>' +
           '<button class="btn ghost" data-act="pin">Reset PIN</button>' +
@@ -84,10 +104,24 @@
     var el = document.getElementById('roster');
     el.addEventListener('change', function (e) {
       var fld = e.target.closest('select[data-act],input[data-act]'); if (!fld) return;
-      var id = e.target.closest('.row').getAttribute('data-id');
+      var row = e.target.closest('.row');
+      var id = row.getAttribute('data-id');
       var body = { op: 'update', id: id };
-      body[fld.getAttribute('data-act')] = fld.value;
-      Hub.api('/api/hub/owner/staff', { method: 'POST', body: body }).then(function () { Hub.toast('Updated'); loadRoster(); });
+      var act = fld.getAttribute('data-act');
+      if (act === 'pay_rate') {
+        // A rate is money: typed in dollars, sent as integer cents, confirmed, and logged server-side.
+        var cents = centsFromDollars(fld.value);
+        if (cents === undefined) { Hub.toast('Enter the hourly rate like 12.50'); loadRoster(); return; }
+        var who = row.querySelector('.row-title').textContent.trim();
+        if (!confirm('Set the hourly rate for ' + who + ' to ' + (cents == null ? 'none' : '$' + dollarsFromCents(cents)) + '? This change is recorded.')) { loadRoster(); return; }
+        body.pay_rate_cents = cents;
+      } else {
+        body[act] = fld.value;
+      }
+      Hub.api('/api/hub/owner/staff', { method: 'POST', body: body }).then(function (r) {
+        Hub.toast(r && r.error ? r.error : 'Updated');
+        loadRoster();
+      });
     });
     el.addEventListener('click', function (e) {
       var btn = e.target.closest('button[data-act]'); if (!btn) return;
@@ -113,6 +147,7 @@
 
   function renderManage() {
     return '<div class="hub-section"><h2 data-i18n>Staff management</h2>' +
+      '<a class="btn gold" href="/hub/owner/timesheet.html" style="display:inline-block;margin-bottom:10px;text-decoration:none">🕒 <span data-i18n>Timesheet & hours</span></a>' +
       '<div id="pin-banner" class="card accent" style="display:none;margin-bottom:10px"></div>' +
       '<details class="card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600">+ Add a staff member</summary>' +
       '<div style="display:grid;gap:8px;margin-top:10px">' +

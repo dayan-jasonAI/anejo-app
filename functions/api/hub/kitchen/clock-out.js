@@ -4,6 +4,7 @@ import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { now, today, toJson, bit } from '../../../_lib/hub.js';
+import { breaksOf, closeOpenBreak, workedMinutes } from '../../../_lib/timesheet.js';
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -24,13 +25,14 @@ export const onRequestPost = async ({ request, env }) => {
 
   const geo = b && b.geo && typeof b.geo === 'object' ? b.geo : null;
   const ts = now();
-  const grossMin = Math.max(0, Math.round((ts - Number(open.clock_in_at)) / 60000));
-  const totalMin = Math.max(0, grossMin - (open.break_minutes || 0));
+  // A break still running ends at clock-out — otherwise the minutes on break would count as worked.
+  const closed = closeOpenBreak(breaksOf(open), open.break_minutes, ts);
+  const totalMin = workedMinutes(open.clock_in_at, ts, closed.break_minutes);
 
   await env.DB.prepare(
     `UPDATE shifts SET clock_out_at = ?, clock_out_geo = ?, geo_captured = (geo_captured | ?),
-       total_minutes = ?, status = 'closed', updated_at = ? WHERE id = ?`
-  ).bind(ts, toJson(geo), bit(!!geo), totalMin, ts, open.id).run();
+       break_minutes = ?, breaks = ?, total_minutes = ?, status = 'closed', updated_at = ? WHERE id = ?`
+  ).bind(ts, toJson(geo), bit(!!geo), closed.break_minutes, toJson(closed.breaks), totalMin, ts, open.id).run();
 
   await env.DB.prepare('UPDATE staff SET last_active_at = ?, updated_at = ? WHERE id = ?')
     .bind(ts, ts, staff.id).run();
