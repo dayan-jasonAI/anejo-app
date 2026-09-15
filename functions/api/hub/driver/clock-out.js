@@ -5,7 +5,8 @@
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
-import { now, today, toJson, parseJson } from '../../../_lib/hub.js';
+import { now, today, toJson } from '../../../_lib/hub.js';
+import { breaksOf, closeOpenBreak } from '../../../_lib/timesheet.js';
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -29,8 +30,10 @@ export const onRequestPost = async ({ request, env }) => {
 
   // Optional break captured at clock-out.
   const addBreak = Number.isFinite(b && b.break_minutes) && b.break_minutes > 0 ? Math.round(b.break_minutes) : 0;
-  const breaks = parseJson(shift.breaks, []) || [];
-  let breakMinutes = shift.break_minutes || 0;
+  // A break started with the Break button and still running ends at clock-out.
+  const closed = closeOpenBreak(breaksOf(shift), shift.break_minutes, ts);
+  const breaks = closed.breaks;
+  let breakMinutes = closed.break_minutes;
   if (addBreak) {
     breaks.push({ start: null, stop: ts, minutes: addBreak });
     breakMinutes += addBreak;

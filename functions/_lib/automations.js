@@ -20,6 +20,7 @@ import { retrieve, formatPassages } from './knowledge.js';
 import { getCadenceConfig } from './social_cadence.js';
 import { getPostingTimes, assignSlot, weekdayIndexOf } from './posting_times.js';
 import { trainingContext } from './training.js';
+import { effectivePayBasis, hourlyPayCents } from './timesheet.js';
 
 // §3 of the brief — the three product lines. Fed to the planner SEPARATELY from the voice
 // excerpts because of Dayan's decision #6: the standing objective is that people know EVERYTHING
@@ -746,7 +747,7 @@ async function payrollPrep(env, date) {
   const shifts = await rows(
     env,
     "SELECT sh.staff_id, sh.clock_in_at, sh.clock_out_at, sh.total_minutes, sh.break_minutes, " +
-    'st.name, st.role, st.pay_rate_cents ' +
+    'st.name, st.role, st.pay_rate_cents, st.pay_basis ' +
     "FROM shifts sh JOIN staff st ON st.id = sh.staff_id " +
     "WHERE sh.status='closed' AND sh.clock_in_at >= ? ORDER BY sh.staff_id",
     since
@@ -759,7 +760,7 @@ async function payrollPrep(env, date) {
   for (const sh of shifts) {
     let agg = byStaff.get(sh.staff_id);
     if (!agg) {
-      agg = { staff_id: sh.staff_id, name: sh.name || sh.staff_id, role: sh.role || null, pay_rate_cents: sh.pay_rate_cents || null, minutes: 0, break_minutes: 0 };
+      agg = { staff_id: sh.staff_id, name: sh.name || sh.staff_id, role: sh.role || null, pay_rate_cents: sh.pay_rate_cents || null, pay_basis: effectivePayBasis(sh, true), minutes: 0, break_minutes: 0 };
       byStaff.set(sh.staff_id, agg);
     }
     let mins = Number(sh.total_minutes);
@@ -776,7 +777,10 @@ async function payrollPrep(env, date) {
       role: a.role,
       hours,
       break_minutes: a.break_minutes,
-      est_pay_cents: a.pay_rate_cents ? Math.round(hours * a.pay_rate_cents) : null,
+      pay_basis: a.pay_basis,
+      // Hourly staff only — the owner's per-person decision (_lib/timesheet.js). A per-route driver
+      // is paid by their routes, so an hourly estimate here would count their work twice.
+      est_pay_cents: a.pay_basis === 'hourly' && a.pay_rate_cents ? hourlyPayCents(a.minutes, a.pay_rate_cents) : null,
     };
   }).sort((x, y) => y.hours - x.hours);
   const totalHours = Math.round(table.reduce((s, r) => s + r.hours, 0) * 10) / 10;
