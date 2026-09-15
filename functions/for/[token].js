@@ -14,6 +14,8 @@ import { currentRole } from '../_lib/roles.js';
 import { loadSalesConfig } from '../_lib/sales/config.js';
 import { salesRow, logActivity } from '../_lib/sales/store.js';
 import { proofLine } from '../_lib/sales/outreach.js';
+import { mediaSlotHtml, MEDIA_CSS } from '../_lib/sales/media.js';
+import { BILLING_MODEL_LABELS } from '../_lib/contract.js';
 
 const HEADERS = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' };
 const html = (body, status = 200) => new Response(body, { status, headers: HEADERS });
@@ -95,13 +97,55 @@ export const onRequestGet = async ({ params, request, env }) => {
     : 'Pricing is quoted for your headcount, delivery days and locations. Ask below and we will send it.';
   const cutoff = String(offer.headcount_cutoff_text || '').trim();
   const days = String(offer.delivery_days_text || '').trim();
+  const byCutoff = cutoff ? ` by ${e(cutoff)}` : ' by a morning cutoff we agree with you';
+
+  // THE QUESTIONS THIS PAGE EXISTS TO CLOSE.
+  //
+  // Dayan's ask was that a prospect should be able to answer themselves almost everything they
+  // would otherwise email him about. So every answer below is either (a) a MECHANISM this codebase
+  // actually runs, described without a number it cannot know, or (b) a sentence he typed into the
+  // offer settings. Nothing is a policy invented here:
+  //   · the private link, the 6-digit code, the text receipt — _lib/contract.js processIntake
+  //   · soft cutoff = rush, hard cutoff = frozen                — _lib/contract.js submitHeadcount
+  //   · no count submitted = no order and nothing to invoice   — an order row only exists on submit
+  //   · the allergies/notes box reaching the kitchen            — delivery_notes on the day's order
+  //   · the four billing schedules                              — BILLING_MODEL_LABELS (0027)
+  // A fact he has NOT recorded (which diets the kitchen will take on, how his vendor/W-9 paperwork
+  // works, what he personally does on a first delivery) is a blank in the settings, and a blank
+  // renders as nothing at all rather than as a guess.
+  const billingOptions = `<ul class="opts">${Object.values(BILLING_MODEL_LABELS)
+    .map((m) => `<li><b>${e(m.title)}</b> — ${e(m.detail)}</li>`).join('')}</ul>`;
+  const note = (v) => { const t = String(v || '').trim(); return t ? `<p class="own">${e(t)}</p>` : ''; };
 
   const faq = [
-    ['How does the daily headcount work?', `Each location gets its own private link. Your team enters the day’s count${cutoff ? ` by ${e(cutoff)}` : ' by a morning cutoff we agree with you'}, and the kitchen prepares that number.`],
-    ['Which areas do you serve?', `${e(offer.service_area_text || cfg.service_area.label)}${days ? ` — deliveries ${e(days)}` : ''}.`],
-    ['How is billing handled?', 'One invoice for the account, on the billing schedule we agree when you start.'],
+    ['How does the daily headcount link work?',
+      `<p>Each of your locations gets its own private link — no app, no login, no account for your staff to remember. Whoever is covering the office that morning opens it on their phone, taps a number${byCutoff}, and that is the order.</p>`
+      + '<p>The first time someone orders from a new phone or laptop we text them a six-digit code, so every count is recorded against a named person rather than “the office”. They get a text receipt when it is in, and the same link shows the counts sent so far this month.</p>'],
+    ['Who on our team can send the count?',
+      '<p>As many people as you want. Your main contact keeps the list from the same link — add a colleague and they can order the next morning, remove them and they cannot. If someone unexpected is covering, they can order as a stand-in with their own mobile, and your main contact sees that on the list.</p>'],
+    ['What if the count changes after we have sent it?',
+      `<p>Reopen the link and change it. Up to your cutoff${cutoff ? ` (${e(cutoff)})` : ''} a change is simply the new number.</p>`
+      + '<p>After the cutoff a count still reaches the kitchen, but it goes in as a rush on the terms agreed for your account. Later in the morning the day’s number is frozen — by then the kitchen has built to it and the driver is counting it, and a silent edit would only make the paperwork disagree with the tray. The page tells you the moment that happens and gives you our phone number, because a person can still change what the kitchen can still cover.</p>'],
+    ['What happens on a holiday, or a day we are closed?',
+      '<p>Send no count. A delivery only exists because somebody submitted a number, so a day with no count is a day with no delivery and nothing to invoice — there is no standing order running in the background.</p>'
+      + '<p>We do not keep a holiday calendar for your program: your count is the only thing we cook to. Telling us about a closure in advance is welcome, but nothing breaks if you simply do not send one.</p>'],
+    ['Which areas do you deliver to?',
+      `<p>${e(offer.service_area_text || cfg.service_area.label)}${days ? ` — deliveries ${e(days)}` : ''}. Your delivery days, your delivery window and each location’s address are set with you before the first service day, and they are what the kitchen and the driver work from.</p>`],
+    ['Can you handle allergies and special requests?',
+      '<p>Every day’s count has a notes box for exactly that — “two gluten-free, one nut allergy, one no onions” — and what you write there travels with that day’s order to the kitchen.</p>'
+      + '<p>Which of those the kitchen takes on for your program is agreed with you before you start, not something this page should promise on the kitchen’s behalf. Ask below and you will get a straight answer.</p>'
+      + note(offer.dietary_note)],
+    ['How does billing work?',
+      '<p>One invoice for the account — not a bill per person and not a card swipe per day. You choose the schedule when the account is opened:</p>'
+      + billingOptions
+      + '<p>Paying an invoice by card is switched on per account and only if you ask for it; otherwise an invoice is paid by check or bank transfer and we send those details with it.</p>'
+      + note(offer.billing_note)],
+    ['What does the first service day look like?',
+      `<p>Your link opens that morning. Someone sends the count${byCutoff}, the kitchen prepares that number, and it is delivered in your window. Whoever sent the count gets a text receipt, and the day appears in the month-to-date list on the same link.</p>`
+      + '<p>When the account is activated, each location also gets a short onboarding page of its own — its actual delivery days, its cutoff, who is on the list to order and who to call — so the first week does not depend on anyone remembering a conversation.</p>'
+      + note(offer.first_day_note)],
   ];
-  if (tasting) faq.push(['Can we try the food first?', 'Yes — request a tasting below.']);
+  if (tasting) faq.push(['Can we try the food first?', '<p>Yes — request a tasting below.</p>']);
 
   const body = `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -133,7 +177,12 @@ ol{padding-left:20px}ol li{margin:6px 0}
 .menu{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
 .menu .it{border:1px solid var(--line);border-radius:10px;overflow:hidden}.menu img{width:100%;aspect-ratio:4/3;object-fit:cover}
 .menu .t{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:600;color:var(--green);padding:8px 10px 0}.menu .d{font-size:13px;color:var(--muted);padding:2px 10px 10px}
-details{border-bottom:1px solid var(--line);padding:10px 0}summary{cursor:pointer;font-weight:600;color:var(--green)}details p{margin-top:6px;color:var(--muted)}
+details{border-bottom:1px solid var(--line);padding:10px 0}summary{cursor:pointer;font-weight:600;color:var(--green)}
+details .a{margin-top:6px;color:var(--muted)}details .a p{margin-top:6px}
+.opts{margin:8px 0 0;padding-left:20px}.opts li{margin:5px 0;color:var(--muted)}.opts b{color:var(--ink);font-weight:600}
+.own{border-left:3px solid var(--gold);padding-left:11px;margin-top:10px;color:var(--ink)}
+ol li b{color:var(--ink);font-weight:600}
+${MEDIA_CSS}
 label{display:block;font-size:12px;font-weight:700;color:var(--green);margin:12px 0 5px}
 input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--cream);font:inherit;font-size:15px}
 .kinds{display:flex;gap:8px;flex-wrap:wrap}.kinds label{display:flex;gap:6px;align-items:center;margin:0;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:8px 14px;background:var(--cream);cursor:pointer}
@@ -152,11 +201,13 @@ ${previewing ? '<div class="pv">Preview — this visit is not recorded as prospe
 </header>
 <div class="photos">${PHOTOS.map(([src, alt]) => `<img src="${src}" alt="${e(alt)}" loading="lazy">`).join('')}</div>
 <div class="wrap">
-<section id="how"><h2>How ${e(offer.product_name)} works</h2><ol>
-  <li>We agree your delivery days, typical headcount and delivery location${'(s)'}.</li>
-  <li>Each morning your team sends the day’s headcount from a private link${cutoff ? ` by ${e(cutoff)}` : ''}.</li>
-  <li>We prepare the meals and deliver on your schedule.</li>
-  <li>Your account receives one invoice on the schedule we agree.</li>
+<section id="how"><h2>How ${e(offer.product_name)} works</h2>
+${mediaSlotHtml(cfg.media, 'how_it_works', { label: `How ${offer.product_name} works` })}<ol>
+  <li><b>We agree the shape of your service.</b> Delivery days, your typical headcount, your delivery window and each location we come to.</li>
+  <li><b>Each location gets its own private link.</b> No app and no logins to hand out — a link your staff can keep on the office phone.</li>
+  <li><b>Your team sends the day’s count from that link${cutoff ? ` by ${e(cutoff)}` : ''}.</b> The person sending it confirms once by text code, so every count has a name on it, and they get a receipt back.</li>
+  <li><b>We cook to that number and deliver in your window.</b> Allergies and special requests typed into the count travel with the order to the kitchen.</li>
+  <li><b>Your account receives one invoice on the schedule you choose.</b> A day nobody sends a count for is not delivered and not billed.</li>
 </ol>${offer.capacity_note ? `<p class="fine">${e(offer.capacity_note)}</p>` : ''}</section>
 ${sample.length ? `<section id="menu" data-track="menu_view"><h2>A sample of what we cook</h2><div class="menu">${sample.map((it) => {
     const img = menuImage(it);
@@ -165,7 +216,8 @@ ${sample.length ? `<section id="menu" data-track="menu_view"><h2>A sample of wha
 <section id="pricing" data-track="pricing_view"><h2>Pricing</h2><p>${e(price)}</p></section>
 <section id="area"><h2>Where we deliver</h2><p>${e(offer.service_area_text || cfg.service_area.label)}${days ? ` · ${e(days)}` : ''}</p></section>
 ${proof ? `<section id="proof"><h2>Who we work with</h2><p>${e(proof)}</p></section>` : ''}
-<section id="faq" data-track="faq_open"><h2>Questions</h2>${faq.map(([q, a]) => `<details><summary>${e(q)}</summary><p>${a}</p></details>`).join('')}</section>
+<section id="faq" data-track="faq_open"><h2>Questions</h2>
+${mediaSlotHtml(cfg.media, 'faq', { label: 'Answers to the questions programs ask' })}${faq.map(([q, a]) => `<details><summary>${e(q)}</summary><div class="a">${a}</div></details>`).join('')}</section>
 <section id="request"><h2>Request ${tasting ? 'pricing, a call, or a tasting' : 'pricing or a call'}</h2>
 <form id="rq" novalidate>
   <div class="kinds">
