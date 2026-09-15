@@ -79,13 +79,18 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
   }
 
   if (action === 'nav_start') {
+    // ONE "on the way" PER STOP. Finishing the previous delivery may already have told this office
+    // (_lib/stop_progress.js advanceToNextStop), and a driver re-opening Maps must not text them again.
+    // A known ETA is kept rather than overwritten with "unknown" when this tap has no fresh GPS fix, and a
+    // stop already arriving or done is never pulled back to en_route by re-opening navigation.
+    const alreadyTold = !!stop.on_the_way_at;
     await env.DB.prepare(
-      "UPDATE route_stops SET status='en_route', nav_started_at=?, on_the_way_at=?, eta_at=?, updated_at=? WHERE id=?"
+      "UPDATE route_stops SET status='en_route', nav_started_at=?, on_the_way_at=COALESCE(on_the_way_at, ?), eta_at=COALESCE(?, eta_at), updated_at=? WHERE id=? AND status NOT IN ('arriving','done','failed')"
     ).bind(ts, ts, etaAtMs, ts, stopId).run();
     await env.DB.prepare('UPDATE routes SET current_seq=?, updated_at=? WHERE id=?').bind(stop.seq, ts, route.id).run().catch(() => {});
 
     defer(async () => {
-      await notifyOnTheWay(env, order, etaClock);
+      if (!alreadyTold) await notifyOnTheWay(env, order, etaClock);
       await capture(env, {
         event: 'delivery.en_route', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
         properties: { route_id: route.id, stop_id: stopId, eta_min: etaMin },

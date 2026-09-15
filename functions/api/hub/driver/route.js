@@ -35,7 +35,7 @@ export const onRequestGet = async ({ request, env }) => {
   const { results } = await env.DB
     .prepare(
       `SELECT rs.id AS stop_id, rs.seq, rs.status, rs.eta_at, rs.picked_count,
-              rs.nav_started_at, rs.arriving_at, rs.delivered_at,
+              rs.nav_started_at, rs.on_the_way_at, rs.arriving_at, rs.delivered_at,
               o.id AS order_id, o.customer_name, o.items,
               o.delivery_street, o.delivery_unit, o.delivery_city, o.delivery_state, o.delivery_zip,
               o.delivery_notes, o.delivery_lat, o.delivery_lng, o.address_verify_status
@@ -64,6 +64,7 @@ export const onRequestGet = async ({ request, env }) => {
       eta_clock: s.eta_at ? clockET(s.eta_at) : null,
       directions_url: hasGeo ? directionsUrl({ lat: s.delivery_lat, lng: s.delivery_lng }) : directionsUrl(addrLine),
       nav_started_at: s.nav_started_at || null,
+      on_the_way_at: s.on_the_way_at || null,
       arriving_at: s.arriving_at || null,
       delivered_at: s.delivered_at || null,
     };
