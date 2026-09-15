@@ -74,3 +74,9 @@ Added `public/assets/js/shop-measurement.js`, wired through `public/order.html` 
 - Events are consent-gated through the existing GA4 loader. Product IDs, quantities, and displayed item prices are allowlisted; contacts, addresses, and custom notes are not sent. Events before consent are not replayed.
 
 Validation: `node --no-warnings --test test/ui/shop-measurement.test.js test/ui/order-confirmation.test.js` passed all 8 tests. `git diff --check` passed. This new instrumentation cannot reconstruct the prior 60 days. Google Analytics report configuration and real event receipt remain Unverified until account access and a deployed browser test are available.
+
+## Browser permission investigation and full regression rerun
+
+Read-only diagnosis is recorded in `docs/BROWSER_ACCESS_DIAGNOSTIC_2026-09-15.md`, including the exact runtime error classification, conflicting allow settings, matching app/runtime versions, and a support-request draft. The effective denying record remains unidentified. No browser-policy, Cloudflare, DNS, Google-account, or production changes were made. No support request was submitted.
+
+While live work remained blocked, `npm test --silent` was rerun against the branch including shopping instrumentation: 2,341 tests passed, 0 failed, exit 0 (terminal session 24898, duration 7451 ms). `git diff --check` also returned exit 0. These results validate local regressions, not production behavior. Existing deployment approval remains in force; browser recovery and live acceptance evidence remain outstanding.
