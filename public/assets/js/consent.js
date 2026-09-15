@@ -19,6 +19,7 @@
     window.gtag = function () { window.dataLayer.push(arguments); };
     window.gtag('js', new Date());
     window.gtag('config', id, { anonymize_ip: true });
+    document.dispatchEvent(new Event('anejo:analytics-ready'));
   }
 
   function hide() { var b = document.getElementById('anejo-cookie'); if (b) b.remove(); }

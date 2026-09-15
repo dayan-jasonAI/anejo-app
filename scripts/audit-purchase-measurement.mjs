@@ -1,10 +1,14 @@
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 // Runs only the existing inline conversion block in an isolated browser stub.
 // No network, customer data, analytics requests, or production writes.
-const html = readFileSync(new URL('../public/order/confirmed.html', import.meta.url), 'utf8');
+const baseline = '75640c0';
+const html = execFileSync('git', ['show', `${baseline}:public/order/confirmed.html`], {
+  cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8',
+});
 const blocks = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 const source = blocks.find(block => block.includes('anejo:gaPurchase:'));
 assert.ok(source, 'Locate the current purchase measurement implementation');
@@ -30,12 +34,12 @@ assert.equal(unverifiedReturn.events.length, 1, 'Reproduces purchase event witho
 assert.equal(lateConsent.events.length, 0, 'Reproduces missed event after consent is accepted later');
 
 console.log(JSON.stringify({
-  source: 'public/order/confirmed.html',
+  source: `${baseline}:public/order/confirmed.html (historical baseline)`,
   mode: 'isolated local reproduction; no external requests',
   findings: {
     directVisitEmitsPurchase: directVisit.events.length === 1,
     unverifiedReferenceEmitsPurchase: unverifiedReturn.events.length === 1,
     lateConsentHasNoRetry: lateConsent.events.length === 0,
   },
-  conclusion: 'Existing browser purchase events do not prove paid orders. Compare verified Square/D1 payments with GA4 before assessing conversion.',
+  conclusion: 'Baseline browser purchase events do not prove paid orders. See receipt and confirmation tests for the replacement implementation.',
 }, null, 2));

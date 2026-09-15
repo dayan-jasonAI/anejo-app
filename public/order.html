@@ -971,6 +971,8 @@ async function checkout(){
     // on /order/confirmed — both survive the Square round-trip. Square's own redirect carries
     // neither: /order/confirmed has no other way to know who just checked out.
     try{
+      if (data.receipt_token) sessionStorage.setItem('anejo:receiptToken', data.receipt_token);
+      else sessionStorage.removeItem('anejo:receiptToken');
       var _gv=parseFloat(($('cartGrand').textContent||'').replace(/[^0-9.]/g,''));
       sessionStorage.setItem('anejo:pendingOrder', JSON.stringify({
         value: isFinite(_gv)?_gv:undefined, currency:'USD', items: items.length,

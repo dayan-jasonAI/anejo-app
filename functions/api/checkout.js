@@ -15,6 +15,7 @@ import { rewardsSummary } from '../_lib/rewards.js';
 import { evaluatePromo, recordRedemption, autoCustomerCodeFor, claimPromoUse, releasePromoUse } from '../_lib/promo.js';
 import { applyVolumeDiscount } from '../_lib/catering-pricing.js';
 import { loadMenu, AVAILABILITY } from '../_lib/menu.js';
+import { createOrderReceipt } from '../_lib/order-receipt.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -656,6 +657,7 @@ export const onRequestPost = async ({ request, env }) => {
 
   // Persist a pending order for the kitchen view; the webhook marks it paid.
   const attribution = parseAttribution(b.attribution);
+  let receiptToken = null;
   if (env.DB) {
     try {
       const t = Date.now();
@@ -696,8 +698,9 @@ export const onRequestPost = async ({ request, env }) => {
       // Consume the code against this order (idempotent per order). The webhook later reads the
       // order's promo_code to apply the points multiplier and pay any affiliate commission.
       if (promo) await recordRedemption(env, { evaluated: promo, orderId, customerEmail: sessEmail }).catch(() => {});
+      receiptToken = await createOrderReceipt(env, orderId).catch(() => null);
     } catch (_) { /* never fail checkout on the order-log write */ }
   }
 
-  return json({ url });
+  return json({ url, receipt_token: receiptToken });
 };

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
 <meta name="theme-color" content="#0D0D0D">
-<title>Order Confirmed — Añejo Catering Co.</title>
+<title>Payment Confirmation — Añejo Catering Co.</title>
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54,10 +54,11 @@ p{color:var(--muted);font-size:15px;line-height:1.65;margin-bottom:14px}
 <main>
   <div class="stack">
     <div class="card">
-      <div class="check"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>
+      <div class="check" id="paymentCheck" hidden style="display:none"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>
       <div class="eyebrow">Thank you</div>
-      <h1>Order <strong>received</strong>.</h1>
-      <p>We've got it. You'll receive a confirmation by email, and we'll deliver your order in your selected window.</p>
+      <h1 id="paymentHeading">Checking your payment</h1>
+      <p id="paymentMessage" role="status">Please wait while we confirm your order.</p>
+      <button type="button" class="btn" id="paymentRetry" hidden>Check again</button>
       <div class="ref" id="ref" style="display:none"></div>
       <a href="/" class="btn">Back to home</a>
       <a href="/client/dashboard" class="btn" style="background:transparent;border:1px solid rgba(26,61,46,.25);color:var(--green);margin-left:8px">View my account</a>
@@ -72,28 +73,7 @@ p{color:var(--muted);font-size:15px;line-height:1.65;margin-bottom:14px}
   if (ref){ var el=document.getElementById('ref'); el.textContent='Reference: '+ref; el.style.display='inline-block'; }
 </script>
 <script src="/assets/js/consent.js"></script>
-<script>
-  // GA4 purchase conversion — fires once per order, ONLY after consent (window.gtag exists only
-  // post-consent). Value comes from sessionStorage (set on /order before redirect); transaction_id
-  // from Square's redirect params. Deduped per transaction so refreshes don't double-count.
-  (function(){
-    if (!window.gtag) return;
-    var qs = new URLSearchParams(location.search);
-    var txn = qs.get('orderId')||qs.get('order_id')||qs.get('transactionId')||qs.get('checkoutId')||'';
-    var dedup = 'anejo:gaPurchase:'+(txn||'session');
-    try { if (localStorage.getItem(dedup)) return; } catch(e){}
-    var value, currency='USD';
-    try { var po=JSON.parse(sessionStorage.getItem('anejo:pendingOrder')||'null'); if(po){ value=po.value; currency=po.currency||'USD'; } } catch(e){}
-    var params = { currency: currency };
-    if (txn) params.transaction_id = txn;
-    if (typeof value === 'number' && isFinite(value)) params.value = value;
-    window.gtag('event','purchase', params);
-    try { localStorage.setItem(dedup,'1'); } catch(e){}
-    // NOTE: pendingOrder is NOT cleared here (unlike before) — the push opt-in script below reads
-    // the same stashed email/sms_consent, and it runs after this block. It clears the key itself
-    // once it has read it.
-  })();
-</script>
+<script src="/assets/js/order-confirmation.js"></script>
 <script>
 // Order-confirmation push opt-in. Reuses the storefront service worker (public/sw.js), the VAPID
 // endpoint (functions/api/push/subscribe.js) and the push-then-SMS pipeline (functions/_lib/

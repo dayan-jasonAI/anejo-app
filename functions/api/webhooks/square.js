@@ -122,7 +122,8 @@ export const onRequestPost = async ({ request, env }) => {
     // Capture the driver tip (Square payment.tip_money) onto the order for owner/driver payout.
     if (type === 'payment.created' || type === 'payment.updated') {
       const pay = obj.payment || {};
-      if (pay.order_id && (pay.status === 'COMPLETED' || pay.status === 'APPROVED')) {
+      // Authorization can still be canceled. Release food and award benefits only on capture.
+      if (pay.order_id && pay.status === 'COMPLETED') {
         const tipCents = (pay.tip_money && Number(pay.tip_money.amount)) || 0;
         // Cancelling an order in the HUB does NOT kill the Square payment link, so a customer can
         // still pay one the owner already cancelled. Guarding only on 'pending' meant that money
@@ -157,10 +158,8 @@ export const onRequestPost = async ({ request, env }) => {
             });
           } catch (e) { console.log('paid-after-cancel alert error:', e && e.message); }
         }
-        // An authorization (APPROVED) is not a completed payment. It may already have
-        // moved the order into the existing kitchen flow above, so COMPLETED must not
-        // depend only on this invocation's row-change count. Once-ever dedupe survives
-        // webhook retries, concurrent deliveries and an owner acknowledging the alert.
+        // Completion must not depend on this invocation's row-change count: an earlier
+        // delivery may already have advanced the order. Once-ever dedupe survives retries.
         if (pay.status === 'COMPLETED') {
           try {
             const paidOrder = await env.DB.prepare(

@@ -37,3 +37,27 @@ Dayan authorized the website conversion redesign, Google Business Profile update
 ## Next work
 
 Restore browser site permissions; inspect Google Business Profile and HUB traffic; validate homepage at desktop/mobile sizes; review cart, delivery costs, scheduling, Square handoff, and confirmed-payment tracking; implement evidence-backed corrections and deploy under existing approval. Preserve entire goal, including Google presence and actual conversion measurement.
+
+## Payment integrity implementation
+
+Local reproduction against baseline `75640c0` showed an unverified confirmation-page visit emitted a purchase event and late consent had no retry. Reproduce with `node scripts/audit-purchase-measurement.mjs` (isolated VM, historical source, no external requests).
+
+Code inspection also found Square `APPROVED` authorizations marked orders paid. Square documents authorization separately from capture: https://developer.squareup.com/docs/payments-api/take-payments/card-payments . This establishes a possible route for unpaid orders to enter the kitchen; it does not establish how often that occurred in production.
+
+Changes:
+
+- `functions/api/webhooks/square.js`: only `COMPLETED` payment events release the order and its associated benefits.
+- `functions/_lib/order-receipt.js` and `functions/api/order-receipt.js`: random 256-bit guest receipt capability, 24-hour KV expiry, one order only, no customer data, non-cacheable response. Existing SESSIONS binding; no credentials or migration added.
+- `functions/api/checkout.js` and `public/order.html`: return and retain the capability after a persisted checkout. Receipt availability never blocks the Square checkout.
+- `public/assets/js/order-confirmation.js` and `public/order/confirmed.html`: bounded payment polling, explicit unverified state, retry, no purchase on direct visits, server-derived discounted merchandise value, transaction deduplication.
+- `public/assets/js/consent.js`: event on analytics availability supports consent accepted after confirmation loads.
+- `test/money/order-receipt.test.js`, `test/ui/order-confirmation.test.js`, and `test/money/staff-order-notifications.test.js`: regressions for unpaid/canceled authorization, expired or missing capabilities, late consent, deduplication and polling.
+
+Validation on this draft:
+
+- `npm test --silent`: 2,337 passed, 0 failed. Full output: `/tmp/anejo-conversion-tests-20260915.log`.
+- `npm run lint --silent`: 0 errors; four existing unused-variable warnings in unrelated files.
+- `git diff --check`: passed.
+- Prior homepage SEO validator: 196 indexed pages, 140 city catering pages, 510 JSON-LD blocks, no missing canonicals.
+
+Remaining limits: No deployment or real settlement test in this work stretch. Older checkouts have no new receipt capability and show a non-confirmation fallback. KV propagation or delayed webhooks can delay confirmation; retry is available and users are warned against duplicate payment. Historical orders incorrectly advanced by authorization are not retroactively reclassified. GA4 attribution across Square and the preceding 60 days of traffic remain unverified. Browser access was rejected again after Dayan's "Try now"; no bypass attempted.
