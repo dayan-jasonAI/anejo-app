@@ -12,6 +12,11 @@ export const onRequestGet = async ({ request, env, params }) => {
   const parts = Array.isArray(params.path) ? params.path : [params.path].filter(Boolean);
   const key = parts.join('/');
   if (!key || key.includes('..')) return json({ error: 'Not found.' }, 404);
+  // Kitchen photos show the inside of a customer's order. Client and trainer sessions are HUB roles
+  // too, so these are narrowed to the staff who cook, deliver or own the business.
+  if (key.startsWith('kitchen/') && !['owner', 'kitchen', 'driver'].includes(ctx.role)) {
+    return json({ error: 'Not found.' }, 404);
+  }
 
   const obj = await getMedia(env, key);
   if (!obj) return json({ error: 'Not found.' }, 404);

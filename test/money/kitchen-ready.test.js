@@ -14,7 +14,9 @@ async function fixture(status = 'prep') {
       prep_by TEXT,prep_at INTEGER,updated_at INTEGER);
     CREATE TABLE staff (id TEXT PRIMARY KEY,name TEXT,role TEXT,active INTEGER,pin_hash TEXT,pin_salt TEXT);
     CREATE TABLE routes (id TEXT PRIMARY KEY,driver_id TEXT,status TEXT,offer_status TEXT,created_at INTEGER);
-    CREATE TABLE route_stops (order_id TEXT,route_id TEXT);`);
+    CREATE TABLE route_stops (order_id TEXT,route_id TEXT);
+    CREATE TABLE kitchen_photos (id TEXT PRIMARY KEY,order_id TEXT,kind TEXT,media_key TEXT,taken_by TEXT,
+      taken_by_name TEXT,taken_at INTEGER,superseded_at INTEGER);`);
   const pinHash = await hashPin('123456', 'test-salt');
   DB.sqlite.prepare('INSERT INTO staff VALUES (?,?,?,?,?,?)').run('cook','Test cook','kitchen',1,pinHash,'test-salt');
   DB.sqlite.prepare('INSERT INTO staff VALUES (?,?,?,?,?,?)').run('owner','Test owner','owner',1,null,null);
@@ -22,6 +24,11 @@ async function fixture(status = 'prep') {
   DB.sqlite.prepare('INSERT INTO orders VALUES (?,?,?,?,?,?,?,?)')
     .run(order.id, status, order.delivery_date, 'lunch', 'Synthetic customer', null, 100, 200);
   DB.sqlite.exec("INSERT INTO order_bowls VALUES ('bowl_test','order_test','done',1,NULL,NULL,200)");
+  // Both ready photos are on file, so these tests exercise everything else about readiness; the photo
+  // gate has its own tests in kitchen-photo-gate.test.js.
+  DB.sqlite.exec(`INSERT INTO kitchen_photos (id,order_id,kind,media_key,taken_at) VALUES
+    ('kph_1','order_test','contents','kitchen/2026-12/med_1_contents.jpg',150),
+    ('kph_2','order_test','packed','kitchen/2026-12/med_2_packed.jpg',160)`);
   const env = { DB, SESSIONS: { get: async (key) => key === 'session:valid' ? JSON.stringify({type:'staff',uid:'cook',role:'kitchen',la:Date.now()}) : null } };
   return { DB, env, order };
 }
