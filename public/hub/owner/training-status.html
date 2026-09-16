@@ -19,6 +19,12 @@
   .tc-badge { font-size:12px; font-weight:700; border-radius:999px; padding:6px 12px; white-space:nowrap; }
   .tc-badge.ok { background:#eaf3ec; color:#1A3D2E; border:1px solid rgba(26,61,46,.25); }
   .tc-badge.no { background:#fbe9e8; color:#9b2226; border:1px solid #e3b7b7; }
+  /* Out of date is its own state, not a shade of "not completed": this person WAS trained, correctly,
+     and is now working to a procedure that changed under them. Amber, so it reads as owed-work
+     rather than never-taught. */
+  .tc-badge.stale { background:#fff3d8; color:#8a6b12; border:1px solid #e4c878; }
+  .tc-row.stale { border-color:#e4c878; background:#fffdf6; }
+  .tc-why { font-size:12px; color:#6b6b6b; margin-top:3px; max-width:340px; line-height:1.4; }
 </style>
 </head>
 <body>
@@ -52,15 +58,25 @@
     root.className = '';
     var items = (d && d.items) || [];
     if (!items.length) { root.innerHTML = '<p style="color:#6b6b6b;padding:18px 0">No active staff yet.</p>'; return; }
-    var sum = '<div class="tc-sum"><b>' + (d.done || 0) + '</b> of <b>' + (d.total || 0) + '</b> active staff have completed their role training.</div>';
+    // Three numbers, because "12 of 14 completed" hid the person who trained before the procedure
+    // changed. Out of date is listed separately and only mentioned when there actually is someone in
+    // it — the owner should not have to read a zero every day.
+    var sum = '<div class="tc-sum"><b>' + (d.done || 0) + '</b> of <b>' + (d.total || 0) + '</b> active staff are up to date on their role training.'
+      + (d.outdated ? ' <b>' + d.outdated + '</b> owe the new training.' : '')
+      + (d.never ? ' <b>' + d.never + '</b> have never been trained.' : '')
+      + '</div>';
     root.innerHTML = sum + items.map(function (i) {
-      var ok = !!i.completed_at;
-      return '<div class="tc-row">'
-        + '<div><div class="tc-name">' + esc(i.name || '—') + '</div><div class="tc-role">' + esc(i.role || '') + (i.team ? ' · ' + esc(i.team) : '') + '</div></div>'
+      var stale = i.state === 'outdated';
+      var why = stale && i.update_headline ? '<div class="tc-why">' + esc(i.update_headline.en || '') + '</div>' : '';
+      var badge = i.state === 'current'
+        ? '<span class="tc-badge ok">✓ Up to date · ' + fmtDate(i.completed_at) + (i.lang ? ' · ' + esc(i.lang).toUpperCase() : '') + '</span>'
+        : stale
+          ? '<span class="tc-badge stale">⏳ Out of date · trained ' + fmtDate(i.completed_at) + '</span>'
+          : '<span class="tc-badge no">⚠ Never trained</span>';
+      return '<div class="tc-row' + (stale ? ' stale' : '') + '">'
+        + '<div><div class="tc-name">' + esc(i.name || '—') + '</div><div class="tc-role">' + esc(i.role || '') + (i.team ? ' · ' + esc(i.team) : '') + '</div>' + why + '</div>'
         + '<div class="tc-spacer"></div>'
-        + (ok
-            ? '<span class="tc-badge ok">✓ Completed · ' + fmtDate(i.completed_at) + (i.lang ? ' · ' + esc(i.lang).toUpperCase() : '') + '</span>'
-            : '<span class="tc-badge no">⚠ Not completed</span>')
+        + badge
         + '</div>';
     }).join('');
   }

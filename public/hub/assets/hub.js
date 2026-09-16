@@ -404,6 +404,110 @@
     });
   };
 
+  // ---------- training that is out of date ----------
+  // Dayan, 2026-09-16, after the two-photo gate shipped without the cook being told: she should "get
+  // notified in her next login to complete that training first so she knows about this new process
+  // update."
+  //
+  // So: at sign-in, on whatever HUB page the person lands on, a staffer whose role training is older
+  // than the current version is stopped by a card that names what changed and carries the one control
+  // that clears it. It lives here rather than in kitchen.js because the next process change will be a
+  // driver's or a vendor's, and a gate that only covers the kitchen would have to be rebuilt to find
+  // out.
+  //
+  // TWO RULES IT HAS TO KEEP.
+  // 1. It must not eat someone's work. It runs ONCE, at page load, before there is any half-finished
+  //    prep check or typed-in count to lose — never on a timer and never again on that page.
+  // 2. It must stop once she has done it. /api/hub/training/status answers `prompt:false` the moment
+  //    the current version is recorded, so completing the module is what dismisses it — there is no
+  //    "later", and nothing is remembered client-side that could go stale and re-open the door.
+  // Anything unexpected (signed out, endpoint not deployed yet, network drop) is silence, not a gate:
+  // a blocked screen is a worse failure than a missed prompt.
+  Hub._trainingGated = false;
+  Hub.trainingGate = function () {
+    if (Hub._trainingGated || Hub._signedOut) return Promise.resolve(null);
+    // The training itself (and its printable card) must never be behind the gate that sends you there.
+    if (location.pathname.indexOf('/hub/training') === 0) return Promise.resolve(null);
+    Hub._trainingGated = true;
+    return fetch('/api/hub/training/status', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.ok || !d.prompt || !d.update) return null;
+        Hub.showTrainingGate(d);
+        return d;
+      })
+      .catch(function () { return null; });
+  };
+
+  // Render the blocking card. `d` is the /api/hub/training/status payload.
+  Hub.showTrainingGate = function (d) {
+    if (document.getElementById('hub-training-due')) return;
+    var es = false;
+    try { es = (window.AnejoLang ? window.AnejoLang.get() : localStorage.getItem('anejo:lang')) === 'es'; } catch (e) { /* default English */ }
+    // The what-changed lines come from the server already written in both languages
+    // (functions/_lib/training_modules.js) rather than through the i18n dictionary: they are the
+    // sentences that describe the new procedure, and the cook reads Spanish. The card's own chrome
+    // below is English in the DOM and translated from hub-i18n.js like every other HUB surface.
+    var pick = function (o) { return (o && (es ? o.es : o.en)) || (o && o.en) || ''; };
+
+    var wrap = document.createElement('div');
+    wrap.id = 'hub-training-due';
+    wrap.setAttribute('role', 'alertdialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'hub-training-due-h');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(20,28,24,.78);' +
+      'display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;' +
+      'font:400 15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fffdf8;border-radius:16px;padding:22px 20px;max-width:430px;width:100%;' +
+      'box-shadow:0 18px 48px rgba(0,0,0,.34);color:#21302a;border-top:5px solid #C6A85B';
+
+    var kicker = document.createElement('div');
+    kicker.style.cssText = 'font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:#8a7a2e';
+    kicker.textContent = 'Training update';
+
+    var h = document.createElement('div');
+    h.id = 'hub-training-due-h';
+    h.style.cssText = 'font-weight:700;font-size:18px;color:#1A3D2E;margin:5px 0 8px;line-height:1.3';
+    h.textContent = pick(d.update.headline);
+
+    var lead = document.createElement('p');
+    lead.style.cssText = 'margin:0 0 12px;color:#4a5a52;font-size:14px';
+    lead.textContent = 'Something changed in how you work. Complete this training first.';
+
+    var ul = document.createElement('ul');
+    ul.style.cssText = 'margin:0 0 16px;padding-left:20px;font-size:14px;line-height:1.55;color:#21302a';
+    (d.update.changes || []).forEach(function (c) {
+      var li = document.createElement('li');
+      li.style.cssText = 'margin-bottom:7px';
+      li.textContent = pick(c);
+      ul.appendChild(li);
+    });
+
+    // The ONLY control. No "later", no close button, no click-outside: the owner asked for the
+    // training to be done first, and a dismissable notice is the thing that already failed here.
+    var a = document.createElement('a');
+    a.href = '/hub/training?role=' + encodeURIComponent(d.module || '');
+    a.textContent = 'Open my training';
+    a.style.cssText = 'display:block;text-align:center;background:#1A3D2E;color:#F5F2EC;text-decoration:none;' +
+      'padding:13px 16px;border-radius:10px;font-weight:700';
+
+    card.appendChild(kicker); card.appendChild(h); card.appendChild(lead);
+    if (ul.childNodes.length) card.appendChild(ul);
+    card.appendChild(a);
+    wrap.appendChild(card);
+
+    var mount = function () {
+      if (!document.body || document.getElementById('hub-training-due')) return;
+      document.body.appendChild(wrap);
+      try { a.focus(); } catch (e) { /* focus is a nicety */ }
+      Hub.i18nRefresh();
+      Hub.track('training.gate.shown', { module: d.module, version: d.current_version });
+    };
+    if (document.body) mount(); else document.addEventListener('DOMContentLoaded', mount);
+  };
+
   // ---------- tracking ----------
   // Fire-and-forget client event → /api/hub/track (identity resolved server-side).
   Hub.track = function (event, properties) {
@@ -652,6 +756,7 @@
   // Auto-mount the universal Account button + unread badge on any page that loads hub.js.
   function autoMount() {
     Hub.mountAccountButton();
+    Hub.trainingGate();
     Hub.refreshUnreadBadge();
     setInterval(Hub.refreshUnreadBadge, 15000); // poll often so new-message chimes feel live
     // Refresh the moment the tab is refocused (catches anything that arrived while away).
