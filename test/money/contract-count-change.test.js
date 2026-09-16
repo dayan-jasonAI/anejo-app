@@ -292,3 +292,39 @@ test('real SQL: a large first materialization batches and still lands every bowl
   assert.equal(new Set(rows.map((b) => b.seq)).size, 213, 'seq is unique across chunk boundaries');
   assert.deepEqual([rows[0].seq, rows[212].seq], [1, 213]);
 });
+
+// ---------------------------------------------------------------- the two ready photos
+
+// Dayan, 2026-09-15: the cook photographs the food inside the container and the container closed
+// before an order can be ready. When the office changes its count, those photos show the wrong
+// amount of food, so they stop counting and the cook takes them again. Once the food has left the
+// kitchen they are the record of what was handed over, and nothing touches them.
+test('real SQL: a count change, up or down, makes the cook retake the ready photos, but not after hand-off', async () => {
+  const DB = contractDB();
+  DB.sqlite.exec(`CREATE TABLE kitchen_photos (id TEXT PRIMARY KEY, order_id TEXT, kind TEXT, media_key TEXT,
+    taken_by TEXT, taken_by_name TEXT, taken_at INTEGER, superseded_at INTEGER)`);
+  const env = { DB };
+  const photo = (id, kind) => DB.sqlite.prepare('INSERT INTO kitchen_photos (id, order_id, kind, media_key, taken_at) VALUES (?,?,?,?,1)')
+    .run(id, ORDER, kind, `kitchen/2026-09/${id}_${kind}.jpg`);
+  const current = () => DB.sqlite.prepare('SELECT COUNT(*) n FROM kitchen_photos WHERE superseded_at IS NULL').get().n;
+
+  await submit(env, 23);
+  await ensureOrderBowls(env, DB.sqlite.prepare('SELECT * FROM orders WHERE id=?').get(ORDER));
+  photo('a1', 'contents'); photo('a2', 'packed');
+
+  await submit(env, 25);
+  assert.equal(current(), 0, 'two more lunches: both photos must be retaken');
+  assert.equal(DB.sqlite.prepare('SELECT COUNT(*) n FROM kitchen_photos').get().n, 2, 'the old photos are kept, not deleted');
+
+  photo('b1', 'contents'); photo('b2', 'packed');
+  await submit(env, 25);
+  assert.equal(current(), 2, 'the same count again changes nothing in the box');
+
+  await submit(env, 20);
+  assert.equal(current(), 0, 'five fewer lunches is a different box too');
+
+  photo('c1', 'contents'); photo('c2', 'packed');
+  DB.sqlite.prepare('UPDATE orders SET kitchen_cleared_at = 999 WHERE id = ?').run(ORDER);
+  await submit(env, 22);
+  assert.equal(current(), 2, 'food that already left keeps the photos of what left');
+});

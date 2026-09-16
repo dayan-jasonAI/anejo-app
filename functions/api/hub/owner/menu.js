@@ -33,6 +33,7 @@
 import { json, id, now, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { orderability, AVAILABILITY, AVAILABILITY_KEYS, availabilityOf } from '../../../_lib/menu.js';
+import { loadKitchenTiming, validateTiming, timingSettingStmts } from '../../../_lib/kitchen-timing.js';
 import { BOWL_IDS } from '../../../_lib/ondemand.js';
 
 const KINDS = ['bowl', 'drink', 'addon'];
@@ -195,6 +196,8 @@ async function snapshot(env, request) {
     // Sent rather than hardcoded in the page, so adding a state is one edit in _lib/menu.js
     // instead of two that can disagree.
     availability_options: AVAILABILITY_KEYS.map((k) => ({ key: k, label: AVAILABILITY[k].label, sells: AVAILABILITY[k].sells })),
+    // When the kitchen must be ready and how long an office lunch takes (kitchen-timing.js).
+    kitchen_timing: await loadKitchenTiming(env),
     storefront: await storefrontCheck(env, request),
   };
 }
@@ -266,6 +269,16 @@ export const onRequestPost = async ({ request, env }) => {
         else next.stock_count = n;
       }
     }
+    if ('prep_minutes' in body) {
+      const raw = body.prep_minutes;
+      // Blank means "no estimate": the kitchen shows no timer for it. 0 would claim it takes no time.
+      if (raw === '' || raw == null) next.prep_minutes = null;
+      else {
+        const n = Number(raw);
+        if (!Number.isInteger(n) || n < 1 || n > 600) errors.push('Prep time must be a whole number of minutes, 1–600, or blank.');
+        else next.prep_minutes = n;
+      }
+    }
     if ('availability' in body) {
       const v = String(body.availability || 'available').trim().toLowerCase();
       // Rejected rather than coerced: silently turning a typo into 'available' would put a bowl
@@ -278,11 +291,12 @@ export const onRequestPost = async ({ request, env }) => {
     const stmts = [
       env.DB.prepare(
         `UPDATE menu_items SET name=?, name_es=?, price_cents=?, description=?, description_es=?,
-           image=?, sort=?, active=?, availability=?, stock_count=?, updated_at=? WHERE id=?`
+           image=?, sort=?, active=?, availability=?, stock_count=?, prep_minutes=?, updated_at=? WHERE id=?`
       ).bind(
         next.name, next.name_es, next.price_cents, next.description, next.description_es,
         next.image, next.sort, next.active, next.availability || 'available',
-        next.stock_count == null ? null : next.stock_count, ts, itemId,
+        next.stock_count == null ? null : next.stock_count,
+        next.prep_minutes == null ? null : next.prep_minutes, ts, itemId,
       ),
     ];
     if (next.price_cents !== row.price_cents) {
@@ -295,6 +309,15 @@ export const onRequestPost = async ({ request, env }) => {
     }
     await env.DB.batch(stmts);
     return json({ ...(await snapshot(env, request)), saved: itemId });
+  }
+
+  // Kitchen timing: lunch and dinner start, the ready-before-delivery lead, the office lunch estimate.
+  if (op === 'update_kitchen_timing') {
+    const { values, errors } = validateTiming(body.timing || {});
+    if (errors.length) return json({ ok: false, error: 'validation failed', errors }, 400);
+    if (!Object.keys(values).length) return json({ ok: false, error: 'Nothing to save.' }, 400);
+    await env.DB.batch(timingSettingStmts(env, values, actor, ts));
+    return json({ ...(await snapshot(env, request)), saved: 'kitchen_timing' });
   }
 
   if (op === 'create_item') {

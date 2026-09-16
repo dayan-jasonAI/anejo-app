@@ -9,7 +9,9 @@ import { id } from './util.js';
 
 export const MAX_MEDIA_BYTES = 5 * 1024 * 1024; // 5MB cap
 
-const KINDS = ['proof', 'studio', 'receipt', 'docimg', 'training'];
+// 'kitchen' = the two photos a cook takes before Mark ready. Served to staff roles only (see
+// functions/api/hub/media/[[path]].js) and never given a public link, unlike delivery proof.
+const KINDS = ['proof', 'studio', 'receipt', 'docimg', 'training', 'kitchen'];
 
 const EXT_BY_TYPE = {
   'image/jpeg': 'jpg',
