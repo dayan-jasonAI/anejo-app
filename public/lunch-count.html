@@ -94,6 +94,7 @@
     byCut:{en:'Please submit by {c} AM so the kitchen can prep your lunches fresh.',es:'Por favor envía antes de las {c} AM para que la cocina prepare tus almuerzos frescos.'},
     rushWarn:{en:'It’s past the {c} AM cut-off. We’ll do our best — late counts go in as a rush, and today’s count closes for good at {h} AM.',es:'Ya pasó el corte de las {c} AM. Haremos lo posible — los conteos tardíos entran como urgentes, y el conteo de hoy cierra definitivamente a las {h} AM.'},
     already:{en:'Already received today: {n}. You can update it below.',es:'Ya recibido hoy: {n}. Puedes actualizarlo abajo.'},
+    todayDish:{en:'Today’s lunch:',es:'Almuerzo de hoy:'},
     noDel:{en:'No lunch delivery is scheduled for your office today. Deliveries run Monday–Wednesday.',es:'No hay entrega de almuerzo programada para tu oficina hoy. Las entregas son de lunes a miércoles.'},
     received:{en:'Count received — {n} lunches',es:'Conteo recibido — {n} almuerzos'},
     fresh:{en:'Fresh-prepped and delivered {w}.',es:'Preparado fresco y entregado {w}.'},
@@ -144,7 +145,8 @@
     codeSafe:{en:'Never share this code. Añejo will never ask for it by phone.',es:'Nunca compartas este código. Añejo nunca te lo pedirá por teléfono.'},
     confNum:{en:'Your confirmation number',es:'Tu número de confirmación'},
     receiptSent:{en:'📩 Receipt texted to {hint}',es:'📩 Recibo enviado por SMS al {hint}'},
-    submitErr:{en:'Could not submit. Please try again.',es:'No se pudo enviar. Inténtalo de nuevo.'}
+    submitErr:{en:'Could not submit. Please try again.',es:'No se pudo enviar. Inténtalo de nuevo.'},
+    firstWeek:{en:'New to this link? How your first week works',es:'¿Nuevo con este enlace? Cómo funciona tu primera semana'}
   };
   var MONTHS={en:['January','February','March','April','May','June','July','August','September','October','November','December'],
              es:['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']};
@@ -154,6 +156,19 @@
   // (no money() helper — this page must never render an amount; see monthCard)
   function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function monthName(prefix){ if(!prefix)return ''; var p=prefix.split('-'); return MONTHS[lang][(+p[1])-1]+' '+p[0]; }
+  // The onboarding page for this same location (/start/<token>): what the days, the cutoff and
+  // the freeze actually are, who is on the ordering list, and who to call. It sits on EVERY state
+  // of this page — the day somebody needs it most is the day they opened the link and found no
+  // delivery scheduled, or found the count already frozen, and neither of those states used to
+  // lead anywhere except a phone call. Same token, read-only page.
+  // Today's dish from Añejo's weekly menu, when one is set. NAME ONLY: the API sends nothing else
+  // about it, and this page must never render an amount. Spanish name when the reader chose ES and
+  // one exists; otherwise the English one.
+  function dishLine(){
+    var d=ctx&&ctx.today_dish; if(!d||!d.name) return '';
+    return '<p class="fine" style="margin-top:10px">'+esc(tr('todayDish'))+' <b>'+esc(lang==='es'&&d.name_es?d.name_es:d.name)+'</b></p>';
+  }
+  function startLink(){ return token?'<p class="fine"><a href="/start/'+encodeURIComponent(token)+'" style="color:var(--gold-deep);font-weight:700;text-decoration:underline">'+esc(tr('firstWeek'))+'</a></p>':''; }
 
   function setLang(l){ lang=l; document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; document.getElementById('h-sub').textContent=tr('sub'); if(ctx)render(); }
 
@@ -170,7 +185,7 @@
     app.className='';
     var head='<div class="site">'+esc(ctx.site)+'</div><div class="meta">'+esc(ctx.account)+' &middot; '+esc(ctx.weekday)+', '+esc(ctx.date)+'</div>';
     if(!ctx.delivers_today){
-      app.innerHTML='<div class="card">'+head+'<div class="banner warn">'+tr('noDel')+'</div></div>'+monthCard();
+      app.innerHTML='<div class="card">'+head+'<div class="banner warn">'+tr('noDel')+'</div></div>'+monthCard()+startLink();
       return;
     }
     // PAST THE HARD CUT-OFF THE FORM IS GONE, not merely disabled. A count box that accepts a
@@ -184,7 +199,7 @@
         '<p class="fine" style="margin-top:12px">'+tr('lockedHelp')+'</p>'+
         '<a class="btn" href="tel:5615671047" style="display:block;text-align:center;text-decoration:none">'+tr('lockedCall')+'</a>'+
         '<p class="fine" style="margin-top:12px">'+tr('lockedTomorrow')+'</p>'+
-      '</div>'+monthCard();
+      '</div>'+monthCard()+startLink();
       return;
     }
     var pre=ctx.already;
@@ -193,7 +208,7 @@
     var preNote = pre ? '<div class="banner ok">'+tr('already',{n:pre.count})+'</div>' : '';
     app.innerHTML=
       '<div class="card">'+head+
-        '<div class="win">🍱 '+tr('delivery')+' '+esc(ctx.window)+'</div>'+warn+preNote+
+        '<div class="win">🍱 '+tr('delivery')+' '+esc(ctx.window)+'</div>'+dishLine()+warn+preNote+
         '<span class="lab">'+tr('howmany')+'</span>'+
         '<div class="counter"><button type="button" onclick="bump(-1)">−</button>'+
           '<input id="n" type="number" inputmode="numeric" min="1" max="500" value="'+(pre?pre.count:'')+'" placeholder="0">'+
@@ -202,7 +217,7 @@
         '<textarea id="notes" maxlength="400" placeholder="'+esc(tr('allergPh'))+'">'+esc(pre&&pre.notes||'')+'</textarea>'+
         whoBlock()+
         '<button class="btn" id="go" onclick="submitCount()">'+(pre?tr('update'):tr('submit'))+'</button>'+
-      '</div>'+monthCard()+managePanel();
+      '</div>'+monthCard()+managePanel()+startLink();
   }
 
   // WHO IS ORDERING.
@@ -400,7 +415,7 @@
       (d.receipt_sent?'<p class="fine" style="margin-top:10px">'+tr('receiptSent',{hint:esc(d.receipt_to||'')})+'</p>':'')+
       (d.notes?'<div class="banner warn" style="text-align:left;margin-top:12px">⚠ '+esc(d.notes)+'</div>':'')+
       (d.is_rush?'<div class="banner crit" style="text-align:left">'+tr('rushFee')+'</div>':'')+
-      '<p class="fine" style="margin-top:12px">'+tr('change',{c:esc(ctx.hard_cutoff||'10:45')})+'</p></div>';
+      '<p class="fine" style="margin-top:12px">'+tr('change',{c:esc(ctx.hard_cutoff||'10:45')})+'</p></div>'+startLink();
     setTimeout(load, 1800); // reload to refresh the live monthly tracker
   }
   document.getElementById('h-sub').textContent=T.sub.en;

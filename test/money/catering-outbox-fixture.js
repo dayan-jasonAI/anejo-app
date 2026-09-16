@@ -10,7 +10,8 @@ export function makeCateringDB(observers = []) {
       marketing_sms_consent_at INTEGER,marketing_sms_consent_src TEXT,src TEXT,utm_source TEXT,
       utm_medium TEXT,utm_campaign TEXT,referrer TEXT,created_at INTEGER);
     CREATE TABLE alerts (id TEXT PRIMARY KEY,alert_type TEXT,severity TEXT,title TEXT,body TEXT,
-      team TEXT,ref_type TEXT,ref_id TEXT,source TEXT,dedupe_key TEXT,status TEXT,created_at INTEGER,updated_at INTEGER);
+      team TEXT,ref_type TEXT,ref_id TEXT,source TEXT,dedupe_key TEXT,status TEXT,
+      acknowledged_by TEXT,acknowledged_at INTEGER,created_at INTEGER,updated_at INTEGER);
     CREATE TABLE email_suppressions (email TEXT PRIMARY KEY,reason TEXT);`);
   for (const migration of ['0097_catering_request_attachments.sql', '0098_catering_request_outbox.sql']) {
     sqlite.exec(readFileSync(new URL(`../../migrations/${migration}`, import.meta.url), 'utf8'));

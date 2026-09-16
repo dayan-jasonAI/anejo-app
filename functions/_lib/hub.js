@@ -42,6 +42,22 @@ export function etMidnightMs(dateStr) {
   return ms;
 }
 
+/**
+ * An ET wall-clock time 'YYYY-MM-DDTHH:MM' → epoch ms, resolved the same DST-safe way as
+ * etMidnightMs. The owner corrects a shift by typing the time it happened in the kitchen; reading
+ * that string with the DEVICE's zone would move the shift by hours whenever he edits from a phone
+ * set to another zone. NaN on anything that is not that exact shape.
+ */
+export function etWallClockMs(str) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})$/.exec(String(str || ''));
+  if (!m) return NaN;
+  const utcGuess = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  if (!Number.isFinite(utcGuess)) return NaN;
+  let ms = utcGuess - etOffsetMs(utcGuess);
+  ms = utcGuess - etOffsetMs(ms);
+  return ms;
+}
+
 /** [start, end) in epoch ms for the given ET date. */
 export function etDayBounds(dateStr) {
   const start = etMidnightMs(dateStr);

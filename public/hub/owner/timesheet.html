@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Timesheet</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  .ts-week { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .ts-week .grow { flex:1; min-width:160px; font-weight:700; color:var(--green); text-align:center; }
+  .ts-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; padding:0; }
+  table.ts { width:100%; border-collapse:collapse; font-size:13px; }
+  table.ts th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); padding:8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  table.ts td { padding:8px; border-bottom:1px solid var(--line); vertical-align:top; white-space:nowrap; }
+  table.ts td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  table.ts tr.total td { font-weight:700; border-bottom:0; }
+  table.ts .btn { padding:6px 10px; font-size:12px; }
+  .ts-fix { display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); padding:10px; background:#f5f2ec; border-radius:10px; white-space:normal; }
+  .ts-fix label { font-size:12px; color:var(--muted); display:grid; gap:4px; }
+  .ts-fix .wide { grid-column:1/-1; }
+  .ts-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+  .ts-head h2 { margin:0; }
+  .ts-hist { font-size:12px; color:var(--muted); white-space:normal; }
+  .ts-hist div + div { margin-top:4px; }
+  button.badge { border:0; cursor:pointer; font:inherit; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · TIMESHEET</h1>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div>
+</div>
+
+<div class="hub-wrap">
+  <div id="owner-root" class="hub-loading"><p data-i18n>Loading timesheet…</p></div>
+</div>
+
+<nav id="owner-nav" class="hub-nav"></nav>
+
+<script src="/assets/js/i18n.js"></script>
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/owner/assets/owner.js"></script>
+<script>
+// The owner's weekly timesheet (Monday–Sunday, America/New_York). Reads /api/hub/owner/timesheet —
+// the same numbers the payroll CSV exports — and corrects a shift there. Every correction needs a
+// reason and is recorded server-side with the old and new values. Times are shown and entered in
+// ET whatever zone this device is in, so an edit from a phone abroad cannot move a shift.
+(function () {
+  Hub.boot();
+  var lt = document.getElementById('lang-toggle');
+  if (lt && window.AnejoLang) {
+    lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
+    lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; render(); });
+  }
+
+  var TZ = 'America/New_York';
+  var esc = Owner.esc;
+  var data = null;
+  var week = (/[?&]week=(\d{4}-\d{2}-\d{2})/.exec(location.search) || [])[1] || '';
+
+  function i18n() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
+  function tr(s) { return '<span data-i18n>' + esc(s) + '</span>'; }
+  function lang() { return window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es' : 'en'; }
+
+  function etParts(ms) {
+    var p = {};
+    new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(new Date(ms)).forEach(function (x) { p[x.type] = x.value; });
+    return p;
+  }
+  function etInput(ms) { if (!ms) return ''; var p = etParts(ms); return p.year + '-' + p.month + '-' + p.day + 'T' + p.hour + ':' + p.minute; }
+  function etTime(ms) { return ms ? new Date(ms).toLocaleTimeString(lang(), { timeZone: TZ, hour: 'numeric', minute: '2-digit' }) : '—'; }
+  function etDay(ymd) { return new Date(ymd + 'T12:00:00Z').toLocaleDateString(lang(), { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }); }
+  function hm(min) { if (min == null) return '—'; var h = Math.floor(min / 60), m = min % 60; return h + 'h ' + (m < 10 ? '0' : '') + m + 'm'; }
+
+  var FLAGS = {
+    open: ['open', 'warn'], forgotten: ['forgotten clock-out', 'crit'], on_break: ['on break', 'info'],
+    long: ['over 12h', 'warn'], before_range: ['from an earlier week', 'warn'], edited: ['edited', 'info']
+  };
+  function flagBadges(s) {
+    return s.flags.map(function (f) {
+      var d = FLAGS[f]; if (!d) return '';
+      if (f === 'edited') return '<button type="button" class="badge info" data-hist="' + esc(s.id) + '">' + tr(d[0]) + '</button>';
+      return '<span class="badge ' + d[1] + '">' + tr(d[0]) + '</span>';
+    }).join(' ');
+  }
+
+  function shiftRow(s) {
+    var open = s.status === 'open';
+    return '<tr data-shift="' + esc(s.id) + '">' +
+      '<td>' + esc(etDay(s.date)) + '</td>' +
+      '<td>' + esc(etTime(s.clock_in_at)) + '</td>' +
+      '<td>' + (open ? '—' : esc(etTime(s.clock_out_at))) + '</td>' +
+      '<td class="num">' + s.break_minutes + 'm</td>' +
+      '<td class="num">' + (open ? hm(s.elapsed_minutes) + ' ' + tr('so far') : hm(s.worked_minutes)) + '</td>' +
+      '<td class="num">' + (s.est_pay_cents != null ? Owner.money(s.est_pay_cents) : '—') + '</td>' +
+      '<td>' + flagBadges(s) + ' <button type="button" class="btn ' + (open ? 'gold' : 'ghost') + '" data-fix="' + esc(s.id) + '">' + tr(open ? 'Close shift' : 'Fix') + '</button></td>' +
+      '</tr>';
+  }
+
+  function personHtml(p) {
+    var basis = p.pay_basis === 'hourly' ? 'Hourly' : (p.pay_basis === 'per_route' ? 'Per route' : '');
+    var rate = p.pay_basis === 'hourly'
+      ? (p.pay_rate_cents ? ' · ' + Owner.money(p.pay_rate_cents) + '/hr' : ' · <span class="badge crit">' + tr('No rate set') + '</span>')
+      : '';
+    var head = '<div class="ts-head"><h2>' + esc(p.name) + '</h2><div class="row-sub">' + esc(p.role || '') +
+      (basis ? ' · ' + tr(basis) + (p.pay_basis_set ? '' : ' (' + tr('role default') + ')') : '') + rate + '</div></div>';
+    var warn = p.route_pay_not_counted_cents
+      ? '<div class="card accent" style="margin-bottom:8px">' + tr('Paid hourly, but routes this week still carry route pay in Payouts:') + ' <strong>' + Owner.money(p.route_pay_not_counted_cents) + '</strong></div>'
+      : '';
+    var rows = p.shifts.length ? p.shifts.map(shiftRow).join('') : '<tr><td colspan="7" class="row-sub">' + tr('No shifts this week.') + '</td></tr>';
+    var pay = p.pay_basis === 'hourly'
+      ? (p.hourly_pay_cents != null ? Owner.money(p.hourly_pay_cents) : '—')
+      : (p.route_pay_cents != null ? Owner.money(p.route_pay_cents) + ' ' + tr('Route pay') : '—');
+    var total = '<tr class="total"><td colspan="3">' + tr('Week total') + ' · ' + p.shift_count + '</td><td class="num">' + p.break_minutes + 'm</td>' +
+      '<td class="num">' + hm(p.worked_minutes) + '</td><td class="num">' + pay + '</td><td></td></tr>';
+    return '<div class="hub-section">' + head + warn +
+      '<div class="card ts-scroll"><table class="ts"><thead><tr>' +
+      '<th>' + tr('Day') + '</th><th>' + tr('In') + '</th><th>' + tr('Out') + '</th><th>' + tr('Break') + '</th><th>' + tr('Worked') + '</th><th>' + tr('Est. pay') + '</th><th></th>' +
+      '</tr></thead><tbody>' + rows + total + '</tbody></table></div></div>';
+  }
+
+  function render() {
+    var root = document.getElementById('owner-root');
+    if (!data) return;
+    root.className = '';
+    var t = data.totals;
+    var attention = [];
+    if (t.forgotten_shifts) attention.push(tr('Forgotten clock-outs to close:') + ' ' + t.forgotten_shifts);
+    if (t.rate_missing) attention.push(tr('Hourly people with no rate set:') + ' ' + t.rate_missing);
+    if (t.route_pay_not_counted) attention.push(tr('Hourly people whose routes still carry route pay in Payouts — pay one or the other, not both:') + ' ' + t.route_pay_not_counted);
+    root.innerHTML =
+      '<div class="ts-week">' +
+        '<button type="button" class="btn ghost" data-week="' + esc(data.prev_week) + '">← ' + tr('Previous week') + '</button>' +
+        '<div class="grow">' + esc(etDay(data.week_start)) + ' – ' + esc(etDay(data.week_end)) + '</div>' +
+        '<button type="button" class="btn ghost" data-week="' + esc(data.next_week) + '">' + tr('Next week') + ' →</button>' +
+      '</div>' +
+      '<div class="card-grid">' +
+        Owner.tile(hm(t.worked_minutes), 'Hours worked') +
+        Owner.tile(Owner.money(t.hourly_pay_cents), 'Hourly pay (est.)') +
+        Owner.tile(Owner.money(t.route_pay_cents), 'Route pay') +
+        Owner.tile(t.open_shifts, 'Open shifts', { accent: t.forgotten_shifts ? 'accent' : '' }) +
+      '</div>' +
+      '<p class="row-sub" style="margin:10px 0">' + tr('Hourly staff are paid for worked hours. Per-route drivers show hours but are paid by their routes — never both.') + ' ' + tr('Times are Eastern (America/New_York).') + '</p>' +
+      '<button type="button" class="btn gold" id="csv-btn" style="margin-bottom:14px">⬇ ' + tr('Download payroll CSV') + '</button>' +
+      (attention.length ? '<div class="card accent" style="margin-bottom:14px"><div class="row-title">' + tr('Needs your attention') + '</div><div class="row-sub">' + attention.join('<br>') + '</div></div>' : '') +
+      (data.staff.length ? data.staff.map(personHtml).join('') : '<div class="hub-empty">' + tr('No shifts this week.') + '</div>');
+    i18n();
+  }
+
+  function load() {
+    var q = week ? '?week=' + encodeURIComponent(week) : '';
+    Owner.get('/api/hub/owner/timesheet' + q).then(function (d) {
+      if (!d || !d.ok) {
+        var root = document.getElementById('owner-root'); root.className = '';
+        root.innerHTML = '<div class="hub-empty">' + tr('Could not load the timesheet.') + '</div>'; i18n(); return;
+      }
+      data = d; week = d.week_start;
+      try { history.replaceState(null, '', '?week=' + d.week_start); } catch (e) {}
+      render();
+    });
+  }
+
+  function findShift(id) {
+    for (var i = 0; i < data.staff.length; i++) {
+      for (var j = 0; j < data.staff[i].shifts.length; j++) if (data.staff[i].shifts[j].id === id) return data.staff[i].shifts[j];
+    }
+    return null;
+  }
+  function rowFor(id) {
+    var rows = document.querySelectorAll('tr[data-shift]');
+    for (var i = 0; i < rows.length; i++) if (rows[i].getAttribute('data-shift') === id) return rows[i];
+    return null;
+  }
+  function closeExtra() { document.querySelectorAll('tr.ts-extra').forEach(function (r) { r.remove(); }); }
+
+  function openFix(id) {
+    closeExtra();
+    var s = findShift(id); var row = rowFor(id); if (!s || !row) return;
+    var closing = s.status === 'open';
+    var fx = document.createElement('tr'); fx.className = 'ts-extra';
+    fx.innerHTML = '<td colspan="7"><div class="ts-fix">' +
+      '<label>' + tr('Clock in') + '<input type="datetime-local" id="fx-in" value="' + etInput(s.clock_in_at) + '"></label>' +
+      '<label>' + tr('Clock out') + '<input type="datetime-local" id="fx-out" value="' + (closing ? '' : etInput(s.clock_out_at)) + '"></label>' +
+      '<label>' + tr('Break minutes') + '<input type="number" min="0" step="1" id="fx-break" value="' + s.break_minutes + '"></label>' +
+      '<label class="wide">' + tr('Reason (required)') + '<input type="text" id="fx-reason" maxlength="500"></label>' +
+      '<div class="wide" style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<button type="button" class="btn gold" id="fx-save">' + tr(closing ? 'Close shift' : 'Save correction') + '</button>' +
+        '<button type="button" class="btn ghost" id="fx-cancel">' + tr('Cancel') + '</button></div>' +
+      '<div class="ts-hist wide">' + tr('Times are Eastern (America/New_York).') + '</div>' +
+      '</div></td>';
+    row.parentNode.insertBefore(fx, row.nextSibling);
+    i18n();
+    document.getElementById('fx-cancel').addEventListener('click', closeExtra);
+    document.getElementById('fx-save').addEventListener('click', function () {
+      var btn = this;
+      var reason = document.getElementById('fx-reason').value.trim();
+      var vin = document.getElementById('fx-in').value;
+      var vout = document.getElementById('fx-out').value;
+      var vb = document.getElementById('fx-break').value;
+      if (!reason) { Hub.toast('A reason is required.'); return; }
+      if (closing && !vout) { Hub.toast('Enter the time they left.'); return; }
+      var body = { op: closing ? 'close' : 'correct', shift_id: s.id, reason: reason };
+      // Send only what changed: an untouched field keeps its exact stored value (seconds included),
+      // and an untouched break on a closing shift lets a running break end at the clock-out.
+      if (vin && vin !== etInput(s.clock_in_at)) body.clock_in_et = vin;
+      if (vout && (closing || vout !== etInput(s.clock_out_at))) body.clock_out_et = vout;
+      if (vb !== '' && Number(vb) !== s.break_minutes) body.break_minutes = Number(vb);
+      btn.disabled = true;
+      Hub.api('/api/hub/owner/timesheet', { method: 'POST', body: body }).then(function (r) {
+        if (r && r.ok) { Hub.toast(closing ? 'Shift closed' : 'Shift corrected'); load(); }
+        else { Hub.toast((r && r.error) || 'Could not save'); btn.disabled = false; }
+      });
+    });
+  }
+
+  function openHistory(id) {
+    closeExtra();
+    var row = rowFor(id); if (!row) return;
+    Owner.get('/api/hub/owner/timesheet?edits=' + encodeURIComponent(id)).then(function (d) {
+      var ex = document.createElement('tr'); ex.className = 'ts-extra';
+      var items = (d && d.ok && d.edits) || [];
+      ex.innerHTML = '<td colspan="7"><div class="ts-hist"><div class="row-title">' + tr('Correction history') + '</div>' +
+        items.map(function (e) {
+          var o = e.old_values || {}, n = e.new_values || {};
+          return '<div>' + esc(new Date(e.created_at).toLocaleString(lang(), { timeZone: TZ })) + ' · ' + esc(e.edited_by_name || e.edited_by || '') +
+            ' · <em>' + esc(e.reason) + '</em><br>' +
+            esc(etTime(o.clock_in_at)) + '–' + esc(o.clock_out_at ? etTime(o.clock_out_at) : '…') + ', ' + (o.break_minutes || 0) + 'm, ' + hm(o.total_minutes) +
+            ' → ' + esc(etTime(n.clock_in_at)) + '–' + esc(n.clock_out_at ? etTime(n.clock_out_at) : '…') + ', ' + (n.break_minutes || 0) + 'm, ' + hm(n.total_minutes) + '</div>';
+        }).join('') + '</div></td>';
+      row.parentNode.insertBefore(ex, row.nextSibling);
+      i18n();
+    });
+  }
+
+  function downloadCsv() {
+    var btn = document.getElementById('csv-btn'); btn.disabled = true;
+    fetch('/api/hub/owner/report', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report_type: 'payroll', format: 'csv', week: data.week_start })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('bad status');
+      var m = (r.headers.get('Content-Disposition') || '').match(/filename="?([^";]+)"?/);
+      return r.blob().then(function (blob) { return { blob: blob, name: (m && m[1]) || ('anejo-payroll-' + data.week_start + '.csv') }; });
+    }).then(function (f) {
+      btn.disabled = false;
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(f.blob); a.download = f.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+      Hub.toast('Payroll downloaded');
+    }).catch(function () { btn.disabled = false; Hub.toast('Export failed'); });
+  }
+
+  document.getElementById('owner-root').addEventListener('click', function (e) {
+    var w = e.target.closest('[data-week]'); if (w) { week = w.getAttribute('data-week'); load(); return; }
+    var fix = e.target.closest('[data-fix]'); if (fix) { openFix(fix.getAttribute('data-fix')); return; }
+    var hist = e.target.closest('[data-hist]'); if (hist) { openHistory(hist.getAttribute('data-hist')); return; }
+    if (e.target.closest('#csv-btn')) downloadCsv();
+  });
+
+  Owner.init('staff', load);
+})();
+</script>
+<script src="assets/operator.js" defer></script>
+</body>
+</html>

@@ -152,6 +152,16 @@ export const DEFAULT_OFFER = {
   sample_menu_item_ids: [],
   capacity_note: '',            // e.g. "We are onboarding two new accounts this month."
   catering_link_enabled: true,  // secondary link to catering / La Cajita on the landing page
+  // ---- Owner's own words, appended to the self-serve answers on /for/<token> -----------------
+  // The landing page can describe MECHANISMS from the code with total confidence — a count with a
+  // notes box exists, four billing models exist, an unsubmitted day produces no order and no
+  // charge. It cannot state POLICY: which diets Añejo will actually take on, what his AP-onboarding
+  // (W-9, vendor portal) answer is, what he wants a first day to feel like. Those are his to write
+  // or leave blank, and blank is the default because a blank says nothing and a guess says
+  // something false. Each renders only if he fills it in.
+  dietary_note: '',             // e.g. what the kitchen can and cannot accommodate
+  billing_note: '',             // e.g. vendor set-up, W-9, PO numbers, terms
+  first_day_note: '',           // e.g. what he does on a new account's first delivery
 };
 
 // ---- Proof / case study policy ---------------------------------------------------------------

@@ -9,6 +9,7 @@ import { newSalt, hashPin, validPinFormat, randomPin } from '../../../../_lib/pi
 import { capture } from '../../../../_lib/track.js';
 import { sendSms } from '../../../../_lib/twilio.js';
 import { sendEmail, emailShell, escHtml } from '../../../../_lib/email.js';
+import { PAY_BASES, EMPLOYMENT_TYPES, parseRateCents, effectivePayBasis } from '../../../../_lib/timesheet.js';
 
 // The vocabulary lives in _lib/roles.js so the dropdown, this validator and every guard
 // cannot drift apart — which is exactly how a new role gets half-added.
@@ -23,11 +24,18 @@ export const onRequestGet = async ({ request, env }) => {
     .prepare(
       "SELECT id,name,CASE WHEN email LIKE '%@staff.anejo.local' THEN NULL ELSE email END AS email,phone,role,team,is_lead,employment_type,active,lang," +
       "(pin_hash IS NOT NULL) AS has_pin, must_change_pin, last_active_at,locked_until,created_at," +
-      "COALESCE(offers_accepted,0) AS offers_accepted, COALESCE(offers_declined,0) AS offers_declined, COALESCE(offers_missed,0) AS offers_missed, lead_time_days " +
+      "COALESCE(offers_accepted,0) AS offers_accepted, COALESCE(offers_declined,0) AS offers_declined, COALESCE(offers_missed,0) AS offers_missed, lead_time_days, " +
+      // Pay: owner-only, like this whole endpoint. No other route returns these columns.
+      "pay_rate_cents, pay_basis, EXISTS(SELECT 1 FROM shifts sh WHERE sh.staff_id = staff.id) AS has_shifts " +
       "FROM staff ORDER BY active DESC, role, name"
     )
     .all();
-  return json({ ok: true, staff: (res && res.results) || [] });
+  const staff = ((res && res.results) || []).map((s) => ({
+    ...s,
+    // What they are actually paid on today — NULL pay_basis falls back per role (see _lib/timesheet.js).
+    pay_basis_effective: effectivePayBasis(s, !!s.has_shifts),
+  }));
+  return json({ ok: true, staff });
 };
 
 export const onRequestPost = async ({ request, env }) => {
@@ -143,11 +151,51 @@ export const onRequestPost = async ({ request, env }) => {
     if (b.lang !== undefined) { sets.push('lang=?'); args.push(String(b.lang).toLowerCase().startsWith('es') ? 'es' : 'en'); }
     // Vendor lead time (days) for Ops vendor-order timing (Phase 4b).
     if (b.lead_time_days !== undefined) { const n = parseInt(b.lead_time_days, 10); sets.push('lead_time_days=?'); args.push(Number.isFinite(n) && n >= 0 ? n : null); }
+
+    // Pay. How a person is paid (hourly vs per route) and at what rate is the OWNER's decision,
+    // made per person — nothing here defaults a rate. Every change is a money change, so it is
+    // validated before anything is written and lands in the same transaction as one staff_pay_log
+    // row per field: who changed it, when, old → new.
+    const pay = {};
+    if (b.pay_rate_cents !== undefined) {
+      const r = parseRateCents(b.pay_rate_cents);
+      if (r.error) return bad(r.error);
+      pay.pay_rate_cents = r.value;
+    }
+    if (b.pay_basis !== undefined) {
+      const v = b.pay_basis === '' ? null : b.pay_basis;
+      if (v !== null && !PAY_BASES.includes(v)) return bad('Pay basis must be hourly or per_route.');
+      pay.pay_basis = v;
+    }
+    if (b.employment_type !== undefined) {
+      const v = b.employment_type === '' ? null : b.employment_type;
+      if (v !== null && !EMPLOYMENT_TYPES.includes(v)) return bad('Employment type must be w2, contractor or external.');
+      pay.employment_type = v;
+    }
+    const logs = [];
+    const payFields = Object.keys(pay);
+    if (payFields.length) {
+      const cur = await env.DB.prepare('SELECT pay_rate_cents, pay_basis, employment_type FROM staff WHERE id=?').bind(sid).first();
+      if (!cur) return bad('Staff member not found.', 404);
+      for (const f of payFields) {
+        const oldV = cur[f] == null ? null : String(cur[f]);
+        const newV = pay[f] == null ? null : String(pay[f]);
+        if (oldV === newV) continue;
+        sets.push(`${f}=?`); args.push(pay[f]);
+        logs.push(env.DB
+          .prepare('INSERT INTO staff_pay_log (id, staff_id, field, old_value, new_value, changed_by, created_at) VALUES (?,?,?,?,?,?,?)')
+          .bind(genId('spl'), sid, f, oldV, newV, ctx.distinct_id || null, t));
+      }
+      if (!sets.length) return json({ ok: true, unchanged: true });
+    }
+
     if (!sets.length) return bad('Nothing to update.');
     sets.push('updated_at=?'); args.push(t);
     args.push(sid);
-    await env.DB.prepare(`UPDATE staff SET ${sets.join(', ')} WHERE id=?`).bind(...args).run();
-    return json({ ok: true });
+    const update = env.DB.prepare(`UPDATE staff SET ${sets.join(', ')} WHERE id=?`).bind(...args);
+    if (logs.length) await env.DB.batch([update, ...logs]);
+    else await update.run();
+    return json({ ok: true, pay_changes: logs.length });
   }
 
   if (op === 'reset_pin') {

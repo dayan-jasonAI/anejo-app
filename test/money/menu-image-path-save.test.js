@@ -29,7 +29,8 @@ const SCHEMA = `
     price_cents INTEGER NOT NULL, description TEXT, description_es TEXT, image TEXT,
     sort INTEGER NOT NULL DEFAULT 100, active INTEGER NOT NULL DEFAULT 1,
     created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    availability TEXT NOT NULL DEFAULT 'available', stock_count INTEGER);
+    availability TEXT NOT NULL DEFAULT 'available', stock_count INTEGER,
+    prep_minutes INTEGER);  -- added by 0109 (the kitchen prep clock)
   CREATE TABLE menu_price_log (
     id TEXT PRIMARY KEY, item_id TEXT NOT NULL, field TEXT NOT NULL, old_cents INTEGER,
     new_cents INTEGER, changed_by TEXT, created_at INTEGER NOT NULL);

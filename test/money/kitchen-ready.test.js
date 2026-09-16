@@ -14,7 +14,9 @@ async function fixture(status = 'prep') {
       prep_by TEXT,prep_at INTEGER,updated_at INTEGER);
     CREATE TABLE staff (id TEXT PRIMARY KEY,name TEXT,role TEXT,active INTEGER,pin_hash TEXT,pin_salt TEXT);
     CREATE TABLE routes (id TEXT PRIMARY KEY,driver_id TEXT,status TEXT,offer_status TEXT,created_at INTEGER);
-    CREATE TABLE route_stops (order_id TEXT,route_id TEXT);`);
+    CREATE TABLE route_stops (order_id TEXT,route_id TEXT);
+    CREATE TABLE kitchen_photos (id TEXT PRIMARY KEY,order_id TEXT,kind TEXT,media_key TEXT,taken_by TEXT,
+      taken_by_name TEXT,taken_at INTEGER,superseded_at INTEGER);`);
   const pinHash = await hashPin('123456', 'test-salt');
   DB.sqlite.prepare('INSERT INTO staff VALUES (?,?,?,?,?,?)').run('cook','Test cook','kitchen',1,pinHash,'test-salt');
   DB.sqlite.prepare('INSERT INTO staff VALUES (?,?,?,?,?,?)').run('owner','Test owner','owner',1,null,null);
@@ -22,6 +24,11 @@ async function fixture(status = 'prep') {
   DB.sqlite.prepare('INSERT INTO orders VALUES (?,?,?,?,?,?,?,?)')
     .run(order.id, status, order.delivery_date, 'lunch', 'Synthetic customer', null, 100, 200);
   DB.sqlite.exec("INSERT INTO order_bowls VALUES ('bowl_test','order_test','done',1,NULL,NULL,200)");
+  // Both ready photos are on file, so these tests exercise everything else about readiness; the photo
+  // gate has its own tests in kitchen-photo-gate.test.js.
+  DB.sqlite.exec(`INSERT INTO kitchen_photos (id,order_id,kind,media_key,taken_at) VALUES
+    ('kph_1','order_test','contents','kitchen/2026-12/med_1_contents.jpg',150),
+    ('kph_2','order_test','packed','kitchen/2026-12/med_2_packed.jpg',160)`);
   const env = { DB, SESSIONS: { get: async (key) => key === 'session:valid' ? JSON.stringify({type:'staff',uid:'cook',role:'kitchen',la:Date.now()}) : null } };
   return { DB, env, order };
 }
@@ -68,6 +75,34 @@ test('real SQL: unpaid, canceled, uncompleted bowls and invalid PIN cannot creat
     assert.equal((await markKitchenReady(env,order,300)).changed,false);
     assert.equal((await action(env)).status,409);
   }
+});
+
+// 2026-09-16, DGP Pompano: ready at 9:38, the office raised its count 22 → 23 at 10:11, contract.js
+// sent the order back to prep for the extra lunch — and every attempt to mark it ready again failed
+// with "could not save the status and the alert". The alert id is derived from the order id, so the
+// second insert collided with the first row and took the whole batch, and the transition, with it.
+// The cook could not hand the order off at all; the driver delivered it anyway.
+test('real SQL: an order marked ready a SECOND time (an office raised its count) still goes ready, and re-opens the one alert', async () => {
+  const { DB, env, order } = await fixture();
+  assert.equal((await markKitchenReady(env, order, 300)).changed, true);
+  assert.equal(DB.sqlite.prepare('SELECT COUNT(*) n FROM alerts').get().n, 1);
+
+  // The owner saw the first notice, then the office added a lunch: contract.js reverts ready → prep.
+  DB.sqlite.exec("UPDATE alerts SET status='acknowledged', acknowledged_at=310");
+  DB.sqlite.exec("UPDATE orders SET status='prep'");
+
+  const second = await markKitchenReady(env, order, 400);
+  assert.equal(second.changed, true, 'the cook can mark it ready again');
+  assert.equal(DB.sqlite.prepare('SELECT status FROM orders').get().status, 'ready');
+  const alerts = DB.sqlite.prepare('SELECT * FROM alerts').all();
+  assert.equal(alerts.length, 1, 'one alert per order, not a second one stacked on top');
+  assert.equal(alerts[0].status, 'open', 'and it is open again: the order is ready NOW');
+  assert.equal(alerts[0].acknowledged_at, null);
+  assert.equal(alerts[0].updated_at, 400);
+
+  // And the endpoint the cook actually taps succeeds too.
+  DB.sqlite.exec("UPDATE orders SET status='prep'");
+  assert.equal((await action(env)).status, 200);
 });
 
 test('ready endpoint retries are idempotent and cannot regress ready to prep or undo a bowl', async () => {

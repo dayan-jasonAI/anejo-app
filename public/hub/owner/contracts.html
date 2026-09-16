@@ -62,6 +62,18 @@
   .daychip input:focus-visible+span{outline:2px solid var(--gold);outline-offset:2px}
   .livetoggle{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;color:var(--ink);cursor:pointer}
   .livetoggle input{width:18px;height:18px;flex:0 0 auto}
+  /* Weekly menu editor: one row per delivery day, stacking on a phone. */
+  .menurow{display:grid;grid-template-columns:44px 1.4fr 1.2fr 1.4fr 90px;gap:6px;align-items:center;margin:5px 0}
+  .menurow input,.menuctl input,.menuctl select{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;background:#fff}
+  .menurow .mday{font-size:12px;font-weight:700;color:var(--green)}
+  .menuctl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .menuctl label{font-size:11px;color:var(--green);font-weight:700;display:block;margin-bottom:3px}
+  .pill.now{background:var(--green);color:#fff}
+  .menuprev{overflow-x:auto;margin-top:6px}
+  .menuprev table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .menuprev th,.menuprev td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+  .menuprev th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  @media (max-width:640px){.menurow{grid-template-columns:44px 1fr 1fr}.menurow .mday{grid-row:span 2}}
   .site-card.paused{opacity:.72;border-left-color:var(--muted)}
   .pill.paused{background:#f2dcd8;color:#8f3b2c}
 </style>
@@ -162,6 +174,12 @@
         txt('ess', 'State', s.state, 'FL') +
         txt('ezp', 'ZIP', s.zip, '33445') +
       '</div>' +
+
+      '<div class="terms-head">Holiday &amp; operations contact</div>' +
+      '<div class="terms-grid">' +
+        '<div><label>Ops emails, who decides if this location is open</label><input id="eoe_' + s.id + '" type="email" multiple value="' + esc(s.ops_email || '') + '" placeholder="accounting@theirclinic.com, owner@theirclinic.com"></div>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:4px">Separate several with commas. Everyone listed is on the same holiday email, so whoever sees it first can answer. Left blank, it goes to the billing inbox.</div>' +
       '<label class="livetoggle"><input type="checkbox" id="eac_' + s.id + '"' + (Number(s.active) === 0 ? '' : ' checked') + '>' +
         '<span>Accepting head counts — unchecking pauses this location\'s intake link</span></label>' +
 
@@ -184,7 +202,7 @@
     if (v('ec') !== '' && v('ec') !== String(site.cutoff_time || '')) { body.cutoff_time = v('ec'); touched++; }
 
     // Identity/schedule are diffed against what is stored, so an untouched field is never resent.
-    var pairs = [['enm', 'name'], ['est', 'street'], ['eun', 'unit'], ['eci', 'city'], ['ess', 'state'], ['ezp', 'zip'], ['ew', 'window_label']];
+    var pairs = [['enm', 'name'], ['est', 'street'], ['eun', 'unit'], ['eci', 'city'], ['ess', 'state'], ['ezp', 'zip'], ['ew', 'window_label'], ['eoe', 'ops_email']];
     pairs.forEach(function (p) {
       var cur = v(p[0]), was = site[p[1]] == null ? '' : String(site[p[1]]);
       if (cur !== was) { body[p[1]] = cur; touched++; }
@@ -591,7 +609,9 @@
       var before = {}, after = {};
       try { before = JSON.parse(e.before_json || '{}') || {}; } catch (x) {}
       try { after = JSON.parse(e.after_json || '{}') || {}; } catch (x) {}
-      var diffs = Object.keys(after).map(function (k) {
+      var diffs = e.event === 'menu_price_changed' ? menuPriceDiff(before, after)
+        : (e.event === 'menu_updated' ? menuDiff(before, after)
+        : Object.keys(after).map(function (k) {
         var fmt = function (v) {
           if (MONEY_KEYS[k]) return '$' + ((Number(v) || 0) / 100).toFixed(2);
           if (k === 'allow_card_payment') return Number(v) ? 'on' : 'off';
@@ -599,7 +619,7 @@
         };
         var was = before[k];
         return (TERM_LABEL[k] || k) + ' ' + (was === undefined || was === null ? '' : fmt(was) + ' → ') + fmt(after[k]);
-      }).join(' · ');
+      }).join(' · '));
       var when = e.created_at ? new Date(e.created_at).toLocaleDateString() : '';
       return '<div class="evrow"><span>' + esc(names[e.site_id] || e.site_id || 'all sites') + ' · <b>' + esc(e.event) + '</b> ' +
         '<span class="row-sub">' + esc(diffs) + (e.note ? ' — ' + esc(e.note) : '') + '</span></span>' +
@@ -694,11 +714,259 @@
     });
   };
 
+  // HOLIDAYS. One section for every account: what is coming, which locations a notice cannot reach
+  // BEFORE the day rather than after it, which holidays the kitchen is closed, and what came back.
+  // An answer texted to us is only useful if it can be seen here without reading the inbox.
+  function holidaysBlock(h) {
+    if (!h) return '';
+    var closed = (h.settings && h.settings.kitchen_closed) || [];
+    var day = function (iso) {
+      return new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+    };
+
+    var gaps = (h.sites || []).filter(function (x) { return x.email !== 'site' || x.sms !== 'ok'; });
+    var reach = gaps.length
+      ? '<div class="card" style="border-left:3px solid var(--gold);margin-bottom:8px"><b>Fix before the next holiday</b>' + gaps.map(function (x) {
+          var bits = [];
+          if (x.email === 'billing_fallback') bits.push('email goes to the billing inbox — add an ops email on the location');
+          if (x.email === 'none') bits.push('no email address at all');
+          if (x.sms === 'none') bits.push('nobody on the roster can be texted');
+          return '<div class="row-sub">' + esc(x.account_name + ' · ' + x.site_name) + ' — ' + esc(bits.join('; ')) + '</div>';
+        }).join('') + '</div>'
+      : '<div class="row-sub" style="margin-bottom:8px">Every location can be reached by email and by text.</div>';
+
+    var upcoming = (h.holidays || []).slice(0, 6).map(function (x) {
+      return '<div class="row-sub">' + esc(day(x.observed)) + ' · ' + esc(x.name) + (x.shifted ? ' <span style="color:var(--muted)">(observed)</span>' : '') + ' — ' +
+        (x.kitchen_closed ? '<span class="badge warn">kitchen closed</span>' : '<span class="badge">we ask if they are open</span>') + '</div>';
+    }).join('') || '<div class="row-sub">No federal holiday in the next 90 days.</div>';
+
+    var checks = (h.catalog || []).map(function (c) {
+      return '<label class="livetoggle"><input type="checkbox" class="hol-closed" value="' + esc(c.key) + '"' + (closed.indexOf(c.key) >= 0 ? ' checked' : '') + '><span>' + esc(c.name) + '</span></label>';
+    }).join('');
+    var smsOn = !(h.settings && h.settings.sms_enabled === false);
+
+    var rows = (h.notices || []).map(function (n) {
+      var answer = n.reply_answer ? '<b>' + esc(n.reply_answer.toUpperCase()) + '</b>' + (n.reply_text ? '<br><span class="row-sub">“' + esc(n.reply_text) + '”</span>' : '')
+        : (n.reply_text ? '“' + esc(n.reply_text) + '”' : '<span class="row-sub">—</span>');
+      var status = n.outcome === 'sent' && !n.sent_at ? 'interrupted' : n.outcome;
+      return '<tr style="border-top:1px solid var(--line,#e3ddcf)">' +
+        '<td style="padding:6px 8px 6px 0">' + esc(day(n.observed_date)) + '<br><span class="row-sub">' + esc(n.holiday_name) + '</span></td>' +
+        '<td style="padding:6px 8px">' + esc(n.site_name || '') + '</td>' +
+        '<td style="padding:6px 8px">' + esc(n.channel === 'sms' ? 'text' : 'email') + '<br><span class="row-sub">' + esc(n.recipient_phone || n.recipient_email || '') + '</span></td>' +
+        '<td style="padding:6px 8px">' + esc(status) + (n.failure_reason ? '<br><span class="row-sub">' + esc(n.failure_reason) + '</span>' : '') + '</td>' +
+        '<td style="padding:6px 0 6px 8px">' + answer + '</td></tr>';
+    }).join('');
+
+    return '<div class="hub-section"><h2>🗓️ Holidays</h2>' +
+      '<div class="row-sub" style="margin-bottom:8px">Before every federal holiday we ask each location whether they are open. If our kitchen is closed, they hear it at least 7 days ahead.</div>' +
+      reach +
+      '<div class="terms-head">Coming up</div>' + upcoming +
+      '<details class="terms-edit"' + (closed.length ? '' : ' open') + '><summary>Which holidays is our kitchen closed?</summary><div class="body">' +
+        (closed.length ? '' : '<div class="row-sub" style="margin-bottom:6px">None chosen yet — until you choose, no closure notice is ever sent.</div>') +
+        checks +
+        '<label class="livetoggle" style="margin-top:6px"><input type="checkbox" id="hol-sms"' + (smsOn ? ' checked' : '') + '><span>Also text each location’s primary contact (English and Spanish)</span></label>' +
+        '<button class="btn gold block" style="margin-top:10px" onclick="__saveHolidays()">Save holiday settings</button>' +
+      '</div></details>' +
+      (rows ? '<details class="terms-edit"><summary>Notices sent and what they answered</summary><div class="body"><div style="overflow-x:auto">' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>' +
+        '<th align="left" style="padding:0 8px 6px 0">Day</th><th align="left" style="padding:0 8px 6px">Location</th><th align="left" style="padding:0 8px 6px">By</th><th align="left" style="padding:0 8px 6px">Status</th><th align="left" style="padding:0 0 6px 8px">Their answer</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div></div></details>' : '') +
+      '</div>';
+  }
+
+  window.__saveHolidays = function () {
+    var keys = Array.prototype.map.call(document.querySelectorAll('.hol-closed:checked'), function (el) { return el.value; });
+    var sms = !!(document.getElementById('hol-sms') || {}).checked;
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'save_holidays', kitchen_closed: keys, sms_enabled: sms } }).then(function (r) {
+      if (r && r.ok) {
+        // A closure too close to keep the seven-day promise must be seen, not buried in a toast.
+        if (r.warnings && r.warnings.length) window.alert(r.warnings.join('\n\n'));
+        else Hub.toast('Holiday settings saved');
+        render();
+      } else Hub.toast((r && r.error) || 'Could not save holiday settings');
+    });
+  };
+
+  // ---------- WEEKLY MENU ----------
+  // The dishes, how many weeks they rotate, the Monday week 1 starts and any per-dish price are the
+  // owner's decisions — this panel only records them. An empty day stays off the menu: its orders
+  // keep the plain "<Account> Lunch — <Day>" name and the location's own price, exactly as before.
+  // A per-dish price overrides the location's price for that day's orders, and is audited in Terms
+  // history like any other rate. Offices never see a price; their page shows the dish name only.
+  var MENU = {};   // account_id → the last menu payload the server sent
+  var DOWL = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  function menuPriceDiff(before, after) {
+    var f = function (v) { return v === null || v === undefined ? 'location price' : '$' + (Number(v) / 100).toFixed(2); };
+    return Object.keys(after).map(function (k) { return k + ' price ' + f(before[k]) + ' → ' + f(after[k]); }).join(' · ');
+  }
+  function menuDiff(before, after) {
+    var bits = [];
+    if (after.rotation_weeks !== undefined) bits.push('weeks ' + (before.rotation_weeks == null ? '' : before.rotation_weeks + ' → ') + after.rotation_weeks);
+    if (after.rotation_start_date !== undefined) bits.push('week 1 starts ' + (before.rotation_start_date ? before.rotation_start_date + ' → ' : '') + after.rotation_start_date);
+    Object.keys(after.slots || {}).forEach(function (k) {
+      var was = (before.slots || {})[k], is = after.slots[k];
+      bits.push(k + ' ' + (was ? was.item_name + ' → ' : '') + (is ? is.item_name : 'cleared'));
+    });
+    return bits.join(' · ');
+  }
+
+  // Same arithmetic as rotationWeekFor in functions/_lib/contract.js, so the labels move as the
+  // owner changes the week count or the start date, before saving.
+  function rotWeek(dateIso, startIso, weeks) {
+    var d = Math.round((Date.parse(dateIso + 'T12:00:00Z') - Date.parse(startIso + 'T12:00:00Z')) / 86400000);
+    if (!(d >= 0)) return 1;
+    return (Math.floor(d / 7) % Math.max(1, weeks)) + 1;
+  }
+  function shortDate(iso) {
+    return new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+
+  function menuBlock(aid) {
+    return '<details class="terms-edit" id="menubox_' + aid + '" ontoggle="__menuToggle(\'' + aid + '\', this)">' +
+      '<summary>🍽️ Weekly menu &amp; per-dish prices</summary>' +
+      '<div class="body" id="menubody_' + aid + '"><div class="row-sub">Loading the menu…</div></div></details>';
+  }
+  window.__menuToggle = function (aid, el) { if (el.open && !MENU[aid]) loadMenu(aid); };
+
+  function loadMenu(aid) {
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'menu_get', account_id: aid } }).then(function (r) {
+      var body = document.getElementById('menubody_' + aid);
+      if (!body) return;
+      if (!r || !r.ok) { body.innerHTML = '<div class="row-sub">' + esc((r && r.error) || 'Could not load the menu.') + '</div>'; return; }
+      MENU[aid] = r;
+      drawMenu(aid, null);
+    });
+  }
+
+  // What is typed on screen right now, keyed "week:dow", so changing the week count redraws the grid
+  // without throwing away anything the owner has entered.
+  function menuDraft(aid) {
+    var out = {};
+    for (var w = 1; w <= 8; w++) for (var d = 1; d <= 7; d++) {
+      var n = document.getElementById('mn_' + aid + '_' + w + '_' + d);
+      if (!n) continue;
+      out[w + ':' + d] = {
+        item_name: n.value, item_name_es: document.getElementById('me_' + aid + '_' + w + '_' + d).value,
+        notes: document.getElementById('mo_' + aid + '_' + w + '_' + d).value, price: document.getElementById('mp_' + aid + '_' + w + '_' + d).value,
+      };
+    }
+    return out;
+  }
+
+  function drawMenu(aid, draft) {
+    var m = MENU[aid], body = document.getElementById('menubody_' + aid);
+    if (!m || !body) return;
+    var weeksEl = document.getElementById('mw_' + aid), startEl = document.getElementById('ms_' + aid);
+    var weeks = weeksEl ? Number(weeksEl.value) : m.weeks;
+    var start = (startEl && startEl.value) || m.rotation_start_date || m.effective_start;
+    if (!draft) {
+      draft = {};
+      (m.rows || []).forEach(function (r) {
+        draft[r.rotation_week + ':' + r.dow] = { item_name: r.item_name || '', item_name_es: r.item_name_es || '', notes: r.notes || '',
+          price: r.price_per_lunch_cents == null ? '' : dollars(r.price_per_lunch_cents) };
+      });
+    }
+    // Delivery days on the account, plus any day that already has a dish — a location that stopped
+    // delivering on a day must not make that day's dish vanish unseen on the next save.
+    var dows = (m.dows || []).slice();
+    (m.rows || []).forEach(function (r) { if (dows.indexOf(r.dow) < 0) dows.push(r.dow); });
+    dows.sort();
+
+    var thisWk = rotWeek(m.this_monday, start, weeks), nextWk = rotWeek(m.next_monday, start, weeks);
+    var opts = ''; for (var i = 1; i <= (m.max_weeks || 8); i++) opts += '<option value="' + i + '"' + (i === weeks ? ' selected' : '') + '>' + i + (i === 1 ? ' week (same every week)' : ' weeks') + '</option>';
+
+    var grid = '';
+    if (!dows.length) grid = '<div class="row-sub">No location on this account has delivery days yet — set them with ✏️ Edit terms first.</div>';
+    for (var w = 1; w <= weeks && dows.length; w++) {
+      grid += '<div class="terms-head">Week ' + w +
+        (w === thisWk ? ' <span class="pill now">this week</span>' : '') + (w === nextWk && nextWk !== thisWk ? ' <span class="pill gold">next week</span>' : '') + '</div>';
+      dows.forEach(function (d) {
+        var v = draft[w + ':' + d] || {};
+        var k = aid + '_' + w + '_' + d;
+        grid += '<div class="menurow"><div class="mday">' + DOWL[d - 1] + '</div>' +
+          '<input id="mn_' + k + '" maxlength="80" placeholder="Dish name" value="' + esc(v.item_name || '') + '">' +
+          '<input id="me_' + k + '" maxlength="80" placeholder="Spanish name (optional)" value="' + esc(v.item_name_es || '') + '">' +
+          '<input id="mo_' + k + '" maxlength="200" placeholder="Notes — allergens, sides (optional)" value="' + esc(v.notes || '') + '">' +
+          '<input id="mp_' + k + '" type="number" step="0.01" min="0" placeholder="$ location" title="Leave blank to charge the location\'s price per lunch" value="' + esc(v.price || '') + '">' +
+          '</div>';
+      });
+    }
+
+    var prev = (m.preview || []).map(function (p) {
+      var rows = (p.days || []).map(function (x) {
+        return '<tr><td>' + esc(shortDate(x.date)) + '<br><span class="row-sub">week ' + x.week + '</span></td>' +
+          '<td>' + (x.dish_set ? esc(x.dish) + (x.dish_es ? '<br><span class="row-sub">' + esc(x.dish_es) + '</span>' : '') : '<span class="row-sub">' + esc(x.dish) + ' (no dish set)</span>') + '</td>' +
+          '<td>' + money(x.price_per_lunch_cents) + '<br><span class="row-sub">' + (x.price_source === 'menu' ? 'dish price' : (x.price_source === 'quoted' ? 'already counted' : 'location price')) + '</span></td>' +
+          '<td>' + (x.kitchen_closed ? '<span class="badge warn">kitchen closed</span><br><span class="row-sub">' + esc(x.kitchen_closed) + '</span>' : '—') + '</td></tr>';
+      }).join('') || '<tr><td colspan="4" class="row-sub">No delivery days in the next two weeks.</td></tr>';
+      return '<div class="terms-head">' + esc(p.site_name) + ' — next 2 weeks</div><div class="menuprev"><table>' +
+        '<tr><th>Date</th><th>Dish</th><th>$ / lunch</th><th>Kitchen</th></tr>' + rows + '</table></div>';
+    }).join('');
+
+    body.innerHTML =
+      '<div class="row-sub" style="margin-bottom:8px">This week (from ' + esc(shortDate(m.this_monday)) + ') is <b>week ' + thisWk + '</b>; next week (from ' + esc(shortDate(m.next_monday)) + ') is <b>week ' + nextWk + '</b>. The week changes every Monday.</div>' +
+      '<div class="menuctl">' +
+        '<div><label>Rotation</label><select id="mw_' + aid + '" onchange="__menuRedraw(\'' + aid + '\')">' + opts + '</select></div>' +
+        '<div><label>Week 1 starts (a Monday)</label><input id="ms_' + aid + '" type="date" value="' + esc(start) + '" onchange="__menuRedraw(\'' + aid + '\')"></div>' +
+      '</div>' +
+      grid +
+      '<div style="font-size:11px;color:var(--muted);margin-top:8px">Leave a day blank to keep it off the menu. Leave the price blank to charge the location\'s price per lunch. A dish price applies from the next head count on — days already counted keep the price they were quoted. Offices see the dish name, never a price.</div>' +
+      '<div class="terms-note"><input id="mnote_' + aid + '" placeholder="Note (optional) — goes on Terms history"></div>' +
+      '<button class="btn gold block" style="margin-top:10px" onclick="__menuSave(\'' + aid + '\')">Save weekly menu</button>' +
+      (prev ? '<div style="margin-top:14px">' + prev + '</div>' : '');
+  }
+  window.__menuRedraw = function (aid) { drawMenu(aid, menuDraft(aid)); };
+
+  window.__menuSave = function (aid) {
+    var m = MENU[aid]; if (!m) return;
+    var weeks = Number((document.getElementById('mw_' + aid) || {}).value) || 1;
+    var start = ((document.getElementById('ms_' + aid) || {}).value || '').trim();
+    if (start && new Date(start + 'T12:00:00Z').getUTCDay() !== 1) { Hub.toast('Week 1 has to start on a Monday.'); return; }
+    var draft = menuDraft(aid), rows = [], bad = null, priceChanges = 0;
+    var was = {}; (m.rows || []).forEach(function (r) { was[r.rotation_week + ':' + r.dow] = r; });
+    Object.keys(draft).forEach(function (key) {
+      var p = key.split(':'), w = Number(p[0]), d = Number(p[1]), v = draft[key];
+      if (w > weeks) return;
+      var name = v.item_name.trim(), es = v.item_name_es.trim(), notes = v.notes.trim(), price = String(v.price).trim();
+      if (!name && !es && !notes && !price) return;
+      if (!name) { bad = bad || 'Week ' + w + ' ' + DOWL[d - 1] + ': give the dish a name, or clear the whole day.'; return; }
+      var cents = price === '' ? null : Math.round(parseFloat(price) * 100);
+      if (cents !== null && !(cents > 0)) { bad = bad || 'Week ' + w + ' ' + DOWL[d - 1] + ': a dish price must be more than $0 (or blank).'; return; }
+      var prior = was[key] ? was[key].price_per_lunch_cents : null;
+      if ((prior == null ? null : Number(prior)) !== cents) priceChanges++;
+      rows.push({ rotation_week: w, dow: d, item_name: name, item_name_es: es, notes: notes, price_per_lunch_cents: cents });
+    });
+    if (bad) { Hub.toast(bad); return; }
+    // A priced day that is cleared, or sits in a week being removed, is a price change too: its
+    // orders go back to the location's price.
+    (m.rows || []).forEach(function (r) {
+      if (r.price_per_lunch_cents == null) return;
+      var kept = rows.some(function (x) { return x.rotation_week === r.rotation_week && x.dow === r.dow; });
+      if (!kept) priceChanges++;
+    });
+    var dropped = (m.rows || []).filter(function (r) { return r.rotation_week > weeks; }).length;
+    if (dropped && !window.confirm('Weeks after week ' + weeks + ' have ' + dropped + ' dish(es). Saving removes them. Continue?')) return;
+    if (priceChanges && !window.confirm(priceChanges + ' dish price(s) change. Orders from the next head count on are billed at the new price. Save?')) return;
+    var note = ((document.getElementById('mnote_' + aid) || {}).value || '').trim();
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'menu_save', account_id: aid, weeks: weeks, rotation_start_date: start, rows: rows, note: note } })
+      .then(function (r) {
+        if (r && r.ok) {
+          MENU[aid] = r;
+          var ms = document.getElementById('mw_' + aid); if (ms) ms.value = String(r.weeks);
+          var st = document.getElementById('ms_' + aid); if (st) st.value = r.rotation_start_date || '';
+          drawMenu(aid, null);
+          Hub.toast(r.degraded ? 'Menu saved (history unavailable — migration pending)' : (r.slots_changed || r.prices_changed ? 'Menu saved' : 'Menu saved — nothing had changed'));
+        } else Hub.toast((r && r.error) || 'Could not save the menu');
+      });
+  };
+
   function render() {
+    MENU = {};   // every card is redrawn closed; the menu reloads fresh when it is opened again
     Owner.get('/api/hub/owner/contracts').then(function (d) {
       var root = document.getElementById('owner-root'); root.className = '';
       var head = '<div class="hub-section"><a class="btn ghost block" href="/hub/owner/pricing.html" style="text-align:center;text-decoration:none">📊 Pricing &amp; margin model</a></div>' +
-        newAccountForm();
+        newAccountForm() + holidaysBlock(d && d.holidays);
       // The empty state used to be a dead end: "No contract accounts yet." with no way to add one,
       // so the first B2B client could only be created from the public signup form.
       if (!d || !d.ok || !d.accounts || !d.accounts.length) {
@@ -721,6 +989,7 @@
           (pending ? activateForm(acc) : billingBlock(acc)) +
           a.sites.map(function (s) { return siteCard(s, a.recent, acc.id, pending); }).join('') +
           addSiteForm(acc.id) +
+          menuBlock(acc.id) +
           (pending ? '' :
             devicesBlock(acc.id, a.devices) +
             termsHistory(a.terms_events, a.sites) +

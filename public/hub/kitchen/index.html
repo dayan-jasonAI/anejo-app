@@ -70,6 +70,24 @@
   .rotation-warn { margin:8px 0 0; padding:8px 10px; border-radius:8px; background:#fbe3e1; border:1px solid var(--crit); }
   .rotation-warn-row { font-size:13px; font-weight:700; color:var(--crit); line-height:1.4; }
   .rotation-warn-row + .rotation-warn-row { margin-top:2px; }
+  /* The two photos before Mark ready: inside the open container, then closed and packed. */
+  .kphotos { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+  .kphoto { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    min-height:96px; padding:8px; border:1.5px dashed var(--line); border-radius:10px; background:var(--white);
+    color:var(--green); font-size:12.5px; font-weight:600; text-align:center; cursor:pointer; overflow:hidden; }
+  .kphoto.has { border:1.5px solid var(--green-700); padding:0; }
+  .kphoto img { display:block; width:100%; height:96px; object-fit:cover; }
+  .kphoto .kp-icon { font-size:22px; line-height:1; }
+  .kphoto .kp-cap { position:absolute; left:0; right:0; bottom:0; padding:3px 6px; background:rgba(27,58,43,.85); color:#fff; font-size:11px; }
+  .kphoto.busy { opacity:.55; pointer-events:none; }
+  .kphoto input { position:absolute; width:1px; height:1px; opacity:0; }
+  /* The prep clock: start by / ready by before prep, a live countdown during it. */
+  .ktime { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin-top:7px; font-size:12.5px; color:var(--green); }
+  .ktime b { font-variant-numeric:tabular-nums; }
+  .ktime .kt-pill { border-radius:999px; padding:3px 10px; background:#e7f0ea; font-weight:700; }
+  .ktime.warn .kt-pill { background:#fbf3da; color:#8a6d3b; }
+  .ktime.crit .kt-pill { background:#fbe3e1; color:var(--crit); }
+  .ktime .kt-miss { color:#8a8f86; font-size:11.5px; }
 </style>
 </head>
 <body>
@@ -87,6 +105,7 @@
         <div class="row-title" id="clock-status" data-i18n>Loading…</div>
         <div class="row-sub" id="clock-sub"></div>
       </div>
+      <button class="btn ghost" id="break-btn" type="button" style="display:none">Start break</button>
       <button class="btn gold" id="clock-btn" type="button" disabled>—</button>
     </div>
   </div>
@@ -245,11 +264,36 @@
       btn.textContent = 'Clock in';
       btn.className = 'btn gold';
     }
+    renderBreak(shift);
+    refreshI18n();
   }
 
   function loadClock() {
     K.get('/api/hub/kitchen/clock-out').then(function (d) { renderClock(d && d.shift); });
   }
+
+  // Breaks: Start/End break on the open shift. Break minutes come off worked hours; clocking out
+  // ends a break still running (server side, so a forgotten tap never costs anyone hours).
+  var onBreak = false;
+  function renderBreak(shift) {
+    var bb = $('#break-btn');
+    if (!shift) { onBreak = false; bb.style.display = 'none'; return; }
+    var breaks = shift.breaks;
+    if (typeof breaks === 'string') { try { breaks = JSON.parse(breaks); } catch (e) { breaks = []; } }
+    onBreak = Array.isArray(breaks) && breaks.some(function (x) { return x && x.start && !x.stop; });
+    bb.style.display = ''; bb.disabled = false;
+    bb.textContent = onBreak ? 'End break' : 'Start break';
+    bb.className = onBreak ? 'btn gold' : 'btn ghost';
+    if (onBreak) $('#clock-status').textContent = 'On break';
+  }
+
+  $('#break-btn').addEventListener('click', function () {
+    var bb = this; bb.disabled = true;
+    K.post('/api/hub/kitchen/break', { action: onBreak ? 'end' : 'start' }).then(function (d) {
+      if (d && d.ok) { Hub.toast(d.on_break ? 'Break started' : 'Break ended'); loadClock(); }
+      else { K.fail(d, 'Could not update break.'); bb.disabled = false; }
+    });
+  });
 
   $('#clock-btn').addEventListener('click', function () {
     var btn = this; btn.disabled = true;
@@ -381,6 +425,80 @@
     }).join('') + '</div>';
   }
 
+  // ---- Prep clock (functions/_lib/kitchen-timing.js computes it; this only draws and ticks it) ----
+  function tr(s) { try { return window.AnejoI18n && window.AnejoI18n.text ? window.AnejoI18n.text(s) : s; } catch (e) { return s; } }
+  function mmss(ms) {
+    var s = Math.round(Math.abs(ms) / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(sec).padStart(2, '0');
+  }
+  function timingLine(o) {
+    var t = o.timing;
+    if (!t) return '';
+    var readyBy = t.ready_by_at ? '<span><span data-i18n>Ready by</span> <b>' + clk(t.ready_by_at) + '</b></span>' : '';
+    var miss = (t.missing && t.missing.length) ? '<span class="kt-miss"><span data-i18n>No prep time set for</span> ' + esc(t.missing.join(', ')) + '</span>' : '';
+    if (t.state === 'cooking' || t.state === 'over') {
+      return '<div class="ktime" data-due="' + Number(t.due_at) + '"><span class="kt-pill">⏱ <b class="kt-left"></b> <span class="kt-word"></span></span>' + readyBy + miss + '</div>';
+    }
+    if (t.state === 'upcoming' || t.state === 'start_now' || t.state === 'late') {
+      var cls = t.state === 'late' ? ' crit' : (t.state === 'start_now' ? ' warn' : '');
+      return '<div class="ktime' + cls + '"><span class="kt-pill"><span data-i18n>Start by</span> <b>' + clk(t.start_by_at) + '</b></span>' +
+        '<span><b>' + Number(t.estimate_minutes) + ' min</b></span>' + readyBy + miss + '</div>';
+    }
+    return (readyBy || miss) ? '<div class="ktime">' + readyBy + miss + '</div>' : '';
+  }
+  // Every second, without re-rendering the board: only the countdown text and its colour change.
+  function tickClocks() {
+    var nowMs = Date.now();
+    Array.prototype.forEach.call(document.querySelectorAll('.ktime[data-due]'), function (el) {
+      var left = Number(el.getAttribute('data-due')) - nowMs;
+      el.classList.toggle('crit', left < 0);
+      el.classList.toggle('warn', left >= 0 && left < 5 * 60000);
+      var l = el.querySelector('.kt-left'), w = el.querySelector('.kt-word');
+      if (l) l.textContent = mmss(left);
+      if (w) w.textContent = tr(left < 0 ? 'over' : 'left');
+    });
+  }
+
+  // ---- The two photos before Mark ready ----
+  var uploading = {};   // "orderId:kind" → true while that photo is on its way
+  var PHOTO_SLOTS = [['contents', '1 · Inside', '📷'], ['packed', '2 · Closed & packed', '📦']];
+  function photoSlots(o) {
+    var p = o.photos || {};
+    return '<div class="kphotos">' + PHOTO_SLOTS.map(function (k) {
+      var ph = p[k[0]], busy = !!uploading[o.id + ':' + k[0]];
+      // A taken photo stays tappable: tapping it again is a retake.
+      var inner = ph
+        ? '<img src="' + esc(ph.url) + '" alt=""><span class="kp-cap">✓ <span data-i18n>' + esc(k[1]) + '</span></span>'
+        : '<span class="kp-icon">' + k[2] + '</span><span data-i18n>' + esc(k[1]) + '</span><span class="row-sub" data-i18n>' + (busy ? 'Saving…' : 'Tap to take photo') + '</span>';
+      return '<label class="kphoto' + (ph ? ' has' : '') + (busy ? ' busy' : '') + '">' + inner +
+        '<input type="file" accept="image/*" capture="environment" data-photo="' + k[0] + '" data-order="' + esc(o.id) + '"></label>';
+    }).join('') + '</div>';
+  }
+  // Same as the driver app's proof photo: JPEG, longest side 1024px, so it travels fast on a phone.
+  function photoToDataUrl(file) {
+    return new Promise(function (resolve) {
+      if (!file) return resolve(null);
+      var reader = new FileReader();
+      reader.onload = function () {
+        var src = reader.result;
+        try {
+          var img = new Image();
+          img.onload = function () {
+            var scale = Math.min(1, 1024 / Math.max(img.width, img.height));
+            var c = document.createElement('canvas');
+            c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+            resolve(c.toDataURL('image/jpeg', 0.7));
+          };
+          img.onerror = function () { resolve(src); };
+          img.src = src;
+        } catch (e) { resolve(src); }
+      };
+      reader.onerror = function () { resolve(null); };
+      reader.readAsDataURL(file);
+    });
+  }
+
   function bowlsDoneLabel(o) {
     if (!o.bowls || !o.bowls.length) return '';
     var done = o.bowls.filter(function (bw) { return bw.prep_state === 'done'; }).length;
@@ -392,8 +510,12 @@
     if (stage === 'pending') actions = '<div class="order-actions"><button class="btn gold" data-prep="' + esc(o.id) + '">Start prep</button></div>';
     else if (stage === 'prep') {
       var allDone = !o.bowls || !o.bowls.length || o.bowls.every(function (bw) { return bw.prep_state === 'done'; });
-      actions = '<div class="order-actions"><button class="btn' + (allDone ? ' gold' : '') + '" data-ready="' + esc(o.id) + '"' +
-        (allDone ? '' : ' disabled title="Check off all bowls first"') + '>Mark ready</button></div>';
+      // Dayan, 2026-09-15: no photo of the food inside and of the closed container, no ready.
+      var photosDone = !!(o.photos && o.photos.contents && o.photos.packed);
+      var why = !allDone ? 'Check off all bowls first' : (!photosDone ? 'Take both photos first' : '');
+      actions = photoSlots(o) + '<div class="order-actions"><button class="btn' + (why ? '' : ' gold') + '" data-ready="' + esc(o.id) + '"' +
+        (why ? ' disabled title="' + why + '"' : '') + ' data-i18n>Mark ready</button></div>' +
+        (why ? '<div class="row-sub" style="margin-top:6px" data-i18n>' + why + '</div>' : '');
     }
     else if (stage === 'ready') actions = '<div class="order-actions"><button class="btn gold" data-clear="' + esc(o.id) + '">Hand off ✓</button></div>';
     var win = o.delivery_window ? ('<span class="badge">' + esc(o.delivery_window) + '</span>') : '';
@@ -408,7 +530,8 @@
     var n = o.item_count || 0;
     return '<div class="card order-card">' +
       '<div class="row-title">' + esc(o.customer_name || 'Order') + ' · ' + n + (n === 1 ? ' item' : ' items') + doneLbl + '</div>' +
-      '<div class="order-badges">' + contract + rush + sub + dt + win + '</div>' + allerg + rotWarn +
+      '<div class="order-badges">' + contract + rush + sub + dt + win + '</div>' +
+      (stage === 'pending' || stage === 'prep' ? timingLine(o) : '') + allerg + rotWarn +
       body + actions + '</div>';
   }
 
@@ -471,6 +594,28 @@
         });
       });
     });
+    // The two ready photos: compress on the tablet, send, redraw. A failed save says so and the slot
+    // stays empty, so the cook retakes it rather than believing it went through.
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-photo]'), function (inp) {
+      inp.addEventListener('change', function () {
+        var file = inp.files && inp.files[0];
+        if (!file) return;
+        var order = inp.getAttribute('data-order'), kind = inp.getAttribute('data-photo'), key = order + ':' + kind;
+        uploading[key] = true; renderBoard();
+        photoToDataUrl(file).then(function (dataUrl) {
+          if (!dataUrl) throw new Error('unreadable');
+          return K.post('/api/hub/kitchen/orders', { id: order, action: 'photo', kind: kind, data_url: dataUrl });
+        }).then(function (d) {
+          delete uploading[key];
+          if (d && d.ok) { Hub.toast('Photo saved · Foto guardada'); loadBoard(); }
+          else { K.fail(d, 'The photo could not be saved. Please retake it.'); renderBoard(); }
+        }).catch(function () {
+          delete uploading[key];
+          Hub.toast('The photo could not be read. Please retake it. · No se pudo leer la foto.');
+          renderBoard();
+        });
+      });
+    });
     // Per-bowl check-off (PREP): quick taps, no PIN — the PIN gates are on Start prep + Mark ready.
     Array.prototype.forEach.call(document.querySelectorAll('.bowl-chk[data-bowl]'), function (b) {
       b.addEventListener('click', function () {
@@ -527,6 +672,7 @@
     });
     bindOrderActions();
     refreshI18n();
+    tickClocks();
   }
 
   // ---- Handed off today (cleared from the board) ----
@@ -588,6 +734,7 @@
     setupSound();
     loadClock(); loadReminders(); loadBoard();
     setInterval(loadBoard, 15000); // poll the board (15s → snappier order alerts)
+    setInterval(tickClocks, 1000); // the prep countdown moves every second between polls
   });
 })();
 </script>

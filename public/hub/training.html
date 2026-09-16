@@ -33,6 +33,14 @@
   .pick a .tt{display:block;font-weight:700;color:var(--green);font-size:17px}
   .pick a .ds{display:block;font-size:13px;color:var(--muted);margin-top:3px;line-height:1.4}
   .pick a.full{border-left-color:var(--green);background:#fff8e9}
+  /* what's new — the change since this reader last trained, above the module itself */
+  .whatsnew{background:#fff8e9;border:1px solid var(--gold);border-left:5px solid var(--gold);border-radius:14px;
+    padding:15px 17px;margin-bottom:14px;box-shadow:0 6px 22px rgba(198,168,91,.18)}
+  .whatsnew .wn-k{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold-700)}
+  .whatsnew h3{margin:4px 0 8px;font-size:18px;color:var(--green);line-height:1.3}
+  .whatsnew ul{margin:0;padding-left:19px;font-size:14.5px;line-height:1.55}
+  .whatsnew li{margin-bottom:6px}
+  .whatsnew .wn-done{margin:10px 0 0;font-size:12.5px;font-weight:700;color:var(--green)}
   /* module */
   .stage{flex:1;padding:16px 16px 30px}
   .modhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
@@ -90,6 +98,7 @@
   </div>
 
   <div class="stage" id="stage" style="display:none">
+    <div class="whatsnew" id="whatsnew" style="display:none"></div>
     <div class="modhead"><span class="badge" id="mod-badge"></span></div>
     <div class="prog" id="prog"></div>
     <div class="scene" id="scene"></div>
@@ -115,6 +124,9 @@ var UI = {
              es:'Elige tu rol. Cada tutorial cubre justo lo que necesitas — tu pantalla, lo que se espera de ti, y qué inicia tu trabajo. El recorrido del Dueño cubre todo el sistema de principio a fin.'},
   trig:{en:'Trigger',es:'Qué lo inicia'}, you:{en:'You do',es:'Tú haces'}, then:{en:'Then (automatic)',es:'Luego (automático)'},
   finishing:{en:'Saving…',es:'Guardando…'}, done:{en:'✓ Completed',es:'✓ Completado'},
+  whatsnew:{en:"What's new",es:'Lo nuevo'},
+  wnRead:{en:'Read this first — it changed since you last trained.',es:'Lee esto primero — cambió desde tu última capacitación.'},
+  wnDone:{en:'✓ You are up to date on this training.',es:'✓ Estás al día con esta capacitación.'},
   doneMsg:{en:'Training completed — thank you! Your owner can see this in the compliance view.',es:'Capacitación completada — ¡gracias! Tu dueño puede verlo en el panel de cumplimiento.'}
 };
 var ROLES = [
@@ -170,6 +182,10 @@ var MOD = {
       x:'They renegotiate, move to different days, change suites, or want to pause a location for a month.',
       y:'Open ✏️ Edit terms on that location. Everything the card shows is editable: price, delivery fee, rush fee and cut-off, the delivery DAYS (tap the day chips), the delivery time the office sees, lunch-or-dinner, the full address, and an “Accepting head counts” switch that pauses just that clinic. Add a note (“renegotiated on the 7/25 call”) so the history reads like a story later.',
       z:'New terms apply to the NEXT head count only — days already submitted keep the price they were quoted, so nothing is ever re-priced behind the client. Every change is written to Terms history with who changed it and what it was before. Change an address and the router re-locates it automatically. Pause a location and its link stops accepting counts until you switch it back on.'}),
+    S({k:'Weekly menus',t:'The weekly office menu and per-dish prices',m:'<div class="m-card"><div class="m-t">🍽️ Weekly menu <span class="m-b ok">this week · week 1</span></div><div class="m-s">Mon · dish · Spanish name · notes · $ blank = location price</div></div>',
+      x:'You have settled what an office account eats each day, how many weeks it rotates, and whether any dish is priced differently from the location’s usual price per lunch.',
+      y:'Customers → 🏢 Contract accounts → open 🍽️ Weekly menu & per-dish prices on the account. Choose how many weeks rotate (1–8) and the Monday that is week 1. For each week, fill in the dish for every day the locations receive lunch: the name, a Spanish name if you want one, and notes such as allergens or sides. Leave the $ box blank to charge the location’s price; type a price only for a dish that should cost something different. Save. The panel tells you which week is this week and next week, and the table under it shows the next two weeks for each location — dish, the price per lunch that will be charged, and any day the kitchen is closed.',
+      z:'The week changes every Monday. A blank day keeps the old “Lunch — Day” name at the location’s price. The dish name goes on the kitchen order and the office’s count page (in Spanish when they read in Spanish) — offices never see a price. A dish price applies from the next head count on; a day already counted keeps the price it was quoted, and the invoice follows what was charged. Every menu change and every price change is written to Terms history with who and when.'}),
     S({k:'Deliveries',t:'Build & assign a route',m:'<div class="m-card"><div class="m-t">Route · 4 stops · $26</div><div class="m-s">⚡ Suggest → Assign</div></div>',
       x:'You open Deliveries; ready/paid orders for the date show as unassigned.',
       y:'Hands-off option: turn on 🤖 Automated dispatch and the HUB runs through each window (lunch + dinner, never mixed), batching orders and only sending a route once it hits your “min stops” (protects margin + makes the trip worth the driver’s pay) — or sooner if an order nears “max wait” (freshness) or the window’s closing. It OFFERS each route to a driver itself; or click “⚡ Auto-build now”. Prefer manual? “⚡ Suggest efficient route(s)” previews each route (stops, miles, finish, pay, and an AI-Ops reason) to assign with one tap.',
@@ -190,6 +206,10 @@ var MOD = {
       x:'Staff act all day — clock-ins, deliveries, EOD reports.',
       y:'In Staff, read each driver’s reliability (accepted / denied / missed) and set each vendor’s lead-time in days.',
       z:'Vendor lead-times feed AI Ops’ order timing. Missed EOD reports and late clock-ins raise alerts automatically.'}),
+    S({k:'Timesheet',t:'Hours, breaks & pay — the weekly timesheet',m:'<div class="m-card"><div class="m-t">🕒 Mon – Sun · 38h 20m worked</div><div class="m-s"><span class="m-b crit">forgotten clock-out</span> <span class="m-b">edited</span></div></div>',
+      x:'Kitchen and drivers clock in, tap Start/End break, and clock out. A pay week runs Monday to Sunday, Eastern time.',
+      y:'In Staff, set how each person is paid — Hourly (with their $/hr rate) or Per route — and their employment type. Then open 🕒 Timesheet & hours: check each shift, Fix a wrong time or Close a forgotten clock-out (a reason is required), and Download payroll CSV for the week.',
+      z:'Hourly pay is estimated only for hourly staff. A per-route driver shows hours but is paid by their routes, so no one is paid twice — and if you switch a driver to hourly, the timesheet warns you their routes still carry route pay in Payouts. Every rate change and every shift correction is recorded: who, when, why, old and new.'}),
     S({k:'Security',t:'PINs & the audit trail',
       x:'Kitchen staff check off bowls and mark orders ready; drivers confirm pickups.',
       y:'Nothing — but know that each of those requires the staffer’s PIN.',
@@ -298,11 +318,21 @@ var MOD = {
       y:'As you finish each bowl, check it off and enter your PIN.',
       z:'Your PIN stamps “✓ by [you]” on that bowl — the driver re-confirms it at pickup, so it must be honest.',
       t2:'Prep: marca cada bowl — con tu PIN', x2:'Tocas “Empezar Prep” para tomar el pedido.', y2:'Al terminar cada bowl, márcalo y escribe tu PIN.', z2:'Tu PIN deja “✓ por [tú]” en ese bowl — el conductor lo reconfirma en la recogida, así que debe ser honesto.'}),
+    S({k:'Photos',t:'Two photos before Ready',m:'<div class="m-card"><div class="m-u"><b class="on">📷</b><b class="on">📦</b></div><div class="m-s">1 · Inside · 2 · Closed &amp; packed</div></div>',
+      x:'Every bowl is built and you are about to close the containers.',
+      y:'Tap “1 · Inside” and photograph the food in the open bowl, tray or box. Close it, then tap “2 · Closed & packed”. Tap a photo again to retake it.',
+      z:'Mark Ready stays locked until both photos are saved. If an office changes its count, the photos clear and you take them again.',
+      t2:'Dos fotos antes de Listo', x2:'Todos los bowls están hechos y vas a cerrar los envases.', y2:'Toca “1 · Adentro” y fotografía la comida en el bowl, bandeja o caja abierta. Ciérralo y toca “2 · Cerrado y empacado”. Toca una foto otra vez para repetirla.', z2:'Marcar Listo sigue bloqueado hasta guardar las dos fotos. Si una oficina cambia su conteo, las fotos se borran y las tomas de nuevo.'}),
+    S({k:'Timer',t:'Start by, ready by, and the countdown',m:'<div class="m-card"><div class="m-s">Start by <b>9:45 AM</b> · 45 min · Ready by <b>10:30 AM</b></div><div class="m-s">⏱ 12:40 left</div></div>',
+      x:'An order is waiting, or you just started it.',
+      y:'Before prep, “Start by” says when to begin so it is done on time. Once you start, the countdown shows how much of the prep time is left.',
+      z:'Amber means under 5 minutes; red means over. “No prep time set” means the owner has not entered a time for that item yet.',
+      t2:'Empezar a las, listo a las, y la cuenta regresiva', x2:'Un pedido espera, o lo acabas de empezar.', y2:'Antes de prep, “Empezar a las” dice cuándo empezar para que esté a tiempo. Al empezar, la cuenta regresiva muestra cuánto tiempo de preparación queda.', z2:'Ámbar es menos de 5 minutos; rojo es que se pasó. “Sin tiempo de preparación” significa que el dueño aún no puso un tiempo para ese artículo.'}),
     S({k:'Ready',t:'Mark Ready — gated + PIN',m:'<div class="m-card"><div class="m-u"><b class="on">✓</b><b class="on">✓</b><b class="on">✓</b></div><div class="m-btn">Mark Ready</div></div>',
-      x:'Every bowl on the order is checked off.',
-      y:'Tap Mark Ready and confirm your PIN. (It’s blocked until all bowls are checked.)',
+      x:'Every bowl on the order is checked off and both photos are saved.',
+      y:'Tap Mark Ready and confirm your PIN. (It’s blocked until all bowls are checked and both photos are in.)',
       z:'The order moves to Ready and becomes available for the owner to put on a driver’s route — your hand-off to delivery.',
-      t2:'Listo: gated + PIN', x2:'Todos los bowls del pedido están marcados.', y2:'Toca Marcar Listo y confirma tu PIN. (Se bloquea hasta marcar todos.)', z2:'El pedido pasa a Listo y queda disponible para que el dueño lo ponga en la ruta de un conductor — tu entrega a reparto.'}),
+      t2:'Listo: gated + PIN', x2:'Todos los bowls del pedido están marcados y las dos fotos guardadas.', y2:'Toca Marcar Listo y confirma tu PIN. (Se bloquea hasta marcar todos y tomar las dos fotos.)', z2:'El pedido pasa a Listo y queda disponible para que el dueño lo ponga en la ruta de un conductor — tu entrega a reparto.'}),
     S({k:'Inventory',t:'Keep counts current',m:'<div class="m-card"><div class="m-t">Avocado <span class="m-b crit">below par</span></div><div class="m-s">on hand 3 · par 12 · $0.90/ea</div></div>',
       x:'Stock goes up (a delivery arrives) or down (you use it).',
       y:'Update on-hand counts; set the unit cost and vendor when you add an item.',
@@ -323,6 +353,11 @@ var MOD = {
       y:'Read the Library (recipes & manuals); in Creative Studio, talk/type/snap photos with the AI sous-chef.',
       z:'The AI is trained on Añejo’s brand brief + standards, so its suggestions stay on-brand; finished recipes save to the Library.',
       t2:'Recetas: Biblioteca y Creative Studio', x2:'Necesitas una receta, o desarrollas un bowl nuevo.', y2:'Lee la Biblioteca (recetas y manuales); en Creative Studio, habla/escribe/toma fotos con el chef IA.', z2:'El IA está entrenado en el brief de marca + estándares de Añejo, así sus ideas se mantienen en marca; las recetas terminadas se guardan en la Biblioteca.'}),
+    S({k:'Breaks',t:'Stepping away? Start break',m:'<div class="m-card"><div class="m-t">On break</div><div class="m-btn">End break</div></div>',
+      x:'You step away from the kitchen — a meal, a rest, an errand.',
+      y:'Tap Start break next to Clock out. When you are back, tap End break.',
+      z:'Break minutes come off your worked hours automatically. Forgot to end it? Clocking out ends it for you. Your hours go to the owner’s weekly timesheet, and only the owner can correct them.',
+      t2:'Descansos: toca Iniciar descanso', x2:'Te alejas de la cocina — una comida, un descanso, un mandado.', y2:'Toca Iniciar descanso junto a Marcar salida. Al volver, toca Terminar descanso.', z2:'Los minutos de descanso se restan de tus horas automáticamente. ¿Olvidaste terminarlo? Al marcar salida se termina solo. Tus horas van a la hoja semanal del dueño, y solo el dueño puede corregirlas.'}),
     S({k:'End of day',t:'EOD report + clock out',
       x:'Your shift ends.',
       y:'File your EOD report and clock out.',
@@ -380,6 +415,11 @@ var MOD = {
       y:'Flip the “available for orders” toggle.',
       z:'Available drivers are offered auto-rolled routes first, so toggling on gets you more work.',
       t2:'Disponibilidad: ponte disponible', x2:'Estás libre y quieres más rutas.', y2:'Activa el botón “disponible para pedidos.”', z2:'A los conductores disponibles se les ofrecen primero las rutas reasignadas, así que activarlo te da más trabajo.'}),
+    S({k:'Breaks',t:'Taking a break? Tap Start break',m:'<div class="m-card"><div class="m-t">On break</div><div class="m-btn">End break</div></div>',
+      x:'You are on the clock and stop for a meal or a rest between runs.',
+      y:'On Home, tap Start break under Clock out. When you are back, tap End break.',
+      z:'Break minutes come off your worked hours. Clocking out ends a break you forgot. Your hours show on the owner’s weekly timesheet; how you are paid (per route or hourly) is set by the owner.',
+      t2:'Descansos: toca Iniciar descanso', x2:'Estás en turno y paras para comer o descansar entre rutas.', y2:'En Inicio, toca Iniciar descanso debajo de Marcar salida. Al volver, toca Terminar descanso.', z2:'Los minutos de descanso se restan de tus horas. Al marcar salida se termina un descanso olvidado. Tus horas aparecen en la hoja semanal del dueño; cómo se te paga (por ruta o por hora) lo decide el dueño.'}),
     S({k:'End of day',t:'Complete route + EOD',
       x:'Every stop is delivered or reported.',
       y:'Complete the route and file your EOD; clock out.',
@@ -487,8 +527,27 @@ function renderLand(){
     return '<a class="'+(r.full?'full':'')+'" href="?role='+r.key+'"><span class="ic">'+r.ic+'</span><span><span class="tt">'+r[lang]+'</span><span class="ds">'+r['d'+lang]+'</span></span></a>';
   }).join('');
 }
+/* "What's new" — the change this module's CURRENT version introduced, shown ABOVE the tutorial so a
+   staffer sent here by the sign-in gate reads the new procedure before the walkthrough she may have
+   already seen. It stays visible after completion: this is where you come back to re-read it.
+   The sentences arrive from /api/hub/training/status already written in both languages
+   (functions/_lib/training_modules.js) — this page picks the one matching its own EN/ES toggle. */
+var _update = null, _upToDate = false;
+function wnPick(o){ return (o && (lang==='es' ? o.es : o.en)) || (o && o.en) || ''; }
+function renderWhatsNew(){
+  var box=document.getElementById('whatsnew'); if(!box) return;
+  if(!_update){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML = '<div class="wn-k">★ '+UI.whatsnew[lang]+'</div>'+
+    '<h3>'+wnPick(_update.headline)+'</h3>'+
+    '<p style="margin:0 0 9px;font-size:13px;color:var(--muted)">'+UI.wnRead[lang]+'</p>'+
+    '<ul>'+(_update.changes||[]).map(function(c){ return '<li>'+wnPick(c)+'</li>'; }).join('')+'</ul>'+
+    (_upToDate ? '<p class="wn-done">'+UI.wnDone[lang]+'</p>' : '');
+  box.style.display='block';
+}
+
 function render(){
   var scenes=MOD[role], n=scenes.length, sc=scenes[idx];
+  renderWhatsNew();
   document.getElementById('mod-badge').textContent = (ROLES.filter(function(r){return r.key===role;})[0]||{})[lang] || role;
   document.getElementById('prog').innerHTML = scenes.map(function(_,i){ return '<div class="dot '+(i<idx?'done':i===idx?'cur':'')+'"></div>'; }).join('');
   document.getElementById('scene').innerHTML =
@@ -516,22 +575,39 @@ function finish(){
   btn.disabled=true; if(sp) sp.textContent=UI.finishing[lang];
   fetch('/api/hub/training/complete',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({module:role,lang:lang})})
     .then(function(r){ return r.ok?r.json():null; })
-    .then(function(d){ btn.disabled=false; if(d&&d.ok){ _done[role]=d.completed_at; render(); } else if(sp){ sp.textContent=UI.finish[lang]; } })
+    .then(function(d){ btn.disabled=false; if(d&&d.ok){ _done[role]=d.completed_at; _upToDate=true; render(); } else if(sp){ sp.textContent=UI.finish[lang]; } })
     .catch(function(){ btn.disabled=false; if(sp) sp.textContent=UI.finish[lang]; });
 }
-function loadDone(){
-  fetch('/api/hub/training/complete',{credentials:'include'}).then(function(r){ return r.ok?r.json():null; }).then(function(d){
-    if(d&&d.completed){ d.completed.forEach(function(c){ _done[c.module]=c.completed_at; }); if(role) render(); }
-  }).catch(function(){});
+/* One call answers both questions this page asks: what changed in this module, and whether THIS
+   reader is current on it. "Completed" is version-aware now — a completion recorded before the
+   process changed is not a tick, because she has not seen the new procedure. */
+function loadStatus(){
+  if(!role) return;
+  fetch('/api/hub/training/status?module='+encodeURIComponent(role),{credentials:'include'})
+    .then(function(r){ return r.ok?r.json():null; })
+    .then(function(d){
+      if(!d||!d.ok) return;
+      _update = d.module_update || null;
+      _upToDate = d.state === 'current';
+      if(_upToDate && d.completed_at) _done[role]=d.completed_at; else delete _done[role];
+      render();
+    }).catch(function(){});
 }
 function boot(){
   role = qRole();
   if(role){ document.getElementById('land').style.display='none'; document.getElementById('stage').style.display='block'; document.getElementById('homelink').style.display='inline';
-    var cl=document.getElementById('cardlink'); cl.href='/hub/training-card?role='+role; cl.style.display='inline'; render(); }
-  else { document.getElementById('land').style.display='block'; document.getElementById('stage').style.display='none'; renderLand(); }
+    var cl=document.getElementById('cardlink'); cl.href='/hub/training-card?role='+role; cl.style.display='inline'; }
+  else { document.getElementById('land').style.display='block'; document.getElementById('stage').style.display='none'; }
+  /* Open in the language the reader already set on the HUB (the same anejo:lang the shared i18n
+     engine persists). This page kept its own toggle and always opened in English, so the sign-in
+     gate would speak to the cook in Spanish and then hand her an English tutorial. setLang paints
+     the toggle and renders, so it replaces the explicit first render. */
+  var pref='en';
+  try { pref = localStorage.getItem('anejo:lang') === 'es' ? 'es' : 'en'; } catch(e){ /* storage off — English */ }
+  setLang(pref);
 }
 boot();
-if(role) loadDone();
+if(role) loadStatus();
 </script>
 </body>
 </html>

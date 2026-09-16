@@ -1,12 +1,17 @@
 // /api/hub/training/complete — record (and read) tutorial completion for the current staffer.
 //   POST { module, lang } → upsert a training_completions row (idempotent per staff+module).
-//   GET                   → { completed:[{module, completed_at}] } for the current staffer.
+//   GET                   → { completed:[{module, version, completed_at}] } for the current staffer.
 // Any staff role may complete their own training; the owner reads compliance via
-// /api/hub/owner/training-status.
+// /api/hub/owner/training-status, and "do I owe training right now" is /api/hub/training/status.
+//
+// A completion records WHICH VERSION of the module was finished (migration 0112). The version is
+// taken from the server's own table, never from the request body: the browser can only tell us what
+// it thinks it just showed, and a stale tab must not be able to sign off on material it never had.
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff, STAFF_ROLES } from '../../../_lib/roles.js';
 import { id, now } from '../../../_lib/hub.js';
 import { capture } from '../../../_lib/track.js';
+import { currentVersion } from '../../../_lib/training_modules.js';
 
 // One tutorial module per staff role — the module IS the role, so they share a list.
 const MODULES = STAFF_ROLES;
@@ -18,7 +23,7 @@ export const onRequestGet = async ({ request, env }) => {
   const staff = await currentStaff(env, request);
   let completed = [];
   try {
-    const r = await env.DB.prepare('SELECT module, completed_at FROM training_completions WHERE staff_id = ?').bind(staff ? staff.id : '').all();
+    const r = await env.DB.prepare('SELECT module, version, completed_at FROM training_completions WHERE staff_id = ?').bind(staff ? staff.id : '').all();
     completed = (r && r.results) || [];
   } catch (_) { /* empty */ }
   return json({ ok: true, completed });
@@ -37,13 +42,15 @@ export const onRequestPost = async ({ request, env }) => {
   if (!MODULES.includes(module)) return bad('Unknown training module.');
   const lang = (b && b.lang) === 'es' ? 'es' : 'en';
   const t = now();
+  const version = currentVersion(module);
   try {
     await env.DB.prepare(
-      `INSERT INTO training_completions (id, staff_id, module, lang, completed_at) VALUES (?,?,?,?,?)
-       ON CONFLICT(staff_id, module) DO UPDATE SET lang=excluded.lang, completed_at=excluded.completed_at`
-    ).bind(id('tc'), staff.id, module, lang, t).run();
+      `INSERT INTO training_completions (id, staff_id, module, lang, version, completed_at, updated_at) VALUES (?,?,?,?,?,?,?)
+       ON CONFLICT(staff_id, module) DO UPDATE SET lang=excluded.lang, version=excluded.version,
+         completed_at=excluded.completed_at, updated_at=excluded.updated_at`
+    ).bind(id('tc'), staff.id, module, lang, version, t, t).run();
   } catch (_) { return bad('Could not record completion.', 500); }
 
-  await capture(env, { event: 'training.completed', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team, properties: { module, lang } });
-  return json({ ok: true, module, completed_at: t });
+  await capture(env, { event: 'training.completed', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team, properties: { module, lang, version } });
+  return json({ ok: true, module, version, completed_at: t });
 };

@@ -230,7 +230,7 @@
     "Staff management": "Gestión de personal", "Recent activity": "Actividad reciente", "Ack": "Visto",
     "Open orders": "Pedidos abiertos", "No open orders.": "Sin pedidos abiertos.",
     "Recent kitchen activity": "Actividad reciente de cocina", "No kitchen activity yet.": "Sin actividad de cocina aún.",
-    "Incoming orders": "Pedidos entrantes", "Start prep": "Iniciar preparación", "Mark ready": "Marcar listo",
+    "Incoming orders": "Pedidos entrantes", "Start prep": "Iniciar preparación", "Mark ready": "Marcar listo", "1 · Inside": "1 · Adentro", "2 · Closed & packed": "2 · Cerrado y empacado", "Tap to take photo": "Toca para tomar la foto", "Take both photos first": "Primero toma las dos fotos", "Check off all bowls first": "Primero marca todos los bowls", "Start by": "Empezar a las", "Ready by": "Listo a las", "No prep time set for": "Sin tiempo de preparación para", "left": "restante", "over": "de más",
     "Upcoming": "Próximos", "Overdue": "Atrasados",
 
     // ---- status + severity badge words (rendered lowercase, CSS uppercases) ----
@@ -626,7 +626,53 @@
     "Recent backups": "Respaldos recientes", "Creating backup…": "Creando respaldo…",
     "Backup created": "Respaldo creado", "Backup failed": "Error al crear el respaldo",
     "R2 storage is not enabled": "El almacenamiento R2 no está habilitado",
-    "No backups yet": "Aún no hay respaldos", "30 days retained": "Se conservan 30 días"
+    "No backups yet": "Aún no hay respaldos", "30 days retained": "Se conservan 30 días",
+
+    // ---- Staff hours (2026-09-15): breaks on the kitchen/driver clock, the owner timesheet ----
+    "Start break": "Iniciar descanso", "End break": "Terminar descanso", "On break": "En descanso",
+    "Break started": "Descanso iniciado", "Break ended": "Descanso terminado",
+    "Could not update break": "No se pudo actualizar el descanso", "Could not update break.": "No se pudo actualizar el descanso.",
+    "AÑEJO · TIMESHEET": "AÑEJO · HORAS", "Añejo HUB · Timesheet": "Añejo HUB · Hoja de horas",
+    "Timesheet & hours": "Hoja de horas", "Loading timesheet…": "Cargando hoja de horas…",
+    "Previous week": "Semana anterior", "Next week": "Semana siguiente",
+    "Download payroll CSV": "Descargar nómina CSV", "Payroll downloaded": "Nómina descargada",
+    "Hours worked": "Horas trabajadas", "Hourly pay (est.)": "Pago por hora (est.)", "Route pay": "Pago por ruta",
+    "Open shifts": "Turnos abiertos", "Needs your attention": "Requiere tu atención",
+    "Day": "Día", "In": "Entrada", "Out": "Salida", "Break": "Descanso", "Worked": "Trabajado", "Est. pay": "Pago est.",
+    "Fix": "Corregir", "Close shift": "Cerrar turno", "Save correction": "Guardar corrección",
+    "Reason (required)": "Motivo (obligatorio)", "Break minutes": "Minutos de descanso",
+    "A reason is required.": "Se requiere un motivo.", "Enter the time they left.": "Ingresa la hora en que se fue.",
+    "Shift corrected": "Turno corregido", "Shift closed": "Turno cerrado",
+    "forgotten clock-out": "salida olvidada", "on break": "en descanso", "edited": "editado", "over 12h": "más de 12h",
+    "from an earlier week": "de una semana anterior", "so far": "hasta ahora",
+    "Hourly": "Por hora", "Per route": "Por ruta", "Pay: role default": "Pago: según el rol", "role default": "según el rol",
+    "No rate set": "Sin tarifa", "No shifts this week.": "Sin turnos esta semana.", "Week total": "Total de la semana",
+    "Times are Eastern (America/New_York).": "Horas en hora del Este (America/New_York).",
+    "Correction history": "Historial de correcciones", "Could not load the timesheet.": "No se pudo cargar la hoja de horas.",
+    "Hourly staff are paid for worked hours. Per-route drivers show hours but are paid by their routes — never both.":
+      "El personal por hora cobra las horas trabajadas. Los conductores por ruta muestran horas pero cobran por sus rutas — nunca ambas.",
+    "Forgotten clock-outs to close:": "Salidas olvidadas por cerrar:",
+    "Hourly people with no rate set:": "Personas por hora sin tarifa:",
+    "Hourly people whose routes still carry route pay in Payouts — pay one or the other, not both:": "Personas por hora cuyas rutas aún tienen pago por ruta en Pagos — paga uno u otro, no ambos:",
+    "Paid hourly, but routes this week still carry route pay in Payouts:": "Cobra por hora, pero sus rutas de esta semana aún tienen pago por ruta en Pagos:",
+
+    // ---- Training updates (2026-09-16): the sign-in gate, the training page, the owner's view ----
+    // Only the CHROME is here. The "what changed" sentences themselves are written in both languages
+    // in functions/_lib/training_modules.js and arrive from /api/hub/training/status already in the
+    // reader's language — one home per string, so the procedure can never drift between the two.
+    "Training update": "Actualización de capacitación",
+    "Something changed in how you work. Complete this training first.":
+      "Algo cambió en cómo trabajas. Completa esta capacitación primero.",
+    "Open my training": "Abrir mi capacitación",
+    "What's new": "Lo nuevo", "What’s new": "Lo nuevo",
+    "Read this first — it changed since you last trained.":
+      "Lee esto primero — cambió desde tu última capacitación.",
+    "You are up to date on this training.": "Estás al día con esta capacitación.",
+    "Up to date": "Al día", "Out of date": "Desactualizada", "Never trained": "Sin capacitar",
+    "Trained before this change": "Capacitada antes de este cambio",
+    "owe the new training": "deben la nueva capacitación",
+    "have never been trained": "nunca han sido capacitados",
+    "are up to date": "están al día"
   };
 
   // Register with the shared i18n engine; queue if it hasn't loaded yet.

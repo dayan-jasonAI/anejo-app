@@ -9,6 +9,7 @@ import { requireRole, currentStaff } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson } from '../../../../_lib/hub.js';
 import { notifyDelivered } from '../../../../_lib/notify.js';
+import { advanceToNextStop } from '../../../../_lib/stop_progress.js';
 import { putMedia } from '../../../../_lib/media.js';
 
 export const onRequestPost = async ({ request, env, waitUntil }) => {
@@ -73,10 +74,12 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
 
   // Advance the route stop (by stop_id if given, else by order on the route) + stamp delivered_at.
   let stopSeq = null;
+  let stopRouteId = routeId;
   if (b.stop_id) {
     await env.DB.prepare("UPDATE route_stops SET status='done', delivered_at=?, updated_at=? WHERE id=?").bind(ts, ts, b.stop_id).run();
-    const r = await env.DB.prepare('SELECT seq FROM route_stops WHERE id=?').bind(b.stop_id).first().catch(() => null);
+    const r = await env.DB.prepare('SELECT seq, route_id FROM route_stops WHERE id=?').bind(b.stop_id).first().catch(() => null);
     stopSeq = r && r.seq;
+    if (r && r.route_id) stopRouteId = r.route_id;
   } else if (routeId) {
     await env.DB.prepare("UPDATE route_stops SET status='done', delivered_at=?, updated_at=? WHERE route_id=? AND order_id=?").bind(ts, ts, routeId, orderId).run();
     const r = await env.DB.prepare('SELECT seq FROM route_stops WHERE route_id=? AND order_id=?').bind(routeId, orderId).first().catch(() => null);
@@ -98,10 +101,22 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
   // slow or fail (they no-op locally, which is why it only reproduced on prod). Each is
   // independently guarded so one failing never affects the other or the response.
   const sideEffects = (async () => {
+    let order = null;
     try {
-      const order = await env.DB.prepare('SELECT * FROM orders WHERE id=?').bind(orderId).first().catch(() => null);
+      order = await env.DB.prepare('SELECT * FROM orders WHERE id=?').bind(orderId).first().catch(() => null);
       if (order) await notifyDelivered(env, order, { photoUrl, feedbackUrl });
     } catch { /* customer notice is best-effort */ }
+    // THE NEXT OFFICE HEARS NOW. Finishing this drop-off marks the next stop on its way and texts that
+    // client, with the ETA measured from where this delivery just happened (the phone's own fix when it
+    // sent one, else this address) — see _lib/stop_progress.js. It used to wait for a Navigate tap that a
+    // driver using "Navigate full route" never makes.
+    try {
+      if (stopRouteId && stopSeq != null) {
+        const hasFix = geo && geo.lat != null && geo.lng != null;
+        const origin = hasFix ? { lat: geo.lat, lng: geo.lng } : (order ? { lat: order.delivery_lat, lng: order.delivery_lng } : null);
+        await advanceToNextStop(env, { routeId: stopRouteId, origin, atMs: ts });
+      }
+    } catch { /* advancing is best-effort; the delivery itself is already recorded */ }
     try {
       await capture(env, {
         event: 'delivery.completed',

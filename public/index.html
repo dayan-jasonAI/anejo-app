@@ -491,45 +491,6 @@ section { padding: 80px 24px; }
 .form-group textarea { min-height: 80px; resize: vertical; }
 .tasting-card .btn { width: 100%; }
 
-/* ---------- WHOLESALE ---------- */
-.wholesale { background: var(--cream-dark); }
-.wholesale-row {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 40px; max-width: 900px; margin: 0 auto;
-  align-items: center;
-}
-.wholesale-text h3 {
-  font-size: 28px; color: var(--green);
-  font-weight: 600; margin-bottom: 16px;
-  line-height: 1.2;
-}
-.wholesale-text p {
-  font-size: 15px; color: var(--ink);
-  margin-bottom: 14px; line-height: 1.6;
-}
-.wholesale-text .meta {
-  font-size: 12px; color: var(--gold-dark);
-  letter-spacing: 1px; text-transform: uppercase;
-  font-weight: 600; margin-top: 20px;
-}
-.wholesale-card {
-  background: #fff; border-radius: 8px;
-  padding: 32px; border-top: 4px solid var(--green);
-  border: 1px solid var(--line);
-}
-.wholesale-card h4 {
-  font-size: 14px; color: var(--gold-dark);
-  font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
-  margin-bottom: 12px;
-}
-.wholesale-card ul { list-style: none; padding: 0; }
-.wholesale-card li {
-  font-size: 14px; color: var(--ink); padding: 8px 0;
-  border-bottom: 1px solid var(--line);
-  display: flex; justify-content: space-between;
-}
-.wholesale-card li:last-child { border-bottom: none; }
-.wholesale-card li strong { color: var(--green); }
 
 /* ---------- ALLERGEN NOTE ---------- */
 .allergen-note {
@@ -584,7 +545,6 @@ footer {
   .nav-burger { display: block; }
   .nav-links { display: none; position: absolute; top: 64px; right: 0; left: 0; background: var(--black); flex-direction: column; padding: 20px; gap: 16px; border-bottom: 1px solid rgba(198, 168, 91, 0.2); }
   .nav-links.open { display: flex; }
-  .wholesale-row { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .cajita-firstscreen{grid-template-columns:1fr;max-width:720px}.cajita-firstscreen .cajita-gallery{min-height:320px}.cajita-hero{grid-template-columns:1fr;max-width:720px}.cajita-gallery{min-height:280px}
 }
@@ -688,8 +648,7 @@ footer {
 })();
 </script>
 <link rel="alternate" hreflang="en" href="https://anejocateringco.com/"><link rel="alternate" hreflang="es" href="https://anejocateringco.com/es/"><link rel="alternate" hreflang="x-default" href="https://anejocateringco.com/">
-<link rel="stylesheet" href="/assets/css/home-family.css?v=20260909b">
-<link rel="stylesheet" href="/assets/css/home-conversion.css?v=20260915a">
+<link rel="stylesheet" href="/assets/css/home-family.css?v=20260915a">
 <script type="application/ld+json">{
   "@context": "https://schema.org",
   "@type": "ItemList",
@@ -733,12 +692,12 @@ footer {
       <span>AÑEJO</span>
     </a>
     <div class="nav-links" id="navLinks">
-      <a href="#story">Story</a>
-      <a href="/menu">Menu</a>
-      <a href="/cajita">La Cajita</a>
+      <a href="/cajita" class="nav-star">La Cajita</a>
       <a href="/catering">Catering</a>
+      <a href="/menu">Menu</a>
       <a href="/subscribe">Weekly Plans</a>
       <a href="#menu">Añejo Fit</a>
+      <a href="#story">Story</a>
       <a href="/calculator">Macros</a>
       <a href="/login">Log in</a>
       <a href="/order" class="nav-cta">Order</a>
@@ -748,35 +707,117 @@ footer {
 </nav>
 
 <!-- ========================= HERO ========================= -->
-<section class="hero family-hero" id="top">
-<div class="family-backdrop" aria-hidden="true"><img class="is-active" src="/assets/img/menu-launch/home-catering.webp" width="1200" height="1200" fetchpriority="high" alt=""></div>
-<div class="section-inner">
-<div class="eyebrow">Cuban roots. Made to gather.</div>
-<h1>Añejo <strong>Catering Co.</strong></h1>
-<p class="lede">Slow-roasted lechón. Golden croquetas. Fresh Mediterranean-inspired bowls. Bring your favorites to the table.</p>
-<div class="hero-buttons"><a href="/order" class="btn btn-gold">Order Now</a><a href="/catering" class="btn btn-outline">Plan your catering</a></div>
-<a class="family-new" href="/cajita-builder">Personalize your Cajita →</a>
-</div></section>
-<section class="family-menu-paths"><div class="section-inner">
-<nav class="family-grid" aria-label="Explore the Añejo menu">
-<a class="family-tile" href="#catering-menu"><img src="/assets/img/menu-launch/home-catering.webp" alt="Añejo catering spread with Cuban small bites" width="800" height="800" fetchpriority="high"><div><span>For the whole gathering</span><h2>Añejo Catering</h2><p>Shared trays, party bites and individual Cajitas.</p><b>Explore catering →</b></div></a>
-<a class="family-tile" href="#traditional"><img src="/assets/img/menu-launch/lechon-meal.webp?v=congri2" alt="Lechón with congrí and fresh salad" width="800" height="800"><div><span>Comfort, with Cuban roots</span><h2>Añejo Traditional</h2><p>Lunch, dinner, croquetas, empanadas and dessert.</p><b>Explore Traditional →</b></div></a>
-<a class="family-tile" href="#menu"><img src="/assets/img/bowl_mar.jpg" alt="Añejo MAR salmon bowl" width="800" height="800"><div><span>Fresh flavor for your routine</span><h2>Añejo Fit</h2><p>Seven signature bowls, custom options and Fit drinks.</p><b>Explore Fit →</b></div></a>
-</nav></div></section>
+<!-- 2026-09-15 premium pass. The photos carry the page now: no green wash over the food, the original
+     Cormorant Garamond headlines, and La Cajita with its own button — it is the star, not a footnote. -->
+<section class="hero ahero" id="top" aria-label="Añejo Catering Co.">
+  <div class="ahero-slides" aria-hidden="true">
+    <figure class="ahero-slide is-active" data-label="La Cajita"><img src="/assets/img/menu-launch/cajitas-collection.webp" alt="" width="1200" height="1200" fetchpriority="high" decoding="async"></figure>
+    <figure class="ahero-slide" data-label="Catering"><img src="/assets/img/menu-launch/home-catering.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async"></figure>
+    <figure class="ahero-slide" data-label="Añejo Traditional"><img src="/assets/img/menu-launch/lechon-meal.webp?v=congri2" alt="" width="1200" height="1200" loading="lazy" decoding="async"></figure>
+    <figure class="ahero-slide" data-label="La Cajita · Christmas"><img src="/assets/img/cajita/themes/web/christmas.webp" alt="" width="1200" height="900" loading="lazy" decoding="async"></figure>
+    <figure class="ahero-slide" data-label="Añejo Fit"><img src="/assets/img/bowl_mar.jpg" alt="" width="760" height="760" loading="lazy" decoding="async"></figure>
+  </div>
+  <div class="section-inner ahero-inner">
+    <div class="eyebrow">Añejo Catering Co. · Palm Beach County</div>
+    <h1 class="ahero-title"><span class="ahero-line">For your everyday.</span><strong class="ahero-line">For everyone at your table.</strong></h1>
+    <p class="ahero-lede">Cuban comfort, Mediterranean freshness, and celebrations made by family.</p>
+    <div class="ahero-cta">
+      <a href="/order" class="btn btn-gold">Order Now</a>
+      <a href="/cajita-builder" class="btn ahero-star"><span class="ahero-new">New</span>Design your Cajita</a>
+      <a href="/catering" class="ahero-link">Plan an event →</a>
+    </div>
+  </div>
+  <div class="ahero-foot">
+    <span class="ahero-label" translate="no">La Cajita</span>
+    <button class="ahero-pause" type="button" aria-pressed="false" aria-label="Pause background"><span aria-hidden="true"></span></button>
+  </div>
+</section>
+
+<!-- ========================= LA CAJITA · THE STAR ========================= -->
+<!-- Moved up from the bottom of the page. Cajitas only: every photo here is a Cajita dressed for a holiday or
+     an occasion. These are theme presentations (the same set as /cajita's "See the possibilities"), captioned
+     by theme — never presented as a specific delivered order. -->
+<section class="cajita-star" id="cajitas" aria-labelledby="cajita-star-title">
+  <div class="section-inner">
+    <div class="cajita-star-grid">
+      <div class="cajita-show" data-cajita-show>
+        <div class="cajita-show-frame">
+          <img class="is-active" src="/assets/img/cajita/themes/web/anejo-signature.webp" alt="Two Añejo Signature Cajitas, one closed with its label and tag, one open with Cuban bites" width="1200" height="900" decoding="async" data-theme="Añejo Signature">
+          <img src="/assets/img/cajita/themes/web/christmas.webp" alt="Two Christmas Cajitas with pine and cranberry labels and holiday Cuban bites" width="1200" height="900" loading="lazy" decoding="async" data-theme="Christmas">
+          <img src="/assets/img/cajita/themes/web/valentines.webp" alt="Two Valentine’s Cajitas with rose labels and a romantic Cuban assortment" width="1200" height="900" loading="lazy" decoding="async" data-theme="Valentine’s Day">
+          <img src="/assets/img/cajita/themes/web/easter.webp" alt="Two spring Cajitas with lavender floral labels" width="1200" height="900" loading="lazy" decoding="async" data-theme="Easter &amp; Spring">
+          <img src="/assets/img/cajita/themes/web/patriotic.webp" alt="Two patriotic Cajitas in navy, cranberry, ivory and gold" width="1200" height="900" loading="lazy" decoding="async" data-theme="Patriotic">
+          <img src="/assets/img/cajita/themes/web/halloween.webp" alt="Two Halloween Cajitas with purple and orange packaging" width="1200" height="900" loading="lazy" decoding="async" data-theme="Halloween">
+          <img src="/assets/img/cajita/themes/web/gender-reveal.webp" alt="Two gender reveal Cajitas with pink and blue labels" width="1200" height="900" loading="lazy" decoding="async" data-theme="Gender Reveal">
+          <img src="/assets/img/cajita/themes/web/custom-occasion.webp" alt="Two custom occasion Cajitas with emerald and gold labels" width="1200" height="900" loading="lazy" decoding="async" data-theme="Custom Occasion">
+          <span class="cajita-show-cap" translate="no">Añejo Signature</span>
+        </div>
+        <div class="cajita-themes" role="group" aria-label="Cajita themes">
+          <button type="button" class="is-active" aria-pressed="true" data-go="0">Signature</button>
+          <button type="button" aria-pressed="false" data-go="1">Christmas</button>
+          <button type="button" aria-pressed="false" data-go="2">Valentine’s</button>
+          <button type="button" aria-pressed="false" data-go="3">Easter</button>
+          <button type="button" aria-pressed="false" data-go="4">Patriotic</button>
+          <button type="button" aria-pressed="false" data-go="5">Halloween</button>
+          <button type="button" aria-pressed="false" data-go="6">Gender reveal</button>
+          <button type="button" aria-pressed="false" data-go="7">Your occasion</button>
+        </div>
+      </div>
+      <div class="cajita-star-copy">
+        <div class="eyebrow">La Cajita · The star of the family</div>
+        <h2 id="cajita-star-title">One box.<br><em>Every celebration.</em></h2>
+        <p>A personal Cuban party box, dressed for your holiday or your moment, from the bites inside to the label on top.</p>
+        <ol class="cajita-steps-row">
+          <li><b>1</b>Choose the bites</li>
+          <li><b>2</b>Pick the theme</li>
+          <li><b>3</b>We make it yours</li>
+        </ol>
+        <div class="cajita-star-cta">
+          <a class="btn btn-gold" href="/cajita-builder">Design your Cajita</a>
+          <a class="ahero-link" href="/cajita">See every theme →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= CELEBRATIONS (CATERING) ========================= -->
+<!-- Big milestone orders, front and center. Each card opens the catering form already knowing the occasion.
+     Photos are Añejo food and Cajita themes, labelled by the occasion they suit — not captioned as that event. -->
+<section id="catering-menu" class="celebrate" aria-labelledby="celebrate-title">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="eyebrow">Añejo Catering</div>
+      <h2 id="celebrate-title">Your biggest moments.<br><strong>Our whole table.</strong></h2>
+      <p class="lede">Weddings to office lunches. Tell us the day, we bring the feast.</p>
+    </div>
+    <div class="celebrate-grid">
+      <a class="celebrate-card is-feature" href="/catering?occasion=wedding"><img src="/assets/img/menu-launch/tray-dressed.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async"><span>Weddings</span></a>
+      <a class="celebrate-card" href="/catering?occasion=quinceanera"><img src="/assets/img/menu-launch/home-catering.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async"><span>Quinceañeras</span></a>
+      <a class="celebrate-card" href="/catering?occasion=sweet-sixteen"><img src="/assets/img/menu-launch/cajitas-collection.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async"><span>Sweet sixteens</span></a>
+      <a class="celebrate-card" href="/catering?occasion=baby-shower"><img src="/assets/img/cajita/themes/web/gender-reveal.webp" alt="" width="1200" height="900" loading="lazy" decoding="async"><span>Baby showers &amp; gender reveals</span></a>
+      <a class="celebrate-card" href="/catering?occasion=birthday"><img src="/assets/img/cajita/pink-first-birthday-catering-spread.jpg" alt="" width="1800" height="1350" loading="lazy" decoding="async"><span>Birthdays</span></a>
+      <a class="celebrate-card" href="/catering?occasion=holiday"><img src="/assets/img/cajita/themes/web/christmas.webp" alt="" width="1200" height="900" loading="lazy" decoding="async"><span>Holiday dinners</span></a>
+      <a class="celebrate-card" href="/business"><img src="/assets/img/menu-launch/lechon-meal.webp?v=congri2" alt="" width="1200" height="1200" loading="lazy" decoding="async"><span>Corporate &amp; clinic lunches</span></a>
+    </div>
+    <div class="family-actions">
+      <a class="btn btn-gold" href="/catering">Plan your event</a>
+      <a class="chip-link" href="/order?category=catering">Shop catering trays</a>
+    </div>
+  </div>
+</section>
 
 
 <section id="traditional" class="family-section"><div class="section-inner"><div class="section-head"><div class="eyebrow">Añejo Traditional</div><h2>Cuban roots. <strong>Everyday comfort.</strong></h2><p class="lede">Make it a full meal, share a few bites, or finish with something sweet. Choose your flavors and quantities when you order.</p></div><div class="family-products">
-<a class="family-product" href="/order?category=meals&amp;product=combo-traditional-meal"><img src="/assets/img/menu-launch/lechon-meal.webp?v=congri2" alt="Lechón plate" width="600" height="600" loading="lazy"><div><h3>Lechón plate</h3><p>Roasted pork, congrí and fresh salad.</p><b>Choose & order →</b></div></a><a class="family-product" href="/order?category=meals&amp;product=ropa-vieja-meal"><img src="/assets/img/menu-launch/ropa-vieja-meal.webp" alt="Ropa vieja plate" width="600" height="600" loading="lazy"><div><h3>Ropa vieja plate</h3><p>Tender shredded beef, congrí and sweet maduros.</p><b>Choose & order →</b></div></a><a class="family-product" href="/order?category=appetizers"><img src="/assets/img/menu-launch/food-croq-pollo.webp" alt="Croquetas & empanadas" width="600" height="600" loading="lazy"><div><h3>Croquetas & empanadas</h3><p>Cuban small bites, with your choice of flavors and quantities.</p><b>Choose & order →</b></div></a><a class="family-product" href="/order?category=desserts"><img src="/assets/img/menu-launch/food-cup-fresa.webp" alt="Tres leches" width="600" height="600" loading="lazy"><div><h3>Tres leches</h3><p>A sweet finish in strawberry or chocolate.</p><b>Choose & order →</b></div></a></div><div class="family-actions"><a class="btn btn-gold" href="/order?category=meals">Shop lunch & dinner</a><a class="family-link" href="/order?category=appetizers">Appetizers →</a><a class="family-link" href="/order?category=desserts">Desserts →</a><a class="family-link" href="/order?category=sauces">Signature sauces →</a></div><p class="family-note">Traditional meals and catering are scheduled orders. Select your delivery details at checkout.</p></div></section>
-<section id="catering-menu" class="family-section family-catering"><div class="section-inner"><div class="section-head"><div class="eyebrow">Añejo Catering</div><h2>A little celebration.<br><strong>A table full of Añejo.</strong></h2><p class="lede">From team lunches to family celebrations, choose the format that brings everyone together.</p></div><div class="family-catering-grid"><img src="/assets/img/menu-launch/home-catering.webp" alt="Añejo catering trays of Cuban small bites" width="1200" height="1200" loading="lazy"><div class="family-catering-copy"><h3>Shared trays & party bites</h3><p>Lechón, congrí, tamales, cold salad, croquetas, empanadas and more. Browse tray sizes, piece counts and current prices in the catering menu.</p><a class="btn btn-gold" href="/order?category=catering">Shop catering trays</a><h3>Something more personal?</h3><p>Plan a celebration, coordinate a team meal or build individually packed Cajitas. Tell us your date, guest count and occasion for a tailored quote.</p><div class="family-actions"><a class="family-link" href="/catering">Plan your event →</a><a class="family-link" href="#cajitas">Discover La Cajita →</a></div></div></div></div></section>
+<a class="family-product" href="/order?category=meals&amp;product=combo-traditional-meal"><img src="/assets/img/menu-launch/lechon-meal.webp?v=congri2" alt="Lechón plate" width="600" height="600" loading="lazy"><div><h3>Lechón plate</h3><p>Roasted pork, congrí and fresh salad.</p><b>Choose & order →</b></div></a><a class="family-product" href="/order?category=meals&amp;product=ropa-vieja-meal"><img src="/assets/img/menu-launch/ropa-vieja-meal.webp" alt="Ropa vieja plate" width="600" height="600" loading="lazy"><div><h3>Ropa vieja plate</h3><p>Tender shredded beef, congrí and sweet maduros.</p><b>Choose & order →</b></div></a><a class="family-product" href="/order?category=appetizers"><img src="/assets/img/menu-launch/food-croq-pollo.webp" alt="Croquetas & empanadas" width="600" height="600" loading="lazy"><div><h3>Croquetas & empanadas</h3><p>Cuban small bites, with your choice of flavors and quantities.</p><b>Choose & order →</b></div></a><a class="family-product" href="/order?category=desserts"><img src="/assets/img/menu-launch/food-cup-fresa.webp" alt="Tres leches" width="600" height="600" loading="lazy"><div><h3>Tres leches</h3><p>A sweet finish in strawberry or chocolate.</p><b>Choose & order →</b></div></a></div><div class="family-actions is-stacked"><a class="btn btn-gold" href="/order?category=meals">Shop lunch &amp; dinner</a><div class="chip-row"><a class="chip-link" href="/order?category=appetizers">Appetizers</a><a class="chip-link" href="/order?category=desserts">Desserts</a><a class="chip-link" href="/order?category=sauces">Signature sauces</a><a class="chip-link" href="/menu">View the Menu</a></div></div><p class="family-note">Traditional meals and catering are scheduled orders. Select your delivery details at checkout.</p></div></section>
 <section id="menu">
-<div class="family-actions"><a class="btn btn-gold" href="/order?category=fit">Customize your bowl</a><a class="family-link" href="/subscribe">Weekly Plans</a></div>
 
   <div class="section-inner">
     <div class="section-head">
       <div class="eyebrow">Añejo Fit · Signature bowls</div>
       <h2>Seven bowls. <strong>One philosophy.</strong></h2>
-      <div style="display:inline-flex;align-items:center;gap:8px;margin:2px 0 16px;background:var(--green);color:var(--cream);font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:9px 18px;border-radius:999px;border:1px solid var(--gold)">🌿 Cooked and delivered fresh daily</div>
-      <p class="lede">16 oz bowl · 2 oz signature sauce on the side · 3-day fridge shelf · microwave + cold friendly · nuts removable · dairy-free swaps available · target macros 40% protein / 30% carbs / 30% fat. Per-bowl nutrition is approximate.</p>
+      <ul class="fit-facts" aria-label="Every Añejo Fit bowl"><li>Cooked &amp; delivered fresh daily</li><li>16 oz bowl</li><li>Sauce on the side</li><li>3-day fridge life</li><li>40 / 30 / 30 macros</li></ul>
+      <div class="family-actions"><a class="btn btn-gold" href="/order?category=fit">Customize your bowl</a><a class="chip-link" href="/subscribe">Weekly Plans</a></div>
     </div>
 
     <div class="menu-grid">
@@ -1010,45 +1051,6 @@ footer {
 </section>
 
 <!-- ========================= SERVICES ========================= -->
-<section class="hero family-cajita" id="cajitas">
-  <div class="hero-content">
-    <div class="cajita-firstscreen" aria-labelledby="cajita-hero-heading">
-      <div class="cajita-gallery" aria-label="Añejo Cajita event photography" data-cajita-gallery>
-        <img class="is-active" src="/assets/img/cajita/event-gallery/event-1.jpg" alt="Añejo Cajitas arranged for an event" width="900" height="700">
-        <img src="/assets/img/cajita/event-gallery/event-4.jpg" alt="Añejo Cajita event table" width="900" height="700">
-        <img src="/assets/img/cajita/themes/anejo-signature.jpg" alt="Añejo signature theme presentation" width="900" height="700">
-        <img src="/assets/img/cajita/themes/custom-occasion.jpg" alt="Custom occasion Cajita theme presentation" width="900" height="700">
-        <button class="cajita-gallery-pause" type="button" data-cajita-pause aria-pressed="false">Pause gallery</button>
-        <span class="cajita-gallery-caption">Cajita inspiration · presentation varies</span>
-      </div>
-      <div class="cajita-hero-copy">
-        <div class="cajita-kicker">La Cajita · The newest addition to our family</div>
-        <h2 id="cajita-hero-heading">One thoughtful box.<br><strong>Your occasion.</strong></h2>
-        <p class="hero-tagline">Individually packed Cuban meal boxes for teams, celebrations, and gatherings across Palm Beach County.</p>
-        <div class="cajita-hero-actions"><a class="btn btn-gold" href="/cajita-builder">Design your Cajita</a><a class="btn btn-outline" href="/catering">Request catering</a></div>
-        <div class="hero-seal">PBC · HERITAGE CRAFTED · FRESH NEVER FROZEN</div>
-      </div>
-    </div>
-    <div class="hero-buttons">
-      <a href="/order" class="btn btn-gold">Order Now</a>
-      <a href="/catering" class="btn btn-outline">Request Catering</a>
-      <a href="/subscribe" class="btn btn-outline">Weekly Plans</a>
-      <a href="#menu" class="btn btn-outline">View the Menu</a>
-    </div>
-    <div class="cajita-hero" aria-labelledby="cajita-process-heading">
-      <div class="cajita-hero-copy">
-        <div class="cajita-kicker">La Cajita · built for your gathering</div>
-        <h2 id="cajita-process-heading">Choose the feeling. We’ll shape the box.</h2>
-        <p>Choose the bites, set the feeling, and tell us what your group needs. We’ll review the details and shape the menu with you.</p>
-        <div class="cajita-steps" aria-label="How La Cajita works">
-          <span class="cajita-step">01 · Choose bites</span><span class="cajita-step">02 · Set the theme</span><span class="cajita-step">03 · Request a quote</span>
-        </div>
-        <div class="cajita-hero-actions"><a class="btn btn-gold" href="/cajita-builder">Design your Cajita</a><a class="btn btn-outline" href="/catering">Request catering</a></div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- ===================== MACRO CALCULATOR ===================== -->
 <section id="calculator" class="macrohero">
   <style>
@@ -1141,15 +1143,25 @@ footer {
 <section class="story" id="story">
   <div class="section-inner">
     <div class="section-head">
-      <div class="eyebrow">The Story Behind the Brand</div>
-      <h2>It started with <strong>family</strong>.</h2>
+      <div class="eyebrow">Our Story</div>
+      <h2>It all started <strong>with the croqueta.</strong></h2>
     </div>
-    <div class="story-body">
-      <p>Añejo Catering Co. was created out of a real moment in our family — my mom received a difficult diagnosis, and at the same time I was changing how I trained, ate, and lived. We needed food that supported her health AND tasted like home. Nothing on the market did both.</p>
-      <p class="pull">"We weren't going to choose between flavor and longevity. So we built something that doesn't make you."</p>
-      <p>What grew from that necessity is Añejo today: a premium Cuban-American food brand designed to support a healthier lifestyle, inspired by Mediterranean-style eating patterns associated with heart health and longevity, made with nutrient-conscious ingredients — and grounded in the flavor, texture, and soul of authentic Cuban cooking.</p>
-      <p>From handcrafted bowls to signature bites, every plate is built with intention. Healthy doesn't have to taste like a cleanse. It can taste like home.</p>
-      <div class="story-sig">— DAYAN DIAZ, FOUNDER</div>
+    <div class="story-body story-v2">
+      <p class="story-lead">Añejo is my mom’s nickname. It is what our family called her while I was growing up.</p>
+      <p>The word means aged: something that only gets better with time. Any rum or tequila worth pouring says Añejo on the label. If it isn’t Añejo, why are we even drinking it? People are the same. My mom feels better and looks better with time. We gain experience, we grow wiser, and we are meant to enjoy more.</p>
+      <p>After years apart, I was finally able to bring my mom from Cuba to the United States, to give her the life she couldn’t have there and to get back the years we lost.</p>
+      <p>The night my friends came over to meet her, she made croquetas, and everyone went crazy for them. That night I dreamed we were selling her croquetas. The next morning, having coffee on our balcony with our dog Zeus, we looked at each other and already knew. She had the same dream. I said, let’s do it. From that little balcony we started planning: we are going to sell your croquetas, and the sky is the limit.</p>
+      <p>Through the criticism, the ups and downs, and everyone who didn’t believe in us, here we are. Añejo grows every day, bringing people together around good food, good flavor, and good company. And it is my way of always having my mom with me.</p>
+      <ul class="story-litany">
+        <li>Añejo isn’t a croqueta business. It isn’t a catering business. It isn’t a food business.</li>
+        <li>Añejo is a feeling.</li>
+        <li>Añejo is memories, love, and care.</li>
+        <li>Añejo is tradition. Añejo is bold.</li>
+        <li>Añejo is family.</li>
+        <li>Añejo is my mom.</li>
+        <li><strong>Añejo is my story.</strong></li>
+      </ul>
+      <div class="story-sig">Dayan Diaz, Founder</div>
     </div>
   </div>
 </section>
@@ -1162,31 +1174,13 @@ footer {
       <div class="eyebrow">How We Serve</div>
       <h2>Built for <strong>every plate</strong> in your life.</h2>
     </div>
-    <div class="services-grid">
-      <div class="service">
-        <h3>Weekly Meal Plans</h3>
-        <p>Fresh bowls delivered on your schedule. Sub-models for high-performers, longevity-focused clients, and busy professionals.</p>
-      </div>
-      <div class="service">
-        <h3>Corporate Lunch</h3>
-        <p>Weekly programs for offices, clinics, and workspaces. Volume tiers from 10 bowls to 50+. Recurring or on-demand.</p>
-      </div>
-      <div class="service">
-        <h3>Private Events</h3>
-        <p>Plated catering for private functions, board dinners, weddings, country club events. Custom menus available with lead time.</p>
-      </div>
-      <div class="service">
-        <h3>Delivery</h3>
-        <p>On-demand delivery across Palm Beach County. Premium bowls, signature bites, and the Añejo Fit drink line — Monday–Saturday, lunch &amp; dinner windows.</p>
-      </div>
-      <div class="service">
-        <h3>Gym &amp; Clinic Programs</h3>
-        <p>White-glove meal programs for high-performance gyms and wellness clinics. Macro-targeted plans your members or patients can subscribe to.</p>
-      </div>
-      <div class="service">
-        <h3>Wholesale (Bites)</h3>
-        <p>Áñejo Bites for kava bars, cafés, food halls. Reheat-and-serve format. See the Wholesale section below.</p>
-      </div>
+    <div class="serve-grid">
+      <a class="serve-card" href="/subscribe"><img src="/assets/img/bowl_vida.jpg" alt="" width="760" height="760" loading="lazy" decoding="async"><div><h3>Weekly Meal Plans</h3><p>Fresh bowls on your schedule.</p><span class="serve-go">Start a plan</span></div></a>
+      <a class="serve-card" href="/business"><img src="/assets/img/menu-launch/lechon-meal.webp?v=congri2" alt="" width="1200" height="1200" loading="lazy" decoding="async"><div><h3>Corporate &amp; Clinic Lunch</h3><p>Daily lunch for your team, sized to the morning count.</p><span class="serve-go">For offices</span></div></a>
+      <a class="serve-card" href="/catering"><img src="/assets/img/cajita/pink-first-birthday-full-table.jpg" alt="" width="1350" height="1800" loading="lazy" decoding="async"><div><h3>Private Events</h3><p>Weddings, milestones and every celebration in between.</p><span class="serve-go">Plan an event</span></div></a>
+      <a class="serve-card" href="/cajita"><img src="/assets/img/cajita/themes/web/custom-occasion.webp" alt="" width="1200" height="900" loading="lazy" decoding="async"><div><h3>La Cajita</h3><p>One personal box, dressed for your occasion.</p><span class="serve-go">See the themes</span></div></a>
+      <a class="serve-card" href="/order"><img src="/assets/img/bowl_mar.jpg" alt="" width="760" height="760" loading="lazy" decoding="async"><div><h3>Delivery</h3><p>Across Palm Beach County, lunch and dinner.</p><span class="serve-go">Order now</span></div></a>
+      <a class="serve-card" href="/business"><img src="/assets/img/fit_emerald.jpg" alt="" width="900" height="1124" loading="lazy" decoding="async"><div><h3>Gym &amp; Wellness Programs</h3><p>Macro-targeted plans for members and patients.</p><span class="serve-go">Partner with us</span></div></a>
     </div>
   </div>
 </section>
@@ -1251,7 +1245,6 @@ footer {
           <option>Corporate lunch program</option>
           <option>Private event catering</option>
           <option>Gym / wellness clinic partnership</option>
-          <option>Wholesale (Añejo Bites)</option>
           <option>Just curious</option>
         </select>
       </div>
@@ -1263,58 +1256,6 @@ footer {
 
       <button type="submit" class="btn btn-gold">Send Request</button>
     </form>
-  </div>
-</section>
-
-<!-- ========================= WHOLESALE ========================= -->
-<section class="wholesale" id="wholesale">
-  <div class="section-inner">
-    <div class="wholesale-row">
-      <div class="wholesale-text">
-        <div class="eyebrow" style="color: var(--green); margin-bottom: 16px;">Añejo Bites · B2B</div>
-        <h3>Premium Cuban-Latin bites for your venue.</h3>
-        <p>Built for kava bars, cafés, lounges, and food halls. Ships frozen, ready-to-finish. No culinary team needed — your staff just air-fries, plates, and serves.</p>
-        <p>We handle the brand, the quality, the recipes. You handle the regulars.</p>
-        <p class="meta">Pilot territories available in Palm Beach County</p>
-      </div>
-      <div class="wholesale-card">
-        <h4>Phase 1 Menu</h4>
-        <ul>
-          <li>Chicken Croqueta <strong>$1.00 ea</strong></li>
-          <li>Beef Croqueta <strong>$1.00 ea</strong></li>
-          <li>Tropical Bomb <strong>$2.50 ea</strong></li>
-          <li>Guava &amp; Cheese Empanada <strong>$2.50 ea</strong></li>
-          <li>Tres Leches Cup <strong>$3.00 ea</strong></li>
-          <li>Signature Sauces (2 oz) <strong>$0.50 ea</strong></li>
-        </ul>
-        <p class="bites-sauce-line">Bites signature sauces: Añejo Signature Sauce, Ajo Cítrico Dip, Cilantro Lime Crema, Pineapple Chile Dip, Spicy Añejo Aioli, Spinach Goodness.</p>
-        <p style="font-size: 12px; color: var(--muted); margin-top: 16px;">Partner minimum 50% markup at retail. Tiered exclusivity available.</p>
-        <form class="wholesale-form" onsubmit="return submitWholesale(event)" style="margin-top:18px">
-          <div class="form-group"><label for="w_company">Venue / business</label><input type="text" id="w_company" name="company" required></div>
-          <div class="form-group"><label for="w_name">Your name</label><input type="text" id="w_name" name="name" required></div>
-          <div class="form-group"><label for="w_email">Email</label><input type="email" id="w_email" name="email" required></div>
-          <div class="form-group"><label for="w_phone">Phone</label><input type="tel" id="w_phone" name="phone"></div>
-          <div class="form-group"><label for="w_volume">Estimated weekly volume</label><input type="text" id="w_volume" name="message" placeholder="e.g. 200 croquetas/week"></div>
-          <div class="form-group sms-optin" style="background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:12px 14px">
-            <label style="display:flex;gap:10px;align-items:flex-start;font-weight:400;cursor:pointer">
-              <input type="checkbox" id="w_sms_consent" name="sms_consent" style="margin-top:3px;width:auto;flex:none">
-              <span data-i18n>Yes, text me order &amp; delivery updates from Añejo Catering Co. at this number.</span>
-            </label>
-            <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b7269" data-i18n>Message frequency varies — you may receive a text for each order and delivery. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
-          </div>
-          <!-- SEPARATE marketing permission — see the note on the tasting form above. Transactional
-               consent (the box above) can never be reused for promotions under the TCPA. -->
-          <div class="form-group sms-optin" style="background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:12px 14px">
-            <label style="display:flex;gap:10px;align-items:flex-start;font-weight:400;cursor:pointer">
-              <input type="checkbox" id="w_marketing_sms_consent" name="marketing_sms_consent" style="margin-top:3px;width:auto;flex:none">
-              <span data-i18n>Yes, text me exclusive offers and promotions from Añejo Catering Co. at this number.</span>
-            </label>
-            <p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b7269" data-i18n>Separate from order updates — this is marketing. By checking this box you agree to receive recurring automated promotional text messages (about 2–4 per month) at the number provided. Consent is not a condition of any purchase. Message &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. See our <a href="/legal/terms#sms">Terms of Service</a> &amp; <a href="/legal/privacy">Privacy Policy</a>.</p>
-          </div>
-          <button type="submit" class="btn btn-gold" style="width:100%">Start a Wholesale Conversation</button>
-        </form>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -1429,7 +1370,7 @@ footer {
         <img class="logo-emblem" src="/assets/img/emblem.png" alt="Añejo emblem" width="400" height="382">
         <span>AÑEJO</span>
       </a>
-      <p>Premium Cuban-American longevity bowls, catering, and wholesale bites. Made in Palm Beach County, Florida. Inspired by family. Built for legacy.</p>
+      <p>Premium Cuban-American longevity bowls, catering, and Cuban party bites. Made in Palm Beach County, Florida. Inspired by family. Built for legacy.</p>
     </div>
     <div class="footer-col">
       <h5>Service Area</h5>
@@ -1452,7 +1393,6 @@ footer {
       <a href="/meal-prep/">Delivery Areas</a>
       <a href="#fit">Añejo Fit</a>
       <a href="#faq">FAQ</a>
-      <a href="#wholesale">Wholesale</a>
       <a href="/business">For Business &amp; Offices</a>
       <a href="/affiliate">Affiliate Program</a>
       <a href="#tasting">Tasting Request</a>
@@ -1516,47 +1456,6 @@ async function submitTasting(e) {
   return false;
 }
 
-async function submitWholesale(e) {
-  e.preventDefault();
-  const f = e.target;
-  const lang = (window.AnejoLang && window.AnejoLang.get() === 'es') ? 'es' : 'en';
-  const get = (n) => (f.elements[n] ? f.elements[n].value.trim() : '');
-  const data = {
-    kind: 'wholesale', lang, interest: 'Añejo Bites wholesale',
-    company: get('company'), name: get('name'), email: get('email'),
-    phone: get('phone'), message: get('message'),
-    sms_consent: !!(f.elements['sms_consent'] && f.elements['sms_consent'].checked),
-    marketing_sms_consent: !!(f.elements['marketing_sms_consent'] && f.elements['marketing_sms_consent'].checked),
-  };
-  const btn = f.querySelector('button[type=submit]');
-  const label = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = lang === 'es' ? 'Enviando…' : 'Sending…'; }
-
-  const mailtoFallback = () => {
-    const subject = encodeURIComponent('Wholesale Inquiry — Añejo Bites · ' + (data.company || data.name));
-    const body = encodeURIComponent(
-      'Venue / business: ' + (data.company || '—') + '\nName: ' + data.name + '\nEmail: ' + data.email +
-      '\nPhone: ' + (data.phone || '—') + '\nEstimated weekly volume: ' + (data.message || '—') + '\n');
-    window.location.href = 'mailto:dayan@anejocateringco.com?subject=' + subject + '&body=' + body;
-  };
-
-  try {
-    const r = await fetch('/api/leads', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
-    });
-    if (!r.ok) throw new Error('not ok');
-    if (window.gtag) window.gtag('event', 'generate_lead', { form_id: 'wholesale' });
-    f.innerHTML = '<h4 style="color:var(--gold-dark)">' + (lang === 'es' ? '¡Gracias!' : 'Thank you!') +
-      '</h4><p style="font-size:13px;color:var(--muted);margin-top:6px">' +
-      (lang === 'es'
-        ? 'Recibimos tu solicitud de mayoreo. Te contactaremos en 1 día hábil.'
-        : 'We received your wholesale inquiry and will reach out within 1 business day.') + '</p>';
-  } catch (_) {
-    if (btn) { btn.disabled = false; btn.textContent = label; }
-    mailtoFallback();
-  }
-  return false;
-}
 
 // Accessible mobile navigation state.
 const navBurger = document.getElementById('navBurger');
@@ -1621,7 +1520,6 @@ document.querySelectorAll('#navLinks a').forEach(a => {
   <script src="/assets/js/motion.js" defer></script>
   <script src="/assets/js/fuelcore.js" defer></script>
   <script src="/assets/js/logo-life.js" defer></script>
-  <script src="/assets/js/cajita-hero.js?v=20260908-bilingual" defer></script>
-<script src="/assets/js/home-background.js" defer></script>
+<script src="/assets/js/home-premium.js?v=20260915a" defer></script>
 </body>
 </html>

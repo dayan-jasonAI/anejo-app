@@ -8,6 +8,7 @@
 // Files under functions/_lib are NOT routed.
 import { id, now, today, toJson, parseJson, etMidnightMs, addEtDays, etDateOf } from './hub.js';
 import { runBalanceReminders } from './catering_balance_reminder.js';
+import { runHolidayNotices } from './holiday_notices.js';
 import { randToken } from './util.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { loadOperating } from './operating.js';
@@ -19,6 +20,7 @@ import { retrieve, formatPassages } from './knowledge.js';
 import { getCadenceConfig } from './social_cadence.js';
 import { getPostingTimes, assignSlot, weekdayIndexOf } from './posting_times.js';
 import { trainingContext } from './training.js';
+import { effectivePayBasis, hourlyPayCents } from './timesheet.js';
 
 // §3 of the brief — the three product lines. Fed to the planner SEPARATELY from the voice
 // excerpts because of Dayan's decision #6: the standing objective is that people know EVERYTHING
@@ -199,7 +201,7 @@ import { TRUST_CATEGORIES, captionHash, autoPublishCategories } from './trust_le
 import { ensureFoodPhoto } from './food_photo.js';
 
 const MODEL = 'claude-sonnet-5';
-export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan', 'balance_reminder'];
+export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan', 'balance_reminder', 'holiday_notice'];
 
 // Char cap on the brand brief injected into the planner's prompt — same ceiling the Team Lead
 // carries (brand_source.js), so the planner never sees LESS of the owner's live brief than the
@@ -745,7 +747,7 @@ async function payrollPrep(env, date) {
   const shifts = await rows(
     env,
     "SELECT sh.staff_id, sh.clock_in_at, sh.clock_out_at, sh.total_minutes, sh.break_minutes, " +
-    'st.name, st.role, st.pay_rate_cents ' +
+    'st.name, st.role, st.pay_rate_cents, st.pay_basis ' +
     "FROM shifts sh JOIN staff st ON st.id = sh.staff_id " +
     "WHERE sh.status='closed' AND sh.clock_in_at >= ? ORDER BY sh.staff_id",
     since
@@ -758,7 +760,7 @@ async function payrollPrep(env, date) {
   for (const sh of shifts) {
     let agg = byStaff.get(sh.staff_id);
     if (!agg) {
-      agg = { staff_id: sh.staff_id, name: sh.name || sh.staff_id, role: sh.role || null, pay_rate_cents: sh.pay_rate_cents || null, minutes: 0, break_minutes: 0 };
+      agg = { staff_id: sh.staff_id, name: sh.name || sh.staff_id, role: sh.role || null, pay_rate_cents: sh.pay_rate_cents || null, pay_basis: effectivePayBasis(sh, true), minutes: 0, break_minutes: 0 };
       byStaff.set(sh.staff_id, agg);
     }
     let mins = Number(sh.total_minutes);
@@ -775,7 +777,10 @@ async function payrollPrep(env, date) {
       role: a.role,
       hours,
       break_minutes: a.break_minutes,
-      est_pay_cents: a.pay_rate_cents ? Math.round(hours * a.pay_rate_cents) : null,
+      pay_basis: a.pay_basis,
+      // Hourly staff only — the owner's per-person decision (_lib/timesheet.js). A per-route driver
+      // is paid by their routes, so an hourly estimate here would count their work twice.
+      est_pay_cents: a.pay_basis === 'hourly' && a.pay_rate_cents ? hourlyPayCents(a.minutes, a.pay_rate_cents) : null,
     };
   }).sort((x, y) => y.hours - x.hours);
   const totalHours = Math.round(table.reduce((s, r) => s + r.hours, 0) * 10) / 10;
@@ -1158,8 +1163,24 @@ const balanceReminder = async (env, date) => {
   };
 };
 
+// Federal-holiday notices to contract accounts: ask whether the program is open, and warn at least
+// seven days ahead when Añejo's own kitchen is shut. Runs daily and is safe to run daily forever —
+// like the balance reminders, the once-only guarantee is a UNIQUE index, not this scheduler's
+// discipline, because a scheduler can be retried and a database constraint cannot be talked out of it.
+const holidayNotice = async (env) => {
+  const r = await runHolidayNotices(env, {});
+  return {
+    outcome: r.ok === false ? 'failed' : 'success',
+    summary: r.skipped ? String(r.skipped)
+      : `${r.messages} message(s) sent, reaching ${r.by_channel.email.sent} location(s) by email and ${r.by_channel.sms.sent} by text; `
+        + `${r.no_recipient} with no address, ${r.withheld} withheld (opted out or not configured), ${r.failed} failed`,
+    detail: r,
+  };
+};
+
 const RUNNERS = {
   balance_reminder: balanceReminder,
+  holiday_notice: holidayNotice,
   social_plan: socialPlan,
   daily_summary: dailySummary,
   eod_chase: eodChase,

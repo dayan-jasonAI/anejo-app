@@ -3,8 +3,10 @@
 import { json, bad, randToken, now, id, isEmail, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
-import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite, createInvoicePaymentLink } from '../../../_lib/contract.js';
+import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite, createInvoicePaymentLink, DOW_NAMES, MAX_ROTATION_WEEKS, isIsoMonday, mondayOf, addDaysIso, etDate, rotationWeekFor, quoteContractDay } from '../../../_lib/contract.js';
 import { capture } from '../../../_lib/track.js';
+import { holidayOutlook, loadHolidaySettings, MIN_CLOSURE_LEAD_DAYS } from '../../../_lib/holiday_notices.js';
+import { OBSERVANCE_KEYS, daysUntil, upcomingObservances } from '../../../_lib/holidays.js';
 
 // The edit-terms / invoice-lifecycle helpers below live here rather than in _lib/contract.js
 // because they are owner-desk-only: nothing on the public intake path (/lunch-count) may reach
@@ -101,10 +103,27 @@ function zipField(raw) {
 // Identity, address and schedule are per-location by nature and require an explicit site_id —
 // broadcasting a street address to every clinic on the account would be silent data loss.
 const TERM_COLS = ['price_per_lunch_cents', 'delivery_fee_cents', 'rush_fee_cents', 'cutoff_time'];
-const SITE_COLS = ['name', 'street', 'unit', 'city', 'state', 'zip', 'delivery_days', 'window_label', 'delivery_window', 'active'];
+const SITE_COLS = ['name', 'street', 'unit', 'city', 'state', 'zip', 'delivery_days', 'window_label', 'delivery_window', 'active', 'ops_email'];
 const ADDRESS_COLS = ['street', 'unit', 'city', 'state', 'zip'];
 const termsOf = (s) => [...TERM_COLS, ...SITE_COLS].reduce((o, k) => { o[k] = s ? s[k] : null; return o; }, {});
 const actorOf = (ctx) => (ctx && (ctx.email || ctx.distinct_id)) || null;
+
+// The person who decides whether a location runs on a holiday (functions/_lib/holiday_notices.js).
+// It rides edit_terms rather than a new op so the change lands in the same audited terms history as
+// every other location field. Blank CLEARS it, which sends holiday email back to the account's
+// billing inbox — never to nobody.
+function opsEmailField(raw) {
+  if (raw === undefined) return { skip: true };
+  // Several people are allowed. DGP wants its accountant AND an owner on the same holiday email, so that
+  // whoever sees it first answers. Commas, semicolons or spaces between them; stored as "a, b".
+  const parts = String(raw == null ? '' : raw).split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+  if (!parts.length) return { v: null };
+  const wrong = parts.filter((x) => !isEmail(x));
+  if (wrong.length) return { err: `Ops email: "${wrong[0]}" does not look like a valid email address.` };
+  const uniq = [...new Set(parts)];
+  if (uniq.length > 5) return { err: 'Ops email: five addresses at most.' };
+  return { v: uniq.join(', ') };
+}
 
 // Append-only terms history (migrations/0046). Best-effort on purpose: if that migration has NOT
 // been applied the table is missing, and losing the owner's rate change over a missing audit row
@@ -146,6 +165,7 @@ async function updateTerms(env, ctx, b) {
     window_label: textField(b.window_label, 'Delivery time', 40, { required: true }),
     delivery_window: windowField(b.delivery_window),
     active: activeField(b.active),
+    ops_email: opsEmailField(b.ops_email),
   };
   for (const f of Object.values(fields)) if (f.err) return { ok: false, error: f.err };
 
@@ -197,6 +217,208 @@ async function updateTerms(env, ctx, b) {
   // New terms are forward-looking only: contract_orders snapshots price/fees on every submitted
   // day, so already-counted (and already-invoiced) days are never re-priced behind the client.
   return { ok: true, sites: sites.length, after, ...(audited ? {} : { degraded: 'terms_audit_unavailable' }) };
+}
+
+// ---------- the weekly office menu (migrations/0111) ----------
+//
+// The dishes, the number of rotation weeks, the Monday the rotation starts and any per-dish price
+// are the OWNER'S decisions. Nothing here proposes one: an empty day stays empty and resolves to
+// the old "<Account> Lunch — <Day>" name at the site's price.
+//
+// Owner-only by construction — these ops sit behind requireRole(['owner']) above, and the menu's
+// prices never travel to /lunch-count (see siteContext in _lib/contract.js, which returns the dish
+// NAME only).
+const MENU_NAME_MAX = 80;
+const MENU_NOTES_MAX = 200;
+const MENU_PREVIEW_DAYS = 14;
+const DOW_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const slotKey = (wk, dow) => `W${wk} ${DOW_SHORT[dow - 1]}`;
+const slotOf = (r) => ({
+  item_name: r.item_name || null, item_name_es: r.item_name_es || null, notes: r.notes || null,
+  price_per_lunch_cents: r.price_per_lunch_cents == null ? null : Number(r.price_per_lunch_cents),
+});
+
+// Everything the editor and the two-week preview need, for one account. `atMs` is the one clock
+// for the whole read.
+async function menuPayload(env, accountId, atMs) {
+  let account = null;
+  try {
+    account = await env.DB.prepare('SELECT id, name, rotation_weeks, rotation_start_date FROM contract_accounts WHERE id = ?').bind(accountId).first();
+  } catch {
+    return { ok: false, error: 'The weekly menu needs migration 0111 applied before it can be used.' };
+  }
+  if (!account) return { ok: false, error: 'Account not found.' };
+
+  let rows = [];
+  try {
+    rows = ((await env.DB.prepare(
+      'SELECT rotation_week, dow, item_name, item_name_es, notes, price_per_lunch_cents, updated_at, updated_by FROM contract_menu WHERE account_id = ? ORDER BY rotation_week, dow'
+    ).bind(accountId).all()).results) || [];
+  } catch { rows = []; }
+  let sites = [];
+  try { sites = ((await env.DB.prepare('SELECT * FROM contract_sites WHERE account_id = ? ORDER BY name').bind(accountId).all()).results) || []; } catch { sites = []; }
+  const live = sites.filter((s) => Number(s.active) !== 0);
+
+  const today = etDate(atMs);
+  const weeks = Number(account.rotation_weeks) || Math.max(1, ...rows.map((r) => Number(r.rotation_week) || 1));
+  // The anchor a save would use right now, so "this week" on the page is the week the office gets.
+  const start = account.rotation_start_date || mondayOf(today);
+  const thisMonday = mondayOf(today);
+
+  // The weekdays the editor offers: every day at least one live location receives lunch.
+  const dowSet = new Set();
+  for (const s of (live.length ? live : sites)) for (const d of parseDeliveryDays(s.delivery_days)) dowSet.add(DOW_NAMES.indexOf(d) + 1);
+  const dows = [...dowSet].sort((a, b) => a - b);
+
+  // Kitchen closures the owner has chosen (holiday settings), by observed date.
+  const closed = {};
+  try {
+    const hs = await loadHolidaySettings(env);
+    for (const h of upcomingObservances(atMs, MENU_PREVIEW_DAYS + 1)) {
+      if (hs.kitchen_closed.includes(h.key)) closed[h.observed] = h.name;
+    }
+  } catch { /* a preview without closures is still a correct preview of dishes and prices */ }
+
+  // The next two weeks per live location, priced by the SAME rule a head count uses.
+  const preview = [];
+  for (const s of live) {
+    const delivers = parseDeliveryDays(s.delivery_days);
+    const days = [];
+    for (let i = 0; i < MENU_PREVIEW_DAYS; i++) {
+      const date = addDaysIso(today, i);
+      const dow = (new Date(date + 'T12:00:00Z').getUTCDay() + 6) % 7 + 1;
+      if (!delivers.includes(DOW_NAMES[dow - 1])) continue;
+      const q = await quoteContractDay(env, { site: s, account, date, headcount: 0, isRush: false });
+      days.push({
+        date, weekday: DOW_SHORT[dow - 1], week: q.week, dish: q.item, dish_es: q.item_es, dish_set: q.dish_set,
+        price_per_lunch_cents: q.pricePer, price_source: q.priceSource, kitchen_closed: closed[date] || null,
+      });
+    }
+    preview.push({ site_id: s.id, site_name: s.name, days });
+  }
+
+  return {
+    ok: true, account_id: account.id,
+    weeks, max_weeks: MAX_ROTATION_WEEKS,
+    rotation_start_date: account.rotation_start_date || null, effective_start: start,
+    today, this_week: rotationWeekFor(today, start, weeks),
+    next_week: rotationWeekFor(addDaysIso(thisMonday, 7), start, weeks),
+    this_monday: thisMonday, next_monday: addDaysIso(thisMonday, 7),
+    dows, rows: rows.map((r) => ({ rotation_week: Number(r.rotation_week) || 1, dow: Number(r.dow), ...slotOf(r), updated_at: r.updated_at || null, updated_by: r.updated_by || null })),
+    preview,
+  };
+}
+
+// Replace an account's whole menu with what the editor sent. Validates everything before writing
+// anything, writes in ONE batch (all or nothing), then records what changed.
+async function saveMenu(env, ctx, b) {
+  const t = now();
+  let account = null;
+  try {
+    account = await env.DB.prepare('SELECT id, rotation_weeks, rotation_start_date FROM contract_accounts WHERE id = ?').bind(b.account_id).first();
+  } catch {
+    return { ok: false, error: 'The weekly menu needs migration 0111 applied before it can be saved.' };
+  }
+  if (!account) return { ok: false, error: 'Account not found.' };
+
+  const weeks = Number(b.weeks);
+  if (!Number.isInteger(weeks) || weeks < 1 || weeks > MAX_ROTATION_WEEKS) {
+    return { ok: false, error: `Choose between 1 and ${MAX_ROTATION_WEEKS} rotation weeks.` };
+  }
+  let start;
+  if (b.rotation_start_date === undefined || b.rotation_start_date === null || String(b.rotation_start_date).trim() === '') {
+    start = account.rotation_start_date || mondayOf(etDate(t));
+  } else {
+    start = String(b.rotation_start_date).trim();
+    if (!isIsoMonday(start)) return { ok: false, error: 'Week 1 must start on a Monday (pick a Monday date).' };
+  }
+  if (!Array.isArray(b.rows)) return { ok: false, error: 'Missing the menu rows.' };
+  if (b.rows.length > weeks * 7) return { ok: false, error: 'More menu rows than days in the rotation.' };
+
+  const clean = [];
+  const seen = new Set();
+  for (const [i, r] of b.rows.entries()) {
+    const wk = Number(r && r.rotation_week);
+    const dow = Number(r && r.dow);
+    if (!Number.isInteger(wk) || wk < 1 || wk > weeks) return { ok: false, error: `Row ${i + 1}: the week must be between 1 and ${weeks}.` };
+    if (!Number.isInteger(dow) || dow < 1 || dow > 7) return { ok: false, error: `Row ${i + 1}: the day must be 1 (Monday) to 7 (Sunday).` };
+    const label = `Week ${wk} ${DOW_SHORT[dow - 1]}`;
+    const str = (v) => (v === undefined || v === null ? '' : String(v).trim());
+    const name = str(r.item_name), es = str(r.item_name_es), notes = str(r.notes);
+    // Too long is refused, not cut: a dish name silently truncated on a kitchen ticket is a wrong dish.
+    if (name.length > MENU_NAME_MAX) return { ok: false, error: `${label}: the dish name is over ${MENU_NAME_MAX} characters.` };
+    if (es.length > MENU_NAME_MAX) return { ok: false, error: `${label}: the Spanish name is over ${MENU_NAME_MAX} characters.` };
+    if (notes.length > MENU_NOTES_MAX) return { ok: false, error: `${label}: the notes are over ${MENU_NOTES_MAX} characters.` };
+    const price = centsField(r.price_per_lunch_cents, `${label} price`, { min: 1 });
+    if (price.err) return { ok: false, error: price.err };
+    if (!name) {
+      if (es || notes || !price.skip) return { ok: false, error: `${label}: give the dish a name, or clear the whole day.` };
+      continue; // an empty day is simply not on the menu
+    }
+    const key = `${wk}:${dow}`;
+    if (seen.has(key)) return { ok: false, error: `${label} is on the menu twice.` };
+    seen.add(key);
+    clean.push({ rotation_week: wk, dow, item_name: name, item_name_es: es || null, notes: notes || null, price_per_lunch_cents: price.skip ? null : price.v });
+  }
+
+  let beforeRows = [];
+  try {
+    beforeRows = ((await env.DB.prepare('SELECT rotation_week, dow, item_name, item_name_es, notes, price_per_lunch_cents FROM contract_menu WHERE account_id = ?').bind(account.id).all()).results) || [];
+  } catch { beforeRows = []; }
+
+  const actor = actorOf(ctx);
+  try {
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM contract_menu WHERE account_id = ?').bind(account.id),
+      ...clean.map((r) => env.DB.prepare(
+        'INSERT INTO contract_menu (id, account_id, rotation_week, dow, item_name, item_name_es, notes, price_per_lunch_cents, created_at, updated_at, updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+      ).bind(id('cmenu'), account.id, r.rotation_week, r.dow, r.item_name, r.item_name_es, r.notes, r.price_per_lunch_cents, t, t, actor)),
+      env.DB.prepare('UPDATE contract_accounts SET rotation_weeks = ?, rotation_start_date = ?, updated_at = ? WHERE id = ?').bind(weeks, start, t, account.id),
+    ]);
+  } catch { return { ok: false, error: 'Could not save the menu.' }; }
+
+  // WHAT CHANGED, slot by slot, in the same append-only history as every other term.
+  const beforeMap = {}, afterMap = {};
+  for (const r of beforeRows) beforeMap[slotKey(Number(r.rotation_week) || 1, Number(r.dow))] = slotOf(r);
+  for (const r of clean) afterMap[slotKey(r.rotation_week, r.dow)] = slotOf(r);
+  const before = { slots: {} }, after = { slots: {} };
+  const priceBefore = {}, priceAfter = {};
+  for (const k of new Set([...Object.keys(beforeMap), ...Object.keys(afterMap)])) {
+    const was = beforeMap[k] || null, is = afterMap[k] || null;
+    if (JSON.stringify(was) !== JSON.stringify(is)) { before.slots[k] = was; after.slots[k] = is; }
+    const pw = was ? was.price_per_lunch_cents : null, pi = is ? is.price_per_lunch_cents : null;
+    if (pw !== pi) { priceBefore[k] = pw; priceAfter[k] = pi; }
+  }
+  if (Number(account.rotation_weeks) !== weeks) { before.rotation_weeks = account.rotation_weeks == null ? null : Number(account.rotation_weeks); after.rotation_weeks = weeks; }
+  if ((account.rotation_start_date || null) !== start) { before.rotation_start_date = account.rotation_start_date || null; after.rotation_start_date = start; }
+  const slotsChanged = Object.keys(after.slots).length;
+  if (!slotsChanged) { delete before.slots; delete after.slots; }
+  const pricesChanged = Object.keys(priceAfter).length;
+
+  let audited = true;
+  if (slotsChanged || after.rotation_weeks !== undefined || after.rotation_start_date !== undefined) {
+    audited = await writeTermsEvent(env, {
+      account_id: account.id, event: 'menu_updated', changed_by: actor, changed_role: ctx && ctx.role,
+      before, after, note: b.note,
+    });
+  }
+  // A per-dish price is what an office is billed. Its own event, so the money history can be read
+  // without wading through dish renames.
+  if (pricesChanged) {
+    const wrote = await writeTermsEvent(env, {
+      account_id: account.id, event: 'menu_price_changed', changed_by: actor, changed_role: ctx && ctx.role,
+      before: priceBefore, after: priceAfter, note: b.note,
+    });
+    if (!wrote) audited = false;
+  }
+  await capture(env, {
+    event: 'contract.menu_saved',
+    distinct_id: ctx && ctx.distinct_id, role: ctx && ctx.role, team: ctx && ctx.team,
+    properties: { account_id: account.id, weeks, dishes: clean.length, slots_changed: slotsChanged, prices_changed: pricesChanged },
+  });
+
+  const payload = await menuPayload(env, account.id, t);
+  return { ...payload, saved: true, slots_changed: slotsChanged, prices_changed: pricesChanged, ...(audited ? {} : { degraded: 'terms_audit_unavailable' }) };
 }
 
 // ---------- invoice lifecycle ----------
@@ -512,7 +734,11 @@ export const onRequestGet = async ({ request, env }) => {
     for (const s of sites) s.staff = maskSiteStaff(await listSiteStaff(env, s.id, { all: true }));
     out.push({ account: a, sites, recent, invoices, devices, events, terms_events: termsEvents });
   }
-  return json({ ok: true, accounts: out });
+  // Holidays sit beside the accounts because they apply to all of them. Best-effort: a holiday view
+  // that fails to build must never cost the owner the contracts desk itself.
+  let holidays = null;
+  try { holidays = await holidayOutlook(env); } catch { holidays = null; }
+  return json({ ok: true, accounts: out, holidays });
 };
 
 // POST { op:'activate', account_id, price_per_lunch_cents, delivery_fee_cents, rush_fee_cents?, cutoff_time? }
@@ -558,6 +784,40 @@ export const onRequestPost = async ({ request, env }) => {
     // Activate form is the single place that records them. Creating it live at $0 would deliver
     // free lunches on the first head count.
     return json({ ...r, next: 'Set the negotiated terms, then Activate to turn on their links.' });
+  }
+
+  // HOLIDAY SETTINGS are the owner's and apply to every account, so — like create_account — they run
+  // before the account_id guard. Which holidays the kitchen closes is the one fact the closure notice
+  // cannot run without, and it is deliberately empty until he sets it here.
+  if (op === 'save_holidays') {
+    const puts = [];
+    if (Array.isArray(b.kitchen_closed)) {
+      const unknown = b.kitchen_closed.filter((k) => !OBSERVANCE_KEYS.includes(k));
+      if (unknown.length) return bad(`Unknown holiday: ${unknown.join(', ')}.`);
+      puts.push(['holidays.kitchen_closed', JSON.stringify([...new Set(b.kitchen_closed)])]);
+    }
+    if (typeof b.sms_enabled === 'boolean') puts.push(['holidays.sms_enabled', b.sms_enabled ? 'true' : 'false']);
+    if (!puts.length) return bad('Nothing to save.');
+    const t = now();
+    for (const [k, v] of puts) {
+      await env.DB.prepare(
+        `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES (?,?,?,?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`
+      ).bind(k, v, actorOf(ctx), t).run();
+    }
+    await capture(env, {
+      event: 'contract.holiday_settings_saved', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
+      properties: { kitchen_closed: Array.isArray(b.kitchen_closed) ? b.kitchen_closed.length : null, sms_enabled: typeof b.sms_enabled === 'boolean' ? b.sms_enabled : null },
+    });
+    const o = await holidayOutlook(env);
+    // The seven days is a promise in writing. Closing the kitchen for a holiday already inside that
+    // window cannot keep it, and saying "saved" as if it could would leave a client to find out on
+    // the morning. Say so, and say what to do instead.
+    const nowMs = Date.now();
+    const warnings = o.holidays
+      .filter((h) => h.kitchen_closed && daysUntil(h.observed, nowMs) < MIN_CLOSURE_LEAD_DAYS)
+      .map((h) => `${h.name} is ${daysUntil(h.observed, nowMs)} day(s) away — too late for the promised seven days' notice. Call those locations today; the automatic notice also goes out at the next morning run.`);
+    return json({ ok: true, holidays: o, warnings });
   }
 
   // SITE-SCOPED OPS RESOLVE THEIR OWN ACCOUNT, so they must run BEFORE the account_id guard.
@@ -651,6 +911,17 @@ export const onRequestPost = async ({ request, env }) => {
   if (op === 'edit_terms') {
     const r = await updateTerms(env, ctx, b);
     if (!r.ok) return bad(r.error || 'Could not save the new terms.', 400);
+    return json(r);
+  }
+  // The weekly office menu: read it (with the next-two-weeks preview), or replace it.
+  if (op === 'menu_get') {
+    const r = await menuPayload(env, String(b.account_id), now());
+    if (!r.ok) return bad(r.error || 'Could not load the menu.', 400);
+    return json(r);
+  }
+  if (op === 'menu_save') {
+    const r = await saveMenu(env, ctx, b);
+    if (!r.ok) return bad(r.error || 'Could not save the menu.', 400);
     return json(r);
   }
   if (op === 'invoice') {
