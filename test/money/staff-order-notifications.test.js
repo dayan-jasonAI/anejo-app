@@ -19,8 +19,8 @@ function fixture() {
     delivery_street TEXT, delivery_unit TEXT, delivery_city TEXT, delivery_state TEXT,
     delivery_zip TEXT, delivery_notes TEXT, delivery_lat REAL, delivery_lng REAL,
     geocoded_at INTEGER, created_at INTEGER, updated_at INTEGER);
-    CREATE TABLE staff (id TEXT PRIMARY KEY,active INTEGER);
-    INSERT INTO staff VALUES ('owner_test',1);
+    CREATE TABLE staff (id TEXT PRIMARY KEY,email TEXT,role TEXT,team TEXT,is_lead INTEGER,active INTEGER);
+    INSERT INTO staff VALUES ('owner_test','owner@example.test','owner',NULL,0,1);
     CREATE TABLE subscriptions (id TEXT PRIMARY KEY,client_id TEXT,plan_id TEXT,trainer_id TEXT,
       weekly_amount_cents INTEGER,trainer_share_pct REAL,avocado INTEGER,provider_subscription_id TEXT);
     CREATE TABLE clients (id TEXT PRIMARY KEY,email TEXT);
@@ -53,13 +53,33 @@ test('completed payment creates one bilingual owner alert; retries after acknowl
   assert.equal(paidAlerts(DB).length, 1);
 });
 
-test('APPROVED retains existing order transition but only COMPLETED announces a paid order', async () => {
+test('authorization stays pending; only captured payment releases the order and announces it', async () => {
   const DB = fixture(); seed(DB);
   await payment(DB, 'APPROVED');
-  assert.equal(DB.sqlite.prepare('SELECT status FROM orders').get().status, 'paid');
+  assert.equal(DB.sqlite.prepare('SELECT status FROM orders').get().status, 'pending');
   assert.equal(paidAlerts(DB).length, 0);
   await payment(DB, 'COMPLETED');
+  assert.equal(DB.sqlite.prepare('SELECT status FROM orders').get().status, 'paid');
   assert.equal(paidAlerts(DB).length, 1);
+});
+
+test('authorization followed by cancellation never releases unpaid food', async () => {
+  const DB = fixture(); seed(DB);
+  for (const status of ['APPROVED', 'APPROVED', 'CANCELED']) await payment(DB, status);
+  assert.equal(DB.sqlite.prepare('SELECT status FROM orders').get().status, 'pending');
+  assert.equal(DB.sqlite.prepare('SELECT COUNT(*) n FROM alerts').get().n, 0);
+});
+
+test('authorization cannot reopen canceled or abandoned orders; completion can', async () => {
+  for (const initial of ['canceled', 'abandoned']) {
+    const DB = fixture(); seed(DB, initial);
+    await payment(DB, 'APPROVED');
+    assert.equal(DB.sqlite.prepare('SELECT status FROM orders').get().status, initial);
+    assert.equal(DB.sqlite.prepare('SELECT COUNT(*) n FROM alerts').get().n, 0);
+    await payment(DB, 'COMPLETED');
+    assert.equal(DB.sqlite.prepare('SELECT status FROM orders').get().status, 'paid');
+    assert.equal(paidAlerts(DB).length, 1);
+  }
 });
 
 test('late completion still announces fulfilled order; failed/canceled payments and unknown orders do not', async () => {
@@ -99,6 +119,7 @@ test('subscription invoice alerts once per invoice and never mislabels renewals 
 });
 
 async function manual(DB, status, role = 'owner') {
+  DB.sqlite.prepare('UPDATE staff SET role=? WHERE id=?').run(role, 'owner_test');
   const SESSIONS = makeKV({ 'session:synthetic': JSON.stringify({ type: 'staff', uid: 'owner_test', role, la: Date.now(), created: Date.now() }) });
   return manualOrder({ env: { DB, SESSIONS }, request: new Request('https://example.test/api/hub/owner/orders', {
     method: 'POST', headers: { Cookie: 'anejo_sess=synthetic', 'Content-Type': 'application/json' },

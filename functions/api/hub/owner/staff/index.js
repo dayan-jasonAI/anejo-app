@@ -114,7 +114,7 @@ export const onRequestPost = async ({ request, env }) => {
     // out-of-band; the email gives the staffer a clear onboarding path and sets expectations.
     if (email) {
       try {
-        await sendEmail(env, {
+        const receipt = await sendEmail(env, {
           to: email,
           subject: 'Welcome to the Añejo HUB',
           html: emailShell(
@@ -124,7 +124,11 @@ export const onRequestPost = async ({ request, env }) => {
              <p style="color:#6b6b6b;font-size:13px">For security, your PIN is not sent by email or text. You will be asked to change it after first sign-in.</p>`
           ),
         });
-        notifications.email = { ok: true, sent: true };
+        notifications.email = receipt?.skipped
+          ? { ok: true, sent: false, skipped: true, suppressed: receipt.suppressed || null }
+          : receipt?.id
+            ? { ok: true, sent: true, status: 'accepted', provider_id: receipt.id }
+            : { ok: false, sent: false, error: 'Email provider returned no receipt.' };
       } catch (e) {
         notifications.email = { ok: false, sent: false, error: String(e && e.message || e).slice(0, 160) };
       }

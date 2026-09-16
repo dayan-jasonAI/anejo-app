@@ -164,7 +164,8 @@ test('an edit or a reject that loses the race to approval/sending says so instea
   assert.match(r.error, /sending/);
 });
 
-test('the daily cap counts emails another tick has claimed but not finished', async () => {
+test('the daily cap counts emails another tick has claimed but not finished', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: TUESDAY_10AM_ET });
   const { env, outreachId } = await approvedDraft({ flags: { 'sales.max_emails_per_day': 1 } });
   const cfg = await reload(env);
   // Another tick claimed this one "today" (the day the pass runs as of) and has not finished it.

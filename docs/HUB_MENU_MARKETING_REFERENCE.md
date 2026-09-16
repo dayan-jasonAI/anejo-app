@@ -2,6 +2,8 @@
 
 Owner-directed update: 2026-09-08. Current authority: active D1 menu_items, exposed by https://anejocateringco.com/api/menu. The table below is a dated snapshot, not a second price engine. Recheck live availability, price and the selected serving format before publishing.
 
+Public business contact: **561-778-7474**, confirmed by Dayan in-session on 2026-09-16. Use for public marketing and customer contact; internal account and notification settings are outside this update.
+
 ## One family, three categories
 
 Añejo Catering: trays, celebrations, team meals and custom events. Añejo Traditional: Cuban comfort meals, small bites, sandwiches, sides and desserts. Añejo Fit: seven Mediterranean-Cuban bowls and three drinks. La Cajita is the newest family addition. MAR salmon is the Fit cover. Traditional uses plated lechón and authentic purple-brown, distinct-grain congrí. Keep the top navigation Cajita link and prominent photography for every category.

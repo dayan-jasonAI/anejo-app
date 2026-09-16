@@ -120,6 +120,7 @@ function htmlShell({
   imageAlt = 'Añejo Cuban catering trays and event food',
   body,
   schema,
+  quoteUrl = '/catering#quote',
 }) {
   const alternates = [
     alternateEn ? `<link rel="alternate" hreflang="en" href="${esc(alternateEn)}">` : '',
@@ -127,6 +128,8 @@ function htmlShell({
     alternateEn ? `<link rel="alternate" hreflang="x-default" href="${esc(alternateEn)}">` : '',
   ].filter(Boolean).join('\n');
 
+  const faq = schema.find((entry) => entry['@type'] === 'FAQPage');
+  const visibleFaq = faq ? `<section aria-label="${lang === 'es' ? 'Preguntas frecuentes' : 'Frequently asked questions'}"><h2>${lang === 'es' ? 'Preguntas frecuentes' : 'Frequently asked questions'}</h2>${faq.mainEntity.map((question) => `<h3>${esc(question.name)}</h3><p>${esc(question.acceptedAnswer.text)}</p>`).join('')}</section>` : '';
   const schemaTags = schema.map((entry) => `<script type="application/ld+json">${jsonLd(entry)}</script>`).join('\n');
 
   return `<!DOCTYPE html>
@@ -154,14 +157,14 @@ ${alternates}
 ${schemaTags}
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to content</a>
-<nav aria-label="Main navigation">
+<a class="skip-link" href="#main">${lang === 'es' ? 'Saltar al contenido' : 'Skip to content'}</a>
+<nav aria-label="${lang === 'es' ? 'Navegación principal' : 'Main navigation'}">
   <a class="logo" href="/"><img src="/assets/img/emblem.png" alt=""><span>AÑEJO</span></a>
   <div>
-    <a href="/menu/">Menu</a>
+    <a href="/menu/">${lang === 'es' ? 'Menú' : 'Menu'}</a>
     <a href="/catering">Catering</a>
     <a href="/cajita">La Cajita</a>
-    <a href="/order" class="nav-cta">Order</a>
+    <a href="/order" class="nav-cta">${lang === 'es' ? 'Pedir' : 'Order'}</a>
   </div>
 </nav>
 <header class="hero">
@@ -170,18 +173,20 @@ ${schemaTags}
     <h1>${h1}</h1>
     <p>${intro}</p>
     <div class="actions">
-      <a class="btn btn-gold" href="/catering#quote">${lang === 'es' ? 'Pedir cotización' : 'Request catering quote'}</a>
+      <a class="btn btn-gold" href="${esc(quoteUrl)}">${lang === 'es' ? 'Pedir cotización' : 'Request catering quote'}</a>
       <a class="btn btn-outline" href="/menu/">${lang === 'es' ? 'Ver menú' : 'View menu'}</a>
     </div>
   </div>
-  <img src="${esc(image)}" alt="${esc(imageAlt)}" width="1200" height="900" fetchpriority="high">
+  <img src="${esc(image)}" alt="${esc(lang === 'es' && imageAlt === 'Añejo Cuban catering trays and event food' ? 'Bandejas y comida cubana de Añejo para eventos' : imageAlt)}" width="1200" height="900" fetchpriority="high">
 </header>
 <main id="main">
 ${body}
+${visibleFaq}
 </main>
 <footer>
-  <a href="/">Añejo Catering Co.</a> · <a href="/catering">Catering</a> · <a href="/catering/service-areas">Service areas</a> · <a href="/es/comida-cubana">Español</a>
+  <a href="/">Añejo Catering Co.</a> · <a href="/catering">Catering</a> · <a href="${lang === 'es' ? '/es/catering/areas-de-servicio' : '/catering/service-areas'}">${lang === 'es' ? 'Áreas de servicio' : 'Service areas'}</a> · <a href="${esc(lang === 'es' ? alternateEn : alternateEs)}">${lang === 'es' ? 'English' : 'Español'}</a>
 </footer>
+<script src="/assets/js/consent.js"></script>
 </body>
 </html>
 `;
@@ -201,7 +206,7 @@ function serviceSchema({ city, canonical, name, description, lang = 'en' }) {
         '@id': `${site}/#restaurant`,
         name: 'Añejo Catering Co.',
         url: site,
-        telephone: '+1-561-567-1047',
+        telephone: '+1-561-778-7474',
         servesCuisine: ['Cuban', 'Cuban-American', 'Mediterranean', 'Healthy'],
       },
       areaServed: {
@@ -297,7 +302,7 @@ function cityPage(city, lang = 'en') {
   <a class="btn btn-green" href="/catering?city=${encodeURIComponent(city.name)}#quote">Enviar solicitud</a>
 </section>
 <section>
-  <h2>También servimos ciudades cercanas</h2>
+  <h2>Otras áreas de servicio en el condado</h2>
   ${nearbyLinks(city, true)}
 </section>` : `
 <section>
@@ -321,7 +326,7 @@ function cityPage(city, lang = 'en') {
   <a class="btn btn-green" href="/catering?city=${encodeURIComponent(city.name)}#quote">Send catering request</a>
 </section>
 <section>
-  <h2>Nearby service areas</h2>
+  <h2>Other service areas in the county</h2>
   ${nearbyLinks(city, false)}
 </section>`;
 
@@ -332,6 +337,7 @@ function cityPage(city, lang = 'en') {
     canonical,
     alternateEn: englishUrl,
     alternateEs: spanishUrl,
+    quoteUrl: `/catering?city=${encodeURIComponent(city.name)}#quote`,
     eyebrow: isEs ? `${city.county} · Cotización para eventos` : `${city.county} · Event quote service`,
     h1,
     intro,
@@ -795,7 +801,7 @@ No Google Business Profile / Google Maps management connector is available in th
 - Primary category to confirm in GBP: Caterer
 - Secondary categories to add where available: Cuban restaurant, Meal delivery, Health food restaurant, Mediterranean restaurant, Event catering service
 - Service area emphasis: Palm Beach County and Broward County, Florida
-- Phone: 561-567-1047
+- Phone: 561-778-7474
 - Public description draft:
 
 Añejo Catering Co. provides Cuban catering, Cuban food, personalized Cajitas, party trays, and Mediterranean-inspired Añejo Fit bowls for events, offices, private gatherings, and celebrations across Palm Beach County and Broward County. Request custom catering for lechón, congrí, tamales, croquetas, empanadas, Cajitas, healthy bowls, and group meals. Quotes are confirmed by event date, guest count, menu, delivery route, and availability.
@@ -843,16 +849,17 @@ ${broward.map((city) => `- ${city.name}, FL`).join('\n')}
 
 Use only real food/event photos. Do not upload synthetic images or heavily filtered images to GBP.
 
-- public/assets/img/menu-launch/home-catering.webp
-- public/assets/img/menu-launch/combo-table.webp
-- public/assets/img/menu-launch/tray-croquetas.webp
-- public/assets/img/menu-launch/tray-empanadas.webp
-- public/assets/img/menu-launch/food-lechon.webp
-- public/assets/img/menu-launch/food-congri.webp
-- public/assets/img/menu-launch/food-tamal.webp
+Documented supplied real-event photo candidates (review crop and content before upload):
 - public/assets/img/cajita/pink-first-birthday-catering-spread.jpg
 - public/assets/img/cajita/pink-first-birthday-cajitas-table.jpg
 - public/assets/img/cajita/pink-first-birthday-cajita-detail.jpg
+
+Provenance: docs/CATERING_REQUEST_FLOW_HANDOFF_2026-09-05.md records seven Dayan-supplied event photos resized for web, with the original gallery preserved. These JPEG candidates are distinct from generated *editorial-v2.png edits.
+
+Excluded from this real-photo upload set:
+- menu-launch/tray-croquetas.webp and tray-empanadas.webp: docs/menu-corrections/selected-images.json maps them to generated images.
+- menu-launch/combo-table.webp: docs/menu-corrections/HANDOFF.md describes the Cuban Table package image as an illustration.
+- menu-launch/home-catering.webp, food-lechon.webp, food-congri.webp and food-tamal.webp: asset-specific camera-original provenance is unverified; do not upload as documentary photos until verified.
 
 ## Suggested GBP posts
 
@@ -874,7 +881,7 @@ Link: https://anejocateringco.com/es/comida-cubana
 - Confirm categories are accurate and not keyword-stuffed into the business name.
 - Confirm service list includes both English and Spanish user phrasing.
 - Confirm service areas include Palm Beach and Broward municipalities.
-- Upload at least 10 real photos and confirm they display publicly.
+- Upload only provenance-reviewed real photos and confirm they display publicly; do not fill a numeric quota with generated imagery.
 - Add the catering URL as the appointment/order/action link if GBP supports it.
 - Reply to existing reviews and request new real customer reviews after completed orders.
 `;
@@ -898,9 +905,12 @@ async function main() {
   await fs.writeFile(path.join(publicDir, 'es/comida-cubana.html'), topicPage({ spanish: true, topic: 'cuban' }));
   await fs.writeFile(path.join(publicDir, 'mediterranean-catering.html'), topicPage({ topic: 'mediterranean' }));
   await fs.writeFile(path.join(publicDir, 'es/catering-mediterraneo.html'), topicPage({ spanish: true, topic: 'mediterranean' }));
-  await updateExistingPages();
-  await writeRobots();
-  const urlCount = await writeSitemap();
+  let urlCount = null;
+  if (!process.argv.includes('--landing-pages-only')) {
+    await updateExistingPages();
+    await writeRobots();
+    urlCount = await writeSitemap();
+  }
   await writeBusinessProfilePackage();
   console.log(JSON.stringify({ generatedCityPages: cities.length * 2, cityCount: cities.length, sitemapUrls: urlCount }, null, 2));
 }

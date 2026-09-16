@@ -155,7 +155,7 @@ test('legacy peek never exports private alert text and signals no pending events
   const SESSIONS = makeKV({ 'session:test': JSON.stringify({ type: 'staff', uid: 's1', role: 'owner', la: Date.now() }) });
   let alert = null;
   const DB = makeD1([
-    [/SELECT active FROM staff/, () => ({ active: 1 })],
+    [/SELECT id, email, role, team, is_lead, active FROM staff/, () => ({ active: 1, id: 's1', email: 'owner@example.test', role: 'owner', team: null, is_lead: 0 })],
     [/SELECT COUNT\(\*\) AS n/, () => ({ n: 0 })],
     [/SELECT id, alert_type, created_at FROM alerts/, () => alert],
   ]);

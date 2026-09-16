@@ -110,7 +110,7 @@ test('a pending account gets the set-up notice, not a first-week walkthrough', a
   assert.match(html, /Your account is being set up/);
   assert.doesNotMatch(html, /Open your count link/, 'a link that would refuse every count must not be offered');
   assert.doesNotMatch(html, /Your first week/);
-  assert.match(html, /561-567-1047/);
+  assert.match(html, /561-778-7474/);
 });
 
 test('an unknown, inactive, or malformed token gets the same soft 404', async () => {

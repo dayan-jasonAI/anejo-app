@@ -47,7 +47,7 @@ function renderShopSuggestions(){
  const list=desired.map(k=>shopGroups.find(g=>g.key===k)).filter(g=>g&&g.variants.some(shopEnabled)&&!g.variants.some(i=>addons[i.id])).slice(0,3);
  el.innerHTML=list.length?`<h4>${L('Complete your meal','Completa tu comida')}</h4><p>${L('A little something on the side?','¿Algo más para acompañar?')}</p><div class="shop-suggestions">`+list.map(g=>{const i=g.variants.find(shopEnabled);return `<button onclick="openShop('${esc(g.key)}')"><img src="${escHtml(shopPhoto(i))}" alt=""><span>${escHtml(shopName(g))}<small>${L('From ','Desde ')+money(Math.min(...g.variants.filter(shopEnabled).map(x=>x.price)))}</small></span><b>+</b></button>`}).join('')+'</div>':'';
 }
-function shopReview(){const details=$('checkoutDetails');details.open=true;document.querySelector('.cart').scrollIntoView({behavior:'smooth',block:'start'});}
+function shopReview(){window.AnejoShopMeasurement?.step('view_cart');const details=$('checkoutDetails');details.open=true;document.querySelector('.cart').scrollIntoView({behavior:'smooth',block:'start'});}
 $('shopDialog').addEventListener('click',e=>{if(e.target===$('shopDialog'))$('shopDialog').close()});
 $('shopSearch').addEventListener('input',renderCatalog);
 $('shopFormat').addEventListener('change',renderShopChoices);

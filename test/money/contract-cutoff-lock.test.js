@@ -267,7 +267,7 @@ test('siteContext closes the form before anyone types into it', async () => {
 
 test('the intake page renders a locked state with a phone number instead of a dead form', () => {
   assert.match(INTAKE, /ctx\.count_locked/, 'the page reads the lock');
-  assert.match(INTAKE, /tel:5615671047/, 'and offers the one thing that still works');
+  assert.match(INTAKE, /tel:5617787474/, 'and offers the one thing that still works');
   for (const k of ['lockedBan', 'lockedHave', 'lockedNone', 'lockedCall']) {
     assert.match(INTAKE, new RegExp(k + ':\\{en:.+es:'), `${k} must be written in both languages`);
   }

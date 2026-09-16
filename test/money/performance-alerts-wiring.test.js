@@ -153,7 +153,7 @@ function ownerEnv(routes = []) {
   const sess = JSON.stringify({ type: 'staff', role: 'owner', uid: 'stf_owner', email: 'dayan@anejocateringco.com', la: Date.now(), created: Date.now() });
   return {
     SESSIONS: makeKV({ 'session:tok': sess }),
-    DB: makeD1([[/^SELECT active FROM staff WHERE id=\?/, () => ({ active: 1 })], ...routes]),
+    DB: makeD1([[/^SELECT id, email, role, team, is_lead, active FROM staff WHERE id=\?/, () => ({ id: 'stf_owner', email: 'dayan@anejocateringco.com', role: 'owner', team: null, is_lead: 0, active: 1 })], ...routes]),
   };
 }
 const perfReq = () => new Request('https://anejocateringco.com/api/hub/owner/performance-alerts', {

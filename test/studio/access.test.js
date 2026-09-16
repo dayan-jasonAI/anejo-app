@@ -12,6 +12,7 @@ function envWithForeignSession() {
     team: 'kitchen',
     email: 'stf_self@staff.anejo.local',
     active: 1,
+    is_lead: 0,
   };
   const session = {
     id: 'rsess_other',
@@ -43,7 +44,7 @@ function envWithForeignSession() {
           bind() {
             return {
               async first() {
-                if (/SELECT active FROM staff/.test(sql)) return { active: 1 };
+                if (/SELECT id, email, role, team, is_lead, active FROM staff/.test(sql)) return staff;
                 if (/SELECT \* FROM staff WHERE/.test(sql)) return staff;
                 if (/SELECT \* FROM recipe_sessions WHERE id = \?/.test(sql)) return session;
                 if (/SELECT id, staff_id FROM recipe_sessions WHERE id = \?/.test(sql)) return session;

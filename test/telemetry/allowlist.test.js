@@ -40,7 +40,7 @@ test('allowlist admits the five real client events and nothing else', () => {
 
 function harness() {
   const rows = [];
-  const DB = makeD1([[/INSERT INTO activity_log/i, ({ args }) => { rows.push(args); return 1; }]]);
+  const DB = makeD1([[ /SELECT id, email, role, team, is_lead, active FROM staff/i, ({ args }) => args[0] === 'usr_1' ? { id: 'usr_1', email: 'owner@test.local', role: 'owner', team: 'front_office', is_lead: 0, active: 1 } : null ], [/INSERT INTO activity_log/i, ({ args }) => { rows.push(args); return 1; }]]);
   const SESSIONS = {
     async get(k) {
       return k === 'session:tok'

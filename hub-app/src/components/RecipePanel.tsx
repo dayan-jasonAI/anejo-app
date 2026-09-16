@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useI18n } from '../lib/i18n';
-import { draftRecipe, createRecipe, publishRecipe, type RecipeDraft } from '../lib/api';
+import { draftRecipe, type RecipeDraft } from '../lib/api';
+import { publishRecipeDraft } from '../lib/publishRecipeDraft';
 import '../content-panel.css';
 
 export function RecipePanel({ sessionId, onClose }: { sessionId: string | null; onClose: () => void }) {
@@ -13,6 +14,7 @@ export function RecipePanel({ sessionId, onClose }: { sessionId: string | null; 
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
   const [err, setErr] = useState('');
+  const [savedId, setSavedId] = useState<string | null>(null);
 
   function reasonText() {
     if (reason === 'empty_session') return t('recipeReasonEmpty');
@@ -36,24 +38,20 @@ export function RecipePanel({ sessionId, onClose }: { sessionId: string | null; 
       return;
     }
     setDraft(res.draft);
+    setSavedId(null);
     setName(res.draft.name || '');
     setDemo(!!res.demo);
     setReason(res.reason || '');
   }
 
   async function publish() {
-    if (!sessionId || !draft) return;
+    if (!sessionId || !draft || demo || drafting || publishing) return;
     setPublishing(true);
     setErr('');
-    const created = await createRecipe(sessionId, { ...draft, name: name.trim() || draft.name });
-    if (!created || !created.recipe) {
-      setPublishing(false);
-      setErr(t('recipeError'));
-      return;
-    }
-    const ok = await publishRecipe(created.recipe.id);
+    const result = await publishRecipeDraft(sessionId, { ...draft, name: name.trim() || draft.name }, savedId);
+    setSavedId(result.recipeId);
     setPublishing(false);
-    if (!ok) {
+    if (!result.ok) {
       setErr(t('recipeError'));
       return;
     }
@@ -100,7 +98,7 @@ export function RecipePanel({ sessionId, onClose }: { sessionId: string | null; 
                 </div>
               ) : null}
               <label>{t('recipeName')}</label>
-              <input className="rp-name" value={name} onChange={(e) => setName(e.currentTarget.value)} />
+              <input className="rp-name" value={name} disabled={publishing || !!savedId} onChange={(e) => setName(e.currentTarget.value)} />
               {draft.summary && !demo ? <p className="rp-summary">{draft.summary}</p> : null}
               {draft.ingredients && draft.ingredients.length ? (
                 <>
@@ -123,10 +121,10 @@ export function RecipePanel({ sessionId, onClose }: { sessionId: string | null; 
                 </>
               ) : null}
               <div className="rp-actions">
-                <button type="button" className="cp-copybtn" disabled={publishing} onClick={runDraft}>
+                <button type="button" className="cp-copybtn" disabled={publishing || drafting} onClick={runDraft}>
                   {t('recipeDraft')}
                 </button>
-                <button type="button" className="cp-go" disabled={publishing || demo} onClick={publish}>
+                <button type="button" className="cp-go" disabled={publishing || drafting || demo} onClick={publish}>
                   {publishing ? t('recipePublishing') : t('recipePublish')}
                 </button>
               </div>

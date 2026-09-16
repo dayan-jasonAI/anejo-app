@@ -27,8 +27,8 @@ const html = (body, status = 200) => new Response(body, { status, headers: HEADE
 
 // The one number an office is told to ring when the link cannot help them. Same number the count
 // page hands them at the freeze (public/lunch-count.html) and the same one on the public site.
-const PHONE = '561-567-1047';
-const PHONE_TEL = '5615671047';
+const PHONE = '561-778-7474';
+const PHONE_TEL = '5617787474';
 
 // A dead or mistyped link must not look like a system failure to a clinic administrator — the same
 // shape of answer /for/<token> gives, for the same reason.

@@ -340,6 +340,9 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
   var tomorrow=new Date(); tomorrow.setDate(tomorrow.getDate()+1);
   date.min=tomorrow.getFullYear()+'-'+String(tomorrow.getMonth()+1).padStart(2,'0')+'-'+String(tomorrow.getDate()).padStart(2,'0');
   var params=new URLSearchParams(window.location.search);
+  var requestedCity=params.get('city');
+  var locationInput=document.getElementById('location');
+  if(requestedCity&&locationInput&&!locationInput.value)locationInput.value=requestedCity.trim().slice(0,160);
   var requestedMenu=params.get('menu');
   // The homepage's celebration cards deep-link the occasion (Weddings, Quinceañeras…) so the form opens already
   // knowing it. Option values stay English: the i18n engine pins each option's value to its original text.

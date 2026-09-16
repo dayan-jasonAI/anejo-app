@@ -60,7 +60,20 @@ function contextFromSession(sess) {
 // Resolve the current role context for a request, or null if unauthenticated.
 export async function currentRole(env, request) {
   const sess = await currentUser(env, request);
-  return contextFromSession(sess);
+  const ctx = contextFromSession(sess);
+  if (!ctx || ctx.type !== 'staff') return ctx;
+  // Sessions identify staff; the current roster determines their authority. Role/team
+  // changes must take effect before expiry, including callers that use currentRole directly.
+  if (!env?.DB) return null;
+  const arg = ctx.distinct_id || ctx.email;
+  if (!arg) return null;
+  try {
+    const where = ctx.distinct_id ? 'id=?' : 'email=?';
+    const row = await env.DB.prepare(`SELECT id, email, role, team, is_lead, active FROM staff WHERE ${where}`).bind(arg).first();
+    if (!row || !row.active || !STAFF_ROLES.includes(row.role)) return null;
+    return { ...ctx, distinct_id: row.id, email: row.email, role: row.role,
+      team: row.team || null, is_lead: !!row.is_lead };
+  } catch { return null; }
 }
 
 // Load the staff record for the current session (or null). Requires env.DB.
@@ -81,16 +94,6 @@ export async function requireRole(request, env, allowedRoles = []) {
   if (!ctx) return json({ error: 'Not signed in.' }, 401);
   if (allowedRoles.length && !allowedRoles.includes(ctx.role)) {
     return json({ error: 'Forbidden for this role.' }, 403);
-  }
-  if (ctx.type === 'staff' && env && env.DB) {
-    const where = ctx.distinct_id ? 'id=?' : 'email=?';
-    const arg = ctx.distinct_id || ctx.email;
-    if (arg) {
-      try {
-        const row = await env.DB.prepare(`SELECT active FROM staff WHERE ${where}`).bind(arg).first();
-        if (!row || !row.active) return json({ error: 'Account deactivated.' }, 401);
-      } catch { /* schema without staff table (early envs) — fall through */ }
-    }
   }
   return ctx;
 }

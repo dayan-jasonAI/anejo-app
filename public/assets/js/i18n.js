@@ -189,7 +189,7 @@
     // closing + footer
     "Built in Palm Beach.":"Hecho en Palm Beach.","Made with intent.":"Hecho con intención.",
     "Whether it's one bowl or a thousand — we cook it the same way.":"Ya sea un bowl o mil — lo cocinamos de la misma forma.",
-    "Call 561-567-1047":"Llama al 561-567-1047",
+    "Call 561-778-7474":"Llama al 561-778-7474",
     "Premium Cuban-American longevity bowls, catering, and wholesale bites. Made in Palm Beach County, Florida. Inspired by family. Built for legacy.":"Bowls premium cubano-americanos de longevidad, catering y bocados de mayoreo. Hechos en el Condado de Palm Beach, Florida. Inspirado en la familia. Hecho para dejar legado.",
     "Visit":"Ubicación","Service Area":"Zona de Servicio","Palm Beach County":"Condado de Palm Beach","Florida, USA":"Florida, EE. UU.",
     "Delivery Mon–Sat":"Entrega lun–sáb","Lunch 11–2 · Dinner 5–8":"Almuerzo 11–2 · Cena 5–8",

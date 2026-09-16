@@ -1,0 +1,94 @@
+/* Food remains untinted; the dark copy area uses the photograph's clear edge. */
+.family-hero {
+  min-height: 580px;
+  padding: 68px 32px;
+  display: flex;
+  align-items: center;
+  text-align: left;
+  background: #171918;
+}
+.family-hero::before, .family-backdrop::after { display: none; }
+.family-backdrop { left: 44%; }
+.family-backdrop img { object-fit: contain; object-position: center; }
+.family-hero > .section-inner { width: 100%; }
+.family-hero .eyebrow { color: #e3c97c; font-size: 15px; letter-spacing: 0; }
+.family-hero h1 {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 68px;
+  line-height: 1;
+  letter-spacing: 0;
+  margin: 16px 0 24px;
+  max-width: 42%;
+}
+.family-hero h1 strong { display: block; color: #fff; font-weight: 500; }
+.family-hero .lede { max-width: 39%; margin: 0 0 28px; color: #fff; font-size: 18px; }
+.family-hero .hero-buttons { justify-content: flex-start; max-width: 43%; }
+.family-hero .family-new { display: inline-flex; padding: 14px 0; font-size: 17px; color: #fff; letter-spacing: 0; }
+.btn, .nav-links .nav-cta {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  letter-spacing: 0;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.35;
+  white-space: normal;
+}
+.btn-gold { background: #e3c16f; color: #171918; }
+.btn-gold:hover { background: #f0d799; }
+.family-menu-paths { background: #fff; padding: 32px 24px 48px; }
+.family-menu-paths .family-grid { margin-top: 0; }
+.family-tile, .family-product { border-radius: 6px; background: #fff; border: 1px solid #d9ddda; }
+.family-tile span { font-size: 13px; letter-spacing: 0; }
+.family-tile b, .family-product b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 18px;
+  background: #193d2e;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+.family-section { background: #fff; }
+.family-catering { background: #edf2ef; }
+.family-catering-grid > img { border-radius: 6px; }
+.family-link, .bowl-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 18px;
+  border: 1px solid #193d2e;
+  border-radius: 4px;
+  color: #193d2e;
+  background: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-decoration: none;
+}
+.family-link:hover, .bowl-order:hover { background: #edf2ef; }
+a:focus-visible, button:focus-visible { outline: 3px solid #a56b16; outline-offset: 4px; }
+@media (max-width: 1000px) {
+  .family-hero h1 { font-size: 54px; }
+  .family-hero .hero-buttons { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 600px) {
+  .family-hero { min-height: 0; padding: 26px 20px 300px; align-items: flex-start; }
+  .family-backdrop { inset: auto 0 0; height: 280px; }
+  .family-hero h1 { font-size: 46px; max-width: 100%; margin: 12px 0 16px; }
+  .family-hero h1 strong { display: inline; }
+  .family-hero .lede { max-width: 100%; font-size: 17px; margin-bottom: 20px; }
+  .family-hero .hero-buttons { max-width: 100%; flex-direction: row; gap: 10px; }
+  .family-hero .hero-buttons .btn { padding: 13px 16px; flex: 1 1 140px; }
+  .family-hero .family-new { margin-top: 10px; }
+  .family-menu-paths { padding: 24px 18px 36px; }
+  .family-product b { width: 100%; padding: 10px; }
+}

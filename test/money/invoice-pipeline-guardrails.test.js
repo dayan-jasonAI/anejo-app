@@ -72,7 +72,7 @@ function hubEnv(opts = {}) {
       const stmt = (a) => ({
         async first() {
           sql.push(q);
-          if (q.includes('SELECT active FROM staff')) return { active: 1 };
+          if (q.includes('SELECT id, email, role, team, is_lead, active FROM staff')) return { id: 'stf_1', email: 'owner@anejo', role: 'owner', team: null, is_lead: 0, active: 1 };
           if (q.includes('FROM contract_invoices WHERE id')) return a[0] === invoice.id ? { ...invoice } : null;
           if (q.includes('allow_card_payment FROM contract_accounts')) {
             // migrations/0095 not applied yet on this env → D1 throws on the unknown column.
