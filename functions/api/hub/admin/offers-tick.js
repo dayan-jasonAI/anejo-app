@@ -9,6 +9,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { now } from '../../../_lib/hub.js';
 import { declineAndReoffer, OFFER_TIMEOUT_MS } from '../../../_lib/dispatch.js';
 import { runAutoDispatch } from '../../../_lib/autodispatch.js';
+import { runApproachingSweep } from '../../../_lib/stop_progress.js';
 
 function ctEq(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
@@ -53,5 +54,10 @@ export const onRequestPost = async ({ request, env }) => {
   let auto = null;
   try { auto = await runAutoDispatch(env, {}); } catch { auto = { ok: false, error: 'autodispatch_failed' }; }
 
-  return json({ ok: true, expired: routes.length, rolled, unfilled, auto });
+  // The five-minute "your driver is close" text, from each stop's stored ETA. It rides this minutely sweep
+  // because the phone cannot be trusted to report GPS while Maps is on screen — see _lib/stop_progress.js.
+  let approaching = null;
+  try { approaching = await runApproachingSweep(env, {}); } catch { approaching = { ok: false, error: 'approaching_failed' }; }
+
+  return json({ ok: true, expired: routes.length, rolled, unfilled, auto, approaching });
 };

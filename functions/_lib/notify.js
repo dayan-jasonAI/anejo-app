@@ -10,6 +10,7 @@ import { sendSms, sendMms } from './twilio.js';
 import { sendEmail, emailShell, escHtml } from './email.js';
 import { notifyCustomer, ORDER_EVENTS } from './notifications.js';
 import { now } from './hub.js';
+import { notifyContractStop } from './delivery_notices.js';
 
 const BRAND = 'Añejo Catering Co.';
 const STOP = 'Reply STOP to opt out.';
@@ -75,6 +76,8 @@ const emailWrap = (heading, bodyHtml) => emailShell(
 // true, useful notice: the order left, and a second text follows when the driver is close.
 export async function notifyOnTheWay(env, order, etaText) {
   try {
+    // A contract stop has no customer phone on its order; the office that ordered hears instead.
+    if (order && order.contract_site_id) { await notifyContractStop(env, order, 'on_the_way', { etaText }); return; }
     const c = await contactForOrder(env, order);
     if (!c) return;
     const hi = c.name ? `Hi ${c.name} — ` : '';
@@ -96,6 +99,7 @@ export async function notifyOnTheWay(env, order, etaText) {
 // something true and worth sending (that's why this fired): the driver is close by.
 export async function notifyArrivingSoon(env, order, etaText) {
   try {
+    if (order && order.contract_site_id) { await notifyContractStop(env, order, 'approaching', { etaText }); return; }
     const c = await contactForOrder(env, order);
     if (!c) return;
     const near = etaText ? `about ${etaText} away` : 'close by';
@@ -128,6 +132,7 @@ export async function notifyPointsEarned(env, order, { points, balance, tierName
 // "how did we do?" smart-rating page.
 export async function notifyDelivered(env, order, { photoUrl, feedbackUrl } = {}) {
   try {
+    if (order && order.contract_site_id) { await notifyContractStop(env, order, 'delivered', { photoUrl }); return; }
     const c = await contactForOrder(env, order);
     if (!c) return;
     const hi = c.name ? `${c.name}, ` : '';
