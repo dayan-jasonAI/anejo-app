@@ -21,8 +21,8 @@
 
 // Before versioning existed there was one training generation: the role tutorials as first shipped.
 // A NULL `version` column means a row from that generation, so it normalizes to this string — which
-// is why a driver who trained last year is still current (nothing changed for drivers) while a cook
-// who trained the same day is not (the photo gate changed for her).
+// is why a completion from that generation is out of date for both roles that changed on
+// 2026-09-16 (the cook's photo gate, the driver's breaks and self-sending delivery texts).
 export const BASELINE_VERSION = '2026-06-23-baseline';
 
 // module key → the version a completion must carry to count as current. The module IS the role (the
@@ -30,7 +30,7 @@ export const BASELINE_VERSION = '2026-06-23-baseline';
 export const CURRENT_VERSION = Object.freeze({
   owner: BASELINE_VERSION,
   kitchen: '2026-09-16-photo-gate',
-  driver: BASELINE_VERSION,
+  driver: '2026-09-16-breaks',
   marketing: BASELINE_VERSION,
   vendor: BASELINE_VERSION,
 });
@@ -61,6 +61,29 @@ export const UPDATES = Object.freeze({
       }),
     ]),
   }),
+  // Two things changed for a driver on the same day, and nobody told them either: the break button
+  // that shipped with hourly time tracking, and the delivery texts that now send themselves.
+  '2026-09-16-breaks': Object.freeze({
+    module: 'driver',
+    headline: Object.freeze({
+      en: 'Breaks now have a button, and deliveries text the client on their own.',
+      es: 'Los descansos ahora tienen botón, y las entregas le avisan al cliente solas.',
+    }),
+    changes: Object.freeze([
+      Object.freeze({
+        en: 'Stepping away? Tap Start break on Home, and End break when you are back. Clocking out closes a break you forgot to end.',
+        es: '¿Te alejas? Toca Iniciar descanso en Inicio, y Terminar descanso al volver. Marcar salida cierra un descanso que se te olvidó terminar.',
+      }),
+      Object.freeze({
+        en: 'Clock in and out every shift. Your hours are what the timesheet and your pay are figured from.',
+        es: 'Marca entrada y salida en cada turno. De ahí salen tus horas, la hoja de horas y tu pago.',
+      }),
+      Object.freeze({
+        en: 'Deliveries text the client on their own now: when you start navigation, about five minutes before you arrive, and when the order is delivered. Finishing a stop tells the next client you are on the way. Nothing extra to tap.',
+        es: 'Las entregas ahora le avisan al cliente solas: al iniciar la navegación, unos cinco minutos antes de llegar, y cuando se entrega el pedido. Al terminar una parada, el siguiente cliente recibe aviso de que vas en camino. No tienes que tocar nada más.',
+      }),
+    ]),
+  }),
 });
 
 /** The version `module` must have been completed at. Unknown module → null (never "due"). */
@@ -70,7 +93,7 @@ export function currentVersion(module) {
 
 /**
  * The "what changed" block for `module`'s CURRENT version, or null when that version carries no
- * update text (every role but the kitchen today). Null is what keeps the sign-in gate quiet for a
+ * update text (owner, marketing and vendor today). Null is what keeps the sign-in gate quiet for a
  * role with nothing to say — see the note at the top.
  */
 export function updateFor(module) {
