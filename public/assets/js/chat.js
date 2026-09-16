@@ -66,7 +66,7 @@
     s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');          // **bold** → <strong>
     s = s.replace(/(^|\n)\s*[-*•]\s+/g, '$1• ');                      // markdown bullets → •
     s = s.replace(/(^|\s)(\/(order|subscribe|calculator|portal|legal\/[a-z]+)(#[\w-]+)?)/g, '$1<a href="$2">$2</a>');
-    s = s.replace(/(#tasting|#wholesale|#menu|#fit|#faq)/g, '<a href="/$1">$1</a>');
+    s = s.replace(/(#tasting|#menu|#fit|#faq)/g, '<a href="/$1">$1</a>');
     s = s.replace(/([\w.+-]+@anejocateringco\.com)/g, '<a href="mailto:$1">$1</a>');
     s = s.replace(/\b(561-567-1047)\b/g, '<a href="tel:5615671047">$1</a>');
     return s;

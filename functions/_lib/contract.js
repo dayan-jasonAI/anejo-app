@@ -112,24 +112,129 @@ function hardCutoffMin(site) {
 function countLocked(site, ms) { return etMinutes(ms) >= hardCutoffMin(site); }
 export function hardCutoffLabel(site) { return (site && site.hard_cutoff_time) || HARD_CUTOFF_TIME; }
 
-// ISO-ish week index for the rotating menu. Anchored so it advances one per calendar week.
-function weekIndex(dateStr) { return Math.floor(Date.parse(dateStr + 'T00:00:00Z') / 86400000 / 7); }
+// ---- The weekly menu rotation (migrations/0111) ------------------------------------------
+//
+// THE ROTATION FLIPS ON A MONDAY THE OWNER CAN SEE. It used to count 7-day blocks from 1 Jan 1970,
+// which was a Thursday, so "next week's menu" started on a Thursday and there was no date anyone
+// could point to as week 1. Now: whole weeks since the account's rotation_start_date (a Monday),
+// modulo the number of weeks, plus one. All arithmetic is on America/New_York calendar DATES
+// (service dates are already ET strings), at noon UTC so no timezone can move a day.
+export const MAX_ROTATION_WEEKS = 8;
+// Only for menu rows that exist with no anchor (nothing the editor writes — it always sets one).
+// A Monday, so even that legacy case flips on Mondays.
+const LEGACY_ROTATION_ANCHOR = '1970-01-05';
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const dayMs = (dateStr) => Date.parse(dateStr + 'T12:00:00Z');
 
-// Resolve today's lunch item from the weekly rotation, else a sensible default.
-async function resolveItem(env, account, dateStr) {
-  const dow = dowMon(dateStr);
+/** True for a real calendar date written YYYY-MM-DD that falls on a Monday. */
+export function isIsoMonday(dateStr) {
+  const s = String(dateStr || '');
+  if (!ISO_DATE.test(s) || Number.isNaN(dayMs(s))) return false;
+  return new Date(dayMs(s)).toISOString().slice(0, 10) === s && dowMon(s) === 1;
+}
+
+/** The Monday (YYYY-MM-DD) of the week a date falls in. */
+export function mondayOf(dateStr) {
+  return new Date(dayMs(dateStr) - (dowMon(dateStr) - 1) * 86400000).toISOString().slice(0, 10);
+}
+
+/** YYYY-MM-DD plus n calendar days. */
+export function addDaysIso(dateStr, n) {
+  return new Date(dayMs(dateStr) + n * 86400000).toISOString().slice(0, 10);
+}
+
+/** Which rotation week (1..weeks) a service date lands in. Dates before the anchor are week 1. */
+export function rotationWeekFor(dateStr, startMonday, weeks) {
+  const n = Math.min(MAX_ROTATION_WEEKS, Math.max(1, Math.floor(Number(weeks)) || 1));
+  const anchor = isIsoMonday(startMonday) ? startMonday : LEGACY_ROTATION_ANCHOR;
+  const days = Math.round((dayMs(dateStr) - dayMs(anchor)) / 86400000);
+  if (!(days >= 0)) return 1;
+  return (Math.floor(days / 7) % n) + 1;
+}
+
+/** Today's date on the America/New_York calendar. */
+export function etDate(ms) { return etToday(ms); }
+
+// The account's rotation settings. The columns arrive with migrations/0111; an older schema reads
+// as "no rotation set", which resolves every day to the default name at the site's price — today's
+// behaviour exactly.
+async function rotationOf(env, accountId) {
   try {
-    const { results } = await env.DB.prepare('SELECT rotation_week, dow, item_name FROM contract_menu WHERE account_id = ?').bind(account.id).all();
-    const rows = results || [];
-    if (rows.length) {
-      const weeks = [...new Set(rows.map((r) => Number(r.rotation_week) || 1))].sort((a, b) => a - b);
-      const wk = weeks[weekIndex(dateStr) % weeks.length];
-      const hit = rows.find((r) => Number(r.rotation_week) === wk && Number(r.dow) === dow && r.item_name);
-      if (hit) return hit.item_name;
-    }
-  } catch { /* fall through to default */ }
-  const short = (account.name || 'Contract').split(' ')[0];
-  return `${short} Lunch — ${DOW_LABEL[dow - 1]}`;
+    const a = await env.DB.prepare('SELECT rotation_weeks, rotation_start_date FROM contract_accounts WHERE id = ?').bind(accountId).first();
+    return { weeks: Number(a && a.rotation_weeks) || null, start: (a && a.rotation_start_date) || null };
+  } catch { return { weeks: null, start: null }; }
+}
+
+/**
+ * What an account's menu says about one service date: the week, the dish and the dish's own price.
+ * `row` is null when no dish is set for that day. Never throws.
+ */
+export async function menuForDate(env, accountId, dateStr) {
+  const dow = dowMon(dateStr);
+  const rot = await rotationOf(env, accountId);
+  let rows = [];
+  try {
+    rows = ((await env.DB.prepare('SELECT * FROM contract_menu WHERE account_id = ?').bind(accountId).all()).results) || [];
+  } catch { rows = []; }
+  // A stored count wins. Without one (rows from before 0111), the highest week that has a row.
+  const weeks = rot.weeks || Math.max(1, ...rows.map((r) => Number(r.rotation_week) || 1));
+  const week = rotationWeekFor(dateStr, rot.start, weeks);
+  const row = rows.find((r) => (Number(r.rotation_week) || 1) === week && Number(r.dow) === dow && r.item_name) || null;
+  return { week, weeks, dow, start: rot.start, row };
+}
+
+/** The kitchen/ledger name when no dish is set for that day. */
+function defaultItemName(account, dateStr) {
+  const short = ((account && account.name) || 'Contract').split(' ')[0];
+  return `${short} Lunch — ${DOW_LABEL[dowMon(dateStr) - 1]}`;
+}
+
+/**
+ * THE ONE PLACE A CONTRACT DAY IS PRICED.
+ *
+ * submitHeadcount (the office) and ownerSetHeadcount (the owner's override) each used to compute
+ * count × price + delivery + rush for themselves, from the same four lines typed twice. Two copies
+ * of a money rule drift, and the first per-dish price would have had to be remembered in both. Both
+ * call this now.
+ *
+ * Price per lunch, in order:
+ *   1. the price ALREADY SNAPSHOTTED on this site's ledger row for this date, when there is one.
+ *      A re-submitted count keeps the price it was quoted — the promise the terms editor makes
+ *      ("days already submitted keep the price they were quoted"), and what generateInvoice was
+ *      already billing, since it reads the snapshot and not total_cents;
+ *   2. the dish's own price from the weekly menu, when the owner set one;
+ *   3. the site's price_per_lunch_cents — what every day was charged before menus had prices.
+ *
+ * Money is integer cents. OWNER-SIDE DATA: the return carries prices and must never be handed to
+ * an office-facing response as-is (test/compliance/contract-no-pricing.test.js).
+ */
+export async function quoteContractDay(env, { site, account, date, headcount, isRush }) {
+  const n = Math.max(0, Math.floor(Number(headcount)) || 0);
+  const menu = await menuForDate(env, account.id, date);
+  let prior = null;
+  try {
+    prior = await env.DB.prepare('SELECT price_per_lunch_cents FROM contract_orders WHERE site_id = ? AND service_date = ?').bind(site.id, date).first();
+  } catch { prior = null; }
+
+  const priorPrice = prior && Number.isInteger(Number(prior.price_per_lunch_cents)) && Number(prior.price_per_lunch_cents) > 0
+    ? Number(prior.price_per_lunch_cents) : null;
+  const menuPrice = menu.row && Number.isInteger(Number(menu.row.price_per_lunch_cents)) && Number(menu.row.price_per_lunch_cents) > 0
+    ? Number(menu.row.price_per_lunch_cents) : null;
+  const sitePrice = Number(site.price_per_lunch_cents) || 0;
+  const pricePer = priorPrice != null ? priorPrice : (menuPrice != null ? menuPrice : sitePrice);
+  const priceSource = priorPrice != null ? 'quoted' : (menuPrice != null ? 'menu' : 'site');
+
+  const deliveryFee = Number(site.delivery_fee_cents) || 0;
+  const rushFee = isRush ? (Number(site.rush_fee_cents) || 0) : 0;
+  const subtotal = n * pricePer;
+  return {
+    headcount: n, pricePer, priceSource, deliveryFee, rushFee, subtotal,
+    total: subtotal + deliveryFee + rushFee,
+    item: menu.row ? menu.row.item_name : defaultItemName(account, date),
+    item_es: menu.row ? (menu.row.item_name_es || null) : null,
+    dish_set: !!menu.row,
+    week: menu.week,
+  };
 }
 
 // ---- Non-repudiation: device verification, append-only audit, SMS receipts -------------
@@ -676,12 +781,9 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
   }
 
   const isRush = etMinutes(t) >= cutoffMin(site.cutoff_time);
-  const rushFee = isRush ? (Number(site.rush_fee_cents) || 0) : 0;
-  const pricePer = Number(site.price_per_lunch_cents) || 0;
-  const deliveryFee = Number(site.delivery_fee_cents) || 0;
-  const subtotal = n * pricePer;
-  const total = subtotal + deliveryFee + rushFee;
-  const item = await resolveItem(env, account, date);
+  // Priced by the one shared rule — see quoteContractDay. Never priced inline here again.
+  const quote = await quoteContractDay(env, { site, account, date, headcount: n, isRush });
+  const { pricePer, deliveryFee, rushFee, subtotal, total, item } = quote;
   const shortName = `${(account.name || 'Contract').split(' ')[0]} · ${site.name}`;
   const cleanNotes = (notes || '').toString().trim().slice(0, 400) || null; // allergies / special requests
   const submitter = (name || submittedBy || 'web').toString().trim().slice(0, 80) || 'web';
@@ -721,6 +823,17 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
   //     move (nothing to add or drop).
   const bowlSync = prior ? await reconcileOrderBowls(env, { id: orderId, items }) : { added: 0, removed: 0 };
   if (bowlSync.added > 0) await announceCountRaised(env, { orderId, site, date, count: n, added: bowlSync.added, t });
+  // The cook's "inside" and "packed" photos (kitchen-photos.js) show the old count, whichever way it
+  // moved, so both are retaken before the order can be ready again. Not once the food has left the
+  // kitchen: then those photos are the record of what was actually handed to the driver.
+  if (bowlSync.added > 0 || bowlSync.removed > 0) {
+    try {
+      await env.DB.prepare(
+        `UPDATE kitchen_photos SET superseded_at = ? WHERE order_id = ? AND superseded_at IS NULL
+           AND NOT EXISTS (SELECT 1 FROM orders WHERE id = ? AND kitchen_cleared_at IS NOT NULL)`
+      ).bind(t, orderId, orderId).run();
+    } catch { /* no photos taken, or the table is not migrated: nothing to retake */ }
+  }
 
   // 2) Ledger row (source of truth for invoicing; one per site per day).
   try {
@@ -730,7 +843,7 @@ export async function submitHeadcount(env, { token, count, nowMs, submittedBy, n
           delivery_fee_cents, rush_fee_cents, total_cents, order_id, submitted_by, is_rush, notes, created_at, updated_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT(site_id, service_date) DO UPDATE SET
-         headcount=excluded.headcount, item_name=excluded.item_name, delivery_fee_cents=excluded.delivery_fee_cents,
+         headcount=excluded.headcount, item_name=excluded.item_name, price_per_lunch_cents=excluded.price_per_lunch_cents, delivery_fee_cents=excluded.delivery_fee_cents,
          rush_fee_cents=excluded.rush_fee_cents, total_cents=excluded.total_cents, order_id=excluded.order_id,
          submitted_by=excluded.submitted_by, is_rush=excluded.is_rush, notes=excluded.notes, updated_at=excluded.updated_at`
     ).bind(
@@ -833,6 +946,11 @@ export async function siteContext(env, token, nowMs, opts = {}) {
   let existing = null;
   try { existing = await env.DB.prepare('SELECT headcount, total_cents, is_rush, notes FROM contract_orders WHERE site_id = ? AND service_date = ?').bind(site.id, date).first(); } catch { /* none */ }
   const month = await monthFor(env, site.id, date);
+  // Today's dish from the owner's weekly menu. NAME ONLY — the menu row also carries the dish's
+  // price, and this page is public (token in the URL). Null when no dish is set for today, rather
+  // than the "<Account> Lunch — <Day>" placeholder, which tells an office nothing.
+  const menu = deliversToday ? await menuForDate(env, site.account_id, date) : { row: null };
+  const todayDish = menu.row ? { name: menu.row.item_name, name_es: menu.row.item_name_es || null } : null;
   return {
     ok: true, account: (account && account.name) || '', site: site.name, date, weekday: DOW_LABEL[dow - 1],
     delivers_today: deliversToday, window: site.window_label || '11:30–12:30',
@@ -843,6 +961,7 @@ export async function siteContext(env, token, nowMs, opts = {}) {
     hard_cutoff: hardCutoffLabel(site), count_locked: countLocked(site, t),
     // price_per_lunch_cents is intentionally NOT returned — see the note on submitHeadcount.
     already: existing ? { count: existing.headcount, is_rush: !!existing.is_rush, notes: existing.notes || null } : null,
+    today_dish: todayDish,
     month,
     // Verification state for the page: a trusted device skips the code step; otherwise we need
     // a number to text the code to (on file, or one the contact enrolls on first use).
@@ -910,12 +1029,10 @@ export async function ownerSetHeadcount(env, { site_id, service_date, headcount,
   const account = await env.DB.prepare('SELECT * FROM contract_accounts WHERE id = ?').bind(site.account_id).first().catch(() => null);
   if (!account) return { ok: false, error: 'Account not found.' };
 
-  const pricePer = Number(site.price_per_lunch_cents) || 0;
-  const deliveryFee = Number(site.delivery_fee_cents) || 0;
-  const rushFee = is_rush ? (Number(site.rush_fee_cents) || 0) : 0;
-  const subtotal = n * pricePer;
-  const total = subtotal + deliveryFee + rushFee;
-  const item = await resolveItem(env, account, date);
+  // The same pricing rule the office's own submit uses (quoteContractDay), so an override can never
+  // price a day differently from the count it corrects.
+  const quote = await quoteContractDay(env, { site, account, date, headcount: n, isRush: !!is_rush });
+  const { pricePer, deliveryFee, rushFee, subtotal, total, item } = quote;
   const shortName = `${(account.name || 'Contract').split(' ')[0]} · ${site.name}`;
   const cleanNotes = (notes || '').toString().trim().slice(0, 400) || null;
   const orderId = `octr_${site.id}_${date}`;
@@ -954,7 +1071,7 @@ export async function ownerSetHeadcount(env, { site_id, service_date, headcount,
           delivery_fee_cents, rush_fee_cents, total_cents, order_id, submitted_by, is_rush, notes, created_at, updated_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT(site_id, service_date) DO UPDATE SET
-         headcount=excluded.headcount, item_name=excluded.item_name, delivery_fee_cents=excluded.delivery_fee_cents,
+         headcount=excluded.headcount, item_name=excluded.item_name, price_per_lunch_cents=excluded.price_per_lunch_cents, delivery_fee_cents=excluded.delivery_fee_cents,
          rush_fee_cents=excluded.rush_fee_cents, total_cents=excluded.total_cents, order_id=excluded.order_id,
          submitted_by=excluded.submitted_by, is_rush=excluded.is_rush, notes=excluded.notes, updated_at=excluded.updated_at`
     ).bind(

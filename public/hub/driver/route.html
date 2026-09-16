@@ -287,7 +287,7 @@
     var headHtml = '<div class="row"><div class="row-main"><div class="row-title">' + stops.length + ' stops · ' +
       done + ' delivered</div><div class="row-sub">' + Hub.esc(r.status) + (r.ai_optimized ? ' · optimized' : '') + '</div>' + routePayLine(r) + '</div></div>';
     if (allPicked && r.status !== 'completed' && routeData.full_route_url) {
-      headHtml += '<a class="btn ghost block" href="' + routeData.full_route_url + '" target="_blank" rel="noopener" style="margin-top:8px" data-i18n>🧭 Navigate full route</a>';
+      headHtml += '<a class="btn ghost block" id="full-route" href="' + routeData.full_route_url + '" target="_blank" rel="noopener" style="margin-top:8px" data-i18n>🧭 Navigate full route</a>';
     }
     if (allHandled && r.status !== 'completed') {
       headHtml += '<button class="btn gold block" id="complete-route" type="button" style="margin-top:8px" data-i18n>Complete route</button>';
@@ -295,6 +295,18 @@
     if (r.status === 'completed') headHtml += availabilityHtml();
     head.innerHTML = headHtml;
     wireHead();
+    // "Navigate full route" hands every stop to Maps at once, so it never told the first office it was on
+    // the way. Tell them in the same tap — keepalive, so leaving the page for Maps cannot cancel the request —
+    // and let the link open immediately instead of behind a network round trip.
+    var fullRoute = document.getElementById('full-route');
+    if (fullRoute) fullRoute.addEventListener('click', function () {
+      var first = stops.filter(function (s) { return s.status !== 'done' && s.status !== 'failed'; })[0];
+      if (!first || first.on_the_way_at || first.nav_started_at) return;
+      try {
+        fetch('/api/hub/driver/stop', { method: 'POST', credentials: 'same-origin', keepalive: true,
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stop_id: first.stop_id, action: 'nav_start' }) });
+      } catch (e) { /* navigation still opens */ }
+    });
 
     // Mode: pickup gate first
     if (!allPicked && r.status !== 'completed') {
@@ -391,7 +403,7 @@
         (cur.address_unverified ? '<div class="stop-warn" data-i18n>⚠️ Customer confirmed this address, but we couldn\'t verify it — double-check on arrival.</div>' : '') +
         (cur.delivery_notes ? '<div class="stop-note">📝 ' + Hub.esc(cur.delivery_notes) + '</div>' : '') +
         '<div class="cur-actions">' +
-        '<button class="btn gold" id="nav-btn" type="button" data-i18n>' + (nav ? '🧭 Re-open navigation' : '🧭 Navigate (notify customer)') + '</button>' +
+        '<button class="btn gold" id="nav-btn" type="button" data-i18n>' + (nav ? '🧭 Re-open navigation' : (cur.on_the_way_at ? '🧭 Navigate' : '🧭 Navigate (notify customer)')) + '</button>' +
         (nav && !cur.arriving_at ? '<button class="btn ghost" id="arrive-btn" type="button" data-i18n>📍 Arriving soon</button>' : '') +
         '<button class="btn" id="deliver-open" type="button" style="background:var(--green);color:#fff" data-i18n>📷 Mark delivered</button>' +
         '<button class="btn ghost small" id="fail-open" type="button" data-i18n>Report a problem</button>' +
@@ -423,7 +435,7 @@
 
   function navStart(stop) {
     Hub.api('/api/hub/driver/stop', { method: 'POST', body: { stop_id: stop.stop_id, action: 'nav_start' } }).then(function (resp) {
-      if (resp && resp.ok) Hub.toast('Customer notified — on the way');
+      if (resp && resp.ok) Hub.toast(stop.on_the_way_at ? 'Navigation opened' : 'Customer notified — on the way');
       if (stop.directions_url) window.open(stop.directions_url, '_blank', 'noopener');
       loadAll();
     });

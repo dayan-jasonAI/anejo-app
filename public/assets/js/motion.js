@@ -104,7 +104,7 @@
     });
 
     document.querySelectorAll(
-      '.section-head, .story-body, .macro-pitch, .macro-preview, .wholesale-text, .wholesale-card'
+      '.section-head, .story-body, .macro-pitch, .macro-preview'
     ).forEach(add);
 
     if (!('IntersectionObserver' in window)) { targets.forEach(reveal); return; }

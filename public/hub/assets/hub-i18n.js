@@ -230,7 +230,7 @@
     "Staff management": "Gestión de personal", "Recent activity": "Actividad reciente", "Ack": "Visto",
     "Open orders": "Pedidos abiertos", "No open orders.": "Sin pedidos abiertos.",
     "Recent kitchen activity": "Actividad reciente de cocina", "No kitchen activity yet.": "Sin actividad de cocina aún.",
-    "Incoming orders": "Pedidos entrantes", "Start prep": "Iniciar preparación", "Mark ready": "Marcar listo",
+    "Incoming orders": "Pedidos entrantes", "Start prep": "Iniciar preparación", "Mark ready": "Marcar listo", "1 · Inside": "1 · Adentro", "2 · Closed & packed": "2 · Cerrado y empacado", "Tap to take photo": "Toca para tomar la foto", "Take both photos first": "Primero toma las dos fotos", "Check off all bowls first": "Primero marca todos los bowls", "Start by": "Empezar a las", "Ready by": "Listo a las", "No prep time set for": "Sin tiempo de preparación para", "left": "restante", "over": "de más",
     "Upcoming": "Próximos", "Overdue": "Atrasados",
 
     // ---- status + severity badge words (rendered lowercase, CSS uppercases) ----
