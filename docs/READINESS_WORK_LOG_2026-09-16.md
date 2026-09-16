@@ -82,3 +82,7 @@ Approval state: Dayan's September 16 direct instruction authorized this release;
 ## Trainer follow-up candidate
 
 The separate trainer access concern was reproduced and repaired in both trainerSession and shared currentRole. Missing/inactive trainer rows and unavailable roster now deny access; active trainer identity remains intact. Five new regressions plus full root suite pass: 2,505/2,505, zero failures/skips,11.470s (/tmp/anejo-trainer-active-shared-full.log). Target lint and diff check pass. No real trainer account modified. Public live /api/menu also confirms fit_emerald Emerald Hydrate at749 cents, matching the fresh Studio snapshot response; no price change performed.
+
+## Final trainer release readback
+
+PR101 merged after Functions CI passed58s, Studio CI24s and Pages preview passed. Configured main-push deployment released431dfaf, active Production/main deployment0323d0e0-1c3c-47f0-ae15-ee6312f5ce9c. Provider evidence and 2,505-test log preserved under docs/evidence/trainer-release-*. Public live checks passed with liveDB skipped. The earlier trainer code follow-up is now released; actual trainer browser acceptance still awaits designated test accounts. This supersedes the previous candidate-only status. Current final production is431dfaf; subsequent documentation-only commits are not runtime deployments.
