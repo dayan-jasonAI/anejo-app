@@ -21,7 +21,7 @@
 <body>
 <div class="hub-bar"><h1>AÑEJO · TRAFFIC</h1><div class="hub-bar-actions"><a href="/hub/owner/" style="color:var(--gold);text-decoration:none;font-size:13px">← Command</a></div></div>
 <div class="hub-wrap">
-  <div class="seg" id="seg"><button data-d="7">7 days</button><button data-d="30" class="on">30 days</button><button data-d="90">90 days</button></div>
+  <div class="seg" id="seg"><button data-d="7">7 days</button><button data-d="30" class="on">30 days</button><button data-d="60">60 days</button><button data-d="90">90 days</button></div>
   <div class="card tcard"><div class="row-sub">Pageviews</div><div class="big" id="total">—</div><div class="row-sub" id="period">last 30 days · first-party, cookieless</div></div>
   <div class="card tcard"><h2>Traffic sources</h2><div id="bySource"></div></div>
   <div class="card tcard"><h2>Organic search</h2><div id="organic"></div></div>
@@ -35,6 +35,9 @@
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
 <script>
+var trafficLabels = { '60 days': '60 días' };
+if (window.AnejoI18n) window.AnejoI18n.extend(trafficLabels);
+else (window.__hubI18nQueue || (window.__hubI18nQueue = [])).push(trafficLabels);
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
 function rows(el,arr,key){var h=el;h.innerHTML=(arr&&arr.length)?arr.map(function(r){return '<div class="trow"><span class="lbl">'+esc(r[key]||'—')+'</span><span class="n">'+r.n+'</span></div>';}).join(''):'<div class="row-sub">No data yet.</div>';}
 async function load(days){
