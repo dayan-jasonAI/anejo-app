@@ -49,7 +49,10 @@ test('every service card is a link to its landing page', () => {
 });
 
 test('Wholesale is hidden everywhere a visitor or the assistants could find it', () => {
-  assert.doesNotMatch(page, /id="wholesale"|href="#wholesale"|Wholesale \(Añejo Bites\)|Wholesale \(Bites\)/);
+  // Not one mention, anywhere on the page. The section went first, but the footer still SOLD it
+  // ("longevity bowls, catering, and wholesale bites") and the removed form's submit handler was
+  // still sitting in the page naming the offer. Añejo is not licensed for any of it.
+  assert.doesNotMatch(page, /wholesale/i);
   assert.doesNotMatch(read('public/assets/js/chat.js'), /#wholesale/);
   const social = read('functions/_lib/ana_social.js');
   assert.doesNotMatch(social, /\/#wholesale|wholesale for venues/);
