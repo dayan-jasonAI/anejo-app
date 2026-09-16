@@ -654,7 +654,25 @@
     "Forgotten clock-outs to close:": "Salidas olvidadas por cerrar:",
     "Hourly people with no rate set:": "Personas por hora sin tarifa:",
     "Hourly people whose routes still carry route pay in Payouts — pay one or the other, not both:": "Personas por hora cuyas rutas aún tienen pago por ruta en Pagos — paga uno u otro, no ambos:",
-    "Paid hourly, but routes this week still carry route pay in Payouts:": "Cobra por hora, pero sus rutas de esta semana aún tienen pago por ruta en Pagos:"
+    "Paid hourly, but routes this week still carry route pay in Payouts:": "Cobra por hora, pero sus rutas de esta semana aún tienen pago por ruta en Pagos:",
+
+    // ---- Training updates (2026-09-16): the sign-in gate, the training page, the owner's view ----
+    // Only the CHROME is here. The "what changed" sentences themselves are written in both languages
+    // in functions/_lib/training_modules.js and arrive from /api/hub/training/status already in the
+    // reader's language — one home per string, so the procedure can never drift between the two.
+    "Training update": "Actualización de capacitación",
+    "Something changed in how you work. Complete this training first.":
+      "Algo cambió en cómo trabajas. Completa esta capacitación primero.",
+    "Open my training": "Abrir mi capacitación",
+    "What's new": "Lo nuevo", "What’s new": "Lo nuevo",
+    "Read this first — it changed since you last trained.":
+      "Lee esto primero — cambió desde tu última capacitación.",
+    "You are up to date on this training.": "Estás al día con esta capacitación.",
+    "Up to date": "Al día", "Out of date": "Desactualizada", "Never trained": "Sin capacitar",
+    "Trained before this change": "Capacitada antes de este cambio",
+    "owe the new training": "deben la nueva capacitación",
+    "have never been trained": "nunca han sido capacitados",
+    "are up to date": "están al día"
   };
 
   // Register with the shared i18n engine; queue if it hasn't loaded yet.

@@ -33,6 +33,14 @@
   .pick a .tt{display:block;font-weight:700;color:var(--green);font-size:17px}
   .pick a .ds{display:block;font-size:13px;color:var(--muted);margin-top:3px;line-height:1.4}
   .pick a.full{border-left-color:var(--green);background:#fff8e9}
+  /* what's new — the change since this reader last trained, above the module itself */
+  .whatsnew{background:#fff8e9;border:1px solid var(--gold);border-left:5px solid var(--gold);border-radius:14px;
+    padding:15px 17px;margin-bottom:14px;box-shadow:0 6px 22px rgba(198,168,91,.18)}
+  .whatsnew .wn-k{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold-700)}
+  .whatsnew h3{margin:4px 0 8px;font-size:18px;color:var(--green);line-height:1.3}
+  .whatsnew ul{margin:0;padding-left:19px;font-size:14.5px;line-height:1.55}
+  .whatsnew li{margin-bottom:6px}
+  .whatsnew .wn-done{margin:10px 0 0;font-size:12.5px;font-weight:700;color:var(--green)}
   /* module */
   .stage{flex:1;padding:16px 16px 30px}
   .modhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
@@ -90,6 +98,7 @@
   </div>
 
   <div class="stage" id="stage" style="display:none">
+    <div class="whatsnew" id="whatsnew" style="display:none"></div>
     <div class="modhead"><span class="badge" id="mod-badge"></span></div>
     <div class="prog" id="prog"></div>
     <div class="scene" id="scene"></div>
@@ -115,6 +124,9 @@ var UI = {
              es:'Elige tu rol. Cada tutorial cubre justo lo que necesitas — tu pantalla, lo que se espera de ti, y qué inicia tu trabajo. El recorrido del Dueño cubre todo el sistema de principio a fin.'},
   trig:{en:'Trigger',es:'Qué lo inicia'}, you:{en:'You do',es:'Tú haces'}, then:{en:'Then (automatic)',es:'Luego (automático)'},
   finishing:{en:'Saving…',es:'Guardando…'}, done:{en:'✓ Completed',es:'✓ Completado'},
+  whatsnew:{en:"What's new",es:'Lo nuevo'},
+  wnRead:{en:'Read this first — it changed since you last trained.',es:'Lee esto primero — cambió desde tu última capacitación.'},
+  wnDone:{en:'✓ You are up to date on this training.',es:'✓ Estás al día con esta capacitación.'},
   doneMsg:{en:'Training completed — thank you! Your owner can see this in the compliance view.',es:'Capacitación completada — ¡gracias! Tu dueño puede verlo en el panel de cumplimiento.'}
 };
 var ROLES = [
@@ -515,8 +527,27 @@ function renderLand(){
     return '<a class="'+(r.full?'full':'')+'" href="?role='+r.key+'"><span class="ic">'+r.ic+'</span><span><span class="tt">'+r[lang]+'</span><span class="ds">'+r['d'+lang]+'</span></span></a>';
   }).join('');
 }
+/* "What's new" — the change this module's CURRENT version introduced, shown ABOVE the tutorial so a
+   staffer sent here by the sign-in gate reads the new procedure before the walkthrough she may have
+   already seen. It stays visible after completion: this is where you come back to re-read it.
+   The sentences arrive from /api/hub/training/status already written in both languages
+   (functions/_lib/training_modules.js) — this page picks the one matching its own EN/ES toggle. */
+var _update = null, _upToDate = false;
+function wnPick(o){ return (o && (lang==='es' ? o.es : o.en)) || (o && o.en) || ''; }
+function renderWhatsNew(){
+  var box=document.getElementById('whatsnew'); if(!box) return;
+  if(!_update){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML = '<div class="wn-k">★ '+UI.whatsnew[lang]+'</div>'+
+    '<h3>'+wnPick(_update.headline)+'</h3>'+
+    '<p style="margin:0 0 9px;font-size:13px;color:var(--muted)">'+UI.wnRead[lang]+'</p>'+
+    '<ul>'+(_update.changes||[]).map(function(c){ return '<li>'+wnPick(c)+'</li>'; }).join('')+'</ul>'+
+    (_upToDate ? '<p class="wn-done">'+UI.wnDone[lang]+'</p>' : '');
+  box.style.display='block';
+}
+
 function render(){
   var scenes=MOD[role], n=scenes.length, sc=scenes[idx];
+  renderWhatsNew();
   document.getElementById('mod-badge').textContent = (ROLES.filter(function(r){return r.key===role;})[0]||{})[lang] || role;
   document.getElementById('prog').innerHTML = scenes.map(function(_,i){ return '<div class="dot '+(i<idx?'done':i===idx?'cur':'')+'"></div>'; }).join('');
   document.getElementById('scene').innerHTML =
@@ -544,22 +575,39 @@ function finish(){
   btn.disabled=true; if(sp) sp.textContent=UI.finishing[lang];
   fetch('/api/hub/training/complete',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({module:role,lang:lang})})
     .then(function(r){ return r.ok?r.json():null; })
-    .then(function(d){ btn.disabled=false; if(d&&d.ok){ _done[role]=d.completed_at; render(); } else if(sp){ sp.textContent=UI.finish[lang]; } })
+    .then(function(d){ btn.disabled=false; if(d&&d.ok){ _done[role]=d.completed_at; _upToDate=true; render(); } else if(sp){ sp.textContent=UI.finish[lang]; } })
     .catch(function(){ btn.disabled=false; if(sp) sp.textContent=UI.finish[lang]; });
 }
-function loadDone(){
-  fetch('/api/hub/training/complete',{credentials:'include'}).then(function(r){ return r.ok?r.json():null; }).then(function(d){
-    if(d&&d.completed){ d.completed.forEach(function(c){ _done[c.module]=c.completed_at; }); if(role) render(); }
-  }).catch(function(){});
+/* One call answers both questions this page asks: what changed in this module, and whether THIS
+   reader is current on it. "Completed" is version-aware now — a completion recorded before the
+   process changed is not a tick, because she has not seen the new procedure. */
+function loadStatus(){
+  if(!role) return;
+  fetch('/api/hub/training/status?module='+encodeURIComponent(role),{credentials:'include'})
+    .then(function(r){ return r.ok?r.json():null; })
+    .then(function(d){
+      if(!d||!d.ok) return;
+      _update = d.module_update || null;
+      _upToDate = d.state === 'current';
+      if(_upToDate && d.completed_at) _done[role]=d.completed_at; else delete _done[role];
+      render();
+    }).catch(function(){});
 }
 function boot(){
   role = qRole();
   if(role){ document.getElementById('land').style.display='none'; document.getElementById('stage').style.display='block'; document.getElementById('homelink').style.display='inline';
-    var cl=document.getElementById('cardlink'); cl.href='/hub/training-card?role='+role; cl.style.display='inline'; render(); }
-  else { document.getElementById('land').style.display='block'; document.getElementById('stage').style.display='none'; renderLand(); }
+    var cl=document.getElementById('cardlink'); cl.href='/hub/training-card?role='+role; cl.style.display='inline'; }
+  else { document.getElementById('land').style.display='block'; document.getElementById('stage').style.display='none'; }
+  /* Open in the language the reader already set on the HUB (the same anejo:lang the shared i18n
+     engine persists). This page kept its own toggle and always opened in English, so the sign-in
+     gate would speak to the cook in Spanish and then hand her an English tutorial. setLang paints
+     the toggle and renders, so it replaces the explicit first render. */
+  var pref='en';
+  try { pref = localStorage.getItem('anejo:lang') === 'es' ? 'es' : 'en'; } catch(e){ /* storage off — English */ }
+  setLang(pref);
 }
 boot();
-if(role) loadDone();
+if(role) loadStatus();
 </script>
 </body>
 </html>
