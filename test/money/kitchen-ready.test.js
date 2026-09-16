@@ -77,6 +77,34 @@ test('real SQL: unpaid, canceled, uncompleted bowls and invalid PIN cannot creat
   }
 });
 
+// 2026-09-16, DGP Pompano: ready at 9:38, the office raised its count 22 → 23 at 10:11, contract.js
+// sent the order back to prep for the extra lunch — and every attempt to mark it ready again failed
+// with "could not save the status and the alert". The alert id is derived from the order id, so the
+// second insert collided with the first row and took the whole batch, and the transition, with it.
+// The cook could not hand the order off at all; the driver delivered it anyway.
+test('real SQL: an order marked ready a SECOND time (an office raised its count) still goes ready, and re-opens the one alert', async () => {
+  const { DB, env, order } = await fixture();
+  assert.equal((await markKitchenReady(env, order, 300)).changed, true);
+  assert.equal(DB.sqlite.prepare('SELECT COUNT(*) n FROM alerts').get().n, 1);
+
+  // The owner saw the first notice, then the office added a lunch: contract.js reverts ready → prep.
+  DB.sqlite.exec("UPDATE alerts SET status='acknowledged', acknowledged_at=310");
+  DB.sqlite.exec("UPDATE orders SET status='prep'");
+
+  const second = await markKitchenReady(env, order, 400);
+  assert.equal(second.changed, true, 'the cook can mark it ready again');
+  assert.equal(DB.sqlite.prepare('SELECT status FROM orders').get().status, 'ready');
+  const alerts = DB.sqlite.prepare('SELECT * FROM alerts').all();
+  assert.equal(alerts.length, 1, 'one alert per order, not a second one stacked on top');
+  assert.equal(alerts[0].status, 'open', 'and it is open again: the order is ready NOW');
+  assert.equal(alerts[0].acknowledged_at, null);
+  assert.equal(alerts[0].updated_at, 400);
+
+  // And the endpoint the cook actually taps succeeds too.
+  DB.sqlite.exec("UPDATE orders SET status='prep'");
+  assert.equal((await action(env)).status, 200);
+});
+
 test('ready endpoint retries are idempotent and cannot regress ready to prep or undo a bowl', async () => {
   const {env,DB} = await fixture();
   assert.equal((await action(env)).status,200);

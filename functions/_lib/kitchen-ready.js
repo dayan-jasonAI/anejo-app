@@ -15,10 +15,25 @@ export async function markKitchenReady(env, order, timestamp) {
       AND EXISTS (SELECT 1 FROM kitchen_photos WHERE order_id=? AND kind='contents' AND superseded_at IS NULL)
       AND EXISTS (SELECT 1 FROM kitchen_photos WHERE order_id=? AND kind='packed' AND superseded_at IS NULL)`)
       .bind(timestamp, order.id, order.id, order.id, order.id),
+    // ON CONFLICT, not a plain INSERT: the alert id is derived from the order id, so the SECOND
+    // time an order is marked ready the insert collided with its own earlier row and D1 threw —
+    // taking the whole batch, and the transition, with it. The cook saw "could not save the status
+    // and the alert" and could not hand the order off at all.
+    //
+    // An order reaches here twice on a perfectly normal day: an office raises its lunch count after
+    // the kitchen called it ready, contract.js sends it back to prep for the extra lunches, and the
+    // cook builds them and marks it ready again. That is what happened to DGP Pompano on
+    // 2026-09-16 (ready 9:38, count 22 → 23 at 10:11, then every retry failed).
+    //
+    // Re-marking ready re-opens the same alert rather than stacking a second one: the owner needs
+    // to know the order is ready NOW, even if they already acknowledged the earlier notice.
     env.DB.prepare(`INSERT INTO alerts
       (id,alert_type,severity,title,body,team,ref_type,ref_id,source,dedupe_key,status,created_at,updated_at)
       SELECT ?, 'kitchen_ready_delivery', 'warning', ?, ?, 'kitchen', 'order', ?,
-        'kitchen', ?, 'open', ?, ? WHERE changes()=1`)
+        'kitchen', ?, 'open', ?, ? WHERE changes()=1
+      ON CONFLICT(id) DO UPDATE SET
+        status='open', title=excluded.title, body=excluded.body, updated_at=excluded.updated_at,
+        acknowledged_by=NULL, acknowledged_at=NULL`)
       .bind(alertId,
         'Kitchen update — order ready for delivery / Cocina — pedido listo para entrega',
         `Order / Pedido ${order.id}. Review dispatch and assign an available driver if needed. / Revisa las rutas y asigna un conductor disponible si hace falta.`,
