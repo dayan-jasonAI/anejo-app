@@ -105,6 +105,7 @@
         <div class="row-title" id="clock-status" data-i18n>Loading…</div>
         <div class="row-sub" id="clock-sub"></div>
       </div>
+      <button class="btn ghost" id="break-btn" type="button" style="display:none">Start break</button>
       <button class="btn gold" id="clock-btn" type="button" disabled>—</button>
     </div>
   </div>
@@ -263,11 +264,36 @@
       btn.textContent = 'Clock in';
       btn.className = 'btn gold';
     }
+    renderBreak(shift);
+    refreshI18n();
   }
 
   function loadClock() {
     K.get('/api/hub/kitchen/clock-out').then(function (d) { renderClock(d && d.shift); });
   }
+
+  // Breaks: Start/End break on the open shift. Break minutes come off worked hours; clocking out
+  // ends a break still running (server side, so a forgotten tap never costs anyone hours).
+  var onBreak = false;
+  function renderBreak(shift) {
+    var bb = $('#break-btn');
+    if (!shift) { onBreak = false; bb.style.display = 'none'; return; }
+    var breaks = shift.breaks;
+    if (typeof breaks === 'string') { try { breaks = JSON.parse(breaks); } catch (e) { breaks = []; } }
+    onBreak = Array.isArray(breaks) && breaks.some(function (x) { return x && x.start && !x.stop; });
+    bb.style.display = ''; bb.disabled = false;
+    bb.textContent = onBreak ? 'End break' : 'Start break';
+    bb.className = onBreak ? 'btn gold' : 'btn ghost';
+    if (onBreak) $('#clock-status').textContent = 'On break';
+  }
+
+  $('#break-btn').addEventListener('click', function () {
+    var bb = this; bb.disabled = true;
+    K.post('/api/hub/kitchen/break', { action: onBreak ? 'end' : 'start' }).then(function (d) {
+      if (d && d.ok) { Hub.toast(d.on_break ? 'Break started' : 'Break ended'); loadClock(); }
+      else { K.fail(d, 'Could not update break.'); bb.disabled = false; }
+    });
+  });
 
   $('#clock-btn').addEventListener('click', function () {
     var btn = this; btn.disabled = true;

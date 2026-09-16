@@ -9,6 +9,7 @@ import { requireRole } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { today, parseJson } from '../../../_lib/hub.js';
 import { refundedCents } from '../../../_lib/ops.js';
+import { weekOf, buildTimesheet } from '../../../_lib/timesheet.js';
 
 const REPORT_TYPES = ['payroll', 'deliveries', 'finance', 'accountability', 'temp_compliance'];
 const FORMATS = ['csv', 'json'];
@@ -43,25 +44,32 @@ function toCsv(headers, rows) {
 
 // ---------- report builders (each returns { headers, rows }) ----------
 
-async function buildPayroll(env, fromMs, toMs) {
-  const { results } = await env.DB.prepare(
-    `SELECT st.id, st.name, st.role, st.pay_rate_cents,
-            COUNT(s.id) AS shift_count,
-            SUM(COALESCE(s.total_minutes, CAST((s.clock_out_at - s.clock_in_at) / 60000 AS INTEGER), 0)) AS minutes,
-            SUM(COALESCE(s.break_minutes, 0)) AS break_minutes
-       FROM shifts s
-       JOIN staff st ON st.id = s.staff_id
-      WHERE s.status = 'closed' AND s.clock_out_at >= ? AND s.clock_out_at <= ?
-      GROUP BY st.id
-      ORDER BY st.name`
-  ).bind(fromMs, toMs).all();
-
-  const headers = ['name', 'role', 'shifts', 'total_hours', 'break_minutes', 'est_pay'];
-  const rows = (results || []).map((r) => {
-    const hours = (r.minutes || 0) / 60;
-    const estPay = r.pay_rate_cents ? ((r.pay_rate_cents * hours) / 100).toFixed(2) : '';
-    return [r.name || r.id, r.role || '', r.shift_count || 0, hours.toFixed(2), r.break_minutes || 0, estPay];
-  });
+// Payroll reads the SAME timesheet the owner corrects (_lib/timesheet.js), so the file and the
+// screen cannot disagree. Exact ET day bounds, no tz padding: a shift belongs to the range it
+// started in, so back-to-back pay weeks never count one shift twice.
+// The first six columns are unchanged; new ones are appended. est_pay is filled ONLY for hourly
+// staff — a per-route driver shows hours but no hourly pay, and their route pay is its own column.
+async function buildPayroll(env, from, to) {
+  const sheet = await buildTimesheet(env, { from, to });
+  const headers = [
+    'name', 'role', 'shifts', 'total_hours', 'break_minutes', 'est_pay',
+    'pay_basis', 'hourly_rate', 'worked_minutes', 'route_pay', 'open_shifts', 'flags',
+  ];
+  const rows = sheet.staff
+    .filter((p) => p.shift_count || p.open_shifts || p.route_pay_cents || p.route_pay_not_counted_cents)
+    .map((p) => {
+      const flags = [];
+      if (p.rate_missing) flags.push('hourly_rate_missing');
+      if (p.forgotten_shifts) flags.push('forgotten_open_shift');
+      else if (p.open_shifts) flags.push('open_shift');
+      if (p.route_pay_not_counted_cents) flags.push(`hourly_but_routes_carry_pay_${dollars(p.route_pay_not_counted_cents)}`);
+      return [
+        p.name, p.role || '', p.shift_count, (p.worked_minutes / 60).toFixed(2), p.break_minutes,
+        p.hourly_pay_cents == null ? '' : dollars(p.hourly_pay_cents),
+        p.pay_basis || '', p.pay_basis === 'hourly' && p.pay_rate_cents ? dollars(p.pay_rate_cents) : '',
+        p.worked_minutes, p.route_pay_cents == null ? '' : dollars(p.route_pay_cents), p.open_shifts, flags.join(' '),
+      ];
+    });
   return { headers, rows };
 }
 
@@ -198,12 +206,15 @@ export const onRequestPost = async ({ request, env }) => {
   let from = (b && b.from || '').toString().trim();
   if (!isYmd(from)) from = new Date(Date.parse(`${to}T00:00:00Z`) - 30 * DAY_MS).toISOString().slice(0, 10);
   if (from > to) { const t = from; from = to; to = t; }
+  // Payroll by pay week: { week: 'YYYY-MM-DD' } (any day in it) → that Monday–Sunday in ET.
+  const week = (b && b.week || '').toString().trim();
+  if (report_type === 'payroll' && isYmd(week)) { const w = weekOf(week); from = w.week_start; to = w.week_end; }
 
   const fromMs = Date.parse(`${from}T00:00:00Z`) - 12 * 3600 * 1000; // pad for tz skew
   const toMs = Date.parse(`${to}T00:00:00Z`) + DAY_MS + 12 * 3600 * 1000;
 
   let report;
-  if (report_type === 'payroll') report = await buildPayroll(env, fromMs, toMs);
+  if (report_type === 'payroll') report = await buildPayroll(env, from, to);
   else if (report_type === 'deliveries') report = await buildDeliveries(env, fromMs, toMs);
   else if (report_type === 'finance') report = await buildFinance(env, fromMs, toMs);
   else if (report_type === 'accountability') report = await buildAccountability(env, fromMs, toMs, from, to);

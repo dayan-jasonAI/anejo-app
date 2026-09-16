@@ -30,8 +30,20 @@ const OWNER_MODULE = {
   'QuickBooks': /k:'QuickBooks'/,
   'signed-out vs a quiet day': /A blank HUB means signed out/,
   'bar vs pop-up placement': /k:'Bar or pop-up'/,
+  'the weekly timesheet, pay basis and shift corrections': /k:'Timesheet'/,
   'the weekly office menu and per-dish prices': /k:'Weekly menus'/,
 };
+
+test('kitchen and driver modules teach the Break button, and the cards carry it', () => {
+  for (const role of ['kitchen', 'driver']) {
+    const start = MODULES.indexOf(`  ${role}: [`);
+    const end = MODULES.indexOf('\n  ],', start);
+    assert.match(MODULES.slice(start, end), /k:'Breaks'/, `${role} module must cover breaks`);
+    const card = CARD.slice(CARD.indexOf(`  ${role}:{`));
+    assert.match(card.slice(0, card.indexOf('rem:')), /Start break/, `${role} quick card must cover breaks`);
+  }
+  assert.match(CARD, /Timesheet/, 'the owner quick card points to the timesheet');
+});
 
 for (const [feature, re] of Object.entries(OWNER_MODULE)) {
   test(`the owner module teaches: ${feature}`, () => {
