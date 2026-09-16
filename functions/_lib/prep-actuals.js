@@ -37,6 +37,12 @@ function medianOf(values) {
  *                    delivery was signed for must not drag the number the owner adopts.
  *   per_unit         minutes ÷ qty, taken per row and then medianed. A RATE, not a duration, so
  *                    it keeps one decimal — 20 bowls in 10 minutes is 0.5, not "0 minutes".
+ *   median_single    THE ONLY NUMBER SAFE TO ADOPT, and null until MIN_SAMPLES of them. menu_items
+ *                    .prep_minutes means ONE of that item, so only measurements of one unit can set
+ *                    it. Neither other number can: the total of "croquetas ×200 = 90 min" would make
+ *                    a single croqueta 90 minutes, and its rate (0.45) would make it one — a batch
+ *                    measures THROUGHPUT, which is worth knowing and is not this field.
+ *   count_single     how many single-unit measurements there are, so the desk can say what is missing
  *   last_at          when the most recent one was measured
  */
 export function summarize(rows) {
@@ -44,10 +50,14 @@ export function summarize(rows) {
   const enough = list.length >= MIN_SAMPLES;
   const perUnit = list.filter((r) => Number(r.qty) > 0).map((r) => Number(r.minutes) / Number(r.qty));
   const pu = enough && perUnit.length >= MIN_SAMPLES ? medianOf(perUnit) : null;
+  // A row with no qty recorded is one thing made once — that is what an unquantified timing means.
+  const single = list.filter((r) => r.qty === null || r.qty === undefined || Number(r.qty) <= 1);
   return {
     count: list.length,
     median_minutes: enough ? Math.round(medianOf(list.map((r) => Number(r.minutes)))) : null,
     median_per_unit: pu === null ? null : Math.round(pu * 10) / 10,
+    count_single: single.length,
+    median_single: single.length >= MIN_SAMPLES ? Math.round(medianOf(single.map((r) => Number(r.minutes)))) : null,
     last_at: list.reduce((m, r) => Math.max(m, Number(r.ended_at) || 0), 0) || null,
   };
 }

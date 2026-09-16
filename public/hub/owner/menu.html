@@ -524,7 +524,7 @@
   // The adjusting is HIS tap. Nothing on this page changes an estimate on its own, and below the
   // sample threshold it shows the count and no number at all — a median of two is a coin flip, and
   // a coin flip printed next to a real estimate looks exactly like evidence.
-  function measured(it) { return (it && it.measured) || { count: 0, median_minutes: null }; }
+  function measured(it) { return (it && it.measured) || { count: 0, median_minutes: null, count_single: 0, median_single: null }; }
   function minSamples() { return data.prep_min_samples || 3; }
   function whenMeasured(ms) { return ms ? Owner.timeAgo(ms) : ''; }
 
@@ -537,12 +537,17 @@
         (minSamples() - m.count) + ' more before a median means anything.</span></div>';
     }
     var per = m.median_per_unit != null ? ' <span class="thin">· ' + m.median_per_unit + ' min each</span>' : '';
-    var same = String(m.median_minutes) === String(it.prep_minutes == null ? '' : it.prep_minutes);
+    // Only a SINGLE-item timing can set this field, because the field is how long ONE takes.
+    // "Croquetas ×200 in 90 min" is real and useful, but adopting it would say one croqueta takes
+    // 90 minutes; its rate (0.45) would say one minute. Both are wrong, so neither is offered.
+    var canUse = m.median_single != null;
+    var same = canUse && String(m.median_single) === String(it.prep_minutes == null ? '' : it.prep_minutes);
+    var action = same ? '<span class="thin">matches your estimate</span>'
+      : canUse ? '<button type="button" id="use_' + esc(it.id) + '">Use ' + m.median_single + ' min</button>'
+      : '<span class="thin">timed in batches — ' + (minSamples() - (m.count_single || 0)) +
+        ' more timings of a single one before this can set your estimate</span>';
     return '<div class="mn-meas"><span>⏱ Measured <b>' + m.median_minutes + ' min</b> (median of ' + n + per +
-      ')</span><span class="thin">' + esc(whenMeasured(m.last_at)) + '</span>' +
-      (same ? '<span class="thin">matches your estimate</span>'
-            : '<button type="button" id="use_' + esc(it.id) + '">Use ' + m.median_minutes + ' min</button>') +
-      '</div>';
+      ')</span><span class="thin">' + esc(whenMeasured(m.last_at)) + '</span>' + action + '</div>';
   }
 
   // Adopt the measured median. Confirmed like a price change: it moves when the kitchen is told
@@ -550,9 +555,9 @@
   // intention, not a number.
   function adopt(it) {
     var m = measured(it);
-    if (m.median_minutes == null) return;
-    if (!confirm('Set ' + it.name + '’s prep time to ' + m.median_minutes + ' minutes?\n\n' +
-        'That is the median of ' + m.count + ' measurement' + (m.count === 1 ? '' : 's') + ' from the kitchen' +
+    if (m.median_single == null) return;
+    if (!confirm('Set ' + it.name + '’s prep time to ' + m.median_single + ' minutes?\n\n' +
+        'That is the median of ' + m.count_single + ' timing' + (m.count_single === 1 ? '' : 's') + ' of a single one' +
         (it.prep_minutes == null ? '' : ', replacing your estimate of ' + it.prep_minutes + ' minutes') + '.')) return;
     delete pending[it.id];   // the input is about to be re-rendered from the adopted value
     post({ op: 'adopt_prep_minutes', id: it.id }, '#msg_' + it.id, 'Prep time updated.');

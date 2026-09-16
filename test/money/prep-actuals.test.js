@@ -221,7 +221,7 @@ test('the owner sees the MEDIAN and the sample count, and nothing at all below t
   assert.ok(vida.measured.last_at > T0);
 
   const untouched = items.find((i) => i.id !== 'vida');
-  assert.deepEqual(untouched.measured, { count: 0, median_minutes: null, median_per_unit: null, last_at: null });
+  assert.deepEqual(untouched.measured, { count: 0, median_minutes: null, median_per_unit: null, count_single: 0, median_single: null, last_at: null });
 }));
 
 test('"use this" writes the median into prep_minutes — and only the owner\'s tap ever does', offline(async () => {
@@ -232,7 +232,7 @@ test('"use this" writes the median into prep_minutes — and only the owner\'s t
   // Two samples: refused, and the estimate is untouched.
   let res = await owner(env, { op: 'adopt_prep_minutes', id: 'vida' });
   assert.equal(res.status, 409);
-  assert.match((await res.json()).error, /2 measurements/);
+  assert.match((await res.json()).error, /2 single-item measurements/);
   assert.equal(db.prepare("SELECT prep_minutes FROM menu_items WHERE id = 'vida'").get().prep_minutes, 12);
 
   seedBatches(db, 'vida', [90], { at: T0 + 60 * MIN });
@@ -275,8 +275,35 @@ test('the owner view carries minutes per unit, the office lunch measurement and 
   assert.ok(snap.prep_log.every((r) => r.ended_at), 'a running clock is not a measurement');
 }));
 
+// prep_minutes is how long ONE takes. A cook timing "croquetas x200" is measuring throughput, and
+// adopting that 90 minutes would tell the board a single croqueta takes an hour and a half; its rate
+// (0.45 min) would say one minute. Neither is the field, so neither is offered — the batch is still
+// recorded, and still shown, because knowing the line's throughput is worth having.
+test('a batch of many is recorded and shown, but can never set the one-item estimate', offline(async () => {
+  const { env, db } = await kitchen();
+  db.prepare("UPDATE menu_items SET prep_minutes = 5 WHERE id = 'vida'").run();
+  seedBatches(db, 'vida', [88, 90, 94], { qty: 200 });
+
+  const vida = (await ownerSnapshot(env)).items.find((i) => i.id === 'vida');
+  assert.equal(vida.measured.count, 3, 'the timings count');
+  assert.equal(vida.measured.median_minutes, 90, 'and the owner sees what the batch really took');
+  assert.equal(vida.measured.median_per_unit, 0.5, 'and its rate per piece');
+  assert.equal(vida.measured.count_single, 0);
+  assert.equal(vida.measured.median_single, null, 'but nothing here says how long ONE takes');
+
+  const res = await owner(env, { op: 'adopt_prep_minutes', id: 'vida' });
+  assert.equal(res.status, 409);
+  assert.match((await res.json()).error, /single-item/);
+  assert.equal(db.prepare("SELECT prep_minutes FROM menu_items WHERE id = 'vida'").get().prep_minutes, 5, 'the estimate is untouched');
+
+  // Three timings of a single one, and now it can.
+  seedBatches(db, 'vida', [6, 7, 9], { qty: 1, at: T0 + 120 * MIN });
+  assert.equal((await owner(env, { op: 'adopt_prep_minutes', id: 'vida' })).status, 200);
+  assert.equal(db.prepare("SELECT prep_minutes FROM menu_items WHERE id = 'vida'").get().prep_minutes, 7);
+}));
+
 test('summarize is the median, tolerates a zero quantity, and reports the latest measurement', () => {
-  assert.deepEqual(summarize([]), { count: 0, median_minutes: null, median_per_unit: null, last_at: null });
+  assert.deepEqual(summarize([]), { count: 0, median_minutes: null, median_per_unit: null, count_single: 0, median_single: null, last_at: null });
   // Even count → the mean of the two middles, rounded to whole minutes.
   const even = summarize([10, 20, 30, 45].map((m, i) => ({ minutes: m, qty: 0, ended_at: T0 + i })));
   assert.equal(even.median_minutes, 25);

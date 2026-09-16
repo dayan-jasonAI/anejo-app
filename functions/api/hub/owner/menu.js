@@ -95,7 +95,9 @@ function decorate(row, measured = null) {
   // What the kitchen has actually been timed at, beside the owner's estimate (prep-actuals.js).
   // Always present so the UI never has to guess whether the lookup ran; `count` 0 means nothing
   // measured yet, and `median_minutes` stays null until MIN_SAMPLES — never a stand-in number.
-  out.measured = measured || { count: 0, median_minutes: null, median_per_unit: null, last_at: null };
+  // summarize([]) rather than a literal: an empty summary must keep the same shape as a real one,
+  // and a hand-written copy of it drifts the moment the summary gains a field (it just did).
+  out.measured = measured || summarize([]);
   if (row.kind !== 'bowl') return out;
   // Not a blocker, and deliberately still the hardcoded list: /api/order-availability now derives
   // the cap from the live menu, but checkout.js tallies each cart against ondemand.js BOWL_IDS,
@@ -338,16 +340,19 @@ export const onRequestPost = async ({ request, env }) => {
     let m;
     try { m = summarize(await itemActuals(env, itemId)); }
     catch { return json({ ok: false, error: 'Measurements could not be read — apply migration 0113.' }, 501); }
-    if (m.median_minutes == null) {
+    // The single-unit median, never the total: prep_minutes is ONE of this item. A timing of
+    // "croquetas ×200 = 90 min" is throughput, and adopting it would make one croqueta 90 minutes.
+    if (m.median_single == null) {
       return json({
         ok: false,
-        error: `${row.name} has ${m.count} measurement${m.count === 1 ? '' : 's'} — ${MIN_SAMPLES} are needed before a median means anything.`,
+        error: `${row.name} has ${m.count_single} single-item measurement${m.count_single === 1 ? '' : 's'} — ${MIN_SAMPLES} are needed before a median means anything. Timing several at once measures throughput, not how long one takes.`,
+        measured: m,
       }, 409);
     }
-    const minutes = Math.max(1, Math.min(600, m.median_minutes));
+    const minutes = Math.max(1, Math.min(600, m.median_single));
     await env.DB.prepare('UPDATE menu_items SET prep_minutes = ?, updated_at = ? WHERE id = ?')
       .bind(minutes, ts, itemId).run();
-    return json({ ...(await snapshot(env, request)), saved: itemId, adopted: { id: itemId, prep_minutes: minutes, from: row.prep_minutes, samples: m.count } });
+    return json({ ...(await snapshot(env, request)), saved: itemId, adopted: { id: itemId, prep_minutes: minutes, from: row.prep_minutes, samples: m.count_single } });
   }
 
   // Kitchen timing: lunch and dinner start, the ready-before-delivery lead, the office lunch estimate.
