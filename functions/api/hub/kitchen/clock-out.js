@@ -5,6 +5,7 @@ import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { now, today, toJson, bit } from '../../../_lib/hub.js';
 import { breaksOf, closeOpenBreak, workedMinutes } from '../../../_lib/timesheet.js';
+import { closeOpenBatch } from '../../../_lib/prep-actuals.js';
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -37,6 +38,11 @@ export const onRequestPost = async ({ request, env }) => {
   await env.DB.prepare('UPDATE staff SET last_active_at = ?, updated_at = ? WHERE id = ?')
     .bind(ts, ts, staff.id).run();
 
+  // A batch timer still running ends here too, stamped with the minutes it really ran (see
+  // _lib/prep-actuals.js). A cook who forgets to tap Done leaves a true measurement behind rather
+  // than a clock that keeps counting into tomorrow — and never a second one when they clock back in.
+  const closedBatch = await closeOpenBatch(env, staff.id, ts, 'closed by clocking out');
+
   await capture(env, {
     event: 'shift.clocked_out',
     distinct_id: ctx.distinct_id,
@@ -56,7 +62,7 @@ export const onRequestPost = async ({ request, env }) => {
     eodPending = !eod;
   } catch { /* table optional in older DBs */ }
 
-  return json({ ok: true, shift, eod_pending: eodPending });
+  return json({ ok: true, shift, eod_pending: eodPending, closed_batch: closedBatch || null });
 };
 
 // GET /api/hub/kitchen/clock-out is not meaningful; expose current shift via GET for convenience.
