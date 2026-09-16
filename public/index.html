@@ -491,45 +491,6 @@ section { padding: 80px 24px; }
 .form-group textarea { min-height: 80px; resize: vertical; }
 .tasting-card .btn { width: 100%; }
 
-/* ---------- WHOLESALE ---------- */
-.wholesale { background: var(--cream-dark); }
-.wholesale-row {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 40px; max-width: 900px; margin: 0 auto;
-  align-items: center;
-}
-.wholesale-text h3 {
-  font-size: 28px; color: var(--green);
-  font-weight: 600; margin-bottom: 16px;
-  line-height: 1.2;
-}
-.wholesale-text p {
-  font-size: 15px; color: var(--ink);
-  margin-bottom: 14px; line-height: 1.6;
-}
-.wholesale-text .meta {
-  font-size: 12px; color: var(--gold-dark);
-  letter-spacing: 1px; text-transform: uppercase;
-  font-weight: 600; margin-top: 20px;
-}
-.wholesale-card {
-  background: #fff; border-radius: 8px;
-  padding: 32px; border-top: 4px solid var(--green);
-  border: 1px solid var(--line);
-}
-.wholesale-card h4 {
-  font-size: 14px; color: var(--gold-dark);
-  font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
-  margin-bottom: 12px;
-}
-.wholesale-card ul { list-style: none; padding: 0; }
-.wholesale-card li {
-  font-size: 14px; color: var(--ink); padding: 8px 0;
-  border-bottom: 1px solid var(--line);
-  display: flex; justify-content: space-between;
-}
-.wholesale-card li:last-child { border-bottom: none; }
-.wholesale-card li strong { color: var(--green); }
 
 /* ---------- ALLERGEN NOTE ---------- */
 .allergen-note {
@@ -584,7 +545,6 @@ footer {
   .nav-burger { display: block; }
   .nav-links { display: none; position: absolute; top: 64px; right: 0; left: 0; background: var(--black); flex-direction: column; padding: 20px; gap: 16px; border-bottom: 1px solid rgba(198, 168, 91, 0.2); }
   .nav-links.open { display: flex; }
-  .wholesale-row { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .cajita-firstscreen{grid-template-columns:1fr;max-width:720px}.cajita-firstscreen .cajita-gallery{min-height:320px}.cajita-hero{grid-template-columns:1fr;max-width:720px}.cajita-gallery{min-height:280px}
 }
@@ -1410,7 +1370,7 @@ footer {
         <img class="logo-emblem" src="/assets/img/emblem.png" alt="Añejo emblem" width="400" height="382">
         <span>AÑEJO</span>
       </a>
-      <p>Premium Cuban-American longevity bowls, catering, and wholesale bites. Made in Palm Beach County, Florida. Inspired by family. Built for legacy.</p>
+      <p>Premium Cuban-American longevity bowls, catering, and Cuban party bites. Made in Palm Beach County, Florida. Inspired by family. Built for legacy.</p>
     </div>
     <div class="footer-col">
       <h5>Service Area</h5>
@@ -1496,47 +1456,6 @@ async function submitTasting(e) {
   return false;
 }
 
-async function submitWholesale(e) {
-  e.preventDefault();
-  const f = e.target;
-  const lang = (window.AnejoLang && window.AnejoLang.get() === 'es') ? 'es' : 'en';
-  const get = (n) => (f.elements[n] ? f.elements[n].value.trim() : '');
-  const data = {
-    kind: 'wholesale', lang, interest: 'Añejo Bites wholesale',
-    company: get('company'), name: get('name'), email: get('email'),
-    phone: get('phone'), message: get('message'),
-    sms_consent: !!(f.elements['sms_consent'] && f.elements['sms_consent'].checked),
-    marketing_sms_consent: !!(f.elements['marketing_sms_consent'] && f.elements['marketing_sms_consent'].checked),
-  };
-  const btn = f.querySelector('button[type=submit]');
-  const label = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = lang === 'es' ? 'Enviando…' : 'Sending…'; }
-
-  const mailtoFallback = () => {
-    const subject = encodeURIComponent('Wholesale Inquiry — Añejo Bites · ' + (data.company || data.name));
-    const body = encodeURIComponent(
-      'Venue / business: ' + (data.company || '—') + '\nName: ' + data.name + '\nEmail: ' + data.email +
-      '\nPhone: ' + (data.phone || '—') + '\nEstimated weekly volume: ' + (data.message || '—') + '\n');
-    window.location.href = 'mailto:dayan@anejocateringco.com?subject=' + subject + '&body=' + body;
-  };
-
-  try {
-    const r = await fetch('/api/leads', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
-    });
-    if (!r.ok) throw new Error('not ok');
-    if (window.gtag) window.gtag('event', 'generate_lead', { form_id: 'wholesale' });
-    f.innerHTML = '<h4 style="color:var(--gold-dark)">' + (lang === 'es' ? '¡Gracias!' : 'Thank you!') +
-      '</h4><p style="font-size:13px;color:var(--muted);margin-top:6px">' +
-      (lang === 'es'
-        ? 'Recibimos tu solicitud de mayoreo. Te contactaremos en 1 día hábil.'
-        : 'We received your wholesale inquiry and will reach out within 1 business day.') + '</p>';
-  } catch (_) {
-    if (btn) { btn.disabled = false; btn.textContent = label; }
-    mailtoFallback();
-  }
-  return false;
-}
 
 // Accessible mobile navigation state.
 const navBurger = document.getElementById('navBurger');
