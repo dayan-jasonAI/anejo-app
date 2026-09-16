@@ -30,6 +30,7 @@ import { markKitchenReady } from '../../../_lib/kitchen-ready.js';
 import { putMedia } from '../../../_lib/media.js';
 import { PHOTO_KINDS, currentPhotosByOrder, photoUrl } from '../../../_lib/kitchen-photos.js';
 import { loadKitchenTiming, loadPrepMinutes, loadSiteWindows, orderTiming } from '../../../_lib/kitchen-timing.js';
+import { recordOrderActual } from '../../../_lib/prep-actuals.js';
 
 const PHOTO_LABEL = { contents: 'inside the container / adentro del envase', packed: 'closed and packed / cerrado y empacado' };
 
@@ -345,6 +346,11 @@ export const onRequestPost = async ({ request, env }) => {
     return bad('Order changed. Refresh and check all items before trying again. / El pedido cambió. Actualiza y revisa todos los artículos antes de volver a intentar.', 409);
   }
   await audit(env, { action: 'mark_ready', orderId, bowlId: null, staff: readyBy, viaPin: true });
+  // The free measurement: how long this order REALLY took, its items and quantities, and the
+  // estimate the board was showing — recorded only when the start is known. Deliberately after the
+  // transition and best-effort inside (prep-actuals.js never throws): the food is already ready,
+  // and a measurement that cannot be saved must not turn that into an error for the cook.
+  await recordOrderActual(env, { order, endedAt: ts, staff: readyBy });
   await capture(env, {
     event: 'order.ready',
     distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,

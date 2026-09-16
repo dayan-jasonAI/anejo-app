@@ -34,6 +34,21 @@
     padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; font-size:14px; }
   .form-two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .mn-actions { display:flex; align-items:center; gap:10px; margin-top:12px; }
+  /* Measured vs estimate. Deliberately quiet: it is evidence beside the owner's number, not an
+     alarm about it, and it disappears entirely when there is nothing real to show. */
+  .mn-meas { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:6px 0 0;
+    padding:8px 10px; border-radius:8px; background:#f2f6f3; font-size:12.5px; color:var(--green); }
+  .mn-meas b { font-variant-numeric:tabular-nums; }
+  .mn-meas .thin { color:var(--muted); }
+  .mn-meas button { border:1px solid var(--gold,#C6A85B); background:#fff8e9; color:var(--green);
+    border-radius:8px; padding:5px 10px; font:inherit; font-size:12.5px; cursor:pointer; }
+  .mn-gap { width:100%; border-collapse:collapse; font-size:13px; }
+  .mn-gap th, .mn-gap td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  .mn-gap th { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .mn-gap td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .mn-gap .over { color:var(--crit); font-weight:700; }
+  .mn-gap .under { color:var(--ok,#2e7d4f); font-weight:700; }
+  .mn-scroll { overflow-x:auto; }
   .hint { font-size:12px; color:var(--green); opacity:.75; line-height:1.5; margin:4px 0 0; }
   .msg { font-size:12.5px; margin:0 0 0 2px; }
   .msg.err { color:var(--crit); }
@@ -271,6 +286,7 @@
       { k: 'mods',  label: 'Extras' },
       { k: 'order', label: 'Ordering' },
       { k: 'timing', label: 'Kitchen timing' },
+      { k: 'measured', label: 'Measured vs estimate' },
       { k: 'new',   label: '+ New item' },
       { k: 'log',   label: 'Changes' }
     ].map(function (d) {
@@ -281,6 +297,7 @@
     });
     if (view === 'order') paintOrdering();
     else if (view === 'timing') paintTiming();
+    else if (view === 'measured') paintMeasured();
     else if (view === 'mods') paintMods();
     else if (view === 'new') paintNew();
     else if (view === 'log') paintLog();
@@ -395,6 +412,8 @@
         if (!f.bool && el.tagName === 'SELECT') el.addEventListener('change', function () { noteEdit(it, f.k, el.value); });
       });
       $('#save_' + it.id).addEventListener('click', function () { saveItem(it); });
+      var use = $('#use_' + it.id);
+      if (use) use.addEventListener('click', function () { adopt(it); });
       preview(it);
     });
     paintDirty();
@@ -499,6 +518,118 @@
     }).catch(function () { render(); });
   }
 
+  // ---------- measured vs estimate ----------
+  //
+  // Dayan, 2026-09-16: the kitchen records what it really does, and "over time we just adjust".
+  // The adjusting is HIS tap. Nothing on this page changes an estimate on its own, and below the
+  // sample threshold it shows the count and no number at all — a median of two is a coin flip, and
+  // a coin flip printed next to a real estimate looks exactly like evidence.
+  function measured(it) { return (it && it.measured) || { count: 0, median_minutes: null }; }
+  function minSamples() { return data.prep_min_samples || 3; }
+  function whenMeasured(ms) { return ms ? Owner.timeAgo(ms) : ''; }
+
+  function measuredLine(it) {
+    var m = measured(it);
+    if (!m.count) return '';
+    var n = m.count + (m.count === 1 ? ' measurement' : ' measurements');
+    if (m.median_minutes == null) {
+      return '<div class="mn-meas"><span class="thin">⏱ ' + n + ' so far — ' +
+        (minSamples() - m.count) + ' more before a median means anything.</span></div>';
+    }
+    var per = m.median_per_unit != null ? ' <span class="thin">· ' + m.median_per_unit + ' min each</span>' : '';
+    var same = String(m.median_minutes) === String(it.prep_minutes == null ? '' : it.prep_minutes);
+    return '<div class="mn-meas"><span>⏱ Measured <b>' + m.median_minutes + ' min</b> (median of ' + n + per +
+      ')</span><span class="thin">' + esc(whenMeasured(m.last_at)) + '</span>' +
+      (same ? '<span class="thin">matches your estimate</span>'
+            : '<button type="button" id="use_' + esc(it.id) + '">Use ' + m.median_minutes + ' min</button>') +
+      '</div>';
+  }
+
+  // Adopt the measured median. Confirmed like a price change: it moves when the kitchen is told
+  // to start cooking. The server recomputes the median from the rows — this button sends an
+  // intention, not a number.
+  function adopt(it) {
+    var m = measured(it);
+    if (m.median_minutes == null) return;
+    if (!confirm('Set ' + it.name + '’s prep time to ' + m.median_minutes + ' minutes?\n\n' +
+        'That is the median of ' + m.count + ' measurement' + (m.count === 1 ? '' : 's') + ' from the kitchen' +
+        (it.prep_minutes == null ? '' : ', replacing your estimate of ' + it.prep_minutes + ' minutes') + '.')) return;
+    delete pending[it.id];   // the input is about to be re-rendered from the adopted value
+    post({ op: 'adopt_prep_minutes', id: it.id }, '#msg_' + it.id, 'Prep time updated.');
+  }
+
+  function gapRows() {
+    return data.items.map(function (it) {
+      var m = measured(it);
+      var est = it.prep_minutes == null ? null : Number(it.prep_minutes);
+      var gap = (m.median_minutes != null && est != null) ? m.median_minutes - est : null;
+      return { it: it, m: m, est: est, gap: gap };
+    }).filter(function (r) { return r.m.count > 0 || r.est != null; })
+      .sort(function (a, b) {
+        // Biggest gap first; then anything measured but with no estimate to compare against;
+        // then the rest, so what needs the owner's attention is at the top without being invented.
+        var ga = a.gap == null ? -1 : Math.abs(a.gap), gb = b.gap == null ? -1 : Math.abs(b.gap);
+        if (ga !== gb) return gb - ga;
+        return b.m.count - a.m.count;
+      });
+  }
+
+  function paintMeasured() {
+    var rows = gapRows();
+    var office = data.prep_office || { count: 0, median_minutes: null };
+    var officeEst = (data.kitchen_timing || {}).office_prep_minutes;
+    var log = data.prep_log || [];
+
+    var head = '<div class="card accent"><p style="margin:0">The kitchen records what it really takes — every order records itself when it is marked ready, and cooks time batches with the stopwatch on the kitchen board. Nothing here changes an estimate. You do, with <b>Use</b>.</p>' +
+      '<p class="hint" style="opacity:1">Below ' + minSamples() + ' measurements no median is shown at all. <b>Each</b> is measured minutes divided by how many were made — the estimate has no quantity in it, so this is the column that will eventually say whether it needs one.</p></div>';
+
+    var officeCard = '<div class="card" style="margin-top:10px"><strong data-i18n>Office lunch</strong>' +
+      '<p class="hint" style="opacity:1">Contract orders, measured end to end, against the office lunch estimate in <b>Kitchen timing</b>' +
+      (officeEst == null ? ' (not set)' : ' (' + officeEst + ' min)') + '.</p>' +
+      (office.count
+        ? (office.median_minutes == null
+            ? '<div class="mn-meas"><span class="thin">⏱ ' + office.count + ' measured so far — ' + (minSamples() - office.count) + ' more before a median means anything.</span></div>'
+            : '<div class="mn-meas"><span>⏱ Measured <b>' + office.median_minutes + ' min</b> (median of ' + office.count + ')</span>' +
+              (office.median_per_unit != null ? '<span class="thin">' + office.median_per_unit + ' min per lunch</span>' : '') +
+              '<span class="thin">' + esc(whenMeasured(office.last_at)) + '</span></div>')
+        : '<p class="hint">No office order has been measured yet.</p>') + '</div>';
+
+    var table = '<div class="card" style="margin-top:10px"><strong data-i18n>Every item</strong>' +
+      (rows.length
+        ? '<div class="mn-scroll"><table class="mn-gap"><tr><th>Item</th><th>Your estimate</th><th>Measured</th><th>Each</th><th>Samples</th><th>Gap</th><th>Last</th></tr>' +
+          rows.map(function (r) {
+            var gap = r.gap == null ? '<span class="thin">—</span>'
+              : '<span class="' + (r.gap > 0 ? 'over' : r.gap < 0 ? 'under' : '') + '">' + (r.gap > 0 ? '+' : '') + r.gap + ' min</span>';
+            return '<tr><td>' + esc(r.it.name) + '</td>' +
+              '<td class="num">' + (r.est == null ? '<span class="thin">not set</span>' : r.est + ' min') + '</td>' +
+              '<td class="num">' + (r.m.median_minutes == null ? '<span class="thin">—</span>' : r.m.median_minutes + ' min') + '</td>' +
+              '<td class="num">' + (r.m.median_per_unit == null ? '<span class="thin">—</span>' : r.m.median_per_unit) + '</td>' +
+              '<td class="num">' + r.m.count + '</td>' +
+              '<td class="num">' + gap + '</td>' +
+              '<td>' + esc(whenMeasured(r.m.last_at)) + '</td></tr>';
+          }).join('') + '</table></div>'
+        : '<p class="hint">Nothing measured and no estimates set yet.</p>') + '</div>';
+
+    var logCard = '<div class="card" style="margin-top:10px"><strong data-i18n>Batch log</strong>' +
+      '<p class="hint">What the kitchen recorded, newest first — batches the cooks timed, and orders that timed themselves.</p>' +
+      (log.length
+        ? '<div class="mn-scroll"><table class="mn-gap"><tr><th>What</th><th>How many</th><th>Took</th><th>Estimate</th><th>Who</th><th>When</th></tr>' +
+          log.map(function (r) {
+            var what = r.kind === 'order'
+              ? 'Order ' + esc(r.order_id || '')
+              : esc(r.item_name || r.label || 'Batch');
+            return '<tr><td>' + what + (r.note ? ' <span class="thin">· ' + esc(r.note) + '</span>' : '') + '</td>' +
+              '<td class="num">' + (r.qty == null ? '<span class="thin">—</span>' : r.qty) + '</td>' +
+              '<td class="num">' + r.minutes + ' min</td>' +
+              '<td class="num">' + (r.estimate_minutes == null ? '<span class="thin">none</span>' : r.estimate_minutes + ' min') + '</td>' +
+              '<td>' + esc(r.staff_name || '—') + '</td>' +
+              '<td>' + esc(whenMeasured(r.ended_at)) + '</td></tr>';
+          }).join('') + '</table></div>'
+        : '<p class="hint">Nothing recorded yet. It fills up on its own as orders are marked ready.</p>') + '</div>';
+
+    $('#pane').innerHTML = head + officeCard + table + logCard;
+  }
+
   function itemCard(it) {
     var badges = '';
     if (!it.active) badges += ' <span class="badge">hidden</span>';
@@ -545,7 +676,8 @@
       '</div>' +
       '<div class="form-row" style="margin:8px 0 0"><label data-i18n>Prep time (minutes)</label>' +
         '<input id="pm_' + it.id + '" type="number" min="1" max="600" placeholder="not set" value="' + esc(shown(it, 'prep_minutes')) + '">' +
-        '<p class="hint">How long one takes to make, start to packed. The kitchen uses it to show when to start and a countdown. An order takes as long as its slowest item. Leave blank and the kitchen shows no timer for it.</p></div>' +
+        '<p class="hint">How long one takes to make, start to packed. The kitchen uses it to show when to start and a countdown. An order takes as long as its slowest item. Leave blank and the kitchen shows no timer for it.</p>' +
+        measuredLine(it) + '</div>' +
       '<details class="mn-more"><summary data-i18n>Name, description, photo, order</summary>' +
         '<div class="form-two">' +
           '<div class="form-row"><label data-i18n>Name</label><input id="n_' + it.id + '" value="' + esc(shown(it, 'name')) + '"></div>' +

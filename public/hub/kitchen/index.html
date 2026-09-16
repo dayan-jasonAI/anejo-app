@@ -88,6 +88,19 @@
   .ktime.warn .kt-pill { background:#fbf3da; color:#8a6d3b; }
   .ktime.crit .kt-pill { background:#fbe3e1; color:var(--crit); }
   .ktime .kt-miss { color:#8a8f86; font-size:11.5px; }
+  /* The batch timer: "what are you starting?" → a running clock → Finish. See
+     functions/api/hub/kitchen/task.js. One per cook; nothing here gates anything on the board. */
+  .bt-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .bt-row .grow { flex:1; min-width:150px; }
+  .bt-clock { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; color:var(--green); line-height:1.1; }
+  .bt-what { font-weight:700; color:var(--green); font-size:15px; }
+  .bt-form { margin-top:8px; }
+  .bt-form input { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; font-size:16px; }
+  .bt-form .qty { width:96px; }
+  .bt-form label { display:block; font-size:11.5px; font-weight:700; color:var(--green); opacity:.8; margin:0 0 3px; }
+  .bt-nudge { display:flex; align-items:center; gap:8px; margin:0 0 9px; padding:7px 10px; border-radius:8px;
+    background:#fbf3da; color:#8a6d3b; font-size:12.5px; line-height:1.4; }
+  .bt-nudge button { flex:none; border:0; background:transparent; color:inherit; font:inherit; font-size:14px; cursor:pointer; padding:0 2px; }
 </style>
 </head>
 <body>
@@ -109,6 +122,20 @@
       <button class="btn gold" id="clock-btn" type="button" disabled>—</button>
     </div>
   </div>
+
+  <!-- Batch timer — the prompted half of measured prep time (functions/api/hub/kitchen/task.js).
+       Orders time themselves when they are marked ready; this is for the work that is not an
+       order: a tray of rice, 60 lb of pernil, a hundred of the same bowl before service. -->
+  <div class="hub-section">
+    <div class="card" id="bt-card">
+      <div class="bt-nudge" id="bt-nudge" hidden>
+        <span class="grow" data-i18n>There is work on the board. Put it on the clock — that is how the prep times get fixed.</span>
+        <button type="button" id="bt-nudge-x" aria-label="Dismiss" title="Dismiss">✕</button>
+      </div>
+      <div id="bt-body"></div>
+    </div>
+  </div>
+  <datalist id="bt-items"></datalist>
 
   <!-- Today's reminders -->
   <div class="hub-section" id="rem-section" hidden>
@@ -265,6 +292,7 @@
       btn.className = 'btn gold';
     }
     renderBreak(shift);
+    btNudge();   // the prompt only shows to a cook who is actually on shift
     refreshI18n();
   }
 
@@ -304,6 +332,10 @@
         if (d && d.ok) {
           Hub.toast('Clocked out');
           renderClock(null);
+          // The server closed any running batch and recorded its real minutes — re-read it so the
+          // card does not keep counting a clock that has already stopped.
+          if (d.closed_batch) Hub.toast('Batch timer stopped · Cronómetro detenido');
+          btLoad();
           // Shift just ended and today's EOD is still owed — take them straight to it.
           if (d.eod_pending) {
             Hub.toast('One last thing: file your end-of-day report');
@@ -316,7 +348,7 @@
       K.geo().then(function (geo) {
         return K.post('/api/hub/kitchen/clock-in', { geo: geo });
       }).then(function (d) {
-        if (d && d.shift) { Hub.toast('Clocked in'); renderClock(d.shift); showBriefing(d.briefing); } else K.fail(d, 'Could not clock in.');
+        if (d && d.shift) { Hub.toast('Clocked in'); renderClock(d.shift); showBriefing(d.briefing); btNudge(); } else K.fail(d, 'Could not clock in.');
         btn.disabled = false;
       });
     }
@@ -333,6 +365,136 @@
     }
     host.innerHTML = '<div class="row-title">☀️ ' + esc(b.title || 'Morning briefing') + '</div><div class="row-sub">' + esc(b.body) + '</div>';
   }
+
+  // ---- Batch timer ----
+  //
+  // Dayan, 2026-09-16: "ask the kitchen staff to record these processes and over time we just
+  // adjust." No PIN and no confirmation: this is a stopwatch, not a state change, and a prompt in
+  // front of it is exactly the friction that stops cooks recording. The server closes an open
+  // batch honestly if another is started or the cook clocks out, so a forgotten tap still leaves a
+  // true measurement (functions/_lib/prep-actuals.js).
+  var bt = { running: null, items: [], open: false, loaded: false };
+  var NUDGE_KEY = 'anejo:prepNudgeOff';
+
+  function btName(r) {
+    if (!r) return '';
+    if (r.label) return r.label;
+    var hit = null;
+    bt.items.forEach(function (i) { if (!hit && i.id === r.menu_item_id) hit = i; });
+    var es = window.AnejoLang && window.AnejoLang.get && window.AnejoLang.get() === 'es';
+    return hit ? ((es && hit.name_es) ? hit.name_es : hit.name) : (r.menu_item_id || '');
+  }
+
+  // The typed text, matched against the menu by name (EN or ES). No match is not an error — it is
+  // a process that is not a menu item ("60 lb pernil"), which is most of what gets timed.
+  function btResolve(text) {
+    var t = (text || '').trim().toLowerCase();
+    if (!t) return null;
+    var hit = null;
+    bt.items.forEach(function (i) {
+      if (hit) return;
+      if (String(i.name || '').toLowerCase() === t || String(i.name_es || '').toLowerCase() === t) hit = i;
+    });
+    return hit;
+  }
+
+  function btPaint() {
+    var host = $('#bt-body');
+    if (!host) return;
+    if (!bt.loaded) { host.innerHTML = '<div class="row-sub" data-i18n>Loading…</div>'; refreshI18n(); return; }
+    if (bt.running) {
+      host.innerHTML = '<div class="bt-row">' +
+        '<div class="grow"><div class="row-sub" data-i18n>On the clock</div>' +
+          '<div class="bt-what">' + esc(btName(bt.running)) + (bt.running.qty ? ' ×' + Number(bt.running.qty) : '') + '</div>' +
+          '<div class="bt-clock" id="bt-clock" data-started="' + Number(bt.running.started_at) + '">0:00</div></div>' +
+        '<button class="btn gold" id="bt-stop" type="button" data-i18n>Finish</button>' +
+        '<button class="btn ghost" id="bt-cancel" type="button" data-i18n>Cancel</button></div>';
+      $('#bt-stop').addEventListener('click', function () { btPost({ action: 'stop' }, 'Time recorded · Tiempo registrado'); });
+      $('#bt-cancel').addEventListener('click', function () { btPost({ action: 'cancel' }, 'Canceled · Cancelado'); });
+    } else if (!bt.open) {
+      host.innerHTML = '<div class="bt-row"><div class="grow"><div class="row-title" data-i18n>Batch timer</div>' +
+        '<div class="row-sub" data-i18n>Time a batch so the prep times come from what really happens.</div></div>' +
+        '<button class="btn gold" id="bt-open" type="button" data-i18n>Start a timer</button></div>';
+      $('#bt-open').addEventListener('click', function () { bt.open = true; btPaint(); setTimeout(function () { var w = $('#bt-what'); if (w) w.focus(); }, 30); });
+    } else {
+      host.innerHTML = '<div class="row-title" data-i18n>What are you starting?</div>' +
+        '<div class="bt-form"><label data-i18n>Dish or process</label>' +
+          '<input id="bt-what" list="bt-items" autocomplete="off" placeholder="Pernil, arroz, VIDA…"></div>' +
+        '<div class="bt-form bt-row"><div><label data-i18n>How many</label>' +
+          '<input id="bt-qty" class="qty" type="number" inputmode="numeric" min="1" max="9999" value="1"></div>' +
+          '<div class="grow"></div>' +
+          '<button class="btn gold" id="bt-start" type="button" data-i18n>Start the clock</button>' +
+          '<button class="btn ghost" id="bt-close" type="button" data-i18n>Cancel</button></div>';
+      $('#bt-close').addEventListener('click', function () { bt.open = false; btPaint(); });
+      $('#bt-start').addEventListener('click', btStart);
+      $('#bt-what').addEventListener('keydown', function (e) { if (e.key === 'Enter') btStart(); });
+    }
+    btNudge();
+    refreshI18n();
+    btTick();
+  }
+
+  function btStart() {
+    var what = ($('#bt-what') || {}).value || '';
+    var qty = ($('#bt-qty') || {}).value || '';
+    if (!what.trim()) { Hub.toast(tr('Say what you are starting.') + ' · ¿Qué vas a empezar?'); return; }
+    var hit = btResolve(what);
+    var body = { action: 'start', qty: Number(qty) };
+    if (hit) body.menu_item_id = hit.id; else body.label = what.trim();
+    btPost(body, 'On the clock · En el reloj');
+  }
+
+  function btPost(body, okMsg) {
+    K.post('/api/hub/kitchen/task', body).then(function (d) {
+      if (d && d.ok) {
+        bt.running = d.running || null; bt.open = false; bt.loaded = true;
+        Hub.toast(okMsg);
+        btPaint();
+      } else K.fail(d, 'Could not save the time. · No se pudo guardar el tiempo.');
+    });
+  }
+
+  function btLoad() {
+    K.get('/api/hub/kitchen/task').then(function (d) {
+      if (!d || !d.ok) return;
+      bt.items = d.items || [];
+      bt.running = d.running || null;
+      bt.loaded = true;
+      var dl = $('#bt-items');
+      if (dl) {
+        var es = window.AnejoLang && window.AnejoLang.get && window.AnejoLang.get() === 'es';
+        dl.innerHTML = bt.items.map(function (i) {
+          return '<option value="' + esc((es && i.name_es) ? i.name_es : i.name) + '"></option>';
+        }).join('');
+      }
+      btPaint();
+    });
+  }
+
+  function btTick() {
+    var el = $('#bt-clock');
+    if (!el) return;
+    el.textContent = mmss(Date.now() - Number(el.getAttribute('data-started')));
+  }
+
+  // The gentle prompt. Only when the cook is clocked in, has nothing running, and there IS work on
+  // the board — and never twice in a shift once it is dismissed. It sits above the timer and
+  // blocks nothing; the separate training gate another surface adds is not touched by any of this.
+  function btNudge() {
+    var el = $('#bt-nudge');
+    if (!el) return;
+    var off = false;
+    try { off = sessionStorage.getItem(NUDGE_KEY) === '1'; } catch (e) {}
+    var work = (lastBoard.pending.length + lastBoard.prep.length) > 0;
+    el.hidden = !(clockOpen && bt.loaded && !bt.running && work && !off);
+  }
+  (function wireNudge() {
+    var x = $('#bt-nudge-x');
+    if (x) x.addEventListener('click', function () {
+      try { sessionStorage.setItem(NUDGE_KEY, '1'); } catch (e) {}
+      var el = $('#bt-nudge'); if (el) el.hidden = true;
+    });
+  })();
 
   function reminderRow(r) {
     return '<div class="row rem"><div class="row-main"><div class="row-title">' + esc(r.title || r.reminder_type) +
@@ -671,6 +833,7 @@
       c.classList.toggle('active', c.getAttribute('data-scope') === scope);
     });
     bindOrderActions();
+    btNudge();          // "there is work on the board" is a fact about the board — re-check it here
     refreshI18n();
     tickClocks();
   }
@@ -732,9 +895,9 @@
 
   K.boot('board', function () {
     setupSound();
-    loadClock(); loadReminders(); loadBoard();
+    loadClock(); loadReminders(); loadBoard(); btLoad();
     setInterval(loadBoard, 15000); // poll the board (15s → snappier order alerts)
-    setInterval(tickClocks, 1000); // the prep countdown moves every second between polls
+    setInterval(function () { tickClocks(); btTick(); }, 1000); // both clocks move between polls
   });
 })();
 </script>

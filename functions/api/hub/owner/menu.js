@@ -34,6 +34,7 @@ import { json, id, now, appBaseUrl } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { orderability, AVAILABILITY, AVAILABILITY_KEYS, availabilityOf } from '../../../_lib/menu.js';
 import { loadKitchenTiming, validateTiming, timingSettingStmts } from '../../../_lib/kitchen-timing.js';
+import { measuredByItem, measuredOffice, prepLog, itemActuals, summarize, MIN_SAMPLES } from '../../../_lib/prep-actuals.js';
 import { BOWL_IDS } from '../../../_lib/ondemand.js';
 
 const KINDS = ['bowl', 'drink', 'addon'];
@@ -86,11 +87,15 @@ const logStmt = (env, itemId, field, oldCents, newCents, by, ts) =>
  * The verdict comes from _lib/menu.js so the desk applies the SAME test checkout does — a copy
  * here would eventually disagree with the thing that takes the money.
  */
-function decorate(row) {
+function decorate(row, measured = null) {
   // Normalized rather than passed through raw: a row written before the migration has no
   // availability at all, and the HUB dropdown needs a value to select.
   const out = { ...row, ...orderability(row), availability: availabilityOf(row) };
   out.availability_label = AVAILABILITY[out.availability].label;
+  // What the kitchen has actually been timed at, beside the owner's estimate (prep-actuals.js).
+  // Always present so the UI never has to guess whether the lookup ran; `count` 0 means nothing
+  // measured yet, and `median_minutes` stays null until MIN_SAMPLES — never a stand-in number.
+  out.measured = measured || { count: 0, median_minutes: null, median_per_unit: null, last_at: null };
   if (row.kind !== 'bowl') return out;
   // Not a blocker, and deliberately still the hardcoded list: /api/order-availability now derives
   // the cap from the live menu, but checkout.js tallies each cart against ondemand.js BOWL_IDS,
@@ -178,15 +183,18 @@ async function storefrontCheck(env, request) {
 }
 
 async function snapshot(env, request) {
-  const [ri, rm, rl] = await Promise.all([
+  const [ri, rm, rl, measured, office, log] = await Promise.all([
     env.DB.prepare(
       `SELECT * FROM menu_items
        ORDER BY CASE kind WHEN 'bowl' THEN 0 WHEN 'drink' THEN 1 ELSE 2 END, sort, id`
     ).all(),
     env.DB.prepare('SELECT * FROM menu_modifier_prices ORDER BY key').all(),
     env.DB.prepare('SELECT * FROM menu_price_log ORDER BY created_at DESC LIMIT 40').all(),
+    measuredByItem(env),
+    measuredOffice(env),
+    prepLog(env),
   ]);
-  const items = ((ri && ri.results) || []).map(decorate);
+  const items = ((ri && ri.results) || []).map((r) => decorate(r, measured.get(String(r.id))));
   return {
     ok: true,
     items,
@@ -198,6 +206,11 @@ async function snapshot(env, request) {
     availability_options: AVAILABILITY_KEYS.map((k) => ({ key: k, label: AVAILABILITY[k].label, sells: AVAILABILITY[k].sells })),
     // When the kitchen must be ready and how long an office lunch takes (kitchen-timing.js).
     kitchen_timing: await loadKitchenTiming(env),
+    // Measured reality (prep-actuals.js): the office lunch against kitchen.office_prep_minutes,
+    // the batch/order log, and the threshold below which a median is not shown at all.
+    prep_office: office,
+    prep_log: log,
+    prep_min_samples: MIN_SAMPLES,
     storefront: await storefrontCheck(env, request),
   };
 }
@@ -309,6 +322,32 @@ export const onRequestPost = async ({ request, env }) => {
     }
     await env.DB.batch(stmts);
     return json({ ...(await snapshot(env, request)), saved: itemId });
+  }
+
+  // "Use this" — the owner adopts the MEASURED median as the item's estimate. His tap, never
+  // automatic: recording is continuous, adopting is a decision.
+  //
+  // The median is recomputed HERE rather than taken from the request. The page that rendered it
+  // may be minutes old, and a number that decides when the kitchen starts cooking must come from
+  // the rows, not from whatever a client posts.
+  if (op === 'adopt_prep_minutes') {
+    const itemId = String(body.id || '').trim();
+    const row = await env.DB.prepare('SELECT * FROM menu_items WHERE id = ?').bind(itemId).first();
+    if (!row) return json({ ok: false, error: `No menu item "${itemId}".` }, 404);
+
+    let m;
+    try { m = summarize(await itemActuals(env, itemId)); }
+    catch { return json({ ok: false, error: 'Measurements could not be read — apply migration 0113.' }, 501); }
+    if (m.median_minutes == null) {
+      return json({
+        ok: false,
+        error: `${row.name} has ${m.count} measurement${m.count === 1 ? '' : 's'} — ${MIN_SAMPLES} are needed before a median means anything.`,
+      }, 409);
+    }
+    const minutes = Math.max(1, Math.min(600, m.median_minutes));
+    await env.DB.prepare('UPDATE menu_items SET prep_minutes = ?, updated_at = ? WHERE id = ?')
+      .bind(minutes, ts, itemId).run();
+    return json({ ...(await snapshot(env, request)), saved: itemId, adopted: { id: itemId, prep_minutes: minutes, from: row.prep_minutes, samples: m.count } });
   }
 
   // Kitchen timing: lunch and dinner start, the ready-before-delivery lead, the office lunch estimate.
