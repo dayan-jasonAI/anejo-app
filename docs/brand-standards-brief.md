@@ -10,6 +10,8 @@
 
 Current prices, available options, portions, and product images come from active **D1 menu_items / GET /api/menu**. This brief defines identity and standards; historical drafts and campaign documents do not override the live catalog. Read the matching SKU before quoting a price. Launch cost estimates are not verified profit or production yield.
 
+Public business contact: **561-778-7474** (Dayan direct-session clarification, 2026-09-16). Use this number for customer-facing website, Google Business Profile and marketing contact information. This does not change internal notification, authentication, recovery or billing settings.
+
 ## 2. Vision & mission
 
 Build a lasting South Florida food brand with Cuban soul, premium presentation, and care in every order: a balanced bowl for a busy day, comforting traditional food, a thoughtful cajita, or a full gathering. The same family serves different occasions without making them compete.
