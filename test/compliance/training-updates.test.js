@@ -114,6 +114,42 @@ test('the status endpoint carries the what-changed lines in BOTH languages — t
   assert.match(es, /cuenta regresiva/, 'and the prep countdown that shipped with it');
 });
 
+// Two roles changed on 2026-09-16, not one: the cook got the photo gate, and the driver got the
+// break button (with hourly time tracking) and delivery texts that now send themselves. A driver who
+// trained before either must be stopped too, or the first he hears of it is a customer asking why
+// they got a text.
+test('the driver update stops a driver who trained before it, in both languages', async () => {
+  const env = ownerEnv();
+  const t = Date.now();
+  env.DB.sqlite.prepare("INSERT INTO staff (id, name, email, role, active, created_at, updated_at) VALUES ('stf_d','Test driver','d@test.example','driver',1,?,?)").run(t, t);
+  await env.SESSIONS.put('session:tok-driver', JSON.stringify({ type: 'staff', role: 'driver', uid: 'stf_d', email: 'd@test.example', la: t, created: t }));
+  const DRIVER_COOKIE = 'anejo_sess=tok-driver';
+  trainedBeforeVersioning(env, 'stf_d', 'driver');
+
+  let r = await status(env, DRIVER_COOKIE);
+  assert.equal(r.body.state, 'outdated');
+  assert.equal(r.body.due, true);
+  assert.equal(r.body.prompt, true, 'he is stopped at sign-in like the cook');
+  const u = r.body.module_update;
+  assert.ok(u, 'and there is something to read');
+  assert.match(u.headline.en, /break/i);
+  assert.match(u.headline.es, /descans/i);
+  const en = u.changes.map((c) => c.en).join(' ');
+  const es = u.changes.map((c) => c.es).join(' ');
+  assert.match(en, /Start break/);
+  assert.match(en, /five minutes/, 'the self-sending delivery texts are part of what changed for him');
+  assert.match(es, /Iniciar descanso/);
+  assert.match(es, /cinco minutos/);
+  for (const c of u.changes) assert.notEqual(c.es, c.en, 'curated Spanish, not the English string');
+
+  // Completing it clears him, and does not touch the cook.
+  await complete(env, DRIVER_COOKIE, { module: 'driver', lang: 'es' });
+  r = await status(env, DRIVER_COOKIE);
+  assert.equal(r.body.due, false);
+  assert.equal(r.body.prompt, false);
+  assert.equal((await status(env, KITCHEN_COOKIE)).body.prompt, true, 'the kitchen still owes hers');
+});
+
 test('a role with no update is never prompted — trained long ago or not at all', async () => {
   const env = ownerEnv();
   // Trained before versioning existed: nothing changed for marketing, so nothing is owed.
