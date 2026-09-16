@@ -12,14 +12,14 @@ async function fixture(status = 'prep') {
     delivery_window TEXT,customer_name TEXT,kitchen_cleared_at INTEGER,created_at INTEGER,updated_at INTEGER);
     CREATE TABLE order_bowls (id TEXT PRIMARY KEY,order_id TEXT,prep_state TEXT,seq INTEGER,
       prep_by TEXT,prep_at INTEGER,updated_at INTEGER);
-    CREATE TABLE staff (id TEXT PRIMARY KEY,name TEXT,role TEXT,active INTEGER,pin_hash TEXT,pin_salt TEXT);
+    CREATE TABLE staff (id TEXT PRIMARY KEY,name TEXT,role TEXT,active INTEGER,pin_hash TEXT,pin_salt TEXT,email TEXT,team TEXT,is_lead INTEGER DEFAULT 0);
     CREATE TABLE routes (id TEXT PRIMARY KEY,driver_id TEXT,status TEXT,offer_status TEXT,created_at INTEGER);
     CREATE TABLE route_stops (order_id TEXT,route_id TEXT);
     CREATE TABLE kitchen_photos (id TEXT PRIMARY KEY,order_id TEXT,kind TEXT,media_key TEXT,taken_by TEXT,
       taken_by_name TEXT,taken_at INTEGER,superseded_at INTEGER);`);
   const pinHash = await hashPin('123456', 'test-salt');
-  DB.sqlite.prepare('INSERT INTO staff VALUES (?,?,?,?,?,?)').run('cook','Test cook','kitchen',1,pinHash,'test-salt');
-  DB.sqlite.prepare('INSERT INTO staff VALUES (?,?,?,?,?,?)').run('owner','Test owner','owner',1,null,null);
+  DB.sqlite.prepare('INSERT INTO staff (id,name,role,active,pin_hash,pin_salt) VALUES (?,?,?,?,?,?)').run('cook','Test cook','kitchen',1,pinHash,'test-salt');
+  DB.sqlite.prepare('INSERT INTO staff (id,name,role,active,pin_hash,pin_salt) VALUES (?,?,?,?,?,?)').run('owner','Test owner','owner',1,null,null);
   const order = { id: 'order_test', status, delivery_date: '2026-12-25' };
   DB.sqlite.prepare('INSERT INTO orders VALUES (?,?,?,?,?,?,?,?)')
     .run(order.id, status, order.delivery_date, 'lunch', 'Synthetic customer', null, 100, 200);

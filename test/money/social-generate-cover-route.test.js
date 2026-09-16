@@ -27,7 +27,7 @@ function env({ post, media = [], ai = true } = {}) {
         bind(...a) {
           return {
             async first() {
-              if (q.includes('SELECT active FROM staff')) return { active: 1 };
+              if (q.includes('SELECT id, email, role, team, is_lead, active FROM staff')) return { id: 'stf_1', email: 'o@t', role: 'owner', team: 'front_office', is_lead: 0, active: 1 };
               if (q.includes('FROM social_posts WHERE id')) return post || null;
               return null;
             },

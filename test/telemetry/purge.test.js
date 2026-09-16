@@ -17,6 +17,11 @@ function harness() {
   const deletes = [];
   const inserts = [];
   const DB = makeD1([
+    [/SELECT id, email, role, team, is_lead, active FROM staff/i, ({ args }) => {
+      if (args[0] === 'usr_owner') return { id: 'usr_owner', email: 'owner@test.local', role: 'owner', team: 'front_office', is_lead: 0, active: 1 };
+      if (args[0] === 'usr_kitchen') return { id: 'usr_kitchen', email: 'kitchen@test.local', role: 'kitchen', team: 'kitchen', is_lead: 0, active: 1 };
+      return null;
+    }],
     [/DELETE FROM activity_log/i, ({ sql, args }) => { deletes.push({ sql, args }); return 4; }],
     [/INSERT INTO activity_log/i, ({ args }) => { inserts.push(args); return 1; }],
     [/SELECT event, COUNT\(\*\) AS n FROM activity_log[\s\S]*NOT IN/i, () => [{ event: 'dashboard.viewed', n: 3 }, { event: 'shift.clocked_in', n: 1 }]],

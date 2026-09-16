@@ -35,7 +35,7 @@ const SCHEMA = `
     id TEXT PRIMARY KEY, item_id TEXT NOT NULL, field TEXT NOT NULL, old_cents INTEGER,
     new_cents INTEGER, changed_by TEXT, created_at INTEGER NOT NULL);
   CREATE TABLE menu_modifier_prices (key TEXT PRIMARY KEY, price_cents INTEGER NOT NULL);
-  CREATE TABLE staff (email TEXT PRIMARY KEY, role TEXT, active INTEGER);`;
+  CREATE TABLE staff (id TEXT DEFAULT 'owner_test', email TEXT PRIMARY KEY, role TEXT, team TEXT, is_lead INTEGER DEFAULT 0, active INTEGER);`;
 
 function makeDB() {
   const sqlite = new DatabaseSync(':memory:');

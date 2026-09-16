@@ -60,3 +60,9 @@ Owner traffic 30-day view showed 5,740 pageviews including obvious probes (/wp-a
 Authenticated Studio fresh QA conversation returned Emerald Hydrate $7.49 / cucumber, mint, lemon, chia from the September snapshot and explicitly disclaimed live catalog verification. A clearly labeled internal cucumber-salad QA recipe generated a structured bilingual draft with the supplied four quantities, method, estimated yield and review caveat. Library publication button appeared. Draft was NOT published or adopted, and brand brief/catalog were not changed. This proves current provider draft generation for this sample, not every recipe or approval/library persistence. The prior conversation loaded on entry was historical; its older drink-name drift is not evidence of the fresh response.
 
 An external auto-sync process committed the owned candidate changes as 458c1d5 [skip deploy] during work. Reviewed file inventory matches the onboarding, SEO, public phone/reference and report scope. No unrelated change identified. Compiled Studio and source remain identical to repaired 3dde7c1 with announcement asset present; no rebuild needed.
+
+## Release security follow-up
+
+PR #100 holds the complete reviewed candidate. Final role audit reproduced stale owner/lead/team authority and database-error fail-open behavior in the shared role resolver. currentRole now resolves active roster authority before any role decision, including direct consumers; nonstaff semantics preserved. Four regressions pass. Existing fixture mocks were updated to actual roster shape without fallback to cached permissions. Final root suite 2,499 passed, lint and worker build passed. See docs/evidence/role-authority-validation-2026-09-16.md. No real account role changed. Separate trainer guard missing-row/error behavior remains open follow-up.
+
+GA4 exact July 18–September 15 range was applied and retained the explicit no-data-received banner. No settings modified.

@@ -162,7 +162,7 @@ function ownerEnv() {
         const stmt = {
           bind: (...args) => { if (/INSERT INTO catering_quotes/i.test(sql)) inserted.push(args); return stmt; },
           all: async () => ({ results: [] }),
-          first: async () => (sql.includes('FROM staff') ? { active: 1 } : null),
+          first: async () => (sql.includes('FROM staff') ? { active: 1, id: 'stf_1', email: 'owner@example.test', role: 'owner', team: null, is_lead: 0 } : null),
           run: async () => ({ meta: {} }),
         };
         return stmt;

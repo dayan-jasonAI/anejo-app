@@ -17,7 +17,7 @@ function ownerEnv(routes = []) {
   return {
     SESSIONS: makeKV({ 'session:tok': sess }),
     DB: makeD1([
-      [/^SELECT active FROM staff WHERE id=\?/, () => ({ active: 1 })],
+      [/^SELECT id, email, role, team, is_lead, active FROM staff WHERE id=\?/, () => ({ active: 1, id: 'stf_owner', email: 'owner@example.test', role: 'owner', team: null, is_lead: 0 })],
       [/FROM market_intel WHERE kind=\?/, () => null], // no standing briefs in these tests
       ...routes,
     ]),

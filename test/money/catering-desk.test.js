@@ -65,7 +65,7 @@ function ownerEnv({ quotes = [OLD_ROW], requests = [], onWrite = () => ({ meta: 
       const flat = q.replace(/\s+/g, ' ').trim();
       const stmt = (args) => ({
         async first() {
-          if (flat.includes('SELECT active FROM staff')) return { active: 1 };
+          if (flat.includes('SELECT id, email, role, team, is_lead, active FROM staff')) return { active: 1, id: 'stf_1', email: 'owner@example.test', role: 'owner', team: null, is_lead: 0 };
           return null;
         },
         async all() {

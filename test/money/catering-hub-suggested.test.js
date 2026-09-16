@@ -55,7 +55,7 @@ function env(products, { leadRows = null, requestRows = null } = {}) {
           },
           // requireRole re-checks that the staff row is still active on every request; a stub
           // that answers null here reads as a deactivated account and 401s.
-          first: async () => (sql.includes('FROM staff') ? { active: 1 } : null),
+          first: async () => (sql.includes('FROM staff') ? { active: 1, id: 'stf_1', email: 'owner@example.test', role: 'owner', team: null, is_lead: 0 } : null),
           run: async () => ({ meta: {} }),
         };
         return stmt;

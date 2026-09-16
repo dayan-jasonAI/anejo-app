@@ -40,7 +40,7 @@ function ownerEnv() {
         bind(...a) {
           return {
             async first() {
-              if (q.includes('SELECT active FROM staff')) return { active: 1 };
+              if (q.includes('SELECT id, email, role, team, is_lead, active FROM staff')) return { active: 1, id: 'stf_1', email: 'owner@example.test', role: 'owner', team: null, is_lead: 0 };
               if (q.includes('FROM contract_sites WHERE id')) return a[0] === SITE.id ? { ...SITE } : null;
               if (q.includes('FROM contract_accounts WHERE id')) return { id: 'acct_x', name: 'DGP Health & Wellness', status: 'active' };
               if (q.includes('FROM contract_site_staff WHERE site_id = ? AND phone = ?')) return staff.find((s) => s.phone === a[1]) || null;

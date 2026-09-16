@@ -26,7 +26,7 @@ function env({ leadDrafts = [], systemDrafts = [], leadIntel = [], ownerIntel = 
         bind() {
           return {
             async first() {
-              if (q.includes('SELECT active FROM staff')) return { active: 1 };
+              if (q.includes('SELECT id, email, role, team, is_lead, active FROM staff')) return { id: 'stf_1', email: 'o@t', role: 'owner', team: null, is_lead: 0, active: 1 };
               return null;
             },
             async all() {
@@ -94,7 +94,7 @@ test('a DB failure degrades the track record to empty, never a broken page', asy
   const e = {
     DB: {
       prepare(sql) {
-        if (sql.includes('SELECT active FROM staff')) return { bind: () => ({ first: async () => ({ active: 1 }) }) };
+        if (sql.includes('SELECT id, email, role, team, is_lead, active FROM staff')) return { bind: () => ({ first: async () => ({ id: 'stf_1', email: 'o@t', role: 'owner', team: null, is_lead: 0, active: 1 }) }) };
         return { bind: () => ({ all: async () => { throw new Error('table missing'); }, first: async () => null }) };
       },
     },
