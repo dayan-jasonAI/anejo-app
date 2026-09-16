@@ -4,6 +4,7 @@
 //   ctx => { role, distinct_id, team, email, type, staff }
 // Files under functions/_lib are not routed.
 import { currentUser } from './session.js';
+import { trainerIsActive } from './guard.js';
 import { json } from './util.js';
 
 // 'marketing' — the Marketing Expert / strategy manager (added 2026-08-11). She runs the
@@ -61,6 +62,7 @@ function contextFromSession(sess) {
 export async function currentRole(env, request) {
   const sess = await currentUser(env, request);
   const ctx = contextFromSession(sess);
+  if (ctx?.type === 'trainer' && !await trainerIsActive(env, ctx.distinct_id)) return null;
   if (!ctx || ctx.type !== 'staff') return ctx;
   // Sessions identify staff; the current roster determines their authority. Role/team
   // changes must take effect before expiry, including callers that use currentRole directly.

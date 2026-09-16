@@ -1,0 +1,29 @@
+
+> anejo-app@1.0.0 verify:live
+> node scripts/verify-live.mjs
+
+
+Reading PRODUCTION at https://anejocateringco.com
+
+Build freshness
+  ✓ origin/main is 16ce408
+
+Public surfaces
+  ✓ /lunch-count carries the "who is ordering" picker (multi-staff ordering)
+  ✓ /lunch-count carries the covering-for-them path
+  ✓ /lunch-count carries the roster pick is sent to the API
+  ✓ /lunch-count carries the invite tick-box
+  ✓ /hub/owner/contracts.html carries the owner roster control
+  ✓ /hub/owner/contracts.html carries the owner override control
+  ✓ /hub/owner/contracts.html carries the in-place roster redraw
+  ✓ /hub/owner/contracts.html carries the owner invite tick-box
+
+API
+  ✓ /api/contract/site refuses an invalid token
+  ✓ /api/contract/staff is routed and refuses an invalid token
+
+Live data (--db)
+  – skipped — pass --db to read the live database (needs wrangler auth)
+
+LIVE VERIFY: production matches what shipped (1 check(s) skipped).
+Skipped checks are NOT passes — re-run with the flags they name before calling this done.

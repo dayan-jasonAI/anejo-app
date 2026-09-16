@@ -34,7 +34,8 @@ test('trainer and client sessions retain their nonstaff semantics', async () => 
   for (const type of ['trainer', 'client']) {
     const env = ownerEnv(); const now = Date.now();
     env.SESSIONS.store.set('session:tok-owner', JSON.stringify({ type, uid: 'fixture', email: 'fixture@example.test', la: now, created: now }));
-    delete env.DB;
+    if (type === 'trainer') env.DB.sqlite.prepare('INSERT INTO trainers (id,email,created_at,updated_at) VALUES (?,?,?,?)').run('fixture','fixture@example.test',now,now);
+    else delete env.DB;
     const ctx = await requireRole(request(), env, [type]);
     assert.equal(ctx.role, type); assert.equal(ctx.distinct_id, 'fixture');
   }
