@@ -233,6 +233,28 @@
     "Incoming orders": "Pedidos entrantes", "Start prep": "Iniciar preparación", "Mark ready": "Marcar listo", "1 · Inside": "1 · Adentro", "2 · Closed & packed": "2 · Cerrado y empacado", "Tap to take photo": "Toca para tomar la foto", "Take both photos first": "Primero toma las dos fotos", "Check off all bowls first": "Primero marca todos los bowls", "Start by": "Empezar a las", "Ready by": "Listo a las", "No prep time set for": "Sin tiempo de preparación para", "left": "restante", "over": "de más",
     "Upcoming": "Próximos", "Overdue": "Atrasados",
 
+    // ---- the batch timer + measured prep time (2026-09-16) ----
+    // Curated, not machine-translated: the cook reads Spanish, and "Finish" / "Start the clock"
+    // are buttons they press mid-service. Deliberately NOT reusing the existing "Start" (which is
+    // the noun "Inicio" on the schedule) or "Done" ("Entregado", a delivery) — same English word,
+    // a different thing, and a wrong verb on a stopwatch teaches people to distrust the page.
+    "Batch timer": "Cronómetro de tanda",
+    "Time a batch so the prep times come from what really happens.":
+      "Cronometra una tanda para que los tiempos de preparación salgan de lo que de verdad pasa.",
+    "Start a timer": "Iniciar cronómetro",
+    "What are you starting?": "¿Qué vas a empezar?",
+    "Dish or process": "Plato o proceso",
+    "How many": "Cuántos",
+    "Start the clock": "Arrancar el reloj",
+    "On the clock": "En marcha",
+    "Finish": "Terminar",
+    "Say what you are starting.": "Di qué vas a empezar.",
+    "There is work on the board. Put it on the clock — that is how the prep times get fixed.":
+      "Hay trabajo en el tablero. Ponlo en el reloj — así se corrigen los tiempos de preparación.",
+    // The owner's side of the same data (hub/owner/menu.html).
+    "Measured vs estimate": "Medido vs estimado", "Office lunch": "Almuerzo de oficina",
+    "Every item": "Cada artículo", "Batch log": "Registro de tandas",
+
     // ---- status + severity badge words (rendered lowercase, CSS uppercases) ----
     "critical": "crítico", "warning": "advertencia", "info": "info", "open": "abierto",
     "acknowledged": "confirmado", "missing": "faltante", "paid": "pagado", "pending": "pendiente",

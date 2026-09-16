@@ -12,6 +12,15 @@
 //
 // An order's estimate is its LONGEST item, not the sum: the rice, the chicken and the salmon cook
 // side by side, so five bowls of three kinds are ready when the slowest one is.
+//
+// KNOWN LIMITATION — QUANTITY IS IGNORED. "The longest item" is the estimate for ONE of it. Five
+// of the same bowl at one station take longer than one, and this model says they take the same.
+// No quantity term has been invented here on purpose: a made-up multiplier would be a guess
+// wearing a formula's clothes, and the kitchen would then be judged against it.
+// prep_actuals (migration 0113, _lib/prep-actuals.js) records qty on EVERY measurement — batch and
+// whole-order — and the owner's menu desk shows measured minutes per unit beside the total. When
+// there are enough rows, that data answers what the multiplier should be, or whether there is one.
+// Until then this stays as it is, and the owner adopts measured numbers item by item.
 import { etMidnightMs } from './hub.js';
 
 // Lunch and dinner defaults are the delivery windows the business already publishes (11:00 and
