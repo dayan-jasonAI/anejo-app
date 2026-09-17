@@ -1,0 +1,350 @@
+{
+  "status": "revised_drafts_not_approved_not_scheduled",
+  "revision": 2,
+  "design_note": "Existing website imagery arranged in deterministic branded layouts. Food imagery is not regenerated. Website theme/editorial assets illustrate possibilities; not documentary event evidence.",
+  "approval_note": "Replaces prior creative direction. No publication or scheduling approval. Final exact carousel and caption require review.",
+  "posts": [
+    {
+      "id": "gather",
+      "title": "A table worth gathering around",
+      "asset": null,
+      "suggested_time": null,
+      "caption": "This is what showing up with Añejo looks like. 🌸\n\nCuban bites, trays for sharing and personal Cajitas, dressed for a celebration.\n\nPlanning a birthday, family gathering or team celebration? Tell us your date, city and guest count. We’ll help you choose the food and presentation, then confirm availability and your quote.\n\nExplore Catering & Events through the link in our bio, or message us “CAJITA” to start the conversation.\n\nAsí se celebra con Añejo: sabor cubano, bandejas para compartir y Cajitas vestidas para tu ocasión. Escríbenos la fecha, ciudad y cantidad de invitados para cotizar.\n\n¿Celebras en West Palm Beach, Lake Worth Beach o Boynton Beach? Cuéntanos tu ciudad para confirmar disponibilidad.\n\n#CateringCubano #ComidaCubana #WestPalmBeach #LakeWorthBeach #BoyntonBeach",
+      "slides": [
+        {
+          "kind": "collage",
+          "title": "A table worth\ngathering around.",
+          "eyebrow": "INTRODUCING AÑEJO CATERING",
+          "detail": "Cuban bites. Sharing trays. Personal Cajitas.\nDesliza y descubre tu próxima celebración.",
+          "tiles": [
+            {
+              "label": "Croquetas",
+              "src": "source/tray-croquetas.webp",
+              "website_source": "/assets/img/menu-launch/tray-croquetas.webp"
+            },
+            {
+              "label": "Bocaditos",
+              "src": "source/tray-bocaditos.webp",
+              "website_source": "/assets/img/menu-launch/tray-bocaditos.webp"
+            },
+            {
+              "label": "Empanadas",
+              "src": "source/tray-empanadas.webp",
+              "website_source": "/assets/img/menu-launch/tray-empanadas.webp"
+            },
+            {
+              "label": "Grazing skewers",
+              "src": "source/tray-skewers.webp",
+              "website_source": "/assets/img/menu-launch/tray-skewers.webp"
+            },
+            {
+              "label": "Ensalada fría",
+              "src": "source/tray-fria.webp",
+              "website_source": "/assets/img/menu-launch/tray-fria.webp"
+            },
+            {
+              "label": "Lechón",
+              "src": "source/cuban-lechon-tray-editorial-v2.png",
+              "website_source": "/assets/img/cajita/cuban-lechon-tray-editorial-v2.png"
+            },
+            {
+              "label": "Congrí",
+              "src": "source/cuban-congri-tray-editorial-v2.png",
+              "website_source": "/assets/img/cajita/cuban-congri-tray-editorial-v2.png"
+            },
+            {
+              "label": "Tamales",
+              "src": "source/cuban-tamales-tray-editorial-v2.png",
+              "website_source": "/assets/img/cajita/cuban-tamales-tray-editorial-v2.png"
+            },
+            {
+              "label": "La Cajita",
+              "src": "source/anejo-signature-duo-v2.jpg",
+              "website_source": "/assets/img/cajita/themes/anejo-signature-duo-v2.jpg"
+            }
+          ],
+          "file": "slides/gather-01.jpg"
+        },
+        {
+          "title": "Croquetas",
+          "detail": "Cuban bites made for sharing. / Bocados para compartir.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/tray-croquetas.webp",
+          "website_source": "/assets/img/menu-launch/tray-croquetas.webp",
+          "file": "slides/gather-02.jpg"
+        },
+        {
+          "title": "Bocaditos",
+          "detail": "A familiar favorite for your gathering. / Un favorito para tu reunión.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/tray-bocaditos.webp",
+          "website_source": "/assets/img/menu-launch/tray-bocaditos.webp",
+          "file": "slides/gather-03.jpg"
+        },
+        {
+          "title": "Empanadas",
+          "detail": "Choose your menu with your quote. / Elige tu menú al cotizar.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/tray-empanadas.webp",
+          "website_source": "/assets/img/menu-launch/tray-empanadas.webp",
+          "file": "slides/gather-04.jpg"
+        },
+        {
+          "title": "Grazing skewers",
+          "detail": "Little bites. Thoughtful presentation. / Bocados con buena presentación.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/tray-skewers.webp",
+          "website_source": "/assets/img/menu-launch/tray-skewers.webp",
+          "file": "slides/gather-05.jpg"
+        },
+        {
+          "title": "Ensalada fría",
+          "detail": "A party-table classic. / Un clásico de nuestras celebraciones.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/tray-fria.webp",
+          "website_source": "/assets/img/menu-launch/tray-fria.webp",
+          "file": "slides/gather-06.jpg"
+        },
+        {
+          "title": "Lechón",
+          "detail": "Cuban flavor for the whole table. / Sabor cubano para compartir.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/cuban-lechon-tray-editorial-v2.png",
+          "website_source": "/assets/img/cajita/cuban-lechon-tray-editorial-v2.png",
+          "file": "slides/gather-07.jpg"
+        },
+        {
+          "title": "Congrí",
+          "detail": "Rice, black beans, Cuban tradition. / Arroz, frijoles y tradición.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/cuban-congri-tray-editorial-v2.png",
+          "website_source": "/assets/img/cajita/cuban-congri-tray-editorial-v2.png",
+          "file": "slides/gather-08.jpg"
+        },
+        {
+          "title": "Tamales",
+          "detail": "Bring the celebration together. / Sabor para celebrar.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/cuban-tamales-tray-editorial-v2.png",
+          "website_source": "/assets/img/cajita/cuban-tamales-tray-editorial-v2.png",
+          "file": "slides/gather-09.jpg"
+        },
+        {
+          "title": "La Cajita",
+          "detail": "An individual welcome for each guest. / Una bienvenida para cada invitado.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/anejo-signature-duo-v2.jpg",
+          "website_source": "/assets/img/cajita/themes/anejo-signature-duo-v2.jpg",
+          "file": "slides/gather-10.jpg"
+        }
+      ]
+    },
+    {
+      "id": "personal",
+      "title": "Your occasion, your Cajita",
+      "asset": null,
+      "suggested_time": null,
+      "caption": "A little box. A thoughtful welcome. 🌸\n\nLa Cajita brings Cuban favorites together in individual packaging, with presentation coordinated to your celebration. Choose your colors, liners, labels, tags and finishing touches—and tell us which menu selections suit your guests.\n\nYour menu, quantities and personalized details are confirmed with your quote. Standard orders need at least 48 hours; custom printing needs at least 72 hours and a reviewed quote.\n\nMessage us “CAJITA” with your event date, city and guest count, or choose Catering & Events in our bio.\n\nUna Cajita para cada invitado. Cuéntanos tu ocasión y preparamos una cotización con el menú y la presentación que necesitas.\n\n¿Planeas una celebración en Fort Lauderdale, Hollywood o Pembroke Pines? Comparte tu ciudad y revisamos disponibilidad.\n\n#LaCajita #CateringCubano #FortLauderdale #HollywoodFL #PembrokePines",
+      "slides": [
+        {
+          "title": "Your occasion,\nyour Cajita.",
+          "detail": "Meet the Añejo Signature. Then make it yours.\nConoce nuestra Cajita clásica. Hazla tuya.",
+          "eyebrow": "INTRODUCING LA CAJITA",
+          "kind": "photo",
+          "src": "source/anejo-signature-duo-v2.jpg",
+          "website_source": "/assets/img/cajita/themes/anejo-signature-duo-v2.jpg",
+          "file": "slides/personal-01.jpg"
+        },
+        {
+          "title": "Gender reveal",
+          "detail": "Your palette, carried through the presentation.\nTus colores en cada detalle.",
+          "eyebrow": "LA CAJITA · DESIGN POSSIBILITIES",
+          "kind": "photo",
+          "src": "source/gender-reveal-duo-v2.jpg",
+          "website_source": "/assets/img/cajita/themes/gender-reveal-duo-v2.jpg",
+          "file": "slides/personal-02.jpg"
+        },
+        {
+          "title": "Halloween",
+          "detail": "Seasonal color. The Añejo touch.\nColor de temporada. El toque Añejo.",
+          "eyebrow": "LA CAJITA · DESIGN POSSIBILITIES",
+          "kind": "photo",
+          "src": "source/halloween-duo-v2.jpg",
+          "website_source": "/assets/img/cajita/themes/halloween-duo-v2.jpg",
+          "file": "slides/personal-03.jpg"
+        },
+        {
+          "title": "Christmas",
+          "detail": "A festive welcome, individually wrapped.\nUna bienvenida festiva para cada invitado.",
+          "eyebrow": "LA CAJITA · DESIGN POSSIBILITIES",
+          "kind": "photo",
+          "src": "source/christmas-duo-v2.jpg",
+          "website_source": "/assets/img/cajita/themes/christmas-duo-v2.jpg",
+          "file": "slides/personal-04.jpg"
+        },
+        {
+          "title": "Valentine’s Day",
+          "detail": "Thoughtful details for a sweeter occasion.\nDetalles para una ocasión especial.",
+          "eyebrow": "LA CAJITA · DESIGN POSSIBILITIES",
+          "kind": "photo",
+          "src": "source/valentines-duo-v2.jpg",
+          "website_source": "/assets/img/cajita/themes/valentines-duo-v2.jpg",
+          "file": "slides/personal-05.jpg"
+        },
+        {
+          "title": "Easter & spring",
+          "detail": "A fresh palette for your celebration.\nUna paleta fresca para celebrar.",
+          "eyebrow": "LA CAJITA · DESIGN POSSIBILITIES",
+          "kind": "photo",
+          "src": "source/easter-duo-v2.jpg",
+          "website_source": "/assets/img/cajita/themes/easter-duo-v2.jpg",
+          "file": "slides/personal-06.jpg"
+        },
+        {
+          "title": "Patriotic occasions",
+          "detail": "Your occasion, expressed in color.\nTu ocasión, expresada en colores.",
+          "eyebrow": "LA CAJITA · DESIGN POSSIBILITIES",
+          "kind": "photo",
+          "src": "source/patriotic-duo-v2.jpg",
+          "website_source": "/assets/img/cajita/themes/patriotic-duo-v2.jpg",
+          "file": "slides/personal-07.jpg"
+        },
+        {
+          "title": "Your original idea",
+          "detail": "Birthdays, team events and a theme of your own.\nCumpleaños, equipos y tu propia idea.",
+          "eyebrow": "LA CAJITA · DESIGN POSSIBILITIES",
+          "kind": "photo",
+          "src": "source/custom-occasion-duo-v2.jpg",
+          "website_source": "/assets/img/cajita/themes/custom-occasion-duo-v2.jpg",
+          "file": "slides/personal-08.jpg"
+        },
+        {
+          "kind": "details",
+          "title": "Make it yours.",
+          "eyebrow": "LA CAJITA · PERSONALIZATION",
+          "detail": "Every detail is reviewed with your quote.\nCada detalle se confirma en tu cotización.",
+          "rows": [
+            [
+              "THE FOOD / EL MENÚ",
+              "Choose the savory bites, roll, side and accents. Request flavors, quantities, additions or removals."
+            ],
+            [
+              "THE PALETTE / LOS COLORES",
+              "Coordinate your event colors, liners, labels, tags and finishing touches."
+            ],
+            [
+              "YOUR IDEA / TU IDEA",
+              "Share your invitation, wording, theme or reference images. Include dietary needs for review."
+            ]
+          ],
+          "file": "slides/personal-09.jpg"
+        },
+        {
+          "kind": "details",
+          "title": "From your idea\nto your table.",
+          "eyebrow": "LA CAJITA · PLAN YOUR OCCASION",
+          "detail": "Message “CAJITA” · Date + city + guest count\nEscríbenos “CAJITA” · Fecha + ciudad + invitados",
+          "rows": [
+            [
+              "01 · YOUR OCCASION / TU OCASIÓN",
+              "Tell us the date, city, guest count, menu direction and presentation you have in mind."
+            ],
+            [
+              "02 · REVIEW TOGETHER / CONFIRMAMOS",
+              "We confirm menu, quantities, availability, personalized details and pricing before payment."
+            ],
+            [
+              "03 · PLAN AHEAD / ANTICÍPATE",
+              "Standard orders: at least 48 hours. Custom printing: at least 72 hours and a reviewed quote."
+            ]
+          ],
+          "file": "slides/personal-10.jpg"
+        }
+      ]
+    },
+    {
+      "id": "choice",
+      "title": "Cajitas, trays, or both?",
+      "asset": null,
+      "suggested_time": null,
+      "caption": "Individual Cajitas or trays for the table? You can plan a celebration around either—or both.\n\nAñejo brings Cuban flavor and considered presentation to birthdays, family gatherings and team events. Share your date, city, guest count and what you have in mind. We’ll confirm the menu, availability and quote before payment.\n\nStart with Catering & Events in our bio, or message us “CATERING.”\n\n¿Cajitas individuales o bandejas para compartir? Cuéntanos cómo quieres celebrar. La fecha, ciudad y cantidad de invitados nos ayudan a preparar tu cotización.\n\n¿Tu evento es en Pompano Beach, Coral Springs, Miramar, Davie, Plantation o Sunrise? Envíanos la ciudad para confirmar disponibilidad.\n\n#CubanCatering #ComidaCubana #PompanoBeach #CoralSprings #MiramarFL",
+      "slides": [
+        {
+          "title": "Cajitas, trays,\nor both?",
+          "detail": "One celebration. A mix that feels like you.\nUna celebración. La combinación que imaginas.",
+          "eyebrow": "YOUR CELEBRATION · YOUR FORMAT",
+          "kind": "photo",
+          "src": "source/home-catering.webp",
+          "website_source": "/assets/img/menu-launch/home-catering.webp",
+          "file": "slides/choice-01.jpg"
+        },
+        {
+          "title": "A Cajita for each guest",
+          "detail": "Individual portions. Coordinated presentation.\nPorciones individuales. Presentación coordinada.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/anejo-signature-duo-v2.jpg",
+          "website_source": "/assets/img/cajita/themes/anejo-signature-duo-v2.jpg",
+          "file": "slides/choice-02.jpg"
+        },
+        {
+          "title": "Trays for the table",
+          "detail": "Explore a sharing-table format.\nExplora una mesa para compartir.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/combo-table.webp",
+          "website_source": "/assets/img/menu-launch/combo-table.webp",
+          "file": "slides/choice-03.jpg"
+        },
+        {
+          "title": "Cuban bites to share",
+          "detail": "Build the assortment around your gathering.\nArma la selección para tu celebración.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/combo-bites.webp",
+          "website_source": "/assets/img/menu-launch/combo-bites.webp",
+          "file": "slides/choice-04.jpg"
+        },
+        {
+          "title": "Or bring both together.",
+          "detail": "Cajitas + sharing trays, planned with your quote.\nCajitas + bandejas, coordinadas en tu cotización.",
+          "eyebrow": "CATERING BY AÑEJO",
+          "kind": "photo",
+          "src": "source/home-catering.webp",
+          "website_source": "/assets/img/menu-launch/home-catering.webp",
+          "file": "slides/choice-05.jpg"
+        },
+        {
+          "kind": "details",
+          "title": "Tell us what\nyou’re celebrating.",
+          "eyebrow": "LET’S PLAN YOUR TABLE",
+          "detail": "Message “CATERING” or use Catering & Events in our bio.\nEscríbenos “CATERING” o solicita tu cotización en la bio.",
+          "rows": [
+            [
+              "YOUR DATE / TU FECHA",
+              "Birthdays, family gatherings and team celebrations."
+            ],
+            [
+              "YOUR CITY / TU CIUDAD",
+              "Share the location so we can confirm availability."
+            ],
+            [
+              "YOUR GUESTS / TUS INVITADOS",
+              "Cajitas, trays or a coordinated mix. Menu and quote confirmed before payment."
+            ]
+          ],
+          "file": "slides/choice-06.jpg"
+        }
+      ]
+    }
+  ]
+}
