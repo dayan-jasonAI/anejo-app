@@ -60,3 +60,11 @@ Today Review drafts navigated to exactsp_0a39246ba48d6453af3f, focused that card
 Photos final collection contains7originals. Caption provider retry success was observed before finalprompttightening; no claim that prompt instructions guarantee factual output. A390px emulation reporteddocumentclientWidth=scrollWidth=390(nohorizontaloverflow), but screenshot scaling was unreliable; real-device visual acceptance remains Unverified. All viewport/networkdiagnostic overrides cleared.
 
 Approval state: code deployment authorized directly; exact three public campaigns still await Dayan's rendered-preview approval. User credential renewal needed before recordedInstagramexpiry. No new ads, purchases, customer sends or public posts. Full digital marketing system and actual brand/sales growth remain Open — evidence missing. LAUNCH_BOARD.md lists boundaries and nextacceptance; HOW_TO_USE.md explains the workingflow. GitHubauthblock resolved, this supersedes earlier blockeddeployment status.
+
+## Shared picker and conservative photo polish — 2026-09-17
+
+Direct session authorization: Dayan requested library access from Today/Create/existing drafts and real-photo enhancement; standing deployment authorization applies after checks. No public post approval, customer communications, credentials or new paid plan authorized.
+
+Implementation: reusable private library picker; context-preserving composer selection and draft attachments; local JPEG uploads saved to shared R2 library; three reference-based polish presets, original retention, derivative provenance and explicit comparison gate. Fixes post-type caption loss and mismatched generated-image preview. Re-enhancing derivatives is blocked. No text-only fallback. Original and AI copy are separate, with review required; fidelity is not guaranteed by prompts.
+
+Local evidence: /tmp/anejo-picker-release-tests.log 2,562/2,562 pass before four additional composer tests; /tmp/anejo-picker-focused.log 22/22 pass including those composer tests. /tmp/anejo-picker-build.log Functions compiled; lint has four pre-existing warnings, no errors; predeploy guard and diff check passed. Live generation and deployed workflow remain Unverified until production acceptance below.

@@ -13,3 +13,9 @@ The three prepared first-event campaign drafts are listed in WORK_LOG.md. They r
 Measure inquiries and paid orders separately from reach, followers and clicks. Existing tracked-link attribution is partial; zero attributed orders does not prove zero sales. No revenue outcome has yet been established for these new drafts.
 
 Current boundaries: full camera-original archive not yet supplied; live marketing-staff browser session acceptance remains pending; social network support is currently Instagram, with existing separate email workflow. Paid ads, customer messages, credential renewal and additional social-channel activation require scoped authorization.
+
+## Shared picker and photo polish
+
+Today has **Use a library photo**. Create & Schedule has **Choose from library** next to the local upload button; eligible saved drafts have the same choice. Picking a photo keeps the current caption and suggested time. Local JPEG uploads from Create now also save into the shared Photos library. These files live in Cloudflare R2 (`MEDIA`, `marketing-library/`), not Google Drive or only on your computer.
+
+Choose **Enhance photo** (or **Enhance a copy** inside the picker) for Natural, Bright, or Warm photographic polish. The original is supplied as a mandatory reference. A separate AI-enhanced JPEG is saved in Photos; the original is preserved. Compare both images, including food counts, ingredients, packaging, logos and printed text, before checking the review box and choosing Use this copy. AI can change details; a prompt is not proof of faithful reproduction. Copies remain labeled AI-enhanced when reopened. This flow does not publish or schedule a post. It uses the existing AI budget. Camera RAW/DNG and HEIC need exporting to JPEG first.

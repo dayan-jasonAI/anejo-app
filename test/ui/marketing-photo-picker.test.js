@@ -10,7 +10,7 @@ function harness(responses) {
   const body=node('body'), previous={isConnected:true,focus(){restored=true;}};
   const ctx={window:{},document:{body,activeElement:previous,createElement:node},Hub:{api:async(path,opts)=>{calls.push({path,opts});return responses.shift();}},Set,Image:class{}};
   vm.runInNewContext(source,ctx);
-  return {open:ctx.window.MarketingPhotoPicker.open,nodes,calls,get restored(){return restored;}};
+  return {window:ctx.window,open:ctx.window.MarketingPhotoPicker.open,nodes,calls,get restored(){return restored;}};
 }
 const photo={media_key:'marketing-library/a.jpg',content_type:'image/jpeg',url:'/api/hub/media/marketing-library/a.jpg',name:'<food>.jpg',folder:'Birthday'};
 test('JPEG selection returns private photo and invokes caller without post mutations',async()=>{
@@ -44,4 +44,15 @@ test('search is loaded-only and enhancement closes picker before handing off ori
 test('conversion is private and original is not overwritten',()=>{
  const jpeg=source.slice(source.indexOf('async function jpeg'),source.indexOf('function open'));
  assert.match(jpeg,/marketing-library/);assert.match(jpeg,/instagram-copy/);assert.doesNotMatch(jpeg,/social-upload|DELETE|photo\.media_key\s*=/);
+});
+
+test('saved AI copies have visible label and require explicit review before selection',async()=>{
+ const enhanced={...photo,ai_enhanced:true,source_key:'marketing-library/original.jpg'};
+ const h=harness([{ok:true,photos:[enhanced],cursor:null}]);let chosen=0,allow=false;
+ h.window.confirm=()=>allow;const result=h.open({onSelect:()=>{chosen++;},onEnhance:()=>{throw new Error('Must not re-enhance');}});await tick();
+ assert.ok(h.nodes.some(n=>n.textContent==='AI-enhanced · Review required'));
+ assert.ok(h.nodes.some(n=>n.alt==='Original for comparison'));
+ assert.ok(!h.nodes.some(n=>n.textContent==='Enhance a copy'));
+ h.nodes.find(n=>n.textContent==='Use photo').onclick();await tick();assert.equal(chosen,0);
+ allow=true;h.nodes.find(n=>n.textContent==='Use photo').onclick();await tick();assert.equal(chosen,1);await result;
 });

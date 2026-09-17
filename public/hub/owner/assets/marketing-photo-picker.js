@@ -40,6 +40,7 @@
     function lock(on) { busy = on; dialog.querySelectorAll('button,input').forEach(function (n) { n.disabled = on; }); cancel.disabled = false; }
     async function select(photo, enhance) {
       if (busy) return;
+      if (!enhance && photo.ai_enhanced && !window.confirm(tr('AI-enhanced copy: have you compared the food, quantities, packaging and printed text with the original? Use this reviewed copy?', 'Copia mejorada con IA: ¿comparaste comida, cantidades, empaque y texto impreso con el original? ¿Usar esta copia revisada?'))) return;
       lock(true); status.textContent = tr('Preparing photo…', 'Preparando foto…');
       try {
         if (enhance) {
@@ -65,8 +66,12 @@
         var isJpeg = photo.content_type === 'image/jpeg' || /\.jpe?g$/i.test(photo.media_key);
         var use = element('button', isJpeg ? tr('Use photo', 'Usar foto') : tr('Use JPEG copy', 'Usar copia JPEG'), 'btn gold'); use.type = 'button'; use.onclick = function () { select(photo, false); };
         card.append(img, element('strong', photo.name || tr('Photo', 'Foto')), element('p', photo.folder || tr('Unfiled', 'Sin carpeta'), 'mpp-hint'), use);
+        if (photo.ai_enhanced) {
+          card.append(element('strong', tr('AI-enhanced · Review required', 'Mejorada con IA · Requiere revisión')));
+          if (photo.source_key) { var original = element('img'); original.src = '/api/hub/media/' + photo.source_key; original.alt = tr('Original for comparison', 'Original para comparar'); original.loading = 'lazy'; card.append(element('p', tr('Compare with original', 'Comparar con el original'), 'mpp-hint'), original); }
+        }
         if (!isJpeg) card.append(element('p', tr('Creates a private JPEG copy on white; preserves the original.', 'Crea una copia JPEG privada sobre blanco; conserva el original.'), 'mpp-hint'));
-        if (options.onEnhance) { var enhance = element('button', tr('Enhance a copy', 'Mejorar una copia'), 'btn ghost'); enhance.type = 'button'; enhance.onclick = function () { select(photo, true); }; card.append(enhance); }
+        if (options.onEnhance && !photo.ai_enhanced) { var enhance = element('button', tr('Enhance a copy', 'Mejorar una copia'), 'btn ghost'); enhance.type = 'button'; enhance.onclick = function () { select(photo, true); }; card.append(enhance); }
         grid.append(card);
       });
       if (!visible.length) grid.append(element('p', term ? tr('No matches in loaded photos.', 'Sin coincidencias entre las fotos cargadas.') : tr('No photos saved yet. Add photos in Photos / Fotos.', 'Aún no hay fotos guardadas. Agrega fotos en Photos / Fotos.')));

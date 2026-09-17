@@ -10,7 +10,7 @@
       var title = node('h2', t('Polish your real photo', 'Mejora tu foto real')); title.id = 'photo-polish-title'; dialog.setAttribute('aria-labelledby', title.id);
       var note = node('p', t('Improve lighting, color and clarity while keeping the food, portions, packaging and event setting. AI can alter details: compare both images before using a copy.', 'Mejora luz, color y claridad conservando comida, porciones, empaque y entorno. La IA puede alterar detalles: compara ambas imágenes antes de usar una copia.'));
       var compare = node('div'); compare.className = 'photo-polish-compare';
-      function frame(label, src) { var f = node('figure'); var img = node('img'); img.src = src; img.alt = label; f.append(img,node('figcaption',label)); return f; }
+      function frame(label, src) { var f = node('figure'); var img = node('img'); img.src = src; img.alt = label; var link=node('a',t('Open full size','Abrir tamaño completo'));link.href=src;link.target='_blank';link.rel='noopener';f.append(img,node('figcaption',label),link); return f; }
       var original = frame(t('Original — preserved', 'Original — conservado'),photo.url); compare.append(original);
       var label = node('label',t('Finish', 'Acabado')); var preset = node('select'); preset.setAttribute('aria-label',t('Photo finish','Acabado de foto'));
       [['natural','Natural polish / Mejora natural'],['bright','Bright and clean / Luminoso y limpio'],['warm','Warm editorial / Editorial cálido']].forEach(function (p) { var o=node('option',p[1]); o.value=p[0]; preset.append(o); }); label.append(preset);
