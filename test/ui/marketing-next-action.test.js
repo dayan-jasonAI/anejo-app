@@ -32,3 +32,12 @@ test('statuses render bilingual and untrusted account labels are escaped', () =>
   assert.match(render([{ status: 'draft' }]), /Revisar borradores/);
   delete context.window.AnejoLang;
 });
+
+test('automatic publisher status requires cron evidence and separates stale/error/manual states', () => {
+  assert.match(render([]), /no verified heartbeat/);
+  assert.match(render([], { scheduler: { source: 'owner', status: 'recent', completed_at: 1789800000000 } }), /automatic publisher remains unverified/);
+  for (const [status, expected] of [['stale', /heartbeat is stale/], ['running', /completion unverified/], ['error', /reported an error/], ['recent', /recent run completed/]]) {
+    const html = render([], { scheduler: { source: 'cron', status, started_at: 1789800000000 } });
+    assert.match(html, expected); assert.match(html, /Recorded:/);
+  }
+});

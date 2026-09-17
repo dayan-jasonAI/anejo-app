@@ -22,6 +22,7 @@ import { json, bad, now, ctEq } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { igConfigured } from '../../../_lib/instagram.js';
 import { publishSocialPost } from '../../../_lib/social_publish.js';
+import { recordSocialTick } from '../../../_lib/social_heartbeat.js';
 import { capture } from '../../../_lib/track.js';
 
 // A social post is tied to a moment — a lunch window, a drop, a weekend. Two hours late is a
@@ -38,6 +39,10 @@ export const onRequestPost = async ({ request, env }) => {
     if (ctx instanceof Response) return ctx;
   }
   if (!env.DB) return bad('Database not configured.', 500);
+  return recordSocialTick(env, viaCron ? 'cron' : 'owner', () => runTick(request, env));
+};
+
+async function runTick(request, env) {
 
   // Not configured is not an error — it is the normal state before the Meta token exists. Say so
   // and stop, rather than marking every due post as failed once a minute.

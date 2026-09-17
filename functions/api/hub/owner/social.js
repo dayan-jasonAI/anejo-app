@@ -1,3 +1,4 @@
+import { loadSocialHeartbeat } from '../../../_lib/social_heartbeat.js';
 // GET/POST /api/hub/owner/social — draft, schedule and publish Instagram posts. Owner-only.
 //
 // Creative Studio already writes the caption and generates the plate image; this is the missing
@@ -163,6 +164,7 @@ export const onRequestGet = async ({ request, env }) => {
   return json({
     ok: true,
     configured,
+    scheduler: await loadSocialHeartbeat(env),
     connected: !!(account && account.ok),
     account: account && account.ok ? { username: account.username, followers: account.followers_count, media_count: account.media_count } : null,
     account_error: account && !account.ok ? account.error : null,

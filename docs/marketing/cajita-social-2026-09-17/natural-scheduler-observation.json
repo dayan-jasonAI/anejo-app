@@ -1,0 +1,14 @@
+[
+  {
+    "outcome": "ok",
+    "event": {
+      "cron": "* * * * *",
+      "scheduledTime": 1789632565000
+    },
+    "social_logs": [
+      [
+        "anejo-cron: /api/hub/admin/social-tick \u2192 HTTP 200 {\"ok\":true,\"at\":1789632568458,\"checked\":0,\"published\":[],\"failed\":[],\"missed\":[]}"
+      ]
+    ]
+  }
+]

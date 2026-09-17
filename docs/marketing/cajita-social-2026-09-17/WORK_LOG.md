@@ -30,3 +30,21 @@ These drafts are unscheduled and unscored. No public posting, customer replies, 
 Dayan restored GitHub login through the normal device flow and explicitly asked to finish deployment and continue marketing system improvements. PR102 created. Before merge, review found scheduled media_type loss, unsaved caption/approval drift and arbitrary operational-media token exposure. Repaired scheduled Reel/Story dispatch, public token namespace restrictions, draft/attach namespace validation, atomic caption+schedule/publication claims, stale caption conflict rejection, and publishing-state edit protection. Editing a scheduled caption returns it to draft for fresh approval. Corrected the inaccurate manual-draft provenance message.
 
 Today now starts with one next-post action and timestamped connection status; detailed reports remain expandable. Saved schedules are not presented as delivered posts. Photo chooser has one keyboard-accessible button. Final local suite: 2,536 passed, zero failed/skipped; lint zero errors/four existing warnings; worker build passed; ancestry guard passed. Evidence: release-validation.log. Public campaigns remain unscheduled pending rendered-preview approval. No provider publish call was used to test these repairs.
+
+## PR102 live acceptance
+
+PR102 merged as d31d2ab after Functions/Studio/Pages CI passed on332e63d. Normal main-push release active Production/main deploymentc9b5afda-9e70-4cd6-a701-c2050af79bd0. Evidence production-release-102.json. Public verify:live passed with live DB checks explicitly skipped (public-live-check.log).
+
+Supported live browser: Photos tab loaded; uploaded the three original JPEG event photos with event label Pink first-birthday catering. UI reported3saved, reload retained3rendered photos. Search spread narrowed to1 of3. Create post selected the original catering-spread image in composer, with visible preview and empty caption/schedule. No duplicate social post saved. Existing three campaign drafts remain unchanged and unscheduled.
+
+Caption helper live test: first request produced generic no-preview failure, cause Unverified. One diagnostic retry returned HTTP200 and a bilingual caption with catering CTA. It named dishes not supplied in event notes; that output was not adopted/saved/published. Prompt tightened in follow-up so actual-event dishes must be explicitly present in owner notes and at most five hashtags. AI factual review remains required; model output is not proof of what was served.
+
+Natural scheduler observation (no manual tick): installed anejo-cron every-minute invocation returned social-tick HTTP200, checked0,published[],failed[],missed[]. Sanitized evidence natural-scheduler-observation.json. This is an observed successful invocation, not future uptime or post-delivery proof. Follow-up adds durable heartbeat to avoid invisible staleness.
+
+## Follow-up release candidate
+
+Queue filters preserve unsaved captions, Today deep-links to the specific relevant post after load, and advanced creative tools are collapsed together. Durable scheduler health records authenticated starts/completions, source, last success, generic failure, counts; no post text or secrets. A five-minute stale threshold distinguishes missing evidence. Owner-triggered checks cannot imply automatic executor health. No cron Worker change required; existing natural calls populate the Pages endpoint record.
+
+Validation:2,546root tests passed,0failed/skipped; lint0errors/4existingwarnings; worker build and ancestryguard passed. followup-validation.log preserves output. Operating guide HOW_TO_USE.md created. Rendered-preview approval question is pending; elapsed time is not approval. No campaign scheduled or published.
+
+Final follow-up correction: a draft planner timestamp is now labeled suggested/not scheduled; only approved scheduled status claims a schedule.2,547root tests pass after this regression. Uploaded four remaining original event JPEGs through live Photos UI; readback7of7found by birthday search. Full camera archive still not supplied.

@@ -36,6 +36,9 @@
   .pt-chips button { flex:1; min-width:110px; border:1px solid var(--line); background:#fff; color:var(--green);
     border-radius:10px; padding:9px 8px; font:inherit; font-size:13px; cursor:pointer; }
   .pt-chips button.sel { border-color:var(--gold,#C6A85B); box-shadow:0 0 0 1px var(--gold,#C6A85B); background:#fff8e9; }
+  #social-root [data-queue-card][hidden], #queue-empty[hidden] { display:none!important; }
+  .queue-filters button { min-height:44px; }
+  [data-queue-card]:focus { outline:3px solid var(--gold); outline-offset:3px; }
   .mkt-loop { margin:0 0 16px; }
   .mkt-lane-note { margin-bottom:14px; }
 
@@ -686,7 +689,7 @@
 
   function when(p) {
     if (p.published_at) return 'Posted ' + new Date(Number(p.published_at)).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
-    if (p.scheduled_at) return 'Scheduled for ' + new Date(Number(p.scheduled_at)).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    if (p.scheduled_at) return (p.status === 'scheduled' ? 'Scheduled for ' : 'Suggested time — not scheduled: ') + new Date(Number(p.scheduled_at)).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
     return 'Not scheduled';
   }
 
@@ -1910,7 +1913,7 @@
     var isFeed = mtype !== 'REELS' && mtype !== 'STORIES';   // branding + carousel generation are feed-post concepts only
     // The image preview uses the HUB-authenticated route, never the public token — the owner is
     // signed in, and printing the public URL here would put it in screenshots.
-    return '<div class="post ' + esc(p.status) + '">' +
+    return '<div class="post ' + esc(p.status) + '" data-queue-card="' + esc(p.id) + '" data-queue-status="' + esc(p.status) + '" tabindex="-1">' +
       '<div class="post-head"><span style="display:flex;gap:6px;align-items:center"><span class="tag ' + esc(p.status) + '">' + (WORD[p.status] || esc(p.status)) + '</span>' +
         (MTYPE_WORD[mtype] ? '<span class="mtype ' + esc(mtype) + '">' + esc(MTYPE_WORD[mtype]) + '</span>' : '') + '</span>' +
         '<span class="row-sub" style="font-size:11.5px">' + esc(when(p)) + '</span></div>' +
@@ -1931,7 +1934,7 @@
       // strip shows it and the arrows change it. All of it locks once the post is live.
       slideStrip(p) +
       coverNote(p) +
-      (isFeed ? brandingTool(p) + carouselTool(p) + referenceVariantTool(p) + promptImageTool(p) : '') +
+      (isFeed ? '<details class="queue-advanced"><summary>Advanced creative tools / Herramientas creativas avanzadas</summary>' + brandingTool(p) + carouselTool(p) + referenceVariantTool(p) + promptImageTool(p) + '</details>' : '') +
       (p.status === 'published' ? '' : uploadCard(p, mtype, slideCap)) +
       (p.error ? '<div class="row-sub" style="color:var(--crit);margin-top:6px">' + esc(p.error) + '</div>' : '') +
       (p.permalink ? '<div style="margin-top:8px"><a href="' + esc(p.permalink) + '" target="_blank" rel="noopener">View on Instagram →</a></div>' : '') +
@@ -2076,13 +2079,50 @@
             '<p class="hint">Leave empty to save as a draft you publish by hand.</p></div>' +
           '<button class="btn gold block" id="save">Save post</button>' +
         '</div></div>' +
-      '<div class="hub-section"><h2>Posts</h2>' +
+      '<div class="hub-section" id="post-queue"><h2 tabindex="-1" id="post-queue-title">Posts / Publicaciones</h2>' +
+        '<p class="hint">Latest 60 posts returned · Últimas 60 publicaciones devueltas</p><div class="pt-chips queue-filters" role="group" aria-label="Filter posts / Filtrar publicaciones">' +
+        [['drafts','Drafts / Borradores'],['scheduled','Scheduled / Programadas'],['attention','Attention / Atención'],['live','Live / Publicadas'],['all','All / Todas']].map(function (f) { return '<button type="button" data-queue-filter="' + f[0] + '" aria-pressed="false">' + f[1] + '</button>'; }).join('') + '</div><p id="queue-count" class="hint" role="status"></p><p id="queue-empty" hidden>No matching posts in this loaded list. / No hay publicaciones coincidentes en esta lista.</p>' +
         (d.posts.length ? d.posts.map(postCard).join('') : '<div class="card"><p class="row-sub">Nothing yet.</p></div>') +
       '</div>';
 
     wire();
+    document.querySelectorAll('[data-queue-filter]').forEach(function (b) { b.onclick = function () { window.MarketingTabs.filterQueue(b.getAttribute('data-queue-filter')); }; });
+    window.MarketingTabs.routeQueue();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
   }
+
+  var queueFilter = 'drafts';
+  function matchesQueue(status, filter) {
+    return filter === 'all' || (filter === 'drafts' && status === 'draft') ||
+      (filter === 'scheduled' && status === 'scheduled') ||
+      (filter === 'attention' && (status === 'failed' || status === 'publishing')) ||
+      (filter === 'live' && status === 'published');
+  }
+  window.MarketingTabs.filterQueue = function (filter, postId) {
+    if (!['drafts', 'scheduled', 'attention', 'live', 'all'].includes(filter)) filter = 'drafts';
+    queueFilter = filter;
+    var cards = Array.from(document.querySelectorAll('[data-queue-card]'));
+    var shown = 0, target = null;
+    cards.forEach(function (card) {
+      card.hidden = !matchesQueue(card.getAttribute('data-queue-status'), filter);
+      if (!card.hidden) { shown++; if (card.getAttribute('data-queue-card') === postId) target = card; }
+    });
+    document.querySelectorAll('[data-queue-filter]').forEach(function (button) {
+      var selected = button.getAttribute('data-queue-filter') === filter;
+      button.setAttribute('aria-pressed', String(selected)); button.classList.toggle('sel', selected);
+    });
+    var count = document.getElementById('queue-count'), empty = document.getElementById('queue-empty');
+    if (count) count.textContent = shown + ' / ' + cards.length + ' loaded posts · publicaciones cargadas';
+    if (empty) empty.hidden = shown > 0;
+    if (postId) {
+      var focus = target || document.getElementById('post-queue-title');
+      if (focus) { focus.scrollIntoView({ block: 'start' }); focus.focus({ preventScroll: true }); }
+    }
+  };
+  window.MarketingTabs.routeQueue = function () {
+    var params = new URLSearchParams((location.hash || '').split('?')[1] || '');
+    window.MarketingTabs.filterQueue(params.get('filter') || queueFilter, params.get('post'));
+  };
 
   // datetime-local wants LOCAL parts. toISOString() here would shift by the timezone offset and
   // show a post scheduled for 11am as 7am.
@@ -3216,6 +3256,7 @@
     var es = window.AnejoLang && window.AnejoLang.get() === 'es';
     function t(en, sp) { return es ? sp : en; }
     var title, detail, cta, href = '#create-instagram';
+    function queueLink(filter, post) { return '#create-instagram?filter=' + filter + '&post=' + encodeURIComponent(post.id); }
     if (!d || !d.ok) {
       title = t('Post status unavailable', 'Estado de publicaciones no disponible');
       detail = t('We could not verify your posts or Instagram connection. Refresh to check again.', 'No pudimos verificar tus publicaciones ni la conexión de Instagram. Actualiza para volver a comprobar.');
@@ -3229,22 +3270,22 @@
       if (publishing.length) {
         title = t('A post is awaiting publication confirmation', 'Una publicación espera confirmación');
         detail = t('Its saved status is publishing. Check the result before trying again.', 'Su estado guardado es publicando. Comprueba el resultado antes de volver a intentarlo.');
-        cta = t('Check publication', 'Comprobar publicación');
+        cta = t('Check publication', 'Comprobar publicación'); href = queueLink('attention', publishing[0]);
       } else if (failed.length) {
         title = t('A post needs your attention', 'Una publicación necesita atención');
         detail = t('The latest list includes a failed post. Review its error and preview before retrying.', 'La lista reciente incluye una publicación fallida. Revisa el error y la vista previa antes de reintentar.');
-        cta = t('Review failed posts', 'Revisar publicaciones fallidas');
+        cta = t('Review failed posts', 'Revisar publicaciones fallidas'); href = queueLink('attention', failed[0]);
       } else if (drafts.length) {
         title = t('Finish your next post', 'Termina tu próxima publicación');
         detail = drafts.length + t(' saved draft(s) in the latest list. Choose one, review its photo and caption, then decide when to publish.', ' borrador(es) guardado(s) en la lista reciente. Elige uno, revisa la foto y el texto y decide cuándo publicar.');
-        cta = t('Review drafts', 'Revisar borradores');
+        cta = t('Review drafts', 'Revisar borradores'); href = queueLink('drafts', drafts[0]);
       } else if (scheduled.length) {
         var at = Number(scheduled[0].scheduled_at);
         title = t('Your next saved schedule', 'Tu próxima programación guardada');
         detail = Number.isFinite(at) && at > 0
           ? t('Saved for ', 'Guardada para ') + new Date(at).toLocaleString(es ? 'es' : 'en', { timeZoneName: 'short' }) + '. ' + t('Publication is not yet verified.', 'La publicación aún no está verificada.')
           : t('A scheduled post is recorded, but its date is unavailable.', 'Hay una publicación programada, pero la fecha no está disponible.');
-        cta = t('Review schedule', 'Revisar programación');
+        cta = t('Review schedule', 'Revisar programación'); href = queueLink('scheduled', scheduled[0]);
       } else {
         title = t('Start with a photo of your food', 'Empieza con una foto de tu comida');
         detail = t('Choose a real food or event photo, then write or generate a caption preview.', 'Elige una foto real de comida o un evento y después escribe o genera un texto de prueba.');
@@ -3255,10 +3296,30 @@
       : !d.configured ? t('Instagram: not configured', 'Instagram: sin configurar')
       : d.connected ? t('Instagram connection checked', 'Conexión de Instagram comprobada') + (d.account && d.account.username ? ' · @' + d.account.username : '')
       : t('Instagram connection check failed', 'Falló la comprobación de Instagram');
+    var heartbeat = d && d.ok && d.scheduler;
+    var schedulerText = t('Automatic publisher: no verified heartbeat.', 'Publicador automático: sin actividad verificada.');
+    if (heartbeat && heartbeat.source === 'owner') {
+      schedulerText = t('Manual check recorded; automatic publisher remains unverified.', 'Comprobación manual registrada; el publicador automático sigue sin verificar.');
+    } else if (heartbeat && heartbeat.source === 'cron') {
+      var labels = {
+        stale: t('Automatic publisher: last heartbeat is stale.', 'Publicador automático: el último registro está desactualizado.'),
+        running: t('Automatic publisher: a run has started; completion unverified.', 'Publicador automático: ejecución iniciada; finalización sin verificar.'),
+        error: t('Automatic publisher: last run reported an error.', 'Publicador automático: la última ejecución informó un error.'),
+        recent: t('Automatic publisher: recent run completed.', 'Publicador automático: ejecución reciente finalizada.')
+      };
+      schedulerText = labels[heartbeat.status] || schedulerText;
+    }
+    if (heartbeat) {
+      var heartbeatAt = Number(heartbeat.completed_at || heartbeat.started_at);
+      if (Number.isFinite(heartbeatAt) && heartbeatAt > 0) schedulerText += ' ' + t('Recorded: ', 'Registro: ') + new Date(heartbeatAt).toLocaleString();
+      if (heartbeat.error) schedulerText += ' · ' + String(heartbeat.error);
+      if (Number(heartbeat.last_success_at) > 0) schedulerText += ' · ' + t('Last recorded successful run: ', 'Última ejecución satisfactoria registrada: ') + new Date(Number(heartbeat.last_success_at)).toLocaleString();
+      if (heartbeat.counts) schedulerText += ' · ' + t('Last run counts (checked/published/failed/missed): ', 'Últimos conteos (revisados/publicados/fallidos/omitidos): ') + ['checked','published','failed','missed'].map(function (key) { return Number(heartbeat.counts[key]) || 0; }).join('/');
+    }
     var expiry = d && d.token_expiry;
     var expiryText = expiry && Number(expiry.at) > 0 ? t('Recorded connection expiry: ', 'Vencimiento registrado de la conexión: ') + new Date(Number(expiry.at)).toLocaleString(es ? 'es' : 'en', { timeZoneName: 'short' }) + ' (' + expiry.status + ')' : t('Connection expiry is not recorded.', 'El vencimiento de la conexión no está registrado.');
     return '<div class="hub-section"><div class="card"><h2>' + esc(title) + '</h2><p>' + esc(detail) + '</p><a class="btn gold" href="' + href + '">' + esc(cta) + '</a>' +
-      '<p class="hint" style="margin-top:16px">' + esc(connection) + '</p><p class="hint">' + esc(expiryText) + '</p><p class="hint">' + esc(t('Checked: ', 'Comprobado: ') + (checkedAt ? new Date(checkedAt).toLocaleString() : t('not yet', 'aún no'))) + '</p>' +
+      '<p class="hint" style="margin-top:16px">' + esc(connection) + '</p><p class="hint" data-scheduler-status>' + esc(schedulerText) + '</p><p class="hint">' + esc(expiryText) + '</p><p class="hint">' + esc(t('Checked: ', 'Comprobado: ') + (checkedAt ? new Date(checkedAt).toLocaleString() : t('not yet', 'aún no'))) + '</p>' +
       '<p class="hint">' + esc(t('Based on the latest 60 posts returned. A saved schedule is not proof of a running publisher or a live post.', 'Basado en las últimas 60 publicaciones devueltas. Una programación guardada no prueba que el publicador esté activo ni que la publicación esté en línea.')) + '</p><button class="btn ghost" type="button" id="next-post-refresh">' + esc(t('Refresh status', 'Actualizar estado')) + '</button></div></div>';
   }
 
@@ -3354,7 +3415,7 @@
   var loadedOnce = { teach: false, ig: false, email: false };
 
   function tabFromHash() {
-    var h = (location.hash || '').replace(/^#/, '');
+    var h = (location.hash || '').replace(/^#/, '').split('?')[0];
     if (h === 'photos') return { tab: 'photos', lane: null };
     if (h === 'teach') return { tab: 'teach', lane: null };
     if (h === 'create-email') return { tab: 'create', lane: 'email' };
@@ -3391,7 +3452,7 @@
   }
 
   window.MarketingTabs.openPhotoComposer = function () { loadedOnce.ig = true; location.hash = 'create-instagram'; selectTab('create', 'instagram'); };
-  function route() { var r = tabFromHash(); selectTab(r.tab, r.lane); }
+  function route() { var r = tabFromHash(); selectTab(r.tab, r.lane); if (r.tab === 'create' && r.lane === 'instagram') window.MarketingTabs.routeQueue(); }
   window.addEventListener('hashchange', route);
 
   function wireShell() {

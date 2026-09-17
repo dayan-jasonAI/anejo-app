@@ -6,9 +6,9 @@ test('scheduler exposes storage failure instead of reporting an empty successful
   let writes = 0;
   const env = {
     CRON_KEY: 'fixture-cron', IG_ACCESS_TOKEN: 'fixture-not-real',
-    DB: { prepare() { return { bind() { return {
+    DB: { prepare(sql) { return { bind() { return {
       all: async () => { throw new Error('storage down'); },
-      run: async () => { writes++; },
+      run: async () => { if (!sql.includes('app_settings')) writes++; },
     }; } }; } },
   };
   const response = await onRequestPost({ env, request: new Request('https://example.test/tick', {
