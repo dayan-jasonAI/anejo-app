@@ -11,6 +11,7 @@ function photo(obj) {
   return { media_key: obj.key, name: m.name || obj.key.split('/').pop(), folder: m.folder || '',
     tags: Array.isArray(tags) ? tags : [], bytes: obj.size,
     uploaded_at: m.uploaded_at || (obj.uploaded ? new Date(obj.uploaded).toISOString() : null),
+    source_key: m.source_key || null, ai_enhanced: m.ai_enhanced === 'true', preset: m.preset || null, provider: m.provider || null, model: m.model || null,
     content_type: m.content_type || 'image/jpeg', url: '/api/hub/media/' + obj.key };
 }
 export const onRequestGet = async ({ request, env }) => {

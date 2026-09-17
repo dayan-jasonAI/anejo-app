@@ -10,6 +10,8 @@
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link rel="stylesheet" href="/hub/assets/hub.css">
 <link rel="stylesheet" href="/hub/owner/assets/marketing-library.css">
+<link rel="stylesheet" href="/hub/owner/assets/marketing-photo-picker.css">
+<link rel="stylesheet" href="/hub/owner/assets/marketing-photo-enhance.css">
 <!-- The two Añejo brand faces, the SAME link the public site uses (public/index.html). They are
      not here to restyle the hub — hub.css pins its own system font stack and nothing below
      changes that. They are here because the branding tool typesets real Cormorant Garamond and
@@ -224,6 +226,8 @@
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
 <script src="/hub/owner/assets/marketing-library.js"></script>
+<script src="/hub/owner/assets/marketing-photo-picker.js"></script>
+<script src="/hub/owner/assets/marketing-photo-enhance.js"></script>
 
 <!-- ============================================================================================
      MODULE: Teach > Team Lead — copied from the old team.html almost unchanged. Only the mount
@@ -674,16 +678,40 @@
     if ((cap && cap.value.trim()) || (key && key.value.trim())) return window.confirm('Start a new photo draft? Unsaved composer changes will be replaced. / ¿Empezar un borrador nuevo? Se reemplazarán los cambios sin guardar.');
     return true;
   };
+  function setComposerPhoto(photo) {
+    DATA._pickedKey=photo.media_key; DATA._pickedPreview=photo.url; DATA._pickedLabel=photo.name; DATA._pickedPhoto=photo;
+    var key=document.getElementById('mkey'); if(key)key.value=photo.media_key;
+    var box=document.getElementById('picked-photo-preview');
+    if(box)box.innerHTML='<p class="hint">Photo selected · Foto seleccionada</p><img src="'+esc(photo.url)+'" alt="'+esc(photo.name||'Selected photo')+'" style="width:100%;max-width:320px;max-height:320px;object-fit:contain">';
+    var polish=document.getElementById('mpolish'); if(polish)polish.hidden=!!photo.ai_enhanced || !photo.media_key.startsWith('marketing-library/');
+  }
   window.MarketingTabs.pickLibraryPhoto = async function (photo) {
-    // Load first so failed access never discards an existing composer.
-    var d = await Owner.get('/api/hub/owner/social');
-    if (!d || !d.ok) throw new Error('Could not open the composer. / No se pudo abrir el editor.');
-    DATA = d; DATA._pickedKey = photo.media_key; DATA._pickedPreview = photo.url;
-    DATA._pickedLabel = photo.name || 'Event photo'; DATA._draftType = '';
-    window.MarketingTabs.openPhotoComposer();
-    render();
+    if(!DATA || !document.getElementById('cap')) {
+      var d=await Owner.get('/api/hub/owner/social');
+      if(!d||!d.ok)throw new Error('Could not open the composer.');
+      DATA=d; render();
+    }
+    if(DATA._draftType==='REELS')throw new Error('Choose Feed or Story to use a photo.');
+    window.MarketingTabs.openPhotoComposer(); setComposerPhoto(photo);
     document.getElementById('cap').focus();
   };
+  function chooseLibrary(onSelect) {
+    return MarketingPhotoPicker.open({onSelect:onSelect,onEnhance:function(photo){return MarketingPhotoEnhance.open({photo:photo,onUse:onSelect});}});
+  }
+  window.MarketingTabs.chooseLibraryPhoto=function(){return chooseLibrary(window.MarketingTabs.pickLibraryPhoto);};
+  function capturePhotoFields(){var values={};document.querySelectorAll('#social-root textarea,#social-root input:not([type=file]),#social-root select').forEach(function(n){if(n.id)values[n.id]=n.value;});return values;}
+  function restorePhotoFields(values){Object.keys(values).forEach(function(id){var n=document.getElementById(id);if(n)n.value=values[id];});}
+  function renderKeepingFields(){var values=capturePhotoFields();render();restorePhotoFields(values);}
+  async function attachLibraryPhoto(pid,photo) {
+    var post=(DATA.posts||[]).find(function(p){return p.id===pid;});
+    if(!post || !['draft','failed'].includes(post.status))throw new Error('Return this post to draft before changing photos.');
+    var r=await Hub.api('/api/hub/owner/social',{method:'POST',body:{op:'attach',id:pid,media_key:photo.media_key}});
+    if(!r||!r.ok)throw new Error(r&&r.error||'Could not attach photo.');
+    var d=await Owner.get('/api/hub/owner/social');
+    var picked={}; Object.keys(DATA).filter(function(k){return k.startsWith('_');}).forEach(function(k){picked[k]=DATA[k];});
+    if(d&&d.ok){DATA=Object.assign(d,picked);renderKeepingFields();Hub.toast('Photo attached. Caption edits preserved.');}
+    else Hub.toast('Photo attached, but the list could not refresh. Refresh before adding it again.');
+  }
 
   var WORD = { draft:'Draft', scheduled:'Scheduled', publishing:'Publishing…', published:'Live on Instagram', failed:'Failed' };
 
@@ -854,7 +882,7 @@
         : (isReel
             ? '<p class="hint">Paste the key of an MP4/MOV already staged in R2 below — video upload from this screen is not available yet.</p>'
             : '<button class="btn ' + (count ? 'ghost' : 'gold') + ' block" data-upload="' + esc(p.id) + '">📷 ' +
-              (count ? 'Add another photo (' + count + '/' + slideCap + ')' : 'Upload a photo') + '</button>')) +
+              (count ? 'Add another photo (' + count + '/' + slideCap + ')' : 'Upload a photo') + '</button>' + (['draft','failed'].includes(p.status) ? '<button type="button" class="btn ghost block" data-library-post="'+esc(p.id)+'">Choose from library / Elegir de biblioteca</button>' : ''))) +
       (full ? '' :
         '<details style="margin-top:6px"' + (isReel ? ' open' : '') + '><summary style="font-size:11.5px;opacity:.6;cursor:pointer">or paste a Studio ' + (mtype ? 'image/video' : 'image') + ' key</summary>' +
           '<div style="display:flex;gap:8px;margin-top:6px"><input type="text" id="mk_' + esc(p.id) + '" placeholder="studio/2026-07/xxxx.' + (isReel ? 'mp4' : 'jpg') + '" ' +
@@ -2060,8 +2088,8 @@
           '<div class="form-row"><label>' + (draftIsReel ? 'Video' : draftIsStory ? 'Photo or video' : 'Photo') + '</label>' +
             '<input type="file" id="mfile" accept="image/jpeg" style="display:none">' +
             (draftIsReel ? '' :
-              '<button class="btn ghost" id="mpick" type="button">📷 ' + ((DATA && DATA._pickedKey) ? 'Change photo' : 'Upload a photo') + '</button>') +
-            ((DATA && DATA._pickedKey) ? '<p class="hint">Photo selected · Foto seleccionada</p><img src="' + esc(DATA._pickedPreview || ('/api/hub/media/' + DATA._pickedKey)) + '" alt="' + esc(DATA._pickedLabel || 'Selected photo') + '" style="display:block;width:100%;max-width:320px;max-height:320px;object-fit:contain;border-radius:10px">' : '') +
+              '<button class="btn ghost" id="mpick" type="button">📷 ' + ((DATA && DATA._pickedKey) ? 'Change photo' : 'Upload a photo') + '</button><button class="btn ghost" id="mlibrary" type="button">Choose from library / Elegir de biblioteca</button><button class="btn ghost" id="mpolish" type="button" hidden>Enhance photo / Mejorar foto</button>') +
+            '<div id="picked-photo-preview">' + ((DATA && DATA._pickedKey) ? '<p class="hint">Photo selected · Foto seleccionada</p><img src="' + esc(DATA._pickedPreview || ('/api/hub/media/' + DATA._pickedKey)) + '" alt="' + esc(DATA._pickedLabel || 'Selected photo') + '" style="display:block;width:100%;max-width:320px;max-height:320px;object-fit:contain;border-radius:10px">' : '') + '</div>' +
             '<details style="margin-top:4px"' + (draftIsReel ? ' open' : '') + '><summary style="font-size:11.5px;opacity:.6;cursor:pointer">or paste a Studio ' + (draftType ? 'image/video' : 'image') + ' key</summary>' +
               '<input id="mkey" type="text" placeholder="studio/2026-07/xxxx.' + (draftIsReel ? 'mp4' : 'jpg') + '" style="margin-top:6px" value="' + esc((DATA && DATA._pickedKey) || '') + '"></details>' +
             '<p class="hint">' + (draftIsReel
@@ -2140,9 +2168,9 @@
     var rd = new FileReader();
     rd.onload = function () {
       Hub.toast('Uploading…');
-      Hub.api('/api/hub/owner/social-upload', { method: 'POST', body: { data_url: String(rd.result || '') } })
+      Hub.api('/api/hub/owner/marketing-library', { method: 'POST', body: { data_url: String(rd.result || ''), name:file.name, folder:'', tags:[] } })
         .then(function (r) {
-          if (r && r.ok && r.media_key) cb(r.media_key);
+          if (r && r.ok && r.photo) cb(r.photo.media_key,r.photo);
           else Hub.toast((r && r.error) || 'Upload failed');
         });
     };
@@ -2164,6 +2192,9 @@
   }
 
   function wire() {
+    document.querySelectorAll('[data-library-post]').forEach(function(b){b.onclick=function(){chooseLibrary(function(photo){return attachLibraryPhoto(b.getAttribute('data-library-post'),photo);});};});
+    var lib=document.getElementById('mlibrary'); if(lib)lib.onclick=window.MarketingTabs.chooseLibraryPhoto;
+    var polish=document.getElementById('mpolish'); if(polish){polish.hidden=!(DATA._pickedPhoto&&!DATA._pickedPhoto.ai_enhanced&&DATA._pickedPhoto.media_key.startsWith('marketing-library/'));polish.onclick=function(){MarketingPhotoEnhance.open({photo:DATA._pickedPhoto,onUse:setComposerPhoto});};}
     Array.prototype.forEach.call(document.querySelectorAll('[data-editcap]'), function (b) {
       b.addEventListener('click', function () {
         var pid = b.getAttribute('data-editcap');
@@ -2177,7 +2208,7 @@
         if (!fi) return;
         fi.onchange = function () {
           uploadFile(fi.files && fi.files[0], function (key) {
-            op({ op: 'attach', id: pid, media_key: key }, 'Photo attached');
+            attachLibraryPhoto(pid,{media_key:key}).catch(function(e){Hub.toast(e.message);});
           });
         };
         fi.click();
@@ -2262,19 +2293,18 @@
     var mtypesel = document.getElementById('mtypesel');
     if (mtypesel) mtypesel.addEventListener('change', function () {
       DATA._draftType = mtypesel.value;
-      render();
+      renderKeepingFields();
     });
 
+    var manualKey=document.getElementById('mkey');if(manualKey)manualKey.addEventListener('change',function(){setComposerPhoto({media_key:manualKey.value.trim(),url:'/api/hub/media/'+manualKey.value.trim(),name:'Selected media',ai_enhanced:true});});
     var mpick = document.getElementById('mpick');
     if (mpick) mpick.addEventListener('click', function () {
       var fi = document.getElementById('mfile');
       if (!fi) return;
       fi.onchange = function () {
-        uploadFile(fi.files && fi.files[0], function (key) {
-          DATA._pickedKey = key;
-          var mk = document.getElementById('mkey'); if (mk) mk.value = key;
-          Hub.toast('Photo ready');
-          render();
+        uploadFile(fi.files && fi.files[0], function (key,photo) {
+          setComposerPhoto(photo);
+          Hub.toast('Photo saved in your shared library.');
         });
       };
       fi.click();
@@ -2313,10 +2343,10 @@
       // The SAME field the 📷 uploader sets — the composer does not care which source a photo
       // came from, only that one is now picked. Nothing is attached to a real post yet: that only
       // happens when "Save post" below actually creates the draft.
-      DATA._pickedKey = DATA._genPreview.key;
+      setComposerPhoto({media_key:DATA._genPreview.key,url:DATA._genPreview.url||('/api/hub/media/'+DATA._genPreview.key),name:'Generated image',ai_enhanced:true});
       DATA._genPreview = null;
       Hub.toast('Photo ready — Save post to use it');
-      render();
+      renderKeepingFields();
     });
     var genDiscard = document.getElementById('gendiscard');
     if (genDiscard) genDiscard.addEventListener('click', function () { DATA._genPreview = null; render(); });
@@ -3320,7 +3350,7 @@
     var expiryText = expiry && Number(expiry.at) > 0 ? t('Recorded connection expiry: ', 'Vencimiento registrado de la conexión: ') + new Date(Number(expiry.at)).toLocaleString(es ? 'es' : 'en', { timeZoneName: 'short' }) + ' (' + expiry.status + ')' : t('Connection expiry is not recorded.', 'El vencimiento de la conexión no está registrado.');
     return '<div class="hub-section"><div class="card"><h2>' + esc(title) + '</h2><p>' + esc(detail) + '</p><a class="btn gold" href="' + href + '">' + esc(cta) + '</a>' +
       '<p class="hint" style="margin-top:16px">' + esc(connection) + '</p><p class="hint" data-scheduler-status>' + esc(schedulerText) + '</p><p class="hint">' + esc(expiryText) + '</p><p class="hint">' + esc(t('Checked: ', 'Comprobado: ') + (checkedAt ? new Date(checkedAt).toLocaleString() : t('not yet', 'aún no'))) + '</p>' +
-      '<p class="hint">' + esc(t('Based on the latest 60 posts returned. A saved schedule is not proof of a running publisher or a live post.', 'Basado en las últimas 60 publicaciones devueltas. Una programación guardada no prueba que el publicador esté activo ni que la publicación esté en línea.')) + '</p><button class="btn ghost" type="button" id="next-post-refresh">' + esc(t('Refresh status', 'Actualizar estado')) + '</button></div></div>';
+      '<p class="hint">' + esc(t('Based on the latest 60 posts returned. A saved schedule is not proof of a running publisher or a live post.', 'Basado en las últimas 60 publicaciones devueltas. Una programación guardada no prueba que el publicador esté activo ni que la publicación esté en línea.')) + '</p><button class="btn ghost" type="button" id="today-library">Use a library photo / Usar foto de biblioteca</button><button class="btn ghost" type="button" id="next-post-refresh">' + esc(t('Refresh status', 'Actualizar estado')) + '</button></div></div>';
   }
 
   function renderToday() {
@@ -3335,6 +3365,7 @@
   }
 
   function wireToday() {
+    var library=document.getElementById('today-library');if(library)library.onclick=window.MarketingTabs.chooseLibraryPhoto;
     var refresh = document.getElementById('next-post-refresh');
     if (refresh) refresh.onclick = function () { refresh.disabled = true; refresh.textContent = 'Checking… / Comprobando…'; loadToday(); };
     Array.prototype.forEach.call(document.querySelectorAll('[data-trust]'), function (b) {

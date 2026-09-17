@@ -48,3 +48,23 @@ Queue filters preserve unsaved captions, Today deep-links to the specific releva
 Validation:2,546root tests passed,0failed/skipped; lint0errors/4existingwarnings; worker build and ancestryguard passed. followup-validation.log preserves output. Operating guide HOW_TO_USE.md created. Rendered-preview approval question is pending; elapsed time is not approval. No campaign scheduled or published.
 
 Final follow-up correction: a draft planner timestamp is now labeled suggested/not scheduled; only approved scheduled status claims a schedule.2,547root tests pass after this regression. Uploaded four remaining original event JPEGs through live Photos UI; readback7of7found by birthday search. Full camera archive still not supplied.
+
+## Final live release and acceptance
+
+PR103 merged as a1fa4cf after all three checks passed onad01f26 (Functions62seconds,Studio17seconds,Pagespass). Active production deploymenta48b7b31-3bc4-4f2f-9c67-8a5f27b938db; provider record production-release-103.json. Final public smoke checks passed with liveDB skipped, not counted as acceptance (final-public-live-check.log).
+
+Authenticated owner Today readback at2026-09-17 04:20:33Eastern:11drafts in latest18posts, Instagram connected@anejo.catering.co, recordedexpirySeptember20, automatic publisher recent completion and lastsuccess04:20:33,counts0/0/0/0. This came from a natural cron heartbeat after release, not a manually triggered run.
+
+Today Review drafts navigated to exactsp_0a39246ba48d6453af3f, focused that card after loading, and showed11drafts/18loaded. Live filter showed7/18; switching back preserved an unsaved newline in caption, then exact original textarea value restored without Save. No server caption mutation or scheduling. Advanced tools collapsed. Draft proposed dates now explicitly say not scheduled.
+
+Photos final collection contains7originals. Caption provider retry success was observed before finalprompttightening; no claim that prompt instructions guarantee factual output. A390px emulation reporteddocumentclientWidth=scrollWidth=390(nohorizontaloverflow), but screenshot scaling was unreliable; real-device visual acceptance remains Unverified. All viewport/networkdiagnostic overrides cleared.
+
+Approval state: code deployment authorized directly; exact three public campaigns still await Dayan's rendered-preview approval. User credential renewal needed before recordedInstagramexpiry. No new ads, purchases, customer sends or public posts. Full digital marketing system and actual brand/sales growth remain Open — evidence missing. LAUNCH_BOARD.md lists boundaries and nextacceptance; HOW_TO_USE.md explains the workingflow. GitHubauthblock resolved, this supersedes earlier blockeddeployment status.
+
+## Shared picker and conservative photo polish — 2026-09-17
+
+Direct session authorization: Dayan requested library access from Today/Create/existing drafts and real-photo enhancement; standing deployment authorization applies after checks. No public post approval, customer communications, credentials or new paid plan authorized.
+
+Implementation: reusable private library picker; context-preserving composer selection and draft attachments; local JPEG uploads saved to shared R2 library; three reference-based polish presets, original retention, derivative provenance and explicit comparison gate. Fixes post-type caption loss and mismatched generated-image preview. Re-enhancing derivatives is blocked. No text-only fallback. Original and AI copy are separate, with review required; fidelity is not guaranteed by prompts.
+
+Local evidence: /tmp/anejo-picker-release-tests.log 2,562/2,562 pass before four additional composer tests; /tmp/anejo-picker-focused.log 22/22 pass including those composer tests. /tmp/anejo-picker-build.log Functions compiled; lint has four pre-existing warnings, no errors; predeploy guard and diff check passed. Live generation and deployed workflow remain Unverified until production acceptance below.

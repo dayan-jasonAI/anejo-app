@@ -38,14 +38,14 @@ test('failed library load is an error, not an empty collection', async () => {
   const h = harness(true); await tick();
   assert.equal(h.nodes.status.textContent, 'Storage unavailable'); assert.equal(h.nodes.empty.hidden, true);
 });
-test('workspace has photo entry, draft selection clears schedule, and caption preview requires acceptance', () => {
+test('workspace has photo entry, selection makes no post mutation, and caption preview requires acceptance', () => {
   const page = read('public/hub/owner/marketing.html');
   for (const m of page.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)) new vm.Script(m[1]);
   assert.match(page, /data-tab="photos"/);
   assert.match(read('public/hub/marketing/index.html'), /marketing.html#photos/);
-  const picker = page.slice(page.indexOf('window.MarketingTabs.pickLibraryPhoto'), page.indexOf('  var WORD'));
+  const picker = page.slice(page.indexOf('window.MarketingTabs.pickLibraryPhoto'), page.indexOf('  function chooseLibrary'));
   assert.doesNotMatch(picker, /scheduled_at|op:\s*'publish'|method:\s*'POST'/);
-  assert.match(picker, /DATA = d;/);
+  assert.match(picker, /DATA\s*=\s*d;/);
   const preview = page.slice(page.indexOf('var captionGenerate'), page.indexOf("var save = document.getElementById('save')"));
   assert.match(preview, /marketing-caption/); assert.match(preview, /window.confirm/); assert.doesNotMatch(preview, /scheduled_at|op:\s*'draft'|op:\s*'publish'/);
 });
