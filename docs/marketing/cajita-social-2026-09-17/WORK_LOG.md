@@ -11,3 +11,16 @@ Repaired atomic creation of post+first slide, invalid/past scheduled dates, and 
 Prepared3 original-event campaign previews in drafts.json and preview.html. These are not scheduled/published. Personalized birthday tags visible in original photos require Dayan's review/permission; captions do not name or tag people. Suggested times are not claimed to be optimized from metrics. No synthetic event imagery.
 
 Validation before final search control:2522 root tests passed, lint0errors/4existingwarnings, Pages Functions build and ancestry guard passed. New search control passed its focused test; all451UI tests passed. Logs /tmp/anejo-marketing-*. Final release/browser evidence appended below.
+
+## Final evidence — September 17
+
+Current local validation: `npm test --silent` passed 2,525 tests, zero failures/skips (10.363 seconds). Full output: `validation.log` beside this file. Previous lint: zero errors and four existing warnings; Pages Functions build passed. No Studio source changed. Local responsive Photos fixture was inspected at mobile width; it uses mocked listing data, so it is not proof of deployed storage. Final UI corrections preserve private JPEG copies and hide inactive controls/native duplicate chooser.
+
+Release is blocked, not deployed. `git push origin codex/kitchen-ready-notifications` returned `fatal: could not read Username for 'https://github.com': Device not configured`. PR creation returned `HTTP 401: Requires authentication (https://api.github.com/graphql)`. `gh auth status` reported the default dayan-jasonAI token invalid. Dayan must restore normal GitHub login; no credentials or deployment settings were changed, and no deployment bypass was attempted. After login: push, create PR, pass existing CI/release guard, deploy under prior authorization, then verify live Photos upload/list/selection for owner and marketing roles. Provider caption generation remains locally mocked, not live-verified.
+
+While release was blocked, three actual photo posts were saved through the supported live Hub browser interface. Reloaded Hub readback showed all three as BORRADOR / Sin programar, one image each:
+- Gather: `sp_20fbf4bea6aea85f30bf`, media `studio/2026-09/up_de2cbf5fb142c5bef326.jpg`.
+- Personal: `sp_58424887f40e1a1b611f`, media `studio/2026-09/up_117a7d2fe0dacd0ce5f3.jpg`.
+- Choice: `sp_0a39246ba48d6453af3f`, media `studio/2026-09/up_31c59c5882c456d5f7bc.jpg`.
+
+These drafts are unscheduled and unscored. No public posting, customer replies, credentials, payment or old drafts changed. Existing Hub incorrectly labels missing provenance on new manual drafts as predating tracking; remains open. Rendered review is `preview.html`, also open at http://127.0.0.1:8766/preview.html. Approval required for the exact three images/captions, including visible personalized birthday tags, before scheduling. Proposed dates must be rechecked against actual approval time. Recorded Instagram expiry is September 20; renewal remains a user credential handoff. No paid orders can be attributed to unpublished drafts.
