@@ -10,8 +10,8 @@ Owner: Codex technical execution; Dayan public approval and business facts. Dire
 | Three first-event posts | Saved live as unscheduled drafts; exact rendered previews available | Dayan reviews visible personalized tags and captions; schedule only after approval |
 | Caption generation | One failed live attempt; retry generated bilingual preview; output was not adopted | Continue human fact review; event-specific prompt tightened, do not mistake menu availability for event evidence |
 | Publishing correctness | Scheduled formats, visible-caption approval and private-media boundary repaired and tested | Real approved post receives a permalink and matches preview |
-| Publisher execution | Natural every-minute invocation observed HTTP200 with no due work | Durable heartbeat becomes live in follow-up; confirm recent cron completion and stale/error behavior |
-| Simpler daily workflow | Next action live; queue filters and direct-card links in follow-up | Mobile keyboard/filter state acceptance after release |
+| Publisher execution | Natural every-minute invocation observed HTTP200 with no due work | Durable heartbeat live; recent cron completion observed04:20:33Eastern; stale/error paths tested locally |
+| Simpler daily workflow | Next action live; queue filters and direct-card links live | Owner live filter/focus/edit-preservation acceptance passed; real-device visual acceptance pending |
 | Revenue evidence | Existing tracked-link counters available; no new campaign attribution yet | Compare inquiries, qualified quotes, deposits/paid orders; clicks/followers are supporting metrics |
 
 ## Daily operating loop after approval
