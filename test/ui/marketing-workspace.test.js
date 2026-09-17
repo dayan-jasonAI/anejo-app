@@ -46,9 +46,9 @@ test('a settings gear reaches the rarely-changed config one level down', () => {
 
 // ---------- the loop is legible: three tabs, not six pages ----------
 
-test('the workspace has exactly three top-level tabs: Today, Teach, Create', () => {
+test('the workspace has four top-level tabs: Today, Photos, Teach, Create', () => {
   const tabs = [...PAGE.matchAll(/data-tab="(\w+)"/g)].map((m) => m[1]);
-  assert.deepEqual(tabs, ['today', 'teach', 'create']);
+  assert.deepEqual(tabs, ['today', 'photos', 'teach', 'create']);
 });
 
 test('hash routing recognises all four legacy deep-link targets', () => {
