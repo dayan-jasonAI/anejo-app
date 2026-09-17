@@ -689,7 +689,7 @@
 
   function when(p) {
     if (p.published_at) return 'Posted ' + new Date(Number(p.published_at)).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
-    if (p.scheduled_at) return 'Scheduled for ' + new Date(Number(p.scheduled_at)).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    if (p.scheduled_at) return (p.status === 'scheduled' ? 'Scheduled for ' : 'Suggested time — not scheduled: ') + new Date(Number(p.scheduled_at)).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
     return 'Not scheduled';
   }
 

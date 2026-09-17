@@ -36,3 +36,9 @@ test('advanced tools stay present under disclosure and full page scripts parse',
   for (const m of page.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)) new vm.Script(m[1]);
   assert.match(page, /Latest 60 posts returned/);
 });
+
+test('a planner suggested date never reads as an approved schedule', () => {
+  const c = {}; vm.runInNewContext(page.slice(page.indexOf('  function when(p)'),page.indexOf('  function whenLabel(')),c);
+  assert.match(c.when({status:'draft',scheduled_at:Date.now()}),/Suggested time — not scheduled/);
+  assert.match(c.when({status:'scheduled',scheduled_at:Date.now()}),/^Scheduled for/);
+});
