@@ -233,17 +233,22 @@ export const onRequestPost = async ({ request, env }) => {
 
     const postId = id('sp');
     const t = now();
-    const scheduledAt = Number(b.scheduled_at) > 0 ? Math.floor(Number(b.scheduled_at)) : null;
+    const hasSchedule = b.scheduled_at !== undefined && b.scheduled_at !== null && b.scheduled_at !== '';
+    const requestedAt = Number(b.scheduled_at);
+    if (hasSchedule && (!Number.isFinite(requestedAt) || requestedAt <= 0)) return bad('Pick a date and time.');
+    if (hasSchedule && requestedAt < t - 60000) return bad('That time has already passed.');
+    const scheduledAt = hasSchedule ? Math.floor(requestedAt) : null;
     try {
-      await env.DB.prepare(
+      const postInsert = env.DB.prepare(
         `INSERT INTO social_posts (id, platform, caption, media_key, media_type, public_token, status, scheduled_at, created_by, created_at, updated_at)
          VALUES (?,'instagram',?,?,?,?,?,?,?,?,?)`
-      ).bind(postId, caption || null, mediaKey, mediaType, randToken(24), scheduledAt ? 'scheduled' : 'draft', scheduledAt, ctx.distinct_id || null, t, t).run();
+      ).bind(postId, caption || null, mediaKey, mediaType, randToken(24), scheduledAt ? 'scheduled' : 'draft', scheduledAt, ctx.distinct_id || null, t, t);
       // The slide row is what publishing actually reads; the legacy column above is write-through
       // for the deploy window only.
-      await env.DB.prepare(
+      const mediaInsert = env.DB.prepare(
         `INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,0,?,?,?)`
-      ).bind(id('spm'), postId, mediaKey, randToken(24), t).run();
+      ).bind(id('spm'), postId, mediaKey, randToken(24), t);
+      await env.DB.batch([postInsert, mediaInsert]);
     } catch (e) {
       return bad('Could not save the post. ' + String((e && e.message) || '').slice(0, 120), 500);
     }

@@ -2,7 +2,7 @@
 // Any authenticated HUB role may fetch (proof photos, studio clips, receipts are
 // internal ops media). 404 when the R2 binding is absent or the key is unknown.
 import { json } from '../../../_lib/util.js';
-import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
+import { requireRole, HUB_ROLES, MARKETING_DESK } from '../../../_lib/roles.js';
 import { getMedia, contentTypeForKey } from '../../../_lib/media.js';
 
 export const onRequestGet = async ({ request, env, params }) => {
@@ -15,6 +15,10 @@ export const onRequestGet = async ({ request, env, params }) => {
   // Kitchen photos show the inside of a customer's order. Client and trainer sessions are HUB roles
   // too, so these are narrowed to the staff who cook, deliver or own the business.
   if (key.startsWith('kitchen/') && !['owner', 'kitchen', 'driver'].includes(ctx.role)) {
+    return json({ error: 'Not found.' }, 404);
+  }
+
+  if (key.startsWith('marketing-library/') && !MARKETING_DESK.includes(ctx.role)) {
     return json({ error: 'Not found.' }, 404);
   }
 
