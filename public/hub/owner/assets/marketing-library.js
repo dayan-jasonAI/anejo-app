@@ -50,7 +50,11 @@
   }
   function drawGallery() {
     var grid = root.querySelector('[data-photo-grid]'); grid.replaceChildren();
-    photos.forEach(function (p) {
+    var search = root.querySelector('[data-photo-search]');
+    var term = (search.value || '').trim().toLowerCase();
+    var visible = photos.filter(function (p) { return !term || ((p.name || '') + ' ' + (p.folder || '')).toLowerCase().includes(term); });
+    root.querySelector('[data-photo-count]').textContent = visible.length + t(' shown of ', ' visibles de ') + photos.length + t(' loaded photos. Search covers loaded photos only; use Load more for older photos.', ' fotos cargadas. La búsqueda solo incluye fotos cargadas; usa Ver más para las anteriores.');
+    visible.forEach(function (p) {
       var card = el('article', '', 'photo-library-card');
       var img = el('img'); img.src = p.url; img.alt = p.name || t('Uploaded event photo', 'Foto de evento subida'); img.loading = 'lazy';
       img.onerror = function () { img.hidden = true; card.prepend(el('p', t('Preview unavailable', 'Vista previa no disponible'))); };
@@ -78,9 +82,10 @@
     root.dataset.mounted = 'true';
     root.innerHTML = '<div class="photo-library-intro"><div><p class="eyebrow">AÑEJO · '+t('YOUR PHOTOS','TUS FOTOS')+'</p><h2>'+t('From your table to your next post','De tu mesa a tu próxima publicación')+'</h2><p>'+t('Drop your real food and event photos here. Keep them together, then choose a favorite to start a draft.','Sube aquí tus fotos reales de comida y eventos. Organízalas y elige una para empezar un borrador.')+'</p></div></div>' +
       '<div class="photo-library-drop" data-photo-drop><label for="photo-folder">'+t('Event or folder (optional)','Evento o carpeta (opcional)')+'</label><input id="photo-folder" data-photo-folder maxlength="80" placeholder="'+t('e.g. Pink birthday catering','Ej. Catering de cumpleaños rosa')+'"><label class="btn gold" for="photo-files">'+t('Choose photos','Elegir fotos')+'</label><input id="photo-files" data-photo-files type="file" accept="image/jpeg,image/png,image/webp" multiple><p class="hint">'+t('Or drop files here · JPEG, PNG, WebP · up to 5 MB each','O arrastra archivos aquí · JPEG, PNG, WebP · hasta 5 MB cada uno')+'</p><p class="hint">'+t('Saved privately for the Hub and marketing team. Uploading does not publish or schedule anything.','Guardadas de forma privada para el Hub y el equipo de marketing. Subir no publica ni programa nada.')+'</p></div>' +
-      '<p data-photo-status role="status" aria-live="polite"></p><div class="photo-library-toolbar"><h3>'+t('Your photo collection','Tu colección de fotos')+'</h3><button type="button" data-photo-refresh class="btn ghost">'+t('Refresh','Actualizar')+'</button></div><p class="hint">'+t('Before publishing, review names, people, menu accuracy and your final caption.','Antes de publicar, revisa nombres, personas, el menú y el texto final.')+'</p><p data-photo-empty hidden>'+t('No photos yet. Add your first event above.','Aún no hay fotos. Agrega tu primer evento arriba.')+'</p><div data-photo-grid class="photo-library-grid"></div><button data-photo-more type="button" class="btn ghost" hidden>'+t('Load more','Ver más')+'</button>';
+      '<p data-photo-status role="status" aria-live="polite"></p><div class="photo-library-toolbar"><h3>'+t('Your photo collection','Tu colección de fotos')+'</h3><button type="button" data-photo-refresh class="btn ghost">'+t('Refresh','Actualizar')+'</button></div><p class="hint">'+t('Before publishing, review names, people, menu accuracy and your final caption.','Antes de publicar, revisa nombres, personas, el menú y el texto final.')+'</p><label for="photo-search">'+t('Find in loaded photos','Buscar en fotos cargadas')+'</label><input id="photo-search" data-photo-search type="search" placeholder="'+t('File name or event folder','Nombre de archivo o carpeta')+'"><p class="hint" data-photo-count></p><p data-photo-empty hidden>'+t('No photos yet. Add your first event above.','Aún no hay fotos. Agrega tu primer evento arriba.')+'</p><div data-photo-grid class="photo-library-grid"></div><button data-photo-more type="button" class="btn ghost" hidden>'+t('Load more','Ver más')+'</button>';
     root.querySelector('[data-photo-files]').onchange = function () { upload(Array.from(this.files)); };
     var drop = root.querySelector('[data-photo-drop]'); drop.ondragover = function (e) { e.preventDefault(); }; drop.ondrop = function (e) { e.preventDefault(); upload(Array.from(e.dataTransfer.files)); };
+    root.querySelector('[data-photo-search]').oninput = drawGallery;
     root.querySelector('[data-photo-refresh]').onclick = function () { load(false); };
     root.querySelector('[data-photo-more]').onclick = function () { load(true); };
     load(false);

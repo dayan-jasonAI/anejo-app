@@ -7,7 +7,7 @@ const code = read('public/hub/owner/assets/marketing-library.js');
 function node() { return { value: '', dataset: {}, children: [], style: {}, append(...n) { this.children.push(...n); }, prepend(n) { this.children.unshift(n); }, replaceChildren() { this.children = []; } }; }
 const tick = () => new Promise((r) => setTimeout(r, 0));
 function harness(fail = false) {
-  const names = ['status', 'folder', 'files', 'grid', 'empty', 'more', 'refresh', 'drop'];
+  const names = ['status', 'folder', 'files', 'grid', 'empty', 'more', 'refresh', 'drop', 'search', 'count'];
   const nodes = Object.fromEntries(names.map((n) => [n, node()]));
   const root = node(); root.querySelector = (s) => nodes[s.match(/data-photo-(.*)\]/)[1]];
   root.querySelectorAll = () => Object.values(nodes);
@@ -48,4 +48,12 @@ test('workspace has photo entry, draft selection clears schedule, and caption pr
   assert.match(picker, /DATA = d;/);
   const preview = page.slice(page.indexOf('var captionGenerate'), page.indexOf("var save = document.getElementById('save')"));
   assert.match(preview, /marketing-caption/); assert.match(preview, /window.confirm/); assert.doesNotMatch(preview, /scheduled_at|op:\s*'draft'|op:\s*'publish'/);
+});
+
+test('search filters loaded photo names and folders without claiming server-wide search', async () => {
+  const h = harness(); await tick(); h.nodes.search.value = 'birthday'; h.nodes.search.oninput();
+  assert.equal(h.nodes.grid.children.length, 1);
+  h.nodes.search.value = 'different event'; h.nodes.search.oninput();
+  assert.equal(h.nodes.grid.children.length, 0);
+  assert.match(h.nodes.count.textContent, /loaded photos only/);
 });
