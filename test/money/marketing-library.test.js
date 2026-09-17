@@ -48,3 +48,19 @@ test('PNG and WebP originals retain format and bytes',async()=>{
  assert.equal(out.photo.content_type,'image/'+kind);assert.deepEqual(Buffer.from(saved[1]),bytes);
  }
 });
+test('photographic polish stores verified original lineage without claiming AI or provider validation',async()=>{
+ const env=ownerEnv();let saved;const source='marketing-library/2026-09/original_photo.jpg';
+ env.MEDIA={get:async k=>{assert.equal(k,source);return {customMetadata:{name:'Original'}};},put:async(...args)=>{saved=args;},list:async()=>({objects:[{key:saved[0],size:110,customMetadata:saved[2].customMetadata}]})};
+ const r=await onRequestPost({env,request:req({...body(),polish:{source_key:source,preset:'natural'}})});assert.equal(r.status,200);
+ const out=await r.json();assert.notEqual(out.photo.media_key,source);assert.equal(out.photo.enhancement_method,'photographic');assert.equal(out.photo.ai_enhanced,false);assert.equal(out.photo.source_key,source);
+ const listed=await(await onRequestGet({env,request:req()})).json();assert.equal(listed.photos[0].enhancement_method,'photographic');assert.equal(saved[2].customMetadata.ai_enhanced,'false');
+});
+test('polish refuses missing private or derived source and forged metadata without writes',async()=>{
+ const env=ownerEnv();let writes=0;let meta={};env.MEDIA={get:async()=>({customMetadata:meta}),put:async()=>writes++};
+ const valid={source_key:'marketing-library/original.jpg',preset:'warm'};
+ for(const polish of [{...valid,source_key:'kitchen/private.jpg'},{...valid,preset:'invent'},{...valid,provider:'fake'}])assert.equal((await onRequestPost({env,request:req({...body(),polish})})).status,400);
+ for(const m of [{ai_enhanced:'true'},{source_key:'marketing-library/other.jpg'},{enhancement_method:'photographic'}]){meta=m;assert.equal((await onRequestPost({env,request:req({...body(),polish:valid})})).status,409);}
+ env.MEDIA.get=async()=>null;assert.equal((await onRequestPost({env,request:req({...body(),polish:valid})})).status,404);
+ for(const field of ['ai_enhanced','source_key','provider','enhancement_method'])assert.equal((await onRequestPost({env,request:req({...body(),[field]:'forged'})})).status,400);
+ assert.equal(writes,0);
+});
