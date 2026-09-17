@@ -188,7 +188,7 @@ test('branding, carousel generation, the reference-variant tool, and the prompt-
   // promptImageTool (2026-08-04, the "generate image of a single prompt" gap) joined the other
   // three on the same line — same isFeed gate, same reasoning: a Reel/Story has no still-photo
   // slide concept at all.
-  assert.match(HTML, /\(isFeed \? brandingTool\(p\) \+ carouselTool\(p\) \+ referenceVariantTool\(p\) \+ promptImageTool\(p\) : ''\)/);
+  assert.match(HTML, /\(isFeed \? '<details class="queue-advanced">[^\n]+brandingTool\(p\) \+ carouselTool\(p\) \+ referenceVariantTool\(p\) \+ promptImageTool\(p\) \+ '<\/details>' : ''\)/);
   assert.match(HTML, /var isFeed = mtype !== 'REELS' && mtype !== 'STORIES';/);
 });
 

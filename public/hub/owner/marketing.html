@@ -3296,10 +3296,30 @@
       : !d.configured ? t('Instagram: not configured', 'Instagram: sin configurar')
       : d.connected ? t('Instagram connection checked', 'Conexión de Instagram comprobada') + (d.account && d.account.username ? ' · @' + d.account.username : '')
       : t('Instagram connection check failed', 'Falló la comprobación de Instagram');
+    var heartbeat = d && d.ok && d.scheduler;
+    var schedulerText = t('Automatic publisher: no verified heartbeat.', 'Publicador automático: sin actividad verificada.');
+    if (heartbeat && heartbeat.source === 'owner') {
+      schedulerText = t('Manual check recorded; automatic publisher remains unverified.', 'Comprobación manual registrada; el publicador automático sigue sin verificar.');
+    } else if (heartbeat && heartbeat.source === 'cron') {
+      var labels = {
+        stale: t('Automatic publisher: last heartbeat is stale.', 'Publicador automático: el último registro está desactualizado.'),
+        running: t('Automatic publisher: a run has started; completion unverified.', 'Publicador automático: ejecución iniciada; finalización sin verificar.'),
+        error: t('Automatic publisher: last run reported an error.', 'Publicador automático: la última ejecución informó un error.'),
+        recent: t('Automatic publisher: recent run completed.', 'Publicador automático: ejecución reciente finalizada.')
+      };
+      schedulerText = labels[heartbeat.status] || schedulerText;
+    }
+    if (heartbeat) {
+      var heartbeatAt = Number(heartbeat.completed_at || heartbeat.started_at);
+      if (Number.isFinite(heartbeatAt) && heartbeatAt > 0) schedulerText += ' ' + t('Recorded: ', 'Registro: ') + new Date(heartbeatAt).toLocaleString();
+      if (heartbeat.error) schedulerText += ' · ' + String(heartbeat.error);
+      if (Number(heartbeat.last_success_at) > 0) schedulerText += ' · ' + t('Last recorded successful run: ', 'Última ejecución satisfactoria registrada: ') + new Date(Number(heartbeat.last_success_at)).toLocaleString();
+      if (heartbeat.counts) schedulerText += ' · ' + t('Last run counts (checked/published/failed/missed): ', 'Últimos conteos (revisados/publicados/fallidos/omitidos): ') + ['checked','published','failed','missed'].map(function (key) { return Number(heartbeat.counts[key]) || 0; }).join('/');
+    }
     var expiry = d && d.token_expiry;
     var expiryText = expiry && Number(expiry.at) > 0 ? t('Recorded connection expiry: ', 'Vencimiento registrado de la conexión: ') + new Date(Number(expiry.at)).toLocaleString(es ? 'es' : 'en', { timeZoneName: 'short' }) + ' (' + expiry.status + ')' : t('Connection expiry is not recorded.', 'El vencimiento de la conexión no está registrado.');
     return '<div class="hub-section"><div class="card"><h2>' + esc(title) + '</h2><p>' + esc(detail) + '</p><a class="btn gold" href="' + href + '">' + esc(cta) + '</a>' +
-      '<p class="hint" style="margin-top:16px">' + esc(connection) + '</p><p class="hint">' + esc(expiryText) + '</p><p class="hint">' + esc(t('Checked: ', 'Comprobado: ') + (checkedAt ? new Date(checkedAt).toLocaleString() : t('not yet', 'aún no'))) + '</p>' +
+      '<p class="hint" style="margin-top:16px">' + esc(connection) + '</p><p class="hint" data-scheduler-status>' + esc(schedulerText) + '</p><p class="hint">' + esc(expiryText) + '</p><p class="hint">' + esc(t('Checked: ', 'Comprobado: ') + (checkedAt ? new Date(checkedAt).toLocaleString() : t('not yet', 'aún no'))) + '</p>' +
       '<p class="hint">' + esc(t('Based on the latest 60 posts returned. A saved schedule is not proof of a running publisher or a live post.', 'Basado en las últimas 60 publicaciones devueltas. Una programación guardada no prueba que el publicador esté activo ni que la publicación esté en línea.')) + '</p><button class="btn ghost" type="button" id="next-post-refresh">' + esc(t('Refresh status', 'Actualizar estado')) + '</button></div></div>';
   }
 
