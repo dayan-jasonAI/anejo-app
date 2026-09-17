@@ -1,0 +1,62 @@
+Root tests
+✔ importing the module does not perform IO (0.038417ms)
+ℹ tests 2574
+ℹ suites 0
+ℹ pass 2574
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11854.782208
+
+Functions build
+
+ ⛅️ wrangler 4.129.0 (update available 4.134.0)
+───────────────────────────────────────────────
+✨ Compiled Worker successfully
+
+Lint
+
+/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/catering_deposit.js
+  82:9  warning  'base' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/vendor/webcrypto-web-push.js
+   81:5  warning  'cachedDecoders' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+  116:5  warning  'byteToHexLookupTable' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/Users/aiagent/Dayan Workspace/Aether/anejo-app/test/money/catering-quote-lines.test.js
+  273:34  warning  'init' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+✖ 4 problems (0 errors, 4 warnings)
+
+
+Public live check (PR104)
+
+> anejo-app@1.0.0 verify:live
+> node scripts/verify-live.mjs
+
+
+Reading PRODUCTION at https://anejocateringco.com
+
+Build freshness
+  – local HEAD 9e9d68b ≠ origin/main f48e5d4 — push first, then re-run
+
+Public surfaces
+  ✓ /lunch-count carries the "who is ordering" picker (multi-staff ordering)
+  ✓ /lunch-count carries the covering-for-them path
+  ✓ /lunch-count carries the roster pick is sent to the API
+  ✓ /lunch-count carries the invite tick-box
+  ✓ /hub/owner/contracts.html carries the owner roster control
+  ✓ /hub/owner/contracts.html carries the owner override control
+  ✓ /hub/owner/contracts.html carries the in-place roster redraw
+  ✓ /hub/owner/contracts.html carries the owner invite tick-box
+
+API
+  ✓ /api/contract/site refuses an invalid token
+  ✓ /api/contract/staff is routed and refuses an invalid token
+
+Live data (--db)
+  – skipped — pass --db to read the live database (needs wrangler auth)
+
+LIVE VERIFY: production matches what shipped (2 check(s) skipped).
+Skipped checks are NOT passes — re-run with the flags they name before calling this done.

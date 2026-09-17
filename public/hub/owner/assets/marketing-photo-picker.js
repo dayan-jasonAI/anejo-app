@@ -71,7 +71,8 @@
           if (photo.source_key) { var original = element('img'); original.src = '/api/hub/media/' + photo.source_key; original.alt = tr('Original for comparison', 'Original para comparar'); original.loading = 'lazy'; card.append(element('p', tr('Compare with original', 'Comparar con el original'), 'mpp-hint'), original); }
         }
         if (!isJpeg) card.append(element('p', tr('Creates a private JPEG copy on white; preserves the original.', 'Crea una copia JPEG privada sobre blanco; conserva el original.'), 'mpp-hint'));
-        if (options.onEnhance && !photo.ai_enhanced) { var enhance = element('button', tr('Enhance a copy', 'Mejorar una copia'), 'btn ghost'); enhance.type = 'button'; enhance.onclick = function () { select(photo, true); }; card.append(enhance); }
+        if (photo.enhancement_method === 'photographic') card.append(element('p', tr('Photographic polish — original preserved', 'Ajuste fotográfico — original conservado'), 'mpp-hint'));
+        if (options.onEnhance && !photo.source_key && !photo.ai_enhanced) { var enhance = element('button', tr('Enhance a copy', 'Mejorar una copia'), 'btn ghost'); enhance.type = 'button'; enhance.onclick = function () { select(photo, true); }; card.append(enhance); }
         grid.append(card);
       });
       if (!visible.length) grid.append(element('p', term ? tr('No matches in loaded photos.', 'Sin coincidencias entre las fotos cargadas.') : tr('No photos saved yet. Add photos in Photos / Fotos.', 'Aún no hay fotos guardadas. Agrega fotos en Photos / Fotos.')));

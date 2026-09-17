@@ -11,7 +11,7 @@ function photo(obj) {
   return { media_key: obj.key, name: m.name || obj.key.split('/').pop(), folder: m.folder || '',
     tags: Array.isArray(tags) ? tags : [], bytes: obj.size,
     uploaded_at: m.uploaded_at || (obj.uploaded ? new Date(obj.uploaded).toISOString() : null),
-    source_key: m.source_key || null, ai_enhanced: m.ai_enhanced === 'true', preset: m.preset || null, provider: m.provider || null, model: m.model || null,
+    enhancement_method: m.enhancement_method || null, source_key: m.source_key || null, ai_enhanced: m.ai_enhanced === 'true', preset: m.preset || null, provider: m.provider || null, model: m.model || null,
     content_type: m.content_type || 'image/jpeg', url: '/api/hub/media/' + obj.key };
 }
 export const onRequestGet = async ({ request, env }) => {
@@ -64,11 +64,30 @@ export const onRequestPost = async ({ request, env }) => {
   const png = [137,80,78,71,13,10,26,10].every((v,i) => bytes[i] === v);
   const webp = String.fromCharCode(...bytes.slice(0,4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8,12)) === 'WEBP';
   if (!(kind === 'jpeg' ? jpeg : kind === 'png' ? png : webp)) return bad('File bytes do not match the photo format.');
+  let polish = null;
+  if (b.polish !== undefined) {
+    const p = b.polish;
+    if (!p || typeof p !== 'object' || Array.isArray(p) ||
+        Object.keys(p).some(k => !['source_key', 'preset'].includes(k)) ||
+        !['natural', 'bright', 'warm'].includes(p.preset) ||
+        typeof p.source_key !== 'string' || p.source_key.length > 300 ||
+        !/^marketing-library\/[A-Za-z0-9_/-]+\.(jpg|jpeg|png|webp)$/.test(p.source_key) ||
+        p.source_key.includes('//') || kind !== 'jpeg') return bad('Choose an original library photo and a valid JPEG polish preset.');
+    let source;
+    try { source = await env.MEDIA.get(p.source_key); }
+    catch { return bad('Could not verify the original photo.', 503); }
+    if (!source) return bad('Original photo not found.', 404);
+    const meta = source.customMetadata || {};
+    if (meta.ai_enhanced === 'true' || meta.source_key || meta.enhancement_method) return bad('Polish the original photo, not a derivative.', 409);
+    polish = { source_key: p.source_key, preset: p.preset, enhancement_method: 'photographic', ai_enhanced: 'false' };
+  }
+  // These fields are server-owned. A plain upload cannot assert source/AI/provider provenance.
+  if (['source_key', 'ai_enhanced', 'enhancement_method', 'preset', 'provider', 'model'].some(k => Object.hasOwn(b, k))) return bad('Use the supported polish workflow for derivative metadata.');
   const ext = kind === 'jpeg' ? 'jpg' : kind;
   const content_type = 'image/' + kind;
   const uploaded_at = new Date().toISOString();
-  const key = PREFIX + uploaded_at.slice(0, 7) + '/' + id('original') + '_photo.' + ext;
-  const customMetadata = { content_type, name, folder, tags: JSON.stringify([...new Set(tags.map(t => t.trim()))]), uploaded_at };
+  const key = PREFIX + uploaded_at.slice(0, 7) + '/' + id(polish ? 'polished' : 'original') + '_photo.' + ext;
+  const customMetadata = { content_type, name, folder, tags: JSON.stringify([...new Set(tags.map(t => t.trim()))]), uploaded_at, ...(polish || {}) };
   try { await env.MEDIA.put(key, bytes, { httpMetadata: { contentType: content_type }, customMetadata }); }
   catch { return bad('Could not store the photo. Try again.', 503); }
   return json({ ok: true, photo: photo({ key, size: bytes.length, customMetadata }) });
