@@ -57,3 +57,16 @@ test('search filters loaded photo names and folders without claiming server-wide
   assert.equal(h.nodes.grid.children.length, 0);
   assert.match(h.nodes.count.textContent, /loaded photos only/);
 });
+
+test('photo hidden states override the shared Hub button display rule', () => {
+  assert.match(read('public/hub/owner/assets/marketing-library.css'), /#photos-root\s+\[hidden\]\s*\{\s*display:\s*none\s*!important\s*\}/);
+});
+
+test('Instagram JPEG copies stay in the private marketing library and preserve the source', () => {
+  const copy = code.slice(code.indexOf('async function jpegCopy'), code.indexOf('async function choose'));
+  assert.match(copy, /api\('\/api\/hub\/owner\/marketing-library'/);
+  assert.match(copy, /tags: \['instagram-copy'\]/);
+  assert.match(copy, /photos.unshift\(r.photo\)/);
+  assert.match(copy, /return r.photo/);
+  assert.doesNotMatch(copy, /social-upload|DELETE|splice|photo\.media_key\s*=/);
+});

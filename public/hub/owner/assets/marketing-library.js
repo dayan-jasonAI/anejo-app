@@ -33,8 +33,13 @@
     var scale = Math.min(1, 2048 / Math.max(img.naturalWidth, img.naturalHeight));
     var canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(img.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
     var ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    var r = await api('/api/hub/owner/social-upload', { method: 'POST', body: { data_url: canvas.toDataURL('image/jpeg', 0.92), role: 'photo' } });
-    return Object.assign({}, photo, { media_key: r.media_key, url: '/api/hub/media/' + r.media_key, content_type: 'image/jpeg' });
+    var r = await api('/api/hub/owner/marketing-library', { method: 'POST', body: {
+      data_url: canvas.toDataURL('image/jpeg', 0.92),
+      name: (photo.name || 'Event photo').replace(/\.[^.]+$/, '').slice(0, 100) + ' Instagram.jpg',
+      folder: photo.folder || '', tags: ['instagram-copy']
+    } });
+    photos.unshift(r.photo); drawGallery(); lock(true);
+    return r.photo;
   }
   async function choose(photo) {
     if (busy) return;
