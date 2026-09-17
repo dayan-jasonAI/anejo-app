@@ -68,6 +68,7 @@
       var button = el('button', jpeg ? t('Start a post', 'Crear publicación') : t('Prepare JPEG draft', 'Preparar borrador JPEG'), 'btn ghost'); button.type = 'button'; button.onclick = function () { choose(p); }; card.append(button);
       if (!jpeg) card.append(el('p', t('Creates a JPEG copy for Instagram. The original stays here.', 'Crea una copia JPEG para Instagram. El original se conserva aquí.'), 'hint'));
       if(p.ai_enhanced)card.append(el('p',t('AI-enhanced copy — review against original','Copia con IA — comparar con original'),'hint'));
+      else if(p.source_key)card.append(el('p',t('Photographic polish — original preserved','Ajuste fotográfico — original conservado'),'hint'));
       else {var enhance=el('button',t('Enhance photo','Mejorar foto'),'btn ghost');enhance.type='button';enhance.onclick=async function(){await MarketingPhotoEnhance.open({photo:p,onUse:choose});load(false);};card.append(enhance);}
       grid.append(card);
     });

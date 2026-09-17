@@ -227,6 +227,7 @@
 <script src="/hub/owner/assets/owner.js"></script>
 <script src="/hub/owner/assets/marketing-library.js"></script>
 <script src="/hub/owner/assets/marketing-photo-picker.js"></script>
+<script src="/hub/owner/assets/marketing-photo-polish.js"></script>
 <script src="/hub/owner/assets/marketing-photo-enhance.js"></script>
 
 <!-- ============================================================================================
@@ -683,7 +684,7 @@
     var key=document.getElementById('mkey'); if(key)key.value=photo.media_key;
     var box=document.getElementById('picked-photo-preview');
     if(box)box.innerHTML='<p class="hint">Photo selected · Foto seleccionada</p><img src="'+esc(photo.url)+'" alt="'+esc(photo.name||'Selected photo')+'" style="width:100%;max-width:320px;max-height:320px;object-fit:contain">';
-    var polish=document.getElementById('mpolish'); if(polish)polish.hidden=!!photo.ai_enhanced || !photo.media_key.startsWith('marketing-library/');
+    var polish=document.getElementById('mpolish'); if(polish)polish.hidden=!!photo.source_key || !!photo.ai_enhanced || !photo.media_key.startsWith('marketing-library/');
   }
   window.MarketingTabs.pickLibraryPhoto = async function (photo) {
     if(!DATA || !document.getElementById('cap')) {
@@ -2194,7 +2195,7 @@
   function wire() {
     document.querySelectorAll('[data-library-post]').forEach(function(b){b.onclick=function(){chooseLibrary(function(photo){return attachLibraryPhoto(b.getAttribute('data-library-post'),photo);});};});
     var lib=document.getElementById('mlibrary'); if(lib)lib.onclick=window.MarketingTabs.chooseLibraryPhoto;
-    var polish=document.getElementById('mpolish'); if(polish){polish.hidden=!(DATA._pickedPhoto&&!DATA._pickedPhoto.ai_enhanced&&DATA._pickedPhoto.media_key.startsWith('marketing-library/'));polish.onclick=function(){MarketingPhotoEnhance.open({photo:DATA._pickedPhoto,onUse:setComposerPhoto});};}
+    var polish=document.getElementById('mpolish'); if(polish){polish.hidden=!(DATA._pickedPhoto&&!DATA._pickedPhoto.source_key&&!DATA._pickedPhoto.ai_enhanced&&DATA._pickedPhoto.media_key.startsWith('marketing-library/'));polish.onclick=function(){MarketingPhotoEnhance.open({photo:DATA._pickedPhoto,onUse:setComposerPhoto});};}
     Array.prototype.forEach.call(document.querySelectorAll('[data-editcap]'), function (b) {
       b.addEventListener('click', function () {
         var pid = b.getAttribute('data-editcap');
