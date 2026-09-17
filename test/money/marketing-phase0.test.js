@@ -96,7 +96,8 @@ test('both surfaces can upload: compose form and each planner draft', () => {
 test('every non-published card carries an editable caption FIELD, wired to the op', () => {
   assert.match(PAGE, /<textarea id="cap_' \+ esc\(p\.id\)/);
   assert.match(PAGE, /data-editcap/);
-  assert.match(PAGE, /op: 'edit', id: pid, caption/);
+  assert.match(PAGE, /op: 'edit', id: pid.*approvalCaption\(pid\)/);
+  assert.match(PAGE, /expected_caption:/);
 });
 
 test('a published caption is read-only — our copy must match what people actually read', () => {

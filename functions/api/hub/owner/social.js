@@ -271,6 +271,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (!row) return bad('That post no longer exists.', 404);
     // A published caption lives on Instagram; changing our copy would make the record disagree
     // with what people actually read.
+    if (row.status === 'published') return bad('That is already live — edit the caption in the Instagram app.', 409);
     if (!['draft', 'scheduled', 'failed'].includes(row.status)) return bad('That post is already publishing or live. Reload before editing.', 409);
     const caption = String(b.caption == null ? '' : b.caption).slice(0, 2200);
     const saved = await env.DB.prepare("UPDATE social_posts SET caption=?, status='draft', scheduled_at=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed') AND (? IS NULL OR COALESCE(caption,'')=?)")
