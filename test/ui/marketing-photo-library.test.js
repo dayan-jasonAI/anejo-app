@@ -7,7 +7,7 @@ const code = read('public/hub/owner/assets/marketing-library.js');
 function node() { return { value: '', dataset: {}, children: [], style: {}, append(...n) { this.children.push(...n); }, prepend(n) { this.children.unshift(n); }, replaceChildren() { this.children = []; } }; }
 const tick = () => new Promise((r) => setTimeout(r, 0));
 function harness(fail = false) {
-  const names = ['status', 'folder', 'files', 'grid', 'empty', 'more', 'refresh', 'drop', 'search', 'count'];
+  const names = ['status', 'folder', 'files', 'grid', 'empty', 'more', 'refresh', 'drop', 'search', 'count', 'choose'];
   const nodes = Object.fromEntries(names.map((n) => [n, node()]));
   const root = node(); root.querySelector = (s) => nodes[s.match(/data-photo-(.*)\]/)[1]];
   root.querySelectorAll = () => Object.values(nodes);
@@ -69,4 +69,10 @@ test('Instagram JPEG copies stay in the private marketing library and preserve t
   assert.match(copy, /photos.unshift\(r.photo\)/);
   assert.match(copy, /return r.photo/);
   assert.doesNotMatch(copy, /social-upload|DELETE|splice|photo\.media_key\s*=/);
+});
+
+test('one accessible button activates a hidden native photo chooser', () => {
+  assert.match(code, /<button type="button" class="btn gold" data-photo-choose>/);
+  assert.match(code, /<input hidden id="photo-files"/);
+  assert.match(code, /if \(!busy\) root.querySelector\('\[data-photo-files\]'\).click\(\)/);
 });

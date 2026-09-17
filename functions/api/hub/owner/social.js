@@ -205,7 +205,7 @@ export const onRequestPost = async ({ request, env }) => {
     const mediaKey = String(b.media_key || '').trim();
     const caption = String(b.caption || '').trim().slice(0, 2200);
     if (!mediaKey) return bad('Pick an image first.');
-    if (mediaKey.includes('..')) return bad('Invalid image.');
+    if (mediaKey.includes('..') || !/^(studio|marketing-library)\//.test(mediaKey)) return bad('Choose a photo from Studio or the marketing library.');
 
     // media_type (migrations/0080): NULL/omitted is the historic default and behaves exactly as
     // before — image or carousel, decided later by slide count. REELS/STORIES are the only values
@@ -271,9 +271,11 @@ export const onRequestPost = async ({ request, env }) => {
     if (!row) return bad('That post no longer exists.', 404);
     // A published caption lives on Instagram; changing our copy would make the record disagree
     // with what people actually read.
-    if (row.status === 'published') return bad('That is already live — edit the caption in the Instagram app.', 409);
+    if (!['draft', 'scheduled', 'failed'].includes(row.status)) return bad('That post is already publishing or live. Reload before editing.', 409);
     const caption = String(b.caption == null ? '' : b.caption).slice(0, 2200);
-    await env.DB.prepare('UPDATE social_posts SET caption=?, updated_at=? WHERE id=?').bind(caption, now(), postId).run();
+    const saved = await env.DB.prepare("UPDATE social_posts SET caption=?, status='draft', scheduled_at=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed') AND (? IS NULL OR COALESCE(caption,'')=?)")
+      .bind(caption, now(), postId, b.expected_caption ?? null, b.expected_caption ?? null).run();
+    if (saved.meta?.changes !== 1) return bad('This post changed. Reload and review it again.', 409);
     return json({ ok: true, id: postId });
   }
 
@@ -283,7 +285,7 @@ export const onRequestPost = async ({ request, env }) => {
     const mediaKey = String(b.media_key || '').trim();
     if (!postId) return bad('Missing id.');
     if (!mediaKey) return bad('Pick an image first.');
-    if (mediaKey.includes('..')) return bad('Invalid image.');
+    if (mediaKey.includes('..') || !/^(studio|marketing-library)\//.test(mediaKey)) return bad('Choose a photo from Studio or the marketing library.');
     const row = await env.DB.prepare('SELECT status, media_type FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
     if (!row) return bad('That post no longer exists.', 404);
     if (row.status === 'published') return bad('That one is already live.', 409);
@@ -552,8 +554,9 @@ export const onRequestPost = async ({ request, env }) => {
     const when = Number(b.scheduled_at);
     if (!Number.isFinite(when) || when <= 0) return bad('Pick a date and time.');
     if (when < now() - 60000) return bad('That time has already passed.');
-    await env.DB.prepare("UPDATE social_posts SET status='scheduled', scheduled_at=?, error=NULL, updated_at=? WHERE id=?")
-      .bind(when, now(), postId).run();
+    const scheduled = await env.DB.prepare("UPDATE social_posts SET status='scheduled', caption=COALESCE(?,caption), scheduled_at=?, error=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed') AND (? IS NULL OR COALESCE(caption,'')=?)")
+      .bind(b.caption === undefined ? null : String(b.caption).slice(0,2200), when, now(), postId, b.expected_caption ?? null, b.expected_caption ?? null).run();
+    if (scheduled.meta?.changes !== 1) return bad('This post changed or is publishing. Reload and review it again.', 409);
     // Trust ledger (0072): the FIRST human yes on a planner draft is the datum — untouched
     // caption extends the category's clean streak, an edited one resets it. Only counted on
     // draft → scheduled so re-scheduling (or retrying a failure) cannot inflate the streak.
@@ -603,11 +606,13 @@ export const onRequestPost = async ({ request, env }) => {
     // second click — or the scheduler firing mid-click — would otherwise post the same photo twice.
     // The status guard in the UPDATE is the lock: only one caller can move it out of draft.
     const claim = await env.DB.prepare(
-      "UPDATE social_posts SET status='publishing', error=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed')"
-    ).bind(now(), postId).run();
+      "UPDATE social_posts SET status='publishing', caption=?, error=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed') AND COALESCE(caption,'')=?"
+    ).bind(b.caption === undefined ? post.caption : String(b.caption).slice(0,2200), now(), postId, b.expected_caption === undefined ? (post.caption || '') : b.expected_caption).run();
     if (!claim || !claim.meta || claim.meta.changes !== 1) {
       return bad('That post is already being published.', 409);
     }
+
+    if (b.caption !== undefined) post.caption = String(b.caption).slice(0,2200);
 
     // Trust ledger (0072): publishing straight from draft IS the approval, so count it here;
     // a scheduled post was already counted when the owner approved it onto the schedule.

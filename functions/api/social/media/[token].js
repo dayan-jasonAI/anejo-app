@@ -37,6 +37,10 @@ export const onRequestGet = async ({ env, params }) => {
     ).bind(token).first();
   } catch { return notFound(); }
   if (!post || !post.media_key) return notFound();
+  // A capability may expose only staged marketing assets, never kitchen proof or receipts.
+  // Reject encoded/path-normalization tricks even though R2 itself treats keys literally.
+  if (!/^(studio|marketing-library)\//.test(post.media_key) ||
+      /\.\.|[%\\]/.test(post.media_key) || [...post.media_key].some(c => c.charCodeAt(0) < 32) || post.media_key.includes('//')) return notFound();
 
   // The window is open only while the post needs it. Instagram fetches during 'publishing'; a
   // draft is staged and about to. Once PUBLISHED, Instagram hosts its own copy and has no reason

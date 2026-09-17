@@ -1887,7 +1887,7 @@
   function provenanceBadge(p) {
     var pr = p.provenance;
     if (!pr || !pr.recorded) {
-      return '<div class="prov"><span class="prov-head">🧭 Provenance</span> <span class="prov-unknown">not recorded — this post predates provenance tracking.</span></div>';
+      return '<div class="prov"><span class="prov-head">🧭 Provenance</span> <span class="prov-unknown">not recorded — review the original photo and caption before approval.</span></div>';
     }
     var items = [];
     if (pr.brief_title || pr.brief_id) items.push('<li>📋 Campaign brief: <b>' + esc(pr.brief_title || pr.brief_id) + '</b></li>');
@@ -2117,12 +2117,17 @@
     });
   }
 
+  function approvalCaption(pid) {
+    var post = (DATA.posts || []).find(function (p) { return p.id === pid; });
+    var field = document.getElementById('cap_' + pid);
+    return { caption: field ? field.value : ((post && post.caption) || ''), expected_caption: (post && post.caption) || '' };
+  }
+
   function wire() {
     Array.prototype.forEach.call(document.querySelectorAll('[data-editcap]'), function (b) {
       b.addEventListener('click', function () {
         var pid = b.getAttribute('data-editcap');
-        var el = document.getElementById('cap_' + pid);
-        op({ op: 'edit', id: pid, caption: (el && el.value) || '' }, 'Caption saved');
+        op(Object.assign({ op: 'edit', id: pid }, approvalCaption(pid)), 'Caption saved as draft — review before scheduling');
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-upload]'), function (b) {
@@ -2192,7 +2197,7 @@
         var when = raw ? Date.parse(raw) : NaN;
         if (!Number.isFinite(when)) { Hub.toast('Pick a date and time.'); return; }
         if (!window.confirm('Schedule this to post automatically at ' + whenLabel(when) + '?\n\nIt goes on the public profile without asking again.')) return;
-        op({ op:'schedule', id:pid, scheduled_at:when }, 'Scheduled');
+        op(Object.assign({ op:'schedule', id:pid, scheduled_at:when }, approvalCaption(pid)), 'Scheduled');
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-unsched]'), function (b) {
@@ -2305,6 +2310,8 @@
       var mtype = (document.getElementById('mtypesel') || {}).value || '';
       if (!key.trim()) { Hub.toast(mtype === 'REELS' ? 'Paste a video key first.' : 'Pick an image first.'); return; }
       var when = s ? Date.parse(s) : null;
+      if (s && !Number.isFinite(when)) { Hub.toast('Pick a valid date and time.'); return; }
+      if (when && !window.confirm('Schedule this photo and caption for ' + whenLabel(when) + '? It will post publicly without asking again.')) return;
       save.disabled = true;
       Hub.api('/api/hub/owner/social', { method:'POST', body:{ op:'draft', media_key:key.trim(), media_type: mtype || null, caption:cap, scheduled_at: Number.isFinite(when) ? when : null } })
         .then(function (r) {
@@ -2328,7 +2335,7 @@
         b.disabled = true; b.textContent = 'Publishing…';
         // Deliberately slow: Instagram fetches the image and we poll until it is ready, so this
         // can take ~20 seconds. Better to make them wait than to report success early.
-        Hub.api('/api/hub/owner/social', { method:'POST', body:{ op:'publish', id:b.getAttribute('data-pub') } })
+        Hub.api('/api/hub/owner/social', { method:'POST', body:Object.assign({ op:'publish', id:b.getAttribute('data-pub') }, approvalCaption(b.getAttribute('data-pub'))) })
           .then(function (r) {
             if (r && r.ok) Hub.toast(r.already ? 'That was already live' : 'Posted to Instagram');
             else Hub.toast((r && r.error) || 'Could not publish');
@@ -3204,17 +3211,71 @@
       '<p class="hint">' + esc(doing) + ' Below the sample floor, this stays silent rather than guess — a false "it’s not working" is worse than no answer.</p></div>';
   }
 
+  // One next action, derived only from the latest saved posts and connection check.
+  function nextPostCard(d, checkedAt) {
+    var es = window.AnejoLang && window.AnejoLang.get() === 'es';
+    function t(en, sp) { return es ? sp : en; }
+    var title, detail, cta, href = '#create-instagram';
+    if (!d || !d.ok) {
+      title = t('Post status unavailable', 'Estado de publicaciones no disponible');
+      detail = t('We could not verify your posts or Instagram connection. Refresh to check again.', 'No pudimos verificar tus publicaciones ni la conexión de Instagram. Actualiza para volver a comprobar.');
+      cta = t('Open Create', 'Abrir Crear');
+    } else {
+      var posts = d.posts || [];
+      var publishing = posts.filter(function (p) { return p.status === 'publishing'; });
+      var failed = posts.filter(function (p) { return p.status === 'failed'; });
+      var drafts = posts.filter(function (p) { return p.status === 'draft'; });
+      var scheduled = posts.filter(function (p) { return p.status === 'scheduled'; }).sort(function (a, b) { return Number(a.scheduled_at) - Number(b.scheduled_at); });
+      if (publishing.length) {
+        title = t('A post is awaiting publication confirmation', 'Una publicación espera confirmación');
+        detail = t('Its saved status is publishing. Check the result before trying again.', 'Su estado guardado es publicando. Comprueba el resultado antes de volver a intentarlo.');
+        cta = t('Check publication', 'Comprobar publicación');
+      } else if (failed.length) {
+        title = t('A post needs your attention', 'Una publicación necesita atención');
+        detail = t('The latest list includes a failed post. Review its error and preview before retrying.', 'La lista reciente incluye una publicación fallida. Revisa el error y la vista previa antes de reintentar.');
+        cta = t('Review failed posts', 'Revisar publicaciones fallidas');
+      } else if (drafts.length) {
+        title = t('Finish your next post', 'Termina tu próxima publicación');
+        detail = drafts.length + t(' saved draft(s) in the latest list. Choose one, review its photo and caption, then decide when to publish.', ' borrador(es) guardado(s) en la lista reciente. Elige uno, revisa la foto y el texto y decide cuándo publicar.');
+        cta = t('Review drafts', 'Revisar borradores');
+      } else if (scheduled.length) {
+        var at = Number(scheduled[0].scheduled_at);
+        title = t('Your next saved schedule', 'Tu próxima programación guardada');
+        detail = Number.isFinite(at) && at > 0
+          ? t('Saved for ', 'Guardada para ') + new Date(at).toLocaleString(es ? 'es' : 'en', { timeZoneName: 'short' }) + '. ' + t('Publication is not yet verified.', 'La publicación aún no está verificada.')
+          : t('A scheduled post is recorded, but its date is unavailable.', 'Hay una publicación programada, pero la fecha no está disponible.');
+        cta = t('Review schedule', 'Revisar programación');
+      } else {
+        title = t('Start with a photo of your food', 'Empieza con una foto de tu comida');
+        detail = t('Choose a real food or event photo, then write or generate a caption preview.', 'Elige una foto real de comida o un evento y después escribe o genera un texto de prueba.');
+        cta = t('Choose a photo', 'Elegir una foto'); href = '#photos';
+      }
+    }
+    var connection = !d || !d.ok ? t('Instagram: unverified', 'Instagram: sin verificar')
+      : !d.configured ? t('Instagram: not configured', 'Instagram: sin configurar')
+      : d.connected ? t('Instagram connection checked', 'Conexión de Instagram comprobada') + (d.account && d.account.username ? ' · @' + d.account.username : '')
+      : t('Instagram connection check failed', 'Falló la comprobación de Instagram');
+    var expiry = d && d.token_expiry;
+    var expiryText = expiry && Number(expiry.at) > 0 ? t('Recorded connection expiry: ', 'Vencimiento registrado de la conexión: ') + new Date(Number(expiry.at)).toLocaleString(es ? 'es' : 'en', { timeZoneName: 'short' }) + ' (' + expiry.status + ')' : t('Connection expiry is not recorded.', 'El vencimiento de la conexión no está registrado.');
+    return '<div class="hub-section"><div class="card"><h2>' + esc(title) + '</h2><p>' + esc(detail) + '</p><a class="btn gold" href="' + href + '">' + esc(cta) + '</a>' +
+      '<p class="hint" style="margin-top:16px">' + esc(connection) + '</p><p class="hint">' + esc(expiryText) + '</p><p class="hint">' + esc(t('Checked: ', 'Comprobado: ') + (checkedAt ? new Date(checkedAt).toLocaleString() : t('not yet', 'aún no'))) + '</p>' +
+      '<p class="hint">' + esc(t('Based on the latest 60 posts returned. A saved schedule is not proof of a running publisher or a live post.', 'Basado en las últimas 60 publicaciones devueltas. Una programación guardada no prueba que el publicador esté activo ni que la publicación esté en línea.')) + '</p><button class="btn ghost" type="button" id="next-post-refresh">' + esc(t('Refresh status', 'Actualizar estado')) + '</button></div></div>';
+  }
+
   function renderToday() {
     var root = document.getElementById('today-root'); root.className = '';
     root.innerHTML =
-      '<div class="hub-section"><h2 data-i18n>What happened since last time</h2>' +
+      nextPostCard(DATA.social, DATA.socialCheckedAt) +
+      '<details class="hub-section"><summary>More marketing details / Más detalles de marketing</summary><h2 data-i18n>What happened since last time</h2>' +
         budgetCard() + linksCard() + inboxCard() + trustCard() + attributionCard() + perfCard() +
-      '</div>';
+      '</details>';
     wireToday();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
   }
 
   function wireToday() {
+    var refresh = document.getElementById('next-post-refresh');
+    if (refresh) refresh.onclick = function () { refresh.disabled = true; refresh.textContent = 'Checking… / Comprobando…'; loadToday(); };
     Array.prototype.forEach.call(document.querySelectorAll('[data-trust]'), function (b) {
       b.addEventListener('click', function () {
         var cat = b.getAttribute('data-trust');
@@ -3233,6 +3294,7 @@
   // Six independent fetches; render once, with whatever answered. Promise.all is safe because
   // Hub.api never rejects — a failed endpoint answers {} and its card says so.
   function loadToday() {
+    Hub.api('/api/hub/owner/social').then(function (social) { DATA.social = social; DATA.socialCheckedAt = Date.now(); renderToday(); }).catch(function () { DATA.social = null; DATA.socialCheckedAt = Date.now(); renderToday(); });
     Promise.all([
       Hub.api('/api/hub/automations/run'),
       Hub.api('/api/hub/owner/links'),

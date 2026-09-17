@@ -53,7 +53,7 @@ export const onRequestPost = async ({ request, env }) => {
       // will not accept a post without an image, so those must never be claimed here — they would
       // burn through 'publishing' into 'failed' once a minute. Slides live in social_post_media
       // now (carousels), so the old media_key IS NOT NULL check would miss every new post.
-      "SELECT id, caption, scheduled_at FROM social_posts WHERE status='scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= ? AND EXISTS (SELECT 1 FROM social_post_media m WHERE m.post_id = social_posts.id) ORDER BY scheduled_at LIMIT 5"
+      "SELECT id, caption, scheduled_at, media_type FROM social_posts WHERE status='scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= ? AND EXISTS (SELECT 1 FROM social_post_media m WHERE m.post_id = social_posts.id) ORDER BY scheduled_at LIMIT 5"
     ).bind(t).all();
     due = (r && r.results) || [];
   } catch {
