@@ -215,3 +215,12 @@ PR115 merged48083e5eb6170bba9e090ec4ec8cc926bd5c757e; production62d64e00-5cda-4b
 Rubricv3 scopes product fidelity to explicit caption/overlay claims, leaves authenticity outside visualjudgment, preserves valid unknowns as partial flagged/null-score results, and keeps malformed evidence unavailable. Actual slide enums and field-specific diagnostics added; no score override. Distinct Ana inbox heartbeat observes natural existing ticks without changing send settings. Aggregate production read2026-09-18T02:59:19Z shows zero inbound7d,31historicalauto-reply records,3pendingdrafts and1oldDM outsidewindow; not proof of current execution or outage. See revision-3/ana-aggregate-observation.json.
 
 Typed115operator audit status returned newbackendtext but no expandedUI afterreload; cache attribution is inference. Version marketingoperatorasset and bumpHubcache for116. Local2777root tests pass;78auditfocused,51Anafocused,10cachetests; Functionsbuild passes. FinaldiagnosticUIaddition checkedseparately. Renderer localPagesbuild+oneJPEG succeeds; productionmemory/CPU and brandparity remainUnverified, documented in UNATTENDED_RENDERING_PROOF_2026-09-17.md. No customer/provider test sends, publicposts, purchases or credentials changes.
+
+
+## PR116 acceptance and reference ordering correction
+
+PR116 merged430316bcd9269a5333cd89e31ad0f26c677fe134; productionf0ccf7bd-390a-4d72-97ad-41f39b9a8406 completed-success. Choice and personal both returned7/7, but root rejected choice semantic evidence: it called slide2thecover and3theCajita; manifest is1cover,2Cajita. Personal references match its source sequence. No numerical override; historicalresultretained. Candidatev4 puts numbered publicationJPEGs first, unnumbered comparisonPNG last and explicitlylabelscover1. Existingv3auditsbecomestale. Structuraltests cannotprove semanticaccuracy.
+
+Versionedoperator nowrenders17-recordaudit summary and Open Photos button. Actual same-page navigation preserved an unsaved QAcaption; QAcaption cleared without save. NaturalAna cron at2026-09-18T03:09:28.538Z completed03:09:28.705Z withzeroerrors/zeroactions; readback separatelydisplayedbyoperator. Thisproves a recordedcheck, notcustomer delivery. Evidence:revision-3/release116-live-acceptance.json.
+
+Release117localvalidation:2779roottests,32focused,Functionsbuild,scopedlintanddiffpassed. No newmigration/settings/credentialchange; publishtrustunchanged.

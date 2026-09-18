@@ -306,7 +306,7 @@ test('finished-image judge receives evidence discipline and retains actionable f
     assert.match(request.system, /not a promise of coverage/);
     assert.match(request.system, /Still flag unconditional unsupported service promises/);
     assert.match(request.system, /actual saved slides/);
-    assert.equal(request.messages[0].content[1].type, 'image');
+    assert.equal(request.messages[0].content[2].type, 'image');
     assert.equal(request.model, 'claude-sonnet-5', 'finished images use the existing Studio reasoning model');
   } finally { globalThis.fetch = original; }
 });
