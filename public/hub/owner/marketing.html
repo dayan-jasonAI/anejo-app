@@ -1324,33 +1324,39 @@
     });
   }
 
-  // BRAND AUDITOR verdict on the card. The row already carries the Haiku judge's output
-  // (audit_score / audit_flags / audit_status from migrations/0071, now selected in social.js);
-  // this is the missing UI-OUT half — the score, the compact reason list, and the pass/flag
-  // verdict the owner should read before approving a time. NULL audit_at (row predates the
-  // auditor) reads as UNSCORED, never as passed — matching the migration's own contract.
+  // Audit evidence belongs to a saved design and its source context, never to approval.
   function auditBadge(p) {
     var scored = p.audit_at != null || p.audit_status != null || p.audit_score != null;
-    if (!scored) {
-      return '<div class="audit unscored"><span class="audit-head">🔍 Brand Auditor · not scored yet</span></div>';
-    }
-    var flags = [];
-    if (p.audit_flags) { try { flags = JSON.parse(p.audit_flags) || []; } catch (e) { flags = []; } }
+    if (!scored) return '<div class="audit unscored"><span class="audit-head">Brand Auditor · not scored yet</span></div>';
+    var flags = [], detail = null;
+    try { flags = JSON.parse(p.audit_flags || '[]'); } catch (e) { flags = []; }
+    try { detail = JSON.parse(p.audit_detail_json || 'null'); } catch (e) { detail = null; }
     if (!Array.isArray(flags)) flags = [];
-    if (flags.some(function(f){return f && f.type === 'audit_unavailable';})) return '<div class="audit flag"><span class="audit-head">Brand Auditor · unavailable</span><div>' + flags.map(function(f){return esc(f.detail || '');}).join('<br>') + '</div></div>';
-    var status = p.audit_status === 'pass' ? 'pass' : p.audit_status === 'flag' ? 'flag'
-      : (flags.length ? 'flag' : 'pass');   // derive from flags if the canonical column is absent
-    var label = status === 'pass' ? '✅ Brand Auditor · Pass' : '⚠️ Brand Auditor · Flagged';
-    var scoreStr = (p.audit_score != null) ? '<span class="audit-score">Score ' + esc(String(p.audit_score)) + '/100</span>' : '';
-    var flagList = flags.length
-      ? '<ul>' + flags.map(function (f) {
-          var t = f && f.type ? String(f.type) : 'note';
-          var d = f && f.detail ? String(f.detail) : '';
-          return '<li><b>' + esc(t) + '</b>' + (d ? ' — ' + esc(d) : '') + '</li>';
-        }).join('') + '</ul>'
-      : (status === 'pass' ? '<div class="row-sub" style="margin-top:2px;font-size:11.5px">No brand or claims issues found.</div>' : '');
-    return '<div class="audit ' + status + '"><span class="audit-head">' + label +
-      (scoreStr ? ' <span style="opacity:.7">·</span> ' + scoreStr : '') + '</span>' + flagList + '</div>';
+    var unavailable = flags.some(function(f) { return f && f.type === 'audit_unavailable'; });
+    var current = p.audit_current === 1 || p.audit_current === true;
+    var structured = detail && detail.rubric_version && Array.isArray(detail.observations);
+    var status = !unavailable && current && p.audit_status === 'pass' ? 'pass' : 'flag';
+    var label = unavailable ? 'unavailable' : !current ? 'outdated — re-audit required' : p.audit_status === 'pass' ? 'requirements met' : 'needs review';
+    var body = '';
+    if (structured) {
+      var applicable = detail.observations.filter(function(o) { return o && o.status !== 'not_applicable'; });
+      var met = applicable.filter(function(o) { return o.status === 'met'; }).length;
+      body += '<div class="audit-score">Requirements met: ' + met + '/' + applicable.length + (current ? '' : ' · historical result') + '</div>';
+      var names = {branding:'Emblem visual consistency',readability:'Readability',caption_image:'Caption and imagery',themed_packaging:'Personalized packaging',product_fidelity:'Product accuracy',claims:'Supported claims',owner_instructions:'Owner direction'};
+      body += '<details><summary>Review audit evidence</summary><ul>' + detail.observations.map(function(o) {
+        if (!o || typeof o !== 'object') return '';
+        return '<li><b>' + esc(names[o.criterion_id] || o.criterion_id || 'Requirement') + ' · ' + esc(o.status || 'unknown') + '</b><div>' + esc(o.explanation || '') + '</div>' +
+          (o.rule_quote ? '<div class="hint">Rule: ' + esc(o.rule_quote) + '</div>' : '') +
+          (o.caption_quote ? '<div class="hint">Caption: ' + esc(o.caption_quote) + '</div>' : '') +
+          (Array.isArray(o.slides) && o.slides.length ? '<div class="hint">Slides: ' + esc(o.slides.join(', ')) + '</div>' : '') + '</li>';
+      }).join('') + '</ul></details>';
+      if (Array.isArray(detail.suggestions) && detail.suggestions.length) body += '<details><summary>Optional refinements</summary><ul>' + detail.suggestions.map(function(s) { return '<li>' + esc(String(s)) + '</li>'; }).join('') + '</ul></details>';
+    } else if (p.audit_score != null) {
+      body += '<div class="audit-score">Legacy score: ' + esc(String(p.audit_score)) + '/100 · not a complete current requirements audit</div>';
+    }
+    if (flags.length) body += '<ul>' + flags.map(function(f) { return '<li>' + esc(f && f.detail || '') + '</li>'; }).join('') + '</ul>';
+    body += '<div class="hint">' + (!current ? 'The design or source guidance must be checked again. ' : '') + 'Visual comparison does not prove image or logo provenance. An audit is not permission to publish.</div>';
+    return '<div class="audit ' + status + '"><span class="audit-head">Brand Auditor · ' + label + '</span>' + body + '</div>';
   }
 
   // PROVENANCE on the card — what CAUSED this post, from social.js's batched post_provenance join

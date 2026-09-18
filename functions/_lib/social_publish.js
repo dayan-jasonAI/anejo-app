@@ -8,6 +8,7 @@
 // timer only ever takes a scheduled post). Everything after the claim lives here.
 import { now } from './hub.js';
 import { publishImage, publishCarousel, publishReel, publishStory, VIDEO_ONLY } from './instagram.js';
+import { SOCIAL_AUDIT_CURRENT } from './social_audit.js';
 import { BOWL_ART } from './bowl_art.js';
 
 /** A post's slides, in order. The child table is authoritative — social_posts.media_key is legacy. */
@@ -158,6 +159,21 @@ export function coverStatus(media) {
  * image, which never had one either.
  */
 export async function publishSocialPost(env, request, post, opts = {}) {
+  // Re-read automatic approval evidence immediately before any provider operation.
+  // Manual/legacy scheduling remains separate; NULL is not fabricated approval provenance.
+  let approval;
+  try { approval = await env.DB.prepare(`SELECT auto_audit_required, audit_status, audit_scope, COALESCE(${SOCIAL_AUDIT_CURRENT},0) AS audit_current FROM social_posts WHERE id=?`).bind(post.id).first(); }
+  catch {
+    // A context source outage may not bypass an automatic requirement. A separate
+    // marker read can still establish that an explicitly manual/legacy row is unaffected.
+    try { approval = await env.DB.prepare('SELECT auto_audit_required FROM social_posts WHERE id=?').bind(post.id).first(); } catch { approval = null; }
+    if (!approval || approval.auto_audit_required !== null) return {ok:false,error:'Automatic audit evidence unavailable.'};
+  }
+  if (!approval) return {ok:false,error:'Publication approval record unavailable.'};
+  if (approval?.auto_audit_required && (!approval || !approval.audit_current || approval.audit_status!=='pass' || approval.audit_scope!=='caption_and_media')) {
+    if (opts.publish !== false) await env.DB.prepare("UPDATE social_posts SET status='failed',error=?,updated_at=? WHERE id=?").bind('Automatic audit evidence is stale or unavailable. Re-audit before automatic publication.',now(),post.id).run();
+    return {ok:false,error:'Automatic audit evidence is stale or unavailable. Re-audit before automatic publication.'};
+  }
   let media = await loadPostMedia(env, post.id);
   const dry = opts.publish === false;
   // NULL/absent = not declared by 0080 -> the legacy inference this app has always used. Any other
@@ -187,6 +203,10 @@ export async function publishSocialPost(env, request, post, opts = {}) {
   // skip is what keeps that true on purpose rather than by the accident of a filename convention.
   if (!isReel && !isStory) {
     const order = foodFirstOrder(media);
+    if (order.reordered && approval.auto_audit_required) {
+      if (!dry) await env.DB.prepare("UPDATE social_posts SET status='failed',error=?,updated_at=? WHERE id=?").bind('Automatic slide order would change the audited design. Reorder and re-audit first.',now(),post.id).run();
+      return {ok:false,error:'Automatic slide order would change the audited design. Reorder and re-audit first.'};
+    }
     if (order.reordered) {
       media = order.media;
       if (!dry) {

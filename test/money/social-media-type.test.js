@@ -33,6 +33,7 @@ function fakeDB(mediaRows) {
   return {
     _postUpdates: postUpdates,
     prepare(sql) {
+      if (sql.startsWith('SELECT auto_audit_required')) return {bind:()=>({first:async()=>({auto_audit_required:null})})};
       if (sql.includes('FROM social_post_media WHERE post_id=?')) {
         return { bind: () => ({ all: async () => ({ results: mediaRows.map((r) => ({ ...r })) }) }) };
       }

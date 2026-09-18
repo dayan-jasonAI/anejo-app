@@ -61,7 +61,7 @@
     async function reload() {
       if (loading) return;
       loading = true; pane.replaceChildren(el('p', t('Loading saved review…', 'Cargando revisión guardada…')));
-      var results = await Promise.allSettled([api('/api/hub/owner/marketing-asset-registry'), api('/api/menu')]);
+      var results = await Promise.allSettled([api('/api/hub/owner/marketing-asset-registry?asset_key=' + encodeURIComponent(photo.media_key)), api('/api/menu')]);
       loading = false; loaded = true; pane.replaceChildren();
       var preview = el('img'); preview.src = photo.url; preview.alt = photo.name || t('Photo under review', 'Foto en revisión'); preview.className = 'photo-reuse-preview';
       pane.append(preview, el('p', t('Permission to select this photo for draft posts only. This does not approve a public post, caption or schedule.', 'Permiso para seleccionar esta foto solo en borradores. No aprueba publicaciones, textos ni horarios.'), 'hint'));
@@ -77,13 +77,14 @@
       }
       pane.append(el('p', record ? (record.approved_for_draft_selection ? t('Allowed in draft selection', 'Permitida para borradores') : t('Not allowed in draft selection', 'No permitida para borradores')) + ' · ' + t('revision ', 'revisión ') + record.revision : t('Not registered. Uploading a photo never enables reuse automatically.', 'Sin registrar. Subir una foto nunca permite su reutilización automáticamente.'), 'photo-reuse-state'));
       if (record) pane.append(el('p', t('Saved content hash: ', 'Hash del contenido guardado: ') + record.content_sha256 + ' · ' + t('Reviewed by ', 'Revisada por ') + record.reviewed_by, 'photo-reuse-hash'));
-      var changing = false;
+      var changing = false, stale = false, mutationButtons = [];
       async function write(payload, saveButton) {
-        if (changing) return; changing = true; saveButton.disabled = true; retry.disabled = true;
+        if (changing || stale) return; changing = true; saveButton.disabled = true; retry.disabled = true;
         try {
           await api('/api/hub/owner/marketing-asset-registry', { method: 'POST', body: payload });
           await reload();
         } catch (error) {
+          stale = true; mutationButtons.forEach(function (button) { button.disabled = true; });
           feedback.textContent = t('Not saved. Reload the review before retrying. ', 'No se guardó. Recarga la revisión antes de reintentar. ') + error.message;
           // Keep the old revision disabled after any failure. Never silently retry against a
           // newer review or turn a failed approval into a checked permission.
@@ -92,7 +93,7 @@
       if (record && record.approved_for_draft_selection) {
         var revoke = el('button', t('Stop team reuse', 'Detener reutilización'), 'btn ghost'); revoke.type = 'button';
         revoke.onclick = function () { write({ op: 'revoke', asset_key: photo.media_key, expected_revision: record.revision }, revoke); };
-        pane.append(revoke);
+        mutationButtons.push(revoke); pane.append(revoke);
       }
       var menu = results[1].status === 'fulfilled' ? results[1].value : null;
       if (!menu || menu.source !== 'd1') {
@@ -117,7 +118,7 @@
       var visual = el('select'); [['product','Single product','Un producto'],['combo','Several products together','Varios productos juntos'],['lifestyle','Event or lifestyle','Evento o ambiente'],['editorial','Editorial design','Diseño editorial']].forEach(function (v) { var option = el('option', t(v[1], v[2])); option.value = v[0]; visual.append(option); }); visual.value = record ? record.visual_type : 'product'; visualLabel.append(visual);
       var consentLabel = el('label', '', 'photo-reuse-optin'); var consent = el('input'); consent.type = 'checkbox'; consent.checked = !!(record && record.approved_for_draft_selection);
       consentLabel.append(consent, el('span', t('Allow team to reuse in draft posts', 'Permitir al equipo reutilizar en borradores')));
-      var save = el('button', t('Save reuse review', 'Guardar revisión'), 'btn gold'); save.type = 'button';
+      var save = el('button', t('Save reuse review', 'Guardar revisión'), 'btn gold'); save.type = 'button'; mutationButtons.push(save);
       save.onclick = function () {
         var ids = checks.filter(function (input) { return input.checked; }).map(function (input) { return input.value; });
         if (!ids.length || ids.length > 12) { feedback.textContent = t('Select one to twelve actual products shown in this image.', 'Selecciona de uno a doce productos que aparezcan en esta imagen.'); return; }

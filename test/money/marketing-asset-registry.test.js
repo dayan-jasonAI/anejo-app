@@ -110,3 +110,34 @@ test('revocation rejects stale revisions and rolls back if audit history fails',
   assert.equal(env.DB.one('SELECT approved_for_draft_selection FROM marketing_asset_registry').approved_for_draft_selection, 1);
   assert.equal(env.DB.one('SELECT revision FROM marketing_asset_registry').revision, 1);
 });
+
+test('exact private asset lookup reaches records beyond list cap without approval or writes', async t => {
+  const { env } = setup(t); await save(env);
+  const original = env.DB.one('SELECT * FROM marketing_asset_registry');
+  const cols = Object.keys(original);
+  const insert = env.DB.sqlite.prepare(`INSERT INTO marketing_asset_registry (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`);
+  for (let i = 0; i < 105; i++) {
+    const row = { ...original, id: 'test_lookup_'+i, asset_key: `marketing-library/z_${String(i).padStart(3,'0')}.jpg`, approved_for_draft_selection: 0 };
+    insert.run(...cols.map(c => row[c]));
+  }
+  const get = query => onRequestGet({ env, request: new Request('https://example.test/api/hub/owner/marketing-asset-registry'+query, { headers: { cookie: OWNER_COOKIE } }) });
+  const list = await (await get('')).json(); assert.equal(list.assets.length, 100); assert.equal(list.truncated, true);
+  const exactKey = 'marketing-library/z_104.jpg';
+  const exact = await (await get('?asset_key='+encodeURIComponent(exactKey))).json();
+  assert.equal(exact.assets.length, 1); assert.equal(exact.assets[0].asset_key, exactKey);
+  assert.equal(exact.assets[0].approved_for_draft_selection, false); assert.equal(exact.truncated, false);
+  const absent = await (await get('?asset_key=marketing-library%2Fmissing.jpg')).json();
+  assert.deepEqual(absent.assets, []); assert.equal(absent.truncated, false);
+  assert.equal(env.DB.one('SELECT COUNT(*) n FROM marketing_asset_registry_reviews').n, 1, 'read never creates review evidence');
+});
+test('exact lookup rejects duplicate/invalid keys, enforces role and distinguishes unavailable DB', async t => {
+  const { env } = setup(t);
+  const get = (query, cookie = OWNER_COOKIE) => onRequestGet({ env, request: new Request('https://example.test/api/hub/owner/marketing-asset-registry'+query, { headers: { cookie } }) });
+  for (const query of ['?asset_key=', '?asset_key=https%3A%2F%2Fexample.test%2Fa.jpg', '?asset_key=marketing-library%2F..%2Fa.jpg', '?asset_key='+encodeURIComponent(key)+'&asset_key='+encodeURIComponent(key)]) assert.equal((await get(query)).status, 400);
+  const query = '?asset_key='+encodeURIComponent(key);
+  assert.equal((await get(query, '')).status, 401);
+  assert.equal((await get(query, 'anejo_sess=tok-kitchen')).status, 403);
+  env.DB.exec('DROP TABLE marketing_asset_registry_reviews; DROP TABLE marketing_asset_registry');
+  const unavailable = await get(query); assert.equal(unavailable.status, 503);
+  assert.equal((await unavailable.json()).assets, undefined, 'unavailable is not an empty registry');
+});

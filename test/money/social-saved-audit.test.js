@@ -5,7 +5,7 @@ import {onRequestPost} from '../../functions/api/hub/owner/social.js';
 import {auditSavedDraft} from '../../functions/_lib/social_audit.js';
 const call=(env,body)=>onRequestPost({env,request:new Request('https://anejo.test/api/hub/owner/social',{method:'POST',headers:{Cookie:OWNER_COOKIE},body:JSON.stringify(body)})});
 async function setup(){const env=ownerEnv();env.MEDIA={get:async()=>({size:4,arrayBuffer:async()=>new Uint8Array([255,216,255,217]).buffer})};const r=await call(env,{op:'draft',caption:'Original',media_key:'marketing-library/2026-09/real.jpg'});return {env,id:(await r.json()).id};}
-const pass=async()=>({brand_score:97,flags:[],verdict:'pass'});
+const pass=async()=>({brand_score:97,flags:[],verdict:'pass',rubric_version:'anejo-visual-1',observations:[],suggestions:[],input_coverage:{menu:{source:'d1'}},score_meaning:'criteria met'});
 test('saved draft audit persists genuine judge result and declares visual review boundary',async()=>{
  const {env,id}=await setup();const r=await auditSavedDraft(env,id,'Original',pass);
  assert.equal(r.ok,true);assert.equal(r.visual_review_required,true);
@@ -119,4 +119,32 @@ test('planner cannot seal an owner-corrected image as its original design',async
  const {env,id}=await setup();env.DB.exec("UPDATE social_posts SET media_key=NULL");
  const wrong=await env.DB.prepare(query).bind(id,'Original','','studio/planner-original.jpg').run();assert.equal(wrong.meta.changes,0);
  const correct=await env.DB.prepare(query).bind(id,'Original','','marketing-library/2026-09/real.jpg').run();assert.equal(correct.meta.changes,1);
+});
+
+test('source changes during judge reject atomic write; no old evidence is overwritten',async()=>{
+ const {env,id}=await setup();await auditSavedDraft(env,id,'Original',pass);const before=env.DB.one('SELECT audit_context_snapshot FROM social_posts WHERE id=?',id).audit_context_snapshot;
+ const r=await auditSavedDraft(env,id,'Original',async()=>{env.DB.exec("INSERT INTO training_rules(id,text,active,created_at,updated_at) VALUES('new-rule','New direction',1,1,1)");return pass();});
+ assert.equal(r.status,409);assert.equal(env.DB.one('SELECT audit_context_snapshot FROM social_posts WHERE id=?',id).audit_context_snapshot,before);
+});
+test('actual rubric details persist and edits/reordering clear context and details',async()=>{
+ const {env,id}=await setup();await auditSavedDraft(env,id,'Original',pass);let row=env.DB.one('SELECT audit_detail_json,audit_context_snapshot FROM social_posts WHERE id=?',id);assert.equal(JSON.parse(row.audit_detail_json).score_meaning,'criteria met');assert.ok(row.audit_context_snapshot);
+ await call(env,{op:'attach',id,media_key:'studio/second.jpg'});await auditSavedDraft(env,id,'Original',pass);const ids=env.DB.sqlite.prepare('SELECT id FROM social_post_media WHERE post_id=? ORDER BY seq').all(id).map(r=>r.id);
+ await call(env,{op:'reorder',id,media_ids:ids.reverse()});row=env.DB.one('SELECT audit_detail_json,audit_context_snapshot FROM social_posts WHERE id=?',id);assert.equal(row.audit_detail_json,null);assert.equal(row.audit_context_snapshot,null);
+ await auditSavedDraft(env,id,'Original',pass);await call(env,{op:'edit',id,caption:'New caption'});row=env.DB.one('SELECT audit_detail_json,audit_context_snapshot FROM social_posts WHERE id=?',id);assert.equal(row.audit_detail_json,null);assert.equal(row.audit_context_snapshot,null);
+});
+test('stale automatically scheduled audit is refused before provider use; manual legacy path remains available',async()=>{
+ const {publishSocialPost}=await import('../../functions/_lib/social_publish.js');const {env,id}=await setup();await auditSavedDraft(env,id,'Original',pass);
+ env.DB.exec("UPDATE social_posts SET auto_audit_required=1,status='publishing'; INSERT INTO training_rules(id,text,active,created_at,updated_at) VALUES('changed','New rule',1,1,1)");
+ const r=await publishSocialPost(env,new Request('https://anejo.test'),{id});assert.equal(r.ok,false);assert.match(r.error,/stale/);assert.equal(env.DB.one('SELECT status FROM social_posts WHERE id=?',id).status,'failed');
+ env.DB.exec('UPDATE social_posts SET auto_audit_required=NULL,audit_detail_json=NULL,audit_context_snapshot=NULL;DELETE FROM social_post_media');
+ const manual=await publishSocialPost(env,new Request('https://anejo.test'),{id});assert.match(manual.error,/no photo or video/,'manual legacy approval passes evidence gate and reaches ordinary media validation');
+});
+test('automatic publication cannot silently reorder its audited carousel',async()=>{
+ const {publishSocialPost}=await import('../../functions/_lib/social_publish.js');const {env,id}=await setup();
+ env.DB.sqlite.prepare("UPDATE social_post_media SET media_key='studio/series/p1_cover.jpg' WHERE post_id=?").run(id);
+ await call(env,{op:'attach',id,media_key:'studio/series/p1_photo.jpg'});await auditSavedDraft(env,id,'Original',pass);
+ env.DB.exec("UPDATE social_posts SET auto_audit_required=1,status='publishing'");
+ const before=env.DB.sqlite.prepare('SELECT id FROM social_post_media WHERE post_id=? ORDER BY seq').all(id).map(r=>r.id);
+ const result=await publishSocialPost(env,new Request('https://anejo.test'),{id});assert.equal(result.ok,false);assert.match(result.error,/slide order/);
+ assert.deepEqual(env.DB.sqlite.prepare('SELECT id FROM social_post_media WHERE post_id=? ORDER BY seq').all(id).map(r=>r.id),before);
 });

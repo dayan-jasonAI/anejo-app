@@ -1,0 +1,66 @@
+{
+  "release": "PR111",
+  "merge": "d3ec0b7a34e1d8086973b38fc3f6c3bdc0377654",
+  "deployment": "d01e7699-3f50-49d9-94f0-89363f0fb662",
+  "evidence": "Read-only production D1 acceptance after normal Hub UI actions. No publication or scheduling.",
+  "team_lead": [
+    {
+      "id": "tm_d7a4ee01e8872e38aa2c",
+      "created_at": 1789696930484,
+      "actions_json": null,
+      "inference_receipt_id": "inf_a2f770a10b173d1deb18",
+      "inference_outcome_json": "{\"model_ok\":true,\"reason\":null,\"inference_evidence\":\"input_recorded\",\"inference_attempts\":[{\"model\":\"claude-opus-4-6\",\"input_receipt\":{\"ok\":true,\"persisted\":true,\"receipt_id\":\"inf_a2f770a10b173d1deb18\",\"request_sha256\":\"7885db443dbde87b08525e278c7587d1186fe7a3a440cd2a1c7458504af20388\",\"created_at\":1789696920951,\"evidence_status\":\"input_recorded\",\"transport_status\":\"unknown\"},\"observed_http_status\":200}]}",
+      "model": "claude-opus-4-6",
+      "request_sha256": "7885db443dbde87b08525e278c7587d1186fe7a3a440cd2a1c7458504af20388",
+      "evidence_status": "input_recorded",
+      "transport_status": "unknown",
+      "input_chars": 77934,
+      "components_json": "{\"brand\":{\"schema\":1,\"source\":\"d1\",\"read_status\":\"ok\",\"fallback_reason\":null,\"documents\":[{\"id\":\"doc_brand_main\",\"updated_at\":1789693407876,\"supplied_chars\":26859,\"original_chars\":26859,\"section_fallback\":false}],\"rendered_sha256\":\"9eedcc04d63cdc71b69cd4f742dd27e3729b3dce4fe363f511b95c3f69546d2a\",\"original_chars\":26859,\"supplied_chars\":26859,\"truncated\":false,\"requested_sections\":null,\"selection_limit\":10,\"selection_may_be_limited\":false,\"section_fallback\":false},\"training\":{\"schema\":1,\"source\":\"d1\",\"read_status\":\"ok\",\"reads\":{\"rules\":\"ok\",\"examples\":\"ok\"},\"rendered_sha256\":\"8593a05554380bd1c0d6ae52e4fc57497a680b3fb750f3307dfeed3bd2e64a2f\",\"original_chars\":9735,\"supplied_chars\":3891,\"truncated\":true,\"rules\":[{\"id\":\"rul_e8e0f8022c3e93e48e9c\",\"updated_at\":1789696906945},{\"id\":\"rul_142173c4be136f0fc0d2\",\"updated_at\":1789696888540},{\"id\":\"rul_6b9f7981f338fcd883cf\",\"updated_at\":1785866715097},{\"id\":\"rul_2973c5e59146b73b3a95\",\"updated_at\":1785866698842},{\"id\":\"rul_51c4e550c6c9ce736263\",\"updated_at\":1785866676668},{\"id\":\"rul_e870930a6f6f311974d7\",\"updated_at\":1785866654436},{\"id\":\"rul_5da16ff5e84ffbff2aba\",\"updated_at\":1785866644262},{\"id\":\"rul_a1fbd5476290968011e2\",\"updated_at\":1785866613061},{\"id\":\"rul_d78b157dcd647eccf5d1\",\"updated_at\":1785866597383},{\"id\":\"rul_1a4c4938ca470c18e966\",\"updated_at\":1785866574947},{\"id\":\"rul_16b846cba8a18918b04b\",\"updated_at\":1785866564312},{\"id\":\"rul_7a0813c53137d295ea4c\",\"updated_at\":1785866554565},{\"id\":\"rul_a76e5a897c4fa211846a\",\"updated_at\":1785866546263}],\"examples\":[{\"id\":\"trex_25b39055fe40be8ba50d\",\"updated_at\":1786435448869},{\"id\":\"trex_9db40d24935e6863566b\",\"updated_at\":1786435433895},{\"id\":\"trex_543e9fb5376fb4bf048c\",\"updated_at\":1786435398690},{\"id\":\"trex_39eb2ad9d9ceac6cd245\",\"updated_at\":1786435243551}],\"selection_limit\":500,\"selection_may_be_limited\":{\"rules\":false,\"examples\":false}},\"briefs\":{\"source\":\"d1\",\"read_status\":\"ok\",\"source_ids\":[\"tb_fdcdc9294c68f6a92acd\",\"tb_e0c7ab4c9c1e66220221\",\"tb_a71e618f4e8baab8c097\"],\"documents\":[{\"id\":\"tb_fdcdc9294c68f6a92acd\",\"updated_at\":1786215878239},{\"id\":\"tb_e0c7ab4c9c1e66220221\",\"updated_at\":1785872068382},{\"id\":\"tb_a71e618f4e8baab8c097\",\"updated_at\":1785516256571}],\"rendered_sha256\":\"ba60c0e2dc746f4635ef74fbb6f24696528c92f92117ee88c071e8662c471cdb\",\"supplied_chars\":523,\"truncated\":true,\"selection_limit\":5,\"selection_may_be_limited\":false}}"
+    }
+  ],
+  "owner_training_rules": [
+    {
+      "id": "rul_e8e0f8022c3e93e48e9c",
+      "text": "Dayan’s launch carousel direction — September 17, 2026: Catering announcement opens with a collage of actual website menu images, followed by those individual items. La Cajita launch opens with the standard Añejo Signature design, then the existing design inspirations, personalization choices and planning details. Event-theme colors, including pink, demonstrate customization; they are not a change to the corporate identity. A post offering Cajitas, trays or both must show both formats, including its cover, with a matching combination image. Keep the approved bilingual caption direction and use relevant city discovery in Palm Beach and Broward plus Cuban-food/Cuban-catering terms in English and Spanish. Conditional city questions and requests to confirm availability are not promises of service coverage. Never invent availability, prices, clients or events. Use the appropriate serving format: a catering tray is not required to resemble the individual Traditional plate.",
+      "updated_at": 1789696906945
+    },
+    {
+      "id": "rul_142173c4be136f0fc0d2",
+      "text": "Dayan’s social design direction — September 17, 2026: Use the authentic Añejo tree emblem and a refined Reposado editorial look. Preserve the complete source image at full-frame scale instead of shrinking it into a central square. Place the emblem and concise wording in available edge space without covering the food. Adapt approved gold, forest green, beige or black branding to the background for readability. Prefer existing website/catalog and shared-library imagery. Preserve original assets and actual food and packaging when applying premium touch-ups; do not invent ingredients or represent an illustration as a photograph of a delivered event. These are social layout requirements; Fit bowl styling restrictions do not prohibit intentional clear Cajita boxes, aluminum catering trays, approved event themes or menu collages.",
+      "updated_at": 1789696888540
+    }
+  ],
+  "saved_draft_audits": [
+    {
+      "id": "sp_0a39246ba48d6453af3f",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_score": 88,
+      "audit_status": "flag",
+      "audit_scope": "caption_and_media",
+      "audit_flags": "[{\"type\":\"training\",\"detail\":\"Owner rule requires event/theme colors not to replace the corporate palette in standard brand content, yet slides 1, 2 and 5 use pink floral packaging bands and pink Cajita branding as the primary visual identity across the whole carousel rather than as a supporting event accent.\"},{\"type\":\"voice\",\"detail\":\"Listing five specific South Florida cities in the caption (Pompano Beach, Coral Springs, Miramar, Davie, Plantation, Sunrise) reads as an implied service-area guarantee beyond the brief's direction to avoid implying unconfirmed coverage, even though phrased as a question.\"}]",
+      "audit_at": 1789696599697
+    },
+    {
+      "id": "sp_20fbf4bea6aea85f30bf",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_score": 68,
+      "audit_status": "flag",
+      "audit_scope": "caption_and_media",
+      "audit_flags": "[{\"type\":\"training\",\"detail\":\"The owner's rule requires using serving-specific approved catalog imagery, but slide 8's congrí lacks the owner-confirmed distinct purple-brown color with visible long rice grains, appearing overly uniform and dark like plain rice with beans rather than the described congrí texture.\"},{\"type\":\"photo\",\"detail\":\"Slide 7's lechón shows shredded pulled pork rather than the plated lechón cover format the brief calls out, and lacks visible sear or roasted color intentionality expected for a hero protein shot.\"},{\"type\":\"voice\",\"detail\":\"Caption line 'Tell us your date, city and guest count. We'll help you choose the food and presentation, then confirm availability and your quote' reads clearly conditional, which is fine, but pair with 'Cuéntanos tu ciudad para confirmar disponibilidad' risks implying guaranteed service coverage in that city before confirmation.\"},{\"type\":\"claim\",\"detail\":\"No invented prices or deadlines are present, but the caption does not clarify that catering requires 48-hour scheduled delivery lead time despite promoting event booking, which risks implying immediate availability.\"}]",
+      "audit_at": 1789696698825
+    },
+    {
+      "id": "sp_58424887f40e1a1b611f",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_score": 78,
+      "audit_status": "flag",
+      "audit_scope": "caption_and_media",
+      "audit_flags": "[{\"type\":\"training\",\"detail\":\"Slide 1 shows Signature Cajita clear-area presentation but slides 2-8 mix event-themed colors before slide 9's personalization/planning content, though owner sequence calls for Signature first, then design inspirations, then personalization and planning, which is followed here.\"},{\"type\":\"claim\",\"detail\":\"The caption's Cuban tamal, congrí, or other non-Cajita menu items are not shown or referenced, but this is not a violation since the Cajita contents (croqueta, empanada, skewer, salad, sandwich, tres leches) match the live 'Start with six' items in slide 9.\"},{\"type\":\"voice\",\"detail\":\"The phrase 'Cuban favorites together in individual packaging' is generic; consider sharper sensory language consistent with Añejo's premium, Cuban-rooted voice, though this is a stylistic note rather than a rule violation.\"}]",
+      "audit_at": 1789696623285
+    }
+  ],
+  "limitation": "Provider scores are observed results, not verified semantic correctness. All three results are flagged; several findings conflict with owner direction. Pending rubric is not represented by this evidence."
+}

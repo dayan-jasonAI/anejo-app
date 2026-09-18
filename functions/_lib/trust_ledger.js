@@ -16,7 +16,7 @@
 // Files under functions/_lib are NOT routed.
 import { now } from './hub.js';
 import { raiseAlert } from './alerts.js';
-import { SOCIAL_AUDIT_SNAPSHOT } from './social_audit.js';
+import { SOCIAL_AUDIT_SNAPSHOT, SOCIAL_AUDIT_CURRENT } from './social_audit.js';
 
 // The five fixed lanes. The planner is asked to file every post under exactly one of these;
 // anything else it invents is stored as NULL and never counts toward (or against) a streak.
@@ -44,14 +44,14 @@ export async function noteTrustApproval(env, postId) {
   try {
     const row = await env.DB.prepare(`SELECT source, category, caption, original_caption_hash,
       original_design_snapshot, audit_status, audit_scope, audit_snapshot,
-      ${SOCIAL_AUDIT_SNAPSHOT} AS revision_snapshot FROM social_posts WHERE id=?`).bind(postId).first();
+      ${SOCIAL_AUDIT_SNAPSHOT} AS revision_snapshot, ${SOCIAL_AUDIT_CURRENT} AS audit_current FROM social_posts WHERE id=?`).bind(postId).first();
     if (!row || row.source !== 'planner' || !TRUST_CATEGORIES.includes(row.category) || !row.original_caption_hash) return { counted: false };
     const clean = captionHash(row.caption || '') === row.original_caption_hash &&
       !!row.original_design_snapshot && row.original_design_snapshot === row.revision_snapshot;
     // Legacy drafts have no original visual evidence and cannot earn autonomy. A known
     // caption correction still resets the lane, even for a legacy draft.
     if (!row.original_design_snapshot && captionHash(row.caption || '') === row.original_caption_hash) return { counted: false };
-    if (clean && (row.audit_status !== 'pass' || row.audit_scope !== 'caption_and_media' || row.audit_snapshot !== row.revision_snapshot)) return { counted: false };
+    if (clean && (!row.audit_current || row.audit_status !== 'pass' || row.audit_scope !== 'caption_and_media' || row.audit_snapshot !== row.revision_snapshot)) return { counted: false };
     const t = now();
     // One clean credit per post; each corrected revision resets once. A corrected
     // post can never earn clean credit again, even if someone restores its original text.
@@ -60,7 +60,7 @@ export async function noteTrustApproval(env, postId) {
       SELECT id, ?, ?, category, ? FROM social_posts WHERE id=? AND ${SOCIAL_AUDIT_SNAPSHOT}=?
       AND source='planner' AND category=? AND original_caption_hash=?
       AND COALESCE(original_design_snapshot,'')=?
-      AND (?='edited' OR (audit_status='pass' AND audit_scope='caption_and_media' AND audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
+      AND (?='edited' OR (audit_status='pass' AND audit_scope='caption_and_media' AND ${SOCIAL_AUDIT_CURRENT}
         AND NOT EXISTS (SELECT 1 FROM social_trust_approvals WHERE post_id=social_posts.id AND decision='edited')))`)
       .bind(clean ? 'clean' : 'edited', row.revision_snapshot, t, postId, row.revision_snapshot, row.category, row.original_caption_hash,
         row.original_design_snapshot || '', clean ? 'clean' : 'edited');

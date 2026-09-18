@@ -31,7 +31,7 @@ test('the planner writes DRAFTS — it has no path to publish', () => {
   // governance audit. Anything else the planner writes stays a draft for a human.
   const promotions = planner.match(/status='scheduled'/g) || [];
   assert.equal(promotions.length, 1, 'exactly one, gated, promotion site');
-  assert.match(planner, /SET status='scheduled', updated_at=\? WHERE id=\? AND status='draft' AND audit_status='pass'/);
+  assert.match(planner, /SET status='scheduled', auto_audit_required=1, updated_at=\? WHERE id=\? AND status='draft' AND audit_status='pass'/);
   assert.match(planner, /autoPublishCategories\(env\)/);
 });
 

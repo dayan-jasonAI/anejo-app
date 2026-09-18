@@ -44,9 +44,14 @@ async function revoke(env, ctx, body) {
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, MARKETING_DESK);
   if (ctx instanceof Response) return ctx;
+  const params = new URL(request.url).searchParams;
+  const keys = params.getAll('asset_key');
+  if (keys.length > 1 || (keys.length === 1 && !isMarketingAssetKey(keys[0]))) return bad('Use one valid library asset key.');
   if (!env.DB) return bad('Registry unavailable.', 503);
   try {
-    const rows = await env.DB.prepare('SELECT * FROM marketing_asset_registry ORDER BY asset_key LIMIT 101').all();
+    const rows = keys.length
+      ? await env.DB.prepare('SELECT * FROM marketing_asset_registry WHERE asset_key=? LIMIT 1').bind(keys[0]).all()
+      : await env.DB.prepare('SELECT * FROM marketing_asset_registry ORDER BY asset_key LIMIT 101').all();
     if (rows?.success === false || !Array.isArray(rows?.results)) throw Error('read');
     return json({ ok: true, assets: rows.results.slice(0, 100).map(row => ({ ...row, menu_item_ids: JSON.parse(row.menu_item_ids_json), approved_for_draft_selection: row.approved_for_draft_selection === 1 })), truncated: rows.results.length > 100, scope: 'draft_selection_only', publication_approved: false });
   } catch { return bad('Could not read asset registry.', 503); }

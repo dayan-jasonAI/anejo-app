@@ -203,9 +203,10 @@ import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
 import { sendPushTickle } from './push.js';
 import { budgetGate, recordSpend } from './ai_budget.js';
-import { auditSavedDraft, SOCIAL_AUDIT_SNAPSHOT } from './social_audit.js';
+import { auditSavedDraft, SOCIAL_AUDIT_SNAPSHOT, SOCIAL_AUDIT_CURRENT } from './social_audit.js';
 import { TRUST_CATEGORIES, captionHash, autoPublishCategories } from './trust_ledger.js';
 import { ensureFoodPhoto } from './food_photo.js';
+import { attachApprovedMarketingAsset } from './marketing_asset_attachment.js';
 
 const MODEL = 'claude-sonnet-5';
 export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan', 'balance_reminder', 'holiday_notice'];
@@ -920,11 +921,12 @@ async function socialPlan(env, date) {
       'photos fails the objective even if every caption is perfect.\n\n' +
       'Every image_brief you write MUST comply with the Photo standard above. ' +
       'Nutrition is always approximate ranges, never medical claims (the Golden Rule). ' +
-      'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19, "category": string, "brief_id": string|null, "intel_id": string|null}. ' +
+      'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19, "category": string, "brief_id": string|null, "intel_id": string|null, "asset_requirements": {"productIds": string[], "format": "portrait"|"square"|"landscape", "theme": string, "visualType": "product"|"combo"|"lifestyle"|"editorial"}|null}. ' +
       // The category feeds the trust ledger (0072): approvals are counted PER LANE, so it must
       // come from this fixed list — an invented lane would start a streak nobody can toggle.
       `category: exactly one of ${TRUST_CATEGORIES.map((c) => `"${c}"`).join(', ')} — the post's primary subject. ` +
       'caption: under 500 characters, 2-4 relevant hashtags at the end. ' +
+      'To request existing reviewed library media, provide asset_requirements with exact live menu IDs shown below, an explicit theme (empty string means no theme), and aspect format. Never guess product IDs from names. This is a requested composition, not owner approval. No matching reviewed photo means the draft will need media; no new image will be generated for this path. Omit or null requirements when no structured library request is intended. ' +
       'image_brief: one sentence of art direction for a food photo we will generate — subject, angle, light. ' +
       // intel_id closes the loop the owner actually complained about: a finding sitting in the
       // Intel Bench that nobody acted on. Copy the "[id: ...]" value VERBATIM from a RECENT
@@ -1073,9 +1075,20 @@ async function socialPlan(env, date) {
       // Best-effort by construction: ensureFoodPhoto never throws and never touches status, so a
       // provider outage, the weekly AI ceiling, or a missing key costs this post its image — the
       // exact state it would have been in before — and never the caption or the week's cadence.
-      const photo = await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
+      const libraryRequested = item?.asset_requirements != null;
+      const requirements = item?.asset_requirements;
+      const suppliedProductIds = new Set(onSale.map(product => product.id));
+      const suppliedRequirements = requirements && Array.isArray(requirements.productIds) && requirements.productIds.every(productId => suppliedProductIds.has(productId));
+      const photo = libraryRequested
+        ? (suppliedRequirements ? await attachApprovedMarketingAsset(env, { postId, expectedCaption: caption, expectedImageBrief: brief || '', requirements }) : { ok: false, reason: 'product_ids_not_supplied' })
+        : await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
+      if (libraryRequested) {
+        // A requested or attached library photo still requires an owner's composition review.
+        // No paid fallback, suggested schedule, original-design seal or automatic promotion.
+        await env.DB.prepare("UPDATE social_posts SET scheduled_at=NULL,original_caption_hash=NULL,original_design_snapshot=NULL WHERE id=? AND status='draft'").bind(postId).run();
+      }
       // Seal the planner's complete design before owner edits. Never backfill old drafts.
-      try { if (photo.ok && receiptLinked) await env.DB.prepare(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
+      try { if (photo.ok && receiptLinked && !libraryRequested) await env.DB.prepare(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
         WHERE id=? AND original_design_snapshot IS NULL AND status='draft'
         AND caption=? AND COALESCE(image_brief,'')=? AND COALESCE(media_key,'')=''
         AND COALESCE(media_type,'IMAGE')='IMAGE'
@@ -1101,7 +1114,7 @@ async function socialPlan(env, date) {
         format: photo.ok ? 'single' : undefined,
         slideCount: photo.ok ? photo.slides : undefined,
       });
-      made.push({ hour, day_offset: dayOffset, id: postId, category, receiptLinked, intel_id: intelId, photo: photo.ok ? photo.provider : null });
+      made.push({ hour, day_offset: dayOffset, id: postId, category, receiptLinked, libraryRequested, asset_use_id: photo.asset_use_id || null, media_reason: photo.ok ? null : photo.reason, intel_id: intelId, photo: photo.ok ? photo.provider : null });
     } catch { /* one bad row must not lose the rest of the week */ }
   }
 
@@ -1115,9 +1128,9 @@ async function socialPlan(env, date) {
   try {
     const autoLanes = await autoPublishCategories(env);
     for (const m of made) {
-      if (!m.receiptLinked || !m.category || !autoLanes.has(m.category)) continue;
+      if (m.libraryRequested || !m.receiptLinked || !m.category || !autoLanes.has(m.category)) continue;
       const r = await env.DB.prepare(
-        `UPDATE social_posts SET status='scheduled', updated_at=? WHERE id=? AND status='draft' AND audit_status='pass' AND audit_scope='caption_and_media' AND audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT}`
+        `UPDATE social_posts SET status='scheduled', auto_audit_required=1, updated_at=? WHERE id=? AND status='draft' AND audit_status='pass' AND audit_scope='caption_and_media' AND ${SOCIAL_AUDIT_CURRENT}`
       ).bind(now(), m.id).run();
       if (r && r.meta && r.meta.changes === 1) autoScheduled++;
     }

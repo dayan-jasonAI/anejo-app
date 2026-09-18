@@ -1,97 +1,39 @@
-# Google Business Profile API — access request packet
+# Google Business Profile API — owner connection requirements
 
-Date: 2026-09-09
-Status: **ready to submit — needs Dayan's Google account** (Claude cannot sign in as him, and
-google.com is blocked from this sandbox, so nothing below was clicked through)
-Unblocks: `MARKETING_EXPERT_HANDOFF.md` §16 **D7** — auto-reply to Google reviews, sync them live
-into the website's review section, reuse them as post content.
-Related: `GOOGLE_REVIEWS_ES_HANDOFF_2026-09-08.md` — the six reviews on `/` and `/es/` are
-hand-transcribed and carry a dated "not live" disclaimer. This credential is what removes that
-disclaimer.
+Updated 2026-09-17 America/New_York from current official Google documentation. Documentation only: no forms submitted, Google Cloud changes, credentials handled or replies sent.
 
-## Why this is a request and not a build
+Evidence boundary: parent reports managed profile browser access, Verified status and seven reviews. That establishes browser-visible state only. API project approval, OAuth/token validity, resource IDs and successful API reads remain Unverified. The deployed private review desk is a disconnected manual-draft workspace, not an API inbox.
 
-The Business Profile APIs are **not self-serve**. Enabling them in a Google Cloud project is not
-enough — Google grants them a quota of **zero** until a separate access-request form is approved,
-so the first call fails with a quota error and nothing in the code is wrong. Approval has
-historically taken **days to a couple of weeks**, which is why this is worth sending now even
-though the pipeline that consumes it is not built yet.
+## Decisions and evidence needed before connection
 
-**Who has to do it:** the request has to come from a Google account that is an **owner or manager
-of the Añejo Catering Co. Business Profile**. That is Dayan's account. Claude cannot submit it.
+- Confirm the Google account that manages Añejo, its Workspace organization (if any), and the intended Cloud project number. Do not create a duplicate project merely because its approval evidence is missing.
+- Confirm the profile has been verified and active for at least 60 days and has the business website listed. The access-request email must be an owner/manager. Google's prerequisites also list an Organization account step. API quota 0 QPM indicates unapproved access; 300 QPM indicates approval. Record actual approval/quota evidence, not a promised turnaround date. [GBP prerequisites](https://developers.google.com/my-business/content/prereqs)
+- Choose OAuth audience/state deliberately. External apps left in Testing generally receive seven-day refresh tokens; business.manage is not a basic-identity exception. A permanent Testing setup is unsuitable as the default unattended plan. [Token rules](https://developers.google.com/identity/protocols/oauth2)
+- Internal is appropriate only for users within the project's Workspace organization. Published External, OAuth verification and Workspace administrator controls are separate states. Do not assume the account is Internal or already has a Trusted-app override. [OAuth app states](https://developers.google.com/identity/protocols/oauth2/production-readiness/overview)
+- Proposed first phase: a private read-only review inbox for the owner-managed Añejo profile. Public website review refresh, social reuse and reply sending require separately evaluated handling and approval. Credentials alone do not remove a dated website-review disclaimer.
 
-## Before you open the form (5 minutes)
+## Draft intended-use statement — review before any submission
 
-1. **Google Cloud project.** console.cloud.google.com → project picker → **New Project**
-   (or reuse one you already have).
-   - Suggested name: `anejo-business-profile`
-   - Write down the **Project ID** (e.g. `anejo-business-profile-481203`) and the **Project
-     number** (the long numeric one). The form asks for both.
-2. **Confirm the profile.** business.google.com → make sure the Añejo Catering Co. location is
-   **verified** and that the account you are signed in as shows as Owner or Manager. An
-   unverified location gets the request rejected.
+Añejo Catering Co. proposes an internal tool for its own authorized Business Profile: read review information into a private operations workspace and prepare proposed replies for explicit owner review. Initial integration will be read-only. Any later reply feature will show the exact review and proposed text before an authorized write. No third-party profile access, resale, social redistribution or automatic public review reuse is part of this initial scope.
 
-## The form
+This is a draft, not a submitted application. Confirm business/account facts and the current form before use.
 
-Search **"Google Business Profile APIs access request form"** from the account above — Google
-moves this page, so use the link from the current
-[Business Profile APIs "Basic setup" / prerequisites docs](https://developers.google.com/my-business)
-rather than a bookmarked URL. (I could not open it from here to confirm today's field list; the
-fields below are the ones it has asked for, and any extras are self-explanatory.)
+## Minimal connection and permission plan
 
-Answers to paste:
+- After project approval, follow current Google setup instructions for enabling Business Profile APIs. Google's current body lists seven associated APIs (its generated page summary inconsistently says eight). Reviews remain in Google My Business API v4. Account Management and Business Information provide account/location discovery. Enabling APIs and granting OAuth permission are distinct operations. [Basic setup](https://developers.google.com/my-business/content/basic-setup)
+- Use the documented `https://www.googleapis.com/auth/business.manage` scope. Both review listing and reply update expose this management scope; there is no narrower read-only review scope in these method references. The application must enforce its own initial read-only restriction despite the broader granted capability. [List reference](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/list), [Reply reference](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/updateReply)
+- Build a server-owned OAuth authorization-code callback with an exact registered redirect URI, state validation and offline access when required. The old “any URI you can complete once” wording is unsafe: scheme/case/trailing slash must match registration. Protect refresh tokens and client secret server-side; never put them in the repo, browser storage, screenshots or logs. Account/location resource identifiers are configuration, not OAuth secrets. Handle reauthorization explicitly. [Google web-server OAuth](https://developers.google.com/identity/protocols/oauth2/web-server)
+- First proof: successful authenticated account discovery, owner-confirmed Añejo location mapping, then `GET https://mybusiness.googleapis.com/v4/accounts/{accountId}/locations/{locationId}/reviews`. Location must be verified. Fetch all pages (`pageSize` maximum 50); returned `averageRating`, `totalReviewCount`, `reviews`, `nextPageToken` supply actual API evidence. Timestamp last success; auth/quota failures remain unavailable, not an empty inbox. [List reference](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/list)
+- Reply capability is a later explicit phase. `PUT .../reviews/{reviewId}/reply` creates or replaces the reply, using a ReviewReply body. Before a write, show the exact review, existing reply and proposed replacement; require explicit owner approval, then read back provider state. Do not mistake a draft save or HTTP timeout for publication. There is no general GBP API sandbox; do not assume reply update has validateOnly. [Reply reference](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/updateReply), [Basic setup](https://developers.google.com/my-business/content/basic-setup)
 
-| Field | Answer |
-|---|---|
-| Contact name | Dayan Diaz |
-| Contact email | dayan@dayanrealtyhub.com |
-| Business / organization name | Añejo Catering Co. |
-| Website | https://anejocateringco.com |
-| Google Cloud **project ID** | *(from step 1)* |
-| Google Cloud **project number** | *(from step 1)* |
-| Are you an agency / reseller? | No — we manage our own single location |
-| Number of locations managed | 1 |
+## Content handling and public reuse
 
-**Intended use** (paste as-is):
+Google limits GBP API use to managing/reporting authorized listings. Automated replies require prior specific express consent. Its content-storage policy restricts caching/storage outside the project; permitted limited caching is for performance, temporary (maximum 30 calendar days), secure and unmodified/unaggregated. Preserve provided attribution and avoid presenting the Hub as a Google product. [GBP API policies](https://developers.google.com/my-business/content/policies)
 
-> Añejo Catering Co. is a single-location catering business in Lake Worth, Florida. We operate our
-> own website at anejocateringco.com and want to use the Business Profile APIs for our own
-> verified location only. Three uses: (1) read our reviews so the review section on our website
-> shows live ratings and text instead of a hand-transcribed snapshot; (2) reply to reviews from
-> our internal operations dashboard so we answer customers faster; (3) read review content into
-> our own marketing tooling to reuse as social posts. We are not an agency, we do not manage other
-> businesses' profiles, and we will not resell or redistribute API access or data.
+Implementation consequence: design a separate expiring API cache, not indefinite import into the existing manual-draft table, embeddings, AI training datasets or social asset archive. Website display and review-to-social republishing are not established as permitted by this research. Remove them from automatic connection promises and seek a clarified permitted use before implementation. Authorize independent customer testimonial use separately; API access does not itself establish those rights. This is a bounded implementation recommendation, not a legal determination.
 
-## After it is approved
+## Remaining facts and next step
 
-1. **Enable the APIs** — Cloud console → APIs & Services → Library, in that project:
-   - My Business Account Management API
-   - My Business Business Information API
-   - Google My Business API — **this is the one reviews live on.** Google has not moved reviews
-     onto the newer versioned APIs; they are still served from the legacy `v4`
-     `accounts.locations.reviews` endpoints. Confirm this on the docs at the time — if reviews have
-     since moved, the endpoint changes but nothing else here does.
-2. **OAuth consent screen** — External, app name "Añejo Catering", support + developer contact
-   dayan@dayanrealtyhub.com. Add **yourself as a test user**; the app never needs to leave testing
-   because the only user is us.
-3. **Scope** — `https://www.googleapis.com/auth/business.manage` (the single scope these APIs use).
-4. **Credentials** → OAuth client ID → **Web application**. Any redirect URI you can complete the
-   consent flow on once is fine; `http://localhost` works. The output that matters is the
-   **client ID + client secret**, and the **refresh token** you get from that one consent flow.
-5. **Where the secrets go — never the repo.** Cloudflare Pages dashboard → anejo-app → Settings →
-   Environment variables → **Encrypt**:
-   - `GBP_CLIENT_ID`
-   - `GBP_CLIENT_SECRET`
-   - `GBP_REFRESH_TOKEN`
-   - `GBP_LOCATION_NAME` (the `accounts/{id}/locations/{id}` string, from the account-management
-     API once it is live)
+Needs Dayan confirmation: intended Google account/Workspace organization, profile's 60-day active history, approved Cloud project number, existing API approval/quota evidence, applicable OAuth audience/state, authorized business mapping, and the precise desired phase (private read-only review inbox first recommended). Current permissions/scopes granted and token lifetime remain Unverified until inspected without exposing secret values.
 
-   Then tell Claude they exist. The build (a scheduled function that refreshes the reviews JSON,
-   plus the reply path from the Hub) is ordinary work once the credential is real — it is only
-   this approval that cannot be coded around.
-
-## One thing worth doing today, unrelated to the API
-
-Dayan's own review is sitting on the Añejo listing. Google's policy disallows owner self-reviews;
-it can be removed at any time and it slightly dilutes a genuine 5.0. Worth deleting from
-business.google.com while you are in there.
+Next step: confirm the listed account/project facts and agree on the private read-only phase before any connection setup. Keep the disconnected draft desk usable. No Google forms, credential changes, API writes, public display changes, automatic replies or review deletion follow from this research artifact.
