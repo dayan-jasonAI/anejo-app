@@ -101,7 +101,10 @@ function menuSection(menu) {
   });
   const priced = (kind) => listed(kind).map((it) => `${nameOf(it)} ${usd(centsOf(it))}`);
   const drinks = priced('drink');
-  const addons = priced('addon');
+  // Current catalog stores Traditional/Catering SKUs as kind=addon; their ID namespace
+  // distinguishes event/main-dish products from bowl extras.
+  const isEventItem = it => /^(traditional_|catering_)/.test(it.id) || !['bowl', 'drink', 'addon'].includes(it.kind);
+  const addons = listed('addon').filter(it => !isEventItem(it)).map(it => `${nameOf(it)} ${usd(centsOf(it))}`);
 
   // Modifier prices are loaded on every request and were never put in front of the model, so Aña
   // couldn't answer "how much is extra steak?" — the one menu question she gets constantly.
@@ -115,7 +118,7 @@ function menuSection(menu) {
   }
   if (drinks.length) lines.push(`- Añejo Fit cold-pressed drinks (12 oz): ${drinks.join(', ')}.`);
   if (addons.length) lines.push(`- Add-ons available at checkout: ${addons.join(', ')}.`);
-  const eventItems = rows.filter(it => !['bowl', 'drink', 'addon'].includes(it.kind) && isAvailable(it) && isOrderable(it));
+  const eventItems = rows.filter(it => isEventItem(it) && isAvailable(it) && isOrderable(it));
   if (eventItems.length) {
     lines.push('- Catering / Traditional catalog (availability and exact options are confirmed by the live catering flow; an item price is not a complete event quote):');
     for (const it of eventItems) {
@@ -178,8 +181,7 @@ ${menuSection(menu)}
 
 EVERYDAY BOWL DELIVERY (catering is quoted separately — do not apply bowl fees/windows to an event)
 - DELIVERY ONLY (no pickup), within Palm Beach County, Florida.
-- Monday–Saturday (no Sunday). Two windows: Lunch 11:00 AM–1:00 PM, Dinner 5:00 PM–7:00 PM.
-- Flat $5 delivery fee, $25 order minimum. Florida/PBC sales tax (~7%) added at checkout.
+- Current delivery dates, windows, minimums, fees and tax are shown in the ordering flow. Do not quote a remembered fee or window; direct the customer to anejocateringco.com/order to check their address and current options.
 - ORDERING CUTOFFS CHANGE — the owner adjusts them. NEVER state a cutoff time from memory; say that anejocateringco.com/order always shows exactly what is open right now.
 
 FOOD SAFETY / ALLERGENS
