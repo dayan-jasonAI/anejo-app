@@ -48,3 +48,11 @@ Review artifact: revision-3/preview.html and renderer-preview.js (extracted from
 Next: eliminate preview copy via shared renderer, include auditable layout/contrast and subject-clearance results, generate consistent revision3 carousels, provide safe in-place branded slide replacement at 10-slide limit, add actual-image audit, then complete release/live checks and broader readiness inventory.
 
 Full-frame candidate root validation: 2,590 passed, 0 failed (revision-3/validation.log). Not deployed; visual refinements and full goal acceptance remain open.
+
+## Shared renderer and safe branded replacement — September17 evening
+
+Extracted the real branding engine into public/hub/owner/assets/marketing-branding.js, loaded by the Hub and revision3 preview. Retired the copied preview implementation (file retained as a notice). Source asset paths resolve relative to the script so repo previews and production load the same authentic emblem. Reopened normal Chrome preview, rendered all three images successfully with the shared module; status explicitly remains review required.
+
+Added replace_media operation: compare expected original media key, restrict editable states and JPEG library/Studio destinations, change only the selected slide reference/token, clear schedule/audit atomically. Original storage object remains intact. Branding acceptance now replaces the selected slide instead of adding an eleventh image. SQLite tests verify ten-slide count/order retention, stale-key rejection, publishing protection, private path rejection and approval invalidation.
+
+Validation:2,593 root tests passed; changed-file lint, renderer syntax and git diff checks passed. revision-3/shared-renderer-validation.log contains root output. No deployment, live draft replacement, provider call or customer send. Dense-photo subject protection, common carousel ratio, final26renders, actual-image auditing, autonomous pipeline and all wider completion requirements remain open. Next: add layout evidence/subject exclusion support, render final campaign, then release with Studio/build/production checks.

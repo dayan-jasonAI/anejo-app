@@ -71,3 +71,21 @@ test('reorder rejects incomplete or duplicate lists; valid ordering clears appro
  const row=env.DB.one('SELECT status,scheduled_at,audit_score FROM social_posts WHERE id=?',id);
  assert.equal(row.status,'draft');assert.equal(row.scheduled_at,null);assert.equal(row.audit_score,null);
 });
+test('branded replacement works at ten slides, preserves order and invalidates approval',async()=>{
+ const {env,id}=await setup();for(let i=1;i<10;i++)await call(env,{op:'attach',id,media_key:'studio/photo'+i+'.jpg'});
+ const before=env.DB.sqlite.prepare('SELECT * FROM social_post_media WHERE post_id=? ORDER BY seq').all(id);
+ await auditSavedDraft(env,id,'Original',pass);
+ env.DB.sqlite.prepare("UPDATE social_posts SET status='scheduled',scheduled_at=9999999999999 WHERE id=?").run(id);
+ const r=await call(env,{op:'replace_media',id,media_id:before[4].id,expected_media_key:before[4].media_key,media_key:'studio/branded.jpg'});assert.equal(r.status,200);
+ const after=env.DB.sqlite.prepare('SELECT * FROM social_post_media WHERE post_id=? ORDER BY seq').all(id);
+ assert.deepEqual(after.map(m=>m.id),before.map(m=>m.id));assert.equal(after[4].media_key,'studio/branded.jpg');assert.notEqual(after[4].public_token,before[4].public_token);
+ const row=env.DB.one('SELECT status,scheduled_at,audit_score FROM social_posts WHERE id=?',id);assert.equal(row.status,'draft');assert.equal(row.scheduled_at,null);assert.equal(row.audit_score,null);
+ assert.equal((await call(env,{op:'replace_media',id,media_id:before[4].id,expected_media_key:before[4].media_key,media_key:'studio/stale.jpg'})).status,409);
+});
+test('replacement rejects publishing, foreign slides and private media keys',async()=>{
+ const {env,id}=await setup();const m=env.DB.one('SELECT * FROM social_post_media WHERE post_id=?',id);
+ for(const media_key of ['kitchen/private.jpg','studio/../secret.jpg','studio/video.mp4'])assert.equal((await call(env,{op:'replace_media',id,media_id:m.id,expected_media_key:m.media_key,media_key})).status,400);
+ env.DB.sqlite.prepare("UPDATE social_posts SET status='publishing' WHERE id=?").run(id);
+ assert.equal((await call(env,{op:'replace_media',id,media_id:m.id,expected_media_key:m.media_key,media_key:'studio/new.jpg'})).status,409);
+ assert.equal(env.DB.one('SELECT media_key FROM social_post_media WHERE id=?',m.id).media_key,m.media_key);
+});

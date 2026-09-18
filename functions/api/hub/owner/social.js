@@ -501,6 +501,25 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ ok: true, media_key: out.media_key, provider: out.provider, source_bowl: out.source_bowl });
   }
 
+  // Replace the reviewed slide, preserving order and count even at the carousel ceiling.
+  // The source object stays in storage; only this draft's media reference changes.
+  if (op === 'replace_media') {
+    const postId = String(b.id || '').trim();
+    const slideId = String(b.media_id || '').trim();
+    const mediaKey = String(b.media_key || '').trim();
+    const expected = String(b.expected_media_key || '').trim();
+    if (!postId || !slideId || !expected) return bad('Choose the original slide again.');
+    if (mediaKey.includes('..') || !/^(studio|marketing-library)\//.test(mediaKey) || !JPEG_ONLY.test(mediaKey)) return bad('Choose a JPEG from Studio or the marketing library.');
+    const replaced = await env.DB.batch([
+      env.DB.prepare(`UPDATE social_post_media SET media_key=?, public_token=? WHERE id=? AND post_id=? AND media_key=?
+        AND EXISTS (SELECT 1 FROM social_posts WHERE id=? AND status IN ('draft','scheduled','failed') AND COALESCE(media_type,'')!='REELS')`)
+        .bind(mediaKey, randToken(24), slideId, postId, expected, postId),
+      env.DB.prepare(CLEAR_MEDIA_APPROVAL).bind(now(), postId),
+    ]);
+    if (replaced[0].meta?.changes !== 1) return bad('This slide changed or the post is publishing. Reload before replacing it.', 409);
+    return json({ ok:true, id:postId, media_id:slideId, media_key:mediaKey, status:'draft' });
+  }
+
   // Remove one slide. Reversible curation, so no confirm theatre — but never on a live post,
   // whose slides are a public record of what went out.
   if (op === 'detach') {
