@@ -1,8 +1,7 @@
-// Añejo HUB — the AI budget meter. The owner set a HARD $50/week ceiling on model spend,
-// and HARD MEANS HARD: every api.anthropic.com caller records what it spent (recordSpend)
-// and asks budgetGate() BEFORE spending more. At the ceiling new calls are refused and each
-// surface falls back to the same copy it shows when no API key is configured — the budget
-// never silently borrows from next week.
+// Añejo HUB — the AI budget meter. New paid calls require a readable ledger total
+// below the owner's $50/week threshold. Unknown ledger evidence fails closed.
+// This pre-call check is not a reservation: concurrent calls and failed post-call
+// records can still overshoot or undercount. Provider invoice totals remain separate.
 //
 // All money is INTEGER MICRODOLLARS ($1 = 1,000,000): floating-point money drifts, and a
 // drifting sum is a ceiling that moves.
@@ -75,29 +74,30 @@ export async function recordSpend(env, { feature, model, usage } = {}) {
   } catch { /* best-effort — see note above */ }
 }
 
-// Total microdollars spent so far this ISO week. Returns 0 when the table is missing or the
-// query fails: a broken meter has also recorded nothing, so blocking every AI surface on it
-// would punish the customer for our own migration gap.
+// Verified ledger total for this ISO week; null means unavailable, never zero.
+// A missing/malformed aggregate cannot establish permission to incur paid usage.
 export async function weekSpend(env) {
-  if (!env || !env.DB) return 0;
+  if (!env?.DB) return null;
   try {
     const r = await env.DB.prepare('SELECT COALESCE(SUM(cost_microdollars),0) AS c FROM ai_spend WHERE week=?')
       .bind(currentWeek()).first();
-    return Math.max(0, Number(r && r.c) || 0);
-  } catch { return 0; }
+    return r && typeof r.c === 'number' && Number.isSafeInteger(r.c) && r.c >= 0 ? r.c : null;
+  } catch { return null; }
 }
 
 export async function underBudget(env, limitMicro = WEEKLY_LIMIT_MICRO) {
   const spent = await weekSpend(env);
+  if (spent === null || !Number.isSafeInteger(limitMicro) || limitMicro < 0) {
+    return { ok: false, reason: 'budget_unavailable', spent, remaining: null };
+  }
   return { ok: spent < limitMicro, spent, remaining: Math.max(0, limitMicro - spent) };
 }
 
-// The refusal every caller checks BEFORE a new model call. spent >= limit is a hard NO —
-// there is no soft overage, no "one more small call": the last call before the ceiling may
-// overshoot slightly (its cost lands after it runs), and that overshoot is the only slack
-// the owner accepted.
+// Pre-call refusal, not an atomic reservation. Concurrent in-flight calls and failed
+// post-call ledger writes can still cause undercounting/overshoot; this is not invoice truth.
 export async function budgetGate(env, limitMicro = WEEKLY_LIMIT_MICRO) {
   const b = await underBudget(env, limitMicro);
+  if (b.reason === 'budget_unavailable') return b;
   if (b.ok) return { ok: true, spent: b.spent, remaining: b.remaining };
   return { ok: false, reason: 'weekly AI budget reached', spent: b.spent, remaining: 0 };
 }

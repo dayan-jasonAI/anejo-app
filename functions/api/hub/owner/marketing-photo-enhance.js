@@ -27,7 +27,7 @@ export const onRequestPost=async({request,env})=>{
  const png=[137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v);
  const webp=String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP';
  if(!(contentType==='image/jpeg'?jpeg:contentType==='image/png'?png:contentType==='image/webp'?webp:false))return bad('Source is not a supported photo.');
- const gate=await budgetGate(env);if(!gate.ok)return bad('Weekly AI budget reached. Your original photo is still available.',429);
+ const gate=await budgetGate(env);if(!gate.ok)return bad(gate.reason === 'budget_unavailable' ? 'AI budget ledger unavailable. Your original photo is still available.' : 'Weekly AI budget reached. Your original photo is still available.',gate.reason === 'budget_unavailable' ? 503 : 429);
  const positive=`Retouch the mandatory REFERENCE PHOTO conservatively. ${PRESETS[b.preset]} Preserve the exact actual food, ingredients, portion sizes, counts, plating, containers, packaging, logos, labels, written text, camera viewpoint and composition. Do not invent or remove objects. Do not redesign branding or replace the background. Only photographic polish. If a detail cannot be preserved, leave it unchanged.`;
  let made;
  try{made=await generatePlateImageDetailed(env,'Library photo polish: '+b.preset,{requireJpeg:true,role:'photo',referenceImage:{bytes,contentType},core:{positive,negative:'invented food, changed food, changed count, changed packaging, altered logo, altered text, new props, changed background, synthetic plastic food',source:'library_photo_polish',cached:false},provenance:{referenceKey:key}});}catch{made=null;}

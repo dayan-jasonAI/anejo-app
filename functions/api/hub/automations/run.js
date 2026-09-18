@@ -123,13 +123,15 @@ export const onRequestGet = async ({ request, env }) => {
   // The budget meter, in dollars for the panel. Microdollars stay server-side: the UI should
   // never re-derive money, only display what the gate itself is enforcing against.
   const budget = await underBudget(env);
-  const usd = (micro) => Math.round(micro / 10000) / 100;
+  const usd = (micro) => micro === null ? null : Math.round(micro / 10000) / 100;
   return json({
     ok: true,
     runs: (res && res.results) || [],
     last_runs: (last && last.results) || [],
     ai_budget: {
       week: currentWeek(),
+      status: budget.reason === 'budget_unavailable' ? 'unavailable' : 'available',
+      reason: budget.reason || null,
       spent_usd: usd(budget.spent),
       limit_usd: usd(WEEKLY_LIMIT_MICRO),
       remaining_usd: usd(budget.remaining),

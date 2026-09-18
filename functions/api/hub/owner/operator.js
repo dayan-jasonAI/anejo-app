@@ -166,11 +166,12 @@ export const onRequestPost = async ({ request, env }) => {
 
   // Same honest-refusal doctrine as the missing key: over the weekly AI budget the operator
   // says so rather than quietly billing past the owner's own ceiling.
-  if (!(await budgetGate(env)).ok) {
+  const gate = await budgetGate(env);
+  if (!gate.ok) {
     return json({
       ok: false,
       error: 'operator_unavailable',
-      detail: 'The weekly AI budget is spent. The operator refuses rather than exceeding the $50/week ceiling you set.',
+      detail: gate.reason === 'budget_unavailable' ? 'The AI budget ledger is unavailable. Paid calls are paused until it can be verified.' : 'The weekly AI budget is spent. The operator refuses rather than exceeding the $50/week ceiling you set.',
     }, 503);
   }
 

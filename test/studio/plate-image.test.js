@@ -256,7 +256,7 @@ test('a disabled provider is skipped even when its key IS configured', async () 
   const { env } = makeEnv({ kvSeed: { 'cfg:image_providers': JSON.stringify({ order: IMAGE_PROVIDERS, disabled: ['openai'] }) }, extra: { OPENAI_API_KEY: 'sk-test', GEMINI_API_KEY: 'gk-test' } });
   const imageGenInserts = [];
   env.DB = makeD1([
-    [/SELECT COALESCE\(SUM\(cost_microdollars\)\).*FROM ai_spend/s, () => ({ c: 0 })],
+    [/SELECT COALESCE\(SUM\(cost_microdollars\),0\).*FROM ai_spend/s, () => ({ c: 0 })],
     [/^INSERT INTO ai_spend/, () => 1],
     [/^INSERT INTO image_generations/, ({ args }) => { imageGenInserts.push(args); return 1; }],
   ]);

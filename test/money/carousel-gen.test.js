@@ -18,6 +18,7 @@ function fakeDB(media) {
   return {
     _media: media, _inserted: inserted, _postUpdates: postUpdates,
     prepare(sql) {
+      if (sql.includes('FROM ai_spend')) return { bind: () => ({ first: async () => ({ c: 0 }) }) };
       if (sql.includes('FROM social_post_media WHERE post_id=?')) {
         return { bind: () => ({ all: async () => ({ results: media.slice().sort((a, b) => a.seq - b.seq).map((r) => ({ ...r })) }) }) };
       }

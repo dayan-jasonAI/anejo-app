@@ -29,6 +29,7 @@ const MONDAY = '2026-08-03'; // fixed so day_offset math and weekday slot tables
 function stubDb({ pending = 0, existingRows = [], briefRows = null, intelRows = null } = {}) {
   const inserted = [];
   const routes = [
+    [/SUM\(cost_microdollars\)/, () => ({ c: 0 })],
     [/FROM menu_items/, () => [
       { id: 'vida', kind: 'bowl', name: 'VIDA', price_cents: 1999, availability: 'available', active: 1, description: 'citrus-lime chicken' },
       { id: 'ligero', kind: 'bowl', name: 'LIGERO', price_cents: 1899, availability: 'available', active: 1, description: 'light greens bowl' },
@@ -108,8 +109,8 @@ test('the role carries the food-specific platform rules the owner\'s complaint i
   assert.match(AUTO, /THE COVER FRAME IS THE SALE/, 'cover frame must show food');
   assert.match(AUTO, /show the FOOD ITSELF/);
   assert.match(AUTO, /Carousels and Reels reach further than one static photo/, 'format theory: carousels/reels > static');
-  assert.match(AUTO, /Saves and shares matter more than likes/i, 'saves/shares > likes');
-  assert.match(AUTO, /reason to act NOW/, 'captions must give a reason to act now');
+  assert.match(AUTO, /Saves and shares are engagement signals/i, 'saves/shares > likes');
+  assert.match(AUTO, /relevant next step without invented urgency/, 'captions must give a reason to act now');
 });
 
 // ---- B. cadence, and the backlog-suppression bug -----------------------------

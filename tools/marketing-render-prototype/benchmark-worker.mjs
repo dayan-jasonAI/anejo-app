@@ -1,0 +1,3 @@
+import {writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';
+const runs=[];for(let i=0;i<10;i++){const start=performance.now(),r=await fetch('http://127.0.0.1:8797/'),data=new Uint8Array(await r.arrayBuffer());runs.push({status:r.status,wallMs:performance.now()-start,reportedMs:r.headers.get('x-render-wall-ms'),bytes:data.length,sha256:createHash('sha256').update(data).digest('hex')});if(i===0)writeFileSync(new URL('./output/workerd-cajita.jpg',import.meta.url),data);}
+writeFileSync(new URL('./output/workerd-benchmark.json',import.meta.url),JSON.stringify({note:'Local HTTP wall time, not production CPU budget evidence. performance.now may be frozen during synchronous work in workerd.',runs},null,2));console.log(runs);

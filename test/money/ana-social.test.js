@@ -92,6 +92,7 @@ function fakeDB(state) {
   // Alerts are optional for most cases; default them so every existing state object keeps working.
   state.alertInserts = state.alertInserts || [];
   const route = (sql, args) => {
+    if (sql.includes('FROM ai_spend')) return { first: async () => ({ c: 0 }) };
     if (sql.startsWith('INSERT INTO alerts')) {
       return { run: async () => { state.alertInserts.push(args); return { meta: { changes: 1 } }; } };
     }
@@ -221,7 +222,7 @@ test('a comment from our own account is skipped, not answered — Aña must not 
 test('an escalation returns a reason and NO copy — nothing downstream can send what does not exist', async () => {
   const f = stubFetch(() => claudeSays('ESCALATE: refund demand, customer is angry'));
   try {
-    const r = await draftReply({ ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'I want my money back NOW', username: 'carlos' });
+    const r = await draftReply({ DB: routedDB([]), ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'I want my money back NOW', username: 'carlos' });
     assert.equal(r.ok, true);
     assert.equal(r.escalate, true);
     assert.match(r.reason, /refund/i);
@@ -232,7 +233,7 @@ test('an escalation returns a reason and NO copy — nothing downstream can send
 test('the draft prompt rides Haiku, carries the no-refunds rule, and says it is a DRAFT', async () => {
   const f = stubFetch(() => claudeSays('Happy to help!'));
   try {
-    await draftReply({ ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'comment', text: 'love this', username: 'maria' });
+    await draftReply({ DB: routedDB([]), ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'comment', text: 'love this', username: 'maria' });
     const body = JSON.parse(f.calls[0].init.body);
     assert.equal(body.model, 'claude-haiku-4-5');
     assert.match(body.system, /Never promise refunds/);
@@ -246,7 +247,7 @@ test('the draft prompt rides Haiku, carries the no-refunds rule, and says it is 
 test('a runaway reply is hard-capped at 500 characters', async () => {
   const f = stubFetch(() => claudeSays('x'.repeat(900)));
   try {
-    const r = await draftReply({ ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'tell me everything' });
+    const r = await draftReply({ DB: routedDB([]), ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'tell me everything' });
     assert.equal(r.ok, true);
     assert.ok(r.draft.length <= 500, `draft is ${r.draft.length} chars`);
   } finally { f.restore(); }
@@ -255,7 +256,7 @@ test('a runaway reply is hard-capped at 500 characters', async () => {
 test('no API key or empty text means no draft — never a guess', async () => {
   const r1 = await draftReply({}, { kind: 'dm', text: 'hola' });
   assert.equal(r1.ok, false);
-  const r2 = await draftReply({ ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: '   ' });
+  const r2 = await draftReply({ DB: routedDB([]), ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: '   ' });
   assert.equal(r2.ok, false);
 });
 
@@ -323,7 +324,7 @@ test('model scaffolding is stripped from the draft — the first live draft leak
   // exact prefix the first real draft produced.
   const f = stubFetch(() => claudeSays('**DRAFT REPLY:**\n\nHey! We are Añejo — bowls at anejocateringco.com/order 🌿'));
   try {
-    const r = await draftReply({ ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'what do you sell?' });
+    const r = await draftReply({ DB: routedDB([]), ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'what do you sell?' });
     assert.equal(r.ok, true);
     assert.ok(!/draft reply/i.test(r.draft), 'label gone');
     assert.ok(!r.draft.includes('**'), 'markdown emphasis gone');
@@ -426,7 +427,7 @@ function routedDB(routes) {
     prepare(sql) {
       const bound = (args) => ({
         all: async () => { const hit = match(sql); return { results: hit ? hit[1](args) : [] }; },
-        first: async () => { const hit = match(sql); return hit && hit[2] ? hit[2](args) : null; },
+        first: async () => { if (sql.includes('FROM ai_spend')) return { c: 0 }; const hit = match(sql); return hit && hit[2] ? hit[2](args) : null; },
         run: async () => ({ meta: { changes: 1 } }),
       });
       return {
@@ -462,7 +463,7 @@ test('no training recorded (or no DB at all) means no training block — never a
   const f = stubFetch(() => claudeSays('Happy to help!'));
   try {
     // No env.DB whatsoever — trainingContext must degrade to '' rather than throw.
-    await draftReply({ ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'hi' });
+    await draftReply({ DB: routedDB([]), ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'dm', text: 'hi' });
     const body = JSON.parse(f.calls[0].init.body);
     assert.ok(!body.system.includes("OWNER'S TRAINING"), 'no header when there is nothing to say');
   } finally { f.restore(); }
@@ -494,7 +495,7 @@ test("the knowledge base reaches Aña's draft prompt when wired, and degrades to
 test('no VECTORIZE/AI binding at all means no knowledge-base section — retrieval never breaks a draft', async () => {
   const f = stubFetch(() => claudeSays('Happy to help!'));
   try {
-    await draftReply({ ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'comment', text: 'do you use organic produce?' });
+    await draftReply({ DB: routedDB([]), ANTHROPIC_API_KEY: 'sk-test' }, { kind: 'comment', text: 'do you use organic produce?' });
     const body = JSON.parse(f.calls[0].init.body);
     assert.ok(!body.system.includes("KNOWLEDGE BASE"));
   } finally { f.restore(); }

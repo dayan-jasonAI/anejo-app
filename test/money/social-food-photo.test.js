@@ -116,6 +116,7 @@ function fakeDB(media) {
   return {
     _seqWrites: seqWrites, _postUpdates: postUpdates, _inserted: inserted, _media: media,
     prepare(sql) {
+      if (sql.includes('FROM ai_spend')) return { bind: () => ({first: async () => ({c:0})}) };
       if (sql.includes('FROM social_post_media WHERE post_id=?')) {
         return { bind: () => ({ all: async () => ({ results: media.slice().sort((a, b) => a.seq - b.seq).map((r) => ({ ...r })) }) }) };
       }
@@ -142,7 +143,7 @@ function fakeDB(media) {
 }
 
 function permissiveDB() {
-  return { prepare: () => ({ bind: () => ({ run: async () => ({ meta: { changes: 1 } }), all: async () => ({ results: [] }), first: async () => null }) }) };
+  return { prepare: (sql) => ({ bind: () => ({ run: async () => ({ meta: { changes: 1 } }), all: async () => ({ results: [] }), first: async () => sql.includes('FROM ai_spend') ? {c:0} : null }) }) };
 }
 
 // Workers AI is the one provider in the chain that natively returns JPEG, so it is what a test

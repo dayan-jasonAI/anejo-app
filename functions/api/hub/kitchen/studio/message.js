@@ -89,7 +89,8 @@ async function buildTranscript(env, sessionId, beforeTs = null) {
 async function callClaude(env, sessionId, userText, assistType, beforeTs = null) {
   // Weekly AI budget spent → throw BEFORE any prompt building, and the caller's existing
   // catch answers the turn with the demo reply — the chef still gets coaching copy.
-  if (!(await budgetGate(env)).ok) throw new Error('weekly AI budget reached');
+  const gate = await budgetGate(env);
+  if (!gate.ok) throw new Error(gate.reason);
   const { msgs: history, photoKeys } = await buildTranscript(env, sessionId, beforeTs);
   // Same retrieval as the streaming path — the non-streaming fallback must not answer from a
   // smaller world than the streaming one, or the same question gives different answers by route.

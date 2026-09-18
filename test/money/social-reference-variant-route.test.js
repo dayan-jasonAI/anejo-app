@@ -34,6 +34,7 @@ function env({ post, media = [], openai = true, refBytes } = {}) {
         bind() {
           return {
             async first() {
+              if (q.includes('FROM ai_spend')) return { c: 0 };
               if (q.includes('SELECT id, email, role, team, is_lead, active FROM staff')) return { id: 'stf_1', email: 'o@t', role: 'owner', team: 'front_office', is_lead: 0, active: 1 };
               if (q.includes('FROM social_posts WHERE id')) return post || null;
               return null;

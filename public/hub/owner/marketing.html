@@ -328,9 +328,9 @@
     var s = state.spine;
     var bits = [];
     if (s.followers != null) bits.push(Hub.esc(String(s.followers)) + ' followers');
-    if (s.budget) bits.push('$' + Number(s.budget.spent_usd).toFixed(2) + ' / $' + Number(s.budget.limit_usd).toFixed(0) + ' AI this week');
+    if (s.budget) bits.push(s.budget.status === 'unavailable' || !Number.isFinite(s.budget.spent_usd) ? 'AI budget unavailable · paid calls paused' : '$' + s.budget.spent_usd.toFixed(2) + ' / $' + Number(s.budget.limit_usd).toFixed(0) + ' AI this week');
     bits.push(Hub.esc(String(s.drafts_pending)) + ' drafts pending');
-    if (s.menu_total) bits.push(Hub.esc(String(s.menu_available)) + '/' + Hub.esc(String(s.menu_total)) + ' bowls on sale');
+    if (s.menu_total) bits.push(Hub.esc(String(s.menu_available)) + '/' + Hub.esc(String(s.menu_total)) + ' menu items on sale');
     // WHICH brief the Lead read, in words. The API has reported this since the spine fix; without
     // it on the page, a Lead answering off-brand and a Lead that never received the brief read
     // identically from the chat. Stated, not colour-coded — the distinction has to survive a
@@ -434,7 +434,7 @@
     Hub.api('/api/hub/owner/team', { method: 'POST', body: { message: text } }).then(function (d) {
       if (btn) btn.disabled = false;
       if (extraBtn) extraBtn.disabled = false;
-      if (d && d.ok) { apply(d); if (d.degraded) Hub.toast('Lead is degraded: ' + d.degraded); }
+      if (d && d.ok) { apply(d); if (d.reply && d.reply.saved === false) { state.messages = state.messages.concat([{ role: 'lead', body: 'Not saved—do not repeat actions blindly.\n\n' + String(d.reply.text || d.reply.body || ''), created_at: Date.now(), ephemeral: true }]); paintChat(); Hub.toast('Reply not saved—do not repeat actions blindly.'); } if (d.degraded) Hub.toast('Lead is degraded: ' + d.degraded); }
       else Hub.toast((d && d.error) || 'Could not send.');
     }).catch(function () {
       if (btn) btn.disabled = false;
@@ -2588,11 +2588,12 @@
     var d = DATA.budget;
     var b = d && d.ok && d.ai_budget;
     if (!b) return '<div class="card"><h3>AI budget</h3><p class="row-sub">Could not load the meter.</p></div>';
+    if (b.status === 'unavailable' || !Number.isFinite(b.spent_usd) || !Number.isFinite(b.remaining_usd)) return '<div class="card"><h3>AI budget unavailable</h3><p class="row-sub">The ledger could not be verified. Paid AI calls are paused; spend and remaining budget are unknown.</p></div>';
     var pct = b.limit_usd > 0 ? Math.min(100, Math.round((b.spent_usd / b.limit_usd) * 100)) : 0;
     return '<div class="card"><h3>AI budget · week ' + esc(String(b.week)) + '</h3>' +
       '<div class="meter"><span class="' + (pct >= 90 ? 'hot' : '') + '" style="width:' + pct + '%"></span></div>' +
       '<div class="row-sub">$' + b.spent_usd.toFixed(2) + ' of $' + b.limit_usd.toFixed(2) + ' spent · $' + b.remaining_usd.toFixed(2) + ' left</div>' +
-      '<p class="hint">Hard ceiling: at the limit every AI feature waits for the new week — nothing borrows ahead.</p></div>';
+      '<p class="hint">New paid calls pause at the recorded limit or when the ledger is unavailable. In-flight calls and delayed recording can affect the final total.</p></div>';
   }
 
   function linksCard() {

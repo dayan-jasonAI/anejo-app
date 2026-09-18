@@ -1,0 +1,6 @@
+
+ ⛅️ wrangler 4.129.0
+────────────────────
+Total Upload: 4455.80 KiB / gzip: 2097.09 KiB
+No bindings found.
+--dry-run: exiting now.

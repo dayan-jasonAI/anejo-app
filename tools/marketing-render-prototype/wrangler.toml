@@ -1,0 +1,7 @@
+name = "anejo-editorial-local-prototype"
+main = "worker.mjs"
+compatibility_date = "2026-05-01"
+[[rules]]
+type = "Data"
+globs = ["**/*.jpg", "**/*.png", "**/*.ttf"]
+fallthrough = true

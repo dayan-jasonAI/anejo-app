@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {ownerEnv,OWNER_COOKIE} from '../helpers/sqlite-d1.js';
+import {onRequestGet} from '../../functions/api/hub/automations/run.js';
+test('owner budget read preserves unknown ledger as null dollars rather than zero',async()=>{const env=ownerEnv();env.DB.sqlite.exec('DROP TABLE ai_spend');const response=await onRequestGet({env,request:new Request('https://anejo.test/api/hub/automations/run',{headers:{cookie:OWNER_COOKIE}})});assert.equal(response.status,200);const data=await response.json();assert.equal(data.ai_budget.status,'unavailable');assert.equal(data.ai_budget.reason,'budget_unavailable');assert.equal(data.ai_budget.spent_usd,null);assert.equal(data.ai_budget.remaining_usd,null);assert.equal(data.ai_budget.limit_usd,50);});

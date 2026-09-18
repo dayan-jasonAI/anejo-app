@@ -1,0 +1,32 @@
+{
+  "runtime": "v24.16.0",
+  "initMs": 21.735792,
+  "runs": [
+    {
+      "ms": 783.729875,
+      "bytes": 368637,
+      "rss": 183173120
+    },
+    {
+      "ms": 874.4833749999999,
+      "bytes": 368637,
+      "rss": 199983104
+    },
+    {
+      "ms": 899.5828330000002,
+      "bytes": 368637,
+      "rss": 342114304
+    },
+    {
+      "ms": 457.209875,
+      "bytes": 368637,
+      "rss": 325206016
+    },
+    {
+      "ms": 649.570917,
+      "bytes": 368637,
+      "rss": 285949952
+    }
+  ],
+  "note": "Node RSS includes process baseline, not workerd isolate memory; timings are local wall time."
+}

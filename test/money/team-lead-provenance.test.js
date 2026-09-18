@@ -37,6 +37,8 @@ function fixture({ known = true, mediaFails = false, attachmentFails = false } =
 const action = { action: 'draft_posts', brief_id: 'brief_known', category: 'catering', assets: [
   { caption: 'Meet VIDA', intel_id: 'intel_known' }
 ] };
+const evidence = { inference_receipt: { ok: true, persisted: true, receipt_id: 'inf_abcdef' },
+  input_context: { supplied_brief_ids: ['brief_known'], supplied_intel_ids: ['intel_known'] } };
 function provenance(writes) {
   const row = writes.find(r => /INSERT INTO post_provenance/.test(r.sql));
   const cols = row.sql.match(/post_provenance \(([^)]+)\)/)[1].split(',');
@@ -44,7 +46,7 @@ function provenance(writes) {
 }
 test('Lead drafts seal trust after media and stamp validated sources without invented rule evidence', async () => {
   const f = fixture();
-  const result = await executeAction(f.env, action);
+  const result = await executeAction(f.env, action, evidence);
   assert.equal(result.drafted, 1);
   const original = f.writes.find(r => /original_design_snapshot=/.test(r.sql));
   assert.equal(original.attached, true);
@@ -62,7 +64,7 @@ test('Lead drafts seal trust after media and stamp validated sources without inv
 });
 test('unknown proposed source IDs are omitted, not recorded as verified attribution', async () => {
   const f = fixture({ known: false });
-  await executeAction(f.env, action);
+  await executeAction(f.env, action, { ...evidence, input_context: { supplied_brief_ids: [], supplied_intel_ids: [] } });
   const p = provenance(f.writes);
   assert.equal('brief_id' in p, false);
   assert.equal('intel_id' in p, false);
@@ -70,7 +72,7 @@ test('unknown proposed source IDs are omitted, not recorded as verified attribut
 test('failed attachment and failed media reads do not claim a single-image post', async () => {
   for (const opts of [{ attachmentFails: true }, { mediaFails: true }]) {
     const f = fixture(opts);
-    const result = await executeAction(f.env, action);
+    const result = await executeAction(f.env, action, evidence);
     assert.equal(result.drafted, 1);
     if (opts.attachmentFails) assert.equal(f.writes.some(r => /original_design_snapshot=/.test(r.sql)), false);
     const p = provenance(f.writes);
@@ -80,7 +82,7 @@ test('failed attachment and failed media reads do not claim a single-image post'
 });
 test('unsupported category cannot earn lane trust and absent sources are explicitly none', async () => {
   const f = fixture();
-  await executeAction(f.env, { action: 'draft_posts', category: 'invented', assets: [{ caption: 'Meet VIDA' }] });
+  await executeAction(f.env, { action: 'draft_posts', category: 'invented', assets: [{ caption: 'Meet VIDA' }] }, evidence);
   const p = provenance(f.writes);
   assert.equal(p.category, null);
   assert.equal(p.brief_id, null);

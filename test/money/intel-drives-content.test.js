@@ -31,6 +31,7 @@ function stubDb({ pending = 0, intelRows = [] } = {}) {
   const socialInserts = [];
   const provenanceRows = new Map(); // post_id -> { col: value }
   const routes = [
+    [/SUM\(cost_microdollars\)/, () => ({ c: 0 })],
     [/FROM menu_items/, () => [
       { id: 'vida', kind: 'bowl', name: 'VIDA', price_cents: 1999, availability: 'available', active: 1, description: 'citrus-lime chicken' },
     ]],
