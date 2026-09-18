@@ -1,0 +1,76 @@
+{
+  "observed_at": "2026-09-17T23:39:29.113Z",
+  "method": "Authenticated normal Chrome Hub UI edits; fresh reload then DOM readback; exact caption and ordered media comparisons",
+  "approval": "Dayan direct-session instruction to finish requested draft revisions; publication and scheduling not authorized",
+  "posts": [
+    {
+      "kind": "gather",
+      "post_id": "sp_20fbf4bea6aea85f30bf",
+      "status": "draft",
+      "scheduled_at": null,
+      "caption_matches_manifest": true,
+      "slide_order_matches_manifest": true,
+      "slide_count": 10,
+      "media_keys": [
+        "marketing-library/2026-09/original_6a6041d4b06312754762_photo.jpg",
+        "marketing-library/2026-09/original_47c93d11678ad1a60382_photo.jpg",
+        "marketing-library/2026-09/original_c13603d10c8c352f6d79_photo.jpg",
+        "marketing-library/2026-09/original_5b60f6d1cebce817c746_photo.jpg",
+        "marketing-library/2026-09/original_dc9c9d1f625ec81f5905_photo.jpg",
+        "marketing-library/2026-09/original_8eb3861dd288f91c0d8f_photo.jpg",
+        "marketing-library/2026-09/original_38dc50492d0fdbb83086_photo.jpg",
+        "marketing-library/2026-09/original_409f472b95cc1cd84243_photo.jpg",
+        "marketing-library/2026-09/original_3c875973da74b4adbbed_photo.jpg",
+        "marketing-library/2026-09/original_2c11f344e1f907bf18db_photo.jpg"
+      ],
+      "caption_sha256": "e9d3e88b9bde48c9e7bd4bee39973e2e23c05b52064a7cc8494cb317f596649f"
+    },
+    {
+      "kind": "personal",
+      "post_id": "sp_58424887f40e1a1b611f",
+      "status": "draft",
+      "scheduled_at": null,
+      "caption_matches_manifest": true,
+      "slide_order_matches_manifest": true,
+      "slide_count": 10,
+      "media_keys": [
+        "marketing-library/2026-09/original_09bbdf0879b8b4a7533c_photo.jpg",
+        "marketing-library/2026-09/original_5d0a196fc95fdccbd14f_photo.jpg",
+        "marketing-library/2026-09/original_3d9c19713bbf6dcfba67_photo.jpg",
+        "marketing-library/2026-09/original_18caa2f59e8c5c03d66a_photo.jpg",
+        "marketing-library/2026-09/original_5b808b5da16c559981e9_photo.jpg",
+        "marketing-library/2026-09/original_997e09f497b725fab474_photo.jpg",
+        "marketing-library/2026-09/original_33c0c4ac5ed963f7c631_photo.jpg",
+        "marketing-library/2026-09/original_5c4977a4b3f0e77c7264_photo.jpg",
+        "marketing-library/2026-09/original_57319d79d994e6dbe686_photo.jpg",
+        "marketing-library/2026-09/original_3e1db0ddecb7d299b941_photo.jpg"
+      ],
+      "caption_sha256": "fd161bb97a8999b0488c78a45eee029430db81f2639c01ea31e6dbb78cbdc597"
+    },
+    {
+      "kind": "choice",
+      "post_id": "sp_0a39246ba48d6453af3f",
+      "status": "draft",
+      "scheduled_at": null,
+      "caption_matches_manifest": true,
+      "slide_order_matches_manifest": true,
+      "slide_count": 6,
+      "media_keys": [
+        "marketing-library/2026-09/original_5e398fb745205d60cdec_photo.jpg",
+        "marketing-library/2026-09/original_5ef65eb952c3907a7d69_photo.jpg",
+        "marketing-library/2026-09/original_877f5921b9f445939a78_photo.jpg",
+        "marketing-library/2026-09/original_7bc150fc2bb945f7809f_photo.jpg",
+        "marketing-library/2026-09/original_28bd5ec0715f3e84fa37_photo.jpg",
+        "marketing-library/2026-09/original_58523512b3a2aab0036a_photo.jpg"
+      ],
+      "caption_sha256": "2be22758b5ba62a9e3543fb20737f251ef17585da82e8c0020ef73222e826278"
+    }
+  ],
+  "local_validation": "26 file sizes and SHA256 hashes match validation.json",
+  "risks": [
+    "Public posting and order conversion not tested; no posts scheduled or published",
+    "Instagram UI recorded token expiry 2026-09-20; credential renewal remains owner action",
+    "Local preview browser reload blocked on cached data URL error page; stopped that action"
+  ],
+  "local_preview_http_status": 200
+}

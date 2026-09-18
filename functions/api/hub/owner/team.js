@@ -10,7 +10,9 @@ import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { toJson, parseJson } from '../../../_lib/hub.js';
 import { capture } from '../../../_lib/track.js';
 import { leadReply, buildSpine, ALLOWED_ACTIONS } from '../../../_lib/team_lead.js';
-import { auditDraft } from '../../../_lib/governance.js';
+import { auditSavedDraft, SOCIAL_AUDIT_SNAPSHOT } from '../../../_lib/social_audit.js';
+import { stampPostProvenance } from '../../../_lib/post_provenance.js';
+import { TRUST_CATEGORIES, captionHash } from '../../../_lib/trust_ledger.js';
 import { bowlArtFor } from '../../../_lib/bowl_art.js';
 import { ensureFoodPhoto } from '../../../_lib/food_photo.js';
 import { isSegment } from '../../../_lib/audience.js';
@@ -89,7 +91,7 @@ function spineSummary(spine) {
  * own fields and writes draft-state rows only. Returns a result object that is persisted into
  * the lead message's actions_json — the audit trail of what the proposal actually did.
  */
-async function executeAction(env, action) {
+export async function executeAction(env, action) {
   if (!action || !ALLOWED_ACTIONS.includes(action.action)) return null;
   const t = now();
 
@@ -147,12 +149,24 @@ async function executeAction(env, action) {
     // with the 📷 upload — never a claim the art direction was rendered.
     const assets = Array.isArray(action.assets) ? action.assets : [];
     const count = Math.min(MAX_DRAFT_POSTS, Math.max(0, Math.floor(Number(action.count)) || assets.length));
-    const briefId = String(action.brief_id || '').slice(0, 60) || null;
+    // A model-supplied identifier is a proposal, not proof that the source exists.
+    // Unknown/read-failed sources stay unknown; never stamp invented attribution.
+    const sourceId = async (table, value) => {
+      if (!value) return null;
+      try {
+        const row = await env.DB.prepare(`SELECT id FROM ${table} WHERE id=?`).bind(String(value).slice(0, 100)).first();
+        return row?.id || undefined;
+      } catch { return undefined; }
+    };
+    const briefId = await sourceId('team_briefs', action.brief_id);
+
     const made = [];
     for (const a of assets.slice(0, count)) {
       const caption = String((a && a.caption) || '').trim().slice(0, 2200);
       if (!caption) continue;
       const brief = String((a && a.image_brief) || '').trim().slice(0, 1500) || null;
+      const category = TRUST_CATEGORIES.includes(a.category || action.category) ? (a.category || action.category) : null;
+      const intelId = await sourceId('market_intel', a.intel_id || action.intel_id);
       const postId = id('sp');
       const art = bowlArtFor(`${caption}\n${brief || ''}`);
       try {
@@ -163,11 +177,13 @@ async function executeAction(env, action) {
         // social_post_media is the AUTHORITY — media_key on the post is display-only history, and
         // the public window Instagram fetches through is per-SLIDE. A draft with only the column
         // set would look illustrated in the queue and still be unpublishable.
+        let originalMediaKey = null;
         if (art) {
           try {
             await env.DB.prepare(
               'INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,0,?,?,?)'
             ).bind(id('spm'), postId, art, randToken(24), t).run();
+            originalMediaKey = art;
           } catch { /* caption draft still stands; owner can attach by hand */ }
         } else {
           // NO staged bowl art matched — the caption names two bowls, or none. That is the common
@@ -178,17 +194,34 @@ async function executeAction(env, action) {
           //
           // Only in the `else` — a matched bowl image IS real photography, and the generated
           // stand-in must never displace it or be paid for alongside it.
-          await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
+          const photo = await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
+          if (photo.ok) originalMediaKey = photo.media_key;
         }
-        // EVERY generated draft is scored, whichever door it came through — the planner's inserts
-        // are audited in socialPlan, and a Lead that could slip unscored copy past governance
-        // would make the gate decorative. Failure leaves audit_at NULL: visibly unscored, and
-        // the trust ledger's auto-publish requires an explicit 'pass', so unscored never ships.
+        // Seal the original design AFTER attachment, using the same revision definition as
+        // the planner and trust gate. Old schemas retain drafts but earn no trust credit.
         try {
-          const audit = await auditDraft(env, { caption, image_brief: brief });
-          await env.DB.prepare('UPDATE social_posts SET audit_score=?, audit_flags=?, audit_at=?, audit_status=? WHERE id=?')
-            .bind(audit.brand_score, JSON.stringify(audit.flags), now(), audit.verdict === 'pass' ? 'pass' : 'flag', postId).run();
-        } catch { /* draft stands, visibly unscored */ }
+          if (originalMediaKey) await env.DB.prepare(`UPDATE social_posts SET category=?, original_caption_hash=?,
+            original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
+            WHERE id=? AND status='draft' AND original_design_snapshot IS NULL
+            AND caption=? AND COALESCE(image_brief,'')=? AND COALESCE(media_key,'')=?
+            AND (SELECT COUNT(*) FROM social_post_media WHERE post_id=social_posts.id)=1
+            AND EXISTS (SELECT 1 FROM social_post_media WHERE post_id=social_posts.id AND seq=0 AND media_key=?)`)
+            .bind(category, captionHash(caption), postId, caption, brief || '', art || '', originalMediaKey).run();
+        } catch { /* no original evidence means no clean-approval credit */ }
+        let media;
+        try { media = (await env.DB.prepare('SELECT id, seq, media_key FROM social_post_media WHERE post_id=? ORDER BY seq, id').bind(postId).all()).results; }
+        catch { /* unknown media is not an empty carousel */ }
+        await stampPostProvenance(env, {
+          postId, briefId, intelId, category,
+          // leadReply does not return the exact training receipt. Omitting ruleIds is
+          // deliberate: an empty array would falsely claim no training was supplied.
+          format: media?.length ? (media.length > 1 ? 'carousel' : 'single') : undefined,
+          slideCount: media?.length ? media.length : undefined,
+        });
+        // Same finished-image, revision-bound audit as manually assembled drafts.
+        // Unavailable media/provider leaves a visible flag, never a caption-only pass.
+        try { await auditSavedDraft(env, postId, caption); }
+        catch { /* draft stands, visibly unscored */ }
         made.push(caption.split('\n')[0].slice(0, 60));
       } catch { /* one bad row must not lose the rest of the set */ }
     }

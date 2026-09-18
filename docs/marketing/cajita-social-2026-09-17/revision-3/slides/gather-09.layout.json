@@ -1,0 +1,32 @@
+{
+  "preset": "reposado",
+  "templateId": "reposado-portrait",
+  "width": 1080,
+  "height": 1080,
+  "sourceAspectPreserved": true,
+  "photo": {
+    "x": 108,
+    "y": 0,
+    "w": 864,
+    "h": 1080
+  },
+  "backgroundExtended": true,
+  "text": {
+    "x": 1004.4000000000001,
+    "y": 388.8,
+    "w": 54,
+    "h": 486
+  },
+  "textInk": "#0A180C",
+  "estimatedTextContrast": 14.994032903263506,
+  "emblem": {
+    "x": 988.2,
+    "y": 66.6225,
+    "w": 81,
+    "h": 77.355,
+    "ink": "#0A180C"
+  },
+  "protectedAreas": [],
+  "protectionSource": "visual_review_required",
+  "visualReviewRequired": true
+}

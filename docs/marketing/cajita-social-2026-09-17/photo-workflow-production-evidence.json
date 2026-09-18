@@ -1,0 +1,45 @@
+{
+  "observed_at": "2026-09-17T21:49:49.830108+00:00",
+  "production": {
+    "Id": "a0067036-d5e7-49b7-a8fb-2f2f34c484e8",
+    "Environment": "Production",
+    "Branch": "main",
+    "Source": "0661366",
+    "Deployment": "https://a0067036.anejo-app.pages.dev",
+    "Status": "Active",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/a0067036-d5e7-49b7-a8fb-2f2f34c484e8"
+  },
+  "checks": {
+    "root_tests": 2574,
+    "studio_tests": 23,
+    "pr_checks": "PR106 Functions, Studio and Cloudflare Pages passed"
+  },
+  "browser": {
+    "today_library_selection": "passed; retained caption and proposed time",
+    "composer_library_selection": "passed; retained caption and proposed time",
+    "feed_to_story": "passed; retained caption and proposed time",
+    "saved_draft_picker": "opened and cancelled; no production attachment mutation tested",
+    "photographic_default": "passed; versioned assets loaded, unsupported Enhance hidden",
+    "source_key": "marketing-library/2026-09/original_a2d6b6f2ebe7f5a138d3_photo.jpg",
+    "photographic_copy_key": "marketing-library/2026-09/polished_44ae44a388880d51cb98_photo.jpg",
+    "source_dimensions": [
+      1800,
+      1350
+    ],
+    "copy_dimensions": [
+      1800,
+      1350
+    ],
+    "copy_selection": "explicit Use updated composer preview and media key; caption/date remained empty",
+    "copy_persistence": "Photos Load more showed labeled photographic copy among 27 photos",
+    "ai_preview": "generated but rejected for changed framing; not selected or approved",
+    "posts_published_or_scheduled": 0
+  },
+  "limitations": [
+    "Owner browser only; real marketing-role acceptance pending",
+    "Camera RAW/HEIC unsupported",
+    "Search covers loaded pages; Load more exposes remaining photos",
+    "AI experimental fidelity requires review; prompts cannot guarantee preservation",
+    "Public verify skips optional live database checks"
+  ]
+}

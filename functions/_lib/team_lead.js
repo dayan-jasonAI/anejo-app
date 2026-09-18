@@ -101,11 +101,10 @@ export async function buildSpine(env) {
   const menu = await loadMenu(env);
   const items = menu.items || [];
   const menuItems = items.filter((it) => it.kind === 'bowl').map(describeItem);
-  // Drinks and add-ons were invisible here until now — the filter above kept only bowls, so the
-  // Añejo Fit line and the sauce add-on could not be promoted by a strategist who did not know
-  // they existed. They carry no bowlspec (nothing to build), so they list as name/price/state.
+  // Include every non-bowl catalog kind: catering and Traditional are not drinks or add-ons.
+  // Only bowls carry bowlspec; other items retain their live descriptions and availability.
   const otherItems = items
-    .filter((it) => it.kind === 'drink' || it.kind === 'addon')
+    .filter((it) => it.kind !== 'bowl')
     .map((it) => ({
       name: it.name || String(it.id).toUpperCase(),
       kind: it.kind,
@@ -205,7 +204,7 @@ export function renderSpine(spine) {
     ? spine.menu.map(bowlBlock).join('\n')
     : '- (menu unavailable right now)';
   const otherLines = (spine.other_items || []).length
-    ? '\n\n=== DRINKS & ADD-ONS (also on sale — promotable) ===\n' +
+    ? '\n\n=== CATERING, TRADITIONAL, DRINKS & ADD-ONS (live catalog; respect availability) ===\n' +
       spine.other_items.map((o) => `- ${o.name} ($${o.price_usd.toFixed(2)})` +
         `${o.available ? '' : ' — OFF SALE right now'}${o.description ? ` — ${o.description}` : ''}`).join('\n')
     : '';

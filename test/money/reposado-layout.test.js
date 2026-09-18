@@ -1,0 +1,52 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+const html=readFileSync(new URL('../../public/hub/owner/marketing.html',import.meta.url),'utf8');
+const code=readFileSync(new URL('../../public/hub/owner/assets/marketing-branding.js',import.meta.url),'utf8');
+function renderer(){const scope={};vm.createContext(scope);vm.runInContext(code,scope);return scope.AnejoBranding;}
+function context(){return {font:'',measureText(text){return {width:text.length*Number(this.font.match(/([\d.]+)px/)?.[1]||10)*0.6};}};}
+test('headline fitting preserves every word or explicitly rejects overflow',()=>{
+ const r=renderer(),ctx=context();
+ for(const text of ['Croquetas','Your occasion, your Cajita.','Cajitas, trays, or both?']){
+  const result=r.fitHeadline(ctx,text,800,88,42);
+  assert.equal(Array.from(result.lines).join(' '),text);assert.ok(result.lines.length<=2);
+ }
+ assert.throws(()=>r.fitHeadline(ctx,'A'.repeat(100),100,44,42),/Shorten the headline/);
+ assert.throws(()=>r.fitHeadline(ctx,'one two three four five six seven eight nine ten',100,44,42),/Shorten the headline/);
+});
+test('adaptive inks choose dark on light backgrounds and parchment on dark',()=>{
+ const r=renderer();assert.equal(r.pickTitleInk({lum:0.95,busy:0}).css,'#0A180C');
+ assert.equal(r.pickTitleInk({lum:0.01,busy:0}).css,'#E8E2CA');
+});
+test('production UI offers the full-frame preset and preserves source dimensions',()=>{
+ assert.match(html,/<option value="reposado">Reposado — full-frame photograph/);
+ const compose=code.slice(code.indexOf('function compositeBranding'));
+ assert.match(compose,/canvas.width = photo.naturalWidth \|\| photo.width/);
+ assert.match(compose,/canvas.height = photo.naturalHeight \|\| photo.height/);
+ assert.match(compose,/ctx.drawImage\(photo, 0, 0, canvas.width, canvas.height\)/);
+ assert.match(compose,/fullFrame && blockH > H \* 0.24/);
+ assert.match(compose,/opts.preset === 'reposado' \? 'emblem'/);
+});
+test('protected areas scale to original image dimensions and reject invalid bounds',()=>{
+ const r=renderer();const areas=r.protectedAreas([{x:0.1,y:0.2,w:0.5,h:0.6}],1000,800);
+ assert.equal(areas[0].x,100);assert.equal(areas[0].y,160);assert.equal(areas[0].w,500);assert.equal(areas[0].h,480);
+ for(const rect of [{x:-0.1,y:0,w:1,h:1},{x:0,y:0,w:2,h:1},{x:0,y:0,w:NaN,h:1},{x:0,y:0,w:0,h:1}]) assert.throws(()=>r.protectedAreas([rect],1000,800),/Protected photo areas/);
+});
+test('overlap guard detects contact with protected subject, allows separate edge placement',()=>{
+ const r=renderer(),food={x:200,y:200,w:600,h:600};
+ assert.equal(r.overlaps({x:150,y:150,w:100,h:100},food),true);
+ assert.equal(r.overlaps({x:20,y:20,w:100,h:100},food),false);
+ assert.equal(r.overlaps({x:100,y:100,w:100,h:100},food),false);
+});
+test('reusable editorial profiles have separate in-bounds title and authentic-emblem regions',()=>{
+ const r=renderer();
+ for(const name of ['reposado-square','reposado-dense','reposado-portrait','reposado-wide','reposado-cajita']){
+  const p=r.editorialProfile(name);assert.ok(p.aspect>=.8&&p.aspect<=1.91);
+  const [text,emblem]=r.protectedAreas([p.textRegion,p.emblemRegion],1080,1080/p.aspect);
+  assert.equal(r.overlaps(text,emblem),false);
+  p.textRegion.x=99;assert.ok(r.editorialProfile(name).textRegion.x<1,'caller cannot mutate shared template');
+  assert.ok(html.includes('value="'+name+'"'),'template available in Hub');
+ }
+ assert.throws(()=>r.editorialProfile('invented'),/Unknown editorial template/);
+});

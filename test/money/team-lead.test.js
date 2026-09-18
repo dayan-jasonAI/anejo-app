@@ -410,8 +410,8 @@ test('Lead-created drafts pass through governance too — no unscored door', () 
   // The planner's inserts are audited in socialPlan; a Lead that could slip unscored copy past
   // the gate would make governance decorative. Found at integration, pinned here.
   const TEAM = readFileSync(new URL('../../functions/api/hub/owner/team.js', import.meta.url), 'utf8');
-  assert.match(TEAM, /auditDraft\(env, \{ caption, image_brief: brief \}\)/);
-  assert.match(TEAM, /audit_status=\? WHERE id=\?/);
+  assert.match(TEAM, /auditSavedDraft\(env, postId, caption\)/);
+  assert.ok(TEAM.indexOf('original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}') < TEAM.indexOf('await auditSavedDraft(env, postId, caption)'), 'seal original media before revision-bound audit');
 });
 
 test('EVERY action block is accounted for — the phantom-draft bug, pinned', () => {
@@ -442,4 +442,15 @@ test('a one-bowl draft gets that bowl\'s staged art; ambiguous or none gets noth
   // social_post_media is the authority and the public window is per-slide: setting only the
   // legacy media_key column would look illustrated in the queue yet be unpublishable.
   assert.match(TEAM, /INSERT INTO social_post_media/, 'a real slide row is written, not just the column');
+});
+
+test('Team Lead includes catering and Traditional catalog kinds with current availability',async()=>{
+ const {db}=stubDb([{re:/FROM menu_items/,all:[
+  {id:'cajita',kind:'catering',name:'La Cajita',price_cents:2000,availability:'available',active:1,description:'Personalized presentation by quote'},
+  {id:'lechon',kind:'traditional',name:'Lechón plate',price_cents:1500,availability:'sold_out',active:1},
+  {id:'dessert',kind:'dessert',name:'Tres leches',price_cents:500,availability:'available',active:1}
+ ]}]);
+ const spine=await buildSpine({DB:db});assert.equal(spine.other_items.length,3);
+ const text=renderSpine(spine);assert.match(text,/La Cajita.*Personalized presentation by quote/);
+ assert.match(text,/Lechón plate.*OFF SALE/);assert.match(text,/Tres leches/);
 });

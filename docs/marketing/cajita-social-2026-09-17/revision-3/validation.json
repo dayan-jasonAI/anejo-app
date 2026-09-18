@@ -1,0 +1,243 @@
+{
+  "checked_at": "2026-09-18T01:00:03.804879+00:00",
+  "result": "26 JPEGs; uniform per-carousel dimensions; captions unchanged; collage sources match following slides",
+  "deployment": "not deployed",
+  "hub_replacement": "pending",
+  "brand_auditor": "no live scores yet",
+  "files": [
+    {
+      "file": "slides/gather-01.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 398975,
+      "sha256": "e1ece7fd24a30f5824c8df63eb312d82358f7e0c6a83355927fc0867a8129685",
+      "source": null,
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/gather-02.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 474249,
+      "sha256": "e4eb810ad2e6e2ede90fcdc077701048672bec7b2a261aee01dba31805d4ef1b",
+      "source": "/assets/img/menu-launch/tray-croquetas.webp",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/gather-03.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 446903,
+      "sha256": "67098913557d8097c0c71342c602a2d8fbc95c9ec8bd0b4af49e359ac8242bdf",
+      "source": "/assets/img/menu-launch/tray-bocaditos.webp",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/gather-04.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 464146,
+      "sha256": "133276341f8f15435c034ff26c514973e0b9dbd6aa749a621aef3dc6aa14c3b3",
+      "source": "/assets/img/menu-launch/tray-empanadas.webp",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/gather-05.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 439808,
+      "sha256": "1ab2ae8f0f83a3caf7c5abdf0c24214883b91ce2d1e0a68dcc14857cb0f39d62",
+      "source": "/assets/img/menu-launch/tray-skewers.webp",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/gather-06.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 467618,
+      "sha256": "086f8fae2d6cb68ccf5b09ea57b2a65bcaf2d4e1d9e8aa68a5856d54d9718355",
+      "source": "/assets/img/menu-launch/tray-fria.webp",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/gather-07.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 376550,
+      "sha256": "ac22c9167b7110591df945f1cdf62e43a57dd4eadfefe6c05ce54bf9e96b756f",
+      "source": "/assets/img/cajita/cuban-lechon-tray-editorial-v2.png",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/gather-08.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 379813,
+      "sha256": "b7dc8be4af804135a635eec0ae6099eb74d7c31d65763f8c528de2b372e3541b",
+      "source": "/assets/img/cajita/cuban-congri-tray-editorial-v2.png",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/gather-09.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 338132,
+      "sha256": "d16b76bd1b26ce0db6d2138e542b8f082cc76516b3bd665229301130596d6094",
+      "source": "/assets/img/cajita/cuban-tamales-tray-editorial-v2.png",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/gather-10.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 462288,
+      "sha256": "2b505938f03c4ec9bd5b31ac92653e0e50818eda47215e90c24f582ef1526ea6",
+      "source": "/assets/img/menu-launch/cajitas-collection.webp",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/personal-01.jpg",
+      "width": 1080,
+      "height": 810,
+      "bytes": 372312,
+      "sha256": "73f0c2c79938e778509c8838ef3df9f3b871cf5ec91cc41ca7b8a08ece79a954",
+      "source": "/assets/img/cajita/themes/anejo-signature-duo-v2.jpg",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/personal-02.jpg",
+      "width": 1080,
+      "height": 810,
+      "bytes": 301950,
+      "sha256": "401710b7dcc0411a97028af9f596c194fc4c89e6e62144eb23bf28b22fd22a2b",
+      "source": "/assets/img/cajita/themes/gender-reveal-duo-v2.jpg",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/personal-03.jpg",
+      "width": 1080,
+      "height": 810,
+      "bytes": 329030,
+      "sha256": "7249e1c8746c1689e93305bb9837834d0e9d1f9a5cad8f009dbf95cc1752e4ef",
+      "source": "/assets/img/cajita/themes/halloween-duo-v2.jpg",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/personal-04.jpg",
+      "width": 1080,
+      "height": 810,
+      "bytes": 361036,
+      "sha256": "92429c2a7e4ca04a444fadeb92344c4bf282518d91f25c9d3c02cdcaeb24abfb",
+      "source": "/assets/img/cajita/themes/christmas-duo-v2.jpg",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/personal-05.jpg",
+      "width": 1080,
+      "height": 810,
+      "bytes": 334068,
+      "sha256": "583d7904a59d8aa47a5796a99b23ae470ad2f0da515b9a52851215971ed0a85e",
+      "source": "/assets/img/cajita/themes/valentines-duo-v2.jpg",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/personal-06.jpg",
+      "width": 1080,
+      "height": 810,
+      "bytes": 314279,
+      "sha256": "9d528d344529815c7c9b131ad3619841a45496dcae565cd30334326d5b923fa9",
+      "source": "/assets/img/cajita/themes/easter-duo-v2.jpg",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/personal-07.jpg",
+      "width": 1080,
+      "height": 810,
+      "bytes": 346851,
+      "sha256": "1b75f8bed0ab4ebf54cf58b06239ee518e5be1ee27eb54da60728c67750cd816",
+      "source": "/assets/img/cajita/themes/patriotic-duo-v2.jpg",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/personal-08.jpg",
+      "width": 1080,
+      "height": 810,
+      "bytes": 371410,
+      "sha256": "2db74eea2855e21c913d0d246659e69575c9615671d7123ed7e6785b4a166e2d",
+      "source": "/assets/img/cajita/themes/custom-occasion-duo-v2.jpg",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/personal-09.jpg",
+      "width": 1080,
+      "height": 810,
+      "bytes": 106615,
+      "sha256": "fcb8c91443099d51980cd6dd0caf7f88cc04449a675427bbcfc1d51706061cd7",
+      "source": null,
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/personal-10.jpg",
+      "width": 1080,
+      "height": 810,
+      "bytes": 100745,
+      "sha256": "8d21939b90806a111474a59a5db67a1d3fc5a4b5e21ac1aae903af42a940447b",
+      "source": null,
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/choice-01.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 535277,
+      "sha256": "a4fce91a0e74b284235f65236acfff264f23678e9929789aaec5a0259c748017",
+      "source": "/assets/img/menu-launch/home-catering.webp",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/choice-02.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 465984,
+      "sha256": "75a917f04101c148d0d071425f5e72cf20a60e480ca1afedf12516839319b297",
+      "source": "/assets/img/menu-launch/cajitas-collection.webp",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/choice-03.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 513581,
+      "sha256": "7f324cccfa5c2748ecf067bf27632a4b68d57f07a6f15dc337bb53939fb1f8fe",
+      "source": "/assets/img/menu-launch/combo-table.webp",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/choice-04.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 441544,
+      "sha256": "e1d122d71afc95e3c2e741c61f194a789d83b9804a39f0a7a55d7a1112b3687f",
+      "source": "/assets/img/menu-launch/combo-bites.webp",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/choice-05.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 535492,
+      "sha256": "3d6da67337fb4e0fc4cdb55fada2032d64fbecde699d3dd6201af3a49e2d69d5",
+      "source": "/assets/img/menu-launch/home-catering.webp",
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    },
+    {
+      "file": "slides/choice-06.jpg",
+      "width": 1080,
+      "height": 1080,
+      "bytes": 111827,
+      "sha256": "16e0a521eb087f21c797fd7e862cddc1d0b649d785798018e36305197a0b5419",
+      "source": null,
+      "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
+    }
+  ]
+}

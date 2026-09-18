@@ -1,3 +1,4 @@
+import { auditSavedDraft } from '../../../_lib/social_audit.js';
 import { loadSocialHeartbeat } from '../../../_lib/social_heartbeat.js';
 // GET/POST /api/hub/owner/social — draft, schedule and publish Instagram posts. Owner-only.
 //
@@ -23,6 +24,8 @@ import { stampPostProvenance } from '../../../_lib/post_provenance.js';
 
 // Instagram's own cap. Worth knowing locally so a scheduled batch cannot quietly burn it.
 const DAILY_CAP = 25;
+const CLEAR_MEDIA_APPROVAL = "UPDATE social_posts SET status='draft', scheduled_at=NULL, audit_score=NULL, audit_flags=NULL, audit_at=NULL, audit_status=NULL, audit_scope=NULL, audit_snapshot=NULL, updated_at=? WHERE id=? AND changes()=1";
+
 
 
 export const onRequestGet = async ({ request, env }) => {
@@ -33,7 +36,7 @@ export const onRequestGet = async ({ request, env }) => {
   let posts = [];
   try {
     const r = await env.DB.prepare(
-      'SELECT id, platform, caption, media_key, media_type, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, audit_status, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
+      'SELECT id, platform, caption, media_key, media_type, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, audit_status, audit_scope, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
     ).all();
     posts = (r && r.results) || [];
   } catch {
@@ -266,6 +269,11 @@ export const onRequestPost = async ({ request, env }) => {
   // step — it is a yes/no on someone else's draft, and the first planner run produced a caption
   // that invented an ordering deadline. Fixing one line has to be cheaper than deleting and
   // re-running.
+  if (op === 'audit') {
+    const result = await auditSavedDraft(env, String(b.id || '').trim(), b.expected_caption);
+    return result.ok ? json(result) : bad(result.error, result.status);
+  }
+
   if (op === 'edit') {
     const postId = String(b.id || '').trim();
     if (!postId) return bad('Missing id.');
@@ -276,7 +284,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (row.status === 'published') return bad('That is already live — edit the caption in the Instagram app.', 409);
     if (!['draft', 'scheduled', 'failed'].includes(row.status)) return bad('That post is already publishing or live. Reload before editing.', 409);
     const caption = String(b.caption == null ? '' : b.caption).slice(0, 2200);
-    const saved = await env.DB.prepare("UPDATE social_posts SET caption=?, status='draft', scheduled_at=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed') AND (? IS NULL OR COALESCE(caption,'')=?)")
+    const saved = await env.DB.prepare("UPDATE social_posts SET caption=?, status='draft', scheduled_at=NULL, audit_score=NULL, audit_flags=NULL, audit_at=NULL, audit_status=NULL, audit_scope=NULL, audit_snapshot=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed') AND (? IS NULL OR COALESCE(caption,'')=?)")
       .bind(caption, now(), postId, b.expected_caption ?? null, b.expected_caption ?? null).run();
     if (saved.meta?.changes !== 1) return bad('This post changed. Reload and review it again.', 409);
     return json({ ok: true, id: postId });
@@ -314,10 +322,14 @@ export const onRequestPost = async ({ request, env }) => {
     // than 20 seconds into a publish that was always going to fail.
     if (existing.length >= CAROUSEL_MAX) return bad(`Instagram allows at most ${CAROUSEL_MAX} photos in one post.`, 409);
     const t2 = now();
-    await env.DB.prepare(
-      `INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,?,?,?,?)`
-    ).bind(id('spm'), postId, existing.length, mediaKey, randToken(24), t2).run();
-    await env.DB.prepare('UPDATE social_posts SET updated_at=? WHERE id=?').bind(t2, postId).run();
+    const attached = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at)
+        SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM social_posts WHERE id=? AND status IN ('draft','scheduled','failed') AND COALESCE(media_type,'')=?)
+        AND (SELECT COUNT(*) FROM social_post_media WHERE post_id=?)=?`)
+        .bind(id('spm'), postId, existing.length, mediaKey, randToken(24), t2, postId, mediaType || '', postId, existing.length),
+      env.DB.prepare(CLEAR_MEDIA_APPROVAL).bind(t2, postId),
+    ]);
+    if (attached[0].meta?.changes !== 1) return bad('This post changed. Reload before adding a photo.', 409);
     return json({ ok: true, id: postId, media_key: mediaKey, slides: existing.length + 1 });
   }
 
@@ -489,6 +501,25 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ ok: true, media_key: out.media_key, provider: out.provider, source_bowl: out.source_bowl });
   }
 
+  // Replace the reviewed slide, preserving order and count even at the carousel ceiling.
+  // The source object stays in storage; only this draft's media reference changes.
+  if (op === 'replace_media') {
+    const postId = String(b.id || '').trim();
+    const slideId = String(b.media_id || '').trim();
+    const mediaKey = String(b.media_key || '').trim();
+    const expected = String(b.expected_media_key || '').trim();
+    if (!postId || !slideId || !expected) return bad('Choose the original slide again.');
+    if (mediaKey.includes('..') || !/^(studio|marketing-library)\//.test(mediaKey) || !JPEG_ONLY.test(mediaKey)) return bad('Choose a JPEG from Studio or the marketing library.');
+    const replaced = await env.DB.batch([
+      env.DB.prepare(`UPDATE social_post_media SET media_key=?, public_token=? WHERE id=? AND post_id=? AND media_key=?
+        AND EXISTS (SELECT 1 FROM social_posts WHERE id=? AND status IN ('draft','scheduled','failed') AND COALESCE(media_type,'')!='REELS')`)
+        .bind(mediaKey, randToken(24), slideId, postId, expected, postId),
+      env.DB.prepare(CLEAR_MEDIA_APPROVAL).bind(now(), postId),
+    ]);
+    if (replaced[0].meta?.changes !== 1) return bad('This slide changed or the post is publishing. Reload before replacing it.', 409);
+    return json({ ok:true, id:postId, media_id:slideId, media_key:mediaKey, status:'draft' });
+  }
+
   // Remove one slide. Reversible curation, so no confirm theatre — but never on a live post,
   // whose slides are a public record of what went out.
   if (op === 'detach') {
@@ -498,18 +529,24 @@ export const onRequestPost = async ({ request, env }) => {
     const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
     if (!row) return bad('That post no longer exists.', 404);
     if (row.status === 'published' || row.status === 'publishing') return bad('That post is already on its way out.', 409);
-    const r = await env.DB.prepare('DELETE FROM social_post_media WHERE id=? AND post_id=?').bind(slideId, postId).run();
+    const removed = await env.DB.batch([
+      env.DB.prepare("DELETE FROM social_post_media WHERE id=? AND post_id=? AND EXISTS (SELECT 1 FROM social_posts WHERE id=? AND status IN ('draft','scheduled','failed'))").bind(slideId, postId, postId),
+      env.DB.prepare(CLEAR_MEDIA_APPROVAL).bind(now(), postId),
+      // Materialize the old order once and compact inside the delete transaction. A later
+      // attach/reorder/publish must never observe the gap or be overwritten by stale repairs.
+      env.DB.prepare(`WITH ranked AS MATERIALIZED (
+        SELECT id, ROW_NUMBER() OVER (ORDER BY seq, created_at, id)-1 AS position
+        FROM social_post_media WHERE post_id=?
+      ) UPDATE social_post_media SET seq=(SELECT position FROM ranked WHERE ranked.id=social_post_media.id)
+        WHERE post_id=? AND changes()=1`).bind(postId, postId),
+    ]);
+    const r = removed[0];
     if (!r.meta || r.meta.changes !== 1) return bad('That photo is not on this post.', 404);
-    // Reseal the order so seq stays 0..n-1 — slide order is editorial data, not an accident.
     const left = await loadPostMedia(env, postId);
-    for (let i = 0; i < left.length; i++) {
-      if (left[i].seq !== i) await env.DB.prepare('UPDATE social_post_media SET seq=? WHERE id=?').bind(i, left[i].id).run();
-    }
     return json({ ok: true, id: postId, slides: left.length });
   }
 
-  // Reorder slides: the array IS the new order. Ignores ids that are not on the post rather than
-  // failing the whole reorder over a stale page.
+  // Reorder the complete slide list atomically; reject stale, partial or duplicate lists.
   if (op === 'reorder') {
     const postId = String(b.id || '').trim();
     const order = Array.isArray(b.media_ids) ? b.media_ids.map(String) : [];
@@ -519,11 +556,21 @@ export const onRequestPost = async ({ request, env }) => {
     if (row.status === 'published' || row.status === 'publishing') return bad('That post is already on its way out.', 409);
     const existing = await loadPostMedia(env, postId);
     const mine = new Set(existing.map((m) => m.id));
-    let seq = 0;
-    for (const mid of order) {
-      if (!mine.has(mid)) continue;
-      await env.DB.prepare('UPDATE social_post_media SET seq=? WHERE id=? AND post_id=?').bind(seq++, mid, postId).run();
+    if (order.length !== existing.length || new Set(order).size !== order.length || order.some(mid => !mine.has(mid))) {
+      return bad('The photo list changed. Reload and include every photo exactly once.', 409);
     }
+    const reordered = await env.DB.batch([
+      // Recheck membership in the same transaction as the write: the earlier UI validation
+      // can race another editor attaching/removing a slide (including same-count replacement).
+      env.DB.prepare(`UPDATE social_posts SET status='draft', scheduled_at=NULL, audit_score=NULL, audit_flags=NULL, audit_at=NULL, audit_status=NULL, audit_scope=NULL, audit_snapshot=NULL, updated_at=?
+        WHERE id=? AND status IN ('draft','scheduled','failed')
+        AND (SELECT COUNT(*) FROM social_post_media WHERE post_id=?)=?
+        AND NOT EXISTS (SELECT 1 FROM social_post_media WHERE post_id=? AND id NOT IN (${order.map(() => '?').join(',')}))`)
+        .bind(now(), postId, postId, order.length, postId, ...order),
+      env.DB.prepare(`UPDATE social_post_media SET seq=CASE id ${order.map(() => 'WHEN ? THEN ?').join(' ')} END
+        WHERE post_id=? AND changes()=1`).bind(...order.flatMap((mid, seq) => [mid, seq]), postId),
+    ]);
+    if (reordered[0].meta?.changes !== 1) return bad('This post or its photo list changed. Reload before editing.', 409);
     return json({ ok: true, id: postId });
   }
 
@@ -557,8 +604,8 @@ export const onRequestPost = async ({ request, env }) => {
     const when = Number(b.scheduled_at);
     if (!Number.isFinite(when) || when <= 0) return bad('Pick a date and time.');
     if (when < now() - 60000) return bad('That time has already passed.');
-    const scheduled = await env.DB.prepare("UPDATE social_posts SET status='scheduled', caption=COALESCE(?,caption), scheduled_at=?, error=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed') AND (? IS NULL OR COALESCE(caption,'')=?)")
-      .bind(b.caption === undefined ? null : String(b.caption).slice(0,2200), when, now(), postId, b.expected_caption ?? null, b.expected_caption ?? null).run();
+    const scheduled = await env.DB.prepare("UPDATE social_posts SET audit_score=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_score ELSE NULL END, audit_flags=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_flags ELSE NULL END, audit_at=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_at ELSE NULL END, audit_status=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_status ELSE NULL END, audit_scope=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_scope ELSE NULL END, audit_snapshot=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_snapshot ELSE NULL END, status='scheduled', caption=COALESCE(?,caption), scheduled_at=?, error=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed') AND (? IS NULL OR COALESCE(caption,'')=?)")
+      .bind(...Array(6).fill(b.caption === undefined ? null : String(b.caption).slice(0,2200)), b.caption === undefined ? null : String(b.caption).slice(0,2200), when, now(), postId, b.expected_caption ?? null, b.expected_caption ?? null).run();
     if (scheduled.meta?.changes !== 1) return bad('This post changed or is publishing. Reload and review it again.', 409);
     // Trust ledger (0072): the FIRST human yes on a planner draft is the datum — untouched
     // caption extends the category's clean streak, an edited one resets it. Only counted on
@@ -609,8 +656,8 @@ export const onRequestPost = async ({ request, env }) => {
     // second click — or the scheduler firing mid-click — would otherwise post the same photo twice.
     // The status guard in the UPDATE is the lock: only one caller can move it out of draft.
     const claim = await env.DB.prepare(
-      "UPDATE social_posts SET status='publishing', caption=?, error=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed') AND COALESCE(caption,'')=?"
-    ).bind(b.caption === undefined ? post.caption : String(b.caption).slice(0,2200), now(), postId, b.expected_caption === undefined ? (post.caption || '') : b.expected_caption).run();
+      "UPDATE social_posts SET audit_score=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_score ELSE NULL END, audit_flags=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_flags ELSE NULL END, audit_at=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_at ELSE NULL END, audit_status=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_status ELSE NULL END, audit_scope=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_scope ELSE NULL END, audit_snapshot=CASE WHEN COALESCE(caption,'')=COALESCE(?,caption,'') THEN audit_snapshot ELSE NULL END, status='publishing', caption=?, error=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed') AND COALESCE(caption,'')=?"
+    ).bind(...Array(6).fill(b.caption === undefined ? null : String(b.caption).slice(0,2200)), b.caption === undefined ? post.caption : String(b.caption).slice(0,2200), now(), postId, b.expected_caption === undefined ? (post.caption || '') : b.expected_caption).run();
     if (!claim || !claim.meta || claim.meta.changes !== 1) {
       return bad('That post is already being published.', 409);
     }

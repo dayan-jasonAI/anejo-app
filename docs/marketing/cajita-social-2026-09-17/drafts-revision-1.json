@@ -1,0 +1,28 @@
+{
+  "status": "drafts_not_scheduled_or_published",
+  "account": "@anejo.catering.co",
+  "approval_note": "Preview includes personalized event tags. Dayan must approve exact images/captions and permission to show tags before publishing. No client names in captions, no testimonial or tagging. Times are proposed, not evidence-backed optimal times.",
+  "posts": [
+    {
+      "id": "gather",
+      "title": "A table worth gathering around",
+      "asset": "pink-first-birthday-catering-spread.jpg",
+      "suggested_time": "September 17, 2026 · 11:00 AM Eastern",
+      "caption": "This is what showing up with Añejo looks like. 🌸\n\nCuban bites, trays for sharing and personal Cajitas, dressed for a celebration. Real food from a real first-birthday gathering we catered.\n\nPlanning a birthday, family gathering or team celebration? Tell us your date, city and guest count. We’ll help you choose the food and presentation, then confirm availability and your quote.\n\nExplore Catering & Events through the link in our bio, or message us “CAJITA” to start the conversation.\n\nAsí se celebra con Añejo: sabor cubano, bandejas para compartir y Cajitas vestidas para tu ocasión. Escríbenos la fecha, ciudad y cantidad de invitados para cotizar.\n\n#AnejoCateringCo #CubanCatering #PalmBeachCatering #LaCajita"
+    },
+    {
+      "id": "personal",
+      "title": "Your occasion, your Cajita",
+      "asset": "pink-first-birthday-cajitas-table.jpg",
+      "suggested_time": "September 18, 2026 · 6:00 PM Eastern",
+      "caption": "A little box. A thoughtful welcome. 🌸\n\nLa Cajita brings Cuban favorites together in individual packaging, with presentation coordinated to your celebration. These pink Cajitas were prepared for a first-birthday gathering.\n\nYour menu, quantities and personalized details are confirmed with your quote. Standard orders need at least 48 hours; custom printing needs at least 72 hours and a reviewed quote.\n\nMessage us “CAJITA” with your event date, city and guest count, or choose Catering & Events in our bio.\n\nUna Cajita para cada invitado. Cuéntanos tu ocasión y preparamos una cotización con el menú y la presentación que necesitas.\n\n#LaCajita #AnejoCateringCo #CateringCubano #PalmBeachEvents"
+    },
+    {
+      "id": "choice",
+      "title": "Cajitas, trays, or both?",
+      "asset": "pink-first-birthday-cajita-detail.jpg",
+      "suggested_time": "September 19, 2026 · 11:00 AM Eastern",
+      "caption": "Individual Cajitas or trays for the table? You can plan a celebration around either—or both.\n\nAñejo brings Cuban flavor and considered presentation to birthdays, family gatherings and team events. Share your date, city, guest count and what you have in mind. We’ll confirm the menu, availability and quote before payment.\n\nStart with Catering & Events in our bio, or message us “CATERING.”\n\n¿Cajitas individuales o bandejas para compartir? Cuéntanos cómo quieres celebrar. La fecha, ciudad y cantidad de invitados nos ayudan a preparar tu cotización.\n\n#AnejoCateringCo #CateringCubano #LaCajita #SouthFloridaEvents"
+    }
+  ]
+}

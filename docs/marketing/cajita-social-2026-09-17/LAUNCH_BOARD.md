@@ -38,3 +38,13 @@ Proposed slots are September17 11AM, September18 6PM and September19 11AM Easter
 - Original broader backlog: role/checkout/Studio acceptance, Google profile pending outcomes, GA4 receipt and legacy cleanup remain separately tracked in READINESS_WORK_LOG_2026-09-16.md.
 
 The release improves specific working capabilities. It does not establish unprecedented brand growth, a fully autonomous marketing department, guaranteed sales, or a completed multi-channel system.
+
+## Photo workflow update — September17 evening
+
+Shared library is directly reachable from Today, Create and eligible saved drafts. Composer photo choice and Feed/Story switching preserve caption/date. Default photographic polish adjusts original pixels and stores a separate labeled copy; optional AI retouch remains experimental and review-gated. Live owner acceptance passed with matching1800×1350 source/copy and persistent Photos result. See photo-workflow-production-evidence.json for exact deployment, source/copy keys, limitations and checks. Existing campaign drafts were not changed, scheduled or published by this work. More owner-uploaded images are now present; seven originals is historical, not the current collection count.
+
+## Superseding launch direction — September17 revision2
+
+The three launch drafts now use website/editorial imagery: catering collage (10), Signature and personalized Cajita designs (10), Cajitas plus trays (6). Real-event photos are retained for later content. All revisions are saved live in the existing draft IDs, with exact captions and slide order checked after reload. Evidence: revision-2/hub-draft-verification.json; output layouts and captions: revision-2/manifest.json. No schedule or publication. Earlier proposed September17–19 slots are withdrawn; choose future timing only after final rendered review.
+
+Ready for Dayan: review the three saved Hub drafts, approve exact content and timing. Owner credential renewal remains separate. No software release is needed for these content-only revisions.

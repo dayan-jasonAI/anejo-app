@@ -9,7 +9,13 @@ import { readFileSync } from 'node:fs';
 // consolidated into one workspace (social.html is now a redirect stub). These assertions guard
 // the rule that matters most in this whole feature — an image model must NEVER draw the Añejo
 // logo — so they follow the markup rather than the filename.
-const HTML = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
+const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
+const RENDERER = readFileSync(new URL('../../public/hub/owner/assets/marketing-branding.js', import.meta.url), 'utf8');
+const HTML = PAGE.replace('  function compositeBranding(photoUrl, opts) { return window.AnejoBranding.compose(photoUrl, opts); }', RENDERER);
+test('Hub loads and invokes the shared branding renderer',()=>{
+ assert.match(PAGE,/marketing-branding\.js\?v=reposado-3/);
+ assert.match(PAGE,/window\.AnejoBranding\.compose\(photoUrl, opts\)/);
+});
 
 // ---------------------------------------------------------------------------
 // Branding: the ONE RULE — an image model never draws the logo
@@ -18,7 +24,7 @@ const HTML = readFileSync(new URL('../../public/hub/owner/marketing.html', impor
 test('PREVENT — branding is composited from the REAL logo assets, not asked of an image model', () => {
   assert.match(HTML, /var MARK_SRC = \{ emblem: '\/assets\/img\/emblem\.png', lockup: '\/assets\/img\/logo_full\.png' \}/,
     'the only two marks are the actual committed logo files');
-  assert.match(HTML, /loadImageEl\(MARK_SRC\[markKey\]\)/, 'the mark is LOADED from that map, never built');
+  assert.match(HTML, /loadImageEl\(rendererScript \? new URL\(MARK_SRC\[markKey\]/, 'the mark is LOADED from that map, never built');
   assert.match(HTML, /ctx\.drawImage\(drawable, chosen\[0\], chosen\[1\], markW, markH\)/, 'must draw the loaded image, not synthesize one');
 });
 
@@ -156,10 +162,9 @@ test('the brand faces are actually LOADED, or canvas silently draws the system f
   assert.match(HTML, /Promise\.race\(\[wanted, timeout\]\)/, 'but never block the preview on a slow font CDN');
 });
 
-test('branding is OPTIONAL and never touches an existing slide — it uploads a NEW one', () => {
-  assert.match(HTML, /brand-preview/, 'preview control exists');
-  assert.match(HTML, /Use this — add as a new slide/, 'the accept action explicitly adds, never replaces');
-  assert.match(HTML, /op: 'attach', id: postId, media_key: r\.media_key \}, 'Branded photo added as a new slide/, 'wired through the existing attach op — additive by construction');
+test('accepting branded preview replaces only the selected revision', () => {
+  assert.match(PAGE, /Use this — replace selected slide/);
+  assert.match(PAGE, /op: 'replace_media', id: postId, media_id: chosen.value, expected_media_key: key/);
 });
 
 test('branding never uploads or attaches until the owner explicitly accepts the preview', () => {

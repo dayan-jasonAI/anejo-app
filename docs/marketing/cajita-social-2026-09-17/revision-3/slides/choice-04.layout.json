@@ -1,0 +1,32 @@
+{
+  "preset": "reposado",
+  "templateId": "reposado-dense",
+  "width": 1080,
+  "height": 1080,
+  "sourceAspectPreserved": true,
+  "photo": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 1080
+  },
+  "backgroundExtended": false,
+  "text": {
+    "x": 75.60000000000001,
+    "y": 1031.3999999999999,
+    "w": 885.5999999999999,
+    "h": 43.2
+  },
+  "textInk": "#E8E2CA",
+  "estimatedTextContrast": 7.99407290517365,
+  "emblem": {
+    "x": 16.2,
+    "y": 14.418,
+    "w": 64.8,
+    "h": 61.884,
+    "ink": "#0A180C"
+  },
+  "protectedAreas": [],
+  "protectionSource": "visual_review_required",
+  "visualReviewRequired": true
+}

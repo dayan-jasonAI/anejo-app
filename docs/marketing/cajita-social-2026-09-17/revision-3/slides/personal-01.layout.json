@@ -1,0 +1,32 @@
+{
+  "preset": "reposado",
+  "templateId": "reposado-cajita",
+  "width": 1080,
+  "height": 810,
+  "sourceAspectPreserved": true,
+  "photo": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 810
+  },
+  "backgroundExtended": false,
+  "text": {
+    "x": 604.8000000000001,
+    "y": 162,
+    "w": 313.2,
+    "h": 186.3
+  },
+  "textInk": "#0A180C",
+  "estimatedTextContrast": 5.2930814308091625,
+  "emblem": {
+    "x": 345.6,
+    "y": 625.5225,
+    "w": 81,
+    "h": 77.355,
+    "ink": "#000000"
+  },
+  "protectedAreas": [],
+  "protectionSource": "visual_review_required",
+  "visualReviewRequired": true
+}

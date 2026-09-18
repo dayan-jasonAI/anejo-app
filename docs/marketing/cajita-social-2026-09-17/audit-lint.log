@@ -1,0 +1,17 @@
+
+> anejo-app@1.0.0 lint
+> eslint functions test scripts
+
+
+/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/catering_deposit.js
+  82:9  warning  'base' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/vendor/webcrypto-web-push.js
+   81:5  warning  'cachedDecoders' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+  116:5  warning  'byteToHexLookupTable' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/Users/aiagent/Dayan Workspace/Aether/anejo-app/test/money/catering-quote-lines.test.js
+  273:34  warning  'init' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+✖ 4 problems (0 errors, 4 warnings)
+

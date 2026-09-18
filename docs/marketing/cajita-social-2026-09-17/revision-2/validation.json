@@ -1,0 +1,146 @@
+{
+  "slides": [
+    {
+      "file": "slides/gather-01.jpg",
+      "bytes": 346312,
+      "sha256": "55bba71b4416e2c22c5720dd4c5becee85e2608f039a237e474065dbe5cf749b"
+    },
+    {
+      "file": "slides/gather-02.jpg",
+      "bytes": 361496,
+      "sha256": "aea0d1225678377914f02962fffdd3c33387fa00288ddade0f65fe79dbec13b3"
+    },
+    {
+      "file": "slides/gather-03.jpg",
+      "bytes": 347213,
+      "sha256": "1ff3e44da69b27fb7e15f4593e448a084821d984941a6e48e1fa331f73b607cc"
+    },
+    {
+      "file": "slides/gather-04.jpg",
+      "bytes": 356036,
+      "sha256": "6fcc146de52f927913bf09677afc276b8b75d825ddb5c3aa2e98338e424948b2"
+    },
+    {
+      "file": "slides/gather-05.jpg",
+      "bytes": 350493,
+      "sha256": "9fe0771f5fcd9e76775138903466b692eeaf8e64c8f6fd2e5e63ff5a814f243b"
+    },
+    {
+      "file": "slides/gather-06.jpg",
+      "bytes": 366122,
+      "sha256": "75f6bc1bb9c1f8f24577a8586220e37d5787d0e031c08a5035454917eab458c7"
+    },
+    {
+      "file": "slides/gather-07.jpg",
+      "bytes": 299123,
+      "sha256": "86c39586fa6d7c6d50a66f071cbc12d72fcab398a375580643158b2b9fdb0b5b"
+    },
+    {
+      "file": "slides/gather-08.jpg",
+      "bytes": 300950,
+      "sha256": "b4cd7d89756313bda46b902aec79c91de5e29922a020e2651a854efff2fb545b"
+    },
+    {
+      "file": "slides/gather-09.jpg",
+      "bytes": 273584,
+      "sha256": "01c198adbadb72b188937c66c55e7fc8b771f80cc17030b9a2ae7c2318dec05c"
+    },
+    {
+      "file": "slides/gather-10.jpg",
+      "bytes": 404657,
+      "sha256": "5f7e99fa9d2af3febdd03d9c69cb5be0095ea24adcfa70a58946002c8216aa45"
+    },
+    {
+      "file": "slides/personal-01.jpg",
+      "bytes": 407168,
+      "sha256": "6b3973ec3a83572b1629747c1c6c5af051b58265cd3827494bda596ef7a4eb84"
+    },
+    {
+      "file": "slides/personal-02.jpg",
+      "bytes": 356317,
+      "sha256": "338b51623fe33d02dbfe981c7c011533e79e4314fd3b69cc71793ad21439f582"
+    },
+    {
+      "file": "slides/personal-03.jpg",
+      "bytes": 382483,
+      "sha256": "c6bd1e919e2973b21247ad2cc44ef8330b281001c33d537963e1f34a1f6122f9"
+    },
+    {
+      "file": "slides/personal-04.jpg",
+      "bytes": 414928,
+      "sha256": "5c2cbe0df870bcf2ef00ec7540f2c3d76f100ac82f32534a0aa2a682fd7fddd6"
+    },
+    {
+      "file": "slides/personal-05.jpg",
+      "bytes": 390678,
+      "sha256": "678fcc98fb99fb62af87f8201d042db16e567c928fab9ec15d226735a9f8f684"
+    },
+    {
+      "file": "slides/personal-06.jpg",
+      "bytes": 369240,
+      "sha256": "7087ff161c1b4df0f85c70f3affc0fda902753fb8daf3cc98773ebbe528a9725"
+    },
+    {
+      "file": "slides/personal-07.jpg",
+      "bytes": 400155,
+      "sha256": "2f89f6f06052a39045fed7a023094fdda71aa9c85255416b73926c5b86f0e765"
+    },
+    {
+      "file": "slides/personal-08.jpg",
+      "bytes": 429993,
+      "sha256": "1ee110e949232406c82406276e7ed6d2f310c50655514c7f391cd88211f1f32f"
+    },
+    {
+      "file": "slides/personal-09.jpg",
+      "bytes": 203560,
+      "sha256": "4b6e469ea000c359dbc87f60a88a274f513d0a264ff8ac548a316d0c9bd8e60a"
+    },
+    {
+      "file": "slides/personal-10.jpg",
+      "bytes": 189561,
+      "sha256": "ab06d898f0544d5e3d4663b17b3afd7d4e048a11112d8bdcd5be2a6b4cdc2589"
+    },
+    {
+      "file": "slides/choice-01.jpg",
+      "bytes": 380293,
+      "sha256": "063116073a7995be84d13f0ac7a4a49166dc220ef3e1cd013fd9b95b03c391d3"
+    },
+    {
+      "file": "slides/choice-02.jpg",
+      "bytes": 419862,
+      "sha256": "8207ba01d8845667689ed8edf1e550f588886f29e825816606cb3e5ca92e088c"
+    },
+    {
+      "file": "slides/choice-03.jpg",
+      "bytes": 399195,
+      "sha256": "ba89d0df77fb8f00a04beecc4ee3def50750ef717704b834617d89e7e818a785"
+    },
+    {
+      "file": "slides/choice-04.jpg",
+      "bytes": 354688,
+      "sha256": "a0c91e0cb82b8dbac914c6b76b96e50c56ee1aab8ec33493e0f49a6ac2acf5db"
+    },
+    {
+      "file": "slides/choice-05.jpg",
+      "bytes": 418799,
+      "sha256": "c4bf9e90feb3cb3a5f33d264f922beb3f8bd7a725965d4cb315e644b13f251d3"
+    },
+    {
+      "file": "slides/choice-06.jpg",
+      "bytes": 167529,
+      "sha256": "5d1cf05a2eff9b72b9e788f61e4b5137aa936b792747491fc99dc303ae1874f4"
+    }
+  ],
+  "frame_counts": [
+    10,
+    10,
+    6
+  ],
+  "caption_lengths": [
+    786,
+    875,
+    755
+  ],
+  "collage_following_images_match": true,
+  "state": "review_only_not_scheduled"
+}
