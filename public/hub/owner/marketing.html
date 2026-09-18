@@ -1957,6 +1957,8 @@
       // Brand Auditor verdict — the score/flags/status the row already carries, so the owner reads
       // WHY a draft is clean or flagged before approving a time.
       auditBadge(p) +
+      '<div class="row-sub" style="font-size:11.5px">Audit scope: caption and image brief. Finished images still need visual review.</div>' +
+      (p.status === 'draft' || p.status === 'failed' ? '<button class="btn ghost" data-audit="' + esc(p.id) + '">Audit saved draft</button>' : '') +
       // Provenance — the brief / market intel / category / format / training rules behind this post.
       provenanceBadge(p) +
       // Slides. One photo is a normal post; 2-10 is a carousel, and the ORDER is editorial — the
@@ -2196,6 +2198,15 @@
     document.querySelectorAll('[data-library-post]').forEach(function(b){b.onclick=function(){chooseLibrary(function(photo){return attachLibraryPhoto(b.getAttribute('data-library-post'),photo);});};});
     var lib=document.getElementById('mlibrary'); if(lib)lib.onclick=window.MarketingTabs.chooseLibraryPhoto;
     var polish=document.getElementById('mpolish'); if(polish){polish.hidden=!(DATA._pickedPhoto&&!DATA._pickedPhoto.source_key&&!DATA._pickedPhoto.ai_enhanced&&DATA._pickedPhoto.media_key.startsWith('marketing-library/'));polish.onclick=function(){MarketingPhotoEnhance.open({photo:DATA._pickedPhoto,onUse:setComposerPhoto});};}
+    document.querySelectorAll('[data-audit]').forEach(function(b){
+      b.onclick=function(){
+        var pid=b.getAttribute('data-audit'), visible=approvalCaption(pid);
+        if(visible.caption!==visible.expected_caption){Hub.toast('Save your caption changes before auditing');return;}
+        b.disabled=true;
+        op({op:'audit',id:pid,expected_caption:visible.caption},'Caption audit saved — review the findings and finished images')
+          .finally(function(){b.disabled=false;});
+      };
+    });
     Array.prototype.forEach.call(document.querySelectorAll('[data-editcap]'), function (b) {
       b.addEventListener('click', function () {
         var pid = b.getAttribute('data-editcap');
