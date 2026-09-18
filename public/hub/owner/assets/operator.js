@@ -1,3 +1,54 @@
+/* Private descriptors only. Explicit clicks; never auto-save, publish or silently redirect. */
+(function () {
+  var paths = {photos:'/hub/owner/marketing.html#photos',create:'/hub/owner/marketing.html#create',drafts:'/hub/owner/marketing.html#create?filter=drafts'};
+  function button(root, label, fn) { var b=document.createElement('button'); b.type='button'; b.textContent=label; b.addEventListener('click',fn); root.appendChild(b); return b; }
+  function paragraph(root, text) { var p=document.createElement('p'); p.textContent=text; root.appendChild(p); }
+  // Baseline values catch unsaved normal inputs. A page may supply a more exact dirty hook.
+  function dirty() {
+    if(typeof window.AnejoOperatorHasUnsavedChanges==='function') return !!window.AnejoOperatorHasUnsavedChanges();
+    return Array.from(document.querySelectorAll('input,textarea,select')).some(function(e){
+      if(e.closest('.aop-panel') || e.disabled) return false;
+      if(e.type==='file') return e.files && e.files.length>0;
+      if(e.type==='checkbox'||e.type==='radio') return e.checked!==e.defaultChecked;
+      if(e.tagName==='SELECT') return Array.from(e.options).some(function(o){return o.selected!==o.defaultSelected;});
+      return e.value!==e.defaultValue;
+    });
+  }
+  function canonical(path) { return path.replace(/\.html$/, '').replace(/\/$/, ''); }
+  window.AnejoOperatorPrivateUI = function(result,root) {
+    var ui=result && result.ui;
+    if(!ui) return;
+    if(ui.kind==='navigate' && Object.prototype.hasOwnProperty.call(paths,ui.destination)) {
+      button(root,'Open '+({photos:'Photos',create:'Create & Schedule',drafts:'drafts'}[ui.destination]),function(){
+        var url=new URL(paths[ui.destination],location.origin);
+        if(canonical(url.pathname)===canonical(location.pathname)) { location.hash=url.hash; return; }
+        if(dirty() && !window.confirm('Open Marketing and leave unsaved changes on this page?')) return;
+        location.assign(url.pathname+url.hash);
+      });
+    } else if(ui.kind==='brief_preview' && ui.saved===false) {
+      paragraph(root,'Unsaved campaign idea — '+String(ui.title||'')); paragraph(root,String(ui.notes||''));
+      paragraph(root,'Your supplied words only; no developed campaign brief or saved record.');
+    } else if(ui.kind==='audit_status') {
+      var s=result.audit;
+      if(!s || !s.available) { paragraph(root,'Saved audit evidence unavailable. No audit was run.'); return; }
+      paragraph(root,'Observed '+s.observed_at+' · latest 60 posts only. Audit pass is not permission to publish.');
+      if(!s.posts.length) paragraph(root,'No posts returned by this read.');
+      var counts = {};
+      s.posts.forEach(function(p){counts[p.state]=(counts[p.state]||0)+1;});
+      paragraph(root, Object.keys(counts).map(function(k){return counts[k]+' '+k.replace(/_/g,' ');}).join(' · '));
+      if(s.posts.length) {
+        var details=document.createElement('details'), summary=document.createElement('summary');
+        summary.textContent='Show '+s.posts.length+' saved audit details'; details.appendChild(summary);
+        s.posts.forEach(function(p){
+          var date = Number(p.audit_at), audited = Number.isFinite(date) && date > 0 && date <= 8640000000000000 ? new Date(date).toISOString() : 'not recorded';
+          paragraph(details,(p.caption_excerpt || 'Untitled post')+' · '+p.status+' · '+p.state.replace(/_/g,' ')+' · audited '+audited);
+        });
+        root.appendChild(details);
+      }
+    }
+  };
+})();
+
 /* operator.js — the Añejo Voice Operator widget.
  *
  * Part 3 of the DMD Venture standard. Ported from the proven DRH CORE HUB widget so the
@@ -8,7 +59,7 @@
  * the operator refuses — no key, no database — that refusal is shown verbatim rather than
  * smoothed into something reassuring.
  *
- * Voice-out: ElevenLabs when a key is bound, browser speech otherwise. A robotic voice that
+ * Voice-out: browser speech synthesis when available. A robotic voice that
  * tells the truth beats no answer.
  */
 (function () {
@@ -114,6 +165,7 @@
           return;
         }
         log(res.j.reply, 'ai');
+        window.AnejoOperatorPrivateUI(res.j, document.getElementById('aopLog'));
         if (speakBack) speak(res.j.reply);
       })
       .catch(function (e) {

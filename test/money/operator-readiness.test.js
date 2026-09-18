@@ -113,3 +113,25 @@ test('owner check, unfinished heartbeat, stale evidence and missing record stay 
  const e=withHeartbeat(env(),record),r=await onRequestPost({request:request('marketing status'),env:e}),d=await r.json();assert.equal(d.status.scheduler.observed_state,state);assert.equal(d.status.execution_health,'unverified');assert.doesNotMatch(d.reply,/is running/i);assert.deepEqual(e.writes,[]);if(record?.source==='owner')assert.match(d.reply,/Owner-triggered check/);if(record?.error)assert.match(d.reply,/publish_failed/);
  }
 });
+
+test('private commands are owner gated and bypass all providers and writes', async () => {
+  const oldFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw Error('Provider must not be called'); };
+  try {
+    for (const message of ['open photos', 'show drafts', 'show audit status', 'draft campaign brief: email campaign']) {
+      const e = env();
+      const response = await onRequestPost({ request: request(message), env: e });
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.equal(body.receipt.mode, 'deterministic');
+      assert.equal(body.receipt.mutation, false);
+      assert.deepEqual(e.writes, []);
+      const denied = await onRequestPost({ request: request(message), env: env({ role: 'marketing' }) });
+      assert.equal(denied.status, 403);
+    }
+    const failed = await onRequestPost({ request: request('show audit status'), env: env({ fail: true }) });
+    const body = await failed.json();
+    assert.equal(body.audit.available, false);
+    assert.equal(body.audit.posts, null);
+  } finally { globalThis.fetch = oldFetch; }
+});

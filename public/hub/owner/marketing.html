@@ -1355,6 +1355,13 @@
       body += '<div class="audit-score">Legacy score: ' + esc(String(p.audit_score)) + '/100 · not a complete current requirements audit</div>';
     }
     if (flags.length) body += '<ul>' + flags.map(function(f) { return '<li>' + esc(f && f.detail || '') + '</li>'; }).join('') + '</ul>';
+    if (unavailable && detail && detail.audit_diagnostic) {
+      var diagnostic = detail.audit_diagnostic;
+      body += '<details><summary>Why this audit needs review</summary><p>' + esc(diagnostic.criterion_id || diagnostic.reason || 'Audit evidence') + '</p>' +
+        (diagnostic.explanation ? '<p>' + esc(diagnostic.explanation) + '</p>' : '') +
+        (diagnostic.quote ? '<p>Rejected caption citation: ' + esc(diagnostic.quote) + '</p>' : '') +
+        '<p class="hint">This is a rejected auditor observation, not a verified defect in your design.</p></details>';
+    }
     body += '<div class="hint">' + (!current ? 'The design or source guidance must be checked again. ' : '') + 'Visual comparison does not prove image or logo provenance. An audit is not permission to publish.</div>';
     return '<div class="audit ' + status + '"><span class="audit-head">Brand Auditor · ' + label + '</span>' + body + '</div>';
   }

@@ -29,3 +29,10 @@ test('legacy score and never audited are distinct', () => {
  assert.match(render({...row,audit_detail_json:null,audit_current:0}),/Legacy score/);
  assert.match(render({}),/not scored yet/);
 });
+test('rejected diagnostic is escaped and distinguished from a verified design defect', () => {
+ const html=render({...row,audit_score:null,audit_flags:JSON.stringify([{type:'audit_unavailable',detail:'Unknown criterion'}]),audit_detail_json:JSON.stringify({rubric_version:'anejo-visual-2',audit_diagnostic:{criterion_id:'branding',explanation:'<img onerror=x>',quote:'<script>'}})});
+ assert.match(html,/Why this audit needs review/);
+ assert.match(html,/rejected auditor observation, not a verified defect/);
+ assert.match(html,/&lt;img/);
+ assert.doesNotMatch(html,/<script>|<img|class="audit pass"/);
+});
