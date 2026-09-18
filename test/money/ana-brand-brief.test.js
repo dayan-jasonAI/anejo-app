@@ -138,18 +138,20 @@ test('her budget is a fraction of the full brief — she answers in 400 characte
 test('Aña sees available catering catalog without inventing an event quote or selling unavailable items', () => {
   const menu = {
     items: [
-      { id: 'cajita-standard', kind: 'catering', name: 'Signature Cajita', description: 'Cuban bites in individual packaging', availability: 'available' },
-      { id: 'tray-standard', kind: 'traditional', name: 'Sharing tray', availability: 'available' },
+      { id: 'traditional_cajita', kind: 'addon', name: 'Signature Cajita', description: 'Cuban bites in individual packaging', availability: 'available' },
+      { id: 'catering_tray', kind: 'addon', name: 'Sharing tray', availability: 'available' },
       { id: 'custom-design', kind: 'catering', name: 'Custom design', availability: 'available' },
       { id: 'sold-tray', kind: 'traditional', name: 'Sold-out tray', availability: 'sold_out' },
     ], bowls: {}, modifiers: {},
-    nonBowls: { 'cajita-standard': { price_cents: 1800 }, 'tray-standard': { price_cents: 4500 }, 'custom-design': { price_cents: 0 }, 'sold-tray': { price_cents: 3000 } },
+    nonBowls: { 'traditional_cajita': { price_cents: 1800 }, 'catering_tray': { price_cents: 4500 }, 'custom-design': { price_cents: 0 }, 'sold-tray': { price_cents: 3000 } },
   };
   const prompt = anaSystemPrompt(menu);
   assert.match(prompt, /Signature Cajita — \$18\.00/);
   assert.match(prompt, /Sharing tray — \$45\.00/);
   assert.match(prompt, /Custom design — quote required/);
   assert.doesNotMatch(prompt, /Sold-out tray/);
+  assert.doesNotMatch(prompt, /Add-ons available at checkout:.*Signature Cajita/);
+  assert.doesNotMatch(prompt, /Flat \$5 delivery fee/);
   assert.match(prompt, /item price is not a complete event quote/);
   assert.match(prompt, /do not apply bowl fees\/windows to an event/);
   assert.match(prompt, /48 hours; custom printing requires at least 72 hours and quote review/);
