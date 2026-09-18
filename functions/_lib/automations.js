@@ -196,7 +196,7 @@ import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
 import { sendPushTickle } from './push.js';
 import { budgetGate, recordSpend } from './ai_budget.js';
-import { auditDraft } from './governance.js';
+import { auditSavedDraft, SOCIAL_AUDIT_SNAPSHOT } from './social_audit.js';
 import { TRUST_CATEGORIES, captionHash, autoPublishCategories } from './trust_ledger.js';
 import { ensureFoodPhoto } from './food_photo.js';
 
@@ -1060,14 +1060,6 @@ async function socialPlan(env, date) {
            VALUES (?,'instagram',?,NULL,?,'draft',?,?,'planner','system',?,?)`
         ).bind(postId, caption, randToken(24), when, brief, t, t).run();
       }
-      // Governance gate: score the draft the moment it exists — a planner caption once invented
-      // an ordering deadline. auditDraft fails closed to 'flag'; this inner catch only covers
-      // the pre-migration column gap, where losing the audit write must not lose the draft.
-      try {
-        const audit = await auditDraft(env, { caption, image_brief: brief });
-        await env.DB.prepare('UPDATE social_posts SET audit_score=?, audit_flags=?, audit_at=?, audit_status=? WHERE id=?')
-          .bind(audit.brand_score, toJson(audit.flags), now(), audit.verdict === 'pass' ? 'pass' : 'flag', postId).run();
-      } catch { /* the draft stands, visibly unscored (NULL audit_at) */ }
       // FOOD PHOTO AT DRAFT TIME (_lib/food_photo.js). This planner has always written an
       // image_brief — "art direction for a food photo we will generate" — and nothing has ever
       // generated from it, so every drafted post landed with an empty frame for the owner to
@@ -1080,6 +1072,7 @@ async function socialPlan(env, date) {
       // provider outage, the weekly AI ceiling, or a missing key costs this post its image — the
       // exact state it would have been in before — and never the caption or the week's cadence.
       const photo = await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
+      try { await auditSavedDraft(env, postId, caption); } catch { /* visibly unscored; never auto-approved */ }
 
       // Record WHAT produced this post — which of the owner's rules were in force, which brief
       // directed it, and which market intel finding (if any) shaped its angle — so the reach it
@@ -1115,7 +1108,7 @@ async function socialPlan(env, date) {
     for (const m of made) {
       if (!m.category || !autoLanes.has(m.category)) continue;
       const r = await env.DB.prepare(
-        "UPDATE social_posts SET status='scheduled', updated_at=? WHERE id=? AND status='draft' AND audit_status='pass'"
+        `UPDATE social_posts SET status='scheduled', updated_at=? WHERE id=? AND status='draft' AND audit_status='pass' AND audit_scope='caption_and_media' AND audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT}`
       ).bind(now(), m.id).run();
       if (r && r.meta && r.meta.changes === 1) autoScheduled++;
     }

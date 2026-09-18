@@ -109,7 +109,7 @@ async function maybeAnnounceEligible(env, category) {
 export async function autoPublishCategories(env) {
   if (!env || !env.DB) return new Set();
   try {
-    const r = await env.DB.prepare('SELECT category FROM trust_ledger WHERE auto_publish=1').all();
+    const r = await env.DB.prepare('SELECT category FROM trust_ledger WHERE auto_publish=1 AND approved_clean>=?').bind(AUTO_PUBLISH_AFTER).all();
     return new Set(((r && r.results) || []).map((x) => x.category));
   } catch { return new Set(); }
 }

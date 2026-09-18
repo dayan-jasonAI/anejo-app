@@ -1320,6 +1320,7 @@
     var flags = [];
     if (p.audit_flags) { try { flags = JSON.parse(p.audit_flags) || []; } catch (e) { flags = []; } }
     if (!Array.isArray(flags)) flags = [];
+    if (flags.some(function(f){return f && f.type === 'audit_unavailable';})) return '<div class="audit flag"><span class="audit-head">Brand Auditor · unavailable</span><div>' + flags.map(function(f){return esc(f.detail || '');}).join('<br>') + '</div></div>';
     var status = p.audit_status === 'pass' ? 'pass' : p.audit_status === 'flag' ? 'flag'
       : (flags.length ? 'flag' : 'pass');   // derive from flags if the canonical column is absent
     var label = status === 'pass' ? '✅ Brand Auditor · Pass' : '⚠️ Brand Auditor · Flagged';
@@ -1381,7 +1382,7 @@
       // Brand Auditor verdict — the score/flags/status the row already carries, so the owner reads
       // WHY a draft is clean or flagged before approving a time.
       auditBadge(p) +
-      '<div class="row-sub" style="font-size:11.5px">Audit scope: caption and image brief. Finished images still need visual review.</div>' +
+      '<div class="row-sub" style="font-size:11.5px">' + (p.audit_scope === 'caption_and_media' ? 'Audit reviewed caption and saved images. Auditing does not schedule or publish this draft.' : 'No current finished-image audit. Audit the saved draft before approval.') + '</div>' +
       (p.status === 'draft' || p.status === 'failed' ? '<button class="btn ghost" data-audit="' + esc(p.id) + '">Audit saved draft</button>' : '') +
       // Provenance — the brief / market intel / category / format / training rules behind this post.
       provenanceBadge(p) +

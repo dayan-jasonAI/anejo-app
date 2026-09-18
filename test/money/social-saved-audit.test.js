@@ -4,7 +4,7 @@ import {ownerEnv, OWNER_COOKIE} from '../helpers/sqlite-d1.js';
 import {onRequestPost} from '../../functions/api/hub/owner/social.js';
 import {auditSavedDraft} from '../../functions/_lib/social_audit.js';
 const call=(env,body)=>onRequestPost({env,request:new Request('https://anejo.test/api/hub/owner/social',{method:'POST',headers:{Cookie:OWNER_COOKIE},body:JSON.stringify(body)})});
-async function setup(){const env=ownerEnv();const r=await call(env,{op:'draft',caption:'Original',media_key:'marketing-library/2026-09/real.jpg'});return {env,id:(await r.json()).id};}
+async function setup(){const env=ownerEnv();env.MEDIA={get:async()=>({size:4,arrayBuffer:async()=>new Uint8Array([255,216,255,217]).buffer})};const r=await call(env,{op:'draft',caption:'Original',media_key:'marketing-library/2026-09/real.jpg'});return {env,id:(await r.json()).id};}
 const pass=async()=>({brand_score:97,flags:[],verdict:'pass'});
 test('saved draft audit persists genuine judge result and declares visual review boundary',async()=>{
  const {env,id}=await setup();const r=await auditSavedDraft(env,id,'Original',pass);
@@ -88,4 +88,26 @@ test('replacement rejects publishing, foreign slides and private media keys',asy
  env.DB.sqlite.prepare("UPDATE social_posts SET status='publishing' WHERE id=?").run(id);
  assert.equal((await call(env,{op:'replace_media',id,media_id:m.id,expected_media_key:m.media_key,media_key:'studio/new.jpg'})).status,409);
  assert.equal(env.DB.one('SELECT media_key FROM social_post_media WHERE id=?',m.id).media_key,m.media_key);
+});
+test('missing slide prevents provider spend and cannot preserve a previous passing audit',async()=>{
+ const {env,id}=await setup();await auditSavedDraft(env,id,'Original',pass);
+ env.MEDIA.get=async()=>null;
+ const result=await auditSavedDraft(env,id,'Original',async()=>{throw Error('must not spend without all images');});
+ assert.equal(result.audit.verdict,'flag');assert.equal(result.scope,'unavailable');
+ assert.equal(env.DB.one('SELECT audit_status FROM social_posts WHERE id=?',id).audit_status,'flag');
+});
+test('visual scope and snapshot match only the audited revision',async()=>{
+ const {env,id}=await setup();let count;
+ await auditSavedDraft(env,id,'Original',async(env,input)=>{count=input.images.length;return pass();});assert.equal(count,1);
+ const {SOCIAL_AUDIT_SNAPSHOT}=await import('../../functions/_lib/social_audit.js');
+ let row=env.DB.one(`SELECT audit_scope,audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT} AS matches FROM social_posts WHERE id=?`,id);
+ assert.equal(row.audit_scope,'caption_and_media');assert.equal(row.matches,1);
+ env.DB.sqlite.prepare("UPDATE social_post_media SET media_key='studio/later.jpg' WHERE post_id=?").run(id);
+ row=env.DB.one(`SELECT audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT} AS matches FROM social_posts WHERE id=?`,id);assert.equal(row.matches,0);
+});
+test('autonomy requires current clean streak as well as owner toggle',async()=>{
+ const {env}=await setup();const {autoPublishCategories}=await import('../../functions/_lib/trust_ledger.js');
+ env.DB.sqlite.prepare("UPDATE trust_ledger SET approved_clean=4,auto_publish=1 WHERE category='catering'").run();
+ assert.equal((await autoPublishCategories(env)).has('catering'),false);
+ env.DB.sqlite.prepare("UPDATE trust_ledger SET approved_clean=5 WHERE category='catering'").run();assert.equal((await autoPublishCategories(env)).has('catering'),true);
 });

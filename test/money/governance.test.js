@@ -154,11 +154,11 @@ test("a deterministic flag OVERRULES a model 'pass' — code catches lies, it do
   } finally { globalThis.fetch = realFetch; }
 });
 
-test('socialPlan wires the audit onto every draft row — source pin', () => {
-  assert.ok(AUTO.includes("from './governance.js'"), 'automations.js imports the auditor');
-  assert.ok(AUTO.includes('auditDraft(env, { caption, image_brief: brief })'), 'each draft is audited as inserted');
-  assert.match(AUTO, /UPDATE social_posts SET audit_score=\?, audit_flags=\?, audit_at=\?/,
-    'the audit lands on the row the owner will read');
+test('socialPlan audits finished media after photo preparation', () => {
+  assert.ok(AUTO.includes("from './social_audit.js'"));
+  assert.ok(AUTO.indexOf('await auditSavedDraft(env, postId, caption)') > AUTO.indexOf('const photo = await ensureFoodPhoto'));
+  assert.match(AUTO, /audit_scope='caption_and_media'/);
+  assert.match(AUTO, /audit_snapshot=\$\{SOCIAL_AUDIT_SNAPSHOT\}/);
 });
 
 test('the owner GET carries the audit out — audit columns in the posts SELECT', () => {
@@ -264,4 +264,19 @@ test('"training" joins the model flag allowlist without weakening it — an unkn
 test('training is wired with an explicit, budget-capped call — source pin', () => {
   assert.match(GOV, /import \{ trainingContext \} from '\.\/training\.js'/);
   assert.match(GOV, /await trainingContext\(env, \{ maxChars: TRAINING_BUDGET \}\)/, 'an unused import is not wiring');
+});
+
+test('visual audit sends ordered actual JPEG blocks and flags observed visual faults',async()=>{
+ const {db}=stubDb({menuItems:MENU});const savedFetch=globalThis.fetch;let sent;
+ globalThis.fetch=async(url,init)=>{sent=JSON.parse(init.body);return modelAnswer({brand_score:90,flags:[{type:'photo',detail:'Slide 2: emblem covers food'}],verdict:'pass'})();};
+ try {
+  const result=await auditDraft({DB:db,ANTHROPIC_API_KEY:'test'}, {caption:'Catering',images:[{data:'first'},{data:'second'}]});
+  assert.deepEqual(sent.messages[0].content.filter(c=>c.type==='image').map(c=>c.source.data),['first','second']);
+  assert.match(sent.system,/Inspect every image/);assert.equal(result.verdict,'flag');
+ }finally{globalThis.fetch=savedFetch;}
+});
+test('unavailable audits are shown as unavailable rather than a fabricated zero score',()=>{
+ const page=readFileSync(new URL('../../public/hub/owner/marketing.html',import.meta.url),'utf8');
+ assert.match(page,/Brand Auditor · unavailable/);
+ assert.ok(page.indexOf('Brand Auditor · unavailable')<page.indexOf('var scoreStr'));
 });
