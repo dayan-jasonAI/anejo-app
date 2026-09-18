@@ -84,7 +84,7 @@
   const S = '/api/hub/owner/sales', OUT = S + '/outreach', SET = S + '/settings', DEAL = S + '/deal';
   const root = document.getElementById('owner-root');
   const tabsEl = document.getElementById('sales-tabs');
-  const TABS = [['dashboard', 'Dashboard'], ['prospects', 'Prospects'], ['approvals', 'Approvals'], ['settings', 'Settings'], ['review', 'Launch review']];
+  const TABS = [['dashboard', 'Dashboard'], ['prospects', 'Prospects'], ['approvals', 'Approvals'], ['readiness', 'Readiness'], ['settings', 'Settings'], ['review', 'Launch review']];
   const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   let ACT = {};
   let filters = {};
@@ -148,7 +148,7 @@
     drawTabs(tab);
     root.className = '';
     root.innerHTML = '<p class="muted">Loading…</p>';
-    const views = { dashboard: dashboard, prospects: prospects, approvals: approvals, settings: settings, review: review };
+    const views = { dashboard: dashboard, prospects: prospects, approvals: approvals, readiness: readinessView, settings: settings, review: review };
     return org ? detail(org) : (views[tab] || dashboard)();
   }
   window.addEventListener('hashchange', route);
@@ -172,7 +172,9 @@
       ['Meetings / tastings', f.meetings_tastings], ['Proposals', f.proposals], ['Won', f.won], ['Lost', f.lost],
       ['Won — monthly (est.)', money(f.won_monthly_cents)], ['Realized revenue (invoiced)', money(f.realized_revenue_cents)],
     ];
+    const rb = (d.readiness && d.readiness.top_blockers) || [];
     root.innerHTML = readiness(d.send_readiness)
+      + (rb.length ? `<div class="bad"><b>Buyers will ask for things Añejo cannot hand over yet.</b> ${rb.slice(0, 4).map((x) => `${esc(x.label.split(' (')[0])} (${esc(x.prospects)} prospects)`).join(' · ')}. <a href="#tab=readiness">Open Readiness</a></div>` : '')
       + `<div class="tiles">${tiles.map(([n, l]) => `<div class="tile"><b>${esc(n)}</b><span>${esc(l)}</span></div>`).join('')}</div>`
       + `<div class="box"><h2>Primary KPI — recurring institutional accounts activated: ${esc(f.won)}</h2>
           <div class="okbar" style="background:#faf8f2;border-color:#e7e2d6;color:#3d4a42"><b>Where it is stuck:</b> ${esc(f.diagnosis.text)}</div>
@@ -187,7 +189,7 @@
           <p class="muted" style="margin-top:8px">${esc(d.reply_detection.note)}</p></div>`
       + `<div class="box"><h2>Recent activity</h2><ul class="feed">${(d.recent || []).map((a) => `<li><b>${esc(a.kind.replace(/_/g, ' '))}</b> ${a.organization_name ? '· ' + esc(a.organization_name) : ''} <span class="muted">· ${esc(when(a.created_at))}</span></li>`).join('') || '<li class="muted">Nothing yet.</li>'}</ul></div>`;
     const out = (r) => { document.getElementById('run-out').textContent = JSON.stringify(r && (r.output || r), null, 0).slice(0, 600); };
-    ACT.discover = async (b) => { b.disabled = true; const r = await post(S, { op: 'discover_now', max_calls: 2 }); b.disabled = false; if (!r.ok) toast(r.error); out(r); };
+    ACT.discover = async (b) => { b.disabled = true; const r = await post(S, { op: 'discover_now', max_calls: 3 }); b.disabled = false; if (!r.ok) toast(r.error); out(r); };
     ACT.job = async (b) => { b.disabled = true; const r = await post(S, { op: 'run_job', job: b.dataset.job }); b.disabled = false; out(r); };
     ACT.sendnow = async (b) => { b.disabled = true; const r = await post(OUT, { op: 'send_now' }); b.disabled = false; out(r); toast(r.sent ? `Sent ${r.sent}` : ((r.blocked_by && r.blocked_by[0]) || 'Nothing to send')); };
   }
@@ -384,6 +386,7 @@
           <div class="wide"><label>Notes</label><textarea id="e-notes" rows="2">${esc(o.notes || '')}</textarea></div></div>
           <button class="btn2" data-act="saveorg">Save</button></details></div>
 
+      ${buyerBox(d.buyer_checklist)}
       ${visitBox(d)}
       ${conversationBox(d)}
 
@@ -602,6 +605,58 @@
   }
 
   // ---------------------------------------------------------------- approval queue
+  // WHAT THIS BUYER WILL ASK FOR — from functions/_lib/sales/requirements.js, joined with Añejo's
+  // readiness. Shown on every prospect, open by default when something required is missing.
+  const RSTATUS = { ready: ['✅', 'Ready'], in_progress: ['🟡', 'In progress'], missing: ['⛔', 'Missing'], unknown: ['❔', 'Unknown'], not_applicable: ['➖', 'Not applicable'] };
+  const rstat = (st) => `<span class="muted" style="white-space:nowrap">${(RSTATUS[st] || RSTATUS.unknown)[0]} ${esc((RSTATUS[st] || RSTATUS.unknown)[1])}</span>`;
+  const levelTxt = { required: 'Required', conditional: 'If it applies', expected: 'Usually asked' };
+  function checklistRows(items) {
+    return `<div class="scroll"><table class="t"><thead><tr><th>They will ask for</th><th>How strict</th><th>Añejo</th></tr></thead><tbody>${items.map((i) => `<tr>
+      <td><b>${esc(i.label)}</b><br><span class="muted">${esc(i.why)}${i.when ? ' <b>' + esc(i.when) + '</b>' : ''}${i.source ? ' · ' + (i.url ? safeLink(i.url, i.source) : esc(i.source)) : ''}</span></td>
+      <td>${esc(levelTxt[i.level] || i.level)}</td>
+      <td>${rstat(i.status)}${!i.ready && i.readiness_note ? '<br><span class="muted">' + esc(i.readiness_note) + '</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  function buyerBox(c) {
+    if (!c) return '';
+    const cls = c.verdict === 'gaps' ? 'bad' : c.verdict === 'ask_first' ? 'warn' : 'okbar';
+    return `<details class="box"${c.verdict === 'gaps' ? ' open' : ''}><summary><b>What this buyer will ask for</b> · ${esc(c.label)}</summary>
+      <div class="${cls}">${esc(c.verdict_text)}</div>
+      <p class="muted">${esc(c.summary)}</p>
+      ${c.ask_first && c.ask_first.length ? `<p><b>Ask on the first call:</b></p><ul class="check">${c.ask_first.map((q) => `<li>${esc(q)}</li>`).join('')}</ul>` : ''}
+      ${checklistRows(c.items)}
+      <p class="muted">Update Añejo's side in <a href="#tab=readiness">Readiness</a>.</p></details>`;
+  }
+
+  // ---------------------------------------------------------------- readiness
+  async function readinessView() {
+    const d = await get(S + '?view=readiness');
+    if (!d || !d.ok) return fail(d);
+    drawTabs('readiness');
+    const tb = d.summary.top_blockers || [];
+    const groups = {};
+    for (const it of d.items) (groups[it.group] = groups[it.group] || []).push(it);
+    root.innerHTML = `<div class="box"><h2>Are we ready to close?</h2>
+        <p class="muted">Every institutional buyer asks for documents before they sign. This page is Añejo's side: keep each item current, and every prospect page shows which of them that buyer needs.</p>
+        ${tb.length ? `<div class="bad"><b>Blocking deals in your pipeline right now:</b><ul style="margin:6px 0 0 18px">${tb.map((x) => `<li><b>${esc(x.label)}</b>: needed by ${esc(x.prospects)} open prospects (${esc(x.categories.map((c) => c.replace(/_/g, ' ')).join(', '))}). ${esc(x.note || '')}</li>`).join('')}</ul></div>` : '<div class="okbar">Nothing required is missing for the categories in your pipeline.</div>'}
+      </div>`
+      + d.categories.map((c) => `<details class="box"${c.verdict === 'gaps' ? ' open' : ''}><summary><b>${esc(c.label)}</b> · ${esc(c.open_prospects)} open prospects · ${c.verdict === 'gaps' ? '⛔ gaps' : c.verdict === 'ask_first' ? '🟡 ask first' : '✅ ready'}</summary>
+          <p class="muted">${esc(c.summary)}</p>${checklistRows(c.items)}</details>`).join('')
+      + Object.entries(groups).map(([g, items]) => `<div class="box"><h2>${esc(g)}</h2>${items.map((it) => `<div class="rd" data-key="${esc(it.key)}" style="border-top:1px solid #eee;padding:10px 0">
+          <div><b>${esc(it.label)}</b> ${rstat(it.status)}${it.is_default ? ' <span class="muted">(as verified 9/18/2026)</span>' : it.updated_at ? ' <span class="muted">· updated ' + esc(when(it.updated_at)) + '</span>' : ''}</div>
+          <div class="f" style="margin-top:6px"><div><label>Status</label><select class="rd-st">${d.statuses.map((st) => `<option value="${esc(st)}"${st === it.status ? ' selected' : ''}>${esc((RSTATUS[st] || [0, st])[1])}</option>`).join('')}</select></div>
+          <div class="wide"><label>Note (what, where, expires)</label><textarea class="rd-note" rows="2">${esc(it.note || '')}</textarea></div></div>
+          <button class="btn2" data-act="rdsave" data-key="${esc(it.key)}">Save</button></div>`).join('')}</div>`).join('');
+    ACT.rdsave = async (b) => {
+      const row = b.closest('.rd');
+      b.disabled = true;
+      const r = await post(S, { op: 'set_readiness', key: b.dataset.key, status: row.querySelector('.rd-st').value, note: row.querySelector('.rd-note').value });
+      b.disabled = false;
+      if (!r.ok) return toast(r.error || 'Could not save');
+      toast('Saved');
+      readinessView();
+    };
+  }
+
   async function approvals() {
     const d = await get(S + '?view=queue');
     if (!d || !d.ok) return fail(d);
@@ -645,6 +700,7 @@
         <div class="ap-org">Organization: <b><a href="#org=${esc(x.organization_id)}">${esc(x.organization_name)}</a></b> · ${esc(x.city || '')} · ${esc((x.business_category || '').replace(/_/g, ' '))} ${tier(x.current_tier, x.current_score)}</div></div>
         <div class="muted">Step ${esc(x.step_number || 1)}${x.snoozed_until ? ' · snoozed until ' + esc(when(x.snoozed_until)) : ''}</div></div>
       ${x.failure_reason ? `<div class="warn">${esc(x.failure_reason)}</div>` : ''}
+      ${x.buyer && x.buyer.verdict === 'gaps' ? `<div class="warn"><b>Before you pitch a ${esc(x.buyer.label.toLowerCase())}:</b> ${esc(x.buyer.verdict_text)} <a href="#tab=readiness">Readiness</a></div>` : ''}
       <details><summary>Why this prospect qualifies</summary><ul class="check">${(x.why || []).map((w) => `<li>${esc(w)}</li>`).join('') || '<li class="muted">No criteria earned points — check before sending.</li>'}</ul></details>
       <label>Subject</label><input class="ap-subj" value="${esc(x.subject || '')}">
       <label>Email</label><textarea class="ap-body" rows="11">${esc(x.body_snapshot || '')}</textarea>

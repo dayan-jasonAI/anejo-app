@@ -182,6 +182,11 @@ export async function findExistingOrganization(env, rec) {
  * Merging only FILLS BLANKS — a discovery run never overwrites what the owner typed.
  * Returns { ok, organization_id, created } or { ok:false, error }.
  */
+// The evidence row's source_type for an organization's origin. Registry rows are their own kind: a
+// state license record is stronger evidence than a row someone typed into a spreadsheet.
+export const sourceTypeOf = (src) => (src === 'google_places' ? 'google_places' : src === 'csv' ? 'csv_row'
+  : (src === 'ahca_healthfinder' || src === 'samhsa_findtreatment') ? 'public_registry' : 'manual_entry');
+
 export async function upsertOrganization(env, input, { ctx, captured, source_url } = {}) {
   const rec = cleanOrgInput(input);
   if (!rec.name || rec.normalized_name.length < 2) return { ok: false, error: 'An organization needs a name.' };
@@ -201,7 +206,7 @@ export async function upsertOrganization(env, input, { ctx, captured, source_url
         .bind(...cols.map((c) => fill[c]), t, existing.id).run();
     }
     if (captured || source_url) {
-      await recordSource(env, { organization_id: existing.id, source_type: rec.source === 'google_places' ? 'google_places' : rec.source === 'csv' ? 'csv_row' : 'manual_entry', source_url, external_id: rec.source_external_id, captured });
+      await recordSource(env, { organization_id: existing.id, source_type: sourceTypeOf(rec.source), source_url, external_id: rec.source_external_id, captured });
     }
     return { ok: true, organization_id: existing.id, created: false, filled: Object.keys(fill) };
   }
@@ -226,7 +231,7 @@ export async function upsertOrganization(env, input, { ctx, captured, source_url
   }
   await recordSource(env, {
     organization_id: oid,
-    source_type: rec.source === 'google_places' ? 'google_places' : rec.source === 'csv' ? 'csv_row' : 'manual_entry',
+    source_type: sourceTypeOf(rec.source),
     source_url, external_id: rec.source_external_id, captured: captured || null,
   });
   await logActivity(env, {
@@ -493,11 +498,14 @@ async function distanceFor(env, org) {
   return ds.length ? { miles: Math.min(...ds), reason: null } : { miles: null, reason: 'no_org_coords' };
 }
 
-/** Signals from the evidence rows (the enrichment stores them there), newest capture first. */
+/**
+ * Signals from the evidence rows, newest capture first: what the website enrichment read, plus what
+ * a public registry establishes by license (a licensed adult day care serves a meal by rule).
+ */
 export async function signalsFor(env, orgId) {
   const out = [];
   const seen = new Set();
-  for (const r of await rows(env, "SELECT source_url, captured_json FROM sales_prospect_sources WHERE organization_id = ? AND source_type = 'website_page' ORDER BY captured_at DESC LIMIT 40", orgId)) {
+  for (const r of await rows(env, "SELECT source_url, captured_json FROM sales_prospect_sources WHERE organization_id = ? AND source_type IN ('website_page','public_registry') ORDER BY captured_at DESC LIMIT 40", orgId)) {
     const cap = parseJson(r.captured_json, {}) || {};
     for (const sig of Array.isArray(cap.signals) ? cap.signals : []) {
       const k = `${sig.kind}|${sig.snippet}`;

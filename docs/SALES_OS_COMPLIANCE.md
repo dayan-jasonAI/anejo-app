@@ -65,9 +65,28 @@ use, and (2) a deliberate code change to the lock — not a setting. Pinned by
 | SAMHSA **FindTreatment.gov** (N-SUMHSS directory) | Behavioral-health and substance-use facilities, incl. service setting (residential / outpatient) | Download from the locator, or the documented keyless JSON API `findtreatment.gov/locator/exportsAsJson/v2` | U.S. Government work published under the **Open Database License** (data.gov) — internal use is fine; attribution and share-alike apply if a derived database is ever made public **(owner / counsel)** |
 | Florida DCF **SUD Provider Search** | Licensed substance-use providers | Interactive search only | Stated purpose "licensing verification and transparency" — use to **verify** a license, not as a marketing list |
 
-**Recommended next automated source:** a FindTreatment.gov adapter behind the existing provider
-interface (`functions/_lib/sales/discovery.js`). Not built in this release: the API's parameters were
-documented but not verified against live responses here, and nothing is integrated on guesswork.
+**Public registries: INTEGRATED 2026-09-18** (`functions/_lib/sales/registries.js`, verified against
+live responses that day). Both are approved production sources and run under the existing discovery
+flag and caps; neither needs a key.
+
+- **AHCA FloridaHealthFinder**: the locator's own search (antiforgery token, form POST, redirect with
+  cookies); rows come from the JSON the results page embeds. Types: adult day care, crisis units,
+  community mental health partial hospitalization, residential treatment facilities (ALF available,
+  not in the default plan). Closed or inactive licenses are skipped. Licensed capacity and license
+  status are stored as evidence.
+- **SAMHSA FindTreatment.gov**: `exportsAsJson/v2` searched by COORDINATES (`sAddr=lat,lng`); a
+  free-text address is what returned a Maryland facility at "0 miles" in the first probe. Only
+  programs with a meal-bearing service setting (residential, partial hospitalization, day treatment,
+  intensive outpatient) are kept. A page of only far-away results is refused. ODbL: internal use;
+  attribution and share-alike apply only if a derived list is ever published.
+- A license is scoring evidence: an AHCA adult day care serves a meal by rule (59A-16.105), and a
+  licensed residential program serves three meals a day. Each such signal quotes its basis.
+
+**Buyer requirements and readiness** (`functions/_lib/sales/requirements.js`, Hub → Sales →
+Readiness): what each facility type must get from a meal vendor, with the rule it comes from, joined to
+Añejo's own status on each document. Every prospect page and approval card shows the gaps before the
+owner approves an email. Defaults record only what was verified on 2026-09-18; unverified items are
+"unknown", never assumed ready.
 
 ## Health information
 

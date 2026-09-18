@@ -18,6 +18,7 @@
 // organization's OWN website. Whether to keep Places-derived name/address beyond the terms'
 // window is an owner/legal decision recorded in the compliance doc, not a code default.
 import { cleanText } from './normalize.js';
+import { ahcaHealthfinder, samhsaFindTreatment } from './registries.js';
 
 const PLACES_URL = 'https://places.googleapis.com/v1/places:searchText';
 const PLACES_FIELDS = [
@@ -38,10 +39,15 @@ export function placesUsable(env, flags) {
 /**
  * The automated discovery provider a run may use, or null. A credential alone is never enough:
  * the provider must be approved for production persistence (config.js LOCKED_FLAGS).
+ * (Google Places only — the public registries below are always usable and need no credential.)
  */
 export function usableDiscoveryProvider(env, flags) {
   return placesUsable(env, flags) ? 'google_places' : null;
 }
+
+// PUBLIC REGISTRIES: approved production sources. Government-published licensure data about the
+// facilities themselves, readable without a key, and storable — which is exactly what Places is not.
+export const REGISTRY_PROVIDERS = ['ahca_healthfinder', 'samhsa_findtreatment'];
 
 /** What the Hub shows under "Discovery sources". Honest about what is and is not wired or approved. */
 export function providerStatus(env, flags) {
@@ -60,14 +66,14 @@ export function providerStatus(env, flags) {
         + (key ? 'A key is configured.' : 'No key is configured.'),
     },
     {
-      key: 'samhsa_findtreatment', label: 'SAMHSA FindTreatment.gov (federal behavioral-health / substance-use facility directory)',
-      configured: false, approved: false, usable: false, production_status: 'recommended_not_integrated',
-      note: 'Recommended next automated source (federal data, Open Database License). Not integrated in this release — download results and use CSV import.',
+      key: 'ahca_healthfinder', label: 'Florida AHCA FloridaHealthFinder (state-licensed adult day care, crisis units, partial hospitalization, residential treatment)',
+      configured: true, approved: true, usable: true, production_status: 'approved',
+      note: 'Integrated. Reads the state licensure registry county by county: license status, licensed capacity and location for every facility. Closed and inactive licenses are skipped. State public-records data.',
     },
     {
-      key: 'ahca_healthfinder', label: 'Florida AHCA FloridaHealthFinder (licensed adult day care centers, with licensed capacity)',
-      configured: false, approved: false, usable: false, production_status: 'recommended_not_integrated',
-      note: 'Recommended list source. Not integrated — download the CSV from FloridaHealthFinder and use CSV import (columns map automatically, including Licensed Beds).',
+      key: 'samhsa_findtreatment', label: 'SAMHSA FindTreatment.gov (federal behavioral-health / substance-use facility directory)',
+      configured: true, approved: true, usable: true, production_status: 'approved',
+      note: 'Integrated. Searches around each point in the discovery plan and keeps only programs that feed people on site (residential, partial hospitalization, day treatment, intensive outpatient). Federal data, Open Database License: internal use; attribution and share-alike apply only if a derived list is ever published.',
     },
   ];
 }
@@ -145,7 +151,7 @@ async function googlePlaces(env, { query, area, cursor, limit = 20, fetchImpl = 
   };
 }
 
-export const PROVIDERS = { google_places: googlePlaces };
+export const PROVIDERS = { google_places: googlePlaces, ahca_healthfinder: ahcaHealthfinder, samhsa_findtreatment: samhsaFindTreatment };
 
 export async function discoverOrganizations(env, { provider = 'google_places', approved = false, ...opts } = {}) {
   const fn = PROVIDERS[provider];

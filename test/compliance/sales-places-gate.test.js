@@ -29,26 +29,36 @@ test('scheduled discovery with a key configured AND discovery switched on still 
   const cfg = await reload(env);
   assert.equal(cfg.flags['sales.discovery_enabled'], true);
   const f = stubFetch();
-  let called = 0;
+  const urls = [];
+  // Every registry call "fails" so nothing is imported; the point is WHERE the calls went.
+  const fetchImpl = async (u) => { urls.push(String(u)); return new Response('unavailable', { status: 503 }); };
   try {
-    const r = await runDiscoveryTick(env, { cfg, fetchImpl: async () => { called++; return new Response('{}'); } });
-    assert.equal(r.not_configured, true);
-    assert.match(r.skipped, /not approved/);
-    const job = await runSalesJob(env, 'discovery', { cfg, fetchImpl: async () => { called++; return new Response('{}'); } });
-    assert.equal(job.outcome, 'skipped');
-    assert.equal(called, 0, 'the provider was never called');
-    assert.equal(f.calls.length, 0, 'no network at all');
+    const r = await runDiscoveryTick(env, { cfg, fetchImpl });
+    assert.ok(r.calls > 0, 'the public registries were walked');
+    const job = await runSalesJob(env, 'discovery', { cfg, fetchImpl });
+    assert.ok(job.outcome, 'the job ran and logged');
+    assert.ok(urls.length > 0);
+    assert.equal(urls.filter((u) => /googleapis\.com/.test(u)).length, 0, 'Places was never called');
+    assert.ok(urls.every((u) => /healthfinder\.fl\.gov|findtreatment\.gov/.test(u)), 'only public registries were called');
+    assert.equal(f.calls.length, 0, 'no network outside the injected fetch');
   } finally { f.restore(); }
   assert.equal(env.DB.rows('SELECT id FROM sales_organizations').length, 0);
 });
 
-test('the owner’s "discover now" is refused too, with the reason', async () => {
+test('the owner’s "discover now" walks the public registries and never reaches Places', async () => {
   const { env } = await readyEnv({ extraEnv: KEYED });
-  const res = await salesPost({ env, request: new Request('https://anejocateringco.com/api/hub/owner/sales', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: OWNER_COOKIE }, body: JSON.stringify({ op: 'discover_now' }),
-  }) });
-  assert.equal(res.status, 409);
-  assert.match((await res.json()).error, /not approved/);
+  const f = stubFetch(async () => new Response('unavailable', { status: 503 }));
+  let res;
+  try {
+    res = await salesPost({ env, request: new Request('https://anejocateringco.com/api/hub/owner/sales', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: OWNER_COOKIE }, body: JSON.stringify({ op: 'discover_now', max_calls: 2 }),
+    }) });
+  } finally { f.restore(); }
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.calls, 2);
+  assert.equal(f.calls.filter((c) => /googleapis\.com/.test(c.url)).length, 0, 'Places was never called');
+  assert.ok(f.calls.length > 0 && f.calls.every((c) => /healthfinder\.fl\.gov|findtreatment\.gov/.test(c.url)));
 });
 
 test('the provider boundary itself refuses Places without an explicit approval', async () => {
@@ -59,7 +69,7 @@ test('the provider boundary itself refuses Places without an explicit approval',
   assert.equal(called, 0);
 });
 
-test('the Hub is told Places is configured but NOT approved, and CSV is the approved production source', async () => {
+test('the Hub is told Places is configured but NOT approved, and CSV plus the public registries are the approved sources', async () => {
   const { cfg } = await readyEnv({ extraEnv: KEYED });
   const list = providerStatus(KEYED, cfg.flags);
   const places = list.find((p) => p.key === 'google_places');
@@ -73,8 +83,8 @@ test('the Hub is told Places is configured but NOT approved, and CSV is the appr
   assert.equal(usableDiscoveryProvider(KEYED, cfg.flags), null);
   for (const k of ['samhsa_findtreatment', 'ahca_healthfinder']) {
     const s = list.find((p) => p.key === k);
-    assert.equal(s.usable, false, `${k} is a recommendation, not an integration`);
-    assert.equal(s.production_status, 'recommended_not_integrated');
+    assert.equal(s.usable, true, `${k} is an approved, integrated public registry`);
+    assert.equal(s.production_status, 'approved');
   }
 });
 
