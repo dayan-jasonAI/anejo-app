@@ -9,7 +9,7 @@
    - static assets        → cache-first with background refresh.
    - web push             → encrypted event-specific payload, with legacy tickle fallback.
    Bump CACHE on shell changes to invalidate. */
-const CACHE = 'anejo-hub-v8';
+const CACHE = 'anejo-hub-v9';
 const PREFERENCES_CACHE = 'anejo-hub-preferences';
 const LANGUAGE_KEY = '/hub/__push-language';
 const SHELL = [
@@ -62,7 +62,10 @@ self.addEventListener('fetch', (event) => {
     // Only manage pages inside the HUB shell; leave the rest of the site to the browser.
     if (!url.pathname.startsWith('/hub/')) return;
     event.respondWith(
-      fetch(req)
+      // Network-first must also bypass the browser's HTTP cache; otherwise a successful
+      // fetch can return an old document for hours after a deployment. CacheStorage remains
+      // the explicit offline fallback and never overrides an online auth redirect/error.
+      fetch(req, { cache: 'no-cache' })
         .then((res) => {
           // Only cache clean, same-origin, non-redirected page responses.
           if (res && res.ok && !res.redirected && res.type === 'basic') {

@@ -28,17 +28,10 @@ test('caption-only retains legacy payload and response contract',async()=>{
 const canonicalEmblem = readFileSync(new URL('../../public/assets/img/emblem.png', import.meta.url));
 async function auditDraft(env, input) { return actualAuditDraft({ ...env, ASSETS: { fetch: async () => new Response(canonicalEmblem) } }, input); }
 
-test('unavailable or hash-mismatched approved reference blocks inference',async()=>{
- const original=globalThis.fetch;let providerCalls=0;globalThis.fetch=async()=>{providerCalls++;throw new Error('no provider call permitted');};
- try{for(const fetchReference of [async()=>new Response('not canonical'),async()=>new Response('',{status:404}),async()=>{throw new Error('offline');},async()=>new Response(new Uint8Array(262145))]){
- const env=ownerEnv({ANTHROPIC_API_KEY:'test',ASSETS:{fetch:fetchReference}});
- const r=await actualAuditDraft(env,{caption:'Catering',images:[{data:'test'}]});assert.equal(r.verdict,'flag');assert.equal(r.brand_score,null);assert.ok(r.flags.some(f=>f.type==='audit_unavailable'));
- }assert.equal(providerCalls,0);}finally{globalThis.fetch=original;}
-});
-test('reference fallback fetches only the pinned canonical URL and verifies actual file hash',async()=>{
- const {loadEmblemReference,EMBLEM_REFERENCE_URL,EMBLEM_REFERENCE_SHA256}=await import('../../functions/_lib/governance.js');const original=globalThis.fetch;let requested;
- globalThis.fetch=async request=>{requested=request;return new Response(canonicalEmblem);};
- try{const r=await loadEmblemReference({});assert.equal(requested.url,EMBLEM_REFERENCE_URL);assert.equal(requested.redirect,'error');assert.equal(r.metadata.sha256,EMBLEM_REFERENCE_SHA256);assert.equal(r.metadata.purpose,'visual_consistency_only');}finally{globalThis.fetch=original;}
+test('reference loads canonical bundled bytes with no external or ASSETS request',async()=>{
+ const {loadEmblemReference,EMBLEM_REFERENCE_URL,EMBLEM_REFERENCE_SHA256}=await import('../../functions/_lib/governance.js');const original=globalThis.fetch;
+ const denied=async()=>{assert.fail('Reference must not access the network');};globalThis.fetch=denied;
+ try{const r=await loadEmblemReference({ASSETS:{fetch:denied}});assert.ok(r);assert.equal(r.metadata.source,'public/assets/img/emblem.png');assert.equal(r.metadata.canonical_url,EMBLEM_REFERENCE_URL);assert.equal(r.metadata.sha256,EMBLEM_REFERENCE_SHA256);assert.equal(r.metadata.purpose,'visual_consistency_only');assert.deepEqual(Buffer.from(r.data,'base64'),canonicalEmblem);}finally{globalThis.fetch=original;}
 });
 
 test('uncertain visual evidence reports missing proof rather than a provider outage',async()=>{

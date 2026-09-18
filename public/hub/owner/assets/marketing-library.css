@@ -12,5 +12,7 @@
 .photo-reuse-pane{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding:12px;border-top:1px solid var(--line);max-width:760px}
 .photo-library-card .photo-reuse-preview{width:100%;max-height:420px;aspect-ratio:auto;object-fit:contain;background:#f4f0e7}
 .photo-reuse-pane>label{display:grid;gap:6px}.photo-reuse-pane input[type=text],.photo-reuse-pane select{padding:10px;max-width:100%;border:1px solid var(--line);border-radius:8px}
-.photo-reuse-products{max-height:260px;overflow:auto;border:1px solid var(--line);padding:12px;border-radius:8px}.photo-reuse-products label,.photo-reuse-pane .photo-reuse-optin{display:flex;align-items:flex-start;gap:9px;padding:6px 0;font-size:13px;line-height:1.4}
+.photo-reuse-products{border:1px solid var(--line);padding:12px;border-radius:8px}.photo-reuse-products label,.photo-reuse-pane .photo-reuse-optin{display:flex;align-items:flex-start;gap:9px;padding:6px 0;font-size:13px;line-height:1.4}
 .photo-reuse-pane input[type=checkbox]{flex:0 0 auto;width:18px;height:18px;margin:0}.photo-reuse-hash{font-family:monospace;font-size:11px;overflow-wrap:anywhere}.photo-reuse-state{font-weight:600}.photo-reuse-status{white-space:pre-wrap;overflow-wrap:anywhere}
+
+.photo-reuse-product-list{max-height:260px;overflow:auto;overscroll-behavior:contain}.photo-reuse-products .photo-reuse-search{display:grid;gap:6px}.photo-reuse-search input{min-width:0;width:100%;padding:10px;border:1px solid var(--line);border-radius:8px}.photo-reuse-count{font-size:12px;color:var(--muted);margin:8px 0}

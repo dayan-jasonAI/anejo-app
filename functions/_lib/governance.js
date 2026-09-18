@@ -12,6 +12,7 @@
 //
 // Files under functions/_lib are NOT routed.
 import { budgetGate, recordSpend } from './ai_budget.js';
+import { BUNDLED_EMBLEM_REFERENCE } from './generated_emblem_reference.js';
 import { loadMenu } from './menu.js';
 import { loadOperating } from './operating.js';
 import { loadBrand } from './brand_source.js';
@@ -21,20 +22,20 @@ import { FORMAT as VISUAL_AUDIT_FORMAT, coverageProblem, rubricPrompt, validateV
 // Same canonical asset used by public/hub/owner/assets/marketing-branding.js.
 export const EMBLEM_REFERENCE_URL = 'https://anejocateringco.com/assets/img/emblem.png';
 export const EMBLEM_REFERENCE_SHA256 = 'ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598';
-export async function loadEmblemReference(env) {
+export async function loadEmblemReference(_env, reference = BUNDLED_EMBLEM_REFERENCE) {
   try {
-    const request = new Request(EMBLEM_REFERENCE_URL, { redirect: 'error', signal: AbortSignal.timeout(5000) });
-    const response = env?.ASSETS?.fetch ? await env.ASSETS.fetch(request) : await fetch(request);
-    if (!response.ok || !response.body) return null;
-    const reader = response.body.getReader(); const chunks = []; let size = 0;
-    while (true) { const { value, done } = await reader.read(); if (done) break;
-      size += value.byteLength; if (size > 262144) { await reader.cancel(); return null; } chunks.push(value); }
-    const bytes = new Uint8Array(size); let offset = 0;
-    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+    // Private bundled source: no HTTP fallback and no dependency on site authorization.
+    if (!reference || reference.source !== 'public/assets/img/emblem.png' || reference.canonical_url !== EMBLEM_REFERENCE_URL ||
+        reference.sha256 !== EMBLEM_REFERENCE_SHA256 || reference.byte_length !== 163850 ||
+        typeof reference.data !== 'string' || reference.data.length !== 218468 || reference.data.length > 349528) return null;
+    const binary = atob(reference.data);
+    if (binary.length !== 163850 || binary.length > 262144) return null;
+    const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+    if (![137,80,78,71,13,10,26,10].every((byte,i) => bytes[i] === byte)) return null;
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2,'0')).join('');
     if (hash !== EMBLEM_REFERENCE_SHA256) return null;
-    let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
-    return { data: btoa(binary), metadata: { source: EMBLEM_REFERENCE_URL, sha256: hash, verified: true, purpose: 'visual_consistency_only' } };
+    return { data: reference.data, metadata: { source: reference.source, canonical_url: EMBLEM_REFERENCE_URL, sha256: hash,
+      byte_length: bytes.length, transport: 'bundled_repository_asset', verified: true, purpose: 'visual_consistency_only' } };
   } catch { return null; }
 }
 
