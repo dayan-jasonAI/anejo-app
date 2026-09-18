@@ -1,5 +1,6 @@
 // Saved-draft audit: private JPEG bytes, ordered slides and caption, bound to one revision.
 import { auditDraft } from './governance.js';
+import { VERSION as VISUAL_AUDIT_VERSION } from './visual_audit_rubric.js';
 
 // Length-safe JSON entries, ordered by editorial sequence. Included in the atomic write
 // predicate so an in-flight provider response cannot certify changed media or ordering.
@@ -13,7 +14,7 @@ export const SOCIAL_AUDIT_SNAPSHOT = `json_array(COALESCE(caption,''),COALESCE(i
 // A shared SQL expression permits comparison inside the same conditional write.
 const versions = (table, where) => `(SELECT COALESCE(group_concat(item, ','), '') FROM (SELECT json_array(id,updated_at) AS item FROM ${table} WHERE ${where} ORDER BY id))`;
 export const SOCIAL_AUDIT_CONTEXT = `json_array(${versions('docs', "active=1 AND doc_type='brand'")},${versions('training_rules','active=1')},${versions('training_examples','active=1')},${versions('menu_items','active=1')})`;
-export const SOCIAL_AUDIT_CURRENT = `(audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT} AND audit_context_snapshot=${SOCIAL_AUDIT_CONTEXT} AND json_valid(audit_detail_json) AND CASE WHEN json_valid(audit_detail_json) THEN json_extract(audit_detail_json,'$.rubric_version')='anejo-visual-1' ELSE 0 END)`;
+export const SOCIAL_AUDIT_CURRENT = `(audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT} AND audit_context_snapshot=${SOCIAL_AUDIT_CONTEXT} AND json_valid(audit_detail_json) AND CASE WHEN json_valid(audit_detail_json) THEN json_extract(audit_detail_json,'$.rubric_version')='${VISUAL_AUDIT_VERSION}' ELSE 0 END)`;
 
 export async function loadAuditImages(env, mediaSnapshot) {
   if (!env.MEDIA) throw new Error('Media storage unavailable');

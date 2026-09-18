@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { CRITERIA, VERSION } from '../../functions/_lib/visual_audit_rubric.js';
 import { ownerEnv } from '../helpers/sqlite-d1.js';
 import { auditDraft as actualAuditDraft } from '../../functions/_lib/governance.js';
-const answer=()=>({rubric_version:VERSION,observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',rule_source:'criterion',rule_quote:c.rule,caption_quote:'',slides:[1],explanation:'The visible result meets this criterion.'})),suggestions:[]});
+const answer=()=>({rubric_version:VERSION,observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_quote:'',slides:[1],explanation:'The visible result meets this criterion.'})),suggestions:[]});
 test('visual candidate sends rubric and retained coverage, no image persistence',async()=>{
  const env=ownerEnv({ANTHROPIC_API_KEY:'test'});const original=globalThis.fetch;let body;
  globalThis.fetch=async(_,init)=>{body=JSON.parse(init.body);return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(answer())}]})};};

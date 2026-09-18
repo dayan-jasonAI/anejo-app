@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {CRITERIA,VERSION,validateVisualAudit,coverageProblem} from '../../functions/_lib/visual_audit_rubric.js';
 const context=()=>({emblemReference:{verified:true,purpose:'visual_consistency_only'},caption:'Planning an event in Hollywood? Share your city and we will confirm availability.',slideCount:3,brandText:'Use legible branding in the full frame.',trainingText:'Keep the entire frame visible.',menuText:'Lechon catering tray',brandReceipt:{read_status:'ok',truncated:false},trainingReceipt:{read_status:'ok',reads:{rules:'ok',examples:'empty'},truncated:false}});
-const response=()=>({rubric_version:VERSION,observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',rule_source:'criterion',rule_quote:c.rule,caption_quote:'',slides:[1],explanation:'The inspected evidence satisfies this criterion.'})),suggestions:[]});
+const response=()=>({rubric_version:VERSION,observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_quote:'',slides:[1],explanation:'The inspected evidence satisfies this criterion.'})),suggestions:[]});
 function check(data,ctx=context()){return validateVisualAudit(data,ctx);}
 test('complete compliant rubric has defined score, suggestions never become violations',()=>{const d=response();d.suggestions=['Optional: shorten the opening sentence.'];const r=check(d);assert.equal(r.verdict,'pass');assert.equal(r.score,100);assert.equal(r.suggestions.length,1);});
 test('real stated defect remains flagged with rule and slide evidence',()=>{const d=response();Object.assign(d.observations[1],{status:'violated',slides:[2],explanation:'Slide 2 clips the final word of the required heading.'});const r=check(d);assert.equal(r.verdict,'flag');assert.equal(r.flags.length,1);assert.equal(r.score,86);});
@@ -16,7 +16,10 @@ test('source failures, partial reads and truncation cannot support visual pass',
  for(const mutate of [c=>c.trainingReceipt=null,c=>c.brandReceipt.read_status='unavailable',c=>c.trainingReceipt.read_status='partial',c=>c.trainingReceipt.truncated=true,c=>c.brandReceipt.truncated=true,c=>c.trainingReceipt.selection_may_be_limited={rules:true}]){const c=context();mutate(c);assert.ok(coverageProblem(c.brandReceipt,c.trainingReceipt));assert.equal(check(response(),c).available,false);}
 });
 test('owner instructions remain mandatory even when training table is empty',()=>{const d=response();d.observations[6].status='not_applicable';assert.equal(check(d).available,false);const c=context();c.trainingReceipt.reads.rules='empty';assert.equal(check(d,c).available,false);});
-test('source quotes must occur verbatim in the declared supplied context',()=>{const d=response();Object.assign(d.observations[0],{rule_source:'brand',rule_quote:context().brandText,caption_quote:context().caption});assert.equal(check(d).available,true);d.observations[0].rule_source='training';assert.equal(check(d).available,false);});
+test('canonical rule references are server-derived; model source fields are rejected',()=>{
+ const d=response();const out=check(d);assert.equal(out.observations[0].rule_source,'criterion');assert.equal(out.observations[0].rule_quote,CRITERIA[0].rule);
+ for(const extra of [{rule_source:'brand'},{rule_quote:CRITERIA[0].rule}]){const invalid=response();Object.assign(invalid.observations[0],extra);assert.equal(check(invalid).available,false);}
+});
 
 test('empty brand cannot support acceptance',()=>{const c=context();c.brandText='';assert.equal(check(response(),c).available,false);});
 
