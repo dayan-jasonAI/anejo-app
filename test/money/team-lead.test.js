@@ -410,8 +410,8 @@ test('Lead-created drafts pass through governance too — no unscored door', () 
   // The planner's inserts are audited in socialPlan; a Lead that could slip unscored copy past
   // the gate would make governance decorative. Found at integration, pinned here.
   const TEAM = readFileSync(new URL('../../functions/api/hub/owner/team.js', import.meta.url), 'utf8');
-  assert.match(TEAM, /auditDraft\(env, \{ caption, image_brief: brief \}\)/);
-  assert.match(TEAM, /audit_status=\? WHERE id=\?/);
+  assert.match(TEAM, /auditSavedDraft\(env, postId, caption\)/);
+  assert.ok(TEAM.indexOf('original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}') < TEAM.indexOf('await auditSavedDraft(env, postId, caption)'), 'seal original media before revision-bound audit');
 });
 
 test('EVERY action block is accounted for — the phantom-draft bug, pinned', () => {
