@@ -1,0 +1,1 @@
+{"name":"anejo-marketing-render-prototype","private":true,"type":"module","scripts":{"render":"node render.mjs","test":"node --test test.mjs"},"dependencies":{"@resvg/resvg-wasm":"2.6.2","jpeg-js":"0.4.4"}}

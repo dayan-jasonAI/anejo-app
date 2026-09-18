@@ -24,7 +24,8 @@ import { budgetGate, recordSpend, weekSpend, WEEKLY_LIMIT_MICRO } from './ai_bud
 import { loadBrand } from './brand_source.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from './bowlspec.js';
-import { trainingContext } from './training.js';
+import { trainingContextReceipt } from './training.js';
+import { persistInferenceReceipt } from './inference_receipt.js';
 import { buildRetrospective, renderRetrospective } from './retrospective.js';
 
 // Strategy is the one surface worth frontier tokens: it runs a handful of times a day, owner-
@@ -147,8 +148,25 @@ export async function buildSpine(env) {
     remaining_usd: Math.max(0, Math.round((WEEKLY_LIMIT_MICRO - spentMicro) / 10000) / 100),
   };
 
-  const briefs = await rows(env,
-    'SELECT id, title, objective, status, created_at FROM team_briefs ORDER BY created_at DESC LIMIT 5');
+  let briefs = [], briefsStatus = 'unavailable';
+  try {
+    const read = await env.DB.prepare('SELECT id, title, objective, status, created_at, updated_at FROM team_briefs ORDER BY created_at DESC LIMIT 5').all();
+    if (read?.success !== false && Array.isArray(read?.results)) {
+      briefs = read.results;
+      briefsStatus = briefs.length ? 'ok' : 'empty';
+    }
+  } catch { /* absent evidence stays unavailable */ }
+  const briefText = renderBriefs(briefs);
+  const briefDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(briefText));
+  const briefReceipt = {
+    source: 'd1', read_status: briefsStatus,
+    source_ids: briefs.map(b => b.id).filter(Boolean),
+    documents: briefs.map(b => ({ id: b.id ?? null, updated_at: b.updated_at ?? null })),
+    rendered_sha256: Array.from(new Uint8Array(briefDigest), b => b.toString(16).padStart(2, '0')).join(''),
+    supplied_chars: briefText.length,
+    truncated: briefs.some(b => String(b.objective || '').length > 100),
+    selection_limit: 5, selection_may_be_limited: briefs.length >= 5,
+  };
 
   // Ordering surfaces — fixed facts the Lead kept (correctly) refusing to invent and spending
   // request_intel on. Cheaper to state them once than to answer the same intel question weekly.
@@ -165,7 +183,12 @@ export async function buildSpine(env) {
   // that throws is a Lead that cannot answer at all — an untrained team is workable, a dead one
   // is not.
   let training = '';
-  try { training = await trainingContext(env, { maxChars: 4000 }); } catch { training = ''; }
+  let trainingReceipt = { read_status: 'unavailable' };
+  try {
+    const context = await trainingContextReceipt(env, { maxChars: 4000 });
+    training = context.text;
+    trainingReceipt = context.receipt;
+  } catch { training = ''; }
 
   // How the last round actually went, measured against what the briefs said they were for.
   // Never throws — a broken retrospective must cost the Lead its memory, never its desk.
@@ -174,9 +197,14 @@ export async function buildSpine(env) {
 
   return {
     brand: brand.text, brand_source: brand.source,
+    input_components: { brand: brand.receipt || { read_status: 'unknown' }, training: trainingReceipt, briefs: briefReceipt },
     menu: menuItems, other_items: otherItems,
     metrics, drafts, budget, briefs, surfaces, training, retro,
   };
+}
+
+function renderBriefs(briefs) {
+  return briefs.length ? briefs.map(b => `- ${b.id ? `[id: ${b.id}] ` : ''}[${b.status}] ${b.title}${b.objective ? ' — ' + String(b.objective).slice(0, 100) : ''}`).join('\n') : '(none yet)';
 }
 
 // The spine as prompt text. Facts the spine does not have are stated as absent, in words, so the
@@ -222,9 +250,7 @@ export function renderSpine(spine) {
   const draftLines = spine.drafts.count
     ? `${spine.drafts.count} post drafts already await owner approval:\n` + spine.drafts.titles.map((t) => `- ${t}`).join('\n')
     : 'The draft queue is empty.';
-  const briefLines = spine.briefs.length
-    ? spine.briefs.map((b) => `- [${b.status}] ${b.title}${b.objective ? ' — ' + String(b.objective).slice(0, 100) : ''}`).join('\n')
-    : '(none yet)';
+  const briefLines = renderBriefs(spine.briefs);
   // '' on a fresh install with no history — the prompt then reads exactly as it did before the
   // learning loop was closed, rather than carrying an empty "here is how it went" heading.
   const retroText = renderRetrospective(spine.retro);
@@ -325,17 +351,21 @@ export function parseActionBlock(text) {
 
 // One messages call. Returns the raw Response-parsed body plus status so the caller can tell
 // "model does not exist" from "network down" — they need different follow-ups.
-async function callModel(env, model, { system, messages, maxTokens }) {
+async function callModel(env, model, { system, messages, maxTokens, components }) {
+  const requestJson = JSON.stringify({ model, max_tokens: maxTokens, system, messages });
+  let inputReceipt;
+  try { inputReceipt = await persistInferenceReceipt(env, { surface: 'team_lead', requestJson, components }); }
+  catch { inputReceipt = { ok: false, persisted: false, reason: 'receipt_unavailable' }; }
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages }),
+      body: requestJson,
     });
     const j = await r.json().catch(() => null);
-    return { status: r.status, ok: r.ok, body: j };
+    return { status: r.status, ok: r.ok, body: j, input_receipt: inputReceipt };
   } catch (e) {
-    return { status: 0, ok: false, error: String((e && e.message) || e).slice(0, 200) };
+    return { status: 0, ok: false, error: String((e && e.message) || e).slice(0, 200), input_receipt: inputReceipt };
   }
 }
 
@@ -363,27 +393,41 @@ export async function leadReply(env, { history = [], message } = {}) {
 
   const spine = await buildSpine(env);
   const system = SYSTEM_RULES + '\n\n' + renderSpine(spine);
+  const inputContext = { components: spine.input_components,
+    supplied_brief_ids: spine.input_components.briefs.source_ids,
+    supplied_rule_ids: spine.input_components.training.rules?.map(r => r.id).filter(Boolean) || [],
+    // Intel is not directly supplied by this spine; never validate model citations by re-query.
+    supplied_intel_ids: [],
+  };
   const messages = [
     ...history.slice(-20).map((m) => ({ role: m.role === 'lead' ? 'assistant' : 'user', content: String(m.body || '') })),
     { role: 'user', content: String(message || '') },
   ].filter((m) => m.content);
 
   let model = leadModel(env);
-  let res = await callModel(env, model, { system, messages, maxTokens: 1500 });
+  const attempts = [];
+  const attempt = async () => {
+    const result = await callModel(env, model, { system, messages, maxTokens: 1500, components: spine.input_components });
+    // HTTP status is observed in this invocation; the persisted input record itself never
+    // claims transport success. A failed receipt cannot silently become verified evidence.
+    attempts.push({ model, input_receipt: result.input_receipt, observed_http_status: result.status || null });
+    return result;
+  };
+  let res = await attempt();
   if (!res.ok && isModelNotFound(res)) {
     // The configured frontier id has rotated out from under us. Fall back to the known-good
     // Sonnet rather than dying — and report which model answered, so a degraded Lead is a fact
     // on the page, not a mystery in the tone.
     model = FALLBACK_MODEL;
-    res = await callModel(env, model, { system, messages, maxTokens: 1500 });
+    res = await attempt();
   }
-  if (!res.ok || !res.body) return { ok: false, reason: 'model_error', detail: (res.body && res.body.error && res.body.error.message) || res.error || `HTTP ${res.status}` };
+  if (!res.ok || !res.body) return { ok: false, reason: 'model_error', detail: (res.body && res.body.error && res.body.error.message) || res.error || `HTTP ${res.status}`, input_receipt: res.input_receipt, inference_receipt: res.input_receipt, inference_attempts: attempts, input_context: inputContext };
 
   // Metered on the model that ANSWERED, before any parsing — an unparseable answer was still a
   // billed answer.
   await recordSpend(env, { feature: 'team_lead', model, usage: res.body.usage });
 
   const text = ((res.body.content && res.body.content[0] && res.body.content[0].text) || '').trim();
-  if (!text) return { ok: false, reason: 'empty_response' };
-  return { ok: true, text, action: parseActionBlock(text), actions: parseActionBlocks(text), model };
+  if (!text) return { ok: false, reason: 'empty_response', input_receipt: res.input_receipt, inference_receipt: res.input_receipt, inference_attempts: attempts, input_context: inputContext };
+  return { ok: true, text, action: parseActionBlock(text), actions: parseActionBlocks(text), model, input_receipt: res.input_receipt, inference_receipt: res.input_receipt, inference_attempts: attempts, input_context: inputContext };
 }
