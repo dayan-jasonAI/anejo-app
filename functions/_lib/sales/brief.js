@@ -158,8 +158,9 @@ export async function generateBrief(env, orgId, { cfg, ctx, fetchImpl = fetch } 
   let flags = [];
   let kind = 'deterministic';
   let why = null;
+  const gate = env.ANTHROPIC_API_KEY ? await budgetGate(env) : null;
   if (!env.ANTHROPIC_API_KEY) why = 'no ANTHROPIC_API_KEY';
-  else if (!(await budgetGate(env)).ok) why = 'weekly AI budget reached';
+  else if (!gate.ok) why = gate.reason;
   else {
     const ctl = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = ctl ? setTimeout(() => ctl.abort(), 25000) : null;

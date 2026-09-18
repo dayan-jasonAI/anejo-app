@@ -27,7 +27,7 @@ test('the planner reads results back by cause', () => {
 });
 
 test('provenance uses retained sources gathered before inference, not fresh attribution queries', () => {
-  const contextAt = planner.indexOf('ruleIds: activeRuleIds } = await plannerExtraContext(env)');
+  const contextAt = planner.indexOf('ruleIds: activeRuleIds, trainingReceipt } = await plannerExtraContext(env)');
   const inferenceAt = planner.indexOf('const ai =', contextAt);
   assert.ok(contextAt > -1 && inferenceAt > contextAt);
   assert.match(planner, /ruleIds = training\.receipt\.rules\.map/);
@@ -39,7 +39,7 @@ test('provenance uses retained sources gathered before inference, not fresh attr
 
 test('missing context keeps empty provenance defaults and guarded context reads', () => {
   const context = planner.slice(planner.indexOf('async function plannerExtraContext'), planner.indexOf("import { captureSystem }"));
-  assert.match(context, /let ruleIds = \[\]/);
+  assert.match(context, /let ruleIds;/);
   assert.match(context, /const briefIds = new Set\(\)/);
   assert.match(context, /try \{[\s\S]*await trainingContextReceipt[\s\S]*catch/);
   assert.match(context, /try \{[\s\S]*FROM team_briefs[\s\S]*catch/);

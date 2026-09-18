@@ -61,14 +61,14 @@ test('the tick never even picks up an imageless post', () => {
 
 test('the planner is built from the LIVE menu, availability included', () => {
   const planner = AUTO.slice(AUTO.indexOf('async function socialPlan'), AUTO.indexOf('const RUNNERS'));
-  assert.match(planner, /const onSale = bowls\.filter\(\(it\) => isAvailable\(it\) && isOrderable\(it\)\)/);
+  assert.match(planner, /const onSale = offerings\.filter\(\(it\) => isAvailable\(it\) && isOrderable\(it\)\)/);
   assert.match(planner, /Currently SOLD OUT and must not be mentioned/);
 });
 
 test('with nothing on sale it writes nothing, rather than cheerful copy about an empty menu', () => {
   const planner = AUTO.slice(AUTO.indexOf('async function socialPlan'), AUTO.indexOf('const RUNNERS'));
   assert.match(planner, /if \(!onSale\.length\)/);
-  assert.match(planner, /reason: 'no_bowls_available'/);
+  assert.match(planner, /reason: 'no_menu_available'/);
 });
 
 test('it is told not to invent prices, discounts or claims', () => {

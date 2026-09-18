@@ -60,7 +60,7 @@ const MENU = [
 const modelAnswer = (body) => async () => ({
   ok: true,
   async json() {
-    return { usage: { input_tokens: 500, output_tokens: 80 }, content: [{ text: JSON.stringify(body) }] };
+    return { stop_reason: 'end_turn', usage: { input_tokens: 500, output_tokens: 80 }, content: [{ text: JSON.stringify(body) }] };
   },
 });
 
@@ -272,6 +272,9 @@ test('visual audit sends ordered actual JPEG blocks and flags observed visual fa
  try {
   const result=await auditDraft({DB:db,ANTHROPIC_API_KEY:'test'}, {caption:'Catering',images:[{data:'first'},{data:'second'}]});
   assert.deepEqual(sent.messages[0].content.filter(c=>c.type==='image').map(c=>c.source.data),['first','second']);
+  assert.deepEqual(sent.thinking,{type:'disabled'});
+  assert.equal(sent.output_config.format.type,'json_schema');
+  assert.equal(sent.output_config.format.schema.additionalProperties,false);
   assert.match(sent.system,/Inspect every image/);assert.equal(result.verdict,'flag');
  }finally{globalThis.fetch=savedFetch;}
 });
@@ -330,4 +333,21 @@ test('any reported actionable violation overrides an inconsistent model pass', a
       assert.equal((await auditDraft({DB:db,ANTHROPIC_API_KEY:'test-only'},{caption:'Menu'})).verdict,'flag',type);
     }
   } finally {globalThis.fetch=original;}
+});
+
+test('visual structured audit fails closed on incomplete or invalid provider envelopes', async () => {
+  const {db}=stubDb({menuItems:MENU});const original=globalThis.fetch;
+  try {
+    for(const [stop_reason,data] of [
+      ['refusal',{brand_score:100,flags:[],verdict:'pass'}],
+      ['max_tokens',{brand_score:100,flags:[],verdict:'pass'}],
+      ['end_turn',{brand_score:100,verdict:'pass'}],
+      ['end_turn',{brand_score:'100',flags:[],verdict:'pass'}],
+      ['end_turn',{brand_score:100,flags:Array.from({length:7},()=>({type:'photo',detail:'Issue'})),verdict:'pass'}],
+    ]) {
+      globalThis.fetch=async()=>({ok:true,json:async()=>({stop_reason,content:[{type:'text',text:JSON.stringify(data)}]})});
+      const out=await auditDraft({DB:db,ANTHROPIC_API_KEY:'test'},{caption:'Menu',images:Array.from({length:6},()=>({data:'/9j/AA=='}))});
+      assert.equal(out.verdict,'flag');assert.ok(out.flags.some(f=>f.type==='audit_unavailable'));
+    }
+  }finally{globalThis.fetch=original;}
 });

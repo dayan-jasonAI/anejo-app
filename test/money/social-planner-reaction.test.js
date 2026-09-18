@@ -18,6 +18,7 @@ const MONDAY_MS = Date.parse(`${MONDAY}T12:00:00Z`);
 function stubDb({ pending = 0, reachRows = null } = {}) {
   const inserted = [];
   const routes = [
+    [/SUM\(cost_microdollars\)/, () => ({ c: 0 })],
     [/FROM menu_items/, () => [
       { id: 'vida', kind: 'bowl', name: 'VIDA', price_cents: 1999, availability: 'available', active: 1, description: 'citrus-lime chicken' },
     ]],

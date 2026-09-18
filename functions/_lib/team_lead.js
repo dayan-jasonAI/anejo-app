@@ -143,9 +143,10 @@ export async function buildSpine(env) {
   // reads) in dollars — the ledger's microdollars stay in the ledger.
   const spentMicro = await weekSpend(env);
   const budget = {
-    spent_usd: Math.round(spentMicro / 10000) / 100,
+    status: spentMicro === null ? 'unavailable' : 'ok',
+    spent_usd: spentMicro === null ? null : Math.round(spentMicro / 10000) / 100,
     limit_usd: WEEKLY_LIMIT_MICRO / 1_000_000,
-    remaining_usd: Math.max(0, Math.round((WEEKLY_LIMIT_MICRO - spentMicro) / 10000) / 100),
+    remaining_usd: spentMicro === null ? null : Math.max(0, Math.round((WEEKLY_LIMIT_MICRO - spentMicro) / 10000) / 100),
   };
 
   let briefs = [], briefsStatus = 'unavailable';
@@ -275,8 +276,10 @@ export function renderSpine(spine) {
         `Macro portal: ${spine.surfaces.macro_portal} · Macro calculator: ${spine.surfaces.macro_calculator}\n` +
         spine.surfaces.ordering + '\n\n'
       : '') +
-    `=== AI BUDGET === This week's model spend: $${spine.budget.spent_usd.toFixed(2)} of the $${spine.budget.limit_usd.toFixed(2)} weekly ceiling ` +
-    `($${spine.budget.remaining_usd.toFixed(2)} left). Factor this into how much generation you propose.\n\n` +
+    (spine.budget.spent_usd === null || spine.budget.remaining_usd === null
+      ? '=== AI BUDGET === Spend records are unavailable. Do not state spend or remaining allowance. Model work is paused until the ledger is readable.\n\n'
+      : `=== AI BUDGET === This week's model spend: $${spine.budget.spent_usd.toFixed(2)} of the $${spine.budget.limit_usd.toFixed(2)} weekly ceiling ` +
+        `($${spine.budget.remaining_usd.toFixed(2)} left). Factor this into how much generation you propose.\n\n`) +
     '=== RECENT CAMPAIGN BRIEFS ===\n' + briefLines +
     // The owner's own training, last and therefore loudest. The Lead proposes strategy the owner
     // argues with — so the things he has already told it, in his own words, must outrank the
@@ -389,7 +392,7 @@ export async function leadReply(env, { history = [], message } = {}) {
   // The $50/week ceiling is HARD, and the strategy chat gets no exemption for being the
   // owner's own surface — at the limit the honest answer is the refusal, in plain words.
   const gate = await budgetGate(env);
-  if (!gate.ok) return { ok: false, reason: 'budget', spent: gate.spent };
+  if (!gate.ok) return { ok: false, reason: gate.reason === 'budget_unavailable' ? 'budget_unavailable' : 'budget', spent: gate.spent };
 
   const spine = await buildSpine(env);
   const system = SYSTEM_RULES + '\n\n' + renderSpine(spine);

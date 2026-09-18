@@ -1,0 +1,75 @@
+{
+  "note": "Local HTTP wall time, not production CPU budget evidence. performance.now may be frozen during synchronous work in workerd.",
+  "runs": [
+    {
+      "status": 200,
+      "wallMs": 608.892708,
+      "reportedMs": "566",
+      "bytes": 368637,
+      "sha256": "d7da45b1f0cfc5c090c39249d984585c405a9a901f533b1eb2713022e327e67b"
+    },
+    {
+      "status": 200,
+      "wallMs": 465.3368750000001,
+      "reportedMs": "459",
+      "bytes": 368637,
+      "sha256": "d7da45b1f0cfc5c090c39249d984585c405a9a901f533b1eb2713022e327e67b"
+    },
+    {
+      "status": 200,
+      "wallMs": 318.30216700000005,
+      "reportedMs": "312",
+      "bytes": 368637,
+      "sha256": "d7da45b1f0cfc5c090c39249d984585c405a9a901f533b1eb2713022e327e67b"
+    },
+    {
+      "status": 200,
+      "wallMs": 364.8078330000001,
+      "reportedMs": "358",
+      "bytes": 368637,
+      "sha256": "d7da45b1f0cfc5c090c39249d984585c405a9a901f533b1eb2713022e327e67b"
+    },
+    {
+      "status": 200,
+      "wallMs": 556.3143749999999,
+      "reportedMs": "543",
+      "bytes": 368637,
+      "sha256": "d7da45b1f0cfc5c090c39249d984585c405a9a901f533b1eb2713022e327e67b"
+    },
+    {
+      "status": 200,
+      "wallMs": 449.11749999999984,
+      "reportedMs": "445",
+      "bytes": 368637,
+      "sha256": "d7da45b1f0cfc5c090c39249d984585c405a9a901f533b1eb2713022e327e67b"
+    },
+    {
+      "status": 200,
+      "wallMs": 436.85175000000027,
+      "reportedMs": "426",
+      "bytes": 368637,
+      "sha256": "d7da45b1f0cfc5c090c39249d984585c405a9a901f533b1eb2713022e327e67b"
+    },
+    {
+      "status": 200,
+      "wallMs": 315.8923329999998,
+      "reportedMs": "311",
+      "bytes": 368637,
+      "sha256": "d7da45b1f0cfc5c090c39249d984585c405a9a901f533b1eb2713022e327e67b"
+    },
+    {
+      "status": 200,
+      "wallMs": 360.59279100000003,
+      "reportedMs": "347",
+      "bytes": 368637,
+      "sha256": "d7da45b1f0cfc5c090c39249d984585c405a9a901f533b1eb2713022e327e67b"
+    },
+    {
+      "status": 200,
+      "wallMs": 321.0857909999995,
+      "reportedMs": "315",
+      "bytes": 368637,
+      "sha256": "d7da45b1f0cfc5c090c39249d984585c405a9a901f533b1eb2713022e327e67b"
+    }
+  ]
+}

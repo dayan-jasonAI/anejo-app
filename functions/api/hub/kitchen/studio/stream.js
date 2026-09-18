@@ -92,7 +92,8 @@ export const onRequestPost = async ({ request, env }) => {
   if (!env.ANTHROPIC_API_KEY) return bad('Creative Studio AI is not configured. This turn was not drafted.', 503);
   // Weekly AI budget spent → refuse before opening a stream. This route's contract is
   // "fail visibly when AI is unavailable", and over-budget is unavailable.
-  if (!(await budgetGate(env)).ok) return bad('The weekly AI budget is spent. This turn was not drafted.', 503);
+  const gate = await budgetGate(env);
+  if (!gate.ok) return bad(gate.reason === 'budget_unavailable' ? 'The AI budget ledger is unavailable. This turn was not drafted.' : 'The weekly AI budget is spent. This turn was not drafted.', 503);
 
   const session = await env.DB.prepare('SELECT * FROM recipe_sessions WHERE id = ?').bind(sessionId).first();
   if (!session) return bad('Session not found.', 404);

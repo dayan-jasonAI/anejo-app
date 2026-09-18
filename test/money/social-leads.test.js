@@ -258,6 +258,7 @@ test('a catering DM creates a lead through a full tick run, alongside Aña\'s no
   };
   function fakeDB(state) {
     const route = (sql, args) => {
+      if (sql.includes('FROM ai_spend')) return { first: async () => ({ c: 0 }) };
       if (sql.includes('FROM social_events')) return { all: async () => ({ results: state.events }) };
       if (sql.includes('FROM threads') && sql.includes("audience='instagram'") && sql.includes("status='open'")) return { all: async () => ({ results: state.dmThreads }) };
       if (sql.includes('FROM messages WHERE thread_id=?')) return { first: async () => state.lastMessage[args[0]] || null };
@@ -303,6 +304,7 @@ test('a missing leads table does not break comment/DM handling — the tick stil
   };
   function throwingLeadsDB(state) {
     const route = (sql, args) => {
+      if (sql.includes('FROM ai_spend')) return { first: async () => ({ c: 0 }) };
       if (sql.includes('FROM social_events')) return { all: async () => ({ results: state.events }) };
       if (sql.includes("FROM threads WHERE audience='instagram' AND external_id")) return { first: async () => null };
       if (sql.startsWith('INSERT INTO threads')) return { run: async () => { state.threadInserts.push(args); return { meta: { changes: 1 } }; } };

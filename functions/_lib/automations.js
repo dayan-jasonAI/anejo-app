@@ -19,6 +19,7 @@ import { retrieve, formatPassages } from './knowledge.js';
 import { getCadenceConfig } from './social_cadence.js';
 import { getPostingTimes, assignSlot, weekdayIndexOf } from './posting_times.js';
 import { trainingContextReceipt } from './training.js';
+import { persistInferenceReceipt } from './inference_receipt.js';
 import { effectivePayBasis, hourlyPayCents } from './timesheet.js';
 
 // §3 of the brief — the three product lines. Fed to the planner SEPARATELY from the voice
@@ -59,12 +60,11 @@ const PLANNER_ROLE =
   'short sequence (the build, the sauce going on, the box closing) or a multi-image story ' +
   '(ingredient, plated bowl, the person eating it), prefer that format over a single static ' +
   'frame — say so in the image_brief.\n' +
-  '- Saves and shares matter more than likes. A like costs nothing and proves nothing; a save ' +
-  'means "I intend to order this" and a share means "I am recommending this to someone else." ' +
-  'Pick subjects and write captions that earn a save or a share, not just a scroll-past like.\n' +
-  '- Every caption gives a reason to act NOW, not "someday": today\'s cutoff, "on the menu this ' +
-  'week," a bowl that\'s back, same-day delivery still open. A caption with no reason to act ' +
-  'today is one the reader can defer forever — which means never.\n\n';
+  '- Saves and shares are engagement signals, not proof of orders or purchase intent. ' +
+  'Use recorded quote and paid-order outcomes when available; otherwise say unknown.\n' +
+  '- Give a relevant next step without invented urgency. Standard Traditional/Catering orders ' +
+  'require at least 48 hours; custom printing requires at least 72 hours and quote review. ' +
+  'Never promise same-day delivery, a remembered cutoff, or event availability.\n\n';
 
 // Monday-anchored ET week containing `dateStr`. The cadence fix below needs "this week's"
 // boundary decided the same way every time it is asked, or the top-up count and the seed query
@@ -101,7 +101,8 @@ async function plannerExtraContext(env) {
   const parts = [];
   const intelIds = new Set();
   const briefIds = new Set();
-  let ruleIds = [];
+  let ruleIds;
+  let trainingReceipt = { read_status: 'unavailable' };
 
   // The Lead's own campaign direction (team_lead.js writes these via create_brief). Same
   // business, same week — and until now the planner that is supposed to EXECUTE a brief never
@@ -169,9 +170,10 @@ async function plannerExtraContext(env) {
   // exactly why the team kept producing work the owner had already told someone he disliked.
   try {
     const training = await trainingContextReceipt(env, { maxChars: 4000 });
+    trainingReceipt = training.receipt;
+    if (training.receipt.reads.rules !== 'unavailable') ruleIds = training.receipt.rules.map(r => r.id).filter(Boolean);
     if (training.text) {
       parts.push(training.text);
-      ruleIds = training.receipt.rules.map(r => r.id).filter(Boolean);
     }
   } catch { /* pre-0075 schema — planner runs exactly as it did before this wiring */ }
 
@@ -195,7 +197,7 @@ async function plannerExtraContext(env) {
     if (reaction) parts.push(reaction);
   } catch { /* pre-0064 schema, or nothing published yet */ }
 
-  return { text: parts.join('\n\n'), intelIds, briefIds, ruleIds };
+  return { text: parts.join('\n\n'), intelIds, briefIds, ruleIds, trainingReceipt };
 }
 import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
@@ -233,21 +235,23 @@ async function rows(env, sql, ...args) {
 
 // Small Claude call that must return JSON. Fully guarded: returns null on any failure
 // (no key, network error, non-JSON answer) so callers always fall back deterministically.
-async function askClaudeJson(env, { system, user, maxTokens = 400, feature = 'automation' }) {
+async function askClaudeJson(env, { system, user, maxTokens = 400, feature = 'automation', receiptComponents }) {
   if (!env || !env.ANTHROPIC_API_KEY) return null;
   // The $50/week ceiling is HARD: at the limit this refuses exactly like the no-key path,
   // so every caller's deterministic fallback runs and nothing bills into next week.
   if (!(await budgetGate(env)).ok) return null;
   try {
+    const requestJson = JSON.stringify({ model: MODEL, max_tokens: maxTokens, system,
+      messages: [{ role: 'user', content: user }] });
+    let inputReceipt = null;
+    if (receiptComponents) {
+      try { inputReceipt = await persistInferenceReceipt(env, { surface: 'social_plan', requestJson, components: receiptComponents }); }
+      catch { inputReceipt = { persisted: false, reason: 'storage_write_failed' }; }
+    }
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: maxTokens,
-        system,
-        messages: [{ role: 'user', content: user }],
-      }),
+      body: requestJson,
     });
     if (!r.ok) return null;
     const j = await r.json();
@@ -263,7 +267,7 @@ async function askClaudeJson(env, { system, user, maxTokens = 400, feature = 'au
     if (start > 0) text = text.slice(start);
     const data = JSON.parse(text);
     const tokens = j.usage ? (j.usage.input_tokens || 0) + (j.usage.output_tokens || 0) : null;
-    return { data, tokens };
+    return { data, tokens, ...(receiptComponents ? { inputReceipt } : {}) };
   } catch { return null; }
 }
 
@@ -831,22 +835,22 @@ async function socialPlan(env, date) {
   if (!gate.ok) {
     return {
       outcome: 'skipped',
-      output: { date, reason: 'budget', spent_microdollars: gate.spent },
-      summary: 'Weekly AI budget reached — no posts were drafted. The planner resumes when the new week starts.',
+      output: { date, reason: gate.reason === 'budget_unavailable' ? 'budget_unavailable' : 'budget', spent_microdollars: gate.spent },
+      summary: gate.reason === 'budget_unavailable' ? 'AI budget evidence unavailable — no posts were drafted.' : 'Weekly AI budget reached — no posts were drafted. The planner resumes when the new week starts.',
     };
   }
   const menu = await loadMenu(env);
-  const bowls = (menu.items || []).filter((it) => it.kind === 'bowl');
-  const onSale = bowls.filter((it) => isAvailable(it) && isOrderable(it));
-  const off = bowls.filter((it) => !isAvailable(it));
+  const offerings = (menu.items || []).filter(it => it.kind === 'bowl' || (it.kind === 'addon' && /^(traditional_|catering_)/.test(it.id)));
+  const onSale = offerings.filter((it) => isAvailable(it) && isOrderable(it));
+  const off = offerings.filter((it) => !isAvailable(it));
 
   // Nothing to sell means nothing to post. Better to say so than to generate cheerful copy about
   // an empty menu.
   if (!onSale.length) {
     return {
       outcome: 'skipped',
-      output: { date, reason: 'no_bowls_available', bowls_off: off.length },
-      summary: 'No bowls are available right now, so there is nothing to promote. Nothing was drafted.',
+      output: { date, reason: 'no_menu_available', items_off: off.length },
+      summary: 'No menu items are available right now, so there is nothing to promote. Nothing was drafted.',
     };
   }
 
@@ -882,7 +886,7 @@ async function socialPlan(env, date) {
     };
   }
 
-  const menuLines = onSale.map((b) => `${b.name} ($${((b.price_cents || 0) / 100).toFixed(2)}) — ${b.description || ''}`.trim());
+  const menuLines = onSale.map((b) => `[${b.id}] ${b.name} ($${((b.price_cents || 0) / 100).toFixed(2)}) — ${b.description || ''}`.trim());
   const soldOutLine = off.length ? `Currently SOLD OUT and must not be mentioned: ${off.map((b) => b.name).join(', ')}.` : '';
   // What the last posts actually did. Empty string until the first insights sweep lands — the
   // planner must never see an empty scaffold that reads like data. THIS is the line that makes
@@ -894,7 +898,7 @@ async function socialPlan(env, date) {
   // each of these was previously invisible to this planner. Empty string when none apply.
   // intelIds is the set of market_intel ids actually shown to the model this run — used below to
   // reject any intel_id the model returns that was not one of the ones it was actually given.
-  const { text: extraContext, intelIds, briefIds, ruleIds: activeRuleIds } = await plannerExtraContext(env);
+  const { text: extraContext, intelIds, briefIds, ruleIds: activeRuleIds, trainingReceipt } = await plannerExtraContext(env);
 
   // The brand brief — brand_source.js's shared loader, so an owner edit in the HUB reaches this
   // prompt on the SAME run it reaches the Team Lead and the Studio, not only on the next deploy.
@@ -962,6 +966,9 @@ async function socialPlan(env, date) {
       '"link in bio" is always safe, a wrong deadline makes someone think they missed their window.',
     maxTokens: 1600,
     feature: 'social_plan',
+    receiptComponents: { brand: brand.receipt, training: trainingReceipt,
+      menu: { source_ids: onSale.map(it => it.id), read_status: 'unknown' },
+      briefs: { source_ids: [...briefIds], read_status: 'unknown' }, intel: { source_ids: [...intelIds], read_status: 'unknown' } },
   });
 
   if (!ai || !Array.isArray(ai.data)) {
@@ -1047,6 +1054,14 @@ async function socialPlan(env, date) {
            VALUES (?,'instagram',?,NULL,?,'draft',?,?,'planner','system',?,?)`
         ).bind(postId, caption, randToken(24), when, brief, t, t).run();
       }
+      let receiptLinked = false;
+      if (ai.inputReceipt?.persisted && ai.inputReceipt.receipt_id) {
+        try {
+          const linked = await env.DB.prepare('UPDATE social_posts SET inference_receipt_id=? WHERE id=? AND status=\'draft\' AND inference_receipt_id IS NULL')
+            .bind(ai.inputReceipt.receipt_id, postId).run();
+          receiptLinked = linked?.meta?.changes === 1;
+        } catch { /* output remains a draft, never earns automatic trust without its evidence */ }
+      }
       // FOOD PHOTO AT DRAFT TIME (_lib/food_photo.js). This planner has always written an
       // image_brief — "art direction for a food photo we will generate" — and nothing has ever
       // generated from it, so every drafted post landed with an empty frame for the owner to
@@ -1060,7 +1075,7 @@ async function socialPlan(env, date) {
       // exact state it would have been in before — and never the caption or the week's cadence.
       const photo = await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
       // Seal the planner's complete design before owner edits. Never backfill old drafts.
-      try { if (photo.ok) await env.DB.prepare(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
+      try { if (photo.ok && receiptLinked) await env.DB.prepare(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
         WHERE id=? AND original_design_snapshot IS NULL AND status='draft'
         AND caption=? AND COALESCE(image_brief,'')=? AND COALESCE(media_key,'')=''
         AND COALESCE(media_type,'IMAGE')='IMAGE'
@@ -1086,7 +1101,7 @@ async function socialPlan(env, date) {
         format: photo.ok ? 'single' : undefined,
         slideCount: photo.ok ? photo.slides : undefined,
       });
-      made.push({ hour, day_offset: dayOffset, id: postId, category, intel_id: intelId, photo: photo.ok ? photo.provider : null });
+      made.push({ hour, day_offset: dayOffset, id: postId, category, receiptLinked, intel_id: intelId, photo: photo.ok ? photo.provider : null });
     } catch { /* one bad row must not lose the rest of the week */ }
   }
 
@@ -1100,7 +1115,7 @@ async function socialPlan(env, date) {
   try {
     const autoLanes = await autoPublishCategories(env);
     for (const m of made) {
-      if (!m.category || !autoLanes.has(m.category)) continue;
+      if (!m.receiptLinked || !m.category || !autoLanes.has(m.category)) continue;
       const r = await env.DB.prepare(
         `UPDATE social_posts SET status='scheduled', updated_at=? WHERE id=? AND status='draft' AND audit_status='pass' AND audit_scope='caption_and_media' AND audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT}`
       ).bind(now(), m.id).run();
@@ -1127,7 +1142,7 @@ async function socialPlan(env, date) {
     // for an image") was about to become false for most runs and misleading for the rest — and a
     // run where every provider was down has to read differently from one where none were.
     summary: made.length
-      ? `Drafted ${made.length} Instagram posts for the week from ${onSale.length} available bowls. `
+      ? `Drafted ${made.length} Instagram posts for the week from ${onSale.length} available menu items. `
         + (made.filter((m) => m.photo).length === made.length
           ? 'Each one has a generated food photo to start from — replace it with real photography if you have it. '
           : made.filter((m) => m.photo).length

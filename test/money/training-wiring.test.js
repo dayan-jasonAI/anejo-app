@@ -25,8 +25,8 @@ test('the weekly planner imports the owner training and calls it', () => {
 
 test('the Team Lead imports the owner training and calls it', () => {
   const src = read('functions/_lib/team_lead.js');
-  assert.match(src, /import \{ trainingContext \} from '\.\/training\.js'/);
-  assert.match(src, /await trainingContext\(env/);
+  assert.match(src, /import \{ trainingContextReceipt \} from '\.\/training\.js'/);
+  assert.match(src, /await trainingContextReceipt\(env/);
 });
 
 test('the Team Lead renders the training into the spine it actually sends', () => {

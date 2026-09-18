@@ -22,7 +22,7 @@ const MAX_DRAFT_POSTS = 5;
 async function loadMessages(env, limit = 40) {
   try {
     const r = await env.DB.prepare(
-      'SELECT id, role, body, actions_json, created_at FROM team_messages ORDER BY created_at DESC LIMIT ?'
+      'SELECT id, role, body, actions_json, created_at, inference_receipt_id, inference_outcome_json FROM team_messages ORDER BY created_at DESC LIMIT ?'
     ).bind(limit).all();
     // Stored newest-first for the LIMIT, served oldest-first because it is a chat.
     return (((r && r.results) || [])).reverse();
@@ -91,7 +91,7 @@ function spineSummary(spine) {
  * own fields and writes draft-state rows only. Returns a result object that is persisted into
  * the lead message's actions_json — the audit trail of what the proposal actually did.
  */
-export async function executeAction(env, action) {
+export async function executeAction(env, action, evidence = {}) {
   if (!action || !ALLOWED_ACTIONS.includes(action.action)) return null;
   const t = now();
 
@@ -149,24 +149,29 @@ export async function executeAction(env, action) {
     // with the 📷 upload — never a claim the art direction was rendered.
     const assets = Array.isArray(action.assets) ? action.assets : [];
     const count = Math.min(MAX_DRAFT_POSTS, Math.max(0, Math.floor(Number(action.count)) || assets.length));
-    // A model-supplied identifier is a proposal, not proof that the source exists.
-    // Unknown/read-failed sources stay unknown; never stamp invented attribution.
-    const sourceId = async (table, value) => {
+    const context = evidence.input_context;
+    const receipt = evidence.inference_receipt;
+    const receiptId = receipt?.ok === true && receipt.persisted === true && /^inf_[a-f0-9]+$/.test(receipt.receipt_id || '') ? receipt.receipt_id : null;
+    // Presence in current storage cannot prove inclusion in an earlier inference. Only the
+    // same inference's supplied-ID receipt can support attribution, never a second read.
+    const sourceId = (supplied, value) => {
+      if (!receiptId || !Array.isArray(supplied)) return undefined;
       if (!value) return null;
-      try {
-        const row = await env.DB.prepare(`SELECT id FROM ${table} WHERE id=?`).bind(String(value).slice(0, 100)).first();
-        return row?.id || undefined;
-      } catch { return undefined; }
+      return supplied.includes(value) ? value : undefined;
     };
-    const briefId = await sourceId('team_briefs', action.brief_id);
-
+    const briefId = sourceId(context?.supplied_brief_ids, action.brief_id);
+    const training = context?.components?.training;
+    const rulesKnown = receiptId && training &&
+      (['ok', 'empty'].includes(training.reads?.rules) || (!training.reads && ['ok', 'empty'].includes(training.read_status)));
+    const ruleIds = rulesKnown && Array.isArray(context?.supplied_rule_ids) ? context.supplied_rule_ids : undefined;
+    const posts = [];
     const made = [];
     for (const a of assets.slice(0, count)) {
       const caption = String((a && a.caption) || '').trim().slice(0, 2200);
       if (!caption) continue;
       const brief = String((a && a.image_brief) || '').trim().slice(0, 1500) || null;
       const category = TRUST_CATEGORIES.includes(a.category || action.category) ? (a.category || action.category) : null;
-      const intelId = await sourceId('market_intel', a.intel_id || action.intel_id);
+      const intelId = sourceId(context?.supplied_intel_ids, a.intel_id || action.intel_id);
       const postId = id('sp');
       const art = bowlArtFor(`${caption}\n${brief || ''}`);
       try {
@@ -177,6 +182,13 @@ export async function executeAction(env, action) {
         // social_post_media is the AUTHORITY — media_key on the post is display-only history, and
         // the public window Instagram fetches through is per-SLIDE. A draft with only the column
         // set would look illustrated in the queue and still be unpublishable.
+        let linkedReceipt = null;
+        if (receiptId) {
+          try {
+            const linked = await env.DB.prepare('UPDATE social_posts SET inference_receipt_id=? WHERE id=? AND inference_receipt_id IS NULL').bind(receiptId, postId).run();
+            if (linked?.success !== false && linked?.meta?.changes === 1) linkedReceipt = receiptId;
+          } catch { /* draft survives, but has no persisted inference evidence */ }
+        }
         let originalMediaKey = null;
         if (art) {
           try {
@@ -200,7 +212,7 @@ export async function executeAction(env, action) {
         // Seal the original design AFTER attachment, using the same revision definition as
         // the planner and trust gate. Old schemas retain drafts but earn no trust credit.
         try {
-          if (originalMediaKey) await env.DB.prepare(`UPDATE social_posts SET category=?, original_caption_hash=?,
+          if (originalMediaKey && linkedReceipt) await env.DB.prepare(`UPDATE social_posts SET category=?, original_caption_hash=?,
             original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
             WHERE id=? AND status='draft' AND original_design_snapshot IS NULL
             AND caption=? AND COALESCE(image_brief,'')=? AND COALESCE(media_key,'')=?
@@ -212,9 +224,8 @@ export async function executeAction(env, action) {
         try { media = (await env.DB.prepare('SELECT id, seq, media_key FROM social_post_media WHERE post_id=? ORDER BY seq, id').bind(postId).all()).results; }
         catch { /* unknown media is not an empty carousel */ }
         await stampPostProvenance(env, {
-          postId, briefId, intelId, category,
-          // leadReply does not return the exact training receipt. Omitting ruleIds is
-          // deliberate: an empty array would falsely claim no training was supplied.
+          postId, briefId: linkedReceipt ? briefId : undefined, intelId: linkedReceipt ? intelId : undefined,
+          ruleIds: linkedReceipt ? ruleIds : undefined, category,
           format: media?.length ? (media.length > 1 ? 'carousel' : 'single') : undefined,
           slideCount: media?.length ? media.length : undefined,
         });
@@ -222,10 +233,11 @@ export async function executeAction(env, action) {
         // Unavailable media/provider leaves a visible flag, never a caption-only pass.
         try { await auditSavedDraft(env, postId, caption); }
         catch { /* draft stands, visibly unscored */ }
+        posts.push({ id: postId, inference_receipt_id: linkedReceipt, inference_evidence: linkedReceipt ? 'input_recorded' : 'unverified' });
         made.push(caption.split('\n')[0].slice(0, 60));
       } catch { /* one bad row must not lose the rest of the set */ }
     }
-    return { action: 'draft_posts', ok: made.length > 0, brief_id: briefId, drafted: made.length, titles: made };
+    return { action: 'draft_posts', ok: made.length > 0, brief_id: briefId, drafted: made.length, titles: made, posts };
   }
 
   if (action.action === 'propose_campaign') {
@@ -317,9 +329,11 @@ export const onRequestPost = async ({ request, env }) => {
     const results = [];
     for (const blk of blocks) {
       if (blk && blk.dropped) { results.push({ ok: false, dropped: true, reason: blk.reason }); continue; }
-      results.push(await executeAction(env, blk));
+      results.push(await executeAction(env, blk, { inference_receipt: reply.inference_receipt, input_context: reply.input_context }));
     }
     executed = results.length === 0 ? null : (results.length === 1 ? results[0] : results);
+  } else if (reply.reason === 'budget_unavailable') {
+    leadBody = 'I cannot read the AI spending ledger right now, so I have paused model work. This does not mean the weekly budget is used up. Your existing briefs and drafts remain available.';
   } else if (reply.reason === 'budget') {
     // Deterministic copy, not a model call — at the ceiling the refusal must cost nothing.
     leadBody = 'The weekly AI budget is used up, so I can\'t think out loud until the new week starts. The briefs and drafts already on the board still stand.';
@@ -329,10 +343,18 @@ export const onRequestPost = async ({ request, env }) => {
     leadBody = 'I couldn\'t reach the model just now — nothing was lost, try that message again in a moment.';
   }
 
+  const receipt = reply.inference_receipt;
+  const receiptId = receipt?.ok === true && receipt.persisted === true && /^inf_[a-f0-9]+$/.test(receipt.receipt_id || '') ? receipt.receipt_id : null;
+  const outcome = { model_ok: reply.ok, reason: reply.ok ? null : reply.reason,
+    inference_evidence: receiptId ? 'input_recorded' : 'unverified',
+    inference_attempts: reply.inference_attempts || [],
+  };
+  let saved = false;
   try {
-    await env.DB.prepare('INSERT INTO team_messages (id, role, body, actions_json, created_at) VALUES (?,?,?,?,?)')
-      .bind(id('tm'), 'lead', leadBody, executed ? toJson(executed) : null, now()).run();
-  } catch { /* the reply still returns below even if persisting it failed */ }
+    const result = await env.DB.prepare('INSERT INTO team_messages (id, role, body, actions_json, created_at, inference_receipt_id, inference_outcome_json) VALUES (?,?,?,?,?,?,?)')
+      .bind(id('tm'), 'lead', leadBody, executed ? toJson(executed) : null, now(), receiptId, toJson(outcome)).run();
+    saved = result?.success !== false && result?.meta?.changes === 1;
+  } catch { /* return saved=false; never claim this reply was persisted */ }
 
   await capture(env, {
     event: 'team_lead.message',
@@ -348,7 +370,7 @@ export const onRequestPost = async ({ request, env }) => {
   for (const m of messages) m.actions = parseJson(m.actions_json, null);
   return json({
     ok: true,
-    reply: { body: leadBody, model, executed },
+    reply: { body: leadBody, model, executed, saved, inference_receipt_id: saved ? receiptId : null, inference_outcome: outcome },
     degraded: reply.ok ? null : reply.reason,
     messages,
     briefs: await loadBriefs(env),

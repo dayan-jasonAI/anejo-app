@@ -1,0 +1,12 @@
+✔ headers establish compressed and decoded bounds before raster decoding (3.896042ms)
+✔ layout preserves aspect and escapes bounded text (25.929042ms)
+✔ JPEG is deterministic and contains actual photograph, not blank unresolved image (1102.778708ms)
+✔ PNG source decodes through same guarded pipeline (572.995792ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1842.490708

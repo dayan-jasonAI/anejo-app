@@ -154,10 +154,11 @@ export const onRequestPost = async ({ request, env }) => {
 
   // Weekly AI budget spent: same shape as the no-key path — the fact sheet is still live
   // and still useful, only the phrasing is withheld. Never an empty error at the owner.
-  if (!(await budgetGate(env)).ok) {
+  const gate = await budgetGate(env);
+  if (!gate.ok) {
     return json({
       ok: true, question, answer: null, facts,
-      unavailable: 'The weekly AI budget is spent, so the HUB cannot phrase an answer until the new week. The figures above are live.',
+      unavailable: gate.reason === 'budget_unavailable' ? 'The AI budget ledger is unavailable. Paid calls are paused; the fact sheet is still available.' : 'The weekly AI budget is spent, so the HUB cannot phrase an answer until the new week. The figures above are live.',
     });
   }
 

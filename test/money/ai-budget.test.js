@@ -99,12 +99,11 @@ test('ISO weeks own the year boundary — Jan 1 must not start a fresh budget mi
   assert.equal(isoWeekOf('2026-07-31'), '2026-31');
 });
 
-test('a broken meter fails OPEN, and no usage means no row', async () => {
-  // A missing table has recorded nothing, so blocking every AI surface on it would punish
-  // the customer for our migration gap.
+test('a broken meter fails closed, and no usage means no row', async () => {
+  // Missing ledger evidence must not authorize a paid call.
   const env = { DB: { prepare() { throw new Error('no such table: ai_spend'); } } };
-  assert.equal(await weekSpend(env), 0);
-  assert.equal((await budgetGate(env)).ok, true);
+  assert.equal(await weekSpend(env), null);
+  assert.deepEqual(await budgetGate(env), {ok:false,reason:'budget_unavailable',spent:null,remaining:null});
   const { db, inserts } = stubDb(0);
   await recordSpend({ DB: db }, { feature: 'x', model: 'claude-haiku-4-5', usage: { input_tokens: 0, output_tokens: 0 } });
   assert.equal(inserts.length, 0);
@@ -168,4 +167,20 @@ test('the owner can SEE the meter: the automations GET carries ai_budget in doll
   assert.match(RUN, /spent_usd/);
   assert.match(RUN, /limit_usd/);
   assert.match(RUN, /remaining_usd/);
+});
+
+
+test('missing binding and malformed ledger totals never open the paid-call gate', async () => {
+  for (const env of [undefined, {}, {DB:stubDb(null).db}, ...[NaN,Infinity,-1,0.5,'0',Number.MAX_SAFE_INTEGER+1].map(c=>({DB:stubDb(c).db}))]) {
+    assert.equal(await weekSpend(env),null);
+    assert.deepEqual(await budgetGate(env),{ok:false,reason:'budget_unavailable',spent:null,remaining:null});
+  }
+  assert.equal((await budgetGate({DB:stubDb(0).db})).ok,true,'an actual numeric zero aggregate is valid evidence');
+});
+
+test('unavailable ledger blocks image provider invocation before paid work', async () => {
+  const {generatePlateImage}=await import('../../functions/_lib/plate_image.js');
+  let calls=0;
+  const result=await generatePlateImage({DB:{prepare(){throw Error('ledger offline');}},AI:{run:async()=>{calls++;throw Error('must not call');}},IMAGE_PROVIDER_ORDER:'workers_ai'},'test food');
+  assert.equal(result,null);assert.equal(calls,0);
 });
