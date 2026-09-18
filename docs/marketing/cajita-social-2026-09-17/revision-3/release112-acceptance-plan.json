@@ -1,0 +1,22 @@
+{
+  "release": "PR112",
+  "scope": "Normal authenticated Hub UI; no publishing, scheduling, customer messages or credential changes.",
+  "fixed_audit_cases": [
+    {"post_id":"sp_20fbf4bea6aea85f30bf","name":"gather","slides":10},
+    {"post_id":"sp_58424887f40e1a1b611f","name":"personal","slides":10},
+    {"post_id":"sp_0a39246ba48d6453af3f","name":"choice","slides":6}
+  ],
+  "audit_acceptance": [
+    "One initial live audit per saved draft after deployment; record all results, including unavailable or flagged.",
+    "No manual score override, repeated calls to obtain a pass, caption weakening, or hidden change to the approved design.",
+    "Successful result retains seven criteria, separate optional suggestions, actual source coverage and canonical emblem reference hash.",
+    "Read and assess every finding against the actual complete carousel and owner instruction; schema-valid output alone is not semantic acceptance.",
+    "All three drafts remain unscheduled and unpublished. Public approval is separate."
+  ],
+  "other_acceptance": [
+    "Photos exact asset review loads the actual catalog and existing review state; opt-in is not preselected for a new record.",
+    "Owner operator marketing status displays observed heartbeat timestamps, not an unsupported current-running or delivery claim.",
+    "Registry and planner positive attachment behavior has local real-SQLite evidence; do not claim live automatic reuse without an actual approved asset and saved linked output."
+  ],
+  "limitations": "Three owner drafts do not establish general model accuracy. Controlled adversarial visual benchmark remains open. No autonomous rendering or channel-delivery claim follows from these checks."
+}

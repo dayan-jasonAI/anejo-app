@@ -105,11 +105,24 @@
       var seen = new Set(); items = items.filter(function (item) { if (!item.id || seen.has(item.id)) return false; seen.add(item.id); return true; });
       var products = el('fieldset', '', 'photo-reuse-products'); products.append(el('legend', t('Exactly which menu items appear?', '¿Qué productos del menú aparecen?')));
       var selected = record ? (record.menu_item_ids || []) : [];
-      var checks = [];
+      var checks = [], productRows = [];
+      var searchLabel = el('label', t('Find menu items', 'Buscar productos del menú'), 'photo-reuse-search');
+      var menuSearch = el('input'); menuSearch.type = 'search'; menuSearch.placeholder = t('Name or item ID', 'Nombre o ID del producto'); searchLabel.append(menuSearch);
+      var productCount = el('p', '', 'photo-reuse-count'); productCount.setAttribute('role', 'status'); productCount.setAttribute('aria-live', 'polite');
+      var productList = el('div', '', 'photo-reuse-product-list');
+      products.append(searchLabel, productCount, productList);
+      function filterProducts() {
+        var query = menuSearch.value.trim().toLocaleLowerCase(); var visible = 0;
+        productRows.forEach(function (row) { row.label.hidden = query.length > 0 && !row.search.includes(query); if (!row.label.hidden) visible++; });
+        productCount.textContent = t(visible + ' of ' + items.length + ' shown · ' + checks.filter(function (input) { return input.checked; }).length + ' selected', visible + ' de ' + items.length + ' visibles · ' + checks.filter(function (input) { return input.checked; }).length + ' seleccionados');
+      }
+      menuSearch.oninput = filterProducts;
       items.forEach(function (item) {
         var label = el('label'); var input = el('input'); input.type = 'checkbox'; input.value = item.id; input.checked = selected.includes(item.id);
-        checks.push(input); label.append(input, el('span', t(item.name, item.name_es || item.name) + ' · ' + item.id)); products.append(label);
+        checks.push(input); input.onchange = filterProducts; label.append(input, el('span', t(item.name, item.name_es || item.name) + ' · ' + item.id)); productList.append(label);
+        productRows.push({ label: label, search: [item.name, item.name_es, item.id].filter(Boolean).join(' ').toLocaleLowerCase() });
       });
+      filterProducts();
       var missing = selected.filter(function (id) { return !seen.has(id); });
       if (missing.length) products.append(el('p', t('Previously selected products are absent from the current catalog: ', 'Productos anteriores ausentes del catálogo actual: ') + missing.join(', ')));
       var themeLabel = el('label', t('Theme (optional; use consistent wording)', 'Tema (opcional; usa el mismo nombre)'));

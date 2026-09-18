@@ -50,7 +50,7 @@ test('legacy failure explains missing details, rather than falsely claiming a ne
 });
 
 test('activation deletes only old Hub shell caches and preserves language and other apps', async () => {
-  const sw = worker(); await sw.fire('activate'); assert.deepEqual(sw.deleted, ['anejo-hub-v7']);
+  const sw = worker(); await sw.fire('activate'); assert.deepEqual(sw.deleted, ['anejo-hub-v7', 'anejo-hub-v8']);
 });
 
 test('unsafe deep links cannot leave Hub and cross-origin language messages are ignored', async () => {

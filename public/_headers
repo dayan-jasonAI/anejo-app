@@ -20,16 +20,12 @@
 # empty body. That is the right trade for an internal app used by a handful of staff.
 # Content-hashed bundles (the Studio build under /studio/assets) are exempt below: their name
 # changes when their content does, so they are safe to cache hard and forever.
-/hub/assets/*
+# Hub HTML, including extensionless Pages routes, must revalidate on ordinary navigation.
+# Includes the service worker script and unversioned Hub assets. API responses are separate.
+/hub
   Cache-Control: no-cache
 
-/hub/owner/assets/*
-  Cache-Control: no-cache
-
-/hub/driver/assets/*
-  Cache-Control: no-cache
-
-/hub/kitchen/assets/*
+/hub/*
   Cache-Control: no-cache
 
 /assets/js/i18n.js

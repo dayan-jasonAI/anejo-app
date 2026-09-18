@@ -58,3 +58,13 @@ test('missing migration and incomplete registry never become an unchecked new ap
     assert.ok(h.find('Reload saved review'));
   }
 });
+
+test('menu search matches name or ID, clears locally, and preserves hidden selected payload',async()=>{
+ const h=await setup({record:reviewed});const search=h.all().find(n=>n.type==='search');const list=h.all().find(n=>n.className==='photo-reuse-product-list');const count=h.all().find(n=>n.className==='photo-reuse-count');
+ assert.equal(list.children.length,2);assert.match(count.textContent,/2 of 2 shown · 1 selected/);
+ search.value='ACTUAL TRAY';search.oninput();assert.equal(list.children[0].hidden,true);assert.equal(list.children[1].hidden,false);assert.match(count.textContent,/1 of 2 shown · 1 selected/);
+ h.find('Save reuse review').onclick();await tick();assert.deepEqual(JSON.parse(JSON.stringify(h.writes()[0].opts.body.menu_item_ids)),['menu-real-id']);
+ search.value='menu-real-id';search.oninput();assert.equal(list.children[0].hidden,false);assert.equal(list.children[1].hidden,true);
+ search.value='';search.oninput();assert.ok(list.children.every(n=>!n.hidden));assert.equal(h.all().find(n=>n.value==='menu-real-id').checked,true);assert.equal(h.all().find(n=>n.value==='tray-real-id').checked,false);
+});
+test('unavailable catalog exposes no searchable choices or save approval',async()=>{const h=await setup({catalog:false});assert.equal(h.all().find(n=>n.type==='search'),undefined);assert.equal(h.find('Save reuse review'),undefined);});
