@@ -278,9 +278,10 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
           messages: [{
             role: 'user',
             content: images.length ? [
-              {type:'text',text:'APPROVED EMBLEM REFERENCE — not a carousel slide. Compare visible design consistency only; this reference does not prove which source asset the renderer used or photo authenticity.'},
+              {type:'text',text:'CAROUSEL: '+images.length+' publication slides follow in order. Slide 1 is the COVER. Slide numbers refer only to these numbered JPEGs. The final PNG is an unnumbered comparison reference, never a publication slide.'},
+              ...images.flatMap((image, index) => [{type:'text',text:'Slide '+(index+1)+(index===0?' — COVER':'')}, {type:'image',source:{type:'base64',media_type:'image/jpeg',data:image.data}}]),
+              {type:'text',text:'END OF NUMBERED CAROUSEL. APPROVED EMBLEM REFERENCE — unnumbered, excluded from slide count and slide citations. Compare visible design consistency only; this does not prove renderer source or photo authenticity.'},
               {type:'image',source:{type:'base64',media_type:'image/png',data:emblemReference.data}},
-              ...images.flatMap((image, index) => [{type:'text',text:'Slide '+(index+1)}, {type:'image',source:{type:'base64',media_type:'image/jpeg',data:image.data}}]),
               {type:'text',text:captionEvidencePrompt(caption, image_brief)}
             ] : JSON.stringify({
               caption: String(caption || '').slice(0, 2200),
