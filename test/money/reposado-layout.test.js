@@ -28,3 +28,14 @@ test('production UI offers the full-frame preset and preserves source dimensions
  assert.match(compose,/fullFrame && blockH > H \* 0.24/);
  assert.match(compose,/opts.preset === 'reposado' \? 'emblem'/);
 });
+test('protected areas scale to original image dimensions and reject invalid bounds',()=>{
+ const r=renderer();const areas=r.protectedAreas([{x:0.1,y:0.2,w:0.5,h:0.6}],1000,800);
+ assert.equal(areas[0].x,100);assert.equal(areas[0].y,160);assert.equal(areas[0].w,500);assert.equal(areas[0].h,480);
+ for(const rect of [{x:-0.1,y:0,w:1,h:1},{x:0,y:0,w:2,h:1},{x:0,y:0,w:NaN,h:1},{x:0,y:0,w:0,h:1}]) assert.throws(()=>r.protectedAreas([rect],1000,800),/Protected photo areas/);
+});
+test('overlap guard detects contact with protected subject, allows separate edge placement',()=>{
+ const r=renderer(),food={x:200,y:200,w:600,h:600};
+ assert.equal(r.overlaps({x:150,y:150,w:100,h:100},food),true);
+ assert.equal(r.overlaps({x:20,y:20,w:100,h:100},food),false);
+ assert.equal(r.overlaps({x:100,y:100,w:100,h:100},food),false);
+});

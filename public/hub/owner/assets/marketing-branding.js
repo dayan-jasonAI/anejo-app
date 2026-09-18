@@ -14,6 +14,7 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
   var BRAND_INK = {
     gold:      { css: '#C8BC6E', rgb: [200, 188, 110] },  // --gold, the antique accent
     parchment: { css: '#E8E2CA', rgb: [232, 226, 202] },  // --parchment, the title tone
+    black:     { css: '#000000', rgb: [0, 0, 0] },      // owner-approved contrast fallback
     deep:      { css: '#0A180C', rgb: [10, 24, 12] }      // --forest, a shade deeper
   };
   var VEIL_RGB = '7,18,7'; // --forest, used only ever as a gradient that reaches zero alpha
@@ -102,8 +103,10 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
   // On a LIGHT frame both collapse to deep forest. Gold on pale stone is mush, and the references
   // never put gold on anything bright — the gold in them always sits on the dark green field.
   function pickTitleInk(stats) {
-    return inkContrast(BRAND_INK.parchment, stats) >= inkContrast(BRAND_INK.deep, stats)
+    var preferred = inkContrast(BRAND_INK.parchment, stats) >= inkContrast(BRAND_INK.deep, stats)
       ? BRAND_INK.parchment : BRAND_INK.deep;
+    return inkContrast(preferred, stats) < 4.5 && inkContrast(BRAND_INK.black, stats) > inkContrast(preferred, stats)
+      ? BRAND_INK.black : preferred;
   }
   // Gold wherever gold holds — 3:1 is WCAG's floor for large graphic objects, which is what an
   // accent rule, a letterspaced kicker and the mark all are.
@@ -424,6 +427,17 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
   // photoUrl: the HUB-authenticated media route for the slide being branded (same-origin, so the
   // canvas is never "tainted" and both getImageData and toDataURL work). Returns a
   // Promise<string> of a JPEG data URL.
+  function overlaps(a, b) {
+    return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+  }
+  function protectedAreas(regions, width, height) {
+    if (!Array.isArray(regions) || regions.length > 20) throw new Error('Invalid protected photo areas.');
+    return regions.map(function(r){
+      if (!r || !['x','y','w','h'].every(function(k){return Number.isFinite(r[k]);}) || r.x<0 || r.y<0 || r.w<=0 || r.h<=0 || r.x+r.w>1 || r.y+r.h>1) throw new Error('Protected photo areas must fit inside the original image.');
+      return {x:r.x*width,y:r.y*height,w:r.w*width,h:r.h*height};
+    });
+  }
+
   function compositeBranding(photoUrl, opts) {
     opts = opts || {};
     // Poster mode always uses the EMBLEM: it sets the company name as type on its own line, so the
@@ -446,6 +460,10 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
       var M = Math.round(S * 0.075);             // so a square render and a tall photo compose alike
       var safeW = W - M * 2;
       var fullFrame = opts.preset === 'reposado';
+      var hasSubjectRegions = Array.isArray(opts.protectedRegions) && opts.protectedRegions.length > 0;
+      var protectedRects = fullFrame ? protectedAreas(hasSubjectRegions ? opts.protectedRegions : [{x:0.22,y:0.28,w:0.56,h:0.44}], W, H) : [];
+      function hitsProtected(rect) { return protectedRects.some(function(area){return overlaps(rect, area);}); }
+
       // Source pixels fill the entire canvas at their native aspect ratio. No inset photo,
       // stretched food, generated background or silent crop is introduced by this preset.
       if (fullFrame) {
@@ -486,6 +504,11 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
         var blockH = ruleH + gapRule + (kicker ? kickPx + gapKick : 0) + head.lines.length * lineH + descAllow;
         if (fullFrame && blockH > H * 0.24) throw new Error('Shorten the wording to keep the center of the photograph clear.');
         var top = atTop ? M : H - M - blockH;
+        if (fullFrame && hitsProtected({x:M,y:top,w:safeW,h:blockH})) {
+          var alternate = atTop ? H-M-blockH : M;
+          if (hitsProtected({x:M,y:alternate,w:safeW,h:blockH})) throw new Error('No clear space for this wording. Use a shorter headline or another photograph.');
+          atTop = !atTop; top = alternate;
+        }
 
         // Measure what is actually behind the block, then decide ink. Type is held to 4.5:1 (the
         // WCAG floor for text, not the looser one for large graphics) across the whole band, and
@@ -564,6 +587,7 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
         bl: [M, H - markH - M], bc: [cxMark, H - markH - M], br: [W - markW - M, H - markH - M]
       };
       function collides(a) {
+        if (hitsProtected({x:a[0],y:a[1],w:markW,h:markH})) return true;
         if (!wordRect) return false;
         var pad = Math.round(M * 0.6);
         return !(a[0] + markW + pad < wordRect.x || a[0] > wordRect.x + wordRect.w + pad ||
@@ -598,10 +622,17 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
       ctx.drawImage(drawable, chosen[0], chosen[1], markW, markH);
       ctx.restore();
 
+      if (typeof opts.onLayout === 'function') opts.onLayout({
+        preset: opts.preset || 'overlay', width:W, height:H,
+        sourceAspectPreserved:true, text:wordRect,
+        emblem:{x:chosen[0],y:chosen[1],w:markW,h:markH,ink:mInk.css},
+        protectedAreas:protectedRects, protectionSource:hasSubjectRegions ? 'provided_regions' : 'center_geometry_only',
+        visualReviewRequired:true
+      });
       return canvas.toDataURL('image/jpeg', 0.92);
     });
   }
 
 
-root.AnejoBranding = { compose: compositeBranding, fitHeadline: fitHeadline, pickTitleInk: pickTitleInk };
+root.AnejoBranding = { compose: compositeBranding, fitHeadline: fitHeadline, pickTitleInk: pickTitleInk, overlaps: overlaps, protectedAreas: protectedAreas };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -10,7 +10,7 @@
 // Files under functions/_lib are NOT routed.
 import { id, now, today, toJson } from './hub.js';
 import { budgetGate, recordSpend, isoWeekOf } from './ai_budget.js';
-import { BRAND_CONTEXT } from './brand_context.js';
+import { loadBrand } from './brand_source.js';
 
 const MODEL = 'claude-sonnet-5';
 
@@ -80,7 +80,7 @@ export async function runIntel(env, { kind = 'adhoc', question, title, feature =
         max_tokens: 2000,
         system:
           'You are the market-intelligence researcher for Añejo Catering Co., a premium ' +
-          'longevity-forward Mediterranean-Cuban bowl service in Palm Beach County, Florida. ' +
+          'Cuban food family offering catering, personalized Cajitas, Traditional meals and Añejo Fit in South Florida. ' +
           'Research the question using web search, then write a concise, factual brief ' +
           '(under 600 words) the owner can act on. Plain text with short headers and bullets. ' +
           'State only what the sources support; say plainly when something could not be verified. ' +
@@ -131,19 +131,20 @@ export async function runIntel(env, { kind = 'adhoc', question, title, feature =
  * is answered against who Añejo actually is, not generic meal-prep advice.
  */
 export async function competitorSweep(env) {
+  const brand = await loadBrand(env, { maxChars: 32000 });
   return runIntel(env, {
     kind: 'competitor',
     title: `Local competitor sweep — ${today()}`,
     feature: 'intel_competitor_sweep',
     question:
       'Find who is competing for our customers RIGHT NOW. Derive your own search queries from ' +
-      'what we sell and where: premium meal prep, healthy bowls, and macro-based meal plans in ' +
-      'Palm Beach County, Florida — especially Boca Raton, Delray Beach, and West Palm Beach. ' +
+      'what we sell and where: Cuban catering, personalized party boxes, traditional Cuban meals, healthy bowls and meal plans in ' +
+      'Palm Beach and Broward counties, Florida — including Boca Raton, Delray Beach, West Palm Beach, Lake Worth Beach, Boynton Beach and Fort Lauderdale. Research local demand without claiming a guaranteed service area. ' +
       'Identify 3-6 REAL local competitors you can verify from search results. For each: name, ' +
       'Instagram handle if findable, positioning/posture, any price signals, and one thing ' +
       'Añejo could learn from them. Skip national chains unless they are visibly active in ' +
-      'this county. Do not include any business you could not verify exists.\n\n' +
-      '=== WHO AÑEJO IS (for judging relevance and what to learn) ===\n' + BRAND_CONTEXT,
+      'these counties. Do not include any business you could not verify exists.\n\n' +
+      '=== WHO AÑEJO IS (for judging relevance and what to learn) ===\n' + brand.text,
   });
 }
 
@@ -161,6 +162,6 @@ export async function platformPulse(env) {
       'restaurant brands — especially small premium food businesses? Research current trends: ' +
       'formats (Reels, carousels, stories), posting cadence, caption styles, and any recent ' +
       'platform/algorithm changes that affect reach. End with 3-5 concrete, current ' +
-      'recommendations a small premium bowl brand could apply this month.',
+      'recommendations a premium Cuban catering, Traditional and Fit brand could apply this month.',
   });
 }

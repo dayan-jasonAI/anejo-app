@@ -1042,6 +1042,7 @@
         var pos = panel.querySelector('.brand-pos').value;
         var text = panel.querySelector('.brand-text').value;
         var resultBox = panel.querySelector('.brand-result');
+        var layoutEvidence = null;
         btn.disabled = true; btn.textContent = 'Compositing…';
         compositeBranding('/api/hub/media/' + key, {
           position: pos === 'auto' ? '' : pos,   // '' means "measure the photo and decide"
@@ -1052,12 +1053,14 @@
           preset: panel.querySelector('.brand-preset').value,
           layout: panel.querySelector('.brand-layout').value,
           mark: panel.querySelector('.brand-mark').value,
-          finish: panel.querySelector('.brand-finish').value
+          finish: panel.querySelector('.brand-finish').value,
+          onLayout: function(report){layoutEvidence=report;}
         })
           .then(function (dataUrl) {
             btn.disabled = false; btn.textContent = 'Preview branded photo';
             resultBox.innerHTML =
               '<img src="' + dataUrl + '" alt="" style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:6px">' +
+              (layoutEvidence ? '<p class="hint">The center is protected geometrically. Check food near the edges and all wording before using this design.</p>' : '') +
               '<div style="display:flex;gap:8px"><button class="btn gold brand-use" type="button">Use this — replace selected slide</button>' +
               '<button class="btn ghost brand-discard" type="button">Discard</button></div>';
             resultBox.querySelector('.brand-use').addEventListener('click', function () {
