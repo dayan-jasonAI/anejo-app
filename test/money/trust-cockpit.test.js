@@ -1,3 +1,4 @@
+import { VERSION } from '../../functions/_lib/visual_audit_rubric.js';
 // The trust ledger + marketing cockpit (0072): graduated autonomy the owner can SEE.
 //
 // The rules everything below defends, in the owner's own terms:
@@ -27,7 +28,7 @@ function fixture() {
   const DB=makeSqliteD1();
   DB.sqlite.prepare(`INSERT INTO social_posts(id,platform,caption,status,source,category,original_caption_hash,created_at,updated_at,public_token)
     VALUES ('sp_1','instagram','Original','scheduled','planner','menu',?,1,1,'public-test')`).run(captionHash('Original'));
-  DB.exec(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_status='pass',audit_scope='caption_and_media',audit_context_snapshot=${SOCIAL_AUDIT_CONTEXT},audit_detail_json='{"rubric_version":"anejo-visual-1"}'`);
+  DB.exec(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_status='pass',audit_scope='caption_and_media',audit_context_snapshot=${SOCIAL_AUDIT_CONTEXT},audit_detail_json='{"rubric_version":"${VERSION}"}'`);
   return {DB};
 }
 test('distinct clean visual approval counts only once, including concurrent requests',async()=>{
@@ -171,4 +172,10 @@ for (const [label,sql] of [
  const env=fixture();const before=env.DB.one('SELECT original_design_snapshot FROM social_posts WHERE id=?','sp_1').original_design_snapshot;env.DB.exec(sql);
  assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);
  assert.equal(env.DB.one('SELECT original_design_snapshot FROM social_posts WHERE id=?','sp_1').original_design_snapshot,before,'design fingerprint remains media/caption only');
+});
+
+test('historical v1 visual approval earns no clean trust under current rubric',async()=>{
+ const env=fixture();env.DB.sqlite.prepare('UPDATE social_posts SET audit_detail_json=?').run(JSON.stringify({rubric_version:'anejo-visual-1'}));
+ assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);
+ assert.equal(env.DB.one("SELECT approved_clean FROM trust_ledger WHERE category='menu'").approved_clean,0);
 });

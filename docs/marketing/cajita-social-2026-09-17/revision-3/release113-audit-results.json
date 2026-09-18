@@ -1,0 +1,39 @@
+{
+  "source": "read-only production D1 after normal Hub audit action",
+  "results": [
+    {
+      "id": "sp_0a39246ba48d6453af3f",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789698848623,
+      "audit_score": null,
+      "audit_status": "flag",
+      "audit_scope": "unavailable",
+      "audit_flags": "[{\"type\":\"audit_unavailable\",\"detail\":\"The brand audit could not run (cited rule does not match the supplied source). Review this draft by hand.\"}]",
+      "audit_detail_json": null
+    },
+    {
+      "id": "sp_20fbf4bea6aea85f30bf",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789698977729,
+      "audit_score": null,
+      "audit_status": "flag",
+      "audit_scope": "unavailable",
+      "audit_flags": "[{\"type\":\"audit_unavailable\",\"detail\":\"The brand audit could not run (cited rule does not match the supplied source). Review this draft by hand.\"}]",
+      "audit_detail_json": null
+    },
+    {
+      "id": "sp_58424887f40e1a1b611f",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789698936985,
+      "audit_score": null,
+      "audit_status": "flag",
+      "audit_scope": "unavailable",
+      "audit_flags": "[{\"type\":\"audit_unavailable\",\"detail\":\"The brand audit could not run (cited rule does not match the supplied source). Review this draft by hand.\"}]",
+      "audit_detail_json": null
+    }
+  ],
+  "public_actions": false
+}

@@ -1,0 +1,39 @@
+{
+  "source": "read-only production D1 after normal Hub audit action",
+  "results": [
+    {
+      "id": "sp_0a39246ba48d6453af3f",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789698367540,
+      "audit_score": null,
+      "audit_status": "flag",
+      "audit_scope": "unavailable",
+      "audit_flags": "[{\"type\":\"audit_unavailable\",\"detail\":\"The brand audit could not run (approved emblem reference could not be verified). Review this draft by hand.\"}]",
+      "audit_detail_json": null
+    },
+    {
+      "id": "sp_20fbf4bea6aea85f30bf",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789696698825,
+      "audit_score": 68,
+      "audit_status": "flag",
+      "audit_scope": "caption_and_media",
+      "audit_flags": "[{\"type\":\"training\",\"detail\":\"The owner's rule requires using serving-specific approved catalog imagery, but slide 8's congrí lacks the owner-confirmed distinct purple-brown color with visible long rice grains, appearing overly uniform and dark like plain rice with beans rather than the described congrí texture.\"},{\"type\":\"photo\",\"detail\":\"Slide 7's lechón shows shredded pulled pork rather than the plated lechón cover format the brief calls out, and lacks visible sear or roasted color intentionality expected for a hero protein shot.\"},{\"type\":\"voice\",\"detail\":\"Caption line 'Tell us your date, city and guest count. We'll help you choose the food and presentation, then confirm availability and your quote' reads clearly conditional, which is fine, but pair with 'Cuéntanos tu ciudad para confirmar disponibilidad' risks implying guaranteed service coverage in that city before confirmation.\"},{\"type\":\"claim\",\"detail\":\"No invented prices or deadlines are present, but the caption does not clarify that catering requires 48-hour scheduled delivery lead time despite promoting event booking, which risks implying immediate availability.\"}]",
+      "audit_detail_json": null
+    },
+    {
+      "id": "sp_58424887f40e1a1b611f",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789696623285,
+      "audit_score": 78,
+      "audit_status": "flag",
+      "audit_scope": "caption_and_media",
+      "audit_flags": "[{\"type\":\"training\",\"detail\":\"Slide 1 shows Signature Cajita clear-area presentation but slides 2-8 mix event-themed colors before slide 9's personalization/planning content, though owner sequence calls for Signature first, then design inspirations, then personalization and planning, which is followed here.\"},{\"type\":\"claim\",\"detail\":\"The caption's Cuban tamal, congrí, or other non-Cajita menu items are not shown or referenced, but this is not a violation since the Cajita contents (croqueta, empanada, skewer, salad, sandwich, tres leches) match the live 'Start with six' items in slide 9.\"},{\"type\":\"voice\",\"detail\":\"The phrase 'Cuban favorites together in individual packaging' is generic; consider sharper sensory language consistent with Añejo's premium, Cuban-rooted voice, though this is a stylistic note rather than a rule violation.\"}]",
+      "audit_detail_json": null
+    }
+  ],
+  "public_actions": false
+}
