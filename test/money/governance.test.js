@@ -305,3 +305,19 @@ test('finished-image judge receives evidence discipline and retains actionable f
     assert.equal(request.model, 'claude-sonnet-5', 'finished images use the existing Studio reasoning model');
   } finally { globalThis.fetch = original; }
 });
+
+test('truncated provider JSON never becomes a visual pass and multi-block text can be parsed', async () => {
+  const { db, spendInserts } = stubDb({ menuItems: MENU });
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ stop_reason: 'max_tokens', usage: {input_tokens:1,output_tokens:4096}, content: [{type:'text',text:'{"brand_score":99'}] }) });
+    const limited = await auditDraft({ DB:db, ANTHROPIC_API_KEY:'test-only' }, {caption:'Menu',images:[{data:'/9j/AA=='}]});
+    assert.equal(limited.verdict, 'flag');
+    assert.match(limited.flags.find(f=>f.type==='audit_unavailable').detail, /output limit/);
+    assert.equal(spendInserts.length, 1, 'truncated paid answer still metered');
+    globalThis.fetch = async () => ({ ok:true, json:async () => ({stop_reason:'end_turn',content:[{type:'thinking',thinking:'not an audit result'},{type:'text',text:'{"brand_score":95,"flags":[],"verdict":"pass"}'}]}) });
+    const complete = await auditDraft({ DB:db, ANTHROPIC_API_KEY:'test-only' }, {caption:'Menu',images:[{data:'/9j/AA=='}]});
+    assert.equal(complete.verdict, 'pass');
+    assert.equal(complete.brand_score,95);
+  } finally { globalThis.fetch=original; }
+});

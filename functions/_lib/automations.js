@@ -18,7 +18,7 @@ import { stampPostProvenance } from './post_provenance.js';
 import { retrieve, formatPassages } from './knowledge.js';
 import { getCadenceConfig } from './social_cadence.js';
 import { getPostingTimes, assignSlot, weekdayIndexOf } from './posting_times.js';
-import { trainingContext } from './training.js';
+import { trainingContextReceipt } from './training.js';
 import { effectivePayBasis, hourlyPayCents } from './timesheet.js';
 
 // §3 of the brief — the three product lines. Fed to the planner SEPARATELY from the voice
@@ -90,7 +90,7 @@ function etHourOfSchedule(ms) {
  * binding must never break the weekly run; it should just leave the planner exactly as informed
  * as it was before this function existed.
  *
- * Returns { text, intelIds }: `text` is the prompt section (unchanged shape from before this
+ * Returns { text, intelIds, briefIds, ruleIds }: `text` is the prompt section (unchanged shape from before this
  * comment), `intelIds` is the Set of market_intel.id values that were ACTUALLY shown to the
  * model this run. The planner is about to be asked to name which intel id (if any) shaped a
  * post's angle — intelIds is how the caller checks that answer against the truth instead of
@@ -100,16 +100,19 @@ function etHourOfSchedule(ms) {
 async function plannerExtraContext(env) {
   const parts = [];
   const intelIds = new Set();
+  const briefIds = new Set();
+  let ruleIds = [];
 
   // The Lead's own campaign direction (team_lead.js writes these via create_brief). Same
   // business, same week — and until now the planner that is supposed to EXECUTE a brief never
   // read one. Archived briefs are excluded: they are closed business, not this week's direction.
   try {
     const briefs = await rows(env,
-      "SELECT title, objective, audience, angle, status FROM team_briefs WHERE status != 'archived' ORDER BY created_at DESC LIMIT 3");
+      "SELECT id, title, objective, audience, angle, status FROM team_briefs WHERE status != 'archived' ORDER BY created_at DESC LIMIT 3");
     if (briefs.length) {
+      for (const b of briefs) if (b.id) briefIds.add(String(b.id));
       parts.push('=== CAMPAIGN DIRECTION FROM THE TEAM LEAD (follow this over a generic pick) ===\n' +
-        briefs.map((b) => `- [${b.status}] ${b.title}` +
+        briefs.map((b) => `- [brief_id: ${b.id}] [${b.status}] ${b.title}` +
           (b.objective ? ` — objective: ${b.objective}` : '') +
           (b.audience ? `; audience: ${b.audience}` : '') +
           (b.angle ? `; angle: ${b.angle}` : '')).join('\n'));
@@ -165,8 +168,11 @@ async function plannerExtraContext(env) {
   // editing a markdown file on a laptop, running a build script and redeploying — which is
   // exactly why the team kept producing work the owner had already told someone he disliked.
   try {
-    const training = await trainingContext(env, { maxChars: 4000 });
-    if (training) parts.push(training);
+    const training = await trainingContextReceipt(env, { maxChars: 4000 });
+    if (training.text) {
+      parts.push(training.text);
+      ruleIds = training.receipt.rules.map(r => r.id).filter(Boolean);
+    }
   } catch { /* pre-0075 schema — planner runs exactly as it did before this wiring */ }
 
   // What actually WORKED, by cause — which rules and formats the reach followed, not just which
@@ -189,7 +195,7 @@ async function plannerExtraContext(env) {
     if (reaction) parts.push(reaction);
   } catch { /* pre-0064 schema, or nothing published yet */ }
 
-  return { text: parts.join('\n\n'), intelIds };
+  return { text: parts.join('\n\n'), intelIds, briefIds, ruleIds };
 }
 import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
@@ -888,7 +894,7 @@ async function socialPlan(env, date) {
   // each of these was previously invisible to this planner. Empty string when none apply.
   // intelIds is the set of market_intel ids actually shown to the model this run — used below to
   // reject any intel_id the model returns that was not one of the ones it was actually given.
-  const { text: extraContext, intelIds } = await plannerExtraContext(env);
+  const { text: extraContext, intelIds, briefIds, ruleIds: activeRuleIds } = await plannerExtraContext(env);
 
   // The brand brief — brand_source.js's shared loader, so an owner edit in the HUB reaches this
   // prompt on the SAME run it reaches the Team Lead and the Studio, not only on the next deploy.
@@ -910,7 +916,7 @@ async function socialPlan(env, date) {
       'photos fails the objective even if every caption is perfect.\n\n' +
       'Every image_brief you write MUST comply with the Photo standard above. ' +
       'Nutrition is always approximate ranges, never medical claims (the Golden Rule). ' +
-      'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19, "category": string, "intel_id": string|null}. ' +
+      'Return ONLY a JSON array. Each element: {"caption": string, "image_brief": string, "day_offset": integer 0-6, "hour": integer 8-19, "category": string, "brief_id": string|null, "intel_id": string|null}. ' +
       // The category feeds the trust ledger (0072): approvals are counted PER LANE, so it must
       // come from this fixed list — an invented lane would start a streak nobody can toggle.
       `category: exactly one of ${TRUST_CATEGORIES.map((c) => `"${c}"`).join(', ')} — the post's primary subject. ` +
@@ -922,6 +928,7 @@ async function socialPlan(env, date) {
       // angle (within the VALUE boundary stated up there) — otherwise null. Told to the model
       // rather than left to trust: the server checks this id against the intel it actually gave
       // you, so an invented one accomplishes nothing but null the field would not have.
+      'brief_id: copy a supplied [brief_id: ...] only when that brief directed this post; otherwise null. Never invent a brief id. ' +
       'intel_id: the market_intel id (copied exactly from a "[id: ...]" tag above) whose finding ' +
       'shaped this post\'s angle, or null if none did. The server checks this id against the intel ' +
       'it actually gave you, so inventing one accomplishes nothing. ' +
@@ -990,23 +997,11 @@ async function socialPlan(env, date) {
 
   const t = now();
 
-  // Read ONCE for the whole batch, not per post: every draft this run produces was written under
-  // the same rules and the same standing brief, and re-querying per row would let the two drift
-  // apart mid-loop if the owner edited a rule while the run was in flight. Both default to "none
-  // recorded" rather than throwing — attribution is analysis, and analysis must never be able to
-  // cost the week's posts.
-  let activeRuleIds = [];
-  try {
-    activeRuleIds = (await rows(env, 'SELECT id FROM training_rules WHERE active = 1')).map((r) => r.id);
-  } catch { activeRuleIds = []; }
-  let directingBriefId = null;
-  try {
-    const b = await rows(env, "SELECT id FROM team_briefs WHERE status != 'archived' ORDER BY created_at DESC LIMIT 1");
-    directingBriefId = (b[0] && b[0].id) || null;
-  } catch { directingBriefId = null; }
-
+  // Provenance uses only the retained pre-inference context, never a fresh query.
   const made = [];
   for (const item of ai.data.slice(0, need)) {
+    const selectedBrief = String(item?.brief_id || '').trim();
+    const directingBriefId = briefIds.has(selectedBrief) ? selectedBrief : null;
     const caption = String((item && item.caption) || '').trim().slice(0, 2200);
     if (!caption) continue;
     const brief = String((item && item.image_brief) || '').trim().slice(0, 1500) || null;
