@@ -28,3 +28,18 @@ test('private operational images cannot be staged for social publication',async(
  }
  assert.equal(env.DB.one('SELECT COUNT(*) n FROM social_posts').n,0);
 });
+
+// An audit is evidence about a specific caption, not a permanent property of a post.
+test('caption edit clears every old audit field atomically; stale edit preserves verdict', async()=>{
+ const env=ownerEnv(), id=await draft(env);
+ env.DB.sqlite.prepare("UPDATE social_posts SET audit_score=98,audit_status='pass',audit_flags='[]',audit_at=123 WHERE id=?").run(id);
+ const stale=await call(env,{op:'edit',id,caption:'Unreviewed',expected_caption:'Outdated'});
+ assert.equal(stale.status,409);
+ let row=env.DB.one('SELECT caption,audit_score,audit_status,audit_flags,audit_at FROM social_posts WHERE id=?',id);
+ assert.equal(row.caption,'Original'); assert.equal(row.audit_score,98); assert.equal(row.audit_at,123);
+ const edited=await call(env,{op:'edit',id,caption:'Changed claims',expected_caption:'Original'});
+ assert.equal(edited.status,200);
+ row=env.DB.one('SELECT caption,audit_score,audit_status,audit_flags,audit_at FROM social_posts WHERE id=?',id);
+ assert.equal(row.caption,'Changed claims');
+ for(const field of ['audit_score','audit_status','audit_flags','audit_at']) assert.equal(row[field],null,field);
+});
