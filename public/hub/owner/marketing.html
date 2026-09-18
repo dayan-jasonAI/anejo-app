@@ -9,7 +9,7 @@
 <link rel="manifest" href="/hub/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link rel="stylesheet" href="/hub/assets/hub.css">
-<link rel="stylesheet" href="/hub/owner/assets/marketing-library.css?v=photo-polish-2">
+<link rel="stylesheet" href="/hub/owner/assets/marketing-library.css?v=asset-review-1">
 <link rel="stylesheet" href="/hub/owner/assets/marketing-photo-picker.css?v=photo-polish-2">
 <link rel="stylesheet" href="/hub/owner/assets/marketing-photo-enhance.css?v=photo-polish-2">
 <!-- The two Añejo brand faces, the SAME link the public site uses (public/index.html). They are
@@ -226,7 +226,7 @@
 <script src="/assets/js/i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
-<script src="/hub/owner/assets/marketing-library.js?v=photo-polish-2"></script>
+<script src="/hub/owner/assets/marketing-library.js?v=asset-review-1"></script>
 <script src="/hub/owner/assets/marketing-photo-picker.js?v=photo-polish-2"></script>
 <script src="/hub/owner/assets/marketing-photo-polish.js?v=photo-polish-2"></script>
 <script src="/hub/owner/assets/marketing-photo-enhance.js?v=photo-polish-2"></script>
@@ -327,7 +327,7 @@
     if (!el || !state.spine) return;
     var s = state.spine;
     var bits = [];
-    if (s.followers != null) bits.push(Hub.esc(String(s.followers)) + ' followers');
+    if (s.followers != null) bits.push(Hub.esc(String(s.followers)) + ' followers · snapshot ' + Hub.esc(s.metrics_as_of ? String(s.metrics_as_of) : 'date unavailable'));
     if (s.budget) bits.push(s.budget.status === 'unavailable' || !Number.isFinite(s.budget.spent_usd) ? 'AI budget unavailable · paid calls paused' : '$' + s.budget.spent_usd.toFixed(2) + ' / $' + Number(s.budget.limit_usd).toFixed(0) + ' AI this week');
     bits.push(Hub.esc(String(s.drafts_pending)) + ' drafts pending');
     if (s.menu_total) bits.push(Hub.esc(String(s.menu_available)) + '/' + Hub.esc(String(s.menu_total)) + ' menu items on sale');
@@ -477,11 +477,13 @@
     if (!d || !d.ok) { root().innerHTML = '<div class="card accent"><p data-i18n>Could not load. Pull to refresh.</p></div>'; return; }
 
     var previewBox;
-    if (!d.trained) {
+    var trainingUnavailable = d.preview && d.preview.read_status && Object.values(d.preview.read_status).some(function (v) { return v === 'unavailable'; });
+    if (trainingUnavailable) { previewBox = '<div class="tt-warn">Training read incomplete. One or more sources are unavailable; this is not proof that no guidance exists.</div>' + (d.preview.text ? '<div class="tt-preview-box">' + esc(d.preview.text) + '</div>' : '');
+    } else if (!d.trained) {
       // HONEST WHEN EMPTY — this is the whole point of the panel. A fresh install must never
       // read as "the team already knows something."
       previewBox = '<div class="tt-empty"><strong data-i18n>The team has not been trained yet.</strong> ' +
-        '<span data-i18n>Nothing below is being sent to the marketing team\'s AI. Add a rule or a reference photo and it will appear here — exactly as the team will see it.</span></div>';
+        '<span data-i18n>Nothing below is being sent to the marketing team\'s AI. Add a rule or a reference photo and it will appear here — in the shared Lead/planner preview.</span></div>';
     } else {
       previewBox = '<div class="tt-preview-box">' + esc(d.preview.text) + '</div>' +
         '<p class="tt-meta" style="margin-top:8px">' + d.preview.ruleCount + ' ' + (d.preview.ruleCount === 1 ? 'rule' : 'rules') +
@@ -489,16 +491,19 @@
         ' · ' + d.preview.usedChars.toLocaleString() + ' / ' + d.preview.maxChars.toLocaleString() + ' characters</p>';
       if (d.preview.truncated) {
         previewBox += '<div class="tt-warn"><strong data-i18n>Some of your training did not fit.</strong> ' +
-          '<span data-i18n>You have ' + d.preview.totalRules + ' rule(s) and ' + d.preview.totalExamples + ' example(s) total, but only the newest ones above are actually reaching the team — the oldest were cut to stay inside the budget. Remove something you no longer need, or trim what you have.</span></div>';
+          '<span data-i18n>You have ' + d.preview.totalRules + ' rule(s) and ' + d.preview.totalExamples + ' example(s) total, but only the retained rows above fit this Lead/planner preview cap. Remove something you no longer need, or trim what you have.</span></div>';
       }
     }
 
+    if (trainingUnavailable && d.preview.truncated) previewBox += '<div class="tt-warn">Available training also exceeded the 16,000-character cap; some rows were omitted.</div>';
+    if (d.preview && d.preview.selection_may_be_limited && (d.preview.selection_may_be_limited.rules || d.preview.selection_may_be_limited.examples)) previewBox += '<div class="tt-warn">Source selection reached its 500-row limit; older rows may be omitted.</div>';
+
     root().innerHTML =
-      '<p class="sub" data-i18n>Teach the marketing team without touching a file or a deploy. Write plain-language rules and mark up photo examples — the AI reads this exact text before every plan it writes.</p>' +
+      '<p class="sub" data-i18n>Teach the marketing team without touching a file or a deploy. Write plain-language rules and mark up photo examples — the Lead and planner use a shared 16,000-character training cap. Other tools may use different context limits.</p>' +
 
       '<section class="card">' +
         '<h2 data-i18n>What the team currently believes</h2>' +
-        '<p class="tt-meta" data-i18n>This is the literal text handed to the marketing AI right now — so you can verify your training actually landed.</p>' +
+        '<p class="tt-meta" data-i18n>Current Lead/planner training preview. Actual inference receipts show what each completed call received.</p>' +
         previewBox +
       '</section>' +
 
@@ -2873,7 +2878,7 @@
       '</div>' +
       '<div class="hub-section">' +
         '<h2 data-i18n>Train the team</h2>' +
-        '<p class="hint" data-i18n>Plain-language rules and reference photos — the AI reads this exact text before every plan it writes.</p>' +
+        '<p class="hint" data-i18n>Plain-language rules and reference photos — the Lead and planner use a shared 16,000-character training cap. Other tools may use different context limits.</p>' +
         '<div id="training-root"><div class="hub-loading">…</div></div>' +
       '</div>' +
     '</div>' +

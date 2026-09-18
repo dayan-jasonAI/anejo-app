@@ -53,6 +53,80 @@
     } catch (e) { status(e.message); }
     finally { lock(false); }
   }
+  function reviewForReuse(photo, card) {
+    var detail = el('details', '', 'photo-reuse-review');
+    detail.append(el('summary', t('Review for team reuse', 'Revisar para uso del equipo')));
+    var pane = el('div', '', 'photo-reuse-pane'); detail.append(pane); card.append(detail);
+    var loading = false, loaded = false;
+    async function reload() {
+      if (loading) return;
+      loading = true; pane.replaceChildren(el('p', t('Loading saved review…', 'Cargando revisión guardada…')));
+      var results = await Promise.allSettled([api('/api/hub/owner/marketing-asset-registry'), api('/api/menu')]);
+      loading = false; loaded = true; pane.replaceChildren();
+      var preview = el('img'); preview.src = photo.url; preview.alt = photo.name || t('Photo under review', 'Foto en revisión'); preview.className = 'photo-reuse-preview';
+      pane.append(preview, el('p', t('Permission to select this photo for draft posts only. This does not approve a public post, caption or schedule.', 'Permiso para seleccionar esta foto solo en borradores. No aprueba publicaciones, textos ni horarios.'), 'hint'));
+      var feedback = el('p', '', 'photo-reuse-status'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
+      var retry = el('button', t('Reload saved review', 'Recargar revisión'), 'btn ghost'); retry.type = 'button'; retry.onclick = reload;
+      if (results[0].status !== 'fulfilled') {
+        pane.append(el('p', t('Reuse registry unavailable. Approval status is unknown; no permission has been changed. ', 'Registro no disponible. El estado es desconocido; no se cambió ningún permiso. ') + results[0].reason.message), retry); return;
+      }
+      var registry = results[0].value;
+      var record = (registry.assets || []).find(function (r) { return r.asset_key === photo.media_key; });
+      if (!record && registry.truncated) {
+        pane.append(el('p', t('The registry response is incomplete. Current review status cannot be confirmed for this photo.', 'La respuesta del registro está incompleta. No se puede confirmar la revisión de esta foto.')), retry); return;
+      }
+      pane.append(el('p', record ? (record.approved_for_draft_selection ? t('Allowed in draft selection', 'Permitida para borradores') : t('Not allowed in draft selection', 'No permitida para borradores')) + ' · ' + t('revision ', 'revisión ') + record.revision : t('Not registered. Uploading a photo never enables reuse automatically.', 'Sin registrar. Subir una foto nunca permite su reutilización automáticamente.'), 'photo-reuse-state'));
+      if (record) pane.append(el('p', t('Saved content hash: ', 'Hash del contenido guardado: ') + record.content_sha256 + ' · ' + t('Reviewed by ', 'Revisada por ') + record.reviewed_by, 'photo-reuse-hash'));
+      var changing = false;
+      async function write(payload, saveButton) {
+        if (changing) return; changing = true; saveButton.disabled = true; retry.disabled = true;
+        try {
+          await api('/api/hub/owner/marketing-asset-registry', { method: 'POST', body: payload });
+          await reload();
+        } catch (error) {
+          feedback.textContent = t('Not saved. Reload the review before retrying. ', 'No se guardó. Recarga la revisión antes de reintentar. ') + error.message;
+          // Keep the old revision disabled after any failure. Never silently retry against a
+          // newer review or turn a failed approval into a checked permission.
+        } finally { changing = false; retry.disabled = false; }
+      }
+      if (record && record.approved_for_draft_selection) {
+        var revoke = el('button', t('Stop team reuse', 'Detener reutilización'), 'btn ghost'); revoke.type = 'button';
+        revoke.onclick = function () { write({ op: 'revoke', asset_key: photo.media_key, expected_revision: record.revision }, revoke); };
+        pane.append(revoke);
+      }
+      var menu = results[1].status === 'fulfilled' ? results[1].value : null;
+      if (!menu || menu.source !== 'd1') {
+        pane.append(el('p', t('Live catalog unavailable. New approval is disabled; an existing permission can still be revoked.', 'Catálogo en vivo no disponible. No se pueden dar nuevos permisos; los existentes sí se pueden revocar.')), feedback, retry); return;
+      }
+      var jpeg = /\.jpe?g$/i.test(photo.media_key);
+      if (!jpeg) { pane.append(el('p', t('Reuse requires a JPEG. Prepare a JPEG draft copy, then review that copy separately.', 'Se necesita un JPEG. Prepara una copia JPEG y revísala por separado.')), feedback, retry); return; }
+      var items = [].concat(menu.items || [], menu.bowls || [], menu.drinks || [], menu.addons || []);
+      var seen = new Set(); items = items.filter(function (item) { if (!item.id || seen.has(item.id)) return false; seen.add(item.id); return true; });
+      var products = el('fieldset', '', 'photo-reuse-products'); products.append(el('legend', t('Exactly which menu items appear?', '¿Qué productos del menú aparecen?')));
+      var selected = record ? (record.menu_item_ids || []) : [];
+      var checks = [];
+      items.forEach(function (item) {
+        var label = el('label'); var input = el('input'); input.type = 'checkbox'; input.value = item.id; input.checked = selected.includes(item.id);
+        checks.push(input); label.append(input, el('span', t(item.name, item.name_es || item.name) + ' · ' + item.id)); products.append(label);
+      });
+      var missing = selected.filter(function (id) { return !seen.has(id); });
+      if (missing.length) products.append(el('p', t('Previously selected products are absent from the current catalog: ', 'Productos anteriores ausentes del catálogo actual: ') + missing.join(', ')));
+      var themeLabel = el('label', t('Theme (optional; use consistent wording)', 'Tema (opcional; usa el mismo nombre)'));
+      var theme = el('input'); theme.type = 'text'; theme.maxLength = 80; theme.value = record ? record.theme : ''; theme.placeholder = t('Signature, birthday, custom…', 'Signature, cumpleaños, personalizado…'); themeLabel.append(theme);
+      var visualLabel = el('label', t('What does the image show?', '¿Qué muestra la imagen?'));
+      var visual = el('select'); [['product','Single product','Un producto'],['combo','Several products together','Varios productos juntos'],['lifestyle','Event or lifestyle','Evento o ambiente'],['editorial','Editorial design','Diseño editorial']].forEach(function (v) { var option = el('option', t(v[1], v[2])); option.value = v[0]; visual.append(option); }); visual.value = record ? record.visual_type : 'product'; visualLabel.append(visual);
+      var consentLabel = el('label', '', 'photo-reuse-optin'); var consent = el('input'); consent.type = 'checkbox'; consent.checked = !!(record && record.approved_for_draft_selection);
+      consentLabel.append(consent, el('span', t('Allow team to reuse in draft posts', 'Permitir al equipo reutilizar en borradores')));
+      var save = el('button', t('Save reuse review', 'Guardar revisión'), 'btn gold'); save.type = 'button';
+      save.onclick = function () {
+        var ids = checks.filter(function (input) { return input.checked; }).map(function (input) { return input.value; });
+        if (!ids.length || ids.length > 12) { feedback.textContent = t('Select one to twelve actual products shown in this image.', 'Selecciona de uno a doce productos que aparezcan en esta imagen.'); return; }
+        write({ asset_key: photo.media_key, expected_revision: record ? record.revision : 0, menu_item_ids: ids, theme: theme.value.trim(), visual_type: visual.value, approved_for_draft_selection: consent.checked }, save);
+      };
+      pane.append(products, themeLabel, visualLabel, consentLabel, save, feedback, retry);
+    }
+    detail.ontoggle = function () { if (detail.open && !loaded) reload(); };
+  }
   function drawGallery() {
     var grid = root.querySelector('[data-photo-grid]'); grid.replaceChildren();
     var search = root.querySelector('[data-photo-search]');
@@ -70,6 +144,7 @@
       if(p.ai_enhanced)card.append(el('p',t('AI-enhanced copy — review against original','Copia con IA — comparar con original'),'hint'));
       else if(p.source_key)card.append(el('p',t('Photographic polish — original preserved','Ajuste fotográfico — original conservado'),'hint'));
       else {var enhance=el('button',t('Enhance photo','Mejorar foto'),'btn ghost');enhance.type='button';enhance.onclick=async function(){await MarketingPhotoEnhance.open({photo:p,onUse:choose});load(false);};card.append(enhance);}
+      reviewForReuse(p, card);
       grid.append(card);
     });
     root.querySelector('[data-photo-empty]').hidden = photos.length > 0;

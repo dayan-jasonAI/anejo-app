@@ -18,7 +18,7 @@ import { stampPostProvenance } from './post_provenance.js';
 import { retrieve, formatPassages } from './knowledge.js';
 import { getCadenceConfig } from './social_cadence.js';
 import { getPostingTimes, assignSlot, weekdayIndexOf } from './posting_times.js';
-import { trainingContextReceipt } from './training.js';
+import { trainingContextReceipt, DEFAULT_MAX_CHARS } from './training.js';
 import { persistInferenceReceipt } from './inference_receipt.js';
 import { effectivePayBasis, hourlyPayCents } from './timesheet.js';
 
@@ -169,7 +169,7 @@ async function plannerExtraContext(env) {
   // editing a markdown file on a laptop, running a build script and redeploying — which is
   // exactly why the team kept producing work the owner had already told someone he disliked.
   try {
-    const training = await trainingContextReceipt(env, { maxChars: 4000 });
+    const training = await trainingContextReceipt(env, { maxChars: DEFAULT_MAX_CHARS });
     trainingReceipt = training.receipt;
     if (training.receipt.reads.rules !== 'unavailable') ruleIds = training.receipt.rules.map(r => r.id).filter(Boolean);
     if (training.text) {
