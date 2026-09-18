@@ -111,3 +111,12 @@ test('autonomy requires current clean streak as well as owner toggle',async()=>{
  assert.equal((await autoPublishCategories(env)).has('catering'),false);
  env.DB.sqlite.prepare("UPDATE trust_ledger SET approved_clean=5 WHERE category='catering'").run();assert.equal((await autoPublishCategories(env)).has('catering'),true);
 });
+
+test('planner cannot seal an owner-corrected image as its original design',async()=>{
+ const {readFileSync}=await import('node:fs');const {SOCIAL_AUDIT_SNAPSHOT}=await import('../../functions/_lib/social_audit.js');
+ const code=readFileSync(new URL('../../functions/_lib/automations.js',import.meta.url),'utf8');
+ const query=code.match(/prepare\(`(UPDATE social_posts SET original_design_snapshot=[\s\S]*?)`\)\.bind\(postId, caption, brief/)[1].replace('${SOCIAL_AUDIT_SNAPSHOT}',SOCIAL_AUDIT_SNAPSHOT);
+ const {env,id}=await setup();env.DB.exec("UPDATE social_posts SET media_key=NULL");
+ const wrong=await env.DB.prepare(query).bind(id,'Original','','studio/planner-original.jpg').run();assert.equal(wrong.meta.changes,0);
+ const correct=await env.DB.prepare(query).bind(id,'Original','','marketing-library/2026-09/real.jpg').run();assert.equal(correct.meta.changes,1);
+});

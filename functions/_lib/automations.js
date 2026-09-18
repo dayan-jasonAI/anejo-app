@@ -1073,8 +1073,12 @@ async function socialPlan(env, date) {
       // exact state it would have been in before — and never the caption or the week's cadence.
       const photo = await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
       // Seal the planner's complete design before owner edits. Never backfill old drafts.
-      try { await env.DB.prepare(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
-        WHERE id=? AND original_design_snapshot IS NULL AND status='draft'`).bind(postId).run(); } catch { /* no trust credit without evidence */ }
+      try { if (photo.ok) await env.DB.prepare(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
+        WHERE id=? AND original_design_snapshot IS NULL AND status='draft'
+        AND caption=? AND COALESCE(image_brief,'')=? AND COALESCE(media_key,'')=''
+        AND COALESCE(media_type,'IMAGE')='IMAGE'
+        AND (SELECT COUNT(*) FROM social_post_media WHERE post_id=social_posts.id)=1
+        AND EXISTS (SELECT 1 FROM social_post_media WHERE post_id=social_posts.id AND seq=0 AND media_key=?)`).bind(postId, caption, brief || '', photo.media_key).run(); } catch { /* no trust credit without evidence */ }
       try { await auditSavedDraft(env, postId, caption); } catch { /* visibly unscored; never auto-approved */ }
 
       // Record WHAT produced this post — which of the owner's rules were in force, which brief
