@@ -7,7 +7,7 @@ function check(data,ctx=context()){return validateVisualAudit(data,ctx);}
 test('complete compliant rubric has defined score, suggestions never become violations',()=>{const d=response();d.suggestions=['Optional: shorten the opening sentence.'];const r=check(d);assert.equal(r.verdict,'pass');assert.equal(r.score,100);assert.equal(r.suggestions.length,1);});
 test('real stated defect remains flagged with rule and slide evidence',()=>{const d=response();Object.assign(d.observations[1],{status:'violated',slides:[2],explanation:'Slide 2 clips the final word of the required heading.'});const r=check(d);assert.equal(r.verdict,'flag');assert.equal(r.flags.length,1);assert.equal(r.score,86);});
 test('unsupported or incomplete observations cannot be accepted',()=>{
- for(const mutate of [d=>d.observations.pop(),d=>d.observations[0].criterion_id='invented',d=>d.observations[0].rule_quote='Invented narrower branding rule',d=>d.observations[0].caption_quote='An absent promise',d=>d.observations[0].slides=[4],d=>d.observations[0].slides=[],d=>d.observations[0].status='unknown',d=>d.observations[0].status='not_applicable']){const d=response();mutate(d);assert.equal(check(d).available,false);assert.equal(check(d).score,null);}
+ for(const mutate of [d=>d.observations.pop(),d=>d.observations[0].criterion_id='invented',d=>d.observations[0].rule_quote='Invented narrower branding rule',d=>d.observations[0].caption_quote='An absent promise',d=>d.observations[0].slides=[4],d=>d.observations[0].slides=[],d=>d.observations[0].status='not_applicable']){const d=response();mutate(d);assert.equal(check(d).available,false);assert.equal(check(d).score,null);}
 });
 test('self-negating defects fail audit, never get removed to create pass',()=>{
  for(const explanation of ['The owner sequence is followed here.','This is not a violation.','A stylistic note rather than a rule violation.']){const d=response();Object.assign(d.observations[0],{status:'violated',explanation});const r=check(d);assert.equal(r.available,false);assert.equal(r.verdict,'flag');assert.equal(r.reason,'contradictory_finding');}
@@ -24,3 +24,8 @@ test('canonical rule references are server-derived; model source fields are reje
 test('empty brand cannot support acceptance',()=>{const c=context();c.brandText='';assert.equal(check(response(),c).available,false);});
 
 test('missing reference prevents a visual acceptance claim',()=>{const c=context();c.emblemReference=null;assert.equal(check(response(),c).reason,'emblem_reference_unavailable');});
+
+test('unknown retains complete observations and counts but cannot pass',()=>{const d=response();d.observations[4].status='unknown';const r=check(d);assert.equal(r.available,true);assert.equal(r.complete,false);assert.equal(r.verdict,'flag');assert.equal(r.score,null);assert.equal(r.criteria_met,6);assert.equal(r.observations.length,7);assert.equal(r.unknowns.length,1);});
+test('invalid evidence diagnostics identify field and bounded numeric constraints',()=>{
+ for(const [field,value,issue] of [['explanation','x'.repeat(601),'too_long'],['slides',[1,1],'duplicate'],['slides',[0],'invalid_number_or_range'],['slides',[1.5],'invalid_number_or_range'],['caption_quote',null,'not_string']]){const d=response();d.observations[0][field]=value;const r=check(d);assert.equal(r.available,false);assert.equal(r.diagnostic.field,field);assert.equal(r.diagnostic.issue,issue);assert.ok(JSON.stringify(r.diagnostic).length<300);}
+});

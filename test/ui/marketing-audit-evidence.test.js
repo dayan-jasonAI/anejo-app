@@ -36,3 +36,9 @@ test('rejected diagnostic is escaped and distinguished from a verified design de
  assert.match(html,/&lt;img/);
  assert.doesNotMatch(html,/<script>|<img|class="audit pass"/);
 });
+test('partial audit retains requirement counts but never renders pass even with stale pass status',()=>{const detail={rubric_version:'anejo-visual-3',complete:false,observations:[{criterion_id:'branding',status:'met',explanation:'Matches reference'},{criterion_id:'product_fidelity',status:'unknown',explanation:'Unverifiable portion claim'}]};const html=render({...row,audit_score:null,audit_detail_json:JSON.stringify(detail)});assert.match(html,/partial — unresolved evidence/);assert.match(html,/Requirements met: 1\/2/);assert.match(html,/1 unresolved — review required/);assert.doesNotMatch(html,/class="audit pass"/);});
+test('invalid evidence UI exposes bounded escaped field issue and measured limits',()=>{
+ const input={...row,audit_score:null,audit_flags:JSON.stringify([{type:'audit_unavailable',detail:'Invalid evidence'}]),audit_detail_json:JSON.stringify({rubric_version:'anejo-visual-3',audit_diagnostic:{criterion_id:'readability',field:'explanation',issue:'too_long',length:712,max:600}})};
+ const html=render(input);assert.match(html,/Evidence field: explanation · too_long/);assert.match(html,/Length\/count: 712 · maximum: 600/);
+ input.audit_detail_json=JSON.stringify({audit_diagnostic:{field:'<img>',issue:'<script>',length:'<svg>',max:'<iframe>'}});const escaped=render(input);assert.doesNotMatch(escaped,/<img>|<script>|<svg>|<iframe>/);assert.match(escaped,/&lt;img/);
+});

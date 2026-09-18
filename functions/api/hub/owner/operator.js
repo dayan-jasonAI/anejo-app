@@ -1,3 +1,4 @@
+import { loadAnaHeartbeat, anaHeartbeatText } from '../../../_lib/ana_heartbeat.js';
 // POST /api/hub/owner/operator — the Añejo Voice Operator.
 //
 // Part 3 of the DMD Venture standard (Client App · Website · HUB = CRM + VOICE OPERATOR ·
@@ -119,7 +120,7 @@ export async function marketingStatus(env) {
     counts: heartbeat.counts || null,
   };
   return { observed_at: new Date(observedAt).toISOString(), queue, ana_auto_reply_setting: autoReply,
-    scheduler, execution_health: 'unverified', google_review_replies: 'not_integrated' };
+    scheduler, ana_inbox: await loadAnaHeartbeat(env, observedAt), execution_health: 'unverified', google_review_replies: 'not_integrated' };
 }
 
 export function schedulerStatusText(scheduler) {
@@ -184,7 +185,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (['marketing status', 'marketing team status', 'estado de marketing'].includes(command)) {
     const status = await marketingStatus(env);
     const queue = status.queue === null ? 'The marketing queue is unavailable.' : status.queue.length ? status.queue.map(row => `${row.n} ${row.status}`).join(', ') + '.' : 'The marketing queue is empty.';
-    return json({ ok: true, reply: `Queue observed at ${status.observed_at}: ${queue} ${schedulerStatusText(status.scheduler)} Ana’s saved auto-reply setting is ${status.ana_auto_reply_setting ?? 'unavailable'}. This is configuration, not proof that replies or scheduled posts are running. Google review replies are not integrated.`, status, receipt: { mode: 'deterministic', mutation: false, observed_at: status.observed_at } });
+    return json({ ok: true, reply: `Queue observed at ${status.observed_at}: ${queue} ${schedulerStatusText(status.scheduler)} ${anaHeartbeatText(status.ana_inbox)} Ana’s saved auto-reply setting is ${status.ana_auto_reply_setting ?? 'unavailable'}. This is configuration, not proof that replies or scheduled posts are running. Google review replies are not integrated.`, status, receipt: { mode: 'deterministic', mutation: false, observed_at: status.observed_at } });
   }
 
   // No key ⇒ honest refusal. Never a fabricated operator turn.

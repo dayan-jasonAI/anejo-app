@@ -37,7 +37,7 @@ test('reference loads canonical bundled bytes with no external or ASSETS request
 test('uncertain visual evidence reports missing proof rather than a provider outage',async()=>{
  const env=ownerEnv({ANTHROPIC_API_KEY:'test'});const original=globalThis.fetch;
  globalThis.fetch=async()=>{const data=answer();data.observations[0].status='unknown';return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(data)}]})};};
- try{const r=await auditDraft(env,{caption:'Catering',images:[{data:'test'}]});const detail=r.flags.find(f=>f.type==='audit_unavailable').detail;assert.match(detail,/evidence is missing or uncertain/);assert.ok(!detail.includes('API unreachable'));}finally{globalThis.fetch=original;}
+ try{const r=await auditDraft(env,{caption:'Catering',images:[{data:'test'}]});assert.equal(r.complete,false);assert.equal(r.brand_score,null);assert.equal(r.verdict,'flag');assert.equal(r.unknowns[0].criterion_id,'branding');assert.equal(r.observations.length,7);}finally{globalThis.fetch=original;}
 });
 test('safe audit failure reasons expose no arbitrary provider error or secret',async()=>{
  const {safeAuditFailure}=await import('../../functions/_lib/governance.js');
@@ -50,5 +50,5 @@ test('safe audit failure reasons expose no arbitrary provider error or secret',a
 test('rejected criterion retains bounded diagnostic without response body or image bytes',async()=>{
  const env=ownerEnv({ANTHROPIC_API_KEY:'test'});const original=globalThis.fetch;
  globalThis.fetch=async()=>{const data=answer();data.observations[0].status='unknown';data.observations[0].explanation='Unable to compare this emblem confidently.';return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(data)}]})};};
- try{const r=await auditDraft(env,{caption:'Catering',images:[{data:'PRIVATE_IMAGE_BYTES'}]});assert.equal(r.verdict,'flag');assert.equal(r.audit_diagnostic.criterion_id,'branding');assert.equal(r.audit_diagnostic.status,'unknown');assert.match(r.audit_diagnostic.explanation,/Unable/);assert.ok(!JSON.stringify(r).includes('PRIVATE_IMAGE_BYTES'));assert.equal(r.rubric_version,VERSION);}finally{globalThis.fetch=original;}
+ try{const r=await auditDraft(env,{caption:'Catering',images:[{data:'PRIVATE_IMAGE_BYTES'}]});assert.equal(r.verdict,'flag');assert.equal(r.unknowns[0].criterion_id,'branding');assert.equal(r.observations[0].status,'unknown');assert.match(r.unknowns[0].explanation,/Unable/);assert.ok(!JSON.stringify(r).includes('PRIVATE_IMAGE_BYTES'));assert.equal(r.rubric_version,VERSION);}finally{globalThis.fetch=original;}
 });

@@ -1335,13 +1335,14 @@
     var unavailable = flags.some(function(f) { return f && f.type === 'audit_unavailable'; });
     var current = p.audit_current === 1 || p.audit_current === true;
     var structured = detail && detail.rubric_version && Array.isArray(detail.observations);
-    var status = !unavailable && current && p.audit_status === 'pass' ? 'pass' : 'flag';
-    var label = unavailable ? 'unavailable' : !current ? 'outdated — re-audit required' : p.audit_status === 'pass' ? 'requirements met' : 'needs review';
+    var partial = structured && (detail.complete === false || detail.observations.some(function(o) { return o && o.status === 'unknown'; }));
+    var status = !partial && !unavailable && current && p.audit_status === 'pass' ? 'pass' : 'flag';
+    var label = unavailable ? 'unavailable' : !current ? 'outdated — re-audit required' : partial ? 'partial — unresolved evidence' : p.audit_status === 'pass' ? 'requirements met' : 'needs review';
     var body = '';
     if (structured) {
       var applicable = detail.observations.filter(function(o) { return o && o.status !== 'not_applicable'; });
       var met = applicable.filter(function(o) { return o.status === 'met'; }).length;
-      body += '<div class="audit-score">Requirements met: ' + met + '/' + applicable.length + (current ? '' : ' · historical result') + '</div>';
+      body += '<div class="audit-score">Requirements met: ' + met + '/' + applicable.length + (partial ? ' · ' + applicable.filter(function(o) { return o.status === 'unknown'; }).length + ' unresolved — review required' : '') + (current ? '' : ' · historical result') + '</div>';
       var names = {branding:'Emblem visual consistency',readability:'Readability',caption_image:'Caption and imagery',themed_packaging:'Personalized packaging',product_fidelity:'Product accuracy',claims:'Supported claims',owner_instructions:'Owner direction'};
       body += '<details><summary>Review audit evidence</summary><ul>' + detail.observations.map(function(o) {
         if (!o || typeof o !== 'object') return '';
@@ -1358,6 +1359,8 @@
     if (unavailable && detail && detail.audit_diagnostic) {
       var diagnostic = detail.audit_diagnostic;
       body += '<details><summary>Why this audit needs review</summary><p>' + esc(diagnostic.criterion_id || diagnostic.reason || 'Audit evidence') + '</p>' +
+        (diagnostic.field || diagnostic.issue ? '<p>Evidence field: ' + esc(String(diagnostic.field || 'unknown').slice(0,80)) + ' · ' + esc(String(diagnostic.issue || 'invalid').slice(0,120)) + '</p>' : '') +
+        (diagnostic.length != null || diagnostic.max != null ? '<p>Length/count: ' + esc(String(diagnostic.length == null ? 'unknown' : diagnostic.length).slice(0,30)) + ' · maximum: ' + esc(String(diagnostic.max == null ? 'unknown' : diagnostic.max).slice(0,30)) + '</p>' : '') +
         (diagnostic.explanation ? '<p>' + esc(diagnostic.explanation) + '</p>' : '') +
         (diagnostic.quote ? '<p>Rejected caption citation: ' + esc(diagnostic.quote) + '</p>' : '') +
         '<p class="hint">This is a rejected auditor observation, not a verified defect in your design.</p></details>';
@@ -2983,6 +2986,6 @@
   Owner.init('marketing', load, { roles: Owner.MARKETING_DESK });
 })();
 </script>
-<script src="assets/operator.js" defer></script>
+<script src="assets/operator.js?v=private-operator-2" defer></script>
 </body>
 </html>

@@ -206,3 +206,12 @@ Exact caption-line structured choices prevent arbitrary recopy/paraphrase citati
 Operator now has deterministic owner-only EN/ES private navigation, saved audit summary and unsaved idea capture. Canonical extensionless/.html same-page routing preserves unfinished captions; explicit navigation buttons avoid surprise redirects. Actual MarketingTabs router tested. No public mutations, model calls or writes for those commands. These are limited private commands, not a full operations director.
 
 Validation:2766root tests passed before final diagnostic UI addition (/tmp/anejo-caption-diagnostic-root.log); final6audit UI tests passed (/tmp/anejo-diagnostic-ui.log);24integratedoperator tests passed. Functions build passed; lint0errors/4existingwarnings. Live acceptance pending. No new migration.
+
+
+## PR115 live acceptance and release116 candidate
+
+PR115 merged48083e5eb6170bba9e090ec4ec8cc926bd5c757e; production62d64e00-5cda-4b4d-a4a2-b2a2896c8287 completed-success. Choice audit reached product_fidelity unknown, explicitly asking for photographic/SKU provenance that the visual judge cannot prove. Personal audit returned invalid_evidence with insufficient field diagnostics. No third attempt. Both retained unscheduled draft status; source record revision-3/release115-live-acceptance.json.
+
+Rubricv3 scopes product fidelity to explicit caption/overlay claims, leaves authenticity outside visualjudgment, preserves valid unknowns as partial flagged/null-score results, and keeps malformed evidence unavailable. Actual slide enums and field-specific diagnostics added; no score override. Distinct Ana inbox heartbeat observes natural existing ticks without changing send settings. Aggregate production read2026-09-18T02:59:19Z shows zero inbound7d,31historicalauto-reply records,3pendingdrafts and1oldDM outsidewindow; not proof of current execution or outage. See revision-3/ana-aggregate-observation.json.
+
+Typed115operator audit status returned newbackendtext but no expandedUI afterreload; cache attribution is inference. Version marketingoperatorasset and bumpHubcache for116. Local2777root tests pass;78auditfocused,51Anafocused,10cachetests; Functionsbuild passes. FinaldiagnosticUIaddition checkedseparately. Renderer localPagesbuild+oneJPEG succeeds; productionmemory/CPU and brandparity remainUnverified, documented in UNATTENDED_RENDERING_PROOF_2026-09-17.md. No customer/provider test sends, publicposts, purchases or credentials changes.
