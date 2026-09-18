@@ -438,8 +438,63 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
     });
   }
 
+  // Full-frame export at a consistent carousel ratio. Original pixels are never cropped.
+  // Only missing canvas edges receive colors sampled from the corresponding photo edge.
+  function editorialProfile(name) {
+    var profiles={
+      'reposado-square':{aspect:1,textRegion:{x:.07,y:.915,w:.73,h:.065},emblemRegion:{x:.87,y:.915,w:.065,h:.065}},
+      'reposado-dense':{aspect:1,textRegion:{x:.07,y:.955,w:.82,h:.04},emblemRegion:{x:.015,y:.012,w:.06,h:.06}},
+      'reposado-portrait':{aspect:1,vertical:true,textRegion:{x:.93,y:.36,w:.05,h:.45},emblemRegion:{x:.915,y:.06,w:.075,h:.075}},
+      'reposado-wide':{aspect:4/3,textRegion:{x:.065,y:.815,w:.30,h:.12},emblemRegion:{x:.30,y:.94,w:.05,h:.055}},
+      'reposado-cajita':{aspect:4/3,textRegion:{x:.56,y:.20,w:.29,h:.23},emblemRegion:{x:.32,y:.77,w:.075,h:.1}}
+    };
+    if(!profiles[name])throw new Error('Unknown editorial template.');
+    return JSON.parse(JSON.stringify(profiles[name]));
+  }
+  function editorialCanvas(photo, aspect) {
+    if(!Number.isFinite(aspect)||aspect<.8||aspect>1.91)throw new Error('Unsupported social image aspect ratio.');
+    var sw=photo.naturalWidth||photo.width, sh=photo.naturalHeight||photo.height;
+    var W=1080,H=Math.round(W/aspect),c=document.createElement('canvas');c.width=W;c.height=H;
+    var ctx=c.getContext('2d'),scale=Math.min(W/sw,H/sh),w=sw*scale,h=sh*scale,x=(W-w)/2,y=(H-h)/2;
+    var probe=document.createElement('canvas');probe.width=32;probe.height=32;
+    var p=probe.getContext('2d');p.drawImage(photo,0,0,32,32);
+    function color(px,py){var d=p.getImageData(px,py,1,1).data;return 'rgb('+d[0]+','+d[1]+','+d[2]+')';}
+    if(y>0){var top=ctx.createLinearGradient(0,0,W,0);top.addColorStop(0,color(1,0));top.addColorStop(.5,color(16,0));top.addColorStop(1,color(30,0));ctx.fillStyle=top;ctx.fillRect(0,0,W,y+1);var bottom=ctx.createLinearGradient(0,0,W,0);bottom.addColorStop(0,color(1,31));bottom.addColorStop(.5,color(16,31));bottom.addColorStop(1,color(30,31));ctx.fillStyle=bottom;ctx.fillRect(0,y+h-1,W,H-y-h+1);}
+    if(x>0){var left=ctx.createLinearGradient(0,0,0,H);left.addColorStop(0,color(0,1));left.addColorStop(.5,color(0,16));left.addColorStop(1,color(0,30));ctx.fillStyle=left;ctx.fillRect(0,0,x+1,H);var right=ctx.createLinearGradient(0,0,0,H);right.addColorStop(0,color(31,1));right.addColorStop(.5,color(31,16));right.addColorStop(1,color(31,30));ctx.fillStyle=right;ctx.fillRect(x+w-1,0,W-x-w+1,H);}
+    ctx.drawImage(photo,x,y,w,h);
+    return {canvas:c,photo:{x:x,y:y,w:w,h:h},extended:x>0.5||y>0.5};
+  }
+  function composeEditorial(photo,logo,opts) {
+    var art=editorialCanvas(photo,opts.aspect||1),c=art.canvas,ctx=c.getContext('2d'),W=c.width,H=c.height,S=Math.min(W,H);
+    var regions=opts.protectedRegions ? protectedAreas(opts.protectedRegions,W,H) : [];
+    var textRegion=protectedAreas([opts.textRegion||{x:.08,y:.9,w:.74,h:.085}],W,H)[0];
+    var markRegion=protectedAreas([opts.emblemRegion||{x:.86,y:.89,w:.095,h:.095}],W,H)[0];
+    if(regions.some(function(r){return overlaps(r,textRegion)||overlaps(r,markRegion);}))throw new Error('Branding overlaps a protected food or packaging area.');
+    if(overlaps(textRegion,markRegion))throw new Error('The emblem and wording need separate areas.');
+    var title=String(opts.text||'').replace(/\s+/g,' ').trim(),kicker=String(opts.kicker||'').trim().toUpperCase();
+    if(title.length>80||kicker.length>50)throw new Error('Shorten the editorial wording before rendering.');
+    var textWidth=opts.vertical?textRegion.h:textRegion.w,textHeight=opts.vertical?textRegion.w:textRegion.h;
+    var head=fitHeadline(ctx,title,textWidth,Math.round(S*.064),Math.round(S*.026));
+    var kickPx=Math.round(S*.013),gap=kicker?S*.012:0;
+    while(head.px*1.16*head.lines.length+(kicker?kickPx:0)+gap+head.px*.2>textHeight&&head.px>S*.026)head=fitHeadline(ctx,title,textWidth,head.px-1,Math.round(S*.026));
+    if(head.px*1.16*head.lines.length+(kicker?kickPx:0)+gap+head.px*.2>textHeight)throw new Error('The headline does not fit the clear space.');
+    var stats=regionStats(ctx,c,textRegion.x,textRegion.y,textRegion.w,textRegion.h),ink=pickTitleInk(stats);
+    // Never invent a successful contrast score. A small halo supports legibility; audit the finished pixels.
+    ctx.save();ctx.textBaseline='top';ctx.textAlign='left';ctx.fillStyle=ink.css;ctx.shadowColor=haloFor(ink);ctx.shadowBlur=S*.008;
+    var tx=textRegion.x,ty=textRegion.y;
+    if(opts.vertical){ctx.translate(textRegion.x,textRegion.y+textRegion.h);ctx.rotate(-Math.PI/2);tx=0;ty=0;}
+    if(kicker){ctx.font=kickerFont(kickPx);while(ctx.measureText(kicker).width>textWidth&&kickPx>10){kickPx--;ctx.font=kickerFont(kickPx);}if(ctx.measureText(kicker).width>textWidth)throw new Error('The kicker does not fit.');ctx.fillText(kicker,tx,ty);ty+=kickPx+gap;}
+    ctx.font=headlineFont(head.px);head.lines.forEach(function(line){ctx.fillText(line,tx,ty);ty+=head.px*1.16;});ctx.restore();
+    var ratio=(logo.naturalWidth||logo.width)/(logo.naturalHeight||logo.height),mw=Math.min(markRegion.w,markRegion.h*ratio),mh=mw/ratio;
+    var mx=markRegion.x+(markRegion.w-mw)/2,my=markRegion.y+(markRegion.h-mh)/2;
+    var mi=pickTitleInk(regionStats(ctx,c,mx,my,mw,mh));ctx.drawImage(tintMark(logo,mw,mh,mi.css),mx,my,mw,mh);
+    if(typeof opts.onLayout==='function')opts.onLayout({preset:'reposado',templateId:opts.templateId||'custom_editorial',width:W,height:H,sourceAspectPreserved:true,photo:art.photo,backgroundExtended:art.extended,text:textRegion,textInk:ink.css,estimatedTextContrast:inkContrast(ink,stats),emblem:{x:mx,y:my,w:mw,h:mh,ink:mi.css},protectedAreas:regions,protectionSource:regions.length?'provided_regions':'visual_review_required',visualReviewRequired:true});
+    return c.toDataURL('image/jpeg',.94);
+  }
+
   function compositeBranding(photoUrl, opts) {
     opts = opts || {};
+    if(/^reposado-/.test(opts.preset||''))opts=Object.assign({},editorialProfile(opts.preset),opts,{templateId:opts.preset,preset:'reposado'});
     // Poster mode always uses the EMBLEM: it sets the company name as type on its own line, so the
     // full lockup would print that name twice, once as artwork and once as type, at two different
     // sizes in two different faces. The references use the emblem for exactly this reason.
@@ -448,6 +503,7 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
       .then(function () { return Promise.all([loadImageEl(photoUrl), loadImageEl(rendererScript ? new URL(MARK_SRC[markKey].replace('/assets/', '../../../assets/'), rendererScript).href : MARK_SRC[markKey])]); })
       .then(function (imgs) {
       if (opts.preset === 'poster') return composePoster(imgs[0], imgs[1], opts);
+      if (opts.preset === 'reposado' && opts.textRegion) return composeEditorial(imgs[0],imgs[1],opts);
       var photo = imgs[0], logo = imgs[1];
       var canvas = document.createElement('canvas');
       canvas.width = photo.naturalWidth || photo.width;
@@ -634,5 +690,5 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
   }
 
 
-root.AnejoBranding = { compose: compositeBranding, fitHeadline: fitHeadline, pickTitleInk: pickTitleInk, overlaps: overlaps, protectedAreas: protectedAreas };
+root.AnejoBranding = { compose: compositeBranding, fitHeadline: fitHeadline, pickTitleInk: pickTitleInk, overlaps: overlaps, protectedAreas: protectedAreas, editorialProfile: editorialProfile };
 })(typeof window !== 'undefined' ? window : globalThis);

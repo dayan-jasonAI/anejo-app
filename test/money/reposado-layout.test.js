@@ -39,3 +39,14 @@ test('overlap guard detects contact with protected subject, allows separate edge
  assert.equal(r.overlaps({x:20,y:20,w:100,h:100},food),false);
  assert.equal(r.overlaps({x:100,y:100,w:100,h:100},food),false);
 });
+test('reusable editorial profiles have separate in-bounds title and authentic-emblem regions',()=>{
+ const r=renderer();
+ for(const name of ['reposado-square','reposado-dense','reposado-portrait','reposado-wide','reposado-cajita']){
+  const p=r.editorialProfile(name);assert.ok(p.aspect>=.8&&p.aspect<=1.91);
+  const [text,emblem]=r.protectedAreas([p.textRegion,p.emblemRegion],1080,1080/p.aspect);
+  assert.equal(r.overlaps(text,emblem),false);
+  p.textRegion.x=99;assert.ok(r.editorialProfile(name).textRegion.x<1,'caller cannot mutate shared template');
+  assert.ok(html.includes('value="'+name+'"'),'template available in Hub');
+ }
+ assert.throws(()=>r.editorialProfile('invented'),/Unknown editorial template/);
+});

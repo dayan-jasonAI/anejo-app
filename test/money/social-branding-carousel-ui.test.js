@@ -13,7 +13,7 @@ const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', impor
 const RENDERER = readFileSync(new URL('../../public/hub/owner/assets/marketing-branding.js', import.meta.url), 'utf8');
 const HTML = PAGE.replace('  function compositeBranding(photoUrl, opts) { return window.AnejoBranding.compose(photoUrl, opts); }', RENDERER);
 test('Hub loads and invokes the shared branding renderer',()=>{
- assert.match(PAGE,/marketing-branding\.js\?v=reposado-1/);
+ assert.match(PAGE,/marketing-branding\.js\?v=reposado-3/);
  assert.match(PAGE,/window\.AnejoBranding\.compose\(photoUrl, opts\)/);
 });
 

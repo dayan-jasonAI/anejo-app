@@ -229,7 +229,7 @@
 <script src="/hub/owner/assets/marketing-photo-picker.js?v=photo-polish-2"></script>
 <script src="/hub/owner/assets/marketing-photo-polish.js?v=photo-polish-2"></script>
 <script src="/hub/owner/assets/marketing-photo-enhance.js?v=photo-polish-2"></script>
-<script src="/hub/owner/assets/marketing-branding.js?v=reposado-1"></script>
+<script src="/hub/owner/assets/marketing-branding.js?v=reposado-3"></script>
 
 <!-- ============================================================================================
      MODULE: Teach > Team Lead — copied from the old team.html almost unchanged. Only the mount
@@ -972,10 +972,15 @@
         // the headline are set in different faces at different sizes, so they are different inputs.
         '<div class="form-row"><label>Style</label><select class="brand-preset">' +
           '<option value="reposado">Reposado — full-frame photograph</option>' +
+          '<option value="reposado-square">Reposado — square, lower-edge title</option>' +
+          '<option value="reposado-dense">Reposado — dense food spread</option>' +
+          '<option value="reposado-portrait">Reposado — tall tray, side title</option>' +
+          '<option value="reposado-wide">Reposado — wide photo, lower-left title</option>' +
+          '<option value="reposado-cajita">Reposado — Signature Cajita launch</option>' +
           '<option value="overlay">Overlay — mark and wording on the photo</option>' +
           '<option value="poster">Reposado poster — full editorial layout</option>' +
         '</select>' +
-          '<p class="hint">Full-frame Reposado keeps the entire photograph and its original shape, adds the real emblem and a fine editorial frame, and chooses readable branding colors. Keep the wording short and inspect the food before using. The alternate poster style adds height above a short photograph. Accent and closing lines apply to the poster only.</p></div>' +
+          '<p class="hint">Full-frame Reposado keeps the entire photograph and its original shape, adds the real emblem and a fine editorial frame, and chooses readable branding colors. Keep the wording short and inspect the food before using. The named social templates use fixed editorial positions and a consistent shape; where needed, sampled background colors fill extra edges without cropping food. Choose a template with clear space in its title area. The alternate poster style adds height above a short photograph. Accent and closing lines apply to the poster only.</p></div>' +
         '<div class="form-row"><label>Wording (optional)</label><input class="brand-text" type="text" maxlength="48" placeholder="e.g. Order by Thursday">' +
           '<p class="hint">Set in Cormorant Garamond, in your own capitalisation. Drawn from these exact characters, never generated — it cannot be misspelled. It resizes and wraps itself to fit the photo.</p></div>' +
         '<div class="form-row"><label>Small line above (optional)</label><input class="brand-kicker" type="text" maxlength="28" placeholder="e.g. This week only">' +
@@ -1017,6 +1022,12 @@
     // Pre-fill the wording box from the Team Lead's planned overlay for the selected slide, and
     // re-fill when the owner switches slides — so branding a planned carousel needs no retyping.
     Array.prototype.forEach.call(document.querySelectorAll('.brand-panel'), function (panel) {
+      var styleSel = panel.querySelector('.brand-preset');
+      function styleControls() {
+        var fixed = /^reposado-/.test(styleSel.value);
+        Array.prototype.forEach.call(panel.querySelectorAll('.brand-layout,.brand-pos,.brand-mark,.brand-finish'), function(input){input.disabled=fixed;});
+      }
+      styleSel.addEventListener('change', styleControls); styleControls();
       var slideSel = panel.querySelector('.brand-slide');
       var txt = panel.querySelector('.brand-text');
       if (!slideSel || !txt) return;
@@ -1060,7 +1071,7 @@
             btn.disabled = false; btn.textContent = 'Preview branded photo';
             resultBox.innerHTML =
               '<img src="' + dataUrl + '" alt="" style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:6px">' +
-              (layoutEvidence ? '<p class="hint">The center is protected geometrically. Check food near the edges and all wording before using this design.</p>' : '') +
+              (layoutEvidence ? '<p class="hint">' + (layoutEvidence.protectionSource === 'center_geometry_only' ? 'The center is protected geometrically. ' : '') + 'Review the actual food, packaging, emblem and wording before using. Template placement is not automatic food recognition.</p>' : '') +
               '<div style="display:flex;gap:8px"><button class="btn gold brand-use" type="button">Use this — replace selected slide</button>' +
               '<button class="btn ghost brand-discard" type="button">Discard</button></div>';
             resultBox.querySelector('.brand-use').addEventListener('click', function () {

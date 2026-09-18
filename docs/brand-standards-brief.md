@@ -276,6 +276,16 @@ Añejo packaging should feel more premium than ordinary delivery food.
 * Sauce cup should be labeled or visually paired with the bowl
 * Delivery should feel like receiving a premium wellness product, not just lunch
 
+### Social editorial production — owner direction, September 17, 2026
+
+Lead with the real website menu and professional Cajita design imagery for the catering and Cajita launch. Event photography follows as supporting evidence. Captions and images must agree: a Cajitas-and-trays post shows both. A catering introduction uses a menu collage cover followed by the pictured items. The Cajita launch starts with the Signature design, then the available design inspirations, personalization and planning information. Preserve the owner-approved bilingual and local discovery direction without implying unconfirmed service coverage.
+
+Food and packaging must dominate the frame. Do not return to small centered photos inside oversized decorative borders. Preserve authentic source content; no food reconstruction or invented ingredients. Use the actual Añejo emblem asset, Cormorant Garamond editorial titles and Josefin Sans support text. Adaptive gold, deep forest, parchment/beige or black must remain readable against the actual background. Put the words and emblem in clear space, away from food and packaging labels. Keep headings concise and do not silently truncate them.
+
+Use deterministic Reposado templates before paying for image generation. The shared renderer offers lower-edge square, dense spread, tall-tray side title, wide lower-left and Signature Cajita clear-area layouts. Maintain one consistent ratio per carousel: the current catering launch is square and the Cajita design launch is4:3. Tall tray photos can retain their full height with sampled-color side extensions; never crop away food to force a ratio. A template is not semantic subject detection: inspect the finished image and require a current finished-image audit, tied to exactly the saved caption and ordered slides. A failed, unavailable or stale audit cannot qualify for unattended scheduling. Owner approval of one unchanged, visually audited planner draft can earn at most one clean trust credit. Public posting and customer sends remain subject to their explicit approval/trust controls.
+
+Reusable reference designs and exact source/layout manifests: docs/marketing/cajita-social-2026-09-17/revision-3/. These are review drafts, not proof of publication, sales or fully autonomous operation.
+
 ## 11. Brand voice
 
 ### Tone

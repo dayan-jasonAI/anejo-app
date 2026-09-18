@@ -1,0 +1,32 @@
+{
+  "preset": "reposado",
+  "templateId": "reposado-wide",
+  "width": 1080,
+  "height": 810,
+  "sourceAspectPreserved": true,
+  "photo": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 810
+  },
+  "backgroundExtended": false,
+  "text": {
+    "x": 70.2,
+    "y": 660.15,
+    "w": 324,
+    "h": 97.2
+  },
+  "textInk": "#0A180C",
+  "estimatedTextContrast": 4.521446288976123,
+  "emblem": {
+    "x": 327.67539267015707,
+    "y": 761.4,
+    "w": 46.64921465968586,
+    "h": 44.55,
+    "ink": "#0A180C"
+  },
+  "protectedAreas": [],
+  "protectionSource": "visual_review_required",
+  "visualReviewRequired": true
+}
