@@ -239,5 +239,23 @@
       "source": null,
       "visual_review": "inspected by Codex; owner approval and live Brand Auditor score pending"
     }
-  ]
+  ],
+  "production_release": {
+    "merge_commit": "bea8d36aae4f0bb69c59824ca810fdbb45766ddd",
+    "pr": "https://github.com/dayan-jasonAI/anejo-app/pull/107",
+    "deployment_id": "223407e5-3432-4235-b3c3-d19373e97ee8",
+    "live_ui_observed": "Five editorial templates and saved-image audit button; all three image audits returned caption_and_media scope",
+    "migrations_applied": [
+      "0114_social_visual_audit.sql",
+      "0115_social_visual_trust.sql"
+    ],
+    "draft_replacement": "26 exact R2 keys and order read back; captions unchanged; draft and unscheduled",
+    "initial_scores": {
+      "gather": 72,
+      "personal": 92,
+      "choice": 92
+    },
+    "verdict": "All three flagged; not approved or published",
+    "next": "Evidence-discipline auditor refinement and broader integration acceptance"
+  }
 }

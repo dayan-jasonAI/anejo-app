@@ -148,6 +148,17 @@ function auditSystemPrompt(menuLines, brand, training) {
         '"training": name the rule (or paraphrase it) and quote the part of the draft that breaks it. ' +
         'A draft that violates an owner rule must NEVER verdict "pass".\n\n'
       : '') +
+    'EVIDENCE DISCIPLINE: Read the whole applicable owner rule before alleging a violation. ' +
+    'Cite the conflicting rule and the exact caption quotation or visible slide number; explain the actual contradiction. ' +
+    'Do not invent narrower rules, required wording, mandatory ingredients, or subjective punctuation bans. ' +
+    'A menu collage is explicitly permitted for a catering introduction; mixed formats are expected when the caption offers multiple catering formats. ' +
+    'Judge caption/image agreement across the complete carousel, while requiring a cover promising both Cajitas and trays to show both. ' +
+    'A question asking for an event city followed by confirmation of availability is not a promise of coverage. ' +
+    'A city hashtag alone is discoverability, not a delivery guarantee. Still flag unconditional unsupported service promises. ' +
+    'On an Instagram post, message us means Instagram DM; do not require a messaging URL. ' +
+    'Owner-approved event colors and design inspirations are not a replacement of the corporate palette. ' +
+    'Assess the actual saved slides when supplied; a missing or older image brief is not itself a defect in those finished images. ' +
+    'Optional stylistic alternatives are suggestions, not violations. Never ignore a real contradiction to raise the score.\n\n' +
     'Return ONLY JSON, nothing else: {"brand_score": <integer 0-100>, ' +
     '"flags": [{"type": "claim"|"voice"|"photo"|"training", "detail": "<one short sentence>"}], ' +
     '"verdict": "pass"|"flag"}. verdict "pass" only if the draft could reach the owner with no reservations.'
@@ -229,7 +240,7 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
         const flags = (Array.isArray(data.flags) ? data.flags : [])
           .map((f) => ({
             type: MODEL_FLAG_TYPES.has(f && f.type) ? f.type : 'claim',
-            detail: String((f && f.detail) || '').slice(0, 240),
+            detail: String((f && f.detail) || '').slice(0, 1200),
           }))
           .filter((f) => f.detail)
           .slice(0, 12);

@@ -68,7 +68,7 @@
   fab.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg>';
   var hint = document.createElement('div'); hint.className = 'aop-hint';
   var panel = document.createElement('div'); panel.className = 'aop-panel';
-  panel.innerHTML = '<div id="aopLog"></div><div class="aop-row"><input id="aopIn" placeholder="Ask about orders, deliveries, rewards…" aria-label="Ask the operator"><button id="aopGo">Ask</button></div>';
+  panel.innerHTML = '<div id="aopLog"></div><div class="aop-row"><button id="aopCapabilities" type="button">What can you do?</button><button id="aopMarketingStatus" type="button">Marketing status</button></div><div class="aop-row"><input id="aopIn" placeholder="Ask about orders or marketing status…" aria-label="Ask the operator"><button id="aopGo">Ask</button></div>';
   document.body.appendChild(fab); document.body.appendChild(hint); document.body.appendChild(panel);
 
   function showHint(t, ms) {
@@ -86,8 +86,7 @@
     try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (_) {}
   }
   function speak(text, done) {
-    // Browser speech. Añejo has no ElevenLabs key bound; when one is added this is where the
-    // /api/hub/owner/operator/tts call goes, with this as the fallback — same shape as DRH.
+    // Browser speech is the currently implemented output; no remote TTS is invoked.
     if (!('speechSynthesis' in window)) { done && done(); return; }
     try {
       var u = new SpeechSynthesisUtterance(text);
@@ -122,6 +121,9 @@
         log('could not reach the operator: ' + e.message, 'err');
       });
   }
+
+  document.getElementById('aopCapabilities').addEventListener('click', function () { ask('capabilities', false); });
+  document.getElementById('aopMarketingStatus').addEventListener('click', function () { ask('marketing status', false); });
 
   function listen() {
     if (!SR) { panel.classList.add('open'); document.getElementById('aopIn').focus(); showHint('this browser has no speech input — type instead'); return; }

@@ -17,8 +17,9 @@ import { BRAND_CONTEXT } from './brand_context.js';
 async function rows(env, sql, ...args) {
   try {
     const r = await env.DB.prepare(sql).bind(...args).all();
-    return (r && r.results) || [];
-  } catch { return []; }
+    if (r?.success === false || !Array.isArray(r?.results)) throw new Error('Invalid brand read');
+    return { rows: r.results, status: r.results.length ? 'ok' : 'empty' };
+  } catch { return { rows: [], status: 'unavailable' }; }
 }
 
 /**
@@ -121,20 +122,34 @@ export async function loadBrand(env, { maxChars = 32000, sections = null } = {})
     return onlySections(body, sections) || body;
   };
 
-  const docs = await rows(env,
-    "SELECT title, body FROM docs WHERE active = 1 AND doc_type = 'brand' ORDER BY updated_at DESC LIMIT 10");
-  const parts = [];
-  let used = 0;
-  for (const d of docs) {
-    const body = narrow(withoutProposals(d.body || ''));
-    if (!body || used >= maxChars) continue;
-    const block = `### ${d.title || 'Brand & Standards Brief'}\n${body}`.slice(0, maxChars - used);
-    parts.push(block);
-    used += block.length;
+  maxChars = Number.isFinite(maxChars) ? Math.max(0, Math.floor(maxChars)) : 32000;
+  const read = await rows(env,
+    "SELECT id, title, body, updated_at FROM docs WHERE active = 1 AND doc_type = 'brand' ORDER BY updated_at DESC LIMIT 10");
+  const candidates = read.rows.map(d => {
+    const approved = withoutProposals(d.body || '');
+    const body = narrow(approved);
+    return { ...d, text: body ? `### ${d.title || 'Brand & Standards Brief'}\n${body}` : '',
+      section_fallback: !!sections && !onlySections(approved, sections) && !!approved };
+  }).filter(d => d.text);
+  const source = candidates.length ? 'd1' : 'repo';
+  const sourceText = candidates.length ? candidates.map(d => d.text).join('\n\n') : narrow(BRAND_CONTEXT);
+  const text = sourceText.slice(0, maxChars);
+  let offset = 0;
+  const supplied = [];
+  for (const doc of candidates) {
+    if (offset < text.length) supplied.push({ id: doc.id ?? null, updated_at: doc.updated_at ?? null,
+      supplied_chars: Math.min(doc.text.length, text.length - offset), original_chars: doc.text.length,
+      section_fallback: doc.section_fallback });
+    offset += doc.text.length + 2;
   }
-  return parts.length
-    ? { text: parts.join('\n\n'), source: 'd1' }
-    // The compiled snapshot is generated from the same markdown and keeps the same `## N.`
-    // numbering, so the section filter applies to the floor exactly as it does to the live copy.
-    : { text: narrow(BRAND_CONTEXT).slice(0, maxChars), source: 'repo' };
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return { text, source, receipt: {
+    schema: 1, source, read_status: read.status,
+    fallback_reason: source === 'repo' ? (read.status === 'unavailable' ? 'live_read_unavailable' : 'no_usable_live_text') : null,
+    documents: supplied,
+    rendered_sha256: Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join(''),
+    original_chars: sourceText.length, supplied_chars: text.length, truncated: text.length < sourceText.length,
+    requested_sections: sections, selection_limit: 10, selection_may_be_limited: read.rows.length >= 10,
+    section_fallback: source === 'repo' ? !!sections && !onlySections(BRAND_CONTEXT, sections) : supplied.some(d => d.section_fallback),
+  } };
 }

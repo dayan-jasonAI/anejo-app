@@ -9,7 +9,7 @@
 //   2. Owner-only, through the same requireRole gate as every other owner endpoint.
 //   3. The system prompt fences it to Añejo and FORBIDS inventing orders, customers, numbers
 //      or dates. If the data does not answer the question it must say so plainly.
-//   4. NO KEY ⇒ NO ANSWER. Without ANTHROPIC_API_KEY it returns an honest 501. It never
+//   4. NO KEY ⇒ NO MODEL ANSWER. Deterministic capability/status reads remain available. It never
 //      fabricates a reply — a confident wrong answer about tonight's orders is worse than
 //      silence, because someone would cook to it.
 //   5. It is READ-ONLY. It reports; it does not place orders, refund, message customers, or
@@ -27,12 +27,12 @@ async function one(env, sql, binds = []) {
 async function many(env, sql, binds = [], limit = 25) {
   try {
     const r = await env.DB.prepare(sql).bind(...binds).all();
-    return (r?.results || []).slice(0, limit);
-  } catch (_) { return []; }
+    return r?.success === false || !Array.isArray(r?.results) ? null : r.results.slice(0, limit);
+  } catch (_) { return null; }
 }
 
 /**
- * Assemble the live context. Everything here is a real row or an honest zero.
+ * Assemble the live context. Failed reads stay unavailable; only successful aggregate reads establish zero.
  *
  * SCHEMA NOTES (verified against migrations before writing — my first draft guessed all three
  * wrong, which is exactly how a confident-sounding wrong answer gets shipped):
@@ -44,14 +44,21 @@ async function many(env, sql, binds = [], limit = 25) {
  *     side of the business, not catering customers. Catering customers are distinct
  *     customer_email values on orders.
  */
-async function buildContext(env) {
-  const today = new Date().toISOString().slice(0, 10);
-  const [orders, dueToday, customers, rewards, unpaid] = await Promise.all([
+export function operatorBusinessDate(at = Date.now()) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(at));
+  const date = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  return `${date.year}-${date.month}-${date.day}`;
+}
+
+export async function buildContext(env, at = Date.now()) {
+  const today = operatorBusinessDate(at);
+  const [orders, dueToday, customers, rewards, unpaid, dueCount] = await Promise.all([
     one(env, 'SELECT COUNT(*) AS n FROM orders'),
-    many(env, "SELECT id, customer_name, status, total_estimate_cents, delivery_date, delivery_window FROM orders WHERE delivery_date = ? ORDER BY delivery_window", [today]),
+    many(env, "SELECT id, customer_name, status, total_estimate_cents, delivery_date, delivery_window FROM orders WHERE delivery_date = ? ORDER BY delivery_window LIMIT 25", [today]),
     one(env, "SELECT COUNT(DISTINCT customer_email) AS n FROM orders WHERE customer_email IS NOT NULL AND customer_email != ''"),
     one(env, 'SELECT COUNT(DISTINCT email) AS n, COALESCE(SUM(delta),0) AS pts FROM points_ledger'),
     one(env, "SELECT COUNT(*) AS n FROM orders WHERE status = 'pending'"),
+    one(env, 'SELECT COUNT(*) AS n FROM orders WHERE delivery_date = ?', [today]),
   ]);
   const upcoming = await many(env,
     "SELECT id, customer_name, status, total_estimate_cents, delivery_date, delivery_window FROM orders WHERE delivery_date >= ? ORDER BY delivery_date LIMIT 12", [today]);
@@ -60,23 +67,52 @@ async function buildContext(env) {
   const line = (o) => `  - [${o.id}] ${o.customer_name || '(no name)'} · ${o.status} · $${money(o.total_estimate_cents)} · ${o.delivery_date}${o.delivery_window ? ' ' + o.delivery_window : ''}`;
 
   const lines = [];
-  lines.push(`TODAY: ${today}`);
-  lines.push(`TOTAL ORDERS ON RECORD: ${orders?.n ?? 0}`);
-  lines.push(`CATERING CUSTOMERS (distinct emails on orders): ${customers?.n ?? 0}`);
-  lines.push(`ORDERS AWAITING PAYMENT (status=pending): ${unpaid?.n ?? 0}`);
-  lines.push(`REWARDS: ${rewards?.n ?? 0} members · ${rewards?.pts ?? 0} net points outstanding`);
+  lines.push(`TODAY: ${today} (America/New_York)`);
+  lines.push(`TOTAL ORDERS ON RECORD: ${orders?.n ?? 'unavailable'}`);
+  lines.push(`CATERING CUSTOMERS (distinct emails on orders): ${customers?.n ?? 'unavailable'}`);
+  lines.push(`ORDERS AWAITING PAYMENT (status=pending): ${unpaid?.n ?? 'unavailable'}`);
+  lines.push(`REWARDS: ${rewards?.n ?? 'unavailable'} members · ${rewards?.pts ?? 'unavailable'} net points outstanding`);
   lines.push('');
-  lines.push(`DELIVERING TODAY (${dueToday.length}):`);
-  lines.push(dueToday.length ? dueToday.map(line).join('\n') : '  (nothing scheduled for delivery today)');
+  lines.push(`DELIVERING TODAY (${dueCount?.n ?? 'unavailable'} total; showing up to 25):`);
+  lines.push(dueToday === null ? '  (delivery query unavailable)' : dueToday.length ? dueToday.map(line).join('\n') : '  (nothing scheduled for delivery today)');
   lines.push('');
-  lines.push('UPCOMING DELIVERIES:');
-  lines.push(upcoming.length ? upcoming.map(line).join('\n') : '  (no upcoming deliveries on record)');
+  lines.push('UPCOMING DELIVERIES (showing up to 12):');
+  lines.push(upcoming === null ? '  (upcoming delivery query unavailable)' : upcoming.length ? upcoming.map(line).join('\n') : '  (no upcoming deliveries on record)');
 
   return {
     text: lines.join('\n'),
-    counts: { orders: orders?.n ?? 0, deliveringToday: dueToday.length, customers: customers?.n ?? 0, rewardsMembers: rewards?.n ?? 0, pendingPayment: unpaid?.n ?? 0 },
+    business_date: today, time_zone: 'America/New_York', observed_at: new Date(at).toISOString(),
+    unavailable: Object.entries({ orders, dueToday, customers, rewards, unpaid, dueCount, upcoming }).filter(([, value]) => value === null).map(([key]) => key),
+    counts: { orders: orders?.n ?? null, deliveringToday: dueCount?.n ?? null, customers: customers?.n ?? null, rewardsMembers: rewards?.n ?? null, pendingPayment: unpaid?.n ?? null },
   };
 }
+
+// This reports implemented scope, never provider health or permission to act.
+export function operatorCapabilities() {
+  return {
+    mode: 'read_only', mutations: false,
+    deterministic_commands: ['capabilities', 'marketing status'],
+    model_questions: ['orders', 'deliveries', 'rewards'],
+    unavailable_actions: ['publish posts', 'send customer replies', 'change orders', 'refunds', 'Google review replies'],
+  };
+}
+
+export async function marketingStatus(env) {
+  const queue = await many(env, 'SELECT status, COUNT(*) AS n FROM social_posts GROUP BY status');
+  let autoReply = null;
+  try {
+    const row = await env.DB.prepare("SELECT value FROM app_settings WHERE key='social.auto_reply'").first();
+    autoReply = ['dm', 'comment', 'both'].includes(row?.value) ? row.value : 'off';
+  } catch { /* unreadable is unknown, not off */ }
+  return { observed_at: new Date().toISOString(), queue, ana_auto_reply_setting: autoReply,
+    execution_health: 'unverified', google_review_replies: 'not_integrated' };
+}
+
+export const onRequestGet = async ({ request, env }) => {
+  const ctx = await requireRole(request, env, ['owner']);
+  if (ctx instanceof Response) return ctx;
+  return json({ ok: true, capabilities: operatorCapabilities() });
+};
 
 const SYSTEM = `You are the Añejo Voice Operator — the owner's hands-free view of Añejo Catering Co.
 
@@ -102,6 +138,21 @@ export const onRequestPost = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
   if (ctx instanceof Response) return ctx;
 
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+  const message = String(body.message || '').trim().slice(0, 2000);
+  if (!message) return json({ ok: false, error: 'message required' }, 400);
+
+  const command = message.toLowerCase().replace(/[?!.]+$/, '').trim();
+  if (['help', 'capabilities', 'what can you do', 'qué puedes hacer', 'que puedes hacer'].includes(command)) {
+    return json({ ok: true, reply: 'I can report orders, deliveries, rewards and marketing queue status. Say “marketing status” for saved draft and scheduling counts. I cannot publish, send replies, change orders or answer Google reviews. Those actions are not connected to this operator.', capabilities: operatorCapabilities(), receipt: { mode: 'deterministic', mutation: false } });
+  }
+  if (['marketing status', 'marketing team status', 'estado de marketing'].includes(command)) {
+    const status = await marketingStatus(env);
+    const queue = status.queue === null ? 'The marketing queue is unavailable.' : status.queue.length ? status.queue.map(row => `${row.n} ${row.status}`).join(', ') + '.' : 'The marketing queue is empty.';
+    return json({ ok: true, reply: `${queue} Ana’s saved auto-reply setting is ${status.ana_auto_reply_setting ?? 'unavailable'}. This is configuration, not proof that replies or scheduled posts are running. Google review replies are not integrated.`, status, receipt: { mode: 'deterministic', mutation: false, observed_at: status.observed_at } });
+  }
+
   // No key ⇒ honest refusal. Never a fabricated operator turn.
   if (!env.ANTHROPIC_API_KEY) {
     return json({
@@ -110,11 +161,6 @@ export const onRequestPost = async ({ request, env }) => {
       detail: 'No ANTHROPIC_API_KEY bound to this project. The operator refuses rather than inventing an answer about your orders.',
     }, 501);
   }
-
-  let body = {};
-  try { body = await request.json(); } catch (_) {}
-  const message = String(body.message || '').trim().slice(0, 2000);
-  if (!message) return json({ ok: false, error: 'message required' }, 400);
 
   if (!env.DB) return json({ ok: false, error: 'no_database', detail: 'D1 is not bound; there is nothing to ground an answer in.' }, 501);
 
@@ -129,6 +175,7 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   const data = await buildContext(env);
+  if (data.unavailable.length) return json({ ok: false, error: 'context_unavailable', detail: 'Some operational records could not be read. I cannot verify the answer right now.', receipt: { ...data, text: undefined } }, 503);
 
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -150,7 +197,7 @@ export const onRequestPost = async ({ request, env }) => {
       ok: true,
       reply,
       // The receipt makes the grounding auditable: what it actually read to answer.
-      receipt: { business: 'anejo', model: MODEL, grounding: 'Añejo D1 — orders, clients, points_ledger, read at question time', ...data.counts },
+      receipt: { business: 'anejo', model: MODEL, grounding: 'Añejo D1 — orders and points_ledger, read at question time', business_date: data.business_date, time_zone: data.time_zone, observed_at: data.observed_at, ...data.counts },
     });
   } catch (e) {
     return json({ ok: false, error: 'operator_failed', detail: String(e.message).slice(0, 200) }, 502);

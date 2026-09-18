@@ -280,3 +280,27 @@ test('unavailable audits are shown as unavailable rather than a fabricated zero 
  assert.match(page,/Brand Auditor · unavailable/);
  assert.ok(page.indexOf('Brand Auditor · unavailable')<page.indexOf('var scoreStr'));
 });
+
+test('finished-image judge receives evidence discipline and retains actionable flag explanations', async () => {
+  const { db } = stubDb({ menuItems: MENU });
+  const original = globalThis.fetch;
+  const detail = 'Slide 2: the lower-right headline overlaps the printed label. ' + 'Preserve the complete explanation and the exact conflicting rule. '.repeat(6);
+  let request;
+  globalThis.fetch = async (_url, options) => {
+    request = JSON.parse(options.body);
+    return modelAnswer({ brand_score: 70, verdict: 'flag', flags: [{ type: 'photo', detail }] })();
+  };
+  try {
+    const result = await auditDraft({ DB: db, ANTHROPIC_API_KEY: 'test-only' }, {
+      caption: 'Planning an event? Share your city to confirm availability.',
+      images: [{ data: '/9j/AA==' }],
+    });
+    assert.equal(result.flags.find(f => f.type === 'photo').detail, detail);
+    assert.equal(result.verdict, 'flag');
+    assert.match(request.system, /Read the whole applicable owner rule/);
+    assert.match(request.system, /not a promise of coverage/);
+    assert.match(request.system, /Still flag unconditional unsupported service promises/);
+    assert.match(request.system, /actual saved slides/);
+    assert.equal(request.messages[0].content[1].type, 'image');
+  } finally { globalThis.fetch = original; }
+});
