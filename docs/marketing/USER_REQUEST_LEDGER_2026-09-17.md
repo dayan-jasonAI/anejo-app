@@ -1,6 +1,56 @@
-# Añejo request ledger — read-only source inspection
+# Añejo user-request ledger
 
-Observed 2026-09-17; local HEAD `74a16b1` at inspection. Repository base: `/Users/aiagent/Dayan Workspace/Aether/anejo-app`. Paths below are relative to that base. This ledger is outside the repository during release112. **Code and local tests establish implemented paths, not production deployment, account health, unattended execution, publication, or sales.** Parent owns release and live acceptance. No edits, provider calls, accounts or sends performed for this inventory.
+## Current checkpoint — September 17, 2026, 11:10 p.m. Eastern
+
+This checkpoint consolidates recorded live observations through release 116 (September 18, 03:10 UTC). It supersedes the earlier source-only status table below where the evidence is newer. It is not a fresh observation of every subsystem and does not establish that the overall marketing-readiness goal is complete. PR 117's citation-order correction is pending at this checkpoint, so final brand-auditor acceptance remains **Open — evidence missing**.
+
+The evidence files are under [revision-3](cajita-social-2026-09-17/revision-3/). Releases [114](cajita-social-2026-09-17/revision-3/release114-live-acceptance.json), [115](cajita-social-2026-09-17/revision-3/release115-live-acceptance.json) and [116](cajita-social-2026-09-17/revision-3/release116-live-acceptance.json) record successful deployment checks. Release 116 identifies merge `430316bcd9269a5333cd89e31ad0f26c677fe134` and deployment `f0ccf7bd-390a-4d72-97ad-41f39b9a8406`. All three acceptance records explicitly report no public actions.
+
+### Shared photos, creative revisions and team guidance
+
+The shared drop-off is the Hub's private Cloudflare R2 library: bucket `anejo-media`, prefix `marketing-library/`. It is not a Google Drive folder. Release 114's live Today and Create library pickers each opened with 24 photos and were canceled without creating or publishing a post. This proves those picker entry points worked in the observed session; it does not mean the library contains only 24 photos or complete the remaining staff-role, pagination and attachment acceptance matrix.
+
+There are **three saved carousel drafts containing 26 slide assets**, not 26 drafts. [Saved Hub readback](cajita-social-2026-09-17/revision-3/hub-draft-verification.json), timestamped September 17 at 9:17 p.m. Eastern, records the ordered media and captions. The [manifest](cajita-social-2026-09-17/revision-3/manifest.json) and [media mapping](cajita-social-2026-09-17/revision-3/hub-media-mapping.json) connect them to the rendered revision:
+
+| Draft | Saved post | Creative direction | Slides |
+|---|---|---|---:|
+| Catering announcement | `sp_20fbf4bea6aea85f30bf` | Website menu collage, followed by the individual items | 10 |
+| Cajita launch | `sp_58424887f40e1a1b611f` | Signature Cajita first, then design possibilities, personalization and planning | 10 |
+| Cajitas, trays or both | `sp_0a39246ba48d6453af3f` | Both formats represented, with supporting individual and combined images | 6 |
+
+The saved captions retain bilingual Cuban-food and local discovery wording, with city questions framed as availability requests rather than guaranteed service coverage. Later acceptance records continue to show these campaigns as drafts with no schedule. This is evidence of saved creative work, not owner publication approval, audience reach or orders.
+
+Release 114's Teach view showed 31 rules, 24 examples and 9,735 of 16,000 characters. Its Team sidebar showed 215 of 215 catalog items and 76 followers explicitly dated September 17. These are recorded view/context observations; a preview is not proof that every future inference uses the same content. The saved review of `gather-10` reached registry revision 1 with draft reuse still **false**. Saving metadata did not silently approve reuse or public posting.
+
+Deterministic photographic polish and the shared branding templates remain implemented. These acceptance records do not add a new end-to-end enhancement acceptance or establish unattended template generation. The original image and a reviewed derivative remain separate; experimental AI retouch can change image details.
+
+### Auditor acceptance is still open
+
+Release 114 safely withheld scores after unsupported caption/rule quotations. Release 115 retained explicit diagnostics for uncertain product evidence and invalid visual references. Release 116 recorded rubric `anejo-visual-3` scores of 100, or 7 of 7 applicable criteria, for the mixed-format and Cajita drafts, but the root agent’s comparison against the manifest **did not accept the mixed-format result**: the explanation called slide 2 the cover and slide 3 the Cajita when the actual sequence had cover 1 and Cajita 2. Reference-first ordinal confusion is a hypothesis, not a proven cause. No score was manually overridden.
+
+The Cajita observations were checked against its manifest and matched the recorded sequence. The catering announcement was not retried under version 3 after the mixed-format failure. Therefore the recorded scores do not establish final acceptance of all three posts. PR 117's citation-order fix must be deployed and the exact saved sequences reassessed before that claim can change. A score measures rubric criteria; it is not authenticity proof, publication consent or a prediction of sales.
+
+### Operator and Ana observations
+
+Release 114's typed operator command returned a timestamped saved cron summary. Release 115's expanded operator UI was absent after normal reloads; caching was only a suspected cause. Release 116 observed the versioned `private-operator-2` client, an expanded saved-audit summary, and an **Open Photos** navigation action that preserved an unsaved Create caption on return. The temporary QA text was cleared and never saved. These observations support typed status/navigation behavior, not microphone, speech-output or full operational-write acceptance.
+
+At September 17, 11:10 p.m. Eastern, the operator showed separate natural Ana and publishing records. Release 116 records an Ana cron run that started and completed successfully, with zero drafts, sends, specials, escalations and skips, and no errors. This is evidence of that empty natural invocation, not a successful customer reply or continuous uptime.
+
+The [read-only Ana aggregate observation](cajita-social-2026-09-17/revision-3/ana-aggregate-observation.json), taken at 10:59 p.m. Eastern, recorded mode `both`, historical comment/message events and historical outbound rows, but no inbound events in the previous seven days and no recorded sends in the previous day. Three pending Ana drafts were recorded. Historical sent rows do not prove current webhook delivery or token health. No customer message was sent for these checks. All five trust lanes in release 116 had automatic publication disabled and a zero clean-approval streak.
+
+### Exact remaining blockers
+
+- **Google reviews:** the private draft desk has no connected Google review ingestion/reply adapter. Google API authorization and integration remain open; local drafts are not Google replies.
+- **Credential renewal:** the historical Instagram connection record showed expiry on September 20. Owner renewal and a fresh connection/scopes readback are still required; the date must not be presented as a newly verified credential state. No credential change is authorized by this documentation task.
+- **Unattended image rendering:** local Pages/WASM feasibility exists, but production CPU and isolate-memory limits, maximum-input behavior, visual parity, protected-food placement and durable private render jobs remain unverified. The prototype is not production-ready.
+- **Voice operations:** status/navigation evidence does not establish microphone or speech playback, and no full guarded operations-write system replaces the Hub's controls. Full voice-driven order, marketing and review execution remains open.
+- **Public preview approval:** Dayan must review the exact rendered carousels and captions and approve their publication timing. Deployment authorization and a saved audit score are not that approval. All three campaigns remain unscheduled.
+- **Actual commercial results:** there is no measured paid-order outcome attributable to these unpublished campaigns. Fresh metrics, tracked leads and verified paid-order attribution are required before claiming growth or sales impact.
+- **Original readiness scope:** role/checkout/Creative Studio live acceptance, remaining SEO/Google Business work and supported-browser access boundaries still need their own evidence. These marketing checkpoints do not complete that broader request.
+
+## Historical source-only inventory
+
+The table below is preserved as the earlier September 17 inspection at local HEAD `74a16b1`. Its unverified statements describe that earlier checkpoint; consult the dated update above for the later live observations. Repository-relative paths and line numbers may have shifted after subsequent releases. The original inventory was prepared in `/tmp` during release 112 and later copied here. Code and local tests alone do not establish production behavior.
 
 | Owner request | Implemented evidence / responsible module | Remaining evidence or limitation |
 |---|---|---|
