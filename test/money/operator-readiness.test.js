@@ -5,9 +5,8 @@ import { operatorBusinessDate, buildContext, marketingStatus, onRequestGet, onRe
 function env({ fail = false, role = 'owner' } = {}) {
   const writes = [], dates = [];
   const db = { prepare(sql) {
-    let args = [];
     return {
-      bind(...value) { args = value; dates.push(...value.filter(v => /^\d{4}-\d{2}-\d{2}$/.test(v))); return this; },
+      bind(...value) { dates.push(...value.filter(v => /^\d{4}-\d{2}-\d{2}$/.test(v))); return this; },
       async first() {
         if (sql.includes('FROM staff')) return { id: 'owner1', email: 'owner@example.test', role, active: 1 };
         if (fail) throw Error('storage unavailable');
