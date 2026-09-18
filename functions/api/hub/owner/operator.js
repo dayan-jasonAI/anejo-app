@@ -14,6 +14,8 @@
 //      silence, because someone would cook to it.
 //   5. It is READ-ONLY. It reports; it does not place orders, refund, message customers, or
 //      mutate anything. There is no write path in this file, by construction.
+import { privateIntent, privateResult, readAuditStatus } from '../../../_lib/operator_commands.js';
+import { SOCIAL_AUDIT_CURRENT } from '../../../_lib/social_audit.js';
 import { loadSocialHeartbeat } from '../../../_lib/social_heartbeat.js';
 import { json } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
@@ -92,7 +94,7 @@ export async function buildContext(env, at = Date.now()) {
 export function operatorCapabilities() {
   return {
     mode: 'read_only', mutations: false,
-    deterministic_commands: ['capabilities', 'marketing status'],
+    deterministic_commands: ['capabilities', 'marketing status', 'open photos', 'open create & schedule', 'show drafts', 'show audit status', 'draft campaign brief: topic'],
     model_questions: ['orders', 'deliveries', 'rewards'],
     unavailable_actions: ['publish posts', 'send customer replies', 'change orders', 'refunds', 'Google review replies'],
   };
@@ -162,9 +164,22 @@ export const onRequestPost = async ({ request, env }) => {
   const message = String(body.message || '').trim().slice(0, 2000);
   if (!message) return json({ ok: false, error: 'message required' }, 400);
 
+  const intent = privateIntent(message);
+  const privateReply = privateResult(intent);
+  if (privateReply) {
+    if (intent.kind === 'audit_status') {
+      privateReply.audit = await readAuditStatus(env.DB, SOCIAL_AUDIT_CURRENT);
+      privateReply.receipt.observed_at = privateReply.audit.observed_at;
+      privateReply.reply = privateReply.audit.available
+        ? `Saved audit status observed at ${privateReply.audit.observed_at}, latest 60 posts only. A current pass is not permission to publish.`
+        : 'Saved audit evidence is unavailable. No audit was run.';
+    }
+    return json(privateReply, privateReply.ok ? 200 : 400);
+  }
+
   const command = message.toLowerCase().replace(/[?!.]+$/, '').trim();
   if (['help', 'capabilities', 'what can you do', 'qué puedes hacer', 'que puedes hacer'].includes(command)) {
-    return json({ ok: true, reply: 'I can report orders, deliveries, rewards and marketing queue status. Say “marketing status” for saved draft and scheduling counts. I cannot publish, send replies, change orders or answer Google reviews. Those actions are not connected to this operator.', capabilities: operatorCapabilities(), receipt: { mode: 'deterministic', mutation: false } });
+    return json({ ok: true, reply: 'I can report orders, deliveries, rewards and marketing queue status, offer private Photos/Create/drafts navigation, read saved audit status, and capture an unsaved campaign idea. I cannot publish, send replies, change orders or answer Google reviews. Those actions are not connected to this operator.', capabilities: operatorCapabilities(), receipt: { mode: 'deterministic', mutation: false } });
   }
   if (['marketing status', 'marketing team status', 'estado de marketing'].includes(command)) {
     const status = await marketingStatus(env);

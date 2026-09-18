@@ -1,0 +1,55 @@
+{
+  "observed_at": "2026-09-18T02:52:38.227594+00:00",
+  "merge": "495ba27858aa4d5bf44c8706d77d34395e21a341",
+  "deployment": "74160449-4cf2-47a0-b245-9b9254180b59",
+  "deployment_proof": "completed/success Cloudflare check plus normal live UI",
+  "audit_attempts": [
+    "sp_0a39246ba48d6453af3f",
+    "sp_58424887f40e1a1b611f"
+  ],
+  "third_not_retried": "Same unsupported_caption_quote failure on both; gather retains previous attempt, no third provider call.",
+  "results": [
+    {
+      "id": "sp_0a39246ba48d6453af3f",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789699551147,
+      "audit_score": null,
+      "audit_status": "flag",
+      "audit_scope": "unavailable",
+      "audit_flags": "[{\"type\":\"audit_unavailable\",\"detail\":\"The brand audit could not run (cited caption wording is absent from this draft). Review this draft by hand.\"}]",
+      "audit_detail_json": null
+    },
+    {
+      "id": "sp_20fbf4bea6aea85f30bf",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789698977729,
+      "audit_score": null,
+      "audit_status": "flag",
+      "audit_scope": "unavailable",
+      "audit_flags": "[{\"type\":\"audit_unavailable\",\"detail\":\"The brand audit could not run (cited rule does not match the supplied source). Review this draft by hand.\"}]",
+      "audit_detail_json": null
+    },
+    {
+      "id": "sp_58424887f40e1a1b611f",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789699820962,
+      "audit_score": null,
+      "audit_status": "flag",
+      "audit_scope": "unavailable",
+      "audit_flags": "[{\"type\":\"audit_unavailable\",\"detail\":\"The brand audit could not run (cited caption wording is absent from this draft). Review this draft by hand.\"}]",
+      "audit_detail_json": null
+    }
+  ],
+  "ui_checks": {
+    "today_library_picker": "opened, 24 photos, canceled",
+    "create_library_picker": "opened, 24 photos, canceled",
+    "teach": "31 rules,24 examples,9735 of16000 characters; preview only, not a new inference receipt",
+    "team_sidebar": "76 followers explicitly dated September17,215/215 catalog items",
+    "operator": "typed marketing status showed timestamped successful saved cron tick; no delivery claim",
+    "registry": "gather-10 metadata saved revision1; draft reuse remains false"
+  },
+  "public_actions": false
+}

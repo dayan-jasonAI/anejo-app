@@ -186,3 +186,23 @@ PR113 mergeda819045b83f5133aa8cd16bf720e2716eaa0ba10 at2026-09-18T02:33:00Z; pro
 Rubricv2 removesmodel-generatedrulecitations: serverattaches canonicalversionedcriterion text, modeljudgesobservations only. Allsevencriteria, caption/slideevidence, uncertaintyblocking and fullsourcecoverage remain. Currentevidencequeryimportsversion; historicalv1cannotearntrust. 2,746roottests andFunctionsbuild pass (/tmp/anejo-rubric-v2-final-root.log, /tmp/anejo-rubric-v2-final-build.log); semanticprovideracceptance stillpending.
 
 LivePhotossearch narrowed215catalogchoices to4Cajitaentries. Savedgather-10revision3metadata withtraditional_cajita/Pinkfloral/editorial, leavingreusepermissionOFF. UIreadback revision1, contentSHA2562b505938f03c4ec9bd5b31ac92653e0e50818eda47215e90c24f582ef1526ea6. This isagent-preparedlabelmetadata viaauthenticatedownerUI, notDayanpublicapproval or proofliveplannerreuse. Nothingpublished/scheduled/sent.
+
+## Evidence correction — deployment list labels
+
+Wrangler4.129 cli.js:294168 formats successful ended deployment stages as elapsedtime; other statuses are title-cased. Therefore “Active” alone means stageprogress, not serving-production proof. Earlier Active-based deployment wording is downgraded to Unverified until separate completedchecks/liveobservations (documented above) establisheachcapability. The observedoldUI→newUI sequence didnotisolate cache frombuild/rollout timing. Cachechanges are preventive/tested, not a provenexclusive rootcause ofthatobservation. Global correction FSC-ANEJO-20260917 recorded. PR114 merge495ba27858aa4d5bf44c8706d77d34395e21a341 has explicitCloudflarecompleted-successcheck fordeployment74160449-4cf2-47a0-b245-9b9254180b59; version2liveaudits areunderway.
+
+
+## PR114 live acceptance — September17 late evening
+
+PR114 merged495ba27858aa4d5bf44c8706d77d34395e21a341. Cloudflare deployment74160449-4cf2-47a0-b245-9b9254180b59 has a completed-success check. Normal live choice and personal audits each returned unsupported caption quotation, null score and unavailable scope. Stopped further audit calls; gather retains PR113 result. No manual override. Raw rejected response was not retained, so image-overlay confusion is an inference only. Candidate will constrain caption citations to supplied exact lines and preserve bounded private failure diagnostics.
+
+Normal live Today and Create library buttons each opened the shared chooser with24photos; canceled without draft mutation. Teach preview reports31rules,24examples,9735/16000characters and includes new launch/full-frame guidance; this is preview evidence, not a new Lead inference receipt. Sidebar clearly dates76followers to September17 and shows215catalog items. Typed operator marketing status returned timestamped saved cron evidence and explicitly did not claim delivery. Registry metadata for gather-10 saved revision1 with draft reuse permission false. Evidence: revision-3/release114-live-acceptance.json. Goal remains active; no social/customer sends.
+
+
+## Release115 candidate
+
+Exact caption-line structured choices prevent arbitrary recopy/paraphrase citations without relaxing exact substring validation. Explicit caption/brief/slide boundaries and bounded private rejected-observation diagnostics added. Unknown or contradictory findings still remain unavailable; UI labels diagnostics as rejected observations, not verified design defects. Rubricv2 contract remains unchanged.
+
+Operator now has deterministic owner-only EN/ES private navigation, saved audit summary and unsaved idea capture. Canonical extensionless/.html same-page routing preserves unfinished captions; explicit navigation buttons avoid surprise redirects. Actual MarketingTabs router tested. No public mutations, model calls or writes for those commands. These are limited private commands, not a full operations director.
+
+Validation:2766root tests passed before final diagnostic UI addition (/tmp/anejo-caption-diagnostic-root.log); final6audit UI tests passed (/tmp/anejo-diagnostic-ui.log);24integratedoperator tests passed. Functions build passed; lint0errors/4existingwarnings. Live acceptance pending. No new migration.

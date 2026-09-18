@@ -156,3 +156,12 @@ test('current audit gate follows exported rubric version and rejects prior rubri
  env.DB.sqlite.prepare('UPDATE social_posts SET audit_detail_json=? WHERE id=?').run(JSON.stringify({rubric_version:'anejo-visual-1'}),id);
  assert.equal(env.DB.one(`SELECT ${SOCIAL_AUDIT_CURRENT} AS current FROM social_posts WHERE id=?`,id).current,0);
 });
+
+test('unavailable rubric diagnostic persists privately without pass scope or clean trust',async()=>{
+ const {noteTrustApproval}=await import('../../functions/_lib/trust_ledger.js');
+ const {env,id}=await setup();const diagnostic={reason:'criterion_unknown',criterion_id:'branding',status:'unknown',explanation:'Reference cannot establish this visual comparison.',slides:[1]};
+ const result=await auditSavedDraft(env,id,'Original',async()=>({brand_score:null,verdict:'flag',flags:[{type:'audit_unavailable',detail:'Required evidence missing.'}],rubric_version:VERSION,audit_diagnostic:diagnostic}));
+ assert.equal(result.ok,true);const row=env.DB.one('SELECT audit_status,audit_scope,audit_score,audit_detail_json FROM social_posts WHERE id=?',id);
+ assert.equal(row.audit_status,'flag');assert.equal(row.audit_score,null);assert.equal(row.audit_scope,'unavailable');assert.deepEqual(JSON.parse(row.audit_detail_json).audit_diagnostic,diagnostic);
+ assert.equal((await noteTrustApproval(env,id)).counted,false);
+});

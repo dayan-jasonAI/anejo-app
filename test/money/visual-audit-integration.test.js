@@ -8,7 +8,7 @@ const answer=()=>({rubric_version:VERSION,observations:CRITERIA.map(c=>({criteri
 test('visual candidate sends rubric and retained coverage, no image persistence',async()=>{
  const env=ownerEnv({ANTHROPIC_API_KEY:'test'});const original=globalThis.fetch;let body;
  globalThis.fetch=async(_,init)=>{body=JSON.parse(init.body);return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(answer())}]})};};
- try{const r=await auditDraft(env,{caption:'Catering for your gathering',images:[{data:'test-image'}]});assert.equal(r.verdict,'pass');assert.equal(r.input_coverage.training.reads.rules,'empty');assert.equal(r.rubric_version,VERSION);assert.match(body.system,/VERSIONED VISUAL ACCEPTANCE/);assert.ok(!body.system.includes('Return ONLY JSON, nothing else:'));assert.equal(body.messages[0].content[3].source.data,'test-image');assert.equal(body.messages[0].content[1].source.media_type,'image/png');assert.equal(body.messages[0].content[2].text,'Slide 1');assert.equal(r.input_coverage.emblem_reference.purpose,'visual_consistency_only');assert.ok(!env.DB.calls.some(c=>c.kind==='run'&&c.args.includes('test-image')));}finally{globalThis.fetch=original;}
+ try{const r=await auditDraft(env,{caption:'Catering for your gathering',images:[{data:'test-image'}]});assert.equal(r.verdict,'pass');assert.deepEqual(body.output_config.format.schema.properties.observations.items.properties.caption_quote.enum,['','Catering for your gathering']);assert.equal(r.input_coverage.training.reads.rules,'empty');assert.equal(r.rubric_version,VERSION);assert.match(body.system,/VERSIONED VISUAL ACCEPTANCE/);assert.ok(!body.system.includes('Return ONLY JSON, nothing else:'));assert.equal(body.messages[0].content[3].source.data,'test-image');assert.equal(body.messages[0].content[1].source.media_type,'image/png');assert.equal(body.messages[0].content[2].text,'Slide 1');assert.equal(r.input_coverage.emblem_reference.purpose,'visual_consistency_only');assert.ok(!env.DB.calls.some(c=>c.kind==='run'&&c.args.includes('test-image')));}finally{globalThis.fetch=original;}
 });
 test('unreadable training blocks visual provider call instead of inventing empty source',async()=>{
  const env=ownerEnv({ANTHROPIC_API_KEY:'test'});env.DB.exec('DROP TABLE training_rules');const original=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;throw new Error('must not call');};
@@ -45,4 +45,10 @@ test('safe audit failure reasons expose no arbitrary provider error or secret',a
  assert.match(safeAuditFailure('unsupported_rule_quote'),/supplied source/);
  assert.match(safeAuditFailure('contradictory_finding'),/contradicts/);
  for(const input of ['provider error sk-ant-PRIVATE', '__proto__', undefined])assert.equal(safeAuditFailure(input),'API unreachable or answer unparseable');
+});
+
+test('rejected criterion retains bounded diagnostic without response body or image bytes',async()=>{
+ const env=ownerEnv({ANTHROPIC_API_KEY:'test'});const original=globalThis.fetch;
+ globalThis.fetch=async()=>{const data=answer();data.observations[0].status='unknown';data.observations[0].explanation='Unable to compare this emblem confidently.';return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(data)}]})};};
+ try{const r=await auditDraft(env,{caption:'Catering',images:[{data:'PRIVATE_IMAGE_BYTES'}]});assert.equal(r.verdict,'flag');assert.equal(r.audit_diagnostic.criterion_id,'branding');assert.equal(r.audit_diagnostic.status,'unknown');assert.match(r.audit_diagnostic.explanation,/Unable/);assert.ok(!JSON.stringify(r).includes('PRIVATE_IMAGE_BYTES'));assert.equal(r.rubric_version,VERSION);}finally{globalThis.fetch=original;}
 });
