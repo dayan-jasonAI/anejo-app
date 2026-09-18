@@ -1,3 +1,4 @@
+import { VERSION } from '../../functions/_lib/visual_audit_rubric.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ownerEnv, OWNER_COOKIE} from '../helpers/sqlite-d1.js';
@@ -5,7 +6,7 @@ import {onRequestPost} from '../../functions/api/hub/owner/social.js';
 import {auditSavedDraft} from '../../functions/_lib/social_audit.js';
 const call=(env,body)=>onRequestPost({env,request:new Request('https://anejo.test/api/hub/owner/social',{method:'POST',headers:{Cookie:OWNER_COOKIE},body:JSON.stringify(body)})});
 async function setup(){const env=ownerEnv();env.MEDIA={get:async()=>({size:4,arrayBuffer:async()=>new Uint8Array([255,216,255,217]).buffer})};const r=await call(env,{op:'draft',caption:'Original',media_key:'marketing-library/2026-09/real.jpg'});return {env,id:(await r.json()).id};}
-const pass=async()=>({brand_score:97,flags:[],verdict:'pass',rubric_version:'anejo-visual-1',observations:[],suggestions:[],input_coverage:{menu:{source:'d1'}},score_meaning:'criteria met'});
+const pass=async()=>({brand_score:97,flags:[],verdict:'pass',rubric_version:VERSION,observations:[],suggestions:[],input_coverage:{menu:{source:'d1'}},score_meaning:'criteria met'});
 test('saved draft audit persists genuine judge result and declares visual review boundary',async()=>{
  const {env,id}=await setup();const r=await auditSavedDraft(env,id,'Original',pass);
  assert.equal(r.ok,true);assert.equal(r.visual_review_required,true);
@@ -147,4 +148,11 @@ test('automatic publication cannot silently reorder its audited carousel',async(
  const before=env.DB.sqlite.prepare('SELECT id FROM social_post_media WHERE post_id=? ORDER BY seq').all(id).map(r=>r.id);
  const result=await publishSocialPost(env,new Request('https://anejo.test'),{id});assert.equal(result.ok,false);assert.match(result.error,/slide order/);
  assert.deepEqual(env.DB.sqlite.prepare('SELECT id FROM social_post_media WHERE post_id=? ORDER BY seq').all(id).map(r=>r.id),before);
+});
+
+test('current audit gate follows exported rubric version and rejects prior rubric evidence',async()=>{
+ const {SOCIAL_AUDIT_CURRENT}=await import('../../functions/_lib/social_audit.js');const {env,id}=await setup();await auditSavedDraft(env,id,'Original',pass);
+ assert.equal(env.DB.one(`SELECT ${SOCIAL_AUDIT_CURRENT} AS current FROM social_posts WHERE id=?`,id).current,1);
+ env.DB.sqlite.prepare('UPDATE social_posts SET audit_detail_json=? WHERE id=?').run(JSON.stringify({rubric_version:'anejo-visual-1'}),id);
+ assert.equal(env.DB.one(`SELECT ${SOCIAL_AUDIT_CURRENT} AS current FROM social_posts WHERE id=?`,id).current,0);
 });
