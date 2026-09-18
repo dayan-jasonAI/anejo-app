@@ -4,7 +4,7 @@ import { runAutomation } from '../../functions/_lib/automations.js';
 import { makeKV } from '../helpers/d1.js';
 function harness() {
  const provenance=[]; const receipts=[]; const links=[]; const scheduled=[];
- const state={rules:[{id:'supplied',text:'Retained owner instruction',updated_at:3},{id:'blank',text:'  ',updated_at:2},{id:'oversized',text:'x'.repeat(5000),updated_at:1}],briefs:[{id:'brief-a',title:'First supplied brief',status:'draft'},{id:'brief-b',title:'Second supplied brief',status:'draft'}]};
+ const state={rules:[{id:'supplied',text:'Retained owner instruction',updated_at:3},{id:'blank',text:'  ',updated_at:2},{id:'oversized',text:'x'.repeat(20000),updated_at:1}],briefs:[{id:'brief-a',title:'First supplied brief',status:'draft'},{id:'brief-b',title:'Second supplied brief',status:'draft'}]};
  const db={prepare(sql){let args=[];const stmt={bind(...a){args=a;return stmt;},async first(){if(/SUM\(cost_microdollars\)/.test(sql))return {c:0};if(/COUNT\(\*\) n FROM social_posts/.test(sql))return {n:0};return null;},async all(){
  if(/FROM menu_items/.test(sql))return {results:state.menu || [{id:'vida',kind:'bowl',name:'VIDA',price_cents:1999,availability:'available',active:1}]};
  if(/FROM trust_ledger/.test(sql))return {results:[{category:'menu'}]};
@@ -29,7 +29,7 @@ for(const selected of ['brief-a','new-brief',null]) test(`planner attributes onl
  };
  try{
  await runAutomation(h.env,'social_plan',{date:'2026-08-03'});
- assert.match(prompt,/Retained owner instruction/);assert.match(prompt,/\[brief_id: brief-a\]/);assert.ok(!prompt.includes('x'.repeat(5000)));
+ assert.match(prompt,/Retained owner instruction/);assert.match(prompt,/\[brief_id: brief-a\]/);assert.ok(!prompt.includes('x'.repeat(20000)));
  assert.equal(h.provenance.length,1);
  assert.deepEqual(JSON.parse(h.provenance[0].rule_ids),['supplied']);
  assert.equal(h.provenance[0].brief_id,selected==='brief-a'?'brief-a':null);

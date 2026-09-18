@@ -24,7 +24,7 @@ import { budgetGate, recordSpend, weekSpend, WEEKLY_LIMIT_MICRO } from './ai_bud
 import { loadBrand } from './brand_source.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from './bowlspec.js';
-import { trainingContextReceipt } from './training.js';
+import { trainingContextReceipt, DEFAULT_MAX_CHARS } from './training.js';
 import { persistInferenceReceipt } from './inference_receipt.js';
 import { buildRetrospective, renderRetrospective } from './retrospective.js';
 
@@ -186,7 +186,7 @@ export async function buildSpine(env) {
   let training = '';
   let trainingReceipt = { read_status: 'unavailable' };
   try {
-    const context = await trainingContextReceipt(env, { maxChars: 4000 });
+    const context = await trainingContextReceipt(env, { maxChars: DEFAULT_MAX_CHARS });
     training = context.text;
     trainingReceipt = context.receipt;
   } catch { training = ''; }
@@ -285,6 +285,8 @@ export function renderSpine(spine) {
     // argues with — so the things he has already told it, in his own words, must outrank the
     // model's instincts rather than sit buried above the menu. Empty string until he trains it,
     // which is the honest state: an untrained team should not read as a trained one.
+    '\n\n=== OWNER TRAINING READ STATUS ===\n' + JSON.stringify(spine.input_components?.training || { read_status: 'unavailable' }) +
+    '\nRead status and truncation above are evidence limits. Never claim all owner guidance was read when unavailable, partial, truncated or selection-limited.\n' +
     (spine.training ? '\n\n' + spine.training : '')
   );
 }

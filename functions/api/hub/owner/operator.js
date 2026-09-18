@@ -14,6 +14,7 @@
 //      silence, because someone would cook to it.
 //   5. It is READ-ONLY. It reports; it does not place orders, refund, message customers, or
 //      mutate anything. There is no write path in this file, by construction.
+import { loadSocialHeartbeat } from '../../../_lib/social_heartbeat.js';
 import { json } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { budgetGate, recordSpend } from '../../../_lib/ai_budget.js';
@@ -98,14 +99,32 @@ export function operatorCapabilities() {
 }
 
 export async function marketingStatus(env) {
+  const observedAt = Date.now();
   const queue = await many(env, 'SELECT status, COUNT(*) AS n FROM social_posts GROUP BY status');
   let autoReply = null;
   try {
     const row = await env.DB.prepare("SELECT value FROM app_settings WHERE key='social.auto_reply'").first();
     autoReply = ['dm', 'comment', 'both'].includes(row?.value) ? row.value : 'off';
   } catch { /* unreadable is unknown, not off */ }
-  return { observed_at: new Date().toISOString(), queue, ana_auto_reply_setting: autoReply,
-    execution_health: 'unverified', google_review_replies: 'not_integrated' };
+  const heartbeat = await loadSocialHeartbeat(env, observedAt);
+  const timestamp = value => Number.isFinite(value) && value > 0 && value <= 8640000000000000 ? new Date(value).toISOString() : null;
+  const scheduler = {
+    observed_state: heartbeat.status === 'running' ? 'started_not_completed' : heartbeat.status,
+    source: ['cron','owner'].includes(heartbeat.source) ? heartbeat.source : 'unknown',
+    started_at: timestamp(heartbeat.started_at), completed_at: timestamp(heartbeat.completed_at),
+    last_success_at: timestamp(heartbeat.last_success_at),
+    error: heartbeat.error || null, reason: heartbeat.reason || null,
+    counts: heartbeat.counts || null,
+  };
+  return { observed_at: new Date(observedAt).toISOString(), queue, ana_auto_reply_setting: autoReply,
+    scheduler, execution_health: 'unverified', google_review_replies: 'not_integrated' };
+}
+
+export function schedulerStatusText(scheduler) {
+  if (!scheduler || scheduler.observed_state === 'unknown') return 'Scheduler evidence is unavailable.';
+  const source = scheduler.source === 'cron' ? 'Cron' : scheduler.source === 'owner' ? 'Owner-triggered check' : 'Unknown trigger';
+  return `${source} record: ${scheduler.observed_state}; started ${scheduler.started_at || 'unknown'}, completed ${scheduler.completed_at || 'not recorded'}. Last recorded successful tick: ${scheduler.last_success_at || 'none'}. Recorded error: ${scheduler.error || 'none'}. This does not prove current execution or successful delivery of a specific post.`;
+
 }
 
 export const onRequestGet = async ({ request, env }) => {
@@ -150,7 +169,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (['marketing status', 'marketing team status', 'estado de marketing'].includes(command)) {
     const status = await marketingStatus(env);
     const queue = status.queue === null ? 'The marketing queue is unavailable.' : status.queue.length ? status.queue.map(row => `${row.n} ${row.status}`).join(', ') + '.' : 'The marketing queue is empty.';
-    return json({ ok: true, reply: `${queue} Ana’s saved auto-reply setting is ${status.ana_auto_reply_setting ?? 'unavailable'}. This is configuration, not proof that replies or scheduled posts are running. Google review replies are not integrated.`, status, receipt: { mode: 'deterministic', mutation: false, observed_at: status.observed_at } });
+    return json({ ok: true, reply: `Queue observed at ${status.observed_at}: ${queue} ${schedulerStatusText(status.scheduler)} Ana’s saved auto-reply setting is ${status.ana_auto_reply_setting ?? 'unavailable'}. This is configuration, not proof that replies or scheduled posts are running. Google review replies are not integrated.`, status, receipt: { mode: 'deterministic', mutation: false, observed_at: status.observed_at } });
   }
 
   // No key ⇒ honest refusal. Never a fabricated operator turn.

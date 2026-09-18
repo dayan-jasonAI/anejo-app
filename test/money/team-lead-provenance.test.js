@@ -60,7 +60,7 @@ test('Lead drafts seal trust after media and stamp validated sources without inv
   assert.equal(p.format, 'single');
   assert.equal(p.slide_count, 1);
   assert.equal('rule_ids' in p, false);
-  assert.ok(f.reads.some(sql => /revision_snapshot FROM social_posts/.test(sql)), 'uses shared saved-image audit');
+  assert.ok(f.reads.some(sql => /AS revision_snapshot, .* AS context_snapshot FROM social_posts/.test(sql)), 'uses shared saved-image audit');
 });
 test('unknown proposed source IDs are omitted, not recorded as verified attribution', async () => {
   const f = fixture({ known: false });

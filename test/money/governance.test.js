@@ -1,3 +1,4 @@
+import { CRITERIA, VERSION } from '../../functions/_lib/visual_audit_rubric.js';
 // Governance gates: the Brand Auditor + Claims Checker that scores every generated draft
 // BEFORE the owner sees it.
 //
@@ -12,7 +13,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { auditDraft, deterministicFlags } from '../../functions/_lib/governance.js';
+import { auditDraft as actualAuditDraft, deterministicFlags } from '../../functions/_lib/governance.js';
 import { WEEKLY_LIMIT_MICRO } from '../../functions/_lib/ai_budget.js';
 
 const GOV = readFileSync(new URL('../../functions/_lib/governance.js', import.meta.url), 'utf8');
@@ -158,7 +159,7 @@ test('socialPlan audits finished media after photo preparation', () => {
   assert.ok(AUTO.includes("from './social_audit.js'"));
   assert.ok(AUTO.indexOf('await auditSavedDraft(env, postId, caption)') > AUTO.indexOf('const photo = await ensureFoodPhoto'));
   assert.match(AUTO, /audit_scope='caption_and_media'/);
-  assert.match(AUTO, /audit_snapshot=\$\{SOCIAL_AUDIT_SNAPSHOT\}/);
+  assert.match(AUTO, /AND \$\{SOCIAL_AUDIT_CURRENT\}/);
 });
 
 test('the owner GET carries the audit out — audit columns in the posts SELECT', () => {
@@ -262,27 +263,28 @@ test('"training" joins the model flag allowlist without weakening it — an unkn
 });
 
 test('training is wired with an explicit, budget-capped call — source pin', () => {
-  assert.match(GOV, /import \{ trainingContext \} from '\.\/training\.js'/);
+  assert.match(GOV, /import \{ trainingContext, trainingContextReceipt \} from '\.\/training\.js'/);
   assert.match(GOV, /await trainingContext\(env, \{ maxChars: TRAINING_BUDGET \}\)/, 'an unused import is not wiring');
 });
 
+const visualAnswer = (defect = null) => ({ rubric_version: VERSION, observations: CRITERIA.map(c => ({
+ criterion_id: c.id, status: defect && c.id === 'readability' ? 'violated' : 'met',
+ rule_source: 'criterion', rule_quote: c.rule, caption_quote: '', slides: [1], explanation: defect && c.id === 'readability' ? defect : 'Visible evidence satisfies the criterion.'
+})), suggestions: [] });
+
 test('visual audit sends ordered actual JPEG blocks and flags observed visual faults',async()=>{
  const {db}=stubDb({menuItems:MENU});const savedFetch=globalThis.fetch;let sent;
- globalThis.fetch=async(url,init)=>{sent=JSON.parse(init.body);return modelAnswer({brand_score:90,flags:[{type:'photo',detail:'Slide 2: emblem covers food'}],verdict:'pass'})();};
+ globalThis.fetch=async(url,init)=>{sent=JSON.parse(init.body);return modelAnswer(visualAnswer('Slide 1: emblem covers food'))();};
  try {
   const result=await auditDraft({DB:db,ANTHROPIC_API_KEY:'test'}, {caption:'Catering',images:[{data:'first'},{data:'second'}]});
-  assert.deepEqual(sent.messages[0].content.filter(c=>c.type==='image').map(c=>c.source.data),['first','second']);
+  assert.deepEqual(sent.messages[0].content.filter(c=>c.type==='image'&&c.source.media_type==='image/jpeg').map(c=>c.source.data),['first','second']);
   assert.deepEqual(sent.thinking,{type:'disabled'});
   assert.equal(sent.output_config.format.type,'json_schema');
   assert.equal(sent.output_config.format.schema.additionalProperties,false);
   assert.match(sent.system,/Inspect every image/);assert.equal(result.verdict,'flag');
  }finally{globalThis.fetch=savedFetch;}
 });
-test('unavailable audits are shown as unavailable rather than a fabricated zero score',()=>{
- const page=readFileSync(new URL('../../public/hub/owner/marketing.html',import.meta.url),'utf8');
- assert.match(page,/Brand Auditor · unavailable/);
- assert.ok(page.indexOf('Brand Auditor · unavailable')<page.indexOf('var scoreStr'));
-});
+// Unavailable-score UI behavior is exercised by test/ui/marketing-audit-evidence.test.js.
 
 test('finished-image judge receives evidence discipline and retains actionable flag explanations', async () => {
   const { db } = stubDb({ menuItems: MENU });
@@ -291,14 +293,14 @@ test('finished-image judge receives evidence discipline and retains actionable f
   let request;
   globalThis.fetch = async (_url, options) => {
     request = JSON.parse(options.body);
-    return modelAnswer({ brand_score: 70, verdict: 'flag', flags: [{ type: 'photo', detail }] })();
+    return modelAnswer(visualAnswer(detail))();
   };
   try {
     const result = await auditDraft({ DB: db, ANTHROPIC_API_KEY: 'test-only' }, {
       caption: 'Planning an event? Share your city to confirm availability.',
       images: [{ data: '/9j/AA==' }],
     });
-    assert.equal(result.flags.find(f => f.type === 'photo').detail, detail);
+    assert.equal(result.flags.find(f => f.type === 'photo').detail, 'readability: ' + detail);
     assert.equal(result.verdict, 'flag');
     assert.match(request.system, /Read the whole applicable owner rule/);
     assert.match(request.system, /not a promise of coverage/);
@@ -318,10 +320,10 @@ test('truncated provider JSON never becomes a visual pass and multi-block text c
     assert.equal(limited.verdict, 'flag');
     assert.match(limited.flags.find(f=>f.type==='audit_unavailable').detail, /output limit/);
     assert.equal(spendInserts.length, 1, 'truncated paid answer still metered');
-    globalThis.fetch = async () => ({ ok:true, json:async () => ({stop_reason:'end_turn',content:[{type:'thinking',thinking:'not an audit result'},{type:'text',text:'{"brand_score":95,"flags":[],"verdict":"pass"}'}]}) });
+    globalThis.fetch = async () => ({ ok:true, json:async () => ({stop_reason:'end_turn',content:[{type:'thinking',thinking:'not an audit result'},{type:'text',text:JSON.stringify(visualAnswer())}]}) });
     const complete = await auditDraft({ DB:db, ANTHROPIC_API_KEY:'test-only' }, {caption:'Menu',images:[{data:'/9j/AA=='}]});
     assert.equal(complete.verdict, 'pass');
-    assert.equal(complete.brand_score,95);
+    assert.equal(complete.brand_score,100);
   } finally { globalThis.fetch=original; }
 });
 
@@ -351,3 +353,6 @@ test('visual structured audit fails closed on incomplete or invalid provider env
     }
   }finally{globalThis.fetch=original;}
 });
+
+const canonicalEmblem = readFileSync(new URL('../../public/assets/img/emblem.png', import.meta.url));
+async function auditDraft(env, input) { return actualAuditDraft({ ...env, ASSETS: { fetch: async () => new Response(canonicalEmblem) } }, input); }

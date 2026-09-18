@@ -9,6 +9,12 @@ const MEDIA = `(SELECT COALESCE(group_concat(item, ','), '') FROM
 
 export const SOCIAL_AUDIT_SNAPSHOT = `json_array(COALESCE(caption,''),COALESCE(image_brief,''),COALESCE(media_key,''),COALESCE(media_type,''),${MEDIA})`;
 
+// Ordered source version sets, including membership changes from active toggles/deletion.
+// A shared SQL expression permits comparison inside the same conditional write.
+const versions = (table, where) => `(SELECT COALESCE(group_concat(item, ','), '') FROM (SELECT json_array(id,updated_at) AS item FROM ${table} WHERE ${where} ORDER BY id))`;
+export const SOCIAL_AUDIT_CONTEXT = `json_array(${versions('docs', "active=1 AND doc_type='brand'")},${versions('training_rules','active=1')},${versions('training_examples','active=1')},${versions('menu_items','active=1')})`;
+export const SOCIAL_AUDIT_CURRENT = `(audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT} AND audit_context_snapshot=${SOCIAL_AUDIT_CONTEXT} AND json_valid(audit_detail_json) AND CASE WHEN json_valid(audit_detail_json) THEN json_extract(audit_detail_json,'$.rubric_version')='anejo-visual-1' ELSE 0 END)`;
+
 export async function loadAuditImages(env, mediaSnapshot) {
   if (!env.MEDIA) throw new Error('Media storage unavailable');
   const slides=JSON.parse('['+mediaSnapshot+']');
@@ -29,7 +35,7 @@ export async function loadAuditImages(env, mediaSnapshot) {
 
 export async function auditSavedDraft(env, postId, expectedCaption, judge = auditDraft) {
   if (!postId) return { ok:false, status:400, error:'Missing id.' };
-  const row = await env.DB.prepare(`SELECT *, ${MEDIA} AS media_snapshot, ${SOCIAL_AUDIT_SNAPSHOT} AS revision_snapshot FROM social_posts WHERE id=?`).bind(postId).first();
+  const row = await env.DB.prepare(`SELECT *, ${MEDIA} AS media_snapshot, ${SOCIAL_AUDIT_SNAPSHOT} AS revision_snapshot, ${SOCIAL_AUDIT_CONTEXT} AS context_snapshot FROM social_posts WHERE id=?`).bind(postId).first();
   if (!row) return { ok:false, status:404, error:'That post no longer exists.' };
   if (!['draft','failed'].includes(row.status)) return { ok:false, status:409, error:'Return this post to draft before auditing it.' };
   if (expectedCaption !== undefined && expectedCaption !== (row.caption || '')) {
@@ -39,11 +45,12 @@ export async function auditSavedDraft(env, postId, expectedCaption, judge = audi
   try { images=await loadAuditImages(env,row.media_snapshot); } catch(error) { mediaError=error.message; }
   const audit = mediaError ? {brand_score:0,verdict:'flag',flags:[{type:'audit_unavailable',detail:'Finished-image audit unavailable: '+mediaError}]} : await judge(env, { caption:row.caption, image_brief:row.image_brief, images });
   const scope = !mediaError && !audit.flags.some(f=>f.type==='audit_unavailable') ? 'caption_and_media' : 'unavailable';
-  const result = await env.DB.prepare(`UPDATE social_posts SET audit_score=?, audit_flags=?, audit_at=?, audit_status=?, audit_scope=?, audit_snapshot=?
+  const detail = audit.rubric_version ? JSON.stringify({rubric_version:audit.rubric_version,observations:audit.observations ?? null,suggestions:audit.suggestions ?? null,input_coverage:audit.input_coverage ?? null,score_meaning:audit.score_meaning ?? null}) : null;
+  const result = await env.DB.prepare(`UPDATE social_posts SET audit_score=?, audit_flags=?, audit_at=?, audit_status=?, audit_scope=?, audit_snapshot=?, audit_detail_json=?, audit_context_snapshot=?
     WHERE id=? AND status IN ('draft','failed') AND COALESCE(caption,'')=?
     AND COALESCE(image_brief,'')=? AND COALESCE(media_key,'')=? AND COALESCE(media_type,'')=?
-    AND ${MEDIA}=?`).bind(audit.brand_score, JSON.stringify(audit.flags), Date.now(), audit.verdict, scope, row.revision_snapshot,
-      postId, row.caption || '', row.image_brief || '', row.media_key || '', row.media_type || '', row.media_snapshot).run();
-  if (result.meta?.changes !== 1) return { ok:false, status:409, error:'This draft changed during the audit. Review and audit it again.' };
+    AND ${MEDIA}=? AND ${SOCIAL_AUDIT_CONTEXT}=?`).bind(audit.brand_score, JSON.stringify(audit.flags), Date.now(), audit.verdict, scope, row.revision_snapshot, detail, row.context_snapshot,
+      postId, row.caption || '', row.image_brief || '', row.media_key || '', row.media_type || '', row.media_snapshot, row.context_snapshot).run();
+  if (result.meta?.changes !== 1) return { ok:false, status:409, error:'This draft or its source guidance changed during the audit. Review and audit it again.' };
   return { ok:true, id:postId, audit, scope, visual_review_required:true };
 }

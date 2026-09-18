@@ -15,7 +15,7 @@
 // signal that it happened. So: newest/most-recently-edited first, hard char cap, and anything
 // past the cap is dropped from the OLDEST end — i.e. the guidance the owner is least likely to
 // still be thinking about is what gets cut, not what he just wrote.
-export const DEFAULT_MAX_CHARS = 6000; // headroom inside the Team Lead's larger prompt budgets
+export const DEFAULT_MAX_CHARS = 16000; // shared Lead, planner and Teach preview cap
 
 // ---------------------------------------------------------------------------
 // Loading (D1)
@@ -24,7 +24,7 @@ export const DEFAULT_MAX_CHARS = 6000; // headroom inside the Team Lead's larger
 /**
  * Load active rules + examples, each already ordered newest-edited-first within its own kind.
  * Returns { rules, examples } — plain rows, never throws (a DB hiccup must not crash whatever
- * planner is grounding on this; it degrades to "no training yet", not a 500).
+ * planner is grounding on this; it reports unavailable source status, not a 500).
  */
 export async function loadTraining(env) {
   if (!env || !env.DB) return { rules: [], examples: [], read_status: { rules: 'unavailable', examples: 'unavailable' } };
@@ -192,10 +192,12 @@ export async function trainingContextReceipt(env, { maxChars = DEFAULT_MAX_CHARS
  * counts, how many made it in, and whether anything was cut.
  */
 export async function trainingPreview(env, { maxChars = DEFAULT_MAX_CHARS } = {}) {
-  const { rules, examples } = await loadTraining(env);
+  const { rules, examples, read_status } = await loadTraining(env);
   const formatted = formatTraining({ rules, examples }, maxChars);
   return {
     ...formatted,
+    read_status,
+    selection_may_be_limited: { rules: rules.length >= 500, examples: examples.length >= 500 },
     totalRules: rules.length,
     totalExamples: examples.length,
     maxChars,

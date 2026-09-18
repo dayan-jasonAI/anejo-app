@@ -22,12 +22,12 @@ const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', impor
 const NAV = readFileSync(new URL('../../public/hub/owner/assets/owner.js', import.meta.url), 'utf8');
 
 import { makeSqliteD1 } from '../helpers/sqlite-d1.js';
-import { SOCIAL_AUDIT_SNAPSHOT } from '../../functions/_lib/social_audit.js';
+import { SOCIAL_AUDIT_SNAPSHOT, SOCIAL_AUDIT_CONTEXT } from '../../functions/_lib/social_audit.js';
 function fixture() {
   const DB=makeSqliteD1();
   DB.sqlite.prepare(`INSERT INTO social_posts(id,platform,caption,status,source,category,original_caption_hash,created_at,updated_at,public_token)
     VALUES ('sp_1','instagram','Original','scheduled','planner','menu',?,1,1,'public-test')`).run(captionHash('Original'));
-  DB.exec(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_status='pass',audit_scope='caption_and_media'`);
+  DB.exec(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_status='pass',audit_scope='caption_and_media',audit_context_snapshot=${SOCIAL_AUDIT_CONTEXT},audit_detail_json='{"rubric_version":"anejo-visual-1"}'`);
   return {DB};
 }
 test('distinct clean visual approval counts only once, including concurrent requests',async()=>{
@@ -45,7 +45,7 @@ for(const kind of ['caption','media'])test(kind+' correction resets credit and r
   env.DB.exec("UPDATE social_posts SET caption='Original',media_key=NULL");
   assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);
 });
-for(const invalid of ["original_design_snapshot=NULL","audit_scope='caption_only'","audit_status='flag'","audit_snapshot='stale'","source='owner'"])test('no trust earned with '+invalid,async()=>{
+for(const invalid of ["original_design_snapshot=NULL","audit_scope='caption_only'","audit_status='flag'","audit_snapshot='stale'","audit_context_snapshot=NULL","audit_detail_json=NULL","source='owner'"])test('no trust earned with '+invalid,async()=>{
   const env=fixture();env.DB.exec('UPDATE social_posts SET '+invalid);
   assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);
 });
@@ -113,7 +113,7 @@ test('the planner promotes to scheduled ONLY behind toggle AND audit_status=pass
   // One statement, both gates: the id only enters the loop from the auto_publish=1 set, and the
   // WHERE demands the governance audit's explicit pass — NULL, 'flag', anything else stays draft.
   assert.match(planner, /autoPublishCategories\(env\)/);
-  assert.match(planner, /SET status='scheduled', updated_at=\? WHERE id=\? AND status='draft' AND audit_status='pass'/);
+  assert.match(planner, /SET status='scheduled', auto_audit_required=1, updated_at=\? WHERE id=\? AND status='draft' AND audit_status='pass'/);
   assert.match(LIB, /FROM trust_ledger WHERE auto_publish=1/);
   // No governance columns (or no trust table) must mean the pre-0072 behaviour: drafts only.
   const broken = { DB: { prepare() { throw new Error('no such table: trust_ledger'); } } };
@@ -160,4 +160,15 @@ test('the cockpit is on the nav and lights its own tab', () => {
   assert.match(NAV, /\{ view: 'marketing', href: '\/hub\/owner\/marketing\.html'/);
   assert.match(NAV, /label: 'Marketing'/);
   assert.match(PAGE, /Owner\.init\('marketing', load, \{ roles: Owner\.MARKETING_DESK \}\)/);
+});
+
+for (const [label,sql] of [
+ ['brand',"INSERT INTO docs(id,doc_type,title,body,active,created_at,updated_at) VALUES('new-brand','brand','Fixture','New source',1,1,1)"],
+ ['rule',"INSERT INTO training_rules(id,text,active,created_at,updated_at) VALUES('new-rule','New source',1,1,1)"],
+ ['example',"INSERT INTO training_examples(id,media_key,note,active,created_at,updated_at) VALUES('new-example','training/fixture.jpg','New source',1,1,1)"],
+ ['menu',"UPDATE menu_items SET updated_at=updated_at+1 WHERE id=(SELECT id FROM menu_items LIMIT 1)"],
+]) test(label+' source revision after visual audit cannot earn clean trust',async()=>{
+ const env=fixture();const before=env.DB.one('SELECT original_design_snapshot FROM social_posts WHERE id=?','sp_1').original_design_snapshot;env.DB.exec(sql);
+ assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);
+ assert.equal(env.DB.one('SELECT original_design_snapshot FROM social_posts WHERE id=?','sp_1').original_design_snapshot,before,'design fingerprint remains media/caption only');
 });

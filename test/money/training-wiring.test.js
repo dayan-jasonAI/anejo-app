@@ -17,7 +17,7 @@ const read = (p) => readFileSync(join(root, p), 'utf8');
 
 test('the weekly planner imports the owner training and calls it', () => {
   const src = read('functions/_lib/automations.js');
-  assert.match(src, /import \{ trainingContextReceipt \} from '\.\/training\.js'/,
+  assert.match(src, /import \{ trainingContextReceipt, DEFAULT_MAX_CHARS \} from '\.\/training\.js'/,
     'planner must import trainingContextReceipt');
   assert.match(src, /await trainingContextReceipt\(env/,
     'planner must actually CALL it — an unused import is the same as no wiring');
@@ -25,7 +25,7 @@ test('the weekly planner imports the owner training and calls it', () => {
 
 test('the Team Lead imports the owner training and calls it', () => {
   const src = read('functions/_lib/team_lead.js');
-  assert.match(src, /import \{ trainingContextReceipt \} from '\.\/training\.js'/);
+  assert.match(src, /import \{ trainingContextReceipt, DEFAULT_MAX_CHARS \} from '\.\/training\.js'/);
   assert.match(src, /await trainingContextReceipt\(env/);
 });
 
@@ -51,7 +51,7 @@ test('both surfaces budget the training rather than pasting it whole', () => {
   // A library the owner keeps adding to must never be able to crowd out the brand brief or the
   // live menu. Both callers pass an explicit cap.
   for (const p of ['functions/_lib/automations.js', 'functions/_lib/team_lead.js']) {
-    assert.match(read(p), /trainingContext(?:Receipt)?\(env, \{ maxChars: \d+ \}\)/,
+    assert.match(read(p), /trainingContext(?:Receipt)?\(env, \{ maxChars: DEFAULT_MAX_CHARS \}\)/,
       `${p} must pass an explicit maxChars`);
   }
 });

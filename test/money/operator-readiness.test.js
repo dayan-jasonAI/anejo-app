@@ -100,3 +100,16 @@ test('delivery totals are independent of the bounded list shown to the operator'
   assert.equal(data.counts.deliveringToday, 40);
   assert.match(data.text, /40 total; showing up to 25/);
 });
+
+function withHeartbeat(e,record){const base=e.DB.prepare;e.DB.prepare=sql=>sql.includes('SELECT value FROM app_settings WHERE key=?')?{bind(){return this;},async first(){return record===null?null:{value:JSON.stringify(record)};}}:base(sql);return e;}
+test('marketing status reads cron heartbeat with timestamps, without invoking providers or writes',async()=>{
+ const at=Date.now(),e=withHeartbeat(env(),{started_at:at-2000,completed_at:at-1000,last_success_at:at-1000,source:'cron',error:null,counts:{checked:1,published:0,failed:0,missed:0}});
+ const previous=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;throw Error('No providers');};
+ try{const r=await onRequestPost({request:request('marketing status'),env:e}),d=await r.json();assert.equal(r.status,200);assert.equal(d.status.scheduler.source,'cron');assert.equal(d.status.scheduler.observed_state,'recent');assert.equal(d.status.scheduler.last_success_at,new Date(at-1000).toISOString());assert.equal(d.status.execution_health,'unverified');assert.equal(d.status.scheduler.counts.published,0);assert.match(d.reply,/Queue observed at/);assert.match(d.reply,/does not prove current execution/);assert.equal(calls,0);assert.deepEqual(e.writes,[]);}finally{globalThis.fetch=previous;}
+});
+test('owner check, unfinished heartbeat, stale evidence and missing record stay distinct',async()=>{
+ const at=Date.now();
+ for(const [record,state] of [[{started_at:at-1000,source:'owner',completed_at:null},'started_not_completed'],[{started_at:at-600000,completed_at:at-500000,source:'cron',error:'publish_failed'},'stale'],[null,'unknown']]){
+ const e=withHeartbeat(env(),record),r=await onRequestPost({request:request('marketing status'),env:e}),d=await r.json();assert.equal(d.status.scheduler.observed_state,state);assert.equal(d.status.execution_health,'unverified');assert.doesNotMatch(d.reply,/is running/i);assert.deepEqual(e.writes,[]);if(record?.source==='owner')assert.match(d.reply,/Owner-triggered check/);if(record?.error)assert.match(d.reply,/publish_failed/);
+ }
+});

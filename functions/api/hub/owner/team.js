@@ -77,8 +77,8 @@ function spineSummary(spine) {
     followers: spine.metrics.account ? spine.metrics.account.followers : null,
     metrics_as_of: spine.metrics.account ? spine.metrics.account.capture_date : null,
     drafts_pending: spine.drafts.count,
-    menu_available: spine.menu.filter((m) => m.available).length,
-    menu_total: spine.menu.length,
+    menu_available: spine.menu.concat(spine.other_items || []).filter((m) => m.available).length,
+    menu_total: spine.menu.length + (spine.other_items || []).length,
     // Which brand brief the Lead actually read: 'd1' = the owner-maintained doc in the HUB,
     // 'repo' = the compiled snapshot that ships with the deploy. Surfaced because a Lead that
     // sounds off-brand and a brief that never reached it look identical from the chat.

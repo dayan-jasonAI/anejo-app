@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { makeSqliteD1 } from '../helpers/sqlite-d1.js';
+import { DEFAULT_MAX_CHARS } from '../../functions/_lib/training.js';
 import { leadReply, buildSpine, FALLBACK_MODEL } from '../../functions/_lib/team_lead.js';
 
 function fixture(t) {
@@ -80,8 +81,13 @@ test('receipt storage failure permits a reply while explicitly preserving unveri
 test('spine retains source read failures and actual training truncation metadata', async t => {
   const env = fixture(t);
   env.DB.sqlite.prepare("INSERT INTO training_rules (id,text,created_at,updated_at) VALUES ('too_big',?,2,2)").run('x'.repeat(5000));
+  const retained = await buildSpine(env);
+  assert.equal(retained.input_components.training.truncated, false);
+  assert.ok(retained.input_components.training.rules.some(rule => rule.id === 'too_big'), 'a 5000-character rule fits the current shared cap');
+  env.DB.sqlite.prepare("UPDATE training_rules SET text=? WHERE id='too_big'").run('x'.repeat(DEFAULT_MAX_CHARS + 1));
   const spine = await buildSpine(env);
   assert.equal(spine.input_components.training.truncated, true);
+  assert.ok(spine.input_components.training.supplied_chars <= DEFAULT_MAX_CHARS);
   assert.deepEqual(spine.input_components.training.rules, []);
   const prepare = env.DB.prepare;
   env.DB.prepare = sql => { if (/FROM docs|FROM training_rules|FROM training_examples/.test(sql)) throw Error('unavailable'); return prepare(sql); };
