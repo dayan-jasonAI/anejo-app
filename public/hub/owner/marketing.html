@@ -1119,7 +1119,11 @@
       px = Math.max(minPx, Math.round(px * 0.93));
     }
     ctx.font = headlineFont(px);
-    return { px: px, lines: wrapLines(ctx, text, maxWidth).slice(0, 2) };
+    lines = wrapLines(ctx, text, maxWidth);
+    if (lines.length > 2 || lines.some(function(line){return ctx.measureText(line).width > maxWidth;})) {
+      throw new Error('Shorten the headline so every word fits without covering the food.');
+    }
+    return { px: px, lines: lines };
   }
 
   // Where the wording goes when the owner leaves it on Auto. Compares the calm of the bottom band
@@ -1372,7 +1376,7 @@
     // Poster mode always uses the EMBLEM: it sets the company name as type on its own line, so the
     // full lockup would print that name twice, once as artwork and once as type, at two different
     // sizes in two different faces. The references use the emblem for exactly this reason.
-    var markKey = opts.preset === 'poster' ? 'emblem' : (opts.mark === 'lockup' ? 'lockup' : 'emblem');
+    var markKey = opts.preset === 'poster' ? 'emblem' : opts.preset === 'reposado' ? 'emblem' : (opts.mark === 'lockup' ? 'lockup' : 'emblem');
     return ensureBrandFonts()
       .then(function () { return Promise.all([loadImageEl(photoUrl), loadImageEl(MARK_SRC[markKey])]); })
       .then(function (imgs) {
@@ -1388,6 +1392,17 @@
       var S = Math.min(W, H);                    // every size below derives from the SHORTER side,
       var M = Math.round(S * 0.075);             // so a square render and a tall photo compose alike
       var safeW = W - M * 2;
+      var fullFrame = opts.preset === 'reposado';
+      // Source pixels fill the entire canvas at their native aspect ratio. No inset photo,
+      // stretched food, generated background or silent crop is introduced by this preset.
+      if (fullFrame) {
+        var frameInset = Math.round(S * 0.035);
+        var frameInk = pickInk(regionStats(ctx, canvas, frameInset, frameInset, W - frameInset * 2, Math.max(1, S * 0.025)));
+        ctx.save(); ctx.strokeStyle = frameInk.css; ctx.globalAlpha = 0.55;
+        ctx.lineWidth = Math.max(1, Math.round(S * 0.0015));
+        hairlineFramePath(ctx, frameInset, frameInset, W-frameInset*2, H-frameInset*2, Math.round(S*0.015));
+        ctx.stroke(); ctx.restore();
+      }
 
       // ---- WORDING ---------------------------------------------------------------------------
       // Drawn first so the mark can be told where NOT to go. The headline keeps the owner's exact
@@ -1402,7 +1417,7 @@
         var align = layout === 'caption' ? 'left' : 'center';
         var atTop = layout === 'masthead';
 
-        var head = headline ? fitHeadline(ctx, headline, safeW, Math.round(S * 0.088), Math.round(S * 0.042)) : { px: 0, lines: [] };
+        var head = headline ? fitHeadline(ctx, headline, safeW, Math.round(S * (fullFrame ? 0.068 : 0.088)), Math.round(S * 0.042)) : { px: 0, lines: [] };
         var kickPx = Math.max(Math.round((head.px || S * 0.075) * 0.27), Math.round(S * 0.021));
         var tracking = kickPx * 0.34;
         var lineH = Math.round(head.px * 1.16);
@@ -1416,6 +1431,7 @@
         // bottom of the photo — which is precisely what a two-line auto-fit headline did.
         var descAllow = head.lines.length ? Math.round(head.px * 0.32) : 0;
         var blockH = ruleH + gapRule + (kicker ? kickPx + gapKick : 0) + head.lines.length * lineH + descAllow;
+        if (fullFrame && blockH > H * 0.24) throw new Error('Shorten the wording to keep the center of the photograph clear.');
         var top = atTop ? M : H - M - blockH;
 
         // Measure what is actually behind the block, then decide ink. Type is held to 4.5:1 (the
@@ -1502,8 +1518,10 @@
       }
 
       var chosen = anchors[opts.position] || null;
+      if (fullFrame && chosen && collides(chosen)) chosen = null;
       if (!chosen) {
         var keys = Object.keys(anchors).filter(function (k) { return !collides(anchors[k]); });
+        if (!keys.length && fullFrame) throw new Error('No clear logo position remains. Shorten the wording and preview again.');
         if (!keys.length) keys = Object.keys(anchors);
         var best = null;
         keys.forEach(function (k) {
@@ -1551,10 +1569,11 @@
         // optional and separately labelled rather than one field with magic syntax — the kicker and
         // the headline are set in different faces at different sizes, so they are different inputs.
         '<div class="form-row"><label>Style</label><select class="brand-preset">' +
+          '<option value="reposado">Reposado — full-frame photograph</option>' +
           '<option value="overlay">Overlay — mark and wording on the photo</option>' +
           '<option value="poster">Reposado poster — full editorial layout</option>' +
         '</select>' +
-          '<p class="hint">The poster builds the whole composition: gold hairline frame, emblem and AÑEJO CATERING CO. centred at the top, the title, a star rule, and a closing line. It needs height, so a square photo is EXTENDED to 9:16 on a field sampled from its own top edge — the food is never stretched or cropped.</p></div>' +
+          '<p class="hint">Full-frame Reposado keeps the entire photograph and its original shape, adds the real emblem and a fine editorial frame, and chooses readable branding colors. Keep the wording short and inspect the food before using. The alternate poster style adds height above a short photograph. Accent and closing lines apply to the poster only.</p></div>' +
         '<div class="form-row"><label>Wording (optional)</label><input class="brand-text" type="text" maxlength="48" placeholder="e.g. Order by Thursday">' +
           '<p class="hint">Set in Cormorant Garamond, in your own capitalisation. Drawn from these exact characters, never generated — it cannot be misspelled. It resizes and wraps itself to fit the photo.</p></div>' +
         '<div class="form-row"><label>Small line above (optional)</label><input class="brand-kicker" type="text" maxlength="28" placeholder="e.g. This week only">' +
@@ -1663,9 +1682,9 @@
             });
             resultBox.querySelector('.brand-discard').addEventListener('click', function () { resultBox.innerHTML = ''; });
           })
-          .catch(function () {
+          .catch(function (error) {
             btn.disabled = false; btn.textContent = 'Preview branded photo';
-            Hub.toast('Could not composite the logo onto that photo — try again.');
+            Hub.toast(error && error.message && error.message !== 'image_load_failed' ? error.message : 'Could not load the original photograph or emblem. Try again.');
           });
       });
     });

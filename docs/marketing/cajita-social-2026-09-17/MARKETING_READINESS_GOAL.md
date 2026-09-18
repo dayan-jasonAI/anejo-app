@@ -36,3 +36,15 @@ New SQLite-backed test suite test/money/social-saved-audit.test.js covers persis
 Open technical limits: generated-image replacement paths still require mutation review; reorder/detach competing edits need fuller concurrency checks; audit evidence must include actual pixels and source-context versions before autonomy; trust ledger currently counts approval events and needs repeated-approval deduplication. Full-frame shared branding renderer and all broader objective items above remain active. Existing autosync captured source changes as dc2c9ad [skip deploy]; do not mistake this for a release.
 
 Final root suite: 2,587 passed, 0 failed. Two legacy source-shape assertions were updated: stale reorder IDs now reject intentionally, and the publishing claim includes audit assignments. SQLite behavior tests validate these changes. Lint: no errors, four pre-existing warnings; touched-files lint clean. Release/deployment remains pending.
+
+## Full-frame Reposado first implementation — September17 evening
+
+Added full-frame Reposado as the first branding preset in the existing Hub tool. Reuses original image dimensions and draws source edge-to-edge, authentic emblem, adaptive gold/parchment/forest inks, restrained hairline frame, measured edge placement. Headline typesetting now rejects unfit text instead of silently discarding words. Full-frame text block capped to 24% of image height; logo placement avoids wording. This is geometric protection, not semantic food detection.
+
+Normal Chrome local browser rendered three actual website sources: croquetas, Signature Cajita and combined trays/Cajitas. Screenshot inspection confirmed full-frame photos and authentic emblem with readable short headings. The dense combo has little empty space and its corner emblem overlays part of a tray; needs further subject-aware protection before calling placement fully automatic. Native aspect ratios differ (square trays, landscape Signature); final carousel consistency and cropping behavior must be resolved before replacing the live26frames. Existing revision2 drafts remain unchanged.
+
+Review artifact: revision-3/preview.html and renderer-preview.js (extracted from current production renderer, asset paths adjusted for repository-root preview). This is a local design proof, not a deployed feature or final campaign. Browser preview: http://127.0.0.1:8780/docs/marketing/cajita-social-2026-09-17/revision-3/preview.html. No image API calls. 27 focused tests pass, including executed headline-fitting and adaptive-ink cases. Root test log recorded after final run.
+
+Next: eliminate preview copy via shared renderer, include auditable layout/contrast and subject-clearance results, generate consistent revision3 carousels, provide safe in-place branded slide replacement at 10-slide limit, add actual-image audit, then complete release/live checks and broader readiness inventory.
+
+Full-frame candidate root validation: 2,590 passed, 0 failed (revision-3/validation.log). Not deployed; visual refinements and full goal acceptance remain open.
