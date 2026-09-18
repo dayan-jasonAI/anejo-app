@@ -102,6 +102,29 @@ export const DISCOVERY_AREAS = [
   'Pembroke Pines, FL', 'Plantation, FL', 'Davie, FL', 'Sunrise, FL', 'Oakland Park, FL',
 ];
 
+// ---- Registry discovery plan ---------------------------------------------------------------------
+// The public-registry walk, in order. Each step is ONE provider call. AHCA steps return every licensed
+// facility of one type in one county; SAMHSA steps page through programs around a point. The walk
+// resumes where the last pass stopped (app_settings 'sales.discovery_cursor') and wraps around, so
+// the daily pass keeps the list current: new licenses arrive, closed ones stop being re-imported.
+// Adult day care first: it is the category that has already produced a live deal.
+export const DISCOVERY_PLAN = [
+  { provider: 'ahca_healthfinder', facility_type: 'Adult-DayCare', county: 'palm beach' },
+  { provider: 'ahca_healthfinder', facility_type: 'Adult-DayCare', county: 'broward' },
+  { provider: 'samhsa_findtreatment', label: 'Boca Raton / Delray Beach', lat: 26.3683, lng: -80.1289, radius_miles: 10 },
+  { provider: 'samhsa_findtreatment', label: 'West Palm Beach / Lake Worth', lat: 26.6406, lng: -80.0870, radius_miles: 12 },
+  { provider: 'samhsa_findtreatment', label: 'Fort Lauderdale / Pompano Beach', lat: 26.1901, lng: -80.1310, radius_miles: 12 },
+  { provider: 'ahca_healthfinder', facility_type: 'CMH', county: 'palm beach' },
+  { provider: 'ahca_healthfinder', facility_type: 'CMH', county: 'broward' },
+  { provider: 'ahca_healthfinder', facility_type: 'Crisis', county: 'palm beach' },
+  { provider: 'ahca_healthfinder', facility_type: 'Crisis', county: 'broward' },
+  { provider: 'ahca_healthfinder', facility_type: 'RTF', county: 'palm beach' },
+  { provider: 'ahca_healthfinder', facility_type: 'RTF', county: 'broward' },
+  { provider: 'samhsa_findtreatment', label: 'Jupiter / Palm Beach Gardens', lat: 26.8578, lng: -80.0900, radius_miles: 10 },
+  { provider: 'samhsa_findtreatment', label: 'Hollywood / Pembroke Pines', lat: 26.0112, lng: -80.2000, radius_miles: 12 },
+  { provider: 'samhsa_findtreatment', label: 'Coral Springs / Coconut Creek', lat: 26.2712, lng: -80.2300, radius_miles: 10 },
+];
+
 // ---- ICP scoring defaults (owner-editable in Sales → Settings) ----------------------------------
 // Max points per criterion. The score is normalised to 0–100 over the SUM of these, so an owner
 // who reweights never produces a 130-point score.
