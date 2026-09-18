@@ -275,8 +275,6 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
   // auditSystemPrompt), but a prompt is a request; this is the guarantee. If the model ever DOES
   // report a "training" flag alongside verdict "pass" — its own instructions ignored — the code
   // overrules it here, exactly like a deterministic claim flag does.
-  const trainingViolation = model.flags.some((f) => f.type === 'training');
-  const visualViolation = images.length > 0 && model.flags.some((f) => f.type === 'photo');
 
   return {
     brand_score: model.score,
@@ -284,7 +282,7 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
     // The model may say pass; the deterministic checks AND a reported training violation can
     // still overrule it. Never the other way around — code catches lies, it does not grant
     // absolution.
-    verdict: model.verdict === 'pass' && !hard.length && !trainingViolation && !visualViolation ? 'pass' : 'flag',
+    verdict: model.verdict === 'pass' && !hard.length && !model.flags.length ? 'pass' : 'flag',
     // Which brief this audit actually judged against — 'd1' vs 'repo' — so a thin owner edit is
     // visible on the draft's audit row rather than a mystery.
     brand_source: brand.source,

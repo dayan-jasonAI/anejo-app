@@ -321,3 +321,13 @@ test('truncated provider JSON never becomes a visual pass and multi-block text c
     assert.equal(complete.brand_score,95);
   } finally { globalThis.fetch=original; }
 });
+
+test('any reported actionable violation overrides an inconsistent model pass', async () => {
+  const { db } = stubDb({menuItems:MENU}); const original=globalThis.fetch;
+  try {
+    for (const type of ['claim','voice','training','photo']) {
+      globalThis.fetch=modelAnswer({brand_score:98,flags:[{type,detail:'A concrete contradiction remains.'}],verdict:'pass'});
+      assert.equal((await auditDraft({DB:db,ANTHROPIC_API_KEY:'test-only'},{caption:'Menu'})).verdict,'flag',type);
+    }
+  } finally {globalThis.fetch=original;}
+});

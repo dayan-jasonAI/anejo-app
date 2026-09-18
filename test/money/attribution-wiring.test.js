@@ -26,24 +26,23 @@ test('the planner reads results back by cause', () => {
   assert.match(planner, /await attributionBrief\(env\)/);
 });
 
-test('rule ids and brief id are read ONCE per run, not per post', () => {
-  // Re-querying inside the loop would let the recorded cause drift mid-run if the owner edited a
-  // rule while the weekly job was in flight — every post in one batch was written under one set
-  // of rules, and the record has to say so.
-  const loopAt = planner.indexOf('for (const item of ai.data.slice');
-  const rulesAt = planner.indexOf('SELECT id FROM training_rules WHERE active = 1');
-  const briefAt = planner.indexOf("SELECT id FROM team_briefs WHERE status != 'archived' ORDER BY created_at DESC LIMIT 1");
-  assert.ok(rulesAt > -1 && briefAt > -1, 'both causes must be gathered');
-  assert.ok(rulesAt < loopAt, 'active rule ids must be read before the loop');
-  assert.ok(briefAt < loopAt, 'the directing brief must be read before the loop');
+test('provenance uses retained sources gathered before inference, not fresh attribution queries', () => {
+  const contextAt = planner.indexOf('ruleIds: activeRuleIds } = await plannerExtraContext(env)');
+  const inferenceAt = planner.indexOf('const ai =', contextAt);
+  assert.ok(contextAt > -1 && inferenceAt > contextAt);
+  assert.match(planner, /ruleIds = training\.receipt\.rules\.map/);
+  assert.match(planner, /briefIds\.has\(selectedBrief\) \? selectedBrief : null/);
+  assert.ok(!planner.includes('SELECT id FROM training_rules WHERE active = 1'));
+  assert.ok(!planner.includes("SELECT id FROM team_briefs WHERE status != 'archived' ORDER BY created_at DESC LIMIT 1"));
+  // Executable source-mutation and truncation coverage: social-planner-context.test.js.
 });
 
-test('attribution can never cost the week its posts', () => {
-  // Every attribution read is individually guarded. A missing table (pre-migration deploy window)
-  // must leave the planner exactly as capable as it was before any of this existed.
-  const guarded = planner.slice(planner.indexOf('let activeRuleIds'), planner.indexOf('const made = []'));
-  assert.match(guarded, /catch \{ activeRuleIds = \[\]; \}/);
-  assert.match(guarded, /catch \{ directingBriefId = null; \}/);
+test('missing context keeps empty provenance defaults and guarded context reads', () => {
+  const context = planner.slice(planner.indexOf('async function plannerExtraContext'), planner.indexOf("import { captureSystem }"));
+  assert.match(context, /let ruleIds = \[\]/);
+  assert.match(context, /const briefIds = new Set\(\)/);
+  assert.match(context, /try \{[\s\S]*await trainingContextReceipt[\s\S]*catch/);
+  assert.match(context, /try \{[\s\S]*FROM team_briefs[\s\S]*catch/);
 });
 
 test('format is recorded only when a photo actually landed — never guessed', () => {

@@ -35,7 +35,7 @@ test('headers, credentials and arbitrary metadata payloads are rejected before S
   const invalid = [
     { ...args, requestJson: JSON.stringify({ ...body, headers: { authorization: 'secret' } }) },
     { ...args, requestJson: JSON.stringify({ ...body, api_key: 'secret' }) },
-    { ...args, requestJson: requestJson.replace('\"system\":', '\"system\":\"hidden earlier value\",\"system\":') },
+    { ...args, requestJson: requestJson.replace('"system":', '"system":"hidden earlier value","system":') },
     { ...args, requestJson: JSON.stringify({ ...body, messages: [{ role: 'user', content: 'Bearer abcdefgh12345' }] }) },
     { ...args, requestJson: JSON.stringify({ ...body, system: 'sk-ant-abcdefgh123456789' }) },
     { ...args, components: { brand: { headers: { authorization: 'secret' } } } },
