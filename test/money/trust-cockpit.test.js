@@ -21,61 +21,52 @@ const MIG = readFileSync(new URL('../../migrations/0072_trust_cockpit.sql', impo
 const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
 const NAV = readFileSync(new URL('../../public/hub/owner/assets/owner.js', import.meta.url), 'utf8');
 
-// A D1 stub: `first()` answers the social_posts read with `post`; `run()` captures every write
-// (sql + bound args) so a test can assert exactly which ledger statement fired.
-function stubDb(post) {
-  const writes = [];
-  const db = {
-    prepare(sql) {
-      const stmt = {
-        args: [],
-        bind(...args) { stmt.args = args; return stmt; },
-        async first() { if (/FROM social_posts/.test(sql)) return post; return null; },
-        async all() { return { results: [] }; },
-        async run() { writes.push({ sql, args: stmt.args }); return { meta: { changes: 1 } }; },
-      };
-      return stmt;
-    },
-  };
-  return { db, writes };
+import { makeSqliteD1 } from '../helpers/sqlite-d1.js';
+import { SOCIAL_AUDIT_SNAPSHOT } from '../../functions/_lib/social_audit.js';
+function fixture() {
+  const DB=makeSqliteD1();
+  DB.sqlite.prepare(`INSERT INTO social_posts(id,platform,caption,status,source,category,original_caption_hash,created_at,updated_at,public_token)
+    VALUES ('sp_1','instagram','Original','scheduled','planner','menu',?,1,1,'public-test')`).run(captionHash('Original'));
+  DB.exec(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_status='pass',audit_scope='caption_and_media'`);
+  return {DB};
 }
-
-// ---------- 1 & 2: clean approvals count, edits reset ----------
-
-test('a CLEAN approval (caption untouched) increments the category streak', async () => {
-  const caption = 'Bowls built for your week. #anejo';
-  const { db, writes } = stubDb({
-    source: 'planner', category: 'menu', caption, original_caption_hash: captionHash(caption),
-  });
-  const r = await noteTrustApproval({ DB: db }, 'sp_1');
-  assert.deepEqual({ counted: r.counted, clean: r.clean, category: r.category }, { counted: true, clean: true, category: 'menu' });
-  assert.equal(writes.length, 1, 'one ledger write');
-  assert.match(writes[0].sql, /approved_clean = approved_clean \+ 1/, 'the streak grows by one');
-  assert.equal(writes[0].args[0], 'menu', 'under the post\'s own category');
+test('distinct clean visual approval counts only once, including concurrent requests',async()=>{
+  const env=fixture();
+  const results=await Promise.all([noteTrustApproval(env,'sp_1'),noteTrustApproval(env,'sp_1')]);
+  assert.equal(results.filter(r=>r.counted).length,1);
+  assert.equal(env.DB.one("SELECT approved_clean FROM trust_ledger WHERE category='menu'").approved_clean,1);
+  assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);
 });
-
-test('an EDITED caption RESETS the streak to zero — not merely "does not count"', async () => {
-  const { db, writes } = stubDb({
-    source: 'planner', category: 'promo',
-    caption: 'Owner fixed this line before approving.',
-    original_caption_hash: captionHash('What Aña originally drafted.'),
-  });
-  const r = await noteTrustApproval({ DB: db }, 'sp_2');
-  assert.equal(r.clean, false);
-  assert.equal(writes.length, 1);
-  assert.match(writes[0].sql, /SET approved_clean = 0/, 'the reset is written, wiping the streak');
-  assert.equal(writes[0].args[0], 'promo');
+for(const kind of ['caption','media'])test(kind+' correction resets credit and restoration cannot earn it back',async()=>{
+  const env=fixture();await noteTrustApproval(env,'sp_1');
+  env.DB.exec(kind==='caption' ? "UPDATE social_posts SET caption='Corrected'" : "UPDATE social_posts SET media_key='studio/new.jpg'");
+  const result=await noteTrustApproval(env,'sp_1');assert.equal(result.clean,false);
+  assert.equal(env.DB.one("SELECT approved_clean FROM trust_ledger WHERE category='menu'").approved_clean,0);
+  env.DB.exec("UPDATE social_posts SET caption='Original',media_key=NULL");
+  assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);
 });
-
-test('only PLANNER posts with a category carry trust signal; a pre-0072 schema records nothing', async () => {
-  // The owner's own hand-written post says nothing about whether Aña's drafts are clean.
-  const owner = stubDb({ source: 'owner', category: 'menu', caption: 'x', original_caption_hash: captionHash('x') });
-  assert.equal((await noteTrustApproval({ DB: owner.db }, 'sp_3')).counted, false);
-  assert.equal(owner.writes.length, 0);
-
-  // Missing columns (SELECT throws) must not break the approval riding alongside.
-  const broken = { DB: { prepare() { throw new Error('no such column: original_caption_hash'); } } };
-  assert.equal((await noteTrustApproval(broken, 'sp_4')).counted, false);
+for(const invalid of ["original_design_snapshot=NULL","audit_scope='caption_only'","audit_status='flag'","audit_snapshot='stale'","source='owner'"])test('no trust earned with '+invalid,async()=>{
+  const env=fixture();env.DB.exec('UPDATE social_posts SET '+invalid);
+  assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);
+});
+test('each new corrected revision resets later earnings but an identical retry does not',async()=>{
+  const env=fixture();env.DB.exec("UPDATE social_posts SET caption='Correction one'");
+  assert.equal((await noteTrustApproval(env,'sp_1')).counted,true);
+  env.DB.exec("UPDATE trust_ledger SET approved_clean=4 WHERE category='menu'");
+  assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);
+  assert.equal(env.DB.one("SELECT approved_clean FROM trust_ledger WHERE category='menu'").approved_clean,4);
+  env.DB.exec("UPDATE social_posts SET caption='Correction two'");
+  assert.equal((await noteTrustApproval(env,'sp_1')).counted,true);
+  assert.equal(env.DB.one("SELECT approved_clean FROM trust_ledger WHERE category='menu'").approved_clean,0);
+});
+test('failed ledger mutation rolls back event so a valid retry can count',async()=>{
+  const env=fixture();env.DB.exec("CREATE TRIGGER reject_credit BEFORE UPDATE ON trust_ledger BEGIN SELECT RAISE(ABORT,'fixture'); END;");
+  assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);
+  assert.equal(env.DB.one('SELECT COUNT(*) n FROM social_trust_approvals').n,0);
+  env.DB.exec('DROP TRIGGER reject_credit');assert.equal((await noteTrustApproval(env,'sp_1')).counted,true);
+});
+test('missing schema records no trust without breaking approval',async()=>{
+  assert.equal((await noteTrustApproval({DB:{prepare(){throw Error('missing schema');}}},'sp_1')).counted,false);
 });
 
 test('approval is counted at the HUMAN gate, and only on the FIRST yes (draft → out)', () => {

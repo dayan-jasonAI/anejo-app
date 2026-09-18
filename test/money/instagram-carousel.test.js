@@ -194,7 +194,9 @@ test('the 11th photo is refused at attach time, not 20 seconds into a publish', 
 
 test('removing a slide reseals the order — seq stays 0..n-1', () => {
   const block = API.slice(API.indexOf("op === 'detach'"), API.indexOf("op === 'reorder'"));
-  assert.ok(block.includes('for (let i = 0; i < left.length; i++)'));
+  assert.ok(block.includes('WITH ranked AS MATERIALIZED'));
+  assert.ok(block.includes('ROW_NUMBER() OVER (ORDER BY seq, created_at, id)-1'));
+  // Real transactional/order behavior is covered by social-media-concurrency.test.js.
 });
 
 test('reorder requires the whole distinct order and rejects stale ids', () => {

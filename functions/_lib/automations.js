@@ -1072,6 +1072,9 @@ async function socialPlan(env, date) {
       // provider outage, the weekly AI ceiling, or a missing key costs this post its image — the
       // exact state it would have been in before — and never the caption or the week's cadence.
       const photo = await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
+      // Seal the planner's complete design before owner edits. Never backfill old drafts.
+      try { await env.DB.prepare(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
+        WHERE id=? AND original_design_snapshot IS NULL AND status='draft'`).bind(postId).run(); } catch { /* no trust credit without evidence */ }
       try { await auditSavedDraft(env, postId, caption); } catch { /* visibly unscored; never auto-approved */ }
 
       // Record WHAT produced this post — which of the owner's rules were in force, which brief

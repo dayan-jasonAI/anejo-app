@@ -4,7 +4,8 @@
 // category earns auto-publish only after AUTO_PUBLISH_AFTER clean approvals in a row, and the
 // switch itself is the OWNER'S — code counts, code shows "eligible", code never flips it.
 //
-// "Clean" is defined by the caption hash: the planner stores a hash of the caption AS DRAFTED,
+// "Clean" requires the original caption and visual snapshot plus a current visual audit.
+// Earlier versions used only the caption hash: the planner stores a hash of the caption AS DRAFTED,
 // and approval (schedule/publish) compares the caption at that moment against it. Equal means
 // the owner shipped Aña's words untouched; different means the draft needed fixing, and a draft
 // that needed fixing is evidence the category is NOT ready to run unsupervised — so the streak
@@ -15,6 +16,7 @@
 // Files under functions/_lib are NOT routed.
 import { now } from './hub.js';
 import { raiseAlert } from './alerts.js';
+import { SOCIAL_AUDIT_SNAPSHOT } from './social_audit.js';
 
 // The five fixed lanes. The planner is asked to file every post under exactly one of these;
 // anything else it invents is stored as NULL and never counts toward (or against) a streak.
@@ -40,28 +42,37 @@ export function captionHash(s) {
 export async function noteTrustApproval(env, postId) {
   if (!env || !env.DB || !postId) return { counted: false };
   try {
-    const row = await env.DB
-      .prepare('SELECT source, category, caption, original_caption_hash FROM social_posts WHERE id=?')
-      .bind(postId).first();
-    // Only planner drafts that were filed under a real category carry trust signal — a post the
-    // owner wrote by hand says nothing about whether Aña's drafts are clean.
-    if (!row || row.source !== 'planner' || !row.category || !row.original_caption_hash) return { counted: false };
-    const clean = captionHash(row.caption || '') === row.original_caption_hash;
+    const row = await env.DB.prepare(`SELECT source, category, caption, original_caption_hash,
+      original_design_snapshot, audit_status, audit_scope, audit_snapshot,
+      ${SOCIAL_AUDIT_SNAPSHOT} AS revision_snapshot FROM social_posts WHERE id=?`).bind(postId).first();
+    if (!row || row.source !== 'planner' || !TRUST_CATEGORIES.includes(row.category) || !row.original_caption_hash) return { counted: false };
+    const clean = captionHash(row.caption || '') === row.original_caption_hash &&
+      !!row.original_design_snapshot && row.original_design_snapshot === row.revision_snapshot;
+    // Legacy drafts have no original visual evidence and cannot earn autonomy. A known
+    // caption correction still resets the lane, even for a legacy draft.
+    if (!row.original_design_snapshot && captionHash(row.caption || '') === row.original_caption_hash) return { counted: false };
+    if (clean && (row.audit_status !== 'pass' || row.audit_scope !== 'caption_and_media' || row.audit_snapshot !== row.revision_snapshot)) return { counted: false };
     const t = now();
-    if (clean) {
-      await env.DB.prepare(
-        `INSERT INTO trust_ledger (category, approved_clean, auto_publish, updated_at) VALUES (?,1,0,?)
-         ON CONFLICT(category) DO UPDATE SET approved_clean = approved_clean + 1, updated_at = excluded.updated_at`
-      ).bind(row.category, t).run();
-    } else {
-      // An edit RESETS the streak — the count is consecutive clean approvals, not lifetime
-      // total. auto_publish is deliberately left alone in both branches: flipping it, either
-      // direction, is the owner's move only.
-      await env.DB.prepare(
-        `INSERT INTO trust_ledger (category, approved_clean, auto_publish, updated_at) VALUES (?,0,0,?)
-         ON CONFLICT(category) DO UPDATE SET approved_clean = 0, updated_at = excluded.updated_at`
-      ).bind(row.category, t).run();
-    }
+    // One clean credit per post; each corrected revision resets once. A corrected
+    // post can never earn clean credit again, even if someone restores its original text.
+    // Event and streak mutation are one transaction, including the revision guard.
+    const event = env.DB.prepare(`INSERT OR IGNORE INTO social_trust_approvals (post_id, decision, revision, category, approved_at)
+      SELECT id, ?, ?, category, ? FROM social_posts WHERE id=? AND ${SOCIAL_AUDIT_SNAPSHOT}=?
+      AND source='planner' AND category=? AND original_caption_hash=?
+      AND COALESCE(original_design_snapshot,'')=?
+      AND (?='edited' OR (audit_status='pass' AND audit_scope='caption_and_media' AND audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
+        AND NOT EXISTS (SELECT 1 FROM social_trust_approvals WHERE post_id=social_posts.id AND decision='edited')))`)
+      .bind(clean ? 'clean' : 'edited', row.revision_snapshot, t, postId, row.revision_snapshot, row.category, row.original_caption_hash,
+        row.original_design_snapshot || '', clean ? 'clean' : 'edited');
+    const update = clean
+      ? env.DB.prepare(`INSERT INTO trust_ledger (category, approved_clean, auto_publish, updated_at)
+          SELECT ?,1,0,? WHERE changes()=1
+          ON CONFLICT(category) DO UPDATE SET approved_clean = approved_clean + 1, updated_at = excluded.updated_at`).bind(row.category,t)
+      : env.DB.prepare(`INSERT INTO trust_ledger (category, approved_clean, auto_publish, updated_at)
+          SELECT ?,0,0,? WHERE changes()=1
+          ON CONFLICT(category) DO UPDATE SET approved_clean = 0, updated_at = excluded.updated_at`).bind(row.category,t);
+    const results = await env.DB.batch([event, update]);
+    if (results[0].meta?.changes !== 1) return { counted: false };
     // 2026-08-11 — tell the owner the moment a lane EARNS eligibility. The auto-publish switch
     // is his alone (api/hub/owner/trust.js), which means a lane can sit at five clean approvals
     // indefinitely because nobody mentioned it. Deduped per lane while the alert is open:

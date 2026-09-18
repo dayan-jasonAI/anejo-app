@@ -324,9 +324,9 @@ export const onRequestPost = async ({ request, env }) => {
     const t2 = now();
     const attached = await env.DB.batch([
       env.DB.prepare(`INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at)
-        SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM social_posts WHERE id=? AND status IN ('draft','scheduled','failed'))
+        SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM social_posts WHERE id=? AND status IN ('draft','scheduled','failed') AND COALESCE(media_type,'')=?)
         AND (SELECT COUNT(*) FROM social_post_media WHERE post_id=?)=?`)
-        .bind(id('spm'), postId, existing.length, mediaKey, randToken(24), t2, postId, postId, existing.length),
+        .bind(id('spm'), postId, existing.length, mediaKey, randToken(24), t2, postId, mediaType || '', postId, existing.length),
       env.DB.prepare(CLEAR_MEDIA_APPROVAL).bind(t2, postId),
     ]);
     if (attached[0].meta?.changes !== 1) return bad('This post changed. Reload before adding a photo.', 409);
@@ -532,14 +532,17 @@ export const onRequestPost = async ({ request, env }) => {
     const removed = await env.DB.batch([
       env.DB.prepare("DELETE FROM social_post_media WHERE id=? AND post_id=? AND EXISTS (SELECT 1 FROM social_posts WHERE id=? AND status IN ('draft','scheduled','failed'))").bind(slideId, postId, postId),
       env.DB.prepare(CLEAR_MEDIA_APPROVAL).bind(now(), postId),
+      // Materialize the old order once and compact inside the delete transaction. A later
+      // attach/reorder/publish must never observe the gap or be overwritten by stale repairs.
+      env.DB.prepare(`WITH ranked AS MATERIALIZED (
+        SELECT id, ROW_NUMBER() OVER (ORDER BY seq, created_at, id)-1 AS position
+        FROM social_post_media WHERE post_id=?
+      ) UPDATE social_post_media SET seq=(SELECT position FROM ranked WHERE ranked.id=social_post_media.id)
+        WHERE post_id=? AND changes()=1`).bind(postId, postId),
     ]);
     const r = removed[0];
     if (!r.meta || r.meta.changes !== 1) return bad('That photo is not on this post.', 404);
-    // Reseal the order so seq stays 0..n-1 — slide order is editorial data, not an accident.
     const left = await loadPostMedia(env, postId);
-    for (let i = 0; i < left.length; i++) {
-      if (left[i].seq !== i) await env.DB.prepare('UPDATE social_post_media SET seq=? WHERE id=?').bind(i, left[i].id).run();
-    }
     return json({ ok: true, id: postId, slides: left.length });
   }
 
@@ -557,10 +560,17 @@ export const onRequestPost = async ({ request, env }) => {
       return bad('The photo list changed. Reload and include every photo exactly once.', 409);
     }
     const reordered = await env.DB.batch([
-      env.DB.prepare("UPDATE social_posts SET status='draft', scheduled_at=NULL, audit_score=NULL, audit_flags=NULL, audit_at=NULL, audit_status=NULL, audit_scope=NULL, audit_snapshot=NULL, updated_at=? WHERE id=? AND status IN ('draft','scheduled','failed')").bind(now(), postId),
-      ...order.map((mid, seq) => env.DB.prepare("UPDATE social_post_media SET seq=? WHERE id=? AND post_id=? AND changes()=1").bind(seq, mid, postId)),
+      // Recheck membership in the same transaction as the write: the earlier UI validation
+      // can race another editor attaching/removing a slide (including same-count replacement).
+      env.DB.prepare(`UPDATE social_posts SET status='draft', scheduled_at=NULL, audit_score=NULL, audit_flags=NULL, audit_at=NULL, audit_status=NULL, audit_scope=NULL, audit_snapshot=NULL, updated_at=?
+        WHERE id=? AND status IN ('draft','scheduled','failed')
+        AND (SELECT COUNT(*) FROM social_post_media WHERE post_id=?)=?
+        AND NOT EXISTS (SELECT 1 FROM social_post_media WHERE post_id=? AND id NOT IN (${order.map(() => '?').join(',')}))`)
+        .bind(now(), postId, postId, order.length, postId, ...order),
+      env.DB.prepare(`UPDATE social_post_media SET seq=CASE id ${order.map(() => 'WHEN ? THEN ?').join(' ')} END
+        WHERE post_id=? AND changes()=1`).bind(...order.flatMap((mid, seq) => [mid, seq]), postId),
     ]);
-    if (reordered[0].meta?.changes !== 1) return bad('This post is already publishing. Reload before editing.', 409);
+    if (reordered[0].meta?.changes !== 1) return bad('This post or its photo list changed. Reload before editing.', 409);
     return json({ ok: true, id: postId });
   }
 
