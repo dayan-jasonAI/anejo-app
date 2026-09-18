@@ -147,7 +147,7 @@ test("Meta's nested error message is surfaced, not a bare status", () => {
 test('publishing CLAIMS the post before doing any work', () => {
   // ~20 seconds of container + polling sits between the click and the post. Without the claim, a
   // double click or the scheduler firing mid-click puts the same photo up twice.
-  assert.match(API, /UPDATE social_posts SET status='publishing'.*WHERE id=\? AND status IN \('draft','scheduled','failed'\)/s);
+  assert.match(API, /UPDATE social_posts SET .*status='publishing'.*WHERE id=\? AND status IN \('draft','scheduled','failed'\)/s);
   assert.match(API, /claim\.meta\.changes !== 1/);
   assert.match(API, /already being published/);
 });

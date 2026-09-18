@@ -24,3 +24,15 @@ Dayan requests full-frame source imagery, real Añejo emblem, adaptive Reposado 
 
 ## Validation this stretch
 Focused caption/draft/scheduled-format regression output: /tmp/anejo-audit-invalidation.log. Full release checks pending. Goal stays active. Next implementation: audit invocation and fingerprinted evidence, mutation safety, and shared full-frame design renderer.
+
+## Saved-draft auditing and approval safety — September17 evening
+
+Implemented owner/marketing-role `audit` operation through existing MARKETING_DESK authorization. New helper functions/_lib/social_audit.js snapshots caption, image brief, media type, legacy media key and ordered media identities/keys/sequence, and conditionally persists the verdict only if all still match. Draft/failed only. Missing provider returns flagged/unavailable, never pass. UI exposes Audit saved draft and explicitly states caption/brief scope and outstanding visual review. Unsaved caption changes block the UI action. This is not yet a pixel-aware audit or automatic scoring for every draft.
+
+Attach/detach now atomically clear audit fields and scheduled approval alongside media mutation. Attach guards publishing and concurrent count changes. Reorder requires the whole distinct set and batches sequence changes with approval invalidation. Inline schedule/publish changes clear verdict fields when caption differs; unchanged captions retain verdict. All of this remains a release candidate, not current production evidence.
+
+New SQLite-backed test suite test/money/social-saved-audit.test.js covers persisted judge output, provider absence, stale text, in-flight caption/media/order/publishing changes, attachment rollback, attach/detach approval invalidation, inline scheduling and reorder validation. Focused run:16 passed including caption approval regressions. Root regression and lint output recorded in audit-validation.log and audit-lint.log after final run. No external provider call, public post, customer communication or deployment during these tests.
+
+Open technical limits: generated-image replacement paths still require mutation review; reorder/detach competing edits need fuller concurrency checks; audit evidence must include actual pixels and source-context versions before autonomy; trust ledger currently counts approval events and needs repeated-approval deduplication. Full-frame shared branding renderer and all broader objective items above remain active. Existing autosync captured source changes as dc2c9ad [skip deploy]; do not mistake this for a release.
+
+Final root suite: 2,587 passed, 0 failed. Two legacy source-shape assertions were updated: stale reorder IDs now reject intentionally, and the publishing claim includes audit assignments. SQLite behavior tests validate these changes. Lint: no errors, four pre-existing warnings; touched-files lint clean. Release/deployment remains pending.

@@ -197,9 +197,11 @@ test('removing a slide reseals the order — seq stays 0..n-1', () => {
   assert.ok(block.includes('for (let i = 0; i < left.length; i++)'));
 });
 
-test('reorder takes the WHOLE order and ignores ids from a stale page', () => {
+test('reorder requires the whole distinct order and rejects stale ids', () => {
   const block = API.slice(API.indexOf("op === 'reorder'"), API.indexOf("op === 'dry_run'"));
-  assert.ok(block.includes('if (!mine.has(mid)) continue'));
+  assert.ok(block.includes('new Set(order).size !== order.length'));
+  assert.ok(block.includes('order.some(mid => !mine.has(mid))'));
+  assert.ok(block.includes('env.DB.batch'));
 });
 
 test('slides lock once the post is on its way out', () => {
