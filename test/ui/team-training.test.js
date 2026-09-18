@@ -140,7 +140,7 @@ test('trainingContext honors a caller-supplied maxChars', async () => {
 
 test('loadTraining degrades to empty arrays when env.DB is absent, never throws', async () => {
   const r = await loadTraining({});
-  assert.deepEqual(r, { rules: [], examples: [] });
+  assert.deepEqual(r, { rules: [], examples: [], read_status: { rules: 'unavailable', examples: 'unavailable' } });
 });
 
 test('loadTraining degrades one table at a time — a broken examples query does not blank the rules', async () => {

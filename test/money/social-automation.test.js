@@ -227,13 +227,12 @@ test('a draft caption can be corrected before approval', () => {
   assert.match(API, /already live — edit the caption in the Instagram app/);
 });
 
-test('the planner is TOLD the real ordering rule, not left to guess', () => {
-  // It invented a weekly cutoff. The real one is 6 PM the day before, rolling daily.
-  // The hour itself became DYNAMIC (the owner moved 6 PM to 8 PM and moves it at will) — a
-  // hard-coded hour in the prompt was just the next wrong deadline waiting to be published. The
-  // pin now asserts the hour is READ, not written.
-  assert.match(AUTO, /orderByLabel. the DAY BEFORE — a rolling daily cutoff, not a weekly one/);
-  assert.match(AUTO, /const schedOps = await loadOperating\(env\)/);
+test('the planner separates catering notice from live bowl ordering availability', () => {
+  assert.match(AUTO, /never promise same-day delivery or a remembered cutoff/);
+  assert.match(AUTO, /Standard Traditional\/Catering orders require at least 48 hours/);
+  assert.match(AUTO, /custom printing requires at least 72 hours and quote review/);
+  assert.match(AUTO, /Bowl delivery fees and windows must not be applied to catering/);
+  assert.doesNotMatch(AUTO, /Same-day delivery is available during opening hours/);
   assert.match(AUTO, /deadlines, cutoffs/);
 });
 

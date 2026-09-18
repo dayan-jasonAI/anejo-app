@@ -157,7 +157,8 @@ export async function buildSpine(env) {
     links_hub: 'https://anejocateringco.com/go',
     macro_portal: 'https://anejocateringco.com/portal',
     macro_calculator: 'https://anejocateringco.com/calculator',
-    ordering: 'Order online at /order — one-time boxes or weekly plans (5, 10 or 12 meals); plans pause/skip/cancel anytime. Next-day orders until 8 PM ET; the website is the authority on cutoffs.',
+    catering_url: 'https://anejocateringco.com/catering',
+    ordering: 'Bowl orders at /order and weekly plans at /subscribe; the live website is the authority on current availability and cutoffs. Never promise same-day delivery or a remembered hour. Traditional/Catering: minimum 48 hours; custom printing minimum 72 hours and quote review. Ask event date, city and guest count and confirm availability/quote. Do not apply bowl delivery fees or windows to catering.',
   };
 
   // What the owner taught the team from HUB → Train the team. Its own try/catch because a spine

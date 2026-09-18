@@ -27,22 +27,27 @@ export const DEFAULT_MAX_CHARS = 6000; // headroom inside the Team Lead's larger
  * planner is grounding on this; it degrades to "no training yet", not a 500).
  */
 export async function loadTraining(env) {
-  if (!env || !env.DB) return { rules: [], examples: [] };
+  if (!env || !env.DB) return { rules: [], examples: [], read_status: { rules: 'unavailable', examples: 'unavailable' } };
   let rules = [];
   let examples = [];
+  const read_status = { rules: 'ok', examples: 'ok' };
   try {
     const r = await env.DB.prepare(
       'SELECT id, text, created_by, created_at, updated_at FROM training_rules WHERE active = 1 ORDER BY updated_at DESC LIMIT 500'
     ).all();
-    rules = (r && r.results) || [];
-  } catch { rules = []; }
+    if (r?.success === false || !Array.isArray(r?.results)) throw new Error('Invalid training read');
+    rules = r.results;
+  } catch { rules = []; read_status.rules = 'unavailable'; }
   try {
     const r = await env.DB.prepare(
       'SELECT id, media_key, note, flag, created_by, created_at, updated_at FROM training_examples WHERE active = 1 ORDER BY updated_at DESC LIMIT 500'
     ).all();
-    examples = (r && r.results) || [];
-  } catch { examples = []; }
-  return { rules, examples };
+    if (r?.success === false || !Array.isArray(r?.results)) throw new Error('Invalid example read');
+    examples = r.results;
+  } catch { examples = []; read_status.examples = 'unavailable'; }
+  if (!rules.length && read_status.rules === 'ok') read_status.rules = 'empty';
+  if (!examples.length && read_status.examples === 'ok') read_status.examples = 'empty';
+  return { rules, examples, read_status };
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +86,7 @@ const EXAMPLES_LABEL = 'REFERENCE EXAMPLES (from photos the owner flagged):';
  * actually reaching the team — the anti-"generic AI" feature this whole page exists for.
  */
 export function formatTraining({ rules = [], examples = [] } = {}, maxChars = DEFAULT_MAX_CHARS) {
+  maxChars = Number.isFinite(maxChars) ? Math.max(0, Math.floor(maxChars)) : DEFAULT_MAX_CHARS;
   const ruleLines = rules.map(ruleLine).filter(Boolean);
   const exampleLines = examples.map(exampleLine).filter(Boolean);
 
@@ -105,6 +111,7 @@ export function formatTraining({ rules = [], examples = [] } = {}, maxChars = DE
   // back — the guidance the owner is least likely to still be thinking about is what gets cut.
   // Rules are fit before examples: they're direct instructions the team must act on, so a rule
   // written five minutes ago must never lose its budget seat to an older example photo's note.
+  if (maxChars < HEADER.length) return { text: '', usedChars: 0, totalChars, ruleCount: 0, exampleCount: 0, truncated: true };
   let used = HEADER.length;
   const parts = [HEADER];
 
@@ -149,14 +156,33 @@ export function formatTraining({ rules = [], examples = [] } = {}, maxChars = DE
  * Never throws: a DB or query failure degrades to '' exactly like "no training yet", because a
  * planner that can't ground itself should fall back to its existing behavior, not error out.
  */
-export async function trainingContext(env, { maxChars = DEFAULT_MAX_CHARS } = {}) {
-  try {
-    const { rules, examples } = await loadTraining(env);
-    if (!rules.length && !examples.length) return '';
-    return formatTraining({ rules, examples }, maxChars).text;
-  } catch {
-    return '';
-  }
+export async function trainingContext(env, options = {}) {
+  return (await trainingContextReceipt(env, options)).text;
+}
+
+// Metadata is derived from the same loaded rows and formatter result as the supplied text.
+// No second query and no attribution to rows discarded by whitespace filtering or truncation.
+export async function trainingContextReceipt(env, { maxChars = DEFAULT_MAX_CHARS } = {}) {
+  const loaded = await loadTraining(env);
+  const formatted = formatTraining(loaded, maxChars);
+  const retainedRules = loaded.rules.filter(ruleLine).slice(0, formatted.ruleCount);
+  const retainedExamples = loaded.examples.filter(exampleLine).slice(0, formatted.exampleCount);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(formatted.text));
+  const state = Object.values(loaded.read_status);
+  return {
+    ...formatted,
+    receipt: {
+      schema: 1, source: 'd1',
+      read_status: state.every(s => s === 'unavailable') ? 'unavailable' : state.includes('unavailable') ? 'partial' : state.every(s => s === 'empty') ? 'empty' : 'ok',
+      reads: loaded.read_status,
+      rendered_sha256: Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join(''),
+      original_chars: formatted.totalChars, supplied_chars: formatted.usedChars, truncated: formatted.truncated,
+      rules: retainedRules.map(r => ({ id: r.id ?? null, updated_at: r.updated_at ?? null })),
+      examples: retainedExamples.map(r => ({ id: r.id ?? null, updated_at: r.updated_at ?? null })),
+      selection_limit: 500,
+      selection_may_be_limited: { rules: loaded.rules.length >= 500, examples: loaded.examples.length >= 500 },
+    },
+  };
 }
 
 /**

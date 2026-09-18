@@ -20,6 +20,7 @@
 // Files under functions/_lib are NOT routed.
 import { detectPerformanceSignals } from './instagram_insights.js';
 import { parseJson } from './hub.js';
+import { loadMarketingOutcomes, renderMarketingOutcomes } from './marketing_outcomes.js';
 
 // The Team Lead runs on Opus. Every character here is billed at frontier input rates on every turn
 // of a conversation, so this block earns its size or it does not ship: a hard cap, and the parts
@@ -133,6 +134,7 @@ export async function buildRetrospective(env) {
 
   return {
     signals,
+    outcomes: await loadMarketingOutcomes(env),
     flags: audit.flags,
     unaudited: audit.unaudited,
     coverage: { published: Number((cov && cov.published) || 0), attributed: Number((cov && cov.attributed) || 0) },
@@ -220,6 +222,7 @@ export function renderRetrospective(retro, { maxChars = RETRO_BUDGET } = {}) {
 
   const parts = [
     '=== SINCE LAST TIME — READ THIS BEFORE PROPOSING ANYTHING ===',
+    renderMarketingOutcomes(retro.outcomes),
     ...signalLines(retro.signals),
     '',
     'What the briefs promised, and what actually arrived:',

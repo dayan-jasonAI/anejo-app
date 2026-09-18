@@ -11,7 +11,6 @@ import { runBalanceReminders } from './catering_balance_reminder.js';
 import { runHolidayNotices } from './holiday_notices.js';
 import { randToken } from './util.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
-import { loadOperating } from './operating.js';
 import { BRAND_BRIEF } from './brand_brief.js';
 import { loadBrand } from './brand_source.js';
 import { performanceBrief, attributionBrief, reactionBrief } from './instagram_insights.js';
@@ -883,14 +882,7 @@ async function socialPlan(env, date) {
   // planner must never see an empty scaffold that reads like data. THIS is the line that makes
   // week 10 better than week 1.
   const performance = await performanceBrief(env);
-  // The cutoff is the OWNER'S DIAL (ops.order_by_hour) and it moves — a hard-coded hour here is
-  // just the next wrong deadline waiting to be published. Read it at plan time.
-  let orderByLabel = 'the posted cutoff';
-  try {
-    const schedOps = await loadOperating(env);
-    const hr = Number(schedOps.order_by_hour) || 18;
-    orderByLabel = `${hr % 12 || 12} ${hr >= 12 ? 'PM' : 'AM'}`;
-  } catch { /* the neutral label above states no specific hour */ }
+  // A weekly draft cannot promise an ordering window that may change before publication.
 
   // Team briefs, market intel, and knowledge-base passages — see plannerExtraContext for why
   // each of these was previously invisible to this planner. Empty string when none apply.
@@ -954,10 +946,10 @@ async function socialPlan(env, date) {
       `${soldOutLine}\n\n` +
       (extraContext ? extraContext + '\n\n' : '') +
       'Vary the angle across the set: the food itself, the kitchen/process, the people it feeds, and one that simply invites an order. ' +
-      'HOW ORDERING ACTUALLY WORKS, and the only version you may state: scheduled delivery is ordered by ' +
-      `${orderByLabel} the DAY BEFORE — a rolling daily cutoff, not a weekly one. There is no "order by Wednesday" ` +
-      'and no weekly deadline of any kind. Same-day delivery is available during opening hours. ' +
-      'We deliver in Palm Beach County.\n\n' +
+      'ORDERING: use the live website for current bowl availability and delivery windows; never promise same-day delivery or a remembered cutoff. ' +
+      'Standard Traditional/Catering orders require at least 48 hours; custom printing requires at least 72 hours and quote review. ' +
+      'Catering enquiries go to anejocateringco.com/catering with event date, city and guest count; confirm availability and quote before promising an event. ' +
+      'Bowl delivery fees and windows must not be applied to catering. There is no weekly ordering deadline.\n\n' +
       'Do not invent menu items, prices, discounts, delivery areas, deadlines, cutoffs or claims about ' +
       'ingredients we have not been told. If you are unsure of an operational detail, leave it out — ' +
       '"link in bio" is always safe, a wrong deadline makes someone think they missed their window.',
