@@ -46,7 +46,7 @@ export async function auditSavedDraft(env, postId, expectedCaption, judge = audi
   try { images=await loadAuditImages(env,row.media_snapshot); } catch(error) { mediaError=error.message; }
   const audit = mediaError ? {brand_score:0,verdict:'flag',flags:[{type:'audit_unavailable',detail:'Finished-image audit unavailable: '+mediaError}]} : await judge(env, { caption:row.caption, image_brief:row.image_brief, images });
   const scope = !mediaError && !audit.flags.some(f=>f.type==='audit_unavailable') ? 'caption_and_media' : 'unavailable';
-  const detail = audit.rubric_version ? JSON.stringify({rubric_version:audit.rubric_version,observations:audit.observations ?? null,suggestions:audit.suggestions ?? null,input_coverage:audit.input_coverage ?? null,score_meaning:audit.score_meaning ?? null,audit_diagnostic:audit.audit_diagnostic ?? null}) : null;
+  const detail = audit.rubric_version ? JSON.stringify({rubric_version:audit.rubric_version,complete:audit.complete ?? null,criteria_met:audit.criteria_met ?? null,criteria_applicable:audit.criteria_applicable ?? null,unknowns:audit.unknowns ?? null,observations:audit.observations ?? null,suggestions:audit.suggestions ?? null,input_coverage:audit.input_coverage ?? null,score_meaning:audit.score_meaning ?? null,audit_diagnostic:audit.audit_diagnostic ?? null}) : null;
   const result = await env.DB.prepare(`UPDATE social_posts SET audit_score=?, audit_flags=?, audit_at=?, audit_status=?, audit_scope=?, audit_snapshot=?, audit_detail_json=?, audit_context_snapshot=?
     WHERE id=? AND status IN ('draft','failed') AND COALESCE(caption,'')=?
     AND COALESCE(image_brief,'')=? AND COALESCE(media_key,'')=? AND COALESCE(media_type,'')=?

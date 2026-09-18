@@ -1,12 +1,11 @@
+import { recordAnaTick } from '../../../_lib/ana_heartbeat.js';
 // POST /api/hub/admin/social-inbox-tick — Aña drafts replies to waiting Instagram DMs and
 // comments. Auth: owner session OR the X-Cron-Key header, same as every other tick. Fired every
-// minute by anejo-cron; safe to fire by hand.
+// minute by anejo-cron. A manual invocation can draft or send; it is not a read-only health check.
 //
-// THIS TICK ONLY DRAFTS. sendDirectMessage and replyToComment are deliberately NOT imported —
-// the owner's decision #1 is that nothing reaches a customer or the public profile without a
-// human pressing send, and the strongest way to keep that true is for the sending code to not
-// even be reachable from here. The send path lives in owner/social-inbox.js behind an owner
-// session.
+// Drafts by default; existing owner-configured auto mode can send behind the existing guards.
+// Observability records this check separately from the publishing scheduler; it does not
+// change reply permissions, replay messages or trigger an additional tick.
 //
 // Idempotency comes from the data, not a lock:
 //   · a comment is drafted once because handled=0 is flipped when its rows land;
@@ -51,6 +50,10 @@ export const onRequestPost = async ({ request, env }) => {
     if (ctx instanceof Response) return ctx;
   }
   if (!env.DB) return bad('Database not configured.', 500);
+  return recordAnaTick(env, viaCron ? 'cron' : 'owner', observe => runInboxTick(env, observe));
+};
+
+async function runInboxTick(env, observe) {
   if (!env.ANTHROPIC_API_KEY) return json({ ok: true, skipped: 'anthropic_not_configured' });
 
   const t = now();
@@ -61,7 +64,7 @@ export const onRequestPost = async ({ request, env }) => {
   try {
     const r = await env.DB.prepare("SELECT value FROM app_settings WHERE key='social.auto_reply'").first();
     if (r && ['both', 'dm', 'comment'].includes(String(r.value))) autoMode = String(r.value);
-  } catch { autoMode = 'off'; }
+  } catch { observe('settings_read_failed'); autoMode = 'off'; }
   const autoOk = (kind) => autoMode === 'both' || autoMode === kind;
 
   // WHO WE ARE, from the live API — never from env config. The 2026-07-31 self-reply loop
@@ -80,6 +83,7 @@ export const onRequestPost = async ({ request, env }) => {
   // If we cannot confirm our own identity, we must not auto-send anything: replying to an
   // unidentified account risks replying to ourselves, which is exactly the loop.
   const identityKnown = !!(selfId || selfName);
+  if (!identityKnown) observe('identity_unavailable');
 
   // THE CIRCUIT BREAKER. Even with every identity check right, a conversation loop (with
   // ourselves, with another bot, with a hostile prankster) burns trust at machine speed. No
@@ -92,7 +96,7 @@ export const onRequestPost = async ({ request, env }) => {
         "SELECT COUNT(*) n FROM messages WHERE thread_id=? AND direction='outbound' AND channel='instagram' AND sent_at IS NOT NULL AND sent_at > ?"
       ).bind(threadId, t - 3600 * 1000).first();
       return Number((r && r.n) || 0) >= 2;
-    } catch { return true; }   // cannot count → do not send
+    } catch { observe('breaker_read_failed'); return true; }   // cannot count → do not send
   };
 
   let drafted = 0, escalated = 0, sent = 0, specials = 0, skipped = 0;
@@ -104,15 +108,16 @@ export const onRequestPost = async ({ request, env }) => {
     const r = await env.DB.prepare(
       "SELECT * FROM social_events WHERE platform='instagram' AND kind='comment' AND handled=0 ORDER BY created_at ASC LIMIT ?"
     ).bind(DRAFT_BUDGET).all();
+    if (r?.success === false || !Array.isArray(r?.results)) observe('queue_read_failed');
     events = (r && r.results) || [];
-  } catch { events = []; }
+  } catch { observe('queue_read_failed'); events = []; }
 
   for (const ev of events) {
     if (budget <= 0) break;
     // Our own replies echo back through the webhook as comments. Aña answering Aña would loop
     // forever, so they are marked handled without spending a draft on them.
     if (isSelf(ev)) {
-      try { await env.DB.prepare('UPDATE social_events SET handled=1 WHERE id=?').bind(ev.id).run(); } catch { /* retried next tick */ }
+      try { await env.DB.prepare('UPDATE social_events SET handled=1 WHERE id=?').bind(ev.id).run(); } catch { observe('processing_failed'); /* retried next tick */ }
       skipped += 1;
       continue;
     }
@@ -129,7 +134,7 @@ export const onRequestPost = async ({ request, env }) => {
       d = await draftReply(env, { kind: 'comment', text: ev.text || '', username: ev.from_username, auto: autoOk('comment') });
       // A failed draft leaves handled=0 on purpose — the next tick retries it. Marking it handled
       // here would silently drop a real customer's comment on an API blip.
-      if (!d.ok) { if (d.reason === 'billing') billingBlocked = true; continue; }
+      if (!d.ok) { observe('draft_failed'); if (d.reason === 'billing') billingBlocked = true; continue; }
     }
 
     try {
@@ -167,11 +172,12 @@ export const onRequestPost = async ({ request, env }) => {
         if (identityKnown && autoOk('comment') && !looksLikeScaffolding(d.draft) && !(await breakerTripped(threadId))) {
           const res = await replyToComment(env, { commentId: ev.id, text: d.draft });
           if (res && res.ok && await markSent(env, mid, t)) sent += 1;
+          else observe('send_or_receipt_failed');
         }
       }
       await env.DB.prepare('UPDATE threads SET last_message_at=?, updated_at=? WHERE id=?').bind(t, t, threadId).run();
       await env.DB.prepare('UPDATE social_events SET thread_id=?, handled=1 WHERE id=?').bind(threadId, ev.id).run();
-    } catch { /* event stays handled=0 and is retried; a duplicate draft beats a dropped comment */ }
+    } catch { observe('processing_failed'); /* event stays handled=0 and is retried; a duplicate draft beats a dropped comment */ }
   }
 
   // ---------- DMs (24-hour reply window) ----------
@@ -187,15 +193,16 @@ export const onRequestPost = async ({ request, env }) => {
           AND last_inbound_at > ?
         ORDER BY last_inbound_at ASC LIMIT 20`
     ).bind(t - WINDOW_MS).all();
+    if (r?.success === false || !Array.isArray(r?.results)) observe('queue_read_failed');
     threads = (r && r.results) || [];
-  } catch { threads = []; }
+  } catch { observe('queue_read_failed'); threads = []; }
 
   for (const th of threads) {
     if (budget <= 0) break;
     let last = null;
     try {
       last = await env.DB.prepare('SELECT * FROM messages WHERE thread_id=? ORDER BY created_at DESC LIMIT 1').bind(th.id).first();
-    } catch { continue; }
+    } catch { observe('message_read_failed'); continue; }
     if (!last || last.direction !== 'inbound') continue;
 
     // Sales capture BEFORE the draft budget is spent and before draftReply runs at all — a
@@ -212,7 +219,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     budget -= 1;
     const d = await draftReply(env, { kind: 'dm', text: last.body || '', username: th.external_username, auto: autoOk('dm') });
-    if (!d.ok) { if (d.reason === 'billing') billingBlocked = true; continue; }
+    if (!d.ok) { observe('draft_failed'); if (d.reason === 'billing') billingBlocked = true; continue; }
 
     try {
       if (d.escalate) {
@@ -228,9 +235,10 @@ export const onRequestPost = async ({ request, env }) => {
           if (!identityKnown || looksLikeScaffolding(d.draft) || await breakerTripped(th.id)) { continue; }   // quarantined, never sent
           const res = await sendDirectMessage(env, { thread: th, recipientId: th.external_id, text: d.draft });
           if (res && res.ok && await markSent(env, mid, t)) sent += 1;
+          else observe('send_or_receipt_failed');
         }
       }
-    } catch { /* retried next tick — the thread's last message is still inbound */ }
+    } catch { observe('processing_failed'); /* retried next tick — the thread's last message is still inbound */ }
   }
 
   // One event-specific push however many drafts landed — the owner opens the inbox once.
@@ -263,7 +271,7 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   return json({ ok: true, mode: autoMode, drafted, sent, specials, escalated, skipped, billingBlocked });
-};
+}
 
 // Find-or-create the Comms thread for a comment's MEDIA (one thread per post, many comments).
 // last_inbound_at is deliberately NEVER set on comment threads: a public comment grants no DM

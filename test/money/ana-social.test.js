@@ -393,7 +393,7 @@ test('the circuit breaker: two auto-replies per thread per hour, then silence', 
   const T = readFileSync(new URL('../../functions/api/hub/admin/social-inbox-tick.js', import.meta.url), 'utf8');
   assert.match(T, /sent_at > \?/, 'rolling window, not calendar hour');
   assert.match(T, /Number\(\(r && r\.n\) \|\| 0\) >= 2/, 'the cap is 2');
-  assert.match(T, /catch \{ return true; \}/, 'cannot count means do not send');
+  assert.match(T, /catch \{ observe\('breaker_read_failed'\); return true; \}/, 'cannot count means do not send');
   assert.match(T, /!\(await breakerTripped\(threadId\)\)/, 'gates comments');
   assert.match(T, /await breakerTripped\(th\.id\)/, 'gates DMs');
 });

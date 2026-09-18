@@ -1,0 +1,105 @@
+{
+  "source": "read-only production aggregate SELECTs; no messages, recipients or provider calls",
+  "observations": [
+    [
+      {
+        "observed_utc": "2026-09-18 02:59:19"
+      }
+    ],
+    [
+      {
+        "configured_mode": "both",
+        "mode_saved_at": 1786497479977
+      }
+    ],
+    [
+      {
+        "kind": "comment",
+        "handled": 1,
+        "events": 14,
+        "first_received_at": 1785511013948,
+        "last_received_at": 1786115378930,
+        "received_24h": 0,
+        "received_7d": 0
+      },
+      {
+        "kind": "message",
+        "handled": 1,
+        "events": 25,
+        "first_received_at": 1785480969094,
+        "last_received_at": 1786523223554,
+        "received_24h": 0,
+        "received_7d": 0
+      }
+    ],
+    [],
+    [
+      {
+        "direction": "inbound",
+        "sender_role": "customer",
+        "messages": 39,
+        "last_created_at": 1786523223554,
+        "last_recorded_sent_at": null,
+        "last_dismissed_at": null,
+        "created_24h": 0,
+        "recorded_sent_24h": 0
+      },
+      {
+        "direction": "outbound",
+        "sender_role": "ana_auto",
+        "messages": 31,
+        "last_created_at": 1786600622481,
+        "last_recorded_sent_at": 1786600622481,
+        "last_dismissed_at": null,
+        "created_24h": 0,
+        "recorded_sent_24h": 0
+      },
+      {
+        "direction": "outbound",
+        "sender_role": "ana_draft",
+        "messages": 3,
+        "last_created_at": 1785511510870,
+        "last_recorded_sent_at": null,
+        "last_dismissed_at": null,
+        "created_24h": 0,
+        "recorded_sent_24h": 0
+      }
+    ],
+    [
+      {
+        "sender_role": "ana_draft",
+        "pending": 3,
+        "oldest_created_at": 1785482110932,
+        "newest_created_at": 1785511510870
+      }
+    ],
+    [
+      {
+        "escalations_7d": 0,
+        "latest_escalation_at": null
+      }
+    ],
+    [
+      {
+        "dm_threads_waiting": 1,
+        "oldest_inbound_at": 1785884433651,
+        "within_reply_window": 0,
+        "outside_reply_window": 1
+      }
+    ],
+    [
+      {
+        "alert_type": "ana_offline",
+        "status": "acknowledged",
+        "alerts": 4,
+        "latest_created_at": 1786581063067,
+        "latest_acknowledged_at": 1786731541769
+      }
+    ]
+  ],
+  "limitations": [
+    "zero recent ingestion is not proof of outage",
+    "historical ana_auto sent_at is not proof of current execution or customer read",
+    "publishing heartbeat does not prove inbox execution"
+  ]
+}

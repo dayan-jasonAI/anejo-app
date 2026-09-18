@@ -5,7 +5,7 @@ const ctx={caption,slideCount:2,brandText:'Approved brand',brandReceipt:{read_st
 const data=()=>({rubric_version:VERSION,observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_quote:'',slides:[1],explanation:'Visible evidence matches criterion.'})),suggestions:[]});
 test('dynamic grammar contains only verbatim caption lines, never overlay or paraphrase',()=>{
  const choices=captionEvidenceChoices(caption);assert.deepEqual(choices,['','Cajitas, trays, or both?','Share your city—we will confirm availability.']);assert.ok(!choices.includes('CATERING BY AÑEJO'));assert.ok(choices.every(q=>caption.includes(q)));
- assert.deepEqual(visualAuditFormat(caption).schema.properties.observations.items.properties.caption_quote.enum,choices);
+ assert.deepEqual(visualAuditFormat(caption,2).schema.properties.observations.items.properties.caption_quote.enum,choices);
  assert.match(captionEvidencePrompt(caption,'CATERING BY AÑEJO'),/IMAGE BRIEF — internal art direction, never caption evidence/);
 });
 test('overlay in caption field remains rejected even with valid slide; bounded actionable diagnostic',()=>{
@@ -16,3 +16,5 @@ test('real caption evidence and distinct visual observation pass structural chec
  const d=data();d.observations[0].explanation='Slide 1 visibly contains an emblem and the text CATERING BY AÑEJO.';d.observations[5].caption_quote='Share your city—we will confirm availability.';assert.equal(validateVisualAudit(d,ctx).available,true);
  d.observations[5].caption_quote='We deliver to your city.';assert.equal(validateVisualAudit(d,ctx).available,false);
 });
+
+test('schema limits slide references to actual slide count without unsupported constraints',()=>{const format=visualAuditFormat(caption,2);assert.deepEqual(format.schema.properties.observations.items.properties.slides.items.enum,[1,2]);assert.ok(!JSON.stringify(format).includes('maxLength'));assert.ok(!JSON.stringify(format).includes('maxItems'));});

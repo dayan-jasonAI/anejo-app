@@ -1,0 +1,42 @@
+{
+  "release": "48083e5eb6170bba9e090ec4ec8cc926bd5c757e",
+  "deployment": "62d64e00-5cda-4b4d-a4a2-b2a2896c8287",
+  "deployment_check": "completed/success",
+  "results": [
+    {
+      "id": "sp_0a39246ba48d6453af3f",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789700285624,
+      "audit_score": null,
+      "audit_status": "flag",
+      "audit_scope": "unavailable",
+      "audit_flags": "[{\"type\":\"audit_unavailable\",\"detail\":\"The brand audit could not run (required visual evidence is missing or uncertain). Review this draft by hand.\"}]",
+      "audit_detail_json": "{\"rubric_version\":\"anejo-visual-2\",\"observations\":null,\"suggestions\":null,\"input_coverage\":null,\"score_meaning\":null,\"audit_diagnostic\":{\"reason\":\"criterion_unknown\",\"criterion_id\":\"product_fidelity\",\"status\":\"unknown\",\"explanation\":\"Cannot verify from appearance alone whether exact menu SKUs (e.g., macaroni salad, croquetas, bocaditos, ropa vieja tray) match precise catalog contents, quantities or authenticity; visual similarity is not confirmed provenance.\",\"slides\":[1,2,3,4,5]}}"
+    },
+    {
+      "id": "sp_20fbf4bea6aea85f30bf",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789698977729,
+      "audit_score": null,
+      "audit_status": "flag",
+      "audit_scope": "unavailable",
+      "audit_flags": "[{\"type\":\"audit_unavailable\",\"detail\":\"The brand audit could not run (cited rule does not match the supplied source). Review this draft by hand.\"}]",
+      "audit_detail_json": null
+    },
+    {
+      "id": "sp_58424887f40e1a1b611f",
+      "status": "draft",
+      "scheduled_at": null,
+      "audit_at": 1789700360368,
+      "audit_score": null,
+      "audit_status": "flag",
+      "audit_scope": "unavailable",
+      "audit_flags": "[{\"type\":\"audit_unavailable\",\"detail\":\"The brand audit could not run (visual evidence references are invalid). Review this draft by hand.\"}]",
+      "audit_detail_json": "{\"rubric_version\":\"anejo-visual-2\",\"observations\":null,\"suggestions\":null,\"input_coverage\":null,\"score_meaning\":null,\"audit_diagnostic\":{\"reason\":\"invalid_evidence\"}}"
+    }
+  ],
+  "operator": "Typed show audit status returned timestamped backend summary; expanded client UI was absent after normal reloads. Cache cause remains inference. Versioned asset update prepared.",
+  "public_actions": false
+}
