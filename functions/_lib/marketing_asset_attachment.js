@@ -1,6 +1,6 @@
 // Reviewed library reuse is draft-only. Product requirements describe the requested
 // composition; they are not an owner's approval of a model's interpretation of a photo.
-import { selectApprovedMarketingAssets } from './marketing_asset_selection.js';
+import { selectApprovedMarketingAssets, normalizeAssetProducts, ASSET_FORMATS, ASSET_VISUAL_TYPES } from './marketing_asset_selection.js';
 import { id, randToken } from './util.js';
 export async function attachApprovedMarketingAsset(env, { postId, expectedCaption, expectedImageBrief = '', requirements } = {}) {
   if (!postId || typeof expectedCaption !== 'string' || typeof expectedImageBrief !== 'string' || !requirements || typeof requirements !== 'object') return { ok: false, reason: 'missing_explicit_requirements' };
@@ -24,7 +24,7 @@ export async function attachApprovedMarketingAsset(env, { postId, expectedCaptio
       env.DB.prepare(`INSERT INTO marketing_asset_uses (id,post_id,media_id,asset_id,asset_revision,content_sha256,requirements_json,created_at)
         SELECT ?,post_id,id,?,?,?,?,? FROM social_post_media WHERE id=?`)
         .bind(useId, asset.asset_id, asset.revision, asset.content_sha256, criteria, at, mediaId),
-      env.DB.prepare(`UPDATE social_posts SET scheduled_at=NULL,original_caption_hash=NULL,original_design_snapshot=NULL,
+      env.DB.prepare(`UPDATE social_posts SET scheduled_at=NULL,auto_audit_required=NULL,original_caption_hash=NULL,original_design_snapshot=NULL,
         audit_score=NULL,audit_flags=NULL,audit_at=NULL,audit_status=NULL,audit_scope=NULL,audit_snapshot=NULL,audit_detail_json=NULL,audit_context_snapshot=NULL,updated_at=?
         WHERE id=? AND status='draft' AND EXISTS(SELECT 1 FROM marketing_asset_uses WHERE id=? AND post_id=social_posts.id)`)
         .bind(at, postId, useId),
@@ -32,4 +32,32 @@ export async function attachApprovedMarketingAsset(env, { postId, expectedCaptio
     if (result.some(r => r?.meta?.changes !== 1)) return { ok: false, reason: 'draft_or_review_changed' };
     return { ok: true, provider: 'reviewed_library', media_key: asset.media_key, slides: 1, asset_use_id: useId, asset_id: asset.asset_id, asset_revision: asset.revision, content_sha256: asset.content_sha256, publication_approved: false, human_review_required: true };
   } catch { return { ok: false, reason: 'attachment_storage_failed' }; }
+}
+
+// Metadata is a candidate, not proof the object is still present or unchanged.
+export async function marketingAssetCandidateContext(env, suppliedProductIds = []) {
+  let rows = [], readStatus = 'unavailable', truncated = false;
+  try {
+    const result = await env.DB.prepare(`SELECT id,revision,content_sha256,menu_item_ids_json,format,theme,visual_type FROM marketing_asset_registry
+      WHERE approved_for_draft_selection=1 ORDER BY asset_key LIMIT 21`).all();
+    if (result?.success === false || !Array.isArray(result?.results)) throw Error('read');
+    rows = result.results.slice(0,20); truncated = result.results.length > 20; readStatus = rows.length ? 'ok' : 'empty';
+  } catch { /* unavailable is not an empty registry */ }
+  const supplied = new Set(suppliedProductIds), candidates = [];
+  for (const row of rows) {
+    try {
+      const products = normalizeAssetProducts(JSON.parse(row.menu_item_ids_json));
+      if (!products || !products.every(id => supplied.has(id)) || !ASSET_FORMATS.includes(row.format) || !ASSET_VISUAL_TYPES.includes(row.visual_type)) continue;
+      candidates.push({asset_id:row.id,asset_revision:row.revision,content_sha256:row.content_sha256,
+        requirements:{productIds:products,format:row.format,theme:row.theme,visualType:row.visual_type}});
+    } catch { /* malformed row is never supplied as usable */ }
+  }
+  const text = JSON.stringify({read_status:readStatus,truncated,candidates,meaning:'Reviewed metadata only; current bytes and permission are rechecked on attachment. These labels do not certify the requested composition or approve publication.'});
+  const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),b=>b.toString(16).padStart(2,'0')).join('');
+  return {text,candidates,receipt:{source:'marketing_asset_registry',read_status:readStatus,truncated,selection_limit:20,rendered_sha256:hash,source_ids:candidates.map(c=>c.asset_id),documents:candidates.map(c=>({id:c.asset_id,asset_revision:c.asset_revision,content_sha256:c.content_sha256}))}};
+}
+export function suppliedAssetRequirements(requirements, context) {
+  const ids = normalizeAssetProducts(requirements?.productIds);
+  if (!ids) return false;
+  return context.candidates.some(({requirements:r})=>JSON.stringify(ids)===JSON.stringify(r.productIds) && requirements.format===r.format && requirements.theme===r.theme && requirements.visualType===r.visualType);
 }

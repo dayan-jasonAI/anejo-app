@@ -40,3 +40,16 @@ test('reference fallback fetches only the pinned canonical URL and verifies actu
  globalThis.fetch=async request=>{requested=request;return new Response(canonicalEmblem);};
  try{const r=await loadEmblemReference({});assert.equal(requested.url,EMBLEM_REFERENCE_URL);assert.equal(requested.redirect,'error');assert.equal(r.metadata.sha256,EMBLEM_REFERENCE_SHA256);assert.equal(r.metadata.purpose,'visual_consistency_only');}finally{globalThis.fetch=original;}
 });
+
+test('uncertain visual evidence reports missing proof rather than a provider outage',async()=>{
+ const env=ownerEnv({ANTHROPIC_API_KEY:'test'});const original=globalThis.fetch;
+ globalThis.fetch=async()=>{const data=answer();data.observations[0].status='unknown';return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(data)}]})};};
+ try{const r=await auditDraft(env,{caption:'Catering',images:[{data:'test'}]});const detail=r.flags.find(f=>f.type==='audit_unavailable').detail;assert.match(detail,/evidence is missing or uncertain/);assert.ok(!detail.includes('API unreachable'));}finally{globalThis.fetch=original;}
+});
+test('safe audit failure reasons expose no arbitrary provider error or secret',async()=>{
+ const {safeAuditFailure}=await import('../../functions/_lib/governance.js');
+ assert.match(safeAuditFailure('emblem_reference_unavailable'),/emblem reference/);
+ assert.match(safeAuditFailure('unsupported_rule_quote'),/supplied source/);
+ assert.match(safeAuditFailure('contradictory_finding'),/contradicts/);
+ for(const input of ['provider error sk-ant-PRIVATE', '__proto__', undefined])assert.equal(safeAuditFailure(input),'API unreachable or answer unparseable');
+});

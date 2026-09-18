@@ -206,7 +206,7 @@ import { budgetGate, recordSpend } from './ai_budget.js';
 import { auditSavedDraft, SOCIAL_AUDIT_SNAPSHOT, SOCIAL_AUDIT_CURRENT } from './social_audit.js';
 import { TRUST_CATEGORIES, captionHash, autoPublishCategories } from './trust_ledger.js';
 import { ensureFoodPhoto } from './food_photo.js';
-import { attachApprovedMarketingAsset } from './marketing_asset_attachment.js';
+import { attachApprovedMarketingAsset, marketingAssetCandidateContext, suppliedAssetRequirements } from './marketing_asset_attachment.js';
 
 const MODEL = 'claude-sonnet-5';
 export const IMPLEMENTED = ['daily_summary', 'eod_chase', 'route_optimize', 'restock_suggest', 'ticket_triage', 'sentiment_scan', 'payroll_prep', 'social_plan', 'balance_reminder', 'holiday_notice'];
@@ -908,6 +908,7 @@ async function socialPlan(env, date) {
     ? '=== AÑEJO BRAND BRIEF (live from the HUB, owner-maintained) ==='
     : '=== AÑEJO BRAND BRIEF (excerpts) ===';
 
+  const libraryContext = await marketingAssetCandidateContext(env, onSale.map(product => product.id));
   const ai = await askClaudeJson(env, {
     system:
       PLANNER_ROLE +
@@ -926,7 +927,7 @@ async function socialPlan(env, date) {
       // come from this fixed list — an invented lane would start a streak nobody can toggle.
       `category: exactly one of ${TRUST_CATEGORIES.map((c) => `"${c}"`).join(', ')} — the post's primary subject. ` +
       'caption: under 500 characters, 2-4 relevant hashtags at the end. ' +
-      'To request existing reviewed library media, provide asset_requirements with exact live menu IDs shown below, an explicit theme (empty string means no theme), and aspect format. Never guess product IDs from names. This is a requested composition, not owner approval. No matching reviewed photo means the draft will need media; no new image will be generated for this path. Omit or null requirements when no structured library request is intended. ' +
+      'To request existing reviewed library media, choose an exact asset_requirements tuple listed under REVIEWED LIBRARY CANDIDATES, or null. Never invent a theme/product/format combination. Use exact live menu IDs, an explicit theme (empty string means no theme), and aspect format. Never guess product IDs from names. This is a requested composition, not owner approval. No matching reviewed photo means the draft will need media; no new image will be generated for this path. Omit or null requirements when no structured library request is intended. ' +
       'image_brief: one sentence of art direction for a food photo we will generate — subject, angle, light. ' +
       // intel_id closes the loop the owner actually complained about: a finding sitting in the
       // Intel Bench that nobody acted on. Copy the "[id: ...]" value VERBATIM from a RECENT
@@ -957,6 +958,7 @@ async function socialPlan(env, date) {
       (performance ? performance + '\n\n' : '') +
       `ON THE MENU RIGHT NOW (these are the only items you may promote):\n${menuLines.join('\n')}\n\n` +
       `${soldOutLine}\n\n` +
+      `REVIEWED LIBRARY CANDIDATES (metadata only):\n${libraryContext.text}\n\n` +
       (extraContext ? extraContext + '\n\n' : '') +
       'Vary the angle across the set: the food itself, the kitchen/process, the people it feeds, and one that simply invites an order. ' +
       'ORDERING: use the live website for current bowl availability and delivery windows; never promise same-day delivery or a remembered cutoff. ' +
@@ -968,7 +970,7 @@ async function socialPlan(env, date) {
       '"link in bio" is always safe, a wrong deadline makes someone think they missed their window.',
     maxTokens: 1600,
     feature: 'social_plan',
-    receiptComponents: { brand: brand.receipt, training: trainingReceipt,
+    receiptComponents: { brand: brand.receipt, training: trainingReceipt, asset_registry: libraryContext.receipt,
       menu: { source_ids: onSale.map(it => it.id), read_status: 'unknown' },
       briefs: { source_ids: [...briefIds], read_status: 'unknown' }, intel: { source_ids: [...intelIds], read_status: 'unknown' } },
   });
@@ -1078,14 +1080,14 @@ async function socialPlan(env, date) {
       const libraryRequested = item?.asset_requirements != null;
       const requirements = item?.asset_requirements;
       const suppliedProductIds = new Set(onSale.map(product => product.id));
-      const suppliedRequirements = requirements && Array.isArray(requirements.productIds) && requirements.productIds.every(productId => suppliedProductIds.has(productId));
+      const suppliedRequirements = requirements && Array.isArray(requirements.productIds) && requirements.productIds.every(productId => suppliedProductIds.has(productId)) && suppliedAssetRequirements(requirements, libraryContext);
       const photo = libraryRequested
         ? (suppliedRequirements ? await attachApprovedMarketingAsset(env, { postId, expectedCaption: caption, expectedImageBrief: brief || '', requirements }) : { ok: false, reason: 'product_ids_not_supplied' })
         : await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
       if (libraryRequested) {
         // A requested or attached library photo still requires an owner's composition review.
         // No paid fallback, suggested schedule, original-design seal or automatic promotion.
-        await env.DB.prepare("UPDATE social_posts SET scheduled_at=NULL,original_caption_hash=NULL,original_design_snapshot=NULL WHERE id=? AND status='draft'").bind(postId).run();
+        await env.DB.prepare("UPDATE social_posts SET scheduled_at=NULL,auto_audit_required=NULL,original_caption_hash=NULL,original_design_snapshot=NULL WHERE id=? AND status='draft'").bind(postId).run();
       }
       // Seal the planner's complete design before owner edits. Never backfill old drafts.
       try { if (photo.ok && receiptLinked && !libraryRequested) await env.DB.prepare(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}

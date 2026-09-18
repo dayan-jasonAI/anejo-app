@@ -5,7 +5,7 @@
 // deadline (a reader would have thought they missed a window that never existed), and Aña
 // once let model scaffolding reach a public reply. The prompts got stricter both times — but
 // a prompt is a request, and a guarantee lives in code. So no generated asset reaches the
-// owner (or, later, any auto-publish path) unscored: one cheap Haiku pass judges the draft
+// owner (or, later, any auto-publish path) unscored: caption and visual judges review drafts
 // against the brand's own brief and the LIVE menu, and a handful of DETERMINISTIC checks
 // catch the specific lies a model can smuggle past itself — invented prices, hard-coded
 // cutoffs, bare links. The model advises; the code decides.
@@ -38,9 +38,28 @@ export async function loadEmblemReference(env) {
   } catch { return null; }
 }
 
-// Audits are per-draft and frequent, so they ride Haiku like Aña's DM drafts do. The judge
-// does not need frontier reasoning — it needs the brand brief and the live menu in front of
-// it, and it needs to be cheap enough that nothing is ever skipped "to save budget".
+// Caption-only audits use Haiku. Finished-image audits use Sonnet and the visual rubric.
+// Both are budget-gated and metered; no missing evidence is converted into an approval.
+const AUDIT_FAILURES = Object.freeze({
+  audit_output_limit: 'audit response reached its output limit',
+  incomplete_visual_audit: 'visual audit response was incomplete or refused',
+  emblem_reference_unavailable: 'approved emblem reference could not be verified',
+  brand_content_empty: 'brand source content is empty',
+  invalid_rubric_response: 'visual rubric response has an invalid structure',
+  invalid_observation: 'visual criterion observation has an invalid structure',
+  missing_or_duplicate_criterion: 'required visual criteria are missing or duplicated',
+  invalid_evidence: 'visual evidence references are invalid',
+  unsupported_rule_quote: 'cited rule does not match the supplied source',
+  unsupported_caption_quote: 'cited caption wording is absent from this draft',
+  criterion_unknown: 'required visual evidence is missing or uncertain',
+  mandatory_criterion_omitted: 'a mandatory visual criterion was not assessed',
+  missing_artifact_evidence: 'a finding lacks caption or slide evidence',
+  contradictory_finding: 'the audit finding contradicts its own explanation',
+});
+export function safeAuditFailure(reason) {
+  return Object.hasOwn(AUDIT_FAILURES, reason) ? AUDIT_FAILURES[reason] : 'API unreachable or answer unparseable';
+}
+
 const AUDIT_MODEL = 'claude-haiku-4-5';
 // Finished carousels need visual reasoning across slides. Live acceptance found the cheap
 // text judge inventing contradictions even while describing the imagery as compliant.
@@ -199,7 +218,7 @@ function auditSystemPrompt(menuLines, brand, training, { visual = false } = {}) 
 }
 
 /**
- * Score one generated draft. ONE Haiku call (budget-gated + metered as 'governance_audit'),
+ * Audit a generated draft: Haiku for captions, Sonnet for visual criteria; budget-gated and metered.
  * plus the deterministic checks above.
  *
  * Returns strict {brand_score: 0-100, flags: [{type, detail}], verdict: 'pass'|'flag'}.
@@ -224,11 +243,8 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
 
   const hard = deterministicFlags(caption, { priceCents: menuPriceCents(menu), orderByHour });
 
-  // The brand brief (shared with the Team Lead and the planner via brand_source.js — one
-  // definition, no drift) and the owner's own training rules (0075/training.js). Both degrade
-  // silently: loadBrand always returns at least the compiled snapshot, and trainingContext
-  // returns '' on a fresh install or a pre-migration database — neither can ever throw the audit
-  // into 'unavailable', because an unscored draft is worse than one judged without training.
+  // Load the actual supplied brand/training context. Caption-only retains its historical
+  // fallback behavior; visual acceptance requires complete readable source receipts and D1 menu.
   const brand = await loadBrand(env, { maxChars: BRAND_BUDGET });
   let training = '', trainingReceipt = null;
   try {
@@ -303,7 +319,7 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
         model = { score, flags, verdict: data.verdict === 'pass' ? 'pass' : 'flag' };
         }
       }
-    } catch (error) { unavailable = error.message === 'audit_output_limit' ? 'audit response reached its output limit' : 'API unreachable or answer unparseable'; }
+    } catch (error) { unavailable = safeAuditFailure(error?.message); }
   }
 
   if (!model) {

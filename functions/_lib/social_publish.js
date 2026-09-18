@@ -159,6 +159,15 @@ export function coverStatus(media) {
  * image, which never had one either.
  */
 export async function publishSocialPost(env, request, post, opts = {}) {
+  const rejectApproval = async error => {
+    if (opts.publish !== false) {
+      try {
+        await env.DB.prepare("UPDATE social_posts SET status='failed',error=?,updated_at=? WHERE id=? AND status='publishing'")
+          .bind(error, now(), post.id).run();
+      } catch { /* Preserve the rejection even when storage cannot record the failed attempt. */ }
+    }
+    return { ok: false, error };
+  };
   // Re-read automatic approval evidence immediately before any provider operation.
   // Manual/legacy scheduling remains separate; NULL is not fabricated approval provenance.
   let approval;
@@ -167,12 +176,11 @@ export async function publishSocialPost(env, request, post, opts = {}) {
     // A context source outage may not bypass an automatic requirement. A separate
     // marker read can still establish that an explicitly manual/legacy row is unaffected.
     try { approval = await env.DB.prepare('SELECT auto_audit_required FROM social_posts WHERE id=?').bind(post.id).first(); } catch { approval = null; }
-    if (!approval || approval.auto_audit_required !== null) return {ok:false,error:'Automatic audit evidence unavailable.'};
+    if (!approval || approval.auto_audit_required !== null) return rejectApproval('Automatic audit evidence unavailable.');
   }
-  if (!approval) return {ok:false,error:'Publication approval record unavailable.'};
+  if (!approval) return rejectApproval('Publication approval record unavailable.');
   if (approval?.auto_audit_required && (!approval || !approval.audit_current || approval.audit_status!=='pass' || approval.audit_scope!=='caption_and_media')) {
-    if (opts.publish !== false) await env.DB.prepare("UPDATE social_posts SET status='failed',error=?,updated_at=? WHERE id=?").bind('Automatic audit evidence is stale or unavailable. Re-audit before automatic publication.',now(),post.id).run();
-    return {ok:false,error:'Automatic audit evidence is stale or unavailable. Re-audit before automatic publication.'};
+    return rejectApproval('Automatic audit evidence is stale or unavailable. Re-audit before automatic publication.');
   }
   let media = await loadPostMedia(env, post.id);
   const dry = opts.publish === false;
