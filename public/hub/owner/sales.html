@@ -84,7 +84,7 @@
   const S = '/api/hub/owner/sales', OUT = S + '/outreach', SET = S + '/settings', DEAL = S + '/deal';
   const root = document.getElementById('owner-root');
   const tabsEl = document.getElementById('sales-tabs');
-  const TABS = [['dashboard', 'Dashboard'], ['prospects', 'Prospects'], ['approvals', 'Approvals'], ['readiness', 'Readiness'], ['settings', 'Settings'], ['review', 'Launch review']];
+  const TABS = [['dashboard', 'Dashboard'], ['prospects', 'Prospects'], ['calls', 'Calls'], ['approvals', 'Approvals'], ['replies', 'Replies'], ['readiness', 'Readiness'], ['settings', 'Settings'], ['review', 'Launch review']];
   const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   let ACT = {};
   let filters = {};
@@ -148,7 +148,7 @@
     drawTabs(tab);
     root.className = '';
     root.innerHTML = '<p class="muted">Loading…</p>';
-    const views = { dashboard: dashboard, prospects: prospects, approvals: approvals, readiness: readinessView, settings: settings, review: review };
+    const views = { dashboard: dashboard, prospects: prospects, calls: callsView, approvals: approvals, replies: repliesView, readiness: readinessView, settings: settings, review: review };
     return org ? detail(org) : (views[tab] || dashboard)();
   }
   window.addEventListener('hashchange', route);
@@ -214,7 +214,15 @@
         <p class="muted">Acts on the ${d.organizations.length} prospect${d.organizations.length === 1 ? '' : 's'} shown above, with the filters you have set. Neither button contacts anybody: an opportunity only makes a prospect addressable, and researching only reads their public website.</p>
         <button class="btn2 primary" data-act="bulkopp">Create opportunities for all ${d.organizations.length}</button>
         <button class="btn2" data-act="bulkresearch">Research the ones never researched</button>
-        <div id="bulk-out" class="muted"></div></div>
+        <div id="bulk-out" class="muted"></div>
+        <div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px">
+          <b>Or start a campaign</b>
+          <p class="muted">Enrolls every prospect shown above that has a usable contact, and names the set so you can see later what it produced. It drafts; it never sends.</p>
+          <div class="f"><div><label>Campaign name</label><input id="cmp-name" placeholder="October adult day care"></div>
+            <div class="wide"><label>What are you trying to learn or win?</label><input id="cmp-goal" placeholder="Two more centers like Boca"></div></div>
+          <label style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="cmp-ack"> <span>Launch even though readiness gaps are open</span></label>
+          <div style="margin-top:8px"><button class="btn2 primary" data-act="campaign">Start campaign</button> <span id="cmp-out" class="muted"></span></div>
+        </div></div>
       <div class="box scroll"><table class="t"><thead><tr><th>Organization</th><th>Tier</th><th>Category</th><th>City</th><th>Stage</th><th>Contact</th><th>Last touch</th><th>Next action</th></tr></thead><tbody>
       ${d.organizations.map((o) => `<tr class="row-link" data-act="open" data-id="${esc(o.id)}"><td><b>${esc(o.name)}</b>${o.do_not_contact ? ' <span class="muted">(do not contact)</span>' : ''}</td><td>${tier(o.current_tier, o.current_score)}</td><td>${esc((o.business_category || '').replace(/_/g, ' '))}</td><td>${esc(o.city || '')}</td><td>${esc((o.opp_stage || o.status || '').replace(/_/g, ' '))}</td><td>${o.sendable_contacts ? '✉︎ ' + esc(o.sendable_contacts) : '—'}</td><td>${esc(o.last_touch_at ? when(o.last_touch_at) : '—')}</td><td>${esc(o.next_action || '')}</td></tr>`).join('') || '<tr><td colspan="8" class="muted">No organizations yet. Add one below, import a CSV, or run discovery.</td></tr>'}
       </tbody></table></div>
@@ -248,6 +256,25 @@
       prospects();
     };
     ACT.bulkopp = (b) => bulk(b, ['create_opportunity'], 'Creating…');
+    ACT.campaign = async (b) => {
+      const name = (document.getElementById('cmp-name').value || '').trim();
+      if (!name) return toast('Give the campaign a name');
+      const ack = document.getElementById('cmp-ack');
+      b.disabled = true;
+      const r = await post(OUT, {
+        op: 'start_campaign', name: name, goal: document.getElementById('cmp-goal').value || undefined,
+        organization_ids: shownIds, acknowledge_gaps: !!(ack && ack.checked),
+      });
+      b.disabled = false;
+      const out = document.getElementById('cmp-out');
+      if (!r.ok) {
+        out.textContent = r.error || 'Could not start';
+        if (r.code === 'readiness') toast('Readiness gaps are open — tick the box to launch anyway');
+        return;
+      }
+      out.textContent = `${r.enrolled} enrolled${r.refused ? ', ' + r.refused + ' refused' : ''} — drafts are in Approvals`;
+      toast(`Campaign started: ${r.enrolled} enrolled`);
+    };
     ACT.bulkresearch = (b) => bulk(b, ['research'], 'Reading their websites…');
 
     Array.prototype.forEach.call(root.querySelectorAll('[data-f]'), (el) => el.addEventListener('change', () => { filters[el.dataset.f] = el.value; prospects(); }));
@@ -657,11 +684,116 @@
     };
   }
 
+  // ---------------------------------------------------------------- calls
+  // The part of the pipeline email cannot reach. A licensed facility publishes a phone, not an
+  // inbox, so this is where roughly half the list is actually worked.
+  async function callsView() {
+    const d = await get(S + '?view=calls');
+    if (!d || !d.ok) return fail(d);
+    drawTabs('calls');
+    const st = d.stats || {};
+    root.innerHTML = `<div class="box"><h2>Call list</h2>
+        <p class="muted">Licensed facilities with a phone and no email we can use. Best first. A number called today is not offered again today.</p>
+        <div class="tiles"><div class="tile"><b>${esc(d.queue.length)}</b><span>Ready to call</span></div>
+          <div class="tile"><b>${esc(st.today || 0)}</b><span>Called today</span></div>
+          <div class="tile"><b>${esc(st.last_7_days || 0)}</b><span>Last 7 days</span></div></div></div>`
+      + (d.queue.length ? d.queue.map(callCardHtml).join('') : '<div class="okbar">Nobody is due. Either the list is worked, or everyone is resting.</div>');
+    wireCalls(d.outcomes);
+  }
+
+  function callCardHtml(x) {
+    const c = x.card;
+    return `<div class="box call" data-org="${esc(x.organization_id)}">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div><h2 style="font-size:16px;text-transform:none;letter-spacing:0;margin-bottom:2px">${esc(c.headline)}</h2>
+          <div class="muted">${esc((x.category || '').replace(/_/g, ' '))} ${tier(x.tier, x.score)}${x.last_outcome ? ' · last: ' + esc(String(x.last_outcome).replace(/_/g, ' ')) : ''}</div></div>
+        <div style="text-align:right"><a class="btn2 primary" href="tel:${esc(String(x.phone || '').replace(/[^0-9+]/g, ''))}">📞 ${esc(x.phone || '')}</a></div>
+      </div>
+      <ul class="check" style="margin-top:8px">${c.facts.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>
+      <details><summary>What to say</summary>
+        <p><b>Open:</b> ${esc(c.open)}</p><p><b>Ask:</b> ${esc(c.ask)}</p>
+        <p><b>Write down:</b></p><ul class="check">${c.capture.map((q) => `<li>${esc(q)}</li>`).join('')}</ul>
+        <div class="warn">${c.never.map((n) => esc(n)).join('<br>')}</div></details>
+      <div class="f" style="margin-top:10px">
+        <div><label>Outcome</label><select class="c-out"></select></div>
+        <div><label>How many attend daily</label><input class="c-heads" type="number" inputmode="numeric" placeholder="e.g. 26"></div>
+        <div><label>Who decides (name)</label><input class="c-name" placeholder="Marta Reyes"></div>
+        <div><label>Their title</label><input class="c-title" placeholder="Program Director"></div>
+        <div><label>Email for the menu</label><input class="c-email" type="email" placeholder="name@center.org"></div>
+        <div class="wide"><label>Notes</label><textarea class="c-notes" rows="2" placeholder="What they said, in their words"></textarea></div>
+      </div>
+      <button class="btn2 primary c-save" type="button">Log this call</button></div>`;
+  }
+
+  function wireCalls(outcomes) {
+    Array.prototype.forEach.call(root.querySelectorAll('.call'), function (box) {
+      const sel = box.querySelector('.c-out');
+      sel.innerHTML = outcomes.map((o) => `<option value="${esc(o.key)}">${esc(o.label)}</option>`).join('');
+      box.querySelector('.c-save').addEventListener('click', async function (e) {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        const r = await post(S, {
+          op: 'log_call', organization_id: box.dataset.org, outcome: sel.value,
+          headcount: box.querySelector('.c-heads').value || undefined,
+          contact_name: box.querySelector('.c-name').value || undefined,
+          contact_title: box.querySelector('.c-title').value || undefined,
+          contact_email: box.querySelector('.c-email').value || undefined,
+          notes: box.querySelector('.c-notes').value || undefined,
+        });
+        btn.disabled = false;
+        if (!r.ok) return toast(r.error || 'Could not log');
+        toast('Logged' + (r.capacity_set ? ' · capacity saved' : '') + (r.contact_added ? ' · contact added' : ''));
+        callsView();
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- replies
+  // Reply detection is manual by necessity: the Hub has no mailbox. Pasting what they said is the
+  // cheapest honest substitute, and it does the three things that matter automatically.
+  async function repliesView() {
+    const d = await get(OUT + '?view=replies');
+    if (!d || !d.ok) return fail(d);
+    drawTabs('replies');
+    const CLS = { interested: '🟢 interested', question: '🔵 question', not_now: '🟡 not now', not_interested: '⛔ not interested', unsubscribe: '⛔ unsubscribe', other: '⚪ unclear' };
+    root.innerHTML = `<div class="box"><h2>What prospects actually said</h2>
+        <p class="muted">Paste a reply. The Hub stops the sequence, moves the stage and drafts the answer for your approval. Nothing sends.</p>
+        <div class="f"><div class="wide"><label>Prospect</label><select id="r-org"></select></div>
+          <div class="wide"><label>What they wrote</label><textarea id="r-body" rows="4" placeholder="Paste their reply"></textarea></div></div>
+        <button class="btn2 primary" data-act="logreply">Log this reply</button></div>`
+      + `<div class="box"><h2>Logged replies</h2>${d.replies.length ? d.replies.map((r) => `<div class="card" style="margin-bottom:8px">
+          <b>${esc(r.organization_name)}</b> <span class="muted">· ${esc(CLS[r.classification] || r.classification)} · ${esc(r.confidence || '')} · ${esc(when(r.created_at))}</span>
+          <p style="white-space:pre-wrap;margin:6px 0">${esc(String(r.body).slice(0, 600))}</p>
+          ${r.drafted_outreach_id ? '<div class="okbar">An answer is drafted and waiting in Approvals.</div>' : ''}</div>`).join('') : '<p class="muted">Nothing logged yet.</p>'}</div>`;
+    const list = await get(S + '?view=list&limit=200');
+    const sel = document.getElementById('r-org');
+    sel.innerHTML = ((list && list.organizations) || []).map((o) => `<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('');
+    ACT.logreply = async (b) => {
+      const body = document.getElementById('r-body').value.trim();
+      if (!body) return toast('Paste what they said');
+      b.disabled = true;
+      const r = await post(OUT, { op: 'log_reply', organization_id: sel.value, body: body });
+      b.disabled = false;
+      if (!r.ok) return toast(r.error || 'Could not log');
+      toast('Logged as ' + r.classification + (r.drafted_outreach_id ? ' · answer drafted' : ''));
+      repliesView();
+    };
+  }
+
   async function approvals() {
     const d = await get(S + '?view=queue');
     if (!d || !d.ok) return fail(d);
     drawTabs('approvals', d.queue.length);
-    root.innerHTML = readiness(d.send_readiness)
+    // BATCH BAR. Nine drafts used to be nine preview-read-approve round trips. Each one is still
+    // previewed and hash-checked server-side; what is batched is the clicking.
+    const batchBar = d.queue.length > 1
+      ? `<div class="box"><h2>Approve several</h2>
+          <p class="muted">Read them below first. Each is re-previewed and approved against its own rendered text; anything that changed since you looked is refused by name.</p>
+          <label style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="b-ack"> <span>Acknowledge flagged claims and readiness gaps</span></label>
+          <div style="margin-top:8px"><button class="btn2 primary" data-act="approveall">Approve all ${esc(d.queue.length)} below</button>
+          <span id="b-out" class="muted" style="margin-left:8px"></span></div></div>`
+      : '';
+    root.innerHTML = readiness(d.send_readiness) + batchBar
       + `<p class="muted">Every prospect email waits here for you. Preview shows the exact email — subject, body, the footer with the opt-out and your postal address, sender and reply-to. Approve appears only after a preview, and only for the text you previewed.</p>`
       + (d.queue.map(card).join('') || '<div class="box"><p class="muted">Nothing waiting for approval.</p></div>');
     Array.prototype.forEach.call(root.querySelectorAll('.ap input.ap-subj, .ap textarea.ap-body'), (el) => el.addEventListener('input', () => {
@@ -670,6 +802,21 @@
     }));
     const cardOf = (b) => b.closest('.ap');
     const vals = (c) => ({ subject: c.querySelector('.ap-subj').value, body: c.querySelector('.ap-body').value });
+    ACT.approveall = async (b) => {
+      const ids = Array.prototype.map.call(root.querySelectorAll('.ap'), (c) => c.dataset.id);
+      if (!ids.length) return;
+      const ack = document.getElementById('b-ack');
+      b.disabled = true;
+      const r = await post(OUT, { op: 'approve_batch', ids: ids, acknowledge_flags: !!(ack && ack.checked) });
+      b.disabled = false;
+      const out = document.getElementById('b-out');
+      if (!r.ok) { toast(r.error || 'Could not approve'); return; }
+      const refused = (r.results || []).filter((x) => !x.ok);
+      out.textContent = `${r.approved} approved${refused.length ? ', ' + refused.length + ' refused' : ''}`;
+      if (refused.length) toast(refused[0].error || 'Some were refused');
+      else toast(`Approved ${r.approved}`);
+      setTimeout(approvals, 900);
+    };
     ACT.preview = async (b) => {
       const c = cardOf(b); const id = c.dataset.id;
       b.disabled = true;
