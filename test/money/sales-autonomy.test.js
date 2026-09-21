@@ -298,3 +298,21 @@ test('the adult day care checklist carries that date; other categories do not', 
   assert.equal(adc.doea.eligible_on, '2027-01-20');
   assert.equal(buyerChecklist('addiction_treatment', readiness).doea, null);
 });
+
+test('a facility whose only distinctive word is its own city or county needs hard evidence', () => {
+  // Both of these were accepted in production on 2026-09-21 and were wrong: the city's own site
+  // and the county's own site. The name and the city were the same fact, counted twice.
+  const sunrise = { name: 'Adult Day Care of Sunrise, LLC', city: 'Sunrise', county: 'Broward', phone: '(954) 555-0100', street: '1234 NW 1st St' };
+  const cityPage = verifyPage('<h1>Sunrise</h1><p>Welcome to Sunrise, Florida — Broward County services</p>', sunrise);
+  assert.equal(cityPage.name_is_place, true);
+  assert.equal(cityPage.matched, false, 'the city’s own page is not this facility');
+
+  const broward = { name: 'Broward Adult Day Care Center CORP', city: 'Fort Lauderdale', county: 'Broward', phone: '(954) 555-0199', street: '500 SE 3rd Ave' };
+  assert.equal(verifyPage('<h1>Broward County Government</h1><p>Fort Lauderdale, Florida</p>', broward).matched, false);
+
+  // The same facility WITH its phone on the page is accepted: that is evidence, not coincidence.
+  assert.equal(verifyPage('<h1>Adult Day Care of Sunrise</h1><p>Sunrise FL · (954) 555-0100</p>', sunrise).matched, true);
+  // And a two-word distinctive name that is not a place still passes on name + city.
+  const volen = { name: 'The Volen Center Annex', city: 'Boca Raton', county: 'Palm Beach' };
+  assert.equal(verifyPage('<h1>Volen Center Annex</h1><p>Boca Raton</p>', volen).matched, true);
+});

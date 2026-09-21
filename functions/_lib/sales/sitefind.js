@@ -85,9 +85,18 @@ export function verifyPage(html, org) {
   if (distinctive.length && distinctive.every((w) => text.includes(w))) signals.push('name');
   const city = cleanText(org.city || '', 40).toLowerCase();
   if (city && text.includes(city)) signals.push('city');
+  // THE PLACE-NAME TRAP, found in production on 2026-09-21. "Adult Day Care of Sunrise" matched
+  // sunrise.org and "Broward Adult Day Care Center" matched broward.org: in both, the facility's
+  // only distinctive word IS its city or county, so "name" and "city" are the same fact counted
+  // twice, and every page about that place passes. A name built from a place therefore proves
+  // nothing on its own — such a candidate needs the phone or the street address.
+  const place = new Set([...words(org.city || ''), ...words(org.county || ''), ...words(org.state || '')]);
+  const nameIsPlace = distinctive.length > 0 && distinctive.every((w) => place.has(w));
   // A parked domain says nothing about anyone.
   const parked = /domain (is )?for sale|buy this domain|parked free|godaddy\.com\/domainsearch|this domain is available/i.test(text);
-  return { signals, parked, matched: !parked && signals.length >= 2 && (signals.includes('phone') || signals.includes('address') || (signals.includes('name') && signals.includes('city'))) };
+  const hardEvidence = signals.includes('phone') || signals.includes('address');
+  const softEvidence = signals.includes('name') && signals.includes('city') && !nameIsPlace && distinctive.length >= 2;
+  return { signals, parked, name_is_place: nameIsPlace, matched: !parked && signals.length >= 2 && (hardEvidence || softEvidence) };
 }
 
 /**
