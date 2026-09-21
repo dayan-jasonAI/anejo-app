@@ -15,6 +15,9 @@
     { key: 'eod',        ico: '🌙', label: 'EOD',        href: '/hub/kitchen/eod.html', primary: true },
     // Behind ⋯ More. Both are look-something-up surfaces rather than service tasks, and the bar
     // stays 6 slots wide — a 7th slot pushed the last item entirely off a 375px screen.
+    // The contract program: today's dishes, portions and temperatures. Behind ⋯ More until the
+    // first program site is live, so it never pushes a daily task off a 375px bar.
+    { key: 'program',    ico: '🍲', label: 'Program',    href: '/hub/kitchen/program.html' },
     { key: 'library',    ico: '📚', label: 'Library',    href: '/hub/kitchen/library.html' },
     // Keep LAST. It is a rights surface, not a task surface — nobody opens it during service, so
     // it must not push a task tab out of reach. Mirror any change in hub.js NAVS.kitchen.

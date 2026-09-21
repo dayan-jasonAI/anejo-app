@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Program meals</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  /* Page-local. The cook reads this with wet hands on a phone: big type, one thing per row. */
+  .meal { border:1px solid var(--line,#e3e3da); border-radius:12px; padding:12px; margin-bottom:12px; background:#fff; }
+  .meal h3 { margin:0 0 2px; font-size:17px; }
+  .meal .when { font-size:12px; opacity:.7; text-transform:uppercase; letter-spacing:1px; }
+  .count { font-size:28px; font-weight:700; line-height:1; }
+  .count small { font-size:12px; font-weight:400; opacity:.7; display:block; text-transform:uppercase; letter-spacing:1px; }
+  .comp { display:flex; gap:8px; align-items:flex-start; padding:6px 0; border-bottom:1px solid #f0efe9; font-size:14px; }
+  .comp:last-child { border-bottom:0; }
+  .tag { display:inline-block; min-width:20px; text-align:center; font-weight:700; font-size:11px; border:1px solid #444; border-radius:4px; padding:1px 3px; }
+  .steps li { margin-bottom:8px; font-size:15px; line-height:1.45; }
+  .ing { width:100%; border-collapse:collapse; font-size:14px; }
+  .ing td { padding:5px 4px; border-bottom:1px solid #f0efe9; }
+  .ing td.q { text-align:right; white-space:nowrap; font-weight:600; }
+  .warn-box { background:#fbf3da; border:1px solid #e7d9a6; border-radius:10px; padding:10px 12px; font-size:13px; margin-bottom:12px; }
+  .stop-box { background:#fbeaea; border:1px solid #e3b7b7; color:#7a1d1d; border-radius:10px; padding:10px 12px; font-size:13px; margin-bottom:12px; }
+  .temp-row { display:grid; grid-template-columns:1fr 92px 64px; gap:8px; align-items:center; margin-top:8px; }
+  .temp-row input { padding:9px; text-align:center; font-size:16px; }
+  .logged { font-size:12px; color:#1A3D2E; }
+  details.card { padding:10px 12px; }
+  summary { cursor:pointer; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · PROGRAM</h1>
+  <div class="hub-bar-actions"><a href="/hub/kitchen/library.html" style="color:var(--gold,#C8BC6E);text-decoration:none;font-size:13px">📚 <span data-i18n>Library</span></a></div>
+</div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <h2 data-i18n>Today's program meals</h2>
+    <p class="hint" style="font-size:12px;opacity:.75;margin:0 0 10px" data-i18n>Cook to these portions exactly. They are the portions the dietitian signed and the center keeps on file.</p>
+    <div id="out"><div class="hub-loading" data-i18n>Loading…</div></div>
+  </div>
+</div>
+
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/kitchen/kitchen.js"></script>
+<script>
+(function () {
+  'use strict';
+  var K = window.Kitchen, Hub = window.Hub;
+  K.renderNav('program');
+  var out = document.getElementById('out');
+  // Same source of truth as the rest of the HUB chrome: the cook's own language toggle.
+  var lang = 'en';
+  try { lang = (window.AnejoLang ? window.AnejoLang.get() : localStorage.getItem('anejo:lang')) === 'es' ? 'es' : 'en'; } catch (e) { lang = 'en'; }
+  var T = lang === 'es' ? {
+    headcount: 'personas', noCount: 'El centro aún no ha enviado el conteo', ordered: 'Conteo del centro',
+    portion: 'Porción aprobada', ingredients: 'Ingredientes para', steps: 'Pasos', components: 'Lo que lleva cada bandeja',
+    packTemp: 'Temp. al empacar (°F)', delTemp: 'Temp. al entregar (°F)', packed: 'Empacadas', save: 'Guardar',
+    saved: 'Guardado', none: 'Hoy no hay comidas de programa.', allerg: 'Alérgenos', recipe: 'Receta',
+    hot: 'Caliente 135°F o más · Frío 41°F o menos', logged: 'Registrado'
+  } : {
+    headcount: 'people', noCount: 'The center has not sent a count yet', ordered: 'Center count',
+    portion: 'Approved portion', ingredients: 'Ingredients for', steps: 'Steps', components: 'What goes in every tray',
+    packTemp: 'Temp at packing (°F)', delTemp: 'Temp at delivery (°F)', packed: 'Packed',
+    save: 'Save', saved: 'Saved', none: 'No program meals today.', allerg: 'Allergens', recipe: 'Recipe',
+    hot: 'Hot 135°F or above · Cold 41°F or below', logged: 'Logged'
+  };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+  var today = new Date().toISOString().slice(0, 10);
+
+  function mealTitle(m) {
+    if (lang === 'es') return { breakfast: 'Desayuno', lunch: 'Almuerzo', snack: 'Merienda' }[m] || m;
+    return m.charAt(0).toUpperCase() + m.slice(1);
+  }
+
+  function render(d) {
+    if (!d || !d.ok) { out.innerHTML = '<div class="stop-box">' + esc((d && d.error) || 'Could not load.') + '</div>'; return; }
+    if (!d.sites.length) { out.innerHTML = '<p class="row-sub">' + esc(T.none) + '</p>'; return; }
+    out.innerHTML = d.sites.map(function (s) {
+      var head = '<div class="card" style="margin-bottom:10px"><b>' + esc(s.site.name) + '</b>'
+        + (s.site.window ? ' <span class="row-sub">· ' + esc(s.site.window) + '</span>' : '')
+        + '<div class="count">' + (s.headcount_known ? esc(s.headcount) : '—') + '<small>' + esc(s.headcount_known ? T.headcount : T.noCount) + '</small></div>'
+        + '<div class="row-sub">' + esc((lang === 'es' ? 'Semana ' : 'Week ') + s.cycle.week) + ' · ' + esc(s.cycle.name) + '</div></div>';
+      var stop = s.cycle.servable ? '' : '<div class="stop-box">' + esc(s.cycle.not_servable_reason) + '</div>';
+      var meals = s.items.map(function (it) { return mealCard(s, it); }).join('');
+      return head + stop + meals;
+    }).join('');
+    wire(d.date);
+    if (Hub && Hub.i18nRefresh) Hub.i18nRefresh();
+  }
+
+  function mealCard(s, it) {
+    var r = it.scaled;
+    var comps = (it.components || []).map(function (c) {
+      return '<div class="comp"><span class="tag">' + esc(c.c) + '</span><span>' + esc(c.text) + '</span></div>';
+    }).join('');
+    var ing = r ? '<table class="ing"><tbody>' + r.ingredients.map(function (x) {
+      return '<tr><td>' + esc(x.item) + '</td><td class="q">' + esc(x.qty) + '</td></tr>';
+    }).join('') + '</tbody></table>' : '';
+    var steps = r ? '<ol class="steps">' + r.steps.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol>' : '';
+    var log = it.log || {};
+    return '<div class="meal" data-meal="' + esc(it.meal) + '" data-site="' + esc(s.site.id) + '" data-dish="' + esc(it.dish) + '" data-week="' + esc(s.cycle.week) + '">'
+      + '<div class="when">' + esc(mealTitle(it.meal)) + '</div>'
+      + '<h3>' + esc(r ? r.name : it.dish) + '</h3>'
+      + (it.allergens ? '<div class="row-sub">' + esc(T.allerg) + ': ' + esc(it.allergens) + '</div>' : '')
+      + '<div style="margin-top:8px"><b>' + esc(T.components) + '</b>' + comps + '</div>'
+      + (r ? '<details class="card" style="margin-top:10px"><summary>' + esc(T.recipe) + ' · ' + esc(T.ingredients) + ' ' + esc(r.scaled_to) + '</summary>'
+          + (r.summary ? '<p class="row-sub">' + esc(r.summary) + '</p>' : '') + ing + steps + '</details>' : '')
+      + '<div class="warn-box" style="margin-top:10px">' + esc(T.hot) + '</div>'
+      + '<div class="temp-row"><input class="t-pack" type="number" inputmode="decimal" placeholder="' + esc(T.packTemp) + '" value="' + esc(log.temp_pack_f == null ? '' : log.temp_pack_f) + '">'
+      + '<input class="t-count" type="number" inputmode="numeric" placeholder="' + esc(T.packed) + '" value="' + esc(log.count_delivered == null ? '' : log.count_delivered) + '">'
+      + '<button class="btn save" type="button">' + esc(T.save) + '</button></div>'
+      + (log.id ? '<div class="logged">✓ ' + esc(T.logged) + '</div>' : '')
+      + '</div>';
+  }
+
+  function wire(date) {
+    Array.prototype.forEach.call(document.querySelectorAll('.meal .save'), function (btn) {
+      btn.addEventListener('click', function () {
+        var box = btn.closest('.meal');
+        var body = {
+          op: 'log', site_id: box.dataset.site, service_date: date, meal: box.dataset.meal,
+          dish: box.dataset.dish, cycle_week: box.dataset.week,
+          temp_pack_f: box.querySelector('.t-pack').value || null,
+          count_delivered: box.querySelector('.t-count').value || null
+        };
+        btn.disabled = true;
+        K.post('/api/hub/kitchen/program', body).then(function (r) {
+          btn.disabled = false;
+          if (r && r.ok) { Hub.toast(T.saved); load(); } else { Hub.toast((r && r.error) || 'Error'); }
+        }).catch(function () { btn.disabled = false; Hub.toast('Error'); });
+      });
+    });
+  }
+
+  function load() {
+    K.get('/api/hub/kitchen/program?date=' + today + '&lang=' + lang).then(render).catch(function () {
+      out.innerHTML = '<div class="stop-box">Could not load.</div>';
+    });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

@@ -383,6 +383,7 @@ ${ESCALATE_PREFIX} <a few words saying why this needs the owner>`;
 // cost a customer their reply. trainingContext() and retrieve() already never throw on their own;
 // the try/catch below is belt-and-suspenders against a caller passing something they don't expect.
 const ANA_TRAINING_BUDGET = 1200;
+const ANA_PROGRAM_BUDGET = 900;
 const ANA_KB_TOPK = 3;
 const ANA_KB_BUDGET = 1200;
 
@@ -401,6 +402,14 @@ async function anaExtraContext(env, question) {
         'or answer a message this file says to escalate instead.';
     }
   } catch { /* training is additive; a bad read must never cost a customer their reply */ }
+  // What Añejo serves adult day care centers, straight from the program tables. A customer asking
+  // on Instagram whether we feed a day program deserves the same answer the kitchen is cooking to,
+  // and Aña must never call a menu dietitian-approved before one has signed it.
+  try {
+    const { programContext } = await import('./program.js');
+    const p = await programContext(env);
+    if (p) block += '\n\n' + p.slice(0, ANA_PROGRAM_BUDGET);
+  } catch { /* additive */ }
   try {
     const passages = await retrieve(env, question, { topK: ANA_KB_TOPK });
     if (passages.length) {
