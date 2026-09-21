@@ -118,6 +118,14 @@ SOURCE DOCUMENTS (retrieved for THIS question):
  */
 export async function buildStudioSystem(env, question) {
   const ctx = await buildBrandContext(env);
+  // The adult day care program, from the database rather than from anyone's memory: what is served,
+  // what it is planned to, and — the part that matters — whether a dietitian has actually signed it.
+  let program = '';
+  try {
+    const { programContext } = await import('./program.js');
+    const p = await programContext(env);
+    if (p) program = `\n\n${p}`;
+  } catch { /* additive: a missing program must never break the chat */ }
   let kb = '';
   if (question) {
     try {
@@ -129,5 +137,5 @@ export async function buildStudioSystem(env, question) {
       }
     } catch { /* retrieval is additive — never break the chat because search failed */ }
   }
-  return `${BASE}\n\n${ctx}${kb}`;
+  return `${BASE}\n\n${ctx}${program}${kb}`;
 }

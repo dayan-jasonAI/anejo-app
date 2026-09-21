@@ -8,6 +8,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ownerEnv, OWNER_COOKIE } from '../helpers/sqlite-d1.js';
+// Read the current version rather than pinning a string: every future procedure change bumps it,
+// and a test that has to be edited on every bump is a test people learn to edit without reading.
+import { CURRENT_VERSION, UPDATES } from '../../functions/_lib/training_modules.js';
 
 const KITCHEN_COOKIE = 'anejo_sess=tok-kitchen';
 const MKT_COOKIE = 'anejo_sess=tok-marketing';
@@ -53,7 +56,7 @@ test('a kitchen completion from before the change reads as DUE, and stops being 
   assert.equal(r.body.due, true);
   assert.equal(r.body.prompt, true, 'she is stopped at sign-in');
   assert.equal(r.body.completed_version, '2026-06-23-baseline');
-  assert.equal(r.body.current_version, '2026-09-16-photo-gate');
+  assert.equal(r.body.current_version, CURRENT_VERSION.kitchen);
 
   const done = await complete(env, KITCHEN_COOKIE, { module: 'kitchen', lang: 'es' });
   assert.equal(done.body.ok, true);
@@ -79,10 +82,10 @@ test('POST records WHICH version was completed — the whole point of the column
   const env = ownerEnv();
   const r = await complete(env, KITCHEN_COOKIE, { module: 'kitchen', lang: 'es' });
   assert.equal(r.body.ok, true);
-  assert.equal(r.body.version, '2026-09-16-photo-gate');
+  assert.equal(r.body.version, CURRENT_VERSION.kitchen);
 
   const row = env.DB.sqlite.prepare("SELECT version, lang, updated_at, completed_at FROM training_completions WHERE staff_id='stf_k' AND module='kitchen'").get();
-  assert.equal(row.version, '2026-09-16-photo-gate');
+  assert.equal(row.version, CURRENT_VERSION.kitchen);
   assert.equal(row.lang, 'es');
   assert.ok(row.updated_at > 0, 'the row stamps when it last changed');
 
@@ -97,21 +100,46 @@ test('the status endpoint carries the what-changed lines in BOTH languages — t
   trainedBeforeVersioning(env, 'stf_k', 'kitchen');
   const r = await status(env, KITCHEN_COOKIE);
 
+  // Whatever the CURRENT kitchen update is, this is what it owes her. Pinning one version's words
+  // here meant every future procedure change broke this test and taught the next person to edit
+  // assertions instead of reading them.
   const u = r.body.update;
   assert.ok(u, 'a due staffer is told what changed');
-  assert.match(u.headline.en, /two photos/i);
-  assert.match(u.headline.es, /dos fotos/i);
-  assert.equal(u.changes.length, 3, 'the two photos, the lock on Mark Ready, and the prep clock');
+  assert.equal(u.module, 'kitchen');
+  assert.ok(u.headline.en && u.headline.es);
+  assert.notEqual(u.headline.en, u.headline.es, 'the Spanish headline is actually Spanish');
+  assert.ok(u.changes.length >= 3, 'an interruption is only worth it with the specifics');
   for (const c of u.changes) {
     assert.ok(c.en && c.es, 'every line is bilingual');
     assert.notEqual(c.en, c.es, 'and the Spanish is actually Spanish, not the English copied across');
   }
-  // The three things that actually shipped, named in the language she works in.
+  // Spanish that reads as Spanish: accented characters, not ASCII English with a label on it.
+  assert.match(u.changes.map((c) => c.es).join(' '), /[áéíóúñ¿¡]/);
+});
+
+test('the photo-gate update still says exactly what shipped that day, in the language she works in', () => {
+  const u = UPDATES['2026-09-16-photo-gate'];
+  assert.equal(u.module, 'kitchen');
+  assert.match(u.headline.en, /two photos/i);
+  assert.match(u.headline.es, /dos fotos/i);
+  assert.equal(u.changes.length, 3, 'the two photos, the lock on Mark Ready, and the prep clock');
   const es = u.changes.map((c) => c.es).join(' ');
   assert.match(es, /envase abierto/, 'the food inside the open container');
   assert.match(es, /envase cerrado/, 'then the container closed');
   assert.match(es, /Marcar Listo queda bloqueado/, 'Mark Ready is locked until both are saved');
   assert.match(es, /cuenta regresiva/, 'and the prep countdown that shipped with it');
+});
+
+test('the adult day care update names the three things that make a meal compliant', () => {
+  const u = UPDATES[CURRENT_VERSION.kitchen];
+  assert.equal(u.module, 'kitchen');
+  const en = u.changes.map((c) => c.en).join(' ');
+  assert.match(en, /Program/, 'where to find the day\u2019s meals');
+  assert.match(en, /portions/i, 'the portions are the approved menu');
+  assert.match(en, /135/, 'and the temperature that goes on the slip');
+  const es = u.changes.map((c) => c.es).join(' ');
+  assert.match(es, /porciones/i);
+  assert.match(es, /temperatura/i);
 });
 
 // Two roles changed on 2026-09-16, not one: the cook got the photo gate, and the driver got the
@@ -190,7 +218,7 @@ test('the owner sees out-of-date as its own state, separate from never trained',
 
   assert.equal(by.kitchen.state, 'outdated');
   assert.ok(by.kitchen.completed_at, 'she really was trained — the date must survive');
-  assert.match(by.kitchen.update_headline.en, /two photos/i, 'and the owner reads WHY she is behind');
+  assert.equal(by.kitchen.update_headline.en, UPDATES[CURRENT_VERSION.kitchen].headline.en, 'and the owner reads WHY she is behind');
 
   assert.equal(by.marketing.state, 'current');
   assert.equal(by.owner.state, 'never');
