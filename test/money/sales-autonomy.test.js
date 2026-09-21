@@ -316,3 +316,14 @@ test('a facility whose only distinctive word is its own city or county needs har
   const volen = { name: 'The Volen Center Annex', city: 'Boca Raton', county: 'Palm Beach' };
   assert.equal(verifyPage('<h1>Volen Center Annex</h1><p>Boca Raton</p>', volen).matched, true);
 });
+
+test('an address matches only when the number and the road are written together', () => {
+  const org = { name: 'Broward Adult Day Care Center', city: 'Fort Lauderdale', county: 'Broward', street: '4700 NW 9th Ave', phone: '(954) 791-1611' };
+  // A county site contains the number and the road name thousands of words apart. That was accepted
+  // in production on 2026-09-21 and was wrong.
+  const scattered = `<p>Permit 4700 issued</p>${'<p>filler</p>'.repeat(200)}<p>Offices on 9th Ave</p><p>Broward, Fort Lauderdale</p>`;
+  assert.equal(verifyPage(scattered, org).signals.includes('address'), false);
+  assert.equal(verifyPage(scattered, org).matched, false);
+  // Written as an address, it counts.
+  assert.equal(verifyPage('<p>4700 NW 9th Ave, Fort Lauderdale FL</p><h1>Broward Adult Day Care Center</h1>', org).signals.includes('address'), true);
+});

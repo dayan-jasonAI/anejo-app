@@ -75,11 +75,20 @@ export function verifyPage(html, org) {
   const signals = [];
   const orgPhone = phoneDigits(org.phone || '');
   if (orgPhone && orgPhone.length >= 10 && digitsOnPage.some((d) => d.endsWith(orgPhone.slice(-10)))) signals.push('phone');
+  // ADDRESS, BUT AS ONE ADDRESS. Matching the street number anywhere and the road name anywhere is
+  // not an address match on a large site: broward.org contains thousands of both, and it was
+  // accepted for "Broward Adult Day Care Center" in production on 2026-09-21. The number and the
+  // road words have to appear TOGETHER AND IN ORDER, the way an address is actually written —
+  // which also fixes "4700 NW 9th Ave", where no single road word is long enough to key on.
   const street = cleanText(org.street || '', 80).toLowerCase();
   if (street) {
-    const num = street.match(/^\d+/);
-    const road = street.replace(/^\d+\s*/, '').split(/\s+/).filter((w) => w.length > 3)[0];
-    if (num && road && text.includes(num[0]) && text.includes(road)) signals.push('address');
+    const num = (street.match(/^\d+/) || [])[0];
+    const parts = street.replace(/^\d+\s*/, '').split(/[^a-z0-9]+/).filter(Boolean).slice(0, 3);
+    if (num && parts.length) {
+      const esc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`${num}\\W{0,4}${parts.map(esc).join('\\W{0,4}')}`, 'i');
+      if (re.test(text)) signals.push('address');
+    }
   }
   const distinctive = words(org.name).filter((w) => !GENERIC.has(w) && w.length > 3);
   if (distinctive.length && distinctive.every((w) => text.includes(w))) signals.push('name');
