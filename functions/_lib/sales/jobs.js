@@ -9,6 +9,7 @@ import { id, now, toJson, etDateOf, etDayBounds } from '../hub.js';
 import { captureSystem } from '../track.js';
 import { discoverOrganizations, usableDiscoveryProvider } from './discovery.js';
 import { crawlOrganization } from './enrich.js';
+import { findWebsite } from './sitefind.js';
 import { upsertOrganization, addContact, recordSource, scoreAndStore, logActivity, salesRow, salesRows } from './store.js';
 import { classifyCategory } from './scoring.js';
 import { ICP_CATEGORIES, DISCOVERY_QUERIES, DISCOVERY_AREAS, DISCOVERY_PLAN } from './anejo.js';
@@ -95,17 +96,40 @@ export async function applyEnrichment(env, org, crawl, { ctx } = {}) {
 
 /** Research one organization now: crawl its site, store evidence, rescore. */
 export async function enrichOne(env, orgId, { cfg, ctx, fetchImpl } = {}) {
-  const org = await salesRow(env, 'SELECT * FROM sales_organizations WHERE id = ?', orgId);
+  let org = await salesRow(env, 'SELECT * FROM sales_organizations WHERE id = ?', orgId);
   if (!org) return { ok: false, error: 'Organization not found.' };
   if (org.do_not_contact) return { ok: false, error: 'This organization is marked do-not-contact.' };
   let applied = null;
   let crawl = null;
+  let found = null;
+
+  // A licensed facility from the state registry arrives with a phone and no website, and without a
+  // website enrichment has nothing to read. Look for one — and only keep it if the page proves it
+  // belongs to this facility (its phone, its address, or its distinctive name plus its city).
+  if (!org.website) {
+    found = await findWebsite(org, { fetchImpl });
+    await recordSource(env, {
+      organization_id: org.id, source_type: 'site_lookup',
+      source_url: found.ok ? found.website : null,
+      captured: { tried: found.tried, verified: found.ok ? found.signals : null },
+    });
+    if (found.ok) {
+      await env.DB.prepare('UPDATE sales_organizations SET website=?, domain=?, updated_at=? WHERE id=?')
+        .bind(found.website, found.domain, now(), org.id).run();
+      org = await salesRow(env, 'SELECT * FROM sales_organizations WHERE id = ?', orgId);
+      await logActivity(env, { organization_id: org.id, kind: 'site_found', ctx, detail: { website: found.website, signals: found.signals } });
+    }
+  }
   if (org.website && org.domain) {
     crawl = await crawlOrganization(org, { fetchImpl });
     applied = await applyEnrichment(env, org, crawl, { ctx });
   }
   const score = await scoreAndStore(env, orgId, { cfg, ctx });
-  return { ok: true, crawled: !!crawl, crawl_ok: crawl ? crawl.ok : null, crawl_error: crawl && !crawl.ok ? crawl.error : null, ...(applied || {}), score: score.score, tier: score.tier };
+  return {
+    ok: true, crawled: !!crawl, crawl_ok: crawl ? crawl.ok : null, crawl_error: crawl && !crawl.ok ? crawl.error : null,
+    site_lookup: found ? { ok: found.ok, website: found.ok ? found.website : null, tried: found.tried.length } : null,
+    ...(applied || {}), score: score.score, tier: score.tier,
+  };
 }
 
 export async function runEnrichmentTick(env, { cfg, fetchImpl, limit = 4, budgetMs = TICK_BUDGET_MS } = {}) {

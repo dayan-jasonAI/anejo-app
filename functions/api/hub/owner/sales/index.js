@@ -28,7 +28,8 @@ import {
 } from '../../../../_lib/sales/outreach.js';
 import { ICP_CATEGORIES } from '../../../../_lib/sales/anejo.js';
 import { CRITERIA } from '../../../../_lib/sales/scoring.js';
-import { loadReadiness, setReadiness, buyerChecklist, readinessSummary, READINESS_STATUSES, BUYER_REQUIREMENTS } from '../../../../_lib/sales/requirements.js';
+import { loadReadiness, setReadiness, buyerChecklist, readinessSummary, READINESS_STATUSES, BUYER_REQUIREMENTS, doeaEligibility } from '../../../../_lib/sales/requirements.js';
+import { callQueue, logCall, callStats, CALL_OUTCOMES } from '../../../../_lib/sales/calls.js';
 
 /** Open prospects per ICP category — what the readiness summary weighs each gap by. */
 async function openCategoryCounts(env) {
@@ -191,11 +192,21 @@ export const onRequestGet = async ({ request, env }) => {
     });
   }
   if (view === 'review') return json({ ok: true, ...(await launchReview(env, cfg)) });
+  if (view === 'calls') {
+    // The part of the pipeline email cannot reach: licensed facilities with a phone and no inbox.
+    const limit = Math.max(1, Math.min(50, Number(url.searchParams.get('limit')) || 25));
+    const all = url.searchParams.get('all') === '1';
+    return json({
+      ok: true, queue: await callQueue(env, { limit, includeEmailable: all }),
+      outcomes: CALL_OUTCOMES, stats: await callStats(env),
+    });
+  }
   if (view === 'readiness') {
     const readiness = await loadReadiness(env);
     const counts = await openCategoryCounts(env);
     return json({
       ok: true, items: Object.values(readiness), statuses: READINESS_STATUSES, summary: readinessSummary(readiness, counts),
+      doea: doeaEligibility({}),
       categories: Object.entries(BUYER_REQUIREMENTS).map(([key]) => ({ ...buyerChecklist(key, readiness), open_prospects: counts[key] || 0 }))
         .filter((c) => c.open_prospects > 0 || ['adult_day', 'addiction_treatment', 'behavioral_health', 'residential_care'].includes(c.category)),
     });
@@ -434,6 +445,10 @@ export const onRequestPost = async ({ request, env }) => {
       return json({ ok: true, ...res });
     }
 
+    case 'log_call': {
+      const r = await logCall(env, b, { ctx });
+      return r.ok ? json(r) : bad(r.error);
+    }
     case 'set_readiness': {
       const r = await setReadiness(env, String(b.key || ''), { status: b.status, note: b.note }, ctx);
       return r.ok ? json(r) : bad(r.error);

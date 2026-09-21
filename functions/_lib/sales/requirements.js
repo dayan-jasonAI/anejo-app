@@ -274,6 +274,26 @@ export async function setReadiness(env, key, { status, note } = {}, ctx) {
   return { ok: true, item: mergeReadiness(stored)[key] };
 }
 
+// ---------------------------------------------------------------- dated eligibility
+
+// Some doors open on a date rather than on a decision. The Elder Affairs caterer list needs three
+// sanitation inspections OR six months of trading, so a market that is shut today opens by itself —
+// and the Hub should know the date instead of the owner remembering it.
+export const LICENSE_ISSUED_ON = '2026-07-21';     // DBPR inspection + authorization date for NOS6023364
+const SIX_MONTHS_MS = 183 * 86400000;
+
+export function doeaEligibility({ atMs = Date.now(), issuedOn = LICENSE_ISSUED_ON, inspections = 1 } = {}) {
+  const issued = Date.parse(issuedOn + 'T00:00:00Z');
+  const byTime = Number.isFinite(issued) ? issued + SIX_MONTHS_MS : null;
+  const eligible = inspections >= 3 || (byTime != null && atMs >= byTime);
+  return {
+    eligible,
+    eligible_on: byTime ? new Date(byTime).toISOString().slice(0, 10) : null,
+    days_remaining: byTime && !eligible ? Math.ceil((byTime - atMs) / 86400000) : 0,
+    basis: inspections >= 3 ? 'three sanitation inspections on file' : 'six months open for business',
+  };
+}
+
 // ---------------------------------------------------------------- the check
 
 /**
@@ -281,7 +301,7 @@ export async function setReadiness(env, key, { status, note } = {}, ctx) {
  * `blocking` = required items not ready: the things the buyer will ask for that Añejo cannot hand
  * over today. A prospect with blockers can still be emailed; the owner is told first, not refused.
  */
-export function buyerChecklist(category, readiness) {
+export function buyerChecklist(category, readiness, { atMs = Date.now() } = {}) {
   const def = BUYER_REQUIREMENTS[category] || DEFAULT_BUYER;
   const seen = new Set();
   const items = [];
@@ -294,10 +314,19 @@ export function buyerChecklist(category, readiness) {
   const order = { required: 0, conditional: 1, expected: 2 };
   items.sort((a, b) => (order[a.level] - order[b.level]) || (Number(a.ready) - Number(b.ready)));
   const blocking = items.filter((i) => i.level === 'required' && !i.ready);
+  // WHAT BLOCKS A FIRST EMAIL is narrower than what blocks a signature. A missing W-9 is a
+  // contract-day document and no reason to refuse an introduction; a missing dietitian signature is
+  // this buyer's own licensing requirement, and pitching an adult day care without it is exactly
+  // how the Boca Raton deal stalled. So the outreach gate uses the CATEGORY's requirements only.
+  const categoryKeys = new Set(def.items.filter((i) => i.level === 'required').map((i) => i.readiness));
+  const blockingOutreach = blocking.filter((i) => categoryKeys.has(i.readiness));
   const conditional = items.filter((i) => i.level === 'conditional' && !i.ready);
+  const doea = doeaEligibility({ atMs });
   return {
     category, label: def.label, summary: def.summary, ask_first: def.ask_first || [],
-    items, blocking, conditional_gaps: conditional,
+    items, blocking, blocking_outreach: blockingOutreach, conditional_gaps: conditional,
+    // Stated as a date, not as a maybe: the day this category's food-program centers become sellable.
+    doea: category === 'adult_day' ? doea : null,
     verdict: blocking.length ? 'gaps' : conditional.length ? 'ask_first' : 'ready',
     verdict_text: blocking.length
       ? `${blocking.length} required item${blocking.length === 1 ? '' : 's'} this buyer will ask for ${blocking.length === 1 ? 'is' : 'are'} not ready: ${blocking.map((b) => b.label.split(' (')[0]).join('; ')}.`
