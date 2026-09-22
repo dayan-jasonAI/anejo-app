@@ -882,9 +882,18 @@
       'sales.auto_send_enabled': 'Auto-send without approval', 'sales.owner_approval_required': 'Owner approval required for every email',
       'sales.max_new_prospects_per_day': 'Max new prospects per day', 'sales.max_emails_per_day': 'Max prospect emails per day', 'sales.max_discovery_calls_per_day': 'Max discovery API calls per day',
       'sales.places_persistence_approved': 'Google Places as a production prospect source',
+      'sales.auto_intro_enabled': 'Send the intro email automatically (standing approval)',
+      'sales.max_auto_intros_per_day': 'Max automatic intro emails per day',
     };
     const o = d.offer, s = d.sender, pr = d.proof, w = d.send_window, a = d.service_area, icp = d.icp;
-    root.innerHTML = readiness(d.send_readiness)
+    const ai = d.auto_intro || {};
+    const aiBox = `<div class="box"><h2>Automatic intro email</h2>
+      <p class="muted">Your standing approval of one exact email. New prospects that clear every bar get that letter without another click. Follow-ups, flagged claims and buyers with an open readiness gap always wait for you.</p>
+      <div class="${ai.ok ? 'okbar' : 'warn'}">${ai.ok ? 'Running. ' + esc(ai.used_today) + ' of ' + esc(ai.cap) + ' sent automatically in the last 24 hours.' : '<b>Not running:</b><ul style="margin:6px 0 0 18px">' + (ai.reasons || []).map((r) => '<li>' + esc(r) + '</li>').join('') + '</ul>'}</div>
+      ${ai.attestation ? `<p class="muted">Approved ${esc(when(ai.attestation.approved_at))} · subject: “${esc(ai.attestation.subject)}”${ai.fingerprint_matches ? '' : ' · <b>the email has changed since</b>'}</p>` : ''}
+      <button class="btn2" data-act="aisample">Read the exact email</button>
+      <div id="ai-sample" style="margin-top:8px"></div></div>`;
+    root.innerHTML = readiness(d.send_readiness) + aiBox
       + `<div class="box"><h2>Switches</h2>${Object.keys(d.flags).map((k) => {
         const locked = Object.prototype.hasOwnProperty.call(d.locked_flags, k);
         const val = d.flags[k];
@@ -943,6 +952,7 @@
 
     const v = (i) => document.getElementById(i).value;
     const save = async (b, key, value, extra) => { b.disabled = true; const r = await post(SET, { op: 'save', key, value, ...(extra || {}) }); b.disabled = false; toast(r.ok ? 'Saved' : r.error); if (r.ok) settings(); };
+    wireAutoIntro();
     ACT.flag = async (b) => { const r = await post(SET, { op: 'set_flag', key: b.dataset.k, value: b.dataset.v === '1' }); toast(r.ok ? 'Updated' : r.error); if (r.ok) settings(); };
     ACT.flagnum = async (b) => { const inp = root.querySelector(`[data-flagnum="${b.dataset.k}"]`); const r = await post(SET, { op: 'set_flag', key: b.dataset.k, value: inp.value }); toast(r.ok ? 'Saved' : r.error); if (r.ok) settings(); };
     ACT.savesender = (b) => save(b, 'sales.sender', { from_name: v('s-fn'), from_email: v('s-fe'), reply_to: v('s-rt'), signature_name: v('s-sn'), signature_title: v('s-st'), signature_phone: v('s-sp') });
@@ -965,6 +975,34 @@
   }
 
   // ---------------------------------------------------------------- launch review (§34)
+  // Read, then attest. The attestation stores the text that was read, so nothing can drift between
+  // what the owner approved and what goes out.
+  function wireAutoIntro() {
+    ACT.aisample = async (b) => {
+      b.disabled = true;
+      const r = await post(SET, { op: 'auto_intro_sample' });
+      b.disabled = false;
+      const box = document.getElementById('ai-sample');
+      if (!r.ok) { box.innerHTML = `<div class="bad">${esc(r.error)}</div>`; return; }
+      box.innerHTML = `<p class="muted">${esc(r.source)} · to ${esc(r.to)}</p>
+        <p><b>Subject:</b> ${esc(r.subject)}</p><pre>${esc(r.text)}</pre>
+        <label style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="ai-confirm"> <span>I have read this email and approve it being sent automatically to new prospects</span></label>
+        <div style="margin-top:8px"><button class="btn2 primary" data-act="aiattest">Save my standing approval</button></div>`;
+      window.__aiSample = r;
+    };
+    ACT.aiattest = async (b) => {
+      const c = document.getElementById('ai-confirm');
+      if (!c || !c.checked) return toast('Tick the box to confirm you read it');
+      const sample = window.__aiSample || {};
+      b.disabled = true;
+      const r = await post(SET, { op: 'auto_intro_attest', subject: sample.subject, text: sample.text, for: sample.for });
+      b.disabled = false;
+      if (!r.ok) return toast(r.error || 'Could not save');
+      toast('Standing approval saved');
+      settings();
+    };
+  }
+
   async function review() {
     const d = await get(S + '?view=review');
     if (!d || !d.ok) return fail(d);
