@@ -110,6 +110,12 @@
 </div>
 
 <div class="hub-wrap">
+  <!-- A booked, paid event inside the next week. It is the largest single day of work the kitchen
+       will do, and until 2026-09-22 it appeared on no kitchen screen at all — so it leads here,
+       above everything, rather than waiting behind the ⋯ More sheet. -->
+  <div class="hub-section" id="event-section" hidden>
+    <div id="event-banner"></div>
+  </div>
   <div class="hub-section"><a class="btn" href="/hub/kitchen/catering.html">Catering design requests</a><p class="row-sub">Review Cajita versions and ingredient totals. Requests require management approval before preparation.</p></div>
   <!-- Clock in/out -->
   <div class="hub-section">
@@ -500,6 +506,23 @@
     return '<div class="row rem"><div class="row-main"><div class="row-title">' + esc(r.title || r.reminder_type) +
       '</div>' + (r.body ? '<div class="row-sub">' + esc(r.body) + '</div>' : '') +
       '</div><button class="btn gold" data-ack="' + esc(r.id) + '">Got it</button></div>';
+  }
+
+  // Booked catering events. Only the ones inside a week are worth a banner on the service board;
+  // the rest live on the Events screen.
+  function loadEvents() {
+    K.get('/api/hub/kitchen/event').then(function (d) {
+      var soon = ((d && d.events) || []).filter(function (e) { return e.days_out >= 0 && e.days_out <= 7; });
+      if (!soon.length) { $('#event-section').hidden = true; return; }
+      $('#event-section').hidden = false;
+      $('#event-banner').innerHTML = soon.map(function (e) {
+        var when = e.days_out === 0 ? 'TODAY' : e.days_out === 1 ? 'TOMORROW' : 'in ' + e.days_out + ' days';
+        return '<a class="card accent" style="display:block;text-decoration:none;color:inherit" href="/hub/kitchen/event.html?id=' + encodeURIComponent(e.id) + '">' +
+          '<div class="row-title">🎉 ' + esc(e.customer_name || 'Catering event') + ' · ' + esc(when) + '</div>' +
+          '<div class="row-sub">' + esc(e.event_date) + (e.serving_time ? ' · ' + esc(e.serving_time) : '') +
+          ' · ' + esc(e.guests) + ' guests — open the production plan</div></a>';
+      }).join('');
+    }).catch(function () { /* the board must still render if this one call fails */ });
   }
 
   function loadReminders() {
@@ -895,7 +918,7 @@
 
   K.boot('board', function () {
     setupSound();
-    loadClock(); loadReminders(); loadBoard(); btLoad();
+    loadClock(); loadReminders(); loadEvents(); loadBoard(); btLoad();
     setInterval(loadBoard, 15000); // poll the board (15s → snappier order alerts)
     setInterval(function () { tickClocks(); btTick(); }, 1000); // both clocks move between polls
   });

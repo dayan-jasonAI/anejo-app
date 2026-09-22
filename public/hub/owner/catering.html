@@ -142,6 +142,12 @@
         (q.final_count_due ? '<span class="pill">Final count by ' + esc(q.final_count_due) + '</span>' : '') +
       '</div>' +
 
+      // A paid quote is an event somebody has to cook. Until 2026-09-22 the desk that took the
+      // deposit had no way through to the work it created.
+      (paid && q.deposit_status !== 'void'
+        ? '<div class="row-sub lnk"><a href="/hub/kitchen/event.html?id=' + esc(q.id) + '">Open the production plan &rarr;</a></div>'
+        : '') +
+
       (q.payment_link_url
         ? '<div class="row-sub lnk">Deposit link: <a href="' + esc(q.payment_link_url) + '" target="_blank" rel="noopener">' + esc(q.payment_link_url) + '</a></div>'
         : '<div class="row-sub">No deposit link on this quote.</div>') +

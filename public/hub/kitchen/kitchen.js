@@ -18,6 +18,9 @@
     // The contract program: today's dishes, portions and temperatures. Behind ⋯ More until the
     // first program site is live, so it never pushes a daily task off a 375px bar.
     { key: 'program',    ico: '🍲', label: 'Program',    href: '/hub/kitchen/program.html' },
+    // Booked catering events. Behind ⋯ More for the same 6-slot reason, but an event inside a week
+    // also raises a banner on the Orders board, so nobody has to remember to look here.
+    { key: 'events',     ico: '🎉', label: 'Events',     href: '/hub/kitchen/event.html' },
     { key: 'library',    ico: '📚', label: 'Library',    href: '/hub/kitchen/library.html' },
     // Keep LAST. It is a rights surface, not a task surface — nobody opens it during service, so
     // it must not push a task tab out of reach. Mirror any change in hub.js NAVS.kitchen.
