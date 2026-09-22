@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { ownerEnv, OWNER_COOKIE } from '../helpers/sqlite-d1.js';
 import {
   matchRecipe, qtyOf, scaleQty, shoppingList, packagingList, schedule, laborEstimate,
-  designBrief, eventPlan, setEventTask, setEventDetails, briefCandidates, upcomingEvents,
+  designBrief, eventPlan, setEventTask, setEventDetails, setCookMinutes, briefCandidates, upcomingEvents,
 } from '../../functions/_lib/event.js';
 import { onRequestGet as eventGet, onRequestPost as eventPost } from '../../functions/api/hub/kitchen/event.js';
 
@@ -403,4 +403,79 @@ test('the kitchen can reach the event screen from its own navigation', async () 
   // An event inside a week also leads the service board, so nobody has to remember to go looking.
   assert.match(index, /loadEvents\(\)/);
   assert.match(index, /event\.html\?id=/);
+  // And the one control through which the kitchen teaches the HUB how long a dish takes.
+  const screen = readFileSync(new URL('../../public/hub/kitchen/event.html', import.meta.url), 'utf8');
+  assert.match(screen, /op: 'minutes'/);
+  assert.match(screen, /class="mins"/);
+});
+
+// ---------------------------------------------------------------- how long it takes to cook it
+
+test('a dish nobody has timed says so, instead of borrowing the time it takes to plate one bowl', async () => {
+  const env = ownerEnv();
+  seedQuote(env);
+  const t = Date.now();
+  // This is the real shape of the data that caused the bug: prep_minutes is a PLATING time — three
+  // minutes to assemble one bowl of congrí on the line — and reading it as a batch cook time put
+  // congrí for thirty people at fifteen minutes.
+  env.DB.sqlite.prepare("INSERT INTO menu_items (id, kind, name, price_cents, active, prep_minutes, created_at, updated_at) VALUES ('mi_congri','addon','Congrí',700,1,3,?,?)").run(t, t);
+  const plan = await eventPlan(env, 'cq_test');
+  const congri = plan.production.find((p) => p.name === 'Congrí');
+  assert.equal(congri.minutes_is_guess, true);
+  assert.match(congri.minutes_source, /nobody has timed this dish/);
+  assert.ok(congri.minutes >= 30, 'a guess errs long, not at three minutes a bowl');
+});
+
+test('the cook sets the real time, it drives this event, and the kitchen keeps it for the next one', async () => {
+  const env = ownerEnv();
+  seedQuote(env);
+  const t = Date.now();
+  env.DB.sqlite.prepare("INSERT INTO menu_items (id, kind, name, price_cents, active, prep_minutes, created_at, updated_at) VALUES ('mi_congri','addon','Congrí',700,1,3,?,?)").run(t, t);
+
+  const r = await setCookMinutes(env, { quote_id: 'cq_test', task_key: 'cook:l1', minutes: 120 }, { email: 'k@test.example' });
+  assert.equal(r.ok, true);
+  assert.equal(r.remembered, true);
+  assert.equal(r.per_batch, 100, '120 minutes for 30 portions is 100 minutes per 25-portion batch');
+  // Remembered against the menu item that carries the dish's name, whichever row that is.
+  const remembered = env.DB.rows('SELECT name, cook_minutes FROM menu_items WHERE cook_minutes IS NOT NULL');
+  assert.equal(remembered.length, 1);
+  assert.equal(remembered[0].name, 'Congrí');
+  assert.equal(remembered[0].cook_minutes, 100);
+
+  const plan = await eventPlan(env, 'cq_test');
+  const congri = plan.production.find((p) => p.name === 'Congrí');
+  assert.equal(congri.minutes, 120);
+  assert.equal(congri.minutes_is_guess, false);
+  assert.match(congri.minutes_source, /set by the kitchen for this event/);
+  // And the schedule moved with it: two hours of congrí cannot start where fifteen minutes did.
+  assert.equal(plan.tasks.find((x) => x.key === 'cook:l1').minutes, 120);
+});
+
+test('the remembered time becomes the starting point for the next event, scaled to its size', async () => {
+  const env = ownerEnv();
+  const t = Date.now();
+  env.DB.sqlite.prepare("INSERT INTO menu_items (id, kind, name, price_cents, active, prep_minutes, cook_minutes, created_at, updated_at) VALUES ('mi_congri','addon','Congrí',700,1,3,100,?,?)").run(t, t);
+  seedQuote(env, { id: 'cq_next', guests: 50, quote_json: JSON.stringify({ lines: [{ name: 'Congrí', name_es: 'Congrí', qty: '50', cents: 7000 }] }) });
+  const plan = await eventPlan(env, 'cq_next');
+  const congri = plan.production[0];
+  assert.equal(congri.minutes, 200, 'twice the batch, twice the time');
+  assert.match(congri.minutes_source, /the kitchen's own time/);
+  assert.equal(congri.minutes_is_guess, false);
+});
+
+test('a nonsense time is refused rather than written into the schedule', async () => {
+  const env = ownerEnv();
+  seedQuote(env);
+  assert.match((await setCookMinutes(env, { quote_id: 'cq_test', task_key: 'cook:l1', minutes: 0 }, {})).error, /between 1 and 1440/);
+  assert.match((await setCookMinutes(env, { quote_id: 'cq_test', task_key: 'cook:l1', minutes: 'soon' }, {})).error, /between 1 and 1440/);
+  assert.match((await setCookMinutes(env, { quote_id: 'cq_test', task_key: 'pack', minutes: 30 }, {})).error, /not a dish on this plan/);
+  assert.equal(env.DB.rows('SELECT * FROM event_tasks').length, 0);
+});
+
+test('a time set on a dish does not tick it done — those are different facts', async () => {
+  const env = ownerEnv();
+  seedQuote(env);
+  await setCookMinutes(env, { quote_id: 'cq_test', task_key: 'cook:l1', minutes: 90 }, {});
+  const plan = await eventPlan(env, 'cq_test');
+  assert.equal(plan.tasks.find((x) => x.key === 'cook:l1').done, false, 'knowing how long it takes is not having done it');
 });

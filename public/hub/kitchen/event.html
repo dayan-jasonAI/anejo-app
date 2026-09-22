@@ -74,7 +74,8 @@
     missing: 'Falta', details: 'Hora, dirección y tema', save: 'Guardar', saved: 'Guardado',
     time: 'Hora de servicio (24 h)', addr: 'Dirección', theme: 'Tema', colors: 'Colores', diet: 'Alergias / dieta',
     link: 'Usar esta solicitud', brief: 'Solicitud de diseño que coincide', noRecipe: 'sin receta',
-    onHand: 'en inventario', total: 'Total', forDish: 'para', estimate: 'estimado'
+    onHand: 'en inventario', total: 'Total', forDish: 'para', estimate: 'estimado',
+    mins: 'min', setTime: '¿Cuánto tarda de verdad? Ponlo en minutos y el plan se reordena solo.'
   } : {
     none: 'No booked events in the next three weeks.', guests: 'guests', days: 'days',
     today: 'TODAY', tomorrow: 'TOMORROW', deposit: 'Deposit', balance: 'Balance', paid: 'paid', due: 'due',
@@ -83,7 +84,8 @@
     missing: 'Missing', details: 'Time, address and theme', save: 'Save', saved: 'Saved',
     time: 'Serving time (24h)', addr: 'Address', theme: 'Theme', colors: 'Colours', diet: 'Allergies / dietary',
     link: 'Use this request', brief: 'A design request that matches', noRecipe: 'no recipe',
-    onHand: 'on hand', total: 'Total', forDish: 'for', estimate: 'estimated'
+    onHand: 'on hand', total: 'Total', forDish: 'for', estimate: 'estimated',
+    mins: 'min', setTime: 'How long does it really take? Put the minutes in and the plan reorders itself.'
   };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
   var money = function (c) { return '$' + ((c || 0) / 100).toFixed(2); };
@@ -164,12 +166,19 @@
   }
 
   function productionHtml(d) {
-    return '<div class="sect"><h3>' + esc(T.plan) + '</h3><table class="grid"><tbody>'
+    // The minutes box is the one place the kitchen teaches the HUB. Whatever the cook types here
+    // drives this event's schedule and is kept as the starting point for the next one.
+    return '<div class="sect"><h3>' + esc(T.plan) + '</h3>'
+      + '<p class="row-sub" style="margin:-4px 0 8px">' + esc(T.setTime) + '</p>'
+      + '<table class="grid"><tbody>'
       + d.production.map(function (p) {
         return '<tr><td>' + esc(p.name)
           + (p.needs_recipe ? ' <span class="pill warn">' + esc(T.noRecipe) + '</span>' : '')
-          + '<div class="when" style="font-size:11px;opacity:.65">' + esc(p.minutes_source) + '</div></td>'
-          + '<td class="q">' + esc(p.portions) + '<div style="font-weight:400;font-size:11px;opacity:.7">' + p.minutes + ' min</div></td></tr>';
+          + '<div class="when" style="font-size:11px;opacity:' + (p.minutes_is_guess ? '.9' : '.65') + '">' + esc(p.minutes_source) + '</div></td>'
+          + '<td class="q">' + esc(p.portions)
+          + '<div style="margin-top:4px;display:flex;gap:4px;align-items:center;justify-content:flex-end">'
+          + '<input class="mins" type="number" inputmode="numeric" min="1" max="1440" value="' + esc(p.minutes) + '" data-key="cook:' + esc(p.key) + '" aria-label="' + esc(p.name) + ' ' + esc(T.mins) + '" style="width:64px;padding:6px;text-align:right;font-size:15px">'
+          + '<span style="font-weight:400;font-size:11px;opacity:.7">' + esc(T.mins) + '</span></div></td></tr>';
       }).join('') + '</tbody></table></div>';
   }
 
@@ -235,6 +244,16 @@
           .then(function () { box.disabled = false; box.closest('.task').classList.toggle('done', box.checked); });
       });
     });
+    Array.prototype.forEach.call(document.querySelectorAll('.mins'), function (box) {
+      box.addEventListener('change', function () {
+        var v = Number(box.value);
+        if (!v || v < 1 || v > 1440) { Hub.toast(T.mins + ' 1–1440'); return; }
+        box.disabled = true;
+        post({ op: 'minutes', quote_id: quoteId, task_key: box.dataset.key, minutes: v }, function () { Hub.toast(T.saved); load(); })
+          .then(function () { box.disabled = false; });
+      });
+    });
+
     var save = document.getElementById('save-details');
     if (save) save.addEventListener('click', function () {
       save.disabled = true;

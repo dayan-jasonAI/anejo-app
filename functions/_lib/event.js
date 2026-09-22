@@ -254,21 +254,32 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
 
   const recipesRes = await env.DB.prepare('SELECT id, name, name_es, ingredients, ingredients_es, status, program_key, portion FROM recipes').all();
   const recipes = ((recipesRes && recipesRes.results) || []).map((r) => ({ ...r, ing: parseJson(r.ingredients, []) }));
-  const menuRes = await env.DB.prepare('SELECT name, prep_minutes FROM menu_items WHERE prep_minutes IS NOT NULL').all();
+  // cook_minutes ONLY. prep_minutes on the same row is a plating time — three minutes to assemble
+  // one bowl of congrí on the line — and reading it as a batch cook time put congrí for thirty at
+  // fifteen minutes on the first plan this ever built.
+  const menuRes = await env.DB.prepare('SELECT name, cook_minutes FROM menu_items WHERE cook_minutes IS NOT NULL').all();
   const menuItems = (menuRes && menuRes.results) || [];
   const invRes = await env.DB.prepare('SELECT name, unit, on_hand FROM inventory_items WHERE active = 1').all();
   const inventory = (invRes && invRes.results) || [];
+
+  const doneRes = await env.DB.prepare('SELECT task_key, done_at, done_by, note, minutes FROM event_tasks WHERE quote_id = ?').bind(quoteId).all();
+  const done = new Map(((doneRes && doneRes.results) || []).map((r) => [r.task_key, r]));
 
   const production = lines.map((l, i) => {
     const recipe = matchRecipe(l, recipes);
     const portions = qtyOf(l) || guests;
     const words = [...dishWords(l.name), ...dishWords(l.name_es)];
     const mi = menuItems.find((m) => overlap(dishWords(m.name), words) >= 0.6);
-    // A measured prep time where one exists, scaled by how many 25-portion batches this is;
-    // otherwise a plain allowance, labelled as the estimate it is.
-    const minutes = mi
-      ? Math.max(15, Math.round((mi.prep_minutes || 0) * Math.max(1, portions / 25)))
-      : Math.max(30, Math.round(portions * 1.5));
+    // Three sources, in order of who knows best: what the cook set on THIS event, what the kitchen
+    // measured last time it made this dish, and — only when neither exists — a plain allowance
+    // that is labelled a guess, because the HUB has never timed this dish and should not pretend.
+    const override = done.get(`cook:l${i}`)?.minutes || null;
+    const learned = mi ? Math.max(15, Math.round(mi.cook_minutes * Math.max(1, portions / 25))) : null;
+    const minutes = override || learned || Math.max(30, Math.round(portions * 1.5));
+    const minutesSource = override
+      ? 'set by the kitchen for this event'
+      : learned ? `the kitchen's own time for “${mi.name}” — ${mi.cook_minutes} min per 25`
+        : 'a guess — nobody has timed this dish yet. Set the real time.';
     return {
       key: `l${i}`,
       name: l.name, name_es: l.name_es || null, detail: l.detail || null,
@@ -282,16 +293,13 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
         program: !!recipe.program_key, portion: recipe.portion || null,
       } : null,
       ingredients: recipe ? (recipe.ing || []).map((x) => ({ item: x.item, qty: scaleQty(x.qty, portions), basis: x.qty })) : [],
-      minutes,
-      minutes_source: mi ? `measured: “${mi.name}”, ${mi.prep_minutes} min per batch` : 'estimated — no measured time on file',
+      minutes, minutes_source: minutesSource, minutes_is_guess: !override && !learned,
       needs_recipe: !recipe,
     };
   });
 
   const eventMs = Date.parse(String(quote.event_date) + 'T00:00:00') || atMs;
   const tasks = schedule({ eventDateMs: eventMs, servingTime: quote.serving_time, production, guests });
-  const doneRes = await env.DB.prepare('SELECT task_key, done_at, done_by, note FROM event_tasks WHERE quote_id = ?').bind(quoteId).all();
-  const done = new Map(((doneRes && doneRes.results) || []).map((r) => [r.task_key, r]));
 
   const event = {
     quote_id: quote.id, customer: quote.customer_name,
@@ -312,7 +320,12 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
     production,
     shopping: shoppingList(production, inventory),
     packaging: packagingList(production, guests),
-    tasks: tasks.map((t) => ({ ...t, done: done.has(t.key), done_at: done.get(t.key)?.done_at || null, done_by: done.get(t.key)?.done_by || null, note: done.get(t.key)?.note || null })),
+    // done_at, not the existence of a row: a row also exists when the cook has only set a time,
+    // and knowing how long a dish takes is not the same as having made it.
+    tasks: tasks.map((t) => {
+      const r = done.get(t.key);
+      return { ...t, done: !!(r && r.done_at), done_at: (r && r.done_at) || null, done_by: (r && r.done_by) || null, note: (r && r.note) || null };
+    }),
     labor: laborEstimate(tasks),
     design: designBrief(event, production),
   };
@@ -346,6 +359,40 @@ export async function setEventTask(env, { quote_id, task_key, done = true, note 
   await env.DB.prepare('INSERT INTO event_tasks (id, quote_id, task_key, done_at, done_by, note, created_at) VALUES (?,?,?,?,?,?,?)')
     .bind(id('etask'), quote_id, task_key, t, who, note || null, t).run();
   return { ok: true, done: true };
+}
+
+/**
+ * The cook's own time for a dish on this event — and, because the next event will make the same
+ * dish again, the same number is remembered on the menu item as the kitchen's batch time. This is
+ * the one direction data should flow: the person holding the pan tells the HUB how long it takes.
+ */
+export async function setCookMinutes(env, { quote_id, task_key, minutes, remember = true }) {
+  if (!quote_id || !/^cook:l\d+$/.test(String(task_key || ''))) return { ok: false, error: 'That is not a dish on this plan.' };
+  const m = Number(minutes);
+  if (!Number.isFinite(m) || m < 1 || m > 1440) return { ok: false, error: 'Minutes must be a number between 1 and 1440.' };
+
+  const t = now();
+  const existing = await env.DB.prepare('SELECT id FROM event_tasks WHERE quote_id = ? AND task_key = ?').bind(quote_id, task_key).first();
+  if (existing) await env.DB.prepare('UPDATE event_tasks SET minutes = ? WHERE id = ?').bind(m, existing.id).run();
+  else {
+    await env.DB.prepare('INSERT INTO event_tasks (id, quote_id, task_key, minutes, created_at) VALUES (?,?,?,?,?)')
+      .bind(id('etask'), quote_id, task_key, m, t).run();
+  }
+  if (!remember) return { ok: true, minutes: m, remembered: false };
+
+  // Remember it against the menu item this line matched, normalised to a 25-portion batch.
+  const quote = await env.DB.prepare('SELECT quote_json, guests FROM catering_quotes WHERE id = ?').bind(quote_id).first();
+  const lines = (parseJson(quote && quote.quote_json, null) || {}).lines || [];
+  const line = lines[Number(String(task_key).slice(6))];
+  if (!line) return { ok: true, minutes: m, remembered: false };
+  const portions = qtyOf(line) || Number(quote.guests) || 25;
+  const perBatch = Math.max(1, Math.round(m / Math.max(1, portions / 25)));
+  const words = [...dishWords(line.name), ...dishWords(line.name_es)];
+  const menu = await env.DB.prepare('SELECT id, name FROM menu_items').all();
+  const hit = ((menu && menu.results) || []).find((x) => overlap(dishWords(x.name), words) >= 0.6);
+  if (!hit) return { ok: true, minutes: m, remembered: false, note: 'No menu item matches this line, so there is nowhere to remember it.' };
+  await env.DB.prepare('UPDATE menu_items SET cook_minutes = ? WHERE id = ?').bind(perBatch, hit.id).run();
+  return { ok: true, minutes: m, remembered: true, per_batch: perBatch, menu_item: hit.name };
 }
 
 const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;

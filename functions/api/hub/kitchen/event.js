@@ -1,6 +1,7 @@
 // GET  /api/hub/kitchen/event                 — the booked events coming up
 // GET  /api/hub/kitchen/event?id=cq_…         — the full production plan for one event
 // POST /api/hub/kitchen/event  { op:'task' }  — tick or untick a task on the plan
+// POST /api/hub/kitchen/event  { op:'minutes' } — the cook's own time for a dish, remembered
 // POST /api/hub/kitchen/event  { op:'details' } — set the serving time, address and theme
 // POST /api/hub/kitchen/event  { op:'link_brief' } — copy those facts across from the design request
 //
@@ -8,7 +9,7 @@
 // deposit and held the menu, and the kitchen had no screen on which the event existed.
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { eventPlan, setEventTask, setEventDetails, briefCandidates, upcomingEvents } from '../../../_lib/event.js';
+import { eventPlan, setEventTask, setEventDetails, setCookMinutes, briefCandidates, upcomingEvents } from '../../../_lib/event.js';
 
 export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -41,6 +42,10 @@ export const onRequestPost = async ({ request, env }) => {
   try {
     if (op === 'task') {
       const r = await setEventTask(env, b, ctx);
+      return r.ok ? json(r) : bad(r.error);
+    }
+    if (op === 'minutes') {
+      const r = await setCookMinutes(env, b);
       return r.ok ? json(r) : bad(r.error);
     }
     if (op === 'details') {
