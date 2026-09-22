@@ -274,8 +274,21 @@ export async function runSalesJob(env, job, { cfg, fetchImpl, triggeredBy = 'cro
     } else if (job === 'send') {
       if (!cfg.flags['sales.enabled'] || !cfg.flags['sales.email_enabled']) output = { skipped: 'prospect email is switched off' };
       else {
+        // THE STANDING APPROVAL RUNS FIRST, in the same hourly pass that sends. New prospects that
+        // clear every bar get their step-1 letter drafted and approved against the owner's attested
+        // email; everything else waits for him. Then the ordinary send pass does what it always did.
+        let auto = null;
+        if (cfg.flags['sales.auto_intro_enabled']) {
+          const { autoEnrollNew, autoApproveIntros } = await import('./autosend.js');
+          const enrolled = await autoEnrollNew(env, { cfg });
+          const approved = await autoApproveIntros(env, { cfg, atMs });
+          auto = { enrolled: enrolled.enrolled, considered: enrolled.considered, approved: approved.approved,
+                   skipped: [...(enrolled.skipped || []), ...(approved.skipped || [])].slice(0, 10),
+                   halted: approved.halted || null };
+        }
         const r = await sendApproved(env, { cfg, atMs });
-        output = (r.sent || r.failed || r.skipped || r.reapproval) ? r : { ...r, skipped: 'nothing sent' };
+        const did = r.sent || r.failed || r.skipped || r.reapproval || (auto && (auto.enrolled || auto.approved));
+        output = did ? { ...r, auto } : { ...r, auto, skipped: 'nothing sent' };
       }
     } else if (job === 'metrics') {
       output = cfg.flags['sales.enabled'] ? await funnel(env) : { skipped: 'sales is switched off' };
