@@ -96,8 +96,8 @@ test('the purchase list aggregates ingredients across dishes and reports what in
   ];
   const list = shoppingList(production, [{ name: 'garlic', unit: 'lb', on_hand: 2 }]);
   const garlic = list.find((l) => l.item === 'Garlic');
-  assert.deepEqual(garlic.quantities, ['4 oz', '8 oz'], 'both dishes needing it appear, unsummed across units');
-  assert.deepEqual(garlic.for, ['Congrí', 'Lechón']);
+  assert.deepEqual(garlic.quantities, ['12 oz'], 'the same unit is added up — a shopper buys it once');
+  assert.deepEqual(garlic.for, ['Congrí', 'Lechón'], 'and both dishes that need it are named');
   assert.equal(garlic.on_hand.amount, 2);
   // The unit inventory counts in and the unit a recipe speaks in are not the same; the list says
   // what is on hand and leaves the subtraction to the person holding the case.
@@ -191,23 +191,27 @@ test('the plan is built from the quote, and says plainly what it does not know',
   const env = ownerEnv();
   seedQuote(env);
   seedRecipe(env, { id: 'rcp_congri', name: 'Congrí', name_es: 'Congrí', ingredients: [{ item: 'White rice', qty: '9 lb' }] });
-  seedRecipe(env, { id: 'rcp_tamal', name: 'Cuban tamales', name_es: 'Tamales cubanos', ingredients: [{ item: 'Masa', qty: '15 lb' }], status: 'draft' });
+  // A dish this kitchen has never written down. Every order will have one sooner or later, and
+  // what the plan does about it is the property under test.
+  env.DB.sqlite.prepare("UPDATE catering_quotes SET quote_json = ? WHERE id = 'cq_test'")
+    .run(JSON.stringify({ lines: [...LINES, { name: 'Flan de coco', name_es: 'Flan de coco', qty: '30', cents: 4000 }] }));
 
   const plan = await eventPlan(env, 'cq_test', { atMs: Date.parse('2026-09-22T12:00:00') });
   assert.equal(plan.ok, true);
   assert.equal(plan.event.guests, 30);
   assert.equal(plan.event.days_out, 4);
-  assert.equal(plan.production.length, 7, 'every line of the quote is a thing to make');
+  assert.equal(plan.production.length, 8, 'every line of the quote is a thing to make');
 
   // Scaled to this event, not to the recipe's own basis.
   const congri = plan.production.find((p) => p.name === 'Congrí');
   assert.deepEqual(congri.ingredients, [{ item: 'White rice', qty: '6 lb', basis: '9 lb' }]);
   assert.equal(congri.recipe.id, 'rcp_congri', 'a published recipe beats the program copy at the same score');
 
-  // The dishes with no recipe are named, not silently skipped.
+  // A dish with no recipe is NAMED, not silently skipped, and it contributes nothing to the
+  // purchase list rather than a guess.
   const noRecipe = plan.production.filter((p) => p.needs_recipe).map((p) => p.name);
-  assert.equal(noRecipe.length, 4);
-  assert.ok(plan.gaps.some((g) => g.includes('Yuca') && /No recipe on file/.test(g)));
+  assert.deepEqual(noRecipe, ['Flan de coco']);
+  assert.ok(plan.gaps.some((g) => g.includes('Flan de coco') && /No recipe on file/.test(g)));
   // A draft recipe is called a draft wherever it appears — the cook is the authority, not the HUB.
   assert.ok(plan.gaps.some((g) => /still a draft/.test(g) && g.includes('Cuban tamales')));
   // The adult day care cycle's recipes share this table, and one of them is also a lechón asado.
@@ -478,4 +482,73 @@ test('a time set on a dish does not tick it done — those are different facts',
   await setCookMinutes(env, { quote_id: 'cq_test', task_key: 'cook:l1', minutes: 90 }, {});
   const plan = await eventPlan(env, 'cq_test');
   assert.equal(plan.tasks.find((x) => x.key === 'cook:l1').done, false, 'knowing how long it takes is not having done it');
+});
+
+// ---------------------------------------------------------------- the purchase list as a shopper reads it
+
+test('the same ingredient in the same unit is added up, and units that differ are left side by side', () => {
+  const list = shoppingList([
+    { name: 'Congrí', ingredients: [{ item: 'Yellow onion', qty: '1.25 lb' }, { item: 'Garlic', qty: '0.5 cup' }] },
+    { name: 'Tamales', ingredients: [{ item: 'Yellow onion', qty: '1.25 lb' }, { item: 'Garlic', qty: '2 tbsp' }] },
+  ], []);
+  // A shopper buys two and a half pounds of onion once.
+  assert.deepEqual(list.find((l) => l.item === 'Yellow onion').quantities, ['2.5 lb']);
+  // Half a cup and two tablespoons are not the same measurement. Guessing the conversion is how a
+  // list becomes wrong, so both stay, with the dishes that need them.
+  assert.deepEqual(list.find((l) => l.item === 'Garlic').quantities, ['0.5 cup', '2 tbsp']);
+});
+
+test('things you buy whole are rounded up — 0.625 of a roll of twine is not a shopping instruction', () => {
+  assert.equal(scaleQty('1 roll', 30), '1 roll');
+  assert.equal(scaleQty('100 (allow for breakage)', 30), '67 (allow for breakage)');
+  assert.equal(scaleQty('6', 30), '4', 'bay leaves come whole');
+  assert.equal(scaleQty('12', 30), '8');
+  // Measured units keep their fractions, because you really can weigh 2.75 lb.
+  assert.equal(scaleQty('4 lb', 30), '2.75 lb');
+  assert.equal(scaleQty('¾ cup', 30), '0.5 cup');
+  assert.equal(scaleQty('to cover', 30), 'to cover');
+});
+
+test('every dish on the live 9/26 order now has a recipe, so the purchase list is complete', async () => {
+  const env = ownerEnv();
+  seedQuote(env, { serving_time: '19:00' });
+  const plan = await eventPlan(env, 'cq_test');
+
+  const missing = plan.production.filter((p) => p.needs_recipe).map((p) => p.name);
+  assert.deepEqual(missing, [], 'the six dishes 0127 added close the gap the first plan found');
+  assert.ok(plan.shopping.length > 50, 'and the purchase list is the whole order, not one dish');
+  assert.ok(plan.shopping.some((l) => /Masa harina/.test(l.item)), 'tamales reached the list');
+  assert.ok(plan.shopping.some((l) => /Guava paste/.test(l.item)), 'so did the skewers');
+  assert.ok(plan.shopping.some((l) => /Elbow macaroni/.test(l.item)));
+
+  // Still honest: seeded as drafts, so the cook is asked to confirm them before they are trusted.
+  const drafts = plan.production.filter((p) => p.recipe && p.recipe.draft).map((p) => p.name);
+  assert.equal(drafts.length, 6);
+  assert.equal(plan.gaps.filter((g) => /still a draft/.test(g)).length, 6);
+});
+
+test('the catering recipes are catering recipes — the adult day care cycle does not point at them', () => {
+  const env = ownerEnv();
+  const rows = env.DB.rows("SELECT id, status, program_key, portion FROM recipes WHERE id LIKE 'rcp_cat_%'");
+  assert.equal(rows.length, 6);
+  for (const r of rows) {
+    assert.equal(r.status, 'draft', `${r.id} must be a draft until the kitchen confirms it`);
+    assert.equal(r.program_key, null, `${r.id} must not be reachable from the signed program cycle`);
+    assert.match(r.portion, /^45 /, 'written to the same 45-unit basis scaleQty scales from');
+  }
+  // And the dietitian-signed cycle still points only at its own recipes.
+  const cycle = env.DB.rows("SELECT recipe_id FROM program_cycle_items WHERE recipe_id LIKE 'rcp_cat_%'");
+  assert.equal(cycle.length, 0);
+});
+
+test('both languages are filled in, because the cook reads Spanish', () => {
+  const env = ownerEnv();
+  for (const r of env.DB.rows("SELECT * FROM recipes WHERE id LIKE 'rcp_cat_%'")) {
+    for (const col of ['name_es', 'summary_es', 'ingredients_es', 'steps_es', 'portion_es']) {
+      assert.ok(r[col] && String(r[col]).length > 2, `${r.id}.${col} is empty`);
+    }
+    const en = JSON.parse(r.ingredients); const es = JSON.parse(r.ingredients_es);
+    assert.equal(en.length, es.length, `${r.id}: an ingredient is missing from one language`);
+    assert.equal(JSON.parse(r.steps).length, JSON.parse(r.steps_es).length, `${r.id}: a step is missing from one language`);
+  }
 });
