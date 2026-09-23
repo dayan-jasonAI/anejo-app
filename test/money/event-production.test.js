@@ -7,6 +7,7 @@ import { ownerEnv, OWNER_COOKIE } from '../helpers/sqlite-d1.js';
 import {
   matchRecipe, qtyOf, scaleQty, shoppingList, packagingList, schedule, laborEstimate,
   designBrief, eventPlan, setEventTask, setEventDetails, setCookMinutes, briefCandidates, upcomingEvents,
+  workingHour,
 } from '../../functions/_lib/event.js';
 import { onRequestGet as eventGet, onRequestPost as eventPost } from '../../functions/api/hub/kitchen/event.js';
 
@@ -214,12 +215,10 @@ test('the plan is built from the quote, and says plainly what it does not know',
   assert.ok(plan.gaps.some((g) => g.includes('Flan de coco') && /No recipe on file/.test(g)));
   // A draft recipe is called a draft wherever it appears — the cook is the authority, not the HUB.
   assert.ok(plan.gaps.some((g) => /still a draft/.test(g) && g.includes('Cuban tamales')));
-  // The adult day care cycle's recipes share this table, and one of them is also a lechón asado.
-  // Its portion is the one the dietitian signed for that contract — the plan says so instead of
-  // quietly cooking a 6 oz program portion for a birthday party.
+  // The catering lechón is the one that gets used, not the contract copy. See the dedicated test
+  // below for what happens when only a program recipe exists.
   const lechon = plan.production.find((p) => /Roast pork/.test(p.name));
-  assert.ok(lechon.recipe && lechon.recipe.program, 'it matched, and it is flagged as a program recipe');
-  assert.ok(plan.gaps.some((g) => /adult day care program recipe/.test(g) && g.includes('Roast pork')));
+  assert.equal(lechon.recipe.program, false);
   // The facts the quote never captured.
   assert.ok(plan.gaps.some((g) => /No serving time/.test(g)));
   assert.ok(plan.gaps.some((g) => /No delivery address/.test(g)));
@@ -422,12 +421,14 @@ test('a dish nobody has timed says so, instead of borrowing the time it takes to
   // This is the real shape of the data that caused the bug: prep_minutes is a PLATING time — three
   // minutes to assemble one bowl of congrí on the line — and reading it as a batch cook time put
   // congrí for thirty people at fifteen minutes.
-  env.DB.sqlite.prepare("INSERT INTO menu_items (id, kind, name, price_cents, active, prep_minutes, created_at, updated_at) VALUES ('mi_congri','addon','Congrí',700,1,3,?,?)").run(t, t);
+  env.DB.sqlite.prepare("INSERT INTO menu_items (id, kind, name, price_cents, active, prep_minutes, created_at, updated_at) VALUES ('mi_flan','addon','Flan de coco',700,1,3,?,?)").run(t, t);
+  env.DB.sqlite.prepare("UPDATE catering_quotes SET quote_json = ? WHERE id = 'cq_test'")
+    .run(JSON.stringify({ lines: [{ name: 'Flan de coco', name_es: 'Flan de coco', qty: '30', cents: 4000 }] }));
   const plan = await eventPlan(env, 'cq_test');
-  const congri = plan.production.find((p) => p.name === 'Congrí');
-  assert.equal(congri.minutes_is_guess, true);
-  assert.match(congri.minutes_source, /nobody has timed this dish/);
-  assert.ok(congri.minutes >= 30, 'a guess errs long, not at three minutes a bowl');
+  const flan = plan.production[0];
+  assert.equal(flan.minutes_is_guess, true);
+  assert.match(flan.minutes_source, /nobody has timed this dish/);
+  assert.ok(flan.minutes >= 30, 'a guess errs long, not at three minutes a plate');
 });
 
 test('the cook sets the real time, it drives this event, and the kitchen keeps it for the next one', async () => {
@@ -523,14 +524,14 @@ test('every dish on the live 9/26 order now has a recipe, so the purchase list i
 
   // Still honest: seeded as drafts, so the cook is asked to confirm them before they are trusted.
   const drafts = plan.production.filter((p) => p.recipe && p.recipe.draft).map((p) => p.name);
-  assert.equal(drafts.length, 6);
-  assert.equal(plan.gaps.filter((g) => /still a draft/.test(g)).length, 6);
+  assert.equal(drafts.length, 7);
+  assert.equal(plan.gaps.filter((g) => /still a draft/.test(g)).length, 7);
 });
 
 test('the catering recipes are catering recipes — the adult day care cycle does not point at them', () => {
   const env = ownerEnv();
   const rows = env.DB.rows("SELECT id, status, program_key, portion FROM recipes WHERE id LIKE 'rcp_cat_%'");
-  assert.equal(rows.length, 6);
+  assert.equal(rows.length, 7);
   for (const r of rows) {
     assert.equal(r.status, 'draft', `${r.id} must be a draft until the kitchen confirms it`);
     assert.equal(r.program_key, null, `${r.id} must not be reachable from the signed program cycle`);
@@ -550,5 +551,113 @@ test('both languages are filled in, because the cook reads Spanish', () => {
     const en = JSON.parse(r.ingredients); const es = JSON.parse(r.ingredients_es);
     assert.equal(en.length, es.length, `${r.id}: an ingredient is missing from one language`);
     assert.equal(JSON.parse(r.steps).length, JSON.parse(r.steps_es).length, `${r.id}: a step is missing from one language`);
+  }
+});
+
+// ---------------------------------------------------------------- the catering lechón
+
+test('a catering recipe beats the contract one, because a signed portion is not a catering portion', async () => {
+  const env = ownerEnv();
+  seedQuote(env, { serving_time: '19:00' });
+  const plan = await eventPlan(env, 'cq_test');
+  const lechon = plan.production.find((p) => /Roast pork/.test(p.name));
+  assert.equal(lechon.recipe.id, 'rcp_cat_lechon');
+  assert.equal(lechon.recipe.program, false);
+  // And the flag that used to fire on this line is gone, because there is nothing left to warn about.
+  assert.equal(plan.gaps.filter((g) => /adult day care program recipe/.test(g)).length, 0);
+  // The adult day care recipe is untouched and still the 3 oz portion its contract is signed for.
+  const adc = env.DB.one("SELECT portion FROM recipes WHERE id = 'rcp_adc_lech_n_asado'");
+  assert.match(adc.portion, /3 oz/);
+});
+
+test('when the ONLY recipe for a dish is a contract one, it is used but the portion is flagged', async () => {
+  const env = ownerEnv();
+  seedQuote(env, { serving_time: '19:00' });
+  // Take the catering lechón away and the adult day care copy is all that is left. The plan still
+  // cooks from it rather than refusing — but it says whose portion that is.
+  env.DB.sqlite.prepare("DELETE FROM recipes WHERE id = 'rcp_cat_lechon'").run();
+  const plan = await eventPlan(env, 'cq_test');
+  const lechon = plan.production.find((p) => /Roast pork/.test(p.name));
+  assert.equal(lechon.recipe.id, 'rcp_adc_lech_n_asado');
+  assert.equal(lechon.recipe.program, true);
+  assert.ok(plan.gaps.some((g) => /adult day care program recipe/.test(g) && g.includes('Roast pork')));
+  assert.match(plan.gaps.find((g) => /adult day care/.test(g)), /3 oz/, 'and names the portion it is signed for');
+});
+
+test('the recipe supplies its own cook time, so an eight-hour roast is not scheduled for 45 minutes', async () => {
+  const env = ownerEnv();
+  seedQuote(env, { serving_time: '19:00' });
+  const plan = await eventPlan(env, 'cq_test');
+  const lechon = plan.production.find((p) => /Roast pork/.test(p.name));
+  assert.equal(lechon.minutes, 320, '480 minutes for 45 portions, scaled to 30');
+  assert.match(lechon.minutes_source, /from the recipe/);
+  assert.equal(lechon.minutes_is_guess, false);
+  // Over two hours, so it lands the day before rather than on Saturday afternoon.
+  assert.equal(new Date(plan.tasks.find((t) => t.key === 'cook:l0').at).getDate(), 25);
+});
+
+test('the kitchen measurement still beats what the recipe says', async () => {
+  const env = ownerEnv();
+  const t = Date.now();
+  seedQuote(env, { serving_time: '19:00' });
+  env.DB.sqlite.prepare("INSERT INTO menu_items (id, kind, name, price_cents, active, cook_minutes, created_at, updated_at) VALUES ('mi_lechon','addon','Roast pork — Lechón asado',1200,1,200,?,?)").run(t, t);
+  let plan = await eventPlan(env, 'cq_test');
+  let lechon = plan.production.find((p) => /Roast pork/.test(p.name));
+  assert.match(lechon.minutes_source, /the kitchen's own time/);
+  assert.equal(lechon.minutes, 240, '200 min per 25 portions, scaled to 30');
+
+  // And this event's own override beats both.
+  await setCookMinutes(env, { quote_id: 'cq_test', task_key: 'cook:l0', minutes: 400, remember: false });
+  plan = await eventPlan(env, 'cq_test');
+  lechon = plan.production.find((p) => /Roast pork/.test(p.name));
+  assert.equal(lechon.minutes, 400);
+  assert.match(lechon.minutes_source, /set by the kitchen for this event/);
+});
+
+// ---------------------------------------------------------------- the make-ahead steps
+
+test('a step that must start before cooking gets its own task, at the hour it has to begin', async () => {
+  const env = ownerEnv();
+  seedQuote(env, { serving_time: '19:00' });
+  const plan = await eventPlan(env, 'cq_test');
+  const prep = plan.tasks.filter((t) => t.kind === 'make-ahead');
+  assert.equal(prep.length, 5, 'the marinade, the beans, the husks, the croqueta mix and the macaroni');
+  const marinade = plan.tasks.find((t) => t.key === 'prep:l0');
+  const roast = plan.tasks.find((t) => t.key === 'cook:l0');
+  assert.match(marinade.label, /marinate the pork in mojo/);
+  assert.equal(roast.at - marinade.at, 1440 * 60000, 'a full day ahead of the oven, as the recipe says');
+  // A dish with no make-ahead step does not get an empty task invented for it.
+  assert.equal(plan.tasks.some((t) => t.key === 'prep:l3'), false, 'the yuca needs nothing made ahead');
+});
+
+test('a make-ahead step is never scheduled in the middle of the night', () => {
+  const night = Date.parse('2026-09-26T04:45:00');
+  const moved = new Date(workingHour(night));
+  assert.equal(moved.getDate(), 25, 'it rolls back to the evening before');
+  assert.equal(moved.getHours(), 18);
+  // Late at night rolls back to the same evening.
+  const late = new Date(workingHour(Date.parse('2026-09-25T23:30:00')));
+  assert.equal(late.getDate(), 25);
+  assert.equal(late.getHours(), 18);
+  // Anything inside the working day is left exactly where the arithmetic put it.
+  const fine = Date.parse('2026-09-25T19:45:00');
+  assert.equal(workingHour(fine), fine);
+  assert.equal(workingHour(Date.parse('2026-09-25T06:00:00')), Date.parse('2026-09-25T06:00:00'));
+});
+
+test('the long cooks start earliest and the fresh work finishes nearest the van', async () => {
+  const env = ownerEnv();
+  seedQuote(env, { serving_time: '19:00' });
+  const plan = await eventPlan(env, 'cq_test');
+  const byKey = (k) => plan.tasks.find((t) => t.key === k).at;
+  const skewers = plan.production.findIndex((p) => /Skewers/.test(p.name));
+  const tamales = plan.production.findIndex((p) => /tamales/.test(p.name));
+  // Both are cooked on the day; the longer one starts first.
+  assert.ok(byKey(`cook:l${tamales}`) < byKey(`cook:l${skewers}`),
+    'a three-hour tamal does not wait behind fifty minutes of skewers');
+  // And nothing is still cooking once packing starts.
+  const pack = byKey('pack');
+  for (const t of plan.tasks.filter((x) => x.kind === 'kitchen' && x.key.startsWith('cook:'))) {
+    assert.ok(t.at + t.minutes * 60000 <= pack, `${t.label} runs into the packing`);
   }
 });

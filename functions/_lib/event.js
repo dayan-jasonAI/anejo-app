@@ -61,9 +61,13 @@ export function matchRecipe(line, recipes) {
     const recipeSides = [dishWords(r.name), dishWords(r.name_es)].filter((w) => w.length);
     let score = 0;
     for (const a of lineSides) for (const b of recipeSides) score = Math.max(score, overlap(a, b));
-    // A tie goes to the published recipe: a draft is someone's work in progress.
+    // Ties are broken in this order, and the order matters. A CATERING recipe beats a contract
+    // one first: the adult day care lechón is written to the 3 oz portion the dietitian signed,
+    // and cooking that at a birthday party is a worse mistake than cooking from an unconfirmed
+    // draft. Only then does a published recipe beat a draft.
+    const rank = (x) => (x.program_key ? 0 : 2) + (x.status === 'published' ? 1 : 0);
     const better = !best || score > best.score
-      || (score === best.score && r.status === 'published' && best.recipe.status !== 'published');
+      || (score === best.score && rank(r) > rank(best.recipe));
     if (score >= 0.6 && better) best = { recipe: r, score };
   }
   return best ? best.recipe : null;
@@ -186,6 +190,22 @@ export function packagingList(production, guests) {
 const HHMM = (s) => { const m = /^(\d{1,2}):(\d{2})/.exec(String(s || '')); return m ? { h: Number(m[1]), m: Number(m[2]) } : null; };
 
 /**
+ * Pull a make-ahead step out of the middle of the night and onto the end of the working day
+ * before it. "Make the croqueta mixture" landing at 4:45 a.m. is arithmetic, not an instruction.
+ * It only ever moves EARLIER, which is safe for every step this applies to — a marinade, a soak
+ * and a chill all tolerate longer, and none of them tolerate shorter.
+ */
+export function workingHour(ms) {
+  const d = new Date(ms);
+  const h = d.getHours();
+  if (h >= 6 && h < 22) return ms;
+  if (h >= 22) { d.setHours(18, 0, 0, 0); return d.getTime(); }
+  d.setDate(d.getDate() - 1);
+  d.setHours(18, 0, 0, 0);
+  return d.getTime();
+}
+
+/**
  * Tasks placed BACKWARDS from serving time — the only order in which a deadline is real. Anything
  * over two hours of cooking lands the day before, because a nine-hour pork does not start Saturday
  * morning; everything else stacks back from the moment the van has to leave.
@@ -206,15 +226,27 @@ export function schedule({ eventDateMs, servingTime, production, guests, travelM
   add('shop', 'Shop everything on the purchase list', eventDateMs - 2 * DAY + 8 * 3600000, 'purchasing', 120);
   add('balance', 'Collect the balance before service', eventDateMs - DAY + 9 * 3600000, 'money', 5);
 
+  // SHORTEST LAST. Tasks are placed walking backwards from packing, so the first dish out of this
+  // loop is the one that finishes nearest the van. Sorting shortest-first therefore starts the
+  // long cooks earliest and leaves the quick, fresh work — fried croquetas, assembled skewers —
+  // closest to service, which is the order a kitchen actually works in.
   let cursor = packAt;
-  for (const p of [...production].sort((a, b) => (b.minutes || 0) - (a.minutes || 0))) {
+  for (const p of [...production].sort((a, b) => (a.minutes || 0) - (b.minutes || 0))) {
     const mins = p.minutes || 45;
     const dayBefore = mins > 120;
     const end = dayBefore ? (eventDateMs - DAY + 18 * 3600000) : cursor;
+    const start = end - mins * MIN;
     add(`cook:${p.key}`,
       `${p.name} — ${p.portions ? p.portions + ' portions' : 'per the order'}${p.recipe ? '' : ' · no recipe on file'}`,
-      end - mins * MIN, 'kitchen', mins);
-    if (!dayBefore) cursor = end - mins * MIN;
+      start, 'kitchen', mins);
+    // The make-ahead step, on the calendar at the hour it has to begin. A 24-hour marinade, beans
+    // soaked overnight, a croqueta mix chilled hard — every one of them is a way Saturday fails
+    // quietly on Thursday, and none of them were anywhere in the HUB before.
+    if (p.lead_minutes) {
+      add(`prep:${p.key}`, p.lead_label || `${p.name} — start the make-ahead step now.`,
+        workingHour(start - p.lead_minutes * MIN), 'make-ahead', 20);
+    }
+    if (!dayBefore) cursor = start;
   }
 
   add('pack', 'Pack, label and take the packing temperature of every pan', packAt, 'kitchen', packMinutes);
@@ -288,7 +320,10 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
   const lines = Array.isArray(q.lines) ? q.lines : [];
   const guests = Number(quote.guests) || 0;
 
-  const recipesRes = await env.DB.prepare('SELECT id, name, name_es, ingredients, ingredients_es, status, program_key, portion FROM recipes').all();
+  const recipesRes = await env.DB.prepare(
+    `SELECT id, name, name_es, ingredients, ingredients_es, status, program_key, portion,
+            cook_minutes, prep_lead_minutes, prep_lead_label, prep_lead_label_es FROM recipes`
+  ).all();
   const recipes = ((recipesRes && recipesRes.results) || []).map((r) => ({ ...r, ing: parseJson(r.ingredients, []) }));
   // cook_minutes ONLY. prep_minutes on the same row is a plating time — three minutes to assemble
   // one bowl of congrí on the line — and reading it as a batch cook time put congrí for thirty at
@@ -311,11 +346,16 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
     // that is labelled a guess, because the HUB has never timed this dish and should not pretend.
     const override = done.get(`cook:l${i}`)?.minutes || null;
     const learned = mi ? Math.max(15, Math.round(mi.cook_minutes * Math.max(1, portions / 25))) : null;
-    const minutes = override || learned || Math.max(30, Math.round(portions * 1.5));
+    // A recipe that says how long it takes is better than a guess and worse than a measurement:
+    // an 8-hour pernil scheduled at the fallback allowance is a plan that cannot be worked.
+    const written = recipe && recipe.cook_minutes
+      ? Math.max(15, Math.round(recipe.cook_minutes * Math.max(0.5, portions / 45))) : null;
+    const minutes = override || learned || written || Math.max(30, Math.round(portions * 1.5));
     const minutesSource = override
       ? 'set by the kitchen for this event'
       : learned ? `the kitchen's own time for “${mi.name}” — ${mi.cook_minutes} min per 25`
-        : 'a guess — nobody has timed this dish yet. Set the real time.';
+        : written ? `from the recipe — ${recipe.cook_minutes} min for ${45} portions`
+          : 'a guess — nobody has timed this dish yet. Set the real time.';
     return {
       key: `l${i}`,
       name: l.name, name_es: l.name_es || null, detail: l.detail || null,
@@ -329,7 +369,10 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
         program: !!recipe.program_key, portion: recipe.portion || null,
       } : null,
       ingredients: recipe ? (recipe.ing || []).map((x) => ({ item: x.item, qty: scaleQty(x.qty, portions), basis: x.qty })) : [],
-      minutes, minutes_source: minutesSource, minutes_is_guess: !override && !learned,
+      minutes, minutes_source: minutesSource, minutes_is_guess: !override && !learned && !written,
+      lead_minutes: (recipe && recipe.prep_lead_minutes) || null,
+      lead_label: recipe ? (recipe.prep_lead_label || null) : null,
+      lead_label_es: recipe ? (recipe.prep_lead_label_es || null) : null,
       needs_recipe: !recipe,
     };
   });
