@@ -79,17 +79,52 @@ export function qtyOf(line) {
 
 const FRACTION = { '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 1 / 3, '⅔': 2 / 3 };
 
+// Units you can hold a fraction of. Everything else — eggs, bay leaves, corn husks, a roll of
+// twine — you buy whole, so scaling them rounds UP. "0.625 roll" of butcher twine is not a
+// shopping instruction.
+const MEASURES = new Set(['cup', 'cups', 'tbsp', 'tbsps', 'tsp', 'tsps', 'lb', 'lbs', 'pound', 'pounds',
+  'oz', 'ounce', 'ounces', 'qt', 'qts', 'quart', 'quarts', 'gal', 'gallon', 'gallons', 'pt', 'pint', 'pints',
+  'g', 'kg', 'ml', 'l', 'liter', 'liters', 'litre', 'litres', 'portion', 'portions', 'cucharada', 'cucharadas',
+  'taza', 'tazas', 'cda', 'cdas', 'cdta', 'cdtas', 'galon', 'galones', 'libra', 'libras']);
+
+const unitWord = (rest) => ((String(rest || '').match(/^[a-zá-ÿ]+/i) || [''])[0]).toLowerCase();
+
+/** Split "12 lb raw" into its number and the rest, or null when it carries no number at all. */
+function splitQty(qty) {
+  const s = String(qty == null ? '' : qty).trim();
+  const m = s.match(/^(\d+(?:\.\d+)?)?\s*([½¼¾⅓⅔])?\s*(.*)$/);
+  if (!m || (!m[1] && !m[2])) return null;
+  return { value: (m[1] ? Number(m[1]) : 0) + (m[2] ? FRACTION[m[2]] : 0), rest: m[3] };
+}
+
+function formatQty(value, rest) {
+  const whole = !MEASURES.has(unitWord(rest));
+  const v = whole ? Math.ceil(value) : value;
+  const pretty = whole || v >= 10 ? String(Math.round(v))
+    : v >= 1 ? String(Math.round(v * 4) / 4) : String(Math.round(v * 8) / 8);
+  return `${pretty} ${rest}`.trim();
+}
+
 /** Scale "12 lb raw" from a recipe's basis to the portions this event needs. */
 export function scaleQty(qty, portions, basis = 45) {
-  const s = String(qty == null ? '' : qty);
   const f = portions / (basis || 45);
-  if (!Number.isFinite(f) || f <= 0) return s;
-  const m = s.match(/^(\d+(?:\.\d+)?)?\s*([½¼¾⅓⅔])?\s*(.*)$/);
-  if (!m || (!m[1] && !m[2])) return s;
-  const base = (m[1] ? Number(m[1]) : 0) + (m[2] ? FRACTION[m[2]] : 0);
-  const v = base * f;
-  const pretty = v >= 10 ? String(Math.round(v)) : v >= 1 ? String(Math.round(v * 4) / 4) : String(Math.round(v * 8) / 8);
-  return `${pretty} ${m[3]}`.trim();
+  const parts = splitQty(qty);
+  if (!parts || !Number.isFinite(f) || f <= 0) return String(qty == null ? '' : qty);
+  return formatQty(parts.value * f, parts.rest);
+}
+
+/**
+ * One line per ingredient. Quantities in the SAME unit are added up — a shopper buys 2.5 lb of
+ * onion once, not "1.25 lb + 1.25 lb". Quantities in units that do not match are left side by
+ * side rather than force-converted, because 4 oz and 1 cup of garlic are not the same measurement
+ * and guessing the conversion is how a list becomes wrong.
+ */
+function combineQuantities(quantities) {
+  const parts = quantities.map(splitQty);
+  if (parts.some((p) => !p)) return quantities;
+  const rest = parts[0].rest.trim().toLowerCase();
+  if (!parts.every((p) => p.rest.trim().toLowerCase() === rest)) return quantities;
+  return [formatQty(parts.reduce((n, p) => n + p.value, 0), parts[0].rest)];
 }
 
 /** What to buy: every recipe's ingredients at this event's scale, against what inventory holds. */
@@ -109,6 +144,7 @@ export function shoppingList(production, inventory = []) {
     const inv = onHand.get(norm(l.item));
     return {
       ...l,
+      quantities: combineQuantities(l.quantities),
       // Inventory counts in its own units ("case", "lb") while a recipe speaks in cups and pounds.
       // Saying what is on hand beats subtracting units that do not match.
       on_hand: inv ? { amount: inv.on_hand, unit: inv.unit || null } : null,
