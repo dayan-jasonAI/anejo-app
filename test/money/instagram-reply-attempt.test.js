@@ -18,7 +18,7 @@ test('actual automatic comment tick uses durable helper with mocked transport an
 
 test('generic human handler overlaps Ana safely, binds retries and permits explicit confirmed followup',async()=>{
  const {onRequestPost:post,onRequestGet:get}=await import('../../functions/api/hub/comms/messages.js');const env=setup();env.IG_ACCESS_TOKEN='test';env.IG_USER_ID='self';env.IG_API_HOST='instagram';
- const request=(request_id,extra={})=>new Request('https://anejo.test/api/hub/comms/messages',{method:'POST',headers:{cookie:OWNER_COOKIE},body:JSON.stringify({thread_id:'t',body:'Human reply',request_id,...extra})});
+ const request=(request_id,extra={})=>new Request('https://anejo.test/api/hub/comms/messages',{method:'POST',headers:{cookie:OWNER_COOKIE},body:JSON.stringify({thread_id:'t',body:'Human reply',request_id,expected_trigger_id:'in',...extra})});
  const uuid='11111111-1111-4111-8111-111111111111';let release,calls=0;const gate=new Promise(r=>release=r);const ana=sendAnaDraft(env,args,async()=>{calls++;await gate;return {ok:true,body:{id:'ana-provider'}};});while(!calls)await new Promise(r=>setTimeout(r,1));
  const blocked=await(await post({env,request:request(uuid)})).json();assert.equal(blocked.ok,false);assert.equal(calls,1);assert.equal(env.DB.one("SELECT dismissed_at FROM messages WHERE id='out'").dismissed_at,null);release();const sent=await ana;
  const old=globalThis.fetch;globalThis.fetch=async()=>{calls++;return {ok:true,status:200,text:async()=>JSON.stringify({message_id:'human-provider'})};};try{
@@ -30,3 +30,19 @@ test('generic human handler overlaps Ana safely, binds retries and permits expli
  }finally{globalThis.fetch=old;}
 });
 test('manual stale rendered body refuses send and failed draft reads are explicit',async()=>{const env=setup();const stale=await(await manual(env,'send',{expected_body:'Old preview'})).json();assert.equal(stale.error,'draft_changed');assert.equal(env.DB.one('SELECT COUNT(*) n FROM instagram_reply_attempts').n,0);const prepare=env.DB.prepare.bind(env.DB);env.DB.prepare=sql=>sql.includes("m.sender_role='ana_draft'")||sql.includes("m.sender_role='ana_escalation'")?{all:async()=>({success:false,results:[]})}:prepare(sql);const {onRequestGet}=await import('../../functions/api/hub/owner/social-inbox.js');const result=await(await onRequestGet({env,request:new Request('https://anejo.test/api/hub/owner/social-inbox',{headers:{cookie:OWNER_COOKIE}})})).json();assert.equal(result.drafts_read_status,'unavailable');assert.equal(result.escalations_read_status,'unavailable');assert.equal(result.pending,null);});
+test('new inbound opens a new human reply slot after sent or failed, but unknown stays blocked',async()=>{
+ const {onRequestPost:post,onRequestGet:get}=await import('../../functions/api/hub/comms/messages.js');
+ for(const state of ['sent','failed','unknown']){
+  const env=setup();await sendAnaDraft(env,args,async()=>state==='sent'?{ok:true,body:{id:'first'}}:{ok:false,delivery_uncertain:state==='unknown'});
+  const time=Date.now()+100;env.DB.sqlite.prepare("INSERT INTO messages(id,thread_id,direction,channel,sender_id,sender_role,body,created_at) VALUES ('next','t','inbound','instagram','customer','customer','Next question',?)").run(time);env.DB.sqlite.prepare("UPDATE threads SET last_inbound_at=? WHERE id='t'").run(time);
+  // Use a past current inbound so reply draft creation timestamp follows it.
+  env.DB.sqlite.prepare("UPDATE messages SET created_at=? WHERE id='in'").run(Date.now()-200);
+  env.DB.sqlite.prepare("UPDATE messages SET created_at=? WHERE id='next'").run(Date.now()-10);
+  const history=await(await get({env,request:new Request('https://anejo.test/api/hub/comms/messages?thread_id=t',{headers:{cookie:OWNER_COOKIE}})})).json();assert.equal(history.reply_current_trigger.trigger_id,'next');assert.equal(history.reply_current_trigger.latest_attempt,null);assert.equal(history.reply_attempt_unresolved,state==='unknown');
+  env.IG_ACCESS_TOKEN='test';env.IG_USER_ID='self';env.IG_API_HOST='instagram';const old=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;return {ok:true,status:200,text:async()=>JSON.stringify({id:'next-response'})};};try{const result=await(await post({env,request:new Request('https://anejo.test/api/hub/comms/messages',{method:'POST',headers:{cookie:OWNER_COOKIE},body:JSON.stringify({thread_id:'t',body:'Next reply',expected_trigger_id:'next',request_id:'33333333-3333-4333-8333-333333333333'})})})).json();assert.equal(result.sent,state!=='unknown',JSON.stringify(result));assert.equal(calls,state==='unknown'?0:1);}finally{globalThis.fetch=old;}
+ }
+});
+
+test('human reviewed inbound trigger cannot silently switch after a newer customer message',async()=>{
+ const {onRequestPost:post}=await import('../../functions/api/hub/comms/messages.js');const env=setup();env.DB.sqlite.prepare("INSERT INTO messages(id,thread_id,direction,channel,sender_id,sender_role,body,created_at) VALUES ('newer','t','inbound','instagram','customer','customer','Different request',?)").run(Date.now()+100);const old=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;throw Error('must not send');};try{const r=await(await post({env,request:new Request('https://anejo.test/api/hub/comms/messages',{method:'POST',headers:{cookie:OWNER_COOKIE},body:JSON.stringify({thread_id:'t',body:'Reviewed old reply',request_id:'44444444-4444-4444-8444-444444444444',expected_trigger_id:'in'})})})).json();assert.equal(r.error,'inbound_trigger_changed');assert.equal(calls,0);assert.equal(env.DB.one('SELECT COUNT(*) n FROM instagram_reply_attempts').n,0);}finally{globalThis.fetch=old;}
+});

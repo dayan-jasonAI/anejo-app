@@ -119,7 +119,14 @@ export const onRequestGet = async ({ request, env }) => {
       if(read?.success===false||!Array.isArray(read?.results))throw Error('unavailable');
       const unresolved=await env.DB.prepare("SELECT id FROM instagram_reply_attempts WHERE thread_id=? AND state IN ('claimed','unknown') LIMIT 1").bind(threadId).first();
       replyAttempts={reply_attempt_status:'ok',reply_attempt_history:read.results.map(a=>({...a,sent_at:a.state==='sent'?a.sent_at:null})),reply_attempt_unresolved:!!unresolved};
-    }catch{replyAttempts={reply_attempt_status:'unavailable',reply_attempt_history:null,reply_attempt_unresolved:null};}
+      const inbound=await env.DB.prepare("SELECT id,ref_id,sender_id,created_at FROM messages WHERE thread_id=? AND direction='inbound' AND channel='instagram' ORDER BY created_at DESC,id DESC LIMIT 2").bind(threadId).all();
+      if(inbound?.success===false||!Array.isArray(inbound?.results))throw Error('unavailable');
+      const rows=inbound.results,kind=thread.ref_type==='ig_media'?'comment':'dm';
+      const valid=rows.length>0&&!(rows.length>1&&rows[0].created_at===rows[1].created_at)&&(kind==='comment'?!!rows[0].ref_id:rows[0].sender_id===thread.external_id);
+      const trigger=valid?(kind==='comment'?rows[0].ref_id:rows[0].id):null;
+      const latest=trigger?await env.DB.prepare('SELECT id AS attempt_id,message_id,state,provider_message_id,completed_at AS sent_at,created_at,error_code,followup_of FROM instagram_reply_attempts WHERE thread_id=? AND kind=? AND trigger_id=? ORDER BY created_at DESC,id DESC LIMIT 1').bind(threadId,kind,trigger).first():null;
+      replyAttempts.reply_current_trigger={status:valid?'available':'unavailable',kind,trigger_id:trigger,latest_attempt:latest?{...latest,sent_at:latest.state==='sent'?latest.sent_at:null}:null};
+    }catch{replyAttempts={reply_attempt_status:'unavailable',reply_attempt_history:null,reply_attempt_unresolved:null,reply_current_trigger:{status:'unavailable',trigger_id:null,latest_attempt:null}};}
   }
   const cp = await counterpartyStaff(env, ctx, thread);
   return json({
@@ -167,7 +174,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (thread.audience === 'instagram') channel = 'instagram';
   if (channel === 'instagram') {
     if (thread.audience !== 'instagram') return bad('Only an Instagram thread can send to Instagram.');
-    const result = await sendHumanInstagramReply(env, {threadId:thread.id,body:b.body,requestId:b.request_id,afterAttemptId:b.after_attempt_id||'',actorId:ctx.distinct_id||ctx.email,actorRole:ctx.role});
+    const result = await sendHumanInstagramReply(env, {threadId:thread.id,body:b.body,requestId:b.request_id,expectedTriggerId:b.expected_trigger_id,afterAttemptId:b.after_attempt_id||'',actorId:ctx.distinct_id||ctx.email,actorRole:ctx.role});
     if(result.ok&&!result.replayed)await capture(env,{event:'message.sent',distinct_id:ctx.distinct_id,role:ctx.role,team:ctx.team,properties:{channel:'instagram',audience:'instagram',ai_drafted:false,thread_id:thread.id}});
     return json({...result,id:result.message_id||null,channel:'instagram'},result.ok?200:409);
   }

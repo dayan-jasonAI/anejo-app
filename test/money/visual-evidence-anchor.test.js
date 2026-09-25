@@ -9,7 +9,7 @@ test('provider schema makes actual source anchor mandatory without unsupported k
  assert.deepEqual(format.properties.evidence_anchor.enum,['caption:1','caption:2','slide:1','slide:2']);
  assert.doesNotMatch(JSON.stringify(visualAuditFormat(ctx.caption,2)),/"(?:minItems|maxItems|minLength|maxLength|anyOf|oneOf|if|then)":/);
  assert.deepEqual(visualAuditFormat('',0).schema.properties.observations.items.properties.evidence_anchor.enum,['unavailable']);
- assert.equal(VERSION,'anejo-visual-8');
+ assert.equal(VERSION,'anejo-visual-9');
 });
 test('no-product-claim met resolves ONLY selected inspected slide instead of inventing a default',()=>{
  const d=response(),o=d.observations.find(o=>o.criterion_id==='product_fidelity');o.evidence_anchor='slide:2';

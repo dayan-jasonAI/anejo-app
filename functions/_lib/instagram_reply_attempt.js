@@ -34,8 +34,8 @@ async function sendReply(env,{messageId,threadId,expectedBody,initiatedBy='owner
  const pending=await env.DB.prepare("SELECT * FROM instagram_reply_attempts WHERE thread_id=? AND state IN ('claimed','unknown') LIMIT 1").bind(threadId).first();if(pending)return {...denied('thread_send_unresolved'),previous_attempt_id:pending.id,state:pending.state};
  const attemptId=id('ira'),at=Date.now(),bodyHash=await hash(message.body);
  const claim=await env.DB.prepare(`INSERT INTO instagram_reply_attempts(id,message_id,thread_id,kind,trigger_id,followup_of,recipient_id,body,body_sha256,initiated_by,state,created_at)
- SELECT ?,?,?,?,?,?,?,?,?,?,'claimed',? FROM messages m JOIN threads t ON t.id=m.thread_id WHERE m.id=? AND m.thread_id=? AND m.body=? AND COALESCE(m.ref_id,'')=? AND COALESCE(m.reply_to_message_id,'')=? AND m.sender_role=? AND m.ai_drafted=? AND m.direction='outbound' AND m.channel='instagram' AND m.sent_at IS NULL AND m.dismissed_at IS NULL AND t.audience='instagram' AND COALESCE(t.external_id,'')=? AND COALESCE(t.last_inbound_at,0)=? AND (?='comment' OR EXISTS (SELECT 1 FROM messages inbound WHERE inbound.id=? AND inbound.thread_id=m.thread_id AND inbound.direction='inbound' AND inbound.channel='instagram' AND inbound.sender_id=? AND inbound.created_at<=m.created_at)) AND NOT EXISTS (SELECT 1 FROM instagram_reply_attempts pending WHERE pending.thread_id=m.thread_id AND pending.state IN ('claimed','unknown'))
- ON CONFLICT DO NOTHING`).bind(attemptId,messageId,threadId,kind,trigger,afterAttemptId,recipient,message.body,bodyHash,initiatedBy,at,messageId,threadId,message.body,message.ref_id||'',message.reply_to_message_id||'',humanRole?'human_pending':'ana_draft',humanRole?0:1,thread.external_id||'',thread.last_inbound_at||0,kind,trigger,recipient).run();
+ SELECT ?,?,?,?,?,?,?,?,?,?,'claimed',? FROM messages m JOIN threads t ON t.id=m.thread_id WHERE m.id=? AND m.thread_id=? AND m.body=? AND COALESCE(m.ref_id,'')=? AND COALESCE(m.reply_to_message_id,'')=? AND m.sender_role=? AND m.ai_drafted=? AND m.direction='outbound' AND m.channel='instagram' AND m.sent_at IS NULL AND m.dismissed_at IS NULL AND t.audience='instagram' AND COALESCE(t.external_id,'')=? AND COALESCE(t.last_inbound_at,0)=? AND (?='comment' OR EXISTS (SELECT 1 FROM messages inbound WHERE inbound.id=? AND inbound.thread_id=m.thread_id AND inbound.direction='inbound' AND inbound.channel='instagram' AND inbound.sender_id=? AND inbound.created_at<=m.created_at)) AND (?=0 OR m.reply_to_message_id=(SELECT latest.id FROM messages latest WHERE latest.thread_id=m.thread_id AND latest.direction='inbound' AND latest.channel='instagram' ORDER BY latest.created_at DESC,latest.id DESC LIMIT 1)) AND NOT EXISTS (SELECT 1 FROM instagram_reply_attempts pending WHERE pending.thread_id=m.thread_id AND pending.state IN ('claimed','unknown'))
+ ON CONFLICT DO NOTHING`).bind(attemptId,messageId,threadId,kind,trigger,afterAttemptId,recipient,message.body,bodyHash,initiatedBy,at,messageId,threadId,message.body,message.ref_id||'',message.reply_to_message_id||'',humanRole?'human_pending':'ana_draft',humanRole?0:1,thread.external_id||'',thread.last_inbound_at||0,kind,trigger,recipient,humanRole?1:0).run();
  if(claim.meta?.changes!==1){const prior=await env.DB.prepare('SELECT * FROM instagram_reply_attempts WHERE kind=? AND trigger_id=? AND followup_of=?').bind(kind,trigger,afterAttemptId).first();return prior?(humanRole&&prior.message_id!==messageId?{...denied('reply_already_recorded'),previous_attempt_id:prior.id,state:prior.state}:view(prior)):denied('draft_changed');}
  attempt=await env.DB.prepare('SELECT * FROM instagram_reply_attempts WHERE id=?').bind(attemptId).first();if(!attempt)return denied('claim_not_verified');
  let outcome;try{outcome=provider?await provider({kind,thread,recipientId:recipient,text:message.body}):kind==='comment'?await replyToComment(env,{commentId:recipient,text:message.body}):await sendDirectMessage(env,{thread,recipientId:recipient,text:message.body});}catch{outcome={ok:false,delivery_uncertain:true};}
@@ -61,21 +61,23 @@ async function sendReply(env,{messageId,threadId,expectedBody,initiatedBy='owner
 }
 
 // Human Comms replies are a separate explicit intent, coordinated with the same inbound slot.
-export async function sendHumanInstagramReply(env,{threadId,body,requestId,afterAttemptId='',actorId,actorRole},provider){
+export async function sendHumanInstagramReply(env,{threadId,body,requestId,afterAttemptId='',expectedTriggerId,actorId,actorRole},provider){
  if(typeof requestId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(requestId)||!actorId)return denied('request_id_required');
+ if(typeof expectedTriggerId!=='string'||!expectedTriggerId||expectedTriggerId.length>200)return denied('expected_trigger_id_required');
  if(typeof body!=='string'||!body.trim()||body!==body.trim()||body.length>1000||typeof afterAttemptId!=='string'||afterAttemptId.length>100)return denied('invalid_reply');
  try{
  const mid='human_'+await hash(JSON.stringify([actorId,requestId.toLowerCase()]));
  let message=await env.DB.prepare('SELECT * FROM messages WHERE id=?').bind(mid).first();
- if(message&&(message.thread_id!==threadId||message.body!==body||message.sender_id!==actorId))return denied('request_key_conflict');
+ if(message&&(message.thread_id!==threadId||message.body!==body||message.sender_id!==actorId||(message.ref_id||message.reply_to_message_id)!==expectedTriggerId))return denied('request_key_conflict');
  if(!message){
   const thread=await env.DB.prepare("SELECT * FROM threads WHERE id=? AND audience='instagram'").bind(threadId).first();if(!thread)return denied('thread_unavailable');
   const inbound=await env.DB.prepare("SELECT id,ref_id,sender_id,created_at FROM messages WHERE thread_id=? AND direction='inbound' AND channel='instagram' ORDER BY created_at DESC,id DESC LIMIT 2").bind(threadId).all();
   const rows=inbound?.results;if(!Array.isArray(rows)||!rows.length||(rows.length>1&&rows[0].created_at===rows[1].created_at))return denied('inbound_trigger_unavailable');
   const last=rows[0],comment=thread.ref_type==='ig_media';if(comment?!last.ref_id:last.sender_id!==thread.external_id)return denied('inbound_trigger_unavailable');
+  if((comment?last.ref_id:last.id)!==expectedTriggerId)return denied('inbound_trigger_changed');
   await env.DB.prepare("INSERT INTO messages(id,thread_id,direction,channel,sender_id,sender_role,body,ai_drafted,created_at,ref_id,reply_to_message_id) VALUES (?,?,'outbound','instagram',?,'human_pending',?,0,?,?,?) ON CONFLICT(id) DO NOTHING").bind(mid,threadId,actorId,body,Date.now(),comment?last.ref_id:null,last.id).run();
   message=await env.DB.prepare('SELECT * FROM messages WHERE id=?').bind(mid).first();
-  if(!message||message.thread_id!==threadId||message.body!==body||message.sender_id!==actorId)return denied('request_key_conflict');
+  if(!message||message.thread_id!==threadId||message.body!==body||message.sender_id!==actorId||(message.ref_id||message.reply_to_message_id)!==expectedTriggerId)return denied('request_key_conflict');
  }
  const result=await sendReply(env,{messageId:mid,threadId,expectedBody:body,initiatedBy:actorId,humanRole:actorRole,afterAttemptId},provider);
  if(result.ok&&!result.replayed){

@@ -70,6 +70,7 @@
           <button class="btn ghost" id="chan-sms" type="button" data-i18n>SMS</button>
         </div>
         <p id="ig-reply-status" role="status" aria-live="polite" hidden></p>
+        <pre id="ig-unsent-copy" style="white-space:pre-wrap" hidden></pre>
         <button id="ig-followup" class="btn ghost" type="button" hidden>Write a deliberate Instagram follow-up</button>
         <textarea id="reply-body" maxlength="4000"></textarea>
         <button class="btn block gold" id="reply-send" type="button" style="margin-top:10px" data-i18n>Send</button>
@@ -99,7 +100,7 @@
   var channel = 'in_app';
   var pollT = 0;
   var currentThread = null;
-  var replyContext = null, igRequests = {}, igFollowups = {};
+  var replyContext = null, igRequests = {}, igFollowups = {}, igUnsent = {};
   var statusFilter = 'open'; // thread-list lifecycle filter: 'open' | 'closed'
 
   function refreshI18n() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
@@ -285,6 +286,7 @@
   function paintReplyControls() {
     var text=document.getElementById('reply-body'),send=document.getElementById('reply-send'),note=document.getElementById('ig-reply-status'),follow=document.getElementById('ig-followup');
     follow.hidden=true;
+    var preserved=document.getElementById('ig-unsent-copy');preserved.hidden=!igUnsent[currentThread];preserved.textContent=igUnsent[currentThread]?'Unsent reviewed text retained (not sent by this request):\n'+igUnsent[currentThread]:'';
     if(!replyContext){text.disabled=true;send.disabled=true;note.hidden=false;note.textContent='Reply context unavailable; sending is paused.';return;}
     var ig=replyContext.thread.audience==='instagram';note.hidden=!ig;text.maxLength=ig?1000:4000;
     document.getElementById('chan-inapp').style.display=ig?'none':'';
@@ -306,7 +308,7 @@
   }
   document.getElementById('ig-followup').addEventListener('click',function(){
     if(!replyContext||!replyContext.verified||replyContext.unresolved||igRequests[currentThread]||replyContext.latest?.state!=='sent')return;
-    igFollowups[currentThread]=replyContext.latest.attempt_id;document.getElementById('reply-body').value='';paintReplyControls();
+    igFollowups[currentThread]=replyContext.latest.attempt_id;document.getElementById('reply-body').value=igUnsent[currentThread]||'';paintReplyControls();
   });
   async function sendInstagramReply(tid) {
     if(!replyContext||!replyContext.verified||replyContext.unresolved)return;
@@ -317,19 +319,25 @@
     if(pending)body=pending.body;
     var destination=replyContext.thread.ref_type==='ig_media'?'PUBLIC Instagram comment reply':'Instagram direct message';
     if(!window.confirm((pending?'Check or retry the same reviewed request for ':'Send this exact text as a ')+destination+'?\n\n'+body))return;
-    if(!pending){pending={request_id:crypto.randomUUID(),body:body,after_attempt_id:igFollowups[tid]||null};igRequests[tid]=pending;}
+    if(!pending){pending={request_id:crypto.randomUUID(),body:body,expected_trigger_id:replyContext.trigger_id,after_attempt_id:igFollowups[tid]||null};igRequests[tid]=pending;}
     pending.busy=true;paintReplyControls();
-    var payload={thread_id:tid,channel:'instagram',body:pending.body,request_id:pending.request_id};
+    var payload={thread_id:tid,channel:'instagram',body:pending.body,request_id:pending.request_id,expected_trigger_id:pending.expected_trigger_id};
     if(pending.after_attempt_id)payload.after_attempt_id=pending.after_attempt_id;
     try {
       var result=await Hub.api('/api/hub/comms/messages',{method:'POST',body:payload});
       if(result && result.ok && result.sent===true && result.state==='sent' && result.attempt_id){
-        delete igRequests[tid];delete igFollowups[tid];
+        delete igRequests[tid];delete igFollowups[tid];delete igUnsent[tid];
         if(currentThread===tid){document.getElementById('reply-body').value='';replyContext.latest=result;replyContext.unresolved=false;Hub.toast('Instagram provider acceptance recorded. Delivery and read status are not verified.');paintReplyControls();loadMessages(tid,false);}
       }else{
         if(result && result.attempt_id)pending.attempt_id=result.attempt_id;
+        pending.terminal_failed=!!(result && result.ok===false && result.sent===false && result.state==='failed' && result.attempt_id);
         pending.blocked=!!(result && (result.state==='claimed'||result.state==='unknown'||result.state==='failed'));
         pending.note=result?String(result.error||'Reply outcome not verified')+'. No new send is enabled.':'Reply outcome not verified. No new send is enabled.';
+        if(result && result.ok===false && result.sent===false && !result.attempt_id && !result._networkError){
+          if(result.error==='reply_already_recorded' && result.state==='sent' && typeof result.previous_attempt_id==='string' && result.previous_attempt_id){pending.rejected_predecessor=result.previous_attempt_id;pending.blocked=true;}
+          if(result.error==='inbound_trigger_changed'){pending.rejected_trigger=true;pending.blocked=true;}
+          if((pending.rejected_predecessor||pending.rejected_trigger)&&currentThread===tid)loadMessages(tid,false);
+        }
       }
     }catch(_){pending.note='Network outcome unknown. Check or retry only this exact request.';}
     finally{pending.busy=false;if(currentThread===tid)paintReplyControls();}
@@ -351,16 +359,23 @@
       }
       var t = d.thread || {};
       var history=Array.isArray(d.reply_attempt_history)?d.reply_attempt_history:[];
-      replyContext={thread:t,verified:t.audience!=='instagram'||d.reply_attempt_status==='ok'&&Array.isArray(d.reply_attempt_history)&&typeof d.reply_attempt_unresolved==='boolean',unresolved:d.reply_attempt_unresolved===true,latest:history[0]||null};
+      replyContext={thread:t,verified:t.audience!=='instagram'||d.reply_attempt_status==='ok'&&Array.isArray(d.reply_attempt_history)&&typeof d.reply_attempt_unresolved==='boolean'&&d.reply_current_trigger?.status==='available'&&typeof d.reply_current_trigger.trigger_id==='string'&&!!d.reply_current_trigger.trigger_id,unresolved:d.reply_attempt_unresolved===true,latest:d.reply_current_trigger?.latest_attempt||null,trigger_id:d.reply_current_trigger?.trigger_id||null};
       var local=igRequests[tid];
-      if(local && local.attempt_id && history.some(function(a){return a.attempt_id===local.attempt_id&&a.state==='sent';})) {delete igRequests[tid];delete igFollowups[tid];document.getElementById('reply-body').value='';}
+      if(local && replyContext.verified && !replyContext.unresolved && (
+        local.rejected_predecessor && local.expected_trigger_id===replyContext.trigger_id && history.some(function(a){return a.attempt_id===local.rejected_predecessor&&a.state==='sent';}) ||
+        local.rejected_trigger && replyContext.trigger_id && local.expected_trigger_id!==replyContext.trigger_id)){
+        igUnsent[tid]=local.body;document.getElementById('reply-body').value=local.body;delete igRequests[tid];delete igFollowups[tid];local=null;
+        Hub.toast('No new reply was sent by your request. Your text is retained; review a new request separately.');
+      }
+      if(local && local.terminal_failed===true && replyContext.verified && replyContext.trigger_id && local.expected_trigger_id!==replyContext.trigger_id){delete igRequests[tid];delete igFollowups[tid];local=null;}
+      if(local && local.attempt_id && history.some(function(a){return a.attempt_id===local.attempt_id&&a.state==='sent';})) {delete igRequests[tid];delete igFollowups[tid];delete igUnsent[tid];document.getElementById('reply-body').value='';}
       paintReplyControls();
       document.getElementById('thread-head').innerHTML =
         '<div class="row"><div class="row-main"><div class="row-title">' + Hub.esc(t.counterparty_name || 'Conversation') + '</div>' +
         '<div class="row-sub">' + Hub.esc(t.subject || '') + '</div></div>' +
         '<span class="badge ' + badgeKind(t.audience) + '" data-i18n>' + Hub.esc(t.audience || '') + '</span></div>';
       var smsBtn = document.getElementById('chan-sms');
-      smsBtn.style.display = t.can_sms ? '' : 'none';
+      smsBtn.style.display = t.can_sms && t.audience!=='instagram' ? '' : 'none';
       if (!t.can_sms && channel === 'sms') setChannel('in_app');
       renderThreadActions(tid, t.status);
       if (!d.items.length) {

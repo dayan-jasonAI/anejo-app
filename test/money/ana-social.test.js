@@ -56,7 +56,7 @@ test('escalations still send NOTHING — the carve-out survived automation', () 
   }
 });
 
-test('a special request sends the holding reply AND alerts the kitchen+owner', () => {
+test('a special request prepares a holding reply and alerts the kitchen+owner', () => {
   assert.match(TICK, /specialAlert/);
   // alert_type, not type: raiseAlert reads opts.alert_type and silently returns {ok:false}
   // otherwise. This alert no-op'd from the day it was written — pin the working spelling.
@@ -186,16 +186,19 @@ test('[SPECIAL] actually lands an alerts ROW, at a severity raiseAlert recognise
     assert.equal(state.alertInserts.length, 1, 'raiseAlert reached the INSERT');
     // Column order comes from the INSERT in _lib/alerts.js:
     //   id, alert_type, severity, title, body, team, ref_type, ref_id, source, dedupe_key, created, updated
-    const [, alertType, severity, title, , team, , , , dedupe] = state.alertInserts[0];
+    const [, alertType, severity, title, alertBody, team, , , , dedupe] = state.alertInserts[0];
     assert.equal(alertType, 'special_request');
     assert.ok(ALERT_SEVERITIES.includes(severity), `severity ${severity} is on raiseAlert's scale`);
     assert.notEqual(severity, 'critical', 'one order needing a human must not turn the dashboard red');
     assert.equal(team, 'kitchen', 'routed to the people who have to actually check');
     assert.match(String(title), /special request/i);
+    assert.match(String(alertBody), /prepared a holding reply/);
+    assert.match(String(alertBody), /customer delivery is not verified/);
+    assert.doesNotMatch(String(alertBody), /told them|already sent/);
     assert.match(String(dedupe), /^special:/, 'deduped per thread per day, not once per tick');
     assert.deepEqual(warnings.filter((w) => /unknown severity/.test(w)), [], 'the caller passed a severity raiseAlert knows');
 
-    // The holding reply still went out as a draft, with the tag stripped.
+    // The holding reply was saved as a draft, with the tag stripped; no send is proved.
     const drafts = state.messageInserts.filter((m) => m.sql.includes("'ana_draft'"));
     assert.equal(drafts.length, 1);
     assert.ok(!drafts[0].args.some((a) => String(a).includes('[SPECIAL]')), 'the tag never reaches the customer');
