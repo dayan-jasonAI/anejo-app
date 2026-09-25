@@ -12,3 +12,22 @@ test('exact v8 personal and gather format-only conclusions are rejected in v9',(
 test('known claims cannot be omitted, duplicated, shortened, or asserted without authority',()=>{const c=ctx('personal');for(const mutate of [d=>d.product_evidence.claims.pop(),d=>d.product_evidence.claims.push(d.product_evidence.claims[0]),d=>d.product_evidence.claims[1].quote='Hawaiian roll',d=>d.observations.find(o=>o.criterion_id==='product_fidelity').status='met']){const d=claimed(c);mutate(d);assert.equal(validateVisualAudit(d,c).available,false);}const r=validateVisualAudit(claimed(c),c);assert.equal(r.available,true);assert.equal(r.complete,false);assert.equal(r.score,null);});
 test('all v9 claims require strict authority fields and actual supplied source substring',()=>{const c=ctx('personal');const d=claimed(c);for(const claim of d.product_evidence.claims){claim.authority_source='owner';claim.authority_quote='Owner rule.';}assert.equal(validateVisualAudit(d,c).available,true);d.product_evidence.claims[0].authority_quote='Invented authority';assert.equal(validateVisualAudit(d,c).diagnostic.issue,'claim_authority_unmatched');delete d.product_evidence.claims[0].claim_id;assert.equal(validateVisualAudit(d,c).diagnostic.issue,'invalid_claim');});
 test('generic imagery remains scoped and output budget is finite',()=>{assert.equal(validateVisualAudit(answer(),ctx('choice')).verdict,'pass');assert.equal(visualAuditOutputBudget(images('gather')),6144);assert.equal(visualAuditOutputBudget([]),4096);assert.equal(visualAuditOutputBudget(Array(100).fill(images('gather')[1])),12288);});
+
+test('authority IDs resolve supplied text and preserve multiple citations without changing verdict',()=>{
+ const c=ctx('personal'),d=claimed(c);
+ for(const claim of d.product_evidence.claims){delete claim.authority_source;delete claim.authority_quote;claim.authority_refs=['menu:0','training:0'];}
+ const r=validateVisualAudit(d,c);
+ assert.equal(r.available,true);assert.equal(r.score,null);
+ assert.deepEqual(r.product_evidence.claims[0].authority_citations.map(x=>x.quote),['Menu evidence.','Owner rule.']);
+ d.product_evidence.claims[0].authority_refs=['menu:999'];
+ assert.equal(validateVisualAudit(d,c).diagnostic.issue,'unknown_authority_ref');
+});
+test('empty reference requires unknown and mixed transport fields cannot evade validation',()=>{
+ const c=ctx('personal'),d=claimed(c);
+ for(const claim of d.product_evidence.claims){delete claim.authority_source;delete claim.authority_quote;claim.authority_refs=[];}
+ assert.equal(validateVisualAudit(d,c).available,true);
+ d.observations.find(o=>o.criterion_id==='product_fidelity').status='met';
+ assert.equal(validateVisualAudit(d,c).diagnostic.issue,'claim_requires_unknown');
+ d.product_evidence.claims[0].authority_quote='injected';
+ assert.equal(validateVisualAudit(d,c).diagnostic.issue,'invalid_claim');
+});
