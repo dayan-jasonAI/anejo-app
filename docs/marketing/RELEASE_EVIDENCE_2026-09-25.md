@@ -80,3 +80,12 @@ Remaining: deterministic source facts must constrain auditor explanations/sugges
 - Current D1 readback: all5trust lanes approved_clean0,auto_publish0. No public post/schedule/customer communication/credential change. This private audit uses the app's existing metered AI path; no claim of zero provider cost.
 - Runtime checks now reject byte changes during auditing and reverify receipts at automatic publish/clean trust decisions. These are point-in-time checks, not atomic R2/SQL immutability. Source records are retained on provider failure. The reviewed registry covers26revision3exports; arbitrary future template outputs still need a durable receipt path.
 - Next: resolve product-claim scope through structured evidence rather than repeated retries, evaluate personal/gather once changes warrant it, and implement future-template receipts with honest client-declaration versus trusted-render distinction. Full marketing/Google/Ana/voice scope remains open in execution plan and ledger.
+
+
+## PR133 release checkpoint
+
+PR133 merged as e963de7b87d38c0301b85c1a46bb94d2b5b862bc after all required PR checks passed (GitHub run36187497962 and Cloudflare preview175bf29e-ce3e-4ee9-aeda-75064ef6a3ed). Final retry toast correction7c34d29 reports current scheduled status instead of claiming every idempotent readback became a draft;34focused tests passed after that correction.
+
+Applied ONLY additive migration0131 through `npx wrangler d1 execute anejo --remote --file migrations/0131_marketing_render_receipts.sql`: two queries succeeded, bookmark00000656-000006e8-000050f1-c6d5f24b31d55839e1ed23f4c313c18c. Separate SELECT confirmed marketing_render_receipts exists with zero records. No original media or posts changed by migration.
+
+Branch fast-forwarded to merged main and pushed. Exact merge deployment and main CI were in progress at this checkpoint (run36187733824; Cloudflare check8d5a8141-727d-4c49-b766-1c39dec7f0f0). Live v7 semantic audit and private branded-save acceptance remain unverified. No public post, customer communication, credential change or trust enablement performed. Goal remains active.
