@@ -1,0 +1,12 @@
+[
+  {
+    "id": "sp_58424887f40e1a1b611f",
+    "status": "published",
+    "rubric_version": "anejo-visual-10",
+    "audit_diagnostic": {
+      "reason": "invalid_rubric_response",
+      "field": "product_evidence",
+      "issue": "claim_requires_unknown"
+    }
+  }
+]
