@@ -269,7 +269,7 @@ test('training is wired with an explicit, budget-capped call — source pin', ()
 
 const visualAnswer = (defect = null) => ({ rubric_version: VERSION, product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]}, observations: CRITERIA.map(c => ({
  criterion_id: c.id, status: defect && c.id === 'readability' ? 'violated' : 'met',
- caption_line: 0, slides: [1], explanation: defect && c.id === 'readability' ? defect : 'Visible evidence satisfies the criterion.'
+ evidence_anchor: 'slide:1', caption_line: 0, slides: [1], explanation: defect && c.id === 'readability' ? defect : 'Visible evidence satisfies the criterion.'
 })), suggestions: [] });
 
 test('visual audit sends ordered actual JPEG blocks and flags observed visual faults',async()=>{

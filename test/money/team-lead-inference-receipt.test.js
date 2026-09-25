@@ -41,7 +41,7 @@ test('Team Lead persists identical transmitted bytes before pending response and
   assert.equal(components.brand.documents[0].updated_at, 1);
   assert.equal(components.training.rules[0].updated_at, 1);
   assert.match(JSON.parse(sent).system, /Use the real emblem/);
-  assert.match(JSON.parse(sent).system, /\[id: brief1\]/);
+  assert.match(JSON.parse(sent).system, /\[brief_id: brief1\]/);
   assert.equal(components.briefs.documents.find(d => d.id === 'brief1').updated_at, 1);
   assert.doesNotMatch(JSON.parse(sent).system, /Changed AFTER|Changed rule AFTER/);
   assert.equal(row.transport_status, 'unknown');

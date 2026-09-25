@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { CRITERIA, VERSION } from '../../functions/_lib/visual_audit_rubric.js';
 import { ownerEnv } from '../helpers/sqlite-d1.js';
 import { auditDraft as actualAuditDraft } from '../../functions/_lib/governance.js';
-const answer=()=>({rubric_version:VERSION,product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]},observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_line:0,slides:[1],explanation:'The visible result meets this criterion.'})),suggestions:[]});
+const answer=()=>({rubric_version:VERSION,product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]},observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',evidence_anchor:'slide:1',caption_line:0,slides:[1],explanation:'The visible result meets this criterion.'})),suggestions:[]});
 test('visual candidate sends rubric and retained coverage, no image persistence',async()=>{
  const env=ownerEnv({ANTHROPIC_API_KEY:'test'});const original=globalThis.fetch;let body;
  globalThis.fetch=async(_,init)=>{body=JSON.parse(init.body);return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(answer())}]})};};
@@ -55,11 +55,11 @@ test('rejected criterion retains bounded diagnostic without response body or ima
 
 test('actual visual request numbers publication JPEGs first and reference PNG last, never as cover',async()=>{
  const env=ownerEnv({ANTHROPIC_API_KEY:'test'});const original=globalThis.fetch;let request;
- globalThis.fetch=async(_,options)=>{request=JSON.parse(options.body);return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({rubric_version:VERSION,product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]},observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_line:0,slides:[1],explanation:'Test fixture evidence'})),suggestions:[]})}]})};};
+ globalThis.fetch=async(_,options)=>{request=JSON.parse(options.body);return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({rubric_version:VERSION,product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]},observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',evidence_anchor:'slide:1',caption_line:0,slides:[1],explanation:'Test fixture evidence'})),suggestions:[]})}]})};};
  try{await auditDraft(env,{caption:'Menu',images:['cover','cajitas','tray','bites','combo','cta'].map(data=>({data}))});
  const content=request.messages[0].content;const pictures=content.filter(c=>c.type==='image');assert.deepEqual(pictures.slice(0,6).map(c=>c.source.data),['cover','cajitas','tray','bites','combo','cta']);assert.equal(pictures[6].source.media_type,'image/png');assert.equal(pictures.length,7);
  for(let i=0;i<6;i++){assert.match(content[1+2*i].text,new RegExp('^Slide '+(i+1)));assert.equal(content[2+2*i].source.data,pictures[i].source.data);}
- assert.match(content[1].text,/COVER/);assert.match(content[13].text,/END OF NUMBERED CAROUSEL/);assert.match(content[13].text,/excluded from slide count/);assert.equal(content[14].source.media_type,'image/png');assert.deepEqual(request.output_config.format.schema.properties.observations.items.properties.slides.items.enum,[1,2,3,4,5,6]);assert.equal(VERSION,'anejo-visual-7');
+ assert.match(content[1].text,/COVER/);assert.match(content[13].text,/END OF NUMBERED CAROUSEL/);assert.match(content[13].text,/excluded from slide count/);assert.equal(content[14].source.media_type,'image/png');assert.deepEqual(request.output_config.format.schema.properties.observations.items.properties.slides.items.enum,[1,2,3,4,5,6]);assert.equal(VERSION,'anejo-visual-8');
  }finally{globalThis.fetch=original;}
 });
 

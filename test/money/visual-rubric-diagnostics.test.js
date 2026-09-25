@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {VERSION,CRITERIA,validateVisualAudit,visualAuditFormat,rubricPrompt} from '../../functions/_lib/visual_audit_rubric.js';
 const ctx={caption:'Catering',slideCount:1,brandText:'Brand',brandReceipt:{read_status:'ok'},trainingReceipt:{read_status:'empty'},emblemReference:{verified:true,purpose:'visual_consistency_only'}};
-const valid=()=>({rubric_version:VERSION,product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]},observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_line:0,slides:[1],explanation:'Visible evidence.'})),suggestions:[]});
+const valid=()=>({rubric_version:VERSION,product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]},observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',evidence_anchor:'slide:1',caption_line:0,slides:[1],explanation:'Visible evidence.'})),suggestions:[]});
 const cases=[
  ['null',()=>null,{field:'response',issue:'not_object',type:'null'}],
  ['array',()=>[],{field:'response',issue:'not_object',type:'array'}],
@@ -29,9 +29,9 @@ test('valid maximum suggestions remain intact; schema instructions mirror mandat
 });
 
 test('missing artifact evidence identifies rejected criterion without accepting or leaking text',()=>{
- const d=valid();const o=d.observations.find(o=>o.criterion_id==='product_fidelity');o.slides=[];o.explanation='private model text';
+ const d=valid();const o=d.observations.find(o=>o.criterion_id==='product_fidelity');o.slides=[];o.evidence_anchor='unavailable';o.explanation='private model text';
  const r=validateVisualAudit(d,ctx);assert.equal(r.available,false);assert.equal(r.score,null);
- assert.deepEqual(r.diagnostic,{reason:'missing_artifact_evidence',criterion_id:'product_fidelity',status:'met',field:'caption_line/slides',issue:'both_empty'});
+ assert.deepEqual(r.diagnostic,{reason:'invalid_evidence',criterion_id:'product_fidelity',field:'evidence_anchor',issue:'unsupported_reference'});
  assert.doesNotMatch(JSON.stringify(r.diagnostic),/private model text/);
  assert.match(visualAuditFormat('Catering',1).schema.properties.observations.items.properties.slides.description,/nonempty slides/);
  assert.match(rubricPrompt(),/Empty claims does NOT mean empty observation evidence/);
