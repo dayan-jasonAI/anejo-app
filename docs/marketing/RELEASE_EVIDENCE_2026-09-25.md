@@ -96,3 +96,10 @@ Branch fast-forwarded to merged main and pushed. Exact merge deployment and main
 Cloudflare exact-merge check completed successfully; provider production list identifies8d5a8141-727d-4c49-b766-1c39dec7f0f0/sourcee963de7. Supported Chrome reload marked earlier reviews historical. One controlled review of choice/sp_0a39246ba48d6453af3f returned unavailable: missing_artifact_evidence. D1 readback in AUDIT_V7_READBACK_2026-09-25.json confirms v7, null score, published status preserved. This is a rejected model response, not a verified design defect or semantic acceptance. No repeated provider attempts.
 
 Root inspected validator: missing-evidence rejection lacked criterion diagnostic; no-claim instructions also failed to explicitly require inspected-slide evidence for a met verdict. Local follow-up now preserves criterion/status/field without raw model text and makes that obligation explicit in schema and prompt.33focused tests passed (/tmp/anejo-v7-diagnostic-tests.log). This does not establish which criterion failed in the prior response, whose rejected body was not retained. Live acceptance and branded-save UI acceptance remain open.
+
+
+### Live reusable-template QA and transport correction
+
+Create library picker loaded24sharedphotos. Selected professional Lechon Asado PNG through Use JPEG copy, then saved private QA post sp_fb47a36be3fb7228387d; UI confirmed DRAFT, Not scheduled, one photo. Original remains untouched by selection/conversion flow. Reposado preview returned “Could not load the original photograph or emblem.” Source inspection shows introduced blob: transport is disallowed by public/_headers img-src policy; this is the identified likely cause, not yet browser-confirmed after repair.
+
+Changed preview to encode the same fetched/hash-checked bytes as a data: image, retaining existing CSP. Six executable preview tests passed, including byte equality and deployed-policy transport compatibility. Earlier full audit-followup suite passed2969 with lint0errors/11warnings and Functions build success; the later transport change needs full checks/deployment/live retest. Private QA draft has not been scheduled or published.

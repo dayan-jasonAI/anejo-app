@@ -1077,9 +1077,14 @@
           .then(function(response){if(!response.ok)throw new Error('Could not read the original photo');return response.blob();})
           .then(async function(blob){
             if(blob.size>5*1024*1024)throw new Error('Original photo exceeds the 5 MB preview limit');
-            sourceHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),function(b){return b.toString(16).padStart(2,'0');}).join('');
-            var sourceUrl=URL.createObjectURL(blob);
-            try{return await compositeBranding(sourceUrl,renderOptions);}finally{URL.revokeObjectURL(sourceUrl);}
+            var sourceBytes=new Uint8Array(await blob.arrayBuffer());
+            sourceHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',sourceBytes)),function(b){return b.toString(16).padStart(2,'0');}).join('');
+            // The deployed image policy permits data: but not blob:. Encode the same
+            // hashed bytes without widening that policy or refetching mutable media.
+            var sourceBinary='';
+            for(var sourceIndex=0;sourceIndex<sourceBytes.length;sourceIndex++)sourceBinary+=String.fromCharCode(sourceBytes[sourceIndex]);
+            var sourceUrl='data:'+blob.type+';base64,'+btoa(sourceBinary);
+            return await compositeBranding(sourceUrl,renderOptions);
           })
           .then(function (dataUrl) {
             btn.disabled = false; btn.textContent = 'Preview branded photo';
