@@ -28,6 +28,36 @@
     } else if(ui.kind==='brief_preview' && ui.saved===false) {
       paragraph(root,'Unsaved campaign idea — '+String(ui.title||'')); paragraph(root,String(ui.notes||''));
       paragraph(root,'Your supplied words only; no developed campaign brief or saved record.');
+      var requestId=null;
+      var save=button(root,'Save private draft idea',async function(){
+        if(save.disabled)return;
+        save.disabled=true;
+        try {
+          if(!requestId)requestId=crypto.randomUUID();
+          var response=await fetch('/api/hub/owner/operator-brief',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:requestId,topic:String(ui.notes||'')})});
+          var saved=await response.json();
+          if(!response.ok || !saved.ok || !saved.saved || !saved.brief || !saved.brief.id)throw new Error('save_unverified');
+          paragraph(root,'Saved owner-supplied draft idea · '+saved.brief.id+' · '+saved.brief.status+' · '+new Date(saved.brief.created_at).toISOString());
+          paragraph(root,'Your words were saved exactly. No strategy was generated or public action taken.');
+          save.textContent='Saved private idea';
+        } catch (_) {
+          paragraph(root,'Save not verified. Retry uses the same request key to avoid duplicates.');
+          save.disabled=false;
+        }
+      });
+    } else if(ui.kind==='saved_ideas') {
+      var read=button(root,'Load my saved campaign ideas',async function(){
+        if(read.disabled)return;
+        read.disabled=true;
+        try {
+          var response=await fetch('/api/hub/owner/operator-brief',{credentials:'same-origin',cache:'no-store'});
+          var result=await response.json();
+          if(!response.ok || !result.ok || !Array.isArray(result.ideas))throw new Error('read_unavailable');
+          paragraph(root,'Latest 20 private owner-supplied ideas. No generated strategy or activation.');
+          if(!result.ideas.length)paragraph(root,'No saved ideas returned.');
+          result.ideas.forEach(function(idea){paragraph(root,idea.title+' · '+idea.status+' · '+new Date(idea.created_at).toISOString());paragraph(root,idea.topic);});
+        } catch (_) {paragraph(root,'Saved ideas unavailable. Try again.');read.disabled=false;}
+      });
     } else if(ui.kind==='audit_status') {
       var s=result.audit;
       if(!s || !s.available) { paragraph(root,'Saved audit evidence unavailable. No audit was run.'); return; }

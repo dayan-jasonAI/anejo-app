@@ -106,3 +106,5 @@ The table below is preserved as the earlier September 17 inspection at local HEA
 
 - Final local run after reminder correction: 2,886 root tests pass, 23 Studio tests pass; root lint zero errors / 11 warnings. Logs `/tmp/anejo-resume-final-root.log`, `/tmp/anejo-resume-final-lint.log`. The reminder UI now labels manually recorded expiry without declaring an outage; no token or settings changes.
 - Supported Instagram profile inspection also lists all three carousel permalinks. Bio Links dialog contains Website (`/go`), Open for Orders (`/order`), Gym & Trainers Affiliate Program (`/go`), and Macros (`/calculator`); no direct link named Catering & Events. The `/go` destination still needs current navigation verification before calling the campaign CTA broken.
+
+- September25 shipped updates and fresh evidence are recorded in `RELEASE_EVIDENCE_2026-09-25.md`: PR127 auditor/reminder, PR128 catering conversion/attribution, guarded0129 applied and browser redirect verified. Public launch posts preserved. Operator private saved-idea workflow is the next local increment; strategy generation and full voice operations remain separate gaps.
