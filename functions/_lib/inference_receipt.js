@@ -8,7 +8,7 @@ export const INFERENCE_REQUEST_MAX_BYTES = 262144;
 export const INFERENCE_COMPONENTS_MAX_BYTES = 65536;
 const SURFACES = new Set(['team_lead', 'social_plan']);
 const COMPONENTS = new Set(['brand', 'training', 'menu', 'briefs', 'intel', 'knowledge', 'operations', 'performance', 'retrospective', 'history', 'product_lines', 'asset_registry']);
-const FIELDS = new Set(['schema', 'source', 'read_status', 'reads', 'rendered_sha256', 'original_chars', 'supplied_chars', 'truncated', 'rules', 'examples', 'documents', 'source_ids', 'id', 'updated_at', 'selection_limit', 'selection_may_be_limited', 'requested_sections', 'section_fallback', 'fallback_reason', 'asset_revision', 'content_sha256']);
+const FIELDS = new Set(['schema', 'source', 'read_status', 'reads', 'rendered_sha256', 'original_chars', 'supplied_chars', 'truncated', 'rules', 'examples', 'documents', 'source_ids', 'id', 'updated_at', 'selection_limit', 'selection_may_be_limited', 'requested_sections', 'strict_sections', 'section_fallback', 'fallback_reason', 'asset_revision', 'content_sha256']);
 const READ_STATES = new Set(['ok', 'empty', 'unavailable', 'partial', 'unknown', 'not_supplied']);
 const SENSITIVE_KEY = /authorization|cookie|password|secret|credential|api.?key|access.?token|refresh.?token|headers/i;
 const SENSITIVE_VALUE = /\b(?:sk-ant-|sk-proj-|sk_live_|sk_test_|Bearer\s+)[A-Za-z0-9_-]{8,}/i;
@@ -68,6 +68,7 @@ function validMetadata(value, depth = 0) {
   if (!plain(value)) return value === null || ['string', 'number', 'boolean'].includes(typeof value);
   return Object.entries(value).every(([key, v]) => {
     if (!FIELDS.has(key)) return false;
+    if (key === 'strict_sections' && typeof v !== 'boolean') return false;
     if (key === 'read_status' && !READ_STATES.has(v)) return false;
     if (key === 'rendered_sha256' && !/^[0-9a-f]{64}$/.test(v)) return false;
     if (key === 'reads') return plain(v) && Object.entries(v).every(([k, state]) => ['rules', 'examples'].includes(k) && READ_STATES.has(state));

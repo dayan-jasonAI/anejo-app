@@ -114,12 +114,13 @@ export function onlySections(body, numbers) {
  * No role_scope filter: every caller of this function is an internal AI surface reasoning about
  * the owner's own brand, not a staff-facing view that needs to hide anything.
  */
-export async function loadBrand(env, { maxChars = 32000, sections = null } = {}) {
-  // Narrow the document to the caller's sections, if it asked for any. An empty result means the
-  // numbering moved, so the caller gets the whole brief rather than a confidently empty one.
+export async function loadBrand(env, { maxChars = 32000, sections = null, strictSections = false } = {}) {
+  // Internal readers may retain full-brief fallback when numbering changes. Customer-facing
+  // readers require strict selection: unmatched live documents are omitted and the same
+  // selection is applied to the compiled fallback. Never widen their audience implicitly.
   const narrow = (body) => {
     if (!sections) return body;
-    return onlySections(body, sections) || body;
+    return onlySections(body, sections) || (strictSections ? '' : body);
   };
 
   maxChars = Number.isFinite(maxChars) ? Math.max(0, Math.floor(maxChars)) : 32000;
@@ -149,7 +150,7 @@ export async function loadBrand(env, { maxChars = 32000, sections = null } = {})
     documents: supplied,
     rendered_sha256: Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join(''),
     original_chars: sourceText.length, supplied_chars: text.length, truncated: text.length < sourceText.length,
-    requested_sections: sections, selection_limit: 10, selection_may_be_limited: read.rows.length >= 10,
+    requested_sections: sections, strict_sections: strictSections, selection_limit: 10, selection_may_be_limited: read.rows.length >= 10,
     section_fallback: source === 'repo' ? !!sections && !onlySections(BRAND_CONTEXT, sections) : supplied.some(d => d.section_fallback),
   } };
 }

@@ -216,20 +216,23 @@ export async function retrieve(env, question, { topK = 8, minScore = 0.35 } = {}
   let byId = {};
   try {
     const r = await env.DB.prepare(
-      `SELECT id, text, heading, page, doc_id FROM kb_chunks WHERE id IN (${ids.map(() => '?').join(',')})`
+      `SELECT c.id, c.text, c.heading, c.page, c.doc_id, d.title, d.authority, d.status AS document_status
+         FROM kb_chunks c JOIN kb_documents d ON d.id = c.doc_id
+        WHERE c.id IN (${ids.map(() => '?').join(',')})
+          AND c.embedded = 1 AND d.active = 1 AND d.status IN ('ready', 'partial')`
     ).bind(...ids).all();
     for (const row of (r && r.results) || []) byId[row.id] = row;
   } catch { byId = {}; }
 
   return good.map((m) => {
     const row = byId[m.id] || {};
-    const md = m.metadata || {};
     return {
       text: row.text || '',
-      title: md.title || '',
-      heading: row.heading || md.heading || '',
-      page: row.page || (md.page || 0) || null,
-      authority: md.authority || 'internal',
+      title: row.title || '',
+      heading: row.heading || '',
+      page: row.page ?? null,
+      authority: row.authority === 'regulatory' ? 'regulatory' : 'internal',
+      document_status: row.document_status,
       score: m.score,
     };
   }).filter((x) => x.text);
@@ -246,7 +249,7 @@ export function formatPassages(passages, budget = 12000) {
   let used = 0;
   for (const p of passages) {
     const cite = [p.title, p.heading, p.page ? `p.${p.page}` : ''].filter(Boolean).join(' · ');
-    const block = `[${cite || 'Añejo document'}]${p.authority === 'regulatory' ? ' (REGULATORY)' : ''}\n${p.text}`;
+    const block = `[${cite || 'Añejo document'}]${p.authority === 'regulatory' ? ' (REGULATORY)' : ''}${p.document_status === 'partial' ? ' (PARTIALLY INDEXED: other passages may be unavailable)' : ''}\n${p.text}`;
     if (used + block.length > budget) break;
     out.push(block);
     used += block.length;

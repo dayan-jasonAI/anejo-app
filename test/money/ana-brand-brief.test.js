@@ -72,14 +72,28 @@ test('she gets the five sections that constrain her — and is not charged for t
   assert.doesNotMatch(slice, /UNAPPROVED/, 'and an unnumbered proposal can never match a numbered selector');
 });
 
-test('a renumbered brief gives her the WHOLE document, never an empty one', async () => {
-  // The failure that matters: someone renumbers the brief, the selector matches nothing, and a
-  // customer-facing agent quietly loses its allergen rules. Falling back to everything is the only
-  // safe direction to fail in.
-  const renumbered = '## A. Who we are\nStill the brand.\n\n## B. Allergens\nStill the rules.';
+test('internal readers retain full-document fallback, but Ana never receives unselected text', async () => {
+  const renumbered = '## A. Who we are\nStill the brand.\n\n## B. Allergens\nStill the rules.\n\n## Internal\nPRIVATE OPERATIONS NOTE';
   const b = await loadBrand(envWith(renumbered), { maxChars: 8000, sections: CUSTOMER_FACING_SECTIONS });
-  assert.match(b.text, /Still the rules/, 'the allergen rules must survive a renumbering');
+  assert.match(b.text, /Still the rules/);
   assert.equal(b.source, 'd1');
+  const publicBrand = await anaBrand(envWith(renumbered));
+  assert.doesNotMatch(publicBrand, /PRIVATE OPERATIONS NOTE|Still the rules/);
+  assert.match(publicBrand, /Allergen discipline is non-negotiable/, 'compiled selected safety guidance remains available');
+  const strict = await loadBrand(envWith(renumbered), { sections: CUSTOMER_FACING_SECTIONS, strictSections: true });
+  assert.equal(strict.source, 'repo');
+  assert.equal(strict.receipt.strict_sections, true);
+  assert.deepEqual(strict.receipt.documents, [], 'excluded live rows must not be credited as supplied');
+});
+
+test('Ana combines only selected sections when live brand documents have mixed formats', async () => {
+  const env = { DB: stubDb([
+    { id: 'selected', body: BRIEF },
+    { id: 'internal', body: '## Operations\nPRIVATE COST AND STAFF NOTES' },
+  ]) };
+  const brand = await anaBrand(env);
+  assert.match(brand, /Warm, unhurried/);
+  assert.doesNotMatch(brand, /PRIVATE COST|STALE PRICE|PLATING GEOMETRY|UNAPPROVED/);
 });
 
 test('with no brand doc at all she still gets the compiled brief, sliced the same way', async () => {

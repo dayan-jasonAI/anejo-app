@@ -75,3 +75,15 @@ test('migration protects surface and request sizes even against direct invalid i
   const DB = makeSqliteD1(); t.after(() => DB.sqlite.close());
   assert.throws(() => DB.sqlite.prepare("INSERT INTO inference_receipts (id,surface,model,request_json,request_sha256,components_json,created_at) VALUES ('x','unknown','m','{}',?,'{}',1)").run('a'.repeat(64)), /CHECK/);
 });
+
+test('strict brand section selection is retained as boolean receipt evidence', async t => {
+  const DB = makeSqliteD1(); t.after(() => DB.sqlite.close());
+  for (const strict_sections of [true, false]) {
+    const r = await persistInferenceReceipt({ DB }, { ...args, components: { brand: { strict_sections } } });
+    assert.equal(r.persisted, true);
+    const row = DB.one('SELECT components_json FROM inference_receipts WHERE id=?', r.receipt_id);
+    assert.equal(JSON.parse(row.components_json).brand.strict_sections, strict_sections);
+  }
+  const invalid = await persistInferenceReceipt({ DB }, { ...args, components: { brand: { strict_sections: 'true' } } });
+  assert.equal(invalid.persisted, false);
+});
