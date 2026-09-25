@@ -36,6 +36,7 @@ export const onRequestGet = async ({ request, env }) => {
 
   return json({
     ok: true,
+    can_manage_customer_context: ctx.role === 'owner',
     rules,
     examples: examples.map((e) => ({ ...e, url: `/api/hub/media/${e.media_key}` })),
     // The literal text a planner gets right now, plus whether the library has outgrown the
@@ -56,6 +57,27 @@ export const onRequestPost = async ({ request, env }) => {
   const op = b && b.op;
   const who = ctx.email || ctx.distinct_id || null;
 
+  if (op === 'set_customer_eligibility') {
+    if (ctx.role !== 'owner') return bad('Forbidden for this role.', 403);
+    const ruleId = b?.id;
+    if (typeof ruleId !== 'string' || !ruleId.trim() || typeof b.customer_eligible !== 'boolean' ||
+        !Number.isSafeInteger(b.expected_updated_at) || b.expected_updated_at < 0) return bad('Valid id, customer_eligible, and expected_updated_at are required.');
+    const ts = Math.max(now(), b.expected_updated_at + 1);
+    const r = await env.DB.prepare(
+      `UPDATE training_rules SET customer_eligible = ?, customer_eligible_by = ?,
+         customer_eligible_at = ?, customer_eligible_source_updated_at = ?,
+         customer_context_decision_by = ?, customer_context_decision_at = ?, updated_at = ?
+       WHERE id = ? AND active = 1 AND updated_at = ? AND TRIM(text) <> ?`
+    ).bind(b.customer_eligible ? 1 : 0, b.customer_eligible ? ctx.distinct_id : null,
+      b.customer_eligible ? ts : null, b.customer_eligible ? b.expected_updated_at : null,
+      ctx.distinct_id, ts, ts, ruleId.trim(), b.expected_updated_at, '').run();
+    if (!r?.meta?.changes) {
+      const row = await env.DB.prepare('SELECT id FROM training_rules WHERE id = ? AND active = 1').bind(ruleId.trim()).first();
+      return bad(row ? 'Rule changed or has no saved text. Refresh and retry.' : 'Rule not found.', row ? 409 : 404);
+    }
+    return json({ ok: true, id: ruleId.trim(), customer_eligible: b.customer_eligible, updated_at: ts });
+  }
+
   // ---------- rules ----------
   if (op === 'add_rule') {
     const text = String((b && b.text) || '').trim().slice(0, MAX_RULE_CHARS);
@@ -75,8 +97,11 @@ export const onRequestPost = async ({ request, env }) => {
     if (!ruleId) return bad('id is required.');
     if (!text) return bad('Write the rule first.');
     const r = await env.DB.prepare(
-      'UPDATE training_rules SET text = ?, updated_at = ? WHERE id = ? AND active = 1'
-    ).bind(text, now(), ruleId).run();
+      `UPDATE training_rules SET text = ?, customer_eligible = 0, customer_eligible_by = NULL,
+        customer_eligible_at = NULL, customer_eligible_source_updated_at = NULL,
+        customer_context_decision_by = ?, customer_context_decision_at = MAX(updated_at + 1, ?),
+        updated_at = MAX(updated_at + 1, ?) WHERE id = ? AND active = 1`
+    ).bind(text, ctx.distinct_id, now(), now(), ruleId).run();
     if (!r || !r.meta || !r.meta.changes) return bad('Rule not found.', 404);
     return json({ ok: true, id: ruleId });
   }
@@ -84,7 +109,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (op === 'delete_rule') {
     const ruleId = String((b && b.id) || '').trim();
     if (!ruleId) return bad('id is required.');
-    await env.DB.prepare('UPDATE training_rules SET active = 0, updated_at = ? WHERE id = ?').bind(now(), ruleId).run();
+    await env.DB.prepare('UPDATE training_rules SET active = 0, customer_eligible = 0, customer_eligible_by = NULL, customer_eligible_at = NULL, customer_eligible_source_updated_at = NULL, customer_context_decision_by = ?, customer_context_decision_at = MAX(updated_at + 1, ?), updated_at = MAX(updated_at + 1, ?) WHERE id = ?').bind(ctx.distinct_id, now(), now(), ruleId).run();
     return json({ ok: true, deleted: ruleId });
   }
 

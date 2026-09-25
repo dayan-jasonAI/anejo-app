@@ -466,11 +466,17 @@
   var editingRule = null;   // rule id currently in edit mode, or null
   var pendingKey = null;    // media_key of the last uploaded, not-yet-saved example photo
   var pendingFlag = 'good';
+  var eligibilityNotice = '';
 
   function root() { return document.getElementById('training-root'); }
+  function findByData(container, attribute, value) {
+    var nodes = container.querySelectorAll('[' + attribute + ']');
+    for (var i = 0; i < nodes.length; i++) if (nodes[i].getAttribute(attribute) === String(value)) return nodes[i];
+    return null;
+  }
 
   function load() {
-    Owner.get('/api/hub/owner/team-training').then(render);
+    return Owner.get('/api/hub/owner/team-training').then(render);
   }
 
   function render(d) {
@@ -499,6 +505,7 @@
     if (d.preview && d.preview.selection_may_be_limited && (d.preview.selection_may_be_limited.rules || d.preview.selection_may_be_limited.examples)) previewBox += '<div class="tt-warn">Source selection reached its 500-row limit; older rows may be omitted.</div>';
 
     root().innerHTML =
+      (eligibilityNotice ? '<div class="tt-warn" role="alert">' + esc(eligibilityNotice) + '</div>' : '') +
       '<p class="sub" data-i18n>Teach the marketing team without touching a file or a deploy. Write plain-language rules and mark up photo examples — the Lead and planner use a shared 16,000-character training cap. Other tools may use different context limits.</p>' +
 
       '<section class="card">' +
@@ -509,12 +516,12 @@
 
       '<section class="card">' +
         '<h2 data-i18n>Rules</h2>' +
-        '<p class="tt-meta" data-i18n>Plain language. e.g. "Always show food in the first slide" or "Never use stock-looking plates."</p>' +
+        '<p class="tt-meta" data-i18n>Plain language. e.g. "Always show food in the first slide" or "Never use stock-looking plates." Rules stay internal unless you explicitly enable customer answer use below.</p>' +
         '<div id="ruleForm" style="margin-top:10px">' +
           '<textarea id="newRule" placeholder="Write a rule the team should always follow…" style="min-height:64px"></textarea>' +
           '<button id="addRule" class="btn primary" style="margin-top:8px" data-i18n>Add rule</button>' +
         '</div>' +
-        '<div id="ruleList" style="margin-top:6px">' + (d.rules.length ? d.rules.map(ruleRow).join('') : '<p class="tt-meta" data-i18n>No rules yet.</p>') + '</div>' +
+        '<div id="ruleList" style="margin-top:6px">' + (d.rules.length ? d.rules.map(function(r){ return ruleRow(r, d.can_manage_customer_context === true); }).join('') : '<p class="tt-meta" data-i18n>No rules yet.</p>') + '</div>' +
       '</section>' +
 
       '<section class="card">' +
@@ -545,15 +552,28 @@
     return r.created_by ? esc(r.created_by) : 'the owner';
   }
 
-  function ruleRow(r) {
+  function ruleRow(r, canManageCustomerContext) {
     if (editingRule === r.id) {
       return '<div class="tt-rule"><div class="tt-text">' +
         '<textarea id="editRuleText" style="min-height:64px">' + esc(r.text) + '</textarea>' +
+        '<div class="tt-meta">Saving text changes resets customer eligibility. Review the updated rule before enabling it again.</div>' +
         '<div class="tt-acts" style="margin-top:8px"><button data-save-rule="' + esc(r.id) + '">Save</button><button data-cancel-rule="1">Cancel</button></div>' +
         '</div></div>';
     }
+    var canToggle = canManageCustomerContext === true && Number.isFinite(Number(r.updated_at)) && r.active !== 0;
+    var checked = Number(r.customer_eligible) === 1;
     return '<div class="tt-rule"><div class="tt-text">' + esc(r.text) +
-      '<div class="tt-meta">by ' + who(r) + '</div></div>' +
+      '<div class="tt-meta">by ' + who(r) + '</div>' +
+      '<div class="tt-eligibility" style="margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px">' +
+      '<label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-rule-customer-toggle="' + esc(r.id) + '" ' +
+      (checked ? 'checked' : '') + (canToggle ? '' : ' disabled') + '> <span><strong>Use in Ana customer answers (website and Instagram)</strong><br>' +
+      'This makes the saved content available for answers; it does not send or publish anything.' +
+      (checked ? '<br><span class="tt-meta">Enabled for customer answer context</span>' : '<br><span class="tt-meta">Off — internal HUB guidance only</span>') +
+      '</span></label><button data-save-rule-customer="' + esc(r.id) + '" data-saved="' + (checked ? '1' : '0') + '"' +
+      ' disabled>Apply eligibility</button>' +
+      '<div class="tt-meta" data-rule-customer-error="' + esc(r.id) + '" role="alert"></div>' +
+      (!canToggle ? '<div class="tt-meta">Only an owner can enable an active saved rule with a current update timestamp.</div>' : '') +
+      '</div></div>' +
       '<div class="tt-acts"><button data-edit-rule="' + esc(r.id) + '">Edit</button><button class="del" data-del-rule="' + esc(r.id) + '">Remove</button></div>' +
       '</div>';
   }
@@ -627,6 +647,38 @@
       b.addEventListener('click', function () {
         if (!confirm('Remove this rule? The team will stop seeing it.')) return;
         post({ op: 'delete_rule', id: b.getAttribute('data-del-rule') }).then(load);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-rule-customer-toggle]'), function(input){
+      input.addEventListener('change', function(){
+        var button = findByData(root(), 'data-save-rule-customer', input.getAttribute('data-rule-customer-toggle'));
+        if (button) button.disabled = input.disabled || (input.checked ? '1' : '0') === button.getAttribute('data-saved');
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-save-rule-customer]'), function(button){
+      button.disabled = button.disabled || !d.can_manage_customer_context;
+      button.addEventListener('click', function(){
+        var ruleId = button.getAttribute('data-save-rule-customer');
+        var input = findByData(root(), 'data-rule-customer-toggle', ruleId);
+        var rule = d.rules.find(function(row){ return String(row.id) === String(ruleId); });
+        if (!input || !rule || button.disabled) return;
+        [button, input].forEach(function(el){ el.disabled = true; });
+        findByData(root(), 'data-rule-customer-error', ruleId).textContent = 'Saving…';
+        eligibilityNotice = '';
+        post({ op:'set_customer_eligibility', id:ruleId, customer_eligible:!!input.checked, expected_updated_at:Number(rule.updated_at) })
+          .then(function(result){
+            if (!result || !result.ok || result.error) {
+              eligibilityNotice = result && result._status === 409
+                ? (result.error || 'This rule changed since it loaded. The current rules were reloaded; review the current state before retrying.')
+                : ((result && result.error) || 'Could not save eligibility.');
+              return load();
+            }
+            eligibilityNotice = '';
+            return load();
+          }).catch(function(){
+            eligibilityNotice = 'Could not save eligibility because the request failed. The current rules were reloaded; review the current state before retrying.';
+            return load();
+          });
       });
     });
 

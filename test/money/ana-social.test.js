@@ -561,7 +561,7 @@ test('the training and KB injections are wired with an explicit budget — sourc
   const ANA4 = readFileSync(new URL('../../functions/_lib/ana_social.js', import.meta.url), 'utf8');
   assert.match(ANA4, /import \{ trainingContext \} from '\.\/training\.js'/);
   assert.match(ANA4, /import \{ retrieve, formatPassages \} from '\.\/knowledge\.js'/);
-  assert.match(ANA4, /trainingContext\(env, \{ maxChars: ANA_TRAINING_BUDGET \}\)/, 'an explicit, tighter budget than the Lead/planner (4000)');
-  assert.match(ANA4, /retrieve\(env, question, \{ topK: ANA_KB_TOPK \}\)/);
-  assert.match(ANA4, /const extra = await anaExtraContext\(env, msg\)/, 'draftReply must actually CALL it — an unused import is not wiring');
+  assert.match(ANA4, /trainingContext\(env, \{ maxChars: ANA_TRAINING_BUDGET, audience: 'customer' \}\)/, 'an explicit, tighter budget than the Lead/planner (4000)');
+  assert.match(ANA4, /retrieve\(env, question, \{ topK: ANA_KB_TOPK, audience: 'customer' \}\)/);
+  assert.match(ANA4, /const extra = await anaCustomerContext\(env, msg\)/, 'draftReply must actually CALL it — an unused import is not wiring');
 });

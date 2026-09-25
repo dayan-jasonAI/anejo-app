@@ -26,19 +26,22 @@ export const DEFAULT_MAX_CHARS = 16000; // shared Lead, planner and Teach previe
  * Returns { rules, examples } — plain rows, never throws (a DB hiccup must not crash whatever
  * planner is grounding on this; it reports unavailable source status, not a 500).
  */
-export async function loadTraining(env) {
+export async function loadTraining(env, { audience = 'internal' } = {}) {
+  if (audience !== 'internal' && audience !== 'customer') return { rules: [], examples: [], read_status: { rules: 'unavailable', examples: 'unavailable' } };
   if (!env || !env.DB) return { rules: [], examples: [], read_status: { rules: 'unavailable', examples: 'unavailable' } };
   let rules = [];
   let examples = [];
   const read_status = { rules: 'ok', examples: 'ok' };
   try {
     const r = await env.DB.prepare(
-      'SELECT id, text, created_by, created_at, updated_at FROM training_rules WHERE active = 1 ORDER BY updated_at DESC LIMIT 500'
+      audience === 'customer'
+        ? 'SELECT id, text, created_by, created_at, updated_at, customer_eligible, customer_eligible_by, customer_eligible_at, customer_eligible_source_updated_at FROM training_rules WHERE active = 1 AND customer_eligible = 1 ORDER BY updated_at DESC LIMIT 500'
+        : 'SELECT id, text, created_by, created_at, updated_at, customer_eligible, customer_eligible_by, customer_eligible_at, customer_eligible_source_updated_at FROM training_rules WHERE active = 1 ORDER BY updated_at DESC LIMIT 500'
     ).all();
     if (r?.success === false || !Array.isArray(r?.results)) throw new Error('Invalid training read');
     rules = r.results;
   } catch { rules = []; read_status.rules = 'unavailable'; }
-  try {
+  if (audience !== 'customer') try {
     const r = await env.DB.prepare(
       'SELECT id, media_key, note, flag, created_by, created_at, updated_at FROM training_examples WHERE active = 1 ORDER BY updated_at DESC LIMIT 500'
     ).all();
@@ -162,13 +165,13 @@ export async function trainingContext(env, options = {}) {
 
 // Metadata is derived from the same loaded rows and formatter result as the supplied text.
 // No second query and no attribution to rows discarded by whitespace filtering or truncation.
-export async function trainingContextReceipt(env, { maxChars = DEFAULT_MAX_CHARS } = {}) {
-  const loaded = await loadTraining(env);
+export async function trainingContextReceipt(env, { maxChars = DEFAULT_MAX_CHARS, audience = 'internal' } = {}) {
+  const loaded = await loadTraining(env, { audience });
   const formatted = formatTraining(loaded, maxChars);
   const retainedRules = loaded.rules.filter(ruleLine).slice(0, formatted.ruleCount);
   const retainedExamples = loaded.examples.filter(exampleLine).slice(0, formatted.exampleCount);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(formatted.text));
-  const state = Object.values(loaded.read_status);
+  const state = audience === 'customer' ? [loaded.read_status.rules] : Object.values(loaded.read_status);
   return {
     ...formatted,
     receipt: {

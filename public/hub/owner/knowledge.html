@@ -21,6 +21,10 @@
   .kb-hit { border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:10px 12px; margin:8px 0; font-size:13px; line-height:1.55; }
   .kb-cite { font-size:11px; color:#C6A85B; letter-spacing:.04em; margin-bottom:4px; }
   .warn-box { border:1px solid rgba(214,69,69,.5); background:rgba(214,69,69,.08); border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.6; margin:14px 0; }
+  .kb-eligibility { margin-top:10px; padding:10px; border:1px solid rgba(255,255,255,.12); border-radius:10px; }
+  .kb-eligibility label { display:flex; gap:8px; align-items:flex-start; }
+  .kb-eligibility input { width:auto; margin-top:3px; }
+  .kb-eligibility-error { color:#ffaaa5; margin-top:6px; }
   input,select,textarea { width:100%; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   @media (max-width:640px){ .grid2 { grid-template-columns:1fr; } }
@@ -83,12 +87,18 @@
   var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
   var chosen = null;
+  var eligibilityNotice = '';
+  function findByData(root, attribute, value) {
+    var nodes = root.querySelectorAll('[' + attribute + ']');
+    for (var i = 0; i < nodes.length; i++) if (nodes[i].getAttribute(attribute) === String(value)) return nodes[i];
+    return null;
+  }
 
   function post(body){
     return fetch('/api/hub/owner/knowledge', {
       method:'POST', headers:{'Content-Type':'application/json'},
       credentials:'same-origin', body: JSON.stringify(body)
-    }).then(function(r){ return r.json().catch(function(){ return { error:'Bad response' }; }); });
+    }).then(function(r){ return r.json().catch(function(){ return { error:'Bad response' }; }).then(function(d){ d._status = r.status; return d; }); });
   }
 
   // --- upload ---
@@ -206,24 +216,72 @@
         // A failed read must never render as an empty library, or the obvious response is to
         // re-upload everything that is actually already there.
         if (d.load_error) warn += '<div class="warn-box"><strong>Could not read the library.</strong> ' + esc(d.load_error) + ' — this does NOT mean your documents are gone.</div>';
-        $('stat').innerHTML = warn + '<strong>' + d.searchable_chunks + '</strong> searchable passages across ' + d.items.length + ' documents.';
+        $('stat').innerHTML = warn + (eligibilityNotice ? '<div class="warn-box" role="alert">' + esc(eligibilityNotice) + '</div>' : '') +
+          '<strong>' + d.searchable_chunks + '</strong> searchable passages across ' + d.items.length + ' documents.';
         if (!d.items.length) {
           $('list').innerHTML = '<div class="kb-meta">' + (d.load_error ? 'Library unavailable — see above.' : 'No documents yet.') + '</div>';
           return;
         }
         $('list').innerHTML = d.items.map(function(it){
           var cls = it.status==='ready'?'b-ready':(it.status==='failed'?'b-failed':'b-partial');
+          var checked = Number(it.customer_eligible) === 1;
+          var canManageRow = d.can_manage_customer_context === true && Number.isFinite(Number(it.updated_at)) && Number(it.active) === 1;
+          var canToggle = canManageRow && (checked || it.status === 'ready');
+          var eligibility = '<div class="kb-eligibility"><div class="kb-meta">' +
+            '<strong>Internal by default.</strong> Review the complete saved source before enabling; this list shows source details and index state, not the full document.' +
+            (it.filename ? '<br>Saved file: ' + esc(it.filename) : '') +
+            '<br>Use the Search panel above to inspect retrieved excerpts; excerpts do not prove the full source was reviewed.' +
+            '</div><label><input type="checkbox" data-customer-toggle="' + esc(it.id) + '" ' + (checked ? 'checked' : '') +
+            (!canToggle ? ' disabled' : '') + '> <span><strong>Use in Ana customer answers (website and Instagram)</strong><br>' +
+            'This makes the saved content available for answers; it does not send or publish anything.' +
+            (checked ? '<br><span class="kb-meta">Enabled for customer answer context</span>' : '<br><span class="kb-meta">Off — internal HUB content only</span>') +
+            '</span></label><button class="btn small" data-save-customer="' + esc(it.id) + '" data-saved="' + (checked ? '1' : '0') + '"' +
+            ' disabled>Apply eligibility</button>' +
+            (!canManageRow ? '<div class="kb-meta">Only an owner can change eligibility for an active document with a saved update timestamp.</div>' : (!checked && it.status !== 'ready' ? '<div class="kb-meta">Enabling customer answers requires a fully indexed document.</div>' : '')) +
+            '<div class="kb-eligibility-error" data-customer-error="' + esc(it.id) + '" role="alert"></div></div>';
           return '<div class="kb-row"><div style="flex:1">' +
             '<div><strong>' + esc(it.title) + '</strong> <span class="kb-badge ' + cls + '">' + esc(it.status) + '</span>' +
             (it.authority==='regulatory' ? ' <span class="kb-badge b-reg">REGULATORY</span>' : '') + '</div>' +
             '<div class="kb-meta">' + esc(it.source_kind) + ' · ' + it.chunk_count + ' passages · ' + (it.chars||0).toLocaleString() + ' chars' +
-            (it.error ? ' · <span style="color:#d64545">' + esc(it.error) + '</span>' : '') + '</div></div>' +
+            (it.error ? ' · <span style="color:#d64545">' + esc(it.error) + '</span>' : '') + '</div>' + eligibility + '</div>' +
             '<button class="btn small" data-del="' + esc(it.id) + '">Remove</button></div>';
         }).join('');
         Array.prototype.forEach.call($('list').querySelectorAll('[data-del]'), function(b){
           b.addEventListener('click', function(){
             if (!confirm('Remove this document from the knowledge base?')) return;
             post({ op:'delete', id: b.getAttribute('data-del') }).then(load);
+          });
+        });
+        Array.prototype.forEach.call($('list').querySelectorAll('[data-customer-toggle]'), function(input){
+          input.addEventListener('change', function(){
+            var button = findByData($('list'), 'data-save-customer', input.getAttribute('data-customer-toggle'));
+            if (button) button.disabled = input.disabled || (input.checked ? '1' : '0') === button.getAttribute('data-saved');
+          });
+        });
+        Array.prototype.forEach.call($('list').querySelectorAll('[data-save-customer]'), function(button){
+          button.disabled = button.disabled || !d.can_manage_customer_context;
+          button.addEventListener('click', function(){
+            var docId = button.getAttribute('data-save-customer');
+            var input = findByData($('list'), 'data-customer-toggle', docId);
+            var item = d.items.find(function(row){ return String(row.id) === String(docId); });
+            if (!input || !item || button.disabled) return;
+            var controls = [button, input]; controls.forEach(function(el){ el.disabled = true; });
+            findByData($('list'), 'data-customer-error', docId).textContent = 'Saving…';
+            eligibilityNotice = '';
+            post({ op:'set_customer_eligibility', id:docId, customer_eligible:!!input.checked, expected_updated_at:Number(item.updated_at) })
+              .then(function(result){
+                if (!result || result.error || !result.ok) {
+                  var message = result && result.error ? result.error : 'Could not save eligibility.';
+                  if (result && result._status === 409) message = result.error || 'This document changed since it loaded. The library was reloaded; review its current state before retrying.';
+                  eligibilityNotice = message;
+                  return load();
+                }
+                eligibilityNotice = '';
+                return load();
+              }).catch(function(){
+                eligibilityNotice = 'Could not save eligibility because the request failed. The library was reloaded; review the current state before retrying.';
+                return load();
+              });
           });
         });
       });
