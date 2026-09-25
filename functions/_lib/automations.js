@@ -1,3 +1,4 @@
+import { renderCampaignDirection } from './campaign_direction.js';
 // Añejo HUB — AI automation engine. Each automation is a pure-ish function that reads
 // ops data and produces an outcome; the runner wraps it with timing, agent_runs logging,
 // and tracking-plan events (automation.run + agent_task.completed). Best-effort + guarded.
@@ -109,14 +110,11 @@ async function plannerExtraContext(env) {
   // read one. Archived briefs are excluded: they are closed business, not this week's direction.
   try {
     const briefs = await rows(env,
-      "SELECT id, title, objective, audience, angle, status FROM team_briefs WHERE status != 'archived' ORDER BY created_at DESC LIMIT 3");
+      "SELECT b.id,b.title,b.objective,b.audience,b.angle,b.cadence,b.success_metric,b.status,p.id AS promotion_id,p.proposal_json AS promotion_proposal_json,p.review_scope FROM team_briefs b LEFT JOIN operator_campaign_promotions p ON p.brief_id=b.id WHERE b.status != 'archived' ORDER BY b.created_at DESC LIMIT 3");
     if (briefs.length) {
       for (const b of briefs) if (b.id) briefIds.add(String(b.id));
       parts.push('=== CAMPAIGN DIRECTION FROM THE TEAM LEAD (follow this over a generic pick) ===\n' +
-        briefs.map((b) => `- [brief_id: ${b.id}] [${b.status}] ${b.title}` +
-          (b.objective ? ` — objective: ${b.objective}` : '') +
-          (b.audience ? `; audience: ${b.audience}` : '') +
-          (b.angle ? `; angle: ${b.angle}` : '')).join('\n'));
+        briefs.map(renderCampaignDirection).join('\n'));
     }
   } catch { /* pre-0069 schema, or no briefs filed yet — planner runs exactly as before this wiring */ }
 

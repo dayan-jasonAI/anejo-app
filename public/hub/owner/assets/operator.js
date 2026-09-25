@@ -18,15 +18,52 @@
   function campaignPreview(root, idea) {
     var card=document.createElement('section'); card.className='aop-proposal'; root.appendChild(card);
     var heading=document.createElement('h3'); heading.textContent='Proposed strategy'; card.appendChild(heading);
-    paragraph(card,'Private review only · not active. Generate a proposal from this saved idea using the existing AI budget.');
+    paragraph(card,'Generate a private proposal from this saved idea using the existing AI budget. Team planning requires your explicit review.');
     var status=document.createElement('p'); if(status.setAttribute){status.setAttribute('role','status'); status.setAttribute('aria-live','polite');} card.appendChild(status);
     var output=document.createElement('div'); card.appendChild(output);
-    var requestId=null, busy=false, terminal=false;
+    var requestId=null, busy=false, terminal=false, promotionRequests={};
     function section(label,value) {
       if(value===undefined||value===null||value==='')return;
       var h=document.createElement('h4');h.textContent=label;output.appendChild(h);
       if(Array.isArray(value)) {var list=document.createElement('ul');value.forEach(function(item){var li=document.createElement('li');li.textContent=typeof item==='string'?item:Object.keys(item||{}).map(function(k){return k.replace(/_/g,' ')+': '+String(item[k]);}).join(' · ');list.appendChild(li);});output.appendChild(list);}
       else paragraph(output,String(value));
+    }
+    function planningReview(preview) {
+      if(!/^[a-f0-9]{64}$/.test(preview.proposal_sha256||'')) {
+        paragraph(output,'Planning use unavailable: the saved proposal version could not be verified. Reload saved strategy.');return;
+      }
+      var hash=preview.proposal_sha256, key=preview.id+':'+hash;
+      var area=document.createElement('section');output.appendChild(area);
+      paragraph(area,'Use the exact proposal above as direction for the existing Team Lead and planner. An enabled planner may use this direction later. This does not publish, send or schedule anything, and does not change automation permissions.');
+      var note=document.createElement('p');note.setAttribute('role','status');note.setAttribute('aria-live','polite');area.appendChild(note);
+      function receiptMatches(r) {
+        return r && r.promoted===true && r.preview_id===preview.id && r.proposal_sha256===hash && r.review_scope==='team_planning_only' && typeof r.brief_id==='string' && r.brief_id && typeof r.promotion_id==='string' && r.promotion_id;
+      }
+      function showReceipt(r) {
+        note.textContent='Saved for team planning · brief '+r.brief_id+' · receipt '+r.promotion_id+'. This confirms planning direction only, not publication or that a planner has run.';
+        status.textContent='Saved proposed strategy · used as team planning direction';
+      }
+      if(receiptMatches(preview.promotion)){showReceipt(preview.promotion);return;}
+      if(preview.promotion) {note.textContent='Recorded planning receipt could not be verified. Reload before using this proposal.';return;}
+      var label=document.createElement('label'),ack=document.createElement('input');ack.type='checkbox';ack.checked=false;
+      label.appendChild(ack);var words=document.createElement('span');words.textContent='I reviewed this exact proposal, including its assumptions and open questions. Unresolved facts remain unverified; I am allowing team planning only.';label.appendChild(words);area.appendChild(label);
+      var pending=false, stopped=false;
+      var use=button(area,'Use as team planning brief',async function(){
+        if(pending||stopped||!ack.checked)return;
+        pending=true;use.disabled=true;ack.disabled=true;reload.disabled=true;note.textContent='Saving reviewed planning direction…';
+        try {
+          if(!promotionRequests[key])promotionRequests[key]=crypto.randomUUID();
+          var response=await fetch('/api/hub/owner/operator-campaign-promote',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:promotionRequests[key],preview_id:preview.id,expected_proposal_sha256:hash,acknowledge_open_questions:true})});
+          var result=await response.json();
+          if(response.ok && result.ok && receiptMatches(result)){stopped=true;showReceipt(result);use.textContent='Saved as team planning brief';return;}
+          var error=String(result.error||'promotion_not_verified');
+          if(['stale_preview_regenerate_required','proposal_changed','request_key_conflict','authority_or_preview_changed','preview_not_found'].includes(error)) {
+            stopped=true;note.textContent='Planning use was not verified: '+error+'. The proposal or its authority has changed. A new current proposal must be reviewed before planning use; no override was applied.';
+          }else note.textContent='Planning use not verified: '+error+'. Reload saved strategy or retry this same request; no duplicate brief will be requested.';
+        }catch(error){note.textContent='Planning use not verified. Reload saved strategy or retry this same request; no duplicate brief will be requested.';}
+        finally{pending=false;ack.disabled=stopped;use.disabled=stopped||!ack.checked;reload.disabled=false;}
+      });
+      use.disabled=true;ack.addEventListener('change',function(){use.disabled=pending||stopped||!ack.checked;});
     }
     function render(preview) {
       output.replaceChildren();
@@ -53,6 +90,7 @@
       Object.keys(context.coverage||{}).forEach(function(key){components[key]=Object.assign({},components[key]||{},context.coverage[key]||{});});
       Object.keys(components).forEach(function(key){var c=components[key];if(!c||typeof c!=='object'||Array.isArray(c))return;paragraph(details,key+': '+String(c.read_status||'status not supplied')+(c.truncated===true?' · truncated':'')+(typeof c.supplied_chars==='number'?' · '+c.supplied_chars+' supplied characters':''));});
       output.appendChild(details);
+      planningReview(preview);
     }
     async function get(url) {
       var response=await fetch(url,{credentials:'same-origin',cache:'no-store'}),body=await response.json();
@@ -127,7 +165,7 @@
           var response=await fetch('/api/hub/owner/operator-brief',{credentials:'same-origin',cache:'no-store'});
           var result=await response.json();
           if(!response.ok || !result.ok || !Array.isArray(result.ideas))throw new Error('read_unavailable');
-          paragraph(root,'Latest 20 private owner-supplied ideas. Generate or reload a proposed strategy below; nothing is activated.');
+          paragraph(root,'Latest 20 private owner-supplied ideas. Generate or reload a proposed strategy and review its recorded planning status below.');
           if(!result.ideas.length)paragraph(root,'No saved ideas returned.');
           result.ideas.forEach(function(idea){paragraph(root,idea.title+' · '+idea.status+' · '+new Date(idea.created_at).toISOString());paragraph(root,idea.topic);campaignPreview(root,idea);});
         } catch (_) {paragraph(root,'Saved ideas unavailable. Try again.');read.disabled=false;}

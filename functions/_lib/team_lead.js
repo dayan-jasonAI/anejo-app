@@ -1,3 +1,4 @@
+import { renderCampaignDirection } from './campaign_direction.js';
 // The Añejo Marketing Team Lead — the strategy half of the marketing team. Files under
 // functions/_lib are NOT routed.
 //
@@ -153,7 +154,7 @@ export async function buildSpine(env) {
 
   let briefs = [], briefsStatus = 'unavailable';
   try {
-    const read = await env.DB.prepare('SELECT id, title, objective, status, created_at, updated_at FROM team_briefs ORDER BY created_at DESC LIMIT 5').all();
+    const read = await env.DB.prepare("SELECT b.id,b.title,b.objective,b.audience,b.angle,b.cadence,b.success_metric,b.status,b.created_at,b.updated_at,p.id AS promotion_id,p.proposal_json AS promotion_proposal_json,p.review_scope FROM team_briefs b LEFT JOIN operator_campaign_promotions p ON p.brief_id=b.id WHERE b.status != 'archived' ORDER BY b.created_at DESC LIMIT 5").all();
     if (read?.success !== false && Array.isArray(read?.results)) {
       briefs = read.results;
       briefsStatus = briefs.length ? 'ok' : 'empty';
@@ -167,7 +168,7 @@ export async function buildSpine(env) {
     documents: briefs.map(b => ({ id: b.id ?? null, updated_at: b.updated_at ?? null })),
     rendered_sha256: Array.from(new Uint8Array(briefDigest), b => b.toString(16).padStart(2, '0')).join(''),
     supplied_chars: briefText.length,
-    truncated: briefs.some(b => String(b.objective || '').length > 100),
+    truncated: false,
     selection_limit: 5, selection_may_be_limited: briefs.length >= 5,
   };
 
@@ -208,7 +209,7 @@ export async function buildSpine(env) {
 }
 
 function renderBriefs(briefs) {
-  return briefs.length ? briefs.map(b => `- ${b.id ? `[id: ${b.id}] ` : ''}[${b.status}] ${b.title}${b.objective ? ' — ' + String(b.objective).slice(0, 100) : ''}`).join('\n') : '(none yet)';
+  return briefs.length ? briefs.map(renderCampaignDirection).join('\n') : '(none yet)';
 }
 
 // The spine as prompt text. Facts the spine does not have are stated as absent, in words, so the
@@ -397,16 +398,52 @@ const PREVIEW_RULES = '\nPRIVATE CAMPAIGN PREVIEW: This overrides the ACTIONS ou
   'Source coverage controls confidence: unavailable does not mean zero; retrospective coverage is unknown; draft counts are bounded samples. ' +
   'The menu snapshot below supplies exact IDs; select only available products. Empty product_ids is valid when selection needs clarification.';
 
-export function validateCampaignProposal(value, availableIds) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+// Bounded diagnostics identify schema failures without retaining model words or unknown keys.
+export function campaignProposalDiagnostic(value, availableIds) {
+  const fail = (code, field, extra = {}) => ({stage:'validation',code,...(field ? {field} : {}),...extra});
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return fail('object_required');
   const keys = [...Object.keys(PREVIEW_LIMITS), ...Object.keys(PREVIEW_ARRAYS)];
-  if (Object.keys(value).length !== keys.length || Object.keys(value).some(k => !keys.includes(k))) return false;
-  for (const [key, limit] of Object.entries(PREVIEW_LIMITS)) if (typeof value[key] !== 'string' || !value[key].trim() || value[key].length > limit) return false;
-  for (const [key, [count, chars]] of Object.entries(PREVIEW_ARRAYS)) {
-    const list = value[key];
-    if (!Array.isArray(list) || list.length > count || list.some(x => typeof x !== 'string' || !x.trim() || x.length > chars) || new Set(list).size !== list.length) return false;
+  for (const key of keys) if (!Object.hasOwn(value,key)) return fail('missing_field',key);
+  if (Object.keys(value).some(k => !keys.includes(k))) return fail('unexpected_field');
+  for (const [key, limit] of Object.entries(PREVIEW_LIMITS)) {
+    if (typeof value[key] !== 'string') return fail('string_required',key);
+    if (!value[key].trim()) return fail('empty_string',key);
+    if (value[key].length > limit) return fail('string_too_long',key,{limit,actual:value[key].length});
   }
-  return value.channels.length > 0 && value.channels.every(x => ['instagram', 'facebook', 'website'].includes(x)) && value.product_ids.every(x => availableIds.includes(x));
+  for (const [key, [count, chars]] of Object.entries(PREVIEW_ARRAYS)) {
+    const list=value[key];
+    if (!Array.isArray(list)) return fail('array_required',key);
+    if (list.length > count) return fail('too_many_items',key,{limit:count,actual:list.length});
+    for (let index=0;index<list.length;index++) {
+      const item=list[index];
+      if (typeof item !== 'string') return fail('item_string_required',key,{index});
+      if (!item.trim()) return fail('empty_item',key,{index});
+      if (item.length > chars) return fail('item_too_long',key,{index,limit:chars,actual:item.length});
+      if (list.indexOf(item) !== index) return fail('duplicate_item',key,{index});
+    }
+  }
+  if (!value.channels.length) return fail('empty_channels','channels');
+  const channel=value.channels.findIndex(x => !['instagram','facebook','website'].includes(x));
+  if (channel>=0) return fail('unsupported_channel','channels',{index:channel});
+  const product=value.product_ids.findIndex(x => !availableIds.includes(x));
+  if (product>=0) return fail('unavailable_product_id','product_ids',{index:product});
+  return null;
+}
+export function validateCampaignProposal(value, availableIds) {
+  return campaignProposalDiagnostic(value,availableIds) === null;
+}
+export function parseCampaignPreview(blocks, availableIds) {
+  const shape=code=>({ok:false,preview_diagnostic:{stage:'shape',code}});
+  if (!Array.isArray(blocks)) return shape('content_array_required');
+  if (blocks.length!==1) return shape('single_content_block_required');
+  if (!blocks[0] || blocks[0].type!=='text') return shape('text_block_required');
+  if (typeof blocks[0].text!=='string') return shape('text_string_required');
+  if (blocks[0].text.length>16000) return shape('text_too_long');
+  let proposal;
+  try { proposal=JSON.parse(blocks[0].text); }
+  catch { return {ok:false,preview_diagnostic:{stage:'json',code:'invalid_json'}}; }
+  const diagnostic=campaignProposalDiagnostic(proposal,availableIds);
+  return diagnostic ? {ok:false,preview_diagnostic:diagnostic} : {ok:true,proposal};
 }
 
 /**
@@ -474,14 +511,10 @@ export async function leadReply(env, { history = [], message, mode } = {}) {
 
   if (preview) {
     const evidence = { model, inference_receipt: res.input_receipt, input_receipt: res.input_receipt, inference_attempts: attempts, input_context: inputContext };
-    if (res.body.stop_reason !== 'end_turn') return { ok: false, reason: 'incomplete_preview_response', ...evidence };
-    let proposal;
-    const blocks = res.body.content;
-    try {
-      if (!Array.isArray(blocks) || blocks.length !== 1 || blocks[0].type !== 'text' || typeof blocks[0].text !== 'string' || blocks[0].text.length > 16000) throw Error('invalid');
-      proposal = JSON.parse(blocks[0].text);
-    } catch { return { ok: false, reason: 'invalid_preview_response', ...evidence }; }
-    if (!validateCampaignProposal(proposal, menuSnapshot.filter(x => x.available).map(x => x.id))) return { ok: false, reason: 'invalid_preview_response', ...evidence };
+    if (res.body.stop_reason !== 'end_turn') return { ok: false, reason: 'incomplete_preview_response', preview_diagnostic:{stage:'completion',code:'end_turn_required'}, ...evidence };
+    const parsed = parseCampaignPreview(res.body.content, menuSnapshot.filter(x => x.available).map(x => x.id));
+    if (!parsed.ok) return {ok:false,reason:'invalid_preview_response',preview_diagnostic:parsed.preview_diagnostic,...evidence};
+    const proposal=parsed.proposal;
     return { ok: true, mode, proposal, review_required: true, actions: [], action: null, ...evidence };
   }
   const text = ((res.body.content && res.body.content[0] && res.body.content[0].text) || '').trim();

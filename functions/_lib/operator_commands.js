@@ -14,7 +14,11 @@ export function privateIntent(text) {
   const raw = String(text || '').trim();
   if (!raw || raw.length > 2000) return { kind: 'invalid' };
   const command = normalize(raw);
-  if (['show saved campaign ideas','mostrar ideas guardadas'].includes(command)) return {kind:'saved_ideas'};
+  // Full-string read grammar: polite/possessive variants cannot absorb a second action.
+  const readCommand = command.replace(/^[¿¡]/, '').replace(/^(?:please[, ]+|(?:can|could|would) you (?:please )?|por favor[, ]+|(?:puedes|podrias|puede) (?:por favor )?)/, '').replace(/(?:,? please|,? por favor)$/, '').trim();
+  if (/^(?:show|list|open|read)(?: me)? (?:my |the )?saved (?:campaign )?ideas$/.test(readCommand) ||
+      /^(?:mostrar|muestra|muestrame|listar|lista|abrir|abre|leer|lee) (?:mis |las )?ideas (?:de campana )?guardadas$/.test(readCommand) ||
+      /^(?:mostrar|muestra|muestrame|listar|lista|abrir|abre|leer|lee) (?:mis |las )?ideas guardadas de campana$/.test(readCommand)) return {kind:'saved_ideas'};
   const brief = raw.match(/^(?:draft campaign brief|preparar brief|preparar resumen de campana)\s*:\s*(.*)$/i);
   if (brief && brief[1].trim().length > 1000) return { kind: 'invalid', reason: 'brief_topic_too_long' };
   if (brief) return brief[1].trim() ? { kind: 'brief_preview', title: brief[1].trim().slice(0,200), notes: brief[1].trim() } : { kind: 'invalid', reason: 'brief_topic_required' };
