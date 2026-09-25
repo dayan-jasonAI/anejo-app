@@ -2,7 +2,7 @@ import { square, squareConfigured } from './square.js';
 
 export async function createBalanceCheckout(env, quoteId, baseUrl) {
   if (!env.DB || !squareConfigured(env)) return { ok:false, error:'Square or database is not configured.' };
-  const q=await env.DB.prepare('SELECT id, balance_cents, balance_status, deposit_status FROM catering_quotes WHERE id=?').bind(quoteId).first();
+  const q=await env.DB.prepare('SELECT id, balance_cents, balance_status, deposit_status, access_token FROM catering_quotes WHERE id=?').bind(quoteId).first();
   if (!q || q.deposit_status!=='paid' || q.balance_status!=='due' || !Number.isSafeInteger(q.balance_cents) || q.balance_cents<=0) return {ok:false,error:'An unpaid balance with a paid deposit is required.'};
   await env.DB.prepare("INSERT OR IGNORE INTO catering_balance_checkouts (quote_id,amount_cents,created_at) SELECT id,balance_cents,? FROM catering_quotes WHERE id=? AND balance_status='due' AND deposit_status='paid'").bind(Date.now(),q.id).run();
   const saved=await env.DB.prepare('SELECT * FROM catering_balance_checkouts WHERE quote_id=?').bind(q.id).first();
@@ -11,7 +11,18 @@ export async function createBalanceCheckout(env, quoteId, baseUrl) {
   const result=await square(env,'/v2/online-checkout/payment-links',{method:'POST',body:{
     idempotency_key:'catering-balance-'+q.id,
     order:{location_id:env.SQUARE_LOCATION_ID,reference_id:'catering-balance',line_items:[{name:'Añejo catering — final balance',quantity:'1',base_price_money:{amount:saved.amount_cents,currency:'USD'}}]},
-    checkout_options:{redirect_url:baseUrl+'/order/confirmed',ask_for_shipping_address:false,allow_tipping:false,accepted_payment_methods:{apple_pay:true,google_pay:true,cash_app_pay:true}}
+    // Send her back to HER OWN QUOTE, not the generic order page.
+    //
+    // This line used to read '/order/confirmed', and it is why Karina paid her balance on the
+    // morning of 2026-09-25 and saw nothing. The gift reveal was moved from the deposit to the
+    // balance, and the gate on /q/<token> was moved with it — but this redirect was not. The one
+    // payment that unlocks the gift returned her to a page that cannot show it, and told her to
+    // go and check her Square receipt.
+    //
+    // /q/<token> is also simply the better landing: it is her quote, her menu, her balance marked
+    // paid, in her language. A quote with no token falls back to the old page rather than sending
+    // her to a broken URL.
+    checkout_options:{redirect_url:q.access_token?`${baseUrl}/q/${q.access_token}?paid=1`:baseUrl+'/order/confirmed',ask_for_shipping_address:false,allow_tipping:false,accepted_payment_methods:{apple_pay:true,google_pay:true,cash_app_pay:true}}
   }});
   const link=result.data?.payment_link, url=link?.long_url||link?.url;
   if(!result.ok||!url||!link.order_id)return {ok:false,error:'Square could not create the balance link. Please retry.'};

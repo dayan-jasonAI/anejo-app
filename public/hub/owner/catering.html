@@ -126,6 +126,15 @@
         (q.event_date ? ' · event ' + esc(q.event_date) : ' · no event date') +
         (q.customer_email ? ' · ' + esc(q.customer_email) : '') + '</div>' +
 
+      // A paid quote is an event somebody has to cook, and this is the way through to the work.
+      // It used to be a 12px line of grey text below the Square payment links, at the bottom of a
+      // long card — the owner had to know it was there and scroll to it. It is the most useful
+      // control on this card, so it is now a button, and it is at the top.
+      (paid && q.deposit_status !== 'void'
+        ? '<a class="btn gold block" style="margin:10px 0 2px" href="/hub/kitchen/event.html?id=' + esc(q.id) + '">' +
+          '📋 Open the production plan &rarr;</a>'
+        : '') +
+
       // The split, straight off the row: deposit + balance were computed by depositSplit() at
       // creation and stored, so they always sum to the total on screen exactly as they do in D1.
       '<div class="split">' +
@@ -142,11 +151,6 @@
         (q.final_count_due ? '<span class="pill">Final count by ' + esc(q.final_count_due) + '</span>' : '') +
       '</div>' +
 
-      // A paid quote is an event somebody has to cook. Until 2026-09-22 the desk that took the
-      // deposit had no way through to the work it created.
-      (paid && q.deposit_status !== 'void'
-        ? '<div class="row-sub lnk"><a href="/hub/kitchen/event.html?id=' + esc(q.id) + '">Open the production plan &rarr;</a></div>'
-        : '') +
 
       (q.payment_link_url
         ? '<div class="row-sub lnk">Deposit link: <a href="' + esc(q.payment_link_url) + '" target="_blank" rel="noopener">' + esc(q.payment_link_url) + '</a></div>'

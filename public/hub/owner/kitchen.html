@@ -84,12 +84,72 @@
     return out;
   }
 
+  function whenLabel(d) {
+    if (d === 0) return 'TODAY';
+    if (d === 1) return 'TOMORROW';
+    if (d < 0) return Math.abs(d) + ' days ago';
+    return 'in ' + d + ' days';
+  }
+
+  function eventCard(e, plan) {
+    var gaps = (plan && plan.gaps) || [];
+    var urgent = e.days_out <= 1;
+    var money = e.balance_status === 'paid' ? '<span class="badge ok">Paid in full</span>'
+      : e.deposit_status === 'paid' ? '<span class="badge">Deposit paid · balance ' + (e.balance_status || '') + '</span>'
+        : '<span class="badge crit">Deposit UNPAID</span>';
+    return '<div class="card ' + (urgent ? 'accent' : '') + '" style="margin-bottom:12px">' +
+      '<div class="row" style="padding:0;border:none"><div class="row-main">' +
+      '<div class="row-title">🎉 ' + Owner.esc(e.customer_name || 'Catering event') + ' · ' + whenLabel(e.days_out) + '</div>' +
+      '<div class="row-sub">' + Owner.esc(e.event_date) + (e.serving_time ? ' · ' + Owner.esc(e.serving_time) : '') +
+      ' · ' + (Number(e.guests) || 0) + ' guests</div></div><div>' + money + '</div></div>' +
+      (gaps.length
+        ? '<div style="margin:10px 0 0;padding:9px 11px;border-radius:8px;background:#fbe3e1;border:1px solid var(--crit)">' +
+          gaps.map(function (g) {
+            return '<div style="font-size:13px;color:var(--crit);line-height:1.45;font-weight:600">⚠ ' + Owner.esc(g) + '</div>';
+          }).join('') + '</div>'
+        : '<div style="margin:10px 0 0;font-size:13px;color:var(--green)">✓ Nothing outstanding on this event.</div>') +
+      '<a class="btn gold block" style="margin-top:11px" href="/hub/kitchen/event.html?id=' + encodeURIComponent(e.id) + '">' +
+      '📋 Open the production plan →</a>' +
+      '</div>';
+  }
+
+  // Events inside a week, each with its own plan so the gaps are real rather than a count.
+  function loadEvents() {
+    var el = document.getElementById('events');
+    Owner.get('/api/hub/kitchen/event').then(function (d) {
+      var soon = ((d && d.events) || []).filter(function (e) { return e.days_out >= 0 && e.days_out <= 7; });
+      if (!soon.length) { el.innerHTML = ''; return; }
+      el.innerHTML = '<h2 data-i18n>Catering events this week</h2><div id="event-list"><div class="hub-loading">…</div></div>';
+      Promise.all(soon.map(function (e) {
+        return Owner.get('/api/hub/kitchen/event?id=' + encodeURIComponent(e.id))
+          .then(function (p) { return p; }, function () { return null; });
+      })).then(function (plans) {
+        document.getElementById('event-list').innerHTML =
+          soon.map(function (e, i) { return eventCard(e, plans[i]); }).join('');
+        if (window.AnejoI18n) window.AnejoI18n.refresh();
+      });
+    }, function () { el.innerHTML = ''; });
+  }
+
   function render() {
     var root = document.getElementById('owner-root'); root.className = '';
-    root.innerHTML = '<div id="tiles" class="card-grid"></div>' +
+    root.innerHTML = '<div id="events" class="hub-section"></div>' +
+      '<div id="tiles" class="card-grid"></div>' +
       '<a class="btn ghost block" href="/hub/owner/orders.html" style="margin-bottom:14px" data-i18n>🧾 Order history & PIN trail →</a>' +
       '<div class="hub-section"><h2 data-i18n>Open orders</h2><div id="korders" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Recent kitchen activity</h2><div id="kfeed" class="list"><div class="hub-loading">…</div></div></div>';
+
+    // BOOKED CATERING EVENTS, AT THE TOP.
+    //
+    // The kitchen crew's own board has had this since the event screens were built; the owner's
+    // kitchen page never did. So the owner opened KITCHEN the day before a paid thirty-guest event
+    // and read "No open orders" — because "orders" here means the retail meal-prep board, and a
+    // catering event is not one of those. The event existed, was paid, and was invisible.
+    //
+    // Each event is shown WITH what is still unresolved on it, pulled from the production plan's
+    // own gap list, because "there is an event tomorrow" and "nobody has confirmed the recipes for
+    // it" are the same piece of news to whoever is standing here.
+    loadEvents();
 
     Owner.get('/api/hub/owner/overview').then(function (d) {
       if (!d || !d.ok) { Owner.fail(); return; }
