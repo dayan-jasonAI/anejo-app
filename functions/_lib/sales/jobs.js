@@ -9,9 +9,10 @@ import { id, now, toJson, etDateOf, etDayBounds } from '../hub.js';
 import { captureSystem } from '../track.js';
 import { discoverOrganizations, usableDiscoveryProvider } from './discovery.js';
 import { crawlOrganization } from './enrich.js';
+import { findWebsite } from './sitefind.js';
 import { upsertOrganization, addContact, recordSource, scoreAndStore, logActivity, salesRow, salesRows } from './store.js';
 import { classifyCategory } from './scoring.js';
-import { ICP_CATEGORIES, DISCOVERY_QUERIES, DISCOVERY_AREAS } from './anejo.js';
+import { ICP_CATEGORIES, DISCOVERY_QUERIES, DISCOVERY_AREAS, DISCOVERY_PLAN } from './anejo.js';
 import { sendApproved, draftDueFollowups } from './outreach.js';
 import { funnel } from './metrics.js';
 
@@ -95,17 +96,40 @@ export async function applyEnrichment(env, org, crawl, { ctx } = {}) {
 
 /** Research one organization now: crawl its site, store evidence, rescore. */
 export async function enrichOne(env, orgId, { cfg, ctx, fetchImpl } = {}) {
-  const org = await salesRow(env, 'SELECT * FROM sales_organizations WHERE id = ?', orgId);
+  let org = await salesRow(env, 'SELECT * FROM sales_organizations WHERE id = ?', orgId);
   if (!org) return { ok: false, error: 'Organization not found.' };
   if (org.do_not_contact) return { ok: false, error: 'This organization is marked do-not-contact.' };
   let applied = null;
   let crawl = null;
+  let found = null;
+
+  // A licensed facility from the state registry arrives with a phone and no website, and without a
+  // website enrichment has nothing to read. Look for one — and only keep it if the page proves it
+  // belongs to this facility (its phone, its address, or its distinctive name plus its city).
+  if (!org.website) {
+    found = await findWebsite(org, { fetchImpl });
+    await recordSource(env, {
+      organization_id: org.id, source_type: 'site_lookup',
+      source_url: found.ok ? found.website : null,
+      captured: { tried: found.tried, verified: found.ok ? found.signals : null },
+    });
+    if (found.ok) {
+      await env.DB.prepare('UPDATE sales_organizations SET website=?, domain=?, updated_at=? WHERE id=?')
+        .bind(found.website, found.domain, now(), org.id).run();
+      org = await salesRow(env, 'SELECT * FROM sales_organizations WHERE id = ?', orgId);
+      await logActivity(env, { organization_id: org.id, kind: 'site_found', ctx, detail: { website: found.website, signals: found.signals } });
+    }
+  }
   if (org.website && org.domain) {
     crawl = await crawlOrganization(org, { fetchImpl });
     applied = await applyEnrichment(env, org, crawl, { ctx });
   }
   const score = await scoreAndStore(env, orgId, { cfg, ctx });
-  return { ok: true, crawled: !!crawl, crawl_ok: crawl ? crawl.ok : null, crawl_error: crawl && !crawl.ok ? crawl.error : null, ...(applied || {}), score: score.score, tier: score.tier };
+  return {
+    ok: true, crawled: !!crawl, crawl_ok: crawl ? crawl.ok : null, crawl_error: crawl && !crawl.ok ? crawl.error : null,
+    site_lookup: found ? { ok: found.ok, website: found.ok ? found.website : null, tried: found.tried.length } : null,
+    ...(applied || {}), score: score.score, tier: score.tier,
+  };
 }
 
 export async function runEnrichmentTick(env, { cfg, fetchImpl, limit = 4, budgetMs = TICK_BUDGET_MS } = {}) {
@@ -128,8 +152,9 @@ export async function runEnrichmentTick(env, { cfg, fetchImpl, limit = 4, budget
 
 async function discoveryCursor(env) {
   const r = await salesRow(env, "SELECT value FROM app_settings WHERE key = 'sales.discovery_cursor'");
-  try { const v = JSON.parse((r && r.value) || '{}'); return { qi: Number(v.qi) || 0, ai: Number(v.ai) || 0, token: v.token || null }; }
-  catch { return { qi: 0, ai: 0, token: null }; }
+  // An older cursor ({qi, ai}) walked the Places grid; it simply restarts the plan at step 0.
+  try { const v = JSON.parse((r && r.value) || '{}'); return { pi: Number(v.pi) || 0, token: v.token || null }; }
+  catch { return { pi: 0, token: null }; }
 }
 async function saveCursor(env, c) {
   await env.DB.prepare(
@@ -139,52 +164,76 @@ async function saveCursor(env, c) {
 }
 
 /**
- * One bounded discovery pass: walk the (query × area) grid from where the last pass stopped,
- * dedupe everything, score what is new. Stops at the daily new-prospect cap, the daily call cap,
- * or the time budget — whichever comes first.
+ * The steps one full walk takes: the public-registry plan, then — only if Google Places has been
+ * APPROVED for persistence, which this build never does — the Places query × area grid.
+ */
+export function discoverySteps(env, flags) {
+  const steps = DISCOVERY_PLAN.map((p) => ({ ...p }));
+  if (usableDiscoveryProvider(env, flags) === 'google_places') {
+    for (const query of DISCOVERY_QUERIES) for (const area of DISCOVERY_AREAS) steps.push({ provider: 'google_places', query, area });
+  }
+  return steps;
+}
+
+const stepLabel = (st) => st.provider === 'ahca_healthfinder' ? `AHCA ${st.facility_type} · ${st.county}`
+  : st.provider === 'samhsa_findtreatment' ? `SAMHSA · ${st.label || `${st.lat},${st.lng}`}` : `${st.query} · ${st.area}`;
+
+/**
+ * One bounded discovery pass: walk the plan from where the last pass stopped, dedupe everything,
+ * score what is new. Stops at the daily new-prospect cap, the daily call cap, or the time budget —
+ * whichever comes first. Google Places is never reached unless approved (it is not, in this build).
  */
 export async function runDiscoveryTick(env, { cfg, fetchImpl, budgetMs = TICK_BUDGET_MS, atMs = Date.now(), ctx, maxCalls } = {}) {
   if (!cfg.flags['sales.enabled']) return { skipped: 'sales is switched off' };
   if (!ctx && !cfg.flags['sales.discovery_enabled']) return { skipped: 'discovery is switched off' };
-  // A credential is never enough on its own: the provider must be APPROVED for persisting prospect
-  // records. In this release none is (Google Places is locked unapproved), so discovery is CSV/manual.
-  const provider = usableDiscoveryProvider(env, cfg.flags);
-  if (!provider) return { skipped: 'no approved automated discovery source in this release (Google Places is not approved for production prospect records) — use CSV import', not_configured: true };
+  const steps = discoverySteps(env, cfg.flags);
+  if (!steps.length) return { skipped: 'no approved automated discovery source — use CSV import', not_configured: true };
   const started = Date.now();
   const { start, end } = etDayBounds(etDateOf(atMs));
-  const createdToday = await salesRow(env, "SELECT COUNT(*) AS n FROM sales_organizations WHERE source = 'google_places' AND created_at >= ? AND created_at < ?", start, end);
+  const createdToday = await salesRow(env, "SELECT COUNT(*) AS n FROM sales_organizations WHERE source IN ('google_places','ahca_healthfinder','samhsa_findtreatment') AND created_at >= ? AND created_at < ?", start, end);
   const callsToday = await salesRow(env, "SELECT COUNT(*) AS n FROM sales_activity WHERE kind = 'discovery_call' AND created_at >= ? AND created_at < ?", start, end);
   let created = Number((createdToday && createdToday.n) || 0);
   let calls = Number((callsToday && callsToday.n) || 0);
   const maxNew = cfg.flags['sales.max_new_prospects_per_day'];
   const callCap = Math.min(cfg.flags['sales.max_discovery_calls_per_day'], maxCalls || Infinity);
   const cur = await discoveryCursor(env);
-  const out = { calls: 0, results: 0, created: 0, merged: 0, errors: [] };
-  while (created < maxNew && calls < cfg.flags['sales.max_discovery_calls_per_day'] && out.calls < callCap && Date.now() - started < budgetMs) {
-    const query = DISCOVERY_QUERIES[cur.qi % DISCOVERY_QUERIES.length];
-    const area = DISCOVERY_AREAS[cur.ai % DISCOVERY_AREAS.length];
-    const r = await discoverOrganizations(env, { provider, approved: provider === usableDiscoveryProvider(env, cfg.flags), query, area, cursor: cur.token, limit: 20, fetchImpl });
+  const out = { calls: 0, results: 0, created: 0, merged: 0, errors: [], steps: [] };
+  let walked = 0;
+  while (created < maxNew && calls < cfg.flags['sales.max_discovery_calls_per_day'] && out.calls < callCap
+    && Date.now() - started < budgetMs && walked < steps.length) {
+    const step = steps[cur.pi % steps.length];
+    const { provider, ...params } = step;
+    const r = await discoverOrganizations(env, {
+      provider, approved: provider !== 'google_places' || provider === usableDiscoveryProvider(env, cfg.flags),
+      ...params, cursor: cur.token, limit: 20, fetchImpl,
+    });
     calls++; out.calls++;
     let made = 0;
+    const label = stepLabel(step);
     if (!r.ok) {
-      out.errors.push(r.error);
-      await logActivity(env, { kind: 'discovery_call', actor: 'system', detail: { query, area, ok: false, error: r.error } });
-      break;   // a provider error is not retried in a loop that would burn the call cap
+      out.errors.push(`${label}: ${r.error}`);
+      await logActivity(env, { kind: 'discovery_call', actor: ctx ? undefined : 'system', ctx, detail: { step: label, provider, ok: false, error: r.error } });
+      // Move past a failing step so one broken registry page cannot stall the whole walk forever.
+      cur.token = null; cur.pi = (cur.pi + 1) % steps.length; walked++;
+      continue;
     }
     for (const rec of r.results) {
       if (created >= maxNew) break;
       const u = await upsertOrganization(env, rec, { ctx, captured: rec.captured, source_url: rec.source_url });
       out.results++;
       if (u.ok && u.created) { created++; made++; out.created++; await scoreAndStore(env, u.organization_id, { cfg, ctx }); }
-      else if (u.ok) out.merged++;
+      else if (u.ok) {
+        out.merged++;
+        // A prospect already on the list just gained license evidence (capacity, meals by rule):
+        // score it again so the registry match shows in its tier today, not at the next rescore.
+        if (rec.captured && Array.isArray(rec.captured.signals) && rec.captured.signals.length) await scoreAndStore(env, u.organization_id, { cfg, ctx });
+      }
     }
-    await logActivity(env, { kind: 'discovery_call', actor: ctx ? undefined : 'system', ctx, detail: { query, area, ok: true, results: r.results.length, created: made } });
-    if (r.next_cursor) cur.token = r.next_cursor;
-    else {
-      cur.token = null;
-      cur.ai += 1;
-      if (cur.ai >= DISCOVERY_AREAS.length) { cur.ai = 0; cur.qi = (cur.qi + 1) % DISCOVERY_QUERIES.length; }
-    }
+    out.steps.push({ step: label, results: r.results.length, created: made });
+    await logActivity(env, { kind: 'discovery_call', actor: ctx ? undefined : 'system', ctx, detail: { step: label, provider, ok: true, results: r.results.length, created: made } });
+    if (r.next_cursor && created < maxNew) cur.token = r.next_cursor;
+    else if (r.next_cursor) { /* cap reached mid-step: resume this same page next pass */ }
+    else { cur.token = null; cur.pi = (cur.pi + 1) % steps.length; walked++; }
   }
   await saveCursor(env, cur);
   return out;
@@ -225,8 +274,21 @@ export async function runSalesJob(env, job, { cfg, fetchImpl, triggeredBy = 'cro
     } else if (job === 'send') {
       if (!cfg.flags['sales.enabled'] || !cfg.flags['sales.email_enabled']) output = { skipped: 'prospect email is switched off' };
       else {
+        // THE STANDING APPROVAL RUNS FIRST, in the same hourly pass that sends. New prospects that
+        // clear every bar get their step-1 letter drafted and approved against the owner's attested
+        // email; everything else waits for him. Then the ordinary send pass does what it always did.
+        let auto = null;
+        if (cfg.flags['sales.auto_intro_enabled']) {
+          const { autoEnrollNew, autoApproveIntros } = await import('./autosend.js');
+          const enrolled = await autoEnrollNew(env, { cfg });
+          const approved = await autoApproveIntros(env, { cfg, atMs });
+          auto = { enrolled: enrolled.enrolled, considered: enrolled.considered, approved: approved.approved,
+                   skipped: [...(enrolled.skipped || []), ...(approved.skipped || [])].slice(0, 10),
+                   halted: approved.halted || null };
+        }
         const r = await sendApproved(env, { cfg, atMs });
-        output = (r.sent || r.failed || r.skipped || r.reapproval) ? r : { ...r, skipped: 'nothing sent' };
+        const did = r.sent || r.failed || r.skipped || r.reapproval || (auto && (auto.enrolled || auto.approved));
+        output = did ? { ...r, auto } : { ...r, auto, skipped: 'nothing sent' };
       }
     } else if (job === 'metrics') {
       output = cfg.flags['sales.enabled'] ? await funnel(env) : { skipped: 'sales is switched off' };

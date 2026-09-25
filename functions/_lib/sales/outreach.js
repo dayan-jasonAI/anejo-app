@@ -489,6 +489,25 @@ export async function approveOutreach(env, outreachId, { cfg, subject, body, ren
   const org = await salesRow(env, 'SELECT * FROM sales_organizations WHERE id = ?', row.organization_id);
   const elig = await contactEligible(env, contact, org);
   if (!elig.ok) return { ok: false, error: `Cannot approve: ${elig.why}`, code: 'suppressed' };
+
+  // READINESS BLOCKS, it no longer only warns. Pitching an adult day care while the menu has no
+  // dietitian signature is how the Boca Raton deal stalled: the buyer asked inside an hour for the
+  // one document we could not produce. The owner can still send it deliberately — acknowledging the
+  // gaps is an explicit act, the same shape as acknowledging a flagged claim — but he can no longer
+  // do it by accident.
+  let readinessGaps = [];
+  try {
+    const { loadReadiness, buyerChecklist } = await import('./requirements.js');
+    const readiness = await loadReadiness(env);
+    const check = buyerChecklist((org && org.business_category) || 'other', readiness);
+    readinessGaps = (check.blocking_outreach || []).map((x) => x.label);
+  } catch { /* a readiness read that fails must never block a send the owner already vetted */ }
+  if (readinessGaps.length && !acknowledge_flags) {
+    return {
+      ok: false, code: 'readiness', readiness_gaps: readinessGaps,
+      error: `Cannot approve yet: this buyer will ask for ${readinessGaps.length} thing${readinessGaps.length === 1 ? '' : 's'} Añejo cannot hand over — ${readinessGaps.join('; ')}. Fix it in Sales → Readiness, or approve with the gaps acknowledged.`,
+    };
+  }
   if (contact.email !== row.recipient_email) return { ok: false, error: 'The contact’s email changed since this was drafted. Re-draft it.', code: 'recipient_changed' };
 
   const edited = subj !== row.subject || bod !== row.body_snapshot ? 1 : 0;

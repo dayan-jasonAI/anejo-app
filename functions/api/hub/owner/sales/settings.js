@@ -15,6 +15,9 @@ import { logActivity } from '../../../../_lib/sales/store.js';
 import { ICP_CATEGORIES } from '../../../../_lib/sales/anejo.js';
 import { MEDIA_SLOTS, CAPTION_LANGS, validateMedia, mediaSlot } from '../../../../_lib/sales/media.js';
 import { getDoc, createProposal, BRAND_DOC_ID } from '../../../../_lib/brief.js';
+import { autoIntroStatus, attest, templateFingerprint, getAttestation } from '../../../../_lib/sales/autosend.js';
+import { previewOutreach, composeEmail, renderOutreachEmail, landingUrlFor, publicBaseUrl } from '../../../../_lib/sales/outreach.js';
+import { salesRow } from '../../../../_lib/sales/store.js';
 
 // Sprint E: the positioning the marketing team needs, filed as a Brand Brief PROPOSAL — the same
 // owner-approval path Creative Studio uses (Reviews → brief-proposals). The brief is the owner's
@@ -82,8 +85,10 @@ export const onRequestGet = async ({ request, env }) => {
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
   const cfg = await loadSalesConfig(env);
+  const autoIntro = await autoIntroStatus(env, cfg);
   return json({
     ok: true,
+    auto_intro: { ...autoIntro, fingerprint: await templateFingerprint(env, cfg), stored: await getAttestation(env) },
     caption_languages: CAPTION_LANGS,
     media: Object.entries(MEDIA_SLOTS).map(([slot, meta]) => {
       const saved = (cfg.media && cfg.media[slot]) || {};
@@ -107,6 +112,35 @@ export const onRequestPost = async ({ request, env }) => {
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const by = ctx.distinct_id || ctx.email;
 
+  // THE STANDING APPROVAL. Two ops, deliberately separate: read the exact email, then attest it.
+  // Attesting stores what was read, so there is never an argument later about what was approved.
+  if (b.op === 'auto_intro_sample') {
+    const cfg = await loadSalesConfig(env);
+    // A real pending draft if one exists — that is literally the next email that would go out.
+    const draft = await salesRow(env, "SELECT id, organization_id FROM sales_outreach WHERE status = 'pending_approval' AND step_number = 1 ORDER BY created_at LIMIT 1");
+    if (draft) {
+      const p = await previewOutreach(env, draft.id, { cfg });
+      if (p.ok) return json({ ok: true, source: 'pending draft', subject: p.subject, text: p.text, html: p.html, to: p.to, for: p.organization_name || null, status: await autoIntroStatus(env, cfg) });
+    }
+    // Otherwise compose one for the best prospect, exactly as a draft would be. Saved nowhere.
+    const org = await salesRow(env, "SELECT * FROM sales_organizations WHERE do_not_contact = 0 AND status NOT IN ('suppressed','converted') ORDER BY current_score DESC LIMIT 1");
+    if (!org) return bad('There are no prospects to compose a sample for yet.');
+    const contact = await salesRow(env, 'SELECT * FROM sales_contacts WHERE organization_id = ? AND suppressed = 0 ORDER BY is_primary DESC LIMIT 1', org.id);
+    const opp = await salesRow(env, "SELECT landing_token FROM sales_opportunities WHERE organization_id = ? AND stage NOT IN ('won','lost')", org.id);
+    const base = publicBaseUrl(env);
+    const c = composeEmail({ templateType: 'intro', org, contact, signals: [], cfg, landingUrl: opp ? landingUrlFor(env, opp.landing_token) : `${base}/for/<personal-link>` });
+    const r = renderOutreachEmail({
+      subject: c.subject, body: c.body, unsubUrl: `${base}/api/sales/unsubscribe?t=<personal-token>`,
+      postal: cfg.postal_address, orgName: org.name, areaLabel: cfg.service_area.label,
+    });
+    return json({ ok: true, source: `sample for ${org.name} (not saved)`, subject: r.subject, text: r.text, html: r.html, to: contact ? contact.email : '(no sendable contact yet)', for: org.name, status: await autoIntroStatus(env, cfg) });
+  }
+  if (b.op === 'auto_intro_attest') {
+    const cfg = await loadSalesConfig(env);
+    const r = await attest(env, { cfg, sample: { subject: b.subject, text: b.text, for: b.for }, ctx });
+    if (!r.ok) return bad(r.error);
+    return json({ ok: true, attestation: r.attestation, status: await autoIntroStatus(env, cfg) });
+  }
   if (b.op === 'set_flag') {
     const r = await setFlag(env, String(b.key || ''), b.value, by);
     if (!r.ok) return json(r, r.locked ? 409 : 400);

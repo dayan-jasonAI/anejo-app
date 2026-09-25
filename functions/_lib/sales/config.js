@@ -30,6 +30,12 @@ export const FLAG_DEFAULTS = {
   // change unlocks it, no discovery run — scheduled or owner-initiated — may use Places, whether or
   // not a key happens to be configured.
   'sales.places_persistence_approved': false,
+  // THE STANDING APPROVAL (autosend.js). Off by default, owner-settable — deliberately NOT one of
+  // the locked flags, because the owner is entitled to decide this, and deliberately NOT the same
+  // switch as auto_send_enabled, which would cover follow-ups and anything else the machine writes.
+  // This one covers step 1 only, and only while the attested email still matches what would go out.
+  'sales.auto_intro_enabled': false,
+  'sales.max_auto_intros_per_day': 5,
   'sales.max_new_prospects_per_day': 25,
   'sales.max_emails_per_day': 10,
   'sales.max_discovery_calls_per_day': 8,
@@ -53,6 +59,7 @@ export const LOCK_REASONS = {
 // Hard ceilings the owner's numbers are clamped to. The first experiment is 20 emails, not 2,000;
 // a mistyped 500 must not become 500 cold emails from the domain that carries receipts.
 export const CAPS = {
+  'sales.max_auto_intros_per_day': 20,
   'sales.max_new_prospects_per_day': 100,
   'sales.max_emails_per_day': 40,
   'sales.max_discovery_calls_per_day': 30,

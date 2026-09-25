@@ -160,7 +160,13 @@ test('a row with no readable terms snapshot yields null, never a fabricated one'
 test('preview returns the depositSplit math and touches NOTHING — no Square, no row', async () => {
   const sq = stubSquare();
   const env = ownerEnv();
-  const out = await (await post(env, { op: 'preview', total_cents: 120000, event_date: '2026-09-20' })).json();
+  // THE EVENT IS ALWAYS IN THE FUTURE. termsFor() clamps a deadline that has already passed up to
+  // today, so a hardcoded event date turns this test into a time bomb that fires on the morning the
+  // calendar passes it — which it did twice (2026-09-14, and again on 2026-09-21 with a red main).
+  const day = 86400000;
+  const eventDate = new Date(Date.now() + 30 * day).toISOString().slice(0, 10);
+  const dayBefore = new Date(Date.now() + 29 * day).toISOString().slice(0, 10);
+  const out = await (await post(env, { op: 'preview', total_cents: 120000, event_date: eventDate })).json();
   sq.restore();
 
   assert.equal(out.ok, true);
@@ -172,8 +178,8 @@ test('preview returns the depositSplit math and touches NOTHING — no Square, n
   // today, so a literal here starts failing on its own once the calendar goes by — which is
   // exactly what happened to this line between 2026-09-09 and 2026-09-14.
   assert.equal(out.terms.final_count_due,
-    termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate: '2026-09-20' }).final_count_due);
-  assert.equal(out.terms.balance_due_date, '2026-09-19', 'the day BEFORE the event');
+    termsFor({ totalCents: 120000, depositCents: 60000, balanceCents: 60000, eventDate }).final_count_due);
+  assert.equal(out.terms.balance_due_date, dayBefore, 'the day BEFORE the event');
 
   assert.equal(sq.calls.length, 0, 'a preview that contacts Square is not a preview');
   assert.equal(env._sql.length, 0, 'and it writes no row');

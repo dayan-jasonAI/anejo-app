@@ -29,7 +29,7 @@ export const BASELINE_VERSION = '2026-06-23-baseline';
 // staff-role list in roles.js), which is what /api/hub/owner/training-status joins on.
 export const CURRENT_VERSION = Object.freeze({
   owner: BASELINE_VERSION,
-  kitchen: '2026-09-16-photo-gate',
+  kitchen: '2026-09-21-adult-day-program',
   driver: '2026-09-16-breaks',
   marketing: BASELINE_VERSION,
   vendor: BASELINE_VERSION,
@@ -58,6 +58,34 @@ export const UPDATES = Object.freeze({
       Object.freeze({
         en: 'Each order now shows “Start by”, “Ready by”, and a countdown once you start prep — amber under five minutes, red when it runs over.',
         es: 'Cada pedido ahora muestra “Empezar a las”, “Listo a las”, y una cuenta regresiva al empezar la preparación — ámbar con menos de cinco minutos, rojo si se pasa.',
+      }),
+    ]),
+  }),
+  // The adult day care contract is a different kind of cooking: the portions are a legal document,
+  // not a preference, and the temperatures are what the facility's inspector reads. So the update
+  // teaches the three things that make a meal compliant, and where to find the rest.
+  '2026-09-21-adult-day-program': Object.freeze({
+    module: 'kitchen',
+    headline: Object.freeze({
+      en: 'New: adult day care meals. Portions and temperatures are part of the center\u2019s legal file.',
+      es: 'Nuevo: comidas para centros de adultos. Las porciones y las temperaturas son parte del expediente legal del centro.',
+    }),
+    changes: Object.freeze([
+      Object.freeze({
+        en: 'Open Program in the kitchen menu each morning. It shows the day\u2019s breakfast, lunch and snack, the center\u2019s head count, and the recipe scaled to that count.',
+        es: 'Abre Programa en el men\u00fa de cocina cada ma\u00f1ana. Muestra el desayuno, el almuerzo y la merienda del d\u00eda, el conteo del centro y la receta ajustada a ese conteo.',
+      }),
+      Object.freeze({
+        en: 'Cook to the portions on the screen exactly. A dietitian signed those portions; a short portion is a compliance failure for the center, not a small mistake.',
+        es: 'Cocina exactamente las porciones de la pantalla. Una dietista firm\u00f3 esas porciones; una porci\u00f3n corta es un incumplimiento para el centro, no un descuido peque\u00f1o.',
+      }),
+      Object.freeze({
+        en: 'Write the temperature on the screen when you pack: hot 135\u00b0F or above, cold 41\u00b0F or below. That number is what the center files with the delivery slip.',
+        es: 'Anota la temperatura en la pantalla al empacar: caliente 135\u00b0F o m\u00e1s, fr\u00edo 41\u00b0F o menos. Ese n\u00famero es lo que el centro archiva con la boleta de entrega.',
+      }),
+      Object.freeze({
+        en: 'Allergy and diet meals are made first, on a clean surface, and labeled with the participant\u2019s name. The full manual, in Spanish, is in Library.',
+        es: 'Las comidas de alergia y dieta se hacen primero, en superficie limpia, y se etiquetan con el nombre del participante. El manual completo, en espa\u00f1ol, est\u00e1 en Biblioteca.',
       }),
     ]),
   }),

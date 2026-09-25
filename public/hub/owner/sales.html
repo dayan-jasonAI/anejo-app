@@ -84,7 +84,7 @@
   const S = '/api/hub/owner/sales', OUT = S + '/outreach', SET = S + '/settings', DEAL = S + '/deal';
   const root = document.getElementById('owner-root');
   const tabsEl = document.getElementById('sales-tabs');
-  const TABS = [['dashboard', 'Dashboard'], ['prospects', 'Prospects'], ['approvals', 'Approvals'], ['settings', 'Settings'], ['review', 'Launch review']];
+  const TABS = [['dashboard', 'Dashboard'], ['prospects', 'Prospects'], ['calls', 'Calls'], ['approvals', 'Approvals'], ['replies', 'Replies'], ['readiness', 'Readiness'], ['settings', 'Settings'], ['review', 'Launch review']];
   const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   let ACT = {};
   let filters = {};
@@ -148,7 +148,7 @@
     drawTabs(tab);
     root.className = '';
     root.innerHTML = '<p class="muted">Loading…</p>';
-    const views = { dashboard: dashboard, prospects: prospects, approvals: approvals, settings: settings, review: review };
+    const views = { dashboard: dashboard, prospects: prospects, calls: callsView, approvals: approvals, replies: repliesView, readiness: readinessView, settings: settings, review: review };
     return org ? detail(org) : (views[tab] || dashboard)();
   }
   window.addEventListener('hashchange', route);
@@ -172,7 +172,9 @@
       ['Meetings / tastings', f.meetings_tastings], ['Proposals', f.proposals], ['Won', f.won], ['Lost', f.lost],
       ['Won — monthly (est.)', money(f.won_monthly_cents)], ['Realized revenue (invoiced)', money(f.realized_revenue_cents)],
     ];
+    const rb = (d.readiness && d.readiness.top_blockers) || [];
     root.innerHTML = readiness(d.send_readiness)
+      + (rb.length ? `<div class="bad"><b>Buyers will ask for things Añejo cannot hand over yet.</b> ${rb.slice(0, 4).map((x) => `${esc(x.label.split(' (')[0])} (${esc(x.prospects)} prospects)`).join(' · ')}. <a href="#tab=readiness">Open Readiness</a></div>` : '')
       + `<div class="tiles">${tiles.map(([n, l]) => `<div class="tile"><b>${esc(n)}</b><span>${esc(l)}</span></div>`).join('')}</div>`
       + `<div class="box"><h2>Primary KPI — recurring institutional accounts activated: ${esc(f.won)}</h2>
           <div class="okbar" style="background:#faf8f2;border-color:#e7e2d6;color:#3d4a42"><b>Where it is stuck:</b> ${esc(f.diagnosis.text)}</div>
@@ -187,7 +189,7 @@
           <p class="muted" style="margin-top:8px">${esc(d.reply_detection.note)}</p></div>`
       + `<div class="box"><h2>Recent activity</h2><ul class="feed">${(d.recent || []).map((a) => `<li><b>${esc(a.kind.replace(/_/g, ' '))}</b> ${a.organization_name ? '· ' + esc(a.organization_name) : ''} <span class="muted">· ${esc(when(a.created_at))}</span></li>`).join('') || '<li class="muted">Nothing yet.</li>'}</ul></div>`;
     const out = (r) => { document.getElementById('run-out').textContent = JSON.stringify(r && (r.output || r), null, 0).slice(0, 600); };
-    ACT.discover = async (b) => { b.disabled = true; const r = await post(S, { op: 'discover_now', max_calls: 2 }); b.disabled = false; if (!r.ok) toast(r.error); out(r); };
+    ACT.discover = async (b) => { b.disabled = true; const r = await post(S, { op: 'discover_now', max_calls: 3 }); b.disabled = false; if (!r.ok) toast(r.error); out(r); };
     ACT.job = async (b) => { b.disabled = true; const r = await post(S, { op: 'run_job', job: b.dataset.job }); b.disabled = false; out(r); };
     ACT.sendnow = async (b) => { b.disabled = true; const r = await post(OUT, { op: 'send_now' }); b.disabled = false; out(r); toast(r.sent ? `Sent ${r.sent}` : ((r.blocked_by && r.blocked_by[0]) || 'Nothing to send')); };
   }
@@ -212,7 +214,15 @@
         <p class="muted">Acts on the ${d.organizations.length} prospect${d.organizations.length === 1 ? '' : 's'} shown above, with the filters you have set. Neither button contacts anybody: an opportunity only makes a prospect addressable, and researching only reads their public website.</p>
         <button class="btn2 primary" data-act="bulkopp">Create opportunities for all ${d.organizations.length}</button>
         <button class="btn2" data-act="bulkresearch">Research the ones never researched</button>
-        <div id="bulk-out" class="muted"></div></div>
+        <div id="bulk-out" class="muted"></div>
+        <div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px">
+          <b>Or start a campaign</b>
+          <p class="muted">Enrolls every prospect shown above that has a usable contact, and names the set so you can see later what it produced. It drafts; it never sends.</p>
+          <div class="f"><div><label>Campaign name</label><input id="cmp-name" placeholder="October adult day care"></div>
+            <div class="wide"><label>What are you trying to learn or win?</label><input id="cmp-goal" placeholder="Two more centers like Boca"></div></div>
+          <label style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="cmp-ack"> <span>Launch even though readiness gaps are open</span></label>
+          <div style="margin-top:8px"><button class="btn2 primary" data-act="campaign">Start campaign</button> <span id="cmp-out" class="muted"></span></div>
+        </div></div>
       <div class="box scroll"><table class="t"><thead><tr><th>Organization</th><th>Tier</th><th>Category</th><th>City</th><th>Stage</th><th>Contact</th><th>Last touch</th><th>Next action</th></tr></thead><tbody>
       ${d.organizations.map((o) => `<tr class="row-link" data-act="open" data-id="${esc(o.id)}"><td><b>${esc(o.name)}</b>${o.do_not_contact ? ' <span class="muted">(do not contact)</span>' : ''}</td><td>${tier(o.current_tier, o.current_score)}</td><td>${esc((o.business_category || '').replace(/_/g, ' '))}</td><td>${esc(o.city || '')}</td><td>${esc((o.opp_stage || o.status || '').replace(/_/g, ' '))}</td><td>${o.sendable_contacts ? '✉︎ ' + esc(o.sendable_contacts) : '—'}</td><td>${esc(o.last_touch_at ? when(o.last_touch_at) : '—')}</td><td>${esc(o.next_action || '')}</td></tr>`).join('') || '<tr><td colspan="8" class="muted">No organizations yet. Add one below, import a CSV, or run discovery.</td></tr>'}
       </tbody></table></div>
@@ -246,6 +256,25 @@
       prospects();
     };
     ACT.bulkopp = (b) => bulk(b, ['create_opportunity'], 'Creating…');
+    ACT.campaign = async (b) => {
+      const name = (document.getElementById('cmp-name').value || '').trim();
+      if (!name) return toast('Give the campaign a name');
+      const ack = document.getElementById('cmp-ack');
+      b.disabled = true;
+      const r = await post(OUT, {
+        op: 'start_campaign', name: name, goal: document.getElementById('cmp-goal').value || undefined,
+        organization_ids: shownIds, acknowledge_gaps: !!(ack && ack.checked),
+      });
+      b.disabled = false;
+      const out = document.getElementById('cmp-out');
+      if (!r.ok) {
+        out.textContent = r.error || 'Could not start';
+        if (r.code === 'readiness') toast('Readiness gaps are open — tick the box to launch anyway');
+        return;
+      }
+      out.textContent = `${r.enrolled} enrolled${r.refused ? ', ' + r.refused + ' refused' : ''} — drafts are in Approvals`;
+      toast(`Campaign started: ${r.enrolled} enrolled`);
+    };
     ACT.bulkresearch = (b) => bulk(b, ['research'], 'Reading their websites…');
 
     Array.prototype.forEach.call(root.querySelectorAll('[data-f]'), (el) => el.addEventListener('change', () => { filters[el.dataset.f] = el.value; prospects(); }));
@@ -384,6 +413,7 @@
           <div class="wide"><label>Notes</label><textarea id="e-notes" rows="2">${esc(o.notes || '')}</textarea></div></div>
           <button class="btn2" data-act="saveorg">Save</button></details></div>
 
+      ${buyerBox(d.buyer_checklist)}
       ${visitBox(d)}
       ${conversationBox(d)}
 
@@ -602,11 +632,168 @@
   }
 
   // ---------------------------------------------------------------- approval queue
+  // WHAT THIS BUYER WILL ASK FOR — from functions/_lib/sales/requirements.js, joined with Añejo's
+  // readiness. Shown on every prospect, open by default when something required is missing.
+  const RSTATUS = { ready: ['✅', 'Ready'], in_progress: ['🟡', 'In progress'], missing: ['⛔', 'Missing'], unknown: ['❔', 'Unknown'], not_applicable: ['➖', 'Not applicable'] };
+  const rstat = (st) => `<span class="muted" style="white-space:nowrap">${(RSTATUS[st] || RSTATUS.unknown)[0]} ${esc((RSTATUS[st] || RSTATUS.unknown)[1])}</span>`;
+  const levelTxt = { required: 'Required', conditional: 'If it applies', expected: 'Usually asked' };
+  function checklistRows(items) {
+    return `<div class="scroll"><table class="t"><thead><tr><th>They will ask for</th><th>How strict</th><th>Añejo</th></tr></thead><tbody>${items.map((i) => `<tr>
+      <td><b>${esc(i.label)}</b><br><span class="muted">${esc(i.why)}${i.when ? ' <b>' + esc(i.when) + '</b>' : ''}${i.source ? ' · ' + (i.url ? safeLink(i.url, i.source) : esc(i.source)) : ''}</span></td>
+      <td>${esc(levelTxt[i.level] || i.level)}</td>
+      <td>${rstat(i.status)}${!i.ready && i.readiness_note ? '<br><span class="muted">' + esc(i.readiness_note) + '</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  function buyerBox(c) {
+    if (!c) return '';
+    const cls = c.verdict === 'gaps' ? 'bad' : c.verdict === 'ask_first' ? 'warn' : 'okbar';
+    return `<details class="box"${c.verdict === 'gaps' ? ' open' : ''}><summary><b>What this buyer will ask for</b> · ${esc(c.label)}</summary>
+      <div class="${cls}">${esc(c.verdict_text)}</div>
+      <p class="muted">${esc(c.summary)}</p>
+      ${c.ask_first && c.ask_first.length ? `<p><b>Ask on the first call:</b></p><ul class="check">${c.ask_first.map((q) => `<li>${esc(q)}</li>`).join('')}</ul>` : ''}
+      ${checklistRows(c.items)}
+      <p class="muted">Update Añejo's side in <a href="#tab=readiness">Readiness</a>.</p></details>`;
+  }
+
+  // ---------------------------------------------------------------- readiness
+  async function readinessView() {
+    const d = await get(S + '?view=readiness');
+    if (!d || !d.ok) return fail(d);
+    drawTabs('readiness');
+    const tb = d.summary.top_blockers || [];
+    const groups = {};
+    for (const it of d.items) (groups[it.group] = groups[it.group] || []).push(it);
+    root.innerHTML = `<div class="box"><h2>Are we ready to close?</h2>
+        <p class="muted">Every institutional buyer asks for documents before they sign. This page is Añejo's side: keep each item current, and every prospect page shows which of them that buyer needs.</p>
+        ${tb.length ? `<div class="bad"><b>Blocking deals in your pipeline right now:</b><ul style="margin:6px 0 0 18px">${tb.map((x) => `<li><b>${esc(x.label)}</b>: needed by ${esc(x.prospects)} open prospects (${esc(x.categories.map((c) => c.replace(/_/g, ' ')).join(', '))}). ${esc(x.note || '')}</li>`).join('')}</ul></div>` : '<div class="okbar">Nothing required is missing for the categories in your pipeline.</div>'}
+      </div>`
+      + d.categories.map((c) => `<details class="box"${c.verdict === 'gaps' ? ' open' : ''}><summary><b>${esc(c.label)}</b> · ${esc(c.open_prospects)} open prospects · ${c.verdict === 'gaps' ? '⛔ gaps' : c.verdict === 'ask_first' ? '🟡 ask first' : '✅ ready'}</summary>
+          <p class="muted">${esc(c.summary)}</p>${checklistRows(c.items)}</details>`).join('')
+      + Object.entries(groups).map(([g, items]) => `<div class="box"><h2>${esc(g)}</h2>${items.map((it) => `<div class="rd" data-key="${esc(it.key)}" style="border-top:1px solid #eee;padding:10px 0">
+          <div><b>${esc(it.label)}</b> ${rstat(it.status)}${it.is_default ? ' <span class="muted">(as verified 9/18/2026)</span>' : it.updated_at ? ' <span class="muted">· updated ' + esc(when(it.updated_at)) + '</span>' : ''}</div>
+          <div class="f" style="margin-top:6px"><div><label>Status</label><select class="rd-st">${d.statuses.map((st) => `<option value="${esc(st)}"${st === it.status ? ' selected' : ''}>${esc((RSTATUS[st] || [0, st])[1])}</option>`).join('')}</select></div>
+          <div class="wide"><label>Note (what, where, expires)</label><textarea class="rd-note" rows="2">${esc(it.note || '')}</textarea></div></div>
+          <button class="btn2" data-act="rdsave" data-key="${esc(it.key)}">Save</button></div>`).join('')}</div>`).join('');
+    ACT.rdsave = async (b) => {
+      const row = b.closest('.rd');
+      b.disabled = true;
+      const r = await post(S, { op: 'set_readiness', key: b.dataset.key, status: row.querySelector('.rd-st').value, note: row.querySelector('.rd-note').value });
+      b.disabled = false;
+      if (!r.ok) return toast(r.error || 'Could not save');
+      toast('Saved');
+      readinessView();
+    };
+  }
+
+  // ---------------------------------------------------------------- calls
+  // The part of the pipeline email cannot reach. A licensed facility publishes a phone, not an
+  // inbox, so this is where roughly half the list is actually worked.
+  async function callsView() {
+    const d = await get(S + '?view=calls');
+    if (!d || !d.ok) return fail(d);
+    drawTabs('calls');
+    const st = d.stats || {};
+    root.innerHTML = `<div class="box"><h2>Call list</h2>
+        <p class="muted">Licensed facilities with a phone and no email we can use. Best first. A number called today is not offered again today.</p>
+        <div class="tiles"><div class="tile"><b>${esc(d.queue.length)}</b><span>Ready to call</span></div>
+          <div class="tile"><b>${esc(st.today || 0)}</b><span>Called today</span></div>
+          <div class="tile"><b>${esc(st.last_7_days || 0)}</b><span>Last 7 days</span></div></div></div>`
+      + (d.queue.length ? d.queue.map(callCardHtml).join('') : '<div class="okbar">Nobody is due. Either the list is worked, or everyone is resting.</div>');
+    wireCalls(d.outcomes);
+  }
+
+  function callCardHtml(x) {
+    const c = x.card;
+    return `<div class="box call" data-org="${esc(x.organization_id)}">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div><h2 style="font-size:16px;text-transform:none;letter-spacing:0;margin-bottom:2px">${esc(c.headline)}</h2>
+          <div class="muted">${esc((x.category || '').replace(/_/g, ' '))} ${tier(x.tier, x.score)}${x.last_outcome ? ' · last: ' + esc(String(x.last_outcome).replace(/_/g, ' ')) : ''}</div></div>
+        <div style="text-align:right"><a class="btn2 primary" href="tel:${esc(String(x.phone || '').replace(/[^0-9+]/g, ''))}">📞 ${esc(x.phone || '')}</a></div>
+      </div>
+      <ul class="check" style="margin-top:8px">${c.facts.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>
+      <details><summary>What to say</summary>
+        <p><b>Open:</b> ${esc(c.open)}</p><p><b>Ask:</b> ${esc(c.ask)}</p>
+        <p><b>Write down:</b></p><ul class="check">${c.capture.map((q) => `<li>${esc(q)}</li>`).join('')}</ul>
+        <div class="warn">${c.never.map((n) => esc(n)).join('<br>')}</div></details>
+      <div class="f" style="margin-top:10px">
+        <div><label>Outcome</label><select class="c-out"></select></div>
+        <div><label>How many attend daily</label><input class="c-heads" type="number" inputmode="numeric" placeholder="e.g. 26"></div>
+        <div><label>Who decides (name)</label><input class="c-name" placeholder="Marta Reyes"></div>
+        <div><label>Their title</label><input class="c-title" placeholder="Program Director"></div>
+        <div><label>Email for the menu</label><input class="c-email" type="email" placeholder="name@center.org"></div>
+        <div class="wide"><label>Notes</label><textarea class="c-notes" rows="2" placeholder="What they said, in their words"></textarea></div>
+      </div>
+      <button class="btn2 primary c-save" type="button">Log this call</button></div>`;
+  }
+
+  function wireCalls(outcomes) {
+    Array.prototype.forEach.call(root.querySelectorAll('.call'), function (box) {
+      const sel = box.querySelector('.c-out');
+      sel.innerHTML = outcomes.map((o) => `<option value="${esc(o.key)}">${esc(o.label)}</option>`).join('');
+      box.querySelector('.c-save').addEventListener('click', async function (e) {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        const r = await post(S, {
+          op: 'log_call', organization_id: box.dataset.org, outcome: sel.value,
+          headcount: box.querySelector('.c-heads').value || undefined,
+          contact_name: box.querySelector('.c-name').value || undefined,
+          contact_title: box.querySelector('.c-title').value || undefined,
+          contact_email: box.querySelector('.c-email').value || undefined,
+          notes: box.querySelector('.c-notes').value || undefined,
+        });
+        btn.disabled = false;
+        if (!r.ok) return toast(r.error || 'Could not log');
+        toast('Logged' + (r.capacity_set ? ' · capacity saved' : '') + (r.contact_added ? ' · contact added' : ''));
+        callsView();
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- replies
+  // Reply detection is manual by necessity: the Hub has no mailbox. Pasting what they said is the
+  // cheapest honest substitute, and it does the three things that matter automatically.
+  async function repliesView() {
+    const d = await get(OUT + '?view=replies');
+    if (!d || !d.ok) return fail(d);
+    drawTabs('replies');
+    const CLS = { interested: '🟢 interested', question: '🔵 question', not_now: '🟡 not now', not_interested: '⛔ not interested', unsubscribe: '⛔ unsubscribe', other: '⚪ unclear' };
+    root.innerHTML = `<div class="box"><h2>What prospects actually said</h2>
+        <p class="muted">Paste a reply. The Hub stops the sequence, moves the stage and drafts the answer for your approval. Nothing sends.</p>
+        <div class="f"><div class="wide"><label>Prospect</label><select id="r-org"></select></div>
+          <div class="wide"><label>What they wrote</label><textarea id="r-body" rows="4" placeholder="Paste their reply"></textarea></div></div>
+        <button class="btn2 primary" data-act="logreply">Log this reply</button></div>`
+      + `<div class="box"><h2>Logged replies</h2>${d.replies.length ? d.replies.map((r) => `<div class="card" style="margin-bottom:8px">
+          <b>${esc(r.organization_name)}</b> <span class="muted">· ${esc(CLS[r.classification] || r.classification)} · ${esc(r.confidence || '')} · ${esc(when(r.created_at))}</span>
+          <p style="white-space:pre-wrap;margin:6px 0">${esc(String(r.body).slice(0, 600))}</p>
+          ${r.drafted_outreach_id ? '<div class="okbar">An answer is drafted and waiting in Approvals.</div>' : ''}</div>`).join('') : '<p class="muted">Nothing logged yet.</p>'}</div>`;
+    const list = await get(S + '?view=list&limit=200');
+    const sel = document.getElementById('r-org');
+    sel.innerHTML = ((list && list.organizations) || []).map((o) => `<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('');
+    ACT.logreply = async (b) => {
+      const body = document.getElementById('r-body').value.trim();
+      if (!body) return toast('Paste what they said');
+      b.disabled = true;
+      const r = await post(OUT, { op: 'log_reply', organization_id: sel.value, body: body });
+      b.disabled = false;
+      if (!r.ok) return toast(r.error || 'Could not log');
+      toast('Logged as ' + r.classification + (r.drafted_outreach_id ? ' · answer drafted' : ''));
+      repliesView();
+    };
+  }
+
   async function approvals() {
     const d = await get(S + '?view=queue');
     if (!d || !d.ok) return fail(d);
     drawTabs('approvals', d.queue.length);
-    root.innerHTML = readiness(d.send_readiness)
+    // BATCH BAR. Nine drafts used to be nine preview-read-approve round trips. Each one is still
+    // previewed and hash-checked server-side; what is batched is the clicking.
+    const batchBar = d.queue.length > 1
+      ? `<div class="box"><h2>Approve several</h2>
+          <p class="muted">Read them below first. Each is re-previewed and approved against its own rendered text; anything that changed since you looked is refused by name.</p>
+          <label style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="b-ack"> <span>Acknowledge flagged claims and readiness gaps</span></label>
+          <div style="margin-top:8px"><button class="btn2 primary" data-act="approveall">Approve all ${esc(d.queue.length)} below</button>
+          <span id="b-out" class="muted" style="margin-left:8px"></span></div></div>`
+      : '';
+    root.innerHTML = readiness(d.send_readiness) + batchBar
       + `<p class="muted">Every prospect email waits here for you. Preview shows the exact email — subject, body, the footer with the opt-out and your postal address, sender and reply-to. Approve appears only after a preview, and only for the text you previewed.</p>`
       + (d.queue.map(card).join('') || '<div class="box"><p class="muted">Nothing waiting for approval.</p></div>');
     Array.prototype.forEach.call(root.querySelectorAll('.ap input.ap-subj, .ap textarea.ap-body'), (el) => el.addEventListener('input', () => {
@@ -615,6 +802,21 @@
     }));
     const cardOf = (b) => b.closest('.ap');
     const vals = (c) => ({ subject: c.querySelector('.ap-subj').value, body: c.querySelector('.ap-body').value });
+    ACT.approveall = async (b) => {
+      const ids = Array.prototype.map.call(root.querySelectorAll('.ap'), (c) => c.dataset.id);
+      if (!ids.length) return;
+      const ack = document.getElementById('b-ack');
+      b.disabled = true;
+      const r = await post(OUT, { op: 'approve_batch', ids: ids, acknowledge_flags: !!(ack && ack.checked) });
+      b.disabled = false;
+      const out = document.getElementById('b-out');
+      if (!r.ok) { toast(r.error || 'Could not approve'); return; }
+      const refused = (r.results || []).filter((x) => !x.ok);
+      out.textContent = `${r.approved} approved${refused.length ? ', ' + refused.length + ' refused' : ''}`;
+      if (refused.length) toast(refused[0].error || 'Some were refused');
+      else toast(`Approved ${r.approved}`);
+      setTimeout(approvals, 900);
+    };
     ACT.preview = async (b) => {
       const c = cardOf(b); const id = c.dataset.id;
       b.disabled = true;
@@ -645,6 +847,7 @@
         <div class="ap-org">Organization: <b><a href="#org=${esc(x.organization_id)}">${esc(x.organization_name)}</a></b> · ${esc(x.city || '')} · ${esc((x.business_category || '').replace(/_/g, ' '))} ${tier(x.current_tier, x.current_score)}</div></div>
         <div class="muted">Step ${esc(x.step_number || 1)}${x.snoozed_until ? ' · snoozed until ' + esc(when(x.snoozed_until)) : ''}</div></div>
       ${x.failure_reason ? `<div class="warn">${esc(x.failure_reason)}</div>` : ''}
+      ${x.buyer && x.buyer.verdict === 'gaps' ? `<div class="warn"><b>Before you pitch a ${esc(x.buyer.label.toLowerCase())}:</b> ${esc(x.buyer.verdict_text)} <a href="#tab=readiness">Readiness</a></div>` : ''}
       <details><summary>Why this prospect qualifies</summary><ul class="check">${(x.why || []).map((w) => `<li>${esc(w)}</li>`).join('') || '<li class="muted">No criteria earned points — check before sending.</li>'}</ul></details>
       <label>Subject</label><input class="ap-subj" value="${esc(x.subject || '')}">
       <label>Email</label><textarea class="ap-body" rows="11">${esc(x.body_snapshot || '')}</textarea>
@@ -679,9 +882,18 @@
       'sales.auto_send_enabled': 'Auto-send without approval', 'sales.owner_approval_required': 'Owner approval required for every email',
       'sales.max_new_prospects_per_day': 'Max new prospects per day', 'sales.max_emails_per_day': 'Max prospect emails per day', 'sales.max_discovery_calls_per_day': 'Max discovery API calls per day',
       'sales.places_persistence_approved': 'Google Places as a production prospect source',
+      'sales.auto_intro_enabled': 'Send the intro email automatically (standing approval)',
+      'sales.max_auto_intros_per_day': 'Max automatic intro emails per day',
     };
     const o = d.offer, s = d.sender, pr = d.proof, w = d.send_window, a = d.service_area, icp = d.icp;
-    root.innerHTML = readiness(d.send_readiness)
+    const ai = d.auto_intro || {};
+    const aiBox = `<div class="box"><h2>Automatic intro email</h2>
+      <p class="muted">Your standing approval of one exact email. New prospects that clear every bar get that letter without another click. Follow-ups, flagged claims and buyers with an open readiness gap always wait for you.</p>
+      <div class="${ai.ok ? 'okbar' : 'warn'}">${ai.ok ? 'Running. ' + esc(ai.used_today) + ' of ' + esc(ai.cap) + ' sent automatically in the last 24 hours.' : '<b>Not running:</b><ul style="margin:6px 0 0 18px">' + (ai.reasons || []).map((r) => '<li>' + esc(r) + '</li>').join('') + '</ul>'}</div>
+      ${ai.attestation ? `<p class="muted">Approved ${esc(when(ai.attestation.approved_at))} · subject: “${esc(ai.attestation.subject)}”${ai.fingerprint_matches ? '' : ' · <b>the email has changed since</b>'}</p>` : ''}
+      <button class="btn2" data-act="aisample">Read the exact email</button>
+      <div id="ai-sample" style="margin-top:8px"></div></div>`;
+    root.innerHTML = readiness(d.send_readiness) + aiBox
       + `<div class="box"><h2>Switches</h2>${Object.keys(d.flags).map((k) => {
         const locked = Object.prototype.hasOwnProperty.call(d.locked_flags, k);
         const val = d.flags[k];
@@ -740,6 +952,7 @@
 
     const v = (i) => document.getElementById(i).value;
     const save = async (b, key, value, extra) => { b.disabled = true; const r = await post(SET, { op: 'save', key, value, ...(extra || {}) }); b.disabled = false; toast(r.ok ? 'Saved' : r.error); if (r.ok) settings(); };
+    wireAutoIntro();
     ACT.flag = async (b) => { const r = await post(SET, { op: 'set_flag', key: b.dataset.k, value: b.dataset.v === '1' }); toast(r.ok ? 'Updated' : r.error); if (r.ok) settings(); };
     ACT.flagnum = async (b) => { const inp = root.querySelector(`[data-flagnum="${b.dataset.k}"]`); const r = await post(SET, { op: 'set_flag', key: b.dataset.k, value: inp.value }); toast(r.ok ? 'Saved' : r.error); if (r.ok) settings(); };
     ACT.savesender = (b) => save(b, 'sales.sender', { from_name: v('s-fn'), from_email: v('s-fe'), reply_to: v('s-rt'), signature_name: v('s-sn'), signature_title: v('s-st'), signature_phone: v('s-sp') });
@@ -762,6 +975,34 @@
   }
 
   // ---------------------------------------------------------------- launch review (§34)
+  // Read, then attest. The attestation stores the text that was read, so nothing can drift between
+  // what the owner approved and what goes out.
+  function wireAutoIntro() {
+    ACT.aisample = async (b) => {
+      b.disabled = true;
+      const r = await post(SET, { op: 'auto_intro_sample' });
+      b.disabled = false;
+      const box = document.getElementById('ai-sample');
+      if (!r.ok) { box.innerHTML = `<div class="bad">${esc(r.error)}</div>`; return; }
+      box.innerHTML = `<p class="muted">${esc(r.source)} · to ${esc(r.to)}</p>
+        <p><b>Subject:</b> ${esc(r.subject)}</p><pre>${esc(r.text)}</pre>
+        <label style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="ai-confirm"> <span>I have read this email and approve it being sent automatically to new prospects</span></label>
+        <div style="margin-top:8px"><button class="btn2 primary" data-act="aiattest">Save my standing approval</button></div>`;
+      window.__aiSample = r;
+    };
+    ACT.aiattest = async (b) => {
+      const c = document.getElementById('ai-confirm');
+      if (!c || !c.checked) return toast('Tick the box to confirm you read it');
+      const sample = window.__aiSample || {};
+      b.disabled = true;
+      const r = await post(SET, { op: 'auto_intro_attest', subject: sample.subject, text: sample.text, for: sample.for });
+      b.disabled = false;
+      if (!r.ok) return toast(r.error || 'Could not save');
+      toast('Standing approval saved');
+      settings();
+    };
+  }
+
   async function review() {
     const d = await get(S + '?view=review');
     if (!d || !d.ok) return fail(d);

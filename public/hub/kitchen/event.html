@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Añejo HUB · Event production</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b3a2b">
+<link rel="manifest" href="/hub/manifest.webmanifest">
+<link rel="stylesheet" href="/hub/assets/hub.css">
+<style>
+  /* Page-local. Read on a phone, in a kitchen, with one hand: one thing per row, big touch targets. */
+  .ev-head { background:#1A3D2E; color:#fff; border-radius:12px; padding:14px; margin-bottom:12px; }
+  .ev-head h2 { margin:0 0 2px; font-size:19px; color:#fff; }
+  .ev-head .sub { font-size:13px; opacity:.85; }
+  .countdown { font-size:30px; font-weight:700; line-height:1; margin-top:8px; }
+  .countdown small { display:block; font-size:11px; font-weight:400; opacity:.8; text-transform:uppercase; letter-spacing:1px; }
+  .money { display:flex; gap:14px; margin-top:10px; font-size:13px; flex-wrap:wrap; }
+  .money b { display:block; font-size:16px; }
+  .gap { background:#fbf3da; border:1px solid #e7d9a6; border-radius:10px; padding:9px 12px; font-size:13px; margin-bottom:8px; }
+  .sect { border:1px solid var(--line,#e3e3da); border-radius:12px; padding:12px; margin-bottom:12px; background:#fff; }
+  .sect h3 { margin:0 0 8px; font-size:15px; text-transform:uppercase; letter-spacing:1px; opacity:.8; }
+  .task { display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid #f0efe9; }
+  .task:last-child { border-bottom:0; }
+  .task input[type=checkbox] { width:26px; height:26px; flex:0 0 26px; margin-top:2px; }
+  .task .when { font-size:12px; opacity:.7; text-transform:uppercase; letter-spacing:.5px; }
+  .task.done label { text-decoration:line-through; opacity:.55; }
+  .daybar { font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; opacity:.6; margin:12px 0 2px; }
+  .kind { font-size:10px; border:1px solid #cfcfc4; border-radius:4px; padding:1px 5px; text-transform:uppercase; letter-spacing:.5px; opacity:.75; white-space:nowrap; }
+  table.grid { width:100%; border-collapse:collapse; font-size:14px; }
+  table.grid td { padding:6px 4px; border-bottom:1px solid #f0efe9; vertical-align:top; }
+  table.grid td.q { text-align:right; white-space:nowrap; font-weight:600; font-variant-numeric:tabular-nums; }
+  .pill { display:inline-block; font-size:11px; border-radius:20px; padding:2px 8px; background:#f1efe7; }
+  .pill.warn { background:#fbf3da; }
+  .fields { display:grid; gap:8px; }
+  .fields label { font-size:12px; text-transform:uppercase; letter-spacing:.5px; opacity:.7; }
+  .fields input { width:100%; padding:10px; font-size:16px; }
+  details.card { padding:10px 12px; }
+  summary { cursor:pointer; font-weight:600; }
+  .ev-row { display:block; padding:12px; border:1px solid var(--line,#e3e3da); border-radius:12px; margin-bottom:8px; background:#fff; text-decoration:none; color:inherit; }
+</style>
+</head>
+<body>
+<div class="hub-bar">
+  <h1>AÑEJO · EVENT</h1>
+  <div class="hub-bar-actions"><a id="back" href="/hub/kitchen/event.html" style="color:var(--gold,#C8BC6E);text-decoration:none;font-size:13px;display:none">← <span data-i18n>All events</span></a></div>
+</div>
+
+<div class="hub-wrap">
+  <div class="hub-section">
+    <div id="out"><div class="hub-loading" data-i18n>Loading…</div></div>
+  </div>
+</div>
+
+<script src="/hub/assets/hub.js"></script>
+<script src="/hub/kitchen/kitchen.js"></script>
+<script>
+(function () {
+  'use strict';
+  var K = window.Kitchen, Hub = window.Hub;
+  K.renderNav('events');
+  var out = document.getElementById('out');
+  var back = document.getElementById('back');
+  var quoteId = new URLSearchParams(location.search).get('id');
+  var plan = null;
+
+  var lang = 'en';
+  try { lang = (window.AnejoLang ? window.AnejoLang.get() : localStorage.getItem('anejo:lang')) === 'es' ? 'es' : 'en'; } catch (e) { lang = 'en'; }
+  var T = lang === 'es' ? {
+    none: 'No hay eventos reservados en las próximas tres semanas.', guests: 'invitados', days: 'días',
+    today: 'HOY', tomorrow: 'MAÑANA', deposit: 'Depósito', balance: 'Saldo', paid: 'pagado', due: 'pendiente',
+    plan: 'Plan de producción', timeline: 'Qué se hace y cuándo', shopping: 'Lista de compra',
+    packaging: 'Empaque', hours: 'Horas de cocina', logistics: 'Logística', design: 'Diseño y etiquetas',
+    missing: 'Falta', details: 'Hora, dirección y tema', save: 'Guardar', saved: 'Guardado',
+    time: 'Hora de servicio (24 h)', addr: 'Dirección', theme: 'Tema', colors: 'Colores', diet: 'Alergias / dieta',
+    link: 'Usar esta solicitud', brief: 'Solicitud de diseño que coincide', noRecipe: 'sin receta',
+    onHand: 'en inventario', total: 'Total', forDish: 'para', estimate: 'estimado',
+    mins: 'min', setTime: '¿Cuánto tarda de verdad? Ponlo en minutos y el plan se reordena solo.'
+  } : {
+    none: 'No booked events in the next three weeks.', guests: 'guests', days: 'days',
+    today: 'TODAY', tomorrow: 'TOMORROW', deposit: 'Deposit', balance: 'Balance', paid: 'paid', due: 'due',
+    plan: 'Production plan', timeline: 'What happens, and when', shopping: 'Purchase list',
+    packaging: 'Packaging', hours: 'Kitchen hours', logistics: 'Logistics', design: 'Design and labels',
+    missing: 'Missing', details: 'Time, address and theme', save: 'Save', saved: 'Saved',
+    time: 'Serving time (24h)', addr: 'Address', theme: 'Theme', colors: 'Colours', diet: 'Allergies / dietary',
+    link: 'Use this request', brief: 'A design request that matches', noRecipe: 'no recipe',
+    onHand: 'on hand', total: 'Total', forDish: 'for', estimate: 'estimated',
+    mins: 'min', setTime: 'How long does it really take? Put the minutes in and the plan reorders itself.'
+  };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+  var money = function (c) { return '$' + ((c || 0) / 100).toFixed(2); };
+  var clock = function (ms) { var d = new Date(ms); var h = d.getHours(); var m = String(d.getMinutes()).padStart(2, '0'); var ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12; return h + ':' + m + ' ' + ap; };
+  var dayName = function (ms) { return new Date(ms).toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { weekday: 'long', month: 'short', day: 'numeric' }); };
+  var dayKey = function (ms) { var d = new Date(ms); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+
+  // ---- list of events -------------------------------------------------------------------------
+  function renderList(d) {
+    if (!d.events.length) { out.innerHTML = '<p class="row-sub">' + esc(T.none) + '</p>'; return; }
+    out.innerHTML = d.events.map(function (e) {
+      var when = e.days_out === 0 ? T.today : e.days_out === 1 ? T.tomorrow : e.days_out + ' ' + T.days;
+      return '<a class="ev-row" href="/hub/kitchen/event.html?id=' + encodeURIComponent(e.id) + '">'
+        + '<b>' + esc(e.customer_name || '—') + '</b> <span class="pill">' + esc(when) + '</span>'
+        + '<div class="row-sub">' + esc(e.event_date) + (e.serving_time ? ' · ' + esc(e.serving_time) : '')
+        + ' · ' + esc(e.guests) + ' ' + esc(T.guests) + ' · ' + esc(money(e.total_cents)) + '</div></a>';
+    }).join('');
+    if (Hub && Hub.i18nRefresh) Hub.i18nRefresh();
+  }
+
+  // ---- one event ------------------------------------------------------------------------------
+  function render(d) {
+    plan = d;
+    back.style.display = '';
+    var e = d.event;
+    var when = e.days_out === 0 ? T.today : e.days_out === 1 ? T.tomorrow : e.days_out;
+    var html = '<div class="ev-head"><h2>' + esc(e.customer || '—') + '</h2>'
+      + '<div class="sub">' + esc(dayName(Date.parse(e.date + 'T12:00:00'))) + (e.serving_time ? ' · ' + esc(e.serving_time) : '')
+      + ' · ' + esc(e.guests) + ' ' + esc(T.guests) + '</div>'
+      + (e.address ? '<div class="sub">' + esc(e.address) + '</div>' : '')
+      + '<div class="countdown">' + esc(when) + '<small>' + esc(e.days_out > 1 ? T.days : '') + '</small></div>'
+      + '<div class="money"><span>' + esc(T.deposit) + '<b>' + esc(money(e.deposit_paid_cents)) + ' ' + esc(e.deposit_status === 'paid' ? T.paid : e.deposit_status) + '</b></span>'
+      + '<span>' + esc(T.balance) + '<b>' + esc(money(e.balance_cents)) + ' ' + esc(e.balance_status === 'paid' ? T.paid : T.due) + '</b></span>'
+      + '<span>' + esc(T.total) + '<b>' + esc(money(e.total_cents)) + '</b></span></div></div>';
+
+    html += d.gaps.map(function (g) { return '<div class="gap">' + esc(g) + '</div>'; }).join('');
+    html += briefHtml(d) + detailsHtml(e) + timelineHtml(d) + productionHtml(d)
+          + shoppingHtml(d) + packagingHtml(d) + hoursHtml(d) + logisticsHtml(d) + designHtml(d);
+    out.innerHTML = html;
+    wire();
+    if (Hub && Hub.i18nRefresh) Hub.i18nRefresh();
+  }
+
+  function briefHtml(d) {
+    var c = d.brief_candidates || [];
+    if (!c.length) return '';
+    return '<div class="sect"><h3>' + esc(T.brief) + '</h3>' + c.map(function (b) {
+      var bits = [b.serving_time, b.address, b.theme, b.colors].filter(Boolean).map(esc).join(' · ');
+      return '<div class="task"><div style="flex:1"><b>' + esc(b.from || b.lead_id) + '</b>'
+        + '<div class="row-sub">' + bits + '</div></div>'
+        + '<button class="btn link-brief" type="button" data-lead="' + esc(b.lead_id) + '">' + esc(T.link) + '</button></div>';
+    }).join('') + '</div>';
+  }
+
+  function detailsHtml(e) {
+    return '<details class="sect"><summary>' + esc(T.details) + '</summary><div class="fields" style="margin-top:10px">'
+      + '<div><label for="f-time">' + esc(T.time) + '</label><input id="f-time" type="text" inputmode="numeric" placeholder="19:00" value="' + esc(e.serving_time || '') + '"></div>'
+      + '<div><label for="f-addr">' + esc(T.addr) + '</label><input id="f-addr" type="text" value="' + esc(e.address || '') + '"></div>'
+      + '<div><label for="f-theme">' + esc(T.theme) + '</label><input id="f-theme" type="text" value="' + esc(e.theme || '') + '"></div>'
+      + '<div><label for="f-colors">' + esc(T.colors) + '</label><input id="f-colors" type="text" value="' + esc(e.colors || '') + '"></div>'
+      + '<div><label for="f-diet">' + esc(T.diet) + '</label><input id="f-diet" type="text" value="' + esc(e.dietary_notes || '') + '"></div>'
+      + '<button class="btn" id="save-details" type="button">' + esc(T.save) + '</button></div></details>';
+  }
+
+  function timelineHtml(d) {
+    var lastDay = null;
+    var rows = d.tasks.map(function (t) {
+      var head = '';
+      var k = dayKey(t.at);
+      if (k !== lastDay) { lastDay = k; head = '<div class="daybar">' + esc(dayName(t.at)) + '</div>'; }
+      return head + '<div class="task' + (t.done ? ' done' : '') + '">'
+        + '<input type="checkbox" class="tick" data-key="' + esc(t.key) + '"' + (t.done ? ' checked' : '') + ' aria-label="' + esc(t.label) + '">'
+        + '<div style="flex:1"><label>' + esc(t.label) + '</label>'
+        + '<div class="when">' + esc(clock(t.at)) + (t.minutes ? ' · ' + t.minutes + ' min' : '') + '</div></div>'
+        + '<span class="kind">' + esc(t.kind) + '</span></div>';
+    }).join('');
+    return '<div class="sect"><h3>' + esc(T.timeline) + '</h3>' + rows + '</div>';
+  }
+
+  function productionHtml(d) {
+    // The minutes box is the one place the kitchen teaches the HUB. Whatever the cook types here
+    // drives this event's schedule and is kept as the starting point for the next one.
+    return '<div class="sect"><h3>' + esc(T.plan) + '</h3>'
+      + '<p class="row-sub" style="margin:-4px 0 8px">' + esc(T.setTime) + '</p>'
+      + '<table class="grid"><tbody>'
+      + d.production.map(function (p) {
+        return '<tr><td>' + esc(p.name)
+          + (p.needs_recipe ? ' <span class="pill warn">' + esc(T.noRecipe) + '</span>' : '')
+          + '<div class="when" style="font-size:11px;opacity:' + (p.minutes_is_guess ? '.9' : '.65') + '">' + esc(p.minutes_source) + '</div></td>'
+          + '<td class="q">' + esc(p.portions)
+          + '<div style="margin-top:4px;display:flex;gap:4px;align-items:center;justify-content:flex-end">'
+          + '<input class="mins" type="number" inputmode="numeric" min="1" max="1440" value="' + esc(p.minutes) + '" data-key="cook:' + esc(p.key) + '" aria-label="' + esc(p.name) + ' ' + esc(T.mins) + '" style="width:64px;padding:6px;text-align:right;font-size:15px">'
+          + '<span style="font-weight:400;font-size:11px;opacity:.7">' + esc(T.mins) + '</span></div></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function shoppingHtml(d) {
+    if (!d.shopping.length) return '';
+    return '<div class="sect"><h3>' + esc(T.shopping) + '</h3><table class="grid"><tbody>'
+      + d.shopping.map(function (s) {
+        return '<tr><td>' + esc(s.item)
+          + '<div class="when" style="font-size:11px;opacity:.65">' + esc(T.forDish) + ' ' + esc(s.for.join(', ')) + '</div>'
+          + (s.on_hand ? '<div class="when" style="font-size:11px">' + esc(s.on_hand.amount + ' ' + (s.on_hand.unit || '')) + ' ' + esc(T.onHand) + '</div>' : '')
+          + '</td><td class="q">' + esc(s.quantities.join(' + ')) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function packagingHtml(d) {
+    return '<div class="sect"><h3>' + esc(T.packaging) + '</h3><table class="grid"><tbody>'
+      + d.packaging.map(function (p) {
+        return '<tr><td>' + esc(p.item) + '<div class="when" style="font-size:11px;opacity:.65">' + esc(p.why) + '</div></td>'
+          + '<td class="q">' + esc(p.qty) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function hoursHtml(d) {
+    return '<div class="sect"><h3>' + esc(T.hours) + '</h3><table class="grid"><tbody>'
+      + d.labor.days.map(function (x) {
+        return '<tr><td>' + esc(dayName(x.from)) + '<div class="when" style="font-size:11px;opacity:.65">' + esc(clock(x.from)) + ' – ' + esc(clock(x.to)) + '</div></td>'
+          + '<td class="q">' + esc(x.hours) + ' h</td></tr>';
+      }).join('')
+      + '<tr><td><b>' + esc(T.total) + '</b></td><td class="q">' + esc(d.labor.total_hours) + ' h</td></tr>'
+      + '</tbody></table></div>';
+  }
+
+  function logisticsHtml(d) {
+    var l = d.logistics;
+    return '<div class="sect"><h3>' + esc(T.logistics) + '</h3>'
+      + (l.address ? '<p class="row-sub">' + esc(l.address) + '</p>' : '')
+      + '<table class="grid"><tbody>' + l.load.map(function (x) {
+        return '<tr><td>' + esc(x.what) + '</td><td style="text-align:right;font-size:12px;opacity:.75">' + esc(x.how) + '</td></tr>';
+      }).join('') + '</tbody></table>'
+      + '<ul style="margin:10px 0 0;padding-left:18px;font-size:13px">' + l.checks.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul></div>';
+  }
+
+  function designHtml(d) {
+    if (!d.design) return '';
+    return '<div class="sect"><h3>' + esc(T.design) + '</h3>'
+      + '<p><b>' + esc(d.design.theme || '') + '</b>' + (d.design.colors ? ' <span class="pill">' + esc(d.design.colors) + '</span>' : '') + '</p>'
+      + '<ul style="margin:6px 0 0;padding-left:18px;font-size:13px">' + d.design.needs.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></div>';
+  }
+
+  // ---- wiring ---------------------------------------------------------------------------------
+  function post(body, after) {
+    return K.post('/api/hub/kitchen/event', body).then(function (r) {
+      if (r && r.ok) { if (after) after(); } else { Hub.toast((r && r.error) || 'Error'); }
+      return r;
+    }).catch(function () { Hub.toast('Error'); });
+  }
+
+  function wire() {
+    Array.prototype.forEach.call(document.querySelectorAll('.tick'), function (box) {
+      box.addEventListener('change', function () {
+        box.disabled = true;
+        post({ op: 'task', quote_id: quoteId, task_key: box.dataset.key, done: box.checked })
+          .then(function () { box.disabled = false; box.closest('.task').classList.toggle('done', box.checked); });
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.mins'), function (box) {
+      box.addEventListener('change', function () {
+        var v = Number(box.value);
+        if (!v || v < 1 || v > 1440) { Hub.toast(T.mins + ' 1–1440'); return; }
+        box.disabled = true;
+        post({ op: 'minutes', quote_id: quoteId, task_key: box.dataset.key, minutes: v }, function () { Hub.toast(T.saved); load(); })
+          .then(function () { box.disabled = false; });
+      });
+    });
+
+    var save = document.getElementById('save-details');
+    if (save) save.addEventListener('click', function () {
+      save.disabled = true;
+      post({
+        op: 'details', quote_id: quoteId,
+        serving_time: document.getElementById('f-time').value.trim(),
+        address: document.getElementById('f-addr').value.trim(),
+        theme: document.getElementById('f-theme').value.trim(),
+        colors: document.getElementById('f-colors').value.trim(),
+        dietary_notes: document.getElementById('f-diet').value.trim()
+      }, function () { Hub.toast(T.saved); load(); }).then(function () { save.disabled = false; });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.link-brief'), function (btn) {
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        post({ op: 'link_brief', quote_id: quoteId, lead_id: btn.dataset.lead }, function () { Hub.toast(T.saved); load(); })
+          .then(function () { btn.disabled = false; });
+      });
+    });
+  }
+
+  function load() {
+    var url = '/api/hub/kitchen/event' + (quoteId ? '?id=' + encodeURIComponent(quoteId) : '');
+    K.get(url).then(function (d) {
+      if (!d || !d.ok) { out.innerHTML = '<div class="gap">' + esc((d && d.error) || 'Could not load.') + '</div>'; return; }
+      if (quoteId) render(d); else renderList(d);
+    }).catch(function () { out.innerHTML = '<div class="gap">Could not load.</div>'; });
+  }
+  load();
+})();
+</script>
+</body>
+</html>
