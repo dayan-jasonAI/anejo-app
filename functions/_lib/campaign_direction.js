@@ -5,6 +5,8 @@ export function renderCampaignDirection(brief) {
  if(brief.promotion_id){
   let proposal;try{proposal=JSON.parse(brief.promotion_proposal_json);}catch{return `${prefix}\nPROMOTION EVIDENCE UNAVAILABLE: do not use this brief as campaign direction.`;}
   if(brief.review_scope!=='team_planning_only'||!proposal||!['product_ids','assumptions','questions'].every(k=>Array.isArray(proposal[k])&&proposal[k].every(v=>typeof v==='string')))return `${prefix}\nPROMOTION EVIDENCE INVALID: do not use this brief as campaign direction.`;
+  const matches=['title','objective','audience','angle','cadence','success_metric'].every(k=>brief[k]===proposal[k])&&brief.channels===JSON.stringify(proposal.channels)&&brief.assets_json===JSON.stringify(proposal.assets);
+  if(!matches)return `${prefix}\nREVIEWED PROPOSAL CHANGED: do not use this brief as campaign direction until reviewed again.`;
   text+='\nOWNER REVIEW SCOPE: team planning only. No approval to publish, schedule, send, or treat assumptions as facts.';
   text+='\nSelected catalog IDs: '+JSON.stringify(proposal.product_ids);
   text+='\nUNVERIFIED ASSUMPTIONS (never business facts): '+JSON.stringify(proposal.assumptions);

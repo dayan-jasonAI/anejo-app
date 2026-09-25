@@ -269,3 +269,16 @@ test('plannerExtraContext is wired into functions/_lib/knowledge.js retrieve —
   assert.match(AUTO, /import \{ retrieve, formatPassages \} from '\.\/knowledge\.js'/);
   assert.match(AUTO, /await retrieve\(env,/);
 });
+
+test('reviewed strategy uncertainties reach actual planner request without publication authority', async () => {
+  const proposal={title:'Private catering direction',objective:'Create a reviewable catering introduction.',product_ids:['catering-lechon'],assumptions:['Audience response is not measured.'],questions:['Confirm the event date.'],channels:['instagram'],assets:['A full-frame real tray photo is required.']};
+  const {db}=stubDb({pending:0,briefRows:[{...proposal,channels:JSON.stringify(proposal.channels),assets_json:JSON.stringify(proposal.assets),id:'reviewed-brief',title:'Private catering direction',objective:'Create a reviewable catering introduction.',status:'draft',promotion_id:'promotion1',review_scope:'team_planning_only',promotion_proposal_json:JSON.stringify(proposal)}]});
+  const f=stubFetch([post()]);
+  try {
+    const res=await runAutomation({DB:db,SESSIONS:makeKV({'cfg:social_cadence':JSON.stringify({feed_per_week:1})}),ANTHROPIC_API_KEY:'test-key'},'social_plan',{date:MONDAY});
+    assert.equal(res.outcome,'success');
+    const text=f.seen.find(b=>String(b.system||'').includes('You are the content writer')).messages[0].content;
+    for(const field of ['product_ids','assumptions','questions','assets'])for(const value of proposal[field])assert.ok(text.includes(value));
+    assert.match(text,/UNVERIFIED ASSUMPTIONS/);assert.match(text,/OPEN QUESTIONS/);assert.match(text,/No approval to publish, schedule, send/);
+  } finally {f.restore();}
+});

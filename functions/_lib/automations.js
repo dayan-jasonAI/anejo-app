@@ -110,7 +110,7 @@ async function plannerExtraContext(env) {
   // read one. Archived briefs are excluded: they are closed business, not this week's direction.
   try {
     const briefs = await rows(env,
-      "SELECT b.id,b.title,b.objective,b.audience,b.angle,b.cadence,b.success_metric,b.status,p.id AS promotion_id,p.proposal_json AS promotion_proposal_json,p.review_scope FROM team_briefs b LEFT JOIN operator_campaign_promotions p ON p.brief_id=b.id WHERE b.status != 'archived' ORDER BY b.created_at DESC LIMIT 3");
+      "SELECT b.id,b.title,b.objective,b.audience,b.angle,b.channels,b.assets_json,b.cadence,b.success_metric,b.status,p.id AS promotion_id,p.proposal_json AS promotion_proposal_json,p.review_scope FROM team_briefs b LEFT JOIN operator_campaign_promotions p ON p.brief_id=b.id WHERE b.status != 'archived' ORDER BY b.created_at DESC LIMIT 3");
     if (briefs.length) {
       for (const b of briefs) if (b.id) briefIds.add(String(b.id));
       parts.push('=== CAMPAIGN DIRECTION FROM THE TEAM LEAD (follow this over a generic pick) ===\n' +

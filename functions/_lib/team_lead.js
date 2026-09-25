@@ -154,7 +154,7 @@ export async function buildSpine(env) {
 
   let briefs = [], briefsStatus = 'unavailable';
   try {
-    const read = await env.DB.prepare("SELECT b.id,b.title,b.objective,b.audience,b.angle,b.cadence,b.success_metric,b.status,b.created_at,b.updated_at,p.id AS promotion_id,p.proposal_json AS promotion_proposal_json,p.review_scope FROM team_briefs b LEFT JOIN operator_campaign_promotions p ON p.brief_id=b.id WHERE b.status != 'archived' ORDER BY b.created_at DESC LIMIT 5").all();
+    const read = await env.DB.prepare("SELECT b.id,b.title,b.objective,b.audience,b.angle,b.channels,b.assets_json,b.cadence,b.success_metric,b.status,b.created_at,b.updated_at,p.id AS promotion_id,p.proposal_json AS promotion_proposal_json,p.review_scope FROM team_briefs b LEFT JOIN operator_campaign_promotions p ON p.brief_id=b.id WHERE b.status != 'archived' ORDER BY b.created_at DESC LIMIT 5").all();
     if (read?.success !== false && Array.isArray(read?.results)) {
       briefs = read.results;
       briefsStatus = briefs.length ? 'ok' : 'empty';

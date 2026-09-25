@@ -37,14 +37,22 @@
       paragraph(area,'Use the exact proposal above as direction for the existing Team Lead and planner. An enabled planner may use this direction later. This does not publish, send or schedule anything, and does not change automation permissions.');
       var note=document.createElement('p');note.setAttribute('role','status');note.setAttribute('aria-live','polite');area.appendChild(note);
       function receiptMatches(r) {
-        return r && r.promoted===true && r.preview_id===preview.id && r.proposal_sha256===hash && r.review_scope==='team_planning_only' && typeof r.brief_id==='string' && r.brief_id && typeof r.promotion_id==='string' && r.promotion_id;
+        return r && r.preview_id===preview.id && r.proposal_sha256===hash && r.review_scope==='team_planning_only' && typeof r.brief_id==='string' && r.brief_id && typeof r.promotion_id==='string' && r.promotion_id;
       }
       function showReceipt(r) {
         note.textContent='Saved for team planning · brief '+r.brief_id+' · receipt '+r.promotion_id+'. This confirms planning direction only, not publication or that a planner has run.';
         status.textContent='Saved proposed strategy · used as team planning direction';
       }
-      if(receiptMatches(preview.promotion)){showReceipt(preview.promotion);return;}
-      if(preview.promotion) {note.textContent='Recorded planning receipt could not be verified. Reload before using this proposal.';return;}
+      if(preview.promotion_status==='recorded' && receiptMatches(preview.promotion)){
+        var prior=preview.promotion;
+        status.textContent='Saved proposed strategy · historical planning receipt recorded';
+        note.textContent='Historical team planning receipt '+prior.promotion_id+' · brief '+prior.brief_id+'. Current brief status: '+String(prior.brief_status||'unavailable')+'. '+(prior.brief_matches_reviewed_proposal===true?'Current saved brief matches the reviewed proposal.':'Current brief is missing or differs from the reviewed proposal.')+' This receipt does not prove active execution or publication.';
+        return;
+      }
+      if(preview.promotion_status!=='not_recorded' || preview.promotion) {
+        status.textContent='Saved proposed strategy · planning status unavailable';
+        note.textContent='Prior planning use could not be verified. Reload saved strategy before using this proposal; unavailable does not mean no prior planning use.';return;
+      }
       var label=document.createElement('label'),ack=document.createElement('input');ack.type='checkbox';ack.checked=false;
       label.appendChild(ack);var words=document.createElement('span');words.textContent='I reviewed this exact proposal, including its assumptions and open questions. Unresolved facts remain unverified; I am allowing team planning only.';label.appendChild(words);area.appendChild(label);
       var pending=false, stopped=false;
@@ -55,7 +63,7 @@
           if(!promotionRequests[key])promotionRequests[key]=crypto.randomUUID();
           var response=await fetch('/api/hub/owner/operator-campaign-promote',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:promotionRequests[key],preview_id:preview.id,expected_proposal_sha256:hash,acknowledge_open_questions:true})});
           var result=await response.json();
-          if(response.ok && result.ok && receiptMatches(result)){stopped=true;showReceipt(result);use.textContent='Saved as team planning brief';return;}
+          if(response.ok && result.ok && result.promoted===true && receiptMatches(result)){stopped=true;showReceipt(result);use.textContent='Saved as team planning brief';return;}
           var error=String(result.error||'promotion_not_verified');
           if(['stale_preview_regenerate_required','proposal_changed','request_key_conflict','authority_or_preview_changed','preview_not_found'].includes(error)) {
             stopped=true;note.textContent='Planning use was not verified: '+error+'. The proposal or its authority has changed. A new current proposal must be reviewed before planning use; no override was applied.';
@@ -76,7 +84,28 @@
       terminal=true;generate.disabled=true;
       if(preview.state!=='succeeded'||!preview.proposal) {
         status.textContent=preview.outcome_unknown?'Generation outcome is uncertain. No completed proposal is verified.':'No completed proposal was saved.';
-        if(preview.error)paragraph(output,'Recorded error: '+String(preview.error));return;
+        if(preview.error)paragraph(output,'Recorded error: '+String(preview.error));
+        var diagnostic=preview.preview_diagnostic;
+        if(diagnostic && ['shape','json','completion','validation'].includes(diagnostic.stage)) {
+          var codes=['content_array_required','single_content_block_required','text_block_required','text_string_required','text_too_long','invalid_json','end_turn_required','object_required','missing_field','unexpected_field','string_required','empty_string','string_too_long','array_required','too_many_items','item_string_required','empty_item','item_too_long','duplicate_item','empty_channels','unsupported_channel','unavailable_product_id'];
+          if(codes.includes(diagnostic.code)) {
+            var parts=[diagnostic.stage+' issue: '+diagnostic.code.replace(/_/g,' ')];
+            if(['title','objective','audience','angle','cadence','success_metric','channels','product_ids','assets','assumptions','questions'].includes(diagnostic.field))parts.push('field '+diagnostic.field.replace(/_/g,' '));
+            ['index','actual','limit'].forEach(function(k){if(Number.isInteger(diagnostic[k])&&diagnostic[k]>=0&&diagnostic[k]<=1000000)parts.push(k+' '+diagnostic[k]);});
+            paragraph(output,parts.join(' · '));
+          }
+        }
+        if(preview.state==='failed' && preview.outcome_unknown!==true) {
+          paragraph(output,'The failed record remains saved. Generating a new proposal starts a separate AI request and uses the existing AI budget.');
+          var fresh=button(output,'Generate a new proposal',async function(){
+            if(busy||!terminal||fresh.disabled)return;
+            fresh.disabled=true;
+            paragraph(card,'Previous failed proposal retained: '+String(preview.id||'saved record')+'. A separate proposal was explicitly requested.');
+            requestId=crypto.randomUUID();terminal=false;
+            await run(true);
+          });
+        }
+        return;
       }
       status.textContent='Saved proposed strategy · private · review required · not active';
       var proposal=preview.proposal;
@@ -97,7 +126,7 @@
       if(!response.ok||(!body.ok&&!body.preview)){var error=new Error(body.detail||body.error||'Saved proposal unavailable');error.httpStatus=response.status;throw error;}
       return body;
     }
-    async function run() {
+    async function run(freshRequest) {
       if(busy||terminal)return;
       busy=true;generate.disabled=true;reload.disabled=true;status.textContent=requestId?'Checking saved outcome…':'Generating private proposal…';
       try {
@@ -107,7 +136,7 @@
           if(!Array.isArray(existing.previews))throw Error('Invalid saved proposal response');
           if(existing.previews.length){render(existing.previews[0]);return;}
         }
-        if(requestId){try{body=await get('/api/hub/owner/operator-campaign-preview?request_id='+encodeURIComponent(requestId));}catch(readError){if(readError.httpStatus!==404)throw readError;}}
+        if(requestId && freshRequest!==true){try{body=await get('/api/hub/owner/operator-campaign-preview?request_id='+encodeURIComponent(requestId));}catch(readError){if(readError.httpStatus!==404)throw readError;}}
         if(!body) {
           if(!requestId)requestId=crypto.randomUUID();
           var response=await fetch('/api/hub/owner/operator-campaign-preview',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:requestId,idea_id:idea.id})});
