@@ -15,6 +15,79 @@
     });
   }
   function canonical(path) { return path.replace(/\.html$/, '').replace(/\/$/, ''); }
+  function campaignPreview(root, idea) {
+    var card=document.createElement('section'); card.className='aop-proposal'; root.appendChild(card);
+    var heading=document.createElement('h3'); heading.textContent='Proposed strategy'; card.appendChild(heading);
+    paragraph(card,'Private review only · not active. Generate a proposal from this saved idea using the existing AI budget.');
+    var status=document.createElement('p'); if(status.setAttribute){status.setAttribute('role','status'); status.setAttribute('aria-live','polite');} card.appendChild(status);
+    var output=document.createElement('div'); card.appendChild(output);
+    var requestId=null, busy=false, terminal=false;
+    function section(label,value) {
+      if(value===undefined||value===null||value==='')return;
+      var h=document.createElement('h4');h.textContent=label;output.appendChild(h);
+      if(Array.isArray(value)) {var list=document.createElement('ul');value.forEach(function(item){var li=document.createElement('li');li.textContent=typeof item==='string'?item:Object.keys(item||{}).map(function(k){return k.replace(/_/g,' ')+': '+String(item[k]);}).join(' · ');list.appendChild(li);});output.appendChild(list);}
+      else paragraph(output,String(value));
+    }
+    function render(preview) {
+      output.replaceChildren();
+      if(!preview) {status.textContent='No saved proposal returned for this idea.';return;}
+      if(preview.request_id)requestId=preview.request_id;
+      if(preview.state==='generating') {
+        status.textContent='Generation is recorded as in progress or awaiting an outcome. Completion is not verified. Check saved status; do not start another generation.';
+        generate.textContent='Check saved status';return;
+      }
+      terminal=true;generate.disabled=true;
+      if(preview.state!=='succeeded'||!preview.proposal) {
+        status.textContent=preview.outcome_unknown?'Generation outcome is uncertain. No completed proposal is verified.':'No completed proposal was saved.';
+        if(preview.error)paragraph(output,'Recorded error: '+String(preview.error));return;
+      }
+      status.textContent='Saved proposed strategy · private · review required · not active';
+      var proposal=preview.proposal;
+      paragraph(output,'AI-generated proposal for your review. Suggestions and assumptions are not verified business facts.');
+      Object.keys(proposal).forEach(function(key){section(key.replace(/_/g,' ').replace(/^./,function(c){return c.toUpperCase();}),proposal[key]);});
+      var details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Generation evidence';details.appendChild(summary);
+      paragraph(details,'Model: '+String(preview.model||'unverified')+' · Saved preview: '+String(preview.id));
+      var receipts=preview.source_receipts||{},receipt=receipts.inference_receipt||{};
+      paragraph(details,'Input receipt: '+String(receipt.receipt_id||'unavailable')+' · '+(receipt.persisted===true?'input recorded; not proof every instruction was followed':'input recording unverified'));
+      var context=receipts.input_context||{},components=Object.assign({},context.components||{});
+      Object.keys(context.coverage||{}).forEach(function(key){components[key]=Object.assign({},components[key]||{},context.coverage[key]||{});});
+      Object.keys(components).forEach(function(key){var c=components[key];if(!c||typeof c!=='object'||Array.isArray(c))return;paragraph(details,key+': '+String(c.read_status||'status not supplied')+(c.truncated===true?' · truncated':'')+(typeof c.supplied_chars==='number'?' · '+c.supplied_chars+' supplied characters':''));});
+      output.appendChild(details);
+    }
+    async function get(url) {
+      var response=await fetch(url,{credentials:'same-origin',cache:'no-store'}),body=await response.json();
+      if(!response.ok||(!body.ok&&!body.preview)){var error=new Error(body.detail||body.error||'Saved proposal unavailable');error.httpStatus=response.status;throw error;}
+      return body;
+    }
+    async function run() {
+      if(busy||terminal)return;
+      busy=true;generate.disabled=true;reload.disabled=true;status.textContent=requestId?'Checking saved outcome…':'Generating private proposal…';
+      try {
+        var body;
+        if(!requestId){
+          var existing=await get('/api/hub/owner/operator-campaign-preview?idea_id='+encodeURIComponent(idea.id));
+          if(!Array.isArray(existing.previews))throw Error('Invalid saved proposal response');
+          if(existing.previews.length){render(existing.previews[0]);return;}
+        }
+        if(requestId){try{body=await get('/api/hub/owner/operator-campaign-preview?request_id='+encodeURIComponent(requestId));}catch(readError){if(readError.httpStatus!==404)throw readError;}}
+        if(!body) {
+          if(!requestId)requestId=crypto.randomUUID();
+          var response=await fetch('/api/hub/owner/operator-campaign-preview',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:requestId,idea_id:idea.id})});
+          body=await response.json();
+          if(!response.ok||(!body.ok&&!body.preview))throw Error(body.detail||body.error||'Generation outcome not verified');
+        }
+        render(body.preview);
+      } catch(error) {status.textContent=String(error.message||error)+'. Outcome not verified. Check or retry this same request; no duplicate generation will be requested.';generate.textContent=requestId?'Check saved status':'Generate proposed strategy';}
+      finally {busy=false;generate.disabled=terminal;reload.disabled=false;}
+    }
+    var generate=button(card,'Generate proposed strategy',run);
+    var reload=button(card,'Load saved strategy',async function(){
+      if(busy)return;busy=true;reload.disabled=true;generate.disabled=true;status.textContent='Loading saved private proposal…';
+      try {var body=await get('/api/hub/owner/operator-campaign-preview?idea_id='+encodeURIComponent(idea.id));if(!Array.isArray(body.previews))throw Error('Invalid saved proposal response');render(body.previews[0]||null);}
+      catch(error){status.textContent='Saved proposals unavailable: '+String(error.message||error);}
+      finally{busy=false;reload.disabled=false;generate.disabled=terminal;}
+    });
+  }
   window.AnejoOperatorPrivateUI = function(result,root) {
     var ui=result && result.ui;
     if(!ui) return;
@@ -40,6 +113,7 @@
           paragraph(root,'Saved owner-supplied draft idea · '+saved.brief.id+' · '+saved.brief.status+' · '+new Date(saved.brief.created_at).toISOString());
           paragraph(root,'Your words were saved exactly. No strategy was generated or public action taken.');
           save.textContent='Saved private idea';
+          campaignPreview(root,saved.brief);
         } catch (_) {
           paragraph(root,'Save not verified. Retry uses the same request key to avoid duplicates.');
           save.disabled=false;
@@ -53,9 +127,9 @@
           var response=await fetch('/api/hub/owner/operator-brief',{credentials:'same-origin',cache:'no-store'});
           var result=await response.json();
           if(!response.ok || !result.ok || !Array.isArray(result.ideas))throw new Error('read_unavailable');
-          paragraph(root,'Latest 20 private owner-supplied ideas. No generated strategy or activation.');
+          paragraph(root,'Latest 20 private owner-supplied ideas. Generate or reload a proposed strategy below; nothing is activated.');
           if(!result.ideas.length)paragraph(root,'No saved ideas returned.');
-          result.ideas.forEach(function(idea){paragraph(root,idea.title+' · '+idea.status+' · '+new Date(idea.created_at).toISOString());paragraph(root,idea.topic);});
+          result.ideas.forEach(function(idea){paragraph(root,idea.title+' · '+idea.status+' · '+new Date(idea.created_at).toISOString());paragraph(root,idea.topic);campaignPreview(root,idea);});
         } catch (_) {paragraph(root,'Saved ideas unavailable. Try again.');read.disabled=false;}
       });
     } else if(ui.kind==='audit_status') {
@@ -134,6 +208,10 @@
     'background:#14140f;border:1px solid rgba(198,167,94,.35);border-radius:14px;padding:14px;z-index:9998;display:none;',
     'box-shadow:0 18px 50px rgba(0,0,0,.5)}',
     '.aop-panel.open{display:block}',
+    '.aop-proposal{margin:14px 0;padding:12px;border:1px solid rgba(198,167,94,.4);border-radius:10px;overflow-wrap:anywhere}',
+    '.aop-proposal h3{margin:0 0 10px;color:#e8dfc8;font-size:18px}.aop-proposal h4{margin:14px 0 5px;color:#c6a75e;font-size:13px}',
+    '.aop-proposal p,.aop-proposal li{font-size:13px;line-height:1.5;color:#e8dfc8}.aop-proposal button{margin:4px 6px 4px 0;padding:9px 11px;min-height:44px;cursor:pointer}',
+    '.aop-proposal [role=status]{color:#c6a75e}.aop-proposal details{font-size:12px;margin-top:10px}.aop-proposal summary{cursor:pointer;padding:8px 0}',
     '.aop-msg{margin:0 0 10px;font-size:14px;line-height:1.55;white-space:pre-wrap}',
     '.aop-msg.me{color:#c6a75e;font-weight:600}.aop-msg.ai{color:#e8dfc8}.aop-msg.err{color:#ff9b8a}',
     '.aop-row{display:flex;gap:8px;margin-top:10px}',

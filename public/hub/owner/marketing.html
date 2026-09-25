@@ -1434,7 +1434,7 @@
       '<div class="post-head"><span style="display:flex;gap:6px;align-items:center"><span class="tag ' + esc(p.status) + '">' + (WORD[p.status] || esc(p.status)) + '</span>' +
         (MTYPE_WORD[mtype] ? '<span class="mtype ' + esc(mtype) + '">' + esc(MTYPE_WORD[mtype]) + '</span>' : '') + '</span>' +
         '<span class="row-sub" style="font-size:11.5px">' + esc(when(p)) + '</span></div>' +
-      (p.source === 'planner' ? '<div class="row-sub" style="font-size:11px;margin-bottom:4px">✍️ Drafted for you — review before it goes anywhere</div>' : '') +
+      (p.source === 'planner' && p.status !== 'published' ? '<div class="row-sub" style="font-size:11px;margin-bottom:4px">✍️ Drafted for you — review before it goes anywhere</div>' : '') +
       // The caption is EDITABLE until it is live. This existed as an API op and not as a field —
       // which meant it did not exist. A published caption is shown read-only: our copy changing
       // after the fact would disagree with what people actually read.
@@ -3016,6 +3016,6 @@
   Owner.init('marketing', load, { roles: Owner.MARKETING_DESK });
 })();
 </script>
-<script src="assets/operator.js?v=private-operator-3" defer></script>
+<script src="assets/operator.js?v=private-strategy-4" defer></script>
 </body>
 </html>
