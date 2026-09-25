@@ -27,7 +27,7 @@ async function promotionStatus(env,row){
 }
 async function projection(env,row){
  const base={id:row.id,request_id:row.request_id,idea_id:row.idea_id,state:row.state,created_at:row.created_at,updated_at:row.updated_at,review_required:true,private:true,generated:row.state==='succeeded'};
- if(row.state==='succeeded')return {...base,...await promotionStatus(env,row),proposal:JSON.parse(row.proposal_json),proposal_sha256:await digest(row.proposal_json),source_receipts:JSON.parse(row.source_receipts_json),model:row.model};
+ if(row.state==='succeeded')return {...base,generated:!JSON.parse(row.source_receipts_json)?.revision, ...await promotionStatus(env,row),proposal:JSON.parse(row.proposal_json),proposal_sha256:await digest(row.proposal_json),source_receipts:JSON.parse(row.source_receipts_json),model:row.model};
  if(row.state==='failed')return {...base,error:row.error_code,preview_diagnostic:row.source_receipts_json?safeDiagnostic(JSON.parse(row.source_receipts_json).preview_diagnostic):null,source_receipts:row.source_receipts_json?JSON.parse(row.source_receipts_json):null,model:row.model};
  return {...base,outcome_unknown:Date.now()-row.updated_at>10*60*1000,detail:'Generation was claimed. Do not create another request to retry an uncertain provider outcome.'};
 }
@@ -83,4 +83,38 @@ export async function onRequestGet({request,env}){
  if(rows?.success===false||!Array.isArray(rows?.results))throw Error();
  return json({ok:true,limit:20,review_required:true,previews:await Promise.all(rows.results.map(row=>projection(env,row)))});
  }catch{return failure('preview_read_unavailable');}
+}
+
+// A private edit creates a new immutable proposal. It never changes the parent,
+// refreshes authority receipts, calls a model, or activates team planning.
+export async function onRequestPatch({request,env}){
+ const owner=await ownerContext(request,env);if(owner instanceof Response)return owner;
+ if(!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type')||''))return failure('json_required',415);
+ let b;
+ try{
+  const reader=request.body?.getReader();if(!reader)throw Error();let text='',size=0;const decoder=new TextDecoder();
+  while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>40000){await reader.cancel();return failure('request_too_large',413);}text+=decoder.decode(value,{stream:true});}
+  b=JSON.parse(text+decoder.decode());
+ }catch{return failure('invalid_json',400);}
+ const fields=['request_id','preview_id','expected_proposal_sha256','proposal'];
+ if(!b||Array.isArray(b)||Object.keys(b).length!==fields.length||!fields.every(k=>Object.hasOwn(b,k))||!uuid(b.request_id)||typeof b.preview_id!=='string'||!/^ocp_[a-f0-9]{64}$/.test(b.preview_id)||typeof b.expected_proposal_sha256!=='string'||!/^[a-f0-9]{64}$/.test(b.expected_proposal_sha256))return failure('invalid_revision_request',400);
+ try{
+  const parent=await readRow(env,b.preview_id,owner.distinct_id);
+  if(!parent||parent.state!=='succeeded')return failure('preview_not_found',404);
+  if(await digest(parent.proposal_json)!==b.expected_proposal_sha256)return failure('proposal_changed',409);
+  const originalReceipts=JSON.parse(parent.source_receipts_json);
+  const ids=originalReceipts?.input_context?.available_product_ids;
+  if(!Array.isArray(ids)||!validateCampaignProposal(b.proposal,ids))return failure('invalid_proposal',400);
+  const proposal=boundedJson(b.proposal,32768),proposalHash=await digest(proposal);
+  const id=await keyFor(owner.distinct_id,b.request_id);
+  const matches=row=>row&&row.proposal_json===proposal&&JSON.parse(row.source_receipts_json)?.revision?.parent_id===parent.id&&JSON.parse(row.source_receipts_json)?.revision?.parent_proposal_sha256===b.expected_proposal_sha256;
+  let prior=await readRow(env,id,owner.distinct_id);
+  if(prior)return matches(prior)?result(env,prior):failure('request_key_conflict',409);
+  const at=Date.now();
+  const receipts=boundedJson({...originalReceipts,revision:{parent_id:parent.id,parent_proposal_sha256:b.expected_proposal_sha256,proposal_sha256:proposalHash,actor_id:owner.distinct_id,created_at:at,kind:'private_edit',approval:false}},65536);
+  await env.DB.prepare("INSERT INTO operator_campaign_previews(id,owner_id,request_id,idea_id,topic,topic_sha256,state,proposal_json,source_receipts_json,model,error_code,created_at,updated_at) SELECT ?,?,?,?,?,?,'succeeded',?,?,?,NULL,?,? FROM operator_campaign_previews WHERE id=? AND owner_id=? AND state='succeeded' AND proposal_json=? AND source_receipts_json=? ON CONFLICT(owner_id,request_id) DO NOTHING")
+   .bind(id,owner.distinct_id,b.request_id.toLowerCase(),parent.idea_id,parent.topic,parent.topic_sha256,proposal,receipts,parent.model,at,at,parent.id,owner.distinct_id,parent.proposal_json,parent.source_receipts_json).run();
+  prior=await readRow(env,id,owner.distinct_id);
+  return matches(prior)?result(env,prior):failure('revision_save_not_verified',409);
+ }catch{return failure('revision_state_unavailable');}
 }
