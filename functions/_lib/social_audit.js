@@ -1,4 +1,5 @@
-// Saved-draft audit: private JPEG bytes, ordered slides and caption, bound to one revision.
+// Internal saved-design audit: private JPEG bytes and caption bound to one revision.
+// Published reviews write audit evidence only; they do not edit or reapprove public posts.
 import { auditDraft } from './governance.js';
 import { VERSION as VISUAL_AUDIT_VERSION } from './visual_audit_rubric.js';
 
@@ -38,7 +39,7 @@ export async function auditSavedDraft(env, postId, expectedCaption, judge = audi
   if (!postId) return { ok:false, status:400, error:'Missing id.' };
   const row = await env.DB.prepare(`SELECT *, ${MEDIA} AS media_snapshot, ${SOCIAL_AUDIT_SNAPSHOT} AS revision_snapshot, ${SOCIAL_AUDIT_CONTEXT} AS context_snapshot FROM social_posts WHERE id=?`).bind(postId).first();
   if (!row) return { ok:false, status:404, error:'That post no longer exists.' };
-  if (!['draft','failed'].includes(row.status)) return { ok:false, status:409, error:'Return this post to draft before auditing it.' };
+  if (!['draft','failed','published'].includes(row.status)) return { ok:false, status:409, error:'Audit a draft, failed post or published saved design. Scheduled and publishing posts cannot be audited.' };
   if (expectedCaption !== undefined && expectedCaption !== (row.caption || '')) {
     return { ok:false, status:409, error:'Save your caption changes before auditing.' };
   }
@@ -48,10 +49,10 @@ export async function auditSavedDraft(env, postId, expectedCaption, judge = audi
   const scope = !mediaError && !audit.flags.some(f=>f.type==='audit_unavailable') ? 'caption_and_media' : 'unavailable';
   const detail = audit.rubric_version ? JSON.stringify({rubric_version:audit.rubric_version,complete:audit.complete ?? null,criteria_met:audit.criteria_met ?? null,criteria_applicable:audit.criteria_applicable ?? null,unknowns:audit.unknowns ?? null,observations:audit.observations ?? null,suggestions:audit.suggestions ?? null,input_coverage:audit.input_coverage ?? null,score_meaning:audit.score_meaning ?? null,audit_diagnostic:audit.audit_diagnostic ?? null}) : null;
   const result = await env.DB.prepare(`UPDATE social_posts SET audit_score=?, audit_flags=?, audit_at=?, audit_status=?, audit_scope=?, audit_snapshot=?, audit_detail_json=?, audit_context_snapshot=?
-    WHERE id=? AND status IN ('draft','failed') AND COALESCE(caption,'')=?
+    WHERE id=? AND status=? AND COALESCE(caption,'')=?
     AND COALESCE(image_brief,'')=? AND COALESCE(media_key,'')=? AND COALESCE(media_type,'')=?
     AND ${MEDIA}=? AND ${SOCIAL_AUDIT_CONTEXT}=?`).bind(audit.brand_score, JSON.stringify(audit.flags), Date.now(), audit.verdict, scope, row.revision_snapshot, detail, row.context_snapshot,
-      postId, row.caption || '', row.image_brief || '', row.media_key || '', row.media_type || '', row.media_snapshot, row.context_snapshot).run();
-  if (result.meta?.changes !== 1) return { ok:false, status:409, error:'This draft or its source guidance changed during the audit. Review and audit it again.' };
-  return { ok:true, id:postId, audit, scope, visual_review_required:true };
+      postId, row.status, row.caption || '', row.image_brief || '', row.media_key || '', row.media_type || '', row.media_snapshot, row.context_snapshot).run();
+  if (result.meta?.changes !== 1) return { ok:false, status:409, error:'This saved post or its source guidance changed during the audit. Review and audit it again.' };
+  return { ok:true, id:postId, audit, scope, visual_review_required:true, review_mode:row.status === 'published' ? 'published_saved_design' : 'unpublished_saved_design' };
 }
