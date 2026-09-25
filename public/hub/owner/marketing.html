@@ -1104,7 +1104,7 @@
                     useBtn.disabled = false; useBtn.textContent = 'Use this — replace selected slide';
                     return;
                   }
-                  Hub.toast('Branded slide saved as draft with source record — review before scheduling');
+                  Hub.toast(r.status === 'scheduled' ? 'Branded slide source record confirmed — post is currently scheduled' : 'Branded slide saved as draft with source record — review before scheduling');
                   load();
                 })
                 .catch(function () {
