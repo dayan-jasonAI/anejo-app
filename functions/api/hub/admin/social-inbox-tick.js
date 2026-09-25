@@ -22,7 +22,7 @@ import { draftReply, reactionReplyFor, looksLikeScaffolding } from '../../../_li
 // auto-reply ON. The carve-outs are not negotiable: escalations still send NOTHING, the 24-hour
 // legality window stays enforced inside sendDirectMessage itself, and the whole path only runs
 // when the social.auto_reply setting says so — flipping it off restores draft-only instantly.
-import { sendDirectMessage, replyToComment } from '../../../_lib/instagram_messaging.js';
+import { sendAnaDraft } from '../../../_lib/instagram_reply_attempt.js';
 import { resolveTarget, accountInfo } from '../../../_lib/instagram.js';
 import { raiseAlert } from '../../../_lib/alerts.js';
 // The sales half of this tick: detect a commercial DM/comment and capture it as a lead. Runs
@@ -163,15 +163,15 @@ async function runInboxTick(env, observe) {
         await insertEscalation(env, threadId, ev.id, d.reason, t);
         escalated += 1;
       } else {
-        const mid = await insertDraft(env, threadId, ev.id, d.draft, t);
+        const mid = await insertDraft(env, threadId, ev.id, d.draft, t, inboundMid);
         drafted += 1;
         if (d.special) { specials += 1; await specialAlert(env, threadId, ev.text, t); }
         // Public comment replies have no 24-hour window — the reply is public. The guard is the
         // last gate: a reply that smells like scaffolding stays a human-review draft, because a
         // broken-character reply on a public post costs more than a slow one.
         if (identityKnown && autoOk('comment') && !looksLikeScaffolding(d.draft) && !(await breakerTripped(threadId))) {
-          const res = await replyToComment(env, { commentId: ev.id, text: d.draft });
-          if (res && res.ok && await markSent(env, mid, t)) sent += 1;
+          const res = await sendAnaDraft(env,{messageId:mid,threadId,expectedBody:d.draft,initiatedBy:'ana_auto'});
+          if (res && res.ok) { if(!res.replayed) sent += 1; }
           else observe('send_or_receipt_failed');
         }
       }
@@ -226,15 +226,15 @@ async function runInboxTick(env, observe) {
         await insertEscalation(env, th.id, null, d.reason, t);
         escalated += 1;
       } else {
-        const mid = await insertDraft(env, th.id, null, d.draft, t);
+        const mid = await insertDraft(env, th.id, null, d.draft, t, last.id);
         drafted += 1;
         if (d.special) { specials += 1; await specialAlert(env, th.id, last.body, t); }
         if (autoOk('dm')) {
           // sendDirectMessage re-checks never-messaged-first and the 24-hour ceiling internally —
           // the legality gate is not this file's to skip.
           if (!identityKnown || looksLikeScaffolding(d.draft) || await breakerTripped(th.id)) { continue; }   // quarantined, never sent
-          const res = await sendDirectMessage(env, { thread: th, recipientId: th.external_id, text: d.draft });
-          if (res && res.ok && await markSent(env, mid, t)) sent += 1;
+          const res = await sendAnaDraft(env,{messageId:mid,threadId:th.id,expectedBody:d.draft,initiatedBy:'ana_auto'});
+          if (res && res.ok) { if(!res.replayed) sent += 1; }
           else observe('send_or_receipt_failed');
         }
       }
@@ -292,12 +292,12 @@ async function commentThread(env, ev, t) {
 }
 
 // A pending draft: outbound + ai_drafted, with sent_at/dismissed_at both NULL until the owner acts.
-async function insertDraft(env, threadId, refId, body, t) {
+async function insertDraft(env, threadId, refId, body, t, inboundId) {
   const mid = id('msg');
   await env.DB.prepare(
-    `INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, ref_id, created_at)
-     VALUES (?,?,'outbound','instagram','ana','ana_draft',?,1,?,?)`
-  ).bind(mid, threadId, body, refId, t).run();
+    `INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, ref_id, created_at, reply_to_message_id)
+     VALUES (?,?,'outbound','instagram','ana','ana_draft',?,1,?,?,?)`
+  ).bind(mid, threadId, body, refId, t, inboundId).run();
   return mid;
 }
 
@@ -319,15 +319,6 @@ async function specialAlert(env, threadId, text, t) {
       dedupe_key: `special:${threadId}:${new Date(t).toISOString().slice(0, 10)}`,
     });
   } catch { /* the thread row still exists either way */ }
-}
-
-// Mark a draft as auto-sent. sender_role 'ana_auto' keeps the audit trail honest: the owner can
-// always tell which replies a human approved and which Aña sent herself.
-async function markSent(env, mid, t) {
-  try {
-    await env.DB.prepare("UPDATE messages SET sent_at=?, sender_role='ana_auto' WHERE id=? AND sent_at IS NULL").bind(t, mid).run();
-    return true;
-  } catch { return false; }
 }
 
 // Aña refused to draft (angry / medical / refund). The marker row carries the reason into the

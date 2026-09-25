@@ -28,6 +28,16 @@
       if(Array.isArray(value)) {var list=document.createElement('ul');value.forEach(function(item){var li=document.createElement('li');li.textContent=typeof item==='string'?item:Object.keys(item||{}).map(function(k){return k.replace(/_/g,' ')+': '+String(item[k]);}).join(' · ');list.appendChild(li);});output.appendChild(list);}
       else paragraph(output,String(value));
     }
+    function newProposalButton(parent,preview,stale) {
+      paragraph(parent,(stale?'The old proposal remains saved.':'The failed record remains saved.')+' Generating a new proposal starts a separate AI request and uses the existing AI budget. Review the new result before any planning use.');
+      var fresh=button(parent,stale?'Generate a new current proposal':'Generate a new proposal',async function(){
+        if(busy||!terminal||fresh.disabled)return;
+        fresh.disabled=true;
+        paragraph(card,(stale?'Previous proposal retained: ':'Previous failed proposal retained: ')+String(preview.id||'saved record')+'. A separate proposal was explicitly requested.');
+        requestId=crypto.randomUUID();terminal=false;
+        await run(true);
+      });
+    }
     function planningReview(preview) {
       if(!/^[a-f0-9]{64}$/.test(preview.proposal_sha256||'')) {
         paragraph(output,'Planning use unavailable: the saved proposal version could not be verified. Reload saved strategy.');return;
@@ -67,6 +77,7 @@
           var error=String(result.error||'promotion_not_verified');
           if(['stale_preview_regenerate_required','proposal_changed','request_key_conflict','authority_or_preview_changed','preview_not_found'].includes(error)) {
             stopped=true;note.textContent='Planning use was not verified: '+error+'. The proposal or its authority has changed. A new current proposal must be reviewed before planning use; no override was applied.';
+            if(response.status===409 && result.ok===false && result.promoted===false && result.review_scope==='team_planning_only' && error==='stale_preview_regenerate_required')newProposalButton(area,preview,true);
           }else note.textContent='Planning use not verified: '+error+'. Reload saved strategy or retry this same request; no duplicate brief will be requested.';
         }catch(error){note.textContent='Planning use not verified. Reload saved strategy or retry this same request; no duplicate brief will be requested.';}
         finally{pending=false;ack.disabled=stopped;use.disabled=stopped||!ack.checked;reload.disabled=false;}
@@ -95,16 +106,7 @@
             paragraph(output,parts.join(' · '));
           }
         }
-        if(preview.state==='failed' && preview.outcome_unknown!==true) {
-          paragraph(output,'The failed record remains saved. Generating a new proposal starts a separate AI request and uses the existing AI budget.');
-          var fresh=button(output,'Generate a new proposal',async function(){
-            if(busy||!terminal||fresh.disabled)return;
-            fresh.disabled=true;
-            paragraph(card,'Previous failed proposal retained: '+String(preview.id||'saved record')+'. A separate proposal was explicitly requested.');
-            requestId=crypto.randomUUID();terminal=false;
-            await run(true);
-          });
-        }
+        if(preview.state==='failed' && preview.outcome_unknown!==true)newProposalButton(output,preview,false);
         return;
       }
       status.textContent='Saved proposed strategy · private · review required · not active';

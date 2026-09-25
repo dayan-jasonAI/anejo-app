@@ -65,3 +65,15 @@ test('uncertain failed or pending proposal never offers new paid request',async(
   const f=fixture(initial(p));await f.load();assert.equal(f.button('Generate a new proposal'),undefined);assert.equal(f.calls.filter(c=>c.opts.method==='POST').length,0);
  }
 });
+test('verified stale rejection offers explicit fresh current proposal with no automatic activation',async()=>{
+ const f=fixture([...initial(),{status:409,body:{ok:false,promoted:false,review_scope:'team_planning_only',error:'stale_preview_regenerate_required'}},{body:{ok:true,preview:{...preview(),id:'new-preview',request_id:'request-2'}}}]);
+ await f.load();f.ack().checked=true;f.ack().change();await f.button('Use as team planning brief').click();
+ assert.equal(f.calls.filter(c=>c.opts.method==='POST').length,1);assert.match(f.text(),/old proposal remains saved/);assert.match(f.text(),/uses the existing AI budget/);
+ const fresh=f.button('Generate a new current proposal');await fresh.click();await fresh.click();
+ const posts=f.calls.filter(c=>c.opts.method==='POST');assert.equal(posts.length,2);assert.equal(posts[0].url,'/api/hub/owner/operator-campaign-promote');assert.equal(posts[1].url,'/api/hub/owner/operator-campaign-preview');assert.deepEqual(JSON.parse(posts[1].opts.body),{request_id:'request-2',idea_id:'idea'});assert.notEqual(JSON.parse(posts[0].opts.body).request_id,JSON.parse(posts[1].opts.body).request_id);assert.match(f.text(),/Previous proposal retained/);assert.equal(f.ack().checked,false);assert.equal(f.button('Use as team planning brief').disabled,true);
+});
+test('network, authority lookup failure and malformed stale responses cannot authorize new generation',async()=>{
+ for(const response of [Error('network'),{status:503,body:{ok:false,promoted:false,review_scope:'team_planning_only',error:'authority_unavailable'}},{status:503,body:{ok:false,promoted:false,review_scope:'team_planning_only',error:'stale_preview_regenerate_required'}},{status:409,body:{ok:false,error:'stale_preview_regenerate_required'}}]) {
+  const f=fixture([...initial(),response]);await f.load();f.ack().checked=true;f.ack().change();await f.button('Use as team planning brief').click();assert.equal(f.button('Generate a new current proposal'),undefined);assert.equal(f.calls.filter(c=>c.opts.method==='POST').length,1);
+ }
+});
