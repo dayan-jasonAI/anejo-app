@@ -230,7 +230,7 @@
 <script src="/hub/owner/assets/marketing-photo-picker.js?v=photo-polish-2"></script>
 <script src="/hub/owner/assets/marketing-photo-polish.js?v=photo-polish-2"></script>
 <script src="/hub/owner/assets/marketing-photo-enhance.js?v=photo-polish-2"></script>
-<script src="/hub/owner/assets/marketing-branding.js?v=reposado-3"></script>
+<script src="/hub/owner/assets/marketing-branding.js?v=reposado-declarations-1"></script>
 
 <!-- ============================================================================================
      MODULE: Teach > Team Lead — copied from the old team.html almost unchanged. Only the mount
@@ -1059,7 +1059,8 @@
         var resultBox = panel.querySelector('.brand-result');
         var layoutEvidence = null;
         btn.disabled = true; btn.textContent = 'Compositing…';
-        compositeBranding('/api/hub/media/' + key, {
+        var sourceHash = '', previewRequestId = crypto.randomUUID();
+        var renderOptions = {
           position: pos === 'auto' ? '' : pos,   // '' means "measure the photo and decide"
           text: text,
           kicker: panel.querySelector('.brand-kicker').value,
@@ -1070,7 +1071,16 @@
           mark: panel.querySelector('.brand-mark').value,
           finish: panel.querySelector('.brand-finish').value,
           onLayout: function(report){layoutEvidence=report;}
-        })
+        };
+        // Hash and render the same source bytes, preserving the original in storage.
+        fetch('/api/hub/media/' + key, {credentials:'same-origin'})
+          .then(function(response){if(!response.ok)throw new Error('Could not read the original photo');return response.blob();})
+          .then(async function(blob){
+            if(blob.size>5*1024*1024)throw new Error('Original photo exceeds the 5 MB preview limit');
+            sourceHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),function(b){return b.toString(16).padStart(2,'0');}).join('');
+            var sourceUrl=URL.createObjectURL(blob);
+            try{return await compositeBranding(sourceUrl,renderOptions);}finally{URL.revokeObjectURL(sourceUrl);}
+          })
           .then(function (dataUrl) {
             btn.disabled = false; btn.textContent = 'Preview branded photo';
             resultBox.innerHTML =
@@ -1082,18 +1092,20 @@
               var useBtn = resultBox.querySelector('.brand-use');
               if (useBtn.disabled) return;
               useBtn.disabled = true; useBtn.textContent = 'Saving…';
-              // Carry the source slide's role suffix forward (e.g. `_photo`) so a branded AI-made
-              // food photo is still RECOGNISED as a food photo by the food-first guard afterward —
-              // see social-upload.js's `role` param comment for why this matters.
-              var sourceRole = (key.match(/_([a-z0-9]+)\.[a-z0-9]+$/i) || [])[1] || '';
-              Hub.api('/api/hub/owner/social-upload', { method: 'POST', body: { data_url: dataUrl, role: sourceRole } })
+              var declaredOptions = {};
+              Object.keys(renderOptions).forEach(function(name){if(name!=='onLayout')declaredOptions[name]=renderOptions[name];});
+              Hub.api('/api/hub/owner/marketing-branded-save', { method: 'POST', body: {
+                request_id:previewRequestId,post_id:postId,media_id:chosen.value,source_key:key,source_sha256:sourceHash,data_url:dataUrl,
+                declaration:{renderer_version:window.AnejoBranding.rendererVersion,template_id:renderOptions.preset || 'overlay',options:declaredOptions,layout:layoutEvidence || {capture:'unavailable'}}
+              } })
                 .then(function (r) {
-                  if (!r || !r.ok || !r.media_key) {
-                    Hub.toast((r && r.error) || 'Could not save the branded photo');
+                  if (!r || !r.ok || !r.attached) {
+                    Hub.toast((r && r.error) || 'Could not attach the branded photo. Your original is preserved.');
                     useBtn.disabled = false; useBtn.textContent = 'Use this — replace selected slide';
                     return;
                   }
-                  op({ op: 'replace_media', id: postId, media_id: chosen.value, expected_media_key: key, media_key: r.media_key }, 'Branded slide saved as draft — review before scheduling');
+                  Hub.toast(r.status === 'scheduled' ? 'Branded slide source record confirmed — post is currently scheduled' : 'Branded slide saved as draft with source record — review before scheduling');
+                  load();
                 })
                 .catch(function () {
                   Hub.toast('Could not save the branded photo');
@@ -1349,12 +1361,17 @@
           (o.caption_quote ? '<div class="hint">Caption: ' + esc(o.caption_quote) + '</div>' : '') +
           (Array.isArray(o.slides) && o.slides.length ? '<div class="hint">Slides: ' + esc(o.slides.join(', ')) + '</div>' : '') + '</li>';
       }).join('') + '</ul></details>';
+      if (detail.product_evidence) {
+        var productEvidence=detail.product_evidence;
+        body += '<details><summary>Product claim scope</summary><p class="hint">Model-classified scope: ' + esc(productEvidence.scope || 'unknown') + '. Exact caption and registered overlay excerpts are checked against saved source text; this does not prove the model found every claim.</p>' +
+          '<ul>' + (Array.isArray(productEvidence.claims) ? productEvidence.claims : []).map(function(claim){return '<li>' + esc(claim.quote || '') + ' · ' + esc(claim.source || 'unknown') + (claim.source==='image_text' ? ' (model observation, not verified OCR)' : '') + ' · ' + (claim.caption_line ? 'caption line ' + esc(String(claim.caption_line)) : 'slide ' + esc(String(claim.slide))) + '</li>';}).join('') + '</ul></details>';
+      }
       var slideSources = detail.input_coverage && detail.input_coverage.slide_sources;
       if (Array.isArray(slideSources) && slideSources.length) {
         body += '<details><summary>Saved design source records</summary><p class="hint">Exact saved-image hashes and registered render declarations. These do not prove public Instagram pixels, food ingredients, readability, or owner approval. Audit explanations above remain model judgments.</p><ul>' + slideSources.map(function(source) {
           var facts = source.design_facts;
           var words = facts && Array.isArray(facts.rendered_text) ? facts.rendered_text.map(function(item) { return item.text; }).join(' · ') : '';
-          return '<li><b>Slide ' + esc(String(source.slide)) + '</b> · ' + (facts ? 'registered output matched' : 'no registered design declaration') +
+          return '<li><b>Slide ' + esc(String(source.slide)) + '</b> · ' + (facts ? 'registered output matched' : source.unreviewed_render ? 'browser declaration saved · image bytes matched · layout unverified' : source.render_receipt_status === 'receipt_read_unavailable' ? 'render receipt unavailable' : 'no registered design declaration') +
             (source.sha256 ? '<div class="hint">SHA-256: ' + esc(source.sha256) + '</div>' : '') +
             (words ? '<div>Recorded overlay: ' + esc(words) + '</div>' : '') + '</li>';
         }).join('') + '</ul></details>';

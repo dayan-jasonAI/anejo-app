@@ -267,7 +267,7 @@ test('training is wired with an explicit, budget-capped call — source pin', ()
   assert.match(GOV, /await trainingContext\(env, \{ maxChars: TRAINING_BUDGET \}\)/, 'an unused import is not wiring');
 });
 
-const visualAnswer = (defect = null) => ({ rubric_version: VERSION, observations: CRITERIA.map(c => ({
+const visualAnswer = (defect = null) => ({ rubric_version: VERSION, product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]}, observations: CRITERIA.map(c => ({
  criterion_id: c.id, status: defect && c.id === 'readability' ? 'violated' : 'met',
  caption_line: 0, slides: [1], explanation: defect && c.id === 'readability' ? defect : 'Visible evidence satisfies the criterion.'
 })), suggestions: [] });

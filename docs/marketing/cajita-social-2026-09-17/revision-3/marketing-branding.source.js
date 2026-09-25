@@ -34,16 +34,14 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
   // goes ahead on the Georgia/Helvetica fallbacks named in the stacks below. Wrong face, right
   // words — never a hung preview button.
   var brandFontsReady = null;
-  var fontLoadEvidence = {status:'not_requested',exact_glyph_face:'unverified'};
   function ensureBrandFonts() {
     if (brandFontsReady) return brandFontsReady;
-    if (!document.fonts || !document.fonts.load) { fontLoadEvidence={status:'api_unavailable',exact_glyph_face:'unverified'}; brandFontsReady = Promise.resolve(false); return brandFontsReady; }
-    fontLoadEvidence={status:'pending',exact_glyph_face:'unverified'};
+    if (!document.fonts || !document.fonts.load) { brandFontsReady = Promise.resolve(false); return brandFontsReady; }
     var wanted = Promise.all([
       document.fonts.load('600 96px "Cormorant Garamond"'),
       document.fonts.load('500 96px "Josefin Sans"')
-    ]).then(function (faces) { fontLoadEvidence={status:'load_resolved',face_counts:faces.map(function(f){return f.length;}),exact_glyph_face:'unverified'}; return true; }).catch(function () { fontLoadEvidence={status:'load_failed',exact_glyph_face:'unverified'}; return false; });
-    var timeout = new Promise(function (resolve) { setTimeout(function () { if(fontLoadEvidence.status==='pending')fontLoadEvidence={status:'timed_out',exact_glyph_face:'unverified'}; resolve(false); }, 3000); });
+    ]).then(function () { return true; }).catch(function () { return false; });
+    var timeout = new Promise(function (resolve) { setTimeout(function () { resolve(false); }, 3000); });
     brandFontsReady = Promise.race([wanted, timeout]);
     return brandFontsReady;
   }
@@ -483,16 +481,14 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
     var stats=regionStats(ctx,c,textRegion.x,textRegion.y,textRegion.w,textRegion.h),ink=pickTitleInk(stats);
     // Never invent a successful contrast score. A small halo supports legibility; audit the finished pixels.
     ctx.save();ctx.textBaseline='top';ctx.textAlign='left';ctx.fillStyle=ink.css;ctx.shadowColor=haloFor(ink);ctx.shadowBlur=S*.008;
-    var runs=[];
-    function recordRun(role,word,x,y){runs.push({role:role,text:word,x:x,y:y,font_css:ctx.font,ink:ink.css,coordinate_space:opts.vertical?'rotated_local':'canvas',text_baseline:'top',text_align:'left'});}
     var tx=textRegion.x,ty=textRegion.y;
     if(opts.vertical){ctx.translate(textRegion.x,textRegion.y+textRegion.h);ctx.rotate(-Math.PI/2);tx=0;ty=0;}
-    if(kicker){ctx.font=kickerFont(kickPx);while(ctx.measureText(kicker).width>textWidth&&kickPx>10){kickPx--;ctx.font=kickerFont(kickPx);}if(ctx.measureText(kicker).width>textWidth)throw new Error('The kicker does not fit.');ctx.fillText(kicker,tx,ty);recordRun('kicker',kicker,tx,ty);ty+=kickPx+gap;}
-    ctx.font=headlineFont(head.px);head.lines.forEach(function(line){ctx.fillText(line,tx,ty);recordRun('headline',line,tx,ty);ty+=head.px*1.16;});ctx.restore();
+    if(kicker){ctx.font=kickerFont(kickPx);while(ctx.measureText(kicker).width>textWidth&&kickPx>10){kickPx--;ctx.font=kickerFont(kickPx);}if(ctx.measureText(kicker).width>textWidth)throw new Error('The kicker does not fit.');ctx.fillText(kicker,tx,ty);ty+=kickPx+gap;}
+    ctx.font=headlineFont(head.px);head.lines.forEach(function(line){ctx.fillText(line,tx,ty);ty+=head.px*1.16;});ctx.restore();
     var ratio=(logo.naturalWidth||logo.width)/(logo.naturalHeight||logo.height),mw=Math.min(markRegion.w,markRegion.h*ratio),mh=mw/ratio;
     var mx=markRegion.x+(markRegion.w-mw)/2,my=markRegion.y+(markRegion.h-mh)/2;
     var mi=pickTitleInk(regionStats(ctx,c,mx,my,mw,mh));ctx.drawImage(tintMark(logo,mw,mh,mi.css),mx,my,mw,mh);
-    if(typeof opts.onLayout==='function')opts.onLayout({preset:'reposado',templateId:opts.templateId||'custom_editorial',width:W,height:H,sourceAspectPreserved:true,photo:art.photo,backgroundExtended:art.extended,text:textRegion,textInk:ink.css,estimatedTextContrast:inkContrast(ink,stats),emblem:{x:mx,y:my,w:mw,h:mh,ink:mi.css},protectedAreas:regions,protectionSource:regions.length?'provided_regions':'visual_review_required',visualReviewRequired:true,renderDeclaration:{schema:1,source:'browser_declared',supported:true,preset:'reposado',template_id:opts.templateId||'custom_editorial',text_runs:runs,transform:opts.vertical?{translate_x:textRegion.x,translate_y:textRegion.y+textRegion.h,rotation_degrees:-90}:{translate_x:0,translate_y:0,rotation_degrees:0},font_load:JSON.parse(JSON.stringify(fontLoadEvidence)),source_hash:'unavailable',output_hash:'unavailable',pixel_verification:'unverified'}});
+    if(typeof opts.onLayout==='function')opts.onLayout({preset:'reposado',templateId:opts.templateId||'custom_editorial',width:W,height:H,sourceAspectPreserved:true,photo:art.photo,backgroundExtended:art.extended,text:textRegion,textInk:ink.css,estimatedTextContrast:inkContrast(ink,stats),emblem:{x:mx,y:my,w:mw,h:mh,ink:mi.css},protectedAreas:regions,protectionSource:regions.length?'provided_regions':'visual_review_required',visualReviewRequired:true});
     return c.toDataURL('image/jpeg',.94);
   }
 
@@ -506,7 +502,7 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
     return ensureBrandFonts()
       .then(function () { return Promise.all([loadImageEl(photoUrl), loadImageEl(rendererScript ? new URL(MARK_SRC[markKey].replace('/assets/', '../../../assets/'), rendererScript).href : MARK_SRC[markKey])]); })
       .then(function (imgs) {
-      if (opts.preset === 'poster') { var poster=composePoster(imgs[0], imgs[1], opts); if(typeof opts.onLayout==='function')opts.onLayout({preset:'poster',visualReviewRequired:true,renderDeclaration:{schema:1,source:'browser_declared',supported:false,reason:'draw_time_capture_not_implemented',font_load:JSON.parse(JSON.stringify(fontLoadEvidence))}}); return poster; }
+      if (opts.preset === 'poster') return composePoster(imgs[0], imgs[1], opts);
       if (opts.preset === 'reposado' && opts.textRegion) return composeEditorial(imgs[0],imgs[1],opts);
       var photo = imgs[0], logo = imgs[1];
       var canvas = document.createElement('canvas');
@@ -687,12 +683,12 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
         sourceAspectPreserved:true, text:wordRect,
         emblem:{x:chosen[0],y:chosen[1],w:markW,h:markH,ink:mInk.css},
         protectedAreas:protectedRects, protectionSource:hasSubjectRegions ? 'provided_regions' : 'center_geometry_only',
-        visualReviewRequired:true,renderDeclaration:{schema:1,source:'browser_declared',supported:false,reason:'draw_time_capture_not_implemented',font_load:JSON.parse(JSON.stringify(fontLoadEvidence))}
+        visualReviewRequired:true
       });
       return canvas.toDataURL('image/jpeg', 0.92);
     });
   }
 
 
-root.AnejoBranding = { rendererVersion:'anejo-canvas-declarations-1', compose: compositeBranding, fitHeadline: fitHeadline, pickTitleInk: pickTitleInk, overlaps: overlaps, protectedAreas: protectedAreas, editorialProfile: editorialProfile };
+root.AnejoBranding = { compose: compositeBranding, fitHeadline: fitHeadline, pickTitleInk: pickTitleInk, overlaps: overlaps, protectedAreas: protectedAreas, editorialProfile: editorialProfile };
 })(typeof window !== 'undefined' ? window : globalThis);

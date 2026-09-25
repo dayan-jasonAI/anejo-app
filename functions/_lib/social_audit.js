@@ -33,7 +33,17 @@ export async function loadAuditImages(env, mediaSnapshot) {
     let binary='';for(let offset=0;offset<bytes.length;offset+=8192)binary+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
     const sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b=>b.toString(16).padStart(2,'0')).join('');
     const designFacts=Object.hasOwn(DESIGN_FACTS_BY_SHA256,sha256)?DESIGN_FACTS_BY_SHA256[sha256]:null;
-    images.push({key,data:btoa(binary),sourceReceipt:{media_id:mediaId,seq,key,sha256,byte_length:bytes.length,design_facts_version:DESIGN_FACTS_VERSION,design_facts:designFacts}});
+    let unreviewedRender=null,renderReceiptStatus=designFacts?'reviewed_registry':'not_found';
+    if(!designFacts && env.DB){
+      try {
+        const receipt=await env.DB.prepare("SELECT id,source_key,source_sha256,output_bytes,declaration_json,evidence_tier FROM marketing_render_receipts WHERE output_sha256=? AND output_key=? AND state='attached' LIMIT 1").bind(sha256,key).first();
+        if(receipt && receipt.evidence_tier==='browser_declared' && receipt.output_bytes===bytes.length && receipt.declaration_json.length<=12288){
+          unreviewedRender={receipt_id:receipt.id,source_key:receipt.source_key,source_sha256:receipt.source_sha256,evidence_tier:'browser_declared',declaration:JSON.parse(receipt.declaration_json)};
+          renderReceiptStatus='browser_declared_bytes_matched';
+        }
+      } catch { renderReceiptStatus='receipt_read_unavailable'; }
+    }
+    images.push({key,data:btoa(binary),sourceReceipt:{media_id:mediaId,seq,key,sha256,byte_length:bytes.length,design_facts_version:DESIGN_FACTS_VERSION,design_facts:designFacts,render_receipt_status:renderReceiptStatus,unreviewed_render:unreviewedRender}});
   }
   return images;
 }
@@ -79,7 +89,7 @@ export async function auditSavedDraft(env, postId, expectedCaption, judge = audi
   }
   const scope = !mediaError && !audit.flags.some(f=>f.type==='audit_unavailable') ? 'caption_and_media' : 'unavailable';
   const auditTarget = row.status === 'published' ? 'published_saved_source' : 'draft_saved_source';
-  const detail = audit.rubric_version ? JSON.stringify({audit_target:auditTarget,rubric_version:audit.rubric_version,complete:audit.complete ?? null,criteria_met:audit.criteria_met ?? null,criteria_applicable:audit.criteria_applicable ?? null,unknowns:audit.unknowns ?? null,observations:audit.observations ?? null,suggestions:audit.suggestions ?? null,input_coverage:audit.input_coverage ?? null,score_meaning:audit.score_meaning ?? null,audit_diagnostic:audit.audit_diagnostic ?? null}) : JSON.stringify({audit_target:auditTarget});
+  const detail = audit.rubric_version ? JSON.stringify({audit_target:auditTarget,rubric_version:audit.rubric_version,complete:audit.complete ?? null,criteria_met:audit.criteria_met ?? null,criteria_applicable:audit.criteria_applicable ?? null,unknowns:audit.unknowns ?? null,product_evidence:audit.product_evidence ?? null,observations:audit.observations ?? null,suggestions:audit.suggestions ?? null,input_coverage:audit.input_coverage ?? null,score_meaning:audit.score_meaning ?? null,audit_diagnostic:audit.audit_diagnostic ?? null}) : JSON.stringify({audit_target:auditTarget});
   const result = await env.DB.prepare(`UPDATE social_posts SET audit_score=?, audit_flags=?, audit_at=?, audit_status=?, audit_scope=?, audit_snapshot=?, audit_detail_json=?, audit_context_snapshot=?
     WHERE id=? AND status=? AND COALESCE(caption,'')=?
     AND COALESCE(image_brief,'')=? AND COALESCE(media_key,'')=? AND COALESCE(media_type,'')=?

@@ -54,3 +54,17 @@ Implemented v6: exact-byte26image registry; source records supplied separately f
 Validation: `npm test`2,939passed (`/tmp/anejo-audit-v6-root.log`); `npm run lint`0errors/11existingwarnings (`/tmp/anejo-audit-v6-lint.log`); Pages Functions build passed (`/tmp/anejo-audit-v6-build.log`); `git diff --check` passed. Fullroot run includes actual JPEG hash/mutation/order tests and automatic publish/trust guards. No Studio source changed in this increment. No provider call, customer send, public post or production mutation performed for these tests.
 
 Open: release/deployment/live semantic acceptance. Hash rechecks are decision-time checks, not atomic R2/SQL locking; future immutable media pipeline remains necessary for stronger guarantees. Renderer registry currently covers reviewed revision3 exports only. Generic future template receipts and reliable model explanations remain incomplete. Keep goal active.
+
+
+### Resume checkpoint after PR132
+
+Released226a03a and live source-record display verified. See release evidence and AUDIT_V6_READBACK_2026-09-25.json. Choice now6/7/nullscore with a misapplied product-fidelity unknown; do not equate fail-closed behavior with semantic correctness. No second provider retry performed. Goal remains active. Fullfuture receipt proposal was inspected by root and saved as FUTURE_RENDER_RECEIPTS_2026-09-25.md; it is a proposal, not implementation. Next executor must inspect Git/current goal state, preserve current provider results and fix structured product-claim scope before any trust enablement. Existingbrowser tab1238612919 shows expanded choice audit/source records.
+
+
+### Next increment — product scope and future template receipts
+
+Implemented locally: v7 requires structured product scope and exact written claim citations; absence of a product claim cannot coexist with a missing-SKU unknown verdict. Conflicts invalidate the response, never turn it into a pass. Photographic text is labeled model-observed separately from exact caption/registered overlay text.
+
+Future Reposado previews now capture actual draw-time text/geometry/font-load observations, hash/render the same source Blob, and save through authenticated marketing-branded-save. Additive0131 stores browser-declared receipt plus server source/output hashes; atomic attach preserves originals, clears prior audit/schedule, protects publishing/published, retains planner originals for trust corrections, and reuses request IDs on retries. Unknown template outputs never inherit the reviewed26registry. Saved browser declarations remain untrusted to the model and UI; they are not proof that words were applied to pixels. Historical renderer archived byte-for-byte so current renderer changes do not invalidate reviewed historical exports.
+
+Local validation:2,968root tests passed `/tmp/anejo-v7-release-root.log`; lint0errors/11existingwarnings `/tmp/anejo-v7-release-lint.log`; Functions build passed `/tmp/anejo-v7-release-build.log`;4renderer contract tests separately passed `/tmp/anejo-final-render-contract.log`. Tests include actual UI handler execution, sameBlob hash/render, explicitUse, idempotent retry, real SQLite attach/races, preserved source formats/suffixes, false declaration remaining untrusted, and audit source-read failure. No provider call, newcustomercommunication or production migration yet for this increment. Next: release checks, additive migration, deployment and live private workflow verification. Scope still open for stronger rendering attestations and autonomous team operation.

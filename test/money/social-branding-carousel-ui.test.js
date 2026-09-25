@@ -13,7 +13,7 @@ const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', impor
 const RENDERER = readFileSync(new URL('../../public/hub/owner/assets/marketing-branding.js', import.meta.url), 'utf8');
 const HTML = PAGE.replace('  function compositeBranding(photoUrl, opts) { return window.AnejoBranding.compose(photoUrl, opts); }', RENDERER);
 test('Hub loads and invokes the shared branding renderer',()=>{
- assert.match(PAGE,/marketing-branding\.js\?v=reposado-3/);
+ assert.match(PAGE,/marketing-branding\.js\?v=reposado-declarations-1/);
  assert.match(PAGE,/window\.AnejoBranding\.compose\(photoUrl, opts\)/);
 });
 
@@ -164,7 +164,7 @@ test('the brand faces are actually LOADED, or canvas silently draws the system f
 
 test('accepting branded preview replaces only the selected revision', () => {
   assert.match(PAGE, /Use this — replace selected slide/);
-  assert.match(PAGE, /op: 'replace_media', id: postId, media_id: chosen.value, expected_media_key: key/);
+  assert.match(PAGE, /post_id:postId,media_id:chosen.value,source_key:key,source_sha256:sourceHash/);
 });
 
 test('branding never uploads or attaches until the owner explicitly accepts the preview', () => {
@@ -173,14 +173,15 @@ test('branding never uploads or attaches until the owner explicitly accepts the 
   // under it, never as part of showing the preview itself.
   const wireStart = HTML.indexOf('function wireBranding');
   const previewRender = HTML.indexOf('resultBox.innerHTML =', wireStart);
-  const uploadCall = HTML.indexOf('/api/hub/owner/social-upload', wireStart);
+  const uploadCall = HTML.indexOf('/api/hub/owner/marketing-branded-save', wireStart);
   assert.ok(wireStart > -1 && previewRender > wireStart, 'preview render must exist inside wireBranding');
   assert.ok(uploadCall > previewRender, 'the upload only happens after the preview is shown, inside the brand-use handler');
 });
 
 test('the branded upload carries the source slide\'s role forward, so the food-first guard still recognises it', () => {
-  assert.match(HTML, /var sourceRole = \(key\.match\(/, 'the source slide key is parsed for its role suffix');
-  assert.match(HTML, /data_url: dataUrl, role: sourceRole/, 'the parsed role rides along with the upload');
+  assert.match(PAGE, /source_key:key,source_sha256:sourceHash/, 'server receives the exact expected source key and hash');
+  const save=readFileSync(new URL('../../functions/api/hub/owner/marketing-branded-save.js',import.meta.url),'utf8');
+  assert.match(save, /b\.source_key\.match/, 'server derives role from the selected source');
 });
 
 test('branding is offered only on a draft/scheduled/failed post, never on a live one', () => {
