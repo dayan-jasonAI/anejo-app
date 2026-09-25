@@ -108,3 +108,10 @@ Changed preview to encode the same fetched/hash-checked bytes as a data: image, 
 ### PR134 live branded-save verification
 
 After exact-merge Cloudflare success for d442c92, supported Chrome reload and repeat preview succeeded for QA draft sp_fb47a36be3fb7228387d. Visible preview contains full-frame food photograph, upper tree emblem and lower “Cuban flavor.” wording. Clicked Use this once. Separate production readback confirms receipt rr_024b108c63ad33e2d79f743f2c85c918412d6a7975a158700c849054826b049a attached, output1254x1254, distinct source/output keys and SHA256, evidence_tier browser_declared. Saved RENDER_RECEIPT_READBACK_2026-09-25.json. UI and D1 show draft, no schedule, null audit score. This proves live private composition/save for this example, not automatic layout quality across every photograph or trusted pixel attestation. No publication or customer communication.
+
+
+### PR135 private strategy release checkpoint
+
+All PR135 checks passed (CI36188990092, Cloudflare previewadd2d0c5-b122-486f-971f-b68e949acfb4). Applied ONLY migration0132, twoqueries succeeded, bookmark00000657-00000074-000050f1-606784c4a99c2e5d3385824394e67961; independent SELECT returned zero preview rows. Merged as b0c335074018b1b312e7fc4dd0e6f4dfe785a3a9 and fast-forwarded working branch. Production deployment/live private strategy generation remains unverified at this checkpoint.
+
+One controlled post-PR134 launch review again rejected missing_artifact_evidence; supportedbrowser diagnostic now identifies product_fidelity, caption_line/slides, both_empty. No fabricated pass or public change. Next correction is structural evidence-anchor selection, not further blind provider retries. Auditor agent owns rubric/tests; backend agent owns reviewed promotion route0133; root owns downstream readers and integration. Promotion is planning direction only, never public-action approval.
