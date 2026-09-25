@@ -12,11 +12,11 @@ function setup(t) {
  return env;
 }
 const row=env=>env.DB.one("SELECT * FROM social_posts WHERE id='published'");
-const withoutAudit=value=>Object.fromEntries(Object.entries(value).filter(([k])=>!k.startsWith('audit_'));
+const withoutAudit=value=>Object.fromEntries(Object.entries(value).filter(([k])=>!k.startsWith('audit_')));
 test('published design review changes only private audit fields, never content, schedule or trust',async t=>{
  const env=setup(t),before=row(env),trust=env.DB.sqlite.prepare('SELECT * FROM trust_ledger ORDER BY category').all(),media=env.DB.sqlite.prepare('SELECT * FROM social_post_media').all();
  const result=await auditSavedDraft(env,'published','Saved caption',judge);
- assert.equal(result.ok,true);assert.equal(result.review_mode,'published_saved_design');assert.equal(row(env).audit_score,100);
+ assert.equal(result.ok,true);assert.equal(result.audit_target,'published_saved_source');assert.equal(row(env).audit_score,100);assert.equal(JSON.parse(row(env).audit_detail_json).audit_target,'published_saved_source');
  assert.deepEqual(withoutAudit(row(env)),withoutAudit(before));assert.deepEqual(env.DB.sqlite.prepare('SELECT * FROM trust_ledger ORDER BY category').all(),trust);assert.deepEqual(env.DB.sqlite.prepare('SELECT * FROM social_post_media').all(),media);
  assert.ok(!env.DB.calls.some(c=>c.kind==='run'&&/trust_ledger|trust_counted/.test(c.sql)));
 });
@@ -33,6 +33,6 @@ test('scheduled and publishing states remain rejected before judge; stale publis
 test('existing authenticated audit route permits published internal review without provider or trust credit',async t=>{
  const env=setup(t),before=row(env),trust=env.DB.sqlite.prepare('SELECT * FROM trust_ledger ORDER BY category').all();
  const response=await onRequestPost({env,request:new Request('https://test/api/hub/owner/social',{method:'POST',headers:{cookie:OWNER_COOKIE},body:JSON.stringify({op:'audit',id:'published',expected_caption:'Saved caption'})})});
- assert.equal(response.status,200);const body=await response.json();assert.equal(body.review_mode,'published_saved_design');assert.equal(body.audit.verdict,'flag');assert.equal(body.scope,'unavailable');
+ assert.equal(response.status,200);const body=await response.json();assert.equal(body.audit_target,'published_saved_source');assert.equal(body.audit.verdict,'flag');assert.equal(body.scope,'unavailable');assert.equal(JSON.parse(row(env).audit_detail_json).audit_target,'published_saved_source');
  assert.deepEqual(withoutAudit(row(env)),withoutAudit(before));assert.deepEqual(env.DB.sqlite.prepare('SELECT * FROM trust_ledger ORDER BY category').all(),trust);
 });

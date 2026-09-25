@@ -29,3 +29,12 @@ September25 supported owner browser: Create & schedule → Choose from library l
 PR128 passed Functions, Studio and Pages checks, merged `3a90aa830b5b82272185c7e180e33cfb81383ad8` at19:22:35Z. Cloudflare production check completed-success for `febc4f9f-fc53-405d-a914-58c3181f3c38`. Applied only guarded0129 with Wrangler; tool reported one query, one row read/written. Readback retained `lnk_ig_catering`, instagram/bio/ig-catering and active1; destination now `/catering#quote`. Before/after logs `/tmp/anejo-catering-link-{before,after}.json`, execution `/tmp/anejo-catering-link-migration.json`.
 
 Normal browser `/go` → Catering & Events now lands at `https://anejocateringco.com/catering?utm_source=instagram&utm_medium=bio&utm_campaign=ig-catering#quote`; heading Tell us about your event visible. Deployed page DOM includes attribution.js. No quote submitted; source retention is locally tested, not a live received-lead claim. Existing lookup/profiles/posted content were preserved. These repairs were covered by Dayan’s direct-session authorization to continue and deploy after checks; no money, credentials or customer communications were touched.
+
+
+## Private operator and published-source audit candidate
+
+Owner operator can explicitly save/retrieve owner-supplied campaign ideas using deterministic code and isolated `operator_brief_ideas` migration0130. Existing team_briefs drafts are consumed by planner/Lead, so private ideas deliberately do not use that table. No generation, activation, trust credit, public send or provider call. Exact topic is bounded1000; oversize rejects rather than silently truncating. Owner-scoped UUID identity gives duplicate-safe retries; only DB readback grants saved status. Latest20 retrieval works after reload; unavailable differs from empty.
+
+Published-post internal review now writes audit fields only, retaining status/content/media/schedule/provider identifiers. Exact original status and source snapshot conditions reject in-flight changes. Label explicitly states saved Hub source review is not independent verification of Instagram pixels; published-source target is stored in audit detail. Local realSQLite tests compare all non-audit fields and trust rows unchanged. Live provider semantic review still pending.
+
+Supported business.google.com browser access on September25 showed Añejo verified with zero listed Google updates. No profile mutations; API integration remains distinct and Unverified.
