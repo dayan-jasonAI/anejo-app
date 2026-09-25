@@ -1349,6 +1349,16 @@
           (o.caption_quote ? '<div class="hint">Caption: ' + esc(o.caption_quote) + '</div>' : '') +
           (Array.isArray(o.slides) && o.slides.length ? '<div class="hint">Slides: ' + esc(o.slides.join(', ')) + '</div>' : '') + '</li>';
       }).join('') + '</ul></details>';
+      var slideSources = detail.input_coverage && detail.input_coverage.slide_sources;
+      if (Array.isArray(slideSources) && slideSources.length) {
+        body += '<details><summary>Saved design source records</summary><p class="hint">Exact saved-image hashes and registered render declarations. These do not prove public Instagram pixels, food ingredients, readability, or owner approval. Audit explanations above remain model judgments.</p><ul>' + slideSources.map(function(source) {
+          var facts = source.design_facts;
+          var words = facts && Array.isArray(facts.rendered_text) ? facts.rendered_text.map(function(item) { return item.text; }).join(' · ') : '';
+          return '<li><b>Slide ' + esc(String(source.slide)) + '</b> · ' + (facts ? 'registered output matched' : 'no registered design declaration') +
+            (source.sha256 ? '<div class="hint">SHA-256: ' + esc(source.sha256) + '</div>' : '') +
+            (words ? '<div>Recorded overlay: ' + esc(words) + '</div>' : '') + '</li>';
+        }).join('') + '</ul></details>';
+      }
       if (Array.isArray(detail.suggestions) && detail.suggestions.length) body += '<details><summary>Optional refinements</summary><ul>' + detail.suggestions.map(function(s) { return '<li>' + esc(String(s)) + '</li>'; }).join('') + '</ul></details>';
     } else if (p.audit_score != null) {
       body += '<div class="audit-score">Legacy score: ' + esc(String(p.audit_score)) + '/100 · not a complete current requirements audit</div>';

@@ -8,7 +8,7 @@
 // timer only ever takes a scheduled post). Everything after the claim lives here.
 import { now } from './hub.js';
 import { publishImage, publishCarousel, publishReel, publishStory, VIDEO_ONLY } from './instagram.js';
-import { SOCIAL_AUDIT_CURRENT } from './social_audit.js';
+import { SOCIAL_AUDIT_CURRENT, verifyAuditImageReceipts } from './social_audit.js';
 import { BOWL_ART } from './bowl_art.js';
 
 /** A post's slides, in order. The child table is authoritative — social_posts.media_key is legacy. */
@@ -171,7 +171,7 @@ export async function publishSocialPost(env, request, post, opts = {}) {
   // Re-read automatic approval evidence immediately before any provider operation.
   // Manual/legacy scheduling remains separate; NULL is not fabricated approval provenance.
   let approval;
-  try { approval = await env.DB.prepare(`SELECT auto_audit_required, audit_status, audit_scope, COALESCE(${SOCIAL_AUDIT_CURRENT},0) AS audit_current FROM social_posts WHERE id=?`).bind(post.id).first(); }
+  try { approval = await env.DB.prepare(`SELECT auto_audit_required, audit_status, audit_scope, audit_detail_json, COALESCE(${SOCIAL_AUDIT_CURRENT},0) AS audit_current FROM social_posts WHERE id=?`).bind(post.id).first(); }
   catch {
     // A context source outage may not bypass an automatic requirement. A separate
     // marker read can still establish that an explicitly manual/legacy row is unaffected.
@@ -183,6 +183,12 @@ export async function publishSocialPost(env, request, post, opts = {}) {
     return rejectApproval('Automatic audit evidence is stale or unavailable. Re-audit before automatic publication.');
   }
   let media = await loadPostMedia(env, post.id);
+  if (approval.auto_audit_required) {
+    const snapshot=media.map(m=>JSON.stringify([m.id,m.seq,m.media_key])).join(',');
+    let verified=false;
+    try { verified=await verifyAuditImageReceipts(env,snapshot,approval.audit_detail_json); } catch { /* fail closed */ }
+    if(!verified)return rejectApproval('Automatic audit image bytes changed or could not be verified. Re-audit before automatic publication.');
+  }
   const dry = opts.publish === false;
   // NULL/absent = not declared by 0080 -> the legacy inference this app has always used. Any other
   // value is an explicit instruction and is trusted over the slide count.

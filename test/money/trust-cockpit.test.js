@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import { VERSION } from '../../functions/_lib/visual_audit_rubric.js';
 // The trust ledger + marketing cockpit (0072): graduated autonomy the owner can SEE.
 //
@@ -28,8 +29,11 @@ function fixture() {
   const DB=makeSqliteD1();
   DB.sqlite.prepare(`INSERT INTO social_posts(id,platform,caption,status,source,category,original_caption_hash,created_at,updated_at,public_token)
     VALUES ('sp_1','instagram','Original','scheduled','planner','menu',?,1,1,'public-test')`).run(captionHash('Original'));
+  DB.exec("INSERT INTO social_post_media(id,post_id,seq,media_key,public_token,created_at) VALUES ('m1','sp_1',0,'studio/test.jpg','media-token',1)");
   DB.exec(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_status='pass',audit_scope='caption_and_media',audit_context_snapshot=${SOCIAL_AUDIT_CONTEXT},audit_detail_json='{"rubric_version":"${VERSION}"}'`);
-  return {DB};
+  const bytes=new Uint8Array([255,216,255,217]);
+  DB.sqlite.prepare('UPDATE social_posts SET audit_detail_json=?').run(JSON.stringify({rubric_version:VERSION,input_coverage:{slide_sources:[{slide:1,media_id:'m1',seq:0,key:'studio/test.jpg',sha256:createHash('sha256').update(bytes).digest('hex'),byte_length:4}]}}));
+  return {DB,MEDIA:{get:async()=>({size:4,arrayBuffer:async()=>bytes.buffer})}};
 }
 test('distinct clean visual approval counts only once, including concurrent requests',async()=>{
   const env=fixture();
@@ -178,4 +182,8 @@ test('historical v1 visual approval earns no clean trust under current rubric',a
  const env=fixture();env.DB.sqlite.prepare('UPDATE social_posts SET audit_detail_json=?').run(JSON.stringify({rubric_version:'anejo-visual-1'}));
  assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);
  assert.equal(env.DB.one("SELECT approved_clean FROM trust_ledger WHERE category='menu'").approved_clean,0);
+});
+
+test('same-key overwrite or unavailable R2 cannot earn clean trust',async()=>{
+ for(const missing of [false,true]){const env=fixture();env.MEDIA.get=async()=>missing?null:{size:4,arrayBuffer:async()=>new Uint8Array([255,216,255,0]).buffer};assert.equal((await noteTrustApproval(env,'sp_1')).counted,false);assert.equal(env.DB.one('SELECT COUNT(*) n FROM social_trust_approvals').n,0);}
 });

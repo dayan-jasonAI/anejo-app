@@ -6,7 +6,7 @@ import {onRequestPost} from '../../functions/api/hub/owner/social.js';
 import {auditSavedDraft} from '../../functions/_lib/social_audit.js';
 const call=(env,body)=>onRequestPost({env,request:new Request('https://anejo.test/api/hub/owner/social',{method:'POST',headers:{Cookie:OWNER_COOKIE},body:JSON.stringify(body)})});
 async function setup(){const env=ownerEnv();env.MEDIA={get:async()=>({size:4,arrayBuffer:async()=>new Uint8Array([255,216,255,217]).buffer})};const r=await call(env,{op:'draft',caption:'Original',media_key:'marketing-library/2026-09/real.jpg'});return {env,id:(await r.json()).id};}
-const pass=async()=>({brand_score:97,flags:[],verdict:'pass',rubric_version:VERSION,observations:[],suggestions:[],input_coverage:{menu:{source:'d1'}},score_meaning:'criteria met'});
+const pass=async(_env,{images=[]}={})=>({brand_score:97,flags:[],verdict:'pass',rubric_version:VERSION,observations:[],suggestions:[],input_coverage:{menu:{source:'d1'},slide_sources:images.map((image,index)=>({slide:index+1,...image.sourceReceipt}))},score_meaning:'criteria met'});
 test('saved draft audit persists genuine judge result and declares visual review boundary',async()=>{
  const {env,id}=await setup();const r=await auditSavedDraft(env,id,'Original',pass);
  assert.equal(r.ok,true);assert.equal(r.visual_review_required,true);
@@ -166,3 +166,18 @@ test('unavailable rubric diagnostic persists privately without pass scope or cle
  assert.equal((await noteTrustApproval(env,id)).counted,false);
 });
 test('partial valid audit persists evidence and null score but earns no clean trust',async()=>{const {noteTrustApproval}=await import('../../functions/_lib/trust_ledger.js');const {env,id}=await setup();await auditSavedDraft(env,id,'Original',async()=>({rubric_version:VERSION,complete:false,criteria_met:6,criteria_applicable:7,unknowns:[{criterion_id:'product_fidelity'}],observations:[{criterion_id:'product_fidelity',status:'unknown'}],brand_score:null,verdict:'flag',flags:[{type:'audit_uncertain',detail:'Portion claim uncertain'}]}));const row=env.DB.one('SELECT audit_score,audit_status,audit_detail_json FROM social_posts WHERE id=?',id);assert.equal(row.audit_score,null);assert.equal(row.audit_status,'flag');assert.equal(JSON.parse(row.audit_detail_json).criteria_met,6);assert.equal((await noteTrustApproval(env,id)).counted,false);});
+
+test('same-key R2 byte replacement during provider review rejects audit persistence',async()=>{
+ const {env,id}=await setup();
+ const judge=async()=>{env.MEDIA={get:async()=>({size:5,arrayBuffer:async()=>new Uint8Array([255,216,255,0,217]).buffer})};return pass();};
+ const result=await auditSavedDraft(env,id,'Original',judge);
+ assert.equal(result.status,409);assert.match(result.error,/bytes changed/);
+ assert.equal(env.DB.one('SELECT audit_at FROM social_posts WHERE id=?',id).audit_at,null);
+});
+test('R2 read failure after provider review does not persist unverifiable audit',async()=>{
+ const {env,id}=await setup();
+ const judge=async()=>{env.MEDIA={get:async()=>null};return pass();};
+ const result=await auditSavedDraft(env,id,'Original',judge);
+ assert.equal(result.status,409);assert.match(result.error,/could not be reverified/);
+ assert.equal(env.DB.one('SELECT audit_at FROM social_posts WHERE id=?',id).audit_at,null);
+});

@@ -1,5 +1,6 @@
 // Internal saved-design audit: private JPEG bytes and caption bound to one revision.
 // Published reviews write audit evidence only; they do not edit or reapprove public posts.
+import { DESIGN_FACTS_BY_SHA256, DESIGN_FACTS_VERSION } from './audit_design_facts.generated.js';
 import { auditDraft } from './governance.js';
 import { VERSION as VISUAL_AUDIT_VERSION } from './visual_audit_rubric.js';
 
@@ -22,7 +23,7 @@ export async function loadAuditImages(env, mediaSnapshot) {
   const slides=JSON.parse('['+mediaSnapshot+']');
   if (!slides.length || slides.length>10) throw new Error('Audit requires one to ten JPEG slides');
   let total=0; const images=[];
-  for (const [, ,key] of slides) {
+  for (const [mediaId, seq,key] of slides) {
     if (!/^(studio|marketing-library)\//.test(key) || key.includes('..') || !/\.jpe?g$/i.test(key)) throw new Error('Audit supports saved marketing JPEGs only');
     const object=await env.MEDIA.get(key);
     if (!object || !Number.isFinite(object.size) || object.size>5*1024*1024) throw new Error('Image missing or exceeds 5MB');
@@ -30,9 +31,27 @@ export async function loadAuditImages(env, mediaSnapshot) {
     const bytes=new Uint8Array(await object.arrayBuffer());
     if(bytes.length!==object.size || bytes.length<4 || bytes[0]!==255 || bytes[1]!==216 || bytes[2]!==255) throw new Error('Invalid JPEG content');
     let binary='';for(let offset=0;offset<bytes.length;offset+=8192)binary+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
-    images.push({key,data:btoa(binary)});
+    const sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b=>b.toString(16).padStart(2,'0')).join('');
+    const designFacts=Object.hasOwn(DESIGN_FACTS_BY_SHA256,sha256)?DESIGN_FACTS_BY_SHA256[sha256]:null;
+    images.push({key,data:btoa(binary),sourceReceipt:{media_id:mediaId,seq,key,sha256,byte_length:bytes.length,design_facts_version:DESIGN_FACTS_VERSION,design_facts:designFacts}});
   }
   return images;
+}
+
+// Check recorded bytes at a trust boundary. No model call and no approval mutation.
+export async function verifyAuditImageReceipts(env, mediaSnapshot, auditDetail) {
+  try {
+    const detail = typeof auditDetail === 'string' ? JSON.parse(auditDetail) : auditDetail;
+    const sources = detail?.input_coverage?.slide_sources;
+    if (!Array.isArray(sources) || !sources.length || sources.length>10) return false;
+    const images = await loadAuditImages(env,mediaSnapshot);
+    return images.length===sources.length && images.every((image,index)=>{
+      const expected=sources[index], actual=image.sourceReceipt;
+      return expected?.slide===index+1 && expected.media_id===actual.media_id &&
+        expected.seq===actual.seq && expected.key===actual.key && expected.sha256===actual.sha256 &&
+        expected.byte_length===actual.byte_length;
+    });
+  } catch { return false; }
 }
 
 export async function auditSavedDraft(env, postId, expectedCaption, judge = auditDraft) {
@@ -46,6 +65,18 @@ export async function auditSavedDraft(env, postId, expectedCaption, judge = audi
   let images=[], mediaError=null;
   try { images=await loadAuditImages(env,row.media_snapshot); } catch(error) { mediaError=error.message; }
   const audit = mediaError ? {brand_score:0,verdict:'flag',flags:[{type:'audit_unavailable',detail:'Finished-image audit unavailable: '+mediaError}]} : await judge(env, { caption:row.caption, image_brief:row.image_brief, images });
+  // R2 keys can be overwritten without changing the SQL snapshot. Refuse to save a
+  // provider result against bytes that changed while it was judging the earlier image.
+  if (!mediaError) {
+    try {
+      const latest = await loadAuditImages(env,row.media_snapshot);
+      if (latest.some((image,index)=>image.sourceReceipt.sha256!==images[index].sourceReceipt.sha256)) {
+        return {ok:false,status:409,error:'Saved image bytes changed during the audit. Review and audit again.'};
+      }
+    } catch {
+      return {ok:false,status:409,error:'Saved image bytes could not be reverified after the audit. Review and audit again.'};
+    }
+  }
   const scope = !mediaError && !audit.flags.some(f=>f.type==='audit_unavailable') ? 'caption_and_media' : 'unavailable';
   const auditTarget = row.status === 'published' ? 'published_saved_source' : 'draft_saved_source';
   const detail = audit.rubric_version ? JSON.stringify({audit_target:auditTarget,rubric_version:audit.rubric_version,complete:audit.complete ?? null,criteria_met:audit.criteria_met ?? null,criteria_applicable:audit.criteria_applicable ?? null,unknowns:audit.unknowns ?? null,observations:audit.observations ?? null,suggestions:audit.suggestions ?? null,input_coverage:audit.input_coverage ?? null,score_meaning:audit.score_meaning ?? null,audit_diagnostic:audit.audit_diagnostic ?? null}) : JSON.stringify({audit_target:auditTarget});

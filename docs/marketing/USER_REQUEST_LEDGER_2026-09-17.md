@@ -108,3 +108,15 @@ The table below is preserved as the earlier September 17 inspection at local HEA
 - Supported Instagram profile inspection also lists all three carousel permalinks. Bio Links dialog contains Website (`/go`), Open for Orders (`/order`), Gym & Trainers Affiliate Program (`/go`), and Macros (`/calculator`); no direct link named Catering & Events. The `/go` destination still needs current navigation verification before calling the campaign CTA broken.
 
 - September25 shipped updates and fresh evidence are recorded in `RELEASE_EVIDENCE_2026-09-25.md`: PR127 auditor/reminder, PR128 catering conversion/attribution, guarded0129 applied and browser redirect verified. Public launch posts preserved. Operator private saved-idea workflow is the next local increment; strategy generation and full voice operations remain separate gaps.
+
+
+### September25 release checkpoint
+
+See `RELEASE_EVIDENCE_2026-09-25.md` and `AUDIT_READBACK_2026-09-25.json` for PR127/128/130/131 deployment and live evidence. All three launch carousels are published (not changed by this session) and now have current model reviews100/7of7. Their generated explanations/suggestions contain documented factual errors: scores do not establish autonomous semantic acceptance. All five auto-publish switches/counters remain0.
+
+Instagram catering route now reaches `/catering#quote` with campaign parameters preserved; lead payload attribution tested but no live inquiry submitted. Private operator idea save/readback/retrieval after reload verified; isolated from team generation/activation. Latest local2,926root/23Studio tests. Overall readiness goal remains Open — evidence missing for full autonomy, Google execution, broad live role/checkout QA and paid-order outcomes. No claim of completed replacement marketing team.
+
+
+### September25 resumed goal — source-grounded audit increment
+
+Goal tool reports active after app continuation. See `EXECUTION_PLAN_2026-09-25.md` for durable full-scope work packets, ownership, acceptance and continuation. Local v6 auditor now has exact JPEG source declarations and decision-time byte checks;2,939root tests pass. This is local implementation evidence, not deployed semantic acceptance or completion of the full marketing team. Prior7/7model judgments remain insufficient. Public posts and trust switches unchanged by this increment.
