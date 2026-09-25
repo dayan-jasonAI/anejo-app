@@ -6,7 +6,7 @@ const source=readFileSync(new URL('../../public/hub/sw.js',import.meta.url),'utf
 function worker(network,{cached='old shell',offline='offline shell'}={}){
  const handlers={},writes=[],requests=[];
  const caches={open:async()=>({put:async(req,res)=>writes.push([req.url,res])}),match:async key=>key==='/hub/offline.html'?offline:cached};
- vm.runInNewContext(source,{URL,Response,self:{addEventListener:(type,fn)=>handlers[type]=fn},caches,fetch:async(req,opts)=>{requests.push({req,opts});return network(req,opts);}});
+ vm.runInNewContext(source,{URL,Response,self:{location:{origin:'https://anejocateringco.com'},addEventListener:(type,fn)=>handlers[type]=fn},caches,fetch:async(req,opts)=>{requests.push({req,opts});return network(req,opts);}});
  return {writes,requests,async fetch(path,mode='navigate',method='GET'){let pending;handlers.fetch({request:{url:'https://anejocateringco.com'+path,mode,method},respondWith(p){pending=p;}});const result=await pending;await Promise.resolve();return result;}};
 }
 const response=(extra={})=>({ok:true,status:200,type:'basic',redirected:false,clone(){return this;},...extra});
@@ -31,4 +31,20 @@ test('deployed header policy revalidates Hub extensionless documents and worker 
  const headers=readFileSync(new URL('../../public/_headers',import.meta.url),'utf8');
  assert.match(headers,/\/hub\n {2}Cache-Control: no-cache/);assert.match(headers,/\/hub\/\*\n {2}Cache-Control: no-cache/);
  assert.ok(!headers.includes('/api/*\n {2}Cache-Control: no-cache'));
+});
+
+test('Hub code revalidates online and cannot serve a stale cache winner, including version queries',async()=>{
+ for(const path of ['/hub/owner/assets/operator.js?v=private-strategy-7','/hub/assets/hub.js','/hub/assets/hub.css']){
+  const fresh=response();const sw=worker((_req,opts)=>opts?.cache==='no-cache'?fresh:'old browser response');
+  assert.equal(await sw.fetch(path,'cors'),fresh);assert.equal(sw.writes.length,1);
+ }
+});
+test('Hub code uses offline fallback only on transport failure and does not mask HTTP errors',async()=>{
+ const path='/hub/owner/assets/operator.js?v=private-strategy-7';
+ assert.equal(await worker(()=>{throw Error('offline');}).fetch(path,'cors'),'old shell');
+ const unavailable=await worker(()=>{throw Error('offline');},{cached:null}).fetch(path,'cors');
+ assert.equal(unavailable.status,503);assert.match(await unavailable.text(),/unavailable offline/);
+ for(const res of [response({redirected:true}),response({ok:false,status:403}),response({ok:false,status:404})]){
+  const sw=worker(()=>res);assert.equal(await sw.fetch(path,'cors'),res);assert.equal(sw.writes.length,0);
+ }
 });

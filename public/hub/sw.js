@@ -6,10 +6,11 @@
    - /hub/   navigations  → network-first, fall back to cache, then offline page.
                             Never cache redirected/non-OK responses.
    - other navigations    → browser-native (not the HUB's concern).
-   - static assets        → cache-first with background refresh.
+   - Hub JavaScript/CSS   → network-first with HTTP revalidation; cached offline fallback.
+   - other static assets  → cache-first with background refresh.
    - web push             → encrypted event-specific payload, with legacy tickle fallback.
    Bump CACHE on shell changes to invalidate. */
-const CACHE = 'anejo-hub-v10';
+const CACHE = 'anejo-hub-v11';
 const PREFERENCES_CACHE = 'anejo-hub-preferences';
 const LANGUAGE_KEY = '/hub/__push-language';
 const SHELL = [
@@ -79,7 +80,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // --- Static assets: cache-first, refresh in background. ---
+  // Executable Hub code and styles must not lag the API deployed with them.
+  // A successful cache hit is offline fallback only, never the online winner.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/hub/') && /\.(?:js|css)$/.test(url.pathname)) {
+    event.respondWith(
+      fetch(req, { cache: 'no-cache' }).then(async (res) => {
+        if (res && res.ok && !res.redirected && res.type === 'basic') {
+          try { await (await caches.open(CACHE)).put(req, res.clone()); } catch { /* storage is optional */ }
+        }
+        return res;
+      }).catch(async () => (await caches.match(req)) || new Response('/* Hub code unavailable offline. Reconnect and reload. */', {
+        status: 503, headers: { 'Content-Type': url.pathname.endsWith('.css') ? 'text/css' : 'application/javascript' },
+      }))
+    );
+    return;
+  }
+
+  // --- Other static assets: cache-first, refresh in background. ---
   event.respondWith(
     caches.match(req).then((hit) => {
       const fetchPromise = fetch(req)
