@@ -1357,11 +1357,14 @@
     if (structured) {
       var applicable = detail.observations.filter(function(o) { return o && o.status !== 'not_applicable'; });
       var met = applicable.filter(function(o) { return o.status === 'met'; }).length;
-      body += '<div class="audit-score">Requirements met: ' + met + '/' + applicable.length + (partial ? ' · ' + applicable.filter(function(o) { return o.status === 'unknown'; }).length + ' unresolved — review required' : '') + (current ? '' : ' · historical result') + '</div>';
+      var unresolvedIds = new Set(applicable.filter(function(o){return o.status==='unknown';}).map(function(o){return o.criterion_id;}));
+      (Array.isArray(detail.unknowns)?detail.unknowns:[]).forEach(function(o){if(o&&o.criterion_id)unresolvedIds.add(o.criterion_id);});
+      body += '<div class="audit-score">Requirements met: ' + met + '/' + applicable.length + (partial ? ' · ' + unresolvedIds.size + ' unresolved — review required' : '') + (current ? '' : ' · historical result') + '</div>';
       var names = {branding:'Emblem visual consistency',readability:'Readability',caption_image:'Caption and imagery',themed_packaging:'Personalized packaging',product_fidelity:'Product accuracy',claims:'Supported claims',owner_instructions:'Owner direction'};
       body += '<details><summary>Review audit evidence</summary><ul>' + detail.observations.map(function(o) {
         if (!o || typeof o !== 'object') return '';
         return '<li><b>' + esc(names[o.criterion_id] || o.criterion_id || 'Requirement') + ' · ' + esc(o.status || 'unknown') + '</b><div>' + esc(o.explanation || '') + '</div>' +
+          (o.resolution && o.resolution.source==='deterministic_evidence_gate' && o.model_finding ? '<div class="hint">Evidence gate: unresolved authority. Original model judgment: ' + esc(o.model_finding.status || '') + ' — ' + esc(o.model_finding.explanation || '') + '</div>' : '') +
           (o.rule_quote ? '<div class="hint">Rule: ' + esc(o.rule_quote) + '</div>' : '') +
           (o.caption_quote ? '<div class="hint">Caption: ' + esc(o.caption_quote) + '</div>' : '') +
           (Array.isArray(o.slides) && o.slides.length ? '<div class="hint">Slides: ' + esc(o.slides.join(', ')) + '</div>' : '') + '</li>';

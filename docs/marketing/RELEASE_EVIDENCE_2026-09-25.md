@@ -158,3 +158,10 @@ PR139 passed all PR checks at89c2bc7e916bc2e13cf6c0d29cbb1a13408770c8 (CI3619394
 
 
 PR139 Cloudflare production check3d0f718a-8d65-48c1-94f1-89af368fa0d3 completed success. Supported browser reload followed by one Personal saved-source audit returned invalid_rubric_response/product_evidence/claim_requires_unknown. Independent D1 SELECT confirmed anejo-visual-10 and statuspublished; minimized diagnostic retained in AUDIT_V10_DIAGNOSTIC_2026-09-25.json. No second retry. This response passed the earlier source-citation matching stage but conflicts with the unresolved-claim verdict gate; raw rejected model response was not retained, so exact chosen fields remain unknown. Next repair should preserve unresolved findings as explicit unknown without granting score/trust, retaining original model judgment separately if reconciliation is implemented. Main Functions CI36194093851 still running at last observation; Studio and Cloudflare passed. Full readiness remains open.
+
+
+### v11 conservative unresolved-claim findings
+
+Implemented a deterministic unresolved-authority gate after evidence shape/reference validation. A model met judgment with unresolved explicit claims becomes unknown; original status/explanation are retained as model_finding with resolution provenance, and the owner UI displays that distinction. A reported violation remains violated plus unresolved evidence. Missing/malformed/invented claim references still reject; no score, clean trust or approval is granted for unresolved claims. UI counts unresolved criteria from both observations and saved unknowns. This does not establish semantic reliability; live acceptance remains required.
+
+Root3114/3114tests passed (/tmp/anejo-v11-root.log); focused67/67 (/tmp/anejo-v11-focused.log); lint0errors/11existingwarnings (/tmp/anejo-v11-lint.log); Functions build passed (/tmp/anejo-v11-build.log); diffcheck clean. No production/provider action for this candidate, no migration required. Source branch inspected clean before changes.

@@ -1,6 +1,6 @@
 // Candidate v1. Syntax/evidence checks do not prove a model's semantic judgment.
 import {auditAuthorityReferences,resolveAuditAuthorityReferences} from './audit_authority_refs.js';
-export const VERSION = 'anejo-visual-10';
+export const VERSION = 'anejo-visual-11';
 export const CRITERIA = [
   {id:'branding',type:'photo',rule:'Compare the visible Añejo emblem with the separately supplied approved emblem reference, without obscuring food or required wording. This is visual consistency only, not proof of the original source asset, rendering provenance or photo authenticity. If the reference is absent or comparison is uncertain, mark unknown. Event packaging colors are allowed and need not match the corporate palette.',applicability:'Every carousel; inspect branding across slides. Do not require a logo on every slide unless supplied owner instructions require it.'},
   {id:'readability',type:'photo',rule:'Required wording and food must remain visible within the finished frame. Flag concrete clipping, unreadability or obstruction, not personal layout preferences.',applicability:'Every slide, including cover and CTA. Cite each affected slide.'},
@@ -125,7 +125,7 @@ export function validateVisualAudit(data,{caption,slideCount,brandText,brandRece
   if(typeof claim.claim_id!=='string'||claim.claim_id.length>80)return invalidTop('product_evidence','invalid_claim_id');
    if(!['menu','owner','unknown'].includes(claim.authority_source)||typeof claim.authority_quote!=='string'||claim.authority_quote.length>400)return invalidTop('product_evidence','claim_authority_invalid');
    if(claim.authority_source==='unknown'){
-    if(claim.authority_quote||productObservation?.status!=='unknown')return invalidTop('product_evidence','claim_requires_unknown');
+    if(claim.authority_quote)return invalidTop('product_evidence','claim_requires_unknown');
    }else{
     const authority=claim.authority_source==='menu'?menuText:String(brandText||'')+'\n'+String(trainingText||'');
     if(!claim.authority_quote.trim()||!authority.includes(claim.authority_quote))return invalidTop('product_evidence','claim_authority_unmatched');
@@ -147,6 +147,9 @@ export function validateVisualAudit(data,{caption,slideCount,brandText,brandRece
  if(product.scope==='format_only_or_no_claim' && (product.claims.length || product.unreadable_slides.length || productObservation?.status!=='met'))return invalidTop('product_evidence','scope_status_conflict');
  if(product.scope==='explicit_claims' && (!product.claims.length || product.unreadable_slides.length))return invalidTop('product_evidence','missing_explicit_claim');
  if(product.scope==='wording_unreadable' && (!product.unreadable_slides.length || productObservation?.status!=='unknown'))return invalidTop('product_evidence','scope_status_conflict');
+ const unresolvedClaims=product.claims.filter(claim=>claim.authority_source==='unknown');
+ const modelFindings=new Map();
+ const unresolvedExplanation='Source verification is incomplete: '+unresolvedClaims.length+' explicit product claim(s) have no selected supporting authority. Review these claims against the menu or owner guidance; no score or automatic approval is available.';
  const seen=new Set();const flags=[];const unknowns=[];let applicable=0,met=0;
  for(let index=0;index<data.observations.length;index++){
   let o=data.observations[index];
@@ -175,6 +178,10 @@ export function validateVisualAudit(data,{caption,slideCount,brandText,brandRece
    o={...o,caption_line:kind==='caption'?n:o.caption_line,slides:kind==='slide'&&!o.slides.includes(n)?[...o.slides,n].sort((a,b)=>a-b):o.slides};
    data.observations[index]=o;
   }
+  if(criterion.id==='product_fidelity'&&unresolvedClaims.length&&o.status==='met'){
+   modelFindings.set(criterion.id,{status:o.status,explanation:o.explanation});
+   o={...o,status:'unknown',explanation:unresolvedExplanation};data.observations[index]=o;
+  }
   if(o.status==='unknown'){applicable++;unknowns.push({criterion_id:criterion.id,explanation:o.explanation,slides:o.slides});flags.push({type:'audit_uncertain',detail:criterion.id+': '+o.explanation});continue;}
   if(o.status==='not_applicable'){
    if(o.criterion_id!=='themed_packaging')return fail('mandatory_criterion_omitted');
@@ -187,7 +194,12 @@ export function validateVisualAudit(data,{caption,slideCount,brandText,brandRece
   applicable++;if(o.status==='met')met++;
   else flags.push({type:criterion.type,detail:`${criterion.id}: ${o.explanation}`});
  }
- return {available:true,product_evidence:{...product,claims:product.claims.map(claim=>resolvedCitations.has(claim)?{...claim,authority_citations:resolvedCitations.get(claim)}:claim)},complete:unknowns.length===0,criteria_met:met,criteria_applicable:applicable,unknowns,score:unknowns.length?null:applicable?Math.round(100*met/applicable):null,flags,suggestions:data.suggestions,verdict:flags.length?'flag':'pass',observations:data.observations.map(o=>({...o,caption_quote:o.caption_line===0?'':lines[o.caption_line-1].text,rule_source:'criterion',rule_quote:CRITERIA.find(c=>c.id===o.criterion_id).rule})),rubric_version:VERSION};
+ // A concrete violation remains a violation even when other claims lack authority.
+ if(unresolvedClaims.length&&!unknowns.some(o=>o.criterion_id==='product_fidelity')){
+  unknowns.push({criterion_id:'product_fidelity',explanation:unresolvedExplanation,slides:productObservation?.slides||[]});
+  flags.push({type:'audit_uncertain',detail:'product_fidelity: '+unresolvedExplanation});
+ }
+ return {available:true,product_evidence:{...product,claims:product.claims.map(claim=>resolvedCitations.has(claim)?{...claim,authority_citations:resolvedCitations.get(claim)}:claim)},complete:unknowns.length===0,criteria_met:met,criteria_applicable:applicable,unknowns,score:unknowns.length?null:applicable?Math.round(100*met/applicable):null,flags,suggestions:data.suggestions,verdict:flags.length?'flag':'pass',observations:data.observations.map(o=>({...o,...(modelFindings.has(o.criterion_id)?{model_finding:modelFindings.get(o.criterion_id),resolution:{source:'deterministic_evidence_gate',reason:'unresolved_product_authority'}}:{}),caption_quote:o.caption_line===0?'':lines[o.caption_line-1].text,rule_source:'criterion',rule_quote:CRITERIA.find(c=>c.id===o.criterion_id).rule})),rubric_version:VERSION};
 }
 
 // Bounded headroom for declared claim citations; truncation remains a failed audit.
