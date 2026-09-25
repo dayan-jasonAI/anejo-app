@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {CRITERIA,VERSION,validateVisualAudit,coverageProblem} from '../../functions/_lib/visual_audit_rubric.js';
 const context=()=>({emblemReference:{verified:true,purpose:'visual_consistency_only'},caption:'Planning an event in Hollywood? Share your city and we will confirm availability.',slideCount:3,brandText:'Use legible branding in the full frame.',trainingText:'Keep the entire frame visible.',menuText:'Lechon catering tray',brandReceipt:{read_status:'ok',truncated:false},trainingReceipt:{read_status:'ok',reads:{rules:'ok',examples:'empty'},truncated:false}});
-const response=()=>({rubric_version:VERSION,observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_line:0,slides:[1],explanation:'The inspected evidence satisfies this criterion.'})),suggestions:[]});
+const response=()=>({rubric_version:VERSION,product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]},observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_line:0,slides:[1],explanation:'The inspected evidence satisfies this criterion.'})),suggestions:[]});
 function check(data,ctx=context()){return validateVisualAudit(data,ctx);}
 test('complete compliant rubric has defined score, suggestions never become violations',()=>{const d=response();d.suggestions=['Optional: shorten the opening sentence.'];const r=check(d);assert.equal(r.verdict,'pass');assert.equal(r.score,100);assert.equal(r.suggestions.length,1);});
 test('real stated defect remains flagged with rule and slide evidence',()=>{const d=response();Object.assign(d.observations[1],{status:'violated',slides:[2],explanation:'Slide 2 clips the final word of the required heading.'});const r=check(d);assert.equal(r.verdict,'flag');assert.equal(r.flags.length,1);assert.equal(r.score,86);});
@@ -25,7 +25,37 @@ test('empty brand cannot support acceptance',()=>{const c=context();c.brandText=
 
 test('missing reference prevents a visual acceptance claim',()=>{const c=context();c.emblemReference=null;assert.equal(check(response(),c).reason,'emblem_reference_unavailable');});
 
-test('unknown retains complete observations and counts but cannot pass',()=>{const d=response();d.observations[4].status='unknown';const r=check(d);assert.equal(r.available,true);assert.equal(r.complete,false);assert.equal(r.verdict,'flag');assert.equal(r.score,null);assert.equal(r.criteria_met,6);assert.equal(r.observations.length,7);assert.equal(r.unknowns.length,1);});
+test('unknown retains complete observations and counts but cannot pass',()=>{const d=response();d.observations[4].status='unknown';d.product_evidence={scope:'wording_unreadable',claims:[],unreadable_slides:[1]};const r=check(d);assert.equal(r.available,true);assert.equal(r.complete,false);assert.equal(r.verdict,'flag');assert.equal(r.score,null);assert.equal(r.criteria_met,6);assert.equal(r.observations.length,7);assert.equal(r.unknowns.length,1);});
 test('invalid evidence diagnostics identify field and bounded numeric constraints',()=>{
  for(const [field,value,issue] of [['explanation','x'.repeat(601),'too_long'],['slides',[1,1],'duplicate'],['slides',[0],'invalid_number_or_range'],['slides',[1.5],'invalid_number_or_range'],['caption_line',null,'invalid_number_or_range']]){const d=response();d.observations[0][field]=value;const r=check(d);assert.equal(r.available,false);assert.equal(r.diagnostic.field,field);assert.equal(r.diagnostic.issue,issue);assert.ok(JSON.stringify(r.diagnostic).length<300);}
+});
+
+test('absence of explicit claims cannot become missing SKU evidence or be silently converted to a pass',()=>{
+ const d=response();const o=d.observations.find(x=>x.criterion_id==='product_fidelity');
+ o.status='unknown';o.explanation='No explicit SKU names or quantities are stated, so exact match cannot be verified.';
+ const r=check(d);assert.equal(r.available,false);assert.equal(r.score,null);assert.equal(r.verdict,'flag');assert.equal(r.diagnostic.issue,'scope_status_conflict');
+});
+test('an explicit unsupported ingredient claim stays unknown with exact caption evidence',()=>{
+ const ctx=context();ctx.caption='Every Cajita contains lobster.';
+ const d=response();d.product_evidence={scope:'explicit_claims',claims:[{caption_line:1,slide:0,quote:'contains lobster'}],unreadable_slides:[]};
+ Object.assign(d.observations.find(x=>x.criterion_id==='product_fidelity'),{status:'unknown',caption_line:1,slides:[],explanation:'The menu does not establish lobster as a Cajita ingredient.'});
+ const r=check(d,ctx);assert.equal(r.available,true);assert.equal(r.score,null);assert.equal(r.verdict,'flag');assert.equal(r.product_evidence.claims[0].quote,'contains lobster');
+});
+test('invented product claim text fails against exact caption and registered overlay declarations',()=>{
+ const d=response();d.product_evidence={scope:'explicit_claims',claims:[{caption_line:1,slide:0,quote:'potatoes'}],unreadable_slides:[]};
+ assert.equal(check(d).diagnostic.issue,'unsupported_caption_claim');
+ const ctx=context();ctx.images=[{sourceReceipt:{design_facts:{rendered_text:[{text:'Trays for the table'}]}}}];
+ d.product_evidence.claims=[{caption_line:0,slide:1,quote:'potatoes'}];
+ assert.equal(check(d,ctx).diagnostic.issue,'unsupported_registered_overlay_claim');
+});
+test('explicit claim scope requires claims and a single actual source per claim',()=>{
+ for(const claims of [[],[{caption_line:0,slide:0,quote:'Croquetas'}],[{caption_line:1,slide:1,quote:'Planning'}]]){
+ const d=response();d.product_evidence={scope:'explicit_claims',claims,unreadable_slides:[]};assert.equal(check(d).available,false);
+ }
+});
+test('unreadable product wording needs actual slides and cannot produce a complete pass',()=>{
+ const d=response();d.product_evidence={scope:'wording_unreadable',claims:[],unreadable_slides:[2]};
+ assert.equal(check(d).available,false);
+ d.observations.find(x=>x.criterion_id==='product_fidelity').status='unknown';assert.equal(check(d).score,null);
+ d.product_evidence.unreadable_slides=[9];assert.equal(check(d).available,false);
 });

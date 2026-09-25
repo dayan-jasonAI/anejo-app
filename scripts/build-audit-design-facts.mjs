@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 const ROOT=fileURLToPath(new URL('../',import.meta.url));
 const DIR='docs/marketing/cajita-social-2026-09-17/revision-3';
-const RENDERER='public/hub/owner/assets/marketing-branding.js';
+// The reviewed export uses its archived renderer, not whichever UI version ships today.
+const RENDERER=DIR+'/marketing-branding.source.js';
 const PINNED_RENDERER='251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d53492f89';
 const PINNED_PAGE='4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7';
 const EMBLEM='public/assets/img/emblem.png';

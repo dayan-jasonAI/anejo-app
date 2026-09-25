@@ -59,7 +59,9 @@ test('image briefs are bound to the Photo standard and claims to the Golden Rule
 test('the page and the endpoint agree on one contract', () => {
   // The first version shipped as multipart on a different URL than the page called — an upload
   // that would 404 at the exact moment the owner picked a photo.
-  assert.match(PAGE, /Hub\.api\('\/api\/hub\/owner\/social-upload'/);
+  assert.match(PAGE, /Hub\.api\('\/api\/hub\/owner\/marketing-branded-save'/);
+  const save=readFileSync(new URL('../../functions/api/hub/owner/marketing-branded-save.js',import.meta.url),'utf8');
+  assert.match(save, /data_url/);
   assert.match(UPLOAD, /data_url/);
 });
 

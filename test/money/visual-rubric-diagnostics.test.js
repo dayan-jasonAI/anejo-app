@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {VERSION,CRITERIA,validateVisualAudit,visualAuditFormat,rubricPrompt} from '../../functions/_lib/visual_audit_rubric.js';
 const ctx={caption:'Catering',slideCount:1,brandText:'Brand',brandReceipt:{read_status:'ok'},trainingReceipt:{read_status:'empty'},emblemReference:{verified:true,purpose:'visual_consistency_only'}};
-const valid=()=>({rubric_version:VERSION,observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_line:0,slides:[1],explanation:'Visible evidence.'})),suggestions:[]});
+const valid=()=>({rubric_version:VERSION,product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]},observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_line:0,slides:[1],explanation:'Visible evidence.'})),suggestions:[]});
 const cases=[
  ['null',()=>null,{field:'response',issue:'not_object',type:'null'}],
  ['array',()=>[],{field:'response',issue:'not_object',type:'array'}],

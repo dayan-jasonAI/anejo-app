@@ -2,7 +2,7 @@ import {test} from 'node:test';import assert from 'node:assert/strict';
 import {VERSION,CRITERIA,captionEvidenceLines,visualAuditFormat,captionEvidencePrompt,validateVisualAudit} from '../../functions/_lib/visual_audit_rubric.js';
 const caption='Individual Cajitas or trays for the table? You can plan a celebration around either—or both.\n\n  Share your city—we will confirm availability.  ';
 const ctx={caption,slideCount:2,brandText:'Approved brand',brandReceipt:{read_status:'ok'},trainingReceipt:{read_status:'ok',reads:{rules:'ok',examples:'empty'}},emblemReference:{verified:true,purpose:'visual_consistency_only'}};
-const data=()=>({rubric_version:VERSION,observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_line:0,slides:[1],explanation:'Visible evidence matches criterion.'})),suggestions:[]});
+const data=()=>({rubric_version:VERSION,product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]},observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',caption_line:0,slides:[1],explanation:'Visible evidence matches criterion.'})),suggestions:[]});
 test('numeric caption contract resolves exact source casing and whitespace on server',()=>{
  const lines=captionEvidenceLines(caption);assert.deepEqual(lines.map(l=>l.id),[1,2]);
  const format=visualAuditFormat(caption,2).schema.properties.observations.items;

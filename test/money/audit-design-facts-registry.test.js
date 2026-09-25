@@ -28,7 +28,7 @@ test('changed image bytes or validation evidence cannot keep registered facts',(
 test('renderer drift, duplicate declarations and invalid geometry are rejected',()=>{
  for(const mode of ['renderer','duplicate','geometry'])assert.throws(()=>buildDesignFacts({read:path=>{
   const b=read(path);
-  if(mode==='renderer'&&path.endsWith('marketing-branding.js'))return Buffer.concat([b,Buffer.from('changed')]);
+  if(mode==='renderer'&&path.endsWith('marketing-branding.source.js'))return Buffer.concat([b,Buffer.from('changed')]);
   if(mode==='duplicate'&&path.endsWith('/manifest.json')){const d=JSON.parse(b);d.posts[0].slides.push(d.posts[0].slides[0]);return Buffer.from(JSON.stringify(d));}
   if(mode==='geometry'&&path.endsWith('gather-02.layout.json')){const d=JSON.parse(b);d.emblem.x=-1;return Buffer.from(JSON.stringify(d));}
   return b;
