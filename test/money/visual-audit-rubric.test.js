@@ -37,19 +37,19 @@ test('absence of explicit claims cannot become missing SKU evidence or be silent
 });
 test('an explicit unsupported ingredient claim stays unknown with exact caption evidence',()=>{
  const ctx=context();ctx.caption='Every Cajita contains lobster.';
- const d=response();d.product_evidence={scope:'explicit_claims',claims:[{source:'caption',caption_line:1,slide:0,quote:'contains lobster'}],unreadable_slides:[]};
+ const d=response();d.product_evidence={scope:'explicit_claims',claims:[{claim_id:'',authority_source:'unknown',authority_quote:'',source:'caption',caption_line:1,slide:0,quote:'contains lobster'}],unreadable_slides:[]};
  Object.assign(d.observations.find(x=>x.criterion_id==='product_fidelity'),{status:'unknown',caption_line:1,slides:[],explanation:'The menu does not establish lobster as a Cajita ingredient.'});
  const r=check(d,ctx);assert.equal(r.available,true);assert.equal(r.score,null);assert.equal(r.verdict,'flag');assert.equal(r.product_evidence.claims[0].quote,'contains lobster');
 });
 test('invented product claim text fails against exact caption and registered overlay declarations',()=>{
- const d=response();d.product_evidence={scope:'explicit_claims',claims:[{source:'caption',caption_line:1,slide:0,quote:'potatoes'}],unreadable_slides:[]};
+ const d=response();d.product_evidence={scope:'explicit_claims',claims:[{claim_id:'',authority_source:'unknown',authority_quote:'',source:'caption',caption_line:1,slide:0,quote:'potatoes'}],unreadable_slides:[]};
  assert.equal(check(d).diagnostic.issue,'unsupported_caption_claim');
  const ctx=context();ctx.images=[{sourceReceipt:{design_facts:{rendered_text:[{text:'Trays for the table'}]}}}];
- d.product_evidence.claims=[{source:'registered_overlay',caption_line:0,slide:1,quote:'potatoes'}];
+ d.product_evidence.claims=[{claim_id:'',authority_source:'unknown',authority_quote:'',source:'registered_overlay',caption_line:0,slide:1,quote:'potatoes'}];
  assert.equal(check(d,ctx).diagnostic.issue,'unsupported_registered_overlay_claim');
 });
 test('explicit claim scope requires claims and a single actual source per claim',()=>{
- for(const claims of [[],[{source:'caption',caption_line:0,slide:0,quote:'Croquetas'}],[{source:'caption',caption_line:1,slide:1,quote:'Planning'}]]){
+ for(const claims of [[],[{claim_id:'',authority_source:'unknown',authority_quote:'',source:'caption',caption_line:0,slide:0,quote:'Croquetas'}],[{claim_id:'',authority_source:'unknown',authority_quote:'',source:'caption',caption_line:1,slide:1,quote:'Planning'}]]){
  const d=response();d.product_evidence={scope:'explicit_claims',claims,unreadable_slides:[]};assert.equal(check(d).available,false);
  }
 });
@@ -62,6 +62,6 @@ test('unreadable product wording needs actual slides and cannot produce a comple
 
 test('text observed on photographic packaging is not misrepresented as registered overlay or OCR proof',()=>{
  const ctx=context();ctx.images=[{sourceReceipt:{design_facts:{rendered_text:[{text:'Trays for the table'}]}}}];
- const d=response();d.product_evidence={scope:'explicit_claims',claims:[{source:'image_text',caption_line:0,slide:1,quote:'Label on packaging'}],unreadable_slides:[]};
- const r=check(d,ctx);assert.equal(r.available,true);assert.equal(r.product_evidence.claims[0].source,'image_text');
+ const d=response();d.product_evidence={scope:'explicit_claims',claims:[{claim_id:'',authority_source:'unknown',authority_quote:'',source:'image_text',caption_line:0,slide:1,quote:'Label on packaging'}],unreadable_slides:[]};
+ d.observations.find(x=>x.criterion_id==='product_fidelity').status='unknown';const r=check(d,ctx);assert.equal(r.available,true);assert.equal(r.product_evidence.claims[0].source,'image_text');
 });

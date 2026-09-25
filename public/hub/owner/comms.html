@@ -25,6 +25,7 @@
 <script src="/assets/js/i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
+<script src="/hub/owner/assets/ana-inbox.js?v=attempts-1"></script>
 <script>
 (function () {
   Hub.boot();
@@ -41,6 +42,7 @@
       // Aña auto-reply control. Surfaces the existing app_settings key social.auto_reply (read by
       // social-inbox-tick.js). Default stays OFF/draft-only; turning it on confirms first.
       '<div class="hub-section"><h2 data-i18n>Aña auto-reply</h2><div id="autoreply" class="card"><div class="hub-loading">…</div></div></div>' +
+      '<div class="hub-section"><h2>Ana’s Instagram review</h2><div id="ana-inbox" class="card"></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Open tickets</h2><div id="tickets" class="list"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>All alerts</h2>' +
       '<div class="card"><label data-i18n>Filter</label><select id="afilter"><option value="open" data-i18n>Open</option><option value="all" data-i18n>All</option></select></div>' +
@@ -50,6 +52,7 @@
     var f = document.getElementById('afilter');
     f.addEventListener('change', function () { loadAlerts(f.value); });
     loadAutoReply();
+    window.AnejoAnaInbox.mount(document.getElementById('ana-inbox'));
     loadTickets();
     loadAlerts('open');
     loadFeed();

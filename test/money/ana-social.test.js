@@ -39,7 +39,7 @@ test('auto-send exists ONLY behind the owner setting, and off is the code defaul
   //   3. the DRAFTING module still cannot send — the brain and the hands stay separate
   assert.match(TICK, /let autoMode = 'off'/);
   assert.match(TICK, /social\.auto_reply/);
-  const sends = [...TICK.matchAll(/(sendDirectMessage|replyToComment)\s*\(/g)];
+  const sends = [...TICK.matchAll(/(sendAnaDraft)\s*\(/g)];
   assert.ok(sends.length >= 2, 'both send paths exist now');
   for (const m of sends) {
     const before = TICK.slice(Math.max(0, m.index - 400), m.index);
@@ -52,11 +52,11 @@ test('escalations still send NOTHING — the carve-out survived automation', () 
   // The escalate branches insert a marker and increment a counter; no send call may live there.
   for (const block of TICK.split(/if \(d\.escalate\)/).slice(1)) {
     const branch = block.split('} else {')[0];
-    assert.ok(!/sendDirectMessage|replyToComment/.test(branch), 'no send inside an escalate branch');
+    assert.ok(!/sendDirectMessage|replyToComment|sendAnaDraft/.test(branch), 'no send inside an escalate branch');
   }
 });
 
-test('a special request sends the holding reply AND alerts the kitchen+owner', () => {
+test('a special request prepares a holding reply and alerts the kitchen+owner', () => {
   assert.match(TICK, /specialAlert/);
   // alert_type, not type: raiseAlert reads opts.alert_type and silently returns {ok:false}
   // otherwise. This alert no-op'd from the day it was written — pin the working spelling.
@@ -66,7 +66,9 @@ test('a special request sends the holding reply AND alerts the kitchen+owner', (
 });
 
 test('auto-sent replies are labelled ana_auto — the audit trail stays honest', () => {
-  assert.match(TICK, /sender_role='ana_auto' WHERE id=\? AND sent_at IS NULL/);
+  assert.match(TICK, /initiatedBy:'ana_auto'/);
+  const shared=readFileSync(new URL('../../functions/_lib/instagram_reply_attempt.js',import.meta.url),'utf8');
+  assert.match(shared,/initiatedBy==='ana_auto'\?'ana_auto':'ana_draft'/);
 });
 
 test('the 24-hour legality gate still lives inside the send, not the tick', () => {
@@ -184,16 +186,19 @@ test('[SPECIAL] actually lands an alerts ROW, at a severity raiseAlert recognise
     assert.equal(state.alertInserts.length, 1, 'raiseAlert reached the INSERT');
     // Column order comes from the INSERT in _lib/alerts.js:
     //   id, alert_type, severity, title, body, team, ref_type, ref_id, source, dedupe_key, created, updated
-    const [, alertType, severity, title, , team, , , , dedupe] = state.alertInserts[0];
+    const [, alertType, severity, title, alertBody, team, , , , dedupe] = state.alertInserts[0];
     assert.equal(alertType, 'special_request');
     assert.ok(ALERT_SEVERITIES.includes(severity), `severity ${severity} is on raiseAlert's scale`);
     assert.notEqual(severity, 'critical', 'one order needing a human must not turn the dashboard red');
     assert.equal(team, 'kitchen', 'routed to the people who have to actually check');
     assert.match(String(title), /special request/i);
+    assert.match(String(alertBody), /prepared a holding reply/);
+    assert.match(String(alertBody), /customer delivery is not verified/);
+    assert.doesNotMatch(String(alertBody), /told them|already sent/);
     assert.match(String(dedupe), /^special:/, 'deduped per thread per day, not once per tick');
     assert.deepEqual(warnings.filter((w) => /unknown severity/.test(w)), [], 'the caller passed a severity raiseAlert knows');
 
-    // The holding reply still went out as a draft, with the tag stripped.
+    // The holding reply was saved as a draft, with the tag stripped; no send is proved.
     const drafts = state.messageInserts.filter((m) => m.sql.includes("'ana_draft'"));
     assert.equal(drafts.length, 1);
     assert.ok(!drafts[0].args.some((a) => String(a).includes('[SPECIAL]')), 'the tag never reaches the customer');
@@ -277,7 +282,7 @@ test('sending requires a marketing-desk session — and only rows marked as Aña
 test('the 24-hour reply window is surfaced per DM thread, hours_left included', () => {
   // replyWindow is THE window implementation (instagram_messaging.js enforces it again at send
   // time) — the inbox must read from the same clock, not a reimplementation.
-  assert.match(OWNER, /import \{ replyWindow, sendDirectMessage, replyToComment \} from/);
+  assert.match(OWNER, /import \{ replyWindow \} from/);
   assert.match(OWNER, /window: kind === 'dm' \? replyWindow\(t\) : null/);
 });
 
@@ -337,10 +342,8 @@ test('a reply typed in Comms on an Instagram thread ACTUALLY reaches Instagram',
   // customer received nothing — found because the owner asked "does it reflect on Instagram?".
   const COMMS = readFileSync(new URL('../../functions/api/hub/comms/messages.js', import.meta.url), 'utf8');
   assert.match(COMMS, /if \(thread\.audience === 'instagram'\) channel = 'instagram'/, 'inferred from the thread, not the page');
-  assert.match(COMMS, /sendDirectMessage\(env, \{ thread, recipientId: thread\.external_id/, 'DMs route through the window-checked send');
-  assert.match(COMMS, /replyToComment\(env, \{ commentId: lastIn\.ref_id/, 'comment threads reply under the actual comment');
-  assert.match(COMMS, /if \(!ig \|\| !ig\.ok\) return bad/, 'a refused send is an error, never a fake success');
-  assert.match(COMMS, /sender_role='ana_draft' AND sent_at IS NULL AND dismissed_at IS NULL/, "a human reply supersedes Aña's pending draft");
+  assert.match(COMMS, /sendHumanInstagramReply/, 'human replies share durable inbound claims with Ana');
+  assert.doesNotMatch(COMMS, /delivered: true/, 'provider acceptance is not delivery proof');
 });
 
 // ---------- the public scaffolding leak, pinned with the real fixture ----------

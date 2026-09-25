@@ -26,10 +26,32 @@ function safeStrings(value, depth = 0) {
   return Object.entries(value).every(([key, v]) => !SENSITIVE_KEY.test(key) && safeStrings(v, depth + 1));
 }
 
+// A deliberately narrow subset for private text strategies: one closed object with
+// required string/string-array fields. Do not permit provider tools, refs, open objects
+// or arbitrary schema/config extensions into a supposedly text-only private receipt.
+function validOutputConfig(config) {
+  if (!plain(config) || Object.keys(config).length!==1 || !plain(config.format)) return false;
+  const format=config.format;
+  if (Object.keys(format).length!==2 || format.type!=='json_schema' || !plain(format.schema)) return false;
+  const schema=format.schema;
+  if (Object.keys(schema).length!==4 || schema.type!=='object' || schema.additionalProperties!==false || !plain(schema.properties) || !Array.isArray(schema.required)) return false;
+  const fields=Object.keys(schema.properties);
+  if (!fields.length || fields.length>32 || fields.some(k=>!/^[a-z][a-z0-9_]{0,63}$/.test(k)) || schema.required.length!==fields.length || new Set(schema.required).size!==fields.length || !schema.required.every(k=>fields.includes(k))) return false;
+  const description=node=>node.description===undefined || typeof node.description==='string' && node.description.length<=500;
+  const stringNode=node=>plain(node) && node.type==='string' && Object.keys(node).every(k=>['type','description','enum'].includes(k)) && description(node) &&
+    (node.enum===undefined || Array.isArray(node.enum) && node.enum.length>0 && node.enum.length<=256 && new Set(node.enum).size===node.enum.length && node.enum.every(v=>typeof v==='string' && v.length>0 && v.length<=160));
+  if (!fields.every(k=>{
+    const node=schema.properties[k];
+    return stringNode(node) || plain(node) && node.type==='array' && Object.keys(node).every(k=>['type','description','items'].includes(k)) && description(node) && stringNode(node.items);
+  })) return false;
+  return bytes(JSON.stringify(config)).length<=16384;
+}
+
 function validRequest(request) {
   if (!plain(request) || !safeStrings(request)) return false;
-  const allowed = new Set(['model', 'max_tokens', 'system', 'messages', 'temperature', 'stop_sequences']);
+  const allowed = new Set(['model', 'max_tokens', 'system', 'messages', 'temperature', 'stop_sequences', 'output_config']);
   if (Object.keys(request).some(key => !allowed.has(key))) return false;
+  if (request.output_config !== undefined && !validOutputConfig(request.output_config)) return false;
   if (typeof request.model !== 'string' || !/^[a-zA-Z0-9_.:/-]{1,150}$/.test(request.model)) return false;
   if (!Number.isSafeInteger(request.max_tokens) || request.max_tokens < 1 || request.max_tokens > 64000) return false;
   if (typeof request.system !== 'string') return false;

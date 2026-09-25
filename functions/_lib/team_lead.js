@@ -360,8 +360,8 @@ export function parseActionBlock(text) {
 
 // One messages call. Returns the raw Response-parsed body plus status so the caller can tell
 // "model does not exist" from "network down" — they need different follow-ups.
-async function callModel(env, model, { system, messages, maxTokens, components }) {
-  const requestJson = JSON.stringify({ model, max_tokens: maxTokens, system, messages });
+async function callModel(env, model, { system, messages, maxTokens, components, outputFormat }) {
+  const requestJson = JSON.stringify({ model, max_tokens: maxTokens, system, messages, ...(outputFormat ? { output_config: { format: outputFormat } } : {}) });
   let inputReceipt;
   try { inputReceipt = await persistInferenceReceipt(env, { surface: 'team_lead', requestJson, components }); }
   catch { inputReceipt = { ok: false, persisted: false, reason: 'receipt_unavailable' }; }
@@ -388,6 +388,17 @@ function isModelNotFound(res) {
 export const PRIVATE_CAMPAIGN_PREVIEW = 'private_campaign_preview';
 const PREVIEW_LIMITS = { title: 200, objective: 1000, audience: 500, angle: 1000, cadence: 300, success_metric: 300 };
 const PREVIEW_ARRAYS = { channels: [3, 30], product_ids: [20, 160], assets: [10, 400], assumptions: [10, 400], questions: [10, 400] };
+// Provider grammar handles JSON shape; the validator below remains authoritative for
+// length, uniqueness and available product IDs. No unsupported length/array keywords.
+export function campaignPreviewFormat() {
+  const properties = {};
+  for (const [key, limit] of Object.entries(PREVIEW_LIMITS)) properties[key] = {type:'string',description:`Nonempty proposed ${key.replace(/_/g,' ')}; at most ${limit} characters.`};
+  for (const [key, [count, chars]] of Object.entries(PREVIEW_ARRAYS)) properties[key] = {
+    type:'array',description:`At most ${count} unique strings, each nonempty and at most ${chars} characters.` + (key==='product_ids'?' Only available IDs from the supplied menu snapshot; otherwise empty.':''),
+    items:{type:'string',...(key==='channels'?{enum:['instagram','facebook','website']}:{})},
+  };
+  return {type:'json_schema',schema:{type:'object',additionalProperties:false,required:Object.keys(properties),properties}};
+}
 const PREVIEW_RULES = '\nPRIVATE CAMPAIGN PREVIEW: This overrides the ACTIONS output instructions. ' +
   'Return ONLY one JSON object, no markdown, prose or action blocks. Required keys: title, objective, audience, angle, cadence, success_metric ' +
   '(nonempty strings bounded respectively 200,1000,500,1000,300,300 characters); channels (1-3 unique values instagram/facebook/website); ' +
@@ -489,7 +500,7 @@ export async function leadReply(env, { history = [], message, mode } = {}) {
   let model = leadModel(env);
   const attempts = [];
   const attempt = async () => {
-    const result = await callModel(env, model, { system, messages, maxTokens: preview ? 2400 : 1500, components });
+    const result = await callModel(env, model, { system, messages, maxTokens: preview ? 2400 : 1500, components, ...(preview ? {outputFormat:campaignPreviewFormat()} : {}) });
     // HTTP status is observed in this invocation; the persisted input record itself never
     // claims transport success. A failed receipt cannot silently become verified evidence.
     attempts.push({ model, input_receipt: result.input_receipt, observed_http_status: result.status || null });

@@ -2667,19 +2667,21 @@
   function inboxCard() {
     var d = DATA.inbox;
     if (!d || !d.ok) return '<div class="card"><h3>Aña’s inbox</h3><p class="row-sub">Could not load the inbox.</p></div>';
-    var withWork = (d.items || []).filter(function (t) { return (t.drafts || []).length || (t.escalations || []).length; }).slice(0, 8);
+    var withWork = (d.items || []).filter(function (t) { return (t.drafts || []).length || (t.escalations || []).length || (t.reply_attempts || []).some(function (a) { return a.state !== 'sent'; }); }).slice(0, 8);
     var body = withWork.length ? withWork.map(function (t) {
       var esct = (t.escalations || []).length;
+      var uncertain = (t.reply_attempts || []).filter(function (a) { return a.state === 'claimed' || a.state === 'unknown'; }).length;
       return '<div class="inbox-item">' +
         '<b>' + esc(t.username ? '@' + t.username : (t.subject || 'Thread')) + '</b>' +
         ' <span class="row-sub" style="font-size:11px">' + (t.kind === 'dm' ? 'DM' : 'comment') + '</span>' +
         ((t.drafts || []).length ? ' ' + Owner.badge((t.drafts || []).length + ' draft' + ((t.drafts || []).length > 1 ? 's' : ''), 'warn') : '') +
         (esct ? ' ' + Owner.badge(esct + ' escalated', 'crit') : '') +
+        (uncertain ? ' ' + Owner.badge(uncertain + ' reply outcomes unverified', 'warn') : '') +
         (t.window && t.window.hours_left != null ? '<div class="row-sub" style="font-size:11.5px">' + t.window.hours_left + 'h left in the reply window</div>' : '') +
         '<div style="margin-top:4px"><a href="/hub/owner/comms.html">Review in Comms →</a></div>' +
         '</div>';
-    }).join('') : '<p class="row-sub">Nothing waiting — Aña’s queue is clear.</p>';
-    return '<div class="card"><h3>Aña’s inbox' + (d.pending ? ' ' + Owner.badge(d.pending + ' pending', 'warn') : '') + '</h3>' + body + '</div>';
+    }).join('') : '<p class="row-sub">No pending work returned in this bounded snapshot.</p>';
+    return '<div class="card"><h3>Aña’s inbox' + (d.pending ? ' ' + Owner.badge(d.pending + ' pending', 'warn') : '') + '</h3>' + ((d.drafts_read_status !== 'available' || d.escalations_read_status !== 'available' || d.reply_attempt_history !== 'available') ? '<p class="hint">Some inbox evidence is unavailable; an empty view does not mean the queue is clear.</p>' : '') + body + '</div>';
   }
 
   function trustCard() {

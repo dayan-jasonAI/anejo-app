@@ -46,11 +46,11 @@ async function graphPost(env, path, body) {
     try { j = text ? JSON.parse(text) : null; } catch { /* Meta returns HTML on some failures */ }
     if (!r.ok || (j && j.error)) {
       const e = (j && j.error) || {};
-      return { ok: false, error: [e.message, e.error_user_msg].filter(Boolean).join(' — ') || text.slice(0, 200), code: e.code || r.status };
+      return { ok: false, delivery_uncertain: r.status >= 500, error: [e.message, e.error_user_msg].filter(Boolean).join(' — ') || text.slice(0, 200), code: e.code || r.status };
     }
     return { ok: true, body: j };
   } catch (e) {
-    return { ok: false, error: 'Could not reach Instagram. ' + String((e && e.message) || '').slice(0, 120) };
+    return { ok: false, delivery_uncertain: true, error: 'Could not reach Instagram. ' + String((e && e.message) || '').slice(0, 120) };
   }
 }
 

@@ -8,12 +8,12 @@ const root=new URL('../../',import.meta.url);
 const read=path=>readFileSync(new URL(path,root));
 const find=name=>Object.values(registry).find(r=>r.file.endsWith(name));
 test('all 26 registry keys independently match actual JPEG bytes and generated module is deterministic',()=>{
- assert.equal(Object.keys(registry).length,26);assert.equal(DESIGN_FACTS_VERSION,'anejo-reviewed-design-facts-1');
+ assert.equal(Object.keys(registry).length,26);assert.equal(DESIGN_FACTS_VERSION,'anejo-reviewed-design-facts-2');
  for(const [key,r] of Object.entries(registry)){const bytes=read(r.file);assert.equal(createHash('sha256').update(bytes).digest('hex'),key);assert.equal(bytes.length,r.output.byte_length);assert.equal(key,r.output.sha256);assert.ok(Buffer.byteLength(JSON.stringify(r))<=8192);assert.ok(r.limits.some(s=>s.includes('not independent OCR')));}
  assert.equal(moduleText(buildDesignFacts()),read('functions/_lib/audit_design_facts.generated.js').toString());
 });
 test('photo words follow actual compose options; collage excludes unused manifest labels and detail',()=>{
- assert.deepEqual(find('gather-02.jpg').rendered_text,[{role:'headline',text:'Croquetas'}]);
+ assert.deepEqual(find('gather-02.jpg').rendered_text.map(({role,text})=>({role,text})),[{role:'headline',text:'Croquetas'}]);
  const collage=find('gather-01.jpg');assert.deepEqual(collage.rendered_text,[{role:'eyebrow',text:'INTRODUCING AÑEJO CATERING'},{role:'headline',text:'A table worth gathering around.'}]);
  assert.ok(!JSON.stringify(collage.rendered_text).includes('Desliza'));
  assert.equal(find('gather-07.jpg').layout.text_rotation_degrees,-90);
