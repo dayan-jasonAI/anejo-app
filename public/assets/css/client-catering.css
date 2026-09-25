@@ -1,0 +1,74 @@
+/* Her catering account. Takes the client area's own tokens (--green, --gold, --cream, --line) so
+   this reads as the same product she signed into, not a panel bolted onto it. */
+.cc-h1{font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;font-weight:600;color:var(--green);margin:0 0 4px}
+.cc-h2{font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:600;color:var(--muted);margin:30px 0 6px}
+.cc-event{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;margin:14px 0 18px}
+.cc-event.past{opacity:.72}
+.cc-head{display:flex;gap:16px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;
+  border-bottom:1px solid var(--line);padding-bottom:16px}
+.cc-cd{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dark);font-weight:700;margin:0 0 2px}
+.cc-head h2{font-family:'Cormorant Garamond',Georgia,serif;font-size:clamp(21px,5vw,27px);font-weight:600;
+  color:var(--green);line-height:1.15;margin:0;text-wrap:balance}
+.cc-sub{font-size:14px;color:var(--muted);margin:3px 0 0}
+.cc-money{text-align:right;flex-shrink:0}
+.cc-total{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;color:var(--green);font-variant-numeric:tabular-nums;line-height:1}
+.cc-pill{display:inline-block;font-size:12px;border-radius:999px;padding:3px 11px;margin-top:6px;
+  background:var(--cream-dark);color:var(--ink)}
+.cc-pill.ok{background:#e2efe4;color:#1f5133}
+.cc-pill.warn{background:#f6edd6;color:#7a5a18}
+.cc-pill.crit{background:#f7e0e0;color:#8f2020}
+.cc-block{margin:18px 0 0}
+.cc-block h3{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 8px}
+.cc-menu{list-style:none;margin:0;padding:0}
+.cc-menu li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:15px}
+.cc-menu li:last-child{border-bottom:0}
+.cc-qty{color:var(--muted);font-variant-numeric:tabular-nums;flex-shrink:0}
+.cc-theme{font-size:15px;margin:0}
+.cc-cta{display:flex;gap:9px;flex-wrap:wrap;margin:18px 0 0}
+.cc-btn{display:inline-block;padding:11px 18px;border-radius:999px;border:1px solid var(--green);
+  background:transparent;color:var(--green);text-decoration:none;font:inherit;font-size:14px;cursor:pointer}
+.cc-btn.gold{background:var(--gold);border-color:var(--gold);color:var(--black);font-weight:600}
+.cc-btn:disabled{opacity:.55;cursor:default}
+.cc-actions{display:grid;gap:8px}
+.cc-act{display:flex;gap:12px;align-items:flex-start;text-align:left;width:100%;
+  padding:13px 14px;border:1px solid var(--line);border-radius:11px;background:#fff;cursor:pointer;font:inherit}
+.cc-act:hover{border-color:var(--gold)}
+.cc-act small{color:var(--muted);font-size:13px}
+.cc-act-i{font-size:19px;line-height:1.2;flex-shrink:0}
+.cc-form{margin:12px 0 0;padding:14px;border:1px solid var(--gold);border-radius:11px;background:var(--cream)}
+.cc-form textarea,.cc-form input[type=number]{width:100%;padding:10px;border:1px solid var(--line);
+  border-radius:9px;font:inherit;font-size:15px;background:#fff;margin:0 0 10px}
+.cc-lab{display:block;font-size:13px;color:var(--muted);margin:0 0 5px}
+.cc-form-cta{display:flex;gap:8px;flex-wrap:wrap}
+.cc-msg{font-size:14px;margin:10px 0 0;min-height:1px}
+.cc-msg.good{color:#1f5133}
+.cc-msg.bad{color:#8f2020}
+.cc-hint{font-size:13px;color:var(--muted);margin:0}
+.cc-picker{max-height:340px;overflow-y:auto;margin:0 0 10px;border:1px solid var(--line);border-radius:9px;background:#fff}
+/* A GRID, not a flex row. The quantity box is the thing she is meant to type into, and with flex
+   it kept being pushed outside the card at phone width — then, once the name column was allowed to
+   shrink, the product name broke one letter per line instead. Three fixed tracks cannot do either:
+   the picture, whatever room is left, and the box. */
+.cc-item{display:grid;grid-template-columns:44px minmax(0,1fr) 58px;gap:11px;align-items:center;
+  padding:9px 11px;border-bottom:1px solid var(--line)}
+.cc-item:last-child{border-bottom:0}
+.cc-item img{width:44px;height:44px;object-fit:cover;border-radius:7px}
+.cc-noimg{width:44px;height:44px;display:grid;place-items:center;background:var(--cream-dark);border-radius:7px}
+.cc-item-n{min-width:0;font-size:14px;line-height:1.3}
+.cc-item-n small{color:var(--muted)}
+.cc-item-q{width:100%;margin:0!important;padding:8px 6px!important;text-align:right}
+.cc-req{border-left:3px solid var(--line);padding:2px 0 2px 12px;margin:0 0 12px}
+.cc-req-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.cc-when{font-size:12px;color:var(--muted)}
+.cc-req-items{font-size:14px;margin:5px 0 0}
+.cc-req-msg{font-size:14px;margin:3px 0 0;white-space:pre-wrap}
+.cc-reply{font-size:14px;margin:7px 0 0;padding:9px 11px;background:var(--cream-dark);border-radius:8px}
+.cc-reach{font-size:14px;color:var(--muted);margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line)}
+@media (min-width:560px){.cc-actions{grid-template-columns:1fr 1fr}}
+
+/* When the header wraps at phone width the money block lands on its own line, where right-aligning
+   it just reads as a stray indent. Below the wrap point it aligns with everything above it. */
+@media (max-width:519px){
+  .cc-money{text-align:left;width:100%}
+  .cc-pill{margin-top:4px}
+}

@@ -167,9 +167,29 @@ export const onRequestGet = async ({ request, env }) => {
     } catch { /* attachment migration may not be applied yet; requests still load */ }
   }
 
+  // WHAT THE CUSTOMERS HAVE ASKED FOR.
+  //
+  // catering_quote_changes has been written since 2026-09-14 and read by nothing. A customer used
+  // "Modify my order", the row landed in D1, an email went to the owner — and if that email was
+  // missed the request existed nowhere a person would ever look again. The desk now carries them,
+  // which is the only thing that makes answering one possible.
+  let changes = [];
+  try {
+    const c = await env.DB.prepare(
+      `SELECT id, quote_id, kind, guests, message, items_json, status, owner_note,
+              customer_name, customer_email, lang, created_at, decided_at, decided_by
+         FROM catering_quote_changes
+        ORDER BY CASE WHEN status = 'open' THEN 0 ELSE 1 END, created_at DESC
+        LIMIT 100`
+    ).all();
+    changes = ((c && c.results) || []).map((row) => ({
+      ...row, items: parseJson(row.items_json, null) || [],
+    }));
+  } catch { /* the migration may not be applied yet; the desk still loads */ }
+
   // deposit_pct / terms_version here describe what a NEW quote would be sold under. Every existing
   // row carries its own, and the desk must render each row's own.
-  return json({ ok: true, deposit_pct: DEPOSIT_PCT, terms_version: TERMS_VERSION, requests, quotes });
+  return json({ ok: true, deposit_pct: DEPOSIT_PCT, terms_version: TERMS_VERSION, requests, quotes, changes });
 };
 
 export const onRequestPost = async ({ request, env }) => {
@@ -180,6 +200,40 @@ export const onRequestPost = async ({ request, env }) => {
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const op = (b && b.op) || 'create';
+
+  // ANSWERING A CUSTOMER'S REQUEST.
+  //
+  // Deciding is deliberately separate from acting on it. Accepting "add 20 croquetas" does not add
+  // a line, reprice the quote or charge anything — pricing stays where Dayan took it back to, in
+  // the line editor. This records the answer and shows it to her, so the thing she gets for asking
+  // is a reply rather than silence.
+  if (op === 'decide_change') {
+    const cid = String((b && b.change_id) || '').trim();
+    const decision = String((b && b.status) || '').trim();
+    if (!cid) return bad('Missing change_id.');
+    if (!['accepted', 'declined', 'open'].includes(decision)) {
+      return bad('A request can be accepted, declined, or put back to open.');
+    }
+    const note = String((b && b.owner_note) || '').trim().slice(0, 1200) || null;
+    const ts = now();
+    try {
+      const r = await env.DB.prepare(
+        `UPDATE catering_quote_changes
+            SET status = ?, owner_note = ?, decided_at = ?, decided_by = ?, handled_at = ?
+          WHERE id = ?`
+      ).bind(
+        decision, note,
+        decision === 'open' ? null : ts,
+        decision === 'open' ? null : (ctx.distinct_id || 'owner'),
+        // handled_at predates status and other code still reads it; kept in step rather than left
+        // to drift into disagreeing about whether a request is outstanding.
+        decision === 'open' ? null : ts,
+        cid
+      ).run();
+      if (!r || !r.meta || r.meta.changes !== 1) return bad('That request does not exist.', 404);
+      return json({ ok: true, change_id: cid, status: decision });
+    } catch { return bad('Could not save that decision.', 500); }
+  }
 
   if (op === 'create_balance_link') {
     const qid=String(b.quote_id||'').trim();

@@ -43,6 +43,8 @@ h1{font-weight:300;font-size:30px;margin-bottom:4px}h1 strong{color:var(--green)
 .aj-flame{display:inline-block;animation:ajFlame 1.1s ease-in-out infinite;transform-origin:center bottom}
 .aj-streak-num{display:inline-block;animation:ajPopIn .5s ease}
 </style>
+<link rel="stylesheet" href="/assets/css/client-catering.css">
+<script src="/assets/js/client-catering.js"></script>
 </head>
 <body>
 <a href="#main" class="skip-link">Skip to content</a>
@@ -148,51 +150,20 @@ async function changePlan(sel){
   }catch(e){sel.disabled=false;ajPop('Couldn’t change the plan — please contact us. ⚠️');}
 }
 window.changePlan=changePlan;
-// ---- catering ---------------------------------------------------------------------------
-// Her events, on her account. Built from /api/client/me, which reads them by the email the
-// session has already verified.
-function cateringCard(list){
-  if(!list||!list.length)return '';
-  const today=new Date().toISOString().slice(0,10);
-  const upcoming=list.filter(e=>!e.event_date||e.event_date>=today);
-  const past=list.filter(e=>e.event_date&&e.event_date<today);
-  const one=(e,isPast)=>{
-    const owed=e.balance_status==='due'&&(e.balance_cents||0)>0;
-    const state=e.balance_status==='paid'?'<span class="badge active">Paid in full</span>'
-      :owed?'<span class="badge">'+money(e.balance_cents)+' balance due'+(e.balance_due_date?' by '+esc(e.balance_due_date):'')+'</span>'
-      :'<span class="badge">'+esc(e.deposit_status||'')+'</span>';
-    return '<div class="card'+(isPast?'':' gold')+'">'
-      +'<div class="k">'+(isPast?'Past event':'Your event')+'</div>'
-      +'<h2 style="margin:2px 0 4px;font-size:20px">'+esc(e.event_date||'Date to confirm')
-      +(e.serving_time?' · '+esc(e.serving_time):'')+'</h2>'
-      +'<p style="margin:0 0 10px;color:var(--muted);font-size:14px">'+(e.guests||0)+' guests'
-      +(e.address?' · '+esc(e.address):'')+'</p>'
-      +'<p style="margin:0 0 10px">'+state+'</p>'
-      +(e.items&&e.items.length
-        ?'<ul style="list-style:none;margin:0 0 12px;padding:10px 0 0;border-top:1px solid var(--line)">'
-          +e.items.map(it=>'<li style="display:flex;justify-content:space-between;padding:3px 0;font-size:14px">'
-            +'<span>'+esc(it.name)+'</span><span style="color:var(--muted)">'+esc(it.qty||'')+'</span></li>').join('')
-          +'</ul>':'')
-      +'<p style="margin:0 0 12px;font-size:14px"><strong>'+money(e.total_cents)+'</strong> total</p>'
-      +(e.url?'<a class="btn" href="'+esc(e.url)+'">View my event details &rarr;</a> ':'')
-      +(owed&&e.url?'<a class="btn" href="'+esc(e.url)+'">Pay the balance</a> ':'')
-      +'<a class="btn" href="mailto:hello@anejocateringco.com?subject='+encodeURIComponent('My event on '+(e.event_date||''))
-      +'" style="background:transparent;color:var(--green);border:1px solid var(--line)">Change something / ask us</a>'
-      +'</div>';
-  };
-  return upcoming.map(e=>one(e,false)).join('')+past.map(e=>one(e,true)).join('');
-}
 function render(d,logs){
   $('signout').style.display='inline-block';
   const c=d.client, p=d.plan, s=d.subscription;
   const cat=d.catering||[];
   // A catering customer has no trainer and never asked for a meal plan. Telling her to go and find
   // one, on the account page she opened straight after paying us, is the worst thing this screen
-  // could say — so her events are the page when that is what she has.
+  // could say — so her events ARE the page when that is what she has.
   if(!c){
     if(cat.length){
-      $('main').innerHTML='<h1>Hi, <strong>'+esc((cat[0].name||'there').split(' ')[0])+'</strong>.</h1>'
-        +'<div class="sub">Your Añejo events.</div>'+cateringCard(cat);
+      const first=(cat[0].name||'there').split(' ')[0];
+      const es=cat[0].lang==='es';
+      $('main').innerHTML='<h1>'+(es?'Hola, ':'Hi, ')+'<strong>'+esc(first)+'</strong>.</h1>'
+        +'<div id="cc-mount"></div>';
+      window.AnejoCatering.render(cat,document.getElementById('cc-mount'));
       return;
     }
     $('main').innerHTML='<div class="empty">Nothing is linked to '+esc(d.email)+' yet.<br><br>'
@@ -201,7 +172,7 @@ function render(d,logs){
   }
   let html='<h1>Hi, <strong>'+esc(c.name||'there')+'</strong>.</h1><div class="sub">Your Añejo plan & subscription.</div>';
   html+='<a class="btn" href="/order" style="display:inline-block;margin-bottom:18px">Order fresh bowls →</a>';
-  html+=cateringCard(cat);
+  if(cat.length)html+='<div id="cc-mount"></div>';
   if(d.rewards)html+=rewardsCard(d.rewards);
   if(d.today_bowls&&d.today_bowls.length)html+=todayBowlCard(d.today_bowls);
   if(p){html+='<div class="card gold"><div class="k">Your daily targets</div><div class="macros">'+
@@ -268,6 +239,7 @@ function render(d,logs){
     '<div id="logMsg" style="font-size:13px;color:var(--green);margin-top:10px;min-height:1px" role="status"></div>'+
     '<div id="recent" style="margin-top:8px"></div></div>';}
   $('main').innerHTML=html;
+  if(cat.length)window.AnejoCatering.render(cat,document.getElementById('cc-mount'));
   renderRecent(logs||{meals:[],weights:[]});
 }
 function lb(kg){return Math.round(kg/0.4535924*10)/10;}
@@ -313,6 +285,9 @@ async function loadAddonOffers(){
     if(main&&main.firstChild)main.insertBefore(b,main.firstChild);else if(main)main.appendChild(b);
   }catch(_){}
 }
+// A new request should appear in her history straight away, rather than leaving her to
+// wonder whether it stuck.
+window.AnejoCatering.onSent = init;
 init();
 </script>
 <script src="/assets/js/announce.js" defer></script>
