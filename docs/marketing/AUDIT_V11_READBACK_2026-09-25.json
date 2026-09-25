@@ -1,0 +1,217 @@
+[
+  {
+    "id": "sp_58424887f40e1a1b611f",
+    "status": "published",
+    "rubric_version": "anejo-visual-11",
+    "complete": false,
+    "criteria_met": 6,
+    "score": null,
+    "observations": [
+      {
+        "evidence_anchor": "slide:1",
+        "criterion_id": "branding",
+        "status": "met",
+        "caption_line": 0,
+        "slides": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "explanation": "The tree-and-roots emblem on lid labels and hang tags across all slides visually matches the approved reference (radiating canopy over a rooted base), recolored per theme (green, purple, red, gold) without obscuring food or wording. Consistent with owner-approved event theming.",
+        "caption_quote": "",
+        "rule_source": "criterion",
+        "rule_quote": "Compare the visible Añejo emblem with the separately supplied approved emblem reference, without obscuring food or required wording. This is visual consistency only, not proof of the original source asset, rendering provenance or photo authenticity. If the reference is absent or comparison is uncertain, mark unknown. Event packaging colors are allowed and need not match the corporate palette."
+      },
+      {
+        "evidence_anchor": "slide:9",
+        "criterion_id": "readability",
+        "status": "met",
+        "caption_line": 0,
+        "slides": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "explanation": "Headlines, eyebrow labels, body copy and bilingual footers on slides 9-10 are fully legible against the dark forest background; theme word overlays on slides 2-8 sit in open space without covering food; cover headline on slide 1 is clear in open beige space.",
+        "caption_quote": "",
+        "rule_source": "criterion",
+        "rule_quote": "Required wording and food must remain visible within the finished frame. Flag concrete clipping, unreadability or obstruction, not personal layout preferences."
+      },
+      {
+        "evidence_anchor": "caption:2",
+        "criterion_id": "caption_image",
+        "status": "met",
+        "caption_line": 2,
+        "slides": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "explanation": "Caption promises Cajita presentation options coordinated to celebrations; slides show Cajita boxes across many occasions (gender reveal, Halloween, Christmas, Valentine's, Easter, patriotic, custom) plus personalization and planning slides, matching the described breadth. No trays are promised in the caption, so no tray image is required.",
+        "caption_quote": "La Cajita brings Cuban favorites together in individual packaging, with presentation coordinated to your celebration. Choose your colors, liners, labels, tags and finishing touches—and tell us which menu selections suit your guests.",
+        "rule_source": "criterion",
+        "rule_quote": "Judge the caption against the complete carousel. A cover promising both Cajitas and trays must show both. A menu collage may introduce multiple catering formats."
+      },
+      {
+        "evidence_anchor": "slide:9",
+        "criterion_id": "themed_packaging",
+        "status": "met",
+        "caption_line": 0,
+        "slides": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "explanation": "Pink, orange/black, red/green, pink-red, lavender, red-white-blue, and black-gold packaging themes are shown as event customization on La Cajita boxes; slide 9 explicitly frames these as personalization ('Choose colors, liners, labels, tags'), consistent with themed packaging not replacing corporate identity.",
+        "caption_quote": "",
+        "rule_source": "criterion",
+        "rule_quote": "Owner-approved event colors, theme illustrations and personalization are permitted on packaging and design. They do not replace the corporate identity or imply literal food ingredients."
+      },
+      {
+        "evidence_anchor": "slide:9",
+        "criterion_id": "product_fidelity",
+        "status": "unknown",
+        "caption_line": 0,
+        "slides": [
+          9
+        ],
+        "explanation": "Slide 9 registers an explicit 'Start with six' list (Hawaiian roll w/ ham spread, guava-cheese empanada, ham croqueta, creamy macaroni salad, fruit/ham/guava/cheese/pineapple skewer, tres leches cup) matching named menu SKUs, but the same slide states photos show 'design possibilities, not a fixed assortment,' so whether the exact six pictured items match this list per-slide cannot be confirmed from images alone.",
+        "caption_quote": "",
+        "rule_source": "criterion",
+        "rule_quote": "Check explicit product, ingredient or quantity claims in caption or readable slide wording against supplied menu or owner evidence. Unlabeled food imagery is not an exact-SKU claim. Photographic authenticity and rendering provenance are outside this criterion. An unverifiable explicit claim is unknown; absence of explicit product claims is met with that scope explained."
+      },
+      {
+        "evidence_anchor": "caption:3",
+        "criterion_id": "claims",
+        "status": "met",
+        "caption_line": 3,
+        "slides": [],
+        "explanation": "Caption line 3 states standard orders need at least 48 hours and custom printing needs at least 72 hours plus reviewed quote, matching brand policy exactly. Line 6 asks a conditional city question ('¿Planeas una celebración...comparte tu ciudad y revisamos disponibilidad') rather than asserting guaranteed coverage, consistent with allowed conditional phrasing.",
+        "caption_quote": "Your menu, quantities and personalized details are confirmed with your quote. Standard orders need at least 48 hours; custom printing needs at least 72 hours and a reviewed quote.",
+        "rule_source": "criterion",
+        "rule_quote": "No unsupported unconditional service, price, timing or outcome promises. Conditional city questions with availability confirmation and city hashtags are not service guarantees. Standard orders need at least 48 hours; custom printing needs at least 72 hours and quote review."
+      },
+      {
+        "evidence_anchor": "slide:1",
+        "criterion_id": "owner_instructions",
+        "status": "met",
+        "caption_line": 0,
+        "slides": [
+          1,
+          9,
+          10
+        ],
+        "explanation": "Per the Sept 17 owner direction, the Cajita launch opens with the Signature design (slide 1, standard cream/gold/forest emblem box), followed by design inspirations (slides 2-8 themed variants), then personalization (slide 9) and planning information (slide 10), matching the required sequence exactly.",
+        "caption_quote": "",
+        "rule_source": "criterion",
+        "rule_quote": "Apply the whole supplied owner instruction including its scope and exceptions. A sequence or requirement that is followed is compliant. Optional stylistic preferences are suggestions, not violations."
+      }
+    ],
+    "product_evidence": {
+      "scope": "explicit_claims",
+      "claims": [
+        {
+          "claim_id": "pc_fcb8c91443099d51980cd6dd0caf7f88cc04449a675427bbcfc1d51706061cd7_2",
+          "source": "registered_overlay",
+          "caption_line": 0,
+          "slide": 9,
+          "quote": "START WITH SIX / SEIS FAVORITOS",
+          "authority_source": "unknown",
+          "authority_quote": "",
+          "authority_citations": []
+        },
+        {
+          "claim_id": "pc_fcb8c91443099d51980cd6dd0caf7f88cc04449a675427bbcfc1d51706061cd7_3",
+          "source": "registered_overlay",
+          "caption_line": 0,
+          "slide": 9,
+          "quote": "Hawaiian roll with ham spread; guava-cheese empanada; ham croqueta; creamy macaroni salad; fruit, ham, guava, cheese and pineapple skewer; tres leches cup.",
+          "authority_source": "menu",
+          "authority_quote": "Bocadito — Hawaiian roll with ham spread ($2.75) — 1 × 1.5 oz / 43 g mini sandwich\n",
+          "authority_citations": [
+            {
+              "id": "menu:6042",
+              "source": "menu",
+              "offset": 6042,
+              "quote": "Bocadito — Hawaiian roll with ham spread ($2.75) — 1 × 1.5 oz / 43 g mini sandwich\n"
+            },
+            {
+              "id": "menu:2195",
+              "source": "menu",
+              "offset": 2195,
+              "quote": "Guava & cheese empanada ($2.50) — 1 × 1.25 oz / 35 g empanada\n"
+            },
+            {
+              "id": "menu:126",
+              "source": "menu",
+              "offset": 126,
+              "quote": "Ham croqueta ($1.50) — 1 × 1.20 oz / 34 g croqueta (fried)\n"
+            },
+            {
+              "id": "menu:7706",
+              "source": "menu",
+              "offset": 7706,
+              "quote": "Cold macaroni salad ($5.00) — 1 × 6 oz / 170 g cold salad\n"
+            },
+            {
+              "id": "menu:4963",
+              "source": "menu",
+              "offset": 4963,
+              "quote": "Grape, ham, guava, cheese & pineapple skewer ($3.00) — 1 × 2 oz / 57 g full skewer\n"
+            }
+          ]
+        },
+        {
+          "claim_id": "",
+          "source": "caption",
+          "caption_line": 3,
+          "slide": 0,
+          "quote": "Standard orders need at least 48 hours; custom printing needs at least 72 hours and a reviewed quote.",
+          "authority_source": "owner",
+          "authority_quote": " Standard Traditional/Catering orders need at least 48 hours from the selected Eastern delivery-window start; custom printing needs 72 hours and remains quote-only. Eligible standard catering selections can receive a live food estimate and transfer to the existing order cart for Square checkout. Unpriced products, custom printing/uploads, food changes and allergy notes require quote review; do not",
+          "authority_citations": [
+            {
+              "id": "brand:4429",
+              "source": "brand",
+              "offset": 4429,
+              "quote": " Standard Traditional/Catering orders need at least 48 hours from the selected Eastern delivery-window start; custom printing needs 72 hours and remains quote-only. Eligible standard catering selections can receive a live food estimate and transfer to the existing order cart for Square checkout. Unpriced products, custom printing/uploads, food changes and allergy notes require quote review; do not"
+            },
+            {
+              "id": "training:3271",
+              "source": "training",
+              "offset": 3271,
+              "quote": "- Order CTAs use /order for priced products. Traditional/Catering are scheduled. Custom /catering and /cajita-builder requests require quote review before Square deposit and balance links. Add-ons are optional; never auto-add. Wallet availability is device/eligibility dependent; do not promise Afterpay or recurring Cash App. Standard Traditional/Catering orders need at least 48 hours from the sele"
+            }
+          ]
+        }
+      ],
+      "unreadable_slides": []
+    }
+  }
+]
