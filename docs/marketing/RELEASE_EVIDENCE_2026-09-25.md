@@ -38,3 +38,8 @@ Owner operator can explicitly save/retrieve owner-supplied campaign ideas using 
 Published-post internal review now writes audit fields only, retaining status/content/media/schedule/provider identifiers. Exact original status and source snapshot conditions reject in-flight changes. Label explicitly states saved Hub source review is not independent verification of Instagram pixels; published-source target is stored in audit detail. Local realSQLite tests compare all non-audit fields and trust rows unchanged. Live provider semantic review still pending.
 
 Supported business.google.com browser access on September25 showed Añejo verified with zero listed Google updates. No profile mutations; API integration remains distinct and Unverified.
+
+
+## Private workflow release
+
+PR130 passed all required PR checks, merged at19:31:05Z as `80bba3b7aaaa32d676463c1d02422f612b075fe8`. Production Cloudflare check completed-success for `d9f97bb5-016f-4594-8c79-684b48472dbb`; migration0130 applied successfully, no existing data rewritten. Local full suite2,911 passed; lint0errors/11warnings and Functions build passed (`/tmp/anejo-private-final-root.log`, `/tmp/anejo-private-workflows-lint.log`, `/tmp/anejo-private-workflows-build.log`). Fresh Hub reload exposes11 published-source review buttons. Live idea persistence and semantic review results pending at this entry.
