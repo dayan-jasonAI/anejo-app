@@ -327,6 +327,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
 
 <script src="/assets/js/i18n.js?v=20260908"></script>
 <script src="/assets/js/catering-i18n.js?v=20260908"></script>
+<script src="/assets/js/attribution.js"></script>
 <script>
 (function(){
   function t(value){return window.AnejoI18n&&window.AnejoI18n.text?window.AnejoI18n.text(value):value;}
@@ -421,6 +422,8 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
     if(fileError){show(fileError,'error');fileInput.focus();return;}
     var data={kind:'catering',lang:spanish()?'es':'en',name:val('name'),company:val('company'),email:val('email'),phone:val('phone'),menu_options:selected,event_date:val('event_date'),event_time:val('event_time'),guests:Number(val('guests')),event_type:val('event_type'),location:val('location'),event_theme:val('event_theme'),theme_colors:val('theme_colors'),design_notes:val('design_notes'),dietary_needs:val('dietary_needs'),event_details:val('event_details'),sms_consent:!!form.elements.sms_consent.checked};
     data.products=window.AnejoQuoteProducts.read();
+    var attribution=window.AnejoAttribution&&window.AnejoAttribution.read();
+    if(attribution)data.attribution=attribution;
     var locked=pendingLocks||Array.from(form.querySelectorAll('input,select,textarea,button')).map(function(node){return {node:node,disabled:node.disabled};});
     locked.forEach(function(entry){entry.node.disabled=true;});
     submitting=true;
