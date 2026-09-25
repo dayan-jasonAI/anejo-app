@@ -14,8 +14,10 @@ export function privateIntent(text) {
   const raw = String(text || '').trim();
   if (!raw || raw.length > 2000) return { kind: 'invalid' };
   const command = normalize(raw);
+  if (['show saved campaign ideas','mostrar ideas guardadas'].includes(command)) return {kind:'saved_ideas'};
   const brief = raw.match(/^(?:draft campaign brief|preparar brief|preparar resumen de campana)\s*:\s*(.*)$/i);
-  if (brief) return brief[1].trim() ? { kind: 'brief_preview', title: brief[1].trim().slice(0,200), notes: brief[1].trim().slice(0,1000) } : { kind: 'invalid', reason: 'brief_topic_required' };
+  if (brief && brief[1].trim().length > 1000) return { kind: 'invalid', reason: 'brief_topic_too_long' };
+  if (brief) return brief[1].trim() ? { kind: 'brief_preview', title: brief[1].trim().slice(0,200), notes: brief[1].trim() } : { kind: 'invalid', reason: 'brief_topic_required' };
 
   // Denials are routing policy, never an attempt to identify every possible natural-language act.
   // Anything outside exact private aliases has no executable descriptor.
@@ -45,10 +47,11 @@ export function auditSnapshot(posts, observedAt) {
 export function privateResult(intent) {
   const receipt = { mode: 'deterministic', mutation: false };
   if (navigationPath(intent)) return { ok: true, reply: 'Use the button to open this private marketing view. Nothing has been scheduled or published.', ui: intent, receipt };
+  if (intent.kind === 'saved_ideas') return {ok:true,reply:'Use the button to read your latest private saved ideas. These are your words, not generated strategy.',ui:intent,receipt};
   if (intent.kind === 'brief_preview') return { ok: true, reply: 'Unsaved campaign idea captured from your words. No campaign brief has been created or published.', ui: { ...intent, saved: false }, receipt };
   if (intent.kind === 'audit_status') return { ok: true, reply: 'Use the button to read saved audit status. This does not run a new audit or approve publication.', ui: intent, receipt };
   if (intent.kind === 'refusal') return { ok: false, error: 'private_operator_only', detail: 'This operator cannot publish, send, schedule, pay, or change credentials.', receipt };
-  if (intent.kind === 'invalid') return { ok: false, error: intent.reason || 'invalid_command', detail: 'Provide a short private command or a topic after “draft campaign brief:”.', receipt };
+  if (intent.kind === 'invalid') return { ok: false, error: intent.reason || 'invalid_command', detail: intent.reason === 'brief_topic_too_long' ? 'Campaign idea must be 1,000 characters or fewer. Shorten it before saving; nothing was truncated or saved.' : 'Provide a short private command or a topic after “draft campaign brief:”.', receipt };
   return null;
 }
 

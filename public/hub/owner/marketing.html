@@ -739,15 +739,13 @@
     return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
   }
 
-  // The expiry banner. Escalates quietly→loud as the recorded date approaches, and is HONEST when
-  // there is nothing recorded: 'unknown' never renders as "all good" — that is exactly the gap
-  // that let a token die silently in the first place.
+  // This owner-entered date is a reminder, not a live credential or service-health check.
   var EXPIRY_MSG = {
-    unknown: '⏳ <b>Token expiry not recorded.</b> Instagram gives no warning before a long-lived token dies — publishing, the DM inbox, and insights all go dark at once. Record the date Meta showed when this token was generated so the HUB can warn ahead of it.',
-    ok: null, // no line needed far out; the record-it control below still shows the date
-    warning: '🟡 <b>Instagram token expires in {days} days</b> ({date}). Plan the swap to a Meta System User token (never expires) — see {doc}.',
-    urgent: '🔴 <b>Instagram token expires in {days} day{plural} — do this now.</b> When it dies, publishing, the DM inbox, and insights stop working with no warning. See {doc}.',
-    expired: '⛔ <b>Instagram token expired {date}.</b> Publishing, the DM inbox, and insights are down until it is replaced. See {doc}.',
+    unknown: '⏳ <b>Token expiry not recorded.</b> Verify the current token in Meta and record its expiry date if one is provided. This reminder does not check publishing, inbox or insights access.',
+    ok: null,
+    warning: '🟡 <b>Recorded Instagram token expiry: {date}</b> (in {days} days). Verify the current token and renew if needed. This saved date does not establish live access. See {doc}.',
+    urgent: '🔴 <b>Recorded Instagram token expiry: {date}</b> (in {days} day{plural}). Verify the current token and renew if needed. This saved date does not establish live access. See {doc}.',
+    expired: '⛔ <b>Recorded Instagram token expiry has passed: {date}.</b> This saved date may be outdated; it does not prove that publishing, the DM inbox or insights are unavailable. Verify the current connection and token in Meta, renew if needed, then update this record. See {doc}.',
   };
 
   function expiryBanner(d) {
@@ -759,7 +757,7 @@
     if (tpl == null) {
       // 'ok' — quiet by design (thresholds: warn inside 30 days, urgent inside 7). Still says the
       // date so "quiet" never means "nothing is shown".
-      body = te.at ? '🟢 Instagram token recorded — expires ' + esc(dateStr) + ' (' + te.days_left + ' days).' : '';
+      body = te.at ? 'Recorded Instagram token expiry: ' + esc(dateStr) + ' (' + te.days_left + ' days). This saved date does not establish live access.' : '';
     } else {
       body = tpl
         .replace('{days}', te.days_left != null ? Math.abs(te.days_left) : '?')
@@ -772,7 +770,7 @@
   }
 
   // Owner-entered only — this NEVER calls Instagram. It just records the date Meta's own
-  // dashboard showed at generation time, so the banner above has a fact to measure against.
+  // dashboard showed at generation time, as a reminder; it does not verify the current token.
   function recordControl(te) {
     return '<div class="expiry-set">' +
       '<input type="date" id="te_date" value="' + (te.at ? dateInputValue(te.at) : '') + '">' +
@@ -1415,8 +1413,8 @@
       // Brand Auditor verdict — the score/flags/status the row already carries, so the owner reads
       // WHY a draft is clean or flagged before approving a time.
       auditBadge(p) +
-      '<div class="row-sub" style="font-size:11.5px">' + (p.audit_scope === 'caption_and_media' ? 'Audit reviewed caption and saved images. Auditing does not schedule or publish this draft.' : 'No current finished-image audit. Audit the saved draft before approval.') + '</div>' +
-      (p.status === 'draft' || p.status === 'failed' ? '<button class="btn ghost" data-audit="' + esc(p.id) + '">Audit saved draft</button>' : '') +
+      '<div class="row-sub" style="font-size:11.5px">' + (p.status === 'published' ? 'Review covers the saved Hub source design, not independent verification of Instagram pixels. It does not change the live post.' : p.audit_scope === 'caption_and_media' ? 'Audit reviewed caption and saved images. Auditing does not schedule or publish this draft.' : 'No current finished-image audit. Audit the saved draft before approval.') + '</div>' +
+      (['draft','failed','published'].includes(p.status) ? '<button class="btn ghost" data-audit="' + esc(p.id) + '">' + (p.status === 'published' ? 'Review saved source design' : 'Audit saved draft') + '</button>' : '') +
       // Provenance — the brief / market intel / category / format / training rules behind this post.
       provenanceBadge(p) +
       // Slides. One photo is a normal post; 2-10 is a carousel, and the ORDER is editorial — the
@@ -1661,7 +1659,7 @@
         var pid=b.getAttribute('data-audit'), visible=approvalCaption(pid);
         if(visible.caption!==visible.expected_caption){Hub.toast('Save your caption changes before auditing');return;}
         b.disabled=true;
-        op({op:'audit',id:pid,expected_caption:visible.caption},'Caption audit saved — review the findings and finished images')
+        op({op:'audit',id:pid,expected_caption:visible.caption},'Saved-source review recorded — inspect the findings; no live post was changed')
           .finally(function(){b.disabled=false;});
       };
     });
@@ -2818,7 +2816,7 @@
       if (heartbeat.counts) schedulerText += ' · ' + t('Last run counts (checked/published/failed/missed): ', 'Últimos conteos (revisados/publicados/fallidos/omitidos): ') + ['checked','published','failed','missed'].map(function (key) { return Number(heartbeat.counts[key]) || 0; }).join('/');
     }
     var expiry = d && d.token_expiry;
-    var expiryText = expiry && Number(expiry.at) > 0 ? t('Recorded connection expiry: ', 'Vencimiento registrado de la conexión: ') + new Date(Number(expiry.at)).toLocaleString(es ? 'es' : 'en', { timeZoneName: 'short' }) + ' (' + expiry.status + ')' : t('Connection expiry is not recorded.', 'El vencimiento de la conexión no está registrado.');
+    var expiryText = expiry && Number(expiry.at) > 0 ? t('Recorded connection expiry: ', 'Vencimiento registrado de la conexión: ') + new Date(Number(expiry.at)).toLocaleString(es ? 'es' : 'en', { timeZoneName: 'short' }) + (expiry.status === 'expired' ? t(' (recorded date has passed; verify current access)', ' (la fecha registrada ya pasó; verifica el acceso actual)') : '') : t('Connection expiry is not recorded.', 'El vencimiento de la conexión no está registrado.');
     return '<div class="hub-section"><div class="card"><h2>' + esc(title) + '</h2><p>' + esc(detail) + '</p><a class="btn gold" href="' + href + '">' + esc(cta) + '</a>' +
       '<p class="hint" style="margin-top:16px">' + esc(connection) + '</p><p class="hint" data-scheduler-status>' + esc(schedulerText) + '</p><p class="hint">' + esc(expiryText) + '</p><p class="hint">' + esc(t('Checked: ', 'Comprobado: ') + (checkedAt ? new Date(checkedAt).toLocaleString() : t('not yet', 'aún no'))) + '</p>' +
       '<p class="hint">' + esc(t('Based on the latest 60 posts returned. A saved schedule is not proof of a running publisher or a live post.', 'Basado en las últimas 60 publicaciones devueltas. Una programación guardada no prueba que el publicador esté activo ni que la publicación esté en línea.')) + '</p><button class="btn ghost" type="button" id="today-library">Use a library photo / Usar foto de biblioteca</button><button class="btn ghost" type="button" id="next-post-refresh">' + esc(t('Refresh status', 'Actualizar estado')) + '</button></div></div>';
@@ -2986,6 +2984,6 @@
   Owner.init('marketing', load, { roles: Owner.MARKETING_DESK });
 })();
 </script>
-<script src="assets/operator.js?v=private-operator-2" defer></script>
+<script src="assets/operator.js?v=private-operator-3" defer></script>
 </body>
 </html>

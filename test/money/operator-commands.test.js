@@ -55,3 +55,11 @@ test('explicit idea prefix permits email topic without action authority',()=>{
  assert.equal(privateIntent('send email campaign').kind,'refusal');
  assert.equal(privateIntent('preparar brief: publicar ideas').kind,'brief_preview');
 });
+
+test('saved idea command produces read-only descriptor',()=>{const r=privateResult(privateIntent('show saved campaign ideas'));assert.equal(r.ui.kind,'saved_ideas');assert.equal(r.receipt.mutation,false);});
+
+test('campaign topic boundary rejects instead of silently truncating owner text',()=>{
+ const accepted=privateIntent('draft campaign brief: '+ 'x'.repeat(1000));assert.equal(accepted.kind,'brief_preview');assert.equal(accepted.notes,'x'.repeat(1000));
+ const rejected=privateResult(privateIntent('draft campaign brief: '+ 'x'.repeat(1001)));assert.equal(rejected.ok,false);assert.equal(rejected.error,'brief_topic_too_long');assert.match(rejected.detail,/nothing was truncated or saved/);
+ assert.equal(privateIntent('x'.repeat(2001)).kind,'invalid');
+});

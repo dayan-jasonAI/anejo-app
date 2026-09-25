@@ -95,7 +95,7 @@ export async function buildContext(env, at = Date.now()) {
 export function operatorCapabilities() {
   return {
     mode: 'read_only', mutations: false,
-    deterministic_commands: ['capabilities', 'marketing status', 'open photos', 'open create & schedule', 'show drafts', 'show audit status', 'draft campaign brief: topic'],
+    deterministic_commands: ['capabilities', 'marketing status', 'open photos', 'open create & schedule', 'show drafts', 'show audit status', 'draft campaign brief: topic', 'show saved campaign ideas'],
     model_questions: ['orders', 'deliveries', 'rewards'],
     unavailable_actions: ['publish posts', 'send customer replies', 'change orders', 'refunds', 'Google review replies'],
   };
@@ -180,7 +180,7 @@ export const onRequestPost = async ({ request, env }) => {
 
   const command = message.toLowerCase().replace(/[?!.]+$/, '').trim();
   if (['help', 'capabilities', 'what can you do', 'qué puedes hacer', 'que puedes hacer'].includes(command)) {
-    return json({ ok: true, reply: 'I can report orders, deliveries, rewards and marketing queue status, offer private Photos/Create/drafts navigation, read saved audit status, and capture an unsaved campaign idea. I cannot publish, send replies, change orders or answer Google reviews. Those actions are not connected to this operator.', capabilities: operatorCapabilities(), receipt: { mode: 'deterministic', mutation: false } });
+    return json({ ok: true, reply: 'I can report orders, deliveries, rewards and marketing queue status, offer private Photos/Create/drafts navigation, read saved audit status, and preview your campaign idea with an explicit private save button. Say “show saved campaign ideas” to read them later. Saved ideas contain your words only, not generated strategy. I cannot publish, send replies, change orders or answer Google reviews. Those actions are not connected to this operator.', capabilities: operatorCapabilities(), receipt: { mode: 'deterministic', mutation: false } });
   }
   if (['marketing status', 'marketing team status', 'estado de marketing'].includes(command)) {
     const status = await marketingStatus(env);
