@@ -43,3 +43,10 @@ Supported business.google.com browser access on September25 showed Añejo verifi
 ## Private workflow release
 
 PR130 passed all required PR checks, merged at19:31:05Z as `80bba3b7aaaa32d676463c1d02422f612b075fe8`. Production Cloudflare check completed-success for `d9f97bb5-016f-4594-8c79-684b48472dbb`; migration0130 applied successfully, no existing data rewritten. Local full suite2,911 passed; lint0errors/11warnings and Functions build passed (`/tmp/anejo-private-final-root.log`, `/tmp/anejo-private-workflows-lint.log`, `/tmp/anejo-private-workflows-build.log`). Fresh Hub reload exposes11 published-source review buttons. Live idea persistence and semantic review results pending at this entry.
+
+
+## Live private workflow acceptance
+
+Owner operator saved an exact excerpt of Dayan’s supplied full-frame direction as `obi_580d4514b437b5f79cb616688f6ad4e1327f75d7a0f991273f5321214defa29a` at19:32:33.847Z. Fresh page reload → show saved campaign ideas → Load my saved campaign ideas returned the same text. This proves private save/readback and retrieval, not generated strategy or speech recognition.
+
+One normal Hub saved-source review per launch post returned v5: choice100/7of7, personal100/7of7, gather unavailable invalid_rubric_response. `AUDIT_READBACK_2026-09-25.json` retains before/after results. Trust counters remain0 and auto_publish0 in all five lanes; published status/time/permalink unchanged. Choice cover/order/caption citations improved, but root identified inaccurate incidental explanation details (slide2 emblem is bottom-right, and slide4 is not pink-themed). Scores are model judgments, not unattended acceptance. Personal1/9/10 wording and sequence spot-checked against JPEGs; not independent live Instagram pixels/SKU certification. Gather remains unscored; precise bounded top-level diagnostics are being added without weakening validation or forcing scores.
