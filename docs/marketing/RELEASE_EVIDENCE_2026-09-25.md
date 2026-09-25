@@ -115,3 +115,10 @@ After exact-merge Cloudflare success for d442c92, supported Chrome reload and re
 All PR135 checks passed (CI36188990092, Cloudflare previewadd2d0c5-b122-486f-971f-b68e949acfb4). Applied ONLY migration0132, twoqueries succeeded, bookmark00000657-00000074-000050f1-606784c4a99c2e5d3385824394e67961; independent SELECT returned zero preview rows. Merged as b0c335074018b1b312e7fc4dd0e6f4dfe785a3a9 and fast-forwarded working branch. Production deployment/live private strategy generation remains unverified at this checkpoint.
 
 One controlled post-PR134 launch review again rejected missing_artifact_evidence; supportedbrowser diagnostic now identifies product_fidelity, caption_line/slides, both_empty. No fabricated pass or public change. Next correction is structural evidence-anchor selection, not further blind provider retries. Auditor agent owns rubric/tests; backend agent owns reviewed promotion route0133; root owns downstream readers and integration. Promotion is planning direction only, never public-action approval.
+
+
+### PR136 release checkpoint
+
+All checks passed at74617859c3773364c73fb86750a2ad4cd0e51994 (CI36190243224, preview22d0c0ac-27c0-4cd3-be55-faad0ad3ceea). Applied only0133: onequery succeeded, bookmark00000657-000000f4-000050f1-c0a81f5ae8eac38d2a6347aa288d1bc7. Separate SELECT confirms zero promotions. Merged as c260ae9c39dfb7ad35ce6eb0f92cea65fa4b0200; workingbranch fastforward preserved subsequent UIrecovery edits. Deployment/liveacceptance pending at checkpoint. No campaign direction activated.
+
+Next authorized safe work: Ana outbound claims for duplicate prevention, migration0134 and provider-mocked concurrency tests. No tick/send executed. Google API project/access factual question pending owner response; browser access is not API authorization. Stale-success proposal recovery implemented locally afterPR136 (29UItests reported); not part ofcheckedrelease yet.
