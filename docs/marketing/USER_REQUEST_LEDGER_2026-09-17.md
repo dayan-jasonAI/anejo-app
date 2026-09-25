@@ -92,3 +92,14 @@ The table below is preserved as the earlier September 17 inspection at local HEA
 4. Inspect saved originals/derivatives and branding preview at desktop/mobile; no new paid provider request required to verify deterministic polish.
 5. Verify fresh scheduler/inbox/metrics evidence separately. Never use a test publish or customer reply merely to establish readiness.
 6. Record clear remaining integrations: Google execution, voice actions, autonomous template rendering and measured paid-order attribution. Public posts require the rendered-preview approval already identified by root.
+
+
+## September 25 resume — current evidence supersedes draft status above
+
+- Current branch merged `origin/main` through `2ae73b0` at `d89a17f`, preserving kitchen and Sales OS releases #118–126. Working tree was clean before merge.
+- Fresh supported Chrome reload of the owner Marketing page showed 80 followers / 13 posts. The previously open page was stale; its 77 followers / 9 posts and draft statuses are historical.
+- Hub now records choice, personal and gather as published September 18. Instagram permalinks: choice https://www.instagram.com/p/DdceXbZCc29/ ; personal https://www.instagram.com/p/DdcefZxCU5B/ ; gather https://www.instagram.com/p/DdceieUiaAf/ . No publication was performed by this resumed session.
+- Hub insights labeled September 25: choice reach47 / likes14 / comments0; personal reach147 / likes17 / comments6; gather reach58 / likes8 / comments0. These are observed Hub metrics, not independently attributed sales or verified Instagram delivery receipts.
+- The manually recorded token expiry remains September20. Hub simultaneously shows a connected account and fresh metrics; the assertion that all integration services are down is unsupported by the expiry record alone. Credential status is Unverified; no credential changes authorized or made.
+- Auditor v5 resolves numeric caption references into exact stored source text, avoiding the v4 case-mutation failure. Local merged-tree root tests: 2,882 passed; Studio:23 passed plus typecheck; root lint zero errors; Functions build successful. Focused audit48 and trust/UI60 passed. Logs: `/tmp/anejo-resume-merged-root.log`, `/tmp/anejo-resume-studio.log`, `/tmp/anejo-resume-merged-lint.log`, `/tmp/anejo-resume-merged-build.log`, `/tmp/anejo-v5-resume-focused.log`, `/tmp/anejo-v5-resume-trust.log`.
+- Release and provider semantic acceptance remain Open — evidence missing. Do not re-audit or mutate the now-public posts through a draft-only pathway; preserve their history. Future private draft acceptance is still required.
