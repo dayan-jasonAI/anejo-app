@@ -89,3 +89,10 @@ PR133 merged as e963de7b87d38c0301b85c1a46bb94d2b5b862bc after all required PR c
 Applied ONLY additive migration0131 through `npx wrangler d1 execute anejo --remote --file migrations/0131_marketing_render_receipts.sql`: two queries succeeded, bookmark00000656-000006e8-000050f1-c6d5f24b31d55839e1ed23f4c313c18c. Separate SELECT confirmed marketing_render_receipts exists with zero records. No original media or posts changed by migration.
 
 Branch fast-forwarded to merged main and pushed. Exact merge deployment and main CI were in progress at this checkpoint (run36187733824; Cloudflare check8d5a8141-727d-4c49-b766-1c39dec7f0f0). Live v7 semantic audit and private branded-save acceptance remain unverified. No public post, customer communication, credential change or trust enablement performed. Goal remains active.
+
+
+### PR133 live audit acceptance
+
+Cloudflare exact-merge check completed successfully; provider production list identifies8d5a8141-727d-4c49-b766-1c39dec7f0f0/sourcee963de7. Supported Chrome reload marked earlier reviews historical. One controlled review of choice/sp_0a39246ba48d6453af3f returned unavailable: missing_artifact_evidence. D1 readback in AUDIT_V7_READBACK_2026-09-25.json confirms v7, null score, published status preserved. This is a rejected model response, not a verified design defect or semantic acceptance. No repeated provider attempts.
+
+Root inspected validator: missing-evidence rejection lacked criterion diagnostic; no-claim instructions also failed to explicitly require inspected-slide evidence for a met verdict. Local follow-up now preserves criterion/status/field without raw model text and makes that obligation explicit in schema and prompt.33focused tests passed (/tmp/anejo-v7-diagnostic-tests.log). This does not establish which criterion failed in the prior response, whose rejected body was not retained. Live acceptance and branded-save UI acceptance remain open.
