@@ -247,7 +247,7 @@ const MAX_CONTEXT = 2200;
  * the Studio. Facts only, from the database, so nobody invents a claim about compliance or a price.
  * Returns '' when there is no program configured, which keeps it out of every prompt until there is.
  */
-export async function programContext(env, { lang = 'en' } = {}) {
+export async function programContext(env, { lang = 'en', maxChars = MAX_CONTEXT } = {}) {
   let cycle = null;
   try { cycle = await activeCycle(env); } catch { return ''; }
   if (!cycle) return '';
@@ -281,5 +281,18 @@ export async function programContext(env, { lang = 'en' } = {}) {
       ? '· IMPORTANTE: el menú AÚN NO está firmado por una dietista licenciada. No digas que está aprobado ni que el servicio puede comenzar; di que la revisión está en proceso.'
       : '· IMPORTANT: the menu is NOT yet signed by a licensed dietitian. Do not say it is approved or that service can begin; say the review is in progress.');
   }
-  return lines.join('\n').slice(0, MAX_CONTEXT);
+  // Approval is mandatory context, not an optional tail that a smaller consumer budget
+  // may cut off. Reserve the complete heading and approval statement, then fit whole facts.
+  const budget = Number.isFinite(maxChars) ? Math.max(0, Math.min(MAX_CONTEXT, Math.floor(maxChars))) : MAX_CONTEXT;
+  const approval = lines.pop();
+  const heading = lines.shift();
+  const kept = [heading, approval];
+  let used = kept.join('\n').length;
+  if (used > budget) return '';
+  for (const line of lines) {
+    if (used + 1 + line.length > budget) continue;
+    kept.push(line);
+    used += 1 + line.length;
+  }
+  return kept.join('\n');
 }

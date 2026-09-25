@@ -1,0 +1,20 @@
+{
+  "evidence_scope": "Comparison of saved September 25 D1 readback, not a new live database read",
+  "original_id": "ocp_43de6db99764ff6697483919faab1fe88710f254c783654113d1d7d8f64c3a08",
+  "original_unchanged": true,
+  "revision_id": "ocp_512977ce63740b1f57eebbe9c70f8b9e179d16c21cbbb2f4dbf874ce44bee773",
+  "request_id": "d9af5b10-56b2-414e-a3eb-ab73d76d76dd",
+  "proposal_matches_prepared_correction": true,
+  "promotion_counts": [
+    0,
+    0
+  ],
+  "revision": {
+    "parent_id": "ocp_43de6db99764ff6697483919faab1fe88710f254c783654113d1d7d8f64c3a08",
+    "parent_proposal_sha256": "7915cfbf52d5870cb9c05e837a91741e62cdd27c19c32c4e4fcf5496965014b5",
+    "proposal_sha256": "ad9bfc2dc622e66e4698cbd85b4dd1538354d676e1799e28a065b83aed8bcb54",
+    "created_at": 1790374873443,
+    "kind": "private_edit",
+    "approval": false
+  }
+}
