@@ -29,3 +29,22 @@ test('unknown or modified JPEG never inherits a known source declaration',async(
  assert.equal(await verifyAuditImageReceipts(envFor(),snapshot,{}),false);
  assert.equal(await verifyAuditImageReceipts(envFor(),snapshot,'not json'),false);
 });
+
+test('durable browser declarations never become reviewed design facts',async()=>{
+ const altered=Buffer.from(photo);altered[100]^=1;
+ const env=envFor([altered,cta]);let bound;
+ env.DB={prepare:()=>({bind:(...args)=>{bound=args;return {first:async()=>({id:'receipt',source_key:'studio/original.png',source_sha256:'c'.repeat(64),output_bytes:altered.length,evidence_tier:'browser_declared',declaration_json:JSON.stringify({template_id:'reposado-square',layout:{renderDeclaration:{supported:true,text_runs:[{text:'Invented words not proven by pixels'}]}}})})};}})};
+ const images=await loadAuditImages(env,JSON.stringify(['photo',0,'marketing-library/new.jpg']));
+ const receipt=images[0].sourceReceipt;
+ assert.equal(bound[0],receipt.sha256);assert.equal(bound[1],'marketing-library/new.jpg');
+ assert.equal(receipt.design_facts,null);assert.equal(receipt.unreviewed_render.evidence_tier,'browser_declared');
+ assert.equal(receipt.render_receipt_status,'browser_declared_bytes_matched');
+});
+test('receipt storage failure is explicit and cannot invent a matching design',async()=>{
+ const altered=Buffer.from(photo);altered[100]^=1;const env=envFor([altered,cta]);
+ env.DB={prepare:()=>{throw Error('database unavailable');}};
+ const images=await loadAuditImages(env,JSON.stringify(['photo',0,'marketing-library/new.jpg']));
+ assert.equal(images[0].sourceReceipt.design_facts,null);
+ assert.equal(images[0].sourceReceipt.unreviewed_render,null);
+ assert.equal(images[0].sourceReceipt.render_receipt_status,'receipt_read_unavailable');
+});

@@ -1364,7 +1364,7 @@
       if (detail.product_evidence) {
         var productEvidence=detail.product_evidence;
         body += '<details><summary>Product claim scope</summary><p class="hint">Model-classified scope: ' + esc(productEvidence.scope || 'unknown') + '. Exact caption and registered overlay excerpts are checked against saved source text; this does not prove the model found every claim.</p>' +
-          '<ul>' + (Array.isArray(productEvidence.claims) ? productEvidence.claims : []).map(function(claim){return '<li>' + esc(claim.quote || '') + ' · ' + (claim.caption_line ? 'caption line ' + esc(String(claim.caption_line)) : 'slide ' + esc(String(claim.slide))) + '</li>';}).join('') + '</ul></details>';
+          '<ul>' + (Array.isArray(productEvidence.claims) ? productEvidence.claims : []).map(function(claim){return '<li>' + esc(claim.quote || '') + ' · ' + esc(claim.source || 'unknown') + (claim.source==='image_text' ? ' (model observation, not verified OCR)' : '') + ' · ' + (claim.caption_line ? 'caption line ' + esc(String(claim.caption_line)) : 'slide ' + esc(String(claim.slide))) + '</li>';}).join('') + '</ul></details>';
       }
       var slideSources = detail.input_coverage && detail.input_coverage.slide_sources;
       if (Array.isArray(slideSources) && slideSources.length) {

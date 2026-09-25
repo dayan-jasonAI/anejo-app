@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {declarationValid} from '../../functions/_lib/marketing_render_receipt.js';
 const current=readFileSync(new URL('../../public/hub/owner/assets/marketing-branding.js',import.meta.url),'utf8');
 const historical=readFileSync(new URL('../../docs/marketing/cajita-social-2026-09-17/revision-3/marketing-branding.source.js',import.meta.url),'utf8');
 async function run(code,opts={},fontMode='loaded') {
@@ -21,6 +22,7 @@ test('declaration instrumentation preserves every Canvas draw and style operatio
   const options={preset,text:preset==='reposado-dense'?'Cuban bites':'Fresh Cuban bites',kicker:''};
   const before=await run(historical,options),after=await run(current,options);
   assert.deepEqual(after.operations,before.operations,preset);assert.equal(after.output,before.output);
+  assert.equal(declarationValid({renderer_version:'anejo-canvas-declarations-1',template_id:preset,options,layout:after.report}),true,'actual renderer declaration passes save contract');
   assert.equal(after.report.renderDeclaration.supported,true);assert.equal(after.report.renderDeclaration.template_id,preset);
  }
 });
