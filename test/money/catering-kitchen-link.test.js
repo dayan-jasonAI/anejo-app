@@ -105,7 +105,9 @@ test('a catering customer is never told to ask her trainer', () => {
     const src = read(p);
     const trainer = src.indexOf('Ask your trainer to add you');
     assert.equal(trainer, -1, `${p} must not tell a paying catering customer to find a trainer`);
-    assert.match(src, /cateringCard/, `${p} must render her events`);
+    // The interim card became a full account view in client-catering.js; what this test is
+    // actually about is that her events reach the page at all.
+    assert.match(src, /AnejoCatering\.render/, `${p} must render her events`);
   }
 });
 

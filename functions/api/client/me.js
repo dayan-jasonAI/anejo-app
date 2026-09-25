@@ -48,6 +48,36 @@ export const onRequestGet = async ({ request, env }) => {
     };
   });
 
+  // What she has already asked for, and what she was told. A customer who asks for something and
+  // is shown nothing back assumes she was not heard, and phones — which is the behaviour the
+  // request form exists to replace.
+  if (catering.length) {
+    try {
+      const ids = catering.map((c) => c.id);
+      const r = await env.DB.prepare(
+        `SELECT id, quote_id, kind, guests, message, items_json, status, owner_note, created_at, decided_at
+           FROM catering_quote_changes
+          WHERE quote_id IN (${ids.map(() => '?').join(',')})
+          ORDER BY created_at DESC LIMIT 60`
+      ).bind(...ids).all();
+      const byQuote = new Map();
+      for (const row of ((r && r.results) || [])) {
+        let items = [];
+        try { items = JSON.parse(row.items_json || '[]') || []; } catch { items = []; }
+        if (!byQuote.has(row.quote_id)) byQuote.set(row.quote_id, []);
+        byQuote.get(row.quote_id).push({
+          id: row.id, kind: row.kind || 'message', guests: row.guests, message: row.message,
+          items, status: row.status || 'open', owner_note: row.owner_note,
+          created_at: row.created_at, decided_at: row.decided_at,
+        });
+      }
+      for (const c of catering) c.requests = byQuote.get(c.id) || [];
+    } catch {
+      // The migration may not be applied yet. Her event still loads; it simply shows no history.
+      for (const c of catering) c.requests = [];
+    }
+  }
+
   const client = await env.DB
     .prepare('SELECT id, name, email, phone, primary_goal, status FROM clients WHERE email = ? ORDER BY updated_at DESC LIMIT 1')
     .bind(sess.email).first();

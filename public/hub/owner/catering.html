@@ -535,6 +535,59 @@
     });
   }
 
+  // WHAT THE CUSTOMERS HAVE ASKED FOR. Until now this table was written and read by nothing, so a
+  // request reached the owner as one email and then existed nowhere a person would look again.
+  function changeCard(c) {
+    var open = c.status === 'open';
+    var when = c.created_at ? new Date(c.created_at).toLocaleString() : '';
+    var items = (c.items || []).map(function (i) {
+      return '<li>' + esc(String(i.qty)) + ' × ' + esc(i.name) + '</li>';
+    }).join('');
+    var badge = open ? '<span class="pill crit">Waiting on you</span>'
+      : c.status === 'accepted' ? '<span class="pill green">Accepted</span>'
+        : '<span class="pill">Declined</span>';
+    return '<div class="qcard" id="chg-' + esc(c.id) + '">' +
+      '<div class="nm">' + esc(c.customer_name || 'A customer') + ' ' + badge + '</div>' +
+      '<div class="row-sub">' + esc(when) + (c.customer_email ? ' · ' + esc(c.customer_email) : '') +
+        ' · ' + esc(KIND_LABEL[c.kind] || 'Change request') + '</div>' +
+      (items ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:14px">' + items + '</ul>' : '') +
+      (c.guests ? '<p class="row-sub" style="margin:8px 0 0">New guest count asked for: <b>' + esc(String(c.guests)) + '</b></p>' : '') +
+      '<p style="margin:8px 0 0;white-space:pre-wrap;font-size:14px">' + esc(c.message || '') + '</p>' +
+      (c.owner_note ? '<p class="row-sub" style="margin:8px 0 0"><b>Your reply:</b> ' + esc(c.owner_note) + '</p>' : '') +
+      (open
+        ? '<div style="margin:10px 0 0">' +
+          '<input class="chg-note" data-for="' + esc(c.id) + '" placeholder="What should she be told? (she sees this)" ' +
+          'style="width:100%;padding:9px;margin:0 0 8px;border:1px solid var(--line);border-radius:8px">' +
+          '<button class="btn gold" data-chg="' + esc(c.id) + '" data-status="accepted">Accept</button> ' +
+          '<button class="btn ghost" data-chg="' + esc(c.id) + '" data-status="declined">Decline</button>' +
+          '</div>'
+        : '<div style="margin:10px 0 0"><button class="btn ghost" data-chg="' + esc(c.id) + '" data-status="open">Reopen</button></div>') +
+      '</div>';
+  }
+
+  var KIND_LABEL = {
+    message: 'Message', add_items: 'Wants to add items', guests: 'Guest count',
+    cajita: 'Cajita request', dietary: 'Allergies / dietary'
+  };
+
+  function wireChanges(root) {
+    root.querySelectorAll('[data-chg]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-chg');
+        var note = root.querySelector('.chg-note[data-for="' + id + '"]');
+        btn.disabled = true;
+        Hub.api(ENDPOINT, { method: 'POST', body: {
+          op: 'decide_change', change_id: id,
+          status: btn.getAttribute('data-status'),
+          owner_note: note ? note.value.trim() : ''
+        } }).then(function (r) {
+          if (r && r.ok) { Hub.toast('Answered'); render(); }
+          else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not save that'); }
+        });
+      });
+    });
+  }
+
   function render() {
     Owner.get(ENDPOINT).then(function (d) {
       var root = document.getElementById('owner-root');
@@ -542,15 +595,23 @@
       if (!d || !d.ok) { root.innerHTML = '<div class="card"><p class="row-sub">Could not load catering quotes.</p></div>'; return; }
       var qs = d.quotes || [];
       var rs = d.requests || [];
+      var cs = d.changes || [];
+      var openChanges = cs.filter(function (c) { return c.status === 'open'; });
       var unpaid = qs.filter(function (q) { return q.deposit_status !== 'paid'; });
       var owed = qs.reduce(function (n, q) { return n + (q.balance_status === 'due' ? Number(q.balance_cents || 0) : 0); }, 0);
 
       root.innerHTML =
         '<div class="card-grid">' +
+          Owner.tile(String(openChanges.length), 'Customer requests', { accent: openChanges.length ? 'accent' : '' }) +
           Owner.tile(String(rs.length), 'Website requests', { accent: rs.length ? 'accent' : '' }) +
           Owner.tile(String(qs.length), 'Quotes') +
           Owner.tile(String(unpaid.length), 'Deposits unpaid', { accent: unpaid.length ? 'accent' : '' }) +
           Owner.tile(money(owed), 'Balances still owed') +
+        '</div>' +
+        // Ahead of everything else on this page: somebody who has already booked is waiting on an
+        // answer, and an unanswered customer phones instead.
+        '<div class="hub-section"><h2>Customer requests</h2>' +
+        (cs.length ? cs.map(changeCard).join('') : '<div class="hub-empty">No customers have asked for changes.</div>') +
         '</div>' +
         '<div class="hub-section"><h2>Website quote requests</h2><p><a href="/hub/kitchen/catering.html">Open kitchen design-request summary</a></p>' +
         (rs.length ? rs.map(requestCard).join('') : '<div class="hub-empty">No website catering requests yet.</div>') +
@@ -561,6 +622,7 @@
         '</div>';
 
       wireForm();
+      wireChanges(root);
       wireRequests(root);
       wireGifts(root);
       var selected = document.getElementById('selected-request');
