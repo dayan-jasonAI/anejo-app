@@ -59,10 +59,39 @@
     });
   }
 
+  // A PAID CATERING EVENT INSIDE THE WEEK BELONGS AT THE TOP OF THIS SCREEN.
+  //
+  // This dashboard carried twenty-five tiles and not one of them was catering, so the day before a
+  // paid thirty-guest event it showed nothing about it: no tile, no alert, no row. The single
+  // largest day of work the kitchen had was not on the owner's home screen in any form.
+  function loadEventPanel() {
+    var el = document.getElementById('event-panel');
+    if (!el) return;
+    Owner.get('/api/hub/kitchen/event').then(function (d) {
+      var soon = ((d && d.events) || []).filter(function (e) { return e.days_out >= 0 && e.days_out <= 7; });
+      if (!soon.length) { el.innerHTML = ''; return; }
+      el.innerHTML = soon.map(function (e) {
+        var when = e.days_out === 0 ? 'TODAY' : e.days_out === 1 ? 'TOMORROW' : 'in ' + e.days_out + ' days';
+        var money = e.balance_status === 'paid' ? '<span class="badge ok">Paid in full</span>'
+          : e.deposit_status === 'paid' ? '<span class="badge">Balance outstanding</span>'
+            : '<span class="badge crit">Deposit unpaid</span>';
+        return '<a class="card ' + (e.days_out <= 1 ? 'accent' : '') + '" style="display:block;text-decoration:none;color:inherit;margin-bottom:10px"' +
+          ' href="/hub/kitchen/event.html?id=' + encodeURIComponent(e.id) + '">' +
+          '<div class="row" style="padding:0;border:none"><div class="row-main">' +
+          '<div class="row-title">🎉 ' + Owner.esc(e.customer_name || 'Catering event') + ' · ' + when + '</div>' +
+          '<div class="row-sub">' + Owner.esc(e.event_date) + (e.serving_time ? ' · ' + Owner.esc(e.serving_time) : '') +
+          ' · ' + (Number(e.guests) || 0) + ' guests · tap for the production plan</div>' +
+          '</div><div>' + money + '</div></div></a>';
+      }).join('');
+      if (window.AnejoI18n) window.AnejoI18n.refresh();
+    }, function () { el.innerHTML = ''; });
+  }
+
   function render() {
     var root = document.getElementById('owner-root');
     root.className = '';
     root.innerHTML =
+      '<div id="event-panel" class="hub-section"></div>' +
       '<div id="ready-panel" class="hub-section"></div>' +
       '<div class="hub-section"><h2 data-i18n>At a glance</h2><div id="tiles" class="card-grid"><div class="hub-loading">…</div></div></div>' +
       '<div class="hub-section"><h2 data-i18n>Alerts</h2><div id="alerts"><div class="hub-loading">…</div></div></div>' +
@@ -70,6 +99,7 @@
         '<div id="feed" class="list feed-cap"><div class="hub-loading">…</div></div>' +
         '<button id="feed-toggle" class="btn ghost block" type="button" style="display:none" data-i18n>Expand</button></div>';
 
+    loadEventPanel();
     loadTiles();
     OwnerReadiness.mount('ready-panel');
     loadAlerts();
@@ -94,6 +124,8 @@
       var eodKind = t.eod_pct == null ? '' : (t.eod_pct >= 90 ? 'ok' : t.eod_pct >= 60 ? 'warn' : 'crit');
       el.innerHTML = [
         Owner.tile(t.orders_open, 'Orders open', { href: '/hub/owner/kitchen.html' }),
+        // Catering had no tile at all, on the dashboard whose job is to answer "what is happening".
+        Owner.tile('🎉', 'Catering & events', { href: '/hub/owner/catering.html' }),
         Owner.tile(t.pending_checkout || 0, 'Unpaid checkouts', {
           href: '/hub/owner/finance.html',
           badge: t.pending_checkout ? 'not kitchen' : null,

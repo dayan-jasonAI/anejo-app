@@ -11,10 +11,47 @@ export const onRequestGet = async ({ request, env }) => {
 
   const rewards = await rewardsSummary(env, sess.email);
 
+  // CATERING CUSTOMERS ARE CUSTOMERS.
+  //
+  // Karina paid $485 for a thirty-guest event, opened "View my account" from her payment
+  // confirmation, signed in with a magic link, and was told: "No plan is linked to
+  // karinajuan2702@gmail.com yet. Ask your trainer to add you." She has no trainer. She never
+  // wanted a meal plan. She had just paid us in full the same morning.
+  //
+  // The cause is that this endpoint only ever looked in `clients`, the meal-plan table, so anybody
+  // who bought catering was a stranger to their own account. Her events are read by the email the
+  // session has already verified — never one supplied by the caller.
+  const cateringRows = await env.DB.prepare(
+    `SELECT id, customer_name, event_date, serving_time, guests, total_cents, deposit_cents,
+            balance_cents, deposit_status, balance_status, balance_due_date, final_count_due,
+            address, theme, colors, access_token, lang, quote_json
+       FROM catering_quotes
+      WHERE LOWER(TRIM(customer_email)) = ? AND deposit_status != 'void'
+      ORDER BY event_date DESC LIMIT 20`
+  ).bind(String(sess.email).trim().toLowerCase()).all();
+
+  const catering = ((cateringRows && cateringRows.results) || []).map((q) => {
+    let lines = [];
+    try { const b = JSON.parse(q.quote_json || '{}'); lines = Array.isArray(b.lines) ? b.lines : []; } catch { lines = []; }
+    return {
+      id: q.id, name: q.customer_name, event_date: q.event_date, serving_time: q.serving_time,
+      guests: q.guests, total_cents: q.total_cents, deposit_cents: q.deposit_cents,
+      balance_cents: q.balance_cents, deposit_status: q.deposit_status,
+      balance_status: q.balance_status, balance_due_date: q.balance_due_date,
+      final_count_due: q.final_count_due, address: q.address, theme: q.theme, colors: q.colors,
+      lang: q.lang || 'en',
+      // Her own quote page: the menu, the terms, the payment state — and, where one was given and
+      // the balance is settled, the gift. It already exists and is already hers; the account page
+      // links to it rather than rebuilding any of it.
+      url: q.access_token ? `/q/${q.access_token}` : null,
+      items: lines.map((l) => ({ name: l.name, name_es: l.name_es || null, qty: l.qty })),
+    };
+  });
+
   const client = await env.DB
     .prepare('SELECT id, name, email, phone, primary_goal, status FROM clients WHERE email = ? ORDER BY updated_at DESC LIMIT 1')
     .bind(sess.email).first();
-  if (!client) return json({ authenticated: true, email: sess.email, client: null, rewards });
+  if (!client) return json({ authenticated: true, email: sess.email, client: null, rewards, catering });
 
   const plan = await env.DB
     .prepare('SELECT public_token, daily_calories, daily_protein_g, daily_carbs_g, daily_fat_g, meal_plan_tier, bowl_size_oz, per_bowl_price_cents, status FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
@@ -68,5 +105,6 @@ export const onRequestGet = async ({ request, env }) => {
     };
   } catch { prefill = null; }
 
-  return json({ authenticated: true, email: sess.email, client, plan, subscription: sub || null, rewards, today_bowls: todayBowls, prefill });
+  // catering rides along for a meal-plan client too — the same person can be both.
+  return json({ authenticated: true, email: sess.email, client, plan, subscription: sub || null, rewards, today_bowls: todayBowls, prefill, catering });
 };

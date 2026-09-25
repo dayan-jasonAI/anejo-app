@@ -39,7 +39,24 @@ export const onRequestGet = async ({ request, env }) => {
               deposit_cents, balance_cents, deposit_status, deposit_paid_at, deposit_paid_cents,
               balance_status, balance_paid_at, balance_due_date, final_count_due,
               payment_link_url, (SELECT payment_link_url FROM catering_balance_checkouts WHERE quote_id=catering_quotes.id) AS balance_payment_link_url, terms_version, terms_json, quote_json, note, created_at
-         FROM catering_quotes ORDER BY created_at DESC LIMIT 50`
+         FROM catering_quotes
+        ORDER BY
+          -- THE WORK COMES FIRST, NEWEST LAST.
+          --
+          -- This was ORDER BY created_at DESC, which sorts by when a quote was TYPED. The practical
+          -- effect on 2026-09-25 was that a stack of throwaway test quotes made that afternoon sat
+          -- on top of the real thirty-guest event being cooked the next morning, and the owner had
+          -- to scroll past all of them to reach the only row that mattered.
+          --
+          -- A desk that takes deposits should lead with the events that are actually happening:
+          -- live bookings by how soon they are, then everything settled or abandoned, and a voided
+          -- quote last of all because it is a record, not a job.
+          CASE WHEN deposit_status = 'void' THEN 2
+               WHEN event_date IS NOT NULL AND event_date >= date('now', '-1 day') THEN 0
+               ELSE 1 END,
+          CASE WHEN event_date IS NOT NULL AND event_date >= date('now', '-1 day') THEN event_date END ASC,
+          created_at DESC
+        LIMIT 50`
     ).all();
     // THE TERMS COME OFF THE ROW, PARSED — never rebuilt from today's constants. A quote sold last
     // year under a different deposit rate or a different cancellation ladder must read back as
