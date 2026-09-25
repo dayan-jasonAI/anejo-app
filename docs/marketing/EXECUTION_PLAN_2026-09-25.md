@@ -54,3 +54,8 @@ Implemented v6: exact-byte26image registry; source records supplied separately f
 Validation: `npm test`2,939passed (`/tmp/anejo-audit-v6-root.log`); `npm run lint`0errors/11existingwarnings (`/tmp/anejo-audit-v6-lint.log`); Pages Functions build passed (`/tmp/anejo-audit-v6-build.log`); `git diff --check` passed. Fullroot run includes actual JPEG hash/mutation/order tests and automatic publish/trust guards. No Studio source changed in this increment. No provider call, customer send, public post or production mutation performed for these tests.
 
 Open: release/deployment/live semantic acceptance. Hash rechecks are decision-time checks, not atomic R2/SQL locking; future immutable media pipeline remains necessary for stronger guarantees. Renderer registry currently covers reviewed revision3 exports only. Generic future template receipts and reliable model explanations remain incomplete. Keep goal active.
+
+
+### Resume checkpoint after PR132
+
+Released226a03a and live source-record display verified. See release evidence and AUDIT_V6_READBACK_2026-09-25.json. Choice now6/7/nullscore with a misapplied product-fidelity unknown; do not equate fail-closed behavior with semantic correctness. No second provider retry performed. Goal remains active. Fullfuture receipt proposal was inspected by root and saved as FUTURE_RENDER_RECEIPTS_2026-09-25.md; it is a proposal, not implementation. Next executor must inspect Git/current goal state, preserve current provider results and fix structured product-claim scope before any trust enablement. Existingbrowser tab1238612919 shows expanded choice audit/source records.
