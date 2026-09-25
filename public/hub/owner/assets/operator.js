@@ -95,6 +95,7 @@
         var label=document.createElement('label'),text=document.createElement('span'),input=document.createElement('textarea');
         text.textContent=key.replace(/_/g,' ')+(Array.isArray(preview.proposal[key])?' — one item per line':'');
         input.value=Array.isArray(preview.proposal[key])?preview.proposal[key].join('\n'):preview.proposal[key];
+        input.setAttribute('rows',key==='title'?'2':'4');
         label.appendChild(text);label.appendChild(input);output.appendChild(label);inputs[key]=input;
       });
       var note=document.createElement('p');note.setAttribute('role','status');output.appendChild(note);
@@ -348,6 +349,7 @@
     '.aop-proposal{margin:14px 0;padding:12px;border:1px solid rgba(198,167,94,.4);border-radius:10px;overflow-wrap:anywhere}',
     '.aop-proposal h3{margin:0 0 10px;color:#e8dfc8;font-size:18px}.aop-proposal h4{margin:14px 0 5px;color:#c6a75e;font-size:13px}',
     '.aop-proposal p,.aop-proposal li{font-size:13px;line-height:1.5;color:#e8dfc8}.aop-proposal button{margin:4px 6px 4px 0;padding:9px 11px;min-height:44px;cursor:pointer}',
+    '.aop-proposal label{display:block;margin:12px 0;font-size:13px;color:#e8dfc8}.aop-proposal label>span{display:block;margin-bottom:6px}.aop-proposal textarea{display:block;box-sizing:border-box;width:100%;resize:vertical;padding:10px;border:1px solid rgba(198,167,94,.5);border-radius:8px;background:#15251e;color:#f5efdf;font:inherit;line-height:1.5}.aop-proposal textarea:focus{outline:2px solid #c6a75e;outline-offset:2px}',
     '.aop-proposal [role=status]{color:#c6a75e}.aop-proposal details{font-size:12px;margin-top:10px}.aop-proposal summary{cursor:pointer;padding:8px 0}',
     '.aop-msg{margin:0 0 10px;font-size:14px;line-height:1.55;white-space:pre-wrap}',
     '.aop-msg.me{color:#c6a75e;font-weight:600}.aop-msg.ai{color:#e8dfc8}.aop-msg.err{color:#ff9b8a}',
