@@ -407,8 +407,8 @@ async function anaExtraContext(env, question) {
   // and Aña must never call a menu dietitian-approved before one has signed it.
   try {
     const { programContext } = await import('./program.js');
-    const p = await programContext(env);
-    if (p) block += '\n\n' + p.slice(0, ANA_PROGRAM_BUDGET);
+    const p = await programContext(env, { maxChars: ANA_PROGRAM_BUDGET });
+    if (p) block += '\n\n' + p;
   } catch { /* additive */ }
   try {
     const passages = await retrieve(env, question, { topK: ANA_KB_TOPK });

@@ -163,6 +163,24 @@ test('program context stays silent when there is no program, so it never pollute
   assert.equal(await programContext(env), '');
 });
 
+test('Ana-sized program context retains the full approval restriction in both languages', async () => {
+  const env = ownerEnv();
+  for (const lang of ['en', 'es']) {
+    const full = await programContext(env, { lang });
+    const compact = await programContext(env, { lang, maxChars: 900 });
+    const restriction = full.split('\n').find(line => /IMPORTANT|IMPORTANTE/.test(line));
+    assert.ok(restriction);
+    assert.ok(compact.length <= 900);
+    assert.ok(compact.split('\n').includes(restriction), 'retain the whole restriction, not a cut prefix');
+    assert.ok(compact.split('\n').every(line => full.split('\n').includes(line)), 'never cut a fact mid-sentence');
+    assert.equal(await programContext(env, { lang, maxChars: 20 }), '', 'insufficient space must omit the block');
+  }
+  env.DB.sqlite.prepare("UPDATE program_cycles SET dietitian_name='Test Reviewer', dietitian_credentials='RD', dietitian_license='TEST', reviewed_at=? WHERE id='pcyc_adc4'").run(Date.now());
+  const signed = await programContext(env, { maxChars: 900 });
+  assert.match(signed, /Menu reviewed and signed by Test Reviewer, RD \(FL license TEST\)\./);
+  assert.ok(signed.length <= 900);
+});
+
 test('the kitchen training module is due again, with the program update in both languages', () => {
   assert.equal(CURRENT_VERSION.kitchen, '2026-09-21-adult-day-program');
   const u = UPDATES['2026-09-21-adult-day-program'];
