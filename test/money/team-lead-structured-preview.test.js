@@ -45,3 +45,10 @@ test('receipt accepts bounded closed schema and rejects config/keyword/secret ex
  ]){const invalid=structuredClone(base);mutate(invalid);const r=await persistInferenceReceipt({DB},{surface:'team_lead',requestJson:JSON.stringify(invalid)});assert.equal(r.persisted,false);}
  assert.equal(DB.one('SELECT COUNT(*) AS n FROM inference_receipts').n,1);
 });
+
+test('detailed angle1084 is retained exactly while2001 still fails validation',async t=>{
+ const angle='Creative direction. '.repeat(60).slice(0,1084);assert.equal(angle.length,1084);
+ const f=fixture(t,[answer(JSON.stringify({...proposal,angle})),answer(JSON.stringify({...proposal,angle:'x'.repeat(2001)}))]);
+ const accepted=await leadReply(f.env,{mode:'private_campaign_preview',message:'Plan'});assert.equal(accepted.ok,true);assert.equal(accepted.proposal.angle,angle);
+ const rejected=await leadReply(f.env,{mode:'private_campaign_preview',message:'Plan'});assert.equal(rejected.ok,false);assert.equal(rejected.preview_diagnostic.field,'angle');assert.equal(rejected.preview_diagnostic.limit,2000);
+});

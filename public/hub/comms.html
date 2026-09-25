@@ -10,6 +10,8 @@
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link rel="stylesheet" href="/hub/assets/hub.css">
 <style>
+  /* Respect explicit hidden state despite shared .btn display styling. */
+  #ig-followup[hidden], #ig-reply-status[hidden] { display: none !important; }
   /* Page-local: chat bubbles + channel toggle (shared shell stays untouched). */
   .bubbles { display: flex; flex-direction: column; padding: 4px 2px 12px; }
   .bubble { max-width: 80%; padding: 10px 12px; border-radius: 14px; margin: 5px 0; font-size: 14px; line-height: 1.4; word-break: break-word; white-space: pre-wrap; }

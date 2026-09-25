@@ -1,0 +1,32 @@
+[
+  {
+    "results": [
+      {
+        "id": "ocp_811c9ffa5c489ea70f7a059c4e3af1c951afc6af80a328474ab003a0114e6c20",
+        "state": "failed",
+        "model": "claude-opus-4-6",
+        "error_code": "invalid_preview_response",
+        "diagnostic": "{\"stage\":\"validation\",\"code\":\"string_too_long\",\"field\":\"angle\",\"limit\":1000,\"actual\":1084}",
+        "inference_receipt": "{\"ok\":true,\"persisted\":true,\"receipt_id\":\"inf_72f10486fc66c5016baf\",\"request_sha256\":\"ed8286e5ecf1c72a0f3aecabe0ec9d96b8140092b5e739d5f835faae80daeaed\",\"created_at\":1790372382685,\"evidence_status\":\"input_recorded\",\"transport_status\":\"unknown\"}"
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "IAD",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.2855
+      },
+      "duration": 0.2855,
+      "changes": 0,
+      "last_row_id": 1360,
+      "changed_db": false,
+      "size_after": 20303872,
+      "rows_read": 1,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]

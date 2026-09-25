@@ -386,13 +386,16 @@ function isModelNotFound(res) {
 }
 
 export const PRIVATE_CAMPAIGN_PREVIEW = 'private_campaign_preview';
-const PREVIEW_LIMITS = { title: 200, objective: 1000, audience: 500, angle: 1000, cadence: 300, success_metric: 300 };
+const PREVIEW_LIMITS = { title: 200, objective: 1000, audience: 500, angle: 2000, cadence: 300, success_metric: 300 };
+// Detailed creative direction fits the existing TEXT brief consumers; accepting its length
+// is not semantic approval. Concise targets leave headroom below the storage safety bounds.
+const PREVIEW_TARGETS = {title:"40–100",objective:"200–500",audience:"100–250",angle:"400–600",cadence:"80–150",success_metric:"80–150"};
 const PREVIEW_ARRAYS = { channels: [3, 30], product_ids: [20, 160], assets: [10, 400], assumptions: [10, 400], questions: [10, 400] };
 // Provider grammar handles JSON shape; the validator below remains authoritative for
 // length, uniqueness and available product IDs. No unsupported length/array keywords.
 export function campaignPreviewFormat() {
   const properties = {};
-  for (const [key, limit] of Object.entries(PREVIEW_LIMITS)) properties[key] = {type:'string',description:`Nonempty proposed ${key.replace(/_/g,' ')}; at most ${limit} characters.`};
+  for (const [key, limit] of Object.entries(PREVIEW_LIMITS)) properties[key] = {type:'string',description:`Nonempty proposed ${key.replace(/_/g,' ')}; target ${PREVIEW_TARGETS[key]} characters, hard maximum ${limit}.`};
   for (const [key, [count, chars]] of Object.entries(PREVIEW_ARRAYS)) properties[key] = {
     type:'array',description:`At most ${count} unique strings, each nonempty and at most ${chars} characters.` + (key==='product_ids'?' Only available IDs from the supplied menu snapshot; otherwise empty.':''),
     items:{type:'string',...(key==='channels'?{enum:['instagram','facebook','website']}:{})},
@@ -401,8 +404,9 @@ export function campaignPreviewFormat() {
 }
 const PREVIEW_RULES = '\nPRIVATE CAMPAIGN PREVIEW: This overrides the ACTIONS output instructions. ' +
   'Return ONLY one JSON object, no markdown, prose or action blocks. Required keys: title, objective, audience, angle, cadence, success_metric ' +
-  '(nonempty strings bounded respectively 200,1000,500,1000,300,300 characters); channels (1-3 unique values instagram/facebook/website); ' +
+  '(nonempty strings bounded respectively 200,1000,500,2000,300,300 characters); channels (1-3 unique values instagram/facebook/website); ' +
   'product_ids (0-20 unique available catalog IDs from the supplied snapshot); assets, assumptions, questions (0-10 strings each, max400 characters). ' +
+  'Concise generation targets in characters: title40–100, objective200–500, audience100–250, angle400–600, cadence80–150, success_metric80–150. Targets are not minimums; use fewer words when sufficient. ' +
   'Develop a useful complete proposed strategy from the owner idea. Audience/cadence/metrics are suggestions, not established facts. ' +
   'Preserve missing facts as unknown in questions; no invented prices, discounts, dates, service areas or measured results. ' +
   'No research or actions execute. No status/actor/approval fields. No claim of saving, activation, publication or asset availability. ' +
