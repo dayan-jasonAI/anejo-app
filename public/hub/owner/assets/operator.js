@@ -21,7 +21,7 @@
     paragraph(card,'Generate a private proposal from this saved idea using the existing AI budget. Team planning requires your explicit review.');
     var status=document.createElement('p'); if(status.setAttribute){status.setAttribute('role','status'); status.setAttribute('aria-live','polite');} card.appendChild(status);
     var output=document.createElement('div'); card.appendChild(output);
-    var requestId=null, busy=false, terminal=false, promotionRequests={};
+    var requestId=null, busy=false, terminal=false, promotionRequests={}, requestEpoch=0, readBusy=false;
     function section(label,value) {
       if(value===undefined||value===null||value==='')return;
       var h=document.createElement('h4');h.textContent=label;output.appendChild(h);
@@ -87,7 +87,7 @@
     function render(preview) {
       output.replaceChildren();
       if(!preview) {status.textContent='No saved proposal returned for this idea.';return;}
-      if(preview.request_id)requestId=preview.request_id;
+      if(preview.request_id){requestId=preview.request_id;check.disabled=readBusy;}
       if(preview.state==='generating') {
         status.textContent='Generation is recorded as in progress or awaiting an outcome. Completion is not verified. Check saved status; do not start another generation.';
         generate.textContent='Check saved status';return;
@@ -130,31 +130,55 @@
     }
     async function run(freshRequest) {
       if(busy||terminal)return;
+      var runEpoch=++requestEpoch;
       busy=true;generate.disabled=true;reload.disabled=true;status.textContent=requestId?'Checking saved outcome…':'Generating private proposal…';
       try {
         var body;
         if(!requestId){
           var existing=await get('/api/hub/owner/operator-campaign-preview?idea_id='+encodeURIComponent(idea.id));
+          if(runEpoch!==requestEpoch)return;
           if(!Array.isArray(existing.previews))throw Error('Invalid saved proposal response');
           if(existing.previews.length){render(existing.previews[0]);return;}
         }
         if(requestId && freshRequest!==true){try{body=await get('/api/hub/owner/operator-campaign-preview?request_id='+encodeURIComponent(requestId));}catch(readError){if(readError.httpStatus!==404)throw readError;}}
+        if(runEpoch!==requestEpoch)return;
         if(!body) {
           if(!requestId)requestId=crypto.randomUUID();
+          check.disabled=false;status.textContent='Generation request in progress. You can check this same saved request while the response is pending.';
           var response=await fetch('/api/hub/owner/operator-campaign-preview',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:requestId,idea_id:idea.id})});
           body=await response.json();
+          if(runEpoch!==requestEpoch)return;
           if(!response.ok||(!body.ok&&!body.preview))throw Error(body.detail||body.error||'Generation outcome not verified');
         }
         render(body.preview);
-      } catch(error) {status.textContent=String(error.message||error)+'. Outcome not verified. Check or retry this same request; no duplicate generation will be requested.';generate.textContent=requestId?'Check saved status':'Generate proposed strategy';}
-      finally {busy=false;generate.disabled=terminal;reload.disabled=false;}
+      } catch(error) {if(runEpoch!==requestEpoch)return;status.textContent=String(error.message||error)+'. Outcome not verified. Check or retry this same request; no duplicate generation will be requested.';generate.textContent=requestId?'Check saved status':'Generate proposed strategy';}
+      finally {if(runEpoch===requestEpoch){busy=false;generate.disabled=terminal;reload.disabled=false;check.disabled=!requestId||readBusy;}}
     }
     var generate=button(card,'Generate proposed strategy',run);
+    var check=button(card,'Check this request now',async function(){
+      if(!requestId||readBusy)return;
+      var readId=requestId,readEpoch=requestEpoch;
+      readBusy=true;check.disabled=true;status.textContent='Reading the saved outcome for this same request…';
+      try{
+        var body=await get('/api/hub/owner/operator-campaign-preview?request_id='+encodeURIComponent(readId));
+        if(readEpoch!==requestEpoch||readId!==requestId)return;
+        var preview=body.preview;
+        if(!preview||preview.request_id!==readId||!['generating','succeeded','failed'].includes(preview.state))throw Error('Saved request identity or state was not verified');
+        if(preview.state==='succeeded'||preview.state==='failed'){
+          // Durable terminal readback wins over the still-pending original transport.
+          // Invalidate its callbacks without aborting server work or posting again.
+          requestEpoch++;busy=false;generate.disabled=true;reload.disabled=false;
+        }
+        render(preview);
+      }catch(error){if(readEpoch===requestEpoch&&readId===requestId)status.textContent='Saved outcome not verified: '+String(error.message||error)+'. No new generation was requested; check this same request again.';}
+      finally{readBusy=false;check.disabled=!requestId;}
+    });
+    check.disabled=true;
     var reload=button(card,'Load saved strategy',async function(){
-      if(busy)return;busy=true;reload.disabled=true;generate.disabled=true;status.textContent='Loading saved private proposal…';
-      try {var body=await get('/api/hub/owner/operator-campaign-preview?idea_id='+encodeURIComponent(idea.id));if(!Array.isArray(body.previews))throw Error('Invalid saved proposal response');render(body.previews[0]||null);}
-      catch(error){status.textContent='Saved proposals unavailable: '+String(error.message||error);}
-      finally{busy=false;reload.disabled=false;generate.disabled=terminal;}
+      if(busy)return;var reloadEpoch=++requestEpoch;busy=true;reload.disabled=true;generate.disabled=true;status.textContent='Loading saved private proposal…';
+      try {var body=await get('/api/hub/owner/operator-campaign-preview?idea_id='+encodeURIComponent(idea.id));if(reloadEpoch!==requestEpoch)return;if(!Array.isArray(body.previews))throw Error('Invalid saved proposal response');render(body.previews[0]||null);}
+      catch(error){if(reloadEpoch===requestEpoch)status.textContent='Saved proposals unavailable: '+String(error.message||error);}
+      finally{if(reloadEpoch===requestEpoch){busy=false;reload.disabled=false;generate.disabled=terminal;}}
     });
   }
   window.AnejoOperatorPrivateUI = function(result,root) {
