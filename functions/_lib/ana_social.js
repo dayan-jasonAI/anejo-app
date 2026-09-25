@@ -166,7 +166,7 @@ Two rules about the section above. The PRICES AND AVAILABILITY EARLIER IN THIS P
  */
 export async function anaBrand(env) {
   try {
-    const b = await loadBrand(env, { maxChars: ANA_BRAND_BUDGET, sections: CUSTOMER_FACING_SECTIONS });
+    const b = await loadBrand(env, { maxChars: ANA_BRAND_BUDGET, sections: CUSTOMER_FACING_SECTIONS, strictSections: true });
     return (b && b.text) || '';
   } catch { return ''; }
 }
