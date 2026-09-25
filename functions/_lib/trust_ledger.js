@@ -16,7 +16,7 @@
 // Files under functions/_lib are NOT routed.
 import { now } from './hub.js';
 import { raiseAlert } from './alerts.js';
-import { SOCIAL_AUDIT_SNAPSHOT, SOCIAL_AUDIT_CURRENT } from './social_audit.js';
+import { SOCIAL_AUDIT_SNAPSHOT, SOCIAL_AUDIT_CURRENT, verifyAuditImageReceipts } from './social_audit.js';
 
 // The five fixed lanes. The planner is asked to file every post under exactly one of these;
 // anything else it invents is stored as NULL and never counts toward (or against) a streak.
@@ -43,7 +43,7 @@ export async function noteTrustApproval(env, postId) {
   if (!env || !env.DB || !postId) return { counted: false };
   try {
     const row = await env.DB.prepare(`SELECT source, category, caption, original_caption_hash,
-      original_design_snapshot, audit_status, audit_scope, audit_snapshot,
+      original_design_snapshot, audit_status, audit_scope, audit_snapshot, audit_detail_json,
       ${SOCIAL_AUDIT_SNAPSHOT} AS revision_snapshot, ${SOCIAL_AUDIT_CURRENT} AS audit_current FROM social_posts WHERE id=?`).bind(postId).first();
     if (!row || row.source !== 'planner' || !TRUST_CATEGORIES.includes(row.category) || !row.original_caption_hash) return { counted: false };
     const clean = captionHash(row.caption || '') === row.original_caption_hash &&
@@ -52,6 +52,7 @@ export async function noteTrustApproval(env, postId) {
     // caption correction still resets the lane, even for a legacy draft.
     if (!row.original_design_snapshot && captionHash(row.caption || '') === row.original_caption_hash) return { counted: false };
     if (clean && (!row.audit_current || row.audit_status !== 'pass' || row.audit_scope !== 'caption_and_media' || row.audit_snapshot !== row.revision_snapshot)) return { counted: false };
+    if (clean && !await verifyAuditImageReceipts(env,JSON.parse(row.revision_snapshot)[4],row.audit_detail_json)) return {counted:false};
     const t = now();
     // One clean credit per post; each corrected revision resets once. A corrected
     // post can never earn clean credit again, even if someone restores its original text.

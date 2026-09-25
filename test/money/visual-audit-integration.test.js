@@ -59,6 +59,32 @@ test('actual visual request numbers publication JPEGs first and reference PNG la
  try{await auditDraft(env,{caption:'Menu',images:['cover','cajitas','tray','bites','combo','cta'].map(data=>({data}))});
  const content=request.messages[0].content;const pictures=content.filter(c=>c.type==='image');assert.deepEqual(pictures.slice(0,6).map(c=>c.source.data),['cover','cajitas','tray','bites','combo','cta']);assert.equal(pictures[6].source.media_type,'image/png');assert.equal(pictures.length,7);
  for(let i=0;i<6;i++){assert.match(content[1+2*i].text,new RegExp('^Slide '+(i+1)));assert.equal(content[2+2*i].source.data,pictures[i].source.data);}
- assert.match(content[1].text,/COVER/);assert.match(content[13].text,/END OF NUMBERED CAROUSEL/);assert.match(content[13].text,/excluded from slide count/);assert.equal(content[14].source.media_type,'image/png');assert.deepEqual(request.output_config.format.schema.properties.observations.items.properties.slides.items.enum,[1,2,3,4,5,6]);assert.equal(VERSION,'anejo-visual-5');
+ assert.match(content[1].text,/COVER/);assert.match(content[13].text,/END OF NUMBERED CAROUSEL/);assert.match(content[13].text,/excluded from slide count/);assert.equal(content[14].source.media_type,'image/png');assert.deepEqual(request.output_config.format.schema.properties.observations.items.properties.slides.items.enum,[1,2,3,4,5,6]);assert.equal(VERSION,'anejo-visual-6');
  }finally{globalThis.fetch=original;}
+});
+
+test('source declarations preserve actual carousel order without turning source data into an audit pass',async()=>{
+ const env=ownerEnv({ANTHROPIC_API_KEY:'test'});const original=globalThis.fetch;let body;
+ const sourceReceipt={media_id:'m2',seq:9,key:'marketing-library/test.jpg',sha256:'a'.repeat(64),design_facts:{rendered_text:[{role:'detail',text:'DM CAJITA / Escríbenos CAJITA'}]}};
+ globalThis.fetch=async(_,init)=>{body=JSON.parse(init.body);const data=answer();data.observations[0].status='unknown';return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(data)}]})};};
+ try {
+  const result=await auditDraft(env,{caption:'Catering',images:[{data:'test',sourceReceipt}]});
+  const declarations=body.messages[0].content.at(-1).text;
+  assert.match(declarations,/"slide":1/);assert.doesNotMatch(declarations,/"seq":9/);
+  assert.match(declarations,/DM CAJITA/);assert.match(declarations,/do not recommend wording already present/);
+  assert.equal(result.input_coverage.slide_sources[0].sha256,sourceReceipt.sha256);
+  assert.equal(result.verdict,'flag');assert.equal(result.brand_score,null);
+ } finally {globalThis.fetch=original;}
+});
+test('unavailable provider preserves supplied source receipts without asserting acceptance',async()=>{
+ const sourceReceipt={sha256:'b'.repeat(64),design_facts:null};
+ const result=await auditDraft(ownerEnv(),{caption:'Catering',images:[{data:'test',sourceReceipt}]});
+ assert.equal(result.verdict,'flag');assert.equal(result.brand_score,null);
+ assert.equal(result.input_coverage.slide_sources[0].sha256,sourceReceipt.sha256);
+ assert.equal(result.input_coverage.slide_sources[0].design_facts,null);
+});
+
+test('oversized source declarations fail closed rather than silently truncating known facts',async()=>{
+ const {designEvidencePrompt}=await import('../../functions/_lib/governance.js');
+ assert.throws(()=>designEvidencePrompt([{sourceReceipt:{design_facts:{rendered_text:[{text:'x'.repeat(24001)}]}}}]),/design_evidence_limit/);
 });
