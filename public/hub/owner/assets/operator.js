@@ -84,6 +84,49 @@
       });
       use.disabled=true;ack.addEventListener('change',function(){use.disabled=pending||stopped||!ack.checked;});
     }
+    function editProposal(preview) {
+      if(busy||readBusy)return;
+      reload.disabled=true;check.disabled=true;
+      output.replaceChildren();
+      paragraph(output,'Edit this private proposal. The original stays saved. Channels and catalog selections stay as shown in the original. Saving does not approve or activate planning.');
+      if(preview.promotion_status==='recorded')paragraph(output,'An earlier planning brief remains unchanged. Saving this revision does not replace or withdraw that earlier direction.');
+      var inputs={},frozen=null,saving=false;
+      ['title','objective','audience','angle','cadence','success_metric','assets','assumptions','questions'].forEach(function(key){
+        var label=document.createElement('label'),text=document.createElement('span'),input=document.createElement('textarea');
+        text.textContent=key.replace(/_/g,' ')+(Array.isArray(preview.proposal[key])?' — one item per line':'');
+        input.value=Array.isArray(preview.proposal[key])?preview.proposal[key].join('\n'):preview.proposal[key];
+        input.setAttribute('rows',key==='title'?'2':'4');
+        label.appendChild(text);label.appendChild(input);output.appendChild(label);inputs[key]=input;
+      });
+      var note=document.createElement('p');note.setAttribute('role','status');output.appendChild(note);
+      var save=button(output,'Save private revision',async function(){
+        if(saving)return;
+        if(!frozen){
+          var proposal=Object.assign({},preview.proposal);
+          Object.keys(inputs).forEach(function(key){proposal[key]=Array.isArray(preview.proposal[key])?inputs[key].value.split('\n').map(function(x){return x.trim();}).filter(Boolean):inputs[key].value;});
+          frozen={request_id:crypto.randomUUID(),preview_id:preview.id,expected_proposal_sha256:preview.proposal_sha256,proposal:proposal};
+        }
+        saving=true;busy=true;save.disabled=true;cancel.disabled=true;reload.disabled=true;check.disabled=true;
+        Object.keys(inputs).forEach(function(key){inputs[key].disabled=true;});
+        note.textContent='Saving a separate private revision…';
+        var savedSuccessfully=false;
+        try{
+          var response=await fetch('/api/hub/owner/operator-campaign-preview',{method:'PATCH',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(frozen)});
+          var result=await response.json(),saved=result.preview;
+          if(response.ok&&result.saved===true&&saved&&saved.request_id===frozen.request_id&&saved.generated===false&&saved.source_receipts&&saved.source_receipts.revision&&saved.source_receipts.revision.parent_id===preview.id){
+            requestEpoch++;requestId=saved.request_id;savedSuccessfully=true;render(saved);return;
+          }
+          // Explicit pre-save validation failures permit correction; uncertain writes keep
+          // the identical frozen request so retries cannot create a second revision.
+          if(response.status===400&&result.ok===false&&['invalid_proposal','invalid_revision_request'].includes(result.error)){
+            frozen=null;cancel.disabled=false;Object.keys(inputs).forEach(function(key){inputs[key].disabled=false;});
+            note.textContent='Revision was not saved: '+String(result.error)+'. Correct the wording or list lengths and save again.';
+          }else note.textContent='Revision save not verified. Retry this same save; no planning action was requested.';
+        }catch(error){note.textContent='Revision save not verified. Retry this same save; no planning action was requested.';}
+        finally{saving=false;busy=false;save.disabled=false;save.textContent=frozen?'Retry same save':'Save private revision';reload.disabled=!savedSuccessfully;check.disabled=!savedSuccessfully||!requestId;}
+      });
+      var cancel=button(output,'Cancel edits',function(){if(!saving&&!frozen){reload.disabled=false;render(preview);}});
+    }
     function render(preview) {
       output.replaceChildren();
       if(!preview) {status.textContent='No saved proposal returned for this idea.';return;}
@@ -111,16 +154,18 @@
       }
       status.textContent='Saved proposed strategy · private · review required · not active';
       var proposal=preview.proposal;
-      paragraph(output,'AI-generated proposal for your review. Suggestions and assumptions are not verified business facts.');
+      paragraph(output,preview.generated===false?'Privately edited proposal for your review. The original remains saved; editing is not approval.':'AI-generated proposal for your review. Suggestions and assumptions are not verified business facts.');
       Object.keys(proposal).forEach(function(key){section(key.replace(/_/g,' ').replace(/^./,function(c){return c.toUpperCase();}),proposal[key]);});
-      var details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Generation evidence';details.appendChild(summary);
-      paragraph(details,'Model: '+String(preview.model||'unverified')+' · Saved preview: '+String(preview.id));
+      var details=document.createElement('details'),summary=document.createElement('summary');summary.textContent=preview.generated===false?'Original generation and revision evidence':'Generation evidence';details.appendChild(summary);
+      paragraph(details,(preview.generated===false?'Original model: ':'Model: ')+String(preview.model||'unverified')+' · Saved preview: '+String(preview.id));
+      if(preview.generated===false&&preview.source_receipts&&preview.source_receipts.revision)paragraph(details,'Private edit of '+String(preview.source_receipts.revision.parent_id)+'. No model was called for this revision; original source context remains unchanged.');
       var receipts=preview.source_receipts||{},receipt=receipts.inference_receipt||{};
       paragraph(details,'Input receipt: '+String(receipt.receipt_id||'unavailable')+' · '+(receipt.persisted===true?'input recorded; not proof every instruction was followed':'input recording unverified'));
       var context=receipts.input_context||{},components=Object.assign({},context.components||{});
       Object.keys(context.coverage||{}).forEach(function(key){components[key]=Object.assign({},components[key]||{},context.coverage[key]||{});});
       Object.keys(components).forEach(function(key){var c=components[key];if(!c||typeof c!=='object'||Array.isArray(c))return;paragraph(details,key+': '+String(c.read_status||'status not supplied')+(c.truncated===true?' · truncated':'')+(typeof c.supplied_chars==='number'?' · '+c.supplied_chars+' supplied characters':''));});
       output.appendChild(details);
+      if(/^[a-f0-9]{64}$/.test(preview.proposal_sha256||''))button(output,'Edit this proposal privately',function(){editProposal(preview);});
       planningReview(preview);
     }
     async function get(url) {
@@ -304,6 +349,7 @@
     '.aop-proposal{margin:14px 0;padding:12px;border:1px solid rgba(198,167,94,.4);border-radius:10px;overflow-wrap:anywhere}',
     '.aop-proposal h3{margin:0 0 10px;color:#e8dfc8;font-size:18px}.aop-proposal h4{margin:14px 0 5px;color:#c6a75e;font-size:13px}',
     '.aop-proposal p,.aop-proposal li{font-size:13px;line-height:1.5;color:#e8dfc8}.aop-proposal button{margin:4px 6px 4px 0;padding:9px 11px;min-height:44px;cursor:pointer}',
+    '.aop-proposal label{display:block;margin:12px 0;font-size:13px;color:#e8dfc8}.aop-proposal label>span{display:block;margin-bottom:6px}.aop-proposal textarea{display:block;box-sizing:border-box;width:100%;resize:vertical;padding:10px;border:1px solid rgba(198,167,94,.5);border-radius:8px;background:#15251e;color:#f5efdf;font:inherit;line-height:1.5}.aop-proposal textarea:focus{outline:2px solid #c6a75e;outline-offset:2px}',
     '.aop-proposal [role=status]{color:#c6a75e}.aop-proposal details{font-size:12px;margin-top:10px}.aop-proposal summary{cursor:pointer;padding:8px 0}',
     '.aop-msg{margin:0 0 10px;font-size:14px;line-height:1.55;white-space:pre-wrap}',
     '.aop-msg.me{color:#c6a75e;font-weight:600}.aop-msg.ai{color:#e8dfc8}.aop-msg.err{color:#ff9b8a}',

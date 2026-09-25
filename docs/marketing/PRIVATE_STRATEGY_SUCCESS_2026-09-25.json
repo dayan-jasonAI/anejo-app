@@ -1,0 +1,15 @@
+{
+  "id": "ocp_43de6db99764ff6697483919faab1fe88710f254c783654113d1d7d8f64c3a08",
+  "request_id": "3c02cef5-10e4-4b1f-b45b-9a4f9ccfad92",
+  "state": "succeeded",
+  "model": "claude-opus-4-6",
+  "error_code": null,
+  "created_at": 1790373795199,
+  "updated_at": 1790373829087,
+  "proposal_title": "Full-Frame Food Photography \u2014 Instagram Visual Reset",
+  "semantic_review": [
+    "Proposal generalizes a 65 percent food-area rule across formats; full-frame source coverage does not establish food occupancy.",
+    "Audience counts and claimed asset capabilities require timestamped source verification.",
+    "Proposal remains private and not activated by this session."
+  ]
+}

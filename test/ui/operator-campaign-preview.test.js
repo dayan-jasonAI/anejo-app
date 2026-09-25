@@ -46,3 +46,16 @@ test('fresh card generate reuses saved latest outcome without creating another r
  const f=fixture([{body:ideas},{body:{ok:true,previews:[preview]}}]);await loaded(f);await f.button('Generate proposed strategy').click();assert.equal(f.ids(),0);assert.equal(f.calls.filter(c=>c.opts.method==='POST').length,0);assert.match(f.calls[1].url,/idea_id=obi_test/);
  }
 });
+
+test('private editor freezes uncertain saves, retries same payload and restores a separate reviewable proposal',async()=>{
+ const original=structuredClone(success.preview);original.proposal_sha256='a'.repeat(64);original.proposal={title:'Title',objective:'Objective',audience:'Audience',angle:'Original angle',cadence:'Cadence',success_metric:'Metric',channels:['instagram'],product_ids:[],assets:[],assumptions:[],questions:[]};
+ const saved={...original,id:'ocp_revision',generated:false,request_id:'request-1',proposal_sha256:'b'.repeat(64),proposal:{...original.proposal,angle:'Corrected scope'},source_receipts:{revision:{parent_id:original.id}},promotion_status:'not_recorded',promotion:null};
+ const f=fixture([{body:ideas},{body:{ok:true,previews:[original]}},Error('transport uncertain'),{body:{ok:true,saved:true,preview:saved}}]);
+ await loaded(f);await f.button('Load saved strategy').click();await f.button('Edit this proposal privately').click();
+ assert.equal(f.button('Load saved strategy').disabled,true);assert.equal(f.button('Check this request now').disabled,true);
+ const fields=f.all().filter(e=>e.tag==='textarea');fields[3].value='Corrected scope';
+ await f.button('Save private revision').click();assert.match(f.text(),/not verified/);assert.ok(fields.every(e=>e.disabled));assert.equal(f.button('Cancel edits').disabled,true);
+ await f.button('Retry same save').click();const patches=f.calls.filter(c=>c.opts.method==='PATCH');assert.equal(patches.length,2);assert.equal(patches[0].opts.body,patches[1].opts.body);assert.equal(f.ids(),1);
+ assert.match(f.text(),/Privately edited proposal/);assert.match(f.text(),/Corrected scope/);assert.equal(f.button('Load saved strategy').disabled,false);assert.equal(f.button('Use as team planning brief').disabled,true);
+ assert.equal(f.calls.some(c=>c.url.includes('promote')),false);assert.equal(f.calls.some(c=>c.opts.method==='POST'),false);
+});
