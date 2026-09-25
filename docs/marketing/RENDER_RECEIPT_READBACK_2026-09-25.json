@@ -1,0 +1,63 @@
+[
+  {
+    "results": [
+      {
+        "id": "rr_024b108c63ad33e2d79f743f2c85c918412d6a7975a158700c849054826b049a",
+        "state": "attached",
+        "evidence_tier": "browser_declared",
+        "source_key": "marketing-library/2026-09/original_d50e32b042e4f8082980_photo.jpg",
+        "output_key": "studio/render-receipts/rr_024b108c63ad33e2d79f743f2c85c918412d6a7975a158700c849054826b049a_photo.jpg",
+        "source_sha256": "e764085283ac0f7b8ee4ef8b077317dd3e7fbaee61cb55e426d6d942df724887",
+        "output_sha256": "94a39821418eecc7b18c41d26abe7ffa0097b5b8ec517624802a462420f17cdd",
+        "output_width": 1254,
+        "output_height": 1254
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "IAD",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.2519
+      },
+      "duration": 0.2519,
+      "changes": 0,
+      "last_row_id": 1,
+      "changed_db": false,
+      "size_after": 19738624,
+      "rows_read": 1,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  },
+  {
+    "results": [
+      {
+        "id": "sp_fb47a36be3fb7228387d",
+        "status": "draft",
+        "scheduled_at": null,
+        "audit_score": null
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "IAD",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.1018
+      },
+      "duration": 0.1018,
+      "changes": 0,
+      "last_row_id": 1,
+      "changed_db": false,
+      "size_after": 19738624,
+      "rows_read": 1,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]

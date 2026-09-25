@@ -44,17 +44,6 @@ export const leadModel = (env) => (env && env.TEAM_LEAD_MODEL) || 'claude-opus-4
 // prospects are not a segment, and Sales OS outreach is owner-approved per email in its own queue.
 export const ALLOWED_ACTIONS = ['create_brief', 'request_intel', 'draft_posts', 'propose_campaign'];
 
-async function rows(env, sql, ...args) {
-  try {
-    const r = await env.DB.prepare(sql).bind(...args).all();
-    return (r && r.results) || [];
-  } catch { return []; }
-}
-
-async function firstRow(env, sql, ...args) {
-  try { return await env.DB.prepare(sql).bind(...args).first(); } catch { return null; }
-}
-
 // Char cap on the injected brief. The compiled brief is ~15k; the Studio budgets 18k for the same
 // document, so this is headroom, not a squeeze. loadBrand() itself lives in brand_source.js —
 // shared with the content planner and the Brand Auditor, so there is one definition of "the
@@ -75,6 +64,7 @@ function describeItem(row) {
   const spec = BOWL_BY_NAME[key] || null;
   const macros = spec ? scaledBowlMacros(key, 1) : null;
   return {
+    id: String(row.id || ""),
     name: row.name || BOWL_LABEL[key] || key,
     price_usd: Math.round(row.price_cents || 0) / 100,
     available: isAvailable(row) && isOrderable(row),
@@ -93,6 +83,17 @@ function describeItem(row) {
  * the summary and the prompt can render the text from ONE gathering pass that cannot drift.
  */
 export async function buildSpine(env) {
+  const coverage = {};
+  async function readContext(key, sql, single = false) {
+    try {
+      const statement = env.DB.prepare(sql);
+      const result = single ? await statement.first() : await statement.all();
+      if (!single && (result?.success === false || !Array.isArray(result?.results))) throw Error('unavailable');
+      const value = single ? result : result.results;
+      coverage[key] = { read_status: value && (single || value.length) ? 'ok' : 'empty' };
+      return value;
+    } catch { coverage[key] = { read_status: 'unavailable' }; return single ? null : []; }
+  }
   // The brand brief — live copy if the owner has one, compiled snapshot otherwise.
   const brand = await loadBrand(env, { maxChars: BRAND_BUDGET });
 
@@ -107,6 +108,7 @@ export async function buildSpine(env) {
   const otherItems = items
     .filter((it) => it.kind !== 'bowl')
     .map((it) => ({
+      id: String(it.id || ""),
       name: it.name || String(it.id).toUpperCase(),
       kind: it.kind,
       price_usd: Math.round(it.price_cents || 0) / 100,
@@ -117,9 +119,9 @@ export async function buildSpine(env) {
   // Latest account snapshot + the strongest three and weakest one posts from the newest capture
   // day. Top-3/bottom-1 is the same shape performanceBrief feeds the planner: enough signal to
   // steer, small enough that the Lead reads numbers instead of drowning in them.
-  const account = await firstRow(env,
-    'SELECT capture_date, followers, media_count FROM ig_account_metrics ORDER BY capture_date DESC LIMIT 1');
-  const ranked = await rows(env,
+  const account = await readContext('account',
+    'SELECT capture_date, followers, media_count FROM ig_account_metrics ORDER BY capture_date DESC LIMIT 1', true);
+  const ranked = await readContext('post_metrics',
     `SELECT caption, media_type, likes, comments, reach, saved FROM ig_media_metrics
       WHERE capture_date = (SELECT MAX(capture_date) FROM ig_media_metrics)
       ORDER BY COALESCE(reach, likes, 0) DESC LIMIT 25`);
@@ -131,7 +133,7 @@ export async function buildSpine(env) {
 
   // The approval queue as it stands — the Lead should argue about what to make NEXT, and
   // "seventeen drafts are already waiting" is the strongest argument for making nothing.
-  const draftRows = await rows(env,
+  const draftRows = await readContext('drafts',
     "SELECT caption FROM social_posts WHERE status='draft' ORDER BY created_at DESC LIMIT 20");
   const drafts = {
     count: draftRows.length,
@@ -201,6 +203,7 @@ export async function buildSpine(env) {
     input_components: { brand: brand.receipt || { read_status: 'unknown' }, training: trainingReceipt, briefs: briefReceipt },
     menu: menuItems, other_items: otherItems,
     metrics, drafts, budget, briefs, surfaces, training, retro,
+    coverage: { ...coverage, menu: { source: menu.source, read_status: menu.source === 'd1' ? 'ok' : 'unavailable', fallback_reason: menu.source === 'd1' ? null : 'empty_or_unavailable' }, intel: { read_status: 'not_supplied' }, retrospective: { read_status: 'unknown' }, drafts_limit: 20, post_metrics_limit: 25 },
   };
 }
 
@@ -247,10 +250,10 @@ export function renderSpine(spine) {
         ? 'Best recent posts:\n' + spine.metrics.top_posts.map((p, i) => postLine(p, i + 1)).join('\n') +
           (spine.metrics.bottom_post ? '\nWeakest:\n' + postLine(spine.metrics.bottom_post, spine.metrics.top_posts.length + 1) : '')
         : 'No per-post metrics captured yet.')
-    : 'No Instagram metrics captured yet — do not state follower counts or post performance.';
+    : spine.coverage?.account?.read_status === 'unavailable' ? 'Instagram metrics are unavailable; do not infer zero performance.' : 'No Instagram metrics captured yet — do not state follower counts or post performance.';
   const draftLines = spine.drafts.count
     ? `${spine.drafts.count} post drafts already await owner approval:\n` + spine.drafts.titles.map((t) => `- ${t}`).join('\n')
-    : 'The draft queue is empty.';
+    : spine.coverage?.drafts?.read_status === 'unavailable' ? 'Draft queue read unavailable; count is unknown.' : 'The draft queue is empty.';
   const briefLines = renderBriefs(spine.briefs);
   // '' on a fresh install with no history — the prompt then reads exactly as it did before the
   // learning loop was closed, rather than carrying an empty "here is how it went" heading.
@@ -381,6 +384,31 @@ function isModelNotFound(res) {
   return !!(e && (e.type === 'not_found_error' || /model/i.test(String(e.message || '')) && res.status === 404));
 }
 
+export const PRIVATE_CAMPAIGN_PREVIEW = 'private_campaign_preview';
+const PREVIEW_LIMITS = { title: 200, objective: 1000, audience: 500, angle: 1000, cadence: 300, success_metric: 300 };
+const PREVIEW_ARRAYS = { channels: [3, 30], product_ids: [20, 160], assets: [10, 400], assumptions: [10, 400], questions: [10, 400] };
+const PREVIEW_RULES = '\nPRIVATE CAMPAIGN PREVIEW: This overrides the ACTIONS output instructions. ' +
+  'Return ONLY one JSON object, no markdown, prose or action blocks. Required keys: title, objective, audience, angle, cadence, success_metric ' +
+  '(nonempty strings bounded respectively 200,1000,500,1000,300,300 characters); channels (1-3 unique values instagram/facebook/website); ' +
+  'product_ids (0-20 unique available catalog IDs from the supplied snapshot); assets, assumptions, questions (0-10 strings each, max400 characters). ' +
+  'Develop a useful complete proposed strategy from the owner idea. Audience/cadence/metrics are suggestions, not established facts. ' +
+  'Preserve missing facts as unknown in questions; no invented prices, discounts, dates, service areas or measured results. ' +
+  'No research or actions execute. No status/actor/approval fields. No claim of saving, activation, publication or asset availability. ' +
+  'Source coverage controls confidence: unavailable does not mean zero; retrospective coverage is unknown; draft counts are bounded samples. ' +
+  'The menu snapshot below supplies exact IDs; select only available products. Empty product_ids is valid when selection needs clarification.';
+
+export function validateCampaignProposal(value, availableIds) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const keys = [...Object.keys(PREVIEW_LIMITS), ...Object.keys(PREVIEW_ARRAYS)];
+  if (Object.keys(value).length !== keys.length || Object.keys(value).some(k => !keys.includes(k))) return false;
+  for (const [key, limit] of Object.entries(PREVIEW_LIMITS)) if (typeof value[key] !== 'string' || !value[key].trim() || value[key].length > limit) return false;
+  for (const [key, [count, chars]] of Object.entries(PREVIEW_ARRAYS)) {
+    const list = value[key];
+    if (!Array.isArray(list) || list.length > count || list.some(x => typeof x !== 'string' || !x.trim() || x.length > chars) || new Set(list).size !== list.length) return false;
+  }
+  return value.channels.length > 0 && value.channels.every(x => ['instagram', 'facebook', 'website'].includes(x)) && value.product_ids.every(x => availableIds.includes(x));
+}
+
 /**
  * One turn of the strategy conversation.
  *   history: [{role:'owner'|'lead', body}] oldest-first (prior turns; NOT the new message)
@@ -389,16 +417,28 @@ function isModelNotFound(res) {
  * `model` reports which model actually answered — the frontier id, or the fallback when the
  * configured id came back model_not_found.
  */
-export async function leadReply(env, { history = [], message } = {}) {
+export async function leadReply(env, { history = [], message, mode } = {}) {
+  const preview = mode === PRIVATE_CAMPAIGN_PREVIEW;
+  if (mode !== undefined && !preview) return { ok: false, reason: 'invalid_mode' };
+  if (preview && (typeof message !== 'string' || !message.trim() || message.length > 1000 || !Array.isArray(history) || history.length)) return { ok: false, reason: 'invalid_preview_request' };
   if (!env || !env.ANTHROPIC_API_KEY) return { ok: false, reason: 'no_api_key' };
-  // The $50/week ceiling is HARD, and the strategy chat gets no exemption for being the
-  // owner's own surface — at the limit the honest answer is the refusal, in plain words.
+  // Strategy shares the weekly ledger gate. This is not an atomic reservation: concurrent
+  // calls and failed spend recording can overshoot or undercount the estimated allowance.
   const gate = await budgetGate(env);
   if (!gate.ok) return { ok: false, reason: gate.reason === 'budget_unavailable' ? 'budget_unavailable' : 'budget', spent: gate.spent };
 
   const spine = await buildSpine(env);
-  const system = SYSTEM_RULES + '\n\n' + renderSpine(spine);
-  const inputContext = { components: spine.input_components,
+  const menuSnapshot = [...spine.menu, ...spine.other_items];
+  const components = { ...spine.input_components };
+  if (preview) {
+    const menuJson = JSON.stringify(menuSnapshot);
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(menuJson));
+    components.menu = { ...spine.coverage.menu, source_ids: menuSnapshot.map(x => x.id), supplied_chars: menuJson.length, truncated: false,
+      rendered_sha256: Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('') };
+  }
+  const system = SYSTEM_RULES + '\n\n' + renderSpine(spine) + (preview ? PREVIEW_RULES + '\nSOURCE COVERAGE: ' + JSON.stringify(spine.coverage) + '\nEXACT MENU SNAPSHOT: ' + JSON.stringify(menuSnapshot) : '');
+  const inputContext = { components,
+    ...(preview ? { coverage: spine.coverage, supplied_product_ids: menuSnapshot.map(x => x.id), available_product_ids: menuSnapshot.filter(x => x.available).map(x => x.id) } : {}),
     supplied_brief_ids: spine.input_components.briefs.source_ids,
     supplied_rule_ids: spine.input_components.training.rules?.map(r => r.id).filter(Boolean) || [],
     // Intel is not directly supplied by this spine; never validate model citations by re-query.
@@ -412,7 +452,7 @@ export async function leadReply(env, { history = [], message } = {}) {
   let model = leadModel(env);
   const attempts = [];
   const attempt = async () => {
-    const result = await callModel(env, model, { system, messages, maxTokens: 1500, components: spine.input_components });
+    const result = await callModel(env, model, { system, messages, maxTokens: preview ? 2400 : 1500, components });
     // HTTP status is observed in this invocation; the persisted input record itself never
     // claims transport success. A failed receipt cannot silently become verified evidence.
     attempts.push({ model, input_receipt: result.input_receipt, observed_http_status: result.status || null });
@@ -432,6 +472,18 @@ export async function leadReply(env, { history = [], message } = {}) {
   // billed answer.
   await recordSpend(env, { feature: 'team_lead', model, usage: res.body.usage });
 
+  if (preview) {
+    const evidence = { model, inference_receipt: res.input_receipt, input_receipt: res.input_receipt, inference_attempts: attempts, input_context: inputContext };
+    if (res.body.stop_reason !== 'end_turn') return { ok: false, reason: 'incomplete_preview_response', ...evidence };
+    let proposal;
+    const blocks = res.body.content;
+    try {
+      if (!Array.isArray(blocks) || blocks.length !== 1 || blocks[0].type !== 'text' || typeof blocks[0].text !== 'string' || blocks[0].text.length > 16000) throw Error('invalid');
+      proposal = JSON.parse(blocks[0].text);
+    } catch { return { ok: false, reason: 'invalid_preview_response', ...evidence }; }
+    if (!validateCampaignProposal(proposal, menuSnapshot.filter(x => x.available).map(x => x.id))) return { ok: false, reason: 'invalid_preview_response', ...evidence };
+    return { ok: true, mode, proposal, review_required: true, actions: [], action: null, ...evidence };
+  }
   const text = ((res.body.content && res.body.content[0] && res.body.content[0].text) || '').trim();
   if (!text) return { ok: false, reason: 'empty_response', input_receipt: res.input_receipt, inference_receipt: res.input_receipt, inference_attempts: attempts, input_context: inputContext };
   return { ok: true, text, action: parseActionBlock(text), actions: parseActionBlocks(text), model, input_receipt: res.input_receipt, inference_receipt: res.input_receipt, inference_attempts: attempts, input_context: inputContext };
