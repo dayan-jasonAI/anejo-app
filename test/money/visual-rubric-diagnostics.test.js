@@ -27,3 +27,12 @@ test('valid maximum suggestions remain intact; schema instructions mirror mandat
  assert.match(suggestions.description,/At most 3/);assert.match(suggestions.items.description,/400 characters/);assert.match(rubricPrompt(),/each at most 400 characters/);
  assert.doesNotMatch(JSON.stringify(visualAuditFormat('',1)),/maxItems|maxLength/);
 });
+
+test('missing artifact evidence identifies rejected criterion without accepting or leaking text',()=>{
+ const d=valid();const o=d.observations.find(o=>o.criterion_id==='product_fidelity');o.slides=[];o.explanation='private model text';
+ const r=validateVisualAudit(d,ctx);assert.equal(r.available,false);assert.equal(r.score,null);
+ assert.deepEqual(r.diagnostic,{reason:'missing_artifact_evidence',criterion_id:'product_fidelity',status:'met',field:'caption_line/slides',issue:'both_empty'});
+ assert.doesNotMatch(JSON.stringify(r.diagnostic),/private model text/);
+ assert.match(visualAuditFormat('Catering',1).schema.properties.observations.items.properties.slides.description,/nonempty slides/);
+ assert.match(rubricPrompt(),/Empty claims does NOT mean empty observation evidence/);
+});

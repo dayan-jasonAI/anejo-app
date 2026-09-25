@@ -18,13 +18,13 @@ function setup({composeFails=false,responses=[{ok:true,attached:true}]}={}){
  for(const [field,value] of Object.entries({kicker:'Cuban food',accent:'',footer:'',preset:'reposado-square',layout:'auto',mark:'emblem',finish:'tint'}))fields['.brand-'+field]={value};
  const panel={getAttribute:()=> 'post-original',querySelector:selector=>fields[selector]};preview.closest=()=>panel;
  let loads=0,uuidCalls=0;
- const context={document:{querySelectorAll:selector=>selector==='.brand-preview'?[preview]:[]},window:{AnejoBranding:{rendererVersion:'test-renderer'}},crypto:{subtle:webcrypto.subtle,randomUUID:()=>{uuidCalls++;return'00000000-0000-4000-8000-000000000001';}},URL:{createObjectURL:blob=>{created.push(blob);return'blob:private-source';},revokeObjectURL:url=>revoked.push(url)},fetch:async(...args)=>{calls.push({kind:'fetch',args});return{ok:true,blob:async()=>source};},compositeBranding:async(url,options)=>{composed.push({url,options});options.onLayout({preset:'reposado',renderDeclaration:{source:'browser_declared',text_runs:[{text:'Actual title'}]}});if(composeFails)throw Error('composition failed');return'data:image/jpeg;base64,/9j/AA==';},Hub:{toast:message=>toasts.push(message),api:async(path,options)=>{calls.push({kind:'post',path,options});const result=responses.shift();if(result instanceof Error)throw result;return result;}},load:()=>loads++,Uint8Array};
+ const context={btoa,document:{querySelectorAll:selector=>selector==='.brand-preview'?[preview]:[]},window:{AnejoBranding:{rendererVersion:'test-renderer'}},crypto:{subtle:webcrypto.subtle,randomUUID:()=>{uuidCalls++;return'00000000-0000-4000-8000-000000000001';}},URL:{createObjectURL:blob=>{created.push(blob);return'blob:private-source';},revokeObjectURL:url=>revoked.push(url)},fetch:async(...args)=>{calls.push({kind:'fetch',args});return{ok:true,blob:async()=>source};},compositeBranding:async(url,options)=>{composed.push({url,options});options.onLayout({preset:'reposado',renderDeclaration:{source:'browser_declared',text_runs:[{text:'Actual title'}]}});if(composeFails)throw Error('composition failed');return'data:image/jpeg;base64,/9j/AA==';},Hub:{toast:message=>toasts.push(message),api:async(path,options)=>{calls.push({kind:'post',path,options});const result=responses.shift();if(result instanceof Error)throw result;return result;}},load:()=>loads++,Uint8Array};
  vm.runInNewContext(block,context);
  return{preview,use,discard,calls,toasts,revoked,composed,created,source,resultBox,loads:()=>loads,uuids:()=>uuidCalls,posts:()=>calls.filter(c=>c.kind==='post')};
 }
 test('preview hashes and renders the same fetched Blob, and only explicit Use saves bound source/media',async()=>{
  const h=setup();h.preview.click();await until(()=>!!h.use.events.click);
- assert.equal(h.posts().length,0);assert.equal(h.created[0],h.source);assert.equal(h.composed[0].url,'blob:private-source');assert.deepEqual(h.revoked,['blob:private-source']);
+ assert.equal(h.posts().length,0);assert.equal(h.created.length,0);assert.equal(h.composed[0].url,'data:image/jpeg;base64,'+Buffer.from(await h.source.arrayBuffer()).toString('base64'));assert.deepEqual(h.revoked,[]);
  assert.equal(h.calls.filter(c=>c.kind==='fetch').length,1);assert.equal(h.calls[0].args[0],'/api/hub/media/marketing-library/source.jpg');
  h.use.click();await until(()=>h.loads()===1);const body=h.posts()[0].options.body;
  assert.equal(h.posts()[0].path,'/api/hub/owner/marketing-branded-save');assert.equal(body.post_id,'post-original');assert.equal(body.media_id,'media-original');assert.equal(body.source_key,'marketing-library/source.jpg');assert.equal(body.source_sha256,createHash('sha256').update(new Uint8Array(await h.source.arrayBuffer())).digest('hex'));
@@ -40,10 +40,12 @@ test('stored but unattached response stays an error and preserves retry identity
  h.use.click();await until(()=>!h.use.disabled);assert.equal(h.loads(),0);assert.match(h.toasts.at(-1),/Could not attach/);assert.ok(!h.toasts.some(s=>s.includes('saved as draft')));
  h.use.click();await until(()=>h.loads()===1);assert.equal(h.posts()[0].options.body.request_id,h.posts()[1].options.body.request_id);
 });
-test('composition rejection revokes Blob URL and never offers or saves a broken preview',async()=>{
+test('composition rejection never offers or saves a broken preview',async()=>{
  const h=setup({composeFails:true});h.preview.click();await until(()=>!h.preview.disabled);
- assert.deepEqual(h.revoked,['blob:private-source']);assert.equal(h.posts().length,0);assert.equal(h.use.events.click,undefined);assert.equal(h.loads(),0);assert.match(h.toasts.at(-1),/composition failed/);
+ assert.deepEqual(h.revoked,[]);assert.equal(h.posts().length,0);assert.equal(h.use.events.click,undefined);assert.equal(h.loads(),0);assert.match(h.toasts.at(-1),/composition failed/);
 });
 test('Discard performs no save',async()=>{
  const h=setup();h.preview.click();await until(()=>!!h.discard.events.click);h.discard.click();assert.equal(h.resultBox.innerHTML,'');assert.equal(h.posts().length,0);assert.equal(h.loads(),0);
 });
+
+test('preview transport remains allowed by deployed image CSP',()=>{const headers=readFileSync(new URL('../../public/_headers',import.meta.url),'utf8');assert.match(headers,/img-src[^;]*data:/);assert.doesNotMatch(block,/createObjectURL/);});
