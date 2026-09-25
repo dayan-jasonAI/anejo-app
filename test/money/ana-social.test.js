@@ -39,7 +39,7 @@ test('auto-send exists ONLY behind the owner setting, and off is the code defaul
   //   3. the DRAFTING module still cannot send — the brain and the hands stay separate
   assert.match(TICK, /let autoMode = 'off'/);
   assert.match(TICK, /social\.auto_reply/);
-  const sends = [...TICK.matchAll(/(sendDirectMessage|replyToComment)\s*\(/g)];
+  const sends = [...TICK.matchAll(/(sendAnaDraft)\s*\(/g)];
   assert.ok(sends.length >= 2, 'both send paths exist now');
   for (const m of sends) {
     const before = TICK.slice(Math.max(0, m.index - 400), m.index);
@@ -52,7 +52,7 @@ test('escalations still send NOTHING — the carve-out survived automation', () 
   // The escalate branches insert a marker and increment a counter; no send call may live there.
   for (const block of TICK.split(/if \(d\.escalate\)/).slice(1)) {
     const branch = block.split('} else {')[0];
-    assert.ok(!/sendDirectMessage|replyToComment/.test(branch), 'no send inside an escalate branch');
+    assert.ok(!/sendDirectMessage|replyToComment|sendAnaDraft/.test(branch), 'no send inside an escalate branch');
   }
 });
 
@@ -66,7 +66,9 @@ test('a special request sends the holding reply AND alerts the kitchen+owner', (
 });
 
 test('auto-sent replies are labelled ana_auto — the audit trail stays honest', () => {
-  assert.match(TICK, /sender_role='ana_auto' WHERE id=\? AND sent_at IS NULL/);
+  assert.match(TICK, /initiatedBy:'ana_auto'/);
+  const shared=readFileSync(new URL('../../functions/_lib/instagram_reply_attempt.js',import.meta.url),'utf8');
+  assert.match(shared,/initiatedBy==='ana_auto'\?'ana_auto':'ana_draft'/);
 });
 
 test('the 24-hour legality gate still lives inside the send, not the tick', () => {
@@ -277,7 +279,7 @@ test('sending requires a marketing-desk session — and only rows marked as Aña
 test('the 24-hour reply window is surfaced per DM thread, hours_left included', () => {
   // replyWindow is THE window implementation (instagram_messaging.js enforces it again at send
   // time) — the inbox must read from the same clock, not a reimplementation.
-  assert.match(OWNER, /import \{ replyWindow, sendDirectMessage, replyToComment \} from/);
+  assert.match(OWNER, /import \{ replyWindow \} from/);
   assert.match(OWNER, /window: kind === 'dm' \? replyWindow\(t\) : null/);
 });
 
@@ -337,10 +339,8 @@ test('a reply typed in Comms on an Instagram thread ACTUALLY reaches Instagram',
   // customer received nothing — found because the owner asked "does it reflect on Instagram?".
   const COMMS = readFileSync(new URL('../../functions/api/hub/comms/messages.js', import.meta.url), 'utf8');
   assert.match(COMMS, /if \(thread\.audience === 'instagram'\) channel = 'instagram'/, 'inferred from the thread, not the page');
-  assert.match(COMMS, /sendDirectMessage\(env, \{ thread, recipientId: thread\.external_id/, 'DMs route through the window-checked send');
-  assert.match(COMMS, /replyToComment\(env, \{ commentId: lastIn\.ref_id/, 'comment threads reply under the actual comment');
-  assert.match(COMMS, /if \(!ig \|\| !ig\.ok\) return bad/, 'a refused send is an error, never a fake success');
-  assert.match(COMMS, /sender_role='ana_draft' AND sent_at IS NULL AND dismissed_at IS NULL/, "a human reply supersedes Aña's pending draft");
+  assert.match(COMMS, /sendHumanInstagramReply/, 'human replies share durable inbound claims with Ana');
+  assert.doesNotMatch(COMMS, /delivered: true/, 'provider acceptance is not delivery proof');
 });
 
 // ---------- the public scaffolding leak, pinned with the real fixture ----------

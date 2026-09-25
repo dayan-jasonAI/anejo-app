@@ -15,7 +15,7 @@ import { requireRole, HUB_ROLES } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
 import { id, now, bit } from '../../../_lib/hub.js';
 import { sendSms, sendWhatsApp } from '../../../_lib/twilio.js';
-import { sendDirectMessage, replyToComment } from '../../../_lib/instagram_messaging.js';
+import { sendHumanInstagramReply } from '../../../_lib/instagram_reply_attempt.js';
 import { sendPushTickle } from '../../../_lib/push.js';
 
 // Every role, staff and portal alike — this endpoint is open to anyone signed in.
@@ -108,11 +108,22 @@ export const onRequestGet = async ({ request, env }) => {
     body: m.body || '',
     ai_drafted: !!m.ai_drafted,
     created_at: m.created_at,
+    sent_at: m.sent_at || null,
     mine: !!(m.sender_id && ctx.distinct_id && m.sender_id === ctx.distinct_id),
   }));
 
+  let replyAttempts={};
+  if(thread.audience==='instagram'){
+    try{
+      const read=await env.DB.prepare('SELECT id AS attempt_id,message_id,state,provider_message_id,completed_at AS sent_at,created_at,error_code,followup_of FROM instagram_reply_attempts WHERE thread_id=? ORDER BY created_at DESC,id DESC LIMIT 100').bind(threadId).all();
+      if(read?.success===false||!Array.isArray(read?.results))throw Error('unavailable');
+      const unresolved=await env.DB.prepare("SELECT id FROM instagram_reply_attempts WHERE thread_id=? AND state IN ('claimed','unknown') LIMIT 1").bind(threadId).first();
+      replyAttempts={reply_attempt_status:'ok',reply_attempt_history:read.results.map(a=>({...a,sent_at:a.state==='sent'?a.sent_at:null})),reply_attempt_unresolved:!!unresolved};
+    }catch{replyAttempts={reply_attempt_status:'unavailable',reply_attempt_history:null,reply_attempt_unresolved:null};}
+  }
   const cp = await counterpartyStaff(env, ctx, thread);
   return json({
+    ...replyAttempts,
     ok: true,
     thread: {
       id: thread.id,
@@ -156,38 +167,9 @@ export const onRequestPost = async ({ request, env }) => {
   if (thread.audience === 'instagram') channel = 'instagram';
   if (channel === 'instagram') {
     if (thread.audience !== 'instagram') return bad('Only an Instagram thread can send to Instagram.');
-    let ig;
-    if (thread.ref_type === 'ig_media') {
-      // A comment thread: the reply goes PUBLICLY under the customer's last comment.
-      const lastIn = await env.DB.prepare(
-        "SELECT ref_id FROM messages WHERE thread_id=? AND direction='inbound' AND ref_id IS NOT NULL ORDER BY created_at DESC LIMIT 1"
-      ).bind(thread.id).first();
-      if (!lastIn || !lastIn.ref_id) return bad('No comment on this thread to reply under.');
-      ig = await replyToComment(env, { commentId: lastIn.ref_id, text: body });
-    } else {
-      // A DM: sendDirectMessage re-checks never-messaged-first and Meta's 24-hour ceiling
-      // internally — a closed window comes back here as a plain-English refusal, not a fake send.
-      ig = await sendDirectMessage(env, { thread, recipientId: thread.external_id, text: body });
-    }
-    if (!ig || !ig.ok) return bad((ig && ig.error) || 'Instagram refused the message.', 502);
-
-    const mid = id('msg');
-    await env.DB.prepare(
-      `INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, sent_at, created_at)
-       VALUES (?,?,'outbound','instagram',?,?,?,?,?,?)`
-    ).bind(mid, thread.id, ctx.distinct_id || null, ctx.role, body, aiDrafted, ts, ts).run();
-    await env.DB.prepare('UPDATE threads SET last_message_at=?, updated_at=? WHERE id=?').bind(ts, ts, thread.id).run();
-    // A human answered — any unsent Aña draft on this thread is now superseded, and leaving it
-    // would let it be auto-or-manually sent AFTER the human's reply, out of order and duplicate.
-    await env.DB.prepare(
-      "UPDATE messages SET dismissed_at=? WHERE thread_id=? AND sender_role='ana_draft' AND sent_at IS NULL AND dismissed_at IS NULL"
-    ).bind(ts, thread.id).run();
-    await capture(env, {
-      event: 'message.sent',
-      distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
-      properties: { channel: 'instagram', audience: thread.audience, ai_drafted: !!aiDrafted, thread_id: thread.id },
-    });
-    return json({ ok: true, id: mid, channel: 'instagram', delivered: true });
+    const result = await sendHumanInstagramReply(env, {threadId:thread.id,body:b.body,requestId:b.request_id,afterAttemptId:b.after_attempt_id||'',actorId:ctx.distinct_id||ctx.email,actorRole:ctx.role});
+    if(result.ok&&!result.replayed)await capture(env,{event:'message.sent',distinct_id:ctx.distinct_id,role:ctx.role,team:ctx.team,properties:{channel:'instagram',audience:'instagram',ai_drafted:false,thread_id:thread.id}});
+    return json({...result,id:result.message_id||null,channel:'instagram'},result.ok?200:409);
   }
 
   // SMS/WhatsApp bridge when the counterparty staff row has a phone (no-op without creds).

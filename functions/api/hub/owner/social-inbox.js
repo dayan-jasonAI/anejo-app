@@ -37,6 +37,7 @@ export const onRequestGet = async ({ request, env }) => {
   // Pending drafts + escalation notes for the whole inbox in one query each, grouped in JS —
   // 100 threads must not mean 200 queries.
   const draftMap = {};
+  let draftsReadStatus="available",escalationsReadStatus="available";
   try {
     const r = await env.DB.prepare(
       `SELECT m.* FROM messages m JOIN threads t ON t.id = m.thread_id
@@ -44,8 +45,9 @@ export const onRequestGet = async ({ request, env }) => {
           AND m.sent_at IS NULL AND m.dismissed_at IS NULL
         ORDER BY m.created_at ASC`
     ).all();
-    for (const m of (r && r.results) || []) (draftMap[m.thread_id] = draftMap[m.thread_id] || []).push(m);
-  } catch { /* pre-0067 DB: no drafts yet, the inbox still lists threads */ }
+    if(r?.success===false||!Array.isArray(r?.results))throw Error("unavailable");
+    for (const m of r.results) (draftMap[m.thread_id] = draftMap[m.thread_id] || []).push(m);
+  } catch { draftsReadStatus="unavailable"; }
   const escMap = {};
   try {
     const r = await env.DB.prepare(
@@ -53,9 +55,16 @@ export const onRequestGet = async ({ request, env }) => {
         WHERE t.audience='instagram' AND m.sender_role='ana_escalation'
         ORDER BY m.created_at DESC LIMIT 50`
     ).all();
-    for (const m of (r && r.results) || []) (escMap[m.thread_id] = escMap[m.thread_id] || []).push(m);
-  } catch { /* same degradation */ }
+    if(r?.success===false||!Array.isArray(r?.results))throw Error("unavailable");
+    for (const m of r.results) (escMap[m.thread_id] = escMap[m.thread_id] || []).push(m);
+  } catch { escalationsReadStatus="unavailable"; }
 
+  const attemptMap={};let attemptHistory='available';
+  try {
+    const read=await env.DB.prepare('SELECT id,message_id,thread_id,kind,trigger_id,state,provider_message_id,error_code,created_at,completed_at FROM instagram_reply_attempts ORDER BY created_at DESC LIMIT 200').all();
+    if(read?.success===false||!Array.isArray(read?.results))throw Error('unavailable');
+    for(const attempt of read.results)(attemptMap[attempt.thread_id]=attemptMap[attempt.thread_id]||[]).push(attempt);
+  } catch {attemptHistory='unavailable';}
   let pending = 0;
   const items = threads.map((t) => {
     const kind = (t.ref_type === 'ig_media') ? 'comment' : 'dm';
@@ -74,11 +83,12 @@ export const onRequestGet = async ({ request, env }) => {
       // Comments are public and never expire; only DMs carry Meta's 24-hour clock.
       window: kind === 'dm' ? replyWindow(t) : null,
       drafts,
+      reply_attempts:attemptHistory==='available'?(attemptMap[t.id]||[]):null,
       escalations: (escMap[t.id] || []).map((m) => ({ id: m.id, body: m.body || '', created_at: m.created_at })),
     };
   });
 
-  return json({ ok: true, items, pending });
+  return json({ ok: true, items, pending: draftsReadStatus==="available"?pending:null, drafts_read_status:draftsReadStatus, escalations_read_status:escalationsReadStatus, reply_attempt_history:attemptHistory, reply_attempt_scope:'latest_200_attempts' });
 };
 
 export const onRequestPost = async ({ request, env }) => {
@@ -98,7 +108,8 @@ export const onRequestPost = async ({ request, env }) => {
   const m = await env.DB.prepare('SELECT * FROM messages WHERE id=? AND thread_id=?').bind(messageId, threadId).first();
   if (!m) return bad('Draft not found.', 404);
   if (op === 'send') {
-    const r=await sendAnaDraft(env,{messageId:m.id,threadId,expectedBody:m.body,initiatedBy:ctx.distinct_id||ctx.role});
+    if(typeof b.expected_body!=='string')return bad('expected_body is required.');
+    const r=await sendAnaDraft(env,{messageId:m.id,threadId,expectedBody:b.expected_body,initiatedBy:ctx.distinct_id||ctx.role});
     if(!r.ok)return json({...r,ok:false},r.state==='claimed'||r.state==='unknown'?409:502);
     if(!r.replayed)await capture(env,{event:'message.sent',distinct_id:ctx.distinct_id,role:ctx.role,team:ctx.team,properties:{channel:'instagram',audience:'instagram',ai_drafted:true,thread_id:threadId,kind:m.ref_id?'comment':'dm'}});
     return json({...r,message:{id:r.message_id,sent_at:r.sent_at}});

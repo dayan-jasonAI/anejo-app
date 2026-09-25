@@ -7,7 +7,8 @@ import { recordAnaTick } from '../../../_lib/ana_heartbeat.js';
 // Observability records this check separately from the publishing scheduler; it does not
 // change reply permissions, replay messages or trigger an additional tick.
 //
-// Idempotency comes from the data, not a lock:
+// Draft queue progression below avoids routine repeats; durable send-attempt claims
+// independently prevent multiple outbound calls for one inbound trigger:
 //   · a comment is drafted once because handled=0 is flipped when its rows land;
 //   · a DM thread is drafted once because the draft row itself becomes the thread's last message,
 //     and the tick only touches threads whose LAST message is the customer's.
@@ -36,10 +37,8 @@ import { captureInstagramLead } from '../../../_lib/social_leads.js';
 // inbox into an open-ended API bill.
 const DRAFT_BUDGET = 4;
 
-// Mirrors the messaging library's 24-hour rule (which the send path re-checks itself — the
-// library stays unimported here, so this constant is duplicated on purpose). The tick doesn't
-// send, but drafting for a thread whose window already closed produces copy the send op must
-// then refuse — a draft that exists only to be rejected. Better to not write it.
+// Avoid drafting outside the reply window. The shared send helper and messaging library
+// recheck the window before any configured automatic send.
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export const onRequestPost = async ({ request, env }) => {

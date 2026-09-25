@@ -69,6 +69,8 @@
           <button class="btn ghost active" id="chan-inapp" type="button" data-i18n>In-app</button>
           <button class="btn ghost" id="chan-sms" type="button" data-i18n>SMS</button>
         </div>
+        <p id="ig-reply-status" role="status" aria-live="polite" hidden></p>
+        <button id="ig-followup" class="btn ghost" type="button" hidden>Write a deliberate Instagram follow-up</button>
         <textarea id="reply-body" maxlength="4000"></textarea>
         <button class="btn block gold" id="reply-send" type="button" style="margin-top:10px" data-i18n>Send</button>
       </div>
@@ -97,6 +99,7 @@
   var channel = 'in_app';
   var pollT = 0;
   var currentThread = null;
+  var replyContext = null, igRequests = {}, igFollowups = {};
   var statusFilter = 'open'; // thread-list lifecycle filter: 'open' | 'closed'
 
   function refreshI18n() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
@@ -243,6 +246,7 @@
   function showThread(tid) {
     stopPoll();
     currentThread = tid;
+    replyContext=null;document.getElementById('reply-send').disabled=true;document.getElementById('reply-body').disabled=true;document.getElementById('ig-followup').hidden=true;
     document.getElementById('view-list').style.display = 'none';
     document.getElementById('view-thread').style.display = '';
     document.getElementById('thread-actions').innerHTML = '';
@@ -278,6 +282,59 @@
     });
   }
 
+  function paintReplyControls() {
+    var text=document.getElementById('reply-body'),send=document.getElementById('reply-send'),note=document.getElementById('ig-reply-status'),follow=document.getElementById('ig-followup');
+    follow.hidden=true;
+    if(!replyContext){text.disabled=true;send.disabled=true;note.hidden=false;note.textContent='Reply context unavailable; sending is paused.';return;}
+    var ig=replyContext.thread.audience==='instagram';note.hidden=!ig;text.maxLength=ig?1000:4000;
+    document.getElementById('chan-inapp').style.display=ig?'none':'';
+    if(!ig){text.disabled=false;send.disabled=false;send.textContent='Send';return;}
+    document.getElementById('chan-sms').style.display='none';
+    var pending=igRequests[currentThread],latest=replyContext.latest;
+    if(igFollowups[currentThread] && (!latest||latest.attempt_id!==igFollowups[currentThread]))delete igFollowups[currentThread];
+    if(!replyContext.verified){text.disabled=true;send.disabled=true;note.textContent='Instagram reply history unavailable. Sending is paused; no outcome is assumed.';return;}
+    if(replyContext.unresolved){text.disabled=true;send.disabled=true;note.textContent='Instagram reply outcome pending or unknown. New replies and follow-ups are blocked until its outcome is resolved.';return;}
+    if(pending){
+      text.value=pending.body;text.disabled=true;send.disabled=!!pending.busy||!!pending.blocked;send.textContent='Check or retry exact reviewed reply';note.textContent=pending.note||'Reply outcome not verified. Only this exact request can be checked or retried; no new message is enabled.';return;
+    }
+    if(latest && latest.state==='sent' && !igFollowups[currentThread]){
+      text.disabled=true;send.disabled=true;follow.hidden=false;note.textContent='Historical Instagram provider acceptance recorded · attempt '+latest.attempt_id+'. This is not delivery or read confirmation. Review a deliberate follow-up separately.';return;
+    }
+    if(latest && latest.state!=='sent'){text.disabled=true;send.disabled=true;note.textContent='Latest reply was not accepted or its outcome is unavailable. Sending remains blocked; review its saved receipt.';return;}
+    text.disabled=false;send.disabled=false;send.textContent='Review and send Instagram reply';
+    note.textContent=igFollowups[currentThread]?'A new follow-up will be reviewed separately. Prior provider acceptance is not delivery or read confirmation.':replyContext.thread.ref_type==='ig_media'?'This reply will be public under the Instagram comment. Review the exact text before sending.':'This reply goes to the Instagram DM. Review the exact text before sending.';
+  }
+  document.getElementById('ig-followup').addEventListener('click',function(){
+    if(!replyContext||!replyContext.verified||replyContext.unresolved||igRequests[currentThread]||replyContext.latest?.state!=='sent')return;
+    igFollowups[currentThread]=replyContext.latest.attempt_id;document.getElementById('reply-body').value='';paintReplyControls();
+  });
+  async function sendInstagramReply(tid) {
+    if(!replyContext||!replyContext.verified||replyContext.unresolved)return;
+    var pending=igRequests[tid],body=document.getElementById('reply-body').value;
+    if(pending && (pending.busy||pending.blocked))return;
+    if(!pending && replyContext.latest && (!igFollowups[tid]||replyContext.latest.state!=='sent'))return;
+    if(!pending && (!body.trim()||body!==body.trim()||body.length>1000)){Hub.toast('Use 1–1,000 characters with no leading or trailing whitespace. The reviewed text will be sent exactly.');return;}
+    if(pending)body=pending.body;
+    var destination=replyContext.thread.ref_type==='ig_media'?'PUBLIC Instagram comment reply':'Instagram direct message';
+    if(!window.confirm((pending?'Check or retry the same reviewed request for ':'Send this exact text as a ')+destination+'?\n\n'+body))return;
+    if(!pending){pending={request_id:crypto.randomUUID(),body:body,after_attempt_id:igFollowups[tid]||null};igRequests[tid]=pending;}
+    pending.busy=true;paintReplyControls();
+    var payload={thread_id:tid,channel:'instagram',body:pending.body,request_id:pending.request_id};
+    if(pending.after_attempt_id)payload.after_attempt_id=pending.after_attempt_id;
+    try {
+      var result=await Hub.api('/api/hub/comms/messages',{method:'POST',body:payload});
+      if(result && result.ok && result.sent===true && result.state==='sent' && result.attempt_id){
+        delete igRequests[tid];delete igFollowups[tid];
+        if(currentThread===tid){document.getElementById('reply-body').value='';replyContext.latest=result;replyContext.unresolved=false;Hub.toast('Instagram provider acceptance recorded. Delivery and read status are not verified.');paintReplyControls();loadMessages(tid,false);}
+      }else{
+        if(result && result.attempt_id)pending.attempt_id=result.attempt_id;
+        pending.blocked=!!(result && (result.state==='claimed'||result.state==='unknown'||result.state==='failed'));
+        pending.note=result?String(result.error||'Reply outcome not verified')+'. No new send is enabled.':'Reply outcome not verified. No new send is enabled.';
+      }
+    }catch(_){pending.note='Network outcome unknown. Check or retry only this exact request.';}
+    finally{pending.busy=false;if(currentThread===tid)paintReplyControls();}
+  }
+
   function loadMessages(tid, showLoading) {
     if (showLoading) {
       document.getElementById('bubbles').innerHTML = '<div class="hub-loading" data-i18n>Loading…</div>';
@@ -288,10 +345,16 @@
       var bub = document.getElementById('bubbles');
       if (!d || !d.ok) {
         bub.innerHTML = '<div class="hub-empty" data-i18n>Could not load.</div>';
+        replyContext=null;paintReplyControls();
         refreshI18n();
         return;
       }
       var t = d.thread || {};
+      var history=Array.isArray(d.reply_attempt_history)?d.reply_attempt_history:[];
+      replyContext={thread:t,verified:t.audience!=='instagram'||d.reply_attempt_status==='ok'&&Array.isArray(d.reply_attempt_history)&&typeof d.reply_attempt_unresolved==='boolean',unresolved:d.reply_attempt_unresolved===true,latest:history[0]||null};
+      var local=igRequests[tid];
+      if(local && local.attempt_id && history.some(function(a){return a.attempt_id===local.attempt_id&&a.state==='sent';})) {delete igRequests[tid];delete igFollowups[tid];document.getElementById('reply-body').value='';}
+      paintReplyControls();
       document.getElementById('thread-head').innerHTML =
         '<div class="row"><div class="row-main"><div class="row-title">' + Hub.esc(t.counterparty_name || 'Conversation') + '</div>' +
         '<div class="row-sub">' + Hub.esc(t.subject || '') + '</div></div>' +
@@ -305,14 +368,16 @@
       } else {
         var nearBottom = (bub.scrollHeight - bub.scrollTop - bub.clientHeight) < 60;
         bub.innerHTML = d.items.map(function (m) {
-          var meta = (m.channel && m.channel !== 'in_app' ? m.channel.toUpperCase() + ' · ' : '') + timeAgo(m.created_at);
+          var receipt=history.find(function(a){return a.message_id===m.id;});
+          var acceptance=t.audience==='instagram'&&m.direction==='outbound'?(receipt?(receipt.state==='sent'?'Provider acceptance recorded; delivery/read unverified':receipt.state==='failed'?'Provider rejected; not sent':'Send outcome pending or unknown'):'Saved Hub message; provider acceptance unverified') : '';
+          var meta = (acceptance?acceptance+' · ':'')+(m.channel && m.channel !== 'in_app' ? m.channel.toUpperCase() + ' · ' : '') + timeAgo(m.created_at);
           return '<div class="bubble ' + (m.mine ? 'mine' : 'theirs') + '">' + Hub.esc(m.body) +
             '<div class="bubble-meta">' + Hub.esc(meta) + '</div></div>';
         }).join('');
         if (showLoading || nearBottom) window.scrollTo(0, document.body.scrollHeight);
       }
       refreshI18n();
-    });
+    }).catch(function(){if(currentThread===tid){replyContext=null;paintReplyControls();Hub.toast('Reply history unavailable; sending paused.');}});
   }
 
   document.getElementById('back-btn').addEventListener('click', function () {
@@ -323,6 +388,8 @@
 
   document.getElementById('reply-send').addEventListener('click', function () {
     var btn = this;
+    if(!replyContext||btn.disabled)return;
+    if(replyContext.thread.audience==='instagram'){return sendInstagramReply(currentThread);}
     var body = document.getElementById('reply-body').value.trim();
     if (!body || !currentThread) { Hub.toast('Write a message first.'); return; }
     btn.disabled = true;
