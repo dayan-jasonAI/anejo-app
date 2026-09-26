@@ -424,15 +424,38 @@
   document.getElementById('aopCapabilities').addEventListener('click', function () { ask('capabilities', false); });
   document.getElementById('aopMarketingStatus').addEventListener('click', function () { ask('marketing status', false); });
 
+  function voiceInputFailure(error) {
+    var code = error && (error.error || error.name);
+    var messages = {
+      'not-allowed': 'Microphone access was denied or blocked. Check this site’s microphone permission.',
+      'service-not-allowed': 'The browser blocked the speech recognition service.',
+      'audio-capture': 'The microphone is unavailable. Check that it is connected and available to this browser.',
+      'no-speech': 'No speech was detected.',
+      'network': 'Speech recognition failed because of a network error.',
+      'aborted': 'Speech input was cancelled.',
+      'language-not-supported': 'This browser’s speech service does not support the selected language.',
+      'unsupported': 'This browser has no speech input.'
+    };
+    var aliases = { NotAllowedError: 'not-allowed', NotFoundError: 'audio-capture', NotReadableError: 'audio-capture', NetworkError: 'network' };
+    var message = (messages[aliases[code] || code] || 'Speech input could not start or continue.') + ' Type your request below instead.';
+    fab.classList.remove('listening');
+    panel.classList.add('open');
+    log(message, 'err');
+    document.getElementById('aopIn').focus();
+    showHint(message, 6000);
+  }
+
   function listen() {
-    if (!SR) { panel.classList.add('open'); document.getElementById('aopIn').focus(); showHint('this browser has no speech input — type instead'); return; }
+    if (!SR) { voiceInputFailure({ error: 'unsupported' }); return; }
     stopSpeech();
-    recog = new SR(); recog.lang = 'en-US'; recog.interimResults = false; recog.maxAlternatives = 1;
-    fab.classList.add('listening'); showHint('listening…');
-    recog.onresult = function (e) { ask(String(e.results[0][0].transcript || '').trim(), true); };
-    recog.onerror = function () { showHint('did not catch that'); };
-    recog.onend = function () { fab.classList.remove('listening'); };
-    try { recog.start(); } catch (_) { fab.classList.remove('listening'); }
+    try {
+      recog = new SR(); recog.lang = 'en-US'; recog.interimResults = false; recog.maxAlternatives = 1;
+      fab.classList.add('listening'); showHint('listening…');
+      recog.onresult = function (e) { ask(String(e.results[0][0].transcript || '').trim(), true); };
+      recog.onerror = voiceInputFailure;
+      recog.onend = function () { fab.classList.remove('listening'); };
+      recog.start();
+    } catch (error) { voiceInputFailure(error); }
   }
 
   // 1 tap = talk · 2 taps = type. Same gesture as DRH CORE HUB, deliberately.
