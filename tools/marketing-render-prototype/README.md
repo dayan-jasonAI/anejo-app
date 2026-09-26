@@ -40,3 +40,15 @@ node benchmark-worker.mjs
 Remaining Unverified: Pages-specific application bundling (the local harness is a Worker), deployed CPU/memory budgets, cold-start profile, concurrent rendering, maximum-size input stress, EXIF/ICC behavior, malformed decode edge cases, and exact Canvas typography parity. Do not infer 128MB production safety from successful local runs. Free-plan10msCPU should not be assumed adequate. No scheduler, durable job ownership, retry/idempotent artifact storage or human publication review is added here.
 
 Next bounded step: isolated Pages build harness and decoded-size/memory stress profiling with normalized genuine library photos, keeping one render per job and rejecting rather than silently degrading unsupported input. Only then propose application integration and existing R2 derivative storage with source/template hash provenance.
+
+## Local workerd resource samples
+
+With the existing root and prototype dependencies installed, run from the repository root:
+
+```
+node tools/marketing-render-prototype/resource-profile.cjs
+```
+
+The harness prints a unique temporary output directory containing its bundle, WASM, inspector target inventory and `measurements.json`; it writes no generated artifacts into the repository. It uses a loopback-only local runtime, explicitly selects `core:user:render-check`, records ten sequential fixed-fixture JPEG hashes and `Runtime.getHeapUsage` samples, and disposes the runtime. Connection, inspector commands, rendering and cleanup waits are bounded. Failures produce `error.json`; partial measurements are retained.
+
+These are workerd inspector samples, **not Node RSS or a verified peak/all-inclusive isolate memory measurement**. Do not sum returned fields or compare `totalSize` directly with a production memory budget. Samples occur after requests; inspector attachment can change behavior. `initialGcAttempt`/`finalGcAttempt` record attempted garbage collection, including timeout: an `afterGcAttempt` sample does not establish that collection occurred. Local wall time is not billable CPU. This one fixture does not validate maximum input, concurrency, deployed cold starts, production limits, Canvas/brand parity, photo provenance or approval for publication. Application integration remains blocked on those separate checks.
