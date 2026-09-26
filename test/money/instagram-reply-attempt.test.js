@@ -108,3 +108,39 @@ test('acceptance and fallback storage outage leaves a blocking claim, never a se
  assert.equal((await sendAnaDraft(env,args,provider)).state,'claimed');assert.equal(calls,1);
  assert.equal(env.DB.one("SELECT sent_at FROM messages WHERE id='out'").sent_at,null);
 });
+
+test('owner reconciliation endpoint binds all IDs and completes only recorded acceptance without network',async(t)=>{
+ const env=setup(),batch=env.DB.batch;env.DB.batch=async()=>{throw Error('local finalization outage');};
+ const first=await sendAnaDraft(env,args,async()=>({ok:true,body:{id:'recorded-acceptance'}}));env.DB.batch=batch;
+ assert.equal(first.state,'unknown');
+ const network=t.mock.method(globalThis,'fetch',async()=>{throw Error('reconciliation must not contact any provider');});
+ for(const mismatch of [{thread_id:'other-thread'},{message_id:'other-message'},{attempt_id:'other-attempt'}]){
+  const response=await manual(env,'reconcile',{attempt_id:first.attempt_id,...mismatch});
+  assert.equal(response.status,404);
+  assert.equal(env.DB.one('SELECT state FROM instagram_reply_attempts').state,'unknown');
+ }
+ const response=await manual(env,'reconcile',{attempt_id:first.attempt_id});
+ assert.equal(response.status,200);const data=await response.json();
+ assert.equal(data.reconciliation_only,true);assert.equal(data.sent,true);assert.equal(data.provider_message_id,'recorded-acceptance');
+ assert.equal(env.DB.one("SELECT sent_at FROM messages WHERE id='out'").sent_at,data.sent_at);
+ const replay=await(await manual(env,'reconcile',{attempt_id:first.attempt_id})).json();
+ assert.equal(replay.sent_at,data.sent_at);assert.equal(replay.reconciliation_only,true);
+ const {onRequestGet}=await import('../../functions/api/hub/owner/social-inbox.js');
+ const history=await(await onRequestGet({env,request:new Request('https://anejo.test/api/hub/owner/social-inbox',{headers:{cookie:OWNER_COOKIE}})})).json();
+ assert.equal(history.items[0].reply_attempts[0].has_acceptance_receipt,true);
+ assert.equal(Object.hasOwn(history.items[0].reply_attempts[0],'acceptance_receipt_json'),false);
+ assert.equal(network.mock.callCount(),0);
+});
+
+test('reconciliation endpoint refuses non-marketing roles and leaves uncertain provider outcome blocked',async(t)=>{
+ const env=setup();const first=await sendAnaDraft(env,args,async()=>({ok:false,delivery_uncertain:true}));
+ const network=t.mock.method(globalThis,'fetch',async()=>{throw Error('reconciliation must not send');});
+ env.DB.exec("UPDATE staff SET role='driver' WHERE id='stf_owner'");
+ assert.equal((await manual(env,'reconcile',{attempt_id:first.attempt_id})).status,403);
+ env.DB.exec("UPDATE staff SET role='owner' WHERE id='stf_owner'");
+ const response=await manual(env,'reconcile',{attempt_id:first.attempt_id});
+ assert.equal(response.status,409);const data=await response.json();
+ assert.equal(data.reconciliation_only,true);assert.equal(data.state,'unknown');assert.equal(data.sent,false);
+ assert.equal(env.DB.one("SELECT sent_at FROM messages WHERE id='out'").sent_at,null);
+ assert.equal(network.mock.callCount(),0);
+});

@@ -1,13 +1,12 @@
 // Local workerd inspector samples, never a production memory/CPU acceptance test.
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const repo = path.resolve(__dirname, '../..');
 const { build } = require(path.join(repo, 'node_modules/esbuild'));
 const { Miniflare, convertV4MiniflareOptions } = require(path.join(repo, 'node_modules/miniflare'));
-const output = fs.mkdtempSync(path.join(os.tmpdir(), 'anejo-render-resource-check-'));
+const output = fs.mkdtempSync('/tmp/anejo-render-resource-check-');
 const targetId = 'core:user:render-check';
 console.log(`Output directory: ${output}`);
 

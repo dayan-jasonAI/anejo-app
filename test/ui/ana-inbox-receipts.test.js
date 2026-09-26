@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 const code=readFileSync(new URL('../../public/hub/owner/assets/ana-inbox.js',import.meta.url),'utf8');
 function setup(responses=[]){
-  const element=tag=>({tag,textContent:'',children:[],appendChild(e){this.children.push(e);},replaceChildren(){this.children=[];},addEventListener(k,f){this[k]=f;}});
+  const element=tag=>({tag,textContent:'',children:[],setAttribute(k,v){this[k]=v;},appendChild(e){this.children.push(e);},replaceChildren(){this.children=[];},addEventListener(k,f){this[k]=f;}});
   const root=element('root'),window={},calls=[];
   vm.runInNewContext(code,{window,document:{createElement:element},Date,encodeURIComponent,Hub:{api:async(...args)=>{calls.push(args);const response=responses.shift();if(response instanceof Error)throw response;return response;}}});
   const nodes=()=>{const all=[];const walk=n=>{all.push(n);n.children.forEach(walk);};walk(root);return all;};
@@ -27,4 +27,41 @@ test('unavailable and bounded snapshots never claim an empty queue or delivered 
 test('saved provider receipt is not displayed as proof of delivery or current running work',()=>{
   const f=setup();const d=data();d.items[0].reply_attempts=[{id:'sent1',state:'sent',completed_at:1,provider_message_id:'meta1'},{id:'pending1',state:'claimed',created_at:1}];
   f.ui.render(f.root,d);assert.match(f.text(),/recipient delivery or reading is not verified/);assert.match(f.text(),/pending or interrupted/);assert.match(f.text(),/Provider reference: meta1/);
+});
+
+
+test('only saved acknowledgments expose local recovery; one click sends no provider operation',async()=>{
+ const f=setup([{reconciliation_only:true,sent:true}]),d=data();
+ d.items[0].reply_attempts[0].has_acceptance_receipt=1;
+ d.items[0].reply_attempts[0].message_id='out1';
+ f.ui.render(f.root,d);
+ const recover=f.nodes().find(n=>n.tag==='button');
+ await recover.click();await recover.click();
+ assert.equal(f.calls.length,1);
+ assert.deepEqual(JSON.parse(JSON.stringify(f.calls[0][1])),{method:'POST',body:{op:'reconcile',thread_id:'thread&1',message_id:'out1',attempt_id:'receipt1'}});
+ assert.match(f.text(),/Recipient delivery remains unverified; no reply was resent/);
+ const missing=setup();missing.ui.render(missing.root,data());
+ assert.equal(missing.nodes().filter(n=>n.tag==='button').length,0);
+});
+test('recovery failure cannot claim provider acceptance and mount rereads state',async()=>{
+ const d=data();d.items[0].reply_attempts[0].has_acceptance_receipt=1;
+ d.items[0].reply_attempts[0].message_id='out1';
+ const f=setup([new Error('offline')]);f.ui.render(f.root,d);
+ await f.nodes().find(n=>n.tag==='button').click();
+ assert.match(f.text(),/Recovery could not be verified/);
+ assert.doesNotMatch(f.text(),/Provider acceptance recorded locally/);
+ const mounted=setup([d,{reconciliation_only:true,sent:true},data()]);await mounted.ui.mount(mounted.root);
+ await mounted.nodes().find(n=>n.textContent==='Recover saved acknowledgment').click();
+ assert.equal(mounted.calls.length,3);assert.equal(mounted.calls[2].length,1);
+ assert.match(mounted.text(),/Delivery outcome unknown/);
+});
+test('resolved API errors and failed rereads cannot claim recovery',async()=>{
+ const d=data();d.items[0].reply_attempts[0].has_acceptance_receipt=true;d.items[0].reply_attempts[0].message_id='out1';
+ const f=setup([{ok:false,error:'network_error'}]);f.ui.render(f.root,d);
+ await f.nodes().find(n=>n.tag==='button').click();
+ assert.match(f.text(),/Recovery remains unverified/);
+ const mounted=setup([d,{reconciliation_only:true,sent:true},{ok:false,error:'read_failed'}]);await mounted.ui.mount(mounted.root);
+ await mounted.nodes().find(n=>n.textContent==='Recover saved acknowledgment').click();
+ assert.match(mounted.text(),/Inbox unavailable/);
+ assert.doesNotMatch(mounted.text(),/Provider acceptance recorded locally/);
 });
