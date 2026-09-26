@@ -1,6 +1,6 @@
 # Google profile review packet — September 26, 2026
 
-Status: private draft, NOT posted or applied. Normal supported Chrome access succeeded at business.google.com; Añejo was listed Verified. Profile and Unreplied tab showed seven five-star reviews. All seven remained in Unreplied. Full truncated review text was expanded before drafting. No credentials, account permissions, review replies, profile fields or ads changed. Website access does not prove API project approval/OAuth access.
+Status at preparation: private draft, NOT posted or applied. See the subsequent execution receipt below. Normal supported Chrome access succeeded at business.google.com; Añejo was listed Verified. Profile and Unreplied tab showed seven five-star reviews. All seven remained in Unreplied. Full truncated review text was expanded before drafting. No credentials, account permissions, review replies, profile fields or ads changed. Website access does not prove API project approval/OAuth access.
 
 Google Search showed Añejo's homepage and catering, Cajita, menu, Cuban food and service-area results. This is observed indexing for this branded search, not a general ranking or traffic claim. Profile description still leads with longevity meal-prep bowls and broad ingredient promises. Website food-ordering and menu actions were offered by the manager; whether individual links are configured requires separate inspection. No paid ad setup performed.
 
@@ -25,3 +25,13 @@ No reviewer names or profile identifiers stored here. Re-match review theme/lang
 ## Approval and remaining work
 
 Dayan has not approved these exact external changes. Separate publication approval required by standing no-customer-communications boundary. If approved, use normal supported Google UI, one reply at a time with visible saved readback and no blind retry. Profile acceptance is distinct from public moderation/visibility. Do not activate ads or alter access. API integration remains blocked on approved project/account authorization confirmation; manual browser replies do not connect Ana to Google.
+
+## Approved execution receipt — September 26, 10:23 a.m. Eastern
+
+Dayan reviewed the exact description and seven replies rendered in this conversation. After the question asking approval for both, Dayan said “Yes, go for it.” Direct-session approval covers those exact eight changes only. Excludes ads, credentials, access, additional profile fields or future automated replies.
+
+Using normal supported Chrome, root saved the exact508-character description. Google showed the replacement text and “Your edit is pending.” Each of seven exact replies was submitted once, with subsequent visible saved text/Edit controls and pending-review notice. On three slow submissions, root stopped the helper and read the resulting state instead of submitting again. Final Unreplied tab displayed “You've replied to new reviews” and no review rows. This proves saved/submitted replies, not public moderation approval, delivered notifications or API connection. No credential/session files were accessed or changed.
+
+Additional read-only findings: food-ordering switch already on but no provider/link rows displayed; Menu or services link empty. Current service areas list ten Palm Beach-area entries, not a verified Broward delivery commitment. Existing rejected service-option changes were visible; root did not dismiss, reapply or alter them. No ordering/menu links were added under this approval.
+
+Next: read Google moderation results before claiming public visibility. Add a reviewed ordering/menu link only after separately scoped approval. Keep API authorization distinct from website manager access.

@@ -148,3 +148,7 @@ Customer-context release is deployed and the ordering guidance is explicitly ena
 ### September 26 resumed work queue
 
 PR149 main Functions CI is now completed/success; migration0136 and production deployment are already verified in release evidence. Do not reapply the migration. Root updated the request ledger's current checkpoint to prevent historical draft/unreleased statuses being mistaken for current truth. Renderer agent owns local fixed-template caption contrast and profiling; strategy review agent owns one actual-handler reviewed-direction/planner integration regression. Root owns integration review and evidence. Google API and six-item selection questions remain unanswered; no assumption grants authority.
+
+### Owner factual clarification received in voice
+
+September26 direct-session transcript: after being asked specifically whether the six-item Cajita is the standard starting selection with changes by quote, Dayan answered yes repeatedly. Record the six items as the standard starting selection: Hawaiian roll, guava-cheese empanada, ham croqueta, macaroni salad, skewer, tres leches cup. The preceding question specified the skewer as fruit/ham/guava/cheese/pineapple. This resolves the factual question but does not itself update runtime brand authority or grant publication approval. Next: persist exact clarification in the appropriate owner training source, retain grant provenance, then one controlled current-source audit. Do not substitute an automatic passing score.
