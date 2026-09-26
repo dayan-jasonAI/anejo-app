@@ -4,13 +4,13 @@
 // message history each turn. Rate-limited as a cost-abuse guard.
 //
 // The system prompt lives in _lib/ana_social.js and is SHARED with the Instagram draft engine —
-// one Aña, one set of prices and rules, so the website chat and a drafted DM can never disagree
-// about what a bowl costs.
+// Both channels use the same menu, selected brand rules and customer-eligible supplemental
+// guidance. Shared inputs reduce drift; they do not guarantee identical model answers.
 import { json, bad, id, now, isEmail } from '../_lib/util.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { budgetGate, recordSpend } from '../_lib/ai_budget.js';
 import { loadMenu } from '../_lib/menu.js';
-import { anaSystemPrompt, anaBrand, detectCommercialIntent } from '../_lib/ana_social.js';
+import { anaSystemPrompt, anaBrand, anaCustomerContext, detectCommercialIntent } from '../_lib/ana_social.js';
 import { insertLead } from '../_lib/leads.js';
 
 const MODEL = 'claude-sonnet-5';
@@ -104,13 +104,14 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
   // request like the menu is, so a change approved in the HUB reaches the website on the next
   // message rather than the next deploy.
   const brand = await anaBrand(env);
+  const extra = await anaCustomerContext(env, lastUserText);
 
   let r;
   try {
     r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, max_tokens: 600, system: anaSystemPrompt(menu, brand), messages: msgs }),
+      body: JSON.stringify({ model: MODEL, max_tokens: 600, system: anaSystemPrompt(menu, brand) + extra, messages: msgs }),
     });
   } catch {
     return json({ error: 'Could not reach the assistant. Please email dayan@anejocateringco.com.' }, 502);

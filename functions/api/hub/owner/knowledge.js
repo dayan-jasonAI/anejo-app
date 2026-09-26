@@ -33,7 +33,8 @@ export const onRequestGet = async ({ request, env }) => {
   try {
     const r = await env.DB.prepare(
       `SELECT id, title, source_kind, filename, bytes, lang, authority, chunk_count, chars,
-              status, error, active, created_at, updated_at
+              status, error, active, customer_eligible, customer_eligible_by,
+              customer_eligible_at, customer_eligible_source_updated_at, created_at, updated_at
          FROM kb_documents ORDER BY created_at DESC LIMIT 200`
     ).all();
     items = (r && r.results) || [];
@@ -54,6 +55,7 @@ export const onRequestGet = async ({ request, env }) => {
 
   return json({
     ok: true,
+    can_manage_customer_context: ctx.role === 'owner',
     items,
     load_error: loadError,
     searchable_chunks: searchable,
@@ -71,6 +73,28 @@ export const onRequestPost = async ({ request, env }) => {
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const op = b && b.op;
+
+  if (op === 'set_customer_eligibility') {
+    if (typeof b?.id !== 'string' || !b.id.trim() || typeof b.customer_eligible !== 'boolean' ||
+        !Number.isSafeInteger(b.expected_updated_at) || b.expected_updated_at < 0) return bad('Valid id, customer_eligible, and expected_updated_at are required.');
+    const docId = b.id.trim();
+    const ts = Math.max(now(), b.expected_updated_at + 1);
+    const r = await env.DB.prepare(
+      `UPDATE kb_documents SET customer_eligible = ?, customer_eligible_by = ?,
+          customer_eligible_at = ?, customer_eligible_source_updated_at = ?,
+          customer_context_decision_by = ?, customer_context_decision_at = ?, updated_at = ?
+        WHERE id = ? AND active = 1 AND updated_at = ?
+          AND (? = 0 OR (status = 'ready' AND EXISTS
+            (SELECT 1 FROM kb_chunks WHERE doc_id = ? AND embedded = 1 AND TRIM(text) <> '')))`
+    ).bind(b.customer_eligible ? 1 : 0, b.customer_eligible ? ctx.distinct_id : null,
+      b.customer_eligible ? ts : null, b.customer_eligible ? b.expected_updated_at : null,
+      ctx.distinct_id, ts, ts, docId, b.expected_updated_at, b.customer_eligible ? 1 : 0, docId).run();
+    if (!r?.meta?.changes) {
+      const row = await env.DB.prepare('SELECT id FROM kb_documents WHERE id = ? AND active = 1').bind(docId).first();
+      return bad(row ? 'Document changed or is not ready. Refresh and retry.' : 'Document not found.', row ? 409 : 404);
+    }
+    return json({ ok: true, id: docId, customer_eligible: b.customer_eligible, updated_at: ts });
+  }
 
   // ---------- ask: show what retrieval actually finds ----------
   if (op === 'ask') {

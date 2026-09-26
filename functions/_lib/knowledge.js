@@ -192,7 +192,8 @@ export async function deleteDocChunks(env, docId) {
  * Retrieve passages relevant to a question.
  * Returns [{ text, title, heading, page, score, authority }] ordered best-first.
  */
-export async function retrieve(env, question, { topK = 8, minScore = 0.35 } = {}) {
+export async function retrieve(env, question, { topK = 8, minScore = 0.35, audience = 'internal' } = {}) {
+  if (audience !== 'internal' && audience !== 'customer') return [];
   const q = String(question || '').trim();
   if (!q || !env.VECTORIZE || !env.AI) return [];
 
@@ -219,7 +220,8 @@ export async function retrieve(env, question, { topK = 8, minScore = 0.35 } = {}
       `SELECT c.id, c.text, c.heading, c.page, c.doc_id, d.title, d.authority, d.status AS document_status
          FROM kb_chunks c JOIN kb_documents d ON d.id = c.doc_id
         WHERE c.id IN (${ids.map(() => '?').join(',')})
-          AND c.embedded = 1 AND d.active = 1 AND d.status IN ('ready', 'partial')`
+          AND c.embedded = 1 AND d.active = 1 AND d.status IN ('ready', 'partial')
+          ${audience === 'customer' ? "AND d.customer_eligible = 1 AND d.status = 'ready'" : ''}`
     ).bind(...ids).all();
     for (const row of (r && r.results) || []) byId[row.id] = row;
   } catch { byId = {}; }

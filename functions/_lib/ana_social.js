@@ -365,32 +365,20 @@ RULES FOR THIS DRAFT (on top of the guardrails above)
 - If the message is angry or heated, threatens a bad review, asks about a refund, a chargeback, or a billing problem, or describes anything medical (an allergic reaction, feeling sick, an injury) — do NOT draft a reply. Instead respond with exactly one line:
 ${ESCALATE_PREFIX} <a few words saying why this needs the owner>`;
 
-// Owner training (functions/_lib/training.js) and knowledge-base retrieval (functions/_lib/
-// knowledge.js `retrieve()`, the same path the weekly planner already uses) — until now Aña read
-// neither. Her only trainable inputs were the live menu and prices, so the owner had no way to
-// teach her tone or feed her facts from the HUB the way he already can for the Lead and the
-// planner.
-//
-// BUDGETED MUCH TIGHTER than either of those two callers, and deliberately so: Aña is Haiku, and
-// she drafts on every unanswered DM and comment the tick sees, every minute — the highest call
-// VOLUME of any AI surface in this file tree, by a wide margin over a few Lead chats a day or one
-// planner run a week. A generous per-call budget here turns into real weekly spend fast; a tight
-// one still gets her the owner's most-recent rules and the single most relevant passage, which is
-// what a short reply actually needs.
-//
-// Both sources degrade to silence completely independently — a missing training_rules table, a
-// missing/un-migrated knowledge base, no VECTORIZE/AI binding, or a retrieval failure must NEVER
-// cost a customer their reply. trainingContext() and retrieve() already never throw on their own;
-// the try/catch below is belt-and-suspenders against a caller passing something they don't expect.
+// Shared supplemental grounding for website answers and Instagram drafts. Only rules and
+// documents explicitly enabled for customer answers are eligible; photo examples remain internal.
+// Read eligibility from D1 on every request so revocations do not depend on a vector reindex.
+// Tight per-call budgets preserve complete training lines and the mandatory program restriction.
+// Missing schemas, failed reads and unavailable retrieval add no internal fallback context.
 const ANA_TRAINING_BUDGET = 1200;
 const ANA_PROGRAM_BUDGET = 900;
 const ANA_KB_TOPK = 3;
 const ANA_KB_BUDGET = 1200;
 
-async function anaExtraContext(env, question) {
+export async function anaCustomerContext(env, question) {
   let block = '';
   try {
-    const training = await trainingContext(env, { maxChars: ANA_TRAINING_BUDGET });
+    const training = await trainingContext(env, { maxChars: ANA_TRAINING_BUDGET, audience: 'customer' });
     if (training) {
       // Framed explicitly as NOT an override — training rules add voice and facts, they cannot
       // grant permission the HARD RULES / ESCALATE conditions above withhold. Without this line a
@@ -411,7 +399,7 @@ async function anaExtraContext(env, question) {
     if (p) block += '\n\n' + p;
   } catch { /* additive */ }
   try {
-    const passages = await retrieve(env, question, { topK: ANA_KB_TOPK });
+    const passages = await retrieve(env, question, { topK: ANA_KB_TOPK, audience: 'customer' });
     if (passages.length) {
       const { text } = formatPassages(passages, ANA_KB_BUDGET);
       if (text) {
@@ -443,10 +431,8 @@ export async function draftReply(env, { kind = 'dm', text, username, auto = fals
   // Prices and rules are read per draft, same as chat.js — loadMenu never throws, it degrades to
   // last-known-good, so the draft always quotes what checkout charges.
   const menu = await loadMenu(env);
-  // Owner training + knowledge-base retrieval, tightly budgeted (see anaExtraContext) — '' on any
-  // environment that hasn't set either up, so the system prompt is byte-identical to before this
-  // wiring existed until the owner actually trains the team or uploads a document.
-  const extra = await anaExtraContext(env, msg);
+  // Shared customer-eligible guidance; uploading or teaching alone does not authorize customer use.
+  const extra = await anaCustomerContext(env, msg);
   // The voice and allergen rules the owner maintains, same source the rest of the team reads.
   // Never throws — loadBrand degrades to the compiled snapshot, and brandBlock() to ''.
   const brand = await anaBrand(env);
