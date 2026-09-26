@@ -14,7 +14,7 @@
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
-import { sendAnaDraft } from '../../../_lib/instagram_reply_attempt.js';
+import { sendAnaDraft, reconcileInstagramReplyAttempt } from '../../../_lib/instagram_reply_attempt.js';
 import { now } from '../../../_lib/hub.js';
 import { replyWindow } from '../../../_lib/instagram_messaging.js';
 
@@ -61,9 +61,9 @@ export const onRequestGet = async ({ request, env }) => {
 
   const attemptMap={};let attemptHistory='available';
   try {
-    const read=await env.DB.prepare('SELECT id,message_id,thread_id,kind,trigger_id,state,provider_message_id,error_code,created_at,completed_at FROM instagram_reply_attempts ORDER BY created_at DESC LIMIT 200').all();
+    const read=await env.DB.prepare('SELECT id,message_id,thread_id,kind,trigger_id,state,provider_message_id,error_code,created_at,completed_at,(acceptance_receipt_json IS NOT NULL) AS has_acceptance_receipt FROM instagram_reply_attempts ORDER BY created_at DESC LIMIT 200').all();
     if(read?.success===false||!Array.isArray(read?.results))throw Error('unavailable');
-    for(const attempt of read.results)(attemptMap[attempt.thread_id]=attemptMap[attempt.thread_id]||[]).push(attempt);
+    for(const attempt of read.results)(attemptMap[attempt.thread_id]=attemptMap[attempt.thread_id]||[]).push({...attempt,has_acceptance_receipt:Number(attempt.has_acceptance_receipt)===1});
   } catch {attemptHistory='unavailable';}
   let pending = 0;
   const items = threads.map((t) => {
@@ -107,6 +107,13 @@ export const onRequestPost = async ({ request, env }) => {
   // draft it happens to match.
   const m = await env.DB.prepare('SELECT * FROM messages WHERE id=? AND thread_id=?').bind(messageId, threadId).first();
   if (!m) return bad('Draft not found.', 404);
+  if (op === 'reconcile') {
+    if(typeof b.attempt_id!=='string'||!b.attempt_id||b.attempt_id.length>100)return bad('attempt_id is required.');
+    const attempt=await env.DB.prepare('SELECT id FROM instagram_reply_attempts WHERE id=? AND thread_id=? AND message_id=?').bind(b.attempt_id,threadId,messageId).first();
+    if(!attempt)return bad('Reply attempt not found.',404);
+    const result=await reconcileInstagramReplyAttempt(env,{attemptId:attempt.id,threadId});
+    return json({...result,reconciliation_only:true},result.sent?200:409);
+  }
   if (op === 'send') {
     if(typeof b.expected_body!=='string')return bad('expected_body is required.');
     const r=await sendAnaDraft(env,{messageId:m.id,threadId,expectedBody:b.expected_body,initiatedBy:ctx.distinct_id||ctx.role});

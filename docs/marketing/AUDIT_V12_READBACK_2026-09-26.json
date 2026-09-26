@@ -1,0 +1,1157 @@
+{
+  "id": "sp_58424887f40e1a1b611f",
+  "status": "published",
+  "audit_score": null,
+  "audit_at": 1790430901089,
+  "audit_status": "flag",
+  "audit_target": "published_saved_source",
+  "rubric_version": "anejo-visual-12",
+  "complete": false,
+  "criteria_met": 6,
+  "criteria_applicable": 7,
+  "unknowns": [
+    {
+      "criterion_id": "product_fidelity",
+      "explanation": "Source verification is incomplete: 1 explicit product claim(s) have no selected supporting authority. Review the unresolved written claims listed below against menu or owner guidance; absent an explicit exact-photo assortment promise, identifying unlabeled pictured foods is not required. No score or automatic approval is available.",
+      "slides": [
+        9
+      ]
+    }
+  ],
+  "product_evidence": {
+    "scope": "explicit_claims",
+    "claims": [
+      {
+        "claim_id": "pc_fcb8c91443099d51980cd6dd0caf7f88cc04449a675427bbcfc1d51706061cd7_2",
+        "source": "registered_overlay",
+        "caption_line": 0,
+        "slide": 9,
+        "quote": "START WITH SIX / SEIS FAVORITOS",
+        "authority_source": "unknown",
+        "authority_quote": "",
+        "authority_citations": []
+      },
+      {
+        "claim_id": "pc_fcb8c91443099d51980cd6dd0caf7f88cc04449a675427bbcfc1d51706061cd7_3",
+        "source": "registered_overlay",
+        "caption_line": 0,
+        "slide": 9,
+        "quote": "Hawaiian roll with ham spread; guava-cheese empanada; ham croqueta; creamy macaroni salad; fruit, ham, guava, cheese and pineapple skewer; tres leches cup.",
+        "authority_source": "menu",
+        "authority_quote": "Bocadito — Hawaiian roll with ham spread ($2.75) — 1 × 1.5 oz / 43 g mini sandwich\n",
+        "authority_citations": [
+          {
+            "id": "menu:6042",
+            "source": "menu",
+            "offset": 6042,
+            "quote": "Bocadito — Hawaiian roll with ham spread ($2.75) — 1 × 1.5 oz / 43 g mini sandwich\n"
+          },
+          {
+            "id": "menu:2195",
+            "source": "menu",
+            "offset": 2195,
+            "quote": "Guava & cheese empanada ($2.50) — 1 × 1.25 oz / 35 g empanada\n"
+          },
+          {
+            "id": "menu:126",
+            "source": "menu",
+            "offset": 126,
+            "quote": "Ham croqueta ($1.50) — 1 × 1.20 oz / 34 g croqueta (fried)\n"
+          },
+          {
+            "id": "menu:7706",
+            "source": "menu",
+            "offset": 7706,
+            "quote": "Cold macaroni salad ($5.00) — 1 × 6 oz / 170 g cold salad\n"
+          },
+          {
+            "id": "menu:4963",
+            "source": "menu",
+            "offset": 4963,
+            "quote": "Grape, ham, guava, cheese & pineapple skewer ($3.00) — 1 × 2 oz / 57 g full skewer\n"
+          },
+          {
+            "id": "menu:10337",
+            "source": "menu",
+            "offset": 10337,
+            "quote": "Strawberry tres leches cup ($5.50) — 1 × 5 fl oz dessert cup\n"
+          }
+        ]
+      }
+    ],
+    "unreadable_slides": []
+  },
+  "observations": [
+    {
+      "evidence_anchor": "slide:1",
+      "criterion_id": "branding",
+      "status": "met",
+      "caption_line": 0,
+      "slides": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "explanation": "The tree-and-roots emblem visible on every slide (cover medallion, tags, and eyebrow logo on slides 9-10) is visually consistent with the supplied approved emblem reference: same canopy/root silhouette in a rounded frame. No slide obscures food or wording with the mark.",
+      "caption_quote": "",
+      "rule_source": "criterion",
+      "rule_quote": "Compare the visible Añejo emblem with the separately supplied approved emblem reference, without obscuring food or required wording. This is visual consistency only, not proof of the original source asset, rendering provenance or photo authenticity. If the reference is absent or comparison is uncertain, mark unknown. Event packaging colors are allowed and need not match the corporate palette."
+    },
+    {
+      "evidence_anchor": "slide:9",
+      "criterion_id": "readability",
+      "status": "met",
+      "caption_line": 0,
+      "slides": [
+        9,
+        10
+      ],
+      "explanation": "All headline, row heading and body text on slides 9-10 is rendered in clear high-contrast gold/cream on dark forest green with no clipping or truncation. Slides 1-8 short headline overlays (e.g. 'Halloween', 'Christmas') are legible against their backgrounds and do not cover food.",
+      "caption_quote": "",
+      "rule_source": "criterion",
+      "rule_quote": "Required wording and food must remain visible within the finished frame. Flag concrete clipping, unreadability or obstruction, not personal layout preferences."
+    },
+    {
+      "evidence_anchor": "caption:4",
+      "criterion_id": "caption_image",
+      "status": "met",
+      "caption_line": 4,
+      "slides": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "explanation": "Caption promises 'La Cajita' presentation choices and personalization; the carousel opens with the Signature Cajita cover (slide 1), moves through theme inspirations (slides 2-8), then personalization (slide 9) and planning steps (slide 10), matching the caption's described journey. No trays are promised, so none are required.",
+      "caption_quote": "Message us “CAJITA” with your event date, city and guest count, or choose Catering & Events in our bio.",
+      "rule_source": "criterion",
+      "rule_quote": "Judge the caption against the complete carousel. A cover promising both Cajitas and trays must show both. A menu collage may introduce multiple catering formats."
+    },
+    {
+      "evidence_anchor": "slide:1",
+      "criterion_id": "themed_packaging",
+      "status": "met",
+      "caption_line": 0,
+      "slides": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "explanation": "Slides 2-8 show owner-approved event color themes (gender-reveal pastels, Halloween, Christmas, Valentine's, Easter, patriotic, elegant black/gold) layered onto the same Cajita box and emblem sticker, consistent with the brief's allowance that event colors demonstrate customization without replacing the corporate identity.",
+      "caption_quote": "",
+      "rule_source": "criterion",
+      "rule_quote": "Owner-approved event colors, theme illustrations and personalization are permitted on packaging and design. They do not replace the corporate identity or imply literal food ingredients."
+    },
+    {
+      "evidence_anchor": "slide:9",
+      "criterion_id": "product_fidelity",
+      "status": "unknown",
+      "caption_line": 0,
+      "slides": [
+        9
+      ],
+      "explanation": "Source verification is incomplete: 1 explicit product claim(s) have no selected supporting authority. Review the unresolved written claims listed below against menu or owner guidance; absent an explicit exact-photo assortment promise, identifying unlabeled pictured foods is not required. No score or automatic approval is available.",
+      "model_finding": {
+        "status": "met",
+        "explanation": "Slide 9's registered row_body text names Hawaiian roll with ham spread, guava-cheese empanada, ham croqueta, creamy macaroni salad, fruit/ham/guava/cheese/pineapple skewer, and tres leches cup as the six starting items; each matches an existing live menu SKU (menu:6042, 2195, 126, 7706, 4963, 10337). The slide also states these are the 'start with six' options, not exclusive, and slide 9's own disclaimer confirms photos show design possibilities not a fixed assortment, consistent with this text list."
+      },
+      "resolution": {
+        "source": "deterministic_evidence_gate",
+        "reason": "unresolved_product_authority"
+      },
+      "caption_quote": "",
+      "rule_source": "criterion",
+      "rule_quote": "Check explicit product, ingredient or quantity claims in caption or readable slide wording against supplied menu or owner evidence. Unlabeled food imagery is not an exact-SKU claim. Photographic authenticity and rendering provenance are outside this criterion. An unverifiable explicit claim is unknown; absence of explicit product claims is met with that scope explained."
+    },
+    {
+      "evidence_anchor": "caption:3",
+      "criterion_id": "claims",
+      "status": "met",
+      "caption_line": 3,
+      "slides": [
+        10
+      ],
+      "explanation": "Caption line 3 and slide 10 state 'Standard orders need at least 48 hours; custom printing needs at least 72 hours and a reviewed quote,' matching owner policy exactly. No fixed prices, deadlines, or guaranteed availability are asserted; caption line 6 and slide 6-style city questions are conditional ('Comparte tu ciudad y revisamos disponibilidad'), not promises of coverage.",
+      "caption_quote": "Your menu, quantities and personalized details are confirmed with your quote. Standard orders need at least 48 hours; custom printing needs at least 72 hours and a reviewed quote.",
+      "rule_source": "criterion",
+      "rule_quote": "No unsupported unconditional service, price, timing or outcome promises. Conditional city questions with availability confirmation and city hashtags are not service guarantees. Standard orders need at least 48 hours; custom printing needs at least 72 hours and quote review."
+    },
+    {
+      "evidence_anchor": "caption:2",
+      "criterion_id": "owner_instructions",
+      "status": "met",
+      "caption_line": 2,
+      "slides": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "explanation": "Per the September 17 direction, the Cajita launch opens with the Signature design (slide 1), then design inspirations (slides 2-8), then personalization (slide 9) and planning info (slide 10) in the required order. Bilingual captions (lines 5-6) and Palm Beach/Broward city discovery plus Cuban-catering hashtags (line 7) are preserved without asserting unconfirmed coverage.",
+      "caption_quote": "La Cajita brings Cuban favorites together in individual packaging, with presentation coordinated to your celebration. Choose your colors, liners, labels, tags and finishing touches—and tell us which menu selections suit your guests.",
+      "rule_source": "criterion",
+      "rule_quote": "Apply the whole supplied owner instruction including its scope and exceptions. A sequence or requirement that is followed is compliant. Optional stylistic preferences are suggestions, not violations."
+    }
+  ],
+  "suggestions": [],
+  "input_coverage": {
+    "brand": {
+      "schema": 1,
+      "source": "d1",
+      "read_status": "ok",
+      "fallback_reason": null,
+      "documents": [
+        {
+          "id": "doc_brand_main",
+          "updated_at": 1789693407876,
+          "supplied_chars": 26859,
+          "original_chars": 26859,
+          "section_fallback": false
+        }
+      ],
+      "rendered_sha256": "9eedcc04d63cdc71b69cd4f742dd27e3729b3dce4fe363f511b95c3f69546d2a",
+      "original_chars": 26859,
+      "supplied_chars": 26859,
+      "truncated": false,
+      "requested_sections": null,
+      "strict_sections": false,
+      "selection_limit": 10,
+      "selection_may_be_limited": false,
+      "section_fallback": false
+    },
+    "training": {
+      "schema": 1,
+      "source": "d1",
+      "read_status": "ok",
+      "reads": {
+        "rules": "ok",
+        "examples": "ok"
+      },
+      "rendered_sha256": "6ffbc5154ee22fcffe095730e0214a6cd7d4e93f0e9e768865534eab97ba0a5a",
+      "original_chars": 9735,
+      "supplied_chars": 9735,
+      "truncated": false,
+      "rules": [
+        {
+          "id": "rul_menu_20260908_4",
+          "updated_at": 1790430001925
+        },
+        {
+          "id": "rul_e8e0f8022c3e93e48e9c",
+          "updated_at": 1789696906945
+        },
+        {
+          "id": "rul_142173c4be136f0fc0d2",
+          "updated_at": 1789696888540
+        },
+        {
+          "id": "rul_6b9f7981f338fcd883cf",
+          "updated_at": 1785866715097
+        },
+        {
+          "id": "rul_2973c5e59146b73b3a95",
+          "updated_at": 1785866698842
+        },
+        {
+          "id": "rul_51c4e550c6c9ce736263",
+          "updated_at": 1785866676668
+        },
+        {
+          "id": "rul_e870930a6f6f311974d7",
+          "updated_at": 1785866654436
+        },
+        {
+          "id": "rul_5da16ff5e84ffbff2aba",
+          "updated_at": 1785866644262
+        },
+        {
+          "id": "rul_a1fbd5476290968011e2",
+          "updated_at": 1785866613061
+        },
+        {
+          "id": "rul_d78b157dcd647eccf5d1",
+          "updated_at": 1785866597383
+        },
+        {
+          "id": "rul_1a4c4938ca470c18e966",
+          "updated_at": 1785866574947
+        },
+        {
+          "id": "rul_16b846cba8a18918b04b",
+          "updated_at": 1785866564312
+        },
+        {
+          "id": "rul_7a0813c53137d295ea4c",
+          "updated_at": 1785866554565
+        },
+        {
+          "id": "rul_a76e5a897c4fa211846a",
+          "updated_at": 1785866546263
+        },
+        {
+          "id": "rul_menu_20260908_3",
+          "updated_at": 1788925063
+        },
+        {
+          "id": "rul_menu_20260908_2",
+          "updated_at": 1788925062
+        },
+        {
+          "id": "rul_menu_20260908_1",
+          "updated_at": 1788925061
+        },
+        {
+          "id": "rul_menu_20260908_0",
+          "updated_at": 1788925060
+        },
+        {
+          "id": "rul_85f7af84fd769fc3e56a",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_41e5f0c91ba45b9813a2",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_37bf777e985397b84148",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_846ba7636d51530c2564",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_83ffac019a887752e61c",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_eaeceb9b36b4f9738e23",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_ffbacc5a55b302a7165f",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_1205268322e4620c8f12",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_8f1a5257b8965a98bf8c",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_161e590ea649ea9ceaef",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_a6118c87a087117db342",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_742537466f527536f03c",
+          "updated_at": 1788925059
+        },
+        {
+          "id": "rul_693e3539b36c020152f5",
+          "updated_at": 1788925059
+        }
+      ],
+      "examples": [
+        {
+          "id": "trex_25b39055fe40be8ba50d",
+          "updated_at": 1786435448869
+        },
+        {
+          "id": "trex_9db40d24935e6863566b",
+          "updated_at": 1786435433895
+        },
+        {
+          "id": "trex_543e9fb5376fb4bf048c",
+          "updated_at": 1786435398690
+        },
+        {
+          "id": "trex_39eb2ad9d9ceac6cd245",
+          "updated_at": 1786435243551
+        },
+        {
+          "id": "trex_d316fe86eeb30ee59290",
+          "updated_at": 1786435235846
+        },
+        {
+          "id": "trex_7184bd4989f2a5c4600e",
+          "updated_at": 1786435226669
+        },
+        {
+          "id": "trex_7b0d00cbadf32dc283cb",
+          "updated_at": 1786435202344
+        },
+        {
+          "id": "trex_154097ece3f13f9ece3c",
+          "updated_at": 1786435097915
+        },
+        {
+          "id": "trex_d14b6120a74fa7b63b70",
+          "updated_at": 1785867722597
+        },
+        {
+          "id": "trex_1e507ffd4c5fe0301e81",
+          "updated_at": 1785867624688
+        },
+        {
+          "id": "trex_98242407a8c84ede86e3",
+          "updated_at": 1785867594814
+        },
+        {
+          "id": "trex_c07c68d0dec970394db1",
+          "updated_at": 1785867573960
+        },
+        {
+          "id": "trex_1863a152a9b5b35a6365",
+          "updated_at": 1785867494538
+        },
+        {
+          "id": "trex_663c2342dd5aa5bed071",
+          "updated_at": 1785867438083
+        },
+        {
+          "id": "trex_69a7ebd95dc5bbc1ceb4",
+          "updated_at": 1785867420590
+        },
+        {
+          "id": "trex_173bae583335f12bd0e8",
+          "updated_at": 1785867394462
+        },
+        {
+          "id": "trex_c00e9a2908b02a6416cf",
+          "updated_at": 1785867377424
+        },
+        {
+          "id": "trex_b20be23c625f0980d409",
+          "updated_at": 1785867360341
+        },
+        {
+          "id": "trex_e4b09301d7238640eb01",
+          "updated_at": 1785867333181
+        },
+        {
+          "id": "trex_cb5b3c0b9975bb12026e",
+          "updated_at": 1785867304101
+        },
+        {
+          "id": "trex_da8cecbc0804b233f653",
+          "updated_at": 1785867080289
+        },
+        {
+          "id": "trex_21c2299b8b0f30f7b23a",
+          "updated_at": 1785867012506
+        },
+        {
+          "id": "trex_27a8d036943dac3cc782",
+          "updated_at": 1785866869654
+        },
+        {
+          "id": "trex_027107995183669b1cb1",
+          "updated_at": 1785866807726
+        }
+      ],
+      "selection_limit": 500,
+      "selection_may_be_limited": {
+        "rules": false,
+        "examples": false
+      }
+    },
+    "menu": {
+      "source": "d1"
+    },
+    "slide_sources": [
+      {
+        "slide": 1,
+        "media_id": "spm_ccbeb46540da56758f32",
+        "seq": 0,
+        "key": "marketing-library/2026-09/original_fb322fcc792d1901866f_photo.jpg",
+        "sha256": "73f0c2c79938e778509c8838ef3df9f3b871cf5ec91cc41ca7b8a08ece79a954",
+        "byte_length": 372312,
+        "design_facts_version": "anejo-reviewed-design-facts-2",
+        "design_facts": {
+          "source": "reviewed_revision3_export",
+          "file": "docs/marketing/cajita-social-2026-09-17/revision-3/slides/personal-01.jpg",
+          "output": {
+            "sha256": "73f0c2c79938e778509c8838ef3df9f3b871cf5ec91cc41ca7b8a08ece79a954",
+            "byte_length": 372312,
+            "width": 1080,
+            "height": 810
+          },
+          "rendered_text": [
+            {
+              "role": "headline",
+              "text": "Your occasion, your Cajita."
+            }
+          ],
+          "emblem": {
+            "source": "public/assets/img/emblem.png",
+            "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+            "rectangle": {
+              "x": 345.6,
+              "y": 625.5225,
+              "w": 81,
+              "h": 77.355
+            },
+            "ink": "#000000"
+          },
+          "layout": {
+            "text_region": {
+              "x": 604.8000000000001,
+              "y": 162,
+              "w": 313.2,
+              "h": 186.3
+            },
+            "text_rotation_degrees": 0,
+            "geometry_source": "saved_renderer_layout_report"
+          },
+          "provenance": {
+            "manifest_sha256": "0a9c9861fe4b89a7523b91a5ea65c7e1f105aa7cc073fc1236f08d27a59d8a57",
+            "validation_sha256": "3f1afe5cdcce10c95af6105275b734dc8b5aecca30e8030352ff4d0c1722c861",
+            "renderer_sha256": "251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d53492f89",
+            "render_page_sha256": "4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7",
+            "layout_sha256": "96020082bcf0610a8999fedd17f09e5cf32962e10524fda2c1fb68e45e5c2beb"
+          },
+          "limits": [
+            "Reviewed export declarations matched to exact output bytes; not independent OCR or a cryptographic render attestation.",
+            "Geometry does not prove visual legibility, lack of food obstruction, or semantic object identity.",
+            "No claim of food ingredients, photographic authenticity, owner publication approval or live Instagram pixel equivalence."
+          ]
+        },
+        "render_receipt_status": "reviewed_registry",
+        "unreviewed_render": null
+      },
+      {
+        "slide": 2,
+        "media_id": "spm_b201eb04b3cdaa7b79f1",
+        "seq": 1,
+        "key": "marketing-library/2026-09/original_c65c41adc55f1606c751_photo.jpg",
+        "sha256": "401710b7dcc0411a97028af9f596c194fc4c89e6e62144eb23bf28b22fd22a2b",
+        "byte_length": 301950,
+        "design_facts_version": "anejo-reviewed-design-facts-2",
+        "design_facts": {
+          "source": "reviewed_revision3_export",
+          "file": "docs/marketing/cajita-social-2026-09-17/revision-3/slides/personal-02.jpg",
+          "output": {
+            "sha256": "401710b7dcc0411a97028af9f596c194fc4c89e6e62144eb23bf28b22fd22a2b",
+            "byte_length": 301950,
+            "width": 1080,
+            "height": 810
+          },
+          "rendered_text": [
+            {
+              "role": "headline",
+              "text": "Gender reveal"
+            }
+          ],
+          "emblem": {
+            "source": "public/assets/img/emblem.png",
+            "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+            "rectangle": {
+              "x": 327.67539267015707,
+              "y": 761.4,
+              "w": 46.64921465968586,
+              "h": 44.55
+            },
+            "ink": "#0A180C"
+          },
+          "layout": {
+            "text_region": {
+              "x": 70.2,
+              "y": 660.15,
+              "w": 324,
+              "h": 97.2
+            },
+            "text_rotation_degrees": 0,
+            "geometry_source": "saved_renderer_layout_report"
+          },
+          "provenance": {
+            "manifest_sha256": "0a9c9861fe4b89a7523b91a5ea65c7e1f105aa7cc073fc1236f08d27a59d8a57",
+            "validation_sha256": "3f1afe5cdcce10c95af6105275b734dc8b5aecca30e8030352ff4d0c1722c861",
+            "renderer_sha256": "251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d53492f89",
+            "render_page_sha256": "4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7",
+            "layout_sha256": "df5f3dd29564fca116c83d44a46308f70868be0026eb3af9ccdc943831bfeb5c"
+          },
+          "limits": [
+            "Reviewed export declarations matched to exact output bytes; not independent OCR or a cryptographic render attestation.",
+            "Geometry does not prove visual legibility, lack of food obstruction, or semantic object identity.",
+            "No claim of food ingredients, photographic authenticity, owner publication approval or live Instagram pixel equivalence."
+          ]
+        },
+        "render_receipt_status": "reviewed_registry",
+        "unreviewed_render": null
+      },
+      {
+        "slide": 3,
+        "media_id": "spm_8be5aa5ae44fe26d873b",
+        "seq": 2,
+        "key": "marketing-library/2026-09/original_47eaa710b1c0f677de88_photo.jpg",
+        "sha256": "7249e1c8746c1689e93305bb9837834d0e9d1f9a5cad8f009dbf95cc1752e4ef",
+        "byte_length": 329030,
+        "design_facts_version": "anejo-reviewed-design-facts-2",
+        "design_facts": {
+          "source": "reviewed_revision3_export",
+          "file": "docs/marketing/cajita-social-2026-09-17/revision-3/slides/personal-03.jpg",
+          "output": {
+            "sha256": "7249e1c8746c1689e93305bb9837834d0e9d1f9a5cad8f009dbf95cc1752e4ef",
+            "byte_length": 329030,
+            "width": 1080,
+            "height": 810
+          },
+          "rendered_text": [
+            {
+              "role": "headline",
+              "text": "Halloween"
+            }
+          ],
+          "emblem": {
+            "source": "public/assets/img/emblem.png",
+            "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+            "rectangle": {
+              "x": 327.67539267015707,
+              "y": 761.4,
+              "w": 46.64921465968586,
+              "h": 44.55
+            },
+            "ink": "#E8E2CA"
+          },
+          "layout": {
+            "text_region": {
+              "x": 70.2,
+              "y": 660.15,
+              "w": 324,
+              "h": 97.2
+            },
+            "text_rotation_degrees": 0,
+            "geometry_source": "saved_renderer_layout_report"
+          },
+          "provenance": {
+            "manifest_sha256": "0a9c9861fe4b89a7523b91a5ea65c7e1f105aa7cc073fc1236f08d27a59d8a57",
+            "validation_sha256": "3f1afe5cdcce10c95af6105275b734dc8b5aecca30e8030352ff4d0c1722c861",
+            "renderer_sha256": "251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d53492f89",
+            "render_page_sha256": "4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7",
+            "layout_sha256": "738467f28da9c99a684e5cfefef7a6cac65e5ca0899ba61ee2a73bbafc9fed65"
+          },
+          "limits": [
+            "Reviewed export declarations matched to exact output bytes; not independent OCR or a cryptographic render attestation.",
+            "Geometry does not prove visual legibility, lack of food obstruction, or semantic object identity.",
+            "No claim of food ingredients, photographic authenticity, owner publication approval or live Instagram pixel equivalence."
+          ]
+        },
+        "render_receipt_status": "reviewed_registry",
+        "unreviewed_render": null
+      },
+      {
+        "slide": 4,
+        "media_id": "spm_82c9505095be19da9a95",
+        "seq": 3,
+        "key": "marketing-library/2026-09/original_f7638aab5f22f62e6d38_photo.jpg",
+        "sha256": "92429c2a7e4ca04a444fadeb92344c4bf282518d91f25c9d3c02cdcaeb24abfb",
+        "byte_length": 361036,
+        "design_facts_version": "anejo-reviewed-design-facts-2",
+        "design_facts": {
+          "source": "reviewed_revision3_export",
+          "file": "docs/marketing/cajita-social-2026-09-17/revision-3/slides/personal-04.jpg",
+          "output": {
+            "sha256": "92429c2a7e4ca04a444fadeb92344c4bf282518d91f25c9d3c02cdcaeb24abfb",
+            "byte_length": 361036,
+            "width": 1080,
+            "height": 810
+          },
+          "rendered_text": [
+            {
+              "role": "headline",
+              "text": "Christmas"
+            }
+          ],
+          "emblem": {
+            "source": "public/assets/img/emblem.png",
+            "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+            "rectangle": {
+              "x": 327.67539267015707,
+              "y": 761.4,
+              "w": 46.64921465968586,
+              "h": 44.55
+            },
+            "ink": "#E8E2CA"
+          },
+          "layout": {
+            "text_region": {
+              "x": 70.2,
+              "y": 660.15,
+              "w": 324,
+              "h": 97.2
+            },
+            "text_rotation_degrees": 0,
+            "geometry_source": "saved_renderer_layout_report"
+          },
+          "provenance": {
+            "manifest_sha256": "0a9c9861fe4b89a7523b91a5ea65c7e1f105aa7cc073fc1236f08d27a59d8a57",
+            "validation_sha256": "3f1afe5cdcce10c95af6105275b734dc8b5aecca30e8030352ff4d0c1722c861",
+            "renderer_sha256": "251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d53492f89",
+            "render_page_sha256": "4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7",
+            "layout_sha256": "0f463413416bcc0d01c882a09be589e8a5e913d59d2d5d3b334e37e4a6f66fc6"
+          },
+          "limits": [
+            "Reviewed export declarations matched to exact output bytes; not independent OCR or a cryptographic render attestation.",
+            "Geometry does not prove visual legibility, lack of food obstruction, or semantic object identity.",
+            "No claim of food ingredients, photographic authenticity, owner publication approval or live Instagram pixel equivalence."
+          ]
+        },
+        "render_receipt_status": "reviewed_registry",
+        "unreviewed_render": null
+      },
+      {
+        "slide": 5,
+        "media_id": "spm_3335b34ddc1fdde57c07",
+        "seq": 4,
+        "key": "marketing-library/2026-09/original_264004995f555e731a72_photo.jpg",
+        "sha256": "583d7904a59d8aa47a5796a99b23ae470ad2f0da515b9a52851215971ed0a85e",
+        "byte_length": 334068,
+        "design_facts_version": "anejo-reviewed-design-facts-2",
+        "design_facts": {
+          "source": "reviewed_revision3_export",
+          "file": "docs/marketing/cajita-social-2026-09-17/revision-3/slides/personal-05.jpg",
+          "output": {
+            "sha256": "583d7904a59d8aa47a5796a99b23ae470ad2f0da515b9a52851215971ed0a85e",
+            "byte_length": 334068,
+            "width": 1080,
+            "height": 810
+          },
+          "rendered_text": [
+            {
+              "role": "headline",
+              "text": "Valentine’s Day"
+            }
+          ],
+          "emblem": {
+            "source": "public/assets/img/emblem.png",
+            "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+            "rectangle": {
+              "x": 327.67539267015707,
+              "y": 761.4,
+              "w": 46.64921465968586,
+              "h": 44.55
+            },
+            "ink": "#0A180C"
+          },
+          "layout": {
+            "text_region": {
+              "x": 70.2,
+              "y": 660.15,
+              "w": 324,
+              "h": 97.2
+            },
+            "text_rotation_degrees": 0,
+            "geometry_source": "saved_renderer_layout_report"
+          },
+          "provenance": {
+            "manifest_sha256": "0a9c9861fe4b89a7523b91a5ea65c7e1f105aa7cc073fc1236f08d27a59d8a57",
+            "validation_sha256": "3f1afe5cdcce10c95af6105275b734dc8b5aecca30e8030352ff4d0c1722c861",
+            "renderer_sha256": "251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d53492f89",
+            "render_page_sha256": "4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7",
+            "layout_sha256": "ce05e12b21d7ce4c870723890ed0659d3d81a1bf827d3c10ae5845673e6efb8b"
+          },
+          "limits": [
+            "Reviewed export declarations matched to exact output bytes; not independent OCR or a cryptographic render attestation.",
+            "Geometry does not prove visual legibility, lack of food obstruction, or semantic object identity.",
+            "No claim of food ingredients, photographic authenticity, owner publication approval or live Instagram pixel equivalence."
+          ]
+        },
+        "render_receipt_status": "reviewed_registry",
+        "unreviewed_render": null
+      },
+      {
+        "slide": 6,
+        "media_id": "spm_480134df50df41b9e06a",
+        "seq": 5,
+        "key": "marketing-library/2026-09/original_7c3338167e7c147d868d_photo.jpg",
+        "sha256": "9d528d344529815c7c9b131ad3619841a45496dcae565cd30334326d5b923fa9",
+        "byte_length": 314279,
+        "design_facts_version": "anejo-reviewed-design-facts-2",
+        "design_facts": {
+          "source": "reviewed_revision3_export",
+          "file": "docs/marketing/cajita-social-2026-09-17/revision-3/slides/personal-06.jpg",
+          "output": {
+            "sha256": "9d528d344529815c7c9b131ad3619841a45496dcae565cd30334326d5b923fa9",
+            "byte_length": 314279,
+            "width": 1080,
+            "height": 810
+          },
+          "rendered_text": [
+            {
+              "role": "headline",
+              "text": "Easter & spring"
+            }
+          ],
+          "emblem": {
+            "source": "public/assets/img/emblem.png",
+            "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+            "rectangle": {
+              "x": 327.67539267015707,
+              "y": 761.4,
+              "w": 46.64921465968586,
+              "h": 44.55
+            },
+            "ink": "#0A180C"
+          },
+          "layout": {
+            "text_region": {
+              "x": 70.2,
+              "y": 660.15,
+              "w": 324,
+              "h": 97.2
+            },
+            "text_rotation_degrees": 0,
+            "geometry_source": "saved_renderer_layout_report"
+          },
+          "provenance": {
+            "manifest_sha256": "0a9c9861fe4b89a7523b91a5ea65c7e1f105aa7cc073fc1236f08d27a59d8a57",
+            "validation_sha256": "3f1afe5cdcce10c95af6105275b734dc8b5aecca30e8030352ff4d0c1722c861",
+            "renderer_sha256": "251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d53492f89",
+            "render_page_sha256": "4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7",
+            "layout_sha256": "2c2629acb45c46f188111cf8cd88422b162e3704c1d889ffe685325b3a35245d"
+          },
+          "limits": [
+            "Reviewed export declarations matched to exact output bytes; not independent OCR or a cryptographic render attestation.",
+            "Geometry does not prove visual legibility, lack of food obstruction, or semantic object identity.",
+            "No claim of food ingredients, photographic authenticity, owner publication approval or live Instagram pixel equivalence."
+          ]
+        },
+        "render_receipt_status": "reviewed_registry",
+        "unreviewed_render": null
+      },
+      {
+        "slide": 7,
+        "media_id": "spm_8e160facbbe9ff7b5968",
+        "seq": 6,
+        "key": "marketing-library/2026-09/original_ac0070138296c42be10e_photo.jpg",
+        "sha256": "1b75f8bed0ab4ebf54cf58b06239ee518e5be1ee27eb54da60728c67750cd816",
+        "byte_length": 346851,
+        "design_facts_version": "anejo-reviewed-design-facts-2",
+        "design_facts": {
+          "source": "reviewed_revision3_export",
+          "file": "docs/marketing/cajita-social-2026-09-17/revision-3/slides/personal-07.jpg",
+          "output": {
+            "sha256": "1b75f8bed0ab4ebf54cf58b06239ee518e5be1ee27eb54da60728c67750cd816",
+            "byte_length": 346851,
+            "width": 1080,
+            "height": 810
+          },
+          "rendered_text": [
+            {
+              "role": "headline",
+              "text": "Patriotic occasions"
+            }
+          ],
+          "emblem": {
+            "source": "public/assets/img/emblem.png",
+            "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+            "rectangle": {
+              "x": 327.67539267015707,
+              "y": 761.4,
+              "w": 46.64921465968586,
+              "h": 44.55
+            },
+            "ink": "#E8E2CA"
+          },
+          "layout": {
+            "text_region": {
+              "x": 70.2,
+              "y": 660.15,
+              "w": 324,
+              "h": 97.2
+            },
+            "text_rotation_degrees": 0,
+            "geometry_source": "saved_renderer_layout_report"
+          },
+          "provenance": {
+            "manifest_sha256": "0a9c9861fe4b89a7523b91a5ea65c7e1f105aa7cc073fc1236f08d27a59d8a57",
+            "validation_sha256": "3f1afe5cdcce10c95af6105275b734dc8b5aecca30e8030352ff4d0c1722c861",
+            "renderer_sha256": "251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d53492f89",
+            "render_page_sha256": "4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7",
+            "layout_sha256": "35792632c32f29d5caa1ef234c8ffb3b32e68f6489eb45aad82bcb3ede71bae0"
+          },
+          "limits": [
+            "Reviewed export declarations matched to exact output bytes; not independent OCR or a cryptographic render attestation.",
+            "Geometry does not prove visual legibility, lack of food obstruction, or semantic object identity.",
+            "No claim of food ingredients, photographic authenticity, owner publication approval or live Instagram pixel equivalence."
+          ]
+        },
+        "render_receipt_status": "reviewed_registry",
+        "unreviewed_render": null
+      },
+      {
+        "slide": 8,
+        "media_id": "spm_13016b0ae4bf00b91ae8",
+        "seq": 7,
+        "key": "marketing-library/2026-09/original_c562f00efd371f0acfe7_photo.jpg",
+        "sha256": "2db74eea2855e21c913d0d246659e69575c9615671d7123ed7e6785b4a166e2d",
+        "byte_length": 371410,
+        "design_facts_version": "anejo-reviewed-design-facts-2",
+        "design_facts": {
+          "source": "reviewed_revision3_export",
+          "file": "docs/marketing/cajita-social-2026-09-17/revision-3/slides/personal-08.jpg",
+          "output": {
+            "sha256": "2db74eea2855e21c913d0d246659e69575c9615671d7123ed7e6785b4a166e2d",
+            "byte_length": 371410,
+            "width": 1080,
+            "height": 810
+          },
+          "rendered_text": [
+            {
+              "role": "headline",
+              "text": "Your original idea"
+            }
+          ],
+          "emblem": {
+            "source": "public/assets/img/emblem.png",
+            "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+            "rectangle": {
+              "x": 327.67539267015707,
+              "y": 761.4,
+              "w": 46.64921465968586,
+              "h": 44.55
+            },
+            "ink": "#E8E2CA"
+          },
+          "layout": {
+            "text_region": {
+              "x": 70.2,
+              "y": 660.15,
+              "w": 324,
+              "h": 97.2
+            },
+            "text_rotation_degrees": 0,
+            "geometry_source": "saved_renderer_layout_report"
+          },
+          "provenance": {
+            "manifest_sha256": "0a9c9861fe4b89a7523b91a5ea65c7e1f105aa7cc073fc1236f08d27a59d8a57",
+            "validation_sha256": "3f1afe5cdcce10c95af6105275b734dc8b5aecca30e8030352ff4d0c1722c861",
+            "renderer_sha256": "251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d53492f89",
+            "render_page_sha256": "4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7",
+            "layout_sha256": "b34d7a8293002b3ae526cdafaba008b3ebbae2bfb54b58808029fc7d6d187098"
+          },
+          "limits": [
+            "Reviewed export declarations matched to exact output bytes; not independent OCR or a cryptographic render attestation.",
+            "Geometry does not prove visual legibility, lack of food obstruction, or semantic object identity.",
+            "No claim of food ingredients, photographic authenticity, owner publication approval or live Instagram pixel equivalence."
+          ]
+        },
+        "render_receipt_status": "reviewed_registry",
+        "unreviewed_render": null
+      },
+      {
+        "slide": 9,
+        "media_id": "spm_3137d3b9d3c8e28efc87",
+        "seq": 8,
+        "key": "marketing-library/2026-09/original_2b4808d487a7dda57542_photo.jpg",
+        "sha256": "fcb8c91443099d51980cd6dd0caf7f88cc04449a675427bbcfc1d51706061cd7",
+        "byte_length": 106615,
+        "design_facts_version": "anejo-reviewed-design-facts-2",
+        "design_facts": {
+          "source": "reviewed_revision3_export",
+          "file": "docs/marketing/cajita-social-2026-09-17/revision-3/slides/personal-09.jpg",
+          "output": {
+            "sha256": "fcb8c91443099d51980cd6dd0caf7f88cc04449a675427bbcfc1d51706061cd7",
+            "byte_length": 106615,
+            "width": 1080,
+            "height": 810
+          },
+          "rendered_text": [
+            {
+              "role": "eyebrow",
+              "text": "LA CAJITA · PERSONALIZATION"
+            },
+            {
+              "role": "headline",
+              "text": "Make it yours."
+            },
+            {
+              "role": "row_heading",
+              "text": "START WITH SIX / SEIS FAVORITOS",
+              "product_claim_id": "pc_fcb8c91443099d51980cd6dd0caf7f88cc04449a675427bbcfc1d51706061cd7_2"
+            },
+            {
+              "role": "row_body",
+              "text": "Hawaiian roll with ham spread; guava-cheese empanada; ham croqueta; creamy macaroni salad; fruit, ham, guava, cheese and pineapple skewer; tres leches cup.",
+              "product_claim_id": "pc_fcb8c91443099d51980cd6dd0caf7f88cc04449a675427bbcfc1d51706061cd7_3"
+            },
+            {
+              "role": "row_heading",
+              "text": "YOUR MENU / TU MENÚ"
+            },
+            {
+              "role": "row_body",
+              "text": "Request flavors, quantities, additions or removals. Tell us dietary needs for review."
+            },
+            {
+              "role": "row_heading",
+              "text": "YOUR PRESENTATION / TU PRESENTACIÓN"
+            },
+            {
+              "role": "row_body",
+              "text": "Choose colors, liners, labels, tags, packaging and finishing touches. Share your theme, wording or invitation."
+            },
+            {
+              "role": "detail",
+              "text": "Photos show design possibilities, not a fixed assortment.\nMenú y personalización sujetos a cotización."
+            }
+          ],
+          "emblem": {
+            "source": "public/assets/img/emblem.png",
+            "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+            "rectangle": {
+              "x": 950,
+              "y": 30,
+              "w": 65,
+              "h": 62.074999999999996
+            }
+          },
+          "layout": {
+            "geometry_source": "pinned_render_page_fixed_emblem_only",
+            "text_geometry": "unavailable_without_font_measurements"
+          },
+          "provenance": {
+            "manifest_sha256": "0a9c9861fe4b89a7523b91a5ea65c7e1f105aa7cc073fc1236f08d27a59d8a57",
+            "validation_sha256": "3f1afe5cdcce10c95af6105275b734dc8b5aecca30e8030352ff4d0c1722c861",
+            "renderer_sha256": "251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d53492f89",
+            "render_page_sha256": "4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7"
+          },
+          "limits": [
+            "Reviewed export declarations matched to exact output bytes; not independent OCR or a cryptographic render attestation.",
+            "Geometry does not prove visual legibility, lack of food obstruction, or semantic object identity.",
+            "No claim of food ingredients, photographic authenticity, owner publication approval or live Instagram pixel equivalence."
+          ]
+        },
+        "render_receipt_status": "reviewed_registry",
+        "unreviewed_render": null
+      },
+      {
+        "slide": 10,
+        "media_id": "spm_2cffd55b406c16a68811",
+        "seq": 9,
+        "key": "marketing-library/2026-09/original_78a53903a914d950e9f7_photo.jpg",
+        "sha256": "8d21939b90806a111474a59a5db67a1d3fc5a4b5e21ac1aae903af42a940447b",
+        "byte_length": 100745,
+        "design_facts_version": "anejo-reviewed-design-facts-2",
+        "design_facts": {
+          "source": "reviewed_revision3_export",
+          "file": "docs/marketing/cajita-social-2026-09-17/revision-3/slides/personal-10.jpg",
+          "output": {
+            "sha256": "8d21939b90806a111474a59a5db67a1d3fc5a4b5e21ac1aae903af42a940447b",
+            "byte_length": 100745,
+            "width": 1080,
+            "height": 810
+          },
+          "rendered_text": [
+            {
+              "role": "eyebrow",
+              "text": "LA CAJITA · PLAN YOUR OCCASION"
+            },
+            {
+              "role": "headline",
+              "text": "From your idea to your table."
+            },
+            {
+              "role": "row_heading",
+              "text": "01 · YOUR OCCASION / TU OCASIÓN"
+            },
+            {
+              "role": "row_body",
+              "text": "Tell us the date, city, guest count, menu direction and presentation you have in mind."
+            },
+            {
+              "role": "row_heading",
+              "text": "02 · REVIEW TOGETHER / CONFIRMAMOS"
+            },
+            {
+              "role": "row_body",
+              "text": "We confirm menu, quantities, availability, personalized details and pricing before payment."
+            },
+            {
+              "role": "row_heading",
+              "text": "03 · PLAN AHEAD / ANTICÍPATE"
+            },
+            {
+              "role": "row_body",
+              "text": "Standard orders: at least 48 hours. Custom printing: at least 72 hours and a reviewed quote."
+            },
+            {
+              "role": "detail",
+              "text": "Message “CAJITA” · Date + city + guest count\nEscríbenos “CAJITA” · Fecha + ciudad + invitados"
+            }
+          ],
+          "emblem": {
+            "source": "public/assets/img/emblem.png",
+            "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+            "rectangle": {
+              "x": 950,
+              "y": 30,
+              "w": 65,
+              "h": 62.074999999999996
+            }
+          },
+          "layout": {
+            "geometry_source": "pinned_render_page_fixed_emblem_only",
+            "text_geometry": "unavailable_without_font_measurements"
+          },
+          "provenance": {
+            "manifest_sha256": "0a9c9861fe4b89a7523b91a5ea65c7e1f105aa7cc073fc1236f08d27a59d8a57",
+            "validation_sha256": "3f1afe5cdcce10c95af6105275b734dc8b5aecca30e8030352ff4d0c1722c861",
+            "renderer_sha256": "251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d53492f89",
+            "render_page_sha256": "4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7"
+          },
+          "limits": [
+            "Reviewed export declarations matched to exact output bytes; not independent OCR or a cryptographic render attestation.",
+            "Geometry does not prove visual legibility, lack of food obstruction, or semantic object identity.",
+            "No claim of food ingredients, photographic authenticity, owner publication approval or live Instagram pixel equivalence."
+          ]
+        },
+        "render_receipt_status": "reviewed_registry",
+        "unreviewed_render": null
+      }
+    ],
+    "emblem_reference": {
+      "source": "public/assets/img/emblem.png",
+      "canonical_url": "https://anejocateringco.com/assets/img/emblem.png",
+      "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+      "byte_length": 163850,
+      "transport": "bundled_repository_asset",
+      "verified": true,
+      "purpose": "visual_consistency_only"
+    }
+  },
+  "score_meaning": "Percent of applicable criteria marked met; not probability of correctness or permission to publish.",
+  "audit_diagnostic": null
+}

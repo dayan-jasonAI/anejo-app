@@ -267,3 +267,19 @@ Voice failure UX now distinguishes denied microphone/service, missing capture de
 Local final validation: 3,167 root tests passed (`/tmp/anejo-voice-errors-root.log`), 19 focused operator tests (`/tmp/anejo-voice-errors-focused.log`), lint zero errors/11 existing warnings, Functions build and JS syntax/diff checks passed. This proves simulated handler behavior, not real microphone recognition or playback. Public cart acceptance and remaining role boundaries: `ACCEPTANCE_CHECKPOINT_2026-09-26.md`.
 
 Confirmation fallback candidate: direct no-contact visit no longer promises email/SMS updates; bilingual executable regression added. Relevant34tests pass, full suite3,169pass (`/tmp/anejo-checkout-chain-root.log`), lint/build pass. Separate combined paid-order flow added after suite discovery and independently passes1/1 (`/tmp/anejo-paid-flow-root-review.log`). No external fetches in that test. Audit-v12 main CI36246489223 subsequently completed success; voice PR checks pending at this checkpoint.
+
+### Current v12 saved-source acceptance
+
+One supported-browser Personal review after v12 deployment returned6/7, one unresolved written claim. Independent D1 read confirms `anejo-visual-12`, audit_score null, audit_status flag and published status retained. Evidence: `AUDIT_V12_READBACK_2026-09-26.json`. Canonical missing-authority explanation is visible; original model met finding retained separately. This validates the deterministic guard's live path, not global semantic correctness. Asked Dayan whether the six-item selection is standard or illustrative; no source authority invented and no rerun merely to obtain a pass.
+
+Voice release merged `13a9e41`; exact production deployment `6fbbdd9e-3ce7-46a9-98aa-24f1dcf9fa27` and both main checks succeeded. Supported browser DOM on Marketing references `operator.js?v=voice-errors-1`; real microphone/playback remains unverified. Confirmation release merged `015077b` after all PR checks; exact production/live acceptance pending at this entry.
+
+## September 26 — local acknowledgment recovery candidate
+
+Implemented additive0136 acceptance receipt plus local-only reconciliation after a recorded successful Instagram provider acknowledgment. Lost/unrecorded/ambiguous outcomes remain blocked; no resend or expiry escape added. Receipt binds body hash, attempt, provider reference, original sender role and accepted timestamp. Concurrent local recovery preserves newer thread timestamps. MARKETING_DESK endpoint binds attempt/message/thread; owner Comms exposes explicit recovery only when a saved acknowledgment exists. It never sends to Instagram; recipient delivery remains unverified. No remote migration or provider call yet.
+
+Root full suite3,179passed (`/tmp/anejo-reconcile-root.log`),26combined recovery/UI tests, lint zero errors/11 warnings, Functions build and JS syntax passed. Independent API/UI review found no blocking issue; root added resolved-error/failed-readback regression (final UI6/6passed `/tmp/anejo-reconcile-ui-final.log`). Raw acceptance receipts are not exposed by GET.
+
+Root independently ran reusable `tools/marketing-render-prototype/resource-profile.cjs`: ten deterministic local workerd200renders, evidence `/tmp/anejo-render-resource-check-bRIjdq/measurements.json`, log `/tmp/anejo-render-profiler-root.log`. Inspector target is asserted by ID; waits/disposal bounded. Post-request heap samples and timed-out GC attempts do not establish peak isolate memory/deployed CPU safety. No production renderer integration approved by this evidence.
+
+Confirmation release015077b exact Cloudflaref11affbb-471b-4fa0-8b08-619c366bc9a0 and both main checks completed success. Fresh normal browser reload of `/order/confirmed` without receipt showed payment unverified and notification status unconfirmed with account link; previous unconditional email promise absent. No checkout submission or send.

@@ -3,12 +3,43 @@ import {id} from './util.js';
 const hash=async text=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),b=>b.toString(16).padStart(2,'0')).join('');
 const view=(a,replayed=true)=>({ok:a.state==='sent',sent:a.state==='sent',replayed,attempt_id:a.id,message_id:a.message_id,state:a.state,provider_message_id:a.provider_message_id||null,sent_at:a.state==='sent'?a.completed_at:null,error:a.error_code|| (a.state==='claimed'?'send_outcome_pending':a.state==='unknown'?'send_outcome_unknown':null)});
 const denied=error=>({ok:false,sent:false,error});
+// Code-only recovery: this never calls Instagram and cannot manufacture an acceptance receipt.
+// The provider timestamp and original sender attribution survive local retry/concurrency.
+export async function reconcileInstagramReplyAttempt(env,{attemptId,threadId}){
+ let attempt;
+ try{
+  attempt=await env.DB.prepare('SELECT * FROM instagram_reply_attempts WHERE id=? AND thread_id=?').bind(attemptId,threadId).first();
+  if(!attempt)return denied('attempt_unavailable');
+  if(!['claimed','unknown'].includes(attempt.state)||!attempt.acceptance_receipt_json)return view(attempt);
+  const receipt=JSON.parse(attempt.acceptance_receipt_json);
+  if(receipt.version!==1||receipt.attempt_id!==attempt.id||receipt.body_sha256!==attempt.body_sha256||
+    typeof receipt.provider_message_id!=='string'||!receipt.provider_message_id.trim()||receipt.provider_message_id.length>200||
+    !Number.isSafeInteger(receipt.accepted_at)||receipt.accepted_at<attempt.created_at||
+    !['ana_auto','ana_draft','owner','marketing'].includes(receipt.sender_role)||await hash(attempt.body)!==attempt.body_sha256)return view(attempt);
+  const written=await env.DB.batch([
+   env.DB.prepare(`UPDATE messages SET sent_at=?,sender_role=? WHERE id=? AND thread_id=? AND body=?
+    AND direction='outbound' AND channel='instagram' AND dismissed_at IS NULL AND sent_at IS NULL
+    AND EXISTS(SELECT 1 FROM instagram_reply_attempts WHERE id=? AND state IN ('claimed','unknown') AND acceptance_receipt_json=?)`)
+    .bind(receipt.accepted_at,receipt.sender_role,attempt.message_id,threadId,attempt.body,attemptId,attempt.acceptance_receipt_json),
+   env.DB.prepare(`UPDATE instagram_reply_attempts SET state='sent',provider_message_id=?,error_code=NULL,completed_at=?
+    WHERE id=? AND state IN ('claimed','unknown') AND acceptance_receipt_json=?
+    AND EXISTS(SELECT 1 FROM messages WHERE id=? AND thread_id=? AND body=? AND sent_at=? AND sender_role=? AND dismissed_at IS NULL)`)
+    .bind(receipt.provider_message_id,receipt.accepted_at,attemptId,attempt.acceptance_receipt_json,attempt.message_id,threadId,attempt.body,receipt.accepted_at,receipt.sender_role),
+   env.DB.prepare(`UPDATE threads SET last_message_at=MAX(COALESCE(last_message_at,0),?),updated_at=MAX(COALESCE(updated_at,0),?)
+    WHERE id=? AND EXISTS(SELECT 1 FROM instagram_reply_attempts WHERE id=? AND state='sent' AND acceptance_receipt_json=?)`)
+    .bind(receipt.accepted_at,receipt.accepted_at,threadId,attemptId,attempt.acceptance_receipt_json),
+  ]);
+  if(!Array.isArray(written)||written.some(r=>r?.success===false))throw Error('receipt_write_failed');
+  const saved=await env.DB.prepare('SELECT * FROM instagram_reply_attempts WHERE id=?').bind(attemptId).first();
+  return saved?view(saved):denied('send_receipt_unavailable');
+ }catch{return {ok:false,sent:false,attempt_id:attemptId,state:attempt?.state||'unknown',error:'send_receipt_unavailable'};}
+}
 // Provider seam is code-only, not selectable through request data or environment settings.
 export async function sendAnaDraft(env,options,provider){return sendReply(env,options,provider);}
 async function sendReply(env,{messageId,threadId,expectedBody,initiatedBy='owner',humanRole=null,afterAttemptId=''},provider){
  let attempt;
  try{
- const old=await env.DB.prepare('SELECT * FROM instagram_reply_attempts WHERE message_id=? AND thread_id=?').bind(messageId,threadId).first();if(old)return old.body===expectedBody&&(old.followup_of||'')===afterAttemptId?view(old):denied('draft_changed');
+ const old=await env.DB.prepare('SELECT * FROM instagram_reply_attempts WHERE message_id=? AND thread_id=?').bind(messageId,threadId).first();if(old)return old.body===expectedBody&&(old.followup_of||'')===afterAttemptId?await reconcileInstagramReplyAttempt(env,{attemptId:old.id,threadId}):denied('draft_changed');
  const message=await env.DB.prepare("SELECT * FROM messages WHERE id=? AND thread_id=? AND direction='outbound' AND channel='instagram' AND sender_role=? AND ai_drafted=? AND sent_at IS NULL AND dismissed_at IS NULL").bind(messageId,threadId,humanRole?'human_pending':'ana_draft',humanRole?0:1).first();
  if(!message||message.body!==expectedBody)return denied('draft_changed');
  if(typeof message.body!=='string'||!message.body.trim()||message.body!==message.body.trim()||message.body.length>1000)return denied('invalid_draft_body');
@@ -40,16 +71,20 @@ async function sendReply(env,{messageId,threadId,expectedBody,initiatedBy='owner
  attempt=await env.DB.prepare('SELECT * FROM instagram_reply_attempts WHERE id=?').bind(attemptId).first();if(!attempt)return denied('claim_not_verified');
  let outcome;try{outcome=provider?await provider({kind,thread,recipientId:recipient,text:message.body}):kind==='comment'?await replyToComment(env,{commentId:recipient,text:message.body}):await sendDirectMessage(env,{thread,recipientId:recipient,text:message.body});}catch{outcome={ok:false,delivery_uncertain:true};}
  const providerId=outcome?.body?.message_id||outcome?.body?.id;
- const validId=typeof providerId==='string'&&providerId.length>0&&providerId.length<=200;
+ const validId=typeof providerId==='string'&&providerId.trim().length>0&&providerId.length<=200;
  const state=outcome?.ok&&validId?'sent':outcome?.delivery_uncertain||outcome?.ok?'unknown':'failed';
  const error=state==='sent'?null:state==='unknown'?'provider_outcome_unknown':outcome?.blocked==='window_closed'?'window_closed':outcome?.blocked==='never_messaged_us'?'never_messaged_us':'provider_rejected';
  const completed=Date.now();
  try{
- const statements=[env.DB.prepare("UPDATE instagram_reply_attempts SET state=?,provider_message_id=?,error_code=?,completed_at=? WHERE id=? AND state='claimed'").bind(state,validId?providerId:null,error,completed,attemptId)];
  if(state==='sent'){
-  statements.push(env.DB.prepare("UPDATE messages SET sent_at=?,sender_role=? WHERE id=? AND sent_at IS NULL").bind(completed,humanRole||(initiatedBy==='ana_auto'?'ana_auto':'ana_draft'),messageId));
-  statements.push(env.DB.prepare('UPDATE threads SET last_message_at=?,updated_at=? WHERE id=?').bind(completed,completed,threadId));
+  const receipt=JSON.stringify({version:1,attempt_id:attemptId,body_sha256:bodyHash,provider_message_id:providerId,accepted_at:completed,sender_role:humanRole||(initiatedBy==='ana_auto'?'ana_auto':'ana_draft')});
+  const persisted=await env.DB.prepare("UPDATE instagram_reply_attempts SET acceptance_receipt_json=? WHERE id=? AND state='claimed' AND acceptance_receipt_json IS NULL").bind(receipt,attemptId).run();
+  if(persisted.meta?.changes!==1)throw Error('acceptance_not_persisted');
+  const finalized=await reconcileInstagramReplyAttempt(env,{attemptId,threadId});
+  if(!finalized.sent)throw Error('receipt_write_failed');
+  return {...finalized,replayed:false};
  }
+ const statements=[env.DB.prepare("UPDATE instagram_reply_attempts SET state=?,provider_message_id=?,error_code=?,completed_at=? WHERE id=? AND state='claimed'").bind(state,validId?providerId:null,error,completed,attemptId)];
  const written=await env.DB.batch(statements);
  if(!Array.isArray(written)||written.some(r=>r?.success===false))throw Error("receipt_write_failed");
  const saved=await env.DB.prepare('SELECT * FROM instagram_reply_attempts WHERE id=?').bind(attemptId).first();return saved?view(saved,false):denied('send_receipt_unavailable');
