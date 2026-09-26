@@ -17,7 +17,7 @@ import { loadMenu } from './menu.js';
 import { loadOperating } from './operating.js';
 import { loadBrand } from './brand_source.js';
 import { trainingContext, trainingContextReceipt } from './training.js';
-import { VERSION as VISUAL_AUDIT_VERSION, visualAuditFormat, captionEvidencePrompt, coverageProblem, rubricPrompt, visualAuditOutputBudget, validateVisualAudit } from './visual_audit_rubric.js';
+import { VERSION as VISUAL_AUDIT_VERSION, visualAuditFormat, captionEvidencePrompt, coverageProblem, rubricPrompt, visualAuditOutputBudget, validateVisualAuditTransport } from './visual_audit_rubric.js';
 
 // Same canonical asset used by public/hub/owner/assets/marketing-branding.js.
 export const EMBLEM_REFERENCE_URL = 'https://anejocateringco.com/assets/img/emblem.png';
@@ -322,7 +322,7 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
         if (start > 0) text = text.slice(start);
         const data = JSON.parse(text);
         if (images.length) {
-          const validated = validateVisualAudit(data, { caption: String(caption || '').slice(0,2200), slideCount: images.length,
+          const validated = validateVisualAuditTransport(data, { caption: String(caption || '').slice(0,2200), slideCount: images.length,
             brandText: brand.text, trainingText: training, menuText: menuLinesOf(menu).join('\n'),
             images, brandReceipt: brand.receipt, trainingReceipt, emblemReference: emblemReference.metadata });
           if (!validated.available) { auditDiagnostic = validated.diagnostic || { reason: validated.reason }; throw new Error(validated.reason); }

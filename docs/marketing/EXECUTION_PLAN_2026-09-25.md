@@ -148,3 +148,11 @@ Customer-context release is deployed and the ordering guidance is explicitly ena
 ### September 26 resumed work queue
 
 PR149 main Functions CI is now completed/success; migration0136 and production deployment are already verified in release evidence. Do not reapply the migration. Root updated the request ledger's current checkpoint to prevent historical draft/unreleased statuses being mistaken for current truth. Renderer agent owns local fixed-template caption contrast and profiling; strategy review agent owns one actual-handler reviewed-direction/planner integration regression. Root owns integration review and evidence. Google API and six-item selection questions remain unanswered; no assumption grants authority.
+
+### Owner factual clarification received in voice
+
+September26 direct-session transcript: after being asked specifically whether the six-item Cajita is the standard starting selection with changes by quote, Dayan answered yes repeatedly. Record the six items as the standard starting selection: Hawaiian roll, guava-cheese empanada, ham croqueta, macaroni salad, skewer, tres leches cup. The preceding question specified the skewer as fruit/ham/guava/cheese/pineapple. This resolves the factual question but does not itself update runtime brand authority or grant publication approval. Next: persist exact clarification in the appropriate owner training source, retain grant provenance, then one controlled current-source audit. Do not substitute an automatic passing score.
+
+### Confirmed Cajita guidance and current audit outcome
+
+Owner clarification is now saved through the normal Hub Teach form; subsequent displayed rule text matches and customer_eligible remains off. Personal source review now reports7/7 against the new guidance. Root inspected its explanations and local matching personalization/planning slides; source coverage for the written six-item baseline is resolved. Choice source review also reports7/7; full semantic inspection still required. Gather returned invalid_rubric_response with observations/wrong_count, withheld score. Do not retry merely for a pass. Agent is investigating a provider-schema exact-criterion contract while root preserves source failure evidence. No launch image, caption, published status or automatic trust control was changed.

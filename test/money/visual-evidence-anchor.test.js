@@ -4,12 +4,12 @@ import {VERSION,CRITERIA,visualAuditFormat,validateVisualAudit} from '../../func
 const ctx={caption:'Cajitas and trays\nAsk about availability',slideCount:2,brandText:'Real emblem and readable food',brandReceipt:{read_status:'ok'},trainingReceipt:{read_status:'empty'},emblemReference:{verified:true,purpose:'visual_consistency_only'}};
 const response=()=>({rubric_version:VERSION,product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]},observations:CRITERIA.map(c=>({criterion_id:c.id,status:'met',evidence_anchor:'slide:1',caption_line:0,slides:[],explanation:'Inspected source meets the scoped criterion.'})),suggestions:[]});
 test('provider schema makes actual source anchor mandatory without unsupported keywords',()=>{
- const format=visualAuditFormat(ctx.caption,ctx.slideCount).schema.properties.observations.items;
+ const format=visualAuditFormat(ctx.caption,ctx.slideCount).schema.properties.observations.properties.branding;
  assert.ok(format.required.includes('evidence_anchor'));
  assert.deepEqual(format.properties.evidence_anchor.enum,['caption:1','caption:2','slide:1','slide:2']);
  assert.doesNotMatch(JSON.stringify(visualAuditFormat(ctx.caption,2)),/"(?:minItems|maxItems|minLength|maxLength|anyOf|oneOf|if|then)":/);
- assert.deepEqual(visualAuditFormat('',0).schema.properties.observations.items.properties.evidence_anchor.enum,['unavailable']);
- assert.equal(VERSION,'anejo-visual-12');
+ assert.deepEqual(visualAuditFormat('',0).schema.properties.observations.properties.branding.properties.evidence_anchor.enum,['unavailable']);
+ assert.equal(VERSION,'anejo-visual-13');
 });
 test('no-product-claim met resolves ONLY selected inspected slide instead of inventing a default',()=>{
  const d=response(),o=d.observations.find(o=>o.criterion_id==='product_fidelity');o.evidence_anchor='slide:2';

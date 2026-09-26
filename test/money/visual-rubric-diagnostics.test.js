@@ -33,6 +33,6 @@ test('missing artifact evidence identifies rejected criterion without accepting 
  const r=validateVisualAudit(d,ctx);assert.equal(r.available,false);assert.equal(r.score,null);
  assert.deepEqual(r.diagnostic,{reason:'invalid_evidence',criterion_id:'product_fidelity',field:'evidence_anchor',issue:'unsupported_reference'});
  assert.doesNotMatch(JSON.stringify(r.diagnostic),/private model text/);
- assert.match(visualAuditFormat('Catering',1).schema.properties.observations.items.properties.slides.description,/nonempty slides/);
+ assert.match(visualAuditFormat('Catering',1).schema.properties.observations.properties.branding.properties.slides.description,/nonempty slides/);
  assert.match(rubricPrompt(),/Empty claims does NOT mean empty observation evidence/);
 });
