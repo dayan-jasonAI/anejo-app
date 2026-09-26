@@ -1,5 +1,8 @@
 import {Resvg,initWasm} from '@resvg/resvg-wasm';
 import {encode} from './jpeg-encoder.mjs';
+// Mirror only the fixed prototype's required browser BRAND_INK tokens.
+// test.mjs checks these against the browser source; this is not full Canvas parity.
+export const TEMPLATE_TOKENS=Object.freeze({titleInk:'#E8E2CA',background:'#0A180C',fontFamily:'Cormorant Garamond',fontWeight:600});
 let ready;
 export const initialize=module=>ready||(ready=initWasm(module));
 export function dimensions(b) {
@@ -15,11 +18,11 @@ const escape=s=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':
 export function template(d,title='Little box. Big occasion.') {
  if(typeof title!=='string'||title.length>40||/[\r\n]/.test(title))throw Error('Headline must fit one short line');
  const scale=Math.min(1080/d.width,810/d.height),w=d.width*scale,h=d.height*scale;
- return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="810"><rect width="1080" height="810" fill="#e6d5b9"/><image xlink:href="source.jpg" x="${(1080-w)/2}" y="${(810-h)/2}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/><text x="107" y="757" font-family="Cormorant Garamond" font-size="29" font-weight="600" fill="#f8f0df">${escape(title)}</text><image xlink:href="emblem.png" x="43" y="717" width="45" height="43" preserveAspectRatio="xMidYMid meet"/></svg>`;
+ return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="810"><rect width="1080" height="810" fill="${TEMPLATE_TOKENS.background}"/><image xlink:href="source.jpg" x="${(1080-w)/2}" y="${(810-h)/2}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/><text x="107" y="757" font-family="${TEMPLATE_TOKENS.fontFamily}" font-size="29" font-weight="${TEMPLATE_TOKENS.fontWeight}" fill="${TEMPLATE_TOKENS.titleInk}">${escape(title)}</text><image xlink:href="emblem.png" x="43" y="717" width="45" height="43" preserveAspectRatio="xMidYMid meet"/></svg>`;
 }
 function base64(bytes){let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);}
 export function render({source,emblem,font,title}) {
  const d=dimensions(source);dimensions(emblem);const svg=template(d,title).replace('source.jpg','data:image/'+d.type+';base64,'+base64(source)).replace('emblem.png','data:image/png;base64,'+base64(emblem));let renderer,image;
- try {renderer=new Resvg(svg,{font:{fontBuffers:[font],defaultFontFamily:'Cormorant Garamond'},background:'#e6d5b9'});image=renderer.render();const pixels=image.pixels;if(pixels.length!==1080*810*4)throw Error('Unexpected raster dimensions');const jpg=encode({data:pixels,width:image.width,height:image.height},92).data;return{jpg,svg,source:d,width:image.width,height:image.height};}
+ try {renderer=new Resvg(svg,{font:{fontBuffers:[font],defaultFontFamily:'Cormorant Garamond'},background:TEMPLATE_TOKENS.background});image=renderer.render();const pixels=image.pixels;if(pixels.length!==1080*810*4)throw Error('Unexpected raster dimensions');const jpg=encode({data:pixels,width:image.width,height:image.height},92).data;return{jpg,svg,source:d,width:image.width,height:image.height};}
  finally{image?.free();renderer?.free();}
 }
