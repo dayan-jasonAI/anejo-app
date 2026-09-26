@@ -27,7 +27,7 @@ test('the planner reads results back by cause', () => {
 });
 
 test('provenance uses retained sources gathered before inference, not fresh attribution queries', () => {
-  const contextAt = planner.indexOf('ruleIds: activeRuleIds, trainingReceipt } = await plannerExtraContext(env)');
+  const contextAt = planner.indexOf('= await plannerExtraContext(env)');
   const inferenceAt = planner.indexOf('const ai =', contextAt);
   assert.ok(contextAt > -1 && inferenceAt > contextAt);
   assert.match(planner, /ruleIds = training\.receipt\.rules\.map/);

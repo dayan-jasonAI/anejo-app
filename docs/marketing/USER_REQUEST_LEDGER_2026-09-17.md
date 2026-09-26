@@ -1,6 +1,24 @@
 # Añejo user-request ledger
 
-## Current checkpoint — September 17, 2026, 11:10 p.m. Eastern
+## Current continuation — September 26, 2026
+
+The full goal remains **Open — evidence missing**. This entry supersedes historical statuses below; the earlier observations are retained as evidence, not current claims. Detailed release and validation records: [release evidence](RELEASE_EVIDENCE_2026-09-25.md) and [acceptance checkpoint](ACCEPTANCE_CHECKPOINT_2026-09-26.md).
+
+| Workstream | Established evidence | Remaining acceptance / dependency |
+| --- | --- | --- |
+| Customer guidance | Shared website/Instagram reader released; one ordering rule explicitly enabled with production readback; internal KB documents remain excluded. | Natural customer answer is not proven by source enablement. |
+| Brand auditor | V12 deployed; one live Cajita review preserved an unresolved claim, original model finding and accurate missing-authority explanation. | Owner confirmation of the six-item starting selection; broader semantic accuracy and other current carousel reviews. No automatic approval. |
+| Voice operations | Specific input-error messages and typed fallback released; deployed script verified. | Real microphone, playback and guarded operational writes. |
+| Checkout / kitchen / driver | Public cart and no-contact confirmation checked; combined real-handler local SQLite flow passes with external calls blocked. | Role sessions, provider settlement, actual uploads/dispatch and notification delivery. |
+| Instagram reply recovery | Additive acknowledgment receipt and explicit local-only recovery released; exact merge main CI completed successfully. Owner Comms loads new asset. | No production acknowledgment rows existed at migration; live recovery not exercised. Unrecorded/ambiguous provider outcomes remain blocked without resend. |
+| Google reviews | Private manual desk remains disconnected. Five local contract tests pass for resource binding, exact UTF-8 reply text and honest moderation/provenance. | Approved API project/account authorization, ingestion, exact-preview reply controls and live provider acceptance. No credentials changed. |
+| Unattended designs | Fixed local template and reusable workerd profiler exist; title/background token checks pass. | Contrast repair under local review; production resources, general layout safety, durable jobs and final visual acceptance remain open. |
+| Strategy / team | Private ideas and reviewed-direction controls implemented; source integration exists. | Full strategy-to-draft-to-design-to-audit-to-schedule acceptance and exact owner review of any activated proposal. |
+| Growth / original readiness | Catering link and attribution code previously released; no verified paid-order uplift. | Measured paid-order cohort, role/Creative Studio/SEO/GBP acceptance, channel freshness. |
+
+Dayan authorized continuing all safe work and checked releases. Publication/customer sends, money and credential changes remain outside this continuation. Pending factual inputs are the Cajita selection and Google API access; independent implementation continues. The goal record was observed as blocked; this session does not establish automatic continuation.
+
+## Historical checkpoint — September 17, 2026, 11:10 p.m. Eastern
 
 This checkpoint consolidates recorded live observations through release 116 (September 18, 03:10 UTC). It supersedes the earlier source-only status table below where the evidence is newer. It is not a fresh observation of every subsystem and does not establish that the overall marketing-readiness goal is complete. PR 117's citation-order correction is pending at this checkpoint, so final brand-auditor acceptance remains **Open — evidence missing**.
 

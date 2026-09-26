@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import jpeg from 'jpeg-js';
 import vm from 'node:vm';
+import {Resvg} from '@resvg/resvg-wasm';
 import {initialize,dimensions,template,render,TEMPLATE_TOKENS} from './core.mjs';
 const read=p=>new Uint8Array(readFileSync(new URL(p,import.meta.url)));
 await initialize(read('./node_modules/@resvg/resvg-wasm/index_bg.wasm'));
@@ -25,4 +26,38 @@ test('fixed prototype uses current browser title/background inks and headline fa
  assert.doesNotMatch(svg,/#f8f0df|#e6d5b9/i);
  assert.match(svg,/<text x="107" y="757"/);
  assert.match(svg,/xlink:href="emblem.png" x="43" y="717" width="45" height="43"/);
+});
+
+function raster(svg,font) {
+ let renderer,image;
+ try {renderer=new Resvg(svg,{font:{fontBuffers:[font],defaultFontFamily:TEMPLATE_TOKENS.fontFamily}});image=renderer.render();return new Uint8Array(image.pixels);}
+ finally {image?.free();renderer?.free();}
+}
+function luminance(rgb) {
+ const linear=Array.from(rgb,value=>{const s=value/255;return s<=.04045?s/12.92:Math.pow((s+.055)/1.055,2.4);});
+ return linear[0]*.2126+linear[1]*.7152+linear[2]*.0722;
+}
+test('bottom scrim leaves upper photograph unchanged and supports caption over this fixture linen',()=>{
+ const font=read('./assets/CormorantGaramond.ttf');
+ const out=render({source:read('./assets/source.jpg'),emblem:read('./assets/emblem.png'),font});
+ const withoutCaption=out.svg.replace(/<text[^>]*>[\s\S]*?<\/text>/,'');
+ const scrimLayer=/<rect id="caption-scrim-layer"[^>]*\/>/;
+ assert.match(withoutCaption,scrimLayer);
+ const withScrim=raster(withoutCaption,font),withoutScrim=raster(withoutCaption.replace(scrimLayer,''),font);
+ assert.deepEqual(withScrim.subarray(0,700*1080*4),withoutScrim.subarray(0,700*1080*4),'scrim must not change any pixel above its bounded bottom band');
+ const ink=luminance([232,226,202]);let minimum=Infinity,oldMinimum=Infinity;
+ // Background-only samples beneath the original fixture's actual caption over linen.
+ // This is a local fixture regression, not contrast certification for arbitrary photos.
+ for(let y=738;y<757;y+=2)for(let x=310;x<375;x+=2){
+  const offset=(y*1080+x)*4;
+  const current=luminance(withScrim.subarray(offset,offset+3));
+  const previous=luminance(withoutScrim.subarray(offset,offset+3));
+  minimum=Math.min(minimum,(ink+.05)/(current+.05));
+  oldMinimum=Math.min(oldMinimum,(ink+.05)/(previous+.05));
+ }
+ assert.ok(oldMinimum<4.5,'fixture must exercise the original low-contrast linen');
+ assert.ok(minimum>=4.5,`sampled caption background contrast is ${minimum}`);
+ assert.ok(minimum>oldMinimum*2,'scrim must materially improve the failing background contrast');
+ assert.ok(out.svg.indexOf('caption-scrim-layer')<out.svg.indexOf('<text '),'scrim stays behind lettering');
+ assert.ok(out.svg.indexOf('caption-scrim-layer')<out.svg.lastIndexOf('<image '),'scrim stays behind the authentic emblem');
 });

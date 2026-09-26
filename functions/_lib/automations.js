@@ -89,7 +89,8 @@ function etHourOfSchedule(ms) {
  * Context the planner has been blind to. Each source is independent and degrades SILENTLY to
  * nothing on any failure — a missing table (pre-migration), an empty one, or no Vectorize/AI
  * binding must never break the weekly run; it should just leave the planner exactly as informed
- * as it was before this function existed.
+ * as it was before this function existed. Campaign-read failures additionally withhold
+ * automatic scheduling: missing authority is not permission.
  *
  * Returns { text, intelIds, briefIds, ruleIds }: `text` is the prompt section (unchanged shape from before this
  * comment), `intelIds` is the Set of market_intel.id values that were ACTUALLY shown to the
@@ -103,20 +104,29 @@ async function plannerExtraContext(env) {
   const intelIds = new Set();
   const briefIds = new Set();
   let ruleIds;
+  // An absent/failed direction read cannot establish automatic scheduling authority.
+  let campaignReviewRequired = true;
+  let campaignReadStatus = 'unavailable';
   let trainingReceipt = { read_status: 'unavailable' };
 
   // The Lead's own campaign direction (team_lead.js writes these via create_brief). Same
   // business, same week — and until now the planner that is supposed to EXECUTE a brief never
   // read one. Archived briefs are excluded: they are closed business, not this week's direction.
   try {
-    const briefs = await rows(env,
-      "SELECT b.id,b.title,b.objective,b.audience,b.angle,b.channels,b.assets_json,b.cadence,b.success_metric,b.status,p.id AS promotion_id,p.proposal_json AS promotion_proposal_json,p.review_scope FROM team_briefs b LEFT JOIN operator_campaign_promotions p ON p.brief_id=b.id WHERE b.status != 'archived' ORDER BY b.created_at DESC LIMIT 3");
+    const briefRead = await env.DB.prepare(
+      "SELECT b.id,b.title,b.objective,b.audience,b.angle,b.channels,b.assets_json,b.cadence,b.success_metric,b.status,p.id AS promotion_id,p.proposal_json AS promotion_proposal_json,p.review_scope FROM team_briefs b LEFT JOIN operator_campaign_promotions p ON p.brief_id=b.id WHERE b.status != 'archived' ORDER BY b.created_at DESC LIMIT 3").all();
+    if (briefRead?.success === false || !Array.isArray(briefRead?.results)) throw new Error('Campaign direction read unavailable');
+    const briefs = briefRead.results;
+    campaignReadStatus = briefs.length ? 'ok' : 'empty';
+    // All operator promotions currently permit planning only. Apply this to the whole
+    // inference, not a model-selected brief_id that could omit its real influence.
+    campaignReviewRequired = briefs.some(b => Boolean(b.promotion_id));
     if (briefs.length) {
       for (const b of briefs) if (b.id) briefIds.add(String(b.id));
       parts.push('=== CAMPAIGN DIRECTION FROM THE TEAM LEAD (follow this over a generic pick) ===\n' +
         briefs.map(renderCampaignDirection).join('\n'));
     }
-  } catch { /* pre-0069 schema, or no briefs filed yet — planner runs exactly as before this wiring */ }
+  } catch { /* Draft generation may continue; automatic scheduling remains withheld. */ }
 
   // Web research the Intel Bench already paid for (functions/_lib/intel.js writes market_intel).
   // Until this wiring, a finding like "Añejo is the priciest meal-plan subscription in this
@@ -195,7 +205,7 @@ async function plannerExtraContext(env) {
     if (reaction) parts.push(reaction);
   } catch { /* pre-0064 schema, or nothing published yet */ }
 
-  return { text: parts.join('\n\n'), intelIds, briefIds, ruleIds, trainingReceipt };
+  return { text: parts.join('\n\n'), intelIds, briefIds, ruleIds, trainingReceipt, campaignReviewRequired, campaignReadStatus };
 }
 import { captureSystem } from './track.js';
 import { raiseAlert } from './alerts.js';
@@ -897,7 +907,7 @@ async function socialPlan(env, date) {
   // each of these was previously invisible to this planner. Empty string when none apply.
   // intelIds is the set of market_intel ids actually shown to the model this run — used below to
   // reject any intel_id the model returns that was not one of the ones it was actually given.
-  const { text: extraContext, intelIds, briefIds, ruleIds: activeRuleIds, trainingReceipt } = await plannerExtraContext(env);
+  const { text: extraContext, intelIds, briefIds, ruleIds: activeRuleIds, trainingReceipt, campaignReviewRequired, campaignReadStatus } = await plannerExtraContext(env);
 
   // The brand brief — brand_source.js's shared loader, so an owner edit in the HUB reaches this
   // prompt on the SAME run it reaches the Team Lead and the Studio, not only on the next deploy.
@@ -970,7 +980,7 @@ async function socialPlan(env, date) {
     feature: 'social_plan',
     receiptComponents: { brand: brand.receipt, training: trainingReceipt, asset_registry: libraryContext.receipt,
       menu: { source_ids: onSale.map(it => it.id), read_status: 'unknown' },
-      briefs: { source_ids: [...briefIds], read_status: 'unknown' }, intel: { source_ids: [...intelIds], read_status: 'unknown' } },
+      briefs: { source_ids: [...briefIds], read_status: campaignReadStatus }, intel: { source_ids: [...intelIds], read_status: 'unknown' } },
   });
 
   if (!ai || !Array.isArray(ai.data)) {
@@ -1082,13 +1092,15 @@ async function socialPlan(env, date) {
       const photo = libraryRequested
         ? (suppliedRequirements ? await attachApprovedMarketingAsset(env, { postId, expectedCaption: caption, expectedImageBrief: brief || '', requirements }) : { ok: false, reason: 'product_ids_not_supplied' })
         : await ensureFoodPhoto(env, { postId, caption, imageBrief: brief });
-      if (libraryRequested) {
-        // A requested or attached library photo still requires an owner's composition review.
-        // No paid fallback, suggested schedule, original-design seal or automatic promotion.
+      if (libraryRequested || campaignReviewRequired) {
+        // Library composition and planning-only campaign direction require owner review.
+        // Withhold suggested schedule, original-design seal and automatic promotion.
+        // Library requests already avoided the generated-photo path above; campaign
+        // review alone does not change the existing image-generation budget path.
         await env.DB.prepare("UPDATE social_posts SET scheduled_at=NULL,auto_audit_required=NULL,original_caption_hash=NULL,original_design_snapshot=NULL WHERE id=? AND status='draft'").bind(postId).run();
       }
       // Seal the planner's complete design before owner edits. Never backfill old drafts.
-      try { if (photo.ok && receiptLinked && !libraryRequested) await env.DB.prepare(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
+      try { if (photo.ok && receiptLinked && !libraryRequested && !campaignReviewRequired) await env.DB.prepare(`UPDATE social_posts SET original_design_snapshot=${SOCIAL_AUDIT_SNAPSHOT}
         WHERE id=? AND original_design_snapshot IS NULL AND status='draft'
         AND caption=? AND COALESCE(image_brief,'')=? AND COALESCE(media_key,'')=''
         AND COALESCE(media_type,'IMAGE')='IMAGE'
@@ -1128,7 +1140,7 @@ async function socialPlan(env, date) {
   try {
     const autoLanes = await autoPublishCategories(env);
     for (const m of made) {
-      if (m.libraryRequested || !m.receiptLinked || !m.category || !autoLanes.has(m.category)) continue;
+      if (campaignReviewRequired || m.libraryRequested || !m.receiptLinked || !m.category || !autoLanes.has(m.category)) continue;
       const r = await env.DB.prepare(
         `UPDATE social_posts SET status='scheduled', auto_audit_required=1, updated_at=? WHERE id=? AND status='draft' AND audit_status='pass' AND audit_scope='caption_and_media' AND ${SOCIAL_AUDIT_CURRENT}`
       ).bind(now(), m.id).run();
@@ -1141,6 +1153,7 @@ async function socialPlan(env, date) {
     tokens: ai.tokens || null,
     output: {
       date, drafted: made.length, already_pending: Number(pending || 0), auto_scheduled: autoScheduled,
+      campaign_review_required: campaignReviewRequired, campaign_read_status: campaignReadStatus,
       illustrated: made.filter((m) => m.photo).length,
       // How many of this run's posts actually cited a market_intel finding for their angle — the
       // one number that answers "is the team acting on intel or just storing it." Zero is honest

@@ -144,3 +144,7 @@ Customer-context release is deployed and the ordering guidance is explicitly ena
 - Reusable local renderer profiler runs10deterministic workerd responses; memory/CPU/brand-layout acceptance still absent. Prototype token parity is a separate local work packet.
 - Google review API connection remains fact-blocked; official provider contract research underway. Manual draft desk is not an API connection or publishing proof.
 - All other ledger items remain open unless newer evidence expressly closes them: end-to-end strategy planning activation, real role sessions, checkout provider acceptance, unattended template jobs/provenance, voice write actions, Google ingestion/reply execution, SEO/GBP acceptance and verified order attribution.
+
+### September 26 resumed work queue
+
+PR149 main Functions CI is now completed/success; migration0136 and production deployment are already verified in release evidence. Do not reapply the migration. Root updated the request ledger's current checkpoint to prevent historical draft/unreleased statuses being mistaken for current truth. Renderer agent owns local fixed-template caption contrast and profiling; strategy review agent owns one actual-handler reviewed-direction/planner integration regression. Root owns integration review and evidence. Google API and six-item selection questions remain unanswered; no assumption grants authority.

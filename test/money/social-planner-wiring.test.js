@@ -29,6 +29,7 @@ const MONDAY = '2026-08-03'; // fixed so day_offset math and weekday slot tables
 function stubDb({ pending = 0, existingRows = [], briefRows = null, intelRows = null } = {}) {
   const inserted = [];
   const routes = [
+    [/^UPDATE social_posts SET scheduled_at=NULL,auto_audit_required=NULL,original_caption_hash=NULL,original_design_snapshot=NULL/, () => 1],
     [/SUM\(cost_microdollars\)/, () => ({ c: 0 })],
     [/FROM menu_items/, () => [
       { id: 'vida', kind: 'bowl', name: 'VIDA', price_cents: 1999, availability: 'available', active: 1, description: 'citrus-lime chicken' },
