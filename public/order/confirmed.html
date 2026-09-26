@@ -125,10 +125,12 @@ p{color:var(--muted);font-size:15px;line-height:1.65;margin-bottom:14px}
     return out;
   }
 
-  // What the customer will actually hear from, whenever push does NOT end up on. This mirrors
-  // the real server-side order (functions/_lib/notify.js: consented phone, else email) so the
-  // promise made here is never one the backend can't keep.
+  // A missing local contact is not evidence that an order or notification channel exists.
   function fallbackHtml(){
+    if (!email) return L(
+      'Order notifications cannot be confirmed in this tab. <a href="/client/dashboard">Sign in to check your order →</a>',
+      'No podemos confirmar las notificaciones de tu pedido en esta pestaña. <a href="/client/dashboard">Inicia sesión para consultar tu pedido →</a>'
+    );
     if (smsConsent) {
       return L(
         "No problem — we'll text you the same order updates at the number you gave us.",
@@ -222,8 +224,7 @@ p{color:var(--muted);font-size:15px;line-height:1.65;margin-bottom:14px}
 
   if (!email) {
     // Nothing to subscribe (no stashed contact — e.g. this screen was opened directly, or the
-    // browser cleared sessionStorage). The order itself still carries the customer's real email
-    // server-side, so the fallback message is true even though this specific tab can't push.
+    // browser cleared sessionStorage). Do not infer an order or promise delivery of updates.
     showFallback('no stashed email on this screen');
   } else if (!pushCapable) {
     showFallback('browser lacks Push API / Notifications / service workers');
