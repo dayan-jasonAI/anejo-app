@@ -283,3 +283,23 @@ Root full suite3,179passed (`/tmp/anejo-reconcile-root.log`),26combined recovery
 Root independently ran reusable `tools/marketing-render-prototype/resource-profile.cjs`: ten deterministic local workerd200renders, evidence `/tmp/anejo-render-resource-check-bRIjdq/measurements.json`, log `/tmp/anejo-render-profiler-root.log`. Inspector target is asserted by ID; waits/disposal bounded. Post-request heap samples and timed-out GC attempts do not establish peak isolate memory/deployed CPU safety. No production renderer integration approved by this evidence.
 
 Confirmation release015077b exact Cloudflaref11affbb-471b-4fa0-8b08-619c366bc9a0 and both main checks completed success. Fresh normal browser reload of `/order/confirmed` without receipt showed payment unverified and notification status unconfirmed with account link; previous unconditional email promise absent. No checkout submission or send.
+
+### Reconciliation deployment checkpoint
+
+Migration0136 applied once after all PR checks passed. Separate production readback `/tmp/anejo-0136-readback.json` confirms TEXT acceptance_receipt_json and zero attempt/receipt rows. No existing customer record recovered or fabricated. Release merged84bb99e; exact production42d5eeb7-8ac6-4ce8-98c4-d74a55537774 and Studio check succeeded. Owner Comms loaded supported-browser `ana-inbox.js?v=reconcile-1`, saved drafts labeled as unsent; no recovery button expected without acknowledgment rows. Main Functions CI36247261530 pending at initial observation; reconcile execution is locally tested, not a live customer-send test.
+
+### Reconciliation final CI readback
+
+Fresh `gh run view 36247261530 --json status,conclusion` returned completed/success for the main Functions run. This closes the previously pending automated release check, not the live customer-recovery acceptance. Auto-save29ab803 preserved Google contract and prototype token foundations on the working branch; those are separate local work, not production integration. Root independently ran all five Google contract tests successfully (`/tmp/anejo-google-contract-root.log`).
+
+## September 26 — planning-only scheduling restriction and local design evidence
+
+Source inspection found operator campaign promotion is explicitly planning-only, but the planner's final category-based scheduling decision did not enforce that restriction. Root now retains the campaign read state before inference, restricts the entire batch when any operator promotion is supplied, and fails closed for automatic scheduling when that read is unavailable. Restricted drafts lose suggested time and automatic design/caption seal. Model omission of brief_id cannot remove a restriction. Existing image generation budget behavior is unchanged; this is not a new paid-image authorization.
+
+New real-handler/migrated-SQLite coverage follows private generation, immutable revision, owner promotion and planner output. Four cases cover auto off, enabled trust, model-omitted brief identity and campaign-read outage. Exact request receipts and uncertainty text remain linked. A deliberately synthetic positive audit isolates scheduling authority; it does not establish visual/model correctness. Independent review caught a read-status enum mismatch; root corrected it. Existing mocked planner fixtures now support the restriction update.
+
+Local full-frame prototype: root viewed the caption-scrim JPEG, independently passed6tests (`/tmp/anejo-scrim-root-tests.log`) and ran10deterministic workerd HTTP200renders (`/tmp/anejo-render-resource-check-DURj6L/measurements.json`, `/tmp/anejo-scrim-resource-root.log`). Input framing/emblem remain intact; bounded bottom deep-green gradient improves the fixture's caption background. Pixel test verifies unchanged upper raster and sampled contrast improvement. This does not certify arbitrary photos, full brand parity, maximum input, peak isolate memory or deployed CPU; GC attempts timed out. No production renderer was connected. Preview `/tmp/anejo-render-caption-scrim-3ARfNU/prototype-caption-scrim.jpg` shown in conversation.
+
+Initial root suite3188/3189passed; one stale source-string test was corrected without weakening pre-inference ordering intent. Final rerun pending at this entry. Lint0errors/11existingwarnings and Functions build passed. No release, migration, provider action or customer communication for this candidate yet.
+
+Final candidate root suite3,189/3,189passed (`/tmp/anejo-planning-scope-root-final.log`). All four new actual-handler integration variants are included. Diff check clean. PR checks and production acceptance remain subsequent steps.

@@ -133,3 +133,18 @@ Google prerequisite question is pending: approved Business Profile API project/a
 ### September 26 continuation
 
 Customer-context release is deployed and the ordering guidance is explicitly enabled under Dayan's direct-session instruction; release evidence records exact checks and live readback. All internal KB documents remain excluded. Current work: audit v12 missing-authority explanation repair plus executable customer-control failure tests, locally verified and preparing release. The goal tool currently reports blocked; no automatic resumption is claimed. Dayan has explicitly instructed continued active-session implementation across all open work. Google authorization remains a factual dependency, while audit/design/voice/role/checkout work can proceed independently. No new public posts or customer communications authorized.
+
+### September 26 next checkpoint — complete scope retained
+
+- Shipped audit v12; one live Personal source review saved6/7/nullscore with deterministic missing-authority explanation and retained original model finding. Written six-item selection still needs factual confirmation; async question pending. Never force a pass.
+- Shipped specific voice-input failure messages and typed fallback. Marketing asset version verified in browser; physical mic/TTS acceptance remains open.
+- Shipped no-contact confirmation-page message repair; fresh browser verified no unconditional notification promise. Public cart2×$14/subtotal$28/scheduledmode/uncheckedconsents verified, temporary cart cleared, no submission.
+- New same-order local payment→kitchen→driver test passes with outbound calls blocked. Seeded photo metadata/route offer and no real settlement/notifications are explicit boundaries.
+- Pending release: durable provider acknowledgment/local-only reconciliation with role-bound explicit inbox recovery; PR checks in progress, migration0136 NOT yet applied at this checkpoint. Existing production attempt table empty at preflight. Missing/ambiguous receipts must never resend.
+- Reusable local renderer profiler runs10deterministic workerd responses; memory/CPU/brand-layout acceptance still absent. Prototype token parity is a separate local work packet.
+- Google review API connection remains fact-blocked; official provider contract research underway. Manual draft desk is not an API connection or publishing proof.
+- All other ledger items remain open unless newer evidence expressly closes them: end-to-end strategy planning activation, real role sessions, checkout provider acceptance, unattended template jobs/provenance, voice write actions, Google ingestion/reply execution, SEO/GBP acceptance and verified order attribution.
+
+### September 26 resumed work queue
+
+PR149 main Functions CI is now completed/success; migration0136 and production deployment are already verified in release evidence. Do not reapply the migration. Root updated the request ledger's current checkpoint to prevent historical draft/unreleased statuses being mistaken for current truth. Renderer agent owns local fixed-template caption contrast and profiling; strategy review agent owns one actual-handler reviewed-direction/planner integration regression. Root owns integration review and evidence. Google API and six-item selection questions remain unanswered; no assumption grants authority.
