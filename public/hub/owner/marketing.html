@@ -476,7 +476,7 @@
   }
 
   function load() {
-    return Owner.get('/api/hub/owner/team-training').then(render);
+    return Owner.get('/api/hub/owner/team-training').then(render).catch(function(){ render(null); });
   }
 
   function render(d) {
@@ -669,14 +669,14 @@
           .then(function(result){
             if (!result || !result.ok || result.error) {
               eligibilityNotice = result && result._status === 409
-                ? (result.error || 'This rule changed since it loaded. The current rules were reloaded; review the current state before retrying.')
+                ? (result.error || 'This rule changed since it loaded. Reloading the current rules; review the returned state before retrying.')
                 : ((result && result.error) || 'Could not save eligibility.');
               return load();
             }
             eligibilityNotice = '';
             return load();
           }).catch(function(){
-            eligibilityNotice = 'Could not save eligibility because the request failed. The current rules were reloaded; review the current state before retrying.';
+            eligibilityNotice = 'Could not save eligibility because the request failed. Reloading the current rules; review the returned state before retrying.';
             return load();
           });
       });

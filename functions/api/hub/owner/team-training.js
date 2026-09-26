@@ -30,9 +30,9 @@ export const onRequestGet = async ({ request, env }) => {
   // in _lib/training.js does the same thing in one call for OTHER callers, but this route
   // already needs the raw rows for the list view, so loading twice would just be a wasted
   // D1 round trip on every page load.
-  const { rules, examples } = await loadTraining(env);
+  const { rules, examples, read_status } = await loadTraining(env);
   const rendered = formatTraining({ rules, examples }, DEFAULT_MAX_CHARS);
-  const preview = { ...rendered, totalRules: rules.length, totalExamples: examples.length, maxChars: DEFAULT_MAX_CHARS };
+  const preview = { ...rendered, read_status, totalRules: rules.length, totalExamples: examples.length, maxChars: DEFAULT_MAX_CHARS };
 
   return json({
     ok: true,

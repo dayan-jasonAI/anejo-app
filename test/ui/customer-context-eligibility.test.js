@@ -38,7 +38,7 @@ test('eligibility saves carry the loaded updated_at and reload after success, co
     assert.match(source, /op:'set_customer_eligibility', id:[^,]+, customer_eligible:!!input\.checked, expected_updated_at:Number\(/);
     assert.match(source, /_status === 409/);
     assert.match(source, /return load\(\)/, 'the saved state is read back instead of optimistically claimed');
-    assert.match(source, /review (?:its|the current) state before retrying/);
+    assert.match(source, /review (?:its returned|the returned|the current) state before retrying/);
     assert.match(source, /el\.disabled = true/);
   }
 });

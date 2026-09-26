@@ -206,7 +206,7 @@
 
   // --- library ---
   function load(){
-    fetch('/api/hub/owner/knowledge', { credentials:'same-origin' })
+    return fetch('/api/hub/owner/knowledge', { credentials:'same-origin' })
       .then(function(r){ return r.json(); })
       .then(function(d){
         if (!d || !d.ok) { $('list').innerHTML = '<div class="kb-meta">Could not load.</div>'; return; }
@@ -272,18 +272,20 @@
               .then(function(result){
                 if (!result || result.error || !result.ok) {
                   var message = result && result.error ? result.error : 'Could not save eligibility.';
-                  if (result && result._status === 409) message = result.error || 'This document changed since it loaded. The library was reloaded; review its current state before retrying.';
+                  if (result && result._status === 409) message = result.error || 'This document changed since it loaded. Reloading the library; review its returned state before retrying.';
                   eligibilityNotice = message;
                   return load();
                 }
                 eligibilityNotice = '';
                 return load();
               }).catch(function(){
-                eligibilityNotice = 'Could not save eligibility because the request failed. The library was reloaded; review the current state before retrying.';
+                eligibilityNotice = 'Could not save eligibility because the request failed. Reloading the library; review the returned state before retrying.';
                 return load();
               });
           });
         });
+      }).catch(function(){
+        $('list').textContent = 'Could not reload the library. Saved eligibility is unverified; refresh before making another change.';
       });
   }
   load();
