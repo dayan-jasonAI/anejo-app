@@ -50,3 +50,16 @@ test('unresolved authority does not erase a reported violation or accept malform
  d.observations.find(x=>x.criterion_id==='product_fidelity').evidence_anchor='invented';
  assert.equal(validateVisualAudit(d,c).available,false);
 });
+
+
+test('missing written authority replaces photographic uncertainty without upgrading the verdict',()=>{
+ const c=ctx('personal'),d=claimed(c),o=d.observations.find(x=>x.criterion_id==='product_fidelity');
+ o.explanation='Cannot identify every pictured food against the menu.';
+ const r=validateVisualAudit(d,c),finding=r.observations.find(x=>x.criterion_id==='product_fidelity');
+ assert.equal(r.available,true);assert.equal(r.complete,false);assert.equal(r.score,null);
+ assert.equal(finding.status,'unknown');assert.equal(finding.model_finding.explanation,o.explanation);
+ assert.match(finding.explanation,/unresolved written claims/);
+ assert.match(finding.explanation,/identifying unlabeled pictured foods is not required/);
+ assert.equal(r.product_evidence.claims.length,2);
+ assert.ok(r.product_evidence.claims.every(x=>x.authority_source==='unknown'));
+});
