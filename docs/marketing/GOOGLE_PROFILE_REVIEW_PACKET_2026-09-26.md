@@ -42,3 +42,15 @@ Ordering: https://anejocateringco.com/order?utm_source=google&utm_medium=organic
 Menu: https://anejocateringco.com/menu
 
 Exact links shown in conversation and separately requested. Normal browser menu destination renders Catering, Traditional, Fit and La Cajita navigation. Existing order page acceptance is documented separately; no paid order was submitted. Site attribution code accepts these source/medium/campaign tags, but no resulting paid-order attribution is proven. Do not add links until the separate approval arrives.
+
+### Subsequent link approval and observed results — September 26
+
+Dayan answered “Yes” to the separate voice request to add the exact ordering and menu links above. This supersedes the pending-approval status above. Root submitted the ordering link once in the normal Food ordering interface. Google rejected it: “An error occurred” / “Can't add this link. The business doesn't offer food.” Root stopped that action and cancelled the form; no category workaround or retry. Ordering link remains blocked by the provider response.
+
+Root saved the exact menu link through Business information. Google displayed the menu URL with “has been updated” and “Your edit is pending. It usually takes up to 10 minutes to be reviewed.” Submission is observed; public visibility remains unverified. The new description was subsequently displayed as the current description without its earlier pending notice. Public logged-out readback was not performed. Seven reply moderation outcomes have not been rechecked since their pending state.
+
+### Google Cloud read-only inspection — September 26
+
+Dayan authorized inspection of the existing setup and personally completed Google's identity-verification prompt. The supported Chrome interface then showed project **Anejo Delivery**, project ID `anejo-delivery`, project number `836219825308`, under `dayanrealtyhub.com`. The enabled API inventory contained 59 entries across both pages; no Business Profile/My Business API was listed. OAuth Overview explicitly displayed “You haven't configured any OAuth clients for this project yet.” Root re-read that message after the inspection. No second Añejo-named project appeared in the visible project selector. Unrelated projects were not inspected for credentials.
+
+No API, OAuth client, credential, scope, permission or billing setting was changed. These observations establish an existing Cloud project, not a usable Ana/Google integration. Prior Business Profile API application/approval status remains **Unverified**; absence from enabled APIs is not proof of rejection. Google's [prerequisites](https://developers.google.com/my-business/content/prereqs) identify API quotas as an approval check (0 QPM not approved; 300 QPM approved), and require a verified profile active for at least 60 days. Neither the relevant quota nor profile age was verified here. [OAuth setup](https://developers.google.com/my-business/content/implement-oauth) remains necessary before connecting the Hub. Next technical step: read the project's relevant quota/approval evidence, then prepare the narrowly scoped connection configuration for review before granting access.
