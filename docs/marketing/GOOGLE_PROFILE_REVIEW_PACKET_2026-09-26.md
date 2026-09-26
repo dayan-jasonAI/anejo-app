@@ -35,3 +35,10 @@ Using normal supported Chrome, root saved the exact508-character description. Go
 Additional read-only findings: food-ordering switch already on but no provider/link rows displayed; Menu or services link empty. Current service areas list ten Palm Beach-area entries, not a verified Broward delivery commitment. Existing rejected service-option changes were visible; root did not dismiss, reapply or alter them. No ordering/menu links were added under this approval.
 
 Next: read Google moderation results before claiming public visibility. Add a reviewed ordering/menu link only after separately scoped approval. Keep API authorization distinct from website manager access.
+
+### Proposed additional conversion links — approval pending
+
+Ordering: https://anejocateringco.com/order?utm_source=google&utm_medium=organic&utm_campaign=business_profile
+Menu: https://anejocateringco.com/menu
+
+Exact links shown in conversation and separately requested. Normal browser menu destination renders Catering, Traditional, Fit and La Cajita navigation. Existing order page acceptance is documented separately; no paid order was submitted. Site attribution code accepts these source/medium/campaign tags, but no resulting paid-order attribution is proven. Do not add links until the separate approval arrives.
