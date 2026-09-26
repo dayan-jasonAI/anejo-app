@@ -1,0 +1,27 @@
+# Google profile review packet — September 26, 2026
+
+Status: private draft, NOT posted or applied. Normal supported Chrome access succeeded at business.google.com; Añejo was listed Verified. Profile and Unreplied tab showed seven five-star reviews. All seven remained in Unreplied. Full truncated review text was expanded before drafting. No credentials, account permissions, review replies, profile fields or ads changed. Website access does not prove API project approval/OAuth access.
+
+Google Search showed Añejo's homepage and catering, Cajita, menu, Cuban food and service-area results. This is observed indexing for this branded search, not a general ranking or traffic claim. Profile description still leads with longevity meal-prep bowls and broad ingredient promises. Website food-ordering and menu actions were offered by the manager; whether individual links are configured requires separate inspection. No paid ad setup performed.
+
+## Proposed profile description
+
+Añejo Catering Co. brings Cuban flavor and thoughtful presentation to birthdays, family gatherings, office lunches and celebrations. Explore Cuban catering, party trays, customizable La Cajita boxes, and Mediterranean-inspired Fit options. We welcome catering requests across Palm Beach and Broward counties. Tell us your event date, city, guest count and preferred menu so we can confirm availability and prepare your quote. Catering cubano, comida cubana y Cajitas personalizadas para compartir y celebrar.
+
+This intentionally avoids universal ingredient/health claims, guaranteed coverage, pricing or availability. Exact menu, customizations and timing remain quote-confirmed.
+
+## Proposed replies — newest-first order as observed
+
+No reviewer names or profile identifiers stored here. Re-match review theme/language in live UI immediately before any approved publication; never rely on list position after refresh. If already answered or changed, stop that reply and re-review. These drafts are not provider-confirmed reply records.
+
+1. Spanish; newest, croquetas and traditional cold salad: ¡Muchas gracias por compartir tu experiencia! Nos alegra que disfrutaras las croquetas y la ensalada fría, con esos sabores cubanos que tanto nos gustan. Será un gusto preparar tu próximo pedido. — Equipo Añejo
+2. Spanish; croquetas and quality: ¡Gracias por tus palabras! Qué alegría saber que nuestras croquetas te dejaron con ganas de repetir. Gracias por elegir Añejo y compartir tu experiencia. — Equipo Añejo
+3. Spanish; delicious food and recommendation: ¡Muchísimas gracias por recomendarnos! Nos alegra que hayas disfrutado la comida. Apreciamos tu apoyo y esperamos acompañarte con más sabores de Añejo. — Equipo Añejo
+4. English; distinctive flavor and professional service: Thank you for the kind words! We’re glad you enjoyed the food and felt well looked after. We appreciate your recommendation and look forward to preparing your next Añejo order.
+5. Spanish; quality and enjoyable food: ¡Gracias por tu recomendación! Nos alegra que disfrutaras el sabor y la calidad. Gracias por darle un lugar a Añejo en tu mesa. — Equipo Añejo
+6. English; detailed freshness, ingredients and service: Thank you for taking the time to share such a thoughtful review. We’re delighted you enjoyed the flavors and the care behind your order. Your recommendation means a lot to the Añejo team.
+7. English; flavor, presentation and attention to detail: Thank you! We’re so glad you enjoyed both the food and its presentation. We appreciate you noticing the details and look forward to being part of your next gathering or order.
+
+## Approval and remaining work
+
+Dayan has not approved these exact external changes. Separate publication approval required by standing no-customer-communications boundary. If approved, use normal supported Google UI, one reply at a time with visible saved readback and no blind retry. Profile acceptance is distinct from public moderation/visibility. Do not activate ads or alter access. API integration remains blocked on approved project/account authorization confirmation; manual browser replies do not connect Ana to Google.
