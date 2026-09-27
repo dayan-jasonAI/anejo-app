@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import jpeg from 'jpeg-js';
 import vm from 'node:vm';
 import {Resvg} from '@resvg/resvg-wasm';
-import {initialize,dimensions,template,render,TEMPLATE_TOKENS} from './core.mjs';
+import {initialize,dimensions,template,render,TEMPLATE_TOKENS,headlineBounds,HEADLINE_SAFE_BOX} from './core.mjs';
 const read=p=>new Uint8Array(readFileSync(new URL(p,import.meta.url)));
 await initialize(read('./node_modules/@resvg/resvg-wasm/index_bg.wasm'));
 test('headers establish compressed and decoded bounds before raster decoding',()=>{assert.deepEqual(dimensions(read('./assets/source.jpg')),{width:1448,height:1086,type:'jpeg',rgbaBytes:6290112});assert.throws(()=>dimensions(new Uint8Array(5*1024*1024+1)),/5 MiB/);assert.throws(()=>dimensions(new Uint8Array([255,216,255,192,0,1])),/segment/);const png=read('./assets/emblem.png');new DataView(png.buffer).setUint32(16,9000);assert.throws(()=>dimensions(png),/dimensions/);});
@@ -60,4 +60,21 @@ test('bottom scrim leaves upper photograph unchanged and supports caption over t
  assert.ok(minimum>oldMinimum*2,'scrim must materially improve the failing background contrast');
  assert.ok(out.svg.indexOf('caption-scrim-layer')<out.svg.indexOf('<text '),'scrim stays behind lettering');
  assert.ok(out.svg.indexOf('caption-scrim-layer')<out.svg.lastIndexOf('<image '),'scrim stays behind the authentic emblem');
+});
+
+// Synthetic wording exercises typography only; no food/image fixture is altered.
+test('measured headline rejects wide overflow even below character cap, while narrow and accented text fit',()=>{
+ const font=read('./assets/CormorantGaramond.ttf');
+ assert.throws(()=>headlineBounds('W'.repeat(40),font),/safe area/);
+ for(const title of ['i'.repeat(40),'Añejo: celebración y sabor','¡Qué ocasión tan especial!']) {
+  const b=headlineBounds(title,font);assert.ok(b.x+b.width<=HEADLINE_SAFE_BOX.right);assert.ok(b.y+b.height<=HEADLINE_SAFE_BOX.bottom);
+ }
+ assert.throws(()=>headlineBounds('   ',font),/visible glyphs/);
+ assert.throws(()=>headlineBounds('',font),/visible glyphs/);
+});
+test('public render pipeline rejects unsafe title and accepts a following valid render',()=>{
+ const input={source:read('./assets/source.jpg'),emblem:read('./assets/emblem.png'),font:read('./assets/CormorantGaramond.ttf')};
+ assert.throws(()=>render({...input,title:'W'.repeat(40)}),/safe area/);
+ const result=render({...input,title:'Celebración Añejo'});
+ assert.ok(result.headline.width>0);assert.equal(result.width,1080);assert.ok(result.jpg.length>200000);
 });

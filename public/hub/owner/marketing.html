@@ -738,6 +738,47 @@
     if ((cap && cap.value.trim()) || (key && key.value.trim())) return window.confirm('Start a new photo draft? Unsaved composer changes will be replaced. / ¿Empezar un borrador nuevo? Se reemplazarán los cambios sin guardar.');
     return true;
   };
+  var draftRequestRestored=false;
+  var draftRequestInFlight=false;
+  var draftRequestStorage='anejo-social-composer-request-v1';
+  function draftStorageKey(){if(!DATA||!DATA.draft_actor)throw new Error('Reload the composer to verify your account before saving.');return draftRequestStorage+':'+DATA.draft_actor;}
+  function readDraftRequest(){return JSON.parse(sessionStorage.getItem(draftStorageKey())||'null');}
+  function clearDraftRequest(){sessionStorage.removeItem(draftStorageKey());}
+  function restoreDraftRequest(){
+    if(draftRequestRestored)return;
+    var pending=readDraftRequest();draftRequestRestored=true;if(!pending||!pending.body)return;
+    if(['cap','mkey','sched'].some(function(id){var n=document.getElementById(id);return n&&String(n.value||'').trim();})){Hub.toast('Unconfirmed previous save retained. Current edits preserved; use Recover previous save.');return;}
+    var values=pending.fields||{};Object.keys(values).forEach(function(id){var n=document.getElementById(id);if(n)n.value=values[id];});
+    Hub.toast('A previous save needs confirmation. Retry unchanged, recover that save, or resolve without retry before creating another.');
+  }
+  async function saveComposerRequest(body,fields){
+    if(draftRequestInFlight)throw new Error('A composer save or resolution is still in progress. Wait for its result.');
+    draftRequestInFlight=true;
+    try{
+    var pending=readDraftRequest();
+    if(pending&&JSON.stringify(pending.body)!==JSON.stringify(body))throw new Error('A previous save is unconfirmed. Recover previous save or Resolve without retry first; your edits are preserved.');
+    if(!pending){pending={request_id:crypto.randomUUID(),body:body,fields:fields};sessionStorage.setItem(draftStorageKey(),JSON.stringify(pending));}
+    var r=await Hub.api('/api/hub/owner/social',{method:'POST',body:Object.assign({},pending.body,{request_id:pending.request_id})});
+    if(!r||!r.ok)throw new Error((r&&r.error)||'Save unconfirmed. Retry uses the same request.');
+    clearDraftRequest();return r;
+    }finally{draftRequestInFlight=false;}
+  }
+  async function resolveComposerRequest(){
+    if(draftRequestInFlight)throw new Error('A composer save or resolution is still in progress. Wait for its result.');
+    draftRequestInFlight=true;
+    try{
+    var pending=readDraftRequest();if(!pending){Hub.toast('No unconfirmed save in this tab.');return;}
+    var r=await Hub.api('/api/hub/owner/social',{method:'POST',body:{op:'draft_abandon',request_id:pending.request_id}});
+    if(!r||!r.ok||!r.found)throw new Error((r&&r.error)||'Resolution unconfirmed. Previous request retained.');
+    clearDraftRequest();Hub.toast(r.abandoned?'Previous request closed without saving. Your edits are preserved.': 'Previous save already exists ('+r.id+'). It was not cancelled or changed. Current status: '+(r.current_status||'post no longer exists')+'. Your edits are preserved.');
+    }finally{draftRequestInFlight=false;}
+  }
+  async function recoverComposerRequest(){
+    var pending=readDraftRequest();if(!pending){Hub.toast('No unconfirmed save in this tab.');return;}
+    // Repeat the original, explicitly confirmed operation under its durable identity.
+    var r=await saveComposerRequest(pending.body,pending.fields);
+    Hub.toast('Previous save confirmed: '+r.id+'. Current edits are preserved; review the saved post before creating another.');
+  }
   function setComposerPhoto(photo) {
     DATA._pickedKey=photo.media_key; DATA._pickedPreview=photo.url; DATA._pickedLabel=photo.name; DATA._pickedPhoto=photo;
     var key=document.getElementById('mkey'); if(key)key.value=photo.media_key;
@@ -1651,7 +1692,7 @@
             '<p class="hint">Up to 2,200 characters. Hashtags count toward it.</p></div>' +
           '<div class="form-row"><label>Schedule (optional)</label><input id="sched" type="datetime-local">' +
             '<p class="hint">Leave empty to save as a draft you publish by hand.</p></div>' +
-          '<button class="btn gold block" id="save">Save post</button>' +
+          '<button class="btn gold block" id="save">Save post</button><button class="btn ghost" id="recover-composer-save" type="button">Recover previous save</button><button class="btn ghost" id="resolve-composer-save" type="button">Resolve without retry</button>' +
         '</div></div>' +
       '<div class="hub-section" id="post-queue"><h2 tabindex="-1" id="post-queue-title">Posts / Publicaciones</h2>' +
         '<p class="hint">Latest 60 posts returned · Últimas 60 publicaciones devueltas</p><div class="pt-chips queue-filters" role="group" aria-label="Filter posts / Filtrar publicaciones">' +
@@ -1927,6 +1968,11 @@
       cap.value = document.getElementById('photo-caption-text').textContent; cap.focus();
     };
 
+    try{restoreDraftRequest();}catch(e){Hub.toast(e.message);}
+    var recoverSave=document.getElementById('recover-composer-save');
+    if(recoverSave)recoverSave.onclick=async function(){recoverSave.disabled=true;try{await recoverComposerRequest();}catch(e){Hub.toast(e.message);}finally{recoverSave.disabled=false;}};
+    var resolveSave=document.getElementById('resolve-composer-save');
+    if(resolveSave)resolveSave.onclick=async function(){resolveSave.disabled=true;try{await resolveComposerRequest();}catch(e){Hub.toast(e.message);}finally{resolveSave.disabled=false;}};
     var save = document.getElementById('save');
     if (save) save.addEventListener('click', function () {
       var key = (document.getElementById('mkey') || {}).value || '';
@@ -1938,13 +1984,13 @@
       if (s && !Number.isFinite(when)) { Hub.toast('Pick a valid date and time.'); return; }
       if (when && !window.confirm('Schedule this photo and caption for ' + whenLabel(when) + '? It will post publicly without asking again.')) return;
       save.disabled = true;
-      Hub.api('/api/hub/owner/social', { method:'POST', body:{ op:'draft', media_key:key.trim(), media_type: mtype || null, caption:cap, scheduled_at: Number.isFinite(when) ? when : null } })
+      saveComposerRequest({ op:'draft', media_key:key.trim(), media_type: mtype || null, caption:cap, scheduled_at: Number.isFinite(when) ? when : null },{mkey:key,cap:cap,sched:s,mtypesel:mtype})
         .then(function (r) {
           save.disabled = false;
           if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not save'); return; }
-          Hub.toast(r.status === 'scheduled' ? 'Scheduled' : 'Saved as a draft');
+          Hub.toast(r.replayed ? 'Previous save confirmed. Refresh the queue for its current status.' : r.status === 'scheduled' ? 'Scheduled' : 'Saved as a draft');
           load();
-        });
+        }).catch(function(error){save.disabled=false;Hub.toast(error.message);});
     });
 
     Array.prototype.forEach.call(document.querySelectorAll('[data-pub]'), function (b) {
