@@ -3,11 +3,14 @@
 // derived from the quote every time, never a stale copy — against the real 9/26 booking's shape.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { etMidnightMs, etWallClockMs, etDateOf } from '../../functions/_lib/hub.js';
+const etHour = (ms) => Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' }).format(new Date(ms)));
 import { ownerEnv, OWNER_COOKIE } from '../helpers/sqlite-d1.js';
 import {
   matchRecipe, qtyOf, scaleQty, shoppingList, packagingList, schedule, laborEstimate,
   designBrief, eventPlan, setEventTask, setEventDetails, setCookMinutes, briefCandidates, upcomingEvents,
-  workingHour,
+  workingHour, logistics,
 } from '../../functions/_lib/event.js';
 import { onRequestGet as eventGet, onRequestPost as eventPost } from '../../functions/api/hub/kitchen/event.js';
 
@@ -126,7 +129,7 @@ test('packaging counts come from the order: one pan per 25 hot portions, platter
 
 // ---------------------------------------------------------------- the schedule
 
-const EVENT_MS = Date.parse('2026-09-26T00:00:00');
+const EVENT_MS = etMidnightMs('2026-09-26');
 const at = (tasks, key) => tasks.find((t) => t.key === key);
 
 test('the schedule runs backwards from serving time, and holds its order', () => {
@@ -135,7 +138,7 @@ test('the schedule runs backwards from serving time, and holds its order', () =>
     production: [{ key: 'l0', name: 'Congrí', portions: 30, minutes: 90, recipe: {} }],
   });
   const serve = new Date(at(tasks, 'serve').at);
-  assert.equal(serve.getHours(), 19, 'service starts at the hour the customer was promised');
+  assert.equal(etHour(serve.getTime()), 19, 'service starts at the hour the customer was promised');
   assert.equal(at(tasks, 'arrive').at, at(tasks, 'serve').at - 30 * 60000, 'half an hour to set up');
   assert.equal(at(tasks, 'depart').at, at(tasks, 'arrive').at - 30 * 60000, 'half an hour to drive');
   assert.equal(at(tasks, 'pack').at, at(tasks, 'depart').at - 45 * 60000, 'three quarters of an hour to pack');
@@ -154,13 +157,13 @@ test('a cook longer than two hours lands the day before — a nine-hour pork doe
   });
   const pork = new Date(at(tasks, 'cook:l0').at);
   const congri = new Date(at(tasks, 'cook:l1').at);
-  assert.equal(pork.getDate(), 25, 'the pork goes in on Friday');
-  assert.equal(congri.getDate(), 26, 'the rice is cooked the day of');
+  assert.equal(Number(etDateOf(pork.getTime()).slice(-2)), 25, 'the pork goes in on Friday');
+  assert.equal(Number(etDateOf(congri.getTime()).slice(-2)), 26, 'the rice is cooked the day of');
 });
 
 test('without a serving time the schedule still runs, from a stated 7 p.m. assumption', () => {
   const tasks = schedule({ eventDateMs: EVENT_MS, servingTime: null, guests: 30, production: [] });
-  assert.equal(new Date(at(tasks, 'serve').at).getHours(), 19);
+  assert.equal(etHour(at(tasks, 'serve').at), 19);
 });
 
 test('the hours are totalled per day, so a shift can be planned against them', () => {
@@ -265,7 +268,7 @@ test('a task is ticked, re-ticked and unticked without piling up rows', async ()
   await setEventTask(env, { quote_id: 'cq_test', task_key: 'shop', done: false }, {});
   plan = await eventPlan(env, 'cq_test');
   assert.equal(plan.tasks.find((t) => t.key === 'shop').done, false);
-  assert.equal(env.DB.rows('SELECT * FROM event_tasks', ).length, 0);
+  assert.equal(env.DB.rows('SELECT * FROM event_tasks')[0].done_at, null);
 });
 
 test('changing the guest count changes the plan — nothing stale is left behind', async () => {
@@ -293,7 +296,7 @@ test('the serving time is validated, and setting it moves the whole schedule', a
 
   const plan = await eventPlan(env, 'cq_test');
   const serve = new Date(plan.tasks.find((t) => t.key === 'serve').at);
-  assert.equal(serve.getHours(), 13);
+  assert.equal(etHour(serve.getTime()), 13);
   assert.equal(serve.getMinutes(), 30);
   assert.equal(plan.event.address, '1 Main St');
   assert.ok(!plan.gaps.some((g) => /No serving time|No delivery address/.test(g)));
@@ -593,7 +596,7 @@ test('the recipe supplies its own cook time, so an eight-hour roast is not sched
   assert.match(lechon.minutes_source, /from the recipe/);
   assert.equal(lechon.minutes_is_guess, false);
   // Over two hours, so it lands the day before rather than on Saturday afternoon.
-  assert.equal(new Date(plan.tasks.find((t) => t.key === 'cook:l0').at).getDate(), 25);
+  assert.equal(Number(etDateOf(plan.tasks.find((t) => t.key === 'cook:l0').at).slice(-2)), 25);
 });
 
 test('the kitchen measurement still beats what the recipe says', async () => {
@@ -631,18 +634,18 @@ test('a step that must start before cooking gets its own task, at the hour it ha
 });
 
 test('a make-ahead step is never scheduled in the middle of the night', () => {
-  const night = Date.parse('2026-09-26T04:45:00');
+  const night = etWallClockMs('2026-09-26T04:45');
   const moved = new Date(workingHour(night));
-  assert.equal(moved.getDate(), 25, 'it rolls back to the evening before');
-  assert.equal(moved.getHours(), 18);
+  assert.equal(Number(etDateOf(moved.getTime()).slice(-2)), 25, 'it rolls back to the evening before');
+  assert.equal(etHour(moved.getTime()), 18);
   // Late at night rolls back to the same evening.
-  const late = new Date(workingHour(Date.parse('2026-09-25T23:30:00')));
-  assert.equal(late.getDate(), 25);
-  assert.equal(late.getHours(), 18);
+  const late = new Date(workingHour(etWallClockMs('2026-09-25T23:30')));
+  assert.equal(Number(etDateOf(late.getTime()).slice(-2)), 25);
+  assert.equal(etHour(late.getTime()), 18);
   // Anything inside the working day is left exactly where the arithmetic put it.
-  const fine = Date.parse('2026-09-25T19:45:00');
+  const fine = etWallClockMs('2026-09-25T19:45');
   assert.equal(workingHour(fine), fine);
-  assert.equal(workingHour(Date.parse('2026-09-25T06:00:00')), Date.parse('2026-09-25T06:00:00'));
+  assert.equal(workingHour(etWallClockMs('2026-09-25T06:00')), etWallClockMs('2026-09-25T06:00'));
 });
 
 test('the long cooks start earliest and the fresh work finishes nearest the van', async () => {
@@ -660,4 +663,43 @@ test('the long cooks start earliest and the fresh work finishes nearest the van'
   for (const t of plan.tasks.filter((x) => x.kind === 'kitchen' && x.key.startsWith('cook:'))) {
     assert.ok(t.at + t.minutes * 60000 <= pack, `${t.label} runs into the packing`);
   }
+});
+
+
+test('event schedule uses Eastern wall time independently of runtime zone across DST', () => {
+  const script = `import {schedule} from './functions/_lib/event.js';
+    console.log(JSON.stringify(['2026-03-08','2026-11-01','2026-09-26'].map(eventDate =>
+      schedule({eventDate, servingTime:'19:00', production:[], guests:30}))));`;
+  const runs = ['UTC', 'America/New_York', 'Asia/Tokyo'].map(TZ => JSON.parse(execFileSync(process.execPath,
+    ['--no-warnings', '--input-type=module', '-e', script], { env: {...process.env, TZ}, encoding:'utf8' })));
+  assert.deepEqual(runs[0], runs[1]);
+  assert.deepEqual(runs[0], runs[2]);
+  assert.deepEqual(runs[0].map(tasks => new Date(at(tasks, 'serve').at).toISOString()),
+    ['2026-03-08T23:00:00.000Z','2026-11-02T00:00:00.000Z','2026-09-26T23:00:00.000Z']);
+  assert.equal(new Date(at(runs[0][0], 'balance').at).toISOString(), '2026-03-07T14:00:00.000Z');
+  assert.equal(new Date(at(runs[0][1], 'balance').at).toISOString(), '2026-10-31T13:00:00.000Z');
+});
+
+test('unticking a dish preserves the kitchen cooking duration without retaining completion', async () => {
+  const env = ownerEnv(); seedQuote(env);
+  await setCookMinutes(env, {quote_id:'cq_test',task_key:'cook:l0',minutes:123,remember:false});
+  await setEventTask(env, {quote_id:'cq_test',task_key:'cook:l0',done:true,note:'Packed'}, {email:'chef@example.test'});
+  await setEventTask(env, {quote_id:'cq_test',task_key:'cook:l0',done:false}, {});
+  const row = env.DB.rows("SELECT * FROM event_tasks WHERE task_key='cook:l0'")[0];
+  assert.equal(row.minutes, 123);
+  assert.equal(row.done_at, null); assert.equal(row.done_by, null); assert.equal(row.note, null);
+  const plan = await eventPlan(env, 'cq_test');
+  assert.equal(plan.production[0].minutes, 123);
+  assert.equal(plan.tasks.find(t => t.key === 'cook:l0').done, false);
+});
+
+test('dish names never manufacture handling instructions and travel allowance is explicit', () => {
+  const plan = logistics({event:{address:'Test'}, production:[
+    {name:'Cold macaroni salad'}, {name:'Strawberry tres leches'}, {name:'Croquetas de Salchicha'}, {name:'Roast pork'}]});
+  for (const load of plan.load.slice(0,4)) {
+    assert.equal(load.handling_status, 'unconfirmed');
+    assert.match(load.how, /must confirm/);
+    assert.doesNotMatch(load.how, /135|41|Hot —|Cold —/);
+  }
+  assert.match(plan.timing_source, /not been confirmed/);
 });

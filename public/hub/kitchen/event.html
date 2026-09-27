@@ -326,14 +326,25 @@
     });
   }
 
+  function saveTask(box) {
+    var row = box.closest('.task');
+    var previous = row.classList.contains('done');
+    var requested = box.checked;
+    box.disabled = true;
+    return post({ op: 'task', quote_id: quoteId, task_key: box.dataset.key, done: requested })
+      .then(function (result) {
+        box.checked = result && result.ok ? requested : previous;
+        row.classList.toggle('done', box.checked);
+      }).catch(function () {
+        box.checked = previous;
+        row.classList.toggle('done', previous);
+      }).finally(function () { box.disabled = false; });
+  }
+
   function wire() {
     wireRecipes();
     Array.prototype.forEach.call(document.querySelectorAll('.tick'), function (box) {
-      box.addEventListener('change', function () {
-        box.disabled = true;
-        post({ op: 'task', quote_id: quoteId, task_key: box.dataset.key, done: box.checked })
-          .then(function () { box.disabled = false; box.closest('.task').classList.toggle('done', box.checked); });
-      });
+      box.addEventListener('change', function () { saveTask(box); });
     });
     Array.prototype.forEach.call(document.querySelectorAll('.mins'), function (box) {
       box.addEventListener('change', function () {
