@@ -36,9 +36,24 @@ export function headlineBounds(title,font) {
   return bounds;
  } finally {bbox?.free();measure?.free();}
 }
+// Source-normalized rectangles are caller declarations, not detected food boundaries.
+export function protectedLayout(d,regions,headline) {
+ const scale=Math.min(1080/d.width,810/d.height),width=d.width*scale,height=d.height*scale;
+ const photo={x:(1080-width)/2,y:(810-height)/2,width,height};
+ if(regions===undefined)return {photo,protectedAreas:[],protectionSource:'visual_review_required',visualReviewRequired:true};
+ if(!Array.isArray(regions)||regions.length>20)throw Error('Invalid protected photo areas');
+ const projected=regions.map(r=>{
+  if(!r||!['x','y','w','h'].every(k=>Number.isFinite(r[k]))||r.x<0||r.y<0||r.w<=0||r.h<=0||r.x+r.w>1||r.y+r.h>1)throw Error('Protected photo areas must fit inside the source image');
+  return {x:photo.x+r.x*width,y:photo.y+r.y*height,width:r.w*width,height:r.h*height};
+ });
+ const overlays=[{name:'headline',...headline},{name:'emblem',x:43,y:717,width:45,height:43},{name:'caption scrim',x:0,y:700,width:1080,height:110}];
+ const overlap=(a,b)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
+ for(const r of projected)for(const overlay of overlays)if(overlap(r,overlay))throw Error('Protected photo area overlaps '+overlay.name+'; choose a different reviewed layout');
+ return {photo,protectedAreas:projected,protectionSource:projected.length?'provided_regions':'visual_review_required',visualReviewRequired:true};
+}
 function base64(bytes){let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);}
-export function render({source,emblem,font,title}) {
- const d=dimensions(source);dimensions(emblem);const headline=headlineBounds(title,font);const svg=template(d,title).replace('source.jpg','data:image/'+d.type+';base64,'+base64(source)).replace('emblem.png','data:image/png;base64,'+base64(emblem));let renderer,image;
- try {renderer=new Resvg(svg,{font:{fontBuffers:[font],defaultFontFamily:'Cormorant Garamond'},background:TEMPLATE_TOKENS.background});image=renderer.render();const pixels=image.pixels;if(pixels.length!==1080*810*4)throw Error('Unexpected raster dimensions');const jpg=encode({data:pixels,width:image.width,height:image.height},92).data;return{jpg,svg,headline,source:d,width:image.width,height:image.height};}
+export function render({source,emblem,font,title,protectedRegions}) {
+ const d=dimensions(source);dimensions(emblem);const headline=headlineBounds(title,font);const protection=protectedLayout(d,protectedRegions,headline);const svg=template(d,title).replace('source.jpg','data:image/'+d.type+';base64,'+base64(source)).replace('emblem.png','data:image/png;base64,'+base64(emblem));let renderer,image;
+ try {renderer=new Resvg(svg,{font:{fontBuffers:[font],defaultFontFamily:'Cormorant Garamond'},background:TEMPLATE_TOKENS.background});image=renderer.render();const pixels=image.pixels;if(pixels.length!==1080*810*4)throw Error('Unexpected raster dimensions');const jpg=encode({data:pixels,width:image.width,height:image.height},92).data;return{jpg,svg,headline,...protection,source:d,width:image.width,height:image.height};}
  finally{image?.free();renderer?.free();}
 }
