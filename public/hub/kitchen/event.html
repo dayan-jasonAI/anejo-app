@@ -69,6 +69,9 @@
   var back = document.getElementById('back');
   var quoteId = new URLSearchParams(location.search).get('id');
   var plan = null;
+  var executionData = null, executionPending = null, executionBusy = false, executionMessage = '';
+  var executionStorageKey = 'anejo:event-execution:' + quoteId;
+  try { executionPending = JSON.parse(sessionStorage.getItem(executionStorageKey) || 'null'); } catch (ignore) {}
 
   var lang = 'en';
   try { lang = (window.AnejoLang ? window.AnejoLang.get() : localStorage.getItem('anejo:lang')) === 'es' ? 'es' : 'en'; } catch (e) { lang = 'en'; }
@@ -102,9 +105,9 @@
   };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
   var money = function (c) { return '$' + ((c || 0) / 100).toFixed(2); };
-  var clock = function (ms) { var d = new Date(ms); var h = d.getHours(); var m = String(d.getMinutes()).padStart(2, '0'); var ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12; return h + ':' + m + ' ' + ap; };
-  var dayName = function (ms) { return new Date(ms).toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { weekday: 'long', month: 'short', day: 'numeric' }); };
-  var dayKey = function (ms) { var d = new Date(ms); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+  var clock = function (ms) { return new Date(ms).toLocaleTimeString(lang === 'es' ? 'es-US' : 'en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); };
+  var dayName = function (ms) { return new Date(ms).toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'short', day: 'numeric' }); };
+  var dayKey = function (ms) { return new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }); };
 
   // ---- list of events -------------------------------------------------------------------------
   function renderList(d) {
@@ -120,13 +123,13 @@
   }
 
   // ---- one event ------------------------------------------------------------------------------
-  function render(d) {
+  function render(d, keepExecution) {
     plan = d;
     back.style.display = '';
     var e = d.event;
     var when = e.days_out === 0 ? T.today : e.days_out === 1 ? T.tomorrow : e.days_out;
     var html = '<div class="ev-head"><h2>' + esc(e.customer || '—') + '</h2>'
-      + '<div class="sub">' + esc(dayName(Date.parse(e.date + 'T12:00:00'))) + (e.serving_time ? ' · ' + esc(e.serving_time) : '')
+      + '<div class="sub">' + esc(dayName(Date.parse(e.date + 'T16:00:00Z'))) + (e.serving_time ? ' · ' + esc(e.serving_time) : '')
       + ' · ' + esc(e.guests) + ' ' + esc(T.guests) + '</div>'
       + (e.address ? '<div class="sub">' + esc(e.address) + '</div>' : '')
       + '<div class="countdown">' + esc(when) + '<small>' + esc(e.days_out > 1 ? T.days : '') + '</small></div>'
@@ -134,11 +137,13 @@
       + '<span>' + esc(T.balance) + '<b>' + esc(money(e.balance_cents)) + ' ' + esc(e.balance_status === 'paid' ? T.paid : T.due) + '</b></span>'
       + '<span>' + esc(T.total) + '<b>' + esc(money(e.total_cents)) + '</b></span></div></div>';
 
+    html += '<div id="execution-panel" class="sect" aria-live="polite">' + esc(lang === 'es' ? 'Cargando progreso del evento…' : 'Loading event progress…') + '</div>';
     html += d.gaps.map(function (g) { return '<div class="gap">' + esc(g) + '</div>'; }).join('');
     html += briefHtml(d) + detailsHtml(e) + timelineHtml(d) + productionHtml(d)
           + shoppingHtml(d) + packagingHtml(d) + hoursHtml(d) + logisticsHtml(d) + designHtml(d);
     out.innerHTML = html;
     wire();
+    if (keepExecution) renderExecution(); else loadExecution();
     if (Hub && Hub.i18nRefresh) Hub.i18nRefresh();
   }
 
@@ -175,7 +180,7 @@
         + '<div class="when">' + esc(clock(t.at)) + (t.minutes ? ' · ' + t.minutes + ' min' : '') + '</div></div>'
         + '<span class="kind">' + esc(t.kind) + '</span></div>';
     }).join('');
-    return '<div class="sect"><h3>' + esc(T.timeline) + '</h3>' + rows + '</div>';
+    return '<div class="sect"><h3>' + esc(T.timeline) + '</h3><p class="row-sub">' + esc(lang === 'es' ? 'Lista de planificación · Hora del Este. Marcar una tarea no cambia el progreso de entrega ni envía notificaciones.' : 'Planning checklist · Eastern time. Checking a task does not change delivery progress or send notifications.') + '</p>' + rows + '</div>';
   }
 
   function productionHtml(d) {
@@ -245,6 +250,173 @@
     return '<div class="sect"><h3>' + esc(T.design) + '</h3>'
       + '<p><b>' + esc(d.design.theme || '') + '</b>' + (d.design.colors ? ' <span class="pill">' + esc(d.design.colors) + '</span>' : '') + '</p>'
       + '<ul style="margin:6px 0 0;padding-left:18px;font-size:13px">' + d.design.needs.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></div>';
+  }
+
+  // ---- event execution: the server owns progress; uncertain writes retain their request key ----
+  function executionLabel(text) {
+    if (lang !== 'es' || !text) return text;
+    var dictionary = {
+  "Reopen preparation": "Reabrir preparación",
+  "Reason for reopening": "Motivo para reabrir",
+  "Returns to preparation. Confirm handling and packing again; no notifications are sent.": "Vuelve a preparación. Confirma el manejo de alimentos y el empaque de nuevo; no se envían notificaciones.",
+  "Explain why this event must be reopened.": "Explica por qué se debe reabrir este evento.",
+  "Only an active packed or delivering event can be reopened.": "Solo se puede reabrir un evento activo empacado o en entrega.",
+  "Planned": "Planificado",
+  "Preparing": "En preparación",
+  "Packed and ready": "Empacado y listo",
+  "On the way": "En camino",
+  "Arrived": "Llegó",
+  "Completed": "Completado",
+  "Event progress": "Progreso del evento",
+  "Owner delivery or customer pickup. This flow records progress; it does not notify customers or dispatch drivers.": "Entrega del propietario o recogida del cliente. Este proceso registra el progreso; no notifica a clientes ni asigna conductores.",
+  "Reload progress": "Recargar progreso",
+  "Owner delivery": "Entrega del propietario",
+  "Customer pickup": "Recogida del cliente",
+  "Choose fulfillment below": "Elige la entrega o recogida abajo",
+  "View only. An owner records fulfillment progress.": "Solo lectura. Un propietario registra el progreso de la entrega.",
+  "Execution is read only until the conditions above are resolved. Past events remain archived.": "Solo lectura hasta resolver las condiciones anteriores. Los eventos pasados permanecen archivados.",
+  "A previous save has no confirmed outcome. Retry that same request to resolve it before recording another step.": "No se ha confirmado el resultado del guardado anterior. Reintenta esa misma solicitud antes de registrar otro paso.",
+  "Resolve previous save": "Resolver guardado anterior",
+  "Open Hub sign-in": "Abrir acceso al Hub",
+  "Fulfillment": "Entrega o recogida",
+  "I am delivering": "Yo hago la entrega",
+  "Travel minutes (0 for pickup)": "Minutos de viaje (0 para recogida)",
+  "Setup minutes": "Minutos de montaje",
+  "I confirmed food handling for every dish and these travel/setup times.": "Confirmé el manejo de cada plato y estos tiempos de viaje y montaje.",
+  "Confirm execution plan": "Confirmar plan de ejecución",
+  "Food, quantities and all packaging are checked and ready.": "Los alimentos, las cantidades y todos los empaques están revisados y listos.",
+  "Start preparation": "Iniciar preparación",
+  "Mark packed and ready": "Marcar empacado y listo",
+  "Record departure": "Registrar salida",
+  "Record arrival": "Registrar llegada",
+  "Confirm pickup completed": "Confirmar recogida completada",
+  "Complete delivery": "Completar entrega",
+  "Refresh saved progress": "Actualizar progreso guardado",
+  "Saved history": "Historial guardado",
+  "Plan confirmed": "Plan confirmado",
+  "No execution steps recorded.": "No hay pasos de ejecución registrados.",
+  "Confirm all food and packaging are ready.": "Confirma que todos los alimentos y empaques están listos.",
+  "Could not verify saved event progress. Reload to try again.": "No se pudo verificar el progreso guardado. Recarga para reintentar.",
+  "Saving…": "Guardando…",
+  "Progress saved.": "Progreso guardado.",
+  "Progress saved, but the planning timeline could not refresh. Reload this page before relying on its times.": "Progreso guardado, pero no se pudo actualizar el cronograma. Recarga esta página antes de usar sus horarios.",
+  "Save rejected. Refresh progress before continuing.": "Guardado rechazado. Actualiza el progreso antes de continuar.",
+  "Save outcome is unconfirmed. Resolve the previous save before continuing.": "No se ha confirmado el guardado. Resuelve el guardado anterior antes de continuar.",
+  "Connection interrupted. Save outcome is unconfirmed; retry the same request.": "Conexión interrumpida. No se ha confirmado el guardado; reintenta la misma solicitud.",
+  "Past or undated events cannot be changed through live execution.": "Los eventos pasados o sin fecha no se pueden modificar desde la ejecución en vivo.",
+  "A paid, non-void deposit is required.": "Se requiere un depósito pagado y no anulado.",
+  "A complete itemized menu and guest count are required.": "Se requiere un menú detallado completo y el número de invitados.",
+  "Confirm the event serving time.": "Confirma la hora de servicio del evento.",
+  "Event details changed. Reconfirm the execution plan before continuing.": "Los detalles del evento cambiaron. Vuelve a confirmar el plan antes de continuar.",
+  "The recorded balance must be paid or waived before completion.": "El saldo registrado debe estar pagado o exonerado antes de completar.",
+  "Owner access required.": "Se requiere acceso de propietario.",
+  "Quote, action, version and a unique request key are required.": "Se requieren cotización, acción, versión y una clave de solicitud única.",
+  "Request key already belongs to another action.": "La clave de solicitud ya pertenece a otra acción.",
+  "Event not found.": "Evento no encontrado.",
+  "The event changed. Reload before continuing.": "El evento cambió. Recarga antes de continuar.",
+  "The packed execution plan cannot be changed.": "El plan no se puede modificar después de empacar.",
+  "Choose owner delivery or customer pickup.": "Elige entrega del propietario o recogida del cliente.",
+  "Confirm travel/setup minutes and food handling for every dish.": "Confirma los minutos de viaje y montaje y el manejo de cada plato.",
+  "Confirm the delivery address.": "Confirma la dirección de entrega.",
+  "That execution transition is not available.": "Ese cambio de estado no está disponible.",
+  "Confirm the food and all packages are ready.": "Confirma que los alimentos y todos los paquetes están listos.",
+  "Customer pickup requires zero travel minutes.": "La recogida del cliente requiere cero minutos de viaje."
+};
+    if (dictionary[text]) return dictionary[text];
+    // Backend may join several deterministic blockers into one response.
+    return Object.keys(dictionary).reduce(function (value, key) { return value.split(key).join(dictionary[key]); }, String(text));
+  }
+  function executionText(status) {
+    return ({ planned: executionLabel("Planned"), preparing: executionLabel("Preparing"), ready: executionLabel("Packed and ready"), en_route: executionLabel("On the way"), arrived: executionLabel("Arrived"), completed: executionLabel("Completed") })[status] || status;
+  }
+  function renderExecution() {
+    var el = document.getElementById('execution-panel');
+    if (!el) return;
+    var d = executionData, e = d && d.execution;
+    var html = '<h3>' + esc(executionLabel("Event progress")) + '</h3><p class="row-sub">' + esc(executionLabel("Owner delivery or customer pickup. This flow records progress; it does not notify customers or dispatch drivers.")) + '</p>';
+    if (executionMessage) html += '<p role="status" class="gap">' + esc(executionMessage) + '</p>';
+    if (!e) {
+      el.innerHTML = html + '<button type="button" class="btn" id="execution-refresh">' + esc(executionLabel("Reload progress")) + '</button>';
+    } else {
+      html += '<p><b>' + esc(executionText(e.status)) + '</b> · ' + esc(e.delivery_mode === 'owner_self' ? executionLabel("Owner delivery") : e.delivery_mode === 'pickup' ? executionLabel("Customer pickup") : executionLabel("Choose fulfillment below")) + '</p>';
+      html += (d.blockers || []).map(function (x) { return '<p class="gap">' + esc(executionLabel(x)) + '</p>'; }).join('');
+      if (!d.can_write) html += '<p class="row-sub">' + esc(executionLabel("View only. An owner records fulfillment progress.")) + '</p>';
+      if (d.read_only) html += '<p class="row-sub">' + esc(executionLabel("Execution is read only until the conditions above are resolved. Past events remain archived.")) + '</p>';
+      if (executionPending) {
+        html += '<p class="gap">' + esc(executionLabel("A previous save has no confirmed outcome. Retry that same request to resolve it before recording another step.")) + '</p>';
+        if (d.can_write) html += '<button type="button" class="btn" id="execution-retry"' + (executionBusy ? ' disabled' : '') + '>' + esc(executionLabel("Resolve previous save")) + '</button><a class="btn ghost" href="/hub/">' + esc(executionLabel("Open Hub sign-in")) + '</a>';
+      } else if (d.can_write && !d.read_only) {
+        if (d.can_reopen) html += '<form id="execution-reopen" class="fields" style="margin:12px 0"><p class="gap">' + esc(executionLabel('Returns to preparation. Confirm handling and packing again; no notifications are sent.')) + '</p><label for="execution-reason">' + esc(executionLabel('Reason for reopening')) + '</label><textarea id="execution-reason" required maxlength="1000" rows="2"></textarea><button class="btn ghost" type="submit">' + esc(executionLabel('Reopen preparation')) + '</button></form>';
+        if (d.configurable) html += '<form id="execution-config" class="fields"><label for="execution-mode">' + esc(executionLabel("Fulfillment")) + '</label><select id="execution-mode"><option value="owner_self"' + (e.delivery_mode === 'owner_self' ? ' selected' : '') + '>' + esc(executionLabel("I am delivering")) + '</option><option value="pickup"' + (e.delivery_mode === 'pickup' ? ' selected' : '') + '>' + esc(executionLabel("Customer pickup")) + '</option></select>'
+          + '<label for="execution-travel">' + esc(executionLabel("Travel minutes (0 for pickup)")) + '</label><input required id="execution-travel" type="number" min="0" max="720" step="1" value="' + esc(e.travel_minutes == null ? '' : e.travel_minutes) + '">'
+          + '<label for="execution-setup">' + esc(executionLabel("Setup minutes")) + '</label><input required id="execution-setup" type="number" min="0" max="720" step="1" value="' + esc(e.setup_minutes == null ? '' : e.setup_minutes) + '">'
+          + '<label><input required id="execution-handling" type="checkbox" style="width:auto">' + esc(executionLabel("I confirmed food handling for every dish and these travel/setup times.")) + '</label><button class="btn" type="submit">' + esc(executionLabel("Confirm execution plan")) + '</button></form>';
+        if ((d.available_actions || []).includes('ready')) html += '<label style="display:block;margin:12px 0"><input id="execution-packed" type="checkbox">' + esc(executionLabel("Food, quantities and all packaging are checked and ready.")) + '</label>';
+        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">' + (d.available_actions || []).map(function (action) {
+          var label = ({ preparing:executionLabel("Start preparation"), ready:executionLabel("Mark packed and ready"), en_route:executionLabel("Record departure"), arrived:executionLabel("Record arrival"), completed:e.delivery_mode === 'pickup' ? executionLabel("Confirm pickup completed") : executionLabel("Complete delivery") })[action];
+          return label ? '<button class="btn execution-action" type="button" data-action="' + esc(action) + '">' + esc(label) + '</button>' : '';
+        }).join('') + '</div>';
+      }
+      html += '<button type="button" class="btn ghost" id="execution-refresh" style="margin-top:10px">' + esc(executionLabel("Refresh saved progress")) + '</button><details style="margin-top:12px"><summary>' + esc(executionLabel("Saved history")) + '</summary>';
+      html += (d.transitions || []).length ? '<ol>' + d.transitions.map(function (t) {
+        return '<li>' + esc(dayName(t.recorded_at) + ' ' + clock(t.recorded_at)) + ' ET · ' + esc(t.from_status === t.to_status ? executionLabel("Plan confirmed") : executionText(t.to_status)) + ' · ' + esc(t.actor) + (t.note ? '<br>' + esc(t.note) : '') + '</li>';
+      }).join('') + '</ol>' : '<p class="row-sub">' + esc(executionLabel("No execution steps recorded.")) + '</p>';
+      el.innerHTML = html + '</details>';
+    }
+    var refresh = document.getElementById('execution-refresh');
+    if (refresh) { refresh.disabled = executionBusy; refresh.onclick = loadExecution; }
+    var retry = document.getElementById('execution-retry');
+    if (retry) retry.onclick = function () { saveExecution(null); };
+    var reopen = document.getElementById('execution-reopen');
+    if (reopen) reopen.onsubmit = function (event) {
+      event.preventDefault();
+      var note = document.getElementById('execution-reason').value.trim();
+      if (!note) { Hub.toast(executionLabel('Explain why this event must be reopened.')); return Promise.resolve(); }
+      return saveExecution({ op:'reopen', note:note });
+    };
+    var form = document.getElementById('execution-config');
+    if (form) form.onsubmit = function (event) {
+      event.preventDefault();
+      saveExecution({ op:'configure', delivery_mode:document.getElementById('execution-mode').value, travel_minutes:Number(document.getElementById('execution-travel').value), setup_minutes:Number(document.getElementById('execution-setup').value), handling_confirmed:document.getElementById('execution-handling').checked });
+    };
+    Array.prototype.forEach.call(el.querySelectorAll('.execution-action'), function (btn) {
+      btn.onclick = function () {
+        var target = btn.dataset.action, packing = document.getElementById('execution-packed');
+        if (target === 'ready' && (!packing || !packing.checked)) { Hub.toast(executionLabel("Confirm all food and packaging are ready.")); return; }
+        saveExecution({ op:'transition', target_status:target, packing_confirmed:target === 'ready' });
+      };
+    });
+  }
+  function storeExecutionPending() {
+    try { if (executionPending) sessionStorage.setItem(executionStorageKey, JSON.stringify(executionPending)); else sessionStorage.removeItem(executionStorageKey); } catch (ignore) {}
+  }
+  function loadExecution() {
+    return K.get('/api/hub/kitchen/event-execution?id=' + encodeURIComponent(quoteId)).then(function (d) {
+      if (!d || !d.ok || !d.execution) throw new Error('unavailable');
+      executionData = d; executionMessage = ''; renderExecution();
+    }).catch(function () { executionData = null; executionMessage = executionLabel("Could not verify saved event progress. Reload to try again."); renderExecution(); });
+  }
+  function saveExecution(action) {
+    if (executionBusy || !executionData || !executionData.can_write) return Promise.resolve();
+    if (!executionPending) {
+      if (!action || executionData.read_only) return Promise.resolve();
+      executionPending = Object.assign({}, action, { quote_id:quoteId, expected_version:executionData.execution.version, idempotency_key:crypto.randomUUID() });
+      storeExecutionPending();
+    }
+    executionBusy = true; executionMessage = executionLabel("Saving\u2026"); renderExecution();
+    var savedOperation = executionPending.op;
+    return K.post('/api/hub/kitchen/event-execution', executionPending).then(function (r) {
+      if (r && r.ok && r.execution) {
+        executionPending = null; storeExecutionPending(); executionData = r; executionMessage = executionLabel("Progress saved.");
+        if (savedOperation === 'configure' || savedOperation === 'reopen') return K.get('/api/hub/kitchen/event?id=' + encodeURIComponent(quoteId)).then(function (updatedPlan) {
+          if (!updatedPlan || !updatedPlan.ok || !updatedPlan.event) throw new Error('plan unavailable');
+          render(updatedPlan, true);
+        }).catch(function () { executionMessage = executionLabel("Progress saved, but the planning timeline could not refresh. Reload this page before relying on its times."); });
+      } else if (r && r.ok === false && r.status >= 400 && r.status < 500) {
+        executionPending = null; storeExecutionPending(); executionMessage = executionLabel(r.error) || executionLabel("Save rejected. Refresh progress before continuing.");
+      } else { executionMessage = executionLabel("Save outcome is unconfirmed. Resolve the previous save before continuing."); }
+    }).catch(function () { executionMessage = executionLabel("Connection interrupted. Save outcome is unconfirmed; retry the same request."); })
+      .finally(function () { executionBusy = false; renderExecution(); });
   }
 
   // ---- wiring ---------------------------------------------------------------------------------
@@ -326,14 +498,25 @@
     });
   }
 
+  function saveTask(box) {
+    var row = box.closest('.task');
+    var previous = row.classList.contains('done');
+    var requested = box.checked;
+    box.disabled = true;
+    return post({ op: 'task', quote_id: quoteId, task_key: box.dataset.key, done: requested })
+      .then(function (result) {
+        box.checked = result && result.ok ? requested : previous;
+        row.classList.toggle('done', box.checked);
+      }).catch(function () {
+        box.checked = previous;
+        row.classList.toggle('done', previous);
+      }).finally(function () { box.disabled = false; });
+  }
+
   function wire() {
     wireRecipes();
     Array.prototype.forEach.call(document.querySelectorAll('.tick'), function (box) {
-      box.addEventListener('change', function () {
-        box.disabled = true;
-        post({ op: 'task', quote_id: quoteId, task_key: box.dataset.key, done: box.checked })
-          .then(function () { box.disabled = false; box.closest('.task').classList.toggle('done', box.checked); });
-      });
+      box.addEventListener('change', function () { saveTask(box); });
     });
     Array.prototype.forEach.call(document.querySelectorAll('.mins'), function (box) {
       box.addEventListener('change', function () {

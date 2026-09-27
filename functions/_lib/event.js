@@ -23,7 +23,9 @@
 // HONEST ABOUT WHAT IT DOES NOT KNOW. A line with no recipe on file says so and asks for one
 // instead of inventing quantities; a draft recipe is labelled draft everywhere it appears. The cook
 // is the authority on these dishes, and the HUB is not.
-import { id, now, parseJson } from './hub.js';
+import { id, now, parseJson, etDateOf, etMidnightMs, etWallClockMs, addEtDays } from './hub.js';
+
+import { executionQuoteSnapshot } from './catering_execution.js';
 
 const DAY = 86400000;
 const MIN = 60000;
@@ -196,13 +198,12 @@ const HHMM = (s) => { const m = /^(\d{1,2}):(\d{2})/.exec(String(s || '')); retu
  * and a chill all tolerate longer, and none of them tolerate shorter.
  */
 export function workingHour(ms) {
-  const d = new Date(ms);
-  const h = d.getHours();
+  const day = etDateOf(ms);
+  const h = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23',
+  }).format(new Date(ms)));
   if (h >= 6 && h < 22) return ms;
-  if (h >= 22) { d.setHours(18, 0, 0, 0); return d.getTime(); }
-  d.setDate(d.getDate() - 1);
-  d.setHours(18, 0, 0, 0);
-  return d.getTime();
+  return etWallClockMs(`${h >= 22 ? day : addEtDays(day, -1)}T18:00`);
 }
 
 /**
@@ -210,11 +211,11 @@ export function workingHour(ms) {
  * over two hours of cooking lands the day before, because a nine-hour pork does not start Saturday
  * morning; everything else stacks back from the moment the van has to leave.
  */
-export function schedule({ eventDateMs, servingTime, production, guests, travelMinutes = 30, setupMinutes = 30, packMinutes = 45 }) {
+export function schedule({ eventDateMs, eventDate, servingTime, production, guests, travelMinutes = 30, setupMinutes = 30, packMinutes = 45, deliveryMode = null }) {
   const t = HHMM(servingTime) || { h: 19, m: 0 };
-  const serve = new Date(eventDateMs);
-  serve.setHours(t.h, t.m, 0, 0);
-  const serveAt = serve.getTime();
+  const day = eventDate || etDateOf(eventDateMs);
+  const wall = (offset, clock) => etWallClockMs(`${addEtDays(day, offset)}T${clock}`);
+  const serveAt = wall(0, `${String(t.h).padStart(2, '0')}:${String(t.m).padStart(2, '0')}`);
   const arriveAt = serveAt - setupMinutes * MIN;
   const leaveAt = arriveAt - travelMinutes * MIN;
   const packAt = leaveAt - packMinutes * MIN;
@@ -222,9 +223,9 @@ export function schedule({ eventDateMs, servingTime, production, guests, travelM
   const tasks = [];
   const add = (key, label, at, kind, minutes) => tasks.push({ key, label, at, kind, minutes: minutes || null });
 
-  add('confirm', 'Confirm the final headcount, the address and the serving time with the customer', eventDateMs - 2 * DAY + 10 * 3600000, 'customer', 10);
-  add('shop', 'Shop everything on the purchase list', eventDateMs - 2 * DAY + 8 * 3600000, 'purchasing', 120);
-  add('balance', 'Collect the balance before service', eventDateMs - DAY + 9 * 3600000, 'money', 5);
+  add('confirm', 'Confirm the final headcount, the address and the serving time with the customer', wall(-2, '10:00'), 'customer', 10);
+  add('shop', 'Shop everything on the purchase list', wall(-2, '08:00'), 'purchasing', 120);
+  add('balance', 'Collect the balance before service', wall(-1, '09:00'), 'money', 5);
 
   // SHORTEST LAST. Tasks are placed walking backwards from packing, so the first dish out of this
   // loop is the one that finishes nearest the van. Sorting shortest-first therefore starts the
@@ -234,7 +235,7 @@ export function schedule({ eventDateMs, servingTime, production, guests, travelM
   for (const p of [...production].sort((a, b) => (a.minutes || 0) - (b.minutes || 0))) {
     const mins = p.minutes || 45;
     const dayBefore = mins > 120;
-    const end = dayBefore ? (eventDateMs - DAY + 18 * 3600000) : cursor;
+    const end = dayBefore ? wall(-1, '18:00') : cursor;
     const start = end - mins * MIN;
     add(`cook:${p.key}`,
       `${p.name} — ${p.portions ? p.portions + ' portions' : 'per the order'}${p.recipe ? '' : ' · no recipe on file'}`,
@@ -250,9 +251,14 @@ export function schedule({ eventDateMs, servingTime, production, guests, travelM
   }
 
   add('pack', 'Pack, label and take the packing temperature of every pan', packAt, 'kitchen', packMinutes);
-  add('depart', 'Load the van and leave', leaveAt, 'logistics', 15);
-  add('arrive', 'Arrive, set the chafers up, temp every pan', arriveAt, 'logistics', setupMinutes);
-  add('serve', `Service starts — ${guests} guests`, serveAt, 'service', null);
+  if (deliveryMode === 'pickup') {
+    if (setupMinutes) add('pickup_setup', 'Prepare the pickup handover area', arriveAt, 'logistics', setupMinutes);
+    add('pickup', 'Customer pickup — check all packages at handover', serveAt, 'logistics', null);
+  } else {
+    add('depart', 'Load the van and leave', leaveAt, 'logistics', 15);
+    add('arrive', 'Arrive, set up and check every pan', arriveAt, 'logistics', setupMinutes);
+    add('serve', `Service starts — ${guests} guests`, serveAt, 'service', null);
+  }
   return tasks.sort((a, b) => a.at - b.at);
 }
 
@@ -261,8 +267,7 @@ export function laborEstimate(tasks) {
   const byDay = new Map();
   for (const t of tasks) {
     if (!t.minutes || t.kind === 'money' || t.kind === 'customer') continue;
-    const d = new Date(t.at);
-    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const day = etDateOf(t.at);
     const cur = byDay.get(day) || { minutes: 0, from: t.at, to: t.at + t.minutes * MIN };
     cur.minutes += t.minutes;
     cur.from = Math.min(cur.from, t.at);
@@ -276,19 +281,20 @@ export function laborEstimate(tasks) {
 
 /** The drive: what goes in, what has to be true when it comes out. */
 export function logistics(plan) {
-  const hot = plan.production.filter((p) => !isPlatter(p.name));
-  const cold = plan.production.filter((p) => isPlatter(p.name));
   return {
     address: plan.event.address,
-    travel_minutes: 30,
+    travel_minutes: plan.execution_timing?.travel_minutes ?? 30,
+    setup_minutes: plan.execution_timing?.setup_minutes ?? 30,
+    timing_source: plan.execution_timing ? 'owner-confirmed execution plan' : 'planning allowance — travel and setup times have not been confirmed',
     load: [
-      ...hot.map((p) => ({ what: p.name, how: 'Hot — insulated carrier, 135°F or above' })),
-      ...cold.map((p) => ({ what: p.name, how: 'Cold — cooler with ice packs, 41°F or below' })),
+      // Dish names and tray shapes are not authoritative food-handling instructions.
+      ...plan.production.map((p) => ({ what: p.name, handling_status: plan.execution_timing?.handling_confirmed ? 'owner_attested' : 'unconfirmed',
+        how: plan.execution_timing?.handling_confirmed ? 'Owner confirmed handling; individual temperatures and carriers are not recorded here' : 'Handling unconfirmed — the kitchen must confirm holding temperature and carrier before packing' })),
       { what: 'Chafers, fuel, serving utensils, labels', how: 'Loaded last, out first' },
     ],
     checks: [
       'Take and write down the temperature of every pan as it is packed.',
-      'Take it again on arrival, before the first guest is served.',
+      plan.execution_timing?.delivery_mode === 'pickup' ? 'Confirm all packages and handling instructions with the customer at pickup.' : 'Take it again on arrival, before the first guest is served.',
       'Anything hot below 135°F or cold above 41°F does not get served.',
       'The final balance is collected before service starts.',
     ],
@@ -377,8 +383,14 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
     };
   });
 
-  const eventMs = Date.parse(String(quote.event_date) + 'T00:00:00') || atMs;
-  const tasks = schedule({ eventDateMs: eventMs, servingTime: quote.serving_time, production, guests });
+  const execution = await env.DB.prepare('SELECT * FROM catering_execution WHERE quote_id=?').bind(quoteId).first();
+  const executionTiming = execution && execution.quote_snapshot === executionQuoteSnapshot(quote)
+    && ['owner_self', 'pickup'].includes(execution.delivery_mode)
+    && [execution.travel_minutes, execution.setup_minutes].every(n => Number.isInteger(n) && n >= 0 && n <= 720)
+    ? execution : null;
+  const eventMs = etMidnightMs(String(quote.event_date)) || atMs;
+  const tasks = schedule({ eventDateMs: eventMs, eventDate: quote.event_date, servingTime: quote.serving_time, production, guests,
+    ...(executionTiming ? { travelMinutes: executionTiming.travel_minutes, setupMinutes: executionTiming.setup_minutes, deliveryMode: executionTiming.delivery_mode } : {}) });
 
   const event = {
     quote_id: quote.id, customer: quote.customer_name,
@@ -397,6 +409,7 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
     ok: true,
     event,
     production,
+    execution_timing: executionTiming ? { travel_minutes: executionTiming.travel_minutes, setup_minutes: executionTiming.setup_minutes, delivery_mode: executionTiming.delivery_mode, handling_confirmed: !!executionTiming.handling_confirmed } : null,
     shopping: shoppingList(production, inventory),
     packaging: packagingList(production, guests),
     // done_at, not the existence of a row: a row also exists when the cook has only set a time,
@@ -411,7 +424,9 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
   plan.logistics = logistics(plan);
   plan.gaps = [
     ...(quote.serving_time ? [] : ['No serving time on this event — the whole schedule below assumes 7:00 p.m. Set the real time.']),
-    ...(quote.address ? [] : ['No delivery address on this event.']),
+    ...(quote.address || executionTiming?.delivery_mode === 'pickup' ? [] : ['No delivery address on this event.']),
+    ...(executionTiming ? [] : ['Travel and setup each use an unconfirmed 30-minute planning allowance. Confirm the actual route and setup needs.']),
+    ...(executionTiming?.handling_confirmed ? ['Owner confirmed food handling. Individual temperature readings and carrier details are not recorded in this plan.'] : ['Food holding temperatures and carriers are unconfirmed. The kitchen must confirm each dish before packing.']),
     ...production.filter((p) => p.needs_recipe).map((p) => `No recipe on file for “${p.name}” — its ingredients are missing from the purchase list.`),
     ...production.filter((p) => p.recipe && p.recipe.draft).map((p) => `The recipe for “${p.name}” is still a draft nobody has confirmed.`),
     ...production.filter((p) => p.recipe && p.recipe.program).map((p) => `“${p.name}” matched the adult day care program recipe${p.recipe.portion ? ` (${p.recipe.portion})` : ''} — that portion is the one the dietitian signed for the contract, not a catering portion. Check the amounts before cooking.`),
@@ -428,7 +443,7 @@ export async function setEventTask(env, { quote_id, task_key, done = true, note 
   const who = (ctx && (ctx.email || ctx.distinct_id)) || null;
   const existing = await env.DB.prepare('SELECT id FROM event_tasks WHERE quote_id = ? AND task_key = ?').bind(quote_id, task_key).first();
   if (!done) {
-    if (existing) await env.DB.prepare('DELETE FROM event_tasks WHERE id = ?').bind(existing.id).run();
+    if (existing) await env.DB.prepare('UPDATE event_tasks SET done_at = NULL, done_by = NULL, note = NULL WHERE id = ?').bind(existing.id).run();
     return { ok: true, done: false };
   }
   if (existing) {
@@ -530,7 +545,7 @@ export async function briefCandidates(env, quote) {
 
 /** The booked events the kitchen should be looking at, soonest first. */
 export async function upcomingEvents(env, { atMs = Date.now(), withinDays = 21 } = {}) {
-  const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+  const day = etDateOf;
   const r = await env.DB.prepare(
     `SELECT id, customer_name, event_date, serving_time, guests, total_cents, deposit_status, balance_status
        FROM catering_quotes
@@ -539,6 +554,6 @@ export async function upcomingEvents(env, { atMs = Date.now(), withinDays = 21 }
   ).bind(day(atMs - DAY), day(atMs + withinDays * DAY)).all();
   return ((r && r.results) || []).map((e) => ({
     ...e,
-    days_out: Math.ceil((Date.parse(e.event_date + 'T00:00:00') - atMs) / DAY),
+    days_out: Math.ceil((etMidnightMs(e.event_date) - atMs) / DAY),
   }));
 }
