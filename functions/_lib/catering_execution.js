@@ -32,7 +32,7 @@ export async function readExecution(env, quoteId, {at = Date.now()} = {}) {
   const can_reopen = !blockers.length && ['ready','en_route','arrived'].includes(execution.status);
   if (row && row.quote_snapshot !== snapshot(q)) blockers.push('Event details changed. Reconfirm the execution plan before continuing.');
   if (next(execution).includes('completed') && !(q.balance_status === 'paid' || q.balance_status === 'waived' || q.balance_cents === 0)) blockers.push('The recorded balance must be paid or waived before completion.');
-  return {ok:true, configurable, read_only, can_reopen, execution, transitions:history.results || [], available_actions:blockers.length ? [] : next(execution), blockers, notifications};
+  return {ok:true, configurable, read_only, can_reopen, execution, transitions:history.results || [], available_actions:blockers.length ? [] : next(execution).filter(action => execution.delivery_mode !== 'staff_driver' || !['en_route','arrived','completed'].includes(action)), blockers, notifications};
 }
 export async function mutateExecution(env, b, ctx, {at = Date.now()} = {}) {
   if (ctx?.role !== 'owner' || !(ctx.email || ctx.distinct_id)) return failure('Owner access required.',403);
@@ -56,14 +56,19 @@ export async function mutateExecution(env, b, ctx, {at = Date.now()} = {}) {
     Object.assign(config,{packing_confirmed:0,handling_confirmed:0,quote_snapshot:null});
   } else if (b.op === 'configure') {
     if (!['planned','preparing'].includes(e.status)) return failure('The packed execution plan cannot be changed.');
-    if (!['owner_self','pickup'].includes(b.delivery_mode)) return failure('Choose owner delivery or customer pickup.',400);
+    if (!['owner_self','pickup','staff_driver'].includes(b.delivery_mode)) return failure('Choose owner delivery, staff driver or customer pickup.',400);
+    if (e.delivery_mode === 'staff_driver' && b.delivery_mode !== 'staff_driver') {
+      const assignment = await env.DB.prepare("SELECT id FROM catering_assignments WHERE quote_id=? AND status IN ('assigned','accepted')").bind(q.id).first();
+      if (assignment) return failure('Release the active driver assignment before changing fulfillment.');
+    }
     if (![b.travel_minutes,b.setup_minutes].every(n => Number.isInteger(n) && n >= 0 && n <= 720) || b.handling_confirmed !== true) return failure('Confirm travel/setup minutes and food handling for every dish.',400);
     if (b.delivery_mode === 'pickup' && b.travel_minutes !== 0) return failure('Pickup travel minutes must be zero.',400);
-    if (b.delivery_mode === 'owner_self' && !String(q.address || '').trim()) return failure('Confirm the delivery address.');
+    if (b.delivery_mode !== 'pickup' && !String(q.address || '').trim()) return failure('Confirm the delivery address.');
     Object.assign(config,{delivery_mode:b.delivery_mode,travel_minutes:b.travel_minutes,setup_minutes:b.setup_minutes,handling_confirmed:1,quote_snapshot:snapshot(q)});
   } else {
     if (e.quote_snapshot !== snapshot(q)) return failure('Event details changed. Reconfirm the execution plan before continuing.');
     target = b.target_status;
+    if (e.delivery_mode === 'staff_driver' && ['en_route','arrived','completed'].includes(target)) return failure('The assigned driver records delivery progress from the driver Hub.');
     if (!next(e).includes(target)) return failure('That execution transition is not available.');
     if (target === 'ready' && b.packing_confirmed !== true) return failure('Confirm the food and all packages are ready.');
     if (target === 'ready') config.packing_confirmed = 1;
@@ -73,8 +78,8 @@ export async function mutateExecution(env, b, ctx, {at = Date.now()} = {}) {
   const result = await env.DB.batch([
     env.DB.prepare('INSERT OR IGNORE INTO catering_execution (quote_id,created_at,updated_at) VALUES (?,?,?)').bind(q.id,at,at),
     env.DB.prepare(`UPDATE catering_execution SET status=?,version=version+1,delivery_mode=?,travel_minutes=?,setup_minutes=?,handling_confirmed=?,packing_confirmed=?,quote_snapshot=?,updated_by=?,updated_at=?
-      WHERE quote_id=? AND version=? AND EXISTS (SELECT 1 FROM catering_quotes q WHERE q.id=? AND q.deposit_status='paid' AND COALESCE(q.quote_json,'')=? AND COALESCE(q.event_date,'')=? AND COALESCE(q.serving_time,'')=? AND COALESCE(q.address,'')=? AND q.guests=? AND q.dietary_notes IS ? AND q.balance_status IS ? AND q.balance_cents IS ?)`)
-      .bind(target,config.delivery_mode,config.travel_minutes,config.setup_minutes,config.handling_confirmed ? 1:0,config.packing_confirmed ? 1:0,config.quote_snapshot,actor,at,q.id,e.version,q.id,q.quote_json || '',q.event_date || '',q.serving_time || '',q.address || '',q.guests,q.dietary_notes,q.balance_status,q.balance_cents),
+      WHERE quote_id=? AND version=? AND EXISTS (SELECT 1 FROM catering_quotes q WHERE q.id=? AND q.deposit_status='paid' AND COALESCE(q.quote_json,'')=? AND COALESCE(q.event_date,'')=? AND COALESCE(q.serving_time,'')=? AND COALESCE(q.address,'')=? AND q.guests=? AND q.dietary_notes IS ? AND q.balance_status IS ? AND q.balance_cents IS ?) AND (?='staff_driver' OR NOT EXISTS (SELECT 1 FROM catering_assignments a WHERE a.quote_id=? AND a.status IN ('assigned','accepted')))`)
+      .bind(target,config.delivery_mode,config.travel_minutes,config.setup_minutes,config.handling_confirmed ? 1:0,config.packing_confirmed ? 1:0,config.quote_snapshot,actor,at,q.id,e.version,q.id,q.quote_json || '',q.event_date || '',q.serving_time || '',q.address || '',q.guests,q.dietary_notes,q.balance_status,q.balance_cents,config.delivery_mode,q.id),
     env.DB.prepare(`INSERT INTO catering_execution_transitions (id,quote_id,idempotency_key,request_json,from_status,to_status,version,actor,note,recorded_at) SELECT ?,?,?,?,?,?,?,?,?,? WHERE changes()=1`)
       .bind(id('cex'),q.id,b.idempotency_key,requestJson,e.status,target,e.version+1,actor,String(b.note || '').slice(0,1000) || null,at),
   ]);
