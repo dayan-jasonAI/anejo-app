@@ -252,6 +252,7 @@ export function schedule({ eventDateMs, eventDate, servingTime, production, gues
 
   add('pack', 'Pack, label and take the packing temperature of every pan', packAt, 'kitchen', packMinutes);
   if (deliveryMode === 'pickup') {
+    if (setupMinutes) add('pickup_setup', 'Prepare the pickup handover area', arriveAt, 'logistics', setupMinutes);
     add('pickup', 'Customer pickup — check all packages at handover', serveAt, 'logistics', null);
   } else {
     add('depart', 'Load the van and leave', leaveAt, 'logistics', 15);
@@ -287,13 +288,13 @@ export function logistics(plan) {
     timing_source: plan.execution_timing ? 'owner-confirmed execution plan' : 'planning allowance — travel and setup times have not been confirmed',
     load: [
       // Dish names and tray shapes are not authoritative food-handling instructions.
-      ...plan.production.map((p) => ({ what: p.name, handling_status: 'unconfirmed',
-        how: 'Handling unconfirmed — the kitchen must confirm holding temperature and carrier before packing' })),
+      ...plan.production.map((p) => ({ what: p.name, handling_status: plan.execution_timing?.handling_confirmed ? 'owner_attested' : 'unconfirmed',
+        how: plan.execution_timing?.handling_confirmed ? 'Owner confirmed handling; individual temperatures and carriers are not recorded here' : 'Handling unconfirmed — the kitchen must confirm holding temperature and carrier before packing' })),
       { what: 'Chafers, fuel, serving utensils, labels', how: 'Loaded last, out first' },
     ],
     checks: [
       'Take and write down the temperature of every pan as it is packed.',
-      'Take it again on arrival, before the first guest is served.',
+      plan.execution_timing?.delivery_mode === 'pickup' ? 'Confirm all packages and handling instructions with the customer at pickup.' : 'Take it again on arrival, before the first guest is served.',
       'Anything hot below 135°F or cold above 41°F does not get served.',
       'The final balance is collected before service starts.',
     ],
@@ -408,7 +409,7 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
     ok: true,
     event,
     production,
-    execution_timing: executionTiming ? { travel_minutes: executionTiming.travel_minutes, setup_minutes: executionTiming.setup_minutes, delivery_mode: executionTiming.delivery_mode } : null,
+    execution_timing: executionTiming ? { travel_minutes: executionTiming.travel_minutes, setup_minutes: executionTiming.setup_minutes, delivery_mode: executionTiming.delivery_mode, handling_confirmed: !!executionTiming.handling_confirmed } : null,
     shopping: shoppingList(production, inventory),
     packaging: packagingList(production, guests),
     // done_at, not the existence of a row: a row also exists when the cook has only set a time,
@@ -423,9 +424,9 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
   plan.logistics = logistics(plan);
   plan.gaps = [
     ...(quote.serving_time ? [] : ['No serving time on this event — the whole schedule below assumes 7:00 p.m. Set the real time.']),
-    ...(quote.address ? [] : ['No delivery address on this event.']),
+    ...(quote.address || executionTiming?.delivery_mode === 'pickup' ? [] : ['No delivery address on this event.']),
     ...(executionTiming ? [] : ['Travel and setup each use an unconfirmed 30-minute planning allowance. Confirm the actual route and setup needs.']),
-    'Food holding temperatures and carriers are unconfirmed. The kitchen must confirm each dish before packing.',
+    ...(executionTiming?.handling_confirmed ? ['Owner confirmed food handling. Individual temperature readings and carrier details are not recorded in this plan.'] : ['Food holding temperatures and carriers are unconfirmed. The kitchen must confirm each dish before packing.']),
     ...production.filter((p) => p.needs_recipe).map((p) => `No recipe on file for “${p.name}” — its ingredients are missing from the purchase list.`),
     ...production.filter((p) => p.recipe && p.recipe.draft).map((p) => `The recipe for “${p.name}” is still a draft nobody has confirmed.`),
     ...production.filter((p) => p.recipe && p.recipe.program).map((p) => `“${p.name}” matched the adult day care program recipe${p.recipe.portion ? ` (${p.recipe.portion})` : ''} — that portion is the one the dietitian signed for the contract, not a catering portion. Check the amounts before cooking.`),

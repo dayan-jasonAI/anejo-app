@@ -88,3 +88,31 @@ test('ready plan is locked and execution makes no network calls',async(t)=>{
  assert.equal((await mutate(env,transition(3,'completed'))).ok,false);
  assert.equal(network.mock.callCount(),0);
 });
+test('owner reopens changed packed event with reason and must reconfirm handling and packing',async()=>{
+ const env=fixture();await mutate(env,configure());await mutate(env,transition(1,'preparing'));await mutate(env,transition(2,'ready'));
+ env.DB.exec("UPDATE catering_quotes SET dietary_notes='New allergy',serving_time='9:00'");
+ const blocked=await readExecution(env,'cq_execution',{at});assert.equal(blocked.can_reopen,true);assert.deepEqual(blocked.available_actions,[]);
+ const reopen={quote_id:'cq_execution',op:'reopen',expected_version:3,idempotency_key:'reopen-reason',note:'Updated allergy requires kitchen recheck'};
+ assert.equal((await mutate(env,{...reopen,note:' '})).ok,false);
+ const result=await mutate(env,reopen);assert.equal(result.execution.status,'preparing');assert.equal(result.execution.handling_confirmed,false);assert.equal(result.execution.packing_confirmed,false);assert.equal(result.execution.quote_snapshot,null);assert.deepEqual(result.available_actions,[]);
+ assert.equal(result.transitions.at(-1).note,reopen.note);
+ assert.equal((await mutate(env,reopen)).replayed,true);
+ assert.equal((await mutate(env,transition(4,'ready'))).ok,false);
+ await mutate(env,configure({expected_version:4,idempotency_key:'reconfirm-reopen'}));
+ assert.equal((await mutate(env,{...transition(5,'ready'),packing_confirmed:false})).ok,false);
+ assert.equal((await mutate(env,transition(5,'ready'))).execution.status,'ready');
+});
+test('reopen accepts en-route and arrived, but cannot reopen completed or past events',async()=>{
+ for(const status of ['en_route','arrived']){
+  const env=fixture();await mutate(env,configure());await mutate(env,transition(1,'preparing'));await mutate(env,transition(2,'ready'));await mutate(env,transition(3,'en_route'));
+  if(status==='arrived') await mutate(env,transition(4,'arrived'));
+  const version=status==='arrived'?5:4;
+  assert.equal((await mutate(env,{quote_id:'cq_execution',op:'reopen',expected_version:version,idempotency_key:'reopen-transit',note:'Owner requests physical recheck'})).execution.status,'preparing');
+ }
+ const env=fixture();await mutate(env,configure({delivery_mode:'pickup',travel_minutes:0}));await mutate(env,transition(1,'preparing'));await mutate(env,transition(2,'ready'));env.DB.exec("UPDATE catering_quotes SET balance_status='paid'");await mutate(env,transition(3,'completed'));
+ assert.equal((await readExecution(env,'cq_execution',{at})).can_reopen,false);
+ assert.equal((await mutate(env,{quote_id:'cq_execution',op:'reopen',expected_version:4,idempotency_key:'reopen-complete',note:'Attempt'})).ok,false);
+ const old=fixture();await mutate(old,configure());await mutate(old,transition(1,'preparing'));await mutate(old,transition(2,'ready'));old.DB.exec("UPDATE catering_quotes SET event_date='2026-09-26'");
+ assert.equal((await readExecution(old,'cq_execution',{at})).can_reopen,false);
+ assert.equal((await mutate(old,{quote_id:'cq_execution',op:'reopen',expected_version:3,idempotency_key:'reopen-archived',note:'Attempt'})).ok,false);
+});

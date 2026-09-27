@@ -13,11 +13,11 @@ function quoteBlockers(q, at) {
   if (q.deposit_status !== 'paid') out.push('A paid, non-void deposit is required.');
   const lines = parseJson(q.quote_json, {})?.lines;
   if (!Array.isArray(lines) || !lines.length || lines.some(l => !String(l?.name || '').trim() || !String(l?.qty || '').trim()) || !(q.guests > 0)) out.push('A complete itemized menu and guest count are required.');
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(q.serving_time || '')) out.push('Confirm the event serving time.');
+  if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(q.serving_time || '')) out.push('Confirm the event serving time.');
   return out;
 }
 function next(e) {
-  if (!e.delivery_mode) return [];
+  if (!e.delivery_mode || !e.handling_confirmed || !e.quote_snapshot) return [];
   return ({planned:['preparing'],preparing:['ready'],ready:e.delivery_mode === 'pickup' ? ['completed'] : ['en_route'],en_route:['arrived'],arrived:['completed'],completed:[]})[e.status] || [];
 }
 export async function readExecution(env, quoteId, {at = Date.now()} = {}) {
@@ -29,13 +29,14 @@ export async function readExecution(env, quoteId, {at = Date.now()} = {}) {
   const blockers = quoteBlockers(q,at);
   const configurable = !blockers.length && ['planned','preparing'].includes(execution.status);
   const read_only = !!blockers.length;
+  const can_reopen = !blockers.length && ['ready','en_route','arrived'].includes(execution.status);
   if (row && row.quote_snapshot !== snapshot(q)) blockers.push('Event details changed. Reconfirm the execution plan before continuing.');
   if (next(execution).includes('completed') && !(q.balance_status === 'paid' || q.balance_status === 'waived' || q.balance_cents === 0)) blockers.push('The recorded balance must be paid or waived before completion.');
-  return {ok:true, configurable, read_only, execution, transitions:history.results || [], available_actions:blockers.length ? [] : next(execution), blockers, notifications};
+  return {ok:true, configurable, read_only, can_reopen, execution, transitions:history.results || [], available_actions:blockers.length ? [] : next(execution), blockers, notifications};
 }
 export async function mutateExecution(env, b, ctx, {at = Date.now()} = {}) {
   if (ctx?.role !== 'owner' || !(ctx.email || ctx.distinct_id)) return failure('Owner access required.',403);
-  if (!b?.quote_id || !['configure','transition'].includes(b.op) || !Number.isInteger(b.expected_version) || b.expected_version < 0 || !/^[\w-]{8,100}$/.test(b.idempotency_key || '')) return failure('Quote, action, version and a unique request key are required.',400);
+  if (!b?.quote_id || !['configure','transition','reopen'].includes(b.op) || !Number.isInteger(b.expected_version) || b.expected_version < 0 || !/^[\w-]{8,100}$/.test(b.idempotency_key || '')) return failure('Quote, action, version and a unique request key are required.',400);
   const actor = ctx.email || ctx.distinct_id;
   const requestJson = JSON.stringify([b.op,b.expected_version,b.target_status || null,b.delivery_mode || null,b.travel_minutes ?? null,b.setup_minutes ?? null,b.handling_confirmed === true,b.packing_confirmed === true,String(b.note || '').slice(0,1000),actor]);
   const previous = await env.DB.prepare('SELECT request_json FROM catering_execution_transitions WHERE quote_id=? AND idempotency_key=?').bind(b.quote_id,b.idempotency_key).first();
@@ -48,7 +49,12 @@ export async function mutateExecution(env, b, ctx, {at = Date.now()} = {}) {
   if (e.version !== b.expected_version) return failure('The event changed. Reload before continuing.');
   let target = e.status;
   const config = {...e};
-  if (b.op === 'configure') {
+  if (b.op === 'reopen') {
+    if (!['ready','en_route','arrived'].includes(e.status)) return failure('Only an active packed or delivering event can be reopened.');
+    if (!String(b.note || '').trim()) return failure('Explain why this event must be reopened.',400);
+    target = 'preparing';
+    Object.assign(config,{packing_confirmed:0,handling_confirmed:0,quote_snapshot:null});
+  } else if (b.op === 'configure') {
     if (!['planned','preparing'].includes(e.status)) return failure('The packed execution plan cannot be changed.');
     if (!['owner_self','pickup'].includes(b.delivery_mode)) return failure('Choose owner delivery or customer pickup.',400);
     if (![b.travel_minutes,b.setup_minutes].every(n => Number.isInteger(n) && n >= 0 && n <= 720) || b.handling_confirmed !== true) return failure('Confirm travel/setup minutes and food handling for every dish.',400);

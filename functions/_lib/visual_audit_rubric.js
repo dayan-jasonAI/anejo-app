@@ -185,7 +185,7 @@ export function validateVisualAudit(data,{caption,slideCount,brandText,brandRece
  const assessed=product.claims.length>0&&product.claims.every(claim=>Object.hasOwn(claim,'assessment'));
  const contradicted=product.claims.some(claim=>claim.assessment==='contradicted');
  const modelFindings=new Map();
- const unresolvedExplanation='Source verification is incomplete: '+unresolvedClaims.length+' explicit product claim(s) have no selected supporting authority. Review the unresolved written claims listed below against menu or owner guidance; absent an explicit exact-photo assortment promise, identifying unlabeled pictured foods is not required. No score or automatic approval is available.';
+ const unresolvedExplanation='Source verification is incomplete: '+unresolvedClaims.length+' explicit product claim(s) lack resolved supporting authority. Review the unresolved written claims listed below against menu or owner guidance; absent an explicit exact-photo assortment promise, identifying unlabeled pictured foods is not required. No score or automatic approval is available.';
  const seen=new Set();const flags=[];const unknowns=[];let applicable=0,met=0;
  for(let index=0;index<data.observations.length;index++){
   let o=data.observations[index];
@@ -220,7 +220,7 @@ export function validateVisualAudit(data,{caption,slideCount,brandText,brandRece
    const status=o.status==='violated'||contradicted?'violated':o.status==='unknown'||unresolvedClaims.length?'unknown':o.status;
    const labels={supported:'model reports support',contradicted:'model reports contradiction',unresolved:'unresolved'};
    const reasons={source_support:'selected source',source_contradiction:'selected source conflicts',missing_authority:'no selected authority',ambiguous_authority:'selected authority is ambiguous'};
-   const explanation='Written-claim review (model assessments, not verified entailment): '+product.claims.map(c=>'“'+c.quote+'”: '+labels[c.assessment]+' ('+reasons[c.assessment_reason]+')').join('; ')+(status==='unknown'&&!unresolvedClaims.length?' Aggregate model finding remains unresolved; owner review required.':'');
+   const explanation='Written-claim review (model assessments, not verified entailment): '+product.claims.map(c=>'“'+c.quote+'”: '+labels[c.assessment]+' ('+reasons[c.assessment_reason]+')').join('; ')+(status==='unknown'&&!unresolvedClaims.length?' Aggregate model finding remains unresolved; owner review required.':status==='violated'&&!contradicted?' Aggregate model violation retained; owner review required.':'');
    o={...o,status,explanation};data.observations[index]=o;
   }
   if(criterion.id==='product_fidelity'&&!assessed&&unresolvedClaims.length&&(o.status==='met'||o.status==='unknown')){

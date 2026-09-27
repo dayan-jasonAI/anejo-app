@@ -42,3 +42,9 @@ test('invalid evidence UI exposes bounded escaped field issue and measured limit
  const html=render(input);assert.match(html,/Evidence field: explanation · too_long/);assert.match(html,/Length\/count: 712 · maximum: 600/);
  input.audit_detail_json=JSON.stringify({audit_diagnostic:{field:'<img>',issue:'<script>',length:'<svg>',max:'<iframe>'}});const escaped=render(input);assert.doesNotMatch(escaped,/<img>|<script>|<svg>|<iframe>/);assert.match(escaped,/&lt;img/);
 });
+
+test('structured claim explanation retains original reasoning visibly unverified and escaped',()=>{
+ const detail={rubric_version:'anejo-visual-14',complete:false,observations:[{criterion_id:'product_fidelity',status:'unknown',explanation:'Written-claim review: Grazing skewers unresolved.',resolution:{source:'deterministic_evidence_gate',reason:'structured_product_assessments'},model_finding:{status:'unknown',explanation:'<invented ingredient>'}}],product_evidence:{scope:'explicit_claims',claims:[{quote:'Grazing skewers',source:'caption',caption_line:1}]}};
+ const html=render({...row,audit_score:null,audit_detail_json:JSON.stringify(detail)});
+ assert.match(html,/Original model judgment \(unverified\)/);assert.match(html,/&lt;invented ingredient&gt;/);assert.match(html,/Grazing skewers/);assert.doesNotMatch(html,/class="audit pass"/);
+});
