@@ -1416,7 +1416,7 @@
       body += '<details><summary>Review audit evidence</summary><ul>' + detail.observations.map(function(o) {
         if (!o || typeof o !== 'object') return '';
         return '<li><b>' + esc(names[o.criterion_id] || o.criterion_id || 'Requirement') + ' · ' + esc(o.status || 'unknown') + '</b><div>' + esc(o.explanation || '') + '</div>' +
-          (o.resolution && o.resolution.source==='deterministic_evidence_gate' && o.model_finding ? '<div class="hint">Evidence gate: unresolved authority. Original model judgment: ' + esc(o.model_finding.status || '') + ' — ' + esc(o.model_finding.explanation || '') + '</div>' : '') +
+          (o.resolution && o.resolution.source==='deterministic_evidence_gate' && o.model_finding ? '<div class="hint">Evidence gate: structured claim review. Original model judgment (unverified): ' + esc(o.model_finding.status || '') + ' — ' + esc(o.model_finding.explanation || '') + '</div>' : '') +
           (o.rule_quote ? '<div class="hint">Rule: ' + esc(o.rule_quote) + '</div>' : '') +
           (o.caption_quote ? '<div class="hint">Caption: ' + esc(o.caption_quote) + '</div>' : '') +
           (Array.isArray(o.slides) && o.slides.length ? '<div class="hint">Slides: ' + esc(o.slides.join(', ')) + '</div>' : '') + '</li>';

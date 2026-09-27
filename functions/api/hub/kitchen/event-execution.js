@@ -7,7 +7,7 @@ export async function onRequestGet({request,env}) {
   if (ctx instanceof Response) return ctx;
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return bad('Event id required.');
-  try { const r = await readExecution(env,id); return json(r,r.status || 200); }
+  try { const r = await readExecution(env,id); return json({...r,can_write:ctx.role === 'owner'},r.status || 200); }
   catch { return bad('Could not load event execution.',500); }
 }
 export async function onRequestPost({request,env}) {
@@ -16,6 +16,6 @@ export async function onRequestPost({request,env}) {
   if (ctx instanceof Response) return ctx;
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
-  try { const r = await mutateExecution(env,b,ctx); return json(r,r.status || 200); }
+  try { const r = await mutateExecution(env,b,ctx); return json({...r,can_write:ctx.role === 'owner'},r.status || 200); }
   catch { return bad('Could not save event execution. Reload before retrying.',500); }
 }

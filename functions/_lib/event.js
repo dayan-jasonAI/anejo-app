@@ -25,6 +25,8 @@
 // is the authority on these dishes, and the HUB is not.
 import { id, now, parseJson, etDateOf, etMidnightMs, etWallClockMs, addEtDays } from './hub.js';
 
+import { executionQuoteSnapshot } from './catering_execution.js';
+
 const DAY = 86400000;
 const MIN = 60000;
 
@@ -209,7 +211,7 @@ export function workingHour(ms) {
  * over two hours of cooking lands the day before, because a nine-hour pork does not start Saturday
  * morning; everything else stacks back from the moment the van has to leave.
  */
-export function schedule({ eventDateMs, eventDate, servingTime, production, guests, travelMinutes = 30, setupMinutes = 30, packMinutes = 45 }) {
+export function schedule({ eventDateMs, eventDate, servingTime, production, guests, travelMinutes = 30, setupMinutes = 30, packMinutes = 45, deliveryMode = null }) {
   const t = HHMM(servingTime) || { h: 19, m: 0 };
   const day = eventDate || etDateOf(eventDateMs);
   const wall = (offset, clock) => etWallClockMs(`${addEtDays(day, offset)}T${clock}`);
@@ -249,9 +251,13 @@ export function schedule({ eventDateMs, eventDate, servingTime, production, gues
   }
 
   add('pack', 'Pack, label and take the packing temperature of every pan', packAt, 'kitchen', packMinutes);
-  add('depart', 'Load the van and leave', leaveAt, 'logistics', 15);
-  add('arrive', 'Arrive, set the chafers up, temp every pan', arriveAt, 'logistics', setupMinutes);
-  add('serve', `Service starts — ${guests} guests`, serveAt, 'service', null);
+  if (deliveryMode === 'pickup') {
+    add('pickup', 'Customer pickup — check all packages at handover', serveAt, 'logistics', null);
+  } else {
+    add('depart', 'Load the van and leave', leaveAt, 'logistics', 15);
+    add('arrive', 'Arrive, set up and check every pan', arriveAt, 'logistics', setupMinutes);
+    add('serve', `Service starts — ${guests} guests`, serveAt, 'service', null);
+  }
   return tasks.sort((a, b) => a.at - b.at);
 }
 
@@ -276,9 +282,9 @@ export function laborEstimate(tasks) {
 export function logistics(plan) {
   return {
     address: plan.event.address,
-    travel_minutes: 30,
-    setup_minutes: 30,
-    timing_source: 'planning allowance — travel and setup times have not been confirmed',
+    travel_minutes: plan.execution_timing?.travel_minutes ?? 30,
+    setup_minutes: plan.execution_timing?.setup_minutes ?? 30,
+    timing_source: plan.execution_timing ? 'owner-confirmed execution plan' : 'planning allowance — travel and setup times have not been confirmed',
     load: [
       // Dish names and tray shapes are not authoritative food-handling instructions.
       ...plan.production.map((p) => ({ what: p.name, handling_status: 'unconfirmed',
@@ -376,8 +382,14 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
     };
   });
 
+  const execution = await env.DB.prepare('SELECT * FROM catering_execution WHERE quote_id=?').bind(quoteId).first();
+  const executionTiming = execution && execution.quote_snapshot === executionQuoteSnapshot(quote)
+    && ['owner_self', 'pickup'].includes(execution.delivery_mode)
+    && [execution.travel_minutes, execution.setup_minutes].every(n => Number.isInteger(n) && n >= 0 && n <= 720)
+    ? execution : null;
   const eventMs = etMidnightMs(String(quote.event_date)) || atMs;
-  const tasks = schedule({ eventDateMs: eventMs, eventDate: quote.event_date, servingTime: quote.serving_time, production, guests });
+  const tasks = schedule({ eventDateMs: eventMs, eventDate: quote.event_date, servingTime: quote.serving_time, production, guests,
+    ...(executionTiming ? { travelMinutes: executionTiming.travel_minutes, setupMinutes: executionTiming.setup_minutes, deliveryMode: executionTiming.delivery_mode } : {}) });
 
   const event = {
     quote_id: quote.id, customer: quote.customer_name,
@@ -396,6 +408,7 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
     ok: true,
     event,
     production,
+    execution_timing: executionTiming ? { travel_minutes: executionTiming.travel_minutes, setup_minutes: executionTiming.setup_minutes, delivery_mode: executionTiming.delivery_mode } : null,
     shopping: shoppingList(production, inventory),
     packaging: packagingList(production, guests),
     // done_at, not the existence of a row: a row also exists when the cook has only set a time,
@@ -411,7 +424,7 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
   plan.gaps = [
     ...(quote.serving_time ? [] : ['No serving time on this event — the whole schedule below assumes 7:00 p.m. Set the real time.']),
     ...(quote.address ? [] : ['No delivery address on this event.']),
-    'Travel and setup each use an unconfirmed 30-minute planning allowance. Confirm the actual route and setup needs.',
+    ...(executionTiming ? [] : ['Travel and setup each use an unconfirmed 30-minute planning allowance. Confirm the actual route and setup needs.']),
     'Food holding temperatures and carriers are unconfirmed. The kitchen must confirm each dish before packing.',
     ...production.filter((p) => p.needs_recipe).map((p) => `No recipe on file for “${p.name}” — its ingredients are missing from the purchase list.`),
     ...production.filter((p) => p.recipe && p.recipe.draft).map((p) => `The recipe for “${p.name}” is still a draft nobody has confirmed.`),

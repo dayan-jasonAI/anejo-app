@@ -703,3 +703,39 @@ test('dish names never manufacture handling instructions and travel allowance is
   }
   assert.match(plan.timing_source, /not been confirmed/);
 });
+
+test('confirmed execution times drive the planner; changed event facts revoke them', async () => {
+  const env = ownerEnv();
+  const quoteId = seedQuote(env, { event_date: '2026-10-01' });
+  env.DB.exec("UPDATE catering_quotes SET serving_time='19:00', address='Test venue' WHERE id='cq_test'");
+  const { mutateExecution } = await import('../../functions/_lib/catering_execution.js');
+  const at = Date.parse('2026-09-27T16:00:00Z');
+  const configured = await mutateExecution(env, { quote_id: quoteId, op:'configure', expected_version:0,
+    idempotency_key:'planner-time-001', delivery_mode:'owner_self', travel_minutes:60, setup_minutes:45,
+    handling_confirmed:true }, {role:'owner',email:'owner@test.example'}, {at});
+  assert.equal(configured.ok,true,configured.error);
+  const plan = await eventPlan(env,quoteId,{atMs:at});
+  assert.equal(plan.logistics.travel_minutes,60);
+  assert.equal(plan.logistics.setup_minutes,45);
+  assert.equal(plan.tasks.find(t=>t.key==='depart').at,etWallClockMs('2026-10-01T17:15'));
+  assert.ok(!plan.gaps.some(g=>g.includes('30-minute')));
+  env.DB.exec("UPDATE catering_quotes SET dietary_notes='New allergy' WHERE id='cq_test'");
+  const changed = await eventPlan(env,quoteId,{atMs:at});
+  assert.equal(changed.execution_timing,null);
+  assert.ok(changed.gaps.some(g=>g.includes('30-minute')));
+});
+
+test('pickup plan schedules handover without fictitious owner departure or arrival', async () => {
+  const env = ownerEnv();
+  const quoteId = seedQuote(env, {event_date:'2026-10-01'});
+  env.DB.exec("UPDATE catering_quotes SET serving_time='19:00' WHERE id='cq_test'");
+  const { mutateExecution } = await import('../../functions/_lib/catering_execution.js');
+  const at = Date.parse('2026-09-27T16:00:00Z');
+  const configured = await mutateExecution(env,{quote_id:quoteId,op:'configure',expected_version:0,
+    idempotency_key:'planner-pickup-001',delivery_mode:'pickup',travel_minutes:0,setup_minutes:0,
+    handling_confirmed:true},{role:'owner',email:'owner@test.example'},{at});
+  assert.equal(configured.ok,true,configured.error);
+  const plan = await eventPlan(env,quoteId,{atMs:at});
+  assert.equal(plan.tasks.find(t=>t.key==='pickup').at,etWallClockMs('2026-10-01T19:00'));
+  assert.ok(!plan.tasks.some(t=>['depart','arrive','serve'].includes(t.key)));
+});
