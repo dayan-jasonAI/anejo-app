@@ -1,6 +1,6 @@
 # Run an event from the Añejo Hub
 
-This guide describes the owner delivery/pickup release candidate. Check the accompanying September27 release record for deployment status.
+Owner delivery/pickup was deployed in PR152 (65b0d0f). Authenticated live acceptance is still pending. Staff-driver instructions below describe a separate local candidate, not a live capability.
 
 ## Before the event
 
@@ -26,3 +26,9 @@ If the screen says the save outcome is unconfirmed, choose **Resolve previous sa
 ## What remains manual
 
 This flow does not notify customers, offer a job to a staff driver, or create an ordinary order/route. Those integrations require a separate catering adapter. Notify people through your approved operational process until that integration is released and authorized. Do not interpret “Packed and ready” as proof that anyone received a notification.
+
+## Staff-driver workflow — local candidate, not yet live
+
+After its separate release, choose **Staff driver** in Event progress and confirm the plan. Select the driver in **Catering driver → Assign in Hub**. In the driver Hub, open **Catering**, choose the event date and open the assignment. The driver accepts, checks each package after the kitchen marks ready, records departure/arrival, and confirms handoff. A driver can decline before accepting. The owner can release an assignment before departure with a reason.
+
+No alert is sent by this candidate. Until notifications are separately implemented and authorized, coordinate through your existing process. It does not calculate catering driver pay or create ordinary meal-delivery routes.

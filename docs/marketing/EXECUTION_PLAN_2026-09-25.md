@@ -160,3 +160,7 @@ Owner clarification is now saved through the normal Hub Teach form; subsequent d
 ### September27 operations continuation
 
 See CATERING_EXECUTION_2026-09-27.md for current evidence. PR152 merged65b0d0f and Cloudflare production02968232 succeeded after3241root/23Studio tests and PR checks. Adds owner catering delivery/pickup progress and structured v14 audit explanations. No notices, charges, public posts or historical event updates. Authenticated browser acceptance is pending owner sign-in; public site access succeeds. New next defect reproduced: composer retry schedules a second post after uncertain first response. Assignment agent owns idempotency receipt+composer retry repair; do not call the broader goal complete. Staff-driver adapter is a documented plan, not implemented.
+
+### September27 staff-driver continuation
+
+Owner/staff-driver execution adapter implemented locally; see CATERING_DRIVER_HANDOFF_2026-09-27.md for files, tests, browser boundaries and migration risks. PR153 composer repair checks passed at b651f27 but is NOT merged/deployed: D1 preflight now returns authorization7403. No credential changes or denied-action retries. Owner live Hub sign-in remains required. Driverbrowser local/login returned ERR_BLOCKED_BY_CLIENT and was stopped. Full authenticated route-handler lifecycle passes locally; browser end-to-end remains Unverified. Staff-driver work moved to codex/catering-staff-handoff preserving remote PR153. No notices/charges/posts/production event records changed. Automatic goal continuation has not been restored.

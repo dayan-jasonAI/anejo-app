@@ -74,7 +74,7 @@ test('planner refresh failure cannot turn acknowledged save into an uncertain re
 test('Spanish execution panel translates controls, status, safety disclosure and backend blockers',async()=>{
  const f=fixture();f.ctx.lang='es';f.ctx.executionData.blockers=['Confirm the event serving time.'];f.ctx.renderExecution();
  assert.match(f.panel.innerHTML,/Progreso del evento/);assert.match(f.panel.innerHTML,/Planificado/);assert.match(f.panel.innerHTML,/Iniciar preparación/);
- assert.match(f.panel.innerHTML,/no notifica a clientes ni asigna conductores/);assert.match(f.panel.innerHTML,/Confirma la hora de servicio/);
+ assert.match(f.panel.innerHTML,/no se envían avisos/);assert.match(f.panel.innerHTML,/Confirma la hora de servicio/);
  assert.doesNotMatch(f.panel.innerHTML,/Start preparation|Setup minutes|Confirm execution plan/);
  f.reply({ok:false,status:409,error:'The event changed. Reload before continuing.'});await f.ctx.saveExecution({op:'transition',target_status:'preparing'});
  assert.match(f.panel.innerHTML,/El evento cambió/);
