@@ -380,7 +380,8 @@ test('the event screen is kitchen and owner only', async () => {
 
 test('the endpoint lists events, serves one plan, and records a tick', async () => {
   const env = ownerEnv();
-  seedQuote(env);
+  // This endpoint uses the real clock; keep its fixture inside the current window.
+  seedQuote(env, { event_date: etDateOf(Date.now()) });
   const list = await (await eventGet({ request: req('/api/hub/kitchen/event'), env })).json();
   assert.equal(list.ok, true);
   assert.equal(list.events.length, 1);

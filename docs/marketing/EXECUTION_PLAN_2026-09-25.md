@@ -164,3 +164,7 @@ See CATERING_EXECUTION_2026-09-27.md for current evidence. PR152 merged65b0d0f a
 ### September27 staff-driver continuation
 
 Owner/staff-driver execution adapter implemented locally; see CATERING_DRIVER_HANDOFF_2026-09-27.md for files, tests, browser boundaries and migration risks. PR153 composer repair checks passed at b651f27 but is NOT merged/deployed: D1 preflight now returns authorization7403. No credential changes or denied-action retries. Owner live Hub sign-in remains required. Driverbrowser local/login returned ERR_BLOCKED_BY_CLIENT and was stopped. Full authenticated route-handler lifecycle passes locally; browser end-to-end remains Unverified. Staff-driver work moved to codex/catering-staff-handoff preserving remote PR153. No notices/charges/posts/production event records changed. Automatic goal continuation has not been restored.
+
+### September28 active-goal continuation
+
+Goal tool now reports active; previous engineering turn classified progress. PR155 exact631aa72checks allsuccess; notmerged. New bounded owner operator catering status implemented locally (OPERATOR_CATERING_STATUS_2026-09-28.md): exact EN/ES readonly command, bounded dated paid-event evidence and explicit safe navigation. No credential/networkdeny workaround, publication, customer send or money action. Full objective preserved; live semantic/voice/role/channel/render acceptance remains open.
