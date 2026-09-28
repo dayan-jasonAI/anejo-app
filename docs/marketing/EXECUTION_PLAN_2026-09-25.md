@@ -188,3 +188,7 @@ Browser profiles/contain/protection and WASM contain/protection now share a vers
 ### September28 actual WASM editorial profiles
 
 Isolated wide/Cajita adapter now renders shared profile positions with measured type, sampled ink/edges and emblem tint;17tests and12workerd renders passed. Root inspected previews; thin kicker and increased resource samples remain concerns. See EDITORIAL_WASM_PROFILES_2026-09-28.md. No live carousel replacement or job integration.
+
+### September28 fixed editorial font proof
+
+Generated reproducible static font instances from bundled variable sources; actual preview kicker/headline visibly stronger.18tests and12workerd renders passed. No memory improvement established; resource readiness remains open. See EDITORIAL_FIXED_FONTS_2026-09-28.md. No live design replaced.

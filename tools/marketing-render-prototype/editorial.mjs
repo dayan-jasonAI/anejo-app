@@ -7,7 +7,7 @@ export const INKS=Object.freeze({parchment:'#E8E2CA',deep:'#0A180C',black:'#0000
 const escape=s=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
 const svg=(body,w,h)=>`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}">${body}</svg>`;
 function uri(bytes,type){let value='';for(let i=0;i<bytes.length;i+=8192)value+=String.fromCharCode(...bytes.subarray(i,i+8192));return `data:image/${type};base64,${btoa(value)}`;}
-function raster(xml,fonts){let engine,image;try{engine=new Resvg(xml,{font:{fontBuffers:fonts,defaultFontFamily:'Cormorant Garamond'}});image=engine.render();return {pixels:new Uint8Array(image.pixels),width:image.width,height:image.height};}finally{image?.free();engine?.free();}}
+function raster(xml,fonts){let engine,image;try{engine=new Resvg(xml,{font:{fontBuffers:fonts,defaultFontFamily:'Anejo Editorial Serif'}});image=engine.render();return {pixels:new Uint8Array(image.pixels),width:image.width,height:image.height};}finally{image?.free();engine?.free();}}
 function measure(text,px,family,weight,fonts){let engine,box;try{engine=new Resvg(svg(`<text x="200" y="200" font-family="${family}" font-weight="${weight}" font-size="${px}">${escape(text)}</text>`,2048,512),{font:{fontBuffers:fonts,defaultFontFamily:family}});box=engine.innerBBox();if(!box||box.width<=0||box.height<=0)throw Error('Text has no measurable glyphs');return {x:box.x-200,y:box.y-200,w:box.width,h:box.height};}finally{box?.free();engine?.free();}}
 const luminance=rgb=>rgb.map(n=>{n/=255;return n<=.03928?n/12.92:((n+.055)/1.055)**2.4;}).reduce((sum,n,i)=>sum+n*[.2126,.7152,.0722][i],0);
 const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
@@ -15,15 +15,15 @@ function stats(pixels,W,H,r){const x=Math.max(0,Math.round(r.x)),y=Math.max(0,Ma
 const ratio=(a,b)=>(Math.max(a,b)+.05)/(Math.min(a,b)+.05);
 function chooseInk(background){function score(color){const l=luminance(rgb(color));return Math.min(ratio(l,Math.max(0,background.lum-background.busy)),ratio(l,Math.min(1,background.lum+background.busy)));}let color=score(INKS.parchment)>=score(INKS.deep)?INKS.parchment:INKS.deep;if(score(color)<4.5&&score(INKS.black)>score(color))color=INKS.black;return {color,estimatedContrast:score(color),background};}
 function fittedText(title,kicker,region,fonts,S){
- const cache=new Map();function m(text,px,family='Cormorant Garamond',weight=600){const key=[text,px,family,weight].join('|');if(!cache.has(key))cache.set(key,measure(text,px,family,weight,fonts));return cache.get(key);}
- let kp=Math.max(14,Math.round(S*.018)),kb=null;if(kicker){while(kp>=14){kb=m(kicker,kp,'Josefin Sans',500);if(kb.w<=region.w)break;kp--;}if(kp<14)throw Error('The kicker does not fit');}
+ const cache=new Map();function m(text,px,family='Anejo Editorial Serif',weight=600){const key=[text,px,family,weight].join('|');if(!cache.has(key))cache.set(key,measure(text,px,family,weight,fonts));return cache.get(key);}
+ let kp=Math.max(14,Math.round(S*.018)),kb=null;if(kicker){while(kp>=14){kb=m(kicker,kp,'Anejo Editorial Sans',500);if(kb.w<=region.w)break;kp--;}if(kp<14)throw Error('The kicker does not fit');}
  const gap=kicker?S*.012:0,min=Math.round(S*.026);
  for(let px=Math.round(S*.064);px>=min;px--){
   const lines=[];let line='';for(const word of title.split(' ')){const next=line?line+' '+word:word;if(line&&m(next,px).w>region.w){lines.push(line);line=word;}else line=next;}if(line)lines.push(line);
   const boxes=lines.map(text=>m(text,px));const height=(kicker?kp:0)+gap+px*1.16*lines.length+px*.2;
   if(lines.length>2||boxes.some(b=>b.w>region.w)||height>region.h)continue;
-  let top=region.y;const runs=[];if(kicker){runs.push({role:'kicker',text:kicker,px:kp,family:'Josefin Sans',weight:500,bounds:{x:region.x,y:top,w:kb.w,h:kb.h},origin:{x:region.x-kb.x,y:top-kb.y}});top+=kp+gap;}
-  lines.forEach((text,i)=>{const b=boxes[i];runs.push({role:'headline',text,px,family:'Cormorant Garamond',weight:600,bounds:{x:region.x,y:top,w:b.w,h:b.h},origin:{x:region.x-b.x,y:top-b.y}});top+=px*1.16;});
+  let top=region.y;const runs=[];if(kicker){runs.push({role:'kicker',text:kicker,px:kp,family:'Anejo Editorial Sans',weight:500,bounds:{x:region.x,y:top,w:kb.w,h:kb.h},origin:{x:region.x-kb.x,y:top-kb.y}});top+=kp+gap;}
+  lines.forEach((text,i)=>{const b=boxes[i];runs.push({role:'headline',text,px,family:'Anejo Editorial Serif',weight:600,bounds:{x:region.x,y:top,w:b.w,h:b.h},origin:{x:region.x-b.x,y:top-b.y}});top+=px*1.16;});
   if(runs.some(r=>r.bounds.y+r.bounds.h>region.y+region.h))continue;
   return runs;
  }

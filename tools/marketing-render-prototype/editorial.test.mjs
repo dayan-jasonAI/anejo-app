@@ -7,7 +7,7 @@ import {initialize} from './core.mjs';
 import {renderEditorial,INKS} from './editorial.mjs';
 const read=p=>new Uint8Array(readFileSync(new URL(p,import.meta.url)));
 await initialize(read('./node_modules/@resvg/resvg-wasm/index_bg.wasm'));
-const input={source:read('./assets/source.jpg'),emblem:read('./assets/emblem.png'),font:read('./assets/CormorantGaramond.ttf'),kickerFont:read('../cardgen/fonts/JosefinSans.ttf'),title:'Your Cajita.',kicker:'AÑEJO CATERING',templateId:'reposado-cajita'};
+const input={source:read('./assets/source.jpg'),emblem:read('./assets/emblem.png'),font:read('./assets/AnejoEditorialSerif-SemiBold.ttf'),kickerFont:read('./assets/AnejoEditorialSans-Medium.ttf'),title:'Your Cajita.',kicker:'AÑEJO CATERING',templateId:'reposado-cajita'};
 function diagnostic(value){const data=new Uint8Array(64*64*4);for(let i=0;i<data.length;i+=4){data[i]=data[i+1]=data[i+2]=value;data[i+3]=255;}return new Uint8Array(jpeg.encode({data,width:64,height:64},95).data);}
 function pixels(xml){let r,image;try{r=new Resvg(xml,{font:{fontBuffers:[input.font,input.kickerFont]}});image=r.render();return new Uint8Array(image.pixels);}finally{image?.free();r?.free();}}
 test('actual WASM renders both shared editorial profiles with fitted headline, kicker and deterministic JPEG',()=>{
@@ -50,4 +50,14 @@ test('original emblem alpha produces selected brand ink rather than original gol
   if(data[at]<20&&data[at+1]<20&&data[at+2]<20)darkPixels++;
  }
  assert.ok(inkPixels>20,`selected brand ink pixels: ${inkPixels}`);assert.ok(darkPixels>20,`transparent emblem holes retained: ${darkPixels}`);
+});
+
+test('editorial font artifacts match the recorded static weight build',async()=>{
+ const {createHash}=await import('node:crypto');const manifest=JSON.parse(readFileSync(new URL('./assets/editorial-fonts.json',import.meta.url),'utf8'));
+ for(const entry of manifest.fonts){
+  const bytes=read('./assets/'+entry.output),v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),tables={};
+  assert.equal(createHash('sha256').update(bytes).digest('hex'),entry.sha256);
+  for(let i=0;i<v.getUint16(4);i++){const at=12+i*16,tag=String.fromCharCode(...bytes.subarray(at,at+4));tables[tag]=v.getUint32(at+8);}
+  assert.equal(tables.fvar,undefined);assert.equal(v.getUint16(tables['OS/2']+4),entry.weight);
+ }
 });

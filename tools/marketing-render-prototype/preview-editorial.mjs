@@ -6,7 +6,7 @@ import {renderEditorial} from './editorial.mjs';
 const read=p=>new Uint8Array(readFileSync(new URL(p,import.meta.url)));
 const hash=b=>createHash('sha256').update(b).digest('hex');
 await initialize(read('./node_modules/@resvg/resvg-wasm/index_bg.wasm'));
-const input={source:read('./assets/source.jpg'),emblem:read('./assets/emblem.png'),font:read('./assets/CormorantGaramond.ttf'),kickerFont:read('../cardgen/fonts/JosefinSans.ttf')};
+const input={source:read('./assets/source.jpg'),emblem:read('./assets/emblem.png'),font:read('./assets/AnejoEditorialSerif-SemiBold.ttf'),kickerFont:read('./assets/AnejoEditorialSans-Medium.ttf')};
 const output=mkdtempSync('/tmp/anejo-editorial-preview-');
 const samples=[];
 for(const [templateId,title] of [['reposado-wide','Catering, beautifully.'],['reposado-cajita','Your Cajita.']]){
