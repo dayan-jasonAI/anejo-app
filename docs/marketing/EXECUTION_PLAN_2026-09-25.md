@@ -208,3 +208,7 @@ Isolated editorial adapter now applies all8JPEGorientationtransforms before layo
 ## September 28 — library conversion provenance
 
 Locally repaired both library conversion entry points and server lineage handling; actual picker source labels and AI review gate covered. Root suite 3,351 passed, lint zero errors/11 warnings, Functions compiled. See LIBRARY_CONVERSION_PROVENANCE_2026-09-28.md and its hashed evidence. Not deployed; existing release/access dependencies remain. Continued this safe engineering work while waiting on those dependencies.
+
+## September 28 — audit declared library history
+
+PR167 exact head0316468 release checks all passed; remains unmerged, not production proof. Continued with the audit metadata gap while access dependencies remain: bounded declared history now reaches provider, saved receipts and owner display; same-byte metadata changes invalidate trust-boundary verification and in-flight saves. 3,357 root tests passed, lint zero errors/11 warnings, Functions compiled. See AUDIT_LIBRARY_PROVENANCE_2026-09-28.md and hashed evidence. No automatic criterion failures added for approved enhancement; absent metadata is unknown. Not deployed.

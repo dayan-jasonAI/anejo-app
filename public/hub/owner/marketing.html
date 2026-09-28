@@ -1475,6 +1475,8 @@
           var words = facts && Array.isArray(facts.rendered_text) ? facts.rendered_text.map(function(item) { return item.text; }).join(' · ') : '';
           return '<li><b>Slide ' + esc(String(source.slide)) + '</b> · ' + (facts ? 'registered output matched' : source.unreviewed_render ? 'browser declaration saved · image bytes matched · layout unverified' : source.render_receipt_status === 'receipt_read_unavailable' ? 'render receipt unavailable' : 'no registered design declaration') +
             (source.sha256 ? '<div class="hint">SHA-256: ' + esc(source.sha256) + '</div>' : '') +
+            '<div class="hint">Saved AI declaration: ' + (source.library_provenance && source.library_provenance.ai_enhanced === true ? 'enhanced' : source.library_provenance && source.library_provenance.ai_enhanced === false ? 'not AI-enhanced (declared)' : 'unknown') + '. Stored history is not proof of authenticity.</div>' +
+            (source.library_provenance && source.library_provenance.source_key ? '<div class="hint">Declared source: ' + esc(source.library_provenance.source_key) + '</div>' : '') +
             (words ? '<div>Recorded overlay: ' + esc(words) + '</div>' : '') + '</li>';
         }).join('') + '</ul></details>';
       }
