@@ -35,10 +35,10 @@ export function sourceGraphic(source,info) {
  const orientation=info.type==='jpeg'?jpegOrientation(source):1,W=info.width,H=info.height;
  const matrices={1:[1,0,0,1,0,0],2:[-1,0,0,1,W,0],3:[-1,0,0,-1,W,H],4:[1,0,0,-1,0,H],5:[0,1,1,0,0,0],6:[0,1,-1,0,H,0],7:[0,-1,-1,0,H,W],8:[0,-1,1,0,0,W]};
  const width=orientation>=5?H:W,height=orientation>=5?W:H,sourceUri=uri(source,info.type);
- return {width,height,orientation,markup:p=>`<g transform="translate(${p.x} ${p.y}) scale(${p.w/width} ${p.h/height})"><g transform="matrix(${matrices[orientation].join(' ')})"><image xlink:href="${sourceUri}" width="${W}" height="${H}" preserveAspectRatio="none"/></g></g>`};
+ return {width,height,orientation,markup:(p,stretch=false)=>orientation===1?`<image xlink:href="${sourceUri}" x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" preserveAspectRatio="${stretch?'none':'xMidYMid meet'}"/>`:`<g transform="translate(${p.x} ${p.y}) scale(${p.w/width} ${p.h/height})"><g transform="matrix(${matrices[orientation].join(' ')})"><image xlink:href="${sourceUri}" width="${W}" height="${H}" preserveAspectRatio="none"/></g></g>`};
 }
 function background(graphic,layout,fonts){
- const probe=withRaster(svg(graphic.markup({x:0,y:0,w:32,h:32}),32,32),fonts,pixels=>new Uint8Array(pixels));
+ const probe=withRaster(svg(graphic.markup({x:0,y:0,w:32,h:32},true),32,32),fonts,pixels=>new Uint8Array(pixels));
  const color=(x,y)=>'rgb('+Array.from(probe.subarray((y*32+x)*4,(y*32+x)*4+3)).join(',')+')';
  const {width:W,height:H,photo:p}=layout;let defs='',edges='';
  function edge(id,rect,stops,vertical){defs+=`<linearGradient id="${id}" x1="0" y1="0" x2="${vertical?0:1}" y2="${vertical?1:0}">${stops.map((c,i)=>`<stop offset="${i/2}" stop-color="${c}"/>`).join('')}</linearGradient>`;edges+=`<rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" fill="url(#${id})"/>`;}

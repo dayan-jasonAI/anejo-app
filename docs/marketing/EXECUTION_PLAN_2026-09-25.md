@@ -200,3 +200,7 @@ Removed redundant full-frame copies;18tests and12workerd outputs match prior has
 ### September28 actual supported-browser comparison
 
 Chrome locally rendered/saved both editorial samples; root viewed actualCanvasJPEGs and compared recorded geometry/ink to WASM. Geometry and headline ink match for these2samples; kicker/baseline/halo/raster differences remain. See ACTUAL_BROWSER_EDITORIAL_COMPARISON_2026-09-28.md. LiveHub auth/deployment remain separate.
+
+### September28 JPEG orientation
+
+Isolated editorial adapter now applies all8JPEGorientationtransforms before layout.28tests pass; actual corner-color raster tests verify transforms;12upright workerd outputs unchanged. See EDITORIAL_EXIF_ORIENTATION_2026-09-28.md. No live library/publishing update.
