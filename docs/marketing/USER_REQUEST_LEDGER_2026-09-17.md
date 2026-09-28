@@ -1,5 +1,17 @@
 # Añejo user-request ledger
 
+## Current checkpoint — September 28, 2026
+
+Full goal remains **Open — evidence missing**. Goal tool checked this session reports active, superseding the old blocked-status sentence below. This is goal state, not a guarantee of uninterrupted background execution.
+
+- GitHub currently lists PR153–166 open;153 is ready-for-review and154–166 are drafts. None of this stack is claimed deployed. Latest source branches and individual validation records are in EXECUTION_PLAN_2026-09-25.md; local tests and CI are separate from production behavior.
+- Advances since the prior checkpoint: staff-driver/catering operator candidates; Lead–Intel feedback with receipts; shared Reposado geometry; actual isolated wide/Cajita rendering, fixed font weights, lower sampled allocation, actual supported-browser comparison and JPEG orientation. Rendering remains a prototype with explicit visual/resource/input/job gaps, not a production automation.
+- Fresh supported Chrome access to live marketing Hub redirected to /login. Owner authenticated acceptance remains unavailable. Prior Cloudflare7403release denial remains unresolved; no bypass or credential changes attempted. Deployment was already authorized after checks; no repeat approval is requested.
+- Google case follow-up found no matching connected Gmail response September28. Application receipt remains distinct from approval/OAuth/integration. No new public post/customer communication/charge occurred.
+- Broader acceptance remains open: accurate live audit semantics; strategy→library/design→draft→review→schedule; durable unattended rendering; Ana/Google execution; microphone and operational voice; role/checkout/Studio/SEO/GBP and paid-order evidence. Nothing in the recent prototype results closes these by itself.
+- Current implementation: preserve library-conversion provenance in both Photos and composer picker. It is not yet a released capability; see the subsequent per-change evidence before using it as proof.
+
+
 
 ## Current checkpoint — September 27, 2026, 18:38 UTC
 

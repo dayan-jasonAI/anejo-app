@@ -12,7 +12,7 @@ function photo(obj) {
     tags: Array.isArray(tags) ? tags : [], bytes: obj.size,
     uploaded_at: m.uploaded_at || (obj.uploaded ? new Date(obj.uploaded).toISOString() : null),
     enhancement_method: m.enhancement_method || null, source_key: m.source_key || null, ai_enhanced: m.ai_enhanced === 'true', preset: m.preset || null, provider: m.provider || null, model: m.model || null,
-    content_type: m.content_type || 'image/jpeg', url: '/api/hub/media/' + obj.key };
+    provenance_basis: m.provenance_basis || null, content_type: m.content_type || 'image/jpeg', url: '/api/hub/media/' + obj.key };
 }
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, MARKETING_DESK);
@@ -64,6 +64,30 @@ export const onRequestPost = async ({ request, env }) => {
   const png = [137,80,78,71,13,10,26,10].every((v,i) => bytes[i] === v);
   const webp = String.fromCharCode(...bytes.slice(0,4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8,12)) === 'WEBP';
   if (!(kind === 'jpeg' ? jpeg : kind === 'png' ? png : webp)) return bad('File bytes do not match the photo format.');
+  if (b.polish !== undefined && b.conversion !== undefined) return bad('Choose either photographic polish or JPEG conversion.');
+  let conversion = null;
+  if (b.conversion !== undefined) {
+    const c = b.conversion;
+    if (!c || typeof c !== 'object' || Array.isArray(c) || Object.keys(c).length !== 1 ||
+        typeof c.source_key !== 'string' || c.source_key.length > 300 ||
+        !/^marketing-library\/[A-Za-z0-9_/-]+\.(jpg|jpeg|png|webp)$/.test(c.source_key) ||
+        c.source_key.includes('//') || kind !== 'jpeg') return bad('Choose a library source and upload a JPEG conversion.');
+    let source;
+    try {
+      source = await env.MEDIA.get(c.source_key);
+      // Only object metadata is needed; do not buffer the source image or leave its body open.
+      if (source?.body?.cancel) await source.body.cancel();
+    } catch { return bad('Could not verify the conversion source.', 503); }
+    if (!source) return bad('Conversion source not found.', 404);
+    if (!Number.isFinite(source.size) || source.size < 100 || source.size > MAX_BYTES) return bad('Conversion source size is unavailable or exceeds the library limit.', 409);
+    const meta = source.customMetadata || {};
+    if (['provider', 'model'].some(k => meta[k] !== undefined && (typeof meta[k] !== 'string' || meta[k].length > 200)) ||
+        (meta.ai_enhanced !== undefined && !['true', 'false'].includes(meta.ai_enhanced))) return bad('Conversion source provenance is invalid.', 409);
+    // The server verifies the referenced object and carries its recorded AI provenance forward.
+    // The browser declares the conversion; this does not prove uploaded pixels derive from it.
+    conversion = { source_key: c.source_key, enhancement_method: 'format_conversion', provenance_basis: 'client_declared_format_conversion' };
+    for (const field of ['ai_enhanced', 'provider', 'model']) if (meta[field] !== undefined) conversion[field] = meta[field];
+  }
   let polish = null;
   if (b.polish !== undefined) {
     const p = b.polish;
@@ -82,12 +106,12 @@ export const onRequestPost = async ({ request, env }) => {
     polish = { source_key: p.source_key, preset: p.preset, enhancement_method: 'photographic', ai_enhanced: 'false' };
   }
   // These fields are server-owned. A plain upload cannot assert source/AI/provider provenance.
-  if (['source_key', 'ai_enhanced', 'enhancement_method', 'preset', 'provider', 'model'].some(k => Object.hasOwn(b, k))) return bad('Use the supported polish workflow for derivative metadata.');
+  if (['source_key', 'ai_enhanced', 'enhancement_method', 'preset', 'provider', 'model', 'provenance_basis'].some(k => Object.hasOwn(b, k))) return bad('Use a supported derivative workflow for provenance metadata.');
   const ext = kind === 'jpeg' ? 'jpg' : kind;
   const content_type = 'image/' + kind;
   const uploaded_at = new Date().toISOString();
-  const key = PREFIX + uploaded_at.slice(0, 7) + '/' + id(polish ? 'polished' : 'original') + '_photo.' + ext;
-  const customMetadata = { content_type, name, folder, tags: JSON.stringify([...new Set(tags.map(t => t.trim()))]), uploaded_at, ...(polish || {}) };
+  const key = PREFIX + uploaded_at.slice(0, 7) + '/' + id(conversion ? 'converted' : polish ? 'polished' : 'original') + '_photo.' + ext;
+  const customMetadata = { content_type, name, folder, tags: JSON.stringify([...new Set(tags.map(t => t.trim()))]), uploaded_at, ...(conversion || polish || {}) };
   try { await env.MEDIA.put(key, bytes, { httpMetadata: { contentType: content_type }, customMetadata }); }
   catch { return bad('Could not store the photo. Try again.', 503); }
   return json({ ok: true, photo: photo({ key, size: bytes.length, customMetadata }) });

@@ -12,7 +12,7 @@
     var canvas = document.createElement('canvas'), scale = Math.min(1, 2048 / Math.max(img.naturalWidth, img.naturalHeight));
     canvas.width = Math.max(1, Math.round(img.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
     var ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    var r = await request('/api/hub/owner/marketing-library', { method: 'POST', body: { data_url: canvas.toDataURL('image/jpeg', 0.92), name: (photo.name || 'Photo').replace(/\.[^.]+$/, '').slice(0, 100) + ' Instagram.jpg', folder: photo.folder || '', tags: ['instagram-copy'] } });
+    var r = await request('/api/hub/owner/marketing-library', { method: 'POST', body: { data_url: canvas.toDataURL('image/jpeg', 0.92), name: (photo.name || 'Photo').replace(/\.[^.]+$/, '').slice(0, 100) + ' Instagram.jpg', folder: photo.folder || '', tags: ['instagram-copy'], conversion: { source_key: photo.media_key } } });
     return r.photo;
   }
   function open(options) {

@@ -36,7 +36,7 @@
     var r = await api('/api/hub/owner/marketing-library', { method: 'POST', body: {
       data_url: canvas.toDataURL('image/jpeg', 0.92),
       name: (photo.name || 'Event photo').replace(/\.[^.]+$/, '').slice(0, 100) + ' Instagram.jpg',
-      folder: photo.folder || '', tags: ['instagram-copy']
+      folder: photo.folder || '', tags: ['instagram-copy'], conversion: { source_key: photo.media_key }
     } });
     photos.unshift(r.photo); drawGallery(); lock(true);
     return r.photo;
