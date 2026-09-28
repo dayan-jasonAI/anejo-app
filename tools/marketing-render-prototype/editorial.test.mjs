@@ -61,3 +61,19 @@ test('editorial font artifacts match the recorded static weight build',async()=>
   assert.equal(tables.fvar,undefined);assert.equal(v.getUint16(tables['OS/2']+4),entry.weight);
  }
 });
+
+test('actual raster applies all eight JPEG orientations before editorial source geometry',async()=>{
+ const {sourceGraphic}=await import('./editorial.mjs');
+ const {dimensions}=await import('./core.mjs');
+ const W=40,H=20,data=new Uint8Array(W*H*4),colors=[[240,15,15],[15,240,15],[15,15,240],[240,240,15]];
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=(y*W+x)*4,c=colors[(y>=H/2?2:0)+(x>=W/2?1:0)];data.set([...c,255],i);}
+ const original=jpeg.encode({data,width:W,height:H},95).data;
+ function tagged(value){const exif=Buffer.from([69,120,105,102,0,0,73,73,42,0,8,0,0,0,1,0,18,1,3,0,1,0,0,0,value,0,0,0,0,0,0,0]),marker=Buffer.from([255,225,0,exif.length+2]);return new Uint8Array(Buffer.concat([original.subarray(0,2),marker,exif,original.subarray(2)]));}
+ const expected=[[0,1,2,3],[1,0,3,2],[3,2,1,0],[2,3,0,1],[0,2,1,3],[2,0,3,1],[3,1,2,0],[1,3,0,2]];
+ for(let orientation=1;orientation<=8;orientation++){
+  const source=tagged(orientation),g=sourceGraphic(source,dimensions(source));assert.equal(g.width,orientation>=5?H:W);assert.equal(g.height,orientation>=5?W:H);
+  const raster=pixels(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${g.width}" height="${g.height}">${g.markup({x:0,y:0,w:g.width,h:g.height})}</svg>`);
+  for(let corner=0;corner<4;corner++){const x=Math.floor(g.width*(corner%2?.75:.25)),y=Math.floor(g.height*(corner>=2?.75:.25)),offset=(y*g.width+x)*4,c=colors[expected[orientation-1][corner]];for(let k=0;k<3;k++)assert.ok(Math.abs(raster[offset+k]-c[k])<20,`orientation${orientation} corner${corner}`);}
+ }
+ const output=renderEditorial({...input,source:tagged(6)});assert.equal(output.source.orientation,6);assert.equal(output.source.displayWidth,H);assert.equal(output.source.displayHeight,W);assert.equal(output.layout.photo.w,405);assert.equal(output.layout.photo.x,337.5);
+});

@@ -2,6 +2,7 @@
 import {Resvg} from '@resvg/resvg-wasm';
 import geometry from '../../public/hub/owner/assets/marketing-editorial-plan.js';
 import {dimensions} from './core.mjs';
+import {jpegOrientation} from './source-orientation.mjs';
 import {encode} from './jpeg-encoder.mjs';
 export const INKS=Object.freeze({parchment:'#E8E2CA',deep:'#0A180C',black:'#000000',gold:'#C8BC6E'});
 const escape=s=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
@@ -30,28 +31,35 @@ function fittedText(title,kicker,region,fonts,S){
  }
  throw Error('The headline does not fit the clear space');
 }
-function background(sourceUri,layout,fonts){
- const probe=withRaster(svg(`<image xlink:href="${sourceUri}" width="32" height="32" preserveAspectRatio="none"/>`,32,32),fonts,pixels=>new Uint8Array(pixels));
+export function sourceGraphic(source,info) {
+ const orientation=info.type==='jpeg'?jpegOrientation(source):1,W=info.width,H=info.height;
+ const matrices={1:[1,0,0,1,0,0],2:[-1,0,0,1,W,0],3:[-1,0,0,-1,W,H],4:[1,0,0,-1,0,H],5:[0,1,1,0,0,0],6:[0,1,-1,0,H,0],7:[0,-1,-1,0,H,W],8:[0,-1,1,0,0,W]};
+ const width=orientation>=5?H:W,height=orientation>=5?W:H,sourceUri=uri(source,info.type);
+ return {width,height,orientation,markup:p=>`<g transform="translate(${p.x} ${p.y}) scale(${p.w/width} ${p.h/height})"><g transform="matrix(${matrices[orientation].join(' ')})"><image xlink:href="${sourceUri}" width="${W}" height="${H}" preserveAspectRatio="none"/></g></g>`};
+}
+function background(graphic,layout,fonts){
+ const probe=withRaster(svg(graphic.markup({x:0,y:0,w:32,h:32}),32,32),fonts,pixels=>new Uint8Array(pixels));
  const color=(x,y)=>'rgb('+Array.from(probe.subarray((y*32+x)*4,(y*32+x)*4+3)).join(',')+')';
  const {width:W,height:H,photo:p}=layout;let defs='',edges='';
  function edge(id,rect,stops,vertical){defs+=`<linearGradient id="${id}" x1="0" y1="0" x2="${vertical?0:1}" y2="${vertical?1:0}">${stops.map((c,i)=>`<stop offset="${i/2}" stop-color="${c}"/>`).join('')}</linearGradient>`;edges+=`<rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" fill="url(#${id})"/>`;}
  if(p.y>0){edge('top',{x:0,y:0,w:W,h:p.y+1},[color(1,0),color(16,0),color(30,0)],false);edge('bottom',{x:0,y:p.y+p.h-1,w:W,h:H-p.y-p.h+1},[color(1,31),color(16,31),color(30,31)],false);}
  if(p.x>0){edge('left',{x:0,y:0,w:p.x+1,h:H},[color(0,1),color(0,16),color(0,30)],true);edge('right',{x:p.x+p.w-1,y:0,w:W-p.x-p.w+1,h:H},[color(31,1),color(31,16),color(31,30)],true);}
- return `<rect width="${W}" height="${H}" fill="${INKS.deep}"/><defs>${defs}</defs>${edges}<image id="source-photo" xlink:href="${sourceUri}" x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" preserveAspectRatio="xMidYMid meet"/>`;
+ return `<rect width="${W}" height="${H}" fill="${INKS.deep}"/><defs>${defs}</defs>${edges}${graphic.markup(p)}`;
 }
 export function renderEditorial({source,emblem,font,kickerFont,title,kicker='',templateId,protectedRegions}){
  if(!['reposado-wide','reposado-cajita'].includes(templateId))throw Error('Unsupported editorial profile; vertical and other layouts are not implemented');
  if(typeof title!=='string'||!title.trim()||title.length>80||typeof kicker!=='string'||kicker.length>50||/[\u0000-\u001f]/.test(title+kicker))throw Error('Invalid short editorial wording');
  if(!(font instanceof Uint8Array)||!font.length||(kicker&&(!(kickerFont instanceof Uint8Array)||!kickerFont.length)))throw Error('Pinned headline and kicker font bytes are required');
  const sourceInfo=dimensions(source),emblemInfo=dimensions(emblem),fonts=kicker?[font,kickerFont]:[font];
- const layout=geometry.plan({sourceWidth:sourceInfo.width,sourceHeight:sourceInfo.height,templateId,protectedRegions});
+ const graphic=sourceGraphic(source,sourceInfo);
+ const layout=geometry.plan({sourceWidth:graphic.width,sourceHeight:graphic.height,templateId,protectedRegions});
  const runs=fittedText(title.trim().replace(/\s+/g,' '),kicker.trim().toUpperCase(),layout.textRegion,fonts,Math.min(layout.width,layout.height));
- const base=background(uri(source,sourceInfo.type),layout,fonts);
+ const base=background(graphic,layout,fonts);
  const region=layout.emblemRegion,aspect=emblemInfo.width/emblemInfo.height,mw=Math.min(region.w,region.h*aspect),mh=mw/aspect,mark={x:region.x+(region.w-mw)/2,y:region.y+(region.h-mh)/2,w:mw,h:mh};
  const {textInk,emblemInk}=withRaster(svg(base,layout.width,layout.height),fonts,(pixels,W,H)=>({textInk:chooseInk(stats(pixels,W,H,layout.textRegion)),emblemInk:chooseInk(stats(pixels,W,H,mark))}));
  const words=runs.map(r=>`<text x="${r.origin.x}" y="${r.origin.y}" font-family="${r.family}" font-weight="${r.weight}" font-size="${r.px}" fill="${textInk.color}">${escape(r.text)}</text>`).join('');
  const markSvg=`<defs><filter id="brand-tint" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feFlood flood-color="${emblemInk.color}"/><feComposite in2="SourceAlpha" operator="in"/></filter></defs><image id="brand-emblem" xlink:href="${uri(emblem,emblemInfo.type)}" x="${mark.x}" y="${mark.y}" width="${mark.w}" height="${mark.h}" filter="url(#brand-tint)"/>`;
  const xml=svg(base+words+markSvg,layout.width,layout.height);
  const jpg=withRaster(xml,fonts,(pixels,width,height)=>encode({data:pixels,width,height},94).data);
- return {jpg,svg:xml,source:sourceInfo,layout,ink:{text:textInk,emblem:emblemInk},measurements:{runs,emblem:mark},visualReviewRequired:true,deviations:['Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.','Glyph-outline top placement differs from Canvas textBaseline top.','Canvas shadow halo is not implemented.','Edge sampling and glyph rasterization use resvg, not browser Canvas.','Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.','No EXIF orientation or ICC normalization.'],pixelVerification:'unverified',resourceReadiness:'unverified'};
+ return {jpg,svg:xml,source:{...sourceInfo,orientation:graphic.orientation,displayWidth:graphic.width,displayHeight:graphic.height},layout,ink:{text:textInk,emblem:emblemInk},measurements:{runs,emblem:mark},visualReviewRequired:true,deviations:['Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.','Glyph-outline top placement differs from Canvas textBaseline top.','Canvas shadow halo is not implemented.','Edge sampling and glyph rasterization use resvg, not browser Canvas.','Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.','JPEG EXIF orientation applied; PNG EXIF and ICC normalization remain unsupported.'],pixelVerification:'unverified',resourceReadiness:'unverified'};
 }
