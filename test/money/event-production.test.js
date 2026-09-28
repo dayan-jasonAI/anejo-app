@@ -380,7 +380,13 @@ test('the event screen is kitchen and owner only', async () => {
 
 test('the endpoint lists events, serves one plan, and records a tick', async () => {
   const env = ownerEnv();
-  seedQuote(env);
+  // RELATIVE date, not the live booking's 2026-09-26. The GET with no id asks upcomingEvents() for
+  // the window [today-1d, today+21d] against the REAL clock, so a hardcoded event date silently
+  // falls out of range once it passes: this test went red on 2026-09-28, six days after it was
+  // written, and every run after that. Anything asserted against Date.now() has to be seeded
+  // relative to now — the same rule catering-desk.test.js already learned the same way.
+  const soon = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+  seedQuote(env, { event_date: soon });
   const list = await (await eventGet({ request: req('/api/hub/kitchen/event'), env })).json();
   assert.equal(list.ok, true);
   assert.equal(list.events.length, 1);
