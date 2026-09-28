@@ -56,3 +56,14 @@ test('saved AI copies have visible label and require explicit review before sele
  h.nodes.find(n=>n.textContent==='Use photo').onclick();await tick();assert.equal(chosen,0);
  allow=true;h.nodes.find(n=>n.textContent==='Use photo').onclick();await tick();assert.equal(chosen,1);await result;
 });
+
+test('converted AI copy keeps review gate and identifies its immediate source honestly',async()=>{
+ const converted={...photo,ai_enhanced:true,enhancement_method:'format_conversion',source_key:'marketing-library/enhanced.png'};
+ const h=harness([{ok:true,photos:[converted],cursor:null}]);let chosen=0;
+ h.window.confirm=()=>false;const result=h.open({onSelect:()=>{chosen++;}});await tick();
+ assert.ok(h.nodes.some(n=>n.textContent==='JPEG copy — source history retained'));
+ assert.ok(h.nodes.some(n=>n.alt==='Source for comparison'&&n.src.endsWith('/enhanced.png')));
+ assert.ok(!h.nodes.some(n=>n.alt==='Original for comparison'));
+ h.nodes.find(n=>n.textContent==='Use photo').onclick();await tick();assert.equal(chosen,0);
+ h.nodes.find(n=>n.textContent==='Cancel').onclick();await result;
+});

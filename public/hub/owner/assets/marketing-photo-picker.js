@@ -66,9 +66,10 @@
         var isJpeg = photo.content_type === 'image/jpeg' || /\.jpe?g$/i.test(photo.media_key);
         var use = element('button', isJpeg ? tr('Use photo', 'Usar foto') : tr('Use JPEG copy', 'Usar copia JPEG'), 'btn gold'); use.type = 'button'; use.onclick = function () { select(photo, false); };
         card.append(img, element('strong', photo.name || tr('Photo', 'Foto')), element('p', photo.folder || tr('Unfiled', 'Sin carpeta'), 'mpp-hint'), use);
+        if (photo.enhancement_method === 'format_conversion') card.append(element('p', tr('JPEG copy — source history retained', 'Copia JPEG — historial de origen conservado'), 'mpp-hint'));
         if (photo.ai_enhanced) {
           card.append(element('strong', tr('AI-enhanced · Review required', 'Mejorada con IA · Requiere revisión')));
-          if (photo.source_key) { var original = element('img'); original.src = '/api/hub/media/' + photo.source_key; original.alt = tr('Original for comparison', 'Original para comparar'); original.loading = 'lazy'; card.append(element('p', tr('Compare with original', 'Comparar con el original'), 'mpp-hint'), original); }
+          if (photo.source_key) { var original = element('img'); original.src = '/api/hub/media/' + photo.source_key; original.alt = photo.enhancement_method === 'format_conversion' ? tr('Source for comparison', 'Fuente para comparar') : tr('Original for comparison', 'Original para comparar'); original.loading = 'lazy'; card.append(element('p', (photo.enhancement_method === 'format_conversion' ? tr('Compare with source', 'Comparar con la fuente') : tr('Compare with original', 'Comparar con el original')), 'mpp-hint'), original); }
         }
         if (!isJpeg) card.append(element('p', tr('Creates a private JPEG copy on white; preserves the original.', 'Crea una copia JPEG privada sobre blanco; conserva el original.'), 'mpp-hint'));
         if (photo.enhancement_method === 'photographic') card.append(element('p', tr('Photographic polish — original preserved', 'Ajuste fotográfico — original conservado'), 'mpp-hint'));

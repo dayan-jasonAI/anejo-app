@@ -204,3 +204,7 @@ Chrome locally rendered/saved both editorial samples; root viewed actualCanvasJP
 ### September28 JPEG orientation
 
 Isolated editorial adapter now applies all8JPEGorientationtransforms before layout.28tests pass; actual corner-color raster tests verify transforms;12upright workerd outputs unchanged. See EDITORIAL_EXIF_ORIENTATION_2026-09-28.md. No live library/publishing update.
+
+## September 28 — library conversion provenance
+
+Locally repaired both library conversion entry points and server lineage handling; actual picker source labels and AI review gate covered. Root suite 3,351 passed, lint zero errors/11 warnings, Functions compiled. See LIBRARY_CONVERSION_PROVENANCE_2026-09-28.md and its hashed evidence. Not deployed; existing release/access dependencies remain. Continued this safe engineering work while waiting on those dependencies.
