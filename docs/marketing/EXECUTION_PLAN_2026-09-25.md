@@ -212,3 +212,7 @@ Locally repaired both library conversion entry points and server lineage handlin
 ## September 28 — audit declared library history
 
 PR167 exact head0316468 release checks all passed; remains unmerged, not production proof. Continued with the audit metadata gap while access dependencies remain: bounded declared history now reaches provider, saved receipts and owner display; same-byte metadata changes invalidate trust-boundary verification and in-flight saves. 3,357 root tests passed, lint zero errors/11 warnings, Functions compiled. See AUDIT_LIBRARY_PROVENANCE_2026-09-28.md and hashed evidence. No automatic criterion failures added for approved enhancement; absent metadata is unknown. Not deployed.
+
+## September 28 — branding preserves declared photo history
+
+PR168 exact head458345b release checks all passed; unmerged, not production proof. Continued closing the actual photo→branding→audit path while external access remains blocked: branded-save now binds bounded source history to durable request identity, stores immediate-parent/AI declaration, and validates metadata readback and source before attachment. Old receipt conflicts are explicit; no silent rewrite. Root 3,365 tests passed, lint zero errors/11 warnings, Functions compiled. See BRANDED_PHOTO_HISTORY_2026-09-28.md and hashed evidence. Not deployed; no new approval needed for authorized release after prerequisites.

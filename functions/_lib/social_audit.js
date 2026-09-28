@@ -29,8 +29,8 @@ function libraryProvenance(metadata) {
     const value=metadata[field];
     if (field==='ai_enhanced' && ['true','false'].includes(value)) result[field]=value==='true';
     else if (field==='source_key' && typeof value==='string' && value.length<=300 && /^(studio|marketing-library)\/[A-Za-z0-9_/-]+\.(jpg|jpeg|png|webp)$/.test(value) && !value.includes('//')) result[field]=value;
-    else if (field==='enhancement_method' && ['photographic','format_conversion'].includes(value)) result[field]=value;
-    else if (field==='provenance_basis' && value==='client_declared_format_conversion') result[field]=value;
+    else if (field==='enhancement_method' && ['photographic','format_conversion','editorial_overlay'].includes(value)) result[field]=value;
+    else if (field==='provenance_basis' && ['client_declared_format_conversion','client_declared_editorial_overlay'].includes(value)) result[field]=value;
     else result.invalid_fields.push(field);
   }
   return result;

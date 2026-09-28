@@ -90,3 +90,11 @@ test('metadata changed during model judgment prevents a saved audit despite iden
  const saved=env.DB.one('SELECT audit_at,audit_status FROM social_posts WHERE id=?',id);
  assert.equal(saved.audit_at,null);assert.notEqual(saved.audit_status,'pass');
 });
+
+test('editorial overlays retain their own declared method without certifying source authenticity',async()=>{
+ const [image]=await loadAuditImages(metadataEnv({source_key:'marketing-library/source.jpg',enhancement_method:'editorial_overlay',provenance_basis:'client_declared_editorial_overlay',ai_enhanced:'true'}),singleSnapshot);
+ assert.equal(image.sourceReceipt.library_provenance.enhancement_method,'editorial_overlay');
+ assert.equal(image.sourceReceipt.library_provenance.provenance_basis,'client_declared_editorial_overlay');
+ assert.equal(image.sourceReceipt.library_provenance.ai_enhanced,true);
+ assert.deepEqual(image.sourceReceipt.library_provenance.invalid_fields,[]);
+});
