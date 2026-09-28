@@ -83,7 +83,7 @@ function describeItem(row) {
 export async function leadIntelFeedback(env) {
  const limit=5,maxChars=6000;let rows=[],status='unavailable',limited=false,truncated=false;
  try {
-  const r=await env.DB.prepare(`SELECT r.id AS request_id,substr(r.question,1,501) AS question,r.updated_at AS answered_at,
+  const r=await env.DB.prepare(`SELECT r.id AS request_id,substr(r.question,1,1001) AS question,r.updated_at AS answered_at,
     i.id AS intel_id,i.kind,substr(i.title,1,201) AS title,substr(i.body,1,4001) AS body,
     substr(COALESCE(i.sources_json,'[]'),1,1001) AS sources_json,i.created_at
     FROM intel_requests r JOIN market_intel i ON i.id=r.answer_intel_id
@@ -96,7 +96,7 @@ export async function leadIntelFeedback(env) {
  for(const row of rows){
   if(!row||!['request_id','intel_id','question','title','body','kind','sources_json'].every(k=>typeof row[k]==='string')||!row.request_id||!row.intel_id||row.request_id.length>100||row.intel_id.length>100||row.kind.length>40||![row.created_at,row.answered_at].every(Number.isFinite)){truncated=true;continue;}
   let sources;try{sources=JSON.parse(row.sources_json);}catch{truncated=true;continue;}
-  if(row.question.length>500||row.title.length>200||row.body.length>4000||row.sources_json.length>1000||(!Array.isArray(sources)||sources.length>20||sources.some(url=>typeof url!=='string'||!/^https?:\/\//i.test(url)))){truncated=true;continue;}
+  if(row.question.length>1000||row.title.length>200||row.body.length>4000||row.sources_json.length>1000||(!Array.isArray(sources)||sources.length>20||sources.some(url=>typeof url!=='string'||!/^https?:\/\//i.test(url)))){truncated=true;continue;}
   const value={request_id:row.request_id,intel_id:row.intel_id,question:row.question,title:row.title,answer:row.body,kind:row.kind,reported_sources:sources,recorded_at:row.created_at,request_updated_at:row.answered_at};
   if(JSON.stringify([...supplied,value]).length>maxChars){truncated=true;continue;}supplied.push(value);
  }

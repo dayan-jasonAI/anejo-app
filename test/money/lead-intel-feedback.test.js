@@ -31,3 +31,28 @@ test('valid maximum owner answer is included whole and malformed source/row data
  const prepare=env.DB.prepare;env.DB.prepare=sql=>sql.includes('FROM intel_requests r JOIN')?{all:async()=>({results:[null,{question:null},{request_id:'x',intel_id:'y',question:'q',title:'t',body:'b',kind:'adhoc',sources_json:'[{}]',created_at:1,answered_at:1}]})}:prepare(sql);
  const bad=await leadIntelFeedback(env);assert.deepEqual(bad.receipt.source_ids,[]);assert.equal(bad.receipt.truncated,true);
 });
+
+// Exercise the desk handlers, not merely seeded source rows.
+test('Lead question answered in Intel desk returns to next authenticated Lead reply', async t => {
+ const {onRequestPost:teamPost}=await import('../../functions/api/hub/owner/team.js');
+ const {onRequestPost:intelPost}=await import('../../functions/api/hub/owner/intel.js');
+ const {OWNER_COOKIE}=await import('../helpers/sqlite-d1.js');
+ const env=ownerEnv({ANTHROPIC_API_KEY:'synthetic-only'});t.after(()=>env.DB.sqlite.close());
+ const question='Research question '.repeat(60).slice(0,1000);let phase='request',sent;
+ t.mock.method(globalThis,'fetch',async(url,options)=>{
+  assert.equal(String(url),'https://api.anthropic.com/v1/messages');
+  sent=JSON.parse(options.body);
+  const text=phase==='request'?'```json\n'+JSON.stringify({action:'request_intel',question})+'\n```':'Recorded answer received for planning only.';
+  return new Response(JSON.stringify({content:[{type:'text',text}],usage:{input_tokens:1,output_tokens:1}}));
+ });
+ async function invoke(handler,path,body){const response=await handler({env,request:new Request('https://anejo.test'+path,{method:'POST',headers:{cookie:OWNER_COOKIE,'content-type':'application/json'},body:JSON.stringify(body)})});const result=await response.json();assert.equal(response.status,200,JSON.stringify(result));return result;}
+ const request=await invoke(teamPost,'/api/hub/owner/team',{message:'Research this before drafting.'});
+ assert.equal(request.reply.executed.ok,true);const requestId=request.reply.executed.request_id;
+ await invoke(intelPost,'/api/hub/owner/intel',{request_id:requestId,answer:'Owner supplied answer for internal planning.'});
+ const record=env.DB.one('SELECT * FROM intel_requests WHERE id=?',requestId);assert.equal(record.status,'done');
+ phase='reply';const reply=await invoke(teamPost,'/api/hub/owner/team',{message:'Use the recorded answer.'});
+ assert.equal(reply.reply.saved,true);assert.ok(sent.system.includes(question));assert.match(sent.system,/Owner supplied answer for internal planning/);
+ const receipt=env.DB.one('SELECT * FROM inference_receipts WHERE id=?',reply.reply.inference_receipt_id);
+ assert.deepEqual(JSON.parse(receipt.components_json).intel.source_ids,[record.answer_intel_id]);
+ assert.equal(env.DB.one('SELECT COUNT(*) n FROM social_posts').n,0);
+});
