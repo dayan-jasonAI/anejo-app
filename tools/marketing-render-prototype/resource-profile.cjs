@@ -8,6 +8,7 @@ const { build } = require(path.join(repo, 'node_modules/esbuild'));
 const { Miniflare, convertV4MiniflareOptions } = require(path.join(repo, 'node_modules/miniflare'));
 const output = fs.mkdtempSync('/tmp/anejo-render-resource-check-');
 const targetId = 'core:user:render-check';
+const stress = process.argv.includes('--max-input');
 console.log(`Output directory: ${output}`);
 
 function save(name, value) {
@@ -23,8 +24,28 @@ function bounded(promise, ms, label) {
 
 async function main() {
   fs.copyFileSync(path.join(__dirname, 'node_modules/@resvg/resvg-wasm/index_bg.wasm'), path.join(output, 'resvg.wasm'));
-  const worker = fs.readFileSync(path.join(__dirname, 'worker.mjs'), 'utf8');
+  let worker = fs.readFileSync(path.join(__dirname, 'worker.mjs'), 'utf8');
   assert.ok(worker.includes("'@resvg/resvg-wasm/index_bg.wasm'"), 'Expected prototype static WASM import');
+  const fixtures = [{ name: 'website-fixture', width: 1448, height: 1086 }];
+  if (stress) {
+    const jpeg = require(path.join(__dirname, 'node_modules/jpeg-js'));
+    for (const [width, height] of [[2000, 2000], [4096, 976], [976, 4096]]) {
+      const data = Buffer.alloc(width * height * 4);
+      for (let pixel = 0; pixel < width * height; pixel++) {
+        const x = pixel % width, y = Math.floor(pixel / width), i = pixel * 4;
+        data[i] = x % 256; data[i + 1] = y % 256; data[i + 2] = (x + y) % 256; data[i + 3] = 255;
+      }
+      const bytes = jpeg.encode({ data, width, height }, 80).data;
+      const file = path.join(output, `diagnostic-${width}x${height}.jpg`);
+      fs.writeFileSync(file, bytes);
+      const index = fixtures.length;
+      fixtures.push({ name: `diagnostic-${width}x${height}`, width, height, bytes: bytes.length,
+        sha256: crypto.createHash('sha256').update(bytes).digest('hex') });
+      worker = `import stress${index} from ${JSON.stringify(file)};\n` + worker;
+    }
+    worker = worker.replace('async fetch()', 'async fetch(request)')
+      .replace('source:new Uint8Array(source)', 'source:new Uint8Array([source,stress1,stress2,stress3][Number(new URL(request.url).searchParams.get("fixture")) || 0])');
+  }
   await build({
     stdin: { contents: worker.replace("'@resvg/resvg-wasm/index_bg.wasm'", "'./resvg.wasm'"), resolveDir: __dirname, sourcefile: 'resource-worker.mjs' },
     outfile: path.join(output, 'worker.mjs'), bundle: true, format: 'esm', platform: 'browser',
@@ -48,9 +69,9 @@ async function main() {
       'Do not sum inspector fields or compare totalSize directly to a production isolate memory budget.',
       'Wall duration is local elapsed time, not billable CPU; inspector attachment may change runtime behavior.',
       'A timed-out garbage-collection command does not prove collection or post-GC retained memory.',
-      'One fixed fixture only: no maximum-size, concurrent, deployed cold-start, or production-limit acceptance.',
+      'Diagnostic maximum dimensions only when --max-input is set; no concurrent, deployed cold-start or production-limit acceptance.',
       'Deterministic output does not establish Canvas/brand parity, photo provenance, or publication approval.'
-    ], runs: []
+    ], fixtures, runs: []
   };
   function cdp(method) {
     return new Promise(resolve => {
@@ -89,18 +110,19 @@ async function main() {
     assert.ok(evidence.baseline.result, 'Runtime.getHeapUsage must return measurements');
     evidence.initialGcAttempt = await cdp('HeapProfiler.collectGarbage');
     save('measurements.json', evidence);
-    for (let index = 0; index < 10; index++) {
+    for (let index = 0; index < (stress ? 12 : 10); index++) {
       const started = performance.now();
-      const result = await bounded(mf.dispatchFetch('http://localhost/'), 15000, 'Local render');
+      const result = await bounded(mf.dispatchFetch('http://localhost/?fixture=' + (stress ? index % fixtures.length : 0)), 15000, 'Local render');
       const bytes = new Uint8Array(await bounded(result.arrayBuffer(), 5000, 'Local JPEG body'));
-      const run = { index, status: result.status, wallMs: performance.now() - started, bytes: bytes.length,
+      const fixture = stress ? index % fixtures.length : 0;
+      const run = { index, fixture, status: result.status, wallMs: performance.now() - started, bytes: bytes.length,
         sha256: crypto.createHash('sha256').update(bytes).digest('hex'), heap: await cdp('Runtime.getHeapUsage') };
       evidence.runs.push(run);
       save('measurements.json', evidence);
       assert.equal(run.status, 200);
       assert.match(result.headers.get('content-type') || '', /^image\/jpeg/);
       assert.ok(run.bytes > 0);
-      assert.equal(run.sha256, evidence.runs[0].sha256, 'Repeated fixed-fixture output must match');
+      assert.equal(run.sha256, evidence.runs.find(previous => previous.fixture === fixture).sha256, 'Repeated fixed-fixture output must match');
       assert.ok(run.heap.result, 'Each heap sample must succeed');
     }
     evidence.finalGcAttempt = await cdp('HeapProfiler.collectGarbage');

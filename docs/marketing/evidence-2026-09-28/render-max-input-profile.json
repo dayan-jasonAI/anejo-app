@@ -1,0 +1,281 @@
+{
+  "recordedAt": "2026-09-28T17:17:05.118Z",
+  "node": "v24.16.0",
+  "workerd": "1.20260903.1",
+  "inspectorTargetId": "core:user:render-check",
+  "limitations": [
+    "Post-request workerd inspector samples, not Node RSS, peak memory, or verified all-inclusive isolate accounting.",
+    "Do not sum inspector fields or compare totalSize directly to a production isolate memory budget.",
+    "Wall duration is local elapsed time, not billable CPU; inspector attachment may change runtime behavior.",
+    "A timed-out garbage-collection command does not prove collection or post-GC retained memory.",
+    "Diagnostic maximum dimensions only when --max-input is set; no concurrent, deployed cold-start or production-limit acceptance.",
+    "Deterministic output does not establish Canvas/brand parity, photo provenance, or publication approval."
+  ],
+  "fixtures": [
+    {
+      "name": "website-fixture",
+      "width": 1448,
+      "height": 1086
+    },
+    {
+      "name": "diagnostic-2000x2000",
+      "width": 2000,
+      "height": 2000,
+      "bytes": 403361,
+      "sha256": "a7e94875bd21103dc2492cfaf93ba62a9122bde32d9b6a671e6f3ee7b251ee04"
+    },
+    {
+      "name": "diagnostic-4096x976",
+      "width": 4096,
+      "height": 976,
+      "bytes": 403067,
+      "sha256": "2c5b8db07229a8a4b9e1e7a90b9a4fa411c61242732df3a39c576735fee1ce0e"
+    },
+    {
+      "name": "diagnostic-976x4096",
+      "width": 976,
+      "height": 4096,
+      "bytes": 403281,
+      "sha256": "ceb1fb9f0f5de09589b29de364347c26b35fc54feedb14c103f74a91af8ba8ec"
+    }
+  ],
+  "runs": [
+    {
+      "index": 0,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 378.87545800000044,
+      "bytes": 350340,
+      "sha256": "d3f0985b13353d9574d4e7a9d932c8cf3f102cfec7eaaf119ee3bed149c2d1eb",
+      "heap": {
+        "id": 3,
+        "result": {
+          "usedSize": 18108620,
+          "totalSize": 18661376,
+          "embedderHeapUsedSize": 928,
+          "backingStorageSize": 3250541
+        }
+      }
+    },
+    {
+      "index": 1,
+      "fixture": 1,
+      "status": 200,
+      "wallMs": 196.83579099999952,
+      "bytes": 249568,
+      "sha256": "f464ef6618873188c714e1296d1eb34cb16eba9642f07c2537cd5aa50624e91a",
+      "heap": {
+        "id": 4,
+        "result": {
+          "usedSize": 32735588,
+          "totalSize": 42418176,
+          "embedderHeapUsedSize": 128944,
+          "backingStorageSize": 8762080
+        }
+      }
+    },
+    {
+      "index": 2,
+      "fixture": 2,
+      "status": 200,
+      "wallMs": 142.6879170000002,
+      "bytes": 152388,
+      "sha256": "e4db4550c24f8505bf1a9e181847660c7ff4ab05888749f552e10e7ad6007db2",
+      "heap": {
+        "id": 5,
+        "result": {
+          "usedSize": 43669588,
+          "totalSize": 62275584,
+          "embedderHeapUsedSize": 128944,
+          "backingStorageSize": 13926577
+        }
+      }
+    },
+    {
+      "index": 3,
+      "fixture": 3,
+      "status": 200,
+      "wallMs": 115.53458300000057,
+      "bytes": 114112,
+      "sha256": "3c39164bd137e8b7da0eb934d2213abfef613fdad59582d708b93fb4878586e2",
+      "heap": {
+        "id": 6,
+        "result": {
+          "usedSize": 54256640,
+          "totalSize": 77545472,
+          "embedderHeapUsedSize": 128944,
+          "backingStorageSize": 15650992
+        }
+      }
+    },
+    {
+      "index": 4,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 250.95350000000053,
+      "bytes": 350340,
+      "sha256": "d3f0985b13353d9574d4e7a9d932c8cf3f102cfec7eaaf119ee3bed149c2d1eb",
+      "heap": {
+        "id": 7,
+        "result": {
+          "usedSize": 64293152,
+          "totalSize": 108036096,
+          "embedderHeapUsedSize": 128944,
+          "backingStorageSize": 17928052
+        }
+      }
+    },
+    {
+      "index": 5,
+      "fixture": 1,
+      "status": 200,
+      "wallMs": 214.81516699999975,
+      "bytes": 249568,
+      "sha256": "f464ef6618873188c714e1296d1eb34cb16eba9642f07c2537cd5aa50624e91a",
+      "heap": {
+        "id": 8,
+        "result": {
+          "usedSize": 67399788,
+          "totalSize": 123944960,
+          "embedderHeapUsedSize": 128944,
+          "backingStorageSize": 19590051
+        }
+      }
+    },
+    {
+      "index": 6,
+      "fixture": 2,
+      "status": 200,
+      "wallMs": 156.15933400000085,
+      "bytes": 152388,
+      "sha256": "e4db4550c24f8505bf1a9e181847660c7ff4ab05888749f552e10e7ad6007db2",
+      "heap": {
+        "id": 9,
+        "result": {
+          "usedSize": 79570304,
+          "totalSize": 136658944,
+          "embedderHeapUsedSize": 128944,
+          "backingStorageSize": 19492577
+        }
+      }
+    },
+    {
+      "index": 7,
+      "fixture": 3,
+      "status": 200,
+      "wallMs": 203.78458299999966,
+      "bytes": 114112,
+      "sha256": "3c39164bd137e8b7da0eb934d2213abfef613fdad59582d708b93fb4878586e2",
+      "heap": {
+        "id": 10,
+        "result": {
+          "usedSize": 17130508,
+          "totalSize": 85442560,
+          "embedderHeapUsedSize": 125192,
+          "backingStorageSize": 3250541
+        }
+      }
+    },
+    {
+      "index": 8,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 219.9961659999999,
+      "bytes": 350340,
+      "sha256": "d3f0985b13353d9574d4e7a9d932c8cf3f102cfec7eaaf119ee3bed149c2d1eb",
+      "heap": {
+        "id": 11,
+        "result": {
+          "usedSize": 41358060,
+          "totalSize": 97468416,
+          "embedderHeapUsedSize": 125192,
+          "backingStorageSize": 9140913
+        }
+      }
+    },
+    {
+      "index": 9,
+      "fixture": 1,
+      "status": 200,
+      "wallMs": 192.82491599999958,
+      "bytes": 249568,
+      "sha256": "f464ef6618873188c714e1296d1eb34cb16eba9642f07c2537cd5aa50624e91a",
+      "heap": {
+        "id": 12,
+        "result": {
+          "usedSize": 42486968,
+          "totalSize": 97419264,
+          "embedderHeapUsedSize": 125192,
+          "backingStorageSize": 8762080
+        }
+      }
+    },
+    {
+      "index": 10,
+      "fixture": 2,
+      "status": 200,
+      "wallMs": 144.55691699999988,
+      "bytes": 152388,
+      "sha256": "e4db4550c24f8505bf1a9e181847660c7ff4ab05888749f552e10e7ad6007db2",
+      "heap": {
+        "id": 13,
+        "result": {
+          "usedSize": 52838548,
+          "totalSize": 106151936,
+          "embedderHeapUsedSize": 125192,
+          "backingStorageSize": 8664606
+        }
+      }
+    },
+    {
+      "index": 11,
+      "fixture": 3,
+      "status": 200,
+      "wallMs": 131.71908299999996,
+      "bytes": 114112,
+      "sha256": "3c39164bd137e8b7da0eb934d2213abfef613fdad59582d708b93fb4878586e2",
+      "heap": {
+        "id": 14,
+        "result": {
+          "usedSize": 63934044,
+          "totalSize": 114130944,
+          "embedderHeapUsedSize": 125192,
+          "backingStorageSize": 8626544
+        }
+      }
+    }
+  ],
+  "baseline": {
+    "id": 1,
+    "result": {
+      "usedSize": 9144856,
+      "totalSize": 9551872,
+      "embedderHeapUsedSize": 386904,
+      "backingStorageSize": 3250541
+    }
+  },
+  "initialGcAttempt": {
+    "error": "timeout",
+    "method": "HeapProfiler.collectGarbage",
+    "timeoutMs": 3000
+  },
+  "finalGcAttempt": {
+    "error": "timeout",
+    "method": "HeapProfiler.collectGarbage",
+    "timeoutMs": 3000
+  },
+  "afterGcAttempt": {
+    "id": 16,
+    "result": {
+      "usedSize": 63934044,
+      "totalSize": 114130944,
+      "embedderHeapUsedSize": 125192,
+      "backingStorageSize": 8626544
+    }
+  },
+  "source_hashes": {
+    "tools/marketing-render-prototype/resource-profile.cjs": "ec451c3fc9d165c6002217e39bcf86536af4d2f4700213b31a021505b4d56424",
+    "tools/marketing-render-prototype/core.mjs": "d772f14924c2509b491663dfec061ba577392e1e841e507e02e34682bfabd4b4",
+    "tools/marketing-render-prototype/worker.mjs": "b029059f248271180d875de17b3f63b34f678d2f71af0119f29619bf5e4717ab"
+  }
+}

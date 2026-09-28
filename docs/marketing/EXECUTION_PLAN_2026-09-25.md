@@ -172,3 +172,7 @@ Goal tool now reports active; previous engineering turn classified progress. PR1
 ### September28 Lead–Intel feedback validation
 
 The Lead now receives bounded completed answers to its own research requests with snapshot-bound IDs and receipts. Root verified3,335tests, lint0errors/11existingwarnings and Functions build. See LEAD_INTEL_FEEDBACK_2026-09-28.md and its source-hashed evidence. Local only; production authorization/live sign-in blockers remain. PR157 checks passed; no merge/deployment. Broader visual, audit, strategy-to-schedule, Ana, voice and operational acceptance scope remains open.
+
+### September28 maximum-input renderer runtime evidence
+
+Extended the local profiler to alternate three near-limit diagnostic JPEG shapes and the existing fixture through workerd. Twelve successful deterministic responses;12prototype tests pass. Raw inspector samples and code hashes saved in evidence-2026-09-28/render-max-input-profile.json. GC timed out and peak/all-inclusive production memory remains unverified. No production integration, charges, customer assets or publishing changed. This advances the runtime proof while Cloudflare authorization remains unresolved; next needs actual resource-budget evidence and shared visual template parity before app jobs can ship.
