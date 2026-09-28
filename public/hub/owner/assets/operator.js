@@ -226,6 +226,42 @@
       finally{if(reloadEpoch===requestEpoch){busy=false;reload.disabled=false;generate.disabled=terminal;}}
     });
   }
+  function cateringStatus(root, snapshot, language) {
+    var es=language==='es';
+    function say(en,spanish){return es?spanish:en;}
+    var card=document.createElement('section');card.className='aop-proposal';root.appendChild(card);
+    var heading=document.createElement('h3');heading.textContent=say('Saved catering progress','Progreso guardado de catering');card.appendChild(heading);
+    if(!snapshot || snapshot.available!==true || !Array.isArray(snapshot.events)) {
+      paragraph(card,say('Catering records unavailable. This does not mean there are no events. No operational action was taken.','Registros de catering no disponibles. Esto no significa que no haya eventos. No se realizó ninguna acción operativa.'));return;
+    }
+    var observed=new Date(snapshot.observed_at), validObserved=typeof snapshot.observed_at==='string'&&Number.isFinite(observed.getTime());
+    var scope=snapshot.scope||{};
+    var windowValid=scope.deposit_status==='paid'&&snapshot.timezone==='America/New_York'&&/^\d{4}-\d{2}-\d{2}$/.test(scope.date_from||'')&&/^\d{4}-\d{2}-\d{2}$/.test(scope.date_through||'');
+    if(!validObserved || !windowValid) {
+      paragraph(card,say('The observation time or date window could not be verified. Read catering status again before using these records.','No se pudo verificar la hora de lectura o el intervalo de fechas. Consulta el estado de catering de nuevo antes de usar estos registros.'));return;
+    }
+    paragraph(card,say('Observed ','Consultado ')+observed.toLocaleString(es?'es-US':'en-US',{timeZone:'America/New_York'})+' ET · '+scope.date_from+' – '+scope.date_through+' · '+say('Paid-deposit events in Eastern time; maximum 20 records.','Eventos con depósito pagado en hora del Este; máximo 20 registros.'));
+    paragraph(card,say('These are saved states, not proof of current physical delivery or notification delivery. Opening a plan changes no order, assignment, payment or notification.','Estos son estados guardados, no prueba de la entrega física actual ni del envío de notificaciones. Abrir un plan no cambia pedidos, asignaciones, pagos ni notificaciones.'));
+    if(snapshot.truncated===true || snapshot.events.length>20)paragraph(card,say('Results are truncated. Only the first 20 records are shown; this is not a complete event inventory.','Resultados limitados. Solo se muestran los primeros 20 registros; no es el inventario completo de eventos.'));
+    if(!snapshot.events.length)paragraph(card,say('No saved catering events were returned in this date window.','No se devolvieron eventos de catering guardados en este intervalo.'));
+    snapshot.events.slice(0,20).forEach(function(event){
+      if(!event || typeof event!=='object')return;
+      var item=document.createElement('section');card.appendChild(item);
+      var title=document.createElement('h4');title.textContent=say('Catering event · ','Evento de catering · ')+String(event.quote_id||say('identifier unavailable','identificador no disponible'));item.appendChild(title);
+      paragraph(item,String(event.event_date||say('Date not recorded','Fecha no registrada'))+' · '+String(event.serving_time||say('Time not recorded','Hora no registrada'))+' ET');
+      paragraph(item,say('Saved execution: ','Ejecución guardada: ')+String(event.recorded_status||say('not recorded','no registrada'))+' · '+say('Saved assignment: ','Asignación guardada: ')+String(event.assignment_status||say('not recorded','no registrada')));
+      if(event.execution_recorded_at){var recorded=new Date(event.execution_recorded_at);if(Number.isFinite(recorded.getTime()))paragraph(item,say('Execution record updated: ','Registro de ejecución actualizado: ')+recorded.toLocaleString(es?'es-US':'en-US',{timeZone:'America/New_York'})+' ET');}
+      var id=event.quote_id, target=null;
+      if(typeof id==='string'&&id.trim()&&id.length<=200&&!/[\u0000-\u001f\u007f]/.test(id)) {
+        try{target='/hub/kitchen/event.html?id='+encodeURIComponent(id);}catch(ignore){}
+      }
+      if(!target){paragraph(item,say('Production plan link unavailable: invalid event identifier.','Enlace al plan no disponible: identificador del evento inválido.'));return;}
+      button(item,say('Open production plan','Abrir plan de producción'),function(){
+        if(dirty()&&!window.confirm(say('Open the production plan and leave unsaved changes on this page?','¿Abrir el plan de producción y salir sin guardar los cambios de esta página?')))return;
+        location.assign(target);
+      });
+    });
+  }
   window.AnejoOperatorPrivateUI = function(result,root) {
     var ui=result && result.ui;
     if(!ui) return;
@@ -270,6 +306,8 @@
           result.ideas.forEach(function(idea){paragraph(root,idea.title+' · '+idea.status+' · '+new Date(idea.created_at).toISOString());paragraph(root,idea.topic);campaignPreview(root,idea);});
         } catch (_) {paragraph(root,'Saved ideas unavailable. Try again.');read.disabled=false;}
       });
+    } else if(ui.kind==='catering_status') {
+      cateringStatus(root,result.catering,ui.language);
     } else if(ui.kind==='audit_status') {
       var s=result.audit;
       if(!s || !s.available) { paragraph(root,'Saved audit evidence unavailable. No audit was run.'); return; }
