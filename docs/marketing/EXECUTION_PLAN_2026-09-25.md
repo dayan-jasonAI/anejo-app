@@ -168,3 +168,7 @@ Owner/staff-driver execution adapter implemented locally; see CATERING_DRIVER_HA
 ### September28 active-goal continuation
 
 Goal tool now reports active; previous engineering turn classified progress. PR155 exact631aa72checks allsuccess; notmerged. New bounded owner operator catering status implemented locally (OPERATOR_CATERING_STATUS_2026-09-28.md): exact EN/ES readonly command, bounded dated paid-event evidence and explicit safe navigation. No credential/networkdeny workaround, publication, customer send or money action. Full objective preserved; live semantic/voice/role/channel/render acceptance remains open.
+
+### September28 Lead–Intel feedback validation
+
+The Lead now receives bounded completed answers to its own research requests with snapshot-bound IDs and receipts. Root verified3,335tests, lint0errors/11existingwarnings and Functions build. See LEAD_INTEL_FEEDBACK_2026-09-28.md and its source-hashed evidence. Local only; production authorization/live sign-in blockers remain. PR157 checks passed; no merge/deployment. Broader visual, audit, strategy-to-schedule, Ana, voice and operational acceptance scope remains open.
