@@ -440,6 +440,13 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
     });
   }
 
+  // Food annotations are normalized to the source photograph. Editorial text/emblem
+  // regions remain normalized to the output canvas, including extended edges.
+  function projectProtectedAreas(regions, photo) {
+    if (!photo || !['x','y','w','h'].every(function(k){return Number.isFinite(photo[k]);}) || photo.w<=0 || photo.h<=0) throw new Error('Invalid fitted photo geometry.');
+    return protectedAreas(regions,photo.w,photo.h).map(function(r){return {x:r.x+photo.x,y:r.y+photo.y,w:r.w,h:r.h};});
+  }
+
   // Full-frame export at a consistent carousel ratio. Original pixels are never cropped.
   // Only missing canvas edges receive colors sampled from the corresponding photo edge.
   function editorialProfile(name) {
@@ -468,7 +475,7 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
   }
   function composeEditorial(photo,logo,opts) {
     var art=editorialCanvas(photo,opts.aspect||1),c=art.canvas,ctx=c.getContext('2d'),W=c.width,H=c.height,S=Math.min(W,H);
-    var regions=opts.protectedRegions ? protectedAreas(opts.protectedRegions,W,H) : [];
+    var regions=opts.protectedRegions ? projectProtectedAreas(opts.protectedRegions,art.photo) : [];
     var textRegion=protectedAreas([opts.textRegion||{x:.08,y:.9,w:.74,h:.085}],W,H)[0];
     var markRegion=protectedAreas([opts.emblemRegion||{x:.86,y:.89,w:.095,h:.095}],W,H)[0];
     if(regions.some(function(r){return overlaps(r,textRegion)||overlaps(r,markRegion);}))throw new Error('Branding overlaps a protected food or packaging area.');
@@ -694,5 +701,5 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
   }
 
 
-root.AnejoBranding = { rendererVersion:'anejo-canvas-declarations-1', compose: compositeBranding, fitHeadline: fitHeadline, pickTitleInk: pickTitleInk, overlaps: overlaps, protectedAreas: protectedAreas, editorialProfile: editorialProfile };
+root.AnejoBranding = { rendererVersion:'anejo-canvas-declarations-1', compose: compositeBranding, fitHeadline: fitHeadline, pickTitleInk: pickTitleInk, overlaps: overlaps, protectedAreas: protectedAreas, projectProtectedAreas: projectProtectedAreas, editorialProfile: editorialProfile };
 })(typeof window !== 'undefined' ? window : globalThis);

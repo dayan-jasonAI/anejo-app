@@ -176,3 +176,7 @@ The Lead now receives bounded completed answers to its own research requests wit
 ### September28 maximum-input renderer runtime evidence
 
 Extended the local profiler to alternate three near-limit diagnostic JPEG shapes and the existing fixture through workerd. Twelve successful deterministic responses;12prototype tests pass. Raw inspector samples and code hashes saved in evidence-2026-09-28/render-max-input-profile.json. GC timed out and peak/all-inclusive production memory remains unverified. No production integration, charges, customer assets or publishing changed. This advances the runtime proof while Cloudflare authorization remains unresolved; next needs actual resource-budget evidence and shared visual template parity before app jobs can ship.
+
+### September28 editorial source projection
+
+Corrected named editorial profiles to project source-normalized protected food regions through fitted photo offsets. See EDITORIAL_PHOTO_PROTECTION_2026-09-28.md for validation and boundaries. No current UI annotation caller or production verification. Next is shared browser/WASM composition plan, not more fixed-footer approximation.
