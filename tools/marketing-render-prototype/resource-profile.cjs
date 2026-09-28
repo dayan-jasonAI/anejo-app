@@ -9,6 +9,7 @@ const { Miniflare, convertV4MiniflareOptions } = require(path.join(repo, 'node_m
 const output = fs.mkdtempSync('/tmp/anejo-render-resource-check-');
 const targetId = 'core:user:render-check';
 const stress = process.argv.includes('--max-input');
+const editorial = process.argv.includes('--editorial-profiles');
 console.log(`Output directory: ${output}`);
 
 function save(name, value) {
@@ -24,7 +25,7 @@ function bounded(promise, ms, label) {
 
 async function main() {
   fs.copyFileSync(path.join(__dirname, 'node_modules/@resvg/resvg-wasm/index_bg.wasm'), path.join(output, 'resvg.wasm'));
-  let worker = fs.readFileSync(path.join(__dirname, 'worker.mjs'), 'utf8');
+  let worker = fs.readFileSync(path.join(__dirname, editorial ? 'editorial-worker.mjs' : 'worker.mjs'), 'utf8');
   assert.ok(worker.includes("'@resvg/resvg-wasm/index_bg.wasm'"), 'Expected prototype static WASM import');
   const fixtures = [{ name: 'website-fixture', width: 1448, height: 1086 }];
   if (stress) {
@@ -64,6 +65,7 @@ async function main() {
     recordedAt: new Date().toISOString(), node: process.version,
     workerd: require(path.join(repo, 'node_modules/workerd/package.json')).version,
     inspectorTargetId: targetId,
+    renderer: editorial ? "editorial-profiles" : "fixed-footer",
     limitations: [
       'Post-request workerd inspector samples, not Node RSS, peak memory, or verified all-inclusive isolate accounting.',
       'Do not sum inspector fields or compare totalSize directly to a production isolate memory budget.',

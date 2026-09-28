@@ -184,3 +184,7 @@ Corrected named editorial profiles to project source-normalized protected food r
 ### September28 shared editorial geometry
 
 Browser profiles/contain/protection and WASM contain/protection now share a versioned module. Root verified full tests,12prototype tests and12unchanged workerd JPEG hashes. See SHARED_EDITORIAL_PLAN_2026-09-28.md. Full visual parity remains open: prototype still uses fixed footer. Next consume profile drawing plan for fonts/ink/emblem/edge extension and perform actual pixel comparison. No production integration enabled.
+
+### September28 actual WASM editorial profiles
+
+Isolated wide/Cajita adapter now renders shared profile positions with measured type, sampled ink/edges and emblem tint;17tests and12workerd renders passed. Root inspected previews; thin kicker and increased resource samples remain concerns. See EDITORIAL_WASM_PROFILES_2026-09-28.md. No live carousel replacement or job integration.

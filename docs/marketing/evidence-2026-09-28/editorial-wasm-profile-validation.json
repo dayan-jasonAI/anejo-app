@@ -1,0 +1,554 @@
+{
+  "source_hashes": {
+    "tools/marketing-render-prototype/editorial.mjs": "76b3373b15a352a51e9c71a2ba4ad02352bf298e620820de9880eca9d3dd2854",
+    "tools/marketing-render-prototype/editorial.test.mjs": "2eadbc671fd6bf14cf880c29d5dc8bae863f26ae74ebd927cd7251429b3ee49a",
+    "tools/marketing-render-prototype/editorial-worker.mjs": "123ba552d04f29cc611bea71b123aaf71521b4c9642483d7fbd23d29711fcd40",
+    "tools/marketing-render-prototype/preview-editorial.mjs": "8e4dd734742dc3b5ff55f00458e566bc1a5a7407961557fb7cf1a9d9b8e27f03",
+    "tools/marketing-render-prototype/resource-profile.cjs": "2fe8503d4d054a31b312b44bc46442ef8c5203eb8bd262178bbc32d155913c60"
+  },
+  "preview": {
+    "recordedAt": "2026-09-28T17:35:35.753Z",
+    "sourceProvenance": "Existing website theme asset; not verified documentary event photography.",
+    "inputHashes": {
+      "source": "76378e4988c845271737f0a50bde1efeaca92f536359962f7c6508e86107ccd2",
+      "emblem": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+      "font": "b20b7d9626dd956b2c5e558692ad328b1f19e3275e2782db4fa07670d83f35e0",
+      "kickerFont": "9255abdb5f393bc51e101abbd07a716a977fd3e15472b1b84b260f426a342bfd"
+    },
+    "samples": [
+      {
+        "templateId": "reposado-wide",
+        "title": "Catering, beautifully.",
+        "output": "/tmp/anejo-editorial-preview-wH0cC2/reposado-wide.jpg",
+        "sha256": "0aa2552d557c7b12525169a1dc8a0f1e629fb62f470a81fee8a56d0fefbd1600",
+        "svg_sha256": "af04d0c1c20e30aafb9bfb40aecc8afcd150e9ac5fbcf961dcaf76529016a8b8",
+        "wallMs": 461.97529199999997,
+        "metadata": {
+          "source": {
+            "width": 1448,
+            "height": 1086,
+            "type": "jpeg",
+            "rgbaBytes": 6290112
+          },
+          "layout": {
+            "version": "anejo-editorial-geometry-1",
+            "templateId": "reposado-wide",
+            "aspect": 1.3333333333333333,
+            "vertical": false,
+            "width": 1080,
+            "height": 810,
+            "photo": {
+              "x": 0,
+              "y": 0,
+              "w": 1080,
+              "h": 810
+            },
+            "backgroundExtended": false,
+            "textRegion": {
+              "x": 70.2,
+              "y": 660.15,
+              "w": 324,
+              "h": 97.2
+            },
+            "emblemRegion": {
+              "x": 324,
+              "y": 761.4,
+              "w": 54,
+              "h": 44.55
+            },
+            "protectedRects": [],
+            "protectionSource": "visual_review_required",
+            "protectedCoordinateSpace": "source_normalized",
+            "overlayCoordinateSpace": "canvas_pixels",
+            "visualReviewRequired": true,
+            "geometryOnly": true
+          },
+          "ink": {
+            "text": {
+              "color": "#E8E2CA",
+              "estimatedContrast": 4.6061372636744755,
+              "background": {
+                "lum": 0.050077903563706776,
+                "busy": 0.07536798738092317
+              }
+            },
+            "emblem": {
+              "color": "#000000",
+              "estimatedContrast": 3.8714023173858267,
+              "background": {
+                "lum": 0.21777503077437055,
+                "busy": 0.07420491490507918
+              }
+            }
+          },
+          "measurements": {
+            "runs": [
+              {
+                "role": "kicker",
+                "text": "A\u00d1EJO CATERING",
+                "px": 15,
+                "family": "Josefin Sans",
+                "weight": 500,
+                "bounds": {
+                  "x": 70.2,
+                  "y": 660.15,
+                  "w": 128,
+                  "h": 17
+                },
+                "origin": {
+                  "x": 70.2,
+                  "y": 674.15
+                }
+              },
+              {
+                "role": "headline",
+                "text": "Catering, beautifully.",
+                "px": 39,
+                "family": "Cormorant Garamond",
+                "weight": 600,
+                "bounds": {
+                  "x": 70.2,
+                  "y": 684.87,
+                  "w": 318,
+                  "h": 40
+                },
+                "origin": {
+                  "x": 69.2,
+                  "y": 713.87
+                }
+              }
+            ],
+            "emblem": {
+              "x": 327.67539267015707,
+              "y": 761.4,
+              "w": 46.64921465968586,
+              "h": 44.55
+            }
+          },
+          "visualReviewRequired": true,
+          "deviations": [
+            "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+            "Glyph-outline top placement differs from Canvas textBaseline top.",
+            "Canvas shadow halo is not implemented.",
+            "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+            "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+            "No EXIF orientation or ICC normalization."
+          ],
+          "pixelVerification": "unverified",
+          "resourceReadiness": "unverified"
+        }
+      },
+      {
+        "templateId": "reposado-cajita",
+        "title": "Your Cajita.",
+        "output": "/tmp/anejo-editorial-preview-wH0cC2/reposado-cajita.jpg",
+        "sha256": "a2f10e36f1c46f0da3b5e55d796becbc25121b5f9c1fb3de0246af068a79eb8d",
+        "svg_sha256": "bdcd7bc99e051b6b1cdbe06dc1495f20e10d9a5f901aabf055bbd7393ea08130",
+        "wallMs": 341.67662500000006,
+        "metadata": {
+          "source": {
+            "width": 1448,
+            "height": 1086,
+            "type": "jpeg",
+            "rgbaBytes": 6290112
+          },
+          "layout": {
+            "version": "anejo-editorial-geometry-1",
+            "templateId": "reposado-cajita",
+            "aspect": 1.3333333333333333,
+            "vertical": false,
+            "width": 1080,
+            "height": 810,
+            "photo": {
+              "x": 0,
+              "y": 0,
+              "w": 1080,
+              "h": 810
+            },
+            "backgroundExtended": false,
+            "textRegion": {
+              "x": 604.8000000000001,
+              "y": 162,
+              "w": 313.2,
+              "h": 186.3
+            },
+            "emblemRegion": {
+              "x": 345.6,
+              "y": 623.7,
+              "w": 81,
+              "h": 81
+            },
+            "protectedRects": [],
+            "protectionSource": "visual_review_required",
+            "protectedCoordinateSpace": "source_normalized",
+            "overlayCoordinateSpace": "canvas_pixels",
+            "visualReviewRequired": true,
+            "geometryOnly": true
+          },
+          "ink": {
+            "text": {
+              "color": "#0A180C",
+              "estimatedContrast": 5.279001241173173,
+              "background": {
+                "lum": 0.31788110508421225,
+                "busy": 0.06463721443541015
+              }
+            },
+            "emblem": {
+              "color": "#000000",
+              "estimatedContrast": 2.823483835289232,
+              "background": {
+                "lum": 0.2272536625448034,
+                "busy": 0.1360794707803418
+              }
+            }
+          },
+          "measurements": {
+            "runs": [
+              {
+                "role": "kicker",
+                "text": "A\u00d1EJO CATERING",
+                "px": 15,
+                "family": "Josefin Sans",
+                "weight": 500,
+                "bounds": {
+                  "x": 604.8000000000001,
+                  "y": 162,
+                  "w": 128,
+                  "h": 17
+                },
+                "origin": {
+                  "x": 604.8000000000001,
+                  "y": 176
+                }
+              },
+              {
+                "role": "headline",
+                "text": "Your Cajita.",
+                "px": 52,
+                "family": "Cormorant Garamond",
+                "weight": 600,
+                "bounds": {
+                  "x": 604.8000000000001,
+                  "y": 186.72,
+                  "w": 240,
+                  "h": 49
+                },
+                "origin": {
+                  "x": 605.8000000000001,
+                  "y": 220.72
+                }
+              }
+            ],
+            "emblem": {
+              "x": 345.6,
+              "y": 625.5225,
+              "w": 81,
+              "h": 77.355
+            }
+          },
+          "visualReviewRequired": true,
+          "deviations": [
+            "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+            "Glyph-outline top placement differs from Canvas textBaseline top.",
+            "Canvas shadow halo is not implemented.",
+            "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+            "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+            "No EXIF orientation or ICC normalization."
+          ],
+          "pixelVerification": "unverified",
+          "resourceReadiness": "unverified"
+        }
+      }
+    ],
+    "limitations": "Local Node rendering only; visual review and production resource proof remain required."
+  },
+  "workerd": {
+    "recordedAt": "2026-09-28T17:35:36.270Z",
+    "node": "v24.16.0",
+    "workerd": "1.20260903.1",
+    "inspectorTargetId": "core:user:render-check",
+    "renderer": "editorial-profiles",
+    "limitations": [
+      "Post-request workerd inspector samples, not Node RSS, peak memory, or verified all-inclusive isolate accounting.",
+      "Do not sum inspector fields or compare totalSize directly to a production isolate memory budget.",
+      "Wall duration is local elapsed time, not billable CPU; inspector attachment may change runtime behavior.",
+      "A timed-out garbage-collection command does not prove collection or post-GC retained memory.",
+      "Diagnostic maximum dimensions only when --max-input is set; no concurrent, deployed cold-start or production-limit acceptance.",
+      "Deterministic output does not establish Canvas/brand parity, photo provenance, or publication approval."
+    ],
+    "fixtures": [
+      {
+        "name": "website-fixture",
+        "width": 1448,
+        "height": 1086
+      },
+      {
+        "name": "diagnostic-2000x2000",
+        "width": 2000,
+        "height": 2000,
+        "bytes": 403361,
+        "sha256": "a7e94875bd21103dc2492cfaf93ba62a9122bde32d9b6a671e6f3ee7b251ee04"
+      },
+      {
+        "name": "diagnostic-4096x976",
+        "width": 4096,
+        "height": 976,
+        "bytes": 403067,
+        "sha256": "2c5b8db07229a8a4b9e1e7a90b9a4fa411c61242732df3a39c576735fee1ce0e"
+      },
+      {
+        "name": "diagnostic-976x4096",
+        "width": 976,
+        "height": 4096,
+        "bytes": 403281,
+        "sha256": "ceb1fb9f0f5de09589b29de364347c26b35fc54feedb14c103f74a91af8ba8ec"
+      }
+    ],
+    "runs": [
+      {
+        "index": 0,
+        "fixture": 0,
+        "status": 200,
+        "wallMs": 499.4171660000002,
+        "bytes": 438309,
+        "sha256": "a2f10e36f1c46f0da3b5e55d796becbc25121b5f9c1fb3de0246af068a79eb8d",
+        "heap": {
+          "id": 3,
+          "result": {
+            "usedSize": 19389492,
+            "totalSize": 20365312,
+            "embedderHeapUsedSize": 872,
+            "backingStorageSize": 3369129
+          }
+        }
+      },
+      {
+        "index": 1,
+        "fixture": 1,
+        "status": 200,
+        "wallMs": 384.5825420000001,
+        "bytes": 317892,
+        "sha256": "6a67b7df43c0b0bf8f94fd64a53c46ddf9cda5a0d07bb1475a1c481e0d5ff74a",
+        "heap": {
+          "id": 4,
+          "result": {
+            "usedSize": 37731740,
+            "totalSize": 43433984,
+            "embedderHeapUsedSize": 129056,
+            "backingStorageSize": 12566780
+          }
+        }
+      },
+      {
+        "index": 2,
+        "fixture": 2,
+        "status": 200,
+        "wallMs": 274.3700000000008,
+        "bytes": 191724,
+        "sha256": "43a403f29db0afabdffe6cf74f8c02303948cd00352b908d6cf0e9e18d0debfd",
+        "heap": {
+          "id": 5,
+          "result": {
+            "usedSize": 23080700,
+            "totalSize": 36929536,
+            "embedderHeapUsedSize": 128104,
+            "backingStorageSize": 12440318
+          }
+        }
+      },
+      {
+        "index": 3,
+        "fixture": 3,
+        "status": 200,
+        "wallMs": 250.4890830000004,
+        "bytes": 159492,
+        "sha256": "d9463a5a040a18340ade7f038f90c5d07ac1706836c70598102753abaeab8b7f",
+        "heap": {
+          "id": 6,
+          "result": {
+            "usedSize": 32698356,
+            "totalSize": 59211776,
+            "embedderHeapUsedSize": 128104,
+            "backingStorageSize": 24978689
+          }
+        }
+      },
+      {
+        "index": 4,
+        "fixture": 0,
+        "status": 200,
+        "wallMs": 366.80541600000015,
+        "bytes": 438309,
+        "sha256": "a2f10e36f1c46f0da3b5e55d796becbc25121b5f9c1fb3de0246af068a79eb8d",
+        "heap": {
+          "id": 7,
+          "result": {
+            "usedSize": 46645488,
+            "totalSize": 91914240,
+            "embedderHeapUsedSize": 128104,
+            "backingStorageSize": 27416926
+          }
+        }
+      },
+      {
+        "index": 5,
+        "fixture": 1,
+        "status": 200,
+        "wallMs": 366.2353750000002,
+        "bytes": 317892,
+        "sha256": "6a67b7df43c0b0bf8f94fd64a53c46ddf9cda5a0d07bb1475a1c481e0d5ff74a",
+        "heap": {
+          "id": 8,
+          "result": {
+            "usedSize": 52676300,
+            "totalSize": 108363776,
+            "embedderHeapUsedSize": 128104,
+            "backingStorageSize": 25678668
+          }
+        }
+      },
+      {
+        "index": 6,
+        "fixture": 2,
+        "status": 200,
+        "wallMs": 280.13258399999995,
+        "bytes": 191724,
+        "sha256": "43a403f29db0afabdffe6cf74f8c02303948cd00352b908d6cf0e9e18d0debfd",
+        "heap": {
+          "id": 9,
+          "result": {
+            "usedSize": 65785804,
+            "totalSize": 121159680,
+            "embedderHeapUsedSize": 128104,
+            "backingStorageSize": 29051406
+          }
+        }
+      },
+      {
+        "index": 7,
+        "fixture": 3,
+        "status": 200,
+        "wallMs": 270.7647080000006,
+        "bytes": 159492,
+        "sha256": "d9463a5a040a18340ade7f038f90c5d07ac1706836c70598102753abaeab8b7f",
+        "heap": {
+          "id": 10,
+          "result": {
+            "usedSize": 75456956,
+            "totalSize": 127762432,
+            "embedderHeapUsedSize": 128104,
+            "backingStorageSize": 29019388
+          }
+        }
+      },
+      {
+        "index": 8,
+        "fixture": 0,
+        "status": 200,
+        "wallMs": 502.2954580000005,
+        "bytes": 438309,
+        "sha256": "a2f10e36f1c46f0da3b5e55d796becbc25121b5f9c1fb3de0246af068a79eb8d",
+        "heap": {
+          "id": 11,
+          "result": {
+            "usedSize": 83712804,
+            "totalSize": 149585920,
+            "embedderHeapUsedSize": 128104,
+            "backingStorageSize": 26077146
+          }
+        }
+      },
+      {
+        "index": 9,
+        "fixture": 1,
+        "status": 200,
+        "wallMs": 379.9858750000003,
+        "bytes": 317892,
+        "sha256": "6a67b7df43c0b0bf8f94fd64a53c46ddf9cda5a0d07bb1475a1c481e0d5ff74a",
+        "heap": {
+          "id": 12,
+          "result": {
+            "usedSize": 92379420,
+            "totalSize": 155697152,
+            "embedderHeapUsedSize": 128104,
+            "backingStorageSize": 27842184
+          }
+        }
+      },
+      {
+        "index": 10,
+        "fixture": 2,
+        "status": 200,
+        "wallMs": 340.13224999999966,
+        "bytes": 191724,
+        "sha256": "43a403f29db0afabdffe6cf74f8c02303948cd00352b908d6cf0e9e18d0debfd",
+        "heap": {
+          "id": 13,
+          "result": {
+            "usedSize": 22057680,
+            "totalSize": 92487680,
+            "embedderHeapUsedSize": 123232,
+            "backingStorageSize": 12440318
+          }
+        }
+      },
+      {
+        "index": 11,
+        "fixture": 3,
+        "status": 200,
+        "wallMs": 254.04104199999983,
+        "bytes": 159492,
+        "sha256": "d9463a5a040a18340ade7f038f90c5d07ac1706836c70598102753abaeab8b7f",
+        "heap": {
+          "id": 14,
+          "result": {
+            "usedSize": 27637456,
+            "totalSize": 91275264,
+            "embedderHeapUsedSize": 123232,
+            "backingStorageSize": 12444414
+          }
+        }
+      }
+    ],
+    "baseline": {
+      "id": 1,
+      "result": {
+        "usedSize": 9490912,
+        "totalSize": 9879552,
+        "embedderHeapUsedSize": 386904,
+        "backingStorageSize": 3369129
+      }
+    },
+    "initialGcAttempt": {
+      "error": "timeout",
+      "method": "HeapProfiler.collectGarbage",
+      "timeoutMs": 3000
+    },
+    "finalGcAttempt": {
+      "error": "timeout",
+      "method": "HeapProfiler.collectGarbage",
+      "timeoutMs": 3000
+    },
+    "afterGcAttempt": {
+      "id": 16,
+      "result": {
+        "usedSize": 27637456,
+        "totalSize": 91275264,
+        "embedderHeapUsedSize": 123232,
+        "backingStorageSize": 12444414
+      }
+    }
+  },
+  "tests": [
+    "\u2714 public render rejects declared all-photo protection and accepts subsequent safe render without altering bytes (369.07725ms)",
+    "\u2139 tests 17",
+    "\u2139 suites 0",
+    "\u2139 pass 17",
+    "\u2139 fail 0",
+    "\u2139 cancelled 0",
+    "\u2139 skipped 0",
+    "\u2139 todo 0",
+    "\u2139 duration_ms 2861.378833"
+  ]
+}
