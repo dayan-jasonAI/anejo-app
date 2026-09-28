@@ -1,3 +1,4 @@
+import editorialPlan from '../../public/hub/owner/assets/marketing-editorial-plan.js';
 import {Resvg,initWasm} from '@resvg/resvg-wasm';
 import {encode} from './jpeg-encoder.mjs';
 // Mirror only the fixed prototype's required browser BRAND_INK tokens.
@@ -17,7 +18,7 @@ export function dimensions(b) {
 const escape=s=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
 export function template(d,title='Little box. Big occasion.') {
  if(typeof title!=='string'||title.length>40||/[\r\n]/.test(title))throw Error('Headline must fit one short line');
- const scale=Math.min(1080/d.width,810/d.height),w=d.width*scale,h=d.height*scale;
+ const geometry=editorialPlan.contain(d.width,d.height,4/3),w=geometry.photo.w,h=geometry.photo.h;
  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="810"><rect width="1080" height="810" fill="${TEMPLATE_TOKENS.background}"/><image xlink:href="source.jpg" x="${(1080-w)/2}" y="${(810-h)/2}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/><defs><linearGradient id="caption-scrim" x1="0" y1="700" x2="0" y2="810" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${TEMPLATE_TOKENS.background}" stop-opacity="0"/><stop offset="0.45" stop-color="${TEMPLATE_TOKENS.background}" stop-opacity="0.7"/><stop offset="1" stop-color="${TEMPLATE_TOKENS.background}" stop-opacity="0.78"/></linearGradient></defs><rect id="caption-scrim-layer" x="0" y="700" width="1080" height="110" fill="url(#caption-scrim)"/><text x="107" y="757" font-family="${TEMPLATE_TOKENS.fontFamily}" font-size="29" font-weight="${TEMPLATE_TOKENS.fontWeight}" fill="${TEMPLATE_TOKENS.titleInk}">${escape(title)}</text><image xlink:href="emblem.png" x="43" y="717" width="45" height="43" preserveAspectRatio="xMidYMid meet"/></svg>`;
 }
 // A character count cannot establish actual glyph fit (40 W characters overflow this frame).
@@ -38,14 +39,11 @@ export function headlineBounds(title,font) {
 }
 // Source-normalized rectangles are caller declarations, not detected food boundaries.
 export function protectedLayout(d,regions,headline) {
- const scale=Math.min(1080/d.width,810/d.height),width=d.width*scale,height=d.height*scale;
- const photo={x:(1080-width)/2,y:(810-height)/2,width,height};
+ const fitted=editorialPlan.contain(d.width,d.height,4/3).photo;
+ const photo={x:fitted.x,y:fitted.y,width:fitted.w,height:fitted.h};
  if(regions===undefined)return {photo,protectedAreas:[],protectionSource:'visual_review_required',visualReviewRequired:true};
  if(!Array.isArray(regions)||regions.length>20)throw Error('Invalid protected photo areas');
- const projected=regions.map(r=>{
-  if(!r||!['x','y','w','h'].every(k=>Number.isFinite(r[k]))||r.x<0||r.y<0||r.w<=0||r.h<=0||r.x+r.w>1||r.y+r.h>1)throw Error('Protected photo areas must fit inside the source image');
-  return {x:photo.x+r.x*width,y:photo.y+r.y*height,width:r.w*width,height:r.h*height};
- });
+ const projected=editorialPlan.projectProtectedAreas(regions,fitted).map(r=>({x:r.x,y:r.y,width:r.w,height:r.h}));
  const overlays=[{name:'headline',...headline},{name:'emblem',x:43,y:717,width:45,height:43},{name:'caption scrim',x:0,y:700,width:1080,height:110}];
  const overlap=(a,b)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
  for(const r of projected)for(const overlay of overlays)if(overlap(r,overlay))throw Error('Protected photo area overlaps '+overlay.name+'; choose a different reviewed layout');

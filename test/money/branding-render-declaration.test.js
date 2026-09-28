@@ -13,7 +13,7 @@ async function run(code,opts={},fontMode='loaded') {
  c.canvasId=cid;c.getContext=()=>context;c.toDataURL=(...args)=>{operations.push([cid,'export',...args]);return'data:image/jpeg;base64,test';};return c;}
  class Image{constructor(){this.width=this.naturalWidth=1080;this.height=this.naturalHeight=1080;}set src(value){this.imageId=value;if(value.includes('emblem')){this.width=this.naturalWidth=100;this.height=this.naturalHeight=95.5;}queueMicrotask(()=>this.onload());}}
  const fonts=fontMode==='unavailable'?undefined:{load:()=>fontMode==='timeout'?new Promise(()=>{}):fontMode==='failed'?Promise.reject(Error('offline')):Promise.resolve(fontMode==='empty'?[]:[{}])};
- const scope={Image,document:{fonts,createElement:canvas},setTimeout:cb=>{timers.push(cb);if(fontMode==='timeout')queueMicrotask(cb);return timers.length;},Uint8ClampedArray};vm.runInNewContext(code,scope);
+ const scope={Image,document:{fonts,createElement:canvas},setTimeout:cb=>{timers.push(cb);if(fontMode==='timeout')queueMicrotask(cb);return timers.length;},Uint8ClampedArray};vm.runInNewContext(readFileSync(new URL('../../public/hub/owner/assets/marketing-editorial-plan.js',import.meta.url),'utf8')+'\n'+code,scope);
  let report;const output=await scope.AnejoBranding.compose('/photo.jpg',{preset:'reposado-square',text:'Fresh Cuban bites',kicker:'your table',...opts,onLayout:r=>report=r});
  return{output,operations:JSON.parse(JSON.stringify(operations)),texts,report:report&&JSON.parse(JSON.stringify(report))};
 }

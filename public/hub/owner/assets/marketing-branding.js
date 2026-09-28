@@ -442,29 +442,19 @@ var rendererScript = typeof document !== 'undefined' && document.currentScript ?
 
   // Food annotations are normalized to the source photograph. Editorial text/emblem
   // regions remain normalized to the output canvas, including extended edges.
-  function projectProtectedAreas(regions, photo) {
-    if (!photo || !['x','y','w','h'].every(function(k){return Number.isFinite(photo[k]);}) || photo.w<=0 || photo.h<=0) throw new Error('Invalid fitted photo geometry.');
-    return protectedAreas(regions,photo.w,photo.h).map(function(r){return {x:r.x+photo.x,y:r.y+photo.y,w:r.w,h:r.h};});
+  function editorialPlan() {
+    if (!root.AnejoEditorialPlan) throw new Error('Editorial layout module unavailable. Reload before rendering.');
+    return root.AnejoEditorialPlan;
   }
+  function projectProtectedAreas(regions, photo) { return editorialPlan().projectProtectedAreas(regions, photo); }
 
   // Full-frame export at a consistent carousel ratio. Original pixels are never cropped.
   // Only missing canvas edges receive colors sampled from the corresponding photo edge.
-  function editorialProfile(name) {
-    var profiles={
-      'reposado-square':{aspect:1,textRegion:{x:.07,y:.915,w:.73,h:.065},emblemRegion:{x:.87,y:.915,w:.065,h:.065}},
-      'reposado-dense':{aspect:1,textRegion:{x:.07,y:.955,w:.82,h:.04},emblemRegion:{x:.015,y:.012,w:.06,h:.06}},
-      'reposado-portrait':{aspect:1,vertical:true,textRegion:{x:.93,y:.36,w:.05,h:.45},emblemRegion:{x:.915,y:.06,w:.075,h:.075}},
-      'reposado-wide':{aspect:4/3,textRegion:{x:.065,y:.815,w:.30,h:.12},emblemRegion:{x:.30,y:.94,w:.05,h:.055}},
-      'reposado-cajita':{aspect:4/3,textRegion:{x:.56,y:.20,w:.29,h:.23},emblemRegion:{x:.32,y:.77,w:.075,h:.1}}
-    };
-    if(!profiles[name])throw new Error('Unknown editorial template.');
-    return JSON.parse(JSON.stringify(profiles[name]));
-  }
+  function editorialProfile(name) { return editorialPlan().profile(name); }
   function editorialCanvas(photo, aspect) {
-    if(!Number.isFinite(aspect)||aspect<.8||aspect>1.91)throw new Error('Unsupported social image aspect ratio.');
-    var sw=photo.naturalWidth||photo.width, sh=photo.naturalHeight||photo.height;
-    var W=1080,H=Math.round(W/aspect),c=document.createElement('canvas');c.width=W;c.height=H;
-    var ctx=c.getContext('2d'),scale=Math.min(W/sw,H/sh),w=sw*scale,h=sh*scale,x=(W-w)/2,y=(H-h)/2;
+    var geometry=editorialPlan().contain(photo.naturalWidth||photo.width,photo.naturalHeight||photo.height,aspect);
+    var W=geometry.width,H=geometry.height,c=document.createElement('canvas');c.width=W;c.height=H;
+    var ctx=c.getContext('2d'),w=geometry.photo.w,h=geometry.photo.h,x=geometry.photo.x,y=geometry.photo.y;
     var probe=document.createElement('canvas');probe.width=32;probe.height=32;
     var p=probe.getContext('2d');p.drawImage(photo,0,0,32,32);
     function color(px,py){var d=p.getImageData(px,py,1,1).data;return 'rgb('+d[0]+','+d[1]+','+d[2]+')';}

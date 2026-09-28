@@ -180,3 +180,7 @@ Extended the local profiler to alternate three near-limit diagnostic JPEG shapes
 ### September28 editorial source projection
 
 Corrected named editorial profiles to project source-normalized protected food regions through fitted photo offsets. See EDITORIAL_PHOTO_PROTECTION_2026-09-28.md for validation and boundaries. No current UI annotation caller or production verification. Next is shared browser/WASM composition plan, not more fixed-footer approximation.
+
+### September28 shared editorial geometry
+
+Browser profiles/contain/protection and WASM contain/protection now share a versioned module. Root verified full tests,12prototype tests and12unchanged workerd JPEG hashes. See SHARED_EDITORIAL_PLAN_2026-09-28.md. Full visual parity remains open: prototype still uses fixed footer. Next consume profile drawing plan for fonts/ink/emblem/edge extension and perform actual pixel comparison. No production integration enabled.

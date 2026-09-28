@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const html=readFileSync(new URL('../../public/hub/owner/marketing.html',import.meta.url),'utf8');
 const code=readFileSync(new URL('../../public/hub/owner/assets/marketing-branding.js',import.meta.url),'utf8');
-function renderer(){const scope={};vm.createContext(scope);vm.runInContext(code,scope);return scope.AnejoBranding;}
+function renderer(){const scope={};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../../public/hub/owner/assets/marketing-editorial-plan.js',import.meta.url),'utf8'),scope);vm.runInContext(code,scope);return scope.AnejoBranding;}
 function context(){return {font:'',measureText(text){return {width:text.length*Number(this.font.match(/([\d.]+)px/)?.[1]||10)*0.6};}};}
 test('headline fitting preserves every word or explicitly rejects overflow',()=>{
  const r=renderer(),ctx=context();
