@@ -196,3 +196,7 @@ Generated reproducible static font instances from bundled variable sources; actu
 ### September28 renderer lifetime optimization
 
 Removed redundant full-frame copies;18tests and12workerd outputs match prior hashes. One local max sampled heap comparison fell130.1MB→73.6MB; GCtimeout/peakaccounting limitations remain. See EDITORIAL_RASTER_LIFETIME_2026-09-28.md. Prototype remains isolated; no automatic job/publishing enabled.
+
+### September28 actual supported-browser comparison
+
+Chrome locally rendered/saved both editorial samples; root viewed actualCanvasJPEGs and compared recorded geometry/ink to WASM. Geometry and headline ink match for these2samples; kicker/baseline/halo/raster differences remain. See ACTUAL_BROWSER_EDITORIAL_COMPARISON_2026-09-28.md. LiveHub auth/deployment remain separate.
