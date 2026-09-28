@@ -7,7 +7,8 @@ export const INKS=Object.freeze({parchment:'#E8E2CA',deep:'#0A180C',black:'#0000
 const escape=s=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
 const svg=(body,w,h)=>`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}">${body}</svg>`;
 function uri(bytes,type){let value='';for(let i=0;i<bytes.length;i+=8192)value+=String.fromCharCode(...bytes.subarray(i,i+8192));return `data:image/${type};base64,${btoa(value)}`;}
-function raster(xml,fonts){let engine,image;try{engine=new Resvg(xml,{font:{fontBuffers:fonts,defaultFontFamily:'Anejo Editorial Serif'}});image=engine.render();return {pixels:new Uint8Array(image.pixels),width:image.width,height:image.height};}finally{image?.free();engine?.free();}}
+// Consume pixel buffers before freeing their WASM owner; do not retain full-frame copies.
+function withRaster(xml,fonts,consume){let engine,image;try{engine=new Resvg(xml,{font:{fontBuffers:fonts,defaultFontFamily:'Anejo Editorial Serif'}});image=engine.render();return consume(image.pixels,image.width,image.height);}finally{image?.free();engine?.free();}}
 function measure(text,px,family,weight,fonts){let engine,box;try{engine=new Resvg(svg(`<text x="200" y="200" font-family="${family}" font-weight="${weight}" font-size="${px}">${escape(text)}</text>`,2048,512),{font:{fontBuffers:fonts,defaultFontFamily:family}});box=engine.innerBBox();if(!box||box.width<=0||box.height<=0)throw Error('Text has no measurable glyphs');return {x:box.x-200,y:box.y-200,w:box.width,h:box.height};}finally{box?.free();engine?.free();}}
 const luminance=rgb=>rgb.map(n=>{n/=255;return n<=.03928?n/12.92:((n+.055)/1.055)**2.4;}).reduce((sum,n,i)=>sum+n*[.2126,.7152,.0722][i],0);
 const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
@@ -30,7 +31,7 @@ function fittedText(title,kicker,region,fonts,S){
  throw Error('The headline does not fit the clear space');
 }
 function background(sourceUri,layout,fonts){
- const probe=raster(svg(`<image xlink:href="${sourceUri}" width="32" height="32" preserveAspectRatio="none"/>`,32,32),fonts).pixels;
+ const probe=withRaster(svg(`<image xlink:href="${sourceUri}" width="32" height="32" preserveAspectRatio="none"/>`,32,32),fonts,pixels=>new Uint8Array(pixels));
  const color=(x,y)=>'rgb('+Array.from(probe.subarray((y*32+x)*4,(y*32+x)*4+3)).join(',')+')';
  const {width:W,height:H,photo:p}=layout;let defs='',edges='';
  function edge(id,rect,stops,vertical){defs+=`<linearGradient id="${id}" x1="0" y1="0" x2="${vertical?0:1}" y2="${vertical?1:0}">${stops.map((c,i)=>`<stop offset="${i/2}" stop-color="${c}"/>`).join('')}</linearGradient>`;edges+=`<rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" fill="url(#${id})"/>`;}
@@ -45,12 +46,12 @@ export function renderEditorial({source,emblem,font,kickerFont,title,kicker='',t
  const sourceInfo=dimensions(source),emblemInfo=dimensions(emblem),fonts=kicker?[font,kickerFont]:[font];
  const layout=geometry.plan({sourceWidth:sourceInfo.width,sourceHeight:sourceInfo.height,templateId,protectedRegions});
  const runs=fittedText(title.trim().replace(/\s+/g,' '),kicker.trim().toUpperCase(),layout.textRegion,fonts,Math.min(layout.width,layout.height));
- const base=background(uri(source,sourceInfo.type),layout,fonts),surface=raster(svg(base,layout.width,layout.height),fonts);
- const textInk=chooseInk(stats(surface.pixels,layout.width,layout.height,layout.textRegion));
+ const base=background(uri(source,sourceInfo.type),layout,fonts);
  const region=layout.emblemRegion,aspect=emblemInfo.width/emblemInfo.height,mw=Math.min(region.w,region.h*aspect),mh=mw/aspect,mark={x:region.x+(region.w-mw)/2,y:region.y+(region.h-mh)/2,w:mw,h:mh};
- const emblemInk=chooseInk(stats(surface.pixels,layout.width,layout.height,mark));
+ const {textInk,emblemInk}=withRaster(svg(base,layout.width,layout.height),fonts,(pixels,W,H)=>({textInk:chooseInk(stats(pixels,W,H,layout.textRegion)),emblemInk:chooseInk(stats(pixels,W,H,mark))}));
  const words=runs.map(r=>`<text x="${r.origin.x}" y="${r.origin.y}" font-family="${r.family}" font-weight="${r.weight}" font-size="${r.px}" fill="${textInk.color}">${escape(r.text)}</text>`).join('');
  const markSvg=`<defs><filter id="brand-tint" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feFlood flood-color="${emblemInk.color}"/><feComposite in2="SourceAlpha" operator="in"/></filter></defs><image id="brand-emblem" xlink:href="${uri(emblem,emblemInfo.type)}" x="${mark.x}" y="${mark.y}" width="${mark.w}" height="${mark.h}" filter="url(#brand-tint)"/>`;
- const xml=svg(base+words+markSvg,layout.width,layout.height),out=raster(xml,fonts);
- return {jpg:encode({data:out.pixels,width:out.width,height:out.height},94).data,svg:xml,source:sourceInfo,layout,ink:{text:textInk,emblem:emblemInk},measurements:{runs,emblem:mark},visualReviewRequired:true,deviations:['Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.','Glyph-outline top placement differs from Canvas textBaseline top.','Canvas shadow halo is not implemented.','Edge sampling and glyph rasterization use resvg, not browser Canvas.','Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.','No EXIF orientation or ICC normalization.'],pixelVerification:'unverified',resourceReadiness:'unverified'};
+ const xml=svg(base+words+markSvg,layout.width,layout.height);
+ const jpg=withRaster(xml,fonts,(pixels,width,height)=>encode({data:pixels,width,height},94).data);
+ return {jpg,svg:xml,source:sourceInfo,layout,ink:{text:textInk,emblem:emblemInk},measurements:{runs,emblem:mark},visualReviewRequired:true,deviations:['Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.','Glyph-outline top placement differs from Canvas textBaseline top.','Canvas shadow halo is not implemented.','Edge sampling and glyph rasterization use resvg, not browser Canvas.','Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.','No EXIF orientation or ICC normalization.'],pixelVerification:'unverified',resourceReadiness:'unverified'};
 }

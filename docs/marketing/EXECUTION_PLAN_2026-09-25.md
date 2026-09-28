@@ -192,3 +192,7 @@ Isolated wide/Cajita adapter now renders shared profile positions with measured 
 ### September28 fixed editorial font proof
 
 Generated reproducible static font instances from bundled variable sources; actual preview kicker/headline visibly stronger.18tests and12workerd renders passed. No memory improvement established; resource readiness remains open. See EDITORIAL_FIXED_FONTS_2026-09-28.md. No live design replaced.
+
+### September28 renderer lifetime optimization
+
+Removed redundant full-frame copies;18tests and12workerd outputs match prior hashes. One local max sampled heap comparison fell130.1MB→73.6MB; GCtimeout/peakaccounting limitations remain. See EDITORIAL_RASTER_LIFETIME_2026-09-28.md. Prototype remains isolated; no automatic job/publishing enabled.
