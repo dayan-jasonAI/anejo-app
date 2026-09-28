@@ -16,6 +16,7 @@ import {
   tokenExpiryStatus,
   loadTokenExpiry,
   saveTokenExpiry,
+  lastObservedTokenUse,
   TOKEN_EXPIRY_KEY,
   EXPIRY_WARN_DAYS,
   EXPIRY_URGENT_DAYS,
@@ -133,4 +134,101 @@ test('the swap doc referenced by the banner actually exists', () => {
   const doc = readFileSync(new URL('../../docs/INSTAGRAM_TOKEN_SWAP.md', import.meta.url), 'utf8');
   assert.ok(doc.length > 500, 'swap doc should not be a stub');
   assert.match(doc, /System User/i);
+});
+
+// ---------- the stale record: a warning that cried wolf ----------
+//
+// 2026-09-28, found while checking whether Instagram posting still worked: the Social page was
+// showing "token expired since September 20" while the daily insights sweep had pulled live media
+// and follower counts on that same token at 10:02 that morning. The token had been regenerated and
+// nobody re-recorded the date. The danger is not the wrong pixel — it is that the NEXT warning,
+// the real one, gets ignored.
+
+test('a recorded expiry the token outlived is a STALE RECORD, not an outage', () => {
+  const expiredAt = NOW - 8 * DAY;        // what the record claimed
+  const workedAt = NOW - 10 * 60 * 1000;  // but it was working ten minutes ago
+  const r = tokenExpiryStatus(expiredAt, NOW, workedAt);
+  assert.equal(r.status, 'stale_record');
+  assert.equal(r.recorded_expiry_at, expiredAt, 'keeps the wrong date, so it can be shown and corrected');
+  assert.equal(r.last_used_at, workedAt);
+  assert.equal(r.days_left, null, 'there is no honest countdown against a date known to be wrong');
+});
+
+test('stale_record is NOT ok — the token is still on an unknown 60-day clock', () => {
+  const r = tokenExpiryStatus(NOW - 8 * DAY, NOW, NOW - 60 * 1000);
+  assert.notEqual(r.status, 'ok');
+  assert.notEqual(r.status, 'expired');
+});
+
+test('an observation from BEFORE the recorded expiry does not excuse it — still expired', () => {
+  const expiredAt = NOW - 2 * DAY;
+  // Last seen working three days ago, i.e. a day BEFORE the recorded expiry. That is consistent
+  // with the token having died on schedule, so the alarm must stand.
+  const r = tokenExpiryStatus(expiredAt, NOW, NOW - 3 * DAY);
+  assert.equal(r.status, 'expired');
+});
+
+test('an observation can never rescue a token that has not expired yet, or invent a record', () => {
+  // A live token stays in its own band regardless of observations.
+  assert.equal(tokenExpiryStatus(NOW + 40 * DAY, NOW, NOW).status, 'ok');
+  assert.equal(tokenExpiryStatus(NOW + 3 * DAY, NOW, NOW).status, 'urgent');
+  assert.equal(tokenExpiryStatus(NOW + 20 * DAY, NOW, NOW).status, 'warning');
+  // And 'unknown' stays 'unknown' — the honesty requirement is not weakened by an observation.
+  const unk = tokenExpiryStatus(null, NOW, NOW);
+  assert.equal(unk.status, 'unknown');
+  assert.equal(unk.last_used_at, NOW, 'but it may report what it saw');
+});
+
+test('a junk observation is ignored rather than trusted', () => {
+  for (const bad of [0, -1, NaN, 'yesterday', null, undefined]) {
+    const r = tokenExpiryStatus(NOW - 8 * DAY, NOW, bad);
+    assert.equal(r.status, 'expired', `observation ${String(bad)} must not create a stale_record`);
+    assert.equal(r.last_used_at, null);
+  }
+});
+
+test('the observation comes from the insights sweep, and anything else reports nothing seen', async () => {
+  // The witness is ig_account_metrics — one row per day, and writing it required a successful
+  // authenticated Graph call on the same token the publish path uses.
+  const ok = { DB: makeD1([[/MAX\(captured_at\)\s+AS at\s+FROM ig_account_metrics/, () => ({ at: 1790589724920 })]]) };
+  assert.equal((await lastObservedTokenUse(ok)).at, 1790589724920);
+
+  // An empty table (MAX over no rows is NULL) is "nothing observed", not a zero date.
+  const empty = { DB: makeD1([[/ig_account_metrics/, () => ({ at: null })]]) };
+  assert.equal((await lastObservedTokenUse(empty)).at, null);
+
+  // No DB, no binding, and a throwing DB all report "no observation" — never a false one, because
+  // a false observation here would silence a REAL expiry.
+  assert.equal((await lastObservedTokenUse({})).at, null);
+  assert.equal((await lastObservedTokenUse(null)).at, null);
+  const boom = { DB: { prepare() { throw new Error('no such table: ig_account_metrics'); } } };
+  assert.equal((await lastObservedTokenUse(boom)).at, null);
+});
+
+test('the real 2026-09-28 production state resolves to stale_record, not expired', () => {
+  // Verbatim from prod: record set 2026-08-02 claiming expiry 2026-09-20 04:00Z; insights sweep
+  // captured followers=80 at 2026-09-28 10:02Z on that same token.
+  const recorded = 1789876800000;
+  const observed = 1790589724920;
+  const nowThen = 1790626915905;   // the 20:21Z cron run that day
+  const r = tokenExpiryStatus(recorded, nowThen, observed);
+  assert.equal(r.status, 'stale_record');
+  assert.ok(observed > recorded, 'the observation is after the recorded expiry — that is the proof');
+  // Before this fix the same inputs produced a flat "expired", and the page painted it red.
+  assert.equal(tokenExpiryStatus(recorded, nowThen).status, 'expired');
+});
+
+test('the API cross-checks the record against the observation, and ships both', () => {
+  assert.match(API, /lastObservedTokenUse/, 'the endpoint must consult the observation');
+  assert.match(API, /tokenExpiryStatus\(recordedExpiry\.at, Date\.now\(\), observedUse\.at\)/);
+  assert.match(API, /last_used_at: expiry\.last_used_at/, 'and pass it to the page');
+});
+
+test('the page never lets an unknown status inherit the reassuring green line', () => {
+  // The original bug shape: EXPIRY_MSG had no 'stale_record' key, the render keyed off "no
+  // template found", and so a brand-new status rendered as "🟢 all good (null days)".
+  assert.match(PAGE, /if \(te\.status === 'ok'\)/, 'the green branch must key on ok itself');
+  assert.match(PAGE, /stale_record: '/, 'and the new state needs its own words');
+  assert.match(PAGE, /EXPIRY_MSG\[te\.status\] \|\| EXPIRY_MSG\.unknown/, 'unrecognised falls back to the honest message');
+  assert.match(PAGE, /\.live\.expiry-stale_record/, 'and its own colour — amber, not the red of an outage');
 });

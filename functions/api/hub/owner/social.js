@@ -19,7 +19,7 @@ import { generatePlateImageDetailed } from '../../../_lib/plate_image.js';
 import { generateCarouselSlides } from '../../../_lib/carousel_gen.js';
 import { generateReferenceVariant, REFERENCE_BOWL_KEYS, BOWL_DISPLAY } from '../../../_lib/reference_variant.js';
 import { noteTrustApproval } from '../../../_lib/trust_ledger.js';
-import { loadTokenExpiry, saveTokenExpiry, tokenExpiryStatus } from '../../../_lib/instagram_token_expiry.js';
+import { loadTokenExpiry, saveTokenExpiry, tokenExpiryStatus, lastObservedTokenUse } from '../../../_lib/instagram_token_expiry.js';
 import { stampPostProvenance } from '../../../_lib/post_provenance.js';
 
 // Instagram's own cap. Worth knowing locally so a scheduled batch cannot quietly burn it.
@@ -162,7 +162,10 @@ export const onRequestGet = async ({ request, env }) => {
   // The expiry banner reads from app_settings, not from Meta — see instagram_token_expiry.js for
   // why. `at` is null (and status 'unknown') until an owner has recorded it once.
   const recordedExpiry = await loadTokenExpiry(env);
-  const expiry = tokenExpiryStatus(recordedExpiry.at);
+  // Cross-check the recorded date against the last time the token was actually seen working, so a
+  // stale record cannot render as "expired" while publishing and insights are demonstrably fine.
+  const observedUse = await lastObservedTokenUse(env);
+  const expiry = tokenExpiryStatus(recordedExpiry.at, Date.now(), observedUse.at);
 
   return json({
     ok: true,
@@ -180,8 +183,13 @@ export const onRequestGet = async ({ request, env }) => {
     host: account && account.ok ? account.host : null,
     token_expiry: {
       at: recordedExpiry.at,
-      status: expiry.status,           // 'unknown' | 'ok' | 'warning' | 'urgent' | 'expired'
+      // 'stale_record' = the recorded date has passed but the token was observed working after it.
+      status: expiry.status,           // 'unknown' | 'ok' | 'warning' | 'urgent' | 'expired' | 'stale_record'
       days_left: expiry.days_left,
+      // When the token was last PROVEN to work (a successful authenticated Graph call), as opposed
+      // to what a human once recorded about it. The banner shows both, because the two disagreeing
+      // is the finding.
+      last_used_at: expiry.last_used_at,
       swap_doc: 'docs/INSTAGRAM_TOKEN_SWAP.md',
     },
     // For the "reference variant" tool's bowl picker (see marketing.html's referenceVariantTool)

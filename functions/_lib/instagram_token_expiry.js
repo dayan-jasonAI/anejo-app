@@ -54,18 +54,62 @@ export async function saveTokenExpiry(env, atMs, updatedBy) {
 }
 
 /**
+ * The last time the token was OBSERVED to work, with no API call of its own.
+ *
+ * 2026-09-28: the recorded expiry said the token died on 9/20, so the Social page was showing
+ * "expired" — while the daily insights sweep was pulling live media and follower counts with that
+ * same token at 10:02 that morning. The recorded date was simply stale: the token had been
+ * regenerated without anyone re-recording it. A warning that cries wolf is worse than no warning,
+ * because the next one — the real one — gets ignored.
+ *
+ * ig_account_metrics is the right witness and costs nothing. One row is written per day by
+ * insights-tick, and writing it REQUIRES a successful authenticated Graph call on
+ * env.IG_ACCESS_TOKEN via the same resolveTarget() the publish path uses. So the row's existence
+ * is proof the token worked at that moment. No /debug_token, no polling the very token we are
+ * trying to report on — which is exactly what this module set out to avoid.
+ */
+export async function lastObservedTokenUse(env) {
+  if (!env || !env.DB) return { at: null };
+  try {
+    const r = await env.DB.prepare('SELECT MAX(captured_at) AS at FROM ig_account_metrics').first();
+    const at = r && r.at != null ? Number(r.at) : null;
+    return { at: Number.isFinite(at) && at > 0 ? at : null };
+  } catch {
+    // Same posture as loadTokenExpiry: a read failure reports "no observation", never a false one.
+    return { at: null };
+  }
+}
+
+/**
  * Pure date math — no DB, no network — so it is trivial to unit-test every threshold boundary.
  * 'unknown' is a distinct state from 'ok': the two must never be presented the same way, or a
  * never-recorded expiry reads as "everything is fine" right up until it silently is not.
+ *
+ * `lastUseMs` is optional and only ever ADDS information. It cannot turn a live token into a dead
+ * one, and it cannot make an unrecorded expiry look fine — 'unknown' stays 'unknown'.
  */
-export function tokenExpiryStatus(expiresAtMs, nowMs = Date.now()) {
+export function tokenExpiryStatus(expiresAtMs, nowMs = Date.now(), lastUseMs = null) {
   const at = Number(expiresAtMs);
-  if (!Number.isFinite(at) || at <= 0) return { status: 'unknown', days_left: null };
+  const use = Number(lastUseMs);
+  const lastUsed = Number.isFinite(use) && use > 0 ? use : null;
+  // Reported on every state: "the record says X, and the token last actually worked at Y" is the
+  // whole picture, and the two disagreeing is itself the finding.
+  const observed = { last_used_at: lastUsed };
+  if (!Number.isFinite(at) || at <= 0) return { status: 'unknown', days_left: null, ...observed };
   // Ceiling: with ~12h left this still reads as "1 day left", not "0" — rounding down would make
   // the last day of a live token look already expired.
   const daysLeft = Math.ceil((at - nowMs) / 86400000);
-  if (daysLeft <= 0) return { status: 'expired', days_left: daysLeft };
-  if (daysLeft <= EXPIRY_URGENT_DAYS) return { status: 'urgent', days_left: daysLeft };
-  if (daysLeft <= EXPIRY_WARN_DAYS) return { status: 'warning', days_left: daysLeft };
-  return { status: 'ok', days_left: daysLeft };
+  if (daysLeft <= 0) {
+    // The recorded date has passed. If the token was seen working AFTER that date, the date is
+    // provably wrong, and saying "expired" would be a false alarm. Deliberately NOT 'ok': the
+    // token really is a 60-day user token on an unknown clock, so this still demands action —
+    // re-record the date — it just names the right problem.
+    if (lastUsed && lastUsed > at) {
+      return { status: 'stale_record', days_left: null, ...observed, recorded_expiry_at: at };
+    }
+    return { status: 'expired', days_left: daysLeft, ...observed };
+  }
+  if (daysLeft <= EXPIRY_URGENT_DAYS) return { status: 'urgent', days_left: daysLeft, ...observed };
+  if (daysLeft <= EXPIRY_WARN_DAYS) return { status: 'warning', days_left: daysLeft, ...observed };
+  return { status: 'ok', days_left: daysLeft, ...observed };
 }

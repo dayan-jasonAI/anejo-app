@@ -82,6 +82,10 @@
   .live.expiry-ok { background:#f6f5f1; border:1px solid var(--line); color:var(--green); opacity:.85; }
   .live.expiry-warning { background:#fbf3da; border:1px solid var(--gold-dark); color:var(--gold-dark); }
   .live.expiry-urgent, .live.expiry-expired { background:#fbe3e1; border:1px solid var(--crit); color:var(--crit); font-weight:600; }
+  /* The recorded date has passed but the token was seen working after it: the RECORD is broken,
+     not the token. Amber, not red — nothing is down, and calling it an outage is the false alarm
+     this state exists to stop. */
+  .live.expiry-stale_record { background:#fbf3da; border:1px solid var(--gold-dark); color:var(--gold-dark); font-weight:600; }
   .expiry-set { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
   .expiry-set input[type="date"] { width:auto; padding:8px 10px; }
   .expiry-set button { white-space:nowrap; }
@@ -743,28 +747,40 @@
   // there is nothing recorded: 'unknown' never renders as "all good" — that is exactly the gap
   // that let a token die silently in the first place.
   var EXPIRY_MSG = {
-    unknown: '⏳ <b>Token expiry not recorded.</b> Instagram gives no warning before a long-lived token dies — publishing, the DM inbox, and insights all go dark at once. Record the date Meta showed when this token was generated so the HUB can warn ahead of it.',
+    unknown: '⏳ <b>Token expiry not recorded.</b> Instagram gives no warning before a long-lived token dies — publishing, the DM inbox, and insights all go dark at once. The token was last seen working {used}, but that is history, not a countdown. Record the date Meta showed when this token was generated so the HUB can warn ahead of it.',
     ok: null, // no line needed far out; the record-it control below still shows the date
     warning: '🟡 <b>Instagram token expires in {days} days</b> ({date}). Plan the swap to a Meta System User token (never expires) — see {doc}.',
     urgent: '🔴 <b>Instagram token expires in {days} day{plural} — do this now.</b> When it dies, publishing, the DM inbox, and insights stop working with no warning. See {doc}.',
     expired: '⛔ <b>Instagram token expired {date}.</b> Publishing, the DM inbox, and insights are down until it is replaced. See {doc}.',
+    // 2026-09-28: this banner read "expired since Sept 20" while the daily insights sweep was
+    // pulling live follower counts on that same token the same morning. The token had been renewed
+    // and nobody re-recorded the date. A warning that cries wolf gets ignored when it is real, so
+    // the disagreement is now named for what it is.
+    stale_record: '🟠 <b>The recorded token expiry is out of date.</b> The record says it expired {date}, but the token was still working {used} — so it was renewed without re-recording. Nothing is down. Record the real date from Meta below, so the next expiry warning can be trusted. See {doc}.',
   };
 
   function expiryBanner(d) {
     var te = d.token_expiry || { status: 'unknown', at: null, days_left: null, swap_doc: 'docs/INSTAGRAM_TOKEN_SWAP.md' };
     var docLink = '<a href="https://github.com/dayan-jasonAI/anejo-app/blob/main/' + te.swap_doc + '" target="_blank" rel="noopener">' + esc(te.swap_doc) + '</a>';
     var dateStr = te.at ? new Date(Number(te.at)).toLocaleDateString([], { year:'numeric', month:'long', day:'numeric' }) : '';
-    var tpl = EXPIRY_MSG[te.status];
+    var usedStr = te.last_used_at
+      ? new Date(Number(te.last_used_at)).toLocaleDateString([], { month:'long', day:'numeric' })
+      : 'at an unrecorded time';
+    // Only 'ok' gets the quiet green line. Keyed on the status itself, NOT on "no template found":
+    // a status this page has not been taught about must never inherit the reassuring branch — that
+    // is how 'stale_record' would have rendered as "🟢 all good (null days)".
     var body;
-    if (tpl == null) {
-      // 'ok' — quiet by design (thresholds: warn inside 30 days, urgent inside 7). Still says the
-      // date so "quiet" never means "nothing is shown".
+    if (te.status === 'ok') {
+      // Quiet by design (thresholds: warn inside 30 days, urgent inside 7). Still says the date so
+      // "quiet" never means "nothing is shown".
       body = te.at ? '🟢 Instagram token recorded — expires ' + esc(dateStr) + ' (' + te.days_left + ' days).' : '';
     } else {
+      var tpl = EXPIRY_MSG[te.status] || EXPIRY_MSG.unknown;
       body = tpl
         .replace('{days}', te.days_left != null ? Math.abs(te.days_left) : '?')
         .replace('{plural}', Math.abs(te.days_left) === 1 ? '' : 's')
         .replace('{date}', esc(dateStr))
+        .replace('{used}', esc(usedStr))
         .replace('{doc}', docLink);
     }
     if (!body) return '';
