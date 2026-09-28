@@ -107,3 +107,17 @@ test('known claims expand bounded request budget and validate the exact supplied
  globalThis.fetch=async(_,init)=>{body=JSON.parse(init.body);const data=answer();data.product_evidence={scope:'explicit_claims',claims:[{source:'registered_overlay',caption_line:0,slide:1,quote:'Croquetas',claim_id:'pc_test_0',assessment:'supported',assessment_reason:'source_support',authority_source:'menu',authority_quote:'This exact menu authority was never supplied'}],unreadable_slides:[]};return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(data)}]})};};
  try{const r=await auditDraft(env,{caption:'Catering',images:[{data:'fixture',sourceReceipt}]});assert.equal(body.max_tokens,4352);assert.match(body.messages[0].content.at(-1).text,/pc_test_0/);assert.equal(r.verdict,'flag');assert.equal(r.brand_score,null);assert.equal(r.audit_diagnostic.issue,'claim_authority_unmatched');}finally{globalThis.fetch=original;}
 });
+
+ test('stored library provenance reaches provider and coverage without overriding unknown evidence',async()=>{
+ const env=ownerEnv({ANTHROPIC_API_KEY:'test'});const original=globalThis.fetch;let body;
+ const provenance={ai_enhanced:true,source_key:'marketing-library/enhanced.png',enhancement_method:'format_conversion',provenance_basis:'client_declared_format_conversion'};
+ globalThis.fetch=async(_,init)=>{body=JSON.parse(init.body);const data=answer();data.observations.branding.status='unknown';return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(data)}]})};};
+ try {
+  const result=await auditDraft(env,{caption:'Catering',images:[{data:'fixture',sourceReceipt:{library_provenance:provenance}}]});
+  const prompt=body.messages[0].content.at(-1).text;
+  assert.match(prompt,/"library_provenance":\{"ai_enhanced":true/);
+  assert.match(prompt,/missing record means unknown/);assert.match(prompt,/not an automatic failure/);assert.match(prompt,/does not prove pixel derivation/);
+  assert.deepEqual(result.input_coverage.slide_sources[0].library_provenance,provenance);
+  assert.equal(result.verdict,'flag');assert.equal(result.brand_score,null);assert.equal(result.unknowns[0].criterion_id,'branding');
+ } finally {globalThis.fetch=original;}
+});
