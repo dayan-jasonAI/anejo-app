@@ -17,10 +17,10 @@ class Element{
  append(...c){this.children.push(...c);} replaceChildren(...c){this.children=c;} setAttribute(k,v){this[k]=v;} focus(){this.focused=true;}
 }
 const descendants=n=>n.children.flatMap(c=>[c,...descendants(c)]);
-async function harness({confirm=true,failed=false}={}){
+async function harness({confirm=true,failed=false,search='',response=menu}={}){
  const ids={},calls=[],mode=new Element();let confirmations=0,resets=0;
  const el=id=>ids[id]||(ids[id]=new Element());
- const ctx={document:{getElementById:el,createElement:tag=>new Element(tag),querySelector:()=>mode,querySelectorAll:()=>[]},$:el,L:en=>en,money:n=>'$'+n.toFixed(2),selectedCategory:'daily',bowls:[],addons:{},dailySelection:null,rewardsRedeemPts:0,appliedPromo:null,rewardsFreeDeliv:false,TAX_PCT:7,lastSubtotalCents:0,confirm:()=>{confirmations++;return confirm;},resetAddressConfirmation:()=>{resets++;ctx.addressConfirmed=false;},shopReview(){},applyMode(){ctx.renderCart();},renderCart(){if(ctx.dailySelection)ctx.renderDailyCart();},renderCatalog(){ctx.renderDailyCategory();},fetch:async(url,opts)=>{calls.push({url,opts});return {ok:!failed,json:async()=>structuredClone(menu)};},location:{},mode:'scheduled',addressConfirmed:false,anejoAttr:null,hideAddressCheck(){},loadAvailability(){},sessionStorage:{setItem(){},removeItem(){}}};
+ const ctx={URLSearchParams,document:{getElementById:el,createElement:tag=>new Element(tag),querySelector:()=>mode,querySelectorAll:()=>[]},$:el,L:en=>en,money:n=>'$'+n.toFixed(2),selectedCategory:'daily',bowls:[],addons:{},dailySelection:null,rewardsRedeemPts:0,appliedPromo:null,rewardsFreeDeliv:false,TAX_PCT:7,lastSubtotalCents:0,confirm:()=>{confirmations++;return confirm;},resetAddressConfirmation:()=>{resets++;ctx.addressConfirmed=false;},shopReview(){},applyMode(){ctx.renderCart();},renderCart(){if(ctx.dailySelection)ctx.renderDailyCart();},renderCatalog(){ctx.renderDailyCategory();},fetch:async(url,opts)=>{calls.push({url,opts});return {ok:!failed,json:async()=>structuredClone(response)};},location:{search},mode:'scheduled',addressConfirmed:false,anejoAttr:null,hideAddressCheck(){},loadAvailability(){},sessionStorage:{setItem(){},removeItem(){}}};
  ctx.window=ctx;vm.createContext(ctx);vm.runInContext(source,ctx);await new Promise(resolve=>setImmediate(resolve));
  return {ctx,el,calls,mode,confirmations:()=>confirmations,resets:()=>resets,all:()=>descendants(el('catalog'))};
 }
@@ -58,4 +58,16 @@ test('actual shared checkout sends dated daily-only payload and respects uncheck
  assert.ok(checkout.includes('payload.daily_lunch'));new vm.Script(checkout);vm.runInContext(checkout,h.ctx);
  let payload;h.ctx.fetch=async(url,opts)=>{assert.equal(url,'/api/checkout');payload=JSON.parse(opts.body);return {ok:true,status:200,json:async()=>({url:'https://example.com/test-checkout'})};};
  await h.ctx.checkout();assert.deepEqual(payload.items,[{id:'daily_lunch_papa',qty:1}]);assert.deepEqual(payload.daily_lunch,{date:'2026-10-01'});assert.deepEqual(payload.delivery,{date:'2026-10-01',window:'lunch'});assert.equal(payload.contact.sms_consent,false);assert.equal(payload.contact.marketing_sms_consent,false);assert.equal('address_confirmed' in payload,false);assert.equal(h.ctx.location.href,'https://example.com/test-checkout');
+});
+
+test('a future dated link fetches that date range and selects the requested lunch',async()=>{
+ const response=structuredClone(menu);response.days=response.days.filter(d=>d.date==='2026-10-05');
+ const h=await harness({search:'?category=daily&date=2026-10-05',response});
+ assert.equal(h.calls[0].url,'/api/daily-lunch?start=2026-10-05');
+ assert.equal(dateSelect(h).value,'2026-10-05');assert.equal(h.all().find(e=>e.tagName==='h2').textContent,'Añejo Fried Rice');
+ add(h).onclick();assert.equal(h.ctx.dailySelection.day.date,'2026-10-05');assert.equal(h.el('cartFee').textContent,'Free');
+});
+test('a malformed date query cannot change the availability request range',async()=>{
+ const h=await harness({search:'?category=daily&date=garbage%26start%3D2026-10-05'});
+ assert.equal(h.calls[0].url,'/api/daily-lunch');assert.equal(dateSelect(h).value,'2026-10-01');
 });

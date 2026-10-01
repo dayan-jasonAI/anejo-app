@@ -56,3 +56,11 @@ test('no stale past menu or inaccessible image is advertised', async () => {
     const h = harness(menu([day])); await h.run(); assert.equal(h.nodes.some(n => n.tagName === 'DIALOG'), false);
   }
 });
+
+test('waits for an existing dialog to close before showing the offer', async () => {
+  const options = { otherDialog: true };
+  const h = harness(menu([today]), options); await h.run();
+  assert.equal(h.nodes.some(n => n.tagName === 'DIALOG'), false);
+  options.otherDialog = false; await h.run();
+  assert.equal(h.nodes.find(n => n.tagName === 'DIALOG').open, true);
+});

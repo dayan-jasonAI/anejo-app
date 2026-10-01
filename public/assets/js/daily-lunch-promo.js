@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   const key = 'anejo:lunch-promo:seen';
-  let data, day, dialog, previousFocus;
+  let data, day, dialog, previousFocus, attempts = 0;
   const es = () => window.AnejoLang ? window.AnejoLang.get() === 'es' : document.documentElement.lang.startsWith('es');
   const text = (en, spanish) => es() ? spanish : en;
   const node = (tag, content, className) => {
@@ -50,7 +50,10 @@
         || data.days.find(d => d.date === data.today && d.product_id);
       if (!day || !day.image_url || !day.image_url.startsWith('/assets/')) return;
       // Never interrupt a customer who already opened another dialog or form.
-      if (document.querySelector('dialog[open], [aria-modal="true"]') || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) return;
+      if (document.querySelector('dialog[open], [aria-modal="true"]') || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) {
+        if (++attempts < 10) window.setTimeout(openPromo, 3000);
+        return;
+      }
       dialog = node('dialog', null, 'lunch-promo');
       if (typeof dialog.showModal !== 'function') return;
       dialog.setAttribute('aria-labelledby', 'lunch-promo-title');

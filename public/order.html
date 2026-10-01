@@ -200,7 +200,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
     <div class="tax-note" id="taxNote" style="display:none">Final tax &amp; delivery fee are confirmed on the secure Square checkout page.</div>
 
     <div id="shopSuggestions"></div><details id="checkoutDetails"><summary>Delivery &amp; checkout / Entrega y pago</summary><div class="fulfill">
-      <div class="lbl">How would you like it?</div>
+      <div class="lbl" id="fulfillmentLabel">How would you like it?</div>
       <div class="modeseg" role="tablist" aria-label="Fulfillment mode">
         <button type="button" id="modeOndemand" class="active" role="tab" aria-selected="true" onclick="setMode('ondemand')">ASAP today<span class="seg-sub">Make-now · delivered today</span></button>
         <button type="button" id="modeScheduled" role="tab" aria-selected="false" onclick="setMode('scheduled')">Schedule<span class="seg-sub">Pick a day &amp; window</span></button>
@@ -729,7 +729,7 @@ function renderCart(){
         totalRow=$('cartTotalRow'), taxNote=$('taxNote'), minNote=$('minNote'), btn=$('checkoutBtn');
   const addonIds = Object.keys(addons);
   if (!bowls.length && !addonIds.length){
-    lines.innerHTML = '<div class="cart-empty">'+L('Your cart is empty — add a few bowls.','Tu carrito está vacío — elige tu favorito.')+'</div>';
+    lines.innerHTML = '<div class="cart-empty">'+L('Your cart is empty — choose your favorite.','Tu carrito está vacío — elige tu favorito.')+'</div>';
     [subRow,feeRow,taxRow,totalRow,taxNote,minNote].forEach(e=>e.style.display='none'); btn.disabled=true; return;
   }
   let totalCents=0, html='';
