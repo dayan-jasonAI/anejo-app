@@ -654,7 +654,8 @@ export const onRequestPost = async ({ request, env }) => {
         const digits = (custPhone || '').replace(/[^0-9]/g, '');
         if (digits.length === 10) pp.buyer_phone_number = `+1${digits}`;
         else if (digits.length === 11 && digits.startsWith('1')) pp.buyer_phone_number = `+${digits}`;
-        if (sessEmail) pp.buyer_email = sessEmail;
+        const checkoutEmail = sessEmail || (isEmail(typedEmail) ? typedEmail : null);
+        if (checkoutEmail) pp.buyer_email = checkoutEmail;
         return Object.keys(pp).length ? pp : undefined;
       })(),
       checkout_options: {

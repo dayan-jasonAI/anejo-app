@@ -24,7 +24,7 @@ async function harness({confirm=true,failed=false,search='',response=menu}={}){
  ctx.window=ctx;vm.createContext(ctx);vm.runInContext(source,ctx);await new Promise(resolve=>setImmediate(resolve));
  return {ctx,el,calls,mode,confirmations:()=>confirmations,resets:()=>resets,all:()=>descendants(el('catalog'))};
 }
-const add=h=>h.all().find(e=>e.tagName==='button');
+const add=h=>h.all().find(e=>e.className==='customize daily-continue');
 const dateSelect=h=>h.all().find(e=>e.tagName==='select');
 test('Oct 1 selects Papa and renders exactly one dated meal card, with no unscheduled dates offered',async()=>{
  const h=await harness();assert.equal(h.all().filter(e=>e.tagName==='article').length,1);assert.equal(h.all().find(e=>e.tagName==='h2').textContent,'Papa Añejo');
@@ -70,4 +70,11 @@ test('a future dated link fetches that date range and selects the requested lunc
 test('a malformed date query cannot change the availability request range',async()=>{
  const h=await harness({search:'?category=daily&date=garbage%26start%3D2026-10-05'});
  assert.equal(h.calls[0].url,'/api/daily-lunch');assert.equal(dateSelect(h).value,'2026-10-01');
+});
+
+test('quantity controls announce group savings and cart editing recalculates the 5-to-6 threshold',async()=>{
+ const h=await harness();const plus=h.all().find(e=>e['aria-label']==='Add one meal');
+ for(let i=0;i<4;i++)plus.onclick();add(h).onclick();assert.equal(h.ctx.dailySelection.qty,5);assert.equal(h.el('cartFee').textContent,'$5.00');
+ const more=descendants(h.el('cartLines')).find(e=>e['aria-label']==='Add one lunch to order');more.onclick();assert.equal(h.ctx.dailySelection.qty,6);assert.equal(h.el('cartFee').textContent,'Free');assert.equal(h.el('cartGrand').textContent,'$64.20');
+ const less=descendants(h.el('cartLines')).find(e=>e['aria-label']==='Remove one lunch from order');less.onclick();assert.equal(h.el('cartFee').textContent,'$5.00');
 });
