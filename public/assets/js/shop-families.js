@@ -24,5 +24,6 @@
   return {key:(category==='catering'?'catering-':'')+key,category,name,nameEs,flavor:flavor[0],flavorEs:flavor[1],format:format[0],formatEs:format[1]};
  }
  function group(items){const map=new Map();for(const item of items){const m=describe(item);if(!map.has(m.key))map.set(m.key,{...m,variants:[]});map.get(m.key).variants.push({...item,...m});}return [...map.values()];}
- root.AnejoShop={sections,describe,group};if(typeof module!=='undefined')module.exports=root.AnejoShop;
+ function tenDollarGroups(items){return group(items.filter(i=>Number.isFinite(i.price)&&Math.round(i.price*100)===1000));}
+ root.AnejoShop={sections,describe,group,tenDollarGroups};if(typeof module!=='undefined')module.exports=root.AnejoShop;
 })(typeof window!=='undefined'?window:globalThis);

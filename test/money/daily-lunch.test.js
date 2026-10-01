@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {dailyDay,validateDailyConfig,validateDailyOrder,dailyFeeCents,isoDate,DAILY_GROUP_FREE_DELIVERY_MIN_QTY} from '../../functions/_lib/daily_lunch.js';
+import {dailyDay,validateDailyConfig,validateDailyOrder,dailyFeeCents,isoDate,DAILY_GROUP_FREE_DELIVERY_MIN_QTY,DAILY_MAX_QTY} from '../../functions/_lib/daily_lunch.js';
 import {DEFAULTS} from '../../functions/_lib/operating.js';
 import {onRequestPost} from '../../functions/api/checkout.js';
 const migration=readFileSync(new URL('../../migrations/0140_daily_lunch.sql',import.meta.url),'utf8');
@@ -41,7 +41,7 @@ test('server validation rejects mixed cart, wrong product, fractional qty and un
 test('actual checkout sends $10 lunches and same-day group/preorder fees to Square and kitchen snapshot',async()=>{
  const RealDate=Date, realFetch=globalThis.fetch;let clock;
  globalThis.Date=class extends RealDate{constructor(...args){super(...(args.length?args:[clock]));}static now(){return new RealDate(clock).getTime();}};
- try{for(const [at,date,qty,expectedFee] of [['2026-10-01T14:00:00Z','2026-10-01',1,625],['2026-10-01T14:00:00Z','2026-10-01',5,625],['2026-10-01T14:00:00Z','2026-10-01',6,0],['2026-10-01T14:00:00Z','2026-10-01',20,0],['2026-09-30T12:00:00Z','2026-10-01',1,0]]){
+ try{for(const [at,date,qty,expectedFee] of [['2026-10-01T14:00:00Z','2026-10-01',1,625],['2026-10-01T14:00:00Z','2026-10-01',5,625],['2026-10-01T14:00:00Z','2026-10-01',6,0],['2026-10-01T14:00:00Z','2026-10-01',20,0],['2026-10-01T14:00:00Z','2026-10-01',50,0],['2026-09-30T12:00:00Z','2026-10-01',1,0]]){
   clock=at;const writes=[];let sent;
   globalThis.fetch=async(url,opts)=>{assert.match(String(url),/squareupsandbox/);sent=JSON.parse(opts.body);return new Response(JSON.stringify({payment_link:{id:'p',order_id:'o',url:'https://example.com/pay'}}));};
   const env={DB:db(seed,writes),SQUARE_ACCESS_TOKEN:'test-only',SQUARE_LOCATION_ID:'test-only',DELIVERY_FEE_USD:'6.25'};
@@ -49,7 +49,7 @@ test('actual checkout sends $10 lunches and same-day group/preorder fees to Squa
   const response=await onRequestPost({request,env});assert.equal(response.status,200,await response.clone().text());
   assert.equal(sent.pre_populated_data.buyer_email,'guest@example.com');assert.equal(sent.checkout_options.ask_for_shipping_address,false);assert.equal(sent.checkout_options.allow_tipping,true);assert.deepEqual(sent.checkout_options.accepted_payment_methods,{apple_pay:true,google_pay:true,cash_app_pay:true});
   assert.equal(sent.order.line_items[0].base_price_money.amount,1000);assert.equal(sent.order.line_items[0].quantity,String(qty));assert.equal(sent.order.service_charges?.[0]?.amount_money.amount||0,expectedFee);
-  const saved=writes.find(w=>w.sql.includes('INSERT INTO orders'));assert.ok(saved);const item=JSON.parse(saved.args[3])[0];assert.equal(item.qty,qty);assert.equal(item.service_date,date);assert.equal(item.daily_lunch,true);assert.equal(saved.args[4],date);assert.equal(saved.args[5],'lunch');assert.equal(saved.args[8],expectedFee);
+  const saved=writes.find(w=>w.sql.includes('INSERT INTO orders'));assert.ok(saved);const item=JSON.parse(saved.args[3])[0];assert.equal(item.qty,qty);assert.equal(item.service_date,date);assert.equal(item.daily_lunch,true);assert.equal(saved.args[4],date);assert.equal(saved.args[5],'lunch');assert.equal(saved.args[7],qty*1000);assert.equal(saved.args[8],expectedFee);
  }}finally{globalThis.Date=RealDate;globalThis.fetch=realFetch;}
 });
 
@@ -63,7 +63,7 @@ test('public endpoint returns seven dated days, no-store and fails closed withou
  const {onRequestGet}=await import('../../functions/api/daily-lunch.js');
  const req=new Request('https://example.com/api/daily-lunch?start=2026-09-28');
  const res=await onRequestGet({request:req,env:{DB:db(seed)}});assert.equal(res.status,200);assert.equal(res.headers.get('cache-control'),'no-store');
- const b=await res.json();assert.equal(b.group_free_delivery_min_qty,6);assert.equal(b.days.length,7);assert.equal(b.days[0].product_id,'fried_rice');assert.equal(b.windows.lunch_start,'11:00');assert.equal(b.days[4].reason,'not_scheduled');
+ const b=await res.json();assert.deepEqual(b.products,validateDailyConfig(seed).products);assert.equal(b.products.length,4);assert.equal(b.max_qty,50);assert.equal(b.group_free_delivery_min_qty,6);assert.equal(b.days.length,7);assert.equal(b.days[0].product_id,'fried_rice');assert.equal(b.windows.lunch_start,'11:00');assert.equal(b.days[4].reason,'not_scheduled');
  assert.equal((await onRequestGet({request:req,env:{}})).status,503);
 });
 test('owner endpoint rejects nonowners and conflicts, persists validated config with audit actor',async()=>{
@@ -96,13 +96,13 @@ test('daily operating read rejects an explicit DB failure even if results exists
 });
 
 test('group delivery applies only to validated quantities of six or more, preserving preorder benefit',async()=>{
- assert.equal(DAILY_GROUP_FREE_DELIVERY_MIN_QTY,6);
+ assert.equal(DAILY_MAX_QTY,50);assert.equal(DAILY_GROUP_FREE_DELIVERY_MIN_QTY,6);
  const env={DB:db(seed),DELIVERY_FEE_USD:'8.75'},sameDay=new Date('2026-10-01T14:00:00Z');
- for(const [qty,fee] of [[1,875],[5,875],[6,0],[20,0]]){
+ for(const [qty,fee] of [[1,875],[5,875],[6,0],[20,0],[50,0]]){
   const result=await validateDailyOrder(env,[{id:'daily_lunch_papa',qty}],'2026-10-01',sameDay);
   assert.equal(result.fee_cents,fee);assert.equal(result.free_delivery,qty>=6);
  }
- for(const qty of ['6',6.1,null,0,-6,21,NaN,Infinity])await assert.rejects(()=>validateDailyOrder(env,[{id:'daily_lunch_papa',qty}],'2026-10-01',sameDay),/quantity 1–20/);
+ for(const qty of ['6','50',6.1,50.1,null,0,-6,51,NaN,Infinity])await assert.rejects(()=>validateDailyOrder(env,[{id:'daily_lunch_papa',qty}],'2026-10-01',sameDay),/quantity 1–50/);
  // Separate lines cannot be pooled to get the benefit, even when total quantity is six.
  await assert.rejects(()=>validateDailyOrder(env,[{id:'daily_lunch_papa',qty:3},{id:'daily_lunch_papa',qty:3}],'2026-10-01',sameDay));
  const preorder=await validateDailyOrder(env,[{id:'daily_lunch_papa',qty:1}],'2026-10-01',new Date('2026-09-30T12:00:00Z'));
