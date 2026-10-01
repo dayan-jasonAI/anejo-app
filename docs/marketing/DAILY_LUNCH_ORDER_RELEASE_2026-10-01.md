@@ -17,7 +17,16 @@ Owner: Codex. Direct-session authorization: Dayan requested Daily Lunch as the f
 - Desktop popup inspected; 390×844 mobile screenshot saved under docs/evidence/daily-lunch-order-2026-10-01/popup-mobile-local.jpg. CTA routed to Papa on normal Order page. Food artwork uncropped.
 
 ## Validation and release state
-Local validation: npm test — 3,394 passed, zero failures; npm run lint — zero errors, 11 pre-existing warnings; Pages Functions build — compiled successfully; predeploy ancestry guard passed. Deployment and live verification pending. No production purchase or revenue uplift is claimed.
+Local validation: npm test — 3,394 passed, zero failures; npm run lint — zero errors, 11 pre-existing warnings; Pages Functions build — compiled successfully; predeploy ancestry guard passed. PR #174 merged as 533cc975e1e30b991797818a8669d3096c6ab4b3 after all three PR checks passed. Cloudflare production deployment 9dcc7af7-3e43-4021-8e50-7a1b816107d5 reports source 533cc97 and Active; production Pages check succeeded. No production purchase or revenue uplift is claimed.
 
 ## Rollback / risks
 Revert this release commit and redeploy through normal release checks. Existing separate /daily-lunch remains compatible. No DB migration required. Future lunch dates require explicit configured assignments. Popup never advertises a stale past meal when no configured current/future meal is available.
+
+## Current production browser evidence
+Supported Chrome observed the new homepage popup on https://anejocateringco.com/ after deployment and reload. Spanish preference was respected. The popup displayed Papa Añejo, Thursday October 1, $10, regular same-day delivery, and linked directly to /order?category=daily&date=2026-10-01.
+
+Following the CTA showed Daily Lunch first, exactly one Papa Añejo card, and its Spanish description. Adding one meal showed $10 subtotal, $5 delivery, $0.70 estimated tax and $15.70 total in the existing sidebar, lunch 11AM–2PM, existing contact/address/consent controls, with unrelated fulfillment modes hidden. No production checkout was submitted. Screenshots: popup-live.jpg and order-live.jpg in docs/evidence/daily-lunch-order-2026-10-01/.
+
+`npm run verify:deploy` could not query the provider because its token/account environment variables are absent. This is not a pass; Wrangler's existing authorized OAuth deployment listing and supported live browser supplied independent deployment and behavior evidence. The generic direct-HTTP live verifier was not repeated after the previously recorded HTTP access denial. No credentials changed or access restrictions bypassed.
+
+Approval needs: none for this requested release. Future unscheduled lunch assignments remain an owner menu decision. Broader marketing automation work remains separate and unfinished. Next: customers can order through the first category; verify paid-order outcomes only from actual order records.
