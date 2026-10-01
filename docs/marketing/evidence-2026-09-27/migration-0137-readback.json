@@ -1,0 +1,80 @@
+[
+  {
+    "results": [
+      {
+        "name": "catering_execution"
+      },
+      {
+        "name": "catering_execution_transitions"
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "IAD",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.3886
+      },
+      "duration": 0.3886,
+      "changes": 0,
+      "last_row_id": 0,
+      "changed_db": false,
+      "size_after": 22007808,
+      "rows_read": 569,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  },
+  {
+    "results": [
+      {
+        "execution_rows": 0
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "IAD",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.1915
+      },
+      "duration": 0.1915,
+      "changes": 0,
+      "last_row_id": 0,
+      "changed_db": false,
+      "size_after": 22007808,
+      "rows_read": 0,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  },
+  {
+    "results": [
+      {
+        "history_rows": 0
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "IAD",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.1493
+      },
+      "duration": 0.1493,
+      "changes": 0,
+      "last_row_id": 0,
+      "changed_db": false,
+      "size_after": 22007808,
+      "rows_read": 0,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]

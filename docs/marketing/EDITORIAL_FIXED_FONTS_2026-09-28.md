@@ -1,0 +1,9 @@
+# Fixed-weight editorial fonts — September 28
+
+Local prototype change, not deployed. Inspection of bundled font tables showed JosefinSans variable axis default100 and Cormorant default300. Rendering fixed500/600 instances materially changed actual output: the kicker and serif headline are visibly heavier. This establishes an output difference, not a general claim about every renderer's variable-font support.
+
+Added reproducible prepare-editorial-fonts.py using existing bundled fontTools4.66.0. It creates renamed static families Anejo Editorial Sans/Serif from the existing sources; originals remain unchanged. Source/output hashes and exact weights are in assets/editorial-fonts.json. Copyright/license metadata is retained; the Josefin source [OFL notice](https://raw.githubusercontent.com/google/fonts/main/ofl/josefinsans/OFL.txt) is included alongside the existing Cormorant license. Derived names avoid reusing Josefin's reserved primary name. No package install or runtime download.
+
+Root verified18prototype tests, static font tables/weight/hash checks, identical rebuild hashes, and12successful local workerd renders. Visually inspected the Cajita preview; kicker legibility improved. Saved evidence and both output images are in evidence-2026-09-28/editorial-fixed-font-validation.json and *-fixed-font-preview.jpg. These are private review artifacts, not approved/published carousel replacements.
+
+Memory improvement was NOT established: max sampled usedSize130,098,468bytes; totalSize195,575,808 at final sample; GC timed out. Fields are not additive or all-inclusive peak isolate proof. No production-memory acceptance, CPU budget, browserpixelparity, EXIF/ICC normalization or durable-job acceptance follows. Next is allocation investigation and actual browser comparison, not automatic deployment of the prototype. Provider credentials and production access remain unchanged.

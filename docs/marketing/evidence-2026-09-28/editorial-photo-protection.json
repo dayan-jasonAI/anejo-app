@@ -1,0 +1,69 @@
+{
+  "files": {
+    "public/hub/owner/assets/marketing-branding.js": "f64bd112e53a5e5598737d51d94b4f0e75ec861ddecea399d47c7b850ab7146f",
+    "public/hub/owner/marketing.html": "130026261ef0544348ecdaeaf425795f94945d7e7c06c8eed3df5da5f05304b4",
+    "test/money/reposado-layout.test.js": "6e7a0a4dc80fe2985b1c37568846cec3a48e7ee0080e783f61c8270bfb621bd4",
+    "test/money/social-branding-carousel-ui.test.js": "2e0c4be6e342c86dd17060a05795b388cb3a1bdc388006f22388f95875be166a"
+  },
+  "scope": "Local geometry; no browser pixel or production acceptance",
+  "results": {
+    "full": {
+      "path": "/tmp/anejo-photo-protection-full.log",
+      "sha256": "88c7c0da74c01c014cf75ec4a9fff70379064332cb093b13ee03a6698852cf93",
+      "tail": [
+        "\u2714 a single deployment is judged against the trunk, with no revert check to make (0.090125ms)",
+        "\u2714 importing the module does not perform IO (0.0795ms)",
+        "\u2139 tests 3337",
+        "\u2139 suites 0",
+        "\u2139 pass 3337",
+        "\u2139 fail 0",
+        "\u2139 cancelled 0",
+        "\u2139 skipped 0",
+        "\u2139 todo 0",
+        "\u2139 duration_ms 36423.259792"
+      ]
+    },
+    "focused": {
+      "path": "/tmp/anejo-photo-protection-focused.log",
+      "sha256": "a7da805b9da513f5695346ac7bad6504d83f0e629a67812dd751eebe8cbca16c",
+      "tail": [
+        "\u2714 carousel generation reloads the post list on success so the new slides actually show (0.131709ms)",
+        "\u2714 the carousel tool and the branding tool are both actually invoked from wire() (0.121042ms)",
+        "\u2139 tests 32",
+        "\u2139 suites 0",
+        "\u2139 pass 32",
+        "\u2139 fail 0",
+        "\u2139 cancelled 0",
+        "\u2139 skipped 0",
+        "\u2139 todo 0",
+        "\u2139 duration_ms 54.699458"
+      ]
+    },
+    "lint": {
+      "path": "/tmp/anejo-photo-protection-lint.log",
+      "sha256": "40f294e1a7c1ca86feb545e96ad2cc4802df93187f1845e105ea871e77d386bd",
+      "tail": [
+        "/Users/aiagent/Dayan Workspace/Aether/anejo-app/test/money/catering-quote-lines.test.js",
+        "  273:34  warning  'init' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars",
+        "",
+        "/Users/aiagent/Dayan Workspace/Aether/anejo-app/test/money/sales-autonomy.test.js",
+        "  5:34  warning  'setting' is defined but never used. Allowed unused vars must match /^_/u   no-unused-vars",
+        "  5:43  warning  'reload' is defined but never used. Allowed unused vars must match /^_/u    no-unused-vars",
+        "  8:30  warning  'callCard' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars",
+        "",
+        "\u2716 11 problems (0 errors, 11 warnings)",
+        ""
+      ]
+    },
+    "build": {
+      "path": "/tmp/anejo-photo-protection-build.log",
+      "sha256": "d4171ec53779bf01b126d4271be097555ff14ecffe0fe3434e1002c191ca1333",
+      "tail": [
+        "",
+        " \u26c5\ufe0f wrangler 4.129.0 (update available 4.143.0)",
+        "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+        "\u2728 Compiled Worker successfully"
+      ]
+    }
+  }
+}

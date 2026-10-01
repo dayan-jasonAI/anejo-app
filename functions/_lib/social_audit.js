@@ -18,6 +18,26 @@ const versions = (table, where) => `(SELECT COALESCE(group_concat(item, ','), ''
 export const SOCIAL_AUDIT_CONTEXT = `json_array(${versions('docs', "active=1 AND doc_type='brand'")},${versions('training_rules','active=1')},${versions('training_examples','active=1')},${versions('menu_items','active=1')})`;
 export const SOCIAL_AUDIT_CURRENT = `(audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT} AND audit_context_snapshot=${SOCIAL_AUDIT_CONTEXT} AND json_valid(audit_detail_json) AND CASE WHEN json_valid(audit_detail_json) THEN json_extract(audit_detail_json,'$.rubric_version')='${VISUAL_AUDIT_VERSION}' ELSE 0 END)`;
 
+// Audit only bounded declarations relevant to review; never forward arbitrary R2
+// metadata (names, prompts, provider payloads or credentials). Absence is unknown.
+function libraryProvenance(metadata) {
+  const fields=['ai_enhanced','source_key','enhancement_method','provenance_basis'];
+  if (!metadata || !fields.some(field=>Object.hasOwn(metadata,field))) return null;
+  const result={evidence_tier:'stored_metadata_declaration',ai_enhanced:null,source_key:null,enhancement_method:null,provenance_basis:null,invalid_fields:[]};
+  for (const field of fields) {
+    if (!Object.hasOwn(metadata,field)) continue;
+    const value=metadata[field];
+    if (field==='ai_enhanced' && ['true','false'].includes(value)) result[field]=value==='true';
+    else if (field==='source_key' && typeof value==='string' && value.length<=300 && /^(studio|marketing-library)\/[A-Za-z0-9_/-]+\.(jpg|jpeg|png|webp)$/.test(value) && !value.includes('//')) result[field]=value;
+    else if (field==='enhancement_method' && ['photographic','format_conversion','editorial_overlay'].includes(value)) result[field]=value;
+    else if (field==='provenance_basis' && ['client_declared_format_conversion','client_declared_editorial_overlay'].includes(value)) result[field]=value;
+    else result.invalid_fields.push(field);
+  }
+  return result;
+}
+
+const sameProvenance=(a,b)=>JSON.stringify(a?.library_provenance ?? null)===JSON.stringify(b?.library_provenance ?? null);
+
 export async function loadAuditImages(env, mediaSnapshot) {
   if (!env.MEDIA) throw new Error('Media storage unavailable');
   const slides=JSON.parse('['+mediaSnapshot+']');
@@ -43,7 +63,7 @@ export async function loadAuditImages(env, mediaSnapshot) {
         }
       } catch { renderReceiptStatus='receipt_read_unavailable'; }
     }
-    images.push({key,data:btoa(binary),sourceReceipt:{media_id:mediaId,seq,key,sha256,byte_length:bytes.length,design_facts_version:DESIGN_FACTS_VERSION,design_facts:designFacts,render_receipt_status:renderReceiptStatus,unreviewed_render:unreviewedRender}});
+    images.push({key,data:btoa(binary),sourceReceipt:{media_id:mediaId,seq,key,sha256,byte_length:bytes.length,library_provenance:libraryProvenance(object.customMetadata),design_facts_version:DESIGN_FACTS_VERSION,design_facts:designFacts,render_receipt_status:renderReceiptStatus,unreviewed_render:unreviewedRender}});
   }
   return images;
 }
@@ -59,7 +79,7 @@ export async function verifyAuditImageReceipts(env, mediaSnapshot, auditDetail) 
       const expected=sources[index], actual=image.sourceReceipt;
       return expected?.slide===index+1 && expected.media_id===actual.media_id &&
         expected.seq===actual.seq && expected.key===actual.key && expected.sha256===actual.sha256 &&
-        expected.byte_length===actual.byte_length;
+        expected.byte_length===actual.byte_length && sameProvenance(expected,actual);
     });
   } catch { return false; }
 }
@@ -76,12 +96,15 @@ export async function auditSavedDraft(env, postId, expectedCaption, judge = audi
   try { images=await loadAuditImages(env,row.media_snapshot); } catch(error) { mediaError=error.message; }
   const audit = mediaError ? {brand_score:0,verdict:'flag',flags:[{type:'audit_unavailable',detail:'Finished-image audit unavailable: '+mediaError}]} : await judge(env, { caption:row.caption, image_brief:row.image_brief, images });
   // R2 keys can be overwritten without changing the SQL snapshot. Refuse to save a
-  // provider result against bytes that changed while it was judging the earlier image.
+  // provider result against bytes or relevant declarations changed during judgment.
   if (!mediaError) {
     try {
       const latest = await loadAuditImages(env,row.media_snapshot);
       if (latest.some((image,index)=>image.sourceReceipt.sha256!==images[index].sourceReceipt.sha256)) {
         return {ok:false,status:409,error:'Saved image bytes changed during the audit. Review and audit again.'};
+      }
+      if (latest.some((image,index)=>!sameProvenance(image.sourceReceipt,images[index].sourceReceipt))) {
+        return {ok:false,status:409,error:'Saved image provenance changed during the audit. Review and audit again.'};
       }
     } catch {
       return {ok:false,status:409,error:'Saved image bytes could not be reverified after the audit. Review and audit again.'};

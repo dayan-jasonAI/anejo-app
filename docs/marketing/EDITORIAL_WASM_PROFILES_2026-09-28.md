@@ -1,0 +1,9 @@
+# Experimental editorial WASM profiles — September 28
+
+Implemented locally, not imported into application or deployed. New adapter uses the shared wide/Cajita profile geometry, full source containment, sampled edge extension, measured Cormorant/Josefin text fitting, background-selected brand ink and the real emblem alpha tinted to that ink. No fixed footer scrim. Unsupported profiles, impossible text fits and declared food collisions reject explicitly. No AI/provider calls.
+
+Root independently ran17prototype tests and12sequential maximum-dimension workerd renders successfully. Tests decode actual JPEGs, verify deterministic rendering, measured bounds, dark/light ink selection, unchanged pre-JPEG photo pixels outside overlays and retained emblem transparency. Workerd tests repeat four fixtures three times; they do not establish all-inclusive peak memory or deployed CPU. Raw evidence: evidence-2026-09-28/editorial-wasm-profile-validation.json.
+
+Root visually inspected initial and larger-kicker previews. Headline and emblem use the intended layout and no footer band; kicker remains visually thin and must not be called approved. Experimental minimum14px kicker is an intentional difference from current Canvas sizing. Glyph-outline baseline, absent Canvas halo, resvg edge sampling/rasterization, font-axis/glyph coverage and EXIF/ICC behavior remain explicit differences. The website source is a theme asset, not proven documentary photography. No existing carousel was replaced.
+
+Runtime samples increased materially from the fixed-footer profile; garbage collection timed out again. Inspector fields are not additive and not verified peak/all-inclusive isolate memory. Production resource acceptance remains unresolved. Next: tighten font rendering and reduce/measure retained allocations, then compare actual browser and WASM output before any job integration. No publication, automatic approval, provider spend or production changes were enabled.

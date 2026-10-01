@@ -1,0 +1,204 @@
+{
+  "observed": "Supported Chrome UI reported Both Canvas outputs rendered and saved locally.",
+  "source_hashes": {
+    "marketing-branding.js": "01661b0460af91fa585d92675f1f5dfc711933fb334bec3a077c9e9074799172",
+    "marketing-editorial-plan.js": "4f6f697ce1f96ddd99d829e855c6e40ccaad6d9a3fa6fbb2202ca7c32a20fcb1",
+    "source.jpg": "76378e4988c845271737f0a50bde1efeaca92f536359962f7c6508e86107ccd2",
+    "assets/img/emblem.png": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+    "serif.ttf": "b20b7d9626dd956b2c5e558692ad328b1f19e3275e2782db4fa07670d83f35e0",
+    "sans.ttf": "9255abdb5f393bc51e101abbd07a716a977fd3e15472b1b84b260f426a342bfd",
+    "wasm-cajita.jpg": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+    "wasm-wide.jpg": "f912eeaf0162f0c2a955a540cfdd1b134396230315e8c7fcd06c07892368bae4"
+  },
+  "browser_tab": "1238614284",
+  "url": "http://127.0.0.1:59118/",
+  "records": [
+    {
+      "template": "wide",
+      "canvas": {
+        "layout": {
+          "preset": "reposado",
+          "templateId": "reposado-wide",
+          "width": 1080,
+          "height": 810,
+          "sourceAspectPreserved": true,
+          "photo": {
+            "x": 0,
+            "y": 0,
+            "w": 1080,
+            "h": 810
+          },
+          "backgroundExtended": false,
+          "text": {
+            "x": 70.2,
+            "y": 660.15,
+            "w": 324,
+            "h": 97.2
+          },
+          "textInk": "#E8E2CA",
+          "estimatedTextContrast": 4.609102415605971,
+          "emblem": {
+            "x": 327.67539267015707,
+            "y": 761.4,
+            "w": 46.64921465968586,
+            "h": 44.55,
+            "ink": "#000000"
+          },
+          "protectedAreas": [],
+          "protectionSource": "visual_review_required",
+          "visualReviewRequired": true,
+          "renderDeclaration": {
+            "schema": 1,
+            "source": "browser_declared",
+            "supported": true,
+            "preset": "reposado",
+            "template_id": "reposado-wide",
+            "text_runs": [
+              {
+                "role": "kicker",
+                "text": "A\u00d1EJO CATERING",
+                "x": 70.2,
+                "y": 660.15,
+                "font_css": "500 11px \"Josefin Sans\", \"Helvetica Neue\", Arial, sans-serif",
+                "ink": "#E8E2CA",
+                "coordinate_space": "canvas",
+                "text_baseline": "top",
+                "text_align": "left"
+              },
+              {
+                "role": "headline",
+                "text": "Catering, beautifully.",
+                "x": 70.2,
+                "y": 680.87,
+                "font_css": "600 39px \"Cormorant Garamond\", Georgia, \"Times New Roman\", serif",
+                "ink": "#E8E2CA",
+                "coordinate_space": "canvas",
+                "text_baseline": "top",
+                "text_align": "left"
+              }
+            ],
+            "transform": {
+              "translate_x": 0,
+              "translate_y": 0,
+              "rotation_degrees": 0
+            },
+            "font_load": {
+              "status": "load_resolved",
+              "face_counts": [
+                1,
+                1
+              ],
+              "exact_glyph_face": "unverified"
+            },
+            "source_hash": "unavailable",
+            "output_hash": "unavailable",
+            "pixel_verification": "unverified"
+          }
+        },
+        "sha256": "1aeabdbf73ddef90aeef7fb7d55a1a1cabf39dac3301cb18cc17e21720cc36d1"
+      },
+      "wasm_geometry_matches": true,
+      "headline_ink_matches": true,
+      "known_differences": [
+        "Kicker scale",
+        "Glyph-outline versus Canvas top baseline",
+        "Canvas halo",
+        "Raster/encoding behavior"
+      ]
+    },
+    {
+      "template": "cajita",
+      "canvas": {
+        "layout": {
+          "preset": "reposado",
+          "templateId": "reposado-cajita",
+          "width": 1080,
+          "height": 810,
+          "sourceAspectPreserved": true,
+          "photo": {
+            "x": 0,
+            "y": 0,
+            "w": 1080,
+            "h": 810
+          },
+          "backgroundExtended": false,
+          "text": {
+            "x": 604.8000000000001,
+            "y": 162,
+            "w": 313.2,
+            "h": 186.3
+          },
+          "textInk": "#0A180C",
+          "estimatedTextContrast": 5.2930814308091625,
+          "emblem": {
+            "x": 345.6,
+            "y": 625.5225,
+            "w": 81,
+            "h": 77.355,
+            "ink": "#000000"
+          },
+          "protectedAreas": [],
+          "protectionSource": "visual_review_required",
+          "visualReviewRequired": true,
+          "renderDeclaration": {
+            "schema": 1,
+            "source": "browser_declared",
+            "supported": true,
+            "preset": "reposado",
+            "template_id": "reposado-cajita",
+            "text_runs": [
+              {
+                "role": "kicker",
+                "text": "A\u00d1EJO CATERING",
+                "x": 604.8000000000001,
+                "y": 162,
+                "font_css": "500 11px \"Josefin Sans\", \"Helvetica Neue\", Arial, sans-serif",
+                "ink": "#0A180C",
+                "coordinate_space": "canvas",
+                "text_baseline": "top",
+                "text_align": "left"
+              },
+              {
+                "role": "headline",
+                "text": "Your Cajita.",
+                "x": 604.8000000000001,
+                "y": 182.72,
+                "font_css": "600 52px \"Cormorant Garamond\", Georgia, \"Times New Roman\", serif",
+                "ink": "#0A180C",
+                "coordinate_space": "canvas",
+                "text_baseline": "top",
+                "text_align": "left"
+              }
+            ],
+            "transform": {
+              "translate_x": 0,
+              "translate_y": 0,
+              "rotation_degrees": 0
+            },
+            "font_load": {
+              "status": "load_resolved",
+              "face_counts": [
+                1,
+                1
+              ],
+              "exact_glyph_face": "unverified"
+            },
+            "source_hash": "unavailable",
+            "output_hash": "unavailable",
+            "pixel_verification": "unverified"
+          }
+        },
+        "sha256": "68ac91626cb89f4f85ca341bb1e1c607061137c626a9b0201a3c021099cfbd1e"
+      },
+      "wasm_geometry_matches": true,
+      "headline_ink_matches": true,
+      "known_differences": [
+        "Kicker scale",
+        "Glyph-outline versus Canvas top baseline",
+        "Canvas halo",
+        "Raster/encoding behavior"
+      ]
+    }
+  ],
+  "scope": "Two local source/template samples; not live Hub, not complete visual parity."
+}

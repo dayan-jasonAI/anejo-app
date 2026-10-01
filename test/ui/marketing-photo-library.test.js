@@ -76,3 +76,17 @@ test('one accessible button activates a hidden native photo chooser', () => {
   assert.match(code, /<input hidden id="photo-files"/);
   assert.match(code, /if \(!busy\) root.querySelector\('\[data-photo-files\]'\).click\(\)/);
 });
+
+test('both JPEG conversion helpers submit source identity and keep server provenance on selection', async()=>{
+ const picker=read('public/hub/owner/assets/marketing-photo-picker.js');
+ const helpers=[code.slice(code.indexOf('async function jpegCopy'),code.indexOf('async function choose')),picker.slice(picker.indexOf('async function jpeg(photo)'),picker.indexOf('  function open'))];
+ for(const helper of helpers){
+  const calls=[],source={media_key:'marketing-library/2026-09/ai_photo.png',content_type:'image/png',name:'Source.png',url:'/private-source',ai_enhanced:true};
+  const derivative={media_key:'marketing-library/2026-09/copy_photo.jpg',ai_enhanced:true,source_key:source.media_key,enhancement_method:'format_conversion'};
+  const submit=async(path,options)=>{calls.push({path,options});return{ok:true,photo:derivative};};
+  const scope={api:submit,request:submit,photos:[],drawGallery(){},lock(){},t:a=>a,tr:a=>a,document:{createElement:()=>({getContext:()=>({fillRect(){},drawImage(){}}),toDataURL:()=> 'data:image/jpeg;base64,/9j/test'})},Image:class{constructor(){this.naturalWidth=100;this.naturalHeight=80;}set src(_value){queueMicrotask(()=>this.onload());}}};
+  const convert=vm.runInNewContext('('+helper.trim()+')',scope),result=await convert(source);
+  assert.equal(result,derivative);assert.equal(calls.length,1);assert.equal(calls[0].path,'/api/hub/owner/marketing-library');assert.equal(calls[0].options.body.conversion.source_key,source.media_key);
+  assert.equal(Object.hasOwn(calls[0].options.body,'ai_enhanced'),false,'client cannot supply authoritative AI flag');assert.equal(source.media_key,'marketing-library/2026-09/ai_photo.png');
+ }
+});

@@ -69,3 +69,39 @@ Review of the token-only output found inadequate caption contrast where the head
 Six prototype tests pass. A raster regression compares the same fixture with/without the scrim: every pre-JPEG pixel above y=700 matches, while background-only samples beneath the original caption on linen improve from below 4.5:1 to at least 4.5:1 against the parchment ink, with more than double the prior minimum sampled ratio. This checks a specific background region before JPEG encoding, not every glyph, final-image accessibility or arbitrary-photo safety. The actual JPEG was also visually inspected locally; owner review remains required.
 
 Current review artifacts: `/tmp/anejo-render-caption-scrim-3ARfNU/prototype-caption-scrim.jpg`, `template.svg` and `evidence.json`. The final resource harness run is `/tmp/anejo-render-resource-check-dfEJLf/measurements.json`: ten sequential local workerd HTTP 200 responses with identical SHA256 `d3f0985b13353d9574d4e7a9d932c8cf3f102cfec7eaaf119ee3bed149c2d1eb`, local wall time 199–322 ms. Largest observed post-request `usedSize` was 79,082,216 bytes; this is an inspector sample, not peak/all-inclusive isolate memory. Both GC attempts timed out. No production CPU/memory readiness, leak conclusion or deployed behavior is established. Full Canvas parity, protected-food validation, arbitrary wording fit, provenance and publication approval remain unresolved.
+
+## Measured headline rejection (local prototype, 2026-09-27)
+
+`headlineBounds()` now measures the escaped headline with the pinned Cormorant font and resvg runtime before rendering the image composition. The fixed accepted text box is x=100–1037, y=710–780. Empty/unmeasurable text and measured bounds outside that box are rejected; the renderer does not shrink, wrap, crop or rewrite wording to force a pass. This closes a concrete gap: forty `W` characters passed the old character cap but reach the frame edge. Forty narrow `i` characters and the tested accented Spanish headings fit. The public render entry point invokes this guard and returns measured bounds as `headline` for inspection; temporary WASM measurement objects are freed even on rejection.
+
+Validation: `node --test tools/marketing-render-prototype/test.mjs` — 8 tests passed locally, including oversized wording rejection, empty text rejection, Spanish examples, and successful rendering after a rejected attempt. Existing deterministic JPEG, source-content, PNG, token and scrim regressions pass. No image provider call, new package, deployment, production import, or customer-photo edit was made.
+
+Limits: this is fixed-template glyph-bounds screening, not full browser typography parity, missing-glyph/font-coverage proof, food/packaging clearance, or arbitrary-photo approval. The added text-only WASM preflight has not been profiled against production CPU/memory budgets. Earlier resource numbers precede this guard. Production cold starts, peak isolate memory, concurrency, source provenance, EXIF/ICC handling, durable jobs and publication approval remain separate unresolved requirements.
+
+## September27 protected-region guard (local only)
+
+`render` accepts optional `protectedRegions` source-normalized `{x,y,w,h}` rectangles (maximum20). It validates finite coordinates and bounds, projects through the fixed contain scale/letterbox offsets and rejects intersections with measured headline, emblem or caption scrim before compositing. Geometry never certifies that an annotation covers all food or packaging. Missing/empty annotations report `protectionSource: visual_review_required`; even provided annotations retain `visualReviewRequired: true`. No photo detection, automatic approval, source-hash binding or production job integration is added.
+
+Root reviewed and executed `npm --prefix tools/marketing-render-prototype test`:12passed,0failed (`/tmp/anejo-prototype-protection-root.log`). Tests include both aspect directions, malformed metadata, all-photo rejection, scrim-only intersections and identical JPEG bytes with safe declarations. Existing palette/scrim/glyph safeguards supersede the older September17 gaps for this fixed local template. General Canvas parity, actual isolate limits, input normalization and durable jobs remain open.
+
+## Maximum-dimension workerd diagnostic (September 28)
+
+Run `node tools/marketing-render-prototype/resource-profile.cjs --max-input` from the repository root. This extends the same loopback harness with generated diagnostic JPEGs at 2000×2000, 4096×976 and 976×4096. It alternates those and the existing fixture through one isolate, three times per fixture. Each fixture must return identical JPEG bytes on every repeat. Generation happens outside workerd; render/decoding happens inside. No customer photos are modified and no production runtime is provisioned.
+
+Root run completed 12 HTTP200 JPEG responses with stable per-fixture hashes; all12 prototype tests passed. Saved evidence: `docs/marketing/evidence-2026-09-28/render-max-input-profile.json`. Final inspector usedSize63,934,044, totalSize114,130,944, backingStorageSize8,626,544 bytes. These fields are **not additive, peak or all-inclusive isolate memory**. Garbage collection timed out; retained-memory claims remain unverified. This closes the missing local maximum-dimension workerd exercise only. It does not cover maximum compressed bytes, malformed payload fuzzing, concurrency, production CPU/memory, visual parity, normalization or durable jobs. No application integration or automatic publication is enabled.
+
+## Experimental editorial profile adapter
+
+`node tools/marketing-render-prototype/preview-editorial.mjs` creates private temporary previews for wide/Cajita profiles. `node tools/marketing-render-prototype/resource-profile.cjs --editorial-profiles --max-input` exercises the new adapter in local workerd. `npm test` includes both fixed and editorial tests. See docs/marketing/EDITORIAL_WASM_PROFILES_2026-09-28.md for root visual findings and resource limitations. This is not the application renderer or approved visual parity.
+
+### Fixed editorial font instances
+
+Editorial adapter fixtures now use static500/600 instances generated by prepare-editorial-fonts.py from existing variable sources, renamed Anejo Editorial Sans/Serif. Original fixed-footer fixture is unchanged. Build requires fontTools4.66.0 already available in the workspace runtime; no runtime font generation. Source/output hashes and licenses live in assets.18tests pass; visual evidence/limitations: docs/marketing/EDITORIAL_FIXED_FONTS_2026-09-28.md. This improves observed weight but does not prove browser parity or production memory safety.
+
+### Pixel lifetime optimization
+
+Editorial adapter now samples/encodes inside synchronous raster consumers, releasing renderers before retaining subsequent large buffers.18tests pass;12workerd and2preview hashes unchanged. Observed sampled heap decreased in one local comparison; no production safety claim. Evidence: docs/marketing/EDITORIAL_RASTER_LIFETIME_2026-09-28.md.
+
+### JPEG orientation
+
+Editorial adapter applies bounded JPEG EXIF orientations1–8before layout. Original bytes preserved; protectedRegions refer to upright/display-oriented source.28tests pass;12upright workerd hashes unchanged. PNG EXIF/ICC remain unsupported; fixed-footer path unchanged. See docs/marketing/EDITORIAL_EXIF_ORIENTATION_2026-09-28.md.

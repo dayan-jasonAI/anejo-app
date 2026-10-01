@@ -1,0 +1,21 @@
+{
+  "fontTools": "4.66.0",
+  "fonts": [
+    {
+      "source": "tools/cardgen/fonts/CormorantGaramond.ttf",
+      "source_sha256": "b20b7d9626dd956b2c5e558692ad328b1f19e3275e2782db4fa07670d83f35e0",
+      "output": "AnejoEditorialSerif-SemiBold.ttf",
+      "sha256": "bb60d386afdbf03f67ee68117776d9bfaba0d08d50899909e02b023fcb5f5a17",
+      "family": "Anejo Editorial Serif",
+      "weight": 600
+    },
+    {
+      "source": "tools/cardgen/fonts/JosefinSans.ttf",
+      "source_sha256": "9255abdb5f393bc51e101abbd07a716a977fd3e15472b1b84b260f426a342bfd",
+      "output": "AnejoEditorialSans-Medium.ttf",
+      "sha256": "19a231f3f7ebf25c1fa5afc3619002fd55e12a30c83c7974a75b973d4b1b7a5f",
+      "family": "Anejo Editorial Sans",
+      "weight": 500
+    }
+  ]
+}

@@ -60,6 +60,7 @@
 
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/kitchen/kitchen.js"></script>
+<script src="/hub/kitchen/catering-driver-assignment.js"></script>
 <script>
 (function () {
   'use strict';
@@ -137,6 +138,7 @@
       + '<span>' + esc(T.balance) + '<b>' + esc(money(e.balance_cents)) + ' ' + esc(e.balance_status === 'paid' ? T.paid : T.due) + '</b></span>'
       + '<span>' + esc(T.total) + '<b>' + esc(money(e.total_cents)) + '</b></span></div></div>';
 
+    html += '<div id="driver-assignment-panel" class="sect" hidden></div>';
     html += '<div id="execution-panel" class="sect" aria-live="polite">' + esc(lang === 'es' ? 'Cargando progreso del evento…' : 'Loading event progress…') + '</div>';
     html += d.gaps.map(function (g) { return '<div class="gap">' + esc(g) + '</div>'; }).join('');
     html += briefHtml(d) + detailsHtml(e) + timelineHtml(d) + productionHtml(d)
@@ -268,7 +270,7 @@
   "Arrived": "Llegó",
   "Completed": "Completado",
   "Event progress": "Progreso del evento",
-  "Owner delivery or customer pickup. This flow records progress; it does not notify customers or dispatch drivers.": "Entrega del propietario o recogida del cliente. Este proceso registra el progreso; no notifica a clientes ni asigna conductores.",
+  "Owner delivery, staff driver or customer pickup. This flow records progress; no notifications are sent.": "Entrega del propietario, chofer del equipo o recogida del cliente. Este proceso registra el progreso; no se envían avisos.",
   "Reload progress": "Recargar progreso",
   "Owner delivery": "Entrega del propietario",
   "Customer pickup": "Recogida del cliente",
@@ -283,6 +285,8 @@
   "Travel minutes (0 for pickup)": "Minutos de viaje (0 para recogida)",
   "Setup minutes": "Minutos de montaje",
   "I confirmed food handling for every dish and these travel/setup times.": "Confirmé el manejo de cada plato y estos tiempos de viaje y montaje.",
+  "Browser storage is unavailable. No change was sent. Enable storage before continuing.": "El almacenamiento del navegador no está disponible. No se envió ningún cambio. Habilítalo antes de continuar.",
+  "Staff driver": "Chofer del equipo",
   "Confirm execution plan": "Confirmar plan de ejecución",
   "Food, quantities and all packaging are checked and ready.": "Los alimentos, las cantidades y todos los empaques están revisados y listos.",
   "Start preparation": "Iniciar preparación",
@@ -333,12 +337,12 @@
     var el = document.getElementById('execution-panel');
     if (!el) return;
     var d = executionData, e = d && d.execution;
-    var html = '<h3>' + esc(executionLabel("Event progress")) + '</h3><p class="row-sub">' + esc(executionLabel("Owner delivery or customer pickup. This flow records progress; it does not notify customers or dispatch drivers.")) + '</p>';
+    var html = '<h3>' + esc(executionLabel("Event progress")) + '</h3><p class="row-sub">' + esc(executionLabel("Owner delivery, staff driver or customer pickup. This flow records progress; no notifications are sent.")) + '</p>';
     if (executionMessage) html += '<p role="status" class="gap">' + esc(executionMessage) + '</p>';
     if (!e) {
       el.innerHTML = html + '<button type="button" class="btn" id="execution-refresh">' + esc(executionLabel("Reload progress")) + '</button>';
     } else {
-      html += '<p><b>' + esc(executionText(e.status)) + '</b> · ' + esc(e.delivery_mode === 'owner_self' ? executionLabel("Owner delivery") : e.delivery_mode === 'pickup' ? executionLabel("Customer pickup") : executionLabel("Choose fulfillment below")) + '</p>';
+      html += '<p><b>' + esc(executionText(e.status)) + '</b> · ' + esc(e.delivery_mode === 'owner_self' ? executionLabel("Owner delivery") : e.delivery_mode === 'pickup' ? executionLabel("Customer pickup") : e.delivery_mode === 'staff_driver' ? executionLabel("Staff driver") : executionLabel("Choose fulfillment below")) + '</p>';
       html += (d.blockers || []).map(function (x) { return '<p class="gap">' + esc(executionLabel(x)) + '</p>'; }).join('');
       if (!d.can_write) html += '<p class="row-sub">' + esc(executionLabel("View only. An owner records fulfillment progress.")) + '</p>';
       if (d.read_only) html += '<p class="row-sub">' + esc(executionLabel("Execution is read only until the conditions above are resolved. Past events remain archived.")) + '</p>';
@@ -347,7 +351,7 @@
         if (d.can_write) html += '<button type="button" class="btn" id="execution-retry"' + (executionBusy ? ' disabled' : '') + '>' + esc(executionLabel("Resolve previous save")) + '</button><a class="btn ghost" href="/hub/">' + esc(executionLabel("Open Hub sign-in")) + '</a>';
       } else if (d.can_write && !d.read_only) {
         if (d.can_reopen) html += '<form id="execution-reopen" class="fields" style="margin:12px 0"><p class="gap">' + esc(executionLabel('Returns to preparation. Confirm handling and packing again; no notifications are sent.')) + '</p><label for="execution-reason">' + esc(executionLabel('Reason for reopening')) + '</label><textarea id="execution-reason" required maxlength="1000" rows="2"></textarea><button class="btn ghost" type="submit">' + esc(executionLabel('Reopen preparation')) + '</button></form>';
-        if (d.configurable) html += '<form id="execution-config" class="fields"><label for="execution-mode">' + esc(executionLabel("Fulfillment")) + '</label><select id="execution-mode"><option value="owner_self"' + (e.delivery_mode === 'owner_self' ? ' selected' : '') + '>' + esc(executionLabel("I am delivering")) + '</option><option value="pickup"' + (e.delivery_mode === 'pickup' ? ' selected' : '') + '>' + esc(executionLabel("Customer pickup")) + '</option></select>'
+        if (d.configurable) html += '<form id="execution-config" class="fields"><label for="execution-mode">' + esc(executionLabel("Fulfillment")) + '</label><select id="execution-mode"><option value="owner_self"' + (e.delivery_mode === 'owner_self' ? ' selected' : '') + '>' + esc(executionLabel("I am delivering")) + '</option><option value="pickup"' + (e.delivery_mode === 'pickup' ? ' selected' : '') + '>' + esc(executionLabel("Customer pickup")) + '</option><option value="staff_driver"' + (e.delivery_mode === 'staff_driver' ? ' selected' : '') + '>' + esc(executionLabel('Staff driver')) + '</option></select>'
           + '<label for="execution-travel">' + esc(executionLabel("Travel minutes (0 for pickup)")) + '</label><input required id="execution-travel" type="number" min="0" max="720" step="1" value="' + esc(e.travel_minutes == null ? '' : e.travel_minutes) + '">'
           + '<label for="execution-setup">' + esc(executionLabel("Setup minutes")) + '</label><input required id="execution-setup" type="number" min="0" max="720" step="1" value="' + esc(e.setup_minutes == null ? '' : e.setup_minutes) + '">'
           + '<label><input required id="execution-handling" type="checkbox" style="width:auto">' + esc(executionLabel("I confirmed food handling for every dish and these travel/setup times.")) + '</label><button class="btn" type="submit">' + esc(executionLabel("Confirm execution plan")) + '</button></form>';
@@ -388,20 +392,21 @@
     });
   }
   function storeExecutionPending() {
-    try { if (executionPending) sessionStorage.setItem(executionStorageKey, JSON.stringify(executionPending)); else sessionStorage.removeItem(executionStorageKey); } catch (ignore) {}
+    try { if (executionPending) sessionStorage.setItem(executionStorageKey, JSON.stringify(executionPending)); else sessionStorage.removeItem(executionStorageKey); return true; } catch (ignore) { return false; }
   }
   function loadExecution() {
     return K.get('/api/hub/kitchen/event-execution?id=' + encodeURIComponent(quoteId)).then(function (d) {
       if (!d || !d.ok || !d.execution) throw new Error('unavailable');
       executionData = d; executionMessage = ''; renderExecution();
-    }).catch(function () { executionData = null; executionMessage = executionLabel("Could not verify saved event progress. Reload to try again."); renderExecution(); });
+      return window.CateringAssignment.load(quoteId, d.can_write, loadExecution);
+    }).catch(function () { window.CateringAssignment.load(quoteId, false); executionData = null; executionMessage = executionLabel("Could not verify saved event progress. Reload to try again."); renderExecution(); });
   }
   function saveExecution(action) {
     if (executionBusy || !executionData || !executionData.can_write) return Promise.resolve();
     if (!executionPending) {
       if (!action || executionData.read_only) return Promise.resolve();
       executionPending = Object.assign({}, action, { quote_id:quoteId, expected_version:executionData.execution.version, idempotency_key:crypto.randomUUID() });
-      storeExecutionPending();
+      if (!storeExecutionPending()) { executionPending = null; executionMessage = executionLabel("Browser storage is unavailable. No change was sent. Enable storage before continuing."); renderExecution(); return Promise.resolve(); }
     }
     executionBusy = true; executionMessage = executionLabel("Saving\u2026"); renderExecution();
     var savedOperation = executionPending.op;
@@ -412,11 +417,11 @@
           if (!updatedPlan || !updatedPlan.ok || !updatedPlan.event) throw new Error('plan unavailable');
           render(updatedPlan, true);
         }).catch(function () { executionMessage = executionLabel("Progress saved, but the planning timeline could not refresh. Reload this page before relying on its times."); });
-      } else if (r && r.ok === false && r.status >= 400 && r.status < 500) {
+      } else if (r && r.ok === false && (r.status || r._status) >= 400 && (r.status || r._status) < 500) {
         executionPending = null; storeExecutionPending(); executionMessage = executionLabel(r.error) || executionLabel("Save rejected. Refresh progress before continuing.");
       } else { executionMessage = executionLabel("Save outcome is unconfirmed. Resolve the previous save before continuing."); }
     }).catch(function () { executionMessage = executionLabel("Connection interrupted. Save outcome is unconfirmed; retry the same request."); })
-      .finally(function () { executionBusy = false; renderExecution(); });
+      .finally(function () { executionBusy = false; renderExecution(); window.CateringAssignment.load(quoteId, !!(executionData && executionData.can_write), loadExecution); });
   }
 
   // ---- wiring ---------------------------------------------------------------------------------

@@ -1,0 +1,7 @@
+# JPEG phone-photo orientation — September 28
+
+Local editorial correction, not deployed. Initial actual resvg diagnostic produced identical pixels for EXIF1and6, demonstrating ignored metadata for that fixture. Adapter now reads bounded JPEG APP1/IFD0orientation and applies mirror/rotation before layout, background sampling and protection checks. Original JPEG bytes remain unchanged; no intermediate lossy re-encoding. Raw/displayed dimensions and orientation are recorded. Protection rectangles refer to the upright/display-oriented source.
+
+Root verification:28prototype tests passed. Actual raster tests compare distinct corner colors for all8orientations; editorial orientation6test checks swapped dimensions/contain offsets. Parser tests cover both byte orders, malformed/truncated/type/count/duplicate/bounds. Final12upright workerd outputs match prior hashes. Intermediate generic transform changed extreme-aspect upright outputs; orientation1now retains the original direct image path. Evidence: evidence-2026-09-28/editorial-exif-validation.json.
+
+No application route, library original, live carousel, credential, provider cost or public action changed. PNG EXIF, ICC conversion, browserparity, production resource proof and durable jobs remain open. Fixed-footer renderer is unchanged and still requires normalized sources. Parser interprets IFD0orientation only, not allEXIFmetadata. Workerd stress uses upright fixtures; all8orientationpixeltests use localNodeWASM. Next: image-color handling and shared visual acceptance before unattended integration.

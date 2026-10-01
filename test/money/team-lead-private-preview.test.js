@@ -24,7 +24,8 @@ test('private preview uses existing exact receipt and returns proposal without a
  assert.equal(receipt.request_json,f.sent());assert.equal(r.inference_receipt.persisted,true);
  assert.match(JSON.parse(f.sent()).system,/EXACT MENU SNAPSHOT/);
  assert.deepEqual(JSON.parse(receipt.components_json).menu.source_ids,r.input_context.supplied_product_ids);
- assert.equal(r.input_context.coverage.intel.read_status,'not_supplied');
+ assert.equal(r.input_context.coverage.intel.read_status,'empty');
+ assert.deepEqual(r.input_context.supplied_intel_ids,[]);
 });
 test('contract rejects guessed IDs, privileged extra fields and malformed arrays',()=>{
  assert.equal(validateCampaignProposal(proposal(),[]),true);

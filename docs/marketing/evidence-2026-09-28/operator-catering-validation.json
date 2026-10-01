@@ -1,0 +1,31 @@
+{
+  "observed_at": "2026-09-28T16:56:59.149157+00:00",
+  "scope": "local source validation, not deployment or microphone acceptance",
+  "tests": {
+    "command": "npm test",
+    "passed": 3322,
+    "failed": 0,
+    "log": "/tmp/anejo-operator-catering-final.log"
+  },
+  "lint": {
+    "command": "npm run lint",
+    "errors": 0,
+    "existing_warnings": 11,
+    "log": "/tmp/anejo-operator-catering-lint.log"
+  },
+  "build": {
+    "command": "npx wrangler pages functions build --outdir /tmp/anejo-operator-catering-build",
+    "result": "Compiled Worker successfully",
+    "log": "/tmp/anejo-operator-catering-build.log"
+  },
+  "sha256": {
+    "functions/_lib/operator_catering.js": "5c2c01709638733db5fcaa63ddbd612ef27aace338f0b2e7fe2e575b522463a1",
+    "functions/_lib/operator_commands.js": "13cf2e5032c6fab0026e1f2566d27dcf5af4003b7b1afc772c9f04152d84ba8f",
+    "functions/api/hub/owner/operator.js": "645cb72ad2cf350139a4cdf38537861264cde58806647f2ac8d299eb6152959d",
+    "public/hub/owner/assets/operator.js": "3eccd0757ef3d0c79afbcc54a9570e4f5ebfd42f0b7cbfd6ce2397a8d8fb1044",
+    "test/money/operator-catering.test.js": "ca4d0578761b1e4d608b89c554bdc1725bc872a7d94e8433015d0d00c0c017fd",
+    "test/money/operator-catering-api.test.js": "6b53aec697db38f9f0c52eb9582eccd57c6158e3909c80085f0722e17dc38471",
+    "test/ui/operator-catering.test.js": "e2e9368263fff49979bfd577c5fa2fbd8862db5169ad00f2a981339060e463ca",
+    "test/money/event-production.test.js": "309aa0b287d32333213d340e1f45e00babf3647872def3c145f79d2880034b88"
+  }
+}
