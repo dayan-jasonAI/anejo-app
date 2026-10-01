@@ -2,6 +2,7 @@
 // Verifies the HMAC-SHA256 signature, syncs subscription status, and — on each paid
 // subscription invoice — writes the trainer's 10% rev-share ledger row (idempotent).
 // Set SQUARE_WEBHOOK_KEY (Pages secret) + register this URL in the Square dashboard.
+import { square } from '../../_lib/square.js';
 import { now, ctEq } from '../../_lib/util.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
 import { notifyClientById, notifyPointsEarned } from '../../_lib/notify.js';
@@ -124,6 +125,31 @@ export const onRequestPost = async ({ request, env }) => {
       const pay = obj.payment || {};
       // Authorization can still be canceled. Release food and award benefits only on capture.
       if (pay.order_id && pay.status === 'COMPLETED') {
+        // Corporate lunches require the full order paid before releasing food or benefits.
+        // Square Payment.amount_money excludes tips; Order.total_money includes them.
+        // https://developer.squareup.com/reference/square/objects/payment
+        // https://developer.squareup.com/reference/square/objects/Order
+        let corporateOrder;
+        try {
+          const stored=await env.DB.prepare('SELECT items FROM orders WHERE square_order_id=? LIMIT 1').bind(pay.order_id).first();
+          const items=stored?.items?JSON.parse(stored.items):[];
+          corporateOrder=Array.isArray(items)&&items.some(item=>item.corporate_lunch===true);
+        } catch { return new Response('Order payment verification temporarily unavailable',{status:503}); }
+        if(corporateOrder){
+          if(!env.SQUARE_ACCESS_TOKEN)return new Response('Corporate payment verification unavailable',{status:503});
+          let verified;
+          try {verified=await square(env,'/v2/orders/'+encodeURIComponent(pay.order_id));}
+          catch {return new Response('Corporate payment verification unavailable',{status:503});}
+          const order=verified.data?.order;
+          if(!verified.ok||!order||order.id!==pay.order_id)return new Response('Corporate payment verification unavailable',{status:503});
+          const due=order.net_amount_due_money,total=order.total_money,tip=order.total_tip_money;
+          if(!due||!total||!Number.isSafeInteger(due.amount)||!Number.isSafeInteger(total.amount)||tip&&(!Number.isSafeInteger(tip.amount)||tip.amount<0))return new Response('Corporate payment details incomplete',{status:503});
+          const principal=total.amount-(tip?.amount||0);
+          // A captured full payment can precede the Order read model catching up. Retry it.
+          if(due.currency==='USD'&&total.currency==='USD'&&pay.amount_money?.currency==='USD'&&Number.isSafeInteger(pay.amount_money?.amount)&&principal>0&&pay.amount_money.amount>=principal&&due.amount>0)return new Response('Corporate order payment reconciliation pending',{status:503});
+          if(due.currency!=='USD'||total.currency!=='USD'||tip&&tip.currency!=='USD'||pay.amount_money?.currency!=='USD'||!Number.isSafeInteger(pay.amount_money?.amount)||principal<=0||due.amount!==0||pay.amount_money.amount<principal||order.state==='CANCELED')return ok('corporate full payment not verified');
+        }
+
         const tipCents = (pay.tip_money && Number(pay.tip_money.amount)) || 0;
         // Cancelling an order in the HUB does NOT kill the Square payment link, so a customer can
         // still pay one the owner already cancelled. Guarding only on 'pending' meant that money
