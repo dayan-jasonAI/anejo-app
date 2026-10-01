@@ -11,3 +11,5 @@ Payment scope: earlier live acceptance in LUNCH_PREMIUM_RELEASE_2026-10-01.md re
 Release: PR177 https://github.com/dayan-jasonAI/anejo-app/pull/177. Production verification appended after release.
 
 Remaining unrelated configuration: distance bands, fees, maximum radius and delivery pricing reference city/ZIP still require Dayan's factual input. No pricing assumption introduced.
+
+Production evidence: PR177 merged at 2026-10-01T05:21:15Z, merge873cb13d3935d7adb412e06a29b704090efe9189. Cloudflare Production deployment ed126c7a-bfac-4af8-90b6-80e8136ac194, source873cb13. Supported live browser confirmed the ordinary homepage URL renders the gold glowing CTA below Cajita, Spanish text, and clicking navigates to /order?category=daily. Screenshot docs/evidence/home-lunch-cta-2026-10-01/live-home.jpg. No purchase made.
