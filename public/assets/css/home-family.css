@@ -147,3 +147,13 @@
   .ahero-slide,.ahero-slide img,.ahero-slide.is-active img,.cajita-show-frame img,.cajita-promo-card,.chip-link,.cajita-themes button{transition:none}
   .ahero-slide.is-active img{transform:none}
 }
+
+/* Daily lunch lives directly below the Cajita invitation, with a quiet gold halo. */
+.ahero-featured-actions{display:flex;flex-direction:column;align-items:stretch;gap:12px;width:min(360px,100%)}
+.ahero-featured-actions .btn{width:100%;box-sizing:border-box}
+.ahero-cta .ahero-lunch{position:relative;background:linear-gradient(115deg,#ead397,#c6a85b);color:#132d22;border:1px solid #f8e5b0;border-radius:6px;min-height:56px;padding:12px 20px;font-weight:700;font-size:14px;letter-spacing:1px;box-shadow:0 0 0 3px rgba(198,168,91,.16),0 0 24px rgba(198,168,91,.4);transition:transform .2s,box-shadow .2s}
+.ahero-lunch::before{content:'';position:absolute;inset:-4px;border:1px solid rgba(248,229,176,.6);border-radius:9px;pointer-events:none}
+.ahero-cta .ahero-lunch:hover{transform:translateY(-2px);box-shadow:0 0 0 3px rgba(198,168,91,.24),0 0 32px rgba(198,168,91,.55)}
+.ahero-lunch:focus-visible{outline:3px solid #f5f2ec;outline-offset:7px}
+@media(min-width:900px){.ahero-cta{align-items:flex-start}.ahero-featured-actions{width:auto;min-width:300px}.ahero-featured-actions .btn{width:100%}.ahero-cta>.ahero-link{min-height:52px}}
+@media(prefers-reduced-motion:reduce){.ahero-cta .ahero-lunch{transition:none}.ahero-cta .ahero-lunch:hover{transform:none}}
