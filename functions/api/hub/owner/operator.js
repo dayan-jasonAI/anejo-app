@@ -1,3 +1,4 @@
+import {readCateringStatus,summarizeCateringStatus} from '../../../_lib/operator_catering.js';
 import { loadAnaHeartbeat, anaHeartbeatText } from '../../../_lib/ana_heartbeat.js';
 // POST /api/hub/owner/operator — the Añejo Voice Operator.
 //
@@ -95,7 +96,7 @@ export async function buildContext(env, at = Date.now()) {
 export function operatorCapabilities() {
   return {
     mode: 'read_only', mutations: false,
-    deterministic_commands: ['capabilities', 'marketing status', 'open photos', 'open create & schedule', 'show drafts', 'show audit status', 'draft campaign brief: topic', 'show saved campaign ideas'],
+    deterministic_commands: ['capabilities', 'marketing status', 'open photos', 'open create & schedule', 'show drafts', 'show audit status', 'catering status', 'draft campaign brief: topic', 'show saved campaign ideas'],
     model_questions: ['orders', 'deliveries', 'rewards'],
     unavailable_actions: ['publish posts', 'send customer replies', 'change orders', 'refunds', 'Google review replies'],
   };
@@ -175,12 +176,18 @@ export const onRequestPost = async ({ request, env }) => {
         ? `Saved audit status observed at ${privateReply.audit.observed_at}, latest 60 posts only. A current pass is not permission to publish.`
         : 'Saved audit evidence is unavailable. No audit was run.';
     }
+    if (intent.kind === 'catering_status') {
+      privateReply.catering = await readCateringStatus(env);
+      const s=privateReply.catering;
+      privateReply.receipt.observed_at=s.observed_at;
+      privateReply.reply=summarizeCateringStatus(s,intent.language);
+    }
     return json(privateReply, privateReply.ok ? 200 : 400);
   }
 
   const command = message.toLowerCase().replace(/[?!.]+$/, '').trim();
   if (['help', 'capabilities', 'what can you do', 'qué puedes hacer', 'que puedes hacer'].includes(command)) {
-    return json({ ok: true, reply: 'I can report orders, deliveries, rewards and marketing queue status, offer private Photos/Create/drafts navigation, read saved audit status, and preview your campaign idea with an explicit private save button. Say “show saved campaign ideas” to read them later. Saved ideas contain your words only. From a saved idea, explicitly choose Generate proposed strategy to create or reload a private AI-generated proposal for review; it does not activate a campaign. I cannot publish, send replies, change orders or answer Google reviews. Those actions are not connected to this operator.', capabilities: operatorCapabilities(), receipt: { mode: 'deterministic', mutation: false } });
+    return json({ ok: true, reply: 'I can report saved catering progress for the next 14 Eastern dates, orders, deliveries, rewards and marketing queue status, offer private Photos/Create/drafts navigation, read saved audit status, and preview your campaign idea with an explicit private save button. Say “show saved campaign ideas” to read them later. Saved ideas contain your words only. From a saved idea, explicitly choose Generate proposed strategy to create or reload a private AI-generated proposal for review; it does not activate a campaign. I cannot publish, send replies, change orders or answer Google reviews. Those actions are not connected to this operator.', capabilities: operatorCapabilities(), receipt: { mode: 'deterministic', mutation: false } });
   }
   if (['marketing status', 'marketing team status', 'estado de marketing'].includes(command)) {
     const status = await marketingStatus(env);

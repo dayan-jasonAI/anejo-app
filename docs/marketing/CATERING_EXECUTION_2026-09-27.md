@@ -36,3 +36,27 @@ Staff-driver dispatch and customer notifications for catering are not implemente
 ## Final local review checkpoint
 
 September27,18:08UTC: recovery implemented with owner reason, atomic history, invalidated handling/packing and mandatory reconfiguration.13actual SQLite backend tests cover recovery and completion/archive locks;23UI tests include EN/ES, pending-save retention, planner refresh, and reason-required reopening. Single-digit serving time compatibility and pickup guidance corrected. Root inspected the final source and reran full tests/lint/build. No production execution/customer record has been changed.
+
+## Released increment
+
+PR152 head0e0aa689 passed all three release checks (Functions2m8s, Studio21s, Cloudflare preview success). Migration0137 applied through existing Wrangler OAuth; separate read confirmed both new tables and zero execution/history rows. Evidence: `evidence-2026-09-27/migration-0137-readback.json`.
+
+PR152 merged September27 at18:12:25UTC as65b0d0f8fab0e7c251cbf0c234098f4c1900dc0c. Authenticated Wrangler production inventory identifies deployment02968232-5a5b-4cc7-b9b9-03d80b76eebf for source65b0d0f; Cloudflare check for that exact commit is completed/success. This establishes deployed revision, not authenticated behavior. Main Functions CI still in progress at this observation.
+
+Final root local suite3241 passed;23Studio passed; lint0errors/11existing warnings; Functionsbuild passed. Logs `/tmp/anejo-final-root-20260927.log`, `/tmp/anejo-final-lint-20260927.log`, `/tmp/anejo-final-build-20260927.log`, `/tmp/anejo-release-studio-20260927.log`. Production HTML byte probe returned403 and was stopped. Supported browser owner page remains signed out. No repeated auth attempt or credential changes. Authenticated live execution and v14 provider semantic acceptance remain blocked on owner sign-in.
+
+Continued safe work while waiting: owner quickstart and staff-driver adapter plan written; actual SQLite reproduction found duplicate scheduled posts on composer retry. A stable request receipt repair is now being implemented separately. No automatic goal continuation is claimed; goal record still says blocked.
+
+Main commit65b0d0f now has all checks completed/success (Cloudflare Pages, Functions, Studio), inspected through GitHub check-runs. Existing verification script still reports its missing environment configuration; this is not counted as a successful live check. Additive tables stay in place on rollback; reverting application code does not delete recorded execution history.
+
+Reusable local QA runner: `node --no-warnings scripts/qa-catering.mjs`, then `http://127.0.0.1:8768/hub/kitchen/event.html?id=cq_qa`. It binds loopback only and uses an in-memory fictional quote/owner fixture, not production credentials or records. Restarting resets that fixture. This exists to avoid repeatedly rebuilding the same acceptance harness.
+
+## Scheduling retry repair candidate
+
+A root-directed actual-handler SQLite reproduction created two scheduled posts from repeated identical composer submissions. Migration0138 and the composer now persist an actor-scoped request receipt atomically with post/media. Same request replays its original result; changed content conflicts. Session storage retains the original request across reload/uncertain response; editing never silently replaces that pending operation. Shared in-flight UI lock prevents late acknowledgements from clearing a newer operation.
+
+Explicit Resolve without retry writes a tombstone only if no save receipt won. A late/concurrent draft cannot then create a post under that identity. Existing posts are neither cancelled nor modified. Readback separates original/current/deleted states. Legacy non-composer API callers without request IDs retain their behavior; this is not a universal create-post idempotency claim.
+
+Root full pre-lock suite3254 passed; final15focused real SQLite/VM tests passed including race directions, rollback and abandonment. Lint0errors/11existing warnings and Functions build passed. Final full suite and PR checks pending. No production migration0138 or public scheduled post created by these tests.
+
+Prototype-only headline guard additionally rejects actual glyph overflow/empty text rather than relying on character count; root8prototype tests pass. Not imported by production. Resource limits, food clearance and unattended renderer readiness remain unverified. Its previous resource measurements predate the extra text measurement.

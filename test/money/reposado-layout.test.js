@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const html=readFileSync(new URL('../../public/hub/owner/marketing.html',import.meta.url),'utf8');
 const code=readFileSync(new URL('../../public/hub/owner/assets/marketing-branding.js',import.meta.url),'utf8');
-function renderer(){const scope={};vm.createContext(scope);vm.runInContext(code,scope);return scope.AnejoBranding;}
+function renderer(){const scope={};vm.createContext(scope);vm.runInContext(readFileSync(new URL('../../public/hub/owner/assets/marketing-editorial-plan.js',import.meta.url),'utf8'),scope);vm.runInContext(code,scope);return scope.AnejoBranding;}
 function context(){return {font:'',measureText(text){return {width:text.length*Number(this.font.match(/([\d.]+)px/)?.[1]||10)*0.6};}};}
 test('headline fitting preserves every word or explicitly rejects overflow',()=>{
  const r=renderer(),ctx=context();
@@ -49,4 +49,22 @@ test('reusable editorial profiles have separate in-bounds title and authentic-em
   assert.ok(html.includes('value="'+name+'"'),'template available in Hub');
  }
  assert.throws(()=>r.editorialProfile('invented'),/Unknown editorial template/);
+});
+
+test('editorial food protection follows fitted photo offsets rather than extended canvas edges',()=>{
+ const r=renderer();
+ const portrait=r.projectProtectedAreas([{x:0,y:.8,w:1,h:.2}],{x:337.5,y:0,w:405,h:810})[0];
+ assert.deepEqual(JSON.parse(JSON.stringify(portrait)),{x:337.5,y:648,w:405,h:162});
+ // Wording on the added left edge is clear; wording on the actual food must reject.
+ assert.equal(r.overlaps(portrait,{x:20,y:700,w:100,h:50}),false);
+ assert.equal(r.overlaps(portrait,{x:600,y:700,w:100,h:50}),true);
+ const wide=r.projectProtectedAreas([{x:0,y:0,w:1,h:.2}],{x:0,y:270,w:1080,h:540})[0];
+ assert.equal(wide.y,270);assert.equal(wide.h,108);
+ assert.equal(r.overlaps(wide,{x:100,y:280,w:100,h:50}),true);
+ assert.equal(r.overlaps(wide,{x:100,y:20,w:100,h:50}),false);
+ for(const photo of [null,{x:0,y:0,w:0,h:1},{x:NaN,y:0,w:1,h:1}])assert.throws(()=>r.projectProtectedAreas([],photo),/geometry/);
+ assert.throws(()=>r.projectProtectedAreas([{x:0,y:0,w:2,h:1}],{x:0,y:0,w:1080,h:810}),/Protected/);
+ const editorial=code.slice(code.indexOf('function composeEditorial'),code.indexOf('function compositeBranding'));
+ assert.match(editorial,/projectProtectedAreas\(opts.protectedRegions,art.photo\)/);
+ assert.match(editorial,/protectedAreas\(\[opts.textRegion/);
 });

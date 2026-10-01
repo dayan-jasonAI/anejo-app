@@ -27,8 +27,9 @@
 import { json, bad, id } from '../../../_lib/util.js';
 import { requireRole, MARKETING_DESK } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
+import { readBoundedJson, MAX_JPEG, jpegDimensions } from '../../../_lib/marketing_render_receipt.js';
 
-const MAX_BYTES = 8 * 1024 * 1024;   // page caps files at 5MB; base64 inflates ~33%; headroom, not invitation
+const MAX_BYTES = MAX_JPEG; // 5 MiB decoded; bounded JSON separately allows base64 overhead.
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 
 export const onRequestPost = async ({ request, env }) => {
@@ -37,14 +38,29 @@ export const onRequestPost = async ({ request, env }) => {
   if (!env.MEDIA) return bad('Media storage is not configured.', 500);
 
   let b;
-  try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
+  try { b = await readBoundedJson(request); } catch (error) {
+    if (error.message === 'request_too_large') return bad('Upload request is too large. Export a JPEG of 5 MiB or less.', 413);
+    if (error.message === 'json_required') return bad('Content-Type must be application/json.', 415);
+    return bad('Invalid JSON body.', 400);
+  }
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return bad('Invalid upload body.', 400);
+  if (b.role != null && (typeof b.role !== 'string' || b.role.length > 80)) return bad('Photo role must be a string of at most 80 characters.', 400);
+  if (typeof b.data_url !== 'string') return bad('Pick a file first.', 400);
   const m = String((b && b.data_url) || '').match(/^data:([a-z/+.-]+);base64,(.+)$/is);
   if (!m) return bad('Pick a file first.');
 
+  // Check encoded size and canonical base64 before allocating decoded bytes.
+  const encoded = m[2];
+  const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+  if (encoded.length > Math.ceil(MAX_BYTES / 3) * 4 || encoded.length / 4 * 3 - padding > MAX_BYTES) return bad('That file exceeds the 5 MiB limit. Export a smaller JPEG.', 413);
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  if (encoded.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)
+      || (padding === 2 && (alphabet.indexOf(encoded.at(-3)) & 15) !== 0)
+      || (padding === 1 && (alphabet.indexOf(encoded.at(-2)) & 3) !== 0)) return bad('Could not decode the file. Use a valid base64 JPEG.', 400);
   let bytes;
   try {
-    const bin = atob(m[2]);
-    if (bin.length > MAX_BYTES) return bad(`That file is ${Math.round(bin.length / 1048576)}MB — the limit is 5MB. Export a smaller JPEG.`);
+    const bin = atob(encoded);
+    if (bin.length > MAX_BYTES) return bad('That file exceeds the 5 MiB limit. Export a smaller JPEG.', 413);
     if (bin.length < 100) return bad('That file looks empty.');
     bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -60,10 +76,13 @@ export const onRequestPost = async ({ request, env }) => {
     const isHeic = /ftyphei/i.test(asText);
     return bad(
       isHeic
-        ? 'That is an iPhone HEIC photo. In Photos, tap Share → Copy Photo, or screenshot it — both give you a JPEG — then upload that.'
+        ? 'That is an iPhone HEIC photo. Export or convert it to JPEG (.jpg), then upload the exported file.'
         : 'That is not a JPEG. Instagram only accepts JPEG — export it as .jpg and try again.'
     );
   }
+
+  // Structural marker/dimension validation, not a full image decode or aesthetic check.
+  try { jpegDimensions(bytes); } catch { return bad('That JPEG has an incomplete or unsupported image header or dimensions. Export a valid JPEG and try again.', 400); }
 
   // Sanitised to [a-z0-9], same rule as media.js's putMedia — this becomes part of an R2 key, and
   // an unfiltered client string could reshape the path with a slash or a dot in it.

@@ -385,7 +385,7 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
 
   const execution = await env.DB.prepare('SELECT * FROM catering_execution WHERE quote_id=?').bind(quoteId).first();
   const executionTiming = execution && execution.quote_snapshot === executionQuoteSnapshot(quote)
-    && ['owner_self', 'pickup'].includes(execution.delivery_mode)
+    && ['owner_self', 'pickup', 'staff_driver'].includes(execution.delivery_mode)
     && [execution.travel_minutes, execution.setup_minutes].every(n => Number.isInteger(n) && n >= 0 && n <= 720)
     ? execution : null;
   const eventMs = etMidnightMs(String(quote.event_date)) || atMs;

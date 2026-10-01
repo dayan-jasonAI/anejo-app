@@ -48,3 +48,13 @@ test('structured claim explanation retains original reasoning visibly unverified
  const html=render({...row,audit_score:null,audit_detail_json:JSON.stringify(detail)});
  assert.match(html,/Original model judgment \(unverified\)/);assert.match(html,/&lt;invented ingredient&gt;/);assert.match(html,/Grazing skewers/);assert.doesNotMatch(html,/class="audit pass"/);
 });
+
+test('audit shows declared AI history without presenting missing metadata as authentic',()=>{
+ for(const [value,label] of [[true,'enhanced'],[false,'not AI-enhanced (declared)'],[null,'unknown']]){
+  const detail=JSON.parse(row.audit_detail_json);detail.input_coverage={slide_sources:[{slide:1,library_provenance:{ai_enhanced:value,source_key:'<script>'}}]};
+  const html=render({...row,audit_detail_json:JSON.stringify(detail)});
+  assert.ok(html.includes('Saved AI declaration: '+label));assert.match(html,/not proof of authenticity/);assert.match(html,/Declared source: &lt;script&gt;/);assert.doesNotMatch(html,/<script>/);
+ }
+ const detail=JSON.parse(row.audit_detail_json);detail.input_coverage={slide_sources:[{slide:1}]};
+ assert.match(render({...row,audit_detail_json:JSON.stringify(detail)}),/Saved AI declaration: unknown/);
+});

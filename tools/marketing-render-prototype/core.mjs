@@ -1,3 +1,4 @@
+import editorialPlan from '../../public/hub/owner/assets/marketing-editorial-plan.js';
 import {Resvg,initWasm} from '@resvg/resvg-wasm';
 import {encode} from './jpeg-encoder.mjs';
 // Mirror only the fixed prototype's required browser BRAND_INK tokens.
@@ -17,12 +18,40 @@ export function dimensions(b) {
 const escape=s=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
 export function template(d,title='Little box. Big occasion.') {
  if(typeof title!=='string'||title.length>40||/[\r\n]/.test(title))throw Error('Headline must fit one short line');
- const scale=Math.min(1080/d.width,810/d.height),w=d.width*scale,h=d.height*scale;
+ const geometry=editorialPlan.contain(d.width,d.height,4/3),w=geometry.photo.w,h=geometry.photo.h;
  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="810"><rect width="1080" height="810" fill="${TEMPLATE_TOKENS.background}"/><image xlink:href="source.jpg" x="${(1080-w)/2}" y="${(810-h)/2}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/><defs><linearGradient id="caption-scrim" x1="0" y1="700" x2="0" y2="810" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${TEMPLATE_TOKENS.background}" stop-opacity="0"/><stop offset="0.45" stop-color="${TEMPLATE_TOKENS.background}" stop-opacity="0.7"/><stop offset="1" stop-color="${TEMPLATE_TOKENS.background}" stop-opacity="0.78"/></linearGradient></defs><rect id="caption-scrim-layer" x="0" y="700" width="1080" height="110" fill="url(#caption-scrim)"/><text x="107" y="757" font-family="${TEMPLATE_TOKENS.fontFamily}" font-size="29" font-weight="${TEMPLATE_TOKENS.fontWeight}" fill="${TEMPLATE_TOKENS.titleInk}">${escape(title)}</text><image xlink:href="emblem.png" x="43" y="717" width="45" height="43" preserveAspectRatio="xMidYMid meet"/></svg>`;
 }
+// A character count cannot establish actual glyph fit (40 W characters overflow this frame).
+// Measure only the same escaped text with the same pinned font/runtime before image decoding.
+export const HEADLINE_SAFE_BOX=Object.freeze({left:100,top:710,right:1037,bottom:780});
+export function headlineBounds(title,font) {
+ const text=template({width:1080,height:810},title).match(/<text[^>]*>[\s\S]*?<\/text>/)[0];
+ let measure,bbox;
+ try {
+  measure=new Resvg(`<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="810">${text}</svg>`,{font:{fontBuffers:[font],defaultFontFamily:TEMPLATE_TOKENS.fontFamily}});
+  bbox=measure.innerBBox();
+  if(!bbox)throw Error('Headline has no measurable visible glyphs');
+  const bounds={x:bbox.x,y:bbox.y,width:bbox.width,height:bbox.height};
+  const b=HEADLINE_SAFE_BOX;
+  if(!Object.values(bounds).every(Number.isFinite)||bounds.width<=0||bounds.height<=0||bounds.x<b.left||bounds.y<b.top||bounds.x+bounds.width>b.right||bounds.y+bounds.height>b.bottom)throw Error('Headline exceeds fixed template safe area; shorten the wording');
+  return bounds;
+ } finally {bbox?.free();measure?.free();}
+}
+// Source-normalized rectangles are caller declarations, not detected food boundaries.
+export function protectedLayout(d,regions,headline) {
+ const fitted=editorialPlan.contain(d.width,d.height,4/3).photo;
+ const photo={x:fitted.x,y:fitted.y,width:fitted.w,height:fitted.h};
+ if(regions===undefined)return {photo,protectedAreas:[],protectionSource:'visual_review_required',visualReviewRequired:true};
+ if(!Array.isArray(regions)||regions.length>20)throw Error('Invalid protected photo areas');
+ const projected=editorialPlan.projectProtectedAreas(regions,fitted).map(r=>({x:r.x,y:r.y,width:r.w,height:r.h}));
+ const overlays=[{name:'headline',...headline},{name:'emblem',x:43,y:717,width:45,height:43},{name:'caption scrim',x:0,y:700,width:1080,height:110}];
+ const overlap=(a,b)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
+ for(const r of projected)for(const overlay of overlays)if(overlap(r,overlay))throw Error('Protected photo area overlaps '+overlay.name+'; choose a different reviewed layout');
+ return {photo,protectedAreas:projected,protectionSource:projected.length?'provided_regions':'visual_review_required',visualReviewRequired:true};
+}
 function base64(bytes){let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);}
-export function render({source,emblem,font,title}) {
- const d=dimensions(source);dimensions(emblem);const svg=template(d,title).replace('source.jpg','data:image/'+d.type+';base64,'+base64(source)).replace('emblem.png','data:image/png;base64,'+base64(emblem));let renderer,image;
- try {renderer=new Resvg(svg,{font:{fontBuffers:[font],defaultFontFamily:'Cormorant Garamond'},background:TEMPLATE_TOKENS.background});image=renderer.render();const pixels=image.pixels;if(pixels.length!==1080*810*4)throw Error('Unexpected raster dimensions');const jpg=encode({data:pixels,width:image.width,height:image.height},92).data;return{jpg,svg,source:d,width:image.width,height:image.height};}
+export function render({source,emblem,font,title,protectedRegions}) {
+ const d=dimensions(source);dimensions(emblem);const headline=headlineBounds(title,font);const protection=protectedLayout(d,protectedRegions,headline);const svg=template(d,title).replace('source.jpg','data:image/'+d.type+';base64,'+base64(source)).replace('emblem.png','data:image/png;base64,'+base64(emblem));let renderer,image;
+ try {renderer=new Resvg(svg,{font:{fontBuffers:[font],defaultFontFamily:'Cormorant Garamond'},background:TEMPLATE_TOKENS.background});image=renderer.render();const pixels=image.pixels;if(pixels.length!==1080*810*4)throw Error('Unexpected raster dimensions');const jpg=encode({data:pixels,width:image.width,height:image.height},92).data;return{jpg,svg,headline,...protection,source:d,width:image.width,height:image.height};}
  finally{image?.free();renderer?.free();}
 }

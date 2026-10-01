@@ -156,3 +156,63 @@ September26 direct-session transcript: after being asked specifically whether th
 ### Confirmed Cajita guidance and current audit outcome
 
 Owner clarification is now saved through the normal Hub Teach form; subsequent displayed rule text matches and customer_eligible remains off. Personal source review now reports7/7 against the new guidance. Root inspected its explanations and local matching personalization/planning slides; source coverage for the written six-item baseline is resolved. Choice source review also reports7/7; full semantic inspection still required. Gather returned invalid_rubric_response with observations/wrong_count, withheld score. Do not retry merely for a pass. Agent is investigating a provider-schema exact-criterion contract while root preserves source failure evidence. No launch image, caption, published status or automatic trust control was changed.
+
+### September27 operations continuation
+
+See CATERING_EXECUTION_2026-09-27.md for current evidence. PR152 merged65b0d0f and Cloudflare production02968232 succeeded after3241root/23Studio tests and PR checks. Adds owner catering delivery/pickup progress and structured v14 audit explanations. No notices, charges, public posts or historical event updates. Authenticated browser acceptance is pending owner sign-in; public site access succeeds. New next defect reproduced: composer retry schedules a second post after uncertain first response. Assignment agent owns idempotency receipt+composer retry repair; do not call the broader goal complete. Staff-driver adapter is a documented plan, not implemented.
+
+### September27 staff-driver continuation
+
+Owner/staff-driver execution adapter implemented locally; see CATERING_DRIVER_HANDOFF_2026-09-27.md for files, tests, browser boundaries and migration risks. PR153 composer repair checks passed at b651f27 but is NOT merged/deployed: D1 preflight now returns authorization7403. No credential changes or denied-action retries. Owner live Hub sign-in remains required. Driverbrowser local/login returned ERR_BLOCKED_BY_CLIENT and was stopped. Full authenticated route-handler lifecycle passes locally; browser end-to-end remains Unverified. Staff-driver work moved to codex/catering-staff-handoff preserving remote PR153. No notices/charges/posts/production event records changed. Automatic goal continuation has not been restored.
+
+### September28 active-goal continuation
+
+Goal tool now reports active; previous engineering turn classified progress. PR155 exact631aa72checks allsuccess; notmerged. New bounded owner operator catering status implemented locally (OPERATOR_CATERING_STATUS_2026-09-28.md): exact EN/ES readonly command, bounded dated paid-event evidence and explicit safe navigation. No credential/networkdeny workaround, publication, customer send or money action. Full objective preserved; live semantic/voice/role/channel/render acceptance remains open.
+
+### September28 Lead–Intel feedback validation
+
+The Lead now receives bounded completed answers to its own research requests with snapshot-bound IDs and receipts. Root verified3,335tests, lint0errors/11existingwarnings and Functions build. See LEAD_INTEL_FEEDBACK_2026-09-28.md and its source-hashed evidence. Local only; production authorization/live sign-in blockers remain. PR157 checks passed; no merge/deployment. Broader visual, audit, strategy-to-schedule, Ana, voice and operational acceptance scope remains open.
+
+### September28 maximum-input renderer runtime evidence
+
+Extended the local profiler to alternate three near-limit diagnostic JPEG shapes and the existing fixture through workerd. Twelve successful deterministic responses;12prototype tests pass. Raw inspector samples and code hashes saved in evidence-2026-09-28/render-max-input-profile.json. GC timed out and peak/all-inclusive production memory remains unverified. No production integration, charges, customer assets or publishing changed. This advances the runtime proof while Cloudflare authorization remains unresolved; next needs actual resource-budget evidence and shared visual template parity before app jobs can ship.
+
+### September28 editorial source projection
+
+Corrected named editorial profiles to project source-normalized protected food regions through fitted photo offsets. See EDITORIAL_PHOTO_PROTECTION_2026-09-28.md for validation and boundaries. No current UI annotation caller or production verification. Next is shared browser/WASM composition plan, not more fixed-footer approximation.
+
+### September28 shared editorial geometry
+
+Browser profiles/contain/protection and WASM contain/protection now share a versioned module. Root verified full tests,12prototype tests and12unchanged workerd JPEG hashes. See SHARED_EDITORIAL_PLAN_2026-09-28.md. Full visual parity remains open: prototype still uses fixed footer. Next consume profile drawing plan for fonts/ink/emblem/edge extension and perform actual pixel comparison. No production integration enabled.
+
+### September28 actual WASM editorial profiles
+
+Isolated wide/Cajita adapter now renders shared profile positions with measured type, sampled ink/edges and emblem tint;17tests and12workerd renders passed. Root inspected previews; thin kicker and increased resource samples remain concerns. See EDITORIAL_WASM_PROFILES_2026-09-28.md. No live carousel replacement or job integration.
+
+### September28 fixed editorial font proof
+
+Generated reproducible static font instances from bundled variable sources; actual preview kicker/headline visibly stronger.18tests and12workerd renders passed. No memory improvement established; resource readiness remains open. See EDITORIAL_FIXED_FONTS_2026-09-28.md. No live design replaced.
+
+### September28 renderer lifetime optimization
+
+Removed redundant full-frame copies;18tests and12workerd outputs match prior hashes. One local max sampled heap comparison fell130.1MB→73.6MB; GCtimeout/peakaccounting limitations remain. See EDITORIAL_RASTER_LIFETIME_2026-09-28.md. Prototype remains isolated; no automatic job/publishing enabled.
+
+### September28 actual supported-browser comparison
+
+Chrome locally rendered/saved both editorial samples; root viewed actualCanvasJPEGs and compared recorded geometry/ink to WASM. Geometry and headline ink match for these2samples; kicker/baseline/halo/raster differences remain. See ACTUAL_BROWSER_EDITORIAL_COMPARISON_2026-09-28.md. LiveHub auth/deployment remain separate.
+
+### September28 JPEG orientation
+
+Isolated editorial adapter now applies all8JPEGorientationtransforms before layout.28tests pass; actual corner-color raster tests verify transforms;12upright workerd outputs unchanged. See EDITORIAL_EXIF_ORIENTATION_2026-09-28.md. No live library/publishing update.
+
+## September 28 — library conversion provenance
+
+Locally repaired both library conversion entry points and server lineage handling; actual picker source labels and AI review gate covered. Root suite 3,351 passed, lint zero errors/11 warnings, Functions compiled. See LIBRARY_CONVERSION_PROVENANCE_2026-09-28.md and its hashed evidence. Not deployed; existing release/access dependencies remain. Continued this safe engineering work while waiting on those dependencies.
+
+## September 28 — audit declared library history
+
+PR167 exact head0316468 release checks all passed; remains unmerged, not production proof. Continued with the audit metadata gap while access dependencies remain: bounded declared history now reaches provider, saved receipts and owner display; same-byte metadata changes invalidate trust-boundary verification and in-flight saves. 3,357 root tests passed, lint zero errors/11 warnings, Functions compiled. See AUDIT_LIBRARY_PROVENANCE_2026-09-28.md and hashed evidence. No automatic criterion failures added for approved enhancement; absent metadata is unknown. Not deployed.
+
+## September 28 — branding preserves declared photo history
+
+PR168 exact head458345b release checks all passed; unmerged, not production proof. Continued closing the actual photo→branding→audit path while external access remains blocked: branded-save now binds bounded source history to durable request identity, stores immediate-parent/AI declaration, and validates metadata readback and source before attachment. Old receipt conflicts are explicit; no silent rewrite. Root 3,365 tests passed, lint zero errors/11 warnings, Functions compiled. See BRANDED_PHOTO_HISTORY_2026-09-28.md and hashed evidence. Not deployed; no new approval needed for authorized release after prerequisites.

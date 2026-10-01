@@ -3,7 +3,22 @@ import {json,randToken} from '../../../_lib/util.js';
 import {MAX_JPEG,sha256,textBytes,sourceKey,sourceMagicValid,declarationValid,jpegDimensions,readBoundedJson} from '../../../_lib/marketing_render_receipt.js';
 const fields=['request_id','post_id','media_id','source_key','source_sha256','data_url','declaration'];
 const error=(code,status=400,extra={})=>json({ok:false,attached:false,error:code,...extra},status);
-async function objectBytes(env,key){const obj=await env.MEDIA.get(key);if(!obj||obj.size>MAX_JPEG||obj.size<1)throw Error('source_unavailable');const bytes=new Uint8Array(await obj.arrayBuffer());if(bytes.length!==obj.size)throw Error('source_unavailable');return bytes;}
+async function objectRecord(env,key){const obj=await env.MEDIA.get(key);if(!obj||!Number.isFinite(obj.size)||obj.size>MAX_JPEG||obj.size<1)throw Error('source_unavailable');const bytes=new Uint8Array(await obj.arrayBuffer());if(bytes.length!==obj.size)throw Error('source_unavailable');return {bytes,metadata:obj.customMetadata||{}};}
+function sourceHistory(m){
+ const result={ai_enhanced:null,source_key:null,enhancement_method:null,provenance_basis:null};
+ for(const field of Object.keys(result)){
+  if(!Object.hasOwn(m,field))continue;
+  const value=m[field];
+  if(field==='ai_enhanced'&&['true','false'].includes(value))result[field]=value;
+  else if(field==='source_key'&&sourceKey(value))result[field]=value;
+  else if(field==='enhancement_method'&&['photographic','format_conversion','editorial_overlay'].includes(value))result[field]=value;
+  else if(field==='provenance_basis'&&['client_declared_format_conversion','client_declared_editorial_overlay'].includes(value))result[field]=value;
+  else throw Error('invalid_source_provenance');
+ }
+ return result;
+}
+const metadataMatches=(actual,expected)=>Object.keys(expected).every(k=>actual[k]===expected[k])&&(!Object.hasOwn(expected,'ai_enhanced')?!Object.hasOwn(actual,'ai_enhanced'):true);
+
 const receiptResponse=(row,status='draft')=>({ok:true,attached:true,receipt_id:row.id,media_key:row.output_key,evidence_tier:'browser_declared',status,schedule_cleared:status==='draft',source_sha256:row.source_sha256,output_sha256:row.output_sha256});
 export async function onRequestPost({request,env}){
  const actor=await requireRole(request,env,MARKETING_DESK);if(actor instanceof Response)return actor;
@@ -12,31 +27,44 @@ export async function onRequestPost({request,env}){
  if(!b||Array.isArray(b)||typeof b!=='object'||Object.keys(b).length!==fields.length||!fields.every(k=>Object.hasOwn(b,k))||!(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(b.request_id))||!['post_id','media_id'].every(k=>typeof b[k]==='string'&&/^[\w-]{1,100}$/.test(b[k]))||!sourceKey(b.source_key)||!(/^[a-f0-9]{64}$/.test(b.source_sha256))||!declarationValid(b.declaration)||typeof b.data_url!=='string')return error('invalid_render_request');
  let output,shape;try{const match=b.data_url.match(/^data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})$/);if(!match)throw Error();const binary=atob(match[1]);if(binary.length>MAX_JPEG)throw Error();output=Uint8Array.from(binary,c=>c.charCodeAt(0));shape=jpegDimensions(output);}catch{return error('invalid_or_oversized_jpeg');}
  const outputHash=await sha256(output),requestId=b.request_id.toLowerCase(),id='rr_'+await sha256(textBytes(JSON.stringify([actor.distinct_id,requestId])));
- const declaration=JSON.stringify(b.declaration),fingerprint=await sha256(textBytes(JSON.stringify([b.post_id,b.media_id,b.source_key,b.source_sha256,outputHash,declaration])));
+ const declaration=JSON.stringify(b.declaration);
  const role=(b.source_key.match(/_([a-z0-9]{1,80})\.[a-z0-9]+$/i)||[])[1];
  const outputKey='studio/render-receipts/'+id+(role?'_'+role.toLowerCase():'')+'.jpg';
  let row;
  try{
+ const initial=await objectRecord(env,b.source_key),source=initial.bytes;
+ if(!sourceMagicValid(b.source_key,source))return error('invalid_source_format');
+ if(await sha256(source)!==b.source_sha256)return error('source_hash_changed',409);
+ let history;try{history=sourceHistory(initial.metadata);}catch{return error('invalid_source_provenance',409);}
+ const historyJson=JSON.stringify(history);
+ const outputMetadata={source_key:b.source_key,enhancement_method:'editorial_overlay',provenance_basis:'client_declared_editorial_overlay',...(history.ai_enhanced===null?{}:{ai_enhanced:history.ai_enhanced})};
+ // The durable request fingerprint binds this immediate-parent declaration even if
+ // the R2 write fails. A changed declaration must use a new request, never rewrite it.
+ const fingerprint=await sha256(textBytes(JSON.stringify([b.post_id,b.media_id,b.source_key,b.source_sha256,outputHash,declaration,historyJson])));
  row=await env.DB.prepare('SELECT * FROM marketing_render_receipts WHERE id=?').bind(id).first();
  if(row&&row.request_hash!==fingerprint)return error('request_key_conflict',409);
  if(row?.state==='attached'){
    const linked=await env.DB.prepare("SELECT m.id,p.status FROM social_post_media m JOIN social_posts p ON p.id=m.post_id WHERE m.id=? AND m.post_id=? AND m.media_key=? AND p.status IN ('draft','scheduled','failed')").bind(row.media_id,row.post_id,row.output_key).first();
    if(!linked)return error('saved_attachment_changed',409,{receipt_id:id,media_key:outputKey});
-   if(await sha256(await objectBytes(env,row.output_key))!==row.output_sha256)return error('saved_output_changed',409,{receipt_id:id,media_key:outputKey});
+   const saved=await objectRecord(env,row.output_key);
+   if(await sha256(saved.bytes)!==row.output_sha256||!metadataMatches(saved.metadata,outputMetadata))return error('saved_output_changed',409,{receipt_id:id,media_key:outputKey});
    return json(receiptResponse(row,linked.status));
  }
  const target=await env.DB.prepare("SELECT m.id FROM social_post_media m JOIN social_posts p ON p.id=m.post_id WHERE m.id=? AND m.post_id=? AND m.media_key=? AND p.status IN ('draft','scheduled','failed') AND COALESCE(p.media_type,'') NOT IN ('REELS','STORIES')").bind(b.media_id,b.post_id,b.source_key).first();
  if(!target)return error('source_slide_or_post_changed',409);
- const source=await objectBytes(env,b.source_key);if(!sourceMagicValid(b.source_key,source))return error('invalid_source_format');if(await sha256(source)!==b.source_sha256)return error('source_hash_changed',409);
  if(!row){
  await env.DB.prepare(`INSERT INTO marketing_render_receipts (id,actor_id,request_id,request_hash,post_id,media_id,source_key,source_sha256,source_bytes,output_key,output_sha256,output_bytes,output_width,output_height,declaration_json,evidence_tier,state,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'browser_declared','pending',?) ON CONFLICT(id) DO NOTHING`).bind(id,actor.distinct_id,requestId,fingerprint,b.post_id,b.media_id,b.source_key,b.source_sha256,source.length,outputKey,outputHash,output.length,shape.width,shape.height,declaration,Date.now()).run();
  row=await env.DB.prepare('SELECT * FROM marketing_render_receipts WHERE id=?').bind(id).first();
  if(!row||row.request_hash!==fingerprint)return error('request_key_conflict',409);
  }
  // Identical retries write identical bytes to this actor/request-specific key; original untouched.
- await env.MEDIA.put(outputKey,output,{httpMetadata:{contentType:'image/jpeg'}});
- if(await sha256(await objectBytes(env,outputKey))!==outputHash)throw Error('output_readback_failed');
- if(await sha256(await objectBytes(env,b.source_key))!==b.source_sha256)return error('source_hash_changed',409,{receipt_id:id,media_key:outputKey,artifact_state:'unattached'});
+ await env.MEDIA.put(outputKey,output,{httpMetadata:{contentType:'image/jpeg'},customMetadata:outputMetadata});
+ const stored=await objectRecord(env,outputKey);
+ if(await sha256(stored.bytes)!==outputHash||!metadataMatches(stored.metadata,outputMetadata))throw Error('output_readback_failed');
+ const current=await objectRecord(env,b.source_key);
+ if(await sha256(current.bytes)!==b.source_sha256)return error('source_hash_changed',409,{receipt_id:id,media_key:outputKey,artifact_state:'unattached'});
+ let currentHistory;try{currentHistory=JSON.stringify(sourceHistory(current.metadata));}catch{return error('invalid_source_provenance',409,{receipt_id:id,media_key:outputKey,artifact_state:'unattached'});}
+ if(currentHistory!==historyJson)return error('source_provenance_changed',409,{receipt_id:id,media_key:outputKey,artifact_state:'unattached'});
  const t=Date.now();
  await env.DB.batch([
  env.DB.prepare(`UPDATE social_post_media SET media_key=?,public_token=? WHERE id=? AND post_id=? AND media_key=? AND EXISTS (SELECT 1 FROM social_posts WHERE id=? AND status IN ('draft','scheduled','failed') AND COALESCE(media_type,'') NOT IN ('REELS','STORIES')) AND EXISTS (SELECT 1 FROM marketing_render_receipts WHERE id=? AND state='pending')`).bind(outputKey,randToken(24),b.media_id,b.post_id,b.source_key,b.post_id,id),

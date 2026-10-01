@@ -52,3 +52,7 @@ No deployed CPU/memory/cold-start/concurrency evidence; no maximum-input local w
 Visual limitations unchanged: one fixed template, prototype palette differs from approved Canvas BRAND_INK; no dynamic contrast/food protected regions/glyph-width fit; no EXIF/ICC normalization; typography parity unverified. Diagnostic images are synthetic tests, not edited customer or food assets.
 
 Conclusion: isolated Pages packaging and one local deterministic render are feasible with installed runtime. Production-safe automatic branding remains **Unverified**. Next useful proof is controlled workerd maximum-input/repeated-render memory profiling with an actual isolate-budget measurement method plus shared-token visual parity; application integration should wait for those results.
+
+## September27 source refresh
+
+The early sections are historical. Current fixed prototype already has aligned title/background inks, bounded bottom scrim and measured headline glyph bounds. A new local guard projects explicit protected-region declarations through contain geometry and rejects headline/emblem/scrim intersections;12prototype tests pass in root run. Missing metadata remains visual-review-required, and annotations are not automatic food detection. See prototype README. No production integration or new resource proof; unattended rendering remains Unverified.

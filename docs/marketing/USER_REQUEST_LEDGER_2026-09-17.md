@@ -1,5 +1,30 @@
 # Añejo user-request ledger
 
+## Current checkpoint — September 28, 2026
+
+Full goal remains **Open — evidence missing**. Goal tool checked this session reports active, superseding the old blocked-status sentence below. This is goal state, not a guarantee of uninterrupted background execution.
+
+- GitHub currently lists PR153–166 open;153 is ready-for-review and154–166 are drafts. None of this stack is claimed deployed. Latest source branches and individual validation records are in EXECUTION_PLAN_2026-09-25.md; local tests and CI are separate from production behavior.
+- Advances since the prior checkpoint: staff-driver/catering operator candidates; Lead–Intel feedback with receipts; shared Reposado geometry; actual isolated wide/Cajita rendering, fixed font weights, lower sampled allocation, actual supported-browser comparison and JPEG orientation. Rendering remains a prototype with explicit visual/resource/input/job gaps, not a production automation.
+- Fresh supported Chrome access to live marketing Hub redirected to /login. Owner authenticated acceptance remains unavailable. Prior Cloudflare7403release denial remains unresolved; no bypass or credential changes attempted. Deployment was already authorized after checks; no repeat approval is requested.
+- Google case follow-up found no matching connected Gmail response September28. Application receipt remains distinct from approval/OAuth/integration. No new public post/customer communication/charge occurred.
+- Broader acceptance remains open: accurate live audit semantics; strategy→library/design→draft→review→schedule; durable unattended rendering; Ana/Google execution; microphone and operational voice; role/checkout/Studio/SEO/GBP and paid-order evidence. Nothing in the recent prototype results closes these by itself.
+- Current implementation: preserve library-conversion provenance in both Photos and composer picker. It is not yet a released capability; see the subsequent per-change evidence before using it as proof.
+
+
+
+## Current checkpoint — September 27, 2026, 18:38 UTC
+
+This supersedes the dated status summaries below, retaining them as history. Full goal: **Open — evidence missing**. The goal tool still reports blocked; active-session implementation is not proof of automatic continuation.
+
+- **Deployed increment:** PR152 merge65b0d0f, production02968232, exact-commit checks success, migration0137 readback preserved. Adds owner delivery/pickup progress and auditorv14 structured claim explanations. Owner live Hub is signed out; fresh authenticated behavior/semantic audit remains unverified. See CATERING_EXECUTION_2026-09-27.md.
+- **Done locally, release blocked:** PR153 composer retry receipts/tombstones, headb651f27,3256 local root tests and its release checks passed. Migration0138 is not applied; production preflight returned Cloudflare authorization7403. No merge/deploy claim.
+- **Staff-driver candidate:** all PR154 checks passed for610b3ec; draftPR154 head610b3ec on codex/catering-staff-handoff, stacked after153.3305 local root tests pass, lint0errors/11existing warnings, Functionsbuild success; full authenticated route-handler lifecycle passes. Local owner browser reached packed-ready; driver browser acceptance stopped at ERR_BLOCKED_BY_CLIENT after local login redirect. See CATERING_DRIVER_HANDOFF_2026-09-27.md and source-hash evidence. Not deployed; no alerts/payroll/ordinary routes/money changes.
+- **Facts already supplied:** Dayan confirmed the standard six-item Cajita starting selection in this conversation; do not ask again based on the older September26 table. Google Basic API request submission/follow-up was recorded earlier; current approval has not been rechecked during this increment. No API connection is claimed.
+- **Still open:** trustworthy live auditor semantics, complete strategy → photo/design → draft → review → schedule acceptance; production-safe unattended rendering; Ana provider/Google integration; microphone and operational voice acceptance; role/checkout/Studio/SEO/GBP coverage and actual paid-order attribution. Existing public campaigns/history are preserved.
+- **Needed from Dayan now:** restore normal Cloudflare access and owner Hub sign-in. Requested in-session; no credential changes attempted. No additional release approval is needed for the scope already authorized after checks. No permission to send customer messages or publish new marketing content is inferred.
+
+
 ## Current continuation — September 26, 2026
 
 The full goal remains **Open — evidence missing**. This entry supersedes historical statuses below; the earlier observations are retained as evidence, not current claims. Detailed release and validation records: [release evidence](RELEASE_EVIDENCE_2026-09-25.md) and [acceptance checkpoint](ACCEPTANCE_CHECKPOINT_2026-09-26.md).

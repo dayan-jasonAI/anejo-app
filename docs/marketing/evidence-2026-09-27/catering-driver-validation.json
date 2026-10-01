@@ -1,0 +1,40 @@
+{
+  "recorded_at": "2026-09-27T18:35:17.899257+00:00",
+  "environment": "local",
+  "root_tests": {
+    "command": "npm test",
+    "pass": 3305,
+    "fail": 0,
+    "log": "/tmp/anejo-driver-verified-root.log"
+  },
+  "lint": {
+    "command": "npm run lint",
+    "errors": 0,
+    "existing_warnings": 11,
+    "log": "/tmp/anejo-driver-lint.log"
+  },
+  "build": {
+    "command": "npx wrangler pages functions build --outdir /tmp/anejo-driver-functions",
+    "result": "Compiled Worker successfully",
+    "log": "/tmp/anejo-driver-build.log"
+  },
+  "sha256": {
+    "functions/_lib/catering_assignment.js": "f590aa8746ab912c299efea2049fbb3dd1dbf6713c07b965116c178a932241c0",
+    "functions/_lib/catering_execution.js": "4c7380b86cf9c917b06ca4e7c4e6a5219a409298067efcb3405f57f970c6c609",
+    "functions/_lib/event.js": "6556c1d666b867e82c45a7953c37d35a15eeb1a5796c3f452b8596db090a4061",
+    "functions/api/hub/driver/catering.js": "cc808d55786341a42556212639c7eecf96a9b3580b682c89a05a6a8f94883673",
+    "functions/api/hub/owner/catering-assignment.js": "cf66f5287337acc141fdc0fce795b2935210b99e4b1c07574a98312288d31f19",
+    "migrations/0139_catering_assignments.sql": "16f7039e3a4fdbc2eef6485e820829ee1cbae60afc1c5c43811e5b84cd593e72",
+    "public/hub/driver/catering.html": "5997a1c14a5af0f6b2d30b7cf6d86d3182e0f5eb824df97e2ea182ca250d5b12",
+    "public/hub/driver/index.html": "8c815b5f8ab23ee201de5ddd74a0642f80f7706a3634b5fa6ffc9580291e4967",
+    "public/hub/kitchen/catering-driver-assignment.js": "ac838b457ec9e8eb3977cda193b4dbadbd0349580e797b89d8549bf6df2b6b25",
+    "public/hub/kitchen/event.html": "bb7a802809d968c21e422711857ed8c3e7ba777079f872e51a844eac1d49ef28",
+    "scripts/qa-catering.mjs": "223b3d5274e4860fb3538c7a7c2c205f8a7804b2993bb7a70919d71e4d51462a",
+    "test/money/catering-assignment.test.js": "65c2a9aab1f7c9e2a95bd0ffaadbfa5793970bb3bab334b4131c458232a406cd",
+    "test/money/catering-assignment-api.test.js": "8753b433ebea62bb419caa54604eb4d2ea1c0a3927ce07df6c4c38024d789bc9",
+    "test/ui/catering-driver.test.js": "560a4cd1b608154434a6eafe9e71d2d6d2537a1c60e1afce7f6415c161f0e8fd",
+    "test/ui/catering-owner-assignment.test.js": "502e09a36cb6e3c4521ac5f87127dc0798d6823c9101a8750541fbe867029f29",
+    "test/ui/catering-execution.test.js": "e89a7bca43ba690308bf05bef09962298660485797d9f32dca23a1a3ca2f678d"
+  },
+  "production": "Not deployed; D1 authorization7403; authenticated owner/driver browser acceptance incomplete"
+}

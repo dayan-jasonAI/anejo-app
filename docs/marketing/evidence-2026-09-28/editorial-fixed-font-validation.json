@@ -1,0 +1,576 @@
+{
+  "files": {
+    "tools/marketing-render-prototype/editorial.mjs": "6140c21b47911552dad724d470669269c680c31c341d568235a791361c447c73",
+    "tools/marketing-render-prototype/editorial.test.mjs": "e829418f4df1993a0d37036f27c2212dc769b3171dd3f3e40b6632f9be946f92",
+    "tools/marketing-render-prototype/preview-editorial.mjs": "0f11219863c99134039cd2398a9a0a7d843ce98b1dd3386d09a069a2355578a8",
+    "tools/marketing-render-prototype/editorial-worker.mjs": "102b5246b1bc1b21501e593243edf78f5466ec140cb5c21df847fc64f9921ae6",
+    "tools/marketing-render-prototype/prepare-editorial-fonts.py": "7acadf70bcea9f384af18194fca15d5260491fa73daa4f64bca9dfa55b37544c"
+  },
+  "fontBuild": {
+    "fontTools": "4.66.0",
+    "fonts": [
+      {
+        "source": "tools/cardgen/fonts/CormorantGaramond.ttf",
+        "source_sha256": "b20b7d9626dd956b2c5e558692ad328b1f19e3275e2782db4fa07670d83f35e0",
+        "output": "AnejoEditorialSerif-SemiBold.ttf",
+        "sha256": "bb60d386afdbf03f67ee68117776d9bfaba0d08d50899909e02b023fcb5f5a17",
+        "family": "Anejo Editorial Serif",
+        "weight": 600
+      },
+      {
+        "source": "tools/cardgen/fonts/JosefinSans.ttf",
+        "source_sha256": "9255abdb5f393bc51e101abbd07a716a977fd3e15472b1b84b260f426a342bfd",
+        "output": "AnejoEditorialSans-Medium.ttf",
+        "sha256": "19a231f3f7ebf25c1fa5afc3619002fd55e12a30c83c7974a75b973d4b1b7a5f",
+        "family": "Anejo Editorial Sans",
+        "weight": 500
+      }
+    ]
+  },
+  "preview": {
+    "recordedAt": "2026-09-28T17:40:40.965Z",
+    "sourceProvenance": "Existing website theme asset; not verified documentary event photography.",
+    "inputHashes": {
+      "source": "76378e4988c845271737f0a50bde1efeaca92f536359962f7c6508e86107ccd2",
+      "emblem": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+      "font": "bb60d386afdbf03f67ee68117776d9bfaba0d08d50899909e02b023fcb5f5a17",
+      "kickerFont": "19a231f3f7ebf25c1fa5afc3619002fd55e12a30c83c7974a75b973d4b1b7a5f"
+    },
+    "samples": [
+      {
+        "templateId": "reposado-wide",
+        "title": "Catering, beautifully.",
+        "output": "/tmp/anejo-editorial-preview-WltINu/reposado-wide.jpg",
+        "sha256": "f912eeaf0162f0c2a955a540cfdd1b134396230315e8c7fcd06c07892368bae4",
+        "svg_sha256": "6aae094ef85c3703e2046b0c9fffb4154f3f3bb883fb44ab3e9407ce63ed68c5",
+        "wallMs": 443.35366700000003,
+        "metadata": {
+          "source": {
+            "width": 1448,
+            "height": 1086,
+            "type": "jpeg",
+            "rgbaBytes": 6290112
+          },
+          "layout": {
+            "version": "anejo-editorial-geometry-1",
+            "templateId": "reposado-wide",
+            "aspect": 1.3333333333333333,
+            "vertical": false,
+            "width": 1080,
+            "height": 810,
+            "photo": {
+              "x": 0,
+              "y": 0,
+              "w": 1080,
+              "h": 810
+            },
+            "backgroundExtended": false,
+            "textRegion": {
+              "x": 70.2,
+              "y": 660.15,
+              "w": 324,
+              "h": 97.2
+            },
+            "emblemRegion": {
+              "x": 324,
+              "y": 761.4,
+              "w": 54,
+              "h": 44.55
+            },
+            "protectedRects": [],
+            "protectionSource": "visual_review_required",
+            "protectedCoordinateSpace": "source_normalized",
+            "overlayCoordinateSpace": "canvas_pixels",
+            "visualReviewRequired": true,
+            "geometryOnly": true
+          },
+          "ink": {
+            "text": {
+              "color": "#E8E2CA",
+              "estimatedContrast": 4.6061372636744755,
+              "background": {
+                "lum": 0.050077903563706776,
+                "busy": 0.07536798738092317
+              }
+            },
+            "emblem": {
+              "color": "#000000",
+              "estimatedContrast": 3.8714023173858267,
+              "background": {
+                "lum": 0.21777503077437055,
+                "busy": 0.07420491490507918
+              }
+            }
+          },
+          "measurements": {
+            "runs": [
+              {
+                "role": "kicker",
+                "text": "A\u00d1EJO CATERING",
+                "px": 15,
+                "family": "Anejo Editorial Sans",
+                "weight": 500,
+                "bounds": {
+                  "x": 70.2,
+                  "y": 660.15,
+                  "w": 133,
+                  "h": 17
+                },
+                "origin": {
+                  "x": 70.2,
+                  "y": 674.15
+                }
+              },
+              {
+                "role": "headline",
+                "text": "Catering, beautifully.",
+                "px": 39,
+                "family": "Anejo Editorial Serif",
+                "weight": 600,
+                "bounds": {
+                  "x": 70.2,
+                  "y": 684.87,
+                  "w": 321,
+                  "h": 40
+                },
+                "origin": {
+                  "x": 69.2,
+                  "y": 713.87
+                }
+              }
+            ],
+            "emblem": {
+              "x": 327.67539267015707,
+              "y": 761.4,
+              "w": 46.64921465968586,
+              "h": 44.55
+            }
+          },
+          "visualReviewRequired": true,
+          "deviations": [
+            "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+            "Glyph-outline top placement differs from Canvas textBaseline top.",
+            "Canvas shadow halo is not implemented.",
+            "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+            "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+            "No EXIF orientation or ICC normalization."
+          ],
+          "pixelVerification": "unverified",
+          "resourceReadiness": "unverified"
+        }
+      },
+      {
+        "templateId": "reposado-cajita",
+        "title": "Your Cajita.",
+        "output": "/tmp/anejo-editorial-preview-WltINu/reposado-cajita.jpg",
+        "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+        "svg_sha256": "e222442143fd1b063321a11d6be4fb06251a456f21e4f97c9909ccbc13b029b4",
+        "wallMs": 345.014084,
+        "metadata": {
+          "source": {
+            "width": 1448,
+            "height": 1086,
+            "type": "jpeg",
+            "rgbaBytes": 6290112
+          },
+          "layout": {
+            "version": "anejo-editorial-geometry-1",
+            "templateId": "reposado-cajita",
+            "aspect": 1.3333333333333333,
+            "vertical": false,
+            "width": 1080,
+            "height": 810,
+            "photo": {
+              "x": 0,
+              "y": 0,
+              "w": 1080,
+              "h": 810
+            },
+            "backgroundExtended": false,
+            "textRegion": {
+              "x": 604.8000000000001,
+              "y": 162,
+              "w": 313.2,
+              "h": 186.3
+            },
+            "emblemRegion": {
+              "x": 345.6,
+              "y": 623.7,
+              "w": 81,
+              "h": 81
+            },
+            "protectedRects": [],
+            "protectionSource": "visual_review_required",
+            "protectedCoordinateSpace": "source_normalized",
+            "overlayCoordinateSpace": "canvas_pixels",
+            "visualReviewRequired": true,
+            "geometryOnly": true
+          },
+          "ink": {
+            "text": {
+              "color": "#0A180C",
+              "estimatedContrast": 5.279001241173173,
+              "background": {
+                "lum": 0.31788110508421225,
+                "busy": 0.06463721443541015
+              }
+            },
+            "emblem": {
+              "color": "#000000",
+              "estimatedContrast": 2.823483835289232,
+              "background": {
+                "lum": 0.2272536625448034,
+                "busy": 0.1360794707803418
+              }
+            }
+          },
+          "measurements": {
+            "runs": [
+              {
+                "role": "kicker",
+                "text": "A\u00d1EJO CATERING",
+                "px": 15,
+                "family": "Anejo Editorial Sans",
+                "weight": 500,
+                "bounds": {
+                  "x": 604.8000000000001,
+                  "y": 162,
+                  "w": 133,
+                  "h": 17
+                },
+                "origin": {
+                  "x": 604.8000000000001,
+                  "y": 176
+                }
+              },
+              {
+                "role": "headline",
+                "text": "Your Cajita.",
+                "px": 52,
+                "family": "Anejo Editorial Serif",
+                "weight": 600,
+                "bounds": {
+                  "x": 604.8000000000001,
+                  "y": 186.72,
+                  "w": 242,
+                  "h": 49
+                },
+                "origin": {
+                  "x": 604.8000000000001,
+                  "y": 220.72
+                }
+              }
+            ],
+            "emblem": {
+              "x": 345.6,
+              "y": 625.5225,
+              "w": 81,
+              "h": 77.355
+            }
+          },
+          "visualReviewRequired": true,
+          "deviations": [
+            "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+            "Glyph-outline top placement differs from Canvas textBaseline top.",
+            "Canvas shadow halo is not implemented.",
+            "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+            "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+            "No EXIF orientation or ICC normalization."
+          ],
+          "pixelVerification": "unverified",
+          "resourceReadiness": "unverified"
+        }
+      }
+    ],
+    "limitations": "Local Node rendering only; visual review and production resource proof remain required."
+  },
+  "workerd": {
+    "recordedAt": "2026-09-28T17:41:16.559Z",
+    "node": "v24.16.0",
+    "workerd": "1.20260903.1",
+    "inspectorTargetId": "core:user:render-check",
+    "renderer": "editorial-profiles",
+    "limitations": [
+      "Post-request workerd inspector samples, not Node RSS, peak memory, or verified all-inclusive isolate accounting.",
+      "Do not sum inspector fields or compare totalSize directly to a production isolate memory budget.",
+      "Wall duration is local elapsed time, not billable CPU; inspector attachment may change runtime behavior.",
+      "A timed-out garbage-collection command does not prove collection or post-GC retained memory.",
+      "Diagnostic maximum dimensions only when --max-input is set; no concurrent, deployed cold-start or production-limit acceptance.",
+      "Deterministic output does not establish Canvas/brand parity, photo provenance, or publication approval."
+    ],
+    "fixtures": [
+      {
+        "name": "website-fixture",
+        "width": 1448,
+        "height": 1086
+      },
+      {
+        "name": "diagnostic-2000x2000",
+        "width": 2000,
+        "height": 2000,
+        "bytes": 403361,
+        "sha256": "a7e94875bd21103dc2492cfaf93ba62a9122bde32d9b6a671e6f3ee7b251ee04"
+      },
+      {
+        "name": "diagnostic-4096x976",
+        "width": 4096,
+        "height": 976,
+        "bytes": 403067,
+        "sha256": "2c5b8db07229a8a4b9e1e7a90b9a4fa411c61242732df3a39c576735fee1ce0e"
+      },
+      {
+        "name": "diagnostic-976x4096",
+        "width": 976,
+        "height": 4096,
+        "bytes": 403281,
+        "sha256": "ceb1fb9f0f5de09589b29de364347c26b35fc54feedb14c103f74a91af8ba8ec"
+      }
+    ],
+    "runs": [
+      {
+        "index": 0,
+        "fixture": 0,
+        "status": 200,
+        "wallMs": 512.9730839999997,
+        "bytes": 439575,
+        "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+        "heap": {
+          "id": 3,
+          "result": {
+            "usedSize": 18060572,
+            "totalSize": 18989056,
+            "embedderHeapUsedSize": 872,
+            "backingStorageSize": 2888685
+          }
+        }
+      },
+      {
+        "index": 1,
+        "fixture": 1,
+        "status": 200,
+        "wallMs": 492.4150840000002,
+        "bytes": 319346,
+        "sha256": "f67f4b1eea837eaac7a9f7ef29069c425900e80c393bbf082dae0010a5c2becb",
+        "heap": {
+          "id": 4,
+          "result": {
+            "usedSize": 34392244,
+            "totalSize": 38862848,
+            "embedderHeapUsedSize": 128720,
+            "backingStorageSize": 11607346
+          }
+        }
+      },
+      {
+        "index": 2,
+        "fixture": 2,
+        "status": 200,
+        "wallMs": 276.48354199999994,
+        "bytes": 193619,
+        "sha256": "3a2bb68194cfdadee45e3298146fec7af987d6986879d46b7051ee84a7d7c7ca",
+        "heap": {
+          "id": 5,
+          "result": {
+            "usedSize": 42228676,
+            "totalSize": 53477376,
+            "embedderHeapUsedSize": 128720,
+            "backingStorageSize": 20199986
+          }
+        }
+      },
+      {
+        "index": 3,
+        "fixture": 3,
+        "status": 200,
+        "wallMs": 247.68174999999974,
+        "bytes": 161113,
+        "sha256": "96aec4b960afcc5af62a6dce233638618bf1b6b5fc25f15ae1c3669d4ed1dbc4",
+        "heap": {
+          "id": 6,
+          "result": {
+            "usedSize": 49790224,
+            "totalSize": 79429632,
+            "embedderHeapUsedSize": 128720,
+            "backingStorageSize": 25067515
+          }
+        }
+      },
+      {
+        "index": 4,
+        "fixture": 0,
+        "status": 200,
+        "wallMs": 372.79020800000035,
+        "bytes": 439575,
+        "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+        "heap": {
+          "id": 7,
+          "result": {
+            "usedSize": 65433856,
+            "totalSize": 113688576,
+            "embedderHeapUsedSize": 128720,
+            "backingStorageSize": 27024953
+          }
+        }
+      },
+      {
+        "index": 5,
+        "fixture": 1,
+        "status": 200,
+        "wallMs": 377.8625000000002,
+        "bytes": 319346,
+        "sha256": "f67f4b1eea837eaac7a9f7ef29069c425900e80c393bbf082dae0010a5c2becb",
+        "heap": {
+          "id": 8,
+          "result": {
+            "usedSize": 74151940,
+            "totalSize": 133906432,
+            "embedderHeapUsedSize": 128720,
+            "backingStorageSize": 28305639
+          }
+        }
+      },
+      {
+        "index": 6,
+        "fixture": 2,
+        "status": 200,
+        "wallMs": 271.1880420000007,
+        "bytes": 193619,
+        "sha256": "3a2bb68194cfdadee45e3298146fec7af987d6986879d46b7051ee84a7d7c7ca",
+        "heap": {
+          "id": 9,
+          "result": {
+            "usedSize": 85060652,
+            "totalSize": 145817600,
+            "embedderHeapUsedSize": 128720,
+            "backingStorageSize": 31678818
+          }
+        }
+      },
+      {
+        "index": 7,
+        "fixture": 3,
+        "status": 200,
+        "wallMs": 247.35520799999995,
+        "bytes": 161113,
+        "sha256": "96aec4b960afcc5af62a6dce233638618bf1b6b5fc25f15ae1c3669d4ed1dbc4",
+        "heap": {
+          "id": 10,
+          "result": {
+            "usedSize": 94279032,
+            "totalSize": 150847488,
+            "embedderHeapUsedSize": 128720,
+            "backingStorageSize": 31646526
+          }
+        }
+      },
+      {
+        "index": 8,
+        "fixture": 0,
+        "status": 200,
+        "wallMs": 370.0498750000006,
+        "bytes": 439575,
+        "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+        "heap": {
+          "id": 11,
+          "result": {
+            "usedSize": 97691784,
+            "totalSize": 164167680,
+            "embedderHeapUsedSize": 128720,
+            "backingStorageSize": 19586978
+          }
+        }
+      },
+      {
+        "index": 9,
+        "fixture": 1,
+        "status": 200,
+        "wallMs": 387.2518749999999,
+        "bytes": 319346,
+        "sha256": "f67f4b1eea837eaac7a9f7ef29069c425900e80c393bbf082dae0010a5c2becb",
+        "heap": {
+          "id": 12,
+          "result": {
+            "usedSize": 111550396,
+            "totalSize": 180600832,
+            "embedderHeapUsedSize": 128720,
+            "backingStorageSize": 28309735
+          }
+        }
+      },
+      {
+        "index": 10,
+        "fixture": 2,
+        "status": 200,
+        "wallMs": 276.10795899999994,
+        "bytes": 193619,
+        "sha256": "3a2bb68194cfdadee45e3298146fec7af987d6986879d46b7051ee84a7d7c7ca",
+        "heap": {
+          "id": 13,
+          "result": {
+            "usedSize": 120298528,
+            "totalSize": 185139200,
+            "embedderHeapUsedSize": 128720,
+            "backingStorageSize": 28187810
+          }
+        }
+      },
+      {
+        "index": 11,
+        "fixture": 3,
+        "status": 200,
+        "wallMs": 259.4608339999995,
+        "bytes": 161113,
+        "sha256": "96aec4b960afcc5af62a6dce233638618bf1b6b5fc25f15ae1c3669d4ed1dbc4",
+        "heap": {
+          "id": 14,
+          "result": {
+            "usedSize": 130098468,
+            "totalSize": 195575808,
+            "embedderHeapUsedSize": 128720,
+            "backingStorageSize": 31654718
+          }
+        }
+      }
+    ],
+    "baseline": {
+      "id": 1,
+      "result": {
+        "usedSize": 8209872,
+        "totalSize": 8765440,
+        "embedderHeapUsedSize": 386904,
+        "backingStorageSize": 2888685
+      }
+    },
+    "initialGcAttempt": {
+      "error": "timeout",
+      "method": "HeapProfiler.collectGarbage",
+      "timeoutMs": 3000
+    },
+    "finalGcAttempt": {
+      "error": "timeout",
+      "method": "HeapProfiler.collectGarbage",
+      "timeoutMs": 3000
+    },
+    "afterGcAttempt": {
+      "id": 16,
+      "result": {
+        "usedSize": 130098468,
+        "totalSize": 195575808,
+        "embedderHeapUsedSize": 128720,
+        "backingStorageSize": 31654718
+      }
+    }
+  },
+  "testResult": [
+    "\u2714 public render rejects declared all-photo protection and accepts subsequent safe render without altering bytes (384.997ms)",
+    "\u2139 tests 18",
+    "\u2139 suites 0",
+    "\u2139 pass 18",
+    "\u2139 fail 0",
+    "\u2139 cancelled 0",
+    "\u2139 skipped 0",
+    "\u2139 todo 0",
+    "\u2139 duration_ms 3125.022584"
+  ],
+  "rebuild": "Same fontTools4.66.0 build rerun produced identical font hashes."
+}

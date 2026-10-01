@@ -193,6 +193,7 @@ export const onRequestGet = async ({ request, env }) => {
     // every time. OPENAI_API_KEY is live in production, so the tool still works without this.
     reference_gemini_configured: !!env.GEMINI_API_KEY,
     posts,
+    draft_actor: ctx.distinct_id || ctx.email,
   });
 };
 
@@ -206,6 +207,14 @@ export const onRequestPost = async ({ request, env }) => {
   const op = (b && b.op) || '';
 
   // Stage a post from a Studio image + caption. Nothing leaves the building yet.
+  if (op === 'draft_receipt' || op === 'draft_abandon') {
+    const actor=ctx.distinct_id || ctx.email;
+    if(!actor || typeof b.request_id!=='string' || !/^[A-Za-z0-9_-]{16,100}$/.test(b.request_id))return bad('Invalid draft request.');
+    if(op==='draft_abandon')await env.DB.prepare("INSERT INTO social_draft_requests (actor,request_id,payload_hash,post_id,result_status,created_at) VALUES (?,?,'','','abandoned',?) ON CONFLICT(actor,request_id) DO NOTHING").bind(actor,b.request_id,now()).run();
+    const receipt=await env.DB.prepare('SELECT post_id, result_status FROM social_draft_requests WHERE actor=? AND request_id=?').bind(actor,b.request_id).first();
+    const current=receipt?await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(receipt.post_id).first():null;
+    return json({ok:true,found:!!receipt,...(receipt?{abandoned:receipt.result_status==='abandoned',id:receipt.post_id,original_status:receipt.result_status,current_status:current?.status||null,post_exists:!!current}:{})});
+  }
   if (op === 'draft') {
     const mediaKey = String(b.media_key || '').trim();
     const caption = String(b.caption || '').trim().slice(0, 2200);
@@ -236,13 +245,20 @@ export const onRequestPost = async ({ request, env }) => {
       return bad('Instagram only accepts JPEG images. Re-export this one as .jpg.');
     }
 
-    const postId = id('sp');
-    const t = now();
+    const requestId=b.request_id;
+    const actor=ctx.distinct_id || ctx.email;
+    if(requestId!==undefined && (typeof requestId!=='string'||!/^[A-Za-z0-9_-]{16,100}$/.test(requestId)||!actor))return bad('Invalid draft request.');
     const hasSchedule = b.scheduled_at !== undefined && b.scheduled_at !== null && b.scheduled_at !== '';
     const requestedAt = Number(b.scheduled_at);
     if (hasSchedule && (!Number.isFinite(requestedAt) || requestedAt <= 0)) return bad('Pick a date and time.');
-    if (hasSchedule && requestedAt < t - 60000) return bad('That time has already passed.');
     const scheduledAt = hasSchedule ? Math.floor(requestedAt) : null;
+    const hash=requestId?Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify({mediaKey,caption,mediaType,scheduledAt}))))).map(v=>v.toString(16).padStart(2,'0')).join(''):null;
+    const readReceipt=()=>env.DB.prepare('SELECT payload_hash, post_id, result_status FROM social_draft_requests WHERE actor=? AND request_id=?').bind(actor,requestId).first();
+    const replay=r=>r.result_status==='abandoned'?bad('This draft request was closed without saving. Start a new request.',409):r.payload_hash===hash?json({ok:true,id:r.post_id,status:r.result_status,original_status:r.result_status,replayed:true}):bad('This request already saved different content. Check the saved post before starting another.',409);
+    if(requestId){const receipt=await readReceipt();if(receipt)return replay(receipt);}
+    const postId = id('sp');
+    const t = now();
+    if (hasSchedule && requestedAt < t - 60000) return bad('That time has already passed.');
     try {
       const postInsert = env.DB.prepare(
         `INSERT INTO social_posts (id, platform, caption, media_key, media_type, public_token, status, scheduled_at, created_by, created_at, updated_at)
@@ -253,8 +269,9 @@ export const onRequestPost = async ({ request, env }) => {
       const mediaInsert = env.DB.prepare(
         `INSERT INTO social_post_media (id, post_id, seq, media_key, public_token, created_at) VALUES (?,?,0,?,?,?)`
       ).bind(id('spm'), postId, mediaKey, randToken(24), t);
-      await env.DB.batch([postInsert, mediaInsert]);
+      await env.DB.batch([...(requestId?[env.DB.prepare('INSERT INTO social_draft_requests (actor,request_id,payload_hash,post_id,result_status,created_at) VALUES (?,?,?,?,?,?)').bind(actor,requestId,hash,postId,scheduledAt?'scheduled':'draft',t)]:[]),postInsert, mediaInsert]);
     } catch (e) {
+      if(requestId){const receipt=await readReceipt();if(receipt)return replay(receipt);}
       return bad('Could not save the post. ' + String((e && e.message) || '').slice(0, 120), 500);
     }
     await capture(env, {

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"><meta name="robots" content="noindex"><meta name="theme-color" content="#1b3a2b"><title>Catering · Añejo Driver</title><link rel="manifest" href="/hub/manifest.webmanifest"><link rel="stylesheet" href="/hub/assets/hub.css">
+<style>.catering-card{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fff;margin:12px 0}.catering-actions{display:flex;gap:10px;flex-wrap:wrap}.catering-actions .btn{min-height:44px}.catering-warning{background:#fbf3da;padding:12px;border-radius:8px}.package{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.package input{width:24px;height:24px;flex-shrink:0}textarea{width:100%;box-sizing:border-box;min-height:70px;margin:8px 0}a.assignment{display:block;color:inherit;text-decoration:none}.catering-status{min-height:24px}button:disabled{opacity:.55}</style></head>
+<body><div class="hub-bar"><h1>AÑEJO · CATERING</h1><div class="hub-bar-actions"><button id="lang-toggle" type="button">ES</button></div></div>
+<main class="hub-wrap"><div class="hub-section"><p><a href="/hub/driver/" id="back-home">Driver home</a></p><p id="boundary" class="row-sub"></p><div id="status" class="catering-status" role="status" aria-live="polite"></div><div id="content"></div><button id="refresh" class="btn ghost" type="button">Refresh</button></div></main>
+<script src="/assets/js/i18n.js"></script><script src="/hub/assets/hub.js"></script><script src="/hub/driver/assets/driver.js"></script>
+<script>
+(function () {
+ 'use strict';
+ var Hub=window.Hub, Driver=window.Driver, selected=new URLSearchParams(location.search).get('assignment_id');
+ var state=null,busy=false,pending=null,message='',lang='en';
+ try {lang=(window.AnejoLang?window.AnejoLang.get():localStorage.getItem('anejo:lang'))==='es'?'es':'en';}catch(ignore){}
+ var storageKey=null, generation=0;
+ var dateQuery=new URLSearchParams(location.search).get('date');
+ var selectedDate=/^\d{4}-\d{2}-\d{2}$/.test(dateQuery||'')?dateQuery:new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'});
+ function t(en) {
+  if(lang!=='es')return en;
+  var es={
+   'Event date':'Fecha del evento','Show assignments':'Ver asignaciones',
+   'Execution changed. Reload before continuing.':'La ejecución cambió. Recarga antes de continuar.',
+   'Assignment changed. Reload before continuing.':'La asignación cambió. Recarga antes de continuar.',
+"Local recovery storage is unavailable. No action was sent. Enable session storage and refresh.":"El almacenamiento local de recuperación no está disponible. No se envió ninguna acción. Habilita el almacenamiento de sesión y actualiza.","Progress saved, but the local recovery record could not be cleared. Refresh before another action.":"Progreso guardado, pero no se pudo borrar el registro local de recuperación. Actualiza antes de otra acción.","Past or undated events are read only.":"Los eventos pasados o sin fecha son de solo lectura.","A paid non-void deposit is required.":"Se requiere un depósito pagado y no anulado.","The owner must confirm the current staff-driver execution plan.":"El propietario debe confirmar el plan actual de ejecución con conductor.","Confirm the delivery address.":"Confirma la dirección de entrega.","The recorded balance must be paid or waived before completion.":"El saldo registrado debe estar pagado o exonerado antes de completar.","Owner or driver access required.":"Se requiere acceso de propietario o conductor.","Assignment not found.":"Asignación no encontrada.","Event not found.":"Evento no encontrado.","Action, versions and unique request key are required.":"Se requieren acción, versiones y clave de solicitud única.","Owner access required.":"Se requiere acceso de propietario.","Assigned driver access required.":"Se requiere acceso del conductor asignado.","Event id required.":"Se requiere el identificador del evento.","Request key belongs to another action.":"La clave de solicitud pertenece a otra acción.","Only an offered assignment can be accepted or declined.":"Solo se puede aceptar o rechazar una asignación ofrecida.","Accept this assignment before recording delivery.":"Acepta esta asignación antes de registrar la entrega.","Confirm every current catering package after the kitchen marks it ready.":"Confirma cada paquete actual después de que la cocina lo marque listo.","Confirm current packages before departure.":"Confirma los paquetes actuales antes de salir.","Record departure before arrival.":"Registra la salida antes de la llegada.","Confirm physical handoff after arrival.":"Confirma la entrega física después de llegar.","Assignment or execution changed. Reload before continuing.":"La asignación o la ejecución cambió. Recarga antes de continuar.",
+   'Driver home':'Inicio del conductor','Refresh':'Actualizar','My catering assignments':'Mis entregas de catering','No catering assignments found.':'No hay entregas de catering asignadas.',
+   'These actions record catering progress only. No customer or driver notifications are sent. Catering compensation is not managed here.':'Estas acciones solo registran el progreso de catering. No se envían notificaciones a clientes ni conductores. La compensación de catering no se gestiona aquí.',
+   'Loading…':'Cargando…','Could not verify assignments. Refresh to try again.':'No se pudieron verificar las asignaciones. Actualiza para reintentar.',
+   'Back to assignments':'Volver a asignaciones','Serving time':'Hora de servicio','Eastern time':'Hora del Este','Confirmed address':'Dirección confirmada','Menu and package pickup':'Menú y recogida de paquetes',
+   'Check every listed package and quantity before confirming pickup.':'Revisa cada paquete y cantidad antes de confirmar la recogida.',
+   'Accept assignment':'Aceptar asignación','Decline assignment':'Rechazar asignación','Confirm all packages picked up':'Confirmar recogida de todos los paquetes','Record departure':'Registrar salida','Record arrival':'Registrar llegada','Complete handoff':'Completar entrega',
+   'I physically handed over the complete catering order.':'Entregué físicamente el pedido completo de catering.',
+   'Reason for declining (optional)':'Motivo del rechazo (opcional)','Confirm every package before pickup.':'Confirma cada paquete antes de la recogida.','Confirm the physical handoff first.':'Confirma primero la entrega física.',
+   'Saving…':'Guardando…','Progress saved.':'Progreso guardado.','Save rejected. Refresh before continuing.':'Guardado rechazado. Actualiza antes de continuar.',
+   'Save outcome is unconfirmed. Resolve the previous request before recording another action.':'No se ha confirmado el guardado. Resuelve la solicitud anterior antes de registrar otra acción.',
+   'Retry previous request':'Reintentar solicitud anterior','Open Hub sign-in':'Abrir acceso al Hub',
+   'assigned':'Asignada','accepted':'Aceptada','declined':'Rechazada','released':'Liberada','completed':'Completada','planned':'Planificada','preparing':'En preparación','ready':'Empacada y lista','en_route':'En camino','arrived':'Llegó',
+   'Assignment':'Asignación','Execution':'Ejecución','No actions are available. Contact the owner about any blockers.':'No hay acciones disponibles. Consulta al propietario sobre los impedimentos.',
+   'Operation rejected by the server: ':'Operación rechazada por el servidor: '
+  };return es[en]||Object.keys(es).reduce(function(value,key){return value.split(key).join(es[key]);},String(en||''));
+ }
+ function esc(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
+ function bindActor(r){
+  if(!r.actor_id)return false;
+  var key='anejo:catering-driver:'+encodeURIComponent(r.actor_id)+':'+String(selected||'list');
+  if(key===storageKey)return true;
+  try{var saved=JSON.parse(sessionStorage.getItem(key)||'null');if(saved&&saved.assignment_id!==selected)return false;storageKey=key;pending=saved;return true;}catch(ignore){return false;}
+ }
+ function remember(value){try{if(!storageKey)return false;if(value){var encoded=JSON.stringify(value);sessionStorage.setItem(storageKey,encoded);return sessionStorage.getItem(storageKey)===encoded;}sessionStorage.removeItem(storageKey);return sessionStorage.getItem(storageKey)===null;}catch(ignore){return false;}}
+ function render(){
+  document.documentElement.lang=lang;
+  document.getElementById('back-home').textContent=t('Driver home');document.getElementById('boundary').textContent=t('These actions record catering progress only. No customer or driver notifications are sent. Catering compensation is not managed here.');
+  document.getElementById('status').textContent=message;document.getElementById('refresh').textContent=t('Refresh');document.getElementById('refresh').disabled=busy;
+  var el=document.getElementById('content'),html='';
+  if(!selected){html='<h2>'+esc(t('My catering assignments'))+'</h2><form id="assignment-date-form" class="catering-actions"><label for="assignment-date">'+esc(t('Event date'))+' · '+esc(t('Eastern time'))+'</label><input type="date" required id="assignment-date" value="'+esc(selectedDate)+'"'+(busy?' disabled':'')+'><button class="btn ghost" type="submit"'+(busy?' disabled':'')+'>'+esc(t('Show assignments'))+'</button></form>';if(state)html+=(state.assignments||[]).length?(state.assignments||[]).map(function(v){return '<a class="catering-card assignment" href="?assignment_id='+encodeURIComponent(v.assignment.id)+'&amp;date='+encodeURIComponent(selectedDate)+'"><strong>'+esc(v.event.customer)+'</strong><p>'+esc(v.event.event_date)+' · '+esc(v.event.serving_time)+' · '+esc(t('Eastern time'))+'</p><p>'+esc(t(v.assignment.status))+' · '+esc(t(v.execution.status))+'</p></a>';}).join(''):'<p>'+esc(t('No catering assignments found.'))+'</p>';}
+  else {
+   html='<a href="/hub/driver/catering.html?date='+encodeURIComponent(selectedDate)+'">'+esc(t('Back to assignments'))+'</a>';
+   if(state&&state.assignment){var v=state,e=v.event||{},a=v.assignment,x=v.execution||{},actions=v.available_actions||[];
+    html+='<section class="catering-card"><h2>'+esc(e.customer)+'</h2><p>'+esc(t('Serving time'))+': '+esc(e.event_date)+' · '+esc(e.serving_time)+' · '+esc(t('Eastern time'))+'</p><p>'+esc(t('Confirmed address'))+': '+esc(e.address)+'</p><p>'+esc(t('Assignment'))+': '+esc(t(a.status))+' · '+esc(t('Execution'))+': '+esc(t(x.status))+'</p>';
+    html+=(v.blockers||[]).map(function(b){return '<p class="catering-warning">'+esc(t(b))+'</p>';}).join('');
+    html+='<h3>'+esc(t('Menu and package pickup'))+'</h3><p>'+esc(t('Check every listed package and quantity before confirming pickup.'))+'</p>';
+    html+=(e.lines||[]).map(function(line){return '<label class="package">'+(actions.includes('confirm_pickup')&&!pending?'<input type="checkbox" class="package-check" value="'+esc(line.key)+'"'+(busy?' disabled':'')+'>':'')+'<span><strong>'+esc(line.name)+'</strong> · '+esc(line.qty)+'</span></label>';}).join('');
+    if(!pending){
+     if(actions.includes('decline'))html+='<label for="decline-note">'+esc(t('Reason for declining (optional)'))+'</label><textarea id="decline-note" maxlength="1000"></textarea>';
+     if(actions.includes('complete'))html+='<label class="package"><input id="handoff-confirmed" type="checkbox"><span>'+esc(t('I physically handed over the complete catering order.'))+'</span></label>';
+     html+='<div class="catering-actions">'+actions.map(function(action){var labels={accept:'Accept assignment',decline:'Decline assignment',confirm_pickup:'Confirm all packages picked up',depart:'Record departure',arrive:'Record arrival',complete:'Complete handoff'};return labels[action]?'<button type="button" class="btn catering-action" data-op="'+esc(action)+'"'+(busy?' disabled':'')+'>'+esc(t(labels[action]))+'</button>':'';}).join('')+'</div>';
+     if(!actions.length)html+='<p>'+esc(t('No actions are available. Contact the owner about any blockers.'))+'</p>';
+    }html+='</section>';
+   }
+   if(pending)html+='<p class="catering-warning">'+esc(t('Save outcome is unconfirmed. Resolve the previous request before recording another action.'))+'</p><div class="catering-actions"><button type="button" class="btn" id="retry"'+(busy||!state?' disabled':'')+'>'+esc(t('Retry previous request'))+'</button><a class="btn ghost" href="/hub/">'+esc(t('Open Hub sign-in'))+'</a></div>';
+  }
+  el.innerHTML=html;
+  Array.prototype.forEach.call(el.querySelectorAll('.catering-action'),function(button){button.onclick=function(){return perform(button.dataset.op);};});
+  var dateForm=document.getElementById('assignment-date-form');if(dateForm)dateForm.onsubmit=function(event){event.preventDefault();if(busy)return Promise.resolve();var value=document.getElementById('assignment-date').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return Promise.resolve();selectedDate=value;state=null;return load();};
+  var retry=document.getElementById('retry');if(retry)retry.onclick=function(){return save(null);};
+ }
+ function perform(op){
+  if(!state||!state.assignment||!(state.available_actions||[]).includes(op)||busy||pending)return Promise.resolve();
+  var body={op:op};
+  if(op==='confirm_pickup'){
+   body.confirmed_line_keys=Array.prototype.filter.call(document.querySelectorAll('.package-check'),function(el){return el.checked;}).map(function(el){return el.value;});
+   var keys=(state.event.lines||[]).map(function(line){return line.key;});
+   if(!keys.length||body.confirmed_line_keys.length!==keys.length||keys.some(function(key){return !body.confirmed_line_keys.includes(key);})){message=t('Confirm every package before pickup.');document.getElementById('status').textContent=message;return Promise.resolve();}
+  }
+  if(op==='complete'){var check=document.getElementById('handoff-confirmed');if(!check||!check.checked){message=t('Confirm the physical handoff first.');document.getElementById('status').textContent=message;return Promise.resolve();}body.handoff_confirmed=true;}
+  if(op==='decline'){var note=document.getElementById('decline-note');body.note=note?note.value.trim():'';}
+  return save(body);
+ }
+ function load(){
+  if(busy)return Promise.resolve();var requestGeneration=++generation;message=t('Loading…');render();
+  return Hub.api('/api/hub/driver/catering'+(selected?'?assignment_id='+encodeURIComponent(selected):'?date='+encodeURIComponent(selectedDate))).then(function(r){
+   if(requestGeneration!==generation)return;
+   if(!r||!r.ok||!r.actor_id||(selected?!r.assignment:!Array.isArray(r.assignments)))throw Error('unverified');
+   if(!bindActor(r)){state=null;message=t('Local recovery storage is unavailable. No action was sent. Enable session storage and refresh.');render();return;}
+   state=r;message='';render();
+  }).catch(function(){if(requestGeneration!==generation)return;state=null;message=t('Could not verify assignments. Refresh to try again.');render();});
+ }
+ function save(body){
+  if(busy||!state||!state.assignment)return Promise.resolve();
+  if(!bindActor(state)){message=t('Local recovery storage is unavailable. No action was sent. Enable session storage and refresh.');render();return Promise.resolve();}
+  if(!pending){
+   if(!body)return Promise.resolve();
+   var proposed=Object.assign({},body,{assignment_id:state.assignment.id,expected_version:state.assignment.version,expected_execution_version:state.execution.version,idempotency_key:crypto.randomUUID()});
+   if(!remember(proposed)){message=t('Local recovery storage is unavailable. No action was sent. Enable session storage and refresh.');render();return Promise.resolve();}pending=proposed;
+  }else if(!remember(pending)){message=t('Local recovery storage is unavailable. No action was sent. Enable session storage and refresh.');render();return Promise.resolve();}
+  ++generation;busy=true;message=t('Saving…');render();
+  return Hub.api('/api/hub/driver/catering',{method:'POST',body:pending}).then(function(r){
+   var status=r&&(r.status||r._status);
+   if(r&&r.ok&&r.assignment&&r.execution&&r.actor_id===state.actor_id){var cleared=remember(null);if(cleared)pending=null;state=r;message=t(cleared?'Progress saved.':'Progress saved, but the local recovery record could not be cleared. Refresh before another action.');}
+   else if(r&&status>=400&&status<500){if(remember(null))pending=null;state=null;message=r.error?t('Operation rejected by the server: ')+t(r.error):t('Save rejected. Refresh before continuing.');}
+   else message=t('Save outcome is unconfirmed. Resolve the previous request before recording another action.');
+  }).catch(function(){message=t('Save outcome is unconfirmed. Resolve the previous request before recording another action.');}).finally(function(){busy=false;render();});
+ }
+
+ var languageButton=document.getElementById('lang-toggle');languageButton.textContent=lang==='es'?'EN':'ES';languageButton.onclick=function(){lang=lang==='es'?'en':'es';try{if(window.AnejoLang)window.AnejoLang.set(lang);else localStorage.setItem('anejo:lang',lang);}catch(ignore){}languageButton.textContent=lang==='es'?'EN':'ES';message='';render();};
+ Hub.boot();Driver.nav('home');document.getElementById('refresh').onclick=load;
+ Driver.guard().then(function(me){if(me)load();});
+})();
+</script></body></html>

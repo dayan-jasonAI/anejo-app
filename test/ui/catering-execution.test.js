@@ -9,7 +9,7 @@ function fixture({ can_write = true, read_only = false, pending = null } = {}) {
   const renders = []; let getReply = null;
   let reply = { ok:true, can_write:true, execution:{status:'preparing',version:2},transitions:[] };
   const ctx = vm.createContext({ lang:'en', quoteId:'cq_test', executionData:{can_write,read_only,configurable:true,execution:{status:'planned',version:1},available_actions:['preparing'],transitions:[]}, executionPending:pending,executionBusy:false,executionMessage:'',executionStorageKey:'test',
-    crypto:{randomUUID:()=> 'unique-key-0001'},sessionStorage:{setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)},
+    window:{CateringAssignment:{load:async()=>{}}},crypto:{randomUUID:()=> 'unique-key-0001'},sessionStorage:{setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)},
     esc:s=>String(s ?? '').replace(/</g,'&lt;'), dayName:()=> 'Sep 27',clock:()=> '1:00 pm',
     render:(d,keep)=>renders.push({d,keep}),document:{getElementById:id=>id==='execution-panel'?panel:elements[id] || null}, Hub:{toast:()=>{}},
     K:{post:async (url,b)=>{ calls.push(JSON.parse(JSON.stringify(b)));return typeof reply==='function'?reply():reply; },get:async()=>getReply || reply}
@@ -74,7 +74,7 @@ test('planner refresh failure cannot turn acknowledged save into an uncertain re
 test('Spanish execution panel translates controls, status, safety disclosure and backend blockers',async()=>{
  const f=fixture();f.ctx.lang='es';f.ctx.executionData.blockers=['Confirm the event serving time.'];f.ctx.renderExecution();
  assert.match(f.panel.innerHTML,/Progreso del evento/);assert.match(f.panel.innerHTML,/Planificado/);assert.match(f.panel.innerHTML,/Iniciar preparación/);
- assert.match(f.panel.innerHTML,/no notifica a clientes ni asigna conductores/);assert.match(f.panel.innerHTML,/Confirma la hora de servicio/);
+ assert.match(f.panel.innerHTML,/no se envían avisos/);assert.match(f.panel.innerHTML,/Confirma la hora de servicio/);
  assert.doesNotMatch(f.panel.innerHTML,/Start preparation|Setup minutes|Confirm execution plan/);
  f.reply({ok:false,status:409,error:'The event changed. Reload before continuing.'});await f.ctx.saveExecution({op:'transition',target_status:'preparing'});
  assert.match(f.panel.innerHTML,/El evento cambió/);
@@ -91,4 +91,10 @@ test('reopen form sends required reason and refreshes planner only on acknowledg
 });
 test('reopen control is absent when backend does not permit recovery',()=>{
  const f=fixture();f.ctx.executionData.can_reopen=false;f.ctx.renderExecution();assert.doesNotMatch(f.panel.innerHTML,/id="execution-reopen"/);
+});
+
+test('execution refuses mutation if retry identity cannot be persisted',async()=>{
+ const f=fixture();f.ctx.sessionStorage.setItem=()=>{throw Error('storage unavailable');};
+ await f.ctx.saveExecution({op:'transition',target_status:'preparing'});
+ assert.equal(f.calls.length,0);assert.equal(f.ctx.executionPending,null);assert.match(f.panel.innerHTML,/No change was sent/);
 });
