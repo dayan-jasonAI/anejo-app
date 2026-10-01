@@ -1,6 +1,7 @@
 // Daily lunches share the normal paid-order kitchen path. Explicit dates, never implicit recurring sales.
 import { etDayParts, deliveryDays, isClosed, DEFAULTS } from './operating.js';
 export const DAILY_PRICE_CENTS = 1000;
+export const DAILY_MAX_QTY = 50;
 export const DAILY_GROUP_FREE_DELIVERY_MIN_QTY = 6;
 export const DAILY_PREFIX = 'daily_lunch_';
 export const isoDate = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + 'T12:00:00Z')) && new Date(s + 'T12:00:00Z').toISOString().slice(0,10) === s;
@@ -68,7 +69,7 @@ export async function validateDailyOrder(env, items, date, now = new Date()) {
   const {config} = await loadDailyLunch(env), ops = await dailyOperating(env);
   const day = dailyDay(config,date,ops,now);
   if (!day.orderable) throw Error('This lunch date is unavailable ('+day.reason+'). Please choose an available date.');
-  if (items.length!==1 || items[0]?.id!==DAILY_PREFIX+day.product_id || !Number.isInteger(items[0].qty) || items[0].qty<1 || items[0].qty>20) throw Error('Order one daily meal selection for one date, quantity 1–20. Other products require a separate checkout.');
+  if (items.length!==1 || items[0]?.id!==DAILY_PREFIX+day.product_id || !Number.isInteger(items[0].qty) || items[0].qty<1 || items[0].qty>DAILY_MAX_QTY) throw Error('Order one daily meal selection for one date, quantity 1–'+DAILY_MAX_QTY+'. Other products require a separate checkout.');
   // One validated meal line and one checkout address: the group benefit never combines destinations.
   const freeDelivery = day.free_delivery || items[0].qty >= DAILY_GROUP_FREE_DELIVERY_MIN_QTY;
   return {...day,free_delivery:freeDelivery,fee_cents:freeDelivery?0:dailyFeeCents(env),ops};

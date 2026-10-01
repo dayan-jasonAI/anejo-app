@@ -86,3 +86,9 @@ test('gateway HTML produces a usable checkout error and preserves the cart for r
  vm.runInContext(checkout,h.ctx);h.ctx.fetch=async()=>({ok:false,status:502,json:async()=>{throw new SyntaxError('Unexpected token <');}});
  await h.ctx.checkout();assert.match(h.el('err').textContent,/temporarily unavailable/);assert.doesNotMatch(h.el('err').textContent,/Unexpected token/);assert.equal(h.el('checkoutBtn').disabled,false);assert.equal(h.ctx.dailySelection.qty,1);assert.equal(h.el('custEmail').value,'test@example.com');assert.equal(h.ctx.location.href,undefined);
 });
+
+test('team-of-50 shortcut keeps checkout deliberate and calculates a free-delivery corporate cart',async()=>{
+ const h=await harness();const fifty=h.all().find(e=>e.textContent==='Order for a team of 50');fifty.onclick();
+ assert.equal(h.ctx.dailySelection,null);assert.equal(h.all().find(e=>e.tagName==='input').value,'50');assert.equal(add(h).textContent,'Continue with 50 meals · $500.00');
+ add(h).onclick();assert.equal(h.ctx.dailySelection.qty,50);assert.equal(h.el('cartSubtotal').textContent,'$500.00');assert.equal(h.el('cartFee').textContent,'Free');assert.equal(h.el('cartGrand').textContent,'$535.00');
+});

@@ -157,3 +157,8 @@
 .ahero-lunch:focus-visible{outline:3px solid #f5f2ec;outline-offset:7px}
 @media(min-width:900px){.ahero-cta{align-items:flex-start}.ahero-featured-actions{width:auto;min-width:300px}.ahero-featured-actions .btn{width:100%}.ahero-cta>.ahero-link{min-height:52px}}
 @media(prefers-reduced-motion:reduce){.ahero-cta .ahero-lunch{transition:none}.ahero-cta .ahero-lunch:hover{transform:none}}
+
+/* Keep every navigation label centered against the wordmark, including padded CTAs. */
+nav .nav-inner{max-width:1540px;gap:20px}nav .logo{flex-shrink:0}nav .nav-links{align-items:center;gap:16px}nav .nav-links a{display:inline-flex;align-items:center;min-height:44px}nav .nav-links .nav-daily{padding:8px 12px;border-radius:5px;border:1px solid #e3cb86;background:linear-gradient(120deg,#ecd79e,#c6a85b);color:#132d22;font-weight:700;box-shadow:0 0 16px rgba(198,168,91,.22)}nav .nav-daily:focus-visible{outline:3px solid #f5f2ec;outline-offset:4px}
+@media(min-width:1041px) and (max-width:1399px){nav .nav-burger{display:block}nav .nav-links{display:none;position:absolute;top:68px;left:0;right:0;background:#0d0d0d;flex-direction:column;padding:20px;gap:12px}nav .nav-links.open{display:flex}}
+@media(min-width:1400px){nav .nav-links a{font-size:12px;letter-spacing:1px}}
