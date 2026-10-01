@@ -1,3 +1,25 @@
 .daily-shop-offer{background:#193c2e;color:#f7f2e6;padding:24px 28px;margin:12px 0 24px;border-top:3px solid #ba9b55}.daily-shop-offer strong{font:30px Georgia,serif}.daily-shop-offer p{font-size:14px;line-height:1.7;margin:10px 0 0}.daily-shop-card{margin-top:20px;max-width:720px}.daily-shop-card>img{width:100%;height:auto!important;aspect-ratio:1;object-fit:contain!important}.daily-shop-card .shop-card-body>strong{display:block;font:36px Georgia,serif;color:#193c2e;margin:20px 0}.daily-shop-card input{max-width:110px;display:block;margin:8px 0 20px}#daily-shop-date{display:block;max-width:360px;margin-top:8px}#shopCategories button:first-child{border-color:#b2984f;font-weight:700}#shopCategories button:first-child.active{background:#193c2e;color:#fff6db}
 
 .modeseg[hidden], #schedFields[hidden], #availBanner[hidden], #fulfillmentLabel[hidden]{display:none!important}
+/* Añejo editorial controls: cream surfaces, forest ink, restrained brass details. */
+.daily-date-field{display:block;max-width:420px;font:600 13px/1.5 'Josefin Sans',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--green);margin:24px 0}
+#daily-shop-date{appearance:none;-webkit-appearance:none;width:100%;max-width:none;min-height:56px;padding:16px 48px 16px 18px;border:1px solid #b9aa83;border-radius:12px;background:var(--white,#fff) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23193c2e' stroke-width='1.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 18px center;color:var(--green);font:500 17px/1.4 'Josefin Sans',sans-serif;box-shadow:0 3px 12px #193c2e06;cursor:pointer}
+.daily-shop-card{border-color:#d8cdb3;border-radius:16px;overflow:hidden;box-shadow:0 10px 36px #193c2e08}
+.daily-shop-card .shop-card-body{padding:28px}
+.daily-shop-card .shop-card-body>h2{font:500 38px/1.1 'Cormorant Garamond',Georgia,serif}
+.daily-quantity{margin:24px 0 20px}.daily-quantity>label{display:block;font-weight:600;font-size:15px;color:var(--green);margin-bottom:10px}
+.daily-stepper{display:inline-flex;align-items:center;gap:8px;padding:6px;border:1px solid #b9aa83;background:#faf7f0;border-radius:12px}
+.daily-stepper button,.daily-cart-quantity button{width:48px;min-height:48px;border:1px solid #d8cdb3;background:#fff;color:var(--green);border-radius:8px;font:24px/1 'Josefin Sans',sans-serif;cursor:pointer;touch-action:manipulation;transition:background .18s,color .18s}
+.daily-shop-card .daily-stepper input{appearance:textfield;-moz-appearance:textfield;width:64px;max-width:64px;min-height:48px;padding:8px 0;margin:0;border:0;border-radius:6px;background:transparent;text-align:center;color:var(--green);font:600 20px/1.4 'Josefin Sans',sans-serif}
+.daily-stepper input::-webkit-inner-spin-button,.daily-stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.daily-stepper button:hover:not(:disabled),.daily-cart-quantity button:hover:not(:disabled){background:var(--green);color:#fff}
+.daily-stepper button:disabled,.daily-cart-quantity button:disabled{opacity:.4;cursor:not-allowed}
+.daily-group-note{padding:18px 20px;border-left:3px solid #b2984f;border-radius:0 10px 10px 0;background:#f6f2e8;color:var(--green);margin:0 0 24px;font-size:15px;line-height:1.6}.daily-group-note strong{font:600 23px/1.2 'Cormorant Garamond',Georgia,serif}.daily-group-note p{margin:6px 0 0}
+.daily-shop-card .daily-continue{width:100%;min-height:56px;border-radius:10px;background:var(--green);color:#fff8eb;border:1px solid var(--green);padding:16px 20px;font:600 16px/1.4 'Josefin Sans',sans-serif;cursor:pointer;transition:background .18s}
+.daily-shop-card .daily-continue:hover:not(:disabled){background:#2d5140}.daily-shop-card .daily-continue:disabled{opacity:.5;cursor:not-allowed}.daily-continue+p{font-size:13px;text-align:center;line-height:1.5;margin:12px 0 0;color:#576054}
+.daily-cart-quantity{display:flex;gap:8px;align-items:center;margin:12px 0}.daily-cart-quantity span{min-width:28px;text-align:center;font-weight:600}.daily-cart-quantity .ci-rm{width:auto;margin-left:auto;border:0;font-size:14px;padding:10px}
+#daily-shop-date:focus-visible,.daily-stepper :focus-visible,.daily-cart-quantity :focus-visible,.daily-continue:focus-visible{outline:3px solid #a77b28;outline-offset:3px}
+@media(max-width:600px){.daily-shop-offer{padding:22px}.daily-date-field{max-width:none}.daily-shop-card .shop-card-body{padding:22px}.daily-shop-card .shop-card-body>h2{font-size:34px}}
+@media(prefers-reduced-motion:reduce){.daily-stepper button,.daily-cart-quantity button,.daily-continue{transition:none!important}}
+/* Regular menu cards use a compact mobile row; the daily feature keeps its editorial stack. */
+.daily-shop-card{display:block}.daily-shop-card>img{display:block;margin:0;border-radius:0;align-self:auto}.daily-shop-card .shop-card-body{width:100%;box-sizing:border-box}.daily-shop-card p{display:block;-webkit-line-clamp:unset;overflow:visible;min-height:0;font-size:15px;line-height:1.6}
