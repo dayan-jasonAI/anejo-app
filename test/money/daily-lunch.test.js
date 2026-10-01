@@ -63,7 +63,7 @@ test('public endpoint returns seven dated days, no-store and fails closed withou
  const {onRequestGet}=await import('../../functions/api/daily-lunch.js');
  const req=new Request('https://example.com/api/daily-lunch?start=2026-09-28');
  const res=await onRequestGet({request:req,env:{DB:db(seed)}});assert.equal(res.status,200);assert.equal(res.headers.get('cache-control'),'no-store');
- const b=await res.json();assert.deepEqual(b.products,validateDailyConfig(seed).products);assert.equal(b.products.length,4);assert.equal(b.max_qty,50);assert.equal(b.group_free_delivery_min_qty,6);assert.equal(b.days.length,7);assert.equal(b.days[0].product_id,'fried_rice');assert.equal(b.windows.lunch_start,'11:00');assert.equal(b.days[4].reason,'not_scheduled');
+ const b=await res.json();assert.deepEqual(b.products,validateDailyConfig(seed).products);assert.equal(b.products.length,4);assert.deepEqual(b.corporate_policy,{notice_hours:24,min_qty_per_product:20,max_total_qty:50,horizon_days:14,full_payment:true});assert.equal(b.corporate_days.length,14);assert.equal(b.max_qty,50);assert.equal(b.group_free_delivery_min_qty,6);assert.equal(b.days.length,7);assert.equal(b.days[0].product_id,'fried_rice');assert.equal(b.windows.lunch_start,'11:00');assert.equal(b.days[4].reason,'not_scheduled');
  assert.equal((await onRequestGet({request:req,env:{}})).status,503);
 });
 test('owner endpoint rejects nonowners and conflicts, persists validated config with audit actor',async()=>{
@@ -107,4 +107,40 @@ test('group delivery applies only to validated quantities of six or more, preser
  await assert.rejects(()=>validateDailyOrder(env,[{id:'daily_lunch_papa',qty:3},{id:'daily_lunch_papa',qty:3}],'2026-10-01',sameDay));
  const preorder=await validateDailyOrder(env,[{id:'daily_lunch_papa',qty:1}],'2026-10-01',new Date('2026-09-30T12:00:00Z'));
  assert.equal(preorder.fee_cents,0);assert.equal(preorder.free_delivery,true);
+});
+
+test('corporate permits unscheduled mixed meals with 20 each, but enforces quantity, closures and explicit date exclusions',async()=>{
+ const {corporateLunchDay}=await import('../../functions/_lib/daily_lunch.js');
+ const c=config(),now=new Date('2026-10-01T14:00:00Z'),date='2026-10-05',env={DB:db(c)};
+ const items=[{id:'daily_lunch_papa',qty:20},{id:'daily_lunch_fried_rice',qty:20}];
+ const result=await validateDailyOrder(env,items,date,now,true);assert.equal(result.corporate,true);assert.equal(result.products.length,2);assert.equal(result.products[0].name,'Papa Añejo');assert.equal(result.fee_cents,0);
+ for(const bad of [[{id:'daily_lunch_papa',qty:19}], [{id:'daily_lunch_papa',qty:'20'}],[{id:'daily_lunch_papa',qty:20.5}],[{id:'daily_lunch_papa',qty:30},{id:'daily_lunch_fried_rice',qty:21}],[{id:'daily_lunch_papa',qty:20},{id:'daily_lunch_papa',qty:20}],[{id:'fake',qty:20}]])await assert.rejects(()=>validateDailyOrder(env,bad,date,now,true));
+ await assert.rejects(()=>validateDailyOrder(env,items,date,now,'true'));
+ await assert.rejects(()=>validateDailyOrder(env,items,date,now,false));
+ assert.equal(corporateLunchDay(c,date,{...DEFAULTS,closed_dates:date},now).reason,'closed');
+ c.dates.push({date,product_id:'papa',enabled:false,sold_out:false});assert.equal(corporateLunchDay(c,date,DEFAULTS,now).reason,'disabled');c.dates.at(-1).enabled=true;c.dates.at(-1).sold_out=true;assert.equal(corporateLunchDay(c,date,DEFAULTS,now).reason,'sold_out');
+ assert.equal(corporateLunchDay(c,'2026-10-16',DEFAULTS,now).reason,'outside_corporate_horizon');assert.equal(corporateLunchDay(c,'2026-02-30',DEFAULTS,now).reason,'invalid_date');
+});
+test('corporate 24-hour boundary uses actual Eastern lunch start across both DST transitions',async()=>{
+ const {corporateLunchDay}=await import('../../functions/_lib/daily_lunch.js');const c=config(),ops={...DEFAULTS,delivery_days:'0,1,2,3,4,5,6'};
+ for(const [date,boundary] of [['2026-10-02','2026-10-01T15:00:00Z'],['2026-11-01','2026-10-31T16:00:00Z'],['2027-03-14','2027-03-13T15:00:00Z']]){
+  assert.equal(corporateLunchDay(c,date,ops,new Date(boundary)).orderable,true);
+  assert.equal(corporateLunchDay(c,date,ops,new Date(Date.parse(boundary)+1)).reason,'corporate_notice');
+ }
+ assert.equal(corporateLunchDay(c,'2026-10-02',{...ops,lunch_start:'bad'},new Date('2026-10-01T12:00Z')).reason,'invalid_window');
+});
+test('corporate actual checkout charges full mixed order, preserves each kitchen meal, and revalidates changes before Square',async()=>{
+ const RealDate=Date,realFetch=globalThis.fetch;
+ globalThis.Date=class extends RealDate{constructor(...args){super(...(args.length?args:['2026-10-01T12:00:00Z']));}static now(){return new RealDate('2026-10-01T12:00:00Z').getTime();}};
+ try{for(const mutate of [false,true]){
+  const c=config(),writes=[];let sent,reads=0,squareCalls=0;const database=db(c,writes),original=database.prepare;
+  database.prepare=sql=>{const q=original(sql);if(sql.includes('daily_lunch_config')){const first=q.first;q.first=async()=>{reads++;if(mutate&&reads===2)c.products.find(p=>p.id==='papa').description='Changed';return first();};}return q;};
+  globalThis.fetch=async(url,opts)=>{assert.match(String(url),/squareupsandbox/);squareCalls++;sent=JSON.parse(opts.body);return new Response(JSON.stringify({payment_link:{id:'p',order_id:'o',url:'https://example.com/pay'}}));};
+  const env={DB:database,SQUARE_ACCESS_TOKEN:'test-only',SQUARE_LOCATION_ID:'test-only'};
+  const request=new Request('https://example.com/api/checkout',{method:'POST',body:JSON.stringify({daily_lunch:{date:'2026-10-05',corporate:true},items:[{id:'daily_lunch_papa',qty:20,price_cents:1},{id:'daily_lunch_fried_rice',qty:20}],address:{street:'1 Main St',city:'West Palm Beach',zip:'33401'},contact:{first_name:'Test',email:'guest@example.com'}})});
+  const response=await onRequestPost({request,env});assert.equal(response.status,mutate?409:200,await response.clone().text());
+  assert.equal(reads,2);assert.equal(squareCalls,mutate?0:1);
+  if(!mutate){assert.equal(sent.order.line_items.reduce((sum,l)=>sum+Number(l.quantity)*l.base_price_money.amount,0),40000);assert.equal(sent.order.service_charges?.length||0,0);assert.deepEqual(sent.order.line_items.map(l=>l.name),['Papa Añejo','Añejo Fried Rice']);const saved=writes.find(w=>w.sql.includes('INSERT INTO orders'));assert.equal(saved.args[7],40000);assert.equal(saved.args[8],0);const lines=JSON.parse(saved.args[3]);assert.deepEqual(lines.map(l=>l.qty),[20,20]);assert.equal(lines.every(l=>l.corporate_lunch&&l.service_date==='2026-10-05'),true);}
+ }
+ }finally{globalThis.Date=RealDate;globalThis.fetch=realFetch;}
 });

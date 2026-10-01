@@ -256,7 +256,7 @@ export const onRequestPost = async ({ request, env }) => {
   const hasDaily = items.some(it => typeof it?.id === 'string' && it.id.startsWith(DAILY_PREFIX));
   let daily = null;
   if (hasDaily || b.daily_lunch) {
-    try { daily = await validateDailyOrder(env, items, b.daily_lunch?.date); }
+    try { daily = await validateDailyOrder(env, items, b.daily_lunch?.date, new Date(), b.daily_lunch?.corporate ?? false); }
     catch (e) { return bad(e.message, 409); }
   }
 
@@ -274,8 +274,9 @@ export const onRequestPost = async ({ request, env }) => {
   for (const it of items) {
     if (daily) {
       subtotalCents += 1000 * it.qty;
-      lineItems.push({name:daily.name,quantity:String(it.qty),base_price_money:{amount:1000,currency:'USD'}});
-      orderItems.push({id:DAILY_PREFIX+daily.product_id,name:daily.name,qty:it.qty,price_cents:1000,service_date:daily.date,daily_lunch:true,description:daily.description});
+      const product=daily.products.find(p=>DAILY_PREFIX+p.product_id===it.id);
+      lineItems.push({name:product.name,quantity:String(it.qty),base_price_money:{amount:1000,currency:'USD'}});
+      orderItems.push({id:it.id,name:product.name,qty:it.qty,price_cents:1000,service_date:daily.date,daily_lunch:true,corporate_lunch:!!daily.corporate,description:product.description});
     } else if (menu.bowls[it && it.id] != null) {
       // Customized bowl: qty units of one configuration. Re-priced + re-validated server-side.
       const qty = Math.floor(Number(it.qty));
@@ -594,8 +595,8 @@ export const onRequestPost = async ({ request, env }) => {
   // during those round trips. This is still not a stock reservation or link expiry.
   if (daily) {
     try {
-      const current = await validateDailyOrder(env, items, daily.date);
-      if (current.name !== daily.name || current.description !== daily.description || current.fee_cents !== daily.fee_cents) {
+      const current = await validateDailyOrder(env, items, daily.date, new Date(), !!daily.corporate);
+      if (JSON.stringify(current.products) !== JSON.stringify(daily.products) || current.fee_cents !== daily.fee_cents || current.ops.lunch_start !== daily.ops.lunch_start || current.ops.lunch_end !== daily.ops.lunch_end) {
         throw Error('Daily lunch changed. Refresh the menu before paying.');
       }
     } catch (e) {

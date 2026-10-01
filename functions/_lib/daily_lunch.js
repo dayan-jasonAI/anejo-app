@@ -1,4 +1,5 @@
 // Daily lunches share the normal paid-order kitchen path. Explicit dates, never implicit recurring sales.
+import { cateringEventTimestamp } from './catering-notice.js';
 import { etDayParts, deliveryDays, isClosed, DEFAULTS } from './operating.js';
 export const DAILY_PRICE_CENTS = 1000;
 export const DAILY_MAX_QTY = 50;
@@ -65,12 +66,41 @@ export function dailyDay(config, date, ops, now = new Date()) {
   }
   return {...out,reason:reason||null,orderable:!reason,free_delivery:!reason && date>et.date};
 }
-export async function validateDailyOrder(env, items, date, now = new Date()) {
+export const CORPORATE_LUNCH_POLICY = Object.freeze({notice_hours:24,min_qty_per_product:20,max_total_qty:DAILY_MAX_QTY,horizon_days:14,full_payment:true});
+export function corporateLunchDay(config,date,ops,now=new Date()) {
+  const out={date,orderable:false,free_delivery:true,mode:'scheduled',corporate:true};
+  if(!isoDate(date))return {...out,reason:'invalid_date'};
+  const today=etDayParts(now).date;
+  const last=new Date(Date.parse(today+'T12:00:00Z')+14*86400000).toISOString().slice(0,10);
+  const row=config.dates.find(d=>d.date===date);
+  const eventAt=cateringEventTimestamp(date,ops.lunch_start);
+  let reason=null;
+  if(date<=today||date>last)reason='outside_corporate_horizon';
+  else if(!deliveryDays(ops).includes(new Date(date+'T12:00:00Z').getUTCDay())||isClosed(ops,date))reason='closed';
+  else if(row&&!row.enabled)reason='disabled';
+  else if(row?.sold_out)reason='sold_out';
+  else if(eventAt===null||!Number.isFinite(now.getTime()))reason='invalid_window';
+  else if(eventAt-now.getTime()<CORPORATE_LUNCH_POLICY.notice_hours*3600000)reason='corporate_notice';
+  return {...out,orderable:!reason,reason,event_at:eventAt};
+}
+export async function validateDailyOrder(env, items, date, now = new Date(), corporate = false) {
+  if(typeof corporate!=='boolean')throw Error('Invalid corporate ordering option.');
   const {config} = await loadDailyLunch(env), ops = await dailyOperating(env);
-  const day = dailyDay(config,date,ops,now);
+  const day = corporate?corporateLunchDay(config,date,ops,now):dailyDay(config,date,ops,now);
   if (!day.orderable) throw Error('This lunch date is unavailable ('+day.reason+'). Please choose an available date.');
+  if(corporate){
+    if(!Array.isArray(items)||!items.length||items.length>config.products.length)throw Error('Choose valid corporate lunch selections.');
+    const seen=new Set();let total=0;
+    const products=items.map(item=>{
+      const product=config.products.find(p=>DAILY_PREFIX+p.id===item?.id);
+      if(!product||seen.has(product.id)||!Number.isInteger(item.qty)||item.qty<CORPORATE_LUNCH_POLICY.min_qty_per_product||item.qty>DAILY_MAX_QTY)throw Error('Corporate lunches require at least 20 of each unique meal, up to 50 total.');
+      seen.add(product.id);total+=item.qty;
+      return {product_id:product.id,name:product.name,description:product.description,qty:item.qty};
+    });
+    if(total>DAILY_MAX_QTY)throw Error('Corporate online orders allow up to 50 lunches total. Request a quote for larger orders.');
+    return {...day,products,fee_cents:0,ops};
+  }
   if (items.length!==1 || items[0]?.id!==DAILY_PREFIX+day.product_id || !Number.isInteger(items[0].qty) || items[0].qty<1 || items[0].qty>DAILY_MAX_QTY) throw Error('Order one daily meal selection for one date, quantity 1–'+DAILY_MAX_QTY+'. Other products require a separate checkout.');
-  // One validated meal line and one checkout address: the group benefit never combines destinations.
   const freeDelivery = day.free_delivery || items[0].qty >= DAILY_GROUP_FREE_DELIVERY_MIN_QTY;
-  return {...day,free_delivery:freeDelivery,fee_cents:freeDelivery?0:dailyFeeCents(env),ops};
+  return {...day,products:[{product_id:day.product_id,name:day.name,description:day.description,qty:items[0].qty}],free_delivery:freeDelivery,fee_cents:freeDelivery?0:dailyFeeCents(env),ops};
 }
