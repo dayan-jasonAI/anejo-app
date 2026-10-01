@@ -157,9 +157,10 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
 }
 </script>
 <link rel="stylesheet" href="/assets/css/shop-order.css">
+<link rel="stylesheet" href="/assets/css/shop-daily-lunch.css?v=20261001">
 </head>
 <body>
-<div style="padding:12px 20px;text-align:center;background:#f5f0e7;color:#203b30"><a href="/daily-lunch" style="color:inherit">$10 Daily Lunch · Preorder for free delivery →</a></div>
+<div style="padding:12px 20px;text-align:center;background:#f5f0e7;color:#203b30"><a href="/order?category=daily" style="color:inherit">$10 Daily Lunch · Preorder for free delivery →</a></div>
 <a href="#catalog" class="skip-link">Skip to content</a>
 
 <nav>
@@ -605,12 +606,14 @@ function paintSchedNote(){
 }
 
 $('delivDate').addEventListener('change', paintSchedNote);
-let selectedCategory = new URLSearchParams(location.search).get('category') || 'meals';
+let dailySelection=null;
+let selectedCategory = new URLSearchParams(location.search).get('category') || 'daily';
 function selectCategory(key){selectedCategory=key;renderCatalog();}
 function renderCatalog(){if(window.renderShopCatalog) window.renderShopCatalog();}
 
 // Steppers are for non-bowl items only (drinks + side sauce). Bowls go through the customize modal.
 function bump(idv, d){
+  if(d>0 && dailySelection && !window.clearDailyForOther())return;
   if(d>0 && (!PRICE[idv] || PRICE[idv].available===false || (mode==='ondemand' && /^(catering_|traditional_)/.test(idv)))) return;
   let q = (addons[idv]||0) + d;
   if (q<0) q=0; if (q>20) q=20;
@@ -693,6 +696,7 @@ function czRender(){
 }
 function czApply(){
   if(!cz) return;
+  if(dailySelection && !window.clearDailyForOther())return;
   if(czEdit>=0){ bowls[czEdit]=cz; }
   else {
     const room=canAddBowl(cz.key); if(room<1){ closeCz(); return; }
@@ -714,6 +718,8 @@ function modSummary(b){
 }
 
 function renderCart(){
+  if(window.setDailyFulfillment) window.setDailyFulfillment(!!dailySelection);
+  if(dailySelection && window.renderDailyCart){window.renderDailyCart();return;}
   window.AnejoShopMeasurement?.update(
     bowls.map(b=>({item_id:b.key,price:instCents(b)/100,quantity:1}))
       .concat(Object.keys(addons).filter(id=>PRICE[id]).map(id=>({item_id:id,price:PRICE[id].price,quantity:addons[id]})))
@@ -919,12 +925,13 @@ async function checkout(){
   hideAddressCheck();
   document.querySelectorAll('.input-error').forEach(e=>e.classList.remove('input-error'));
   const fail=(el,msg)=>{ err.textContent=msg; if(el){ el.classList.add('input-error'); el.focus(); } };
-  const items = bowls.map(b=>({ id:b.key, qty:1, mods:{ removed:b.removed, base:b.base, sauces:b.sauces, extras:b.extras } }))
+  const items = dailySelection ? [{id:'daily_lunch_'+dailySelection.day.product_id,qty:dailySelection.qty}] : bowls.map(b=>({ id:b.key, qty:1, mods:{ removed:b.removed, base:b.base, sauces:b.sauces, extras:b.extras } }))
     .concat(Object.keys(addons).map(id=>({ id, qty:addons[id] })));
   if(!items.length) return;
   const fulfillment = { mode: mode==='ondemand' ? 'on_demand' : 'scheduled' };
   let delivery = null;
-  if(mode==='scheduled'){
+  if(dailySelection){delivery={date:dailySelection.day.date,window:'lunch'};}
+  else if(mode==='scheduled'){
     delivery = { date: $('delivDate').value, window: $('delivWindow').value };
     if(!delivery.date){ fail($('delivDate'),L('Please choose a delivery date.','Por favor elige una fecha de entrega.')); return; }
   }
@@ -951,6 +958,7 @@ async function checkout(){
   btn.disabled=true; const label=btn.textContent; btn.textContent=L('Redirecting to secure checkout…','Redirigiendo al pago seguro…');
   try{
     const payload = { items, fulfillment, address, contact };
+    if(dailySelection)payload.daily_lunch={date:dailySelection.day.date};
     // Descriptive only — the server slices and stores it (parseAttribution), never prices from it.
     if (anejoAttr && (anejoAttr.src || anejoAttr.utm_source || anejoAttr.utm_campaign)) payload.attribution = anejoAttr;
     if (rewardsRedeemPts > 0) payload.redeem_points = rewardsRedeemPts;
@@ -1055,7 +1063,8 @@ document.addEventListener('keydown', function(e){ if(e.key==='Escape' && cz) clo
 </script>
 <script src="/assets/js/shop-families.js?v=20260909-menu2"></script>
 <script src="/assets/js/shop-measurement.js"></script>
-<script src="/assets/js/shop-order.js?v=20260909-instant1"></script>
+<script src="/assets/js/shop-order.js?v=20261001-daily"></script>
+<script src="/assets/js/shop-daily-lunch.js?v=20261001"></script>
 <script src="/assets/js/i18n.js"></script>
 <script src="/assets/js/announce.js" defer></script>
 <script src="/assets/js/consent.js"></script>

@@ -138,7 +138,7 @@
 
     function blocked() {
       var a = document.activeElement;
-      return !!document.getElementById('anejo-announce-modal') || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+      return !!document.querySelector('dialog[open]') || !!document.getElementById('anejo-announce-modal') || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
     }
     function open() {
       if (shown || !ready || blocked()) return;
