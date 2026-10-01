@@ -375,9 +375,13 @@ test('the event screen is kitchen and owner only', async () => {
   assert.equal(cook.status, 200);
 });
 
+// The endpoint reads the real clock, so this one event is seeded relative to today.
+// Pinning it to a calendar date made the test pass in September and fail in October.
+const IN_FOUR_DAYS = new Date(Date.now() + 4 * 86400000).toISOString().slice(0, 10);
+
 test('the endpoint lists events, serves one plan, and records a tick', async () => {
   const env = ownerEnv();
-  seedQuote(env);
+  seedQuote(env, { event_date: IN_FOUR_DAYS });
   const list = await (await eventGet({ request: req('/api/hub/kitchen/event'), env })).json();
   assert.equal(list.ok, true);
   assert.equal(list.events.length, 1);
