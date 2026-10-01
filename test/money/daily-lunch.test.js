@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import {dailyDay,validateDailyConfig,validateDailyOrder,dailyFeeCents,isoDate} from '../../functions/_lib/daily_lunch.js';
 import {DEFAULTS} from '../../functions/_lib/operating.js';
 import {onRequestPost} from '../../functions/api/checkout.js';
@@ -9,7 +10,7 @@ const seed=JSON.parse(migration.match(/VALUES \(1,'(.*)',1,0,/s)[1].replaceAll("
 const config=()=>structuredClone(seed);
 function db(c, writes=[]){return {prepare(sql){let args;return {bind(...a){args=a;return this;},async first(){if(sql.includes('daily_lunch_config'))return {config_json:JSON.stringify(c),version:1};return null;},async all(){return {results:[]};},async run(){writes.push({sql,args});return {meta:{changes:1}};}};}};}
 test('seed contains four editable meals, explicit dates and approved cutoffs; no fabricated images',()=>{
- const c=validateDailyConfig(seed);assert.equal(c.products.length,4);assert.equal(c.products.every(p=>p.image_url===null),true);assert.deepEqual(c.settings,{same_day_cutoff:'11:00',preorder_cutoff:'19:00'});
+ const c=validateDailyConfig(seed);assert.equal(c.products.length,4);const approved={fried_rice:'83405ac8546e83b0a2c589c0b46c36e951c7a09a1c3a1212c4559e0aeddaca62',chicken_quesadillas:'b0bd634d551215774e89d600b60ee7f5381e8912dc63817318e18edf841d90da',papa:'a574e4247f2af060478adc1584e538cc54c510b26e05262bb7f52e5da4e4c891',pechuguitas:'de1d86e39d763a86cac17e6ef018713429858678fdce6e6d70cfe92521053ea4'};for(const p of c.products){assert.equal(createHash('sha256').update(readFileSync(new URL('../../public'+p.image_url,import.meta.url))).digest('hex'),approved[p.id]);}assert.deepEqual(c.settings,{same_day_cutoff:'11:00',preorder_cutoff:'19:00'});
 });
 test('same-day cutoff and prior-day cutoff use ET including strict boundary',()=>{
  const c=config();assert.equal(dailyDay(c,'2026-10-01',DEFAULTS,new Date('2026-10-01T14:59:00Z')).orderable,true);

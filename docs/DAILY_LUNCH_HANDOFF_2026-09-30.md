@@ -37,3 +37,12 @@ Modified: checkout handler, home/menu/order links, owner menu link, UTC address-
 
 ## Next action
 Supply the four approved meal images, connect their local asset paths, and review the final visual result. Confirm normal release access, apply only the required migration with preflight/rollback planning, release through repository gates, then verify public availability, authenticated owner save/readback and checkout-to-kitchen behavior without an unauthorized charge or send. Broader marketing, Google and catering work remains open in its existing handoffs.
+
+## September 30 follow-through — supplied images and restored access
+Dayan supplied all four approved images and explicitly authorized required database updates, release ordering and reconciliation. Copied original bytes into public/assets/img/daily-lunch; SHA256 tests bind each meal to its approved file. Square image layout preserves all artwork instead of cropping. 3,256 root tests pass after updating the former missing-photo assertion.
+
+Fresh Wrangler OAuth and production D1 read succeeded: earlier 7403 blocker no longer reproduces. Recorded pre-change Time Travel bookmark privately in local release evidence. Schema preflight showed no daily_lunch_config/daily_schedule/daily_claims. Applied only0140 (not historical backlog); independent config readback follows. Application release still pending this checkpoint.
+
+Reconciled PR79 against172:172 is canonical public lunch implementation. Do not apply79's0104 migration or merge its $15/mileage/clinic-contract changes. Keep allocation/combined production forecasting ideas as backlog; temporary holds alone do not prevent late-link overselling. Clinic pricing, contract menus and operations remain untouched. Next week's production confirmation was requested separately; no future week silently enabled.
+
+Renderer acceptance is engineering-owned; isolated sandbox28tests and12local workerd runs passed. Visual samples at /tmp/anejo-render-review-2026-09-30. Peak production memory and low-contrast emblem remain unresolved. Daily lunch serves approved images directly and does not depend on unattended renderer readiness.
