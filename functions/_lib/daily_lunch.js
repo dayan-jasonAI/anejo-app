@@ -81,7 +81,7 @@ export function corporateLunchDay(config,date,ops,now=new Date()) {
   else if(row?.sold_out)reason='sold_out';
   else if(eventAt===null||!Number.isFinite(now.getTime()))reason='invalid_window';
   else if(eventAt-now.getTime()<CORPORATE_LUNCH_POLICY.notice_hours*3600000)reason='corporate_notice';
-  return {...out,orderable:!reason,reason,event_at:eventAt};
+  return {...out,orderable:!reason,reason,event_at:eventAt,payment_deadline_at:eventAt===null?null:eventAt-CORPORATE_LUNCH_POLICY.notice_hours*3600000};
 }
 export async function validateDailyOrder(env, items, date, now = new Date(), corporate = false) {
   if(typeof corporate!=='boolean')throw Error('Invalid corporate ordering option.');

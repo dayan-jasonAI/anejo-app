@@ -129,11 +129,12 @@ export const onRequestPost = async ({ request, env }) => {
         // Square Payment.amount_money excludes tips; Order.total_money includes them.
         // https://developer.squareup.com/reference/square/objects/payment
         // https://developer.squareup.com/reference/square/objects/Order
-        let corporateOrder;
+        let corporateOrder, corporateDeadline, corporateId;
         try {
-          const stored=await env.DB.prepare('SELECT items FROM orders WHERE square_order_id=? LIMIT 1').bind(pay.order_id).first();
+          const stored=await env.DB.prepare('SELECT id, items FROM orders WHERE square_order_id=? LIMIT 1').bind(pay.order_id).first();
           const items=stored?.items?JSON.parse(stored.items):[];
           corporateOrder=Array.isArray(items)&&items.some(item=>item.corporate_lunch===true);
+          if(corporateOrder){const deadlines=items.filter(item=>item.corporate_lunch===true).map(item=>item.corporate_payment_deadline_at);corporateDeadline=deadlines[0];corporateId=stored.id;if(!Number.isSafeInteger(corporateDeadline)||corporateDeadline<=0||deadlines.some(d=>d!==corporateDeadline))return new Response('Corporate payment deadline unavailable',{status:503});}
         } catch { return new Response('Order payment verification temporarily unavailable',{status:503}); }
         if(corporateOrder){
           if(!env.SQUARE_ACCESS_TOKEN)return new Response('Corporate payment verification unavailable',{status:503});
@@ -148,6 +149,14 @@ export const onRequestPost = async ({ request, env }) => {
           // A captured full payment can precede the Order read model catching up. Retry it.
           if(due.currency==='USD'&&total.currency==='USD'&&pay.amount_money?.currency==='USD'&&Number.isSafeInteger(pay.amount_money?.amount)&&principal>0&&pay.amount_money.amount>=principal&&due.amount>0)return new Response('Corporate order payment reconciliation pending',{status:503});
           if(due.currency!=='USD'||total.currency!=='USD'||tip&&tip.currency!=='USD'||pay.amount_money?.currency!=='USD'||!Number.isSafeInteger(pay.amount_money?.amount)||principal<=0||due.amount!==0||pay.amount_money.amount<principal||order.state==='CANCELED')return ok('corporate full payment not verified');
+          const signedCaptureAt=typeof pay.updated_at==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(pay.updated_at)?Date.parse(pay.updated_at):NaN;
+          const capturedAt=Number.isFinite(signedCaptureAt)&&signedCaptureAt<=Date.now()?signedCaptureAt:Date.now();
+          if(capturedAt>corporateDeadline){
+            const alert=await raiseAlert(env,{alert_type:'delivery_failed',severity:'critical',onceEver:true,dedupe_key:'corporate_late_payment:'+pay.order_id,title:'Corporate lunch payment after notice deadline',body:'Full payment arrived after the required 24-hour notice deadline. Keep this order on hold; review fulfillment or refund with the owner before releasing food.',ref_type:'order',ref_id:corporateId||pay.order_id,source:'square_payment',url:'/hub/owner/orders.html?order='+encodeURIComponent(corporateId||pay.order_id)});
+            if(!alert.ok)return new Response('Corporate late-payment review alert unavailable',{status:503});
+            return ok('corporate late payment held for owner review');
+          }
+
         }
 
         const tipCents = (pay.tip_money && Number(pay.tip_money.amount)) || 0;

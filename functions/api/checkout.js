@@ -276,7 +276,7 @@ export const onRequestPost = async ({ request, env }) => {
       subtotalCents += 1000 * it.qty;
       const product=daily.products.find(p=>DAILY_PREFIX+p.product_id===it.id);
       lineItems.push({name:product.name,quantity:String(it.qty),base_price_money:{amount:1000,currency:'USD'}});
-      orderItems.push({id:it.id,name:product.name,qty:it.qty,price_cents:1000,service_date:daily.date,daily_lunch:true,corporate_lunch:!!daily.corporate,description:product.description});
+      orderItems.push({id:it.id,name:product.name,qty:it.qty,price_cents:1000,service_date:daily.date,daily_lunch:true,corporate_lunch:!!daily.corporate,...(daily.corporate?{corporate_payment_deadline_at:daily.payment_deadline_at}:{}),description:product.description});
     } else if (menu.bowls[it && it.id] != null) {
       // Customized bowl: qty units of one configuration. Re-priced + re-validated server-side.
       const qty = Math.floor(Number(it.qty));
