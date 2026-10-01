@@ -1,0 +1,1 @@
+Root:3402 tests passed; fail0. Focused UI22 passed. Lint0 errors,11 existing warnings. Functions compiled. Source logs /tmp/ten-dollar-tests-final2.log, /tmp/ten-dollar-lint-release.log, /tmp/ten-dollar-build-final.log.
