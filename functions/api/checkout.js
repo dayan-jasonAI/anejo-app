@@ -15,6 +15,7 @@ import { rewardsSummary } from '../_lib/rewards.js';
 import { evaluatePromo, recordRedemption, autoCustomerCodeFor, claimPromoUse, releasePromoUse } from '../_lib/promo.js';
 import { applyVolumeDiscount } from '../_lib/catering-pricing.js';
 import { loadMenu, AVAILABILITY } from '../_lib/menu.js';
+import { validateDailyOrder, DAILY_PREFIX } from '../_lib/daily_lunch.js';
 import { createOrderReceipt } from '../_lib/order-receipt.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
@@ -252,6 +253,13 @@ export const onRequestPost = async ({ request, env }) => {
   const items = Array.isArray(b.items) ? b.items : [];
   if (!items.length) return bad('Your cart is empty.');
 
+  const hasDaily = items.some(it => typeof it?.id === 'string' && it.id.startsWith(DAILY_PREFIX));
+  let daily = null;
+  if (hasDaily || b.daily_lunch) {
+    try { daily = await validateDailyOrder(env, items, b.daily_lunch?.date); }
+    catch (e) { return bad(e.message, 409); }
+  }
+
   // Prices come from D1 so the owner can change them from the HUB without a deploy. loadMenu
   // falls back to the module constants if D1 is unreachable — a database hiccup must not stop us
   // taking money at the last known-good price.
@@ -264,7 +272,11 @@ export const onRequestPost = async ({ request, env }) => {
   // /catering applies to catering trays only — it must never quietly take 5% off a bowl order.
   let cateringSubtotalCents = 0;
   for (const it of items) {
-    if (menu.bowls[it && it.id] != null) {
+    if (daily) {
+      subtotalCents += 1000 * it.qty;
+      lineItems.push({name:daily.name,quantity:String(it.qty),base_price_money:{amount:1000,currency:'USD'}});
+      orderItems.push({id:DAILY_PREFIX+daily.product_id,name:daily.name,qty:it.qty,price_cents:1000,service_date:daily.date,daily_lunch:true,description:daily.description});
+    } else if (menu.bowls[it && it.id] != null) {
       // Customized bowl: qty units of one configuration. Re-priced + re-validated server-side.
       const qty = Math.floor(Number(it.qty));
       if (!Number.isFinite(qty) || qty < 1 || qty > 20) return bad('Invalid bowl quantity.');
@@ -306,7 +318,7 @@ export const onRequestPost = async ({ request, env }) => {
   //   scheduled → an upcoming Mon–Sat delivery, ordered before the 6 PM day-before cutoff.
   const WINDOWS = { lunch: 'Lunch (11:00 AM–1:00 PM)', dinner: 'Dinner (5:00 PM–7:00 PM)', asap: 'ASAP · today' };
   const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const onDemand = !!(b.fulfillment && b.fulfillment.mode === 'on_demand') || b.mode === 'on_demand';
+  const onDemand = daily ? daily.mode === 'on_demand' : !!(b.fulfillment && b.fulfillment.mode === 'on_demand') || b.mode === 'on_demand';
 
   if (onDemand && orderItems.some(it => /^(catering_|traditional_)/.test(it.id))) {
     return bad('Traditional and catering items require scheduled delivery. Please choose a delivery date.', 409);
@@ -316,7 +328,10 @@ export const onRequestPost = async ({ request, env }) => {
   // Hoisted: assigned on the scheduled branch, reused for the zip check on BOTH branches. As a
   // const inside the else-block it made every on-demand order throw ReferenceError at the reuse.
   let schedOps = null;
-  if (onDemand) {
+  if (daily) {
+    fulfillmentMode=daily.mode; dateStr=daily.date; win='lunch'; schedOps=daily.ops;
+    fulfillLabel=`Daily lunch ${dateStr} · ${schedOps.lunch_start}–${schedOps.lunch_end}`;
+  } else if (onDemand) {
     fulfillmentMode = 'on_demand';
     // Same overrides as the storefront. If only the display honored scheduled-only, a crafted
     // request could still place a same-day order — the gate has to read the same setting.
@@ -476,9 +491,9 @@ export const onRequestPost = async ({ request, env }) => {
   let deliveryNote = `${onDemand ? 'ON-DEMAND' : 'Delivery'} for ${firstName}: ${fulfillLabel} · ${addrLine}`;
 
   // Order minimum + flat delivery fee (configurable via env).
-  const orderMinCents = Math.round(Number(env.ORDER_MIN_USD || 25) * 100);
+  const orderMinCents = daily ? 1000 : Math.round(Number(env.ORDER_MIN_USD || 25) * 100);
   if (subtotalCents < orderMinCents) return bad(`Order minimum is $${(orderMinCents / 100).toFixed(2)}. Please add a little more.`);
-  let feeCents = Math.round(Number(env.DELIVERY_FEE_USD || 5) * 100);
+  let feeCents = daily ? daily.fee_cents : Math.round(Number(env.DELIVERY_FEE_USD || 5) * 100);
 
   // FL state 6% + Palm Beach County 1% surtax = 7% by default; override via SALES_TAX_PCT.
   const taxPct = String(env.SALES_TAX_PCT || '7.0');
@@ -575,6 +590,20 @@ export const onRequestPost = async ({ request, env }) => {
     deliveryNote += ' · 🎁 INCLUDE 1 FREE Añejo Fit drink (partner perk)';
   }
 
+  // Recheck after address/reward work: a cutoff or owner availability edit can occur
+  // during those round trips. This is still not a stock reservation or link expiry.
+  if (daily) {
+    try {
+      const current = await validateDailyOrder(env, items, daily.date);
+      if (current.name !== daily.name || current.description !== daily.description || current.fee_cents !== daily.fee_cents) {
+        throw Error('Daily lunch changed. Refresh the menu before paying.');
+      }
+    } catch (e) {
+      if (promoClaimed) await releasePromoUse(env, promo.code);
+      return bad(e.message, 409);
+    }
+  }
+
   const { ok, status, data } = await square(env, '/v2/online-checkout/payment-links', {
     method: 'POST',
     body: {
@@ -669,7 +698,7 @@ export const onRequestPost = async ({ request, env }) => {
       const lng = verifiedGeo ? verifiedGeo.lng : null;
       const geocodedAt = verifiedGeo ? t : null;
       const orderId = id('ord');
-      await env.DB.prepare(
+      const storedOrder = await env.DB.prepare(
         `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
             fulfillment_mode, subtotal_cents, fee_cents, tax_pct, total_estimate_cents, redeem_points, discount_cents,
             customer_name, customer_email, customer_phone, sms_consent,
@@ -695,11 +724,20 @@ export const onRequestPost = async ({ request, env }) => {
         promo ? promo.code : null, promo ? promo.points_mult : null,
         attribution.src, attribution.utm_source, attribution.utm_medium, attribution.utm_campaign, t, t
       ).run();
+      if (daily && (storedOrder?.success === false || storedOrder?.meta?.changes !== 1)) throw Error('Lunch order write was not confirmed.');
       // Consume the code against this order (idempotent per order). The webhook later reads the
       // order's promo_code to apply the points multiplier and pay any affiliate commission.
       if (promo) await recordRedemption(env, { evaluated: promo, orderId, customerEmail: sessEmail }).catch(() => {});
       receiptToken = await createOrderReceipt(env, orderId).catch(() => null);
-    } catch (_) { /* never fail checkout on the order-log write */ }
+    } catch (_) {
+      // Daily lunch cannot expose a payable link without its kitchen ticket. Square may
+      // already hold an orphan link; it was not returned and no payment is assumed.
+      // Preserve the existing non-daily checkout behavior.
+      if (daily) {
+        if (promoClaimed) await releasePromoUse(env, promo.code);
+        return bad('Could not record your lunch order. Please try again later.', 503);
+      }
+    }
   }
 
   return json({ url, receipt_token: receiptToken });

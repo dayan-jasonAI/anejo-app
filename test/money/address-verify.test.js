@@ -266,8 +266,8 @@ const SQUARE_ENV = { SQUARE_ACCESS_TOKEN: 'sandbox-token', SQUARE_LOCATION_ID: '
 const GOOD_ORDER_BODY = () => {
   // 10 days out lands well past the next-day cutoff regardless of what time this test runs, and
   // on a Mon–Sat default delivery day (skip Sunday just in case the +10 lands there).
-  const d = new Date(); d.setDate(d.getDate() + 10);
-  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  const d = new Date(); d.setUTCDate(d.getUTCDate() + 10);
+  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
   const dateStr = d.toISOString().slice(0, 10);
   return {
     items: [{ id: 'vida', qty: 2 }],
