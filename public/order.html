@@ -157,7 +157,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
 }
 </script>
 <link rel="stylesheet" href="/assets/css/shop-order.css">
-<link rel="stylesheet" href="/assets/css/shop-daily-lunch.css?v=20261001-ten">
+<link rel="stylesheet" href="/assets/css/shop-daily-lunch.css?v=20261001-corporate">
 </head>
 <body>
 <div style="padding:12px 20px;text-align:center;background:#f5f0e7;color:#203b30"><a href="/order?category=daily" style="color:inherit">$10 Daily Lunch · Preorder for free delivery →</a></div>
@@ -925,7 +925,7 @@ async function checkout(){
   hideAddressCheck();
   document.querySelectorAll('.input-error').forEach(e=>e.classList.remove('input-error'));
   const fail=(el,msg)=>{ err.textContent=msg; if(el){ el.classList.add('input-error'); el.focus(); } };
-  const items = dailySelection ? [{id:'daily_lunch_'+dailySelection.day.product_id,qty:dailySelection.qty}] : bowls.map(b=>({ id:b.key, qty:1, mods:{ removed:b.removed, base:b.base, sauces:b.sauces, extras:b.extras } }))
+  const items = dailySelection ? (dailySelection.corporate?dailySelection.items.map(i=>({id:'daily_lunch_'+i.product_id,qty:i.qty})):[{id:'daily_lunch_'+dailySelection.day.product_id,qty:dailySelection.qty}]) : bowls.map(b=>({ id:b.key, qty:1, mods:{ removed:b.removed, base:b.base, sauces:b.sauces, extras:b.extras } }))
     .concat(Object.keys(addons).map(id=>({ id, qty:addons[id] })));
   if(!items.length) return;
   const fulfillment = { mode: mode==='ondemand' ? 'on_demand' : 'scheduled' };
@@ -958,7 +958,7 @@ async function checkout(){
   btn.disabled=true; const label=btn.textContent; btn.textContent=L('Redirecting to secure checkout…','Redirigiendo al pago seguro…');
   try{
     const payload = { items, fulfillment, address, contact };
-    if(dailySelection)payload.daily_lunch={date:dailySelection.day.date};
+    if(dailySelection)payload.daily_lunch={date:dailySelection.day.date,...(dailySelection.corporate?{corporate:true}:{})};
     // Descriptive only — the server slices and stores it (parseAttribution), never prices from it.
     if (anejoAttr && (anejoAttr.src || anejoAttr.utm_source || anejoAttr.utm_campaign)) payload.attribution = anejoAttr;
     if (rewardsRedeemPts > 0) payload.redeem_points = rewardsRedeemPts;
@@ -1064,9 +1064,10 @@ document.addEventListener('keydown', function(e){ if(e.key==='Escape' && cz) clo
 </script>
 <script src="/assets/js/shop-families.js?v=20261001-ten"></script>
 <script src="/assets/js/shop-measurement.js"></script>
-<script src="/assets/js/shop-order.js?v=20261001-ten"></script>
-<script src="/assets/js/shop-ten-menu.js?v=20261001-ten"></script>
-<script src="/assets/js/shop-daily-lunch.js?v=20261001-bulk"></script>
+<script src="/assets/js/shop-order.js?v=20261001-corporate"></script>
+<script src="/assets/js/shop-corporate-lunch.js?v=20261001-corporate"></script>
+<script src="/assets/js/shop-ten-menu.js?v=20261001-corporate"></script>
+<script src="/assets/js/shop-daily-lunch.js?v=20261001-corporate"></script>
 <script src="/assets/js/i18n.js"></script>
 <script src="/assets/js/announce.js" defer></script>
 <script src="/assets/js/consent.js"></script>
