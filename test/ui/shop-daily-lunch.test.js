@@ -78,3 +78,11 @@ test('quantity controls announce group savings and cart editing recalculates the
  const more=descendants(h.el('cartLines')).find(e=>e['aria-label']==='Add one lunch to order');more.onclick();assert.equal(h.ctx.dailySelection.qty,6);assert.equal(h.el('cartFee').textContent,'Free');assert.equal(h.el('cartGrand').textContent,'$64.20');
  const less=descendants(h.el('cartLines')).find(e=>e['aria-label']==='Remove one lunch from order');less.onclick();assert.equal(h.el('cartFee').textContent,'$5.00');
 });
+
+test('gateway HTML produces a usable checkout error and preserves the cart for recovery',async()=>{
+ const h=await harness();add(h).onclick();
+ for(const [id,value] of Object.entries({custName:'Test',custEmail:'test@example.com',custPhone:'',addrStreet:'1 Test St',addrUnit:'',addrCity:'West Palm Beach',addrState:'FL',addrZip:'33401',addrNotes:''}))h.el(id).value=value;
+ const checkout=order.slice(order.indexOf('async function checkout(){'),order.indexOf('\nasync function loadRewards(){'));
+ vm.runInContext(checkout,h.ctx);h.ctx.fetch=async()=>({ok:false,status:502,json:async()=>{throw new SyntaxError('Unexpected token <');}});
+ await h.ctx.checkout();assert.match(h.el('err').textContent,/temporarily unavailable/);assert.doesNotMatch(h.el('err').textContent,/Unexpected token/);assert.equal(h.el('checkoutBtn').disabled,false);assert.equal(h.ctx.dailySelection.qty,1);assert.equal(h.el('custEmail').value,'test@example.com');assert.equal(h.ctx.location.href,undefined);
+});

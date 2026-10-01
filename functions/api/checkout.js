@@ -674,15 +674,26 @@ export const onRequestPost = async ({ request, env }) => {
   // permanently burns a use from a capped code.
   if (!ok) {
     if (promoClaimed) await releasePromoUse(env, promo.code);
-    const detail = data && data.errors && data.errors[0] && data.errors[0].detail;
-    return bad(detail || `Square checkout failed (${status}).`, 502);
+    // Provider detail can echo customer input. Log only bounded machine identifiers;
+    // never the request, token, response body, detail, or payment URL.
+    const machine = value => typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/.test(value) ? value : null;
+    const field = value => typeof value === 'string' && /^[a-z_][a-z0-9_.[\]]{0,119}$/.test(value) ? value : null;
+    console.error(JSON.stringify({
+      event: 'checkout.square_rejected',
+      status: Number.isInteger(status) ? status : null,
+      errors: (Array.isArray(data?.errors) ? data.errors : []).slice(0, 5).map(error => ({
+        code: machine(error?.code), category: machine(error?.category), field: field(error?.field),
+      })),
+    }));
+    return bad('We could not open secure payment. No payment was taken by this request. Please try again later or contact Añejo for help.', 502);
   }
 
   const pl = data && data.payment_link;
   const url = pl && (pl.long_url || pl.url);
   if (!url) {
     if (promoClaimed) await releasePromoUse(env, promo.code);
-    return bad('Square did not return a checkout URL.', 502);
+    console.error(JSON.stringify({ event: 'checkout.square_missing_payment_link', status: Number.isInteger(status) ? status : null }));
+    return bad('The payment provider did not return a secure checkout link. No payment was taken by this request. Please try again later or contact Añejo for help.', 502);
   }
 
   // Persist a pending order for the kitchen view; the webhook marks it paid.

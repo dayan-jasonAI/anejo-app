@@ -971,7 +971,8 @@ async function checkout(){
     if (addressConfirmed) payload.address_confirmed = true;
     window.AnejoShopMeasurement?.step('begin_checkout');
     const r = await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const data = await r.json();
+    const data = await r.json().catch(()=>null);
+    if(!data) throw new Error(L('Secure checkout is temporarily unavailable. No payment was submitted. Your details are still here; please try again shortly or call 561-778-7474.','El pago seguro no está disponible temporalmente. No se envió ningún pago. Tus datos siguen aquí; intenta en unos momentos o llama al 561-778-7474.'));
     // The server couldn't confirm the delivery address — WARN AND ASK, not a hard failure. Show
     // the same options it gave us and stop here; the customer's next tap resubmits this exact
     // request with address_confirmed set (or a corrected address), never a dead end.
