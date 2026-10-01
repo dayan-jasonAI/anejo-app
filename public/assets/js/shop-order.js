@@ -7,7 +7,8 @@ function shopEnabled(i){return i.available!==false && (!isBowl(i.id)|| !(mode===
 window.renderShopCatalog=function(){
  const all=CATALOG.flatMap(g=>g.items);shopGroups=AnejoShop.group(all);const query=($('shopSearch')?.value||'').toLowerCase();
  const cat=selectedCategory==='traditional'?'meals':selectedCategory==='all'?'meals':selectedCategory;
- $('shopCategories').innerHTML=AnejoShop.sections.map(([k,en,es])=>`<button class="${cat===k?'active':''}" onclick="selectCategory('${k}')" aria-pressed="${cat===k}">${L(en,es)}</button>`).join('');
+ $('shopCategories').innerHTML=[['daily','$10 Daily Lunch','Almuerzo diario · $10'],...AnejoShop.sections].map(([k,en,es])=>`<button class="${cat===k?'active':''}" onclick="selectCategory('${k}')" aria-pressed="${cat===k}">${L(en,es)}</button>`).join('');
+ if(cat==='daily'){if(window.renderDailyCategory)window.renderDailyCategory();else {$('catalog').textContent=L('Loading today’s $10 lunch…','Cargando el almuerzo de $10…');}renderShopSuggestions();return;}
  $('categoryNote').textContent=cat==='catering'?L('Choose a tray size inside Customize. Catering is delivered on your selected date.','Elige el tamaño en Personalizar. Entregamos el catering en la fecha que selecciones.'):L('Choose a favorite, make it yours, then review your order.','Elige tu favorito, personalízalo y revisa tu pedido.');
  const chosen=shopGroups.filter(g=>(query||g.category===cat)&&(!query||[g.name,g.nameEs,...g.variants.map(i=>i.name)].join(' ').toLowerCase().includes(query))).sort((a,b)=>{const rank=k=>k==='combo-traditional-meal'?0:k==='ropa-vieja-meal'?1:2;return rank(a.key)-rank(b.key)});
  $('catalog').innerHTML='<div class="shop-grid">'+chosen.map(g=>{const on=g.variants.filter(shopEnabled),first=on[0]||g.variants[0],min=Math.min(...g.variants.map(i=>i.price));const bowl=isBowl(first.id);const desc=bowl?L(first.desc,first.descEs):g.variants.length>1?L('Choose your flavor, size and quantity.','Elige sabor, tamaño y cantidad.'):L(first.desc,first.descEs);const action=bowl?`openCz('${esc(first.id)}')`:`openShop('${esc(g.key)}')`;return `<article class="shop-card"><img src="${escHtml(shopPhoto(first))}" alt="${escHtml(shopName(g))}" loading="lazy"><div class="shop-card-body"><h2>${escHtml(shopName(g))}</h2><p>${escHtml(desc)}</p><div class="shop-card-bottom"><strong>${g.variants.length>1?L('From ','Desde '):''}${money(min)}</strong><button class="customize" ${on.length?'':'disabled'} onclick="${action}">${on.length?L('Customize','Personalizar'):L('Unavailable','No disponible')}</button></div></div></article>`}).join('')+(cat==='catering'?`<article class="shop-card"><img src="/assets/img/menu-launch/cajitas-collection.webp" alt="La Cajita" loading="lazy"><div class="shop-card-body"><h2>La Cajita</h2><p>${L('Personalized boxes for your gathering. Final price by quote.','Cajitas personalizadas para tu evento. Precio final por cotización.')}</p><a class="customize" href="/cajita-builder">${L('Design & request quote','Diseñar y solicitar cotización')}</a></div></article>`:'')+'</div>'+(chosen.length?'':`<p>${L('No matching items. Try another search or category.','No hay resultados. Prueba otra búsqueda o categoría.')}</p>`);
@@ -33,6 +34,7 @@ function shopMax(id){return /^(traditional_|catering_)/.test(id)?5000:20;}
 function shopChange(id,d){if(d>0&&!shopEnabled(PRICE[id]))return;shopDraft[id]=Math.max(0,Math.min(shopMax(id)-(shopEditing?0:(addons[id]||0)),(shopDraft[id]||0)+d));renderShopChoices();if(d>0&&PRICE[id])$('shopModalImage').src=shopPhoto(PRICE[id]);}
 function applyShop(){
  if(!shopActive)return;
+ if(dailySelection && !window.clearDailyForOther())return;
  for(const i of shopActive.variants){const count=shopDraft[i.id]||0;if(count&&!shopEnabled(i)){renderShopChoices();return;}}
  if(shopEditing)shopActive.variants.forEach(i=>delete addons[i.id]);
  for(const i of shopActive.variants){const count=shopDraft[i.id]||0;if(count)addons[i.id]=Math.min(shopMax(i.id),(addons[i.id]||0)+count);}
@@ -41,7 +43,7 @@ function applyShop(){
 }
 function editShopItem(id){const g=shopGroups.find(g=>g.variants.some(i=>i.id===id));if(g)openShop(g.key,true);}
 function renderShopSuggestions(){
- const el=$('shopSuggestions');if(!el)return;const hasOrder=bowls.length||Object.keys(addons).length;
+ const el=$('shopSuggestions');if(!el)return;if(dailySelection){el.innerHTML='';return;}const hasOrder=bowls.length||Object.keys(addons).length;
  if(!hasOrder){el.innerHTML='';return;}
  const desired=bowls.length?['croquetas','empanadas','fit-drinks','tres-leches-fresa']:['tres-leches-fresa','fit-drinks','dip-signature'];
  const list=desired.map(k=>shopGroups.find(g=>g.key===k)).filter(g=>g&&g.variants.some(shopEnabled)&&!g.variants.some(i=>addons[i.id])).slice(0,3);
@@ -52,5 +54,5 @@ $('shopDialog').addEventListener('click',e=>{if(e.target===$('shopDialog'))$('sh
 $('shopSearch').addEventListener('input',renderCatalog);
 $('shopFormat').addEventListener('change',renderShopChoices);
 document.addEventListener('anejo:langchange',()=>{renderCatalog();if(shopActive)renderShopChoices()});
-const shopOriginalCart=renderCart;renderCart=function(){shopOriginalCart();renderShopSuggestions();const count=bowls.reduce((s,b)=>s+(b.qty||1),0)+Object.values(addons).reduce((s,n)=>s+n,0);$('shopCartBar').hidden=!count;$('shopCartBar').textContent=L('View order','Ver pedido')+' · '+count+' · '+($('cartSubtotal').textContent||'$0.00');};
+const shopOriginalCart=renderCart;renderCart=function(){shopOriginalCart();renderShopSuggestions();const count=(dailySelection?dailySelection.qty:0)+bowls.reduce((s,b)=>s+(b.qty||1),0)+Object.values(addons).reduce((s,n)=>s+n,0);$('shopCartBar').hidden=!count;$('shopCartBar').textContent=L('View order','Ver pedido')+' · '+count+' · '+($('cartSubtotal').textContent||'$0.00');};
 renderCatalog();renderCart();
