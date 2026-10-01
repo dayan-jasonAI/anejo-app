@@ -1,0 +1,77 @@
+- heading "Anejo Catering Co" [level=1]
+- generic: Checkout
+- generic: $492.20
+- banner:
+  - button "Order summary (40 items)"
+  - button "Toggle order summary content" [expanded]:
+- button "Añejo Fried Rice $10.00 x 20 $200.00":
+  - status
+  - heading "Añejo Fried Rice" [level=3]
+  - paragraph: $10.00 x 20
+  - paragraph: $200.00
+  - paragraph
+- button "Añejo Chicken Quesadillas $10.00 x 20 $200.00":
+  - status
+  - heading "Añejo Chicken Quesadillas" [level=3]
+  - paragraph: $10.00 x 20
+  - paragraph: $200.00
+  - paragraph
+- banner:
+  - heading "Add a tip" [level=2]
+- group "Tip amount options":
+  - button "15% $64.20" [disabled]:
+    - strong: 15%
+    - generic: $64.20
+  - button "20% $85.60" [disabled]:
+    - strong: 20%
+    - generic: $85.60
+  - button "25% $107.00" [disabled]:
+    - strong: 25%
+    - generic: $107.00
+  - button "Other" [disabled] [pressed]:
+    - strong: Other
+- spinbutton [disabled]: "0"
+- generic: $
+- button "Apply" [disabled]:
+  - generic: Apply
+- generic: Subtotal
+- generic: $400.00
+- generic: Taxes (Sales Tax (FL · Palm Beach County · 7.0%))
+- generic: $28.00
+- generic: Tip (15%)
+- generic: $64.20
+- generic: Order total
+- generic: $492.20
+- textbox "Add coupon"
+- heading "Express checkout" [level=2]
+- button "Google Pay checkout":
+- heading "Contact" [level=2]
+- combobox "Phone number country":
+  - option "+1 United States" [selected]
+  - option "+1 Canada"
+  - option "+81 Japan"
+  - option "+61 Australia"
+  - option "+44 United Kingdom"
+  - option "+353 Ireland"
+  - option "+33 France"
+  - option "+34 Spain"
+  - option "+355 Albania"
+  - option "+213 Algeria"
+  - option "+1 684 American Samoa"
+  - option "+376 Andorra"
+  - option "+244 Angola"
+  - option "+1 264 Anguilla"
+  - option "+1 268 Antigua and Barbuda"
+  - option "+54 Argentina"
+  - option "+374 Armenia"
+  - option "+297 Aruba"
+  - option "+43 Austria"
+  - option "+994 Azerbaijan"
+  - option "+1 242 Bahamas"
+  - option "+973 Bahrain"
+  - option "+880 Bangladesh"
+  - option "+1 246 Barbados"
+  - option "+32 Belgium"
+  - option "+501 Belize"
+  - option "+229 Benin"
+  - option "+1 
