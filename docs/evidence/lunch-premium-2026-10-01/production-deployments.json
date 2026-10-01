@@ -1,0 +1,24 @@
+{
+  "premium": [
+    {
+      "Id": "759e36f2-8801-4b2c-a984-51b8d5e71f14",
+      "Environment": "Production",
+      "Branch": "main",
+      "Source": "b9f84c0",
+      "Deployment": "https://759e36f2.anejo-app.pages.dev",
+      "Status": "Active",
+      "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/759e36f2-8801-4b2c-a984-51b8d5e71f14"
+    }
+  ],
+  "diagnostics": [
+    {
+      "Id": "d5f1696c-4b93-4bcd-b31b-d72f99ba7a4d",
+      "Environment": "Production",
+      "Branch": "main",
+      "Source": "e2adb8d",
+      "Deployment": "https://d5f1696c.anejo-app.pages.dev",
+      "Status": "Active",
+      "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/d5f1696c-4b93-4bcd-b31b-d72f99ba7a4d"
+    }
+  ]
+}

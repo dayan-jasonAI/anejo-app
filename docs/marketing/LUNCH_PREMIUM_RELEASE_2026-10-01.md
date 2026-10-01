@@ -22,3 +22,16 @@ No migration or credentials/config changes required. Roll back by reverting this
 Normal browser test after address confirmation returned HTTP502 text/html: Cloudflare Bad Gateway at /api/checkout (observed October1 04:54:35UTC). Worker tail outcomeok with502 and no exceptions; exact underlying Square response was not logged, so root cause remains Unverified. Initial reserved .invalid email then reserved example.com both failed; no customer charge was attempted. Production D1 query filtered to unique customer_name QA Lunch20261001 0453 (with space between Lunch and20261001 in actual name) found zero orders. No payment-completion claim.
 
 Follow-on repair adds safe provider status/code/category/field diagnostics without customer data, plus user-friendly recovery for HTML gateway responses. Does not bypass provider authentication or change credentials. Distance pricing remains information-blocked.
+
+## Final live acceptance — October1 about05:04UTC
+Diagnostic PR176 merged e2adb8d3a9328917b0bee0012e7a2812caccc790, deploymentd5f1696c-4b93-4bcd-b31b-d72f99ba7a4d; all release checks passed. Full local suite3400 passed, lint0errors/11existingwarnings, Functionsbuildsuccess.
+
+Correction to provisional blocker: safe live diagnostic reported Square400 INVALID_EMAIL_ADDRESS, fieldpre_populated_data.buyer_email. Both reserved QA domains were rejected. Repeating the normal UI flow with Añejo’s public business email succeeded. This was QA data rejection, not proof that real customer checkout was broken. HTML gateway error handling and redacted provider diagnostics remain useful repairs.
+
+Observed actual Square hosted payment page: Papa Añejo,6items,$60subtotal,$4.20tax,no delivery charge; GooglePay Express Checkout, card fields, CashAppPay radio, contactemail prefilled. ApplePay is requested by the API but not observed in this Chrome session, so availability is not independently verified. Square initially selected15%tip. Other→0→Apply succeeded; live total became$64.20 withTip$0.00 and Pay$64.20button. No card credentials entered, wallet invoked or Pay clicked; completed charge/payment webhook remains untested.
+
+QA cleanup: exact orderord_56e25209326f1ebb3c28 transitionedpending→canceled; customer_email and customer_phone NULL, sms_consent0, recovery_sent_atNULL. Readback confirmedsubtotal6000,fee0,total6420. No real customer order touched. Square draft link was not shared and no claim is made that local cancellation revoked the provider link. Browser returned to normal Order page.
+
+Evidence: docs/evidence/lunch-premium-2026-10-01/square-zero-tip-live.jpg; localmobile-controls.jpg; public source revision and provider deployments above. UI/UXProMax skill was read from /Users/aiagent/.claude/skills/ui-ux-pro-max/SKILL.md; applied accessible touch/focus/form-feedback guidance with existing Añejo identity.
+
+Remaining: mileage pricing is not enabled because city/ZIP, fee bands and maximum distance remain Needs Dayan confirmation. Six-or-more and advance preorder free delivery remain effective throughout the existing eligible delivery area. No other approval needed for changes already released.
