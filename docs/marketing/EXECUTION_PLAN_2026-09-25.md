@@ -253,3 +253,7 @@ Root implemented initial visual-stage exclusion of caption claim recopy; complet
 ### V17 live checkpoint and private recovery correction — October3
 
 PR188 merged36ef74d with all four checks passed; active productionb2beeb18. One actual source review per launch design, allv17, read back fromD1: catering6/7unresolved, Cajita unavailable exact supported timing wording leftunclassified, mixed written-authority provider unavailable. Caption contract now executes; category/photo inference separation improves, but taglines/hashtags are over-extracted. Semantic readiness remains incomplete. No repeats to obtainpass or publicchanges. Next scope/nonassertion repair identified in CAPTION_SOURCE_CONTRACT_2026-10-03.md. In parallel, root verified current valid private recovery preview200/depth1 and two attachedoriginal-preserving receipts for sp_c4df45..., correcting historical blanketfailure language. Previewdiscarded; no save/schedule. Full objective remains open.
+
+## October3 — scope dispositions local acceptance
+
+V18 implementation and 3,513 root tests pass; independent reason-relabeling defect fixed and covered. Exact timing declaration remains mandatory, dispositions remain model judgment, and trust is unchanged. See SCOPE_DISPOSITIONS_2026-10-03.md for current evidence and release boundary. Full goal remains open.

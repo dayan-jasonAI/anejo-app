@@ -177,7 +177,7 @@ test('decorative sentence does not erase an adjoining unresolved service claim',
 });
 test('new schema requires scope receipts without weakening existing coverage',()=>{
  const request=writtenClaimRequest(data(),images,authority),schema=request.output_config.format.schema;
- assert.ok(schema.required.includes('non_assertions'));assert.deepEqual(schema.properties.non_assertions.items.properties.reason.enum,['tagline','hashtag_only','conditional_question','generic_format']);
+ assert.ok(schema.required.includes('non_assertions'));assert.equal(schema.properties.non_assertions.items.properties.quote.maxLength,undefined);assert.deepEqual(schema.properties.non_assertions.items.properties.reason.enum,['tagline','hashtag_only','conditional_question','generic_format']);
  assert.match(request.system,/Inspect full surrounding source text/);assert.match(request.system,/Negation, ingredients, quantities/);
 });
 
@@ -198,4 +198,9 @@ test('adjoining ingredient negation remains unresolved while a decorative span i
  const {input,context,response}=nonassertionCase('Made for your moment. No peanuts.','Made for your moment.');
  response.omitted_claims=[{source_id:'caption:1',quote:'No peanuts.',claim_kind:'ingredient',assessment:'unresolved',authority_refs:[]}];
  const result=applyWrittenAssessments(input,response,[],context);assert.equal(result.ok,true);assert.equal(result.data.observations.product_fidelity.status,'unknown');assert.equal(result.data.product_evidence.claims[0].quote,'No peanuts.');
+});
+
+for(const reason of ['tagline','hashtag_only','conditional_question','generic_format'])test('hashtag promises cannot escape by selecting reason '+reason,()=>{
+ const {input,context,response}=nonassertionCase('#FreeDelivery?', '#FreeDelivery?',reason);
+ assert.equal(applyWrittenAssessments(input,response,[],context).issue,'protected_non_assertion_wording');
 });
