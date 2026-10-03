@@ -39,11 +39,13 @@ export async function consumePrivateRender({db,media,actorId,rendererVersion,opt
  const recovered=async()=>{
   const current=await store.get({actorId,jobId:leased.id});
   if(current?.status!=='rendered'||current.fingerprint!==leased.fingerprint||!current.receipt)return null;
-  const linked=await db.prepare(`SELECT p.status,p.updated_at,m.media_key FROM social_posts p JOIN social_post_media m ON m.post_id=p.id WHERE p.id=? AND m.id=?`).bind(d.postId,d.mediaId).first();
-  const version=await db.prepare('SELECT revision FROM prototype_draft_versions WHERE post_id=?').bind(d.postId).first();
-  if(linked?.status!=='draft'||linked.updated_at!==current.updatedAt||version?.revision!==d.postRevision+2||linked.media_key!==current.receipt.outputKey)throw Error('saved_state_changed');
   const saved=await object(media,current.receipt.outputKey);
   if(saved.hash!==current.receipt.sha256||saved.bytes.length!==current.receipt.outputBytes||saved.metadata.render_job_id!==leased.id||saved.metadata.render_fingerprint!==leased.fingerprint)throw Error('output_readback_changed');
+  // Read database state AFTER storage: edits while readback awaits must not inherit proof.
+  const linked=await db.prepare(`SELECT p.status,p.updated_at,m.media_key,v.revision,j.status AS job_status,j.fingerprint,j.receipt_json,j.updated_at AS job_updated_at
+   FROM prototype_render_jobs j JOIN social_posts p ON p.id=? JOIN social_post_media m ON m.post_id=p.id AND m.id=?
+   JOIN prototype_draft_versions v ON v.post_id=p.id WHERE j.id=? AND j.actor_id=?`).bind(d.postId,d.mediaId,leased.id,actorId).first();
+  if(linked?.status!=='draft'||linked.job_status!=='rendered'||linked.fingerprint!==leased.fingerprint||linked.receipt_json!==JSON.stringify(current.receipt)||linked.updated_at!==linked.job_updated_at||linked.revision!==d.postRevision+2||linked.media_key!==current.receipt.outputKey)throw Error('saved_state_changed');
   return {state:'attached',jobId:leased.id,receipt:current.receipt,humanReviewRequired:true,publicationApproved:false,resourceReadiness:'unverified'};
  };
  let outputKey=null,commitAttempted=false;

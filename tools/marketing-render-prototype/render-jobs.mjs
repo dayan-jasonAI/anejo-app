@@ -3,6 +3,7 @@
  * A rendered state records an asserted output receipt only, never approval/attachment/audit.
  * Caller supplies trusted current epoch milliseconds. Integration must recheck the current
  * post revision and source before attachment; descriptor binding does not prove freshness.
+ * The private consumer uses postRevision from draft-revisions.sql, not a timestamp.
  * Claims enforce per-job exclusivity, not global concurrency or renderer resource readiness.
  */
 

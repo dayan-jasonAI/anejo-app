@@ -95,3 +95,26 @@ test('same-timestamp caption edits reject attachment through the actual editing 
  assert.equal(f.env.DB.one('SELECT media_key FROM social_post_media WHERE id=?',f.slide.id).media_key,f.sourceKey);
  assert.equal(f.env.DB.one('SELECT caption FROM social_posts WHERE id=?',f.draft.id).caption,'Changed while rendering');
 });
+
+test('slide edits without timestamp updates fence the pending consumer',async t=>{
+ const f=await setup(t),render=f.input.render;
+ f.input.render=async args=>{const out=await render(args);f.env.DB.sqlite.prepare('UPDATE social_post_media SET seq=seq+1 WHERE id=?').run(f.slide.id);return out;};
+ assert.equal((await consumePrivateRender(f.input)).state,'failed');unchanged(f);
+});
+test('draft version tombstone survives deleting and recreating the same post id',async t=>{
+ const f=await setup(t),read=()=>f.env.DB.one('SELECT revision FROM prototype_draft_versions WHERE post_id=?',f.draft.id).revision;
+ const before=read();f.env.DB.sqlite.prepare('DELETE FROM social_post_media WHERE post_id=?').run(f.draft.id);f.env.DB.sqlite.prepare('DELETE FROM social_posts WHERE id=?').run(f.draft.id);assert.ok(read()>before);
+ const deleted=read();f.env.DB.sqlite.prepare("INSERT INTO social_posts(id,public_token,status,created_at,updated_at) VALUES(?,?,'draft',100,100)").run(f.draft.id,'replacement');
+ assert.ok(read()>deleted);assert.ok(read()>f.descriptor.postRevision);
+});
+test('revision overflow aborts the modifying statement',async t=>{
+ const f=await setup(t);f.env.DB.sqlite.prepare('UPDATE prototype_draft_versions SET revision=9007199254740991 WHERE post_id=?').run(f.draft.id);
+ assert.throws(()=>f.env.DB.sqlite.prepare("UPDATE social_posts SET caption='overflow' WHERE id=?").run(f.draft.id));
+ assert.notEqual(f.env.DB.one('SELECT caption FROM social_posts WHERE id=?',f.draft.id).caption,'overflow');
+});
+test('edit during output recovery readback cannot be reported as verified attachment',async t=>{
+ const f=await setup(t),get=f.media.get.bind(f.media);let reads=0;
+ f.media.get=async key=>{const value=await get(key);if(key.startsWith('studio/local-render/') && ++reads===2)f.env.DB.sqlite.prepare("UPDATE social_posts SET caption='Edited during readback' WHERE id=?").run(f.draft.id);return value;};
+ const result=await consumePrivateRender(f.input);assert.equal(result.state,'commit_unknown');assert.equal(result.attached,'unverified');
+ assert.equal(f.env.DB.one('SELECT caption FROM social_posts WHERE id=?',f.draft.id).caption,'Edited during readback');
+});

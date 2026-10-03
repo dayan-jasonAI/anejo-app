@@ -53,6 +53,7 @@ test('local workerd D1/R2 complete pinned render, private readback and atomic at
  assert.equal(post.status,'draft');for(const key of ['scheduled_at','audit_score','audit_status','original_caption_hash','original_design_snapshot'])assert.equal(post[key],null);
  const slide=await f.db.prepare("SELECT * FROM social_post_media WHERE id='local-slide'").first();assert.equal(slide.media_key,result.receipt.outputKey);
  assert.equal((await f.store.get({actorId:'local-owner',jobId:f.enqueued.job.id})).status,'rendered');
+ assert.equal((await f.db.prepare("SELECT revision FROM prototype_draft_versions WHERE post_id='local-post'").first()).revision,f.enqueued.job.descriptor.postRevision+2);
  assert.equal((await f.consumePrivateRender(f.input)).state,'no_job');assert.equal(f.renders(),1);
 });
 

@@ -28,3 +28,7 @@ No production migration, route, deployment, provider request, customer communica
 R2 and D1 cannot atomically compare source content: the last source read still precedes the database transaction. Timestamp post revision is the current app convention, not a dedicated monotonic content version. Full deployed consumer/runtime validation, production resource CPU/combined memory proof, Canvas typography parity, authenticated execution integration and owner visual acceptance remain open. Current Cloudflare plan/settings cannot yet be read behind browser sign-in. Auditor provider billing and Google approval/OAuth remain separate unresolved dependencies.
 
 Next: close source/revision freshness and resource/parity gates, then integrate an authenticated private path without opening automatic publication. Do not treat local attachment as a reviewed, scheduled or published post.
+
+## October 3 — stronger draft freshness and recovery boundary
+
+Local counter/tombstone triggers replace the consumer timestamp revision; post-first transaction accounts for its own two revision increments. Recovery verifies R2 output before a final joined D1 state read. Current105tests:104pass/one explicit skip; independent consumer review19pass. See DRAFT_REVISION_FENCING_2026-10-03.md for current evidence, superseding timestamp freshness and earlier pre-readback recovery ordering. Immutable source semantics/R2-to-D1 race, deployed resource/auth/parity and full marketing readiness remain open. No production migration/deploy/trust change.
