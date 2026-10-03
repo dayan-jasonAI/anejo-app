@@ -331,7 +331,7 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
           const validationContext = { caption: String(caption || '').slice(0,2200), slideCount: images.length,
             brandText: brand.text, trainingText: training, menuText: menuLinesOf(menu).join('\n'),
             images, brandReceipt: brand.receipt, trainingReceipt, emblemReference: emblemReference.metadata };
-          const candidate = validateVisualAuditTransport(data, validationContext);
+          const candidate = validateVisualAuditTransport(data, {...validationContext,visualExtractionOnly:true});
           if (!candidate.available) { auditDiagnostic = candidate.diagnostic || {reason:candidate.reason}; throw new Error(candidate.reason); }
           // This separate authority judge receives words and supplied references only.
           // The multimodal product assessment is a candidate, never the final authority finding.
@@ -349,7 +349,7 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
             if (answer.stop_reason!=='end_turn') throw new Error('written_claim_incomplete');
             const textAnswer=(answer.content||[]).filter(block=>typeof block.text==='string').map(block=>block.text).join('\n');
             const reconciled=applyWrittenAssessments(data,JSON.parse(textAnswer),images,validationContext);
-            if (!reconciled.ok) { auditDiagnostic={reason:'written_claim_contract',issue:reconciled.issue}; throw new Error('written_claim_contract'); }
+            if (!reconciled.ok) { auditDiagnostic={reason:'written_claim_contract',issue:reconciled.issue,...(reconciled.diagnostic||{})}; throw new Error('written_claim_contract'); }
             writtenClaimReceipt=reconciled.receipt;
             data.product_evidence=reconciled.data.product_evidence;
             data.observations.product_fidelity=reconciled.data.observations.product_fidelity;
