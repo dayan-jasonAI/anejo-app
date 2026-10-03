@@ -102,7 +102,7 @@ async function main(){
  try{await main();}catch(error){evidence.error=error.message;evidence.failedAt=new Date().toISOString();save();console.error(error);process.exitCode=1;}
  finally{
   for(const done of [...pending.values()])done({supported:false,error:'shutdown'});socket?.close();
-  try{if(mf)await bounded(mf.dispose(),10000,'Runtime disposal');}catch(error){evidence.disposalError=error.message;save();process.exitCode=1;}
+  try{if(mf)await bounded(mf.dispose(),10000,'Runtime disposal');}catch(error){evidence.disposalError=error.message;save();process.exit(1);}
   clearTimeout(hardDeadline);
  }
 })();

@@ -27,7 +27,7 @@ import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from './bowlspec.js';
 import { trainingContextReceipt, DEFAULT_MAX_CHARS } from './training.js';
 import { persistInferenceReceipt } from './inference_receipt.js';
-import { buildRetrospective, renderRetrospective } from './retrospective.js';
+import { buildRetrospective, renderRetrospective, retrospectiveReceipt } from './retrospective.js';
 
 // Strategy is the one surface worth frontier tokens: it runs a handful of times a day, owner-
 // initiated, and its output steers every cheaper call downstream. But a model id in an env var
@@ -228,15 +228,16 @@ export async function buildSpine(env) {
   // Never throws — a broken retrospective must cost the Lead its memory, never its desk.
   let retro = null;
   try { retro = await buildRetrospective(env); } catch { retro = null; }
+  const retroReceipt = retro?.receipt || await retrospectiveReceipt(null);
 
   const intel=await leadIntelFeedback(env);
   return {
     intel,
     brand: brand.text, brand_source: brand.source,
-    input_components: { brand: brand.receipt || { read_status: 'unknown' }, training: trainingReceipt, briefs: briefReceipt, intel: intel.receipt },
+    input_components: { brand: brand.receipt || { read_status: 'unknown' }, training: trainingReceipt, briefs: briefReceipt, intel: intel.receipt, retrospective: retroReceipt },
     menu: menuItems, other_items: otherItems,
     metrics, drafts, budget, briefs, surfaces, training, retro,
-    coverage: { ...coverage, menu: { source: menu.source, read_status: menu.source === 'd1' ? 'ok' : 'unavailable', fallback_reason: menu.source === 'd1' ? null : 'empty_or_unavailable' }, intel: intel.receipt, retrospective: { read_status: 'unknown' }, drafts_limit: 20, post_metrics_limit: 25 },
+    coverage: { ...coverage, menu: { source: menu.source, read_status: menu.source === 'd1' ? 'ok' : 'unavailable', fallback_reason: menu.source === 'd1' ? null : 'empty_or_unavailable' }, intel: intel.receipt, retrospective: retroReceipt, drafts_limit: 20, post_metrics_limit: 25 },
   };
 }
 
@@ -443,7 +444,7 @@ const PREVIEW_RULES = '\nPRIVATE CAMPAIGN PREVIEW: This overrides the ACTIONS ou
   'Develop a useful complete proposed strategy from the owner idea. Audience/cadence/metrics are suggestions, not established facts. ' +
   'Preserve missing facts as unknown in questions; no invented prices, discounts, dates, service areas or measured results. ' +
   'No research or actions execute. No status/actor/approval fields. No claim of saving, activation, publication or asset availability. ' +
-  'Source coverage controls confidence: unavailable does not mean zero; retrospective coverage is unknown; draft counts are bounded samples. ' +
+  'Source coverage controls confidence: unavailable does not mean zero; retrospective query receipts distinguish observed reads from unknown signal coverage; draft counts are bounded samples. ' +
   'The menu snapshot below supplies exact IDs; select only available products. Empty product_ids is valid when selection needs clarification.';
 
 // Bounded diagnostics identify schema failures without retaining model words or unknown keys.
