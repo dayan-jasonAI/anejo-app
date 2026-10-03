@@ -78,3 +78,11 @@ test('deadline before first read dispatches no normalized work',{timeout:20000},
  const f=await setup(t);let gets=0;const deadline={expiresAt:Date.now()-1,check(){throw Error('execution_deadline_exceeded');}};
  await assert.rejects(f.captureNormalizedSource({...f.input,media:f.wrapMedia({get:async key=>{gets++;return f.media.get(key);}}),deadline}),/execution_deadline_exceeded/);assert.equal(gets,0);assert.equal((await f.rows()).results.length,0);
 });
+
+test('owned invalid derivative size refuses without detached cancellation',{timeout:20000},async t=>{
+ const f=await setup(t),result=await f.captureNormalizedSource(f.input);let cancels=0;
+ const media=f.wrapMedia({get:async key=>key===result.version.derivativeKey?{size:5*1024*1024+1,body:{cancel(){cancels++;return Promise.reject(Error('must not dispatch'));}}}:f.media.get(key)});
+ const deadline={expiresAt:Date.now()+10000,check(){}};
+ await rejects(f.readConfirmedNormalizedSource({db:f.db,media,actorId:'owner',versionId:result.version.id,deadline}),'normalized_object_size_invalid');
+ assert.equal(cancels,0);
+});

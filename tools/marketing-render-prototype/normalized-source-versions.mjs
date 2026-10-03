@@ -84,7 +84,7 @@ async function validateReceipt({source,sourceMetadata,derivative,receipt,normali
 function derivativeMetadata(row){return {normalized_source_version_id:row.id,source_version_id:row.source_version_id,source_sha256:row.original_sha256,normalizer_version:row.normalizer_version,derivative_sha256:row.derivative_sha256,receipt_sha256:row.receipt_sha256};}
 async function readBoundedObject(media,key,deadline){
  const object=await dispatch(deadline,'normalized_r2_get',()=>media.get(key));if(!object)return null;
- if(!Number.isSafeInteger(object.size)||object.size<1||object.size>LIMIT){try{void object.body?.cancel?.();}catch{}throw new NormalizedSourceError('normalized_object_size_invalid');}
+ if(!Number.isSafeInteger(object.size)||object.size<1||object.size>LIMIT){try{if(!deadline)object.body?.cancel?.().catch(()=>{});}catch{}throw new NormalizedSourceError('normalized_object_size_invalid');}
  const reader=object.body?.getReader?.();if(!reader)throw new NormalizedSourceError('normalized_object_body_missing');
  const chunks=[];let size=0,count=0,empty=0;
  try{while(true){const {done,value}=await dispatch(deadline,'normalized_r2_read',()=>reader.read());if(done)break;if(++count>32768||(!value.byteLength&&++empty>64)||(size+=value.byteLength)>LIMIT)throw new NormalizedSourceError('normalized_object_body_unbounded');chunks.push(value);}}
