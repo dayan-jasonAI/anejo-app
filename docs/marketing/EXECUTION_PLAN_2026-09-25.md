@@ -238,3 +238,8 @@ PR182 mergedaf695f4; production inventory lists thatsource. Normal supported own
 ### October3 preserved photo before recorded overlays
 
 Local implementation closes the observed repeated-branding default: verified receipt/R2 chain resolves pre-editorial source and binds current slide to guarded save.41focused and3,429root tests pass; lint/buildpass; independentreviewfoundnomaterialblocker. See ORIGINAL_SOURCE_RECOVERY_2026-10-03.md. Not deployed yet. Next: exact-headCI/release and actualprivateQA repeatbranding acceptance. Fullgoal unchanged; no publicpost/trustactivation.
+
+
+### V16 release acceptance checkpoint — October3
+
+PR187 merged6e481c1 after all four checks passed, production deployment1a4e3450-ea94-46dc-a760-bb71c6b1ffa0. Actual supported-browser reviews and D1 readbacks for all three launch sources report v16, but all are unavailable with null scores: catering unsupported_caption_claim; Cajita/mixed unclassified_scope. No public post or trust activation changed. Semantic acceptance failed; full goal remains open. Evidence and next repair criteria: WRITTEN_CLAIM_SCOPE_WORK_PACKET_2026-10-03.md and evidence/written-claim-scope-2026-10-03. Next: remove duplicate model caption recopy dependence while preserving exact source and mandatory-claim controls, inspect bounded unclassified-claim evidence, then release and live acceptance. Local3466-root success remains distinct from these live failures. No new owner approval needed for the existing authorized repair.
