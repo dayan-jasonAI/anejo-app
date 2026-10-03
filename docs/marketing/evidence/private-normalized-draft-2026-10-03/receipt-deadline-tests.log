@@ -1,0 +1,32 @@
+✔ trusted deadline refuses job operations before any database dispatch (1.409167ms)
+✔ expiry after awaited claim cleanup stops candidate claim dispatch (0.328084ms)
+✔ canonical enqueue is immutable and exact-request replay is scoped to actor (6.015625ms)
+✔ rendered receipt is terminal and never implies attachment, audit, approval, or publication (1.116042ms)
+✔ expired and superseded leases cannot complete or fail; recovery issues fresh token (0.883959ms)
+✔ three explicit failures exhaust retries and remain visibly dead (0.926834ms)
+✔ third expired lease becomes terminal dead on claim with no fourth attempt (0.7415ms)
+✔ claims isolate actors and choose oldest eligible work (0.993792ms)
+✔ exact job claim selects B while older A and wrong actor/id stay untouched (0.860792ms)
+✔ exact expired recovery fences its old token and does not reclaim queued A (0.869542ms)
+✔ exact terminal expiry cleanup never mutates another expired job (1.106125ms)
+✔ validates exact immutable binding, receipts, and safe integer timestamp arithmetic (1.217208ms)
+✔ durable records reopen from the same SQLite file (1.942625ms)
+✔ SQL changes guard rejects zero-row writes and permits transaction rollback (0.745958ms)
+✔ two real concurrent SQLite handles cannot claim the same lease (21.716667ms)
+✔ normalization receipt persists exact provenance and rejects incomplete or invented bindings (0.786667ms)
+✔ actual photo P3 conversion agrees with native reference and keeps original unchanged (45.666ms)
+✔ all JPEG/PNG orientations apply exactly once with full source geometry (60.851334ms)
+✔ translucent RGBA keeps straight color and alpha through real decoder/conversion/encoder (6.694292ms)
+✔ untagged RGB remains explicitly assumed, with no fabricated ICC conversion (1.158542ms)
+✔ wide source is resized without enlargement, preserves aspect and opaque patches (25.326ms)
+✔ source above current four-million-pixel guard refuses before normalization (6.493208ms)
+✔ oversized compressed input refuses preflight and following valid normalization succeeds (1.13025ms)
+✔ owned deadline stops normalization before dispatch and at awaited compression or hashing boundaries (12.056542ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 272.520541

@@ -1,0 +1,54 @@
+{
+  "recordedAt": "2026-10-03T14:41:14.269512+00:00",
+  "scope": "local-only; not deployed",
+  "files": [
+    {
+      "path": "tools/marketing-render-prototype/normalized-source-versions.mjs",
+      "sha256": "03c77c2b88dc84e65438215f9f333704ac26cb92291e8d47ce5bf37b578d8635"
+    },
+    {
+      "path": "tools/marketing-render-prototype/normalized-source-schema.sql",
+      "sha256": "2063786cba60d841840ae5ae2938a11a707ecad19cdeb10266fa467958f7d9e5"
+    },
+    {
+      "path": "tools/marketing-render-prototype/normalized-source-versions.test.cjs",
+      "sha256": "9afa517ebaa71c2ea6cfc0bc54067e9b277532e500c144e15d2ddbf3887de263"
+    },
+    {
+      "path": "tools/marketing-render-prototype/private-draft-worker.mjs",
+      "sha256": "137f7c6b1fec208ddd18aa286f4d206992ba9d5885f952294c54902fb3644471"
+    },
+    {
+      "path": "tools/marketing-render-prototype/private-worker.test.cjs",
+      "sha256": "a3fbd5d5c4c4dead65e05e3cd94164d47dd310e727f4f766113f684de47a13e0"
+    },
+    {
+      "path": "tools/marketing-render-prototype/render-consumer.mjs",
+      "sha256": "f3f4951e0047666aa2a51f9064fa93f381959fba9f533dc41087bfd6ab2cd83a"
+    },
+    {
+      "path": "tools/marketing-render-prototype/render-jobs.mjs",
+      "sha256": "6ffe22af3f2afdb76431743946d76d1d18b057c345d483c7fc68ffab57a6f202"
+    },
+    {
+      "path": "tools/marketing-render-prototype/render-jobs.test.mjs",
+      "sha256": "7bd5125f923376be28209d2fbea77f8d69061da93e2ac266e3551ee00748677a"
+    },
+    {
+      "path": "tools/marketing-render-prototype/worker-source-normalize.mjs",
+      "sha256": "d3a64159733b5678268178b450d1cbb45d05356fc710412f2f4bcea1f5e277bf"
+    },
+    {
+      "path": "tools/marketing-render-prototype/worker-source-metadata.mjs",
+      "sha256": "08e2ebaa9516653871f55b383f931a86a9b0720b419cda25af945e318c188649"
+    },
+    {
+      "path": "tools/marketing-render-prototype/worker-source-normalize.test.mjs",
+      "sha256": "f5e425ce53d1268a22dce030b394198010cc1eaed3218d2483c655f46d9375b8"
+    },
+    {
+      "path": "tools/marketing-render-prototype/package.json",
+      "sha256": "1660493c62caebc063647bb47e0975a0c1be67cbaad6742c1c0b15a701f45b41"
+    }
+  ]
+}

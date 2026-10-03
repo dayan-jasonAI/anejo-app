@@ -344,3 +344,7 @@ Implemented pinned local lcms-wasm RGB kernel and reviewed build-only compiled-m
 ## October 3 — complete local Worker image normalization
 
 Local JPEG/PNG metadata → actual raw decode → ICC sRGB/RGBA conversion → orientation → optional resize → deterministic declared-sRGB PNG/receipt implemented. Root caught and corrected premultiplied decoder darkening with real alpha fixtures. Root201tests/200pass/one explicit skip,21targeted checks,lint pass. Actual workerd confirms known color/orientation/alpha/hashes/replay/source preservation/no outbound calls. Evidence: WORKER_PHOTO_NORMALIZATION_2026-10-03.md and evidence/worker-photo-normalization-2026-10-03. Current4MPguard;24MP phone support, inflation/combined peak and deployed resources remain unverified. Not app-integrated/deployed; no original storage writes or draft/public/customer/trust change. Next durable original/derivative binding, full-handler/deadline/resource/visual acceptance; full objective remains active.
+
+### October 3 — normalized photo to private draft checkpoint
+
+See `PRIVATE_NORMALIZED_DRAFT_2026-10-03.md`: local authenticated v3 pipeline now preserves originals, persists exact normalized derivatives and attaches Reposado drafts with provenance. Full prototype suite: 210 pass / 0 fail / 1 explicit skip. Not deployed; maximum-input resource harness must be migrated from raw v2 to normalized v3, and phone-input/production resource/visual/integrated acceptance gates remain open. Full objective unchanged.

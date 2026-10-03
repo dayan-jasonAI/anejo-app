@@ -1,0 +1,20 @@
+(node:1174) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/helpers/sqlite-d1.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual D1/R2 capture persists create-only PNG and confirmed read revalidates exact bytes (1548.894667ms)
+✔ wrong hash, version or non sRGB derivative receipt is refused before registration (1585.264166ms)
+✔ tampered derivative bytes or metadata fail confirmed readback (947.979625ms)
+✔ original source row or bytes changing after private put leaves pending orphan (598.084834ms)
+✔ changed draft revision prevents confirmation and preserves pending artifact (658.984375ms)
+✔ confirmed reads survive draft revision changes, while capture replay remains target-fenced (1012.645875ms)
+✔ deactivated actor is refused on confirmed artifact read (944.386875ms)
+✔ deadline before first read dispatches no normalized work (456.726291ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7911.324917
