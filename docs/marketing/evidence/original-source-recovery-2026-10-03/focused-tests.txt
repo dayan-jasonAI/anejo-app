@@ -1,0 +1,61 @@
+(node:10886) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/branding-save-flow.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ preview binds original Blob hash and normalized derivative receipt; only explicit Use saves (7.007917ms)
+✔ network failure retries the same preview UUID and never claims a saved attachment early (4.465166ms)
+✔ stored but unattached response stays an error and preserves retry identity (3.355042ms)
+✔ composition rejection never offers or saves a broken preview (2.0125ms)
+✔ Discard performs no save (1.854375ms)
+✔ preview transport remains allowed by deployed image CSP (0.754084ms)
+✔ normalization failure or original-hash mismatch prevents preview/save {"normalizationFails":true} (0.760542ms)
+✔ normalization failure or original-hash mismatch prevents preview/save {"wrongHash":true} (1.6005ms)
+✔ recorded editorial photo previews preserved source and binds current selection only on explicit Use (2.929792ms)
+✔ preserved-source unavailable blocks composition and save (1.645666ms)
+✔ preserved-source changed blocks composition and save (1.582625ms)
+(node:10887) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/marketing-branded-save.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ concurrent same request creates one attached receipt and original survives; false pixel declaration stays untrusted (160.941125ms)
+✔ forged privileged metadata, extra fields, invalid bytes and roles reject before receipt (134.047292ms)
+✔ published, wrong post/source relation and hash mismatch refuse without artifact (412.655792ms)
+✔ D1 failure after R2 write is honest and identical retry recovers without duplicate (134.805667ms)
+✔ post status changes during R2 write keep unattached artifact and preserve selected source (139.172917ms)
+✔ marketing role may save but cannot forge actor attribution; source replacement during put refuses attach (145.772416ms)
+✔ bounded streaming JSON and declaration reject oversize input (152.081375ms)
+✔ R2 put failure is recoverable without attaching or deleting original (147.407458ms)
+✔ attached retry refuses changed association and retains original trust comparison (146.877625ms)
+✔ media type race cannot attach JPEG to newly declared reel (146.976083ms)
+✔ real PNG source can be branded into JPEG while original survives (152.795541ms)
+✔ explicit use cancels a schedule and preserves existing bowl role suffix (147.76125ms)
+✔ branded output retains declared AI status into actual audit receipt and excludes unrelated metadata (456.840292ms)
+✔ invalid source AI declaration rejects without creating receipt or artifact (134.429542ms)
+✔ pending retry rejects changed source flag after uncertain write without rewriting existing artifact (132.978208ms)
+✔ source metadata race and output metadata readback failure never attach (264.479167ms)
+✔ attached retry detects modified output metadata and never silently repairs it (135.55225ms)
+✔ concurrent retry with changed source declaration cannot overwrite the first request artifact (134.948125ms)
+✔ legacy receipt fingerprint conflicts explicitly without rewriting an attached artifact (134.383666ms)
+(node:10888) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/marketing-original-source.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ verified editorial chain resolves preserved photographic source without touching objects or slide (160.031667ms)
+✔ recovered render atomically replaces current slide, preserves source AI history and retry identity (137.061541ms)
+✔ roles and stale slide selection cannot read recovery source (136.073875ms)
+✔ changed bytes blocks lineage recovery without mutation (137.84475ms)
+✔ changed metadata blocks lineage recovery without mutation (134.292708ms)
+✔ changed receipt blocks lineage recovery without mutation (134.457875ms)
+✔ changed pending blocks lineage recovery without mutation (138.637583ms)
+✔ missing preserved source and arbitrary metadata pointers are not evidence (292.550917ms)
+✔ cycles and more than eight recorded overlays fail closed (297.871292ms)
+✔ forged recovery declaration cannot swap an arbitrary source (150.492625ms)
+✔ slide race during write leaves artifact unattached and cannot overwrite newer selection (147.471375ms)
+ℹ tests 41
+ℹ suites 0
+ℹ pass 41
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3462.751541

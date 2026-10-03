@@ -1155,6 +1155,7 @@
         var resultBox = panel.querySelector('.brand-result');
         var layoutEvidence = null;
         btn.disabled = true; btn.textContent = 'Compositing…';
+        var selectedKey=key, expectedSourceHash=null;
         var sourceHash = '', previewRequestId = crypto.randomUUID();
         var renderOptions = {
           position: pos === 'auto' ? '' : pos,   // '' means "measure the photo and decide"
@@ -1169,12 +1170,20 @@
           onLayout: function(report){layoutEvidence=report;}
         };
         // Hash and render the same source bytes, preserving the original in storage.
-        fetch('/api/hub/media/' + key, {credentials:'same-origin'})
+        Promise.resolve().then(async function(){
+          if(/^studio\/render-receipts\//.test(selectedKey)){
+            var recovered=await Hub.api('/api/hub/owner/marketing-original-source?post_id='+encodeURIComponent(postId)+'&media_id='+encodeURIComponent(chosen.value)+'&current_key='+encodeURIComponent(selectedKey));
+            if(!recovered||!recovered.ok||!recovered.source_key||!recovered.source_sha256||!recovered.recovery)throw new Error('Could not verify the preserved photo. Choose the original from the library before adding branding.');
+            key=recovered.source_key;expectedSourceHash=recovered.source_sha256;renderOptions.original_source_recovery=recovered.recovery;
+          }
+          return fetch('/api/hub/media/' + key, {credentials:'same-origin'});
+        })
           .then(function(response){if(!response.ok)throw new Error('Could not read the original photo');return response.blob();})
           .then(async function(blob){
             if(blob.size>5*1024*1024)throw new Error('Original photo exceeds the 5 MB preview limit');
             var sourceBytes=new Uint8Array(await blob.arrayBuffer());
             sourceHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',sourceBytes)),function(b){return b.toString(16).padStart(2,'0');}).join('');
+            if(expectedSourceHash&&sourceHash!==expectedSourceHash)throw new Error('Preserved photo changed. Reload and preview again.');
             var normalized=await window.AnejoPhotoNormalize.normalize(sourceBytes);
             if(normalized.receipt.original_sha256!==sourceHash)throw new Error('Photo snapshot hash changed');
             renderOptions.normalization=normalized.receipt;
@@ -1184,7 +1193,7 @@
             btn.disabled = false; btn.textContent = 'Preview branded photo';
             resultBox.innerHTML =
               '<img src="' + dataUrl + '" alt="" style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:6px">' +
-              '<p class="hint">Original photo preserved. ' + (renderOptions.normalization.status === 'processed' ? 'Preview uses an upright sRGB PNG; color handling is browser-declared and needs visual review.' : 'This format was not normalized; review its orientation and colors.') + '</p>' +
+              '<p class="hint">' + (renderOptions.original_source_recovery ? 'Preview rebuilt from the preserved photo before recorded editorial overlays. Inspect any branding already present in that photo. ' : 'Original photo preserved. ')  + (renderOptions.normalization.status === 'processed' ? 'Preview uses an upright sRGB PNG; color handling is browser-declared and needs visual review.' : 'This format was not normalized; review its orientation and colors.') + '</p>' +
               (layoutEvidence ? '<p class="hint">' + (layoutEvidence.protectionSource === 'center_geometry_only' ? 'The center is protected geometrically. ' : '') + 'Review the actual food, packaging, emblem and wording before using. Template placement is not automatic food recognition.</p>' : '') +
               '<div style="display:flex;gap:8px"><button class="btn gold brand-use" type="button">Use this — replace selected slide</button>' +
               '<button class="btn ghost brand-discard" type="button">Discard</button></div>';

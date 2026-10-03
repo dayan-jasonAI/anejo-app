@@ -1,6 +1,7 @@
 import {requireRole,MARKETING_DESK} from '../../../_lib/roles.js';
 import {json,randToken} from '../../../_lib/util.js';
 import {MAX_JPEG,sha256,textBytes,sourceKey,sourceMagicValid,declarationValid,jpegDimensions,readBoundedJson} from '../../../_lib/marketing_render_receipt.js';
+import {resolvePreEditorialSource,recoveryMatches} from '../../../_lib/marketing_original_source.js';
 const fields=['request_id','post_id','media_id','source_key','source_sha256','data_url','declaration'];
 const error=(code,status=400,extra={})=>json({ok:false,attached:false,error:code,...extra},status);
 async function objectRecord(env,key){const obj=await env.MEDIA.get(key);if(!obj||!Number.isFinite(obj.size)||obj.size>MAX_JPEG||obj.size<1)throw Error('source_unavailable');const bytes=new Uint8Array(await obj.arrayBuffer());if(bytes.length!==obj.size)throw Error('source_unavailable');return {bytes,metadata:obj.customMetadata||{}};}
@@ -32,6 +33,10 @@ export async function onRequestPost({request,env}){
  const outputKey='studio/render-receipts/'+id+(role?'_'+role.toLowerCase():'')+'.jpg';
  let row;
  try{
+ const recovery=b.declaration.options.original_source_recovery;
+ const recovered=recovery?await resolvePreEditorialSource(env,recovery.current_key):null;
+ if(recovered&&(!recoveryMatches(recovery,recovered)||recovered.key!==b.source_key||recovered.hash!==b.source_sha256))return error('source_recovery_changed',409);
+ const selectedKey=recovered?recovered.currentKey:b.source_key;
  const initial=await objectRecord(env,b.source_key),source=initial.bytes;
  if(!sourceMagicValid(b.source_key,source))return error('invalid_source_format');
  if(await sha256(source)!==b.source_sha256)return error('source_hash_changed',409);
@@ -50,7 +55,7 @@ export async function onRequestPost({request,env}){
    if(await sha256(saved.bytes)!==row.output_sha256||!metadataMatches(saved.metadata,outputMetadata))return error('saved_output_changed',409,{receipt_id:id,media_key:outputKey});
    return json(receiptResponse(row,linked.status));
  }
- const target=await env.DB.prepare("SELECT m.id FROM social_post_media m JOIN social_posts p ON p.id=m.post_id WHERE m.id=? AND m.post_id=? AND m.media_key=? AND p.status IN ('draft','scheduled','failed') AND COALESCE(p.media_type,'') NOT IN ('REELS','STORIES')").bind(b.media_id,b.post_id,b.source_key).first();
+ const target=await env.DB.prepare("SELECT m.id FROM social_post_media m JOIN social_posts p ON p.id=m.post_id WHERE m.id=? AND m.post_id=? AND m.media_key=? AND p.status IN ('draft','scheduled','failed') AND COALESCE(p.media_type,'') NOT IN ('REELS','STORIES')").bind(b.media_id,b.post_id,selectedKey).first();
  if(!target)return error('source_slide_or_post_changed',409);
  if(!row){
  await env.DB.prepare(`INSERT INTO marketing_render_receipts (id,actor_id,request_id,request_hash,post_id,media_id,source_key,source_sha256,source_bytes,output_key,output_sha256,output_bytes,output_width,output_height,declaration_json,evidence_tier,state,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'browser_declared','pending',?) ON CONFLICT(id) DO NOTHING`).bind(id,actor.distinct_id,requestId,fingerprint,b.post_id,b.media_id,b.source_key,b.source_sha256,source.length,outputKey,outputHash,output.length,shape.width,shape.height,declaration,Date.now()).run();
@@ -65,9 +70,10 @@ export async function onRequestPost({request,env}){
  if(await sha256(current.bytes)!==b.source_sha256)return error('source_hash_changed',409,{receipt_id:id,media_key:outputKey,artifact_state:'unattached'});
  let currentHistory;try{currentHistory=JSON.stringify(sourceHistory(current.metadata));}catch{return error('invalid_source_provenance',409,{receipt_id:id,media_key:outputKey,artifact_state:'unattached'});}
  if(currentHistory!==historyJson)return error('source_provenance_changed',409,{receipt_id:id,media_key:outputKey,artifact_state:'unattached'});
+ if(recovered){const checked=await resolvePreEditorialSource(env,selectedKey);if(!recoveryMatches(recovery,checked)||checked.key!==b.source_key||checked.hash!==b.source_sha256)return error('source_recovery_changed',409,{receipt_id:id,artifact_state:'unattached'});}
  const t=Date.now();
  await env.DB.batch([
- env.DB.prepare(`UPDATE social_post_media SET media_key=?,public_token=? WHERE id=? AND post_id=? AND media_key=? AND EXISTS (SELECT 1 FROM social_posts WHERE id=? AND status IN ('draft','scheduled','failed') AND COALESCE(media_type,'') NOT IN ('REELS','STORIES')) AND EXISTS (SELECT 1 FROM marketing_render_receipts WHERE id=? AND state='pending')`).bind(outputKey,randToken(24),b.media_id,b.post_id,b.source_key,b.post_id,id),
+ env.DB.prepare(`UPDATE social_post_media SET media_key=?,public_token=? WHERE id=? AND post_id=? AND media_key=? AND EXISTS (SELECT 1 FROM social_posts WHERE id=? AND status IN ('draft','scheduled','failed') AND COALESCE(media_type,'') NOT IN ('REELS','STORIES')) AND EXISTS (SELECT 1 FROM marketing_render_receipts WHERE id=? AND state='pending')`).bind(outputKey,randToken(24),b.media_id,b.post_id,selectedKey,b.post_id,id),
  env.DB.prepare(`UPDATE social_posts SET status='draft',scheduled_at=NULL,audit_score=NULL,audit_flags=NULL,audit_at=NULL,audit_status=NULL,audit_scope=NULL,audit_snapshot=NULL,audit_detail_json=NULL,audit_context_snapshot=NULL,auto_audit_required=NULL,updated_at=? WHERE id=? AND changes()=1`).bind(t,b.post_id),
  env.DB.prepare(`UPDATE marketing_render_receipts SET state='attached',attached_at=? WHERE id=? AND state='pending' AND EXISTS (SELECT 1 FROM social_post_media m JOIN social_posts p ON p.id=m.post_id WHERE m.id=? AND m.post_id=? AND m.media_key=? AND p.status='draft')`).bind(t,id,b.media_id,b.post_id,outputKey)
  ]);
