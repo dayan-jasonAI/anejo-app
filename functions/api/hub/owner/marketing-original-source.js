@@ -12,5 +12,5 @@ export async function onRequestGet({request,env}){
   if(!row)return json({ok:false,error:'source_slide_or_post_changed'},409);
   const source=await resolvePreEditorialSource(env,current);
   return json({ok:true,source_key:source.key,source_sha256:source.hash,recovery:recoveryDeclaration(source),visual_review_required:true});
- }catch(error){return json({ok:false,error:error.message||'source_history_unavailable'},409);}
+ }catch(error){return json({ok:false,error:error.message||'source_history_unavailable',...(error.historyDiagnostic?{history_diagnostic:error.historyDiagnostic}:{})},409);}
 }
