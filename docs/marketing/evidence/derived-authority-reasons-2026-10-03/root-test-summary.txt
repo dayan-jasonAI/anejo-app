@@ -1,0 +1,11 @@
+✔ a single deployment is judged against the trunk, with no revert check to make (0.043667ms)
+✔ importing the module does not perform IO (0.035583ms)
+ℹ tests 3434
+ℹ suites 0
+ℹ pass 3434
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 27669.552292
+Full log: /tmp/anejo-v15-root-tests.log
