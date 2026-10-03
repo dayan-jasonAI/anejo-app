@@ -231,6 +231,8 @@
 <script src="/hub/owner/assets/marketing-photo-polish.js?v=photo-polish-2"></script>
 <script src="/hub/owner/assets/marketing-photo-enhance.js?v=photo-polish-2"></script>
 <script src="/hub/owner/assets/marketing-editorial-plan.js?v=editorial-plan-1"></script>
+<script src="/hub/owner/assets/marketing-image-orientation.js?v=browser-srgb-1"></script>
+<script src="/hub/owner/assets/marketing-photo-normalize.js?v=browser-srgb-1"></script>
 <script src="/hub/owner/assets/marketing-branding.js?v=editorial-plan-1"></script>
 
 <!-- ============================================================================================
@@ -1173,12 +1175,10 @@
             if(blob.size>5*1024*1024)throw new Error('Original photo exceeds the 5 MB preview limit');
             var sourceBytes=new Uint8Array(await blob.arrayBuffer());
             sourceHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',sourceBytes)),function(b){return b.toString(16).padStart(2,'0');}).join('');
-            // The deployed image policy permits data: but not blob:. Encode the same
-            // hashed bytes without widening that policy or refetching mutable media.
-            var sourceBinary='';
-            for(var sourceIndex=0;sourceIndex<sourceBytes.length;sourceIndex++)sourceBinary+=String.fromCharCode(sourceBytes[sourceIndex]);
-            var sourceUrl='data:'+blob.type+';base64,'+btoa(sourceBinary);
-            return await compositeBranding(sourceUrl,renderOptions);
+            var normalized=await window.AnejoPhotoNormalize.normalize(sourceBytes);
+            if(normalized.receipt.original_sha256!==sourceHash)throw new Error('Photo snapshot hash changed');
+            renderOptions.normalization=normalized.receipt;
+            return await compositeBranding(normalized.dataUrl,renderOptions);
           })
           .then(function (dataUrl) {
             btn.disabled = false; btn.textContent = 'Preview branded photo';
