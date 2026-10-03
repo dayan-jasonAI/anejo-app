@@ -27,3 +27,7 @@ The consumer/capture code and WASM execute in Node test host through local bindi
 Source-version foundation is NOT yet bound into render-job descriptors/consumer selection. It does not alone close the source R2-to-D1 race or guarantee bucket-wide immutability: another bucket writer/admin can still overwrite/delete objects. Next bind the exact confirmed version/metadata digest to jobs and final draft CAS, render the copy rather than mutable original, test changed originals and revoked/stale selections, then establish namespace writer/deletion policy and deployed authentication/resource/parity acceptance. Existing runtime source checks remain in force until that integration is completed.
 
 Current production CPU/plan proof requires supported-browser sign-in. Auditor billing and Google API approval/OAuth remain separate unresolved dependencies. No extra authorization requested for current bounded engineering and already-authorized gated release; public automation stays closed.
+
+## Release check correction
+
+PR194 first renderer CI run failed before three binding-test files could load because the isolated renderer job had no root node_modules/miniflare install. Local files/test results were not invalidated, but release gates failed. CI now installs the locked root dependencies before prototype dependencies and runs the same full tests; no tests skipped or weakened. Fresh exact-head CI and deployment verification remain required. Original failing job: GitHub actions37120339528/job111195054180; error MODULE_NOT_FOUND.

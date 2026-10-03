@@ -51,5 +51,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with: { node-version: 24, cache: npm, cache-dependency-path: tools/marketing-render-prototype/package-lock.json }
+      # D1/R2 fixtures use the root Wrangler/Miniflare installation.
+      - run: npm ci --prefix ../..
       - run: npm ci
       - run: npm test
