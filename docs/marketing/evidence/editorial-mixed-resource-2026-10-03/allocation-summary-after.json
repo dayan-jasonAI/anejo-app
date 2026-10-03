@@ -1,0 +1,211 @@
+{
+  "rawPath": "/tmp/anejo-workerd-mixed-resource-K8MYDQ/allocation-sampling.json",
+  "sha256": "28444291be2c5538e9946ee7553bcc8793088657e959a7bcf075546d57108ba0",
+  "rawBytes": 11131203,
+  "samplingInterval": 32768,
+  "includeObjectsCollectedByMajorGC": true,
+  "includeObjectsCollectedByMinorGC": true,
+  "interpretation": "Sampled cumulative allocation including collected objects, not live or peak heap.",
+  "largestNodes": [
+    {
+      "bytes": 1849531480,
+      "functionName": "next",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": -1,
+      "columnNumber": -1
+    },
+    {
+      "bytes": 1731836080,
+      "functionName": "uri",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1953,
+      "columnNumber": 12
+    },
+    {
+      "bytes": 464343480,
+      "functionName": "processDU",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1736,
+      "columnNumber": 20
+    },
+    {
+      "bytes": 210205320,
+      "functionName": "next",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": -1,
+      "columnNumber": -1
+    },
+    {
+      "bytes": 201913348,
+      "functionName": "uri",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1953,
+      "columnNumber": 12
+    },
+    {
+      "bytes": 164025680,
+      "functionName": "JPEGEncoder.encode",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1793,
+      "columnNumber": 24
+    },
+    {
+      "bytes": 160785260,
+      "functionName": "passStringToWasm0",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 310,
+      "columnNumber": 26
+    },
+    {
+      "bytes": 99705332,
+      "functionName": "passStringToWasm0",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 310,
+      "columnNumber": 26
+    },
+    {
+      "bytes": 92635684,
+      "functionName": "fromCharCode",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": -1,
+      "columnNumber": -1
+    },
+    {
+      "bytes": 76099988,
+      "functionName": "passStringToWasm0",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 310,
+      "columnNumber": 26
+    },
+    {
+      "bytes": 46990120,
+      "functionName": "passStringToWasm0",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 310,
+      "columnNumber": 26
+    },
+    {
+      "bytes": 26234880,
+      "functionName": "readBoundedBody",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 2146,
+      "columnNumber": 30
+    },
+    {
+      "bytes": 23077592,
+      "functionName": "stats",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1986,
+      "columnNumber": 14
+    },
+    {
+      "bytes": 18519580,
+      "functionName": "next",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": -1,
+      "columnNumber": -1
+    },
+    {
+      "bytes": 17858540,
+      "functionName": "uri",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1953,
+      "columnNumber": 12
+    },
+    {
+      "bytes": 17732900,
+      "functionName": "next",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": -1,
+      "columnNumber": -1
+    },
+    {
+      "bytes": 16665476,
+      "functionName": "subarray",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": -1,
+      "columnNumber": -1
+    },
+    {
+      "bytes": 15603796,
+      "functionName": "",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1984,
+      "columnNumber": 10
+    },
+    {
+      "bytes": 13437336,
+      "functionName": "fDCTQuant",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1520,
+      "columnNumber": 20
+    },
+    {
+      "bytes": 11181972,
+      "functionName": "writeBitValue",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1493,
+      "columnNumber": 24
+    },
+    {
+      "bytes": 10591364,
+      "functionName": "fromCharCode",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": -1,
+      "columnNumber": -1
+    },
+    {
+      "bytes": 9777952,
+      "functionName": "JPEGEncoder.encode",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1793,
+      "columnNumber": 24
+    },
+    {
+      "bytes": 9115080,
+      "functionName": "from",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": -1,
+      "columnNumber": -1
+    },
+    {
+      "bytes": 6785628,
+      "functionName": "map",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": -1,
+      "columnNumber": -1
+    },
+    {
+      "bytes": 6300396,
+      "functionName": "processDU",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1736,
+      "columnNumber": 20
+    }
+  ]
+}

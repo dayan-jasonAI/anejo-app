@@ -1,0 +1,9 @@
+{
+  "matchingOutputHashes": 66,
+  "requestsEachRun": 70,
+  "beforeHighestSampledUsedSize": 231963092,
+  "afterHighestSampledUsedSize": 116453636,
+  "interpretation": "Instrumented local post-response samples only; no production resource gate established.",
+  "beforeCompletedAt": "2026-10-03T10:24:40.492Z",
+  "afterCompletedAt": "2026-10-03T10:32:31.581Z"
+}

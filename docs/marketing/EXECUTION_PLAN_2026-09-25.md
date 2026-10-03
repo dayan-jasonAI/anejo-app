@@ -281,3 +281,7 @@ PR192 merged4478783, production3178fe77. Exactlyone supportedbrowser review+D1sa
 ### Joined flow release receipt
 
 PR193 merged2386a74 afterallfourexact-headchecks; currentproductionda2491c5/source2386a74 listsActive. Joinedlocal2case/3,570rootsuiteevidence shipsasregressionchecks, notautonomousruntime. Rootcheckpoint/docs/evidencepushed. Nextownerfact: APIbillingreadback. Nextindependentengineering: workerdmaximum-input/resourceproof and authenticateddurableprivate renderjobs beforeunattendedintegration. Fullgoal staysopen.
+
+## October 3 — mixed-input resource proof and lookup repair
+
+Local 70-request mixed JPEG/PNG workerd stress completed. Profiling led to a per-encoder typed lookup repair; all 66 before/after rendered hashes match, 62 prototype tests and four joined content tests pass. Sampled heap improved, but total/peak deployed CPU/memory remains unverified. See EDITORIAL_MIXED_RESOURCE_2026-10-03.md and its evidence directory. No runtime application integration or deployment. Next: reduce source data-URI copying and establish production resource/parity/job gates. Auditor billing, Google billing warning/API approval remain external dependencies; full goal stays open.
