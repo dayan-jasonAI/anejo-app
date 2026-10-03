@@ -76,7 +76,8 @@ test('owner-scheduled carousel waits through missing Instagram setup, then publi
 
   // Natural tick on an unconfigured account must neither claim the due row nor call the provider.
   // Move only the fixture timestamp forward to due; the route itself created the scheduled row.
-  env.DB.sqlite.prepare('UPDATE social_posts SET scheduled_at=? WHERE id=?').run(Date.now() - 1000, postId);
+  const dueAt = Date.now() - 1000;
+  env.DB.sqlite.prepare('UPDATE social_posts SET scheduled_at=? WHERE id=?').run(dueAt, postId);
   const skipped = await post(tick, env, TICK_URL, {});
   assert.equal(skipped.response.status, 200, JSON.stringify(skipped.body));
   assert.equal(skipped.body.skipped, 'instagram_not_configured');
@@ -84,7 +85,7 @@ test('owner-scheduled carousel waits through missing Instagram setup, then publi
   let row = env.DB.one('SELECT status,caption,scheduled_at,ig_media_id,permalink,published_at FROM social_posts WHERE id=?', postId);
   assert.equal(row.status, 'scheduled');
   assert.equal(row.caption, caption);
-  assert.ok(row.scheduled_at <= Date.now());
+  assert.equal(row.scheduled_at, dueAt);
   assert.equal(row.ig_media_id, null);
   assert.equal(row.permalink, null);
   assert.equal(row.published_at, null);
@@ -111,5 +112,10 @@ test('owner-scheduled carousel waits through missing Instagram setup, then publi
   assert.equal(row.permalink, 'https://instagram.test/p/fixture-carousel');
   assert.ok(row.published_at);
   assert.equal(row.error, null);
+  const callsAfterPublish = providerCalls.length;
+  const replay = await post(tick, env, TICK_URL, {});
+  assert.equal(replay.response.status, 200);
+  assert.deepEqual(replay.body.published, []);
+  assert.equal(providerCalls.length, callsAfterPublish, 'later tick must not publish again');
   assert.deepEqual(env.DB.rows('SELECT seq,media_key FROM social_post_media WHERE post_id=? ORDER BY seq', postId).map(slide => [slide.seq, slide.media_key]), keys.map((key, seq) => [seq, key]));
 });
