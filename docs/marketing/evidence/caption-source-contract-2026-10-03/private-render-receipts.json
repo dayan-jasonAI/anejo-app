@@ -1,0 +1,46 @@
+[
+  {
+    "results": [
+      {
+        "id": "rr_23a31d2e75c5f7ee5f3daff63dd6f056514d54757343ad121ff9a66bd39789de",
+        "post_id": "sp_c4df45a9d885d7dad754",
+        "source_key": "marketing-library/2026-09/original_d50e32b042e4f8082980_photo.jpg",
+        "source_sha256": "e764085283ac0f7b8ee4ef8b077317dd3e7fbaee61cb55e426d6d942df724887",
+        "output_key": "studio/render-receipts/rr_23a31d2e75c5f7ee5f3daff63dd6f056514d54757343ad121ff9a66bd39789de_photo.jpg",
+        "output_sha256": "495f76f139faf0b4caf1fd03b3596cf2349ba293498a2e2aec26fcce295d3b5c",
+        "state": "attached",
+        "evidence_tier": "browser_declared",
+        "declaration_json": "{\"renderer_version\":\"anejo-canvas-declarations-1\",\"template_id\":\"reposado\",\"options\":{\"position\":\"\",\"text\":\"\",\"kicker\":\"\",\"accent\":\"\",\"footer\":\"\",\"preset\":\"reposado\",\"layout\":\"auto\",\"mark\":\"emblem\",\"finish\":\"adaptive\",\"normalization\":{\"normalizer_version\":\"browser-srgb-1\",\"source\":\"browser_declared\",\"status\":\"processed\",\"original_sha256\":\"e764085283ac0f7b8ee4ef8b077317dd3e7fbaee61cb55e426d6d942df724887\",\"derivative_sha256\":\"b3a1ee2bee24f25707b1c910506287e99290f0fb77a0ab336aeddd936b8f9f4b\",\"source_profile_sha256\":\"12afb4d9953adee0607d347daee5b78b18d6b3cab2d572b88970703f5edb37bc\",\"color_assumption\":\"embedded_rgb_profile\",\"observed_context_color_space\":\"srgb\",\"original_orientation\":1,\"original_width\":1254,\"original_height\":1254,\"width\":1254,\"height\":1254,\"resize_policy\":\"inside-2000x2000-no-enlargement\",\"bytes\":3677256,\"format\":\"png\",\"visual_review_required\":true,\"color_verification\":\"browser_declared\"}},\"layout\":{\"preset\":\"reposado\",\"width\":1254,\"height\":1254,\"sourceAspectPreserved\":true,\"text\":null,\"emblem\":{\"x\":555,\"y\":94,\"w\":144,\"h\":138,\"ink\":\"#E8E2CA\"},\"protectedAreas\":[{\"x\":275.88,\"y\":351.12000000000006,\"w\":702.2400000000001,\"h\":551.76}],\"protectionSource\":\"center_geometry_only\",\"visualReviewRequired\":true,\"renderDeclaration\":{\"schema\":1,\"source\":\"browser_declared\",\"supported\":false,\"reason\":\"draw_time_capture_not_implemented\",\"font_load\":{\"status\":\"load_resolved\",\"face_counts\":[0,0],\"exact_glyph_face\":\"unverified\"}}}}"
+      },
+      {
+        "id": "rr_8abe5baf3a124ae44e6d283d4c9b8dfee9252303998acce848b9012054bbda46",
+        "post_id": "sp_c4df45a9d885d7dad754",
+        "source_key": "marketing-library/2026-09/original_d50e32b042e4f8082980_photo.jpg",
+        "source_sha256": "e764085283ac0f7b8ee4ef8b077317dd3e7fbaee61cb55e426d6d942df724887",
+        "output_key": "studio/render-receipts/rr_8abe5baf3a124ae44e6d283d4c9b8dfee9252303998acce848b9012054bbda46_photo.jpg",
+        "output_sha256": "495f76f139faf0b4caf1fd03b3596cf2349ba293498a2e2aec26fcce295d3b5c",
+        "state": "attached",
+        "evidence_tier": "browser_declared",
+        "declaration_json": "{\"renderer_version\":\"anejo-canvas-declarations-1\",\"template_id\":\"reposado\",\"options\":{\"position\":\"\",\"text\":\"\",\"kicker\":\"\",\"accent\":\"\",\"footer\":\"\",\"preset\":\"reposado\",\"layout\":\"auto\",\"mark\":\"emblem\",\"finish\":\"adaptive\",\"original_source_recovery\":{\"current_key\":\"studio/render-receipts/rr_23a31d2e75c5f7ee5f3daff63dd6f056514d54757343ad121ff9a66bd39789de_photo.jpg\",\"current_sha256\":\"495f76f139faf0b4caf1fd03b3596cf2349ba293498a2e2aec26fcce295d3b5c\",\"depth\":1},\"normalization\":{\"normalizer_version\":\"browser-srgb-1\",\"source\":\"browser_declared\",\"status\":\"processed\",\"original_sha256\":\"e764085283ac0f7b8ee4ef8b077317dd3e7fbaee61cb55e426d6d942df724887\",\"derivative_sha256\":\"b3a1ee2bee24f25707b1c910506287e99290f0fb77a0ab336aeddd936b8f9f4b\",\"source_profile_sha256\":\"12afb4d9953adee0607d347daee5b78b18d6b3cab2d572b88970703f5edb37bc\",\"color_assumption\":\"embedded_rgb_profile\",\"observed_context_color_space\":\"srgb\",\"original_orientation\":1,\"original_width\":1254,\"original_height\":1254,\"width\":1254,\"height\":1254,\"resize_policy\":\"inside-2000x2000-no-enlargement\",\"bytes\":3677256,\"format\":\"png\",\"visual_review_required\":true,\"color_verification\":\"browser_declared\"}},\"layout\":{\"preset\":\"reposado\",\"width\":1254,\"height\":1254,\"sourceAspectPreserved\":true,\"text\":null,\"emblem\":{\"x\":555,\"y\":94,\"w\":144,\"h\":138,\"ink\":\"#E8E2CA\"},\"protectedAreas\":[{\"x\":275.88,\"y\":351.12000000000006,\"w\":702.2400000000001,\"h\":551.76}],\"protectionSource\":\"center_geometry_only\",\"visualReviewRequired\":true,\"renderDeclaration\":{\"schema\":1,\"source\":\"browser_declared\",\"supported\":false,\"reason\":\"draw_time_capture_not_implemented\",\"font_load\":{\"status\":\"load_resolved\",\"face_counts\":[0,0],\"exact_glyph_face\":\"unverified\"}}}}"
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "IAD",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 1.0371
+      },
+      "duration": 1.0371,
+      "changes": 0,
+      "last_row_id": 1541,
+      "changed_db": false,
+      "size_after": 25776128,
+      "rows_read": 6,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]

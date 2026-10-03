@@ -1,0 +1,32 @@
+[
+  {
+    "results": [
+      {
+        "id": "sp_c4df45a9d885d7dad754",
+        "status": "draft",
+        "scheduled_at": null,
+        "audit_status": null,
+        "media_key": "studio/render-receipts/rr_8abe5baf3a124ae44e6d283d4c9b8dfee9252303998acce848b9012054bbda46_photo.jpg",
+        "seq": 0
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "IAD",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.2892
+      },
+      "duration": 0.2892,
+      "changes": 0,
+      "last_row_id": 1544,
+      "changed_db": false,
+      "size_after": 25780224,
+      "rows_read": 3,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]
