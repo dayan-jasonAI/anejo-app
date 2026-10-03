@@ -107,7 +107,7 @@ for(const actor of ['owner','marketing'])for(const templateId of ['reposado-wide
  const f=await setup(t),value={...f.body,options:{...f.body.options,templateId,title:templateId==='reposado-wide'?'Catering, beautifully.':'Your Cajita.'}};
  const {response,json}=await f.request({token:'fixture-'+actor,value});assert.equal(response.status,200,JSON.stringify(json));assert.equal(json.state,'attached');assert.equal(json.publicationApproved,false);assert.equal(json.humanReviewRequired,true);assert.equal(json.resourceReadiness,'unverified');
  const jobs=(await f.db.prepare('SELECT * FROM prototype_render_jobs').all()).results;assert.equal(jobs.length,1);assert.equal(jobs[0].actor_id,actor);assert.equal(jobs[0].status,'rendered');
- const descriptor=JSON.parse(jobs[0].descriptor_json);assert.equal(descriptor.rendererVersion,'local-private-worker-v1');assert.equal(descriptor.templateId,templateId);
+ const descriptor=JSON.parse(jobs[0].descriptor_json);assert.equal(descriptor.rendererVersion,'local-private-worker-v2');assert.equal(descriptor.templateId,templateId);
  const version=(await f.db.prepare('SELECT * FROM prototype_source_versions').all()).results[0];assert.equal(version.actor_id,actor);assert.equal(version.state,'confirmed');assert.equal(version.id,descriptor.sourceVersionId);
  const output=await f.media.get(json.receipt.outputKey),jpg=new Uint8Array(await output.arrayBuffer());assert.equal(output.httpMetadata.contentType,'image/jpeg');
  const {jpegDimensions,sha256}=await import('../../functions/_lib/marketing_render_receipt.js');const shape=jpegDimensions(jpg);assert.equal(shape.width,json.receipt.width);assert.equal(shape.height,json.receipt.height);assert.equal(await sha256(jpg),json.receipt.sha256);
@@ -132,4 +132,17 @@ test('uncertain durable execution blocks entire authenticated pipeline without d
 test('missing durable binding refuses execution without per-isolate fallback',{timeout:20000},async t=>{
  const f=await setup(t,{executor:false}),before=await f.counts(),result=await f.request();
  assert.equal(result.response.status,503);assert.equal(result.json.error,'executor_unavailable');assert.deepEqual(await f.counts(),before);
+});
+
+test('authenticated raw wide-gamut source refuses before output or draft attachment',{timeout:20000},async t=>{
+ const f=await setup(t),sharp=require('./node_modules/sharp');
+ const wide=new Uint8Array(await sharp({create:{width:40,height:20,channels:3,background:'#548866'}}).withIccProfile('p3').jpeg().toBuffer());
+ await f.media.put(f.sourceKey,wide,{httpMetadata:{contentType:'image/jpeg'},customMetadata:{name:'Synthetic color fixture'}});
+ const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',wide)),v=>v.toString(16).padStart(2,'0')).join('');
+ const result=await f.request({value:{...f.body,sourceSha256:hash}});
+ assert.equal(result.response.status,409);assert.equal(result.json.errorCode,'source_color_normalization_required');assert.equal(result.json.attached,false);
+ const keys=(await f.counts()).keys;assert.equal(keys.some(k=>k.startsWith('studio/local-render/')),false);
+ const slide=await f.db.prepare("SELECT media_key FROM social_post_media WHERE id='slide'").first();assert.equal(slide.media_key,f.sourceKey);
+ const post=await f.db.prepare("SELECT status,audit_score FROM social_posts WHERE id='post'").first();assert.equal(post.status,'draft');assert.equal(post.audit_score,7);
+ assert.deepEqual(new Uint8Array(await (await f.media.get(f.sourceKey)).arrayBuffer()),wide);
 });

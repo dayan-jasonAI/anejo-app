@@ -13,8 +13,9 @@ import {createRenderJobStore} from './render-jobs.mjs';
 import {consumePrivateRender,renderOptionsHash} from './render-consumer.mjs';
 import {LocalDurableAdmission,OWNED_LOCAL_WORK} from './durable-admission.mjs';
 import {createExecutionDeadline} from './execution-deadline.mjs';
+import {admitSourceColor} from './source-color-admission.mjs';
 
-const rendererVersion='local-private-worker-v1';
+const rendererVersion='local-private-worker-v2';
 const json=(value,status=200)=>new Response(JSON.stringify({...value,scope:'local_rehearsal',resourceReadiness:'unverified',publicationApproved:false}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 function reject(code,status=400){const error=new Error(code);error.status=status;throw error;}
 function exact(value,keys){if(!value||Object.getPrototypeOf(value)!==Object.prototype||Object.keys(value).length!==keys.length||keys.some(key=>!Object.hasOwn(value,key)))reject('invalid_request');}
@@ -83,13 +84,15 @@ export class PrivateRenderExecutor extends LocalDurableAdmission {
   const queued=await deadline.dispatch('enqueue',()=>store.enqueue({actorId,requestId:input.requestId,descriptor:{...binding,sourceVersionId,sourceMetadataSha256,rendererVersion,templateId:input.options.templateId,optionsHash},now:Date.now(),deadline}));
   const render=async({source,options})=>{
    await deadline.dispatch('initialize',()=>initialize(wasm));
+   deadline.check('source_color');
+   admitSourceColor(source);
    deadline.check('render');
    return renderEditorial({source,emblem:new Uint8Array(emblem),font:new Uint8Array(font),kickerFont:new Uint8Array(kickerFont),...options});
   };
   const result=await consumePrivateRender({db:env.DB,media:env.MEDIA,actorId,jobId:queued.job.id,rendererVersion,options:input.options,render,now:Date.now,leaseMs:30000,deadline});
   return result;
   }catch(error){
-   const known=error.status||['SourceVersionError','RenderJobError','ExecutionDeadlineError'].includes(error.name);
+   const known=error.status||['SourceVersionError','RenderJobError','ExecutionDeadlineError','SourceColorError'].includes(error.name);
    return {error:known&&/^[a-z][a-z0-9_]{0,63}$/.test(error.message)?error.message:'private_render_failed',status:error.status||(error.name==='ExecutionDeadlineError'?408:known?409:500),attachment:'unverified'};
   }
  }

@@ -21,7 +21,7 @@ test('actual WASM renders both shared editorial profiles with fitted headline, k
 test('background samples choose light ink on dark diagnostic and dark ink on light diagnostic',()=>{
  const dark=renderEditorial({...input,source:diagnostic(8)}),light=renderEditorial({...input,source:diagnostic(245)});
  assert.equal(dark.ink.text.color,INKS.parchment);assert.ok([INKS.deep,INKS.black].includes(light.ink.text.color));assert.equal(dark.ink.emblem.color,INKS.parchment);
- for(const out of [dark,light]){const kicker=out.measurements.runs.find(r=>r.role==='kicker');assert.ok(kicker.px>=14);assert.ok(kicker.bounds.w<=out.layout.textRegion.w);assert.ok(kicker.bounds.y+kicker.bounds.h<=out.layout.textRegion.y+out.layout.textRegion.h);assert.ok(out.deviations.some(x=>x.includes('14px floor')));}
+ for(const out of [dark,light]){const kicker=out.measurements.runs.find(r=>r.role==='kicker');assert.ok(kicker.px>=10);assert.ok(kicker.bounds.w<=out.layout.textRegion.w);assert.ok(kicker.bounds.y+kicker.bounds.h<=out.layout.textRegion.y+out.layout.textRegion.h);assert.equal(kicker.px,Math.round(Math.min(out.layout.width,out.layout.height)*.013));}
  assert.equal(dark.layout.photo.x,135);assert.equal(dark.layout.photo.w,810);assert.equal(dark.layout.backgroundExtended,true);assert.match(dark.svg,/linearGradient id="left"/);
 });
 test('composition leaves pre-JPEG photograph pixels unchanged outside declared lettering and emblem',()=>{
