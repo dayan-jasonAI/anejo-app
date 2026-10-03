@@ -11,3 +11,9 @@ Bounded agent owned helper/tests; root inspected implementation and independent 
 ## Local validation
 
 Root independently ran61/61focused helper+owner UI tests and3,568/3,568whole-root tests; lint0errors/11existingwarnings; Functions build succeeds; gitdiffcheckclean. Actual savedsource model evaluation is still unavailable and not covered by synthetic diagnostic fixtures. No rules weakened.
+
+## Released and observed — October3
+
+PR192 head3287e09521ab8e061fa972b4a7a6b473b152801a passed all four checks (run37114788213), merged4478783ce71ac80c01d04414791981ae8c752d20. Provider production inventory lists3178fe77-b169-48e0-981b-1232da8def13/source4478783. One normal supportedChrome savedsource review returned visual HTTP400, invalid_request_error, categorybilling, requestreq_011Cff7QX7bGg5kn3imXNiDf. Root independently read the savedD1 diagnosis: publishedstatusunchanged, flag/nullscore. Owner panel shows exactsafe diagnosis with inference caveat. Screenshot/live response/savedrecord/inventory/checks saved in evidence directory. No further providerretry or billingchange.
+
+This changes the next action: inspect the provider account's billing/credit status rather than speculate about schema/model. Exact account balance/payment condition remains Unverified. Dayan was asked for that factual readback; no charge or credential change authorized. Automatic review/trust remains off. Continue independent joined strategy/content rehearsal while this factual prerequisite is pending.
