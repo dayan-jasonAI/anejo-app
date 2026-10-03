@@ -190,5 +190,6 @@ test('the marketing HUB page fetches performance-alerts and renders an honest "n
   assert.match(PAGE, /Performance watch/);
   assert.match(PAGE, /Not enough data yet/);
   // The card must say what the team is doing about it, not just report a number.
-  assert.match(PAGE, /planner.{0,40}(has been told|approach)/i);
+  assert.match(PAGE, /This card does not prove that a planner ran/);
+  assert.match(PAGE, /These saved measurements do not establish current Instagram performance/);
 });
