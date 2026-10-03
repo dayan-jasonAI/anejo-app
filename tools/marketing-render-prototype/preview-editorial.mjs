@@ -7,6 +7,11 @@ const read=p=>new Uint8Array(readFileSync(new URL(p,import.meta.url)));
 const hash=b=>createHash('sha256').update(b).digest('hex');
 await initialize(read('./node_modules/@resvg/resvg-wasm/index_bg.wasm'));
 const input={source:read('./assets/source.jpg'),emblem:read('./assets/emblem.png'),font:read('./assets/AnejoEditorialSerif-SemiBold.ttf'),kickerFont:read('./assets/AnejoEditorialSans-Medium.ttf')};
+let normalization=null;
+if(process.argv.includes('--normalize-source')){
+ const {normalizeSource}=await import('./normalize-source.mjs');
+ const normalized=await normalizeSource(input.source);input.source=normalized.bytes;normalization=normalized.receipt;
+}
 const output=mkdtempSync('/tmp/anejo-editorial-preview-');
 const samples=[];
 for(const [templateId,title] of [['reposado-wide','Catering, beautifully.'],['reposado-cajita','Your Cajita.']]){
@@ -17,6 +22,6 @@ for(const [templateId,title] of [['reposado-wide','Catering, beautifully.'],['re
  const {jpg,svg,...metadata}=result;
  samples.push({templateId,title,output:`${output}/${templateId}.jpg`,sha256:hash(jpg),svg_sha256:hash(svg),wallMs:performance.now()-started,metadata});
 }
-const evidence={recordedAt:new Date().toISOString(),sourceProvenance:'Existing website theme asset; not verified documentary event photography.',inputHashes:Object.fromEntries(Object.entries(input).map(([k,v])=>[k,hash(v)])),samples,limitations:'Local Node rendering only; visual review and production resource proof remain required.'};
+const evidence={recordedAt:new Date().toISOString(),normalization,sourceProvenance:'Existing website theme asset; not verified documentary event photography.',inputHashes:Object.fromEntries(Object.entries(input).map(([k,v])=>[k,hash(v)])),samples,limitations:'Local Node rendering only; visual review and production resource proof remain required.'};
 writeFileSync(`${output}/evidence.json`,JSON.stringify(evidence,null,2)+'\n');
 console.log(output);
