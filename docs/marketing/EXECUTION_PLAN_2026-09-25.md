@@ -243,3 +243,8 @@ Local implementation closes the observed repeated-branding default: verified rec
 ### V16 release acceptance checkpoint — October3
 
 PR187 merged6e481c1 after all four checks passed, production deployment1a4e3450-ea94-46dc-a760-bb71c6b1ffa0. Actual supported-browser reviews and D1 readbacks for all three launch sources report v16, but all are unavailable with null scores: catering unsupported_caption_claim; Cajita/mixed unclassified_scope. No public post or trust activation changed. Semantic acceptance failed; full goal remains open. Evidence and next repair criteria: WRITTEN_CLAIM_SCOPE_WORK_PACKET_2026-10-03.md and evidence/written-claim-scope-2026-10-03. Next: remove duplicate model caption recopy dependence while preserving exact source and mandatory-claim controls, inspect bounded unclassified-claim evidence, then release and live acceptance. Local3466-root success remains distinct from these live failures. No new owner approval needed for the existing authorized repair.
+
+
+### V17 caption-source repair — local checkpoint October3
+
+Root implemented initial visual-stage exclusion of caption claim recopy; complete independent words-only source extraction remains exact and mandatory. Bounded written-review agent added service/customization/ordering scopes and failed-claim diagnostic evidence; root reviewed and retained diagnostics through governance. Independent review found no new blocking guard regression. Root3482/3482 tests and57focused passed, lint0errors/11existingwarnings. No public post/credentials/trust change. Release/live semantics pending; CAPTION_SOURCE_CONTRACT_2026-10-03.md records scope, evidence and limits. Full marketing objective remains open.

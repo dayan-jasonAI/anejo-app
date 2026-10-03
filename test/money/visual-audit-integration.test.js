@@ -77,7 +77,7 @@ test('actual visual request numbers publication JPEGs first and reference PNG la
  try{await auditDraft(env,{caption:'Menu',images:['cover','cajitas','tray','bites','combo','cta'].map(data=>({data}))});
  const content=request.messages[0].content;const pictures=content.filter(c=>c.type==='image');assert.deepEqual(pictures.slice(0,6).map(c=>c.source.data),['cover','cajitas','tray','bites','combo','cta']);assert.equal(pictures[6].source.media_type,'image/png');assert.equal(pictures.length,7);
  for(let i=0;i<6;i++){assert.match(content[1+2*i].text,new RegExp('^Slide '+(i+1)));assert.equal(content[2+2*i].source.data,pictures[i].source.data);}
- assert.match(content[1].text,/COVER/);assert.match(content[13].text,/END OF NUMBERED CAROUSEL/);assert.match(content[13].text,/excluded from slide count/);assert.equal(content[14].source.media_type,'image/png');assert.deepEqual(request.output_config.format.schema.properties.observations.properties.branding.properties.slides.items.enum,[1,2,3,4,5,6]);assert.equal(VERSION,'anejo-visual-16');
+ assert.match(content[1].text,/COVER/);assert.match(content[13].text,/END OF NUMBERED CAROUSEL/);assert.match(content[13].text,/excluded from slide count/);assert.equal(content[14].source.media_type,'image/png');assert.deepEqual(request.output_config.format.schema.properties.observations.properties.branding.properties.slides.items.enum,[1,2,3,4,5,6]);assert.equal(VERSION,'anejo-visual-17');
  }finally{globalThis.fetch=original;}
 });
 
@@ -173,11 +173,47 @@ test('zero visual claims still invokes independent full-text extraction and pres
 test('mixed claims and unreadable wording fails closed before independent review under the current extraction contract',async()=>{
  const env=ownerEnv({ANTHROPIC_API_KEY:'test'}),original=globalThis.fetch;let calls=0;
  globalThis.fetch=async()=>{calls++;const data=answer();data.product_evidence={scope:'explicit_claims',claims:[{source:'caption',caption_line:1,slide:0,quote:'Skewers',claim_id:'',authority_refs:[],assessment:'unresolved'}],unreadable_slides:[1]};data.observations.product_fidelity.status='unknown';return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(data)}]})};};
- try {const result=await auditDraft(env,{caption:'Skewers',images:[{data:'fixture'}]});assert.equal(calls,1);assert.equal(result.verdict,'flag');assert.equal(result.brand_score,null);assert.equal(result.audit_diagnostic.issue,'missing_explicit_claim');}finally{globalThis.fetch=original;}
+ try {const result=await auditDraft(env,{caption:'Skewers',images:[{data:'fixture'}]});assert.equal(calls,1);assert.equal(result.verdict,'flag');assert.equal(result.brand_score,null);assert.equal(result.audit_diagnostic.issue,'caption_claim_in_visual_stage');}finally{globalThis.fetch=original;}
 });
 
 for(const caption of [undefined,null])test('image-only audit handles '+String(caption)+' caption without throwing',async()=>{
  const env=ownerEnv({ANTHROPIC_API_KEY:'test'}),original=globalThis.fetch;let calls=0;
  globalThis.fetch=async()=>{calls++;return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(answer())}]})};};
  try {const result=await auditDraft(env,{caption,images:[{data:'fixture'}]});assert.equal(calls,1);assert.equal(result.verdict,'pass');assert.equal(result.input_coverage.written_claim_review,null);}finally{globalThis.fetch=original;}
+});
+
+test('visual stage selects caption references without copying claims; full long source reaches independent extraction',async()=>{
+ const env=ownerEnv({ANTHROPIC_API_KEY:'test'}),original=globalThis.fetch;let calls=0;
+ const caption='No pineapple. '+ 'Context '.repeat(40)+'\nThis image shows the exact assortment.';
+ globalThis.fetch=async(_,options)=>{
+  calls++;const request=JSON.parse(options.body);
+  if(calls===1){
+   const claimSchema=request.output_config.format.schema.properties.product_evidence.properties.claims.items;
+   assert.deepEqual(claimSchema.properties.source.enum,['registered_overlay','image_text']);
+   assert.deepEqual(claimSchema.properties.caption_line.enum,[0]);
+   const output=answer();output.observations.readability={...output.observations.readability,status:'violated',explanation:'Small text is not readable.'};
+   output.observations.caption_image={...output.observations.caption_image,evidence_anchor:'caption:2',caption_line:2};
+   return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(output)}]})};
+  }
+  const input=JSON.parse(request.messages[0].content);
+  assert.deepEqual(input.written_sources.map(s=>s.wording),caption.split('\n'));
+  assert.equal(input.claims.length,0);assert.ok(!JSON.stringify(request).includes('PRIVATE_IMAGE'));
+  const output={assessments:[],source_coverage:['caption:1','caption:2'],omitted_claims:[
+   {source_id:'caption:1',quote:'No pineapple.',claim_kind:'ingredient',assessment:'contradicted',authority_refs:[input.authority_references[0].id]},
+   {source_id:'caption:2',quote:'This image shows the exact assortment.',claim_kind:'exact_photo_assortment',assessment:'unresolved',authority_refs:[]}
+  ]};
+  return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(output)}]})};
+ };
+ try{
+  const result=await auditDraft(env,{caption,images:[{data:'PRIVATE_IMAGE'}]});assert.equal(calls,2);
+  assert.equal(result.brand_score,null);assert.equal(result.observations.find(o=>o.criterion_id==='readability').status,'violated');
+  assert.equal(result.observations.find(o=>o.criterion_id==='product_fidelity').status,'violated');
+  assert.equal(result.product_evidence.claims[1].assessment,'unresolved');
+  assert.equal(result.observations.find(o=>o.criterion_id==='caption_image').caption_quote,caption.split('\n')[1]);
+ }finally{globalThis.fetch=original;}
+});
+test('visual stage cannot sneak in a copied or invented caption claim',async()=>{
+ const env=ownerEnv({ANTHROPIC_API_KEY:'test'}),original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async()=>{calls++;const output=answer();output.product_evidence={scope:'explicit_claims',claims:[{source:'caption',caption_line:1,slide:0,quote:'Invented wording',claim_id:'',authority_refs:[],assessment:'unresolved'}],unreadable_slides:[]};return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(output)}]})};};
+ try{const result=await auditDraft(env,{caption:'Actual source',images:[{data:'image'}]});assert.equal(calls,1);assert.equal(result.audit_diagnostic.issue,'caption_claim_in_visual_stage');assert.equal(result.brand_score,null);}finally{globalThis.fetch=original;}
 });
