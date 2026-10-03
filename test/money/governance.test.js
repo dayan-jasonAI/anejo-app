@@ -272,9 +272,16 @@ const visualAnswer = (defect = null) => ({ rubric_version: VERSION, product_evid
  evidence_anchor: 'slide:1', caption_line: 0, slides: [1], explanation: defect && c.id === 'readability' ? defect : 'Visible evidence satisfies the criterion.'
 }])), suggestions: [] });
 
+function emptyWrittenReview(init) {
+ const request=init?.body?JSON.parse(init.body):null;
+ if(!request?.output_config?.format?.schema?.required?.includes('omitted_claims'))return null;
+ const input=JSON.parse(request.messages[0].content);
+ assert.equal(input.claims.length,0);
+ return modelAnswer({assessments:[],omitted_claims:[],source_coverage:input.written_sources.map(s=>s.id)})();
+}
 test('visual audit sends ordered actual JPEG blocks and flags observed visual faults',async()=>{
  const {db}=stubDb({menuItems:MENU});const savedFetch=globalThis.fetch;let sent;
- globalThis.fetch=async(url,init)=>{sent=JSON.parse(init.body);return modelAnswer(visualAnswer('Slide 1: emblem covers food'))();};
+ globalThis.fetch=async(url,init)=>{const written=emptyWrittenReview(init);if(written)return written;sent=JSON.parse(init.body);return modelAnswer(visualAnswer('Slide 1: emblem covers food'))();};
  try {
   const result=await auditDraft({DB:db,ANTHROPIC_API_KEY:'test'}, {caption:'Catering',images:[{data:'first'},{data:'second'}]});
   assert.deepEqual(sent.messages[0].content.filter(c=>c.type==='image'&&c.source.media_type==='image/jpeg').map(c=>c.source.data),['first','second']);
@@ -292,6 +299,7 @@ test('finished-image judge receives evidence discipline and retains actionable f
   const detail = 'Slide 2: the lower-right headline overlaps the printed label. ' + 'Preserve the complete explanation and the exact conflicting rule. '.repeat(6);
   let request;
   globalThis.fetch = async (_url, options) => {
+    const written=emptyWrittenReview(options);if(written)return written;
     request = JSON.parse(options.body);
     return modelAnswer(visualAnswer(detail))();
   };
@@ -320,7 +328,7 @@ test('truncated provider JSON never becomes a visual pass and multi-block text c
     assert.equal(limited.verdict, 'flag');
     assert.match(limited.flags.find(f=>f.type==='audit_unavailable').detail, /output limit/);
     assert.equal(spendInserts.length, 1, 'truncated paid answer still metered');
-    globalThis.fetch = async () => ({ ok:true, json:async () => ({stop_reason:'end_turn',content:[{type:'thinking',thinking:'not an audit result'},{type:'text',text:JSON.stringify(visualAnswer())}]}) });
+    globalThis.fetch = async (_url,init) => emptyWrittenReview(init)||({ ok:true, json:async () => ({stop_reason:'end_turn',content:[{type:'thinking',thinking:'not an audit result'},{type:'text',text:JSON.stringify(visualAnswer())}]}) });
     const complete = await auditDraft({ DB:db, ANTHROPIC_API_KEY:'test-only' }, {caption:'Menu',images:[{data:'/9j/AA=='}]});
     assert.equal(complete.verdict, 'pass');
     assert.equal(complete.brand_score,100);

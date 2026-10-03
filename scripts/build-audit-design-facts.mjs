@@ -11,7 +11,7 @@ const PINNED_RENDERER='251aebab81ea73d84e21dc5fa73e976ccdb9600272e4de91bbc1f49d5
 const PINNED_PAGE='4cb6e57a7949493cf745d305a62e2023e3943d4dcc04f7c566f8dbe4270db1a7';
 const EMBLEM='public/assets/img/emblem.png';
 const EMBLEM_HASH='ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598';
-export const DESIGN_FACTS_VERSION='anejo-reviewed-design-facts-2';
+export const DESIGN_FACTS_VERSION='anejo-reviewed-design-facts-3';
 const hash=b=>createHash('sha256').update(b).digest('hex');
 function jpegShape(b){
  if(b[0]!==255||b[1]!==216||b.at(-2)!==255||b.at(-1)!==217)throw Error('Invalid JPEG');
@@ -63,7 +63,8 @@ export function buildDesignFacts({read=path=>readFileSync(resolve(ROOT,path))}={
   words=words.map((run,index)=>{
    const namedGather=/^slides\/gather-0[2-9]\.jpg$/.test(slide.file)&&run.role==='headline';
    const personalList=slide.file==='slides/personal-09.jpg'&&(run.text==='START WITH SIX / SEIS FAVORITOS'||run.text.startsWith('Hawaiian roll with ham spread;'));
-   return namedGather||personalList?{...run,product_claim_id:'pc_'+sha+'_'+index}:run;
+   const reviewedKind=namedGather?(['slides/gather-02.jpg','slides/gather-03.jpg','slides/gather-04.jpg','slides/gather-05.jpg','slides/gather-09.jpg'].includes(slide.file)?'product_category':'named_product'):personalList?(run.text==='START WITH SIX / SEIS FAVORITOS'?'quantity':'ingredient'):null;
+   return reviewedKind?{...run,product_claim_id:'pc_'+sha+'_'+index,claim_kind:reviewedKind}:run;
   });
   registry[sha]={source:'reviewed_revision3_export',file:DIR+'/'+slide.file,output:{sha256:sha,byte_length:bytes.length,...shape},rendered_text:words,emblem:logo,layout,provenance,
    limits:['Reviewed export declarations matched to exact output bytes; not independent OCR or a cryptographic render attestation.','Geometry does not prove visual legibility, lack of food obstruction, or semantic object identity.','No claim of food ingredients, photographic authenticity, owner publication approval or live Instagram pixel equivalence.']};
