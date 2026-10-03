@@ -2,7 +2,7 @@
 import {Resvg} from '@resvg/resvg-wasm';
 import geometry from '../../public/hub/owner/assets/marketing-editorial-plan.js';
 import {dimensions} from './core.mjs';
-import {jpegOrientation} from './source-orientation.mjs';
+import {jpegOrientation,pngSourceOrientation} from './source-orientation.mjs';
 import {encode} from './jpeg-encoder.mjs';
 export const INKS=Object.freeze({parchment:'#E8E2CA',deep:'#0A180C',black:'#000000',gold:'#C8BC6E'});
 const escape=s=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
@@ -32,9 +32,10 @@ function fittedText(title,kicker,region,fonts,S){
  throw Error('The headline does not fit the clear space');
 }
 export function sourceGraphic(source,info) {
- const orientation=info.type==='jpeg'?jpegOrientation(source):1,W=info.width,H=info.height;
+ const png=info.type==='png'?pngSourceOrientation(source):null;
+ const orientation=png?png.orientation:jpegOrientation(source),W=info.width,H=info.height;
  const matrices={1:[1,0,0,1,0,0],2:[-1,0,0,1,W,0],3:[-1,0,0,-1,W,H],4:[1,0,0,-1,0,H],5:[0,1,1,0,0,0],6:[0,1,-1,0,H,0],7:[0,-1,-1,0,H,W],8:[0,-1,1,0,0,W]};
- const width=orientation>=5?H:W,height=orientation>=5?W:H,sourceUri=uri(source,info.type);
+ const width=orientation>=5?H:W,height=orientation>=5?W:H,sourceUri=uri(png?.decoderBytes??source,info.type);
  return {width,height,orientation,markup:(p,stretch=false)=>orientation===1?`<image xlink:href="${sourceUri}" x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" preserveAspectRatio="${stretch?'none':'xMidYMid meet'}"/>`:`<g transform="translate(${p.x} ${p.y}) scale(${p.w/width} ${p.h/height})"><g transform="matrix(${matrices[orientation].join(' ')})"><image xlink:href="${sourceUri}" width="${W}" height="${H}" preserveAspectRatio="none"/></g></g>`};
 }
 function background(graphic,layout,fonts){
@@ -61,5 +62,5 @@ export function renderEditorial({source,emblem,font,kickerFont,title,kicker='',t
  const markSvg=`<defs><filter id="brand-tint" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feFlood flood-color="${emblemInk.color}"/><feComposite in2="SourceAlpha" operator="in"/></filter></defs><image id="brand-emblem" xlink:href="${uri(emblem,emblemInfo.type)}" x="${mark.x}" y="${mark.y}" width="${mark.w}" height="${mark.h}" filter="url(#brand-tint)"/>`;
  const xml=svg(base+words+markSvg,layout.width,layout.height);
  const jpg=withRaster(xml,fonts,(pixels,width,height)=>encode({data:pixels,width,height},94).data);
- return {jpg,svg:xml,source:{...sourceInfo,orientation:graphic.orientation,displayWidth:graphic.width,displayHeight:graphic.height},layout,ink:{text:textInk,emblem:emblemInk},measurements:{runs,emblem:mark},visualReviewRequired:true,deviations:['Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.','Glyph-outline top placement differs from Canvas textBaseline top.','Canvas shadow halo is not implemented.','Edge sampling and glyph rasterization use resvg, not browser Canvas.','Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.','JPEG EXIF orientation applied; PNG EXIF and ICC normalization remain unsupported.'],pixelVerification:'unverified',resourceReadiness:'unverified'};
+ return {jpg,svg:xml,source:{...sourceInfo,orientation:graphic.orientation,displayWidth:graphic.width,displayHeight:graphic.height},layout,ink:{text:textInk,emblem:emblemInk},measurements:{runs,emblem:mark},visualReviewRequired:true,deviations:['Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.','Glyph-outline top placement differs from Canvas textBaseline top.','Canvas shadow halo is not implemented.','Edge sampling and glyph rasterization use resvg, not browser Canvas.','Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.','JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported.'],pixelVerification:'unverified',resourceReadiness:'unverified'};
 }

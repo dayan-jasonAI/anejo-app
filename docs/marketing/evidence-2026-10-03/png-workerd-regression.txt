@@ -1,0 +1,2 @@
+Output directory: /tmp/anejo-render-resource-check-DgutQk
+Recorded 10 deterministic HTTP 200 renders; heap samples are not production safety proof.

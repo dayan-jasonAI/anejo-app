@@ -216,3 +216,8 @@ PR167 exact head0316468 release checks all passed; remains unmerged, not product
 ## September 28 — branding preserves declared photo history
 
 PR168 exact head458345b release checks all passed; unmerged, not production proof. Continued closing the actual photo→branding→audit path while external access remains blocked: branded-save now binds bounded source history to durable request identity, stores immediate-parent/AI declaration, and validates metadata readback and source before attachment. Old receipt conflicts are explicit; no silent rewrite. Root 3,365 tests passed, lint zero errors/11 warnings, Functions compiled. See BRANDED_PHOTO_HISTORY_2026-09-28.md and hashed evidence. Not deployed; no new approval needed for authorized release after prerequisites.
+
+
+### October 3 — resumed goal and PNG ingestion
+
+Current goal record reports active; previous engineering turn made progress via corporate checkout release. Current work continued the original marketing scope: PNG orientation reader and actual raster transform tests added to the isolated editorial adapter. 31 prototype tests and 10 local workerd regression renders pass. See EDITORIAL_PNG_ORIENTATION_2026-10-03.md for evidence and limits. No live job, publication, customer communication or trust activation. Next: color normalization and shared visual contract/resource acceptance before integrating durable rendering.

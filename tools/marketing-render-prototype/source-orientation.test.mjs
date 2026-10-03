@@ -47,3 +47,31 @@ test('respects Uint8Array offsets and stops at SOS without interpreting entropy'
 test('unrelated IFD0 entries are ignored rather than interpreted as orientation',()=>{
  const p=fixture([8]);new DataView(p.buffer).setUint16(16,0x100,true);assert.equal(jpegOrientation(jpeg(app1(p))),1);
 });
+
+function pngChunk(type,data){
+ const out=new Uint8Array(data.length+12),v=new DataView(out.buffer);v.setUint32(0,data.length);out.set(new TextEncoder().encode(type),4);out.set(data,8);
+ let crc=0xffffffff;for(const byte of out.subarray(4,out.length-4)){crc^=byte;for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}v.setUint32(out.length-4,(crc^0xffffffff)>>>0);return out;
+}
+const pngHeader=[137,80,78,71,13,10,26,10];
+const pngFixture=(...extra)=>join(pngHeader,pngChunk('IHDR',new Uint8Array(13)),pngChunk('IDAT',new Uint8Array()),...extra,pngChunk('IEND',new Uint8Array()));
+test('PNG parses bare TIFF in both byte orders after image data and preserves originals',async()=>{
+ const {pngSourceOrientation}=await import('./source-orientation.mjs');
+ for(const little of [true,false])for(let value=1;value<=8;value++){
+  const plain=pngFixture(),tagged=pngFixture(pngChunk('eXIf',fixture([value],little).subarray(6))),original=tagged.slice();
+  const result=pngSourceOrientation(tagged);assert.equal(result.orientation,value);assert.deepEqual(result.decoderBytes,plain);assert.deepEqual(tagged,original);
+ }
+ const plain=pngFixture();assert.equal(pngSourceOrientation(plain).decoderBytes,plain);
+ const padded=join([1,2],pngFixture(pngChunk('eXIf',fixture([8]).subarray(6))),[3]);assert.equal(pngSourceOrientation(padded.subarray(2,-1)).orientation,8);
+});
+test('PNG rejects duplicate EXIF, invalid CRC, truncated TIFF and malformed chunk framing',async()=>{
+ const {pngSourceOrientation}=await import('./source-orientation.mjs');
+ const chunk=pngChunk('eXIf',fixture([6]).subarray(6));
+ assert.throws(()=>pngSourceOrientation(pngFixture(chunk,chunk)),/duplicate/);
+ const bad=chunk.slice();bad[8]^=1;assert.throws(()=>pngSourceOrientation(pngFixture(bad)),/CRC/);
+ assert.throws(()=>pngSourceOrientation(pngFixture(pngChunk('eXIf',new Uint8Array(3)))),/truncated TIFF/);
+ assert.throws(()=>pngSourceOrientation(pngFixture(pngChunk('eXIf',fixture([9]).subarray(6)))),/outside/);
+ for(const bytes of [new Uint8Array(),join(pngHeader,[0,0]),pngFixture().subarray(0,-1),join(pngFixture(),[0])])assert.throws(()=>pngSourceOrientation(bytes),/Invalid/);
+ const over=pngFixture();new DataView(over.buffer).setUint32(8,0x7fffffff);assert.throws(()=>pngSourceOrientation(over),/bounds/);
+ assert.throws(()=>pngSourceOrientation(new Uint8Array(5*1024*1024+1)),/5 MiB/);
+ assert.throws(()=>pngSourceOrientation([]),/Uint8Array/);
+});

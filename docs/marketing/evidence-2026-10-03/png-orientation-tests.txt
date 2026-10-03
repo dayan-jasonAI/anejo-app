@@ -1,0 +1,43 @@
+
+> test
+> node --test test.mjs editorial.test.mjs source-orientation.test.mjs
+
+✔ actual WASM renders both shared editorial profiles with fitted headline, kicker and deterministic JPEG (2172.528166ms)
+✔ background samples choose light ink on dark diagnostic and dark ink on light diagnostic (402.210417ms)
+✔ composition leaves pre-JPEG photograph pixels unchanged outside declared lettering and emblem (723.989834ms)
+✔ unsupported layouts, missing pinned font, protected collision and text overflow reject explicitly (66.12325ms)
+✔ original emblem alpha produces selected brand ink rather than original gold or a filled rectangle (284.156542ms)
+✔ editorial font artifacts match the recorded static weight build (2.006875ms)
+✔ actual raster applies all eight JPEG orientations before editorial source geometry (128.030208ms)
+✔ actual PNG raster applies all eight declared EXIF orientations once, retaining original bytes (129.211333ms)
+✔ all eight orientations parse little endian inline SHORT (1.518167ms)
+✔ all eight orientations parse big endian inline SHORT (0.2495ms)
+✔ absent orientation and non-Exif APP1 default to 1; unrelated APP1 does not override EXIF (0.091167ms)
+✔ duplicate same orientation accepted; conflicting tags and APP1 values rejected (0.504584ms)
+✔ recognized malformed EXIF signatures, TIFF headers and offsets reject (0.493042ms)
+✔ invalid orientation value/type/count rejected in both byte orders (0.89025ms)
+✔ truncated JPEG segments and marker streams fail within bounded input (0.247958ms)
+✔ respects Uint8Array offsets and stops at SOS without interpreting entropy (0.183792ms)
+✔ unrelated IFD0 entries are ignored rather than interpreted as orientation (0.316708ms)
+✔ PNG parses bare TIFF in both byte orders after image data and preserves originals (2.256625ms)
+✔ PNG rejects duplicate EXIF, invalid CRC, truncated TIFF and malformed chunk framing (0.86ms)
+✔ headers establish compressed and decoded bounds before raster decoding (4.442833ms)
+✔ layout preserves aspect and escapes bounded text (0.863833ms)
+✔ JPEG is deterministic and contains actual photograph, not blank unresolved image (714.322416ms)
+✔ PNG source decodes through same guarded pipeline (192.502ms)
+✔ fixed prototype uses current browser title/background inks and headline family (2.264375ms)
+✔ bottom scrim leaves upper photograph unchanged and supports caption over this fixture linen (506.613417ms)
+✔ measured headline rejects wide overflow even below character cap, while narrow and accented text fit (17.359834ms)
+✔ public render pipeline rejects unsafe title and accepts a following valid render (344.942875ms)
+✔ protected source rectangles use contain scale and letterbox offsets for both aspect directions (0.638ms)
+✔ missing and empty protection metadata require visual review, malformed geometry rejects (0.4025ms)
+✔ protected regions reject caption, emblem and scrim collisions including scrim-only overlap (0.292417ms)
+✔ public render rejects declared all-photo protection and accepts subsequent safe render without altering bytes (514.303416ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4041.347167
