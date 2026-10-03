@@ -33,14 +33,15 @@ export async function consumePrivateRender({db,media,actorId,rendererVersion,opt
  if(!leased)return {state:'no_job'};
  const d=leased.descriptor;
  const target=()=>db.prepare(`SELECT p.status,p.updated_at,m.media_key FROM social_posts p JOIN social_post_media m ON m.post_id=p.id
-  WHERE p.id=? AND m.id=? AND p.status='draft' AND p.updated_at=? AND m.media_key=?
+  WHERE p.id=? AND m.id=? AND p.status='draft' AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=p.id AND revision=?) AND m.media_key=?
   AND COALESCE(p.media_type,'') NOT IN ('REELS','STORIES') AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing'))`)
   .bind(d.postId,d.mediaId,d.postRevision,d.sourceKey,actorId).first();
  const recovered=async()=>{
   const current=await store.get({actorId,jobId:leased.id});
   if(current?.status!=='rendered'||current.fingerprint!==leased.fingerprint||!current.receipt)return null;
   const linked=await db.prepare(`SELECT p.status,p.updated_at,m.media_key FROM social_posts p JOIN social_post_media m ON m.post_id=p.id WHERE p.id=? AND m.id=?`).bind(d.postId,d.mediaId).first();
-  if(linked?.status!=='draft'||linked.updated_at!==current.updatedAt||linked.media_key!==current.receipt.outputKey)throw Error('saved_state_changed');
+  const version=await db.prepare('SELECT revision FROM prototype_draft_versions WHERE post_id=?').bind(d.postId).first();
+  if(linked?.status!=='draft'||linked.updated_at!==current.updatedAt||version?.revision!==d.postRevision+2||linked.media_key!==current.receipt.outputKey)throw Error('saved_state_changed');
   const saved=await object(media,current.receipt.outputKey);
   if(saved.hash!==current.receipt.sha256||saved.bytes.length!==current.receipt.outputBytes||saved.metadata.render_job_id!==leased.id||saved.metadata.render_fingerprint!==leased.fingerprint)throw Error('output_readback_changed');
   return {state:'attached',jobId:leased.id,receipt:current.receipt,humanReviewRequired:true,publicationApproved:false,resourceReadiness:'unverified'};
@@ -69,17 +70,23 @@ export async function consumePrivateRender({db,media,actorId,rendererVersion,opt
   const guard=()=>db.prepare(`INSERT INTO prototype_render_guards(success) VALUES(CASE WHEN changes()=1 THEN 1 ELSE 0 END)`);
   commitAttempted=true;
   await db.batch([
-   db.prepare(`UPDATE social_post_media SET media_key=?,public_token=? WHERE id=? AND post_id=? AND media_key=?
-    AND EXISTS(SELECT 1 FROM social_posts WHERE id=? AND status='draft' AND updated_at=? AND COALESCE(media_type,'') NOT IN ('REELS','STORIES'))
-    AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')) AND ${leaseSql}`)
-    .bind(outputKey,crypto.randomUUID(),d.mediaId,d.postId,d.sourceKey,d.postId,d.postRevision,actorId,...leaseArgs),guard(),
+   // Post CAS first; its trigger advances the revision once. Slide mutation advances it again.
    db.prepare(`UPDATE social_posts SET scheduled_at=NULL,audit_score=NULL,audit_flags=NULL,audit_at=NULL,audit_status=NULL,audit_scope=NULL,audit_snapshot=NULL,audit_detail_json=NULL,audit_context_snapshot=NULL,auto_audit_required=NULL,original_caption_hash=NULL,original_design_snapshot=NULL,updated_at=?
-    WHERE id=? AND status='draft' AND updated_at=? AND EXISTS(SELECT 1 FROM social_post_media WHERE id=? AND post_id=? AND media_key=?) AND ${leaseSql}`)
-    .bind(at,d.postId,d.postRevision,d.mediaId,d.postId,outputKey,...leaseArgs),guard(),
+    WHERE id=? AND status='draft' AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=? AND revision=?)
+    AND COALESCE(media_type,'') NOT IN ('REELS','STORIES')
+    AND EXISTS(SELECT 1 FROM social_post_media WHERE id=? AND post_id=? AND media_key=?)
+    AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')) AND ${leaseSql}`)
+    .bind(at,d.postId,d.postId,d.postRevision,d.mediaId,d.postId,d.sourceKey,actorId,...leaseArgs),guard(),
+   db.prepare(`UPDATE social_post_media SET media_key=?,public_token=? WHERE id=? AND post_id=? AND media_key=?
+    AND EXISTS(SELECT 1 FROM social_posts WHERE id=? AND status='draft')
+    AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=? AND revision=?)
+    AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')) AND ${leaseSql}`)
+    .bind(outputKey,crypto.randomUUID(),d.mediaId,d.postId,d.sourceKey,d.postId,d.postId,d.postRevision+1,actorId,...leaseArgs),guard(),
    db.prepare(`UPDATE prototype_render_jobs SET status='rendered',receipt_json=?,lease_token=NULL,lease_until=NULL,updated_at=?,error_code=NULL
     WHERE id=? AND actor_id=? AND fingerprint=? AND descriptor_json=? AND status='rendering' AND lease_token=? AND lease_until>MAX(?,CAST(unixepoch('subsec')*1000 AS INTEGER))
-    AND EXISTS(SELECT 1 FROM social_post_media WHERE id=? AND post_id=? AND media_key=?)`)
-    .bind(JSON.stringify(receipt),at,...leaseArgs,d.mediaId,d.postId,outputKey),guard(),
+    AND EXISTS(SELECT 1 FROM social_post_media WHERE id=? AND post_id=? AND media_key=?)
+    AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=? AND revision=?)`)
+    .bind(JSON.stringify(receipt),at,...leaseArgs,d.mediaId,d.postId,outputKey,d.postId,d.postRevision+2),guard(),
   ]);
   const saved=await recovered();if(!saved)throw Error('attachment_not_verified');return saved;
  }catch(error){

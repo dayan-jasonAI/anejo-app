@@ -25,12 +25,13 @@ async function setup(t){
  const db=await mf.getD1Database('DB'),media=await mf.getR2Bucket('MEDIA');
  await db.exec(schema.replace(/--[^\n]*/g,'').replace(/\n/g,' '));
  await db.exec(fs.readFileSync(path.join(__dirname,'render-jobs.sql'),'utf8').replace(/^--.*$/gm,'').replace(/\n/g,' '));
+ await db.exec(fs.readFileSync(path.join(__dirname,'draft-revisions.sql'),'utf8').replace(/^--.*$/gm,'').replace(/\n/g,' '));
  const at=Date.now(),source=bytes('assets/source.jpg'),sourceKey='marketing-library/local-integration.jpg';
  await db.prepare("INSERT INTO staff(id,name,email,role,active,created_at,updated_at) VALUES('local-owner','Local fixture','fixture@example.invalid','owner',1,?,?)").bind(at,at).run();
  await db.prepare("INSERT INTO social_posts(id,public_token,status,created_at,updated_at,audit_score,audit_status,scheduled_at,original_caption_hash,original_design_snapshot) VALUES('local-post','local-post-token','draft',?,?,7,'pass',?,'old-caption','old-design')").bind(at,at,at+100000).run();
  await db.prepare("INSERT INTO social_post_media(id,post_id,media_key,public_token,created_at) VALUES('local-slide','local-post',?,'local-slide-token',?)").bind(sourceKey,at).run();
  await media.put(sourceKey,source,{httpMetadata:{contentType:'image/jpeg'},customMetadata:{ai_enhanced:'false'}});
- const store=createRenderJobStore(db),descriptor={sourceKey,sourceSha256:await sha256(source),postId:'local-post',postRevision:at,mediaId:'local-slide',rendererVersion:'local-resvg-consumer-v1',templateId:options.templateId,optionsHash:await renderOptionsHash(options)};
+ const store=createRenderJobStore(db),descriptor={sourceKey,sourceSha256:await sha256(source),postId:'local-post',postRevision:(await db.prepare("SELECT revision FROM prototype_draft_versions WHERE post_id='local-post'").first()).revision,mediaId:'local-slide',rendererVersion:'local-resvg-consumer-v1',templateId:options.templateId,optionsHash:await renderOptionsHash(options)};
  const enqueued=await store.enqueue({actorId:'local-owner',requestId:'local-consumer-integration',descriptor,now:at});
  let renders=0;
  const render=async({source,options})=>{renders++;return renderEditorial({source,emblem:bytes('assets/emblem.png'),font:bytes('assets/AnejoEditorialSerif-SemiBold.ttf'),kickerFont:bytes('assets/AnejoEditorialSans-Medium.ttf'),...options});};
@@ -65,7 +66,7 @@ test('local workerd D1/R2 delayed unclaimed expiry preserves draft and source at
  const result=await f.consumePrivateRender({...f.input,db:wrapped});
  assert.equal(result.state,'commit_unknown');assert.equal(result.attached,'unverified');assert.equal(f.renders(),1);
  const slide=await f.db.prepare("SELECT media_key FROM social_post_media WHERE id='local-slide'").first();assert.equal(slide.media_key,f.sourceKey);
- const post=await f.db.prepare("SELECT * FROM social_posts WHERE id='local-post'").first();assert.equal(post.updated_at,f.enqueued.job.descriptor.postRevision);assert.equal(post.audit_score,7);assert.equal(post.original_caption_hash,'old-caption');assert.ok(post.scheduled_at);
+ const post=await f.db.prepare("SELECT * FROM social_posts WHERE id='local-post'").first();assert.equal((await f.db.prepare("SELECT revision FROM prototype_draft_versions WHERE post_id='local-post'").first()).revision,f.enqueued.job.descriptor.postRevision);assert.equal(post.audit_score,7);assert.equal(post.original_caption_hash,'old-caption');assert.ok(post.scheduled_at);
  assert.equal((await f.db.prepare('SELECT count(*) AS n FROM prototype_render_guards').first()).n,0);
  assert.equal((await f.store.get({actorId:'local-owner',jobId:f.enqueued.job.id})).status,'rendering');
  assert.ok(await f.media.get(result.outputKey)); // Private, unattached orphan is retained.

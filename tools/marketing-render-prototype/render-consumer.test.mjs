@@ -19,12 +19,13 @@ async function setup(t){
  const outbound=[];t.mock.method(globalThis,'fetch',async url=>{outbound.push(String(url));throw Error('Outbound forbidden');});t.after(()=>assert.deepEqual(outbound,[]));
  const media=storage(),env=ownerEnv({MEDIA:media});t.after(()=>env.DB.sqlite.close());
  env.DB.sqlite.exec(readFileSync(new URL('render-jobs.sql',import.meta.url),'utf8'));
+ env.DB.sqlite.exec(readFileSync(new URL('draft-revisions.sql',import.meta.url),'utf8'));
  const uploaded=await handler(library,env,'/api/hub/owner/marketing-library',{name:'Local consumer fixture',data_url:'data:image/jpeg;base64,'+Buffer.from(original).toString('base64')});
  const sourceKey=uploaded.photo.media_key;
  const draft=await handler(social,env,'/api/hub/owner/social',{op:'draft',caption:options.title,media_key:sourceKey});
  env.DB.sqlite.prepare(`UPDATE social_posts SET updated_at=100,audit_score=7,audit_status='pass',scheduled_at=200,original_caption_hash='old-caption',original_design_snapshot='old-design' WHERE id=?`).run(draft.id);
  const slide=env.DB.one('SELECT * FROM social_post_media WHERE post_id=?',draft.id);
- const store=createRenderJobStore(env.DB),descriptor={sourceKey,sourceSha256:await sha256(original),postId:draft.id,postRevision:100,mediaId:slide.id,rendererVersion:'local-resvg-consumer-v1',templateId:options.templateId,optionsHash:await renderOptionsHash(options)};
+ const store=createRenderJobStore(env.DB),descriptor={sourceKey,sourceSha256:await sha256(original),postId:draft.id,postRevision:env.DB.one('SELECT revision FROM prototype_draft_versions WHERE post_id=?',draft.id).revision,mediaId:slide.id,rendererVersion:'local-resvg-consumer-v1',templateId:options.templateId,optionsHash:await renderOptionsHash(options)};
  const enqueued=await store.enqueue({actorId:'stf_owner',requestId:'private-test-1',descriptor,now:Date.now()});
  let renderCount=0;
  const render=async({source,options})=>{renderCount++;return renderEditorial({source,emblem:bytes('assets/emblem.png'),font:bytes('assets/AnejoEditorialSerif-SemiBold.ttf'),kickerFont:bytes('assets/AnejoEditorialSans-Medium.ttf'),...options});};
@@ -83,4 +84,14 @@ test('lease expires while batch is queued without a successor and attachment rol
  assert.equal(result.state,'commit_unknown');unchanged(f);
  assert.equal(f.env.DB.one('SELECT count(*) n FROM prototype_render_guards').n,0);
  assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).status,'rendering');
+});
+
+test('same-timestamp caption edits reject attachment through the actual editing handler',async t=>{
+ const f=await setup(t),render=f.input.render;
+ f.input.render=async args=>{const out=await render(args);
+  await handler(social,f.env,'/api/hub/owner/social',{op:'edit',id:f.draft.id,caption:'Changed while rendering'});
+  f.env.DB.sqlite.prepare('UPDATE social_posts SET updated_at=100 WHERE id=?').run(f.draft.id);return out;};
+ assert.equal((await consumePrivateRender(f.input)).state,'failed');
+ assert.equal(f.env.DB.one('SELECT media_key FROM social_post_media WHERE id=?',f.slide.id).media_key,f.sourceKey);
+ assert.equal(f.env.DB.one('SELECT caption FROM social_posts WHERE id=?',f.draft.id).caption,'Changed while rendering');
 });
