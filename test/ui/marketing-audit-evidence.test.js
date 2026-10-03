@@ -58,3 +58,10 @@ test('audit shows declared AI history without presenting missing metadata as aut
  const detail=JSON.parse(row.audit_detail_json);detail.input_coverage={slide_sources:[{slide:1}]};
  assert.match(render({...row,audit_detail_json:JSON.stringify(detail)}),/Saved AI declaration: unknown/);
 });
+
+test('provider diagnosis stays unavailable, bounded and escaped without blaming artwork',()=>{
+ const d={reason:'provider_rejected',stage:'visual',http_status:400,classification:'schema_complexity',error_type:'invalid_request_error',request_id:'req_fixture'};
+ const input={...row,audit_score:null,audit_flags:JSON.stringify([{type:'audit_unavailable',detail:'API error 400'}]),audit_detail_json:JSON.stringify({audit_diagnostic:d})};
+ const html=render(input);assert.match(html,/rejected the visual request \(HTTP 400\)/);assert.match(html,/schema_complexity/);assert.match(html,/req_fixture/);assert.match(html,/not a verified defect/);assert.match(html,/does not prove the underlying cause/);assert.doesNotMatch(html,/class="audit pass"/);
+ d.request_id='<img onerror=x>';d.classification='<script>';input.audit_detail_json=JSON.stringify({audit_diagnostic:d});const escaped=render(input);assert.doesNotMatch(escaped,/<img|<script>/);assert.match(escaped,/&lt;img/);
+});
