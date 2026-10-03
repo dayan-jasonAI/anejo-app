@@ -1,7 +1,15 @@
-✔ continuous local library/render/audit/manual schedule flow: audit stubbed pass (587.389333ms)
-✔ continuous local library/render/audit/manual schedule flow: audit unavailable (521.006583ms)
-✔ continuous local reviewed strategy/photo/render/audit/manual schedule: judge synthetic pass (636.062541ms)
-✔ continuous local reviewed strategy/photo/render/audit/manual schedule: judge unavailable (551.90125ms)
+(node:16844) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/marketing-content-flow.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ continuous local library/render/audit/manual schedule flow: audit stubbed pass (848.63675ms)
+✔ continuous local library/render/audit/manual schedule flow: audit unavailable (684.0925ms)
+(node:16845) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/reviewed-strategy-content-flow.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ continuous local reviewed strategy/photo/render/audit/manual schedule: judge synthetic pass (900.704625ms)
+✔ continuous local reviewed strategy/photo/render/audit/manual schedule: judge unavailable (731.24925ms)
 ℹ tests 4
 ℹ suites 0
 ℹ pass 4
@@ -9,4 +17,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1251.276333
+ℹ duration_ms 1747.195917
