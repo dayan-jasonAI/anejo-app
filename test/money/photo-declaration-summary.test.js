@@ -1,0 +1,20 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {ownerEnv,OWNER_COOKIE} from '../helpers/sqlite-d1.js';
+import {onRequestPost as save} from '../../functions/api/hub/owner/marketing-branded-save.js';
+import {onRequestGet as list} from '../../functions/api/hub/owner/social.js';
+import {photoDeclarationSummaries} from '../../functions/_lib/photo_declaration_summary.js';
+import {sha256} from '../../functions/_lib/marketing_render_receipt.js';
+const original='studio/original.jpg',jpeg=new Uint8Array([255,216,255,192,0,11,8,0,10,0,10,1,1,17,0,255,218,0,2,0,255,217]);
+async function fixture(t){const env=ownerEnv();t.after(()=>env.DB.sqlite.close());const objects=new Map([[original,jpeg]]),metadata=new Map();
+ env.MEDIA={get:async key=>objects.has(key)?{size:objects.get(key).length,customMetadata:metadata.get(key)||{},arrayBuffer:async()=>objects.get(key).slice().buffer}:null,put:async(key,bytes,options)=>{objects.set(key,new Uint8Array(bytes));metadata.set(key,options.customMetadata);}};
+ env.DB.exec("INSERT INTO social_posts(id,status,caption,public_token,created_at,updated_at) VALUES ('p','draft','caption','pt',1,1);INSERT INTO social_post_media(id,post_id,seq,media_key,public_token,created_at) VALUES ('m','p',0,'studio/original.jpg','mt',1)");
+ const response=await save({env,request:new Request('https://anejo.test/api/hub/owner/marketing-branded-save',{method:'POST',headers:{cookie:OWNER_COOKIE,'content-type':'application/json'},body:JSON.stringify({post_id:'p',media_id:'m',request_id:'12345678-1234-4123-8123-000000000001',source_key:original,source_sha256:await sha256(jpeg),data_url:'data:image/jpeg;base64,'+Buffer.from(jpeg).toString('base64'),declaration:{renderer_version:'fixture',template_id:'reposado',options:{},layout:{}}})})});assert.equal(response.status,200);return env;
+}
+test('owner list exposes attached branding declaration separately from missing campaign context',async t=>{const env=await fixture(t);t.mock.method(globalThis,'fetch',()=>{throw Error('No outbound call expected');});
+ const response=await list({env,request:new Request('https://anejo.test/api/hub/owner/social',{headers:{cookie:OWNER_COOKIE}})}),body=await response.json();assert.equal(response.status,200);
+ const post=body.posts.find(p=>p.id==='p');assert.equal(post.provenance.recorded,false);assert.equal(post.photo_evidence.status,'read');assert.equal(post.photo_evidence.slides[0].recorded,true);assert.equal(post.photo_evidence.slides[0].bytes_verified_now,false);assert.equal(post.photo_evidence.slides[0].visual_review_required,true);assert.equal(post.status,'draft');assert.equal(post.audit_score,null);
+});
+test('pending receipt, changed media selection and foreign association cannot appear attached',async t=>{for(const sql of ["UPDATE marketing_render_receipts SET state='pending'","UPDATE social_post_media SET media_key='studio/new.jpg'","UPDATE marketing_render_receipts SET post_id='different'","UPDATE marketing_render_receipts SET media_id='different'"]){const env=await fixture(t);env.DB.exec(sql);const result=await photoDeclarationSummaries(env,[{id:'p'}]);assert.equal(result.get('p').slides[0].recorded,false);}});
+test('receipt read failure is unavailable rather than no recorded evidence',async()=>{const result=await photoDeclarationSummaries({DB:{prepare(){throw Error('private database diagnostic');}}},[{id:'p'}]);assert.deepEqual(result.get('p'),{status:'unavailable',slides:[]});});
+test('stored receipt readback does not claim current byte verification',async t=>{const env=await fixture(t);env.MEDIA.get=()=>{throw Error('Readback must not certify stored bytes');};const result=await photoDeclarationSummaries(env,[{id:'p'}]);assert.equal(result.get('p').slides[0].recorded,true);assert.equal(result.get('p').slides[0].bytes_verified_now,false);});
