@@ -2,6 +2,7 @@
 import {sha256,jpegDimensions} from '../../functions/_lib/marketing_render_receipt.js';
 import {createRenderJobStore} from './render-jobs.mjs';
 import {readConfirmedSourceArtifact} from './source-versions.mjs';
+import {readBoundedBody} from './bounded-body.mjs';
 
 function canonical(value,depth=0){
  if(depth>6)throw Error('invalid_options');
@@ -21,7 +22,7 @@ export async function renderOptionsHash(options){
 const metadataText=value=>JSON.stringify(canonical(value||{}));
 async function object(media,key){
  const saved=await media.get(key);if(!saved||!Number.isSafeInteger(saved.size)||saved.size<1||saved.size>5*1024*1024)throw Error('object_unavailable');
- const bytes=new Uint8Array(await saved.arrayBuffer());if(bytes.length!==saved.size)throw Error('object_size_changed');
+ const bytes=await readBoundedBody({headers:new Headers({'content-length':String(saved.size)}),body:saved.body});if(bytes.length!==saved.size)throw Error('object_size_changed');
  return {bytes,hash:await sha256(bytes),metadata:saved.customMetadata||{},metadataText:metadataText(saved.customMetadata)};
 }
 
@@ -34,6 +35,7 @@ export async function consumePrivateRender({db,media,actorId,rendererVersion,opt
  if(!leased)return {state:'no_job'};
  const d=leased.descriptor;
  const sourceBinding=JSON.stringify({postId:d.postId,mediaId:d.mediaId,postRevision:d.postRevision,sourceKey:d.sourceKey,sourceSha256:d.sourceSha256});
+ const provenance=(metadata,versionKey)=>({...metadata,source_key:d.sourceKey,enhancement_method:'editorial_overlay',provenance_basis:'local_resvg_rehearsal',render_job_id:leased.id,render_fingerprint:leased.fingerprint,source_version_id:d.sourceVersionId,source_version_key:versionKey,source_metadata_sha256:d.sourceMetadataSha256});
  const target=()=>db.prepare(`SELECT p.status,p.updated_at,m.media_key FROM social_posts p JOIN social_post_media m ON m.post_id=p.id
   WHERE p.id=? AND m.id=? AND p.status='draft' AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=p.id AND revision=?) AND m.media_key=?
   AND COALESCE(p.media_type,'') NOT IN ('REELS','STORIES') AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing'))`)
@@ -44,10 +46,11 @@ export async function consumePrivateRender({db,media,actorId,rendererVersion,opt
   const saved=await object(media,current.receipt.outputKey);
   if(saved.hash!==current.receipt.sha256||saved.bytes.length!==current.receipt.outputBytes||saved.metadata.render_job_id!==leased.id||saved.metadata.render_fingerprint!==leased.fingerprint)throw Error('output_readback_changed');
   // Read database state AFTER storage: edits while readback awaits must not inherit proof.
-  const linked=await db.prepare(`SELECT p.status,p.updated_at,m.media_key,v.revision,j.status AS job_status,j.fingerprint,j.receipt_json,j.updated_at AS job_updated_at,sv.state AS source_state,sv.descriptor_json AS source_descriptor,sv.source_sha256 AS source_hash,sv.metadata_sha256 AS source_metadata_hash
+  const linked=await db.prepare(`SELECT p.status,p.updated_at,m.media_key,v.revision,j.status AS job_status,j.fingerprint,j.receipt_json,j.updated_at AS job_updated_at,sv.state AS source_state,sv.descriptor_json AS source_descriptor,sv.source_sha256 AS source_hash,sv.metadata_sha256 AS source_metadata_hash,sv.metadata_json AS source_metadata_json,sv.version_key AS source_version_key
    FROM prototype_render_jobs j JOIN social_posts p ON p.id=? JOIN social_post_media m ON m.post_id=p.id AND m.id=?
    JOIN prototype_draft_versions v ON v.post_id=p.id JOIN prototype_source_versions sv ON sv.id=? AND sv.actor_id=? WHERE j.id=? AND j.actor_id=?`).bind(d.postId,d.mediaId,d.sourceVersionId,actorId,leased.id,actorId).first();
   if(linked?.source_state!=='confirmed'||linked.source_descriptor!==sourceBinding||linked.source_hash!==d.sourceSha256||linked.source_metadata_hash!==d.sourceMetadataSha256||linked.status!=='draft'||linked.job_status!=='rendered'||linked.fingerprint!==leased.fingerprint||linked.receipt_json!==JSON.stringify(current.receipt)||linked.updated_at!==linked.job_updated_at||linked.revision!==d.postRevision+2||linked.media_key!==current.receipt.outputKey)throw Error('saved_state_changed');
+  if(saved.metadataText!==metadataText(provenance(JSON.parse(linked.source_metadata_json),linked.source_version_key)))throw Error('output_readback_changed');
   return {state:'attached',jobId:leased.id,receipt:current.receipt,humanReviewRequired:true,publicationApproved:false,resourceReadiness:'unverified'};
  };
  let outputKey=null,commitAttempted=false;
@@ -62,7 +65,7 @@ export async function consumePrivateRender({db,media,actorId,rendererVersion,opt
   const shape=jpegDimensions(jpg),outputHash=await sha256(jpg);
   // Attempt-specific namespace: an expired worker cannot overwrite a successor.
   outputKey=`studio/local-render/${leased.id}/${leased.leaseToken}.jpg`;
-  const outputMetadata={...source.metadata,source_key:d.sourceKey,enhancement_method:'editorial_overlay',provenance_basis:'local_resvg_rehearsal',render_job_id:leased.id,render_fingerprint:leased.fingerprint,source_version_id:d.sourceVersionId,source_version_key:artifact.version.versionKey,source_metadata_sha256:d.sourceMetadataSha256};
+  const outputMetadata=provenance(source.metadata,artifact.version.versionKey);
   await media.put(outputKey,jpg,{httpMetadata:{contentType:'image/jpeg'},customMetadata:outputMetadata});
   const output=await object(media,outputKey);
   if(output.hash!==outputHash||output.metadataText!==metadataText(outputMetadata))throw Error('output_readback_changed');

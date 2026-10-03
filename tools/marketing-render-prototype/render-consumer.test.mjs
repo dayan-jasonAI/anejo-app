@@ -141,3 +141,30 @@ test('source version disappearing during recovery leaves attachment unverified',
  f.media.get=async key=>{const value=await get(key);if(key.startsWith('studio/local-render/') && ++reads===2)f.env.DB.sqlite.prepare('DELETE FROM prototype_source_versions WHERE id=?').run(f.captured.version.id);return value;};
  const result=await consumePrivateRender(f.input);assert.equal(result.state,'commit_unknown');assert.equal(result.attached,'unverified');
 });
+
+test('output readback bounds actual stream bytes rather than trusting declared size',async t=>{
+ const f=await setup(t),get=f.media.get.bind(f.media);let usedArrayBuffer=false;
+ f.media.get=async key=>{
+  const value=await get(key);if(!key.startsWith('studio/local-render/')||!value)return value;
+  return {...value,size:1,body:new ReadableStream({start(c){c.enqueue(new Uint8Array(5*1024*1024+1));c.close();}}),arrayBuffer:async()=>{usedArrayBuffer=true;throw Error('unbounded read forbidden');}};
+ };
+ const result=await consumePrivateRender(f.input);assert.equal(result.state,'failed');assert.equal(usedArrayBuffer,false);unchanged(f);
+});
+test('over-fragmented output readback fails before attachment without waiting for cancellation',async t=>{
+ const f=await setup(t),get=f.media.get.bind(f.media);
+ f.media.get=async key=>{
+  const value=await get(key);if(!key.startsWith('studio/local-render/')||!value)return value;
+  return {...value,body:new ReadableStream({pull(c){c.enqueue(new Uint8Array());},cancel(){return new Promise(()=>{});}})};
+ };
+ const result=await consumePrivateRender(f.input);assert.equal(result.state,'failed');unchanged(f);
+});
+
+for(const field of ['ai_enhanced','source_version_id','source_version_key','source_metadata_sha256'])test('recovery rejects altered output '+field+' provenance despite unchanged pixels and job tags',async t=>{
+ const f=await setup(t),get=f.media.get.bind(f.media);let reads=0;
+ f.media.get=async key=>{
+  if(key.startsWith('studio/local-render/')&&++reads>=2)f.media.objects.get(key).metadata[field]='tampered';
+  return get(key);
+ };
+ const result=await consumePrivateRender(f.input);assert.equal(result.state,'commit_unknown');assert.equal(result.attached,'unverified');
+ assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).status,'rendered');
+});

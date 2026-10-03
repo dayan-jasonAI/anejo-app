@@ -33,3 +33,7 @@ Local counter/tombstone triggers replace the consumer timestamp revision; post-f
 ## October 3 — preserved-source foundation and narrow application safeguards
 
 Local actor/request/source-version capture and conditional create/readback pass fourteen actual D1/R2 tests; prototype118pass/one explicit skip. Training deletion now confines cleanup to training uploads and Hub source-version media requires MARKETING_DESK; root3,577tests/lint/build pass. Evidence: SOURCE_VERSION_FOUNDATION_2026-10-03.md. Release pending; capture is not yet consumer-bound or bucket-wide immutable. Next exact version/job/CAS integration plus production resource/auth/parity gates. Full goal remains open.
+
+## October 3 — version-bound private consumer and provenance recovery
+
+Captured photo versions now bind render jobs, rendering inputs and all three attachment mutations. Recovery compares full provenance against final D1 source snapshot; bounded output streams replace unbounded reads. Root129tests/128pass/one explicitskip; independent29consumer checks pass. Evidence: VERSION_BOUND_CONSUMER_2026-10-03.md and evidence/version-bound-consumer-2026-10-03/prototype-tests.log. Local only; no production schema/route/deployment/trust change. Arbitrary post-read R2 mutation, Worker/auth/resource/parity and full operational acceptance remain open. Next authenticated exact-renderer private Worker rehearsal. Continued this engineering while external provider/plan/Google evidence pending; no new owner approval needed for local work. Full goal remains active.

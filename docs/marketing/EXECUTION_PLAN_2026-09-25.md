@@ -311,3 +311,7 @@ Local actor/request/source-version capture and conditional create/readback pass 
 ### Source protection release receipt
 
 PR194 merged a668dbf after all four exact-head checks. Provider inventory lists production3805c17f/sourcea668dbf; normal homepage and bounded public verifications succeed. Strict deployment API verifier lacks environment auth and private safeguard acceptance remains unverified; no production migration/source capture. Evidence: SOURCE_VERSION_FOUNDATION_2026-10-03.md. Capture remains local/unbound to consumer; next version selection/CAS integration plus immutable writer policy and deployed resource/parity/auth proof. Full goal remains open.
+
+## October 3 — version-bound private consumer and provenance recovery
+
+Captured photo versions now bind render jobs, rendering inputs and all three attachment mutations. Recovery compares full provenance against final D1 source snapshot; bounded output streams replace unbounded reads. Root129tests/128pass/one explicitskip; independent29consumer checks pass. Evidence: VERSION_BOUND_CONSUMER_2026-10-03.md and evidence/version-bound-consumer-2026-10-03/prototype-tests.log. Local only; no production schema/route/deployment/trust change. Arbitrary post-read R2 mutation, Worker/auth/resource/parity and full operational acceptance remain open. Next authenticated exact-renderer private Worker rehearsal. Continued this engineering while external provider/plan/Google evidence pending; no new owner approval needed for local work. Full goal remains active.
