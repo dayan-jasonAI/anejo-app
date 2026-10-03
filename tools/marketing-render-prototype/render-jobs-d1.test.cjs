@@ -9,10 +9,14 @@ test('local workerd D1 executes actor idempotency, atomic claims and stale fenci
  const db=await mf.getD1Database('DB');
  await db.exec(fs.readFileSync(path.join(__dirname,'render-jobs.sql'),'utf8').replace(/^--.*$/gm,'').replace(/\n/g,' '));
  const {createRenderJobStore}=await import('./render-jobs.mjs');const store=createRenderJobStore(db);
- const descriptor={sourceKey:'marketing-library/test.jpg',sourceSha256:'a'.repeat(64),postId:'draft-1',postRevision:100,mediaId:'slide-1',rendererVersion:'fixture-v1',templateId:'reposado-wide',optionsHash:'b'.repeat(64)};
+ const descriptor={sourceKey:'marketing-library/test.jpg',sourceSha256:'a'.repeat(64),sourceVersionId:'source-version-1',sourceMetadataSha256:'e'.repeat(64),postId:'draft-1',postRevision:100,mediaId:'slide-1',rendererVersion:'fixture-v1',templateId:'reposado-wide',optionsHash:'b'.repeat(64)};
  const input={actorId:'owner-1',requestId:'render-1',descriptor,now:100};
  const enqueued=await store.enqueue(input);assert.equal((await store.enqueue(input)).job.id,enqueued.job.id);
  await assert.rejects(store.enqueue({...input,descriptor:{...descriptor,optionsHash:'c'.repeat(64)}}),e=>e.code==='request_conflict');
+ for(const change of [{sourceVersionId:'source-version-2'},{sourceMetadataSha256:'f'.repeat(64)}])
+  await assert.rejects(store.enqueue({...input,descriptor:{...descriptor,...change}}),e=>e.code==='request_conflict');
+ for(const invalid of [{sourceVersionId:''},{sourceVersionId:'x'.repeat(257)},{sourceMetadataSha256:'E'.repeat(64)}])
+  await assert.rejects(store.enqueue({...input,descriptor:{...descriptor,...invalid}}),e=>e.code.startsWith('invalid_'));
  const contenders=await Promise.all([store.claim({actorId:'owner-1',now:100,leaseMs:100}),store.claim({actorId:'owner-1',now:100,leaseMs:100})]);
  assert.equal(contenders.filter(Boolean).length,1);const first=contenders.find(Boolean);
  const fresh=await store.claim({actorId:'owner-1',now:200,leaseMs:100});assert.notEqual(first.leaseToken,fresh.leaseToken);

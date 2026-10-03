@@ -9,6 +9,7 @@ import { createRenderJobStore } from './render-jobs.mjs';
 
 const schema = readFileSync(new URL('./render-jobs.sql', import.meta.url), 'utf8');
 const descriptor = Object.freeze({ sourceKey: 'sources/image.png', sourceSha256: 'a'.repeat(64),
+  sourceVersionId: 'source-version-1', sourceMetadataSha256: 'e'.repeat(64),
   postId: 'post-1', postRevision: 100, mediaId: 'media-1', rendererVersion: 'editorial-v1', templateId: 'square-v1', optionsHash: 'b'.repeat(64) });
 const receipt = Object.freeze({ outputKey: 'outputs/render.png', sha256: 'c'.repeat(64), outputBytes: 200, width: 1080, height: 1080 });
 
@@ -47,7 +48,7 @@ test('canonical enqueue is immutable and exact-request replay is scoped to actor
   assert.equal(first.job.descriptor.sourceKey, descriptor.sourceKey);
   for (const field of Object.keys(descriptor)) {
     const replacement = field === 'postRevision' ? 101
-      : field === 'sourceSha256' || field === 'optionsHash' ? 'd'.repeat(64) : `changed-${field}`;
+      : field === 'sourceSha256' || field === 'sourceMetadataSha256' || field === 'optionsHash' ? 'd'.repeat(64) : `changed-${field}`;
     await rejectsCode(enqueue(store, { descriptor: { ...descriptor, [field]: replacement } }), 'request_conflict');
   }
   const other = await enqueue(store, { actorId: 'actor-2' });
@@ -148,6 +149,14 @@ test('validates exact immutable binding, receipts, and safe integer timestamp ar
   for (const now of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '100']) await rejectsCode(enqueue(store, { now }), 'invalid_now');
   for (const postRevision of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '100', undefined])
     await rejectsCode(enqueue(store, { descriptor: { ...descriptor, postRevision } }), 'invalid_postRevision');
+  for (const sourceVersionId of ['', ' version', 'version ', 'x\n', 'x'.repeat(257), null, undefined, 1])
+    await rejectsCode(enqueue(store, { descriptor: { ...descriptor, sourceVersionId } }), 'invalid_sourceVersionId');
+  for (const sourceMetadataSha256 of ['A'.repeat(64), 'e'.repeat(63), 'g'.repeat(64), '', null, undefined])
+    await rejectsCode(enqueue(store, { descriptor: { ...descriptor, sourceMetadataSha256 } }), 'invalid_sourceMetadataSha256');
+  for (const missing of ['sourceVersionId', 'sourceMetadataSha256']) {
+    const incomplete = { ...descriptor }; delete incomplete[missing];
+    await rejectsCode(enqueue(store, { descriptor: incomplete }), 'invalid_descriptor');
+  }
   await rejectsCode(enqueue(store, { actorId: '' }), 'invalid_actorId');
   await rejectsCode(enqueue(store, { requestId: '' }), 'invalid_id');
   assert.equal(db.prepare('SELECT count(*) AS n FROM prototype_render_jobs').get().n, 0);
