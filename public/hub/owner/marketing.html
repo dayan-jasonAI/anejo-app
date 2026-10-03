@@ -1518,9 +1518,14 @@
   // recorded row is UNKNOWN — it predates the feature — and says so plainly rather than implying
   // nothing was behind it. When a row IS present, only the parts that are actually attributed show.
   function provenanceBadge(p) {
+    var photo = p.photo_evidence;
+    var photoItems = photo && photo.status === 'read' && Array.isArray(photo.slides) ? photo.slides.map(function(slide, index) {
+      return '<li>Slide ' + esc(String(index + 1)) + ': ' + (slide.recorded ? 'branding declaration saved; current image bytes not rechecked.' : 'no attached branding declaration recorded.') + '</li>';
+    }).join('') : '';
+    var photoBody = '<div class="prov"><span class="prov-head">Photo evidence</span>' + (photoItems ? '<ul>' + photoItems + '</ul><span class="hint">Stored declarations are not brand approval. Review the actual photo and run its current audit.</span>' : '<span class="prov-unknown"> declaration readback unavailable or no slides recorded.</span>') + '</div>';
     var pr = p.provenance;
     if (!pr || !pr.recorded) {
-      return '<div class="prov"><span class="prov-head">🧭 Provenance</span> <span class="prov-unknown">not recorded — review the original photo and caption before approval.</span></div>';
+      return photoBody + '<div class="prov"><span class="prov-head">🧭 Campaign context</span> <span class="prov-unknown">no campaign context recorded — review the caption before approval.</span></div>';
     }
     var items = [];
     if (pr.brief_title || pr.brief_id) items.push('<li>📋 Campaign brief: <b>' + esc(pr.brief_title || pr.brief_id) + '</b></li>');
@@ -1534,7 +1539,7 @@
     var body = items.length
       ? '<ul>' + items.join('') + '</ul>'
       : ' <span class="prov-unknown">recorded, but no brief, intel, or rules were attributed to it.</span>';
-    return '<div class="prov"><span class="prov-head">🧭 Provenance</span>' + body + '</div>';
+    return photoBody + '<div class="prov"><span class="prov-head">🧭 Campaign context</span>' + body + '</div>';
   }
 
   function postCard(p) {
