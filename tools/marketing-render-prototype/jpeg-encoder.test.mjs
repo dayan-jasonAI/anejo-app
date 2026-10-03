@@ -93,3 +93,14 @@ test('alpha channel values do not change encoded RGB bytes', () => {
   for (let i = 3; i < opaque.data.length; i += 4) opaque.data[i] = 255;
   assert.deepEqual(assertEquivalent(image, 80).data, assertEquivalent(opaque, 80).data);
 });
+
+test('many-block DCT scratch reuse preserves bytes at integer and fractional qualities', () => {
+  // Exercise repeated in-place transforms, signed coefficients, padding and
+  // quantization thresholds. Fractional quality affects scaling before rounding.
+  for (const pattern of ['noise', 'checker', 'gradient']) {
+    const image = fixture(127, 129, pattern);
+    for (const quality of [1, 49.5, 50.5, 99.5, 100]) {
+      assertEquivalent(image, quality);
+    }
+  }
+});

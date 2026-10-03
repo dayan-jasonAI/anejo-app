@@ -56,15 +56,17 @@ function JPEGEncoder(quality) {
 	// and categories are 1..15. Avoid 65,534 separate [value, length] arrays.
 	var bitcode = new Uint16Array(65535);
 	var category = new Uint8Array(65535);
-	var outputfDCTQuant = new Array(64);
-	var DU = new Array(64);
+	// Quantization already produces signed int32 values with |0.
+	var outputfDCTQuant = new Int32Array(64);
+	var DU = new Int32Array(64);
 	var byteout = [];
 	var bytenew = 0;
 	var bytepos = 7;
 	
-	var YDU = new Array(64);
-	var UDU = new Array(64);
-	var VDU = new Array(64);
+	// DCT updates these channel blocks in place; retain full Number precision.
+	var YDU = new Float64Array(64);
+	var UDU = new Float64Array(64);
+	var VDU = new Float64Array(64);
 	var clt = new Array(256);
 	var RGB_YUV_TABLE = new Array(2048);
 	var currentQuality;

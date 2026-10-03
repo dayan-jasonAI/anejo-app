@@ -285,3 +285,7 @@ PR193 merged2386a74 afterallfourexact-headchecks; currentproductionda2491c5/sour
 ## October 3 — mixed-input resource proof and lookup repair
 
 Local 70-request mixed JPEG/PNG workerd stress completed. Profiling led to a per-encoder typed lookup repair; all 66 before/after rendered hashes match, 62 prototype tests and four joined content tests pass. Sampled heap improved, but total/peak deployed CPU/memory remains unverified. See EDITORIAL_MIXED_RESOURCE_2026-10-03.md and its evidence directory. No runtime application integration or deployment. Next: reduce source data-URI copying and establish production resource/parity/job gates. Auditor billing, Google billing warning/API approval remain external dependencies; full goal stays open.
+
+## October 3 — conversion and scratch-array follow-through
+
+Local native/bounded-fallback base64 conversion plus typed JPEG scratch arrays preserve all 66 mixed-render hashes. 68 prototype tests and four joined-content tests pass (one explicitly skipped Node-native test; native workerd separately observed). Resource observations remain local/partial; no production gate passed. See EDITORIAL_BASE64_RESOURCE_2026-10-03.md. Next: current production budget/combined-memory/CPU method, then visual parity and authenticated durable draft jobs. Do not infer production safety from smaller sampled heap or change the approved design to chase a pass. Full goal stays open.

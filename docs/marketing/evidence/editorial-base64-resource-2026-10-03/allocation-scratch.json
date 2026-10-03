@@ -1,0 +1,128 @@
+{
+  "rawPath": "/tmp/anejo-workerd-mixed-resource-5NGD32/allocation-sampling.json",
+  "sha256": "542716ef3b0f82f0c973b55ff719f282c5effb31330ccc992858a3a3a7a59d45",
+  "sampledCumulativeBytes": 1382026980,
+  "largestNodes": [
+    {
+      "bytes": 461871120,
+      "functionName": "processDU",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1736,
+      "columnNumber": 20
+    },
+    {
+      "bytes": 169305432,
+      "functionName": "JPEGEncoder.encode",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1793,
+      "columnNumber": 24
+    },
+    {
+      "bytes": 160856492,
+      "functionName": "passStringToWasm0",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 310,
+      "columnNumber": 26
+    },
+    {
+      "bytes": 123075808,
+      "functionName": "encodeBase64",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1913,
+      "columnNumber": 21
+    },
+    {
+      "bytes": 99705332,
+      "functionName": "passStringToWasm0",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 310,
+      "columnNumber": 26
+    },
+    {
+      "bytes": 76099988,
+      "functionName": "passStringToWasm0",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 310,
+      "columnNumber": 26
+    },
+    {
+      "bytes": 46990120,
+      "functionName": "passStringToWasm0",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 310,
+      "columnNumber": 26
+    },
+    {
+      "bytes": 27480744,
+      "functionName": "readBoundedBody",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 2183,
+      "columnNumber": 30
+    },
+    {
+      "bytes": 24487276,
+      "functionName": "stats",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 2023,
+      "columnNumber": 14
+    },
+    {
+      "bytes": 17503460,
+      "functionName": "next",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": -1,
+      "columnNumber": -1
+    },
+    {
+      "bytes": 17209964,
+      "functionName": "",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 2021,
+      "columnNumber": 10
+    },
+    {
+      "bytes": 17075256,
+      "functionName": "fDCTQuant",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1520,
+      "columnNumber": 20
+    },
+    {
+      "bytes": 16698264,
+      "functionName": "subarray",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": -1,
+      "columnNumber": -1
+    },
+    {
+      "bytes": 14201200,
+      "functionName": "encodeBase64",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1913,
+      "columnNumber": 21
+    },
+    {
+      "bytes": 12923692,
+      "functionName": "writeBitValue",
+      "scriptId": "4",
+      "url": "worker.mjs",
+      "lineNumber": 1493,
+      "columnNumber": 24
+    }
+  ],
+  "interpretation": "Sampled allocations, including GC-collected objects; not live/peak memory."
+}
