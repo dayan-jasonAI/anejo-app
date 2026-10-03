@@ -1153,6 +1153,7 @@
         var pos = panel.querySelector('.brand-pos').value;
         var text = panel.querySelector('.brand-text').value;
         var resultBox = panel.querySelector('.brand-result');
+        resultBox.textContent = '';
         var layoutEvidence = null;
         btn.disabled = true; btn.textContent = 'Compositing…';
         var selectedKey=key, expectedSourceHash=null;
@@ -1225,7 +1226,9 @@
           })
           .catch(function (error) {
             btn.disabled = false; btn.textContent = 'Preview branded photo';
-            Hub.toast(error && error.message && error.message !== 'image_load_failed' ? error.message : 'Could not load the original photograph or emblem. Try again.');
+            var message = error && error.message && error.message !== 'image_load_failed' ? error.message : 'Could not load the original photograph or emblem. Try again.';
+            resultBox.textContent = 'Preview unavailable: ' + message + ' No photo was saved. If the preserved source cannot be verified, choose the original from the photo library.';
+            Hub.toast(message);
           });
       });
     });
