@@ -6,13 +6,14 @@ import {encode} from './jpeg-encoder.mjs';
 export const TEMPLATE_TOKENS=Object.freeze({titleInk:'#E8E2CA',background:'#0A180C',fontFamily:'Cormorant Garamond',fontWeight:600});
 let ready;
 export const initialize=module=>ready||(ready=initWasm(module));
-export function dimensions(b) {
+export function dimensions(b, {maxEdge=4096,maxPixels=4_000_000}={}) {
+ if(!Number.isSafeInteger(maxEdge)||maxEdge<1||!Number.isSafeInteger(maxPixels)||maxPixels<1)throw Error('Invalid dimension limits');
  if(b.byteLength>5*1024*1024)throw Error('Compressed image exceeds 5 MiB');
  const v=new DataView(b.buffer,b.byteOffset,b.byteLength);
  let width,height,type;
  if(b.length>=24&&[137,80,78,71,13,10,26,10].every((n,i)=>b[i]===n)) {width=v.getUint32(16);height=v.getUint32(20);type='png';}
  else if(b[0]===255&&b[1]===216){type='jpeg';let p=2;while(p+4<=b.length){if(b[p++]!==255)throw Error('Invalid JPEG marker');while(b[p]===255)p++;const marker=b[p++];if(marker===217||marker===218)break;const len=v.getUint16(p);if(len<2||p+len>b.length)throw Error('Invalid JPEG segment');if([192,193,194].includes(marker)){if(len<8)throw Error('Invalid JPEG frame');height=v.getUint16(p+3);width=v.getUint16(p+5);break;}p+=len;}}
- if(!width||!height||width>4096||height>4096||width*height>4_000_000)throw Error('Unsupported image or decoded dimensions exceed 4 MP / 4096 edge');
+ if(!width||!height||width>maxEdge||height>maxEdge||width*height>maxPixels)throw Error(`Unsupported image or decoded dimensions exceed ${maxPixels} pixels / ${maxEdge} edge`);
  return {width,height,type,rgbaBytes:width*height*4};
 }
 const escape=s=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));

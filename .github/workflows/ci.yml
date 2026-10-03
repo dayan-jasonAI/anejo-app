@@ -41,3 +41,13 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+  marketing-render-reference:
+    name: Marketing renderer — reference normalization + raster tests
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: tools/marketing-render-prototype } }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm, cache-dependency-path: tools/marketing-render-prototype/package-lock.json }
+      - run: npm ci
+      - run: npm test
