@@ -234,3 +234,7 @@ PR182 integrates source-preserving JPEG/PNG normalization into owner branded-pre
 ### October3 shipped browser preview acceptance
 
 PR182 mergedaf695f4; production inventory lists thatsource. Normal supported owner browser rendered/saved the private QA preview, and D1/R2 readback confirmed attachment,draftstatus,normalizationdeclaration and unchangedselectedsourcehash. See BROWSER_PHOTO_NORMALIZATION_2026-10-03.md release evidence. Instagram liveconnection check refused token (separatecredentialdependency; no renewalattempt). Next concretework: verified pre-editorial source recovery so repeated branding cannot silently stack emblems. Branchcodex/branded-photo-original-recovery starts fromcurrentmain. Unattended renderer,teamworkflow,auditreasoning,voice andGoogleconnection/fullgoal acceptance remainopen.
+
+### October3 preserved photo before recorded overlays
+
+Local implementation closes the observed repeated-branding default: verified receipt/R2 chain resolves pre-editorial source and binds current slide to guarded save.41focused and3,429root tests pass; lint/buildpass; independentreviewfoundnomaterialblocker. See ORIGINAL_SOURCE_RECOVERY_2026-10-03.md. Not deployed yet. Next: exact-headCI/release and actualprivateQA repeatbranding acceptance. Fullgoal unchanged; no publicpost/trustactivation.

@@ -1,0 +1,14 @@
+Command: npm test --silent
+Full local log: /tmp/anejo-original-root-tests.log
+SHA256: 076d83e53a63d2fb6b2c4c9a290faa01948869bed31eb8a8c4be418586935a8f
+
+✔ a single deployment is judged against the trunk, with no revert check to make (0.048792ms)
+✔ importing the module does not perform IO (0.038958ms)
+ℹ tests 3429
+ℹ suites 0
+ℹ pass 3429
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 27932.632792
