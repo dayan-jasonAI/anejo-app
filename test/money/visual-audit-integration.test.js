@@ -71,7 +71,7 @@ test('actual visual request numbers publication JPEGs first and reference PNG la
  try{await auditDraft(env,{caption:'Menu',images:['cover','cajitas','tray','bites','combo','cta'].map(data=>({data}))});
  const content=request.messages[0].content;const pictures=content.filter(c=>c.type==='image');assert.deepEqual(pictures.slice(0,6).map(c=>c.source.data),['cover','cajitas','tray','bites','combo','cta']);assert.equal(pictures[6].source.media_type,'image/png');assert.equal(pictures.length,7);
  for(let i=0;i<6;i++){assert.match(content[1+2*i].text,new RegExp('^Slide '+(i+1)));assert.equal(content[2+2*i].source.data,pictures[i].source.data);}
- assert.match(content[1].text,/COVER/);assert.match(content[13].text,/END OF NUMBERED CAROUSEL/);assert.match(content[13].text,/excluded from slide count/);assert.equal(content[14].source.media_type,'image/png');assert.deepEqual(request.output_config.format.schema.properties.observations.properties.branding.properties.slides.items.enum,[1,2,3,4,5,6]);assert.equal(VERSION,'anejo-visual-15');
+ assert.match(content[1].text,/COVER/);assert.match(content[13].text,/END OF NUMBERED CAROUSEL/);assert.match(content[13].text,/excluded from slide count/);assert.equal(content[14].source.media_type,'image/png');assert.deepEqual(request.output_config.format.schema.properties.observations.properties.branding.properties.slides.items.enum,[1,2,3,4,5,6]);assert.equal(VERSION,'anejo-visual-16');
  }finally{globalThis.fetch=original;}
 });
 
@@ -120,4 +120,35 @@ test('known claims expand bounded request budget and validate the exact supplied
   assert.deepEqual(result.input_coverage.slide_sources[0].library_provenance,provenance);
   assert.equal(result.verdict,'flag');assert.equal(result.brand_score,null);assert.equal(result.unknowns[0].criterion_id,'branding');
  } finally {globalThis.fetch=original;}
+});
+
+for(const assessment of ['supported','unresolved','contradicted'])test('dedicated words-only '+assessment+' review is integrated without changing uncertain visual findings',async()=>{
+ const env=ownerEnv({ANTHROPIC_API_KEY:'test'}),original=globalThis.fetch,requests=[];
+ const sourceReceipt={sha256:'e'.repeat(64),design_facts:{rendered_text:[{text:'Grazing skewers',product_claim_id:'pc_scoped',claim_kind:'product_category'}]}};
+ globalThis.fetch=async(_,options)=>{
+  const request=JSON.parse(options.body);requests.push(request);
+  let output;
+  if(requests.length===1){output=answer();output.observations.branding={...output.observations.branding,status:'unknown',explanation:'Emblem comparison uncertain.'};output.observations.product_fidelity={...output.observations.product_fidelity,status:'unknown',explanation:'Multimodal candidate cannot identify pictured ingredients.'};output.product_evidence={scope:'explicit_claims',claims:[{source:'registered_overlay',caption_line:0,slide:1,quote:'Grazing skewers',claim_id:'pc_scoped',authority_refs:[],assessment:'unresolved'}],unreadable_slides:[]};}
+  else {const input=JSON.parse(request.messages[0].content);output={assessments:[{id:'claim:0',claim_kind:'product_category',assessment,authority_refs:assessment==='unresolved'?[]:[input.authority_references[0].id]}]};}
+  return {ok:true,json:async()=>({usage:{input_tokens:10,output_tokens:10},stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(output)}]})};
+ };
+ try{
+  const result=await auditDraft(env,{caption:'Catering',image_brief:'PRIVATE_ART_DIRECTION',images:[{data:'PRIVATE_IMAGE_BYTES',sourceReceipt}]});
+  assert.equal(requests.length,2);assert.ok(!JSON.stringify(requests[1]).includes('PRIVATE_IMAGE_BYTES'));assert.ok(!JSON.stringify(requests[1]).includes('PRIVATE_ART_DIRECTION'));assert.ok(!JSON.stringify(requests[1]).includes('pictured ingredients'));
+  assert.equal(result.observations.find(o=>o.criterion_id==='branding').status,'unknown');
+  assert.equal(result.observations.find(o=>o.criterion_id==='product_fidelity').status,{supported:'met',unresolved:'unknown',contradicted:'violated'}[assessment]);
+  assert.equal(result.brand_score,null);assert.equal(result.verdict,'flag');assert.equal(result.input_coverage.written_claim_review.method,'words_only_authority_review');
+  assert.equal((await env.DB.prepare('SELECT COUNT(*) AS n FROM ai_spend').first()).n,2);
+ }finally{globalThis.fetch=original;}
+});
+
+for(const failure of ['provider','budget','incomplete','missing_claim'])test('dedicated authority '+failure+' failure cannot approve a visual pass',async()=>{
+ const env=ownerEnv({ANTHROPIC_API_KEY:'test'}),original=globalThis.fetch;let count=0;
+ const sourceReceipt={design_facts:{rendered_text:[{text:'Grazing skewers',product_claim_id:'pc_scoped',claim_kind:'product_category'}]}};
+ globalThis.fetch=async()=>{
+  count++;
+  if(count===1){const data=answer();data.product_evidence={scope:'explicit_claims',claims:[{source:'registered_overlay',caption_line:0,slide:1,quote:'Grazing skewers',claim_id:'pc_scoped',authority_refs:[],assessment:'unresolved'}],unreadable_slides:[]};data.observations.product_fidelity.status='unknown';if(failure==='budget')env.DB.exec('DROP TABLE ai_spend');return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(data)}]})};}
+  return failure==='provider'?{ok:false,status:503}:{ok:true,json:async()=>({stop_reason:failure==='incomplete'?'max_tokens':'end_turn',content:[{type:'text',text:JSON.stringify({assessments:[]})}]})};
+ };
+ try {const result=await auditDraft(env,{caption:'Catering',images:[{data:'fixture',sourceReceipt}]});assert.equal(count,failure==='budget'?1:2);assert.equal(result.verdict,'flag');assert.equal(result.brand_score,null);assert.ok(result.flags.some(f=>f.type==='audit_unavailable'));}finally{globalThis.fetch=original;}
 });

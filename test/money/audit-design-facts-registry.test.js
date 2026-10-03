@@ -8,7 +8,7 @@ const root=new URL('../../',import.meta.url);
 const read=path=>readFileSync(new URL(path,root));
 const find=name=>Object.values(registry).find(r=>r.file.endsWith(name));
 test('all 26 registry keys independently match actual JPEG bytes and generated module is deterministic',()=>{
- assert.equal(Object.keys(registry).length,26);assert.equal(DESIGN_FACTS_VERSION,'anejo-reviewed-design-facts-2');
+ assert.equal(Object.keys(registry).length,26);assert.equal(DESIGN_FACTS_VERSION,'anejo-reviewed-design-facts-3');
  for(const [key,r] of Object.entries(registry)){const bytes=read(r.file);assert.equal(createHash('sha256').update(bytes).digest('hex'),key);assert.equal(bytes.length,r.output.byte_length);assert.equal(key,r.output.sha256);assert.ok(Buffer.byteLength(JSON.stringify(r))<=8192);assert.ok(r.limits.some(s=>s.includes('not independent OCR')));}
  assert.equal(moduleText(buildDesignFacts()),read('functions/_lib/audit_design_facts.generated.js').toString());
 });
@@ -33,4 +33,12 @@ test('renderer drift, duplicate declarations and invalid geometry are rejected',
   if(mode==='geometry'&&path.endsWith('gather-02.layout.json')){const d=JSON.parse(b);d.emblem.x=-1;return Buffer.from(JSON.stringify(d));}
   return b;
  }}),/Renderer changed|duplicate|geometry/);
+});
+
+test('reviewed wording scope remains bound to exact declared text and bytes',()=>{
+ assert.equal(find('gather-05.jpg').rendered_text[0].claim_kind,'product_category');
+ assert.equal(find('gather-07.jpg').rendered_text[0].claim_kind,'named_product');
+ const personal=find('personal-09.jpg').rendered_text.filter(r=>r.product_claim_id);
+ assert.deepEqual(personal.map(r=>r.claim_kind),['quantity','ingredient']);
+ for(const record of Object.values(registry))for(const run of record.rendered_text)if(run.product_claim_id)assert.ok(['product_category','named_product','ingredient','quantity'].includes(run.claim_kind));
 });

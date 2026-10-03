@@ -11,6 +11,7 @@
 // cutoffs, bare links. The model advises; the code decides.
 //
 // Files under functions/_lib are NOT routed.
+import { writtenClaimRequest, applyWrittenAssessments } from './written_claim_audit.js';
 import { budgetGate, recordSpend } from './ai_budget.js';
 import { BUNDLED_EMBLEM_REFERENCE } from './generated_emblem_reference.js';
 import { loadMenu } from './menu.js';
@@ -42,6 +43,10 @@ export async function loadEmblemReference(_env, reference = BUNDLED_EMBLEM_REFER
 // Caption-only audits use Haiku. Finished-image audits use Sonnet and the visual rubric.
 // Both are budget-gated and metered; no missing evidence is converted into an approval.
 const AUDIT_FAILURES = Object.freeze({
+  written_claim_budget_unavailable: 'written-claim review budget evidence is unavailable or exhausted',
+  written_claim_provider_unavailable: 'written-claim authority provider is unavailable',
+  written_claim_incomplete: 'written-claim authority response is incomplete',
+  written_claim_contract: 'written-claim authority response failed its scope contract',
   design_evidence_limit: 'design source declarations exceed the audit input limit',
   audit_output_limit: 'audit response reached its output limit',
   incomplete_visual_audit: 'visual audit response was incomplete or refused',
@@ -170,7 +175,7 @@ function auditSystemPrompt(menuLines, brand, training, { visual = false } = {}) 
     (brand.source === 'd1' ? ' — live from the HUB, owner-maintained' : ' — verbatim, written by the owner') +
     '. It is the authority on who Añejo is and how it speaks.\n\n' +
     '=== AÑEJO BRAND BRIEF ===\n' + brand.text + '\n=== END BRIEF ===\n\n' +
-    '=== THE LIVE MENU (the ONLY items, names, ingredients and prices that exist) ===\n' +
+    '=== THE LIVE MENU (available products and their recorded ingredients and prices; broad category wording need not reproduce an exact commercial SKU name) ===\n' +
     menuLines.join('\n') + '\n=== END MENU ===\n\n' +
     'HARD CLAIM RULES — every violation is a flag of type "claim":\n' +
     '- No invented prices, deadlines or cutoff hours. The ordering cutoff is an owner setting ' +
@@ -272,6 +277,7 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
   } catch { training = ''; }
   const visualCoverage = images.length ? (!brand.text?.trim() ? 'brand_content_empty' : menu.source !== 'd1' ? 'menu_authority_unavailable' : coverageProblem(brand.receipt, trainingReceipt)) : null;
 
+  let writtenClaimReceipt = null;
   let auditDiagnostic = null;
   let model = null;          // { score, flags, verdict } once the judge has answered
   let unavailable = null;    // why it has not, in a word the owner can read
@@ -322,11 +328,37 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
         if (start > 0) text = text.slice(start);
         const data = JSON.parse(text);
         if (images.length) {
+          const validationContext = { caption: String(caption || '').slice(0,2200), slideCount: images.length,
+            brandText: brand.text, trainingText: training, menuText: menuLinesOf(menu).join('\n'),
+            images, brandReceipt: brand.receipt, trainingReceipt, emblemReference: emblemReference.metadata };
+          const candidate = validateVisualAuditTransport(data, validationContext);
+          if (!candidate.available) { auditDiagnostic = candidate.diagnostic || {reason:candidate.reason}; throw new Error(candidate.reason); }
+          // This separate authority judge receives words and supplied references only.
+          // The multimodal product assessment is a candidate, never the final authority finding.
+          if (data.product_evidence.claims.length) {
+            const authorityGate = await budgetGate(env);
+            if (!authorityGate.ok) throw new Error('written_claim_budget_unavailable');
+            const request = writtenClaimRequest(data, images, validationContext);
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+              method:'POST', headers:{'x-api-key':env.ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01','content-type':'application/json'},
+              body:JSON.stringify({model:auditModel,max_tokens:Math.min(8192,1024+data.product_evidence.claims.length*192),thinking:{type:'disabled'},...request})
+            });
+            if (!response.ok) throw new Error('written_claim_provider_unavailable');
+            const answer = await response.json();
+            await recordSpend(env,{feature:'governance_written_claims',model:auditModel,usage:answer.usage});
+            if (answer.stop_reason!=='end_turn') throw new Error('written_claim_incomplete');
+            const textAnswer=(answer.content||[]).filter(block=>typeof block.text==='string').map(block=>block.text).join('\n');
+            const reconciled=applyWrittenAssessments(data,JSON.parse(textAnswer),images,validationContext);
+            if (!reconciled.ok) { auditDiagnostic={reason:'written_claim_contract',issue:reconciled.issue}; throw new Error('written_claim_contract'); }
+            writtenClaimReceipt=reconciled.receipt;
+            data.product_evidence=reconciled.data.product_evidence;
+            data.observations.product_fidelity=reconciled.data.observations.product_fidelity;
+          }
           const validated = validateVisualAuditTransport(data, { caption: String(caption || '').slice(0,2200), slideCount: images.length,
             brandText: brand.text, trainingText: training, menuText: menuLinesOf(menu).join('\n'),
             images, brandReceipt: brand.receipt, trainingReceipt, emblemReference: emblemReference.metadata });
           if (!validated.available) { auditDiagnostic = validated.diagnostic || { reason: validated.reason }; throw new Error(validated.reason); }
-          model = { ...validated, coverage: { brand: brand.receipt, training: trainingReceipt, menu: { source: menu.source }, slide_sources: images.map((image,index)=>({slide:index+1,...(image.sourceReceipt || {design_facts:null,reason:'source_receipt_unavailable'})})), emblem_reference: emblemReference.metadata } };
+          model = { ...validated, coverage: { written_claim_review:writtenClaimReceipt, brand: brand.receipt, training: trainingReceipt, menu: { source: menu.source }, slide_sources: images.map((image,index)=>({slide:index+1,...(image.sourceReceipt || {design_facts:null,reason:'source_receipt_unavailable'})})), emblem_reference: emblemReference.metadata } };
         } else {
         const score = Math.min(100, Math.max(0, Math.round(Number(data.brand_score)) || 0));
         const flags = (Array.isArray(data.flags) ? data.flags : [])
