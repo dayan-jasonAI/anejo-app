@@ -1,0 +1,68 @@
+(node:46183) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/marketing-planner-context-continuity.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ reviewed strategy, live menu, owner rules and reviewed library survive planner draft, receipts, provenance and social readback (278.162459ms)
+(node:46185) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/performance-alerts-wiring.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ social_underperform is a real ALERT_TYPES entry (0.689209ms)
+✔ a real weak-run signal raises a social_underperform alert with warning severity (34.250667ms)
+✔ a healthy account (no signal fires) raises nothing — the common case stays quiet (0.892167ms)
+✔ a detection failure (e.g. missing table) never fails the tick that just captured real data (1.502958ms)
+✔ insights-tick.js runs detection and raises through the pure alertsForSignals mapping (0.20025ms)
+✔ GET /performance-alerts is gated to the marketing desk (0.638625ms)
+✔ GET /performance-alerts forwards an honest empty snapshot on a fresh install (0.643583ms)
+✔ the marketing HUB page fetches performance-alerts and renders an honest "not enough data" card (0.361709ms)
+(node:46186) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/performance-detection.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ the chosen thresholds are what the comments claim (0.510541ms)
+✔ with only 2 prior posts, single-post and weak-run both stay "not enough data" — never a guess (1.424875ms)
+✔ zero post history at all is "not enough data", not zero signals of alarm (0.279708ms)
+✔ follower trend needs history reaching back the full window, not just 2 data points (0.628209ms)
+✔ a single stray snapshot alone cannot form a follower trend (0.304459ms)
+✔ no posting history at all reads as "we do not know yet" — never a false "silent" alarm (0.258209ms)
+✔ a post at 10% of its own recent baseline is flagged — a real, unambiguous gap (0.539917ms)
+✔ a post at 90% of baseline is ordinary variance, not flagged (0.817042ms)
+✔ three posts in a row at ~65-69% of baseline trip the weak-run check but NOT the single-post check (0.525167ms)
+✔ two weak posts are not a "run" — WEAK_RUN_LENGTH is 3, not 2 (0.34525ms)
+✔ a run where only 2 of 3 posts are soft is NOT flagged — every post in the run must qualify (0.117583ms)
+✔ the baseline for a run excludes the run itself — a bad run cannot drag down its own yardstick (0.143833ms)
+✔ followers falling over the full 14-day window is flagged, with the real delta (1.406625ms)
+✔ followers exactly unchanged over the window reads as flat, not falling (0.6155ms)
+✔ followers growing over the window is neither falling nor flat (0.41675ms)
+✔ silence: 20 days since the last post trips the flag (0.391583ms)
+✔ silence: 3 days since the last post is an ordinary gap, not silence (0.32425ms)
+✔ silence: exactly SILENCE_DAYS is flagged — the threshold is inclusive (0.262416ms)
+✔ a broken ig_media_metrics read leaves follower-trend and silence unaffected (0.485583ms)
+✔ a broken ig_account_metrics read leaves post-underperformance detection unaffected (0.305125ms)
+✔ no DB binding at all degrades to the same empty shape, never throws (0.036833ms)
+✔ a single soft post never pages anyone — severity is info, per the task's own instruction (0.103667ms)
+✔ a weak run is a warning — a real pattern, but never critical (nothing about it "breaks the day") (0.048291ms)
+✔ followers falling is a warning; flat is only info (0.045458ms)
+✔ followers growing raises nothing at all (0.024208ms)
+✔ silence is a warning — an operational gap the team can act on, still never critical (0.03575ms)
+✔ nothing enoughData/flagged raises nothing — the common case must be silent, not noisy (0.025166ms)
+✔ no severity used anywhere is "critical" — that bar is reserved for the day breaking (0.101792ms)
+✔ an empty/null signals object raises nothing rather than throwing (0.031625ms)
+✔ the reaction instruction appears only for a real, enough-data weak run (0.142208ms)
+✔ with too little history, the brief says so plainly instead of staying silent or guessing (0.04925ms)
+✔ with enough data and a healthy trend, the brief is silent — nothing to react to (0.067792ms)
+✔ no DB binding degrades reactionBrief to empty, never throws (0.02375ms)
+(node:46187) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/performance-read-evidence.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual performance route exposes historical captures separately from current calculation time (256.947167ms)
+✔ failed reads remain unavailable while successful empty sources remain explicit empty evidence (184.047458ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 533.105

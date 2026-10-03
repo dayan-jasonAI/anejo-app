@@ -88,7 +88,7 @@ test('reviewed strategy, live menu, owner rules and reviewed library survive pla
   assert.equal(visible.scheduled_at, null);
   assert.equal(visible.provenance.brief_id, 'brief_continuity');
   assert.equal(visible.provenance.brief_title, 'Reviewed catering strategy');
-  assert.deepEqual(visible.provenance.rule_ids, ['rule_continuity']);
+  assert.equal(visible.provenance.rules_count, 1);
   for (const field of ['ig_media_id', 'published_at', 'permalink']) assert.equal(post[field], null);
   assert.equal(env.DB.one('SELECT COUNT(*) n FROM social_trust_approvals').n, 0);
   assert.deepEqual(visible.media.map(slide => slide.media_key), [mediaKey]);

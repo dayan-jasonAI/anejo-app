@@ -2907,8 +2907,8 @@
     // owner's own bar for this card. Only a real weak run (enough data AND flagged) changes what
     // the planner tries; everything else is left honestly alone rather than reacting to noise.
     var doing = (wr.enoughData && wr.flagged)
-      ? 'The planner has been told to try a different format, category and angle this week instead of repeating what the last three posts used.'
-      : 'No change to the planner’s approach — nothing here has cleared the bar for a real pattern yet.';
+      ? 'The recorded weak-run signal is available to the next planner run for a different format, category and angle. This card does not prove that a planner ran.'
+      : 'No recorded weak-run signal clears the sample threshold. This card does not prove whether the planner has acted.';
     return '<div class="card"><h3>Performance watch</h3>' +
       '<table class="mini-table"><thead><tr><th>Signal</th><th style="text-align:right">Reading</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
       '<p class="hint">' + esc(measurementNote) + ' These saved measurements do not establish current Instagram performance or a complete posting history.</p>' +

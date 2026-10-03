@@ -1,0 +1,11 @@
+# Performance capture evidence and planner continuity — October 3
+
+Local technical candidate; not yet deployed. Existing Dayan engineering/release authorization applies. No public posts, customer sends, credentials, charges or trust activation.
+
+Supported owner browser showed Growing/On track and fourteen days since last post without capture dates, while the connection check failed. The detector now returns independent read receipts for reach, followers and posting history. Capture dates remain distinct from calculation time; read failures remain unavailable rather than successful empty reads. UI identifies recorded posting activity and dates, warns that saved metrics do not establish current Instagram performance or full posting history, and no longer claims the planner has acted merely because a weak-run signal exists. Thresholds, alert behavior and automation permissions unchanged.
+
+Two actual owner-route/migrated-SQLite checks validate historical captures and unavailable-vs-empty reads. A bounded delegated planner-continuity test uses seeded planning direction/promotion, training rules/examples, live menu values and approved asset registry, then actual automation/planner and social GET handlers with intercepted model responses. Root inspected it, added exact readback brief title/rule count and no-publication/trust assertions, and independently ran it. This does not test actual owner promotion UI, provider semantics, human image review or a live planner.
+
+Focused suite44/44 passed. Initial added assertion expected rule IDs in owner readback, which actually exposes count; corrected to count after source inspection. Existing static test expected the misleading planner wording and was updated to require explicit non-execution language. Initial full run caught that same stale wording assertion; fresh full release check passed3,605/3,605 with ancestry guard, lint zero errors/eleven existing warnings and Functions compilation success.
+
+Evidence in evidence/performance-context-2026-10-03. Remaining full-goal work includes reliable real audits, exact three launch images acceptance, real approved scheduling/publishing, production unattended render admission/resources/parity, channel/role/physical voice acceptance and Google approval. No verified paid-order uplift. Next gated main-based release and supported browser readback.
