@@ -1,0 +1,24 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const {Miniflare,convertV4MiniflareOptions}=require('../../node_modules/miniflare');
+test('local workerd D1 executes actor idempotency, atomic claims and stale fencing',{timeout:20000},async t=>{
+ const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'job-store-check',script:'export default {fetch(){return new Response("local-only")}}',modules:true,compatibilityDate:'2026-05-01',d1Databases:{DB:'render-jobs-local'}}],cf:false,host:'127.0.0.1',port:0}));
+ t.after(()=>mf.dispose());
+ const db=await mf.getD1Database('DB');
+ await db.exec(fs.readFileSync(path.join(__dirname,'render-jobs.sql'),'utf8').replace(/^--.*$/gm,'').replace(/\n/g,' '));
+ const {createRenderJobStore}=await import('./render-jobs.mjs');const store=createRenderJobStore(db);
+ const descriptor={sourceKey:'marketing-library/test.jpg',sourceSha256:'a'.repeat(64),postId:'draft-1',mediaId:'slide-1',rendererVersion:'fixture-v1',templateId:'reposado-wide',optionsHash:'b'.repeat(64)};
+ const input={actorId:'owner-1',requestId:'render-1',descriptor,now:100};
+ const enqueued=await store.enqueue(input);assert.equal((await store.enqueue(input)).job.id,enqueued.job.id);
+ await assert.rejects(store.enqueue({...input,descriptor:{...descriptor,optionsHash:'c'.repeat(64)}}),e=>e.code==='request_conflict');
+ const contenders=await Promise.all([store.claim({actorId:'owner-1',now:100,leaseMs:100}),store.claim({actorId:'owner-1',now:100,leaseMs:100})]);
+ assert.equal(contenders.filter(Boolean).length,1);const first=contenders.find(Boolean);
+ const fresh=await store.claim({actorId:'owner-1',now:200,leaseMs:100});assert.notEqual(first.leaseToken,fresh.leaseToken);
+ const output={outputKey:'studio/local-only.jpg',sha256:'d'.repeat(64),outputBytes:200,width:1080,height:810};
+ await assert.rejects(store.complete({actorId:'owner-1',jobId:first.id,leaseToken:first.leaseToken,receipt:output,now:201}),e=>e.code==='lease_not_live');
+ await assert.rejects(store.complete({actorId:'owner-2',jobId:fresh.id,leaseToken:fresh.leaseToken,receipt:output,now:201}),e=>e.code==='lease_not_live');
+ assert.equal((await store.complete({actorId:'owner-1',jobId:fresh.id,leaseToken:fresh.leaseToken,receipt:output,now:201})).status,'rendered');
+ assert.equal(await store.claim({actorId:'owner-1',now:300,leaseMs:100}),null);
+});
