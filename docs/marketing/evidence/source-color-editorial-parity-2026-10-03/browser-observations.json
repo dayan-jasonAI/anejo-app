@@ -1,0 +1,93 @@
+{
+  "recordedAt": "2026-10-03T13:41:47.154617+00:00",
+  "url": "http://127.0.0.1:8794/tools/marketing-render-prototype/parity.html",
+  "method": "Normal supported Chrome; read-only DOM receipts and screenshot inspection",
+  "ready": true,
+  "imageSizes": {
+    "canvas-wide": [
+      1080,
+      810
+    ],
+    "worker-wide": [
+      1080,
+      810
+    ],
+    "canvas-cajita": [
+      1080,
+      810
+    ],
+    "worker-cajita": [
+      1080,
+      810
+    ]
+  },
+  "canvasObserved": {
+    "reposado-wide": {
+      "photo": [
+        0,
+        0,
+        1080,
+        810
+      ],
+      "kicker": {
+        "size": 11,
+        "position": [
+          70.2,
+          660.15
+        ]
+      },
+      "headline": {
+        "size": 39,
+        "position": [
+          70.2,
+          680.87
+        ]
+      },
+      "emblem": [
+        327.67539267015707,
+        761.4,
+        46.64921465968586,
+        44.55
+      ],
+      "textInk": "#E8E2CA"
+    },
+    "reposado-cajita": {
+      "photo": [
+        0,
+        0,
+        1080,
+        810
+      ],
+      "kicker": {
+        "size": 11,
+        "position": [
+          604.8000000000001,
+          162
+        ]
+      },
+      "headline": {
+        "size": 52,
+        "position": [
+          604.8000000000001,
+          182.72
+        ]
+      },
+      "emblem": [
+        345.6,
+        625.5225,
+        81,
+        77.355
+      ],
+      "textInk": "#0A180C"
+    }
+  },
+  "fontLoad": {
+    "faceCounts": [
+      1,
+      1
+    ],
+    "exactGlyphFace": "unverified"
+  },
+  "scope": "Observed declarations and visible geometry, not pixel/color equivalence or owner approval",
+  "exportLimit": "Only Canvas wide JPEG was found on disk. Cajita and receipt downloads were not verified; screenshot was inspected in tool, not saved."
+}

@@ -1,0 +1,262 @@
+{
+  "recordedAt": "2026-10-03T13:39:23.805Z",
+  "normalization": null,
+  "sourceProvenance": "Existing website theme asset; not verified documentary event photography.",
+  "inputHashes": {
+    "source": "76378e4988c845271737f0a50bde1efeaca92f536359962f7c6508e86107ccd2",
+    "emblem": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598",
+    "font": "bb60d386afdbf03f67ee68117776d9bfaba0d08d50899909e02b023fcb5f5a17",
+    "kickerFont": "19a231f3f7ebf25c1fa5afc3619002fd55e12a30c83c7974a75b973d4b1b7a5f"
+  },
+  "samples": [
+    {
+      "templateId": "reposado-wide",
+      "title": "Catering, beautifully.",
+      "output": "/tmp/anejo-editorial-preview-ByWlO7/reposado-wide.jpg",
+      "sha256": "135f3ec50f8ec6e206a526017e648f6acd5e955b6985984fccc5f4bf38b67fa6",
+      "svg_sha256": "0b708d63078317010b2dbe98bbe95b582cb756630e01da8556310a7bb8f2bca1",
+      "wallMs": 399.717917,
+      "metadata": {
+        "source": {
+          "width": 1448,
+          "height": 1086,
+          "type": "jpeg",
+          "rgbaBytes": 6290112,
+          "orientation": 1,
+          "displayWidth": 1448,
+          "displayHeight": 1086
+        },
+        "layout": {
+          "version": "anejo-editorial-geometry-1",
+          "templateId": "reposado-wide",
+          "aspect": 1.3333333333333333,
+          "vertical": false,
+          "width": 1080,
+          "height": 810,
+          "photo": {
+            "x": 0,
+            "y": 0,
+            "w": 1080,
+            "h": 810
+          },
+          "backgroundExtended": false,
+          "textRegion": {
+            "x": 70.2,
+            "y": 660.15,
+            "w": 324,
+            "h": 97.2
+          },
+          "emblemRegion": {
+            "x": 324,
+            "y": 761.4,
+            "w": 54,
+            "h": 44.55
+          },
+          "protectedRects": [],
+          "protectionSource": "visual_review_required",
+          "protectedCoordinateSpace": "source_normalized",
+          "overlayCoordinateSpace": "canvas_pixels",
+          "visualReviewRequired": true,
+          "geometryOnly": true
+        },
+        "ink": {
+          "text": {
+            "color": "#E8E2CA",
+            "estimatedContrast": 4.6061372636744755,
+            "background": {
+              "lum": 0.050077903563706776,
+              "busy": 0.07536798738092317
+            }
+          },
+          "emblem": {
+            "color": "#000000",
+            "estimatedContrast": 3.8714023173858267,
+            "background": {
+              "lum": 0.21777503077437055,
+              "busy": 0.07420491490507918
+            }
+          }
+        },
+        "measurements": {
+          "runs": [
+            {
+              "role": "kicker",
+              "text": "AÑEJO CATERING",
+              "px": 11,
+              "family": "Anejo Editorial Sans",
+              "weight": 500,
+              "bounds": {
+                "x": 70.2,
+                "y": 660.15,
+                "w": 97,
+                "h": 13
+              },
+              "origin": {
+                "x": 70.2,
+                "y": 671.15
+              }
+            },
+            {
+              "role": "headline",
+              "text": "Catering, beautifully.",
+              "px": 39,
+              "family": "Anejo Editorial Serif",
+              "weight": 600,
+              "bounds": {
+                "x": 70.2,
+                "y": 680.87,
+                "w": 321,
+                "h": 40
+              },
+              "origin": {
+                "x": 69.2,
+                "y": 709.87
+              }
+            }
+          ],
+          "emblem": {
+            "x": 327.67539267015707,
+            "y": 761.4,
+            "w": 46.64921465968586,
+            "h": 44.55
+          }
+        },
+        "visualReviewRequired": true,
+        "deviations": [
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "pixelVerification": "unverified",
+        "resourceReadiness": "unverified"
+      }
+    },
+    {
+      "templateId": "reposado-cajita",
+      "title": "Your Cajita.",
+      "output": "/tmp/anejo-editorial-preview-ByWlO7/reposado-cajita.jpg",
+      "sha256": "6ddb1e964c8b7fc54826a5cabedb8c0c4b434755010a0a1ad597432c5a0d2e66",
+      "svg_sha256": "fbed833dd7840debaa6c3a59569a6abf686567973f23b6aaa6b5576a04819b23",
+      "wallMs": 297.75825,
+      "metadata": {
+        "source": {
+          "width": 1448,
+          "height": 1086,
+          "type": "jpeg",
+          "rgbaBytes": 6290112,
+          "orientation": 1,
+          "displayWidth": 1448,
+          "displayHeight": 1086
+        },
+        "layout": {
+          "version": "anejo-editorial-geometry-1",
+          "templateId": "reposado-cajita",
+          "aspect": 1.3333333333333333,
+          "vertical": false,
+          "width": 1080,
+          "height": 810,
+          "photo": {
+            "x": 0,
+            "y": 0,
+            "w": 1080,
+            "h": 810
+          },
+          "backgroundExtended": false,
+          "textRegion": {
+            "x": 604.8000000000001,
+            "y": 162,
+            "w": 313.2,
+            "h": 186.3
+          },
+          "emblemRegion": {
+            "x": 345.6,
+            "y": 623.7,
+            "w": 81,
+            "h": 81
+          },
+          "protectedRects": [],
+          "protectionSource": "visual_review_required",
+          "protectedCoordinateSpace": "source_normalized",
+          "overlayCoordinateSpace": "canvas_pixels",
+          "visualReviewRequired": true,
+          "geometryOnly": true
+        },
+        "ink": {
+          "text": {
+            "color": "#0A180C",
+            "estimatedContrast": 5.279001241173173,
+            "background": {
+              "lum": 0.31788110508421225,
+              "busy": 0.06463721443541015
+            }
+          },
+          "emblem": {
+            "color": "#000000",
+            "estimatedContrast": 2.823483835289232,
+            "background": {
+              "lum": 0.2272536625448034,
+              "busy": 0.1360794707803418
+            }
+          }
+        },
+        "measurements": {
+          "runs": [
+            {
+              "role": "kicker",
+              "text": "AÑEJO CATERING",
+              "px": 11,
+              "family": "Anejo Editorial Sans",
+              "weight": 500,
+              "bounds": {
+                "x": 604.8000000000001,
+                "y": 162,
+                "w": 97,
+                "h": 13
+              },
+              "origin": {
+                "x": 604.8000000000001,
+                "y": 173
+              }
+            },
+            {
+              "role": "headline",
+              "text": "Your Cajita.",
+              "px": 52,
+              "family": "Anejo Editorial Serif",
+              "weight": 600,
+              "bounds": {
+                "x": 604.8000000000001,
+                "y": 182.72,
+                "w": 242,
+                "h": 49
+              },
+              "origin": {
+                "x": 604.8000000000001,
+                "y": 216.72
+              }
+            }
+          ],
+          "emblem": {
+            "x": 345.6,
+            "y": 625.5225,
+            "w": 81,
+            "h": 77.355
+          }
+        },
+        "visualReviewRequired": true,
+        "deviations": [
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "pixelVerification": "unverified",
+        "resourceReadiness": "unverified"
+      }
+    }
+  ],
+  "limitations": "Local Node rendering only; visual review and production resource proof remain required."
+}

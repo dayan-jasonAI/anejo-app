@@ -1,0 +1,17 @@
+✔ untagged RGB admits assumption only and leaves original unchanged (3.997917ms)
+✔ actual P3 and sRGB profiles both require conversion rather than stripping (5.84625ms)
+✔ explicit PNG sRGB distinguished; malformed duplicate and bad CRC refused (0.651667ms)
+✔ HDR animation and nonstandard gamma/chromaticity refused (0.553459ms)
+✔ actual CMYK and high-depth sources refused (3.646708ms)
+✔ all eight orientations retain meaning; corrupt and oversized headers refused (5.271791ms)
+✔ JPEG auxiliary gain-map metadata and PNG contradictory color declarations cannot appear supported (2.012417ms)
+✔ existing website photo with bounded IPTC and digest resources remains explicitly assumed sRGB (1.38175ms)
+✔ Photoshop APP13 allows bounded noncolor resource IDs but refuses ICC unknown and malformed framing (0.55375ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 102.6935
