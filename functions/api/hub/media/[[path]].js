@@ -18,7 +18,7 @@ export const onRequestGet = async ({ request, env, params }) => {
     return json({ error: 'Not found.' }, 404);
   }
 
-  if (key.startsWith('marketing-library/') && !MARKETING_DESK.includes(ctx.role)) {
+  if ((key.startsWith('marketing-library/') || key.startsWith('marketing-source-versions/')) && !MARKETING_DESK.includes(ctx.role)) {
     return json({ error: 'Not found.' }, 404);
   }
 

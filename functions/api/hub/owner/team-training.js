@@ -153,13 +153,13 @@ export const onRequestPost = async ({ request, env }) => {
   if (op === 'delete_example') {
     const exId = String((b && b.id) || '').trim();
     if (!exId) return bad('id is required.');
-    // Best-effort: drop the underlying R2 object too, so a removed "never do this" photo doesn't
-    // linger reachable at its old URL. Row deactivation is the source of truth either way — if
-    // R2 cleanup fails, the example is still gone from the library and from trainingContext().
+    // Best-effort cleanup is confined to actual training uploads. Other referenced photos
+    // remain preserved. Row deactivation removes the example from trainingContext even
+    // when storage cleanup is skipped or fails.
     if (env.MEDIA) {
       try {
         const row = await env.DB.prepare('SELECT media_key FROM training_examples WHERE id = ?').bind(exId).first();
-        if (row && row.media_key) await env.MEDIA.delete(row.media_key);
+        if (row && typeof row.media_key === 'string' && row.media_key.startsWith('training/') && !row.media_key.includes('..')) await env.MEDIA.delete(row.media_key);
       } catch { /* best effort */ }
     }
     await env.DB.prepare('UPDATE training_examples SET active = 0, updated_at = ? WHERE id = ?').bind(now(), exId).run();
