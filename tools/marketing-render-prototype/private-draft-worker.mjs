@@ -11,9 +11,10 @@ import {renderEditorial} from './editorial.mjs';
 import {captureSourceVersion} from './source-versions.mjs';
 import {createRenderJobStore} from './render-jobs.mjs';
 import {consumePrivateRender,renderOptionsHash} from './render-consumer.mjs';
+import {LocalDurableAdmission,OWNED_LOCAL_WORK} from './durable-admission.mjs';
+import {createExecutionDeadline} from './execution-deadline.mjs';
 
 const rendererVersion='local-private-worker-v1';
-let inFlight=0; // Per-isolate bound only; not a global production concurrency guarantee.
 const json=(value,status=200)=>new Response(JSON.stringify({...value,scope:'local_rehearsal',resourceReadiness:'unverified',publicationApproved:false}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 function reject(code,status=400){const error=new Error(code);error.status=status;throw error;}
 function exact(value,keys){if(!value||Object.getPrototypeOf(value)!==Object.prototype||Object.keys(value).length!==keys.length||keys.some(key=>!Object.hasOwn(value,key)))reject('invalid_request');}
@@ -32,7 +33,6 @@ async function body(request){
  try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{reject('invalid_json');}
 }
 export default {async fetch(request,env){
- let reserved=false;
  try{
   const url=new URL(request.url);
   // Accidental deployment is refused even if a fixture binding was copied.
@@ -49,31 +49,48 @@ export default {async fetch(request,env){
   exact(input.options,['templateId','title','kicker']);
   if(!['reposado-wide','reposado-cajita'].includes(input.options.templateId))reject('invalid_template');
   text(input.options.title,80);text(input.options.kicker,50);
-  if(inFlight>=1)reject('private_render_busy',429);
-  inFlight++;reserved=true;
-  const actorId=ctx.distinct_id,store=createRenderJobStore(env.DB),optionsHash=await renderOptionsHash(input.options);
-  const binding={postId:input.postId,mediaId:input.mediaId,postRevision:input.postRevision,sourceKey:input.sourceKey,sourceSha256:input.sourceSha256};
-  const existing=await env.DB.prepare('SELECT id FROM prototype_render_jobs WHERE actor_id=? AND request_id=?').bind(actorId,input.requestId).first();
-  let sourceVersionId,sourceMetadataSha256;
-  if(existing){
-   const job=await store.get({actorId,jobId:existing.id});
-   if(!job||Object.keys(binding).some(key=>job.descriptor[key]!==binding[key])||job.descriptor.optionsHash!==optionsHash||job.descriptor.rendererVersion!==rendererVersion||job.descriptor.templateId!==input.options.templateId)reject('request_conflict',409);
-   // A durable rendered receipt is not a new verification of current attachment.
-   if(job.status==='rendered')return json({state:'already_rendered',jobId:job.id,attachment:'unverified',humanReviewRequired:true});
-   sourceVersionId=job.descriptor.sourceVersionId;sourceMetadataSha256=job.descriptor.sourceMetadataSha256;
-  }else{
-   const captured=await captureSourceVersion({db:env.DB,media:env.MEDIA,actorId,requestId:'capture:'+input.requestId,descriptor:binding,now:Date.now()});
-   sourceVersionId=captured.version.id;sourceMetadataSha256=captured.version.metadataSha256;
-  }
-  const queued=await store.enqueue({actorId,requestId:input.requestId,descriptor:{...binding,sourceVersionId,sourceMetadataSha256,rendererVersion,templateId:input.options.templateId,optionsHash},now:Date.now()});
-  const render=async({source,options})=>{
-   await initialize(wasm);
-   return renderEditorial({source,emblem:new Uint8Array(emblem),font:new Uint8Array(font),kickerFont:new Uint8Array(kickerFont),...options});
-  };
-  const result=await consumePrivateRender({db:env.DB,media:env.MEDIA,actorId,jobId:queued.job.id,rendererVersion,options:input.options,render,now:Date.now,leaseMs:30000});
-  return json(result,result.state==='attached'?200:409);
+  if(!env.RENDER_EXECUTOR)return json({error:'executor_unavailable'},503);
+  const receipt=await env.RENDER_EXECUTOR.getByName('anejo-local-editorial-executor').execute({actorId:ctx.distinct_id,requestId:input.requestId},input);
+  if(!receipt.admitted)return json({error:receipt.state==='busy'?'private_render_busy':'private_render_active_unknown'},receipt.state==='busy'?429:409);
+  if(receipt.outcome!=='fulfilled')return json({error:'private_render_failed',attachment:'unverified'},500);
+  const result=receipt.value;return json(result,result.status||(['attached','already_rendered'].includes(result.state)?200:409));
  }catch(error){
   const known=error.status||error.name==='SourceVersionError'||error.name==='RenderJobError';
   return json({error:known&&/^[a-z][a-z0-9_]{0,63}$/.test(error.message)?error.message:'private_render_failed'},error.status||(known?409:500));
- }finally{if(reserved)inFlight--;}
+ }
 }};
+
+// All compute/storage work runs inside this single server-selected coordinator.
+// No job/actor-selected identities, TTL release, detached tasks or response races.
+export class PrivateRenderExecutor extends LocalDurableAdmission {
+ async [OWNED_LOCAL_WORK](input,{actorId}){
+  const env=this.env,deadline=createExecutionDeadline();
+  try{
+  const store=createRenderJobStore(env.DB),optionsHash=await deadline.dispatch('options_hash',()=>renderOptionsHash(input.options));
+  const binding={postId:input.postId,mediaId:input.mediaId,postRevision:input.postRevision,sourceKey:input.sourceKey,sourceSha256:input.sourceSha256};
+  const existing=await deadline.dispatch('existing_job',()=>env.DB.prepare('SELECT id FROM prototype_render_jobs WHERE actor_id=? AND request_id=?').bind(actorId,input.requestId).first());
+  let sourceVersionId,sourceMetadataSha256;
+  if(existing){
+   const job=await deadline.dispatch('job_read',()=>store.get({actorId,jobId:existing.id}));
+   if(!job||Object.keys(binding).some(key=>job.descriptor[key]!==binding[key])||job.descriptor.optionsHash!==optionsHash||job.descriptor.rendererVersion!==rendererVersion||job.descriptor.templateId!==input.options.templateId)reject('request_conflict',409);
+   // A durable rendered receipt is not a new verification of current attachment.
+   if(job.status==='rendered')return {state:'already_rendered',jobId:job.id,attachment:'unverified',humanReviewRequired:true};
+   sourceVersionId=job.descriptor.sourceVersionId;sourceMetadataSha256=job.descriptor.sourceMetadataSha256;
+  }else{
+   const captured=await captureSourceVersion({db:env.DB,media:env.MEDIA,actorId,requestId:'capture:'+input.requestId,descriptor:binding,now:Date.now(),deadline});
+   sourceVersionId=captured.version.id;sourceMetadataSha256=captured.version.metadataSha256;
+  }
+  const queued=await deadline.dispatch('enqueue',()=>store.enqueue({actorId,requestId:input.requestId,descriptor:{...binding,sourceVersionId,sourceMetadataSha256,rendererVersion,templateId:input.options.templateId,optionsHash},now:Date.now()}));
+  const render=async({source,options})=>{
+   await deadline.dispatch('initialize',()=>initialize(wasm));
+   deadline.check('render');
+   return renderEditorial({source,emblem:new Uint8Array(emblem),font:new Uint8Array(font),kickerFont:new Uint8Array(kickerFont),...options});
+  };
+  const result=await consumePrivateRender({db:env.DB,media:env.MEDIA,actorId,jobId:queued.job.id,rendererVersion,options:input.options,render,now:Date.now,leaseMs:30000,deadline});
+  return result;
+  }catch(error){
+   const known=error.status||['SourceVersionError','RenderJobError','ExecutionDeadlineError'].includes(error.name);
+   return {error:known&&/^[a-z][a-z0-9_]{0,63}$/.test(error.message)?error.message:'private_render_failed',status:error.status||(error.name==='ExecutionDeadlineError'?408:known?409:500),attachment:'unverified'};
+  }
+ }
+}

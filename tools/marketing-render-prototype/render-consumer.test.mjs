@@ -181,3 +181,36 @@ test('unknown explicit job leaves actor queue and draft untouched',async t=>{
  const f=await setup(t);assert.equal((await consumePrivateRender({...f.input,jobId:'unknown-job'})).state,'no_job');
  assert.equal(f.renderCount(),0);unchanged(f);assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).attempts,0);
 });
+
+test('expired execution deadline dispatches no claim or storage work',async t=>{
+ const f=await setup(t);let reads=0;f.media.get=async()=>{reads++;throw Error('must not read');};
+ const result=await consumePrivateRender({...f.input,deadline:{expiresAt:Date.now()-1}});
+ assert.equal(result.state,'deadline_expired');assert.equal(reads,0);assert.equal(f.renderCount(),0);unchanged(f);
+ assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).attempts,0);
+});
+for(const phase of ['source','render','put','output'])test('deadline expiring during '+phase+' prevents subsequent consumer stages',async t=>{
+ const f=await setup(t),expiresAt=Date.now()+10000;let clock=Date.now(),reads=0,writes=0;
+ const get=f.media.get.bind(f.media),put=f.media.put.bind(f.media),render=f.input.render;
+ f.media.get=async key=>{reads++;const saved=await get(key);if(phase==='source'&&key===f.captured.version.versionKey||phase==='output'&&key.startsWith('studio/local-render/'))clock=expiresAt;return saved;};
+ f.media.put=async(...args)=>{writes++;const saved=await put(...args);if(phase==='put')clock=expiresAt;return saved;};
+ f.input.render=async args=>{const saved=await render(args);if(phase==='render')clock=expiresAt;return saved;};
+ const result=await consumePrivateRender({...f.input,now:()=>clock,deadline:{expiresAt}});
+ assert.equal(result.state,'deadline_expired');assert.equal(result.attached,'unverified');unchanged(f);
+ assert.equal(f.renderCount(),phase==='source'?0:1);assert.equal(writes,['put','output'].includes(phase)?1:0);
+ assert.equal(reads,phase==='output'?2:1);
+ assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).status,'rendering');
+});
+test('deadline past committed batch acknowledgement prevents all recovery dispatch and reports unknown',async t=>{
+ const f=await setup(t),expiresAt=Date.now()+10000;let clock=Date.now(),readsAfterBatch=0,batchFinished=false;
+ const batch=f.env.DB.batch.bind(f.env.DB),get=f.media.get.bind(f.media);
+ f.media.get=async key=>{if(batchFinished)readsAfterBatch++;return get(key);};
+ f.env.DB.batch=async statements=>{await batch(statements);batchFinished=true;clock=expiresAt;throw Error('lost_ack');};
+ const result=await consumePrivateRender({...f.input,now:()=>clock,deadline:{expiresAt}});
+ assert.equal(result.state,'commit_unknown');assert.equal(result.attached,'unverified');assert.equal(readsAfterBatch,0);
+ assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).status,'rendered');
+});
+test('consumer honors latched executor clock refusal before claim',async t=>{
+ const f=await setup(t),result=await consumePrivateRender({...f.input,deadline:{expiresAt:Date.now()+10000,check(){throw Error('invalid_execution_clock');}}});
+ assert.equal(result.state,'deadline_expired');assert.equal(f.renderCount(),0);
+ assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).attempts,0);
+});

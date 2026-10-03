@@ -20,18 +20,46 @@ export async function renderOptionsHash(options){
  return sha256(new TextEncoder().encode(text));
 }
 const metadataText=value=>JSON.stringify(canonical(value||{}));
-async function object(media,key){
- const saved=await media.get(key);if(!saved||!Number.isSafeInteger(saved.size)||saved.size<1||saved.size>5*1024*1024)throw Error('object_unavailable');
- const bytes=await readBoundedBody({headers:new Headers({'content-length':String(saved.size)}),body:saved.body});if(bytes.length!==saved.size)throw Error('object_size_changed');
- return {bytes,hash:await sha256(bytes),metadata:saved.customMetadata||{},metadataText:metadataText(saved.customMetadata)};
+async function ownedBody(saved,stage){
+ const reader=saved.body?.getReader();if(!reader)throw Error('object_unavailable');
+ const chunks=[];let size=0,count=0,empty=0;
+ try{while(true){const {done,value}=await stage(()=>reader.read());if(done)break;
+  if(++count>32768||(!value.byteLength&&++empty>64)||(size+=value.byteLength)>5*1024*1024)throw Error('bounded_output_read_refused');chunks.push(value);
+ }}finally{reader.releaseLock();}
+ const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}return bytes;
+}
+async function object(media,key,stage,owned){
+ const saved=await stage(()=>media.get(key));if(!saved||!Number.isSafeInteger(saved.size)||saved.size<1||saved.size>5*1024*1024)throw Error('object_unavailable');
+ const bytes=owned?await ownedBody(saved,stage):await stage(()=>readBoundedBody({headers:new Headers({'content-length':String(saved.size)}),body:saved.body}));if(bytes.length!==saved.size)throw Error('object_size_changed');
+ return {bytes,hash:await stage(()=>sha256(bytes)),metadata:saved.customMetadata||{},metadataText:metadataText(saved.customMetadata)};
 }
 
 // Caller is an internal trusted executor, NOT an HTTP client. No resource/approval gate
 // is satisfied here. Time, renderer code/assets and options are executor supplied.
-export async function consumePrivateRender({db,media,actorId,jobId,rendererVersion,options,render,now,leaseMs=30000}){
+export async function consumePrivateRender({db,media,actorId,jobId,rendererVersion,options,render,now,leaseMs=30000,deadline}){
+ const expiresAt=deadline===undefined?Number.MAX_SAFE_INTEGER:deadline?.expiresAt;
+ if(!Number.isSafeInteger(expiresAt)||expiresAt<1)throw Error('invalid_execution_deadline');
+ let deadlineLatched=false;
+ const expired=()=>{
+  if(deadlineLatched)return true;
+  try{deadline?.check?.('consumer');}catch{deadlineLatched=true;return true;}
+  if(Math.max(now(),Date.now())>=expiresAt)deadlineLatched=true;
+  return deadlineLatched;
+ };
+ const check=()=>{if(expired())throw Error('execution_deadline_expired');};
+ const sourceDeadline=deadline===undefined?undefined:Object.freeze({expiresAt,check});
+ // Await owned operations to settlement. A deadline stops subsequent dispatch;
+ // it does not cancel an already-dispatched operation or synchronous renderer.
+ const stage=async operation=>{check();const value=await operation();check();return value;};
+ const expiredResult=(leased,outputKey=null,commitAttempted=false)=>({state:commitAttempted?'commit_unknown':'deadline_expired',jobId:leased?.id,outputKey,attached:'unverified',errorCode:'execution_deadline_expired'});
+ if(expired())return expiredResult(null);
  const renderOptions=canonical(options);
  const freeze=v=>{if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v);}return v;};freeze(renderOptions);
- const store=createRenderJobStore(db),leased=await store.claim({actorId,jobId,now:now(),leaseMs});
+ if(expired())return expiredResult(null);
+ const store=createRenderJobStore(db);let leased;
+ try{leased=await store.claim({actorId,jobId,now:now(),leaseMs,deadline:sourceDeadline});}
+ catch(error){if(expired())return expiredResult(null);throw error;}
+ if(expired())return expiredResult(leased);
  if(!leased)return {state:'no_job'};
  const d=leased.descriptor;
  const sourceBinding=JSON.stringify({postId:d.postId,mediaId:d.mediaId,postRevision:d.postRevision,sourceKey:d.sourceKey,sourceSha256:d.sourceSha256});
@@ -41,35 +69,36 @@ export async function consumePrivateRender({db,media,actorId,jobId,rendererVersi
   AND COALESCE(p.media_type,'') NOT IN ('REELS','STORIES') AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing'))`)
   .bind(d.postId,d.mediaId,d.postRevision,d.sourceKey,actorId).first();
  const recovered=async()=>{
-  const current=await store.get({actorId,jobId:leased.id});
+  const current=await stage(()=>store.get({actorId,jobId:leased.id,deadline:sourceDeadline}));
   if(current?.status!=='rendered'||current.fingerprint!==leased.fingerprint||!current.receipt)return null;
-  const saved=await object(media,current.receipt.outputKey);
+  const saved=await object(media,current.receipt.outputKey,stage,deadline!==undefined);
   if(saved.hash!==current.receipt.sha256||saved.bytes.length!==current.receipt.outputBytes||saved.metadata.render_job_id!==leased.id||saved.metadata.render_fingerprint!==leased.fingerprint)throw Error('output_readback_changed');
   // Read database state AFTER storage: edits while readback awaits must not inherit proof.
-  const linked=await db.prepare(`SELECT p.status,p.updated_at,m.media_key,v.revision,j.status AS job_status,j.fingerprint,j.receipt_json,j.updated_at AS job_updated_at,sv.state AS source_state,sv.descriptor_json AS source_descriptor,sv.source_sha256 AS source_hash,sv.metadata_sha256 AS source_metadata_hash,sv.metadata_json AS source_metadata_json,sv.version_key AS source_version_key
+  const linked=await stage(()=>db.prepare(`SELECT p.status,p.updated_at,m.media_key,v.revision,j.status AS job_status,j.fingerprint,j.receipt_json,j.updated_at AS job_updated_at,sv.state AS source_state,sv.descriptor_json AS source_descriptor,sv.source_sha256 AS source_hash,sv.metadata_sha256 AS source_metadata_hash,sv.metadata_json AS source_metadata_json,sv.version_key AS source_version_key
    FROM prototype_render_jobs j JOIN social_posts p ON p.id=? JOIN social_post_media m ON m.post_id=p.id AND m.id=?
-   JOIN prototype_draft_versions v ON v.post_id=p.id JOIN prototype_source_versions sv ON sv.id=? AND sv.actor_id=? WHERE j.id=? AND j.actor_id=?`).bind(d.postId,d.mediaId,d.sourceVersionId,actorId,leased.id,actorId).first();
+   JOIN prototype_draft_versions v ON v.post_id=p.id JOIN prototype_source_versions sv ON sv.id=? AND sv.actor_id=? WHERE j.id=? AND j.actor_id=?`).bind(d.postId,d.mediaId,d.sourceVersionId,actorId,leased.id,actorId).first());
   if(linked?.source_state!=='confirmed'||linked.source_descriptor!==sourceBinding||linked.source_hash!==d.sourceSha256||linked.source_metadata_hash!==d.sourceMetadataSha256||linked.status!=='draft'||linked.job_status!=='rendered'||linked.fingerprint!==leased.fingerprint||linked.receipt_json!==JSON.stringify(current.receipt)||linked.updated_at!==linked.job_updated_at||linked.revision!==d.postRevision+2||linked.media_key!==current.receipt.outputKey)throw Error('saved_state_changed');
   if(saved.metadataText!==metadataText(provenance(JSON.parse(linked.source_metadata_json),linked.source_version_key)))throw Error('output_readback_changed');
   return {state:'attached',jobId:leased.id,receipt:current.receipt,humanReviewRequired:true,publicationApproved:false,resourceReadiness:'unverified'};
  };
  let outputKey=null,commitAttempted=false;
  try{
-  if(d.rendererVersion!==rendererVersion||d.optionsHash!==await renderOptionsHash(renderOptions)||renderOptions.templateId!==d.templateId)throw Error('render_binding_changed');
-  if(!await target())throw Error('draft_changed');
-  const artifact=await readConfirmedSourceArtifact({db,media,actorId,versionId:d.sourceVersionId});
+  check();
+  if(d.rendererVersion!==rendererVersion||d.optionsHash!==await stage(()=>renderOptionsHash(renderOptions))||renderOptions.templateId!==d.templateId)throw Error('render_binding_changed');
+  if(!await stage(target))throw Error('draft_changed');
+  const artifact=await stage(()=>readConfirmedSourceArtifact({db,media,actorId,versionId:d.sourceVersionId,deadline:sourceDeadline}));
   if(!artifact||JSON.stringify(artifact.version.descriptor)!==sourceBinding||artifact.version.sourceSha256!==d.sourceSha256||artifact.version.metadataSha256!==d.sourceMetadataSha256)throw Error('source_version_binding_changed');
   const source={bytes:artifact.bytes,metadata:JSON.parse(artifact.version.metadataJson)};
-  const result=await render({source:source.bytes,options:renderOptions,templateId:d.templateId});
+  const result=await stage(()=>render({source:source.bytes,options:renderOptions,templateId:d.templateId}));
   const jpg=result.jpg;if(!(jpg instanceof Uint8Array))throw Error('invalid_render_output');
-  const shape=jpegDimensions(jpg),outputHash=await sha256(jpg);
+  const shape=jpegDimensions(jpg),outputHash=await stage(()=>sha256(jpg));
   // Attempt-specific namespace: an expired worker cannot overwrite a successor.
   outputKey=`studio/local-render/${leased.id}/${leased.leaseToken}.jpg`;
   const outputMetadata=provenance(source.metadata,artifact.version.versionKey);
-  await media.put(outputKey,jpg,{httpMetadata:{contentType:'image/jpeg'},customMetadata:outputMetadata});
-  const output=await object(media,outputKey);
+  await stage(()=>media.put(outputKey,jpg,{httpMetadata:{contentType:'image/jpeg'},customMetadata:outputMetadata}));
+  const output=await object(media,outputKey,stage,deadline!==undefined);
   if(output.hash!==outputHash||output.metadataText!==metadataText(outputMetadata))throw Error('output_readback_changed');
-  const freshSource=await readConfirmedSourceArtifact({db,media,actorId,versionId:d.sourceVersionId});
+  const freshSource=await stage(()=>readConfirmedSourceArtifact({db,media,actorId,versionId:d.sourceVersionId,deadline:sourceDeadline}));
   if(!freshSource||JSON.stringify(freshSource.version)!==JSON.stringify(artifact.version))throw Error('source_version_binding_changed');
   const receipt={outputKey,sha256:outputHash,outputBytes:jpg.length,width:shape.width,height:shape.height};
   const at=now(),descriptorJson=JSON.stringify(d);
@@ -78,34 +107,38 @@ export async function consumePrivateRender({db,media,actorId,jobId,rendererVersi
   const versionArgs=[d.sourceVersionId,actorId,sourceBinding,d.sourceSha256,d.sourceMetadataSha256];
   const leaseSql=`EXISTS(SELECT 1 FROM prototype_render_jobs WHERE id=? AND actor_id=? AND fingerprint=? AND descriptor_json=? AND status='rendering' AND lease_token=? AND lease_until>MAX(?,CAST(unixepoch('subsec')*1000 AS INTEGER)))`;
   const leaseArgs=[leased.id,actorId,leased.fingerprint,descriptorJson,leased.leaseToken,at];
+  const deadlineSql=`MAX(?,CAST(unixepoch('subsec')*1000 AS INTEGER))<?`,deadlineArgs=[at,expiresAt];
   const guard=()=>db.prepare(`INSERT INTO prototype_render_guards(success) VALUES(CASE WHEN changes()=1 THEN 1 ELSE 0 END)`);
-  commitAttempted=true;
+  check();commitAttempted=true;
   await db.batch([
    // Post CAS first; its trigger advances the revision once. Slide mutation advances it again.
    db.prepare(`UPDATE social_posts SET scheduled_at=NULL,audit_score=NULL,audit_flags=NULL,audit_at=NULL,audit_status=NULL,audit_scope=NULL,audit_snapshot=NULL,audit_detail_json=NULL,audit_context_snapshot=NULL,auto_audit_required=NULL,original_caption_hash=NULL,original_design_snapshot=NULL,updated_at=?
     WHERE id=? AND status='draft' AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=? AND revision=?)
     AND COALESCE(media_type,'') NOT IN ('REELS','STORIES')
     AND EXISTS(SELECT 1 FROM social_post_media WHERE id=? AND post_id=? AND media_key=?)
-    AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')) AND ${leaseSql} AND ${versionSql}`)
-    .bind(at,d.postId,d.postId,d.postRevision,d.mediaId,d.postId,d.sourceKey,actorId,...leaseArgs,...versionArgs),guard(),
+    AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')) AND ${leaseSql} AND ${versionSql} AND ${deadlineSql}`)
+    .bind(at,d.postId,d.postId,d.postRevision,d.mediaId,d.postId,d.sourceKey,actorId,...leaseArgs,...versionArgs,...deadlineArgs),guard(),
    db.prepare(`UPDATE social_post_media SET media_key=?,public_token=? WHERE id=? AND post_id=? AND media_key=?
     AND EXISTS(SELECT 1 FROM social_posts WHERE id=? AND status='draft')
     AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=? AND revision=?)
-    AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')) AND ${leaseSql} AND ${versionSql}`)
-    .bind(outputKey,crypto.randomUUID(),d.mediaId,d.postId,d.sourceKey,d.postId,d.postId,d.postRevision+1,actorId,...leaseArgs,...versionArgs),guard(),
+    AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')) AND ${leaseSql} AND ${versionSql} AND ${deadlineSql}`)
+    .bind(outputKey,crypto.randomUUID(),d.mediaId,d.postId,d.sourceKey,d.postId,d.postId,d.postRevision+1,actorId,...leaseArgs,...versionArgs,...deadlineArgs),guard(),
    db.prepare(`UPDATE prototype_render_jobs SET status='rendered',receipt_json=?,lease_token=NULL,lease_until=NULL,updated_at=?,error_code=NULL
     WHERE id=? AND actor_id=? AND fingerprint=? AND descriptor_json=? AND status='rendering' AND lease_token=? AND lease_until>MAX(?,CAST(unixepoch('subsec')*1000 AS INTEGER))
     AND EXISTS(SELECT 1 FROM social_post_media WHERE id=? AND post_id=? AND media_key=?)
-    AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=? AND revision=?) AND ${versionSql}`)
-    .bind(JSON.stringify(receipt),at,...leaseArgs,d.mediaId,d.postId,outputKey,d.postId,d.postRevision+2,...versionArgs),guard(),
+    AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=? AND revision=?) AND ${versionSql} AND ${deadlineSql}`)
+    .bind(JSON.stringify(receipt),at,...leaseArgs,d.mediaId,d.postId,outputKey,d.postId,d.postRevision+2,...versionArgs,...deadlineArgs),guard(),
   ]);
+  check();
   const saved=await recovered();if(!saved)throw Error('attachment_not_verified');return saved;
  }catch(error){
+  if(expired())return expiredResult(leased,outputKey,commitAttempted);
   // A thrown response can follow a committed transaction. Never blindly retry/reattach.
   if(commitAttempted){try{const saved=await recovered();if(saved)return {...saved,recoveredCommit:true};}catch{return {state:'commit_unknown',jobId:leased.id,outputKey,attached:'unverified'};}}
   const code=/^[a-z][a-z0-9_]{0,63}$/.test(error.message)?error.message:'consumer_failed';
-  try{await store.fail({actorId,jobId:leased.id,leaseToken:leased.leaseToken,errorCode:code,now:now()});}
-  catch{return {state:commitAttempted?'commit_unknown':'lease_lost',jobId:leased.id,outputKey,attached:'unverified',errorCode:code};}
+  if(expired())return expiredResult(leased,outputKey,commitAttempted);
+  try{await stage(()=>store.fail({actorId,jobId:leased.id,leaseToken:leased.leaseToken,errorCode:code,now:now(),deadline:sourceDeadline}));}
+  catch{if(expired())return expiredResult(leased,outputKey,commitAttempted);return {state:commitAttempted?'commit_unknown':'lease_lost',jobId:leased.id,outputKey,attached:'unverified',errorCode:code};}
   return {state:'failed',jobId:leased.id,outputKey,attached:false,errorCode:code};
  }
 }

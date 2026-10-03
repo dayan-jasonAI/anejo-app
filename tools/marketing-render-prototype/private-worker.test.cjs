@@ -20,26 +20,27 @@ async function bundle(){
   fs.copyFileSync(path.join(__dirname,'node_modules/@resvg/resvg-wasm/index_bg.wasm'),path.join(directory,'resvg.wasm'));
   let source=fs.readFileSync(path.join(__dirname,'private-draft-worker.mjs'),'utf8').replace("'@resvg/resvg-wasm/index_bg.wasm'","'./resvg.wasm'");
   assert.ok(source.includes("'./resvg.wasm'"),'Expected exact pinned static WASM import');
-  // Test-only outer wrapper provides deterministic concurrency evidence. The handler
-  // and renderer remain unchanged; the original R2 binding is used after local release.
-  assert.ok(source.includes('export default {'));source=source.replace('export default {','const privateHandler={');
-  source+=`\nlet heldSource=false;export default {fetch(request,env,ctx){
-   if(!env.HOLD_SOURCE_READ)return privateHandler.fetch(request,env,ctx);
-   const original=env.MEDIA;
-   const media={get:async key=>{if(!heldSource&&key==='marketing-library/local_http_photo.jpg'){heldSource=true;await env.HOLD_SOURCE_READ.fetch('http://local-fixture/read-barrier');}return original.get(key);},put:original.put.bind(original)};
-   return privateHandler.fetch(request,{...env,MEDIA:media},ctx);
-  }};\n`;
-  const result=await build({stdin:{contents:source,resolveDir:__dirname,sourcefile:'private-draft-worker.mjs'},outfile:path.join(directory,'worker.mjs'),bundle:true,format:'esm',platform:'browser',external:['./resvg.wasm'],loader:{'.png':'binary','.ttf':'binary'},metafile:true});
+  // Test-only coordinator subclass holds an R2 read. Complete private handler and
+  // renderer execute unchanged, with the same server-selected durable identity.
+  source+=`\nexport class FixtureExecutor extends PrivateRenderExecutor {constructor(ctx,env){
+   const original=env.MEDIA;let heldSource=false;
+   const media={get:async key=>{if(env.HOLD_SOURCE_READ&&!heldSource&&key==='marketing-library/local_http_photo.jpg'){heldSource=true;await env.HOLD_SOURCE_READ.fetch('http://local-fixture/read-barrier');}return original.get(key);},put:original.put.bind(original)};
+   super(ctx,{...env,MEDIA:media});
+  }
+   async seedUnknown(){this.ctx.storage.sql.exec("INSERT INTO local_render_admission VALUES(1,'interrupted','owner','uncertain','active',1,NULL,NULL)");await this.ctx.storage.sync();return this.admissionReceipt();}
+  };\n`;
+  const result=await build({stdin:{contents:source,resolveDir:__dirname,sourcefile:'private-draft-worker.mjs'},outfile:path.join(directory,'worker.mjs'),bundle:true,format:'esm',platform:'browser',external:['./resvg.wasm','cloudflare:workers'],loader:{'.png':'binary','.ttf':'binary'},metafile:true});
   assert.ok(!Object.keys(result.metafile.inputs).some(name=>/node:|normalization\.mjs|test\/helpers/.test(name)),'Worker bundle must exclude Node-only helpers');
   return directory;
  })();
  return bundled;
 }
-async function setup(t,{enabled=true,holdSource=false}={}){
+async function setup(t,{enabled=true,holdSource=false,executor=true}={}){
  const directory=await bundle(),outbound=[];
  let notifySource,releaseSource;const sourceEntered=new Promise(resolve=>notifySource=resolve),sourceReleased=new Promise(resolve=>releaseSource=resolve);
- const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'private-draft-local',modulesRoot:directory,modules:[{type:'ESModule',path:path.join(directory,'worker.mjs')},{type:'CompiledWasm',path:path.join(directory,'resvg.wasm')}],compatibilityDate:'2026-05-01',bindings:enabled?{LOCAL_RENDER_REHEARSAL:'true'}:{},d1Databases:{DB:'private-draft-local'},r2Buckets:{MEDIA:'private-draft-local'},kvNamespaces:{SESSIONS:'private-sessions-local'},serviceBindings:holdSource?{HOLD_SOURCE_READ:async()=>{notifySource();await sourceReleased;return new Response('Local release');}}:{},outboundService:async request=>{outbound.push(request.url);return new Response('Outbound disabled',{status:503});}}],cf:false,host:'127.0.0.1',port:0}));
+ const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'private-draft-local',modulesRoot:directory,modules:[{type:'ESModule',path:path.join(directory,'worker.mjs')},{type:'CompiledWasm',path:path.join(directory,'resvg.wasm')}],compatibilityDate:'2026-05-01',durableObjects:executor?{RENDER_EXECUTOR:{className:'FixtureExecutor',useSQLite:true}}:{},bindings:enabled?{LOCAL_RENDER_REHEARSAL:'true'}:{},d1Databases:{DB:'private-draft-local'},r2Buckets:{MEDIA:'private-draft-local'},kvNamespaces:{SESSIONS:'private-sessions-local'},serviceBindings:holdSource?{HOLD_SOURCE_READ:async()=>{notifySource();await sourceReleased;return new Response('Local release');}}:{},outboundService:async request=>{outbound.push(request.url);return new Response('Outbound disabled',{status:503});}}],cf:false,host:'127.0.0.1',port:0}));
  t.after(()=>mf.dispose());t.after(()=>assert.deepEqual(outbound,[]));
+ const admissionNamespace=executor?await mf.getDurableObjectNamespace('RENDER_EXECUTOR'):null,admission=admissionNamespace?.get(admissionNamespace.idFromName('anejo-local-editorial-executor'));
  const db=await mf.getD1Database('DB'),media=await mf.getR2Bucket('MEDIA'),sessions=await mf.getKVNamespace('SESSIONS');
  const {ownerEnv}=await import('../../test/helpers/sqlite-d1.js'),fixture=ownerEnv();let schema;
  try{schema=['staff','inference_receipts','social_posts','social_post_media'].map(name=>fixture.DB.one("SELECT sql FROM sqlite_master WHERE type='table' AND name=?",name).sql+';').join('\n');}finally{fixture.DB.sqlite.close();}
@@ -64,7 +65,7 @@ async function setup(t,{enabled=true,holdSource=false}={}){
   return {response,json:await response.json()};
  };
  const counts=async()=>({jobs:(await db.prepare('SELECT count(*) AS n FROM prototype_render_jobs').first()).n,versions:(await db.prepare('SELECT count(*) AS n FROM prototype_source_versions').first()).n,keys:(await media.list()).objects.map(o=>o.key).sort()});
- return {db,media,sessions,source,sourceKey,sourceSha256,body,postRevision,request,counts,sourceEntered,releaseSource};
+ return {admission,db,media,sessions,source,sourceKey,sourceSha256,body,postRevision,request,counts,sourceEntered,releaseSource};
 }
 
 test('local execution refuses missing rehearsal binding without creating artifacts',{timeout:20000},async t=>{
@@ -82,7 +83,7 @@ test('real Worker auth/origin/body rejection precedes source and job writes',{ti
  assert.equal((await f.db.prepare("SELECT revision FROM prototype_draft_versions WHERE post_id='post'").first()).revision,f.postRevision);
  const post=await f.db.prepare("SELECT * FROM social_posts WHERE id='post'").first();assert.equal(post.audit_score,7);assert.equal(post.original_caption_hash,'old-caption');
 });
-test('one local isolate refuses overlap and releases reservation for the next exact draft execution',{timeout:30000},async t=>{
+test('server-selected durable executor refuses overlap and releases reservation for the next exact draft execution',{timeout:30000},async t=>{
  const f=await setup(t,{holdSource:true}),a={...f.body,requestId:'concurrent-A'},b={...f.body,requestId:'concurrent-B'};
  const first=f.request({value:a});let timer;
  await Promise.race([f.sourceEntered,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Local source barrier timed out')),5000);})]).finally(()=>clearTimeout(timer));
@@ -118,4 +119,17 @@ for(const actor of ['owner','marketing'])for(const templateId of ['reposado-wide
  const post=await f.db.prepare("SELECT * FROM social_posts WHERE id='post'").first();assert.equal(post.status,'draft');for(const field of ['scheduled_at','audit_score','audit_status','original_caption_hash','original_design_snapshot'])assert.equal(post[field],null);
  assert.equal((await f.db.prepare("SELECT revision FROM prototype_draft_versions WHERE post_id='post'").first()).revision,f.postRevision+2);
  const after=await f.counts(),retry=await f.request({token:'fixture-'+actor,value});assert.equal(retry.response.status,200);assert.equal(retry.json.state,'already_rendered');assert.equal(retry.json.attachment,'unverified');assert.equal(retry.json.publicationApproved,false);assert.deepEqual(await f.counts(),after);
+});
+
+test('uncertain durable execution blocks entire authenticated pipeline without draft or artifact changes',{timeout:20000},async t=>{
+ const f=await setup(t),before=await f.counts(),receipt=await f.admission.seedUnknown();
+ assert.equal(receipt.started_at,1);
+ for(const requestId of ['uncertain','replacement']){const result=await f.request({value:{...f.body,requestId}});assert.equal(result.response.status,409);assert.equal(result.json.error,'private_render_active_unknown');}
+ assert.deepEqual(await f.counts(),before);const after=await f.admission.admissionReceipt();assert.equal(after.token,receipt.token);assert.equal(after.state,'active');assert.equal(after.started_at,1);assert.equal(after.settled_at,null);
+ const post=await f.db.prepare("SELECT status,audit_score FROM social_posts WHERE id='post'").first();assert.equal(post.status,'draft');assert.equal(post.audit_score,7);
+});
+
+test('missing durable binding refuses execution without per-isolate fallback',{timeout:20000},async t=>{
+ const f=await setup(t,{executor:false}),before=await f.counts(),result=await f.request();
+ assert.equal(result.response.status,503);assert.equal(result.json.error,'executor_unavailable');assert.deepEqual(await f.counts(),before);
 });

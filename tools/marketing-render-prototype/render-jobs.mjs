@@ -52,36 +52,50 @@ function job(row) {
     errorCode: row.error_code };
 }
 
+// Optional trusted execution scope. No timeout races: every dispatched operation
+// is awaited through settlement before a refusal is returned.
+function execution(deadline,at=Date.now()) {
+  const expiresAt=deadline===undefined?null:integer(deadline?.expiresAt,'execution_deadline',1);
+  let expired=false;
+  const check=stage=>{if(expiresAt===null)return;try{deadline.check?.(stage);}catch(error){expired=true;throw error;}
+    if(Date.now()>=expiresAt)expired=true;if(expired)throw new RenderJobError('execution_deadline_expired');};
+  return {sql:'(? IS NULL OR MAX(?,CAST(unixepoch(\'subsec\')*1000 AS INTEGER))<?)',args:[expiresAt,at,expiresAt||0],
+    async dispatch(stage,operation){check(stage);try{return await operation();}finally{check(stage);}}};
+}
+
 export function createRenderJobStore(db) {
   if (!db || typeof db.prepare !== 'function') throw new RenderJobError('invalid_database');
   const first = (sql, ...args) => db.prepare(sql).bind(...args).first();
   const run = (sql, ...args) => db.prepare(sql).bind(...args).run();
   const identity = (actorId, id) => [string(actorId, 'actorId', 256), string(id, 'id', 256)];
   return Object.freeze({
-    async enqueue({ actorId, requestId, descriptor, now }) {
+    async enqueue({ actorId, requestId, descriptor, now, deadline }) {
+      const scope=execution(deadline,now);
       identity(actorId, requestId); integer(now, 'now');
       const descriptorJson = JSON.stringify(canonicalDescriptor(descriptor));
       // Canonical fixed-order fields bind the exact source/render/template/options request.
-      const fingerprint = Array.from(new Uint8Array(await globalThis.crypto.subtle.digest(
-        'SHA-256', new TextEncoder().encode(descriptorJson))), byte => byte.toString(16).padStart(2, '0')).join('');
-      const inserted = await first(`INSERT INTO prototype_render_jobs
+      const fingerprint = Array.from(new Uint8Array(await scope.dispatch('job_fingerprint',()=>globalThis.crypto.subtle.digest(
+        'SHA-256', new TextEncoder().encode(descriptorJson)))), byte => byte.toString(16).padStart(2, '0')).join('');
+      const inserted = await scope.dispatch('job_enqueue',()=>first(`INSERT INTO prototype_render_jobs
         (id, actor_id, request_id, fingerprint, descriptor_json, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, 'queued', ?, ?)
+        SELECT ?, ?, ?, ?, ?, 'queued', ?, ? WHERE ${scope.sql}
         ON CONFLICT(actor_id, request_id) DO NOTHING RETURNING *`,
-      globalThis.crypto.randomUUID(), actorId, requestId, fingerprint, descriptorJson, now, now);
+      globalThis.crypto.randomUUID(), actorId, requestId, fingerprint, descriptorJson, now, now,...scope.args));
       if (inserted) return { job: job(inserted), replayed: false };
-      const existing = await first('SELECT * FROM prototype_render_jobs WHERE actor_id = ? AND request_id = ?', actorId, requestId);
+      const existing = await scope.dispatch('job_replay_read',()=>first(`SELECT * FROM prototype_render_jobs WHERE actor_id = ? AND request_id = ? AND ${scope.sql}`, actorId, requestId,...scope.args));
       if (!existing) throw new RenderJobError('enqueue_conflict_missing');
       // Compare canonical bytes as well as hash: even a hash collision must not reuse a job.
       if (existing.fingerprint !== fingerprint || existing.descriptor_json !== descriptorJson)
         throw new RenderJobError('request_conflict');
       return { job: job(existing), replayed: true };
     },
-    async get({ actorId, jobId }) {
+    async get({ actorId, jobId, deadline }) {
+      const scope=execution(deadline);
       identity(actorId, jobId);
-      return job(await first('SELECT * FROM prototype_render_jobs WHERE actor_id = ? AND id = ?', actorId, jobId));
+      return job(await scope.dispatch('job_get',()=>first('SELECT * FROM prototype_render_jobs WHERE actor_id = ? AND id = ?', actorId, jobId)));
     },
-    async claim({ actorId, jobId, now, leaseMs }) {
+    async claim({ actorId, jobId, now, leaseMs, deadline }) {
+      const scope=execution(deadline,now);
       string(actorId, 'actorId', 256); integer(now, 'now'); integer(leaseMs, 'leaseMs', 1);
       const target = jobId === undefined ? null : string(jobId, 'id', 256);
       if (leaseMs > 300_000) throw new RenderJobError('invalid_leaseMs');
@@ -89,38 +103,40 @@ export function createRenderJobStore(db) {
       // An authenticated execution request supplies jobId. Omitting it preserves the
       // internal oldest-job queue behavior; never select another job for an exact request.
       // Expired final attempts become terminal only inside this actor/target scope.
-      await run(`UPDATE prototype_render_jobs SET status = 'dead', lease_token = NULL,
+      await scope.dispatch('job_expired_cleanup',()=>run(`UPDATE prototype_render_jobs SET status = 'dead', lease_token = NULL,
         lease_until = NULL, updated_at = ?, error_code = 'lease_expired_attempt_limit'
-        WHERE actor_id = ? AND (? IS NULL OR id = ?) AND status = 'rendering' AND lease_until <= ? AND attempts >= ?`, now, actorId, target, target, now, MAX_ATTEMPTS);
+        WHERE actor_id = ? AND (? IS NULL OR id = ?) AND status = 'rendering' AND lease_until <= ? AND attempts >= ? AND ${scope.sql}`, now, actorId, target, target, now, MAX_ATTEMPTS,...scope.args));
       // Selection and claim are one atomic statement, including recovery of expired leases.
-      return job(await first(`UPDATE prototype_render_jobs SET status = 'rendering',
+      return job(await scope.dispatch('job_claim',()=>first(`UPDATE prototype_render_jobs SET status = 'rendering',
         attempts = attempts + 1, lease_token = ?, lease_until = ?, updated_at = ?, error_code = NULL
         WHERE id = (SELECT id FROM prototype_render_jobs WHERE actor_id = ? AND (? IS NULL OR id = ?) AND attempts < ?
           AND (status IN ('queued','failed') OR (status = 'rendering' AND lease_until <= ?))
-          ORDER BY created_at, id LIMIT 1)
+          AND ${scope.sql} ORDER BY created_at, id LIMIT 1)
         AND actor_id = ? AND (? IS NULL OR id = ?) AND attempts < ?
-        AND (status IN ('queued','failed') OR (status = 'rendering' AND lease_until <= ?)) RETURNING *`,
-      globalThis.crypto.randomUUID(), until, now, actorId, target, target, MAX_ATTEMPTS, now, actorId, target, target, MAX_ATTEMPTS, now));
+        AND (status IN ('queued','failed') OR (status = 'rendering' AND lease_until <= ?)) AND ${scope.sql} RETURNING *`,
+      globalThis.crypto.randomUUID(), until, now, actorId, target, target, MAX_ATTEMPTS, now,...scope.args, actorId, target, target, MAX_ATTEMPTS, now,...scope.args)));
     },
-    async complete({ actorId, jobId, leaseToken, receipt, now }) {
+    async complete({ actorId, jobId, leaseToken, receipt, now, deadline }) {
+      const scope=execution(deadline,now);
       identity(actorId, jobId); string(leaseToken, 'leaseToken', 256); integer(now, 'now');
       const receiptJson = JSON.stringify(canonicalReceipt(receipt));
-      const updated = await first(`UPDATE prototype_render_jobs SET status = 'rendered',
+      const updated = await scope.dispatch('job_mutation',()=>first(`UPDATE prototype_render_jobs SET status = 'rendered',
         receipt_json = ?, lease_token = NULL, lease_until = NULL, updated_at = ?, error_code = NULL
-        WHERE actor_id = ? AND id = ? AND status = 'rendering' AND lease_token = ? AND lease_until > ? RETURNING *`,
-      receiptJson, now, actorId, jobId, leaseToken, now);
+        WHERE actor_id = ? AND id = ? AND status = 'rendering' AND lease_token = ? AND lease_until > ? AND ${scope.sql} RETURNING *`,
+      receiptJson, now, actorId, jobId, leaseToken, now,...scope.args));
       if (!updated) throw new RenderJobError('lease_not_live');
       return job(updated);
     },
-    async fail({ actorId, jobId, leaseToken, errorCode, now }) {
+    async fail({ actorId, jobId, leaseToken, errorCode, now, deadline }) {
+      const scope=execution(deadline,now);
       identity(actorId, jobId); string(leaseToken, 'leaseToken', 256); integer(now, 'now');
       if (typeof errorCode !== 'string' || !/^[a-z][a-z0-9_]{0,63}$/u.test(errorCode))
         throw new RenderJobError('invalid_errorCode');
-      const updated = await first(`UPDATE prototype_render_jobs
+      const updated = await scope.dispatch('job_mutation',()=>first(`UPDATE prototype_render_jobs
         SET status = CASE WHEN attempts >= ? THEN 'dead' ELSE 'failed' END,
         error_code = ?, lease_token = NULL, lease_until = NULL, updated_at = ?
-        WHERE actor_id = ? AND id = ? AND status = 'rendering' AND lease_token = ? AND lease_until > ? RETURNING *`,
-      MAX_ATTEMPTS, errorCode, now, actorId, jobId, leaseToken, now);
+        WHERE actor_id = ? AND id = ? AND status = 'rendering' AND lease_token = ? AND lease_until > ? AND ${scope.sql} RETURNING *`,
+      MAX_ATTEMPTS, errorCode, now, actorId, jobId, leaseToken, now,...scope.args));
       if (!updated) throw new RenderJobError('lease_not_live');
       return job(updated);
     },

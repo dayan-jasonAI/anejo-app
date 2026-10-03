@@ -1,4 +1,5 @@
 // Actual local workerd D1/R2 bindings; Node invokes module, not a deployed Worker.
+const {setTimeout:delay}=require('node:timers/promises');
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
 const {Miniflare,convertV4MiniflareOptions}=require('../../node_modules/miniflare');
 async function setup(t){
@@ -105,4 +106,31 @@ test('bounded reader refuses excessive empty chunks without waiting on cancellat
  const body=new ReadableStream({pull(controller){controller.enqueue(new Uint8Array());},cancel(){cancelled=true;return new Promise(()=>{});}});
  const media=f.wrapMedia({get:async()=>({size:100,body,customMetadata:{}})});
  await rejects(f.captureSourceVersion({...f.input,media}),'bounded_source_read_refused');assert.equal(cancelled,true);assert.equal((await f.rows()).results.length,0);
+});
+
+async function clockDeadline(){const {createExecutionDeadline}=await import('./execution-deadline.mjs');let clock=Date.now();const deadline=createExecutionDeadline({now:()=>clock,budgetMs:30000});return {deadline,expire:()=>{clock=deadline.expiresAt;}};}
+const expired=promise=>assert.rejects(promise,e=>e.message==='execution_deadline_exceeded');
+test('deadline after source get stops body read and reservation',{timeout:20000},async t=>{
+ const f=await setup(t),clock=await clockDeadline();let bodyReads=0;
+ const media=f.wrapMedia({get:async key=>{const object=await f.media.get(key);clock.expire();return {size:object.size,customMetadata:object.customMetadata,httpMetadata:object.httpMetadata,body:{getReader(){bodyReads++;return object.body.getReader();}}};}});
+ await expired(f.captureSourceVersion({...f.input,media,deadline:clock.deadline}));assert.equal(bodyReads,0);assert.equal((await f.rows()).results.length,0);
+});
+test('deadline after body read stops subsequent reads and reservation',{timeout:20000},async t=>{
+ const f=await setup(t),clock=await clockDeadline();let reads=0;
+ const media=f.wrapMedia({get:async key=>{const object=await f.media.get(key);const reader=object.body.getReader();return {size:object.size,customMetadata:object.customMetadata,httpMetadata:object.httpMetadata,body:{getReader:()=>({read:async()=>{reads++;const result=await reader.read();clock.expire();return result;},releaseLock:()=>reader.releaseLock()})}};}});
+ await expired(f.captureSourceVersion({...f.input,media,deadline:clock.deadline}));assert.equal(reads,1);assert.equal((await f.rows()).results.length,0);
+});
+test('deadline after ambiguous put retains pending orphan without readback or rejection',{timeout:20000},async t=>{
+ const f=await setup(t),clock=await clockDeadline();let putKey,gets=0;
+ const media=f.wrapMedia({get:async key=>{gets++;return f.media.get(key);},put:async(key,bytes,options)=>{putKey=key;await f.media.put(key,bytes,options);clock.expire();throw Error('lost acknowledgement');}});
+ await expired(f.captureSourceVersion({...f.input,media,deadline:clock.deadline}));assert.equal(gets,1);const row=(await f.rows()).results[0];assert.equal(row.state,'pending');assert.ok(await f.media.get(putKey));
+});
+test('D1 execution clock rejects expired reservation independently of a permissive caller clock',{timeout:20000},async t=>{
+ const f=await setup(t);const deadline={expiresAt:Date.now()-1,check(){}};
+ await rejects(f.captureSourceVersion({...f.input,deadline}),'source_version_reservation_unverified');assert.equal((await f.rows()).results.length,0);
+});
+test('D1 delayed confirmation cannot confirm past execution deadline',{timeout:20000},async t=>{
+ const f=await setup(t),expiresAt=Date.now()+2500;let delayed=false;
+ const db={prepare(sql){const statement=f.db.prepare(sql);return {bind(...args){const bound=statement.bind(...args);return {first:()=>bound.first(),run:async()=>{if(sql.includes("SET state='confirmed'")){delayed=true;await delay(Math.max(0,expiresAt-Date.now()+25));}return bound.run();}};}};}};
+ await rejects(f.captureSourceVersion({...f.input,db,deadline:{expiresAt,check(){}}}),'source_version_confirmation_unverified');assert.equal(delayed,true);assert.equal((await f.rows()).results[0].state,'pending');
 });

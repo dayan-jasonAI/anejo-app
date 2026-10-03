@@ -87,3 +87,23 @@ test('local D1/R2 consumer renders confirmed version even after mutable original
  const original=await f.media.get(f.sourceKey);assert.deepEqual(new Uint8Array(await original.arrayBuffer()),changed);
  const copy=await f.media.get(f.captured.version.versionKey);assert.deepEqual(new Uint8Array(await copy.arrayBuffer()),f.source);
 });
+
+test('actual local D1 execution deadline rolls back a queued batch while its job lease remains live',{timeout:20000},async t=>{
+ const f=await setup(t),batch=f.db.batch.bind(f.db);let expiresAt=Date.now()+10000;
+ // Pick a deadline comfortably beyond rendering; wait inside dispatch until it
+ // expires. This isolates the DB execution clock from the still-live job lease.
+ const deadline={get expiresAt(){return expiresAt;}};
+ const wrapped={prepare:f.db.prepare.bind(f.db),batch:async statements=>{
+  const delay=Math.max(0,expiresAt-Date.now()+30);await new Promise(resolve=>setTimeout(resolve,delay));
+  return batch(statements);
+ }};
+ expiresAt=Date.now()+1000;
+ const result=await f.consumePrivateRender({...f.input,db:wrapped,deadline});
+ assert.equal(result.state,'commit_unknown');assert.equal(result.attached,'unverified');
+ assert.equal((await f.db.prepare("SELECT media_key FROM social_post_media WHERE id='local-slide'").first()).media_key,f.sourceKey);
+ assert.equal((await f.db.prepare("SELECT audit_score FROM social_posts WHERE id='local-post'").first()).audit_score,7);
+ assert.equal((await f.db.prepare("SELECT revision FROM prototype_draft_versions WHERE post_id='local-post'").first()).revision,f.enqueued.job.descriptor.postRevision);
+ assert.equal((await f.db.prepare('SELECT count(*) AS n FROM prototype_render_guards').first()).n,0);
+ const job=await f.store.get({actorId:'local-owner',jobId:f.enqueued.job.id});assert.equal(job.status,'rendering');assert.ok(job.leaseUntil>Date.now());
+ assert.ok(await f.media.get(result.outputKey));
+});
