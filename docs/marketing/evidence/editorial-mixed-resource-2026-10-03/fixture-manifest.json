@@ -1,0 +1,159 @@
+{
+  "generatedAt": "2026-10-03T10:17:21.308Z",
+  "provenance": "Deterministic synthetic pixel arrays only; no customer assets or network calls.",
+  "fixtures": [
+    {
+      "file": "square.jpg",
+      "bytes": 1033933,
+      "sha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+      "shape": "square",
+      "width": 2000,
+      "height": 2000,
+      "pixels": 4000000,
+      "mime": "image/jpeg",
+      "expected": "accepted"
+    },
+    {
+      "file": "square.png",
+      "bytes": 1032104,
+      "sha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+      "shape": "square",
+      "width": 2000,
+      "height": 2000,
+      "pixels": 4000000,
+      "mime": "image/png",
+      "expected": "accepted"
+    },
+    {
+      "file": "square-exact-5mib.png",
+      "bytes": 5242880,
+      "sha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+      "shape": "square",
+      "width": 2000,
+      "height": 2000,
+      "pixels": 4000000,
+      "mime": "image/png",
+      "expected": "accepted",
+      "note": "Valid synthetic PNG with ignored tEXt ancillary chunk; exactly 5 MiB."
+    },
+    {
+      "file": "landscape.jpg",
+      "bytes": 1028735,
+      "sha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+      "shape": "landscape",
+      "width": 2304,
+      "height": 1728,
+      "pixels": 3981312,
+      "mime": "image/jpeg",
+      "expected": "accepted"
+    },
+    {
+      "file": "landscape.png",
+      "bytes": 1031547,
+      "sha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+      "shape": "landscape",
+      "width": 2304,
+      "height": 1728,
+      "pixels": 3981312,
+      "mime": "image/png",
+      "expected": "accepted"
+    },
+    {
+      "file": "portrait.jpg",
+      "bytes": 1028800,
+      "sha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+      "shape": "portrait",
+      "width": 1728,
+      "height": 2304,
+      "pixels": 3981312,
+      "mime": "image/jpeg",
+      "expected": "accepted"
+    },
+    {
+      "file": "portrait.png",
+      "bytes": 1026650,
+      "sha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+      "shape": "portrait",
+      "width": 1728,
+      "height": 2304,
+      "pixels": 3981312,
+      "mime": "image/png",
+      "expected": "accepted"
+    },
+    {
+      "file": "ultrawide.jpg",
+      "bytes": 1033549,
+      "sha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+      "shape": "ultrawide",
+      "width": 4000,
+      "height": 1000,
+      "pixels": 4000000,
+      "mime": "image/jpeg",
+      "expected": "accepted"
+    },
+    {
+      "file": "ultrawide.png",
+      "bytes": 1036159,
+      "sha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+      "shape": "ultrawide",
+      "width": 4000,
+      "height": 1000,
+      "pixels": 4000000,
+      "mime": "image/png",
+      "expected": "accepted"
+    },
+    {
+      "file": "ultratall.jpg",
+      "bytes": 1034144,
+      "sha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+      "shape": "ultratall",
+      "width": 1000,
+      "height": 4000,
+      "pixels": 4000000,
+      "mime": "image/jpeg",
+      "expected": "accepted"
+    },
+    {
+      "file": "ultratall.png",
+      "bytes": 1028186,
+      "sha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+      "shape": "ultratall",
+      "width": 1000,
+      "height": 4000,
+      "pixels": 4000000,
+      "mime": "image/png",
+      "expected": "accepted"
+    },
+    {
+      "file": "oversize.bin",
+      "bytes": 5242881,
+      "sha256": "70d03e988abedf763ba2c98f1864b7c0f4640387636e3a26a760c43456a4559c",
+      "expected": "413 before raster",
+      "mime": "image/jpeg"
+    },
+    {
+      "file": "unsupported.bin",
+      "bytes": 27,
+      "sha256": "bf5b07e6ae47424e2b3f3e9753208b4d39d99f809ccc36714333ecd083e3c0d3",
+      "expected": "422 before raster",
+      "mime": "image/jpeg"
+    },
+    {
+      "file": "over-pixel-limit.png",
+      "bytes": 24,
+      "sha256": "18aba12df835ad7b6b516465afcc88f3eb5e1e0608d443c84c931b1f7cf59459",
+      "expected": "422 before raster",
+      "mime": "image/png",
+      "width": 4096,
+      "height": 4096,
+      "pixels": 16777216
+    },
+    {
+      "file": "empty.bin",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "expected": "400 before raster",
+      "mime": "image/jpeg"
+    }
+  ]
+}
