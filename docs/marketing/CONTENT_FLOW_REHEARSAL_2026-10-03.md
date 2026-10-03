@@ -9,3 +9,7 @@ Important limits: injected judge proves transport, not model accuracy. Local res
 Root2/2 continuous scenarios pass, full3,547/3,547 tests pass, lint0errors11existingwarnings, diffcheckclean. Logs in evidence/content-flow-2026-10-03. CI Functions now installs the already-locked renderer dependencies before roottests so clean checkout can execute this integration; no runtime dependency/publishing configuration changed. Release checks for this test increment remain pending. No production content record or human approval was created.
 
 Next add planner/strategy linkage using explicit provider fixtures and reviewed source snapshots, then independently accept the real owner browser workflow once provider errors are resolved. Full original goal stays open; this closes a local integration evidence gap only.
+
+## Release receipt — October3
+
+PR191 exact head a873ccd5810bc4dce434dca4e936d05a07bce73c passed Functions, Studio, renderer and Pages checks (run37114094012). Root merged e189398e2b30125aba8dd2034b8b47cb877eb2ff. Current Pages inventory lists production b67167da-1923-46e1-a510-3300b2fc9b0a/source e189398. This release adds continuous local tests and locked CI prerequisites; it does not turn the local renderer into a production service or prove live semantic audit success. No production content record changed.

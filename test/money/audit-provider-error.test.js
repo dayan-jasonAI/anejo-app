@@ -36,7 +36,13 @@ for(const [message,classification] of [
  ['thinking: unsupported','request_parameter'],
  ['The parameter `temperature` is invalid','request_parameter'],
  ['max_tokens is not supported','request_parameter'],
- ['Invalid thinking configuration','request_parameter']
+ ['Invalid thinking configuration','request_parameter'],
+ ['thinking.type: invalid value','request_parameter'],
+ ['thinking: disabled is not supported','request_parameter'],
+ ['max_tokens: must be greater than thinking.budget_tokens','request_parameter'],
+ ['max_tokens: must not exceed 8192','request_parameter'],
+ ['temperature: must be less than or equal to 1','request_parameter'],
+ ['temperature: value must be between 0 and 1','request_parameter']
 ])test('explicit future diagnostic classification '+classification+': '+message,async()=>{
  const result=await auditProviderError(response(message),'visual');
  assert.equal(result.classification,classification);assert.equal(result.classification_basis,'provider_diagnostic_inference');
@@ -51,7 +57,9 @@ test('new diagnostic categories reject negated, unrelated and vague text',async(
   'Example. Invalid temperature','Payment required? No, that diagnostic is unrelated','Invalid temperature. This is not the cause',
   'temperature is not invalid','max_tokens is supported','thinking is not unsupported','Invalid temperature is not the cause',
   'There is no unsupported max_tokens parameter','The prompt discusses unsupported thinking','Unfamiliar diagnostic',
-  'Invalid temperature_sensor','Unsupported max_tokens_extra','Invalid value for thinking_mode'
+  'Invalid temperature_sensor','Unsupported max_tokens_extra','Invalid value for thinking_mode',
+  'max_tokens: must not exceed 8192 is not the cause','thinking.type is supported','thinking: disabled is supported',
+  'temperature: must be awesome','max_tokens: user prefers less than or equal limits, but no error occurred'
  ])assert.equal((await auditProviderError(response(message),'visual')).classification,'unknown',message);
 });
 test('existing classification precedence survives new diagnostic categories',async()=>{

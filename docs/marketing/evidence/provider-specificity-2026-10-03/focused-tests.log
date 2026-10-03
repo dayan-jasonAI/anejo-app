@@ -1,0 +1,77 @@
+(node:85801) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/audit-provider-error.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ classifies provider diagnostic inference schema_complexity: JSON schema is too complex (15.12725ms)
+✔ classifies provider diagnostic inference schema_complexity: Schema is too complex for compilation (0.314042ms)
+✔ classifies provider diagnostic inference schema_complexity: Schema complexity exceeds budget (0.135875ms)
+✔ classifies provider diagnostic inference schema_constraint: Unsupported constraint maxLength in schema (0.326541ms)
+✔ classifies provider diagnostic inference schema_constraint: output_config.format.schema: invalid schema keyword (0.349833ms)
+✔ classifies provider diagnostic inference schema_constraint: maxItems is not supported (0.856875ms)
+✔ classifies provider diagnostic inference model: Model does not exist (1.020084ms)
+✔ classifies provider diagnostic inference model: Unknown model requested (0.983167ms)
+✔ classifies provider diagnostic inference image_request_size: Image exceeds maximum size of 5 MB (0.340875ms)
+✔ classifies provider diagnostic inference image_request_size: request body is too large (0.362542ms)
+✔ classifies provider diagnostic inference image_request_size: Invalid image format (0.228167ms)
+✔ classifies provider diagnostic inference context: Prompt is too long (0.295375ms)
+✔ classifies provider diagnostic inference context: Context length exceeded (0.158958ms)
+✔ classifies provider diagnostic inference auth: Invalid API key (0.2035ms)
+✔ classifies provider diagnostic inference rate_limit: Too many requests (0.336208ms)
+✔ classifies provider diagnostic inference unknown: Unfamiliar diagnostic (2.150333ms)
+✔ explicit future diagnostic classification billing: Your credit balance is too low to access the API. Please add credits. (1.423875ms)
+✔ explicit future diagnostic classification billing: Insufficient credits (0.128292ms)
+✔ explicit future diagnostic classification billing: Credit balance is exhausted (0.084583ms)
+✔ explicit future diagnostic classification billing: Payment required (0.071667ms)
+✔ explicit future diagnostic classification billing: Payment was declined (0.059792ms)
+✔ explicit future diagnostic classification billing: Payment method has been rejected (0.06375ms)
+✔ explicit future diagnostic classification request_parameter: Invalid value for temperature: 2 (0.507083ms)
+✔ explicit future diagnostic classification request_parameter: Unsupported parameter: max_tokens (0.05725ms)
+✔ explicit future diagnostic classification request_parameter: thinking: unsupported (0.053833ms)
+✔ explicit future diagnostic classification request_parameter: The parameter `temperature` is invalid (0.052042ms)
+✔ explicit future diagnostic classification request_parameter: max_tokens is not supported (0.041625ms)
+✔ explicit future diagnostic classification request_parameter: Invalid thinking configuration (0.042875ms)
+✔ explicit future diagnostic classification request_parameter: thinking.type: invalid value (0.042625ms)
+✔ explicit future diagnostic classification request_parameter: thinking: disabled is not supported (0.463583ms)
+✔ explicit future diagnostic classification request_parameter: max_tokens: must be greater than thinking.budget_tokens (0.049125ms)
+✔ explicit future diagnostic classification request_parameter: max_tokens: must not exceed 8192 (0.040834ms)
+✔ explicit future diagnostic classification request_parameter: temperature: must be less than or equal to 1 (0.096083ms)
+✔ explicit future diagnostic classification request_parameter: temperature: value must be between 0 and 1 (0.101334ms)
+✔ new diagnostic categories reject negated, unrelated and vague text (2.353ms)
+✔ existing classification precedence survives new diagnostic categories (0.978916ms)
+✔ new diagnostic classifications cannot expose provider text or arbitrary fields (0.356417ms)
+✔ closed output cannot leak arbitrary provider fields, prompt or secrets (0.193166ms)
+✔ only allowlisted error types survive (0.474542ms)
+✔ safe request id survives; header injection and oversized ids do not (0.228625ms)
+✔ missing and empty body are explicit and safe (0.065375ms)
+✔ malformed JSON and malformed UTF8 never escape body contents (0.147792ms)
+✔ oversized first chunk is rejected without a second read (0.072917ms)
+✔ stream cap applies to cumulative chunks and accepts exactly 16KiB (0.214334ms)
+✔ throwing reads, body access and unavailable readers stay bounded and private (0.069125ms)
+✔ invalid stream chunks, failed header access and failed cleanup do not throw (0.0665ms)
+✔ HTTP type classifications are diagnostic inference and status/stage inputs cannot leak (0.128958ms)
+✔ empty chunks cannot accumulate unbounded retained objects (0.1275ms)
+✔ total streamed-read deadline closes a never-resolving read without waiting for cancellation (1001.313875ms)
+✔ a partial body shares the same total deadline instead of resetting it for each read (1001.998875ms)
+(node:85802) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/ui/marketing-audit-evidence.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ current requirements display evidence and optional suggestions without implying publishing permission (0.6715ms)
+✔ stale or missing source binding cannot display a current pass (0.139125ms)
+✔ unavailable audit stays unavailable even if stale cached score says pass (0.085583ms)
+✔ model-supplied evidence and suggestions are escaped (0.108875ms)
+✔ legacy score and never audited are distinct (0.057167ms)
+✔ rejected diagnostic is escaped and distinguished from a verified design defect (0.08ms)
+✔ partial audit retains requirement counts but never renders pass even with stale pass status (0.079292ms)
+✔ invalid evidence UI exposes bounded escaped field issue and measured limits (0.09725ms)
+✔ structured claim explanation retains original reasoning visibly unverified and escaped (0.115167ms)
+✔ audit shows declared AI history without presenting missing metadata as authentic (0.240792ms)
+✔ provider diagnosis stays unavailable, bounded and escaped without blaming artwork (0.1085ms)
+ℹ tests 61
+ℹ suites 0
+ℹ pass 61
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2095.935667

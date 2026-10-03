@@ -5,11 +5,12 @@ const ERROR_TYPES=new Set(['invalid_request_error','authentication_error','permi
 function explicitDiagnostic(message){
  // Only direct diagnostic clauses qualify. Reject negated, quoted-example and
  // explanatory text instead of guessing from a parameter or billing keyword.
- if(/\b(?:not(?! supported\b)|no|never|isn't|isn’t|wasn't|wasn’t|example|hypothetical|unrelated|rather than)\b/iu.test(message))return 'unknown';
- for(const clause of message.split(/[\n.!?;]/u)){
+ if(/\b(?:(?<!must )not(?! supported\b)|no|never|isn't|isn’t|wasn't|wasn’t|example|hypothetical|unrelated|rather than)\b/iu.test(message))return 'unknown';
+ for(const clause of message.split(/[\n;]|[.!?](?:\s|$)/u)){
   const text=clause.trim();
   if(/^(?:your |the )?credit balance (?:is |was )?(?:too low|insufficient|exhausted|depleted|zero)\b|^(?:insufficient|exhausted|depleted) (?:credit balance|credits)\b|^payment (?:method )?(?:is |was |has been )?(?:required|declined|refused|rejected)\b/iu.test(text))return 'billing';
-  if(/^(?:(?:the )?(?:parameter )?[`"']?(?:thinking|max_tokens|temperature)[`"']?\s*(?::|is|was)\s*(?:invalid|unsupported|not supported)\b|(?:invalid|unsupported) (?:value for (?:the )?(?:parameter )?|(?:request )?parameter\s*:?\s*)?[`"']?(?:thinking|max_tokens|temperature)\b[`"']?)/iu.test(text))return 'request_parameter';
+  if(/^(?:(?:the )?(?:parameter )?[`"']?(?:thinking(?:\.[a-z_]+)?|max_tokens|temperature)[`"']?\s*(?::|is|was)\s*(?:invalid|unsupported|not supported)\b|(?:invalid|unsupported) (?:value for (?:the )?(?:parameter )?|(?:request )?parameter\s*:?\s*)?[`"']?(?:thinking(?:\.[a-z_]+)?|max_tokens|temperature)\b[`"']?)/iu.test(text))return 'request_parameter';
+  if(/^(?:the )?(?:parameter )?[`"']?(?:thinking(?:\.[a-z_]+)?|max_tokens|temperature)[`"']?\s*:\s*.{0,80}\b(?:not supported|must be (?:a |an |one of |between |greater than |less than |at least |at most |enabled\b|disabled\b|adaptive\b|positive\b|non-negative\b|integer\b|number\b|[0-9])|must not exceed\b|less than or equal\b)/iu.test(text))return 'request_parameter';
  }
  return 'unknown';
 }
