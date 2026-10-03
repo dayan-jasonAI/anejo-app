@@ -1,0 +1,6 @@
+
+/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/normalized-source-versions.test.cjs
+  1:11  error  'Buffer' is already defined as a built-in global variable  no-redeclare
+
+✖ 1 problem (1 error, 0 warnings)
+

@@ -112,7 +112,7 @@ for(const actor of ['owner','marketing'])for(const templateId of ['reposado-wide
  const f=await setup(t),value={...f.body,options:{...f.body.options,templateId,title:templateId==='reposado-wide'?'Catering, beautifully.':'Your Cajita.'}};
  const {response,json}=await f.request({token:'fixture-'+actor,value});assert.equal(response.status,200,JSON.stringify(json));assert.equal(json.state,'attached');assert.equal(json.publicationApproved,false);assert.equal(json.humanReviewRequired,true);assert.equal(json.resourceReadiness,'unverified');
  const jobs=(await f.db.prepare('SELECT * FROM prototype_render_jobs').all()).results;assert.equal(jobs.length,1);assert.equal(jobs[0].actor_id,actor);assert.equal(jobs[0].status,'rendered');
- const descriptor=JSON.parse(jobs[0].descriptor_json);assert.equal(descriptor.rendererVersion,'local-private-worker-v3');assert.equal(descriptor.templateId,templateId);
+ const descriptor=JSON.parse(jobs[0].descriptor_json);assert.equal(descriptor.rendererVersion,'local-private-worker-v4');assert.equal(descriptor.templateId,templateId);
  const version=(await f.db.prepare('SELECT * FROM prototype_source_versions').all()).results[0];assert.equal(version.actor_id,actor);assert.equal(version.state,'confirmed');assert.equal(version.id,descriptor.sourceVersionId);
  const output=await f.media.get(json.receipt.outputKey),jpg=new Uint8Array(await output.arrayBuffer());assert.equal(output.httpMetadata.contentType,'image/jpeg');
  const {jpegDimensions,sha256}=await import('../../functions/_lib/marketing_render_receipt.js');const shape=jpegDimensions(jpg);assert.equal(shape.width,json.receipt.width);assert.equal(shape.height,json.receipt.height);assert.equal(await sha256(jpg),json.receipt.sha256);

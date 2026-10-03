@@ -21,9 +21,9 @@ async function setup(t){
  const inputSource={db,media,actorId:'owner',requestId:'original-capture',descriptor,now},captured=await sourceApi.captureSourceVersion(inputSource),sourceVersionId=captured.version.id;
  const output=png(40,20),normalizer=async bytes=>{
   const metadata=await readWorkerSourceMetadata(bytes),shape=dimensions(bytes),digest=await receiptLib.sha256(output),profileSha=metadata.profile?await receiptLib.sha256(metadata.profile):null;
-  return {bytes:output,receipt:{schema:'anejo-worker-source-normalization-v1',runtime:'local-worker-prototype',normalizerVersion:'resvg-lcms-rgba-1',kernelVersion:'lcms-wasm-1.0.5-rgb-kernel-1',originalSha256:descriptor.sourceSha256,derivativeSha256:digest,sourceProfileSha256:profileSha,sourceColorStatus:metadata.colorStatus,outputColor:'declared_srgb',conversionPerformed:Boolean(metadata.profile),originalOrientation:metadata.orientation,originalWidth:shape.width,originalHeight:shape.height,width:40,height:20,resized:false,resizePolicy:'inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha',bytes:output.length,format:'png',visualReviewRequired:true,resourceReadiness:'unverified'}};
+  return {bytes:output,receipt:{schema:'anejo-worker-source-normalization-v1',runtime:'local-worker-prototype',normalizerVersion:'resvg-lcms-rgba-2',kernelVersion:'lcms-wasm-1.0.5-rgb-kernel-1',originalSha256:descriptor.sourceSha256,derivativeSha256:digest,sourceProfileSha256:profileSha,sourceColorStatus:metadata.colorStatus,outputColor:'declared_srgb',conversionPerformed:Boolean(metadata.profile),originalOrientation:metadata.orientation,originalWidth:shape.width,originalHeight:shape.height,width:40,height:20,resized:false,resizePolicy:'inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha-max-5mib',bytes:output.length,format:'png',visualReviewRequired:true,resourceReadiness:'unverified'}};
  };
- const input={db,media,actorId:'owner',sourceVersionId,normalizerVersion:'resvg-lcms-rgba-1',normalize:normalizer,now};
+ const input={db,media,actorId:'owner',sourceVersionId,normalizerVersion:'resvg-lcms-rgba-2',normalize:normalizer,now};
  const rows=()=>db.prepare('SELECT * FROM prototype_normalized_source_versions').all(),wrapMedia=overrides=>({get:media.get.bind(media),put:media.put.bind(media),...overrides});
  return {...api,db,media,sourceApi,sourceKey,source,meta,descriptor,sourceVersionId,sourceVersion:captured.version,output,input,rows,wrapMedia,hash:receiptLib.sha256,readWorkerSourceMetadata};
 }
@@ -39,8 +39,8 @@ test('actual D1/R2 capture persists create-only PNG and confirmed read revalidat
  assert.deepEqual(new Uint8Array(await (await f.media.get(f.sourceVersion.versionKey)).arrayBuffer()),f.source);
 });
 
-test('wrong hash, version or non sRGB derivative receipt is refused before registration',{timeout:20000},async t=>{
- for(const [mutate,code] of [[r=>({...r,derivativeSha256:'0'.repeat(64)}),'normalizer_receipt_binding_invalid'],[r=>({...r,kernelVersion:'unapproved-kernel'}),'normalizer_version_mismatch'],[r=>({...r,outputColor:'assumed_srgb'}),'normalizer_receipt_binding_invalid']]){
+test('invalid receipt bindings and non-candidate dimensions are refused before registration',{timeout:20000},async t=>{
+ for(const [mutate,code] of [[r=>({...r,derivativeSha256:'0'.repeat(64)}),'normalizer_receipt_binding_invalid'],[r=>({...r,kernelVersion:'unapproved-kernel'}),'normalizer_version_mismatch'],[r=>({...r,outputColor:'assumed_srgb'}),'normalizer_receipt_binding_invalid'],[r=>({...r,width:39}),'normalizer_dimensions_invalid']]){
   const f=await setup(t),normalize=async bytes=>{const result=await f.input.normalize(bytes);return {...result,receipt:mutate(result.receipt)};};
   await rejects(f.captureNormalizedSource({...f.input,normalize} ),code);assert.equal((await f.rows()).results.length,0);
  }

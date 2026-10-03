@@ -1,0 +1,12 @@
+Evidence directory: /var/folders/jf/r_555_zn53v7_z6p_z5b2z6h0000gn/T/anejo-private-resource-kpxFmI
+(node:6875) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/helpers/sqlite-d1.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+1: square-p3-orientation-6.jpg reposado-wide status=200 verified=true
+2: square-p3-orientation-6.jpg reposado-cajita status=200 verified=true
+3: square-p3-orientation-6.jpg reposado-wide status=200 verified=true
+4: square-p3-orientation-6.jpg reposado-cajita status=200 verified=true
+5: square-p3-orientation-6.jpg reposado-wide status=200 verified=true
+6: square-p3-orientation-6.jpg reposado-cajita status=200 verified=true
+Verified 6 local requests; production resource readiness remains unverified.

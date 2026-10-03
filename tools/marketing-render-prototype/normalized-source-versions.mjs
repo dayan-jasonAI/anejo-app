@@ -6,7 +6,7 @@ import {admitSourceColor} from './source-color-admission.mjs';
 import {readWorkerSourceMetadata} from './worker-source-metadata.mjs';
 
 const LIMIT=5*1024*1024,CONTENT_TYPE='image/png';
-const NORMALIZER_VERSION='resvg-lcms-rgba-1',KERNEL_VERSION='lcms-wasm-1.0.5-rgb-kernel-1';
+const NORMALIZER_VERSION='resvg-lcms-rgba-2',KERNEL_VERSION='lcms-wasm-1.0.5-rgb-kernel-1';
 const RECEIPT_FIELDS=['schema','runtime','normalizerVersion','kernelVersion','originalSha256','derivativeSha256','sourceProfileSha256','sourceColorStatus','outputColor','conversionPerformed','originalOrientation','originalWidth','originalHeight','width','height','resized','resizePolicy','bytes','format','visualReviewRequired','resourceReadiness'];
 const text=(value,name,max=256)=>{if(typeof value!=='string'||!value||value.length>max||value.trim()!==value||/[\u0000-\u001f\u007f]/u.test(value))throw new NormalizedSourceError('invalid_'+name);return value;};
 const hashPattern=/^[a-f0-9]{64}$/;
@@ -70,10 +70,13 @@ async function validateReceipt({source,sourceMetadata,derivative,receipt,normali
  if(!(derivative instanceof Uint8Array)||derivative.length<1||derivative.length>LIMIT)throw new NormalizedSourceError('normalized_derivative_size_invalid');
  const sourceShape=dimensions(source.bytes),derivativeHash=await digest(derivative,deadline,'normalized_derivative_hash');
  const sourceProfileHash=sourceMetadata.profile?await digest(sourceMetadata.profile,deadline,'normalized_profile_hash'):null;
- if(receipt.originalSha256!==source.version.sourceSha256||receipt.derivativeSha256!==derivativeHash||receipt.sourceProfileSha256!==sourceProfileHash||receipt.sourceColorStatus!==sourceMetadata.colorStatus||receipt.originalOrientation!==sourceMetadata.orientation||receipt.originalWidth!==sourceShape.width||receipt.originalHeight!==sourceShape.height||receipt.bytes!==derivative.length||receipt.format!=='png'||receipt.outputColor!=='declared_srgb'||receipt.visualReviewRequired!==true||receipt.resourceReadiness!=='unverified'||typeof receipt.conversionPerformed!=='boolean'||receipt.conversionPerformed!==Boolean(sourceMetadata.profile)||typeof receipt.resized!=='boolean'||receipt.resizePolicy!=='inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha')throw new NormalizedSourceError('normalizer_receipt_binding_invalid');
+ if(receipt.originalSha256!==source.version.sourceSha256||receipt.derivativeSha256!==derivativeHash||receipt.sourceProfileSha256!==sourceProfileHash||receipt.sourceColorStatus!==sourceMetadata.colorStatus||receipt.originalOrientation!==sourceMetadata.orientation||receipt.originalWidth!==sourceShape.width||receipt.originalHeight!==sourceShape.height||receipt.bytes!==derivative.length||receipt.format!=='png'||receipt.outputColor!=='declared_srgb'||receipt.visualReviewRequired!==true||receipt.resourceReadiness!=='unverified'||typeof receipt.conversionPerformed!=='boolean'||receipt.conversionPerformed!==Boolean(sourceMetadata.profile)||typeof receipt.resized!=='boolean'||receipt.resizePolicy!=='inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha-max-5mib')throw new NormalizedSourceError('normalizer_receipt_binding_invalid');
  const uprightWidth=receipt.originalOrientation>=5?sourceShape.height:sourceShape.width,uprightHeight=receipt.originalOrientation>=5?sourceShape.width:sourceShape.height;
- const scale=Math.min(1,2000/uprightWidth,2000/uprightHeight),expectedWidth=Math.max(1,Math.round(uprightWidth*scale)),expectedHeight=Math.max(1,Math.round(uprightHeight*scale));
- if(receipt.width!==expectedWidth||receipt.height!==expectedHeight||receipt.resized!==(expectedWidth!==uprightWidth||expectedHeight!==uprightHeight))throw new NormalizedSourceError('normalizer_dimensions_invalid');
+ const candidates=[2000,1600,1280,1024].map(edge=>{const scale=Math.min(1,edge/uprightWidth,edge/uprightHeight);return {width:Math.max(1,Math.round(uprightWidth*scale)),height:Math.max(1,Math.round(uprightHeight*scale))};});
+ // The receipt binds one fixed retry candidate. It cannot independently prove that
+ // earlier candidates exceeded 5 MiB because the verifier does not re-encode them.
+ const expected=candidates.find(candidate=>candidate.width===receipt.width&&candidate.height===receipt.height);
+ if(!expected||receipt.resized!==(receipt.width!==uprightWidth||receipt.height!==uprightHeight))throw new NormalizedSourceError('normalizer_dimensions_invalid');
  const shape=dimensions(derivative),admission=admitSourceColor(derivative);
  if(shape.type!=='png'||shape.width!==receipt.width||shape.height!==receipt.height||admission.colorStatus!=='declared_srgb'||admission.orientation!==1)throw new NormalizedSourceError('normalized_png_contract_invalid');
  const ordered={};for(const key of RECEIPT_FIELDS)ordered[key]=receipt[key];

@@ -29,3 +29,14 @@ test('owned deadline stops normalization before dispatch and at awaited compress
  }
  assert.equal((await normalizer.normalize(source)).receipt.outputColor,'declared_srgb');
 });
+
+test('high-entropy four-megapixel JPEG reduces only derivative dimensions to meet storage bound',async()=>{
+ const W=2000,H=2000,data=Buffer.alloc(W*H*3);let seed=17;
+ for(let i=0;i<data.length;i++){seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;data[i]=seed&255;}
+ const source=new Uint8Array(await sharp(data,{raw:{width:W,height:H,channels:3}}).jpeg({quality:70}).toBuffer()),original=source.slice();
+ assert.ok(source.length<5*1024*1024);
+ const first=await normalizer.normalize(source),again=await normalizer.normalize(source),meta=await sharp(first.bytes).metadata();
+ assert.ok(first.bytes.length<=5*1024*1024);assert.ok(first.receipt.width<W);assert.equal(first.receipt.height,first.receipt.width);
+ assert.ok([1600,1280,1024].includes(first.receipt.width));assert.equal(first.receipt.resized,true);assert.equal(first.receipt.normalizerVersion,'resvg-lcms-rgba-2');
+ assert.equal(meta.width,first.receipt.width);assert.equal(meta.height,first.receipt.height);assert.deepEqual(source,original);assert.deepEqual(first.bytes,again.bytes);
+});

@@ -1,0 +1,756 @@
+{
+  "schemaVersion": "normalized-source-v4",
+  "normalizerVersion": "resvg-lcms-rgba-2",
+  "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1",
+  "recordedAt": "2026-10-03T14:58:50.959Z",
+  "scope": "local_authenticated_rehearsal",
+  "fixtureDirectory": "/var/folders/jf/r_555_zn53v7_z6p_z5b2z6h0000gn/T/anejo-v4-baseline-fixture-temqav0u",
+  "manifestSha256": "3bb91fd7e91a284827926e05628fe05fe8218ed27073849bfd21bd18a8b1a67c",
+  "baseline": {
+    "path": "/var/folders/jf/r_555_zn53v7_z6p_z5b2z6h0000gn/T/anejo-private-resource-ASdgTP/measurements.json",
+    "sha256": "de0e8da6703c4c7bf7bdb3e5749110cb8463cb4877b22eef9351c4e4f38c40b7",
+    "schemaVersion": "normalized-source-v4",
+    "normalizerVersion": "resvg-lcms-rgba-2",
+    "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1"
+  },
+  "versions": {
+    "node": "v24.16.0",
+    "workerd": "1.20260903.1",
+    "miniflare": "5.20260903.0-alpha",
+    "esbuild": "0.28.2",
+    "resvg": "2.6.2"
+  },
+  "limitations": [
+    "Client wall time is a local non-production elapsed-time observation, not deployed CPU or budget proof.",
+    "Post-response inspector JS heap samples are local non-production observations, not peak/total isolate memory.",
+    "Inspector instrumentation may affect timing and memory.",
+    "Heap/backing storage/WASM measurements must not be summed.",
+    "Local durable executor, sequential fixture requests; no deployed concurrency/backpressure or production integration proof.",
+    "Matching fixture hashes establishes this runtime comparison, not Canvas/approved-design visual parity."
+  ],
+  "wasm": {
+    "supported": false,
+    "note": "Exact unmodified handler exposes no WASM memory observation; no linear/peak allocation inferred."
+  },
+  "runs": [
+    {
+      "round": 0,
+      "fixture": "square-p3-orientation-6.jpg",
+      "sourceSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+      "sourceBytes": 593728,
+      "template": "reposado-wide",
+      "postId": "post-stress-1",
+      "sourceKey": "marketing-library/local-stress/stress-1_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T14:58:51.617Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "23c1b913-3c19-4322-8d8e-2680f400f0b8",
+        "receipt": {
+          "outputKey": "studio/local-render/23c1b913-3c19-4322-8d8e-2680f400f0b8/ea972b7f-d24c-4689-aae3-d185d0f8b9cb.jpg",
+          "sha256": "8d197f7a10b0059ee3cf34813b16c6ff449f29be389500e1611aef3871c768b2",
+          "outputBytes": 731647,
+          "width": 1080,
+          "height": 810,
+          "normalizedSource": {
+            "versionId": "1b4748b8-a263-4b94-b94d-e93206995190",
+            "derivativeKey": "marketing-normalized-versions/1b4748b8-a263-4b94-b94d-e93206995190.png",
+            "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+            "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+            "normalizerVersion": "resvg-lcms-rgba-2"
+          }
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 3458.4559169999998,
+      "heap": {
+        "id": 2,
+        "result": {
+          "usedSize": 14519748,
+          "totalSize": 22708224,
+          "embedderHeapUsedSize": 1031832,
+          "backingStorageSize": 38337189
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/23c1b913-3c19-4322-8d8e-2680f400f0b8/ea972b7f-d24c-4689-aae3-d185d0f8b9cb.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "normalizationReceipt": {
+        "schema": "anejo-worker-source-normalization-v1",
+        "runtime": "local-worker-prototype",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1",
+        "originalSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "sourceProfileSha256": "c56e1685d888f5edb92fe07f2750f387f8fe8e91b32ff8fb0b56bfbbb9458353",
+        "sourceColorStatus": "embedded_rgb_profile",
+        "outputColor": "declared_srgb",
+        "conversionPerformed": true,
+        "originalOrientation": 6,
+        "originalWidth": 2000,
+        "originalHeight": 2000,
+        "width": 1600,
+        "height": 1600,
+        "resized": true,
+        "resizePolicy": "inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha-max-5mib",
+        "bytes": 4687967,
+        "format": "png",
+        "visualReviewRequired": true,
+        "resourceReadiness": "unverified"
+      },
+      "normalizedSource": {
+        "versionId": "1b4748b8-a263-4b94-b94d-e93206995190",
+        "derivativeKey": "marketing-normalized-versions/1b4748b8-a263-4b94-b94d-e93206995190.png",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3,
+        "schemaVersion": "normalized-source-v4"
+      },
+      "finishedAt": "2026-10-03T14:58:55.293Z"
+    },
+    {
+      "round": 0,
+      "fixture": "square-p3-orientation-6.jpg",
+      "sourceSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+      "sourceBytes": 593728,
+      "template": "reposado-cajita",
+      "postId": "post-stress-2",
+      "sourceKey": "marketing-library/local-stress/stress-2_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T14:58:55.330Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "5914980b-3bdc-4185-bfb2-761d956e1f60",
+        "receipt": {
+          "outputKey": "studio/local-render/5914980b-3bdc-4185-bfb2-761d956e1f60/9ddcaf74-9101-4923-aceb-ccf4ac369355.jpg",
+          "sha256": "03e2aefd9d74629dd7ad59f40d33e2bcf048b2cff8af8ff792d7c8e1cdaa3787",
+          "outputBytes": 730882,
+          "width": 1080,
+          "height": 810,
+          "normalizedSource": {
+            "versionId": "e5b2313b-4f64-42f5-a992-5dd964f6d5ba",
+            "derivativeKey": "marketing-normalized-versions/e5b2313b-4f64-42f5-a992-5dd964f6d5ba.png",
+            "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+            "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+            "normalizerVersion": "resvg-lcms-rgba-2"
+          }
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 3213.165333000001,
+      "heap": {
+        "id": 3,
+        "result": {
+          "usedSize": 10443556,
+          "totalSize": 41631744,
+          "embedderHeapUsedSize": 1031832,
+          "backingStorageSize": 37537723
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/5914980b-3bdc-4185-bfb2-761d956e1f60/9ddcaf74-9101-4923-aceb-ccf4ac369355.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "normalizationReceipt": {
+        "schema": "anejo-worker-source-normalization-v1",
+        "runtime": "local-worker-prototype",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1",
+        "originalSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "sourceProfileSha256": "c56e1685d888f5edb92fe07f2750f387f8fe8e91b32ff8fb0b56bfbbb9458353",
+        "sourceColorStatus": "embedded_rgb_profile",
+        "outputColor": "declared_srgb",
+        "conversionPerformed": true,
+        "originalOrientation": 6,
+        "originalWidth": 2000,
+        "originalHeight": 2000,
+        "width": 1600,
+        "height": 1600,
+        "resized": true,
+        "resizePolicy": "inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha-max-5mib",
+        "bytes": 4687967,
+        "format": "png",
+        "visualReviewRequired": true,
+        "resourceReadiness": "unverified"
+      },
+      "normalizedSource": {
+        "versionId": "e5b2313b-4f64-42f5-a992-5dd964f6d5ba",
+        "derivativeKey": "marketing-normalized-versions/e5b2313b-4f64-42f5-a992-5dd964f6d5ba.png",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3,
+        "schemaVersion": "normalized-source-v4"
+      },
+      "finishedAt": "2026-10-03T14:58:58.759Z"
+    },
+    {
+      "round": 1,
+      "fixture": "square-p3-orientation-6.jpg",
+      "sourceSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+      "sourceBytes": 593728,
+      "template": "reposado-wide",
+      "postId": "post-stress-3",
+      "sourceKey": "marketing-library/local-stress/stress-3_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T14:58:58.795Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "81fc5723-fbca-4dae-82ca-879fd1f6d9be",
+        "receipt": {
+          "outputKey": "studio/local-render/81fc5723-fbca-4dae-82ca-879fd1f6d9be/072b2913-ed35-41c5-b61e-eb6c76c564bd.jpg",
+          "sha256": "8d197f7a10b0059ee3cf34813b16c6ff449f29be389500e1611aef3871c768b2",
+          "outputBytes": 731647,
+          "width": 1080,
+          "height": 810,
+          "normalizedSource": {
+            "versionId": "f737b676-b894-4d86-893e-8c620300e7ac",
+            "derivativeKey": "marketing-normalized-versions/f737b676-b894-4d86-893e-8c620300e7ac.png",
+            "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+            "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+            "normalizerVersion": "resvg-lcms-rgba-2"
+          }
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 3789.647167,
+      "heap": {
+        "id": 4,
+        "result": {
+          "usedSize": 7918996,
+          "totalSize": 75186176,
+          "embedderHeapUsedSize": 573024,
+          "backingStorageSize": 28678770
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/81fc5723-fbca-4dae-82ca-879fd1f6d9be/072b2913-ed35-41c5-b61e-eb6c76c564bd.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "normalizationReceipt": {
+        "schema": "anejo-worker-source-normalization-v1",
+        "runtime": "local-worker-prototype",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1",
+        "originalSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "sourceProfileSha256": "c56e1685d888f5edb92fe07f2750f387f8fe8e91b32ff8fb0b56bfbbb9458353",
+        "sourceColorStatus": "embedded_rgb_profile",
+        "outputColor": "declared_srgb",
+        "conversionPerformed": true,
+        "originalOrientation": 6,
+        "originalWidth": 2000,
+        "originalHeight": 2000,
+        "width": 1600,
+        "height": 1600,
+        "resized": true,
+        "resizePolicy": "inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha-max-5mib",
+        "bytes": 4687967,
+        "format": "png",
+        "visualReviewRequired": true,
+        "resourceReadiness": "unverified"
+      },
+      "normalizedSource": {
+        "versionId": "f737b676-b894-4d86-893e-8c620300e7ac",
+        "derivativeKey": "marketing-normalized-versions/f737b676-b894-4d86-893e-8c620300e7ac.png",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3,
+        "schemaVersion": "normalized-source-v4"
+      },
+      "finishedAt": "2026-10-03T14:59:02.799Z"
+    },
+    {
+      "round": 1,
+      "fixture": "square-p3-orientation-6.jpg",
+      "sourceSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+      "sourceBytes": 593728,
+      "template": "reposado-cajita",
+      "postId": "post-stress-4",
+      "sourceKey": "marketing-library/local-stress/stress-4_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T14:59:02.836Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "1dee45c1-0424-4a67-8133-5fd3b26d8905",
+        "receipt": {
+          "outputKey": "studio/local-render/1dee45c1-0424-4a67-8133-5fd3b26d8905/7f89bafe-61b4-457c-9ed1-232f341ca2cb.jpg",
+          "sha256": "03e2aefd9d74629dd7ad59f40d33e2bcf048b2cff8af8ff792d7c8e1cdaa3787",
+          "outputBytes": 730882,
+          "width": 1080,
+          "height": 810,
+          "normalizedSource": {
+            "versionId": "8aac5b73-c71f-4b67-896d-50029b4f2312",
+            "derivativeKey": "marketing-normalized-versions/8aac5b73-c71f-4b67-896d-50029b4f2312.png",
+            "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+            "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+            "normalizerVersion": "resvg-lcms-rgba-2"
+          }
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 3265.745500000001,
+      "heap": {
+        "id": 5,
+        "result": {
+          "usedSize": 7913768,
+          "totalSize": 75710464,
+          "embedderHeapUsedSize": 522680,
+          "backingStorageSize": 28676475
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/1dee45c1-0424-4a67-8133-5fd3b26d8905/7f89bafe-61b4-457c-9ed1-232f341ca2cb.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "normalizationReceipt": {
+        "schema": "anejo-worker-source-normalization-v1",
+        "runtime": "local-worker-prototype",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1",
+        "originalSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "sourceProfileSha256": "c56e1685d888f5edb92fe07f2750f387f8fe8e91b32ff8fb0b56bfbbb9458353",
+        "sourceColorStatus": "embedded_rgb_profile",
+        "outputColor": "declared_srgb",
+        "conversionPerformed": true,
+        "originalOrientation": 6,
+        "originalWidth": 2000,
+        "originalHeight": 2000,
+        "width": 1600,
+        "height": 1600,
+        "resized": true,
+        "resizePolicy": "inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha-max-5mib",
+        "bytes": 4687967,
+        "format": "png",
+        "visualReviewRequired": true,
+        "resourceReadiness": "unverified"
+      },
+      "normalizedSource": {
+        "versionId": "8aac5b73-c71f-4b67-896d-50029b4f2312",
+        "derivativeKey": "marketing-normalized-versions/8aac5b73-c71f-4b67-896d-50029b4f2312.png",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3,
+        "schemaVersion": "normalized-source-v4"
+      },
+      "finishedAt": "2026-10-03T14:59:06.315Z"
+    },
+    {
+      "round": 2,
+      "fixture": "square-p3-orientation-6.jpg",
+      "sourceSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+      "sourceBytes": 593728,
+      "template": "reposado-wide",
+      "postId": "post-stress-5",
+      "sourceKey": "marketing-library/local-stress/stress-5_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T14:59:06.353Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "e438397e-5a60-48ef-8141-dde09f0bc90c",
+        "receipt": {
+          "outputKey": "studio/local-render/e438397e-5a60-48ef-8141-dde09f0bc90c/54362f3a-075d-4c60-9549-fd0cc18f6e17.jpg",
+          "sha256": "8d197f7a10b0059ee3cf34813b16c6ff449f29be389500e1611aef3871c768b2",
+          "outputBytes": 731647,
+          "width": 1080,
+          "height": 810,
+          "normalizedSource": {
+            "versionId": "c9139b28-95b7-4a21-8afd-7b251223e7ed",
+            "derivativeKey": "marketing-normalized-versions/c9139b28-95b7-4a21-8afd-7b251223e7ed.png",
+            "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+            "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+            "normalizerVersion": "resvg-lcms-rgba-2"
+          }
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 3366.5086659999997,
+      "heap": {
+        "id": 6,
+        "result": {
+          "usedSize": 8251984,
+          "totalSize": 76496896,
+          "embedderHeapUsedSize": 566864,
+          "backingStorageSize": 31058472
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/e438397e-5a60-48ef-8141-dde09f0bc90c/54362f3a-075d-4c60-9549-fd0cc18f6e17.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "normalizationReceipt": {
+        "schema": "anejo-worker-source-normalization-v1",
+        "runtime": "local-worker-prototype",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1",
+        "originalSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "sourceProfileSha256": "c56e1685d888f5edb92fe07f2750f387f8fe8e91b32ff8fb0b56bfbbb9458353",
+        "sourceColorStatus": "embedded_rgb_profile",
+        "outputColor": "declared_srgb",
+        "conversionPerformed": true,
+        "originalOrientation": 6,
+        "originalWidth": 2000,
+        "originalHeight": 2000,
+        "width": 1600,
+        "height": 1600,
+        "resized": true,
+        "resizePolicy": "inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha-max-5mib",
+        "bytes": 4687967,
+        "format": "png",
+        "visualReviewRequired": true,
+        "resourceReadiness": "unverified"
+      },
+      "normalizedSource": {
+        "versionId": "c9139b28-95b7-4a21-8afd-7b251223e7ed",
+        "derivativeKey": "marketing-normalized-versions/c9139b28-95b7-4a21-8afd-7b251223e7ed.png",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3,
+        "schemaVersion": "normalized-source-v4"
+      },
+      "finishedAt": "2026-10-03T14:59:09.931Z"
+    },
+    {
+      "round": 2,
+      "fixture": "square-p3-orientation-6.jpg",
+      "sourceSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+      "sourceBytes": 593728,
+      "template": "reposado-cajita",
+      "postId": "post-stress-6",
+      "sourceKey": "marketing-library/local-stress/stress-6_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T14:59:09.966Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "d62186b3-e9ea-4b5d-89c7-560a1990cbb4",
+        "receipt": {
+          "outputKey": "studio/local-render/d62186b3-e9ea-4b5d-89c7-560a1990cbb4/0769f3df-79cb-45a2-95da-347eb22322b3.jpg",
+          "sha256": "03e2aefd9d74629dd7ad59f40d33e2bcf048b2cff8af8ff792d7c8e1cdaa3787",
+          "outputBytes": 730882,
+          "width": 1080,
+          "height": 810,
+          "normalizedSource": {
+            "versionId": "603eccec-d13a-43b2-a844-14f3fe828c3c",
+            "derivativeKey": "marketing-normalized-versions/603eccec-d13a-43b2-a844-14f3fe828c3c.png",
+            "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+            "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+            "normalizerVersion": "resvg-lcms-rgba-2"
+          }
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 3355.951083,
+      "heap": {
+        "id": 7,
+        "result": {
+          "usedSize": 6284496,
+          "totalSize": 77283328,
+          "embedderHeapUsedSize": 267768,
+          "backingStorageSize": 27340645
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/d62186b3-e9ea-4b5d-89c7-560a1990cbb4/0769f3df-79cb-45a2-95da-347eb22322b3.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "normalizationReceipt": {
+        "schema": "anejo-worker-source-normalization-v1",
+        "runtime": "local-worker-prototype",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1",
+        "originalSha256": "3238393a11760e56c3768f0053f890cef80bbea72a7968a0d6b50c1f47e7928b",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "sourceProfileSha256": "c56e1685d888f5edb92fe07f2750f387f8fe8e91b32ff8fb0b56bfbbb9458353",
+        "sourceColorStatus": "embedded_rgb_profile",
+        "outputColor": "declared_srgb",
+        "conversionPerformed": true,
+        "originalOrientation": 6,
+        "originalWidth": 2000,
+        "originalHeight": 2000,
+        "width": 1600,
+        "height": 1600,
+        "resized": true,
+        "resizePolicy": "inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha-max-5mib",
+        "bytes": 4687967,
+        "format": "png",
+        "visualReviewRequired": true,
+        "resourceReadiness": "unverified"
+      },
+      "normalizedSource": {
+        "versionId": "603eccec-d13a-43b2-a844-14f3fe828c3c",
+        "derivativeKey": "marketing-normalized-versions/603eccec-d13a-43b2-a844-14f3fe828c3c.png",
+        "derivativeSha256": "c0bc068a13e5fe68e21607c0c6d1eee92e95ced69a3651a57546136963c26ebb",
+        "receiptSha256": "17a1f994e62398c0ad1b8a5762905587789f726a88968b88a21b367742208d13",
+        "normalizerVersion": "resvg-lcms-rgba-2",
+        "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3,
+        "schemaVersion": "normalized-source-v4"
+      },
+      "finishedAt": "2026-10-03T14:59:13.493Z"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/private-draft-worker.mjs",
+      "sha256": "e553c285bed6903055fd894512901d9dcd43a0d36d8c22f19ba9edabd83e20c1",
+      "bytes": 8903
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/node_modules/@resvg/resvg-wasm/index_bg.wasm",
+      "sha256": "22bf6e9f9a100d972da0411a69c5ba504367fc1fa87b3b64e3f35e53926d2d70",
+      "bytes": 2478606
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/node_modules/lcms-wasm/dist/lcms.wasm",
+      "sha256": "dbcbee3fb3a49459a60bb6b29d6ab25fe7c219b0cc0c2b9579c0cc78f7390ddd",
+      "bytes": 315910
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/node_modules/@resvg/resvg-wasm/index.mjs",
+      "bytes": 17048,
+      "sha256": "10170d02d816f02ec76f9bc095b01d9becf536e7b1e12e5aa616652c84b237a1"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/public/hub/owner/assets/marketing-editorial-plan.js",
+      "bytes": 5548,
+      "sha256": "4f6f697ce1f96ddd99d829e855c6e40ccaad6d9a3fa6fbb2202ca7c32a20fcb1"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/jpeg-encoder.mjs",
+      "bytes": 21724,
+      "sha256": "c112728478981afef1ce1b91e034467d53e016df67c24da8a56bde3b32f637c5"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/base64.mjs",
+      "bytes": 1703,
+      "sha256": "b26e2a70d0200d97aa0230b5ebcead5f4d293e48650170ae642931692c268909"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/core.mjs",
+      "bytes": 6431,
+      "sha256": "5acb8cdd382a398222b15f38e80d329b46522dd23b7e77a8c69b39a20f6a0adf"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/node_modules/lcms-wasm/dist/lcms.js",
+      "bytes": 67586,
+      "sha256": "1a5c8f81186211856ba7c5d6841e35fe3fa901b857a247f72318e1652c5e1cec"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/color-kernel.mjs",
+      "bytes": 4452,
+      "sha256": "6fa930cb9e37fba79870435a71e8d8b5acceed3e2ef853820fe045707e4a126d"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/public/hub/owner/assets/marketing-image-orientation.js",
+      "bytes": 6409,
+      "sha256": "242f56331bd78f566d0bd4684c6808de8df37d49745cee58be8f8a0f3cc7e460"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/source-orientation.mjs",
+      "bytes": 247,
+      "sha256": "7bd842e08ea3cedf0568a5bc4a76a401f0ab08355c2b99da338ca08114a0c28f"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/source-color-admission.mjs",
+      "bytes": 4993,
+      "sha256": "16c268367474db42f176f18d701a2e2e52edd9295249ee989d9dc5f7b54a0d16"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/worker-source-metadata.mjs",
+      "bytes": 7336,
+      "sha256": "08e2ebaa9516653871f55b383f931a86a9b0720b419cda25af945e318c188649"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/worker-source-normalize.mjs",
+      "bytes": 8160,
+      "sha256": "2ae9d6c9be6532f89863889830b3bf27b24dadfbe2e0bb7076dcc53308e87fca"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/marketing_render_receipt.js",
+      "bytes": 3418,
+      "sha256": "bf3e20379873912437f8472a0c8a732dbeff988af126180311b6e3555c5da4ab"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/bounded-body.mjs",
+      "bytes": 1677,
+      "sha256": "d1e3d5f651824870a6eff3ff611e62f81d79afc6f8779df658941d99878c0430"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/source-versions.mjs",
+      "bytes": 12443,
+      "sha256": "2007daf63b4f3d63c2e262ab99ce6e85a91d9886a4efc3cbc5f6182fe1b42b6e"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/normalized-source-versions.mjs",
+      "bytes": 23997,
+      "sha256": "2f0455c091424ef702e3029cf61066f37948f8de71d51682391cdb76d1f3665c"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/assets/emblem.png",
+      "bytes": 163850,
+      "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/assets/AnejoEditorialSerif-SemiBold.ttf",
+      "bytes": 774028,
+      "sha256": "bb60d386afdbf03f67ee68117776d9bfaba0d08d50899909e02b023fcb5f5a17"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/assets/AnejoEditorialSans-Medium.ttf",
+      "bytes": 59676,
+      "sha256": "19a231f3f7ebf25c1fa5afc3619002fd55e12a30c83c7974a75b973d4b1b7a5f"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/util.js",
+      "bytes": 2098,
+      "sha256": "d0c2c6f773122427a87517d7f0f84c98aac435aba8e8acc7fee15b011eeb0eee"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/session.js",
+      "bytes": 3600,
+      "sha256": "f66edc7b2edc47db1a5ec34e942da8a351439e9737c10bbd8a47f3f363f82ae6"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/guard.js",
+      "bytes": 1262,
+      "sha256": "4f2473ae894177242bea63b4a78cda833e5730db3d8478dd9a771a2b1c2ba22b"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/roles.js",
+      "bytes": 6430,
+      "sha256": "2010c5d19f12ad14713f180feae02a2baace797db60a15a92cf71ae2cfc72bd7"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/editorial.mjs",
+      "bytes": 9320,
+      "sha256": "cd63faeaf371478d80f1f2c32fd617f30f5492730178caaaf2eb2461d482acaa"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/render-jobs.mjs",
+      "bytes": 10607,
+      "sha256": "6ffe22af3f2afdb76431743946d76d1d18b057c345d483c7fc68ffab57a6f202"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/render-consumer.mjs",
+      "bytes": 17219,
+      "sha256": "f3f4951e0047666aa2a51f9064fa93f381959fba9f533dc41087bfd6ab2cd83a"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/durable-admission.mjs",
+      "bytes": 4161,
+      "sha256": "9cdc7febad0ec89949362b35170a1b52c30abf824c98f14a21ae9a53473695bd"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/execution-deadline.mjs",
+      "bytes": 1353,
+      "sha256": "a267425d82a376461e61b9e80b765da31f77047dcf056cb3a09d7e8852ef7197"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/private-draft-worker.mjs",
+      "bytes": 8903,
+      "sha256": "e553c285bed6903055fd894512901d9dcd43a0d36d8c22f19ba9edabd83e20c1"
+    }
+  ],
+  "bundle": {
+    "sha256": "a8a359fa3ba0486d56b329ac5a53ed5248813317e89fcaa29b2a8f2af1a79ea2",
+    "bytes": 1568804
+  },
+  "inspector": {
+    "supported": true,
+    "note": "Local post-response Runtime.getHeapUsage observations only."
+  },
+  "initialHeap": {
+    "id": 1,
+    "result": {
+      "usedSize": 3529892,
+      "totalSize": 3883008,
+      "embedderHeapUsedSize": 386904,
+      "backingStorageSize": 1035394
+    }
+  },
+  "finalHeap": {
+    "id": 8,
+    "result": {
+      "usedSize": 6284496,
+      "totalSize": 77283328,
+      "embedderHeapUsedSize": 267768,
+      "backingStorageSize": 27340645
+    }
+  },
+  "outboundRequests": [],
+  "observationScope": "Local non-production sequential requests; wall time and inspector heap are post-response observations, not deployed CPU, peak memory, or total isolate memory.",
+  "completedAt": "2026-10-03T14:59:13.493Z"
+}

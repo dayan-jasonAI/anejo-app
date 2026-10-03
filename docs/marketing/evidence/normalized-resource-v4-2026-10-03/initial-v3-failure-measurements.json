@@ -1,0 +1,252 @@
+{
+  "schemaVersion": "normalized-source-v3",
+  "normalizerVersion": "resvg-lcms-rgba-1",
+  "kernelVersion": "lcms-wasm-1.0.5-rgb-kernel-1",
+  "recordedAt": "2026-10-03T14:47:40.432Z",
+  "scope": "local_authenticated_rehearsal",
+  "fixtureDirectory": "/var/folders/jf/r_555_zn53v7_z6p_z5b2z6h0000gn/T/anejo-resource-fixtures-KCyUcI",
+  "manifestSha256": "3dfbc12c763885b985dc5751643914f74795c7d66c0e207c6ed6deff4f0eb53c",
+  "baseline": null,
+  "versions": {
+    "node": "v24.16.0",
+    "workerd": "1.20260903.1",
+    "miniflare": "5.20260903.0-alpha",
+    "esbuild": "0.28.2",
+    "resvg": "2.6.2"
+  },
+  "limitations": [
+    "Client wall time is a local non-production elapsed-time observation, not deployed CPU or budget proof.",
+    "Post-response inspector JS heap samples are local non-production observations, not peak/total isolate memory.",
+    "Inspector instrumentation may affect timing and memory.",
+    "Heap/backing storage/WASM measurements must not be summed.",
+    "Local durable executor, sequential fixture requests; no deployed concurrency/backpressure or production integration proof.",
+    "Matching fixture hashes establishes this runtime comparison, not Canvas/approved-design visual parity."
+  ],
+  "wasm": {
+    "supported": false,
+    "note": "Exact unmodified handler exposes no WASM memory observation; no linear/peak allocation inferred."
+  },
+  "runs": [
+    {
+      "round": 0,
+      "fixture": "square.jpg",
+      "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+      "sourceBytes": 1033933,
+      "template": "reposado-wide",
+      "postId": "post-stress-1",
+      "sourceKey": "marketing-library/local-stress/stress-1_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T14:47:40.917Z",
+      "verified": false,
+      "status": 409,
+      "result": {
+        "state": "failed",
+        "jobId": "7208cdb2-c9a0-49bf-8a17-aed2090d9470",
+        "outputKey": null,
+        "attached": false,
+        "errorCode": "normalized_source_capture_unverified",
+        "scope": "local_rehearsal",
+        "resourceReadiness": "unverified",
+        "publicationApproved": false
+      },
+      "clientWallMs": 587.5007499999999,
+      "heap": {
+        "id": 2,
+        "result": {
+          "usedSize": 5352652,
+          "totalSize": 14893056,
+          "embedderHeapUsedSize": 281600,
+          "backingStorageSize": 60483872
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "marketing-library/local-stress/stress-1_photo.jpg",
+        "versionState": "confirmed",
+        "jobState": "failed"
+      },
+      "error": "{\"state\":\"failed\",\"jobId\":\"7208cdb2-c9a0-49bf-8a17-aed2090d9470\",\"outputKey\":null,\"attached\":false,\"errorCode\":\"normalized_source_capture_unverified\",\"scope\":\"local_rehearsal\",\"resourceReadiness\":\"unverified\",\"publicationApproved\":false}\n\n409 !== 200\n"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/private-draft-worker.mjs",
+      "sha256": "137f7c6b1fec208ddd18aa286f4d206992ba9d5885f952294c54902fb3644471",
+      "bytes": 8903
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/node_modules/@resvg/resvg-wasm/index_bg.wasm",
+      "sha256": "22bf6e9f9a100d972da0411a69c5ba504367fc1fa87b3b64e3f35e53926d2d70",
+      "bytes": 2478606
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/node_modules/lcms-wasm/dist/lcms.wasm",
+      "sha256": "dbcbee3fb3a49459a60bb6b29d6ab25fe7c219b0cc0c2b9579c0cc78f7390ddd",
+      "bytes": 315910
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/node_modules/@resvg/resvg-wasm/index.mjs",
+      "bytes": 17048,
+      "sha256": "10170d02d816f02ec76f9bc095b01d9becf536e7b1e12e5aa616652c84b237a1"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/public/hub/owner/assets/marketing-editorial-plan.js",
+      "bytes": 5548,
+      "sha256": "4f6f697ce1f96ddd99d829e855c6e40ccaad6d9a3fa6fbb2202ca7c32a20fcb1"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/jpeg-encoder.mjs",
+      "bytes": 21724,
+      "sha256": "c112728478981afef1ce1b91e034467d53e016df67c24da8a56bde3b32f637c5"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/base64.mjs",
+      "bytes": 1703,
+      "sha256": "b26e2a70d0200d97aa0230b5ebcead5f4d293e48650170ae642931692c268909"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/core.mjs",
+      "bytes": 6431,
+      "sha256": "5acb8cdd382a398222b15f38e80d329b46522dd23b7e77a8c69b39a20f6a0adf"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/node_modules/lcms-wasm/dist/lcms.js",
+      "bytes": 67586,
+      "sha256": "1a5c8f81186211856ba7c5d6841e35fe3fa901b857a247f72318e1652c5e1cec"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/color-kernel.mjs",
+      "bytes": 4452,
+      "sha256": "6fa930cb9e37fba79870435a71e8d8b5acceed3e2ef853820fe045707e4a126d"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/public/hub/owner/assets/marketing-image-orientation.js",
+      "bytes": 6409,
+      "sha256": "242f56331bd78f566d0bd4684c6808de8df37d49745cee58be8f8a0f3cc7e460"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/source-orientation.mjs",
+      "bytes": 247,
+      "sha256": "7bd842e08ea3cedf0568a5bc4a76a401f0ab08355c2b99da338ca08114a0c28f"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/source-color-admission.mjs",
+      "bytes": 4993,
+      "sha256": "16c268367474db42f176f18d701a2e2e52edd9295249ee989d9dc5f7b54a0d16"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/worker-source-metadata.mjs",
+      "bytes": 7336,
+      "sha256": "08e2ebaa9516653871f55b383f931a86a9b0720b419cda25af945e318c188649"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/worker-source-normalize.mjs",
+      "bytes": 7071,
+      "sha256": "d3a64159733b5678268178b450d1cbb45d05356fc710412f2f4bcea1f5e277bf"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/marketing_render_receipt.js",
+      "bytes": 3418,
+      "sha256": "bf3e20379873912437f8472a0c8a732dbeff988af126180311b6e3555c5da4ab"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/bounded-body.mjs",
+      "bytes": 1677,
+      "sha256": "d1e3d5f651824870a6eff3ff611e62f81d79afc6f8779df658941d99878c0430"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/source-versions.mjs",
+      "bytes": 12443,
+      "sha256": "2007daf63b4f3d63c2e262ab99ce6e85a91d9886a4efc3cbc5f6182fe1b42b6e"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/normalized-source-versions.mjs",
+      "bytes": 23715,
+      "sha256": "e63caf1b6365d4927a3bb6f8b8487a5a291ddf7897bf35fbbc44a36ec61daa06"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/assets/emblem.png",
+      "bytes": 163850,
+      "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/assets/AnejoEditorialSerif-SemiBold.ttf",
+      "bytes": 774028,
+      "sha256": "bb60d386afdbf03f67ee68117776d9bfaba0d08d50899909e02b023fcb5f5a17"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/assets/AnejoEditorialSans-Medium.ttf",
+      "bytes": 59676,
+      "sha256": "19a231f3f7ebf25c1fa5afc3619002fd55e12a30c83c7974a75b973d4b1b7a5f"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/util.js",
+      "bytes": 2098,
+      "sha256": "d0c2c6f773122427a87517d7f0f84c98aac435aba8e8acc7fee15b011eeb0eee"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/session.js",
+      "bytes": 3600,
+      "sha256": "f66edc7b2edc47db1a5ec34e942da8a351439e9737c10bbd8a47f3f363f82ae6"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/guard.js",
+      "bytes": 1262,
+      "sha256": "4f2473ae894177242bea63b4a78cda833e5730db3d8478dd9a771a2b1c2ba22b"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/roles.js",
+      "bytes": 6430,
+      "sha256": "2010c5d19f12ad14713f180feae02a2baace797db60a15a92cf71ae2cfc72bd7"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/editorial.mjs",
+      "bytes": 9320,
+      "sha256": "cd63faeaf371478d80f1f2c32fd617f30f5492730178caaaf2eb2461d482acaa"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/render-jobs.mjs",
+      "bytes": 10607,
+      "sha256": "6ffe22af3f2afdb76431743946d76d1d18b057c345d483c7fc68ffab57a6f202"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/render-consumer.mjs",
+      "bytes": 17219,
+      "sha256": "f3f4951e0047666aa2a51f9064fa93f381959fba9f533dc41087bfd6ab2cd83a"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/durable-admission.mjs",
+      "bytes": 4161,
+      "sha256": "9cdc7febad0ec89949362b35170a1b52c30abf824c98f14a21ae9a53473695bd"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/execution-deadline.mjs",
+      "bytes": 1353,
+      "sha256": "a267425d82a376461e61b9e80b765da31f77047dcf056cb3a09d7e8852ef7197"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/private-draft-worker.mjs",
+      "bytes": 8903,
+      "sha256": "137f7c6b1fec208ddd18aa286f4d206992ba9d5885f952294c54902fb3644471"
+    }
+  ],
+  "bundle": {
+    "sha256": "6c2787afa20a851b608ba356f47ff31cf14cdeae72d9089d1def9a8ecb2867a4",
+    "bytes": 1567562
+  },
+  "inspector": {
+    "supported": true,
+    "note": "Local post-response Runtime.getHeapUsage observations only."
+  },
+  "initialHeap": {
+    "id": 1,
+    "result": {
+      "usedSize": 3528564,
+      "totalSize": 3883008,
+      "embedderHeapUsedSize": 386904,
+      "backingStorageSize": 1035394
+    }
+  },
+  "error": "{\"state\":\"failed\",\"jobId\":\"7208cdb2-c9a0-49bf-8a17-aed2090d9470\",\"outputKey\":null,\"attached\":false,\"errorCode\":\"normalized_source_capture_unverified\",\"scope\":\"local_rehearsal\",\"resourceReadiness\":\"unverified\",\"publicationApproved\":false}\n\n409 !== 200\n",
+  "failedAt": "2026-10-03T14:47:41.571Z"
+}

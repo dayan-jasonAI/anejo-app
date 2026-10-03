@@ -300,7 +300,7 @@ test('two real concurrent SQLite handles cannot claim the same lease', {timeout:
 
 test('normalization receipt persists exact provenance and rejects incomplete or invented bindings', async t => {
  const {store}=fixture(t);await enqueue(store);const leased=await claim(store);
- const normalizedSource={versionId:'normalized-1',derivativeKey:'marketing-normalized-versions/normalized-1.png',derivativeSha256:'d'.repeat(64),receiptSha256:'e'.repeat(64),normalizerVersion:'resvg-lcms-rgba-1'};
+ const normalizedSource={versionId:'normalized-1',derivativeKey:'marketing-normalized-versions/normalized-1.png',derivativeSha256:'d'.repeat(64),receiptSha256:'e'.repeat(64),normalizerVersion:'resvg-lcms-rgba-2'};
  for(const field of Object.keys(normalizedSource)){
   const incomplete={...normalizedSource};delete incomplete[field];
   await rejectsCode(completion(store,leased,{receipt:{...receipt,normalizedSource:incomplete}}),'invalid_normalizedSource');

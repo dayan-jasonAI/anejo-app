@@ -18,5 +18,5 @@ for(const [width,height] of [[4032,3024],[6000,4000]]){
  const bytes=await sharp({create:{width,height,channels:3,background:'#b38a53'}}).withIccProfile('p3').jpeg({quality:80}).toBuffer();
  await save(`phone-${width}x${height}.jpg`,bytes,{mime:'image/jpeg',width,height,pixels:width*height,expected:'rejected by current pixel limit',note:'Valid synthetic phone-size image. Refusal records unresolved support, not product readiness.'});
 }
-manifest.normalizedPipelineScope='local-private-worker-v3';manifest.generatedAt=new Date().toISOString();
+manifest.normalizedPipelineScope='local-private-worker-v4';manifest.generatedAt=new Date().toISOString();
 writeFileSync(join(output,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');console.log(output);

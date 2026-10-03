@@ -1,0 +1,20 @@
+Evidence directory: /var/folders/jf/r_555_zn53v7_z6p_z5b2z6h0000gn/T/anejo-private-resource-z6x33Z
+(node:3461) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/helpers/sqlite-d1.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError [ERR_ASSERTION]: {"state":"failed","jobId":"7208cdb2-c9a0-49bf-8a17-aed2090d9470","outputKey":null,"attached":false,"errorCode":"normalized_source_capture_unverified","scope":"local_rehearsal","resourceReadiness":"unverified","publicationApproved":false}
+
+409 !== 200
+
+    at /Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/private-resource-stress.cjs:80:14
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async main (/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/private-resource-stress.cjs:74:5)
+    at async /Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/private-resource-stress.cjs:111:6 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 409,
+  expected: 200,
+  operator: 'strictEqual',
+  diff: 'simple'
+}

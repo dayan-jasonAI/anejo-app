@@ -1,0 +1,43 @@
+{
+  "recordedAt": "2026-10-03T15:00:27.278352+00:00",
+  "scope": "local-only; no deployed CPU or peak memory proof",
+  "stableDerivativeAndOutputGroups": 26,
+  "files": [
+    {
+      "path": "tools/marketing-render-prototype/normalized-resource-fixtures.mjs",
+      "sha256": "e00d0347eb227b5b63f49be72e4dbd9f7790e8d6add39ca1aadecdc9148ccd3c"
+    },
+    {
+      "path": "tools/marketing-render-prototype/normalized-source-versions.mjs",
+      "sha256": "2f0455c091424ef702e3029cf61066f37948f8de71d51682391cdb76d1f3665c"
+    },
+    {
+      "path": "tools/marketing-render-prototype/normalized-source-versions.test.cjs",
+      "sha256": "150b41c733bd746ce7ab1ebdf0ace2a02b5b6ce5b773791fb1b7e2d7d4e458e2"
+    },
+    {
+      "path": "tools/marketing-render-prototype/private-draft-worker.mjs",
+      "sha256": "e553c285bed6903055fd894512901d9dcd43a0d36d8c22f19ba9edabd83e20c1"
+    },
+    {
+      "path": "tools/marketing-render-prototype/private-resource-stress.cjs",
+      "sha256": "0d57be2c7d0b38e152cafd6f6c7afdc67ad8d05ed2b2be12e3b59d24941d2a95"
+    },
+    {
+      "path": "tools/marketing-render-prototype/private-worker.test.cjs",
+      "sha256": "8cc11234eabc1c49be2d63ddb8efff0000829652e0094acbd893895b1c5aee87"
+    },
+    {
+      "path": "tools/marketing-render-prototype/render-jobs.test.mjs",
+      "sha256": "783d38a687b7704bb1120d84816d7662a6af14d8781c4b05e45e96d9509ce4a6"
+    },
+    {
+      "path": "tools/marketing-render-prototype/worker-source-normalize.mjs",
+      "sha256": "2ae9d6c9be6532f89863889830b3bf27b24dadfbe2e0bb7076dcc53308e87fca"
+    },
+    {
+      "path": "tools/marketing-render-prototype/worker-source-normalize.test.mjs",
+      "sha256": "3bb4cff48f0f1d681d4ded5be948887194f6f0fecd172c55f618d207fb8afe8b"
+    }
+  ]
+}
