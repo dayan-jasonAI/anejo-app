@@ -214,3 +214,10 @@ test('consumer honors latched executor clock refusal before claim',async t=>{
  assert.equal(result.state,'deadline_expired');assert.equal(f.renderCount(),0);
  assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).attempts,0);
 });
+test('deadline-aware output reader refuses oversized bytes before attachment',async t=>{
+ const f=await setup(t),get=f.media.get.bind(f.media);let unbounded=false;
+ f.media.get=async key=>{const saved=await get(key);if(!key.startsWith('studio/local-render/'))return saved;
+  return {...saved,size:1,body:new ReadableStream({start(c){c.enqueue(new Uint8Array(5*1024*1024+1));c.close();}}),arrayBuffer(){unbounded=true;throw Error('unbounded');}};};
+ const result=await consumePrivateRender({...f.input,deadline:{expiresAt:Date.now()+10000}});
+ assert.equal(result.state,'failed');assert.equal(result.errorCode,'bounded_output_read_refused');assert.equal(unbounded,false);unchanged(f);
+});

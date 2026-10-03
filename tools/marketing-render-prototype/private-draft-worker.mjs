@@ -71,7 +71,7 @@ export class PrivateRenderExecutor extends LocalDurableAdmission {
   const existing=await deadline.dispatch('existing_job',()=>env.DB.prepare('SELECT id FROM prototype_render_jobs WHERE actor_id=? AND request_id=?').bind(actorId,input.requestId).first());
   let sourceVersionId,sourceMetadataSha256;
   if(existing){
-   const job=await deadline.dispatch('job_read',()=>store.get({actorId,jobId:existing.id}));
+   const job=await deadline.dispatch('job_read',()=>store.get({actorId,jobId:existing.id,deadline}));
    if(!job||Object.keys(binding).some(key=>job.descriptor[key]!==binding[key])||job.descriptor.optionsHash!==optionsHash||job.descriptor.rendererVersion!==rendererVersion||job.descriptor.templateId!==input.options.templateId)reject('request_conflict',409);
    // A durable rendered receipt is not a new verification of current attachment.
    if(job.status==='rendered')return {state:'already_rendered',jobId:job.id,attachment:'unverified',humanReviewRequired:true};
@@ -80,7 +80,7 @@ export class PrivateRenderExecutor extends LocalDurableAdmission {
    const captured=await captureSourceVersion({db:env.DB,media:env.MEDIA,actorId,requestId:'capture:'+input.requestId,descriptor:binding,now:Date.now(),deadline});
    sourceVersionId=captured.version.id;sourceMetadataSha256=captured.version.metadataSha256;
   }
-  const queued=await deadline.dispatch('enqueue',()=>store.enqueue({actorId,requestId:input.requestId,descriptor:{...binding,sourceVersionId,sourceMetadataSha256,rendererVersion,templateId:input.options.templateId,optionsHash},now:Date.now()}));
+  const queued=await deadline.dispatch('enqueue',()=>store.enqueue({actorId,requestId:input.requestId,descriptor:{...binding,sourceVersionId,sourceMetadataSha256,rendererVersion,templateId:input.options.templateId,optionsHash},now:Date.now(),deadline}));
   const render=async({source,options})=>{
    await deadline.dispatch('initialize',()=>initialize(wasm));
    deadline.check('render');

@@ -35,6 +35,21 @@ const failure = (store, leased, overrides = {}) => store.fail({ actorId: leased.
   leaseToken: leased.leaseToken, errorCode: 'render_failed', now: 101, ...overrides });
 function rejectsCode(promise, code) { return assert.rejects(promise, error => error.code === code); }
 
+test('trusted deadline refuses job operations before any database dispatch',async t=>{
+ const {db}=fixture(t);let dispatched=0;
+ const store=createRenderJobStore({prepare(){dispatched++;throw Error('must not dispatch');}});
+ const deadline={expiresAt:Date.now()-1};
+ for(const operation of [()=>enqueue(store,{deadline}),()=>store.get({actorId:'actor-1',jobId:'job',deadline}),()=>claim(store,{deadline})])
+  await rejectsCode(operation(),'execution_deadline_expired');
+ assert.equal(dispatched,0);assert.equal(db.prepare('SELECT count(*) n FROM prototype_render_jobs').get().n,0);
+});
+test('expiry after awaited claim cleanup stops candidate claim dispatch',async t=>{
+ const {db}=fixture(t),base=adapter(db);let expired=false,reads=0;
+ const deadline={expiresAt:Date.now()+10000,check(){if(expired)throw Error('latched expiry');}};
+ const store=createRenderJobStore({prepare(sql){const statement=base.prepare(sql);return {bind(...args){const bound=statement.bind(...args);return {async run(){const result=await bound.run();expired=true;return result;},async first(){reads++;return bound.first();}};}};}});
+ await assert.rejects(claim(store,{deadline}),/latched expiry/);assert.equal(reads,0);
+});
+
 test('canonical enqueue is immutable and exact-request replay is scoped to actor', async t => {
   const { store, db } = fixture(t);
   const input = { ...descriptor };

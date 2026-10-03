@@ -1,0 +1,76 @@
+Evidence directory: /var/folders/jf/r_555_zn53v7_z6p_z5b2z6h0000gn/T/anejo-private-resource-YgqbPT
+(node:73729) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/helpers/sqlite-d1.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+1: square.jpg reposado-wide status=200 verified=true
+2: square.jpg reposado-cajita status=200 verified=true
+3: square.png reposado-wide status=200 verified=true
+4: square.png reposado-cajita status=200 verified=true
+5: square-exact-5mib.png reposado-wide status=200 verified=true
+6: square-exact-5mib.png reposado-cajita status=200 verified=true
+7: landscape.jpg reposado-wide status=200 verified=true
+8: landscape.jpg reposado-cajita status=200 verified=true
+9: landscape.png reposado-wide status=200 verified=true
+10: landscape.png reposado-cajita status=200 verified=true
+11: portrait.jpg reposado-wide status=200 verified=true
+12: portrait.jpg reposado-cajita status=200 verified=true
+13: portrait.png reposado-wide status=200 verified=true
+14: portrait.png reposado-cajita status=200 verified=true
+15: ultrawide.jpg reposado-wide status=200 verified=true
+16: ultrawide.jpg reposado-cajita status=200 verified=true
+17: ultrawide.png reposado-wide status=200 verified=true
+18: ultrawide.png reposado-cajita status=200 verified=true
+19: ultratall.jpg reposado-wide status=200 verified=true
+20: ultratall.jpg reposado-cajita status=200 verified=true
+21: ultratall.png reposado-wide status=200 verified=true
+22: ultratall.png reposado-cajita status=200 verified=true
+23: oversize.bin reposado-wide status=409 verified=true
+24: unsupported.bin reposado-wide status=409 verified=true
+25: over-pixel-limit.png reposado-wide status=409 verified=true
+26: empty.bin reposado-wide status=409 verified=true
+27: square.jpg reposado-wide status=200 verified=true
+28: square.jpg reposado-cajita status=200 verified=true
+29: square.png reposado-wide status=200 verified=true
+30: square.png reposado-cajita status=200 verified=true
+31: square-exact-5mib.png reposado-wide status=200 verified=true
+32: square-exact-5mib.png reposado-cajita status=200 verified=true
+33: landscape.jpg reposado-wide status=200 verified=true
+34: landscape.jpg reposado-cajita status=200 verified=true
+35: landscape.png reposado-wide status=200 verified=true
+36: landscape.png reposado-cajita status=200 verified=true
+37: portrait.jpg reposado-wide status=200 verified=true
+38: portrait.jpg reposado-cajita status=200 verified=true
+39: portrait.png reposado-wide status=200 verified=true
+40: portrait.png reposado-cajita status=200 verified=true
+41: ultrawide.jpg reposado-wide status=200 verified=true
+42: ultrawide.jpg reposado-cajita status=200 verified=true
+43: ultrawide.png reposado-wide status=200 verified=true
+44: ultrawide.png reposado-cajita status=200 verified=true
+45: ultratall.jpg reposado-wide status=200 verified=true
+46: ultratall.jpg reposado-cajita status=200 verified=true
+47: ultratall.png reposado-wide status=200 verified=true
+48: ultratall.png reposado-cajita status=200 verified=true
+49: square.jpg reposado-wide status=200 verified=true
+50: square.jpg reposado-cajita status=200 verified=true
+51: square.png reposado-wide status=200 verified=true
+52: square.png reposado-cajita status=200 verified=true
+53: square-exact-5mib.png reposado-wide status=200 verified=true
+54: square-exact-5mib.png reposado-cajita status=200 verified=true
+55: landscape.jpg reposado-wide status=200 verified=true
+56: landscape.jpg reposado-cajita status=200 verified=true
+57: landscape.png reposado-wide status=200 verified=true
+58: landscape.png reposado-cajita status=200 verified=true
+59: portrait.jpg reposado-wide status=200 verified=true
+60: portrait.jpg reposado-cajita status=200 verified=true
+61: portrait.png reposado-wide status=200 verified=true
+62: portrait.png reposado-cajita status=200 verified=true
+63: ultrawide.jpg reposado-wide status=200 verified=true
+64: ultrawide.jpg reposado-cajita status=200 verified=true
+65: ultrawide.png reposado-wide status=200 verified=true
+66: ultrawide.png reposado-cajita status=200 verified=true
+67: ultratall.jpg reposado-wide status=200 verified=true
+68: ultratall.jpg reposado-cajita status=200 verified=true
+69: ultratall.png reposado-wide status=200 verified=true
+70: ultratall.png reposado-cajita status=200 verified=true
+Verified 70 local requests; production resource readiness remains unverified.

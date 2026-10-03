@@ -1,0 +1,22 @@
+(node:71974) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/helpers/sqlite-d1.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ local execution refuses missing rehearsal binding without creating artifacts (775.191333ms)
+✔ nonlocal host refuses accidental execution even with rehearsal binding (509.769917ms)
+✔ real Worker auth/origin/body rejection precedes source and job writes (741.656417ms)
+✔ server-selected durable executor refuses overlap and releases reservation for the next exact draft execution (1336.435542ms)
+✔ authenticated execution claims its exact new job while older actor work stays queued (897.914167ms)
+✔ complete authenticated owner reposado-wide renders existing design inside local workerd (1786.942167ms)
+✔ complete authenticated owner reposado-cajita renders existing design inside local workerd (1604.357458ms)
+✔ complete authenticated marketing reposado-wide renders existing design inside local workerd (1311.494541ms)
+✔ complete authenticated marketing reposado-cajita renders existing design inside local workerd (1298.401625ms)
+✔ uncertain durable execution blocks entire authenticated pipeline without draft or artifact changes (590.068ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11050.386375

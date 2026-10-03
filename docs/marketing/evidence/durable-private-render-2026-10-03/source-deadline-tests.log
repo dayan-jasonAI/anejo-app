@@ -1,0 +1,31 @@
+(node:72526) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/helpers/sqlite-d1.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual D1/R2 capture preserves bytes/metadata and confirmed retry ignores changed original (867.506708ms)
+✔ request conflict fails closed and another authorized actor has separate identity (684.056292ms)
+✔ concurrent identical captures converge on one version and create-only protection (730.477209ms)
+✔ missing or tampered original fails before reservation (410.22225ms)
+✔ source bytes changes during copy reject registration and retain orphan (661.202875ms)
+✔ source metadata changes during copy reject registration and retain orphan (497.097292ms)
+✔ put acknowledgement loss recovers exact reserved artifact (491.941709ms)
+✔ readback ambiguity retains pending artifact and identical retry confirms without overwrite (546.665875ms)
+✔ changed source on pending retry is rejected rather than recopied (519.762917ms)
+✔ preexisting wrong private key is not overwritten or registered (491.014375ms)
+✔ confirmation acknowledgement loss recovers durable record and altered version fails readback (564.133666ms)
+✔ draft mutation after private put prevents confirmation and retains original (537.417916ms)
+✔ source read bounds reject oversized objects before materializing bytes (370.5075ms)
+✔ bounded reader refuses excessive empty chunks without waiting on cancellation (378.336708ms)
+✔ deadline after source get stops body read and reservation (369.202208ms)
+✔ deadline after body read stops subsequent reads and reservation (368.952833ms)
+✔ deadline after ambiguous put retains pending orphan without readback or rejection (411.275333ms)
+✔ D1 execution clock rejects expired reservation independently of a permissive caller clock (390.960375ms)
+✔ D1 delayed confirmation cannot confirm past execution deadline (2917.3745ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12410.747167

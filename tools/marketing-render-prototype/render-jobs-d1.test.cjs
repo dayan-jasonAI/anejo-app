@@ -3,6 +3,30 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {Miniflare,convertV4MiniflareOptions}=require('../../node_modules/miniflare');
+test('actual local D1 execution deadline blocks queued enqueue, claim cleanup, claim and fail mutations',{timeout:20000},async t=>{
+ const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'job-deadline-check',script:'export default {fetch(){return new Response("local-only")}}',modules:true,compatibilityDate:'2026-05-01',d1Databases:{DB:'job-deadline-local'}}],cf:false,host:'127.0.0.1',port:0}));
+ t.after(()=>mf.dispose());const db=await mf.getD1Database('DB');
+ await db.exec(fs.readFileSync(path.join(__dirname,'render-jobs.sql'),'utf8').replace(/^--.*$/gm,'').replace(/\n/g,' '));
+ const {createRenderJobStore}=await import('./render-jobs.mjs'),store=createRenderJobStore(db);
+ const descriptor={sourceKey:'marketing-library/test.jpg',sourceSha256:'a'.repeat(64),sourceVersionId:'source-version-1',sourceMetadataSha256:'e'.repeat(64),postId:'draft-1',postRevision:100,mediaId:'slide-1',rendererVersion:'fixture-v1',templateId:'reposado-wide',optionsHash:'b'.repeat(64)};
+ for(const phase of ['enqueue','cleanup','claim','fail']){
+  const now=Date.now(),input={actorId:'owner',requestId:phase,descriptor,now};let row;
+  if(phase!=='enqueue')row=(await store.enqueue(input)).job;
+  if(phase==='cleanup')await db.prepare("UPDATE prototype_render_jobs SET status='rendering',attempts=3,lease_token='old',lease_until=1 WHERE id=?").bind(row.id).run();
+  if(phase==='fail')row=await store.claim({actorId:'owner',jobId:row.id,now:Date.now(),leaseMs:10000});
+  const before=row?await store.get({actorId:'owner',jobId:row.id}):null;
+  const expiresAt=Date.now()+300;let delayed=0;
+  const wrapped={prepare(sql){const statement=db.prepare(sql);return {bind(...args){const bound=statement.bind(...args);const wait=async()=>{
+   const selected=phase==='enqueue'?sql.startsWith('INSERT INTO'):phase==='cleanup'?sql.includes("status = 'dead'"):phase==='claim'?sql.includes("status = 'rendering'"):sql.includes('SET status = CASE');
+   if(selected){delayed++;await new Promise(resolve=>setTimeout(resolve,Math.max(0,expiresAt-Date.now()+30)));}
+  };return {async first(){await wait();return bound.first();},async run(){await wait();return bound.run();}};}};}};
+  const scoped=createRenderJobStore(wrapped),deadline={expiresAt};
+  const operation=phase==='enqueue'?scoped.enqueue({...input,deadline}):phase==='fail'?scoped.fail({actorId:'owner',jobId:row.id,leaseToken:row.leaseToken,errorCode:'local_failure',now:Date.now(),deadline}):scoped.claim({actorId:'owner',jobId:row.id,now:Date.now(),leaseMs:10000,deadline});
+  await assert.rejects(operation,e=>e.code==='execution_deadline_expired');assert.equal(delayed,1);
+  if(row)assert.deepEqual(await store.get({actorId:'owner',jobId:row.id}),before);
+  else assert.equal(await db.prepare('SELECT * FROM prototype_render_jobs WHERE request_id=?').bind(phase).first(),null);
+ }
+});
 test('local workerd D1 executes actor idempotency, atomic claims and stale fencing',{timeout:20000},async t=>{
  const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'job-store-check',script:'export default {fetch(){return new Response("local-only")}}',modules:true,compatibilityDate:'2026-05-01',d1Databases:{DB:'render-jobs-local'}}],cf:false,host:'127.0.0.1',port:0}));
  t.after(()=>mf.dispose());
