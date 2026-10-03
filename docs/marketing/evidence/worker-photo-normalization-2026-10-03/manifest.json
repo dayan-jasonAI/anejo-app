@@ -1,0 +1,33 @@
+{
+  "recordedAt": "2026-10-03T14:19:25.670084+00:00",
+  "scope": "local_image_pipeline_only",
+  "fullTests": {
+    "total": 201,
+    "passed": 200,
+    "failed": 0,
+    "explicitSkips": 1
+  },
+  "targetedTests": {
+    "passed": 21,
+    "failed": 0
+  },
+  "targetedLintExit": 0,
+  "files": {
+    "worker-source-metadata.mjs": "833c327a82015f5d764bd7e2a5bd1812d81faaf2216c2fe2850e264ed4fee1fc",
+    "worker-source-metadata.test.mjs": "319fd60b0b270f82e5be456e7eba5600576babd301f7f7448139209452b5fc7a",
+    "worker-source-normalize.mjs": "86e14535c4cb9c6e384063aff260e9998510e060ee6d463d9cb516fe6f244225",
+    "worker-source-normalize.test.mjs": "3e22682fe688c2bf5d57a87d0f400f3da77bebd7db69ac27e2c9ac34d32299d3",
+    "worker-normalizer-workerd.test.cjs": "8ddb28b61ec3e4ef90459feb656ec83c3fc66bb67273cbe318c6b060a7715600",
+    "color-kernel.mjs": "6fa930cb9e37fba79870435a71e8d8b5acceed3e2ef853820fe045707e4a126d",
+    "package.json": "f3665de1cf1371373795e069562da4515708fac9f1df7ade34e9f898ff4e2e6c"
+  },
+  "productionImported": false,
+  "deployed": false,
+  "limits": [
+    "4MP source guard;24MP goal unresolved",
+    "chunk peak and total peak resources unverified",
+    "8bit premultiplied decoder rounding at low alpha;zero-alpha RGB discarded",
+    "synthetic harness is not bounded production HTTP ingestion",
+    "no durable derivative/job/provenance binding yet"
+  ]
+}

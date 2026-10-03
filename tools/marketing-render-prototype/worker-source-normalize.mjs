@@ -10,7 +10,11 @@ const {crc32}=globalThis.AnejoImageOrientation;
 const sha=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).map(n=>n.toString(16).padStart(2,'0')).join('');
 function decode(bytes,type,W,H){let engine,image;try{
  const xml=`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}"><image width="${W}" height="${H}" preserveAspectRatio="none" xlink:href="data:image/${type};base64,${encodeBase64(bytes)}"/></svg>`;
- engine=new Resvg(xml);image=engine.render();if(image.width!==W||image.height!==H||image.pixels.length!==W*H*4)throw Error('Unexpected source raster');return new Uint8Array(image.pixels);
+ engine=new Resvg(xml);image=engine.render();if(image.width!==W||image.height!==H||image.pixels.length!==W*H*4)throw Error('Unexpected source raster');const pixels=new Uint8Array(image.pixels);
+ // resvg pixels are premultiplied RGBA. ICC transforms require straight RGB.
+ // Unpremultiplication has unavoidable 8-bit rounding at low alpha; zero-alpha RGB is discarded.
+ for(let at=0;at<pixels.length;at+=4){const a=pixels[at+3];for(let c=0;c<3;c++)pixels[at+c]=a?Math.min(255,Math.round(pixels[at+c]*255/a)):0;}
+ return pixels;
  }finally{image?.free();engine?.free();}}
 export function orientRGBA(input,W,H,orientation){
  if(!(input instanceof Uint8Array)||input.length!==W*H*4||!Number.isInteger(orientation)||orientation<1||orientation>8)throw Error('Invalid orientation raster');
@@ -36,7 +40,7 @@ function chunk(type,payload){const output=new Uint8Array(payload.length+12),view
 async function encodePNG(pixels,W,H){
  const raw=new Uint8Array(H*(W*4+1));for(let y=0;y<H;y++)raw.set(pixels.subarray(y*W*4,(y+1)*W*4),y*(W*4+1)+1);
  const reader=new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate')).getReader(),parts=[];let size=0;
- try{while(true){const r=await reader.read();if(r.done)break;size+=r.value.length;if(size>MAX_BYTES-100)throw Error('Derivative exceeds 5 MiB');parts.push(r.value);}}finally{reader.releaseLock();}
+ try{while(true){const r=await reader.read();if(r.done)break;size+=r.value.length;if(size>MAX_BYTES-100)throw Error('Derivative exceeds 5 MiB');parts.push(r.value);}}catch(error){await reader.cancel().catch(()=>{});throw error;}finally{reader.releaseLock();}
  const compressed=new Uint8Array(size);let at=0;for(const part of parts){compressed.set(part,at);at+=part.length;}
  const header=new Uint8Array(13),view=new DataView(header.buffer);view.setUint32(0,W);view.setUint32(4,H);header.set([8,6,0,0,0],8);
  const chunks=[new Uint8Array([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('sRGB',new Uint8Array([1])),chunk('IDAT',compressed),chunk('IEND',new Uint8Array())];
@@ -45,7 +49,7 @@ async function encodePNG(pixels,W,H){
 export async function createWorkerNormalizer(resvgModule,colorModule){
  await initialize(resvgModule);const kernel=await createColorKernel(colorModule);
  return Object.freeze({async normalize(source){
-  if(!(source instanceof Uint8Array))throw Error('Uint8Array source required');const original=new Uint8Array(source),metadata=await readWorkerSourceMetadata(original),{width:W,height:H}=metadata;
+  if(!(source instanceof Uint8Array))throw Error('Uint8Array source required');dimensions(source);const original=new Uint8Array(source),metadata=await readWorkerSourceMetadata(original),{width:W,height:H}=metadata;
   let pixels=decode(metadata.decoderBytes,metadata.type,W,H);if(metadata.profile)pixels=kernel.transformRGBA(pixels,metadata.profile);
   const upright=orientRGBA(pixels,W,H,metadata.orientation),resized=resizeRGBA(upright.pixels,upright.width,upright.height),bytes=await encodePNG(resized.pixels,resized.width,resized.height),admission=admitSourceColor(bytes),shape=dimensions(bytes);
   if(admission.colorStatus!=='declared_srgb'||admission.orientation!==1||shape.width!==resized.width||shape.height!==resized.height)throw Error('Derivative metadata contract failed');

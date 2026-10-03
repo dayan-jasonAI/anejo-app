@@ -1,0 +1,6 @@
+
+/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/worker-source-metadata.test.mjs
+  12:10  warning  'iccpChunk' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+✖ 1 problem (0 errors, 1 warning)
+

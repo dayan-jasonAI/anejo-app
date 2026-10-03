@@ -108,7 +108,7 @@ function parseJpeg(bytes){
 /** Read bounded ICC/orientation metadata, leaving the supplied original untouched. */
 export async function readWorkerSourceMetadata(source){
  if(!(source instanceof Uint8Array))invalid('Uint8Array required');
- const original=new Uint8Array(source),shape=dimensions(original);
+ const shape=dimensions(source),original=new Uint8Array(source);
  const parsed=shape.type==='png'?parsePng(original):shape.type==='jpeg'?parseJpeg(original):invalid('unsupported image type');
  const profile=shape.type==='png'&&parsed.profileChunk?await inflateProfile(parsed.profileChunk):parsed.profile??null;
  if(profile&&shape.type==='png'){
