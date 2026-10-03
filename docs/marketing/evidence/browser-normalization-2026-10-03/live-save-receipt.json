@@ -1,0 +1,37 @@
+[
+  {
+    "results": [
+      {
+        "id": "rr_0d21734216a295b2b66605a5964d0f330822cd81f3291400bc91134e9712564d",
+        "state": "attached",
+        "source_key": "studio/render-receipts/rr_024b108c63ad33e2d79f743f2c85c918412d6a7975a158700c849054826b049a_photo.jpg",
+        "source_sha256": "94a39821418eecc7b18c41d26abe7ffa0097b5b8ec517624802a462420f17cdd",
+        "output_key": "studio/render-receipts/rr_0d21734216a295b2b66605a5964d0f330822cd81f3291400bc91134e9712564d_photo.jpg",
+        "output_sha256": "571477dda34d66e09a08e63aeab57479401b1810791005b7c11fcf76a2f56370",
+        "evidence_tier": "browser_declared",
+        "created_at": 1791011194425,
+        "normalization": "{\"normalizer_version\":\"browser-srgb-1\",\"source\":\"browser_declared\",\"status\":\"processed\",\"original_sha256\":\"94a39821418eecc7b18c41d26abe7ffa0097b5b8ec517624802a462420f17cdd\",\"derivative_sha256\":\"386fc767ceb04c11f78110638455a681aa96a83c26e11804e35930e5f1b1f0a2\",\"source_profile_sha256\":\"12afb4d9953adee0607d347daee5b78b18d6b3cab2d572b88970703f5edb37bc\",\"color_assumption\":\"embedded_rgb_profile\",\"observed_context_color_space\":\"srgb\",\"original_orientation\":1,\"original_width\":1254,\"original_height\":1254,\"width\":1254,\"height\":1254,\"resize_policy\":\"inside-2000x2000-no-enlargement\",\"bytes\":3587176,\"format\":\"png\",\"visual_review_required\":true,\"color_verification\":\"browser_declared\"}",
+        "status": "draft",
+        "attached_key_matches": 1
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "IAD",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.6389
+      },
+      "duration": 0.6389,
+      "changes": 0,
+      "last_row_id": 0,
+      "changed_db": false,
+      "size_after": 25731072,
+      "rows_read": 8,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]

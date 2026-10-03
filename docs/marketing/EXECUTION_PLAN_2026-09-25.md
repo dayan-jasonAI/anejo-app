@@ -230,3 +230,7 @@ Implemented opt-in Node normalization with separate derivative/provenance, expli
 ### October 3 browser preview normalization integration
 
 PR182 integrates source-preserving JPEG/PNG normalization into owner branded-preview and persists browser-declared normalization provenance in the existing save declaration. Current local evidence:3,415root tests,50reference tests,12focused save/declaration tests;20actualChrome image cases passed. Read-only review found CMYK misclassification and unbounded WebP fallback; both have explicit guards and regressions. Unsupported WebP normalization remains visibly not-processed. See BROWSER_PHOTO_NORMALIZATION_2026-10-03.md and evidence directory. Release/CI and authenticated live-save acceptance pending; no unattended renderer or full-goal completion claim.
+
+### October3 shipped browser preview acceptance
+
+PR182 mergedaf695f4; production inventory lists thatsource. Normal supported owner browser rendered/saved the private QA preview, and D1/R2 readback confirmed attachment,draftstatus,normalizationdeclaration and unchangedselectedsourcehash. See BROWSER_PHOTO_NORMALIZATION_2026-10-03.md release evidence. Instagram liveconnection check refused token (separatecredentialdependency; no renewalattempt). Next concretework: verified pre-editorial source recovery so repeated branding cannot silently stack emblems. Branchcodex/branded-photo-original-recovery starts fromcurrentmain. Unattended renderer,teamworkflow,auditreasoning,voice andGoogleconnection/fullgoal acceptance remainopen.
