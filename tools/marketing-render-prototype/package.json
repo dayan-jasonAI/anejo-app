@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "render": "node render.mjs",
-    "test": "node --test test.mjs editorial.test.mjs source-orientation.test.mjs normalization.test.mjs browser-normalization.test.mjs jpeg-encoder.test.mjs base64.test.mjs bounded-body.test.mjs render-jobs.test.mjs render-jobs-d1.test.cjs render-consumer.test.mjs render-consumer-d1.test.cjs source-versions.test.cjs private-worker.test.cjs durable-admission.test.cjs execution-deadline.test.mjs source-color-admission.test.mjs"
+    "test": "node --test test.mjs editorial.test.mjs source-orientation.test.mjs normalization.test.mjs browser-normalization.test.mjs jpeg-encoder.test.mjs base64.test.mjs bounded-body.test.mjs render-jobs.test.mjs render-jobs-d1.test.cjs render-consumer.test.mjs render-consumer-d1.test.cjs source-versions.test.cjs private-worker.test.cjs durable-admission.test.cjs execution-deadline.test.mjs source-color-admission.test.mjs color-kernel.test.mjs color-kernel-workerd.test.cjs"
   },
   "dependencies": {
     "@resvg/resvg-wasm": "2.6.2",
