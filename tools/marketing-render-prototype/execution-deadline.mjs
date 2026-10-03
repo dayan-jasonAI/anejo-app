@@ -10,7 +10,7 @@ export function createExecutionDeadline({now=Date.now,budgetMs=25000}={}){
  const check=stage=>{
   const at=now();
   // Clock reversal cannot extend the executor's authority.
-  if(!Number.isSafeInteger(at)||at<last)throw Error('invalid_execution_clock');
+  if(!Number.isSafeInteger(at)||at<last){expired=true;throw Error('invalid_execution_clock');}
   last=at;if(at>=expiresAt)expired=true;
   if(expired)throw new ExecutionDeadlineError(stage);
   return at;

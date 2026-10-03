@@ -1,0 +1,15 @@
+✔ actual local SQLite DO refuses overlap until owned work settles, then admits next work (237.056375ms)
+✔ rejected owned work releases only after settlement and hides raw error (54.92825ms)
+✔ actual local runtime restart preserves unknown active receipt and never time-reclaims (115.277375ms)
+✔ deadline refuses new dispatch at the exact boundary (0.514833ms)
+✔ expiry waits for pending I/O and does not claim cancellation (0.1195ms)
+✔ clock reversal and invalid budgets cannot extend authority (0.105292ms)
+✔ successful settled stages preserve their values; errors propagate (0.0725ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 603.980958

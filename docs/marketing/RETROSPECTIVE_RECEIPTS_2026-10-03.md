@@ -25,3 +25,11 @@ PR195 passed all four exact-head checks at fa7356f2e43d176f7b9fc86474754f7618ca2
 The public verifier passed its eight static surface and two unauthorized API checks, but skipped database reads and freshness (the local tracking ref was stale at invocation; subsequently fetched). These checks do not cover the new marketing capabilities. Strict deployment verifier exited 1 because its CLOUDFLARE_API_TOKEN/account environment was absent; existing Wrangler OAuth inventory supplies separate provider evidence without changing credentials. A direct static-byte hash attempt received HTTP 403 Forbidden and stopped; no byte match claimed. Exact logs and browser readback are adjacent in the evidence folder.
 
 Next local engineering: durable executor admission and a whole-flow deadline. Existing per-isolate admission and job lease fencing do not stop simultaneous computation in separate isolates or prove termination after timeout. No prototype production route/resource/publication gate has been enabled.
+
+## Local executor foundations
+
+Root independently inspected and ran durable-admission.test.cjs and execution-deadline.test.mjs: 7/7 passed. Actual local workerd SQLite Durable Object tests hold admission through outstanding synthetic I/O, release only after fulfilled/rejected work settles, and preserve refusal after restarting with a seeded interrupted receipt. The bounded deadline refuses new dispatch at expiry and waits for pending operations to settle; invalid/reversed clocks permanently revoke this execution's dispatch authority. These modules are now included in the prototype test command.
+
+No full renderer integration or deployed global resource gate is claimed. Next: put complete capture, exact-job consumption, commit/readback/recovery inside the coordinator-owned operation; propagate a server-created whole-flow deadline through stages and D1 execution-time mutation guards. Audit detached/streaming work before promoting admission. Real CPU/combined memory and image/ICC parity remain separate requirements.
+
+Full prototype suite after adding executor foundations: 151 tests, 150 passed, one explicit Node-native base64 skip, zero failures. Log: evidence/retrospective-receipts-2026-10-03/prototype-admission-full-tests.log. No app runtime changed by these foundations.

@@ -14,7 +14,7 @@ test('expiry waits for pending I/O and does not claim cancellation',async()=>{
  let calls=0;await assert.rejects(d.dispatch('readback',()=>{calls++;}),ExecutionDeadlineError);assert.equal(calls,0);
 });
 test('clock reversal and invalid budgets cannot extend authority',()=>{
- let time=100;const d=createExecutionDeadline({now:()=>time,budgetMs:10});time=99;assert.throws(()=>d.check('render'),/invalid_execution_clock/);
+ let time=100;const d=createExecutionDeadline({now:()=>time,budgetMs:10});time=99;assert.throws(()=>d.check('render'),/invalid_execution_clock/);time=100;assert.throws(()=>d.check('retry'),ExecutionDeadlineError);
  for(const budgetMs of [0,-1,30001,Infinity,1.5])assert.throws(()=>createExecutionDeadline({budgetMs}),/invalid_execution_budget/);
 });
 test('successful settled stages preserve their values; errors propagate',async()=>{
