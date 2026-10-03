@@ -52,17 +52,21 @@ function JPEGEncoder(quality) {
 	var YAC_HT;
 	var UVAC_HT;
 	
-	var bitcode = new Array(65535);
-	var category = new Array(65535);
-	var outputfDCTQuant = new Array(64);
-	var DU = new Array(64);
+	// Per-encoder coefficient lookup storage: values need at most 15 bits,
+	// and categories are 1..15. Avoid 65,534 separate [value, length] arrays.
+	var bitcode = new Uint16Array(65535);
+	var category = new Uint8Array(65535);
+	// Quantization already produces signed int32 values with |0.
+	var outputfDCTQuant = new Int32Array(64);
+	var DU = new Int32Array(64);
 	var byteout = [];
 	var bytenew = 0;
 	var bytepos = 7;
 	
-	var YDU = new Array(64);
-	var UDU = new Array(64);
-	var VDU = new Array(64);
+	// DCT updates these channel blocks in place; retain full Number precision.
+	var YDU = new Float64Array(64);
+	var UDU = new Float64Array(64);
+	var VDU = new Float64Array(64);
 	var clt = new Array(256);
 	var RGB_YUV_TABLE = new Array(2048);
 	var currentQuality;
@@ -221,16 +225,12 @@ function JPEGEncoder(quality) {
 				//Positive numbers
 				for (var nr = nrlower; nr<nrupper; nr++) {
 					category[32767+nr] = cat;
-					bitcode[32767+nr] = [];
-					bitcode[32767+nr][1] = cat;
-					bitcode[32767+nr][0] = nr;
+					bitcode[32767+nr] = nr;
 				}
 				//Negative numbers
 				for (var nrneg =-(nrupper-1); nrneg<=-nrlower; nrneg++) {
 					category[32767+nrneg] = cat;
-					bitcode[32767+nrneg] = [];
-					bitcode[32767+nrneg][1] = cat;
-					bitcode[32767+nrneg][0] = nrupper-1+nrneg;
+					bitcode[32767+nrneg] = nrupper-1+nrneg;
 				}
 				nrlower <<= 1;
 				nrupper <<= 1;
@@ -253,8 +253,12 @@ function JPEGEncoder(quality) {
 		// IO functions
 		function writeBits(bs)
 		{
-			var value = bs[0];
-			var posval = bs[1]-1;
+			writeBitValue(bs[0], bs[1]);
+		}
+
+		function writeBitValue(value, length)
+		{
+			var posval = length-1;
 			while ( posval >= 0 ) {
 				if (value & (1 << posval) ) {
 					bytenew |= (1 << bytepos);
@@ -585,7 +589,7 @@ function JPEGEncoder(quality) {
 			} else {
 				pos = 32767+Diff;
 				writeBits(HTDC[category[pos]]);
-				writeBits(bitcode[pos]);
+				writeBitValue(bitcode[pos], category[pos]);
 			}
 			//Encode ACs
 			var end0pos = 63; // was const... which is crazy
@@ -609,7 +613,7 @@ function JPEGEncoder(quality) {
 				}
 				pos = 32767+DU[i];
 				writeBits(HTAC[(nrzeroes<<4)+category[pos]]);
-				writeBits(bitcode[pos]);
+				writeBitValue(bitcode[pos], category[pos]);
 				i++;
 			}
 			if ( end0pos != I63 ) {

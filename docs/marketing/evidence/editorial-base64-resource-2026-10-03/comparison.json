@@ -1,0 +1,11 @@
+{
+  "matchingHashes": 66,
+  "requests": 70,
+  "scratchHighestSampledUsedSize": 88628340,
+  "base64HighestSampledUsedSize": 147857328,
+  "scratchSampledCumulativeBytes": 1382026980,
+  "encodingPaths": [
+    "native"
+  ],
+  "productionResourceReadiness": "unverified"
+}

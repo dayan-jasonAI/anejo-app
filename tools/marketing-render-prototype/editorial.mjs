@@ -4,10 +4,11 @@ import geometry from '../../public/hub/owner/assets/marketing-editorial-plan.js'
 import {dimensions} from './core.mjs';
 import {jpegOrientation,pngSourceOrientation} from './source-orientation.mjs';
 import {encode} from './jpeg-encoder.mjs';
+import {encodeBase64} from './base64.mjs';
 export const INKS=Object.freeze({parchment:'#E8E2CA',deep:'#0A180C',black:'#000000',gold:'#C8BC6E'});
 const escape=s=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
 const svg=(body,w,h)=>`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}">${body}</svg>`;
-function uri(bytes,type){let value='';for(let i=0;i<bytes.length;i+=8192)value+=String.fromCharCode(...bytes.subarray(i,i+8192));return `data:image/${type};base64,${btoa(value)}`;}
+function uri(bytes,type){return `data:image/${type};base64,${encodeBase64(bytes)}`;}
 // Consume pixel buffers before freeing their WASM owner; do not retain full-frame copies.
 function withRaster(xml,fonts,consume){let engine,image;try{engine=new Resvg(xml,{font:{fontBuffers:fonts,defaultFontFamily:'Anejo Editorial Serif'}});image=engine.render();return consume(image.pixels,image.width,image.height);}finally{image?.free();engine?.free();}}
 function measure(text,px,family,weight,fonts){let engine,box;try{engine=new Resvg(svg(`<text x="200" y="200" font-family="${family}" font-weight="${weight}" font-size="${px}">${escape(text)}</text>`,2048,512),{font:{fontBuffers:fonts,defaultFontFamily:family}});box=engine.innerBBox();if(!box||box.width<=0||box.height<=0)throw Error('Text has no measurable glyphs');return {x:box.x-200,y:box.y-200,w:box.width,h:box.height};}finally{box?.free();engine?.free();}}

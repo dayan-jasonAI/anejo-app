@@ -277,3 +277,33 @@ PR191 fourexact-head checks passed, merged e189398; Pages lists production b6716
 ## October3 — live billing diagnosis and joined strategy flow
 
 PR192 merged4478783, production3178fe77. Exactlyone supportedbrowser review+D1savedread showsbillingdiagnostic/HTTP400/nullscore; exactcredit/paymentstate unverified, nocharge/credentialchange. Owner factualreadbackpending. Continuedindependentwork: joinedactualidea/strategyreview/promotion/libraryselection/plannerpost/resvgrender/save/audit/manualschedule/edit continuity. Root2focused/3,570wholetests/lintpass. See PROVIDER_SPECIFICITY_2026-10-03.md and REVIEWED_STRATEGY_CONTENT_2026-10-03.md. Syntheticprovider/judge andlocalrendererlimits remain; liveunattendedproduction/fullgoal incomplete.
+
+### Joined flow release receipt
+
+PR193 merged2386a74 afterallfourexact-headchecks; currentproductionda2491c5/source2386a74 listsActive. Joinedlocal2case/3,570rootsuiteevidence shipsasregressionchecks, notautonomousruntime. Rootcheckpoint/docs/evidencepushed. Nextownerfact: APIbillingreadback. Nextindependentengineering: workerdmaximum-input/resourceproof and authenticateddurableprivate renderjobs beforeunattendedintegration. Fullgoal staysopen.
+
+## October 3 — mixed-input resource proof and lookup repair
+
+Local 70-request mixed JPEG/PNG workerd stress completed. Profiling led to a per-encoder typed lookup repair; all 66 before/after rendered hashes match, 62 prototype tests and four joined content tests pass. Sampled heap improved, but total/peak deployed CPU/memory remains unverified. See EDITORIAL_MIXED_RESOURCE_2026-10-03.md and its evidence directory. No runtime application integration or deployment. Next: reduce source data-URI copying and establish production resource/parity/job gates. Auditor billing, Google billing warning/API approval remain external dependencies; full goal stays open.
+
+## October 3 — conversion and scratch-array follow-through
+
+Local native/bounded-fallback base64 conversion plus typed JPEG scratch arrays preserve all 66 mixed-render hashes. 68 prototype tests and four joined-content tests pass (one explicitly skipped Node-native test; native workerd separately observed). Resource observations remain local/partial; no production gate passed. See EDITORIAL_BASE64_RESOURCE_2026-10-03.md. Next: current production budget/combined-memory/CPU method, then visual parity and authenticated durable draft jobs. Do not infer production safety from smaller sampled heap or change the approved design to chase a pass. Full goal stays open.
+
+## October 3 — durable local job ownership and upload limits
+
+83 prototype tests pass with one explicit native Node skip; four joined-content tests pass. Real SQLite competing handles and local workerd D1 prove bounded actor/request lease behavior; source/attachment/resource verification remains separate. Extracted body reader gains deadline/fragment/overflow tests, 66 renderer hashes preserved. See RENDER_JOB_STORE_2026-10-03.md. Current production plan is unknown behind Cloudflare sign-in; no credentials/settings changed. Continued local store work while sign-in pending. Next: private source/render/output/attachment consumer rehearsal with exact lease/source fencing, and production resource/parity proof. Full goal remains open.
+
+## October 3 — private consumer and execution-time lease repair
+
+Local consumer joins original source, pinned render, output readback and atomic draft attachment with audit/schedule invalidation. Independent review reproduced and root repaired delayed-batch lease expiry; 97 prototype tests pass/one explicit native Node skip, two local workerd D1 clock/guard tests pass. Evidence and exact limits: PRIVATE_RENDER_CONSUMER_2026-10-03.md. Complete consumer currently uses migrated SQLite plus R2 double; full D1/R2/runtime resource/parity acceptance and authenticated app integration remain open. No deployment, production schema or trust change. Full goal remains open.
+
+Additional local binding acceptance: root independently ran both complete-consumer D1/R2 cases successfully. Full prototype now99pass/one explicit skip (100tests). Actual storage/database bindings replace doubles in these two cases; consumer/WASM execute from Node host and direct fixtures bypass browser auth. This does not establish deployed resource or authenticated runtime proof. Evidence: PRIVATE_RENDER_CONSUMER_2026-10-03.md and d1-r2-consumer-tests.log.
+
+## October 3 — stronger draft freshness and recovery boundary
+
+Local counter/tombstone triggers replace the consumer timestamp revision; post-first transaction accounts for its own two revision increments. Recovery verifies R2 output before a final joined D1 state read. Current105tests:104pass/one explicit skip; independent consumer review19pass. See DRAFT_REVISION_FENCING_2026-10-03.md for current evidence, superseding timestamp freshness and earlier pre-readback recovery ordering. Immutable source semantics/R2-to-D1 race, deployed resource/auth/parity and full marketing readiness remain open. No production migration/deploy/trust change.
+
+## October 3 — preserved-source foundation and narrow application safeguards
+
+Local actor/request/source-version capture and conditional create/readback pass fourteen actual D1/R2 tests; prototype118pass/one explicit skip. Training deletion now confines cleanup to training uploads and Hub source-version media requires MARKETING_DESK; root3,577tests/lint/build pass. Evidence: SOURCE_VERSION_FOUNDATION_2026-10-03.md. Release pending; capture is not yet consumer-bound or bucket-wide immutable. Next exact version/job/CAS integration plus production resource/auth/parity gates. Full goal remains open.

@@ -1,0 +1,6 @@
+{
+  "matchingOutputHashes": 66,
+  "requests": 70,
+  "resourceReadiness": "unverified",
+  "scope": "Body-reader module extraction preserves accepted renderer output and negative responses; job store not called by harness."
+}

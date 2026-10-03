@@ -115,3 +115,15 @@ The editorial adapter now applies PNG eXIf orientation as well as JPEG EXIF. PNG
 ### Node reference normalization — October 3
 
 `node preview-editorial.mjs --normalize-source` preserves the website original and renders from a separately hashed upright sRGB PNG derivative. Native Sharp0.35.5 is isolated here, never imported by the app or Worker. Input bounds24MP/8192edge/5MiB; inside2000×2000 output without cropping/enlargement, plus a separate5MiB derivative bound. Metadata assumptions, rejected formats and test evidence: `docs/marketing/EDITORIAL_COLOR_NORMALIZATION_2026-10-03.md`. Visual review and production execution proof remain required.
+
+## Mixed-input resource extension and JPEG allocation repair (October 3)
+
+See `docs/marketing/EDITORIAL_MIXED_RESOURCE_2026-10-03.md` for the 70-request mixed JPEG/PNG stress evidence, exact before/after output hashes and explicit production limits. Run `node prepare-encoder.mjs --check` to verify that the pinned generated encoder retains the per-instance typed lookup optimization. The prototype test suite now includes byte-equivalence against jpeg-js 0.4.4. This remains local-only; automatic rendering is not enabled.
+
+## Image conversion and scratch storage follow-through
+
+`base64.mjs` selects native encoding when exposed, otherwise bounded direct-alphabet chunks. core/editorial share it; JPEG scratch arrays retain double DCT precision and int32 quantized values. See `docs/marketing/EDITORIAL_BASE64_RESOURCE_2026-10-03.md` for byte-equivalence and local runtime evidence. Production resource, visual parity and job gates remain open.
+
+## Durable local job-store foundation
+
+`render-jobs.sql` is a local-only schema, not a production migration. `render-jobs.mjs` implements actor/request identity, atomic expiring claims and terminal asserted receipts. Tests use real SQLite and local workerd D1; no route/scheduler or rendering/attachment is connected. `bounded-body.mjs` retains the resource harness upload caps and deadline with new executable tests. See `docs/marketing/RENDER_JOB_STORE_2026-10-03.md`.

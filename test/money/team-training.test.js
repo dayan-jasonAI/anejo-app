@@ -286,3 +286,15 @@ test('migration defines both tables with active + created_by/created_at/updated_
   assert.match(MIG, /CREATE TABLE IF NOT EXISTS training_examples/);
   assert.match(MIG, /flag\s+TEXT NOT NULL DEFAULT 'good' CHECK \(flag IN \('good','bad'\)\)/);
 });
+
+for (const mediaKey of ['marketing-source-versions/source-v1', 'marketing-library/2026-10/original.jpg', 'studio/render-receipts/example.jpg', 'training/../marketing-source-versions/source-v1']) {
+ test('training deletion preserves non-training or unsafe source object '+mediaKey, async()=>{
+  const r2=fakeR2({[mediaKey]:{}});
+  const env=ownerEnv([
+   [/SELECT media_key FROM training_examples WHERE id = \?/,()=>({media_key:mediaKey})],
+   [/UPDATE training_examples SET active = 0/,()=>({meta:{changes:1}})]
+  ],{media:r2});
+  const res=await trainingPost({request:post('/api/hub/owner/team-training',{op:'delete_example',id:'trex_1'}),env});
+  assert.equal(res.status,200);assert.deepEqual(r2.deleted,[]);
+ });
+}

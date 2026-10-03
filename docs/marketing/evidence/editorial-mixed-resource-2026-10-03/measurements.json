@@ -1,0 +1,4422 @@
+{
+  "recordedAt": "2026-10-03T10:18:39.468Z",
+  "node": "v24.16.0",
+  "workerd": "1.20260903.1",
+  "limitations": [
+    "Local client wall time is not deployed CPU.",
+    "Inspector samples and WASM linear allocations are not additive or total/peak isolate memory.",
+    "Inspector instrumentation can affect memory and timing.",
+    "No concurrency, production budget, visual parity or automated job acceptance."
+  ],
+  "runs": [
+    {
+      "round": 0,
+      "fixture": "square.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 516.9389580000001,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1033933,
+          "sha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 808400,
+        "sha256": "22b070617ac301cbc44f4416aea55f00e44b9116084d99eef8b47bd3de8c5a2d",
+        "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 498,
+          "renderWallElapsedMs": 489,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 2,
+        "result": {
+          "usedSize": 22444392,
+          "totalSize": 41172992,
+          "embedderHeapUsedSize": 72216,
+          "backingStorageSize": 10835873
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "square.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 388.4269579999999,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1033933,
+          "sha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 806641,
+        "sha256": "f614f7cae35f07da476d7cfa0cfe467e02bf64ee8b28b2c9a6f0bfc1da6deaad",
+        "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 386,
+          "renderWallElapsedMs": 384,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 3,
+        "result": {
+          "usedSize": 48967804,
+          "totalSize": 77168640,
+          "embedderHeapUsedSize": 128440,
+          "backingStorageSize": 16364801
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "square.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 360.25083399999994,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1032104,
+          "sha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 816530,
+        "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+        "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 358,
+          "renderWallElapsedMs": 356,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 4,
+        "result": {
+          "usedSize": 79346944,
+          "totalSize": 120864768,
+          "embedderHeapUsedSize": 258024,
+          "backingStorageSize": 21911740
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "square.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 356.35287500000004,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1032104,
+          "sha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 814723,
+        "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+        "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 354,
+          "renderWallElapsedMs": 351,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 5,
+        "result": {
+          "usedSize": 27059836,
+          "totalSize": 93274112,
+          "embedderHeapUsedSize": 72216,
+          "backingStorageSize": 8377455
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "square-exact-5mib.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 506.04395799999975,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 5242880,
+          "sha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 816530,
+        "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+        "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 503,
+          "renderWallElapsedMs": 493,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 6,
+        "result": {
+          "usedSize": 56600956,
+          "totalSize": 138641408,
+          "embedderHeapUsedSize": 515960,
+          "backingStorageSize": 14619696
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "square-exact-5mib.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 503.20949999999993,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 5242880,
+          "sha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 814723,
+        "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+        "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 500,
+          "renderWallElapsedMs": 488,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 7,
+        "result": {
+          "usedSize": 39912636,
+          "totalSize": 106561536,
+          "embedderHeapUsedSize": 350816,
+          "backingStorageSize": 16798919
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "landscape.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 426.82037500000024,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1028735,
+          "sha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 946066,
+        "sha256": "49f7b8c9adca045baa594c68f24cb4b038d11e27f16798c47db6c275cf0cc49a",
+        "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 423,
+          "renderWallElapsedMs": 421,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 8,
+        "result": {
+          "usedSize": 46859188,
+          "totalSize": 112377856,
+          "embedderHeapUsedSize": 407040,
+          "backingStorageSize": 12484964
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "landscape.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 425.4859999999999,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1028735,
+          "sha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 945912,
+        "sha256": "215f49159cf36eef1f0dc6806a4257a71b133ca1851535961add60acf17559f3",
+        "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 422,
+          "renderWallElapsedMs": 420,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 9,
+        "result": {
+          "usedSize": 58088472,
+          "totalSize": 123944960,
+          "embedderHeapUsedSize": 453632,
+          "backingStorageSize": 12484964
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "landscape.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 402.2026659999997,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1031547,
+          "sha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 955517,
+        "sha256": "c4f78a3a061229b208b8a8e2585414c29690d5681f814a9a5cc2b786573639c0",
+        "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 398,
+          "renderWallElapsedMs": 396,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 10,
+        "result": {
+          "usedSize": 69417412,
+          "totalSize": 136183808,
+          "embedderHeapUsedSize": 644928,
+          "backingStorageSize": 12484964
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "landscape.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 395.5496659999999,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1031547,
+          "sha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 955545,
+        "sha256": "bd125ff8c752b2d808ebb2a48233b43282a1e6a838d5d7cf36b8fb23a5760f7f",
+        "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 392,
+          "renderWallElapsedMs": 389,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 11,
+        "result": {
+          "usedSize": 82025928,
+          "totalSize": 152371200,
+          "embedderHeapUsedSize": 644928,
+          "backingStorageSize": 12484964
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "portrait.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 346.9249170000003,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1028800,
+          "sha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 675469,
+        "sha256": "9522673775f9a97ecd8a1efdcbf27ec1efbada3a43b94625ad0d5e4487d49457",
+        "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 343,
+          "renderWallElapsedMs": 341,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 12,
+        "result": {
+          "usedSize": 93270004,
+          "totalSize": 167084032,
+          "embedderHeapUsedSize": 773896,
+          "backingStorageSize": 12489060
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "portrait.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 341.29383300000063,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1028800,
+          "sha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 670094,
+        "sha256": "0fdaff45d87f89d25b69d9b522c4abb26f2a77e34e065f3c916463e875822188",
+        "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 337,
+          "renderWallElapsedMs": 335,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 13,
+        "result": {
+          "usedSize": 104498100,
+          "totalSize": 181272576,
+          "embedderHeapUsedSize": 773896,
+          "backingStorageSize": 12489060
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "portrait.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 314.0520829999996,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1026650,
+          "sha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 680907,
+        "sha256": "9514d9a5737d21ab24c906c44c8501845be93e5feaed25297cbe89c1c90034bf",
+        "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 310,
+          "renderWallElapsedMs": 307,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 14,
+        "result": {
+          "usedSize": 115739284,
+          "totalSize": 196558848,
+          "embedderHeapUsedSize": 902864,
+          "backingStorageSize": 12489060
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "portrait.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 312.1798340000005,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1026650,
+          "sha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 675633,
+        "sha256": "d20b6546be292905f421a5d34df03d092929f35e9975b39a5617e714b038ba3c",
+        "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 308,
+          "renderWallElapsedMs": 306,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 15,
+        "result": {
+          "usedSize": 126966212,
+          "totalSize": 211582976,
+          "embedderHeapUsedSize": 902864,
+          "backingStorageSize": 12489060
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "ultrawide.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 296.96729199999936,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1033549,
+          "sha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 492139,
+        "sha256": "7d78a0c8436cd0e5a30561124ceedd375ab6cafb1feaf5e23730f95ef62ed26e",
+        "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 293,
+          "renderWallElapsedMs": 292,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 16,
+        "result": {
+          "usedSize": 136919372,
+          "totalSize": 225050624,
+          "embedderHeapUsedSize": 1031832,
+          "backingStorageSize": 12493156
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "ultrawide.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 290.3587500000003,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1033549,
+          "sha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 494552,
+        "sha256": "2763bcfc96828bc5973282db6b22d1ade4fc605a699d6e05a4a2f2353ca0ffab",
+        "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 287,
+          "renderWallElapsedMs": 285,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 17,
+        "result": {
+          "usedSize": 146860304,
+          "totalSize": 239042560,
+          "embedderHeapUsedSize": 1031832,
+          "backingStorageSize": 12493156
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "ultrawide.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 264.3542090000001,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1036159,
+          "sha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 493652,
+        "sha256": "d6dc7e9cfe8d5f34464eb288912c91de98df33cdcf1e5c1ca0fc8397a8d97ae8",
+        "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 260,
+          "renderWallElapsedMs": 257,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 18,
+        "result": {
+          "usedSize": 156801724,
+          "totalSize": 251346944,
+          "embedderHeapUsedSize": 1160800,
+          "backingStorageSize": 12493156
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "ultrawide.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 260.53612499999963,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1036159,
+          "sha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 496224,
+        "sha256": "3140db8518ec6328f950886d53c571e026901fb0c3f09721a3ed944d5e24440b",
+        "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 257,
+          "renderWallElapsedMs": 255,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 19,
+        "result": {
+          "usedSize": 166744744,
+          "totalSize": 263651328,
+          "embedderHeapUsedSize": 1289768,
+          "backingStorageSize": 12493156
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "ultratall.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 281.5917499999996,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1034144,
+          "sha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 359573,
+        "sha256": "d8c6918afd8162177e54f923b02acb39e19e89f7d720d70aa33303d54a44e7ab",
+        "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 280,
+          "renderWallElapsedMs": 278,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 20,
+        "result": {
+          "usedSize": 30791828,
+          "totalSize": 118063104,
+          "embedderHeapUsedSize": 131856,
+          "backingStorageSize": 10387257
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "ultratall.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 270.70237499999985,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1034144,
+          "sha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 356379,
+        "sha256": "bfdf5e60edbbb942706a74a16f1ae7f25dec075ea46d6a7020cff2df27407960",
+        "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 269,
+          "renderWallElapsedMs": 265,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 21,
+        "result": {
+          "usedSize": 37631128,
+          "totalSize": 122257408,
+          "embedderHeapUsedSize": 131856,
+          "backingStorageSize": 12415761
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "ultratall.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 240.92412499999955,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1028186,
+          "sha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 359979,
+        "sha256": "94e8eba4a25f6aee2d293588b201620e8f30d8d98bb5c0c92a39f1f6111dabbd",
+        "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 239,
+          "renderWallElapsedMs": 238,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 22,
+        "result": {
+          "usedSize": 45352508,
+          "totalSize": 126451712,
+          "embedderHeapUsedSize": 203312,
+          "backingStorageSize": 14445101
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "ultratall.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 238.19216700000015,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1028186,
+          "sha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 356664,
+        "sha256": "2e631d5d497c00f3679e96e813173db6b719f4696e58ebed7d7046dae5881511",
+        "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 237,
+          "renderWallElapsedMs": 235,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 23,
+        "result": {
+          "usedSize": 52702088,
+          "totalSize": 136216576,
+          "embedderHeapUsedSize": 274768,
+          "backingStorageSize": 16467526
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "oversize.bin",
+      "template": "reposado-wide",
+      "status": 413,
+      "clientWallMs": 8.893208000000413,
+      "result": {
+        "error": "Request body exceeds 5 MiB",
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 7,
+          "clock": "Date.now",
+          "note": "Local elapsed time; not CPU or isolate memory evidence."
+        }
+      },
+      "heap": {
+        "id": 24,
+        "result": {
+          "usedSize": 54874384,
+          "totalSize": 137003008,
+          "embedderHeapUsedSize": 586296,
+          "backingStorageSize": 21714502
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "unsupported.bin",
+      "template": "reposado-wide",
+      "status": 422,
+      "clientWallMs": 1.645832999999584,
+      "result": {
+        "error": "Unsupported image or decoded dimensions exceed 4000000 pixels / 4096 edge",
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 0,
+          "clock": "Date.now",
+          "note": "Local elapsed time; not CPU or isolate memory evidence."
+        }
+      },
+      "heap": {
+        "id": 25,
+        "result": {
+          "usedSize": 54883848,
+          "totalSize": 137003008,
+          "embedderHeapUsedSize": 586296,
+          "backingStorageSize": 21722721
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "over-pixel-limit.png",
+      "template": "reposado-wide",
+      "status": 422,
+      "clientWallMs": 1.3608750000003056,
+      "result": {
+        "error": "Unsupported image or decoded dimensions exceed 4000000 pixels / 4096 edge",
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 0,
+          "clock": "Date.now",
+          "note": "Local elapsed time; not CPU or isolate memory evidence."
+        }
+      },
+      "heap": {
+        "id": 26,
+        "result": {
+          "usedSize": 54892352,
+          "totalSize": 137003008,
+          "embedderHeapUsedSize": 586296,
+          "backingStorageSize": 21730937
+        }
+      }
+    },
+    {
+      "round": 0,
+      "fixture": "empty.bin",
+      "template": "reposado-wide",
+      "status": 400,
+      "clientWallMs": 1.393750000000182,
+      "result": {
+        "error": "JPEG or PNG body required",
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 0,
+          "clock": "Date.now",
+          "note": "Local elapsed time; not CPU or isolate memory evidence."
+        }
+      },
+      "heap": {
+        "id": 27,
+        "result": {
+          "usedSize": 54899968,
+          "totalSize": 137003008,
+          "embedderHeapUsedSize": 586296,
+          "backingStorageSize": 21735033
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "square.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 382.40287499999977,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1033933,
+          "sha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 808400,
+        "sha256": "22b070617ac301cbc44f4416aea55f00e44b9116084d99eef8b47bd3de8c5a2d",
+        "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 381,
+          "renderWallElapsedMs": 379,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 28,
+        "result": {
+          "usedSize": 70123008,
+          "totalSize": 156680192,
+          "embedderHeapUsedSize": 715096,
+          "backingStorageSize": 18950749
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "square.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 379.66879100000006,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1033933,
+          "sha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 806641,
+        "sha256": "f614f7cae35f07da476d7cfa0cfe467e02bf64ee8b28b2c9a6f0bfc1da6deaad",
+        "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 379,
+          "renderWallElapsedMs": 376,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 29,
+        "result": {
+          "usedSize": 84550124,
+          "totalSize": 174161920,
+          "embedderHeapUsedSize": 766448,
+          "backingStorageSize": 20980477
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "square.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 355.54675000000134,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1032104,
+          "sha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 816530,
+        "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+        "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 351,
+          "renderWallElapsedMs": 348,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 30,
+        "result": {
+          "usedSize": 87981900,
+          "totalSize": 176717824,
+          "embedderHeapUsedSize": 803520,
+          "backingStorageSize": 16674604
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "square.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 347.4156669999993,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1032104,
+          "sha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 814723,
+        "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+        "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 344,
+          "renderWallElapsedMs": 342,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 31,
+        "result": {
+          "usedSize": 99210400,
+          "totalSize": 188284928,
+          "embedderHeapUsedSize": 886008,
+          "backingStorageSize": 16674604
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "square-exact-5mib.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 511.28716600000007,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 5242880,
+          "sha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 816530,
+        "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+        "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 509,
+          "renderWallElapsedMs": 496,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 32,
+        "result": {
+          "usedSize": 39841600,
+          "totalSize": 115359744,
+          "embedderHeapUsedSize": 284176,
+          "backingStorageSize": 16800726
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "square-exact-5mib.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 502.8857910000006,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 5242880,
+          "sha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 814723,
+        "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+        "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 500,
+          "renderWallElapsedMs": 489,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 33,
+        "result": {
+          "usedSize": 73807976,
+          "totalSize": 160923648,
+          "embedderHeapUsedSize": 669120,
+          "backingStorageSize": 23039353
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "landscape.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 432.84420800000044,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1028735,
+          "sha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 946066,
+        "sha256": "49f7b8c9adca045baa594c68f24cb4b038d11e27f16798c47db6c275cf0cc49a",
+        "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 429,
+          "renderWallElapsedMs": 427,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 34,
+        "result": {
+          "usedSize": 77239524,
+          "totalSize": 160219136,
+          "embedderHeapUsedSize": 732624,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "landscape.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 431.42279100000087,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1028735,
+          "sha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 945912,
+        "sha256": "215f49159cf36eef1f0dc6806a4257a71b133ca1851535961add60acf17559f3",
+        "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 428,
+          "renderWallElapsedMs": 426,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 35,
+        "result": {
+          "usedSize": 88515640,
+          "totalSize": 171786240,
+          "embedderHeapUsedSize": 788848,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "landscape.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 403.8959999999988,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1031547,
+          "sha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 955517,
+        "sha256": "c4f78a3a061229b208b8a8e2585414c29690d5681f814a9a5cc2b786573639c0",
+        "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 400,
+          "renderWallElapsedMs": 397,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 36,
+        "result": {
+          "usedSize": 99743308,
+          "totalSize": 184418304,
+          "embedderHeapUsedSize": 851344,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "landscape.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 433.49204199999986,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1031547,
+          "sha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 955545,
+        "sha256": "bd125ff8c752b2d808ebb2a48233b43282a1e6a838d5d7cf36b8fb23a5760f7f",
+        "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 429,
+          "renderWallElapsedMs": 426,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 37,
+        "result": {
+          "usedSize": 110971060,
+          "totalSize": 199442432,
+          "embedderHeapUsedSize": 901408,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "portrait.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 387.7358329999988,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1028800,
+          "sha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 675469,
+        "sha256": "9522673775f9a97ecd8a1efdcbf27ec1efbada3a43b94625ad0d5e4487d49457",
+        "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 385,
+          "renderWallElapsedMs": 382,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 38,
+        "result": {
+          "usedSize": 122198948,
+          "totalSize": 210698240,
+          "embedderHeapUsedSize": 1031832,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "portrait.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 379.8457500000004,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1028800,
+          "sha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 670094,
+        "sha256": "0fdaff45d87f89d25b69d9b522c4abb26f2a77e34e065f3c916463e875822188",
+        "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 377,
+          "renderWallElapsedMs": 374,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 39,
+        "result": {
+          "usedSize": 133426748,
+          "totalSize": 222265344,
+          "embedderHeapUsedSize": 1160800,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "portrait.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 320.0542089999999,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1026650,
+          "sha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 680907,
+        "sha256": "9514d9a5737d21ab24c906c44c8501845be93e5feaed25297cbe89c1c90034bf",
+        "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 317,
+          "renderWallElapsedMs": 315,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 40,
+        "result": {
+          "usedSize": 144653740,
+          "totalSize": 234897408,
+          "embedderHeapUsedSize": 1160800,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "portrait.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 314.61825000000135,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1026650,
+          "sha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 675633,
+        "sha256": "d20b6546be292905f421a5d34df03d092929f35e9975b39a5617e714b038ba3c",
+        "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 311,
+          "renderWallElapsedMs": 307,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 41,
+        "result": {
+          "usedSize": 155880668,
+          "totalSize": 249069568,
+          "embedderHeapUsedSize": 1289768,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "ultrawide.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 298.41562499999964,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1033549,
+          "sha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 492139,
+        "sha256": "7d78a0c8436cd0e5a30561124ceedd375ab6cafb1feaf5e23730f95ef62ed26e",
+        "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 295,
+          "renderWallElapsedMs": 293,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 42,
+        "result": {
+          "usedSize": 165817156,
+          "totalSize": 261226496,
+          "embedderHeapUsedSize": 1289768,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "ultrawide.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 293.2223329999997,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1033549,
+          "sha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 494552,
+        "sha256": "2763bcfc96828bc5973282db6b22d1ade4fc605a699d6e05a4a2f2353ca0ffab",
+        "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 290,
+          "renderWallElapsedMs": 288,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 43,
+        "result": {
+          "usedSize": 175760132,
+          "totalSize": 274595840,
+          "embedderHeapUsedSize": 1418736,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "ultrawide.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 268.17425000000003,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1036159,
+          "sha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 493652,
+        "sha256": "d6dc7e9cfe8d5f34464eb288912c91de98df33cdcf1e5c1ca0fc8397a8d97ae8",
+        "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 264,
+          "renderWallElapsedMs": 261,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 44,
+        "result": {
+          "usedSize": 185696748,
+          "totalSize": 287162368,
+          "embedderHeapUsedSize": 1418736,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "ultrawide.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 262.9327080000003,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1036159,
+          "sha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 496224,
+        "sha256": "3140db8518ec6328f950886d53c571e026901fb0c3f09721a3ed944d5e24440b",
+        "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 259,
+          "renderWallElapsedMs": 257,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 45,
+        "result": {
+          "usedSize": 195633220,
+          "totalSize": 299204608,
+          "embedderHeapUsedSize": 1547704,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "ultratall.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 270.76187500000015,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1034144,
+          "sha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 359573,
+        "sha256": "d8c6918afd8162177e54f923b02acb39e19e89f7d720d70aa33303d54a44e7ab",
+        "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 267,
+          "renderWallElapsedMs": 265,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 46,
+        "result": {
+          "usedSize": 204708120,
+          "totalSize": 310919168,
+          "embedderHeapUsedSize": 1676672,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "ultratall.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 267.7417920000007,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1034144,
+          "sha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 356379,
+        "sha256": "bfdf5e60edbbb942706a74a16f1ae7f25dec075ea46d6a7020cff2df27407960",
+        "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 264,
+          "renderWallElapsedMs": 262,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 47,
+        "result": {
+          "usedSize": 213781868,
+          "totalSize": 323223552,
+          "embedderHeapUsedSize": 1676672,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "ultratall.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 241.938666,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1028186,
+          "sha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 359979,
+        "sha256": "94e8eba4a25f6aee2d293588b201620e8f30d8d98bb5c0c92a39f1f6111dabbd",
+        "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 238,
+          "renderWallElapsedMs": 234,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 48,
+        "result": {
+          "usedSize": 222854868,
+          "totalSize": 333709312,
+          "embedderHeapUsedSize": 1805640,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 1,
+      "fixture": "ultratall.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 236.01454199999898,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1028186,
+          "sha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 356664,
+        "sha256": "2e631d5d497c00f3679e96e813173db6b719f4696e58ebed7d7046dae5881511",
+        "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 233,
+          "renderWallElapsedMs": 231,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 49,
+        "result": {
+          "usedSize": 231945876,
+          "totalSize": 344195072,
+          "embedderHeapUsedSize": 1805640,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "square.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 385.2116669999996,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1033933,
+          "sha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 808400,
+        "sha256": "22b070617ac301cbc44f4416aea55f00e44b9116084d99eef8b47bd3de8c5a2d",
+        "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 382,
+          "renderWallElapsedMs": 380,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 50,
+        "result": {
+          "usedSize": 243174588,
+          "totalSize": 356827136,
+          "embedderHeapUsedSize": 1934608,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "square.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 383.6592500000006,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1033933,
+          "sha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 806641,
+        "sha256": "f614f7cae35f07da476d7cfa0cfe467e02bf64ee8b28b2c9a6f0bfc1da6deaad",
+        "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 380,
+          "renderWallElapsedMs": 376,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 51,
+        "result": {
+          "usedSize": 254407172,
+          "totalSize": 369459200,
+          "embedderHeapUsedSize": 1934608,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "square.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 354.5282920000027,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1032104,
+          "sha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 816530,
+        "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+        "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 351,
+          "renderWallElapsedMs": 349,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 52,
+        "result": {
+          "usedSize": 265644396,
+          "totalSize": 383631360,
+          "embedderHeapUsedSize": 2063576,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "square.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 352.5316669999993,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 1032104,
+          "sha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 814723,
+        "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+        "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 349,
+          "renderWallElapsedMs": 347,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 53,
+        "result": {
+          "usedSize": 276872924,
+          "totalSize": 398655488,
+          "embedderHeapUsedSize": 2063576,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "square-exact-5mib.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 519.8711669999975,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 5242880,
+          "sha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 816530,
+        "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+        "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 518,
+          "renderWallElapsedMs": 503,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 54,
+        "result": {
+          "usedSize": 39729656,
+          "totalSize": 125861888,
+          "embedderHeapUsedSize": 228176,
+          "backingStorageSize": 16800726
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "square-exact-5mib.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 510.8543329999993,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2000,
+          "height": 2000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 2000,
+          "displayHeight": 2000,
+          "compressedBytes": 5242880,
+          "sha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 814723,
+        "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+        "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 509,
+          "renderWallElapsedMs": 500,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 55,
+        "result": {
+          "usedSize": 73675644,
+          "totalSize": 169590784,
+          "embedderHeapUsedSize": 628240,
+          "backingStorageSize": 23039353
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "landscape.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 439.81816699999763,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1028735,
+          "sha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 946066,
+        "sha256": "49f7b8c9adca045baa594c68f24cb4b038d11e27f16798c47db6c275cf0cc49a",
+        "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 436,
+          "renderWallElapsedMs": 434,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 56,
+        "result": {
+          "usedSize": 77106400,
+          "totalSize": 162529280,
+          "embedderHeapUsedSize": 700256,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "landscape.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 433.25887499999953,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1028735,
+          "sha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 945912,
+        "sha256": "215f49159cf36eef1f0dc6806a4257a71b133ca1851535961add60acf17559f3",
+        "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 430,
+          "renderWallElapsedMs": 428,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 57,
+        "result": {
+          "usedSize": 88381712,
+          "totalSize": 173834240,
+          "embedderHeapUsedSize": 771992,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "landscape.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 403.23912500000006,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1031547,
+          "sha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 955517,
+        "sha256": "c4f78a3a061229b208b8a8e2585414c29690d5681f814a9a5cc2b786573639c0",
+        "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 400,
+          "renderWallElapsedMs": 397,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 58,
+        "result": {
+          "usedSize": 99610664,
+          "totalSize": 186728448,
+          "embedderHeapUsedSize": 843448,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "landscape.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 398.00624999999854,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 2304,
+          "height": 1728,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 2304,
+          "displayHeight": 1728,
+          "compressedBytes": 1031547,
+          "sha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 955545,
+        "sha256": "bd125ff8c752b2d808ebb2a48233b43282a1e6a838d5d7cf36b8fb23a5760f7f",
+        "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 394,
+          "renderWallElapsedMs": 393,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 59,
+        "result": {
+          "usedSize": 110838416,
+          "totalSize": 202604544,
+          "embedderHeapUsedSize": 915184,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "portrait.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 353.2729589999981,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1028800,
+          "sha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 675469,
+        "sha256": "9522673775f9a97ecd8a1efdcbf27ec1efbada3a43b94625ad0d5e4487d49457",
+        "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 349,
+          "renderWallElapsedMs": 347,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 60,
+        "result": {
+          "usedSize": 122066388,
+          "totalSize": 217628672,
+          "embedderHeapUsedSize": 982664,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "portrait.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 348.37774999999965,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "jpeg",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1028800,
+          "sha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 670094,
+        "sha256": "0fdaff45d87f89d25b69d9b522c4abb26f2a77e34e065f3c916463e875822188",
+        "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 345,
+          "renderWallElapsedMs": 343,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 61,
+        "result": {
+          "usedSize": 133294104,
+          "totalSize": 232652800,
+          "embedderHeapUsedSize": 1054344,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "portrait.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 319.0474580000009,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1026650,
+          "sha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 680907,
+        "sha256": "9514d9a5737d21ab24c906c44c8501845be93e5feaed25297cbe89c1c90034bf",
+        "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 315,
+          "renderWallElapsedMs": 313,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 62,
+        "result": {
+          "usedSize": 144521096,
+          "totalSize": 247676928,
+          "embedderHeapUsedSize": 1126248,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "portrait.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 316.9848329999986,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1728,
+          "height": 2304,
+          "type": "png",
+          "rgbaBytes": 15925248,
+          "orientation": 1,
+          "displayWidth": 1728,
+          "displayHeight": 2304,
+          "compressedBytes": 1026650,
+          "sha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 675633,
+        "sha256": "d20b6546be292905f421a5d34df03d092929f35e9975b39a5617e714b038ba3c",
+        "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 314,
+          "renderWallElapsedMs": 310,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 63,
+        "result": {
+          "usedSize": 155747940,
+          "totalSize": 262701056,
+          "embedderHeapUsedSize": 1159288,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "ultrawide.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 298.31479200000103,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1033549,
+          "sha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 492139,
+        "sha256": "7d78a0c8436cd0e5a30561124ceedd375ab6cafb1feaf5e23730f95ef62ed26e",
+        "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 295,
+          "renderWallElapsedMs": 292,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 64,
+        "result": {
+          "usedSize": 165683736,
+          "totalSize": 276430848,
+          "embedderHeapUsedSize": 1217024,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "ultrawide.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 296.4685000000027,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1033549,
+          "sha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 494552,
+        "sha256": "2763bcfc96828bc5973282db6b22d1ade4fc605a699d6e05a4a2f2353ca0ffab",
+        "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 293,
+          "renderWallElapsedMs": 291,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 65,
+        "result": {
+          "usedSize": 175619416,
+          "totalSize": 290160640,
+          "embedderHeapUsedSize": 1318440,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "ultrawide.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 269.09491699999853,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1036159,
+          "sha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 493652,
+        "sha256": "d6dc7e9cfe8d5f34464eb288912c91de98df33cdcf1e5c1ca0fc8397a8d97ae8",
+        "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 265,
+          "renderWallElapsedMs": 262,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 66,
+        "result": {
+          "usedSize": 185555864,
+          "totalSize": 302465024,
+          "embedderHeapUsedSize": 1360720,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "ultrawide.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 264.4340830000001,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 4000,
+          "height": 1000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 4000,
+          "displayHeight": 1000,
+          "compressedBytes": 1036159,
+          "sha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 496224,
+        "sha256": "3140db8518ec6328f950886d53c571e026901fb0c3f09721a3ed944d5e24440b",
+        "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 261,
+          "renderWallElapsedMs": 259,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 67,
+        "result": {
+          "usedSize": 195500604,
+          "totalSize": 314769408,
+          "embedderHeapUsedSize": 1459000,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "ultratall.jpg",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 273.5754589999997,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1034144,
+          "sha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 359573,
+        "sha256": "d8c6918afd8162177e54f923b02acb39e19e89f7d720d70aa33303d54a44e7ab",
+        "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 270,
+          "renderWallElapsedMs": 268,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 68,
+        "result": {
+          "usedSize": 204574448,
+          "totalSize": 326221824,
+          "embedderHeapUsedSize": 1512088,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "ultratall.jpg",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 272.5135829999999,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "jpeg",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1034144,
+          "sha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 356379,
+        "sha256": "bfdf5e60edbbb942706a74a16f1ae7f25dec075ea46d6a7020cff2df27407960",
+        "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 269,
+          "renderWallElapsedMs": 265,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 69,
+        "result": {
+          "usedSize": 213648112,
+          "totalSize": 338526208,
+          "embedderHeapUsedSize": 1621624,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "ultratall.png",
+      "template": "reposado-wide",
+      "status": 200,
+      "clientWallMs": 240.88737500000207,
+      "result": {
+        "template": "reposado-wide",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1028186,
+          "sha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 359979,
+        "sha256": "94e8eba4a25f6aee2d293588b201620e8f30d8d98bb5c0c92a39f1f6111dabbd",
+        "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 238,
+          "renderWallElapsedMs": 236,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 70,
+        "result": {
+          "usedSize": 222721916,
+          "totalSize": 349011968,
+          "embedderHeapUsedSize": 1666200,
+          "backingStorageSize": 18725398
+        }
+      }
+    },
+    {
+      "round": 2,
+      "fixture": "ultratall.png",
+      "template": "reposado-cajita",
+      "status": 200,
+      "clientWallMs": 236.6968339999985,
+      "result": {
+        "template": "reposado-cajita",
+        "source": {
+          "width": 1000,
+          "height": 4000,
+          "type": "png",
+          "rgbaBytes": 16000000,
+          "orientation": 1,
+          "displayWidth": 1000,
+          "displayHeight": 4000,
+          "compressedBytes": 1028186,
+          "sha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598"
+        },
+        "dimensions": {
+          "width": 1080,
+          "height": 810
+        },
+        "outputBytes": 356664,
+        "sha256": "2e631d5d497c00f3679e96e813173db6b719f4696e58ebed7d7046dae5881511",
+        "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+        "deviations": [
+          "Experimental kicker uses 1.8% of short edge with a 14px floor, larger than Canvas 1.3%/10px floor.",
+          "Glyph-outline top placement differs from Canvas textBaseline top.",
+          "Canvas shadow halo is not implemented.",
+          "Edge sampling and glyph rasterization use resvg, not browser Canvas.",
+          "Font bytes are caller supplied; exact font axes and missing glyph coverage are unverified.",
+          "JPEG and PNG EXIF orientation applied; historical metadata still requires visual review. ICC normalization remains unsupported."
+        ],
+        "resourceReadiness": "unverified",
+        "performance": {
+          "requestWallElapsedMs": 234,
+          "renderWallElapsedMs": 232,
+          "clock": "Date.now",
+          "note": "Local workerd elapsed time only. The clock may remain frozen during synchronous rendering; this is not CPU budget or peak/isolate memory evidence. Measure client HTTP wall time independently.",
+          "heapBefore": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "heapAfter": {
+            "supported": false,
+            "note": "This runtime exposes no performance.memory; isolate memory is unverified."
+          },
+          "wasmLinearAllocation": {
+            "supported": true,
+            "linearAllocatedBytes": 62259200,
+            "note": "Exported resvg WASM linear memory allocation after rendering; not live allocations, peak usage, JS heap, or total isolate memory."
+          }
+        }
+      },
+      "heap": {
+        "id": 71,
+        "result": {
+          "usedSize": 231794808,
+          "totalSize": 359497728,
+          "embedderHeapUsedSize": 1723096,
+          "backingStorageSize": 18725398
+        }
+      }
+    }
+  ],
+  "baseline": {
+    "id": 1,
+    "result": {
+      "usedSize": 3189604,
+      "totalSize": 3719168,
+      "embedderHeapUsedSize": 386904,
+      "backingStorageSize": 997554
+    }
+  },
+  "finalHeap": {
+    "id": 72,
+    "result": {
+      "usedSize": 231794808,
+      "totalSize": 359497728,
+      "embedderHeapUsedSize": 1723096,
+      "backingStorageSize": 18725398
+    }
+  },
+  "completedAt": "2026-10-03T10:19:02.964Z"
+}

@@ -1,0 +1,13 @@
+✔ streamed count rejects an underreported overflow without waiting for cancellation (9.451334ms)
+✔ exact cap and chunk ordering are preserved (0.883541ms)
+✔ empty/declared malformed/declared oversize inputs reject (0.216625ms)
+✔ fragmented and empty-chunk streams are bounded (431.920125ms)
+✔ stalled reads enforce the 15-second deadline and release ownership (0.941209ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 485.508708

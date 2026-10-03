@@ -1,0 +1,13 @@
+{
+  "recordedAt": "2026-10-03T10:18:18.887Z",
+  "node": "v24.16.0",
+  "workerd": "1.20260903.1",
+  "limitations": [
+    "Local client wall time is not deployed CPU.",
+    "Inspector samples and WASM linear allocations are not additive or total/peak isolate memory.",
+    "Inspector instrumentation can affect memory and timing.",
+    "No concurrency, production budget, visual parity or automated job acceptance."
+  ],
+  "runs": [],
+  "error": "The Workers runtime failed to start. There was likely a problem with the workerd binary or your configuration.\nRuntime stderr:\n{\"timestamp\":\"1791022699096\",\"level\":\"error\",\"source\":\"src/workerd/server/json-logger.c++:127\",\"message\":\"service core:user:mixed-resource-check: Uncaught TypeError: Incorrect type for map entry 'BODY_READ_DEADLINE_MS': the provided value is not of type 'function or ExportedHandler'.\",\"context_depth\":0}"
+}

@@ -1,6 +1,7 @@
 import editorialPlan from '../../public/hub/owner/assets/marketing-editorial-plan.js';
 import {Resvg,initWasm} from '@resvg/resvg-wasm';
 import {encode} from './jpeg-encoder.mjs';
+import {encodeBase64} from './base64.mjs';
 // Mirror only the fixed prototype's required browser BRAND_INK tokens.
 // test.mjs checks these against the browser source; this is not full Canvas parity.
 export const TEMPLATE_TOKENS=Object.freeze({titleInk:'#E8E2CA',background:'#0A180C',fontFamily:'Cormorant Garamond',fontWeight:600});
@@ -50,7 +51,7 @@ export function protectedLayout(d,regions,headline) {
  for(const r of projected)for(const overlay of overlays)if(overlap(r,overlay))throw Error('Protected photo area overlaps '+overlay.name+'; choose a different reviewed layout');
  return {photo,protectedAreas:projected,protectionSource:projected.length?'provided_regions':'visual_review_required',visualReviewRequired:true};
 }
-function base64(bytes){let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);}
+const base64=encodeBase64;
 export function render({source,emblem,font,title,protectedRegions}) {
  const d=dimensions(source);dimensions(emblem);const headline=headlineBounds(title,font);const protection=protectedLayout(d,protectedRegions,headline);const svg=template(d,title).replace('source.jpg','data:image/'+d.type+';base64,'+base64(source)).replace('emblem.png','data:image/png;base64,'+base64(emblem));let renderer,image;
  try {renderer=new Resvg(svg,{font:{fontBuffers:[font],defaultFontFamily:'Cormorant Garamond'},background:TEMPLATE_TOKENS.background});image=renderer.render();const pixels=image.pixels;if(pixels.length!==1080*810*4)throw Error('Unexpected raster dimensions');const jpg=encode({data:pixels,width:image.width,height:image.height},92).data;return{jpg,svg,headline,...protection,source:d,width:image.width,height:image.height};}
