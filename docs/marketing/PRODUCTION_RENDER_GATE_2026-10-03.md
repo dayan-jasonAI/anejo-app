@@ -29,3 +29,7 @@ Additional local binding acceptance: root independently ran both complete-consum
 ## October 3 — stronger draft freshness and recovery boundary
 
 Local counter/tombstone triggers replace the consumer timestamp revision; post-first transaction accounts for its own two revision increments. Recovery verifies R2 output before a final joined D1 state read. Current105tests:104pass/one explicit skip; independent consumer review19pass. See DRAFT_REVISION_FENCING_2026-10-03.md for current evidence, superseding timestamp freshness and earlier pre-readback recovery ordering. Immutable source semantics/R2-to-D1 race, deployed resource/auth/parity and full marketing readiness remain open. No production migration/deploy/trust change.
+
+## October 3 — preserved-source foundation and narrow application safeguards
+
+Local actor/request/source-version capture and conditional create/readback pass fourteen actual D1/R2 tests; prototype118pass/one explicit skip. Training deletion now confines cleanup to training uploads and Hub source-version media requires MARKETING_DESK; root3,577tests/lint/build pass. Evidence: SOURCE_VERSION_FOUNDATION_2026-10-03.md. Release pending; capture is not yet consumer-bound or bucket-wide immutable. Next exact version/job/CAS integration plus production resource/auth/parity gates. Full goal remains open.
