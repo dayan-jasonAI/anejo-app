@@ -1,0 +1,25 @@
+{
+  "recordedAt": "2026-10-03T14:00:45.716708+00:00",
+  "scope": "local_only",
+  "fullTests": {
+    "total": 187,
+    "passed": 186,
+    "failed": 0,
+    "explicitSkips": 1
+  },
+  "targetedKernelTests": {
+    "passed": 7,
+    "failed": 0
+  },
+  "targetedLintExit": 0,
+  "files": {
+    "color-kernel.mjs": "3cc3651e539ba3410f1efe0b77b77aab0aca346fe0596c00d57fcca437bc601e",
+    "color-loader-build.cjs": "09e2723eebcfefdd957780c5998d8336952e5a4389acaea40c74b7b81e2a261d",
+    "color-kernel.test.mjs": "b8f91cd05fb19eaf6b829917a90c048084d23c91b8925a769537a51f858c3124",
+    "color-kernel-workerd.test.cjs": "e546c4c84eecf0674e2225355690761591cda9cd451bed1001836ccf28c63814",
+    "package.json": "f2f8dd35c5ebe455dc60f5ffebb41321f676ef47b6c6d06dc6869199cfdf5c7c",
+    "package-lock.json": "1fcb98279550a0dbd23dd206e24dade37d72aea3dd44754c2a730829ee97bec6"
+  },
+  "productionImported": false,
+  "deployed": false
+}

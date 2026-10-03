@@ -1,0 +1,16 @@
+{"scope":"local-workerd-color-kernel","iterations":9,"malformedRefusals":1,"wasmLinearBytes":16777216,"outboundRequests":[],"limitations":"RGB pixel batches only; image decoding, ICC extraction, resize/orientation, derivative/provenance persistence and deployed resources remain unverified."}
+✔ compiled color engine performs P3 to sRGB in actual local workerd without fetching code (307.148ms)
+✔ actual P3 conversion matches independent native reference and differs from profile stripping (20.762208ms)
+✔ sRGB profile transform preserves patch values within rounding (4.408166ms)
+✔ invalid profiles and pixel buffers reject without poisoning later valid work (8.872042ms)
+✔ chunked transform preserves order and linear-memory size stays constant (not leak proof) (46.906458ms)
+✔ compiled loader adapter rejects an unreviewed upstream source (1.354958ms)
+✔ owned batch frees both allocations after transform traps and independent cleanup failures (0.252125ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 502.974625
