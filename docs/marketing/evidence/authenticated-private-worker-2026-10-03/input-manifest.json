@@ -1,0 +1,66 @@
+{
+  "recordedAt": "2026-10-03T12:16:54.823752+00:00",
+  "scope": "local workerd authenticated rehearsal; no deployment",
+  "files": [
+    {
+      "path": "tools/marketing-render-prototype/private-draft-worker.mjs",
+      "bytes": 6745,
+      "sha256": "252955972f7225fc47af364c9f5932723431d40c2f0adc09fe59ba5ffca9c694"
+    },
+    {
+      "path": "tools/marketing-render-prototype/private-worker.test.cjs",
+      "bytes": 15325,
+      "sha256": "7f74e7de13fce4732370ff0845e21debaf449282a7730f17cd43c349bbe0cffa"
+    },
+    {
+      "path": "tools/marketing-render-prototype/render-consumer.mjs",
+      "bytes": 11181,
+      "sha256": "cc79e2ca9548d8d824f3f0bd01028d195e915518043b2d7148e1f9d9d24572ad"
+    },
+    {
+      "path": "tools/marketing-render-prototype/render-jobs.mjs",
+      "bytes": 8339,
+      "sha256": "38f756fe1f5f6603eb4f5ece1abd1544abd179a2dfa5aa82400053f9b850dec7"
+    },
+    {
+      "path": "tools/marketing-render-prototype/source-versions.mjs",
+      "bytes": 10217,
+      "sha256": "57c30876e84769d5292a7e6ee21164d27051fc66f52a84f5dfa4fa6734f2399c"
+    },
+    {
+      "path": "tools/marketing-render-prototype/core.mjs",
+      "bytes": 6431,
+      "sha256": "5acb8cdd382a398222b15f38e80d329b46522dd23b7e77a8c69b39a20f6a0adf"
+    },
+    {
+      "path": "tools/marketing-render-prototype/editorial.mjs",
+      "bytes": 9421,
+      "sha256": "fe3037d5a150f5c2697772e5d17c9a89281a2402b08119c1ad47335d5d6be086"
+    },
+    {
+      "path": "tools/marketing-render-prototype/assets/source.jpg",
+      "bytes": 681422,
+      "sha256": "76378e4988c845271737f0a50bde1efeaca92f536359962f7c6508e86107ccd2"
+    },
+    {
+      "path": "tools/marketing-render-prototype/assets/emblem.png",
+      "bytes": 163850,
+      "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598"
+    },
+    {
+      "path": "tools/marketing-render-prototype/assets/AnejoEditorialSerif-SemiBold.ttf",
+      "bytes": 774028,
+      "sha256": "bb60d386afdbf03f67ee68117776d9bfaba0d08d50899909e02b023fcb5f5a17"
+    },
+    {
+      "path": "tools/marketing-render-prototype/assets/AnejoEditorialSans-Medium.ttf",
+      "bytes": 59676,
+      "sha256": "19a231f3f7ebf25c1fa5afc3619002fd55e12a30c83c7974a75b973d4b1b7a5f"
+    },
+    {
+      "path": "tools/marketing-render-prototype/node_modules/@resvg/resvg-wasm/index_bg.wasm",
+      "bytes": 2478606,
+      "sha256": "22bf6e9f9a100d972da0411a69c5ba504367fc1fa87b3b64e3f35e53926d2d70"
+    }
+  ]
+}

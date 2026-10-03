@@ -1,0 +1,21 @@
+✔ local inbound DM is drafted, reviewed by owner, and fake provider acceptance is persisted once (192.619041ms)
+✔ voice not-allowed reports the actual failure and opens typed fallback (1.390041ms)
+✔ voice service-not-allowed reports the actual failure and opens typed fallback (0.2765ms)
+✔ voice audio-capture reports the actual failure and opens typed fallback (0.238042ms)
+✔ voice no-speech reports the actual failure and opens typed fallback (0.237792ms)
+✔ voice network reports the actual failure and opens typed fallback (0.256083ms)
+✔ synchronous start exception clears listening and exposes typed fallback (0.293375ms)
+✔ synchronous permission exception receives the permission-specific explanation (0.230833ms)
+✔ recognizer constructor failure also exposes typed fallback (0.620084ms)
+✔ unsupported speech input opens the same fallback without starting recognition (0.24ms)
+✔ successful voice result retains transcript submission and clears listening on end (0.351042ms)
+✔ AnejoLang drives recognition and browser TTS; a language switch applies on the next tap (1.259083ms)
+✔ locale falls back through page language and safe stored preference when AnejoLang is absent or throws (0.774958ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 242.263334

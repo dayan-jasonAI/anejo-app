@@ -48,13 +48,16 @@ const eligibilityArgs=(d,actorId)=>[d.postId,d.mediaId,d.sourceKey,d.postRevisio
 
 // Independent version verification intentionally does not require the old draft still exists.
 // Consumers must separately fence current draft selection/revision and authorization.
-export async function readConfirmedSourceVersion({db,media,actorId,versionId}){
+export async function readConfirmedSourceArtifact({db,media,actorId,versionId}){
  text(actorId,'actorId');text(versionId,'versionId');
  const row=await db.prepare("SELECT * FROM prototype_source_versions WHERE id=? AND actor_id=? AND state='confirmed'").bind(versionId,actorId).first();
- if(!row)return null;await verifyObject(media,row);
+ if(!row)return null;const saved=await verifyObject(media,row);
  const fresh=await db.prepare("SELECT * FROM prototype_source_versions WHERE id=? AND actor_id=? AND state='confirmed'").bind(versionId,actorId).first();
  if(!fresh||JSON.stringify(fresh)!==JSON.stringify(row))throw new SourceVersionError('source_version_record_changed',row);
- return version(fresh);
+ return {version:version(fresh),bytes:saved.bytes};
+}
+export async function readConfirmedSourceVersion(input){
+ const saved=await readConfirmedSourceArtifact(input);return saved?.version||null;
 }
 
 export async function captureSourceVersion({db,media,actorId,requestId,descriptor:input,now}){

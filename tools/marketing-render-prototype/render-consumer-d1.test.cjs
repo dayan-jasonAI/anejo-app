@@ -15,6 +15,7 @@ async function setup(t){
  const {sha256}=await import('../../functions/_lib/marketing_render_receipt.js');
  const {createRenderJobStore}=await import('./render-jobs.mjs');
  const {consumePrivateRender,renderOptionsHash}=await import('./render-consumer.mjs');
+ const {captureSourceVersion}=await import('./source-versions.mjs');
  await initialize(bytes('node_modules/@resvg/resvg-wasm/index_bg.wasm'));
  const fixture=ownerEnv();
  let schema;
@@ -26,12 +27,15 @@ async function setup(t){
  await db.exec(schema.replace(/--[^\n]*/g,'').replace(/\n/g,' '));
  await db.exec(fs.readFileSync(path.join(__dirname,'render-jobs.sql'),'utf8').replace(/^--.*$/gm,'').replace(/\n/g,' '));
  await db.exec(fs.readFileSync(path.join(__dirname,'draft-revisions.sql'),'utf8').replace(/^--.*$/gm,'').replace(/\n/g,' '));
+ await db.exec(fs.readFileSync(path.join(__dirname,'source-versions.sql'),'utf8').replace(/^--.*$/gm,'').replace(/\n/g,' '));
  const at=Date.now(),source=bytes('assets/source.jpg'),sourceKey='marketing-library/local-integration.jpg';
  await db.prepare("INSERT INTO staff(id,name,email,role,active,created_at,updated_at) VALUES('local-owner','Local fixture','fixture@example.invalid','owner',1,?,?)").bind(at,at).run();
  await db.prepare("INSERT INTO social_posts(id,public_token,status,created_at,updated_at,audit_score,audit_status,scheduled_at,original_caption_hash,original_design_snapshot) VALUES('local-post','local-post-token','draft',?,?,7,'pass',?,'old-caption','old-design')").bind(at,at,at+100000).run();
  await db.prepare("INSERT INTO social_post_media(id,post_id,media_key,public_token,created_at) VALUES('local-slide','local-post',?,'local-slide-token',?)").bind(sourceKey,at).run();
  await media.put(sourceKey,source,{httpMetadata:{contentType:'image/jpeg'},customMetadata:{ai_enhanced:'false'}});
  const store=createRenderJobStore(db),descriptor={sourceKey,sourceSha256:await sha256(source),postId:'local-post',postRevision:(await db.prepare("SELECT revision FROM prototype_draft_versions WHERE post_id='local-post'").first()).revision,mediaId:'local-slide',rendererVersion:'local-resvg-consumer-v1',templateId:options.templateId,optionsHash:await renderOptionsHash(options)};
+ const captured=await captureSourceVersion({db,media,actorId:'local-owner',requestId:'capture-local',descriptor:{postId:descriptor.postId,mediaId:descriptor.mediaId,postRevision:descriptor.postRevision,sourceKey,sourceSha256:descriptor.sourceSha256},now:Date.now()});
+ descriptor.sourceVersionId=captured.version.id;descriptor.sourceMetadataSha256=captured.version.metadataSha256;
  const enqueued=await store.enqueue({actorId:'local-owner',requestId:'local-consumer-integration',descriptor,now:at});
  let renders=0;
  const render=async({source,options})=>{renders++;return renderEditorial({source,emblem:bytes('assets/emblem.png'),font:bytes('assets/AnejoEditorialSerif-SemiBold.ttf'),kickerFont:bytes('assets/AnejoEditorialSans-Medium.ttf'),...options});};
@@ -39,7 +43,7 @@ async function setup(t){
  const outbound=[];
  t.mock.method(globalThis,'fetch',async url=>{outbound.push(String(url));throw Error('Outbound forbidden');});
  t.after(()=>assert.deepEqual(outbound,[]));
- return {db,media,source,sourceKey,store,enqueued,input,consumePrivateRender,sha256,renders:()=>renders};
+ return {db,media,source,sourceKey,store,enqueued,input,captured,consumePrivateRender,sha256,renders:()=>renders};
 }
 
 test('local workerd D1/R2 complete pinned render, private readback and atomic attachment',{timeout:20000},async t=>{
@@ -72,4 +76,14 @@ test('local workerd D1/R2 delayed unclaimed expiry preserves draft and source at
  assert.equal((await f.store.get({actorId:'local-owner',jobId:f.enqueued.job.id})).status,'rendering');
  assert.ok(await f.media.get(result.outputKey)); // Private, unattached orphan is retained.
  const original=await f.media.get(f.sourceKey);assert.deepEqual(new Uint8Array(await original.arrayBuffer()),f.source);
+});
+
+test('local D1/R2 consumer renders confirmed version even after mutable original replacement',{timeout:20000},async t=>{
+ const f=await setup(t),render=f.input.render;const changed=f.source.slice();changed[50]^=1;
+ await f.media.put(f.sourceKey,changed,{httpMetadata:{contentType:'image/jpeg'},customMetadata:{ai_enhanced:'true'}});
+ f.input.render=async args=>{assert.deepEqual(args.source,f.source);return render(args);};
+ const result=await f.consumePrivateRender(f.input);assert.equal(result.state,'attached');
+ const output=await f.media.get(result.receipt.outputKey);assert.equal(output.customMetadata.source_version_id,f.captured.version.id);assert.equal(output.customMetadata.ai_enhanced,'false');
+ const original=await f.media.get(f.sourceKey);assert.deepEqual(new Uint8Array(await original.arrayBuffer()),changed);
+ const copy=await f.media.get(f.captured.version.versionKey);assert.deepEqual(new Uint8Array(await copy.arrayBuffer()),f.source);
 });

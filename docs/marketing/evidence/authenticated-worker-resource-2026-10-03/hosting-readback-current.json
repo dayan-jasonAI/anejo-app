@@ -1,0 +1,21 @@
+{
+  "observed_at_utc": "2026-10-03T12:51:38Z",
+  "method": "normal supported Chrome UI, existing account, read-only",
+  "plan_url": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/workers/plans",
+  "observed_current_plan": "Paid",
+  "current_plan_signal": "disabled Current plan button under Paid",
+  "pages_settings_url": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/settings/production",
+  "observed_cpu_display": "CPU time limit : —",
+  "cpu_control_readback": {"value":"", "min":"", "max":"", "placeholder":""},
+  "cpu_override": "No configured value displayed; effective deployed limit not directly measured",
+  "compatibility_date": "2026-05-01",
+  "placement": "Default",
+  "mutations": [],
+  "form_disposition": "Opened pricing form read-only and cancelled without save",
+  "production_source_observed": "a668dbfcf6b0568c4fc9164f895460375273370f",
+  "production_deployment_observed": "3805c17f-5283-4b1e-8ef3-b509814394b8",
+  "limits_reference": "https://developers.cloudflare.com/workers/platform/limits/",
+  "paid_default_reference_cpu_ms": 30000,
+  "memory_reference_mb_per_isolate": 128,
+  "resource_gate": "Unverified: published defaults and account plan are not deployed render CPU/peak memory proof"
+}

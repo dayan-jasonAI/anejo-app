@@ -31,14 +31,21 @@ const BRIEF_LIMIT = 4;      // the briefs a strategist could plausibly still be 
 const FLAG_SAMPLE = 40;     // recent audited drafts to tally rejection reasons across
 const TOP_FLAGS = 4;
 
-async function rows(env, sql, ...args) {
+async function rows(env, evidence, section, sql, ...args) {
   try {
     const r = await env.DB.prepare(sql).bind(...args).all();
-    return (r && r.results) || [];
-  } catch { return []; }
+    if (r?.success === false || !Array.isArray(r?.results)) throw new Error('missing_results');
+    evidence[section] = r.results.length ? 'ok' : 'empty';
+    return r.results;
+  } catch { evidence[section] = 'unavailable'; return []; }
 }
-async function firstRow(env, sql, ...args) {
-  try { return await env.DB.prepare(sql).bind(...args).first(); } catch { return null; }
+async function firstRow(env, evidence, section, sql, ...args) {
+  try {
+    const value = await env.DB.prepare(sql).bind(...args).first();
+    if (value && (!Number.isSafeInteger(value.published) || value.published < 0 || !Number.isSafeInteger(value.attributed) || value.attributed < 0 || value.attributed > value.published)) throw new Error('invalid_coverage');
+    evidence[section] = value ? 'ok' : 'empty';
+    return value;
+  } catch { evidence[section] = 'unavailable'; return null; }
 }
 
 /**
@@ -48,15 +55,18 @@ async function firstRow(env, sql, ...args) {
  * per post per day, and summing every row would multiply a post's reach by how many days it has
  * been measured, which is the kind of number that looks like a triumph and is an arithmetic bug.
  */
-async function briefPerformance(env) {
+async function briefPerformance(env, evidence) {
   const out = new Map();
-  const list = await rows(env,
+  const list = await rows(env, evidence, 'brief_performance',
     `SELECT pp.brief_id AS brief_id,
             COUNT(DISTINCT pp.post_id) AS posts,
+            COUNT(DISTINCT CASE WHEN m.reach IS NOT NULL THEN pp.post_id END) AS reach_posts,
+            COUNT(DISTINCT CASE WHEN m.saved IS NOT NULL THEN pp.post_id END) AS saved_posts,
             SUM(m.reach) AS reach,
-            SUM(m.saved) AS saved
+            SUM(m.saved) AS saved, COALESCE(MAX(m.cd),MAX(pp.updated_at)) AS updated_at
        FROM post_provenance pp
-       JOIN (SELECT post_id, MAX(capture_date) AS cd, reach, saved
+       JOIN social_posts sp ON sp.id=pp.post_id AND sp.status='published'
+       LEFT JOIN (SELECT post_id, MAX(capture_date) AS cd, reach, saved
                FROM ig_media_metrics
               WHERE post_id IS NOT NULL
               GROUP BY post_id) m
@@ -79,16 +89,16 @@ const NOT_A_REJECTION = new Set(['audit_unavailable']);
  * What the Brand Auditor keeps rejecting. §7 step 5: "recurring misses become prompt rules" — and
  * the first step of that is the strategist being able to SEE which miss recurs.
  */
-async function recurringFlags(env) {
-  const list = await rows(env,
-    `SELECT audit_flags FROM social_posts
+async function recurringFlags(env, evidence) {
+  const list = await rows(env, evidence, 'audit_flags',
+    `SELECT id, created_at, updated_at, audit_at, audit_flags FROM social_posts
       WHERE audit_flags IS NOT NULL AND audit_flags != '[]'
       ORDER BY created_at DESC LIMIT ${FLAG_SAMPLE}`);
   const tally = new Map();
   let unaudited = 0;
   for (const r of list) {
     const flags = parseJson(r.audit_flags, null);
-    if (!Array.isArray(flags)) continue;
+    if (!Array.isArray(flags)) { evidence.audit_flags = 'partial'; continue; }
     for (const f of flags) {
       // governance.js writes { type: 'claim' | 'voice', detail: '…' }. `type` FIRST, and verified
       // against production rows rather than assumed: a tally keyed on a missing property renders
@@ -106,6 +116,7 @@ async function recurringFlags(env) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, TOP_FLAGS),
     unaudited,
+    documents: list.map(r => ({ id: r.id, updated_at: r.audit_at ?? r.updated_at ?? r.created_at })),
   };
 }
 
@@ -115,39 +126,86 @@ async function recurringFlags(env) {
  */
 export async function buildRetrospective(env) {
   if (!env || !env.DB) return null;
+  const evidence = {};
 
   let signals = null;
-  try { signals = await detectPerformanceSignals(env); } catch { signals = null; }
+  // The detector swallows individual query failures; a returned shape is not
+  // proof that its underlying reads succeeded. Keep that coverage unknown.
+  evidence.signals = 'unknown';
+  try { signals = await detectPerformanceSignals(env); } catch { signals = null; evidence.signals = 'unavailable'; }
 
-  const briefs = await rows(env,
-    `SELECT id, title, success_metric, status, created_at FROM team_briefs
+  const briefs = await rows(env, evidence, 'briefs',
+    `SELECT id, title, success_metric, status, created_at, updated_at FROM team_briefs
       WHERE status != 'archived' ORDER BY created_at DESC LIMIT ${BRIEF_LIMIT}`);
-  const perf = await briefPerformance(env);
+  const perf = await briefPerformance(env, evidence);
 
-  const cov = await firstRow(env,
+  const cov = await firstRow(env, evidence, 'attribution',
     `SELECT (SELECT COUNT(*) FROM social_posts WHERE status = 'published') AS published,
             (SELECT COUNT(DISTINCT pp.post_id) FROM post_provenance pp
                JOIN social_posts sp ON sp.id = pp.post_id
               WHERE pp.brief_id IS NOT NULL AND sp.status = 'published') AS attributed`);
 
-  const audit = await recurringFlags(env);
+  const audit = await recurringFlags(env, evidence);
+  const outcomes = await loadMarketingOutcomes(env);
+  // This loader explicitly distinguishes an observed query from failure.
+  evidence.outcomes = outcomes?.status === 'observed' ? 'ok' : 'unavailable';
 
-  return {
+  const retro = {
     signals,
-    outcomes: await loadMarketingOutcomes(env),
+    outcomes,
+    read_evidence: evidence,
+    selected_documents: {
+      briefs: briefs.map(b => ({ id: b.id, updated_at: b.updated_at ?? b.created_at })),
+      brief_performance: briefs.map(b => perf.get(String(b.id))).filter(Boolean).map(p => ({ id: p.brief_id, updated_at: p.updated_at })),
+      audit_flags: audit.documents,
+    },
     flags: audit.flags,
     unaudited: audit.unaudited,
-    coverage: { published: Number((cov && cov.published) || 0), attributed: Number((cov && cov.attributed) || 0) },
+    coverage: { published: cov ? Number(cov.published) : null, attributed: cov ? Number(cov.attributed) : null },
     briefs: briefs.map((b) => {
       const p = perf.get(String(b.id)) || null;
       return {
         title: String(b.title || 'Untitled brief').slice(0, 80),
         target: b.success_metric ? String(b.success_metric).slice(0, 140) : null,
-        posts: p ? Number(p.posts) || 0 : 0,
-        reach: p && Number.isFinite(Number(p.reach)) ? Number(p.reach) : null,
-        saved: p && Number.isFinite(Number(p.saved)) ? Number(p.saved) : null,
+        posts: evidence.brief_performance === 'unavailable' ? null : p ? Number(p.posts) || 0 : 0,
+        reach_posts: p ? Number(p.reach_posts) : null,
+        saved_posts: p ? Number(p.saved_posts) : null,
+        reach: p && p.reach !== null && p.reach !== undefined && Number.isFinite(Number(p.reach)) ? Number(p.reach) : null,
+        saved: p && p.saved !== null && p.saved !== undefined && Number.isFinite(Number(p.saved)) ? Number(p.saved) : null,
       };
     }),
+  };
+  retro.receipt = await retrospectiveReceipt(retro);
+  return retro;
+}
+
+// Fits the existing inference metadata contract. Query entries record read
+// evidence, not business assertions; IDs/timestamps are selected bounded samples.
+export async function retrospectiveReceipt(retro, { maxChars = RETRO_BUDGET } = {}) {
+  const text = renderRetrospective(retro, { maxChars });
+  const states = retro?.read_evidence || {};
+  const values = Object.values(states);
+  const known = values.filter(s => s !== 'unknown');
+  const readStatus = !known.length || known.every(s => s === 'unavailable') ? 'unavailable'
+    : values.some(s => s === 'unavailable' || s === 'unknown' || s === 'partial') ? 'partial'
+      : values.every(s => s === 'empty') ? 'empty' : 'ok';
+  const documents = Object.entries(states).map(([id, read_status]) => ({ id: 'query:' + id, read_status }));
+  for (const [section, selected] of Object.entries(retro?.selected_documents || {})) {
+    for (const document of selected.slice(0, FLAG_SAMPLE)) {
+      if (typeof document.id !== 'string' || !document.id || document.id.length > 100) continue;
+      const timestamp = document.updated_at;
+      const validTimestamp = Number.isFinite(timestamp) || typeof timestamp === 'string' && /^\d{4}-\d{2}-\d{2}(?:T[\d:.+-]+Z?)?$/.test(timestamp) && timestamp.length <= 40 && Number.isFinite(Date.parse(timestamp));
+      documents.push({ id: section + ':' + document.id, ...(validTimestamp ? { updated_at: timestamp } : {}) });
+    }
+  }
+  return {
+    source: 'd1', read_status: readStatus, documents,
+    source_ids: documents.filter(d => !d.id.startsWith('query:')).map(d => d.id),
+    rendered_sha256: Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), b => b.toString(16).padStart(2, '0')).join(''),
+    supplied_chars: text.length, original_chars: renderRetrospective(retro, { maxChars: Infinity }).length,
+    truncated: text.length < renderRetrospective(retro, { maxChars: Infinity }).length,
+    selection_limit: FLAG_SAMPLE, selection_may_be_limited: true,
+    fallback_reason: 'Signal query coverage unknown; IDs are selected samples, not complete attribution.',
   };
 }
 
@@ -195,17 +253,20 @@ function signalLines(s) {
 }
 
 function briefLines(retro) {
+  if (retro.read_evidence?.briefs === 'unavailable') return ['Brief records unavailable — do not infer an empty board.'];
   if (!retro.briefs.length) return ['No briefs on the board yet.'];
   const out = [];
   for (const b of retro.briefs) {
     const target = b.target ? `target: "${b.target}"` : 'no success metric was ever written for it';
-    if (!b.posts) {
+    if (b.posts === null) {
+      out.push(`- "${b.title}" — ${target} · attributed performance unavailable; do not infer zero posts.`);
+    } else if (!b.posts) {
       out.push(`- "${b.title}" — ${target} · NO published post carries this brief's id, so it cannot be judged yet.`);
     } else {
       const bits = [`${b.posts} post${b.posts === 1 ? '' : 's'}`];
       if (retro.signals) {
-        if (Number.isFinite(b.reach)) bits.push(`${b.reach} reach`);
-        if (Number.isFinite(b.saved)) bits.push(`${b.saved} saves`);
+        if (Number.isFinite(b.reach)) bits.push(`${b.reach} reach${Number.isFinite(b.reach_posts) && b.reach_posts < b.posts ? ` across ${b.reach_posts}/${b.posts} measured posts; remaining reach unknown` : ''}`);
+        if (Number.isFinite(b.saved)) bits.push(`${b.saved} saves${Number.isFinite(b.saved_posts) && b.saved_posts < b.posts ? ` across ${b.saved_posts}/${b.posts} measured posts; remaining saves unknown` : ''}`);
       }
       out.push(`- "${b.title}" — ${target} · delivered: ${bits.join(', ')}.`);
     }
@@ -222,6 +283,7 @@ export function renderRetrospective(retro, { maxChars = RETRO_BUDGET } = {}) {
 
   const parts = [
     '=== SINCE LAST TIME — READ THIS BEFORE PROPOSING ANYTHING ===',
+    ...(retro.read_evidence ? ['Retrospective query coverage: ' + Object.entries(retro.read_evidence).map(([key, state]) => key + '=' + state).join(', ') + '. Unknown/unavailable is not zero.'] : []),
     renderMarketingOutcomes(retro.outcomes),
     ...signalLines(retro.signals),
     '',

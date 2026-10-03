@@ -1,0 +1,11 @@
+{
+  "observedAt": "2026-10-03T12:31:29.341302+00:00",
+  "browser": "normal supported Chrome",
+  "requested": "Cloudflare Workers plans for existing account",
+  "result": "redirected_to_sign_in",
+  "visibleButton": "Continue as dayan@dayanrealtyhub.com using Google",
+  "visibleNotice": "By continuing, I agree to Cloudflare's terms, privacy policy, and cookie policy.",
+  "clickedContinue": false,
+  "currentPlan": "unverified",
+  "userAction": "Sign in personally; no plan purchase/change requested"
+}

@@ -1,0 +1,3558 @@
+{
+  "recordedAt": "2026-10-03T12:27:43.434Z",
+  "scope": "local_authenticated_rehearsal",
+  "fixtureDirectory": "/var/folders/jf/r_555_zn53v7_z6p_z5b2z6h0000gn/T/anejo-resource-fixtures-qyBWnf",
+  "manifestSha256": "deb9ecb97fce37beb04945527dc59ebea73195184fbfeacc3289fc4528d6388f",
+  "baseline": {
+    "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/docs/marketing/evidence/editorial-mixed-resource-2026-10-03/measurements.json",
+    "sha256": "c0ef844b90bd1e5a63dd7953face1041721c0e72d2c8f80c7a7a7047ac06e7bd"
+  },
+  "versions": {
+    "node": "v24.16.0",
+    "workerd": "1.20260903.1",
+    "miniflare": "5.20260903.0-alpha",
+    "esbuild": "0.28.2",
+    "resvg": "2.6.2"
+  },
+  "limitations": [
+    "Client wall time is not deployed CPU or budget proof.",
+    "Post-response inspector JS heap samples are not peak/total isolate memory.",
+    "Inspector instrumentation may affect timing and memory.",
+    "Heap/backing storage/WASM measurements must not be summed.",
+    "One local isolate, sequential fixture requests; no global concurrency/backpressure or production integration proof.",
+    "Matching fixture hashes establishes this runtime comparison, not Canvas/approved-design visual parity."
+  ],
+  "wasm": {
+    "supported": false,
+    "note": "Exact unmodified handler exposes no WASM memory observation; no linear/peak allocation inferred."
+  },
+  "runs": [
+    {
+      "round": 0,
+      "fixture": "square.jpg",
+      "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+      "sourceBytes": 1033933,
+      "template": "reposado-wide",
+      "postId": "post-stress-1",
+      "sourceKey": "marketing-library/local-stress/stress-1_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:44.028Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "b4aa0301-040a-49e3-9b3f-acff8a7acb5d",
+        "receipt": {
+          "outputKey": "studio/local-render/b4aa0301-040a-49e3-9b3f-acff8a7acb5d/adffcb52-1fb8-49d7-9ac7-7d12cc12390e.jpg",
+          "sha256": "22b070617ac301cbc44f4416aea55f00e44b9116084d99eef8b47bd3de8c5a2d",
+          "outputBytes": 808400,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 541.2821670000001,
+      "heap": {
+        "id": 2,
+        "result": {
+          "usedSize": 7614916,
+          "totalSize": 18644992,
+          "embedderHeapUsedSize": 130792,
+          "backingStorageSize": 1228170
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/b4aa0301-040a-49e3-9b3f-acff8a7acb5d/adffcb52-1fb8-49d7-9ac7-7d12cc12390e.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:44.690Z"
+    },
+    {
+      "round": 0,
+      "fixture": "square.jpg",
+      "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+      "sourceBytes": 1033933,
+      "template": "reposado-cajita",
+      "postId": "post-stress-2",
+      "sourceKey": "marketing-library/local-stress/stress-2_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:44.736Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "fd9a05f5-8aa4-4d76-81f7-092d75a2d9c0",
+        "receipt": {
+          "outputKey": "studio/local-render/fd9a05f5-8aa4-4d76-81f7-092d75a2d9c0/3df3c8a7-d86a-4782-8fd6-b317855e927c.jpg",
+          "sha256": "f614f7cae35f07da476d7cfa0cfe467e02bf64ee8b28b2c9a6f0bfc1da6deaad",
+          "outputBytes": 806641,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 405.2881249999998,
+      "heap": {
+        "id": 3,
+        "result": {
+          "usedSize": 20768924,
+          "totalSize": 31735808,
+          "embedderHeapUsedSize": 644928,
+          "backingStorageSize": 13074364
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/fd9a05f5-8aa4-4d76-81f7-092d75a2d9c0/3df3c8a7-d86a-4782-8fd6-b317855e927c.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:45.264Z"
+    },
+    {
+      "round": 0,
+      "fixture": "square.png",
+      "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+      "sourceBytes": 1032104,
+      "template": "reposado-wide",
+      "postId": "post-stress-3",
+      "sourceKey": "marketing-library/local-stress/stress-3_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:45.308Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "d1761e60-54a1-49e0-b5b5-8fd4dfb6eb6e",
+        "receipt": {
+          "outputKey": "studio/local-render/d1761e60-54a1-49e0-b5b5-8fd4dfb6eb6e/132c056c-f436-4a2c-aacb-164a8319fc7e.jpg",
+          "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+          "outputBytes": 816530,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 373.73020899999983,
+      "heap": {
+        "id": 4,
+        "result": {
+          "usedSize": 6548244,
+          "totalSize": 19251200,
+          "embedderHeapUsedSize": 230696,
+          "backingStorageSize": 8226761
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/d1761e60-54a1-49e0-b5b5-8fd4dfb6eb6e/132c056c-f436-4a2c-aacb-164a8319fc7e.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:45.802Z"
+    },
+    {
+      "round": 0,
+      "fixture": "square.png",
+      "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+      "sourceBytes": 1032104,
+      "template": "reposado-cajita",
+      "postId": "post-stress-4",
+      "sourceKey": "marketing-library/local-stress/stress-4_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:45.846Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "8bbbf251-77c6-46a5-a37c-343d1fecd84d",
+        "receipt": {
+          "outputKey": "studio/local-render/8bbbf251-77c6-46a5-a37c-343d1fecd84d/a742ad77-9b89-497f-87b5-f8c5b229bed4.jpg",
+          "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+          "outputBytes": 814723,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 370.5618330000002,
+      "heap": {
+        "id": 5,
+        "result": {
+          "usedSize": 18233448,
+          "totalSize": 37109760,
+          "embedderHeapUsedSize": 773896,
+          "backingStorageSize": 16392951
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/8bbbf251-77c6-46a5-a37c-343d1fecd84d/a742ad77-9b89-497f-87b5-f8c5b229bed4.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:46.337Z"
+    },
+    {
+      "round": 0,
+      "fixture": "square-exact-5mib.png",
+      "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+      "sourceBytes": 5242880,
+      "template": "reposado-wide",
+      "postId": "post-stress-5",
+      "sourceKey": "marketing-library/local-stress/stress-5_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:46.435Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "2d374d9a-b5dc-4fea-bc1f-2d89e2fa5487",
+        "receipt": {
+          "outputKey": "studio/local-render/2d374d9a-b5dc-4fea-bc1f-2d89e2fa5487/fc5f17f8-bbae-46cd-9249-8c179d334068.jpg",
+          "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+          "outputBytes": 816530,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 542.6097919999997,
+      "heap": {
+        "id": 6,
+        "result": {
+          "usedSize": 12370256,
+          "totalSize": 36929536,
+          "embedderHeapUsedSize": 250072,
+          "backingStorageSize": 20035673
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/2d374d9a-b5dc-4fea-bc1f-2d89e2fa5487/fc5f17f8-bbae-46cd-9249-8c179d334068.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:47.245Z"
+    },
+    {
+      "round": 0,
+      "fixture": "square-exact-5mib.png",
+      "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+      "sourceBytes": 5242880,
+      "template": "reposado-cajita",
+      "postId": "post-stress-6",
+      "sourceKey": "marketing-library/local-stress/stress-6_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:47.338Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "7182ef00-366a-4bda-b7ca-57d72d278ddd",
+        "receipt": {
+          "outputKey": "studio/local-render/7182ef00-366a-4bda-b7ca-57d72d278ddd/5acf59d9-a519-4e2f-ba84-a9c10542a404.jpg",
+          "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+          "outputBytes": 814723,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 536.7069170000004,
+      "heap": {
+        "id": 7,
+        "result": {
+          "usedSize": 56195892,
+          "totalSize": 88096768,
+          "embedderHeapUsedSize": 2579448,
+          "backingStorageSize": 42902527
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/7182ef00-366a-4bda-b7ca-57d72d278ddd/5acf59d9-a519-4e2f-ba84-a9c10542a404.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:48.093Z"
+    },
+    {
+      "round": 0,
+      "fixture": "landscape.jpg",
+      "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+      "sourceBytes": 1028735,
+      "template": "reposado-wide",
+      "postId": "post-stress-7",
+      "sourceKey": "marketing-library/local-stress/stress-7_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:48.145Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "543cc252-f95b-4622-8084-44189e1aa082",
+        "receipt": {
+          "outputKey": "studio/local-render/543cc252-f95b-4622-8084-44189e1aa082/ee30c483-de10-49a4-9b0c-68b106f5ed5f.jpg",
+          "sha256": "49f7b8c9adca045baa594c68f24cb4b038d11e27f16798c47db6c275cf0cc49a",
+          "outputBytes": 946066,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 464.89608300000054,
+      "heap": {
+        "id": 8,
+        "result": {
+          "usedSize": 6473540,
+          "totalSize": 42844160,
+          "embedderHeapUsedSize": 232936,
+          "backingStorageSize": 8862583
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/543cc252-f95b-4622-8084-44189e1aa082/ee30c483-de10-49a4-9b0c-68b106f5ed5f.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:48.698Z"
+    },
+    {
+      "round": 0,
+      "fixture": "landscape.jpg",
+      "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+      "sourceBytes": 1028735,
+      "template": "reposado-cajita",
+      "postId": "post-stress-8",
+      "sourceKey": "marketing-library/local-stress/stress-8_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:48.746Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "15ba33e8-98f5-4093-be69-fa3d170ce7c1",
+        "receipt": {
+          "outputKey": "studio/local-render/15ba33e8-98f5-4093-be69-fa3d170ce7c1/a8b7b11f-35c1-47f3-a57d-8a02354ebe8c.jpg",
+          "sha256": "215f49159cf36eef1f0dc6806a4257a71b133ca1851535961add60acf17559f3",
+          "outputBytes": 945912,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 460.7661250000001,
+      "heap": {
+        "id": 9,
+        "result": {
+          "usedSize": 32273940,
+          "totalSize": 60751872,
+          "embedderHeapUsedSize": 752560,
+          "backingStorageSize": 34205872
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/15ba33e8-98f5-4093-be69-fa3d170ce7c1/a8b7b11f-35c1-47f3-a57d-8a02354ebe8c.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:49.296Z"
+    },
+    {
+      "round": 0,
+      "fixture": "landscape.png",
+      "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+      "sourceBytes": 1031547,
+      "template": "reposado-wide",
+      "postId": "post-stress-9",
+      "sourceKey": "marketing-library/local-stress/stress-9_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:49.344Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "299f139d-f574-4d25-874b-3f38413f01f4",
+        "receipt": {
+          "outputKey": "studio/local-render/299f139d-f574-4d25-874b-3f38413f01f4/136ecf4f-7909-4009-bbf4-f23c16e52098.jpg",
+          "sha256": "c4f78a3a061229b208b8a8e2585414c29690d5681f814a9a5cc2b786573639c0",
+          "outputBytes": 955517,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 438.7793330000004,
+      "heap": {
+        "id": 10,
+        "result": {
+          "usedSize": 23995220,
+          "totalSize": 56950784,
+          "embedderHeapUsedSize": 1322080,
+          "backingStorageSize": 17682271
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/299f139d-f574-4d25-874b-3f38413f01f4/136ecf4f-7909-4009-bbf4-f23c16e52098.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:49.877Z"
+    },
+    {
+      "round": 0,
+      "fixture": "landscape.png",
+      "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+      "sourceBytes": 1031547,
+      "template": "reposado-cajita",
+      "postId": "post-stress-10",
+      "sourceKey": "marketing-library/local-stress/stress-10_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:49.922Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "316ae71b-9b7f-45ed-9be1-df7df736ffa0",
+        "receipt": {
+          "outputKey": "studio/local-render/316ae71b-9b7f-45ed-9be1-df7df736ffa0/3a926dbb-1fca-4682-bb17-9f4562d3671d.jpg",
+          "sha256": "bd125ff8c752b2d808ebb2a48233b43282a1e6a838d5d7cf36b8fb23a5760f7f",
+          "outputBytes": 955545,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 455.3702910000002,
+      "heap": {
+        "id": 11,
+        "result": {
+          "usedSize": 47182888,
+          "totalSize": 76939264,
+          "embedderHeapUsedSize": 1934608,
+          "backingStorageSize": 43095917
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/316ae71b-9b7f-45ed-9be1-df7df736ffa0/3a926dbb-1fca-4682-bb17-9f4562d3671d.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:50.466Z"
+    },
+    {
+      "round": 0,
+      "fixture": "portrait.jpg",
+      "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+      "sourceBytes": 1028800,
+      "template": "reposado-wide",
+      "postId": "post-stress-11",
+      "sourceKey": "marketing-library/local-stress/stress-11_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:50.509Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "ac5bc88d-452b-4e1d-9c3d-d1eb5f9be1da",
+        "receipt": {
+          "outputKey": "studio/local-render/ac5bc88d-452b-4e1d-9c3d-d1eb5f9be1da/165630e2-3c2a-464b-be8d-567143d1debe.jpg",
+          "sha256": "9522673775f9a97ecd8a1efdcbf27ec1efbada3a43b94625ad0d5e4487d49457",
+          "outputBytes": 675469,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 379.3444579999996,
+      "heap": {
+        "id": 12,
+        "result": {
+          "usedSize": 29537036,
+          "totalSize": 61489152,
+          "embedderHeapUsedSize": 383576,
+          "backingStorageSize": 21910162
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/ac5bc88d-452b-4e1d-9c3d-d1eb5f9be1da/165630e2-3c2a-464b-be8d-567143d1debe.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:50.981Z"
+    },
+    {
+      "round": 0,
+      "fixture": "portrait.jpg",
+      "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+      "sourceBytes": 1028800,
+      "template": "reposado-cajita",
+      "postId": "post-stress-12",
+      "sourceKey": "marketing-library/local-stress/stress-12_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:51.025Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "b67d417f-6c58-41aa-b652-5fb8bcb0efe7",
+        "receipt": {
+          "outputKey": "studio/local-render/b67d417f-6c58-41aa-b652-5fb8bcb0efe7/ce00695d-f1d4-4e57-8398-07201346198e.jpg",
+          "sha256": "0fdaff45d87f89d25b69d9b522c4abb26f2a77e34e065f3c916463e875822188",
+          "outputBytes": 670094,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 365.3912909999999,
+      "heap": {
+        "id": 13,
+        "result": {
+          "usedSize": 21135860,
+          "totalSize": 55361536,
+          "embedderHeapUsedSize": 979136,
+          "backingStorageSize": 15469817
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/b67d417f-6c58-41aa-b652-5fb8bcb0efe7/ce00695d-f1d4-4e57-8398-07201346198e.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:51.476Z"
+    },
+    {
+      "round": 0,
+      "fixture": "portrait.png",
+      "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+      "sourceBytes": 1026650,
+      "template": "reposado-wide",
+      "postId": "post-stress-13",
+      "sourceKey": "marketing-library/local-stress/stress-13_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:51.516Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "3ec91a0f-c9fc-4e94-a26e-293ddf8e75ef",
+        "receipt": {
+          "outputKey": "studio/local-render/3ec91a0f-c9fc-4e94-a26e-293ddf8e75ef/1337ef29-0307-4ef1-ac2f-fa5d472e8e6a.jpg",
+          "sha256": "9514d9a5737d21ab24c906c44c8501845be93e5feaed25297cbe89c1c90034bf",
+          "outputBytes": 680907,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 346.4354999999996,
+      "heap": {
+        "id": 14,
+        "result": {
+          "usedSize": 44369104,
+          "totalSize": 76546048,
+          "embedderHeapUsedSize": 1457208,
+          "backingStorageSize": 39456749
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/3ec91a0f-c9fc-4e94-a26e-293ddf8e75ef/1337ef29-0307-4ef1-ac2f-fa5d472e8e6a.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:51.953Z"
+    },
+    {
+      "round": 0,
+      "fixture": "portrait.png",
+      "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+      "sourceBytes": 1026650,
+      "template": "reposado-cajita",
+      "postId": "post-stress-14",
+      "sourceKey": "marketing-library/local-stress/stress-14_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:51.993Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "81940a53-d5a4-4fda-be23-5553d7169c3b",
+        "receipt": {
+          "outputKey": "studio/local-render/81940a53-d5a4-4fda-be23-5553d7169c3b/be2a0497-c13e-4b2b-a5f1-7402ff611536.jpg",
+          "sha256": "d20b6546be292905f421a5d34df03d092929f35e9975b39a5617e714b038ba3c",
+          "outputBytes": 675633,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 331.7709589999995,
+      "heap": {
+        "id": 15,
+        "result": {
+          "usedSize": 39761072,
+          "totalSize": 71729152,
+          "embedderHeapUsedSize": 2063576,
+          "backingStorageSize": 15883536
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/81940a53-d5a4-4fda-be23-5553d7169c3b/be2a0497-c13e-4b2b-a5f1-7402ff611536.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:52.412Z"
+    },
+    {
+      "round": 0,
+      "fixture": "ultrawide.jpg",
+      "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+      "sourceBytes": 1033549,
+      "template": "reposado-wide",
+      "postId": "post-stress-15",
+      "sourceKey": "marketing-library/local-stress/stress-15_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:52.452Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "7030b0d6-e4d6-4eab-8d83-2b12e13cad6c",
+        "receipt": {
+          "outputKey": "studio/local-render/7030b0d6-e4d6-4eab-8d83-2b12e13cad6c/2d1101ca-912f-4ef2-b44f-76312ed84c9c.jpg",
+          "sha256": "7d78a0c8436cd0e5a30561124ceedd375ab6cafb1feaf5e23730f95ef62ed26e",
+          "outputBytes": 492139,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 326.21550000000025,
+      "heap": {
+        "id": 16,
+        "result": {
+          "usedSize": 26526464,
+          "totalSize": 59359232,
+          "embedderHeapUsedSize": 513048,
+          "backingStorageSize": 23114288
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/7030b0d6-e4d6-4eab-8d83-2b12e13cad6c/2d1101ca-912f-4ef2-b44f-76312ed84c9c.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:52.866Z"
+    },
+    {
+      "round": 0,
+      "fixture": "ultrawide.jpg",
+      "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+      "sourceBytes": 1033549,
+      "template": "reposado-cajita",
+      "postId": "post-stress-16",
+      "sourceKey": "marketing-library/local-stress/stress-16_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:52.908Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "fb7f7041-1fcb-4198-b849-def6af62c164",
+        "receipt": {
+          "outputKey": "studio/local-render/fb7f7041-1fcb-4198-b849-def6af62c164/b9dcffb4-2333-4e6a-82b6-9d64b2eb91b1.jpg",
+          "sha256": "2763bcfc96828bc5973282db6b22d1ade4fc605a699d6e05a4a2f2353ca0ffab",
+          "outputBytes": 494552,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 304.98270799999955,
+      "heap": {
+        "id": 17,
+        "result": {
+          "usedSize": 45515004,
+          "totalSize": 80805888,
+          "embedderHeapUsedSize": 964744,
+          "backingStorageSize": 46255847
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/fb7f7041-1fcb-4198-b849-def6af62c164/b9dcffb4-2333-4e6a-82b6-9d64b2eb91b1.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:53.296Z"
+    },
+    {
+      "round": 0,
+      "fixture": "ultrawide.png",
+      "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+      "sourceBytes": 1036159,
+      "template": "reposado-wide",
+      "postId": "post-stress-17",
+      "sourceKey": "marketing-library/local-stress/stress-17_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:53.337Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "e8a9a1e3-12d5-4c4b-9075-7057e252f43e",
+        "receipt": {
+          "outputKey": "studio/local-render/e8a9a1e3-12d5-4c4b-9075-7057e252f43e/5d0bbbf2-28f4-440a-96ca-ed08b9cf74fe.jpg",
+          "sha256": "d6dc7e9cfe8d5f34464eb288912c91de98df33cdcf1e5c1ca0fc8397a8d97ae8",
+          "outputBytes": 493652,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 287.15037499999926,
+      "heap": {
+        "id": 18,
+        "result": {
+          "usedSize": 24691416,
+          "totalSize": 57556992,
+          "embedderHeapUsedSize": 1547704,
+          "backingStorageSize": 14819296
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/e8a9a1e3-12d5-4c4b-9075-7057e252f43e/5d0bbbf2-28f4-440a-96ca-ed08b9cf74fe.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:53.711Z"
+    },
+    {
+      "round": 0,
+      "fixture": "ultrawide.png",
+      "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+      "sourceBytes": 1036159,
+      "template": "reposado-cajita",
+      "postId": "post-stress-18",
+      "sourceKey": "marketing-library/local-stress/stress-18_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:53.754Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "8c9a181a-15bc-46b8-9972-e05c85a2345f",
+        "receipt": {
+          "outputKey": "studio/local-render/8c9a181a-15bc-46b8-9972-e05c85a2345f/c79bf3d1-5df0-421e-9220-8ebdb20b6122.jpg",
+          "sha256": "3140db8518ec6328f950886d53c571e026901fb0c3f09721a3ed944d5e24440b",
+          "outputBytes": 496224,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 279.09133400000064,
+      "heap": {
+        "id": 19,
+        "result": {
+          "usedSize": 43703984,
+          "totalSize": 72761344,
+          "embedderHeapUsedSize": 2063576,
+          "backingStorageSize": 37989723
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/8c9a181a-15bc-46b8-9972-e05c85a2345f/c79bf3d1-5df0-421e-9220-8ebdb20b6122.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:54.117Z"
+    },
+    {
+      "round": 0,
+      "fixture": "ultratall.jpg",
+      "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+      "sourceBytes": 1034144,
+      "template": "reposado-wide",
+      "postId": "post-stress-19",
+      "sourceKey": "marketing-library/local-stress/stress-19_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:54.160Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "8fb3af10-f4ee-4c48-b88d-3d625480af6e",
+        "receipt": {
+          "outputKey": "studio/local-render/8fb3af10-f4ee-4c48-b88d-3d625480af6e/5ca44d5e-9b1b-4fa6-a192-930b8b69c959.jpg",
+          "sha256": "d8c6918afd8162177e54f923b02acb39e19e89f7d720d70aa33303d54a44e7ab",
+          "outputBytes": 359573,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 304.3512499999997,
+      "heap": {
+        "id": 20,
+        "result": {
+          "usedSize": 22000564,
+          "totalSize": 52969472,
+          "embedderHeapUsedSize": 292800,
+          "backingStorageSize": 19334271
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/8fb3af10-f4ee-4c48-b88d-3d625480af6e/5ca44d5e-9b1b-4fa6-a192-930b8b69c959.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:54.547Z"
+    },
+    {
+      "round": 0,
+      "fixture": "ultratall.jpg",
+      "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+      "sourceBytes": 1034144,
+      "template": "reposado-cajita",
+      "postId": "post-stress-20",
+      "sourceKey": "marketing-library/local-stress/stress-20_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:54.589Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "b5f89719-0c20-4a3d-b118-8a297e068752",
+        "receipt": {
+          "outputKey": "studio/local-render/b5f89719-0c20-4a3d-b118-8a297e068752/28547694-7d1c-4b78-815c-92dfe5d4cc79.jpg",
+          "sha256": "bfdf5e60edbbb942706a74a16f1ae7f25dec075ea46d6a7020cff2df27407960",
+          "outputBytes": 356379,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 279.574208,
+      "heap": {
+        "id": 21,
+        "result": {
+          "usedSize": 38432544,
+          "totalSize": 64028672,
+          "embedderHeapUsedSize": 768688,
+          "backingStorageSize": 41794545
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/b5f89719-0c20-4a3d-b118-8a297e068752/28547694-7d1c-4b78-815c-92dfe5d4cc79.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:54.954Z"
+    },
+    {
+      "round": 0,
+      "fixture": "ultratall.png",
+      "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+      "sourceBytes": 1028186,
+      "template": "reposado-wide",
+      "postId": "post-stress-21",
+      "sourceKey": "marketing-library/local-stress/stress-21_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:54.994Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "94ed3f34-9c1b-4657-909d-3cc5b80ebc1e",
+        "receipt": {
+          "outputKey": "studio/local-render/94ed3f34-9c1b-4657-909d-3cc5b80ebc1e/7e5cec68-1e2b-475e-82d8-1e17859dcd1d.jpg",
+          "sha256": "94e8eba4a25f6aee2d293588b201620e8f30d8d98bb5c0c92a39f1f6111dabbd",
+          "outputBytes": 359979,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 252.26083300000028,
+      "heap": {
+        "id": 22,
+        "result": {
+          "usedSize": 55209720,
+          "totalSize": 80445440,
+          "embedderHeapUsedSize": 1214728,
+          "backingStorageSize": 64205317
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/94ed3f34-9c1b-4657-909d-3cc5b80ebc1e/7e5cec68-1e2b-475e-82d8-1e17859dcd1d.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:55.328Z"
+    },
+    {
+      "round": 0,
+      "fixture": "ultratall.png",
+      "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+      "sourceBytes": 1028186,
+      "template": "reposado-cajita",
+      "postId": "post-stress-22",
+      "sourceKey": "marketing-library/local-stress/stress-22_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:55.370Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "8b01bdd8-ef6e-4452-b5a4-27ddc1081be4",
+        "receipt": {
+          "outputKey": "studio/local-render/8b01bdd8-ef6e-4452-b5a4-27ddc1081be4/6c14206b-158a-4d9a-9347-1d0445579496.jpg",
+          "sha256": "2e631d5d497c00f3679e96e813173db6b719f4696e58ebed7d7046dae5881511",
+          "outputBytes": 356664,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 253.81933300000128,
+      "heap": {
+        "id": 23,
+        "result": {
+          "usedSize": 28589812,
+          "totalSize": 58441728,
+          "embedderHeapUsedSize": 1805640,
+          "backingStorageSize": 24018139
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/8b01bdd8-ef6e-4452-b5a4-27ddc1081be4/6c14206b-158a-4d9a-9347-1d0445579496.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:55.705Z"
+    },
+    {
+      "round": 0,
+      "fixture": "oversize.bin",
+      "sourceSha256": "70d03e988abedf763ba2c98f1864b7c0f4640387636e3a26a760c43456a4559c",
+      "sourceBytes": 5242881,
+      "template": "reposado-wide",
+      "postId": "post-stress-23",
+      "sourceKey": "marketing-library/local-stress/stress-23_photo.jpg",
+      "expected": "413 before raster",
+      "startedAt": "2026-10-03T12:27:55.801Z",
+      "verified": true,
+      "status": 409,
+      "result": {
+        "error": "invalid_source_size",
+        "scope": "local_rehearsal",
+        "resourceReadiness": "unverified",
+        "publicationApproved": false
+      },
+      "clientWallMs": 5.053417000000991,
+      "heap": {
+        "id": 24,
+        "result": {
+          "usedSize": 28642244,
+          "totalSize": 58441728,
+          "embedderHeapUsedSize": 1805640,
+          "backingStorageSize": 24027048
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "marketing-library/local-stress/stress-23_photo.jpg",
+        "versionState": null,
+        "jobState": null
+      },
+      "finishedAt": "2026-10-03T12:27:55.887Z"
+    },
+    {
+      "round": 0,
+      "fixture": "unsupported.bin",
+      "sourceSha256": "bf5b07e6ae47424e2b3f3e9753208b4d39d99f809ccc36714333ecd083e3c0d3",
+      "sourceBytes": 27,
+      "template": "reposado-wide",
+      "postId": "post-stress-24",
+      "sourceKey": "marketing-library/local-stress/stress-24_photo.jpg",
+      "expected": "422 before raster",
+      "startedAt": "2026-10-03T12:27:55.918Z",
+      "verified": true,
+      "status": 409,
+      "result": {
+        "error": "source_changed",
+        "scope": "local_rehearsal",
+        "resourceReadiness": "unverified",
+        "publicationApproved": false
+      },
+      "clientWallMs": 2.949624999999287,
+      "heap": {
+        "id": 25,
+        "result": {
+          "usedSize": 28699480,
+          "totalSize": 58441728,
+          "embedderHeapUsedSize": 1805640,
+          "backingStorageSize": 24044315
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "marketing-library/local-stress/stress-24_photo.jpg",
+        "versionState": null,
+        "jobState": null
+      },
+      "finishedAt": "2026-10-03T12:27:55.969Z"
+    },
+    {
+      "round": 0,
+      "fixture": "over-pixel-limit.png",
+      "sourceSha256": "18aba12df835ad7b6b516465afcc88f3eb5e1e0608d443c84c931b1f7cf59459",
+      "sourceBytes": 24,
+      "template": "reposado-wide",
+      "postId": "post-stress-25",
+      "sourceKey": "marketing-library/local-stress/stress-25_photo.png",
+      "expected": "422 before raster",
+      "startedAt": "2026-10-03T12:27:55.998Z",
+      "verified": true,
+      "status": 409,
+      "result": {
+        "state": "failed",
+        "jobId": "c7bc4271-d99d-48a3-a0fe-a45a71f559f7",
+        "outputKey": null,
+        "attached": false,
+        "errorCode": "consumer_failed",
+        "scope": "local_rehearsal",
+        "resourceReadiness": "unverified",
+        "publicationApproved": false
+      },
+      "clientWallMs": 9.085625000001528,
+      "heap": {
+        "id": 26,
+        "result": {
+          "usedSize": 28929064,
+          "totalSize": 58441728,
+          "embedderHeapUsedSize": 1805640,
+          "backingStorageSize": 25094455
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "marketing-library/local-stress/stress-25_photo.png",
+        "versionState": "confirmed",
+        "jobState": "failed"
+      },
+      "finishedAt": "2026-10-03T12:27:56.057Z"
+    },
+    {
+      "round": 0,
+      "fixture": "empty.bin",
+      "sourceSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sourceBytes": 0,
+      "template": "reposado-wide",
+      "postId": "post-stress-26",
+      "sourceKey": "marketing-library/local-stress/stress-26_photo.jpg",
+      "expected": "400 before raster",
+      "startedAt": "2026-10-03T12:27:56.086Z",
+      "verified": true,
+      "status": 409,
+      "result": {
+        "error": "invalid_source_size",
+        "scope": "local_rehearsal",
+        "resourceReadiness": "unverified",
+        "publicationApproved": false
+      },
+      "clientWallMs": 2.8661670000001322,
+      "heap": {
+        "id": 27,
+        "result": {
+          "usedSize": 28976352,
+          "totalSize": 58441728,
+          "embedderHeapUsedSize": 1805640,
+          "backingStorageSize": 25103364
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "marketing-library/local-stress/stress-26_photo.jpg",
+        "versionState": null,
+        "jobState": null
+      },
+      "finishedAt": "2026-10-03T12:27:56.139Z"
+    },
+    {
+      "round": 1,
+      "fixture": "square.jpg",
+      "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+      "sourceBytes": 1033933,
+      "template": "reposado-wide",
+      "postId": "post-stress-27",
+      "sourceKey": "marketing-library/local-stress/stress-27_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:56.184Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "07c52416-4ef5-43e9-8f4e-ef26593b96ae",
+        "receipt": {
+          "outputKey": "studio/local-render/07c52416-4ef5-43e9-8f4e-ef26593b96ae/95125453-6680-40d9-8167-d051607f60ce.jpg",
+          "sha256": "22b070617ac301cbc44f4416aea55f00e44b9116084d99eef8b47bd3de8c5a2d",
+          "outputBytes": 808400,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 413.7781250000007,
+      "heap": {
+        "id": 28,
+        "result": {
+          "usedSize": 5772284,
+          "totalSize": 43892736,
+          "embedderHeapUsedSize": 118976,
+          "backingStorageSize": 6337719
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/07c52416-4ef5-43e9-8f4e-ef26593b96ae/95125453-6680-40d9-8167-d051607f60ce.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:56.677Z"
+    },
+    {
+      "round": 1,
+      "fixture": "square.jpg",
+      "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+      "sourceBytes": 1033933,
+      "template": "reposado-cajita",
+      "postId": "post-stress-28",
+      "sourceKey": "marketing-library/local-stress/stress-28_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:56.717Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "ec6cf47f-c1bc-45af-a02a-832f7d434723",
+        "receipt": {
+          "outputKey": "studio/local-render/ec6cf47f-c1bc-45af-a02a-832f7d434723/30f11147-6abe-42e6-993d-0bd3024f855e.jpg",
+          "sha256": "f614f7cae35f07da476d7cfa0cfe467e02bf64ee8b28b2c9a6f0bfc1da6deaad",
+          "outputBytes": 806641,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 404.78979100000106,
+      "heap": {
+        "id": 29,
+        "result": {
+          "usedSize": 31524428,
+          "totalSize": 61308928,
+          "embedderHeapUsedSize": 608976,
+          "backingStorageSize": 31040441
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/ec6cf47f-c1bc-45af-a02a-832f7d434723/30f11147-6abe-42e6-993d-0bd3024f855e.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:57.215Z"
+    },
+    {
+      "round": 1,
+      "fixture": "square.png",
+      "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+      "sourceBytes": 1032104,
+      "template": "reposado-wide",
+      "postId": "post-stress-29",
+      "sourceKey": "marketing-library/local-stress/stress-29_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:57.257Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "71858928-ee00-4363-bbb2-e1ff4b2a504e",
+        "receipt": {
+          "outputKey": "studio/local-render/71858928-ee00-4363-bbb2-e1ff4b2a504e/7ee7a321-73c0-4fae-816c-293d3e26f446.jpg",
+          "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+          "outputBytes": 816530,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 377.52537499999926,
+      "heap": {
+        "id": 30,
+        "result": {
+          "usedSize": 23521860,
+          "totalSize": 63209472,
+          "embedderHeapUsedSize": 1197648,
+          "backingStorageSize": 18424927
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/71858928-ee00-4363-bbb2-e1ff4b2a504e/7ee7a321-73c0-4fae-816c-293d3e26f446.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:57.720Z"
+    },
+    {
+      "round": 1,
+      "fixture": "square.png",
+      "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+      "sourceBytes": 1032104,
+      "template": "reposado-cajita",
+      "postId": "post-stress-30",
+      "sourceKey": "marketing-library/local-stress/stress-30_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:57.762Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "989ce5d0-8c1f-43e0-9562-f719dc78026a",
+        "receipt": {
+          "outputKey": "studio/local-render/989ce5d0-8c1f-43e0-9562-f719dc78026a/a5a99c4f-aa07-4cd3-94d4-ab1b52208624.jpg",
+          "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+          "outputBytes": 814723,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 370.0422499999986,
+      "heap": {
+        "id": 31,
+        "result": {
+          "usedSize": 46506948,
+          "totalSize": 80609280,
+          "embedderHeapUsedSize": 1728192,
+          "backingStorageSize": 43132729
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/989ce5d0-8c1f-43e0-9562-f719dc78026a/a5a99c4f-aa07-4cd3-94d4-ab1b52208624.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:58.218Z"
+    },
+    {
+      "round": 1,
+      "fixture": "square-exact-5mib.png",
+      "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+      "sourceBytes": 5242880,
+      "template": "reposado-wide",
+      "postId": "post-stress-31",
+      "sourceKey": "marketing-library/local-stress/stress-31_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:58.311Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "9d966f05-ff5b-40fc-b297-4ee4a382072b",
+        "receipt": {
+          "outputKey": "studio/local-render/9d966f05-ff5b-40fc-b297-4ee4a382072b/ad998359-6a63-445a-8ffd-e45e2b1c227f.jpg",
+          "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+          "outputBytes": 816530,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 546.3077919999996,
+      "heap": {
+        "id": 32,
+        "result": {
+          "usedSize": 33889932,
+          "totalSize": 64946176,
+          "embedderHeapUsedSize": 1805640,
+          "backingStorageSize": 41283080
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/9d966f05-ff5b-40fc-b297-4ee4a382072b/ad998359-6a63-445a-8ffd-e45e2b1c227f.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:59.000Z"
+    },
+    {
+      "round": 1,
+      "fixture": "square-exact-5mib.png",
+      "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+      "sourceBytes": 5242880,
+      "template": "reposado-cajita",
+      "postId": "post-stress-32",
+      "sourceKey": "marketing-library/local-stress/stress-32_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:59.087Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "6f25b808-db12-45e4-8d4d-e1e60c9cb285",
+        "receipt": {
+          "outputKey": "studio/local-render/6f25b808-db12-45e4-8d4d-e1e60c9cb285/e5349af0-1c62-4106-bda5-bce1da1ebbae.jpg",
+          "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+          "outputBytes": 814723,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 550.2994999999992,
+      "heap": {
+        "id": 33,
+        "result": {
+          "usedSize": 34213604,
+          "totalSize": 68173824,
+          "embedderHeapUsedSize": 1934608,
+          "backingStorageSize": 41269467
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/6f25b808-db12-45e4-8d4d-e1e60c9cb285/e5349af0-1c62-4106-bda5-bce1da1ebbae.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:27:59.773Z"
+    },
+    {
+      "round": 1,
+      "fixture": "landscape.jpg",
+      "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+      "sourceBytes": 1028735,
+      "template": "reposado-wide",
+      "postId": "post-stress-33",
+      "sourceKey": "marketing-library/local-stress/stress-33_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:27:59.812Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "25c95dde-13c0-4a13-99c9-bfbb35b5adcc",
+        "receipt": {
+          "outputKey": "studio/local-render/25c95dde-13c0-4a13-99c9-bfbb35b5adcc/e1cb55db-c11a-406f-9891-f8cb4b523f72.jpg",
+          "sha256": "49f7b8c9adca045baa594c68f24cb4b038d11e27f16798c47db6c275cf0cc49a",
+          "outputBytes": 946066,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 461.09979100000055,
+      "heap": {
+        "id": 34,
+        "result": {
+          "usedSize": 6769236,
+          "totalSize": 43892736,
+          "embedderHeapUsedSize": 251920,
+          "backingStorageSize": 8862583
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/25c95dde-13c0-4a13-99c9-bfbb35b5adcc/e1cb55db-c11a-406f-9891-f8cb4b523f72.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:00.367Z"
+    },
+    {
+      "round": 1,
+      "fixture": "landscape.jpg",
+      "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+      "sourceBytes": 1028735,
+      "template": "reposado-cajita",
+      "postId": "post-stress-34",
+      "sourceKey": "marketing-library/local-stress/stress-34_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:00.410Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "3a155f06-14b2-4fe7-8ee4-26f4b9fbd04e",
+        "receipt": {
+          "outputKey": "studio/local-render/3a155f06-14b2-4fe7-8ee4-26f4b9fbd04e/0aa13e2d-566a-4e59-a8ea-336802de3f66.jpg",
+          "sha256": "215f49159cf36eef1f0dc6806a4257a71b133ca1851535961add60acf17559f3",
+          "outputBytes": 945912,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 463.0181249999987,
+      "heap": {
+        "id": 35,
+        "result": {
+          "usedSize": 32431360,
+          "totalSize": 69107712,
+          "embedderHeapUsedSize": 899168,
+          "backingStorageSize": 34205882
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/3a155f06-14b2-4fe7-8ee4-26f4b9fbd04e/0aa13e2d-566a-4e59-a8ea-336802de3f66.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:00.959Z"
+    },
+    {
+      "round": 1,
+      "fixture": "landscape.png",
+      "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+      "sourceBytes": 1031547,
+      "template": "reposado-wide",
+      "postId": "post-stress-35",
+      "sourceKey": "marketing-library/local-stress/stress-35_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:01.002Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "d290e9eb-db13-4108-9d04-f59741035aab",
+        "receipt": {
+          "outputKey": "studio/local-render/d290e9eb-db13-4108-9d04-f59741035aab/e5c99782-ca7f-4066-a755-9e282248cfdf.jpg",
+          "sha256": "c4f78a3a061229b208b8a8e2585414c29690d5681f814a9a5cc2b786573639c0",
+          "outputBytes": 955517,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 422.3626250000016,
+      "heap": {
+        "id": 36,
+        "result": {
+          "usedSize": 24144292,
+          "totalSize": 60571648,
+          "embedderHeapUsedSize": 1418736,
+          "backingStorageSize": 17682271
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/d290e9eb-db13-4108-9d04-f59741035aab/e5c99782-ca7f-4066-a755-9e282248cfdf.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:01.514Z"
+    },
+    {
+      "round": 1,
+      "fixture": "landscape.png",
+      "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+      "sourceBytes": 1031547,
+      "template": "reposado-cajita",
+      "postId": "post-stress-36",
+      "sourceKey": "marketing-library/local-stress/stress-36_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:01.555Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "434b3970-043e-44e4-9b59-6bb2b6503af7",
+        "receipt": {
+          "outputKey": "studio/local-render/434b3970-043e-44e4-9b59-6bb2b6503af7/74ddb96a-05b0-488f-8393-49fa2bd170be.jpg",
+          "sha256": "bd125ff8c752b2d808ebb2a48233b43282a1e6a838d5d7cf36b8fb23a5760f7f",
+          "outputBytes": 955545,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 421.3737500000025,
+      "heap": {
+        "id": 37,
+        "result": {
+          "usedSize": 47276732,
+          "totalSize": 82001920,
+          "embedderHeapUsedSize": 1934608,
+          "backingStorageSize": 43095917
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/434b3970-043e-44e4-9b59-6bb2b6503af7/74ddb96a-05b0-488f-8393-49fa2bd170be.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:02.061Z"
+    },
+    {
+      "round": 1,
+      "fixture": "portrait.jpg",
+      "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+      "sourceBytes": 1028800,
+      "template": "reposado-wide",
+      "postId": "post-stress-37",
+      "sourceKey": "marketing-library/local-stress/stress-37_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:02.101Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "0ed40cc8-c875-4887-8383-0c3451c6d1f8",
+        "receipt": {
+          "outputKey": "studio/local-render/0ed40cc8-c875-4887-8383-0c3451c6d1f8/ea667b3c-d169-46eb-9ce0-eed0d4e3343b.jpg",
+          "sha256": "9522673775f9a97ecd8a1efdcbf27ec1efbada3a43b94625ad0d5e4487d49457",
+          "outputBytes": 675469,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 375.9891669999997,
+      "heap": {
+        "id": 38,
+        "result": {
+          "usedSize": 27992932,
+          "totalSize": 63717376,
+          "embedderHeapUsedSize": 260768,
+          "backingStorageSize": 16749871
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/0ed40cc8-c875-4887-8383-0c3451c6d1f8/ea667b3c-d169-46eb-9ce0-eed0d4e3343b.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:02.568Z"
+    },
+    {
+      "round": 1,
+      "fixture": "portrait.jpg",
+      "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+      "sourceBytes": 1028800,
+      "template": "reposado-cajita",
+      "postId": "post-stress-38",
+      "sourceKey": "marketing-library/local-stress/stress-38_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:02.606Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "43c3258a-b7b3-45a5-98e3-de8c7f0eb3fc",
+        "receipt": {
+          "outputKey": "studio/local-render/43c3258a-b7b3-45a5-98e3-de8c7f0eb3fc/d6c9d8e3-e5ac-4964-b7f2-56006be0687d.jpg",
+          "sha256": "0fdaff45d87f89d25b69d9b522c4abb26f2a77e34e065f3c916463e875822188",
+          "outputBytes": 670094,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 369.56204199999775,
+      "heap": {
+        "id": 39,
+        "result": {
+          "usedSize": 20621052,
+          "totalSize": 56393728,
+          "embedderHeapUsedSize": 817576,
+          "backingStorageSize": 14441017
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/43c3258a-b7b3-45a5-98e3-de8c7f0eb3fc/d6c9d8e3-e5ac-4964-b7f2-56006be0687d.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:03.058Z"
+    },
+    {
+      "round": 1,
+      "fixture": "portrait.png",
+      "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+      "sourceBytes": 1026650,
+      "template": "reposado-wide",
+      "postId": "post-stress-39",
+      "sourceKey": "marketing-library/local-stress/stress-39_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:03.100Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "b4ad174a-8a38-485e-a63b-e8bb2f386db4",
+        "receipt": {
+          "outputKey": "studio/local-render/b4ad174a-8a38-485e-a63b-e8bb2f386db4/a41a16f8-9275-4332-b6db-1de2a32bc112.jpg",
+          "sha256": "9514d9a5737d21ab24c906c44c8501845be93e5feaed25297cbe89c1c90034bf",
+          "outputBytes": 680907,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 338.2515830000011,
+      "heap": {
+        "id": 40,
+        "result": {
+          "usedSize": 43783120,
+          "totalSize": 79249408,
+          "embedderHeapUsedSize": 1285568,
+          "backingStorageSize": 38427949
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/b4ad174a-8a38-485e-a63b-e8bb2f386db4/a41a16f8-9275-4332-b6db-1de2a32bc112.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:03.523Z"
+    },
+    {
+      "round": 1,
+      "fixture": "portrait.png",
+      "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+      "sourceBytes": 1026650,
+      "template": "reposado-cajita",
+      "postId": "post-stress-40",
+      "sourceKey": "marketing-library/local-stress/stress-40_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:03.567Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "f45cf29e-dce5-4c34-86aa-da19ca424c74",
+        "receipt": {
+          "outputKey": "studio/local-render/f45cf29e-dce5-4c34-86aa-da19ca424c74/1135dd9c-71f5-468e-8411-e75d905a3ee3.jpg",
+          "sha256": "d20b6546be292905f421a5d34df03d092929f35e9975b39a5617e714b038ba3c",
+          "outputBytes": 675633,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 342.7019169999985,
+      "heap": {
+        "id": 41,
+        "result": {
+          "usedSize": 39218464,
+          "totalSize": 72220672,
+          "embedderHeapUsedSize": 1934608,
+          "backingStorageSize": 14854736
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/f45cf29e-dce5-4c34-86aa-da19ca424c74/1135dd9c-71f5-468e-8411-e75d905a3ee3.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:03.996Z"
+    },
+    {
+      "round": 1,
+      "fixture": "ultrawide.jpg",
+      "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+      "sourceBytes": 1033549,
+      "template": "reposado-wide",
+      "postId": "post-stress-41",
+      "sourceKey": "marketing-library/local-stress/stress-41_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:04.036Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "8c520937-0534-4848-a91d-7ed467bb8a88",
+        "receipt": {
+          "outputKey": "studio/local-render/8c520937-0534-4848-a91d-7ed467bb8a88/414cbd6a-774b-4c6d-accf-52d773315870.jpg",
+          "sha256": "7d78a0c8436cd0e5a30561124ceedd375ab6cafb1feaf5e23730f95ef62ed26e",
+          "outputBytes": 492139,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 323.8573329999999,
+      "heap": {
+        "id": 42,
+        "result": {
+          "usedSize": 25052744,
+          "totalSize": 57655296,
+          "embedderHeapUsedSize": 318952,
+          "backingStorageSize": 19999330
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/8c520937-0534-4848-a91d-7ed467bb8a88/414cbd6a-774b-4c6d-accf-52d773315870.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:04.444Z"
+    },
+    {
+      "round": 1,
+      "fixture": "ultrawide.jpg",
+      "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+      "sourceBytes": 1033549,
+      "template": "reposado-cajita",
+      "postId": "post-stress-42",
+      "sourceKey": "marketing-library/local-stress/stress-42_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:04.487Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "aa56c9b4-8b9e-42c6-8a7a-d1c2931c453d",
+        "receipt": {
+          "outputKey": "studio/local-render/aa56c9b4-8b9e-42c6-8a7a-d1c2931c453d/f96f92b6-8c02-4f89-be80-7333d0a49d45.jpg",
+          "sha256": "2763bcfc96828bc5973282db6b22d1ade4fc605a699d6e05a4a2f2353ca0ffab",
+          "outputBytes": 494552,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 315.229083000002,
+      "heap": {
+        "id": 43,
+        "result": {
+          "usedSize": 43890772,
+          "totalSize": 71188480,
+          "embedderHeapUsedSize": 834152,
+          "backingStorageSize": 43140889
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/aa56c9b4-8b9e-42c6-8a7a-d1c2931c453d/f96f92b6-8c02-4f89-be80-7333d0a49d45.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:04.887Z"
+    },
+    {
+      "round": 1,
+      "fixture": "ultrawide.png",
+      "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+      "sourceBytes": 1036159,
+      "template": "reposado-wide",
+      "postId": "post-stress-43",
+      "sourceKey": "marketing-library/local-stress/stress-43_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:04.930Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "902269a1-01bd-4234-a134-d9dd3c2a30e3",
+        "receipt": {
+          "outputKey": "studio/local-render/902269a1-01bd-4234-a134-d9dd3c2a30e3/81698752-032e-4860-a23b-68c4ddacded7.jpg",
+          "sha256": "d6dc7e9cfe8d5f34464eb288912c91de98df33cdcf1e5c1ca0fc8397a8d97ae8",
+          "outputBytes": 493652,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 284.8956249999974,
+      "heap": {
+        "id": 44,
+        "result": {
+          "usedSize": 24114432,
+          "totalSize": 62275584,
+          "embedderHeapUsedSize": 1298112,
+          "backingStorageSize": 15852845
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/902269a1-01bd-4234-a134-d9dd3c2a30e3/81698752-032e-4860-a23b-68c4ddacded7.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:05.302Z"
+    },
+    {
+      "round": 1,
+      "fixture": "ultrawide.png",
+      "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+      "sourceBytes": 1036159,
+      "template": "reposado-cajita",
+      "postId": "post-stress-44",
+      "sourceKey": "marketing-library/local-stress/stress-44_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:05.343Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "840bf80f-6d93-4b57-ae18-62b78e908fa7",
+        "receipt": {
+          "outputKey": "studio/local-render/840bf80f-6d93-4b57-ae18-62b78e908fa7/01c34f91-6385-4d1c-a633-6ef1b555fd3d.jpg",
+          "sha256": "3140db8518ec6328f950886d53c571e026901fb0c3f09721a3ed944d5e24440b",
+          "outputBytes": 496224,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 284.42925000000105,
+      "heap": {
+        "id": 45,
+        "result": {
+          "usedSize": 42482528,
+          "totalSize": 76972032,
+          "embedderHeapUsedSize": 1805640,
+          "backingStorageSize": 39023272
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/840bf80f-6d93-4b57-ae18-62b78e908fa7/01c34f91-6385-4d1c-a633-6ef1b555fd3d.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:05.708Z"
+    },
+    {
+      "round": 1,
+      "fixture": "ultratall.jpg",
+      "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+      "sourceBytes": 1034144,
+      "template": "reposado-wide",
+      "postId": "post-stress-45",
+      "sourceKey": "marketing-library/local-stress/stress-45_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:05.755Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "116b5ea1-9d90-4fbe-825d-ff59f8651388",
+        "receipt": {
+          "outputKey": "studio/local-render/116b5ea1-9d90-4fbe-825d-ff59f8651388/98a6961b-1e1f-4cae-b4f0-61714d19b145.jpg",
+          "sha256": "d8c6918afd8162177e54f923b02acb39e19e89f7d720d70aa33303d54a44e7ab",
+          "outputBytes": 359573,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 289.13587499999994,
+      "heap": {
+        "id": 46,
+        "result": {
+          "usedSize": 5762608,
+          "totalSize": 43892736,
+          "embedderHeapUsedSize": 133872,
+          "backingStorageSize": 4541100
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/116b5ea1-9d90-4fbe-825d-ff59f8651388/98a6961b-1e1f-4cae-b4f0-61714d19b145.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:06.133Z"
+    },
+    {
+      "round": 1,
+      "fixture": "ultratall.jpg",
+      "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+      "sourceBytes": 1034144,
+      "template": "reposado-cajita",
+      "postId": "post-stress-46",
+      "sourceKey": "marketing-library/local-stress/stress-46_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:06.174Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "a29db85a-cad6-4045-9a71-e7f1e3356834",
+        "receipt": {
+          "outputKey": "studio/local-render/a29db85a-cad6-4045-9a71-e7f1e3356834/6ded55e0-3d72-47c9-9edb-2e3ecd574cdb.jpg",
+          "sha256": "bfdf5e60edbbb942706a74a16f1ae7f25dec075ea46d6a7020cff2df27407960",
+          "outputBytes": 356379,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 294.9012920000023,
+      "heap": {
+        "id": 47,
+        "result": {
+          "usedSize": 24365604,
+          "totalSize": 59064320,
+          "embedderHeapUsedSize": 606680,
+          "backingStorageSize": 27001374
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/a29db85a-cad6-4045-9a71-e7f1e3356834/6ded55e0-3d72-47c9-9edb-2e3ecd574cdb.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:06.554Z"
+    },
+    {
+      "round": 1,
+      "fixture": "ultratall.png",
+      "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+      "sourceBytes": 1028186,
+      "template": "reposado-wide",
+      "postId": "post-stress-47",
+      "sourceKey": "marketing-library/local-stress/stress-47_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:06.597Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "57e3d03f-641f-40f6-9043-43e669be4e1e",
+        "receipt": {
+          "outputKey": "studio/local-render/57e3d03f-641f-40f6-9043-43e669be4e1e/10afd3c0-c92b-4895-b6fe-6f13d5d57cb5.jpg",
+          "sha256": "94e8eba4a25f6aee2d293588b201620e8f30d8d98bb5c0c92a39f1f6111dabbd",
+          "outputBytes": 359979,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 257.67762500000026,
+      "heap": {
+        "id": 48,
+        "result": {
+          "usedSize": 40296548,
+          "totalSize": 69959680,
+          "embedderHeapUsedSize": 1030880,
+          "backingStorageSize": 49412146
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/57e3d03f-641f-40f6-9043-43e669be4e1e/10afd3c0-c92b-4895-b6fe-6f13d5d57cb5.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:06.945Z"
+    },
+    {
+      "round": 1,
+      "fixture": "ultratall.png",
+      "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+      "sourceBytes": 1028186,
+      "template": "reposado-cajita",
+      "postId": "post-stress-48",
+      "sourceKey": "marketing-library/local-stress/stress-48_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:06.985Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "cef0ff76-46c1-45b7-97c6-1af3b4288e89",
+        "receipt": {
+          "outputKey": "studio/local-render/cef0ff76-46c1-45b7-97c6-1af3b4288e89/4c75aaf1-6f29-49ab-afc4-4dcf8c9b234e.jpg",
+          "sha256": "2e631d5d497c00f3679e96e813173db6b719f4696e58ebed7d7046dae5881511",
+          "outputBytes": 356664,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 257.4367080000011,
+      "heap": {
+        "id": 49,
+        "result": {
+          "usedSize": 17339080,
+          "totalSize": 51691520,
+          "embedderHeapUsedSize": 1565120,
+          "backingStorageSize": 7904352
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/cef0ff76-46c1-45b7-97c6-1af3b4288e89/4c75aaf1-6f29-49ab-afc4-4dcf8c9b234e.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:07.329Z"
+    },
+    {
+      "round": 2,
+      "fixture": "square.jpg",
+      "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+      "sourceBytes": 1033933,
+      "template": "reposado-wide",
+      "postId": "post-stress-49",
+      "sourceKey": "marketing-library/local-stress/stress-49_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:07.369Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "391fcbaa-f629-434d-9736-0b1bbd26035c",
+        "receipt": {
+          "outputKey": "studio/local-render/391fcbaa-f629-434d-9736-0b1bbd26035c/31e7c1a5-e760-49f0-8706-e3243a2cfbbc.jpg",
+          "sha256": "22b070617ac301cbc44f4416aea55f00e44b9116084d99eef8b47bd3de8c5a2d",
+          "outputBytes": 808400,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 410.71237499999916,
+      "heap": {
+        "id": 50,
+        "result": {
+          "usedSize": 40171156,
+          "totalSize": 70598656,
+          "embedderHeapUsedSize": 2192544,
+          "backingStorageSize": 32620565
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/391fcbaa-f629-434d-9736-0b1bbd26035c/31e7c1a5-e760-49f0-8706-e3243a2cfbbc.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:07.868Z"
+    },
+    {
+      "round": 2,
+      "fixture": "square.jpg",
+      "sourceSha256": "e663ff7d654e01721f47b3de0de52c6960b93c666d5378a90bfd7411433b9a8e",
+      "sourceBytes": 1033933,
+      "template": "reposado-cajita",
+      "postId": "post-stress-50",
+      "sourceKey": "marketing-library/local-stress/stress-50_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:07.910Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "898fed89-6e19-433d-bc33-bdc335c5abcd",
+        "receipt": {
+          "outputKey": "studio/local-render/898fed89-6e19-433d-bc33-bdc335c5abcd/08ed6add-8b13-47c4-9b83-00c3693215d0.jpg",
+          "sha256": "f614f7cae35f07da476d7cfa0cfe467e02bf64ee8b28b2c9a6f0bfc1da6deaad",
+          "outputBytes": 806641,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 439.3545000000013,
+      "heap": {
+        "id": 51,
+        "result": {
+          "usedSize": 27538428,
+          "totalSize": 61194240,
+          "embedderHeapUsedSize": 430168,
+          "backingStorageSize": 22607865
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/898fed89-6e19-433d-bc33-bdc335c5abcd/08ed6add-8b13-47c4-9b83-00c3693215d0.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:08.436Z"
+    },
+    {
+      "round": 2,
+      "fixture": "square.png",
+      "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+      "sourceBytes": 1032104,
+      "template": "reposado-wide",
+      "postId": "post-stress-51",
+      "sourceKey": "marketing-library/local-stress/stress-51_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:08.479Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "4048adad-4afd-4e2c-b5a0-c99b6beddd2f",
+        "receipt": {
+          "outputKey": "studio/local-render/4048adad-4afd-4e2c-b5a0-c99b6beddd2f/4bf0f406-8634-433c-824d-ff7221288922.jpg",
+          "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+          "outputBytes": 816530,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 379.79770799999824,
+      "heap": {
+        "id": 52,
+        "result": {
+          "usedSize": 21277760,
+          "totalSize": 55853056,
+          "embedderHeapUsedSize": 967152,
+          "backingStorageSize": 16225007
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/4048adad-4afd-4e2c-b5a0-c99b6beddd2f/4bf0f406-8634-433c-824d-ff7221288922.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:08.942Z"
+    },
+    {
+      "round": 2,
+      "fixture": "square.png",
+      "sourceSha256": "64e21445157b716eb9499ee8014ca322e55be5b84ccbc0ed207ac8ecea899926",
+      "sourceBytes": 1032104,
+      "template": "reposado-cajita",
+      "postId": "post-stress-52",
+      "sourceKey": "marketing-library/local-stress/stress-52_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:08.983Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "03bb6c8d-f359-455f-8d56-c4f0cef1078d",
+        "receipt": {
+          "outputKey": "studio/local-render/03bb6c8d-f359-455f-8d56-c4f0cef1078d/23719de4-0f3b-4c43-a47f-a39771fe3ede.jpg",
+          "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+          "outputBytes": 814723,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 377.924291000003,
+      "heap": {
+        "id": 53,
+        "result": {
+          "usedSize": 43773128,
+          "totalSize": 73252864,
+          "embedderHeapUsedSize": 1486664,
+          "backingStorageSize": 40932809
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/03bb6c8d-f359-455f-8d56-c4f0cef1078d/23719de4-0f3b-4c43-a47f-a39771fe3ede.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:09.454Z"
+    },
+    {
+      "round": 2,
+      "fixture": "square-exact-5mib.png",
+      "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+      "sourceBytes": 5242880,
+      "template": "reposado-wide",
+      "postId": "post-stress-53",
+      "sourceKey": "marketing-library/local-stress/stress-53_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:09.545Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "0deb2ad5-a6a9-4a29-bcdc-b649e1cfa866",
+        "receipt": {
+          "outputKey": "studio/local-render/0deb2ad5-a6a9-4a29-bcdc-b649e1cfa866/40193e53-fac9-44e2-94d8-b02c518f8e87.jpg",
+          "sha256": "b85aedd7bba09761d1fec43800604fe8e702c69ed55b60a0288c5a08f8ff28dd",
+          "outputBytes": 816530,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 545.1049170000006,
+      "heap": {
+        "id": 54,
+        "result": {
+          "usedSize": 33209236,
+          "totalSize": 66240512,
+          "embedderHeapUsedSize": 1547704,
+          "backingStorageSize": 41283080
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/0deb2ad5-a6a9-4a29-bcdc-b649e1cfa866/40193e53-fac9-44e2-94d8-b02c518f8e87.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:10.234Z"
+    },
+    {
+      "round": 2,
+      "fixture": "square-exact-5mib.png",
+      "sourceSha256": "2a1063cf95353169cf80644a77c372fbbba4d6ca73042e957365d25c26fa0b37",
+      "sourceBytes": 5242880,
+      "template": "reposado-cajita",
+      "postId": "post-stress-54",
+      "sourceKey": "marketing-library/local-stress/stress-54_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:10.326Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "785f54d0-9920-45a6-be1b-aaaa2559b397",
+        "receipt": {
+          "outputKey": "studio/local-render/785f54d0-9920-45a6-be1b-aaaa2559b397/32b5faee-e103-4dfa-afc7-df8248a54d2b.jpg",
+          "sha256": "d6b0f8ed5330da8af3d168405187719a3647afbff2065a1ed49962a716f7f58b",
+          "outputBytes": 814723,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 543.6417499999989,
+      "heap": {
+        "id": 55,
+        "result": {
+          "usedSize": 33434508,
+          "totalSize": 72286208,
+          "embedderHeapUsedSize": 1676672,
+          "backingStorageSize": 41269467
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/785f54d0-9920-45a6-be1b-aaaa2559b397/32b5faee-e103-4dfa-afc7-df8248a54d2b.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:11.011Z"
+    },
+    {
+      "round": 2,
+      "fixture": "landscape.jpg",
+      "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+      "sourceBytes": 1028735,
+      "template": "reposado-wide",
+      "postId": "post-stress-55",
+      "sourceKey": "marketing-library/local-stress/stress-55_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:11.050Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "0acf3386-b515-4d20-9bbd-c7fa4b30d76f",
+        "receipt": {
+          "outputKey": "studio/local-render/0acf3386-b515-4d20-9bbd-c7fa4b30d76f/b804af55-b222-49eb-ba3e-10e97cc695b6.jpg",
+          "sha256": "49f7b8c9adca045baa594c68f24cb4b038d11e27f16798c47db6c275cf0cc49a",
+          "outputBytes": 946066,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 464.7092499999999,
+      "heap": {
+        "id": 56,
+        "result": {
+          "usedSize": 5752676,
+          "totalSize": 44679168,
+          "embedderHeapUsedSize": 125416,
+          "backingStorageSize": 6875489
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/0acf3386-b515-4d20-9bbd-c7fa4b30d76f/b804af55-b222-49eb-ba3e-10e97cc695b6.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:11.609Z"
+    },
+    {
+      "round": 2,
+      "fixture": "landscape.jpg",
+      "sourceSha256": "d71731abd1fe01e34d07437dc5eb7334beb3a9540bf43879b93c49d70d69c5f4",
+      "sourceBytes": 1028735,
+      "template": "reposado-cajita",
+      "postId": "post-stress-56",
+      "sourceKey": "marketing-library/local-stress/stress-56_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:11.657Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "acec71de-dfc7-4e2d-8803-cf384d53c844",
+        "receipt": {
+          "outputKey": "studio/local-render/acec71de-dfc7-4e2d-8803-cf384d53c844/3d8b6faf-795d-47a3-90ad-94b57cd71564.jpg",
+          "sha256": "215f49159cf36eef1f0dc6806a4257a71b133ca1851535961add60acf17559f3",
+          "outputBytes": 945912,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 461.07904199999757,
+      "heap": {
+        "id": 57,
+        "result": {
+          "usedSize": 30609900,
+          "totalSize": 63766528,
+          "embedderHeapUsedSize": 641232,
+          "backingStorageSize": 32218788
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/acec71de-dfc7-4e2d-8803-cf384d53c844/3d8b6faf-795d-47a3-90ad-94b57cd71564.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:12.206Z"
+    },
+    {
+      "round": 2,
+      "fixture": "landscape.png",
+      "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+      "sourceBytes": 1031547,
+      "template": "reposado-wide",
+      "postId": "post-stress-57",
+      "sourceKey": "marketing-library/local-stress/stress-57_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:12.246Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "8cb5349a-c987-4478-9172-2aef49ff77a1",
+        "receipt": {
+          "outputKey": "studio/local-render/8cb5349a-c987-4478-9172-2aef49ff77a1/db7e3953-e361-430e-91f0-5a835b37c0cd.jpg",
+          "sha256": "c4f78a3a061229b208b8a8e2585414c29690d5681f814a9a5cc2b786573639c0",
+          "outputBytes": 955517,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 424.73404200000004,
+      "heap": {
+        "id": 58,
+        "result": {
+          "usedSize": 23681072,
+          "totalSize": 59097088,
+          "embedderHeapUsedSize": 1289768,
+          "backingStorageSize": 19657072
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/8cb5349a-c987-4478-9172-2aef49ff77a1/db7e3953-e361-430e-91f0-5a835b37c0cd.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:12.760Z"
+    },
+    {
+      "round": 2,
+      "fixture": "landscape.png",
+      "sourceSha256": "e623275e4b824125dc9ed886f3341ac5a3dd20bf7dccad2c0d23e9701ac56d42",
+      "sourceBytes": 1031547,
+      "template": "reposado-cajita",
+      "postId": "post-stress-58",
+      "sourceKey": "marketing-library/local-stress/stress-58_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:12.801Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "f5115d52-549c-4113-9729-35554d6697a7",
+        "receipt": {
+          "outputKey": "studio/local-render/f5115d52-549c-4113-9729-35554d6697a7/0ef84d7f-dc5c-4f45-8d9a-bd4f597e7c82.jpg",
+          "sha256": "bd125ff8c752b2d808ebb2a48233b43282a1e6a838d5d7cf36b8fb23a5760f7f",
+          "outputBytes": 955545,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 424.72199999999793,
+      "heap": {
+        "id": 59,
+        "result": {
+          "usedSize": 46229460,
+          "totalSize": 81641472,
+          "embedderHeapUsedSize": 1805640,
+          "backingStorageSize": 45070718
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/f5115d52-549c-4113-9729-35554d6697a7/0ef84d7f-dc5c-4f45-8d9a-bd4f597e7c82.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:13.314Z"
+    },
+    {
+      "round": 2,
+      "fixture": "portrait.jpg",
+      "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+      "sourceBytes": 1028800,
+      "template": "reposado-wide",
+      "postId": "post-stress-59",
+      "sourceKey": "marketing-library/local-stress/stress-59_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:13.356Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "2b66f24d-3202-45ca-9c73-fbc8b0c771cd",
+        "receipt": {
+          "outputKey": "studio/local-render/2b66f24d-3202-45ca-9c73-fbc8b0c771cd/b82d7edc-d2d5-41be-b6ac-94a1ec03e69b.jpg",
+          "sha256": "9522673775f9a97ecd8a1efdcbf27ec1efbada3a43b94625ad0d5e4487d49457",
+          "outputBytes": 675469,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 380.32720899999913,
+      "heap": {
+        "id": 60,
+        "result": {
+          "usedSize": 42302084,
+          "totalSize": 76038144,
+          "embedderHeapUsedSize": 2321512,
+          "backingStorageSize": 18643492
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/2b66f24d-3202-45ca-9c73-fbc8b0c771cd/b82d7edc-d2d5-41be-b6ac-94a1ec03e69b.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:13.822Z"
+    },
+    {
+      "round": 2,
+      "fixture": "portrait.jpg",
+      "sourceSha256": "a89f867780b399e162cf4a1c413b781d67120237bf4b7ec5bb7042675ba79c84",
+      "sourceBytes": 1028800,
+      "template": "reposado-cajita",
+      "postId": "post-stress-60",
+      "sourceKey": "marketing-library/local-stress/stress-60_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:13.860Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "03f5c640-8172-479e-9da4-beae6e13614f",
+        "receipt": {
+          "outputKey": "studio/local-render/03f5c640-8172-479e-9da4-beae6e13614f/bb5b192c-6dc0-4f7c-b927-d07a7a353066.jpg",
+          "sha256": "0fdaff45d87f89d25b69d9b522c4abb26f2a77e34e065f3c916463e875822188",
+          "outputBytes": 670094,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 377.3306249999987,
+      "heap": {
+        "id": 61,
+        "result": {
+          "usedSize": 28562508,
+          "totalSize": 61079552,
+          "embedderHeapUsedSize": 554768,
+          "backingStorageSize": 24987995
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/03f5c640-8172-479e-9da4-beae6e13614f/bb5b192c-6dc0-4f7c-b927-d07a7a353066.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:14.323Z"
+    },
+    {
+      "round": 2,
+      "fixture": "portrait.png",
+      "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+      "sourceBytes": 1026650,
+      "template": "reposado-wide",
+      "postId": "post-stress-61",
+      "sourceKey": "marketing-library/local-stress/stress-61_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:14.365Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "79fa062e-da18-4ab4-a065-65b553d147b3",
+        "receipt": {
+          "outputKey": "studio/local-render/79fa062e-da18-4ab4-a065-65b553d147b3/c6c29359-6feb-425e-b87d-6e81c5ec7361.jpg",
+          "sha256": "9514d9a5737d21ab24c906c44c8501845be93e5feaed25297cbe89c1c90034bf",
+          "outputBytes": 680907,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 337.31133399999817,
+      "heap": {
+        "id": 62,
+        "result": {
+          "usedSize": 21485952,
+          "totalSize": 57147392,
+          "embedderHeapUsedSize": 1046392,
+          "backingStorageSize": 14489636
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/79fa062e-da18-4ab4-a065-65b553d147b3/c6c29359-6feb-425e-b87d-6e81c5ec7361.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:14.785Z"
+    },
+    {
+      "round": 2,
+      "fixture": "portrait.png",
+      "sourceSha256": "ca49cf6b6b7aa6746deae2f2b67d38b0342617cdd5ea7933ed748c39a1bcc547",
+      "sourceBytes": 1026650,
+      "template": "reposado-cajita",
+      "postId": "post-stress-62",
+      "sourceKey": "marketing-library/local-stress/stress-62_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:14.826Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "77664214-3b17-448c-8522-8d511041b221",
+        "receipt": {
+          "outputKey": "studio/local-render/77664214-3b17-448c-8522-8d511041b221/97b87b37-cb5a-4cd9-bd70-34ad3e2e5123.jpg",
+          "sha256": "d20b6546be292905f421a5d34df03d092929f35e9975b39a5617e714b038ba3c",
+          "outputBytes": 675633,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 336.9671249999992,
+      "heap": {
+        "id": 63,
+        "result": {
+          "usedSize": 43852316,
+          "totalSize": 74645504,
+          "embedderHeapUsedSize": 1676672,
+          "backingStorageSize": 38444340
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/77664214-3b17-448c-8522-8d511041b221/97b87b37-cb5a-4cd9-bd70-34ad3e2e5123.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:15.250Z"
+    },
+    {
+      "round": 2,
+      "fixture": "ultrawide.jpg",
+      "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+      "sourceBytes": 1033549,
+      "template": "reposado-wide",
+      "postId": "post-stress-63",
+      "sourceKey": "marketing-library/local-stress/stress-63_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:15.290Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "99f836c3-68ba-47c5-becb-1dfe6a23f304",
+        "receipt": {
+          "outputKey": "studio/local-render/99f836c3-68ba-47c5-becb-1dfe6a23f304/20291628-c53b-4ea4-9701-3aa4307b8c4a.jpg",
+          "sha256": "7d78a0c8436cd0e5a30561124ceedd375ab6cafb1feaf5e23730f95ef62ed26e",
+          "outputBytes": 492139,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 325.4584590000013,
+      "heap": {
+        "id": 64,
+        "result": {
+          "usedSize": 36085004,
+          "totalSize": 68698112,
+          "embedderHeapUsedSize": 2192544,
+          "backingStorageSize": 13965796
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/99f836c3-68ba-47c5-becb-1dfe6a23f304/20291628-c53b-4ea4-9701-3aa4307b8c4a.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:15.701Z"
+    },
+    {
+      "round": 2,
+      "fixture": "ultrawide.jpg",
+      "sourceSha256": "919e9a6c7b00b0bbbb0126e9750f129f82d2da4eec9a21c8617ffd7f04a4ddb7",
+      "sourceBytes": 1033549,
+      "template": "reposado-cajita",
+      "postId": "post-stress-64",
+      "sourceKey": "marketing-library/local-stress/stress-64_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:15.741Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "4e47bb68-158e-48e9-b5c1-3efad6fecccd",
+        "receipt": {
+          "outputKey": "studio/local-render/4e47bb68-158e-48e9-b5c1-3efad6fecccd/69719145-48e0-4715-be34-865752ed7bfd.jpg",
+          "sha256": "2763bcfc96828bc5973282db6b22d1ade4fc605a699d6e05a4a2f2353ca0ffab",
+          "outputBytes": 494552,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 322.00333300000057,
+      "heap": {
+        "id": 65,
+        "result": {
+          "usedSize": 24683028,
+          "totalSize": 59047936,
+          "embedderHeapUsedSize": 377472,
+          "backingStorageSize": 21047086
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/4e47bb68-158e-48e9-b5c1-3efad6fecccd/69719145-48e0-4715-be34-865752ed7bfd.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:16.156Z"
+    },
+    {
+      "round": 2,
+      "fixture": "ultrawide.png",
+      "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+      "sourceBytes": 1036159,
+      "template": "reposado-wide",
+      "postId": "post-stress-65",
+      "sourceKey": "marketing-library/local-stress/stress-65_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:16.197Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "fefba0a9-b741-4a36-a786-54317c77c23f",
+        "receipt": {
+          "outputKey": "studio/local-render/fefba0a9-b741-4a36-a786-54317c77c23f/c84b127e-7af8-4316-94bb-5e49be57c8fe.jpg",
+          "sha256": "d6dc7e9cfe8d5f34464eb288912c91de98df33cdcf1e5c1ca0fc8397a8d97ae8",
+          "outputBytes": 493652,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 282.8486669999984,
+      "heap": {
+        "id": 66,
+        "result": {
+          "usedSize": 43318788,
+          "totalSize": 75513856,
+          "embedderHeapUsedSize": 897320,
+          "backingStorageSize": 44201627
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/fefba0a9-b741-4a36-a786-54317c77c23f/c84b127e-7af8-4316-94bb-5e49be57c8fe.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:16.562Z"
+    },
+    {
+      "round": 2,
+      "fixture": "ultrawide.png",
+      "sourceSha256": "405e9a403237defabe314b899fdf89d80037a4e9382032091bb8197f974a0c6f",
+      "sourceBytes": 1036159,
+      "template": "reposado-cajita",
+      "postId": "post-stress-66",
+      "sourceKey": "marketing-library/local-stress/stress-66_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:16.607Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "a5d17ef4-8d8a-4494-9a07-ba3430dc8955",
+        "receipt": {
+          "outputKey": "studio/local-render/a5d17ef4-8d8a-4494-9a07-ba3430dc8955/2d604f7a-28e7-48d9-8591-b4ed326a0a8d.jpg",
+          "sha256": "3140db8518ec6328f950886d53c571e026901fb0c3f09721a3ed944d5e24440b",
+          "outputBytes": 496224,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 284.1382500000036,
+      "heap": {
+        "id": 67,
+        "result": {
+          "usedSize": 24448468,
+          "totalSize": 60784640,
+          "embedderHeapUsedSize": 1380600,
+          "backingStorageSize": 14835204
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/a5d17ef4-8d8a-4494-9a07-ba3430dc8955/2d604f7a-28e7-48d9-8591-b4ed326a0a8d.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:16.976Z"
+    },
+    {
+      "round": 2,
+      "fixture": "ultratall.jpg",
+      "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+      "sourceBytes": 1034144,
+      "template": "reposado-wide",
+      "postId": "post-stress-67",
+      "sourceKey": "marketing-library/local-stress/stress-67_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:17.019Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "80a0db85-60c3-41bd-ba1c-8f8c2c0c96ad",
+        "receipt": {
+          "outputKey": "studio/local-render/80a0db85-60c3-41bd-ba1c-8f8c2c0c96ad/d5da4e0a-e292-4b20-a652-ea990995ee2c.jpg",
+          "sha256": "d8c6918afd8162177e54f923b02acb39e19e89f7d720d70aa33303d54a44e7ab",
+          "outputBytes": 359573,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 295.36179199999606,
+      "heap": {
+        "id": 68,
+        "result": {
+          "usedSize": 40398972,
+          "totalSize": 71729152,
+          "embedderHeapUsedSize": 1934608,
+          "backingStorageSize": 37305082
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/80a0db85-60c3-41bd-ba1c-8f8c2c0c96ad/d5da4e0a-e292-4b20-a652-ea990995ee2c.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:17.400Z"
+    },
+    {
+      "round": 2,
+      "fixture": "ultratall.jpg",
+      "sourceSha256": "1eb3d633b3fd6157d5f51da7b2b664b45399845b4ce26c5e6793830ce646660b",
+      "sourceBytes": 1034144,
+      "template": "reposado-cajita",
+      "postId": "post-stress-68",
+      "sourceKey": "marketing-library/local-stress/stress-68_photo.jpg",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:17.439Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "183396db-68ba-429e-917b-4e36771c67c6",
+        "receipt": {
+          "outputKey": "studio/local-render/183396db-68ba-429e-917b-4e36771c67c6/6e68a0bc-ffd2-424d-8992-09f1c519da8d.jpg",
+          "sha256": "bfdf5e60edbbb942706a74a16f1ae7f25dec075ea46d6a7020cff2df27407960",
+          "outputBytes": 356379,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 282.78470899999957,
+      "heap": {
+        "id": 69,
+        "result": {
+          "usedSize": 56044240,
+          "totalSize": 84967424,
+          "embedderHeapUsedSize": 2450480,
+          "backingStorageSize": 59765356
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/183396db-68ba-429e-917b-4e36771c67c6/6e68a0bc-ffd2-424d-8992-09f1c519da8d.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:17.810Z"
+    },
+    {
+      "round": 2,
+      "fixture": "ultratall.png",
+      "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+      "sourceBytes": 1028186,
+      "template": "reposado-wide",
+      "postId": "post-stress-69",
+      "sourceKey": "marketing-library/local-stress/stress-69_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:17.848Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "0ba3601e-badd-47ce-89e1-f3a27ef76090",
+        "receipt": {
+          "outputKey": "studio/local-render/0ba3601e-badd-47ce-89e1-f3a27ef76090/6f9566fd-f2aa-436b-8450-7ae12d5dcbd5.jpg",
+          "sha256": "94e8eba4a25f6aee2d293588b201620e8f30d8d98bb5c0c92a39f1f6111dabbd",
+          "outputBytes": 359979,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 268.70691700000316,
+      "heap": {
+        "id": 70,
+        "result": {
+          "usedSize": 22169960,
+          "totalSize": 54509568,
+          "embedderHeapUsedSize": 497816,
+          "backingStorageSize": 22394814
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/0ba3601e-badd-47ce-89e1-f3a27ef76090/6f9566fd-f2aa-436b-8450-7ae12d5dcbd5.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:18.207Z"
+    },
+    {
+      "round": 2,
+      "fixture": "ultratall.png",
+      "sourceSha256": "00f8b54d0f8ed3baf0d1bdf4cc625f3ed068a3c58c93a6aba608b7b6c81d9598",
+      "sourceBytes": 1028186,
+      "template": "reposado-cajita",
+      "postId": "post-stress-70",
+      "sourceKey": "marketing-library/local-stress/stress-70_photo.png",
+      "expected": "accepted",
+      "startedAt": "2026-10-03T12:28:18.248Z",
+      "verified": true,
+      "status": 200,
+      "result": {
+        "state": "attached",
+        "jobId": "1071cf37-c33c-49bb-9d43-d076cd86b184",
+        "receipt": {
+          "outputKey": "studio/local-render/1071cf37-c33c-49bb-9d43-d076cd86b184/fcfb1706-83f6-4b9f-898a-6b92b699c3d7.jpg",
+          "sha256": "2e631d5d497c00f3679e96e813173db6b719f4696e58ebed7d7046dae5881511",
+          "outputBytes": 356664,
+          "width": 1080,
+          "height": 810
+        },
+        "humanReviewRequired": true,
+        "publicationApproved": false,
+        "resourceReadiness": "unverified",
+        "scope": "local_rehearsal"
+      },
+      "clientWallMs": 249.68499999999767,
+      "heap": {
+        "id": 71,
+        "result": {
+          "usedSize": 37763596,
+          "totalSize": 68698112,
+          "embedderHeapUsedSize": 910704,
+          "backingStorageSize": 44795619
+        }
+      },
+      "database": {
+        "postStatus": "draft",
+        "mediaKey": "studio/local-render/1071cf37-c33c-49bb-9d43-d076cd86b184/fcfb1706-83f6-4b9f-898a-6b92b699c3d7.jpg",
+        "versionState": "confirmed",
+        "jobState": "rendered"
+      },
+      "baselineComparison": {
+        "matched": true,
+        "matches": 3
+      },
+      "finishedAt": "2026-10-03T12:28:18.585Z"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/private-draft-worker.mjs",
+      "sha256": "252955972f7225fc47af364c9f5932723431d40c2f0adc09fe59ba5ffca9c694",
+      "bytes": 6745
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/node_modules/@resvg/resvg-wasm/index_bg.wasm",
+      "sha256": "22bf6e9f9a100d972da0411a69c5ba504367fc1fa87b3b64e3f35e53926d2d70",
+      "bytes": 2478606
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/assets/emblem.png",
+      "bytes": 163850,
+      "sha256": "ee2072582d72f1cc2aadc21282dfc24bdce90d92bbf467a062defb6a5e799598"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/assets/AnejoEditorialSerif-SemiBold.ttf",
+      "bytes": 774028,
+      "sha256": "bb60d386afdbf03f67ee68117776d9bfaba0d08d50899909e02b023fcb5f5a17"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/assets/AnejoEditorialSans-Medium.ttf",
+      "bytes": 59676,
+      "sha256": "19a231f3f7ebf25c1fa5afc3619002fd55e12a30c83c7974a75b973d4b1b7a5f"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/util.js",
+      "bytes": 2098,
+      "sha256": "d0c2c6f773122427a87517d7f0f84c98aac435aba8e8acc7fee15b011eeb0eee"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/session.js",
+      "bytes": 3600,
+      "sha256": "f66edc7b2edc47db1a5ec34e942da8a351439e9737c10bbd8a47f3f363f82ae6"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/guard.js",
+      "bytes": 1262,
+      "sha256": "4f2473ae894177242bea63b4a78cda833e5730db3d8478dd9a771a2b1c2ba22b"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/roles.js",
+      "bytes": 6430,
+      "sha256": "2010c5d19f12ad14713f180feae02a2baace797db60a15a92cf71ae2cfc72bd7"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/functions/_lib/marketing_render_receipt.js",
+      "bytes": 3418,
+      "sha256": "bf3e20379873912437f8472a0c8a732dbeff988af126180311b6e3555c5da4ab"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/public/hub/owner/assets/marketing-editorial-plan.js",
+      "bytes": 5548,
+      "sha256": "4f6f697ce1f96ddd99d829e855c6e40ccaad6d9a3fa6fbb2202ca7c32a20fcb1"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/node_modules/@resvg/resvg-wasm/index.mjs",
+      "bytes": 17048,
+      "sha256": "10170d02d816f02ec76f9bc095b01d9becf536e7b1e12e5aa616652c84b237a1"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/jpeg-encoder.mjs",
+      "bytes": 21724,
+      "sha256": "c112728478981afef1ce1b91e034467d53e016df67c24da8a56bde3b32f637c5"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/base64.mjs",
+      "bytes": 1703,
+      "sha256": "b26e2a70d0200d97aa0230b5ebcead5f4d293e48650170ae642931692c268909"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/core.mjs",
+      "bytes": 6431,
+      "sha256": "5acb8cdd382a398222b15f38e80d329b46522dd23b7e77a8c69b39a20f6a0adf"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/public/hub/owner/assets/marketing-image-orientation.js",
+      "bytes": 6409,
+      "sha256": "242f56331bd78f566d0bd4684c6808de8df37d49745cee58be8f8a0f3cc7e460"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/source-orientation.mjs",
+      "bytes": 247,
+      "sha256": "7bd842e08ea3cedf0568a5bc4a76a401f0ab08355c2b99da338ca08114a0c28f"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/editorial.mjs",
+      "bytes": 9421,
+      "sha256": "fe3037d5a150f5c2697772e5d17c9a89281a2402b08119c1ad47335d5d6be086"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/bounded-body.mjs",
+      "bytes": 1677,
+      "sha256": "d1e3d5f651824870a6eff3ff611e62f81d79afc6f8779df658941d99878c0430"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/source-versions.mjs",
+      "bytes": 10217,
+      "sha256": "57c30876e84769d5292a7e6ee21164d27051fc66f52a84f5dfa4fa6734f2399c"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/render-jobs.mjs",
+      "bytes": 8339,
+      "sha256": "38f756fe1f5f6603eb4f5ece1abd1544abd179a2dfa5aa82400053f9b850dec7"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/render-consumer.mjs",
+      "bytes": 11181,
+      "sha256": "cc79e2ca9548d8d824f3f0bd01028d195e915518043b2d7148e1f9d9d24572ad"
+    },
+    {
+      "path": "/Users/aiagent/Dayan Workspace/Aether/anejo-app/tools/marketing-render-prototype/private-draft-worker.mjs",
+      "bytes": 6745,
+      "sha256": "252955972f7225fc47af364c9f5932723431d40c2f0adc09fe59ba5ffca9c694"
+    }
+  ],
+  "bundle": {
+    "sha256": "301a28b146e197aa1e1617fcd4a1d56809397bb734dda74034e9f26171e549c8",
+    "bytes": 1438725
+  },
+  "inspector": {
+    "supported": true,
+    "note": "Local post-response Runtime.getHeapUsage observations only."
+  },
+  "initialHeap": {
+    "id": 1,
+    "result": {
+      "usedSize": 3287220,
+      "totalSize": 3751936,
+      "embedderHeapUsedSize": 386904,
+      "backingStorageSize": 1029517
+    }
+  },
+  "finalHeap": {
+    "id": 72,
+    "result": {
+      "usedSize": 37763596,
+      "totalSize": 68698112,
+      "embedderHeapUsedSize": 910704,
+      "backingStorageSize": 44795619
+    }
+  },
+  "outboundRequests": [],
+  "completedAt": "2026-10-03T12:28:18.586Z"
+}

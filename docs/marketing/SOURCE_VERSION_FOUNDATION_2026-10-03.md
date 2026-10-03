@@ -31,3 +31,11 @@ Current production CPU/plan proof requires supported-browser sign-in. Auditor bi
 ## Release check correction
 
 PR194 first renderer CI run failed before three binding-test files could load because the isolated renderer job had no root node_modules/miniflare install. Local files/test results were not invalidated, but release gates failed. CI now installs the locked root dependencies before prototype dependencies and runs the same full tests; no tests skipped or weakened. Fresh exact-head CI and deployment verification remain required. Original failing job: GitHub actions37120339528/job111195054180; error MODULE_NOT_FOUND.
+
+## Release receipt — October 3, 11:44:46 UTC
+
+PR194 https://github.com/dayan-jasonAI/anejo-app/pull/194 merged a668dbfcf6b0568c4fc9164f895460375273370f after all four checks passed on exact head14d36086bfc97299b9de03c2c50e087c6f2474aa (Functions, Studio, renderer and Pages). Root independently confirmed merged state and fetched/merged current trunk into the working branch. Cloudflare Wrangler inventory lists production3805c17f-5283-4b1e-8ef3-b509814394b8/main/sourcea668dbf. Inventory evidence is not a live happy-path test of authenticated source access/deletion protection.
+
+Normal supported Chrome homepage access succeeded at anejocateringco.com; the page rendered Añejo branding, Cajita and daily-lunch links. No form submitted or permissions/session files touched. npm run verify:live public mode passed its bounded surface/API invalid-token checks with two skips; it does not exercise the new private safeguards or paid checkout. npm run verify:deploy -- --strict could not read live API metadata because CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID are unset; this is a missing-proof result, not a pass. Existing Wrangler OAuth inventory read succeeded without opening/changing credentials. No production schema/source-version rows created.
+
+Release-checks, deployment-inventory, strict-deployment-verifier and public-live-check logs are preserved in the evidence directory. Deployed source corresponds to application photo-protection changes; source capture/revision/jobs remain unimported local tools. Full production rendering and private workflow acceptance remain open. Next exact source-version job/consumer integration and resource/auth/parity gates.
