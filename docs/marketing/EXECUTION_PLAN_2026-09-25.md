@@ -238,3 +238,7 @@ PR182 mergedaf695f4; production inventory lists thatsource. Normal supported own
 ### October3 preserved photo before recorded overlays
 
 Local implementation closes the observed repeated-branding default: verified receipt/R2 chain resolves pre-editorial source and binds current slide to guarded save.41focused and3,429root tests pass; lint/buildpass; independentreviewfoundnomaterialblocker. See ORIGINAL_SOURCE_RECOVERY_2026-10-03.md. Not deployed yet. Next: exact-headCI/release and actualprivateQA repeatbranding acceptance. Fullgoal unchanged; no publicpost/trustactivation.
+
+### October3 — source recovery live acceptance
+
+PR183/184/185 released through exact-head checks. Valid source recovery was rendered, visually inspected, explicitly saved and read back on private QA sp_c4df45a9d885d7dad754. Original hash unchanged, draft unscheduled. Historic QA image refused because its earlier receipt object lacks parent/method metadata; no invented repair. See ORIGINAL_SOURCE_RECOVERY_2026-10-03.md and evidence/original-source-recovery-2026-10-03. Full goal remains open; next focus is current three-carousel audit evidence and complete photo-to-review-to-planning acceptance.
