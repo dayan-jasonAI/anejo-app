@@ -24,6 +24,50 @@ for(const [message,classification] of [
 ])test('classifies provider diagnostic inference '+classification+': '+message,async()=>{
  const r=await auditProviderError(response(message),'written');assert.equal(r.classification,classification);assert.equal(r.read_status,'ok');assert.equal(r.classification_basis,'provider_diagnostic_inference');assert.equal(r.stage,'written');assert.equal(r.http_status,400);assert.ok(!JSON.stringify(r).includes(message));
 });
+for(const [message,classification] of [
+ ['Your credit balance is too low to access the API. Please add credits.','billing'],
+ ['Insufficient credits','billing'],
+ ['Credit balance is exhausted','billing'],
+ ['Payment required','billing'],
+ ['Payment was declined','billing'],
+ ['Payment method has been rejected','billing'],
+ ['Invalid value for temperature: 2','request_parameter'],
+ ['Unsupported parameter: max_tokens','request_parameter'],
+ ['thinking: unsupported','request_parameter'],
+ ['The parameter `temperature` is invalid','request_parameter'],
+ ['max_tokens is not supported','request_parameter'],
+ ['Invalid thinking configuration','request_parameter']
+])test('explicit future diagnostic classification '+classification+': '+message,async()=>{
+ const result=await auditProviderError(response(message),'visual');
+ assert.equal(result.classification,classification);assert.equal(result.classification_basis,'provider_diagnostic_inference');
+ assert.deepEqual(Object.keys(result),['reason','stage','http_status','error_type','request_id','classification','read_status','classification_basis']);
+ assert.ok(!JSON.stringify(result).includes(message));
+});
+test('new diagnostic categories reject negated, unrelated and vague text',async()=>{
+ for(const message of [
+  'Your credit balance is not too low','Payment was not declined','No payment required','Payment required is not the cause',
+  'Credit balance is sufficient','Billing issue','Check your credit balance','Please add a payment method',
+  'An example: payment required','Example: invalid temperature','Unsupported parameter: top_p',
+  'Example. Invalid temperature','Payment required? No, that diagnostic is unrelated','Invalid temperature. This is not the cause',
+  'temperature is not invalid','max_tokens is supported','thinking is not unsupported','Invalid temperature is not the cause',
+  'There is no unsupported max_tokens parameter','The prompt discusses unsupported thinking','Unfamiliar diagnostic',
+  'Invalid temperature_sensor','Unsupported max_tokens_extra','Invalid value for thinking_mode'
+ ])assert.equal((await auditProviderError(response(message),'visual')).classification,'unknown',message);
+});
+test('existing classification precedence survives new diagnostic categories',async()=>{
+ for(const message of ['Payment required','Unsupported parameter: max_tokens']){
+  for(const [status,classification] of [[401,'auth'],[403,'auth'],[429,'rate_limit'],[413,'image_request_size']])assert.equal((await auditProviderError(response(message,'invalid_request_error',status),'visual')).classification,classification);
+  for(const [type,classification] of [['authentication_error','auth'],['permission_error','auth'],['rate_limit_error','rate_limit'],['request_too_large','image_request_size']])assert.equal((await auditProviderError(response(message,type),'visual')).classification,classification);
+ }
+ assert.equal((await auditProviderError(response('Payment required. JSON schema is too complex'),'visual')).classification,'schema_complexity');
+});
+test('new diagnostic classifications cannot expose provider text or arbitrary fields',async()=>{
+ for(const [message,classification] of [['Payment required: sk-ant-SECRET PRIVATE_PROMPT https://private.internal','billing'],['Invalid value for temperature: sk-ant-SECRET PRIVATE_PROMPT https://private.internal','request_parameter']]){
+  const result=await auditProviderError(new Response(JSON.stringify({error:{type:'invalid_request_error',message,detail:message},prompt:message}),{status:400}),'visual');
+  assert.equal(result.classification,classification);
+  for(const privateText of ['SECRET','PRIVATE_PROMPT','https://private','detail','prompt'])assert.ok(!JSON.stringify(result).includes(privateText));
+ }
+});
 test('closed output cannot leak arbitrary provider fields, prompt or secrets',async()=>{
  const secret='sk-ant-SECRET PRIVATE_PROMPT https://private.example';
  const r=await auditProviderError(new Response(JSON.stringify({error:{type:secret,message:secret,detail:secret},prompt:secret,url:secret,model:secret}),{status:400}),'visual');

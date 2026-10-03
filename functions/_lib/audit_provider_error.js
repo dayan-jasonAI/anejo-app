@@ -2,6 +2,17 @@
 const MAX_BYTES=16*1024;
 const READ_DEADLINE_MS=1000;
 const ERROR_TYPES=new Set(['invalid_request_error','authentication_error','permission_error','not_found_error','request_too_large','rate_limit_error','api_error','overloaded_error']);
+function explicitDiagnostic(message){
+ // Only direct diagnostic clauses qualify. Reject negated, quoted-example and
+ // explanatory text instead of guessing from a parameter or billing keyword.
+ if(/\b(?:not(?! supported\b)|no|never|isn't|isn’t|wasn't|wasn’t|example|hypothetical|unrelated|rather than)\b/iu.test(message))return 'unknown';
+ for(const clause of message.split(/[\n.!?;]/u)){
+  const text=clause.trim();
+  if(/^(?:your |the )?credit balance (?:is |was )?(?:too low|insufficient|exhausted|depleted|zero)\b|^(?:insufficient|exhausted|depleted) (?:credit balance|credits)\b|^payment (?:method )?(?:is |was |has been )?(?:required|declined|refused|rejected)\b/iu.test(text))return 'billing';
+  if(/^(?:(?:the )?(?:parameter )?[`"']?(?:thinking|max_tokens|temperature)[`"']?\s*(?::|is|was)\s*(?:invalid|unsupported|not supported)\b|(?:invalid|unsupported) (?:value for (?:the )?(?:parameter )?|(?:request )?parameter\s*:?\s*)?[`"']?(?:thinking|max_tokens|temperature)\b[`"']?)/iu.test(text))return 'request_parameter';
+ }
+ return 'unknown';
+}
 function classify(message,type,status){
  if(type==='authentication_error'||type==='permission_error'||status===401||status===403)return 'auth';
  if(type==='rate_limit_error'||status===429)return 'rate_limit';
@@ -12,7 +23,7 @@ function classify(message,type,status){
  if(/(?:model).{0,80}(?:not found|does not exist|unsupported|not supported|not available|invalid)|(?:unknown|invalid|unsupported).{0,40}model/iu.test(message))return 'model';
  if(/(?:authentication|invalid api key|unauthorized|permission denied)/iu.test(message))return 'auth';
  if(/(?:rate limit|too many requests)/iu.test(message))return 'rate_limit';
- return 'unknown';
+ return explicitDiagnostic(message);
 }
 export async function auditProviderError(response,stage){
  const result={reason:'provider_rejected',stage:stage==='written'?'written':'visual',http_status:null,error_type:null,request_id:null,classification:'unknown',read_status:'absent',classification_basis:'provider_diagnostic_inference'};
