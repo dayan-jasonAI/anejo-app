@@ -261,3 +261,7 @@ V18 implementation and 3,513 root tests pass; independent reason-relabeling defe
 ## October3 — v18 release and failed live acceptance
 
 PR189 merged1e8c1d0 after four exact-head checks, active productionea288aee. Three one-per-design normal-browser reviews and independent D1 readbacks confirm v18 but all initial provider requests fail API400/nullscore. See SCOPE_DISPOSITIONS_2026-10-03.md/evidence. Exact provider cause remains unknown because response-body diagnostics are discarded. Next bounded provider-error evidence repair; no trust activation or public changes. Full objective stays open.
+
+## October3 — provider rejection diagnostics local acceptance
+
+Safe actual visual/written boundary diagnostics and owner UI implemented; root3,545tests/lint/build pass. See PROVIDER_DIAGNOSTICS_2026-10-03.md. No provider success claimed; semantic v18 rules unchanged. Release and one controlled diagnostic request pending. Read-only content-flow gap review underway separately; entire objective remains open.

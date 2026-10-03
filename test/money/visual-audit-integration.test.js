@@ -237,3 +237,14 @@ test('nonassertive caption spans are recorded without hiding an adjacent factual
   assert.equal(result.input_coverage.written_claim_review.non_assertions.length,2);
  }finally{globalThis.fetch=original;}
 });
+
+for(const stage of ['visual','written'])test('provider rejection records safe '+stage+' diagnosis without accepting findings or retry',async()=>{
+ const env=ownerEnv({ANTHROPIC_API_KEY:'test'}),original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async()=>{calls++;if(stage==='written'&&calls===1)return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(answer())}]})};return new Response(JSON.stringify({type:'error',error:{type:'invalid_request_error',message:'Unsupported JSON schema constraint maxLength: sk-ant-PRIVATE-PROMPT'}}),{status:400,headers:{'request-id':'req_fixture123'}});};
+ try{
+  const r=await auditDraft(env,{caption:'Private fixture',images:[{data:'private-image'}]});
+  assert.equal(calls,stage==='visual'?1:2);assert.equal(r.brand_score,null);assert.equal(r.verdict,'flag');assert.equal(r.complete,undefined);assert.equal(r.observations,undefined);
+  assert.equal(r.audit_diagnostic.stage,stage);assert.equal(r.audit_diagnostic.http_status,400);assert.equal(r.audit_diagnostic.classification,'schema_constraint');assert.equal(r.audit_diagnostic.request_id,'req_fixture123');assert.equal(r.audit_diagnostic.error_type,'invalid_request_error');
+  assert.ok(!JSON.stringify(r).includes('sk-ant-PRIVATE-PROMPT'));assert.ok(!JSON.stringify(r.audit_diagnostic).includes('private-image'));
+ }finally{globalThis.fetch=original;}
+});

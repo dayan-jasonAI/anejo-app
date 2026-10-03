@@ -1503,9 +1503,10 @@
       body += '<details><summary>Why this audit needs review</summary><p>' + esc(diagnostic.criterion_id || diagnostic.reason || 'Audit evidence') + '</p>' +
         (diagnostic.field || diagnostic.issue ? '<p>Evidence field: ' + esc(String(diagnostic.field || 'unknown').slice(0,80)) + ' · ' + esc(String(diagnostic.issue || 'invalid').slice(0,120)) + '</p>' : '') +
         (diagnostic.length != null || diagnostic.max != null ? '<p>Length/count: ' + esc(String(diagnostic.length == null ? 'unknown' : diagnostic.length).slice(0,30)) + ' · maximum: ' + esc(String(diagnostic.max == null ? 'unknown' : diagnostic.max).slice(0,30)) + '</p>' : '') +
+        (diagnostic.reason === 'provider_rejected' ? '<p>The review provider rejected the ' + esc(String(diagnostic.stage || 'unknown').slice(0,20)) + ' request (HTTP ' + esc(String(diagnostic.http_status || 'unknown').slice(0,4)) + ').</p><p>Diagnostic category: ' + esc(String(diagnostic.classification || 'unknown').slice(0,40)) + ' · ' + esc(String(diagnostic.error_type || 'unknown').slice(0,40)) + '</p>' + (diagnostic.request_id ? '<p>Provider reference: ' + esc(String(diagnostic.request_id).slice(0,110)) + '</p>' : '') + '<p class="hint">Category is inferred from the provider diagnostic; it does not prove the underlying cause. Raw provider content is not stored.</p>' : '') +
         (diagnostic.explanation ? '<p>' + esc(diagnostic.explanation) + '</p>' : '') +
         (diagnostic.quote ? '<p>Rejected caption citation: ' + esc(diagnostic.quote) + '</p>' : '') +
-        '<p class="hint">This is a rejected auditor observation, not a verified defect in your design.</p></details>';
+        '<p class="hint">' + (diagnostic.reason === 'provider_rejected' ? 'This is a rejected review request, not a verified defect in your design.' : 'This is a rejected auditor observation, not a verified defect in your design.') + '</p></details>';
     }
     body += '<div class="hint">' + (!current ? 'The design or source guidance must be checked again. ' : '') + 'Visual comparison does not prove image or logo provenance. An audit is not permission to publish.</div>';
     return '<div class="audit ' + status + '"><span class="audit-head">Brand Auditor · ' + label + '</span>' + body + '</div>';

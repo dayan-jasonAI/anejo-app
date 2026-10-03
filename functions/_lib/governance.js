@@ -1,3 +1,4 @@
+import {auditProviderError} from './audit_provider_error.js';
 // Añejo HUB — governance gates: the Brand Auditor + Claims Checker that scores every
 // generated draft BEFORE the owner sees it.
 //
@@ -313,7 +314,10 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
           }],
         }),
       });
-      if (!r.ok) unavailable = `API error ${r.status}`;
+      if (!r.ok) {
+        if(images.length) auditDiagnostic=await auditProviderError(r,'visual');
+        unavailable = `API error ${r.status}`;
+      }
       else {
         const j = await r.json();
         // Metered HERE, not after the parse: an unparseable answer was still a billed answer,
@@ -343,7 +347,7 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
               method:'POST', headers:{'x-api-key':env.ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01','content-type':'application/json'},
               body:JSON.stringify({model:auditModel,max_tokens:Math.min(8192,2048+Math.max(data.product_evidence.claims.length,writtenSources(images,caption).length)*192),thinking:{type:'disabled'},...request})
             });
-            if (!response.ok) throw new Error('written_claim_provider_unavailable');
+            if (!response.ok) { auditDiagnostic=await auditProviderError(response,'written'); throw new Error('written_claim_provider_unavailable'); }
             const answer = await response.json();
             await recordSpend(env,{feature:'governance_written_claims',model:auditModel,usage:answer.usage});
             if (answer.stop_reason!=='end_turn') throw new Error('written_claim_incomplete');
