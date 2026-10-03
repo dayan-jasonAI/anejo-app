@@ -1,0 +1,588 @@
+- heading "AÑEJO · MARKETING" [level=1]
+- link "Google review drafts":
+  - /url: /hub/owner/google-reviews.html
+- link "Marketing settings":
+  - /url: /hub/owner/marketing-settings.html
+  - text: ⚙️
+- button "ES"
+- button "Today"
+- button "📷 Photos / Fotos"
+- button "Teach"
+- button "Create & schedule"
+- paragraph: "One loop, not six pages: what worked shows up here on Today, you teach the team in Teach, drafts get made and approved in Create — then the results come back to Today."
+- button "Instagram"
+- button "Email"
+- paragraph: Different channels, different rules — Instagram posting and email campaigns keep their own compose form and their own send button, so one can never go out thinking it was the other.
+- heading "Instagram" [level=2]
+- text: ⚠️ Set up, but Instagram refused the token. The Facebook Login path needs IG_USER_ID as well as the token.
+- generic: Long-lived tokens expire after ~60 days — this usually means it needs renewing.
+- text: "⛔ Recorded Instagram token expiry has passed: September 20, 2026. This saved date may be outdated; it does not prove that publishing, the DM inbox or insights are unavailable. Verify the current connection and token in Meta, renew if needed, then update this record. See"
+- link "docs/INSTAGRAM_TOKEN_SWAP.md":
+  - /url: https://github.com/dayan-jasonAI/anejo-app/blob/main/docs/INSTAGRAM_TOKEN_SWAP.md
+- text: .
+- textbox: 2026-09-20
+- button "Record expiry date"
+- button "Clear"
+- generic: Post type
+- combobox:
+  - option "Feed photo or carousel" [selected]
+  - option "Reel (video)"
+  - option "Story (photo or video)"
+- paragraph: "A feed post: one photo, or a 2-10 photo carousel added after saving."
+- generic: Photo
+- button "📷 Upload a photo"
+- button "Choose from library / Elegir de biblioteca"
+- generic "or paste a Studio image key"
+- paragraph: JPEG from your phone or computer. Instagram rejects PNG and WebP; iPhone HEIC needs sharing as JPEG first.
+- generic "✨ or generate an image from a description"
+- generic "Help me write · Ayúdame a escribir"
+- option "Catering" [selected]
+- option "La Cajita"
+- option "Traditional / Tradicional"
+- option "Añejo Fit"
+- option "English" [selected]
+- option "Español"
+- option "English + Español"
+- generic: Caption
+- textbox "Write the caption…"
+- paragraph: Up to 2,200 characters. Hashtags count toward it.
+- generic: Schedule (optional)
+- textbox
+- paragraph: Leave empty to save as a draft you publish by hand.
+- button "Save post"
+- button "Recover previous save"
+- button "Resolve without retry"
+- heading "Posts / Publicaciones" [level=2]
+- paragraph: Latest 60 posts returned · Últimas 60 publicaciones devueltas
+- group "Filter posts / Filtrar publicaciones":
+  - button "Drafts / Borradores" [pressed]
+  - button "Scheduled / Programadas"
+  - button "Attention / Atención"
+  - button "Live / Publicadas"
+  - button "All / Todas"
+- status: 9 / 20 loaded posts · publicaciones cargadas
+- generic: Draft
+- generic: Not scheduled
+- textbox: PRIVATE QA — preserved-photo recovery acceptance. Not approved for publication.
+- button "Save caption"
+- generic: Brand Auditor · not scored yet
+- generic: No current finished-image audit. Audit the saved draft before approval.
+- button "Audit saved draft"
+- generic: 🧭 Provenance
+- text: not recorded — review the original photo and caption before approval.
+- generic: "1"
+- button "✕"
+- generic "Advanced creative tools / Herramientas creativas avanzadas"
+- generic "🏷️ Add branding (logo + optional wording)"
+- generic: Which photo
+- combobox:
+  - option "Slide 1" [selected]
+- generic: Style
+- combobox:
+  - option "Reposado — full-frame photograph" [selected]
+  - option "Reposado — square, lower-edge title"
+  - option "Reposado — dense food spread"
+  - option "Reposado — tall tray, side title"
+  - option "Reposado — wide photo, lower-left title"
+  - option "Reposado — Signature Cajita launch"
+  - option "Overlay — mark and wording on the photo"
+  - option "Reposado poster — full editorial layout"
+- paragraph: Full-frame Reposado keeps the entire photograph and its original shape, adds the real emblem and a fine editorial frame, and chooses readable branding colors. Keep the wording short and inspect the food before using. The named social templates use fixed editorial positions and a consistent shape; where needed, sampled background colors fill extra edges without cropping food. Choose a template with clear space in its title area. The alternate poster style adds height above a short photograph. Accent and closing lines apply to the poster only.
+- generic: Wording (optional)
+- textbox "e.g. Order by Thursday"
+- paragraph: Set in Cormorant Garamond, in your own capitalisation. Drawn from these exact characters, never generated — it cannot be misspelled. It resizes and wraps itself to fit the photo.
+- generic: Small line above (optional)
+- textbox "e.g. This week only"
+- paragraph: The letterspaced line above the headline. Always set in capitals. On a poster this is the subtitle under the title — e.g. PLANT-BASED WELLNESS BOWL.
+- generic: Accent line — poster only (optional)
+- textbox "e.g. Rooted. Warm. Nourishing."
+- paragraph: One restrained italic line, and one is enough — the style says so, and the field is capped to keep it that way.
+- generic: Closing line — poster only (optional)
+- textbox "e.g. Clean sips to pair with your bowl."
+- generic: Layout
+- combobox:
+  - option "Auto — read the photo" [selected]
+  - option "Editorial — lower centre"
+  - option "Caption — lower left"
+  - option "Masthead — top"
+- generic: Mark
+- combobox:
+  - option "Emblem — tree only" [selected]
+  - option "Full lockup"
+- generic: Mark position
+- combobox:
+  - option "Auto — calmest spot" [selected]
+  - option "Top centre"
+  - option "Bottom centre"
+  - option "Bottom right"
+  - option "Bottom left"
+  - option "Top right"
+  - option "Top left"
+- generic: Mark finish
+- combobox:
+  - option "Adaptive — one brand colour" [selected]
+  - option "Original colours"
+- paragraph: No plate behind the mark and no band behind the wording. The photo underneath is read first, and the mark and the type are inked in whichever kit colour separates from it — gold, cream or deep forest — so they sit on the image instead of on a box.
+- button "Preview branded photo"
+- paragraph: Preview rebuilt from the preserved photo before recorded editorial overlays. Inspect any branding already present in that photo. Preview uses an upright sRGB PNG; color handling is browser-declared and needs visual review.
+- paragraph: The center is protected geometrically. Review the actual food, packaging, emblem and wording before using. Template placement is not automatic food recognition.
+- button "Use this — replace selected slide"
+- button "Discard"
+- generic "🎞️ Generate the rest of a carousel"
+- option "2 photos total"
+- option "3 photos total"
+- option "4 photos total"
+- option "5 photos total" [selected]
+- option "6 photos total"
+- option "7 photos total"
+- option "8 photos total"
+- option "9 photos total"
+- option "10 photos total"
+- generic "🖼️ Reference variant — same bowl, new scene"
+- option "COCO" [selected]
+- option "LIGERO"
+- option "CONGREEN"
+- option "FUEGO"
+- option "VIDA"
+- option "MAR"
+- option "RAÍZ"
+- option "FUERZA"
+- generic "✨ Generate an image from a description"
+- button "📷 Add another photo (1/10)"
+- button "Choose from library / Elegir de biblioteca"
+- generic "or paste a Studio image key"
+- generic: Post it at
+- textbox
+- button "Schedule"
+- button "Publish now"
+- button "Delete"
+- generic: Draft
+- generic: Not scheduled
+- textbox: PRIVATE QA — Reposado template and preserved-original verification. Not approved for publication.
+- button "Save caption"
+- generic: Brand Auditor · not scored yet
+- generic: No current finished-image audit. Audit the saved draft before approval.
+- button "Audit saved draft"
+- generic: 🧭 Provenance
+- text: not recorded — review the original photo and caption before approval.
+- generic: "1"
+- button "✕"
+- generic "Advanced creative tools / Herramientas creativas avanzadas"
+- option "Slide 1" [selected]
+- option "Reposado — full-frame photograph" [selected]
+- option "Reposado — square, lower-edge title"
+- option "Reposado — dense food spread"
+- option "Reposado — tall tray, side title"
+- option "Reposado — wide photo, lower-left title"
+- option "Reposado — Signature Cajita launch"
+- option "Overlay — mark and wording on the photo"
+- option "Reposado poster — full editorial layout"
+- option "Auto — read the photo" [selected]
+- option "Editorial — lower centre"
+- option "Caption — lower left"
+- option "Masthead — top"
+- option "Emblem — tree only" [selected]
+- option "Full lockup"
+- option "Auto — calmest spot" [selected]
+- option "Top centre"
+- option "Bottom centre"
+- option "Bottom right"
+- option "Bottom left"
+- option "Top right"
+- option "Top left"
+- option "Adaptive — one brand colour" [selected]
+- option "Original colours"
+- option "2 photos total"
+- option "3 photos total"
+- option "4 photos total"
+- option "5 photos total" [selected]
+- option "6 photos total"
+- option "7 photos total"
+- option "8 photos total"
+- option "9 photos total"
+- option "10 photos total"
+- option "COCO" [selected]
+- option "LIGERO"
+- option "CONGREEN"
+- option "FUEGO"
+- option "VIDA"
+- option "MAR"
+- option "RAÍZ"
+- option "FUERZA"
+- button "📷 Add another photo (1/10)"
+- button "Choose from library / Elegir de biblioteca"
+- generic "or paste a Studio image key"
+- generic: Post it at
+- textbox
+- button "Schedule"
+- button "Publish now"
+- button "Delete"
+- generic: Draft
+- generic: "Suggested time — not scheduled: Aug 24, 11:00 AM"
+- generic: ✍️ Drafted for you — review before it goes anywhere
+- textbox: "Some things cannot be rushed. Fresh tuna. Ripe mango. Quinoa, chickpeas, bright citrus, and a sauce that finishes everything quietly. VIDA is on the menu — and it earns its name. Order at the link in bio. Same-day delivery available in Palm Beach County. #Añejo #VidaBowl #PalmBeachEats #MadeToOrder"
+- button "Save caption"
+- generic: Brand Auditor · outdated — re-audit required
+- generic: "Legacy score: 92/100 · not a complete current requirements audit"
+- list:
+  - listitem: Caption states 'Same-day delivery available in Palm Beach County' — this is a fixed operational claim that may not always be true. Should say 'delivery available' or reference the owner's dynamic ordering system instead.
+- generic: The design or source guidance must be checked again. Visual comparison does not prove image or logo provenance. An audit is not permission to publish.
+- generic: No current finished-image audit. Audit the saved draft before approval.
+- button "Audit saved draft"
+- generic: 🧭 Provenance
+- list:
+  - listitem: "📋 Campaign brief: 30-Day Instagram Sales Engine"
+  - listitem: "🏷️ Category: menu"
+  - listitem: "🖼️ Format: single"
+  - listitem: "📐 Training rules active: 24"
+- generic "Advanced creative tools / Herramientas creativas avanzadas"
+- option "2 photos total"
+- option "3 photos total"
+- option "4 photos total" [selected]
+- option "5 photos total"
+- option "6 photos total"
+- option "7 photos total"
+- option "8 photos total"
+- option "9 photos total"
+- option "10 photos total"
+- option "COCO" [selected]
+- option "LIGERO"
+- option "CONGREEN"
+- option "FUEGO"
+- option "VIDA"
+- option "MAR"
+- option "RAÍZ"
+- option "FUERZA"
+- generic: "Photo to make: VIDA bowl in a matte ivory ceramic, shot at 45° three-quarter overhead from upper-left natural daylight — sliced fresh tuna as the dominant protein hero at 5–7 o'clock, bright mango cubes and chickpeas arranged in loose overlapping sections beside visible fluffy quinoa, finished with microgreens and a restrained drizzle of mango sauce, against a matte charcoal stone surface with one small sauce vessel as the only prop."
+- button "📷 Upload a photo"
+- button "Choose from library / Elegir de biblioteca"
+- generic "or paste a Studio image key"
+- button "Delete"
+- generic: Draft
+- generic: Not scheduled
+- generic: ✍️ Drafted for you — review before it goes anywhere
+- textbox: "Some things can't be rushed — and some things are worth every second of the wait. COCO. Coconut-lime shrimp, quinoa, corn, edamame, avocado, cucumber, toasted coconut, microgreens. Built clean. Built for you. $22.99. Order today — link in bio. #AnejoCateringCo #CoconutLimeShrimp #PalmBeachEats #MadeToOrder"
+- button "Save caption"
+- generic: Brand Auditor · not scored yet
+- generic: No current finished-image audit. Audit the saved draft before approval.
+- button "Audit saved draft"
+- generic: 🧭 Provenance
+- list:
+  - listitem: "📋 Campaign brief: 30-Day Instagram Sales Engine"
+  - listitem: "🏷️ Category: menu"
+  - listitem: "🖼️ Format: single"
+  - listitem: "📐 Training rules active: 24"
+- generic "Advanced creative tools / Herramientas creativas avanzadas"
+- option "2 photos total"
+- option "3 photos total"
+- option "4 photos total" [selected]
+- option "5 photos total"
+- option "6 photos total"
+- option "7 photos total"
+- option "8 photos total"
+- option "9 photos total"
+- option "10 photos total"
+- option "COCO" [selected]
+- option "LIGERO"
+- option "CONGREEN"
+- option "FUEGO"
+- option "VIDA"
+- option "MAR"
+- option "RAÍZ"
+- option "FUERZA"
+- generic: "Photo to make: COCO bowl in a wide matte ivory ceramic bowl, shot at 45° three-quarter overhead from 24–30 inches, lit from upper-left with one large diffused source at ~5000K; coconut-lime shrimp plated as the dominant hero from 5 o'clock to 7 o'clock, showing glossy caramelized edges; quinoa, corn, and edamame in loose visible sections; avocado fanned cleanly; microgreens as the finishing crown; matte dark-forest plaster surface; one small sauce vessel beside the bowl as the only prop; soft shadow extending right; no clutter, no utensils."
+- button "📷 Upload a photo"
+- button "Choose from library / Elegir de biblioteca"
+- generic "or paste a Studio image key"
+- button "Delete"
+- generic: Draft
+- generic: "Suggested time — not scheduled: Aug 19, 11:00 AM"
+- generic: ✍️ Drafted for you — review before it goes anywhere
+- textbox: "Seven bowls. One standard. Every bowl on the Añejo menu is chef-built, macro-balanced, and made fresh in Palm Beach County — not meal-prepped, not reheated, not rushed. Swipe to meet the full menu. Your next order is in there. Link in bio to order. #AnejoCateringCo #PalmBeachFood #HealthyBowls #MadeToOrder"
+- button "Save caption"
+- generic: Brand Auditor · outdated — re-audit required
+- generic: "Legacy score: 94/100 · not a complete current requirements audit"
+- generic: The design or source guidance must be checked again. Visual comparison does not prove image or logo provenance. An audit is not permission to publish.
+- generic: No current finished-image audit. Audit the saved draft before approval.
+- button "Audit saved draft"
+- generic: 🧭 Provenance
+- text: not recorded — review the original photo and caption before approval.
+- generic "Advanced creative tools / Herramientas creativas avanzadas"
+- option "2 photos total"
+- option "3 photos total"
+- option "4 photos total" [selected]
+- option "5 photos total"
+- option "6 photos total"
+- option "7 photos total"
+- option "8 photos total"
+- option "9 photos total"
+- option "10 photos total"
+- option "COCO" [selected]
+- option "LIGERO"
+- option "CONGREEN"
+- option "FUEGO"
+- option "VIDA"
+- option "MAR"
+- option "RAÍZ"
+- option "FUERZA"
+- generic: "Photo to make: Carousel opening frame: FUEGO bowl in a wide matte charcoal ceramic bowl, 45° three-quarter overhead angle, lit from upper-left with soft directional daylight at ~5000K; seared steak sliced on the bias as the clear hero from 5 o'clock to 7 o'clock, showing visible char and sear; chimichurri in a small matte sauce vessel beside the bowl; quinoa and arugula in loose natural sections with roasted peppers and pepitas as texture accents; microgreens finishing the top; warm limestone surface; soft shadow extending right; bowl fills 65–75% of frame with breathing room; no utensils, no clutter."
+- button "📷 Upload a photo"
+- button "Choose from library / Elegir de biblioteca"
+- generic "or paste a Studio image key"
+- button "Delete"
+- generic: Draft
+- generic: "Suggested time — not scheduled: Aug 11, 11:00 AM"
+- generic: ✍️ Drafted for you — review before it goes anywhere
+- textbox: "COCO didn't ask for your attention. Coconut-lime shrimp. Quinoa, corn, edamame, avocado, mango, microgreens. A sauce that finishes clean. This is what it looks like when healthy food stops trying to be humble. Order today at anejocateringco.com/order — link in bio. #AnejoCateringCo #COCObowl #PalmBeachEats #MadeToOrder"
+- button "Save caption"
+- generic: Brand Auditor · outdated — re-audit required
+- generic: "Legacy score: 92/100 · not a complete current requirements audit"
+- list:
+  - listitem: "The phrase 'stops trying to be humble' risks reading as arrogant or dismissive of health-forward positioning. Añejo voice is 'premium but not arrogant.' Consider: 'This is what it looks like when healthy food refuses to compromise on flavor"
+- generic: The design or source guidance must be checked again. Visual comparison does not prove image or logo provenance. An audit is not permission to publish.
+- generic: No current finished-image audit. Audit the saved draft before approval.
+- button "Audit saved draft"
+- generic: 🧭 Provenance
+- list:
+  - listitem: "📋 Campaign brief: 30-Day Instagram Sales Engine"
+  - listitem: "🔎 Market intel (adhoc): What is the current ordering method for customers — is there a website link, DM ordering, a specific URL, or a phone number they should use to place a first ord"
+  - listitem: "🏷️ Category: menu"
+  - listitem: "🖼️ Format: single"
+  - listitem: "📐 Training rules active: 25"
+- generic "Advanced creative tools / Herramientas creativas avanzadas"
+- option "2 photos total"
+- option "3 photos total"
+- option "4 photos total" [selected]
+- option "5 photos total"
+- option "6 photos total"
+- option "7 photos total"
+- option "8 photos total"
+- option "9 photos total"
+- option "10 photos total"
+- option "COCO" [selected]
+- option "LIGERO"
+- option "CONGREEN"
+- option "FUEGO"
+- option "VIDA"
+- option "MAR"
+- option "RAÍZ"
+- option "FUERZA"
+- generic: "Photo to make: Single overhead shot of the COCO bowl centered on a matte dark forest-green surface — coconut-lime shrimp arranged at the 5-to-7 o'clock position showing glossy, firm texture, avocado fanned beside it, edamame and corn in clean sections, microgreens as the crown; warm editorial side-light from upper left creates gentle shadow depth without crushing blacks, no props, sauce cup just barely visible a"
+- button "📷 Upload a photo"
+- button "Choose from library / Elegir de biblioteca"
+- generic "or paste a Studio image key"
+- button "Delete"
+- generic: Draft
+- generic: Not scheduled
+- generic: ✍️ Drafted for you — review before it goes anywhere
+- textbox: Every Añejo bowl follows one rule. 🥣 ~40% protein · ~30% carbs · ~30% fat We call it the Golden Rule — the macro balance behind every bowl on our menu. Not a guess. Not an afterthought. It's how every recipe starts. Cooked fresh daily in Palm Beach County. Delivered to your door. Never frozen. Real ingredients. Real flavor. Real results. This is how Añejo is built. Explore the full menu → anejocateringco.com/order · Link in bio.
+- button "Save caption"
+- generic: Brand Auditor · outdated — re-audit required
+- generic: "Legacy score: 92/100 · not a complete current requirements audit"
+- list:
+  - listitem: "'Real results' implies outcome promise without specificity — borders on transformation guarantee language Añejo avoids."
+- generic: The design or source guidance must be checked again. Visual comparison does not prove image or logo provenance. An audit is not permission to publish.
+- generic: No current finished-image audit. Audit the saved draft before approval.
+- button "Audit saved draft"
+- generic: 🧭 Provenance
+- text: not recorded — review the original photo and caption before approval.
+- generic: "1"
+- button "▶"
+- button "✕"
+- generic: "2"
+- button "◀"
+- button "✕"
+- paragraph: Carousel · 2 photos, posted in this order. Instagram crops every slide to the first photo's shape.
+- generic "Advanced creative tools / Herramientas creativas avanzadas"
+- option "Slide 1" [selected]
+- option "Slide 2"
+- option "Reposado — full-frame photograph" [selected]
+- option "Reposado — square, lower-edge title"
+- option "Reposado — dense food spread"
+- option "Reposado — tall tray, side title"
+- option "Reposado — wide photo, lower-left title"
+- option "Reposado — Signature Cajita launch"
+- option "Overlay — mark and wording on the photo"
+- option "Reposado poster — full editorial layout"
+- option "Auto — read the photo" [selected]
+- option "Editorial — lower centre"
+- option "Caption — lower left"
+- option "Masthead — top"
+- option "Emblem — tree only" [selected]
+- option "Full lockup"
+- option "Auto — calmest spot" [selected]
+- option "Top centre"
+- option "Bottom centre"
+- option "Bottom right"
+- option "Bottom left"
+- option "Top right"
+- option "Top left"
+- option "Adaptive — one brand colour" [selected]
+- option "Original colours"
+- option "3 photos total"
+- option "4 photos total"
+- option "5 photos total"
+- option "6 photos total" [selected]
+- option "7 photos total"
+- option "8 photos total"
+- option "9 photos total"
+- option "10 photos total"
+- option "COCO" [selected]
+- option "LIGERO"
+- option "CONGREEN"
+- option "FUEGO"
+- option "VIDA"
+- option "MAR"
+- option "RAÍZ"
+- option "FUERZA"
+- button "📷 Add another photo (2/10)"
+- button "Choose from library / Elegir de biblioteca"
+- generic "or paste a Studio image key"
+- generic: Post it at
+- textbox
+- button "Schedule"
+- button "Publish carousel · 2 photos"
+- button "Delete"
+- generic: Draft
+- generic: Not scheduled
+- generic: ✍️ Drafted for you — review before it goes anywhere
+- textbox: You're covered. 🌴 From Palm Beach Gardens to Boca Raton — Añejo delivers chef-built, macro-balanced bowls straight to your door. Cooked fresh daily. Never frozen. From our kitchen to your hands. 🕐 Schedule ahead or order on demand 🍽️ Lunch & dinner delivery, daily 📋 Custom meal plans available 📍 Palm Beach Gardens · Palm Beach · West Palm Beach · Palm Springs · Greenacres · Wellington · Loxahatchee · Westlake · Lake Worth · Boynton Beach · Delray Beach · Boca Raton Food is not supposed to feel like a burden. It should be enjoyed. You should feel taken care of. That's the Añejo way. Order → anejocateringco.com/order · Link in bio.
+- button "Save caption"
+- generic: Brand Auditor · outdated — re-audit required
+- generic: "Legacy score: 78/100 · not a complete current requirements audit"
+- list:
+  - listitem: No exact delivery areas should be named without clarifying that service boundaries may change — 'From Palm Beach Gardens to Boca Raton' implies fixed coverage that contradicts the owner's 'no invented deadlines or fixed facts' rule.
+  - listitem: The closing line 'Food is not supposed to feel like a burden' feels slightly detached from Añejo's confident, premium tone — it reads more therapeutic/apologetic than the warm, premium expertise the brand voice requires.
+  - listitem: The image_brief is incomplete and cuts off mid-sentence at 'A single refined location pin icon i' — cannot assess photo compliance without the full visual description.
+- generic: The design or source guidance must be checked again. Visual comparison does not prove image or logo provenance. An audit is not permission to publish.
+- generic: No current finished-image audit. Audit the saved draft before approval.
+- button "Audit saved draft"
+- generic: 🧭 Provenance
+- list:
+  - listitem: "🖼️ Format: carousel · 3 slides"
+  - listitem: "📐 Training rules active: 0"
+- generic: "1"
+- button "✕"
+- generic "Advanced creative tools / Herramientas creativas avanzadas"
+- option "Slide 1" [selected]
+- option "Reposado — full-frame photograph" [selected]
+- option "Reposado — square, lower-edge title"
+- option "Reposado — dense food spread"
+- option "Reposado — tall tray, side title"
+- option "Reposado — wide photo, lower-left title"
+- option "Reposado — Signature Cajita launch"
+- option "Overlay — mark and wording on the photo"
+- option "Reposado poster — full editorial layout"
+- option "Auto — read the photo" [selected]
+- option "Editorial — lower centre"
+- option "Caption — lower left"
+- option "Masthead — top"
+- option "Emblem — tree only" [selected]
+- option "Full lockup"
+- option "Auto — calmest spot" [selected]
+- option "Top centre"
+- option "Bottom centre"
+- option "Bottom right"
+- option "Bottom left"
+- option "Top right"
+- option "Top left"
+- option "Adaptive — one brand colour" [selected]
+- option "Original colours"
+- option "2 photos total"
+- option "3 photos total"
+- option "4 photos total"
+- option "5 photos total" [selected]
+- option "6 photos total"
+- option "7 photos total"
+- option "8 photos total"
+- option "9 photos total"
+- option "10 photos total"
+- option "COCO" [selected]
+- option "LIGERO"
+- option "CONGREEN"
+- option "FUEGO"
+- option "VIDA"
+- option "MAR"
+- option "RAÍZ"
+- option "FUERZA"
+- button "📷 Add another photo (1/10)"
+- button "Choose from library / Elegir de biblioteca"
+- generic "or paste a Studio image key"
+- generic: Post it at
+- textbox
+- button "Schedule"
+- button "Publish now"
+- button "Delete"
+- generic: Draft
+- generic: Not scheduled
+- generic: ✍️ Drafted for you — review before it goes anywhere
+- textbox: You're covered. 🌴 From Palm Beach Gardens to Boca Raton — Añejo delivers chef-built, macro-balanced bowls straight to your door. Cooked fresh daily. Never frozen. From our kitchen to your hands. 📍 Palm Beach Gardens · Palm Beach · West Palm Beach · Palm Springs · Greenacres · Wellington · Loxahatchee · Westlake · Lake Worth · Boynton Beach · Delray Beach · Boca Raton 🕐 Schedule ahead or order on demand 🍽️ Lunch & dinner delivery, daily 📋 Custom meal plans available Food is not supposed to feel like a burden. It should be enjoyed. You should feel taken care of. That's the Añejo way. Order at anejocateringco.com/order · Link in bio.
+- button "Save caption"
+- generic: Brand Auditor · outdated — re-audit required
+- generic: "Legacy score: 45/100 · not a complete current requirements audit"
+- list:
+  - listitem: Caption states 'Schedule ahead or order on demand' and lists specific delivery zones, but the image_brief is incomplete and does not show the actual service map or delivery details promised in the caption.
+  - listitem: No exact cutoff times should be stated; caption avoids this correctly, but the phrase '🕐 Schedule ahead or order on demand' is vague enough to pass — however, the incomplete image brief creates ambiguity about what will actually be shown.
+  - listitem: "Image brief is incomplete mid-sentence ('FRAME 2: Same aged map aesthetic but now showing a') — cannot assess whether the visual execution will follow the owner's photography rules (matte backgrounds, realistic proportions, soft lighting, n"
+  - listitem: The 'vintage document' / 'aged parchment map' concept risks feeling decorative or thematic rather than food-focused; the brief does not clarify whether Añejo's premium bowl imagery will appear alongside the map, or if the map itself becomes
+  - listitem: Caption closes with 'Food is not supposed to feel like a burden. It should be enjoyed. You should feel taken care of. That's the Añejo way.' — this is warm and emotionally grounded, but the phrase 'You should feel taken care of' borders on
+- generic: The design or source guidance must be checked again. Visual comparison does not prove image or logo provenance. An audit is not permission to publish.
+- generic: No current finished-image audit. Audit the saved draft before approval.
+- button "Audit saved draft"
+- generic: 🧭 Provenance
+- list:
+  - listitem: "🖼️ Format: carousel · 2 slides"
+  - listitem: "📐 Training rules active: 0"
+- generic "Advanced creative tools / Herramientas creativas avanzadas"
+- option "2 photos total"
+- option "3 photos total"
+- option "4 photos total" [selected]
+- option "5 photos total"
+- option "6 photos total"
+- option "7 photos total"
+- option "8 photos total"
+- option "9 photos total"
+- option "10 photos total"
+- option "COCO" [selected]
+- option "LIGERO"
+- option "CONGREEN"
+- option "FUEGO"
+- option "VIDA"
+- option "MAR"
+- option "RAÍZ"
+- option "FUERZA"
+- generic: "Photo to make: Two-frame carousel. FRAME 1: Warm ivory background with subtle aged parchment map texture — muted, weathered, not literal or cartoonish. Large centered text overlay reading 'AREA WE SERVICE' in refined editorial serif, deep forest green. Small Añejo logo bottom center. Mood is warm, composed, premium — like a vintage document, not a delivery app. FRAME 2: Same aged map aesthetic but now showing a"
+- button "📷 Upload a photo"
+- button "Choose from library / Elegir de biblioteca"
+- generic "or paste a Studio image key"
+- button "Delete"
+- navigation:
+  - link "Overview":
+    - /url: /hub/owner/
+    - generic: ◎
+    - generic: Overview
+  - link "Deliveries":
+    - /url: /hub/owner/deliveries.html
+    - generic: 🚚
+    - generic: Deliveries
+  - link "Kitchen":
+    - /url: /hub/owner/kitchen.html
+    - generic: 🍳
+    - generic: Kitchen
+  - link "Finance":
+    - /url: /hub/owner/finance.html
+    - generic: 💵
+    - generic: Finance
+  - link "Marketing":
+    - /url: /hub/owner/marketing.html
+    - generic: 📈
+    - generic: Marketing
+  - button "More":
+    - generic: ⋯
+    - generic: More
+- link "Account":
+  - /url: /hub/account.html
+  - text: ☰
+- button "Añejo voice operator — one tap to talk, two to type":
+- generic: 1 tap talk · 2 type
+- status
