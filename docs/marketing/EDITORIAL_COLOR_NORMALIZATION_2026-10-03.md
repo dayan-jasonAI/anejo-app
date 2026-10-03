@@ -23,3 +23,14 @@ Native Sharp is not a Cloudflare Worker dependency. The next production decision
 No additional owner approval is needed to continue internal work. No charge, customer communication or credential change occurred. Rollback is a source revert; no migration.
 
 Primary API reference: https://sharp.pixelplumbing.com/api-output/#withiccprofile . Installed source and reproducible fixtures, rather than current docs alone, support implementation claims.
+
+
+## Checked merge and browser integration handoff
+
+PR https://github.com/dayan-jasonAI/anejo-app/pull/181 merged as `4092b27f5c2301dc0c81b2a50b61924bc465bc50`. Exact head `0ed6afcae280135215eae2c0cea0c4f082f7c55d` passed all four checks in CI37103473240. Observed CI log counts:3413Functions tests/0failures and43renderer tests/0failures. Studio lint/tests/build and Cloudflare preview also succeeded. This remains merged reference code, not a live normalization service. Production rendering integration is unfinished.
+
+Read-only reviewer identified production insertion points; root retains implementation ownership. Existing marketing.html branded-preview fetch/hash at approximately1167 precedes compositeBranding; normalize the same immutable snapshot there, keep the original source_key/hash, and attach a bounded browser-declared normalization record under existing declaration.options. marketing-branding.js compose around496 currently loads new Image and uses default Canvas2D contexts. Explicit sRGB context and capability observation require actual browser pixel/orientation tests; a standards requirement is not measured parity. Existing branded-save validates original/output hashes and stores bounded declaration/fingerprints, but cannot prove intermediate browser color conversion from its hash alone.
+
+Library jpegCopy (marketing-library.js) and duplicate jpeg (marketing-photo-picker.js) are a later common-helper integration. Preserve inherited AI-enhancement/parent lineage; source hashes, idempotent request identity, readback and source race checks must precede persisted normalized library copies. Current conversions bypass JPEG and flatten alpha; do not describe them as lossless normalization. No browser source change has been made in this increment.
+
+Next acceptance: real supported-browser P3/reference pixels, all orientations, alpha, no silent fallback when sRGB context/encoding unavailable, preserved original snapshot, stable retry identity and declaration storage. Native Sharp evidence cannot establish browser or Worker readiness. No new human approval is required for this authorized engineering work.
