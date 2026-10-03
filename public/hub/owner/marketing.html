@@ -2883,8 +2883,15 @@
     var d = DATA.perf;
     if (!d || !d.ok) return '<div class="card"><h3>Performance watch</h3><p class="row-sub">Could not load the performance watch.</p></div>';
     var sp = d.singlePost || {}, wr = d.weakRun || {}, ft = d.followerTrend || {}, sl = d.silence || {};
+    var evidence = d.readEvidence || {};
+    function evidenceLine(label, record) {
+      if (!record || record.status !== 'read') return label + ': read unavailable.';
+      var dates = record.captureDates || [];
+      return label + ': ' + (dates.length ? 'recorded snapshots ' + dates[0] + (dates.length > 1 ? ' to ' + dates[dates.length - 1] : '') : 'capture dates unavailable.');
+    }
+    var measurementNote = evidenceLine('Reach', evidence.reach) + ' ' + evidenceLine('Followers', evidence.followers);
     var rows =
-      perfRow('Latest post', sp.enoughData,
+      perfRow('Latest recorded post', sp.enoughData,
         sp.reach + ' vs ' + Math.round(sp.baselineMedian || 0) + ' baseline',
         sp.flagged ? 'Soft ↓' : 'On track') +
       perfRow('Last ' + (d.weakRunLength || 3) + ' posts', wr.enoughData,
@@ -2893,8 +2900,8 @@
       perfRow('Followers (' + (d.followerWindowDays || 14) + 'd)', ft.enoughData,
         ft.latestFollowers + ' (' + (ft.delta >= 0 ? '+' : '') + ft.delta + ')',
         ft.falling ? 'Falling ↓' : (ft.flat ? 'Flat →' : 'Growing ↑')) +
-      perfRow('Posting activity', sl.enoughData,
-        sl.daysSince + ' days since last post',
+      perfRow('Recorded posting activity', sl.enoughData,
+        sl.daysSince + ' days since last recorded post',
         sl.flagged ? 'Silent ↓' : 'Active');
     // "here is what is and isn't working, and here is what the team is doing about it" — the
     // owner's own bar for this card. Only a real weak run (enough data AND flagged) changes what
@@ -2904,6 +2911,7 @@
       : 'No change to the planner’s approach — nothing here has cleared the bar for a real pattern yet.';
     return '<div class="card"><h3>Performance watch</h3>' +
       '<table class="mini-table"><thead><tr><th>Signal</th><th style="text-align:right">Reading</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<p class="hint">' + esc(measurementNote) + ' These saved measurements do not establish current Instagram performance or a complete posting history.</p>' +
       '<p class="hint">' + esc(doing) + ' Below the sample floor, this stays silent rather than guess — a false "it’s not working" is worse than no answer.</p></div>';
   }
 
