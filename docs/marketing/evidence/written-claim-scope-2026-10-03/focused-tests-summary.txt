@@ -1,0 +1,25 @@
+d cannot be upgraded (0.061167ms)
+✔ unreadable wording remains unknown even with source support (0.076958ms)
+✔ cannot expand reviewed category scope into ingredient (0.066084ms)
+✔ cannot expand reviewed category scope into quantity (0.048833ms)
+✔ cannot expand reviewed category scope into named_product (0.039833ms)
+✔ cannot expand reviewed category scope into exact_photo_assortment (0.051792ms)
+✔ missing evidence rejects instead of fabricating support (0.088125ms)
+✔ duplicate evidence rejects instead of fabricating support (0.047416ms)
+✔ invented evidence rejects instead of fabricating support (0.03475ms)
+✔ extra evidence rejects instead of fabricating support (0.027791ms)
+✔ fake ref evidence rejects instead of fabricating support (0.03475ms)
+✔ missing support evidence rejects instead of fabricating support (0.040625ms)
+✔ unregistered future wording has no reviewed scope credit (0.148292ms)
+✔ explicit exact-photo promise stays unresolved in a words-only review (0.117833ms)
+✔ full caption and adjacent overlay wording reach the independent reviewer without substring loss (0.132792ms)
+✔ independent exact-photo qualifier omitted by visual candidate remains unknown (0.118458ms)
+✔ zero candidate claims does not remove written source coverage or newly discovered claims (0.081958ms)
+ℹ tests 107
+ℹ suites 0
+ℹ pass 107
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2880.515833

@@ -11,7 +11,7 @@
 // cutoffs, bare links. The model advises; the code decides.
 //
 // Files under functions/_lib are NOT routed.
-import { writtenClaimRequest, applyWrittenAssessments } from './written_claim_audit.js';
+import { writtenClaimRequest, applyWrittenAssessments, writtenSources } from './written_claim_audit.js';
 import { budgetGate, recordSpend } from './ai_budget.js';
 import { BUNDLED_EMBLEM_REFERENCE } from './generated_emblem_reference.js';
 import { loadMenu } from './menu.js';
@@ -335,13 +335,13 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
           if (!candidate.available) { auditDiagnostic = candidate.diagnostic || {reason:candidate.reason}; throw new Error(candidate.reason); }
           // This separate authority judge receives words and supplied references only.
           // The multimodal product assessment is a candidate, never the final authority finding.
-          if (data.product_evidence.claims.length) {
+          if (data.product_evidence.claims.length || validationContext.caption.trim() || images.some(image=>image.sourceReceipt?.design_facts?.rendered_text?.length)) {
             const authorityGate = await budgetGate(env);
             if (!authorityGate.ok) throw new Error('written_claim_budget_unavailable');
             const request = writtenClaimRequest(data, images, validationContext);
             const response = await fetch('https://api.anthropic.com/v1/messages', {
               method:'POST', headers:{'x-api-key':env.ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01','content-type':'application/json'},
-              body:JSON.stringify({model:auditModel,max_tokens:Math.min(8192,1024+data.product_evidence.claims.length*192),thinking:{type:'disabled'},...request})
+              body:JSON.stringify({model:auditModel,max_tokens:Math.min(8192,2048+Math.max(data.product_evidence.claims.length,writtenSources(images,caption).length)*192),thinking:{type:'disabled'},...request})
             });
             if (!response.ok) throw new Error('written_claim_provider_unavailable');
             const answer = await response.json();

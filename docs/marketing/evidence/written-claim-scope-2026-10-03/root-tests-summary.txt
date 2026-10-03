@@ -1,0 +1,24 @@
+Full local log: /tmp/anejo-v16-root.log
+ng the API could NOT translate is still never re-requested (0.056958ms)
+✔ the same string queued twice before a flush only sends once (0.066459ms)
+✔ FAILS when production moved BACKWARDS to an ancestor of what was live (0.991209ms)
+✔ FAILS when the live commit is not on the trunk at all (0.060625ms)
+✔ FAILS when live and previously-live are unrelated histories (0.048792ms)
+✔ is quiet when live is exactly the trunk (0.283791ms)
+✔ treats "behind the trunk" as INFO, not a failure (0.072167ms)
+✔ a forward deploy that skips commits is fine — that is a normal catch-up (0.054375ms)
+✔ WARNS on a dirty deployment — live content matches no commit (0.05925ms)
+✔ WARNS on a hand-published deployment even when the commit checks out (0.0545ms)
+✔ SKIPS loudly when the live commit is not in this clone (0.0565ms)
+✔ SKIPS when the deployment carries no commit metadata (0.07825ms)
+✔ SKIPS when there are no successful deployments to read (0.052542ms)
+✔ a single deployment is judged against the trunk, with no revert check to make (0.042417ms)
+✔ importing the module does not perform IO (0.035459ms)
+ℹ tests 3466
+ℹ suites 0
+ℹ pass 3466
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26197.582292
