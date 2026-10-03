@@ -43,7 +43,7 @@ test('transport keeps uncertainty, violations, missing authority and source gate
   assert.equal(validateVisualAuditTransport(violated,context).verdict,'flag');
   const malformed=answer();malformed.observations.claims.evidence_anchor='slide:99';assert.equal(validateVisualAuditTransport(malformed,context).available,false);
   assert.equal(validateVisualAuditTransport(answer(),{...context,brandReceipt:{read_status:'unavailable'}}).available,false);
-  const unsupported=answer();unsupported.product_evidence={scope:'explicit_claims',claims:[{source:'caption',caption_line:1,slide:0,quote:'Catering',claim_id:'',assessment:'unresolved',assessment_reason:'missing_authority',authority_refs:[]}],unreadable_slides:[]};
+  const unsupported=answer();unsupported.product_evidence={scope:'explicit_claims',claims:[{source:'caption',caption_line:1,slide:0,quote:'Catering',claim_id:'',assessment:'unresolved',authority_refs:[]}],unreadable_slides:[]};
   const unresolved=validateVisualAuditTransport(unsupported,context);assert.equal(unresolved.complete,false);assert.equal(unresolved.score,null);
   assert.equal(unresolved.observations.find(o=>o.criterion_id==='product_fidelity').status,'unknown');
 });
