@@ -1,0 +1,222 @@
+{
+  "recordedAt": "2026-10-03T06:11:44.036Z",
+  "node": "v24.16.0",
+  "workerd": "1.20260903.1",
+  "inspectorTargetId": "core:user:render-check",
+  "renderer": "editorial-profiles",
+  "limitations": [
+    "Post-request workerd inspector samples, not Node RSS, peak memory, or verified all-inclusive isolate accounting.",
+    "Do not sum inspector fields or compare totalSize directly to a production isolate memory budget.",
+    "Wall duration is local elapsed time, not billable CPU; inspector attachment may change runtime behavior.",
+    "A timed-out garbage-collection command does not prove collection or post-GC retained memory.",
+    "Diagnostic maximum dimensions only when --max-input is set; no concurrent, deployed cold-start or production-limit acceptance.",
+    "Deterministic output does not establish Canvas/brand parity, photo provenance, or publication approval."
+  ],
+  "fixtures": [
+    {
+      "name": "website-fixture",
+      "width": 1448,
+      "height": 1086
+    }
+  ],
+  "runs": [
+    {
+      "index": 0,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 479.0782079999999,
+      "bytes": 439575,
+      "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+      "heap": {
+        "id": 3,
+        "result": {
+          "usedSize": 14850908,
+          "totalSize": 15761408,
+          "embedderHeapUsedSize": 872,
+          "backingStorageSize": 1678976
+        }
+      }
+    },
+    {
+      "index": 1,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 388.60729200000014,
+      "bytes": 439575,
+      "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+      "heap": {
+        "id": 4,
+        "result": {
+          "usedSize": 32298944,
+          "totalSize": 43155456,
+          "embedderHeapUsedSize": 128888,
+          "backingStorageSize": 7296727
+        }
+      }
+    },
+    {
+      "index": 2,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 366.5583339999994,
+      "bytes": 439575,
+      "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+      "heap": {
+        "id": 5,
+        "result": {
+          "usedSize": 48335428,
+          "totalSize": 74711040,
+          "embedderHeapUsedSize": 128888,
+          "backingStorageSize": 12474903
+        }
+      }
+    },
+    {
+      "index": 3,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 355.7555419999999,
+      "bytes": 439575,
+      "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+      "heap": {
+        "id": 6,
+        "result": {
+          "usedSize": 77148280,
+          "totalSize": 98353152,
+          "embedderHeapUsedSize": 128888,
+          "backingStorageSize": 17661271
+        }
+      }
+    },
+    {
+      "index": 4,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 379.74062500000036,
+      "bytes": 439575,
+      "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+      "heap": {
+        "id": 7,
+        "result": {
+          "usedSize": 68314636,
+          "totalSize": 132300800,
+          "embedderHeapUsedSize": 128888,
+          "backingStorageSize": 15832855
+        }
+      }
+    },
+    {
+      "index": 5,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 354.7270839999992,
+      "bytes": 439575,
+      "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+      "heap": {
+        "id": 8,
+        "result": {
+          "usedSize": 90460124,
+          "totalSize": 139689984,
+          "embedderHeapUsedSize": 128888,
+          "backingStorageSize": 21019223
+        }
+      }
+    },
+    {
+      "index": 6,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 365.76524999999947,
+      "bytes": 439575,
+      "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+      "heap": {
+        "id": 9,
+        "result": {
+          "usedSize": 87161768,
+          "totalSize": 155648000,
+          "embedderHeapUsedSize": 128888,
+          "backingStorageSize": 17511831
+        }
+      }
+    },
+    {
+      "index": 7,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 365.6587920000002,
+      "bytes": 439575,
+      "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+      "heap": {
+        "id": 10,
+        "result": {
+          "usedSize": 109056780,
+          "totalSize": 162775040,
+          "embedderHeapUsedSize": 128888,
+          "backingStorageSize": 22698199
+        }
+      }
+    },
+    {
+      "index": 8,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 353.15458299999955,
+      "bytes": 439575,
+      "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+      "heap": {
+        "id": 11,
+        "result": {
+          "usedSize": 106583600,
+          "totalSize": 178733056,
+          "embedderHeapUsedSize": 128888,
+          "backingStorageSize": 20024511
+        }
+      }
+    },
+    {
+      "index": 9,
+      "fixture": 0,
+      "status": 200,
+      "wallMs": 350.44974999999977,
+      "bytes": 439575,
+      "sha256": "a7c463b980183fff0e5e66ca82eeeba6bea7d6066c328ae2266aef7ebaa0a0d8",
+      "heap": {
+        "id": 12,
+        "result": {
+          "usedSize": 129880608,
+          "totalSize": 187940864,
+          "embedderHeapUsedSize": 128888,
+          "backingStorageSize": 25210879
+        }
+      }
+    }
+  ],
+  "baseline": {
+    "id": 1,
+    "result": {
+      "usedSize": 4991404,
+      "totalSize": 5537792,
+      "embedderHeapUsedSize": 386904,
+      "backingStorageSize": 1678976
+    }
+  },
+  "initialGcAttempt": {
+    "error": "timeout",
+    "method": "HeapProfiler.collectGarbage",
+    "timeoutMs": 3000
+  },
+  "finalGcAttempt": {
+    "error": "timeout",
+    "method": "HeapProfiler.collectGarbage",
+    "timeoutMs": 3000
+  },
+  "afterGcAttempt": {
+    "id": 14,
+    "result": {
+      "usedSize": 129880608,
+      "totalSize": 187940864,
+      "embedderHeapUsedSize": 128888,
+      "backingStorageSize": 25210879
+    }
+  }
+}
