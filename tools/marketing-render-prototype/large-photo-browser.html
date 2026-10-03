@@ -1,21 +1,24 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><title>Añejo large-photo browser acceptance</title>
 <style>body{max-width:1100px;margin:30px auto;padding:0 20px;background:#f5f0e5;color:#123b2d;font:16px system-ui}button{padding:14px 22px;background:#123b2d;color:white;border:0;border-radius:8px}img{max-height:480px;max-width:100%;display:block;margin:24px 0}pre{white-space:pre-wrap;font-size:13px}</style>
 <h1>24 MP photo normalization — private browser test</h1><p>Synthetic image, real browser decoder and sRGB Canvas. This tests the existing Hub preprocessing script. It does not verify production storage, unattended server rendering or owner design approval.</p>
-<button id="run">Run 24 MP acceptance</button><p id="status" role="status">Not run</p><img id="preview" alt="Normalized synthetic color and orientation patches"><pre id="receipt"></pre><a id="download" hidden download="large-photo-browser-receipt.json">Download evidence receipt</a>
-<script src="../../public/hub/owner/assets/marketing-image-orientation.js"></script><script src="../../public/hub/owner/assets/marketing-photo-normalize.js"></script>
+<button id="run">Run 24 MP acceptance</button> <button id="noise">Run complex 24 MP acceptance</button><p id="status" role="status">Not run</p><img id="preview" alt="Normalized synthetic color and orientation patches"><pre id="receipt"></pre><a id="download" hidden download="large-photo-browser-receipt.json">Download evidence receipt</a>
+<script src="../../public/hub/owner/assets/marketing-image-orientation.js"></script><script src="../../public/hub/owner/assets/marketing-photo-normalize.js?v=browser-srgb-2"></script>
 <script>
 const hash=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('');
-document.querySelector('#run').onclick=async()=>{
- const status=document.querySelector('#status'),button=document.querySelector('#run');button.disabled=true;status.textContent='Decoding and normalizing 24 MP synthetic image…';
+async function run(noise=false){
+ const status=document.querySelector('#status'),button=document.querySelector('#run');button.disabled=true;document.querySelector('#noise').disabled=true;status.textContent='Decoding and normalizing 24 MP synthetic image…';
  try{
-  const source=new Uint8Array(await (await fetch('output/large-photo-qa/phone-p3-24mp.jpg')).arrayBuffer()),expected=await (await fetch('output/large-photo-qa/expected.json')).json(),before=await hash(source),start=performance.now();
+  if(AnejoPhotoNormalize.version!=='browser-srgb-2')throw Error('Expected browser-srgb-2; stale script loaded');
+  const source=new Uint8Array(await (await fetch('output/large-photo-qa/'+(noise?'phone-p3-24mp-noise.jpg':'phone-p3-24mp.jpg'))).arrayBuffer()),expected=await (await fetch('output/large-photo-qa/'+(noise?'noise-expected.json':'expected.json'))).json(),before=await hash(source),start=performance.now();
   const normalized=await AnejoPhotoNormalize.normalize(source),image=new Image();image.src=normalized.dataUrl;await image.decode();
   const canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;const ctx=canvas.getContext('2d',{colorSpace:'srgb'});ctx.drawImage(image,0,0);
   const patches=[[.25,.25],[.75,.25],[.25,.75],[.75,.75]].map(([x,y])=>Array.from(ctx.getImageData(Math.floor(canvas.width*x),Math.floor(canvas.height*y),1,1).data));
-  const checks={dimensions:canvas.width===expected.width&&canvas.height===expected.height,orientation:normalized.receipt.original_orientation===6,originalUnchanged:await hash(source)===before,originalHash:normalized.receipt.original_sha256===before,profilePresent:!!normalized.receipt.source_profile_sha256,withinStorageBound:normalized.receipt.bytes<=5*1024*1024,patchesMatchNative:patches.every((p,i)=>p.slice(0,3).every((n,c)=>Math.abs(n-expected.patches[i][c])<=expected.tolerance)&&p[3]===255)};
-  const result={recordedAt:new Date().toISOString(),scope:'local-real-browser; not production server attestation',browser:navigator.userAgent,clientWallMs:performance.now()-start,checks,passed:Object.values(checks).every(Boolean),patches,nativeReference:expected,receipt:normalized.receipt};
-  document.querySelector('#preview').src=normalized.dataUrl;document.querySelector('#receipt').textContent=JSON.stringify(result,null,2);status.textContent=result.passed?'Passed: 24 MP → '+canvas.width+' × '+canvas.height+'; orientation and color patches match native reference.':'Failed: inspect evidence checks below.';
+  const candidates=[2000,1600,1280,1024].map(edge=>{const scale=Math.min(1,edge/4000,edge/6000);return [Math.round(4000*scale),Math.round(6000*scale)];});
+  const checks={dimensions:noise?candidates.some(([w,h])=>canvas.width===w&&canvas.height===h):canvas.width===expected.width&&canvas.height===expected.height,orientation:normalized.receipt.original_orientation===6,originalUnchanged:await hash(source)===before,originalHash:normalized.receipt.original_sha256===before,profilePresent:!!normalized.receipt.source_profile_sha256,withinStorageBound:normalized.receipt.bytes<=5*1024*1024,patchesMatchNative:noise?null:patches.every((p,i)=>p.slice(0,3).every((n,c)=>Math.abs(n-expected.patches[i][c])<=expected.tolerance)&&p[3]===255)};
+  const result={recordedAt:new Date().toISOString(),scope:'local-real-browser; not production server attestation',browser:navigator.userAgent,clientWallMs:performance.now()-start,checks,fixture:noise?'complex-p3-24mp':'patches-p3-24mp',passed:Object.values(checks).filter(v=>v!==null).every(Boolean),patches,nativeReference:expected,receipt:normalized.receipt};
+  document.querySelector('#preview').src=normalized.dataUrl;document.querySelector('#receipt').textContent=JSON.stringify(result,null,2);status.textContent=result.passed?'Passed: 24 MP → '+canvas.width+' × '+canvas.height+(noise?'; storage bound verified.':'; orientation and color patches match native reference.'):'Failed: inspect evidence checks below.';
   const download=document.querySelector('#download');download.href=URL.createObjectURL(new Blob([JSON.stringify(result,null,2)],{type:'application/json'}));download.hidden=false;
- }catch(error){status.textContent='Failed: '+error.message;}finally{button.disabled=false;}
-};
+ }catch(error){status.textContent='Failed: '+error.message;}finally{button.disabled=false;document.querySelector('#noise').disabled=false;}
+}
+document.querySelector('#run').onclick=()=>run(false);document.querySelector('#noise').onclick=()=>run(true);
 </script></html>
