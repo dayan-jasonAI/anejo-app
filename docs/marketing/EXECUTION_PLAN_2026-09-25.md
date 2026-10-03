@@ -226,3 +226,7 @@ Current goal record reports active; previous engineering turn made progress via 
 ### October 3 — color reference and original-photo bounds
 
 Implemented opt-in Node normalization with separate derivative/provenance, explicit sRGB conversion, orientation, full-frame downsampling of phone-resolution input and warning rejection.43prototype tests pass; actual P3→normalized→WASM pixels match reference patches. Isolated dependency audit0vulnerabilities; dedicated CI job added. See EDITORIAL_COLOR_NORMALIZATION_2026-10-03.md for current artifacts and remaining runtime/format coverage. This is not production integration or full-goal completion. Continue Worker-compatible/browser normalization and visual/resource/job acceptance; no new approval needed for internal implementation.
+
+### October 3 browser preview normalization integration
+
+PR182 integrates source-preserving JPEG/PNG normalization into owner branded-preview and persists browser-declared normalization provenance in the existing save declaration. Current local evidence:3,415root tests,50reference tests,12focused save/declaration tests;20actualChrome image cases passed. Read-only review found CMYK misclassification and unbounded WebP fallback; both have explicit guards and regressions. Unsupported WebP normalization remains visibly not-processed. See BROWSER_PHOTO_NORMALIZATION_2026-10-03.md and evidence directory. Release/CI and authenticated live-save acceptance pending; no unattended renderer or full-goal completion claim.

@@ -1,0 +1,28 @@
+(node:98677) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/branding-render-declaration.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ declaration instrumentation preserves every Canvas draw and style operation for supported templates (23.710208ms)
+✔ captured words are actual uppercase kicker and wrapped fillText calls, not unused options (1.803166ms)
+✔ vertical run coordinates describe actual translate/rotate and font fallback remains uncertain (6.673042ms)
+✔ non-editorial renderer branches explicitly decline draw-time declaration coverage (6.654792ms)
+(node:98678) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/aiagent/Dayan%20Workspace/Aether/anejo-app/test/money/branding-save-flow.test.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/aiagent/Dayan Workspace/Aether/anejo-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ preview binds original Blob hash and normalized derivative receipt; only explicit Use saves (7.908208ms)
+✔ network failure retries the same preview UUID and never claims a saved attachment early (5.131916ms)
+✔ stored but unattached response stays an error and preserves retry identity (3.441125ms)
+✔ composition rejection never offers or saves a broken preview (2.1635ms)
+✔ Discard performs no save (1.924875ms)
+✔ preview transport remains allowed by deployed image CSP (0.500375ms)
+✔ normalization failure or original-hash mismatch prevents preview/save {"normalizationFails":true} (0.594541ms)
+✔ normalization failure or original-hash mismatch prevents preview/save {"wrongHash":true} (1.654458ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 81.606333
