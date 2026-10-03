@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import sharp from 'sharp';
+import {createColorKernel,validateRGBProfile} from './color-kernel.mjs';
+const module=await WebAssembly.compile(readFileSync(new URL('./node_modules/lcms-wasm/dist/lcms.wasm',import.meta.url)));
+const kernel=await createColorKernel(module);
+const patches=new Uint8Array([190,80,45,45,155,80,40,90,180,120,120,120,230,210,170,20,30,20]);
+function stripICC(png){let at=8,parts=[png.subarray(0,8)];while(at<png.length){const n=png.readUInt32BE(at),end=at+n+12;if(png.subarray(at+4,at+8).toString()!=='iCCP')parts.push(png.subarray(at,end));at=end;}return Buffer.concat(parts);}
+async function fixture(profile){const png=await sharp(patches,{raw:{width:6,height:1,channels:3}}).withIccProfile(profile).png().toBuffer();const icc=(await sharp(png).metadata()).icc;const rgb=(await sharp(stripICC(png)).removeAlpha().raw().toBuffer());const expected=await sharp(png).withIccProfile('srgb').removeAlpha().raw().toBuffer();return {icc:new Uint8Array(icc),rgb:new Uint8Array(rgb),expected:new Uint8Array(expected)};}
+test('actual P3 conversion matches independent native reference and differs from profile stripping',async()=>{const f=await fixture('p3'),out=kernel.transform(f.rgb,f.icc);assert.notDeepEqual(out,f.rgb);for(let i=0;i<out.length;i++)assert.ok(Math.abs(out[i]-f.expected[i])<=2,`${i}: ${out[i]} versus ${f.expected[i]}`);assert.deepEqual(f.rgb,(await fixture('p3')).rgb);});
+test('sRGB profile transform preserves patch values within rounding',async()=>{const f=await fixture('srgb'),out=kernel.transform(f.rgb,f.icc);for(let i=0;i<out.length;i++)assert.ok(Math.abs(out[i]-f.rgb[i])<=1);});
+test('invalid profiles and pixel buffers reject without poisoning later valid work',async()=>{const f=await fixture('p3'),bad=new Uint8Array(f.icc);bad[36]=0;assert.throws(()=>validateRGBProfile(bad),/header/);assert.throws(()=>kernel.transform(new Uint8Array(4),f.icc),/pixels/);assert.throws(()=>kernel.transform(f.rgb,new Uint8Array(65537)),/size/);assert.deepEqual(kernel.transform(f.rgb,f.icc),kernel.transform(f.rgb,f.icc));});
+test('chunked transform preserves order and allocation stabilizes across repeated use',async()=>{const f=await fixture('p3'),rgb=new Uint8Array(4096*3+18);for(let i=0;i<rgb.length;i++)rgb[i]=f.rgb[i%f.rgb.length];const first=kernel.transform(rgb,f.icc),start=kernel.observation().wasmLinearBytes;for(let n=0;n<20;n++)assert.deepEqual(kernel.transform(rgb,f.icc),first);assert.equal(kernel.observation().wasmLinearBytes,start);assert.equal(kernel.observation().poisoned,false);});

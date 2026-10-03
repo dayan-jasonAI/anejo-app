@@ -9,6 +9,7 @@
   "dependencies": {
     "@resvg/resvg-wasm": "2.6.2",
     "jpeg-js": "0.4.4",
+    "lcms-wasm": "1.0.5",
     "sharp": "0.35.5"
   }
 }
