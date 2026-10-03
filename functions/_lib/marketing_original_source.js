@@ -24,7 +24,14 @@ export async function resolvePreEditorialSource(env,currentKey){
   if(depth>=8)throw Error('editorial_history_limit');
   const receipt=await env.DB.prepare('SELECT source_key,source_sha256,output_sha256,state FROM marketing_render_receipts WHERE output_key=?').bind(key).first();
   if(!receipt||receipt.state!=='attached'||receipt.output_sha256!==photo.hash||!sourceKey(receipt.source_key)||!(/^[a-f0-9]{64}$/.test(receipt.source_sha256)))throw Error('editorial_history_unverified');
-  if(photo.metadata.enhancement_method!=='editorial_overlay'||photo.metadata.source_key!==receipt.source_key)throw Error('editorial_history_metadata_changed');
+  if(photo.metadata.enhancement_method!=='editorial_overlay'||photo.metadata.source_key!==receipt.source_key){
+   const error=Error('editorial_history_metadata_changed');
+   // Only bounded diagnostic states, never arbitrary object metadata or invented lineage.
+   error.historyDiagnostic={key,depth,
+    method_state:!Object.hasOwn(photo.metadata,'enhancement_method')?'missing':photo.metadata.enhancement_method==='editorial_overlay'?'matching':'mismatched',
+    parent_state:!Object.hasOwn(photo.metadata,'source_key')?'missing':photo.metadata.source_key===receipt.source_key?'matching':'mismatched'};
+   throw error;
+  }
   key=receipt.source_key;expected=receipt.source_sha256;depth++;
  }
  return {...photo,currentKey,currentHash,depth};
