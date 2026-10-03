@@ -5,7 +5,8 @@ import vm from 'node:vm';
 
 const source = readFileSync(new URL('../../public/hub/owner/assets/operator.js', import.meta.url), 'utf8');
 const localeStart = source.indexOf('  function operatorLocale(');
-const localeEnd = source.indexOf('  function stopSpeech(', localeStart);
+const localeBoundary = source.indexOf('\n  }\n\n  var css', localeStart);
+const localeEnd = localeBoundary + '\n  }'.length;
 const start = source.indexOf('  function voiceInputFailure(');
 const end = source.indexOf('  // 1 tap = talk', start);
 assert.ok(localeStart >= 0 && localeEnd > localeStart && start >= 0 && end > start, 'the real locale helper and voice handlers must be present');

@@ -11,3 +11,9 @@ Root inspected the implementation and added the partial-capture regression after
 An additional joined Ana fixture runs the actual inbox tick, owner inbox read, stale-preview refusal, explicit reviewed send, durable acceptance receipt and replay using local model/provider responses. Automatic sending remains off; no actual customer/provider request occurs. Provider acknowledgement is deliberately distinct from recipient delivery. Root full-suite result includes that test; further changes must rerun appropriate checks.
 
 Remaining: exact-head CI, gated release and provider/live readback; successful live auditor reasoning, deployed render resources/parity, actual device voice and channel acceptance, and the broader operational queue. No paid-order uplift claim. Safe local work continued while Cloudflare plan sign-in, auditor billing and Google prerequisites remained unresolved.
+
+## Bilingual voice and final local validation
+
+The operator now uses AnejoLang's EN/ES preference for recognition and browser speech, with safe page/storage/English fallbacks. The spoken response retains the locale captured at the user's tap even if the preference changes during the request. No microphone auto-start or remote TTS was added. Root inspected the change and independently ran the joined Ana plus voice tests: 13/13 passed. Root final application suite: 3,588/3,588 passed. Prototype suite: 143/144 passed with one explicit Node-native base64 skip; no failures. Lint remains zero errors/eleven existing warnings. Real-device microphone/synthesis and provider-delivery acceptance remain unverified. Existing Hub cache headers require revalidation; no template/cache change needed.
+
+Cloudflare plan sign-in is now cleared by current read-only browser observation; account Paid and blank CPU override are recorded in AUTHENTICATED_WORKER_RESOURCE_2026-10-03.md. No resource gate is silently promoted. Release remains pending at this entry.
