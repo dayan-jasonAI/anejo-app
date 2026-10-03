@@ -123,3 +123,7 @@ See `docs/marketing/EDITORIAL_MIXED_RESOURCE_2026-10-03.md` for the 70-request m
 ## Image conversion and scratch storage follow-through
 
 `base64.mjs` selects native encoding when exposed, otherwise bounded direct-alphabet chunks. core/editorial share it; JPEG scratch arrays retain double DCT precision and int32 quantized values. See `docs/marketing/EDITORIAL_BASE64_RESOURCE_2026-10-03.md` for byte-equivalence and local runtime evidence. Production resource, visual parity and job gates remain open.
+
+## Durable local job-store foundation
+
+`render-jobs.sql` is a local-only schema, not a production migration. `render-jobs.mjs` implements actor/request identity, atomic expiring claims and terminal asserted receipts. Tests use real SQLite and local workerd D1; no route/scheduler or rendering/attachment is connected. `bounded-body.mjs` retains the resource harness upload caps and deadline with new executable tests. See `docs/marketing/RENDER_JOB_STORE_2026-10-03.md`.

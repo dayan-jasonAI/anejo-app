@@ -289,3 +289,7 @@ Local 70-request mixed JPEG/PNG workerd stress completed. Profiling led to a per
 ## October 3 — conversion and scratch-array follow-through
 
 Local native/bounded-fallback base64 conversion plus typed JPEG scratch arrays preserve all 66 mixed-render hashes. 68 prototype tests and four joined-content tests pass (one explicitly skipped Node-native test; native workerd separately observed). Resource observations remain local/partial; no production gate passed. See EDITORIAL_BASE64_RESOURCE_2026-10-03.md. Next: current production budget/combined-memory/CPU method, then visual parity and authenticated durable draft jobs. Do not infer production safety from smaller sampled heap or change the approved design to chase a pass. Full goal stays open.
+
+## October 3 — durable local job ownership and upload limits
+
+83 prototype tests pass with one explicit native Node skip; four joined-content tests pass. Real SQLite competing handles and local workerd D1 prove bounded actor/request lease behavior; source/attachment/resource verification remains separate. Extracted body reader gains deadline/fragment/overflow tests, 66 renderer hashes preserved. See RENDER_JOB_STORE_2026-10-03.md. Current production plan is unknown behind Cloudflare sign-in; no credentials/settings changed. Continued local store work while sign-in pending. Next: private source/render/output/attachment consumer rehearsal with exact lease/source fencing, and production resource/parity proof. Full goal remains open.
