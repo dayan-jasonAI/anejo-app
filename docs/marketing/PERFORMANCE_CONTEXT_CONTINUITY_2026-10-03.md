@@ -1,6 +1,6 @@
 # Performance capture evidence and planner continuity — October 3
 
-Local technical candidate; not yet deployed. Existing Dayan engineering/release authorization applies. No public posts, customer sends, credentials, charges or trust activation.
+Released technical increment; full marketing readiness remains open. Existing Dayan engineering/release authorization applies. No public posts, customer sends, credentials, charges or trust activation.
 
 Supported owner browser showed Growing/On track and fourteen days since last post without capture dates, while the connection check failed. The detector now returns independent read receipts for reach, followers and posting history. Capture dates remain distinct from calculation time; read failures remain unavailable rather than successful empty reads. UI identifies recorded posting activity and dates, warns that saved metrics do not establish current Instagram performance or full posting history, and no longer claims the planner has acted merely because a weak-run signal exists. Thresholds, alert behavior and automation permissions unchanged.
 
@@ -9,3 +9,11 @@ Two actual owner-route/migrated-SQLite checks validate historical captures and u
 Focused suite44/44 passed. Initial added assertion expected rule IDs in owner readback, which actually exposes count; corrected to count after source inspection. Existing static test expected the misleading planner wording and was updated to require explicit non-execution language. Initial full run caught that same stale wording assertion; fresh full release check passed3,605/3,605 with ancestry guard, lint zero errors/eleven existing warnings and Functions compilation success.
 
 Evidence in evidence/performance-context-2026-10-03. Remaining full-goal work includes reliable real audits, exact three launch images acceptance, real approved scheduling/publishing, production unattended render admission/resources/parity, channel/role/physical voice acceptance and Google approval. No verified paid-order uplift. Next gated main-based release and supported browser readback.
+
+## Release and live receipt
+
+PR198 passed all four remote checks at head `3444af4dc077e1a4087260f21954a0879d119534`, merged October3 16:22:56UTC as `7f6653a3b351db115f2f737308c8d9076eb0bf46`. Fresh authenticated provider inventory lists production `fffe2fdf-7021-4845-84d6-4760240ad857` for source `7f6653a`. Supported owner browser shows capture ranges through September28, distinguishes saved data from current performance, and no longer asserts a planner executed. Screenshot and exact readback are stored alongside checks/deployment/test logs. No content/schedule/trust/customer mutation.
+
+Fresh origin/main comparison shows no difference in primary production `functions`, `public`, `.github` or root package files. Remaining undeployed experimental worker code is local-only and still fails the production resource/phone-input/parity acceptance standard; passing local fixtures do not authorize claiming it ready. Continued planner continuity and measurement evidence while external account/physical acceptance remains pending.
+
+Public verifier rerun from exact merged main returned exit0 with freshness/public/API checks passing and one explicit live-database skip. It does not establish paid checkout or full marketing readiness. Rollback: revert PR198's additive read-evidence/UI increment; no schema/data migration.
