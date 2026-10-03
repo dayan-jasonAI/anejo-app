@@ -81,23 +81,26 @@ export function createRenderJobStore(db) {
       identity(actorId, jobId);
       return job(await first('SELECT * FROM prototype_render_jobs WHERE actor_id = ? AND id = ?', actorId, jobId));
     },
-    async claim({ actorId, now, leaseMs }) {
+    async claim({ actorId, jobId, now, leaseMs }) {
       string(actorId, 'actorId', 256); integer(now, 'now'); integer(leaseMs, 'leaseMs', 1);
+      const target = jobId === undefined ? null : string(jobId, 'id', 256);
       if (leaseMs > 300_000) throw new RenderJobError('invalid_leaseMs');
       const until = integer(now + leaseMs, 'leaseUntil');
-      // Expired final attempts become terminal; no worker may silently retry them.
+      // An authenticated execution request supplies jobId. Omitting it preserves the
+      // internal oldest-job queue behavior; never select another job for an exact request.
+      // Expired final attempts become terminal only inside this actor/target scope.
       await run(`UPDATE prototype_render_jobs SET status = 'dead', lease_token = NULL,
         lease_until = NULL, updated_at = ?, error_code = 'lease_expired_attempt_limit'
-        WHERE actor_id = ? AND status = 'rendering' AND lease_until <= ? AND attempts >= ?`, now, actorId, now, MAX_ATTEMPTS);
+        WHERE actor_id = ? AND (? IS NULL OR id = ?) AND status = 'rendering' AND lease_until <= ? AND attempts >= ?`, now, actorId, target, target, now, MAX_ATTEMPTS);
       // Selection and claim are one atomic statement, including recovery of expired leases.
       return job(await first(`UPDATE prototype_render_jobs SET status = 'rendering',
         attempts = attempts + 1, lease_token = ?, lease_until = ?, updated_at = ?, error_code = NULL
-        WHERE id = (SELECT id FROM prototype_render_jobs WHERE actor_id = ? AND attempts < ?
+        WHERE id = (SELECT id FROM prototype_render_jobs WHERE actor_id = ? AND (? IS NULL OR id = ?) AND attempts < ?
           AND (status IN ('queued','failed') OR (status = 'rendering' AND lease_until <= ?))
           ORDER BY created_at, id LIMIT 1)
-        AND actor_id = ? AND attempts < ?
+        AND actor_id = ? AND (? IS NULL OR id = ?) AND attempts < ?
         AND (status IN ('queued','failed') OR (status = 'rendering' AND lease_until <= ?)) RETURNING *`,
-      globalThis.crypto.randomUUID(), until, now, actorId, MAX_ATTEMPTS, now, actorId, MAX_ATTEMPTS, now));
+      globalThis.crypto.randomUUID(), until, now, actorId, target, target, MAX_ATTEMPTS, now, actorId, target, target, MAX_ATTEMPTS, now));
     },
     async complete({ actorId, jobId, leaseToken, receipt, now }) {
       identity(actorId, jobId); string(leaseToken, 'leaseToken', 256); integer(now, 'now');

@@ -28,10 +28,10 @@ async function object(media,key){
 
 // Caller is an internal trusted executor, NOT an HTTP client. No resource/approval gate
 // is satisfied here. Time, renderer code/assets and options are executor supplied.
-export async function consumePrivateRender({db,media,actorId,rendererVersion,options,render,now,leaseMs=30000}){
+export async function consumePrivateRender({db,media,actorId,jobId,rendererVersion,options,render,now,leaseMs=30000}){
  const renderOptions=canonical(options);
  const freeze=v=>{if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v);}return v;};freeze(renderOptions);
- const store=createRenderJobStore(db),leased=await store.claim({actorId,now:now(),leaseMs});
+ const store=createRenderJobStore(db),leased=await store.claim({actorId,jobId,now:now(),leaseMs});
  if(!leased)return {state:'no_job'};
  const d=leased.descriptor;
  const sourceBinding=JSON.stringify({postId:d.postId,mediaId:d.mediaId,postRevision:d.postRevision,sourceKey:d.sourceKey,sourceSha256:d.sourceSha256});

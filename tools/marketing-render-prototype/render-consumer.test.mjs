@@ -168,3 +168,16 @@ for(const field of ['ai_enhanced','source_version_id','source_version_key','sour
  const result=await consumePrivateRender(f.input);assert.equal(result.state,'commit_unknown');assert.equal(result.attached,'unverified');
  assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).status,'rendered');
 });
+
+test('explicit job consumer never consumes an older actor job with other options',async t=>{
+ const f=await setup(t);
+ const chosenOptions={...options,title:'Made to share.'};
+ const chosen=await f.store.enqueue({actorId:'stf_owner',requestId:'chosen-second',descriptor:{...f.descriptor,optionsHash:await renderOptionsHash(chosenOptions)},now:Date.now()+1});
+ const result=await consumePrivateRender({...f.input,jobId:chosen.job.id,options:chosenOptions});
+ assert.equal(result.state,'attached');assert.equal(result.jobId,chosen.job.id);assert.equal(f.renderCount(),1);
+ const older=await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id});assert.equal(older.status,'queued');assert.equal(older.attempts,0);
+});
+test('unknown explicit job leaves actor queue and draft untouched',async t=>{
+ const f=await setup(t);assert.equal((await consumePrivateRender({...f.input,jobId:'unknown-job'})).state,'no_job');
+ assert.equal(f.renderCount(),0);unchanged(f);assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).attempts,0);
+});

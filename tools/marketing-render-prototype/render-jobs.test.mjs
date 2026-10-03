@@ -140,6 +140,49 @@ test('claims isolate actors and choose oldest eligible work', async t => {
   assert.equal((await claim(store, { actorId: 'actor-2' })).id, other.job.id);
 });
 
+test('exact job claim selects B while older A and wrong actor/id stay untouched', async t => {
+  const { store } = fixture(t);
+  const a = await enqueue(store, { requestId: 'A', now: 100 });
+  const b = await enqueue(store, { requestId: 'B', now: 101 });
+  for (const args of [{actorId:'actor-2',jobId:a.job.id},{jobId:'missing-job'}]) {
+    assert.equal(await claim(store, args), null);
+    assert.deepEqual(await store.get({actorId:'actor-1',jobId:a.job.id}), a.job);
+    assert.deepEqual(await store.get({actorId:'actor-1',jobId:b.job.id}), b.job);
+  }
+  assert.equal((await claim(store, {jobId:b.job.id})).id, b.job.id);
+  assert.deepEqual(await store.get({actorId:'actor-1',jobId:a.job.id}), a.job);
+  assert.equal((await claim(store)).id, a.job.id); // Internal oldest fallback remains.
+});
+
+test('exact expired recovery fences its old token and does not reclaim queued A', async t => {
+  const { store } = fixture(t);
+  const a = await enqueue(store, { requestId: 'A', now: 99 });
+  const b = await enqueue(store, { requestId: 'B', now: 100 });
+  const old = await claim(store, {jobId:b.job.id});
+  assert.equal(await claim(store, {jobId:b.job.id,now:199}), null);
+  const fresh = await claim(store, {jobId:b.job.id,now:200});
+  assert.equal(fresh.id, b.job.id);assert.notEqual(fresh.leaseToken,old.leaseToken);assert.equal(fresh.attempts,2);
+  await rejectsCode(completion(store,old,{now:201}),'lease_not_live');
+  await rejectsCode(failure(store,old,{now:201}),'lease_not_live');
+  assert.deepEqual(await store.get({actorId:'actor-1',jobId:a.job.id}), a.job);
+  assert.equal((await completion(store,fresh,{now:201})).status,'rendered');
+});
+
+test('exact terminal expiry cleanup never mutates another expired job', async t => {
+  const { store } = fixture(t);
+  const a = await enqueue(store, {requestId:'A'});
+  const b = await enqueue(store, {requestId:'B'});
+  for(let n=0;n<3;n++)await claim(store,{jobId:a.job.id,now:100+n*100});
+  const expired = await store.get({actorId:'actor-1',jobId:a.job.id});
+  assert.equal(await claim(store,{jobId:a.job.id,actorId:'actor-2',now:400}),null);
+  assert.equal(await claim(store,{jobId:'missing-job',now:400}),null);
+  assert.deepEqual(await store.get({actorId:'actor-1',jobId:a.job.id}),expired);
+  assert.equal((await claim(store,{jobId:b.job.id,now:400})).id,b.job.id);
+  assert.deepEqual(await store.get({actorId:'actor-1',jobId:a.job.id}),expired);
+  assert.equal(await claim(store,{jobId:a.job.id,now:400}),null);
+  assert.equal((await store.get({actorId:'actor-1',jobId:a.job.id})).status,'dead');
+});
+
 test('validates exact immutable binding, receipts, and safe integer timestamp arithmetic', async t => {
   const { store, db } = fixture(t);
   for (const invalid of [undefined, null, {}, [], { ...descriptor, unknown: 'x' }, { ...descriptor, sourceKey: ' source' },
@@ -161,6 +204,7 @@ test('validates exact immutable binding, receipts, and safe integer timestamp ar
   await rejectsCode(enqueue(store, { requestId: '' }), 'invalid_id');
   assert.equal(db.prepare('SELECT count(*) AS n FROM prototype_render_jobs').get().n, 0);
   await enqueue(store);
+  for(const jobId of [null,'',' x','x\n','x'.repeat(257),1])await rejectsCode(claim(store,{jobId}),'invalid_id');
   for (const leaseMs of [0, -1, 1.5, 300001, Infinity]) await rejectsCode(claim(store, { leaseMs }), 'invalid_leaseMs');
   await rejectsCode(claim(store, { now: Number.MAX_SAFE_INTEGER, leaseMs: 1 }), 'invalid_leaseUntil');
   const leased = await claim(store);
