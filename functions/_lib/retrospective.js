@@ -60,6 +60,8 @@ async function briefPerformance(env, evidence) {
   const list = await rows(env, evidence, 'brief_performance',
     `SELECT pp.brief_id AS brief_id,
             COUNT(DISTINCT pp.post_id) AS posts,
+            COUNT(DISTINCT CASE WHEN m.reach IS NOT NULL THEN pp.post_id END) AS reach_posts,
+            COUNT(DISTINCT CASE WHEN m.saved IS NOT NULL THEN pp.post_id END) AS saved_posts,
             SUM(m.reach) AS reach,
             SUM(m.saved) AS saved, COALESCE(MAX(m.cd),MAX(pp.updated_at)) AS updated_at
        FROM post_provenance pp
@@ -166,6 +168,8 @@ export async function buildRetrospective(env) {
         title: String(b.title || 'Untitled brief').slice(0, 80),
         target: b.success_metric ? String(b.success_metric).slice(0, 140) : null,
         posts: evidence.brief_performance === 'unavailable' ? null : p ? Number(p.posts) || 0 : 0,
+        reach_posts: p ? Number(p.reach_posts) : null,
+        saved_posts: p ? Number(p.saved_posts) : null,
         reach: p && p.reach !== null && p.reach !== undefined && Number.isFinite(Number(p.reach)) ? Number(p.reach) : null,
         saved: p && p.saved !== null && p.saved !== undefined && Number.isFinite(Number(p.saved)) ? Number(p.saved) : null,
       };
@@ -261,8 +265,8 @@ function briefLines(retro) {
     } else {
       const bits = [`${b.posts} post${b.posts === 1 ? '' : 's'}`];
       if (retro.signals) {
-        if (Number.isFinite(b.reach)) bits.push(`${b.reach} reach`);
-        if (Number.isFinite(b.saved)) bits.push(`${b.saved} saves`);
+        if (Number.isFinite(b.reach)) bits.push(`${b.reach} reach${Number.isFinite(b.reach_posts) && b.reach_posts < b.posts ? ` across ${b.reach_posts}/${b.posts} measured posts; remaining reach unknown` : ''}`);
+        if (Number.isFinite(b.saved)) bits.push(`${b.saved} saves${Number.isFinite(b.saved_posts) && b.saved_posts < b.posts ? ` across ${b.saved_posts}/${b.posts} measured posts; remaining saves unknown` : ''}`);
       }
       out.push(`- "${b.title}" — ${target} · delivered: ${bits.join(', ')}.`);
     }

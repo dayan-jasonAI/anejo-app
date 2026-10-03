@@ -4,9 +4,12 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../../public/hub/owner/assets/operator.js', import.meta.url), 'utf8');
+const localeStart = source.indexOf('  function operatorLocale(');
+const localeEnd = source.indexOf('  function stopSpeech(', localeStart);
 const start = source.indexOf('  function voiceInputFailure(');
 const end = source.indexOf('  // 1 tap = talk', start);
-assert.ok(start >= 0 && end > start, 'the real voice handlers must be present');
+assert.ok(localeStart >= 0 && localeEnd > localeStart && start >= 0 && end > start, 'the real locale helper and voice handlers must be present');
+const localeHelper = source.slice(localeStart, localeEnd);
 const handlers = source.slice(start, end);
 
 function fixture({ startError, constructorError, supported = true } = {}) {
@@ -25,12 +28,14 @@ function fixture({ startError, constructorError, supported = true } = {}) {
   }
   const context = {
     SR: supported ? SpeechRecognition : null, recog: null, fab, panel,
-    document: { getElementById(id) { assert.equal(id, 'aopIn'); return input; } },
+    window: { AnejoLang: { get: () => 'en' } },
+    document: { documentElement: { lang: 'en' }, getElementById(id) { assert.equal(id, 'aopIn'); return input; } },
     stopSpeech() { stops++; },
     showHint(message) { hints.push(message); },
     log(message, kind) { logs.push({ message, kind }); },
     ask(message, speakBack) { requests.push({ message, speakBack }); }
   };
+  vm.runInNewContext(localeHelper, context);
   vm.runInNewContext(handlers, context);
   return { fab, panel, input, logs, hints, requests, recognizers,
     listen: () => context.listen(), starts: () => starts, stops: () => stops };

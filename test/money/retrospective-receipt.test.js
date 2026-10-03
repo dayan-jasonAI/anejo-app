@@ -139,3 +139,18 @@ test('failed all responses with results and malformed attribution counters never
     assert.deepEqual(retro.coverage, { published: null, attributed: null });
   }
 });
+
+test('partial captures label observed totals by metric coverage instead of implying complete brief performance', async t => {
+  const env = fixture(t);
+  env.DB.exec("INSERT INTO team_briefs(id,title,objective,status,created_at,updated_at) VALUES('brief','Partial captures','Private','draft',1,2); INSERT INTO social_posts(id,status,public_token,created_at,updated_at) VALUES('measured','published','measured-token',3,4),('uncaptured','published','uncaptured-token',3,4); INSERT INTO post_provenance(post_id,brief_id,created_at,updated_at) VALUES('measured','brief',3,4),('uncaptured','brief',3,4); INSERT INTO ig_media_metrics(media_id,capture_date,post_id,reach,saved,captured_at) VALUES('media','2026-10-03','measured',100,NULL,300)");
+  const retro = await buildRetrospective(env);
+  assert.equal(retro.briefs[0].posts, 2);
+  assert.equal(retro.briefs[0].reach_posts, 1);
+  assert.equal(retro.briefs[0].saved_posts, 0);
+  assert.equal(retro.briefs[0].reach, 100);
+  assert.equal(retro.briefs[0].saved, null);
+  const text = renderRetrospective(retro);
+  assert.match(text, /100 reach across 1\/2 measured posts; remaining reach unknown/);
+  assert.doesNotMatch(text, /0 saves/);
+  assert.equal(retro.receipt.rendered_sha256, hash(text));
+});

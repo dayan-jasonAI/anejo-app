@@ -346,6 +346,20 @@
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   var recog = null, busy = false, currentAudio = null, tapTimer = null;
 
+  function operatorLocale() {
+    try {
+      var preferred = window.AnejoLang && window.AnejoLang.get();
+      if (preferred === 'en' || preferred === 'es') return preferred;
+    } catch (_) { /* use the page/storage preference below */ }
+    try {
+      var pageLanguage = String(document.documentElement && document.documentElement.lang || '').toLowerCase();
+      if (pageLanguage === 'es' || pageLanguage.indexOf('es-') === 0) return 'es';
+      if (pageLanguage === 'en' || pageLanguage.indexOf('en-') === 0) return 'en';
+    } catch (_) { /* document language may be unavailable in embedded contexts */ }
+    try { return window.localStorage.getItem('anejo:lang') === 'es' ? 'es' : 'en'; }
+    catch (_) { return 'en'; }
+  }
+
   var css = document.createElement('style');
   css.textContent = [
     // The FAB/hint/panel used to hard-code their bottom offset (22/38/96px), unaware of the
@@ -421,18 +435,19 @@
     try { if (currentAudio) { currentAudio.pause(); currentAudio = null; } } catch (_) {}
     try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (_) {}
   }
-  function speak(text, done) {
+  function speak(text, locale, done) {
     // Browser speech is the currently implemented output; no remote TTS is invoked.
     if (!('speechSynthesis' in window)) { done && done(); return; }
     try {
       var u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US'; u.onend = done; u.onerror = done;
+      u.lang = locale === 'es' ? 'es-ES' : 'en-US'; u.onend = done; u.onerror = done;
       window.speechSynthesis.speak(u);
     } catch (_) { done && done(); }
   }
 
-  function ask(q, speakBack) {
+  function ask(q, speakBack, requestLocale) {
     if (busy || !q) return;
+    var spokenLocale = requestLocale === 'es' ? 'es' : requestLocale === 'en' ? 'en' : operatorLocale();
     busy = true; fab.classList.add('thinking');
     panel.classList.add('open'); log(q, 'me');
     fetch('/api/hub/owner/operator', {
@@ -451,7 +466,7 @@
         }
         log(res.j.reply, 'ai');
         window.AnejoOperatorPrivateUI(res.j, document.getElementById('aopLog'));
-        if (speakBack) speak(res.j.reply);
+        if (speakBack) speak(res.j.reply, spokenLocale);
       })
       .catch(function (e) {
         busy = false; fab.classList.remove('thinking');
@@ -487,9 +502,10 @@
     if (!SR) { voiceInputFailure({ error: 'unsupported' }); return; }
     stopSpeech();
     try {
-      recog = new SR(); recog.lang = 'en-US'; recog.interimResults = false; recog.maxAlternatives = 1;
+      var requestLocale = operatorLocale();
+      recog = new SR(); recog.lang = requestLocale === 'es' ? 'es-ES' : 'en-US'; recog.interimResults = false; recog.maxAlternatives = 1;
       fab.classList.add('listening'); showHint('listening…');
-      recog.onresult = function (e) { ask(String(e.results[0][0].transcript || '').trim(), true); };
+      recog.onresult = function (e) { ask(String(e.results[0][0].transcript || '').trim(), true, requestLocale); };
       recog.onerror = voiceInputFailure;
       recog.onend = function () { fab.classList.remove('listening'); };
       recog.start();
