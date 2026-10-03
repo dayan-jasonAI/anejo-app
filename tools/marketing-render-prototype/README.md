@@ -105,3 +105,8 @@ Editorial adapter now samples/encodes inside synchronous raster consumers, relea
 ### JPEG orientation
 
 Editorial adapter applies bounded JPEG EXIF orientations1–8before layout. Original bytes preserved; protectedRegions refer to upright/display-oriented source.28tests pass;12upright workerd hashes unchanged. PNG EXIF/ICC remain unsupported; fixed-footer path unchanged. See docs/marketing/EDITORIAL_EXIF_ORIENTATION_2026-09-28.md.
+
+
+### PNG orientation — October 3
+
+The editorial adapter now applies PNG eXIf orientation as well as JPEG EXIF. PNG metadata is removed from the ephemeral decoder copy to avoid double application; originals are preserved. Historical metadata still requires visual review. ICC normalization and live job integration remain open. See `docs/marketing/EDITORIAL_PNG_ORIENTATION_2026-10-03.md`.

@@ -77,3 +77,24 @@ test('actual raster applies all eight JPEG orientations before editorial source 
  }
  const output=renderEditorial({...input,source:tagged(6)});assert.equal(output.source.orientation,6);assert.equal(output.source.displayWidth,H);assert.equal(output.source.displayHeight,W);assert.equal(output.layout.photo.w,405);assert.equal(output.layout.photo.x,337.5);
 });
+
+test('actual PNG raster applies all eight declared EXIF orientations once, retaining original bytes',async()=>{
+ const {sourceGraphic}=await import('./editorial.mjs'),{dimensions}=await import('./core.mjs');
+ let engine,image,plain;try{
+  engine=new Resvg('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><path fill="#f00" d="M0 0h20v10H0z"/><path fill="#0f0" d="M20 0h20v10H20z"/><path fill="#00f" d="M0 10h20v10H0z"/><path fill="#ff0" d="M20 10h20v10H20z"/></svg>');image=engine.render();plain=image.asPng().slice();
+ }finally{image?.free();engine?.free();}
+ function tagged(value){
+  const tiff=new Uint8Array(26),v=new DataView(tiff.buffer);tiff.set([73,73,42,0,8,0,0,0,1,0,18,1,3,0,1,0,0,0,value]);
+  const chunk=new Uint8Array(38),cv=new DataView(chunk.buffer);cv.setUint32(0,26);chunk.set([101,88,73,102],4);chunk.set(tiff,8);
+  let crc=0xffffffff;for(const byte of chunk.subarray(4,-4)){crc^=byte;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}cv.setUint32(34,(crc^0xffffffff)>>>0);
+  const out=new Uint8Array(plain.length+chunk.length);out.set(plain.subarray(0,-12));out.set(chunk,plain.length-12);out.set(plain.subarray(-12),plain.length-12+chunk.length);return out;
+ }
+ const expected=[[0,1,2,3],[1,0,3,2],[3,2,1,0],[2,3,0,1],[0,2,1,3],[2,0,3,1],[3,1,2,0],[1,3,0,2]],colors=[[255,0,0],[0,255,0],[0,0,255],[255,255,0]];
+ for(let orientation=1;orientation<=8;orientation++){
+  const source=tagged(orientation),original=source.slice(),g=sourceGraphic(source,dimensions(source));assert.equal(g.orientation,orientation);
+  const raster=pixels(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${g.width}" height="${g.height}">${g.markup({x:0,y:0,w:g.width,h:g.height})}</svg>`);
+  for(let corner=0;corner<4;corner++){const x=Math.floor(g.width*(corner%2?.75:.25)),y=Math.floor(g.height*(corner>=2?.75:.25)),at=(y*g.width+x)*4;assert.deepEqual(Array.from(raster.subarray(at,at+3)),colors[expected[orientation-1][corner]]);}
+  assert.deepEqual(source,original);
+ }
+ const result=renderEditorial({...input,source:tagged(6)});assert.equal(result.source.orientation,6);assert.equal(result.source.displayWidth,20);assert.equal(result.source.displayHeight,40);assert.equal(result.visualReviewRequired,true);
+});
