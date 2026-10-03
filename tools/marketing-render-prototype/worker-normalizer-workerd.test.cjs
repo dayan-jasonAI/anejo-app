@@ -1,0 +1,23 @@
+/* global Buffer, __dirname, Response, console */
+// LOCAL ONLY: actual compiled modules; no app imports, provider calls or production bindings.
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
+const {build}=require('../../node_modules/esbuild'),{Miniflare,convertV4MiniflareOptions}=require('../../node_modules/miniflare'),sharp=require('./node_modules/sharp');
+const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
+test('full image normalization in actual local workerd retains source and matches native color/orientation/alpha',async()=>{
+ const output=fs.mkdtempSync(path.join(os.tmpdir(),'anejo-worker-normalizer-'));
+ for(const [from,to] of [['@resvg/resvg-wasm/index_bg.wasm','resvg.wasm'],['lcms-wasm/dist/lcms.wasm','color.wasm']])fs.copyFileSync(path.join(__dirname,'node_modules',from),path.join(output,to));
+ const code=`import resvg from './resvg.wasm';import color from './color.wasm';import {createWorkerNormalizer} from './worker-source-normalize.mjs';let ready;export default {async fetch(request){if(new URL(request.url).hostname!=='localhost')return new Response('',{status:403});try{ready??=createWorkerNormalizer(resvg,color);const n=await ready,source=new Uint8Array(await request.arrayBuffer()),result=await n.normalize(source);return Response.json({bytes:Array.from(result.bytes),receipt:result.receipt,observation:n.observation()});}catch(error){return Response.json({error:error.message},{status:422});}}};`;
+ await build({stdin:{contents:code,resolveDir:__dirname,sourcefile:'normalizer-proof.mjs'},outfile:path.join(output,'worker.mjs'),bundle:true,format:'esm',platform:'browser',define:{process:'undefined'},minifySyntax:true,plugins:[require('./color-loader-build.cjs').compiledColorLoaderPlugin()],external:['./color.wasm','./resvg.wasm','module']});
+ const outbound=[],mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'normalizer-local',modulesRoot:output,modules:[{type:'ESModule',path:path.join(output,'worker.mjs')},...['color.wasm','resvg.wasm'].map(p=>({type:'CompiledWasm',path:path.join(output,p)}))],compatibilityDate:'2026-05-01',outboundService(request){outbound.push(request.url);return new Response('',{status:403});}}],cf:false}));
+ try{
+  const width=40,height=20,raw=Buffer.alloc(width*height*4),colors=[[190,80,45],[45,155,80],[40,90,180],[230,210,170]];
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){const at=(y*width+x)*4;raw.set(colors[(y>=height/2?2:0)+(x>=width/2?1:0)],at);raw[at+3]=x<width/2?120:255;}
+  const results=[];
+  for(const [format,orientation,profile] of [['png',6,'p3'],['jpeg',8,'p3'],['png',1,null]]){
+   let p=sharp(raw,{raw:{width,height,channels:4}});if(profile)p=p.withIccProfile(profile);if(orientation!==1)p=p.withMetadata({orientation});const source=await p[format](format==='jpeg'?{quality:100,chromaSubsampling:'4:4:4'}:{palette:false}).toBuffer(),copy=Buffer.from(source),response=await mf.dispatchFetch('http://localhost/normalizer-proof',{method:'POST',body:source});assert.equal(response.status,200,await response.clone().text());
+   const result=await response.json(),bytes=Buffer.from(result.bytes),actual=await sharp(bytes).raw().toBuffer(),expected=await sharp(source).autoOrient().withIccProfile('srgb').ensureAlpha().raw().toBuffer();assert.deepEqual(source,copy);assert.equal(result.receipt.originalSha256,hash(source));assert.equal(result.receipt.derivativeSha256,hash(bytes));assert.equal(result.receipt.originalOrientation,orientation);assert.equal(result.receipt.conversionPerformed,Boolean(profile));assert.equal(result.receipt.visualReviewRequired,true);assert.equal(result.receipt.resourceReadiness,'unverified');assert.equal(actual.length,expected.length);for(let i=0;i<actual.length;i++)assert.ok(Math.abs(actual[i]-expected[i])<=(i%4===3?0:4),`${format} channel ${i}: ${actual[i]} vs ${expected[i]}`);
+   const replay=await (await mf.dispatchFetch('http://localhost/normalizer-proof',{method:'POST',body:source})).json();assert.deepEqual(replay.bytes,result.bytes);results.push({format,orientation,profile,receipt:result.receipt,observation:result.observation});
+  }
+  assert.equal((await mf.dispatchFetch('http://localhost/normalizer-proof',{method:'POST',body:new Uint8Array([1,2,3])})).status,422);assert.deepEqual(outbound,[]);console.log(JSON.stringify({scope:'full-local-worker-image-normalization',results,outboundRequests:outbound,limitations:'Synthetic fixtures; no source/job storage binding, real phone maximum-input/peak resource, production deployment or owner appearance acceptance.'}));
+ }finally{await mf.dispose();}
+});
