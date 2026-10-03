@@ -1,0 +1,89 @@
+{
+  "recordedAt": "2026-10-03T15:08:06.795Z",
+  "scope": "local-real-browser; not production server attestation",
+  "browser": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+  "clientWallMs": 311.59999999403954,
+  "checks": {
+    "dimensions": true,
+    "orientation": true,
+    "originalUnchanged": true,
+    "originalHash": true,
+    "profilePresent": true,
+    "withinStorageBound": true,
+    "patchesMatchNative": true
+  },
+  "passed": true,
+  "patches": [
+    [
+      40,
+      90,
+      179,
+      255
+    ],
+    [
+      190,
+      80,
+      45,
+      255
+    ],
+    [
+      229,
+      210,
+      170,
+      255
+    ],
+    [
+      45,
+      156,
+      80,
+      255
+    ]
+  ],
+  "nativeReference": {
+    "width": 1333,
+    "height": 2000,
+    "patches": [
+      [
+        40,
+        90,
+        179
+      ],
+      [
+        190,
+        80,
+        45
+      ],
+      [
+        229,
+        210,
+        170
+      ],
+      [
+        45,
+        156,
+        80
+      ]
+    ],
+    "tolerance": 5
+  },
+  "receipt": {
+    "normalizer_version": "browser-srgb-1",
+    "source": "browser_declared",
+    "status": "processed",
+    "original_sha256": "fbb8b8d255e4ff5bd686311277b2204e8937d2964a197455fdc6b1a068b443ff",
+    "derivative_sha256": "c2bc37da84b0fac0e7d7ab5925eb5f23cb67baedc5fe8de4b8ef396c46fe2718",
+    "source_profile_sha256": "c56e1685d888f5edb92fe07f2750f387f8fe8e91b32ff8fb0b56bfbbb9458353",
+    "color_assumption": "embedded_rgb_profile",
+    "observed_context_color_space": "srgb",
+    "original_orientation": 6,
+    "original_width": 6000,
+    "original_height": 4000,
+    "width": 1333,
+    "height": 2000,
+    "resize_policy": "inside-2000x2000-no-enlargement",
+    "bytes": 59798,
+    "format": "png",
+    "visual_review_required": true,
+    "color_verification": "browser_declared"
+  }
+}
