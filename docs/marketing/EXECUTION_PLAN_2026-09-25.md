@@ -269,3 +269,7 @@ Safe actual visual/written boundary diagnostics and owner UI implemented; root3,
 ## October3 — live diagnosis and continuous content rehearsal
 
 PR190 diagnostic capture deployed and normal browser/D1 confirmedvisual HTTP400invalid_request_error/categoryunknown. Exact provider cause remains unverified. Separate continuous local2-case photo-to-render-to-audit-to-manual-schedule/edit rehearsal passes, fullroot3,547tests andlintpass. No outbound fetch/trust/publication. See PROVIDER_DIAGNOSTICS_2026-10-03.md and CONTENT_FLOW_REHEARSAL_2026-10-03.md. Production renderer parity/modelsemantic/humanreview remainopen; no narrowing of the full goal.
+
+## October3 — rehearsal release and rejection specificity
+
+PR191 fourexact-head checks passed, merged e189398; Pages lists production b67167da/sourcee189398. Local content flow remains local evidence, not production renderer proof. Safe diagnostic categories now distinguish explicit billing and request-parameter refusals, preserving unknown/privacy/read bounds and no automatic retry. Root3,568tests/lint/build pass; release/live diagnosis pending. See PROVIDER_SPECIFICITY_2026-10-03.md. Existing saved400 cause remainsunknown, and original full goal staysopen.
