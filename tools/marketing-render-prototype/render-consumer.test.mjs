@@ -1,0 +1,72 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {ownerEnv,OWNER_COOKIE} from '../../test/helpers/sqlite-d1.js';
+import {onRequestPost as library} from '../../functions/api/hub/owner/marketing-library.js';
+import {onRequestPost as social} from '../../functions/api/hub/owner/social.js';
+import {sha256} from '../../functions/_lib/marketing_render_receipt.js';
+import {initialize} from './core.mjs';
+import {renderEditorial} from './editorial.mjs';
+import {createRenderJobStore} from './render-jobs.mjs';
+import {consumePrivateRender,renderOptionsHash} from './render-consumer.mjs';
+const bytes=name=>new Uint8Array(readFileSync(new URL(name,import.meta.url)));
+const original=bytes('assets/source.jpg');
+const options={templateId:'reposado-cajita',title:'Your Cajita.',kicker:'AÑEJO CATERING'};
+await initialize(bytes('node_modules/@resvg/resvg-wasm/index_bg.wasm'));
+function storage(){const objects=new Map();return {objects,async put(key,value,opts={}){objects.set(key,{bytes:new Uint8Array(value).slice(),metadata:{...opts.customMetadata}});},async get(key){const v=objects.get(key);return v?{size:v.bytes.length,customMetadata:{...v.metadata},arrayBuffer:async()=>v.bytes.slice().buffer}:null;}};}
+async function handler(fn,env,url,body){const response=await fn({env,request:new Request('https://anejo.test'+url,{method:'POST',headers:{cookie:OWNER_COOKIE,'content-type':'application/json'},body:JSON.stringify(body)})});assert.equal(response.status,200);return response.json();}
+async function setup(t){
+ const media=storage(),env=ownerEnv({MEDIA:media});t.after(()=>env.DB.sqlite.close());
+ env.DB.sqlite.exec(readFileSync(new URL('render-jobs.sql',import.meta.url),'utf8'));
+ const uploaded=await handler(library,env,'/api/hub/owner/marketing-library',{name:'Local consumer fixture',data_url:'data:image/jpeg;base64,'+Buffer.from(original).toString('base64')});
+ const sourceKey=uploaded.photo.media_key;
+ const draft=await handler(social,env,'/api/hub/owner/social',{op:'draft',caption:options.title,media_key:sourceKey});
+ env.DB.sqlite.prepare(`UPDATE social_posts SET updated_at=100,audit_score=7,audit_status='pass',scheduled_at=200,original_caption_hash='old-caption',original_design_snapshot='old-design' WHERE id=?`).run(draft.id);
+ const slide=env.DB.one('SELECT * FROM social_post_media WHERE post_id=?',draft.id);
+ const store=createRenderJobStore(env.DB),descriptor={sourceKey,sourceSha256:await sha256(original),postId:draft.id,postRevision:100,mediaId:slide.id,rendererVersion:'local-resvg-consumer-v1',templateId:options.templateId,optionsHash:await renderOptionsHash(options)};
+ const enqueued=await store.enqueue({actorId:'stf_owner',requestId:'private-test-1',descriptor,now:100});
+ let clock=101,renderCount=0;
+ const render=async({source,options})=>{renderCount++;return renderEditorial({source,emblem:bytes('assets/emblem.png'),font:bytes('assets/AnejoEditorialSerif-SemiBold.ttf'),kickerFont:bytes('assets/AnejoEditorialSans-Medium.ttf'),...options});};
+ const input={db:env.DB,media,actorId:'stf_owner',rendererVersion:descriptor.rendererVersion,options,render,now:()=>clock,leaseMs:100};
+ return {env,media,store,descriptor,enqueued,input,sourceKey,slide,draft,setClock:v=>clock=v,renderCount:()=>renderCount};
+}
+function unchanged(f){assert.equal(f.env.DB.one('SELECT media_key FROM social_post_media WHERE id=?',f.slide.id).media_key,f.sourceKey);const p=f.env.DB.one('SELECT * FROM social_posts WHERE id=?',f.draft.id);assert.equal(p.audit_score,7);assert.equal(p.original_caption_hash,'old-caption');}
+test('actual source/render/output readback attaches only a draft and resets old evidence',async t=>{
+ const f=await setup(t),trust=f.env.DB.rows('SELECT * FROM trust_ledger');
+ const result=await consumePrivateRender(f.input);assert.equal(result.state,'attached');assert.equal(result.publicationApproved,false);assert.equal(result.humanReviewRequired,true);assert.equal(result.resourceReadiness,'unverified');
+ assert.equal(f.renderCount(),1);assert.deepEqual(f.media.objects.get(f.sourceKey).bytes,original);
+ const p=f.env.DB.one('SELECT * FROM social_posts WHERE id=?',f.draft.id);for(const key of ['audit_score','audit_status','scheduled_at','original_caption_hash','original_design_snapshot'])assert.equal(p[key],null);
+ assert.equal(p.status,'draft');assert.equal(f.env.DB.one('SELECT media_key FROM social_post_media WHERE id=?',f.slide.id).media_key,result.receipt.outputKey);
+ assert.equal(await sha256(f.media.objects.get(result.receipt.outputKey).bytes),result.receipt.sha256);
+ assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).status,'rendered');
+ assert.equal((await consumePrivateRender(f.input)).state,'no_job');assert.equal(f.renderCount(),1);assert.deepEqual(f.env.DB.rows('SELECT * FROM trust_ledger'),trust);
+});
+test('renderer/options binding changes reject before rendering',async t=>{const f=await setup(t);const result=await consumePrivateRender({...f.input,options:{...options,title:'Changed'}});assert.equal(result.state,'failed');assert.equal(result.errorCode,'render_binding_changed');assert.equal(f.renderCount(),0);unchanged(f);});
+for(const kind of ['bytes','metadata'])test('source '+kind+' change after render prevents attachment',async t=>{
+ const f=await setup(t),render=f.input.render;f.input.render=async args=>{const out=await render(args);const source=f.media.objects.get(f.sourceKey);if(kind==='bytes')source.bytes[50]^=1;else source.metadata.provenance_basis='changed';return out;};
+ const result=await consumePrivateRender(f.input);assert.equal(result.state,'failed');assert.equal(result.errorCode,'source_changed');unchanged(f);
+});
+test('post revision changes and staff revocation are fenced in the final transaction',async t=>{
+ const f=await setup(t),render=f.input.render;f.input.render=async args=>{const out=await render(args);f.env.DB.sqlite.prepare('UPDATE social_posts SET updated_at=102 WHERE id=?').run(f.draft.id);return out;};
+ assert.equal((await consumePrivateRender(f.input)).state,'failed');unchanged(f);assert.equal(f.env.DB.one('SELECT count(*) n FROM prototype_render_guards').n,0);
+});
+test('revoked staff cannot attach a completed artifact',async t=>{const f=await setup(t),render=f.input.render;f.input.render=async args=>{const out=await render(args);f.env.DB.sqlite.exec("UPDATE staff SET active=0 WHERE id='stf_owner'");return out;};assert.equal((await consumePrivateRender(f.input)).state,'failed');unchanged(f);});
+test('expired worker cannot attach after another worker claims the same job',async t=>{
+ const f=await setup(t),render=f.input.render;let successor;
+ f.input.render=async args=>{const out=await render(args);f.setClock(202);successor=await f.store.claim({actorId:'stf_owner',now:202,leaseMs:100});return out;};
+ const result=await consumePrivateRender(f.input);assert.equal(result.state,'commit_unknown');unchanged(f);
+ const current=await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id});assert.equal(current.leaseToken,successor.leaseToken);assert.equal(current.status,'rendering');assert.ok(!result.outputKey.includes(successor.leaseToken));
+});
+for(const table of ['social_posts','prototype_render_jobs'])test('zero-row '+table+' mutation rolls back earlier media changes',async t=>{
+ const f=await setup(t);f.env.DB.sqlite.exec(`CREATE TRIGGER reject_update BEFORE UPDATE ON ${table} ${table==='prototype_render_jobs'?"WHEN NEW.status='rendered'":''} BEGIN SELECT RAISE(IGNORE); END;`);
+ const result=await consumePrivateRender(f.input);assert.equal(result.state,'failed');unchanged(f);assert.equal(f.env.DB.one('SELECT count(*) n FROM prototype_render_guards').n,0);
+});
+test('lost batch acknowledgement recovers the saved attachment without rerendering',async t=>{
+ const f=await setup(t),batch=f.env.DB.batch.bind(f.env.DB);let calls=0;
+ f.env.DB.batch=async statements=>{calls++;await batch(statements);throw Error('simulated_ack_loss');};
+ const result=await consumePrivateRender(f.input);assert.equal(result.state,'attached');assert.equal(result.recoveredCommit,true);assert.equal(calls,1);assert.equal(f.renderCount(),1);assert.equal((await consumePrivateRender(f.input)).state,'no_job');
+});
+test('unavailable recovery reports unknown rather than a false failure or another attach',async t=>{
+ const f=await setup(t),batch=f.env.DB.batch.bind(f.env.DB);let calls=0;f.env.DB.batch=async statements=>{calls++;await batch(statements);f.media.get=async()=>{throw Error('read unavailable');};throw Error('simulated_ack_loss');};
+ const result=await consumePrivateRender(f.input);assert.equal(result.state,'commit_unknown');assert.equal(result.attached,'unverified');assert.equal(calls,1);assert.equal(f.renderCount(),1);assert.equal((await f.store.get({actorId:'stf_owner',jobId:f.enqueued.job.id})).status,'rendered');
+});

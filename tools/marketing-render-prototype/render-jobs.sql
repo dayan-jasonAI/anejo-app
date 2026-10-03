@@ -21,3 +21,9 @@ CREATE TABLE IF NOT EXISTS prototype_render_jobs (
 );
 CREATE INDEX IF NOT EXISTS prototype_render_jobs_claim
   ON prototype_render_jobs(actor_id, status, created_at, id);
+
+-- A consumer transaction may INSERT changes() here immediately after its guarded
+-- write. Zero changed rows violate this CHECK, allowing the caller to roll back.
+CREATE TABLE IF NOT EXISTS prototype_render_guards (
+  success INTEGER NOT NULL CHECK (success = 1)
+);

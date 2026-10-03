@@ -6,7 +6,7 @@
  * Claims enforce per-job exclusivity, not global concurrency or renderer resource readiness.
  */
 
-const FIELDS = ['sourceKey', 'sourceSha256', 'postId', 'mediaId', 'rendererVersion', 'templateId', 'optionsHash'];
+const FIELDS = ['sourceKey', 'sourceSha256', 'postId', 'postRevision', 'mediaId', 'rendererVersion', 'templateId', 'optionsHash'];
 const MAX_ATTEMPTS = 3;
 
 export class RenderJobError extends Error {
@@ -32,8 +32,8 @@ function digest(value, name) {
 }
 function canonicalDescriptor(value) {
   exactObject(value, FIELDS, 'descriptor');
-  return Object.fromEntries(FIELDS.map(k => [k, k === 'sourceSha256' || k === 'optionsHash'
-    ? digest(value[k], k) : string(value[k], k)]));
+  return Object.fromEntries(FIELDS.map(k => [k, k === 'postRevision' ? integer(value[k], k)
+    : k === 'sourceSha256' || k === 'optionsHash' ? digest(value[k], k) : string(value[k], k)]));
 }
 function canonicalReceipt(value) {
   exactObject(value, ['outputKey', 'sha256', 'outputBytes', 'width', 'height'], 'receipt');

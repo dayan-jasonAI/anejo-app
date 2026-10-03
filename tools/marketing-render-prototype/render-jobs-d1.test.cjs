@@ -9,7 +9,7 @@ test('local workerd D1 executes actor idempotency, atomic claims and stale fenci
  const db=await mf.getD1Database('DB');
  await db.exec(fs.readFileSync(path.join(__dirname,'render-jobs.sql'),'utf8').replace(/^--.*$/gm,'').replace(/\n/g,' '));
  const {createRenderJobStore}=await import('./render-jobs.mjs');const store=createRenderJobStore(db);
- const descriptor={sourceKey:'marketing-library/test.jpg',sourceSha256:'a'.repeat(64),postId:'draft-1',mediaId:'slide-1',rendererVersion:'fixture-v1',templateId:'reposado-wide',optionsHash:'b'.repeat(64)};
+ const descriptor={sourceKey:'marketing-library/test.jpg',sourceSha256:'a'.repeat(64),postId:'draft-1',postRevision:100,mediaId:'slide-1',rendererVersion:'fixture-v1',templateId:'reposado-wide',optionsHash:'b'.repeat(64)};
  const input={actorId:'owner-1',requestId:'render-1',descriptor,now:100};
  const enqueued=await store.enqueue(input);assert.equal((await store.enqueue(input)).job.id,enqueued.job.id);
  await assert.rejects(store.enqueue({...input,descriptor:{...descriptor,optionsHash:'c'.repeat(64)}}),e=>e.code==='request_conflict');

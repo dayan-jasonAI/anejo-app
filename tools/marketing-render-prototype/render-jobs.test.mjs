@@ -9,7 +9,7 @@ import { createRenderJobStore } from './render-jobs.mjs';
 
 const schema = readFileSync(new URL('./render-jobs.sql', import.meta.url), 'utf8');
 const descriptor = Object.freeze({ sourceKey: 'sources/image.png', sourceSha256: 'a'.repeat(64),
-  postId: 'post-1', mediaId: 'media-1', rendererVersion: 'editorial-v1', templateId: 'square-v1', optionsHash: 'b'.repeat(64) });
+  postId: 'post-1', postRevision: 100, mediaId: 'media-1', rendererVersion: 'editorial-v1', templateId: 'square-v1', optionsHash: 'b'.repeat(64) });
 const receipt = Object.freeze({ outputKey: 'outputs/render.png', sha256: 'c'.repeat(64), outputBytes: 200, width: 1080, height: 1080 });
 
 // Real SQLite implementation of the D1 statement surface; no SQL interpreter/mock.
@@ -46,7 +46,8 @@ test('canonical enqueue is immutable and exact-request replay is scoped to actor
   assert.deepEqual(first.job, replay.job);
   assert.equal(first.job.descriptor.sourceKey, descriptor.sourceKey);
   for (const field of Object.keys(descriptor)) {
-    const replacement = field === 'sourceSha256' || field === 'optionsHash' ? 'd'.repeat(64) : `changed-${field}`;
+    const replacement = field === 'postRevision' ? 101
+      : field === 'sourceSha256' || field === 'optionsHash' ? 'd'.repeat(64) : `changed-${field}`;
     await rejectsCode(enqueue(store, { descriptor: { ...descriptor, [field]: replacement } }), 'request_conflict');
   }
   const other = await enqueue(store, { actorId: 'actor-2' });
@@ -145,6 +146,8 @@ test('validates exact immutable binding, receipts, and safe integer timestamp ar
     { ...descriptor, postId: '' }, { ...descriptor, rendererVersion: 'x\n' }, { ...descriptor, sourceKey: 'x'.repeat(1025) }])
     await assert.rejects(enqueue(store, { descriptor: invalid }));
   for (const now of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '100']) await rejectsCode(enqueue(store, { now }), 'invalid_now');
+  for (const postRevision of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '100', undefined])
+    await rejectsCode(enqueue(store, { descriptor: { ...descriptor, postRevision } }), 'invalid_postRevision');
   await rejectsCode(enqueue(store, { actorId: '' }), 'invalid_actorId');
   await rejectsCode(enqueue(store, { requestId: '' }), 'invalid_id');
   assert.equal(db.prepare('SELECT count(*) AS n FROM prototype_render_jobs').get().n, 0);
@@ -171,6 +174,19 @@ test('durable records reopen from the same SQLite file', async t => {
   db.close();
   const { store } = fixture(t, path);
   assert.deepEqual(await store.get({ actorId: 'actor-1', jobId: original.job.id }), original.job);
+});
+
+test('SQL changes guard rejects zero-row writes and permits transaction rollback', async t => {
+  const { db, store } = fixture(t);
+  const { job } = await enqueue(store);
+  db.exec('BEGIN');
+  db.prepare('UPDATE prototype_render_jobs SET error_code = ? WHERE id = ?').run('transaction_probe', job.id);
+  db.exec('INSERT INTO prototype_render_guards(success) VALUES (changes())');
+  db.prepare('UPDATE prototype_render_jobs SET error_code = ? WHERE id = ?').run('not_written', 'missing-job');
+  assert.throws(() => db.exec('INSERT INTO prototype_render_guards(success) VALUES (changes())'), /CHECK constraint failed/);
+  db.exec('ROLLBACK');
+  assert.equal((await store.get({ actorId: 'actor-1', jobId: job.id })).errorCode, null);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM prototype_render_guards').get().n, 0);
 });
 
 test('two real concurrent SQLite handles cannot claim the same lease', {timeout:10000}, async t => {
