@@ -1184,6 +1184,7 @@
             btn.disabled = false; btn.textContent = 'Preview branded photo';
             resultBox.innerHTML =
               '<img src="' + dataUrl + '" alt="" style="width:100%;max-width:220px;border-radius:8px;display:block;margin-bottom:6px">' +
+              '<p class="hint">Original photo preserved. ' + (renderOptions.normalization.status === 'processed' ? 'Preview uses an upright sRGB PNG; color handling is browser-declared and needs visual review.' : 'This format was not normalized; review its orientation and colors.') + '</p>' +
               (layoutEvidence ? '<p class="hint">' + (layoutEvidence.protectionSource === 'center_geometry_only' ? 'The center is protected geometrically. ' : '') + 'Review the actual food, packaging, emblem and wording before using. Template placement is not automatic food recognition.</p>' : '') +
               '<div style="display:flex;gap:8px"><button class="btn gold brand-use" type="button">Use this — replace selected slide</button>' +
               '<button class="btn ghost brand-discard" type="button">Discard</button></div>';
