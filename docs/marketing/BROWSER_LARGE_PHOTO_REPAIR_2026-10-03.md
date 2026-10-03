@@ -1,6 +1,6 @@
 # Browser large-photo storage repair — October 3, 2026
 
-Status: local real-browser acceptance passed; release checks in progress. No deployment is established by this record yet.
+Status: browser repair merged and deployed; local large-photo tests and an existing live private-draft preview/save check passed. Full marketing readiness remains open.
 
 The Hub browser normalizer now retries only oversized PNG output at fixed maximum edges 2000, 1600, 1280 and 1024, drawing each candidate from the original decoded image. Original byte hashes, profile hashes and once-applied EXIF orientation remain recorded. Null encoders, failed capabilities and other errors do not retry. Receipts remain browser-declared and require visual review. Server normalization resource gates remain open.
 
@@ -13,3 +13,13 @@ Nine focused mock-Canvas tests pass, covering source mutation, refusal boundarie
 Dayan's direct-session authorization covers continuing engineering and deploying after existing checks pass. No new public post, message, charge, credential, trust activation or database update is included. Full marketing objective remains open: production photo-to-draft-to-audit-to-owner-review-to-schedule evidence, trustworthy audit provider responses, unattended resource proof, team/Ana/voice acceptance and external channel prerequisites.
 
 Rollback: revert the normalizer and its single cache-version change; original photos are unaffected. Validation and any release receipt must be appended before claiming live completion.
+
+## Release and live evidence — 15:35–15:40 UTC
+
+PR196 merged to main at 15:35:19 UTC as 8a54379d3a298e65146650a153f5f8e9c523b537. All four exact-head checks passed (Functions, Hub React, reference renderer and Pages). Production deployment d2bb461e-7e25-4e2f-9a4b-6d19d544b5bb records source 8a54379. Live normalizer returned HTTP200 and its SHA256 equals the tested release: b4694450e5267bf0080f849da2a4343e3d34d293395864ba45631d873134f7ba. Normal supported authenticated Chrome loaded the browser-srgb-2 URL.
+
+Existing private QA draft sp_c4df45a9d885d7dad754 rebuilt its branding preview from the preserved source. The owner-authorized private save replaced its single slide; after reload its 1254×1254 render-receipt media reference remained identical. Evidence: live-private-draft-persistence.json and live-private-draft-saved.png. This is not a 24 MP production-storage test, visual owner approval, complete launch-carousel acceptance, audit, schedule or publication. No public/customer communication or trust activation occurred.
+
+General verify:live completed with two explicitly skipped checks (including live DB). verify:deploy could not read deployment metadata because its named API environment variables were unset; its exit0 is NOT proof. Separate authenticated Wrangler provider inventory and exact live asset hash supply release evidence for this narrow scope. Logs are retained here. Instagram currently refuses its configured connection; refresh credentials is owner work. The full server resource, audit-provider, end-to-end scheduling, Ana/voice and external integration gates remain open.
+
+Next: join current launch-carousels to a trustworthy finished-image audit and owner review, prove current scheduling gates without publishing, and continue deployed unattended resource validation. No new approval needed for safe engineering.

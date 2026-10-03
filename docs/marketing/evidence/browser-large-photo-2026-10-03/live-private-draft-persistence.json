@@ -1,0 +1,29 @@
+{
+  "recordedAt": "2026-10-03T15:42:23.686Z",
+  "scope": "Existing private QA draft only; no publication, audit approval or schedule",
+  "beforeReload": [
+    {
+      "height": 1254,
+      "src": "/api/hub/media/studio/render-receipts/rr_c433e54d652f73e88e7e10fcc9c24f02a497a2e18da5bed9ca421acea7072a5b_photo.jpg",
+      "width": 1254
+    },
+    {
+      "height": 1254,
+      "src": "/api/hub/media/studio/render-receipts/rr_0d21734216a295b2b66605a5964d0f330822cd81f3291400bc91134e9712564d_photo.jpg",
+      "width": 1254
+    }
+  ],
+  "afterReload": [
+    {
+      "height": 1254,
+      "src": "/api/hub/media/studio/render-receipts/rr_c433e54d652f73e88e7e10fcc9c24f02a497a2e18da5bed9ca421acea7072a5b_photo.jpg",
+      "width": 1254
+    },
+    {
+      "height": 1254,
+      "src": "/api/hub/media/studio/render-receipts/rr_0d21734216a295b2b66605a5964d0f330822cd81f3291400bc91134e9712564d_photo.jpg",
+      "width": 1254
+    }
+  ],
+  "preservedMediaReference": true
+}
