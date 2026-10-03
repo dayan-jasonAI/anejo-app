@@ -388,7 +388,7 @@ function daysBetween(earlierDateStr, laterDateStr) {
  */
 async function recentAccountReach(env, { limit = 30 } = {}) {
   const r = await env.DB.prepare(
-    `SELECT m.media_id, m.post_id, m.caption, m.posted_at, m.reach
+    `SELECT m.media_id, m.post_id, m.caption, m.posted_at, m.reach, m.capture_date
        FROM ig_media_metrics m
       WHERE m.reach IS NOT NULL AND m.posted_at IS NOT NULL
         AND m.capture_date = (SELECT MAX(m2.capture_date) FROM ig_media_metrics m2 WHERE m2.media_id = m.media_id)
@@ -400,6 +400,7 @@ async function recentAccountReach(env, { limit = 30 } = {}) {
     postId: row.post_id ?? null,
     caption: row.caption ?? null,
     postedAt: Number(row.posted_at),
+    captureDate: /^\d{4}-\d{2}-\d{2}$/.test(row.capture_date || '') ? row.capture_date : null,
     reach: Number(row.reach),
   }));
 }
@@ -449,11 +450,12 @@ async function followerTrend(env) {
     'SELECT capture_date, followers FROM ig_account_metrics ORDER BY capture_date ASC'
   ).all();
   const rows = ((r && r.results) || []).filter((row) => Number.isFinite(row.followers));
-  if (rows.length < 2) return { enoughData: false };
+  const captureDates = rows.map(row => row.capture_date).filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date || ''));
+  if (rows.length < 2) return { enoughData: false, captureDates };
   const today = etDateOf(Date.now());
   const windowStart = addEtDays(today, -FOLLOWER_TREND_WINDOW_DAYS);
   const earliest = rows[0];
-  if (earliest.capture_date > windowStart) return { enoughData: false };
+  if (earliest.capture_date > windowStart) return { enoughData: false, captureDates };
   const latest = rows[rows.length - 1];
   // The snapshot closest to (but not after) the window boundary — the last row seen while
   // walking forward that is still <= windowStart.
@@ -467,6 +469,7 @@ async function followerTrend(env) {
     falling: delta < 0,
     flat: delta === 0,
     delta,
+    captureDates,
     latestFollowers: latest.followers,
     baselineFollowers: baselineRow.followers,
     windowDays: daysBetween(baselineRow.capture_date, latest.capture_date),
@@ -506,24 +509,26 @@ const EMPTY_SIGNALS = {
  * throws; a caller can always safely read every field.
  */
 export async function detectPerformanceSignals(env) {
-  if (!env || !env.DB) return EMPTY_SIGNALS;
+  const readEvidence = { reach: { status: 'unavailable', captureDates: [] }, followers: { status: 'unavailable', captureDates: [] }, posting: { status: 'unavailable' } };
+  if (!env || !env.DB) return { ...EMPTY_SIGNALS, readEvidence };
   let singlePost = { enoughData: false };
   let weakRun = { enoughData: false };
   try {
     const items = await recentAccountReach(env, { limit: 30 });
+    readEvidence.reach = { status: 'read', captureDates: [...new Set(items.map(item => item.captureDate).filter(Boolean))].sort(), measuredPosts: items.length };
     singlePost = singlePostUnderperformance(items);
     weakRun = weakRunDetection(items);
   } catch { /* pre-0064 schema, or a query hiccup — both signals stay "not enough data" */ }
 
   let followerT = { enoughData: false };
-  try { followerT = await followerTrend(env); }
+  try { followerT = await followerTrend(env); readEvidence.followers = { status: 'read', captureDates: followerT.captureDates || [] }; }
   catch { /* pre-0064 schema, or ig_account_metrics not populated yet */ }
 
   let silence = { enoughData: false };
-  try { silence = await silenceDetection(env); }
+  try { silence = await silenceDetection(env); readEvidence.posting = { status: 'read', lastRecordedPostAt: silence.lastPostedAt || null }; }
   catch { /* pre-0064 schema */ }
 
-  return { ...EMPTY_SIGNALS, generatedAt: Date.now(), singlePost, weakRun, followerTrend: followerT, silence };
+  return { ...EMPTY_SIGNALS, generatedAt: Date.now(), singlePost, weakRun, followerTrend: followerT, silence, readEvidence };
 }
 
 /**
