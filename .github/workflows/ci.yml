@@ -20,6 +20,8 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 24, cache: npm }
       - run: npm ci
+      # Continuous content rehearsal imports the existing local renderer.
+      - run: npm ci --prefix tools/marketing-render-prototype
       - run: npm run lint
       - run: npm test
       # BUILD THE WORKER. lint and tests both pass on an unresolvable import — `node --check` only

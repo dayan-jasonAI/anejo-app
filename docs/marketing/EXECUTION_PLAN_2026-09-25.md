@@ -265,3 +265,7 @@ PR189 merged1e8c1d0 after four exact-head checks, active productionea288aee. Thr
 ## October3 — provider rejection diagnostics local acceptance
 
 Safe actual visual/written boundary diagnostics and owner UI implemented; root3,545tests/lint/build pass. See PROVIDER_DIAGNOSTICS_2026-10-03.md. No provider success claimed; semantic v18 rules unchanged. Release and one controlled diagnostic request pending. Read-only content-flow gap review underway separately; entire objective remains open.
+
+## October3 — live diagnosis and continuous content rehearsal
+
+PR190 diagnostic capture deployed and normal browser/D1 confirmedvisual HTTP400invalid_request_error/categoryunknown. Exact provider cause remains unverified. Separate continuous local2-case photo-to-render-to-audit-to-manual-schedule/edit rehearsal passes, fullroot3,547tests andlintpass. No outbound fetch/trust/publication. See PROVIDER_DIAGNOSTICS_2026-10-03.md and CONTENT_FLOW_REHEARSAL_2026-10-03.md. Production renderer parity/modelsemantic/humanreview remainopen; no narrowing of the full goal.
