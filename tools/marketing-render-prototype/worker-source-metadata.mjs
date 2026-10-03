@@ -10,14 +10,15 @@ const text=b=>String.fromCharCode(...b);
 const invalid=reason=>{throw Error(`Source metadata invalid: ${reason}`);};
 const refuse=reason=>{throw Error(`Source metadata unsupported: ${reason}`);};
 
-async function inflateProfile(compressed){
+async function inflateProfile(compressed,deadline){
+ deadline?.check('normalize_inflate');
  if(typeof DecompressionStream!=='function')refuse('deflate decompressor unavailable');
  const input=new ReadableStream({start(controller){controller.enqueue(compressed);controller.close();}});
  const reader=input.pipeThrough(new DecompressionStream('deflate')).getReader();
  const chunks=[];let total=0;
  try{
   while(true){
-   const {done,value}=await reader.read();if(done)break;
+   deadline?.check('normalize_inflate_read');const {done,value}=await reader.read();deadline?.check('normalize_inflate_read');if(done)break;
    // This caps accumulated output. A DecompressionStream may produce one large
    // chunk before read() resolves, so a strict peak-chunk memory cap is unproven.
    if(!(value instanceof Uint8Array)||value.byteLength>MAX_PROFILE-total){await reader.cancel();invalid('ICC decompressed profile exceeds 64 KiB');}
@@ -106,15 +107,16 @@ function parseJpeg(bytes){
 }
 
 /** Read bounded ICC/orientation metadata, leaving the supplied original untouched. */
-export async function readWorkerSourceMetadata(source){
+export async function readWorkerSourceMetadata(source,{deadline}={}){
+ deadline?.check('normalize_metadata_preflight');
  if(!(source instanceof Uint8Array))invalid('Uint8Array required');
  const shape=dimensions(source),original=new Uint8Array(source);
  const parsed=shape.type==='png'?parsePng(original):shape.type==='jpeg'?parseJpeg(original):invalid('unsupported image type');
- const profile=shape.type==='png'&&parsed.profileChunk?await inflateProfile(parsed.profileChunk):parsed.profile??null;
+ const profile=shape.type==='png'&&parsed.profileChunk?await inflateProfile(parsed.profileChunk,deadline):parsed.profile??null;
  if(profile&&shape.type==='png'){
   try{validateRGBProfile(profile);}catch(error){invalid(`ICC profile rejected: ${error.message}`);}
  }
- const admission=admitSourceColor(parsed.decoderBytes);
+ deadline?.check('normalize_metadata_admission');const admission=admitSourceColor(parsed.decoderBytes);
  if(admission.width!==shape.width||admission.height!==shape.height)invalid('decoder dimensions changed');
  return {decoderBytes:parsed.decoderBytes,profile,width:shape.width,height:shape.height,type:shape.type,orientation:parsed.orientation,colorStatus:profile?'embedded_rgb_profile':admission.colorStatus};
 }

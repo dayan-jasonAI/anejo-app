@@ -6,6 +6,8 @@ import {createColorKernel} from './color-kernel.mjs';
 import {readWorkerSourceMetadata} from './worker-source-metadata.mjs';
 import {admitSourceColor} from './source-color-admission.mjs';
 const MAX_BYTES=5*1024*1024;
+const check=(deadline,stage)=>deadline?.check(stage);
+async function dispatch(deadline,stage,operation){check(deadline,stage);const value=await operation();check(deadline,stage);return value;}
 const {crc32}=globalThis.AnejoImageOrientation;
 const sha=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).map(n=>n.toString(16).padStart(2,'0')).join('');
 function decode(bytes,type,W,H){let engine,image;try{
@@ -37,22 +39,24 @@ export function resizeRGBA(pixels,W,H){
  }return {pixels:output,width,height,resized:true};
 }
 function chunk(type,payload){const output=new Uint8Array(payload.length+12),view=new DataView(output.buffer);view.setUint32(0,payload.length);output.set(Array.from(type,c=>c.charCodeAt(0)),4);output.set(payload,8);view.setUint32(output.length-4,crc32(output.subarray(4,output.length-4)));return output;}
-async function encodePNG(pixels,W,H){
+async function encodePNG(pixels,W,H,deadline){
+ check(deadline,'normalize_encode');
  const raw=new Uint8Array(H*(W*4+1));for(let y=0;y<H;y++)raw.set(pixels.subarray(y*W*4,(y+1)*W*4),y*(W*4+1)+1);
  const reader=new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate')).getReader(),parts=[];let size=0;
- try{while(true){const r=await reader.read();if(r.done)break;size+=r.value.length;if(size>MAX_BYTES-100)throw Error('Derivative exceeds 5 MiB');parts.push(r.value);}}catch(error){await reader.cancel().catch(()=>{});throw error;}finally{reader.releaseLock();}
+ try{while(true){const r=await dispatch(deadline,'normalize_encode_read',()=>reader.read());if(r.done)break;size+=r.value.length;if(size>MAX_BYTES-100)throw Error('Derivative exceeds 5 MiB');parts.push(r.value);}}catch(error){await reader.cancel().catch(()=>{});throw error;}finally{reader.releaseLock();}
  const compressed=new Uint8Array(size);let at=0;for(const part of parts){compressed.set(part,at);at+=part.length;}
  const header=new Uint8Array(13),view=new DataView(header.buffer);view.setUint32(0,W);view.setUint32(4,H);header.set([8,6,0,0,0],8);
  const chunks=[new Uint8Array([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('sRGB',new Uint8Array([1])),chunk('IDAT',compressed),chunk('IEND',new Uint8Array())];
- const output=new Uint8Array(chunks.reduce((n,c)=>n+c.length,0));at=0;for(const c of chunks){output.set(c,at);at+=c.length;}return output;
+ const output=new Uint8Array(chunks.reduce((n,c)=>n+c.length,0));at=0;for(const c of chunks){output.set(c,at);at+=c.length;}check(deadline,'normalize_encode_complete');return output;
 }
 export async function createWorkerNormalizer(resvgModule,colorModule){
  await initialize(resvgModule);const kernel=await createColorKernel(colorModule);
- return Object.freeze({async normalize(source){
-  if(!(source instanceof Uint8Array))throw Error('Uint8Array source required');dimensions(source);const original=new Uint8Array(source),metadata=await readWorkerSourceMetadata(original),{width:W,height:H}=metadata;
-  let pixels=decode(metadata.decoderBytes,metadata.type,W,H);if(metadata.profile)pixels=kernel.transformRGBA(pixels,metadata.profile);
-  const upright=orientRGBA(pixels,W,H,metadata.orientation),resized=resizeRGBA(upright.pixels,upright.width,upright.height),bytes=await encodePNG(resized.pixels,resized.width,resized.height),admission=admitSourceColor(bytes),shape=dimensions(bytes);
+ return Object.freeze({async normalize(source,{deadline}={}){
+  check(deadline,'normalize_preflight');
+  if(!(source instanceof Uint8Array))throw Error('Uint8Array source required');dimensions(source);const original=new Uint8Array(source),metadata=await dispatch(deadline,'normalize_metadata',()=>readWorkerSourceMetadata(original,{deadline})),{width:W,height:H}=metadata;
+  check(deadline,'normalize_decode');let pixels=decode(metadata.decoderBytes,metadata.type,W,H);check(deadline,'normalize_color');if(metadata.profile)pixels=kernel.transformRGBA(pixels,metadata.profile);check(deadline,'normalize_orientation');
+  const upright=orientRGBA(pixels,W,H,metadata.orientation),resized=resizeRGBA(upright.pixels,upright.width,upright.height),bytes=await encodePNG(resized.pixels,resized.width,resized.height,deadline),admission=admitSourceColor(bytes),shape=dimensions(bytes);
   if(admission.colorStatus!=='declared_srgb'||admission.orientation!==1||shape.width!==resized.width||shape.height!==resized.height)throw Error('Derivative metadata contract failed');
-  return {bytes,receipt:{schema:'anejo-worker-source-normalization-v1',runtime:'local-worker-prototype',normalizerVersion:'resvg-lcms-rgba-1',kernelVersion:kernel.version,originalSha256:await sha(original),derivativeSha256:await sha(bytes),sourceProfileSha256:metadata.profile?await sha(metadata.profile):null,sourceColorStatus:metadata.colorStatus,outputColor:'declared_srgb',conversionPerformed:Boolean(metadata.profile),originalOrientation:metadata.orientation,originalWidth:W,originalHeight:H,width:shape.width,height:shape.height,resized:resized.resized,resizePolicy:'inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha',bytes:bytes.length,format:'png',visualReviewRequired:true,resourceReadiness:'unverified'}};
+  return {bytes,receipt:{schema:'anejo-worker-source-normalization-v1',runtime:'local-worker-prototype',normalizerVersion:'resvg-lcms-rgba-1',kernelVersion:kernel.version,originalSha256:await dispatch(deadline,'normalize_original_hash',()=>sha(original)),derivativeSha256:await dispatch(deadline,'normalize_derivative_hash',()=>sha(bytes)),sourceProfileSha256:metadata.profile?await dispatch(deadline,'normalize_profile_hash',()=>sha(metadata.profile)):null,sourceColorStatus:metadata.colorStatus,outputColor:'declared_srgb',conversionPerformed:Boolean(metadata.profile),originalOrientation:metadata.orientation,originalWidth:W,originalHeight:H,width:shape.width,height:shape.height,resized:resized.resized,resizePolicy:'inside-2000x2000-no-enlargement-bilinear-premultiplied-alpha',bytes:bytes.length,format:'png',visualReviewRequired:true,resourceReadiness:'unverified'}};
  },observation:()=>kernel.observation()});
 }

@@ -3,6 +3,7 @@ import {sha256,jpegDimensions} from '../../functions/_lib/marketing_render_recei
 import {createRenderJobStore} from './render-jobs.mjs';
 import {readConfirmedSourceArtifact} from './source-versions.mjs';
 import {readBoundedBody} from './bounded-body.mjs';
+import {readConfirmedNormalizedSource} from './normalized-source-versions.mjs';
 
 function canonical(value,depth=0){
  if(depth>6)throw Error('invalid_options');
@@ -36,7 +37,7 @@ async function object(media,key,stage,owned){
 
 // Caller is an internal trusted executor, NOT an HTTP client. No resource/approval gate
 // is satisfied here. Time, renderer code/assets and options are executor supplied.
-export async function consumePrivateRender({db,media,actorId,jobId,rendererVersion,options,render,now,leaseMs=30000,deadline}){
+export async function consumePrivateRender({db,media,actorId,jobId,rendererVersion,options,render,normalizeSource,now,leaseMs=30000,deadline}){
  const expiresAt=deadline===undefined?Number.MAX_SAFE_INTEGER:deadline?.expiresAt;
  if(!Number.isSafeInteger(expiresAt)||expiresAt<1)throw Error('invalid_execution_deadline');
  let deadlineLatched=false;
@@ -63,7 +64,7 @@ export async function consumePrivateRender({db,media,actorId,jobId,rendererVersi
  if(!leased)return {state:'no_job'};
  const d=leased.descriptor;
  const sourceBinding=JSON.stringify({postId:d.postId,mediaId:d.mediaId,postRevision:d.postRevision,sourceKey:d.sourceKey,sourceSha256:d.sourceSha256});
- const provenance=(metadata,versionKey)=>({...metadata,source_key:d.sourceKey,enhancement_method:'editorial_overlay',provenance_basis:'local_resvg_rehearsal',render_job_id:leased.id,render_fingerprint:leased.fingerprint,source_version_id:d.sourceVersionId,source_version_key:versionKey,source_metadata_sha256:d.sourceMetadataSha256});
+ const provenance=(metadata,versionKey,normalized=null)=>({...metadata,...(normalized?{normalized_source_version_id:normalized.id,normalized_source_key:normalized.derivativeKey,normalized_source_sha256:normalized.derivativeSha256,normalization_receipt_sha256:normalized.receiptSha256,normalizer_version:normalized.normalizerVersion}:{}),source_key:d.sourceKey,enhancement_method:'editorial_overlay',provenance_basis:'local_resvg_rehearsal',render_job_id:leased.id,render_fingerprint:leased.fingerprint,source_version_id:d.sourceVersionId,source_version_key:versionKey,source_metadata_sha256:d.sourceMetadataSha256});
  const target=()=>db.prepare(`SELECT p.status,p.updated_at,m.media_key FROM social_posts p JOIN social_post_media m ON m.post_id=p.id
   WHERE p.id=? AND m.id=? AND p.status='draft' AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=p.id AND revision=?) AND m.media_key=?
   AND COALESCE(p.media_type,'') NOT IN ('REELS','STORIES') AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing'))`)
@@ -78,7 +79,15 @@ export async function consumePrivateRender({db,media,actorId,jobId,rendererVersi
    FROM prototype_render_jobs j JOIN social_posts p ON p.id=? JOIN social_post_media m ON m.post_id=p.id AND m.id=?
    JOIN prototype_draft_versions v ON v.post_id=p.id JOIN prototype_source_versions sv ON sv.id=? AND sv.actor_id=? WHERE j.id=? AND j.actor_id=?`).bind(d.postId,d.mediaId,d.sourceVersionId,actorId,leased.id,actorId).first());
   if(linked?.source_state!=='confirmed'||linked.source_descriptor!==sourceBinding||linked.source_hash!==d.sourceSha256||linked.source_metadata_hash!==d.sourceMetadataSha256||linked.status!=='draft'||linked.job_status!=='rendered'||linked.fingerprint!==leased.fingerprint||linked.receipt_json!==JSON.stringify(current.receipt)||linked.updated_at!==linked.job_updated_at||linked.revision!==d.postRevision+2||linked.media_key!==current.receipt.outputKey)throw Error('saved_state_changed');
-  if(saved.metadataText!==metadataText(provenance(JSON.parse(linked.source_metadata_json),linked.source_version_key)))throw Error('output_readback_changed');
+  let normalized=null;
+  if(current.receipt.normalizedSource){
+   const binding=current.receipt.normalizedSource,artifact=await stage(()=>readConfirmedNormalizedSource({db,media,actorId,versionId:binding.versionId,deadline:sourceDeadline}));
+   if(!artifact||artifact.version.sourceVersionId!==d.sourceVersionId||artifact.version.derivativeKey!==binding.derivativeKey||artifact.version.derivativeSha256!==binding.derivativeSha256||artifact.version.receiptSha256!==binding.receiptSha256||artifact.version.normalizerVersion!==binding.normalizerVersion)throw Error('normalized_source_binding_changed');normalized=artifact.version;
+   // Normalized source reads await storage; recover only after current draft state is rechecked.
+   const again=await stage(()=>db.prepare('SELECT p.status,p.updated_at,m.media_key,v.revision FROM social_posts p JOIN social_post_media m ON m.post_id=p.id AND m.id=? JOIN prototype_draft_versions v ON v.post_id=p.id WHERE p.id=?').bind(d.mediaId,d.postId).first());
+   if(again?.status!==linked.status||again.updated_at!==linked.updated_at||again.media_key!==linked.media_key||again.revision!==linked.revision)throw Error('saved_state_changed');
+  }
+  if(saved.metadataText!==metadataText(provenance(JSON.parse(linked.source_metadata_json),linked.source_version_key,normalized)))throw Error('output_readback_changed');
   return {state:'attached',jobId:leased.id,receipt:current.receipt,humanReviewRequired:true,publicationApproved:false,resourceReadiness:'unverified'};
  };
  let outputKey=null,commitAttempted=false;
@@ -89,20 +98,30 @@ export async function consumePrivateRender({db,media,actorId,jobId,rendererVersi
   const artifact=await stage(()=>readConfirmedSourceArtifact({db,media,actorId,versionId:d.sourceVersionId,deadline:sourceDeadline}));
   if(!artifact||JSON.stringify(artifact.version.descriptor)!==sourceBinding||artifact.version.sourceSha256!==d.sourceSha256||artifact.version.metadataSha256!==d.sourceMetadataSha256)throw Error('source_version_binding_changed');
   const source={bytes:artifact.bytes,metadata:JSON.parse(artifact.version.metadataJson)};
-  const result=await stage(()=>render({source:source.bytes,options:renderOptions,templateId:d.templateId}));
+  let normalized=null;
+  if(normalizeSource){
+   normalized=await stage(()=>normalizeSource({artifact,deadline:sourceDeadline}));
+   const checked=await stage(()=>readConfirmedNormalizedSource({db,media,actorId,versionId:normalized?.version?.id,deadline:sourceDeadline}));
+   if(!checked||checked.version.sourceVersionId!==d.sourceVersionId||JSON.stringify(checked.version)!==JSON.stringify(normalized.version)||await stage(()=>sha256(normalized.bytes))!==checked.version.derivativeSha256)throw Error('normalized_source_binding_changed');normalized=checked;
+  }
+  const result=await stage(()=>render({source:normalized?.bytes??source.bytes,options:renderOptions,templateId:d.templateId}));
   const jpg=result.jpg;if(!(jpg instanceof Uint8Array))throw Error('invalid_render_output');
   const shape=jpegDimensions(jpg),outputHash=await stage(()=>sha256(jpg));
   // Attempt-specific namespace: an expired worker cannot overwrite a successor.
   outputKey=`studio/local-render/${leased.id}/${leased.leaseToken}.jpg`;
-  const outputMetadata=provenance(source.metadata,artifact.version.versionKey);
+  const outputMetadata=provenance(source.metadata,artifact.version.versionKey,normalized?.version);
   await stage(()=>media.put(outputKey,jpg,{httpMetadata:{contentType:'image/jpeg'},customMetadata:outputMetadata}));
   const output=await object(media,outputKey,stage,deadline!==undefined);
   if(output.hash!==outputHash||output.metadataText!==metadataText(outputMetadata))throw Error('output_readback_changed');
   const freshSource=await stage(()=>readConfirmedSourceArtifact({db,media,actorId,versionId:d.sourceVersionId,deadline:sourceDeadline}));
   if(!freshSource||JSON.stringify(freshSource.version)!==JSON.stringify(artifact.version))throw Error('source_version_binding_changed');
-  const receipt={outputKey,sha256:outputHash,outputBytes:jpg.length,width:shape.width,height:shape.height};
+  let normalizedBinding=null;
+  if(normalized){const checked=await stage(()=>readConfirmedNormalizedSource({db,media,actorId,versionId:normalized.version.id,deadline:sourceDeadline}));if(!checked||JSON.stringify(checked.version)!==JSON.stringify(normalized.version))throw Error('normalized_source_binding_changed');const n=normalized.version;normalizedBinding={versionId:n.id,derivativeKey:n.derivativeKey,derivativeSha256:n.derivativeSha256,receiptSha256:n.receiptSha256,normalizerVersion:n.normalizerVersion};}
+  const receipt={outputKey,sha256:outputHash,outputBytes:jpg.length,width:shape.width,height:shape.height,...(normalizedBinding?{normalizedSource:normalizedBinding}:{})};
   const at=now(),descriptorJson=JSON.stringify(d);
   // Check database execution time too: a queued batch may outlive its dispatch-time lease.
+  const normalizedSql=normalizedBinding?'EXISTS(SELECT 1 FROM prototype_normalized_source_versions WHERE id=? AND actor_id=? AND source_version_id=? AND normalizer_version=? AND state='confirmed' AND derivative_key=? AND derivative_sha256=? AND receipt_sha256=?)':'1=1';
+  const normalizedArgs=normalizedBinding?[normalizedBinding.versionId,actorId,d.sourceVersionId,normalizedBinding.normalizerVersion,normalizedBinding.derivativeKey,normalizedBinding.derivativeSha256,normalizedBinding.receiptSha256]:[];
   const versionSql=`EXISTS(SELECT 1 FROM prototype_source_versions WHERE id=? AND actor_id=? AND state='confirmed' AND descriptor_json=? AND source_sha256=? AND metadata_sha256=?)`;
   const versionArgs=[d.sourceVersionId,actorId,sourceBinding,d.sourceSha256,d.sourceMetadataSha256];
   const leaseSql=`EXISTS(SELECT 1 FROM prototype_render_jobs WHERE id=? AND actor_id=? AND fingerprint=? AND descriptor_json=? AND status='rendering' AND lease_token=? AND lease_until>MAX(?,CAST(unixepoch('subsec')*1000 AS INTEGER)))`;
@@ -116,18 +135,18 @@ export async function consumePrivateRender({db,media,actorId,jobId,rendererVersi
     WHERE id=? AND status='draft' AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=? AND revision=?)
     AND COALESCE(media_type,'') NOT IN ('REELS','STORIES')
     AND EXISTS(SELECT 1 FROM social_post_media WHERE id=? AND post_id=? AND media_key=?)
-    AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')) AND ${leaseSql} AND ${versionSql} AND ${deadlineSql}`)
-    .bind(at,d.postId,d.postId,d.postRevision,d.mediaId,d.postId,d.sourceKey,actorId,...leaseArgs,...versionArgs,...deadlineArgs),guard(),
+    AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')) AND ${leaseSql} AND ${versionSql} AND ${normalizedSql} AND ${deadlineSql}`)
+    .bind(at,d.postId,d.postId,d.postRevision,d.mediaId,d.postId,d.sourceKey,actorId,...leaseArgs,...versionArgs,...normalizedArgs,...deadlineArgs),guard(),
    db.prepare(`UPDATE social_post_media SET media_key=?,public_token=? WHERE id=? AND post_id=? AND media_key=?
     AND EXISTS(SELECT 1 FROM social_posts WHERE id=? AND status='draft')
     AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=? AND revision=?)
-    AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')) AND ${leaseSql} AND ${versionSql} AND ${deadlineSql}`)
-    .bind(outputKey,crypto.randomUUID(),d.mediaId,d.postId,d.sourceKey,d.postId,d.postId,d.postRevision+1,actorId,...leaseArgs,...versionArgs,...deadlineArgs),guard(),
+    AND EXISTS(SELECT 1 FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')) AND ${leaseSql} AND ${versionSql} AND ${normalizedSql} AND ${deadlineSql}`)
+    .bind(outputKey,crypto.randomUUID(),d.mediaId,d.postId,d.sourceKey,d.postId,d.postId,d.postRevision+1,actorId,...leaseArgs,...versionArgs,...normalizedArgs,...deadlineArgs),guard(),
    db.prepare(`UPDATE prototype_render_jobs SET status='rendered',receipt_json=?,lease_token=NULL,lease_until=NULL,updated_at=?,error_code=NULL
     WHERE id=? AND actor_id=? AND fingerprint=? AND descriptor_json=? AND status='rendering' AND lease_token=? AND lease_until>MAX(?,CAST(unixepoch('subsec')*1000 AS INTEGER))
     AND EXISTS(SELECT 1 FROM social_post_media WHERE id=? AND post_id=? AND media_key=?)
-    AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=? AND revision=?) AND ${versionSql} AND ${deadlineSql}`)
-    .bind(JSON.stringify(receipt),at,...leaseArgs,d.mediaId,d.postId,outputKey,d.postId,d.postRevision+2,...versionArgs,...deadlineArgs),guard(),
+    AND EXISTS(SELECT 1 FROM prototype_draft_versions WHERE post_id=? AND revision=?) AND ${versionSql} AND ${normalizedSql} AND ${deadlineSql}`)
+    .bind(JSON.stringify(receipt),at,...leaseArgs,d.mediaId,d.postId,outputKey,d.postId,d.postRevision+2,...versionArgs,...normalizedArgs,...deadlineArgs),guard(),
   ]);
   check();
   const saved=await recovered();if(!saved)throw Error('attachment_not_verified');return saved;
