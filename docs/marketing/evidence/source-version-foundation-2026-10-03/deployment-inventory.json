@@ -1,0 +1,227 @@
+[
+  {
+    "Id": "3805c17f-5283-4b1e-8ef3-b509814394b8",
+    "Environment": "Production",
+    "Branch": "main",
+    "Source": "a668dbf",
+    "Deployment": "https://3805c17f.anejo-app.pages.dev",
+    "Status": "13 seconds ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/3805c17f-5283-4b1e-8ef3-b509814394b8"
+  },
+  {
+    "Id": "a42f31f1-106d-4b74-aaaf-7cf09a37c526",
+    "Environment": "Preview",
+    "Branch": "codex/editorial-runtime-resource-proof",
+    "Source": "14d3608",
+    "Deployment": "https://a42f31f1.anejo-app.pages.dev",
+    "Status": "3 minutes ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/a42f31f1-106d-4b74-aaaf-7cf09a37c526"
+  },
+  {
+    "Id": "9fcdd468-7ae3-47b1-a3d6-77ffc616474c",
+    "Environment": "Preview",
+    "Branch": "codex/editorial-runtime-resource-proof",
+    "Source": "ea7a435",
+    "Deployment": "https://9fcdd468.anejo-app.pages.dev",
+    "Status": "6 minutes ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/9fcdd468-7ae3-47b1-a3d6-77ffc616474c"
+  },
+  {
+    "Id": "39cb3f55-f5aa-4ad2-b849-6f890e1a2594",
+    "Environment": "Preview",
+    "Branch": "codex/editorial-runtime-resource-proof",
+    "Source": "d0c1ce9",
+    "Deployment": "https://39cb3f55.anejo-app.pages.dev",
+    "Status": "16 minutes ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/39cb3f55-f5aa-4ad2-b849-6f890e1a2594"
+  },
+  {
+    "Id": "42306879-e3ef-462b-8b67-b79ae58359b8",
+    "Environment": "Preview",
+    "Branch": "codex/editorial-runtime-resource-proof",
+    "Source": "b5910ed",
+    "Deployment": "https://42306879.anejo-app.pages.dev",
+    "Status": "25 minutes ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/42306879-e3ef-462b-8b67-b79ae58359b8"
+  },
+  {
+    "Id": "32c0589a-6694-42c3-b1ae-f40dbbd9dbcf",
+    "Environment": "Preview",
+    "Branch": "codex/editorial-runtime-resource-proof",
+    "Source": "ee9af39",
+    "Deployment": "https://32c0589a.anejo-app.pages.dev",
+    "Status": "49 minutes ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/32c0589a-6694-42c3-b1ae-f40dbbd9dbcf"
+  },
+  {
+    "Id": "96664326-0b3e-49dc-80a9-71d485b8a485",
+    "Environment": "Preview",
+    "Branch": "codex/editorial-runtime-resource-proof",
+    "Source": "c40ad90",
+    "Deployment": "https://96664326.anejo-app.pages.dev",
+    "Status": "1 hour ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/96664326-0b3e-49dc-80a9-71d485b8a485"
+  },
+  {
+    "Id": "a00b6a41-3dca-48bb-a9f3-d200377551af",
+    "Environment": "Preview",
+    "Branch": "codex/editorial-runtime-resource-proof",
+    "Source": "66130cb",
+    "Deployment": "https://a00b6a41.anejo-app.pages.dev",
+    "Status": "1 hour ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/a00b6a41-3dca-48bb-a9f3-d200377551af"
+  },
+  {
+    "Id": "200e8752-f8a4-4a30-83e1-7c572043dbb2",
+    "Environment": "Preview",
+    "Branch": "codex/reviewed-strategy-content-flow",
+    "Source": "cf20f64",
+    "Deployment": "https://200e8752.anejo-app.pages.dev",
+    "Status": "1 hour ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/200e8752-f8a4-4a30-83e1-7c572043dbb2"
+  },
+  {
+    "Id": "da2491c5-2682-451f-9ce9-324e106a5064",
+    "Environment": "Production",
+    "Branch": "main",
+    "Source": "2386a74",
+    "Deployment": "https://da2491c5.anejo-app.pages.dev",
+    "Status": "1 hour ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/da2491c5-2682-451f-9ce9-324e106a5064"
+  },
+  {
+    "Id": "33744296-7586-4d40-9a32-a83628441cc3",
+    "Environment": "Preview",
+    "Branch": "codex/reviewed-strategy-content-flow",
+    "Source": "75791ed",
+    "Deployment": "https://33744296.anejo-app.pages.dev",
+    "Status": "1 hour ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/33744296-7586-4d40-9a32-a83628441cc3"
+  },
+  {
+    "Id": "0a9cbdfb-139d-45cb-9ada-45fca64da507",
+    "Environment": "Preview",
+    "Branch": "codex/provider-diagnostic-specificity",
+    "Source": "0f0a28d",
+    "Deployment": "https://0a9cbdfb.anejo-app.pages.dev",
+    "Status": "1 hour ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/0a9cbdfb-139d-45cb-9ada-45fca64da507"
+  },
+  {
+    "Id": "3178fe77-b169-48e0-981b-1232da8def13",
+    "Environment": "Production",
+    "Branch": "main",
+    "Source": "4478783",
+    "Deployment": "https://3178fe77.anejo-app.pages.dev",
+    "Status": "1 hour ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/3178fe77-b169-48e0-981b-1232da8def13"
+  },
+  {
+    "Id": "03860eda-d260-4a62-b989-bc0981ac2a17",
+    "Environment": "Preview",
+    "Branch": "codex/provider-diagnostic-specificity",
+    "Source": "3287e09",
+    "Deployment": "https://03860eda.anejo-app.pages.dev",
+    "Status": "1 hour ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/03860eda-d260-4a62-b989-bc0981ac2a17"
+  },
+  {
+    "Id": "b67167da-1923-46e1-a510-3300b2fc9b0a",
+    "Environment": "Production",
+    "Branch": "main",
+    "Source": "e189398",
+    "Deployment": "https://b67167da.anejo-app.pages.dev",
+    "Status": "1 hour ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/b67167da-1923-46e1-a510-3300b2fc9b0a"
+  },
+  {
+    "Id": "5ab27052-bad4-4af2-80cc-618bd7b98069",
+    "Environment": "Preview",
+    "Branch": "codex/content-flow-rehearsal",
+    "Source": "a873ccd",
+    "Deployment": "https://5ab27052.anejo-app.pages.dev",
+    "Status": "2 hours ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/5ab27052-bad4-4af2-80cc-618bd7b98069"
+  },
+  {
+    "Id": "86a3f056-6dd1-47c5-a229-f760b92c4e3a",
+    "Environment": "Preview",
+    "Branch": "codex/audit-provider-diagnostics",
+    "Source": "a873ccd",
+    "Deployment": "https://86a3f056.anejo-app.pages.dev",
+    "Status": "2 hours ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/86a3f056-6dd1-47c5-a229-f760b92c4e3a"
+  },
+  {
+    "Id": "677d2434-44d7-4164-b308-fd24659ffdce",
+    "Environment": "Preview",
+    "Branch": "codex/audit-provider-diagnostics",
+    "Source": "c2b64f5",
+    "Deployment": "https://677d2434.anejo-app.pages.dev",
+    "Status": "2 hours ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/677d2434-44d7-4164-b308-fd24659ffdce"
+  },
+  {
+    "Id": "511e0f8d-9979-4548-847e-17adf79d735b",
+    "Environment": "Production",
+    "Branch": "main",
+    "Source": "b8d598e",
+    "Deployment": "https://511e0f8d.anejo-app.pages.dev",
+    "Status": "2 hours ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/511e0f8d-9979-4548-847e-17adf79d735b"
+  },
+  {
+    "Id": "7268dc25-1817-49bd-bff7-6ed53036d974",
+    "Environment": "Preview",
+    "Branch": "codex/audit-provider-diagnostics",
+    "Source": "ffe061b",
+    "Deployment": "https://7268dc25.anejo-app.pages.dev",
+    "Status": "2 hours ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/7268dc25-1817-49bd-bff7-6ed53036d974"
+  },
+  {
+    "Id": "01dc74da-817d-40cf-b51b-8bbf74a9ff89",
+    "Environment": "Preview",
+    "Branch": "codex/audit-scope-dispositions",
+    "Source": "44c350e",
+    "Deployment": "https://01dc74da.anejo-app.pages.dev",
+    "Status": "2 hours ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/01dc74da-817d-40cf-b51b-8bbf74a9ff89"
+  },
+  {
+    "Id": "ea288aee-b6b1-4af9-b4a1-cf7e0ec0d5b9",
+    "Environment": "Production",
+    "Branch": "main",
+    "Source": "1e8c1d0",
+    "Deployment": "https://ea288aee.anejo-app.pages.dev",
+    "Status": "2 hours ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/ea288aee-b6b1-4af9-b4a1-cf7e0ec0d5b9"
+  },
+  {
+    "Id": "044349d6-616b-4027-bfb6-141fe5acf31c",
+    "Environment": "Preview",
+    "Branch": "codex/audit-scope-dispositions",
+    "Source": "11a99fc",
+    "Deployment": "https://044349d6.anejo-app.pages.dev",
+    "Status": "2 hours ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/044349d6-616b-4027-bfb6-141fe5acf31c"
+  },
+  {
+    "Id": "35af1fd6-1ab7-4f68-ab53-0fd2bef85594",
+    "Environment": "Preview",
+    "Branch": "codex/audit-caption-source-contract",
+    "Source": "75b38d9",
+    "Deployment": "https://35af1fd6.anejo-app.pages.dev",
+    "Status": "2 hours ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/35af1fd6-1ab7-4f68-ab53-0fd2bef85594"
+  },
+  {
+    "Id": "973fa72e-fc0a-4cbb-9368-fdc899a8e3ba",
+    "Environment": "Preview",
+    "Branch": "codex/audit-caption-source-contract",
+    "Source": "0809ef0",
+    "Deployment": "https://973fa72e.anejo-app.pages.dev",
+    "Status": "2 hours ago",
+    "Build": "https://dash.cloudflare.com/5f4657e9b2f17a109f7c0406be0c7119/pages/view/anejo-app/973fa72e-fc0a-4cbb-9368-fdc899a8e3ba"
+  }
+]

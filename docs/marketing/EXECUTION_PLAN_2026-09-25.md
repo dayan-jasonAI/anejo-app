@@ -307,3 +307,7 @@ Local counter/tombstone triggers replace the consumer timestamp revision; post-f
 ## October 3 — preserved-source foundation and narrow application safeguards
 
 Local actor/request/source-version capture and conditional create/readback pass fourteen actual D1/R2 tests; prototype118pass/one explicit skip. Training deletion now confines cleanup to training uploads and Hub source-version media requires MARKETING_DESK; root3,577tests/lint/build pass. Evidence: SOURCE_VERSION_FOUNDATION_2026-10-03.md. Release pending; capture is not yet consumer-bound or bucket-wide immutable. Next exact version/job/CAS integration plus production resource/auth/parity gates. Full goal remains open.
+
+### Source protection release receipt
+
+PR194 merged a668dbf after all four exact-head checks. Provider inventory lists production3805c17f/sourcea668dbf; normal homepage and bounded public verifications succeed. Strict deployment API verifier lacks environment auth and private safeguard acceptance remains unverified; no production migration/source capture. Evidence: SOURCE_VERSION_FOUNDATION_2026-10-03.md. Capture remains local/unbound to consumer; next version selection/CAS integration plus immutable writer policy and deployed resource/parity/auth proof. Full goal remains open.

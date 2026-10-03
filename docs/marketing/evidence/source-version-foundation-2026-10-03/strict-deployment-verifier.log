@@ -1,0 +1,5 @@
+
+> anejo-app@1.0.0 verify:deploy
+> node scripts/verify-live-deploy.mjs --strict
+
+? live deploy: CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set — cannot read what is live
