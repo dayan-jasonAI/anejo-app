@@ -11,3 +11,14 @@ Validation: `npm test --prefix tools/marketing-render-prototype` passed 31/31. A
 Remaining: ICC/color normalization, browser/WASM typography and halo parity, deployed CPU/peak-memory/concurrency proof, durable job integration, and owner review of real generated output. No new approval is needed to continue this authorized internal work. External Google API approval and designated staff sessions remain separate prerequisites. The full marketing goal stays active.
 
 Rollback: revert this prototype-only change; no data migration is involved.
+
+
+## Checked merge
+
+PR https://github.com/dayan-jasonAI/anejo-app/pull/180 merged as `1cb4024b8a8bebc0f3e67db2c29982b60863a25c`. Exact head `306cd95ca903e94de35f7e75fc2c5636a5f780df` passed Functions test/auth+lint, Studio lint/test/build, and Cloudflare preview (CI run37102338542). The feature is merged prototype code; it is not integrated into a production rendering job. No live capability claim follows from this merge.
+
+## Next color contract
+
+Root inspection confirms sourceGraphic embeds source bytes and removes only PNG eXIf from its decoder copy. The installed resvg option declarations expose no explicit ICC conversion setting, and the JPEG encoder writes APP0/optional APP1 without an ICC output step. A read-only review proposed Sharp preprocessing; its reported synthetic ICC observations lack a persisted reproducible probe and remain Unverified. Native Node preprocessing is not evidence of workerd compatibility.
+
+Next implementation must preserve original bytes/hash, separately identify the upright derivative, record profile/normalizer versions and source-color assumptions, and prove all eight orientation transforms are applied only once. Require reproducible reference-color fixtures, alpha preservation, malformed/conflicting-profile rejection, deterministic output and measured derivative byte/memory limits. Browser normalization and Worker-compatible normalization require separate evidence. No additional owner decision is needed for this internal engineering step.
