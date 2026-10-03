@@ -293,3 +293,7 @@ Local native/bounded-fallback base64 conversion plus typed JPEG scratch arrays p
 ## October 3 — durable local job ownership and upload limits
 
 83 prototype tests pass with one explicit native Node skip; four joined-content tests pass. Real SQLite competing handles and local workerd D1 prove bounded actor/request lease behavior; source/attachment/resource verification remains separate. Extracted body reader gains deadline/fragment/overflow tests, 66 renderer hashes preserved. See RENDER_JOB_STORE_2026-10-03.md. Current production plan is unknown behind Cloudflare sign-in; no credentials/settings changed. Continued local store work while sign-in pending. Next: private source/render/output/attachment consumer rehearsal with exact lease/source fencing, and production resource/parity proof. Full goal remains open.
+
+## October 3 — private consumer and execution-time lease repair
+
+Local consumer joins original source, pinned render, output readback and atomic draft attachment with audit/schedule invalidation. Independent review reproduced and root repaired delayed-batch lease expiry; 97 prototype tests pass/one explicit native Node skip, two local workerd D1 clock/guard tests pass. Evidence and exact limits: PRIVATE_RENDER_CONSUMER_2026-10-03.md. Complete consumer currently uses migrated SQLite plus R2 double; full D1/R2/runtime resource/parity acceptance and authenticated app integration remain open. No deployment, production schema or trust change. Full goal remains open.

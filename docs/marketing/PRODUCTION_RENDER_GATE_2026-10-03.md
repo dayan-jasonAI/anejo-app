@@ -19,3 +19,7 @@ Official sources read October 3:
 6. Establish atomic actor/request identity, bounded leased attempts, stale-worker fencing, source/options/post rechecks, original-preserving output key, R2 readback and atomic draft attachment with audit/schedule invalidation. A rendered job is not an attached/reviewed/published post. Resource gates remain independent of logical job-store tests.
 
 Safe parallel work: local SQLite/D1-compatible job-store foundation and race/recovery tests without production schema/routes. Browser sign-in and billing/API dependencies do not block that work. Full marketing scope remains unchanged and incomplete.
+
+## October 3 — private consumer and execution-time lease repair
+
+Local consumer joins original source, pinned render, output readback and atomic draft attachment with audit/schedule invalidation. Independent review reproduced and root repaired delayed-batch lease expiry; 97 prototype tests pass/one explicit native Node skip, two local workerd D1 clock/guard tests pass. Evidence and exact limits: PRIVATE_RENDER_CONSUMER_2026-10-03.md. Complete consumer currently uses migrated SQLite plus R2 double; full D1/R2/runtime resource/parity acceptance and authenticated app integration remain open. No deployment, production schema or trust change. Full goal remains open.

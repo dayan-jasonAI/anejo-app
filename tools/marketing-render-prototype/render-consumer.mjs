@@ -27,6 +27,8 @@ async function object(media,key){
 // Caller is an internal trusted executor, NOT an HTTP client. No resource/approval gate
 // is satisfied here. Time, renderer code/assets and options are executor supplied.
 export async function consumePrivateRender({db,media,actorId,rendererVersion,options,render,now,leaseMs=30000}){
+ const renderOptions=canonical(options);
+ const freeze=v=>{if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v);}return v;};freeze(renderOptions);
  const store=createRenderJobStore(db),leased=await store.claim({actorId,now:now(),leaseMs});
  if(!leased)return {state:'no_job'};
  const d=leased.descriptor;
@@ -45,10 +47,10 @@ export async function consumePrivateRender({db,media,actorId,rendererVersion,opt
  };
  let outputKey=null,commitAttempted=false;
  try{
-  if(d.rendererVersion!==rendererVersion||d.optionsHash!==await renderOptionsHash(options)||options.templateId!==d.templateId)throw Error('render_binding_changed');
+  if(d.rendererVersion!==rendererVersion||d.optionsHash!==await renderOptionsHash(renderOptions)||renderOptions.templateId!==d.templateId)throw Error('render_binding_changed');
   if(!await target())throw Error('draft_changed');
   const source=await object(media,d.sourceKey);if(source.hash!==d.sourceSha256)throw Error('source_changed');
-  const result=await render({source:source.bytes,options,templateId:d.templateId});
+  const result=await render({source:source.bytes,options:renderOptions,templateId:d.templateId});
   const jpg=result.jpg;if(!(jpg instanceof Uint8Array))throw Error('invalid_render_output');
   const shape=jpegDimensions(jpg),outputHash=await sha256(jpg);
   // Attempt-specific namespace: an expired worker cannot overwrite a successor.
@@ -61,7 +63,8 @@ export async function consumePrivateRender({db,media,actorId,rendererVersion,opt
   if(freshSource.hash!==source.hash||freshSource.metadataText!==source.metadataText)throw Error('source_changed');
   const receipt={outputKey,sha256:outputHash,outputBytes:jpg.length,width:shape.width,height:shape.height};
   const at=now(),descriptorJson=JSON.stringify(d);
-  const leaseSql=`EXISTS(SELECT 1 FROM prototype_render_jobs WHERE id=? AND actor_id=? AND fingerprint=? AND descriptor_json=? AND status='rendering' AND lease_token=? AND lease_until>?)`;
+  // Check database execution time too: a queued batch may outlive its dispatch-time lease.
+  const leaseSql=`EXISTS(SELECT 1 FROM prototype_render_jobs WHERE id=? AND actor_id=? AND fingerprint=? AND descriptor_json=? AND status='rendering' AND lease_token=? AND lease_until>MAX(?,CAST(unixepoch('subsec')*1000 AS INTEGER)))`;
   const leaseArgs=[leased.id,actorId,leased.fingerprint,descriptorJson,leased.leaseToken,at];
   const guard=()=>db.prepare(`INSERT INTO prototype_render_guards(success) VALUES(CASE WHEN changes()=1 THEN 1 ELSE 0 END)`);
   commitAttempted=true;
@@ -74,7 +77,7 @@ export async function consumePrivateRender({db,media,actorId,rendererVersion,opt
     WHERE id=? AND status='draft' AND updated_at=? AND EXISTS(SELECT 1 FROM social_post_media WHERE id=? AND post_id=? AND media_key=?) AND ${leaseSql}`)
     .bind(at,d.postId,d.postRevision,d.mediaId,d.postId,outputKey,...leaseArgs),guard(),
    db.prepare(`UPDATE prototype_render_jobs SET status='rendered',receipt_json=?,lease_token=NULL,lease_until=NULL,updated_at=?,error_code=NULL
-    WHERE id=? AND actor_id=? AND fingerprint=? AND descriptor_json=? AND status='rendering' AND lease_token=? AND lease_until>?
+    WHERE id=? AND actor_id=? AND fingerprint=? AND descriptor_json=? AND status='rendering' AND lease_token=? AND lease_until>MAX(?,CAST(unixepoch('subsec')*1000 AS INTEGER))
     AND EXISTS(SELECT 1 FROM social_post_media WHERE id=? AND post_id=? AND media_key=?)`)
     .bind(JSON.stringify(receipt),at,...leaseArgs,d.mediaId,d.postId,outputKey),guard(),
   ]);

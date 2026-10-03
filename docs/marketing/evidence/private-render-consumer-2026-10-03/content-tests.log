@@ -1,0 +1,12 @@
+✔ continuous local library/render/audit/manual schedule flow: audit stubbed pass (587.389333ms)
+✔ continuous local library/render/audit/manual schedule flow: audit unavailable (521.006583ms)
+✔ continuous local reviewed strategy/photo/render/audit/manual schedule: judge synthetic pass (636.062541ms)
+✔ continuous local reviewed strategy/photo/render/audit/manual schedule: judge unavailable (551.90125ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1251.276333

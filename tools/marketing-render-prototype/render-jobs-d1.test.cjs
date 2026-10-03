@@ -22,3 +22,24 @@ test('local workerd D1 executes actor idempotency, atomic claims and stale fenci
  assert.equal((await store.complete({actorId:'owner-1',jobId:fresh.id,leaseToken:fresh.leaseToken,receipt:output,now:201})).status,'rendered');
  assert.equal(await store.claim({actorId:'owner-1',now:300,leaseMs:100}),null);
 });
+
+test('local workerd D1 evaluates lease expiry using its execution clock',{timeout:20000},async t=>{
+ const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'lease-clock-check',script:'export default {fetch(){return new Response("local-only")}}',modules:true,compatibilityDate:'2026-05-01',d1Databases:{DB:'lease-clock-local'}}],cf:false,host:'127.0.0.1',port:0}));
+ t.after(()=>mf.dispose());const db=await mf.getD1Database('DB');
+ const before=Date.now();const clock=await db.prepare("SELECT CAST(unixepoch('subsec')*1000 AS INTEGER) AS at").first();
+ assert.ok(Number.isSafeInteger(clock.at));assert.ok(clock.at>=before-1000 && clock.at<=Date.now()+1000);
+ await db.exec('CREATE TABLE lease_clock (id INTEGER PRIMARY KEY, lease_until INTEGER, attached INTEGER);');
+ const dispatch=Date.now();await db.prepare('INSERT INTO lease_clock VALUES(1,?,0)').bind(dispatch+30).run();
+ await new Promise(resolve=>setTimeout(resolve,60));
+ await db.prepare("UPDATE lease_clock SET attached=1 WHERE id=1 AND lease_until>MAX(?,CAST(unixepoch('subsec')*1000 AS INTEGER))").bind(dispatch).run();
+ assert.equal((await db.prepare('SELECT attached FROM lease_clock').first()).attached,0);
+ await db.exec('CREATE TABLE clock_guards (success INTEGER CHECK(success=1));');
+ const guard=()=>db.prepare('INSERT INTO clock_guards VALUES(CASE WHEN changes()=1 THEN 1 ELSE 0 END)');
+ // A zero-row update is not itself an error; its guard must abort the batch.
+ await assert.rejects(db.batch([
+  db.prepare('UPDATE lease_clock SET attached=1 WHERE id=1'),guard(),
+  db.prepare("UPDATE lease_clock SET attached=2 WHERE id=1 AND lease_until>MAX(?,CAST(unixepoch('subsec')*1000 AS INTEGER))").bind(dispatch),guard()
+ ]));
+ assert.equal((await db.prepare('SELECT attached FROM lease_clock').first()).attached,0);
+ assert.equal((await db.prepare('SELECT count(*) AS n FROM clock_guards').first()).n,0);
+});
