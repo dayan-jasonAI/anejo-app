@@ -21,6 +21,7 @@ import { generateReferenceVariant, REFERENCE_BOWL_KEYS, BOWL_DISPLAY } from '../
 import { noteTrustApproval } from '../../../_lib/trust_ledger.js';
 import { loadTokenExpiry, saveTokenExpiry, tokenExpiryStatus } from '../../../_lib/instagram_token_expiry.js';
 import { stampPostProvenance } from '../../../_lib/post_provenance.js';
+import { photoDeclarationSummaries } from '../../../_lib/photo_declaration_summary.js';
 
 // Instagram's own cap. Worth knowing locally so a scheduled batch cannot quietly burn it.
 const DAILY_CAP = 25;
@@ -98,6 +99,8 @@ export const onRequestGet = async ({ request, env }) => {
   // draft shows what publishing WILL fix or warn about; a published post shows what actually went
   // out, because publishSocialPost persists its own reorder before calling Instagram.
   for (const post of posts) post.cover_status = coverStatus(post.media);
+  const photoDeclarations=await photoDeclarationSummaries(env,posts);
+  for (const post of posts) post.photo_evidence=photoDeclarations.get(post.id);
 
   // Latest performance snapshot per media id, attached to our published posts. NULL until the
   // daily sweep has run — the page says "no data yet", never fake zeros.
