@@ -8,7 +8,7 @@ const root=new URL('../../',import.meta.url);
 const read=path=>readFileSync(new URL(path,root));
 const find=name=>Object.values(registry).find(r=>r.file.endsWith(name));
 test('all 26 registry keys independently match actual JPEG bytes and generated module is deterministic',()=>{
- assert.equal(Object.keys(registry).length,26);assert.equal(DESIGN_FACTS_VERSION,'anejo-reviewed-design-facts-3');
+ assert.equal(Object.keys(registry).length,26);assert.equal(DESIGN_FACTS_VERSION,'anejo-reviewed-design-facts-4');
  for(const [key,r] of Object.entries(registry)){const bytes=read(r.file);assert.equal(createHash('sha256').update(bytes).digest('hex'),key);assert.equal(bytes.length,r.output.byte_length);assert.equal(key,r.output.sha256);assert.ok(Buffer.byteLength(JSON.stringify(r))<=8192);assert.ok(r.limits.some(s=>s.includes('not independent OCR')));}
  assert.equal(moduleText(buildDesignFacts()),read('functions/_lib/audit_design_facts.generated.js').toString());
 });
@@ -40,5 +40,13 @@ test('reviewed wording scope remains bound to exact declared text and bytes',()=
  assert.equal(find('gather-07.jpg').rendered_text[0].claim_kind,'named_product');
  const personal=find('personal-09.jpg').rendered_text.filter(r=>r.product_claim_id);
  assert.deepEqual(personal.map(r=>r.claim_kind),['quantity','ingredient']);
- for(const record of Object.values(registry))for(const run of record.rendered_text)if(run.product_claim_id)assert.ok(['product_category','named_product','ingredient','quantity'].includes(run.claim_kind));
+ for(const record of Object.values(registry))for(const run of record.rendered_text)if(run.product_claim_id)assert.ok(['product_category','named_product','ingredient','quantity','ordering'].includes(run.claim_kind));
 });
+
+ test('reviewed operational timing remains an exact mandatory ordering declaration',()=>{
+ const run=find('personal-10.jpg').rendered_text.find(w=>w.text==='Standard orders: at least 48 hours. Custom printing: at least 72 hours and a reviewed quote.');
+ assert.equal(run.claim_kind,'ordering');assert.ok(run.product_claim_id);
+ const changed=buildDesignFacts({read:path=>{const b=read(path);if(path.endsWith('/manifest.json')){const m=JSON.parse(b);for(const p of m.posts)for(const s of p.slides)if(s.file==='slides/personal-10.jpg')for(const row of s.rows)if(row[1]===run.text)row[1]='Standard orders: at least 24 hours.';return Buffer.from(JSON.stringify(m));}return b;}});
+ const modified=Object.values(changed).find(r=>r.file.endsWith('personal-10.jpg')).rendered_text.find(w=>w.text==='Standard orders: at least 24 hours.');
+ assert.equal(modified.claim_kind,undefined);assert.equal(modified.product_claim_id,undefined);
+ });

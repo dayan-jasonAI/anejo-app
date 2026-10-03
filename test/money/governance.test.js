@@ -277,7 +277,7 @@ function emptyWrittenReview(init) {
  if(!request?.output_config?.format?.schema?.required?.includes('omitted_claims'))return null;
  const input=JSON.parse(request.messages[0].content);
  assert.equal(input.claims.length,0);
- return modelAnswer({assessments:[],omitted_claims:[],source_coverage:input.written_sources.map(s=>s.id)})();
+ return modelAnswer({assessments:[],non_assertions:[],omitted_claims:[],source_coverage:input.written_sources.map(s=>s.id)})();
 }
 test('visual audit sends ordered actual JPEG blocks and flags observed visual faults',async()=>{
  const {db}=stubDb({menuItems:MENU});const savedFetch=globalThis.fetch;let sent;

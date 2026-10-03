@@ -8,7 +8,7 @@ function authorityFixture(init){
  const request=init?.body?JSON.parse(init.body):null;
  if(!request?.output_config?.format?.schema?.required?.includes('omitted_claims'))return null;
  const input=JSON.parse(request.messages[0].content);
- return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({assessments:[],omitted_claims:[],source_coverage:input.written_sources.map(s=>s.id)})}]})};
+ return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({assessments:[],non_assertions:[],omitted_claims:[],source_coverage:input.written_sources.map(s=>s.id)})}]})};
 }
 const answer=()=>({rubric_version:VERSION,product_evidence:{scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]},observations:Object.fromEntries(CRITERIA.map(c=>[c.id,{status:'met',evidence_anchor:'slide:1',caption_line:0,slides:[1],explanation:'The visible result meets this criterion.'}])),suggestions:[]});
 test('visual candidate sends rubric and retained coverage, no image persistence',async()=>{
@@ -77,7 +77,7 @@ test('actual visual request numbers publication JPEGs first and reference PNG la
  try{await auditDraft(env,{caption:'Menu',images:['cover','cajitas','tray','bites','combo','cta'].map(data=>({data}))});
  const content=request.messages[0].content;const pictures=content.filter(c=>c.type==='image');assert.deepEqual(pictures.slice(0,6).map(c=>c.source.data),['cover','cajitas','tray','bites','combo','cta']);assert.equal(pictures[6].source.media_type,'image/png');assert.equal(pictures.length,7);
  for(let i=0;i<6;i++){assert.match(content[1+2*i].text,new RegExp('^Slide '+(i+1)));assert.equal(content[2+2*i].source.data,pictures[i].source.data);}
- assert.match(content[1].text,/COVER/);assert.match(content[13].text,/END OF NUMBERED CAROUSEL/);assert.match(content[13].text,/excluded from slide count/);assert.equal(content[14].source.media_type,'image/png');assert.deepEqual(request.output_config.format.schema.properties.observations.properties.branding.properties.slides.items.enum,[1,2,3,4,5,6]);assert.equal(VERSION,'anejo-visual-17');
+ assert.match(content[1].text,/COVER/);assert.match(content[13].text,/END OF NUMBERED CAROUSEL/);assert.match(content[13].text,/excluded from slide count/);assert.equal(content[14].source.media_type,'image/png');assert.deepEqual(request.output_config.format.schema.properties.observations.properties.branding.properties.slides.items.enum,[1,2,3,4,5,6]);assert.equal(VERSION,'anejo-visual-18');
  }finally{globalThis.fetch=original;}
 });
 
@@ -135,7 +135,7 @@ for(const assessment of ['supported','unresolved','contradicted'])test('dedicate
   const request=JSON.parse(options.body);requests.push(request);
   let output;
   if(requests.length===1){output=answer();output.observations.branding={...output.observations.branding,status:'unknown',explanation:'Emblem comparison uncertain.'};output.observations.product_fidelity={...output.observations.product_fidelity,status:'unknown',explanation:'Multimodal candidate cannot identify pictured ingredients.'};output.product_evidence={scope:'explicit_claims',claims:[{source:'registered_overlay',caption_line:0,slide:1,quote:'Grazing skewers',claim_id:'pc_scoped',authority_refs:[],assessment:'unresolved'}],unreadable_slides:[]};}
-  else {const input=JSON.parse(request.messages[0].content);output={omitted_claims:[],source_coverage:input.written_sources.map(s=>s.id),assessments:[{id:'claim:0',claim_kind:'product_category',assessment,authority_refs:assessment==='unresolved'?[]:[input.authority_references[0].id]}]};}
+  else {const input=JSON.parse(request.messages[0].content);output={non_assertions:[],omitted_claims:[],source_coverage:input.written_sources.map(s=>s.id),assessments:[{id:'claim:0',claim_kind:'product_category',assessment,authority_refs:assessment==='unresolved'?[]:[input.authority_references[0].id]}]};}
   return {ok:true,json:async()=>({usage:{input_tokens:10,output_tokens:10},stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(output)}]})};
  };
  try{
@@ -165,7 +165,7 @@ test('zero visual claims still invokes independent full-text extraction and pres
   calls++;const request=JSON.parse(options.body);
   if(calls===1)return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(answer())}]})};
   const input=JSON.parse(request.messages[0].content);assert.equal(input.written_sources[0].wording,'No pineapple.');assert.equal(input.claims.length,0);
-  const output={assessments:[],source_coverage:['caption:1'],omitted_claims:[{source_id:'caption:1',quote:'No pineapple.',claim_kind:'ingredient',assessment:'contradicted',authority_refs:[input.authority_references[0].id]}]};
+  const output={assessments:[],source_coverage:['caption:1'],non_assertions:[],omitted_claims:[{source_id:'caption:1',quote:'No pineapple.',claim_kind:'ingredient',assessment:'contradicted',authority_refs:[input.authority_references[0].id]}]};
   return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(output)}]})};
  };
  try{const result=await auditDraft(env,{caption:'No pineapple.',images:[{data:'fixture'}]});assert.equal(calls,2);assert.equal(result.verdict,'flag');assert.equal(result.observations.find(o=>o.criterion_id==='product_fidelity').status,'violated');assert.equal(result.product_evidence.claims[0].quote,'No pineapple.');}finally{globalThis.fetch=original;}
@@ -198,7 +198,7 @@ test('visual stage selects caption references without copying claims; full long 
   const input=JSON.parse(request.messages[0].content);
   assert.deepEqual(input.written_sources.map(s=>s.wording),caption.split('\n'));
   assert.equal(input.claims.length,0);assert.ok(!JSON.stringify(request).includes('PRIVATE_IMAGE'));
-  const output={assessments:[],source_coverage:['caption:1','caption:2'],omitted_claims:[
+  const output={assessments:[],source_coverage:['caption:1','caption:2'],non_assertions:[],omitted_claims:[
    {source_id:'caption:1',quote:'No pineapple.',claim_kind:'ingredient',assessment:'contradicted',authority_refs:[input.authority_references[0].id]},
    {source_id:'caption:2',quote:'This image shows the exact assortment.',claim_kind:'exact_photo_assortment',assessment:'unresolved',authority_refs:[]}
   ]};
@@ -216,4 +216,24 @@ test('visual stage cannot sneak in a copied or invented caption claim',async()=>
  const env=ownerEnv({ANTHROPIC_API_KEY:'test'}),original=globalThis.fetch;let calls=0;
  globalThis.fetch=async()=>{calls++;const output=answer();output.product_evidence={scope:'explicit_claims',claims:[{source:'caption',caption_line:1,slide:0,quote:'Invented wording',claim_id:'',authority_refs:[],assessment:'unresolved'}],unreadable_slides:[]};return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(output)}]})};};
  try{const result=await auditDraft(env,{caption:'Actual source',images:[{data:'image'}]});assert.equal(calls,1);assert.equal(result.audit_diagnostic.issue,'caption_claim_in_visual_stage');assert.equal(result.brand_score,null);}finally{globalThis.fetch=original;}
+});
+
+test('nonassertive caption spans are recorded without hiding an adjacent factual claim',async()=>{
+ const env=ownerEnv({ANTHROPIC_API_KEY:'test'}),original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async(_,options)=>{
+  calls++;const request=JSON.parse(options.body);
+  if(calls===1){const output=answer();output.observations.branding={...output.observations.branding,status:'unknown',explanation:'Visual emblem needs review.'};return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(output)}]})};}
+  const input=JSON.parse(request.messages[0].content);
+  assert.equal(input.written_sources[0].wording,'A table worth gathering around. No peanuts.');
+  const output={assessments:[],source_coverage:['caption:1','caption:2'],non_assertions:[{source_id:'caption:1',quote:'A table worth gathering around.',reason:'tagline'},{source_id:'caption:2',quote:'#WestPalmBeach #ComidaCubana',reason:'hashtag_only'}],omitted_claims:[{source_id:'caption:1',quote:'No peanuts.',claim_kind:'ingredient',assessment:'unresolved',authority_refs:[]}]};
+  return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(output)}]})};
+ };
+ try{
+  const result=await auditDraft(env,{caption:'A table worth gathering around. No peanuts.\n#WestPalmBeach #ComidaCubana',images:[{data:'fixture'}]});
+  assert.equal(calls,2);assert.equal(result.brand_score,null);assert.equal(result.verdict,'flag');
+  assert.equal(result.observations.find(o=>o.criterion_id==='branding').status,'unknown');
+  assert.equal(result.observations.find(o=>o.criterion_id==='product_fidelity').status,'unknown');
+  assert.equal(result.product_evidence.claims.length,1);assert.equal(result.product_evidence.claims[0].quote,'No peanuts.');
+  assert.equal(result.input_coverage.written_claim_review.non_assertions.length,2);
+ }finally{globalThis.fetch=original;}
 });

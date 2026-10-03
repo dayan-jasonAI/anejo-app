@@ -248,3 +248,12 @@ PR187 merged6e481c1 after all four checks passed, production deployment1a4e3450-
 ### V17 caption-source repair — local checkpoint October3
 
 Root implemented initial visual-stage exclusion of caption claim recopy; complete independent words-only source extraction remains exact and mandatory. Bounded written-review agent added service/customization/ordering scopes and failed-claim diagnostic evidence; root reviewed and retained diagnostics through governance. Independent review found no new blocking guard regression. Root3482/3482 tests and57focused passed, lint0errors/11existingwarnings. No public post/credentials/trust change. Release/live semantics pending; CAPTION_SOURCE_CONTRACT_2026-10-03.md records scope, evidence and limits. Full marketing objective remains open.
+
+
+### V17 live checkpoint and private recovery correction — October3
+
+PR188 merged36ef74d with all four checks passed; active productionb2beeb18. One actual source review per launch design, allv17, read back fromD1: catering6/7unresolved, Cajita unavailable exact supported timing wording leftunclassified, mixed written-authority provider unavailable. Caption contract now executes; category/photo inference separation improves, but taglines/hashtags are over-extracted. Semantic readiness remains incomplete. No repeats to obtainpass or publicchanges. Next scope/nonassertion repair identified in CAPTION_SOURCE_CONTRACT_2026-10-03.md. In parallel, root verified current valid private recovery preview200/depth1 and two attachedoriginal-preserving receipts for sp_c4df45..., correcting historical blanketfailure language. Previewdiscarded; no save/schedule. Full objective remains open.
+
+## October3 — scope dispositions local acceptance
+
+V18 implementation and 3,513 root tests pass; independent reason-relabeling defect fixed and covered. Exact timing declaration remains mandatory, dispositions remain model judgment, and trust is unchanged. See SCOPE_DISPOSITIONS_2026-10-03.md for current evidence and release boundary. Full goal remains open.

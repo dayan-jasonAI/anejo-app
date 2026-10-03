@@ -5,7 +5,7 @@ const authority={menuText:'Grape, ham, guava, cheese & pineapple skewer ($3.00)\
 const claim={source:'registered_overlay',caption_line:0,slide:1,quote:'Grazing skewers',claim_id:'pc_scope',assessment:'unresolved',authority_refs:['menu:0']};
 const images=[{data:'PRIVATE_IMAGE_BYTES',sourceReceipt:{design_facts:{rendered_text:[{text:claim.quote,product_claim_id:claim.claim_id,claim_kind:'product_category'}]}}}];
 const data=()=>({product_evidence:{scope:'explicit_claims',claims:[claim],unreadable_slides:[]},observations:{branding:{status:'unknown',explanation:'Cannot verify the emblem.'},product_fidelity:{status:'unknown',explanation:'Inferred photographic ingredients differ.'}}});
-const answer=(assessment='supported',kind='product_category',refs=['menu:0'],coverage=['overlay:1:0'])=>({omitted_claims:[],source_coverage:coverage,assessments:[{id:'claim:0',claim_kind:kind,assessment,authority_refs:refs}]});
+const answer=(assessment='supported',kind='product_category',refs=['menu:0'],coverage=['overlay:1:0'])=>({non_assertions:[],omitted_claims:[],source_coverage:coverage,assessments:[{id:'claim:0',claim_kind:kind,assessment,authority_refs:refs}]});
 test('actual authority request contains words and references only, no imagery or multimodal findings',()=>{
  const input=data();input.image_brief='PRIVATE_ART_DIRECTION';
  const request=writtenClaimRequest(input,images,authority),text=JSON.stringify(request);
@@ -29,7 +29,7 @@ for(const kind of ['ingredient','quantity','named_product','service','customizat
  assert.equal(applyWrittenAssessments(data(),answer('supported',kind),images,authority).issue,'reviewed_scope_mismatch');
 });
 for(const [name,value,issue] of [
- ['missing',{assessments:[],omitted_claims:[],source_coverage:['overlay:1:0']},'missing_or_extra_assessments'],
+ ['missing',{non_assertions:[],assessments:[],omitted_claims:[],source_coverage:['overlay:1:0']},'missing_or_extra_assessments'],
  ['duplicate',{...answer(),assessments:[...answer().assessments,...answer().assessments]},'missing_or_extra_assessments'],
  ['invented',{...answer(),assessments:[{...answer().assessments[0],id:'claim:99'}]},'unknown_claim'],
  ['extra',{...answer(),explanation:'guess'},'missing_or_extra_assessments'],
@@ -62,7 +62,7 @@ test('independent exact-photo qualifier omitted by visual candidate remains unkn
 });
 test('zero candidate claims does not remove written source coverage or newly discovered claims',()=>{
  const context={...authority,caption:'No pineapple.'},input=data();input.product_evidence={scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]};
- const response={assessments:[],source_coverage:['caption:1'],omitted_claims:[{source_id:'caption:1',quote:'No pineapple.',claim_kind:'ingredient',assessment:'contradicted',authority_refs:['menu:0']}]};
+ const response={non_assertions:[],assessments:[],source_coverage:['caption:1'],omitted_claims:[{source_id:'caption:1',quote:'No pineapple.',claim_kind:'ingredient',assessment:'contradicted',authority_refs:['menu:0']}]};
  const result=applyWrittenAssessments(input,response,[],context);
  assert.equal(result.ok,true);assert.equal(result.data.product_evidence.scope,'explicit_claims');assert.equal(result.data.observations.product_fidelity.status,'violated');
  const bad={...response,omitted_claims:[{...response.omitted_claims[0],quote:'Invented'}]};assert.equal(applyWrittenAssessments(input,bad,[],context).issue,'unsupported_additional_claim');
@@ -72,7 +72,7 @@ const operationalAuthority={menuText:'Cajita de Añejo\n',brandText:'Owner-appro
 function operationalCase(quote,kind,assessment='supported',refs=['brand:0']){
  const input=data();input.product_evidence={scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]};
  const context={...operationalAuthority,caption:quote};
- const response={assessments:[],source_coverage:['caption:1'],omitted_claims:[{source_id:'caption:1',quote,claim_kind:kind,assessment,authority_refs:refs}]};
+ const response={non_assertions:[],assessments:[],source_coverage:['caption:1'],omitted_claims:[{source_id:'caption:1',quote,claim_kind:kind,assessment,authority_refs:refs}]};
  return {input,context,response,result:applyWrittenAssessments(input,response,[],context)};
 }
 test('explicit operational kinds reach words-only schema with evidence requirements and no automatic generic classification',()=>{
@@ -132,4 +132,75 @@ test('diagnostic bounds long claim and authority excerpts without retaining prov
  assert.equal(result.diagnostic.citations.length,3);assert.ok(result.diagnostic.citations.every(c=>c.quote.length===160&&c.quote_truncated));
  assert.equal(result.diagnostic.source_id,'overlay:1:0');assert.equal(result.diagnostic.slide,1);
  assert.ok(JSON.stringify(result).length<1800);assert.ok(!JSON.stringify(result).includes('PRIVATE_IMAGE_BYTES'));
+});
+
+function nonassertionCase(caption,quote=caption,reason='tagline'){
+ const input=data();input.product_evidence={scope:'format_only_or_no_claim',claims:[],unreadable_slides:[]};
+ const context={...authority,caption};
+ const response={non_assertions:[{source_id:'caption:1',quote,reason}],assessments:[],omitted_claims:[],source_coverage:['caption:1']};
+ return {input,context,response,result:applyWrittenAssessments(input,response,[],context)};
+}
+test('decorative scope produces a bounded model disposition receipt without a supported claim',()=>{
+ const {result}=nonassertionCase('Made for your moment.');
+ assert.equal(result.ok,true);assert.deepEqual(result.data.product_evidence.claims,[]);
+ assert.deepEqual(result.receipt.non_assertions,[{source_id:'caption:1',quote:'Made for your moment.',reason:'tagline'}]);
+ assert.match(result.receipt.limits[0],/nonassertion dispositions.*model judgments/);
+});
+for(const [quote,reason] of [['#WestPalmBeach #CateringCubano','hashtag_only'],['¿Celebras en West Palm Beach? Cuéntanos tu ciudad para confirmar disponibilidad.','conditional_question'],['Cajitas and trays','generic_format']])test('source-bound '+reason+' disposition remains inspectable',()=>assert.equal(nonassertionCase(quote,quote,reason).result.ok,true));
+for(const [name,mutate,issue] of [
+ ['wrong source',r=>r.non_assertions[0].source_id='caption:99','unsupported_non_assertion'],
+ ['invented quote',r=>r.non_assertions[0].quote='Invented','unsupported_non_assertion'],
+ ['duplicate',r=>r.non_assertions.push({...r.non_assertions[0]}),'duplicate_or_overlapping_non_assertion'],
+ ['unknown reason',r=>r.non_assertions[0].reason='ignore','invalid_non_assertion'],
+ ['missing coverage',r=>r.source_coverage=[],'incomplete_written_source_coverage'],
+ ['extra field',r=>r.non_assertions[0].supported=true,'invalid_non_assertion']
+])test('nonassertion '+name+' rejects',()=>{const {input,context,response}=nonassertionCase('Made for your moment.');mutate(response);assert.equal(applyWrittenAssessments(input,response,[],context).issue,issue);});
+for(const quote of ['No pineapple.','Six pieces, 48 hours.','We deliver tomorrow.','Contains peanuts.','#FreeDelivery','#Price10'])test('nonassertion cannot conceal protected wording '+quote,()=>assert.equal(nonassertionCase(quote,quote,quote.startsWith('#')?'hashtag_only':'tagline').result.issue,'protected_non_assertion_wording'));
+test('hashtag disposition cannot conceal prose or punctuation',()=>assert.equal(nonassertionCase('#WestPalmBeach and a celebration','#WestPalmBeach and a celebration','hashtag_only').result.issue,'invalid_hashtag_non_assertion'));
+test('mandatory exact-byte declarations cannot receive nonassertion dispositions',()=>{
+ const response={...answer(),non_assertions:[{source_id:'overlay:1:0',quote:claim.quote,reason:'generic_format'}]};
+ assert.equal(applyWrittenAssessments(data(),response,images,authority).issue,'mandatory_claim_non_assertion');
+});
+test('existing unclassified candidates cannot silently disappear through dispositions',()=>{
+ const input=data();input.product_evidence.claims=[{...claim,source:'caption',caption_line:1,slide:0,claim_id:'',quote:'Made for your moment.'}];
+ const response={...answer('unresolved','unclassified',[],['caption:1']),non_assertions:[{source_id:'caption:1',quote:'Made for your moment.',reason:'tagline'}]};
+ assert.equal(applyWrittenAssessments(input,response,[],{...authority,caption:'Made for your moment.'}).issue,'claim_non_assertion_overlap');
+});
+test('a nonassertion span cannot overlap a newly discovered factual claim',()=>{
+ const {input,context,response}=nonassertionCase('Made for your moment.');response.omitted_claims=[{source_id:'caption:1',quote:'your moment',claim_kind:'service',assessment:'unresolved',authority_refs:[]}];
+ assert.equal(applyWrittenAssessments(input,response,[],context).issue,'claim_non_assertion_overlap');
+});
+test('decorative sentence does not erase an adjoining unresolved service claim',()=>{
+ const {input,context,response}=nonassertionCase('Made for your moment. Delivery is included.','Made for your moment.');
+ response.omitted_claims=[{source_id:'caption:1',quote:'Delivery is included.',claim_kind:'service',assessment:'unresolved',authority_refs:[]}];
+ const result=applyWrittenAssessments(input,response,[],context);assert.equal(result.ok,true);assert.equal(result.data.observations.product_fidelity.status,'unknown');assert.equal(result.data.product_evidence.claims[0].quote,'Delivery is included.');
+});
+test('new schema requires scope receipts without weakening existing coverage',()=>{
+ const request=writtenClaimRequest(data(),images,authority),schema=request.output_config.format.schema;
+ assert.ok(schema.required.includes('non_assertions'));assert.equal(schema.properties.non_assertions.items.properties.quote.maxLength,undefined);assert.deepEqual(schema.properties.non_assertions.items.properties.reason.enum,['tagline','hashtag_only','conditional_question','generic_format']);
+ assert.match(request.system,/Inspect full surrounding source text/);assert.match(request.system,/Negation, ingredients, quantities/);
+});
+
+test('unregistered exact and partial overlay candidates resolve unique source without inheriting reviewed scope',()=>{
+ for(const quote of ['Standard orders need advance planning.','advance planning']){
+  const input=data();input.product_evidence.claims=[{...claim,claim_id:'',quote}];
+  const image=[{sourceReceipt:{design_facts:{rendered_text:[{text:'Standard orders need advance planning.',product_claim_id:'pc_timing',claim_kind:'ordering'}]}}}];
+  const c=JSON.parse(writtenClaimRequest(input,image,authority).messages[0].content).claims[0];
+  assert.equal(c.source_id,'overlay:1:0');assert.equal(c.claim_kind,'unclassified');assert.equal(c.scope_basis,'requires_text_interpretation');
+ }
+});
+test('ambiguous overlay substring does not invent a unique source',()=>{
+ const input=data();input.product_evidence.claims=[{...claim,claim_id:'',quote:'trays'}];
+ const image=[{sourceReceipt:{design_facts:{rendered_text:[{text:'Cajitas and trays'},{text:'Decorative trays'}]}}}];
+ assert.equal(JSON.parse(writtenClaimRequest(input,image,authority).messages[0].content).claims[0].source_id,null);
+});
+test('adjoining ingredient negation remains unresolved while a decorative span is recorded',()=>{
+ const {input,context,response}=nonassertionCase('Made for your moment. No peanuts.','Made for your moment.');
+ response.omitted_claims=[{source_id:'caption:1',quote:'No peanuts.',claim_kind:'ingredient',assessment:'unresolved',authority_refs:[]}];
+ const result=applyWrittenAssessments(input,response,[],context);assert.equal(result.ok,true);assert.equal(result.data.observations.product_fidelity.status,'unknown');assert.equal(result.data.product_evidence.claims[0].quote,'No peanuts.');
+});
+
+for(const reason of ['tagline','hashtag_only','conditional_question','generic_format'])test('hashtag promises cannot escape by selecting reason '+reason,()=>{
+ const {input,context,response}=nonassertionCase('#FreeDelivery?', '#FreeDelivery?',reason);
+ assert.equal(applyWrittenAssessments(input,response,[],context).issue,'protected_non_assertion_wording');
 });

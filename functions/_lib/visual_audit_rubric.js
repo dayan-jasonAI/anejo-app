@@ -1,6 +1,6 @@
 // Candidate v1. Syntax/evidence checks do not prove a model's semantic judgment.
 import {auditAuthorityReferences,resolveAuditAuthorityReferences} from './audit_authority_refs.js';
-export const VERSION = 'anejo-visual-17';
+export const VERSION = 'anejo-visual-18';
 export const CRITERIA = [
   {id:'branding',type:'photo',rule:'Compare the visible Añejo emblem with the separately supplied approved emblem reference, without obscuring food or required wording. This is visual consistency only, not proof of the original source asset, rendering provenance or photo authenticity. If the reference is absent or comparison is uncertain, mark unknown. Event packaging colors are allowed and need not match the corporate palette.',applicability:'Every carousel; inspect branding across slides. Do not require a logo on every slide unless supplied owner instructions require it.'},
   {id:'readability',type:'photo',rule:'Required wording and food must remain visible within the finished frame. Flag concrete clipping, unreadability or obstruction, not personal layout preferences.',applicability:'Every slide, including cover and CTA. Cite each affected slide.'},
