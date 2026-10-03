@@ -297,3 +297,17 @@ test('two real concurrent SQLite handles cannot claim the same lease', {timeout:
   assert.equal(claimed[0].id, expected.job.id);
   assert.equal(claimed[0].attempts, 1);
 });
+
+test('normalization receipt persists exact provenance and rejects incomplete or invented bindings', async t => {
+ const {store}=fixture(t);await enqueue(store);const leased=await claim(store);
+ const normalizedSource={versionId:'normalized-1',derivativeKey:'marketing-normalized-versions/normalized-1.png',derivativeSha256:'d'.repeat(64),receiptSha256:'e'.repeat(64),normalizerVersion:'resvg-lcms-rgba-1'};
+ for(const field of Object.keys(normalizedSource)){
+  const incomplete={...normalizedSource};delete incomplete[field];
+  await rejectsCode(completion(store,leased,{receipt:{...receipt,normalizedSource:incomplete}}),'invalid_normalizedSource');
+ }
+ await rejectsCode(completion(store,leased,{receipt:{...receipt,normalizedSource:{...normalizedSource,approved:true}}}),'invalid_normalizedSource');
+ await rejectsCode(completion(store,leased,{receipt:{...receipt,normalizedSource:{...normalizedSource,derivativeSha256:'invalid'}}}),'invalid_derivativeSha256');
+ const done=await completion(store,leased,{receipt:{...receipt,normalizedSource}});
+ assert.deepEqual(done.receipt,{...receipt,normalizedSource});
+ assert.deepEqual((await store.get({actorId:'actor-1',jobId:leased.id})).receipt,done.receipt);
+});

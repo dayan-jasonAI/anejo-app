@@ -1,6 +1,9 @@
 // LOCAL ONLY: complete authenticated Worker rehearsal. Never deployed by app configuration.
 // No resource/visual/publication gate is established by a successful local attachment.
 import wasm from '@resvg/resvg-wasm/index_bg.wasm';
+import colorWasm from 'lcms-wasm/dist/lcms.wasm';
+import {createWorkerNormalizer} from './worker-source-normalize.mjs';
+import {captureNormalizedSource} from './normalized-source-versions.mjs';
 import emblem from './assets/emblem.png';
 import font from './assets/AnejoEditorialSerif-SemiBold.ttf';
 import kickerFont from './assets/AnejoEditorialSans-Medium.ttf';
@@ -15,7 +18,7 @@ import {LocalDurableAdmission,OWNED_LOCAL_WORK} from './durable-admission.mjs';
 import {createExecutionDeadline} from './execution-deadline.mjs';
 import {admitSourceColor} from './source-color-admission.mjs';
 
-const rendererVersion='local-private-worker-v2';
+const rendererVersion='local-private-worker-v3';
 const json=(value,status=200)=>new Response(JSON.stringify({...value,scope:'local_rehearsal',resourceReadiness:'unverified',publicationApproved:false}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 function reject(code,status=400){const error=new Error(code);error.status=status;throw error;}
 function exact(value,keys){if(!value||Object.getPrototypeOf(value)!==Object.prototype||Object.keys(value).length!==keys.length||keys.some(key=>!Object.hasOwn(value,key)))reject('invalid_request');}
@@ -89,7 +92,11 @@ export class PrivateRenderExecutor extends LocalDurableAdmission {
    deadline.check('render');
    return renderEditorial({source,emblem:new Uint8Array(emblem),font:new Uint8Array(font),kickerFont:new Uint8Array(kickerFont),...options});
   };
-  const result=await consumePrivateRender({db:env.DB,media:env.MEDIA,actorId,jobId:queued.job.id,rendererVersion,options:input.options,render,now:Date.now,leaseMs:30000,deadline});
+  const normalizeSource=async({artifact})=>{
+   const normalizer=await deadline.dispatch('normalizer_initialize',()=>createWorkerNormalizer(wasm,colorWasm));
+   return captureNormalizedSource({db:env.DB,media:env.MEDIA,actorId,sourceVersionId:artifact.version.id,normalizerVersion:'resvg-lcms-rgba-1',normalize:bytes=>normalizer.normalize(bytes,{deadline}),now:Date.now(),deadline});
+  };
+  const result=await consumePrivateRender({db:env.DB,media:env.MEDIA,actorId,jobId:queued.job.id,rendererVersion,options:input.options,render,normalizeSource,now:Date.now,leaseMs:30000,deadline});
   return result;
   }catch(error){
    const known=error.status||['SourceVersionError','RenderJobError','ExecutionDeadlineError','SourceColorError'].includes(error.name);

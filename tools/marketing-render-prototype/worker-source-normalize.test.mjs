@@ -18,3 +18,14 @@ test('wide source is resized without enlargement, preserves aspect and opaque pa
 test('source above current four-million-pixel guard refuses before normalization',async()=>{const source=new Uint8Array(await sharp({create:{width:3000,height:2000,channels:3,background:'#aa8844'}}).png().toBuffer());await assert.rejects(normalizer.normalize(source),/4000000 pixels/);});
 
 test('oversized compressed input refuses preflight and following valid normalization succeeds',async()=>{await assert.rejects(normalizer.normalize(new Uint8Array(5*1024*1024+1)),/5 MiB/);const valid=await fixture('png');assert.equal((await normalizer.normalize(valid)).receipt.outputColor,'declared_srgb');});
+
+test('owned deadline stops normalization before dispatch and at awaited compression or hashing boundaries',async()=>{
+ const source=await fixture('png',1,'p3'),original=source.slice();
+ for(const stop of ['normalize_preflight','normalize_metadata','normalize_encode_read','normalize_original_hash','normalize_derivative_hash','normalize_profile_hash']){
+  const stages=[];let expired=false;
+  const deadline={check(stage){stages.push(stage);if(expired)throw Error('latched test expiry');if(stage===stop){expired=true;throw Error('latched test expiry');}}};
+  await assert.rejects(normalizer.normalize(source,{deadline}),/latched test expiry/);
+  assert.equal(stages.at(-1),stop);assert.deepEqual(source,original);
+ }
+ assert.equal((await normalizer.normalize(source)).receipt.outputColor,'declared_srgb');
+});

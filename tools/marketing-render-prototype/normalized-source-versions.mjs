@@ -10,14 +10,12 @@ const NORMALIZER_VERSION='resvg-lcms-rgba-1',KERNEL_VERSION='lcms-wasm-1.0.5-rgb
 const RECEIPT_FIELDS=['schema','runtime','normalizerVersion','kernelVersion','originalSha256','derivativeSha256','sourceProfileSha256','sourceColorStatus','outputColor','conversionPerformed','originalOrientation','originalWidth','originalHeight','width','height','resized','resizePolicy','bytes','format','visualReviewRequired','resourceReadiness'];
 const text=(value,name,max=256)=>{if(typeof value!=='string'||!value||value.length>max||value.trim()!==value||/[\u0000-\u001f\u007f]/u.test(value))throw new NormalizedSourceError('invalid_'+name);return value;};
 const hashPattern=/^[a-f0-9]{64}$/;
-const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
 const deadlineLimit=deadline=>{if(!deadline)return Number.MAX_SAFE_INTEGER;if(!Number.isSafeInteger(deadline.expiresAt)||typeof deadline.check!=='function')throw Error('invalid_execution_deadline');return deadline.expiresAt;};
 async function dispatch(deadline,stage,operation){deadline?.check(stage);try{return await operation();}finally{deadline?.check(stage);}}
 async function digest(bytes,deadline,stage){return dispatch(deadline,stage,()=>sha256(bytes));}
 function metadataJson(value){const keys=Object.keys(value||{}).sort(),out={};for(const key of keys){if(typeof value[key]!=='string'||key.length>128||value[key].length>2048)throw new NormalizedSourceError('invalid_object_metadata');out[key]=value[key];}return JSON.stringify(out);}
 function equalMetadata(actual,expected){return metadataJson(actual)===metadataJson(expected);}
 function safeJson(value,name,max=8192){const json=JSON.stringify(value);if(typeof json!=='string'||new TextEncoder().encode(json).length>max)throw new NormalizedSourceError('invalid_'+name);return json;}
-function hashText(value){return sha256(new TextEncoder().encode(value));}
 function plainObject(value){return Boolean(value&&typeof value==='object'&&!Array.isArray(value)&&(Object.getPrototypeOf(value)===Object.prototype||Object.getPrototypeOf(value)===null));}
 function exactFields(value,fields,name){if(!plainObject(value)||Object.keys(value).length!==fields.length||fields.some(k=>!Object.hasOwn(value,k)))throw new NormalizedSourceError('invalid_'+name);}
 
@@ -33,11 +31,15 @@ async function assertEligible(db,descriptor,actorId,deadline,stage='normalized_t
  const ok=await dispatch(deadline,stage,()=>db.prepare(`SELECT 1 AS eligible WHERE ${eligible}`).bind(...eligibilityArgs(descriptor,actorId)).first());
  if(!ok)throw new NormalizedSourceError('normalized_source_target_changed');
 }
+async function assertActorActive(db,actorId,deadline,stage='normalized_actor_read'){
+ const ok=await dispatch(deadline,stage,()=>db.prepare("SELECT 1 AS eligible FROM staff WHERE id=? AND active=1 AND role IN ('owner','marketing')").bind(actorId).first());
+ if(!ok)throw new NormalizedSourceError('normalized_actor_ineligible');
+}
 
 function normalizedVersion(row){return {id:row.id,actorId:row.actor_id,sourceVersionId:row.source_version_id,normalizerVersion:row.normalizer_version,
  descriptor:JSON.parse(row.descriptor_json),originalVersion:JSON.parse(row.original_version_json),originalSha256:row.original_sha256,originalBytes:row.original_bytes,
  originalMetadataJson:row.original_metadata_json,originalMetadataSha256:row.original_metadata_sha256,originalContentType:row.original_content_type,
- versionKey:row.version_key,derivativeSha256:row.derivative_sha256,derivativeBytes:row.derivative_bytes,derivativeContentType:row.derivative_content_type,
+ derivativeKey:row.version_key,derivativeSha256:row.derivative_sha256,derivativeBytes:row.derivative_bytes,derivativeContentType:row.derivative_content_type,
  derivativeMetadataJson:row.derivative_metadata_json,derivativeMetadataSha256:row.derivative_metadata_sha256,receiptJson:row.receipt_json,receiptSha256:row.receipt_sha256,
  createdAt:row.created_at,confirmedAt:row.confirmed_at};}
 function versionSnapshot(version){return JSON.stringify(version);}
@@ -58,7 +60,7 @@ async function originalArtifact(db,media,actorId,sourceVersionId,deadline){
  const source=await readConfirmedSourceArtifact({db,media,actorId,versionId:sourceVersionId,deadline});
  if(!source)throw new NormalizedSourceError('normalized_source_original_unavailable');
  if(source.version.actorId!==actorId||source.version.id!==sourceVersionId||source.version.sourceSha256!==source.version.descriptor.sourceSha256)throw new NormalizedSourceError('normalized_source_original_binding_invalid');
- await assertEligible(db,source.version.descriptor,actorId,deadline);
+ await assertActorActive(db,actorId,deadline);
  return source;
 }
 
@@ -100,7 +102,7 @@ async function verifyDerivative(media,row,deadline){
 async function validateReadback(bytes,row,deadline){
  const source=await readConfirmedSourceArtifact({db:row._db,media:row._media,actorId:row.actor_id,versionId:row.source_version_id,deadline});
  if(!source||!matchesSource(row,source))throw new NormalizedSourceError('normalized_original_changed',row);
- const sourceMetadata=await dispatch(deadline,'normalized_source_metadata_read',()=>readWorkerSourceMetadata(source.bytes));
+ const sourceMetadata=await dispatch(deadline,'normalized_source_metadata_read',()=>readWorkerSourceMetadata(source.bytes,{deadline}));
  const receipt=JSON.parse(row.receipt_json),validated=await validateReceipt({source,sourceMetadata,derivative:bytes,receipt,normalizerVersion:row.normalizer_version,deadline});
  if(validated.derivativeHash!==row.derivative_sha256||validated.receiptJson!==row.receipt_json||validated.receiptSha256!==row.receipt_sha256)throw new NormalizedSourceError('normalized_receipt_readback_changed',row);
  return {source,validated};
@@ -117,10 +119,10 @@ export async function readConfirmedNormalizedSource({db,media,actorId,versionId,
  text(actorId,'actor_id');text(versionId,'version_id');deadlineLimit(deadline);
  let row=await loadRow(db,actorId,versionId,deadline);if(!row)return null;
  if(row.normalizer_version!==NORMALIZER_VERSION||row.derivative_content_type!==CONTENT_TYPE||!hashPattern.test(row.derivative_sha256)||!hashPattern.test(row.receipt_sha256))throw new NormalizedSourceError('normalized_record_invalid',row);
- const version=normalizedVersion(row),source=await originalArtifact(db,media,actorId,row.source_version_id,deadline);
+ const source=await originalArtifact(db,media,actorId,row.source_version_id,deadline);
  if(!matchesSource(row,source))throw new NormalizedSourceError('normalized_original_changed',row);
  const saved=await verifyDerivative(media,{...row,_db:db,_media:media},deadline);
- await assertEligible(db,source.version.descriptor,actorId,deadline,'normalized_target_recheck');
+ await assertActorActive(db,actorId,deadline,'normalized_actor_recheck');
  const freshSource=await originalArtifact(db,media,actorId,row.source_version_id,deadline);
  if(!matchesSource(row,freshSource))throw new NormalizedSourceError('normalized_original_changed',row);
  const fresh=await loadRow(db,actorId,versionId,deadline,'normalized_record_recheck');
@@ -134,7 +136,9 @@ export async function captureNormalizedSource({db,media,actorId,sourceVersionId,
  const expiresAt=deadlineLimit(deadline);
  let row=null;
  try{
-  const source=await originalArtifact(db,media,actorId,sourceVersionId,deadline),sourceMeta=await dispatch(deadline,'normalized_source_metadata',()=>readWorkerSourceMetadata(source.bytes));
+  const source=await originalArtifact(db,media,actorId,sourceVersionId,deadline);
+  await assertEligible(db,source.version.descriptor,actorId,deadline,'normalized_capture_target_read');
+  const sourceMeta=await dispatch(deadline,'normalized_source_metadata',()=>readWorkerSourceMetadata(source.bytes,{deadline}));
   row=await findIdentity(db,actorId,sourceVersionId,normalizerVersion,deadline);
   if(row&&!matchesSource(row,source))throw new NormalizedSourceError('normalized_original_changed',row);
   if(row?.state==='confirmed'){
@@ -145,7 +149,7 @@ export async function captureNormalizedSource({db,media,actorId,sourceVersionId,
   const result=await dispatch(deadline,'normalizer_run',()=>normalize(new Uint8Array(source.bytes),deadline));
   if(!plainObject(result)||!(result.bytes instanceof Uint8Array))throw new NormalizedSourceError('invalid_normalizer_result');
   const derivative=new Uint8Array(result.bytes),validated=await validateReceipt({source,sourceMetadata:sourceMeta,derivative,receipt:result.receipt,normalizerVersion,deadline});
-  const snapshot=sourceSnapshot(source),descriptorJson=snapshot.descriptorJson,receipt=JSON.parse(validated.receiptJson);
+  const snapshot=sourceSnapshot(source),descriptorJson=snapshot.descriptorJson;
   const id=row?.id||crypto.randomUUID(),versionKey=row?.version_key||`marketing-normalized-versions/${id}.png`;
   const draft={id,actor_id:actorId,source_version_id:sourceVersionId,normalizer_version:normalizerVersion,descriptor_json:descriptorJson,original_version_json:snapshot.versionJson,
    original_sha256:snapshot.sourceSha256,original_bytes:snapshot.sourceBytes,original_metadata_json:snapshot.metadataJson,original_metadata_sha256:snapshot.metadataSha256,
@@ -182,7 +186,7 @@ export async function captureNormalizedSource({db,media,actorId,sourceVersionId,
   const customMetadata=JSON.parse(row.derivative_metadata_json);
   try{await dispatch(deadline,'normalized_r2_put',()=>media.put(row.version_key,derivative,{onlyIf:{etagDoesNotMatch:'*'},httpMetadata:{contentType:CONTENT_TYPE},customMetadata}));}
   catch{deadline?.check('normalized_r2_put_failed');/* Ambiguous acknowledgement: verify only the reserved key. */}
-  const saved=await verifyDerivative(media,{...row,_db:db,_media:media},deadline);
+  await verifyDerivative(media,{...row,_db:db,_media:media},deadline);
   const currentSource=await originalArtifact(db,media,actorId,sourceVersionId,deadline);
   if(!matchesSource(row,currentSource))throw new NormalizedSourceError('normalized_original_changed',row);
   await assertEligible(db,currentSource.version.descriptor,actorId,deadline,'normalized_target_before_confirm');

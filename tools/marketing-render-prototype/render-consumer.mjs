@@ -120,7 +120,7 @@ export async function consumePrivateRender({db,media,actorId,jobId,rendererVersi
   const receipt={outputKey,sha256:outputHash,outputBytes:jpg.length,width:shape.width,height:shape.height,...(normalizedBinding?{normalizedSource:normalizedBinding}:{})};
   const at=now(),descriptorJson=JSON.stringify(d);
   // Check database execution time too: a queued batch may outlive its dispatch-time lease.
-  const normalizedSql=normalizedBinding?'EXISTS(SELECT 1 FROM prototype_normalized_source_versions WHERE id=? AND actor_id=? AND source_version_id=? AND normalizer_version=? AND state='confirmed' AND derivative_key=? AND derivative_sha256=? AND receipt_sha256=?)':'1=1';
+  const normalizedSql=normalizedBinding?`EXISTS(SELECT 1 FROM prototype_normalized_source_versions WHERE id=? AND actor_id=? AND source_version_id=? AND normalizer_version=? AND state='confirmed' AND version_key=? AND derivative_sha256=? AND receipt_sha256=?)`:'1=1';
   const normalizedArgs=normalizedBinding?[normalizedBinding.versionId,actorId,d.sourceVersionId,normalizedBinding.normalizerVersion,normalizedBinding.derivativeKey,normalizedBinding.derivativeSha256,normalizedBinding.receiptSha256]:[];
   const versionSql=`EXISTS(SELECT 1 FROM prototype_source_versions WHERE id=? AND actor_id=? AND state='confirmed' AND descriptor_json=? AND source_sha256=? AND metadata_sha256=?)`;
   const versionArgs=[d.sourceVersionId,actorId,sourceBinding,d.sourceSha256,d.sourceMetadataSha256];

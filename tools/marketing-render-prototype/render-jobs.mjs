@@ -38,10 +38,20 @@ function canonicalDescriptor(value) {
     : string(value[k], k, k === 'sourceVersionId' ? 256 : 1024)]));
 }
 function canonicalReceipt(value) {
-  exactObject(value, ['outputKey', 'sha256', 'outputBytes', 'width', 'height'], 'receipt');
+  exactObject(value, ['outputKey', 'sha256', 'outputBytes', 'width', 'height', ...(Object.hasOwn(value || {}, 'normalizedSource') ? ['normalizedSource'] : [])], 'receipt');
+  let normalizedSource;
+  if (Object.hasOwn(value, 'normalizedSource')) {
+    const n = value.normalizedSource;
+    exactObject(n, ['versionId', 'derivativeKey', 'derivativeSha256', 'receiptSha256', 'normalizerVersion'], 'normalizedSource');
+    normalizedSource = { versionId: string(n.versionId, 'normalizedVersionId', 256),
+      derivativeKey: string(n.derivativeKey, 'derivativeKey'),
+      derivativeSha256: digest(n.derivativeSha256, 'derivativeSha256'),
+      receiptSha256: digest(n.receiptSha256, 'receiptSha256'),
+      normalizerVersion: string(n.normalizerVersion, 'normalizerVersion', 256) };
+  }
   return { outputKey: string(value.outputKey, 'outputKey'), sha256: digest(value.sha256, 'sha256'),
     outputBytes: integer(value.outputBytes, 'outputBytes', 1), width: integer(value.width, 'width', 1),
-    height: integer(value.height, 'height', 1) };
+    height: integer(value.height, 'height', 1), ...(normalizedSource ? { normalizedSource } : {}) };
 }
 function job(row) {
   if (!row) return null;
