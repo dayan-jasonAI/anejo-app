@@ -348,3 +348,7 @@ Local JPEG/PNG metadata → actual raw decode → ICC sRGB/RGBA conversion → o
 ### October 3 — normalized photo to private draft checkpoint
 
 See `PRIVATE_NORMALIZED_DRAFT_2026-10-03.md`: local authenticated v3 pipeline now preserves originals, persists exact normalized derivatives and attaches Reposado drafts with provenance. Full prototype suite: 210 pass / 0 fail / 1 explicit skip. Not deployed; maximum-input resource harness must be migrated from raw v2 to normalized v3, and phone-input/production resource/visual/integrated acceptance gates remain open. Full objective unchanged.
+
+### October 3 — maximum-input normalization repair and v4 evidence
+
+`NORMALIZED_RESOURCE_V4_2026-10-03.md` records an actual maximum-input failure and its bounded size-aware normalization repair. Normalizer v2 / private renderer v4 verified 78 attachments plus six refusals across 84 requests; 26 source/layout groups have repeat-identical derivative/output hashes. A fresh six-request baseline comparison matched. Full local suite: 212 pass / 0 fail / 1 explicit skip. Not deployed. Actual 12/24 MP inputs remain unsupported; production CPU/peak combined memory and full operational acceptance remain open. Do not promote the four-MP guard into the acceptance standard for the original phone-photo requirement.
