@@ -76,3 +76,10 @@ test('explicit PNG sRGB declaration is distinguished from unknown-color assumpti
  const source=await fixture('png'),tagged=new Uint8Array(Buffer.concat([source.subarray(0,-12),chunk('sRGB',Buffer.from([0])),source.subarray(-12)]));
  const result=await normalizeSource(tagged);assert.equal(result.receipt.sourceColorStatus,'declared_srgb');assert.equal(result.receipt.sourceProfileSha256,null);
 });
+
+
+test('phone-resolution photo becomes a bounded upright derivative without cropping or enlarging',async()=>{
+ const original=new Uint8Array(await sharp({create:{width:4000,height:3000,channels:3,background:'#548866'}}).withMetadata({orientation:6}).jpeg().toBuffer());
+ const result=await normalizeSource(original);assert.equal(result.receipt.originalWidth,4000);assert.equal(result.receipt.originalHeight,3000);assert.equal(result.receipt.width,1500);assert.equal(result.receipt.height,2000);assert.equal(result.receipt.resized,true);assert.equal(result.receipt.originalOrientation,6);
+ const {dimensions}=await import('./core.mjs');assert.equal(dimensions(result.bytes).rgbaBytes,1500*2000*4);
+});

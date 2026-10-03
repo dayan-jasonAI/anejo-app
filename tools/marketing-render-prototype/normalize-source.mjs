@@ -58,11 +58,11 @@ function profileFromJPEG(bytes){
 }
 export async function normalizeSource(source){
  if(!(source instanceof Uint8Array))fail('Uint8Array input required');
- const original=new Uint8Array(source),info=dimensions(original);
+ const original=new Uint8Array(source),info=dimensions(original,{maxEdge:8192,maxPixels:24_000_000});
  const orientation=info.type==='jpeg'?jpegOrientation(original):pngSourceOrientation(original).orientation;
  const color=info.type==='png'?profileFromPNG(original):{profile:profileFromJPEG(original),declaredSRGB:false},profile=color.profile;
  const warnings=[];
- const input=Buffer.from(original),options={failOn:'warning',limitInputPixels:4_000_000,animated:false};
+ const input=Buffer.from(original),options={failOn:'warning',limitInputPixels:24_000_000,animated:false};
  const reader=sharp(input,options).on('warning',message=>warnings.push(message));
  const meta=await reader.metadata();
  if(warnings.length)fail('decoder warning: '+warnings.join('; '));
@@ -71,11 +71,13 @@ export async function normalizeSource(source){
  if(Boolean(meta.icc)!==Boolean(profile)||(profile&&hash(meta.icc)!==hash(profile)))fail('decoder and bounded ICC reader disagree');
  const pipeline=sharp(input,options).on('warning',message=>warnings.push(message));
  // Explicit sRGB conversion; default metadata removal omits EXIF/XMP/GPS.
- const {data,info:output}=await pipeline.autoOrient().withIccProfile('srgb').png({compressionLevel:9,adaptiveFiltering:false,palette:false}).toBuffer({resolveWithObject:true});
+ const {data,info:output}=await pipeline.autoOrient().resize({width:2000,height:2000,fit:'inside',withoutEnlargement:true}).withIccProfile('srgb').png({compressionLevel:9,adaptiveFiltering:false,palette:false}).toBuffer({resolveWithObject:true});
  if(warnings.length)fail('conversion warning: '+warnings.join('; '));
  if(data.length>5*1024*1024)fail('normalized derivative exceeds renderer 5 MiB limit');
  const derivative=new Uint8Array(data),verified=await sharp(data,options).metadata();
  if(verified.orientation||verified.exif||verified.xmp||verified.space!=='srgb'||verified.depth!=='uchar'||!verified.icc)fail('normalized metadata contract failed');
- if(output.width!==(orientation>=5?info.height:info.width)||output.height!==(orientation>=5?info.width:info.height))fail('normalized orientation dimensions failed');
- return {bytes:derivative,receipt:{schema:'anejo-source-normalization-v1',originalSha256:hash(original),derivativeSha256:hash(derivative),originalOrientation:orientation,sourceProfileSha256:profile?hash(profile):null,sourceColorStatus:profile?'embedded_rgb_profile':color.declaredSRGB?'declared_srgb':'assumed_srgb',outputProfileSha256:hash(verified.icc),width:output.width,height:output.height,bytes:derivative.length,hasAlpha:verified.hasAlpha,format:'png',outputColor:'srgb',versions:{sharp:sharp.versions.sharp,vips:sharp.versions.vips,lcms:sharp.versions.lcms},visualReviewRequired:true,runtime:'node-reference-only'}};
+ const uprightWidth=orientation>=5?info.height:info.width,uprightHeight=orientation>=5?info.width:info.height;
+ if(output.width>2000||output.height>2000||Math.abs(output.width/output.height-uprightWidth/uprightHeight)>2/output.height)fail('normalized orientation/aspect dimensions failed');
+ if(uprightWidth<=2000&&uprightHeight<=2000&&(output.width!==uprightWidth||output.height!==uprightHeight))fail('unexpected source resizing');
+ return {bytes:derivative,receipt:{schema:'anejo-source-normalization-v1',originalSha256:hash(original),derivativeSha256:hash(derivative),originalOrientation:orientation,originalWidth:info.width,originalHeight:info.height,resized:output.width!==uprightWidth||output.height!==uprightHeight,resizePolicy:'inside-2000x2000-no-enlargement',sourceProfileSha256:profile?hash(profile):null,sourceColorStatus:profile?'embedded_rgb_profile':color.declaredSRGB?'declared_srgb':'assumed_srgb',outputProfileSha256:hash(verified.icc),width:output.width,height:output.height,bytes:derivative.length,hasAlpha:verified.hasAlpha,format:'png',outputColor:'srgb',versions:{sharp:sharp.versions.sharp,vips:sharp.versions.vips,lcms:sharp.versions.lcms},visualReviewRequired:true,runtime:'node-reference-only'}};
 }

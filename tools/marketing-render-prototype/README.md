@@ -110,3 +110,8 @@ Editorial adapter applies bounded JPEG EXIF orientations1–8before layout. Orig
 ### PNG orientation — October 3
 
 The editorial adapter now applies PNG eXIf orientation as well as JPEG EXIF. PNG metadata is removed from the ephemeral decoder copy to avoid double application; originals are preserved. Historical metadata still requires visual review. ICC normalization and live job integration remain open. See `docs/marketing/EDITORIAL_PNG_ORIENTATION_2026-10-03.md`.
+
+
+### Node reference normalization — October 3
+
+`node preview-editorial.mjs --normalize-source` preserves the website original and renders from a separately hashed upright sRGB PNG derivative. Native Sharp0.35.5 is isolated here, never imported by the app or Worker. Input bounds24MP/8192edge/5MiB; inside2000×2000 output without cropping/enlargement, plus a separate5MiB derivative bound. Metadata assumptions, rejected formats and test evidence: `docs/marketing/EDITORIAL_COLOR_NORMALIZATION_2026-10-03.md`. Visual review and production execution proof remain required.

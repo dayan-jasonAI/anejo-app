@@ -221,3 +221,8 @@ PR168 exact head458345b release checks all passed; unmerged, not production proo
 ### October 3 — resumed goal and PNG ingestion
 
 Current goal record reports active; previous engineering turn made progress via corporate checkout release. Current work continued the original marketing scope: PNG orientation reader and actual raster transform tests added to the isolated editorial adapter. 31 prototype tests and 10 local workerd regression renders pass. See EDITORIAL_PNG_ORIENTATION_2026-10-03.md for evidence and limits. No live job, publication, customer communication or trust activation. Next: color normalization and shared visual contract/resource acceptance before integrating durable rendering.
+
+
+### October 3 — color reference and original-photo bounds
+
+Implemented opt-in Node normalization with separate derivative/provenance, explicit sRGB conversion, orientation, full-frame downsampling of phone-resolution input and warning rejection.43prototype tests pass; actual P3→normalized→WASM pixels match reference patches. Isolated dependency audit0vulnerabilities; dedicated CI job added. See EDITORIAL_COLOR_NORMALIZATION_2026-10-03.md for current artifacts and remaining runtime/format coverage. This is not production integration or full-goal completion. Continue Worker-compatible/browser normalization and visual/resource/job acceptance; no new approval needed for internal implementation.
