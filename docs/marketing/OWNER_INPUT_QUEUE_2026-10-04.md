@@ -1,9 +1,10 @@
 # Owner inputs — inventory readiness, October 4, 2026
 
-The inventory feature release is authorized by direct-session instructions and existing deployment approval. No second deployment approval is requested. Engineering continues through release verification while these operating facts remain unset.
+The inventory feature release is authorized by direct-session instructions and existing deployment approval. No second deployment approval is requested. Code and schema were released as ca6d100; signed-in live acceptance and these operating facts remain unset.
 
 | Item | Input needed | Safe behavior until supplied |
 |---|---|---|
+| Live owner sign-in | Sign in in the retained Añejo Chrome tab; do not send a password or PIN | Live authenticated acceptance cannot be verified from the expired session |
 | Physical stock | Current count and grams/unit for ingredients, packaging and finished meals; optional recorded expiry | Historical rows without fresh physical counts cannot authorize prep |
 | Recipe map | Published recipe and exact ingredient plus packaging amount per finished item | No fuzzy inference from item names or pictures |
 | Production targets | Finished-stock target, minimum/maximum batch, freshness window and cook assignment | No invented target, recurring plan OFF |

@@ -1,0 +1,37 @@
+├ Checking if file needs uploading
+│
+├ 🌀 Uploading d5ca11c7-7b44-4560-919d-b6210753d182.5e5e513a40cb9ffd.sql
+│ 🌀 Uploading complete.
+│
+[
+  {
+    "results": [
+      {
+        "Total queries executed": 15,
+        "Rows read": 7583,
+        "Rows written": 17,
+        "Database size (MB)": "26.71"
+      }
+    ],
+    "success": true,
+    "finalBookmark": "000006dc-000016c2-000050fa-083e0fe12e9e585c4ad110fdf07b71d4",
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "IAD",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 103.6763
+      },
+      "duration": 103.6763,
+      "changes": 1,
+      "last_row_id": 0,
+      "changed_db": true,
+      "size_after": 26714112,
+      "rows_read": 7583,
+      "rows_written": 17,
+      "num_tables": 158,
+      "total_attempts": 1
+    }
+  }
+]

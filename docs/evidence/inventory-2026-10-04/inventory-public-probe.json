@@ -1,0 +1,68 @@
+{
+  "at": "2026-10-04T13:58:48.562Z",
+  "results": [
+    {
+      "path": "/hub/kitchen/inventory",
+      "method": "GET",
+      "status": 200,
+      "markers": [
+        {
+          "marker": "Add an inventory item",
+          "present": true
+        },
+        {
+          "marker": "inventory-production.js",
+          "present": true
+        },
+        {
+          "marker": "Total weight (grams)",
+          "present": true
+        },
+        {
+          "marker": "Recount finished portions daily",
+          "present": true
+        }
+      ]
+    },
+    {
+      "path": "/hub/kitchen/assets/inventory-production.js",
+      "method": "GET",
+      "status": 200,
+      "markers": [
+        {
+          "marker": "No reviewed production plans",
+          "present": true
+        },
+        {
+          "marker": "requirements",
+          "present": true
+        },
+        {
+          "marker": "Queue",
+          "present": true
+        }
+      ]
+    },
+    {
+      "path": "/api/hub/kitchen/inventory",
+      "method": "GET",
+      "status": 401,
+      "markers": [],
+      "body": "{\"error\":\"Not signed in.\"}"
+    },
+    {
+      "path": "/api/hub/kitchen/inventory-production",
+      "method": "GET",
+      "status": 401,
+      "markers": [],
+      "body": "{\"error\":\"Not signed in.\"}"
+    },
+    {
+      "path": "/api/hub/kitchen/inventory-photo",
+      "method": "POST",
+      "status": 401,
+      "markers": [],
+      "body": "{\"error\":\"Not signed in.\"}"
+    }
+  ]
+}
