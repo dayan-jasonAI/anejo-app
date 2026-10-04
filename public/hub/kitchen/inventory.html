@@ -123,10 +123,11 @@
 <body>
 <div class="hub-bar">
   <h1>AÑEJO · INVENTORY</h1>
-  <div class="hub-bar-actions"><a href="/hub/kitchen/restock.html" style="color:var(--gold,#C8BC6E);text-decoration:none;font-size:13px;font-weight:700;margin-right:14px;white-space:nowrap">Restock</a><button id="lang-toggle" type="button">ES</button></div>
+  <div class="hub-bar-actions"><a href="#inventory-production" style="color:var(--gold,#C8BC6E);font-size:13px;font-weight:700;margin-right:14px">Production plans</a><a href="/hub/kitchen/restock.html" style="color:var(--gold,#C8BC6E);text-decoration:none;font-size:13px;font-weight:700;margin-right:14px;white-space:nowrap">Restock</a><button id="lang-toggle" type="button">ES</button></div>
 </div>
 
 <div class="hub-wrap">
+  <div id="inventory-production" style="scroll-margin-top:90px"></div>
   <section class="hub-section" id="add-inventory" aria-labelledby="add-heading">
     <div class="inv-intro"><div><h2 id="add-heading">Inventory</h2><p>Keep item counts current. Photos are reported inventory snapshots and are not proof of delivery or receipt.</p></div><a class="inv-add-cta" href="#add-form">Add inventory item</a></div>
     <form id="add-form" class="inv-add" novalidate>
@@ -150,7 +151,7 @@
 
   <section class="hub-section" aria-label="Inventory items">
     <div id="items" aria-live="polite"><div class="hub-loading">Loading inventory…</div></div>
-    <div id="inventory-production"></div>
+
   </section>
 
   <section class="hub-section inv-subsection" aria-labelledby="prepared-heading">

@@ -1,0 +1,18 @@
+
+> anejo-app@1.0.0 build:studio
+> npm --prefix hub-app run build && rm -rf public/studio && mkdir -p public/studio && cp -R hub-app/dist/index.html hub-app/dist/assets public/studio/ && find public/studio -name '*.map' -delete
+
+
+> anejo-hub-studio@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v5.4.21 building for production...
+<script src="/assets/js/announce.js"> in "/index.html" can't be bundled without type="module" attribute
+transforming...
+✓ 346 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.88 kB │ gzip:   0.49 kB
+dist/assets/index-BtgUAf-1.css   18.36 kB │ gzip:   4.49 kB
+dist/assets/index-vyFjwRtr.js   376.07 kB │ gzip: 116.79 kB
+✓ built in 1.01s
