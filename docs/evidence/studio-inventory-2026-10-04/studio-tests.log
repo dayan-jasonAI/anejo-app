@@ -5,13 +5,13 @@
 
  RUN  v2.1.9 /Users/aiagent/anejo-browser-photo-release/hub-app
 
+ ✓ test/api/studio.test.ts (4 tests) 2ms
+ ✓ test/auth/api.test.ts (12 tests) 3ms
+ ✓ test/api/inventory.test.ts (5 tests) 4ms
  ✓ test/api/studio-stream.test.ts (4 tests) 3ms
- ✓ test/api/studio.test.ts (4 tests) 4ms
- ✓ test/api/recipe-retry.test.ts (3 tests) 3ms
- ✓ test/auth/api.test.ts (12 tests) 5ms
- ✓ test/api/inventory.test.ts (5 tests) 16ms
+ ✓ test/api/recipe-retry.test.ts (3 tests) 4ms
 
  Test Files  5 passed (5)
       Tests  28 passed (28)
-   Start at  15:40:22
-   Duration  282ms (transform 129ms, setup 0ms, collect 229ms, tests 31ms, environment 0ms, prepare 194ms)
+   Start at  15:47:14
+   Duration  186ms (transform 115ms, setup 0ms, collect 175ms, tests 16ms, environment 0ms, prepare 207ms)

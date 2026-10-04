@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-04T19:53:34.897Z",
+  "jsPath": "assets/index-CIuE5iBk.js",
+  "studio": {
+    "inventory": true,
+    "production": true,
+    "readOnlyEndpoints": true
+  },
+  "kitchen": {
+    "headerJump": true,
+    "planningBeforeItems": true
+  }
+}

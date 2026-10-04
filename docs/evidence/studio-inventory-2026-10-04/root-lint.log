@@ -1,0 +1,27 @@
+
+> anejo-app@1.0.0 lint
+> eslint functions test scripts
+
+
+/Users/aiagent/anejo-browser-photo-release/functions/_lib/catering_deposit.js
+  82:9  warning  'base' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/Users/aiagent/anejo-browser-photo-release/functions/_lib/vendor/webcrypto-web-push.js
+   81:5  warning  'cachedDecoders' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+  116:5  warning  'byteToHexLookupTable' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/Users/aiagent/anejo-browser-photo-release/test/compliance/sales-auto-intro.test.js
+    8:3   warning  'templateFingerprint' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+   20:16  warning  'cfg' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+  151:16  warning  'cfg' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+  177:16  warning  'cfg' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+
+/Users/aiagent/anejo-browser-photo-release/test/money/catering-quote-lines.test.js
+  273:34  warning  'init' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/Users/aiagent/anejo-browser-photo-release/test/money/sales-autonomy.test.js
+  5:34  warning  'setting' is defined but never used. Allowed unused vars must match /^_/u   no-unused-vars
+  5:43  warning  'reload' is defined but never used. Allowed unused vars must match /^_/u    no-unused-vars
+  8:30  warning  'callCard' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+✖ 11 problems (0 errors, 11 warnings)
