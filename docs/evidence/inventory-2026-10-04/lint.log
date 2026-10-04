@@ -7,4 +7,3 @@
   116:5  warning  'byteToHexLookupTable' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
 
 ✖ 3 problems (0 errors, 3 warnings)
-
