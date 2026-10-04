@@ -30,6 +30,9 @@ async function preparedStock(env) {
   try {
     const menu = await loadMenu(env);
     if (!menu || menu.source !== 'd1') return { items: [], status: 'unavailable' };
+    const countRows = await env.DB.prepare('SELECT id,stock_counted_at FROM menu_items WHERE active=1').all();
+    if(!countRows||countRows.success===false||!Array.isArray(countRows.results))throw Error('finished_count_read_failed');
+    const counted = new Map(countRows.results.map(r=>[r.id,r.stock_counted_at]));
     const settings = await loadOrderingSettings(env);
     const { limit } = onDemandConfig(env, settings);
     const w = windowState(env, new Date(), settings);
@@ -38,6 +41,7 @@ async function preparedStock(env) {
       id: it.id,
       name: it.name,
       kind: it.kind,
+      stock_counted_at: counted.get(it.id) || null,
       availability: menu.availability[it.id] || 'available',
       // What the owner (or kitchen) said we made. null = no manual count.
       stock_count: it.stock_count == null || it.stock_count === '' ? null : Math.floor(Number(it.stock_count)),
@@ -193,7 +197,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (action === 'menu_count') {
     const itemId = (b && b.id || '').toString().trim();
     if (!itemId) return bad('Missing item id.');
-    const row = await env.DB.prepare('SELECT id, name, stock_count, inventory_revision, last_inventory_change_id FROM menu_items WHERE id=?').bind(itemId).first();
+    const row = await env.DB.prepare('SELECT id, name, stock_count, stock_counted_at, inventory_revision, last_inventory_change_id FROM menu_items WHERE id=?').bind(itemId).first();
     if (!row) return bad('Item not found.', 404);
 
     const raw = b && b.stock_count;
@@ -206,8 +210,8 @@ export const onRequestPost = async ({ request, env }) => {
     }
     if (b.expected_revision != null && Number(b.expected_revision) !== Number(row.inventory_revision || 0)) return bad('Finished-item count changed. Refresh before saving.', 409);
 
-    const change = changeInsert({ itemId, action, actorId: by, before: row, after: { ...row, stock_count: next, inventory_revision: Number(row.inventory_revision || 0) + 1, last_inventory_change_id: null }, at: t, table: 'menu_items', marker: 'last_inventory_change_id' });
-    const committed = await commitChange(env, { sql: 'UPDATE menu_items SET stock_count=?, updated_at=?, inventory_revision=inventory_revision+1,last_inventory_change_id=? WHERE id=? AND inventory_revision=?', args: [next, t, change.changeId, itemId, Number(row.inventory_revision || 0)] }, change);
+    const change = changeInsert({ itemId, action, actorId: by, before: row, after: { ...row, stock_count: next, stock_counted_at:t, inventory_revision: Number(row.inventory_revision || 0) + 1, last_inventory_change_id: null }, at: t, table: 'menu_items', marker: 'last_inventory_change_id' });
+    const committed = await commitChange(env, { sql: 'UPDATE menu_items SET stock_count=?, updated_at=?, stock_counted_at=?, inventory_revision=inventory_revision+1,last_inventory_change_id=? WHERE id=? AND inventory_revision=?', args: [next, t, t, change.changeId, itemId, Number(row.inventory_revision || 0)] }, change);
     if (!committed.ok) return bad('Menu count was not saved.', 409);
     await capture(env, {
       event: 'menu.stock_counted',

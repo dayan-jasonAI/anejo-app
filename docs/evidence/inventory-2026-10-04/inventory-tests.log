@@ -1,24 +1,31 @@
-✔ inventory count and additive quantity/weight save with atomic durable before/after ledger (188.26925ms)
-✔ negative measurements and stale revisions reject without ledger mutation (148.609959ms)
-✔ stock mutation rolls back when its durable ledger row cannot be inserted (144.18375ms)
-✔ finished-menu count uses the same atomic evidence ledger (149.266334ms)
-✔ zero-row revision CAS creates no phantom change record or notification (145.028375ms)
-✔ photo review binds exact pending key, kitchen cannot approve, replaced image cannot be approved (149.647708ms)
-✔ unauthorized access is rejected and GET returns latest change ledger and photo fields (149.6445ms)
-✔ inventory history read failure returns unavailable instead of an empty success claim (147.5155ms)
-✔ production policy is owner reviewed and requires explicit ingredient plus packaging mapping (190.137709ms)
-✔ owner queue approves one batch for the named disabled reviewed plan without enabling it (154.066083ms)
-✔ fresh counts admit one queued task and live reservations limit another menu item sharing stock (147.67425ms)
-✔ sold through finished stock includes today paid on-demand orders when setting production target (146.663208ms)
-✔ stale and expired stock, unknown finished count, and a changed recipe block admission (593.687709ms)
-✔ assignee starts production; completion consumes planned inputs, records actual yield, and cannot be replayed (143.453042ms)
-✔ expired stock at completion cannot mint finished yield or consume ingredient ledger rows (138.672875ms)
-✔ recipe changed after start blocks completion and does not mint finished stock (140.29375ms)
-ℹ tests 16
+✔ inventory count and additive quantity/weight save with atomic durable before/after ledger (184.925292ms)
+✔ negative measurements and stale revisions reject without ledger mutation (152.112667ms)
+✔ stock mutation rolls back when its durable ledger row cannot be inserted (154.856ms)
+✔ finished-menu count uses the same atomic evidence ledger (152.773291ms)
+✔ zero-row revision CAS creates no phantom change record or notification (150.494167ms)
+✔ photo review binds exact pending key, kitchen cannot approve, replaced image cannot be approved (155.102209ms)
+✔ unauthorized access is rejected and GET returns latest change ledger and photo fields (152.947375ms)
+✔ inventory history read failure returns unavailable instead of an empty success claim (148.326208ms)
+✔ owner menu stock count writes revisioned before/after inventory evidence and leaves price audit intact (188.049542ms)
+✔ same count creates no new inventory event; stale expected revision is rejected (159.612417ms)
+✔ an unauthorized kitchen session cannot change owner menu stock (151.108542ms)
+✔ audit insert failure rolls back stock, price and price-log updates together (149.306417ms)
+✔ a price-only edit cannot restore the stale stock count or revision read before a concurrent count (156.38775ms)
+✔ a concurrent revision conflict leaves no stock, price-log or inventory audit phantom (151.89975ms)
+✔ production policy is owner reviewed and requires explicit ingredient plus packaging mapping (184.088333ms)
+✔ owner queue approves one batch for the named disabled reviewed plan without enabling it (158.608916ms)
+✔ fresh counts admit one queued task and live reservations limit another menu item sharing stock (156.08325ms)
+✔ sold through finished stock includes today paid on-demand orders when setting production target (153.196584ms)
+✔ prior-day finished counts block production until physically recounted today (156.288166ms)
+✔ stale and expired stock, unknown finished count, and a changed recipe block admission (599.562583ms)
+✔ assignee starts production; completion consumes planned inputs, records actual yield, and cannot be replayed (148.057542ms)
+✔ expired stock at completion cannot mint finished yield or consume ingredient ledger rows (145.0465ms)
+✔ recipe changed after start blocks completion and does not mint finished stock (145.513666ms)
+ℹ tests 23
 ℹ suites 0
-ℹ pass 16
+ℹ pass 23
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1701.947292
+ℹ duration_ms 1889.889334

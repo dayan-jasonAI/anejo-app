@@ -20,7 +20,7 @@ async function setup({ tuna = 10, packaging = 10, finished = 0, countAt = Date.n
   await db.prepare('UPDATE inventory_items SET on_hand=?,counted_at=?,expires_on=? WHERE id=?').bind(tuna, countAt, expiresOn, 'inv_tuna').run();
   await db.prepare('UPDATE inventory_items SET count_quantity=?,counted_at=?,expires_on=? WHERE id=?').bind(packaging, countAt, expiresOn, 'inv_pack').run();
   await db.prepare("INSERT INTO recipes(id,name,status,created_at,updated_at) VALUES ('rcp_test','Test recipe','published',?,?)").bind(now, now).run();
-  await db.prepare("UPDATE menu_items SET stock_count=?,active=1 WHERE id IN ('vida','fuego')").bind(finished).run();
+  await db.prepare("UPDATE menu_items SET stock_count=?,stock_counted_at=?,active=1 WHERE id IN ('vida','fuego')").bind(finished, now).run();
   return { env, db, now };
 }
 const requirements = [
@@ -100,6 +100,20 @@ test('sold through finished stock includes today paid on-demand orders when sett
   const saved = await configure(env, policy('vida', { target_count: 10, max_batch: 5 }));
   assert.equal(saved.production.created.length, 1);
   assert.equal(saved.production.created[0].qty, 5, '8 committed orders make the effective deficit 8 even though stored finished stock is 10');
+});
+
+test('prior-day finished counts block production until physically recounted today', async () => {
+  const { env, db } = await setup();
+  await db.prepare("UPDATE menu_items SET stock_counted_at=? WHERE id='vida'").bind(Date.now() - 48 * 60 * 60 * 1000).run();
+  await configure(env, policy('vida', { enabled: false }));
+  const state = await (await onRequestGet({ env, request: getReq() })).json();
+  assert.equal(state.opportunities[0].eligible, false);
+  assert.ok(state.opportunities[0].reasons.some(x => /Recount finished portions today/.test(x)));
+  assert.equal((await post(env, { action: 'queue', menu_item_id: 'vida' })).response.status, 409);
+  assert.equal(db.one('SELECT COUNT(*) n FROM inventory_production_tasks').n, 0);
+  await db.prepare("UPDATE menu_items SET stock_counted_at=? WHERE id='vida'").bind(Date.now()).run();
+  assert.equal((await post(env, { action: 'queue', menu_item_id: 'vida' })).response.status, 200);
+  assert.equal(db.one('SELECT COUNT(*) n FROM inventory_production_tasks').n, 1);
 });
 
 test('stale and expired stock, unknown finished count, and a changed recipe block admission', async () => {

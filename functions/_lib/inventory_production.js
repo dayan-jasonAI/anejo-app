@@ -22,7 +22,7 @@ export async function productionStatus(env){
  const at=now(),today=etDateOf(at);
  const [policies,items,menu,recipes,staff,tasks]=await Promise.all([
   all(env,'SELECT * FROM inventory_production_policies ORDER BY menu_item_id'),
-  all(env,'SELECT * FROM inventory_items WHERE active=1'),all(env,`SELECT m.id,m.name,m.availability,m.active,m.stock_count,${committedSQL} AS committed FROM menu_items m ORDER BY m.name`,today,pendingCutoff(env,at)),
+  all(env,'SELECT * FROM inventory_items WHERE active=1'),all(env,`SELECT m.id,m.name,m.availability,m.active,m.stock_count,m.stock_counted_at,${committedSQL} AS committed FROM menu_items m ORDER BY m.name`,today,pendingCutoff(env,at)),
   all(env,'SELECT id,name,status,updated_at FROM recipes ORDER BY name'),all(env,"SELECT id,name FROM staff WHERE active=1 AND role='kitchen' ORDER BY name"),
   all(env,"SELECT * FROM inventory_production_tasks WHERE status IN('queued','preparing') ORDER BY created_at")
  ]);
@@ -48,6 +48,7 @@ export async function productionStatus(env){
   }
   // NULL is an unknown finished count, never zero or an unlimited prep target.
   if(!product||product.stock_count==null)reasons.push('Set the current finished-item count first.');
+  else if(!product.stock_counted_at||etDateOf(product.stock_counted_at)!==today)reasons.push('Recount finished portions today before planning production.');
   const deficit=product&&product.stock_count!=null?Math.max(0,policy.target_count-Math.max(0,Number(product.stock_count)-Number(product.committed))):0;
   const qty=Math.max(0,Math.min(Number.isFinite(capacity)?capacity:0,deficit,policy.max_batch));
   if(qty<policy.min_batch&&!reasons.length)reasons.push(deficit===0?'Stock target already met.':'Insufficient ingredients or packaging for minimum batch.');
@@ -74,8 +75,8 @@ export async function reconcileInventoryProduction(env,{actorId='system',menuIte
   const checks=opportunity.stock.map(s=>`EXISTS(SELECT 1 FROM inventory_items i WHERE i.id=? AND i.active=1 AND i.revision=? AND i.counted_at=? AND COALESCE(i.expires_on,'')=? AND i.${s.basis} - COALESCE((SELECT SUM(t.qty*json_extract(r.value,'$.per_unit')) FROM inventory_production_tasks t,json_each(t.requirements_json) r WHERE t.status IN('queued','preparing') AND json_extract(r.value,'$.inventory_id')=i.id AND json_extract(r.value,'$.basis')=?),0)>=?)`).join(' AND ');
   const binds=[];for(const s of opportunity.stock){const r=opportunity.requirements.find(r=>r.inventory_id===s.id);binds.push(s.id,s.revision,s.counted_at,s.expires_on||'',s.basis,r.per_unit*opportunity.qty);}
   const inserted=env.DB.prepare(`INSERT INTO inventory_production_tasks(id,menu_item_id,recipe_id,policy_revision,recipe_updated_at,qty,requirements_json,stock_snapshot_json,status,assigned_staff_id,created_by,created_at,updated_at,auto_relist)
-   SELECT ?,?,?,?,?,?,?,?,'queued',?,?,?,?,? WHERE ${checks} AND EXISTS(SELECT 1 FROM inventory_production_policies WHERE menu_item_id=? AND revision=? AND (enabled=1 OR ?=1)) AND EXISTS(SELECT 1 FROM recipes WHERE id=? AND status='published' AND updated_at=?) AND EXISTS(SELECT 1 FROM menu_items m WHERE id=? AND active=1 AND stock_count IS NOT NULL AND MAX(0,stock_count-${committedSQL})+?<=?) AND NOT EXISTS(SELECT 1 FROM inventory_production_tasks WHERE menu_item_id=? AND status IN('queued','preparing'))`)
-   .bind(taskId,p.menu_item_id,p.recipe_id,p.revision,p.recipe_updated_at,opportunity.qty,JSON.stringify(opportunity.requirements),JSON.stringify(opportunity.stock),p.assigned_staff_id,actorId,at,at,p.auto_relist,...binds,p.menu_item_id,p.revision,approvedOneOff?1:0,p.recipe_id,p.recipe_updated_at,p.menu_item_id,etDateOf(at),pendingCutoff(env,at),opportunity.qty,p.target_count,p.menu_item_id);
+   SELECT ?,?,?,?,?,?,?,?,'queued',?,?,?,?,? WHERE ${checks} AND EXISTS(SELECT 1 FROM inventory_production_policies WHERE menu_item_id=? AND revision=? AND (enabled=1 OR ?=1)) AND EXISTS(SELECT 1 FROM recipes WHERE id=? AND status='published' AND updated_at=?) AND EXISTS(SELECT 1 FROM menu_items m WHERE id=? AND active=1 AND stock_count IS NOT NULL AND stock_counted_at=? AND MAX(0,stock_count-${committedSQL})+?<=?) AND NOT EXISTS(SELECT 1 FROM inventory_production_tasks WHERE menu_item_id=? AND status IN('queued','preparing'))`)
+   .bind(taskId,p.menu_item_id,p.recipe_id,p.revision,p.recipe_updated_at,opportunity.qty,JSON.stringify(opportunity.requirements),JSON.stringify(opportunity.stock),p.assigned_staff_id,actorId,at,at,p.auto_relist,...binds,p.menu_item_id,p.revision,approvedOneOff?1:0,p.recipe_id,p.recipe_updated_at,p.menu_item_id,status.menu.find(m=>m.id===p.menu_item_id).stock_counted_at,etDateOf(at),pendingCutoff(env,at),opportunity.qty,p.target_count,p.menu_item_id);
   const event=env.DB.prepare("INSERT INTO inventory_production_events(id,task_id,menu_item_id,actor_id,action,details_json,created_at) SELECT ?,?,?,?,'queued',?,? WHERE EXISTS(SELECT 1 FROM inventory_production_tasks WHERE id=?)").bind(eventId,taskId,p.menu_item_id,actorId,JSON.stringify({qty:opportunity.qty,recipe_id:p.recipe_id}),at,taskId);
   const result=await env.DB.batch([inserted,event]);if(result[0]?.meta?.changes){created.push({id:taskId,qty:opportunity.qty,notification:await notifyProduction(env,eventId)});}
  }

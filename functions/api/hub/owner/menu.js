@@ -36,6 +36,8 @@ import { orderability, AVAILABILITY, AVAILABILITY_KEYS, availabilityOf } from '.
 import { loadKitchenTiming, validateTiming, timingSettingStmts } from '../../../_lib/kitchen-timing.js';
 import { measuredByItem, measuredOffice, prepLog, itemActuals, summarize, MIN_SAMPLES } from '../../../_lib/prep-actuals.js';
 import { BOWL_IDS } from '../../../_lib/ondemand.js';
+import { changeInsert, notifyInventory } from '../../../_lib/inventory_updates.js';
+import { reconcileInventoryProduction } from '../../../_lib/inventory_production.js';
 
 const KINDS = ['bowl', 'drink', 'addon'];
 const SLUG = /^[a-z0-9_]+$/;                                  // checkout matches items by this id
@@ -75,11 +77,14 @@ function parseCents(raw, label) {
   return { cents: n };
 }
 
-const logStmt = (env, itemId, field, oldCents, newCents, by, ts) =>
+const logStmt = (env, itemId, field, oldCents, newCents, by, ts, gateChangeId = null) =>
   env.DB.prepare(
-    `INSERT INTO menu_price_log (id, item_id, field, old_cents, new_cents, changed_by, created_at)
-     VALUES (?,?,?,?,?,?,?)`
-  ).bind(id('mpl'), itemId, field, oldCents, newCents, by, ts);
+    gateChangeId
+      ? `INSERT INTO menu_price_log (id, item_id, field, old_cents, new_cents, changed_by, created_at)
+         SELECT ?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM menu_items WHERE id=? AND last_inventory_change_id=?)`
+      : `INSERT INTO menu_price_log (id, item_id, field, old_cents, new_cents, changed_by, created_at)
+         VALUES (?,?,?,?,?,?,?)`
+  ).bind(...[id('mpl'), itemId, field, oldCents, newCents, by, ts, ...(gateChangeId ? [itemId, gateChangeId] : [])]);
 
 /**
  * Say whether a row is actually buyable, and if not, exactly why.
@@ -279,8 +284,8 @@ export const onRequestPost = async ({ request, env }) => {
       // left and would take the item off sale the moment someone cleared the box.
       if (raw === '' || raw == null) next.stock_count = null;
       else {
-        const n = Math.floor(Number(raw));
-        if (!Number.isFinite(n) || n < 0 || n > 9999) errors.push('Count must be a whole number 0–9999, or blank for no limit.');
+        const n = Number(raw);
+        if (!Number.isInteger(n) || n < 0 || n > 9999) errors.push('Count must be a whole number 0–9999, or blank for no limit.');
         else next.stock_count = n;
       }
     }
@@ -303,26 +308,58 @@ export const onRequestPost = async ({ request, env }) => {
     }
     if (errors.length) return json({ ok: false, error: 'validation failed', errors }, 400);
 
-    const stmts = [
-      env.DB.prepare(
+    const stockCountChanged = Object.hasOwn(body, 'stock_count') && next.stock_count !== (row.stock_count == null ? null : row.stock_count);
+    if (stockCountChanged && body.expected_revision != null && Number(body.expected_revision) !== Number(row.inventory_revision || 0)) {
+      return json({ ok: false, error: 'Finished-item count changed. Refresh before saving.' }, 409);
+    }
+
+    let stockChange = null;
+    if (stockCountChanged) {
+      stockChange = changeInsert({
+        itemId,
+        action: 'owner_menu_stock_count',
+        actorId: ctx.distinct_id || null,
+        before: row,
+        after: { ...next, stock_counted_at: ts, inventory_revision: Number(row.inventory_revision || 0) + 1 },
+        at: ts,
+        table: 'menu_items',
+        marker: 'last_inventory_change_id',
+      });
+    }
+
+    const mutation = env.DB.prepare(
         `UPDATE menu_items SET name=?, name_es=?, price_cents=?, description=?, description_es=?,
-           image=?, sort=?, active=?, availability=?, stock_count=?, prep_minutes=?, updated_at=? WHERE id=?`
+           image=?, sort=?, active=?, availability=?, ${stockCountChanged ? 'stock_count=?, stock_counted_at=?, inventory_revision=inventory_revision+1,last_inventory_change_id=?,' : ''}prep_minutes=?, updated_at=? WHERE id=?${stockCountChanged ? ' AND inventory_revision=?' : ''}`
       ).bind(
         next.name, next.name_es, next.price_cents, next.description, next.description_es,
         next.image, next.sort, next.active, next.availability || 'available',
-        next.stock_count == null ? null : next.stock_count,
+        ...(stockCountChanged ? [next.stock_count == null ? null : next.stock_count, ts, stockChange.changeId] : []),
         next.prep_minutes == null ? null : next.prep_minutes, ts, itemId,
-      ),
-    ];
+        ...(stockCountChanged ? [Number(row.inventory_revision || 0)] : []),
+      );
+    const stmts = [mutation];
+    if (stockChange) stmts.push(env.DB.prepare(stockChange.statement.sql).bind(...stockChange.statement.args));
     if (next.price_cents !== row.price_cents) {
-      stmts.push(logStmt(env, itemId, 'price_cents', row.price_cents, next.price_cents, actor, ts));
+      stmts.push(logStmt(env, itemId, 'price_cents', row.price_cents, next.price_cents, actor, ts, stockChange?.changeId));
     }
     // "When did VIDA come off sale, and who did it?" is exactly the question the price log exists
     // to answer, and going sold-out changes what customers can buy just as much as a price does.
     if ((next.availability || 'available') !== (row.availability || 'available')) {
-      stmts.push(logStmt(env, itemId, 'availability:' + (next.availability || 'available'), null, null, actor, ts));
+      stmts.push(logStmt(env, itemId, 'availability:' + (next.availability || 'available'), null, null, actor, ts, stockChange?.changeId));
     }
-    await env.DB.batch(stmts);
+    let results;
+    try { results = await env.DB.batch(stmts); }
+    catch { return json({ ok: false, error: 'Menu update could not be saved.' }, 503); }
+    if (stockChange && (Number(results?.[0]?.meta?.changes) !== 1 || Number(results?.[1]?.meta?.changes) !== 1)) {
+      return json({ ok: false, error: 'Finished-item count changed. Refresh before saving.' }, 409);
+    }
+    if (stockChange) {
+      const push_status = await notifyInventory(env, stockChange.changeId);
+      let production;
+      try { production = await reconcileInventoryProduction(env, { actorId: ctx.distinct_id || actor }); }
+      catch (error) { production = { ok: false, error: String(error?.message || 'unavailable') }; }
+      return json({ ...(await snapshot(env, request)), saved: itemId, stock_change_id: stockChange.changeId, push_status, production_status: production?.ok ? 'reconciled' : 'unavailable', production_error: production?.ok ? null : production?.error || 'unavailable' });
+    }
     return json({ ...(await snapshot(env, request)), saved: itemId });
   }
 

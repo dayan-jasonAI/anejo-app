@@ -155,7 +155,7 @@
 
   <section class="hub-section inv-subsection" aria-labelledby="prepared-heading">
     <div class="inv-section-title"><h2 id="prepared-heading">Ready to sell today</h2></div>
-    <p class="inv-help" style="margin-bottom:10px">Set how many finished bowls and drinks you made today. This count controls what the website can sell and resets overnight. Blank means no limit.</p>
+    <p class="inv-help" style="margin-bottom:10px">Set how many finished bowls and drinks you made today. This stored count persists; today’s paid orders reduce the remaining quantity. Recount finished portions daily before planning prep. Blank means no limit.</p>
     <div id="prepared"><div class="hub-loading">Loading today’s counts…</div></div>
   </section>
   <a class="btn ghost block" href="/hub/kitchen/restock.html">Go to restock orders</a>
@@ -374,7 +374,8 @@
     var rows = Array.isArray(prepared) ? prepared : [];
     $('#prepared').innerHTML = rows.length ? rows.map(function (p) {
       var remaining = p.remaining;
-      var label = p.stock_count == null ? 'No limit set' + (remaining != null ? ' · ' + remaining + ' left today' : '') : (remaining != null ? remaining + ' left of ' + p.stock_count + ' today' : p.stock_count + ' made today');
+      var label = p.stock_count == null ? 'No limit set' + (remaining != null ? ' · ' + remaining + ' left today' : '') : (remaining != null ? remaining + ' left of ' + p.stock_count + ' today' : p.stock_count + ' stored count');
+      label += p.stock_counted_at ? ' · last count ' + new Date(p.stock_counted_at).toLocaleString() : ' · no verified count date';
       return '<div class="card inv-prep-card"><div class="inv-prep-main"><strong>' + esc(p.name) + '</strong><div class="inv-meta">' + esc(label) + '</div></div>' +
         '<input type="number" min="0" max="9999" step="1" inputmode="numeric" placeholder="—" aria-label="Today’s finished count for ' + esc(p.name) + '" id="pq-' + esc(p.id) + '" value="' + (p.stock_count == null ? '' : esc(p.stock_count)) + '">' +
         '<button class="btn ghost" type="button" data-prep="' + esc(p.id) + '">Set</button></div>';

@@ -1,6 +1,6 @@
 import {json,bad} from '../../../_lib/util.js';
 import {requireRole,currentStaff} from '../../../_lib/roles.js';
-import {id,now,etDateOf} from '../../../_lib/hub.js';
+import {id,now,etDateOf,etDayBounds} from '../../../_lib/hub.js';
 import {parseProductionRequirements,productionStatus,reconcileInventoryProduction,notifyProduction} from '../../../_lib/inventory_production.js';
 import {notifyInventory} from '../../../_lib/inventory_updates.js';
 const roles=['owner','kitchen'];
@@ -84,8 +84,8 @@ export async function onRequestPost({env,request}){
   if(!policy)return bad('Production plan missing.',409);
   const requirements=parseProductionRequirements(JSON.parse(task.requirements_json)),clauses=[],args=[];
   for(const r of requirements){clauses.push(`EXISTS(SELECT 1 FROM inventory_items WHERE id=? AND active=1 AND ${r.basis}>=? AND counted_at>=? AND counted_at<=? AND (expires_on IS NULL OR expires_on>=?)${r.basis==='on_hand'?' AND unit=?':''})`);args.push(r.inventory_id,r.per_unit*task.qty,at-policy.stock_max_age_hours*3600000,at,etDateOf(at));if(r.basis==='on_hand')args.push(r.unit);}
-  const event=env.DB.prepare(`INSERT INTO inventory_production_events(id,task_id,menu_item_id,actor_id,action,details_json,created_at) SELECT ?,?,?,?,'completed',?,? WHERE EXISTS(SELECT 1 FROM inventory_production_tasks WHERE id=? AND status='preparing' AND version=?) AND EXISTS(SELECT 1 FROM menu_items WHERE id=? AND stock_count IS NOT NULL) AND EXISTS(SELECT 1 FROM recipes WHERE id=? AND status='published' AND updated_at=?) AND ${clauses.join(' AND ')}`)
-   .bind(eventId,task.id,task.menu_item_id,actor.id,JSON.stringify({planned_qty:task.qty,actual_qty:b.actual_qty,shortfall:task.qty-b.actual_qty,note:String(b.note||'').slice(0,1000)}),at,task.id,task.version,task.menu_item_id,task.recipe_id,task.recipe_updated_at,...args);
+  const event=env.DB.prepare(`INSERT INTO inventory_production_events(id,task_id,menu_item_id,actor_id,action,details_json,created_at) SELECT ?,?,?,?,'completed',?,? WHERE EXISTS(SELECT 1 FROM inventory_production_tasks WHERE id=? AND status='preparing' AND version=?) AND EXISTS(SELECT 1 FROM menu_items WHERE id=? AND stock_count IS NOT NULL AND stock_counted_at>=? AND stock_counted_at<?) AND EXISTS(SELECT 1 FROM recipes WHERE id=? AND status='published' AND updated_at=?) AND ${clauses.join(' AND ')}`)
+   .bind(eventId,task.id,task.menu_item_id,actor.id,JSON.stringify({planned_qty:task.qty,actual_qty:b.actual_qty,shortfall:task.qty-b.actual_qty,note:String(b.note||'').slice(0,1000)}),at,task.id,task.version,task.menu_item_id,etDayBounds(etDateOf(at)).start,etDayBounds(etDateOf(at)).end,task.recipe_id,task.recipe_updated_at,...args);
   const statements=[event],changeIds=[];
   for(const r of requirements){
    const item=await env.DB.prepare('SELECT * FROM inventory_items WHERE id=?').bind(r.inventory_id).first();
@@ -95,7 +95,7 @@ export async function onRequestPost({env,request}){
    statements.push(env.DB.prepare(`UPDATE inventory_items SET ${r.basis}=${r.basis}-?,revision=revision+1,updated_by=?,updated_at=? WHERE id=? AND EXISTS(SELECT 1 FROM inventory_production_events WHERE id=?)`).bind(r.per_unit*task.qty,actor.id,at,item.id,eventId));
   }
   statements.push(env.DB.prepare("INSERT INTO inventory_changes(id,item_id,action,actor_id,before_json,after_json,created_at,push_status) SELECT ?,?,'batch_finished',?,json_object('stock_count',stock_count,'availability',availability),json_object('additional_finished',?,'task_id',?),?,'pending' FROM menu_items WHERE id=? AND EXISTS(SELECT 1 FROM inventory_production_events WHERE id=?)").bind(eventId,task.menu_item_id,actor.id,b.actual_qty,task.id,at,task.menu_item_id,eventId));
-  statements.push(env.DB.prepare("UPDATE menu_items SET stock_count=COALESCE(stock_count,0)+?,availability=CASE WHEN ?=1 AND ?>0 AND active=1 THEN 'available' ELSE availability END,updated_at=?,inventory_revision=inventory_revision+1,last_inventory_change_id=? WHERE id=? AND EXISTS(SELECT 1 FROM inventory_production_events WHERE id=?)").bind(b.actual_qty,task.auto_relist,b.actual_qty,at,eventId,task.menu_item_id,eventId));
+  statements.push(env.DB.prepare("UPDATE menu_items SET stock_count=COALESCE(stock_count,0)+?,availability=CASE WHEN ?=1 AND ?>0 AND active=1 THEN 'available' ELSE availability END,updated_at=?,stock_counted_at=?,inventory_revision=inventory_revision+1,last_inventory_change_id=? WHERE id=? AND EXISTS(SELECT 1 FROM inventory_production_events WHERE id=?)").bind(b.actual_qty,task.auto_relist,b.actual_qty,at,at,eventId,task.menu_item_id,eventId));
   statements.push(env.DB.prepare("UPDATE inventory_production_tasks SET status='completed',actual_qty=?,note=?,completed_by=?,completed_at=?,updated_at=?,version=version+1 WHERE id=? AND EXISTS(SELECT 1 FROM inventory_production_events WHERE id=?)").bind(b.actual_qty,String(b.note||'').slice(0,1000),actor.id,at,at,task.id,eventId));
   await env.DB.batch(statements);
   if(!await env.DB.prepare('SELECT id FROM inventory_production_events WHERE id=?').bind(eventId).first())return bad('Counts changed or ingredients are no longer sufficient. Recount before completing.',409);

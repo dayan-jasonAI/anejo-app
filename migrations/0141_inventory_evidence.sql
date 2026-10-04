@@ -8,6 +8,7 @@ ALTER TABLE inventory_items ADD COLUMN photo_reviewed_at INTEGER;
 ALTER TABLE inventory_items ADD COLUMN counted_at INTEGER;
 ALTER TABLE inventory_items ADD COLUMN expires_on TEXT;
 ALTER TABLE inventory_items ADD COLUMN last_change_id TEXT;
+ALTER TABLE menu_items ADD COLUMN stock_counted_at INTEGER;
 ALTER TABLE menu_items ADD COLUMN inventory_revision INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE menu_items ADD COLUMN last_inventory_change_id TEXT;
 CREATE TABLE inventory_changes (
