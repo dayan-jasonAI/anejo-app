@@ -231,14 +231,18 @@ test('what is LEFT is derived, never stored', () => {
 
 test('the kitchen can set counts from the inventory page', () => {
   assert.match(INVAPI, /action === 'menu_count'/);
-  assert.match(INVAPI, /UPDATE menu_items SET stock_count=\?, updated_at=\? WHERE id=\?/);
+  assert.match(INVAPI, /UPDATE menu_items SET stock_count=\?, updated_at=\?, stock_counted_at=\?, inventory_revision=inventory_revision\+1,last_inventory_change_id=\? WHERE id=\? AND inventory_revision=\?/);
   const INVPAGE = readFileSync(new URL('../../public/hub/kitchen/inventory.html', import.meta.url), 'utf8');
   assert.match(INVPAGE, /Ready to sell today/);
-  assert.match(INVPAGE, /action: 'menu_count'/);
+  assert.match(INVPAGE, /action:\s*'menu_count'/);
 });
 
 test('finished items and ingredients are kept distinct', () => {
-  // inventory_items is POUNDS OF TUNA; menu_items.stock_count is BOWLS MADE. There is no recipe
-  // deduction between them, and the code says so rather than letting someone assume there is.
-  assert.match(INVAPI, /no recipe deduction exists, so making a\s*\/\/\s*bowl does not draw down tuna/);
+  // Raw stock never directly creates sellable food. Only a reviewed production task's
+  // recorded completion consumes inputs and adds the actual finished yield.
+  assert.match(INVAPI, /INGREDIENTS/);
+  assert.match(INVAPI, /FINISHED ITEMS/);
+  const production = readFileSync(new URL('../../functions/api/hub/kitchen/inventory-production.js', import.meta.url), 'utf8');
+  assert.match(production, /Start the task before recording completion/);
+  assert.match(production, /stock_count=COALESCE\(stock_count,0\)\+\?/);
 });
