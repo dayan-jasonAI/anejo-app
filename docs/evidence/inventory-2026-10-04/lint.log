@@ -1,0 +1,10 @@
+
+/Users/aiagent/anejo-browser-photo-release/functions/_lib/catering_deposit.js
+  82:9  warning  'base' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/Users/aiagent/anejo-browser-photo-release/functions/_lib/vendor/webcrypto-web-push.js
+   81:5  warning  'cachedDecoders' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+  116:5  warning  'byteToHexLookupTable' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+✖ 3 problems (0 errors, 3 warnings)
+

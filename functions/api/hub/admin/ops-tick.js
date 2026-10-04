@@ -2,6 +2,7 @@
 //   Añejo Ops nightly run: produce tomorrow's demand forecast + the kitchen prep sheet
 //   (per-bowl counts). Numbers are deterministic; logged to agent_runs. Auth: owner session
 //   OR X-Cron-Key. Triggered ~10pm ET by the cron worker (time-matched).
+import { reconcileInventoryProduction } from '../../../_lib/inventory_production.js';
 import { json, bad, id, now } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { captureSystem } from '../../../_lib/track.js';
@@ -29,6 +30,9 @@ export const onRequestPost = async ({ request, env }) => {
   let forecast = { ok: false };
   let plan = { ok: false };
   let vendor = { ok: false };
+  let inventory_production;
+  try { inventory_production = await reconcileInventoryProduction(env, { actorId: 'system' }); }
+  catch { inventory_production = { ok: false, reason: 'production_read_unavailable' }; }
   try {
     forecast = await runDemandForecast(env, {});
     if (forecast && forecast.ok && forecast.forecast) {
@@ -67,5 +71,5 @@ export const onRequestPost = async ({ request, env }) => {
     await captureSystem(env, { event: 'automation.run', role: 'system', properties: { automation_type: 'demand_forecast', outcome: ok ? 'success' : 'failed' } });
   } catch { /* best-effort */ }
 
-  return json({ ok, forecast, plan, vendor });
+  return json({ ok, forecast, plan, vendor, inventory_production });
 };

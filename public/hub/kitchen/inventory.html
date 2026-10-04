@@ -9,49 +9,156 @@
 <link rel="manifest" href="/hub/manifest.webmanifest">
 <link rel="stylesheet" href="/hub/assets/hub.css">
 <style>
-  /* Page-local: stock-count rows (shared shell stays untouched). */
-  .inv-row { display:grid; grid-template-columns: 1fr 84px 70px; gap:8px; align-items:center; }
-  .inv-row input { padding:9px; text-align:center; }
-  .inv-row .save { height:38px; }
-  .inv-main .row-sub { font-size:12px; }
-  .badge.par { background:transparent; border:1px solid var(--line,#e3e3da); }
-  .card.below { border-left:4px solid var(--gold,#c9a227); }
-  .inv-archive { background:transparent; border:none; color:var(--crit,#b3261e); font-size:12px; cursor:pointer; padding:4px 0 0; }
-  .add-form .field { margin-bottom:8px; }
+  :root { --inv-green:#1b3a2b; --inv-gold:#c9a227; --inv-ivory:#fffdf8; }
+  .hub-wrap { padding-bottom:calc(104px + env(safe-area-inset-bottom)); }
+  .inv-intro { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
+  .inv-intro h2 { margin:0 0 5px; }
+  .inv-intro p,.inv-help { margin:0; color:#58645b; font-size:14px; line-height:1.5; }
+  .inv-add-cta { min-height:48px; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; padding:0 18px; border-radius:10px; background:var(--inv-gold); color:#202116; font-weight:750; text-decoration:none; }
+  .inv-add { background:var(--inv-ivory); border:1px solid #e7e3d8; border-radius:16px; padding:18px; margin:14px 0 24px; box-shadow:0 8px 24px rgba(27,58,43,.07); }
+  .inv-add h3 { margin:0 0 5px; color:var(--inv-green); font-size:19px; }
+  .inv-add .inv-help { margin-bottom:14px; }
+  .inv-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .inv-field { min-width:0; }
+  .inv-field label { display:block; margin-bottom:5px; color:#26392e; font-size:13px; font-weight:700; }
+  .inv-field input,.inv-field select { box-sizing:border-box; width:100%; min-height:46px; padding:10px 12px; border:1px solid #bfc8c0; border-radius:9px; background:white; color:#17251c; font:inherit; }
+  .inv-field textarea { box-sizing:border-box; width:100%; min-height:76px; padding:10px 12px; border:1px solid #bfc8c0; border-radius:9px; background:white; color:#17251c; font:inherit; resize:vertical; }
+  .inv-field input:focus,.inv-field select:focus { outline:3px solid rgba(201,162,39,.35); border-color:#80650c; }
+  .inv-full { grid-column:1/-1; }
+  .inv-submit { min-height:50px; margin-top:14px; font-size:16px; }
+  .inv-section-title { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:22px 0 10px; }
+  .inv-section-title h2 { margin:0; }
+  .inv-count { color:#58645b; font-size:13px; }
+  .inv-list { display:grid; gap:12px; }
+  .inv-card { background:var(--inv-ivory); border:1px solid #e7e3d8; border-radius:14px; padding:14px; box-shadow:0 4px 14px rgba(27,58,43,.055); }
+  .inv-card.below { border-left:4px solid var(--inv-gold); }
+  .inv-head { display:flex; gap:12px; align-items:center; min-width:0; margin-bottom:12px; }
+  .inv-thumb { display:flex; align-items:center; justify-content:center; flex:0 0 68px; width:68px; height:68px; overflow:hidden; border:1px solid #d9ded8; border-radius:11px; background:#f0f1eb; color:#526057; font-size:11px; text-align:center; }
+  .inv-thumb img { width:100%; height:100%; object-fit:cover; }
+  .inv-name { min-width:0; flex:1; color:var(--inv-green); font-size:18px; font-weight:760; line-height:1.25; overflow-wrap:anywhere; }
+  .inv-meta { margin-top:4px; color:#58645b; font-size:13px; line-height:1.45; }
+  .inv-badges { display:flex; gap:6px; flex-wrap:wrap; margin-top:5px; }
+  .inv-badge { display:inline-flex; min-height:24px; align-items:center; padding:0 8px; border:1px solid #d7dccf; border-radius:999px; color:#35453a; font-size:12px; font-weight:650; }
+  .inv-badge.warn { border-color:#c9a227; color:#513d00; background:#fff7d9; }
+  .inv-controls { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+  .inv-controls .inv-field label { font-size:12px; }
+  .inv-controls input { min-height:46px; text-align:center; }
+  .inv-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .inv-actions .btn,.inv-photo-label { min-height:46px; display:inline-flex; align-items:center; justify-content:center; padding:0 13px; }
+  .inv-photo-label { border:1px solid #aab9ad; border-radius:9px; color:var(--inv-green); background:white; font-weight:700; cursor:pointer; }
+  .inv-photo-input { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+  .inv-photo-input:focus + .inv-photo-label { outline:3px solid rgba(201,162,39,.5); }
+  .inv-photo-state { margin-top:8px; color:#4b584f; font-size:13px; line-height:1.45; }
+  .inv-review { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .inv-review button { min-height:44px; }
+  .inv-ledger { margin:12px 0 0; padding:10px 0 0; border-top:1px solid #e4e6df; }
+  .inv-ledger summary { min-height:36px; display:flex; align-items:center; color:var(--inv-green); font-weight:700; cursor:pointer; }
+  .inv-ledger ol { margin:4px 0 0; padding-left:22px; }
+  .inv-ledger li { padding:5px 0; color:#47534a; font-size:13px; line-height:1.45; }
+  .inv-status { min-height:22px; margin-top:8px; color:#3e4e43; font-size:13px; }
+  .inv-error { color:#8c271f; }
+  .inv-archive { min-height:44px; margin-top:8px; border:0; padding:0 4px; color:#8c271f; background:transparent; font-size:13px; text-decoration:underline; cursor:pointer; }
+  .inv-subsection { margin-top:30px; }
+  .inv-prep-card { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .inv-prep-card .inv-prep-main { flex:1; min-width:0; }
+  .inv-prep-card input { box-sizing:border-box; width:78px; min-height:44px; padding:8px; border:1px solid #c7cec8; border-radius:8px; text-align:center; font:inherit; }
+  .inv-prep-card button { min-height:44px; }
+  .ip-panel { margin-top:18px; padding:16px; border:1px solid #dfe5dd; border-radius:16px; background:#f9faf6; }
+  .ip-panel-head,.ip-section-head,.ip-op-head,.ip-task-top,.ip-requirements-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .ip-header-actions { display:flex; flex-wrap:wrap; gap:8px; }
+  .ip-panel-head h2,.ip-section-head h3,.ip-op-head h3,.ip-task-top h3,.ip-form-head h3,.ip-requirements-head h4 { margin:0; color:var(--inv-green); }
+  .ip-panel-head p,.ip-op-head p,.ip-task-top p,.ip-form-head p,.ip-requirements-head p { margin:4px 0 0; color:#58645b; font-size:13px; line-height:1.5; }
+  .ip-caution { margin:12px 0; padding:11px 12px; border-left:3px solid var(--inv-gold); border-radius:6px; background:#fff9e5; color:#44370d; font-size:13px; line-height:1.5; }
+  .ip-stack { display:grid; gap:10px; }
+  .ip-section-head { margin:20px 0 9px; }
+  .ip-section-head span { color:#58645b; font-size:13px; }
+  .ip-opportunity,.ip-task { margin:0; }
+  .ip-reasons,.ip-detail ul,.ip-plans ul { margin:9px 0; padding-left:21px; color:#46544a; font-size:13px; line-height:1.55; }
+  .ip-clear { margin:8px 0; color:#31563d; font-size:13px; }
+  .ip-detail summary,.ip-plans summary { min-height:40px; display:flex; align-items:center; color:var(--inv-green); font-size:13px; font-weight:700; cursor:pointer; }
+  .ip-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .ip-actions button { min-height:44px; }
+  .ip-policy { margin:14px 0; padding:15px; border:1px solid #d6dfd6; border-radius:13px; background:white; }
+  .ip-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
+  .ip-numbers { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .ip-requirements-head { margin:17px 0 8px; }
+  .ip-req { display:grid; grid-template-columns:1.4fr 1.2fr 1fr .9fr .9fr auto; align-items:end; gap:8px; margin-top:9px; padding:10px; border:1px solid #e1e5df; border-radius:10px; background:#fbfcf9; }
+  .ip-req .inv-field label { font-size:12px; }
+  .ip-req .inv-field input,.ip-req .inv-field select { min-height:44px; padding:8px; }
+  .ip-remove { min-height:44px; }
+  .ip-toggles { display:grid; gap:9px; margin-top:15px; }
+  .ip-toggles label,.ip-confirm { display:flex; align-items:flex-start; gap:9px; color:#26392e; font-size:14px; line-height:1.45; }
+  .ip-toggles input,.ip-confirm input { width:20px; height:20px; flex:0 0 auto; accent-color:var(--inv-green); }
+  .ip-confirm { margin-top:14px; padding:11px; border-radius:9px; background:#f1f4ee; font-weight:700; }
+  .ip-complete { margin-top:12px; padding-top:10px; border-top:1px solid #e4e6df; }
+  .ip-complete .inv-field textarea { min-height:46px; }
+  .ip-task-note { margin:8px 0; color:#58645b; font-size:13px; line-height:1.5; }
+  .ip-small { color:#58645b; font-size:12px; line-height:1.45; }
+  .ip-plans { margin-top:15px; }
+  @media(max-width:520px) {
+    .inv-intro { align-items:flex-start; flex-direction:column; }
+    .inv-add-cta { width:100%; box-sizing:border-box; }
+    .inv-add { padding:15px; }
+    .inv-fields { grid-template-columns:1fr; }
+    .inv-full { grid-column:auto; }
+    .inv-card { padding:12px; }
+    .inv-thumb { flex-basis:60px; width:60px; height:60px; }
+    .inv-controls { grid-template-columns:1fr 1fr; }
+    .inv-controls .inv-field:first-child { grid-column:1/-1; }
+    .inv-actions > * { flex:1 1 130px; }
+    .inv-prep-card { flex-wrap:wrap; }
+    .inv-prep-card .inv-prep-main { flex-basis:calc(100% - 94px); }
+    .ip-panel { padding:12px; }
+    .ip-panel-head,.ip-op-head,.ip-task-top,.ip-requirements-head { align-items:flex-start; flex-direction:column; }
+    .ip-panel-head > button,.ip-requirements-head > button { width:100%; min-height:44px; }
+    .ip-header-actions { width:100%; flex-direction:column; }
+    .ip-header-actions button { min-height:46px; }
+    .ip-grid,.ip-numbers { grid-template-columns:1fr; }
+    .ip-req { grid-template-columns:1fr 1fr; }
+    .ip-req .ip-unit-field { grid-column:1/-1; }
+    .ip-remove { grid-column:1/-1; }
+  }
 </style>
 </head>
 <body>
 <div class="hub-bar">
   <h1>AÑEJO · INVENTORY</h1>
-  <div class="hub-bar-actions"><a href="/hub/kitchen/restock.html" style="color:var(--gold,#C8BC6E);text-decoration:none;font-size:13px;font-weight:700;margin-right:14px;white-space:nowrap" data-i18n>📋 Restock</a><button id="lang-toggle" type="button">ES</button></div>
+  <div class="hub-bar-actions"><a href="/hub/kitchen/restock.html" style="color:var(--gold,#C8BC6E);text-decoration:none;font-size:13px;font-weight:700;margin-right:14px;white-space:nowrap">Restock</a><button id="lang-toggle" type="button">ES</button></div>
 </div>
 
 <div class="hub-wrap">
-  <div class="hub-section">
-    <h2 data-i18n>Ready to sell today</h2>
-    <p class="hint" style="font-size:12px;opacity:.75;margin:0 0 10px" data-i18n>How many finished bowls and drinks you made this morning. This is what the website sells against — when it reaches zero the item shows as sold out. Blank means no limit. Resets overnight.</p>
-    <div id="prepared"><div class="hub-loading" data-i18n>Loading…</div></div>
-  </div>
+  <section class="hub-section" id="add-inventory" aria-labelledby="add-heading">
+    <div class="inv-intro"><div><h2 id="add-heading">Inventory</h2><p>Keep item counts current. Photos are reported inventory snapshots and are not proof of delivery or receipt.</p></div><a class="inv-add-cta" href="#add-form">Add inventory item</a></div>
+    <form id="add-form" class="inv-add" novalidate>
+      <h3>Add an inventory item</h3>
+      <p class="inv-help">Start with a name. Counts, weight, and on-hand quantity are tracked separately.</p>
+      <div class="inv-fields">
+        <div class="inv-field inv-full"><label for="a-name">Item name</label><input id="a-name" type="text" maxlength="80" autocomplete="off" required></div>
+        <div class="inv-field"><label for="a-unit">On-hand unit</label><input id="a-unit" type="text" maxlength="16" placeholder="lb, each, case"></div>
+        <div class="inv-field"><label for="a-onhand">On hand</label><input id="a-onhand" type="number" step="any" min="0" inputmode="decimal"></div>
+        <div class="inv-field"><label for="a-count">Count quantity</label><input id="a-count" type="number" step="any" min="0" inputmode="decimal"></div>
+        <div class="inv-field"><label for="a-weight">Total weight (grams)</label><input id="a-weight" type="number" step="any" min="0" inputmode="decimal"></div>
+        <div class="inv-field"><label for="a-expires">Stock expires on</label><input id="a-expires" type="date"></div>
+        <div class="inv-field"><label for="a-par">Par level</label><input id="a-par" type="number" step="any" min="0" inputmode="decimal"></div>
+        <div class="inv-field"><label for="a-cost">Unit cost (USD, optional)</label><input id="a-cost" type="number" step="0.01" min="0" inputmode="decimal" placeholder="4.50"></div>
+        <div class="inv-field inv-full"><label for="a-vendor">Vendor (optional)</label><select id="a-vendor"><option value="">No vendor selected</option></select></div>
+      </div>
+      <button class="btn gold block inv-submit" id="a-save" type="submit">Add item</button>
+      <div id="add-status" class="inv-status" role="status" aria-live="polite"></div>
+    </form>
+  </section>
 
-  <div class="hub-section">
-    <h2 data-i18n>Ingredients</h2>
-    <div id="items"><div class="hub-loading" data-i18n>Loading…</div></div>
-  </div>
+  <section class="hub-section" aria-label="Inventory items">
+    <div id="items" aria-live="polite"><div class="hub-loading">Loading inventory…</div></div>
+    <div id="inventory-production"></div>
+  </section>
 
-  <div class="hub-section">
-    <h2 data-i18n>+ Add item</h2>
-    <div class="card add-form">
-      <div class="field"><label data-i18n>Name</label><input id="a-name" type="text" maxlength="80"></div>
-      <div class="field"><label data-i18n>Unit</label><input id="a-unit" type="text" maxlength="16" placeholder="lb / ea / case"></div>
-      <div class="field"><label data-i18n>Par level</label><input id="a-par" type="number" step="any" min="0"></div>
-      <div class="field"><label data-i18n>On hand</label><input id="a-onhand" type="number" step="any" min="0"></div>
-      <div class="field"><label data-i18n>Unit cost (USD, optional)</label><input id="a-cost" type="number" step="0.01" min="0" placeholder="e.g. 4.50"></div>
-      <div class="field"><label data-i18n>Vendor (optional)</label><select id="a-vendor"><option value=""></option></select></div>
-      <button class="btn gold block" id="a-save" type="button" data-i18n>Add item</button>
-    </div>
-  </div>
-
-  <a class="btn ghost block" href="/hub/kitchen/restock.html" data-i18n>Go to restock orders</a>
+  <section class="hub-section inv-subsection" aria-labelledby="prepared-heading">
+    <div class="inv-section-title"><h2 id="prepared-heading">Ready to sell today</h2></div>
+    <p class="inv-help" style="margin-bottom:10px">Set how many finished bowls and drinks you made today. This count controls what the website can sell and resets overnight. Blank means no limit.</p>
+    <div id="prepared"><div class="hub-loading">Loading today’s counts…</div></div>
+  </section>
+  <a class="btn ghost block" href="/hub/kitchen/restock.html">Go to restock orders</a>
 </div>
 
 <script src="/assets/js/i18n.js"></script>
@@ -59,132 +166,258 @@
 <script src="/hub/kitchen/kitchen.js"></script>
 <script>
 (function () {
+  'use strict';
   var Hub = window.Hub, K = window.Kitchen, $ = Hub.$, esc = Hub.esc;
+  var bootRoleOwner = false, isOwner = false, currentItems = [], currentChanges = [];
+  function dateValue(value) { return value == null ? '' : String(value).slice(0, 10); }
 
+  function numberText(value, fallback) {
+    return value == null || value === '' ? fallback : esc(value);
+  }
+  function photoMarkup(it) {
+    if (!it.photo_key) return '<div class="inv-thumb" aria-label="No inventory photo">No photo</div>';
+    var src = '/api/hub/media/' + String(it.photo_key).split('/').map(encodeURIComponent).join('/');
+    return '<div class="inv-thumb"><img loading="lazy" src="' + src + '" alt="Inventory snapshot for ' + esc(it.name) + '" data-photo-thumb></div>';
+  }
+  function photoLabel(status) {
+    var labels = { pending:'Photo awaiting owner review', approved:'Photo approved', rejected:'Photo rejected' };
+    return labels[status] || 'Photo status unavailable';
+  }
+  function historySummary(change) {
+    var action = String(change.action || change.type || 'Inventory updated').replace(/[_-]+/g, ' ');
+    var detail = change.summary || change.description || '';
+    if (!detail) {
+      var after = change.after;
+      if (!after && change.after_json) { try { after = JSON.parse(change.after_json); } catch (_) { after = null; } }
+      if (after && typeof after === 'object') {
+        var parts = [];
+        if (after.on_hand != null) parts.push('on hand ' + after.on_hand);
+        if (after.count_quantity != null) parts.push('count ' + after.count_quantity);
+        if (after.total_weight_grams != null) parts.push('weight ' + after.total_weight_grams + ' g');
+        if (parts.length) detail = parts.join(' · ');
+      }
+    }
+    var when = change.created_at || change.at || change.timestamp || '';
+    if (when) {
+      var date = new Date(when);
+      when = isNaN(date.getTime()) ? String(when) : date.toLocaleString();
+    }
+    var pushStatus = change.push_status == null ? '' : String(change.push_status);
+    var pushLabel = pushStatus === 'sent' ? 'Push status: sent · delivery not confirmed' : pushStatus === 'noop' ? 'Push status: no push sent' : pushStatus === 'pending' ? 'Push status: pending' : pushStatus === 'failed' ? 'Push status: failed' : pushStatus ? 'Push status: ' + pushStatus : '';
+    return '<li><strong>' + esc(action) + '</strong>' + (detail ? ' · ' + esc(detail) : '') + (when ? '<br><span>' + esc(when) + '</span>' : '') + (pushLabel ? '<br><span>' + esc(pushLabel) + '</span>' : '') + '</li>';
+  }
+  function itemChanges(it) {
+    return currentChanges.filter(function (c) { return String(c.item_id || c.id || '') === String(it.id); }).slice(0, 30);
+  }
   function itemCard(it) {
-    var par = Number(it.par_level) || 0;
     var below = !!it.below_par;
-    var parBadge = '<span class="badge par">par ' + esc(par) + (it.unit ? ' ' + esc(it.unit) : '') + '</span>';
-    var lowBadge = below ? ' <span class="badge warn" data-i18n>below par</span>' : '';
-    var vendor = it.vendor_name ? '<div class="row-sub">🛒 ' + esc(it.vendor_name) + '</div>' : '';
-    return '<div class="card' + (below ? ' below' : '') + '" data-card="' + esc(it.id) + '">' +
-      '<div class="inv-row">' +
-      '<div class="inv-main"><div class="row-title">' + esc(it.name) + lowBadge + '</div>' +
-      '<div class="row-sub">' + (it.unit ? esc(it.unit) + ' · ' : '') + parBadge + '</div>' + vendor + '</div>' +
-      '<input class="i-onhand" type="number" step="any" min="0" value="' + esc(it.on_hand != null ? it.on_hand : 0) + '" aria-label="On hand">' +
-      '<button class="btn gold save" type="button" data-count="' + esc(it.id) + '" data-i18n>Save</button>' +
-      '</div>' +
-      '<button class="inv-archive" type="button" data-archive="' + esc(it.id) + '" data-i18n>Archive item</button>' +
-      '</div>';
+    var expired = !!(it.expires_on && it.expires_on < new Date().toISOString().slice(0, 10));
+    var changes = itemChanges(it);
+    var status = it.photo_key ? photoLabel(it.photo_status) : 'No inventory photo';
+    var review = isOwner && it.photo_key && it.photo_status === 'pending'
+      ? '<div class="inv-review"><button class="btn gold" type="button" data-review="approve" data-id="' + esc(it.id) + '" data-key="' + esc(it.photo_key) + '">Approve photo</button><button class="btn ghost" type="button" data-review="reject" data-id="' + esc(it.id) + '" data-key="' + esc(it.photo_key) + '">Reject photo</button></div>' : '';
+    return '<article class="inv-card' + (below ? ' below' : '') + '" data-card="' + esc(it.id) + '">' +
+      '<div class="inv-head">' + photoMarkup(it) + '<div class="inv-name">' + esc(it.name) +
+      '<div class="inv-meta">' + (it.unit ? esc(it.unit) + ' · ' : '') + 'Par ' + numberText(it.par_level, '—') + '</div>' +
+      '<div class="inv-meta">' + (it.counted_at ? 'Last count saved ' + esc(new Date(it.counted_at).toLocaleString()) : 'No count timestamp recorded') + '</div>' +
+      '<div class="inv-badges">' + (below ? '<span class="inv-badge warn">Below par</span>' : '') + (expired ? '<span class="inv-badge warn">Expired stock</span>' : '') + '<span class="inv-badge">' + esc(status) + '</span></div></div></div>' +
+      (it.vendor_name ? '<div class="inv-meta">Vendor: ' + esc(it.vendor_name) + '</div>' : '') +
+      '<div class="inv-controls">' +
+      '<div class="inv-field"><label for="onhand-' + esc(it.id) + '">On hand' + (it.unit ? ' (' + esc(it.unit) + ')' : '') + '</label><input id="onhand-' + esc(it.id) + '" class="i-onhand" type="number" step="any" min="0" inputmode="decimal" value="' + numberText(it.on_hand, '') + '"></div>' +
+      '<div class="inv-field"><label for="count-' + esc(it.id) + '">Count quantity</label><input id="count-' + esc(it.id) + '" class="i-count" type="number" step="any" min="0" inputmode="decimal" value="' + numberText(it.count_quantity, '') + '"></div>' +
+      '<div class="inv-field"><label for="weight-' + esc(it.id) + '">Total weight (g)</label><input id="weight-' + esc(it.id) + '" class="i-weight" type="number" step="any" min="0" inputmode="decimal" value="' + numberText(it.total_weight_grams, '') + '"></div>' +
+      '<div class="inv-field"><label for="expires-' + esc(it.id) + '">Stock expires on</label><input id="expires-' + esc(it.id) + '" class="i-expires" type="date" value="' + esc(dateValue(it.expires_on)) + '"></div></div>' +
+      '<div class="inv-meta">Saving any count stamps the current time automatically; it cannot be backdated here.</div>' +
+      '<div class="inv-actions"><button class="btn gold" type="button" data-count="' + esc(it.id) + '">Save counts</button>' +
+      '<input class="inv-photo-input" type="file" accept="image/*" capture="environment" id="photo-' + esc(it.id) + '" data-photo="' + esc(it.id) + '"><label class="inv-photo-label" for="photo-' + esc(it.id) + '">Take or upload photo</label>' +
+      '</div><div class="inv-photo-state" data-photo-state="' + esc(it.id) + '">' + esc(status) + (it.photo_status === 'pending' ? ' · Uploading does not approve a photo.' : '') + '</div>' + review +
+      '<div class="inv-status" role="status" aria-live="polite" data-row-status="' + esc(it.id) + '"></div>' +
+      '<button class="inv-archive" type="button" data-archive="' + esc(it.id) + '">Archive item</button>' +
+      (changes.length ? '<details class="inv-ledger"><summary>Recent changes (' + changes.length + ')</summary><ol>' + changes.map(historySummary).join('') + '</ol></details>' : '') +
+      '</article>';
   }
-
-  function bind() {
-    Array.prototype.forEach.call(document.querySelectorAll('[data-count]'), function (b) {
-      b.addEventListener('click', function () {
-        var card = b.closest('[data-card]');
-        var val = card.querySelector('.i-onhand').value;
-        if (val === '' || Number(val) < 0) return Hub.toast('Enter the on-hand amount.');
-        b.disabled = true;
-        K.post('/api/hub/kitchen/inventory', { action: 'count', id: b.getAttribute('data-count'), on_hand: Number(val) })
-          .then(function (d) {
-            b.disabled = false;
-            if (d && d.ok) { Hub.toast(d.below_par ? 'Saved — below par' : 'Count saved'); load(); }
-            else K.fail(d, 'Could not save count.');
-          });
-      });
-    });
-    Array.prototype.forEach.call(document.querySelectorAll('[data-archive]'), function (b) {
-      b.addEventListener('click', function () {
-        if (!window.confirm('Archive this item?')) return;
-        b.disabled = true;
-        K.post('/api/hub/kitchen/inventory', { action: 'archive', id: b.getAttribute('data-archive') })
-          .then(function (d) {
-            if (d && d.ok) { Hub.toast('Item archived'); load(); }
-            else { K.fail(d, 'Could not archive.'); b.disabled = false; }
-          });
-      });
-    });
+  function showLoadError(message) {
+    $('#items').innerHTML = '<div class="hub-empty inv-error" role="alert">' + esc(message) + ' Inventory was not replaced with an empty state.</div>';
   }
-
-  // Finished items, not ingredients. `remaining` is derived from today's orders, so it is shown
-  // read-only next to the box — typing over the count must not look like it edits what is left.
-  function prepCard(p) {
-    var left = p.remaining;
-    var tone = left === 0 ? 'color:#b3402f;font-weight:700' : (left != null && left <= 3 ? 'color:#8a6d1f;font-weight:700' : 'opacity:.7');
-    var state = p.availability && p.availability !== 'available'
-      ? ' <span class="badge" style="background:#b3402f;color:#fff">' + esc(p.availability.replace(/_/g, ' ')) + '</span>' : '';
-    return '<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
-      '<div style="flex:1;min-width:0"><strong>' + esc(p.name) + '</strong>' + state +
-        '<div style="font-size:12px;' + tone + '">' +
-          (p.stock_count == null
-            ? esc('No limit set' + (left != null ? ' · ' + left + ' left today' : ''))
-            : esc(left != null ? left + ' left of ' + p.stock_count + ' today' : p.stock_count + ' made today')) +
-        '</div></div>' +
-      '<input type="number" min="0" max="9999" placeholder="—" style="width:78px;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit;text-align:center" ' +
-        'id="pq_' + esc(p.id) + '" value="' + (p.stock_count == null ? '' : p.stock_count) + '">' +
-      '<button class="btn ghost" data-prep="' + esc(p.id) + '" style="white-space:nowrap">Set</button>' +
-    '</div>';
-  }
-
-  function bindPrepared() {
-    Array.prototype.forEach.call(document.querySelectorAll('[data-prep]'), function (b) {
-      b.addEventListener('click', function () {
-        var pid = b.getAttribute('data-prep');
-        var el = document.getElementById('pq_' + pid);
-        b.disabled = true;
-        K.post('/api/hub/kitchen/inventory', { action: 'menu_count', id: pid, stock_count: (el.value || '').trim() })
-          .then(function (d) {
-            b.disabled = false;
-            if (d && d.ok) { Hub.toast(d.stock_count == null ? 'No limit' : d.stock_count + ' set'); load(); }
-            else K.fail(d, 'Could not save the count.');
-          });
-      });
+  function compressPhoto(file) {
+    return new Promise(function (resolve, reject) {
+      if (!file || !/^image\//i.test(file.type)) return reject(new Error('Choose an image file.'));
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('Could not read this photo. Try another image.')); };
+      reader.onload = function () {
+        var image = new Image();
+        image.onerror = function () { reject(new Error('This image could not be opened. Try another photo.')); };
+        image.onload = function () {
+          var scale = Math.min(1, 1600 / Math.max(image.width, image.height));
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(image.width * scale));
+          canvas.height = Math.max(1, Math.round(image.height * scale));
+          var ctx = canvas.getContext('2d');
+          if (!ctx) return reject(new Error('Photo processing is unavailable in this browser.'));
+          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+          var quality = 0.82;
+          function encode() {
+            canvas.toBlob(function (blob) {
+              if (!blob) return reject(new Error('Could not prepare this photo.'));
+              if (blob.size > 3400000 && quality > 0.5) { quality -= 0.12; return encode(); }
+              if (blob.size > 3400000) return reject(new Error('This photo is still too large after resizing. Choose a smaller image.'));
+              var out = new FileReader();
+              out.onerror = function () { reject(new Error('Could not prepare this photo for upload.')); };
+              out.onload = function () { resolve(String(out.result)); };
+              out.readAsDataURL(blob);
+            }, 'image/jpeg', quality);
+          }
+          encode();
+        };
+        image.src = reader.result;
+      };
+      reader.readAsDataURL(file);
     });
   }
-
   function load() {
     K.get('/api/hub/kitchen/inventory').then(function (d) {
-      var list = (d && d.items) || [];
-      $('#items').innerHTML = list.length
-        ? list.map(itemCard).join('')
-        : '<div class="hub-empty" data-i18n>No inventory items yet — add the first one below.</div>';
-      bind();
-
-      var prep = (d && d.prepared) || [];
-      $('#prepared').innerHTML = prep.length
-        ? prep.map(prepCard).join('')
-        : '<div class="hub-empty" data-i18n>Menu is loading from the fallback right now, so counts cannot be set.</div>';
-      bindPrepared();
-
+      if (!d || d.ok !== true || !Array.isArray(d.items) || d.error || d._networkError || d._status) return showLoadError((d && d.error) || 'Could not load inventory.');
+      currentItems = d.items;
+      isOwner = bootRoleOwner && d.actor_role === 'owner';
+      currentChanges = Array.isArray(d.changes) ? d.changes.slice(0, 30) : [];
+      $('#items').innerHTML = currentItems.length
+        ? '<div class="inv-section-title"><span class="inv-count">' + currentItems.length + (currentItems.length === 1 ? ' active item' : ' active items') + '</span></div><div class="inv-list">' + currentItems.map(itemCard).join('') + '</div>'
+        : '<div class="hub-empty">No inventory items yet. Use “Add inventory item” to create the first one.</div>';
+      Array.prototype.forEach.call(document.querySelectorAll('[data-photo-thumb]'), function (img) {
+        img.addEventListener('error', function () { var box = img.parentNode; box.textContent = 'Photo unavailable'; box.setAttribute('aria-label', 'Inventory photo unavailable'); });
+      });
+      bindItems();
+      renderPrepared(d.prepared,d.prepared_status);
       var sel = $('#a-vendor');
       var keep = sel.value;
-      sel.innerHTML = '<option value=""></option>' + ((d && d.vendors) || []).map(function (v) {
+      sel.innerHTML = '<option value="">No vendor selected</option>' + (Array.isArray(d.vendors) ? d.vendors : []).map(function (v) {
         return '<option value="' + esc(v.id) + '">' + esc(v.name || v.id) + '</option>';
       }).join('');
       sel.value = keep;
       if (window.AnejoI18n) window.AnejoI18n.refresh();
+      document.dispatchEvent(new CustomEvent('inventory:changed'));
     });
   }
-
-  $('#a-save').addEventListener('click', function () {
-    var name = $('#a-name').value.trim();
-    if (!name) return Hub.toast('Item name is required.');
-    var btn = this; btn.disabled = true;
+  function bindItems() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-count]'), function (button) {
+      button.addEventListener('click', function () {
+        var id = button.getAttribute('data-count'), card = button.closest('[data-card]');
+        var fields = [card.querySelector('.i-onhand'), card.querySelector('.i-count'), card.querySelector('.i-weight')];
+        var values = fields.map(function (el) { return el.value === '' ? null : Number(el.value); });
+        if (fields.some(function (el, i) { return el.value !== '' && (!Number.isFinite(values[i]) || values[i] < 0); })) {
+          Hub.toast('Enter valid non-negative amounts.'); return;
+        }
+        var item = currentItems.find(function (it) { return String(it.id) === String(id); });
+        var status = card.querySelector('[data-row-status]');
+        button.disabled = true; status.textContent = 'Saving counts…';
+        K.post('/api/hub/kitchen/inventory', {
+          action:'count', id:id, on_hand:values[0], count_quantity:values[1], total_weight_grams:values[2],
+          expires_on:card.querySelector('.i-expires').value || null,
+          expected_revision:item && item.revision
+        }).then(function (d) {
+          button.disabled = false;
+          if (d && d.ok) { status.textContent = 'Counts saved.'; load(); }
+          else { status.textContent = (d && d.error) || 'Could not save counts.'; status.classList.add('inv-error'); }
+        });
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-photo]'), function (input) {
+      input.addEventListener('change', function () {
+        var file = input.files && input.files[0]; if (!file) return;
+        var id = input.getAttribute('data-photo'), item = currentItems.find(function (it) { return String(it.id) === String(id); });
+        var state = input.closest('[data-card]').querySelector('[data-photo-state]');
+        state.textContent = 'Preparing photo…'; input.disabled = true;
+        compressPhoto(file).then(function (dataUrl) {
+          state.textContent = 'Uploading private inventory snapshot…';
+          return K.post('/api/hub/kitchen/inventory-photo', { id:id, data_url:dataUrl, expected_revision:item && item.revision });
+        }).then(function (d) {
+          input.disabled = false; input.value = '';
+          if (d && d.ok) { state.textContent = 'Photo uploaded and waiting for owner review.'; load(); }
+          else state.textContent = (d && d.error) || 'Photo upload failed. Your inventory counts are unchanged.';
+        }).catch(function (error) {
+          input.disabled = false; input.value = ''; state.textContent = error.message || 'Could not prepare this photo.';
+        });
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-review]'), function (button) {
+      button.addEventListener('click', function () {
+        var id = button.getAttribute('data-id'), item = currentItems.find(function (it) { return String(it.id) === String(id); });
+        var card = button.closest('[data-card]'), status = card.querySelector('[data-row-status]');
+        var buttons = card.querySelectorAll('[data-review]'); Array.prototype.forEach.call(buttons, function (b) { b.disabled = true; });
+        status.textContent = 'Saving owner review…';
+        K.post('/api/hub/kitchen/inventory', {
+          action:'review_photo', id:id, photo_key:button.getAttribute('data-key'), decision:button.getAttribute('data-review'),
+          expected_revision:item && item.revision
+        }).then(function (d) {
+          if (d && d.ok) { status.textContent = 'Photo review saved.'; load(); }
+          else { status.textContent = (d && d.error) || 'Could not save photo review.'; Array.prototype.forEach.call(buttons, function (b) { b.disabled = false; }); }
+        });
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-archive]'), function (button) {
+      button.addEventListener('click', function () {
+        if (!window.confirm('Archive this inventory item?')) return;
+        var id = button.getAttribute('data-archive'), item = currentItems.find(function (it) { return String(it.id) === String(id); });
+        button.disabled = true;
+        K.post('/api/hub/kitchen/inventory', { action:'archive', id:id, expected_revision:item && item.revision }).then(function (d) {
+          if (d && d.ok) load();
+          else { button.disabled = false; Hub.toast((d && d.error) || 'Could not archive the item.'); }
+        });
+      });
+    });
+  }
+  function renderPrepared(prepared, preparedStatus) {
+    if (preparedStatus !== 'available') {
+      $('#prepared').innerHTML = '<div class="hub-empty inv-error" role="status">Today’s finished-item counts are unavailable right now. No count values are being shown.</div>';
+      return;
+    }
+    var rows = Array.isArray(prepared) ? prepared : [];
+    $('#prepared').innerHTML = rows.length ? rows.map(function (p) {
+      var remaining = p.remaining;
+      var label = p.stock_count == null ? 'No limit set' + (remaining != null ? ' · ' + remaining + ' left today' : '') : (remaining != null ? remaining + ' left of ' + p.stock_count + ' today' : p.stock_count + ' made today');
+      return '<div class="card inv-prep-card"><div class="inv-prep-main"><strong>' + esc(p.name) + '</strong><div class="inv-meta">' + esc(label) + '</div></div>' +
+        '<input type="number" min="0" max="9999" step="1" inputmode="numeric" placeholder="—" aria-label="Today’s finished count for ' + esc(p.name) + '" id="pq-' + esc(p.id) + '" value="' + (p.stock_count == null ? '' : esc(p.stock_count)) + '">' +
+        '<button class="btn ghost" type="button" data-prep="' + esc(p.id) + '">Set</button></div>';
+    }).join('') : '<div class="hub-empty">No prepared menu items were returned.</div>';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-prep]'), function (button) {
+      button.addEventListener('click', function () {
+        var id = button.getAttribute('data-prep'), field = document.getElementById('pq-' + id);
+        button.disabled = true;
+        K.post('/api/hub/kitchen/inventory', { action:'menu_count', id:id, stock_count:(field.value || '').trim() }).then(function (d) {
+          button.disabled = false;
+          if (d && d.ok) load(); else Hub.toast((d && d.error) || 'Could not save today’s count.');
+        });
+      });
+    });
+  }
+  $('#add-form').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var name = $('#a-name').value.trim(), status = $('#add-status');
+    if (!name) { $('#a-name').focus(); status.textContent = 'Enter an item name.'; status.classList.add('inv-error'); return; }
+    var numeric = ['a-onhand','a-count','a-weight','a-par','a-cost'];
+    for (var i=0;i<numeric.length;i++) {
+      var field = $('#' + numeric[i]);
+      if (field.value !== '' && (!Number.isFinite(Number(field.value)) || Number(field.value) < 0)) {
+        field.focus(); status.textContent = 'Enter a valid non-negative value for ' + field.labels[0].textContent + '.'; status.classList.add('inv-error'); return;
+      }
+    }
+    var button = $('#a-save'); button.disabled = true; status.classList.remove('inv-error'); status.textContent = 'Adding item…';
     K.post('/api/hub/kitchen/inventory', {
-      action: 'upsert',
-      name: name,
-      unit: $('#a-unit').value.trim() || null,
-      par_level: $('#a-par').value !== '' ? Number($('#a-par').value) : null,
-      on_hand: $('#a-onhand').value !== '' ? Number($('#a-onhand').value) : null,
-      unit_cost_cents: $('#a-cost').value !== '' ? Math.round(Number($('#a-cost').value) * 100) : null,
-      vendor_id: $('#a-vendor').value || null
+      action:'upsert', name:name, unit:$('#a-unit').value.trim() || null,
+      on_hand:$('#a-onhand').value === '' ? null : Number($('#a-onhand').value),
+      count_quantity:$('#a-count').value === '' ? null : Number($('#a-count').value),
+      total_weight_grams:$('#a-weight').value === '' ? null : Number($('#a-weight').value),
+      expires_on:$('#a-expires').value || null,
+      par_level:$('#a-par').value === '' ? null : Number($('#a-par').value),
+      unit_cost_cents:$('#a-cost').value === '' ? null : Math.round(Number($('#a-cost').value) * 100),
+      vendor_id:$('#a-vendor').value || null
     }).then(function (d) {
-      btn.disabled = false;
+      button.disabled = false;
       if (d && d.ok) {
-        Hub.toast(d.below_par ? 'Item added — below par' : 'Item added');
-        $('#a-name').value = ''; $('#a-unit').value = ''; $('#a-par').value = ''; $('#a-onhand').value = ''; $('#a-vendor').value = '';
-        load();
-      } else K.fail(d, 'Could not add item.');
+        status.textContent = 'Item added.';
+        ['a-name','a-unit','a-onhand','a-count','a-weight','a-expires','a-par','a-cost'].forEach(function (id) { $('#' + id).value = ''; });
+        $('#a-vendor').value = ''; load();
+      } else { status.textContent = (d && d.error) || 'Could not add item.'; status.classList.add('inv-error'); }
     });
   });
 
@@ -193,9 +426,10 @@
     lt.textContent = window.AnejoLang.get() === 'es' ? 'EN' : 'ES';
     lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
   }
-
-  K.boot('board', function () { load(); });
+  document.addEventListener('inventory:refresh', load);
+  K.boot('board', function (me) { bootRoleOwner = !!(me && me.role === 'owner'); load(); });
 })();
 </script>
+<script src="/hub/kitchen/assets/inventory-production.js"></script>
 </body>
 </html>
