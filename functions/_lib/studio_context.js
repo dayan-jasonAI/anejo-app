@@ -5,6 +5,7 @@
 // Studio never degrades. Files under functions/_lib are not routed. Never throws.
 import { parseJson } from './hub.js';
 import { withoutProposals } from './brand_source.js';
+import { buildStudioInventoryContext } from './studio_inventory.js';
 
 // Core behavior contract — stable regardless of the owner's brand/SOP content.
 const BASE = `You are the Creative Studio sous-chef AI for Añejo Catering Co. A chef is developing a recipe live — speaking, snapping photos, and chatting with you. Your job is to guide, research, critique, scale, and suggest substitutions.
@@ -118,6 +119,7 @@ SOURCE DOCUMENTS (retrieved for THIS question):
  */
 export async function buildStudioSystem(env, question) {
   const ctx = await buildBrandContext(env);
+  const inventory = await buildStudioInventoryContext(env);
   // The adult day care program, from the database rather than from anyone's memory: what is served,
   // what it is planned to, and — the part that matters — whether a dietitian has actually signed it.
   let program = '';
@@ -137,5 +139,5 @@ export async function buildStudioSystem(env, question) {
       }
     } catch { /* retrieval is additive — never break the chat because search failed */ }
   }
-  return `${BASE}\n\n${ctx}${program}${kb}`;
+  return `${BASE}\n\n${ctx}\n\n${inventory}${program}${kb}`;
 }

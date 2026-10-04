@@ -6,15 +6,17 @@ import { Composer } from './Composer';
 import { ContentPanel } from './ContentPanel';
 import { RecipePanel } from './RecipePanel';
 import { BriefPanel } from './BriefPanel';
+import { InventoryPanel } from './InventoryPanel';
 
 export function Studio({ sessionId, initialMessages }: { sessionId: string | null; initialMessages?: ChatMessage[] }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { messages, streaming, error, send, seed } = useStudioStream(sessionId);
   const streamRef = useRef<HTMLDivElement>(null);
   const [showContent, setShowContent] = useState(false);
   const [showRecipe, setShowRecipe] = useState(false);
   const [showBrief, setShowBrief] = useState(false);
-  const closeAll = () => { setShowContent(false); setShowRecipe(false); setShowBrief(false); };
+  const [inventoryMode, setInventoryMode] = useState<'inventory' | 'production' | null>(null);
+  const closeAll = () => { setInventoryMode(null); setShowContent(false); setShowRecipe(false); setShowBrief(false); };
 
   // On session switch (resume a past conversation or start a new one), load its transcript.
   useEffect(() => {
@@ -35,6 +37,8 @@ export function Studio({ sessionId, initialMessages }: { sessionId: string | nul
   return (
     <div className="studio">
       <div className="studio-bar">
+        <button type="button" className={`cp-toggle${inventoryMode === 'inventory' ? ' on' : ''}`} aria-expanded={inventoryMode === 'inventory'} onClick={() => { const next = inventoryMode !== 'inventory'; closeAll(); if (next) setInventoryMode('inventory'); }}>{lang === 'es' ? 'Inventario' : 'Inventory'}</button>
+        <button type="button" className={`cp-toggle${inventoryMode === 'production' ? ' on' : ''}`} aria-expanded={inventoryMode === 'production'} onClick={() => { const next = inventoryMode !== 'production'; closeAll(); if (next) setInventoryMode('production'); }}>{lang === 'es' ? 'Planes de producción' : 'Production plans'}</button>
         <button
           type="button"
           className={`cp-toggle${showContent ? ' on' : ''}`}
@@ -57,6 +61,7 @@ export function Studio({ sessionId, initialMessages }: { sessionId: string | nul
           🧭 {t('briefOpen')}
         </button>
       </div>
+      {inventoryMode ? <InventoryPanel mode={inventoryMode} onClose={() => setInventoryMode(null)} /> : null}
       {showContent ? <ContentPanel sessionId={sessionId} onClose={() => setShowContent(false)} /> : null}
       {showRecipe ? <RecipePanel sessionId={sessionId} onClose={() => setShowRecipe(false)} /> : null}
       {showBrief ? <BriefPanel sessionId={sessionId} onClose={() => setShowBrief(false)} /> : null}
