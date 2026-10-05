@@ -1,0 +1,16 @@
+✔ corrected products all have images, unique SKUs and categories (1.308041ms)
+✔ tray images, retail sides and cold-salad price match their serving formats (0.145209ms)
+✔ dessert flavors and meal variants are individually reachable (0.110166ms)
+✔ one papa rellena card offers all seven actual fillings and preserves exact live prices and IDs (0.772083ms)
+✔ croqueta trays retain sauces and exact sizes separately from boxes and dressed croquetas (0.094084ms)
+✔ bocadito bread formats and dessert pack counts stay distinct inside consolidated flavor cards (0.1015ms)
+✔ every source SKU remains reachable once; sold-out fillings and prices remain source-controlled (0.113583ms)
+✔ customizing a mixed-filling order keeps exact SKUs and quantities through add and cart editing (3.456209ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45.276666

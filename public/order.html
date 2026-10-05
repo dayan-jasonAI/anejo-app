@@ -265,7 +265,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
   </aside>
 </div>
 
-<dialog id="shopDialog" class="shop-dialog" aria-labelledby="shopModalTitle"><button class="shop-close" aria-label="Close" onclick="document.getElementById('shopDialog').close()">×</button><img id="shopModalImage" alt=""><div class="shop-modal-content"><h2 id="shopModalTitle"></h2><p id="shopScheduled"></p><label for="shopFormat">Size / Tamaño</label><select id="shopFormat"></select><div id="shopChoices"></div></div><footer><button class="btn" id="shopApply" onclick="applyShop()">Add to order</button></footer></dialog><button id="shopCartBar" hidden onclick="shopReview()"></button><div id="shopToast" role="status" aria-live="polite"></div>
+<dialog id="shopDialog" class="shop-dialog" aria-labelledby="shopModalTitle"><button class="shop-close" aria-label="Close" onclick="document.getElementById('shopDialog').close()">×</button><img id="shopModalImage" alt=""><div class="shop-modal-content"><h2 id="shopModalTitle"></h2><p id="shopScheduled"></p><label for="shopFormat">Size / Tamaño</label><select id="shopFormat"></select><p id="shopChoicesLabel">Choose fillings or flavors and quantities / Elige rellenos o sabores y cantidades</p><div id="shopChoices" aria-labelledby="shopChoicesLabel"></div></div><footer><button class="btn" id="shopApply" onclick="applyShop()">Add to order</button></footer></dialog><button id="shopCartBar" hidden onclick="shopReview()"></button><div id="shopToast" role="status" aria-live="polite"></div>
 <!-- Per-bowl customization modal -->
 <div class="cz-overlay" id="czOverlay" role="dialog" aria-modal="true" aria-labelledby="czName">
   <div class="cz">
@@ -1062,9 +1062,9 @@ window.addEventListener('load', applyMode);
 $('czOverlay').addEventListener('click', function(e){ if(e.target===this) closeCz(); });
 document.addEventListener('keydown', function(e){ if(e.key==='Escape' && cz) closeCz(); });
 </script>
-<script src="/assets/js/shop-families.js?v=20261001-ten"></script>
+<script src="/assets/js/shop-families.js?v=20261005-fillings"></script>
 <script src="/assets/js/shop-measurement.js"></script>
-<script src="/assets/js/shop-order.js?v=20261001-corporate"></script>
+<script src="/assets/js/shop-order.js?v=20261005-fillings"></script>
 <script src="/assets/js/shop-corporate-lunch.js?v=20261001-corporate"></script>
 <script src="/assets/js/shop-ten-menu.js?v=20261001-corporate"></script>
 <script src="/assets/js/shop-daily-lunch.js?v=20261001-corporate"></script>
