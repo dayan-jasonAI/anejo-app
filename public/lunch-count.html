@@ -183,7 +183,7 @@
 
   function render(){
     app.className='';
-    var head='<div class="site">'+esc(ctx.site)+'</div><div class="meta">'+esc(ctx.account)+' &middot; '+esc(ctx.weekday)+', '+esc(ctx.date)+'</div>';
+    var head='<p><a href="/lunch-feedback?t='+encodeURIComponent(token)+'">Rate the lunch / Calificar el almuerzo</a></p><div class="site">'+esc(ctx.site)+'</div><div class="meta">'+esc(ctx.account)+' &middot; '+esc(ctx.weekday)+', '+esc(ctx.date)+'</div>';
     if(!ctx.delivers_today){
       app.innerHTML='<div class="card">'+head+'<div class="banner warn">'+tr('noDel')+'</div></div>'+monthCard()+startLink();
       return;

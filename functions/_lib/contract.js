@@ -276,7 +276,7 @@ async function resolveSite(env, token) {
 }
 
 // A non-revoked trusted device for this site, read from the request cookies (or null).
-async function trustedDevice(env, site, cookieHeader) {
+export async function trustedDevice(env, site, cookieHeader) {
   const tok = cookieMap(cookieHeader)[deviceCookieName(site.id)];
   if (!tok) return null;
   try { return (await env.DB.prepare('SELECT * FROM contract_intake_devices WHERE id = ? AND site_id = ? AND revoked = 0').bind(tok, site.id).first()) || null; }
