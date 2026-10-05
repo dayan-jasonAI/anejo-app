@@ -2,7 +2,7 @@
 let shopAutoOpened=false;
 let shopGroups=[],shopDraft={},shopActive=null,shopEditing=false;
 const shopName=g=>L(g.name,g.nameEs||g.name);
-function shopPhoto(i){return '/assets/img/'+(i.img||(isBowl(i.id)?'bowl_'+i.id+'.jpg':''));}
+function shopPhoto(i){return '/assets/img/'+(i.img||(isBowl(i.id)?'bowl_'+i.id+'.jpg':'emblem.png'));}
 function shopEnabled(i){return i.available!==false && (!isBowl(i.id)|| !(mode==='ondemand'&&avail&&remainingFor(i.id)<=0));}
 window.renderShopCatalog=function(){
  const all=CATALOG.flatMap(g=>g.items);shopGroups=AnejoShop.group(all);const query=($('shopSearch')?.value||'').toLowerCase();
@@ -16,15 +16,15 @@ window.renderShopCatalog=function(){
  $('catalog').innerHTML='<div class="shop-grid">'+chosen.map(g=>{const on=g.variants.filter(shopEnabled),first=on[0]||g.variants[0],min=Math.min(...g.variants.map(i=>i.price));const bowl=isBowl(first.id);const desc=bowl?L(first.desc,first.descEs):g.variants.length>1?L('Choose your flavor, size and quantity.','Elige sabor, tamaño y cantidad.'):L(first.desc,first.descEs);const action=bowl?`openCz('${esc(first.id)}')`:`openShop('${esc(g.key)}')`;return `<article class="shop-card"><img src="${escHtml(shopPhoto(first))}" alt="${escHtml(shopName(g))}" loading="lazy"><div class="shop-card-body"><h2>${escHtml(shopName(g))}</h2><p>${escHtml(desc)}</p><div class="shop-card-bottom"><strong>${g.variants.length>1?L('From ','Desde '):''}${money(min)}</strong><button class="customize" ${on.length?'':'disabled'} onclick="${action}">${on.length?L('Customize','Personalizar'):L('Unavailable','No disponible')}</button></div></div></article>`}).join('')+(cat==='catering'?`<article class="shop-card"><img src="/assets/img/menu-launch/cajitas-collection.webp" alt="La Cajita" loading="lazy"><div class="shop-card-body"><h2>La Cajita</h2><p>${L('Personalized boxes for your gathering. Final price by quote.','Cajitas personalizadas para tu evento. Precio final por cotización.')}</p><a class="customize" href="/cajita-builder">${L('Design & request quote','Diseñar y solicitar cotización')}</a></div></article>`:'')+'</div>'+(chosen.length?'':`<p>${L('No matching items. Try another search or category.','No hay resultados. Prueba otra búsqueda o categoría.')}</p>`);
  if(cat==='ten'){const holder=document.createElement('section');holder.id='tenDailyMeals';$('catalog').prepend(holder);window.renderTenDollarDaily?.(holder);}
  renderShopSuggestions();
- const deepLink=new URLSearchParams(location.search).get('product');if(deepLink&&!shopAutoOpened&&shopGroups.some(g=>g.key===deepLink)){shopAutoOpened=true;setTimeout(()=>{const g=shopGroups.find(g=>g.key===deepLink);if(g&&isBowl(g.variants[0].id))openCz(g.variants[0].id);else openShop(deepLink)},50);}
+ const deepLink=new URLSearchParams(location.search).get('product');if(deepLink&&!shopAutoOpened&&!!AnejoShop.resolveGroup(shopGroups,deepLink)){shopAutoOpened=true;setTimeout(()=>{const g=AnejoShop.resolveGroup(shopGroups,deepLink);if(g&&isBowl(g.variants[0].id))openCz(g.variants[0].id);else openShop(deepLink)},50);}
 };
 function openShop(key,edit=false){
- shopActive=shopGroups.find(g=>g.key===key);if(!shopActive)return;shopEditing=edit;shopDraft={};
- const valid=shopActive.variants.filter(shopEnabled);if(!valid.length)return;
- if(edit)shopActive.variants.forEach(i=>{if(addons[i.id])shopDraft[i.id]=addons[i.id]});else shopDraft[valid[0].id]=Math.min(1,shopMax(valid[0].id)-(addons[valid[0].id]||0));
- $('shopModalTitle').textContent=shopName(shopActive);$('shopModalImage').src=shopPhoto(valid[0]);$('shopModalImage').alt=shopName(shopActive);
+ shopActive=AnejoShop.resolveGroup(shopGroups,key);if(!shopActive)return;shopEditing=edit;shopDraft={};
+ const valid=shopActive.variants.filter(shopEnabled);if(!valid.length)return;const initial=valid.find(i=>i.aliases?.includes(key))||valid[0];
+ if(edit)shopActive.variants.forEach(i=>{if(addons[i.id])shopDraft[i.id]=addons[i.id]});else shopDraft[initial.id]=Math.min(1,shopMax(initial.id)-(addons[initial.id]||0));
+ $('shopModalTitle').textContent=shopName(shopActive);$('shopModalImage').src=shopPhoto(initial);$('shopModalImage').alt=shopName(shopActive);
  const formats=[...new Map(shopActive.variants.map(i=>[i.format,L(i.format,i.formatEs)])).entries()];
- $('shopFormat').innerHTML=formats.map(([value,label])=>`<option value="${escHtml(value)}">${escHtml(label)}</option>`).join('');$('shopFormat').value=(shopActive.variants.find(i=>shopDraft[i.id])||valid[0]).format;
+ $('shopFormat').innerHTML=formats.map(([value,label])=>`<option value="${escHtml(value)}">${escHtml(label)}</option>`).join('');$('shopFormat').value=(shopActive.variants.find(i=>shopDraft[i.id])||initial).format;
  $('shopScheduled').textContent=shopActive.variants.some(i=>/^(traditional_|catering_)/.test(i.id))?L('Prepared for scheduled delivery. Adding this item selects scheduled delivery for your order.','Preparado para entrega programada. Al agregarlo, tu pedido pasa a entrega programada.'):'';
  renderShopChoices();$('shopDialog').showModal();
 }
@@ -48,7 +48,7 @@ function editShopItem(id){const g=shopGroups.find(g=>g.variants.some(i=>i.id===i
 function renderShopSuggestions(){
  const el=$('shopSuggestions');if(!el)return;if(dailySelection){el.innerHTML='';return;}const hasOrder=bowls.length||Object.keys(addons).length;
  if(!hasOrder){el.innerHTML='';return;}
- const desired=bowls.length?['croquetas','empanadas','fit-drinks','tres-leches-fresa']:['tres-leches-fresa','fit-drinks','dip-signature'];
+ const desired=bowls.length?['croquetas','empanadas','fit-drinks','tres-leches']:['tres-leches','fit-drinks','dip-signature'];
  const list=desired.map(k=>shopGroups.find(g=>g.key===k)).filter(g=>g&&g.variants.some(shopEnabled)&&!g.variants.some(i=>addons[i.id])).slice(0,3);
  el.innerHTML=list.length?`<h4>${L('Complete your meal','Completa tu comida')}</h4><p>${L('A little something on the side?','¿Algo más para acompañar?')}</p><div class="shop-suggestions">`+list.map(g=>{const i=g.variants.find(shopEnabled);return `<button onclick="openShop('${esc(g.key)}')"><img src="${escHtml(shopPhoto(i))}" alt=""><span>${escHtml(shopName(g))}<small>${L('From ','Desde ')+money(Math.min(...g.variants.filter(shopEnabled).map(x=>x.price)))}</small></span><b>+</b></button>`}).join('')+'</div>':'';
 }
