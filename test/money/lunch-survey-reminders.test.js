@@ -1,0 +1,40 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+import {queueSurveyReminder,runSurveyReminders,SURVEY_DELAY_MS,SURVEY_EXPIRES_MS} from '../../functions/_lib/survey_reminders.js';
+import {feedbackSite} from '../../functions/_lib/lunch_feedback.js';
+import {onRequestPost as tick} from '../../functions/api/hub/admin/survey-reminders-tick.js';
+const start=Date.now()-SURVEY_DELAY_MS;
+function fixture(){const db=new DatabaseSync(':memory:');db.exec(`
+ CREATE TABLE contract_sites(id TEXT,name TEXT,account_id TEXT,intake_token TEXT,active INTEGER,contact_phone TEXT);
+ CREATE TABLE contract_accounts(id TEXT,status TEXT);
+ CREATE TABLE contract_orders(id TEXT,site_id TEXT,order_id TEXT,headcount INTEGER,item_name TEXT);
+ CREATE TABLE orders(id TEXT,contract_site_id TEXT,customer_name TEXT);
+ CREATE TABLE deliveries(id TEXT,order_id TEXT,status TEXT,completed_at INTEGER);
+ CREATE TABLE contract_order_events(order_id TEXT,submitted_by_phone TEXT,created_at INTEGER);
+ CREATE TABLE campaign_unsubscribes(channel TEXT,phone TEXT);
+ CREATE TABLE sms_log(thread_id TEXT,status TEXT,provider_sid TEXT,created_at INTEGER);
+ CREATE TABLE contract_lunch_feedback(id TEXT);
+ INSERT INTO contract_sites VALUES('site','Office','account','private-token',1,'5615550100');
+ INSERT INTO contract_accounts VALUES('account','active');
+ INSERT INTO contract_orders VALUES('ledger','site','kitchen',20,'Meal');
+ INSERT INTO orders VALUES('kitchen','site','Office');
+ INSERT INTO deliveries VALUES('dropoff','kitchen','completed',${start});
+ INSERT INTO contract_order_events VALUES('kitchen','+15615550100',1);
+ `);db.exec(readFileSync(new URL('../../migrations/0144_lunch_survey_reminders.sql',import.meta.url),'utf8'));
+ const DB={prepare(sql){return{bind(...args){const q=db.prepare(sql);return{first:async()=>q.get(...args)||null,all:async()=>({results:q.all(...args)}),run:async()=>({meta:{changes:q.run(...args).changes}})};}};}};
+ return{db,env:{DB,TWILIO_ACCOUNT_SID:'fixture',TWILIO_AUTH_TOKEN:'fixture',TWILIO_FROM:'+15615550199',APP_BASE_URL:'https://example.com'}};}
+test('confirmed drop-off queues once per office order and deduplicated recipient',async()=>{const {db,env}=fixture();assert.equal((await queueSurveyReminder(env,'kitchen')).queued,1);assert.equal((await queueSurveyReminder(env,'kitchen')).queued,0);const x=db.prepare('SELECT * FROM contract_survey_reminders').get();assert.equal(x.contract_order_id,'ledger');assert.equal(x.delivery_id,'dropoff');assert.equal(x.due_at,start+SURVEY_DELAY_MS);assert.match(x.link_token,/^[a-f0-9]{64}$/);});
+test('no reminder before confirmed drop-off or for opted-out phones',async()=>{const {db,env}=fixture();db.exec("UPDATE deliveries SET status='pending'");assert.equal((await queueSurveyReminder(env,'kitchen')).queued,0);db.exec("UPDATE deliveries SET status='completed';INSERT INTO campaign_unsubscribes VALUES('sms','5615550100')");assert.equal((await queueSurveyReminder(env,'kitchen')).queued,0);});
+test('due reminder uses scoped meal link and sends at most once',async()=>{const {db,env}=fixture();await queueSurveyReminder(env,'kitchen');let n=0;const send=async(_,message)=>{n++;assert.match(message.body,/order_id=ledger/);assert.match(message.body,/lunch-feedback\?r=[a-f0-9]{64}/);assert.doesNotMatch(message.body,/private-token/);return{sent:true,provider_sid:'SMfixture'};};assert.equal((await runSurveyReminders(env,{nowMs:start+SURVEY_DELAY_MS-1,send})).provider_accepted,0);assert.equal((await runSurveyReminders(env,{nowMs:start+SURVEY_DELAY_MS,send})).provider_accepted,1);await runSurveyReminders(env,{nowMs:start+SURVEY_DELAY_MS+1000,send});assert.equal(n,1);assert.equal(db.prepare('SELECT status FROM contract_survey_reminders').get().status,'sent');});
+test('missing transport and no-op never count as sent',async()=>{for(const missing of [true,false]){const {db,env}=fixture();await queueSurveyReminder(env,'kitchen');if(missing)delete env.TWILIO_AUTH_TOKEN;let n=0;const r=await runSurveyReminders(env,{nowMs:start+SURVEY_DELAY_MS,send:async()=>{n++;return{ok:true,noop:true};}});assert.equal(r.provider_accepted,0);assert.equal(n,missing?0:1);assert.equal(db.prepare('SELECT status FROM contract_survey_reminders').get().status,'blocked');}});
+test('expired reminder is marked missed without sending a late text',async()=>{const {db,env}=fixture();await queueSurveyReminder(env,'kitchen');await runSurveyReminders(env,{nowMs:start+SURVEY_EXPIRES_MS+1,send:async()=>{throw Error('must not send');}});assert.equal(db.prepare('SELECT status FROM contract_survey_reminders').get().status,'missed');});
+test('STOP or office deactivation after queue cancels reminder',async()=>{for(const mutation of ["INSERT INTO campaign_unsubscribes VALUES('sms','5615550100')","UPDATE contract_sites SET active=0","UPDATE deliveries SET status='pending'"]){const {db,env}=fixture();await queueSurveyReminder(env,'kitchen');db.exec(mutation);let n=0;await runSurveyReminders(env,{nowMs:start+SURVEY_DELAY_MS,send:async()=>{n++;}});assert.equal(n,0);assert.equal(db.prepare('SELECT status FROM contract_survey_reminders').get().status,'skipped');}});
+test('uncertain provider outcome is never automatically repeated',async()=>{const {db,env}=fixture();await queueSurveyReminder(env,'kitchen');let n=0;const send=async()=>{n++;throw Error('connection lost');};await runSurveyReminders(env,{nowMs:start+SURVEY_DELAY_MS,send});await runSurveyReminders(env,{nowMs:start+SURVEY_EXPIRES_MS+1,send});assert.equal(n,1);assert.equal(db.prepare('SELECT status FROM contract_survey_reminders').get().status,'unconfirmed');});
+test('durable provider acknowledgement recovers a send interrupted before status save',async()=>{const {db,env}=fixture();await queueSurveyReminder(env,'kitchen');const x=db.prepare('SELECT * FROM contract_survey_reminders').get();db.prepare("UPDATE contract_survey_reminders SET status='sending'").run();db.prepare('INSERT INTO sms_log VALUES(?,?,?,?)').run('lunchsurvey_'+x.id,'sent','SMproof',start);await runSurveyReminders(env,{nowMs:start+SURVEY_DELAY_MS,send:async()=>{throw Error('duplicate');}});const row=db.prepare('SELECT * FROM contract_survey_reminders').get();assert.equal(row.status,'sent');assert.equal(row.provider_sid,'SMproof');});
+test('simultaneous ticks cannot both claim a queued reminder',async()=>{const {env}=fixture();await queueSurveyReminder(env,'kitchen');let n=0;const send=async()=>{n++;return{sent:true,provider_sid:'SMfixture'};};await Promise.all([runSurveyReminders(env,{nowMs:start+SURVEY_DELAY_MS,send}),runSurveyReminders(env,{nowMs:start+SURVEY_DELAY_MS,send})]);assert.equal(n,1);});
+test('text capability grants only its office and meal, expires and rejects unsent jobs',async()=>{const {db,env}=fixture();await queueSurveyReminder(env,'kitchen');const r=db.prepare('SELECT * FROM contract_survey_reminders').get();assert.equal(await feedbackSite(env,'','',r.link_token),null);db.exec("UPDATE contract_survey_reminders SET status='sent'");const site=await feedbackSite(env,'','',r.link_token);assert.equal(site.id,'site');assert.equal(site.reminder_order_id,'ledger');assert.equal(await feedbackSite(env,'','','a'.repeat(64)),null);db.exec('UPDATE contract_survey_reminders SET completed_at=1');assert.equal(await feedbackSite(env,'','',r.link_token),null);});
+test('scheduler endpoint requires configured matching key',async()=>{for(const [env,key] of [[{},''],[{CRON_KEY:'expected'},'wrong']])assert.equal((await tick({env,request:new Request('https://example.com/api/hub/admin/survey-reminders-tick',{method:'POST',headers:{'x-cron-key':key}})})).status,401);});
+
+test('no eligible recipient leaves a blocked office delivery record',async()=>{const {db,env}=fixture();db.exec("INSERT INTO campaign_unsubscribes VALUES('sms','5615550100')");await queueSurveyReminder(env,'kitchen');const r=db.prepare('SELECT * FROM contract_survey_reminders').get();assert.equal(r.status,'blocked');assert.equal(r.to_number,'');assert.equal(r.delivery_id,'dropoff');});

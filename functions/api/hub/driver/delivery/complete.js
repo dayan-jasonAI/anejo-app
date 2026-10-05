@@ -10,6 +10,7 @@ import { capture } from '../../../../_lib/track.js';
 import { id, now, toJson } from '../../../../_lib/hub.js';
 import { notifyDelivered } from '../../../../_lib/notify.js';
 import { advanceToNextStop } from '../../../../_lib/stop_progress.js';
+import { queueSurveyReminder } from '../../../../_lib/survey_reminders.js';
 import { putMedia } from '../../../../_lib/media.js';
 
 export const onRequestPost = async ({ request, env, waitUntil }) => {
@@ -71,6 +72,12 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
       .bind(deliveryId, orderId, routeId, staff.id, 'completed', proofPhoto, proofPhoto ? 0 : 1, token, signature, onTime, toJson(geo), ts, ts, ts)
       .run();
   }
+
+  // Persist the delayed reminder before returning. No SMS is sent from the driver's request.
+  // A failed queue write is reported for monitoring; it never manufactures a saved reminder.
+  let surveyReminder = { queued:0 };
+  try { surveyReminder=await queueSurveyReminder(env,orderId,{nowMs:ts}); }
+  catch { surveyReminder={error:'Reminder enqueue failed'}; /* drop-off remains valid even if the reminder queue is unavailable */ }
 
   // Advance the route stop (by stop_id if given, else by order on the route) + stamp delivered_at.
   let stopSeq = null;
@@ -137,5 +144,5 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
   // Prefer waitUntil so the background work survives after we respond; fall back to awaiting.
   if (typeof waitUntil === 'function') waitUntil(sideEffects); else await sideEffects;
 
-  return json({ ok: true, delivery: { id: deliveryId, order_id: orderId, status: 'completed' } });
+  return json({ ok: true, survey_reminder: surveyReminder, delivery: { id: deliveryId, order_id: orderId, status: 'completed' } });
 };

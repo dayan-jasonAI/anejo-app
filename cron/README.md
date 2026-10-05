@@ -48,7 +48,24 @@ wrangler deploy --var HUB_BASE_URL:https://<preview>.pages.dev
 ## Verify
 
 - `curl https://anejo-cron.<account>.workers.dev/` → `anejo-cron ok`
-- Cloudflare dashboard → Workers → anejo-cron → Triggers shows the six crons;
+- Cloudflare dashboard → Workers → anejo-cron → Triggers shows the one every-minute cron;
   use "Run now"/`wrangler tail anejo-cron` to watch a scheduled invocation.
 - In the HUB, Owner → automations history (`GET /api/hub/automations/run`)
   should show fresh `agent_runs` rows with `triggered_by: cron`.
+
+## Office lunch survey reminders
+
+Each minute the worker independently calls `/api/hub/admin/survey-reminders-tick`,
+with a 25-second timeout so it cannot delay existing dispatch jobs. Confirmed contract
+drop-off queues one reminder per recipient/order, due at eight minutes and never sent
+after ten minutes. Recipient eligibility and STOP preferences are checked again at send.
+Unknown provider outcomes are not resent automatically. An SMS-provider acknowledgement
+is not proof of delivery to the handset. Scoped SMS links expire 24 hours after drop-off
+and allow feedback for that office and meal only. Ordinary order-form links still require
+a trusted office device. Owner → Contracts → an office's lunch feedback shows responses
+and reminder states, including missed/blocked/unconfirmed jobs.
+
+Release order: migration 0144, Pages revision, then this worker. Never backfill prior
+deliveries or fabricate drop-offs to exercise real sends. Verify a scheduled invocation
+with a current worker tail and record the version, endpoint status, and acknowledgement
+counts. No empty-queue result proves a real SMS reached an office.
