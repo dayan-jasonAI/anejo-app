@@ -446,9 +446,8 @@ async function loadInvoice(env, accountId, invoiceId) {
   return { inv };
 }
 
-// Mark paid. paid_at/paid_by/paid_ref arrive with migrations/0046; until it's applied the UPDATE
-// throws on the unknown column, so fall back to a status-only write rather than leaving the owner
-// with an invoice that refuses to close — and say so via `degraded`.
+// Manual payment reconciliation requires a reference and durable receipt details.
+// A missing migration must not turn a bank-reconciliation assertion into an untraceable paid flag.
 async function markInvoicePaid(env, ctx, b) {
   const { inv, error } = await loadInvoice(env, b.account_id, b.invoice_id);
   if (error) return { ok: false, error };
@@ -456,21 +455,18 @@ async function markInvoicePaid(env, ctx, b) {
   if (inv.status === 'paid') return { ok: true, already: true, status: 'paid' };
 
   const t = now();
-  const ref = (b.paid_ref || '').toString().trim().slice(0, 120) || null;
-  let degraded = null;
+  const ref = typeof b.paid_ref === 'string' ? b.paid_ref.trim() : '';
+  if (!ref || ref.length > 120) return { ok: false, error: 'Enter a payment reference of 1–120 characters after confirming the full invoice amount was received.' };
   try {
     await env.DB.prepare("UPDATE contract_invoices SET status='paid', paid_at=?, paid_by=?, paid_ref=?, updated_at=? WHERE id=?")
       .bind(t, actorOf(ctx), ref, t, inv.id).run();
   } catch {
-    try {
-      await env.DB.prepare("UPDATE contract_invoices SET status='paid', updated_at=? WHERE id=?").bind(t, inv.id).run();
-      degraded = 'invoice_paid_columns_missing';
-    } catch { return { ok: false, error: 'Could not mark the invoice paid.' }; }
+    return { ok: false, error: 'Payment details could not be saved. The invoice remains open; check the database migration and retry after confirming the bank receipt.' };
   }
   // Audited AFTER the write succeeds, so a failed close never reads as money received. The
   // already-paid early return above emits nothing: it changed no state.
   await invoiceEvent(env, ctx, 'contract.invoice_paid', inv, { has_ref: !!ref });
-  return { ok: true, status: 'paid', paid_at: t, ...(degraded ? { degraded } : {}) };
+  return { ok: true, status: 'paid', paid_at: t };
 }
 
 // Void an invoice and RELEASE its days back to the un-invoiced pool, so a period billed wrong

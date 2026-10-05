@@ -184,9 +184,11 @@
 
     var bp=document.getElementById('btn-pay');
     if(bp) bp.addEventListener('click', function(){
-      if(!window.confirm('Mark invoice '+(inv.number||inv.id)+' as PAID? It stops showing as outstanding.')) return;
+      var paymentRef=((document.getElementById('ref')||{}).value||'').trim();
+      if(!paymentRef || paymentRef.length>120){ Hub.toast('Enter a payment reference of 1–120 characters after checking the bank receipt.'); return; }
+      if(!window.confirm('Confirm the full '+Hub.money(inv.total_cents)+' for invoice '+(inv.number||inv.id)+' was received. Reference: '+paymentRef+'. Mark paid?')) return;
       bp.disabled=true;
-      Hub.api('/api/hub/owner/contracts',{method:'POST',body:{op:'mark_paid',account_id:inv.account_id,invoice_id:inv.id,paid_ref:(document.getElementById('ref')||{}).value||''}})
+      Hub.api('/api/hub/owner/contracts',{method:'POST',body:{op:'mark_paid',account_id:inv.account_id,invoice_id:inv.id,paid_ref:paymentRef}})
         .then(function(r){ bp.disabled=false;
           if(r&&r.ok){ Hub.toast(r.degraded?'Marked paid (details unavailable — migration pending)':'Marked paid'); load(); }
           else Hub.toast((r&&r.error)||'Could not mark paid'); });
