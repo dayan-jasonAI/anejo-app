@@ -1,0 +1,2 @@
+import {build} from 'esbuild';
+await build({entryPoints:['node_modules/qrcode/lib/core/qrcode.js'],outfile:'functions/_lib/vendor/feedback-qr-core.js',bundle:true,format:'esm',platform:'browser',minify:true,legalComments:'inline',banner:{js:'/* eslint-disable no-prototype-builtins, no-unused-vars -- unmodified third-party bundle */\n/* Generated from qrcode 1.5.4. Rebuild: node scripts/build-feedback-qr.mjs. MIT notices: feedback-qr-LICENSE.txt. */'}});

@@ -1,4 +1,4 @@
-import QRCode from 'qrcode/lib/core/qrcode.js';
+import QRCode from './vendor/feedback-qr-core.js';
 import {appBaseUrl,now} from './util.js';
 export async function ensureFeedbackQr(env,siteId){
  const site=await env.DB.prepare("SELECT s.id FROM contract_sites s JOIN contract_accounts a ON a.id=s.account_id WHERE s.id=? AND s.active=1 AND a.status='active'").bind(siteId).first();
