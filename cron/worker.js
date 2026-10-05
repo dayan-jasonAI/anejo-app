@@ -160,8 +160,11 @@ export default {
       console.log(`anejo-cron: catering-outbox → HTTP ${response.status}`);
       return response.body?.cancel();
     }).catch(() => { console.warn('anejo-cron: catering-outbox retry unavailable'); });
-    if (ctx?.waitUntil) { ctx.waitUntil(outbox); await scheduled(event, env); }
-    else await Promise.all([outbox, scheduled(event, env)]);
+    const survey=fetch(`${base}/api/hub/admin/survey-reminders-tick`, {
+      method:'POST',headers:{'Content-Type':'application/json','X-Cron-Key':env.CRON_KEY||''},body:'{}',signal:AbortSignal.timeout(25000),
+    }).then(async response=>{console.log(`anejo-cron: survey-reminders → HTTP ${response.status} ${(await response.text()).slice(0,200)}`);}).catch(()=>{console.warn('anejo-cron: survey-reminders unavailable');});
+    if (ctx?.waitUntil) { ctx.waitUntil(outbox); ctx.waitUntil(survey); await scheduled(event, env); }
+    else await Promise.all([outbox,survey, scheduled(event, env)]);
   },
   fetch: () => new Response('anejo-cron ok'),
 };

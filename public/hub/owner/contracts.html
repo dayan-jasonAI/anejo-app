@@ -340,7 +340,7 @@
       '<div style="font-size:11px;color:var(--muted)">↑ Give this link to the ' + esc(s.name) + ' contact — they open it each morning to send the head count.</div>' +
       '<div class="contact"><label>Office contact — receives the verification code &amp; SMS receipts' +
         (s.contact_phone ? '' : ' <span style="color:var(--crit,#b3402f)">(none yet — first submitter will enroll one)</span>') + '</label>' +
-        '<div class="linkrow"><input id="cn_' + s.id + '" placeholder="Contact name" value="' + esc(s.contact_name || '') + '" style="flex:1">' +
+        '<p><a href="/hub/owner/lunch-feedback.html?site_id='+encodeURIComponent(s.id)+'">This office’s lunch feedback</a></p><div class="linkrow"><input id="cn_' + s.id + '" placeholder="Contact name" value="' + esc(s.contact_name || '') + '" style="flex:1">' +
         '<input id="cp_' + s.id + '" placeholder="Mobile e.g. 561-555-0142" value="' + esc(s.contact_phone || '') + '" style="flex:1.3">' +
         '<button onclick="__setContact(\'' + aid + '\',\'' + s.id + '\')">Save</button></div></div>' +
       staffBlock(s, aid) +
