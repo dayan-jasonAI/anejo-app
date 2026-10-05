@@ -93,7 +93,10 @@ function hubEnv(opts = {}) {
         },
         async run() {
           sql.push(q);
-          if (q.startsWith('UPDATE contract_invoices')) { writes.invoiceUpdates.push({ sql: q, args: a }); return { meta: { changes: 1 } }; }
+          if (q.startsWith('UPDATE contract_invoices')) {
+            if (opts.paymentWriteFails && q.includes('paid_ref')) throw new Error('no such column: paid_ref');
+            writes.invoiceUpdates.push({ sql: q, args: a }); return { meta: { changes: 1 } };
+          }
           if (q.startsWith('UPDATE contract_accounts')) {
             if (q.includes('allow_card_payment') && opts.noCardColumn) throw new Error('no such column: allow_card_payment');
             writes.accountUpdates.push({ sql: q, args: a });
@@ -314,6 +317,34 @@ test('a refused operation emits nothing', async () => {
   const out = await (await post(env, { op: 'mark_paid', account_id: 'acct_dgp', invoice_id: 'inv_4' })).json();
   assert.equal(out.ok, undefined);
   assert.equal(env._writes.activity.length, 0, 'a failed close must not read as money received');
+});
+
+test('manual payment requires a usable reference before any paid write', async () => {
+  for (const paid_ref of [undefined, '', '   ', 123, 'x'.repeat(121)]) {
+    const env = hubEnv();
+    const response = await post(env, { op: 'mark_paid', account_id: 'acct_dgp', invoice_id: 'inv_4', paid_ref });
+    assert.equal(response.status, 400);
+    assert.equal(env._writes.invoiceUpdates.length, 0);
+    assert.equal(env._writes.activity.length, 0);
+  }
+});
+
+test('payment reference is saved with actor and timestamp and is trimmed', async () => {
+  const env = hubEnv();
+  const out = await (await post(env, { op: 'mark_paid', account_id: 'acct_dgp', invoice_id: 'inv_4', paid_ref: '  ACH 8821  ' })).json();
+  assert.equal(out.ok, true);
+  const update = env._writes.invoiceUpdates[0];
+  assert.ok(update.sql.includes('paid_at') && update.sql.includes('paid_by') && update.sql.includes('paid_ref'));
+  assert.equal(update.args[2], 'ACH 8821');
+  assert.ok(update.args[0] > 0);
+});
+
+test('missing payment detail columns cannot degrade into an untraceable paid flag', async () => {
+  const env = hubEnv({ paymentWriteFails: true });
+  const response = await post(env, { op: 'mark_paid', account_id: 'acct_dgp', invoice_id: 'inv_4', paid_ref: 'ACH 8821' });
+  assert.equal(response.status, 400);
+  assert.equal(env._writes.invoiceUpdates.length, 0);
+  assert.equal(env._writes.activity.length, 0);
 });
 
 test('changing who receives an invoice is recorded before-and-after', async () => {
