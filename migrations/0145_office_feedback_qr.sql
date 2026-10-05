@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS contract_feedback_qr (
+ site_id TEXT PRIMARY KEY, token TEXT NOT NULL UNIQUE,
+ active INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL
+);

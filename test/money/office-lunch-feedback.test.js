@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import {onRequestPost,onRequestGet} from '../../functions/api/contract/feedback.js';
+import {etDate} from '../../functions/_lib/contract.js';
+import {ensureFeedbackQr,feedbackQrSvg} from '../../functions/_lib/feedback_qr.js';
 import {validateFeedback} from '../../functions/_lib/lunch_feedback.js';
 function fixture(){
  const db=new DatabaseSync(':memory:');
@@ -11,6 +13,7 @@ function fixture(){
  db.exec("INSERT INTO deliveries VALUES('delivery','kitchen-order','completed',1);");
  db.exec(readFileSync(new URL('../../migrations/0143_office_lunch_feedback.sql',import.meta.url),'utf8'));
  db.exec(readFileSync(new URL('../../migrations/0144_lunch_survey_reminders.sql',import.meta.url),'utf8'));
+ db.exec(readFileSync(new URL('../../migrations/0145_office_feedback_qr.sql',import.meta.url),'utf8'));
  const DB={prepare(sql){return{bind(...args){const q=db.prepare(sql);return{first:async()=>q.get(...args)||null,all:async()=>({results:q.all(...args)}),run:async()=>({meta:{changes:q.run(...args).changes}})};}};}};
  return{db,env:{DB}};
 }
@@ -28,3 +31,8 @@ test('undelivered lunch cannot accept a rating',async()=>{const {db,env}=fixture
 test('feedback stores actual delivery linkage',async()=>{const {db,env}=fixture();await onRequestPost({request:req(),env});assert.equal(db.prepare('SELECT delivery_id FROM contract_lunch_feedback').get().delivery_id,'delivery');});
 
 test('SMS capability permits feedback without cookie only for the delivered meal',async()=>{const {db,env}=fixture();const token='b'.repeat(64),ts=Date.now();db.prepare("INSERT INTO contract_survey_reminders(id,contract_order_id,site_id,delivery_id,completed_at,due_at,to_number,link_token,status,created_at,updated_at) VALUES('reminder','order','site','delivery',?,?,?,?,'sent',?,?)").run(ts,ts,'+15615550100',token,ts,ts);const r=await onRequestGet({env,request:new Request('https://example.com/api/contract/feedback?r='+token)});assert.deepEqual((await r.json()).orders.map(x=>x.id),['order']);assert.equal((await onRequestPost({env,request:req({...valid,t:'',r:token},'')})).status,200);assert.equal((await onRequestPost({env,request:req({...valid,t:'',r:token,order_id:'other'},'')})).status,403);});
+
+test('permanent patient QR shows only today delivered lunch and records actual delivery',async()=>{const {db,env}=fixture();db.prepare("UPDATE contract_orders SET service_date=? WHERE id='order'").run(etDate(Date.now()));const qr=await ensureFeedbackQr(env,'site');assert.equal((await ensureFeedbackQr(env,'site')).token,qr.token);const request=new Request('https://example.com/api/contract/feedback?q='+qr.token);const r=await onRequestGet({request,env});const d=await r.json();assert.equal(d.patient_mode,true);assert.deepEqual(d.orders.map(o=>o.id),['order']);assert.equal(d.orders[0].headcount,undefined);assert.equal((await onRequestPost({env,request:req({...valid,t:'',q:qr.token},'')})).status,200);assert.equal(db.prepare('SELECT delivery_id FROM contract_lunch_feedback').get().delivery_id,'delivery');});
+test('patient QR never falls back to yesterday or undelivered meals',async()=>{const {db,env}=fixture();const qr=await ensureFeedbackQr(env,'site');const request=()=>new Request('https://example.com/api/contract/feedback?q='+qr.token);assert.deepEqual((await (await onRequestGet({request:request(),env})).json()).orders,[]);assert.equal((await onRequestPost({env,request:req({...valid,t:'',q:qr.token},'')})).status,404);db.prepare("UPDATE contract_orders SET service_date=? WHERE id='order'").run(etDate(Date.now()));db.exec("UPDATE deliveries SET status='pending'");assert.deepEqual((await (await onRequestGet({request:request(),env})).json()).orders,[]);});
+test('inactive offices and QR links are refused',async()=>{const {db,env}=fixture();const qr=await ensureFeedbackQr(env,'site');db.exec('UPDATE contract_feedback_qr SET active=0');assert.equal((await onRequestGet({request:new Request('https://example.com/api/contract/feedback?q='+qr.token),env})).status,403);assert.equal(await ensureFeedbackQr(env,'site'),null);});
+test('QR SVG keeps four-module quiet zone and brand colors',()=>{const svg=feedbackQrSvg('https://example.com/lunch-feedback?q='+'b'.repeat(64));assert.match(svg,/fill="#163414"/);assert.match(svg,/fill="#f5f2ec"/);assert.match(svg,/M4 4h1v1h-1z/);assert.match(svg,/viewBox="0 0/);});

@@ -9,7 +9,11 @@ export function validateFeedback(b) {
  if (typeof (b.suggestion ?? '') !== 'string' || (b.suggestion ?? '').length>500) return null;
  return {id:b.response_id,order_id:b.order_id,rating,mood,eat_again:b.eat_again,suggestion:(b.suggestion??'').trim()};
 }
-export async function feedbackSite(env, token, cookie, reminder) {
+export async function feedbackSite(env, token, cookie, reminder, qr) {
+ if (qr) {
+  if(typeof qr!=='string'||!/^[a-f0-9]{64}$/.test(qr))return null;
+  return env.DB.prepare(`SELECT s.*,1 AS public_qr FROM contract_feedback_qr q JOIN contract_sites s ON s.id=q.site_id JOIN contract_accounts a ON a.id=s.account_id WHERE q.token=? AND q.active=1 AND s.active=1 AND a.status='active'`).bind(qr).first();
+ }
  if (typeof reminder==='string' && /^[a-f0-9]{64}$/.test(reminder)) {
   return env.DB.prepare(`SELECT s.*,r.contract_order_id AS reminder_order_id FROM contract_survey_reminders r JOIN contract_sites s ON s.id=r.site_id JOIN contract_accounts a ON a.id=s.account_id WHERE r.link_token=? AND r.completed_at+86400000>? AND r.status IN ('sending','sent','unconfirmed') AND s.active=1 AND a.status='active'`).bind(reminder,Date.now()).first();
  }
