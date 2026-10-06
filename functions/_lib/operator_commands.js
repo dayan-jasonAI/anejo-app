@@ -3,8 +3,11 @@ export const DESTINATIONS = Object.freeze({
   photos: '/hub/owner/marketing.html#photos',
   create: '/hub/owner/marketing.html#create',
   drafts: '/hub/owner/marketing.html#create?filter=drafts',
+  inventory:'/hub/kitchen/inventory',
+  production:'/hub/kitchen/inventory#inventory-production',
 });
 const aliases = new Map([
+  ['open inventory','inventory'], ['abrir inventario','inventory'], ['start inventory','inventory'], ['hacer inventario','inventory'], ['show production plans','production'], ['mostrar planes de produccion','production'],
   ['open photos','photos'], ['abrir fotos','photos'], ['photos','photos'], ['fotos','photos'],
   ['open create and schedule','create'], ['open create & schedule','create'], ['abrir crear y programar','create'],
   ['show drafts','drafts'], ['mostrar borradores','drafts'],
@@ -28,6 +31,7 @@ export function privateIntent(text) {
   if (/\b(publish|post|send|email|refund|pay|purchase|buy|password|credential|token|secret|schedule|publica|publicar|envia|enviar|pagar|compra|comprar|contrasena|credenciales|programa|programar)\b/.test(command) && !aliases.has(command)) {
     return { kind: 'refusal', reason: 'external_or_sensitive_action' };
   }
+  if (['inventory status','show inventory status','estado de inventario','mostrar estado de inventario'].includes(command))return {kind:'inventory_status'};
   if (['catering status','show catering status','show my catering events','estado de catering','mostrar estado de catering','mis eventos de catering'].includes(command)) return {kind:'catering_status',language:/^(estado|mostrar|mis) /.test(command)?'es':'en'};
   if (aliases.has(command)) return { kind: 'navigate', destination: aliases.get(command) };
   if (['show audit status','audit status','estado de revision','mostrar estado de revision'].includes(command)) return { kind: 'audit_status' };
@@ -54,6 +58,7 @@ export function privateResult(intent) {
   if (navigationPath(intent)) return { ok: true, reply: 'Use the button to open this private marketing view. Nothing has been scheduled or published.', ui: intent, receipt };
   if (intent.kind === 'saved_ideas') return {ok:true,reply:'Use the button to read your latest private saved ideas. These are your words, not generated strategy.',ui:intent,receipt};
   if (intent.kind === 'brief_preview') return { ok: true, reply: 'Unsaved campaign idea captured from your words. No campaign brief has been created or published.', ui: { ...intent, saved: false }, receipt };
+  if(intent.kind==='inventory_status')return {ok:true,reply:'Reading recorded inventory and production availability. No counts changed.',ui:intent,receipt};
   if (intent.kind === 'catering_status') return {ok:true,reply:'Reading saved catering progress.',ui:intent,receipt};
   if (intent.kind === 'audit_status') return { ok: true, reply: 'Use the button to read saved audit status. This does not run a new audit or approve publication.', ui: intent, receipt };
   if (intent.kind === 'refusal') return { ok: false, error: 'private_operator_only', detail: 'This operator cannot publish, send, schedule, pay, or change credentials.', receipt };

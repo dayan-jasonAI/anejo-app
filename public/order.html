@@ -199,7 +199,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
     <div class="tax-note" id="minNote" style="display:none;color:#9b2226"></div>
     <div class="tax-note" id="taxNote" style="display:none">Final tax &amp; delivery fee are confirmed on the secure Square checkout page.</div>
 
-    <div id="shopSuggestions"></div><details id="checkoutDetails"><summary>Delivery &amp; checkout / Entrega y pago</summary><div class="fulfill">
+    <div id="shopSuggestions"></div><details id="checkoutDetails" open><summary>Delivery &amp; checkout / Entrega y pago</summary><div class="fulfill">
       <div class="lbl" id="fulfillmentLabel">How would you like it?</div>
       <div class="modeseg" role="tablist" aria-label="Fulfillment mode">
         <button type="button" id="modeOndemand" class="active" role="tab" aria-selected="true" onclick="setMode('ondemand')">ASAP today<span class="seg-sub">Make-now · delivered today</span></button>
@@ -260,7 +260,7 @@ body:has(.cz-overlay.open) #langToggle{display:none!important}
     </div>
 
     <div class="addr-check" id="addrCheck" style="display:none" role="alert" aria-live="polite"></div>
-    <button class="btn" id="checkoutBtn" disabled onclick="checkout()">Proceed to checkout</button>
+    <button class="btn" id="checkoutBtn" disabled onclick="checkout()">Continue to secure Square checkout</button>
     <div class="err" id="err" role="alert" aria-live="assertive"></div></details>
   </aside>
 </div>
@@ -755,7 +755,7 @@ function renderCart(){
   const total = totalCents/100;
   const belowMin = total < ORDER_MIN;
   const freeDeliv = rewardsFreeDeliv && !belowMin;
-  const fee = (belowMin || freeDeliv) ? 0 : DELIVERY_FEE;
+  let fee = (belowMin || freeDeliv) ? 0 : DELIVERY_FEE;
   // Añejo Rewards redemption — signed-in client only; 20 pts = $1 (1 pt = $0.05), capped at subtotal.
   var rewardsRow = $('rewardsRow'), applyEl = $('applyRewards');
   var discount = 0; rewardsRedeemPts = 0;
@@ -770,7 +770,7 @@ function renderCart(){
   // Promo / creator code — the % applies AFTER points redemption (matches the server).
   var promoDisc = 0;
   if (appliedPromo && !belowMin) {
-    promoDisc = Math.min(Math.max(0, total - discount) * (appliedPromo.pct_off || 0) / 100, Math.max(0, total - discount));
+    promoDisc = Math.min(Math.round(Math.max(0, total - discount)*100*(appliedPromo.pct_off||0)/100)/100,Math.max(0,total-discount));
     $('promoRow').style.display = 'flex';
     $('promoLabel').textContent = appliedPromo.label || appliedPromo.code;
     $('cartPromo').textContent = promoDisc > 0 ? '−' + money(promoDisc)
@@ -778,10 +778,11 @@ function renderCart(){
   } else { $('promoRow').style.display = 'none'; }
   $('promoBox').style.display = (bowls.length || Object.keys(addons).length) ? 'block' : 'none';
   discount += promoDisc;
+  if(appliedPromo?.perk==='free_delivery')fee=0;
   var taxable = Math.max(0, total - discount);
   const tax = taxable*TAX_PCT/100, grand = taxable + fee + tax;
   $('cartSubtotal').textContent = money(total);
-  $('cartFee').textContent = freeDeliv ? L('Free \u00b7 rewards','Gratis \u00b7 rewards') : money(fee);
+  $('cartFee').textContent = fee===0 ? L('Free','Gratis') : money(fee);
   $('cartTax').textContent = money(tax);
   $('cartGrand').textContent = money(grand);
   subRow.style.display='flex'; taxRow.style.display='flex'; totalRow.style.display='flex'; taxNote.style.display='block';
@@ -818,7 +819,7 @@ async function applyPromo(){
   btn.disabled = true;
   try{
     const r = await fetch('/api/promo-check', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ code: code, subtotal_cents: cartSubtotalCents() }) });
+      body: JSON.stringify({code:code,subtotal_cents:cartSubtotalCents(),contact:{email:$('custEmail').value,phone:$('custPhone').value}}) });
     const d = await r.json();
     if (d && d.ok){ appliedPromo = d; showPromoMsg(d.message, true); input.value = d.code; renderCart(); }
     else { appliedPromo = null; showPromoMsg((d && d.message) || L('That code isn’t valid.','Ese código no es válido.'), false); renderCart(); }
@@ -831,7 +832,7 @@ async function loadAutoPromo(){
     const r = await fetch('/api/promo-check', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ subtotal_cents: cartSubtotalCents() }) });
     const d = await r.json();
-    if (d && d.ok && d.auto){
+    if (d && d.ok && d.auto && (!appliedPromo || appliedPromo.auto)){
       appliedPromo = d;
       showPromoMsg(L('Founding Legacy Member — double points applied automatically.',
                      'Miembro Fundador de Legado — puntos dobles aplicados automáticamente.'), true);
@@ -964,7 +965,7 @@ async function checkout(){
     if (rewardsRedeemPts > 0) payload.redeem_points = rewardsRedeemPts;
     // Only send a code the customer actually typed — a member's lifetime benefit is applied
     // server-side automatically, so we never risk blocking checkout on it.
-    if (appliedPromo && !appliedPromo.auto) payload.promo_code = appliedPromo.code;
+    if (appliedPromo && appliedPromo.code) payload.promo_code = appliedPromo.code;
     if(delivery) payload.delivery = delivery;
     // Set once the customer has explicitly said "use this anyway" (or accepted a suggested
     // correction) after a previous 409 — see showAddressCheck()/confirmTypedAddress() above.
@@ -1062,9 +1063,9 @@ window.addEventListener('load', applyMode);
 $('czOverlay').addEventListener('click', function(e){ if(e.target===this) closeCz(); });
 document.addEventListener('keydown', function(e){ if(e.key==='Escape' && cz) closeCz(); });
 </script>
-<script src="/assets/js/shop-families.js?v=20261005-fillings"></script>
+<script src="/assets/js/shop-families.js?v=20261005-checkout"></script>
 <script src="/assets/js/shop-measurement.js"></script>
-<script src="/assets/js/shop-order.js?v=20261005-fillings"></script>
+<script src="/assets/js/shop-order.js?v=20261005-checkout"></script>
 <script src="/assets/js/shop-corporate-lunch.js?v=20261001-corporate"></script>
 <script src="/assets/js/shop-ten-menu.js?v=20261001-corporate"></script>
 <script src="/assets/js/shop-daily-lunch.js?v=20261001-corporate"></script>

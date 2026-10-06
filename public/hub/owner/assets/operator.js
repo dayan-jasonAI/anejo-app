@@ -1,6 +1,6 @@
 /* Private descriptors only. Explicit clicks; never auto-save, publish or silently redirect. */
 (function () {
-  var paths = {photos:'/hub/owner/marketing.html#photos',create:'/hub/owner/marketing.html#create',drafts:'/hub/owner/marketing.html#create?filter=drafts'};
+  var paths = {photos:'/hub/owner/marketing.html#photos',create:'/hub/owner/marketing.html#create',drafts:'/hub/owner/marketing.html#create?filter=drafts',inventory:'/hub/kitchen/inventory',production:'/hub/kitchen/inventory#inventory-production'};
   function button(root, label, fn) { var b=document.createElement('button'); b.type='button'; b.textContent=label; b.addEventListener('click',fn); root.appendChild(b); return b; }
   function paragraph(root, text) { var p=document.createElement('p'); p.textContent=text; root.appendChild(p); }
   // Baseline values catch unsaved normal inputs. A page may supply a more exact dirty hook.
@@ -306,6 +306,10 @@
           result.ideas.forEach(function(idea){paragraph(root,idea.title+' · '+idea.status+' · '+new Date(idea.created_at).toISOString());paragraph(root,idea.topic);campaignPreview(root,idea);});
         } catch (_) {paragraph(root,'Saved ideas unavailable. Try again.');read.disabled=false;}
       });
+    } else if(ui.kind==='inventory_count_preview') {
+      paragraph(root,String(ui.name)+' · '+String(ui.id)+' · '+String(result.previous_on_hand??'Unknown')+' → '+ui.on_hand+' '+ui.unit);paragraph(root,'Only on-hand quantity changes. Separate piece counts, weight and expiry stay unchanged. This uses the existing audited inventory route and no AI model call.');var saveCount=button(root,'Save this exact count',async function(){if(saveCount.disabled)return;saveCount.disabled=true;try{var response=await fetch('/api/hub/kitchen/inventory',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'count',id:ui.id,on_hand:ui.on_hand,expected_revision:ui.expected_revision})});var saved=await response.json();if(!response.ok||!saved.ok||saved.id!==ui.id||saved.on_hand!==ui.on_hand)throw Error(saved.error||'Save not verified');paragraph(root,'Count saved: '+saved.on_hand+' '+ui.unit+'. Check Inventory history for notification status.');saveCount.textContent='Count saved';document.dispatchEvent(new CustomEvent('inventory:changed'));}catch(error){paragraph(root,'Count save not verified: '+error.message+'. Reload Inventory before another update.');}});
+    } else if(ui.kind==='inventory_status'){
+      if(result.inventory)result.inventory.inventory.forEach(function(item){paragraph(root,item.name+' · '+(item.on_hand?.quantity==null?'Unknown':String(item.on_hand.quantity))+' '+String(item.unit||'')+' · '+String(item.on_hand?.status||'unverified'));});button(root,'Open searchable Inventory',function(){location.assign('/hub/kitchen/inventory');});
     } else if(ui.kind==='catering_status') {
       cateringStatus(root,result.catering,ui.language);
     } else if(ui.kind==='audit_status') {

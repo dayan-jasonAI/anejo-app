@@ -53,6 +53,7 @@ h1{font-weight:300;font-size:30px;margin-bottom:4px}h1 strong{color:var(--green)
   <div class="nav-r"><a href="/order" style="background:var(--gold);color:var(--black);text-decoration:none;border-radius:4px;padding:7px 14px;font:600 11px/1 'Josefin Sans';letter-spacing:1px;text-transform:uppercase;margin-right:8px">Order</a><button id="signout" style="display:none" onclick="signOut()">Sign out</button></div>
 </div></nav>
 <main class="wrap" id="main"><p class="muted">Loading…</p></main>
+<script src="/assets/js/customer-orders.js?v=20261005-account"></script>
 <script>
 const $=(id)=>document.getElementById(id);
 const esc=(s)=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
@@ -64,7 +65,7 @@ async function requestLink(e){e.preventDefault();const email=$('gemail').value.t
     if(!r.ok)throw new Error();$('main').innerHTML='<div class="gate"><h2>Check your email</h2><p>We sent a sign-in link to <strong>'+esc(email)+'</strong>.</p></div>';
   }catch(_){btn.disabled=false;btn.textContent='Send sign-in link';}return false;}
 window.requestLink=requestLink;
-function gate(){$('main').innerHTML='<div class="gate"><h2>Member sign-in</h2><p>Enter your email for a one-time sign-in link to view your plan.</p>'+
+function gate(){$('main').innerHTML='<div class="gate"><h2>Your Añejo account</h2><p>Enter your email for a one-time sign-in link to view your orders, rewards, and any meal plan.</p>'+
   '<form onsubmit="return requestLink(event)"><input id="gemail" type="email" placeholder="you@email.com" required><button class="btn" type="submit" style="width:100%">Send sign-in link</button></form></div>';}
 function money(c){return '$'+((c||0)/100).toFixed(2);}
 function rewardsCard(r){
@@ -154,25 +155,28 @@ function render(d,logs){
   $('signout').style.display='inline-block';
   const c=d.client, p=d.plan, s=d.subscription;
   const cat=d.catering||[];
+  const orderCards=window.AnejoCustomerOrders.render(d.orders||[]);
+  const installHelp='<details class="card"><summary>Keep Añejo on your home screen</summary><p>On iPhone: open this page in Safari, tap Share, then Add to Home Screen. On Android: use your browser menu and choose Add to Home screen.</p><p>Your account still requires secure sign-in.</p></details>';
   // A catering customer has no trainer and never asked for a meal plan. Telling her to go and find
   // one, on the account page she opened straight after paying us, is the worst thing this screen
   // could say — so her events ARE the page when that is what she has.
-  if(!c){
-    if(cat.length){
-      const first=(cat[0].name||'there').split(' ')[0];
-      const es=cat[0].lang==='es';
+  if(!c || (!p && !s && orderCards)){
+    if(cat.length || orderCards){
+      const first=((c&&c.name)||(cat[0]&&cat[0].name)||'there').split(' ')[0];
+      const es=cat[0]&&cat[0].lang==='es';
       $('main').innerHTML='<h1>'+(es?'Hola, ':'Hi, ')+'<strong>'+esc(first)+'</strong>.</h1>'
-        +'<div id="cc-mount"></div>';
+        +'<button class="btn" onclick="init()">Refresh order status</button>'+orderCards+rewardsCard(d.rewards)+installHelp+'<div id="cc-mount"></div>';
       window.AnejoCatering.render(cat,document.getElementById('cc-mount'));
       return;
     }
     $('main').innerHTML='<div class="empty">Nothing is linked to '+esc(d.email)+' yet.<br><br>'
-      +'<a class="btn" href="/catering">Plan an event</a> <a class="btn" href="/order">Order bowls</a></div>';
+      +'<a class="btn" href="/catering">Plan an event</a> <a class="btn" href="/order">Browse the menu</a></div>';
     return;
   }
-  let html='<h1>Hi, <strong>'+esc(c.name||'there')+'</strong>.</h1><div class="sub">Your Añejo plan & subscription.</div>';
+  let html='<h1>Hi, <strong>'+esc(c.name||'there')+'</strong>.</h1><div class="sub">Your orders, rewards & meal plan.</div>';
   html+='<a class="btn" href="/order" style="display:inline-block;margin-bottom:18px">Order fresh bowls →</a>';
   if(cat.length)html+='<div id="cc-mount"></div>';
+  html+=orderCards+installHelp;
   if(d.rewards)html+=rewardsCard(d.rewards);
   if(d.today_bowls&&d.today_bowls.length)html+=todayBowlCard(d.today_bowls);
   if(p){html+='<div class="card gold"><div class="k">Your daily targets</div><div class="macros">'+
@@ -264,7 +268,7 @@ async function logWeight(btn){var v=parseFloat(($('wlb')||{}).value);if(!v){$('l
   try{const r=await fetch('/api/client/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'weight',weight_lb:v})});const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'err');$('wlb').value='';$('logMsg').textContent='Weight logged.';await refreshLogs();}
   catch(e){$('logMsg').textContent=e.message||'Could not save.';}finally{if(btn)btn.disabled=false;}}
 window.logWeight=logWeight;
-async function init(){let me;try{me=await(await fetch('/api/client/me')).json();}catch{$('main').innerHTML='<div class="empty">Could not reach the server.</div>';return;}
+async function init(){let me;try{const response=await fetch('/api/client/me',{cache:'no-store'});if(!response.ok)throw new Error('Account unavailable');me=await response.json();}catch{$('main').innerHTML='<div class="empty">Could not reach the server.</div>';return;}
   if(!me.authenticated){gate();return;}
   let logs={meals:[],weights:[]};
   if(me.client){try{logs=await(await fetch('/api/client/log')).json();}catch(_){}}

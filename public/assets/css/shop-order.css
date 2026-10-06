@@ -3,3 +3,6 @@
 @media(max-width:500px){.shop-card>img{height:112px;width:112px;align-self:center;margin-right:12px;border-radius:10px}.order-hero{padding:26px 20px}.order-hero>div:last-child{font-size:10px!important;letter-spacing:1px!important;padding:6px 12px!important}.shop-card p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}}
 
 .cart-line .ci-edit{margin-left:8px}.shop-card-bottom .customize:disabled{opacity:.5;cursor:not-allowed}
+
+/* Checkout stays discoverable and keyboard accessible. */
+#checkoutDetails>summary{min-height:44px}#checkoutBtn{min-height:48px}#tenTeamMeals{margin-top:32px;padding-top:24px;border-top:1px solid var(--line)}.shop-choice .stepper button{min-width:44px;min-height:44px}.shop-choice .stepper span{min-width:28px}#shopChoicesLabel{font-size:14px;line-height:1.5;color:var(--green)}:is(.customize,.shop-choice button,#checkoutBtn):focus-visible{outline:3px solid var(--gold);outline-offset:3px}

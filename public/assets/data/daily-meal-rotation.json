@@ -1,0 +1,106 @@
+{
+  "price_cents": 1000,
+  "schedule_status": "anchor_date_pending",
+  "meals": [
+    {
+      "week": 1,
+      "day": "Monday",
+      "name": "Papa A\u00f1ejo Beef"
+    },
+    {
+      "week": 1,
+      "day": "Tuesday",
+      "name": "Chicken Quesadillas"
+    },
+    {
+      "week": 1,
+      "day": "Wednesday",
+      "name": "Chicken Caesar Wrap"
+    },
+    {
+      "week": 1,
+      "day": "Thursday",
+      "name": "Pollito Empanizado"
+    },
+    {
+      "week": 1,
+      "day": "Friday",
+      "name": "Ropa Vieja"
+    },
+    {
+      "week": 2,
+      "day": "Monday",
+      "name": "Loaded Sweet Potato Beef"
+    },
+    {
+      "week": 2,
+      "day": "Tuesday",
+      "name": "Chicken Tacos"
+    },
+    {
+      "week": 2,
+      "day": "Wednesday",
+      "name": "Chicken Caesar Bowl"
+    },
+    {
+      "week": 2,
+      "day": "Thursday",
+      "name": "Pan con Lech\u00f3n"
+    },
+    {
+      "week": 2,
+      "day": "Friday",
+      "name": "Arroz Imperial A\u00f1ejo"
+    },
+    {
+      "week": 3,
+      "day": "Monday",
+      "name": "Papa A\u00f1ejo Chicken and Lech\u00f3n"
+    },
+    {
+      "week": 3,
+      "day": "Tuesday",
+      "name": "A\u00f1ejo Lech\u00f3n Tacos"
+    },
+    {
+      "week": 3,
+      "day": "Wednesday",
+      "name": "A\u00f1ejo Garden Chicken Salad"
+    },
+    {
+      "week": 3,
+      "day": "Thursday",
+      "name": "Chicken Sandwich A\u00f1ejo"
+    },
+    {
+      "week": 3,
+      "day": "Friday",
+      "name": "Lech\u00f3n Asado"
+    },
+    {
+      "week": 4,
+      "day": "Monday",
+      "name": "Loaded Sweet Potato Chicken"
+    },
+    {
+      "week": 4,
+      "day": "Tuesday",
+      "name": "Lech\u00f3n Quesadillas"
+    },
+    {
+      "week": 4,
+      "day": "Wednesday",
+      "name": "Chick Chick Bowl"
+    },
+    {
+      "week": 4,
+      "day": "Thursday",
+      "name": "A\u00f1ejo Burger Wrap"
+    },
+    {
+      "week": 4,
+      "day": "Friday",
+      "name": "Bistec de Cerdo Encebollado"
+    }
+  ]
+}

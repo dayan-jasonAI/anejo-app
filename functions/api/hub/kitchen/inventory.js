@@ -93,10 +93,10 @@ export const onRequestGet = async ({ request, env }) => {
   try {
     const res = await env.DB
       .prepare(
-        'SELECT i.id, i.name, i.unit, i.on_hand, i.par_level, i.vendor_id, i.unit_cost_cents, i.active, i.updated_at, i.count_quantity, i.total_weight_grams, i.photo_key, i.photo_status, i.revision, i.photo_reviewed_by, i.photo_reviewed_at, i.counted_at, i.expires_on, ' +
-        'v.name AS vendor_name, v.lead_time_days AS vendor_lead_days, ' +
+        'SELECT i.id, i.name, i.unit, i.on_hand, i.par_level, i.vendor_id, i.supplier_id, i.unit_cost_cents, i.active, i.updated_at, i.count_quantity, i.total_weight_grams, i.photo_key, i.photo_status, i.revision, i.photo_reviewed_by, i.photo_reviewed_at, i.counted_at, i.expires_on, ' +
+        'COALESCE(s.name,v.name) AS vendor_name, v.lead_time_days AS vendor_lead_days, ' +
         '(CASE WHEN i.par_level > 0 AND i.on_hand < i.par_level THEN 1 ELSE 0 END) AS below_par ' +
-        'FROM inventory_items i LEFT JOIN staff v ON v.id = i.vendor_id ' +
+        'FROM inventory_items i LEFT JOIN staff v ON v.id = i.vendor_id LEFT JOIN inventory_suppliers s ON s.id=i.supplier_id ' +
         (includeAll ? '' : 'WHERE i.active=1 ') +
         'ORDER BY below_par DESC, i.active DESC, i.name'
       )
@@ -104,7 +104,7 @@ export const onRequestGet = async ({ request, env }) => {
     if (!res || res.success === false || !Array.isArray(res.results)) return bad('Inventory data is temporarily unavailable.', 503);
     items = res.results.map((r) => ({ ...r, below_par: !!r.below_par, active: !!r.active }));
     const vendorRes = await env.DB
-      .prepare("SELECT id, name FROM staff WHERE role='vendor' AND active=1 ORDER BY name")
+      .prepare("SELECT id,name FROM staff WHERE role='vendor' AND active=1 UNION ALL SELECT id,name FROM inventory_suppliers WHERE active=1 ORDER BY name")
       .all();
     if (!vendorRes || vendorRes.success === false || !Array.isArray(vendorRes.results)) return bad('Inventory vendors are temporarily unavailable.', 503);
     vendors = vendorRes.results;
@@ -112,10 +112,22 @@ export const onRequestGet = async ({ request, env }) => {
     if (!changeRes || changeRes.success === false || !Array.isArray(changeRes.results)) return bad('Inventory history is temporarily unavailable.', 503);
     changes = changeRes.results;
   } catch { return bad('Inventory data is temporarily unavailable.', 503); }
+  let costSheet = null;
+  try {
+    const result = await env.DB.prepare('SELECT c.*,s.name AS supplier_name FROM inventory_purchase_costs c JOIN inventory_suppliers s ON s.id=c.supplier_id ORDER BY c.purchased_on DESC,c.receipt_reference,c.line_ordinal LIMIT 101').all();
+    if (!result || result.success === false || !Array.isArray(result.results)) throw Error('cost_sheet_read_failed');
+    costSheet = { status:'available', read_at:now(), has_more:result.results.length > 100,
+      lines:result.results.slice(0,100).map(line => ({ ...line,
+        cost_basis:'historical_paid_receipt', current_stock:'unknown_from_receipt',
+        // Preserve integer paid cents and exact denominators; do not round/stash a unit price.
+        per_pack_dollars:Number(line.purchased_packs) > 0 ? line.paid_line_cents / 100 / line.purchased_packs : null,
+        per_unit_dollars:Number(line.purchased_packs) > 0 && Number(line.pack_quantity) > 0 ? line.paid_line_cents / 100 / line.purchased_packs / line.pack_quantity : null,
+      })) };
+  } catch { costSheet = {status:'unavailable',read_at:now(),lines:null}; }
   const prepared = await preparedStock(env);
   return json({
     ok: true, actor_role: ctx.role, items, vendors,
-    changes,
+    changes, cost_sheet:costSheet,
     below_par_count: items.filter((i) => i.below_par && i.active).length,
     prepared: prepared.items,
     prepared_status: prepared.status,
@@ -264,9 +276,11 @@ export const onRequestPost = async ({ request, env }) => {
   if (totalWeight !== undefined && (!Number.isFinite(totalWeight) || totalWeight < 0)) return bad('Total weight must be a number ≥ 0 grams.');
   if (expiresOn !== undefined && expiresOn !== '' && (!/^\d{4}-\d{2}-\d{2}$/.test(expiresOn) || new Date(`${expiresOn}T00:00:00Z`).toISOString().slice(0,10) !== expiresOn)) return bad('Expiration date must be a valid YYYY-MM-DD date.');
 
+  let supplierId = null;
   if (vendorId) {
-    const v = await env.DB.prepare("SELECT id FROM staff WHERE id=? AND role='vendor'").bind(vendorId).first();
-    if (!v) return bad('Vendor not found.', 404);
+    supplierId = (await env.DB.prepare('SELECT id FROM inventory_suppliers WHERE id=? AND active=1').bind(vendorId).first())?.id || null;
+    const v = await env.DB.prepare("SELECT id FROM staff WHERE id=? AND role='vendor' AND active=1").bind(vendorId).first();
+    if (!v && !supplierId) return bad('Vendor not found.', 404);
   }
 
   let saved, before = null;
@@ -281,7 +295,8 @@ export const onRequestPost = async ({ request, env }) => {
       unit: unit != null ? unit : item.unit,
       on_hand: onHand != null ? onHand : item.on_hand,
       par_level: parLevel != null ? parLevel : item.par_level,
-      vendor_id: vendorId || item.vendor_id,
+      vendor_id: vendorId ? (supplierId ? null : vendorId) : item.vendor_id,
+      supplier_id: vendorId ? supplierId : item.supplier_id,
       unit_cost_cents: unitCostCents != null ? unitCostCents : item.unit_cost_cents,
       count_quantity: countQuantity !== undefined ? countQuantity : item.count_quantity,
       total_weight_grams: totalWeight !== undefined ? totalWeight : item.total_weight_grams,
@@ -291,7 +306,7 @@ export const onRequestPost = async ({ request, env }) => {
       last_change_id: null,
     };
     const change = changeInsert({ itemId, action, actorId: by, before, after: { ...saved, updated_by: by, updated_at: t }, at: t });
-    const committed = await commitChange(env, { sql: 'UPDATE inventory_items SET name=?, unit=?, on_hand=?, par_level=?, vendor_id=?, unit_cost_cents=?, count_quantity=?, total_weight_grams=?, expires_on=?, counted_at=?, updated_by=?, updated_at=?, revision=revision+1,last_change_id=? WHERE id=? AND revision=?', args: [saved.name, saved.unit, saved.on_hand, saved.par_level, saved.vendor_id, saved.unit_cost_cents ?? null, saved.count_quantity ?? null, saved.total_weight_grams ?? null, saved.expires_on ?? null, saved.counted_at ?? null, by, t, change.changeId, itemId, Number(item.revision || 0)] }, change);
+    const committed = await commitChange(env, { sql: 'UPDATE inventory_items SET name=?, unit=?, on_hand=?, par_level=?, vendor_id=?, supplier_id=?, unit_cost_cents=?, count_quantity=?, total_weight_grams=?, expires_on=?, counted_at=?, updated_by=?, updated_at=?, revision=revision+1,last_change_id=? WHERE id=? AND revision=?', args: [saved.name, saved.unit, saved.on_hand, saved.par_level, saved.vendor_id, saved.supplier_id, saved.unit_cost_cents ?? null, saved.count_quantity ?? null, saved.total_weight_grams ?? null, saved.expires_on ?? null, saved.counted_at ?? null, by, t, change.changeId, itemId, Number(item.revision || 0)] }, change);
     if (!committed.ok) return bad('Inventory item was not saved.', 409);
     saved._change = change;
   } else {
@@ -301,7 +316,8 @@ export const onRequestPost = async ({ request, env }) => {
       unit,
       on_hand: onHand != null ? onHand : 0,
       par_level: parLevel != null ? parLevel : 0,
-      vendor_id: vendorId,
+      vendor_id: supplierId ? null : vendorId,
+      supplier_id: supplierId,
       unit_cost_cents: unitCostCents,
       count_quantity: countQuantity === undefined ? null : countQuantity,
       total_weight_grams: totalWeight === undefined ? null : totalWeight,
@@ -311,7 +327,7 @@ export const onRequestPost = async ({ request, env }) => {
       last_change_id: null,
     };
     const change = changeInsert({ itemId: saved.id, action, actorId: by, before: null, after: { ...saved, active: 1, updated_by: by, created_at: t, updated_at: t }, at: t });
-    const committed = await commitChange(env, { sql: 'INSERT INTO inventory_items (id,name,unit,on_hand,par_level,vendor_id,unit_cost_cents,count_quantity,total_weight_grams,expires_on,counted_at,active,revision,last_change_id,updated_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,1,0,?,?,?,?)', args: [saved.id,saved.name,saved.unit,saved.on_hand,saved.par_level,saved.vendor_id,saved.unit_cost_cents,saved.count_quantity,saved.total_weight_grams,saved.expires_on,saved.counted_at,change.changeId,by,t,t] }, change);
+    const committed = await commitChange(env, { sql: 'INSERT INTO inventory_items (id,name,unit,on_hand,par_level,vendor_id,supplier_id,unit_cost_cents,count_quantity,total_weight_grams,expires_on,counted_at,active,revision,last_change_id,updated_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,0,?,?,?,?)', args: [saved.id,saved.name,saved.unit,saved.on_hand,saved.par_level,saved.vendor_id,saved.supplier_id,saved.unit_cost_cents,saved.count_quantity,saved.total_weight_grams,saved.expires_on,saved.counted_at,change.changeId,by,t,t] }, change);
     if (!committed.ok) return bad('Inventory item was not created.', 409);
     saved._change = change;
   }

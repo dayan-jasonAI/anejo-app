@@ -136,7 +136,8 @@
       } else {
         state.portalType = res.body.portal_type || 'trainer';
         // send the magic link
-        api('/api/auth/request-link',{ email: res.body.email, type: state.portalType }).then(function(){
+        return api('/api/auth/request-link',{ email: res.body.email, type: state.portalType }).then(function(linkRes){
+          if(linkRes.status>=400 || !linkRes.body.ok){ err('Could not send the sign-in link. Please try again.'); return; }
           $('magic-greet').textContent = 'We emailed a sign-in link to '+res.body.email+'. Open it on this device.';
           sub.textContent='Email sign-in'; show(stepMagic);
         });

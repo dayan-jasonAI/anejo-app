@@ -1,7 +1,9 @@
 // GET /api/client/me — the signed-in client's profile, latest plan, and subscription.
-import { json } from '../../_lib/util.js';
+import { json as responseJson } from '../../_lib/util.js';
+const json = (body, status = 200) => responseJson(body, status, { 'Cache-Control': 'no-store, private' });
 import { currentUser } from '../../_lib/session.js';
 import { rewardsSummary } from '../../_lib/rewards.js';
+import { customerOrders } from '../../_lib/customer-orders.js';
 import { bowlImage } from '../../_lib/bowlspec.js';
 
 export const onRequestGet = async ({ request, env }) => {
@@ -10,6 +12,7 @@ export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return json({ authenticated: true, email: sess.email }, 200);
 
   const rewards = await rewardsSummary(env, sess.email);
+  const orders = await customerOrders(env, sess.email);
 
   // CATERING CUSTOMERS ARE CUSTOMERS.
   //
@@ -81,7 +84,7 @@ export const onRequestGet = async ({ request, env }) => {
   const client = await env.DB
     .prepare('SELECT id, name, email, phone, primary_goal, status FROM clients WHERE email = ? ORDER BY updated_at DESC LIMIT 1')
     .bind(sess.email).first();
-  if (!client) return json({ authenticated: true, email: sess.email, client: null, rewards, catering });
+  if (!client) return json({ authenticated: true, email: sess.email, client: null, rewards, catering, orders });
 
   const plan = await env.DB
     .prepare('SELECT public_token, daily_calories, daily_protein_g, daily_carbs_g, daily_fat_g, meal_plan_tier, bowl_size_oz, per_bowl_price_cents, status FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
@@ -136,5 +139,5 @@ export const onRequestGet = async ({ request, env }) => {
   } catch { prefill = null; }
 
   // catering rides along for a meal-plan client too — the same person can be both.
-  return json({ authenticated: true, email: sess.email, client, plan, subscription: sub || null, rewards, today_bowls: todayBowls, prefill, catering });
+  return json({ authenticated: true, email: sess.email, client, plan, subscription: sub || null, rewards, today_bowls: todayBowls, prefill, catering, orders });
 };

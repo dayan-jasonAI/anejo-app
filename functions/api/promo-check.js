@@ -46,7 +46,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (!code) return json({ ok: false, reason: 'empty', auto: false });
   }
 
-  const ev = await evaluatePromo(env, { code, sessionEmail: sessEmail, subtotalCents });
+  const ev = await evaluatePromo(env, { code, sessionEmail: sessEmail, guestEmail: b.contact?.email, guestPhone: b.contact?.phone, subtotalCents });
   if (!ev.ok) {
     return json({ ok: false, auto, reason: ev.reason, message: MESSAGES[ev.reason] || MESSAGES.unavailable });
   }
@@ -56,6 +56,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (ev.pct_off > 0) parts.push(`${ev.pct_off}% off`);
   if (ev.points_mult > 1) parts.push(`${ev.points_mult}x rewards points`);
   if (ev.perk === 'fit_drink') parts.push('a free Añejo Fit drink on your first order');
+  if (ev.perk === 'free_delivery') parts.push('free delivery');
 
   return json({
     ok: true,

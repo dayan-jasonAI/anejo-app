@@ -283,7 +283,8 @@ function postCheckout(env, body) {
     request: new Request('https://anejocateringco.com/api/checkout', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     }),
-    env,
+    // Successful checkout now requires a durable ticket; explicit caller DB fixtures win.
+    env: { DB: makeD1([[/^INSERT INTO orders/, () => 1]]), ...env },
   });
 }
 
