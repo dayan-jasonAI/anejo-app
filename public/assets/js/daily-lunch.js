@@ -5,7 +5,7 @@ const money=c=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).
 const dateLabel=d=>new Intl.DateTimeFormat('en-US',{weekday:'long',month:'short',day:'numeric',timeZone:'UTC'}).format(new Date(d+'T12:00:00Z'));
 const timeLabel=t=>{const [h,m]=String(t).split(':').map(Number);return (h%12||12)+':'+String(m).padStart(2,'0')+' '+(h>=12?'p.m.':'a.m.');};
 function el(tag,text,cls){const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;}
-const reasons={past:'This lunch date has passed.',sold_out:'Sold out — thank you.',disabled:'Not serving this day.',not_scheduled:'Menu not yet announced.',same_day_cutoff:'Today’s order cutoff has passed.',preorder_cutoff:'The preorder cutoff has passed.',closed:'Kitchen closed for this date.',no_delivery_day:'No delivery on this day.'};
+const reasons={past:'This lunch date has passed.',sold_out:'Sold out — thank you.',disabled:'Not serving this day.',not_scheduled:'Menu not yet announced.',same_day_cutoff:'Today’s order cutoff has passed.',preorder_cutoff:'The preorder cutoff has passed. Same-day ordering opens on the delivery date until the published cutoff, while quantities last.',closed:'Kitchen closed for this date.',no_delivery_day:'No delivery on this day.'};
 function card(day,featured){const article=el('article',null,'meal'+(featured?' featured':''));
  if(day.image_url){const img=el('img');img.src=day.image_url;img.alt=day.name;img.loading=featured?'eager':'lazy';img.onerror=()=>img.replaceWith(el('div','AÑEJO · PHOTO COMING SOON','placeholder'));article.append(img);}else article.append(el('div','AÑEJO · PHOTO COMING SOON','placeholder'));
  const copy=el('div',null,'copy');copy.append(el('p',dateLabel(day.date),'eyebrow'),el('h3',day.name||'Our kitchen is planning'),el('p',day.description||'Check back for this day’s lunch.'));
@@ -18,8 +18,8 @@ async function load(start){const requestId=++loadId;$('menu-error').textContent=
  try{const response=await fetch('/api/daily-lunch'+(start?'?start='+encodeURIComponent(start):''),{cache:'no-store'});const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'Daily lunch is temporarily unavailable.');if(requestId!==loadId)return;menu=data;
  const days=menu.days||[];$('week-meals').replaceChildren(...days.map(d=>card(d,false)));
  if(days.length)$('week').value=days[0].date;
- const feature=days.find(d=>d.date===menu.today&&d.product_id)||days.find(d=>d.orderable)||days.find(d=>d.product_id);
- $('today-title').textContent=feature&&feature.date===menu.today?'TODAY’S LUNCH':'FROM THIS WEEK’S KITCHEN';$('today-meal').replaceChildren(feature?card(feature,true):el('p','The next lunch menu is being prepared. Please check back.'));
+ const feature=days.find(d=>d.date===menu.today&&d.orderable)||days.find(d=>d.date>menu.today&&d.product_id&&d.enabled)||days.find(d=>d.date===menu.today&&d.product_id)||days.find(d=>d.product_id);
+ $('today-title').textContent=feature&&feature.date===menu.today?'TODAY’S LUNCH':feature&&feature.date===new Date(Date.parse(menu.today+'T12:00:00Z')+86400000).toISOString().slice(0,10)?'TOMORROW’S LUNCH':'FROM THIS WEEK’S KITCHEN';$('today-meal').replaceChildren(feature?card(feature,true):el('p','The next lunch menu is being prepared. Please check back.'));
  $('cutoff-copy').textContent='Order by '+timeLabel(menu.settings.preorder_cutoff)+' Eastern the day before for FREE delivery. Same-day orders close at '+timeLabel(menu.settings.same_day_cutoff)+' Eastern, while quantities last, with the regular delivery fee.';
  }catch(error){if(requestId!==loadId)return;$('menu-error').textContent=error.message;$('week-meals').replaceChildren();$('today-meal').textContent='We cannot confirm lunch availability right now.';}}
 $('week').addEventListener('change',()=>load($('week').value));

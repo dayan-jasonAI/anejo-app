@@ -92,3 +92,13 @@ test('team-of-50 shortcut keeps checkout deliberate and calculates a free-delive
  assert.equal(h.ctx.dailySelection,null);assert.equal(h.all().find(e=>e.tagName==='input').value,'50');assert.equal(add(h).textContent,'Continue with 50 meals · $500.00');
  add(h).onclick();assert.equal(h.ctx.dailySelection.qty,50);assert.equal(h.el('cartSubtotal').textContent,'$500.00');assert.equal(h.el('cartFee').textContent,'Free');assert.equal(h.el('cartGrand').textContent,'$535.00');
 });
+
+test('after today closes, tomorrow remains visible even when preorder cutoff blocks checkout',async()=>{
+ const response=structuredClone(menu);response.days[1].orderable=false;response.days[1].reason='same_day_cutoff';
+ response.days[2]={date:'2026-10-02',product_id:'chicken_quesadillas',name:'Chicken Quesadillas',enabled:true,orderable:false,reason:'preorder_cutoff'};
+ const h=await harness({response});
+ assert.equal(dateSelect(h).value,'2026-10-02');
+ assert.equal(h.all().find(e=>e.tagName==='h2').textContent,'Chicken Quesadillas');
+ assert.equal(add(h).disabled,true);
+ assert.ok(h.all().some(e=>e.textContent.includes('Preorders are closed. Order on the delivery day')));
+});
