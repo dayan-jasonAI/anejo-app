@@ -31,6 +31,7 @@
   .inv-count { color:#58645b; font-size:13px; }
   .inv-list { display:grid; gap:12px; }
   .inv-card { background:var(--inv-ivory); border:1px solid #e7e3d8; border-radius:14px; padding:14px; box-shadow:0 4px 14px rgba(27,58,43,.055); }
+  .inv-card[hidden] { display:none; }
   .inv-card.below { border-left:4px solid var(--inv-gold); }
   .inv-head { display:flex; gap:12px; align-items:center; min-width:0; margin-bottom:12px; }
   .inv-thumb { display:flex; align-items:center; justify-content:center; flex:0 0 68px; width:68px; height:68px; overflow:hidden; border:1px solid #d9ded8; border-radius:11px; background:#f0f1eb; color:#526057; font-size:11px; text-align:center; }
@@ -150,8 +151,15 @@
   </section>
 
   <section class="hub-section" aria-label="Inventory items">
+    <div class="inv-field" style="margin-bottom:14px"><label for="inventory-search">Find an item or vendor</label><input id="inventory-search" type="search" placeholder="Search ingredients, packaging or vendor…" autocomplete="off"><p id="inventory-search-status" class="inv-help" role="status" aria-live="polite"></p></div>
     <div id="items" aria-live="polite"><div class="hub-loading">Loading inventory…</div></div>
 
+  </section>
+
+  <section class="hub-section inv-subsection" aria-labelledby="cost-heading">
+    <div class="inv-section-title"><h2 id="cost-heading">Paid purchase costs</h2></div>
+    <p class="inv-help">Historical receipt prices help cost recipes. They do not confirm stock on hand today. Per-unit rates exclude receipt tax unless the original line includes it.</p>
+    <div id="cost-sheet" class="inv-list" style="margin-top:12px"><div class="hub-loading">Loading paid receipt costs…</div></div>
   </section>
 
   <section class="hub-section inv-subsection" aria-labelledby="prepared-heading">
@@ -172,6 +180,24 @@
   var bootRoleOwner = false, isOwner = false, currentItems = [], currentChanges = [];
   function dateValue(value) { return value == null ? '' : String(value).slice(0, 10); }
 
+  var dirtyCards = new Set();
+  function filterInventory() {
+    var term = $('#inventory-search').value.trim().toLocaleLowerCase(), shown = 0;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-card]'), function (card) {
+      var item = currentItems.find(function (it) { return String(it.id) === card.getAttribute('data-card'); });
+      var match = !term || String((item && item.name || '') + ' ' + (item && item.vendor_name || '')).toLocaleLowerCase().indexOf(term) !== -1;
+      // Never hide unsaved edits; filtering retains the controls and their history in place.
+      card.hidden = !match && !dirtyCards.has(card.getAttribute('data-card'));
+      if (!card.hidden) shown++;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cost-search]'), function (card) { card.hidden = !!term && card.getAttribute('data-cost-search').indexOf(term) === -1; });
+    $('#inventory-search-status').textContent = shown + ' of ' + currentItems.length + ' items shown' + (dirtyCards.size ? ' · Unsaved edits stay visible.' : '.');
+  }
+  $('#inventory-search').addEventListener('input', filterInventory);
+  $('#items').addEventListener('input', function (event) {
+    var card = event.target.closest('[data-card]');
+    if (card) { dirtyCards.add(card.getAttribute('data-card')); filterInventory(); }
+  });
   function numberText(value, fallback) {
     return value == null || value === '' ? fallback : esc(value);
   }
@@ -275,6 +301,17 @@
       reader.readAsDataURL(file);
     });
   }
+  function renderCostSheet(sheet) {
+    if (!sheet || sheet.status !== 'available' || !Array.isArray(sheet.lines)) {
+      $('#cost-sheet').innerHTML = '<p class="inv-error" role="status">Paid receipt costs are unavailable. Your inventory counts are unchanged.</p>'; return;
+    }
+    function rate(value) { return value == null ? 'Pack quantity not verified' : '$' + Number(value).toFixed(4) + ' (display rounded)'; }
+    var rows = sheet.lines.map(function (line) {
+      var search = String(line.item_name + ' ' + line.supplier_name).toLocaleLowerCase();
+      return '<article class="inv-card" data-cost-search="' + esc(search) + '"><strong>' + esc(line.item_name) + '</strong><div class="inv-meta">' + esc(line.supplier_name) + ' · ' + esc(line.purchased_on) + ' · Receipt ' + esc(line.receipt_reference) + ', line ' + esc(line.line_ordinal) + '</div><div class="inv-meta">Paid line $' + (Number(line.paid_line_cents) / 100).toFixed(2) + ' · ' + esc(line.purchased_packs) + ' pack(s)' + (line.pack_quantity != null ? ' · ' + esc(line.pack_quantity) + ' ' + esc(line.pack_unit || '') + ' per pack' : '') + '</div><div class="inv-meta">Per pack: ' + rate(line.per_pack_dollars) + ' · Per ' + esc(line.pack_unit || 'unit') + ': ' + rate(line.per_unit_dollars) + '</div><div class="inv-meta">Historical paid cost · current stock unknown from receipt</div><details class="inv-ledger"><summary>Cost source and exact calculation</summary><p class="inv-help">' + esc(line.source_path) + '</p><p class="inv-help">' + esc(line.paid_line_cents) + ' cents ÷ 100 ÷ ' + esc(line.purchased_packs) + (line.pack_quantity != null ? ' ÷ ' + esc(line.pack_quantity) + ' for per-unit cost.' : ' for per-pack cost; unit quantity unresolved.') + '</p></details></article>';
+    }).join('');
+    $('#cost-sheet').innerHTML = '<p class="inv-help">Latest ' + sheet.lines.length + ' receipt lines · read ' + esc(new Date(sheet.read_at).toLocaleString()) + (sheet.has_more ? ' · Older lines are not included in this view.' : '') + '</p>' + (rows || '<p class="inv-help">No paid receipt costs imported yet.</p>');
+  }
   function load() {
     K.get('/api/hub/kitchen/inventory').then(function (d) {
       if (!d || d.ok !== true || !Array.isArray(d.items) || d.error || d._networkError || d._status) return showLoadError((d && d.error) || 'Could not load inventory.');
@@ -287,7 +324,10 @@
       Array.prototype.forEach.call(document.querySelectorAll('[data-photo-thumb]'), function (img) {
         img.addEventListener('error', function () { var box = img.parentNode; box.textContent = 'Photo unavailable'; box.setAttribute('aria-label', 'Inventory photo unavailable'); });
       });
+      dirtyCards.clear();
       bindItems();
+      renderCostSheet(d.cost_sheet);
+      filterInventory();
       renderPrepared(d.prepared,d.prepared_status);
       var sel = $('#a-vendor');
       var keep = sel.value;

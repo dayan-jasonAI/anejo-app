@@ -40,5 +40,10 @@ export async function findPortalUser(env, email) {
   if (tr) return 'trainer';
   const cl = await env.DB.prepare('SELECT id FROM clients WHERE lower(email)=?').bind(email).first();
   if (cl) return 'client';
+  // Guest checkout and catering customers also own an account, without a meal plan.
+  const order = await env.DB.prepare('SELECT id FROM orders WHERE LOWER(TRIM(customer_email))=? LIMIT 1').bind(email).first();
+  if (order) return 'client';
+  const event = await env.DB.prepare("SELECT id FROM catering_quotes WHERE LOWER(TRIM(customer_email))=? AND deposit_status != 'void' LIMIT 1").bind(email).first();
+  if (event) return 'client';
   return null;
 }

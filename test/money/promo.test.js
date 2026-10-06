@@ -240,3 +240,11 @@ test('partner credit is worth 1.5x cash, rounded to the cent', () => {
   assert.deepEqual(payoutOptions(333), { cash_cents: 333, credit_cents: 500 });
   assert.deepEqual(payoutOptions(-10), { cash_cents: 0, credit_cents: 0 });
 });
+
+test('misconfigured percentages cannot create negative or above-subtotal discounts', async () => {
+  for (const [pct, expected] of [[-10, 0], [110, 5000]]) {
+    const { env } = promoEnv({ codes: [{ code: 'BADRATE', kind: 'campaign', pct_off: pct }] });
+    const result = await evaluatePromo(env, { code: 'BADRATE', subtotalCents: 5000 });
+    assert.equal(result.discount_cents, expected);
+  }
+});

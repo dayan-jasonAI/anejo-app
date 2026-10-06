@@ -1,0 +1,18 @@
+Supplier,Date,Receipt,Line,Item,Paid line dollars,Packs,Quantity per pack,Unit,Cost basis
+Restaurant Depot,2026-10-05,11137,1,ECOBOX #8 KRAFT,8.39,1,50,each,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,2,ECOBOX #1 WHITE,9.44,1,50,each,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,3,CUP SFL 1Z SUNSET,2.61,1,250,each,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,4,LID SFL .75-1Z,1.56,1,125,each,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,5,LID SFL .75-1Z,1.56,1,125,each,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,6,LID PL 1.5-2.0,2.15,1,125,each,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,7,LID PL 1.5-2.0,2.15,1,125,each,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,8,CUP SFL BLK 2Z,3.62,1,250,each,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,9,SOUR CREAM DAISY,9.08,1,5,lb,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,10,PROD ORG HERB MIX,12.34,1,2,lb,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,11,PROD PEPP RED BAG,11.18,1,5,lb,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,12,PROD LETT TOSSED,9.71,1,5,lb,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,13,BF GROUND 80/20,45.36,1,9.73,raw lb,Paid receipt; does not establish remaining stock
+Restaurant Depot,2026-10-05,11137,14,PROD POTATO UTIL,25.04,1,70,each,Paid receipt; does not establish remaining stock
+BJ's,2026-10-01,9538,1,Idaho potatoes,12.6,4,10,each,Partial readable paid receipt
+BJ's,2026-10-01,9538,2,Canola oil,12.99,1,,,Partial readable paid receipt
+BJ's,2026-10-01,9538,3,Sour cream,3.29,1,32,oz,Partial readable paid receipt

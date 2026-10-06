@@ -1,3 +1,5 @@
+import {previewInventoryCount} from '../../../_lib/operator_inventory.js';
+import {readStudioInventory} from '../../../_lib/studio_inventory.js';
 import {readCateringStatus,summarizeCateringStatus} from '../../../_lib/operator_catering.js';
 import { loadAnaHeartbeat, anaHeartbeatText } from '../../../_lib/ana_heartbeat.js';
 // POST /api/hub/owner/operator — the Añejo Voice Operator.
@@ -166,9 +168,11 @@ export const onRequestPost = async ({ request, env }) => {
   const message = String(body.message || '').trim().slice(0, 2000);
   if (!message) return json({ ok: false, error: 'message required' }, 400);
 
+  if(/^(?:count inventory|contar inventario)\b/.test(message)){const result=await previewInventoryCount(env,message);return json(result.ok?{ok:true,reply:'Review this exact inventory count, then choose Save count. Nothing has changed yet.',ui:{kind:'inventory_count_preview',...result.preview},previous_on_hand:result.previous_on_hand,receipt:{mode:'deterministic',mutation:false,observed_at:result.preview.read_at}}:{ok:false,error:result.error,detail:'Use count inventory ITEM-ID: QUANTITY UNIT. Copy the exact item ID and unit from Inventory; no stock changed.'},result.ok?200:400);}
   const intent = privateIntent(message);
   const privateReply = privateResult(intent);
   if (privateReply) {
+    if(intent.kind==='inventory_status'){privateReply.inventory=await readStudioInventory(env);privateReply.receipt.observed_at=privateReply.inventory.read_at;privateReply.reply='Inventory snapshot read at '+privateReply.inventory.read_at+'. '+privateReply.inventory.inventory.length+' records shown; counts may be stale and this summary may be partial. Open Inventory to search, recount and save. No API model call or stock change occurred.';}
     if (intent.kind === 'audit_status') {
       privateReply.audit = await readAuditStatus(env.DB, SOCIAL_AUDIT_CURRENT);
       privateReply.receipt.observed_at = privateReply.audit.observed_at;

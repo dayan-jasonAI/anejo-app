@@ -246,6 +246,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (limited) return limited;
 
   if (!squareConfigured(env)) return bad('Checkout is not configured yet.', 503);
+  if (!env.DB) return bad('Order recording is unavailable. Please try again later.', 503);
 
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
@@ -554,7 +555,10 @@ export const onRequestPost = async ({ request, env }) => {
         if (ev.reason === 'not_started') return bad('That code is not active yet.');
         return bad('That code cannot be applied.');
       }
-    } catch (_) { promo = null; promoDiscountCents = 0; }
+    } catch (_) {
+      if (b.promo_code) return bad('Could not verify your code. Please try again later.', 503);
+      promo = null; promoDiscountCents = 0;
+    }
   }
   // THE CATERING VOLUME DISCOUNT.
   //
@@ -565,7 +569,7 @@ export const onRequestPost = async ({ request, env }) => {
   //
   // Computed by the same shared function the quote builder and the Hub use, off the CATERING
   // portion of the cart only, so a Fit bowl order is untouched.
-  const volumeDiscountCents = applyVolumeDiscount(cateringSubtotalCents).discount_cents;
+  let volumeDiscountCents = applyVolumeDiscount(cateringSubtotalCents).discount_cents;
 
   // Never discount below zero once every discount is combined.
   const totalDiscountCents = Math.min(subtotalCents, discountCents + promoDiscountCents + volumeDiscountCents);
@@ -582,6 +586,16 @@ export const onRequestPost = async ({ request, env }) => {
     }
   }
   const finalDiscountCents = promo ? totalDiscountCents : Math.min(subtotalCents, discountCents + volumeDiscountCents);
+  // Square receives the same bounded components that the stored total subtracts.
+  // In particular, 100% promo + a catering discount must not exceed the food subtotal.
+  volumeDiscountCents = Math.min(volumeDiscountCents, Math.max(0, subtotalCents - discountCents));
+  promoDiscountCents = promo ? Math.min(promoDiscountCents, Math.max(0, subtotalCents - discountCents - volumeDiscountCents)) : 0;
+  if (promo) promo = { ...promo, discount_cents: promoDiscountCents };
+  if (promo?.perk === 'free_delivery') {
+    feeCents = 0;
+    deliveryNote += ` · Free delivery (${promo.code})`;
+  }
+
 
   // A granted perk has to reach the people who pack the bag — otherwise we've promised a customer
   // something the kitchen never sees. Add it as a $0 line item (kitchen board reads orderItems)
@@ -629,19 +643,19 @@ export const onRequestPost = async ({ request, env }) => {
             uid: 'anejo-rewards',
             name: `Añejo Rewards (${redeemPts} pts)`,
             amount_money: { amount: discountCents, currency: 'USD' },
-            scope: 'ORDER',
+            scope: 'ORDER', type: 'FIXED_AMOUNT',
           });
           if (volumeDiscountCents > 0) ds.push({
             uid: 'anejo-catering-volume',
             name: 'Catering volume discount',
             amount_money: { amount: volumeDiscountCents, currency: 'USD' },
-            scope: 'ORDER',
+            scope: 'ORDER', type: 'FIXED_AMOUNT',
           });
           if (promo && promoDiscountCents > 0) ds.push({
             uid: 'anejo-promo',
             name: `${promo.code} (${promo.pct_off}% off)`,
             amount_money: { amount: promoDiscountCents, currency: 'USD' },
-            scope: 'ORDER',
+            scope: 'ORDER', type: 'FIXED_AMOUNT',
           });
           return ds.length ? ds : undefined;
         })(),
@@ -669,7 +683,7 @@ export const onRequestPost = async ({ request, env }) => {
         allow_tipping: true,
       },
     },
-  });
+  }).catch(() => ({ ok: false, status: null, data: null }));
 
   // Give the promo slot back on any failure past the claim — otherwise a Square hiccup
   // permanently burns a use from a capped code.
@@ -695,6 +709,33 @@ export const onRequestPost = async ({ request, env }) => {
     if (promoClaimed) await releasePromoUse(env, promo.code);
     console.error(JSON.stringify({ event: 'checkout.square_missing_payment_link', status: Number.isInteger(status) ? status : null }));
     return bad('The payment provider did not return a secure checkout link. No payment was taken by this request. Please try again later or contact Añejo for help.', 502);
+  }
+
+  // When Square includes the calculated order, its integer-cent result is authoritative:
+  // per-line tax rounding can differ from our aggregate estimate. Refuse to expose a link
+  // if a provider calculation omitted any requested discount.
+  let calculatedOrder = data?.related_resources?.orders?.find(order => order.id === pl.order_id);
+  if (!calculatedOrder && finalDiscountCents > 0) {
+    // A submitted discount is not proof Square applied it. Some response versions
+    // omit related orders, so retrieve this newly created order before exposing payment.
+    const retrieved = pl.order_id ? await square(env, `/v2/orders/${encodeURIComponent(pl.order_id)}`).catch(() => null) : null;
+    calculatedOrder = retrieved?.ok && retrieved.data?.order?.id === pl.order_id ? retrieved.data.order : null;
+    if (!calculatedOrder) {
+      if (promoClaimed) await releasePromoUse(env, promo.code);
+      return bad('We could not confirm your discount with the payment provider. No payment was taken by this request. Please try again later.', 502);
+    }
+  }
+  let providerTotalCents = null;
+  if (calculatedOrder) {
+    const amount = calculatedOrder.total_money?.amount;
+    const providerDiscount = calculatedOrder.total_discount_money?.amount ?? 0;
+    if (calculatedOrder.total_money?.currency !== 'USD' || !Number.isSafeInteger(amount) || amount < 0 ||
+        !Number.isSafeInteger(providerDiscount) || providerDiscount !== finalDiscountCents) {
+      if (promoClaimed) await releasePromoUse(env, promo.code);
+      console.error(JSON.stringify({ event: 'checkout.square_total_mismatch' }));
+      return bad('We could not confirm the order total and discount. No payment was taken by this request. Please try again later.', 502);
+    }
+    providerTotalCents = amount;
   }
 
   // Persist a pending order for the kitchen view; the webhook marks it paid.
@@ -727,7 +768,7 @@ export const onRequestPost = async ({ request, env }) => {
         // Mirror Square exactly: tax applies to the discounted subtotal ONLY — the delivery fee
         // is sent to Square as `taxable: false`, so taxing it here overstated every order's
         // revenue by fee×tax and skewed rewards tiers, P&L and COGS snapshots that read this field.
-        Math.round(Math.max(0, subtotalCents - finalDiscountCents) * (1 + Number(taxPct) / 100)) + feeCents,
+        providerTotalCents ?? (Math.round(Math.max(0, subtotalCents - finalDiscountCents) * (1 + Number(taxPct) / 100)) + feeCents),
         redeemPts || null, finalDiscountCents || null,
         // A proven session wins over a typed address; otherwise the typed one is what we have.
         firstName, (sessEmail || (isEmail(typedEmail) ? typedEmail : null)), custPhone, smsConsent,
@@ -737,19 +778,19 @@ export const onRequestPost = async ({ request, env }) => {
         promo ? promo.code : null, promo ? promo.points_mult : null,
         attribution.src, attribution.utm_source, attribution.utm_medium, attribution.utm_campaign, t, t
       ).run();
-      if (daily && (storedOrder?.success === false || storedOrder?.meta?.changes !== 1)) throw Error('Lunch order write was not confirmed.');
+      // The complete item list is in this same INSERT as JSON: one confirmed write
+      // establishes both the order and every kitchen line, with no partial item writes.
+      if (storedOrder?.success === false || storedOrder?.meta?.changes !== 1) throw Error('Order write was not confirmed.');
       // Consume the code against this order (idempotent per order). The webhook later reads the
       // order's promo_code to apply the points multiplier and pay any affiliate commission.
-      if (promo) await recordRedemption(env, { evaluated: promo, orderId, customerEmail: sessEmail }).catch(() => {});
+      if (promo && !await recordRedemption(env, { evaluated: promo, orderId, customerEmail: sessEmail })) throw Error('Promo recording was not confirmed.');
       receiptToken = await createOrderReceipt(env, orderId).catch(() => null);
     } catch (_) {
-      // Daily lunch cannot expose a payable link without its kitchen ticket. Square may
-      // already hold an orphan link; it was not returned and no payment is assumed.
-      // Preserve the existing non-daily checkout behavior.
-      if (daily) {
-        if (promoClaimed) await releasePromoUse(env, promo.code);
-        return bad('Could not record your lunch order. Please try again later.', 503);
-      }
+      // Never expose a payable link without the full durable kitchen ticket. A link
+      // may exist at Square, but is withheld here; no payment request was made and
+      // rewards are only deducted by the paid webhook, not by creating this ticket.
+      if (promoClaimed) await releasePromoUse(env, promo.code);
+      return bad(daily ? 'Could not record your lunch order. Please try again later.' : 'Could not record your order. Please try again later.', 503);
     }
   }
 

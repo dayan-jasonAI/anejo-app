@@ -257,7 +257,8 @@ export async function evaluatePromo(env, { code, sessionEmail, guestEmail, guest
   }
 
   const sub = Math.max(0, Number(subtotalCents) || 0);
-  const discountCents = Math.floor(sub * (Number(row.pct_off) || 0) / 100);
+  const pctOff = Math.max(0, Math.min(100, Number(row.pct_off) || 0));
+  const discountCents = Math.floor(sub * pctOff / 100);
 
   // First-order perk (free Fit drink) only if this email has never had a paid order.
   let perk = null;
@@ -278,7 +279,7 @@ export async function evaluatePromo(env, { code, sessionEmail, guestEmail, guest
     ok: true,
     code: row.code,
     kind: row.kind,
-    pct_off: Number(row.pct_off) || 0,
+    pct_off: pctOff,
     discount_cents: discountCents,
     points_mult: Number(row.points_mult) || 1,
     perk,
@@ -324,11 +325,12 @@ export async function releasePromoUse(env, code) {
 export async function recordRedemption(env, { evaluated, orderId, customerEmail }) {
   if (!env || !env.DB || !evaluated || !evaluated.ok || !orderId) return false;
   try {
-    await env.DB.prepare(
+    const result = await env.DB.prepare(
       `INSERT INTO promo_redemptions (id, code, order_id, email, discount_cents, points_mult, perk_granted, created_at)
        VALUES (?,?,?,?,?,?,?,?)`
     ).bind(id('pr'), evaluated.code, orderId, email(customerEmail) || null,
       evaluated.discount_cents || 0, evaluated.points_mult || 1, evaluated.perk || null, now()).run();
+    if (result?.success === false || result?.meta?.changes !== 1) return false;
   } catch { return false; }  // UNIQUE(order_id) → already recorded
   return true;
 }

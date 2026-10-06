@@ -1,0 +1,41 @@
+# Inventory receipt audit — October 5, 2026
+
+Read-only audit: source inspection and saved receipt/readback artifacts. No current production query, stock mutation, credentials, or provider call. Historical production readbacks below are timestamped evidence, not fresh database verification.
+
+## Sources recovered and import status
+
+- Restaurant Depot Oct 5 receipt11137: `/Users/aiagent/Downloads/IMG_1734.HEIC`; transcribed14lines in `/Users/aiagent/Dayan Workspace/Aether/anejo-deliverables/dgp-2026-10-04/receipt-reconciliation-2026-10-05/receipt.json`. Subtotal$144.19 + tax$2.05 = $146.24. Purchasekey `po_rd_20261005_11137`;13receipt-specific inventorylots. `VERIFICATION.json` and `prep-cost-readback.json` record the imported receipt/measurement corrections. Recheck live before any replay.
+- RD lines: #8 kraft50/$8.39; #1 white50/$9.44;1oz cups250/$2.61; .75–1oz lids125/$1.56 twice;1.5–2oz lids125/$2.15 twice;2oz cups250/$3.62; sourcream5lb/$9.08; herbmix2lb/$12.34; redpepper5lb/$11.18; lettuce5lb/$9.71; rawbeef9.73lb/$45.36; potatoes70/$25.04. Repeated lids are genuine separate receipt lines, not duplicates to delete. Import currently used NULL vendor_id: suppliername is embedded in receipt note.
+- BJ Oct1 order9538 visible screenshot `/Users/aiagent/Downloads/Screenshot 2026-10-05 at 3.41.47 PM.png`: potatoes item60745 quantity4 total$12.60; canolaoil332960 quantity1/$12.99; sourcream25355 quantity1/$3.29. Sourcream label32oz confirmed in saved crop `/tmp/anejo-bj-sour-label.png`; potatoes5lb bags/10each owner-confirmed. Oil exact pack volume is truncated in image; do not invent. No recovered BJ9538 purchase import/readback in bounded reviewed artifacts. Historical quantities must not become today's stock.
+- `bjs-cost-inputs.json`, `bjs-sides-research.md`, `BJS_COST_REVIEW.md` in the DGP deliverables directory explicitly contain club/web benchmark research, not paid receipts. Cheese$7.49/48oz is benchmark evidence; owner's one-of-two-bags use supports batch consumption, not receipt authentication. Keep exact paid cheese cost unresolved until recovered original proof.
+- Amazon May12 liner screenshot `/Users/aiagent/Downloads/Screenshot 2026-10-05 at 3.44.04 PM.png`:600sheets; currentdisplay$26.99. Purchase date is visible, historical paid price is not. Record current benchmark separately.
+- Earlier packaging record `docs/evidence/catering-cost-inputs-2026-09-09.md`: historical box25/$18.99;150liners/$8.99;200deli sheets/$7.99;100picks/$8.97; dessertcups$9.99 pack count unknown. Supplier/date/receiptidentifier not recovered here. Owner replacement box25/$19.99 is a separate planning rate.
+- Bounded source search recovered only the above BJ receipt screenshot; it does not establish that all previously supplied BJ receipts were found. Other attachments may exist under historical chats/Drive or opaque screenshot filenames. Do not claim complete import.
+
+## Deterministic implementation gaps
+
+`functions/api/hub/kitchen/inventory.js` GET/POST currently owner+kitchen; POST must remain so. Photo upload is owner+kitchen; photo approval owner-only. Production policy/queue/reconcile owner-only, cooking execution kitchen+owner. Studio's existing snapshot limits ingredients to20 alphabetically first records; omission is labeled but cannot answer an arbitrary complete inventory lookup. `operator_commands.js` has no inventory intent; owner operator presently falls back to AI for inventory questions.
+
+Smallest safe reader: new authenticated operational-staff GET with search/pagination and timestamps; expose ingredient names, measured counts/age/expiry and public-facing finished availability/planning state; exclude costs, receipt notes, staff/contact details, before/after audit data, proprietary recipes, images and ingredient mappings. Client/trainer should use existing public menu availability, not raw inventory. Keep writes on original guarded routes. SQL parameters, capped query/page size, literal wildcard matching, explicit unavailable state. No migration needed for reader/search. Vendor records can use existing staff vendor representation without new login/access invitations.
+
+Receipt ingestion needs durable keys: supplier+club+purchase date+receipt reference+line ordinal. Distinct lines of identical product stay distinct; screenshot resubmissions reuse stable receipt key/contenthash. Preserve raw receipt line price/quantity and exact perunit decimals, tax separately; integer-cent inventory cost cannot represent subcent packaging. Receipt-only history enters cost ledger with current onhand/count timestamp NULL until actual recount. Reuse existing purchase/stock tables when possible; source type and import hash need durable schema if not already stored in receipt note. Never infer manufactured units from raw supplies or publish availability from old purchases.
+
+## Acceptance work packets
+
+1. Recover remaining actual BJ receipts, maintain a source registry and unavailable-source list; verify totals and original metadata before imports.
+2. Add two vendor counterparties idempotently after matching current names; do not create credentials/invitations. Link actual receipt lots without merging historical stock quantities.
+3. UI search should hide existing DOM cards rather than recreate input controls; dirty edits must stay visible and history must remain intact. Filter by item name/vendor and label result count.
+4. Deterministic operator reads/navigation first; confirmed exact-item stock mutations delegate existing audited route with revision checks and owner/kitchen identity. Never parse an approximate conversational count into an automatic write.
+5. Role, pagination, literal wildcard, search, missing/future count, redaction, no-AI-call and stale-revision tests. Current browser and production acceptance still required after release.
+
+## Bounded implementation added in this branch
+
+- `inventory.html`: item/vendor search uses hidden DOM cards, preserving inputs and history. Cards with dirty count inputs remain visible regardless of search. Existing mutation endpoints remain owner/kitchen.
+- `functions/api/hub/inventory-availability.js`: GET-only operationalstaff reader, literal parameterized search, pagination (30default,100maximum), timestamp/unknown/future-count handling. Ingredient, finished-item and plan sections; no costs, receipt notes, contacts, recipe mapping or change history. Client/trainer raw access remains403.
+- `0146_inventory_suppliers.sql`: two dedicated suppliercounterparties and item supplier_id; no staff/account/login creation. Existing staffvendor representation remains supported. Exact historical receipt costs have a separate table with unique supplier/date/reference/line keys.
+- `bjs9538-cost-import.sql`: three paid visible BJ lines, idempotent costs and separate historical inventoryitems with NULL onhand/count/weight/timestamp. No receipt total inferred; visible partialline subtotal$28.88. Prepared SQL only, NOT applied to production. Audit/alert notification for direct administrative imports remains parent release responsibility.
+- Validation: `/tmp/anejo-inventory-audit-tests.log`13passed,0failed; focused route redaction/search/auth/read-only/unknowncounts/supplier compatibility/historical replay + existing inventory ledger/photo guards. Scoped ESLint passes; inventory inline scripts parse. No supported-browser or production acceptance performed by this subtask.
+
+### Cost-sheet read/view follow-up
+
+Owner/kitchen-only inventory GET now independently reads latest100paid receipt lines with supplier/reference/date/source, original paid cents and pack/unit denominators, unrounded calculated rates, explicit historicalcost/unknowncurrentstock labels. A missing costtable/read failure reports unavailable without hiding usable inventory. Inventory UI displays4decimal rates labeled display-rounded and exposes the exact numerator/denominator calculation; search filters these cards too without recreating controls. Operationalstaff availability endpoint continues to exclude costs. Validation expanded to14focusedpassingtests including actual migrated-SQLite read permissions and rate arithmetic; lint and inline parsing pass. Still local branch work, no production claim.

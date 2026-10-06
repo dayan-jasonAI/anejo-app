@@ -286,7 +286,7 @@ export const onRequestPost = async ({ request, env }) => {
     const maxUses = b.max_uses ? Math.max(1, Math.round(Number(b.max_uses))) : null;
     const days = b.expires_days ? Math.max(1, Math.round(Number(b.expires_days))) : null;
     const expires = days ? t + days * 86400 * 1000 : null;
-    const perk = b.perk === 'fit_drink' ? 'fit_drink' : null;
+    const perk = ['fit_drink', 'free_delivery'].includes(b.perk) ? b.perk : null;
     const note = (b.note || '').toString().trim().slice(0, 200) || 'created in HUB';
 
     let boundEmail = null, partnerId = null;
@@ -306,8 +306,8 @@ export const onRequestPost = async ({ request, env }) => {
       await env.DB.prepare(
         `INSERT INTO promo_codes (code, kind, bound_email, partner_id, pct_off, points_mult, perk,
            perk_first_order_only, commission_pct, expires_at, max_uses, status, note, created_at)
-         VALUES (?,?,?,?,?,?,?,1,?,?,?,'active',?,?)`
-      ).bind(code, kind, boundEmail, partnerId, pctOff, pointsMult, perk, commission, expires, maxUses, note, t).run();
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,'active',?,?)`
+      ).bind(code, kind, boundEmail, partnerId, pctOff, pointsMult, perk, perk === 'free_delivery' ? 0 : 1, commission, expires, maxUses, note, t).run();
     } catch { return bad('Could not create that code.', 500); }
     return json({ ok: true, code });
   }

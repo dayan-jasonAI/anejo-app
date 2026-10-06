@@ -175,6 +175,7 @@
       var bits = [];
       if (c.pct_off) bits.push(c.pct_off + '% off');
       if (c.points_mult > 1) bits.push(c.points_mult + '× pts');
+      if(c.perk==='free_delivery')bits.push('free delivery');
       if (c.perk === 'fit_drink') bits.push('free Fit drink');
       if (c.commission_pct) bits.push(c.commission_pct + '% comm.');
       return '<div class="card list-row">' +
@@ -251,7 +252,7 @@
           '<div class="form-row"><label data-i18n>Max uses</label><input id="c_max" type="number" placeholder="unlimited" min="1"></div>' +
         '</div>' +
         '<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0 12px">' +
-          '<input type="checkbox" id="c_perk" style="width:auto"> <span data-i18n>Include a free Añejo Fit drink on first order</span></label>' +
+          '<span data-i18n>Benefit</span><select id="c_perk"><option value="">No extra benefit</option><option value="fit_drink">Free Fit drink on first order</option><option value="free_delivery">Free delivery</option></select></label>' +
         '<div class="form-row"><label data-i18n>Note</label><input id="c_note" placeholder="Summer campaign" autocomplete="off"></div>' +
         '<button class="btn gold" id="c_save" style="width:100%" data-i18n>Create code</button>' +
         '<p class="hint" id="msg"></p>' +
@@ -264,7 +265,7 @@
         points_mult: Number($('#c_mult').value) || 1,
         expires_days: $('#c_days').value ? Number($('#c_days').value) : null,
         max_uses: $('#c_max').value ? Number($('#c_max').value) : null,
-        perk: $('#c_perk').checked ? 'fit_drink' : null,
+        perk: $('#c_perk').value || null,
         note: $('#c_note').value.trim()
       };
       if (!body.code) { $('#msg').textContent = 'Enter a code.'; return; }
