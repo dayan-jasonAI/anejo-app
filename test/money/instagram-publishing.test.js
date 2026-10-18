@@ -259,3 +259,16 @@ test('the version is pinned, never left to Meta to choose', () => {
   assert.match(LIB, /graph\.instagram\.com\/v\d+\.\d+/);
   assert.match(LIB, /graph\.facebook\.com\/v\d+\.\d+/);
 });
+
+test('Instagram provider error survives an unconfigured Facebook fallback', async () => {
+  const s=stubFetch(()=>jsonRes({error:{message:'Primary token expired',code:190}},400));
+  try { const r=await resolveTarget({IG_ACCESS_TOKEN:'diagnostic-expired-no-fb'});assert.equal(r.ok,false);assert.equal(r.error,'Primary token expired');assert.equal(r.code,190);assert.equal(s.calls.length,1); } finally{s.restore();}
+});
+test('two failed hosts retain the first actual provider failure without exposing credentials', async () => {
+  const s=stubFetch(({url})=>jsonRes({error:{message:url.includes('graph.instagram.com')?'Primary provider rejection':'Fallback rejection',code:190}},400));
+  try { const r=await resolveTarget({IG_ACCESS_TOKEN:'diagnostic-both-failed',IG_USER_ID:'123'});assert.equal(r.error,'Primary provider rejection');assert.equal(s.calls.length,2);assert.ok(!JSON.stringify(r).includes('diagnostic-both-failed')); } finally{s.restore();}
+});
+test('a successful Facebook fallback still supersedes the primary rejection', async () => {
+  const s=stubFetch(({url})=>url.includes('graph.instagram.com')?jsonRes({error:{message:'Wrong host',code:190}},400):jsonRes({id:'123',username:'fixture_anejo'}));
+  try { const r=await resolveTarget({IG_ACCESS_TOKEN:'diagnostic-fallback-success',IG_USER_ID:'123'});assert.equal(r.ok,true);assert.equal(r.username,'fixture_anejo');assert.equal(s.calls.length,2); } finally{s.restore();}
+});
