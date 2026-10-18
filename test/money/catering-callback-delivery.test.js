@@ -125,3 +125,14 @@ test('owner disabling automation during freebusy prevents calendar creation',asy
  const f=fixture(),p=provider();f.enable();p.adapter.busy=async()=>{f.sql.exec('UPDATE catering_callback_settings SET enabled=0');return false;};
  await runCallbackDelivery(f.env,{adapter:p.adapter,now});assert.equal(p.calls.includes('CREATE'),false);assert.equal(f.sql.prepare('SELECT status FROM catering_callback_jobs').get().status,'needs_review');
 });
+test('malformed busy intervals never count as an available calendar',async()=>{
+ const f=fixture();
+ const a=googleCallbackAdapter(f.env,{fetcher:async url=>Response.json(url.includes('oauth2')?{access_token:'test'}:{calendars:{'dayan@anejocateringco.com':{busy:[{start:'invalid',end:'invalid'}]}}})});
+ await assert.rejects(a.busy({calendar_id:'dayan@anejocateringco.com',start_at:start,end_at:start+900000}),/availability_unknown/);
+});
+test('changing the configured calendar suppresses old calendar confirmation sends',async()=>{
+ const f=fixture(),p=provider();f.enable();await runCallbackDelivery(f.env,{adapter:p.adapter,now});emails(f.sql);
+ f.sql.exec("UPDATE catering_callback_settings SET calendar_email='other@example.test'");let sent=0;
+ await runCallbackDelivery(f.env,{adapter:p.adapter,emailSender:async()=>{sent++;return {id:'unexpected'};},now:now+60001});
+ assert.equal(sent,0);assert.equal(f.sql.prepare("SELECT status FROM catering_callback_jobs WHERE kind='confirmation'").get().status,'needs_review');
+});

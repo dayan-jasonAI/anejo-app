@@ -51,6 +51,7 @@ export function googleCallbackAdapter(env,{fetcher=fetch}={}) {
     busy:async p=>{
       const result=await call('https://www.googleapis.com/calendar/v3/freeBusy',{method:'POST',body:JSON.stringify({timeMin:new Date(p.start_at).toISOString(),timeMax:new Date(p.end_at).toISOString(),timeZone:CALLBACK_TIMEZONE,items:[{id:p.calendar_id}]})});
       const c=result.calendars?.[p.calendar_id];if(!c||c.errors?.length||!Array.isArray(c.busy))throw Error('calendar_availability_unknown');
+      if(c.busy.some(w=>!Number.isFinite(Date.parse(w.start))||!Number.isFinite(Date.parse(w.end))||Date.parse(w.end)<=Date.parse(w.start)))throw Error('calendar_availability_unknown');
       return c.busy.some(w=>Date.parse(w.start)<p.end_at&&Date.parse(w.end)>p.start_at);
     },
     create:async p=>call(base(p)+'?sendUpdates=none',{method:'POST',body:JSON.stringify({id:p.event_id,summary:'Añejo catering call · '+p.customer_name,description:'Catering callback '+p.request_id+'\nCall '+p.phone+'\nEvent '+(p.event_date||'not set'),start:{dateTime:new Date(p.start_at).toISOString(),timeZone:CALLBACK_TIMEZONE},end:{dateTime:new Date(p.end_at).toISOString(),timeZone:CALLBACK_TIMEZONE},extendedProperties:{private:{anejo_callback_id:p.request_id}},reminders:{useDefault:true}})})
@@ -139,6 +140,7 @@ export async function runCallbackDelivery(env,{now=Date.now(),limit=3,adapter=nu
     if(!await leaseJob(env,row,now))continue;
     const p=parse(row.payload_json),current=await env.DB.prepare('SELECT status FROM catering_callback_requests WHERE id=?').bind(row.request_id).first();
     if(current?.status!=='requested'||p.start_at<=now){await setJob(env,row.id,'suppressed','request_canceled_or_call_time_elapsed',now);continue;}
+    if(p.calendar_id!==settings.calendar_email){await setJob(env,row.id,'needs_review','calendar_settings_changed_before_email',now);continue;}
     if(row.first_attempt_at&&now-row.first_attempt_at>=23*3600000){await setJob(env,row.id,'needs_review','email_idempotency_window_elapsed',now);continue;}
     try {
       if(!calendarReadbackMatches(await adapter.get(p),p)){await setJob(env,row.id,'needs_review','calendar_changed_before_email',now);continue;}

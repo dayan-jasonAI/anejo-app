@@ -1,6 +1,6 @@
 import { json,bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { callbackDeliveryReadiness } from '../../../_lib/catering_callback_delivery.js';
+import { callbackDeliveryReadiness, CALLBACK_EMAIL_VERSION } from '../../../_lib/catering_callback_delivery.js';
 import { callbackCapabilities } from '../../../_lib/catering_callbacks.js';
 // Persisted provider readback is evidence as of its timestamp, not a live Calendar poll.
 export function callbackCalendarEvidence(row,jobs=[]) {
@@ -25,7 +25,7 @@ export async function onRequestGet({request,env}) {
       readiness=callbackDeliveryReadiness(env,settings);
       jobs=(await env.DB.prepare('SELECT request_id,kind,status,provider_id,last_error,payload_json,updated_at FROM catering_callback_jobs WHERE request_id IN (SELECT id FROM catering_callback_requests ORDER BY requested_start_at DESC LIMIT 200)').all()).results||[];
     }
-    return json({ok:true,requests:(rows.results||[]).map(r=>({...r,calendar_evidence:callbackCalendarEvidence(r,jobs.filter(j=>j.request_id===r.id))})),settings,readiness,customer_emails_enabled:!!(settings?.customer_emails_enabled&&settings?.email_template_version),capabilities:callbackCapabilities},200,{'Cache-Control':'no-store'});
+    return json({ok:true,requests:(rows.results||[]).map(r=>({...r,calendar_evidence:callbackCalendarEvidence(r,jobs.filter(j=>j.request_id===r.id))})),settings,readiness,customer_emails_enabled:!!(readiness.ready&&settings?.customer_emails_enabled&&settings?.email_template_version===CALLBACK_EMAIL_VERSION&&env.RESEND_API_KEY),capabilities:callbackCapabilities},200,{'Cache-Control':'no-store'});
   }catch{return bad('Callback records unavailable. Check the callback migration.',503);}
 }
 export async function onRequestPost({request,env}) {
