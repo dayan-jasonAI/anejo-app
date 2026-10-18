@@ -102,3 +102,18 @@ test('discounts, delivery fees, custom quantities, paid bookings and notice viol
   const view=await getCustomerEdit(env,token);assert.equal(view.editable,false);assert.equal(view.recovery,null);assert.match(view.error,/Añejo is updating/);
   await provider(async calls=>{const result=await applyCustomerEdit(env,b);assert.equal(result.ok,false);assert.match(result.error,/Añejo is updating/);assert.equal(calls.length,0);});
 });
+
+ test('explicit guests changes preview digest and saved headcount without scaling item quantities',async()=>{
+  const {env,sql}=fixture(),q=await customerQuote(env,token),base=await previewCustomerEdit(env,q,body()),changed={...body(),guests:48};
+  const p=await previewCustomerEdit(env,q,changed);assert.equal(p.guests,48);assert.equal(p.total_cents,base.total_cents);assert.notEqual(p.preview_fingerprint,base.preview_fingerprint);
+  for(const guests of [0,10001,1.5,'48',null]) assert.equal((await previewCustomerEdit(env,q,{...body(),guests})).ok,false);
+  await provider(async()=>{assert.equal((await applyCustomerEdit(env,{...changed,preview_fingerprint:p.preview_fingerprint})).ok,false);},{failCreate:true});
+  const view=await getCustomerEdit(env,token);assert.equal(view.recovery.guests,48);assert.equal(view.recovery.preview_fingerprint,p.preview_fingerprint);
+  await provider(async()=>{const result=await applyCustomerEdit(env,{token,...view.recovery});assert.equal(result.ok,true);const saved=sql.prepare('SELECT * FROM catering_quotes WHERE id=?').get(result.quote_id);assert.equal(saved.guests,48);assert.equal(saved.event_date,q.event_date);assert.equal(saved.customer_email,q.customer_email);assert.equal(JSON.parse(saved.quote_json).lines[0].qty,'40');});
+});
+ test('same-lines different-headcount concurrent journal is rejected before provider effects',async()=>{
+  const {env,sql}=fixture(),q=await customerQuote(env,token),p=await previewCustomerEdit(env,q,body());
+  const prepare=env.DB.prepare;let raced=false;
+  env.DB.prepare=query=>{if(!raced && /INSERT OR IGNORE INTO catering_quote_revisions/.test(query)){raced=true;sql.prepare("INSERT INTO catering_quote_revisions VALUES('old','racer','22222222222222222222222222222222',?,1,'pending','customer:self-service',1,1)").run(JSON.stringify({guests:999,quoteBreakdown:{lines:p.lines}}));}return prepare(query);};
+  await provider(async calls=>{const result=await applyCustomerEdit(env,{...body(),preview_fingerprint:p.preview_fingerprint});assert.equal(result.ok,false);assert.match(result.error,/saved first/);assert.equal(calls.length,0);});
+});

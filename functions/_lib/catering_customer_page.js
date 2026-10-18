@@ -7,6 +7,7 @@ export function customerQuoteEditor(token,lang='en') {
 <h1 id="qe-title">${es?'Hazlo tuyo.':'Make it yours.'}</h1>
 <p>${es?'Ajusta cantidades y añade platos. Revisa el nuevo total antes de guardar; guardar no cobra tu tarjeta.':'Adjust quantities and add dishes. Review your new total before saving; saving does not charge your card.'}</p>
 <p class="qe-notice">${es?'Solo entrega a domicilio. El cargo depende de la distancia y el tamaño del pedido. Cualquier cargo aún no incluido requiere confirmación.':'Delivery only. The fee depends on distance and order size. Any delivery fee not already itemized still needs confirmation.'}</p>
+<div id="qe-guest-wrap" hidden><label for="qe-guests">${es?'Invitados del evento':'Event guest count'}</label><input id="qe-guests" type="number" min="1" max="10000" step="1"><p><small>${es?'El número de invitados no cambia automáticamente las cantidades de platos. Ajusta cada cantidad abajo.':'Guest count does not automatically scale dish quantities. Adjust each dish below.'}</small></p></div>
 <div id="qe-lines"><p role="status">${es?'Cargando tu menú…':'Loading your menu…'}</p></div>
 <div id="qe-additions"></div>
 <div id="qe-actions" hidden><button id="qe-preview" type="button">${es?'Revisar cambios':'Review changes'}</button></div>
