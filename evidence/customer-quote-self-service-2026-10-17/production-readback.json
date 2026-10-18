@@ -32,5 +32,10 @@
     ]
   ],
   "live_acceptance": "Hosted photos/editor read-only; no save, appointment, message or payment.",
-  "recorded_at": "2026-10-18T02:41:05.521138+00:00"
+  "recorded_at": "2026-10-18T02:41:05.521138+00:00",
+  "phase2_revision": "6564a99f8dfff3811f9837409a5c7a7604dd119b",
+  "final_app_revision": "8a42e0019ddd9f71f9bec6c204709913812af786",
+  "final_app_production_deployment": "4803cbc2-4ea6-4c95-9d68-e126abe0624f",
+  "live_owner_readiness": "Automatic booking disabled; customer confirmations/reminders disabled; 0 callback requests and 0 saved calendar verifications",
+  "final_browser_observed_at": "2026-10-18T02:51:25.867213+00:00"
 }

@@ -49,3 +49,7 @@ Follow-up validation:3,802localtests pass/0fail/0skip;lint0errors/10existingwarn
 
 ## Evidence privacy correction
 Repository visibility verified public during final review. The original live-quote-images.png screenshot included the customer name and quote ID (no email/phone/access token visible). Current file replaced with the non-identifying editor screenshot; it is no longer photo evidence. Exact photo mapping remains covered by synthetic email rendering and live read-only observation. Older Git history may retain the original screenshot. Dayan asked to authorize coordinated history cleanup; no claim of historical removal. Do not publish more customer-identifying screenshots.
+
+
+## Verified application releases
+PR212 merged6564a99; production3c2d8c2b-44ff-4215-bbb1-faa2b7592e2c succeeded. PR213 cache correction merged8a42e0019ddd9f71f9bec6c204709913812af786;production4803cbc2-4ea6-4c95-9d68-e126abe0624f succeeded. All PR212/213 exact-head hosted checks passed. Same supported browser session now visibly shows Automatic booking is disabled; Customer confirmation and reminder emails are disabled;0requests/0savedcalendarverification. Screenshot live-callback-readiness.png replaced with final observed state. No actual appointment/send/payment/customer quote change. Current screenshot privacy replacement awaits PR214 merge; historical cleanup remains pending Dayan authorization.
