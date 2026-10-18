@@ -1,0 +1,24 @@
+name: Catering UI acceptance
+on:
+  pull_request:
+    paths:
+      - 'public/hub/owner/catering*'
+      - 'public/hub/owner/assets/catering-service.js'
+      - 'scripts/verify-catering-ui.cjs'
+      - '.github/workflows/catering-ui.yml'
+jobs:
+  catering-browser:
+    name: Catering desktop and mobile workflow
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: {node-version: 24}
+      - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.62.1
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/verify-catering-ui.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: catering-ui-synthetic-evidence
+          path: /tmp/catering-ui-evidence
