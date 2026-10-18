@@ -7,6 +7,31 @@
 
   // English -> Spanish. Brand names, bowl names, prices, emails, handles stay as-is (absent from dict).
   var ES = {
+    // Gourmet presentation showcase: explicit local copy, including image descriptions.
+    "The art of gathering":"El arte de compartir",
+    "Small bites.":"Pequeños bocados.",
+    "A beautiful impression.":"Una impresión inolvidable.",
+    "Cuban soul, dressed for the occasion. Explore Añejo’s gourmet presentation ideas, from individual bites to a beautifully composed table.":"Alma cubana, vestida para la ocasión. Explora las ideas de presentación gourmet de Añejo, desde bocados individuales hasta una mesa cuidadosamente compuesta.",
+    "Presentation examples. Your quote confirms the menu, portions, serving pieces and setup. Decorative serveware and styling are not included unless itemized.":"Ejemplos de presentación. Tu cotización confirma el menú, las porciones, los recipientes y el montaje. La vajilla decorativa y la ambientación no están incluidas salvo que se detallen.",
+    "Plan your gourmet table":"Planea tu mesa gourmet",
+    "Presentation inspiration · Añejo Catering Co.":"Inspiración de presentación · Añejo Catering Co.",
+    "Gourmet presentation examples":"Ejemplos de presentación gourmet",
+    "Styled miniature buffet with savory bites, pasta salad and a strawberry dessert":"Mini bufé decorado con bocados salados, ensalada de pasta y un postre de fresa",
+    "Creamy macaroni salad with cheese and edible flowers in a clear individual cup":"Ensalada cremosa de coditos con queso y flores comestibles en un vasito transparente individual",
+    "Gourmet pasta salad":"Ensalada de pasta gourmet",
+    "An individual presentation idea.":"Una idea de presentación individual.",
+    "Gourmet skewer with fruit, cheese, guava and salami on a clear serving plate":"Pincho gourmet con fruta, queso, guayaba y salami sobre un plato transparente",
+    "Fruit & salami skewer":"Pincho de fruta y salami",
+    "Final ingredients confirmed in your quote.":"Los ingredientes finales se confirman en tu cotización.",
+    "Dressed croqueta topped with cheese, greens and an olive in a miniature serving bowl":"Croqueta vestida con queso, hojas verdes y aceituna en un pequeño recipiente",
+    "The dressed croqueta":"La croqueta vestida",
+    "A signature bite, beautifully styled.":"Un bocado de autor con una presentación especial.",
+    "Golden papa rellena cut open to show its beef filling on a clear serving plate":"Papa rellena dorada abierta para mostrar su relleno de carne de res sobre un plato transparente",
+    "Beef papa rellena":"Papa rellena de carne de res",
+    "Golden outside. Comfort at the center.":"Dorada por fuera. Sabor de casa por dentro.",
+    "Strawberry tres leches styled in a clear individual cup":"Tres leches de fresa presentado en un vasito transparente individual",
+    "Strawberry tres leches":"Tres leches de fresa",
+    "A sweet finish with a gourmet presentation.":"Un final dulce con presentación gourmet.",
     // nav + hero
     "Story":"Historia","Menu":"Menú","Services":"Servicios","Wholesale":"Mayoreo","Macros":"Macros",
     "Reserve a Tasting":"Reserva una Degustación",

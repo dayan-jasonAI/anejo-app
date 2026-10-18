@@ -316,7 +316,7 @@
     "price_cents": 325,
     "description": "1 × 1.20 oz / 34 g croqueta (fried) + cheese, greens, olive",
     "description_es": "1 × 1.20 oz / 34 g croqueta (frita) + cheese, greens, olive",
-    "image": "menu-launch/tray-dressed.webp",
+    "image": "gourmet-2026-10/dressed-croqueta.webp",
     "sort": 130,
     "active": 1,
     "source_id": "dressed"
@@ -327,7 +327,7 @@
     "name": "Dressed croqueta platter — 30 pieces",
     "name_es": "Bandeja de croquetas preparadas — 30 unidades",
     "price_cents": 4500,
-    "image": "menu-launch/tray-dressed.webp",
+    "image": "gourmet-2026-10/dressed-croqueta.webp",
     "sort": 131,
     "active": 1
   },
@@ -337,7 +337,7 @@
     "name": "Dressed croqueta platter — 60 pieces",
     "name_es": "Bandeja de croquetas preparadas — 60 unidades",
     "price_cents": 9000,
-    "image": "menu-launch/tray-dressed.webp",
+    "image": "gourmet-2026-10/dressed-croqueta.webp",
     "sort": 132,
     "active": 1
   },
@@ -347,7 +347,7 @@
     "name": "Dressed croqueta platter — 90 pieces",
     "name_es": "Bandeja de croquetas preparadas — 90 unidades",
     "price_cents": 13500,
-    "image": "menu-launch/tray-dressed.webp",
+    "image": "gourmet-2026-10/dressed-croqueta.webp",
     "sort": 133,
     "active": 1
   },
@@ -922,12 +922,12 @@
   {
     "id": "traditional_skewer",
     "kind": "addon",
-    "name": "Grape, ham, guava, cheese & pineapple skewer",
-    "name_es": "Pincho de uva, jamón, guayaba, queso y piña",
+    "name": "Grape, salami, guava, cheese & pineapple skewer",
+    "name_es": "Pincho de uva, salami, guayaba, queso y piña",
     "price_cents": 300,
     "description": "1 × 2 oz / 57 g full skewer",
     "description_es": "1 × 2 oz / 57 g full skewer",
-    "image": "menu-launch/food-skewer.webp",
+    "image": "gourmet-2026-10/skewer.webp",
     "sort": 189,
     "active": 1,
     "source_id": "skewer"
@@ -938,7 +938,7 @@
     "name": "Skewers — 10 pieces",
     "name_es": "Pinchos — 10 unidades",
     "price_cents": 3000,
-    "image": "menu-launch/food-skewer.webp",
+    "image": "gourmet-2026-10/skewer.webp",
     "sort": 190,
     "active": 1
   },
@@ -950,7 +950,7 @@
     "price_cents": 6500,
     "description": "25 × 2 oz / 57 g full skewer",
     "description_es": "25 × 2 oz / 57 g full skewer",
-    "image": "menu-launch/food-skewer.webp",
+    "image": "gourmet-2026-10/skewer.webp",
     "sort": 191,
     "active": 1,
     "source_id": "skewer-25"
@@ -963,7 +963,7 @@
     "price_cents": 10000,
     "description": "50 × 2 oz / 57 g full skewer",
     "description_es": "50 × 2 oz / 57 g full skewer",
-    "image": "menu-launch/food-skewer.webp",
+    "image": "gourmet-2026-10/skewer.webp",
     "sort": 192,
     "active": 1,
     "source_id": "skewer-50"
@@ -1214,7 +1214,7 @@
     "name": "Beef papa rellena",
     "name_es": "Papa rellena de res",
     "price_cents": 250,
-    "image": null,
+    "image": "gourmet-2026-10/beef-papa-rellena.webp",
     "sort": 217,
     "active": 1
   },
@@ -1224,7 +1224,7 @@
     "name": "Beef papa rellena — 10 pieces",
     "name_es": "Papa rellena de res — 10 unidades",
     "price_cents": 2000,
-    "image": null,
+    "image": "gourmet-2026-10/beef-papa-rellena.webp",
     "sort": 218,
     "active": 1
   },
@@ -1234,7 +1234,7 @@
     "name": "Beef papa rellena — 25 pieces",
     "name_es": "Papa rellena de res — 25 unidades",
     "price_cents": 5000,
-    "image": null,
+    "image": "gourmet-2026-10/beef-papa-rellena.webp",
     "sort": 219,
     "active": 1
   },
@@ -1244,7 +1244,7 @@
     "name": "Beef papa rellena — 50 pieces",
     "name_es": "Papa rellena de res — 50 unidades",
     "price_cents": 7500,
-    "image": null,
+    "image": "gourmet-2026-10/beef-papa-rellena.webp",
     "sort": 220,
     "active": 1
   },
@@ -1423,7 +1423,7 @@
     "price_cents": 500,
     "description": "1 × 6 oz / 170 g cold salad",
     "description_es": "1 × 6 oz / 170 g ensalada fría",
-    "image": "menu-launch/fria-single.webp",
+    "image": "gourmet-2026-10/pasta-salad.webp",
     "sort": 235,
     "active": 1,
     "source_id": "fria"
@@ -1436,7 +1436,7 @@
     "price_cents": 4500,
     "description": "10 × 6 oz / 170 g cold salad",
     "description_es": "10 × 6 oz / 170 g ensalada fría",
-    "image": "menu-launch/fria-single.webp",
+    "image": "gourmet-2026-10/pasta-salad.webp",
     "sort": 236,
     "active": 1,
     "source_id": "fria-10"
@@ -1449,7 +1449,7 @@
     "price_cents": 6500,
     "description": "25 × 6 oz / 170 g cold salad",
     "description_es": "25 × 6 oz / 170 g ensalada fría",
-    "image": "menu-launch/fria-single.webp",
+    "image": "gourmet-2026-10/pasta-salad.webp",
     "sort": 237,
     "active": 1,
     "source_id": "fria-25"
@@ -1460,7 +1460,7 @@
     "name": "Cold macaroni salad — 50 servings",
     "name_es": "Ensalada fría de coditos — 50 porciones",
     "price_cents": 10000,
-    "image": "menu-launch/fria-single.webp",
+    "image": "gourmet-2026-10/pasta-salad.webp",
     "sort": 238,
     "active": 1
   },
@@ -1570,7 +1570,7 @@
     "price_cents": 550,
     "description": "1 × 5 fl oz dessert cup",
     "description_es": "1 × 5 fl oz dessert cup",
-    "image": "menu-launch/cup-fresa.webp",
+    "image": "gourmet-2026-10/strawberry-tres-leches.webp",
     "sort": 247,
     "active": 1,
     "source_id": "cup-fresa"
@@ -1581,7 +1581,7 @@
     "name": "Strawberry tres leches — 10 cups",
     "name_es": "Tres leches de fresa — 10 vasitos",
     "price_cents": 4000,
-    "image": "menu-launch/cup-fresa.webp",
+    "image": "gourmet-2026-10/strawberry-tres-leches.webp",
     "sort": 248,
     "active": 1
   },
@@ -1591,7 +1591,7 @@
     "name": "Strawberry tres leches — 25 cups",
     "name_es": "Tres leches de fresa — 25 vasitos",
     "price_cents": 7000,
-    "image": "menu-launch/cup-fresa.webp",
+    "image": "gourmet-2026-10/strawberry-tres-leches.webp",
     "sort": 249,
     "active": 1
   },
@@ -1601,7 +1601,7 @@
     "name": "Strawberry tres leches — 50 cups",
     "name_es": "Tres leches de fresa — 50 vasitos",
     "price_cents": 11000,
-    "image": "menu-launch/cup-fresa.webp",
+    "image": "gourmet-2026-10/strawberry-tres-leches.webp",
     "sort": 250,
     "active": 1
   },

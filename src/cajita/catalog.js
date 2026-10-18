@@ -36,8 +36,8 @@ export const foods = [
   },
   {
     id: "skewer",
-    name: "Fruit & ham skewer",
-    detail: "Grape, ham, guava, cheese and pineapple. One per classic Cajita, with a themed pick.",
+    name: "Fruit & salami skewer",
+    detail: "Grape, salami, guava, cheese and pineapple. One per classic Cajita, with a themed pick.",
   },
 ];
 const palette = (background, liner, logo, accent) => ({

@@ -1,0 +1,22 @@
+/* Añejo gourmet gallery. Natural image ratios keep every serving and brand detail visible. */
+.gourmet-showcase{padding:clamp(48px,7vw,88px) 24px;background:var(--green-dark,#0d2419);color:var(--cream,#f5f2ec)}
+.gourmet-showcase .section-inner{min-width:0}
+.gourmet-lead{display:grid;grid-template-columns:minmax(0,.86fr) minmax(0,1.14fr);gap:clamp(28px,5vw,64px);align-items:center}
+.gourmet-story{min-width:0;max-width:490px}
+.gourmet-story h2{font:500 clamp(40px,5.3vw,65px)/1.04 'Cormorant Garamond',Georgia,serif;letter-spacing:-.02em;text-wrap:balance}
+.gourmet-story h2 em{color:var(--gold,#c6a85b);font-weight:500}
+.gourmet-intro{font-size:18px;line-height:1.65;color:var(--cream,#f5f2ec);margin:24px 0 20px}
+.gourmet-note{font-size:14px;line-height:1.65;color:#d6d7ca;border-top:1px solid rgba(198,168,91,.38);padding-top:18px;margin-bottom:26px}
+.gourmet-cta{min-height:48px;max-width:100%;line-height:1.5;text-align:center;gap:12px;white-space:normal}
+.gourmet-cta:focus-visible{outline:2px solid var(--cream,#f5f2ec);outline-offset:5px}
+.gourmet-hero{margin:0;min-width:0}
+.gourmet-showcase img{display:block;width:100%;max-width:100%;height:auto;object-fit:contain}
+.gourmet-hero figcaption{font-size:12px;line-height:1.5;letter-spacing:.09em;color:#d6d7ca;padding-top:13px}
+.gourmet-gallery{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px;margin-top:42px;align-items:start}
+.gourmet-detail{margin:0;min-width:0}
+.gourmet-detail figcaption{padding:14px 0 0;border-bottom:1px solid rgba(198,168,91,.28);min-height:150px}
+.gourmet-detail figcaption>span{font-size:11px;font-weight:600;letter-spacing:.16em;color:var(--gold,#c6a85b)}
+.gourmet-detail h3{font:500 25px/1.1 'Cormorant Garamond',Georgia,serif;margin:6px 0 9px;color:var(--cream,#f5f2ec);text-wrap:balance}
+.gourmet-detail p{font-size:13px;line-height:1.5;color:#d6d7ca;padding-bottom:18px;overflow-wrap:break-word}
+@media(max-width:900px){.gourmet-gallery{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 18px}.gourmet-lead{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}.gourmet-detail figcaption{min-height:135px}}
+@media(max-width:620px){.gourmet-showcase{padding:48px 18px}.gourmet-lead{grid-template-columns:minmax(0,1fr);gap:28px}.gourmet-story{max-width:none}.gourmet-story h2{font-size:clamp(38px,9vw,54px)}.gourmet-intro{font-size:17px}.gourmet-gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 14px;margin-top:30px}.gourmet-detail h3{font-size:24px}.gourmet-detail figcaption{min-height:0}.gourmet-cta{width:100%}}
