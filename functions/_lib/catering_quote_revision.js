@@ -28,7 +28,7 @@ export function revisionPayload(body, source) {
     totalCents: norm.subtotal_cents, guests, eventDate, customerName: name, customerEmail: email,
     customerPhone: String(body.customer_phone || '').trim().slice(0, 32), lang: body.lang === 'es' ? 'es' : 'en',
     note: String(body.note || '').trim().slice(0, 500), depositPct: source.deposit_pct,
-    quoteBreakdown: { ...old, source: 'owner_revision', revised_from: source.id, lines: norm.lines, subtotal_cents: norm.subtotal_cents, total_cents: norm.subtotal_cents, discount_cents: 0,
+    quoteBreakdown: { ...old, lead_id: old.lead_id || source.source_lead_id || null, source: 'owner_revision', revised_from: source.id, lines: norm.lines, subtotal_cents: norm.subtotal_cents, total_cents: norm.subtotal_cents, discount_cents: 0,
       recommendations: body.recommendations || [] },
   } };
 }
@@ -59,7 +59,7 @@ export async function reviseQuote(env, body, { actor, baseUrl }) {
     if (!parsed.ok) return parsed;
     await env.DB.prepare(`INSERT OR IGNORE INTO catering_quote_revisions
       (source_quote_id,replacement_quote_id,access_token,payload_json,source_updated_at,state,created_by,created_at,updated_at)
-      VALUES (?,?,?,?,?,'pending',?,?,?)`).bind(sourceId, id('cq'), mintAccessToken(), JSON.stringify(parsed.payload), source.updated_at, actor, Date.now(), Date.now()).run();
+      SELECT ?,?,?,?,?,'pending',?,?,? WHERE EXISTS (SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status='unpaid' AND updated_at=?)`).bind(sourceId, id('cq'), mintAccessToken(), JSON.stringify(parsed.payload), source.updated_at, actor, Date.now(), Date.now(), sourceId, source.updated_at).run();
     journal = await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id = ?').bind(sourceId).first();
     if (!journal) return { ok: false, error: 'Could not save the revision. Nothing retired.' };
   }

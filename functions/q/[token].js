@@ -64,7 +64,7 @@ export const onRequestGet = async ({ params, request, env }) => {
   // A journal prevents an old quote from advertising payment while retirement recovers.
   try {
     const revision = await env.DB.prepare("SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id = ? OR (replacement_quote_id = ? AND state != 'complete')").bind(row.id, row.id).first();
-    if (revision) return notFound(override || row.lang || 'en');
+    if (revision && row.deposit_status !== 'paid') return notFound(override || row.lang || 'en');
   } catch { return html('<p>This quote is temporarily unavailable. Please contact Añejo.</p>', 503); }
 
   const lang = override || (row.lang === 'es' ? 'es' : 'en');

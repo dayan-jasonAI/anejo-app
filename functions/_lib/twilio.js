@@ -34,6 +34,13 @@ async function logSms(env, row) {
         now()
       )
       .run();
+    if(row.provider_sid) {
+      // A signed carrier callback can beat this insert. Preserve that later lifecycle evidence.
+      try {
+        const receipt=await env.DB.prepare('SELECT status,error FROM sms_delivery_receipts WHERE provider_sid=?').bind(row.provider_sid).first();
+        if(receipt)await env.DB.prepare('UPDATE sms_log SET status=(SELECT status FROM sms_delivery_receipts WHERE provider_sid=?),error=(SELECT error FROM sms_delivery_receipts WHERE provider_sid=?) WHERE id=?').bind(row.provider_sid,row.provider_sid,sid).run();
+      }catch{/* Migration rollout: acceptance remains logged; never claim delivery. */}
+    }
   } catch {
     return null;
   }

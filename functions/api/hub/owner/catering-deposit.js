@@ -337,8 +337,9 @@ export const onRequestPost = async ({ request, env }) => {
     if (wanted === null) delete blob.gift; else blob.gift = wanted;
 
     try {
-      await env.DB.prepare('UPDATE catering_quotes SET quote_json = ?, updated_at = ? WHERE id = ?')
+      const changed = await env.DB.prepare("UPDATE catering_quotes SET quote_json = ?, updated_at = ? WHERE id = ? AND NOT EXISTS (SELECT 1 FROM catering_quote_revisions WHERE source_quote_id = catering_quotes.id OR (replacement_quote_id = catering_quotes.id AND state != 'complete'))")
         .bind(JSON.stringify(blob), Date.now(), qid).run();
+      if (!changed.meta?.changes) return bad('Quote revision started. Reload before changing the gift.', 409);
     } catch { return bad('Could not save that.', 500); }
 
     return json({ ok: true, quote_id: qid, gift: wanted, customer_name: row.customer_name });
@@ -373,7 +374,10 @@ export const onRequestPost = async ({ request, env }) => {
     // The buttons point at a placeholder because nothing has been minted yet. That is the honest
     // thing to show: this is what she will READ, and the live links appear once it exists.
     let recommendations;
-    try { recommendations = await normalizeRecommendations(b.recommendations, env); } catch (e) { return bad(e.message); }
+    try {
+      const saved = b.quote_id && await env.DB.prepare('SELECT payload_json FROM catering_quote_revisions WHERE source_quote_id = ?').bind(String(b.quote_id)).first();
+      recommendations = saved ? JSON.parse(saved.payload_json).quoteBreakdown.recommendations : await normalizeRecommendations(b.recommendations, env);
+    } catch (e) { return bad(e.message); }
     const { subject, html } = cateringQuoteEmail({
       recommendations,
       lang,

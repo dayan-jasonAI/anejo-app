@@ -84,7 +84,8 @@ export function stubFetch(handler) {
     try { body = init.body ? JSON.parse(init.body) : null; } catch { body = init.body; }
     calls.push({ url: String(url), init, body });
     if (handler) return handler(String(url), init, calls.length);
-    return new Response(JSON.stringify({ id: 'em_' + calls.length }), { status: 200, headers: { 'content-type': 'application/json' } });
+    const receipt=String(url).startsWith('https://api.twilio.com/')?{sid:'SM'+String(calls.length).padStart(32,'0'),status:'accepted'}:{id:'em_'+calls.length};
+    return new Response(JSON.stringify(receipt), { status: 200, headers: { 'content-type': 'application/json' } });
   };
   return { calls, restore: () => { globalThis.fetch = real; } };
 }

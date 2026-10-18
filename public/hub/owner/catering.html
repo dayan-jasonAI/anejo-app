@@ -103,6 +103,8 @@
   function giftHtml(q) {
     var on = q.gift === 'tres-leches-fresa';
     var balPaid = q.balance_status === 'paid';
+    var summary = {};
+    try { summary = JSON.parse(q.quote_json || '{}'); } catch (e) { /* historical bare total */ }
     return '<div class="gift" style="margin-top:10px;padding:10px 12px;border:1px solid #2a4a28;border-radius:8px">' +
       '<label class="row-sub" style="display:block;margin-bottom:6px">Gift for this customer</label>' +
       '<select data-gift-for="' + esc(q.id) + '" style="width:100%">' +
@@ -121,6 +123,8 @@
   function quoteCard(q) {
     var paid = q.deposit_status === 'paid';
     var balPaid = q.balance_status === 'paid';
+    var summary = {};
+    try { summary = JSON.parse(q.quote_json || '{}'); } catch (e) { /* historical bare total */ }
     return '<div class="qcard">' +
       '<div class="nm">' + esc(q.customer_name || 'Quote ' + q.id) + '</div>' +
       '<div class="row-sub">' + (q.guests || 0) + ' guests' +
@@ -136,6 +140,8 @@
           '📋 Open the production plan &rarr;</a>'
         : '') +
 
+      (summary.revised_from ? '<p class="row-sub">Revised from ' + esc(summary.revised_from) + '</p>' : '') +
+      (Array.isArray(summary.lines) && summary.lines.length ? '<details class="terms"><summary>View quoted menu</summary>' + summary.lines.map(function (line) { return '<p class="row-sub">' + esc(line.qty || '') + ' ' + esc(line.name || '') + ' · ' + money(line.cents) + '</p>'; }).join('') + '</details>' : '') +
       // The split, straight off the row: deposit + balance were computed by depositSplit() at
       // creation and stored, so they always sum to the total on screen exactly as they do in D1.
       '<div class="split">' +
@@ -153,7 +159,7 @@
       '</div>' +
 
 
-      (q.payment_link_url
+      (q.payment_link_url && q.deposit_status !== 'void'
         ? '<div class="row-sub lnk">Deposit link: <a href="' + esc(q.payment_link_url) + '" target="_blank" rel="noopener">' + esc(q.payment_link_url) + '</a></div>'
         : '<div class="row-sub">No deposit link on this quote.</div>') +
 
@@ -258,7 +264,7 @@
       '</div>' +
       '<div class="field"><label>Agreed total (dollars)</label><input id="q-total" type="text" inputmode="decimal" placeholder="1200.00"></div>' +
       '<fieldset style="border:1px solid var(--line);border-radius:10px;padding:14px;margin:14px 0"><legend>Optional signature croquetas</legend><p class="row-sub">Choose a published pack for this party. Excluded from the quote total and deposit; the customer can ask about it before you add it.</p><label for="q-recommendation">Pack and filling</label><select id="q-recommendation"><option value="">No recommendation</option></select><label for="q-recommendation-packs">Number of packs</label><input id="q-recommendation-packs" type="number" min="1" max="20" step="1" value="1"><p id="q-recommendation-summary" class="row-sub" role="status"></p></fieldset>' +
-      '<p id="q-revision-status" class="row-sub" role="status"></p>' +
+      '<p id="q-revision-status" class="row-sub" role="status"></p><button id="q-revision-cancel" class="btn ghost" type="button" hidden>Exit revision / new quote</button>' +
       '<div class="field"><label>Note (optional)</label><input id="q-note" type="text"></div>' +
       // WHAT SHE READ THE SITE IN IS NOT ALWAYS WHAT SHE WANTS TO BE SOLD IN. The quote defaults
       // to the language on her lead, and this overrides it. Dayan hit exactly this on 2026-09-09:
@@ -452,6 +458,7 @@
 
   function wireForm() {
     wireLines();
+    document.getElementById('q-revision-cancel').addEventListener('click', function () { render(); });
     document.getElementById('q-preview').addEventListener('click', function () {
       var b = body();
       // Either the lines carry the money or the bare total does. Preview the same one the create
@@ -512,6 +519,17 @@
   function wireRequests(root) {
     root.querySelectorAll('[data-prefill]').forEach(function (btn) {
       btn.addEventListener('click', function () {
+        revisionSource = null; revisionPreview = null;
+        document.getElementById('q-create').textContent = 'Create deposit checkout';
+        document.getElementById('q-create').disabled = false;
+        document.getElementById('q-revision-status').textContent = '';
+        document.getElementById('q-revision-cancel').hidden = true;
+        document.querySelectorAll('#q-name,#q-email,#q-phone,#q-date,#q-guests,#q-lang,#q-note,#q-lines input,#q-lines button,#q-add-line,#q-recommendation,#q-recommendation-packs').forEach(function (input) { input.disabled = false; });
+        document.getElementById('q-sent').innerHTML = '';
+        document.getElementById('q-mail').innerHTML = '';
+        document.getElementById('q-recommendation').value = '';
+        document.getElementById('q-recommendation-packs').value = '1';
+        document.getElementById('q-recommendation-summary').textContent = '';
         var r;
         try { r = JSON.parse(btn.getAttribute('data-prefill') || '{}'); } catch (e) { r = {}; }
         document.getElementById('q-name').value = r.name || '';
@@ -639,6 +657,10 @@
           if (!result.ok) { Hub.toast(result.error || 'Cannot verify revision status'); return; }
           if (q.deposit_status === 'void' && !result.revision) { Hub.toast('This void quote has no recoverable revision.'); return; }
           revisionSource = q; revisionPreview = null;
+          document.getElementById('q-revision-cancel').hidden = false;
+          document.getElementById('q-create').disabled = false;
+          document.getElementById('q-sent').innerHTML = '';
+          document.getElementById('q-mail').innerHTML = '';
           var saved = result.revision && JSON.parse(result.revision.payload_json), blob = {};
           try { blob = JSON.parse(q.quote_json || '{}'); } catch (e) { /* old total-only quote */ }
           var values = saved || { customerName: q.customer_name, customerEmail: q.customer_email, customerPhone: q.customer_phone, eventDate: q.event_date, guests: q.guests, lang: q.lang, note: q.note, quoteBreakdown: blob };
@@ -657,6 +679,7 @@
   }
 
   function render() {
+    revisionSource = null; revisionPreview = null;
     Owner.get(ENDPOINT).then(function (d) {
       var root = document.getElementById('owner-root');
       root.className = '';
@@ -665,8 +688,8 @@
       var rs = d.requests || [];
       var cs = d.changes || [];
       var openChanges = cs.filter(function (c) { return c.status === 'open'; });
-      var unpaid = qs.filter(function (q) { return q.deposit_status !== 'paid'; });
-      var owed = qs.reduce(function (n, q) { return n + (q.balance_status === 'due' ? Number(q.balance_cents || 0) : 0); }, 0);
+      var unpaid = qs.filter(function (q) { return q.deposit_status === 'unpaid'; });
+      var owed = qs.reduce(function (n, q) { return n + (q.deposit_status !== 'void' && q.balance_status === 'due' ? Number(q.balance_cents || 0) : 0); }, 0);
 
       root.innerHTML =
         '<div class="card-grid">' +

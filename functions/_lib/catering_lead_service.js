@@ -17,7 +17,7 @@ export async function serviceConfig(env) {
 
 // Strong association only: explicit linkage, or a unique identical email AND phone pair.
 export function quoteForLead(lead, leads, quotes) {
-  const linked = quotes.filter(q => q.source_lead_id === lead.id || q.breakdown?.lead_id === lead.id);
+  const linked = quotes.filter(q => q.deposit_status!=='void'&&(q.source_lead_id === lead.id || q.breakdown?.lead_id === lead.id));
   if (linked.length) return linked.sort((a,b)=>b.created_at-a.created_at)[0];
   const phone = p => String(p||'').replace(/\D/g,'').replace(/^1(?=\d{10}$)/,'');
   if (!lead.email || phone(lead.phone).length !== 10) return null;
@@ -43,7 +43,7 @@ export async function serviceLeads(env) {
     const q=quoteForLead(l,leads,quotes), event=parse(l.event_json);
     const phase=q?.deposit_status==='paid'?'booked':l.state==='lost'?'lost':l.state==='won'?'owner_won':q?.email_sent_at||q?.sms_sent_at?'awaiting_deposit':l.state==='contacted'?'contacted':'new';
     const due=l.next_followup_at || (phase==='awaiting_deposit' ? Math.max(q.email_sent_at||0,q.sms_sent_at||0)+86400000 : l.created_at+900000);
-    return {...l,event,quote_id:q?.id||null,quote_sms_at:q?.sms_sent_at||null,phase,followup_due_at:due,followup_overdue:!['booked','lost','owner_won'].includes(phase)&&due<=Date.now(),
+    return {...l,event,quote_id:q?.id||null,quote_activity_at:q?Math.max(q.created_at,q.email_sent_at||0,q.sms_sent_at||0):null,quote_sms_at:q?.sms_sent_at||null,phase,followup_due_at:due,followup_overdue:!['booked','lost','owner_won'].includes(phase)&&due<=Date.now(),
       thread_id:`thr_catering_lead_${l.id}`};
   });
 }
@@ -59,7 +59,8 @@ export async function runCateringLeadService(env, { limit=10 }={}) {
       await env.DB.prepare('INSERT OR IGNORE INTO catering_acknowledgements(lead_id,template_version,payload_json,created_at,updated_at) VALUES(?,?,?,?,?)')
         .bind(lead.id,ACK_VERSION,JSON.stringify(payload),now,now).run();
     }
-    if(lead.followup_overdue && lead.created_at>now-30*86400000 && (!lead.last_escalated_at || now-lead.last_escalated_at>=3600000)) {
+    const active=lead.created_at>now-30*86400000 || lead.quote_activity_at>now-30*86400000 || lead.next_followup_at || (lead.event.event_date && Date.parse(lead.event.event_date+'T23:59:59Z')>=now);
+    if(lead.followup_overdue && active && (!lead.last_escalated_at || now-lead.last_escalated_at>=3600000)) {
       // Owner action only. Nothing here messages the customer or changes their quote.
       const claimed=await env.DB.prepare('UPDATE catering_lead_service SET last_escalated_at=? WHERE lead_id=? AND (last_escalated_at IS NULL OR last_escalated_at<=?)').bind(now,lead.id,now-3600000).run();
       if(claimed.meta?.changes) {

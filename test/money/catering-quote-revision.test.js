@@ -4,12 +4,14 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { reviseQuote, revisionPayload, canceledUnpaidOrder } from '../../functions/_lib/catering_quote_revision.js';
 import { cateringQuoteEmail } from '../../functions/_lib/catering_quote_email.js';
+import { quoteForLead } from '../../functions/_lib/catering_lead_service.js';
 import { normalizeRecommendations } from '../../functions/api/hub/owner/catering-deposit.js';
 import { onRequestGet } from '../../functions/q/[token].js';
 
 function fixture(status = 'unpaid') {
   const sql = new DatabaseSync(':memory:');
   for (const f of ['0085_catering_quotes_deposits.sql','0101_catering_quote_delivery.sql','0147_catering_quote_revisions.sql']) sql.exec(readFileSync(new URL('../../migrations/' + f, import.meta.url), 'utf8'));
+  sql.exec('ALTER TABLE catering_quotes ADD COLUMN source_lead_id TEXT');
   sql.prepare(`INSERT INTO catering_quotes(id,customer_name,customer_email,customer_phone,event_date,guests,total_cents,deposit_pct,deposit_cents,balance_cents,deposit_status,square_order_id,payment_link_id,payment_link_url,terms_version,terms_json,quote_json,created_at,updated_at,access_token) VALUES ('old','Test Guest','guest@example.test','5615550101','2027-01-01',30,10000,.5,5000,5000,?,'order_old','link_old','https://square.link/old','v1','{}','{"lead_id":"lead1"}',1,1,'11111111111111111111111111111111')`).run(status);
   function prep(query, args = []) { return { bind: (...a) => prep(query, a), first: async () => sql.prepare(query).get(...args) || null, run: async () => ({ meta: { changes: Number(sql.prepare(query).run(...args).changes) } }) }; }
   return { env: { DB: { prepare: prep }, SQUARE_ACCESS_TOKEN: 'fixture', SQUARE_LOCATION_ID: 'fixture', SQUARE_ENV: 'sandbox' }, sql };
@@ -107,4 +109,35 @@ test('cancellation proof rejects completed or tendered orders', () => {
   await assert.rejects(normalizeRecommendations([{ sku, packs: 2 }], envFor([{ ...row, availability: 'sold_out' }])), /available catalog price/);
   await assert.rejects(normalizeRecommendations([{ sku, packs: 2 }], {}), /available catalog price/);
   await assert.rejects(normalizeRecommendations([{ sku: 'traditional_croq-jamon', packs: 2 }], envFor([row])), /published croqueta/);
+});
+
+test('revision preserves legacy column-only lead linkage and paid replacement is associated correctly', async () => {
+  const { env, sql } = fixture();
+  sql.prepare("UPDATE catering_quotes SET source_lead_id='lead1',quote_json='{}' WHERE id='old'").run();
+  await provider(async () => {
+    const result = await reviseQuote(env, body(), options);
+    assert.equal(result.ok, true);
+    const replacement = sql.prepare('SELECT * FROM catering_quotes WHERE id=?').get(result.quote_id);
+    assert.equal(JSON.parse(replacement.quote_json).lead_id, 'lead1');
+    sql.prepare("UPDATE catering_quotes SET deposit_status='paid' WHERE id=?").run(result.quote_id);
+    const quotes = sql.prepare('SELECT * FROM catering_quotes').all().map((q) => ({ ...q, breakdown: JSON.parse(q.quote_json || '{}') }));
+    assert.equal(quoteForLead({ id: 'lead1' }, [{ id: 'lead1' }], quotes).deposit_status, 'paid');
+  });
+});
+test('original payment winning a revision race keeps its paid receipt readable', async () => {
+  const { env, sql } = fixture('paid');
+  sql.prepare("INSERT INTO catering_quote_revisions VALUES ('old','new','token','{}',1,'pending','owner',1,1)").run();
+  const response = await onRequestGet({ env, params: { token: '11111111111111111111111111111111' }, request: new Request('https://example.test/q/11111111111111111111111111111111') });
+  assert.equal(response.status, 200); assert.match(await response.text(), /Deposit received/);
+});
+test('source changed between initial read and journal claim causes no provider effects', async () => {
+  const { env, sql } = fixture(); const original = env.DB.prepare; let changed = false;
+  env.DB.prepare = (query) => {
+    if (!changed && /INSERT OR IGNORE INTO catering_quote_revisions/.test(query)) {
+      changed = true; sql.prepare("UPDATE catering_quotes SET updated_at=2 WHERE id='old'").run();
+    }
+    return original(query);
+  };
+  await provider(async (calls) => { assert.equal((await reviseQuote(env, body(), options)).ok, false); assert.equal(calls.length, 0); });
+  assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM catering_quote_revisions').get().n, 0);
 });

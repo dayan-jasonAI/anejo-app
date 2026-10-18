@@ -45,6 +45,13 @@ export async function sendCateringSms(env, { thread, lead, body, actorId, reques
   const blocked = await cateringSmsOptedOut(env,lead.phone);
   if (blocked) return { ok: false, error: 'Customer has opted out of text messages.' };
   if (!/^[a-zA-Z0-9_-]{16,100}$/.test(requestId || '')) return { ok: false, error: 'A unique SMS request ID is required.' };
+  const prior = await env.DB.prepare('SELECT m.id,m.body,m.thread_id,s.status,s.provider_sid FROM messages m LEFT JOIN sms_log s ON s.id=m.sms_log_id WHERE m.id=?').bind(`msg_catering_send_${requestId}`).first();
+  if(prior){
+    if(prior.thread_id!==thread.id||prior.body!==body)return {ok:false,error:'Request already exists with different text or destination.'};
+    const receipt=smsReceipt(prior);
+    if(receipt.status==='provider_accepted'||receipt.status==='delivered')return {ok:true,id:prior.id,replayed:true,sms:{sent:true,...receipt}};
+    return {ok:false,error:'This SMS request already exists without verified provider acceptance. Reconcile before retrying.'};
+  }
   const uncertain = await env.DB.prepare(`SELECT m.id FROM messages m LEFT JOIN sms_log s ON s.id=m.sms_log_id WHERE m.thread_id=? AND m.direction='outbound' AND m.channel='sms' AND (s.id IS NULL OR s.status='unknown') LIMIT 1`).bind(thread.id).first();
   if(uncertain)return {ok:false,error:'An earlier text has an unverified outcome. Reconcile its provider receipt before sending another.'};
   // Claim before contacting provider; uncertain sends cannot be replayed automatically.
@@ -105,6 +112,7 @@ export async function syncCateringQuoteSms(env, quoteId) {
   await env.DB.batch([
     env.DB.prepare(`INSERT OR IGNORE INTO sms_log (id,direction,channel,to_number,from_number,body,thread_id,status,provider_sid,error,created_at) VALUES (?,'outbound','sms',?,?,?,?,?,?,?,?)`).bind(logId,match.to,match.from||null,match.body,thread.id,status,match.sid,error,match.observed_at),
     env.DB.prepare('UPDATE sms_log SET thread_id=?,status=?,error=? WHERE id=?').bind(thread.id,status,error,logId),
+    env.DB.prepare('UPDATE messages SET thread_id=? WHERE sms_log_id=?').bind(thread.id,logId),
     env.DB.prepare(`INSERT OR IGNORE INTO messages (id,thread_id,direction,channel,body,ai_drafted,sms_log_id,created_at) SELECT ?,?,'outbound','sms',?,0,?,? WHERE NOT EXISTS (SELECT 1 FROM messages WHERE sms_log_id=?)`).bind(`msg_twilio_${match.sid}`,thread.id,match.body,logId,match.observed_at,logId),
     env.DB.prepare('UPDATE threads SET last_message_at=MAX(COALESCE(last_message_at,0),?),updated_at=? WHERE id=?').bind(match.observed_at,Date.now(),thread.id),
   ]);

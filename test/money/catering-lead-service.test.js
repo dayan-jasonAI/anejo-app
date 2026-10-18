@@ -4,6 +4,7 @@ import { ownerEnv,OWNER_COOKIE } from '../helpers/sqlite-d1.js';
 import { acknowledgement,ACK_VERSION,runCateringLeadService,serviceLeads,quoteForLead } from '../../functions/_lib/catering_lead_service.js';
 import { onRequestPost } from '../../functions/api/hub/owner/catering-service.js';
 import { onRequestPost as callback } from '../../functions/api/webhooks/twilio-status.js';
+import { sendSms } from '../../functions/_lib/twilio.js';
 
 function seed(env,id='lead_service',created=Date.now()){
   env.DB.exec(`INSERT INTO leads(id,kind,name,email,phone,sms_consent,created_at) VALUES('${id}','catering','Test Guest','guest@example.test','+15555550101',1,${created})`);
@@ -43,6 +44,17 @@ test('old quote for another event is not mistaken for contact on a new inquiry',
   const quote={id:'q',customer_email:'a@test',customer_phone:'+15555550101',event_date:'2026-11-25',deposit_status:'paid'};
   assert.equal(quoteForLead(lead,[lead],[quote]),null);
 });
+test('repeated template enable preserves activation boundary and note saves preserve scheduled follow-up',async()=>{
+  const env=ownerEnv();seed(env);
+  await action(env,{op:'configure_ack',enabled:true,reviewed_template_version:ACK_VERSION});
+  const first=env.DB.one('SELECT activated_at FROM catering_service_config').activated_at;
+  await action(env,{op:'configure_ack',enabled:true,reviewed_template_version:ACK_VERSION});
+  assert.equal(env.DB.one('SELECT activated_at FROM catering_service_config').activated_at,first);
+  const future=Date.now()+7200000;
+  await action(env,{op:'update_followup',lead_id:'lead_service',state:'contacted',next_followup_at:future,note:'First call'});
+  await action(env,{op:'update_followup',lead_id:'lead_service',state:'contacted',note:'Additional notes'});
+  assert.equal(env.DB.one('SELECT next_followup_at FROM catering_lead_service').next_followup_at,future);
+});
 test('owner won status never claims a recorded deposit',async()=>{
   const env=ownerEnv();seed(env);await action(env,{op:'update_followup',lead_id:'lead_service',state:'won'});
   assert.equal((await serviceLeads(env))[0].phase,'owner_won');
@@ -66,4 +78,12 @@ test('carrier callbacks validate signature, record delivery and do not regress f
   await callback({env,request:await signedRequest({MessageSid:sid,MessageStatus:'sent'})});
   assert.equal(env.DB.one("SELECT status FROM sms_log WHERE id='s'").status,'delivered');
   assert.equal((await callback({env,request:await signedRequest({MessageSid:sid,MessageStatus:'failed'},'forged')})).status,403);
+});
+test('a carrier callback preceding the send log survives and is joined to the final message',async()=>{
+  const env=ownerEnv({TWILIO_AUTH_TOKEN:'test-secret',TWILIO_ACCOUNT_SID:'AC'+'1'.repeat(32),TWILIO_FROM:'+15555550102'}),sid='SM'+'b'.repeat(32);
+  assert.equal((await callback({env,request:await signedRequest({MessageSid:sid,MessageStatus:'delivered'})})).status,204);
+  const previous=globalThis.fetch;globalThis.fetch=async()=>Response.json({sid,status:'queued'});
+  try{await sendSms(env,{to:'+15555550101',body:'Synthetic test'});}
+  finally{globalThis.fetch=previous;}
+  assert.equal(env.DB.one('SELECT status FROM sms_log WHERE provider_sid=?',sid).status,'delivered');
 });
