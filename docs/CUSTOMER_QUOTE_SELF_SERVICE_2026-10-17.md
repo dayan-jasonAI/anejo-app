@@ -14,7 +14,7 @@ Preferred callback time requests: Eastern time with DST validation, quote-token 
 
 ## Remaining blocked work
 
-Google Calendar runtime integration does not exist and cannot borrow Codex connector permissions. User selected dayan@anejocateringco.com plus a Hub calendar; freebusy query on that address succeeded, but production event write permission/credentials remain unverified. Need actual integration connection plus call duration/working hours. Customer confirmations/reminders require rendered preview and activation. Current safe callback UI explicitly says not booked.
+Google Calendar runtime integration is implemented in the follow-up release described below; it cannot borrow Codex connector permissions. User selected dayan@anejocateringco.com plus a Hub calendar; freebusy query on that address succeeded, but production event write permission/credentials remain unverified. Need actual integration connection plus call duration/working hours. Customer confirmations/reminders require rendered preview and activation. Current safe callback UI explicitly says not booked.
 
 Need Dayan confirmation: catering pricing origin (actual Boca kitchen vs earlier daily-lunch mailing origin), proposed fee policy, call duration/hours. Never assume lunch free-delivery thresholds apply to catering. Previously sent email cannot be retroactively rewritten; no resend performed.
 
@@ -23,3 +23,16 @@ Need Dayan confirmation: catering pricing origin (actual Boca kitchen vs earlier
 Full local3,777tests passed,0failed; lint0errors/10existing warnings; Functions build passed. Final bounded callback/backend tests18passed after bilingual notice refinement. Isolated supported-browser preview changed rolls35→40, added1croqueta platter, showed total$300.36 and deposit$150.18, saved synthetic changes; no real provider/customer effects. Images visually inspected in rendered email. Evidence screenshots: ../evidence/customer-quote-self-service-2026-10-17/.
 
 Release order: only migration0151, then reviewed exact-head CI, main deployment, supported live read-only acceptance. No customer-specific quote mutation/payment or unsolicited customer send during acceptance. Live release pending until recorded separately.
+
+
+## Phase1 release and current evidence — October18,2026 UTC
+PR211 merged34fb084ca120865c8d4871b2858a0edbadde3492. Production63558e8e-5650-441f-8a3e-974155a564aa succeeded. All four post-merge hosted checks passed. Final phase1 local3,779tests passed. Migration0151 applied before release. Supported browser verified real hosted quote with correct three catalog photos, editable quantities/headcount, live catalog additions including croquetas, and preferred-time form. Owner calendar showed zero requests. Original customer quote remains$248.75; no live edit/save/customer send/payment performed. Evidence live-quote-images.png and live-editor.png.
+
+Joined isolated acceptance used actual handlers+localSQLite+mockSquare:35→40guests,rolls35→40,one30-croqueta platter;reviewed/saved29036cents and14518deposit. Originalcheckoutretired, replacementunpaid, callbacksavedrequestedwiththreequeued-disabledjobs. Fixtureprice is synthetic, not a production price claim. See joined-sandbox.json and real-handler-sandbox-saved.png.
+
+## Calendar delivery follow-up — prepared, activation OFF
+New0152 adds durable calendar/email jobs and disabled activation flags. Runtime checks approved hours/duration/OAuth, freebusy and reserved overlapping slots, deterministic eventIDs and matching GET readback. Uncertain results reconcile sameID. Confirmation/one-hour reminder templates require matching version approval and activation; accepted email is not delivery proof. Canceling a Hub request stops new customer messages but does not remove an existing Google event; UI says to review that event separately. No activation endpoint or credential change included.
+
+Owner agenda shows saved evidence timestamps and separate provider acceptance labels. Missing scheduling inputs/OAuth remain blockers. Sample email preview uses fictional guest/date/15min for review only, not an approved scheduling default. Official API contracts checked against https://developers.google.com/workspace/calendar/api/v3/reference/events/insert and https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query .
+
+Follow-up validation:3,802localtests pass/0fail/0skip;lint0errors/10existingwarnings;Functionsbuildsuccess. Logs /tmp/anejo-callback-release-{tests,lint,build}.log. Added malformed freebusy interval and changed-calendar email guards during parent review. Exact-head CI/deployment and migration0152 readback pending at this entry.
