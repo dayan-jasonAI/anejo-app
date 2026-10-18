@@ -177,6 +177,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
     ]
   }
 }</script>
+<link rel="stylesheet" href="/assets/css/catering-guided-intake.css?v=20261018-1">
 </head>
 <body data-i18n-local-only>
 <a class="skip-link" href="#quote">Skip to quote request</a>
@@ -328,7 +329,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
 
 <script src="/assets/js/i18n.js?v=20260908"></script>
 <script src="/assets/js/catering-i18n.js?v=20260908"></script>
-<script src="/assets/js/attribution.js"></script>
+<script src="/assets/js/attribution.js?v=20261018-origin1"></script>
 <script>
 (function(){
   function t(value){return window.AnejoI18n&&window.AnejoI18n.text?window.AnejoI18n.text(value):value;}
@@ -425,6 +426,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
     data.products=window.AnejoQuoteProducts.read();
     var attribution=window.AnejoAttribution&&window.AnejoAttribution.read();
     if(attribution)data.attribution=attribution;
+    if(attribution&&attribution.entry_path)data.journey={entry_path:attribution.entry_path,form_path:'/catering',evidence:'submitted_page_context'};
     var locked=pendingLocks||Array.from(form.querySelectorAll('input,select,textarea,button')).map(function(node){return {node:node,disabled:node.disabled};});
     locked.forEach(function(entry){entry.node.disabled=true;});
     submitting=true;
@@ -451,7 +453,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
       function renderReceipt(){reference.textContent=(spanish()?'Referencia: ':'Reference: ')+out.id;document.getElementById('request-notifications').textContent=t(out.notifications&&out.notifications.queued?'Team notifications are queued for delivery. Please keep your reference.':'Please keep your reference. The request is saved; team notification status needs review.');if(window.AnejoI18n)window.AnejoI18n.refresh();}
       document.addEventListener('anejo:langchange',renderReceipt);renderReceipt();
       document.getElementById('request-received').focus();
-      try{if(window.gtag)window.gtag('event','generate_lead',{form_id:'catering'});}catch(_analyticsError){/* Analytics must never turn a saved request into a retry. */}
+      try{if(window.gtag)window.gtag('event','generate_lead',{form_id:'catering',lead_reference:out.id});}catch(_analyticsError){/* Analytics must never turn a saved request into a retry. */}
     }catch(err){
       var heldRequest=pendingSubmission;
       show(function(){
@@ -471,7 +473,8 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offse
 })();
 </script>
 <script src="/assets/js/announce.js" defer></script>
-<script src="/assets/js/catering-products.js?v=20260909-instant1" defer></script>
+<script src="/assets/js/catering-products.js?v=20261018-guided1" defer></script>
+<script src="/assets/js/catering-guided-intake.js?v=20261018-1" defer></script>
 <script src="/assets/js/consent.js"></script>
 <script src="/assets/js/chat.js" defer></script>
 </body>

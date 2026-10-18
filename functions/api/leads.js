@@ -73,8 +73,18 @@ export function normalizeCateringRequest(b) {
     event_type: eventType, location, event_theme: eventTheme || null,
     theme_colors: themeColors || null, design_notes: designNotes || null,
     dietary_needs: dietary || null, event_details: details || null,
+    journey: normalizeCateringJourney(b.journey),
     interest: menus.join(', '), message: lines.join('\n'),
   };
+}
+
+
+// Submitted page context is not a replay or proof of the visitor's complete browsing history.
+export function normalizeCateringJourney(value) {
+  if(!value||typeof value!=='object'||Array.isArray(value))return null;
+  const path=typeof value.entry_path==='string'?value.entry_path:'';
+  if(!/^\/(?:catering(?:\/[a-z-]+)?|menu|order|cajita|go)?(?:\.html)?$/.test(path)||path.length>100)return null;
+  return {entry_path:path,form_path:'/catering',evidence:'submitted_page_context'};
 }
 
 // Campaign attribution (0044). Accepts either flat fields or a nested {attribution:{…}} object

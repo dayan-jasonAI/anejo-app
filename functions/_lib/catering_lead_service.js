@@ -28,7 +28,7 @@ export function quoteForLead(lead, leads, quotes) {
 }
 
 export async function serviceLeads(env) {
-  const read = await env.DB.prepare(`SELECT l.id,l.name,l.email,l.phone,l.source_lang,l.created_at,
+  const read = await env.DB.prepare(`SELECT l.id,l.name,l.email,l.phone,l.source_lang,l.created_at,l.src,l.utm_source,l.utm_medium,l.utm_campaign,l.referrer,
     r.event_json,s.state,s.note,s.next_followup_at,s.last_escalated_at,s.last_notification_json,
     a.status AS acknowledgement_status,a.receipt_id AS acknowledgement_receipt,a.last_error AS acknowledgement_error
     FROM leads l LEFT JOIN catering_requests r ON r.lead_id=l.id
