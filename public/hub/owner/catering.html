@@ -211,11 +211,13 @@
         (r.company ? ' · ' + esc(r.company) : '') +
         (r.created_at ? ' · ' + C.label('received') + ' ' + day(r.created_at) : '') + '</div>' +
       (contact ? '<div class="row-sub">' + esc(contact) + '</div>' : '') +
-      '<div class="rbody"><b>' + C.label('Original request (as submitted)') + '</b><br>' + (r.message ? esc(r.message) : C.label('No event details provided.')) + '</div>' +
+      '<div class="rbody"><b>'+esc(msgField(r.message,'Event type')||'Event')+'</b><br>'+esc(msgField(r.message,'Event date'))+' · '+esc(msgField(r.message,'Serving time'))+'<br>'+esc(msgField(r.message,'Guest count'))+' guests · '+esc(msgField(r.message,'Location'))+'</div>'+
+      '<details class="rbody"><summary>' + C.label('Original request (as submitted)') + '</summary>' + (r.message ? esc(r.message) : C.label('No event details provided.')) + '</details>' +
       (r.cajita_configuration || r.cajita_summary ? '<details class="rbody"><summary>' + C.label('Exact Cajita configuration') + '</summary>' + C.summaryHtml(r.cajita_configuration,r.cajita_summary) + '</details>' : '') +
       (files ? '<div class="rfiles"><b>' + C.label('Private design files · owner only') + '</b>' + files + '</div>' : '') +
       suggestionHtml(r.suggested) +
       '<div class="ractions">' +
+        '<a class="btn ghost" href="/hub/owner/catering-service.html?lead='+encodeURIComponent(r.id)+'">Messages &amp; follow-up</a>'+
         '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">' + C.label('Start a quote') + '</button>' +
         (r.email ? '<a class="btn ghost" href="mailto:' + esc(encodeURIComponent(r.email)) + '?subject=' + encodeURIComponent('Your Añejo catering request') + '">' + C.label('Email customer') + '</a>' : '') +
       '</div></article>';
@@ -248,7 +250,7 @@
 
   // ---------- the create form ----------
   function formHtml(d) {
-    return '<div class="hub-section"><h2>New catering quote</h2><div class="card">' +
+    return '<div class="hub-section"><h2 id="q-editor-title">New catering quote</h2><div class="card">' +
       '<div class="field"><label>Customer name</label><input id="q-name" type="text" placeholder="Who the event is for"></div>' +
       '<div class="field"><label>Email</label><input id="q-email" type="email" placeholder="For the deposit link"></div>' +
       '<div class="field"><label>Phone</label><input id="q-phone" type="tel"></div>' +
@@ -519,7 +521,7 @@
   function wireRequests(root) {
     root.querySelectorAll('[data-prefill]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        revisionSource = null; revisionPreview = null;
+        revisionSource = null; revisionPreview = null;document.getElementById('q-editor-title').textContent='New catering quote';
         document.getElementById('q-create').textContent = 'Create deposit checkout';
         document.getElementById('q-create').disabled = false;
         document.getElementById('q-revision-status').textContent = '';
@@ -656,7 +658,7 @@
         Hub.api(ENDPOINT, { method: 'POST', body: { op: 'revision_status', quote_id: q.id } }).then(function (result) {
           if (!result.ok) { Hub.toast(result.error || 'Cannot verify revision status'); return; }
           if (q.deposit_status === 'void' && !result.revision) { Hub.toast('This void quote has no recoverable revision.'); return; }
-          revisionSource = q; revisionPreview = null;
+          revisionSource = q; revisionPreview = null;document.getElementById('q-editor-title').textContent='Revise catering quote';
           document.getElementById('q-revision-cancel').hidden = false;
           document.getElementById('q-create').disabled = false;
           document.getElementById('q-sent').innerHTML = '';
