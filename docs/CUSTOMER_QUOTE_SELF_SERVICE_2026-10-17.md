@@ -45,3 +45,7 @@ Follow-up validation:3,802localtests pass/0fail/0skip;lint0errors/10existingwarn
 - Customer templates: callback-confirmation-preview.png and callback-reminder-preview.png are rendered fictional examples, not sent emails or booked appointments.
 - Rollback: revert application release through reviewed Git path; leave additive0151/0152 tables/history intact. Disabling booking/messages halts new effects; do not delete durable uncertain-job receipts or reservations.
 - Live acceptance caught an old agenda script in an existing browser session. PR213 versions only that script URL. Verification remains pending until the same live browser visibly displays the new readiness message.
+
+
+## Evidence privacy correction
+Repository visibility verified public during final review. The original live-quote-images.png screenshot included the customer name and quote ID (no email/phone/access token visible). Current file replaced with the non-identifying editor screenshot; it is no longer photo evidence. Exact photo mapping remains covered by synthetic email rendering and live read-only observation. Older Git history may retain the original screenshot. Dayan asked to authorize coordinated history cleanup; no claim of historical removal. Do not publish more customer-identifying screenshots.
