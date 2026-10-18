@@ -39,13 +39,14 @@ export function canceledUnpaidOrder(order, expectedId) {
     && (!order.net_amounts?.total_money || Number(order.net_amounts.total_money.amount) >= 0));
 }
 
-export async function reviseQuote(env, body, { actor, baseUrl }) {
+export async function reviseQuote(env, body, { actor, baseUrl, approvedLines }) {
   const sourceId = String(body.quote_id || '');
   const source = await env.DB.prepare('SELECT * FROM catering_quotes WHERE id = ?').bind(sourceId).first();
   if (!source) return { ok: false, error: 'Quote not found.' };
   const unfinishedParent = await env.DB.prepare("SELECT source_quote_id FROM catering_quote_revisions WHERE replacement_quote_id = ? AND state != 'complete'").bind(sourceId).first();
   if (unfinishedParent) return { ok: false, error: 'Finish recovering the earlier revision before revising its replacement.' };
   let journal = await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id = ?').bind(sourceId).first();
+  if (journal && approvedLines && JSON.stringify(JSON.parse(journal.payload_json).quoteBreakdown.lines) !== JSON.stringify(approvedLines)) return { ok: false, error: 'Another revision was saved first. Reload and review its total before continuing.' };
   if (journal && (journal.state === 'complete' || source.deposit_status === 'void')) {
     const q = await env.DB.prepare('SELECT * FROM catering_quotes WHERE id = ?').bind(journal.replacement_quote_id).first();
     if (q && journal.state !== 'complete') await env.DB.prepare("UPDATE catering_quote_revisions SET state='complete',updated_at=? WHERE source_quote_id=?").bind(Date.now(), sourceId).run();
@@ -65,6 +66,7 @@ export async function reviseQuote(env, body, { actor, baseUrl }) {
   }
   // The first approved payload owns this attempt; recovery never changes it or invents a new checkout.
   const payload = JSON.parse(journal.payload_json);
+  if (approvedLines && JSON.stringify(payload.quoteBreakdown.lines) !== JSON.stringify(approvedLines)) return { ok: false, error: 'Another revision was saved first. Reload and review its total before continuing.' };
   if (journal.state === 'pending') {
     if (Number(source.updated_at) !== Number(journal.source_updated_at)) return { ok: false, error: 'Original quote changed after this revision was saved. Owner review required.' };
     const before = await square(env, `/v2/orders/${encodeURIComponent(source.square_order_id)}`);

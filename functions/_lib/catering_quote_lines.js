@@ -74,6 +74,7 @@ export function normalizeQuoteLines(raw) {
 
     lines.push({
       name,
+      ...(/^[a-zA-Z0-9_-]{1,80}$/.test(String(row.product_id || row.sku || '')) ? { product_id: String(row.product_id || row.sku) } : {}),
       name_es: text(row.name_es, MAX_NAME) || undefined,
       detail: text(row.detail, MAX_DETAIL) || undefined,
       detail_es: text(row.detail_es, MAX_DETAIL) || undefined,
