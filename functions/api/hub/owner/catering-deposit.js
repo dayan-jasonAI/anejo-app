@@ -24,7 +24,24 @@ import { normalizeQuoteLines } from '../../../_lib/catering_quote_lines.js';
 import { cateringQuoteEmail } from '../../../_lib/catering_quote_email.js';
 import { GIFTS } from '../../../_lib/cake_reveal.js';
 import { sendQuote, quoteUrl } from '../../../_lib/catering_quote_delivery.js';
+import { reviseQuote } from '../../../_lib/catering_quote_revision.js';
+import { isAvailable, isOrderable } from '../../../_lib/menu.js';
 import { renderLines } from '../../../_lib/catering_terms.js';
+
+export async function normalizeRecommendations(raw, env) {
+  if (!raw || (Array.isArray(raw) && !raw.length)) return [];
+  if (!Array.isArray(raw) || raw.length > 1) throw new Error('Choose one optional signature croqueta pack.');
+  const input = raw[0];
+  const sku = String(input.sku || '');
+  const match = /^catering_(?:croq|platter)-(?:jamon|pollo|res|chorizo|sausage|tuna)-(10|30|60|90)$/.exec(sku);
+  const packs = Number(input.packs);
+  if (!match || !Number.isSafeInteger(packs) || packs < 1 || packs > 20) throw new Error('Choose a published croqueta pack and 1–20 packs.');
+  const menu = await loadMenu(env);
+  const item = menu.source === 'd1' && menu.items.find((x) => x.id === sku);
+  if (!item || item.active === 0 || item.active === false || !isAvailable(item) || !isOrderable(item) || (menu.availability?.[sku] && menu.availability[sku] !== 'available') || !Number.isSafeInteger(item.price_cents) || item.price_cents <= 0) throw new Error('This croqueta pack has no current available catalog price.');
+  if (input.expected_cents != null && Number(input.expected_cents) !== item.price_cents * packs) throw new Error('Croqueta pricing changed. Reload the catalog and preview again.');
+  return [{ sku, packs, pieces: Number(match[1]) * packs, name: item.name_en || item.name || 'Signature croquetas', name_es: item.name_es || 'Croquetas de la casa', cents: item.price_cents * packs }];
+}
 
 export const onRequestGet = async ({ request, env }) => {
   const ctx = await requireRole(request, env, ['owner']);
@@ -35,10 +52,10 @@ export const onRequestGet = async ({ request, env }) => {
   let requests = [];
   try {
     const r = await env.DB.prepare(
-      `SELECT id, customer_name, customer_email, event_date, guests, total_cents, deposit_pct,
+      `SELECT id, customer_name, customer_email, customer_phone, event_date, guests, total_cents, deposit_pct,
               deposit_cents, balance_cents, deposit_status, deposit_paid_at, deposit_paid_cents,
               balance_status, balance_paid_at, balance_due_date, final_count_due,
-              payment_link_url, (SELECT payment_link_url FROM catering_balance_checkouts WHERE quote_id=catering_quotes.id) AS balance_payment_link_url, terms_version, terms_json, quote_json, note, created_at
+              payment_link_url, (SELECT payment_link_url FROM catering_balance_checkouts WHERE quote_id=catering_quotes.id) AS balance_payment_link_url, terms_version, terms_json, quote_json, note, created_at, updated_at, access_token, lang
          FROM catering_quotes
         ORDER BY
           -- THE WORK COMES FIRST, NEWEST LAST.
@@ -201,6 +218,29 @@ export const onRequestPost = async ({ request, env }) => {
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const op = (b && b.op) || 'create';
 
+  let previewDepositPct = DEPOSIT_PCT;
+  if ((op === 'preview' || op === 'render') && b.quote_id) {
+    const source = await env.DB.prepare('SELECT deposit_pct FROM catering_quotes WHERE id = ?').bind(String(b.quote_id)).first();
+    if (!source) return bad('Quote not found.', 404);
+    previewDepositPct = source.deposit_pct;
+  }
+
+  // Revisions never mutate a sold amount while its original Square checkout is payable.
+  if (op === 'revise') {
+    try {
+      const saved = await env.DB.prepare('SELECT payload_json FROM catering_quote_revisions WHERE source_quote_id = ?').bind(String(b.quote_id || '')).first();
+      const recommendations = saved ? JSON.parse(saved.payload_json).quoteBreakdown.recommendations : await normalizeRecommendations(b.recommendations, env);
+      const result = await reviseQuote(env, { ...b, recommendations }, { actor: ctx.email || ctx.distinct_id || 'owner', baseUrl: appBaseUrl(env, request) });
+      return result.ok ? json(result) : bad(result.error, 409);
+    } catch (e) { return bad(e.message || 'Revision recovery is needed. Retry the saved revision.', 503); }
+  }
+  if (op === 'revision_status') {
+    try {
+      const revision = await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id = ?').bind(String(b.quote_id || '')).first();
+      return json({ ok: true, revision });
+    } catch { return bad('Revision storage is unavailable.', 503); }
+  }
+
   // ANSWERING A CUSTOMER'S REQUEST.
   //
   // Deciding is deliberately separate from acting on it. Accepting "add 20 croquetas" does not add
@@ -287,6 +327,10 @@ export const onRequestPost = async ({ request, env }) => {
       row = await env.DB.prepare('SELECT id, quote_json, customer_name FROM catering_quotes WHERE id = ?').bind(qid).first();
     } catch { return bad('Could not read that quote.', 500); }
     if (!row) return bad('No such quote.', 404);
+    try {
+      const revising = await env.DB.prepare("SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id = ? OR (replacement_quote_id = ? AND state != 'complete')").bind(qid, qid).first();
+      if (revising) return bad('This quote is being replaced. Recover and send the replacement.', 409);
+    } catch { return bad('Cannot verify quote revision state.', 503); }
 
     let blob = {};
     try { blob = row.quote_json ? JSON.parse(row.quote_json) : {}; } catch { blob = {}; }
@@ -312,11 +356,11 @@ export const onRequestPost = async ({ request, env }) => {
       lines = norm.lines;
       totalCents = norm.subtotal_cents;
     } else {
-      const split0 = depositSplit(b.total_cents);
+      const split0 = depositSplit(b.total_cents, previewDepositPct);
       if (!split0.ok) return bad(split0.error, 400);
       totalCents = split0.total_cents;
     }
-    const split = depositSplit(totalCents);
+    const split = depositSplit(totalCents, previewDepositPct);
     if (!split.ok) return bad(split.error, 400);
 
     const terms = termsFor({
@@ -328,7 +372,10 @@ export const onRequestPost = async ({ request, env }) => {
     const lang = b.lang === 'es' ? 'es' : 'en';
     // The buttons point at a placeholder because nothing has been minted yet. That is the honest
     // thing to show: this is what she will READ, and the live links appear once it exists.
+    let recommendations;
+    try { recommendations = await normalizeRecommendations(b.recommendations, env); } catch (e) { return bad(e.message); }
     const { subject, html } = cateringQuoteEmail({
+      recommendations,
       lang,
       customerName: b.customer_name || '',
       eventDate: b.event_date,
@@ -363,6 +410,11 @@ export const onRequestPost = async ({ request, env }) => {
       ).bind(qid).first();
     } catch { return bad('Could not read that quote.', 500); }
     if (!row) return bad('No such quote.', 404);
+    if (row.deposit_status !== 'unpaid') return bad('Only an active unpaid quote may be sent.', 409);
+    try {
+      const revising = await env.DB.prepare("SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id = ? OR (replacement_quote_id = ? AND state != 'complete')").bind(qid, qid).first();
+      if (revising) return bad('This quote is being replaced. Recover and send the replacement.', 409);
+    } catch { return bad('Cannot verify quote revision state.', 503); }
     if (!row.payment_link_url) return bad('That quote has no deposit link — create it again.');
 
     // TEXTING IS AN EXPLICIT DECISION HERE, NOT A LOOKUP.
@@ -398,7 +450,7 @@ export const onRequestPost = async ({ request, env }) => {
       if (!norm.ok) return bad(norm.error);
       previewTotal = norm.subtotal_cents;
     }
-    const split = depositSplit(previewTotal);
+    const split = depositSplit(previewTotal, previewDepositPct);
     if (!split.ok) return bad(split.error, 400);
     if (split.total_cents > 10000000) return bad('That total looks wrong (over $100,000) — enter cents, not dollars.');
     return json({
@@ -466,6 +518,11 @@ export const onRequestPost = async ({ request, env }) => {
     totalCents = Math.round(q.total * 100);
     breakdown = q;
   }
+
+  try {
+    const recommendations = await normalizeRecommendations(b.recommendations, env);
+    if (b.lead_id || recommendations.length) breakdown = { ...(breakdown || {}), lead_id: b.lead_id || null, recommendations };
+  } catch (e) { return bad(e.message); }
 
   // LANGUAGE AND SMS CONSENT COME FROM THE LEAD, NOT FROM A CHECKBOX SOMEBODY HAS TO REMEMBER.
   // She told us both when she filled the form in: `source_lang` is the language she was reading

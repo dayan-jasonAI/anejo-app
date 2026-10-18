@@ -61,6 +61,7 @@ export async function createDepositCheckout(env, {
   // Sending DEFAULTS TO OFF. A caller that wants the customer contacted has to say so — see the
   // note on the Hub endpoint: no email goes out without a human having read it first.
   lang = 'en', smsConsent = false, send = false,
+  fixedQuoteId = null, fixedAccessToken = null, fixedTerms = null,
 } = {}) {
   if (!env || !env.DB) return { ok: false, error: 'Database not configured.' };
   if (!squareConfigured(env)) return { ok: false, error: 'Square is not configured — no deposit link can be created.' };
@@ -71,15 +72,19 @@ export async function createDepositCheckout(env, {
   const g = Math.round(Number(guests));
   if (!Number.isFinite(g) || g <= 0) return { ok: false, error: 'A quote needs a guest count greater than zero.' };
 
-  const terms = termsFor({
+  const terms = fixedTerms || termsFor({
     totalCents: split.total_cents,
     depositCents: split.deposit_cents,
     balanceCents: split.balance_cents,
     eventDate,
   });
 
-  const quoteId = id('cq');
-  const base = (baseUrl || '').replace(/\/$/, '');
+  const quoteId = fixedQuoteId || id('cq');
+  // Revisions journal their identities before provider I/O so retries recover one checkout.
+  if (fixedQuoteId) {
+    const existing = await env.DB.prepare('SELECT * FROM catering_quotes WHERE id = ?').bind(fixedQuoteId).first();
+    if (existing) return { ok: true, quote_id: existing.id, url: existing.payment_link_url, quote_url: `${(baseUrl || 'https://anejocateringco.com').replace(/\/$/, '')}/q/${existing.access_token}`, access_token: existing.access_token, total_cents: existing.total_cents, deposit_cents: existing.deposit_cents, balance_cents: existing.balance_cents, deposit_pct: existing.deposit_pct, lang: existing.lang };
+  }
   const pctLabel = `${Math.round(split.deposit_pct * 100)}%`;
   const totalLabel = `$${(split.total_cents / 100).toFixed(2)}`;
 
@@ -91,7 +96,7 @@ export async function createDepositCheckout(env, {
   // her own quote page, and before the insert so the row is never written without an address — a
   // quote with no way to reach it is the dead end this module exists to remove. Pure random bytes,
   // no I/O: doing it early costs nothing, and if the Square call fails nothing has been written.
-  const accessToken = mintAccessToken();
+  const accessToken = fixedAccessToken || mintAccessToken();
   const site = (baseUrl || 'https://anejocateringco.com').replace(/\/$/, '');
 
   const { ok, status, data } = await square(env, '/v2/online-checkout/payment-links', {

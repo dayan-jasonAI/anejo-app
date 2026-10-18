@@ -60,6 +60,13 @@ export const onRequestGet = async ({ params, request, env }) => {
   }
   if (!row) return notFound(override || 'en');
 
+  if (row.deposit_status === 'void') return notFound(override || row.lang || 'en');
+  // A journal prevents an old quote from advertising payment while retirement recovers.
+  try {
+    const revision = await env.DB.prepare("SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id = ? OR (replacement_quote_id = ? AND state != 'complete')").bind(row.id, row.id).first();
+    if (revision) return notFound(override || row.lang || 'en');
+  } catch { return html('<p>This quote is temporarily unavailable. Please contact Añejo.</p>', 503); }
+
   const lang = override || (row.lang === 'es' ? 'es' : 'en');
   const args = quoteEmailArgs(row, { lang, baseUrl: url.origin });
   const { subject, html: body } = cateringQuoteEmail(args);
@@ -101,6 +108,9 @@ export const onRequestGet = async ({ params, request, env }) => {
   // reloaded the page and looked broken. It now opens a real form, ABOVE the quote so she does not
   // have to scroll past everything to find what she just clicked.
   const wantsEdit = url.searchParams.get('edit') === '1' && !paid;
+  let recommendation = null;
+  try { recommendation = JSON.parse(row.quote_json || '{}').recommendations?.find((r) => r.sku === url.searchParams.get('recommendation')); } catch { /* no option */ }
+  const recommendationText = recommendation ? (lang === 'es' ? 'Me interesan ' : 'I am interested in ') + recommendation.pieces + ' ' + recommendation.name + ' (+$' + (recommendation.cents / 100).toFixed(2) + '). ' + (lang === 'es' ? 'Por favor confirme antes de añadirlo.' : 'Please confirm before adding it.') : '';
   const t = lang === 'es'
     ? { head: '¿Necesita cambiar algo?',
         body: 'Escríbanos qué desea ajustar — cantidades, un plato más, o el número de invitados. Le enviaremos una cotización actualizada. No se cobra nada al enviar esto.',
@@ -127,7 +137,7 @@ export const onRequestGet = async ({ params, request, env }) => {
         style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd6c4;border-radius:6px;font:inherit;margin:0 0 12px">
       <label style="display:block;font-size:13px;color:#6b6558;margin:0 0 4px" for="cqc-m">${t.msg}</label>
       <textarea id="cqc-m" rows="4" required placeholder="${t.ph}"
-        style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd6c4;border-radius:6px;font:inherit;margin:0 0 12px"></textarea>
+        style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd6c4;border-radius:6px;font:inherit;margin:0 0 12px">${recommendationText.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</textarea>
       <button type="submit" style="width:100%;padding:13px;border:0;border-radius:999px;background:#ae8745;
         color:#fff;font:inherit;font-size:15px;cursor:pointer">${t.cta}</button>
       <p id="cqc-say" style="margin:12px 0 0;font-size:14px;line-height:1.5;color:#2f6b4f"></p>

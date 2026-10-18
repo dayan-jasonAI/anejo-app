@@ -21,6 +21,7 @@
 //      a retry re-sends only the channel that has not landed.
 import { sendEmail, isSuppressed, normalizeEmail } from './email.js';
 import { sendSms, isTwilioConfigured } from './twilio.js';
+import { leadForPhone, ensureCateringConversation, projectSms, cateringSmsOptedOut } from './catering_conversation.js';
 import { cateringQuoteEmail } from './catering_quote_email.js';
 import { renderLines, DEPOSIT_PCT } from './catering_terms.js';
 
@@ -166,6 +167,8 @@ export async function sendQuote(env, row, { baseUrl = SITE, force = false } = {}
   } else if (!consented) {
     // Rule 3. The email still went; this is not an error, it is a boundary.
     result.sms = { sent: false, skipped: 'no SMS consent on file' };
+  } else if (env.DB && await cateringSmsOptedOut(env,phone)) {
+    result.sms = { sent:false, skipped:'Customer has opted out of text messages.' };
   } else if (!isTwilioConfigured(env)) {
     result.sms = { sent: false, skipped: 'SMS is not configured' };
   } else {
@@ -173,9 +176,21 @@ export async function sendQuote(env, row, { baseUrl = SITE, force = false } = {}
       customerName: row.customer_name, totalCents: row.total_cents,
       eventDate: row.event_date, url, lang,
     });
-    const sent = await sendSms(env, { to: phone, body, thread_id: `catering-quote:${row.id}` })
+    let lead = null;
+    try {
+      const detail = typeof row.quote_json === 'string' ? JSON.parse(row.quote_json) : row.quote_json;
+      if (row.lead_id || detail?.lead_id) lead = await env.DB.prepare("SELECT id,name,phone,sms_consent FROM leads WHERE id=? AND kind='catering'").bind(row.lead_id || detail.lead_id).first();
+      if (!lead) lead = await leadForPhone(env,phone);
+    } catch { /* standalone quote retains a named conversation */ }
+    const thread = await ensureCateringConversation(env,{lead,quote:row});
+    const sent = await sendSms(env, { to: phone, body, thread_id: thread.id })
       .catch((e) => ({ ok: false, error: String((e && e.message) || e).slice(0, 200) }));
-    result.sms = sent && sent.sent ? { sent: true, at: t } : { sent: false, error: (sent && sent.error) || (sent && sent.noop ? 'SMS is not configured' : 'send failed') };
+    if (sent?.record_error) result.conversation_error = sent.record_error;
+    if (sent?.sms_log_id) {
+      try { await projectSms(env,{thread,logId:sent.sms_log_id,body,providerSid:sent.provider_sid}); }
+      catch { result.conversation_error = 'SMS receipt could not be linked; reconcile before resending.'; }
+    }
+    result.sms = sent && sent.sent ? { sent: true, at: t, status: sent.status === 'delivered' ? 'delivered' : 'provider_accepted', provider_sid: sent.provider_sid || null, thread_id: thread.id } : { sent: false, error: (sent && sent.error) || (sent && sent.noop ? 'SMS is not configured' : 'send failed') };
   }
 
   // ---------------------------------------------------------------- record it on the row

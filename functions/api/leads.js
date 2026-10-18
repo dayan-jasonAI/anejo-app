@@ -10,6 +10,7 @@ import { raiseAlert } from '../_lib/alerts.js';
 import { normalizeCajitaConfiguration } from '../_lib/cajita-config.js';
 import { normalizeCateringProducts } from '../_lib/catering-products.js';
 import { validCateringRequestId, cateringPayloadHash, findCateringReplay, storeCateringRequest, cateringReceipt, drainCateringOutbox } from '../_lib/catering-request.js';
+import { runCateringLeadService } from '../_lib/catering_lead_service.js';
 
 // Founding Legacy Member program — first N launch-list signups get a founding number.
 const FOUNDING_CAP = 100;
@@ -333,7 +334,8 @@ export const onRequestPost = async (context) => {
     } catch { return bad('We could not save the request. Please retry with the same details.', 503); }
     // External effects cannot make a durably captured request look unsuccessful. The scheduler
     // drains anything left behind by an isolate shutdown, timeout or provider outage.
-    const drain = drainCateringOutbox(env, { requestId, limit: 2 }).catch(() => {});
+    const drain = drainCateringOutbox(env, { requestId, limit: 2 })
+      .then(() => runCateringLeadService(env, {limit:1})).catch(() => {});
     if (typeof context.waitUntil === 'function') context.waitUntil(drain);
     else await drain;
     try { return json(await cateringReceipt(env, saved)); }

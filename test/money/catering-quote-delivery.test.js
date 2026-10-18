@@ -96,7 +96,7 @@ test('a missing quote and a wrong token give the SAME answer', async () => {
 
 test('the quote page is never cached or indexed', async () => {
   const { env } = makeEnv();
-  const db = { ...env.DB, prepare: () => ({ bind: () => ({ first: async () => rowFor() }) }) };
+  const db = { ...env.DB, prepare: (sql) => ({ bind: () => ({ first: async () => /catering_quote_revisions/.test(sql) ? null : rowFor() }) }) };
   const res = await onRequestGet({ params: { token: TOKEN }, env: { ...env, DB: db },
     request: new Request(`https://anejocateringco.com/q/${TOKEN}`) });
   assert.equal(res.status, 200);
@@ -108,7 +108,7 @@ test('the quote page is never cached or indexed', async () => {
 
 test('the page renders the SAME quote the email does, in the language it was sent in', async () => {
   const { env } = makeEnv();
-  const db = { prepare: () => ({ bind: () => ({ first: async () => rowFor() }) }) };
+  const db = { prepare: (sql) => ({ bind: () => ({ first: async () => /catering_quote_revisions/.test(sql) ? null : rowFor() }) }) };
   const res = await onRequestGet({ params: { token: TOKEN }, env: { ...env, DB: db },
     request: new Request(`https://anejocateringco.com/q/${TOKEN}`) });
   const body = await res.text();
@@ -121,7 +121,7 @@ test('the page renders the SAME quote the email does, in the language it was sen
 
 test('a visitor can switch language, and only that', async () => {
   const { env } = makeEnv();
-  const db = { prepare: () => ({ bind: () => ({ first: async () => rowFor() }) }) };
+  const db = { prepare: (sql) => ({ bind: () => ({ first: async () => /catering_quote_revisions/.test(sql) ? null : rowFor() }) }) };
   const res = await onRequestGet({ params: { token: TOKEN }, env: { ...env, DB: db },
     request: new Request(`https://anejocateringco.com/q/${TOKEN}?lang=en`) });
   const body = await res.text();
@@ -131,7 +131,7 @@ test('a visitor can switch language, and only that', async () => {
 
 test('once the deposit is paid the page stops asking for it again', async () => {
   const { env } = makeEnv();
-  const db = { prepare: () => ({ bind: () => ({ first: async () => rowFor({ deposit_status: 'paid' }) }) }) };
+  const db = { prepare: (sql) => ({ bind: () => ({ first: async () => /catering_quote_revisions/.test(sql) ? null : rowFor({ deposit_status: 'paid' }) }) }) };
   const res = await onRequestGet({ params: { token: TOKEN }, env: { ...env, DB: db },
     request: new Request(`https://anejocateringco.com/q/${TOKEN}`) });
   const body = await res.text();
@@ -275,7 +275,7 @@ test('a corrupt stored blob degrades to an empty quote rather than a crash', () 
 
 test('creating a quote mints a token and sends it', () => {
   const src = readFileSync(new URL('../../functions/_lib/catering_deposit.js', import.meta.url), 'utf8');
-  assert.match(src, /const accessToken = mintAccessToken\(\);/);
+  assert.match(src, /const accessToken = fixedAccessToken \|\| mintAccessToken\(\);/);
   assert.match(src, /access_token, lang\)/, 'the token is stored with the quote');
   assert.match(src, /await sendQuote\(env, \{/, 'and the quote is sent');
   // Order matters: Square link and row first, sending last.

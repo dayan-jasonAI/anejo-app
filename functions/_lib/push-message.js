@@ -1,6 +1,7 @@
 // Lock-screen copy is an allowlist, never customer names, notes, addresses or alert bodies.
 // Both languages travel in the encrypted event so an offline iPhone need not fetch a session.
 const COPY = {
+  catering_followup_due: ['Catering follow-up needs a call', 'A catering inquiry needs your attention. Open the follow-up desk.', 'Un catering necesita una llamada', 'Una solicitud de catering necesita tu atención. Abre el seguimiento.', '/hub/owner/catering-service.html'],
   inventory_updated: ['Inventory updated', 'Open the Hub to review the latest inventory status.', 'Inventario actualizado', 'Abre el Hub para revisar el estado del inventario.', '/hub/owner/'],
   kitchen_ready_delivery: ['Kitchen update — order ready for delivery', 'Review the route and assign a driver if needed.', 'Actualización de cocina — pedido listo para entregar', 'Revisa la ruta y asigna un conductor si hace falta.', '/hub/owner/deliveries.html'],
   kitchen_ready_pickup: ['Kitchen update — order ready for pickup', 'The kitchen has finished preparing an order.', 'Actualización de cocina — pedido listo para recoger', 'La cocina terminó de preparar un pedido.', '/hub/owner/orders.html'],

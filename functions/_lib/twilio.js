@@ -35,7 +35,7 @@ async function logSms(env, row) {
       )
       .run();
   } catch {
-    /* best-effort */
+    return null;
   }
   return sid;
 }
@@ -69,6 +69,8 @@ async function send(env, { to, body, thread_id, mediaUrl }, channel) {
     params.set('From', fromAddr);
   }
   params.set('Body', body);
+  // Carrier delivery is a later event, independent of API acceptance.
+  params.set('StatusCallback', env.TWILIO_STATUS_CALLBACK_URL || `${String(env.APP_BASE_URL || 'https://anejocateringco.com').replace(/\/$/, '')}/api/webhooks/twilio-status`);
   for (const m of media) params.append('MediaUrl', m);   // Twilio accepts up to 10 MediaUrl
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`;
@@ -85,11 +87,13 @@ async function send(env, { to, body, thread_id, mediaUrl }, channel) {
       const logId = await logSms(env, { direction: 'outbound', channel: logChannel, to, from, body, thread_id, status: 'failed', error: (data && data.message) || `HTTP ${r.status}` });
       return { ok: false, sent: false, error: (data && data.message) || `HTTP ${r.status}`, sms_log_id: logId };
     }
-    const logId = await logSms(env, { direction: 'outbound', channel: logChannel, to, from, body, thread_id, status: 'sent', provider_sid: data.sid });
-    return { ok: true, sent: true, provider_sid: data.sid, sms_log_id: logId };
+    if (!data.sid) return { ok: false, sent: false, status: 'unknown', error: 'Provider accepted the request without a message receipt. Reconcile before retrying.' };
+    const status = ['queued','accepted','sending','sent','delivered','undelivered','failed'].includes(data.status) ? data.status : 'accepted';
+    const logId = await logSms(env, { direction: 'outbound', channel: logChannel, to, from, body, thread_id, status, provider_sid: data.sid });
+    return { ok: true, sent: true, status, provider_sid: data.sid, sms_log_id: logId, ...(logId ? {} : { record_error: 'Provider accepted the text, but its local receipt could not be saved.' }) };
   } catch (e) {
-    const logId = await logSms(env, { direction: 'outbound', channel: logChannel, to, from, body, thread_id, status: 'failed', error: String(e).slice(0, 200) });
-    return { ok: false, sent: false, error: String(e).slice(0, 200), sms_log_id: logId };
+    const logId = await logSms(env, { direction: 'outbound', channel: logChannel, to, from, body, thread_id, status: 'unknown', error: String(e).slice(0, 200) });
+    return { ok: false, sent: false, status: 'unknown', error: 'Text delivery outcome is uncertain. Check the provider before retrying.', sms_log_id: logId };
   }
 }
 
