@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { mintAccessToken, normalizePhone, quoteSms, quoteUrl, quoteEmailArgs, sendQuote }
+import { mintAccessToken, normalizePhone, quoteSms, quoteUrl, quoteEmailArgs, loadQuoteEmailArgs, quoteLinesWithImages, sendQuote }
   from '../../functions/_lib/catering_quote_delivery.js';
 import { onRequestGet } from '../../functions/q/[token].js';
 
@@ -310,4 +310,48 @@ test('the owner gets a copy of exactly what the customer was sent', async () => 
   assert.match(src, /\.\.\.\(bcc \? \{ bcc \} : \{\}\),/, 'and it reaches sendEmail');
   // Quoting yourself must not bcc yourself — that happens for real while testing.
   assert.match(src, /ownerBcc !== normalizeEmail\(row\.customer_email\)/);
+});
+
+
+test('historical manual quote photos resolve exact live catalog products without changing its money', () => {
+  const lines = [
+    { name:'Hawaiian roll with spread', qty:'35', cents:4625 },
+    { name:'Yuca, onion & chicharrones · 6 oz per serving', qty:'35', cents:6750 },
+    { name:'Roast pork · 6 oz per serving', qty:'35', cents:13500 },
+  ];
+  const menu = { items:[
+    { id:'traditional_bocadito', image:'menu-launch/food-bocadito.webp' },
+    { id:'traditional_yuca', image:'menu-launch/yuca-single.webp' },
+    { id:'catering_lechon-10', image:'menu-launch/food-lechon.webp' },
+  ] };
+  const args = quoteEmailArgs(rowFor({ quote_json:JSON.stringify({lines}) }), {menu});
+  assert.deepEqual(args.lines.map(x=>x.image), menu.items.map(x=>x.image));
+  assert.deepEqual(args.lines.map(({image: _image, ...x})=>x), lines);
+  assert.ok(lines.every(x=>!x.image), 'no stored snapshot mutation');
+  assert.equal(args.totalCents, 81587);
+});
+
+test('photo lookup never guesses from partial names or silently switches an explicit product', () => {
+  const menu = {items:[
+    {id:'beef',name:'Beef croquetas',image:'beef.webp'},
+    {id:'ham',name:'Ham croquetas',image:'ham.webp'},
+    {id:'duplicate1',name:'Special',image:'one.webp'},
+    {id:'duplicate2',name:'Special',image:'two.webp'},
+  ]};
+  const resolved = quoteLinesWithImages([
+    {name:'Croquetas'}, {name:'Special'}, {name:'Beef croquetas',sku:'missing'},
+    {name:'Custom recipe',sku:'ham'}, {name:'Beef croquetas',image:'owner-approved.webp'},
+    {name:'Beef croquetas'},
+  ], menu);
+  assert.deepEqual(resolved.map(x=>x.image),[undefined,undefined,undefined,'ham.webp','owner-approved.webp','beef.webp']);
+});
+
+test('send and hosted adapter load photos from the authoritative menu but tolerate catalog outage', async () => {
+  const row = rowFor({quote_json:JSON.stringify({lines:[{name:'Hawaiian roll with spread',qty:35,cents:4625}]})});
+  const env = {DB:{prepare:sql=>({all:async()=>({results:sql.includes('menu_items') ? [{id:'traditional_bocadito',image:'menu-launch/food-bocadito.webp'}] : []})})}};
+  const args = await loadQuoteEmailArgs(env,row);
+  assert.equal(args.lines[0].image,'menu-launch/food-bocadito.webp');
+  const unavailable = await loadQuoteEmailArgs({DB:{prepare:()=>{throw new Error('outage');}}},row);
+  assert.equal(unavailable.lines[0].image,undefined);
+  assert.equal(unavailable.lines[0].cents,4625);
 });

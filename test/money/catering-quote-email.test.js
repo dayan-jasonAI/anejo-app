@@ -204,3 +204,24 @@ test('an empty quote still produces a sendable email rather than throwing', () =
   assert.ok(subject && html && text);
   assert.ok(html.includes('AÑEJO'), 'the shell survives with no data at all');
 });
+
+
+test('delivery policy is explicit in HTML and text without inventing a free or confirmed fee', () => {
+  for(const lang of ['en','es']) {
+    const pending = cateringQuoteEmail({lang});
+    const confirmed = cateringQuoteEmail({lang,deliveryFeeConfirmed:true});
+    const policy = lang === 'es' ? 'Solo entrega a domicilio' : 'Delivery only';
+    const status = lang === 'es' ? 'pendiente de confirmación' : 'pending confirmation';
+    for(const part of [pending.html,pending.text]) {
+      assert.ok(part.includes(policy));
+      assert.ok(part.includes(status));
+    }
+    assert.ok(!confirmed.text.includes(status));
+  }
+});
+
+test('item photo uses meaningful alternate text and no empty decorative thumbnail box', () => {
+  const rendered = cateringQuoteEmail({lines:[{name:'Yuca & onion',cents:100,image:'menu-launch/yuca-single.webp'},{name:'Unmapped custom dish',cents:200}]});
+  assert.match(rendered.html,/alt="Yuca &amp; onion" width="56"/);
+  assert.ok(!rendered.html.includes('<div style="width:56px;height:56px;'));
+});

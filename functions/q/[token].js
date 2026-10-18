@@ -11,12 +11,13 @@
 //   · IT IS never CACHED. A quote whose deposit has since been paid, or whose price changed, must
 //     not be served from an intermediary.
 import { cateringQuoteEmail } from '../_lib/catering_quote_email.js';
-import { quoteEmailArgs } from '../_lib/catering_quote_delivery.js';
+import { loadQuoteEmailArgs } from '../_lib/catering_quote_delivery.js';
+import { customerQuoteEditor } from '../_lib/catering_customer_page.js';
 import { cakeRevealHtml } from '../_lib/cake_reveal.js';
 
 const html = (body, status = 200) => new Response(body, {
   status,
-  headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' },
+  headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' },
 });
 
 // A page for a link that has expired, been revoked, or was mistyped. Deliberately says NOTHING
@@ -60,15 +61,23 @@ export const onRequestGet = async ({ params, request, env }) => {
   }
   if (!row) return notFound(override || 'en');
 
+  // Original email links remain useful after a safely completed replacement.
+  const successor = await env.DB.prepare("SELECT q.access_token FROM catering_quote_revisions r JOIN catering_quotes q ON q.id=r.replacement_quote_id WHERE r.source_quote_id=? AND r.state='complete'").bind(row.id).first().catch(() => null);
+  if (successor?.access_token && /^[a-f0-9]{32}$/.test(successor.access_token)) {
+    return new Response(null, {status:302,headers:{Location:'/q/'+successor.access_token+url.search,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
+  }
   if (row.deposit_status === 'void') return notFound(override || row.lang || 'en');
   // A journal prevents an old quote from advertising payment while retirement recovers.
   try {
     const revision = await env.DB.prepare("SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id = ? OR (replacement_quote_id = ? AND state != 'complete')").bind(row.id, row.id).first();
-    if (revision && row.deposit_status !== 'paid') return notFound(override || row.lang || 'en');
+    if (revision && row.deposit_status !== 'paid') {
+      if (url.searchParams.get('edit') === '1') return html('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Añejo · Recover quote changes</title><body style="margin:0;background:#0b1f0a">' + customerQuoteEditor(token, override || row.lang || 'en') + '</body>');
+      return notFound(override || row.lang || 'en');
+    }
   } catch { return html('<p>This quote is temporarily unavailable. Please contact Añejo.</p>', 503); }
 
   const lang = override || (row.lang === 'es' ? 'es' : 'en');
-  const args = quoteEmailArgs(row, { lang, baseUrl: url.origin });
+  const args = await loadQuoteEmailArgs(env, row, { lang, baseUrl: url.origin });
   const { subject, html: body } = cateringQuoteEmail(args);
 
   // Once the deposit is paid the page must stop offering to take it again. The quote stays
@@ -107,7 +116,7 @@ export const onRequestGet = async ({ params, request, env }) => {
   // ?edit=1 is the "Modify my order" button. It used to be read by nothing at all, so the button
   // reloaded the page and looked broken. It now opens a real form, ABOVE the quote so she does not
   // have to scroll past everything to find what she just clicked.
-  const wantsEdit = url.searchParams.get('edit') === '1' && !paid;
+  const wantsEdit = url.searchParams.get('edit') === '1';
   let recommendation = null;
   try { recommendation = JSON.parse(row.quote_json || '{}').recommendations?.find((r) => r.sku === url.searchParams.get('recommendation')); } catch { /* no option */ }
   const recommendationText = recommendation ? (lang === 'es' ? 'Me interesan ' : 'I am interested in ') + recommendation.pieces + ' ' + recommendation.name + ' (+$' + (recommendation.cents / 100).toFixed(2) + '). ' + (lang === 'es' ? 'Por favor confirme antes de añadirlo.' : 'Please confirm before adding it.') : '';
@@ -127,7 +136,7 @@ export const onRequestGet = async ({ params, request, env }) => {
         cta: 'Send my change', sending: 'Sending…',
         fail: 'That did not send. Please reply to the email instead.' };
 
-  const editPanel = wantsEdit ? `<div style="max-width:520px;margin:0 auto 14px;padding:20px 22px;background:#fbf9f3;
+  const requestPanel = wantsEdit && !paid ? `<div style="max-width:520px;margin:0 auto 14px;padding:20px 22px;background:#fbf9f3;
       border-radius:10px;font-family:Georgia,serif;color:#0b1f0a">
     <p style="margin:0 0 6px;font-size:18px">${t.head}</p>
     <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#6b6558">${t.body}</p>
@@ -165,6 +174,8 @@ export const onRequestGet = async ({ params, request, env }) => {
     });
   })();
   </script>` : '';
+
+  const editPanel = wantsEdit ? customerQuoteEditor(token, lang) + '<details style="max-width:640px;margin:16px auto;color:#fffdf7;padding:16px"><summary>' + (lang === 'es' ? 'Otros cambios y necesidades especiales' : 'Other changes and special requests') + '</summary>' + requestPanel + '</details>' : '';
 
   const page = `<!doctype html><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

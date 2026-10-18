@@ -195,7 +195,7 @@ test('a paid quote does not invite changes it cannot honour', async () => {
   assert.ok(!(await res.text()).includes('id="cqc"'));
 });
 
-test('the email no longer promises a quote that reprices itself', async () => {
+test('the email explains reviewed eligible changes without promising automatic booked-order repricing', async () => {
   for (const lang of ['en', 'es']) {
     const { html } = cateringQuoteEmail({
       lang, customerName: 'Karina', eventDate: '2026-09-26', guests: 30, quoteId: 'q',
@@ -206,7 +206,8 @@ test('the email no longer promises a quote that reprices itself', async () => {
     });
     assert.ok(!/quote updates and we are notified/i.test(html), 'the old claim must not come back');
     assert.ok(!/cotización se actualiza y nos avisa/i.test(html));
-    assert.ok(/updated quote|cotización actualizada/i.test(html), 'it says a person will send a new one');
+    assert.ok(/before saving|antes de guardar/i.test(html), 'the customer must review the updated total before saving');
+    assert.ok(/booked orders|pedidos reservados/i.test(html), 'booked orders have a separate callback path');
     assert.ok(html.includes('?edit=1'), 'and the button still points at the form');
   }
 });
